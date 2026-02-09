@@ -47,6 +47,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
     // استفاده از فونت گرد و مدرن
     final TextStyle mainFont = GoogleFonts.quicksand(color: primaryText);
 
+    // Patient name (example: replace with actual patient name from backend/user model)
+    const String patientName = "Patient: John Doe";
     return Scaffold(
       backgroundColor: bgColor,
       body: SafeArea(
@@ -82,6 +84,18 @@ class _DashboardScreenState extends State<DashboardScreen> {
                         size: 38,
                         iconSize: 20,
                         onTap: _onRefresh,
+                      ),
+                    ),
+                  ),
+
+                  // --- Patient Name ---
+                  Align(
+                    alignment: Alignment.centerLeft,
+                    child: Padding(
+                      padding: const EdgeInsets.only(bottom: 4),
+                      child: Text(
+                        patientName,
+                        style: mainFont.copyWith(fontSize: 12, color: secondaryText),
                       ),
                     ),
                   ),
@@ -138,22 +152,20 @@ class _DashboardScreenState extends State<DashboardScreen> {
                                 ),
                               const SizedBox(height: 16),
                               Text(
-                                'Next:',
+                                'Next Medications:',
                                 style: mainFont.copyWith(fontWeight: FontWeight.bold, fontSize: 15),
                               ),
                               const SizedBox(height: 6),
-                              Text(
-                                (() {
-                                  final idx = backendStatus!['currentIndex'] as int? ?? 0;
-                                  final list = backendStatus!['scheduleList'] as List?;
-                                  if (list != null && idx + 1 < list.length) {
-                                    final next = list[idx + 1];
-                                    return next['name'] ?? '-';
-                                  }
-                                  return '-';
-                                })(),
-                                style: mainFont.copyWith(fontSize: 16, color: Colors.blueGrey[600]),
-                              ),
+                              ...((backendStatus!['nextMedications'] as List?)?.isNotEmpty == true
+                                  ? (backendStatus!['nextMedications'] as List)
+                                      .map((med) => Text(
+                                            med['name'] ?? '-',
+                                            style: mainFont.copyWith(fontSize: 16, color: Colors.blueGrey[600]),
+                                          ))
+                                      .toList()
+                                  : [
+                                      Text('-', style: mainFont.copyWith(fontSize: 16, color: Colors.blueGrey[600]))
+                                    ]),
                             ],
                           ),
                   ),

@@ -20,15 +20,25 @@ final Map<String, dynamic> sharedState = {
     {'type': 'appt', 'name': 'Dr. Lee - Endocrinology'},
   ],
   'status': 'pending', // 'pending', 'taken', 'attended'
+  'consumed': <int>[], // List of indices of consumed medications
 };
 
 Response _getStatus(Request request) {
   final idx = sharedState['currentIndex'] as int;
-  final item = (sharedState['scheduleList'] as List)[idx];
+  final scheduleList = sharedState['scheduleList'] as List;
+  final item = idx < scheduleList.length ? scheduleList[idx] : null;
+  final consumed = sharedState['consumed'] as List<int>;
+  // Next medications: all after currentIndex
+  final nextMedications = idx + 1 < scheduleList.length
+      ? scheduleList.sublist(idx + 1)
+      : [];
   return Response.ok(jsonEncode({
     'currentIndex': idx,
     'item': item,
     'status': sharedState['status'],
+    'scheduleList': scheduleList,
+    'consumed': consumed,
+    'nextMedications': nextMedications,
   }), headers: {'Content-Type': 'application/json'});
 }
 
@@ -40,6 +50,14 @@ Future<Response> _postStatus(Request request) async {
   }
   if (data['status'] != null) {
     sharedState['status'] = data['status'];
+    // If status is 'done', add to consumed
+    if (data['status'] == 'done') {
+      final idx = sharedState['currentIndex'] as int;
+      final consumed = sharedState['consumed'] as List<int>;
+      if (!consumed.contains(idx)) {
+        consumed.add(idx);
+      }
+    }
   }
   return Response.ok(jsonEncode({'ok': true}), headers: {'Content-Type': 'application/json'});
 }
