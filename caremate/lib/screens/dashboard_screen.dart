@@ -11,6 +11,7 @@ class DashboardScreen extends StatefulWidget {
 }
 
 class _DashboardScreenState extends State<DashboardScreen> {
+
   Map<String, dynamic>? backendStatus;
   bool syncing = false;
 
@@ -20,30 +21,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
   final Color primaryText = const Color(0xFF2B3A60); // سرمه‌ای تیره
   final Color secondaryText = const Color(0xFF6B7280);
 
-  // دیتای ساختگی برای نمایش دقیق ظاهر عکس (بعداً با دیتای واقعی جایگزین می‌شود)
-  final List<Map<String, dynamic>> _appointments = [
-    {
-      'name': 'Dr. Rad',
-      'role': '(Cardio)',
-      'time': '10:00 AM',
-      'tag': 'Today',
-      'avatarColor': const Color(0xFFFFD1DC), // صورتی ملایم
-      'isWoman': true,
-    },
-    {
-      'name': 'Dr. Sara',
-      'role': '(Ortho)',
-      'time': '04:30 PM',
-      'tag': 'Tomorrow',
-      'avatarColor': const Color(0xFFC1E1C1), // سبز ملایم
-      'isWoman': false,
-    },
-  ];
-
   Future<void> _onRefresh() async {
     setState(() { syncing = true; });
-    
-    // شبیه‌سازی اتصال به بک‌اند (لاجیک شما حفظ شده)
     try {
       final data = await BackendService.getStatus();
       if (mounted) {
@@ -54,9 +33,14 @@ class _DashboardScreenState extends State<DashboardScreen> {
     } catch (e) {
       debugPrint("Sync Error: $e");
     }
-
-    await Future.delayed(const Duration(seconds: 1)); // فقط برای افکت بصری
+    await Future.delayed(const Duration(milliseconds: 500));
     if (mounted) setState(() { syncing = false; });
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    _onRefresh();
   }
 
   @override
@@ -70,7 +54,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
         bottom: false,
         child: Stack(
           children: [
-            // محتوای اصلی صفحه (Scrollable)
             SingleChildScrollView(
               padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
               child: Column(
@@ -91,90 +74,90 @@ class _DashboardScreenState extends State<DashboardScreen> {
                       _ProfileAvatar(),
                     ],
                   ),
-                  
-                  // دکمه تنظیمات کوچک سمت راست (طبق عکس)
                   Align(
                     alignment: Alignment.centerRight,
                     child: Padding(
                       padding: const EdgeInsets.only(top: 10, bottom: 20),
                       child: _GlassIconButton(
-                        icon: Icons.tune_rounded, 
+                        icon: Icons.tune_rounded,
                         size: 38,
                         iconSize: 20,
-                        onTap: _onRefresh, // رفرش را به این دکمه یا دکمه‌های دیگر وصل کردیم
+                        onTap: _onRefresh,
                       ),
                     ),
                   ),
 
-                  // --- Upcoming Appointments (Later: Upcoming Meds) ---
-                  _SectionHeader(title: "Upcoming Appointments"),
+                  // --- Synced Med/Appointments Section ---
+                  _SectionHeader(title: "Current Status"),
                   const SizedBox(height: 12),
                   Container(
+                    width: double.infinity,
                     decoration: _softDecoration(),
                     padding: const EdgeInsets.all(20),
-                    child: Column(
-                      children: List.generate(_appointments.length, (index) {
-                        final item = _appointments[index];
-                        return Padding(
-                          padding: EdgeInsets.only(bottom: index == 0 ? 16 : 0),
-                          child: Row(
+                    child: backendStatus == null
+                        ? const Center(child: CircularProgressIndicator())
+                        : Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              Text("${index + 1}", style: mainFont.copyWith(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.grey)),
-                              const SizedBox(width: 12),
-                              // Avatar
-                              Container(
-                                width: 45,
-                                height: 45,
-                                decoration: BoxDecoration(
-                                  color: item['avatarColor'],
-                                  shape: BoxShape.circle,
-                                ),
-                                child: Icon(Icons.person, color: Colors.white.withOpacity(0.8)),
+                              Text(
+                                backendStatus!['item']?['type'] == 'med'
+                                    ? 'Current Medicine:'
+                                    : 'Current Appointment:',
+                                style: mainFont.copyWith(fontWeight: FontWeight.bold, fontSize: 16),
                               ),
-                              const SizedBox(width: 12),
-                              // Texts
-                              Expanded(
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    RichText(
-                                      text: TextSpan(
-                                        style: mainFont.copyWith(fontSize: 15, fontWeight: FontWeight.bold),
-                                        children: [
-                                          TextSpan(text: item['name'] + " "),
-                                          TextSpan(text: item['role'], style: const TextStyle(fontWeight: FontWeight.normal, fontSize: 13)),
-                                        ],
-                                      ),
-                                    ),
-                                  ],
-                                ),
+                              const SizedBox(height: 8),
+                              Text(
+                                backendStatus!['item']?['name'] ?? '-',
+                                style: mainFont.copyWith(fontSize: 18, color: Colors.blueGrey[800]),
                               ),
-                              // Time & Tag
-                              Column(
-                                crossAxisAlignment: CrossAxisAlignment.end,
-                                children: [
-                                  Text(item['time'], style: mainFont.copyWith(fontSize: 13, fontWeight: FontWeight.w600)),
-                                  const SizedBox(height: 4),
-                                  Container(
-                                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                                    decoration: BoxDecoration(
-                                      color: Colors.blueGrey.withOpacity(0.15),
-                                      borderRadius: BorderRadius.circular(10),
-                                    ),
-                                    child: Text(
-                                      item['tag'],
-                                      style: mainFont.copyWith(fontSize: 11, fontWeight: FontWeight.bold, color: const Color(0xFF586278)),
-                                    ),
-                                  )
-                                ],
-                              )
+                              const SizedBox(height: 8),
+                              if (backendStatus!['status'] == 'done' || backendStatus!['status'] == 'attended')
+                                Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                                  decoration: BoxDecoration(
+                                    color: Colors.green.withOpacity(0.15),
+                                    borderRadius: BorderRadius.circular(10),
+                                  ),
+                                  child: Text(
+                                    backendStatus!['status'] == 'done'
+                                        ? 'Medicine Taken!'
+                                        : 'Appointment Attended!',
+                                    style: mainFont.copyWith(fontSize: 14, color: Colors.green[800], fontWeight: FontWeight.bold),
+                                  ),
+                                ),
+                              if (backendStatus!['status'] == 'pending')
+                                Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                                  decoration: BoxDecoration(
+                                    color: Colors.orange.withOpacity(0.15),
+                                    borderRadius: BorderRadius.circular(10),
+                                  ),
+                                  child: Text(
+                                    'Pending',
+                                    style: mainFont.copyWith(fontSize: 14, color: Colors.orange[800], fontWeight: FontWeight.bold),
+                                  ),
+                                ),
+                              const SizedBox(height: 16),
+                              Text(
+                                'Next:',
+                                style: mainFont.copyWith(fontWeight: FontWeight.bold, fontSize: 15),
+                              ),
+                              const SizedBox(height: 6),
+                              Text(
+                                (() {
+                                  final idx = backendStatus!['currentIndex'] as int? ?? 0;
+                                  final list = backendStatus!['scheduleList'] as List?;
+                                  if (list != null && idx + 1 < list.length) {
+                                    final next = list[idx + 1];
+                                    return next['name'] ?? '-';
+                                  }
+                                  return '-';
+                                })(),
+                                style: mainFont.copyWith(fontSize: 16, color: Colors.blueGrey[600]),
+                              ),
                             ],
                           ),
-                        );
-                      }),
-                    ),
                   ),
-
                   const SizedBox(height: 24),
 
                   // --- Grid Section (Partner Status & Baby Tracker) ---
