@@ -1,4 +1,6 @@
+
 import 'package:flutter/material.dart';
+import '../services/backend_service.dart';
 
 class DashboardScreen extends StatefulWidget {
   const DashboardScreen({super.key});
@@ -8,7 +10,8 @@ class DashboardScreen extends StatefulWidget {
 }
 
 class _DashboardScreenState extends State<DashboardScreen> {
-  bool showSyncCard = false;
+  Map<String, dynamic>? backendStatus;
+  bool syncing = false;
 
   List<_ActivityItem> get _activityList {
     final base = [
@@ -25,12 +28,19 @@ class _DashboardScreenState extends State<DashboardScreen> {
         time: '',
       ),
     ];
-    if (showSyncCard) {
+    if (backendStatus != null && backendStatus!['status'] != 'pending') {
+      final item = backendStatus!['item'] as Map<String, dynamic>;
+      String title;
+      if (item['type'] == 'med') {
+        title = 'Medicine Taken: ${item['name']}';
+      } else {
+        title = 'Appointment Attended: ${item['name']}';
+      }
       return [
         _ActivityItem(
           icon: Icons.notifications_active_rounded,
           color: Colors.blue,
-          title: 'Update: Mom just took her medication!',
+          title: 'Update: $title',
           time: 'Just Now',
         ),
         ...base
@@ -39,7 +49,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
     return base;
   }
 
-  void _onRefresh() async {
+  Future<void> _onRefresh() async {
+    setState(() { syncing = true; });
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(
         content: Text('Syncing...'),
@@ -47,10 +58,14 @@ class _DashboardScreenState extends State<DashboardScreen> {
         behavior: SnackBarBehavior.floating,
       ),
     );
+    try {
+      final data = await BackendService.getStatus();
+      setState(() {
+        backendStatus = data;
+      });
+    } catch (_) {}
     await Future.delayed(const Duration(seconds: 1));
-    setState(() {
-      showSyncCard = true;
-    });
+    setState(() { syncing = false; });
   }
 
   @override
