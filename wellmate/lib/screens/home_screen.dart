@@ -25,17 +25,27 @@ class _HomeScreenState extends State<HomeScreen> {
   final Color accentBlue = const Color(0xFF7B93DB); // رنگ آبی ملایم
 
   // دیتای سمپل (می‌توانی همان دیتای خودت را جایگزین کنی)
-  final List<Map<String, String>> scheduleList = const [
-    {'name': 'Acetaminophen', 'type': 'med'}, // آیتم فعلی در عکس
-    {'name': 'Cetirizine - Allergy', 'type': 'med'},
-    {'name': 'Dermatologist Visit', 'type': 'appt'},
-    {'name': 'Antibiotic Injection', 'type': 'med'},
-  ];
+  List<Map<String, dynamic>> scheduleList = [];
 
   @override
   void initState() {
     super.initState();
+    _fetchScheduleList();
     _startTimer();
+  }
+
+  Future<void> _fetchScheduleList() async {
+    try {
+      final status = await BackendService.getStatus();
+      final list = status['scheduleList'] as List?;
+      if (list != null) {
+        setState(() {
+          scheduleList = List<Map<String, dynamic>>.from(list.map((e) => Map<String, dynamic>.from(e)));
+        });
+      }
+    } catch (e) {
+      debugPrint('Failed to fetch scheduleList: $e');
+    }
   }
 
   void _startTimer() {
@@ -101,10 +111,12 @@ class _HomeScreenState extends State<HomeScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final currentItem = scheduleList[currentIndex];
-    final nextItems = (currentIndex + 1 < scheduleList.length)
-        ? scheduleList.sublist(currentIndex + 1)
-        : <Map<String, String>>[];
+    final currentItem = (scheduleList.isNotEmpty && currentIndex < scheduleList.length)
+      ? scheduleList[currentIndex]
+      : {'name': '-', 'type': '-'};
+    final nextItems = (scheduleList.isNotEmpty && currentIndex + 1 < scheduleList.length)
+      ? scheduleList.sublist(currentIndex + 1)
+      : <Map<String, dynamic>>[];
     const initialSeconds = 3600;
 
     return Scaffold(
@@ -337,8 +349,9 @@ class _SoftTimerPainter extends CustomPainter {
   bool shouldRepaint(covariant CustomPainter oldDelegate) => true;
 }
 
+
 class _SoftScheduleCard extends StatelessWidget {
-  final Map<String, String> item;
+  final Map<String, dynamic> item;
   final int index;
 
   const _SoftScheduleCard({Key? key, required this.item, required this.index}) : super(key: key);

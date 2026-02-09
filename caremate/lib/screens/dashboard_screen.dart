@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart'; // پیشنهاد می‌شود این پکیج را داشته باشید
 import '../services/backend_service.dart';
@@ -20,6 +21,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
   final Color primaryText = const Color(0xFF2B3A60); // سرمه‌ای تیره
   final Color secondaryText = const Color(0xFF6B7280);
 
+  Timer? _autoRefreshTimer;
+
   Future<void> _onRefresh() async {
     setState(() { syncing = true; });
     try {
@@ -40,6 +43,15 @@ class _DashboardScreenState extends State<DashboardScreen> {
   void initState() {
     super.initState();
     _onRefresh();
+    _autoRefreshTimer = Timer.periodic(const Duration(seconds: 20), (timer) {
+      _onRefresh();
+    });
+  }
+
+  @override
+  void dispose() {
+    _autoRefreshTimer?.cancel();
+    super.dispose();
   }
 
   @override
@@ -152,20 +164,21 @@ class _DashboardScreenState extends State<DashboardScreen> {
                                 ),
                               const SizedBox(height: 16),
                               Text(
-                                'Next Medications:',
+                                'Next:',
                                 style: mainFont.copyWith(fontWeight: FontWeight.bold, fontSize: 15),
                               ),
                               const SizedBox(height: 6),
-                              ...((backendStatus!['nextMedications'] as List?)?.isNotEmpty == true
-                                  ? (backendStatus!['nextMedications'] as List)
-                                      .map((med) => Text(
-                                            med['name'] ?? '-',
-                                            style: mainFont.copyWith(fontSize: 16, color: Colors.blueGrey[600]),
-                                          ))
-                                      .toList()
-                                  : [
-                                      Text('-', style: mainFont.copyWith(fontSize: 16, color: Colors.blueGrey[600]))
-                                    ]),
+                              (() {
+                                final nextList = backendStatus!['nextMedications'] as List?;
+                                if (nextList != null && nextList.isNotEmpty) {
+                                  final med = nextList.first;
+                                  return Text(
+                                    med['name'] ?? '-',
+                                    style: mainFont.copyWith(fontSize: 16, color: Colors.blueGrey[600]),
+                                  );
+                                }
+                                return Text('-', style: mainFont.copyWith(fontSize: 16, color: Colors.blueGrey[600]));
+                              })(),
                             ],
                           ),
                   ),
