@@ -16,5 +16,7 @@
   "profile_referral_code": "Referral Code",
   "profile_support": "Support",
   "profile_logout": "Log Out",
-  "settings_language": "Language"
+  "settings_language": "Language",
+  "footer_message": "Thank you for using WellMate!"
+
 }

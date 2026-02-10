@@ -185,24 +185,28 @@ class ProfileScreen extends StatelessWidget {
                     ),
                     child: Column(
                       children: [
+                        const Divider(height: 1, indent: 60, endIndent: 20),
                         _ProfileMenuTile(
                           icon: Icons.person,
                           iconColor: Colors.blueAccent,
                           label: loc['profile_personal_info'],
                           mainFont: mainFont,
                         ),
+                        const Divider(height: 1, indent: 60, endIndent: 20),
                         _ProfileMenuTile(
                           icon: Icons.assignment_rounded,
                           iconColor: Colors.orangeAccent,
                           label: loc['profile_health_profile'],
                           mainFont: mainFont,
                         ),
+                        const Divider(height: 1, indent: 60, endIndent: 20),
                         _ProfileMenuTile(
                           icon: Icons.group,
                           iconColor: Colors.green,
                           label: loc['profile_caregivers'],
                           mainFont: mainFont,
                         ),
+                        const Divider(height: 1, indent: 60, endIndent: 20),
                         _ProfileMenuTile(
                           icon: Icons.settings,
                           iconColor: Colors.purple,
@@ -215,12 +219,14 @@ class ProfileScreen extends StatelessWidget {
                             );
                           },
                         ),
+                          const Divider(height: 1, indent: 60, endIndent: 20),
                         _ProfileMenuTile(
                           icon: Icons.card_giftcard,
                           iconColor: Colors.redAccent,
                           label: loc['profile_referral_code'],
                           mainFont: mainFont,
                         ),
+                         const Divider(height: 1, indent: 60, endIndent: 20),
                         _ProfileMenuTile(
                           icon: Icons.support_agent,
                           iconColor: Colors.indigo,
@@ -231,34 +237,46 @@ class ProfileScreen extends StatelessWidget {
                     ),
                   ),
                 ),
-                // Footer
-                const Spacer(),
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
-                  child: Container(
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(18),
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.redAccent.withOpacity(0.12),
-                          blurRadius: 16,
-                          offset: const Offset(0, 4),
-                        ),
-                      ],
-                    ),
-                    child: TextButton.icon(
-                      style: TextButton.styleFrom(
-                        padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 24),
-                        backgroundColor: Colors.transparent,
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+                 // Footer - Log Out
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 8),
+                    child: Container(
+                      width: double.infinity,
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(18),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.redAccent.withOpacity(0.12),
+                            blurRadius: 16,
+                            offset: const Offset(0, 4),
+                          ),
+                        ],
                       ),
-                      icon: const Icon(Icons.logout, color: Colors.redAccent),
-                      label: Text(loc['profile_logout'], style: TextStyle(fontFamily: mainFont, fontSize: 16, color: Colors.redAccent)),
-                      onPressed: () {},
+                      child: TextButton.icon(
+                        style: TextButton.styleFrom(
+                          padding: const EdgeInsets.symmetric(vertical: 16),
+                          backgroundColor: Colors.transparent,
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+                        ),
+                        icon: const Icon(Icons.logout, color: Colors.redAccent),
+                        label: Text(
+                          loc['profile_logout'] ?? 'Log Out', 
+                          style: TextStyle(fontFamily: mainFont, fontSize: 16, color: Colors.redAccent, fontWeight: FontWeight.bold)
+                        ),
+                        onPressed: () {},
+                      ),
                     ),
                   ),
-                ),
+                  
+                  // Footer Message
+                  Padding(
+                    padding: const EdgeInsets.only(top: 8, bottom: 24),
+                    child: Text(
+                      loc['footer_message'] ?? 'Version 1.0.0', 
+                      style: TextStyle(fontFamily: mainFont, fontSize: 12, color: const Color(0xFF7B93DB).withOpacity(0.7))
+                    ),
+                  ),
               ],
             ),
           ],
@@ -307,7 +325,6 @@ class _ProfileMenuTile extends StatelessWidget {
     );
   }
 }
-
 class _LanguageDialog extends StatelessWidget {
   final String mainFont;
   const _LanguageDialog({required this.mainFont});
@@ -316,29 +333,68 @@ class _LanguageDialog extends StatelessWidget {
   Widget build(BuildContext context) {
     final localeProvider = Provider.of<LocaleProvider>(context);
     final loc = AppLocalizations.of(context);
+    
     return AlertDialog(
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
-      contentPadding: const EdgeInsets.all(24),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+      title: Text(loc['settings_language'] ?? 'Select Language', style: TextStyle(fontFamily: mainFont, fontWeight: FontWeight.bold)),
       content: Column(
         mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(loc['settings_language'], style: TextStyle(fontFamily: mainFont, fontSize: 16, fontWeight: FontWeight.bold)),
-          const SizedBox(height: 16),
-          DropdownButton<String>(
-            value: localeProvider.locale.languageCode,
-            items: [
-              DropdownMenuItem(value: 'en', child: Text('English', style: TextStyle(fontFamily: mainFont))),
-              DropdownMenuItem(value: 'fa', child: Text('فارسی', style: TextStyle(fontFamily: 'Vazir'))),
-            ],
-            onChanged: (value) {
-              if (value != null) {
-                localeProvider.setLocale(Locale(value));
-                Navigator.of(context).pop();
-              }
+          _LanguageOption(
+            title: 'English',
+            font: mainFont,
+            isSelected: localeProvider.locale.languageCode == 'en',
+            onTap: () {
+              localeProvider.setLocale(const Locale('en'));
+              Navigator.of(context).pop();
+            },
+          ),
+          const SizedBox(height: 12),
+          _LanguageOption(
+            title: 'فارسی',
+            font: 'Vazir',
+            isSelected: localeProvider.locale.languageCode == 'fa',
+            onTap: () {
+              localeProvider.setLocale(const Locale('fa'));
+              Navigator.of(context).pop();
             },
           ),
         ],
+      ),
+    );
+  }
+}
+class _LanguageOption extends StatelessWidget {
+  final String title;
+  final String font;
+  final bool isSelected;
+  final VoidCallback onTap;
+
+  const _LanguageOption({
+    required this.title,
+    required this.font,
+    required this.isSelected,
+    required this.onTap,
+  });
+  
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
+        decoration: BoxDecoration(
+          color: isSelected ? Colors.blue.withOpacity(0.1) : Colors.transparent,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: isSelected ? Colors.blue : Colors.grey.shade300),
+        ),
+        child: Row(
+          children: [
+            Text(title, style: TextStyle(fontFamily: font, fontSize: 16, color: isSelected ? Colors.blue : Colors.black87)),
+            const Spacer(),
+            if (isSelected) const Icon(Icons.check_circle, color: Colors.blue),
+          ],
+        ),
       ),
     );
   }

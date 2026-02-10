@@ -1,4 +1,15 @@
 {
+  "@@locale": "en",
+  "appTitle": "WellMate",
+  "greeting": "Hello!",
+  "welcome": "Welcome to WellMate!",
+  
+  "home_title": "Home",
+  "home_welcome": "Welcome to WellMate!",
+  "home_dashboard": "Dashboard",
+  "home_profile": "Profile",
+  "home_logout": "Logout",
+
   "profile_name": "Amir Ali",
   "profile_phone": "0912***",
   "profile_no_subscription": "No Active Subscription",
@@ -11,5 +22,7 @@
   "profile_referral_code": "Referral Code",
   "profile_support": "Support",
   "profile_logout": "Log Out",
-  "settings_language": "Language"
+  
+  "settings_language": "Language",
+  "footer_message": "Thank you for using WellMate!"
 }

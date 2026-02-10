@@ -1,4 +1,15 @@
 {
+  "@@locale": "fa",
+  "appTitle": "ول‌میت",
+  "greeting": "سلام!",
+  "welcome": "به ول‌میت خوش آمدید!",
+
+  "home_title": "خانه",
+  "home_welcome": "به ول‌میت خوش آمدید!",
+  "home_dashboard": "داشبورد",
+  "home_profile": "پروفایل",
+  "home_logout": "خروج",
+
   "profile_name": "امیر علی",
   "profile_phone": "۰۹۱۲***",
   "profile_no_subscription": "اشتراک فعال وجود ندارد",
@@ -11,5 +22,7 @@
   "profile_referral_code": "کد معرف",
   "profile_support": "پشتیبانی",
   "profile_logout": "خروج",
-  "settings_language": "زبان"
+
+  "settings_language": "زبان",
+  "footer_message": "از اینکه ول‌میت را انتخاب کردید متشکریم!"
 }
