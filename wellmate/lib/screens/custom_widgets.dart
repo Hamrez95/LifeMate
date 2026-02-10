@@ -1,10 +1,15 @@
 import 'package:flutter/material.dart';
 
 // Neumorphic Timer Painter
-class _NeumorphicTimerPainter extends CustomPainter {
+
+class NeumorphicTimerPainter extends CustomPainter {
   final double progress;
   final Color color;
-  _NeumorphicTimerPainter({required this.progress, required this.color});
+
+  NeumorphicTimerPainter({
+    required this.progress,
+    required this.color,
+  });
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -37,16 +42,25 @@ class _NeumorphicTimerPainter extends CustomPainter {
   }
 
   @override
-  bool shouldRepaint(covariant CustomPainter oldDelegate) => true;
+  bool shouldRepaint(CustomPainter oldDelegate) => true;
 }
 
 // Schedule Card Widget
-class _ScheduleCard extends StatelessWidget {
-  final String name;
+
+        final double sweep = 2 * 3.141592653589793 * 0.0;
+class ScheduleCard extends StatelessWidget {
   final IconData icon;
   final Color color;
+  final String name;
   final double progress;
-  const _ScheduleCard({required this.name, required this.icon, required this.color, required this.progress});
+
+  const ScheduleCard({
+    Key? key,
+    required this.icon,
+    required this.color,
+    required this.name,
+    required this.progress,
+  }) : super(key: key);
 
   @override
   Widget build(BuildContext context) {
@@ -96,75 +110,3 @@ class _ScheduleCard extends StatelessWidget {
 }
 
 // Custom bottom navigation bar with floating add button
-class _CustomBottomNav extends StatelessWidget {
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.only(top: 8, left: 12, right: 12, bottom: 8),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.blueGrey.withOpacity(0.10),
-            blurRadius: 18,
-            offset: const Offset(0, -2),
-          ),
-        ],
-      ),
-      child: Stack(
-        alignment: Alignment.center,
-        children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              IconButton(
-                icon: const Icon(Icons.home_rounded, size: 32),
-                color: const Color(0xFF4A90E2),
-                onPressed: () {},
-              ),
-              IconButton(
-                icon: const Icon(Icons.person_rounded, size: 28),
-                color: Colors.grey[400],
-                onPressed: () {},
-              ),
-              const SizedBox(width: 60),
-              IconButton(
-                icon: const Icon(Icons.event_note_rounded, size: 28),
-                color: Colors.grey[400],
-                onPressed: () {},
-              ),
-              IconButton(
-                icon: const Icon(Icons.medication_liquid_rounded, size: 28),
-                color: Colors.grey[400],
-                onPressed: () {},
-              ),
-            ],
-          ),
-          Positioned(
-            child: Container(
-              decoration: BoxDecoration(
-                color: const Color(0xFF4A90E2),
-                shape: BoxShape.circle,
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.blueGrey.withOpacity(0.18),
-                    blurRadius: 12,
-                  ),
-                ],
-              ),
-              child: IconButton(
-                icon: const Icon(Icons.add_circle, color: Colors.white, size: 38),
-                onPressed: () {},
-                tooltip: 'Add Medicine',
-              ),
-            ),
-            bottom: 0,
-            left: 0,
-            right: 0,
-          ),
-        ],
-      ),
-    );
-  }
-}

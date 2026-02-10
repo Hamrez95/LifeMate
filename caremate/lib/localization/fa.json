@@ -1,0 +1,20 @@
+{
+  "dashboard_title": "داشبورد",
+  "dashboard_welcome": "به داشبورد کیرمیت خوش آمدید!",
+  "dashboard_patients": "بیماران",
+  "dashboard_tasks": "وظایف",
+  "dashboard_logout": "خروج",
+  "profile_name": "امیر علی",
+  "profile_phone": "۰۹۱۲***",
+  "profile_no_subscription": "اشتراک فعال وجود ندارد",
+  "profile_buy_plan": "خرید اشتراک",
+  "profile_renew": "تمدید",
+  "profile_personal_info": "اطلاعات فردی",
+  "profile_health_profile": "پروفایل سلامت",
+  "profile_caregivers": "مراقبان",
+  "profile_app_settings": "تنظیمات برنامه",
+  "profile_referral_code": "کد معرف",
+  "profile_support": "پشتیبانی",
+  "profile_logout": "خروج",
+  "settings_language": "زبان"
+}

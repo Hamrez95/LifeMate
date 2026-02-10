@@ -2,6 +2,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart'; // پیشنهاد می‌شود این پکیج را داشته باشید
 import '../services/backend_service.dart';
+import 'profile_screen.dart'; 
 
 class DashboardScreen extends StatefulWidget {
   const DashboardScreen({Key? key}) : super(key: key);
@@ -84,7 +85,12 @@ class _DashboardScreenState extends State<DashboardScreen> {
                           color: const Color(0xFF33416E),
                         ),
                       ),
-                      _ProfileAvatar(),
+                      GestureDetector(
+                        onTap: () {
+                          Navigator.of(context).push(MaterialPageRoute(builder: (_) => ProfileScreen()));
+                        },
+                        child: _ProfileAvatar(),
+                      ),
                     ],
                   ),
                   Align(

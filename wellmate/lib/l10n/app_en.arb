@@ -1,0 +1,41 @@
+{
+  "app_bar_title": "WellMate",
+  "notification_title": "Notifications",
+  "subscription_card_title": "Subscription",
+  "subscription_card_message": "No active subscription",
+  "buy_plan_button": "Buy Plan",
+  "renew_button": "Renew",
+  "personal_info_title": "Personal Information",
+  "health_profile_title": "Health Profile",
+  "caregivers_title": "Caregivers",
+  "app_settings_title": "App Settings",
+  "referral_code_title": "Referral Code",
+  "support_title": "Support",
+  "logout_button": "Logout",
+  "language_dialog_title": "Language",
+  "english": "English",
+  "persian": "Persian",
+  "footer_message": "Thank you for using WellMate!",
+  "home_title": "Home",
+  "home_welcome": "Welcome to WellMate!",
+  "home_dashboard": "Dashboard",
+  "home_profile": "Profile",
+  "home_logout": "Logout",
+  "@@locale": "en",
+  "appTitle": "WellMate",
+  "greeting": "Hello!",
+  "welcome": "Welcome to WellMate!"
+  ,"profile_name": "John Doe"
+  ,"profile_phone": "+1 234 567 890"
+  ,"profile_no_subscription": "No active subscription"
+  ,"profile_buy_plan": "Buy Plan"
+  ,"profile_renew": "Renew"
+  ,"profile_personal_info": "Personal Info"
+  ,"profile_health_profile": "Health Profile"
+  ,"profile_caregivers": "Caregivers"
+  ,"profile_app_settings": "App Settings"
+  ,"profile_referral_code": "Referral Code"
+  ,"profile_support": "Support"
+  ,"profile_logout": "Logout"
+  ,"settings_language": "Language"
+}

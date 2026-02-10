@@ -1,0 +1,20 @@
+{
+  "dashboard_title": "Dashboard",
+  "dashboard_welcome": "Welcome to CareMate Dashboard!",
+  "dashboard_patients": "Patients",
+  "dashboard_tasks": "Tasks",
+  "dashboard_logout": "Logout",
+  "profile_name": "Amir Ali",
+  "profile_phone": "0912***",
+  "profile_no_subscription": "No Active Subscription",
+  "profile_buy_plan": "Buy Plan",
+  "profile_renew": "Renew",
+  "profile_personal_info": "Personal Info.",
+  "profile_health_profile": "Health Profile",
+  "profile_caregivers": "Caregivers",
+  "profile_app_settings": "App Settings",
+  "profile_referral_code": "Referral Code",
+  "profile_support": "Support",
+  "profile_logout": "Log Out",
+  "settings_language": "Language"
+}

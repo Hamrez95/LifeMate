@@ -3,6 +3,7 @@ import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../services/backend_service.dart';
+import 'profile_screen.dart'; // اضافه کردن ایمپورت صفحه پروفایل
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({Key? key}) : super(key: key);
@@ -135,7 +136,12 @@ class _HomeScreenState extends State<HomeScreen> {
                     children: [
                       _neumorphicButton(icon: Icons.notifications_none_rounded),
                       Text("WellMate", style: _headerStyle),
-                      _neumorphicAvatar(),
+                      GestureDetector(
+                        onTap: () {
+                          Navigator.of(context).push(MaterialPageRoute(builder: (_) => ProfileScreen()));
+                        },
+                        child: _neumorphicAvatar(),
+                      ),
                     ],
                   ),
                 ),
@@ -362,7 +368,6 @@ class _SoftScheduleCard extends StatelessWidget {
     Color iconBgColor;
     Color barColor;
     IconData iconData;
-    String iconAsset; // برای شبیه‌سازی دقیق آیکون‌ها
 
     if (index == 0) { // Cetirizine (صورتی)
       iconBgColor = const Color(0xFFFFE4E6);
