@@ -1,8 +1,13 @@
+// ignore_for_file: deprecated_member_use
+
 import 'dart:async';
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart'; // پیشنهاد می‌شود این پکیج را داشته باشید
+import 'package:google_fonts/google_fonts.dart';
+import 'package:provider/provider.dart';
 import '../services/backend_service.dart';
-import 'profile_screen.dart'; 
+import '../localization/app_localizations.dart';
+import '../localization/locale_provider.dart';
+import 'profile_screen.dart';
 
 class DashboardScreen extends StatefulWidget {
   const DashboardScreen({Key? key}) : super(key: key);
@@ -12,14 +17,12 @@ class DashboardScreen extends StatefulWidget {
 }
 
 class _DashboardScreenState extends State<DashboardScreen> {
-
   Map<String, dynamic>? backendStatus;
   bool syncing = false;
 
-  // رنگ‌های استخراج شده از تصویر
-  final Color bgColor = const Color(0xFFDFE9F5); // آبی خیلی روشن پس‌زمینه
+  final Color bgColor = const Color(0xFFDFE9F5);
   final Color cardColor = Colors.white.withOpacity(0.9);
-  final Color primaryText = const Color(0xFF2B3A60); // سرمه‌ای تیره
+  final Color primaryText = const Color(0xFF2B3A60);
   final Color secondaryText = const Color(0xFF6B7280);
 
   Timer? _autoRefreshTimer;
@@ -57,11 +60,22 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
   @override
   Widget build(BuildContext context) {
-    // استفاده از فونت گرد و مدرن
-    final TextStyle mainFont = GoogleFonts.quicksand(color: primaryText);
+    final loc = AppLocalizations.of(context);
+    final localeProvider = Provider.of<LocaleProvider>(context);
+    final isPersian = localeProvider.locale.languageCode == 'fa';
 
-    // Patient name (example: replace with actual patient name from backend/user model)
-    const String patientName = "Patient: John Doe";
+    // انتخاب فونت بر اساس زبان
+    final TextStyle mainFont = isPersian
+        ? TextStyle(fontFamily: 'Vazir', color: primaryText)
+        : GoogleFonts.quicksand(color: primaryText);
+
+    final TextStyle titleFont = isPersian
+        ? TextStyle(fontFamily: 'Vazir', fontSize: 24, fontWeight: FontWeight.bold, color: const Color(0xFF33416E))
+        : GoogleFonts.poppins(fontSize: 24, fontWeight: FontWeight.bold, color: const Color(0xFF33416E));
+
+    // نام بیمار (می‌تواند از دیتابیس بیاید، اینجا ترکیب ترجمه و نام است)
+    final String patientName = "${loc['dashboard_patient']}: John Doe";
+
     return Scaffold(
       backgroundColor: bgColor,
       body: SafeArea(
@@ -78,23 +92,19 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     children: [
                       _GlassIconButton(icon: Icons.notifications_none_rounded, onTap: () {}),
                       Text(
-                        'CareMate',
-                        style: GoogleFonts.poppins(
-                          fontSize: 24,
-                          fontWeight: FontWeight.bold,
-                          color: const Color(0xFF33416E),
-                        ),
+                        loc['main_dashboard_title'], // CareMate or Localized Name
+                        style: titleFont,
                       ),
                       GestureDetector(
                         onTap: () {
-                          Navigator.of(context).push(MaterialPageRoute(builder: (_) => ProfileScreen()));
+                          Navigator.of(context).push(MaterialPageRoute(builder: (_) => const ProfileScreen()));
                         },
                         child: _ProfileAvatar(),
                       ),
                     ],
                   ),
                   Align(
-                    alignment: Alignment.centerRight,
+                    alignment: isPersian ? Alignment.centerLeft : Alignment.centerRight,
                     child: Padding(
                       padding: const EdgeInsets.only(top: 10, bottom: 20),
                       child: _GlassIconButton(
@@ -108,7 +118,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
                   // --- Patient Name ---
                   Align(
-                    alignment: Alignment.centerLeft,
+                    alignment: isPersian ? Alignment.centerRight : Alignment.centerLeft,
                     child: Padding(
                       padding: const EdgeInsets.only(bottom: 4),
                       child: Text(
@@ -119,7 +129,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   ),
 
                   // --- Synced Med/Appointments Section ---
-                  _SectionHeader(title: "Current Status"),
+                  _SectionHeader(
+                    title: loc['dashboard_current_status'],
+                    font: mainFont,
+                    textDirection: isPersian ? TextDirection.rtl : TextDirection.ltr,
+                  ),
                   const SizedBox(height: 12),
                   Container(
                     width: double.infinity,
@@ -132,8 +146,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
                             children: [
                               Text(
                                 backendStatus!['item']?['type'] == 'med'
-                                    ? 'Current Medicine:'
-                                    : 'Current Appointment:',
+                                    ? loc['dashboard_current_medicine']
+                                    : loc['dashboard_current_appointment'],
                                 style: mainFont.copyWith(fontWeight: FontWeight.bold, fontSize: 16),
                               ),
                               const SizedBox(height: 8),
@@ -151,8 +165,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
                                   ),
                                   child: Text(
                                     backendStatus!['status'] == 'done'
-                                        ? 'Medicine Taken!'
-                                        : 'Appointment Attended!',
+                                        ? loc['dashboard_status_taken']
+                                        : loc['dashboard_status_attended'],
                                     style: mainFont.copyWith(fontSize: 14, color: Colors.green[800], fontWeight: FontWeight.bold),
                                   ),
                                 ),
@@ -164,13 +178,13 @@ class _DashboardScreenState extends State<DashboardScreen> {
                                     borderRadius: BorderRadius.circular(10),
                                   ),
                                   child: Text(
-                                    'Pending',
+                                    loc['dashboard_status_pending'],
                                     style: mainFont.copyWith(fontSize: 14, color: Colors.orange[800], fontWeight: FontWeight.bold),
                                   ),
                                 ),
                               const SizedBox(height: 16),
                               Text(
-                                'Next:',
+                                loc['dashboard_next'],
                                 style: mainFont.copyWith(fontWeight: FontWeight.bold, fontSize: 15),
                               ),
                               const SizedBox(height: 6),
@@ -198,11 +212,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
                         child: Container(
                           height: 210,
                           padding: const EdgeInsets.all(16),
-                          decoration: _softDecoration(color: const Color(0xFFF0F2F5)), // کمی متفاوت
+                          decoration: _softDecoration(color: const Color(0xFFF0F2F5)),
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              Text("Partner Status", style: mainFont.copyWith(fontSize: 15, fontWeight: FontWeight.bold)),
+                              Text(loc['dashboard_partner_status'], style: mainFont.copyWith(fontSize: 15, fontWeight: FontWeight.bold)),
                               const SizedBox(height: 15),
                               // Circular Progress
                               Center(
@@ -216,18 +230,16 @@ class _DashboardScreenState extends State<DashboardScreen> {
                                         value: 0.75, // Week 12 approx
                                         strokeWidth: 10,
                                         backgroundColor: Colors.white,
-                                        valueColor: const AlwaysStoppedAnimation<Color>(Color(0xFFE598D8)), // صورتی
+                                        valueColor: const AlwaysStoppedAnimation<Color>(Color(0xFFE598D8)),
                                       ),
                                     ),
-                                    // Gradient Mockup using ShaderMask if needed, or simple color
                                     Column(
                                       mainAxisSize: MainAxisSize.min,
                                       children: [
-                                        Text("Week", style: mainFont.copyWith(fontSize: 12, color: secondaryText)),
+                                        Text(loc['dashboard_week'], style: mainFont.copyWith(fontSize: 12, color: secondaryText)),
                                         Text("12", style: mainFont.copyWith(fontSize: 22, fontWeight: FontWeight.bold)),
                                       ],
                                     ),
-                                    // Baby Icon floating
                                     Positioned(
                                       right: 0,
                                       bottom: 5,
@@ -241,8 +253,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
                                 ),
                               ),
                               const Spacer(),
-                              Text("Mood: Happy", style: mainFont.copyWith(fontSize: 12)),
-                              Text("Craving: Sweets", style: mainFont.copyWith(fontSize: 12)),
+                              Text("${loc['dashboard_mood']} ${loc['dashboard_mood_happy']}", style: mainFont.copyWith(fontSize: 12)),
+                              Text("${loc['dashboard_craving']} ${loc['dashboard_craving_sweets']}", style: mainFont.copyWith(fontSize: 12)),
                             ],
                           ),
                         ),
@@ -257,22 +269,22 @@ class _DashboardScreenState extends State<DashboardScreen> {
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              Text("Baby Tracker", style: mainFont.copyWith(fontSize: 15, fontWeight: FontWeight.bold)),
+                              Text(loc['dashboard_baby_tracker'], style: mainFont.copyWith(fontSize: 15, fontWeight: FontWeight.bold)),
                               const SizedBox(height: 15),
-                              // Tracker Item 1
                               _GlassItem(
-                                icon: Icons.baby_changing_station, 
+                                icon: Icons.baby_changing_station,
                                 iconColor: Colors.blueAccent,
-                                text: "+ Supply Low",
+                                text: loc['dashboard_supply_low'],
                                 hasDot: true,
+                                font: mainFont,
                               ),
                               const SizedBox(height: 12),
-                              // Tracker Item 2
                               _GlassItem(
-                                icon: Icons.vaccines, 
+                                icon: Icons.vaccines,
                                 iconColor: Colors.orangeAccent,
-                                text: "+ Vaccine: Tomo...", // Truncated as per image style
+                                text: loc['dashboard_vaccine_tomo'],
                                 hasDot: false,
+                                font: mainFont,
                               ),
                             ],
                           ),
@@ -284,7 +296,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   const SizedBox(height: 24),
 
                   // --- Quick Summary ---
-                  _SectionHeader(title: "Quick Summary"),
+                  _SectionHeader(
+                    title: loc['dashboard_quick_summary'], 
+                    font: mainFont,
+                    textDirection: isPersian ? TextDirection.rtl : TextDirection.ltr
+                    ),
                   const SizedBox(height: 12),
                   Container(
                     width: double.infinity,
@@ -300,23 +316,22 @@ class _DashboardScreenState extends State<DashboardScreen> {
                           ],
                         ),
                         const SizedBox(height: 8),
-                        // Linear Bar
                         ClipRRect(
                           borderRadius: BorderRadius.circular(10),
                           child: LinearProgressIndicator(
                             value: 0.8,
                             minHeight: 12,
                             backgroundColor: Colors.grey[200],
-                            valueColor: const AlwaysStoppedAnimation<Color>(Color(0xFF6FCF97)), // سبز
+                            valueColor: const AlwaysStoppedAnimation<Color>(Color(0xFF6FCF97)),
                           ),
                         ),
                         const SizedBox(height: 12),
-                        Text("Total Meds Taken Today", style: mainFont.copyWith(color: secondaryText, fontSize: 13)),
+                        Text(loc['dashboard_total_meds'], style: mainFont.copyWith(color: secondaryText, fontSize: 13)),
                       ],
                     ),
                   ),
-                  
-                  const SizedBox(height: 120), // فضای خالی برای نوار پایین
+
+                  const SizedBox(height: 120),
                 ],
               ),
             ),
@@ -347,28 +362,44 @@ class _DashboardScreenState extends State<DashboardScreen> {
 }
 
 // -----------------------------------------------------------------------------
-// ویجت‌های کمکی برای ظاهر ۳ بعدی و Glassy
+// Widgets
 // -----------------------------------------------------------------------------
 
 class _SectionHeader extends StatelessWidget {
   final String title;
-  const _SectionHeader({required this.title});
+  final TextStyle font;
+  final TextDirection? textDirection;
+  
+  const _SectionHeader({
+    required this.title, 
+    required this.font, 
+    this.textDirection
+  });
 
   @override
   Widget build(BuildContext context) {
     return Align(
-      alignment: Alignment.centerLeft,
+      // --- تغییر اصلی اینجاست ---
+      // اگر جهت متن RTL (راست به چپ) بود، المنت را به سمت راست هل بده
+      // در غیر این صورت به سمت چپ
+      alignment: textDirection == TextDirection.rtl 
+          ? Alignment.centerRight 
+          : Alignment.centerLeft,
+          
       child: Text(
         title,
-        style: GoogleFonts.quicksand(
+        style: font.copyWith(
           fontSize: 18,
           fontWeight: FontWeight.bold,
           color: const Color(0xFF2B3A60),
         ),
+        // این خط جهت نوشتار حروف را تنظیم می‌کند (مثلاً پرانتزها درست نمایش داده شوند)
+        textDirection: textDirection,
       ),
     );
   }
 }
+
 
 class _GlassIconButton extends StatelessWidget {
   final IconData icon;
@@ -416,7 +447,7 @@ class _ProfileAvatar extends StatelessWidget {
       padding: const EdgeInsets.all(4),
       child: const CircleAvatar(
         backgroundColor: Color(0xFFE2D4C8),
-        backgroundImage: null, // اینجا می‌توانید عکس واقعی بگذارید
+        backgroundImage: null,
         child: Icon(Icons.person, color: Colors.white),
       ),
     );
@@ -428,8 +459,15 @@ class _GlassItem extends StatelessWidget {
   final Color iconColor;
   final String text;
   final bool hasDot;
+  final TextStyle font;
 
-  const _GlassItem({required this.icon, required this.iconColor, required this.text, required this.hasDot});
+  const _GlassItem({
+    required this.icon, 
+    required this.iconColor, 
+    required this.text, 
+    required this.hasDot,
+    required this.font,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -448,7 +486,7 @@ class _GlassItem extends StatelessWidget {
               text,
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
-              style: GoogleFonts.quicksand(fontSize: 12, fontWeight: FontWeight.w600),
+              style: font.copyWith(fontSize: 12, fontWeight: FontWeight.w600),
             ),
           ),
           if (hasDot)
