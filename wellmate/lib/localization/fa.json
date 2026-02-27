@@ -29,5 +29,17 @@
   "profile_logout": "خروج",
 
   "settings_language": "زبان",
-  "footer_message": "از اینکه ول‌میت را انتخاب کردید متشکریم!"
+  "footer_message": "از اینکه ول‌میت را انتخاب کردید متشکریم!",
+
+  
+  "calendar_title": "برنامه‌ریزی",
+  "calendar_select_date": "تاریخی را برای مشاهده برنامه انتخاب کنید",
+  "calendar_schedule_for": "برنامه روز",
+  "calendar_empty": "برنامه‌ای برای این روز ثبت نشده است.",
+  "med_qty": "تعداد",
+  "type_medicine": "دارو",
+  "type_doctor": "ویزیت دکتر",
+  "type_treatment": "درمان"
+
+
 }

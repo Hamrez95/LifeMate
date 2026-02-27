@@ -30,5 +30,14 @@
   "profile_logout": "Log Out",
   
   "settings_language": "Language",
-  "footer_message": "Thank you for using WellMate!"
+  "footer_message": "Thank you for using WellMate!",
+
+  "calendar_title": "Schedule",
+  "calendar_select_date": "Select a date to view schedule",
+  "calendar_schedule_for": "Schedule for",
+  "calendar_empty": "No schedule for this day.",
+  "med_qty": "Qty",
+  "type_medicine": "Medicine",
+  "type_doctor": "Doctor Visit",
+  "type_treatment": "Treatment"
 }
