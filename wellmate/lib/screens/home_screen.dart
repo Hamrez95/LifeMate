@@ -1,13 +1,13 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
 
 // --- ایمپورت‌های پروژه شما ---
 import '../localization/app_localizations.dart';
-import '../services/backend_service.dart'; // سرویس بکند شما
-import 'profile_screen.dart'; // صفحه پروفایل
-import 'app_style.dart'; // فایل استایل جدید
-import 'shared_widgets.dart'; // ویجت‌های مشترک جدید
+import '../services/backend_service.dart';
+import 'profile_screen.dart';
+import 'calendar_screen.dart'; // حتما این ایمپورت اضافه شود
+import 'app_style.dart';
+import 'shared_widgets.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({Key? key}) : super(key: key);
@@ -17,24 +17,21 @@ class HomeScreen extends StatefulWidget {
 }
 
 class _HomeScreenState extends State<HomeScreen> {
-  // --- همان متغیرهای کد اصلی شما ---
   int currentIndex = 0;
-  int secondsLeft = 90; // طبق کد شما: 01:30
+  int secondsLeft = 90; 
   bool isDone = false;
   bool isLoading = false;
   Timer? _timer;
 
-  // لیست داروها
   List<Map<String, dynamic>> scheduleList = [];
 
   @override
   void initState() {
     super.initState();
-    _fetchScheduleList(); // فراخوانی بکند
+    _fetchScheduleList();
     _startTimer();
   }
 
-  // --- همان فانکشن‌های کد اصلی شما ---
   Future<void> _fetchScheduleList() async {
     try {
       final status = await BackendService.getStatus();
@@ -90,7 +87,7 @@ class _HomeScreenState extends State<HomeScreen> {
   void _handleNext() async {
     setState(() {
       currentIndex = (currentIndex + 1) % scheduleList.length;
-      secondsLeft = 3600; // ریست تایمر
+      secondsLeft = 3600; 
       isDone = false;
       isLoading = false;
     });
@@ -103,12 +100,10 @@ class _HomeScreenState extends State<HomeScreen> {
     }
   }
 
-  // --- ساختار گرافیکی (UI) با استایل جدید ---
   @override
   Widget build(BuildContext context) {
     final loc = AppLocalizations.of(context);
     
-    // منطق انتخاب آیتم فعلی و بعدی (از کد خودتان)
     final currentItem =
         (scheduleList.isNotEmpty && currentIndex < scheduleList.length)
             ? scheduleList[currentIndex]
@@ -119,17 +114,16 @@ class _HomeScreenState extends State<HomeScreen> {
             ? scheduleList.sublist(currentIndex + 1)
             : <Map<String, dynamic>>[];
 
-    const initialSeconds = 3600; // برای محاسبه درصد پروگرس
+    const initialSeconds = 3600; 
 
     return Scaffold(
-      backgroundColor: AppColors.bgLight, // استفاده از رنگ سیستم جدید
+      backgroundColor: AppColors.bgLight,
       body: SafeArea(
         bottom: false,
         child: Stack(
           children: [
             Column(
               children: [
-                // 1. Header Section (با استایل جدید + نویگیشن قدیمی)
                 Padding(
                   padding: const EdgeInsets.fromLTRB(24, 20, 24, 10),
                   child: CustomHeader(
@@ -140,20 +134,14 @@ class _HomeScreenState extends State<HomeScreen> {
                     },
                   ),
                 ),
-
                 const SizedBox(height: 10),
-
-                // 2. Timer Section (ویجت جدید با دیتای واقعی)
                 TimerSection(
                   progress: secondsLeft > 0 ? (secondsLeft / initialSeconds) : 0,
                   secondsLeft: secondsLeft,
                   medicineName: currentItem['name'] ?? '',
                   titleText: loc['home_time_dose'] ?? 'Next Dose',
                 ),
-
                 const SizedBox(height: 30),
-
-                // 3. Action Button (دکمه جدید با فانکشن‌های قدیمی)
                 Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 40),
                   child: NeumorphicButton(
@@ -164,15 +152,12 @@ class _HomeScreenState extends State<HomeScreen> {
                     onTap: (isDone || isLoading) ? _handleNext : _onMarkAsDone,
                   ),
                 ),
-
                 const SizedBox(height: 30),
-
-                // 4. Schedule List (بازگرداندن لیست کارت‌ها با استایل جدید)
                 Expanded(
                   child: Container(
                     width: double.infinity,
                     decoration: const BoxDecoration(
-                      color: Colors.white70, // کمی شفاف برای زیبایی
+                      color: Colors.white70, 
                       borderRadius: BorderRadius.vertical(top: Radius.circular(30)),
                     ),
                     child: Column(
@@ -195,12 +180,11 @@ class _HomeScreenState extends State<HomeScreen> {
                                   ),
                                 )
                               : ListView.separated(
-                                  padding: const EdgeInsets.fromLTRB(24, 0, 24, 130), // فضای پایین برای نوار نویگیشن
+                                  padding: const EdgeInsets.fromLTRB(24, 0, 24, 130), 
                                   itemCount: nextItems.length,
                                   separatorBuilder: (_, __) =>
                                       const SizedBox(height: 16),
                                   itemBuilder: (context, i) {
-                                    // استفاده از ویجت کارتی که در پایین همین فایل تعریف کردم
                                     return SoftScheduleCard(
                                       item: nextItems[i],
                                     );
@@ -214,17 +198,25 @@ class _HomeScreenState extends State<HomeScreen> {
               ],
             ),
 
-            // 5. Floating Bottom Navigation (ویجت جدید)
+            // Navigation Bar
             Positioned(
               bottom: 0,
               left: 0,
               right: 0,
               child: GlobalBottomNav(
-                currentIndex: 0,
+                currentIndex: 0, // 0 = Home
                 addBtnLabel: loc['home_add_medicine'] ?? 'Add',
                 onTap: (index) {
-                   // اینجا می‌توانید لاجیک تغییر تب را اضافه کنید
-                   debugPrint("Tab Tapped: $index");
+                   if (index == 1) { // 1 = Calendar
+                     Navigator.pushReplacement(
+                       context,
+                       PageRouteBuilder(
+                         pageBuilder: (context, animation1, animation2) => const CalendarScreen(),
+                         transitionDuration: Duration.zero, // بدون انیمیشن برای حس تب
+                         reverseTransitionDuration: Duration.zero,
+                       ),
+                     );
+                   }
                 },
               ),
             ),
@@ -235,11 +227,7 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 }
 
-// ============================================================================
-// WIDGETS LOCAL TO THIS SCREEN (Re-implemented with new Design System)
-// ============================================================================
-
-// 1. ویجت تایمر (نسخه نهایی هماهنگ با استایل جدید)
+// 1. TimerSection (بدون تغییر)
 class TimerSection extends StatelessWidget {
   final double progress;
   final int secondsLeft;
@@ -327,7 +315,7 @@ class TimerSection extends StatelessWidget {
   }
 }
 
-// 2. ویجت کارت داروها (نسخه بازنویسی شده SoftScheduleCard با استایل جدید)
+// 2. SoftScheduleCard (بدون تغییر)
 class SoftScheduleCard extends StatelessWidget {
   final Map<String, dynamic> item;
 
@@ -341,7 +329,7 @@ class SoftScheduleCard extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: AppColors.bgLight, // استفاده از رنگ بک‌گراند نئومورفیک
+        color: AppColors.bgLight, 
         borderRadius: BorderRadius.circular(20),
         boxShadow: [
           BoxShadow(
@@ -358,7 +346,6 @@ class SoftScheduleCard extends StatelessWidget {
       ),
       child: Row(
         children: [
-          // آیکون دارو
           Container(
             padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
@@ -368,8 +355,6 @@ class SoftScheduleCard extends StatelessWidget {
             child: Icon(Icons.medication_outlined, color: AppColors.accentBlue),
           ),
           const SizedBox(width: 16),
-          
-          // اطلاعات دارو
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -386,8 +371,6 @@ class SoftScheduleCard extends StatelessWidget {
               ],
             ),
           ),
-          
-          // وضعیت (Pending)
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
             decoration: BoxDecoration(

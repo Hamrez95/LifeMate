@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:provider/provider.dart';
+import 'package:wellmate/screens/home_screen.dart';
 
-// ایمپورت‌های خودتان را چک کنید که مسیر درست باشد
-import 'screens/home_screen.dart'; 
+// ایمپورت‌ها را چک کنید
 import 'localization/locale_provider.dart';
 import 'localization/app_localizations.dart';
 
@@ -40,26 +40,24 @@ class WellMateApp extends StatelessWidget {
         ),
         useMaterial3: true,
       ),
-      // تنظیمات زبان
       locale: localeProvider.locale,
       supportedLocales: const [
         Locale('en'),
         Locale('fa'),
       ],
-      // نکته مهم: کلمه const را از ابتدای لیست زیر حذف کردم تا ارور برطرف شود
       localizationsDelegates: [
         AppLocalizations.delegate,
         GlobalMaterialLocalizations.delegate,
         GlobalWidgetsLocalizations.delegate,
         GlobalCupertinoLocalizations.delegate,
       ],
-      // جهت چیدمان (راست‌چین برای فارسی)
       builder: (context, child) {
         final dir = localeProvider.locale.languageCode == 'fa' 
             ? TextDirection.rtl 
             : TextDirection.ltr;
         return Directionality(textDirection: dir, child: child!);
       },
+      // نکته مهم: اینجا به جای HomeScreen، فایل MainLayout را صدا زدیم
       home: const HomeScreen(),
     );
   }

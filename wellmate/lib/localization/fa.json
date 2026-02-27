@@ -1,8 +1,8 @@
 {
   "@@locale": "fa",
-  "appTitle": "ول‌میت",
+  "appTitle": "WellMate - دستیار سلامت شما",
   "greeting": "سلام!",
-  "welcome": "به ول‌میت خوش آمدید!",
+  "welcome": "به WellMate خوش آمدید!",
   "home_title": "WellMate",
   "home_time_dose": "زمان مصرف بعدی",
   "home_mark_done": "مصرف کردم",
@@ -32,8 +32,8 @@
   "footer_message": "از اینکه ول‌میت را انتخاب کردید متشکریم!",
 
   
-  "calendar_title": "برنامه‌ریزی",
-  "calendar_select_date": "تاریخی را برای مشاهده برنامه انتخاب کنید",
+  "calendar_title": "تقویم درمانی",
+  "calendar_select_date": "میتونید برنامه درمانی تمام روزهای خود را ببینید",
   "calendar_schedule_for": "برنامه روز",
   "calendar_empty": "برنامه‌ای برای این روز ثبت نشده است.",
   "med_qty": "تعداد",
