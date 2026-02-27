@@ -1,10 +1,10 @@
 {
-  "appTitle": "WellMate",
+  "appTitle": "CareMate",
   "greeting": "Hello!",
-  "welcome": "Welcome to WellMate!",
+  "welcome": "Welcome to CareMate!",
   
   "home_title": "Home",
-  "home_welcome": "Welcome to WellMate!",
+  "home_welcome": "Welcome to CareMate!",
   "home_dashboard": "Dashboard",
   "home_profile": "Profile",
   "home_logout": "Logout",
@@ -48,6 +48,12 @@
   "profile_support": "Support",
   "profile_logout": "Log Out",
   "settings_language": "Language",
-  "footer_message": "Thank you for using WellMate!"
+  "footer_message": "Thank you for using CareMate!",
+  "calendar_schedule_for": "Schedule for",
+  "calendar_title": "Calendar",
+  "user_mother": "Mother",
+  "user_baby": "Baby",
+  "user_partner": "Partner",
+  "calendar_empty": "No schedule for today"
 
 }

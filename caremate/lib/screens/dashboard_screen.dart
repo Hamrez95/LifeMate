@@ -8,6 +8,8 @@ import '../services/backend_service.dart';
 import '../localization/app_localizations.dart';
 import '../localization/locale_provider.dart';
 import 'profile_screen.dart';
+import 'caremate_bottom_nav.dart';
+import 'calendar_screen.dart';
 
 class DashboardScreen extends StatefulWidget {
   const DashboardScreen({Key? key}) : super(key: key);
@@ -341,7 +343,22 @@ class _DashboardScreenState extends State<DashboardScreen> {
               bottom: 30,
               left: 20,
               right: 20,
-              child: _CustomBottomNav(),
+              child: CareMateBottomNav(
+                currentIndex: 3, // 3 = Home
+                onTap: (index) {
+                  if (index == 0) {
+                    Navigator.pushReplacement(
+                      context,
+                      PageRouteBuilder(
+                        pageBuilder: (context, animation1, animation2) => const CalendarScreen(),
+                        transitionDuration: Duration.zero,
+                        reverseTransitionDuration: Duration.zero,
+                      ),
+                    );
+                  }
+                  // Add more navigation logic for other indices if needed
+                },
+              ),
             ),
           ],
         ),
