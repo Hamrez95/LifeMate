@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
-import '../localization/locale_provider.dart'; // مسیر فایل پروایدر زبان خود را چک کنید
+import '../localization/locale_provider.dart';
 
 class AppColors {
   static const Color bgLight = Color(0xFFF2F4F8);
@@ -28,14 +27,14 @@ class AppTextStyles {
 
     if (isPersian) {
       return TextStyle(
-        fontFamily: 'Vazir', // مطمئن شوید فونت وزیر در pubspec تعریف شده است
+        fontFamily: 'Vazir', 
         fontSize: fontSize,
         fontWeight: fontWeight,
         color: finalColor,
       );
     } else {
-      // برای انگلیسی از Poppins یا Quicksand استفاده می‌کنیم (طبق سلیقه شما)
-      return GoogleFonts.poppins(
+       return TextStyle(
+        fontFamily: 'Poppins', 
         fontSize: fontSize,
         fontWeight: fontWeight,
         color: finalColor,

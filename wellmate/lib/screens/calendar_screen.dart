@@ -6,7 +6,7 @@ import '../localization/app_localizations.dart';
 import 'app_style.dart';
 import 'shared_widgets.dart';
 import 'profile_screen.dart'; 
-import 'home_screen.dart'; // حتما این ایمپورت اضافه شود
+import 'home_screen.dart'; 
 
 class CalendarScreen extends StatefulWidget {
   const CalendarScreen({Key? key}) : super(key: key);
@@ -69,7 +69,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
     final loc = AppLocalizations.of(context);
     final events = _getEventsForDay(_selectedDate);
     final dayFormat = DateFormat('d').format(_selectedDate);
-    final scheduleTitle = "${loc['calendar_schedule_for']} ${dayFormat}th";
+    final scheduleTitle = "${loc['calendar_schedule_for'] ?? 'Schedule for'} ${dayFormat}th";
 
     return Scaffold(
       backgroundColor: AppColors.bgLight,
@@ -148,15 +148,15 @@ class _CalendarScreenState extends State<CalendarScreen> {
               left: 0,
               right: 0,
               child: GlobalBottomNav(
-                currentIndex: 1, // 1 = Calendar (اصلاح شد)
+                currentIndex: 1, 
                 addBtnLabel: loc['cal'] ?? 'Add',
                 onTap: (index) {
-                  if (index == 0) { // 0 = Home
+                  if (index == 0) { 
                      Navigator.pushReplacement(
                        context,
                        PageRouteBuilder(
                          pageBuilder: (context, animation1, animation2) => const HomeScreen(),
-                         transitionDuration: Duration.zero, // بدون انیمیشن
+                         transitionDuration: Duration.zero, 
                          reverseTransitionDuration: Duration.zero,
                        ),
                      );
@@ -235,10 +235,12 @@ class _CalendarScreenState extends State<CalendarScreen> {
                     children: [
                       Text(
                         '$dayNum',
-                        style: TextStyle(
+                        // استفاده از AppTextStyles به جای فونت هاردکد شده
+                        style: AppTextStyles.get(
+                          context,
                           color: isSelected ? Colors.white : AppColors.primaryText,
                           fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-                          fontFamily: 'Vazirmatn', 
+                          fontSize: 14,
                         ),
                       ),
                       if (hasEvent && !isSelected) ...[

@@ -1,1 +1,0 @@
-// CareMate Home Screen

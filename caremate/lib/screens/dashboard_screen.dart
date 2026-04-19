@@ -2,8 +2,7 @@
 
 import 'dart:async';
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
-import 'package:provider/provider.dart';
+import 'package:provider/provider.dart'; // پکیج google_fonts حذف شد
 import '../services/backend_service.dart';
 import '../localization/app_localizations.dart';
 import '../localization/locale_provider.dart';
@@ -66,16 +65,15 @@ class _DashboardScreenState extends State<DashboardScreen> {
     final localeProvider = Provider.of<LocaleProvider>(context);
     final isPersian = localeProvider.locale.languageCode == 'fa';
 
-    // انتخاب فونت بر اساس زبان
+    // انتخاب فونت بر اساس زبان (اصلاح شده برای استفاده از فونت محلی)
     final TextStyle mainFont = isPersian
         ? TextStyle(fontFamily: 'Vazir', color: primaryText)
-        : GoogleFonts.quicksand(color: primaryText);
+        : TextStyle(fontFamily: 'Poppins', color: primaryText);
 
     final TextStyle titleFont = isPersian
         ? TextStyle(fontFamily: 'Vazir', fontSize: 24, fontWeight: FontWeight.bold, color: const Color(0xFF33416E))
-        : GoogleFonts.poppins(fontSize: 24, fontWeight: FontWeight.bold, color: const Color(0xFF33416E));
+        : TextStyle(fontFamily: 'Poppins', fontSize: 24, fontWeight: FontWeight.bold, color: const Color(0xFF33416E));
 
-    // نام بیمار (می‌تواند از دیتابیس بیاید، اینجا ترکیب ترجمه و نام است)
     final String patientName = "${loc['dashboard_patient']}: John Doe";
 
     return Scaffold(
@@ -88,13 +86,12 @@ class _DashboardScreenState extends State<DashboardScreen> {
               padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
               child: Column(
                 children: [
-                  // --- Header ---
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
                       _GlassIconButton(icon: Icons.notifications_none_rounded, onTap: () {}),
                       Text(
-                        loc['main_dashboard_title'], // CareMate or Localized Name
+                        loc['main_dashboard_title'], 
                         style: titleFont,
                       ),
                       GestureDetector(
@@ -118,7 +115,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     ),
                   ),
 
-                  // --- Patient Name ---
                   Align(
                     alignment: isPersian ? Alignment.centerRight : Alignment.centerLeft,
                     child: Padding(
@@ -130,7 +126,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     ),
                   ),
 
-                  // --- Synced Med/Appointments Section ---
                   _SectionHeader(
                     title: loc['dashboard_current_status'],
                     font: mainFont,
@@ -206,10 +201,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   ),
                   const SizedBox(height: 24),
 
-                  // --- Grid Section (Partner Status & Baby Tracker) ---
                   Row(
                     children: [
-                      // Partner Status Card
                       Expanded(
                         child: Container(
                           height: 210,
@@ -220,7 +213,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
                             children: [
                               Text(loc['dashboard_partner_status'], style: mainFont.copyWith(fontSize: 15, fontWeight: FontWeight.bold)),
                               const SizedBox(height: 15),
-                              // Circular Progress
                               Center(
                                 child: Stack(
                                   alignment: Alignment.center,
@@ -229,7 +221,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                                       width: 90,
                                       height: 90,
                                       child: CircularProgressIndicator(
-                                        value: 0.75, // Week 12 approx
+                                        value: 0.75, 
                                         strokeWidth: 10,
                                         backgroundColor: Colors.white,
                                         valueColor: const AlwaysStoppedAnimation<Color>(Color(0xFFE598D8)),
@@ -262,7 +254,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
                         ),
                       ),
                       const SizedBox(width: 16),
-                      // Baby Tracker Card
                       Expanded(
                         child: Container(
                           height: 210,
@@ -297,7 +288,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
                   const SizedBox(height: 24),
 
-                  // --- Quick Summary ---
                   _SectionHeader(
                     title: loc['dashboard_quick_summary'], 
                     font: mainFont,
@@ -338,13 +328,12 @@ class _DashboardScreenState extends State<DashboardScreen> {
               ),
             ),
 
-            // --- Bottom Navigation Bar ---
             Positioned(
               bottom: 30,
               left: 20,
               right: 20,
               child: CareMateBottomNav(
-                currentIndex: 3, // 3 = Home
+                currentIndex: 3, 
                 onTap: (index) {
                   if (index == 0) {
                     Navigator.pushReplacement(
@@ -356,7 +345,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
                       ),
                     );
                   }
-                  // Add more navigation logic for other indices if needed
                 },
               ),
             ),
@@ -396,9 +384,6 @@ class _SectionHeader extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Align(
-      // --- تغییر اصلی اینجاست ---
-      // اگر جهت متن RTL (راست به چپ) بود، المنت را به سمت راست هل بده
-      // در غیر این صورت به سمت چپ
       alignment: textDirection == TextDirection.rtl 
           ? Alignment.centerRight 
           : Alignment.centerLeft,
@@ -410,7 +395,6 @@ class _SectionHeader extends StatelessWidget {
           fontWeight: FontWeight.bold,
           color: const Color(0xFF2B3A60),
         ),
-        // این خط جهت نوشتار حروف را تنظیم می‌کند (مثلاً پرانتزها درست نمایش داده شوند)
         textDirection: textDirection,
       ),
     );
@@ -532,7 +516,6 @@ class _CustomBottomNav extends StatelessWidget {
         children: [
           _navIcon(Icons.calendar_today_rounded),
           _navIcon(Icons.person_outline_rounded),
-          // Floating Add Button
           Transform.translate(
             offset: const Offset(0, -25),
             child: Container(

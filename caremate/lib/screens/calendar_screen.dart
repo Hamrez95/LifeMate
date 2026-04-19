@@ -1,13 +1,12 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
-import 'package:provider/provider.dart';
+import 'package:provider/provider.dart'; // پکیج google_fonts حذف شد
 
 import '../localization/app_localizations.dart';
 import '../localization/locale_provider.dart';
 import 'profile_screen.dart'; 
-import 'dashboard_screen.dart'; // برای نویگیشن بار و ایمپورت صفحه خانه
-import 'caremate_bottom_nav.dart'; // Import the bottom navigation widget
+import 'dashboard_screen.dart'; 
+import 'caremate_bottom_nav.dart'; 
 
 class CalendarScreen extends StatefulWidget {
   const CalendarScreen({Key? key}) : super(key: key);
@@ -21,10 +20,8 @@ class _CalendarScreenState extends State<CalendarScreen> {
   DateTime _focusedMonth = DateTime.now();
   late Map<DateTime, List<Map<String, dynamic>>> _events;
   
-  // متغیر برای نگهداری کاربر انتخاب شده (Mother, Baby, Partner)
   String _selectedUser = 'Mother';
 
-  // رنگ‌های اختصاصی CareMate
   final Color bgColor = const Color(0xFFDFE9F5);
   final Color primaryText = const Color(0xFF2B3A60);
 
@@ -72,14 +69,14 @@ class _CalendarScreenState extends State<CalendarScreen> {
     final localeProvider = Provider.of<LocaleProvider>(context);
     final isPersian = localeProvider.locale.languageCode == 'fa';
 
-    // فونت‌های اختصاصی CareMate
+    // فونت‌های اختصاصی CareMate (اصلاح شده برای استفاده از فونت محلی)
     final TextStyle mainFont = isPersian
         ? TextStyle(fontFamily: 'Vazir', color: primaryText)
-        : GoogleFonts.quicksand(color: primaryText);
+        : TextStyle(fontFamily: 'Poppins', color: primaryText);
     
     final TextStyle titleFont = isPersian
         ? TextStyle(fontFamily: 'Vazir', fontSize: 22, fontWeight: FontWeight.bold, color: const Color(0xFF33416E))
-        : GoogleFonts.poppins(fontSize: 22, fontWeight: FontWeight.bold, color: const Color(0xFF33416E));
+        : TextStyle(fontFamily: 'Poppins', fontSize: 22, fontWeight: FontWeight.bold, color: const Color(0xFF33416E));
 
     final events = _getEventsForDay(_selectedDate);
     final dayFormat = DateFormat('d').format(_selectedDate);
@@ -93,7 +90,6 @@ class _CalendarScreenState extends State<CalendarScreen> {
           children: [
             Column(
               children: [
-                // 1. Header
                 Padding(
                   padding: const EdgeInsets.fromLTRB(24, 20, 24, 10),
                   child: Row(
@@ -126,7 +122,6 @@ class _CalendarScreenState extends State<CalendarScreen> {
 
                 const SizedBox(height: 15),
 
-                // 2. User Selector (Mother, Baby)
                 SingleChildScrollView(
                   scrollDirection: Axis.horizontal,
                   padding: const EdgeInsets.symmetric(horizontal: 24),
@@ -143,7 +138,6 @@ class _CalendarScreenState extends State<CalendarScreen> {
 
                 const SizedBox(height: 20),
 
-                // 3. Calendar Widget
                 Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 24),
                   child: _buildCalendarCard(context, mainFont),
@@ -151,7 +145,6 @@ class _CalendarScreenState extends State<CalendarScreen> {
 
                 const SizedBox(height: 25),
 
-                // 4. Schedule List
                 Expanded(
                   child: Container(
                     width: double.infinity,
@@ -187,15 +180,14 @@ class _CalendarScreenState extends State<CalendarScreen> {
               ],
             ),
 
-            // 5. Bottom Navigation
             Positioned(
               bottom: 30,
               left: 20,
               right: 20,
               child: CareMateBottomNav(
-                currentIndex: 0, // 0 = Calendar
+                currentIndex: 0, 
                 onTap: (index) {
-                  if (index == 3) { // 3 = Home
+                  if (index == 3) { 
                     Navigator.pushReplacement(
                       context,
                       PageRouteBuilder(
@@ -205,7 +197,6 @@ class _CalendarScreenState extends State<CalendarScreen> {
                       ),
                     );
                   }
-                  // Add more navigation logic for other indices if needed
                 },
               ),
             ),
@@ -215,7 +206,6 @@ class _CalendarScreenState extends State<CalendarScreen> {
     );
   }
 
-  // ویجت انتخاب کاربر
   Widget _buildUserChip(String id, String label, IconData icon, TextStyle font) {
     final bool isSelected = _selectedUser == id;
     return GestureDetector(
