@@ -64,7 +64,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
     });
   }
 
-  @override
+    @override
   Widget build(BuildContext context) {
     final loc = AppLocalizations.of(context);
     final events = _getEventsForDay(_selectedDate);
@@ -77,8 +77,10 @@ class _CalendarScreenState extends State<CalendarScreen> {
         bottom: false,
         child: Stack(
           children: [
+            // ساختار اصلی شامل هدرِ ثابت و محتوای اسکرول‌شونده
             Column(
               children: [
+                // ۱. هدر (ثابت در بالای صفحه)
                 Padding(
                   padding: const EdgeInsets.fromLTRB(24, 20, 24, 10),
                   child: CustomHeader(
@@ -89,51 +91,66 @@ class _CalendarScreenState extends State<CalendarScreen> {
                     },
                   ),
                 ),
-                const SizedBox(height: 10),
-                Text(
-                  loc['calendar_select_date'] ?? 'Select a date to view schedule',
-                  style: AppTextStyles.body(context),
-                ),
-                const SizedBox(height: 20),
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 24),
-                  child: _buildCalendarCard(context),
-                ),
-                const SizedBox(height: 25),
+                
+                // ۲. محتوای قابل اسکرول (تقویم و لیست داروها)
                 Expanded(
-                  child: Container(
-                    width: double.infinity,
-                    padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFFE8ECEF), 
-                      borderRadius: const BorderRadius.vertical(top: Radius.circular(30)),
-                      boxShadow: [
-                         BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 10, offset: const Offset(0, -5))
-                      ],
-                    ),
+                  child: SingleChildScrollView(
+                    padding: const EdgeInsets.only(bottom: 100), // فضای خالی برای نویگیشن بار پایین
                     child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
+                        const SizedBox(height: 10),
                         Text(
-                          scheduleTitle,
-                          style: AppTextStyles.header(context).copyWith(fontSize: 18),
+                          loc['calendar_select_date'] ?? 'Select a date to view schedule',
+                          style: AppTextStyles.body(context),
                         ),
-                        const SizedBox(height: 16),
-                        Expanded(
-                          child: events.isEmpty
-                              ? Center(
-                                  child: Text(loc['calendar_empty'] ?? 'No schedule', style: AppTextStyles.body(context)),
-                                )
-                              : GridView.builder(
-                                  padding: const EdgeInsets.only(bottom: 100), 
-                                  gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                                    crossAxisCount: 2, crossAxisSpacing: 16, mainAxisSpacing: 16, childAspectRatio: 1.1, 
-                                  ),
-                                  itemCount: events.length,
-                                  itemBuilder: (context, index) {
-                                    return _buildScheduleCard(context, events[index], loc);
-                                  },
-                                ),
+                        const SizedBox(height: 20),
+                        Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 24),
+                          child: _buildCalendarCard(context),
+                        ),
+                        const SizedBox(height: 25),
+                        Container(
+                          width: double.infinity,
+                          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFE8ECEF), 
+                            borderRadius: const BorderRadius.vertical(top: Radius.circular(30)),
+                            boxShadow: [
+                               BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 10, offset: const Offset(0, -5))
+                            ],
+                          ),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                scheduleTitle,
+                                style: AppTextStyles.header(context).copyWith(fontSize: 18),
+                              ),
+                              const SizedBox(height: 16),
+                              events.isEmpty
+                                  ? Padding(
+                                      padding: const EdgeInsets.symmetric(vertical: 40),
+                                      child: Center(
+                                        child: Text(loc['calendar_empty'] ?? 'No schedule', style: AppTextStyles.body(context)),
+                                      ),
+                                    )
+                                  : GridView.builder(
+                                      shrinkWrap: true, 
+                                      physics: const NeverScrollableScrollPhysics(), 
+                                      padding: EdgeInsets.zero,
+                                      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                                        crossAxisCount: 2, 
+                                        crossAxisSpacing: 16, 
+                                        mainAxisSpacing: 16, 
+                                        childAspectRatio: 1.55, 
+                                      ),
+                                      itemCount: events.length,
+                                      itemBuilder: (context, index) {
+                                        return _buildScheduleCard(context, events[index], loc);
+                                      },
+                                    ),
+                            ],
+                          ),
                         ),
                       ],
                     ),
@@ -142,7 +159,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
               ],
             ),
 
-            // Navigation Bar
+            // نویگیشن بار (ثابت در پایین صفحه)
             Positioned(
               bottom: 0,
               left: 0,
@@ -169,6 +186,48 @@ class _CalendarScreenState extends State<CalendarScreen> {
       ),
     );
   }
+
+
+  // متد اصلاح شده برای کارت‌ها
+  Widget _buildScheduleCard(BuildContext context, Map<String, dynamic> item, dynamic loc) {
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: AppColors.bgLight,
+        borderRadius: BorderRadius.circular(20),
+        boxShadow: [
+          BoxShadow(color: Colors.black.withOpacity(0.05), offset: const Offset(2, 2), blurRadius: 5),
+          const BoxShadow(color: Colors.white, offset: Offset(-2, -2), blurRadius: 5),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisAlignment: MainAxisAlignment.center, // وسط‌چین کردن عمودی محتوا
+        children: [
+          Container(
+            padding: const EdgeInsets.all(6), // کمی پدینگ آیکون را کمتر کردم
+            decoration: BoxDecoration(
+              color: (item['color'] as Color).withOpacity(0.2),
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: Icon(item['icon'], color: item['color'], size: 20), // سایز آیکون کمی کوچکتر شد
+          ),
+          const SizedBox(height: 10), // جایگزینی Spacer با SizedBox
+          Text(item['title'], style: AppTextStyles.get(context, fontSize: 13, fontWeight: FontWeight.bold), maxLines: 1, overflow: TextOverflow.ellipsis),
+          const SizedBox(height: 2),
+          Text(item['subtitle'], style: AppTextStyles.body(context).copyWith(fontSize: 11), maxLines: 1, overflow: TextOverflow.ellipsis),
+          if (item['qty'] != null) ...[
+            const SizedBox(height: 4),
+            Align(
+              alignment: AlignmentDirectional.centerEnd,
+              child: Text("${loc['med_qty'] ?? 'Qty'}: ${item['qty']}", style: AppTextStyles.body(context).copyWith(fontSize: 11)),
+            ),
+          ]
+        ],
+      ),
+    );
+  }
+
 
   Widget _buildCalendarCard(BuildContext context) {
     final daysInMonth = DateUtils.getDaysInMonth(_focusedMonth.year, _focusedMonth.month);
@@ -260,44 +319,6 @@ class _CalendarScreenState extends State<CalendarScreen> {
               );
             },
           ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildScheduleCard(BuildContext context, Map<String, dynamic> item, dynamic loc) {
-    return Container(
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: AppColors.bgLight,
-        borderRadius: BorderRadius.circular(20),
-        boxShadow: [
-          BoxShadow(color: Colors.black.withOpacity(0.05), offset: const Offset(2, 2), blurRadius: 5),
-          const BoxShadow(color: Colors.white, offset: Offset(-2, -2), blurRadius: 5),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Container(
-            padding: const EdgeInsets.all(8),
-            decoration: BoxDecoration(
-              color: (item['color'] as Color).withOpacity(0.2),
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: Icon(item['icon'], color: item['color'], size: 24),
-          ),
-          const Spacer(),
-          Text(item['title'], style: AppTextStyles.get(context, fontSize: 14, fontWeight: FontWeight.bold), maxLines: 2, overflow: TextOverflow.ellipsis),
-          const SizedBox(height: 4),
-          Text(item['subtitle'], style: AppTextStyles.body(context).copyWith(fontSize: 12)),
-          if (item['qty'] != null) ...[
-            const SizedBox(height: 4),
-            Align(
-              alignment: AlignmentDirectional.centerEnd,
-              child: Text("${loc['med_qty'] ?? 'Qty'}: ${item['qty']}", style: AppTextStyles.body(context).copyWith(fontSize: 11)),
-            ),
-          ]
         ],
       ),
     );

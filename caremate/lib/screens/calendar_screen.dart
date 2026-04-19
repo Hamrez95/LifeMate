@@ -63,13 +63,13 @@ class _CalendarScreenState extends State<CalendarScreen> {
     });
   }
 
-  @override
+    @override
   Widget build(BuildContext context) {
     final loc = AppLocalizations.of(context);
     final localeProvider = Provider.of<LocaleProvider>(context);
     final isPersian = localeProvider.locale.languageCode == 'fa';
 
-    // فونت‌های اختصاصی CareMate (اصلاح شده برای استفاده از فونت محلی)
+    // فونت‌های اختصاصی CareMate
     final TextStyle mainFont = isPersian
         ? TextStyle(fontFamily: 'Vazir', color: primaryText)
         : TextStyle(fontFamily: 'Poppins', color: primaryText);
@@ -90,6 +90,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
           children: [
             Column(
               children: [
+                // ۱. هدر (ثابت در بالای صفحه)
                 Padding(
                   padding: const EdgeInsets.fromLTRB(24, 20, 24, 10),
                   child: Row(
@@ -120,58 +121,69 @@ class _CalendarScreenState extends State<CalendarScreen> {
                   ),
                 ),
 
-                const SizedBox(height: 15),
-
-                SingleChildScrollView(
-                  scrollDirection: Axis.horizontal,
-                  padding: const EdgeInsets.symmetric(horizontal: 24),
-                  child: Row(
-                    children: [
-                      _buildUserChip('Mother', loc['user_mother'] ?? 'Mother', Icons.pregnant_woman, mainFont),
-                      const SizedBox(width: 12),
-                      _buildUserChip('Baby', loc['user_baby'] ?? 'Baby', Icons.child_care, mainFont),
-                      const SizedBox(width: 12),
-                      _buildUserChip('Partner', loc['user_partner'] ?? 'Partner', Icons.favorite, mainFont),
-                    ],
-                  ),
-                ),
-
-                const SizedBox(height: 20),
-
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 24),
-                  child: _buildCalendarCard(context, mainFont),
-                ),
-
-                const SizedBox(height: 25),
-
+                // ۲. محتوای قابل اسکرول (بقیه صفحه)
                 Expanded(
-                  child: Container(
-                    width: double.infinity,
-                    padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
-                    decoration: BoxDecoration(
-                      color: Colors.white.withOpacity(0.6), 
-                      borderRadius: const BorderRadius.vertical(top: Radius.circular(30)),
-                      boxShadow: [
-                         BoxShadow(color: Colors.black.withOpacity(0.02), blurRadius: 10, offset: const Offset(0, -5))
-                      ],
-                    ),
+                  child: SingleChildScrollView(
+                    padding: const EdgeInsets.only(bottom: 120), // فضای خالی برای جلوگیری از تداخل با نویگیشن بار
                     child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(scheduleTitle, style: mainFont.copyWith(fontSize: 18, fontWeight: FontWeight.bold)),
-                        const SizedBox(height: 16),
-                        Expanded(
-                          child: events.isEmpty
-                              ? Center(child: Text(loc['calendar_empty'] ?? 'No schedule', style: mainFont))
-                              : ListView.separated(
-                                  padding: const EdgeInsets.only(bottom: 100), 
-                                  itemCount: events.length,
-                                  separatorBuilder: (context, index) => const SizedBox(height: 12),
-                                  itemBuilder: (context, index) {
-                                    return _buildScheduleCard(events[index], mainFont);
-                                  },
-                                ),
+                        const SizedBox(height: 15),
+
+                        SingleChildScrollView(
+                          scrollDirection: Axis.horizontal,
+                          padding: const EdgeInsets.symmetric(horizontal: 24),
+                          child: Row(
+                            children: [
+                              _buildUserChip('Mother', loc['user_mother'] ?? 'Mother', Icons.pregnant_woman, mainFont),
+                              const SizedBox(width: 12),
+                              _buildUserChip('Baby', loc['user_baby'] ?? 'Baby', Icons.child_care, mainFont),
+                              const SizedBox(width: 12),
+                              _buildUserChip('Partner', loc['user_partner'] ?? 'Partner', Icons.favorite, mainFont),
+                            ],
+                          ),
+                        ),
+
+                        const SizedBox(height: 20),
+
+                        Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 24),
+                          child: _buildCalendarCard(context, mainFont),
+                        ),
+
+                        const SizedBox(height: 25),
+
+                        Container(
+                          width: double.infinity,
+                          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
+                          decoration: BoxDecoration(
+                            color: Colors.white.withOpacity(0.6), 
+                            borderRadius: const BorderRadius.vertical(top: Radius.circular(30)),
+                            boxShadow: [
+                               BoxShadow(color: Colors.black.withOpacity(0.02), blurRadius: 10, offset: const Offset(0, -5))
+                            ],
+                          ),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(scheduleTitle, style: mainFont.copyWith(fontSize: 18, fontWeight: FontWeight.bold)),
+                              const SizedBox(height: 16),
+                              events.isEmpty
+                                  ? Padding(
+                                      padding: const EdgeInsets.symmetric(vertical: 40),
+                                      child: Center(child: Text(loc['calendar_empty'] ?? 'No schedule', style: mainFont)),
+                                    )
+                                  : ListView.separated(
+                                      shrinkWrap: true, // اضافه شده برای سازگاری با SingleChildScrollView
+                                      physics: const NeverScrollableScrollPhysics(), // اضافه شده برای جلوگیری از اسکرول داخلی
+                                      padding: EdgeInsets.zero, 
+                                      itemCount: events.length,
+                                      separatorBuilder: (context, index) => const SizedBox(height: 12),
+                                      itemBuilder: (context, index) {
+                                        return _buildScheduleCard(events[index], mainFont);
+                                      },
+                                    ),
+                            ],
+                          ),
                         ),
                       ],
                     ),
@@ -180,6 +192,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
               ],
             ),
 
+            // نویگیشن بار (ثابت در پایین)
             Positioned(
               bottom: 30,
               left: 20,
@@ -205,6 +218,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
       ),
     );
   }
+
 
   Widget _buildUserChip(String id, String label, IconData icon, TextStyle font) {
     final bool isSelected = _selectedUser == id;
