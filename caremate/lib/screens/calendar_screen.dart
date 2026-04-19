@@ -1,12 +1,15 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
-import 'package:provider/provider.dart'; // پکیج google_fonts حذف شد
+import 'package:provider/provider.dart'; 
 
 import '../localization/app_localizations.dart';
 import '../localization/locale_provider.dart';
 import 'profile_screen.dart'; 
 import 'dashboard_screen.dart'; 
-import 'caremate_bottom_nav.dart'; 
+import 'caremate_bottom_nav.dart';
+
+// 👇 این ایمپورت برای تبدیل اعداد به فارسی اضافه شد 👇
+import '../utils/string_extensions.dart'; 
 
 class CalendarScreen extends StatefulWidget {
   const CalendarScreen({Key? key}) : super(key: key);
@@ -80,7 +83,9 @@ class _CalendarScreenState extends State<CalendarScreen> {
 
     final events = _getEventsForDay(_selectedDate);
     final dayFormat = DateFormat('d').format(_selectedDate);
-    final scheduleTitle = "${loc['calendar_schedule_for'] ?? 'Schedule for'} ${dayFormat}th";
+    
+    // 👇 تبدیل عدد مربوط به روز انتخابی به فارسی 👇
+    final scheduleTitle = "${loc['calendar_schedule_for'] ?? 'Schedule for'} $dayFormat${isPersian ? '' : 'th'}".toPersianDigit(isPersian);
 
     return Scaffold(
       backgroundColor: bgColor,
@@ -102,7 +107,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
                           const BoxShadow(color: Colors.white, offset: Offset(-4, -4), blurRadius: 8),
                           BoxShadow(color: Colors.black.withOpacity(0.05), offset: const Offset(4, 4), blurRadius: 8),
                         ]),
-                        child: const Icon(Icons.arrow_back_ios_new, color: Colors.black54, size: 20),
+                        child: const Icon(Icons.notifications_none_rounded, color: Colors.black54, size: 20),
                       ),
                       Text(loc['calendar_title'] ?? 'Calendar', style: titleFont),
                       GestureDetector(
@@ -147,7 +152,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
 
                         Padding(
                           padding: const EdgeInsets.symmetric(horizontal: 24),
-                          child: _buildCalendarCard(context, mainFont),
+                          child: _buildCalendarCard(context, mainFont, isPersian),
                         ),
 
                         const SizedBox(height: 25),
@@ -179,7 +184,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
                                       itemCount: events.length,
                                       separatorBuilder: (context, index) => const SizedBox(height: 12),
                                       itemBuilder: (context, index) {
-                                        return _buildScheduleCard(events[index], mainFont);
+                                        return _buildScheduleCard(events[index], mainFont, isPersian);
                                       },
                                     ),
                             ],
@@ -219,7 +224,6 @@ class _CalendarScreenState extends State<CalendarScreen> {
     );
   }
 
-
   Widget _buildUserChip(String id, String label, IconData icon, TextStyle font) {
     final bool isSelected = _selectedUser == id;
     return GestureDetector(
@@ -243,7 +247,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
     );
   }
 
-  Widget _buildCalendarCard(BuildContext context, TextStyle font) {
+  Widget _buildCalendarCard(BuildContext context, TextStyle font, bool isPersian) {
     final daysInMonth = DateUtils.getDaysInMonth(_focusedMonth.year, _focusedMonth.month);
     final firstDayOfMonth = DateTime(_focusedMonth.year, _focusedMonth.month, 1);
     final weekDayOffset = firstDayOfMonth.weekday % 7; 
@@ -268,7 +272,8 @@ class _CalendarScreenState extends State<CalendarScreen> {
                 children: [
                   IconButton(icon: const Icon(Icons.chevron_left), onPressed: () => _changeMonth(-1), padding: EdgeInsets.zero, constraints: const BoxConstraints()),
                   const SizedBox(width: 10),
-                  Text(DateFormat('MMMM yyyy').format(_focusedMonth), style: font.copyWith(fontSize: 16, fontWeight: FontWeight.bold)),
+                  // 👇 تبدیل سال به فارسی 👇
+                  Text(DateFormat('MMMM yyyy').format(_focusedMonth).toPersianDigit(isPersian), style: font.copyWith(fontSize: 16, fontWeight: FontWeight.bold)),
                   const SizedBox(width: 10),
                   IconButton(icon: const Icon(Icons.chevron_right), onPressed: () => _changeMonth(1), padding: EdgeInsets.zero, constraints: const BoxConstraints()),
                 ],
@@ -306,8 +311,9 @@ class _CalendarScreenState extends State<CalendarScreen> {
                   child: Column(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
+                      // 👇 تبدیل شماره روزها به فارسی 👇
                       Text(
-                        '$dayNum',
+                        '$dayNum'.toPersianDigit(isPersian),
                         style: font.copyWith(
                           color: isSelected ? Colors.white : primaryText,
                           fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
@@ -328,7 +334,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
     );
   }
 
-  Widget _buildScheduleCard(Map<String, dynamic> item, TextStyle font) {
+  Widget _buildScheduleCard(Map<String, dynamic> item, TextStyle font, bool isPersian) {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
@@ -355,7 +361,8 @@ class _CalendarScreenState extends State<CalendarScreen> {
               children: [
                 Text(item['title'], style: font.copyWith(fontSize: 16, fontWeight: FontWeight.bold)),
                 const SizedBox(height: 4),
-                Text(item['subtitle'], style: font.copyWith(fontSize: 13, color: Colors.grey[600])),
+                // 👇 تبدیل زمان و سایر اعداد در زیرنویس رویداد به فارسی 👇
+                Text(item['subtitle'].toString().toPersianDigit(isPersian), style: font.copyWith(fontSize: 13, color: Colors.grey[600])),
               ],
             ),
           ),

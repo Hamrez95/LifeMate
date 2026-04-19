@@ -5,6 +5,9 @@ import 'package:provider/provider.dart';
 import '../localization/app_localizations.dart';
 import '../localization/locale_provider.dart';
 
+// 👇 این ایمپورت را برای اعمال تبدیل اعداد اضافه کنید 👇
+import '../utils/string_extensions.dart';
+
 class ProfileScreen extends StatelessWidget {
   const ProfileScreen({Key? key}) : super(key: key);
 
@@ -81,11 +84,12 @@ class ProfileScreen extends StatelessWidget {
                             ),
                             const SizedBox(height: 8),
                             Text(
-                              loc['profile_name'],
+                              loc['profile_name'] ?? 'نام کاربر',
                               style: TextStyle(fontFamily: mainFont, fontSize: 22, fontWeight: FontWeight.bold, color: const Color(0xFF283054)),
                             ),
+                            // 👇 تبدیل شماره تماس به فارسی 👇
                             Text(
-                              loc['profile_phone'],
+                              (loc['profile_phone'] ?? '').toString().toPersianDigit(isPersian),
                               style: TextStyle(fontFamily: mainFont, fontSize: 15, color: const Color(0xFF7B93DB)),
                             ),
                           ],
@@ -124,7 +128,7 @@ class ProfileScreen extends StatelessWidget {
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
                                 Text(
-                                  loc['profile_no_subscription'],
+                                  loc['profile_no_subscription'] ?? 'اشتراکی ندارید',
                                   style: TextStyle(fontFamily: mainFont, fontSize: 15, color: const Color(0xFF283054)),
                                 ),
                                 const SizedBox(height: 8),
@@ -138,10 +142,10 @@ class ProfileScreen extends StatelessWidget {
                                         padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 8),
                                       ),
                                       onPressed: () {},
-                                      child: Text(loc['profile_buy_plan'], style: TextStyle(fontFamily: mainFont, fontSize: 14, color: Colors.white)),
+                                      child: Text(loc['profile_buy_plan'] ?? 'خرید اشتراک', style: TextStyle(fontFamily: mainFont, fontSize: 14, color: Colors.white)),
                                     ),
                                     const SizedBox(width: 8),
-                                    Text(loc['profile_renew'], style: TextStyle(fontFamily: mainFont, fontSize: 14, color: Color(0xFF7B93DB))),
+                                    Text(loc['profile_renew'] ?? 'تمدید', style: TextStyle(fontFamily: mainFont, fontSize: 14, color: Color(0xFF7B93DB))),
                                   ],
                                 ),
                               ],
@@ -169,71 +173,75 @@ class ProfileScreen extends StatelessWidget {
                   ),
                 ),
                 // Menu List
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 8),
-                  child: Container(
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(24),
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.black.withOpacity(0.07),
-                          blurRadius: 16,
-                          offset: const Offset(0, 4),
+                Expanded( // استفاده از Expanded یا SingleChildScrollView برای جلوگیری از overflow در صفحه‌های کوچک
+                  child: SingleChildScrollView(
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 8),
+                      child: Container(
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(24),
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.black.withOpacity(0.07),
+                              blurRadius: 16,
+                              offset: const Offset(0, 4),
+                            ),
+                          ],
                         ),
-                      ],
-                    ),
-                    child: Column(
-                      children: [
-                        const Divider(height: 1, indent: 60, endIndent: 20),
-                        _ProfileMenuTile(
-                          icon: Icons.person,
-                          iconColor: Colors.blueAccent,
-                          label: loc['profile_personal_info'],
-                          mainFont: mainFont,
+                        child: Column(
+                          children: [
+                            const Divider(height: 1, indent: 60, endIndent: 20),
+                            _ProfileMenuTile(
+                              icon: Icons.person,
+                              iconColor: Colors.blueAccent,
+                              label: loc['profile_personal_info'] ?? 'اطلاعات شخصی',
+                              mainFont: mainFont,
+                            ),
+                            const Divider(height: 1, indent: 60, endIndent: 20),
+                            _ProfileMenuTile(
+                              icon: Icons.assignment_rounded,
+                              iconColor: Colors.orangeAccent,
+                              label: loc['profile_health_profile'] ?? 'پروفایل سلامت',
+                              mainFont: mainFont,
+                            ),
+                            const Divider(height: 1, indent: 60, endIndent: 20),
+                            _ProfileMenuTile(
+                              icon: Icons.group,
+                              iconColor: Colors.green,
+                              label: loc['profile_caregivers'] ?? 'مراقبین',
+                              mainFont: mainFont,
+                            ),
+                            const Divider(height: 1, indent: 60, endIndent: 20),
+                            _ProfileMenuTile(
+                              icon: Icons.settings,
+                              iconColor: Colors.purple,
+                              label: loc['profile_app_settings'] ?? 'تنظیمات برنامه',
+                              mainFont: mainFont,
+                              onTap: () {
+                                showDialog(
+                                  context: context,
+                                  builder: (context) => _LanguageDialog(mainFont: mainFont),
+                                );
+                              },
+                            ),
+                              const Divider(height: 1, indent: 60, endIndent: 20),
+                            _ProfileMenuTile(
+                              icon: Icons.card_giftcard,
+                              iconColor: Colors.redAccent,
+                              label: loc['profile_referral_code'] ?? 'کد معرفی',
+                              mainFont: mainFont,
+                            ),
+                             const Divider(height: 1, indent: 60, endIndent: 20),
+                            _ProfileMenuTile(
+                              icon: Icons.support_agent,
+                              iconColor: Colors.indigo,
+                              label: loc['profile_support'] ?? 'پشتیبانی',
+                              mainFont: mainFont,
+                            ),
+                          ],
                         ),
-                        const Divider(height: 1, indent: 60, endIndent: 20),
-                        _ProfileMenuTile(
-                          icon: Icons.assignment_rounded,
-                          iconColor: Colors.orangeAccent,
-                          label: loc['profile_health_profile'],
-                          mainFont: mainFont,
-                        ),
-                        const Divider(height: 1, indent: 60, endIndent: 20),
-                        _ProfileMenuTile(
-                          icon: Icons.group,
-                          iconColor: Colors.green,
-                          label: loc['profile_caregivers'],
-                          mainFont: mainFont,
-                        ),
-                        const Divider(height: 1, indent: 60, endIndent: 20),
-                        _ProfileMenuTile(
-                          icon: Icons.settings,
-                          iconColor: Colors.purple,
-                          label: loc['profile_app_settings'],
-                          mainFont: mainFont,
-                          onTap: () {
-                            showDialog(
-                              context: context,
-                              builder: (context) => _LanguageDialog(mainFont: mainFont),
-                            );
-                          },
-                        ),
-                          const Divider(height: 1, indent: 60, endIndent: 20),
-                        _ProfileMenuTile(
-                          icon: Icons.card_giftcard,
-                          iconColor: Colors.redAccent,
-                          label: loc['profile_referral_code'],
-                          mainFont: mainFont,
-                        ),
-                         const Divider(height: 1, indent: 60, endIndent: 20),
-                        _ProfileMenuTile(
-                          icon: Icons.support_agent,
-                          iconColor: Colors.indigo,
-                          label: loc['profile_support'],
-                          mainFont: mainFont,
-                        ),
-                      ],
+                      ),
                     ),
                   ),
                 ),
@@ -272,8 +280,9 @@ class ProfileScreen extends StatelessWidget {
                   // Footer Message
                   Padding(
                     padding: const EdgeInsets.only(top: 8, bottom: 24),
+                    // 👇 تبدیل اعداد نسخه اپلیکیشن به فارسی 👇
                     child: Text(
-                      loc['footer_message'] ?? 'Version 1.0.0', 
+                      (loc['footer_message'] ?? 'Version 1.0.0').toString().toPersianDigit(isPersian), 
                       style: TextStyle(fontFamily: mainFont, fontSize: 12, color: const Color(0xFF7B93DB).withOpacity(0.7))
                     ),
                   ),
@@ -325,6 +334,7 @@ class _ProfileMenuTile extends StatelessWidget {
     );
   }
 }
+
 class _LanguageDialog extends StatelessWidget {
   final String mainFont;
   const _LanguageDialog({required this.mainFont});
@@ -364,6 +374,7 @@ class _LanguageDialog extends StatelessWidget {
     );
   }
 }
+
 class _LanguageOption extends StatelessWidget {
   final String title;
   final String font;

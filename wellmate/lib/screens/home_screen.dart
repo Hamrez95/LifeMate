@@ -5,9 +5,12 @@ import 'package:flutter/material.dart';
 import '../localization/app_localizations.dart';
 import '../services/backend_service.dart';
 import 'profile_screen.dart';
-import 'calendar_screen.dart'; // حتما این ایمپورت اضافه شود
+import 'calendar_screen.dart'; 
 import 'app_style.dart';
 import 'shared_widgets.dart';
+
+// 👇 این ایمپورت را بر اساس مسیری که فایل را ساختید اضافه کنید 👇
+import '../utils/string_extensions.dart'; 
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({Key? key}) : super(key: key);
@@ -212,7 +215,7 @@ class _HomeScreenState extends State<HomeScreen> {
                        context,
                        PageRouteBuilder(
                          pageBuilder: (context, animation1, animation2) => const CalendarScreen(),
-                         transitionDuration: Duration.zero, // بدون انیمیشن برای حس تب
+                         transitionDuration: Duration.zero, 
                          reverseTransitionDuration: Duration.zero,
                        ),
                      );
@@ -227,7 +230,7 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 }
 
-// 1. TimerSection (بدون تغییر)
+// 1. TimerSection (اعمال تغییرات فارسی‌سازی)
 class TimerSection extends StatelessWidget {
   final double progress;
   final int secondsLeft;
@@ -252,6 +255,9 @@ class TimerSection extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // تشخیص زبان فارسی
+    final isPersian = Localizations.localeOf(context).languageCode == 'fa';
+
     return Column(
       children: [
         Container(
@@ -291,8 +297,9 @@ class TimerSection extends StatelessWidget {
                 children: [
                   Icon(Icons.medication_liquid, size: 32, color: AppColors.accentBlue),
                   const SizedBox(height: 10),
+                  // تبدیل اعداد تایمر به فارسی
                   Text(
-                    timerText,
+                    timerText.toPersianDigit(isPersian),
                     style: AppTextStyles.get(context, fontSize: 28, fontWeight: FontWeight.bold),
                   ),
                   const SizedBox(height: 5),
@@ -306,8 +313,9 @@ class TimerSection extends StatelessWidget {
           ),
         ),
         const SizedBox(height: 20),
+        // اعمال توابع برای تبدیل اعداد موجود در نام دارو (مثلا 10mg)
         Text(
-          medicineName,
+          medicineName.toPersianDigit(isPersian),
           style: AppTextStyles.title(context),
         ),
       ],
@@ -315,7 +323,7 @@ class TimerSection extends StatelessWidget {
   }
 }
 
-// 2. SoftScheduleCard (بدون تغییر)
+// 2. SoftScheduleCard (اعمال تغییرات فارسی‌سازی)
 class SoftScheduleCard extends StatelessWidget {
   final Map<String, dynamic> item;
 
@@ -326,6 +334,9 @@ class SoftScheduleCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // تشخیص زبان فارسی
+    final isPersian = Localizations.localeOf(context).languageCode == 'fa';
+
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
@@ -359,13 +370,15 @@ class SoftScheduleCard extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
+                // تبدیل اعداد موجود در اسم دارو (مثلاً آموکسی‌سیلین 500)
                 Text(
-                  item['name'] ?? 'Unknown',
+                  (item['name'] ?? 'Unknown').toString().toPersianDigit(isPersian),
                   style: AppTextStyles.get(context, fontSize: 16, fontWeight: FontWeight.bold),
                 ),
                 const SizedBox(height: 4),
+                // تبدیل اعداد مربوط به دوز و ساعت مصرف دارو
                 Text(
-                  "${item['dose'] ?? ''} • ${item['time'] ?? ''}",
+                  "${item['dose'] ?? ''} • ${item['time'] ?? ''}".toPersianDigit(isPersian),
                   style: AppTextStyles.body(context),
                 ),
               ],
@@ -378,7 +391,7 @@ class SoftScheduleCard extends StatelessWidget {
               borderRadius: BorderRadius.circular(10),
             ),
             child: Text(
-              "Pending",
+              "Pending", // اگر برای این بخش هم ترجمه دارید، می‌توانید از loc استفاده کنید
               style: AppTextStyles.get(context, fontSize: 12, color: Colors.orange),
             ),
           ),

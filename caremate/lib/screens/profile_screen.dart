@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../localization/app_localizations.dart';
 import '../localization/locale_provider.dart';
+import '../utils/string_extensions.dart';
 
 class ProfileScreen extends StatelessWidget {
   const ProfileScreen({Key? key}) : super(key: key);
@@ -20,224 +21,227 @@ class ProfileScreen extends StatelessWidget {
       body: SafeArea(
         child: Stack(
           children: [
-            Column(
-              children: [
-                // Header
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      IconButton(
-                        icon: const Icon(Icons.arrow_back_ios_new_rounded, size: 24, color: Color(0xFF7B93DB)),
-                        onPressed: () => Navigator.of(context).pop(),
-                        splashRadius: 24,
-                      ),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: Column(
-                          children: [
-                            Container(
-                              width: 80,
-                              height: 80,
-                              decoration: BoxDecoration(
-                                shape: BoxShape.circle,
-                                color: Colors.white,
-                                boxShadow: [
-                                  BoxShadow(
-                                    color: Colors.black.withOpacity(0.08),
-                                    blurRadius: 16,
-                                    offset: const Offset(0, 4),
-                                  ),
-                                ],
-                              ),
-                              child: Stack(
-                                alignment: Alignment.center,
-                                children: [
-                                  CircleAvatar(
-                                    radius: 36,
-                                    backgroundColor: const Color(0xFFE2D4C8),
-                                    child: Icon(Icons.person, size: 48, color: Colors.white),
-                                  ),
-                                  Positioned(
-                                    bottom: 8,
-                                    right: 8,
-                                    child: Container(
-                                      decoration: BoxDecoration(
-                                        color: Colors.white,
-                                        shape: BoxShape.circle,
-                                        boxShadow: [
-                                          BoxShadow(
-                                            color: Colors.black.withOpacity(0.12),
-                                            blurRadius: 8,
-                                          ),
+            // 👇 افزودن SingleChildScrollView برای جلوگیری از خطای Overflow 👇
+            SingleChildScrollView(
+              child: Column(
+                children: [
+                  // Header
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        IconButton(
+                          icon: const Icon(Icons.arrow_back_ios_new_rounded, size: 24, color: Color(0xFF7B93DB)),
+                          onPressed: () => Navigator.of(context).pop(),
+                          splashRadius: 24,
+                        ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Column(
+                            children: [
+                              Container(
+                                width: 80,
+                                height: 80,
+                                decoration: BoxDecoration(
+                                  shape: BoxShape.circle,
+                                  color: Colors.white,
+                                  boxShadow: [
+                                    BoxShadow(
+                                      color: Colors.black.withOpacity(0.08),
+                                      blurRadius: 16,
+                                      offset: const Offset(0, 4),
+                                    ),
+                                  ],
+                                ),
+                                child: Stack(
+                                  alignment: Alignment.center,
+                                  children: [
+                                    const CircleAvatar(
+                                      radius: 36,
+                                      backgroundColor: Color(0xFFE2D4C8),
+                                      child: Icon(Icons.person, size: 48, color: Colors.white),
+                                    ),
+                                    Positioned(
+                                      bottom: 8,
+                                      right: 8,
+                                      child: Container(
+                                        decoration: BoxDecoration(
+                                          color: Colors.white,
+                                          shape: BoxShape.circle,
+                                          boxShadow: [
+                                            BoxShadow(
+                                              color: Colors.black.withOpacity(0.12),
+                                              blurRadius: 8,
+                                            ),
                                         ],
                                       ),
-                                      child: Icon(Icons.camera_alt, size: 18, color: Color(0xFF7B93DB)),
+                                        child: const Icon(Icons.camera_alt, size: 18, color: Color(0xFF7B93DB)),
+                                      ),
                                     ),
+                                  ],
+                                ),
+                              ),
+                              const SizedBox(height: 8),
+                              Text(
+                                loc['profile_name'] ?? 'نام کاربر',
+                                style: TextStyle(fontFamily: mainFont, fontSize: 22, fontWeight: FontWeight.bold, color: const Color(0xFF283054)),
+                              ),
+                              // 👇 تبدیل شماره تماس به فارسی 👇
+                              Text(
+                                (loc['profile_phone'] ?? '09123456789').toString().toPersianDigit(isPersian),
+                                style: TextStyle(fontFamily: mainFont, fontSize: 15, color: const Color(0xFF7B93DB)),
+                              ),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        IconButton(
+                          icon: const Icon(Icons.notifications_none_rounded, size: 24, color: Color(0xFF7B93DB)),
+                          onPressed: () {},
+                          splashRadius: 24,
+                        ),
+                      ],
+                    ),
+                  ),
+                  // Subscription Card
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 8),
+                    child: Container(
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(18),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withOpacity(0.07),
+                            blurRadius: 16,
+                            offset: const Offset(0, 4),
+                          ),
+                        ],
+                      ),
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 18),
+                        child: Row(
+                          children: [
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    loc['profile_no_subscription'] ?? 'اشتراکی ندارید',
+                                    style: TextStyle(fontFamily: mainFont, fontSize: 15, color: const Color(0xFF283054)),
+                                  ),
+                                  const SizedBox(height: 8),
+                                  Row(
+                                    children: [
+                                      ElevatedButton(
+                                        style: ElevatedButton.styleFrom(
+                                          backgroundColor: const Color(0xFF283054),
+                                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                                          elevation: 0,
+                                          padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 8),
+                                        ),
+                                        onPressed: () {},
+                                        child: Text(loc['profile_buy_plan'] ?? 'خرید اشتراک', style: TextStyle(fontFamily: mainFont, fontSize: 14, color: Colors.white)),
+                                      ),
+                                      const SizedBox(width: 8),
+                                      Text(loc['profile_renew'] ?? 'تمدید', style: TextStyle(fontFamily: mainFont, fontSize: 14, color: const Color(0xFF7B93DB))),
+                                    ],
                                   ),
                                 ],
                               ),
                             ),
-                            const SizedBox(height: 8),
-                            Text(
-                              loc['profile_name'],
-                              style: TextStyle(fontFamily: mainFont, fontSize: 22, fontWeight: FontWeight.bold, color: const Color(0xFF283054)),
-                            ),
-                            Text(
-                              loc['profile_phone'],
-                              style: TextStyle(fontFamily: mainFont, fontSize: 15, color: const Color(0xFF7B93DB)),
+                            const SizedBox(width: 12),
+                            // Crown Icon
+                            Container(
+                              decoration: const BoxDecoration(
+                                color: Colors.white,
+                                shape: BoxShape.circle,
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: Color.fromARGB(64, 255, 191, 0),
+                                    blurRadius: 16,
+                                    offset: Offset(0, 4),
+                                  ),
+                                ],
+                              ),
+                              child: const Icon(Icons.emoji_events_rounded, size: 36, color: Colors.amber),
                             ),
                           ],
                         ),
                       ),
-                      const SizedBox(width: 8),
-                      IconButton(
-                        icon: const Icon(Icons.notifications_none_rounded, size: 24, color: Color(0xFF7B93DB)),
-                        onPressed: () {},
-                        splashRadius: 24,
-                      ),
-                    ],
-                  ),
-                ),
-                // Subscription Card
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 8),
-                  child: Container(
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(18),
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.black.withOpacity(0.07),
-                          blurRadius: 16,
-                          offset: const Offset(0, 4),
-                        ),
-                      ],
                     ),
-                    child: Padding(
-                      padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 18),
-                      child: Row(
-                        children: [
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  loc['profile_no_subscription'],
-                                  style: TextStyle(fontFamily: mainFont, fontSize: 15, color: const Color(0xFF283054)),
-                                ),
-                                const SizedBox(height: 8),
-                                Row(
-                                  children: [
-                                    ElevatedButton(
-                                      style: ElevatedButton.styleFrom(
-                                        backgroundColor: const Color(0xFF283054),
-                                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                                        elevation: 0,
-                                        padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 8),
-                                      ),
-                                      onPressed: () {},
-                                      child: Text(loc['profile_buy_plan'], style: TextStyle(fontFamily: mainFont, fontSize: 14, color: Colors.white)),
-                                    ),
-                                    const SizedBox(width: 8),
-                                    Text(loc['profile_renew'], style: TextStyle(fontFamily: mainFont, fontSize: 14, color: Color(0xFF7B93DB))),
-                                  ],
-                                ),
-                              ],
-                            ),
+                  ),
+                  // Menu List
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 8),
+                    child: Container(
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(24),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withOpacity(0.07),
+                            blurRadius: 16,
+                            offset: const Offset(0, 4),
                           ),
-                          const SizedBox(width: 12),
-                          // Crown Icon
-                          Container(
-                            decoration: BoxDecoration(
-                              color: Colors.white,
-                              shape: BoxShape.circle,
-                              boxShadow: [
-                                BoxShadow(
-                                  color: const Color.fromARGB(64, 255, 191, 0),
-                                  blurRadius: 16,
-                                  offset: const Offset(0, 4),
-                                ),
-                              ],
-                            ),
-                            child: const Icon(Icons.emoji_events_rounded, size: 36, color: Colors.amber),
+                        ],
+                      ),
+                      child: Column(
+                        children: [
+                          const Divider(height: 1, indent: 60, endIndent: 20),
+                          _ProfileMenuTile(
+                            icon: Icons.person,
+                            iconColor: Colors.blueAccent,
+                            label: loc['profile_personal_info'] ?? 'اطلاعات شخصی',
+                            mainFont: mainFont,
+                          ),
+                          const Divider(height: 1, indent: 60, endIndent: 20),
+                          _ProfileMenuTile(
+                            icon: Icons.assignment_rounded,
+                            iconColor: Colors.orangeAccent,
+                            label: loc['profile_health_profile'] ?? 'پرونده سلامت',
+                            mainFont: mainFont,
+                          ),
+                          const Divider(height: 1, indent: 60, endIndent: 20),
+                          _ProfileMenuTile(
+                            icon: Icons.group,
+                            iconColor: Colors.green,
+                            label: loc['profile_caregivers'] ?? 'مراقبان',
+                            mainFont: mainFont,
+                          ),
+                          const Divider(height: 1, indent: 60, endIndent: 20),
+                          _ProfileMenuTile(
+                            icon: Icons.settings,
+                            iconColor: Colors.purple,
+                            label: loc['profile_app_settings'] ?? 'تنظیمات برنامه',
+                            mainFont: mainFont,
+                            onTap: () {
+                              showDialog(
+                                context: context,
+                                builder: (context) => _LanguageDialog(mainFont: mainFont),
+                              );
+                            },
+                          ),
+                          const Divider(height: 1, indent: 60, endIndent: 20),
+                          _ProfileMenuTile(
+                            icon: Icons.card_giftcard,
+                            iconColor: Colors.redAccent,
+                            label: loc['profile_referral_code'] ?? 'کد معرف',
+                            mainFont: mainFont,
+                          ),
+                          const Divider(height: 1, indent: 60, endIndent: 20),
+                          _ProfileMenuTile(
+                            icon: Icons.support_agent,
+                            iconColor: Colors.indigo,
+                            label: loc['profile_support'] ?? 'پشتیبانی',
+                            mainFont: mainFont,
                           ),
                         ],
                       ),
                     ),
                   ),
-                ),
-                // Menu List
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 8),
-                  child: Container(
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(24),
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.black.withOpacity(0.07),
-                          blurRadius: 16,
-                          offset: const Offset(0, 4),
-                        ),
-                      ],
-                    ),
-                    child: Column(
-                      children: [
-                        const Divider(height: 1, indent: 60, endIndent: 20),
-                        _ProfileMenuTile(
-                          icon: Icons.person,
-                          iconColor: Colors.blueAccent,
-                          label: loc['profile_personal_info'],
-                          mainFont: mainFont,
-                        ),
-                        const Divider(height: 1, indent: 60, endIndent: 20),
-                        _ProfileMenuTile(
-                          icon: Icons.assignment_rounded,
-                          iconColor: Colors.orangeAccent,
-                          label: loc['profile_health_profile'],
-                          mainFont: mainFont,
-                        ),
-                        const Divider(height: 1, indent: 60, endIndent: 20),
-                        _ProfileMenuTile(
-                          icon: Icons.group,
-                          iconColor: Colors.green,
-                          label: loc['profile_caregivers'],
-                          mainFont: mainFont,
-                        ),
-                        const Divider(height: 1, indent: 60, endIndent: 20),
-                        _ProfileMenuTile(
-                          icon: Icons.settings,
-                          iconColor: Colors.purple,
-                          label: loc['profile_app_settings'],
-                          mainFont: mainFont,
-                          onTap: () {
-                            showDialog(
-                              context: context,
-                              builder: (context) => _LanguageDialog(mainFont: mainFont),
-                            );
-                          },
-                        ),
-                          const Divider(height: 1, indent: 60, endIndent: 20),
-                        _ProfileMenuTile(
-                          icon: Icons.card_giftcard,
-                          iconColor: Colors.redAccent,
-                          label: loc['profile_referral_code'],
-                          mainFont: mainFont,
-                        ),
-                         const Divider(height: 1, indent: 60, endIndent: 20),
-                        _ProfileMenuTile(
-                          icon: Icons.support_agent,
-                          iconColor: Colors.indigo,
-                          label: loc['profile_support'],
-                          mainFont: mainFont,
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-                 // Footer - Log Out
+                  // Footer - Log Out
                   Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 8),
                     child: Container(
@@ -268,16 +272,18 @@ class ProfileScreen extends StatelessWidget {
                       ),
                     ),
                   ),
-                  
+                    
                   // Footer Message
                   Padding(
                     padding: const EdgeInsets.only(top: 8, bottom: 24),
                     child: Text(
-                      loc['footer_message'] ?? 'Version 1.0.0', 
+                      // 👇 تبدیل شماره نسخه به فارسی 👇
+                      (loc['footer_message'] ?? 'Version 1.0.0').toString().toPersianDigit(isPersian), 
                       style: TextStyle(fontFamily: mainFont, fontSize: 12, color: const Color(0xFF7B93DB).withOpacity(0.7))
                     ),
                   ),
-              ],
+                ],
+              ),
             ),
           ],
         ),
@@ -325,6 +331,7 @@ class _ProfileMenuTile extends StatelessWidget {
     );
   }
 }
+
 class _LanguageDialog extends StatelessWidget {
   final String mainFont;
   const _LanguageDialog({required this.mainFont});
@@ -364,6 +371,7 @@ class _LanguageDialog extends StatelessWidget {
     );
   }
 }
+
 class _LanguageOption extends StatelessWidget {
   final String title;
   final String font;

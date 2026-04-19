@@ -2,13 +2,14 @@
 
 import 'dart:async';
 import 'package:flutter/material.dart';
-import 'package:provider/provider.dart'; // پکیج google_fonts حذف شد
+import 'package:provider/provider.dart'; 
 import '../services/backend_service.dart';
 import '../localization/app_localizations.dart';
 import '../localization/locale_provider.dart';
 import 'profile_screen.dart';
 import 'caremate_bottom_nav.dart';
 import 'calendar_screen.dart';
+import '../utils/string_extensions.dart';
 
 class DashboardScreen extends StatefulWidget {
   const DashboardScreen({Key? key}) : super(key: key);
@@ -148,8 +149,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
                                 style: mainFont.copyWith(fontWeight: FontWeight.bold, fontSize: 16),
                               ),
                               const SizedBox(height: 8),
+                              // 👇 اعمال تبدیل به فارسی در صورت وجود عدد در نام دارو 👇
                               Text(
-                                backendStatus!['item']?['name'] ?? '-',
+                                (backendStatus!['item']?['name'] ?? '-').toString().toPersianDigit(isPersian),
                                 style: mainFont.copyWith(fontSize: 18, color: Colors.blueGrey[800]),
                               ),
                               const SizedBox(height: 8),
@@ -190,7 +192,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
                                 if (nextList != null && nextList.isNotEmpty) {
                                   final med = nextList.first;
                                   return Text(
-                                    med['name'] ?? '-',
+                                    // 👇 اعمال تبدیل به فارسی در صورت وجود عدد در نام داروی بعدی 👇
+                                    (med['name'] ?? '-').toString().toPersianDigit(isPersian),
                                     style: mainFont.copyWith(fontSize: 16, color: Colors.blueGrey[600]),
                                   );
                                 }
@@ -231,7 +234,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
                                       mainAxisSize: MainAxisSize.min,
                                       children: [
                                         Text(loc['dashboard_week'], style: mainFont.copyWith(fontSize: 12, color: secondaryText)),
-                                        Text("12", style: mainFont.copyWith(fontSize: 22, fontWeight: FontWeight.bold)),
+                                        // 👇 تبدیل شماره هفته به فارسی 👇
+                                        Text("12".toPersianDigit(isPersian), style: mainFont.copyWith(fontSize: 22, fontWeight: FontWeight.bold)),
                                       ],
                                     ),
                                     Positioned(
@@ -304,7 +308,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
                         Row(
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
-                            Text("80%", style: mainFont.copyWith(fontWeight: FontWeight.bold)),
+                            // 👇 تبدیل درصد به فارسی 👇
+                            Text("80%".toPersianDigit(isPersian), style: mainFont.copyWith(fontWeight: FontWeight.bold)),
                           ],
                         ),
                         const SizedBox(height: 8),

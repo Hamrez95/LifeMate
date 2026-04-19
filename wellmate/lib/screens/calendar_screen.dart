@@ -8,6 +8,9 @@ import 'shared_widgets.dart';
 import 'profile_screen.dart'; 
 import 'home_screen.dart'; 
 
+// 👇 این ایمپورت را بر اساس مسیری که فایل را ساختید تنظیم کنید 👇
+import '../utils/string_extensions.dart'; 
+
 class CalendarScreen extends StatefulWidget {
   const CalendarScreen({Key? key}) : super(key: key);
 
@@ -64,12 +67,21 @@ class _CalendarScreenState extends State<CalendarScreen> {
     });
   }
 
-    @override
+  @override
   Widget build(BuildContext context) {
     final loc = AppLocalizations.of(context);
     final events = _getEventsForDay(_selectedDate);
-    final dayFormat = DateFormat('d').format(_selectedDate);
-    final scheduleTitle = "${loc['calendar_schedule_for'] ?? 'Schedule for'} ${dayFormat}th";
+    
+    // تشخیص اینکه زبان برنامه فارسی است یا خیر
+    final isPersian = Localizations.localeOf(context).languageCode == 'fa';
+
+    // اعداد روز را به فارسی تبدیل می‌کنیم
+    final dayFormat = DateFormat('d').format(_selectedDate).toPersianDigit(isPersian);
+    
+    // اگر زبان فارسی است، پسوند th را برمی‌داریم که متن زیباتر شود
+    final scheduleTitle = isPersian 
+        ? "${loc['calendar_schedule_for'] ?? 'برنامه روز'} $dayFormat"
+        : "${loc['calendar_schedule_for'] ?? 'Schedule for'} ${dayFormat}th";
 
     return Scaffold(
       backgroundColor: AppColors.bgLight,
@@ -77,10 +89,8 @@ class _CalendarScreenState extends State<CalendarScreen> {
         bottom: false,
         child: Stack(
           children: [
-            // ساختار اصلی شامل هدرِ ثابت و محتوای اسکرول‌شونده
             Column(
               children: [
-                // ۱. هدر (ثابت در بالای صفحه)
                 Padding(
                   padding: const EdgeInsets.fromLTRB(24, 20, 24, 10),
                   child: CustomHeader(
@@ -91,11 +101,9 @@ class _CalendarScreenState extends State<CalendarScreen> {
                     },
                   ),
                 ),
-                
-                // ۲. محتوای قابل اسکرول (تقویم و لیست داروها)
                 Expanded(
                   child: SingleChildScrollView(
-                    padding: const EdgeInsets.only(bottom: 100), // فضای خالی برای نویگیشن بار پایین
+                    padding: const EdgeInsets.only(bottom: 100),
                     child: Column(
                       children: [
                         const SizedBox(height: 10),
@@ -158,8 +166,6 @@ class _CalendarScreenState extends State<CalendarScreen> {
                 ),
               ],
             ),
-
-            // نویگیشن بار (ثابت در پایین صفحه)
             Positioned(
               bottom: 0,
               left: 0,
@@ -187,9 +193,9 @@ class _CalendarScreenState extends State<CalendarScreen> {
     );
   }
 
-
-  // متد اصلاح شده برای کارت‌ها
   Widget _buildScheduleCard(BuildContext context, Map<String, dynamic> item, dynamic loc) {
+    final isPersian = Localizations.localeOf(context).languageCode == 'fa';
+
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
@@ -202,25 +208,28 @@ class _CalendarScreenState extends State<CalendarScreen> {
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
-        mainAxisAlignment: MainAxisAlignment.center, // وسط‌چین کردن عمودی محتوا
+        mainAxisAlignment: MainAxisAlignment.center,
         children: [
           Container(
-            padding: const EdgeInsets.all(6), // کمی پدینگ آیکون را کمتر کردم
+            padding: const EdgeInsets.all(6),
             decoration: BoxDecoration(
               color: (item['color'] as Color).withOpacity(0.2),
               borderRadius: BorderRadius.circular(10),
             ),
-            child: Icon(item['icon'], color: item['color'], size: 20), // سایز آیکون کمی کوچکتر شد
+            child: Icon(item['icon'], color: item['color'], size: 20),
           ),
-          const SizedBox(height: 10), // جایگزینی Spacer با SizedBox
-          Text(item['title'], style: AppTextStyles.get(context, fontSize: 13, fontWeight: FontWeight.bold), maxLines: 1, overflow: TextOverflow.ellipsis),
+          const SizedBox(height: 10),
+          // اعمال توابع برای تبدیل اعداد موجود در عنوان (مثلا 10mg)
+          Text(item['title'].toString().toPersianDigit(isPersian), style: AppTextStyles.get(context, fontSize: 13, fontWeight: FontWeight.bold), maxLines: 1, overflow: TextOverflow.ellipsis),
           const SizedBox(height: 2),
-          Text(item['subtitle'], style: AppTextStyles.body(context).copyWith(fontSize: 11), maxLines: 1, overflow: TextOverflow.ellipsis),
+          // اعمال توابع برای تبدیل ساعت‌ها
+          Text(item['subtitle'].toString().toPersianDigit(isPersian), style: AppTextStyles.body(context).copyWith(fontSize: 11), maxLines: 1, overflow: TextOverflow.ellipsis),
           if (item['qty'] != null) ...[
             const SizedBox(height: 4),
             Align(
               alignment: AlignmentDirectional.centerEnd,
-              child: Text("${loc['med_qty'] ?? 'Qty'}: ${item['qty']}", style: AppTextStyles.body(context).copyWith(fontSize: 11)),
+              // اعمال توابع برای تبدیل تعداد
+              child: Text("${loc['med_qty'] ?? 'Qty'}: ${item['qty'].toString().toPersianDigit(isPersian)}", style: AppTextStyles.body(context).copyWith(fontSize: 11)),
             ),
           ]
         ],
@@ -228,11 +237,12 @@ class _CalendarScreenState extends State<CalendarScreen> {
     );
   }
 
-
   Widget _buildCalendarCard(BuildContext context) {
     final daysInMonth = DateUtils.getDaysInMonth(_focusedMonth.year, _focusedMonth.month);
     final firstDayOfMonth = DateTime(_focusedMonth.year, _focusedMonth.month, 1);
     final weekDayOffset = firstDayOfMonth.weekday % 7; 
+    
+    final isPersian = Localizations.localeOf(context).languageCode == 'fa';
 
     return Container(
       padding: const EdgeInsets.all(20),
@@ -254,7 +264,8 @@ class _CalendarScreenState extends State<CalendarScreen> {
                 children: [
                   IconButton(icon: const Icon(Icons.chevron_left), onPressed: () => _changeMonth(-1), padding: EdgeInsets.zero, constraints: const BoxConstraints()),
                   const SizedBox(width: 10),
-                  Text(DateFormat('MMMM yyyy').format(_focusedMonth), style: AppTextStyles.title(context).copyWith(fontSize: 16)),
+                  // اعمال برای تبدیل سال به فارسی
+                  Text(DateFormat('MMMM yyyy').format(_focusedMonth).toPersianDigit(isPersian), style: AppTextStyles.title(context).copyWith(fontSize: 16)),
                   const SizedBox(width: 10),
                   IconButton(icon: const Icon(Icons.chevron_right), onPressed: () => _changeMonth(1), padding: EdgeInsets.zero, constraints: const BoxConstraints()),
                 ],
@@ -293,8 +304,8 @@ class _CalendarScreenState extends State<CalendarScreen> {
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
                       Text(
-                        '$dayNum',
-                        // استفاده از AppTextStyles به جای فونت هاردکد شده
+                        // اعمال برای تبدیل روزهای تقویم به فارسی
+                        '$dayNum'.toPersianDigit(isPersian),
                         style: AppTextStyles.get(
                           context,
                           color: isSelected ? Colors.white : AppColors.primaryText,
