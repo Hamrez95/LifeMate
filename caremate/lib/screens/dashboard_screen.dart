@@ -4,12 +4,15 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart'; 
 import '../services/backend_service.dart';
-import '../localization/app_localizations.dart';
-import '../localization/locale_provider.dart';
+import '../../core/localization/app_localizations.dart';
+import '../../core/localization/locale_provider.dart';
+import '../../core/utils/string_extensions.dart';
+import '../../core/constants/app_colors.dart';
+import '../../data/mock_data.dart';
+import '../widgets/custom_ui_components.dart';
 import 'profile_screen.dart';
-import 'caremate_bottom_nav.dart';
+import '../widgets/caremate_bottom_nav.dart';
 import 'calendar_screen.dart';
-import '../utils/string_extensions.dart';
 
 class DashboardScreen extends StatefulWidget {
   const DashboardScreen({Key? key}) : super(key: key);
@@ -21,23 +24,13 @@ class DashboardScreen extends StatefulWidget {
 class _DashboardScreenState extends State<DashboardScreen> {
   Map<String, dynamic>? backendStatus;
   bool syncing = false;
-
-  final Color bgColor = const Color(0xFFDFE9F5);
-  final Color cardColor = Colors.white.withOpacity(0.9);
-  final Color primaryText = const Color(0xFF2B3A60);
-  final Color secondaryText = const Color(0xFF6B7280);
-
   Timer? _autoRefreshTimer;
 
   Future<void> _onRefresh() async {
     setState(() { syncing = true; });
     try {
       final data = await BackendService.getStatus();
-      if (mounted) {
-        setState(() {
-          backendStatus = data;
-        });
-      }
+      if (mounted) setState(() { backendStatus = data; });
     } catch (e) {
       debugPrint("Sync Error: $e");
     }
@@ -49,9 +42,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
   void initState() {
     super.initState();
     _onRefresh();
-    _autoRefreshTimer = Timer.periodic(const Duration(seconds: 20), (timer) {
-      _onRefresh();
-    });
+    _autoRefreshTimer = Timer.periodic(const Duration(seconds: 20), (_) => _onRefresh());
   }
 
   @override
@@ -66,19 +57,13 @@ class _DashboardScreenState extends State<DashboardScreen> {
     final localeProvider = Provider.of<LocaleProvider>(context);
     final isPersian = localeProvider.locale.languageCode == 'fa';
 
-    // انتخاب فونت بر اساس زبان (اصلاح شده برای استفاده از فونت محلی)
-    final TextStyle mainFont = isPersian
-        ? TextStyle(fontFamily: 'Vazir', color: primaryText)
-        : TextStyle(fontFamily: 'Poppins', color: primaryText);
+    final TextStyle mainFont = TextStyle(fontFamily: isPersian ? 'Vazir' : 'Poppins', color: AppColors.primaryText);
+    final TextStyle titleFont = TextStyle(fontFamily: isPersian ? 'Vazir' : 'Poppins', fontSize: 24, fontWeight: FontWeight.bold, color: AppColors.titleDarkBlue);
 
-    final TextStyle titleFont = isPersian
-        ? TextStyle(fontFamily: 'Vazir', fontSize: 24, fontWeight: FontWeight.bold, color: const Color(0xFF33416E))
-        : TextStyle(fontFamily: 'Poppins', fontSize: 24, fontWeight: FontWeight.bold, color: const Color(0xFF33416E));
-
-    final String patientName = "${loc['dashboard_patient']}: John Doe";
+    final String patientName = "${loc['dashboard_patient']}: ${MockData.patientNameEn}";
 
     return Scaffold(
-      backgroundColor: bgColor,
+      backgroundColor: AppColors.background,
       body: SafeArea(
         bottom: false,
         child: Stack(
@@ -87,32 +72,24 @@ class _DashboardScreenState extends State<DashboardScreen> {
               padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
               child: Column(
                 children: [
+                  // --- Header ---
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      _GlassIconButton(icon: Icons.notifications_none_rounded, onTap: () {}),
-                      Text(
-                        loc['main_dashboard_title'], 
-                        style: titleFont,
-                      ),
+                      GlassIconButton(icon: Icons.notifications_none_rounded, onTap: () {}),
+                      Text(loc['main_dashboard_title'], style: titleFont),
                       GestureDetector(
-                        onTap: () {
-                          Navigator.of(context).push(MaterialPageRoute(builder: (_) => const ProfileScreen()));
-                        },
-                        child: _ProfileAvatar(),
+                        onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const ProfileScreen())),
+                        child: const ProfileAvatar(),
                       ),
                     ],
                   ),
+                  
                   Align(
                     alignment: isPersian ? Alignment.centerLeft : Alignment.centerRight,
                     child: Padding(
                       padding: const EdgeInsets.only(top: 10, bottom: 20),
-                      child: _GlassIconButton(
-                        icon: Icons.tune_rounded,
-                        size: 38,
-                        iconSize: 20,
-                        onTap: _onRefresh,
-                      ),
+                      child: GlassIconButton(icon: Icons.tune_rounded, size: 38, iconSize: 20, onTap: _onRefresh),
                     ),
                   ),
 
@@ -120,97 +97,31 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     alignment: isPersian ? Alignment.centerRight : Alignment.centerLeft,
                     child: Padding(
                       padding: const EdgeInsets.only(bottom: 4),
-                      child: Text(
-                        patientName,
-                        style: mainFont.copyWith(fontSize: 12, color: secondaryText),
-                      ),
+                      child: Text(patientName, style: mainFont.copyWith(fontSize: 12, color: AppColors.secondaryText)),
                     ),
                   ),
 
-                  _SectionHeader(
-                    title: loc['dashboard_current_status'],
-                    font: mainFont,
-                    textDirection: isPersian ? TextDirection.rtl : TextDirection.ltr,
-                  ),
+                  // --- Current Status Section ---
+                  SectionHeader(title: loc['dashboard_current_status'], font: mainFont, textDirection: isPersian ? TextDirection.rtl : TextDirection.ltr),
                   const SizedBox(height: 12),
                   Container(
                     width: double.infinity,
-                    decoration: _softDecoration(),
+                    decoration: AppColors.softDecoration(),
                     padding: const EdgeInsets.all(20),
                     child: backendStatus == null
                         ? const Center(child: CircularProgressIndicator())
-                        : Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                backendStatus!['item']?['type'] == 'med'
-                                    ? loc['dashboard_current_medicine']
-                                    : loc['dashboard_current_appointment'],
-                                style: mainFont.copyWith(fontWeight: FontWeight.bold, fontSize: 16),
-                              ),
-                              const SizedBox(height: 8),
-                              // 👇 اعمال تبدیل به فارسی در صورت وجود عدد در نام دارو 👇
-                              Text(
-                                (backendStatus!['item']?['name'] ?? '-').toString().toPersianDigit(isPersian),
-                                style: mainFont.copyWith(fontSize: 18, color: Colors.blueGrey[800]),
-                              ),
-                              const SizedBox(height: 8),
-                              if (backendStatus!['status'] == 'done' || backendStatus!['status'] == 'attended')
-                                Container(
-                                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                                  decoration: BoxDecoration(
-                                    color: Colors.green.withOpacity(0.15),
-                                    borderRadius: BorderRadius.circular(10),
-                                  ),
-                                  child: Text(
-                                    backendStatus!['status'] == 'done'
-                                        ? loc['dashboard_status_taken']
-                                        : loc['dashboard_status_attended'],
-                                    style: mainFont.copyWith(fontSize: 14, color: Colors.green[800], fontWeight: FontWeight.bold),
-                                  ),
-                                ),
-                              if (backendStatus!['status'] == 'pending')
-                                Container(
-                                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                                  decoration: BoxDecoration(
-                                    color: Colors.orange.withOpacity(0.15),
-                                    borderRadius: BorderRadius.circular(10),
-                                  ),
-                                  child: Text(
-                                    loc['dashboard_status_pending'],
-                                    style: mainFont.copyWith(fontSize: 14, color: Colors.orange[800], fontWeight: FontWeight.bold),
-                                  ),
-                                ),
-                              const SizedBox(height: 16),
-                              Text(
-                                loc['dashboard_next'],
-                                style: mainFont.copyWith(fontWeight: FontWeight.bold, fontSize: 15),
-                              ),
-                              const SizedBox(height: 6),
-                              (() {
-                                final nextList = backendStatus!['nextMedications'] as List?;
-                                if (nextList != null && nextList.isNotEmpty) {
-                                  final med = nextList.first;
-                                  return Text(
-                                    // 👇 اعمال تبدیل به فارسی در صورت وجود عدد در نام داروی بعدی 👇
-                                    (med['name'] ?? '-').toString().toPersianDigit(isPersian),
-                                    style: mainFont.copyWith(fontSize: 16, color: Colors.blueGrey[600]),
-                                  );
-                                }
-                                return Text('-', style: mainFont.copyWith(fontSize: 16, color: Colors.blueGrey[600]));
-                              })(),
-                            ],
-                          ),
+                        : _buildStatusContent(loc, isPersian, mainFont),
                   ),
                   const SizedBox(height: 24),
 
+                  // --- Partner Status & Baby Tracker ---
                   Row(
                     children: [
                       Expanded(
                         child: Container(
                           height: 210,
                           padding: const EdgeInsets.all(16),
-                          decoration: _softDecoration(color: const Color(0xFFF0F2F5)),
+                          decoration: AppColors.softDecoration(color: const Color(0xFFF0F2F5)),
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
@@ -220,33 +131,17 @@ class _DashboardScreenState extends State<DashboardScreen> {
                                 child: Stack(
                                   alignment: Alignment.center,
                                   children: [
-                                    SizedBox(
-                                      width: 90,
-                                      height: 90,
-                                      child: CircularProgressIndicator(
-                                        value: 0.75, 
-                                        strokeWidth: 10,
-                                        backgroundColor: Colors.white,
-                                        valueColor: const AlwaysStoppedAnimation<Color>(Color(0xFFE598D8)),
-                                      ),
+                                    const SizedBox(
+                                      width: 90, height: 90,
+                                      child: CircularProgressIndicator(value: MockData.partnerStatusValue, strokeWidth: 10, backgroundColor: Colors.white, valueColor: AlwaysStoppedAnimation<Color>(Color(0xFFE598D8))),
                                     ),
                                     Column(
                                       mainAxisSize: MainAxisSize.min,
                                       children: [
-                                        Text(loc['dashboard_week'], style: mainFont.copyWith(fontSize: 12, color: secondaryText)),
-                                        // 👇 تبدیل شماره هفته به فارسی 👇
-                                        Text("12".toPersianDigit(isPersian), style: mainFont.copyWith(fontSize: 22, fontWeight: FontWeight.bold)),
+                                        Text(loc['dashboard_week'], style: mainFont.copyWith(fontSize: 12, color: AppColors.secondaryText)),
+                                        Text(MockData.pregnancyWeek.toPersianDigit(isPersian), style: mainFont.copyWith(fontSize: 22, fontWeight: FontWeight.bold)),
                                       ],
                                     ),
-                                    Positioned(
-                                      right: 0,
-                                      bottom: 5,
-                                      child: CircleAvatar(
-                                        radius: 14,
-                                        backgroundColor: const Color(0xFFFFE0B2),
-                                        child: Icon(Icons.child_care, size: 18, color: Colors.orange[800]),
-                                      ),
-                                    )
                                   ],
                                 ),
                               ),
@@ -262,27 +157,15 @@ class _DashboardScreenState extends State<DashboardScreen> {
                         child: Container(
                           height: 210,
                           padding: const EdgeInsets.all(16),
-                          decoration: _softDecoration(),
+                          decoration: AppColors.softDecoration(),
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               Text(loc['dashboard_baby_tracker'], style: mainFont.copyWith(fontSize: 15, fontWeight: FontWeight.bold)),
                               const SizedBox(height: 15),
-                              _GlassItem(
-                                icon: Icons.baby_changing_station,
-                                iconColor: Colors.blueAccent,
-                                text: loc['dashboard_supply_low'],
-                                hasDot: true,
-                                font: mainFont,
-                              ),
+                              GlassItem(icon: Icons.baby_changing_station, iconColor: Colors.blueAccent, text: loc['dashboard_supply_low'], hasDot: true, font: mainFont),
                               const SizedBox(height: 12),
-                              _GlassItem(
-                                icon: Icons.vaccines,
-                                iconColor: Colors.orangeAccent,
-                                text: loc['dashboard_vaccine_tomo'],
-                                hasDot: false,
-                                font: mainFont,
-                              ),
+                              GlassItem(icon: Icons.vaccines, iconColor: Colors.orangeAccent, text: loc['dashboard_vaccine_tomo'], hasDot: false, font: mainFont),
                             ],
                           ),
                         ),
@@ -292,63 +175,40 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
                   const SizedBox(height: 24),
 
-                  _SectionHeader(
-                    title: loc['dashboard_quick_summary'], 
-                    font: mainFont,
-                    textDirection: isPersian ? TextDirection.rtl : TextDirection.ltr
-                    ),
+                  // --- Quick Summary ---
+                  SectionHeader(title: loc['dashboard_quick_summary'], font: mainFont, textDirection: isPersian ? TextDirection.rtl : TextDirection.ltr),
                   const SizedBox(height: 12),
                   Container(
                     width: double.infinity,
                     padding: const EdgeInsets.all(20),
-                    decoration: _softDecoration(),
+                    decoration: AppColors.softDecoration(),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            // 👇 تبدیل درصد به فارسی 👇
-                            Text("80%".toPersianDigit(isPersian), style: mainFont.copyWith(fontWeight: FontWeight.bold)),
-                          ],
-                        ),
+                        Text(MockData.medicationProgress.toPersianDigit(isPersian), style: mainFont.copyWith(fontWeight: FontWeight.bold)),
                         const SizedBox(height: 8),
                         ClipRRect(
                           borderRadius: BorderRadius.circular(10),
-                          child: LinearProgressIndicator(
-                            value: 0.8,
-                            minHeight: 12,
-                            backgroundColor: Colors.grey[200],
-                            valueColor: const AlwaysStoppedAnimation<Color>(Color(0xFF6FCF97)),
-                          ),
+                          child: LinearProgressIndicator(value: MockData.medicationProgressValue, minHeight: 12, backgroundColor: Colors.grey[200], valueColor: const AlwaysStoppedAnimation<Color>(Color(0xFF6FCF97))),
                         ),
                         const SizedBox(height: 12),
-                        Text(loc['dashboard_total_meds'], style: mainFont.copyWith(color: secondaryText, fontSize: 13)),
+                        Text(loc['dashboard_total_meds'], style: mainFont.copyWith(color: AppColors.secondaryText, fontSize: 13)),
                       ],
                     ),
                   ),
-
                   const SizedBox(height: 120),
                 ],
               ),
             ),
 
+            // --- Bottom Navigation ---
             Positioned(
-              bottom: 30,
-              left: 20,
-              right: 20,
+              bottom: 30, left: 20, right: 20,
               child: CareMateBottomNav(
                 currentIndex: 3, 
                 onTap: (index) {
                   if (index == 0) {
-                    Navigator.pushReplacement(
-                      context,
-                      PageRouteBuilder(
-                        pageBuilder: (context, animation1, animation2) => const CalendarScreen(),
-                        transitionDuration: Duration.zero,
-                        reverseTransitionDuration: Duration.zero,
-                      ),
-                    );
+                    Navigator.pushReplacement(context, PageRouteBuilder(pageBuilder: (_, __, ___) => const CalendarScreen(), transitionDuration: Duration.zero, reverseTransitionDuration: Duration.zero));
                   }
                 },
               ),
@@ -359,198 +219,40 @@ class _DashboardScreenState extends State<DashboardScreen> {
     );
   }
 
-  BoxDecoration _softDecoration({Color color = Colors.white}) {
-    return BoxDecoration(
-      color: color.withOpacity(0.85),
-      borderRadius: BorderRadius.circular(24),
-      boxShadow: [
-        BoxShadow(color: Colors.white.withOpacity(0.8), offset: const Offset(-6, -6), blurRadius: 12),
-        BoxShadow(color: const Color(0xFFA6BCCF).withOpacity(0.3), offset: const Offset(6, 6), blurRadius: 12),
+  // بخش محتوای وضعیت برای جلوگیری از شلوغی متد build جدا شد
+  Widget _buildStatusContent(dynamic loc, bool isPersian, TextStyle mainFont) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(backendStatus!['item']?['type'] == 'med' ? loc['dashboard_current_medicine'] : loc['dashboard_current_appointment'], style: mainFont.copyWith(fontWeight: FontWeight.bold, fontSize: 16)),
+        const SizedBox(height: 8),
+        Text((backendStatus!['item']?['name'] ?? '-').toString().toPersianDigit(isPersian), style: mainFont.copyWith(fontSize: 18, color: Colors.blueGrey[800])),
+        const SizedBox(height: 8),
+        if (backendStatus!['status'] == 'done' || backendStatus!['status'] == 'attended')
+          _statusBadge(backendStatus!['status'] == 'done' ? loc['dashboard_status_taken'] : loc['dashboard_status_attended'], Colors.green, mainFont),
+        if (backendStatus!['status'] == 'pending')
+          _statusBadge(loc['dashboard_status_pending'], Colors.orange, mainFont),
+        const SizedBox(height: 16),
+        Text(loc['dashboard_next'], style: mainFont.copyWith(fontWeight: FontWeight.bold, fontSize: 15)),
+        const SizedBox(height: 6),
+        _nextMedication(isPersian, mainFont),
       ],
     );
   }
-}
 
-// -----------------------------------------------------------------------------
-// Widgets
-// -----------------------------------------------------------------------------
-
-class _SectionHeader extends StatelessWidget {
-  final String title;
-  final TextStyle font;
-  final TextDirection? textDirection;
-  
-  const _SectionHeader({
-    required this.title, 
-    required this.font, 
-    this.textDirection
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Align(
-      alignment: textDirection == TextDirection.rtl 
-          ? Alignment.centerRight 
-          : Alignment.centerLeft,
-          
-      child: Text(
-        title,
-        style: font.copyWith(
-          fontSize: 18,
-          fontWeight: FontWeight.bold,
-          color: const Color(0xFF2B3A60),
-        ),
-        textDirection: textDirection,
-      ),
-    );
-  }
-}
-
-
-class _GlassIconButton extends StatelessWidget {
-  final IconData icon;
-  final VoidCallback onTap;
-  final double size;
-  final double iconSize;
-
-  const _GlassIconButton({required this.icon, required this.onTap, this.size = 48, this.iconSize = 24});
-
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        width: size,
-        height: size,
-        decoration: BoxDecoration(
-          color: const Color(0xFFF0F4FA),
-          shape: BoxShape.circle,
-          boxShadow: [
-            const BoxShadow(color: Colors.white, offset: Offset(-4, -4), blurRadius: 8),
-            BoxShadow(color: Colors.black.withOpacity(0.05), offset: const Offset(4, 4), blurRadius: 8),
-          ],
-        ),
-        child: Icon(icon, color: Colors.black54, size: iconSize),
-      ),
-    );
-  }
-}
-
-class _ProfileAvatar extends StatelessWidget {
-  @override
-  Widget build(BuildContext context) {
+  Widget _statusBadge(String text, MaterialColor color, TextStyle font) {
     return Container(
-      width: 48,
-      height: 48,
-      decoration: BoxDecoration(
-        shape: BoxShape.circle,
-        color: const Color(0xFFF0F4FA),
-        boxShadow: [
-            const BoxShadow(color: Colors.white, offset: Offset(-4, -4), blurRadius: 8),
-            BoxShadow(color: Colors.black.withOpacity(0.1), offset: const Offset(4, 4), blurRadius: 8),
-        ],
-      ),
-      padding: const EdgeInsets.all(4),
-      child: const CircleAvatar(
-        backgroundColor: Color(0xFFE2D4C8),
-        backgroundImage: null,
-        child: Icon(Icons.person, color: Colors.white),
-      ),
-    );
-  }
-}
-
-class _GlassItem extends StatelessWidget {
-  final IconData icon;
-  final Color iconColor;
-  final String text;
-  final bool hasDot;
-  final TextStyle font;
-
-  const _GlassItem({
-    required this.icon, 
-    required this.iconColor, 
-    required this.text, 
-    required this.hasDot,
-    required this.font,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(10),
-      decoration: BoxDecoration(
-        color: Colors.blue[50]!.withOpacity(0.5),
-        borderRadius: BorderRadius.circular(16),
-      ),
-      child: Row(
-        children: [
-          Icon(icon, color: iconColor, size: 20),
-          const SizedBox(width: 8),
-          Expanded(
-            child: Text(
-              text,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: font.copyWith(fontSize: 12, fontWeight: FontWeight.w600),
-            ),
-          ),
-          if (hasDot)
-            Container(width: 6, height: 6, decoration: const BoxDecoration(color: Colors.redAccent, shape: BoxShape.circle))
-        ],
-      ),
-    );
-  }
-}
-
-class _CustomBottomNav extends StatelessWidget {
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      height: 80,
-      decoration: BoxDecoration(
-        color: const Color(0xFFEFF4F9),
-        borderRadius: BorderRadius.circular(30),
-        boxShadow: [
-          BoxShadow(color: Colors.black.withOpacity(0.1), blurRadius: 20, offset: const Offset(0, 10)),
-          const BoxShadow(color: Colors.white, blurRadius: 10, offset: Offset(0, -5)),
-        ],
-      ),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-        children: [
-          _navIcon(Icons.calendar_today_rounded),
-          _navIcon(Icons.person_outline_rounded),
-          Transform.translate(
-            offset: const Offset(0, -25),
-            child: Container(
-              width: 60,
-              height: 60,
-              decoration: BoxDecoration(
-                color: const Color(0xFF2C3E50),
-                shape: BoxShape.circle,
-                boxShadow: [
-                  BoxShadow(color: const Color(0xFF2C3E50).withOpacity(0.4), blurRadius: 15, offset: const Offset(0, 10)),
-                ],
-              ),
-              child: const Icon(Icons.add, color: Colors.white, size: 30),
-            ),
-          ),
-          _navIcon(Icons.notifications_none_rounded),
-          Container(
-            padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(
-              color: const Color(0xFF2C3E50),
-              borderRadius: BorderRadius.circular(16),
-            ),
-            child: const Icon(Icons.home_rounded, color: Colors.white),
-          ),
-        ],
-      ),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+      decoration: BoxDecoration(color: color.withOpacity(0.15), borderRadius: BorderRadius.circular(10)),
+      child: Text(text, style: font.copyWith(fontSize: 14, color: color[800], fontWeight: FontWeight.bold)),
     );
   }
 
-  Widget _navIcon(IconData icon) {
-    return Icon(icon, color: Colors.grey[500], size: 28);
+  Widget _nextMedication(bool isPersian, TextStyle mainFont) {
+    final nextList = backendStatus!['nextMedications'] as List?;
+    if (nextList != null && nextList.isNotEmpty) {
+      return Text((nextList.first['name'] ?? '-').toString().toPersianDigit(isPersian), style: mainFont.copyWith(fontSize: 16, color: Colors.blueGrey[600]));
+    }
+    return Text('-', style: mainFont.copyWith(fontSize: 16, color: Colors.blueGrey[600]));
   }
 }

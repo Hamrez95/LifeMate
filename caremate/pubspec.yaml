@@ -20,8 +20,8 @@ flutter:
   uses-material-design: true
   assets:
     - assets/
-    - lib/localization/en.json
-    - lib/localization/fa.json
+    - lib/core/localization/en.json
+    - lib/core/localization/fa.json
   fonts:
     - family: Nunito
       fonts:

@@ -48,12 +48,12 @@
   "profile_support": "پشتیبانی",
   "profile_logout": "خروج",
   "settings_language": "زبان",
-  "footer_message": "از اینکه ول‌میت را انتخاب کردید متشکریم!",
+  "footer_message": "از اینکه Caremate را انتخاب کردید متشکریم!",
   "calendar_schedule_for": "برنامه برای",
-  "calendar_title": "تقویم",
+  "calendar_title": "تقویم درمان",
   "user_mother": "مادر",
   "user_baby": "نوزاد",
   "user_partner": "همسر",
-  "calendar_empty": "برنامه‌ای وجود ندارد"
+  "calendar_empty": "برنامه‌ای برای امروز وجود ندارد"
 
 }

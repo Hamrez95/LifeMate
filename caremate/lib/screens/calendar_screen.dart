@@ -2,14 +2,13 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart'; 
 
-import '../localization/app_localizations.dart';
-import '../localization/locale_provider.dart';
+import '../../core/localization/app_localizations.dart';
+import '../../core/localization/locale_provider.dart';
+import '../../core/utils/string_extensions.dart'; 
+import '../../core/constants/app_colors.dart'; // 👈 اضافه شد
+import '../widgets/caremate_bottom_nav.dart'; // 👈 مسیر را بر اساس پوشه ویجت‌ها تنظیم کنید
 import 'profile_screen.dart'; 
 import 'dashboard_screen.dart'; 
-import 'caremate_bottom_nav.dart';
-
-// 👇 این ایمپورت برای تبدیل اعداد به فارسی اضافه شد 👇
-import '../utils/string_extensions.dart'; 
 
 class CalendarScreen extends StatefulWidget {
   const CalendarScreen({Key? key}) : super(key: key);
@@ -24,9 +23,6 @@ class _CalendarScreenState extends State<CalendarScreen> {
   late Map<DateTime, List<Map<String, dynamic>>> _events;
   
   String _selectedUser = 'Mother';
-
-  final Color bgColor = const Color(0xFFDFE9F5);
-  final Color primaryText = const Color(0xFF2B3A60);
 
   @override
   void initState() {
@@ -66,36 +62,34 @@ class _CalendarScreenState extends State<CalendarScreen> {
     });
   }
 
-    @override
+  @override
   Widget build(BuildContext context) {
     final loc = AppLocalizations.of(context);
     final localeProvider = Provider.of<LocaleProvider>(context);
     final isPersian = localeProvider.locale.languageCode == 'fa';
 
-    // فونت‌های اختصاصی CareMate
     final TextStyle mainFont = isPersian
-        ? TextStyle(fontFamily: 'Vazir', color: primaryText)
-        : TextStyle(fontFamily: 'Poppins', color: primaryText);
+        ? const TextStyle(fontFamily: 'Vazir', color: AppColors.primaryText)
+        : const TextStyle(fontFamily: 'Nunito', color: AppColors.primaryText); // 👈 یکپارچه‌سازی با فونت Main
     
     final TextStyle titleFont = isPersian
-        ? TextStyle(fontFamily: 'Vazir', fontSize: 22, fontWeight: FontWeight.bold, color: const Color(0xFF33416E))
-        : TextStyle(fontFamily: 'Poppins', fontSize: 22, fontWeight: FontWeight.bold, color: const Color(0xFF33416E));
+        ? const TextStyle(fontFamily: 'Vazir', fontSize: 22, fontWeight: FontWeight.bold, color: AppColors.darkBlue)
+        : const TextStyle(fontFamily: 'Nunito', fontSize: 22, fontWeight: FontWeight.bold, color: AppColors.darkBlue);
 
     final events = _getEventsForDay(_selectedDate);
     final dayFormat = DateFormat('d').format(_selectedDate);
     
-    // 👇 تبدیل عدد مربوط به روز انتخابی به فارسی 👇
     final scheduleTitle = "${loc['calendar_schedule_for'] ?? 'Schedule for'} $dayFormat${isPersian ? '' : 'th'}".toPersianDigit(isPersian);
 
     return Scaffold(
-      backgroundColor: bgColor,
+      backgroundColor: AppColors.background, // 👈 استفاده از پالت رنگ
       body: SafeArea(
         bottom: false,
         child: Stack(
           children: [
             Column(
               children: [
-                // ۱. هدر (ثابت در بالای صفحه)
+                // ۱. هدر
                 Padding(
                   padding: const EdgeInsets.fromLTRB(24, 20, 24, 10),
                   child: Row(
@@ -103,7 +97,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
                     children: [
                       Container(
                         width: 48, height: 48,
-                        decoration: BoxDecoration(color: const Color(0xFFF0F4FA), shape: BoxShape.circle, boxShadow: [
+                        decoration: BoxDecoration(color: AppColors.lightContainer, shape: BoxShape.circle, boxShadow: [
                           const BoxShadow(color: Colors.white, offset: Offset(-4, -4), blurRadius: 8),
                           BoxShadow(color: Colors.black.withOpacity(0.05), offset: const Offset(4, 4), blurRadius: 8),
                         ]),
@@ -114,22 +108,22 @@ class _CalendarScreenState extends State<CalendarScreen> {
                         onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const ProfileScreen())),
                         child: Container(
                           width: 48, height: 48,
-                          decoration: BoxDecoration(shape: BoxShape.circle, color: const Color(0xFFF0F4FA), boxShadow: [
+                          decoration: BoxDecoration(shape: BoxShape.circle, color: AppColors.lightContainer, boxShadow: [
                             const BoxShadow(color: Colors.white, offset: Offset(-4, -4), blurRadius: 8),
                             BoxShadow(color: Colors.black.withOpacity(0.1), offset: const Offset(4, 4), blurRadius: 8),
                           ]),
                           padding: const EdgeInsets.all(4),
-                          child: const CircleAvatar(backgroundColor: Color(0xFFE2D4C8), child: Icon(Icons.person, color: Colors.white)),
+                          child: const CircleAvatar(backgroundColor: AppColors.avatarBackground, child: Icon(Icons.person, color: Colors.white)),
                         ),
                       ),
                     ],
                   ),
                 ),
 
-                // ۲. محتوای قابل اسکرول (بقیه صفحه)
+                // ۲. محتوای قابل اسکرول
                 Expanded(
                   child: SingleChildScrollView(
-                    padding: const EdgeInsets.only(bottom: 120), // فضای خالی برای جلوگیری از تداخل با نویگیشن بار
+                    padding: const EdgeInsets.only(bottom: 120),
                     child: Column(
                       children: [
                         const SizedBox(height: 15),
@@ -178,8 +172,8 @@ class _CalendarScreenState extends State<CalendarScreen> {
                                       child: Center(child: Text(loc['calendar_empty'] ?? 'No schedule', style: mainFont)),
                                     )
                                   : ListView.separated(
-                                      shrinkWrap: true, // اضافه شده برای سازگاری با SingleChildScrollView
-                                      physics: const NeverScrollableScrollPhysics(), // اضافه شده برای جلوگیری از اسکرول داخلی
+                                      shrinkWrap: true, 
+                                      physics: const NeverScrollableScrollPhysics(),
                                       padding: EdgeInsets.zero, 
                                       itemCount: events.length,
                                       separatorBuilder: (context, index) => const SizedBox(height: 12),
@@ -197,15 +191,15 @@ class _CalendarScreenState extends State<CalendarScreen> {
               ],
             ),
 
-            // نویگیشن بار (ثابت در پایین)
+            // نویگیشن بار 
             Positioned(
               bottom: 30,
               left: 20,
               right: 20,
               child: CareMateBottomNav(
-                currentIndex: 0, 
+                currentIndex: 0, // ایندکس تقویم
                 onTap: (index) {
-                  if (index == 3) { 
+                  if (index == 4) { // 👈 اصلاح شد: ایندکس 4 برای رفتن به داشبورد
                     Navigator.pushReplacement(
                       context,
                       PageRouteBuilder(
@@ -232,15 +226,15 @@ class _CalendarScreenState extends State<CalendarScreen> {
         duration: const Duration(milliseconds: 200),
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
         decoration: BoxDecoration(
-          color: isSelected ? const Color(0xFF2C3E50) : Colors.white.withOpacity(0.5),
+          color: isSelected ? AppColors.darkBlue : Colors.white.withOpacity(0.5),
           borderRadius: BorderRadius.circular(20),
-          boxShadow: isSelected ? [BoxShadow(color: const Color(0xFF2C3E50).withOpacity(0.3), blurRadius: 8, offset: const Offset(0, 4))] : [],
+          boxShadow: isSelected ? [BoxShadow(color: AppColors.darkBlue.withOpacity(0.3), blurRadius: 8, offset: const Offset(0, 4))] : [],
         ),
         child: Row(
           children: [
-            Icon(icon, size: 18, color: isSelected ? Colors.white : primaryText),
+            Icon(icon, size: 18, color: isSelected ? Colors.white : AppColors.primaryText),
             const SizedBox(width: 8),
-            Text(label, style: font.copyWith(color: isSelected ? Colors.white : primaryText, fontWeight: FontWeight.bold, fontSize: 14)),
+            Text(label, style: font.copyWith(color: isSelected ? Colors.white : AppColors.primaryText, fontWeight: FontWeight.bold, fontSize: 14)),
           ],
         ),
       ),
@@ -254,25 +248,17 @@ class _CalendarScreenState extends State<CalendarScreen> {
 
     return Container(
       padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.85),
-        borderRadius: BorderRadius.circular(25),
-        boxShadow: [
-          BoxShadow(color: Colors.white.withOpacity(0.8), offset: const Offset(-6, -6), blurRadius: 12),
-          BoxShadow(color: const Color(0xFFA6BCCF).withOpacity(0.3), offset: const Offset(6, 6), blurRadius: 12),
-        ],
-      ),
+      decoration: AppColors.softDecoration(color: Colors.white.withOpacity(0.85)), // 👈 استفاده از استایل نئومورفیسم متمرکز
       child: Column(
         children: [
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Icon(Icons.calendar_month, color: primaryText, size: 20),
+              const Icon(Icons.calendar_month, color: AppColors.primaryText, size: 20),
               Row(
                 children: [
                   IconButton(icon: const Icon(Icons.chevron_left), onPressed: () => _changeMonth(-1), padding: EdgeInsets.zero, constraints: const BoxConstraints()),
                   const SizedBox(width: 10),
-                  // 👇 تبدیل سال به فارسی 👇
                   Text(DateFormat('MMMM yyyy').format(_focusedMonth).toPersianDigit(isPersian), style: font.copyWith(fontSize: 16, fontWeight: FontWeight.bold)),
                   const SizedBox(width: 10),
                   IconButton(icon: const Icon(Icons.chevron_right), onPressed: () => _changeMonth(1), padding: EdgeInsets.zero, constraints: const BoxConstraints()),
@@ -305,17 +291,16 @@ class _CalendarScreenState extends State<CalendarScreen> {
                 onTap: () => _onDaySelected(currentDayDate),
                 child: Container(
                   decoration: BoxDecoration(
-                    color: isSelected ? const Color(0xFF2C3E50) : Colors.transparent,
+                    color: isSelected ? AppColors.darkBlue : Colors.transparent,
                     borderRadius: BorderRadius.circular(12),
                   ),
                   child: Column(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      // 👇 تبدیل شماره روزها به فارسی 👇
                       Text(
                         '$dayNum'.toPersianDigit(isPersian),
                         style: font.copyWith(
-                          color: isSelected ? Colors.white : primaryText,
+                          color: isSelected ? Colors.white : AppColors.primaryText,
                           fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
                         ),
                       ),
@@ -361,7 +346,6 @@ class _CalendarScreenState extends State<CalendarScreen> {
               children: [
                 Text(item['title'], style: font.copyWith(fontSize: 16, fontWeight: FontWeight.bold)),
                 const SizedBox(height: 4),
-                // 👇 تبدیل زمان و سایر اعداد در زیرنویس رویداد به فارسی 👇
                 Text(item['subtitle'].toString().toPersianDigit(isPersian), style: font.copyWith(fontSize: 13, color: Colors.grey[600])),
               ],
             ),
