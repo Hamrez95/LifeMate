@@ -5,10 +5,14 @@ import 'package:provider/provider.dart';
 import '../../core/localization/app_localizations.dart';
 import '../../core/localization/locale_provider.dart';
 import '../../core/utils/string_extensions.dart'; 
-import '../../core/constants/app_colors.dart'; // 👈 اضافه شد
-import '../widgets/caremate_bottom_nav.dart'; // 👈 مسیر را بر اساس پوشه ویجت‌ها تنظیم کنید
+import '../../core/constants/app_colors.dart';
+import '../widgets/caremate_bottom_nav.dart';
 import 'profile_screen.dart'; 
-import 'dashboard_screen.dart'; 
+import 'dashboard_screen.dart';
+
+// 👇 ایمپورت مدل‌ها و داده‌های ساختگی (مسیرها را در صورت نیاز اصلاح کن)
+import '../../models/event_model.dart';
+import '../../data/app_mock_data.dart';
 
 class CalendarScreen extends StatefulWidget {
   const CalendarScreen({Key? key}) : super(key: key);
@@ -20,34 +24,36 @@ class CalendarScreen extends StatefulWidget {
 class _CalendarScreenState extends State<CalendarScreen> {
   DateTime _selectedDate = DateTime.now();
   DateTime _focusedMonth = DateTime.now();
-  late Map<DateTime, List<Map<String, dynamic>>> _events;
   
-  String _selectedUser = 'Mother';
+  // نگهداری شناسه کاربر انتخاب شده
+  late String _selectedUserId;
 
   @override
   void initState() {
     super.initState();
-    final today = DateTime.now();
-    final day18 = DateTime(today.year, today.month, 18);
-    final day19 = DateTime(today.year, today.month, 19);
-
-    _events = {
-      day18: [
-        {'title': 'Prenatal Vitamins', 'subtitle': '08:00 AM', 'icon': Icons.medication, 'color': Colors.pinkAccent},
-        {'title': 'Dr. Siamaki', 'subtitle': 'Checkup\n10:30 AM', 'icon': Icons.medical_services, 'color': Colors.blueAccent},
-      ],
-      day19: [
-        {'title': 'Baby Vaccination', 'subtitle': '09:00 AM', 'icon': Icons.vaccines, 'color': Colors.orangeAccent}
-      ],
-    };
+    // به صورت پیش‌فرض، اولین عضو خانواده انتخاب می‌شود
+    if (AppMockData.familyMembers.isNotEmpty) {
+      _selectedUserId = AppMockData.familyMembers.first.id;
+    }
   }
 
+  // نرمال‌سازی تاریخ برای مقایسه (حذف ساعت و دقیقه)
   DateTime _normalizeDate(DateTime date) {
     return DateTime(date.year, date.month, date.day);
   }
 
-  List<Map<String, dynamic>> _getEventsForDay(DateTime day) {
-    return _events[_normalizeDate(day)] ?? [];
+  // دریافت رویدادها برای یک روز خاص و کاربر انتخاب شده
+  List<EventModel> _getEventsForDayAndUser(DateTime day, String userId) {
+    return AppMockData.calendarEvents.where((event) {
+      return _normalizeDate(event.date) == _normalizeDate(day) && event.userId == userId;
+    }).toList();
+  }
+
+  // بررسی اینکه آیا کاربر در یک روز خاص رویدادی دارد یا خیر (برای نمایش نقطه روی تقویم)
+  bool _hasEventForUser(DateTime day, String userId) {
+    return AppMockData.calendarEvents.any((event) => 
+      _normalizeDate(event.date) == _normalizeDate(day) && event.userId == userId
+    );
   }
 
   void _onDaySelected(DateTime day) {
@@ -62,6 +68,31 @@ class _CalendarScreenState extends State<CalendarScreen> {
     });
   }
 
+  // تابعی برای انتخاب آیکون مناسب بر اساس نقش کاربر
+  IconData _getIconForRole(String role) {
+    switch (role) {
+      case 'مادر': return Icons.pregnant_woman;
+      case 'فرزند': return Icons.child_care;
+      case 'همسر': return Icons.favorite;
+      default: return Icons.person;
+    }
+  }
+
+  // تابعی برای تعیین رنگ و آیکون کارت رویداد بر اساس نوع رویداد
+  Map<String, dynamic> _getEventTheme(EventType type) {
+    switch (type) {
+      case EventType.medicine:
+        return {'color': Colors.pinkAccent, 'icon': Icons.medication};
+      case EventType.doctor:
+        return {'color': Colors.blueAccent, 'icon': Icons.medical_services};
+      case EventType.checkup:
+        return {'color': Colors.orangeAccent, 'icon': Icons.vaccines};
+      case EventType.other:
+      default:
+        return {'color': AppColors.darkBlue, 'icon': Icons.event};
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final loc = AppLocalizations.of(context);
@@ -70,19 +101,20 @@ class _CalendarScreenState extends State<CalendarScreen> {
 
     final TextStyle mainFont = isPersian
         ? const TextStyle(fontFamily: 'Vazir', color: AppColors.primaryText)
-        : const TextStyle(fontFamily: 'Nunito', color: AppColors.primaryText); // 👈 یکپارچه‌سازی با فونت Main
+        : const TextStyle(fontFamily: 'Nunito', color: AppColors.primaryText);
     
     final TextStyle titleFont = isPersian
         ? const TextStyle(fontFamily: 'Vazir', fontSize: 22, fontWeight: FontWeight.bold, color: AppColors.darkBlue)
         : const TextStyle(fontFamily: 'Nunito', fontSize: 22, fontWeight: FontWeight.bold, color: AppColors.darkBlue);
 
-    final events = _getEventsForDay(_selectedDate);
+    // دریافت لیست رویدادهای فیلتر شده داینامیک
+    final events = _getEventsForDayAndUser(_selectedDate, _selectedUserId);
     final dayFormat = DateFormat('d').format(_selectedDate);
     
     final scheduleTitle = "${loc['calendar_schedule_for'] ?? 'Schedule for'} $dayFormat${isPersian ? '' : 'th'}".toPersianDigit(isPersian);
 
     return Scaffold(
-      backgroundColor: AppColors.background, // 👈 استفاده از پالت رنگ
+      backgroundColor: AppColors.background,
       body: SafeArea(
         bottom: false,
         child: Stack(
@@ -99,7 +131,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
                         width: 48, height: 48,
                         decoration: BoxDecoration(color: AppColors.lightContainer, shape: BoxShape.circle, boxShadow: [
                           const BoxShadow(color: Colors.white, offset: Offset(-4, -4), blurRadius: 8),
-                          BoxShadow(color: Colors.black.withOpacity(0.05), offset: const Offset(4, 4), blurRadius: 8),
+                          BoxShadow(color: Colors.black.withOpacity(0.05), offset: Offset(4, 4), blurRadius: 8),
                         ]),
                         child: const Icon(Icons.notifications_none_rounded, color: Colors.black54, size: 20),
                       ),
@@ -110,7 +142,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
                           width: 48, height: 48,
                           decoration: BoxDecoration(shape: BoxShape.circle, color: AppColors.lightContainer, boxShadow: [
                             const BoxShadow(color: Colors.white, offset: Offset(-4, -4), blurRadius: 8),
-                            BoxShadow(color: Colors.black.withOpacity(0.1), offset: const Offset(4, 4), blurRadius: 8),
+                            BoxShadow(color: Colors.black.withOpacity(0.1), offset: Offset(4, 4), blurRadius: 8),
                           ]),
                           padding: const EdgeInsets.all(4),
                           child: const CircleAvatar(backgroundColor: AppColors.avatarBackground, child: Icon(Icons.person, color: Colors.white)),
@@ -128,17 +160,22 @@ class _CalendarScreenState extends State<CalendarScreen> {
                       children: [
                         const SizedBox(height: 15),
 
+                        // لیست داینامیک اعضای خانواده
                         SingleChildScrollView(
                           scrollDirection: Axis.horizontal,
                           padding: const EdgeInsets.symmetric(horizontal: 24),
                           child: Row(
-                            children: [
-                              _buildUserChip('Mother', loc['user_mother'] ?? 'Mother', Icons.pregnant_woman, mainFont),
-                              const SizedBox(width: 12),
-                              _buildUserChip('Baby', loc['user_baby'] ?? 'Baby', Icons.child_care, mainFont),
-                              const SizedBox(width: 12),
-                              _buildUserChip('Partner', loc['user_partner'] ?? 'Partner', Icons.favorite, mainFont),
-                            ],
+                            children: AppMockData.familyMembers.map((user) {
+                              return Padding(
+                                padding: const EdgeInsets.only(right: 12),
+                                child: _buildUserChip(
+                                  id: user.id,
+                                  label: user.name, // یا استفاده از localization برای نقش: loc[user.role]
+                                  icon: _getIconForRole(user.role),
+                                  font: mainFont,
+                                ),
+                              );
+                            }).toList(),
                           ),
                         ),
 
@@ -197,9 +234,9 @@ class _CalendarScreenState extends State<CalendarScreen> {
               left: 20,
               right: 20,
               child: CareMateBottomNav(
-                currentIndex: 0, // ایندکس تقویم
+                currentIndex: 0,
                 onTap: (index) {
-                  if (index == 4) { // 👈 اصلاح شد: ایندکس 4 برای رفتن به داشبورد
+                  if (index == 4) { 
                     Navigator.pushReplacement(
                       context,
                       PageRouteBuilder(
@@ -218,10 +255,10 @@ class _CalendarScreenState extends State<CalendarScreen> {
     );
   }
 
-  Widget _buildUserChip(String id, String label, IconData icon, TextStyle font) {
-    final bool isSelected = _selectedUser == id;
+  Widget _buildUserChip({required String id, required String label, required IconData icon, required TextStyle font}) {
+    final bool isSelected = _selectedUserId == id;
     return GestureDetector(
-      onTap: () => setState(() => _selectedUser = id),
+      onTap: () => setState(() => _selectedUserId = id),
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 200),
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
@@ -248,7 +285,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
 
     return Container(
       padding: const EdgeInsets.all(20),
-      decoration: AppColors.softDecoration(color: Colors.white.withOpacity(0.85)), // 👈 استفاده از استایل نئومورفیسم متمرکز
+      decoration: AppColors.softDecoration(color: Colors.white.withOpacity(0.85)), 
       child: Column(
         children: [
           Row(
@@ -285,7 +322,9 @@ class _CalendarScreenState extends State<CalendarScreen> {
               final dayNum = index - weekDayOffset + 1;
               final currentDayDate = DateTime(_focusedMonth.year, _focusedMonth.month, dayNum);
               final isSelected = _normalizeDate(_selectedDate) == currentDayDate;
-              final hasEvent = _events.containsKey(currentDayDate);
+              
+              // بررسی اینکه آیا کاربر انتخاب شده در این روز رویدادی دارد
+              final hasEvent = _hasEventForUser(currentDayDate, _selectedUserId);
 
               return GestureDetector(
                 onTap: () => _onDaySelected(currentDayDate),
@@ -319,7 +358,10 @@ class _CalendarScreenState extends State<CalendarScreen> {
     );
   }
 
-  Widget _buildScheduleCard(Map<String, dynamic> item, TextStyle font, bool isPersian) {
+  // تغییر نوع ورودی به EventModel برای خواندن از داده‌های جدید
+  Widget _buildScheduleCard(EventModel event, TextStyle font, bool isPersian) {
+    final theme = _getEventTheme(event.type);
+    
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
@@ -334,19 +376,25 @@ class _CalendarScreenState extends State<CalendarScreen> {
           Container(
             padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
-              color: (item['color'] as Color).withOpacity(0.15),
+              color: (theme['color'] as Color).withOpacity(0.15),
               borderRadius: BorderRadius.circular(15),
             ),
-            child: Icon(item['icon'], color: item['color'], size: 24),
+            child: Icon(theme['icon'], color: theme['color'], size: 24),
           ),
           const SizedBox(width: 16),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(item['title'], style: font.copyWith(fontSize: 16, fontWeight: FontWeight.bold)),
+                Text(event.title, style: font.copyWith(fontSize: 16, fontWeight: FontWeight.bold)),
                 const SizedBox(height: 4),
-                Text(item['subtitle'].toString().toPersianDigit(isPersian), style: font.copyWith(fontSize: 13, color: Colors.grey[600])),
+                // ترکیب زمان و توضیحات (در صورت وجود)
+                Text(
+                  event.description != null 
+                    ? '${event.time} - ${event.description}'.toPersianDigit(isPersian)
+                    : event.time.toPersianDigit(isPersian), 
+                  style: font.copyWith(fontSize: 13, color: Colors.grey[600])
+                ),
               ],
             ),
           ),
