@@ -1,11 +1,14 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:provider/provider.dart';
-import 'package:wellmate/screens/home_screen.dart';
+import 'package:flutter_localizations/flutter_localizations.dart'; // 👈 اضافه شد
+
+import 'package:wellmate/providers/notification_provider.dart';
+import 'package:wellmate/providers/settings_provider.dart';
+import 'package:wellmate/screens/home/home_screen.dart';
 
 // ایمپورت‌ها را چک کنید
 import 'localization/locale_provider.dart';
-import 'localization/app_localizations.dart';
+import 'localization/app_localizations.dart'; // 👈 اضافه شد
 
 void main() {
   runApp(
@@ -21,44 +24,45 @@ class WellMateApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final localeProvider = Provider.of<LocaleProvider>(context);
-    
-    return MaterialApp(
-      debugShowCheckedModeBanner: false,
-      title: 'WellMate',
-      theme: ThemeData(
-        fontFamily: 'Nunito',
-        scaffoldBackgroundColor: const Color(0xFFF5F8FF),
-        primaryColor: const Color(0xFF4A90E2),
-        colorScheme: ColorScheme.fromSwatch().copyWith(
-          primary: const Color(0xFF4A90E2),
-          secondary: const Color(0xFF4A90E2),
-        ),
-        textTheme: const TextTheme(
-          bodyLarge: TextStyle(fontSize: 18, fontWeight: FontWeight.w500),
-          bodyMedium: TextStyle(fontSize: 16),
-        ),
-        useMaterial3: true,
+    return MultiProvider(
+      providers: [
+        ChangeNotifierProvider(create: (_) => NotificationProvider()),
+        ChangeNotifierProvider(create: (_) => LocaleProvider()),
+        ChangeNotifierProvider(create: (_) => SettingsProvider()),
+      ],
+      child: Consumer2<LocaleProvider, SettingsProvider>(
+        builder: (context, localeProvider, settingsProvider, child) {
+          return MaterialApp(
+            debugShowCheckedModeBanner: false,
+            locale: localeProvider.locale,
+
+            // 👇 این بخش برای رفع ارور صفحه قرمز کاملاً ضروری است
+            localizationsDelegates: const [
+              AppLocalizations.delegate,
+              GlobalMaterialLocalizations.delegate,
+              GlobalWidgetsLocalizations.delegate,
+              GlobalCupertinoLocalizations.delegate,
+            ],
+            supportedLocales: const [
+              Locale('en', ''),
+              Locale('fa', ''),
+            ],
+            // 👆 پایان بخش لوکالیزیشن
+
+            // این بخش سایز متن کل اپلیکیشن را مدیریت می‌کند
+            builder: (context, child) {
+              return MediaQuery(
+                data: MediaQuery.of(context).copyWith(
+                  textScaler:
+                      TextScaler.linear(settingsProvider.textScaleFactor),
+                ),
+                child: child!,
+              );
+            },
+            home: const HomeScreen(),
+          );
+        },
       ),
-      locale: localeProvider.locale,
-      supportedLocales: const [
-        Locale('en'),
-        Locale('fa'),
-      ],
-      localizationsDelegates: [
-        AppLocalizations.delegate,
-        GlobalMaterialLocalizations.delegate,
-        GlobalWidgetsLocalizations.delegate,
-        GlobalCupertinoLocalizations.delegate,
-      ],
-      builder: (context, child) {
-        final dir = localeProvider.locale.languageCode == 'fa' 
-            ? TextDirection.rtl 
-            : TextDirection.ltr;
-        return Directionality(textDirection: dir, child: child!);
-      },
-      // نکته مهم: اینجا به جای HomeScreen، فایل MainLayout را صدا زدیم
-      home: const HomeScreen(),
     );
   }
 }
