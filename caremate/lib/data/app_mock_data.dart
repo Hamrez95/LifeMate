@@ -1,83 +1,133 @@
+// lib/data/app_mock_data.dart
+
 import '../models/user_model.dart';
 import '../models/event_model.dart';
 
 class AppMockData {
-  // ۱. لیست اعضای خانواده
   static List<UserModel> familyMembers = [
     UserModel(
-      id: 'u1',
-      name: 'مریم',
-      role: 'مادر',
-      avatarPath: 'assets/images/mother_avatar.png', // مسیر عکس‌ها را بر اساس پروژه خودت تنظیم کن
+        id: 'u1',
+        name: 'مریم',
+        role: 'مادر',
+        avatarPath: 'assets/images/mother_avatar.png'
     ),
     UserModel(
       id: 'u2',
       name: 'علی',
-      role: 'همسر',
-      avatarPath: 'assets/images/father_avatar.png',
+      role: 'پدر',
+      avatarPath: 'assets/images/father_avatar.png'
     ),
     UserModel(
       id: 'u3',
       name: 'سارا',
       role: 'فرزند',
-      avatarPath: 'assets/images/child_avatar.png',
+      avatarPath: 'assets/images/child_avatar.png'
     ),
   ];
 
-  // زمان پایه برای تست (امروز)
-  static final DateTime _today = DateTime.now();
+  static final DateTime _today = DateTime(DateTime.now().year, DateTime.now().month, DateTime.now().day);
+  static final String _pastTime = '${(DateTime.now().hour - 2).toString().padLeft(2, '0')}:${DateTime.now().minute.toString().padLeft(2, '0')}';
 
-  // ۲. لیست رویدادهای تقویم (متصل به اعضای خانواده)
-  static List<EventModel> get calendarEvents => [
-    // رویدادهای مادر (u1)
-    EventModel(
-      id: 'e1',
-      userId: 'u1',
-      title: 'مصرف قرص ویتامین D',
-      type: EventType.medicine,
-      date: _today,
-      time: '08:00',
-      description: 'بعد از صبحانه',
+  // <<< منطق هوشمند تولید رویدادهای تکرارشونده >>>
+  static List<EventModel> get calendarEvents {
+    final List<EventModel> generatedEvents = [];
+    final Map<String, Map<DateTime, bool>> completionData = _getCompletionData();
+
+    for (final template in _eventTemplates) {
+      // اگر رویداد تکراری نیست، فقط خود آن را اضافه کن
+      if (template.repeatIntervalInDays == null || template.repeatIntervalInDays == 0) {
+        generatedEvents.add(template);
+        continue;
+      }
+
+      // اگر رویداد تکراری است، آن را برای یک بازه زمانی تولید کن
+      // (مثلا از ۳۰ روز قبل تا ۶۰ روز آینده)
+      for (int i = -30; i < 60; i++) {
+        DateTime currentDate = template.date.add(Duration(days: i));
+
+        // بررسی اینکه آیا این روز در الگوی تکرار صدق می‌کند
+        if (currentDate.isAfter(template.date) &&
+            currentDate.difference(template.date).inDays % template.repeatIntervalInDays! == 0) {
+          
+          // بررسی تاریخ پایان (اگر وجود دارد)
+          if (template.endDate != null && currentDate.isAfter(template.endDate!)) {
+            break;
+          }
+
+          // وضعیت انجام کار برای این روز خاص
+          final bool? status = completionData[template.id]?[currentDate];
+
+          generatedEvents.add(template.copyWith(newDate: currentDate, newIsCompleted: status));
+        }
+      }
+    }
+    return generatedEvents;
+  }
+  
+  // داده‌های وضعیت انجام کار برای رویدادهای مختلف در روزهای مختلف
+  static Map<String, Map<DateTime, bool>> _getCompletionData() {
+    return {
+      'e1': { // آسپرین مادر
+        _today.subtract(const Duration(days: 2)): true, // دو روز پیش انجام شده
+        _today.subtract(const Duration(days: 1)): false, // دیروز انجام نشده
+      },
+      'e4': { // تست قند خون پدر
+        _today.subtract(const Duration(days: 2)): false, // دو روز پیش انجام نشده
+      }
+    };
+  }
+
+  // الگوهای رویدادها (تکی و تکرارشونده)
+  static final List<EventModel> _eventTemplates = [
+    // === رویدادهای مادر (بیماری قلبی) ===
+    EventModel( // داروی روزانه
+      id: 'e1', userId: 'u1', title: 'قرص آسپرین',
+      type: EventType.medicine, 
+      date: _today.subtract(const Duration(days: 10)), // از ۱۰ روز پیش شروع شده
+      time: '08:00', description: 'بعد از صبحانه',
+      repeatIntervalInDays: 1, // هر روز
     ),
-    EventModel(
-      id: 'e2',
-      userId: 'u1',
-      title: 'ویزیت دکتر زنان',
-      type: EventType.doctor,
-      date: _today.add(const Duration(days: 2)), // پس فردا
-      time: '16:30',
-      description: 'مطب دکتر احمدی',
+    EventModel( // داروی فراموش شده امروز
+      id: 'e2', userId: 'u1', title: 'قرص پلاویکس (قلب)',
+      type: EventType.medicine, date: _today, time: _pastTime, 
+      description: 'بسیار مهم', isCompleted: false, // این یک رویداد تکی برای امروز است
+    ),
+    EventModel( // ویزیت یکباره در آینده
+      id: 'e3', userId: 'u1', title: 'ویزیت متخصص قلب',
+      type: EventType.doctor, date: _today.add(const Duration(days: 2)),
+      time: '16:30', description: 'همراه با نوار قلب جدید',
     ),
 
-    // رویدادهای همسر (u2)
-    EventModel(
-      id: 'e3',
-      userId: 'u2',
-      title: 'داروی فشار خون',
-      type: EventType.medicine,
-      date: _today,
-      time: '09:00',
-      description: 'یک عدد',
+    // === رویدادهای پدر (دیابت) ===
+    EventModel( // چکاپ هر دو روز یکبار
+      id: 'e4', userId: 'u2', title: 'تست قند خون ناشتا',
+      type: EventType.checkup, date: _today.subtract(const Duration(days: 15)),
+      time: '07:00', description: 'ثبت در دفترچه',
+      repeatIntervalInDays: 2, // هر ۲ روز
+    ),
+    EventModel( // داروی فراموش شده روزانه
+      id: 'e5', userId: 'u2', title: 'تزریق انسولین',
+      type: EventType.medicine, date: _today, time: _pastTime,
+      description: 'قبل از ناهار', isCompleted: false, // رویداد تکی برای امروز
+    ),
+    EventModel( // داروی روزانه آینده
+      id: 'e6', userId: 'u2', title: 'قرص متفورمین',
+      type: EventType.medicine, date: _today.subtract(const Duration(days: 20)),
+      time: '20:00', description: 'همراه با شام',
+      repeatIntervalInDays: 1, // هر روز
     ),
 
-    // رویدادهای فرزند (u3)
-    EventModel(
-      id: 'e4',
-      userId: 'u3',
-      title: 'چکاپ ماهانه اطفال',
-      type: EventType.checkup,
-      date: _today.add(const Duration(days: 1)), // فردا
-      time: '10:00',
-      description: 'کلینیک کودکان',
+    // === رویدادهای فرزند ===
+    EventModel( // مکمل هفتگی
+      id: 'e7', userId: 'u3', title: 'شربت مولتی ویتامین',
+      type: EventType.medicine, date: _today.subtract(const Duration(days: 14)),
+      time: '10:00', description: 'فقط جمعه‌ها',
+      repeatIntervalInDays: 7, // هر ۷ روز (هفتگی)
     ),
-     EventModel(
-      id: 'e5',
-      userId: 'u3',
-      title: 'شربت سرماخوردگی',
-      type: EventType.medicine,
-      date: _today,
-      time: '14:00',
-      description: '۵ میلی‌لیتر',
+    EventModel( // رویداد تکی
+      id: 'e8', userId: 'u3', title: 'چکاپ دندانپزشکی',
+      type: EventType.checkup, date: _today.add(const Duration(days: 5)),
+      time: '10:00', description: 'کلینیک لبخند',
     ),
   ];
 }
