@@ -1,4 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+import '../../core/localization/app_localizations.dart'; // مسیرها را چک کنید
+import '../../core/localization/locale_provider.dart';
 import '../core/constants/app_colors.dart';
 
 class CareMateBottomNav extends StatelessWidget {
@@ -13,57 +16,101 @@ class CareMateBottomNav extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // استفاده از استایل شیشه‌ای (نئومورفیسم) که قبلا در AppColors تعریف کردیم
-    return Container(
-      height: 70,
-      decoration: AppColors.softDecoration(color: Colors.white),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-        children: [
-          _buildNavItem(icon: Icons.calendar_month_rounded, index: 0),
-          _buildNavItem(icon: Icons.chat_bubble_outline_rounded, index: 1),
-          
-          // 👈 دکمه برجسته و متفاوت در وسط (مثلاً برای افزودن گزارش جدید)
-          GestureDetector(
-            onTap: () => onTap(2),
-            child: Container(
-              width: 48,
-              height: 48,
-              decoration: BoxDecoration(
-                color: AppColors.primaryBlue,
-                shape: BoxShape.circle,
-                boxShadow: [
-                  BoxShadow(
-                    color: AppColors.primaryBlue.withOpacity(0.4),
-                    blurRadius: 12,
-                    offset: const Offset(0, 4),
-                  )
-                ],
-              ),
-              child: const Icon(Icons.add, color: Colors.white, size: 28),
-            ),
-          ),
+    final loc = AppLocalizations.of(context);
+    final isPersian =
+        Provider.of<LocaleProvider>(context).locale.languageCode == 'fa';
+    final String fontFamily = isPersian ? 'Vazir' : 'Poppins';
 
-          _buildNavItem(icon: Icons.assignment_rounded, index: 3),
-          _buildNavItem(icon: Icons.home_rounded, index: 4), // 👈 داشبورد (خانه)
-        ],
+    return SafeArea(
+      child: Container(
+        margin: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+        padding: const EdgeInsets.symmetric(vertical: 12),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(35),
+          boxShadow: [
+            BoxShadow(
+              color: AppColors.primaryBlue
+                  .withOpacity(0.08), // سایه نرم و هماهنگ با تم اپ
+              blurRadius: 20,
+              offset: const Offset(0, 10),
+            ),
+          ],
+        ),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+          children: [
+            _buildNavItem(
+              icon: Icons.calendar_month_rounded,
+              label: loc['nav_calendar'] ?? 'تقویم',
+              index: 0,
+              fontFamily: fontFamily,
+            ),
+            _buildNavItem(
+              icon: Icons.chat_bubble_outline_rounded,
+              label: loc['nav_chat'] ?? 'چت',
+              index: 1,
+              fontFamily: fontFamily,
+            ),
+            // دکمه افزودن حالا به شکل مینیمال و هماهنگ درآمده است
+            _buildNavItem(
+              icon: Icons.add_circle_outline,
+              label: loc['nav_add'] ?? 'افزودن',
+              index: 2,
+              fontFamily: fontFamily,
+            ),
+            _buildNavItem(
+              icon: Icons.assignment_rounded,
+              label: loc['nav_tasks'] ?? 'وظایف',
+              index: 3,
+              fontFamily: fontFamily,
+            ),
+            _buildNavItem(
+              icon: Icons.home_rounded,
+              label: loc['nav_home'] ?? 'خانه', // داشبورد
+              index: 4,
+              fontFamily: fontFamily,
+            ),
+          ],
+        ),
       ),
     );
   }
 
-  // متد کمکی برای ساخت دکمه‌های آیکون‌دار
-  Widget _buildNavItem({required IconData icon, required int index}) {
+  Widget _buildNavItem({
+    required IconData icon,
+    required String label,
+    required int index,
+    required String fontFamily,
+  }) {
     final isSelected = currentIndex == index;
+    final color = isSelected
+        ? AppColors.primaryBlue
+        : AppColors.secondaryText.withOpacity(0.5);
+
     return GestureDetector(
       onTap: () => onTap(index),
-      behavior: HitTestBehavior.opaque, // برای اینکه فضای اطراف آیکون هم قابل کلیک باشد
-      child: Container(
-        padding: const EdgeInsets.all(12),
-        child: Icon(
-          icon,
-          size: 28,
-          color: isSelected ? AppColors.primaryBlue : AppColors.secondaryText.withOpacity(0.5),
-        ),
+      behavior: HitTestBehavior.opaque,
+      child: Column(
+        mainAxisSize: MainAxisSize
+            .min, // باعث می‌شود ارتفاع دکمه فقط به اندازه محتوا باشد
+        children: [
+          Icon(
+            icon,
+            size: 26,
+            color: color,
+          ),
+          const SizedBox(height: 4),
+          Text(
+            label,
+            style: TextStyle(
+              fontFamily: fontFamily,
+              fontSize: 10,
+              fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
+              color: color,
+            ),
+          ),
+        ],
       ),
     );
   }
