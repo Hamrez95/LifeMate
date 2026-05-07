@@ -1,6 +1,7 @@
 // ignore_for_file: deprecated_member_use
 
 import 'dart:async';
+import 'package:caremate/widgets/custom_app_header.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../services/backend_service.dart';
@@ -8,11 +9,10 @@ import '../../core/localization/app_localizations.dart';
 import '../../core/localization/locale_provider.dart';
 import '../../core/utils/string_extensions.dart';
 import '../../core/constants/app_colors.dart';
-import '../../data/mock_data.dart';
+import '../../data/app_mock_data.dart';
 import '../widgets/custom_ui_components.dart';
-import 'profile_screen.dart';
 import '../widgets/caremate_bottom_nav.dart';
-import 'calendar_screen.dart';
+import 'calendar/calendar_screen.dart';
 
 class DashboardScreen extends StatefulWidget {
   const DashboardScreen({Key? key}) : super(key: key);
@@ -93,19 +93,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
           child: Column(
             children: [
               // --- Header ---
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  GlassIconButton(
-                      icon: Icons.notifications_none_rounded, onTap: () {}),
-                  Text(loc['main_dashboard_title'], style: titleFont),
-                  GestureDetector(
-                    onTap: () => Navigator.of(context).push(MaterialPageRoute(
-                        builder: (_) => const ProfileScreen())),
-                    child: const ProfileAvatar(),
-                  ),
-                ],
-              ),
+              const CustomAppHeader(),
 
               Align(
                 alignment:
