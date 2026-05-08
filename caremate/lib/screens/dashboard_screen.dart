@@ -26,6 +26,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
   bool syncing = false;
   Timer? _autoRefreshTimer;
 
+  final DateTime _simulatedCurrentTime = DateTime(2024, 1, 1, 7, 0);
+
   Future<void> _onRefresh() async {
     setState(() {
       syncing = true;
@@ -54,13 +56,69 @@ class _DashboardScreenState extends State<DashboardScreen> {
     super.initState();
     _onRefresh();
     _autoRefreshTimer =
-        Timer.periodic(const Duration(seconds: 20), (_) => _onRefresh());
+        Timer.periodic(const Duration(seconds: 1), (_) => _onRefresh());
   }
 
   @override
   void dispose() {
     _autoRefreshTimer?.cancel();
     super.dispose();
+  }
+
+  // تابع کمکی برای پیدا کردن آواتار از کلاس AppMockData بر اساس نام بیمار در بک‌اند
+  String _getAvatarPath(String patientName) {
+    const String defaultAvatar =
+        '../../assets/images/mother_avatar.png'; // مسیر آواتار پیش‌فرض
+    try {
+      if (patientName.contains('مامان جون')) {
+        return AppMockData.familyMembers
+                .firstWhere((u) => u.role == 'مادر')
+                .avatarPath ??
+            defaultAvatar;
+      } else if (patientName.contains('بابا جون')) {
+        return AppMockData.familyMembers
+                .firstWhere((u) => u.role == 'پدر')
+                .avatarPath ??
+            defaultAvatar;
+      } else if (patientName.contains('سارا')) {
+        return AppMockData.familyMembers
+                .firstWhere((u) => u.role == 'فرزند')
+                .avatarPath ??
+            defaultAvatar;
+      }
+    } catch (e) {
+      // اگر هیچ عضوی با شروط بالا پیدا نشد، خطای No element رخ می‌دهد که اینجا مهار می‌شود
+      debugPrint("Avatar not found for $patientName, using default.");
+      return defaultAvatar;
+    }
+
+    return defaultAvatar; // پیش‌فرض برای سایرین
+  }
+
+  // تابع کمکی برای محاسبه زمان باقی‌مانده از ساعت ۷ صبح تا زمان دارو
+  String _calculateTimeLeft(String targetTime, bool isPersian) {
+    try {
+      final now = DateTime.now(); // دریافت زمان واقعی و زنده سیستم
+      final parts = targetTime.split(':');
+
+      // تنظیم زمان دارو بر اساس سال، ماه و روزِ همین الان
+      final targetDate = DateTime(now.year, now.month, now.day,
+          int.parse(parts[0]), int.parse(parts[1]));
+
+      final difference = targetDate.difference(now);
+
+      if (difference.isNegative) return "گذشته";
+
+      final hours = difference.inHours;
+      final minutes = difference.inMinutes % 60;
+
+      String result = "";
+      if (hours > 0) result += "$hours ساعت و ";
+      result += "$minutes دقیقه";
+      return result.toPersianDigit(isPersian);
+    } catch (e) {
+      return "-";
+    }
   }
 
   @override
@@ -72,11 +130,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
     final TextStyle mainFont = TextStyle(
         fontFamily: isPersian ? 'Vazir' : 'Poppins',
         color: AppColors.primaryText);
-    final TextStyle titleFont = TextStyle(
-        fontFamily: isPersian ? 'Vazir' : 'Poppins',
-        fontSize: 24,
-        fontWeight: FontWeight.bold,
-        color: AppColors.titleDarkBlue);
 
     final String patientName =
         "${loc['dashboard_patient']}: ${MockData.patientNameEn}";
@@ -95,42 +148,35 @@ class _DashboardScreenState extends State<DashboardScreen> {
             children: [
               // --- Header ---
               const CustomAppHeader(),
+              const SizedBox(height: 30),
 
               // Align(
               //   alignment:
-              //       isPersian ? Alignment.centerLeft : Alignment.centerRight,
+              //       isPersian ? Alignment.centerRight : Alignment.centerLeft,
               //   child: Padding(
-              //     padding: const EdgeInsets.only(top: 10, bottom: 20),
-              //     child: GlassIconButton(
-              //         icon: Icons.tune_rounded,
-              //         size: 38,
-              //         iconSize: 20,
-              //         onTap: _onRefresh),
+              //     padding: const EdgeInsets.only(bottom: 4),
+              //     child: Text(patientName,
+              //         style: mainFont.copyWith(
+              //             fontSize: 12, color: AppColors.secondaryText)),
               //   ),
               // ),
-              const SizedBox(height: 30),
 
-              Align(
-                alignment:
-                    isPersian ? Alignment.centerRight : Alignment.centerLeft,
-                child: Padding(
-                  padding: const EdgeInsets.only(bottom: 4),
-                  child: Text(patientName,
-                      style: mainFont.copyWith(
-                          fontSize: 12, color: AppColors.secondaryText)),
-                ),
-              ),
-
-              // --- Current Status Section ---
-              SectionHeader(
-                  title: loc['dashboard_current_status'],
-                  font: mainFont,
-                  textDirection:
-                      isPersian ? TextDirection.rtl : TextDirection.ltr),
-              const SizedBox(height: 12),
+              //ویجت صف درمان
               Container(
                 width: double.infinity,
-                decoration: AppColors.softDecoration(),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius:
+                      BorderRadius.circular(24), // گوشه های گرد هماهنگ با کل اپ
+                  boxShadow: [
+                    // سایه ملایم به جای بوردر مشکی
+                    BoxShadow(
+                      color: Colors.blue.withOpacity(0.06),
+                      blurRadius: 15,
+                      offset: const Offset(0, 5),
+                    ),
+                  ],
+                ),
                 padding: const EdgeInsets.all(20),
                 child: backendStatus == null
                     ? const Center(child: CircularProgressIndicator())
@@ -289,65 +335,385 @@ class _DashboardScreenState extends State<DashboardScreen> {
     );
   }
 
+  // Widget _buildStatusContent(dynamic loc, bool isPersian, TextStyle mainFont) {
+  //   return Column(
+  //     crossAxisAlignment: CrossAxisAlignment.start,
+  //     children: [
+  //       Text(
+  //           backendStatus!['currentItem']?['type'] == 'med'
+  //               ? loc['dashboard_current_medicine']
+  //               : loc['dashboard_current_appointment'],
+  //           style:
+  //               mainFont.copyWith(fontWeight: FontWeight.bold, fontSize: 16)),
+  //       const SizedBox(height: 8),
+  //       Text(
+  //           (backendStatus!['currentItem']?['name'] ?? '-')
+  //               .toString()
+  //               .toPersianDigit(isPersian),
+  //           style:
+  //               mainFont.copyWith(fontSize: 18, color: Colors.blueGrey[800])),
+  //       const SizedBox(height: 8),
+  //       if (backendStatus!['status'] == 'done' ||
+  //           backendStatus!['status'] == 'attended')
+  //         _statusBadge(
+  //             backendStatus!['status'] == 'done'
+  //                 ? loc['dashboard_status_taken']
+  //                 : loc['dashboard_status_attended'],
+  //             Colors.green,
+  //             mainFont),
+  //       if (backendStatus!['status'] == 'pending')
+  //         _statusBadge(
+  //             loc['dashboard_status_pending'], Colors.orange, mainFont),
+  //       const SizedBox(height: 16),
+  //       Text(loc['dashboard_next'],
+  //           style:
+  //               mainFont.copyWith(fontWeight: FontWeight.bold, fontSize: 15)),
+  //       const SizedBox(height: 6),
+  //       _nextMedication(isPersian, mainFont),
+  //     ],
+  //   );
+  // }
+
+  // Widget _statusBadge(String text, MaterialColor color, TextStyle font) {
+  //   return Container(
+  //     padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+  //     decoration: BoxDecoration(
+  //         color: color.withOpacity(0.15),
+  //         borderRadius: BorderRadius.circular(10)),
+  //     child: Text(text,
+  //         style: font.copyWith(
+  //             fontSize: 14, color: color[800], fontWeight: FontWeight.bold)),
+  //   );
+  // }
+
+  // Widget _nextMedication(bool isPersian, TextStyle mainFont) {
+  //   final nextList = backendStatus!['nextItems'] as List?;
+  //   if (nextList != null && nextList.isNotEmpty) {
+  //     return Text(
+  //         (nextList.first['name'] ?? '-').toString().toPersianDigit(isPersian),
+  //         style: mainFont.copyWith(fontSize: 16, color: Colors.blueGrey[600]));
+  //   }
+  //   return Text('-',
+  //       style: mainFont.copyWith(fontSize: 16, color: Colors.blueGrey[600]));
+  // }
+
+  // Widget _buildStatusContent(dynamic loc, bool isPersian, TextStyle mainFont) {
+  //   final currentItem = backendStatus!['currentItem'];
+  //   final nextItems = backendStatus!['nextItems'] as List?;
+  //   final nextItem =
+  //       (nextItems != null && nextItems.isNotEmpty) ? nextItems.first : null;
+
+  //   final String currentPatientName =
+  //       (currentItem?['patient'] ?? 'نامشخص').toString();
+  //   final currentTime = currentItem?['time'] ?? '00:00';
+  //   final timeLeft = _calculateTimeLeft(currentTime, isPersian);
+
+  //   final currentAvatar = _getAvatarPath(currentPatientName);
+
+  //   // مدیریت متن داروی بعدی برای جلوگیری از چاپ کلمه null
+  //   String nextItemTitle = "-";
+  //   if (nextItem != null) {
+  //     if (nextItem['patient'] != null &&
+  //         nextItem['patient'].toString().isNotEmpty) {
+  //       nextItemTitle = "${nextItem['patient']} : ${nextItem['name']}";
+  //     } else {
+  //       nextItemTitle = "${nextItem['name']}";
+  //     }
+  //   }
+
+  //   return Row(
+  //     textDirection: isPersian ? TextDirection.rtl : TextDirection.ltr,
+  //     crossAxisAlignment: CrossAxisAlignment.center,
+  //     children: [
+  //       // سمت راست: اطلاعات درمان‌ها
+  //       Expanded(
+  //         flex: 3,
+  //         child: Column(
+  //           crossAxisAlignment: CrossAxisAlignment.start,
+  //           children: [
+  //             Text("اولین درمان در صف:",
+  //                 style: mainFont.copyWith(
+  //                     fontWeight: FontWeight.bold, fontSize: 16)),
+  //             const SizedBox(height: 4),
+
+  //             // سطر نام دارو و ساعت
+  //             Row(
+  //               children: [
+  //                 Text(
+  //                     (currentItem?['name'] ?? '-')
+  //                         .toString()
+  //                         .toPersianDigit(isPersian),
+  //                     style: mainFont.copyWith(
+  //                         fontSize: 15, color: Colors.grey[700])),
+  //                 const SizedBox(width: 8),
+  //                 Text("ساعت : $currentTime".toPersianDigit(isPersian),
+  //                     style: mainFont.copyWith(
+  //                         fontSize: 15, color: Colors.orange[400])),
+  //               ],
+  //             ),
+  //             const SizedBox(height: 12),
+
+  //             // چقدر مونده؟
+  //             Row(
+  //               children: [
+  //                 Text("چقدر مونده ؟",
+  //                     style: mainFont.copyWith(
+  //                         fontSize: 14, color: Colors.teal[400])),
+  //                 const SizedBox(width: 8),
+  //                 Text(timeLeft,
+  //                     style: mainFont.copyWith(
+  //                         fontSize: 15,
+  //                         fontWeight: FontWeight.bold,
+  //                         color: Colors.redAccent)),
+  //               ],
+  //             ),
+
+  //             const SizedBox(height: 16),
+
+  //             // درمان بعدی
+  //             Text("درمان بعدی مال کیه ؟",
+  //                 style: mainFont.copyWith(
+  //                     fontWeight: FontWeight.bold, fontSize: 15)),
+  //             const SizedBox(height: 6),
+
+  //             if (nextItem != null)
+  //               Row(
+  //                 crossAxisAlignment: CrossAxisAlignment.center,
+  //                 children: [
+  //                   // آواتار در ابتدا قرار می‌گیرد تا در حالت RTL سمت راست بیفتد
+  //                   CircleAvatar(
+  //                     radius: 18,
+  //                     backgroundColor: Colors.transparent,
+  //                     backgroundImage:
+  //                         AssetImage(_getAvatarPath(nextItem['patient'] ?? '')),
+  //                   ),
+  //                   const SizedBox(width: 8),
+  //                   Expanded(
+  //                     child: Column(
+  //                       crossAxisAlignment: CrossAxisAlignment.start,
+  //                       children: [
+  //                         Text(nextItemTitle.toPersianDigit(isPersian),
+  //                             style: mainFont.copyWith(
+  //                                 fontSize: 14, color: Colors.black87)),
+  //                         Text(
+  //                             "ساعت ${nextItem['time']}"
+  //                                 .toPersianDigit(isPersian),
+  //                             style: mainFont.copyWith(
+  //                                 fontSize: 14, color: Colors.orange[400])),
+  //                       ],
+  //                     ),
+  //                   ),
+  //                 ],
+  //               )
+  //             else
+  //               Text("-", style: mainFont.copyWith(fontSize: 14)),
+  //           ],
+  //         ),
+  //       ),
+
+  //       // سمت چپ: آواتار بزرگ و نام بیمار فعلی
+  //       Expanded(
+  //         flex: 2,
+  //         child: Column(
+  //           mainAxisAlignment: MainAxisAlignment.center,
+  //           children: [
+  //             Text(currentPatientName.toPersianDigit(isPersian),
+  //                 style: mainFont.copyWith(
+  //                     fontSize: 16, fontWeight: FontWeight.bold)),
+  //             const SizedBox(height: 8),
+  //             Container(
+  //               decoration: BoxDecoration(
+  //                 shape: BoxShape.circle,
+  //                 border: Border.all(
+  //                     color: Colors.black, width: 3), // حاشیه دور آواتار
+  //               ),
+  //               child: CircleAvatar(
+  //                 radius: 35,
+  //                 backgroundColor: Colors.white,
+  //                 backgroundImage: AssetImage(currentAvatar),
+  //               ),
+  //             ),
+  //           ],
+  //         ),
+  //       ),
+  //     ],
+  //   );
+  // }
+
   Widget _buildStatusContent(dynamic loc, bool isPersian, TextStyle mainFont) {
+    final rawCurrentItem = backendStatus!['currentItem'];
+    final rawNextItems = backendStatus!['nextItems'] as List?;
+
+    // ترکیب و مرتب‌سازی داروها
+    List<dynamic> allItems = [];
+    if (rawCurrentItem != null) allItems.add(rawCurrentItem);
+    if (rawNextItems != null) allItems.addAll(rawNextItems);
+
+    final now = DateTime.now();
+
+    List<dynamic> futureItems = allItems.where((item) {
+      try {
+        final parts = item['time'].toString().split(':');
+        final itemTime = DateTime(now.year, now.month, now.day,
+            int.parse(parts[0]), int.parse(parts[1]));
+        return itemTime.isAfter(now);
+      } catch (e) {
+        return false;
+      }
+    }).toList();
+
+    futureItems.sort((a, b) {
+      try {
+        final tA = a['time'].toString().split(':');
+        final tB = b['time'].toString().split(':');
+        final timeA = DateTime(
+            now.year, now.month, now.day, int.parse(tA[0]), int.parse(tA[1]));
+        final timeB = DateTime(
+            now.year, now.month, now.day, int.parse(tB[0]), int.parse(tB[1]));
+        return timeA.compareTo(timeB);
+      } catch (e) {
+        return 0;
+      }
+    });
+
+    final currentItem = futureItems.isNotEmpty ? futureItems.first : null;
+    final nextItem = futureItems.length > 1 ? futureItems[1] : null;
+
+    if (currentItem == null) {
+      return Center(
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 20),
+          child: Text("تمام درمان‌های صف امروز انجام شده است! 🎉",
+              style: mainFont.copyWith(
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.green)),
+        ),
+      );
+    }
+
+    // ویجت سازنده ردیف‌های درمان برای یکپارچگی UI
+    Widget buildTreatmentRow({
+      required String title,
+      required dynamic item,
+      required bool isCurrent,
+    }) {
+      if (item == null) return const SizedBox();
+
+      final patientName = (item['patient'] ?? 'نامشخص').toString();
+      final medName = (item['name'] ?? '-').toString();
+      final time = (item['time'] ?? '00:00').toString();
+      final avatarPath = _getAvatarPath(patientName);
+
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // عنوان بخش (درمان فعلی / بعدی)
+          Text(
+            title,
+            style: mainFont.copyWith(
+              fontSize: 13,
+              fontWeight: FontWeight.bold,
+              color: Colors.grey[500],
+            ),
+          ),
+          const SizedBox(height: 12),
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              // سمت راست: آواتار با سایز یکسان
+              CircleAvatar(
+                radius: 24,
+                backgroundColor: Colors.blue.shade50,
+                backgroundImage: AssetImage(avatarPath),
+              ),
+              const SizedBox(width: 12),
+
+              // وسط: نام بیمار و نام دارو
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      patientName.toPersianDigit(isPersian),
+                      style: mainFont.copyWith(
+                          fontSize: 15,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.black87),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      medName.toPersianDigit(isPersian),
+                      style: mainFont.copyWith(
+                          fontSize: 13, color: Colors.grey[700]),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ],
+                ),
+              ),
+
+              // سمت چپ: زمان و تایمر
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.end,
+                children: [
+                  if (isCurrent) ...[
+                    // کپسول (Badge) زمان باقیمانده
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 10, vertical: 4),
+                      decoration: BoxDecoration(
+                        color: Colors.red.shade50,
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: Text(
+                        _calculateTimeLeft(time, isPersian)
+                            .toPersianDigit(isPersian),
+                        style: mainFont.copyWith(
+                            fontSize: 12,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.red.shade400),
+                      ),
+                    ),
+                    const SizedBox(height: 6),
+                  ],
+                  // ساعت دقیق
+                  Row(
+                    children: [
+                      Icon(Icons.access_time_rounded,
+                          size: 14, color: Colors.grey[400]),
+                      const SizedBox(width: 4),
+                      Text(
+                        time.toPersianDigit(isPersian),
+                        style: mainFont.copyWith(
+                            fontSize: 14,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.grey[600]),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ],
+      );
+    }
+
     return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
+      textDirection: isPersian ? TextDirection.rtl : TextDirection.ltr,
       children: [
-        Text(
-            backendStatus!['currentItem']?['type'] == 'med'
-                ? loc['dashboard_current_medicine']
-                : loc['dashboard_current_appointment'],
-            style:
-                mainFont.copyWith(fontWeight: FontWeight.bold, fontSize: 16)),
-        const SizedBox(height: 8),
-        Text(
-            (backendStatus!['currentItem']?['name'] ?? '-')
-                .toString()
-                .toPersianDigit(isPersian),
-            style:
-                mainFont.copyWith(fontSize: 18, color: Colors.blueGrey[800])),
-        const SizedBox(height: 8),
-        if (backendStatus!['status'] == 'done' ||
-            backendStatus!['status'] == 'attended')
-          _statusBadge(
-              backendStatus!['status'] == 'done'
-                  ? loc['dashboard_status_taken']
-                  : loc['dashboard_status_attended'],
-              Colors.green,
-              mainFont),
-        if (backendStatus!['status'] == 'pending')
-          _statusBadge(
-              loc['dashboard_status_pending'], Colors.orange, mainFont),
-        const SizedBox(height: 16),
-        Text(loc['dashboard_next'],
-            style:
-                mainFont.copyWith(fontWeight: FontWeight.bold, fontSize: 15)),
-        const SizedBox(height: 6),
-        _nextMedication(isPersian, mainFont),
+        buildTreatmentRow(
+            title: "درمان فعلی", item: currentItem, isCurrent: true),
+        if (nextItem != null) ...[
+          Padding(
+            padding: const EdgeInsets.symmetric(vertical: 16),
+            child: Divider(color: Colors.grey.shade200, height: 1),
+          ),
+          buildTreatmentRow(
+              title: "درمان بعدی", item: nextItem, isCurrent: false),
+        ]
       ],
     );
-  }
-
-  Widget _statusBadge(String text, MaterialColor color, TextStyle font) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-      decoration: BoxDecoration(
-          color: color.withOpacity(0.15),
-          borderRadius: BorderRadius.circular(10)),
-      child: Text(text,
-          style: font.copyWith(
-              fontSize: 14, color: color[800], fontWeight: FontWeight.bold)),
-    );
-  }
-
-  Widget _nextMedication(bool isPersian, TextStyle mainFont) {
-    final nextList = backendStatus!['nextItems'] as List?;
-    if (nextList != null && nextList.isNotEmpty) {
-      return Text(
-          (nextList.first['name'] ?? '-').toString().toPersianDigit(isPersian),
-          style: mainFont.copyWith(fontSize: 16, color: Colors.blueGrey[600]));
-    }
-    return Text('-',
-        style: mainFont.copyWith(fontSize: 16, color: Colors.blueGrey[600]));
   }
 }
