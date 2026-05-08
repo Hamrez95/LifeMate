@@ -128,6 +128,13 @@ class _CalendarScreenState extends State<CalendarScreen> {
     }
   }
 
+  int _currentIndex = 1; // خانه (ایندکس 1 بر اساس ترتیب جدید)
+  void _onItemTapped(int index) {
+    setState(() {
+      _currentIndex = index;
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
     final loc = AppLocalizations.of(context);
@@ -146,15 +153,6 @@ class _CalendarScreenState extends State<CalendarScreen> {
         preferredSize: const Size.fromHeight(80),
         child: Padding(
           padding: const EdgeInsets.fromLTRB(24, 40, 24, 10),
-          child: CustomHeader(
-            title: loc['calendar_title'] ?? 'Schedule',
-            onProfileTap: () {
-              Navigator.of(context).push(
-                MaterialPageRoute(builder: (_) => const ProfileScreen()),
-              );
-            },
-            font: AppTextStyles.heading(context),
-          ),
         ),
       ),
       // قسمت bottomNavigationBar حذف شد تا تداخلی ایجاد نکند
@@ -163,6 +161,15 @@ class _CalendarScreenState extends State<CalendarScreen> {
           padding: const EdgeInsets.only(bottom: 20),
           child: Column(
             children: [
+              WellMateAppHeader(
+                onProfileTap: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                        builder: (context) => const ProfileScreen()),
+                  );
+                },
+              ),
               const SizedBox(height: 10),
               Text(
                 loc['calendar_select_date'] ?? 'Select a date to view schedule',

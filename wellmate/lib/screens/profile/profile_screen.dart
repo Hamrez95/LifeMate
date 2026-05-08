@@ -1,59 +1,35 @@
+// ignore_for_file: deprecated_member_use
+
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:wellmate/providers/settings_provider.dart';
-import '../../localization/app_localizations.dart';
-import '../../localization/locale_provider.dart';
+import 'package:wellmate/core/theme/app_style.dart';
+import 'package:wellmate/localization/app_localizations.dart';
+import 'package:wellmate/localization/locale_provider.dart';
 import '../../core/utils/string_extensions.dart';
-import '../../core/theme/app_style.dart';
-import '../../models/user_profile_model.dart';
+import 'package:wellmate/providers/settings_provider.dart'; // 👈 اضافه شدن پرووایدر تنظیمات
 
-class ProfileScreen extends StatefulWidget {
+class ProfileScreen extends StatelessWidget {
   const ProfileScreen({Key? key}) : super(key: key);
 
   @override
-  State<ProfileScreen> createState() => _ProfileScreenState();
-}
-
-class _ProfileScreenState extends State<ProfileScreen> {
-  late UserProfileModel currentUser;
-
-  @override
-  void initState() {
-    super.initState();
-    // در آینده این اطلاعات از API یا دیتابیس لوکال دریافت می‌شود
-    currentUser = UserProfileModel(
-        id: '101',
-        fullName: 'کاربر تستی',
-        mobileNumber: '09123456789',
-        email: 'test@gmail.com',
-        avatarUrl: '../../assets/images/mother_avatar.png',
-        joinDate: '2025',
-        isPremium: true);
-  }
-
-  @override
   Widget build(BuildContext context) {
-    // محصور کردن کل ویجت با Consumer برای واکنش به تغییرات SettingsProvider
-    return Consumer<SettingsProvider>(
-      builder: (context, settingsProvider, child) {
-        final loc = AppLocalizations.of(context);
-        final localeProvider = Provider.of<LocaleProvider>(context);
-        final isPersian = localeProvider.locale.languageCode == 'fa';
+    // 👈 استفاده از Consumer برای واکنش به تغییر سایز فونت
+    return Consumer<SettingsProvider>(builder: (context, settings, child) {
+      final loc = AppLocalizations.of(context);
+      final localeProvider = Provider.of<LocaleProvider>(context);
+      final isPersian = localeProvider.locale.languageCode == 'fa';
+      final mainFont = isPersian ? 'Vazir' : 'Nunito';
 
-        final displayName = currentUser.fullName.isNotEmpty
-            ? currentUser.fullName
-            : (loc['profile_name'] ?? 'نام کاربر');
+      // دریافت ضریب تغییر سایز فونت از SettingsProvider
+      final textScale = settings.textScaleFactor ?? 1.0;
 
-        final displayPhone = currentUser.mobileNumber.isNotEmpty
-            ? currentUser.mobileNumber
-            : (loc['profile_phone'] ?? '');
-
-        return Scaffold(
-          backgroundColor: AppColors.background,
-          body: SafeArea(
+      return Scaffold(
+        backgroundColor: AppColors.background,
+        body: SafeArea(
+          child: SingleChildScrollView(
             child: Column(
               children: [
-                // Header
+                // ---------------- Header ----------------
                 Padding(
                   padding:
                       const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
@@ -61,31 +37,27 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
                       IconButton(
-                        icon: Icon(Icons.arrow_back_ios_new_rounded,
-                            size: 24, color: AppColors.primary),
+                        icon: const Icon(Icons.arrow_back_ios_new_rounded,
+                            size: 24, color: AppColors.primaryBlue),
+                        // 👈 دکمه بک حالا به درستی کار می‌کند چون صفحه Push شده است
                         onPressed: () => Navigator.of(context).pop(),
                         splashRadius: 24,
                       ),
+                      const SizedBox(width: 8),
                       Expanded(
                         child: Column(
                           children: [
-                            // Profile Avatar
                             Container(
                               width: 80,
                               height: 80,
                               decoration: BoxDecoration(
                                 shape: BoxShape.circle,
-                                color: AppColors.cardBackground,
+                                color: Colors.white,
                                 boxShadow: [
                                   BoxShadow(
-                                    color: AppColors.shadowDark,
-                                    blurRadius: 15,
-                                    offset: const Offset(4, 4),
-                                  ),
-                                  BoxShadow(
-                                    color: AppColors.shadowLight,
-                                    blurRadius: 15,
-                                    offset: const Offset(-4, -4),
+                                    color: Colors.black.withOpacity(0.08),
+                                    blurRadius: 16,
+                                    offset: const Offset(0, 4),
                                   ),
                                 ],
                               ),
@@ -94,50 +66,58 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                 children: [
                                   const CircleAvatar(
                                     radius: 36,
-                                    backgroundColor: Color(0xFFE2D4C8),
+                                    backgroundColor: AppColors.avatarBackground,
                                     child: Icon(Icons.person,
                                         size: 48, color: Colors.white),
                                   ),
                                   Positioned(
-                                    bottom: 0,
-                                    right: 0,
+                                    bottom: 8,
+                                    right: 8,
                                     child: Container(
-                                      padding: const EdgeInsets.all(4),
                                       decoration: BoxDecoration(
-                                        color: AppColors.cardBackground,
+                                        color: Colors.white,
                                         shape: BoxShape.circle,
                                         boxShadow: [
                                           BoxShadow(
-                                            color: AppColors.shadowDark
-                                                .withOpacity(0.5),
-                                            blurRadius: 5,
+                                            color:
+                                                Colors.black.withOpacity(0.12),
+                                            blurRadius: 8,
                                           ),
                                         ],
                                       ),
-                                      child: Icon(Icons.camera_alt,
-                                          size: 16, color: AppColors.primary),
+                                      child: const Icon(Icons.camera_alt,
+                                          size: 18,
+                                          color: AppColors.primaryBlue),
                                     ),
                                   ),
                                 ],
                               ),
                             ),
-                            const SizedBox(height: 12),
+                            const SizedBox(height: 8),
                             Text(
-                              displayName,
-                              style: AppTextStyles.heading(context),
+                              loc['profile_name'] ?? 'نام کاربر',
+                              style: TextStyle(
+                                  fontFamily: mainFont,
+                                  fontSize: 22 * textScale,
+                                  fontWeight: FontWeight.bold,
+                                  color: AppColors.darkBlue),
                             ),
                             Text(
-                              displayPhone.toPersianDigit(isPersian),
-                              style: AppTextStyles.caption(context).copyWith(
-                                color: AppColors.primary,
-                              ),
+                              (loc['profile_phone'] ?? '09123456789')
+                                  .toString()
+                                  .toPersianDigit(isPersian),
+                              style: TextStyle(
+                                  fontFamily: mainFont,
+                                  fontSize: 15 * textScale,
+                                  color: AppColors.primaryBlue),
                             ),
                           ],
                         ),
                       ),
+                      const SizedBox(width: 8),
                       IconButton(
-                        icon: Icon(Icons.notifications_none_rounded,
-                            size: 24, color: AppColors.primary),
+                        icon: const Icon(Icons.notifications_none_rounded,
+                            size: 24, color: AppColors.primaryBlue),
                         onPressed: () {},
                         splashRadius: 24,
                       ),
@@ -145,29 +125,25 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   ),
                 ),
 
-                // Subscription Card
+                // ---------------- Subscription Card ----------------
                 Padding(
                   padding:
                       const EdgeInsets.symmetric(horizontal: 24, vertical: 8),
                   child: Container(
                     decoration: BoxDecoration(
                       color: AppColors.cardBackground,
-                      borderRadius: BorderRadius.circular(20),
+                      borderRadius: BorderRadius.circular(18),
                       boxShadow: [
                         BoxShadow(
-                          color: AppColors.shadowDark,
-                          blurRadius: 10,
-                          offset: const Offset(4, 4),
-                        ),
-                        BoxShadow(
-                          color: AppColors.shadowLight,
-                          blurRadius: 10,
-                          offset: const Offset(-4, -4),
+                          color: Colors.black.withOpacity(0.07),
+                          blurRadius: 16,
+                          offset: const Offset(0, 4),
                         ),
                       ],
                     ),
                     child: Padding(
-                      padding: const EdgeInsets.all(16),
+                      padding: const EdgeInsets.symmetric(
+                          vertical: 16, horizontal: 18),
                       child: Row(
                         children: [
                           Expanded(
@@ -175,43 +151,41 @@ class _ProfileScreenState extends State<ProfileScreen> {
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
                                 Text(
-                                  currentUser.isPremium
-                                      ? (loc['profile_active_subscription'] ??
-                                          'اشتراک فعال است')
-                                      : (loc['profile_no_subscription'] ??
-                                          'اشتراکی ندارید'),
-                                  style: AppTextStyles.body(context)
-                                      .copyWith(fontWeight: FontWeight.bold),
+                                  loc['profile_no_subscription'] ??
+                                      'اشتراکی ندارید',
+                                  style: TextStyle(
+                                      fontFamily: mainFont,
+                                      fontSize: 15 * textScale,
+                                      color: AppColors.darkBlue),
                                 ),
-                                const SizedBox(height: 12),
+                                const SizedBox(height: 8),
                                 Row(
                                   children: [
                                     ElevatedButton(
                                       style: ElevatedButton.styleFrom(
-                                        backgroundColor: AppColors.primary,
+                                        backgroundColor: AppColors.darkBlue,
                                         shape: RoundedRectangleBorder(
                                             borderRadius:
                                                 BorderRadius.circular(12)),
                                         elevation: 0,
+                                        padding: const EdgeInsets.symmetric(
+                                            horizontal: 18, vertical: 8),
                                       ),
                                       onPressed: () {},
                                       child: Text(
-                                        loc['profile_buy_plan'] ??
-                                            'خرید اشتراک',
-                                        style: AppTextStyles.button(context)
-                                            .copyWith(
-                                                color: Colors.white,
-                                                fontSize: 13),
-                                      ),
+                                          loc['profile_buy_plan'] ??
+                                              'خرید اشتراک',
+                                          style: TextStyle(
+                                              fontFamily: mainFont,
+                                              fontSize: 14 * textScale,
+                                              color: Colors.white)),
                                     ),
-                                    if (currentUser.isPremium) ...[
-                                      const SizedBox(width: 12),
-                                      Text(
-                                        loc['profile_renew'] ?? 'تمدید',
-                                        style: AppTextStyles.body(context)
-                                            .copyWith(color: AppColors.primary),
-                                      ),
-                                    ]
+                                    const SizedBox(width: 8),
+                                    Text(loc['profile_renew'] ?? 'تمدید',
+                                        style: TextStyle(
+                                            fontFamily: mainFont,
+                                            fontSize: 14 * textScale,
+                                            color: AppColors.primaryBlue)),
                                   ],
                                 ),
                               ],
@@ -219,13 +193,19 @@ class _ProfileScreenState extends State<ProfileScreen> {
                           ),
                           const SizedBox(width: 12),
                           Container(
-                            padding: const EdgeInsets.all(10),
                             decoration: const BoxDecoration(
-                              color: Color(0xFFFFF8E1),
+                              color: Colors.white,
                               shape: BoxShape.circle,
+                              boxShadow: [
+                                BoxShadow(
+                                  color: Color.fromARGB(64, 255, 191, 0),
+                                  blurRadius: 16,
+                                  offset: Offset(0, 4),
+                                ),
+                              ],
                             ),
                             child: const Icon(Icons.emoji_events_rounded,
-                                size: 32, color: Colors.amber),
+                                size: 36, color: Colors.amber),
                           ),
                         ],
                       ),
@@ -233,91 +213,99 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   ),
                 ),
 
-                // Menu List
-                Expanded(
-                  child: SingleChildScrollView(
-                    physics: const BouncingScrollPhysics(),
-                    child: Padding(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 24, vertical: 12),
-                      child: Container(
-                        decoration: BoxDecoration(
-                          color: AppColors.cardBackground,
-                          borderRadius: BorderRadius.circular(24),
-                          boxShadow: [
-                            BoxShadow(
-                              color: AppColors.shadowDark,
-                              blurRadius: 15,
-                              offset: const Offset(4, 4),
-                            ),
-                          ],
+                // ---------------- Menu List ----------------
+                Padding(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 24, vertical: 8),
+                  child: Container(
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(24),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withOpacity(0.07),
+                          blurRadius: 16,
+                          offset: const Offset(0, 4),
                         ),
-                        child: Column(
-                          children: [
-                            _ProfileMenuTile(
-                              icon: Icons.person_outline,
-                              iconColor: Colors.blueAccent,
-                              label: loc['profile_personal_info'] ??
-                                  'اطلاعات شخصی',
-                            ),
-                            const Divider(height: 1, indent: 60, endIndent: 20),
-                            _ProfileMenuTile(
-                              icon: Icons.assignment_outlined,
-                              iconColor: Colors.orangeAccent,
-                              label: loc['profile_health_profile'] ??
-                                  'پروفایل سلامت',
-                            ),
-                            const Divider(height: 1, indent: 60, endIndent: 20),
-                            _ProfileMenuTile(
-                              icon: Icons.people_outline,
-                              iconColor: Colors.green,
-                              label: loc['profile_caregivers'] ?? 'مراقبین',
-                            ),
-                            const Divider(height: 1, indent: 60, endIndent: 20),
-                            _ProfileMenuTile(
-                              icon: Icons.settings_outlined,
-                              iconColor: Colors.purple,
-                              label: loc['profile_app_settings'] ??
-                                  'تنظیمات برنامه',
-                              onTap: () {
-                                showDialog(
-                                  context: context,
-                                  builder: (context) => const _SettingsDialog(),
-                                );
-                              },
-                            ),
-                            const Divider(height: 1, indent: 60, endIndent: 20),
-                            _ProfileMenuTile(
-                              icon: Icons.card_giftcard_outlined,
-                              iconColor: Colors.redAccent,
-                              label: loc['profile_referral_code'] ?? 'کد معرفی',
-                            ),
-                            const Divider(height: 1, indent: 60, endIndent: 20),
-                            _ProfileMenuTile(
-                              icon: Icons.support_agent_outlined,
-                              iconColor: Colors.indigo,
-                              label: loc['profile_support'] ?? 'پشتیبانی',
-                            ),
-                          ],
+                      ],
+                    ),
+                    child: Column(
+                      children: [
+                        const Divider(height: 1, indent: 60, endIndent: 20),
+                        _ProfileMenuTile(
+                          icon: Icons.person,
+                          iconColor: Colors.blueAccent,
+                          label: loc['profile_personal_info'] ?? 'اطلاعات شخصی',
+                          mainFont: mainFont,
+                          textScale: textScale,
                         ),
-                      ),
+                        const Divider(height: 1, indent: 60, endIndent: 20),
+                        _ProfileMenuTile(
+                          icon: Icons.assignment_rounded,
+                          iconColor: Colors.orangeAccent,
+                          label:
+                              loc['profile_health_profile'] ?? 'پرونده سلامت',
+                          mainFont: mainFont,
+                          textScale: textScale,
+                        ),
+                        const Divider(height: 1, indent: 60, endIndent: 20),
+                        _ProfileMenuTile(
+                          icon: Icons.group,
+                          iconColor: Colors.green,
+                          label: loc['profile_caregivers'] ?? 'مراقبان',
+                          mainFont: mainFont,
+                          textScale: textScale,
+                        ),
+                        const Divider(height: 1, indent: 60, endIndent: 20),
+                        _ProfileMenuTile(
+                          icon: Icons.settings,
+                          iconColor: Colors.purple,
+                          label:
+                              loc['profile_app_settings'] ?? 'تنظیمات برنامه',
+                          mainFont: mainFont,
+                          textScale: textScale,
+                          onTap: () {
+                            showDialog(
+                              context: context,
+                              builder: (context) =>
+                                  _SettingsDialog(mainFont: mainFont),
+                            );
+                          },
+                        ),
+                        const Divider(height: 1, indent: 60, endIndent: 20),
+                        _ProfileMenuTile(
+                          icon: Icons.card_giftcard,
+                          iconColor: Colors.redAccent,
+                          label: loc['profile_referral_code'] ?? 'کد معرف',
+                          mainFont: mainFont,
+                          textScale: textScale,
+                        ),
+                        const Divider(height: 1, indent: 60, endIndent: 20),
+                        _ProfileMenuTile(
+                          icon: Icons.support_agent,
+                          iconColor: Colors.indigo,
+                          label: loc['profile_support'] ?? 'پشتیبانی',
+                          mainFont: mainFont,
+                          textScale: textScale,
+                        ),
+                      ],
                     ),
                   ),
                 ),
 
-                // Footer - Log Out
+                // ---------------- Footer - Log Out ----------------
                 Padding(
                   padding:
                       const EdgeInsets.symmetric(horizontal: 24, vertical: 8),
                   child: Container(
                     width: double.infinity,
                     decoration: BoxDecoration(
-                      color: AppColors.cardBackground,
+                      color: Colors.white,
                       borderRadius: BorderRadius.circular(18),
                       boxShadow: [
                         BoxShadow(
-                          color: Colors.redAccent.withOpacity(0.1),
-                          blurRadius: 10,
+                          color: Colors.redAccent.withOpacity(0.12),
+                          blurRadius: 16,
                           offset: const Offset(0, 4),
                         ),
                       ],
@@ -325,36 +313,40 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     child: TextButton.icon(
                       style: TextButton.styleFrom(
                         padding: const EdgeInsets.symmetric(vertical: 16),
+                        backgroundColor: Colors.transparent,
                         shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(18)),
                       ),
                       icon: const Icon(Icons.logout, color: Colors.redAccent),
-                      label: Text(
-                        loc['profile_logout'] ?? 'خروج از حساب',
-                        style: AppTextStyles.button(context)
-                            .copyWith(color: Colors.redAccent),
-                      ),
+                      label: Text(loc['profile_logout'] ?? 'خروج از حساب',
+                          style: TextStyle(
+                              fontFamily: mainFont,
+                              fontSize: 16 * textScale,
+                              color: Colors.redAccent,
+                              fontWeight: FontWeight.bold)),
                       onPressed: () {},
                     ),
                   ),
                 ),
 
-                // Footer Message
+                // ---------------- Footer Message ----------------
                 Padding(
-                  padding: const EdgeInsets.only(top: 4, bottom: 20),
+                  padding: const EdgeInsets.only(top: 8, bottom: 24),
                   child: Text(
-                    (loc['footer_message'] ?? 'Version 1.0.0')
-                        .toString()
-                        .toPersianDigit(isPersian),
-                    style: AppTextStyles.caption(context),
-                  ),
+                      (loc['footer_message'] ?? 'Version 1.0.0')
+                          .toString()
+                          .toPersianDigit(isPersian),
+                      style: TextStyle(
+                          fontFamily: mainFont,
+                          fontSize: 12 * textScale,
+                          color: AppColors.secondaryText.withOpacity(0.7))),
                 ),
               ],
             ),
           ),
-        );
-      }, // 👈 اینجا بسته شدن Consumer اصلاح شد
-    );
+        ),
+      );
+    });
   }
 }
 
@@ -362,41 +354,54 @@ class _ProfileMenuTile extends StatelessWidget {
   final IconData icon;
   final Color iconColor;
   final String label;
+  final String mainFont;
+  final double textScale;
   final VoidCallback? onTap;
 
   const _ProfileMenuTile({
     required this.icon,
     required this.iconColor,
     required this.label,
+    required this.mainFont,
+    required this.textScale,
     this.onTap,
   });
 
   @override
   Widget build(BuildContext context) {
     return ListTile(
-      contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 4),
       leading: Container(
-        width: 42,
-        height: 42,
+        width: 40,
+        height: 40,
         decoration: BoxDecoration(
-          color: iconColor.withOpacity(0.1),
-          borderRadius: BorderRadius.circular(12),
+          color: iconColor.withOpacity(0.15),
+          shape: BoxShape.circle,
+          boxShadow: [
+            BoxShadow(
+              color: iconColor.withOpacity(0.25),
+              blurRadius: 8,
+              offset: const Offset(0, 4),
+            ),
+          ],
         ),
-        child: Icon(icon, color: iconColor, size: 22),
+        child: Icon(icon, color: iconColor, size: 24),
       ),
-      title: Text(
-        label,
-        style: AppTextStyles.body(context),
-      ),
+      title: Text(label,
+          style: TextStyle(
+              fontFamily: mainFont,
+              fontSize: 16 * textScale,
+              color: AppColors.darkBlue)),
       trailing: const Icon(Icons.arrow_forward_ios_rounded,
-          size: 16, color: Colors.grey),
+          size: 14, color: Colors.grey), // 👈 فلش کوچک مثل CareMate اضافه شد
       onTap: onTap,
     );
   }
 }
 
+// ---------------- دیالوگ تنظیمات (ترکیب زبان و سایز فونت) ----------------
 class _SettingsDialog extends StatefulWidget {
-  const _SettingsDialog();
+  final String mainFont;
+  const _SettingsDialog({required this.mainFont});
 
   @override
   State<_SettingsDialog> createState() => _SettingsDialogState();
@@ -408,7 +413,6 @@ class _SettingsDialogState extends State<_SettingsDialog> {
   @override
   void initState() {
     super.initState();
-    // 👈 خواندن مقدار فعلی تنظیمات هنگام باز شدن دیالوگ
     _textSize =
         Provider.of<SettingsProvider>(context, listen: false).textScaleFactor ??
             1.0;
@@ -422,18 +426,24 @@ class _SettingsDialogState extends State<_SettingsDialog> {
     final loc = AppLocalizations.of(context);
 
     return AlertDialog(
-      backgroundColor: AppColors.cardBackground,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
-      title: Text(loc['profile_app_settings'] ?? 'تنظیمات',
-          style: AppTextStyles.heading(context)),
+      title: Text(loc['profile_app_settings'] ?? 'تنظیمات برنامه',
+          style: TextStyle(
+              fontFamily: widget.mainFont, fontWeight: FontWeight.bold)),
       content: Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text('زبان (Language)', style: AppTextStyles.body(context)),
+          // بخش انتخاب زبان
+          Text('زبان (Language)',
+              style: TextStyle(
+                  fontFamily: widget.mainFont,
+                  fontWeight: FontWeight.bold,
+                  fontSize: 14)),
           const SizedBox(height: 12),
           _LanguageOption(
             title: 'English',
+            font: widget.mainFont,
             isSelected: localeProvider.locale.languageCode == 'en',
             onTap: () {
               localeProvider.setLocale(const Locale('en'));
@@ -443,38 +453,45 @@ class _SettingsDialogState extends State<_SettingsDialog> {
           const SizedBox(height: 8),
           _LanguageOption(
             title: 'فارسی',
+            font: 'Vazir',
             isSelected: localeProvider.locale.languageCode == 'fa',
             onTap: () {
               localeProvider.setLocale(const Locale('fa'));
               Navigator.of(context).pop();
             },
           ),
+
           const SizedBox(height: 24),
           const Divider(),
-          const SizedBox(height: 12),
-          Text('اندازه متن (Text Size)', style: AppTextStyles.body(context)),
+          const SizedBox(height: 16),
+
+          // بخش تغییر سایز متن
+          Text('اندازه متن (Text Size)',
+              style: TextStyle(
+                  fontFamily: widget.mainFont,
+                  fontWeight: FontWeight.bold,
+                  fontSize: 14)),
           const SizedBox(height: 8),
           Row(
             children: [
-              const Icon(Icons.text_fields, size: 16, color: Colors.grey),
+              const Icon(Icons.format_size, size: 16, color: Colors.grey),
               Expanded(
                 child: Slider(
                   value: _textSize,
                   min: 0.8,
                   max: 1.5,
                   divisions: 3,
-                  activeColor: AppColors.primary,
+                  activeColor: AppColors.primaryBlue,
+                  inactiveColor: AppColors.primaryBlue.withOpacity(0.2),
                   onChanged: (val) {
                     setState(() {
                       _textSize = val;
                     });
-                    // 👈 این خط اسلایدر رو واقعاً به پرووایدرت وصل می‌کنه
-                    // اگر متد آپدیتت تو پرووایدر اسم دیگه‌ای داره، فقط همین خط رو عوض کن
                     settingsProvider.updateTextScale(val);
                   },
                 ),
               ),
-              const Icon(Icons.text_fields, size: 24, color: Colors.grey),
+              const Icon(Icons.format_size, size: 26, color: Colors.grey),
             ],
           ),
         ],
@@ -485,11 +502,13 @@ class _SettingsDialogState extends State<_SettingsDialog> {
 
 class _LanguageOption extends StatelessWidget {
   final String title;
+  final String font;
   final bool isSelected;
   final VoidCallback onTap;
 
   const _LanguageOption({
     required this.title,
+    required this.font,
     required this.isSelected,
     required this.onTap,
   });
@@ -502,21 +521,23 @@ class _LanguageOption extends StatelessWidget {
         padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
         decoration: BoxDecoration(
           color: isSelected
-              ? AppColors.primary.withOpacity(0.1)
+              ? AppColors.primaryBlue.withOpacity(0.1)
               : Colors.transparent,
           borderRadius: BorderRadius.circular(12),
           border: Border.all(
-              color: isSelected ? AppColors.primary : Colors.grey.shade300),
+              color: isSelected ? AppColors.primaryBlue : Colors.grey.shade300),
         ),
         child: Row(
           children: [
             Text(title,
-                style: AppTextStyles.body(context).copyWith(
-                    color: isSelected
-                        ? AppColors.primary
-                        : AppColors.textPrimary)),
+                style: TextStyle(
+                    fontFamily: font,
+                    fontSize: 16,
+                    color:
+                        isSelected ? AppColors.primaryBlue : Colors.black87)),
             const Spacer(),
-            if (isSelected) Icon(Icons.check_circle, color: AppColors.primary),
+            if (isSelected)
+              const Icon(Icons.check_circle, color: AppColors.primaryBlue),
           ],
         ),
       ),

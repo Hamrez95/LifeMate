@@ -48,7 +48,7 @@ class WellMateAppHeader extends StatelessWidget {
 
           // لوگوی اپلیکیشن (جایگزین متن)
           Image.asset(
-            'assets/images/WellMateWithoutBack.png', // مسیر عکس را در صورت نیاز اصلاح کن
+            '../../../assets/images/WellMateWithoutBack.png', // مسیر عکس را در صورت نیاز اصلاح کن
             height: 55,
             fit: BoxFit.contain,
             errorBuilder: (context, error, stackTrace) {

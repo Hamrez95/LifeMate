@@ -3,11 +3,9 @@ import 'package:flutter/material.dart';
 import '../../localization/app_localizations.dart';
 import '../../core/theme/app_style.dart';
 import '../../models/schedule_item_model.dart';
-import '../../core/widgets/wellmate_app_header.dart';
-import '../../core/widgets/neumorphic_action_button.dart';
-import 'timer_section.dart';
+import '../../services/backend_service.dart';
+import 'treatment_queue_widget.dart';
 import 'soft_schedule_card.dart';
-import '../profile/profile_screen.dart';
 
 class HomeScreenContent extends StatefulWidget {
   const HomeScreenContent({Key? key}) : super(key: key);
@@ -17,18 +15,17 @@ class HomeScreenContent extends StatefulWidget {
 }
 
 class _HomeScreenContentState extends State<HomeScreenContent> {
-  int currentIndex = 0;
-  int secondsLeft = 3600;
-  bool isDone = false;
-  bool isLoading = false;
-  Timer? _timer;
   List<ScheduleItemModel> scheduleList = [];
+  Timer? _timer;
+  bool isLoading = true;
 
   @override
   void initState() {
     super.initState();
-    _fetchScheduleList();
-    _startTimer();
+    _fetchScheduleFromBackend();
+    _timer = Timer.periodic(const Duration(minutes: 1), (timer) {
+      if (mounted) setState(() {});
+    });
   }
 
   @override
@@ -37,122 +34,79 @@ class _HomeScreenContentState extends State<HomeScreenContent> {
     super.dispose();
   }
 
-  void _fetchScheduleList() {
-    setState(() {
-      scheduleList = [
-        ScheduleItemModel(
-            id: '1',
-            type: 'medicine',
-            title: 'آموکسی‌سیلین (کپسول ۵۰۰)',
-            time: '08:00',
-            dosage: '۱ عدد'),
-        ScheduleItemModel(
-            id: '2',
-            type: 'medicine',
-            title: 'ویتامین C (قرص جوشان)',
-            time: '14:00',
-            dosage: '۱ عدد'),
-        ScheduleItemModel(
-            id: '3',
-            type: 'medicine',
-            title: 'آسپرین (قرص)',
-            time: '20:00',
-            dosage: '۱ عدد'),
-      ];
-    });
-  }
+  Future<void> _fetchScheduleFromBackend() async {
+    try {
+      final data = await BackendService.getStatus();
+      final List<dynamic> rawList = data['scheduleList'] ?? [];
 
-  void _startTimer() {
-    _timer?.cancel();
-    _timer = Timer.periodic(const Duration(seconds: 1), (timer) {
-      if (mounted) {
-        setState(() {
-          if (secondsLeft > 0) {
-            secondsLeft--;
-          } else {
-            timer.cancel();
-          }
-        });
-      }
-    });
-  }
+      // فیلتر کردن فقط برای مامان جون
+      final mamanJoonSchedules = rawList
+          .where((item) => item['patient'] == 'مامان جون')
+          .map((item) => ScheduleItemModel(
+                id: item['id'].toString(),
+                type: item['type'] == 'appointment' ? 'visit' : 'medicine',
+                title: item['name'],
+                time: item['time'],
+                dosage: item['details'],
+                isDone:
+                    false, // لاجیک مصرف شده‌ها را بعدا می‌توانید اینجا اضافه کنید
+              ))
+          .toList();
 
-  Future<void> _onMarkAsDone() async {
-    setState(() => isLoading = true);
-    await Future.delayed(const Duration(seconds: 1));
-    if (mounted)
       setState(() {
+        scheduleList = mamanJoonSchedules;
         isLoading = false;
-        isDone = true;
       });
-  }
-
-  void _handleNext() {
-    setState(() {
-      if (currentIndex < scheduleList.length - 1) {
-        currentIndex++;
-        secondsLeft = 3600;
-        isDone = false;
-        _startTimer();
-      } else {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('برنامه دارویی امروز به پایان رسید.')),
-        );
-      }
-    });
+    } catch (e) {
+      debugPrint('Error: $e');
+      setState(() => isLoading = false);
+    }
   }
 
   @override
   Widget build(BuildContext context) {
     final loc = AppLocalizations.of(context);
     final font = AppTextStyles.body(context);
-
-    final currentItem = (scheduleList.isNotEmpty &&
-            currentIndex < scheduleList.length)
-        ? scheduleList[currentIndex]
-        : ScheduleItemModel(id: '', type: '', title: '-', time: '', dosage: '');
-
-    final nextItems =
-        (scheduleList.isNotEmpty && currentIndex + 1 < scheduleList.length)
-            ? scheduleList.sublist(currentIndex + 1)
-            : <ScheduleItemModel>[];
-
-    const initialSeconds = 3600;
-    final progress =
-        secondsLeft > 0 ? (1 - (secondsLeft / initialSeconds)) : 1.0;
+    final upcomingItems = scheduleList.where((item) => !item.isDone).toList();
 
     return Column(
       children: [
-        // Appbar/Header
         SafeArea(
           bottom: false,
-          child: CustomHeader(
-            title: loc['home_title'] ?? 'WellMate',
-            font: font,
-            onProfileTap: () => Navigator.of(context)
-                .push(MaterialPageRoute(builder: (_) => const ProfileScreen())),
+          child: Padding(
+            padding:
+                const EdgeInsets.symmetric(horizontal: 20.0, vertical: 10.0),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(loc['home_greeting'] ?? 'سلام، مامان جون',
+                        style: font.copyWith(
+                            fontSize: 20, fontWeight: FontWeight.bold)),
+                    Text(loc['home_subtitle'] ?? 'برنامه درمانی امروز شما',
+                        style: font.copyWith(
+                            fontSize: 14, color: AppColors.textSecondary)),
+                  ],
+                ),
+                CircleAvatar(
+                  radius: 24,
+                  backgroundColor: AppColors.primary.withOpacity(0.1),
+                  child: Icon(Icons.person, color: AppColors.primary),
+                ),
+              ],
+            ),
           ),
         ),
-        const SizedBox(height: 10),
-        TimerSection(
-          progress: progress,
-          secondsLeft: secondsLeft,
-          medicineName: currentItem.title,
-          titleText: loc['home_time_dose'] ?? 'Next Dose',
-          font: font,
-        ),
-        const SizedBox(height: 30),
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 40),
-          child: NeumorphicActionButton(
-            text: isDone
-                ? (loc['home_next_dose_btn'] ?? 'Next Dose')
-                : (loc['home_mark_done'] ?? 'Take Medicine'),
-            isLoading: isLoading,
-            font: font,
-            onTap: (isDone || isLoading) ? _handleNext : _onMarkAsDone,
+        const SizedBox(height: 16),
+        if (isLoading)
+          const CircularProgressIndicator()
+        else
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 20.0),
+            child: TreatmentQueueWidget(schedules: scheduleList, font: font),
           ),
-        ),
         const SizedBox(height: 30),
         Expanded(
           child: Container(
@@ -163,8 +117,8 @@ class _HomeScreenContentState extends State<HomeScreenContent> {
                   const BorderRadius.vertical(top: Radius.circular(30)),
               boxShadow: [
                 BoxShadow(
-                    color: AppColors.shadowDark.withOpacity(0.5),
-                    blurRadius: 10,
+                    color: AppColors.shadowDark.withOpacity(0.3),
+                    blurRadius: 15,
                     offset: const Offset(0, -5))
               ],
             ),
@@ -175,27 +129,27 @@ class _HomeScreenContentState extends State<HomeScreenContent> {
                   padding: const EdgeInsets.only(
                       left: 28, right: 28, top: 24, bottom: 16),
                   child: Text(
-                    loc['home_schedule_title'] ?? 'Upcoming Schedule',
+                    loc['home_schedule_title'] ?? 'لیست داروهای امروز',
                     style: font.copyWith(
-                        fontSize: 18,
-                        fontWeight: FontWeight.bold,
-                        color: AppColors.textPrimary),
+                        fontSize: 18, fontWeight: FontWeight.bold),
                   ),
                 ),
                 Expanded(
-                  child: nextItems.isEmpty
-                      ? Center(
-                          child: Text(
-                              loc['home_empty_list'] ?? 'No more medicines',
-                              style: font))
-                      : ListView.separated(
-                          padding: const EdgeInsets.fromLTRB(24, 0, 24, 20),
-                          itemCount: nextItems.length,
-                          separatorBuilder: (_, __) =>
-                              const SizedBox(height: 16),
-                          itemBuilder: (context, i) => SoftScheduleCard(
-                              item: nextItems[i], index: i, font: font),
-                        ),
+                  child: isLoading
+                      ? const SizedBox()
+                      : upcomingItems.isEmpty
+                          ? Center(
+                              child: Text(
+                                  loc['home_empty_list'] ?? 'دارویی نمانده',
+                                  style: font))
+                          : ListView.separated(
+                              padding: const EdgeInsets.fromLTRB(24, 0, 24, 20),
+                              itemCount: upcomingItems.length,
+                              separatorBuilder: (_, __) =>
+                                  const SizedBox(height: 16),
+                              itemBuilder: (context, i) => SoftScheduleCard(
+                                  item: upcomingItems[i], index: i, font: font),
+                            ),
                 ),
               ],
             ),

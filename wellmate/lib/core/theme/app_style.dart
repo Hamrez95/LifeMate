@@ -11,7 +11,13 @@ class AppColors {
   static const Color shadowLight = Colors.white;
   static const Color shadowDark = Color(0xFFD6E0F0);
   static const Color success = Color(0xFF4CAF50);
+  static const Color primaryBlue = Color(0xFF4A90E2);
+  static const Color darkBlue = Color(0xFF283054); // رنگ سرمه‌ای (متن‌های اصلی)
+  static const Color avatarBackground =
+      Color(0xFFE2D4C8); // رنگ پس‌زمینه آواتار
   // رنگ پس‌زمینه کارت‌ها و کادرها
+  static const Color secondaryText = Color(0xFF7B93DB); // متن‌های ثانویه
+
   static const Color cardBackground = Colors.white;
   // رنگ اصلی متن‌ها (سرمه‌ای تیره برای خوانایی بهتر)
   static const Color textMain = Color(0xFF283054);
