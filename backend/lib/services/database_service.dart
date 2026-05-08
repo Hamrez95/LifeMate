@@ -4,57 +4,33 @@ import 'dart:io';
 class DatabaseService {
   static const String _filePath = 'db.json';
 
-  // داده‌های اولیه (CareMate)
+  // داده‌های اولیه (CareMate) به‌روزرسانی شده
   static final Map<String, dynamic> _defaultData = {
     'currentIndex': 0,
     'scheduleList': [
       {
         'id': 1,
         'type': 'med',
-        'name': 'قرص آهسته رهش دیلیست',
-        'details': '30 میلی گرم',
+        'name': 'قرص آسپرین',
+        'details': '80 میلی گرم',
         'time': '08:00',
         'frequency': 'روزانه'
       },
       {
         'id': 2,
         'type': 'med',
-        'name': 'قرص لوزارتان',
-        'details': '25 میلی گرم',
-        'time': '08:00',
+        'name': 'قرص پلاویکس',
+        'details': '75 میلی گرم',
+        'time': '14:00',
         'frequency': 'روزانه'
       },
       {
         'id': 3,
-        'type': 'med',
-        'name': 'قرص هیدروکلروتیازید',
-        'details': '50 میلی گرم',
-        'time': '08:00',
-        'frequency': 'روزانه'
-      },
-      {
-        'id': 4,
-        'type': 'therapy',
-        'name': 'فیزیوتراپی',
-        'details': 'جلسه درمانی',
-        'time': '16:00',
-        'frequency': 'یک روز در میان'
-      },
-      {
-        'id': 5,
-        'type': 'med',
-        'name': 'قرص آتورواستاتین',
-        'details': '10 میلی گرم',
-        'time': '21:00',
-        'frequency': 'روزانه'
-      },
-      {
-        'id': 6,
         'type': 'appointment',
-        'name': 'ملاقات با دکتر',
-        'details': 'فراموش نشود!',
-        'time': '11:00',
-        'frequency': '10 می'
+        'name': 'ملاقات با دکتر قلب',
+        'details': 'چکاپ دوره‌ای - همراه داشتن نوار قلب فراموش نشود',
+        'time': '17:30',
+        'frequency': 'تاریخ مقرر'
       },
     ],
     'status': 'pending',

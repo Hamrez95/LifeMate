@@ -47,21 +47,21 @@ class CareMateBottomNav extends StatelessWidget {
               fontFamily: fontFamily,
             ),
             _buildNavItem(
-              icon: Icons.chat_bubble_outline_rounded,
-              label: loc['nav_chat'] ?? 'چت',
+              icon: Icons.switch_account_rounded,
+              label: loc['nav_profiles'] ?? 'تغییر پروفایل',
               index: 1,
               fontFamily: fontFamily,
             ),
             // دکمه افزودن حالا به شکل مینیمال و هماهنگ درآمده است
             _buildNavItem(
-              icon: Icons.add_circle_outline,
-              label: loc['nav_add'] ?? 'افزودن',
+              icon: Icons.medical_services,
+              label: loc['nav_add_new_threadment'] ?? 'مدیریت درمان',
               index: 2,
               fontFamily: fontFamily,
             ),
             _buildNavItem(
-              icon: Icons.assignment_rounded,
-              label: loc['nav_tasks'] ?? 'وظایف',
+              icon: Icons.family_restroom_rounded,
+              label: loc['nav_caring'] ?? 'مراقبت',
               index: 3,
               fontFamily: fontFamily,
             ),

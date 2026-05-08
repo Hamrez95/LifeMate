@@ -1,3 +1,6 @@
+// lib/screens/calendar/calendar_screen.dart
+
+import 'package:caremate/models/user_model.dart';
 import 'package:caremate/screens/calendar/calendar_view.dart';
 import 'package:caremate/screens/calendar/schedule_card.dart';
 import 'package:caremate/screens/calendar/user_selector.dart';
@@ -5,15 +8,11 @@ import 'package:caremate/screens/dashboard_screen.dart';
 import 'package:caremate/widgets/caremate_bottom_nav.dart';
 import 'package:caremate/widgets/custom_app_header.dart';
 import 'package:flutter/material.dart';
-import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
-
-// ایمپورت ویجت‌های جدا شده
 
 import '../../core/localization/app_localizations.dart';
 import '../../core/localization/locale_provider.dart';
 import '../../core/utils/string_extensions.dart';
-import '../../core/constants/app_colors.dart';
 import '../../models/event_model.dart';
 import '../../data/app_mock_data.dart';
 
@@ -25,6 +24,7 @@ class CalendarScreen extends StatefulWidget {
 }
 
 class _CalendarScreenState extends State<CalendarScreen> {
+  // 1. انتخاب خودکار امروز: مقدار اولیه _selectedDate همین الان DateTime.now() است.
   DateTime _selectedDate = DateTime.now();
   DateTime _focusedMonth = DateTime.now();
   late String _selectedUserId;
@@ -32,195 +32,218 @@ class _CalendarScreenState extends State<CalendarScreen> {
   @override
   void initState() {
     super.initState();
+    // انتخاب اولین کاربر به عنوان پیش‌فرض
     if (AppMockData.familyMembers.isNotEmpty) {
       _selectedUserId = AppMockData.familyMembers.first.id;
     }
   }
 
   // --- توابع مدیریت State ---
+
+  /// تاریخ را نرمال می‌کند (ساعت، دقیقه و ثانیه را صفر می‌کند) تا مقایسه‌ها دقیق باشد
   DateTime _normalizeDate(DateTime date) {
     return DateTime(date.year, date.month, date.day);
   }
 
-  List<EventModel> _getEventsForDayAndUser(DateTime day, String userId) {
+  /// لیست رویدادهای یک روز خاص برای کاربر انتخاب‌شده را برمی‌گرداند
+  List<EventModel> _getEventsForDayAndUser(DateTime day) {
+    final normalizedDay = _normalizeDate(day);
     return AppMockData.calendarEvents.where((event) {
-      return _normalizeDate(event.date) == _normalizeDate(day) &&
-          event.userId == userId;
+      return _normalizeDate(event.date) == normalizedDay &&
+          event.userId == _selectedUserId;
     }).toList();
   }
 
-  bool _hasEventForUser(DateTime day) {
-    return AppMockData.calendarEvents.any((event) =>
-        _normalizeDate(event.date) == _normalizeDate(day) &&
-        event.userId == _selectedUserId);
+  // --- توابع جدید برای منطق پیشرفته تقویم ---
+
+  /// [جدید] بررسی می‌کند که آیا در یک روز گذشته، رویداد انجام‌نشده وجود دارد یا خیر.
+  /// این تابع به CalendarView ارسال می‌شود تا پس‌زمینه قرمز را اعمال کند.
+  bool _hasOverdueEvents(DateTime day) {
+    final today = _normalizeDate(DateTime.now());
+    // فقط روزهای قبل از امروز را بررسی کن
+    if (day.isBefore(today)) {
+      return AppMockData.calendarEvents.any((event) =>
+          _normalizeDate(event.date) == _normalizeDate(day) &&
+          event.userId == _selectedUserId &&
+          event.isCompleted == false);
+    }
+    return false;
   }
 
-  void _onDaySelected(DateTime day) {
-    setState(() => _selectedDate = day);
-  }
-
-  void _onUserSelected(String userId) {
-    setState(() => _selectedUserId = userId);
-  }
-
-  void _changeMonth(int offset) {
-    setState(() {
-      _focusedMonth =
-          DateTime(_focusedMonth.year, _focusedMonth.month + offset);
-    });
+  /// [جدید] یک مجموعه (Set) از انواع رویدادهای موجود در یک روز را برمی‌گرداند.
+  /// استفاده از Set از نمایش نقاط تکراری جلوگیری می‌کند.
+  Set<EventType> _getDayEventTypes(DateTime day) {
+    final events = _getEventsForDayAndUser(day);
+    return events.map((event) => event.type).toSet();
   }
 
   @override
   Widget build(BuildContext context) {
     final loc = AppLocalizations.of(context);
-    final localeProvider = Provider.of<LocaleProvider>(context);
-    final isPersian = localeProvider.locale.languageCode == 'fa';
-    final TextStyle mainFont = isPersian
-        ? const TextStyle(fontFamily: 'Vazir', color: AppColors.primaryText)
-        : const TextStyle(fontFamily: 'Nunito', color: AppColors.primaryText);
+    final isRtl = Directionality.of(context) == TextDirection.rtl;
+    final font = Theme.of(context).textTheme.bodyMedium?.fontFamily ??
+        (isRtl ? 'Vazir' : 'Nunito');
 
-    final events = _getEventsForDayAndUser(_selectedDate, _selectedUserId);
-    final dayFormat = DateFormat('d').format(_selectedDate);
-    final scheduleTitle =
-        "${loc['calendar_schedule_for'] ?? 'Schedule for'} $dayFormat${isPersian ? '' : 'th'}"
-            .toPersianDigit(isPersian);
-
-    return Scaffold(
-      backgroundColor: AppColors.background,
-      extendBody: true,
-      body: SafeArea(
-        bottom: false,
-        child: Column(
-          children: [
-            const Padding(
-              padding: EdgeInsets.fromLTRB(24, 20, 24, 10),
-              child: CustomAppHeader(),
-            ),
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 8),
-              child: Align(
-                alignment: Alignment.centerRight,
-                child: Text(
-                  loc['calendar_title'] ?? 'Calendar',
-                  style: isPersian
-                      ? const TextStyle(
-                          fontFamily: 'Vazir',
-                          fontSize: 22,
-                          fontWeight: FontWeight.bold,
-                          color: AppColors.darkBlue)
-                      : const TextStyle(
-                          fontFamily: 'Nunito',
-                          fontSize: 22,
-                          fontWeight: FontWeight.bold,
-                          color: AppColors.darkBlue),
-                ),
-              ),
-            ),
-            Expanded(
-              child: SingleChildScrollView(
-                padding: const EdgeInsets.only(bottom: 120),
-                child: Column(
-                  children: [
-                    const SizedBox(height: 5),
-
-                    // <<< استفاده از ویجت UserSelector >>>
-                    UserSelector(
-                      selectedUserId: _selectedUserId,
-                      font: mainFont,
-                      onUserSelected: _onUserSelected,
-                    ),
-                    const SizedBox(height: 20),
-
-                    // <<< استفاده از ویجت CalendarView >>>
-                    Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 24),
-                      child: CalendarView(
-                        focusedMonth: _focusedMonth,
-                        selectedDate: _selectedDate,
-                        isPersian: isPersian,
-                        font: mainFont,
-                        onMonthChanged: _changeMonth,
-                        onDaySelected: _onDaySelected,
-                        hasEventForUser: _hasEventForUser,
-                      ),
-                    ),
-                    const SizedBox(height: 25),
-
-                    // کانتینر لیست برنامه‌ها
-                    Container(
-                      width: double.infinity,
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 24, vertical: 24),
-                      decoration: BoxDecoration(
-                        color: Colors.white.withOpacity(0.6),
-                        borderRadius: const BorderRadius.vertical(
-                            top: Radius.circular(30)),
-                        boxShadow: [
-                          BoxShadow(
-                              color: Colors.black.withOpacity(0.02),
-                              blurRadius: 10,
-                              offset: const Offset(0, -5))
-                        ],
-                      ),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(scheduleTitle,
-                              style: mainFont.copyWith(
-                                  fontSize: 18, fontWeight: FontWeight.bold)),
-                          const SizedBox(height: 16),
-                          events.isEmpty
-                              ? Padding(
-                                  padding:
-                                      const EdgeInsets.symmetric(vertical: 40),
-                                  child: Center(
-                                      child: Text(
-                                          loc['calendar_empty'] ??
-                                              'No schedule',
-                                          style: mainFont)),
-                                )
-                              : ListView.separated(
-                                  shrinkWrap: true,
-                                  physics: const NeverScrollableScrollPhysics(),
-                                  padding: EdgeInsets.zero,
-                                  itemCount: events.length,
-                                  separatorBuilder: (context, index) =>
-                                      const SizedBox(height: 12),
-                                  itemBuilder: (context, index) {
-                                    // <<< استفاده از ویجت ScheduleCard >>>
-                                    return ScheduleCard(
-                                      event: events[index],
-                                      font: mainFont,
-                                      isPersian: isPersian,
-                                    );
-                                  },
-                                ),
-                        ],
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ],
-        ),
-      ),
-      bottomNavigationBar: CareMateBottomNav(
-        currentIndex: 0,
-        onTap: (index) {
-          if (index == 4) {
-            Navigator.pushReplacement(
-              context,
-              PageRouteBuilder(
-                pageBuilder: (context, animation1, animation2) =>
-                    const DashboardScreen(),
-                transitionDuration: Duration.zero,
-                reverseTransitionDuration: Duration.zero,
-              ),
-            );
-          }
-        },
-      ),
+    // پیدا کردن اطلاعات کاربر انتخاب‌شده
+    final selectedUser = AppMockData.familyMembers.firstWhere(
+      (user) => user.id == _selectedUserId,
+      orElse: () => AppMockData.familyMembers.first,
     );
+
+    // دریافت رویدادهای روز انتخاب‌شده
+    final eventsForSelectedDay = _getEventsForDayAndUser(_selectedDate);
+    final monthNamesEn = [
+      'Jan',
+      'Feb',
+      'Mar',
+      'Apr',
+      'May',
+      'Jun',
+      'Jul',
+      'Aug',
+      'Sep',
+      'Oct',
+      'Nov',
+      'Dec'
+    ];
+    final monthNamesFa = [
+      'ژانویه',
+      'فوریه',
+      'مارس',
+      'آوریل',
+      'مه',
+      'ژوئن',
+      'ژوئیه',
+      'اوت',
+      'سپتامبر',
+      'اکتبر',
+      'نوامبر',
+      'دسامبر'
+    ];
+    final monthName = isRtl
+        ? monthNamesFa[_selectedDate.month - 1]
+        : monthNamesEn[_selectedDate.month - 1];
+    return Scaffold(
+        body: SafeArea(
+          bottom: false, // دقیقاً مثل داشبورد
+          child: Padding(
+            // اعمال همان فاصله‌های داشبورد برای یکسان‌سازی
+            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
+            child: Column(
+              children: [
+                // --- Header ---
+                const CustomAppHeader(),
+
+                const SizedBox(height: 16),
+                UserSelector(
+                  selectedUserId: _selectedUserId,
+                  font: TextStyle(fontFamily: font),
+                  onUserSelected: (userId) {
+                    setState(() {
+                      _selectedUserId = userId;
+                    });
+                  },
+                ),
+                const SizedBox(height: 16),
+                // ویجت تقویم با منطق جدید
+                CalendarView(
+                  focusedMonth: _focusedMonth,
+                  selectedDate: _selectedDate,
+                  onDaySelected: (selectedDay, focusedDay) {
+                    setState(() {
+                      _selectedDate = selectedDay;
+                      _focusedMonth = focusedDay;
+                    });
+                  },
+                  onPageChanged: (focusedDay) {
+                    setState(() {
+                      _focusedMonth = focusedDay;
+                    });
+                  },
+                  // پاس دادن توابع جدید به ویجت نمایش
+                  getDayEventTypes: _getDayEventTypes,
+                  hasOverdueEvents: _hasOverdueEvents,
+                ),
+                const SizedBox(height: 24),
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 24.0),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text(
+                        loc['cal_schedule'],
+                        style: TextStyle(
+                            fontFamily: font,
+                            fontSize: 18,
+                            fontWeight: FontWeight.bold),
+                      ),
+                      Text(
+                        '${_selectedDate.day} $monthName, ${_selectedDate.year}'
+                            .toPersianDigit(isRtl),
+                        style: TextStyle(
+                          fontFamily: font,
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 16),
+                Expanded(
+                  child: eventsForSelectedDay.isEmpty
+                      ? Center(
+                          child: Text(
+                            loc['no_events_today'],
+                            style: TextStyle(
+                                fontFamily: font,
+                                color: const Color.fromARGB(255, 88, 88, 88)),
+                          ),
+                        )
+                      : ListView.builder(
+                          padding: const EdgeInsets.symmetric(horizontal: 24),
+                          itemCount: eventsForSelectedDay.length,
+                          itemBuilder: (context, index) {
+                            return Padding(
+                                padding: const EdgeInsets.only(
+                                    bottom:
+                                        12.0), // ایجاد فاصله ۱۲ پیکسلی در پایین هر کارت
+                                child: ScheduleCard(
+                                  event: eventsForSelectedDay[index],
+                                  font: TextStyle(
+                                      fontFamily: font), // <--- تغییر اینجاست
+                                  isPersian: isRtl,
+                                ));
+                          },
+                        ),
+                ),
+              ],
+            ),
+          ),
+        ),
+        bottomNavigationBar: CareMateBottomNav(
+            currentIndex: 0, // 👈 در نویگیشن بار شما، عدد ۰ مربوط به تقویم است
+            onTap: (index) {
+              // اگر کاربر روی همون آیکون تقویم کلیک کرد، نیازی نیست کاری انجام بدیم
+              if (index == 0) return;
+
+              if (index == 4) {
+                // 👈 ایندکس ۴ برای خانه (داشبورد)
+                Navigator.pushReplacement(
+                  context,
+                  PageRouteBuilder(
+                    // نام کلاس صفحه اصلی (داشبورد) خود را اینجا جایگزین کنید، مثلا DashboardScreen()
+                    pageBuilder: (_, __, ___) =>
+                        const DashboardScreen(), // 👈 نام کلاس خانه
+                    transitionDuration: Duration.zero,
+                    reverseTransitionDuration: Duration.zero,
+                  ),
+                );
+              } else if (index == 1) {
+                // 👈 ایندکس ۱ برای چت
+                // اگر کلاس صفحه چت را دارید، می‌توانید به همین شکل اضافه‌اش کنید
+                // Navigator.pushReplacement(...)
+              }
+            }));
   }
 }

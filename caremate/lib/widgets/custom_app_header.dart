@@ -129,7 +129,7 @@ class CustomAppHeader extends StatelessWidget {
         // لوگوی اپلیکیشن
         Image.asset(
           '../../../assets/images/CareMateWithoutBack.png', // مسیر قطعی لوگو
-          height: 40,
+          height: 55,
           fit: BoxFit.contain,
           errorBuilder: (context, error, stackTrace) {
             return const Icon(Icons.broken_image, color: Colors.grey);

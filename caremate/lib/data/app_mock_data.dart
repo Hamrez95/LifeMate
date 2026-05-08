@@ -4,7 +4,7 @@ import '../models/user_model.dart';
 import '../models/event_model.dart';
 
 class MockData {
-  static const String patientNameEn = "John Doe";
+  static const String patientNameEn = "Maman joon";
   static const String pregnancyWeek = "12";
   static const String medicationProgress = "80%";
   static const double medicationProgressValue = 0.8;

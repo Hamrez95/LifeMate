@@ -32,6 +32,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
     });
     try {
       final data = await BackendService.getStatus();
+
       if (mounted) {
         setState(() {
           backendStatus = data;
@@ -95,18 +96,19 @@ class _DashboardScreenState extends State<DashboardScreen> {
               // --- Header ---
               const CustomAppHeader(),
 
-              Align(
-                alignment:
-                    isPersian ? Alignment.centerLeft : Alignment.centerRight,
-                child: Padding(
-                  padding: const EdgeInsets.only(top: 10, bottom: 20),
-                  child: GlassIconButton(
-                      icon: Icons.tune_rounded,
-                      size: 38,
-                      iconSize: 20,
-                      onTap: _onRefresh),
-                ),
-              ),
+              // Align(
+              //   alignment:
+              //       isPersian ? Alignment.centerLeft : Alignment.centerRight,
+              //   child: Padding(
+              //     padding: const EdgeInsets.only(top: 10, bottom: 20),
+              //     child: GlassIconButton(
+              //         icon: Icons.tune_rounded,
+              //         size: 38,
+              //         iconSize: 20,
+              //         onTap: _onRefresh),
+              //   ),
+              // ),
+              const SizedBox(height: 30),
 
               Align(
                 alignment:
@@ -292,14 +294,14 @@ class _DashboardScreenState extends State<DashboardScreen> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
-            backendStatus!['item']?['type'] == 'med'
+            backendStatus!['currentItem']?['type'] == 'med'
                 ? loc['dashboard_current_medicine']
                 : loc['dashboard_current_appointment'],
             style:
                 mainFont.copyWith(fontWeight: FontWeight.bold, fontSize: 16)),
         const SizedBox(height: 8),
         Text(
-            (backendStatus!['item']?['name'] ?? '-')
+            (backendStatus!['currentItem']?['name'] ?? '-')
                 .toString()
                 .toPersianDigit(isPersian),
             style:
@@ -339,7 +341,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
   }
 
   Widget _nextMedication(bool isPersian, TextStyle mainFont) {
-    final nextList = backendStatus!['nextMedications'] as List?;
+    final nextList = backendStatus!['nextItems'] as List?;
     if (nextList != null && nextList.isNotEmpty) {
       return Text(
           (nextList.first['name'] ?? '-').toString().toPersianDigit(isPersian),
