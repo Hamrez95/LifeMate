@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:wellmate/core/widgets/wellmate_app_header.dart';
 import '../../localization/app_localizations.dart';
 import '../../core/theme/app_style.dart';
-import '../../core/widgets/simple_bottom_nav.dart';
+import '../../core/widgets/wellmate_bottom_nav.dart';
 import '../calendar/calendar_screen.dart'; // مسیرها رو با پروژه خودت چک کن
 import '../profile/profile_screen.dart';
 import 'home_screen_content.dart';
@@ -40,7 +41,7 @@ class _HomeScreenState extends State<HomeScreen> {
         index: _currentIndex,
         children: _pages,
       ),
-      bottomNavigationBar: SimpleBottomNav(
+      bottomNavigationBar: WellMateAppHeader(
         currentIndex: _currentIndex,
         onTap: _onItemTapped,
       ),

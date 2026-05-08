@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:wellmate/core/theme/app_style.dart';
 import '../../localization/app_localizations.dart';
-import '../../core/widgets/custom_header.dart';
+import '../../core/widgets/wellmate_app_header.dart';
 import '../profile/profile_screen.dart';
 import '../../models/schedule_item_model.dart';
 import '../../core/utils/string_extensions.dart';

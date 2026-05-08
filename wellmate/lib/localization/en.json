@@ -39,5 +39,12 @@
   "med_qty": "Qty",
   "type_medicine": "Medicine",
   "type_doctor": "Doctor Visit",
-  "type_treatment": "Treatment"
+  "type_treatment": "Treatment",
+
+"nav_calendar": "Calendar",
+  "nav_medications": "Medicines",
+  "nav_add_treatment": "Add Treatment",
+  "nav_add_caregiver": "Add Caregiver",
+  "nav_home": "Home"
+
 }

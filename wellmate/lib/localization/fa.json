@@ -39,7 +39,11 @@
   "med_qty": "تعداد",
   "type_medicine": "دارو",
   "type_doctor": "ویزیت دکتر",
-  "type_treatment": "درمان"
+  "type_treatment": "درمان",
 
-
+ "nav_calendar": "تقویم",
+  "nav_medications": "درمان ها",
+  "nav_add_treatment": "افزودن درمان",
+  "nav_add_caregiver": "مراقب جدید",
+  "nav_home": "خانه"
 }

@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 import '../../localization/app_localizations.dart';
 import '../../core/theme/app_style.dart';
 import '../../models/schedule_item_model.dart';
-import '../../core/widgets/custom_header.dart';
+import '../../core/widgets/wellmate_app_header.dart';
 import '../../core/widgets/neumorphic_action_button.dart';
 import 'timer_section.dart';
 import 'soft_schedule_card.dart';
