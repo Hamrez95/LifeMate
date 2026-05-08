@@ -4,8 +4,8 @@ import '../../localization/app_localizations.dart';
 import '../../core/theme/app_style.dart';
 import '../../models/schedule_item_model.dart';
 import '../../services/backend_service.dart';
-import 'treatment_queue_widget.dart';
 import 'soft_schedule_card.dart';
+import 'timer_section.dart'; // حتما این فایل را ایمپورت کنید
 
 class HomeScreenContent extends StatefulWidget {
   const HomeScreenContent({Key? key}) : super(key: key);
@@ -23,7 +23,8 @@ class _HomeScreenContentState extends State<HomeScreenContent> {
   void initState() {
     super.initState();
     _fetchScheduleFromBackend();
-    _timer = Timer.periodic(const Duration(minutes: 1), (timer) {
+    // تایمر برای آپدیت لحظه‌ای زمان باقی‌مانده
+    _timer = Timer.periodic(const Duration(seconds: 1), (timer) {
       if (mounted) setState(() {});
     });
   }
@@ -39,7 +40,6 @@ class _HomeScreenContentState extends State<HomeScreenContent> {
       final data = await BackendService.getStatus();
       final List<dynamic> rawList = data['scheduleList'] ?? [];
 
-      // فیلتر کردن فقط برای مامان جون
       final mamanJoonSchedules = rawList
           .where((item) => item['patient'] == 'مامان جون')
           .map((item) => ScheduleItemModel(
@@ -48,8 +48,7 @@ class _HomeScreenContentState extends State<HomeScreenContent> {
                 title: item['name'],
                 time: item['time'],
                 dosage: item['details'],
-                isDone:
-                    false, // لاجیک مصرف شده‌ها را بعدا می‌توانید اینجا اضافه کنید
+                isDone: false,
               ))
           .toList();
 
@@ -63,11 +62,52 @@ class _HomeScreenContentState extends State<HomeScreenContent> {
     }
   }
 
+  // فانکشن ثبت مصرف دارو در بک‌اند
+  Future<void> _markAsDone(ScheduleItemModel item) async {
+    // در اینجا درخواست به بک‌اند را ارسال می‌کنید:
+    // await BackendService.markItemAsDone(item.id);
+
+    // آپدیت UI با استفاده از copyWith:
+    setState(() {
+      // پیدا کردن ایندکس داروی فعلی در لیست اصلی
+      final index = scheduleList.indexWhere((element) => element.id == item.id);
+      if (index != -1) {
+        // جایگزین کردن آیتم با یک کپی جدید که isDone آن true شده است
+        scheduleList[index] = item.copyWith(isDone: true);
+      }
+    });
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text('${item.title} به عنوان مصرف‌شده ثبت شد.',
+            style: AppTextStyles.body(context).copyWith(color: Colors.white)),
+        backgroundColor: Colors.green.shade600,
+        behavior: SnackBarBehavior.floating,
+      ),
+    );
+  }
+
+  int _calculateSecondsLeft(String time) {
+    final now = DateTime.now();
+    final parts = time.split(':');
+    final scheduleTime = DateTime(
+        now.year, now.month, now.day, int.parse(parts[0]), int.parse(parts[1]));
+
+    final diff = scheduleTime.difference(now).inSeconds;
+    return diff > 0 ? diff : 0; // اگر زمان گذشته باشد، 0 برمی‌گرداند
+  }
+
   @override
   Widget build(BuildContext context) {
     final loc = AppLocalizations.of(context);
     final font = AppTextStyles.body(context);
-    final upcomingItems = scheduleList.where((item) => !item.isDone).toList();
+
+    // مرتب‌سازی لیست بر اساس زمان برای پیدا کردن داروی بعدی
+    final upcomingItems = scheduleList.where((item) => !item.isDone).toList()
+      ..sort((a, b) => a.time.compareTo(b.time));
+
+    ScheduleItemModel? nextItem =
+        upcomingItems.isNotEmpty ? upcomingItems.first : null;
 
     return Column(
       children: [
@@ -76,49 +116,88 @@ class _HomeScreenContentState extends State<HomeScreenContent> {
           child: Padding(
             padding:
                 const EdgeInsets.symmetric(horizontal: 20.0, vertical: 10.0),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            child: Align(
+              alignment: Alignment.centerRight,
+              child: Text(
+                'مامان جون عزیز، سلام! 👋', // متن صمیمی و دوستانه
+                style: font.copyWith(
+                    fontSize: 22,
+                    fontWeight: FontWeight.bold,
+                    color: AppColors.primary),
+              ),
+            ),
+          ),
+        ),
+
+        if (isLoading)
+          const Padding(
+            padding: EdgeInsets.all(40.0),
+            child: CircularProgressIndicator(),
+          )
+        else if (nextItem != null)
+          // بخش جذاب تایمر و دکمه اقدام
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 20.0, vertical: 10),
+            child: Column(
               children: [
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(loc['home_greeting'] ?? 'سلام، مامان جون',
-                        style: font.copyWith(
-                            fontSize: 20, fontWeight: FontWeight.bold)),
-                    Text(loc['home_subtitle'] ?? 'برنامه درمانی امروز شما',
-                        style: font.copyWith(
-                            fontSize: 14, color: AppColors.textSecondary)),
-                  ],
+                TimerSection(
+                  // محاسبه پراگرس بر اساس 24 ساعت (یا هر مقیاسی که دارید)
+                  progress: 1.0 -
+                      (_calculateSecondsLeft(nextItem.time) / 86400)
+                          .clamp(0.0, 1.0),
+                  secondsLeft: _calculateSecondsLeft(nextItem.time),
+                  medicineName: nextItem.title,
+                  titleText: 'نوبت داروی بعدی',
+                  font: font,
                 ),
-                CircleAvatar(
-                  radius: 24,
-                  backgroundColor: AppColors.primary.withOpacity(0.1),
-                  child: Icon(Icons.person, color: AppColors.primary),
+                const SizedBox(height: 24),
+                // دکمه بزرگ و واضح برای سالمند
+                SizedBox(
+                  width: double.infinity,
+                  height: 60,
+                  child: ElevatedButton(
+                    onPressed: () => _markAsDone(nextItem),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor:
+                          Colors.green.shade500, // رنگ سبز WellMate
+                      foregroundColor: Colors.white,
+                      shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(20)),
+                      elevation: 5,
+                      shadowColor: Colors.green.withOpacity(0.4),
+                    ),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        const Icon(Icons.check_circle_outline, size: 28),
+                        const SizedBox(width: 10),
+                        Text('دارو رو خوردم',
+                            style: font.copyWith(
+                                fontSize: 20,
+                                fontWeight: FontWeight.bold,
+                                color: Colors.white)),
+                      ],
+                    ),
+                  ),
                 ),
               ],
             ),
           ),
-        ),
-        const SizedBox(height: 16),
-        if (isLoading)
-          const CircularProgressIndicator()
-        else
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 20.0),
-            child: TreatmentQueueWidget(schedules: scheduleList, font: font),
-          ),
+
         const SizedBox(height: 30),
+
+        // لیست سایر داروها
         Expanded(
           child: Container(
             width: double.infinity,
             decoration: BoxDecoration(
-              color: AppColors.background,
+              color: Colors.white,
               borderRadius:
                   const BorderRadius.vertical(top: Radius.circular(30)),
               boxShadow: [
                 BoxShadow(
-                    color: AppColors.shadowDark.withOpacity(0.3),
-                    blurRadius: 15,
+                    color: AppColors.shadowDark.withOpacity(0.1),
+                    blurRadius: 20,
                     offset: const Offset(0, -5))
               ],
             ),
@@ -129,7 +208,7 @@ class _HomeScreenContentState extends State<HomeScreenContent> {
                   padding: const EdgeInsets.only(
                       left: 28, right: 28, top: 24, bottom: 16),
                   child: Text(
-                    loc['home_schedule_title'] ?? 'لیست داروهای امروز',
+                    loc['home_schedule_title'] ?? 'لیست برنامه‌های امروز',
                     style: font.copyWith(
                         fontSize: 18, fontWeight: FontWeight.bold),
                   ),
@@ -140,8 +219,9 @@ class _HomeScreenContentState extends State<HomeScreenContent> {
                       : upcomingItems.isEmpty
                           ? Center(
                               child: Text(
-                                  loc['home_empty_list'] ?? 'دارویی نمانده',
-                                  style: font))
+                                  'همه داروها رو به موقع خوردی، آفرین! 🌿',
+                                  style: font.copyWith(
+                                      color: AppColors.primary, fontSize: 16)))
                           : ListView.separated(
                               padding: const EdgeInsets.fromLTRB(24, 0, 24, 20),
                               itemCount: upcomingItems.length,
