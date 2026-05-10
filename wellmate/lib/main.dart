@@ -40,7 +40,7 @@ class WellMateApp extends StatelessWidget {
 
           // 👇 اضافه شدن تم استاندارد و موبایلی مشابه CareMate
           theme: ThemeData(
-            fontFamily: isPersian ? 'Vazir' : 'Nunito',
+            fontFamily: isPersian ? 'Vazir' : 'Poppins',
             scaffoldBackgroundColor: AppColors.background,
             primaryColor: AppColors.primary,
             colorScheme: ColorScheme.fromSwatch().copyWith(

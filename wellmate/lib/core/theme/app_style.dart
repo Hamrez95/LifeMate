@@ -1,16 +1,22 @@
 import 'package:flutter/material.dart';
 
 class AppColors {
-  static const Color background = Color(0xFFF3F6FA); // رنگ پس‌زمینه اصلی
-  // رنگ اصلی (برای آیکون‌ها، دکمه‌ها و متن‌های ثانویه)
+  static const Color background =
+      Color(0xFFF4F9F6); // یک سبز-مینت بسیار روشن و فرِش
   static const Color primary =
-      Color(0xFF6B8BFF); // رنگ دکمه‌ها و المان‌های اصلی
-  static const Color textPrimary = Color(0xFF2D3142);
-  static const Color textSecondary = Color(0xFF9098B1);
+      Color(0xFF10B981); // سبز زمردی زنده و درخشان (مثل CareMate)
+  static const Color primaryLight = Color(0xFF34D399);
+
+  static const Color textPrimary = Color(0xFF1F2937); // متن تیره مدرن
+  static const Color textSecondary = Color(0xFF6B7280);
+
   static const Color white = Colors.white;
   static const Color shadowLight = Colors.white;
-  static const Color shadowDark = Color(0xFFD6E0F0);
-  static const Color success = Color(0xFF4CAF50);
+  static const Color shadowDark = Color(0xFFD1E0D7); // سایه نرم برای کارت‌ها
+
+  static const Color success = Color(0xFF10B981);
+  static const Color cardBackground = Colors.white;
+
   static const Color primaryBlue = Color(0xFF4A90E2);
   static const Color darkBlue = Color(0xFF283054); // رنگ سرمه‌ای (متن‌های اصلی)
   static const Color avatarBackground =
@@ -18,8 +24,6 @@ class AppColors {
   // رنگ پس‌زمینه کارت‌ها و کادرها
   static const Color secondaryText = Color(0xFF7B93DB); // متن‌های ثانویه
 
-  static const Color cardBackground = Colors.white;
-  // رنگ اصلی متن‌ها (سرمه‌ای تیره برای خوانایی بهتر)
   static const Color textMain = Color(0xFF283054);
   // سایه تیره (برای ایجاد عمق در طراحی نئومورفیک)
   static const Color shadow =
