@@ -25,12 +25,14 @@ class ProfileScreen extends StatelessWidget {
             children: [
               // Header
               Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
                     IconButton(
-                      icon: const Icon(Icons.arrow_back_ios_new_rounded, size: 24, color: AppColors.primaryBlue),
+                      icon: const Icon(Icons.arrow_back_ios_new_rounded,
+                          size: 24, color: AppColors.primaryBlue),
                       onPressed: () => Navigator.of(context).pop(),
                       splashRadius: 24,
                     ),
@@ -57,8 +59,9 @@ class ProfileScreen extends StatelessWidget {
                               children: [
                                 const CircleAvatar(
                                   radius: 36,
-                                  backgroundColor: AppColors.avatarBackground, // 👈 اصلاح شد
-                                  child: Icon(Icons.person, size: 48, color: Colors.white),
+                                  backgroundColor: AppColors.avatarBackground,
+                                  backgroundImage: AssetImage(
+                                      '../../assets/images/CaregiverWoman.png'), // 👈 مسیر تصویر خود را اینجا قرار دهید
                                 ),
                                 Positioned(
                                   bottom: 8,
@@ -74,7 +77,8 @@ class ProfileScreen extends StatelessWidget {
                                         ),
                                       ],
                                     ),
-                                    child: const Icon(Icons.camera_alt, size: 18, color: AppColors.primaryBlue),
+                                    child: const Icon(Icons.camera_alt,
+                                        size: 18, color: AppColors.primaryBlue),
                                   ),
                                 ),
                               ],
@@ -83,18 +87,28 @@ class ProfileScreen extends StatelessWidget {
                           const SizedBox(height: 8),
                           Text(
                             loc['profile_name'] ?? 'نام کاربر',
-                            style: TextStyle(fontFamily: mainFont, fontSize: 22, fontWeight: FontWeight.bold, color: AppColors.darkBlue),
+                            style: TextStyle(
+                                fontFamily: mainFont,
+                                fontSize: 22,
+                                fontWeight: FontWeight.bold,
+                                color: AppColors.darkBlue),
                           ),
                           Text(
-                            (loc['profile_phone'] ?? '09123456789').toString().toPersianDigit(isPersian),
-                            style: TextStyle(fontFamily: mainFont, fontSize: 15, color: AppColors.primaryBlue),
+                            (loc['profile_phone'] ?? '09123456789')
+                                .toString()
+                                .toPersianDigit(isPersian),
+                            style: TextStyle(
+                                fontFamily: mainFont,
+                                fontSize: 15,
+                                color: AppColors.primaryBlue),
                           ),
                         ],
                       ),
                     ),
                     const SizedBox(width: 8),
                     IconButton(
-                      icon: const Icon(Icons.notifications_none_rounded, size: 24, color: AppColors.primaryBlue),
+                      icon: const Icon(Icons.notifications_none_rounded,
+                          size: 24, color: AppColors.primaryBlue),
                       onPressed: () {},
                       splashRadius: 24,
                     ),
@@ -103,7 +117,8 @@ class ProfileScreen extends StatelessWidget {
               ),
               // Subscription Card
               Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 8),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 24, vertical: 8),
                 child: Container(
                   decoration: BoxDecoration(
                     color: AppColors.cardBackground,
@@ -117,7 +132,8 @@ class ProfileScreen extends StatelessWidget {
                     ],
                   ),
                   child: Padding(
-                    padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 18),
+                    padding: const EdgeInsets.symmetric(
+                        vertical: 16, horizontal: 18),
                     child: Row(
                       children: [
                         Expanded(
@@ -125,8 +141,12 @@ class ProfileScreen extends StatelessWidget {
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               Text(
-                                loc['profile_no_subscription'] ?? 'اشتراکی ندارید',
-                                style: TextStyle(fontFamily: mainFont, fontSize: 15, color: AppColors.darkBlue),
+                                loc['profile_no_subscription'] ??
+                                    'اشتراکی ندارید',
+                                style: TextStyle(
+                                    fontFamily: mainFont,
+                                    fontSize: 15,
+                                    color: AppColors.darkBlue),
                               ),
                               const SizedBox(height: 8),
                               Row(
@@ -134,15 +154,28 @@ class ProfileScreen extends StatelessWidget {
                                   ElevatedButton(
                                     style: ElevatedButton.styleFrom(
                                       backgroundColor: AppColors.darkBlue,
-                                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                                      shape: RoundedRectangleBorder(
+                                          borderRadius:
+                                              BorderRadius.circular(12)),
                                       elevation: 0,
-                                      padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 8),
+                                      padding: const EdgeInsets.symmetric(
+                                          horizontal: 18, vertical: 8),
                                     ),
                                     onPressed: () {},
-                                    child: Text(loc['profile_buy_plan'] ?? 'خرید اشتراک', style: TextStyle(fontFamily: mainFont, fontSize: 14, color: Colors.white)),
+                                    child: Text(
+                                        loc['profile_buy_plan'] ??
+                                            'خرید اشتراک',
+                                        style: TextStyle(
+                                            fontFamily: mainFont,
+                                            fontSize: 14,
+                                            color: Colors.white)),
                                   ),
                                   const SizedBox(width: 8),
-                                  Text(loc['profile_renew'] ?? 'تمدید', style: TextStyle(fontFamily: mainFont, fontSize: 14, color: AppColors.primaryBlue)),
+                                  Text(loc['profile_renew'] ?? 'تمدید',
+                                      style: TextStyle(
+                                          fontFamily: mainFont,
+                                          fontSize: 14,
+                                          color: AppColors.primaryBlue)),
                                 ],
                               ),
                             ],
@@ -162,7 +195,8 @@ class ProfileScreen extends StatelessWidget {
                               ),
                             ],
                           ),
-                          child: const Icon(Icons.emoji_events_rounded, size: 36, color: Colors.amber),
+                          child: const Icon(Icons.emoji_events_rounded,
+                              size: 36, color: Colors.amber),
                         ),
                       ],
                     ),
@@ -171,7 +205,8 @@ class ProfileScreen extends StatelessWidget {
               ),
               // Menu List
               Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 8),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 24, vertical: 8),
                 child: Container(
                   decoration: BoxDecoration(
                     color: Colors.white,
@@ -216,7 +251,8 @@ class ProfileScreen extends StatelessWidget {
                         onTap: () {
                           showDialog(
                             context: context,
-                            builder: (context) => _LanguageDialog(mainFont: mainFont),
+                            builder: (context) =>
+                                _LanguageDialog(mainFont: mainFont),
                           );
                         },
                       ),
@@ -240,7 +276,8 @@ class ProfileScreen extends StatelessWidget {
               ),
               // Footer - Log Out
               Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 8),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 24, vertical: 8),
                 child: Container(
                   width: double.infinity,
                   decoration: BoxDecoration(
@@ -258,25 +295,32 @@ class ProfileScreen extends StatelessWidget {
                     style: TextButton.styleFrom(
                       padding: const EdgeInsets.symmetric(vertical: 16),
                       backgroundColor: Colors.transparent,
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+                      shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(18)),
                     ),
                     icon: const Icon(Icons.logout, color: Colors.redAccent),
-                    label: Text(
-                      loc['profile_logout'] ?? 'خروج از حساب', 
-                      style: TextStyle(fontFamily: mainFont, fontSize: 16, color: Colors.redAccent, fontWeight: FontWeight.bold)
-                    ),
+                    label: Text(loc['profile_logout'] ?? 'خروج از حساب',
+                        style: TextStyle(
+                            fontFamily: mainFont,
+                            fontSize: 16,
+                            color: Colors.redAccent,
+                            fontWeight: FontWeight.bold)),
                     onPressed: () {},
                   ),
                 ),
               ),
-                
+
               // Footer Message
               Padding(
                 padding: const EdgeInsets.only(top: 8, bottom: 24),
                 child: Text(
-                  (loc['footer_message'] ?? 'Version 1.0.0').toString().toPersianDigit(isPersian), 
-                  style: TextStyle(fontFamily: mainFont, fontSize: 12, color: AppColors.secondaryText.withOpacity(0.7))
-                ),
+                    (loc['footer_message'] ?? 'Version 1.0.0')
+                        .toString()
+                        .toPersianDigit(isPersian),
+                    style: TextStyle(
+                        fontFamily: mainFont,
+                        fontSize: 12,
+                        color: AppColors.secondaryText.withOpacity(0.7))),
               ),
             ],
           ),
@@ -320,7 +364,9 @@ class _ProfileMenuTile extends StatelessWidget {
         ),
         child: Icon(icon, color: iconColor, size: 24),
       ),
-      title: Text(label, style: TextStyle(fontFamily: mainFont, fontSize: 16, color: AppColors.darkBlue)),
+      title: Text(label,
+          style: TextStyle(
+              fontFamily: mainFont, fontSize: 16, color: AppColors.darkBlue)),
       onTap: onTap,
     );
   }
@@ -334,10 +380,11 @@ class _LanguageDialog extends StatelessWidget {
   Widget build(BuildContext context) {
     final localeProvider = Provider.of<LocaleProvider>(context);
     final loc = AppLocalizations.of(context);
-    
+
     return AlertDialog(
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
-      title: Text(loc['settings_language'] ?? 'Select Language', style: TextStyle(fontFamily: mainFont, fontWeight: FontWeight.bold)),
+      title: Text(loc['settings_language'] ?? 'Select Language',
+          style: TextStyle(fontFamily: mainFont, fontWeight: FontWeight.bold)),
       content: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
@@ -378,7 +425,7 @@ class _LanguageOption extends StatelessWidget {
     required this.isSelected,
     required this.onTap,
   });
-  
+
   @override
   Widget build(BuildContext context) {
     return GestureDetector(
@@ -386,15 +433,24 @@ class _LanguageOption extends StatelessWidget {
       child: Container(
         padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
         decoration: BoxDecoration(
-          color: isSelected ? AppColors.primaryBlue.withOpacity(0.1) : Colors.transparent,
+          color: isSelected
+              ? AppColors.primaryBlue.withOpacity(0.1)
+              : Colors.transparent,
           borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: isSelected ? AppColors.primaryBlue : Colors.grey.shade300),
+          border: Border.all(
+              color: isSelected ? AppColors.primaryBlue : Colors.grey.shade300),
         ),
         child: Row(
           children: [
-            Text(title, style: TextStyle(fontFamily: font, fontSize: 16, color: isSelected ? AppColors.primaryBlue : Colors.black87)),
+            Text(title,
+                style: TextStyle(
+                    fontFamily: font,
+                    fontSize: 16,
+                    color:
+                        isSelected ? AppColors.primaryBlue : Colors.black87)),
             const Spacer(),
-            if (isSelected) const Icon(Icons.check_circle, color: AppColors.primaryBlue),
+            if (isSelected)
+              const Icon(Icons.check_circle, color: AppColors.primaryBlue),
           ],
         ),
       ),
