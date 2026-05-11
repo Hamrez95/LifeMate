@@ -45,6 +45,13 @@
   "nav_medications": "Medicines",
   "nav_add_treatment": "Add Treatment",
   "nav_add_caregiver": "Add Caregiver",
-  "nav_home": "Home"
+  "nav_home": "Home",
 
+    "welcome_message": "Hi Maryam,\nMom's schedule today",
+  "after_meal": "After meal",
+  "taken": "Taken",
+  "edit": "Edit",
+  "missed": "Missed",
+  "today_schedule": "Today's Schedule",
+  "all_done": "All medications taken!"
 }

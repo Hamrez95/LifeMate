@@ -6,11 +6,16 @@ import '../../../core/utils/string_extensions.dart';
 class SoftScheduleCard extends StatelessWidget {
   final ScheduleItemModel item;
   final int index;
-  final TextStyle? font;
+  final TextStyle font;
+  final String assetPath;
 
-  const SoftScheduleCard(
-      {Key? key, required this.item, required this.index, this.font})
-      : super(key: key);
+  const SoftScheduleCard({
+    Key? key,
+    required this.item,
+    required this.index,
+    required this.font,
+    required this.assetPath,
+  }) : super(key: key);
 
   @override
   Widget build(BuildContext context) {
@@ -31,25 +36,15 @@ class SoftScheduleCard extends StatelessWidget {
         padding: const EdgeInsets.all(16.0),
         child: Row(
           children: [
-            Container(
-              width: 65,
-              height: 65,
-              decoration: BoxDecoration(
-                color: AppColors.background,
-                borderRadius: BorderRadius.circular(20),
-              ),
-              child: const Icon(Icons.medication_liquid_rounded,
-                  color: AppColors.primary, size: 32),
-            ),
-            const SizedBox(width: 16),
+            // متون (ابتدا قرار می‌گیرد تا سمت راست بیفتد)
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(item.title,
-                      style: font?.copyWith(
+                      style: font.copyWith(
                           fontWeight: FontWeight.bold,
-                          fontSize: 18,
+                          fontSize: 16,
                           color: AppColors.textPrimary)),
                   const SizedBox(height: 8),
                   Row(
@@ -66,7 +61,7 @@ class SoftScheduleCard extends StatelessWidget {
                                 size: 14, color: AppColors.primary),
                             const SizedBox(width: 4),
                             Text(item.time.toPersianDigit(isPersian),
-                                style: font?.copyWith(
+                                style: font.copyWith(
                                     color: AppColors.primary,
                                     fontSize: 13,
                                     fontWeight: FontWeight.bold)),
@@ -75,14 +70,36 @@ class SoftScheduleCard extends StatelessWidget {
                       ),
                       const SizedBox(width: 12),
                       Expanded(
-                          child: Text(item.dosage.toPersianDigit(isPersian),
-                              style: font?.copyWith(
-                                  color: AppColors.textSecondary, fontSize: 14),
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis)),
+                        child: Text(
+                          item.dosage.toPersianDigit(isPersian),
+                          style: font.copyWith(
+                              color: AppColors.textSecondary, fontSize: 13),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
                     ],
                   ),
                 ],
+              ),
+            ),
+            const SizedBox(width: 16),
+            // آیکون (دوم قرار می‌گیرد تا سمت چپ بیفتد)
+            Container(
+              width: 60,
+              height: 60,
+              decoration: BoxDecoration(
+                color: AppColors.background,
+                borderRadius: BorderRadius.circular(20),
+              ),
+              child: Center(
+                child: Image.asset(
+                  assetPath,
+                  width: 32,
+                  height: 32,
+                  errorBuilder: (context, error, stackTrace) =>
+                      const Icon(Icons.medication, color: AppColors.primary),
+                ),
               ),
             ),
           ],

@@ -45,5 +45,14 @@
   "nav_medications": "درمان ها",
   "nav_add_treatment": "افزودن درمان",
   "nav_add_caregiver": "مراقب جدید",
-  "nav_home": "خانه"
+  "nav_home": "خانه",
+
+  "welcome_message": "سلام مریم جان،\nبرنامه امروز مامان جون",
+  "after_meal": "بعد از غذا",
+  "taken": "مصرف شد",
+  "edit": "ویرایش",
+  "missed": "مصرف نشد",
+  "today_schedule": "برنامه امروز",
+  "all_done": "همه داروها مصرف شدند!"
+
 }

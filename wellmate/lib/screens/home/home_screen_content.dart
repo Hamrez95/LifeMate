@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:wellmate/screens/home/active_treatment_card.dart';
 import 'package:wellmate/screens/home/swipe_to_confirm.dart';
 import '../../localization/app_localizations.dart';
 import '../../core/theme/app_style.dart';
@@ -90,10 +91,22 @@ class _HomeScreenContentState extends State<HomeScreenContent> {
     return diff > 0 ? diff : 0;
   }
 
+  String _getAssetPath(String type) {
+    switch (type) {
+      case 'visit':
+        return '../../assets/icons/stethoscope.png'; // آدرس آیکون ویزیت
+      case 'drop':
+        return '../../assets/icons/water_drop.png'; // آدرس آیکون قطره
+      default:
+        return '../../assets/icons/pill.png'; // آدرس آیکون کپسول/دارو
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final loc = AppLocalizations.of(context);
     final font = AppTextStyles.body(context);
+    final isPersian = Localizations.localeOf(context).languageCode == 'fa';
 
     final upcomingItems = scheduleList.where((item) => !item.isDone).toList()
       ..sort((a, b) => a.time.compareTo(b.time));
@@ -109,60 +122,43 @@ class _HomeScreenContentState extends State<HomeScreenContent> {
           SafeArea(
             bottom: false,
             child: Padding(
-              // استفاده از EdgeInsetsDirectional برای پشتیبانی خودکار از RTL/LTR
-              padding: const EdgeInsetsDirectional.fromSTEB(24, 10, 24, 10),
+              padding: const EdgeInsetsDirectional.fromSTEB(24, 20, 24, 16),
               child: Column(
-                crossAxisAlignment:
-                    CrossAxisAlignment.start, // چینش صحیح متن‌ها بر اساس زبان
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text('سلام مریم جان،',
-                      style: font.copyWith(
-                          fontSize: 14, color: AppColors.textSecondary)),
-                  const SizedBox(height: 4),
-                  Text('برنامه امروزِ مامان جون',
-                      style: font.copyWith(
-                          fontSize: 20,
-                          fontWeight: FontWeight.bold,
-                          color: AppColors.textPrimary)),
+                  Text(
+                    loc['welcome_message'] ??
+                        'سلام مریم جان،\nبرنامه امروز مامان جون',
+                    style: font.copyWith(
+                        fontSize: 20,
+                        fontWeight: FontWeight.bold,
+                        color: AppColors.textPrimary),
+                  ),
                 ],
               ),
             ),
           ),
-
           if (isLoading)
             const Expanded(
                 child: Center(
                     child: CircularProgressIndicator(color: AppColors.primary)))
           else if (nextItem != null)
             Padding(
-              // کاهش فاصله‌های عمودی برای باز شدن فضا
               padding: const EdgeInsets.symmetric(horizontal: 20.0),
-              child: Column(
-                children: [
-                  TimerSection(
-                    progress: 1.0 -
-                        (_calculateSecondsLeft(nextItem.time) / 86400)
-                            .clamp(0.0, 1.0),
-                    secondsLeft: _calculateSecondsLeft(nextItem.time),
-                    medicineName: nextItem.title,
-                    titleText: 'درمان بعدی',
-                    font: font,
-                  ),
-                  const SizedBox(height: 16), // کاهش چشمگیر فاصله
-                  Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 10),
-                    child: SwipeToConfirm(
-                      text: 'درمان انجام شد',
-                      onConfirm: () => _markAsDone(nextItem),
-                    ),
-                  ),
-                ],
+              child: ActiveTreatmentCard(
+                treatmentName: nextItem.title,
+                dose: nextItem.dosage,
+                time: nextItem.time,
+                assetIconPath: _getAssetPath(nextItem.type),
+                progressValue: 1.0 -
+                    (_calculateSecondsLeft(nextItem.time) / 86400)
+                        .clamp(0.0, 1.0),
+                secondsLeft: _calculateSecondsLeft(nextItem.time),
+                onTaken: () => _markAsDone(nextItem),
+                font: font,
               ),
             ),
-
-          const SizedBox(height: 20), // کاهش فاصله تا لیست
-
-          // بخش پایینی (لیست داروها)
+          const SizedBox(height: 24),
           Expanded(
             child: Container(
               width: double.infinity,
@@ -175,9 +171,9 @@ class _HomeScreenContentState extends State<HomeScreenContent> {
                 children: [
                   Padding(
                     padding: const EdgeInsetsDirectional.only(
-                        start: 24, end: 24, top: 20, bottom: 16),
+                        start: 24, end: 24, top: 24, bottom: 16),
                     child: Text(
-                      'برنامه امروز',
+                      loc['today_schedule'] ?? 'برنامه امروز',
                       style: font.copyWith(
                           fontSize: 18, fontWeight: FontWeight.bold),
                     ),
@@ -185,20 +181,23 @@ class _HomeScreenContentState extends State<HomeScreenContent> {
                   Expanded(
                     child: upcomingItems.isEmpty
                         ? Center(
-                            child: Text('همه داروها مصرف شدند!',
+                            child: Text(
+                                loc['all_done'] ?? 'همه داروها مصرف شدند!',
                                 style: font.copyWith(
                                     color: AppColors.primary, fontSize: 16)))
                         : ListView.separated(
                             padding: const EdgeInsetsDirectional.fromSTEB(
-                                24,
-                                0,
-                                24,
-                                100), // اضافه شدن فضای خالی در پایین برای جلوگیری از رفتن زیر نویگیشن بار
+                                24, 0, 24, 100),
                             itemCount: upcomingItems.length,
                             separatorBuilder: (_, __) =>
                                 const SizedBox(height: 12),
                             itemBuilder: (context, i) => SoftScheduleCard(
-                                item: upcomingItems[i], index: i, font: font),
+                              item: upcomingItems[i],
+                              index: i,
+                              font: font,
+                              assetPath: _getAssetPath(upcomingItems[i]
+                                  .type), // پاس دادن آیکون به لیست
+                            ),
                           ),
                   ),
                 ],
