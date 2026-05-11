@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:wellmate/localization/app_localizations.dart';
 import 'package:wellmate/localization/locale_provider.dart';
-import '../theme/app_style.dart'; // حاوی AppColors
+import '../theme/app_style.dart';
 
 class WellMateBottomNav extends StatelessWidget {
   final int currentIndex;
@@ -16,7 +16,6 @@ class WellMateBottomNav extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // فرض بر این است که سیستم بومی‌سازی شما مشابه CareMate است
     final loc = AppLocalizations.of(context);
     final isPersian =
         Provider.of<LocaleProvider>(context).locale.languageCode == 'fa';
@@ -31,49 +30,41 @@ class WellMateBottomNav extends StatelessWidget {
           borderRadius: BorderRadius.circular(35),
           boxShadow: [
             BoxShadow(
-              color: AppColors.primary.withOpacity(0.08), // سایه نرم و هماهنگ
+              color: AppColors.primary.withOpacity(0.08),
               blurRadius: 20,
               offset: const Offset(0, 10),
             ),
           ],
         ),
-        // در چیدمان RTL، اولین فرزند در سمت راست‌ترین حالت قرار می‌گیرد.
         child: Row(
           mainAxisAlignment: MainAxisAlignment.spaceEvenly,
           children: [
-            // سمت راست: تقویم
+            // سمت راست: تقویم (Index 0)
             _buildNavItem(
               icon: Icons.calendar_month_rounded,
               label: loc['nav_calendar'] ?? 'تقویم',
               index: 0,
               fontFamily: fontFamily,
             ),
-            // کنار تقویم: داروها
+            // کنار تقویم: داروها (Index 1)
             _buildNavItem(
               icon: Icons.medication_rounded,
               label: loc['nav_medications'] ?? 'داروها',
               index: 1,
               fontFamily: fontFamily,
             ),
-            // مرکز: افزودن درمان
+            // مرکز: افزودن درمان (Index 2)
             _buildNavItem(
               icon: Icons.add_circle_outline_rounded,
               label: loc['nav_add_treatment'] ?? 'افزودن درمان',
               index: 2,
               fontFamily: fontFamily,
             ),
-            // کنار دکمه افزودن: افزودن مراقب
-            _buildNavItem(
-              icon: Icons.person_add_alt_1_rounded,
-              label: loc['nav_add_caregiver'] ?? 'مراقب جدید',
-              index: 3,
-              fontFamily: fontFamily,
-            ),
-            // سمت چپ: خانه
+            // سمت چپ: خانه (Index 3 - تغییر یافته از 4)
             _buildNavItem(
               icon: Icons.home_rounded,
               label: loc['nav_home'] ?? 'خانه',
-              index: 4,
+              index: 3,
               fontFamily: fontFamily,
             ),
           ],
@@ -89,10 +80,7 @@ class WellMateBottomNav extends StatelessWidget {
     required String fontFamily,
   }) {
     final isSelected = currentIndex == index;
-    // از رنگ پرایمری ول‌میت استفاده می‌کنیم
-    final color = isSelected
-        ? AppColors.primary
-        : Colors.grey.shade400; // رنگ خنثی برای آیتم‌های غیرفعال
+    final color = isSelected ? AppColors.primary : Colors.grey.shade400;
 
     return GestureDetector(
       onTap: () => onTap(index),
@@ -100,11 +88,7 @@ class WellMateBottomNav extends StatelessWidget {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(
-            icon,
-            size: 26,
-            color: color,
-          ),
+          Icon(icon, size: 26, color: color),
           const SizedBox(height: 4),
           Text(
             label,

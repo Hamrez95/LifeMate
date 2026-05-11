@@ -64,16 +64,18 @@ class ProfileScreen extends StatelessWidget {
                               child: Stack(
                                 alignment: Alignment.center,
                                 children: [
+                                  // استفاده از عکس بجای آیکون
                                   const CircleAvatar(
                                     radius: 36,
-                                    backgroundColor: AppColors.avatarBackground,
-                                    child: Icon(Icons.person,
-                                        size: 48, color: Colors.white),
+                                    backgroundColor: Colors.transparent,
+                                    backgroundImage: AssetImage(
+                                        '../../../assets/images/mother_avatar.png'), // مسیر عکس کاربر
                                   ),
                                   Positioned(
-                                    bottom: 8,
-                                    right: 8,
+                                    bottom: 0,
+                                    right: 0,
                                     child: Container(
+                                      padding: const EdgeInsets.all(4),
                                       decoration: BoxDecoration(
                                         color: Colors.white,
                                         shape: BoxShape.circle,
@@ -86,7 +88,7 @@ class ProfileScreen extends StatelessWidget {
                                         ],
                                       ),
                                       child: const Icon(Icons.camera_alt,
-                                          size: 18,
+                                          size: 16,
                                           color: AppColors.primaryBlue),
                                     ),
                                   ),

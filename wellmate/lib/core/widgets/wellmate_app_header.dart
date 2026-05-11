@@ -66,10 +66,11 @@ class WellMateAppHeader extends StatelessWidget {
                 border: Border.all(
                     color: AppColors.primary.withOpacity(0.1), width: 2),
               ),
-              child: CircleAvatar(
+              child: const CircleAvatar(
                 radius: 20,
-                backgroundColor: AppColors.primary.withOpacity(0.1),
-                child: Icon(Icons.person, color: AppColors.primary, size: 24),
+                backgroundColor: Colors.transparent,
+                backgroundImage:
+                    AssetImage('../../../assets/images/mother_avatar.png'),
               ),
             ),
           ),
