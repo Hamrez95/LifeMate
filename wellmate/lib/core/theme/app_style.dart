@@ -30,6 +30,13 @@ class AppColors {
       Color(0x14000000); // معادل Colors.black.withOpacity(0.08)
   // سایه روشن (برای ایجاد برجستگی در طراحی نئومورفیک)
   static const Color lightShadow = Colors.white;
+
+  // --- رنگ‌های مخصوص تقویم ---
+  static const Color calOverdueBack =
+      Color(0xFFFFEBEE); // پس‌زمینه روزهای فراموش شده
+  static const Color calDotMedicine = Colors.pinkAccent;
+  static const Color calDotDoctor = Colors.blueAccent;
+  static const Color calDotTreatment = Colors.orangeAccent;
 }
 
 class AppTextStyles {

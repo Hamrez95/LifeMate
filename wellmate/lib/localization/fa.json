@@ -15,7 +15,7 @@
   "home_profile": "پروفایل",
   "home_logout": "خروج",
 
-  "profile_name": "امیر علی",
+  "profile_name": "مریم",
   "profile_phone": "۰۹۱۲***",
   "profile_no_subscription": "اشتراک فعال وجود ندارد",
   "profile_buy_plan": "خرید اشتراک",
@@ -47,12 +47,17 @@
   "nav_add_caregiver": "مراقب جدید",
   "nav_home": "خانه",
 
-  "welcome_message": "سلام مریم جان،\nبرنامه امروز مامان جون",
+  "welcome_message": "سلام مریم جان،",
   "after_meal": "بعد از غذا",
   "taken": "مصرف شد",
   "edit": "ویرایش",
   "missed": "مصرف نشد",
   "today_schedule": "برنامه امروز",
-  "all_done": "همه داروها مصرف شدند!"
+  "all_done": "همه داروها مصرف شدند!",
+
+   "calendar_schedule_for": "برنامه روز",
+  "calendar_select_date": "برای مشاهده برنامه، یک تاریخ انتخاب کنید",
+  "calendar_empty": "برنامه‌ای برای این روز ثبت نشده است",
+  "med_qty": "تعداد"
 
 }

@@ -18,7 +18,7 @@ class ProfileScreen extends StatelessWidget {
       final loc = AppLocalizations.of(context);
       final localeProvider = Provider.of<LocaleProvider>(context);
       final isPersian = localeProvider.locale.languageCode == 'fa';
-      final mainFont = isPersian ? 'Vazir' : 'Nunito';
+      final mainFont = isPersian ? 'Vazir' : 'Poppins';
 
       // دریافت ضریب تغییر سایز فونت از SettingsProvider
       final textScale = settings.textScaleFactor ?? 1.0;

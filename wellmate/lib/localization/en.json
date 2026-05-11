@@ -16,7 +16,7 @@
   "home_profile": "Profile",
   "home_logout": "Logout",
 
-  "profile_name": "Amir Ali",
+  "profile_name": "Maryam",
   "profile_phone": "0912***",
   "profile_no_subscription": "No Active Subscription",
   "profile_buy_plan": "Buy Plan",
@@ -47,11 +47,16 @@
   "nav_add_caregiver": "Add Caregiver",
   "nav_home": "Home",
 
-    "welcome_message": "Hi Maryam,\nMom's schedule today",
+    "welcome_message": "Hi Maryam",
   "after_meal": "After meal",
   "taken": "Taken",
   "edit": "Edit",
   "missed": "Missed",
   "today_schedule": "Today's Schedule",
-  "all_done": "All medications taken!"
+  "all_done": "All medications taken!",
+
+  "calendar_schedule_for": "Schedule for",
+  "calendar_select_date": "Select a date to view schedule",
+  "calendar_empty": "No schedule for this day",
+  "med_qty": "Qty"
 }
