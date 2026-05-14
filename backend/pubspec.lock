@@ -37,10 +37,10 @@ packages:
     dependency: transitive
     description:
       name: meta
-      sha256: df0c643f44ad098eb37988027a8e2b2b5a031fd3977f06bbfd3a76637e8df739
+      sha256: e3641ec5d63ebf0d9b41bd43201a66e3fc79a65db5f61fc181f04cd27aab950c
       url: "https://dart.devneeds.ir"
     source: hosted
-    version: "1.18.2"
+    version: "1.16.0"
   path:
     dependency: transitive
     description:

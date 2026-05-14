@@ -97,32 +97,66 @@ class CustomTableCalendar extends StatelessWidget {
       {required bool isSelected, required bool isToday}) {
     final eventTypes = getDayEventTypes(day);
 
+    final now = DateTime.now();
+    final todayDate = DateTime(now.year, now.month, now.day);
+    final currentCellDate = DateTime(day.year, day.month, day.day);
+    final isPast = currentCellDate.isBefore(todayDate);
+
+    // فرض می‌کنیم eventTypes یک مقدار 'missed' برمی‌گردونه اگه داروی امروز فراموش شده باشه
+    // شما باید این منطق رو تو CalendarScreen در getDayEventTypes اضافه کنید.
+    final hasMissedToday = isToday && eventTypes.contains('missed');
+
     return Container(
       margin: const EdgeInsets.all(4.0),
-      alignment: Alignment
-          .center, // <-- این خط باعث می‌شود کانتینر تمام عرض سلول را پر کند
+      alignment: Alignment.center,
       decoration: BoxDecoration(
         color: isSelected ? AppColors.primary : Colors.transparent,
-        borderRadius:
-            BorderRadius.circular(14.0), // کمی گردتر برای زیبایی بیشتر
+        borderRadius: BorderRadius.circular(14.0),
         border: isToday && !isSelected
-            ? Border.all(color: AppColors.primary, width: 1.5)
+            ? Border.all(
+                color: hasMissedToday ? Colors.orange : AppColors.primary,
+                width: 1.5)
             : null,
       ),
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
+      child: Stack(
+        alignment: Alignment.center,
         children: [
-          Text(
-            '${day.day}'.toPersianDigit(isPersian),
-            style: TextStyle(
-                fontFamily: font,
-                color: isSelected ? Colors.white : AppColors.textPrimary,
-                fontWeight: isSelected ? FontWeight.bold : FontWeight.normal),
+          // محو کردن سلول در صورت داشتن داروی فراموش شده
+          Opacity(
+            opacity: hasMissedToday && !isSelected ? 0.6 : 1.0,
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Text(
+                  '${day.day}'.toPersianDigit(isPersian),
+                  style: TextStyle(
+                      fontFamily: font,
+                      color: isSelected
+                          ? Colors.white
+                          : isPast
+                              ? Colors.grey.shade400
+                              : AppColors.textPrimary,
+                      fontWeight:
+                          isSelected ? FontWeight.bold : FontWeight.normal),
+                ),
+                if (eventTypes.isNotEmpty) ...[
+                  const SizedBox(height: 4),
+                  Opacity(
+                    opacity: isPast ? 0.4 : 1.0,
+                    child: _buildEventDots(eventTypes),
+                  ),
+                ]
+              ],
+            ),
           ),
-          if (eventTypes.isNotEmpty) ...[
-            const SizedBox(height: 4), // ایجاد فاصله ثابت به جای Spacer
-            _buildEventDots(eventTypes),
-          ]
+          // نمایش علامت تعجب نارنجی
+          if (hasMissedToday)
+            Positioned(
+              top: 2,
+              right: 2,
+              child: Icon(Icons.error_outline_rounded,
+                  color: Colors.orange.shade700, size: 14),
+            )
         ],
       ),
     );
@@ -130,11 +164,17 @@ class CustomTableCalendar extends StatelessWidget {
 
   Widget _buildEventDots(Set<String> eventTypes) {
     List<Widget> dots = [];
-    if (eventTypes.contains('medicine'))
+
+    // کلمات کلیدی مطابق با دیتابیس اصلاح شدند: 'med' و 'appointment'
+    if (eventTypes.contains('medicine') || eventTypes.contains('med')) {
       dots.add(_dot(AppColors.calDotMedicine));
-    if (eventTypes.contains('doctor')) dots.add(_dot(AppColors.calDotDoctor));
-    if (eventTypes.contains('treatment'))
+    }
+    if (eventTypes.contains('doctor') || eventTypes.contains('appointment')) {
+      dots.add(_dot(AppColors.calDotDoctor));
+    }
+    if (eventTypes.contains('treatment')) {
       dots.add(_dot(AppColors.calDotTreatment));
+    }
 
     return Row(
       mainAxisAlignment: MainAxisAlignment.center,

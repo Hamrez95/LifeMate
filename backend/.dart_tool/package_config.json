@@ -27,9 +27,9 @@
     },
     {
       "name": "meta",
-      "rootUri": "file:///C:/Users/HamidReza%20Pakpour/AppData/Local/Pub/Cache/hosted/dart.devneeds.ir/meta-1.18.2",
+      "rootUri": "file:///C:/Users/HamidReza%20Pakpour/AppData/Local/Pub/Cache/hosted/dart.devneeds.ir/meta-1.16.0",
       "packageUri": "lib/",
-      "languageVersion": "3.5"
+      "languageVersion": "2.12"
     },
     {
       "name": "path",

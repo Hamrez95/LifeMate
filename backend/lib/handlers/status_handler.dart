@@ -41,26 +41,27 @@ class StatusHandler {
     final body = await request.readAsString();
     final requestData = jsonDecode(body);
 
-    // خواندن دیتابیس فعلی
     final dbData = await _dbService.readData();
 
     if (requestData['currentIndex'] != null) {
       dbData['currentIndex'] = requestData['currentIndex'];
     }
 
-    if (requestData['status'] != null) {
+    // 👈 منطق ثبت داروی مصرف شده اصلاح شد
+    if (requestData['status'] == 'done' && requestData['itemId'] != null) {
       dbData['status'] = requestData['status'];
 
-      if (requestData['status'] == 'done') {
-        final idx = dbData['currentIndex'] as int;
-        List<dynamic> consumed = dbData['consumed'];
-        if (!consumed.contains(idx)) {
-          consumed.add(idx);
-        }
+      // گرفتن آیدی ارسال شده از سمت فلاتر
+      final itemId = requestData['itemId'] as int;
+      List<dynamic> consumed = dbData['consumed'] ?? [];
+
+      // اگر این آیدی قبلا ثبت نشده، به لیست اضافه بشه
+      if (!consumed.contains(itemId)) {
+        consumed.add(itemId);
       }
+      dbData['consumed'] = consumed;
     }
 
-    // ذخیره تغییرات در فایل JSON
     await _dbService.writeData(dbData);
 
     return Response.ok(

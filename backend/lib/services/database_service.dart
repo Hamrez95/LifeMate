@@ -1,111 +1,31 @@
 import 'dart:convert';
 import 'dart:io';
+import 'default_db_data.dart';
 
 class DatabaseService {
-  static const String _filePath = 'db.json';
+  static const String _fileName = 'db.json';
 
-  // داده‌های اولیه به‌روزرسانی شده با داروهای بیشتر برای مادر
-  static final Map<String, dynamic> _defaultData = {
-    'currentIndex': 0,
-    'scheduleList': [
-      {
-        'id': 1,
-        'patient': 'مامان جون',
-        'type': 'med',
-        'name': 'قرص آسپرین',
-        'details': '80 میلی گرم',
-        'time': '08:00',
-        'frequency': 'روزانه'
-      },
-      {
-        'id': 2,
-        'patient': 'مامان جون',
-        'type': 'med',
-        'name': 'کپسول ویتامین دی',
-        'details': '50000 واحد',
-        'time': '10:00',
-        'frequency': 'هفتگی'
-      },
-      {
-        'id': 3,
-        'patient': 'بابا جون',
-        'type': 'appointment',
-        'name': 'وقت دکتر دیابت',
-        'details': 'چکاپ ماهانه',
-        'time': '13:45',
-        'frequency': 'یکباره'
-      },
-      {
-        'id': 4,
-        'patient': 'مامان جون',
-        'type': 'med',
-        'name': 'قرص پلاویکس',
-        'details': '75 میلی گرم',
-        'time': '14:00',
-        'frequency': 'روزانه'
-      },
-      {
-        'id': 5,
-        'patient': 'مامان جون',
-        'type': 'appointment',
-        'name': 'ملاقات با دکتر قلب',
-        'details': 'چکاپ دوره‌ای - همراه داشتن نوار قلب فراموش نشود',
-        'time': '17:30',
-        'frequency': 'تاریخ مقرر'
-      },
-      {
-        'id': 6,
-        'patient': 'سارا',
-        'type': 'med',
-        'name': 'شربت ویتامین',
-        'details': '۵ سی‌سی',
-        'time': '18:00',
-        'frequency': 'روزانه'
-      },
-      {
-        'id': 7,
-        'patient': 'مامان جون',
-        'type': 'med',
-        'name': 'قرص آتورواستاتین',
-        'details': '20 میلی گرم',
-        'time': '19:45',
-        'frequency': 'روزانه'
-      },
-      {
-        'id': 8,
-        'patient': 'سارا',
-        'type': 'appointment',
-        'name': 'نوبت پزشک',
-        'details': 'چکاپ 6 ماهگی',
-        'time': '20:15',
-        'frequency': 'تاریخ مقرر'
-      },
-      {
-        'id': 9,
-        'patient': 'مامان جون',
-        'type': 'med',
-        'name': 'قرص فستوور',
-        'details': '180 میلی گرم',
-        'time': '23:55',
-        'frequency': 'روزانه'
-      },
-    ],
-    'status': 'pending',
-    'consumed': [],
-  };
+  // در بک‌اند، فایل مستقیماً در پوشه اصلی پروژه ایجاد می‌شود
+  static File get _localFile {
+    return File(_fileName);
+  }
 
   Future<Map<String, dynamic>> readData() async {
-    final file = File(_filePath);
+    final file = _localFile;
+
+    // اگر فایل وجود نداشت، داده‌های پیش‌فرض را می‌سازد
     if (!await file.exists()) {
-      await writeData(_defaultData);
-      return _defaultData;
+      final defaultData = DefaultDbData.getDefaultData();
+      await writeData(defaultData);
+      return defaultData;
     }
+
     final content = await file.readAsString();
     return jsonDecode(content);
   }
 
   Future<void> writeData(Map<String, dynamic> data) async {
-    final file = File(_filePath);
+    final file = _localFile;
     await file.writeAsString(jsonEncode(data));
   }
 }

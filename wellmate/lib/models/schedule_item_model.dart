@@ -1,10 +1,13 @@
 class ScheduleItemModel {
   final String id;
-  final String title; // نام دارو یا فعالیت (مثلاً "ویتامین C")
-  final String time; // زمان مصرف (مثلاً "08:00")
-  final String dosage; // مقدار مصرف (مثلاً "۱ قرص")
-  final String type; // نوع (برای نمایش آیکون مناسب، مثلاً "pill" یا "syrup")
-  final bool isDone; // وضعیت انجام شدن یا نشدن
+  final String title;
+  final String time;
+  final String dosage;
+  final String type;
+  final String frequency;
+  final bool isDone;
+  final DateTime? startDate;
+  final int? intervalDays;
 
   ScheduleItemModel({
     required this.id,
@@ -13,21 +16,28 @@ class ScheduleItemModel {
     required this.dosage,
     required this.type,
     this.isDone = false,
+    this.startDate,
+    this.intervalDays,
+    required this.frequency,
   });
 
-  // تبدیل JSON دریافتی از سرور به مدل دارت
   factory ScheduleItemModel.fromJson(Map<String, dynamic> json) {
     return ScheduleItemModel(
       id: json['id']?.toString() ?? '',
-      title: json['title'] ?? '',
+      // پشتیبانی از هر دو کلید title و name
+      title: json['title'] ?? json['name'] ?? '',
       time: json['time'] ?? '',
-      dosage: json['dosage'] ?? '',
-      type: json['type'] ?? 'default',
+      // پشتیبانی از هر دو کلید dosage و details
+      dosage: json['dosage'] ?? json['details'] ?? '',
+      type: json['type'] ?? 'default', // اینجا type درست خوانده می‌شود
       isDone: json['is_done'] ?? false,
+      frequency: json['frequency'] ?? 'روزانه',
+      startDate:
+          json['startDate'] != null ? DateTime.parse(json['startDate']) : null,
+      intervalDays: json['intervalDays'],
     );
   }
 
-  // تبدیل مدل دارت به JSON برای ارسال به سرور
   Map<String, dynamic> toJson() {
     return {
       'id': id,
@@ -36,10 +46,12 @@ class ScheduleItemModel {
       'dosage': dosage,
       'type': type,
       'is_done': isDone,
+      'frequency': frequency,
+      'startDate': startDate?.toIso8601String(),
+      'intervalDays': intervalDays,
     };
   }
 
-  // متدی برای کپی کردن آبجکت با مقادیر جدید (مثلاً وقتی کاربر تیک انجام را می‌زند)
   ScheduleItemModel copyWith({
     String? id,
     String? title,
@@ -47,6 +59,9 @@ class ScheduleItemModel {
     String? dosage,
     String? type,
     bool? isDone,
+    String? frequency,
+    DateTime? startDate,
+    int? intervalDays,
   }) {
     return ScheduleItemModel(
       id: id ?? this.id,
@@ -55,6 +70,9 @@ class ScheduleItemModel {
       dosage: dosage ?? this.dosage,
       type: type ?? this.type,
       isDone: isDone ?? this.isDone,
+      frequency: frequency ?? this.frequency,
+      startDate: startDate ?? this.startDate,
+      intervalDays: intervalDays ?? this.intervalDays,
     );
   }
 }

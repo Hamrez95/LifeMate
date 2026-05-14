@@ -50,9 +50,14 @@ class _HomeScreenContentState extends State<HomeScreenContent> {
                 time: item['time'],
                 dosage: item['details'],
                 isDone: false,
+                // فیلدهای زیر اضافه شدند تا خطای missing_required_argument برطرف شود
+                frequency: item['frequency'] ?? 'روزانه',
+                startDate: item['startDate'] != null
+                    ? DateTime.parse(item['startDate'])
+                    : DateTime.now(),
+                intervalDays: item['intervalDays'] ?? 1,
               ))
           .toList();
-
       setState(() {
         scheduleList = mamanJoonSchedules;
         isLoading = false;
@@ -79,6 +84,16 @@ class _HomeScreenContentState extends State<HomeScreenContent> {
     // 👈 این خط اضافه می‌شود تا پرووایدر بداند دارو مصرف شده
     if (mounted) {
       context.read<MedicationProvider>().markAsDone(item.id);
+    }
+    try {
+      // فرض بر این است که شما متد updateStatus را در BackendService دارید
+      // ما آیدی دارو را به بک‌اند می‌فرستیم تا در لیست consumed ثبت شود
+      await BackendService.updateStatus(
+        itemId: int.parse(item.id),
+        status: 'done',
+      );
+    } catch (e) {
+      debugPrint('خطا در ارسال وضعیت به بک‌اند: $e');
     }
 
     ScaffoldMessenger.of(context).showSnackBar(
