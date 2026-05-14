@@ -128,7 +128,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
           bottom: false, // دقیقاً مثل داشبورد
           child: Padding(
             // اعمال همان فاصله‌های داشبورد برای یکسان‌سازی
-            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
+            padding: const EdgeInsets.symmetric(horizontal: 0, vertical: 0),
             child: Column(
               children: [
                 // --- Header ---

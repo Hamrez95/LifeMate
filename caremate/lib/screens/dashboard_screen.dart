@@ -143,176 +143,178 @@ class _DashboardScreenState extends State<DashboardScreen> {
       body: SafeArea(
         bottom: false,
         child: SingleChildScrollView(
-          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
+          padding: const EdgeInsets.symmetric(vertical: 0),
           child: Column(
             children: [
               // --- Header ---
               const CustomAppHeader(),
               const SizedBox(height: 30),
-
-              // Align(
-              //   alignment:
-              //       isPersian ? Alignment.centerRight : Alignment.centerLeft,
-              //   child: Padding(
-              //     padding: const EdgeInsets.only(bottom: 4),
-              //     child: Text(patientName,
-              //         style: mainFont.copyWith(
-              //             fontSize: 12, color: AppColors.secondaryText)),
-              //   ),
-              // ),
-
               //ویجت صف درمان
-              Container(
-                width: double.infinity,
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius:
-                      BorderRadius.circular(24), // گوشه های گرد هماهنگ با کل اپ
-                  boxShadow: [
-                    // سایه ملایم به جای بوردر مشکی
-                    BoxShadow(
-                      color: Colors.blue.withOpacity(0.06),
-                      blurRadius: 15,
-                      offset: const Offset(0, 5),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 24.0),
+                child: Column(
+                  children: [
+                    Container(
+                      width: double.infinity,
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(
+                            24), // گوشه های گرد هماهنگ با کل اپ
+                        boxShadow: [
+                          // سایه ملایم به جای بوردر مشکی
+                          BoxShadow(
+                            color: Colors.blue.withOpacity(0.06),
+                            blurRadius: 15,
+                            offset: const Offset(0, 5),
+                          ),
+                        ],
+                      ),
+                      padding: const EdgeInsets.all(20),
+                      child: backendStatus == null
+                          ? const Center(child: CircularProgressIndicator())
+                          : _buildStatusContent(loc, isPersian, mainFont),
                     ),
-                  ],
-                ),
-                padding: const EdgeInsets.all(20),
-                child: backendStatus == null
-                    ? const Center(child: CircularProgressIndicator())
-                    : _buildStatusContent(loc, isPersian, mainFont),
-              ),
-              const SizedBox(height: 24),
+                    const SizedBox(height: 24),
 
-              // --- Partner Status & Baby Tracker ---
-              Row(
-                children: [
-                  Expanded(
-                    child: Container(
-                      height: 210,
-                      padding: const EdgeInsets.all(16),
-                      decoration: AppColors.softDecoration(
-                          color: const Color(0xFFF0F2F5)),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(loc['dashboard_partner_status'],
-                              style: mainFont.copyWith(
-                                  fontSize: 15, fontWeight: FontWeight.bold)),
-                          const SizedBox(height: 15),
-                          Center(
-                            child: Stack(
-                              alignment: Alignment.center,
+                    // --- Partner Status & Baby Tracker ---
+                    Row(
+                      children: [
+                        Expanded(
+                          child: Container(
+                            height: 210,
+                            padding: const EdgeInsets.all(16),
+                            decoration: AppColors.softDecoration(
+                                color: const Color(0xFFF0F2F5)),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                const SizedBox(
-                                  width: 90,
-                                  height: 90,
-                                  child: CircularProgressIndicator(
-                                      value: MockData.partnerStatusValue,
-                                      strokeWidth: 10,
-                                      backgroundColor: Colors.white,
-                                      valueColor: AlwaysStoppedAnimation<Color>(
-                                          Color(0xFFE598D8))),
+                                Text(loc['dashboard_partner_status'],
+                                    style: mainFont.copyWith(
+                                        fontSize: 15,
+                                        fontWeight: FontWeight.bold)),
+                                const SizedBox(height: 15),
+                                Center(
+                                  child: Stack(
+                                    alignment: Alignment.center,
+                                    children: [
+                                      const SizedBox(
+                                        width: 90,
+                                        height: 90,
+                                        child: CircularProgressIndicator(
+                                            value: MockData.partnerStatusValue,
+                                            strokeWidth: 10,
+                                            backgroundColor: Colors.white,
+                                            valueColor:
+                                                AlwaysStoppedAnimation<Color>(
+                                                    Color(0xFFE598D8))),
+                                      ),
+                                      Column(
+                                        mainAxisSize: MainAxisSize.min,
+                                        children: [
+                                          Text(loc['dashboard_week'],
+                                              style: mainFont.copyWith(
+                                                  fontSize: 12,
+                                                  color:
+                                                      AppColors.secondaryText)),
+                                          Text(
+                                              MockData.pregnancyWeek
+                                                  .toPersianDigit(isPersian),
+                                              style: mainFont.copyWith(
+                                                  fontSize: 22,
+                                                  fontWeight: FontWeight.bold)),
+                                        ],
+                                      ),
+                                    ],
+                                  ),
                                 ),
-                                Column(
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    Text(loc['dashboard_week'],
-                                        style: mainFont.copyWith(
-                                            fontSize: 12,
-                                            color: AppColors.secondaryText)),
-                                    Text(
-                                        MockData.pregnancyWeek
-                                            .toPersianDigit(isPersian),
-                                        style: mainFont.copyWith(
-                                            fontSize: 22,
-                                            fontWeight: FontWeight.bold)),
-                                  ],
-                                ),
+                                const Spacer(),
+                                Text(
+                                    "${loc['dashboard_mood']} ${loc['dashboard_mood_happy']}",
+                                    style: mainFont.copyWith(fontSize: 12)),
+                                Text(
+                                    "${loc['dashboard_craving']} ${loc['dashboard_craving_sweets']}",
+                                    style: mainFont.copyWith(fontSize: 12)),
                               ],
                             ),
                           ),
-                          const Spacer(),
-                          Text(
-                              "${loc['dashboard_mood']} ${loc['dashboard_mood_happy']}",
-                              style: mainFont.copyWith(fontSize: 12)),
-                          Text(
-                              "${loc['dashboard_craving']} ${loc['dashboard_craving_sweets']}",
-                              style: mainFont.copyWith(fontSize: 12)),
-                        ],
-                      ),
+                        ),
+                        const SizedBox(width: 16),
+                        Expanded(
+                          child: Container(
+                            height: 210,
+                            padding: const EdgeInsets.all(16),
+                            decoration: AppColors.softDecoration(),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(loc['dashboard_baby_tracker'],
+                                    style: mainFont.copyWith(
+                                        fontSize: 15,
+                                        fontWeight: FontWeight.bold)),
+                                const SizedBox(height: 15),
+                                GlassItem(
+                                    icon: Icons.baby_changing_station,
+                                    iconColor: Colors.blueAccent,
+                                    text: loc['dashboard_supply_low'],
+                                    hasDot: true,
+                                    font: mainFont),
+                                const SizedBox(height: 12),
+                                GlassItem(
+                                    icon: Icons.vaccines,
+                                    iconColor: Colors.orangeAccent,
+                                    text: loc['dashboard_vaccine_tomo'],
+                                    hasDot: false,
+                                    font: mainFont),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ],
                     ),
-                  ),
-                  const SizedBox(width: 16),
-                  Expanded(
-                    child: Container(
-                      height: 210,
-                      padding: const EdgeInsets.all(16),
+
+                    const SizedBox(height: 24),
+
+                    // --- Quick Summary ---
+                    SectionHeader(
+                        title: loc['dashboard_quick_summary'],
+                        font: mainFont,
+                        textDirection:
+                            isPersian ? TextDirection.rtl : TextDirection.ltr),
+                    const SizedBox(height: 12),
+                    Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.all(20),
                       decoration: AppColors.softDecoration(),
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text(loc['dashboard_baby_tracker'],
+                          Text(
+                              MockData.medicationProgress
+                                  .toPersianDigit(isPersian),
                               style: mainFont.copyWith(
-                                  fontSize: 15, fontWeight: FontWeight.bold)),
-                          const SizedBox(height: 15),
-                          GlassItem(
-                              icon: Icons.baby_changing_station,
-                              iconColor: Colors.blueAccent,
-                              text: loc['dashboard_supply_low'],
-                              hasDot: true,
-                              font: mainFont),
+                                  fontWeight: FontWeight.bold)),
+                          const SizedBox(height: 8),
+                          ClipRRect(
+                            borderRadius: BorderRadius.circular(10),
+                            child: LinearProgressIndicator(
+                                value: MockData.medicationProgressValue,
+                                minHeight: 12,
+                                backgroundColor: Colors.grey[200],
+                                valueColor: const AlwaysStoppedAnimation<Color>(
+                                    Color(0xFF6FCF97))),
+                          ),
                           const SizedBox(height: 12),
-                          GlassItem(
-                              icon: Icons.vaccines,
-                              iconColor: Colors.orangeAccent,
-                              text: loc['dashboard_vaccine_tomo'],
-                              hasDot: false,
-                              font: mainFont),
+                          Text(loc['dashboard_total_meds'],
+                              style: mainFont.copyWith(
+                                  color: AppColors.secondaryText,
+                                  fontSize: 13)),
                         ],
                       ),
                     ),
-                  ),
-                ],
-              ),
-
-              const SizedBox(height: 24),
-
-              // --- Quick Summary ---
-              SectionHeader(
-                  title: loc['dashboard_quick_summary'],
-                  font: mainFont,
-                  textDirection:
-                      isPersian ? TextDirection.rtl : TextDirection.ltr),
-              const SizedBox(height: 12),
-              Container(
-                width: double.infinity,
-                padding: const EdgeInsets.all(20),
-                decoration: AppColors.softDecoration(),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(MockData.medicationProgress.toPersianDigit(isPersian),
-                        style: mainFont.copyWith(fontWeight: FontWeight.bold)),
-                    const SizedBox(height: 8),
-                    ClipRRect(
-                      borderRadius: BorderRadius.circular(10),
-                      child: LinearProgressIndicator(
-                          value: MockData.medicationProgressValue,
-                          minHeight: 12,
-                          backgroundColor: Colors.grey[200],
-                          valueColor: const AlwaysStoppedAnimation<Color>(
-                              Color(0xFF6FCF97))),
-                    ),
-                    const SizedBox(height: 12),
-                    Text(loc['dashboard_total_meds'],
-                        style: mainFont.copyWith(
-                            color: AppColors.secondaryText, fontSize: 13)),
+                    const SizedBox(height: 120),
                   ],
-                ),
-              ),
-              // این فضای خالی باعث می‌شود وقتی به پایین اسکرول می‌کنید، کارت آخر پشت نویگیشن مخفی نشود
-              const SizedBox(height: 120),
+                ), //
+              ), //
             ],
           ),
         ),
