@@ -1,12 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:shamsi_date/shamsi_date.dart';
+import 'package:wellmate/core/utils/string_extensions.dart';
+import 'package:wellmate/core/utils/weekdays_extensions.dart';
 import 'package:wellmate/providers/medication_provider.dart';
 import '../../providers/notification_provider.dart';
 // حتماً ScheduleProvider رو هم اینجا ایمپورت کن:
 // import '../../providers/schedule_provider.dart';
 import '../theme/app_style.dart';
 import '../../models/schedule_item_model.dart';
-import '../../../core/utils/string_extensions.dart';
 
 class WellMateAppHeader extends StatelessWidget {
   final VoidCallback onProfileTap;
@@ -34,95 +36,111 @@ class WellMateAppHeader extends StatelessWidget {
     }
 
     showModalBottomSheet(
-      context: context,
-      backgroundColor: Colors.transparent,
-      isScrollControlled: true,
-      builder: (context) {
-        final font = AppTextStyles.body(context);
-        final isPersian = Localizations.localeOf(context).languageCode == 'fa';
+        context: context,
+        backgroundColor: Colors.transparent,
+        isScrollControlled: true,
+        builder: (bottomSheetContext) {
+          final font = AppTextStyles.body(context);
 
-        return Container(
-          padding: const EdgeInsets.all(24),
-          decoration: const BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.vertical(top: Radius.circular(32)),
-          ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                children: [
-                  Container(
-                    padding: const EdgeInsets.all(8),
-                    decoration: BoxDecoration(
-                      color: Colors.red.shade50,
-                      shape: BoxShape.circle,
+          // 👈 استفاده از Consumer برای اینکه با زدن دکمه لیست زنده آپدیت شود
+          return Consumer<MedicationProvider>(
+            builder: (context, medProvider, child) {
+              final missedItems = medProvider.missedItems;
+
+              // اگر همه داروها در پاپ آپ مصرف شدند، پاپ آپ را ببندد
+              if (missedItems.isEmpty) {
+                Future.microtask(() => Navigator.of(context).pop());
+                return const SizedBox.shrink();
+              }
+              return Container(
+                padding: const EdgeInsets.all(24),
+                decoration: const BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.vertical(top: Radius.circular(32)),
+                ),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.all(8),
+                          decoration: BoxDecoration(
+                            color: Colors.red.shade50,
+                            shape: BoxShape.circle,
+                          ),
+                          child: Icon(Icons.warning_amber_rounded,
+                              color: Colors.red.shade700),
+                        ),
+                        const SizedBox(width: 12),
+                        Text(
+                          'داروهای فراموش شده',
+                          style: font.copyWith(
+                              fontSize: 18,
+                              fontWeight: FontWeight.bold,
+                              color: Colors.red.shade900),
+                        ),
+                      ],
                     ),
-                    child: Icon(Icons.warning_amber_rounded,
-                        color: Colors.red.shade700),
-                  ),
-                  const SizedBox(width: 12),
-                  Text(
-                    'داروهای فراموش شده',
-                    style: font.copyWith(
-                        fontSize: 18,
-                        fontWeight: FontWeight.bold,
-                        color: Colors.red.shade900),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 20),
-              ConstrainedBox(
-                constraints: BoxConstraints(
-                  maxHeight: MediaQuery.of(context).size.height * 0.5,
+                    const SizedBox(height: 20),
+                    ConstrainedBox(
+                      constraints: BoxConstraints(
+                        maxHeight: MediaQuery.of(context).size.height * 0.5,
+                      ),
+                      child: ListView.separated(
+                        shrinkWrap: true,
+                        itemCount: missedItems.length,
+                        separatorBuilder: (_, __) => const SizedBox(height: 12),
+                        itemBuilder: (context, index) {
+                          final item = missedItems[index];
+                          return _buildMissedNotificationCard(item, context);
+                        },
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                  ],
                 ),
-                child: ListView.separated(
-                  shrinkWrap: true,
-                  itemCount: missedItems.length,
-                  separatorBuilder: (_, __) => const SizedBox(height: 12),
-                  itemBuilder: (context, index) {
-                    final item = missedItems[index];
-                    return _buildMissedNotificationCard(item, font, isPersian);
-                  },
-                ),
-              ),
-              const SizedBox(height: 16),
-            ],
-          ),
-        );
-      },
-    );
+              );
+            },
+          );
+        });
   }
 
   Widget _buildMissedNotificationCard(
-      ScheduleItemModel item, TextStyle font, bool isPersian) {
+      ScheduleItemModel item, BuildContext context) {
+    // 👈 دریافت تاریخ سیستم و تبدیل به شمسی
+    final isPersian = Localizations.localeOf(context).languageCode == 'fa';
+
+    final Jalali today = Jalali.now();
+    final String dayName = today.persianDayName;
+
+    final String dateString =
+        '${today.year}/${today.formatter.m}/${today.formatter.d}'
+            .toPersianDigit(isPersian);
+    final String timeString = item.time.toPersianDigit(isPersian);
+    final String dosageString = (item.dosage ?? '').toPersianDigit(isPersian);
+
     return Container(
-      padding: const EdgeInsets.all(16),
+      margin: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: Colors.red.shade100),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.red.withOpacity(0.05),
-            blurRadius: 15,
-            offset: const Offset(0, 5),
-          ),
-        ],
+        color: AppColors.error.withOpacity(0.05),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: AppColors.error.withOpacity(0.2)),
       ),
       child: Row(
         children: [
           Container(
-            width: 50,
-            height: 50,
+            padding: const EdgeInsets.all(10),
             decoration: BoxDecoration(
-              color: Colors.red.shade50,
-              borderRadius: BorderRadius.circular(16),
+              color: AppColors.error.withOpacity(0.1),
+              shape: BoxShape.circle,
             ),
-            child: Center(
-              child: Icon(Icons.medication_liquid_rounded,
-                  color: Colors.red.shade700, size: 28),
+            child: Icon(
+              item.type == 'medicine' ? Icons.medication : Icons.calendar_month,
+              color: AppColors.error,
+              size: 24,
             ),
           ),
           const SizedBox(width: 16),
@@ -132,37 +150,66 @@ class WellMateAppHeader extends StatelessWidget {
               children: [
                 Text(
                   item.title,
-                  style: font.copyWith(
-                      fontWeight: FontWeight.bold,
-                      fontSize: 15,
-                      color: AppColors.textPrimary),
+                  style: AppTextStyles.body(context).copyWith(
+                    fontWeight: FontWeight.bold,
+                    color: AppColors.textPrimary,
+                  ),
                 ),
-                const SizedBox(height: 6),
+                const SizedBox(height: 4),
+                Text(
+                  dosageString,
+                  style: AppTextStyles.caption(context).copyWith(
+                    color: Colors.grey.shade600,
+                  ),
+                ),
+                const SizedBox(height: 8),
+
+                // 👈 ردیف جدید برای نمایش تاریخ، روز و ساعت
                 Row(
                   children: [
-                    Icon(Icons.access_time_rounded,
-                        size: 14, color: Colors.red.shade500),
+                    Icon(Icons.calendar_today_outlined,
+                        size: 14, color: AppColors.primary),
                     const SizedBox(width: 4),
                     Text(
-                      item.time.toPersianDigit(isPersian),
-                      style: font.copyWith(
-                          fontSize: 13,
-                          fontWeight: FontWeight.bold,
-                          color: Colors.red.shade700),
+                      '$dayName، $dateString',
+                      style: AppTextStyles.caption(context).copyWith(
+                        color: Colors.grey.shade700,
+                        fontWeight: FontWeight.bold,
+                      ),
                     ),
                     const SizedBox(width: 12),
-                    Expanded(
-                      child: Text(
-                        item.dosage.toPersianDigit(isPersian),
-                        style: font.copyWith(
-                            fontSize: 12, color: AppColors.textSecondary),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
+                    Icon(Icons.access_time, size: 14, color: AppColors.error),
+                    const SizedBox(width: 4),
+                    Text(
+                      timeString,
+                      style: AppTextStyles.caption(context).copyWith(
+                        color: AppColors.error,
+                        fontWeight: FontWeight.bold,
                       ),
                     ),
                   ],
                 ),
               ],
+            ),
+          ),
+          // 👈 مشکل اینجا بود! دکمه به داخل Row منتقل شد
+          GestureDetector(
+            onTap: () {
+              context.read<MedicationProvider>().markAsDone(item.id);
+            },
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              decoration: BoxDecoration(
+                color: Colors.red.shade600,
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Text(
+                'مصرف کردم',
+                style: AppTextStyles.caption(context).copyWith(
+                  color: Colors.white,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
             ),
           ),
         ],

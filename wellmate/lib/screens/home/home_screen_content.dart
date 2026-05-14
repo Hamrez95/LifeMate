@@ -233,14 +233,16 @@ class _HomeScreenContentState extends State<HomeScreenContent> {
                                 const SizedBox(height: 12),
                             itemBuilder: (context, i) {
                               final item = displayList[i];
-                              final isMissed = missedItems
-                                  .contains(item); // تشخیص گذشته بودن دارو
+                              final isMissed = missedItems.contains(item);
                               return SoftScheduleCard(
                                 item: item,
                                 index: i,
                                 font: font,
                                 assetPath: _getAssetPath(item.type),
-                                isMissed: isMissed, // پاس دادن متغیر به کارت
+                                isMissed: isMissed,
+                                // 👈 پاس دادن متد مارک کردن به کارت
+                                onTaken:
+                                    isMissed ? () => _markAsDone(item) : null,
                               );
                             },
                           ),

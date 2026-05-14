@@ -18,6 +18,7 @@ class AppColors {
   static const Color cardBackground = Colors.white;
 
   static const Color primaryBlue = Color(0xFF4A90E2);
+  static const Color error = Color.fromARGB(255, 168, 6, 0);
   static const Color darkBlue = Color(0xFF283054); // رنگ سرمه‌ای (متن‌های اصلی)
   static const Color avatarBackground =
       Color(0xFFE2D4C8); // رنگ پس‌زمینه آواتار

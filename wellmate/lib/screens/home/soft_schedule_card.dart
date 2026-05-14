@@ -8,7 +8,8 @@ class SoftScheduleCard extends StatelessWidget {
   final int index;
   final TextStyle font;
   final String assetPath;
-  final bool isMissed; // اضافه شدن این متغیر
+  final bool isMissed;
+  final VoidCallback? onTaken; // 👈 اضافه شدن تابع برای دکمه مصرف
 
   const SoftScheduleCard({
     Key? key,
@@ -16,7 +17,8 @@ class SoftScheduleCard extends StatelessWidget {
     required this.index,
     required this.font,
     required this.assetPath,
-    this.isMissed = false, // مقدار پیش‌فرض
+    this.isMissed = false,
+    this.onTaken, // 👈 دریافت از سازنده
   }) : super(key: key);
 
   @override
@@ -25,9 +27,7 @@ class SoftScheduleCard extends StatelessWidget {
 
     return Container(
       decoration: BoxDecoration(
-        color: isMissed
-            ? Colors.red.shade50
-            : Colors.white, // تغییر رنگ پس‌زمینه در صورت گذشته بودن زمان
+        color: isMissed ? Colors.red.shade50 : Colors.white,
         borderRadius: BorderRadius.circular(24),
         border: isMissed ? Border.all(color: Colors.red.shade200) : null,
         boxShadow: [
@@ -107,6 +107,28 @@ class SoftScheduleCard extends StatelessWidget {
                       ),
                     ],
                   ),
+                  // 👈 دکمه "مصرف کردم" برای حالت فراموش شده
+                  if (isMissed) ...[
+                    const SizedBox(height: 12),
+                    GestureDetector(
+                      onTap: onTaken,
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                            vertical: 6, horizontal: 16),
+                        decoration: BoxDecoration(
+                          color: Colors.red.shade600,
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: Text(
+                          'مصرف کردم',
+                          style: font.copyWith(
+                              color: Colors.white,
+                              fontSize: 12,
+                              fontWeight: FontWeight.bold),
+                        ),
+                      ),
+                    ),
+                  ]
                 ],
               ),
             ),
