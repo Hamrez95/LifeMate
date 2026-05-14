@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
+import 'package:wellmate/providers/medication_provider.dart';
 
 import 'package:wellmate/providers/notification_provider.dart';
 import 'package:wellmate/providers/settings_provider.dart';
@@ -18,6 +19,8 @@ void main() {
         ChangeNotifierProvider(create: (_) => NotificationProvider()),
         ChangeNotifierProvider(create: (_) => LocaleProvider()),
         ChangeNotifierProvider(create: (_) => SettingsProvider()),
+        ChangeNotifierProvider(
+            create: (_) => MedicationProvider()), // اضافه کردن این خط
       ],
       child: const WellMateApp(),
     ),
@@ -58,8 +61,8 @@ class WellMateApp extends StatelessWidget {
             GlobalCupertinoLocalizations.delegate,
           ],
           supportedLocales: const [
-            Locale('fa', ''), // 👈 فارسی به عنوان اولین زبان (پیش‌فرض)
-            Locale('en', ''),
+            Locale('fa'), // 👈 فارسی به عنوان اولین زبان (پیش‌فرض)
+            Locale('en'),
           ],
 
           // 👇 حفظ ساختار تغییر سایز متن مخصوص WellMate

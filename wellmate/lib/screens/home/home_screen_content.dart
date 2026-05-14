@@ -1,13 +1,13 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+import 'package:wellmate/providers/medication_provider.dart';
 import 'package:wellmate/screens/home/active_treatment_card.dart';
-import 'package:wellmate/screens/home/swipe_to_confirm.dart';
 import '../../localization/app_localizations.dart';
 import '../../core/theme/app_style.dart';
 import '../../models/schedule_item_model.dart';
 import '../../services/backend_service.dart';
 import 'soft_schedule_card.dart';
-import 'timer_section.dart';
 
 class HomeScreenContent extends StatefulWidget {
   const HomeScreenContent({Key? key}) : super(key: key);
@@ -57,6 +57,11 @@ class _HomeScreenContentState extends State<HomeScreenContent> {
         scheduleList = mamanJoonSchedules;
         isLoading = false;
       });
+
+      // 👈 این خط اضافه می‌شود تا پرووایدر آپدیت شود و هدر داروها را ببیند
+      if (mounted) {
+        context.read<MedicationProvider>().setMedications(mamanJoonSchedules);
+      }
     } catch (e) {
       debugPrint('Error: $e');
       setState(() => isLoading = false);
@@ -70,6 +75,11 @@ class _HomeScreenContentState extends State<HomeScreenContent> {
         scheduleList[index] = item.copyWith(isDone: true);
       }
     });
+
+    // 👈 این خط اضافه می‌شود تا پرووایدر بداند دارو مصرف شده
+    if (mounted) {
+      context.read<MedicationProvider>().markAsDone(item.id);
+    }
 
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
