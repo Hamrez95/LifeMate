@@ -93,6 +93,17 @@ class DefaultDbData {
           'startDate': todayStr, // جایگزین 'date' شد
           'intervalDays': null, // این خط اضافه شد
         },
+        {
+          'id': 7,
+          'patient': 'مامان جون',
+          'type': 'appointment',
+          'name': 'ملاقات با متخصص پوست',
+          'details': 'چکاپ دوره‌ای - همراه داشتن جواب آزمایش ',
+          'time': '23:30',
+          'frequency': 'یکباره',
+          'startDate': todayStr, // جایگزین 'date' شد
+          'intervalDays': null, // این خط اضافه شد
+        },
         // ---------- سایر افراد (بابا جون و سارا) ----------
         {
           'id': 8,
@@ -115,6 +126,17 @@ class DefaultDbData {
           'frequency': 'روزانه',
           'startDate': pastDateStr,
           'intervalDays': 1,
+        },
+        {
+          'id': 10,
+          'patient': 'سارا',
+          'type': 'med',
+          'name': 'دکتر غربالگری',
+          'details': 'دکتر رشد',
+          'time': '22:00',
+          'frequency': 'روزانه',
+          'startDate': todayStr,
+          'intervalDays': null,
         },
       ],
     };

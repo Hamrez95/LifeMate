@@ -133,7 +133,25 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
     final String patientName =
         "${loc['dashboard_patient']}: ${MockData.patientNameEn}";
+    //برای محاسبه درصد پیشرفت
+    double progressValue = 0.0;
+    String progressText = "۰٪";
 
+    if (backendStatus != null && backendStatus!['scheduleList'] != null) {
+      final List<dynamic> scheduleList = backendStatus!['scheduleList'];
+      // 👈 نام کلید به consumedIndices تغییر کرد
+      final List<dynamic> consumed =
+          backendStatus!['consumedIndices'] ?? backendStatus!['consumed'] ?? [];
+
+      final int totalItems = scheduleList.length;
+      final int doneItems = consumed.length;
+
+      if (totalItems > 0) {
+        progressValue = doneItems / totalItems;
+        progressText =
+            "${(progressValue * 100).toInt()}٪".toPersianDigit(isPersian);
+      }
+    }
     return Scaffold(
       backgroundColor: AppColors.background,
       // اینجا با extendBody: true به محتوا اجازه می‌دهیم تا زیر نویگیشن بار برود
@@ -288,16 +306,15 @@ class _DashboardScreenState extends State<DashboardScreen> {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text(
-                              MockData.medicationProgress
-                                  .toPersianDigit(isPersian),
+                          Text(progressText, // استفاده از متغیر داینامیک جدید
                               style: mainFont.copyWith(
                                   fontWeight: FontWeight.bold)),
                           const SizedBox(height: 8),
                           ClipRRect(
                             borderRadius: BorderRadius.circular(10),
                             child: LinearProgressIndicator(
-                                value: MockData.medicationProgressValue,
+                                value:
+                                    progressValue, // استفاده از مقدار داینامیک جدید
                                 minHeight: 12,
                                 backgroundColor: Colors.grey[200],
                                 valueColor: const AlwaysStoppedAnimation<Color>(
@@ -366,28 +383,43 @@ class _DashboardScreenState extends State<DashboardScreen> {
   // }
 
   Widget _buildStatusContent(dynamic loc, bool isPersian, TextStyle mainFont) {
-    final rawCurrentItem = backendStatus!['currentItem'];
-    final rawNextItems = backendStatus!['nextItems'] as List?;
+    if (backendStatus == null || backendStatus!['scheduleList'] == null) {
+      return const Center(child: Text("دیتای برنامه یافت نشد."));
+    }
 
-    // ترکیب و مرتب‌سازی داروها
-    List<dynamic> allItems = [];
-    if (rawCurrentItem != null) allItems.add(rawCurrentItem);
-    if (rawNextItems != null) allItems.addAll(rawNextItems);
+    final List<dynamic> scheduleList = backendStatus!['scheduleList'];
+    // 👈 نام کلید به consumedIndices تغییر کرد
+    final List<dynamic> consumedIds =
+        backendStatus!['consumedIndices'] ?? backendStatus!['consumed'] ?? [];
 
     final now = DateTime.now();
 
-    List<dynamic> futureItems = allItems.where((item) {
+    // ۱. فیلتر کردن داروهایی که هنوز مصرف نشده‌اند و زمانشان هم نگذشته است
+    List<dynamic> pendingItems = scheduleList.where((item) {
+      final itemId = item['id'];
+
+      // اگر قبلاً مصرف شده، در صف نمایش نده
+      if (consumedIds.contains(itemId)) return false;
+
+      // بررسی گذشت زمان
       try {
         final parts = item['time'].toString().split(':');
         final itemTime = DateTime(now.year, now.month, now.day,
             int.parse(parts[0]), int.parse(parts[1]));
-        return itemTime.isAfter(now);
+
+        // 👈 اگر زمان دارو گذشته باشد، از صف اصلی (فعلی/بعدی) خارج می‌شود
+        if (itemTime.isBefore(now)) {
+          return false;
+        }
       } catch (e) {
-        return false;
+        // در صورت خطای فرمت، صرف نظر می‌کنیم
       }
+
+      return true;
     }).toList();
 
-    futureItems.sort((a, b) {
+    // ۲. مرتب‌سازی صف بر اساس زمان (تا نزدیک‌ترین دارو اول صف باشد)
+    pendingItems.sort((a, b) {
       try {
         final tA = a['time'].toString().split(':');
         final tB = b['time'].toString().split(':');
@@ -401,14 +433,14 @@ class _DashboardScreenState extends State<DashboardScreen> {
       }
     });
 
-    final currentItem = futureItems.isNotEmpty ? futureItems.first : null;
-    final nextItem = futureItems.length > 1 ? futureItems[1] : null;
+    final currentItem = pendingItems.isNotEmpty ? pendingItems.first : null;
+    final nextItem = pendingItems.length > 1 ? pendingItems[1] : null;
 
     if (currentItem == null) {
       return Center(
         child: Padding(
           padding: const EdgeInsets.symmetric(vertical: 20),
-          child: Text("تمام درمان‌های صف امروز انجام شده است! 🎉",
+          child: Text("تمام مراقبت‌های امروز انجام شده است! 🎉",
               style: mainFont.copyWith(
                   fontSize: 16,
                   fontWeight: FontWeight.bold,

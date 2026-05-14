@@ -40,6 +40,8 @@ class _HomeScreenContentState extends State<HomeScreenContent> {
     try {
       final data = await BackendService.getStatus();
       final List<dynamic> rawList = data['scheduleList'] ?? [];
+      final List<dynamic> consumedIds =
+          data['consumedIndices'] ?? data['consumed'] ?? [];
 
       final mamanJoonSchedules = rawList
           .where((item) => item['patient'] == 'مامان جون')
@@ -49,7 +51,7 @@ class _HomeScreenContentState extends State<HomeScreenContent> {
                 title: item['name'],
                 time: item['time'],
                 dosage: item['details'],
-                isDone: false,
+                isDone: consumedIds.contains(item['id']),
                 // فیلدهای زیر اضافه شدند تا خطای missing_required_argument برطرف شود
                 frequency: item['frequency'] ?? 'روزانه',
                 startDate: item['startDate'] != null
