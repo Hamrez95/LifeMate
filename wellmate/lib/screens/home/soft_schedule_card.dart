@@ -8,6 +8,7 @@ class SoftScheduleCard extends StatelessWidget {
   final int index;
   final TextStyle font;
   final String assetPath;
+  final bool isMissed; // اضافه شدن این متغیر
 
   const SoftScheduleCard({
     Key? key,
@@ -15,6 +16,7 @@ class SoftScheduleCard extends StatelessWidget {
     required this.index,
     required this.font,
     required this.assetPath,
+    this.isMissed = false, // مقدار پیش‌فرض
   }) : super(key: key);
 
   @override
@@ -23,11 +25,16 @@ class SoftScheduleCard extends StatelessWidget {
 
     return Container(
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: isMissed
+            ? Colors.red.shade50
+            : Colors.white, // تغییر رنگ پس‌زمینه در صورت گذشته بودن زمان
         borderRadius: BorderRadius.circular(24),
+        border: isMissed ? Border.all(color: Colors.red.shade200) : null,
         boxShadow: [
           BoxShadow(
-              color: AppColors.shadowDark.withOpacity(0.4),
+              color: isMissed
+                  ? Colors.red.withOpacity(0.1)
+                  : AppColors.shadowDark.withOpacity(0.4),
               blurRadius: 20,
               offset: const Offset(0, 10)),
         ],
@@ -36,16 +43,26 @@ class SoftScheduleCard extends StatelessWidget {
         padding: const EdgeInsets.all(16.0),
         child: Row(
           children: [
-            // متون (ابتدا قرار می‌گیرد تا سمت راست بیفتد)
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(item.title,
-                      style: font.copyWith(
-                          fontWeight: FontWeight.bold,
-                          fontSize: 16,
-                          color: AppColors.textPrimary)),
+                  Row(
+                    children: [
+                      if (isMissed) ...[
+                        Icon(Icons.warning_amber_rounded,
+                            color: Colors.red.shade700, size: 18),
+                        const SizedBox(width: 4),
+                      ],
+                      Text(item.title,
+                          style: font.copyWith(
+                              fontWeight: FontWeight.bold,
+                              fontSize: 16,
+                              color: isMissed
+                                  ? Colors.red.shade900
+                                  : AppColors.textPrimary)),
+                    ],
+                  ),
                   const SizedBox(height: 8),
                   Row(
                     children: [
@@ -53,16 +70,23 @@ class SoftScheduleCard extends StatelessWidget {
                         padding: const EdgeInsets.symmetric(
                             horizontal: 8, vertical: 4),
                         decoration: BoxDecoration(
-                            color: AppColors.background,
+                            color: isMissed
+                                ? Colors.red.withOpacity(0.1)
+                                : AppColors.background,
                             borderRadius: BorderRadius.circular(8)),
                         child: Row(
                           children: [
-                            const Icon(Icons.access_time_rounded,
-                                size: 14, color: AppColors.primary),
+                            Icon(Icons.access_time_rounded,
+                                size: 14,
+                                color: isMissed
+                                    ? Colors.red.shade700
+                                    : AppColors.primary),
                             const SizedBox(width: 4),
                             Text(item.time.toPersianDigit(isPersian),
                                 style: font.copyWith(
-                                    color: AppColors.primary,
+                                    color: isMissed
+                                        ? Colors.red.shade700
+                                        : AppColors.primary,
                                     fontSize: 13,
                                     fontWeight: FontWeight.bold)),
                           ],
@@ -73,7 +97,10 @@ class SoftScheduleCard extends StatelessWidget {
                         child: Text(
                           item.dosage.toPersianDigit(isPersian),
                           style: font.copyWith(
-                              color: AppColors.textSecondary, fontSize: 13),
+                              color: isMissed
+                                  ? Colors.red.shade400
+                                  : AppColors.textSecondary,
+                              fontSize: 13),
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                         ),
@@ -84,12 +111,13 @@ class SoftScheduleCard extends StatelessWidget {
               ),
             ),
             const SizedBox(width: 16),
-            // آیکون (دوم قرار می‌گیرد تا سمت چپ بیفتد)
             Container(
               width: 60,
               height: 60,
               decoration: BoxDecoration(
-                color: AppColors.background,
+                color: isMissed
+                    ? Colors.red.withOpacity(0.1)
+                    : AppColors.background,
                 borderRadius: BorderRadius.circular(20),
               ),
               child: Center(
@@ -97,8 +125,11 @@ class SoftScheduleCard extends StatelessWidget {
                   assetPath,
                   width: 32,
                   height: 32,
-                  errorBuilder: (context, error, stackTrace) =>
-                      const Icon(Icons.medication, color: AppColors.primary),
+                  color: isMissed ? Colors.red.shade700 : null,
+                  errorBuilder: (context, error, stackTrace) => Icon(
+                      Icons.medication,
+                      color:
+                          isMissed ? Colors.red.shade700 : AppColors.primary),
                 ),
               ),
             ),

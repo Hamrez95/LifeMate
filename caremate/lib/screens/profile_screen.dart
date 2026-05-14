@@ -61,7 +61,7 @@ class ProfileScreen extends StatelessWidget {
                                   radius: 36,
                                   backgroundColor: AppColors.avatarBackground,
                                   backgroundImage: AssetImage(
-                                      '../../assets/images/CaregiverWoman.png'), // 👈 مسیر تصویر خود را اینجا قرار دهید
+                                      '../../assets/images/Caregiver.png'), // 👈 مسیر تصویر خود را اینجا قرار دهید
                                 ),
                                 Positioned(
                                   bottom: 8,

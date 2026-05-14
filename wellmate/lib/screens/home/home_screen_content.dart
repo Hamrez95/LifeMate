@@ -107,12 +107,41 @@ class _HomeScreenContentState extends State<HomeScreenContent> {
     final loc = AppLocalizations.of(context);
     final font = AppTextStyles.body(context);
     final isPersian = Localizations.localeOf(context).languageCode == 'fa';
+    final now = DateTime.now();
 
-    final upcomingItems = scheduleList.where((item) => !item.isDone).toList()
-      ..sort((a, b) => a.time.compareTo(b.time));
+    // تمام داروهای مصرف نشده
+    final unconsumedItems = scheduleList.where((item) => !item.isDone).toList();
 
+    // جداسازی داروهای آینده و گذشته
+    final List<ScheduleItemModel> upcomingItems = [];
+    final List<ScheduleItemModel> missedItems = [];
+
+    for (var item in unconsumedItems) {
+      try {
+        final parts = item.time.split(':');
+        final itemTime = DateTime(now.year, now.month, now.day,
+            int.parse(parts[0]), int.parse(parts[1]));
+
+        if (itemTime.isBefore(now)) {
+          missedItems.add(item); // زمانش گذشته
+        } else {
+          upcomingItems.add(item); // زمانش هنوز نرسیده
+        }
+      } catch (e) {
+        upcomingItems.add(item);
+      }
+    }
+
+    // مرتب‌سازی هر دو لیست بر اساس ساعت
+    upcomingItems.sort((a, b) => a.time.compareTo(b.time));
+    missedItems.sort((a, b) => a.time.compareTo(b.time));
+
+    // داروی بعدی میشه اولین داروی لیست "آینده"
     ScheduleItemModel? nextItem =
         upcomingItems.isNotEmpty ? upcomingItems.first : null;
+
+    // لیست نمایشی پایین صفحه: اول آینده‌ها، بعد گذشته‌ها
+    final displayList = [...upcomingItems, ...missedItems];
 
     return Container(
       color: AppColors.background,
@@ -142,7 +171,8 @@ class _HomeScreenContentState extends State<HomeScreenContent> {
             const Expanded(
                 child: Center(
                     child: CircularProgressIndicator(color: AppColors.primary)))
-          else if (nextItem != null)
+          else if (nextItem !=
+              null) // نمایش کارت فقط اگر داروی آینده‌ای وجود داشت
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 20.0),
               child: ActiveTreatmentCard(
@@ -179,7 +209,7 @@ class _HomeScreenContentState extends State<HomeScreenContent> {
                     ),
                   ),
                   Expanded(
-                    child: upcomingItems.isEmpty
+                    child: displayList.isEmpty
                         ? Center(
                             child: Text(
                                 loc['all_done'] ?? 'همه داروها مصرف شدند!',
@@ -188,16 +218,21 @@ class _HomeScreenContentState extends State<HomeScreenContent> {
                         : ListView.separated(
                             padding: const EdgeInsetsDirectional.fromSTEB(
                                 24, 0, 24, 100),
-                            itemCount: upcomingItems.length,
+                            itemCount: displayList.length,
                             separatorBuilder: (_, __) =>
                                 const SizedBox(height: 12),
-                            itemBuilder: (context, i) => SoftScheduleCard(
-                              item: upcomingItems[i],
-                              index: i,
-                              font: font,
-                              assetPath: _getAssetPath(upcomingItems[i]
-                                  .type), // پاس دادن آیکون به لیست
-                            ),
+                            itemBuilder: (context, i) {
+                              final item = displayList[i];
+                              final isMissed = missedItems
+                                  .contains(item); // تشخیص گذشته بودن دارو
+                              return SoftScheduleCard(
+                                item: item,
+                                index: i,
+                                font: font,
+                                assetPath: _getAssetPath(item.type),
+                                isMissed: isMissed, // پاس دادن متغیر به کارت
+                              );
+                            },
                           ),
                   ),
                 ],

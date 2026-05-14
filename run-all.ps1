@@ -43,11 +43,11 @@ function Show-Help {
 # Function to get packages (Pub Get)
 # ---------------------------------------------------------
 function Run-PubGet {
-    Write-Host "🚀 Checking and fetching packages..." -ForegroundColor Cyan
+    Write-Host "Checking and fetching packages..." -ForegroundColor Cyan
     foreach ($project in $Projects) {
         $ProjectPath = Join-Path -Path $BasePath -ChildPath $project
         if (Test-Path $ProjectPath) {
-            Write-Host "📂 ${project}: Getting packages..." -ForegroundColor Yellow
+            Write-Host "$project : Getting packages..." -ForegroundColor Yellow
             Push-Location $ProjectPath
             
             if ($project -eq "backend") {
@@ -57,9 +57,9 @@ function Run-PubGet {
             }
             
             Pop-Location
-            Write-Host "✅ Packages for '${project}' updated successfully." -ForegroundColor Green
+            Write-Host "Packages for $project updated successfully." -ForegroundColor Green
         } else {
-            Write-Host "❌ Error: Directory '${project}' not found!" -ForegroundColor Red
+Write-Host "Error: Directory $project not found!" -ForegroundColor Red
         }
     }
     Write-Host "--------------------------------------------------------`n"
@@ -72,15 +72,27 @@ function Run-Projects {
     Write-Host "🚀 Starting services..." -ForegroundColor Cyan
     
     Write-Host "▶️ Starting backend server..." -ForegroundColor Green
-    Start-Process powershell -ArgumentList "-NoExit", "-Command", "cd '$BasePath\backend'; dart run bin/server.dart"
+    Start-Process powershell -ArgumentList @(
+        "-NoExit",
+        "-Command",
+        "cd `"$BasePath\backend`"; dart run bin/server.dart"
+    )
 
     Start-Sleep -Seconds 2
 
     Write-Host "▶️ Starting WellMate app in Chrome..." -ForegroundColor Green
-    Start-Process powershell -ArgumentList "-NoExit", "-Command", "cd '$BasePath\wellmate'; flutter run -d chrome"
+    Start-Process powershell -ArgumentList @(
+        "-NoExit",
+        "-Command",
+        "cd `"$BasePath\wellmate`"; flutter run -d chrome"
+    )
 
     Write-Host "▶️ Starting CareMate app in Chrome..." -ForegroundColor Green
-    Start-Process powershell -ArgumentList "-NoExit", "-Command", "cd '$BasePath\caremate'; flutter run -d chrome"
+    Start-Process powershell -ArgumentList @(
+        "-NoExit",
+        "-Command",
+        "cd `"$BasePath\caremate`"; flutter run -d chrome"
+    )
 
     Write-Host "🎉 All services started in parallel!" -ForegroundColor Magenta
     Write-Host "--------------------------------------------------------`n"
