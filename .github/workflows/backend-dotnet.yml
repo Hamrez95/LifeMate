@@ -1,0 +1,44 @@
+name: backend-dotnet
+on:
+  pull_request:
+    paths:
+      - 'backend-dotnet/**'
+      - '.github/workflows/backend-dotnet.yml'
+  push:
+    branches: [ main, work, feat/backend-foundation ]
+    paths:
+      - 'backend-dotnet/**'
+      - '.github/workflows/backend-dotnet.yml'
+jobs:
+  build-test:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_DB: lifemate_tests
+          POSTGRES_USER: lifemate
+          POSTGRES_PASSWORD: lifemate_test_password
+        ports: ['54329:5432']
+        options: >-
+          --health-cmd "pg_isready -U lifemate -d lifemate_tests"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+          cache: true
+          cache-dependency-path: backend-dotnet/**/*.csproj
+      - name: Restore
+        run: dotnet restore backend-dotnet/LifeMate.sln
+      - name: Build
+        run: dotnet build backend-dotnet/LifeMate.sln --configuration Release --no-restore
+      - name: Unit tests
+        run: dotnet test backend-dotnet/tests/LifeMate.UnitTests/LifeMate.UnitTests.csproj --configuration Release --no-build --logger trx
+      - name: Integration tests
+        env:
+          ConnectionStrings__LifeMateDb: Host=localhost;Port=54329;Database=lifemate_tests;Username=lifemate;Password=lifemate_test_password
+        run: dotnet test backend-dotnet/tests/LifeMate.IntegrationTests/LifeMate.IntegrationTests.csproj --configuration Release --no-build --logger trx
