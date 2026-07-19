@@ -7,7 +7,7 @@ services:
       POSTGRES_USER: lifemate
       POSTGRES_PASSWORD: lifemate_dev_password
     ports:
-      - "54329:5432"
+      - "127.0.0.1:54329:5432"
     volumes:
       - lifemate-postgres-data:/var/lib/postgresql/data
     healthcheck:

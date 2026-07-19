@@ -16,7 +16,7 @@ No ASP.NET Identity, MediatR, AutoMapper, queues, Redis, brokers, or Supabase cl
 ## Zero-Cost Development Setup
 
 1. Install free local tools: Docker Desktop or Docker Engine, and the .NET 10 SDK.
-2. Start PostgreSQL locally:
+2. Start PostgreSQL locally. The Compose file binds PostgreSQL to `127.0.0.1:54329` only, uses development-only placeholder credentials, and stores data in the named Docker volume `lifemate-postgres-data`:
 
    ```bash
    docker compose -f backend-dotnet/docker-compose.yml up -d postgres
@@ -28,9 +28,10 @@ No ASP.NET Identity, MediatR, AutoMapper, queues, Redis, brokers, or Supabase cl
    dotnet restore backend-dotnet/LifeMate.sln
    ```
 
-4. Apply migrations to the local database:
+4. Restore repository-local tools and apply migrations to the local database:
 
    ```bash
+   dotnet tool restore
    dotnet ef database update --project backend-dotnet/src/LifeMate.Infrastructure --startup-project backend-dotnet/src/LifeMate.Api
    ```
 
@@ -62,6 +63,10 @@ Expected variables:
 - `Authentication__Supabase__RequireHttpsMetadata`: `true` outside local development.
 - `Cors__AllowedOrigins__0`: allowed Flutter/web development origin.
 - `OpenApi__Enabled`: set to `true` only when OpenAPI must be exposed outside Development.
+
+## Test authentication versus Supabase authentication
+
+Integration tests replace JWT bearer authentication with an in-test authentication handler that accepts `Authorization: Test <subject>` and creates only `sub`/name-identifier claims. That handler is registered from the test project only through `WebApplicationFactory` and is not part of production API startup. Local zero-cost development can run health checks and OpenAPI without a Supabase account, but authenticated manual API calls require either test-hosted integration tests or a real Supabase Free project access token.
 
 ## Supabase Auth JWT validation
 
