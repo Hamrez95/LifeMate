@@ -1,38 +1,43 @@
 name: backend-dotnet
+
 on:
   workflow_dispatch:
   pull_request:
     paths:
       - 'backend-dotnet/**'
+      - '.config/dotnet-tools.json'
       - '.github/workflows/backend-dotnet.yml'
       - 'AGENTS.md'
   push:
     branches: [ main ]
     paths:
       - 'backend-dotnet/**'
+      - '.config/dotnet-tools.json'
       - '.github/workflows/backend-dotnet.yml'
       - 'AGENTS.md'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: backend-dotnet-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  DOTNET_CLI_TELEMETRY_OPTOUT: '1'
+  DOTNET_NOLOGO: '1'
+
 jobs:
   build-test:
     runs-on: ubuntu-latest
-    services:
-      postgres:
-        image: postgres:17-alpine
-        env:
-          POSTGRES_DB: lifemate_tests
-          POSTGRES_USER: lifemate
-          POSTGRES_PASSWORD: lifemate_test_password
-        ports: ['54329:5432']
-        options: >-
-          --health-cmd "pg_isready -U lifemate -d lifemate_tests"
-          --health-interval 5s
-          --health-timeout 5s
-          --health-retries 10
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
+
       - uses: actions/setup-dotnet@v4
         with:
           dotnet-version: '10.0.x'
+
       - name: Cache NuGet packages
         uses: actions/cache@v4
         with:
@@ -40,18 +45,31 @@ jobs:
           key: ${{ runner.os }}-nuget-${{ hashFiles('backend-dotnet/**/*.csproj', '.config/dotnet-tools.json') }}
           restore-keys: |
             ${{ runner.os }}-nuget-
+
       - name: Restore
-        run: dotnet restore backend-dotnet/LifeMate.sln
+        shell: bash
+        run: |
+          set -o pipefail
+          if ! dotnet restore backend-dotnet/LifeMate.sln --verbosity minimal > /tmp/lifemate-restore.log 2>&1; then
+            cat /tmp/lifemate-restore.log
+            exit 1
+          fi
+          cat /tmp/lifemate-restore.log
+
       - name: Build
         run: dotnet build backend-dotnet/LifeMate.sln --configuration Release --no-restore
+
       - name: Unit tests
         run: dotnet test backend-dotnet/tests/LifeMate.UnitTests/LifeMate.UnitTests.csproj --configuration Release --no-build --logger trx
+
       - name: Restore local .NET tools
         run: dotnet tool restore
+
       - name: Validate migrations
         env:
-          ConnectionStrings__LifeMateDb: Host=localhost;Port=54329;Database=lifemate_tests;Username=lifemate;Password=lifemate_test_password
-        run: dotnet ef migrations list --project backend-dotnet/src/LifeMate.Infrastructure --startup-project backend-dotnet/src/LifeMate.Api
+          ConnectionStrings__LifeMateDb: Host=localhost;Port=54329;Database=lifemate_design;Username=lifemate;Password=local_design_only
+        run: dotnet ef migrations list --no-build --project backend-dotnet/src/LifeMate.Infrastructure --startup-project backend-dotnet/src/LifeMate.Api
+
       - name: Integration tests
         env:
           ConnectionStrings__LifeMateDb: Host=localhost;Port=54329;Database=lifemate_tests;Username=lifemate;Password=lifemate_test_password
