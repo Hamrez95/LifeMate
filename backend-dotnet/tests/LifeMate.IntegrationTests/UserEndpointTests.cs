@@ -1,6 +1,7 @@
 using System.Net;
 using System.Net.Http.Json;
 using LifeMate.Api.Models;
+using LifeMate.Application.Users;
 using LifeMate.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
