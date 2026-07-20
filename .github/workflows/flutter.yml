@@ -1,0 +1,63 @@
+name: flutter
+
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - 'wellmate/**'
+      - 'caremate/**'
+      - 'assets/**'
+      - '.github/workflows/flutter.yml'
+      - 'AGENTS.md'
+  push:
+    branches: [ main ]
+    paths:
+      - 'wellmate/**'
+      - 'caremate/**'
+      - 'assets/**'
+      - '.github/workflows/flutter.yml'
+      - 'AGENTS.md'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: flutter-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  PUB_ENVIRONMENT: bot:github_actions
+
+jobs:
+  analyze-test-build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          show-progress: false
+
+      # Pinned to a reviewed commit instead of a mutable version tag.
+      - uses: subosito/flutter-action@4cab68ce0f1c7c924f688bff4792e044f1aeb30c
+        with:
+          channel: stable
+          cache: true
+
+      - name: Flutter environment
+        run: flutter --version
+
+      - name: Verify WellMate
+        working-directory: wellmate
+        run: |
+          flutter pub get
+          flutter analyze
+          flutter test
+          flutter build web --release
+
+      - name: Verify CareMate
+        working-directory: caremate
+        run: |
+          flutter pub get
+          flutter analyze
+          flutter test
+          flutter build web --release
