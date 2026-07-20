@@ -10,7 +10,7 @@ void main() {
     await tester.pumpWidget(
       ChangeNotifierProvider(
         create: (_) => LocaleProvider(),
-        child: const CareMateApp(),
+        child: const CareMateApp(home: SizedBox.shrink()),
       ),
     );
 
