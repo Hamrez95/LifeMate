@@ -47,17 +47,53 @@ jobs:
         run: flutter --version
 
       - name: Verify WellMate
+        id: wellmate
+        continue-on-error: true
         working-directory: wellmate
+        shell: bash
         run: |
-          flutter pub get
-          flutter analyze
-          flutter test
-          flutter build web --release
+          set -o pipefail
+          {
+            flutter pub get
+            flutter analyze
+            flutter test
+            flutter build web --release
+          } 2>&1 | tee /tmp/wellmate-ci.log
+
+      - name: Upload WellMate diagnostics
+        if: ${{ always() && steps.wellmate.outcome == 'failure' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: wellmate-ci-log
+          path: /tmp/wellmate-ci.log
+          retention-days: 1
 
       - name: Verify CareMate
+        id: caremate
+        if: ${{ always() }}
+        continue-on-error: true
         working-directory: caremate
+        shell: bash
         run: |
-          flutter pub get
-          flutter analyze
-          flutter test
-          flutter build web --release
+          set -o pipefail
+          {
+            flutter pub get
+            flutter analyze
+            flutter test
+            flutter build web --release
+          } 2>&1 | tee /tmp/caremate-ci.log
+
+      - name: Upload CareMate diagnostics
+        if: ${{ always() && steps.caremate.outcome == 'failure' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: caremate-ci-log
+          path: /tmp/caremate-ci.log
+          retention-days: 1
+
+      - name: Enforce Flutter verification results
+        if: ${{ always() }}
+        shell: bash
+        run: |
+          test "${{ steps.wellmate.outcome }}" = "success"
+          test "${{ steps.caremate.outcome }}" = "success"
