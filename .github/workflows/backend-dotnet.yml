@@ -91,7 +91,7 @@ jobs:
           ConnectionStrings__LifeMateDb: Host=localhost;Port=54329;Database=lifemate_design;Username=lifemate;Password=local_design_only
         run: |
           set -o pipefail
-          dotnet ef migrations list --no-build --project backend-dotnet/src/LifeMate.Infrastructure --startup-project backend-dotnet/src/LifeMate.Api 2>&1 | tee /tmp/lifemate-migrations.log
+          dotnet ef migrations list --configuration Release --no-build --project backend-dotnet/src/LifeMate.Infrastructure --startup-project backend-dotnet/src/LifeMate.Api 2>&1 | tee /tmp/lifemate-migrations.log
 
       - name: Upload migration diagnostics
         if: ${{ always() && steps.migrations.outcome == 'failure' }}
