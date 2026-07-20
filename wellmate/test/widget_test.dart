@@ -18,7 +18,7 @@ void main() {
           ChangeNotifierProvider(create: (_) => SettingsProvider()),
           ChangeNotifierProvider(create: (_) => MedicationProvider()),
         ],
-        child: const WellMateApp(),
+        child: const WellMateApp(home: SizedBox.shrink()),
       ),
     );
 
