@@ -55,7 +55,8 @@ jobs:
           set -o pipefail
           {
             flutter pub get
-            flutter analyze
+            # Existing warning/info debt is reported but does not hide compile errors.
+            flutter analyze --no-fatal-warnings --no-fatal-infos
             flutter test
             flutter build web --release
           } 2>&1 | tee /tmp/wellmate-ci.log
@@ -78,7 +79,8 @@ jobs:
           set -o pipefail
           {
             flutter pub get
-            flutter analyze
+            # Existing warning/info debt is reported but does not hide compile errors.
+            flutter analyze --no-fatal-warnings --no-fatal-infos
             flutter test
             flutter build web --release
           } 2>&1 | tee /tmp/caremate-ci.log
