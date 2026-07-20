@@ -2,10 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:provider/provider.dart';
 
-import 'screens/dashboard_screen.dart';
+import 'core/constants/app_colors.dart';
 import 'core/localization/app_localizations.dart';
 import 'core/localization/locale_provider.dart';
-import 'core/constants/app_colors.dart'; // 👈 اضافه شدن پالت رنگ‌ها
+import 'screens/dashboard_screen.dart';
 
 void main() {
   runApp(
@@ -17,7 +17,11 @@ void main() {
 }
 
 class CareMateApp extends StatelessWidget {
-  const CareMateApp({super.key});
+  const CareMateApp({super.key, this.home});
+
+  /// Allows tests to verify the application shell without starting dashboard
+  /// polling. Production continues to use [DashboardScreen] by default.
+  final Widget? home;
 
   @override
   Widget build(BuildContext context) {
@@ -28,10 +32,7 @@ class CareMateApp extends StatelessWidget {
       debugShowCheckedModeBanner: false,
       title: 'CareMate',
       theme: ThemeData(
-        // 👈 تغییر خودکار فونت بر اساس زبان
         fontFamily: isPersian ? 'Vazir' : 'Nunito',
-        
-        // 👈 استفاده از رنگ‌های متمرکز
         scaffoldBackgroundColor: AppColors.background,
         primaryColor: AppColors.primaryBlue,
         colorScheme: ColorScheme.fromSwatch().copyWith(
@@ -55,7 +56,7 @@ class CareMateApp extends StatelessWidget {
         GlobalWidgetsLocalizations.delegate,
         GlobalCupertinoLocalizations.delegate,
       ],
-      home: const DashboardScreen(),
+      home: home ?? const DashboardScreen(),
     );
   }
 }
