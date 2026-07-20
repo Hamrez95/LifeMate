@@ -84,7 +84,12 @@ builder.Services.AddRateLimiter(options =>
 });
 
 var app = builder.Build();
-app.UseExceptionHandler();
+
+if (!app.Environment.IsEnvironment("Testing"))
+{
+    app.UseExceptionHandler();
+}
+
 app.UseMiddleware<CorrelationIdMiddleware>();
 app.UseCors("restricted");
 
