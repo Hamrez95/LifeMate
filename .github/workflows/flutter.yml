@@ -37,9 +37,10 @@ jobs:
         with:
           show-progress: false
 
-      # Pinned to a reviewed commit instead of a mutable version tag.
+      # Both the setup action and SDK are pinned for reproducible CI results.
       - uses: subosito/flutter-action@4cab68ce0f1c7c924f688bff4792e044f1aeb30c
         with:
+          flutter-version: '3.44.0'
           channel: stable
           cache: true
 
