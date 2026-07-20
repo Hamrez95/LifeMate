@@ -9,12 +9,37 @@ namespace LifeMate.IntegrationTests;
 
 public sealed class TestAuthHandler : AuthenticationHandler<AuthenticationSchemeOptions>
 {
-    public const string Scheme = "Test";
-    public TestAuthHandler(IOptionsMonitor<AuthenticationSchemeOptions> options, ILoggerFactory logger, UrlEncoder encoder) : base(options, logger, encoder) { }
+    public const string SchemeName = "Test";
+
+    public TestAuthHandler(
+        IOptionsMonitor<AuthenticationSchemeOptions> options,
+        ILoggerFactory logger,
+        UrlEncoder encoder)
+        : base(options, logger, encoder)
+    {
+    }
+
     protected override Task<AuthenticateResult> HandleAuthenticateAsync()
     {
-        if (!AuthenticationHeaderValue.TryParse(Request.Headers.Authorization, out var header) || header.Scheme != Scheme) return Task.FromResult(AuthenticateResult.NoResult());
-        var identity = new ClaimsIdentity([new Claim(ClaimTypes.NameIdentifier, header.Parameter ?? "test-subject"), new Claim("sub", header.Parameter ?? "test-subject")], Scheme);
-        return Task.FromResult(AuthenticateResult.Success(new AuthenticationTicket(new ClaimsPrincipal(identity), Scheme)));
+        if (!AuthenticationHeaderValue.TryParse(Request.Headers.Authorization, out var header)
+            || !string.Equals(header.Scheme, SchemeName, StringComparison.Ordinal))
+        {
+            return Task.FromResult(AuthenticateResult.NoResult());
+        }
+
+        var subject = string.IsNullOrWhiteSpace(header.Parameter)
+            ? "test-subject"
+            : header.Parameter;
+
+        var identity = new ClaimsIdentity(
+            [
+                new Claim(ClaimTypes.NameIdentifier, subject),
+                new Claim("sub", subject)
+            ],
+            SchemeName);
+
+        var principal = new ClaimsPrincipal(identity);
+        var ticket = new AuthenticationTicket(principal, SchemeName);
+        return Task.FromResult(AuthenticateResult.Success(ticket));
     }
 }
