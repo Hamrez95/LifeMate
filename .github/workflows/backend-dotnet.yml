@@ -85,11 +85,35 @@ jobs:
         run: dotnet tool restore
 
       - name: Validate migrations
+        id: migrations
+        shell: bash
         env:
           ConnectionStrings__LifeMateDb: Host=localhost;Port=54329;Database=lifemate_design;Username=lifemate;Password=local_design_only
-        run: dotnet ef migrations list --no-build --project backend-dotnet/src/LifeMate.Infrastructure --startup-project backend-dotnet/src/LifeMate.Api
+        run: |
+          set -o pipefail
+          dotnet ef migrations list --no-build --project backend-dotnet/src/LifeMate.Infrastructure --startup-project backend-dotnet/src/LifeMate.Api 2>&1 | tee /tmp/lifemate-migrations.log
+
+      - name: Upload migration diagnostics
+        if: ${{ always() && steps.migrations.outcome == 'failure' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: backend-migrations-log
+          path: /tmp/lifemate-migrations.log
+          retention-days: 1
 
       - name: Integration tests
+        id: integration
+        shell: bash
         env:
           ConnectionStrings__LifeMateDb: Host=localhost;Port=54329;Database=lifemate_tests;Username=lifemate;Password=lifemate_test_password
-        run: dotnet test backend-dotnet/tests/LifeMate.IntegrationTests/LifeMate.IntegrationTests.csproj --configuration Release --no-build --logger trx
+        run: |
+          set -o pipefail
+          dotnet test backend-dotnet/tests/LifeMate.IntegrationTests/LifeMate.IntegrationTests.csproj --configuration Release --no-build --logger trx 2>&1 | tee /tmp/lifemate-integration.log
+
+      - name: Upload integration diagnostics
+        if: ${{ always() && steps.integration.outcome == 'failure' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: backend-integration-log
+          path: /tmp/lifemate-integration.log
+          retention-days: 1
