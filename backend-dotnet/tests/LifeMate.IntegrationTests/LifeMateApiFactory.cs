@@ -11,8 +11,7 @@ namespace LifeMate.IntegrationTests;
 
 public sealed class LifeMateApiFactory : WebApplicationFactory<Program>, IAsyncLifetime
 {
-    private readonly PostgreSqlContainer _postgres = new PostgreSqlBuilder()
-        .WithImage("postgres:17-alpine")
+    private readonly PostgreSqlContainer _postgres = new PostgreSqlBuilder("postgres:17-alpine")
         .WithDatabase("lifemate_tests")
         .WithUsername("lifemate")
         .WithPassword("lifemate_test_password")
