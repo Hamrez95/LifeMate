@@ -5,22 +5,59 @@ using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Testcontainers.PostgreSql;
+using Xunit;
 
 namespace LifeMate.IntegrationTests;
 
 public sealed class LifeMateApiFactory : WebApplicationFactory<Program>, IAsyncLifetime
 {
-    private readonly PostgreSqlContainer _postgres = new PostgreSqlBuilder().WithImage("postgres:17-alpine").WithDatabase("lifemate_tests").WithUsername("lifemate").WithPassword("lifemate_test_password").Build();
-    public async Task InitializeAsync() { await _postgres.StartAsync(); using var scope = Services.CreateScope(); await scope.ServiceProvider.GetRequiredService<LifeMateDbContext>().Database.MigrateAsync(); }
-    public new async Task DisposeAsync() => await _postgres.DisposeAsync();
+    private readonly PostgreSqlContainer _postgres = new PostgreSqlBuilder()
+        .WithImage("postgres:17-alpine")
+        .WithDatabase("lifemate_tests")
+        .WithUsername("lifemate")
+        .WithPassword("lifemate_test_password")
+        .Build();
+
+    public async Task InitializeAsync()
+    {
+        await _postgres.StartAsync();
+
+        using var scope = Services.CreateScope();
+        var dbContext = scope.ServiceProvider.GetRequiredService<LifeMateDbContext>();
+        await dbContext.Database.MigrateAsync();
+    }
+
+    public new async Task DisposeAsync()
+    {
+        await _postgres.DisposeAsync();
+        await base.DisposeAsync();
+    }
+
     protected override void ConfigureWebHost(IWebHostBuilder builder)
     {
         builder.UseEnvironment("Development");
         builder.ConfigureServices(services =>
         {
-            var descriptor = services.SingleOrDefault(d => d.ServiceType == typeof(DbContextOptions<LifeMateDbContext>)); if (descriptor is not null) services.Remove(descriptor);
-            services.AddDbContext<LifeMateDbContext>(options => options.UseNpgsql(_postgres.GetConnectionString()));
-            services.AddAuthentication(options => { options.DefaultAuthenticateScheme = TestAuthHandler.Scheme; options.DefaultChallengeScheme = TestAuthHandler.Scheme; }).AddScheme<AuthenticationSchemeOptions, TestAuthHandler>(TestAuthHandler.Scheme, _ => { });
+            var descriptor = services.SingleOrDefault(
+                service => service.ServiceType == typeof(DbContextOptions<LifeMateDbContext>));
+
+            if (descriptor is not null)
+            {
+                services.Remove(descriptor);
+            }
+
+            services.AddDbContext<LifeMateDbContext>(options =>
+                options.UseNpgsql(_postgres.GetConnectionString()));
+
+            services
+                .AddAuthentication(options =>
+                {
+                    options.DefaultAuthenticateScheme = TestAuthHandler.SchemeName;
+                    options.DefaultChallengeScheme = TestAuthHandler.SchemeName;
+                })
+                .AddScheme<AuthenticationSchemeOptions, TestAuthHandler>(
+                    TestAuthHandler.SchemeName,
+                    _ => { });
         });
     }
 }
