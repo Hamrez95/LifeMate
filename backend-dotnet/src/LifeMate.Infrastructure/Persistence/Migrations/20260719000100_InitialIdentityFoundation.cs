@@ -1,10 +1,13 @@
 using System;
+using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Migrations;
 
 #nullable disable
 
 namespace LifeMate.Infrastructure.Persistence.Migrations;
 
+[DbContext(typeof(LifeMateDbContext))]
+[Migration("20260719000100_InitialIdentityFoundation")]
 public partial class InitialIdentityFoundation : Migration
 {
     protected override void Up(MigrationBuilder migrationBuilder)
@@ -39,6 +42,12 @@ public partial class InitialIdentityFoundation : Migration
         migrationBuilder.CreateIndex("ix_user_profiles_phone_number", "user_profiles", "phone_number", "lifemate");
         migrationBuilder.CreateIndex("ix_user_profiles_user_id", "user_profiles", "user_id", "lifemate", unique: true);
     }
+
     protected override void Down(MigrationBuilder migrationBuilder)
-    { migrationBuilder.DropTable("audit_logs", "lifemate"); migrationBuilder.DropTable("privacy_consents", "lifemate"); migrationBuilder.DropTable("user_profiles", "lifemate"); migrationBuilder.DropTable("app_users", "lifemate"); }
+    {
+        migrationBuilder.DropTable("audit_logs", "lifemate");
+        migrationBuilder.DropTable("privacy_consents", "lifemate");
+        migrationBuilder.DropTable("user_profiles", "lifemate");
+        migrationBuilder.DropTable("app_users", "lifemate");
+    }
 }
