@@ -130,6 +130,7 @@ jobs:
           rm backend-dotnet/src/LifeMate.Infrastructure/Persistence/Migrations/20260719000100_InitialIdentityFoundation.cs
           rm -rf backend-dotnet/src/LifeMate.Infrastructure/bin backend-dotnet/src/LifeMate.Infrastructure/obj
           rm -rf backend-dotnet/src/LifeMate.Api/bin backend-dotnet/src/LifeMate.Api/obj
+          dotnet restore backend-dotnet/LifeMate.sln --verbosity minimal
           dotnet ef migrations add InitialIdentityFoundation \
             --project backend-dotnet/src/LifeMate.Infrastructure \
             --startup-project backend-dotnet/src/LifeMate.Api \
