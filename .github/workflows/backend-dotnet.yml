@@ -84,15 +84,25 @@ jobs:
       - name: Restore local .NET tools
         run: dotnet tool restore
 
-      - name: Validate migrations
+      - name: Validate migrations and model snapshot
         id: migrations
         shell: bash
         env:
           ConnectionStrings__LifeMateDb: Host=localhost;Port=54329;Database=lifemate_design;Username=lifemate;Password=local_design_only
         run: |
           set -o pipefail
-          dotnet ef migrations list --configuration Release --no-build --project backend-dotnet/src/LifeMate.Infrastructure --startup-project backend-dotnet/src/LifeMate.Api 2>&1 | tee /tmp/lifemate-migrations.log
+          dotnet ef migrations list \
+            --configuration Release \
+            --no-build \
+            --no-connect \
+            --project backend-dotnet/src/LifeMate.Infrastructure \
+            --startup-project backend-dotnet/src/LifeMate.Api 2>&1 | tee /tmp/lifemate-migrations.log
           grep -q '20260719000100_InitialIdentityFoundation' /tmp/lifemate-migrations.log
+          dotnet ef migrations has-pending-model-changes \
+            --configuration Release \
+            --no-build \
+            --project backend-dotnet/src/LifeMate.Infrastructure \
+            --startup-project backend-dotnet/src/LifeMate.Api
 
       - name: Upload migration diagnostics
         if: ${{ always() && steps.migrations.outcome == 'failure' }}
@@ -117,37 +127,4 @@ jobs:
         with:
           name: backend-integration-log
           path: /tmp/lifemate-integration.log
-          retention-days: 1
-
-      # Temporary branch-only step used to regenerate the hand-authored baseline migration
-      # into canonical EF Core migration, designer, and model snapshot sources.
-      - name: Generate canonical migration sources
-        id: canonical
-        if: ${{ github.event_name == 'pull_request' && github.head_ref == 'fix/backend-ci-gate' }}
-        shell: bash
-        run: |
-          set -o pipefail
-          rm backend-dotnet/src/LifeMate.Infrastructure/Persistence/Migrations/20260719000100_InitialIdentityFoundation.cs
-          rm -rf backend-dotnet/src/LifeMate.Infrastructure/bin backend-dotnet/src/LifeMate.Infrastructure/obj
-          rm -rf backend-dotnet/src/LifeMate.Api/bin backend-dotnet/src/LifeMate.Api/obj
-          dotnet restore backend-dotnet/LifeMate.sln --verbosity minimal
-          dotnet ef migrations add InitialIdentityFoundation \
-            --project backend-dotnet/src/LifeMate.Infrastructure \
-            --startup-project backend-dotnet/src/LifeMate.Api \
-            --output-dir Persistence/Migrations 2>&1 | tee /tmp/lifemate-canonical-migration.log
-
-      - name: Upload canonical migration diagnostics
-        if: ${{ always() && steps.canonical.outcome == 'failure' }}
-        uses: actions/upload-artifact@v4
-        with:
-          name: canonical-ef-migration-log
-          path: /tmp/lifemate-canonical-migration.log
-          retention-days: 1
-
-      - name: Upload canonical migration sources
-        if: ${{ steps.canonical.outcome == 'success' }}
-        uses: actions/upload-artifact@v4
-        with:
-          name: canonical-ef-migration-sources
-          path: backend-dotnet/src/LifeMate.Infrastructure/Persistence/Migrations
           retention-days: 1
