@@ -102,13 +102,13 @@ public static class TreatmentEndpoints
 
     private static async Task<IResult> ListPlansAsync(
         ClaimsPrincipal principal,
-        [FromQuery] bool includeArchived,
+        [FromQuery] bool? includeArchived,
         TreatmentService treatments,
         CancellationToken cancellationToken)
     {
         var result = await treatments.ListPlansAsync(
             GetIdentity(principal),
-            includeArchived,
+            includeArchived ?? false,
             cancellationToken);
         return result.Succeeded ? Results.Ok(result.Value) : ToProblem(result);
     }
