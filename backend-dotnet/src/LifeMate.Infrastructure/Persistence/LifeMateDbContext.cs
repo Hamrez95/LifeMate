@@ -58,6 +58,7 @@ public sealed class LifeMateDbContext : DbContext, IAppDbContext
         {
             b.ToTable("privacy_consents");
             b.HasKey(x => x.Id);
+            b.Property(x => x.Id).HasColumnName("id");
             b.Property(x => x.UserId).HasColumnName("user_id");
             b.HasOne<AppUser>().WithMany().HasForeignKey(x => x.UserId).OnDelete(DeleteBehavior.Restrict);
             b.Property(x => x.DocumentType).HasColumnName("document_type").HasConversion<string>().HasMaxLength(32);
@@ -72,6 +73,7 @@ public sealed class LifeMateDbContext : DbContext, IAppDbContext
         {
             b.ToTable("audit_logs");
             b.HasKey(x => x.Id);
+            b.Property(x => x.Id).HasColumnName("id");
             b.Property(x => x.ActorUserId).HasColumnName("actor_user_id");
             b.HasOne<AppUser>().WithMany().HasForeignKey(x => x.ActorUserId).OnDelete(DeleteBehavior.SetNull);
             b.Property(x => x.Action).HasColumnName("action").HasMaxLength(128);
@@ -88,6 +90,7 @@ public sealed class LifeMateDbContext : DbContext, IAppDbContext
         {
             b.ToTable("care_invitations");
             b.HasKey(x => x.Id);
+            b.Property(x => x.Id).HasColumnName("id");
             b.Property(x => x.InviterUserId).HasColumnName("inviter_user_id");
             b.HasOne<AppUser>().WithMany().HasForeignKey(x => x.InviterUserId).OnDelete(DeleteBehavior.Restrict);
             b.Property(x => x.ContactType).HasColumnName("contact_type").HasConversion<string>().HasMaxLength(16);
@@ -113,6 +116,7 @@ public sealed class LifeMateDbContext : DbContext, IAppDbContext
         {
             b.ToTable("care_relationships");
             b.HasKey(x => x.Id);
+            b.Property(x => x.Id).HasColumnName("id");
             b.Property(x => x.PatientUserId).HasColumnName("patient_user_id");
             b.Property(x => x.CaregiverUserId).HasColumnName("caregiver_user_id");
             b.HasOne<AppUser>().WithMany().HasForeignKey(x => x.PatientUserId).OnDelete(DeleteBehavior.Restrict);
