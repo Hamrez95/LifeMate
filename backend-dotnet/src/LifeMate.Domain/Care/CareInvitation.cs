@@ -7,13 +7,16 @@ public sealed class CareInvitation
     private CareInvitation()
     {
         ContactHash = string.Empty;
+        ContactHint = string.Empty;
         TokenHash = string.Empty;
         PatientConsentVersion = string.Empty;
     }
 
     public CareInvitation(
         Guid inviterUserId,
+        CareContactType contactType,
         string contactHash,
+        string contactHint,
         string tokenHash,
         string patientConsentVersion,
         DateTime expiresAtUtc,
@@ -21,6 +24,8 @@ public sealed class CareInvitation
     {
         if (inviterUserId == Guid.Empty) throw new DomainException("Inviter user is required.");
         if (string.IsNullOrWhiteSpace(contactHash)) throw new DomainException("Invitee contact hash is required.");
+        if (string.IsNullOrWhiteSpace(contactHint) || contactHint.Length > 160)
+            throw new DomainException("A safe invitation contact hint is required.");
         if (string.IsNullOrWhiteSpace(tokenHash)) throw new DomainException("Invitation token hash is required.");
         if (string.IsNullOrWhiteSpace(patientConsentVersion) || patientConsentVersion.Length > 64)
             throw new DomainException("A valid patient consent version is required.");
@@ -31,7 +36,9 @@ public sealed class CareInvitation
 
         Id = Guid.NewGuid();
         InviterUserId = inviterUserId;
+        ContactType = contactType;
         ContactHash = contactHash;
+        ContactHint = contactHint.Trim();
         TokenHash = tokenHash;
         PatientConsentVersion = patientConsentVersion.Trim();
         Status = CareInvitationStatus.Pending;
@@ -41,7 +48,9 @@ public sealed class CareInvitation
 
     public Guid Id { get; private set; }
     public Guid InviterUserId { get; private set; }
+    public CareContactType ContactType { get; private set; }
     public string ContactHash { get; private set; }
+    public string ContactHint { get; private set; }
     public string TokenHash { get; private set; }
     public string PatientConsentVersion { get; private set; }
     public CareInvitationStatus Status { get; private set; }
