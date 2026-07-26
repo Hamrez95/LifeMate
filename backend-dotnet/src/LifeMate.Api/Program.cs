@@ -18,7 +18,7 @@ builder.Services.AddProblemDetails();
 builder.Services.AddOpenApi();
 builder.Services.ConfigureHttpJsonOptions(options =>
     options.SerializerOptions.Converters.Add(
-        new JsonStringEnumConverter(JsonNamingPolicy.CamelCase, allowIntegerValues: false)));
+        new JsonStringEnumConverter(JsonNamingPolicy.CamelCase)));
 builder.Services.AddHealthChecks().AddDbContextCheck<LifeMateDbContext>("postgresql");
 builder.Services.AddLifeMateInfrastructure(builder.Configuration);
 
