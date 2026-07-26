@@ -29,13 +29,13 @@ jobs:
         with:
           dotnet-version: '10.0.x'
 
-      - name: Restore and build
+      - name: Restore dependencies and tools
         run: |
           dotnet restore backend-dotnet/LifeMate.sln --verbosity minimal
-          dotnet build backend-dotnet/LifeMate.sln --configuration Release --no-restore
           dotnet tool restore
 
       - name: Recreate migration from the main-branch snapshot
+        id: regenerate
         env:
           ConnectionStrings__LifeMateDb: Host=localhost;Port=54329;Database=lifemate_design;Username=lifemate;Password=local_design_only
           Security__Invitations__ContactPepper: workflow-only-contact-pepper-at-least-32-bytes
@@ -45,15 +45,26 @@ jobs:
           migration_dir='backend-dotnet/src/LifeMate.Infrastructure/Persistence/Migrations'
           rm -f "$migration_dir"/*_AddCareRelationships.cs "$migration_dir"/*_AddCareRelationships.Designer.cs
           git show origin/main:"$migration_dir/LifeMateDbContextModelSnapshot.cs" > "$migration_dir/LifeMateDbContextModelSnapshot.cs"
+          dotnet build backend-dotnet/LifeMate.sln --configuration Release --no-restore 2>&1 | tee /tmp/regenerate-care-migration.log
           dotnet ef migrations add AddCareRelationships \
             --configuration Release \
             --no-build \
             --project backend-dotnet/src/LifeMate.Infrastructure \
             --startup-project backend-dotnet/src/LifeMate.Api \
-            --output-dir Persistence/Migrations
+            --output-dir Persistence/Migrations 2>&1 | tee -a /tmp/regenerate-care-migration.log
           git diff --check -- "$migration_dir"
 
+      - name: Upload regeneration diagnostics
+        if: ${{ always() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: care-migration-regeneration-log
+          path: /tmp/regenerate-care-migration.log
+          retention-days: 1
+          if-no-files-found: ignore
+
       - name: Upload regenerated migration
+        if: ${{ steps.regenerate.outcome == 'success' }}
         uses: actions/upload-artifact@v4
         with:
           name: regenerated-care-migration
