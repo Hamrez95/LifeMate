@@ -1,0 +1,166 @@
+import 'dart:convert';
+
+import 'package:http/http.dart' as http;
+
+typedef AccessTokenProvider = String? Function();
+
+class LifeMateApiException implements Exception {
+  const LifeMateApiException({
+    required this.statusCode,
+    required this.code,
+    required this.message,
+  });
+
+  final int statusCode;
+  final String code;
+  final String message;
+
+  bool get isUnauthorized => statusCode == 401;
+
+  @override
+  String toString() => 'LifeMateApiException($statusCode, $code): $message';
+}
+
+class LifeMateApiClient {
+  LifeMateApiClient({
+    required Uri baseUri,
+    required AccessTokenProvider accessToken,
+    http.Client? httpClient,
+  })  : _baseUri = baseUri,
+        _accessToken = accessToken,
+        _http = httpClient ?? http.Client();
+
+  final Uri _baseUri;
+  final AccessTokenProvider _accessToken;
+  final http.Client _http;
+
+  Future<void> bootstrapUser({
+    required String? displayName,
+    required String? email,
+    String locale = 'fa',
+    String timeZone = 'Asia/Tehran',
+  }) async {
+    await _send(
+      'POST',
+      '/api/v1/users/bootstrap',
+      body: {
+        'displayName': displayName,
+        'phoneNumber': null,
+        'email': email,
+        'locale': locale,
+        'timeZone': timeZone,
+      },
+    );
+  }
+
+  Future<List<Map<String, dynamic>>> getMedications() =>
+      _getList('/api/v1/medications');
+
+  Future<List<Map<String, dynamic>>> getTreatmentPlans() =>
+      _getList('/api/v1/treatment-plans');
+
+  Future<List<Map<String, dynamic>>> getDoseOccurrences({
+    required DateTime fromDate,
+    required DateTime toDate,
+  }) =>
+      _getList(
+        '/api/v1/dose-occurrences',
+        query: {
+          'fromDate': _date(fromDate),
+          'toDate': _date(toDate),
+        },
+      );
+
+  Future<Map<String, dynamic>> reportDose({
+    required String occurrenceId,
+    required String clientRequestId,
+    required int version,
+    required String status,
+    required DateTime occurredAtUtc,
+  }) async {
+    final value = await _send(
+      'POST',
+      '/api/v1/dose-occurrences/$occurrenceId/report',
+      body: {
+        'clientRequestId': clientRequestId,
+        'version': version,
+        'status': status,
+        'occurredAtUtc': occurredAtUtc.toUtc().toIso8601String(),
+      },
+    );
+    return _asObject(value);
+  }
+
+  Future<List<Map<String, dynamic>>> getCareRelationships() =>
+      _getList('/api/v1/care/relationships');
+
+  Future<List<Map<String, dynamic>>> _getList(
+    String path, {
+    Map<String, String>? query,
+  }) async {
+    final value = await _send('GET', path, query: query);
+    if (value is! List) {
+      throw const FormatException('LifeMate API returned a non-list payload.');
+    }
+    return value.map(_asObject).toList(growable: false);
+  }
+
+  Future<dynamic> _send(
+    String method,
+    String path, {
+    Map<String, String>? query,
+    Object? body,
+  }) async {
+    final token = _accessToken();
+    if (token == null || token.isEmpty) {
+      throw const LifeMateApiException(
+        statusCode: 401,
+        code: 'session_missing',
+        message: 'Authentication session is missing.',
+      );
+    }
+
+    var uri = _baseUri.resolve(path);
+    if (query != null) uri = uri.replace(queryParameters: query);
+    final headers = <String, String>{
+      'Accept': 'application/json',
+      'Authorization': 'Bearer $token',
+      if (body != null) 'Content-Type': 'application/json',
+    };
+    late final http.Response response;
+    switch (method) {
+      case 'GET':
+        response = await _http.get(uri, headers: headers);
+      case 'POST':
+        response = await _http.post(
+          uri,
+          headers: headers,
+          body: body == null ? null : jsonEncode(body),
+        );
+      default:
+        throw ArgumentError.value(method, 'method', 'Unsupported HTTP method');
+    }
+
+    final decoded = response.body.isEmpty ? null : jsonDecode(response.body);
+    if (response.statusCode >= 200 && response.statusCode < 300) return decoded;
+
+    final problem = decoded is Map<String, dynamic> ? decoded : const {};
+    throw LifeMateApiException(
+      statusCode: response.statusCode,
+      code: (problem['code'] ?? problem['title'] ?? 'request_failed').toString(),
+      message: (problem['detail'] ?? 'LifeMate request failed.').toString(),
+    );
+  }
+
+  static Map<String, dynamic> _asObject(dynamic value) {
+    if (value is Map<String, dynamic>) return value;
+    throw const FormatException('LifeMate API returned a non-object payload.');
+  }
+
+  static String _date(DateTime value) =>
+      '${value.year.toString().padLeft(4, '0')}-'
+      '${value.month.toString().padLeft(2, '0')}-'
+      '${value.day.toString().padLeft(2, '0')}';
+
+  void close() => _http.close();
+}
