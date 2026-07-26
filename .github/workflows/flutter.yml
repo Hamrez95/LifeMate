@@ -117,6 +117,17 @@ jobs:
           path: /tmp/caremate-ci.log
           retention-days: 1
 
+      - name: Upload resolved Flutter lockfiles
+        if: ${{ always() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: flutter-lockfiles
+          path: |
+            packages/lifemate_client/pubspec.lock
+            wellmate/pubspec.lock
+            caremate/pubspec.lock
+          retention-days: 1
+
       - name: Enforce Flutter verification results
         if: ${{ always() }}
         shell: bash
