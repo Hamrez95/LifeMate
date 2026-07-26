@@ -1,0 +1,51 @@
+name: scaffold-care-migration
+
+on:
+  pull_request:
+    branches: [ main ]
+    paths:
+      - 'backend-dotnet/**'
+      - '.github/workflows/scaffold-care-migration.yml'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: scaffold-care-migration-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  scaffold:
+    if: github.head_ref == 'feat/v0.2-care-relationships'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          show-progress: false
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+
+      - run: dotnet restore backend-dotnet/LifeMate.sln --verbosity minimal
+      - run: dotnet build backend-dotnet/LifeMate.sln --configuration Release --no-restore
+      - run: dotnet tool restore
+
+      - name: Generate canonical EF migration files
+        env:
+          ConnectionStrings__LifeMateDb: Host=localhost;Port=54329;Database=lifemate_design;Username=lifemate;Password=local_design_only
+        run: |
+          dotnet ef migrations add AddCareRelationships \
+            --configuration Release \
+            --no-build \
+            --project backend-dotnet/src/LifeMate.Infrastructure \
+            --startup-project backend-dotnet/src/LifeMate.Api \
+            --output-dir Persistence/Migrations
+
+      - name: Upload migration scaffold
+        uses: actions/upload-artifact@v4
+        with:
+          name: care-migration-scaffold
+          path: backend-dotnet/src/LifeMate.Infrastructure/Persistence/Migrations
+          retention-days: 1
