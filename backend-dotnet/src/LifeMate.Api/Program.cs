@@ -1,3 +1,5 @@
+using System.Text.Json;
+using System.Text.Json.Serialization;
 using System.Threading.RateLimiting;
 using LifeMate.Api.Endpoints;
 using LifeMate.Api.Middleware;
@@ -14,6 +16,9 @@ var builder = WebApplication.CreateBuilder(args);
 
 builder.Services.AddProblemDetails();
 builder.Services.AddOpenApi();
+builder.Services.ConfigureHttpJsonOptions(options =>
+    options.SerializerOptions.Converters.Add(
+        new JsonStringEnumConverter(JsonNamingPolicy.CamelCase)));
 builder.Services.AddHealthChecks().AddDbContextCheck<LifeMateDbContext>("postgresql");
 builder.Services.AddLifeMateInfrastructure(builder.Configuration);
 
@@ -98,12 +103,13 @@ if (app.Environment.IsDevelopment() || builder.Configuration.GetValue("OpenApi:E
     app.MapOpenApi().AllowAnonymous();
 }
 
-app.UseRateLimiter();
 app.UseAuthentication();
+app.UseRateLimiter();
 app.UseAuthorization();
 app.MapHealthChecks("/health/live", new HealthCheckOptions { Predicate = _ => false }).AllowAnonymous();
 app.MapHealthChecks("/health/ready").AllowAnonymous();
 app.MapUserEndpoints();
+app.MapCareEndpoints();
 app.Run();
 
 public partial class Program

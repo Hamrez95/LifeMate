@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Testcontainers.PostgreSql;
 using Xunit;
@@ -35,6 +36,15 @@ public sealed class LifeMateApiFactory : WebApplicationFactory<Program>, IAsyncL
     protected override void ConfigureWebHost(IWebHostBuilder builder)
     {
         builder.UseEnvironment("Testing");
+        builder.ConfigureAppConfiguration((_, configuration) =>
+        {
+            configuration.AddInMemoryCollection(new Dictionary<string, string?>
+            {
+                ["Security:Invitations:ContactPepper"] =
+                    "integration-test-contact-pepper-at-least-32-bytes"
+            });
+        });
+
         builder.ConfigureServices(services =>
         {
             var descriptor = services.SingleOrDefault(
@@ -46,7 +56,11 @@ public sealed class LifeMateApiFactory : WebApplicationFactory<Program>, IAsyncL
             }
 
             services.AddDbContext<LifeMateDbContext>(options =>
-                options.UseNpgsql(_postgres.GetConnectionString()));
+                options.UseNpgsql(
+                    _postgres.GetConnectionString(),
+                    npgsql => npgsql.MigrationsHistoryTable(
+                        "__ef_migrations_history",
+                        "lifemate")));
 
             services
                 .AddAuthentication(options =>
