@@ -1,3 +1,4 @@
+using LifeMate.Domain.Adherence;
 using LifeMate.Domain.Audit;
 using LifeMate.Domain.Care;
 using LifeMate.Domain.Consents;
@@ -19,5 +20,7 @@ public interface IAppDbContext
     DbSet<Medication> Medications { get; }
     DbSet<TreatmentPlan> TreatmentPlans { get; }
     DbSet<TreatmentSchedule> TreatmentSchedules { get; }
+    DbSet<DoseOccurrence> DoseOccurrences { get; }
+    DbSet<DoseAdherenceEvent> DoseAdherenceEvents { get; }
     Task<int> SaveChangesAsync(CancellationToken cancellationToken = default);
 }
