@@ -14,12 +14,15 @@ public sealed record CreateCareInvitationCommand(
     string PatientConsentVersion,
     bool ConfirmedPatientConsent);
 
-public sealed record RespondToCareInvitationCommand(
+public sealed record AcceptCareInvitationCommand(
     AuthenticatedCareIdentity Identity,
     string Token,
-    string? CaregiverConsentVersion,
-    bool ConfirmedCaregiverConsent,
-    bool Accept);
+    string CaregiverConsentVersion,
+    bool ConfirmedCaregiverConsent);
+
+public sealed record RejectCareInvitationCommand(
+    AuthenticatedCareIdentity Identity,
+    string Token);
 
 public sealed record CareInvitationCreatedDto(
     Guid Id,
@@ -65,6 +68,7 @@ public sealed record CareResult<T>(
     string? ErrorMessage)
 {
     public static CareResult<T> Success(T value) => new(true, value, null, null, null);
+
     public static CareResult<T> Failure(CareErrorKind kind, string code, string message) =>
         new(false, default, kind, code, message);
 }
