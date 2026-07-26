@@ -100,7 +100,7 @@ class _HomeScreenContentState extends State<HomeScreenContent> {
     }
   }
 
-  Future<void> _markAsDone(ScheduleItemModel item) async {
+  Future<void> _reportStatus(ScheduleItemModel item, String status) async {
     if (_submitting.contains(item.id)) return;
     setState(() => _submitting.add(item.id));
 
@@ -110,12 +110,12 @@ class _HomeScreenContentState extends State<HomeScreenContent> {
         occurrenceId: item.id,
         clientRequestId: LifeMateApiClient.createClientRequestId(),
         version: item.version,
-        status: 'taken',
+        status: status,
         occurredAtUtc: DateTime.now().toUtc(),
       );
       final updated = item.copyWith(
-        isDone: true,
-        status: (result['status'] ?? 'taken').toString(),
+        isDone: status == 'taken' || status == 'skipped',
+        status: (result['status'] ?? status).toString(),
         version: result['version'] is int
             ? result['version'] as int
             : item.version + 1,
@@ -130,7 +130,9 @@ class _HomeScreenContentState extends State<HomeScreenContent> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
-            '${item.title} به عنوان مصرف‌شده ثبت شد.',
+            status == 'taken'
+                ? '${item.title} به عنوان مصرف‌شده ثبت شد.'
+                : '${item.title} به عنوان مصرف‌نشده ثبت شد.',
             style: AppTextStyles.body(context).copyWith(color: Colors.white),
           ),
           backgroundColor: Colors.green.shade600,
@@ -271,7 +273,16 @@ class _HomeScreenContentState extends State<HomeScreenContent> {
                     (_calculateSecondsLeft(nextItem.time) / 86400)
                         .clamp(0.0, 1.0),
                 secondsLeft: _calculateSecondsLeft(nextItem.time),
-                onTaken: () => _markAsDone(nextItem),
+                onTaken: _submitting.contains(nextItem.id)
+                    ? null
+                    : () => _reportStatus(nextItem, 'taken'),
+                onSkipped: _submitting.contains(nextItem.id)
+                    ? null
+                    : () => _reportStatus(nextItem, 'skipped'),
+                onEdit: () => ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('ویرایش برنامه درمان به‌زودی فعال می‌شود.')),
+                ),
+                isSubmitting: _submitting.contains(nextItem.id),
                 font: font,
               ),
             ),
@@ -318,8 +329,9 @@ class _HomeScreenContentState extends State<HomeScreenContent> {
                                 assetPath: _getAssetPath(item.type),
                                 isMissed: isMissed,
                                 // 👈 پاس دادن متد مارک کردن به کارت
-                                onTaken:
-                                    isMissed ? () => _markAsDone(item) : null,
+                                onTaken: isMissed && !_submitting.contains(item.id)
+                                    ? () => _reportStatus(item, 'taken')
+                                    : null,
                               );
                             },
                           ),
