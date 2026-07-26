@@ -1,5 +1,7 @@
 using System.Net;
 using System.Net.Http.Json;
+using System.Text.Json;
+using System.Text.Json.Serialization;
 using LifeMate.Api.Models;
 using LifeMate.Application.Abstractions;
 using LifeMate.Application.Care;
@@ -15,6 +17,7 @@ public sealed class CareEndpointTests : IClassFixture<LifeMateApiFactory>
 {
     private const string PatientConsentVersion = CareConsentPolicy.PatientVersion;
     private const string CaregiverConsentVersion = CareConsentPolicy.CaregiverVersion;
+    private static readonly JsonSerializerOptions JsonOptions = CreateJsonOptions();
     private readonly LifeMateApiFactory _factory;
 
     public CareEndpointTests(LifeMateApiFactory factory) => _factory = factory;
@@ -44,7 +47,7 @@ public sealed class CareEndpointTests : IClassFixture<LifeMateApiFactory>
                 true));
 
         Assert.Equal(HttpStatusCode.Created, create.StatusCode);
-        var invitation = await create.Content.ReadFromJsonAsync<CareInvitationCreatedDto>();
+        var invitation = await create.Content.ReadFromJsonAsync<CareInvitationCreatedDto>(JsonOptions);
         Assert.NotNull(invitation);
         Assert.False(string.IsNullOrWhiteSpace(invitation.Token));
         Assert.DoesNotContain("caregiver-a@example.test", invitation.ContactHint, StringComparison.OrdinalIgnoreCase);
@@ -58,7 +61,7 @@ public sealed class CareEndpointTests : IClassFixture<LifeMateApiFactory>
             "/api/v1/care/invitations/accept",
             new AcceptCareInvitationRequest(invitation.Token, CaregiverConsentVersion, true));
         accept.EnsureSuccessStatusCode();
-        var relationship = await accept.Content.ReadFromJsonAsync<CareRelationshipDto>();
+        var relationship = await accept.Content.ReadFromJsonAsync<CareRelationshipDto>(JsonOptions);
         Assert.NotNull(relationship);
         Assert.Equal("active", relationship.Status);
 
@@ -80,7 +83,7 @@ public sealed class CareEndpointTests : IClassFixture<LifeMateApiFactory>
         var revoke = await patient.DeleteAsync(
             $"/api/v1/care/relationships/{relationship.Id}");
         revoke.EnsureSuccessStatusCode();
-        var revoked = await revoke.Content.ReadFromJsonAsync<CareRelationshipDto>();
+        var revoked = await revoke.Content.ReadFromJsonAsync<CareRelationshipDto>(JsonOptions);
         Assert.Equal("revoked", revoked!.Status);
 
         using var scope = _factory.Services.CreateScope();
@@ -122,7 +125,7 @@ public sealed class CareEndpointTests : IClassFixture<LifeMateApiFactory>
 
         var first = await patient.PostAsJsonAsync("/api/v1/care/invitations", request);
         first.EnsureSuccessStatusCode();
-        var invitation = await first.Content.ReadFromJsonAsync<CareInvitationCreatedDto>();
+        var invitation = await first.Content.ReadFromJsonAsync<CareInvitationCreatedDto>(JsonOptions);
 
         var duplicate = await patient.PostAsJsonAsync("/api/v1/care/invitations", request);
         Assert.Equal(HttpStatusCode.Conflict, duplicate.StatusCode);
@@ -131,7 +134,7 @@ public sealed class CareEndpointTests : IClassFixture<LifeMateApiFactory>
             "/api/v1/care/invitations/reject",
             new RejectCareInvitationRequest(invitation!.Token));
         reject.EnsureSuccessStatusCode();
-        var rejected = await reject.Content.ReadFromJsonAsync<CareInvitationDto>();
+        var rejected = await reject.Content.ReadFromJsonAsync<CareInvitationDto>(JsonOptions);
         Assert.Equal("rejected", rejected!.Status);
 
         var replacement = await patient.PostAsJsonAsync("/api/v1/care/invitations", request);
@@ -167,7 +170,7 @@ public sealed class CareEndpointTests : IClassFixture<LifeMateApiFactory>
                 PatientConsentVersion,
                 true));
         create.EnsureSuccessStatusCode();
-        var invitation = await create.Content.ReadFromJsonAsync<CareInvitationCreatedDto>();
+        var invitation = await create.Content.ReadFromJsonAsync<CareInvitationCreatedDto>(JsonOptions);
 
         using (var scope = _factory.Services.CreateScope())
         {
@@ -227,7 +230,7 @@ public sealed class CareEndpointTests : IClassFixture<LifeMateApiFactory>
                 PatientConsentVersion,
                 true));
         create.EnsureSuccessStatusCode();
-        var invitation = await create.Content.ReadFromJsonAsync<CareInvitationCreatedDto>();
+        var invitation = await create.Content.ReadFromJsonAsync<CareInvitationCreatedDto>(JsonOptions);
 
         var missingCaregiverConsent = await caregiver.PostAsJsonAsync(
             "/api/v1/care/invitations/accept",
@@ -257,6 +260,13 @@ public sealed class CareEndpointTests : IClassFixture<LifeMateApiFactory>
                 true));
 
         Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+    }
+
+    private static JsonSerializerOptions CreateJsonOptions()
+    {
+        var options = new JsonSerializerOptions(JsonSerializerDefaults.Web);
+        options.Converters.Add(new JsonStringEnumConverter(JsonNamingPolicy.CamelCase));
+        return options;
     }
 
     private async Task<HttpClient> CreateBootstrappedClientAsync(
