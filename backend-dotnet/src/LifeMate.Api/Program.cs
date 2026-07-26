@@ -104,6 +104,7 @@ app.UseAuthorization();
 app.MapHealthChecks("/health/live", new HealthCheckOptions { Predicate = _ => false }).AllowAnonymous();
 app.MapHealthChecks("/health/ready").AllowAnonymous();
 app.MapUserEndpoints();
+app.MapCareEndpoints();
 app.Run();
 
 public partial class Program
