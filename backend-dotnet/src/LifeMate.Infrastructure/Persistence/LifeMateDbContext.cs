@@ -90,7 +90,9 @@ public sealed class LifeMateDbContext : DbContext, IAppDbContext
             b.HasKey(x => x.Id);
             b.Property(x => x.InviterUserId).HasColumnName("inviter_user_id");
             b.HasOne<AppUser>().WithMany().HasForeignKey(x => x.InviterUserId).OnDelete(DeleteBehavior.Restrict);
+            b.Property(x => x.ContactType).HasColumnName("contact_type").HasConversion<string>().HasMaxLength(16);
             b.Property(x => x.ContactHash).HasColumnName("contact_hash").HasMaxLength(128).IsRequired();
+            b.Property(x => x.ContactHint).HasColumnName("contact_hint").HasMaxLength(160).IsRequired();
             b.Property(x => x.TokenHash).HasColumnName("token_hash").HasMaxLength(128).IsRequired();
             b.Property(x => x.PatientConsentVersion).HasColumnName("patient_consent_version").HasMaxLength(64).IsRequired();
             b.Property(x => x.Status).HasColumnName("status").HasConversion<string>().HasMaxLength(32);
