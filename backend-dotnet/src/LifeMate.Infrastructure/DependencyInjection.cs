@@ -1,6 +1,7 @@
 using System.Text;
 using LifeMate.Application.Abstractions;
 using LifeMate.Application.Care;
+using LifeMate.Application.Treatments;
 using LifeMate.Application.Users;
 using LifeMate.Infrastructure.Persistence;
 using LifeMate.Infrastructure.Security;
@@ -36,9 +37,11 @@ public static class DependencyInjection
 
         services.AddScoped<IAppDbContext>(sp => sp.GetRequiredService<LifeMateDbContext>());
         services.AddSingleton<IClock, SystemClock>();
+        services.AddSingleton<ITimeZoneValidator, SystemTimeZoneValidator>();
         services.AddSingleton<IInvitationSecretService, InvitationSecretService>();
         services.AddScoped<UserService>();
         services.AddScoped<CareService>();
+        services.AddScoped<TreatmentService>();
 
         return services;
     }
