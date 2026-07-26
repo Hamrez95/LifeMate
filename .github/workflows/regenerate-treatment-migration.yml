@@ -1,0 +1,96 @@
+name: regenerate-treatment-migration
+
+on:
+  pull_request:
+    branches: [ main ]
+    paths:
+      - 'backend-dotnet/**'
+      - '.github/workflows/regenerate-treatment-migration.yml'
+
+permissions:
+  contents: write
+
+concurrency:
+  group: regenerate-treatment-migration-${{ github.event.pull_request.head.ref }}
+  cancel-in-progress: true
+
+jobs:
+  regenerate:
+    if: github.head_ref == 'feat/v0.3-treatment-management'
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.ref }}
+          fetch-depth: 0
+          show-progress: false
+
+      - name: Detect current canonical migration
+        id: state
+        shell: bash
+        run: |
+          set -euo pipefail
+          migration_dir='backend-dotnet/src/LifeMate.Infrastructure/Persistence/Migrations'
+          migration_file="$(find "$migration_dir" -maxdepth 1 -name '*_AddTreatmentManagement.cs' ! -name '*.Designer.cs' -print -quit)"
+          if [ -n "$migration_file" ] \
+            && grep -q 'medications' "$migration_file" \
+            && grep -q 'treatment_plans' "$migration_file" \
+            && grep -q 'treatment_schedules' "$migration_file"; then
+            echo 'up_to_date=true' >> "$GITHUB_OUTPUT"
+          else
+            echo 'up_to_date=false' >> "$GITHUB_OUTPUT"
+          fi
+
+      - uses: actions/setup-dotnet@v4
+        if: steps.state.outputs.up_to_date != 'true'
+        with:
+          dotnet-version: '10.0.x'
+
+      - name: Restore dependencies and tools
+        if: steps.state.outputs.up_to_date != 'true'
+        run: |
+          dotnet restore backend-dotnet/LifeMate.sln --verbosity minimal
+          dotnet tool restore
+
+      - name: Recreate migration from the main-branch snapshot
+        if: steps.state.outputs.up_to_date != 'true'
+        id: regenerate
+        env:
+          ConnectionStrings__LifeMateDb: Host=localhost;Port=54329;Database=lifemate_design;Username=lifemate;Password=local_design_only
+          Security__Invitations__ContactPepper: workflow-only-contact-pepper-at-least-32-bytes
+        shell: bash
+        run: |
+          set -euo pipefail
+          migration_dir='backend-dotnet/src/LifeMate.Infrastructure/Persistence/Migrations'
+          rm -f "$migration_dir"/*_AddTreatmentManagement.cs "$migration_dir"/*_AddTreatmentManagement.Designer.cs
+          git show origin/main:"$migration_dir/LifeMateDbContextModelSnapshot.cs" > "$migration_dir/LifeMateDbContextModelSnapshot.cs"
+          dotnet build backend-dotnet/LifeMate.sln --configuration Release --no-restore 2>&1 | tee /tmp/regenerate-treatment-migration.log
+          dotnet ef migrations add AddTreatmentManagement \
+            --configuration Release \
+            --no-build \
+            --project backend-dotnet/src/LifeMate.Infrastructure \
+            --startup-project backend-dotnet/src/LifeMate.Api \
+            --output-dir Persistence/Migrations 2>&1 | tee -a /tmp/regenerate-treatment-migration.log
+          git diff --check -- "$migration_dir"
+
+      - name: Commit canonical migration
+        if: steps.state.outputs.up_to_date != 'true' && steps.regenerate.outcome == 'success'
+        shell: bash
+        run: |
+          set -euo pipefail
+          migration_dir='backend-dotnet/src/LifeMate.Infrastructure/Persistence/Migrations'
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add "$migration_dir"
+          git commit -m 'Add canonical treatment management migration'
+          git push origin HEAD:${{ github.event.pull_request.head.ref }}
+
+      - name: Upload regeneration diagnostics
+        if: ${{ always() && steps.state.outputs.up_to_date != 'true' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: treatment-migration-regeneration-log
+          path: /tmp/regenerate-treatment-migration.log
+          retention-days: 1
+          if-no-files-found: ignore
