@@ -1,4 +1,5 @@
 using System.ComponentModel.DataAnnotations;
+using LifeMate.Domain.Adherence;
 using LifeMate.Domain.Care;
 
 namespace LifeMate.Api.Models;
@@ -69,3 +70,9 @@ public sealed record UpdateTreatmentPlanRequest(
 
 public sealed record TreatmentPlanVersionRequest(
     [property: Range(1, int.MaxValue)] int Version);
+
+public sealed record ReportDoseOccurrenceRequest(
+    Guid ClientRequestId,
+    [property: Range(1, int.MaxValue)] int Version,
+    DoseOccurrenceStatus Status,
+    DateTime OccurredAtUtc);

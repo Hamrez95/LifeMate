@@ -111,6 +111,7 @@ app.MapHealthChecks("/health/ready").AllowAnonymous();
 app.MapUserEndpoints();
 app.MapCareEndpoints();
 app.MapTreatmentEndpoints();
+app.MapAdherenceEndpoints();
 app.Run();
 
 public partial class Program

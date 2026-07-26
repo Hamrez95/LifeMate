@@ -1,5 +1,6 @@
 using System.Text;
 using LifeMate.Application.Abstractions;
+using LifeMate.Application.Adherence;
 using LifeMate.Application.Care;
 using LifeMate.Application.Treatments;
 using LifeMate.Application.Users;
@@ -42,6 +43,7 @@ public static class DependencyInjection
         services.AddScoped<UserService>();
         services.AddScoped<CareService>();
         services.AddScoped<TreatmentService>();
+        services.AddScoped<AdherenceService>();
 
         return services;
     }
