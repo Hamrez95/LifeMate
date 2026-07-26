@@ -1,12 +1,12 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:lifemate_client/lifemate_client.dart';
 import 'package:provider/provider.dart';
 import 'package:wellmate/providers/medication_provider.dart';
 import 'package:wellmate/screens/home/active_treatment_card.dart';
 import '../../localization/app_localizations.dart';
 import '../../core/theme/app_style.dart';
 import '../../models/schedule_item_model.dart';
-import '../../services/backend_service.dart';
 import 'soft_schedule_card.dart';
 
 class HomeScreenContent extends StatefulWidget {
@@ -20,6 +20,8 @@ class _HomeScreenContentState extends State<HomeScreenContent> {
   List<ScheduleItemModel> scheduleList = [];
   Timer? _timer;
   bool isLoading = true;
+  String? loadError;
+  final Set<String> _submitting = {};
 
   @override
   void initState() {
@@ -37,75 +39,117 @@ class _HomeScreenContentState extends State<HomeScreenContent> {
   }
 
   Future<void> _fetchScheduleFromBackend() async {
-    try {
-      final data = await BackendService.getStatus();
-      final List<dynamic> rawList = data['scheduleList'] ?? [];
-      final List<dynamic> consumedIds =
-          data['consumedIndices'] ?? data['consumed'] ?? [];
-
-      final mamanJoonSchedules = rawList
-          .where((item) => item['patient'] == 'مامان جون')
-          .map((item) => ScheduleItemModel(
-                id: item['id'].toString(),
-                type: item['type'] == 'appointment' ? 'visit' : 'medicine',
-                title: item['name'],
-                time: item['time'],
-                dosage: item['details'],
-                isDone: consumedIds.contains(item['id']),
-                // فیلدهای زیر اضافه شدند تا خطای missing_required_argument برطرف شود
-                frequency: item['frequency'] ?? 'روزانه',
-                startDate: item['startDate'] != null
-                    ? DateTime.parse(item['startDate'])
-                    : DateTime.now(),
-                intervalDays: item['intervalDays'] ?? 1,
-              ))
-          .toList();
+    if (mounted) {
       setState(() {
-        scheduleList = mamanJoonSchedules;
+        isLoading = true;
+        loadError = null;
+      });
+    }
+    try {
+      final api = context.read<LifeMateApiClient>();
+      final today = DateTime.now();
+      final results = await Future.wait([
+        api.getTreatmentPlans(),
+        api.getDoseOccurrences(fromDate: today, toDate: today),
+      ]);
+      final plans = results[0];
+      final doses = results[1];
+      final plansById = <String, Map<String, dynamic>>{
+        for (final plan in plans) plan['id'].toString(): plan,
+      };
+
+      final items = doses.map((dose) {
+        final plan = plansById[dose['treatmentPlanId'].toString()] ?? const {};
+        final medication = plan['medication'] is Map<String, dynamic>
+            ? plan['medication'] as Map<String, dynamic>
+            : const <String, dynamic>{};
+        final status = (dose['status'] ?? 'scheduled').toString();
+        final rawTime = (dose['scheduledLocalTime'] ?? '').toString();
+        final time = rawTime.length >= 5 ? rawTime.substring(0, 5) : rawTime;
+        return ScheduleItemModel(
+          id: dose['id'].toString(),
+          type: 'medicine',
+          title: (medication['name'] ?? 'دارو').toString(),
+          time: time,
+          dosage: (plan['doseText'] ?? '').toString(),
+          status: status,
+          version: dose['version'] is int ? dose['version'] as int : 1,
+          isDone: status == 'taken' || status == 'skipped',
+          frequency: 'طبق برنامه درمان',
+          startDate: dose['scheduledLocalDate'] == null
+              ? today
+              : DateTime.tryParse(dose['scheduledLocalDate'].toString()),
+          intervalDays: 1,
+        );
+      }).toList()
+        ..sort((a, b) => a.time.compareTo(b.time));
+
+      if (!mounted) return;
+      setState(() {
+        scheduleList = items;
         isLoading = false;
       });
-
-      // 👈 این خط اضافه می‌شود تا پرووایدر آپدیت شود و هدر داروها را ببیند
-      if (mounted) {
-        context.read<MedicationProvider>().setMedications(mamanJoonSchedules);
-      }
-    } catch (e) {
-      debugPrint('Error: $e');
-      setState(() => isLoading = false);
+      context.read<MedicationProvider>().setMedications(items);
+    } catch (error) {
+      debugPrint('WellMate dose sync failed: $error');
+      if (!mounted) return;
+      setState(() {
+        isLoading = false;
+        loadError = 'برنامه امروز دریافت نشد. اتصال را بررسی کنید.';
+      });
     }
   }
 
   Future<void> _markAsDone(ScheduleItemModel item) async {
-    setState(() {
-      final index = scheduleList.indexWhere((element) => element.id == item.id);
-      if (index != -1) {
-        scheduleList[index] = item.copyWith(isDone: true);
-      }
-    });
+    if (_submitting.contains(item.id)) return;
+    setState(() => _submitting.add(item.id));
 
-    // 👈 این خط اضافه می‌شود تا پرووایدر بداند دارو مصرف شده
-    if (mounted) {
-      context.read<MedicationProvider>().markAsDone(item.id);
-    }
     try {
-      // فرض بر این است که شما متد updateStatus را در BackendService دارید
-      // ما آیدی دارو را به بک‌اند می‌فرستیم تا در لیست consumed ثبت شود
-      await BackendService.updateStatus(
-        itemId: int.parse(item.id),
-        status: 'done',
+      final api = context.read<LifeMateApiClient>();
+      final result = await api.reportDose(
+        occurrenceId: item.id,
+        clientRequestId: LifeMateApiClient.createClientRequestId(),
+        version: item.version,
+        status: 'taken',
+        occurredAtUtc: DateTime.now().toUtc(),
       );
-    } catch (e) {
-      debugPrint('خطا در ارسال وضعیت به بک‌اند: $e');
+      final updated = item.copyWith(
+        isDone: true,
+        status: (result['status'] ?? 'taken').toString(),
+        version: result['version'] is int
+            ? result['version'] as int
+            : item.version + 1,
+      );
+      if (!mounted) return;
+      setState(() {
+        final index =
+            scheduleList.indexWhere((element) => element.id == item.id);
+        if (index != -1) scheduleList[index] = updated;
+      });
+      context.read<MedicationProvider>().setMedications(scheduleList);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            '${item.title} به عنوان مصرف‌شده ثبت شد.',
+            style: AppTextStyles.body(context).copyWith(color: Colors.white),
+          ),
+          backgroundColor: Colors.green.shade600,
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+    } catch (error) {
+      debugPrint('WellMate dose report failed: $error');
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: const Text('ثبت مصرف انجام نشد؛ دوباره تلاش کنید.'),
+          backgroundColor: Theme.of(context).colorScheme.error,
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+    } finally {
+      if (mounted) setState(() => _submitting.remove(item.id));
     }
-
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text('${item.title} به عنوان مصرف‌شده ثبت شد.',
-            style: AppTextStyles.body(context).copyWith(color: Colors.white)),
-        backgroundColor: Colors.green.shade600,
-        behavior: SnackBarBehavior.floating,
-      ),
-    );
   }
 
   int _calculateSecondsLeft(String time) {
@@ -137,24 +181,18 @@ class _HomeScreenContentState extends State<HomeScreenContent> {
     final now = DateTime.now();
 
     // تمام داروهای مصرف نشده
-    final unconsumedItems = scheduleList.where((item) => !item.isDone).toList();
+    final unconsumedItems = scheduleList
+        .where((item) => item.status == 'scheduled' || item.status == 'missed')
+        .toList();
 
     // جداسازی داروهای آینده و گذشته
     final List<ScheduleItemModel> upcomingItems = [];
     final List<ScheduleItemModel> missedItems = [];
 
-    for (var item in unconsumedItems) {
-      try {
-        final parts = item.time.split(':');
-        final itemTime = DateTime(now.year, now.month, now.day,
-            int.parse(parts[0]), int.parse(parts[1]));
-
-        if (itemTime.isBefore(now)) {
-          missedItems.add(item); // زمانش گذشته
-        } else {
-          upcomingItems.add(item); // زمانش هنوز نرسیده
-        }
-      } catch (e) {
+    for (final item in unconsumedItems) {
+      if (item.status == 'missed') {
+        missedItems.add(item);
+      } else {
         upcomingItems.add(item);
       }
     }
@@ -198,6 +236,28 @@ class _HomeScreenContentState extends State<HomeScreenContent> {
             const Expanded(
                 child: Center(
                     child: CircularProgressIndicator(color: AppColors.primary)))
+          else if (loadError != null)
+            Expanded(
+              child: Center(
+                child: Padding(
+                  padding: const EdgeInsets.all(24),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Icon(Icons.cloud_off_rounded,
+                          size: 52, color: AppColors.primary),
+                      const SizedBox(height: 12),
+                      Text(loadError!, textAlign: TextAlign.center, style: font),
+                      const SizedBox(height: 16),
+                      FilledButton(
+                        onPressed: _fetchScheduleFromBackend,
+                        child: const Text('تلاش دوباره'),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            )
           else if (nextItem !=
               null) // نمایش کارت فقط اگر داروی آینده‌ای وجود داشت
             Padding(
