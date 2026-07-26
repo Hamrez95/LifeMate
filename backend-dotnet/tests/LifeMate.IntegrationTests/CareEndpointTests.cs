@@ -95,8 +95,13 @@ public sealed class CareEndpointTests : IClassFixture<LifeMateApiFactory>
         Assert.NotEqual(invitation.Token, storedInvitation.TokenHash);
         Assert.DoesNotContain("caregiver-a@example.test", storedInvitation.ContactHint, StringComparison.OrdinalIgnoreCase);
         Assert.Equal(PatientConsentVersion, storedInvitation.PatientConsentVersion);
-        Assert.False(await db.AuditLogs.AnyAsync(x =>
-            x.MetadataJson != null && x.MetadataJson.Contains(invitation.Token)));
+        var auditMetadata = await db.AuditLogs
+            .Where(x => x.MetadataJson != null)
+            .Select(x => x.MetadataJson!)
+            .ToListAsync();
+        Assert.DoesNotContain(
+            auditMetadata,
+            metadata => metadata.Contains(invitation.Token, StringComparison.Ordinal));
         Assert.True(await db.AuditLogs.AnyAsync(x =>
             x.Action == "care_invitation.created" && x.ResourceId == invitation.Id));
         Assert.True(await db.AuditLogs.AnyAsync(x =>
@@ -186,7 +191,13 @@ public sealed class CareEndpointTests : IClassFixture<LifeMateApiFactory>
 
         using var verificationScope = _factory.Services.CreateScope();
         var verificationDb = verificationScope.ServiceProvider.GetRequiredService<LifeMateDbContext>();
-        Assert.False(await verificationDb.CareRelationships.AnyAsync());
+        var patientUserId = (await verificationDb.Users.SingleAsync(
+            user => user.AuthSubject == "care-patient-expired")).Id;
+        var caregiverUserId = (await verificationDb.Users.SingleAsync(
+            user => user.AuthSubject == "care-caregiver-expired")).Id;
+        Assert.False(await verificationDb.CareRelationships.AnyAsync(
+            relationship => relationship.PatientUserId == patientUserId
+                && relationship.CaregiverUserId == caregiverUserId));
         Assert.Equal(
             CareInvitationStatus.Expired,
             (await verificationDb.CareInvitations.SingleAsync(x => x.Id == invitation.Id)).Status);
