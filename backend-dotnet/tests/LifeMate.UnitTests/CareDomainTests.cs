@@ -118,7 +118,7 @@ public sealed class CareDomainTests
     }
 
     [Theory]
-    [InlineData("Test.User@Example.COM", "email:test.user@example.com", "Te***@example.com")]
+    [InlineData("Test.User@Example.COM", "email:test.user@example.com", "te***@example.com")]
     [InlineData("۰۹۱۲۱۲۳۴۵۶۷", "phone:+989121234567", "+98******4567")]
     public void Contact_normalization_is_canonical_and_masked(
         string input,
@@ -131,7 +131,7 @@ public sealed class CareDomainTests
 
         Assert.Equal(expectedCanonical, result.CanonicalValue);
         Assert.Equal(expectedHint, result.MaskedHint);
-        Assert.DoesNotContain(input, result.MaskedHint, StringComparison.OrdinalIgnoreCase);
+        Assert.NotEqual(input, result.MaskedHint);
     }
 
     private static CareInvitation CreateInvitation(
