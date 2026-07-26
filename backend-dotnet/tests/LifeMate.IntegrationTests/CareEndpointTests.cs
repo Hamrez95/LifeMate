@@ -13,7 +13,8 @@ namespace LifeMate.IntegrationTests;
 
 public sealed class CareEndpointTests : IClassFixture<LifeMateApiFactory>
 {
-    private const string ConsentVersion = "care-consent-v1";
+    private const string PatientConsentVersion = CareConsentPolicy.PatientVersion;
+    private const string CaregiverConsentVersion = CareConsentPolicy.CaregiverVersion;
     private readonly LifeMateApiFactory _factory;
 
     public CareEndpointTests(LifeMateApiFactory factory) => _factory = factory;
@@ -39,7 +40,7 @@ public sealed class CareEndpointTests : IClassFixture<LifeMateApiFactory>
             new CreateCareInvitationRequest(
                 CareContactType.Email,
                 "Caregiver-A@Example.Test",
-                ConsentVersion,
+                PatientConsentVersion,
                 true));
 
         Assert.Equal(HttpStatusCode.Created, create.StatusCode);
@@ -50,12 +51,12 @@ public sealed class CareEndpointTests : IClassFixture<LifeMateApiFactory>
 
         var wrongIdentity = await unrelated.PostAsJsonAsync(
             "/api/v1/care/invitations/accept",
-            new AcceptCareInvitationRequest(invitation.Token, ConsentVersion, true));
+            new AcceptCareInvitationRequest(invitation.Token, CaregiverConsentVersion, true));
         Assert.Equal(HttpStatusCode.Forbidden, wrongIdentity.StatusCode);
 
         var accept = await caregiver.PostAsJsonAsync(
             "/api/v1/care/invitations/accept",
-            new AcceptCareInvitationRequest(invitation.Token, ConsentVersion, true));
+            new AcceptCareInvitationRequest(invitation.Token, CaregiverConsentVersion, true));
         accept.EnsureSuccessStatusCode();
         var relationship = await accept.Content.ReadFromJsonAsync<CareRelationshipDto>();
         Assert.NotNull(relationship);
@@ -90,6 +91,7 @@ public sealed class CareEndpointTests : IClassFixture<LifeMateApiFactory>
         Assert.Equal(secretService.HashToken(invitation.Token), storedInvitation.TokenHash);
         Assert.NotEqual(invitation.Token, storedInvitation.TokenHash);
         Assert.DoesNotContain("caregiver-a@example.test", storedInvitation.ContactHint, StringComparison.OrdinalIgnoreCase);
+        Assert.Equal(PatientConsentVersion, storedInvitation.PatientConsentVersion);
         Assert.False(await db.AuditLogs.AnyAsync(x =>
             x.MetadataJson != null && x.MetadataJson.Contains(invitation.Token)));
         Assert.True(await db.AuditLogs.AnyAsync(x =>
@@ -115,7 +117,7 @@ public sealed class CareEndpointTests : IClassFixture<LifeMateApiFactory>
         var request = new CreateCareInvitationRequest(
             CareContactType.Email,
             "caregiver-duplicate@example.test",
-            ConsentVersion,
+            PatientConsentVersion,
             true);
 
         var first = await patient.PostAsJsonAsync("/api/v1/care/invitations", request);
@@ -162,7 +164,7 @@ public sealed class CareEndpointTests : IClassFixture<LifeMateApiFactory>
             new CreateCareInvitationRequest(
                 CareContactType.Email,
                 "caregiver-expired@example.test",
-                ConsentVersion,
+                PatientConsentVersion,
                 true));
         create.EnsureSuccessStatusCode();
         var invitation = await create.Content.ReadFromJsonAsync<CareInvitationCreatedDto>();
@@ -176,7 +178,7 @@ public sealed class CareEndpointTests : IClassFixture<LifeMateApiFactory>
 
         var accept = await caregiver.PostAsJsonAsync(
             "/api/v1/care/invitations/accept",
-            new AcceptCareInvitationRequest(invitation!.Token, ConsentVersion, true));
+            new AcceptCareInvitationRequest(invitation!.Token, CaregiverConsentVersion, true));
         Assert.Equal(HttpStatusCode.Gone, accept.StatusCode);
 
         using var verificationScope = _factory.Services.CreateScope();
@@ -188,7 +190,7 @@ public sealed class CareEndpointTests : IClassFixture<LifeMateApiFactory>
     }
 
     [Fact]
-    public async Task Explicit_patient_and_caregiver_consent_are_required()
+    public async Task Explicit_and_current_patient_and_caregiver_consent_are_required()
     {
         var patient = await CreateBootstrappedClientAsync(
             "care-patient-consent",
@@ -204,23 +206,38 @@ public sealed class CareEndpointTests : IClassFixture<LifeMateApiFactory>
             new CreateCareInvitationRequest(
                 CareContactType.Email,
                 "caregiver-consent@example.test",
-                ConsentVersion,
+                PatientConsentVersion,
                 false));
         Assert.Equal(HttpStatusCode.BadRequest, missingPatientConsent.StatusCode);
+
+        var stalePatientConsent = await patient.PostAsJsonAsync(
+            "/api/v1/care/invitations",
+            new CreateCareInvitationRequest(
+                CareContactType.Email,
+                "caregiver-consent@example.test",
+                "care-patient-consent-v0",
+                true));
+        Assert.Equal(HttpStatusCode.BadRequest, stalePatientConsent.StatusCode);
 
         var create = await patient.PostAsJsonAsync(
             "/api/v1/care/invitations",
             new CreateCareInvitationRequest(
                 CareContactType.Email,
                 "caregiver-consent@example.test",
-                ConsentVersion,
+                PatientConsentVersion,
                 true));
+        create.EnsureSuccessStatusCode();
         var invitation = await create.Content.ReadFromJsonAsync<CareInvitationCreatedDto>();
 
         var missingCaregiverConsent = await caregiver.PostAsJsonAsync(
             "/api/v1/care/invitations/accept",
-            new AcceptCareInvitationRequest(invitation!.Token, ConsentVersion, false));
+            new AcceptCareInvitationRequest(invitation!.Token, CaregiverConsentVersion, false));
         Assert.Equal(HttpStatusCode.BadRequest, missingCaregiverConsent.StatusCode);
+
+        var staleCaregiverConsent = await caregiver.PostAsJsonAsync(
+            "/api/v1/care/invitations/accept",
+            new AcceptCareInvitationRequest(invitation.Token, "care-caregiver-consent-v0", true));
+        Assert.Equal(HttpStatusCode.BadRequest, staleCaregiverConsent.StatusCode);
     }
 
     [Fact]
@@ -236,7 +253,7 @@ public sealed class CareEndpointTests : IClassFixture<LifeMateApiFactory>
             new CreateCareInvitationRequest(
                 CareContactType.Email,
                 "SELF-INVITE@example.test",
-                ConsentVersion,
+                PatientConsentVersion,
                 true));
 
         Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
