@@ -26,6 +26,7 @@ concurrency:
 env:
   DOTNET_CLI_TELEMETRY_OPTOUT: '1'
   DOTNET_NOLOGO: '1'
+  Security__Invitations__ContactPepper: ci-only-invitation-contact-pepper-32-bytes-minimum
 
 jobs:
   build-test:
