@@ -110,6 +110,7 @@ app.MapHealthChecks("/health/live", new HealthCheckOptions { Predicate = _ => fa
 app.MapHealthChecks("/health/ready").AllowAnonymous();
 app.MapUserEndpoints();
 app.MapCareEndpoints();
+app.MapTreatmentEndpoints();
 app.Run();
 
 public partial class Program

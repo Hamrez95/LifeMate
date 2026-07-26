@@ -3,6 +3,7 @@ using LifeMate.Domain.Audit;
 using LifeMate.Domain.Care;
 using LifeMate.Domain.Consents;
 using LifeMate.Domain.Profiles;
+using LifeMate.Domain.Treatments;
 using LifeMate.Domain.Users;
 using Microsoft.EntityFrameworkCore;
 
@@ -18,6 +19,9 @@ public sealed class LifeMateDbContext : DbContext, IAppDbContext
     public DbSet<AuditLog> AuditLogs => Set<AuditLog>();
     public DbSet<CareInvitation> CareInvitations => Set<CareInvitation>();
     public DbSet<CareRelationship> CareRelationships => Set<CareRelationship>();
+    public DbSet<Medication> Medications => Set<Medication>();
+    public DbSet<TreatmentPlan> TreatmentPlans => Set<TreatmentPlan>();
+    public DbSet<TreatmentSchedule> TreatmentSchedules => Set<TreatmentSchedule>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -135,6 +139,65 @@ public sealed class LifeMateDbContext : DbContext, IAppDbContext
                 .HasFilter("\"status\" = 'Active'")
                 .IsUnique();
             b.HasIndex(x => x.CaregiverUserId);
+        });
+
+        modelBuilder.Entity<Medication>(b =>
+        {
+            b.ToTable("medications", table =>
+                table.HasCheckConstraint("CK_medications_version_positive", "\"version\" > 0"));
+            b.HasKey(x => x.Id);
+            b.Property(x => x.Id).HasColumnName("id");
+            b.Property(x => x.OwnerUserId).HasColumnName("owner_user_id");
+            b.HasOne<AppUser>().WithMany().HasForeignKey(x => x.OwnerUserId).OnDelete(DeleteBehavior.Restrict);
+            b.Property(x => x.Name).HasColumnName("name").HasMaxLength(120).IsRequired();
+            b.Property(x => x.StrengthText).HasColumnName("strength_text").HasMaxLength(80);
+            b.Property(x => x.Form).HasColumnName("form").HasMaxLength(50);
+            b.Property(x => x.Notes).HasColumnName("notes").HasMaxLength(500);
+            b.Property(x => x.Version).HasColumnName("version").IsConcurrencyToken();
+            b.Property(x => x.CreatedAtUtc).HasColumnName("created_at_utc");
+            b.Property(x => x.UpdatedAtUtc).HasColumnName("updated_at_utc");
+            b.HasIndex(x => new { x.OwnerUserId, x.Name });
+        });
+
+        modelBuilder.Entity<TreatmentPlan>(b =>
+        {
+            b.ToTable("treatment_plans", table =>
+            {
+                table.HasCheckConstraint("CK_treatment_plans_version_positive", "\"version\" > 0");
+                table.HasCheckConstraint(
+                    "CK_treatment_plans_date_range",
+                    "\"end_date\" IS NULL OR \"end_date\" >= \"start_date\"");
+            });
+            b.HasKey(x => x.Id);
+            b.Property(x => x.Id).HasColumnName("id");
+            b.Property(x => x.PatientUserId).HasColumnName("patient_user_id");
+            b.HasOne<AppUser>().WithMany().HasForeignKey(x => x.PatientUserId).OnDelete(DeleteBehavior.Restrict);
+            b.Property(x => x.MedicationId).HasColumnName("medication_id");
+            b.HasOne<Medication>().WithMany().HasForeignKey(x => x.MedicationId).OnDelete(DeleteBehavior.Restrict);
+            b.Property(x => x.DoseText).HasColumnName("dose_text").HasMaxLength(80).IsRequired();
+            b.Property(x => x.Instructions).HasColumnName("instructions").HasMaxLength(500);
+            b.Property(x => x.StartDate).HasColumnName("start_date").HasColumnType("date");
+            b.Property(x => x.EndDate).HasColumnName("end_date").HasColumnType("date");
+            b.Property(x => x.TimeZone).HasColumnName("time_zone").HasMaxLength(64).IsRequired();
+            b.Property(x => x.Status).HasColumnName("status").HasConversion<string>().HasMaxLength(32);
+            b.Property(x => x.Version).HasColumnName("version").IsConcurrencyToken();
+            b.Property(x => x.CreatedAtUtc).HasColumnName("created_at_utc");
+            b.Property(x => x.UpdatedAtUtc).HasColumnName("updated_at_utc");
+            b.HasIndex(x => new { x.PatientUserId, x.Status });
+            b.HasIndex(x => x.MedicationId);
+        });
+
+        modelBuilder.Entity<TreatmentSchedule>(b =>
+        {
+            b.ToTable("treatment_schedules");
+            b.HasKey(x => x.Id);
+            b.Property(x => x.Id).HasColumnName("id");
+            b.Property(x => x.TreatmentPlanId).HasColumnName("treatment_plan_id");
+            b.HasOne<TreatmentPlan>().WithMany().HasForeignKey(x => x.TreatmentPlanId).OnDelete(DeleteBehavior.Cascade);
+            b.Property(x => x.DayOfWeek).HasColumnName("day_of_week").HasConversion<string>().HasMaxLength(16);
+            b.Property(x => x.LocalTime).HasColumnName("local_time").HasColumnType("time without time zone");
+            b.Property(x => x.CreatedAtUtc).HasColumnName("created_at_utc");
+            b.HasIndex(x => new { x.TreatmentPlanId, x.DayOfWeek, x.LocalTime }).IsUnique();
         });
     }
 }
