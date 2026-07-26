@@ -8,7 +8,7 @@ on:
       - '.github/workflows/regenerate-care-migration.yml'
 
 permissions:
-  contents: read
+  contents: write
 
 concurrency:
   group: regenerate-care-migration-${{ github.event.pull_request.head.ref }}
@@ -22,19 +22,39 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
+          ref: ${{ github.event.pull_request.head.ref }}
           fetch-depth: 0
           show-progress: false
 
+      - name: Detect current canonical migration
+        id: state
+        shell: bash
+        run: |
+          set -euo pipefail
+          migration_dir='backend-dotnet/src/LifeMate.Infrastructure/Persistence/Migrations'
+          migration_file="$(find "$migration_dir" -maxdepth 1 -name '*_AddCareRelationships.cs' ! -name '*.Designer.cs' -print -quit)"
+          if [ -n "$migration_file" ] \
+            && grep -q 'contact_type' "$migration_file" \
+            && grep -q 'caregiver_consent_version' "$migration_file" \
+            && grep -q 'responded_by_user_id' "$migration_file"; then
+            echo 'up_to_date=true' >> "$GITHUB_OUTPUT"
+          else
+            echo 'up_to_date=false' >> "$GITHUB_OUTPUT"
+          fi
+
       - uses: actions/setup-dotnet@v4
+        if: steps.state.outputs.up_to_date != 'true'
         with:
           dotnet-version: '10.0.x'
 
       - name: Restore dependencies and tools
+        if: steps.state.outputs.up_to_date != 'true'
         run: |
           dotnet restore backend-dotnet/LifeMate.sln --verbosity minimal
           dotnet tool restore
 
       - name: Recreate migration from the main-branch snapshot
+        if: steps.state.outputs.up_to_date != 'true'
         id: regenerate
         env:
           ConnectionStrings__LifeMateDb: Host=localhost;Port=54329;Database=lifemate_design;Username=lifemate;Password=local_design_only
@@ -54,19 +74,23 @@ jobs:
             --output-dir Persistence/Migrations 2>&1 | tee -a /tmp/regenerate-care-migration.log
           git diff --check -- "$migration_dir"
 
+      - name: Commit canonical migration
+        if: steps.state.outputs.up_to_date != 'true' && steps.regenerate.outcome == 'success'
+        shell: bash
+        run: |
+          set -euo pipefail
+          migration_dir='backend-dotnet/src/LifeMate.Infrastructure/Persistence/Migrations'
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add "$migration_dir"
+          git commit -m 'Regenerate canonical care relationships migration'
+          git push origin HEAD:${{ github.event.pull_request.head.ref }}
+
       - name: Upload regeneration diagnostics
-        if: ${{ always() }}
+        if: ${{ always() && steps.state.outputs.up_to_date != 'true' }}
         uses: actions/upload-artifact@v4
         with:
           name: care-migration-regeneration-log
           path: /tmp/regenerate-care-migration.log
           retention-days: 1
           if-no-files-found: ignore
-
-      - name: Upload regenerated migration
-        if: ${{ steps.regenerate.outcome == 'success' }}
-        uses: actions/upload-artifact@v4
-        with:
-          name: regenerated-care-migration
-          path: backend-dotnet/src/LifeMate.Infrastructure/Persistence/Migrations
-          retention-days: 1
