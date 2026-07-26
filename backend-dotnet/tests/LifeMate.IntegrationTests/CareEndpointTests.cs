@@ -137,8 +137,10 @@ public sealed class CareEndpointTests : IClassFixture<LifeMateApiFactory>
 
         using var scope = _factory.Services.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<LifeMateDbContext>();
-        Assert.False(await db.CareRelationships.AnyAsync(x =>
-            x.PatientUserId == (await db.Users.SingleAsync(u => u.AuthSubject == "care-patient-duplicate")).Id));
+        var patientUserId = (await db.Users.SingleAsync(
+            user => user.AuthSubject == "care-patient-duplicate")).Id;
+        Assert.False(await db.CareRelationships.AnyAsync(
+            relationship => relationship.PatientUserId == patientUserId));
         Assert.True(await db.AuditLogs.AnyAsync(x =>
             x.Action == "care_invitation.rejected" && x.ResourceId == invitation.Id));
     }
