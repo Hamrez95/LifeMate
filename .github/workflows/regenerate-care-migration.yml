@@ -1,0 +1,61 @@
+name: regenerate-care-migration
+
+on:
+  pull_request:
+    branches: [ main ]
+    paths:
+      - 'backend-dotnet/**'
+      - '.github/workflows/regenerate-care-migration.yml'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: regenerate-care-migration-${{ github.event.pull_request.head.ref }}
+  cancel-in-progress: true
+
+jobs:
+  regenerate:
+    if: github.head_ref == 'feat/v0.2-care-relationships'
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          show-progress: false
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+
+      - name: Restore and build
+        run: |
+          dotnet restore backend-dotnet/LifeMate.sln --verbosity minimal
+          dotnet build backend-dotnet/LifeMate.sln --configuration Release --no-restore
+          dotnet tool restore
+
+      - name: Recreate migration from the main-branch snapshot
+        env:
+          ConnectionStrings__LifeMateDb: Host=localhost;Port=54329;Database=lifemate_design;Username=lifemate;Password=local_design_only
+          Security__Invitations__ContactPepper: workflow-only-contact-pepper-at-least-32-bytes
+        shell: bash
+        run: |
+          set -euo pipefail
+          migration_dir='backend-dotnet/src/LifeMate.Infrastructure/Persistence/Migrations'
+          rm -f "$migration_dir"/*_AddCareRelationships.cs "$migration_dir"/*_AddCareRelationships.Designer.cs
+          git show origin/main:"$migration_dir/LifeMateDbContextModelSnapshot.cs" > "$migration_dir/LifeMateDbContextModelSnapshot.cs"
+          dotnet ef migrations add AddCareRelationships \
+            --configuration Release \
+            --no-build \
+            --project backend-dotnet/src/LifeMate.Infrastructure \
+            --startup-project backend-dotnet/src/LifeMate.Api \
+            --output-dir Persistence/Migrations
+          git diff --check -- "$migration_dir"
+
+      - name: Upload regenerated migration
+        uses: actions/upload-artifact@v4
+        with:
+          name: regenerated-care-migration
+          path: backend-dotnet/src/LifeMate.Infrastructure/Persistence/Migrations
+          retention-days: 1
