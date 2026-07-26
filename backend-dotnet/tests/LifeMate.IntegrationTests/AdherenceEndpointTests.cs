@@ -54,6 +54,8 @@ public sealed class AdherenceEndpointTests : IClassFixture<LifeMateApiFactory>
                 ]),
             JsonOptions);
         planResponse.EnsureSuccessStatusCode();
+        var plan = await planResponse.Content.ReadFromJsonAsync<TreatmentPlanDto>(JsonOptions);
+        Assert.NotNull(plan);
 
         const string range = "?fromDate=2026-08-01&toDate=2026-08-07";
         var first = await patient.GetFromJsonAsync<List<DoseOccurrenceDto>>(
@@ -67,6 +69,27 @@ public sealed class AdherenceEndpointTests : IClassFixture<LifeMateApiFactory>
             "/api/v1/dose-occurrences" + range,
             JsonOptions);
         Assert.Equal(first.Select(x => x.Id), second!.Select(x => x.Id));
+
+        var pause = await patient.PostAsJsonAsync(
+            $"/api/v1/treatment-plans/{plan.Id}/pause",
+            new TreatmentPlanVersionRequest(plan.Version),
+            JsonOptions);
+        pause.EnsureSuccessStatusCode();
+        var paused = await pause.Content.ReadFromJsonAsync<TreatmentPlanDto>(JsonOptions);
+        var hiddenWhilePaused = await patient.GetFromJsonAsync<List<DoseOccurrenceDto>>(
+            "/api/v1/dose-occurrences" + range,
+            JsonOptions);
+        Assert.Empty(hiddenWhilePaused!);
+
+        var resume = await patient.PostAsJsonAsync(
+            $"/api/v1/treatment-plans/{plan.Id}/resume",
+            new TreatmentPlanVersionRequest(paused!.Version),
+            JsonOptions);
+        resume.EnsureSuccessStatusCode();
+        var visibleAfterResume = await patient.GetFromJsonAsync<List<DoseOccurrenceDto>>(
+            "/api/v1/dose-occurrences" + range,
+            JsonOptions);
+        Assert.Equal(first.Select(x => x.Id), visibleAfterResume!.Select(x => x.Id));
 
         var unrelatedDoses = await unrelated.GetFromJsonAsync<List<DoseOccurrenceDto>>(
             "/api/v1/dose-occurrences" + range,
