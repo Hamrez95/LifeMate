@@ -4,6 +4,7 @@ public enum CareInvitationStatus
 {
     Pending,
     Accepted,
+    Rejected,
     Revoked,
     Expired
 }
