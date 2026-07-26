@@ -10,7 +10,10 @@ class ActiveTreatmentCard extends StatelessWidget {
   final String assetIconPath;
   final double progressValue;
   final int secondsLeft;
-  final VoidCallback onTaken;
+  final VoidCallback? onTaken;
+  final VoidCallback? onSkipped;
+  final VoidCallback? onEdit;
+  final bool isSubmitting;
   final TextStyle font;
 
   const ActiveTreatmentCard({
@@ -22,6 +25,9 @@ class ActiveTreatmentCard extends StatelessWidget {
     required this.progressValue,
     required this.secondsLeft,
     required this.onTaken,
+    required this.onSkipped,
+    required this.onEdit,
+    this.isSubmitting = false,
     required this.font,
   }) : super(key: key);
 
@@ -133,7 +139,7 @@ class ActiveTreatmentCard extends StatelessWidget {
             children: [
               Expanded(
                 flex: 1,
-                child: _buildButton(loc['taken'] ?? 'مصرف شد',
+                child: _buildButton(isSubmitting ? '...' : (loc['taken'] ?? 'مصرف شد'),
                     AppColors.primaryLight, Colors.white, font,
                     onTap: onTaken),
               ),
@@ -141,14 +147,15 @@ class ActiveTreatmentCard extends StatelessWidget {
               Expanded(
                 flex: 1,
                 child: _buildButton(loc['edit'] ?? 'ویرایش',
-                    AppColors.background, AppColors.primary, font),
+                    AppColors.background, AppColors.primary, font,
+                    onTap: onEdit),
               ),
               const SizedBox(width: 8),
               Expanded(
                 flex: 1,
                 child: _buildButton(loc['missed'] ?? 'مصرف نشد', Colors.white,
                     AppColors.textSecondary, font,
-                    hasBorder: true),
+                    hasBorder: true, onTap: onSkipped),
               ),
             ],
           ),
