@@ -10,6 +10,8 @@ namespace LifeMate.IntegrationTests;
 public sealed class TestAuthHandler : AuthenticationHandler<AuthenticationSchemeOptions>
 {
     public const string SchemeName = "Test";
+    public const string EmailHeader = "X-Test-Email";
+    public const string PhoneHeader = "X-Test-Phone";
 
     public TestAuthHandler(
         IOptionsMonitor<AuthenticationSchemeOptions> options,
@@ -31,15 +33,27 @@ public sealed class TestAuthHandler : AuthenticationHandler<AuthenticationScheme
             ? "test-subject"
             : header.Parameter;
 
-        var identity = new ClaimsIdentity(
-            [
-                new Claim(ClaimTypes.NameIdentifier, subject),
-                new Claim("sub", subject)
-            ],
-            SchemeName);
+        var claims = new List<Claim>
+        {
+            new(ClaimTypes.NameIdentifier, subject),
+            new("sub", subject)
+        };
 
+        AddClaimFromHeader(claims, EmailHeader, "email");
+        AddClaimFromHeader(claims, PhoneHeader, "phone");
+
+        var identity = new ClaimsIdentity(claims, SchemeName);
         var principal = new ClaimsPrincipal(identity);
         var ticket = new AuthenticationTicket(principal, SchemeName);
         return Task.FromResult(AuthenticateResult.Success(ticket));
+    }
+
+    private void AddClaimFromHeader(
+        ICollection<Claim> claims,
+        string headerName,
+        string claimType)
+    {
+        var value = Request.Headers[headerName].FirstOrDefault();
+        if (!string.IsNullOrWhiteSpace(value)) claims.Add(new Claim(claimType, value));
     }
 }
