@@ -23,6 +23,138 @@ namespace LifeMate.Infrastructure.Persistence.Migrations
 
             NpgsqlModelBuilderExtensions.UseIdentityByDefaultColumns(modelBuilder);
 
+            modelBuilder.Entity("LifeMate.Domain.Adherence.DoseAdherenceEvent", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<Guid>("ActorUserId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("actor_user_id");
+
+                    b.Property<Guid>("ClientRequestId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("client_request_id");
+
+                    b.Property<string>("EventType")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)")
+                        .HasColumnName("event_type");
+
+                    b.Property<DateTime>("OccurredAtUtc")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("occurred_at_utc");
+
+                    b.Property<Guid>("OccurrenceId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("occurrence_id");
+
+                    b.Property<string>("PreviousStatus")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)")
+                        .HasColumnName("previous_status");
+
+                    b.Property<DateTime>("RecordedAtUtc")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("recorded_at_utc");
+
+                    b.Property<string>("ResultingStatus")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)")
+                        .HasColumnName("resulting_status");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ActorUserId", "ClientRequestId")
+                        .IsUnique();
+
+                    b.HasIndex("OccurrenceId", "RecordedAtUtc");
+
+                    b.ToTable("dose_adherence_events", "lifemate");
+                });
+
+            modelBuilder.Entity("LifeMate.Domain.Adherence.DoseOccurrence", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<DateTime>("CreatedAtUtc")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at_utc");
+
+                    b.Property<Guid>("PatientUserId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("patient_user_id");
+
+                    b.Property<DateTime?>("RespondedAtUtc")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("responded_at_utc");
+
+                    b.Property<DateTime>("ScheduledAtUtc")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("scheduled_at_utc");
+
+                    b.Property<DateOnly>("ScheduledLocalDate")
+                        .HasColumnType("date")
+                        .HasColumnName("scheduled_local_date");
+
+                    b.Property<TimeOnly>("ScheduledLocalTime")
+                        .HasColumnType("time without time zone")
+                        .HasColumnName("scheduled_local_time");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)")
+                        .HasColumnName("status");
+
+                    b.Property<Guid>("TreatmentPlanId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("treatment_plan_id");
+
+                    b.Property<Guid>("TreatmentScheduleId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("treatment_schedule_id");
+
+                    b.Property<string>("TimeZone")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)")
+                        .HasColumnName("time_zone");
+
+                    b.Property<DateTime>("UpdatedAtUtc")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at_utc");
+
+                    b.Property<int>("Version")
+                        .IsConcurrencyToken()
+                        .HasColumnType("integer")
+                        .HasColumnName("version");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("PatientUserId", "ScheduledLocalDate");
+
+                    b.HasIndex("PatientUserId", "Status", "ScheduledAtUtc");
+
+                    b.HasIndex("TreatmentPlanId");
+
+                    b.HasIndex("TreatmentScheduleId", "ScheduledAtUtc")
+                        .IsUnique();
+
+                    b.ToTable("dose_occurrences", "lifemate", t =>
+                        {
+                            t.HasCheckConstraint("CK_dose_occurrences_version_positive", "\"version\" > 0");
+                        });
+                });
+
             modelBuilder.Entity("LifeMate.Domain.Audit.AuditLog", b =>
                 {
                     b.Property<Guid>("Id")
@@ -521,6 +653,36 @@ namespace LifeMate.Infrastructure.Persistence.Migrations
                         .IsUnique();
 
                     b.ToTable("app_users", "lifemate");
+                });
+
+            modelBuilder.Entity("LifeMate.Domain.Adherence.DoseAdherenceEvent", b =>
+                {
+                    b.HasOne("LifeMate.Domain.Users.AppUser", null)
+                        .WithMany()
+                        .HasForeignKey("ActorUserId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("LifeMate.Domain.Adherence.DoseOccurrence", null)
+                        .WithMany()
+                        .HasForeignKey("OccurrenceId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("LifeMate.Domain.Adherence.DoseOccurrence", b =>
+                {
+                    b.HasOne("LifeMate.Domain.Users.AppUser", null)
+                        .WithMany()
+                        .HasForeignKey("PatientUserId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("LifeMate.Domain.Treatments.TreatmentPlan", null)
+                        .WithMany()
+                        .HasForeignKey("TreatmentPlanId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
                 });
 
             modelBuilder.Entity("LifeMate.Domain.Audit.AuditLog", b =>
