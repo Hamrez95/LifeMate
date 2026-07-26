@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
+import 'package:lifemate_client/lifemate_client.dart';
 import 'package:provider/provider.dart';
 import 'package:wellmate/core/theme/app_style.dart';
 import 'package:wellmate/providers/medication_provider.dart';
@@ -10,7 +11,18 @@ import 'package:wellmate/screens/home/home_screen.dart';
 import 'localization/app_localizations.dart';
 import 'localization/locale_provider.dart';
 
-void main() {
+Future<void> main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  final config = AppConfig.fromEnvironment();
+  var authInitialized = false;
+  if (config.isConfigured) {
+    try {
+      authInitialized = await LifeMateBootstrap.initialize(config);
+    } catch (error, stackTrace) {
+      debugPrint('Supabase initialization failed: $error\n$stackTrace');
+    }
+  }
+
   runApp(
     MultiProvider(
       providers: [
@@ -19,23 +31,33 @@ void main() {
         ChangeNotifierProvider(create: (_) => SettingsProvider()),
         ChangeNotifierProvider(create: (_) => MedicationProvider()),
       ],
-      child: const WellMateApp(),
+      child: WellMateApp(
+        config: config,
+        authInitialized: authInitialized,
+      ),
     ),
   );
 }
 
 class WellMateApp extends StatelessWidget {
-  const WellMateApp({super.key, this.home});
+  const WellMateApp({
+    super.key,
+    this.home,
+    this.config,
+    this.authInitialized = false,
+  });
 
-  /// Allows tests and future app shells to supply a side-effect-free root while
-  /// production keeps the real home screen as the default.
+  /// Allows tests to supply a side-effect-free root.
   final Widget? home;
+  final AppConfig? config;
+  final bool authInitialized;
 
   @override
   Widget build(BuildContext context) {
     return Consumer2<LocaleProvider, SettingsProvider>(
       builder: (context, localeProvider, settingsProvider, child) {
         final isPersian = localeProvider.locale.languageCode == 'fa';
+        final runtimeConfig = config ?? AppConfig.fromEnvironment();
 
         return MaterialApp(
           debugShowCheckedModeBanner: false,
@@ -70,9 +92,40 @@ class WellMateApp extends StatelessWidget {
               child: child!,
             );
           },
-          home: home ?? const HomeScreen(),
+          home: home ??
+              _productionHome(
+                runtimeConfig,
+                authInitialized,
+              ),
         );
       },
+    );
+  }
+
+  static Widget _productionHome(
+    AppConfig config,
+    bool authInitialized,
+  ) {
+    if (!config.isConfigured) {
+      return ConfigurationRequiredScreen(
+        appName: 'WellMate',
+        missingValues: config.missingOrInvalidValues,
+      );
+    }
+    if (!authInitialized) {
+      return const ConfigurationRequiredScreen(
+        appName: 'WellMate',
+        missingValues: ['SUPABASE_INITIALIZATION_FAILED'],
+      );
+    }
+    return LifeMateSessionGate(
+      config: config,
+      appName: 'WellMate',
+      authenticatedBuilder: (context, apiClient) =>
+          Provider<LifeMateApiClient>.value(
+        value: apiClient,
+        child: const HomeScreen(),
+      ),
     );
   }
 }
