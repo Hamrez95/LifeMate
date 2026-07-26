@@ -1,3 +1,5 @@
+using System.Buffers.Binary;
+using System.Security.Cryptography;
 using LifeMate.Domain.Common;
 
 namespace LifeMate.Domain.Adherence;
@@ -27,7 +29,7 @@ public sealed class DoseOccurrence
         if (string.IsNullOrWhiteSpace(timeZone) || timeZone.Trim().Length > 64)
             throw new DomainException("Occurrence timezone is required.");
 
-        Id = Guid.NewGuid();
+        Id = CreateStableId(treatmentScheduleId, scheduledAtUtc);
         PatientUserId = patientUserId;
         TreatmentPlanId = treatmentPlanId;
         TreatmentScheduleId = treatmentScheduleId;
@@ -99,6 +101,16 @@ public sealed class DoseOccurrence
         Status = DoseOccurrenceStatus.Cancelled;
         Touch(utcNow);
         return true;
+    }
+
+    private static Guid CreateStableId(Guid scheduleId, DateTime scheduledAtUtc)
+    {
+        Span<byte> source = stackalloc byte[24];
+        scheduleId.TryWriteBytes(source[..16]);
+        BinaryPrimitives.WriteInt64BigEndian(source[16..], scheduledAtUtc.Ticks);
+        Span<byte> hash = stackalloc byte[32];
+        SHA256.HashData(source, hash);
+        return new Guid(hash[..16]);
     }
 
     private void Touch(DateTime utcNow)
