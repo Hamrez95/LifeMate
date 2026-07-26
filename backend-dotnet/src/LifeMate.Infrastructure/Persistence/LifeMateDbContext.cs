@@ -1,4 +1,5 @@
 using LifeMate.Application.Abstractions;
+using LifeMate.Domain.Adherence;
 using LifeMate.Domain.Audit;
 using LifeMate.Domain.Care;
 using LifeMate.Domain.Consents;
@@ -22,6 +23,8 @@ public sealed class LifeMateDbContext : DbContext, IAppDbContext
     public DbSet<Medication> Medications => Set<Medication>();
     public DbSet<TreatmentPlan> TreatmentPlans => Set<TreatmentPlan>();
     public DbSet<TreatmentSchedule> TreatmentSchedules => Set<TreatmentSchedule>();
+    public DbSet<DoseOccurrence> DoseOccurrences => Set<DoseOccurrence>();
+    public DbSet<DoseAdherenceEvent> DoseAdherenceEvents => Set<DoseAdherenceEvent>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -198,6 +201,50 @@ public sealed class LifeMateDbContext : DbContext, IAppDbContext
             b.Property(x => x.LocalTime).HasColumnName("local_time").HasColumnType("time without time zone");
             b.Property(x => x.CreatedAtUtc).HasColumnName("created_at_utc");
             b.HasIndex(x => new { x.TreatmentPlanId, x.DayOfWeek, x.LocalTime }).IsUnique();
+        });
+
+        modelBuilder.Entity<DoseOccurrence>(b =>
+        {
+            b.ToTable("dose_occurrences", table =>
+                table.HasCheckConstraint("CK_dose_occurrences_version_positive", "\"version\" > 0"));
+            b.HasKey(x => x.Id);
+            b.Property(x => x.Id).HasColumnName("id");
+            b.Property(x => x.PatientUserId).HasColumnName("patient_user_id");
+            b.HasOne<AppUser>().WithMany().HasForeignKey(x => x.PatientUserId).OnDelete(DeleteBehavior.Restrict);
+            b.Property(x => x.TreatmentPlanId).HasColumnName("treatment_plan_id");
+            b.HasOne<TreatmentPlan>().WithMany().HasForeignKey(x => x.TreatmentPlanId).OnDelete(DeleteBehavior.Restrict);
+            b.Property(x => x.TreatmentScheduleId).HasColumnName("treatment_schedule_id");
+            b.Property(x => x.ScheduledAtUtc).HasColumnName("scheduled_at_utc");
+            b.Property(x => x.ScheduledLocalDate).HasColumnName("scheduled_local_date").HasColumnType("date");
+            b.Property(x => x.ScheduledLocalTime).HasColumnName("scheduled_local_time").HasColumnType("time without time zone");
+            b.Property(x => x.TimeZone).HasColumnName("time_zone").HasMaxLength(64).IsRequired();
+            b.Property(x => x.Status).HasColumnName("status").HasConversion<string>().HasMaxLength(32);
+            b.Property(x => x.RespondedAtUtc).HasColumnName("responded_at_utc");
+            b.Property(x => x.Version).HasColumnName("version").IsConcurrencyToken();
+            b.Property(x => x.CreatedAtUtc).HasColumnName("created_at_utc");
+            b.Property(x => x.UpdatedAtUtc).HasColumnName("updated_at_utc");
+            b.HasIndex(x => new { x.TreatmentScheduleId, x.ScheduledAtUtc }).IsUnique();
+            b.HasIndex(x => new { x.PatientUserId, x.ScheduledLocalDate });
+            b.HasIndex(x => new { x.PatientUserId, x.Status, x.ScheduledAtUtc });
+        });
+
+        modelBuilder.Entity<DoseAdherenceEvent>(b =>
+        {
+            b.ToTable("dose_adherence_events");
+            b.HasKey(x => x.Id);
+            b.Property(x => x.Id).HasColumnName("id");
+            b.Property(x => x.OccurrenceId).HasColumnName("occurrence_id");
+            b.HasOne<DoseOccurrence>().WithMany().HasForeignKey(x => x.OccurrenceId).OnDelete(DeleteBehavior.Cascade);
+            b.Property(x => x.ActorUserId).HasColumnName("actor_user_id");
+            b.HasOne<AppUser>().WithMany().HasForeignKey(x => x.ActorUserId).OnDelete(DeleteBehavior.Restrict);
+            b.Property(x => x.ClientRequestId).HasColumnName("client_request_id");
+            b.Property(x => x.EventType).HasColumnName("event_type").HasConversion<string>().HasMaxLength(32);
+            b.Property(x => x.PreviousStatus).HasColumnName("previous_status").HasConversion<string>().HasMaxLength(32);
+            b.Property(x => x.ResultingStatus).HasColumnName("resulting_status").HasConversion<string>().HasMaxLength(32);
+            b.Property(x => x.OccurredAtUtc).HasColumnName("occurred_at_utc");
+            b.Property(x => x.RecordedAtUtc).HasColumnName("recorded_at_utc");
+            b.HasIndex(x => new { x.ActorUserId, x.ClientRequestId }).IsUnique();
+            b.HasIndex(x => new { x.OccurrenceId, x.RecordedAtUtc });
         });
     }
 }
