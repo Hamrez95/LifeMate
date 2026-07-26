@@ -8,10 +8,10 @@ on:
       - '.github/workflows/scaffold-care-migration.yml'
 
 permissions:
-  contents: read
+  contents: write
 
 concurrency:
-  group: scaffold-care-migration-${{ github.ref }}
+  group: scaffold-care-migration-${{ github.event.pull_request.head.ref }}
   cancel-in-progress: true
 
 jobs:
@@ -22,17 +22,35 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
+          ref: ${{ github.event.pull_request.head.ref }}
           show-progress: false
 
+      - name: Detect existing migration
+        id: migration
+        shell: bash
+        run: |
+          if compgen -G "backend-dotnet/src/LifeMate.Infrastructure/Persistence/Migrations/*_AddCareRelationships.cs" > /dev/null; then
+            echo "exists=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "exists=false" >> "$GITHUB_OUTPUT"
+          fi
+
       - uses: actions/setup-dotnet@v4
+        if: steps.migration.outputs.exists != 'true'
         with:
           dotnet-version: '10.0.x'
 
-      - run: dotnet restore backend-dotnet/LifeMate.sln --verbosity minimal
-      - run: dotnet build backend-dotnet/LifeMate.sln --configuration Release --no-restore
-      - run: dotnet tool restore
+      - if: steps.migration.outputs.exists != 'true'
+        run: dotnet restore backend-dotnet/LifeMate.sln --verbosity minimal
+
+      - if: steps.migration.outputs.exists != 'true'
+        run: dotnet build backend-dotnet/LifeMate.sln --configuration Release --no-restore
+
+      - if: steps.migration.outputs.exists != 'true'
+        run: dotnet tool restore
 
       - name: Generate canonical EF migration files
+        if: steps.migration.outputs.exists != 'true'
         env:
           ConnectionStrings__LifeMateDb: Host=localhost;Port=54329;Database=lifemate_design;Username=lifemate;Password=local_design_only
         run: |
@@ -43,9 +61,13 @@ jobs:
             --startup-project backend-dotnet/src/LifeMate.Api \
             --output-dir Persistence/Migrations
 
-      - name: Upload migration scaffold
-        uses: actions/upload-artifact@v4
-        with:
-          name: care-migration-scaffold
-          path: backend-dotnet/src/LifeMate.Infrastructure/Persistence/Migrations
-          retention-days: 1
+      - name: Commit generated migration
+        if: steps.migration.outputs.exists != 'true'
+        shell: bash
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add backend-dotnet/src/LifeMate.Infrastructure/Persistence/Migrations
+          git diff --cached --check
+          git commit -m "Add canonical care relationships migration"
+          git push origin HEAD:${{ github.event.pull_request.head.ref }}
