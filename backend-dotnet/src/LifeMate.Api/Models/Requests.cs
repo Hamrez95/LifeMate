@@ -30,3 +30,42 @@ public sealed record AcceptCareInvitationRequest(
 
 public sealed record RejectCareInvitationRequest(
     [property: Required, MaxLength(512)] string Token);
+
+public sealed record CreateMedicationRequest(
+    [property: Required, MaxLength(120)] string Name,
+    [property: MaxLength(80)] string? StrengthText,
+    [property: MaxLength(50)] string? Form,
+    [property: MaxLength(500)] string? Notes);
+
+public sealed record UpdateMedicationRequest(
+    [property: Range(1, int.MaxValue)] int Version,
+    [property: Required, MaxLength(120)] string Name,
+    [property: MaxLength(80)] string? StrengthText,
+    [property: MaxLength(50)] string? Form,
+    [property: MaxLength(500)] string? Notes);
+
+public sealed record TreatmentScheduleRequest(
+    DayOfWeek DayOfWeek,
+    TimeOnly LocalTime);
+
+public sealed record CreateTreatmentPlanRequest(
+    Guid MedicationId,
+    [property: Required, MaxLength(80)] string DoseText,
+    [property: MaxLength(500)] string? Instructions,
+    DateOnly StartDate,
+    DateOnly? EndDate,
+    [property: Required, MaxLength(64)] string TimeZone,
+    IReadOnlyCollection<TreatmentScheduleRequest> Schedules);
+
+public sealed record UpdateTreatmentPlanRequest(
+    [property: Range(1, int.MaxValue)] int Version,
+    Guid MedicationId,
+    [property: Required, MaxLength(80)] string DoseText,
+    [property: MaxLength(500)] string? Instructions,
+    DateOnly StartDate,
+    DateOnly? EndDate,
+    [property: Required, MaxLength(64)] string TimeZone,
+    IReadOnlyCollection<TreatmentScheduleRequest> Schedules);
+
+public sealed record TreatmentPlanVersionRequest(
+    [property: Range(1, int.MaxValue)] int Version);
