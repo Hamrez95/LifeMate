@@ -27,7 +27,8 @@ namespace LifeMate.Infrastructure.Persistence.Migrations
                 {
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("uuid");
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
 
                     b.Property<string>("Action")
                         .IsRequired()
@@ -72,17 +73,26 @@ namespace LifeMate.Infrastructure.Persistence.Migrations
                 {
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("uuid");
-
-                    b.Property<DateTime?>("AcceptedAtUtc")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("accepted_at_utc");
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
 
                     b.Property<string>("ContactHash")
                         .IsRequired()
                         .HasMaxLength(128)
                         .HasColumnType("character varying(128)")
                         .HasColumnName("contact_hash");
+
+                    b.Property<string>("ContactHint")
+                        .IsRequired()
+                        .HasMaxLength(160)
+                        .HasColumnType("character varying(160)")
+                        .HasColumnName("contact_hint");
+
+                    b.Property<string>("ContactType")
+                        .IsRequired()
+                        .HasMaxLength(16)
+                        .HasColumnType("character varying(16)")
+                        .HasColumnName("contact_type");
 
                     b.Property<DateTime>("CreatedAtUtc")
                         .HasColumnType("timestamp with time zone")
@@ -95,6 +105,20 @@ namespace LifeMate.Infrastructure.Persistence.Migrations
                     b.Property<Guid>("InviterUserId")
                         .HasColumnType("uuid")
                         .HasColumnName("inviter_user_id");
+
+                    b.Property<string>("PatientConsentVersion")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)")
+                        .HasColumnName("patient_consent_version");
+
+                    b.Property<DateTime?>("RespondedAtUtc")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("responded_at_utc");
+
+                    b.Property<Guid?>("RespondedByUserId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("responded_by_user_id");
 
                     b.Property<DateTime?>("RevokedAtUtc")
                         .HasColumnType("timestamp with time zone")
@@ -114,10 +138,16 @@ namespace LifeMate.Infrastructure.Persistence.Migrations
 
                     b.HasKey("Id");
 
+                    b.HasIndex("ExpiresAtUtc");
+
+                    b.HasIndex("RespondedByUserId");
+
                     b.HasIndex("TokenHash")
                         .IsUnique();
 
-                    b.HasIndex("InviterUserId", "ContactHash", "Status");
+                    b.HasIndex("InviterUserId", "ContactHash")
+                        .IsUnique()
+                        .HasFilter("\"status\" = 'Pending'");
 
                     b.ToTable("care_invitations", "lifemate");
                 });
@@ -126,19 +156,36 @@ namespace LifeMate.Infrastructure.Persistence.Migrations
                 {
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("uuid");
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<string>("CaregiverConsentVersion")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)")
+                        .HasColumnName("caregiver_consent_version");
+
+                    b.Property<DateTime>("CaregiverConsentedAtUtc")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("caregiver_consented_at_utc");
 
                     b.Property<Guid>("CaregiverUserId")
                         .HasColumnType("uuid")
                         .HasColumnName("caregiver_user_id");
 
-                    b.Property<DateTime>("ConsentedAtUtc")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("consented_at_utc");
-
                     b.Property<DateTime>("CreatedAtUtc")
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("created_at_utc");
+
+                    b.Property<string>("PatientConsentVersion")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)")
+                        .HasColumnName("patient_consent_version");
+
+                    b.Property<DateTime>("PatientConsentedAtUtc")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("patient_consented_at_utc");
 
                     b.Property<Guid>("PatientUserId")
                         .HasColumnType("uuid")
@@ -147,6 +194,10 @@ namespace LifeMate.Infrastructure.Persistence.Migrations
                     b.Property<DateTime?>("RevokedAtUtc")
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("revoked_at_utc");
+
+                    b.Property<Guid?>("RevokedByUserId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("revoked_by_user_id");
 
                     b.Property<string>("Status")
                         .IsRequired()
@@ -162,8 +213,11 @@ namespace LifeMate.Infrastructure.Persistence.Migrations
 
                     b.HasIndex("CaregiverUserId");
 
-                    b.HasIndex("PatientUserId", "CaregiverUserId", "Status")
-                        .IsUnique();
+                    b.HasIndex("RevokedByUserId");
+
+                    b.HasIndex("PatientUserId", "CaregiverUserId")
+                        .IsUnique()
+                        .HasFilter("\"status\" = 'Active'");
 
                     b.ToTable("care_relationships", "lifemate");
                 });
@@ -172,7 +226,8 @@ namespace LifeMate.Infrastructure.Persistence.Migrations
                 {
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("uuid");
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
 
                     b.Property<DateTime>("CreatedAtUtc")
                         .HasColumnType("timestamp with time zone")
@@ -322,6 +377,11 @@ namespace LifeMate.Infrastructure.Persistence.Migrations
                         .HasForeignKey("InviterUserId")
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
+
+                    b.HasOne("LifeMate.Domain.Users.AppUser", null)
+                        .WithMany()
+                        .HasForeignKey("RespondedByUserId")
+                        .OnDelete(DeleteBehavior.Restrict);
                 });
 
             modelBuilder.Entity("LifeMate.Domain.Care.CareRelationship", b =>
@@ -337,6 +397,11 @@ namespace LifeMate.Infrastructure.Persistence.Migrations
                         .HasForeignKey("PatientUserId")
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
+
+                    b.HasOne("LifeMate.Domain.Users.AppUser", null)
+                        .WithMany()
+                        .HasForeignKey("RevokedByUserId")
+                        .OnDelete(DeleteBehavior.Restrict);
                 });
 
             modelBuilder.Entity("LifeMate.Domain.Consents.PrivacyConsent", b =>
