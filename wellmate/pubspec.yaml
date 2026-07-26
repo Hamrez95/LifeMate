@@ -7,6 +7,8 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
+  lifemate_client:
+    path: ../packages/lifemate_client
   flutter_local_notifications: ^19.5.0
   cupertino_icons: ^1.0.2
   provider: ^6.0.5
