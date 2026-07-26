@@ -98,24 +98,46 @@ public sealed class AdherenceService
         var now = _clock.UtcNow;
         foreach (var occurrence in occurrences)
         {
-            var isStillScheduled = desired.ContainsKey(
+            var belongsToCurrentSchedule = desired.ContainsKey(
                 (occurrence.TreatmentScheduleId, occurrence.ScheduledAtUtc));
-            if (!isStillScheduled && occurrence.Status is DoseOccurrenceStatus.Scheduled or DoseOccurrenceStatus.Missed)
-            {
-                occurrence.Cancel(now);
-                continue;
-            }
-
-            if (occurrence.Status == DoseOccurrenceStatus.Scheduled
+            if (belongsToCurrentSchedule
+                && occurrence.Status == DoseOccurrenceStatus.Scheduled
                 && occurrence.ScheduledAtUtc.Add(MissedGracePeriod) <= now)
             {
                 occurrence.MarkMissed(now);
             }
         }
 
-        await _db.SaveChangesAsync(cancellationToken);
+        try
+        {
+            await _db.SaveChangesAsync(cancellationToken);
+        }
+        catch (DbUpdateException)
+        {
+            // Deterministic ids and the database unique key make concurrent materialization safe.
+            // If another request won the race, return the committed projection; otherwise preserve
+            // the original database failure instead of masking an operational defect.
+            var committed = await _db.DoseOccurrences
+                .AsNoTracking()
+                .Where(x => x.PatientUserId == user.Id
+                    && x.ScheduledLocalDate >= command.FromDate
+                    && x.ScheduledLocalDate <= command.ToDate)
+                .ToListAsync(cancellationToken);
+            var committedKeys = committed
+                .Select(x => (x.TreatmentScheduleId, x.ScheduledAtUtc))
+                .ToHashSet();
+            if (!desired.Keys.All(committedKeys.Contains)) throw;
+
+            return AdherenceResult<IReadOnlyCollection<DoseOccurrenceDto>>.Success(
+                Visible(committed, desired)
+                    .OrderBy(x => x.ScheduledAtUtc)
+                    .ThenBy(x => x.Id)
+                    .Select(Map)
+                    .ToArray());
+        }
+
         return AdherenceResult<IReadOnlyCollection<DoseOccurrenceDto>>.Success(
-            occurrences
+            Visible(occurrences, desired)
                 .OrderBy(x => x.ScheduledAtUtc)
                 .ThenBy(x => x.Id)
                 .Select(Map)
@@ -234,6 +256,15 @@ public sealed class AdherenceService
             JsonSerializer.Serialize(new { version }),
             _clock.UtcNow));
     }
+
+    private static IEnumerable<DoseOccurrence> Visible(
+        IEnumerable<DoseOccurrence> occurrences,
+        IReadOnlyDictionary<(Guid ScheduleId, DateTime ScheduledAtUtc), GeneratedDoseOccurrence> desired) =>
+        occurrences.Where(x =>
+            desired.ContainsKey((x.TreatmentScheduleId, x.ScheduledAtUtc))
+            || x.Status is DoseOccurrenceStatus.Taken
+                or DoseOccurrenceStatus.Skipped
+                or DoseOccurrenceStatus.Missed);
 
     private static DoseOccurrenceDto Map(DoseOccurrence value) => new(
         value.Id,
