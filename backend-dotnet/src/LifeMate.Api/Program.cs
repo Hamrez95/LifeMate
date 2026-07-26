@@ -18,7 +18,7 @@ builder.Services.AddProblemDetails();
 builder.Services.AddOpenApi();
 builder.Services.ConfigureHttpJsonOptions(options =>
     options.SerializerOptions.Converters.Add(
-        new JsonStringEnumConverter(JsonNamingPolicy.CamelCase)));
+        new JsonStringEnumConverter(JsonNamingPolicy.CamelCase, allowIntegerValues: false)));
 builder.Services.AddHealthChecks().AddDbContextCheck<LifeMateDbContext>("postgresql");
 builder.Services.AddLifeMateInfrastructure(builder.Configuration);
 
@@ -110,6 +110,7 @@ app.MapHealthChecks("/health/live", new HealthCheckOptions { Predicate = _ => fa
 app.MapHealthChecks("/health/ready").AllowAnonymous();
 app.MapUserEndpoints();
 app.MapCareEndpoints();
+app.MapTreatmentEndpoints();
 app.Run();
 
 public partial class Program
