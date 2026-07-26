@@ -2,6 +2,7 @@ using LifeMate.Domain.Audit;
 using LifeMate.Domain.Care;
 using LifeMate.Domain.Consents;
 using LifeMate.Domain.Profiles;
+using LifeMate.Domain.Treatments;
 using LifeMate.Domain.Users;
 using Microsoft.EntityFrameworkCore;
 
@@ -15,5 +16,8 @@ public interface IAppDbContext
     DbSet<AuditLog> AuditLogs { get; }
     DbSet<CareInvitation> CareInvitations { get; }
     DbSet<CareRelationship> CareRelationships { get; }
+    DbSet<Medication> Medications { get; }
+    DbSet<TreatmentPlan> TreatmentPlans { get; }
+    DbSet<TreatmentSchedule> TreatmentSchedules { get; }
     Task<int> SaveChangesAsync(CancellationToken cancellationToken = default);
 }
