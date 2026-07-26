@@ -27,7 +27,7 @@ public sealed class CareService
         CreateCareInvitationCommand command,
         CancellationToken cancellationToken)
     {
-        if (!command.ConfirmedPatientConsent)
+        if (!command.ConfirmedPatientConsent || string.IsNullOrWhiteSpace(command.PatientConsentVersion))
         {
             return CareResult<CareInvitationCreatedDto>.Failure(
                 CareErrorKind.Validation,
@@ -52,7 +52,7 @@ public sealed class CareService
         if (user is null) return NotOnboarded<CareInvitationCreatedDto>();
 
         var contactHash = _secrets.HashContact(contact.CanonicalValue);
-        if (GetIdentityContactHashes(command.Identity).Contains(contactHash, StringComparer.Ordinal))
+        if (GetIdentityContactHashes(command.Identity).Contains(contactHash))
         {
             return CareResult<CareInvitationCreatedDto>.Failure(
                 CareErrorKind.Validation,
@@ -67,7 +67,12 @@ public sealed class CareService
                 && x.Status == CareInvitationStatus.Pending)
             .ToListAsync(cancellationToken);
 
-        foreach (var stale in existing.Where(x => x.IsExpired(now))) stale.Expire(now);
+        var expiredChanged = false;
+        foreach (var stale in existing.Where(x => x.IsExpired(now)))
+        {
+            expiredChanged |= stale.Expire(now);
+        }
+
         if (existing.Any(x => x.Status == CareInvitationStatus.Pending))
         {
             return CareResult<CareInvitationCreatedDto>.Failure(
@@ -108,6 +113,7 @@ public sealed class CareService
                 "The invitation could not be created because a conflicting request already exists.");
         }
 
+        _ = expiredChanged;
         return CareResult<CareInvitationCreatedDto>.Success(new CareInvitationCreatedDto(
             invitation.Id,
             invitation.ContactType,
@@ -132,34 +138,17 @@ public sealed class CareService
             .ToListAsync(cancellationToken);
 
         IReadOnlyList<CareInvitationDto> result = invitations
-            .Select(x => new CareInvitationDto(
-                x.Id,
-                x.ContactType,
-                x.ContactHint,
-                x.Status == CareInvitationStatus.Pending && x.IsExpired(now)
-                    ? CareInvitationStatus.Expired.ToString().ToLowerInvariant()
-                    : x.Status.ToString().ToLowerInvariant(),
-                x.ExpiresAtUtc,
-                x.CreatedAtUtc))
+            .Select(x => MapInvitation(x, now))
             .ToList();
 
         return CareResult<IReadOnlyList<CareInvitationDto>>.Success(result);
     }
 
-    public async Task<CareResult<CareRelationshipDto>> RespondToInvitationAsync(
-        RespondToCareInvitationCommand command,
+    public async Task<CareResult<CareRelationshipDto>> AcceptInvitationAsync(
+        AcceptCareInvitationCommand command,
         CancellationToken cancellationToken)
     {
-        if (string.IsNullOrWhiteSpace(command.Token) || command.Token.Length > 512)
-        {
-            return CareResult<CareRelationshipDto>.Failure(
-                CareErrorKind.Validation,
-                "invalid_invitation_token",
-                "Invitation token is invalid.");
-        }
-
-        if (command.Accept
-            && (!command.ConfirmedCaregiverConsent || string.IsNullOrWhiteSpace(command.CaregiverConsentVersion)))
+        if (!command.ConfirmedCaregiverConsent || string.IsNullOrWhiteSpace(command.CaregiverConsentVersion))
         {
             return CareResult<CareRelationshipDto>.Failure(
                 CareErrorKind.Validation,
@@ -167,100 +156,61 @@ public sealed class CareService
                 "The caregiver must explicitly consent before accepting access.");
         }
 
-        var user = await FindActiveUserAsync(command.Identity.AuthSubject, cancellationToken);
-        if (user is null) return NotOnboarded<CareRelationshipDto>();
-
-        var tokenHash = _secrets.HashToken(command.Token.Trim());
-        var invitation = await _db.CareInvitations
-            .SingleOrDefaultAsync(x => x.TokenHash == tokenHash, cancellationToken);
-
-        if (invitation is null)
+        var access = await ResolveInvitationAsync(command.Identity, command.Token, cancellationToken);
+        if (!access.Succeeded)
         {
             return CareResult<CareRelationshipDto>.Failure(
-                CareErrorKind.NotFound,
-                "invitation_not_found",
-                "Invitation is invalid or no longer available.");
+                access.ErrorKind!.Value,
+                access.ErrorCode!,
+                access.ErrorMessage!);
         }
 
-        var now = _clock.UtcNow;
-        if (invitation.IsExpired(now))
-        {
-            invitation.Expire(now);
-            await _db.SaveChangesAsync(cancellationToken);
-            return CareResult<CareRelationshipDto>.Failure(
-                CareErrorKind.Gone,
-                "invitation_expired",
-                "Invitation has expired.");
-        }
+        var context = access.Value!;
+        var activeRelationship = await _db.CareRelationships.SingleOrDefaultAsync(
+            x => x.PatientUserId == context.Invitation.InviterUserId
+                && x.CaregiverUserId == context.User.Id
+                && x.Status == CareRelationshipStatus.Active,
+            cancellationToken);
 
-        if (!GetIdentityContactHashes(command.Identity).Contains(invitation.ContactHash, StringComparer.Ordinal))
+        if (activeRelationship is not null)
         {
             return CareResult<CareRelationshipDto>.Failure(
-                CareErrorKind.Forbidden,
-                "invitation_contact_mismatch",
-                "This invitation was issued to a different authenticated contact.");
+                CareErrorKind.Conflict,
+                "relationship_already_active",
+                "An active care relationship already exists.");
         }
 
         try
         {
-            if (!command.Accept)
-            {
-                invitation.Reject(user.Id, now);
-                _db.AuditLogs.Add(new AuditLog(
-                    user.Id,
-                    "care_invitation.rejected",
-                    "care_invitation",
-                    invitation.Id,
-                    null,
-                    now));
-                await _db.SaveChangesAsync(cancellationToken);
-
-                return CareResult<CareRelationshipDto>.Failure(
-                    CareErrorKind.Conflict,
-                    "invitation_rejected",
-                    "Invitation was rejected and no relationship was created.");
-            }
-
-            var activeRelationship = await _db.CareRelationships
-                .SingleOrDefaultAsync(x =>
-                    x.PatientUserId == invitation.InviterUserId
-                    && x.CaregiverUserId == user.Id
-                    && x.Status == CareRelationshipStatus.Active,
-                    cancellationToken);
-
-            if (activeRelationship is not null)
-            {
-                return CareResult<CareRelationshipDto>.Failure(
-                    CareErrorKind.Conflict,
-                    "relationship_already_active",
-                    "An active care relationship already exists.");
-            }
-
-            invitation.Accept(user.Id, now);
+            context.Invitation.Accept(context.User.Id, context.Now);
             var relationship = new CareRelationship(
-                invitation.InviterUserId,
-                user.Id,
-                invitation.PatientConsentVersion,
-                invitation.CreatedAtUtc,
-                command.CaregiverConsentVersion!,
-                now,
-                now);
+                context.Invitation.InviterUserId,
+                context.User.Id,
+                context.Invitation.PatientConsentVersion,
+                context.Invitation.CreatedAtUtc,
+                command.CaregiverConsentVersion,
+                context.Now,
+                context.Now);
 
             _db.CareRelationships.Add(relationship);
             _db.AuditLogs.Add(new AuditLog(
-                user.Id,
+                context.User.Id,
                 "care_invitation.accepted",
                 "care_invitation",
-                invitation.Id,
+                context.Invitation.Id,
                 null,
-                now));
+                context.Now));
             _db.AuditLogs.Add(new AuditLog(
-                user.Id,
+                context.User.Id,
                 "care_relationship.created",
                 "care_relationship",
                 relationship.Id,
-                JsonSerializer.Serialize(new { relationship.PatientUserId, relationship.CaregiverUserId }),
-                now));
+                JsonSerializer.Serialize(new
+                {
+                    relationship.PatientUserId,
+                    relationship.CaregiverUserId
+                }),
+                context.Now));
 
             await _db.SaveChangesAsync(cancellationToken);
             return CareResult<CareRelationshipDto>.Success(
@@ -279,6 +229,42 @@ public sealed class CareService
                 CareErrorKind.Conflict,
                 "relationship_conflict",
                 "The invitation response conflicted with another request.");
+        }
+    }
+
+    public async Task<CareResult<CareInvitationDto>> RejectInvitationAsync(
+        RejectCareInvitationCommand command,
+        CancellationToken cancellationToken)
+    {
+        var access = await ResolveInvitationAsync(command.Identity, command.Token, cancellationToken);
+        if (!access.Succeeded)
+        {
+            return CareResult<CareInvitationDto>.Failure(
+                access.ErrorKind!.Value,
+                access.ErrorCode!,
+                access.ErrorMessage!);
+        }
+
+        var context = access.Value!;
+        try
+        {
+            context.Invitation.Reject(context.User.Id, context.Now);
+            _db.AuditLogs.Add(new AuditLog(
+                context.User.Id,
+                "care_invitation.rejected",
+                "care_invitation",
+                context.Invitation.Id,
+                null,
+                context.Now));
+            await _db.SaveChangesAsync(cancellationToken);
+            return CareResult<CareInvitationDto>.Success(MapInvitation(context.Invitation, context.Now));
+        }
+        catch (DomainException exception)
+        {
+            return CareResult<CareInvitationDto>.Failure(
+                CareErrorKind.Conflict,
+                "invitation_not_actionable",
+                exception.Message);
         }
     }
 
@@ -322,8 +308,10 @@ public sealed class CareService
         var user = await FindActiveUserAsync(identity.AuthSubject, cancellationToken);
         if (user is null) return NotOnboarded<CareInvitationDto>();
 
-        var invitation = await _db.CareInvitations
-            .SingleOrDefaultAsync(x => x.Id == invitationId && x.InviterUserId == user.Id, cancellationToken);
+        var invitation = await _db.CareInvitations.SingleOrDefaultAsync(
+            x => x.Id == invitationId && x.InviterUserId == user.Id,
+            cancellationToken);
+
         if (invitation is null)
         {
             return CareResult<CareInvitationDto>.Failure(
@@ -335,8 +323,7 @@ public sealed class CareService
         var now = _clock.UtcNow;
         try
         {
-            var changed = invitation.Revoke(now);
-            if (changed)
+            if (invitation.Revoke(now))
             {
                 _db.AuditLogs.Add(new AuditLog(
                     user.Id,
@@ -371,6 +358,7 @@ public sealed class CareService
             x => x.Id == relationshipId
                 && (x.PatientUserId == user.Id || x.CaregiverUserId == user.Id),
             cancellationToken);
+
         if (relationship is null)
         {
             return CareResult<CareRelationshipDto>.Failure(
@@ -382,8 +370,7 @@ public sealed class CareService
         var now = _clock.UtcNow;
         try
         {
-            var changed = relationship.Revoke(user.Id, now);
-            if (changed)
+            if (relationship.Revoke(user.Id, now))
             {
                 _db.AuditLogs.Add(new AuditLog(
                     user.Id,
@@ -407,9 +394,70 @@ public sealed class CareService
             await MapRelationshipAsync(relationship, cancellationToken));
     }
 
-    private async Task<AppUser?> FindActiveUserAsync(string authSubject, CancellationToken cancellationToken)
+    private async Task<CareResult<InvitationAccess>> ResolveInvitationAsync(
+        AuthenticatedCareIdentity identity,
+        string token,
+        CancellationToken cancellationToken)
+    {
+        if (string.IsNullOrWhiteSpace(token) || token.Length > 512)
+        {
+            return CareResult<InvitationAccess>.Failure(
+                CareErrorKind.Validation,
+                "invalid_invitation_token",
+                "Invitation token is invalid.");
+        }
+
+        var user = await FindActiveUserAsync(identity.AuthSubject, cancellationToken);
+        if (user is null) return NotOnboarded<InvitationAccess>();
+
+        var tokenHash = _secrets.HashToken(token.Trim());
+        var invitation = await _db.CareInvitations.SingleOrDefaultAsync(
+            x => x.TokenHash == tokenHash,
+            cancellationToken);
+
+        if (invitation is null)
+        {
+            return CareResult<InvitationAccess>.Failure(
+                CareErrorKind.NotFound,
+                "invitation_not_found",
+                "Invitation is invalid or no longer available.");
+        }
+
+        var now = _clock.UtcNow;
+        if (invitation.IsExpired(now))
+        {
+            if (invitation.Expire(now)) await _db.SaveChangesAsync(cancellationToken);
+            return CareResult<InvitationAccess>.Failure(
+                CareErrorKind.Gone,
+                "invitation_expired",
+                "Invitation has expired.");
+        }
+
+        if (invitation.Status != CareInvitationStatus.Pending)
+        {
+            return CareResult<InvitationAccess>.Failure(
+                CareErrorKind.Conflict,
+                "invitation_not_pending",
+                "Invitation has already been responded to or revoked.");
+        }
+
+        if (!GetIdentityContactHashes(identity).Contains(invitation.ContactHash))
+        {
+            return CareResult<InvitationAccess>.Failure(
+                CareErrorKind.Forbidden,
+                "invitation_contact_mismatch",
+                "This invitation was issued to a different authenticated contact.");
+        }
+
+        return CareResult<InvitationAccess>.Success(new InvitationAccess(user, invitation, now));
+    }
+
+    private async Task<AppUser?> FindActiveUserAsync(
+        string authSubject,
+        CancellationToken cancellationToken)
     {
         if (string.IsNullOrWhiteSpace(authSubject)) return null;
+
         return await _db.Users.SingleOrDefaultAsync(
             x => x.AuthSubject == authSubject.Trim() && x.Status == AppUserStatus.Active,
             cancellationToken);
@@ -423,16 +471,20 @@ public sealed class CareService
         return hashes;
     }
 
-    private void TryAddIdentityContact(HashSet<string> hashes, CareContactType type, string? value)
+    private void TryAddIdentityContact(
+        HashSet<string> hashes,
+        CareContactType type,
+        string? value)
     {
         if (string.IsNullOrWhiteSpace(value)) return;
+
         try
         {
             hashes.Add(_secrets.HashContact(CareContact.Normalize(type, value).CanonicalValue));
         }
         catch (DomainException)
         {
-            // Invalid optional identity claims are ignored; a valid matching claim is still required.
+            // Invalid optional identity claims are ignored; a valid matching claim remains mandatory.
         }
     }
 
@@ -473,4 +525,9 @@ public sealed class CareService
         CareErrorKind.NotFound,
         "not_onboarded",
         "Bootstrap is required before using care relationships.");
+
+    private sealed record InvitationAccess(
+        AppUser User,
+        CareInvitation Invitation,
+        DateTime Now);
 }
