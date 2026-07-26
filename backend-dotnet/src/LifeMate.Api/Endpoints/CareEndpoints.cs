@@ -37,6 +37,14 @@ public static class CareEndpoints
         CareService care,
         CancellationToken cancellationToken)
     {
+        if (!string.Equals(
+                request.ConsentVersion,
+                CareConsentPolicy.PatientVersion,
+                StringComparison.Ordinal))
+        {
+            return ConsentVersionProblem("unsupported_patient_consent_version");
+        }
+
         var result = await care.CreateInvitationAsync(
             new CreateCareInvitationCommand(
                 GetIdentity(principal),
@@ -68,6 +76,14 @@ public static class CareEndpoints
         CareService care,
         CancellationToken cancellationToken)
     {
+        if (!string.Equals(
+                request.ConsentVersion,
+                CareConsentPolicy.CaregiverVersion,
+                StringComparison.Ordinal))
+        {
+            return ConsentVersionProblem("unsupported_caregiver_consent_version");
+        }
+
         var result = await care.AcceptInvitationAsync(
             new AcceptCareInvitationCommand(
                 GetIdentity(principal),
@@ -141,6 +157,15 @@ public static class CareEndpoints
 
         return new AuthenticatedCareIdentity(subject, email, phone);
     }
+
+    private static IResult ConsentVersionProblem(string code) =>
+        Results.Problem(new ProblemDetails
+        {
+            Status = StatusCodes.Status400BadRequest,
+            Title = code,
+            Detail = "The consent document version is not supported by this API version.",
+            Extensions = { ["code"] = code }
+        });
 
     private static IResult ToProblem<T>(CareResult<T> result)
     {
