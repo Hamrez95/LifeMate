@@ -131,12 +131,14 @@ class LifeMateApiClient {
     switch (method) {
       case 'GET':
         response = await _http.get(uri, headers: headers);
+        break;
       case 'POST':
         response = await _http.post(
           uri,
           headers: headers,
           body: body == null ? null : jsonEncode(body),
         );
+        break;
       default:
         throw ArgumentError.value(method, 'method', 'Unsupported HTTP method');
     }
