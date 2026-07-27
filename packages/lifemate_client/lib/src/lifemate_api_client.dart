@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:math';
 
@@ -34,6 +35,7 @@ class LifeMateApiClient {
   final Uri _baseUri;
   final AccessTokenProvider _accessToken;
   final http.Client _http;
+  static const _requestTimeout = Duration(seconds: 20);
 
   static String createClientRequestId() {
     final bytes = List<int>.generate(16, (_) => Random.secure().nextInt(256));
@@ -45,13 +47,13 @@ class LifeMateApiClient {
         '${hex.substring(20)}';
   }
 
-  Future<void> bootstrapUser({
+  Future<Map<String, dynamic>> bootstrapUser({
     required String? displayName,
     required String? email,
     String locale = 'fa',
     String timeZone = 'Asia/Tehran',
   }) async {
-    await _send(
+    final value = await _send(
       'POST',
       '/api/v1/users/bootstrap',
       body: {
@@ -62,7 +64,11 @@ class LifeMateApiClient {
         'timeZone': timeZone,
       },
     );
+    return _asObject(value);
   }
+
+  Future<Map<String, dynamic>> getCurrentUser() async =>
+      _asObject(await _send('GET', '/api/v1/me'));
 
   Future<List<Map<String, dynamic>>> getMedications() =>
       _getList('/api/v1/medications');
@@ -105,6 +111,59 @@ class LifeMateApiClient {
   Future<List<Map<String, dynamic>>> getCareRelationships() =>
       _getList('/api/v1/care/relationships');
 
+  Future<Map<String, dynamic>> createCareInvitation({
+    required String email,
+  }) async =>
+      _asObject(
+        await _send(
+          'POST',
+          '/api/v1/care/invitations',
+          body: {
+            'contactType': 'email',
+            'contact': email.trim(),
+            'consentVersion': 'care-patient-consent-v1',
+            'confirmConsent': true,
+          },
+        ),
+      );
+
+  Future<List<Map<String, dynamic>>> getOutgoingCareInvitations() =>
+      _getList('/api/v1/care/invitations');
+
+  Future<Map<String, dynamic>> acceptCareInvitation({
+    required String token,
+  }) async =>
+      _asObject(
+        await _send(
+          'POST',
+          '/api/v1/care/invitations/accept',
+          body: {
+            'token': token.trim(),
+            'consentVersion': 'care-caregiver-consent-v1',
+            'confirmConsent': true,
+          },
+        ),
+      );
+
+  Future<void> revokeCareRelationship({
+    required String relationshipId,
+  }) async {
+    await _send('DELETE', '/api/v1/care/relationships/$relationshipId');
+  }
+
+  Future<List<Map<String, dynamic>>> getCareRecipientDoseOccurrences({
+    required String patientUserId,
+    required DateTime fromDate,
+    required DateTime toDate,
+  }) =>
+      _getList(
+        '/api/v1/care/patients/$patientUserId/dose-occurrences',
+        query: {
+          'fromDate': _date(fromDate),
+          'toDate': _date(toDate),
+        },
+      );
+
   Future<List<Map<String, dynamic>>> _getList(
     String path, {
     Map<String, String>? query,
@@ -141,20 +200,36 @@ class LifeMateApiClient {
     late final http.Response response;
     switch (method) {
       case 'GET':
-        response = await _http.get(uri, headers: headers);
+        response =
+            await _http.get(uri, headers: headers).timeout(_requestTimeout);
         break;
       case 'POST':
         response = await _http.post(
           uri,
           headers: headers,
           body: body == null ? null : jsonEncode(body),
-        );
+        ).timeout(_requestTimeout);
+        break;
+      case 'DELETE':
+        response =
+            await _http.delete(uri, headers: headers).timeout(_requestTimeout);
         break;
       default:
         throw ArgumentError.value(method, 'method', 'Unsupported HTTP method');
     }
 
-    final decoded = response.body.isEmpty ? null : jsonDecode(response.body);
+    dynamic decoded;
+    if (response.body.isNotEmpty) {
+      try {
+        decoded = jsonDecode(response.body);
+      } on FormatException {
+        if (response.statusCode >= 200 && response.statusCode < 300) {
+          throw const FormatException(
+            'LifeMate API returned an invalid JSON payload.',
+          );
+        }
+      }
+    }
     if (response.statusCode >= 200 && response.statusCode < 300) return decoded;
 
     final problem = decoded is Map<String, dynamic> ? decoded : const {};

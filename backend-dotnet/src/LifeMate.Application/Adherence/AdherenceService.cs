@@ -2,6 +2,7 @@ using System.Text.Json;
 using LifeMate.Application.Abstractions;
 using LifeMate.Domain.Adherence;
 using LifeMate.Domain.Audit;
+using LifeMate.Domain.Care;
 using LifeMate.Domain.Common;
 using LifeMate.Domain.Treatments;
 using LifeMate.Domain.Users;
@@ -28,20 +29,118 @@ public sealed class AdherenceService
         var user = await GetCurrentUserAsync(command.Identity, cancellationToken);
         if (user is null) return NotOnboarded<IReadOnlyCollection<DoseOccurrenceDto>>();
 
-        if (command.ToDate < command.FromDate)
+        return await ListForPatientAsync(
+            user,
+            command.FromDate,
+            command.ToDate,
+            cancellationToken);
+    }
+
+    public async Task<AdherenceResult<IReadOnlyCollection<CareRecipientDoseOccurrenceDto>>>
+        ListForCaregiverAsync(
+            ListCareRecipientDoseOccurrencesCommand command,
+            CancellationToken cancellationToken)
+    {
+        var caregiver = await GetCurrentUserAsync(command.Identity, cancellationToken);
+        if (caregiver is null)
+            return NotOnboarded<IReadOnlyCollection<CareRecipientDoseOccurrenceDto>>();
+
+        var hasActiveConsent = await _db.CareRelationships
+            .AsNoTracking()
+            .AnyAsync(
+                x => x.PatientUserId == command.PatientUserId
+                    && x.CaregiverUserId == caregiver.Id
+                    && x.Status == CareRelationshipStatus.Active,
+                cancellationToken);
+        if (!hasActiveConsent)
+        {
+            return Forbidden<IReadOnlyCollection<CareRecipientDoseOccurrenceDto>>(
+                "care_access_denied",
+                "An active patient-caregiver relationship is required.");
+        }
+
+        var patient = await _db.Users.SingleOrDefaultAsync(
+            x => x.Id == command.PatientUserId && x.Status == AppUserStatus.Active,
+            cancellationToken);
+        if (patient is null)
+            return NotFound<IReadOnlyCollection<CareRecipientDoseOccurrenceDto>>(
+                "patient_not_found",
+                "Patient was not found.");
+
+        var doses = await ListForPatientAsync(
+            patient,
+            command.FromDate,
+            command.ToDate,
+            cancellationToken);
+        if (!doses.Succeeded)
+        {
+            return AdherenceResult<IReadOnlyCollection<CareRecipientDoseOccurrenceDto>>.Failure(
+                doses.ErrorKind!.Value,
+                doses.ErrorCode!,
+                doses.ErrorMessage!);
+        }
+
+        var planIds = doses.Value!
+            .Select(x => x.TreatmentPlanId)
+            .Distinct()
+            .ToArray();
+        var treatmentDetails = await (
+            from plan in _db.TreatmentPlans.AsNoTracking()
+            join medication in _db.Medications.AsNoTracking()
+                on plan.MedicationId equals medication.Id
+            where plan.PatientUserId == patient.Id && planIds.Contains(plan.Id)
+            select new
+            {
+                plan.Id,
+                MedicationName = medication.Name,
+                plan.DoseText
+            })
+            .ToDictionaryAsync(x => x.Id, cancellationToken);
+
+        IReadOnlyCollection<CareRecipientDoseOccurrenceDto> result = doses.Value!
+            .Where(x => treatmentDetails.ContainsKey(x.TreatmentPlanId))
+            .Select(x =>
+            {
+                var detail = treatmentDetails[x.TreatmentPlanId];
+                return new CareRecipientDoseOccurrenceDto(
+                    x.Id,
+                    x.TreatmentPlanId,
+                    x.TreatmentScheduleId,
+                    detail.MedicationName,
+                    detail.DoseText,
+                    x.ScheduledAtUtc,
+                    x.ScheduledLocalDate,
+                    x.ScheduledLocalTime,
+                    x.TimeZone,
+                    x.Status,
+                    x.RespondedAtUtc,
+                    x.Version);
+            })
+            .ToArray();
+        return AdherenceResult<IReadOnlyCollection<CareRecipientDoseOccurrenceDto>>.Success(result);
+    }
+
+    private async Task<AdherenceResult<IReadOnlyCollection<DoseOccurrenceDto>>>
+        ListForPatientAsync(
+            AppUser patient,
+            DateOnly fromDate,
+            DateOnly toDate,
+            CancellationToken cancellationToken)
+    {
+        if (toDate < fromDate)
             return Validation<IReadOnlyCollection<DoseOccurrenceDto>>(
                 "invalid_range",
                 "Dose range end cannot be before its start.");
-        if (command.ToDate.DayNumber - command.FromDate.DayNumber + 1 > DoseOccurrenceGenerator.MaximumRangeDays)
+        if (toDate.DayNumber - fromDate.DayNumber + 1 > DoseOccurrenceGenerator.MaximumRangeDays)
             return Validation<IReadOnlyCollection<DoseOccurrenceDto>>(
                 "range_too_large",
                 $"Dose range cannot exceed {DoseOccurrenceGenerator.MaximumRangeDays} days.");
 
         var plans = await _db.TreatmentPlans
             .AsNoTracking()
-            .Where(x => x.PatientUserId == user.Id
-                && x.StartDate <= command.ToDate
-                && (!x.EndDate.HasValue || x.EndDate.Value >= command.FromDate))
+            .Where(x => x.PatientUserId == patient.Id
+                && x.StartDate <= toDate
+                && (!x.EndDate.HasValue || x.EndDate.Value >= fromDate))
             .ToListAsync(cancellationToken);
         var planIds = plans.Select(x => x.Id).ToArray();
         var schedules = await _db.TreatmentSchedules
@@ -57,8 +156,8 @@ public sealed class AdherenceService
                 var generated = DoseOccurrenceGenerator.Generate(
                     plan,
                     schedules.Where(x => x.TreatmentPlanId == plan.Id).ToArray(),
-                    command.FromDate,
-                    command.ToDate);
+                    fromDate,
+                    toDate);
                 foreach (var value in generated.Occurrences)
                     desired[(value.TreatmentScheduleId, value.ScheduledAtUtc)] = value;
             }
@@ -71,9 +170,9 @@ public sealed class AdherenceService
         }
 
         var occurrences = await _db.DoseOccurrences
-            .Where(x => x.PatientUserId == user.Id
-                && x.ScheduledLocalDate >= command.FromDate
-                && x.ScheduledLocalDate <= command.ToDate)
+            .Where(x => x.PatientUserId == patient.Id
+                && x.ScheduledLocalDate >= fromDate
+                && x.ScheduledLocalDate <= toDate)
             .ToListAsync(cancellationToken);
         var existingKeys = occurrences
             .Select(x => (x.TreatmentScheduleId, x.ScheduledAtUtc))
@@ -83,7 +182,7 @@ public sealed class AdherenceService
                      !existingKeys.Contains((x.TreatmentScheduleId, x.ScheduledAtUtc))))
         {
             var occurrence = new DoseOccurrence(
-                user.Id,
+                patient.Id,
                 item.TreatmentPlanId,
                 item.TreatmentScheduleId,
                 item.ScheduledAtUtc,
@@ -119,9 +218,9 @@ public sealed class AdherenceService
             // the original database failure instead of masking an operational defect.
             var committed = await _db.DoseOccurrences
                 .AsNoTracking()
-                .Where(x => x.PatientUserId == user.Id
-                    && x.ScheduledLocalDate >= command.FromDate
-                    && x.ScheduledLocalDate <= command.ToDate)
+                .Where(x => x.PatientUserId == patient.Id
+                    && x.ScheduledLocalDate >= fromDate
+                    && x.ScheduledLocalDate <= toDate)
                 .ToListAsync(cancellationToken);
             var committedKeys = committed
                 .Select(x => (x.TreatmentScheduleId, x.ScheduledAtUtc))
@@ -283,6 +382,9 @@ public sealed class AdherenceService
 
     private static AdherenceResult<T> NotFound<T>(string code, string message) =>
         AdherenceResult<T>.Failure(AdherenceErrorKind.NotFound, code, message);
+
+    private static AdherenceResult<T> Forbidden<T>(string code, string message) =>
+        AdherenceResult<T>.Failure(AdherenceErrorKind.Forbidden, code, message);
 
     private static AdherenceResult<T> Conflict<T>(string code, string message) =>
         AdherenceResult<T>.Failure(AdherenceErrorKind.Conflict, code, message);

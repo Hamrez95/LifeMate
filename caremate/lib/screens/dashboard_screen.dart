@@ -1,576 +1,583 @@
-// ignore_for_file: deprecated_member_use
-
-import 'dart:async';
-import 'package:caremate/widgets/custom_app_header.dart';
 import 'package:flutter/material.dart';
+import 'package:lifemate_client/lifemate_client.dart';
 import 'package:provider/provider.dart';
-import '../services/backend_service.dart';
-import '../../core/localization/app_localizations.dart';
-import '../../core/localization/locale_provider.dart';
-import '../../core/utils/string_extensions.dart';
-import '../../core/constants/app_colors.dart';
-import '../../data/app_mock_data.dart';
-import '../widgets/custom_ui_components.dart';
-import '../widgets/caremate_bottom_nav.dart';
-import 'calendar/calendar_screen.dart';
+
+import '../core/constants/app_colors.dart';
 
 class DashboardScreen extends StatefulWidget {
-  const DashboardScreen({Key? key}) : super(key: key);
+  const DashboardScreen({super.key});
 
   @override
   State<DashboardScreen> createState() => _DashboardScreenState();
 }
 
 class _DashboardScreenState extends State<DashboardScreen> {
-  Map<String, dynamic>? backendStatus;
-  bool syncing = false;
-  Timer? _autoRefreshTimer;
-
-  final DateTime _simulatedCurrentTime = DateTime(2024, 1, 1, 7, 0);
-
-  Future<void> _onRefresh() async {
-    setState(() {
-      syncing = true;
-    });
-    try {
-      final data = await BackendService.getStatus();
-
-      if (mounted) {
-        setState(() {
-          backendStatus = data;
-        });
-      }
-    } catch (e) {
-      debugPrint("Sync Error: $e");
-    }
-    await Future.delayed(const Duration(milliseconds: 500));
-    if (mounted) {
-      setState(() {
-        syncing = false;
-      });
-    }
-  }
+  bool _loading = true;
+  bool _accepting = false;
+  String? _error;
+  String? _currentUserId;
+  String? _selectedRelationshipId;
+  List<Map<String, dynamic>> _relationships = const [];
+  List<Map<String, dynamic>> _doses = const [];
 
   @override
   void initState() {
     super.initState();
-    _onRefresh();
-    _autoRefreshTimer =
-        Timer.periodic(const Duration(seconds: 1), (_) => _onRefresh());
+    _refresh();
   }
 
-  @override
-  void dispose() {
-    _autoRefreshTimer?.cancel();
-    super.dispose();
-  }
-
-  // تابع کمکی برای پیدا کردن آواتار از کلاس AppMockData بر اساس نام بیمار در بک‌اند
-  String _getAvatarPath(String patientName) {
-    const String defaultAvatar =
-        '../../assets/images/mother_avatar.png'; // مسیر آواتار پیش‌فرض
-    try {
-      if (patientName.contains('مامان جون')) {
-        return AppMockData.familyMembers
-                .firstWhere((u) => u.role == 'مادر')
-                .avatarPath ??
-            defaultAvatar;
-      } else if (patientName.contains('بابا جون')) {
-        return AppMockData.familyMembers
-                .firstWhere((u) => u.role == 'پدر')
-                .avatarPath ??
-            defaultAvatar;
-      } else if (patientName.contains('سارا')) {
-        return AppMockData.familyMembers
-                .firstWhere((u) => u.role == 'فرزند')
-                .avatarPath ??
-            defaultAvatar;
-      }
-    } catch (e) {
-      // اگر هیچ عضوی با شروط بالا پیدا نشد، خطای No element رخ می‌دهد که اینجا مهار می‌شود
-      debugPrint("Avatar not found for $patientName, using default.");
-      return defaultAvatar;
+  Future<void> _refresh() async {
+    if (mounted) {
+      setState(() {
+        _loading = true;
+        _error = null;
+      });
     }
 
-    return defaultAvatar; // پیش‌فرض برای سایرین
+    try {
+      final api = context.read<LifeMateApiClient>();
+      final results = await Future.wait([
+        api.getCurrentUser(),
+        api.getCareRelationships(),
+      ]);
+      final currentUser = results[0] as Map<String, dynamic>;
+      final relationships = results[1] as List<Map<String, dynamic>>;
+      final user = currentUser['user'] as Map<String, dynamic>? ?? const {};
+      final currentUserId = user['id']?.toString();
+      final caregiverRelationships = relationships
+          .where(
+            (relationship) =>
+                relationship['status']?.toString() == 'active' &&
+                relationship['caregiverUserId']?.toString() == currentUserId,
+          )
+          .toList(growable: false);
+
+      var selectedId = _selectedRelationshipId;
+      if (!caregiverRelationships
+          .any((relationship) => relationship['id']?.toString() == selectedId)) {
+        selectedId = caregiverRelationships.isEmpty
+            ? null
+            : caregiverRelationships.first['id']?.toString();
+      }
+
+      if (!mounted) return;
+      setState(() {
+        _currentUserId = currentUserId;
+        _relationships = caregiverRelationships;
+        _selectedRelationshipId = selectedId;
+      });
+      await _loadSelectedDoses();
+    } on LifeMateApiException catch (error) {
+      _setError(_friendlyApiError(error));
+    } catch (error) {
+      debugPrint('CareMate refresh failed: $error');
+      _setError('اطلاعات مراقبت دریافت نشد. اتصال اینترنت را بررسی کنید.');
+    } finally {
+      if (mounted) setState(() => _loading = false);
+    }
   }
 
-  // تابع کمکی برای محاسبه زمان باقی‌مانده از ساعت ۷ صبح تا زمان دارو
-  String _calculateTimeLeft(String targetTime, bool isPersian) {
+  Future<void> _loadSelectedDoses() async {
+    final selected = _selectedRelationship;
+    if (selected == null) {
+      if (mounted) setState(() => _doses = const []);
+      return;
+    }
+
+    final today = DateTime.now();
+    final doses = await context
+        .read<LifeMateApiClient>()
+        .getCareRecipientDoseOccurrences(
+          patientUserId: selected['patientUserId'].toString(),
+          fromDate: today,
+          toDate: today,
+        );
+    if (mounted) setState(() => _doses = doses);
+  }
+
+  Map<String, dynamic>? get _selectedRelationship {
+    for (final relationship in _relationships) {
+      if (relationship['id']?.toString() == _selectedRelationshipId) {
+        return relationship;
+      }
+    }
+    return null;
+  }
+
+  void _setError(String message) {
+    if (!mounted) return;
+    setState(() {
+      _error = message;
+      _loading = false;
+    });
+  }
+
+  Future<void> _selectRelationship(String? relationshipId) async {
+    setState(() {
+      _selectedRelationshipId = relationshipId;
+      _loading = true;
+      _error = null;
+    });
     try {
-      final now = DateTime.now(); // دریافت زمان واقعی و زنده سیستم
-      final parts = targetTime.split(':');
+      await _loadSelectedDoses();
+    } on LifeMateApiException catch (error) {
+      _setError(_friendlyApiError(error));
+    } catch (error) {
+      debugPrint('CareMate patient switch failed: $error');
+      _setError('وضعیت بیمار دریافت نشد.');
+    } finally {
+      if (mounted) setState(() => _loading = false);
+    }
+  }
 
-      // تنظیم زمان دارو بر اساس سال، ماه و روزِ همین الان
-      final targetDate = DateTime(now.year, now.month, now.day,
-          int.parse(parts[0]), int.parse(parts[1]));
+  Future<void> _showAcceptInvitation() async {
+    final tokenController = TextEditingController();
+    var confirmed = false;
+    final token = await showDialog<String>(
+      context: context,
+      builder: (dialogContext) => StatefulBuilder(
+        builder: (context, setDialogState) => AlertDialog(
+          title: const Text('پذیرش دعوت مراقبت'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Text(
+                'کد دعوت را فقط زمانی وارد کنید که بیمار آن را مستقیماً برای شما فرستاده باشد.',
+              ),
+              const SizedBox(height: 16),
+              TextField(
+                controller: tokenController,
+                textDirection: TextDirection.ltr,
+                autocorrect: false,
+                onChanged: (_) => setDialogState(() {}),
+                decoration: const InputDecoration(
+                  labelText: 'کد دعوت',
+                  border: OutlineInputBorder(),
+                ),
+              ),
+              CheckboxListTile(
+                contentPadding: EdgeInsets.zero,
+                value: confirmed,
+                onChanged: (value) =>
+                    setDialogState(() => confirmed = value ?? false),
+                title: const Text(
+                  'می‌پذیرم وضعیت مصرف داروی این بیمار را فقط برای مراقبت مجاز مشاهده کنم.',
+                ),
+                controlAffinity: ListTileControlAffinity.leading,
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(dialogContext),
+              child: const Text('انصراف'),
+            ),
+            FilledButton(
+              onPressed: confirmed && tokenController.text.trim().isNotEmpty
+                  ? () => Navigator.pop(
+                        dialogContext,
+                        tokenController.text.trim(),
+                      )
+                  : null,
+              child: const Text('پذیرش امن'),
+            ),
+          ],
+        ),
+      ),
+    );
+    tokenController.dispose();
+    if (token == null || !mounted) return;
 
-      final difference = targetDate.difference(now);
+    setState(() => _accepting = true);
+    try {
+      await context
+          .read<LifeMateApiClient>()
+          .acceptCareInvitation(token: token);
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('دعوت مراقبت با موفقیت پذیرفته شد.')),
+      );
+      await _refresh();
+    } on LifeMateApiException catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(_friendlyApiError(error)),
+          backgroundColor: Theme.of(context).colorScheme.error,
+        ),
+      );
+    } finally {
+      if (mounted) setState(() => _accepting = false);
+    }
+  }
 
-      if (difference.isNegative) return "گذشته";
+  Future<void> _revokeSelectedRelationship() async {
+    final relationship = _selectedRelationship;
+    if (relationship == null) return;
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('قطع دسترسی مراقبت؟'),
+        content: const Text(
+          'پس از قطع دسترسی، دیگر وضعیت داروهای این بیمار را مشاهده نمی‌کنید. بیمار می‌تواند بعداً دعوت جدیدی بسازد.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('انصراف'),
+          ),
+          FilledButton.tonal(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('قطع دسترسی'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !mounted) return;
 
-      final hours = difference.inHours;
-      final minutes = difference.inMinutes % 60;
-
-      String result = "";
-      if (hours > 0) result += "$hours ساعت و ";
-      result += "$minutes دقیقه";
-      return result.toPersianDigit(isPersian);
-    } catch (e) {
-      return "-";
+    setState(() => _loading = true);
+    try {
+      await context.read<LifeMateApiClient>().revokeCareRelationship(
+            relationshipId: relationship['id'].toString(),
+          );
+      await _refresh();
+    } on LifeMateApiException catch (error) {
+      _setError(_friendlyApiError(error));
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    final loc = AppLocalizations.of(context);
-    final localeProvider = Provider.of<LocaleProvider>(context);
-    final isPersian = localeProvider.locale.languageCode == 'fa';
+    final selected = _selectedRelationship;
+    final taken = _doses.where((dose) => dose['status'] == 'taken').length;
+    final skipped = _doses.where((dose) => dose['status'] == 'skipped').length;
+    final missed = _doses.where((dose) => dose['status'] == 'missed').length;
 
-    final TextStyle mainFont = TextStyle(
-        fontFamily: isPersian ? 'Vazir' : 'Poppins',
-        color: AppColors.primaryText);
-
-    final String patientName =
-        "${loc['dashboard_patient']}: ${MockData.patientNameEn}";
-    //برای محاسبه درصد پیشرفت
-    double progressValue = 0.0;
-    String progressText = "۰٪";
-
-    if (backendStatus != null && backendStatus!['scheduleList'] != null) {
-      final List<dynamic> scheduleList = backendStatus!['scheduleList'];
-      // 👈 نام کلید به consumedIndices تغییر کرد
-      final List<dynamic> consumed =
-          backendStatus!['consumedIndices'] ?? backendStatus!['consumed'] ?? [];
-
-      final int totalItems = scheduleList.length;
-      final int doneItems = consumed.length;
-
-      if (totalItems > 0) {
-        progressValue = doneItems / totalItems;
-        progressText =
-            "${(progressValue * 100).toInt()}٪".toPersianDigit(isPersian);
-      }
-    }
     return Scaffold(
       backgroundColor: AppColors.background,
-      // اینجا با extendBody: true به محتوا اجازه می‌دهیم تا زیر نویگیشن بار برود
-      extendBody: true,
-
-      // حذف Stack و قرار دادن مستقیم بدنه
-      body: SafeArea(
-        bottom: false,
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.symmetric(vertical: 0),
-          child: Column(
-            children: [
-              // --- Header ---
-              const CustomAppHeader(),
-              const SizedBox(height: 30),
-              //ویجت صف درمان
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 24.0),
-                child: Column(
-                  children: [
-                    Container(
-                      width: double.infinity,
-                      decoration: BoxDecoration(
-                        color: Colors.white,
-                        borderRadius: BorderRadius.circular(
-                            24), // گوشه های گرد هماهنگ با کل اپ
-                        boxShadow: [
-                          // سایه ملایم به جای بوردر مشکی
-                          BoxShadow(
-                            color: Colors.blue.withOpacity(0.06),
-                            blurRadius: 15,
-                            offset: const Offset(0, 5),
-                          ),
-                        ],
-                      ),
-                      padding: const EdgeInsets.all(20),
-                      child: backendStatus == null
-                          ? const Center(child: CircularProgressIndicator())
-                          : _buildStatusContent(loc, isPersian, mainFont),
-                    ),
-                    const SizedBox(height: 24),
-
-                    // --- Partner Status & Baby Tracker ---
-                    Row(
-                      children: [
-                        Expanded(
-                          child: Container(
-                            height: 210,
-                            padding: const EdgeInsets.all(16),
-                            decoration: AppColors.softDecoration(
-                                color: const Color(0xFFF0F2F5)),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(loc['dashboard_partner_status'],
-                                    style: mainFont.copyWith(
-                                        fontSize: 15,
-                                        fontWeight: FontWeight.bold)),
-                                const SizedBox(height: 15),
-                                Center(
-                                  child: Stack(
-                                    alignment: Alignment.center,
-                                    children: [
-                                      const SizedBox(
-                                        width: 90,
-                                        height: 90,
-                                        child: CircularProgressIndicator(
-                                            value: MockData.partnerStatusValue,
-                                            strokeWidth: 10,
-                                            backgroundColor: Colors.white,
-                                            valueColor:
-                                                AlwaysStoppedAnimation<Color>(
-                                                    Color(0xFFE598D8))),
-                                      ),
-                                      Column(
-                                        mainAxisSize: MainAxisSize.min,
-                                        children: [
-                                          Text(loc['dashboard_week'],
-                                              style: mainFont.copyWith(
-                                                  fontSize: 12,
-                                                  color:
-                                                      AppColors.secondaryText)),
-                                          Text(
-                                              MockData.pregnancyWeek
-                                                  .toPersianDigit(isPersian),
-                                              style: mainFont.copyWith(
-                                                  fontSize: 22,
-                                                  fontWeight: FontWeight.bold)),
-                                        ],
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                                const Spacer(),
-                                Text(
-                                    "${loc['dashboard_mood']} ${loc['dashboard_mood_happy']}",
-                                    style: mainFont.copyWith(fontSize: 12)),
-                                Text(
-                                    "${loc['dashboard_craving']} ${loc['dashboard_craving_sweets']}",
-                                    style: mainFont.copyWith(fontSize: 12)),
-                              ],
-                            ),
-                          ),
-                        ),
-                        const SizedBox(width: 16),
-                        Expanded(
-                          child: Container(
-                            height: 210,
-                            padding: const EdgeInsets.all(16),
-                            decoration: AppColors.softDecoration(),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(loc['dashboard_baby_tracker'],
-                                    style: mainFont.copyWith(
-                                        fontSize: 15,
-                                        fontWeight: FontWeight.bold)),
-                                const SizedBox(height: 15),
-                                GlassItem(
-                                    icon: Icons.baby_changing_station,
-                                    iconColor: Colors.blueAccent,
-                                    text: loc['dashboard_supply_low'],
-                                    hasDot: true,
-                                    font: mainFont),
-                                const SizedBox(height: 12),
-                                GlassItem(
-                                    icon: Icons.vaccines,
-                                    iconColor: Colors.orangeAccent,
-                                    text: loc['dashboard_vaccine_tomo'],
-                                    hasDot: false,
-                                    font: mainFont),
-                              ],
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-
-                    const SizedBox(height: 24),
-
-                    // --- Quick Summary ---
-                    SectionHeader(
-                        title: loc['dashboard_quick_summary'],
-                        font: mainFont,
-                        textDirection:
-                            isPersian ? TextDirection.rtl : TextDirection.ltr),
-                    const SizedBox(height: 12),
-                    Container(
-                      width: double.infinity,
-                      padding: const EdgeInsets.all(20),
-                      decoration: AppColors.softDecoration(),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(progressText, // استفاده از متغیر داینامیک جدید
-                              style: mainFont.copyWith(
-                                  fontWeight: FontWeight.bold)),
-                          const SizedBox(height: 8),
-                          ClipRRect(
-                            borderRadius: BorderRadius.circular(10),
-                            child: LinearProgressIndicator(
-                                value:
-                                    progressValue, // استفاده از مقدار داینامیک جدید
-                                minHeight: 12,
-                                backgroundColor: Colors.grey[200],
-                                valueColor: const AlwaysStoppedAnimation<Color>(
-                                    Color(0xFF6FCF97))),
-                          ),
-                          const SizedBox(height: 12),
-                          Text(loc['dashboard_total_meds'],
-                              style: mainFont.copyWith(
-                                  color: AppColors.secondaryText,
-                                  fontSize: 13)),
-                        ],
-                      ),
-                    ),
-                    const SizedBox(height: 120),
-                  ],
-                ), //
-              ), //
-            ],
-          ),
+      appBar: AppBar(
+        backgroundColor: Colors.transparent,
+        surfaceTintColor: Colors.transparent,
+        title: const Text(
+          'CareMate',
+          style: TextStyle(fontWeight: FontWeight.w800),
         ),
-      ),
-
-      // نویگیشن بار مستقیماً اینجا به Scaffold متصل می‌شود
-      bottomNavigationBar: CareMateBottomNav(
-        currentIndex: 4,
-        onTap: (index) {
-          if (index == 0) {
-            Navigator.pushReplacement(
-                context,
-                PageRouteBuilder(
-                    pageBuilder: (_, __, ___) => const CalendarScreen(),
-                    transitionDuration: Duration.zero,
-                    reverseTransitionDuration: Duration.zero));
-          }
-        },
-      ),
-    );
-  }
-
-  //       Expanded(
-  //         flex: 2,
-  //         child: Column(
-  //           mainAxisAlignment: MainAxisAlignment.center,
-  //           children: [
-  //             Text(currentPatientName.toPersianDigit(isPersian),
-  //                 style: mainFont.copyWith(
-  //                     fontSize: 16, fontWeight: FontWeight.bold)),
-  //             const SizedBox(height: 8),
-  //             Container(
-  //               decoration: BoxDecoration(
-  //                 shape: BoxShape.circle,
-  //                 border: Border.all(
-  //                     color: Colors.black, width: 3), // حاشیه دور آواتار
-  //               ),
-  //               child: CircleAvatar(
-  //                 radius: 35,
-  //                 backgroundColor: Colors.white,
-  //                 backgroundImage: AssetImage(currentAvatar),
-  //               ),
-  //             ),
-  //           ],
-  //         ),
-  //       ),
-  //     ],
-  //   );
-  // }
-
-  Widget _buildStatusContent(dynamic loc, bool isPersian, TextStyle mainFont) {
-    if (backendStatus == null || backendStatus!['scheduleList'] == null) {
-      return const Center(child: Text("دیتای برنامه یافت نشد."));
-    }
-
-    final List<dynamic> scheduleList = backendStatus!['scheduleList'];
-    // 👈 نام کلید به consumedIndices تغییر کرد
-    final List<dynamic> consumedIds =
-        backendStatus!['consumedIndices'] ?? backendStatus!['consumed'] ?? [];
-
-    final now = DateTime.now();
-
-    // ۱. فیلتر کردن داروهایی که هنوز مصرف نشده‌اند و زمانشان هم نگذشته است
-    List<dynamic> pendingItems = scheduleList.where((item) {
-      final itemId = item['id'];
-
-      // اگر قبلاً مصرف شده، در صف نمایش نده
-      if (consumedIds.contains(itemId)) return false;
-
-      // بررسی گذشت زمان
-      try {
-        final parts = item['time'].toString().split(':');
-        final itemTime = DateTime(now.year, now.month, now.day,
-            int.parse(parts[0]), int.parse(parts[1]));
-
-        // 👈 اگر زمان دارو گذشته باشد، از صف اصلی (فعلی/بعدی) خارج می‌شود
-        if (itemTime.isBefore(now)) {
-          return false;
-        }
-      } catch (e) {
-        // در صورت خطای فرمت، صرف نظر می‌کنیم
-      }
-
-      return true;
-    }).toList();
-
-    // ۲. مرتب‌سازی صف بر اساس زمان (تا نزدیک‌ترین دارو اول صف باشد)
-    pendingItems.sort((a, b) {
-      try {
-        final tA = a['time'].toString().split(':');
-        final tB = b['time'].toString().split(':');
-        final timeA = DateTime(
-            now.year, now.month, now.day, int.parse(tA[0]), int.parse(tA[1]));
-        final timeB = DateTime(
-            now.year, now.month, now.day, int.parse(tB[0]), int.parse(tB[1]));
-        return timeA.compareTo(timeB);
-      } catch (e) {
-        return 0;
-      }
-    });
-
-    final currentItem = pendingItems.isNotEmpty ? pendingItems.first : null;
-    final nextItem = pendingItems.length > 1 ? pendingItems[1] : null;
-
-    if (currentItem == null) {
-      return Center(
-        child: Padding(
-          padding: const EdgeInsets.symmetric(vertical: 20),
-          child: Text("تمام مراقبت‌های امروز انجام شده است! 🎉",
-              style: mainFont.copyWith(
-                  fontSize: 16,
-                  fontWeight: FontWeight.bold,
-                  color: Colors.green)),
-        ),
-      );
-    }
-
-    // ویجت سازنده ردیف‌های درمان برای یکپارچگی UI
-    Widget buildTreatmentRow({
-      required String title,
-      required dynamic item,
-      required bool isCurrent,
-    }) {
-      if (item == null) return const SizedBox();
-
-      final patientName = (item['patient'] ?? 'نامشخص').toString();
-      final medName = (item['name'] ?? '-').toString();
-      final time = (item['time'] ?? '00:00').toString();
-      final avatarPath = _getAvatarPath(patientName);
-
-      return Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // عنوان بخش (درمان فعلی / بعدی)
-          Text(
-            title,
-            style: mainFont.copyWith(
-              fontSize: 13,
-              fontWeight: FontWeight.bold,
-              color: Colors.grey[500],
-            ),
+        actions: [
+          IconButton(
+            tooltip: 'پذیرش دعوت',
+            onPressed: _accepting ? null : _showAcceptInvitation,
+            icon: _accepting
+                ? const SizedBox.square(
+                    dimension: 20,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  )
+                : const Icon(Icons.person_add_alt_1_rounded),
           ),
-          const SizedBox(height: 12),
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.center,
-            children: [
-              // سمت راست: آواتار با سایز یکسان
-              CircleAvatar(
-                radius: 24,
-                backgroundColor: Colors.blue.shade50,
-                backgroundImage: AssetImage(avatarPath),
-              ),
-              const SizedBox(width: 12),
-
-              // وسط: نام بیمار و نام دارو
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      patientName.toPersianDigit(isPersian),
-                      style: mainFont.copyWith(
-                          fontSize: 15,
-                          fontWeight: FontWeight.bold,
-                          color: Colors.black87),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      medName.toPersianDigit(isPersian),
-                      style: mainFont.copyWith(
-                          fontSize: 13, color: Colors.grey[700]),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                  ],
+          IconButton(
+            tooltip: 'خروج از حساب',
+            onPressed: () => LifeMateAuth.signOut(),
+            icon: const Icon(Icons.logout_rounded),
+          ),
+        ],
+      ),
+      body: RefreshIndicator(
+        onRefresh: _refresh,
+        child: ListView(
+          physics: const AlwaysScrollableScrollPhysics(),
+          padding: const EdgeInsets.fromLTRB(20, 8, 20, 40),
+          children: [
+            if (_currentUserId == null && _loading)
+              const Padding(
+                padding: EdgeInsets.all(48),
+                child: Center(child: CircularProgressIndicator()),
+              )
+            else if (_relationships.isEmpty)
+              _EmptyCareState(onAccept: _showAcceptInvitation)
+            else ...[
+              DropdownButtonFormField<String>(
+                value: _selectedRelationshipId,
+                decoration: const InputDecoration(
+                  labelText: 'فرد تحت مراقبت',
+                  prefixIcon: Icon(Icons.family_restroom_rounded),
+                  border: OutlineInputBorder(),
                 ),
+                items: _relationships
+                    .map(
+                      (relationship) => DropdownMenuItem(
+                        value: relationship['id'].toString(),
+                        child: Text(
+                          relationship['patientDisplayName']?.toString() ??
+                              'بیمار',
+                        ),
+                      ),
+                    )
+                    .toList(growable: false),
+                onChanged: _loading ? null : _selectRelationship,
               ),
-
-              // سمت چپ: زمان و تایمر
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.end,
+              const SizedBox(height: 20),
+              if (selected != null)
+                _SummaryCard(
+                  patientName:
+                      selected['patientDisplayName']?.toString() ?? 'بیمار',
+                  total: _doses.length,
+                  taken: taken,
+                  skipped: skipped,
+                  missed: missed,
+                ),
+              const SizedBox(height: 20),
+              Row(
                 children: [
-                  if (isCurrent) ...[
-                    // کپسول (Badge) زمان باقیمانده
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 10, vertical: 4),
-                      decoration: BoxDecoration(
-                        color: Colors.red.shade50,
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      child: Text(
-                        _calculateTimeLeft(time, isPersian)
-                            .toPersianDigit(isPersian),
-                        style: mainFont.copyWith(
-                            fontSize: 12,
-                            fontWeight: FontWeight.bold,
-                            color: Colors.red.shade400),
-                      ),
+                  const Expanded(
+                    child: Text(
+                      'برنامه دارویی امروز',
+                      style:
+                          TextStyle(fontSize: 18, fontWeight: FontWeight.w800),
                     ),
-                    const SizedBox(height: 6),
-                  ],
-                  // ساعت دقیق
-                  Row(
-                    children: [
-                      Icon(Icons.access_time_rounded,
-                          size: 14, color: Colors.grey[400]),
-                      const SizedBox(width: 4),
-                      Text(
-                        time.toPersianDigit(isPersian),
-                        style: mainFont.copyWith(
-                            fontSize: 14,
-                            fontWeight: FontWeight.bold,
-                            color: Colors.grey[600]),
-                      ),
-                    ],
+                  ),
+                  TextButton.icon(
+                    onPressed: _loading ? null : _revokeSelectedRelationship,
+                    icon: const Icon(Icons.link_off_rounded, size: 18),
+                    label: const Text('قطع دسترسی'),
                   ),
                 ],
               ),
+              const SizedBox(height: 8),
+              if (_loading)
+                const Padding(
+                  padding: EdgeInsets.all(32),
+                  child: Center(child: CircularProgressIndicator()),
+                )
+              else if (_error != null)
+                _ErrorState(message: _error!, onRetry: _refresh)
+              else if (_doses.isEmpty)
+                const _NoDosesState()
+              else
+                ..._doses.map((dose) => _DoseCard(dose: dose)),
+            ],
+            if (_relationships.isEmpty && _error != null)
+              _ErrorState(message: _error!, onRetry: _refresh),
+          ],
+        ),
+      ),
+    );
+  }
+
+  static String _friendlyApiError(LifeMateApiException error) {
+    switch (error.code) {
+      case 'care_access_denied':
+        return 'دسترسی مراقبت لغو شده است. فهرست را تازه‌سازی کنید.';
+      case 'invitation_contact_mismatch':
+        return 'این دعوت برای حساب دیگری صادر شده است.';
+      case 'invitation_expired':
+        return 'مهلت این دعوت تمام شده است؛ از بیمار دعوت جدید بخواهید.';
+      case 'invitation_not_found':
+        return 'کد دعوت معتبر نیست.';
+      default:
+        return error.isUnauthorized
+            ? 'نشست شما منقضی شده است. دوباره وارد شوید.'
+            : 'درخواست انجام نشد. دوباره تلاش کنید.';
+    }
+  }
+}
+
+class _SummaryCard extends StatelessWidget {
+  const _SummaryCard({
+    required this.patientName,
+    required this.total,
+    required this.taken,
+    required this.skipped,
+    required this.missed,
+  });
+
+  final String patientName;
+  final int total;
+  final int taken;
+  final int skipped;
+  final int missed;
+
+  @override
+  Widget build(BuildContext context) {
+    final progress = total == 0 ? 0.0 : taken / total;
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: AppColors.softDecoration(color: Colors.white),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            patientName,
+            style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w800),
+          ),
+          const SizedBox(height: 8),
+          Text('$taken از $total دوز امروز مصرف شده'),
+          const SizedBox(height: 12),
+          ClipRRect(
+            borderRadius: BorderRadius.circular(12),
+            child: LinearProgressIndicator(
+              value: progress,
+              minHeight: 12,
+              backgroundColor: const Color(0xFFE8EDF3),
+              color: const Color(0xFF36A269),
+            ),
+          ),
+          const SizedBox(height: 14),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              _StatusChip(label: 'مصرف‌شده $taken', color: const Color(0xFF36A269)),
+              _StatusChip(label: 'مصرف‌نشده $skipped', color: Colors.orange),
+              _StatusChip(label: 'ازدست‌رفته $missed', color: Colors.redAccent),
             ],
           ),
         ],
-      );
-    }
-
-    return Column(
-      textDirection: isPersian ? TextDirection.rtl : TextDirection.ltr,
-      children: [
-        buildTreatmentRow(
-            title: "درمان فعلی", item: currentItem, isCurrent: true),
-        if (nextItem != null) ...[
-          Padding(
-            padding: const EdgeInsets.symmetric(vertical: 16),
-            child: Divider(color: Colors.grey.shade200, height: 1),
-          ),
-          buildTreatmentRow(
-              title: "درمان بعدی", item: nextItem, isCurrent: false),
-        ]
-      ],
+      ),
     );
   }
+}
+
+class _StatusChip extends StatelessWidget {
+  const _StatusChip({required this.label, required this.color});
+
+  final String label;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) => Chip(
+        avatar: CircleAvatar(radius: 5, backgroundColor: color),
+        label: Text(label),
+        backgroundColor: color.withValues(alpha: 0.08),
+        side: BorderSide.none,
+      );
+}
+
+class _DoseCard extends StatelessWidget {
+  const _DoseCard({required this.dose});
+
+  final Map<String, dynamic> dose;
+
+  @override
+  Widget build(BuildContext context) {
+    final status = dose['status']?.toString() ?? 'scheduled';
+    final statusView = switch (status) {
+      'taken' => ('مصرف شده', Icons.check_circle_rounded, const Color(0xFF36A269)),
+      'skipped' => ('مصرف نشده', Icons.remove_circle_rounded, Colors.orange),
+      'missed' => ('ازدست‌رفته', Icons.error_rounded, Colors.redAccent),
+      _ => ('در انتظار', Icons.schedule_rounded, AppColors.primaryBlue),
+    };
+    final rawTime = dose['scheduledLocalTime']?.toString() ?? '--:--';
+    final time = rawTime.length >= 5 ? rawTime.substring(0, 5) : rawTime;
+
+    return Card(
+      margin: const EdgeInsets.only(bottom: 10),
+      elevation: 0,
+      color: Colors.white,
+      child: ListTile(
+        minVerticalPadding: 14,
+        leading: CircleAvatar(
+          backgroundColor: statusView.$3.withValues(alpha: 0.1),
+          child: Icon(statusView.$2, color: statusView.$3),
+        ),
+        title: Text(
+          dose['medicationName']?.toString() ?? 'دارو',
+          style: const TextStyle(fontWeight: FontWeight.w700),
+        ),
+        subtitle: Text('${dose['doseText'] ?? ''} • $time'),
+        trailing: Text(
+          statusView.$1,
+          style: TextStyle(
+            color: statusView.$3,
+            fontWeight: FontWeight.w700,
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _EmptyCareState extends StatelessWidget {
+  const _EmptyCareState({required this.onAccept});
+
+  final VoidCallback onAccept;
+
+  @override
+  Widget build(BuildContext context) => Padding(
+        padding: const EdgeInsets.symmetric(vertical: 64),
+        child: Column(
+          children: [
+            const Icon(
+              Icons.health_and_safety_outlined,
+              size: 72,
+              color: AppColors.primaryBlue,
+            ),
+            const SizedBox(height: 18),
+            const Text(
+              'هنوز فردی به مراقبت شما متصل نیست',
+              textAlign: TextAlign.center,
+              style: TextStyle(fontSize: 20, fontWeight: FontWeight.w800),
+            ),
+            const SizedBox(height: 8),
+            const Text(
+              'کد دعوتی را که بیمار در WellMate ساخته است وارد کنید.',
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 24),
+            FilledButton.icon(
+              onPressed: onAccept,
+              icon: const Icon(Icons.vpn_key_rounded),
+              label: const Text('واردکردن کد دعوت'),
+            ),
+          ],
+        ),
+      );
+}
+
+class _NoDosesState extends StatelessWidget {
+  const _NoDosesState();
+
+  @override
+  Widget build(BuildContext context) => const Card(
+        elevation: 0,
+        child: Padding(
+          padding: EdgeInsets.all(28),
+          child: Column(
+            children: [
+              Icon(Icons.event_available_rounded, size: 48),
+              SizedBox(height: 10),
+              Text(
+                'برای امروز دوز فعالی ثبت نشده است.',
+                textAlign: TextAlign.center,
+              ),
+            ],
+          ),
+        ),
+      );
+}
+
+class _ErrorState extends StatelessWidget {
+  const _ErrorState({required this.message, required this.onRetry});
+
+  final String message;
+  final Future<void> Function() onRetry;
+
+  @override
+  Widget build(BuildContext context) => Padding(
+        padding: const EdgeInsets.symmetric(vertical: 28),
+        child: Column(
+          children: [
+            Icon(
+              Icons.cloud_off_rounded,
+              size: 48,
+              color: Theme.of(context).colorScheme.error,
+            ),
+            const SizedBox(height: 10),
+            Text(message, textAlign: TextAlign.center),
+            const SizedBox(height: 12),
+            OutlinedButton(
+              onPressed: onRetry,
+              child: const Text('تلاش دوباره'),
+            ),
+          ],
+        ),
+      );
 }

@@ -8,6 +8,7 @@ class ScheduleItemModel {
   final bool isDone;
   final String status;
   final int version;
+  final DateTime? scheduledAtUtc;
   final DateTime? startDate;
   final int? intervalDays;
 
@@ -20,6 +21,7 @@ class ScheduleItemModel {
     this.isDone = false,
     this.status = 'scheduled',
     this.version = 1,
+    this.scheduledAtUtc,
     this.startDate,
     this.intervalDays,
     required this.frequency,
@@ -36,6 +38,9 @@ class ScheduleItemModel {
       isDone: json['is_done'] ?? status == 'taken' || status == 'skipped',
       status: status,
       version: json['version'] is int ? json['version'] as int : 1,
+      scheduledAtUtc: json['scheduledAtUtc'] == null
+          ? null
+          : DateTime.tryParse(json['scheduledAtUtc'].toString())?.toUtc(),
       frequency: json['frequency'] ?? 'روزانه',
       startDate:
           json['startDate'] != null ? DateTime.parse(json['startDate']) : null,
@@ -53,6 +58,7 @@ class ScheduleItemModel {
       'is_done': isDone,
       'status': status,
       'version': version,
+      'scheduledAtUtc': scheduledAtUtc?.toIso8601String(),
       'frequency': frequency,
       'startDate': startDate?.toIso8601String(),
       'intervalDays': intervalDays,
@@ -68,6 +74,7 @@ class ScheduleItemModel {
     bool? isDone,
     String? status,
     int? version,
+    DateTime? scheduledAtUtc,
     String? frequency,
     DateTime? startDate,
     int? intervalDays,
@@ -81,6 +88,7 @@ class ScheduleItemModel {
       isDone: isDone ?? this.isDone,
       status: status ?? this.status,
       version: version ?? this.version,
+      scheduledAtUtc: scheduledAtUtc ?? this.scheduledAtUtc,
       frequency: frequency ?? this.frequency,
       startDate: startDate ?? this.startDate,
       intervalDays: intervalDays ?? this.intervalDays,

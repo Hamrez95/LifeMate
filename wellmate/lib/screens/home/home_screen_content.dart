@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:lifemate_client/lifemate_client.dart';
 import 'package:provider/provider.dart';
 import 'package:wellmate/providers/medication_provider.dart';
+import 'package:wellmate/providers/notification_provider.dart';
 import 'package:wellmate/screens/home/active_treatment_card.dart';
 import '../../localization/app_localizations.dart';
 import '../../core/theme/app_style.dart';
@@ -21,6 +22,7 @@ class _HomeScreenContentState extends State<HomeScreenContent> {
   Timer? _timer;
   bool isLoading = true;
   String? loadError;
+  String _displayName = '';
   final Set<String> _submitting = {};
 
   @override
@@ -49,11 +51,15 @@ class _HomeScreenContentState extends State<HomeScreenContent> {
       final api = context.read<LifeMateApiClient>();
       final today = DateTime.now();
       final results = await Future.wait([
+        api.getCurrentUser(),
         api.getTreatmentPlans(),
         api.getDoseOccurrences(fromDate: today, toDate: today),
       ]);
-      final plans = results[0];
-      final doses = results[1];
+      final currentUser = results[0] as Map<String, dynamic>;
+      final plans = results[1] as List<Map<String, dynamic>>;
+      final doses = results[2] as List<Map<String, dynamic>>;
+      final profile =
+          currentUser['profile'] as Map<String, dynamic>? ?? const {};
       final plansById = <String, Map<String, dynamic>>{
         for (final plan in plans) plan['id'].toString(): plan,
       };
@@ -74,6 +80,9 @@ class _HomeScreenContentState extends State<HomeScreenContent> {
           dosage: (plan['doseText'] ?? '').toString(),
           status: status,
           version: dose['version'] is int ? dose['version'] as int : 1,
+          scheduledAtUtc: DateTime.tryParse(
+            dose['scheduledAtUtc']?.toString() ?? '',
+          )?.toUtc(),
           isDone: status == 'taken' || status == 'skipped',
           frequency: 'طبق برنامه درمان',
           startDate: dose['scheduledLocalDate'] == null
@@ -86,10 +95,20 @@ class _HomeScreenContentState extends State<HomeScreenContent> {
 
       if (!mounted) return;
       setState(() {
+        _displayName = profile['displayName']?.toString().trim() ?? '';
         scheduleList = items;
         isLoading = false;
       });
       context.read<MedicationProvider>().setMedications(items);
+      final timeZone = profile['timeZone']?.toString() ?? 'Asia/Tehran';
+      try {
+        await context.read<NotificationProvider>().syncDoseReminders(
+              items,
+              timeZone: timeZone,
+            );
+      } catch (error) {
+        debugPrint('WellMate reminder sync failed: $error');
+      }
     } catch (error) {
       debugPrint('WellMate dose sync failed: $error');
       if (!mounted) return;
@@ -127,6 +146,17 @@ class _HomeScreenContentState extends State<HomeScreenContent> {
         if (index != -1) scheduleList[index] = updated;
       });
       context.read<MedicationProvider>().setMedications(scheduleList);
+      try {
+        final current = await api.getCurrentUser();
+        final profile =
+            current['profile'] as Map<String, dynamic>? ?? const {};
+        await context.read<NotificationProvider>().syncDoseReminders(
+              scheduleList,
+              timeZone: profile['timeZone']?.toString() ?? 'Asia/Tehran',
+            );
+      } catch (error) {
+        debugPrint('WellMate reminder update failed: $error');
+      }
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
@@ -223,8 +253,11 @@ class _HomeScreenContentState extends State<HomeScreenContent> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    loc['welcome_message'] ??
-                        'سلام مریم جان،\nبرنامه امروز مامان جون',
+                    isPersian
+                        ? (_displayName.isEmpty
+                            ? 'سلام،'
+                            : 'سلام $_displayName جان،')
+                        : (_displayName.isEmpty ? 'Hello,' : 'Hi $_displayName,'),
                     style: font.copyWith(
                         fontSize: 20,
                         fontWeight: FontWeight.bold,

@@ -4,8 +4,10 @@ using System.Text.Json;
 using System.Text.Json.Serialization;
 using LifeMate.Api.Models;
 using LifeMate.Application.Adherence;
+using LifeMate.Application.Care;
 using LifeMate.Application.Treatments;
 using LifeMate.Domain.Adherence;
+using LifeMate.Domain.Care;
 using LifeMate.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
@@ -155,6 +157,87 @@ public sealed class AdherenceEndpointTests : IClassFixture<LifeMateApiFactory>
         var oversized = await patient.GetAsync(
             "/api/v1/dose-occurrences?fromDate=2026-08-01&toDate=2026-09-01");
         Assert.Equal(HttpStatusCode.BadRequest, oversized.StatusCode);
+    }
+
+    [Fact]
+    public async Task Caregiver_can_read_named_patient_doses_only_while_consent_is_active()
+    {
+        var patient = await CreateBootstrappedClientAsync(
+            "adherence-care-patient",
+            "adherence-care-patient@example.test",
+            "Care Patient");
+        var caregiver = await CreateBootstrappedClientAsync(
+            "adherence-care-caregiver",
+            "adherence-care-caregiver@example.test",
+            "Care Caregiver");
+        var unrelated = await CreateBootstrappedClientAsync(
+            "adherence-care-unrelated",
+            "adherence-care-unrelated@example.test",
+            "Care Unrelated");
+
+        var medicationResponse = await patient.PostAsJsonAsync(
+            "/api/v1/medications",
+            new CreateMedicationRequest("Metformin", "500 mg", "tablet", null),
+            JsonOptions);
+        var medication = await medicationResponse.Content.ReadFromJsonAsync<MedicationDto>(JsonOptions);
+        Assert.NotNull(medication);
+
+        var planResponse = await patient.PostAsJsonAsync(
+            "/api/v1/treatment-plans",
+            new CreateTreatmentPlanRequest(
+                medication.Id,
+                "one tablet",
+                null,
+                new DateOnly(2026, 8, 2),
+                new DateOnly(2026, 8, 2),
+                "Asia/Tehran",
+                [new TreatmentScheduleRequest(DayOfWeek.Sunday, new TimeOnly(9, 0))]),
+            JsonOptions);
+        planResponse.EnsureSuccessStatusCode();
+
+        var invitationResponse = await patient.PostAsJsonAsync(
+            "/api/v1/care/invitations",
+            new CreateCareInvitationRequest(
+                CareContactType.Email,
+                "adherence-care-caregiver@example.test",
+                CareConsentPolicy.PatientVersion,
+                true),
+            JsonOptions);
+        invitationResponse.EnsureSuccessStatusCode();
+        var invitation = await invitationResponse.Content
+            .ReadFromJsonAsync<CareInvitationCreatedDto>(JsonOptions);
+        Assert.NotNull(invitation);
+
+        var acceptResponse = await caregiver.PostAsJsonAsync(
+            "/api/v1/care/invitations/accept",
+            new AcceptCareInvitationRequest(
+                invitation.Token,
+                CareConsentPolicy.CaregiverVersion,
+                true),
+            JsonOptions);
+        acceptResponse.EnsureSuccessStatusCode();
+        var relationship = await acceptResponse.Content
+            .ReadFromJsonAsync<CareRelationshipDto>(JsonOptions);
+        Assert.NotNull(relationship);
+
+        var path = $"/api/v1/care/patients/{relationship.PatientUserId}/dose-occurrences" +
+            "?fromDate=2026-08-02&toDate=2026-08-02";
+        var visible = await caregiver.GetFromJsonAsync<List<CareRecipientDoseOccurrenceDto>>(
+            path,
+            JsonOptions);
+        var dose = Assert.Single(visible!);
+        Assert.Equal("Metformin", dose.MedicationName);
+        Assert.Equal("one tablet", dose.DoseText);
+
+        var unrelatedResponse = await unrelated.GetAsync(path);
+        Assert.Equal(HttpStatusCode.Forbidden, unrelatedResponse.StatusCode);
+
+        var revoke = await patient.DeleteAsync(
+            $"/api/v1/care/relationships/{relationship.Id}");
+        revoke.EnsureSuccessStatusCode();
+
+        var afterRevocation = await caregiver.GetAsync(path);
+        Assert.Equal(HttpStatusCode.Forbidden, afterRevocation.StatusCode);
     }
 
     private async Task<HttpClient> CreateBootstrappedClientAsync(

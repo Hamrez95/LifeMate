@@ -15,6 +15,12 @@ public static class AdherenceEndpoints
         doses.MapGet("/", ListAsync).DisableRateLimiting();
         doses.MapPost("/{occurrenceId:guid}/report", ReportAsync)
             .RequireRateLimiting("api-write");
+
+        var careDoses = app.MapGroup("/api/v1/care/patients")
+            .RequireAuthorization()
+            .WithTags("Care");
+        careDoses.MapGet("/{patientUserId:guid}/dose-occurrences", ListForCaregiverAsync)
+            .DisableRateLimiting();
         return app;
     }
 
@@ -50,6 +56,24 @@ public static class AdherenceEndpoints
         return result.Succeeded ? Results.Ok(result.Value) : ToProblem(result);
     }
 
+    private static async Task<IResult> ListForCaregiverAsync(
+        ClaimsPrincipal principal,
+        Guid patientUserId,
+        [FromQuery] DateOnly fromDate,
+        [FromQuery] DateOnly toDate,
+        AdherenceService adherence,
+        CancellationToken cancellationToken)
+    {
+        var result = await adherence.ListForCaregiverAsync(
+            new ListCareRecipientDoseOccurrencesCommand(
+                GetIdentity(principal),
+                patientUserId,
+                fromDate,
+                toDate),
+            cancellationToken);
+        return result.Succeeded ? Results.Ok(result.Value) : ToProblem(result);
+    }
+
     private static AdherenceIdentity GetIdentity(ClaimsPrincipal principal) => new(
         principal.FindFirstValue(ClaimTypes.NameIdentifier)
             ?? principal.FindFirstValue("sub")
@@ -61,6 +85,7 @@ public static class AdherenceEndpoints
         {
             AdherenceErrorKind.Validation => StatusCodes.Status400BadRequest,
             AdherenceErrorKind.NotFound => StatusCodes.Status404NotFound,
+            AdherenceErrorKind.Forbidden => StatusCodes.Status403Forbidden,
             AdherenceErrorKind.Conflict => StatusCodes.Status409Conflict,
             _ => StatusCodes.Status500InternalServerError
         };

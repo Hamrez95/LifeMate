@@ -135,3 +135,34 @@ jobs:
           test "${{ steps.shared-client.outcome }}" = "success"
           test "${{ steps.wellmate.outcome }}" = "success"
           test "${{ steps.caremate.outcome }}" = "success"
+
+      - name: Build Android beta APKs
+        if: ${{ success() && (github.event_name == 'push' || github.event_name == 'workflow_dispatch') }}
+        shell: bash
+        env:
+          SUPABASE_URL: ${{ vars.SUPABASE_URL }}
+          SUPABASE_PUBLISHABLE_KEY: ${{ vars.SUPABASE_PUBLISHABLE_KEY }}
+          LIFEMATE_API_BASE_URL: ${{ vars.LIFEMATE_API_BASE_URL }}
+        run: |
+          test -n "$SUPABASE_URL"
+          test -n "$SUPABASE_PUBLISHABLE_KEY"
+          test -n "$LIFEMATE_API_BASE_URL"
+          build_args=(
+            --release
+            --dart-define="SUPABASE_URL=$SUPABASE_URL"
+            --dart-define="SUPABASE_PUBLISHABLE_KEY=$SUPABASE_PUBLISHABLE_KEY"
+            --dart-define="LIFEMATE_API_BASE_URL=$LIFEMATE_API_BASE_URL"
+          )
+          (cd wellmate && flutter build apk "${build_args[@]}")
+          (cd caremate && flutter build apk "${build_args[@]}")
+
+      - name: Upload Android beta APKs
+        if: ${{ success() && (github.event_name == 'push' || github.event_name == 'workflow_dispatch') }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: lifemate-android-beta-apks
+          path: |
+            wellmate/build/app/outputs/flutter-apk/app-release*.apk
+            caremate/build/app/outputs/flutter-apk/app-release*.apk
+          if-no-files-found: error
+          retention-days: 14

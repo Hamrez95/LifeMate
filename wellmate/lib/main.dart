@@ -22,11 +22,17 @@ Future<void> main() async {
       debugPrint('Supabase initialization failed: $error\n$stackTrace');
     }
   }
+  final notificationProvider = NotificationProvider();
+  try {
+    await notificationProvider.initialize();
+  } catch (error, stackTrace) {
+    debugPrint('Notification initialization failed: $error\n$stackTrace');
+  }
 
   runApp(
     MultiProvider(
       providers: [
-        ChangeNotifierProvider(create: (_) => NotificationProvider()),
+        ChangeNotifierProvider.value(value: notificationProvider),
         ChangeNotifierProvider(create: (_) => LocaleProvider()),
         ChangeNotifierProvider(create: (_) => SettingsProvider()),
         ChangeNotifierProvider(create: (_) => MedicationProvider()),

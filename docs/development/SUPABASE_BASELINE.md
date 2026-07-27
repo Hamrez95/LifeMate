@@ -6,8 +6,8 @@ Project reference: `bwdvmniywyyijjauipnh`
 
 ## Current observed state
 - Project restored and healthy.
-- Supabase Auth is initialized with no application users yet.
-- The production `lifemate` schema has not yet been deployed.
+- Supabase Auth is the configured mobile identity provider.
+- EF migrations through `20260726222000_AddDoseAdherence` are deployed.
 - A legacy/demo table exists at `public.health_status` and must not become the production source of truth.
 
 ## Deployment policy
@@ -18,9 +18,10 @@ Project reference: `bwdvmniywyyijjauipnh`
 - Do not use a service-role key for end-user authentication.
 
 ## Immediate next steps
-1. Implement v0.2 care invitations and relationships locally with PostgreSQL integration tests.
-2. Merge only with green CI.
-3. Apply the verified EF migration to this Supabase project.
-4. Validate JWT issuer/audience/JWKS against Supabase Auth.
-5. Create controlled test accounts and prove cross-user isolation.
-6. Retire `public.health_status` only after the Flutter demo path is migrated and rollback is no longer needed.
+1. Deploy `LifeMate.Api` to an HTTPS container host.
+2. Validate JWT issuer/audience/JWKS with controlled beta accounts.
+3. Run patient/caregiver cross-user isolation smoke tests against production.
+4. Complete defense-in-depth RLS hardening without granting Flutter direct
+   healthcare-table access.
+5. Retire `public.health_status` only after the Flutter demo path is migrated
+   and rollback is no longer needed.
