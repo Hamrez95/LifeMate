@@ -136,8 +136,12 @@ public sealed class AdherenceEndpointTests : IClassFixture<LifeMateApiFactory>
 
         using var scope = _factory.Services.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<LifeMateDbContext>();
-        Assert.Equal(2, await db.DoseOccurrences.CountAsync());
-        Assert.Single(await db.DoseAdherenceEvents.ToListAsync());
+        Assert.Equal(
+            2,
+            await db.DoseOccurrences.CountAsync(x => x.TreatmentPlanId == plan.Id));
+        Assert.Single(await db.DoseAdherenceEvents
+            .Where(x => x.DoseOccurrenceId == dose.Id)
+            .ToListAsync());
         Assert.True(await db.AuditLogs.AnyAsync(x =>
             x.Action == "dose.reported" && x.ResourceId == dose.Id));
     }
