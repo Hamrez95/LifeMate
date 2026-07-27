@@ -142,9 +142,15 @@ jobs:
         if: ${{ success() && (github.event_name == 'push' || github.event_name == 'workflow_dispatch') }}
         shell: bash
         env:
-          SUPABASE_URL: ${{ vars.SUPABASE_URL }}
-          SUPABASE_PUBLISHABLE_KEY: ${{ vars.SUPABASE_PUBLISHABLE_KEY }}
-          LIFEMATE_API_BASE_URL: ${{ vars.LIFEMATE_API_BASE_URL }}
+          # Supabase URL and publishable keys are public mobile-client
+          # configuration. Repository variables override these beta defaults.
+          SUPABASE_URL: ${{ vars.SUPABASE_URL || 'https://bwdvmniywyyijjauipnh.supabase.co' }}
+          SUPABASE_PUBLISHABLE_KEY: ${{ vars.SUPABASE_PUBLISHABLE_KEY || 'sb_publishable_6YpBDD0gAPcenbYGukOeWg_fZXxUb27' }}
+          # No production API host exists yet. The reserved .invalid fallback
+          # keeps this artifact honest: install/auth can be tested, but the
+          # connected health-data flow remains blocked until a real HTTPS host
+          # is configured as a repository variable.
+          LIFEMATE_API_BASE_URL: ${{ vars.LIFEMATE_API_BASE_URL || 'https://api.lifemate.invalid' }}
         run: |
           test -n "$SUPABASE_URL"
           test -n "$SUPABASE_PUBLISHABLE_KEY"
