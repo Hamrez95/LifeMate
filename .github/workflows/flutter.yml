@@ -53,6 +53,7 @@ jobs:
 
       - name: Verify shared LifeMate client
         id: shared-client
+        if: ${{ github.event_name != 'push' || github.ref == 'refs/heads/main' }}
         continue-on-error: true
         working-directory: packages/lifemate_client
         shell: bash
@@ -74,6 +75,7 @@ jobs:
 
       - name: Verify WellMate
         id: wellmate
+        if: ${{ github.event_name != 'push' || github.ref == 'refs/heads/main' }}
         continue-on-error: true
         working-directory: wellmate
         shell: bash
@@ -97,7 +99,7 @@ jobs:
 
       - name: Verify CareMate
         id: caremate
-        if: ${{ always() }}
+        if: ${{ always() && (github.event_name != 'push' || github.ref == 'refs/heads/main') }}
         continue-on-error: true
         working-directory: caremate
         shell: bash
@@ -120,7 +122,7 @@ jobs:
           retention-days: 1
 
       - name: Upload resolved Flutter lockfiles
-        if: ${{ always() }}
+        if: ${{ always() && (github.event_name != 'push' || github.ref == 'refs/heads/main') }}
         uses: actions/upload-artifact@v4
         with:
           name: flutter-lockfiles
@@ -131,7 +133,7 @@ jobs:
           retention-days: 1
 
       - name: Enforce Flutter verification results
-        if: ${{ always() }}
+        if: ${{ always() && (github.event_name != 'push' || github.ref == 'refs/heads/main') }}
         shell: bash
         run: |
           test "${{ steps.shared-client.outcome }}" = "success"
