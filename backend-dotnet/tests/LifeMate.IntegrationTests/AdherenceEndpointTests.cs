@@ -140,7 +140,7 @@ public sealed class AdherenceEndpointTests : IClassFixture<LifeMateApiFactory>
             2,
             await db.DoseOccurrences.CountAsync(x => x.TreatmentPlanId == plan.Id));
         Assert.Single(await db.DoseAdherenceEvents
-            .Where(x => x.DoseOccurrenceId == dose.Id)
+            .Where(x => x.OccurrenceId == dose.Id)
             .ToListAsync());
         Assert.True(await db.AuditLogs.AnyAsync(x =>
             x.Action == "dose.reported" && x.ResourceId == dose.Id));
