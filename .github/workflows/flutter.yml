@@ -148,15 +148,22 @@ jobs:
           # configuration. Repository variables override these beta defaults.
           SUPABASE_URL: ${{ vars.SUPABASE_URL || 'https://bwdvmniywyyijjauipnh.supabase.co' }}
           SUPABASE_PUBLISHABLE_KEY: ${{ vars.SUPABASE_PUBLISHABLE_KEY || 'sb_publishable_6YpBDD0gAPcenbYGukOeWg_fZXxUb27' }}
-          # No production API host exists yet. The reserved .invalid fallback
-          # keeps this artifact honest: install/auth can be tested, but the
-          # connected health-data flow remains blocked until a real HTTPS host
-          # is configured as a repository variable.
-          LIFEMATE_API_BASE_URL: ${{ vars.LIFEMATE_API_BASE_URL || 'https://api.lifemate.invalid' }}
+          # Authenticated MVP API deployed inside the same Supabase project.
+          # A repository variable can override it for another environment.
+          LIFEMATE_API_BASE_URL: ${{ vars.LIFEMATE_API_BASE_URL || 'https://bwdvmniywyyijjauipnh.supabase.co/functions/v1/lifemate-api' }}
         run: |
           test -n "$SUPABASE_URL"
           test -n "$SUPABASE_PUBLISHABLE_KEY"
           test -n "$LIFEMATE_API_BASE_URL"
+          health_response="$(curl --fail --silent --show-error \
+            --retry 3 --retry-all-errors \
+            "$LIFEMATE_API_BASE_URL/health")"
+          echo "$health_response" | grep -q '"status":"ok"'
+          echo "$health_response" | grep -q '"database":"ready"'
+          unauthorized_status="$(curl --silent --output /dev/null \
+            --write-out '%{http_code}' \
+            "$LIFEMATE_API_BASE_URL/api/v1/me")"
+          test "$unauthorized_status" = "401"
           build_args=(
             --release
             --dart-define="SUPABASE_URL=$SUPABASE_URL"

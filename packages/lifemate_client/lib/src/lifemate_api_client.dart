@@ -73,8 +73,52 @@ class LifeMateApiClient {
   Future<List<Map<String, dynamic>>> getMedications() =>
       _getList('/api/v1/medications');
 
+  Future<Map<String, dynamic>> createMedication({
+    required String name,
+    String? strengthText,
+    String? form,
+    String? notes,
+  }) async =>
+      _asObject(
+        await _send(
+          'POST',
+          '/api/v1/medications',
+          body: {
+            'name': name.trim(),
+            'strengthText': _emptyToNull(strengthText),
+            'form': _emptyToNull(form),
+            'notes': _emptyToNull(notes),
+          },
+        ),
+      );
+
   Future<List<Map<String, dynamic>>> getTreatmentPlans() =>
       _getList('/api/v1/treatment-plans');
+
+  Future<Map<String, dynamic>> createTreatmentPlan({
+    required String medicationId,
+    required String doseText,
+    required DateTime startDate,
+    DateTime? endDate,
+    required String timeZone,
+    required List<Map<String, String>> schedules,
+    String? instructions,
+  }) async =>
+      _asObject(
+        await _send(
+          'POST',
+          '/api/v1/treatment-plans',
+          body: {
+            'medicationId': medicationId,
+            'doseText': doseText.trim(),
+            'instructions': _emptyToNull(instructions),
+            'startDate': _date(startDate),
+            'endDate': endDate == null ? null : _date(endDate),
+            'timeZone': timeZone,
+            'schedules': schedules,
+          },
+        ),
+      );
 
   Future<List<Map<String, dynamic>>> getDoseOccurrences({
     required DateTime fromDate,
@@ -190,7 +234,7 @@ class LifeMateApiClient {
       );
     }
 
-    var uri = _baseUri.resolve(path);
+    var uri = _resolve(path);
     if (query != null) uri = uri.replace(queryParameters: query);
     final headers = <String, String>{
       'Accept': 'application/json',
@@ -249,6 +293,17 @@ class LifeMateApiClient {
       '${value.year.toString().padLeft(4, '0')}-'
       '${value.month.toString().padLeft(2, '0')}-'
       '${value.day.toString().padLeft(2, '0')}';
+
+  Uri _resolve(String path) {
+    final base = _baseUri.toString().replaceFirst(RegExp(r'/+$'), '');
+    final relative = path.replaceFirst(RegExp(r'^/+'), '');
+    return Uri.parse('$base/$relative');
+  }
+
+  static String? _emptyToNull(String? value) {
+    final normalized = value?.trim();
+    return normalized == null || normalized.isEmpty ? null : normalized;
+  }
 
   void close() => _http.close();
 }

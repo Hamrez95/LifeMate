@@ -127,6 +127,7 @@ class WellMateApp extends StatelessWidget {
     return LifeMateSessionGate(
       config: config,
       appName: 'WellMate',
+      logoAssetPath: 'assets/images/WellMateWithoutBack.png',
       authenticatedBuilder: (context, apiClient) =>
           Provider<LifeMateApiClient>.value(
         value: apiClient,

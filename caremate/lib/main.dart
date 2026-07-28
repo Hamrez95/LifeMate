@@ -101,6 +101,7 @@ class CareMateApp extends StatelessWidget {
     return LifeMateSessionGate(
       config: config,
       appName: 'CareMate',
+      logoAssetPath: 'assets/images/CareMateWithoutBack.png',
       authenticatedBuilder: (context, apiClient) =>
           Provider<LifeMateApiClient>.value(
         value: apiClient,

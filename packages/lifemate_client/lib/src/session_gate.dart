@@ -15,12 +15,14 @@ class LifeMateSessionGate extends StatefulWidget {
   const LifeMateSessionGate({
     required this.config,
     required this.appName,
+    required this.logoAssetPath,
     required this.authenticatedBuilder,
     super.key,
   });
 
   final AppConfig config;
   final String appName;
+  final String logoAssetPath;
   final AuthenticatedBuilder authenticatedBuilder;
 
   @override
@@ -99,7 +101,11 @@ class _LifeMateSessionGateState extends State<LifeMateSessionGate> {
     }
 
     if (_session == null) {
-      return _SignInScreen(appName: widget.appName, supabase: _supabase);
+      return _SignInScreen(
+        appName: widget.appName,
+        logoAssetPath: widget.logoAssetPath,
+        supabase: _supabase,
+      );
     }
 
     return FutureBuilder<void>(
@@ -137,9 +143,14 @@ class _LifeMateSessionGateState extends State<LifeMateSessionGate> {
 }
 
 class _SignInScreen extends StatefulWidget {
-  const _SignInScreen({required this.appName, required this.supabase});
+  const _SignInScreen({
+    required this.appName,
+    required this.logoAssetPath,
+    required this.supabase,
+  });
 
   final String appName;
+  final String logoAssetPath;
   final SupabaseClient supabase;
 
   @override
@@ -196,10 +207,19 @@ class _SignInScreenState extends State<_SignInScreen> {
                 key: _formKey,
                 child: Column(
                   children: [
-                    Icon(
-                      Icons.health_and_safety_rounded,
-                      size: 72,
-                      color: Theme.of(context).colorScheme.primary,
+                    ClipRRect(
+                      borderRadius: BorderRadius.circular(24),
+                      child: Image.asset(
+                        widget.logoAssetPath,
+                        width: 104,
+                        height: 104,
+                        fit: BoxFit.cover,
+                        errorBuilder: (_, __, ___) => Icon(
+                          Icons.health_and_safety_rounded,
+                          size: 72,
+                          color: Theme.of(context).colorScheme.primary,
+                        ),
+                      ),
                     ),
                     const SizedBox(height: 16),
                     Text(

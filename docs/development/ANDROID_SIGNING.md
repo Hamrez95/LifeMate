@@ -33,10 +33,10 @@ Android beta builds require these GitHub Actions repository variables:
 - `SUPABASE_PUBLISHABLE_KEY`
 - `LIFEMATE_API_BASE_URL`
 
-The beta workflow can fall back to the project's public Supabase URL and
-publishable key. Until `LIFEMATE_API_BASE_URL` is configured, it uses the
-reserved `api.lifemate.invalid` host so the installable artifact cannot be
-mistaken for a connected release.
+The beta workflow can fall back to the project's public Supabase URL,
+publishable key, and authenticated `lifemate-api` Edge Function. The resulting
+beta APKs use the real database-backed MVP flow. A repository variable may
+override the API URL for another environment.
 
 The API base URL must be HTTPS. Service-role keys, database credentials, private
 signing files, passwords, and refresh/access tokens must never be passed as Dart
