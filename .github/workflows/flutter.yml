@@ -141,7 +141,7 @@ jobs:
           test "${{ steps.caremate.outcome }}" = "success"
 
       - name: Build Android beta APKs
-        if: ${{ success() && (github.event_name == 'push' || github.event_name == 'workflow_dispatch') }}
+        if: ${{ success() }}
         shell: bash
         env:
           # Supabase URL and publishable keys are public mobile-client
@@ -183,7 +183,7 @@ jobs:
           done
 
       - name: Upload Android beta APKs
-        if: ${{ success() && (github.event_name == 'push' || github.event_name == 'workflow_dispatch') }}
+        if: ${{ success() }}
         uses: actions/upload-artifact@v4
         with:
           name: lifemate-android-beta-apks
