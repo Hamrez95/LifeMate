@@ -172,6 +172,15 @@ jobs:
           )
           (cd wellmate && flutter build apk "${build_args[@]}")
           (cd caremate && flutter build apk "${build_args[@]}")
+          aapt_bin="$(find "$ANDROID_HOME/build-tools" -type f -name aapt | sort -V | tail -n 1)"
+          test -x "$aapt_bin"
+          for apk in \
+            wellmate/build/app/outputs/flutter-apk/app-release.apk \
+            caremate/build/app/outputs/flutter-apk/app-release.apk
+          do
+            "$aapt_bin" dump permissions "$apk" \
+              | grep -Fq "android.permission.INTERNET"
+          done
 
       - name: Upload Android beta APKs
         if: ${{ success() && (github.event_name == 'push' || github.event_name == 'workflow_dispatch') }}
