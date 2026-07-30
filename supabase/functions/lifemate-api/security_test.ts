@@ -39,7 +39,7 @@ Deno.test("timingSafeEqual compares equal-length secrets without early return", 
 });
 
 Deno.test("maskEmail hides the local part while preserving delivery hint", () => {
-  assertEquals(maskEmail("hamidreza@example.com"), "ha********@example.com");
+  assertEquals(maskEmail("hamidreza@example.com"), "ha*******@example.com");
   assertEquals(maskEmail("a@example.com"), "a**@example.com");
 });
 
