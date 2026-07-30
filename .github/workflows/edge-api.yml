@@ -59,10 +59,14 @@ jobs:
         run: |
           set -euo pipefail
           ! grep -R --line-number 'SUPABASE_SERVICE_ROLE_KEY' .
-          test "$(grep -R --include='*.ts' --exclude='*_test.ts' -l 'postgres(databaseUrl' . | wc -l)" -eq 1
+          test "$(grep -R --include='*.ts' --exclude='*_test.ts' -l 'postgres(databaseUrl' . | wc -l)" -eq 2
+          grep -q "from vault.decrypted_secrets" runtime_config.ts
+          grep -q "await sql.end({ timeout: 5 })" runtime_config.ts
+          grep -q 'value.length >= 32' runtime_config.ts
+          grep -q 'value !== serviceRole' runtime_config.ts
+          ! grep -q 'sources.defaultSecret' runtime_config.ts
           grep -q 'actor_user_id = \${userId}' database.ts
           grep -q 'client_request_id = \${clientRequestId}' database.ts
-          grep -q 'contactHashingSecret.length < 32' index.ts
 
   postgres-role-journey:
     runs-on: ubuntu-24.04
