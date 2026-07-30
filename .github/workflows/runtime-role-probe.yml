@@ -15,6 +15,8 @@ jobs:
     timeout-minutes: 5
     steps:
       - name: Collect redacted Edge database-role evidence
+        id: collect
+        continue-on-error: true
         shell: bash
         run: |
           set -euo pipefail
@@ -22,6 +24,22 @@ jobs:
             'https://bwdvmniywyyijjauipnh.supabase.co/functions/v1/lifemate-smoke')"
           echo "$response" | jq -e 'if type == "object" then . else error("role_evidence_not_object") end' \
             > runtime-role-evidence.json
+
+      - name: Upload redacted role evidence
+        if: ${{ always() }}
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: runtime-role-evidence
+          path: runtime-role-evidence.json
+          if-no-files-found: error
+          retention-days: 14
+
+      - name: Enforce direct-access boundary
+        if: ${{ always() }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "${{ steps.collect.outcome }}" = 'success'
           jq -e '
             .runtimeRole != null and
             .runtimeRole.rolsuper == false and
@@ -34,11 +52,3 @@ jobs:
             .access.service_role_any_dml == false and
             .dedicatedSecretReady == true
           ' runtime-role-evidence.json >/dev/null
-
-      - name: Upload redacted role evidence
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
-        with:
-          name: runtime-role-evidence
-          path: runtime-role-evidence.json
-          if-no-files-found: error
-          retention-days: 14
