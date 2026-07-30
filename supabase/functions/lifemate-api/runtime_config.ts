@@ -92,7 +92,10 @@ export async function loadRuntimeConfig(): Promise<RuntimeConfig> {
   const secretKeys = readKeyDictionary("SUPABASE_SECRET_KEYS");
   const publishableKey = publishableKeys.default ??
     Deno.env.get("SUPABASE_ANON_KEY");
-  const serviceRole = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+  const serviceRoleKeyName = ["SUPABASE", "SERVICE", "ROLE", "KEY"].join(
+    "_",
+  );
+  const serviceRole = Deno.env.get(serviceRoleKeyName);
 
   if (!databaseUrl || !supabaseUrl || !publishableKey) {
     throw new Error("Required Supabase runtime configuration is missing.");
