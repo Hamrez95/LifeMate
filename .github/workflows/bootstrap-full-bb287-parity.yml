@@ -23,12 +23,14 @@ jobs:
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
         with:
+          ref: feat/full-bb287-ui-parity
           fetch-depth: 0
 
-      - name: Restore exact visual binaries from bb287
+      - name: Restore exact visual binaries and navigation parity
         shell: bash
         run: |
           set -euo pipefail
+          git pull --rebase origin feat/full-bb287-ui-parity
           reference=bb28701971cb2d43cde5acb5d50ef679dded534f
           git cat-file -e "$reference^{commit}"
 
@@ -54,40 +56,83 @@ jobs:
             wellmate/web/icons/Icon-maskable-192.png
             wellmate/web/icons/Icon-maskable-512.png
           )
-
           git checkout "$reference" -- "${paths[@]}"
 
-          mkdir -p docs/ui
-          {
-            echo '# bb287 full UI/UX parity ledger'
-            echo
-            echo "Reference commit: \`$reference\`"
-            echo
-            echo '## Exact visual binaries restored'
-            for path in "${paths[@]}"; do
-              echo "- [x] \`$path\`"
-            done
-            echo
-            echo '## UI source files changed after the reference and requiring integration review'
-            echo '- [ ] `caremate/lib/main.dart` — retain authentication shell; verify exact theme and logo behavior'
-            echo '- [ ] `caremate/lib/screens/dashboard_screen.dart` — restore exact visual hierarchy while mapping live API data'
-            echo '- [ ] `caremate/lib/widgets/custom_app_header.dart` — restore exact header visuals without mock alerts'
-            echo '- [ ] `wellmate/lib/main.dart` — retain authentication shell and reference theme'
-            echo '- [ ] `wellmate/lib/core/widgets/wellmate_app_header.dart` — exact reference layout with live missed-dose state'
-            echo '- [ ] `wellmate/lib/screens/home/active_treatment_card.dart` — exact reference card with live actions'
-            echo '- [ ] `wellmate/lib/screens/home/home_screen.dart` — all original destinations remain navigable'
-            echo '- [ ] `wellmate/lib/screens/home/home_screen_content.dart` — exact reference composition with live API data'
-            echo '- [ ] `wellmate/lib/screens/profile/profile_screen.dart` — exact reference profile composition with live account data'
-            echo
-            echo '## Acceptance rules'
-            echo '- Every original page and navigation destination remains present.'
-            echo '- Backend-supported actions are live and persisted.'
-            echo '- Unsupported actions open their original destination but are visibly disabled or marked «در دست توسعه».'
-            echo '- No mock health information is presented as live user data.'
-            echo '- Flutter analyze, tests, web builds, Android builds, and live API boundary checks must pass.'
-          } > docs/ui/BB287_FULL_PARITY_LEDGER.md
+          python3 - <<'PY'
+          from pathlib import Path
 
-      - name: Commit restored assets and parity ledger
+          dashboard = Path('caremate/lib/screens/dashboard_screen.dart')
+          text = dashboard.read_text()
+          anchor = "import '../widgets/custom_app_header.dart';\n"
+          if "import 'feature_preview_screen.dart';" not in text:
+              if anchor not in text:
+                  raise SystemExit('dashboard import anchor not found')
+              text = text.replace(
+                  anchor,
+                  anchor + "import 'calendar/calendar_screen.dart';\nimport 'feature_preview_screen.dart';\n",
+                  1,
+              )
+
+          old = """  void _onNavigationTap(int index) {
+            if (index == 4) return;
+            const labels = ['تقویم مراقبت', 'تغییر پروفایل', 'مدیریت درمان', 'مراقبت خانواده'];
+            _showComingSoon(labels[index]);
+          }
+          """
+          new = """  void _onNavigationTap(int index) {
+            if (index == 4) return;
+            final Widget destination = index == 0
+                ? const CalendarScreen()
+                : CareMateFeaturePreviewScreen(initialIndex: index);
+            Navigator.of(context).pushReplacement(
+              PageRouteBuilder<void>(
+                pageBuilder: (_, __, ___) => destination,
+                transitionDuration: Duration.zero,
+                reverseTransitionDuration: Duration.zero,
+              ),
+            );
+          }
+          """
+          if old in text:
+              text = text.replace(old, new, 1)
+          elif 'CareMateFeaturePreviewScreen(initialIndex: index)' not in text:
+              raise SystemExit('dashboard navigation block not found')
+          dashboard.write_text(text)
+          PY
+
+          if [ ! -f docs/ui/BB287_FULL_PARITY_LEDGER.md ]; then
+            mkdir -p docs/ui
+            {
+              echo '# bb287 full UI/UX parity ledger'
+              echo
+              echo "Reference commit: \`$reference\`"
+              echo
+              echo '## Exact visual binaries restored'
+              for path in "${paths[@]}"; do
+                echo "- [x] \`$path\`"
+              done
+              echo
+              echo '## UI source files changed after the reference and requiring integration review'
+              echo '- [ ] `caremate/lib/main.dart` — retain authentication shell; verify exact theme and logo behavior'
+              echo '- [ ] `caremate/lib/screens/dashboard_screen.dart` — restore exact visual hierarchy while mapping live API data'
+              echo '- [ ] `caremate/lib/widgets/custom_app_header.dart` — restore exact header visuals without mock alerts'
+              echo '- [ ] `wellmate/lib/main.dart` — retain authentication shell and reference theme'
+              echo '- [ ] `wellmate/lib/core/widgets/wellmate_app_header.dart` — exact reference layout with live missed-dose state'
+              echo '- [ ] `wellmate/lib/screens/home/active_treatment_card.dart` — exact reference card with live actions'
+              echo '- [ ] `wellmate/lib/screens/home/home_screen.dart` — all original destinations remain navigable'
+              echo '- [ ] `wellmate/lib/screens/home/home_screen_content.dart` — exact reference composition with live API data'
+              echo '- [ ] `wellmate/lib/screens/profile/profile_screen.dart` — exact reference profile composition with live account data'
+              echo
+              echo '## Acceptance rules'
+              echo '- Every original page and navigation destination remains present.'
+              echo '- Backend-supported actions are live and persisted.'
+              echo '- Unsupported actions open their original destination but are visibly disabled or marked «در دست توسعه».'
+              echo '- No mock health information is presented as live user data.'
+              echo '- Flutter analyze, tests, web builds, Android builds, and live API boundary checks must pass.'
+            } > docs/ui/BB287_FULL_PARITY_LEDGER.md
+          fi
+
+      - name: Commit restored assets and navigation
         shell: bash
         run: |
           set -euo pipefail
@@ -98,5 +143,5 @@ jobs:
             echo 'No changes to commit.'
             exit 0
           fi
-          git commit -m 'Restore exact bb287 app icons and visual parity ledger'
+          git commit -m 'Restore exact bb287 assets and CareMate navigation'
           git push origin HEAD:feat/full-bb287-ui-parity
