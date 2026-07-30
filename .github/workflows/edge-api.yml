@@ -15,7 +15,7 @@ on:
       - 'AGENTS.md'
 
 permissions:
-  contents: write
+  contents: read
 
 concurrency:
   group: edge-api-${{ github.workflow }}-${{ github.ref }}
@@ -32,7 +32,6 @@ jobs:
       - uses: actions/checkout@v4
         with:
           show-progress: false
-          ref: ${{ github.event.pull_request.head.ref || github.ref_name }}
 
       - uses: denoland/setup-deno@v2
         with:
@@ -41,34 +40,8 @@ jobs:
       - name: Deno environment
         run: deno --version
 
-      - name: Apply deterministic formatting
-        id: format
-        shell: bash
-        run: |
-          set -euo pipefail
-          deno fmt
-          if git diff --quiet; then
-            echo 'changed=false' >> "$GITHUB_OUTPUT"
-          else
-            echo 'changed=true' >> "$GITHUB_OUTPUT"
-          fi
-
-      - name: Commit formatting to internal PR branch
-        if: >-
-          ${{
-            steps.format.outputs.changed == 'true' &&
-            github.event_name == 'pull_request' &&
-            github.event.pull_request.head.repo.full_name == github.repository
-          }}
-        working-directory: .
-        shell: bash
-        run: |
-          set -euo pipefail
-          git config user.name 'github-actions[bot]'
-          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git add supabase/functions/lifemate-api
-          git commit -m 'style(edge-api): apply deno fmt'
-          git push origin "HEAD:${{ github.event.pull_request.head.ref }}"
+      - name: Format
+        run: deno fmt --check
 
       - name: Type check
         run: deno task check
@@ -84,8 +57,3 @@ jobs:
           test "$(grep -R --include='*.ts' -l 'postgres(databaseUrl' . | wc -l)" -eq 1
           grep -q 'actor_user_id = \${userId}' database.ts
           grep -q 'client_request_id = \${clientRequestId}' database.ts
-
-      - name: Enforce clean formatting
-        working-directory: .
-        shell: bash
-        run: git diff --exit-code
