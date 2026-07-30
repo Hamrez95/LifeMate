@@ -31,7 +31,7 @@ jobs:
           current_health="$(curl --fail --silent --show-error --retry 4 --retry-all-errors "$current_url/health")"
           current_unauthorized="$(curl --silent --show-error --output /dev/null --write-out '%{http_code}' "$current_url/api/v1/me")"
 
-          echo "$diagnostic" | jq -e 'type == "object"' > release-live-probe.json
+          echo "$diagnostic" | jq -e 'if type == "object" then . else error("diagnostic_not_object") end' > release-live-probe.json
           jq --arg currentStatus "$(echo "$current_health" | jq -r '.status // "missing"')" \
              --arg currentDatabase "$(echo "$current_health" | jq -r '.database // "missing"')" \
              --arg currentUnauthorized "$current_unauthorized" \
