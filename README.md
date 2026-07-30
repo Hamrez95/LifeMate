@@ -1,21 +1,71 @@
 # LifeMate
 
-LifeMate is a connected digital-health ecosystem designed to help patients, caregivers, and families manage daily care with greater clarity and confidence.
+LifeMate is a connected digital-health and family-care ecosystem for helping a patient follow a treatment plan while an explicitly authorized caregiver can provide timely support.
 
 ## Products
 
-- **WellMate** — the patient-facing app for medication reminders, vital-sign tracking, schedules, and treatment adherence.
-- **CareMate** — the caregiver and family companion for monitoring, alerts, and timely support.
-- **Backend** — shared services and APIs that connect the LifeMate ecosystem.
+- **WellMate** — patient-facing Flutter application for medication schedules, reminders and adherence reporting.
+- **CareMate** — caregiver/family Flutter application for consent-scoped monitoring and support.
+- **LifeMate.Api** — ASP.NET Core backend that owns healthcare business rules, authorization, audit and PostgreSQL persistence.
 
-## Repository structure
+## Architecture baseline
 
 ```text
-wellmate/   Patient application
-caremate/   Caregiver application
-backend/    Shared backend services
+WellMate / CareMate
+        |
+        | Supabase Auth JWT + HTTPS API requests
+        v
+   LifeMate.Api
+        |
+        v
+ PostgreSQL
 ```
 
-## Project name
+Supabase may provide managed Auth and PostgreSQL for the beta, but mobile clients must not directly read or mutate healthcare tables. The repository must have exactly one production healthcare API/authorization boundary; the active architecture decision is tracked in [issue #18](../../issues/18).
 
-The official project and product name is **LifeMate**. WellMate and CareMate remain the names of the two connected applications inside the LifeMate ecosystem.
+## Repository map
+
+```text
+wellmate/          Flutter patient application
+caremate/          Flutter caregiver application
+backend-dotnet/    Production ASP.NET Core modular monolith and tests
+backend/           Temporary legacy Dart/Shelf demo backend; not production
+assets/            Shared product artwork and design assets
+docs/              Product, development, security and operations documentation
+.github/workflows/ Path-scoped backend and Flutter CI
+```
+
+Shared Flutter client code and deployment adapters may be introduced through reviewed pull requests; they are not allowed to create a second, untested source of healthcare business rules.
+
+## Delivery control
+
+- [Launch roadmap](../../issues/7)
+- [Stable beta release gate](../../issues/14)
+- [Database/RLS hardening](../../issues/16)
+- [API-boundary decision](../../issues/18)
+
+`main` is reserved for reviewed, releasable increments. Production code changes use one focused branch and pull request with green CI. Internal APK artifacts are test builds until every stable-release gate is complete.
+
+## Verification
+
+### Backend
+
+```bash
+dotnet restore backend-dotnet/LifeMate.sln
+dotnet build backend-dotnet/LifeMate.sln --configuration Release --no-restore
+dotnet test backend-dotnet/LifeMate.sln --configuration Release --no-build
+```
+
+### Flutter
+
+Run dependency resolution, analysis and tests from each application directory. The authoritative versions and complete CI commands live in `.github/workflows/flutter.yml`.
+
+## Safety rules
+
+- Never commit secrets, tokens, production connection strings, signing keystores or health data.
+- Keep authentication, ownership, consent and caregiver authorization checks server-side.
+- Do not make clinical diagnosis, prescribing, emergency-response or drug-interaction claims in the beta.
+- Apply database migrations only after review, green CI and a documented rollback/restore plan.
+- Validate a release on representative real Android devices before distribution.
+
+See [AGENTS.md](AGENTS.md) and [docs/development/WORKFLOW.md](docs/development/WORKFLOW.md) for repository instructions.
