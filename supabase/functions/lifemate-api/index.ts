@@ -16,14 +16,19 @@ const secretKeys = readKeyDictionary("SUPABASE_SECRET_KEYS");
 const publishableKey = publishableKeys.default ??
   Deno.env.get("SUPABASE_ANON_KEY");
 const contactHashingSecret = Deno.env.get("LIFEMATE_CONTACT_HASHING_SECRET") ??
-  secretKeys.contact_hashing ??
-  secretKeys.default;
+  secretKeys.contact_hashing;
 const releaseVersion = Deno.env.get("LIFEMATE_RELEASE_VERSION") ??
   "0.8.0-beta.2";
 
-if (!databaseUrl || !supabaseUrl || !publishableKey || !contactHashingSecret) {
+if (
+  !databaseUrl ||
+  !supabaseUrl ||
+  !publishableKey ||
+  !contactHashingSecret ||
+  contactHashingSecret.length < 32
+) {
   throw new Error(
-    "Required LifeMate runtime configuration is missing. A dedicated contact hashing secret is required.",
+    "Required LifeMate runtime configuration is missing. A dedicated contact hashing secret of at least 32 characters is required.",
   );
 }
 
@@ -263,9 +268,12 @@ function readKeyDictionary(name: string): Record<string, string> {
   if (!raw) return {};
   try {
     const value = JSON.parse(raw);
-    return value && typeof value === "object" && !Array.isArray(value)
-      ? value
-      : {};
+    if (!value || typeof value !== "object" || Array.isArray(value)) return {};
+    return Object.fromEntries(
+      Object.entries(value).filter((entry): entry is [string, string] =>
+        typeof entry[1] === "string"
+      ),
+    );
   } catch {
     return {};
   }
