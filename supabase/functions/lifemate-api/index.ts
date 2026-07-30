@@ -1,6 +1,7 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { type AuthUser, createLifeMateDatabase } from "./database.ts";
 import { corsHeaders, json, problem, safeError } from "./http.ts";
+import { loadRuntimeConfig } from "./runtime_config.ts";
 import { enforceRateLimit } from "./security.ts";
 import {
   ApiError,
@@ -9,28 +10,13 @@ import {
   readJsonObject,
 } from "./validation.ts";
 
-const databaseUrl = Deno.env.get("SUPABASE_DB_URL");
-const supabaseUrl = Deno.env.get("SUPABASE_URL");
-const publishableKeys = readKeyDictionary("SUPABASE_PUBLISHABLE_KEYS");
-const secretKeys = readKeyDictionary("SUPABASE_SECRET_KEYS");
-const publishableKey = publishableKeys.default ??
-  Deno.env.get("SUPABASE_ANON_KEY");
-const contactHashingSecret = Deno.env.get("LIFEMATE_CONTACT_HASHING_SECRET") ??
-  secretKeys.contact_hashing;
-const releaseVersion = Deno.env.get("LIFEMATE_RELEASE_VERSION") ??
-  "0.8.0-beta.2";
-
-if (
-  !databaseUrl ||
-  !supabaseUrl ||
-  !publishableKey ||
-  !contactHashingSecret ||
-  contactHashingSecret.length < 32
-) {
-  throw new Error(
-    "Required LifeMate runtime configuration is missing. A dedicated contact hashing secret of at least 32 characters is required.",
-  );
-}
+const {
+  databaseUrl,
+  supabaseUrl,
+  publishableKey,
+  contactHashingSecret,
+  releaseVersion,
+} = await loadRuntimeConfig();
 
 const db = createLifeMateDatabase(databaseUrl, contactHashingSecret);
 
@@ -226,7 +212,7 @@ async function authenticate(request: Request): Promise<AuthUser> {
     response = await fetch(`${supabaseUrl}/auth/v1/user`, {
       headers: {
         Authorization: authorization,
-        apikey: publishableKey!,
+        apikey: publishableKey,
       },
       signal: AbortSignal.timeout(10_000),
     });
@@ -261,22 +247,6 @@ async function authenticate(request: Request): Promise<AuthUser> {
       ? value.user_metadata
       : {},
   };
-}
-
-function readKeyDictionary(name: string): Record<string, string> {
-  const raw = Deno.env.get(name);
-  if (!raw) return {};
-  try {
-    const value = JSON.parse(raw);
-    if (!value || typeof value !== "object" || Array.isArray(value)) return {};
-    return Object.fromEntries(
-      Object.entries(value).filter((entry): entry is [string, string] =>
-        typeof entry[1] === "string"
-      ),
-    );
-  } catch {
-    return {};
-  }
 }
 
 function isPostgresConflict(error: unknown): boolean {
