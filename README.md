@@ -1,54 +1,69 @@
 # LifeMate
 
-LifeMate is a connected digital-health and family-care ecosystem for helping a patient follow a treatment plan while an explicitly authorized caregiver can provide timely support.
+LifeMate is a connected digital-health and family-care ecosystem that helps a patient follow a treatment plan while an explicitly authorized caregiver can provide timely support.
 
 ## Products
 
 - **WellMate** — patient-facing Flutter application for medication schedules, reminders and adherence reporting.
 - **CareMate** — caregiver/family Flutter application for consent-scoped monitoring and support.
-- **LifeMate.Api** — ASP.NET Core backend that owns healthcare business rules, authorization, audit and PostgreSQL persistence.
+- **LifeMate closed-beta API** — hardened Supabase Edge Function for authenticated healthcare workflows.
+- **ASP.NET Core reference backend** — canonical domain model, EF migrations and parity/reference tests for the same PostgreSQL schema.
 
-## Architecture baseline
+## Closed-beta architecture
 
 ```text
 WellMate / CareMate
         |
-        | Supabase Auth JWT + HTTPS API requests
+        | Supabase Auth session + HTTPS
         v
-   LifeMate.Api
+Supabase Edge Function: lifemate-api
         |
+        | least-privilege server connection
         v
- PostgreSQL
+PostgreSQL schema: lifemate
 ```
 
-Supabase may provide managed Auth and PostgreSQL for the beta, but mobile clients must not directly read or mutate healthcare tables. The repository must have exactly one production healthcare API/authorization boundary; the active architecture decision is tracked in [issue #18](../../issues/18).
+Supabase provides Auth, the Edge runtime and managed PostgreSQL for the zero-cost closed beta. Mobile clients never directly read or mutate healthcare tables and never receive database/service-role credentials.
+
+The repository has exactly one healthcare API runtime for this release: `supabase/functions/lifemate-api`. `backend-dotnet` remains the canonical schema/domain reference and owns reviewed EF migrations, but is not called by the closed-beta apps. Moving the runtime to ASP.NET Core later is an explicit migration—not a second parallel API.
 
 ## Repository map
 
 ```text
-wellmate/          Flutter patient application
-caremate/          Flutter caregiver application
-backend-dotnet/    Production ASP.NET Core modular monolith and tests
-backend/           Temporary legacy Dart/Shelf demo backend; not production
-assets/            Shared product artwork and design assets
-docs/              Product, development, security and operations documentation
-.github/workflows/ Path-scoped backend and Flutter CI
+wellmate/                         Flutter patient application
+caremate/                         Flutter caregiver application
+packages/lifemate_client/         Shared authenticated mobile client
+supabase/functions/lifemate-api/  Closed-beta healthcare API runtime
+backend-dotnet/                   Domain/schema reference, EF migrations and tests
+backend/                          Temporary legacy Dart/Shelf demo; not production
+assets/                           Product artwork and design assets
+docs/                             Product, development, security and operations docs
+.github/workflows/                Path-scoped backend, Edge and Flutter CI
 ```
-
-Shared Flutter client code and deployment adapters may be introduced through reviewed pull requests; they are not allowed to create a second, untested source of healthcare business rules.
 
 ## Delivery control
 
 - [Launch roadmap](../../issues/7)
 - [Stable beta release gate](../../issues/14)
 - [Database/RLS hardening](../../issues/16)
-- [API-boundary decision](../../issues/18)
+- [Closed-beta API decision](../../issues/18)
 
-`main` is reserved for reviewed, releasable increments. Production code changes use one focused branch and pull request with green CI. Internal APK artifacts are test builds until every stable-release gate is complete.
+`main` is reserved for reviewed, releasable increments. Production code changes use one focused branch and pull request with green CI. Internal APK artifacts remain test builds until the stable-release gate is complete.
 
 ## Verification
 
-### Backend
+### Edge API
+
+```bash
+cd supabase/functions/lifemate-api
+deno fmt --check
+deno task check
+deno task test
+```
+
+The authoritative workflow additionally applies canonical EF migrations to temporary PostgreSQL and tests patient, caregiver and unrelated-user journeys.
+
+### Canonical schema/reference backend
 
 ```bash
 dotnet restore backend-dotnet/LifeMate.sln
@@ -58,14 +73,15 @@ dotnet test backend-dotnet/LifeMate.sln --configuration Release --no-build
 
 ### Flutter
 
-Run dependency resolution, analysis and tests from each application directory. The authoritative versions and complete CI commands live in `.github/workflows/flutter.yml`.
+Run dependency resolution, analysis and tests from each application directory. The authoritative versions and complete commands live in `.github/workflows/flutter.yml`.
 
 ## Safety rules
 
 - Never commit secrets, tokens, production connection strings, signing keystores or health data.
-- Keep authentication, ownership, consent and caregiver authorization checks server-side.
+- Keep authentication, ownership, consent, caregiver authorization, idempotency and revocation checks server-side.
+- Never reuse the Supabase service-role key as an invitation/contact hashing secret.
 - Do not make clinical diagnosis, prescribing, emergency-response or drug-interaction claims in the beta.
-- Apply database migrations only after review, green CI and a documented rollback/restore plan.
+- Apply database migrations only after review, green CI and a documented backup/rollback plan.
 - Validate a release on representative real Android devices before distribution.
 
-See [AGENTS.md](AGENTS.md) and [docs/development/WORKFLOW.md](docs/development/WORKFLOW.md) for repository instructions.
+See [AGENTS.md](AGENTS.md), [the development workflow](docs/development/WORKFLOW.md) and [the beta operations runbook](docs/operations/BETA_OPERATIONS_RUNBOOK.md).

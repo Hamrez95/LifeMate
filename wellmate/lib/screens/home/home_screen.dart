@@ -4,6 +4,7 @@ import '../../core/widgets/wellmate_app_header.dart';
 import '../../core/widgets/wellmate_bottom_nav.dart';
 import '../calendar/calendar_screen.dart';
 import '../profile/profile_screen.dart';
+import '../treatments/treatments_screen.dart';
 import 'home_screen_content.dart';
 
 class HomeScreen extends StatefulWidget {
@@ -15,13 +16,14 @@ class HomeScreen extends StatefulWidget {
 
 class _HomeScreenState extends State<HomeScreen> {
   int _currentIndex = 3; // ایندکس خانه حالا 3 است
+  int _refreshToken = 0;
 
-  final List<Widget> _pages = [
-    const CalendarScreen(), // ایندکس 0: تقویم
-    Container(), // ایندکس 1: داروها
-    Container(), // ایندکس 2: افزودن درمان
-    const HomeScreenContent(), // ایندکس 3: خانه
-  ];
+  void _treatmentCreated() {
+    setState(() {
+      _refreshToken++;
+      _currentIndex = 3;
+    });
+  }
 
   void _onItemTapped(int index) {
     setState(() {
@@ -31,6 +33,12 @@ class _HomeScreenState extends State<HomeScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final pages = [
+      const CalendarScreen(),
+      TreatmentsScreen(refreshToken: _refreshToken),
+      AddTreatmentScreen(onCreated: _treatmentCreated),
+      HomeScreenContent(key: ValueKey(_refreshToken)),
+    ];
     return Scaffold(
       backgroundColor: AppColors.background,
       extendBody: true,
@@ -50,7 +58,7 @@ class _HomeScreenState extends State<HomeScreen> {
             Expanded(
               child: IndexedStack(
                 index: _currentIndex,
-                children: _pages,
+                children: pages,
               ),
             ),
           ],

@@ -9,6 +9,12 @@ public sealed record ListDoseOccurrencesCommand(
     DateOnly FromDate,
     DateOnly ToDate);
 
+public sealed record ListCareRecipientDoseOccurrencesCommand(
+    AdherenceIdentity Identity,
+    Guid PatientUserId,
+    DateOnly FromDate,
+    DateOnly ToDate);
+
 public sealed record ReportDoseOccurrenceCommand(
     AdherenceIdentity Identity,
     Guid OccurrenceId,
@@ -29,10 +35,25 @@ public sealed record DoseOccurrenceDto(
     DateTime? RespondedAtUtc,
     int Version);
 
+public sealed record CareRecipientDoseOccurrenceDto(
+    Guid Id,
+    Guid TreatmentPlanId,
+    Guid TreatmentScheduleId,
+    string MedicationName,
+    string DoseText,
+    DateTime ScheduledAtUtc,
+    DateOnly ScheduledLocalDate,
+    TimeOnly ScheduledLocalTime,
+    string TimeZone,
+    string Status,
+    DateTime? RespondedAtUtc,
+    int Version);
+
 public enum AdherenceErrorKind
 {
     Validation,
     NotFound,
+    Forbidden,
     Conflict
 }
 

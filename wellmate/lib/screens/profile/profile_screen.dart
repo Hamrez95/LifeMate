@@ -7,6 +7,9 @@ import 'package:wellmate/localization/app_localizations.dart';
 import 'package:wellmate/localization/locale_provider.dart';
 import '../../core/utils/string_extensions.dart';
 import 'package:wellmate/providers/settings_provider.dart'; // 👈 اضافه شدن پرووایدر تنظیمات
+import 'package:lifemate_client/lifemate_client.dart';
+
+import 'care_access_screen.dart';
 
 class ProfileScreen extends StatelessWidget {
   const ProfileScreen({Key? key}) : super(key: key);
@@ -45,82 +48,17 @@ class ProfileScreen extends StatelessWidget {
                       ),
                       const SizedBox(width: 8),
                       Expanded(
-                        child: Column(
-                          children: [
-                            Container(
-                              width: 80,
-                              height: 80,
-                              decoration: BoxDecoration(
-                                shape: BoxShape.circle,
-                                color: Colors.white,
-                                boxShadow: [
-                                  BoxShadow(
-                                    color: Colors.black.withOpacity(0.08),
-                                    blurRadius: 16,
-                                    offset: const Offset(0, 4),
-                                  ),
-                                ],
-                              ),
-                              child: Stack(
-                                alignment: Alignment.center,
-                                children: [
-                                  // استفاده از عکس بجای آیکون
-                                  const CircleAvatar(
-                                    radius: 36,
-                                    backgroundColor: Colors.transparent,
-                                    backgroundImage: AssetImage(
-                                        '../../../assets/images/mother_avatar.png'), // مسیر عکس کاربر
-                                  ),
-                                  Positioned(
-                                    bottom: 0,
-                                    right: 0,
-                                    child: Container(
-                                      padding: const EdgeInsets.all(4),
-                                      decoration: BoxDecoration(
-                                        color: Colors.white,
-                                        shape: BoxShape.circle,
-                                        boxShadow: [
-                                          BoxShadow(
-                                            color:
-                                                Colors.black.withOpacity(0.12),
-                                            blurRadius: 8,
-                                          ),
-                                        ],
-                                      ),
-                                      child: const Icon(Icons.camera_alt,
-                                          size: 16,
-                                          color: AppColors.primaryBlue),
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                            const SizedBox(height: 8),
-                            Text(
-                              loc['profile_name'] ?? 'نام کاربر',
-                              style: TextStyle(
-                                  fontFamily: mainFont,
-                                  fontSize: 22 * textScale,
-                                  fontWeight: FontWeight.bold,
-                                  color: AppColors.darkBlue),
-                            ),
-                            Text(
-                              (loc['profile_phone'] ?? '09123456789')
-                                  .toString()
-                                  .toPersianDigit(isPersian),
-                              style: TextStyle(
-                                  fontFamily: mainFont,
-                                  fontSize: 15 * textScale,
-                                  color: AppColors.primaryBlue),
-                            ),
-                          ],
+                        child: _CurrentUserIdentity(
+                          mainFont: mainFont,
+                          textScale: textScale,
+                          isPersian: isPersian,
                         ),
                       ),
                       const SizedBox(width: 8),
                       IconButton(
                         icon: const Icon(Icons.notifications_none_rounded,
                             size: 24, color: AppColors.primaryBlue),
-                        onPressed: () {},
+                        onPressed: () => _showComingSoon(context),
                         splashRadius: 24,
                       ),
                     ],
@@ -173,7 +111,7 @@ class ProfileScreen extends StatelessWidget {
                                         padding: const EdgeInsets.symmetric(
                                             horizontal: 18, vertical: 8),
                                       ),
-                                      onPressed: () {},
+                                      onPressed: () => _showComingSoon(context),
                                       child: Text(
                                           loc['profile_buy_plan'] ??
                                               'خرید اشتراک',
@@ -257,6 +195,12 @@ class ProfileScreen extends StatelessWidget {
                           label: loc['profile_caregivers'] ?? 'مراقبان',
                           mainFont: mainFont,
                           textScale: textScale,
+                          onTap: () => Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (_) => const CareAccessScreen(),
+                            ),
+                          ),
                         ),
                         const Divider(height: 1, indent: 60, endIndent: 20),
                         _ProfileMenuTile(
@@ -326,7 +270,7 @@ class ProfileScreen extends StatelessWidget {
                               fontSize: 16 * textScale,
                               color: Colors.redAccent,
                               fontWeight: FontWeight.bold)),
-                      onPressed: () {},
+                      onPressed: () => LifeMateAuth.signOut(),
                     ),
                   ),
                 ),
@@ -393,11 +337,120 @@ class _ProfileMenuTile extends StatelessWidget {
               fontFamily: mainFont,
               fontSize: 16 * textScale,
               color: AppColors.darkBlue)),
-      trailing: const Icon(Icons.arrow_forward_ios_rounded,
-          size: 14, color: Colors.grey), // 👈 فلش کوچک مثل CareMate اضافه شد
+      trailing: onTap == null
+          ? const Text(
+              'به‌زودی',
+              style: TextStyle(fontSize: 11, color: Colors.grey),
+            )
+          : const Icon(
+              Icons.arrow_forward_ios_rounded,
+              size: 14,
+              color: Colors.grey,
+            ),
       onTap: onTap,
     );
   }
+}
+
+class _CurrentUserIdentity extends StatefulWidget {
+  const _CurrentUserIdentity({
+    required this.mainFont,
+    required this.textScale,
+    required this.isPersian,
+  });
+
+  final String mainFont;
+  final double textScale;
+  final bool isPersian;
+
+  @override
+  State<_CurrentUserIdentity> createState() => _CurrentUserIdentityState();
+}
+
+class _CurrentUserIdentityState extends State<_CurrentUserIdentity> {
+  late final Future<Map<String, dynamic>> _currentUser;
+
+  @override
+  void initState() {
+    super.initState();
+    _currentUser = context.read<LifeMateApiClient>().getCurrentUser();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return FutureBuilder<Map<String, dynamic>>(
+      future: _currentUser,
+      builder: (context, snapshot) {
+        final profile =
+            snapshot.data?['profile'] as Map<String, dynamic>? ?? const {};
+        final name = profile['displayName']?.toString() ?? 'کاربر LifeMate';
+        final contact = profile['phoneNumber']?.toString().trim().isNotEmpty ==
+                true
+            ? profile['phoneNumber'].toString()
+            : profile['email']?.toString() ?? '';
+
+        return Column(
+          children: [
+            Container(
+              width: 80,
+              height: 80,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: Colors.white,
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.08),
+                    blurRadius: 16,
+                    offset: const Offset(0, 4),
+                  ),
+                ],
+              ),
+              child: const Icon(
+                Icons.person_rounded,
+                size: 44,
+                color: AppColors.primaryBlue,
+              ),
+            ),
+            const SizedBox(height: 8),
+            if (snapshot.connectionState != ConnectionState.done)
+              const SizedBox(
+                width: 22,
+                height: 22,
+                child: CircularProgressIndicator(strokeWidth: 2),
+              )
+            else ...[
+              Text(
+                name,
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  fontFamily: widget.mainFont,
+                  fontSize: 22 * widget.textScale,
+                  fontWeight: FontWeight.bold,
+                  color: AppColors.darkBlue,
+                ),
+              ),
+              if (contact.isNotEmpty)
+                Text(
+                  contact.toPersianDigit(widget.isPersian),
+                  textDirection: TextDirection.ltr,
+                  style: TextStyle(
+                    fontFamily: widget.mainFont,
+                    fontSize: 15 * widget.textScale,
+                    color: AppColors.primaryBlue,
+                  ),
+                ),
+            ],
+          ],
+        );
+      },
+    );
+  }
+}
+
+void _showComingSoon(BuildContext context) {
+  ScaffoldMessenger.of(context).showSnackBar(
+    const SnackBar(content: Text('این قابلیت در نسخه‌های بعدی فعال می‌شود.')),
+  );
 }
 
 // ---------------- دیالوگ تنظیمات (ترکیب زبان و سایز فونت) ----------------

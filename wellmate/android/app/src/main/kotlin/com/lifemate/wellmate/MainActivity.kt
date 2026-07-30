@@ -1,4 +1,4 @@
-package com.example.caremate
+package com.lifemate.wellmate
 
 import io.flutter.embedding.android.FlutterActivity
 

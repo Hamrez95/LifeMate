@@ -295,7 +295,7 @@ class CustomAppHeader extends StatelessWidget {
             ],
           ),
           Image.asset(
-            '../../../assets/images/CareMateWithoutBack.png',
+            'assets/images/CareMateWithoutBack.png',
             height: 55,
             fit: BoxFit.contain,
             errorBuilder: (context, error, stackTrace) {

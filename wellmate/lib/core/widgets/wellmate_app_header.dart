@@ -258,7 +258,7 @@ class WellMateAppHeader extends StatelessWidget {
           // نکته کوچک: معمولاً در فلاتر مسیر تصاویر رو از پوشه assets ریشه آدرس‌دهی می‌کنند
           // مثلا: 'assets/images/WellMateWithoutBack.png'
           Image.asset(
-            '../../../assets/images/WellMateWithoutBack.png',
+            'assets/images/WellMateWithoutBack.png',
             height: 55,
             fit: BoxFit.contain,
             errorBuilder: (context, error, stackTrace) {
@@ -279,7 +279,7 @@ class WellMateAppHeader extends StatelessWidget {
                 radius: 20,
                 backgroundColor: Colors.transparent,
                 backgroundImage:
-                    AssetImage('../../../assets/images/mother_avatar.png'),
+                    AssetImage('assets/images/mother_avatar.png'),
               ),
             ),
           ),

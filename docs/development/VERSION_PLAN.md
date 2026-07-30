@@ -13,7 +13,7 @@ Status: complete
 - Green backend CI
 
 ## v0.2 — Care relationships
-Status: next
+Status: complete
 
 - Invitation creation and expiry
 - Acceptance and rejection
@@ -23,6 +23,7 @@ Status: next
 - Audit trail and abuse/rate-limit protections
 
 ## v0.3 — Treatment management
+Status: complete
 - Medication free-form entry
 - Treatment plans
 - Schedules
@@ -30,12 +31,14 @@ Status: next
 - UTC persistence and timezone-safe presentation
 
 ## v0.4 — Adherence loop
+Status: complete
 - Taken, skipped, snoozed, missed
 - Idempotent event recording
 - Caregiver read model
 - Missed-dose policy and audit trail
 
 ## v0.5 — Flutter production integration
+Status: in progress
 - Supabase Auth
 - WellMate API integration
 - CareMate API integration
@@ -44,6 +47,7 @@ Status: next
 - Honest Coming soon surfaces
 
 ## v0.6 — Notifications and observability
+Status: in progress
 - Local reminders
 - FCM device registration
 - Missed-dose worker
@@ -51,6 +55,7 @@ Status: next
 - Backup/export runbook
 
 ## v0.7 — Android invite-only beta
+Status: blocked on API hosting, CI billing, signing, and device verification
 - Privacy, terms, and consent UX
 - Accessibility and elderly-user review
 - Android signing and versioning
