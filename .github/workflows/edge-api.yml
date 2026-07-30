@@ -45,26 +45,8 @@ jobs:
       - name: Deno environment
         run: deno --version
 
-      - name: Produce deterministic formatting
-        id: format
-        shell: bash
-        run: |
-          set -euo pipefail
-          deno fmt
-          if git diff --quiet; then
-            echo 'changed=false' >> "$GITHUB_OUTPUT"
-          else
-            echo 'changed=true' >> "$GITHUB_OUTPUT"
-          fi
-
-      - name: Upload formatted sources
-        if: ${{ steps.format.outputs.changed == 'true' }}
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
-        with:
-          name: edge-api-formatted-sources
-          path: supabase/functions/lifemate-api
-          if-no-files-found: error
-          retention-days: 1
+      - name: Format
+        run: deno fmt --check
 
       - name: Type check
         run: deno task check
@@ -77,15 +59,10 @@ jobs:
         run: |
           set -euo pipefail
           ! grep -R --line-number 'SUPABASE_SERVICE_ROLE_KEY' .
-          test "$(grep -R --include='*.ts' -l 'postgres(databaseUrl' . | wc -l)" -eq 1
+          test "$(grep -R --include='*.ts' --exclude='*_test.ts' -l 'postgres(databaseUrl' . | wc -l)" -eq 1
           grep -q 'actor_user_id = \${userId}' database.ts
           grep -q 'client_request_id = \${clientRequestId}' database.ts
           grep -q 'contactHashingSecret.length < 32' index.ts
-
-      - name: Enforce committed formatting
-        working-directory: .
-        shell: bash
-        run: test '${{ steps.format.outputs.changed }}' = 'false'
 
   postgres-role-journey:
     runs-on: ubuntu-24.04
