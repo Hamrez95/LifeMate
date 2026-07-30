@@ -1,0 +1,56 @@
+name: release-live-probe
+
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/release-live-probe.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-live-probe-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  probe:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - name: Probe protected runtime configuration
+        shell: bash
+        run: |
+          set -euo pipefail
+          smoke_url='https://bwdvmniywyyijjauipnh.supabase.co/functions/v1/lifemate-smoke'
+          api_url='https://bwdvmniywyyijjauipnh.supabase.co/functions/v1/lifemate-api'
+
+          smoke_response="$(curl --fail --silent --show-error --retry 4 --retry-all-errors "$smoke_url")"
+          echo "$smoke_response" | jq -e '
+            .dedicatedPresent == true and
+            .dedicatedLengthOk == true and
+            .defaultEqualsServiceRole == false
+          ' >/dev/null
+
+          health_response="$(curl --fail --silent --show-error --retry 4 --retry-all-errors "$api_url/health")"
+          echo "$health_response" | jq -e '.status == "ok" and .database == "ready"' >/dev/null
+
+          unauthorized_status="$(curl --silent --show-error --output /dev/null --write-out '%{http_code}' "$api_url/api/v1/me")"
+          test "$unauthorized_status" = '401'
+
+          jq -n \
+            --argjson dedicated "$(echo "$smoke_response" | jq '.dedicatedPresent and .dedicatedLengthOk')" \
+            --argjson serviceRoleSeparated "$(echo "$smoke_response" | jq '(.defaultEqualsServiceRole | not)')" \
+            --arg health "$(echo "$health_response" | jq -r '.status')" \
+            --arg database "$(echo "$health_response" | jq -r '.database')" \
+            --arg unauthorizedStatus "$unauthorized_status" \
+            '{dedicatedSecretReady:$dedicated,serviceRoleSeparated:$serviceRoleSeparated,health:$health,database:$database,unauthenticatedStatus:$unauthorizedStatus}' \
+            > release-live-probe.json
+
+      - name: Upload redacted probe evidence
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: release-live-probe
+          path: release-live-probe.json
+          if-no-files-found: error
+          retention-days: 3
