@@ -40,8 +40,26 @@ jobs:
       - name: Deno environment
         run: deno --version
 
-      - name: Format
-        run: deno fmt --check
+      - name: Format sources
+        id: format
+        shell: bash
+        run: |
+          set -euo pipefail
+          deno fmt
+          if git diff --quiet; then
+            echo 'changed=false' >> "$GITHUB_OUTPUT"
+          else
+            echo 'changed=true' >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Upload formatted sources
+        if: ${{ steps.format.outputs.changed == 'true' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: edge-api-formatted-sources
+          path: supabase/functions/lifemate-api
+          if-no-files-found: error
+          retention-days: 1
 
       - name: Type check
         run: deno task check
@@ -57,3 +75,7 @@ jobs:
           test "$(grep -R --include='*.ts' -l 'postgres(databaseUrl' . | wc -l)" -eq 1
           grep -q 'actor_user_id = \${userId}' database.ts
           grep -q 'client_request_id = \${clientRequestId}' database.ts
+
+      - name: Enforce committed formatting
+        shell: bash
+        run: test '${{ steps.format.outputs.changed }}' = 'false'
