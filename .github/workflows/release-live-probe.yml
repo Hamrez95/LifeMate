@@ -18,30 +18,31 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 5
     steps:
-      - name: Collect redacted runtime evidence
+      - name: Collect redacted candidate evidence
         id: collect
         continue-on-error: true
         shell: bash
+        env:
+          EXPECTED_VERSION: 41cc58dc96d0c705703fa2968677585513119920
         run: |
           set -euo pipefail
-          smoke_url='https://bwdvmniywyyijjauipnh.supabase.co/functions/v1/lifemate-smoke'
-          api_url='https://bwdvmniywyyijjauipnh.supabase.co/functions/v1/lifemate-api'
+          candidate_url='https://bwdvmniywyyijjauipnh.supabase.co/functions/v1/lifemate-api-candidate'
+          current_url='https://bwdvmniywyyijjauipnh.supabase.co/functions/v1/lifemate-api'
 
-          smoke_response="$(curl --fail --silent --show-error --retry 4 --retry-all-errors "$smoke_url")"
-          health_response="$(curl --fail --silent --show-error --retry 4 --retry-all-errors "$api_url/health")"
-          unauthorized_status="$(curl --silent --show-error --output /dev/null --write-out '%{http_code}' "$api_url/api/v1/me")"
+          candidate_health="$(curl --fail --silent --show-error --retry 5 --retry-delay 2 --retry-all-errors "$candidate_url/health")"
+          candidate_unauthorized="$(curl --silent --show-error --output /dev/null --write-out '%{http_code}' "$candidate_url/api/v1/me")"
+          current_health="$(curl --fail --silent --show-error --retry 4 --retry-all-errors "$current_url/health")"
 
           jq -n \
-            --argjson dedicatedPresent "$(echo "$smoke_response" | jq '.dedicatedPresent')" \
-            --argjson dedicatedLengthOk "$(echo "$smoke_response" | jq '.dedicatedLengthOk')" \
-            --argjson defaultPresent "$(echo "$smoke_response" | jq '.defaultPresent')" \
-            --argjson defaultLengthOk "$(echo "$smoke_response" | jq '.defaultLengthOk')" \
-            --argjson defaultEqualsServiceRole "$(echo "$smoke_response" | jq '.defaultEqualsServiceRole')" \
-            --argjson releaseVersionPresent "$(echo "$smoke_response" | jq '.releaseVersionPresent')" \
-            --arg health "$(echo "$health_response" | jq -r '.status // "missing"')" \
-            --arg database "$(echo "$health_response" | jq -r '.database // "missing"')" \
-            --arg unauthorizedStatus "$unauthorized_status" \
-            '{dedicatedPresent:$dedicatedPresent,dedicatedLengthOk:$dedicatedLengthOk,defaultPresent:$defaultPresent,defaultLengthOk:$defaultLengthOk,defaultEqualsServiceRole:$defaultEqualsServiceRole,releaseVersionPresent:$releaseVersionPresent,health:$health,database:$database,unauthenticatedStatus:$unauthorizedStatus}' \
+            --arg expectedVersion "$EXPECTED_VERSION" \
+            --arg candidateStatus "$(echo "$candidate_health" | jq -r '.status // "missing"')" \
+            --arg candidateDatabase "$(echo "$candidate_health" | jq -r '.database // "missing"')" \
+            --arg candidateService "$(echo "$candidate_health" | jq -r '.service // "missing"')" \
+            --arg candidateVersion "$(echo "$candidate_health" | jq -r '.version // "missing"')" \
+            --arg candidateUnauthorized "$candidate_unauthorized" \
+            --arg currentStatus "$(echo "$current_health" | jq -r '.status // "missing"')" \
+            --arg currentDatabase "$(echo "$current_health" | jq -r '.database // "missing"')" \
+            '{expectedVersion:$expectedVersion,candidate:{status:$candidateStatus,database:$candidateDatabase,service:$candidateService,version:$candidateVersion,unauthenticatedStatus:$candidateUnauthorized},current:{status:$currentStatus,database:$currentDatabase}}' \
             > release-live-probe.json
 
       - name: Upload redacted probe evidence
@@ -53,17 +54,18 @@ jobs:
           if-no-files-found: error
           retention-days: 3
 
-      - name: Enforce release gates
+      - name: Enforce candidate release gates
         if: ${{ always() }}
         shell: bash
         run: |
           set -euo pipefail
           test "${{ steps.collect.outcome }}" = 'success'
           jq -e '
-            .dedicatedPresent == true and
-            .dedicatedLengthOk == true and
-            .defaultEqualsServiceRole == false and
-            .health == "ok" and
-            .database == "ready" and
-            .unauthenticatedStatus == "401"
+            .candidate.status == "ok" and
+            .candidate.database == "ready" and
+            .candidate.service == "lifemate-api" and
+            .candidate.version == .expectedVersion and
+            .candidate.unauthenticatedStatus == "401" and
+            .current.status == "ok" and
+            .current.database == "ready"
           ' release-live-probe.json >/dev/null
