@@ -1,4 +1,4 @@
-name: release-live-probe
+name: release-v0.8-internal-apks
 
 on:
   pull_request:
@@ -10,56 +10,136 @@ permissions:
   contents: read
 
 concurrency:
-  group: release-live-probe-${{ github.ref }}
+  group: release-v0.8-internal-${{ github.ref }}
   cancel-in-progress: true
 
+env:
+  SOURCE_COMMIT: 1f094deccc6273b11e1db3b31ddd65eb07bcef98
+  RELEASE_NAME: 0.8.0-internal.1
+  BUILD_NUMBER: '801'
+  SUPABASE_URL: https://bwdvmniywyyijjauipnh.supabase.co
+  SUPABASE_PUBLISHABLE_KEY: sb_publishable_6YpBDD0gAPcenbYGukOeWg_fZXxUb27
+  LIFEMATE_API_BASE_URL: https://bwdvmniywyyijjauipnh.supabase.co/functions/v1/lifemate-api
+  PUB_ENVIRONMENT: bot:github_actions
+
 jobs:
-  probe:
+  verify-build:
     runs-on: ubuntu-24.04
-    timeout-minutes: 5
+    timeout-minutes: 45
     steps:
-      - name: Collect redacted live release evidence
-        id: collect
-        continue-on-error: true
+      - name: Checkout exact reviewed source
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
+        with:
+          ref: ${{ env.SOURCE_COMMIT }}
+          show-progress: false
+          persist-credentials: false
+
+      - uses: subosito/flutter-action@4cab68ce0f1c7c924f688bff4792e044f1aeb30c
+        with:
+          flutter-version: '3.44.0'
+          channel: stable
+          cache: true
+
+      - name: Verify promoted live API
         shell: bash
-        env:
-          EXPECTED_VERSION: 1f094deccc6273b11e1db3b31ddd65eb07bcef98
         run: |
           set -euo pipefail
-          api_url='https://bwdvmniywyyijjauipnh.supabase.co/functions/v1/lifemate-api'
-
-          health_response="$(curl --fail --silent --show-error --retry 5 --retry-delay 2 --retry-all-errors "$api_url/health")"
-          unauthorized_status="$(curl --silent --show-error --output /dev/null --write-out '%{http_code}' "$api_url/api/v1/me")"
-
+          health_response="$(curl --fail --silent --show-error --retry 5 --retry-delay 2 --retry-all-errors "$LIFEMATE_API_BASE_URL/health")"
+          unauthorized_status="$(curl --silent --show-error --output /dev/null --write-out '%{http_code}' "$LIFEMATE_API_BASE_URL/api/v1/me")"
+          echo "$health_response" | jq -e \
+            --arg version "$SOURCE_COMMIT" \
+            '.status == "ok" and .database == "ready" and .service == "lifemate-api" and .version == $version' \
+            >/dev/null
+          test "$unauthorized_status" = '401'
           jq -n \
-            --arg expectedVersion "$EXPECTED_VERSION" \
-            --arg status "$(echo "$health_response" | jq -r '.status // "missing"')" \
-            --arg database "$(echo "$health_response" | jq -r '.database // "missing"')" \
-            --arg service "$(echo "$health_response" | jq -r '.service // "missing"')" \
-            --arg version "$(echo "$health_response" | jq -r '.version // "missing"')" \
+            --arg commit "$SOURCE_COMMIT" \
+            --arg status "$(echo "$health_response" | jq -r '.status')" \
+            --arg database "$(echo "$health_response" | jq -r '.database')" \
+            --arg version "$(echo "$health_response" | jq -r '.version')" \
             --arg unauthorizedStatus "$unauthorized_status" \
-            '{expectedVersion:$expectedVersion,live:{status:$status,database:$database,service:$service,version:$version,unauthenticatedStatus:$unauthorizedStatus}}' \
-            > release-live-probe.json
+            '{commit:$commit,health:$status,database:$database,apiVersion:$version,unauthenticatedStatus:$unauthorizedStatus}' \
+            > live-api-evidence.json
 
-      - name: Upload redacted probe evidence
-        if: ${{ always() }}
+      - name: Verify shared client
+        working-directory: packages/lifemate_client
+        shell: bash
+        run: |
+          set -euo pipefail
+          flutter pub get
+          flutter analyze --no-fatal-warnings --no-fatal-infos
+          flutter test
+
+      - name: Verify WellMate
+        working-directory: wellmate
+        shell: bash
+        run: |
+          set -euo pipefail
+          flutter pub get
+          flutter analyze --no-fatal-warnings --no-fatal-infos
+          flutter test
+
+      - name: Verify CareMate
+        working-directory: caremate
+        shell: bash
+        run: |
+          set -euo pipefail
+          flutter pub get
+          flutter analyze --no-fatal-warnings --no-fatal-infos
+          flutter test
+
+      - name: Build installable internal APKs
+        shell: bash
+        run: |
+          set -euo pipefail
+          build_args=(
+            --release
+            --build-name="$RELEASE_NAME"
+            --build-number="$BUILD_NUMBER"
+            --dart-define="SUPABASE_URL=$SUPABASE_URL"
+            --dart-define="SUPABASE_PUBLISHABLE_KEY=$SUPABASE_PUBLISHABLE_KEY"
+            --dart-define="LIFEMATE_API_BASE_URL=$LIFEMATE_API_BASE_URL"
+          )
+          (cd wellmate && flutter build apk "${build_args[@]}")
+          (cd caremate && flutter build apk "${build_args[@]}")
+
+      - name: Verify APKs and create release manifest
+        shell: bash
+        run: |
+          set -euo pipefail
+          aapt_bin="$(find "$ANDROID_HOME/build-tools" -type f -name aapt | sort -V | tail -n 1)"
+          test -x "$aapt_bin"
+          mkdir -p dist
+          cp wellmate/build/app/outputs/flutter-apk/app-release.apk \
+            "dist/wellmate-$RELEASE_NAME-${SOURCE_COMMIT:0:8}-internal.apk"
+          cp caremate/build/app/outputs/flutter-apk/app-release.apk \
+            "dist/caremate-$RELEASE_NAME-${SOURCE_COMMIT:0:8}-internal.apk"
+
+          "$aapt_bin" dump badging "dist/wellmate-$RELEASE_NAME-${SOURCE_COMMIT:0:8}-internal.apk" \
+            | grep -q "package: name='com.lifemate.wellmate'"
+          "$aapt_bin" dump badging "dist/caremate-$RELEASE_NAME-${SOURCE_COMMIT:0:8}-internal.apk" \
+            | grep -q "package: name='com.lifemate.caremate'"
+          for apk in dist/*.apk; do
+            "$aapt_bin" dump permissions "$apk" | grep -Fq 'android.permission.INTERNET'
+          done
+
+          wellmate_sha="$(sha256sum dist/wellmate-*.apk | awk '{print $1}')"
+          caremate_sha="$(sha256sum dist/caremate-*.apk | awk '{print $1}')"
+          jq -n \
+            --arg releaseName "$RELEASE_NAME" \
+            --arg commit "$SOURCE_COMMIT" \
+            --arg apiVersion "$SOURCE_COMMIT" \
+            --arg buildNumber "$BUILD_NUMBER" \
+            --arg builtAt "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+            --arg wellmateSha256 "$wellmate_sha" \
+            --arg caremateSha256 "$caremate_sha" \
+            '{releaseName:$releaseName,commit:$commit,apiVersion:$apiVersion,buildNumber:$buildNumber,builtAtUtc:$builtAt,channel:"internal/unstable",signing:"debug fallback; not Play Store",tests:{sharedClient:"passed",wellmate:"passed",caremate:"passed",liveHealth:"passed",unauthenticatedBoundary:"passed"},apps:{wellmate:{packageId:"com.lifemate.wellmate",sha256:$wellmateSha256},caremate:{packageId:"com.lifemate.caremate",sha256:$caremateSha256}},knownLimitations:["Not a stable or store release","Founder-owned release signing is not configured","Live authenticated three-account smoke and human device/accessibility QA remain pending"]}' \
+            > dist/release-manifest.json
+          cp live-api-evidence.json dist/live-api-evidence.json
+
+      - name: Upload versioned internal release bundle
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:
-          name: release-live-probe
-          path: release-live-probe.json
+          name: lifemate-v0.8.0-internal.1-1f094dec-android
+          path: dist
           if-no-files-found: error
           retention-days: 14
-
-      - name: Enforce promoted release gates
-        if: ${{ always() }}
-        shell: bash
-        run: |
-          set -euo pipefail
-          test "${{ steps.collect.outcome }}" = 'success'
-          jq -e '
-            .live.status == "ok" and
-            .live.database == "ready" and
-            .live.service == "lifemate-api" and
-            .live.version == .expectedVersion and
-            .live.unauthenticatedStatus == "401"
-          ' release-live-probe.json >/dev/null
