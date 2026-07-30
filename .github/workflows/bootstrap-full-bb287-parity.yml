@@ -4,6 +4,14 @@ on:
   push:
     branches:
       - feat/full-bb287-ui-parity
+  pull_request:
+    branches:
+      - main
+    paths:
+      - '.github/workflows/bootstrap-full-bb287-parity.yml'
+      - 'caremate/**'
+      - 'wellmate/**'
+      - 'docs/ui/**'
 
 permissions:
   contents: write
