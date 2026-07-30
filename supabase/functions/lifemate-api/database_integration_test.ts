@@ -1,8 +1,4 @@
-import {
-  assert,
-  assertEquals,
-  assertRejects,
-} from "jsr:@std/assert@1.0.14";
+import { assert, assertEquals, assertRejects } from "jsr:@std/assert@1.0.14";
 import postgres from "postgres";
 import {
   type AppIdentity,
@@ -13,7 +9,9 @@ import { ApiError } from "./validation.ts";
 
 const databaseUrl = Deno.env.get("TEST_DATABASE_URL");
 if (!databaseUrl) {
-  throw new Error("TEST_DATABASE_URL is required for database integration tests.");
+  throw new Error(
+    "TEST_DATABASE_URL is required for database integration tests.",
+  );
 }
 
 const contactSecret = "integration-only-contact-secret-with-32-plus-characters";
@@ -28,7 +26,10 @@ Deno.test({
     const suffix = crypto.randomUUID();
 
     try {
-      const patientAuth = auth(`patient-${suffix}`, `patient-${suffix}@example.test`);
+      const patientAuth = auth(
+        `patient-${suffix}`,
+        `patient-${suffix}@example.test`,
+      );
       const caregiverAuth = auth(
         `caregiver-${suffix}`,
         `caregiver-${suffix}@example.test`,
@@ -57,20 +58,28 @@ Deno.test({
       );
 
       const sharedRequestId = crypto.randomUUID();
-      const taken = await db.reportDose(patient.appUserId, patientOccurrence.id, {
-        clientRequestId: sharedRequestId,
-        version: patientOccurrence.version,
-        status: "taken",
-        occurredAtUtc: new Date().toISOString(),
-      });
+      const taken = await db.reportDose(
+        patient.appUserId,
+        patientOccurrence.id,
+        {
+          clientRequestId: sharedRequestId,
+          version: patientOccurrence.version,
+          status: "taken",
+          occurredAtUtc: new Date().toISOString(),
+        },
+      );
       assertEquals(taken.status, "taken");
 
-      const retried = await db.reportDose(patient.appUserId, patientOccurrence.id, {
-        clientRequestId: sharedRequestId,
-        version: patientOccurrence.version,
-        status: "taken",
-        occurredAtUtc: new Date().toISOString(),
-      });
+      const retried = await db.reportDose(
+        patient.appUserId,
+        patientOccurrence.id,
+        {
+          clientRequestId: sharedRequestId,
+          version: patientOccurrence.version,
+          status: "taken",
+          occurredAtUtc: new Date().toISOString(),
+        },
+      );
       assertEquals(retried.id, patientOccurrence.id);
       assertEquals(retried.status, "taken");
 
@@ -180,11 +189,13 @@ Deno.test({
       const auditRows = await admin`
         select action, metadata_json
         from lifemate.audit_logs
-        where actor_user_id in ${admin([
+        where actor_user_id in ${
+        admin([
           patient.appUserId,
           caregiver.appUserId,
           unrelated.appUserId,
-        ])}
+        ])
+      }
       `;
       assert(auditRows.length >= 8);
       assert(auditRows.every((row) => row.metadata_json == null));
