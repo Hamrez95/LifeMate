@@ -1,124 +1,86 @@
 // ignore_for_file: deprecated_member_use
 
 import 'package:flutter/material.dart';
+import 'package:lifemate_client/lifemate_client.dart';
 import 'package:provider/provider.dart';
+
+import '../../core/constants/app_colors.dart';
 import '../../core/localization/app_localizations.dart';
 import '../../core/localization/locale_provider.dart';
 import '../../core/utils/string_extensions.dart';
-import '../../core/constants/app_colors.dart'; // 👈 اضافه شد
 
 class ProfileScreen extends StatelessWidget {
-  const ProfileScreen({Key? key}) : super(key: key);
+  const ProfileScreen({super.key});
 
   @override
   Widget build(BuildContext context) {
     final loc = AppLocalizations.of(context);
-    final localeProvider = Provider.of<LocaleProvider>(context);
+    final localeProvider = context.watch<LocaleProvider>();
     final isPersian = localeProvider.locale.languageCode == 'fa';
     final mainFont = isPersian ? 'Vazir' : 'Nunito';
 
+    void openPreview(String title, IconData icon, Color color) {
+      Navigator.of(context).push(
+        MaterialPageRoute<void>(
+          builder: (_) => _ProfileFeatureScreen(
+            title: title,
+            icon: icon,
+            color: color,
+          ),
+        ),
+      );
+    }
+
     return Scaffold(
-      backgroundColor: AppColors.background, // 👈 اصلاح شد
+      backgroundColor: AppColors.background,
       body: SafeArea(
         child: SingleChildScrollView(
           child: Column(
             children: [
-              // Header
               Padding(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 24,
+                  vertical: 16,
+                ),
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
                     IconButton(
-                      icon: const Icon(Icons.arrow_back_ios_new_rounded,
-                          size: 24, color: AppColors.primaryBlue),
+                      icon: const Icon(
+                        Icons.arrow_back_ios_new_rounded,
+                        size: 24,
+                        color: AppColors.primaryBlue,
+                      ),
                       onPressed: () => Navigator.of(context).pop(),
-                      splashRadius: 24,
                     ),
                     const SizedBox(width: 8),
                     Expanded(
-                      child: Column(
-                        children: [
-                          Container(
-                            width: 80,
-                            height: 80,
-                            decoration: BoxDecoration(
-                              shape: BoxShape.circle,
-                              color: Colors.white,
-                              boxShadow: [
-                                BoxShadow(
-                                  color: Colors.black.withOpacity(0.08),
-                                  blurRadius: 16,
-                                  offset: const Offset(0, 4),
-                                ),
-                              ],
-                            ),
-                            child: Stack(
-                              alignment: Alignment.center,
-                              children: [
-                                const CircleAvatar(
-                                  radius: 36,
-                                  backgroundColor: AppColors.avatarBackground,
-                                  backgroundImage: AssetImage(
-                                      '../../assets/images/Caregiver.png'), // 👈 مسیر تصویر خود را اینجا قرار دهید
-                                ),
-                                Positioned(
-                                  bottom: 8,
-                                  right: 8,
-                                  child: Container(
-                                    decoration: BoxDecoration(
-                                      color: Colors.white,
-                                      shape: BoxShape.circle,
-                                      boxShadow: [
-                                        BoxShadow(
-                                          color: Colors.black.withOpacity(0.12),
-                                          blurRadius: 8,
-                                        ),
-                                      ],
-                                    ),
-                                    child: const Icon(Icons.camera_alt,
-                                        size: 18, color: AppColors.primaryBlue),
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                          const SizedBox(height: 8),
-                          Text(
-                            loc['profile_name'] ?? 'نام کاربر',
-                            style: TextStyle(
-                                fontFamily: mainFont,
-                                fontSize: 22,
-                                fontWeight: FontWeight.bold,
-                                color: AppColors.darkBlue),
-                          ),
-                          Text(
-                            (loc['profile_phone'] ?? '09123456789')
-                                .toString()
-                                .toPersianDigit(isPersian),
-                            style: TextStyle(
-                                fontFamily: mainFont,
-                                fontSize: 15,
-                                color: AppColors.primaryBlue),
-                          ),
-                        ],
+                      child: _CurrentCareMateIdentity(
+                        mainFont: mainFont,
                       ),
                     ),
                     const SizedBox(width: 8),
                     IconButton(
-                      icon: const Icon(Icons.notifications_none_rounded,
-                          size: 24, color: AppColors.primaryBlue),
-                      onPressed: () {},
-                      splashRadius: 24,
+                      tooltip: 'اعلان‌های حساب',
+                      icon: const Icon(
+                        Icons.notifications_none_rounded,
+                        size: 24,
+                        color: AppColors.primaryBlue,
+                      ),
+                      onPressed: () => openPreview(
+                        'اعلان‌های حساب',
+                        Icons.notifications_none_rounded,
+                        AppColors.primaryBlue,
+                      ),
                     ),
                   ],
                 ),
               ),
-              // Subscription Card
               Padding(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 24, vertical: 8),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 24,
+                  vertical: 8,
+                ),
                 child: Container(
                   decoration: BoxDecoration(
                     color: AppColors.cardBackground,
@@ -133,7 +95,9 @@ class ProfileScreen extends StatelessWidget {
                   ),
                   child: Padding(
                     padding: const EdgeInsets.symmetric(
-                        vertical: 16, horizontal: 18),
+                      vertical: 16,
+                      horizontal: 18,
+                    ),
                     child: Row(
                       children: [
                         Expanded(
@@ -142,47 +106,51 @@ class ProfileScreen extends StatelessWidget {
                             children: [
                               Text(
                                 loc['profile_no_subscription'] ??
-                                    'اشتراکی ندارید',
+                                    'اشتراک مراقبتی',
                                 style: TextStyle(
-                                    fontFamily: mainFont,
-                                    fontSize: 15,
-                                    color: AppColors.darkBlue),
+                                  fontFamily: mainFont,
+                                  fontSize: 15,
+                                  color: AppColors.darkBlue,
+                                ),
                               ),
                               const SizedBox(height: 8),
                               Row(
                                 children: [
-                                  ElevatedButton(
+                                  ElevatedButton.icon(
                                     style: ElevatedButton.styleFrom(
                                       backgroundColor: AppColors.darkBlue,
+                                      disabledBackgroundColor:
+                                          AppColors.darkBlue.withOpacity(0.55),
                                       shape: RoundedRectangleBorder(
-                                          borderRadius:
-                                              BorderRadius.circular(12)),
+                                        borderRadius: BorderRadius.circular(12),
+                                      ),
                                       elevation: 0,
                                       padding: const EdgeInsets.symmetric(
-                                          horizontal: 18, vertical: 8),
+                                        horizontal: 16,
+                                        vertical: 8,
+                                      ),
                                     ),
-                                    onPressed: () {},
-                                    child: Text(
-                                        loc['profile_buy_plan'] ??
-                                            'خرید اشتراک',
-                                        style: TextStyle(
-                                            fontFamily: mainFont,
-                                            fontSize: 14,
-                                            color: Colors.white)),
-                                  ),
-                                  const SizedBox(width: 8),
-                                  Text(loc['profile_renew'] ?? 'تمدید',
+                                    onPressed: null,
+                                    icon: const Icon(
+                                      Icons.lock_outline_rounded,
+                                      color: Colors.white,
+                                      size: 16,
+                                    ),
+                                    label: Text(
+                                      'در دست توسعه',
                                       style: TextStyle(
-                                          fontFamily: mainFont,
-                                          fontSize: 14,
-                                          color: AppColors.primaryBlue)),
+                                        fontFamily: mainFont,
+                                        fontSize: 13,
+                                        color: Colors.white,
+                                      ),
+                                    ),
+                                  ),
                                 ],
                               ),
                             ],
                           ),
                         ),
                         const SizedBox(width: 12),
-                        // Crown Icon
                         Container(
                           decoration: const BoxDecoration(
                             color: Colors.white,
@@ -195,18 +163,22 @@ class ProfileScreen extends StatelessWidget {
                               ),
                             ],
                           ),
-                          child: const Icon(Icons.emoji_events_rounded,
-                              size: 36, color: Colors.amber),
+                          child: const Icon(
+                            Icons.emoji_events_rounded,
+                            size: 36,
+                            color: Colors.amber,
+                          ),
                         ),
                       ],
                     ),
                   ),
                 ),
               ),
-              // Menu List
               Padding(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 24, vertical: 8),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 24,
+                  vertical: 8,
+                ),
                 child: Container(
                   decoration: BoxDecoration(
                     color: Colors.white,
@@ -221,12 +193,17 @@ class ProfileScreen extends StatelessWidget {
                   ),
                   child: Column(
                     children: [
-                      const Divider(height: 1, indent: 60, endIndent: 20),
                       _ProfileMenuTile(
                         icon: Icons.person,
                         iconColor: Colors.blueAccent,
                         label: loc['profile_personal_info'] ?? 'اطلاعات شخصی',
                         mainFont: mainFont,
+                        subtitle: 'صفحه طراحی‌شده؛ ویرایش در دست توسعه',
+                        onTap: () => openPreview(
+                          loc['profile_personal_info'] ?? 'اطلاعات شخصی',
+                          Icons.person,
+                          Colors.blueAccent,
+                        ),
                       ),
                       const Divider(height: 1, indent: 60, endIndent: 20),
                       _ProfileMenuTile(
@@ -234,6 +211,12 @@ class ProfileScreen extends StatelessWidget {
                         iconColor: Colors.orangeAccent,
                         label: loc['profile_health_profile'] ?? 'پرونده سلامت',
                         mainFont: mainFont,
+                        subtitle: 'دسترسی مراقبتی محدود؛ در دست توسعه',
+                        onTap: () => openPreview(
+                          loc['profile_health_profile'] ?? 'پرونده سلامت',
+                          Icons.assignment_rounded,
+                          Colors.orangeAccent,
+                        ),
                       ),
                       const Divider(height: 1, indent: 60, endIndent: 20),
                       _ProfileMenuTile(
@@ -241,6 +224,12 @@ class ProfileScreen extends StatelessWidget {
                         iconColor: Colors.green,
                         label: loc['profile_caregivers'] ?? 'مراقبان',
                         mainFont: mainFont,
+                        subtitle: 'روابط فعال از داشبورد قابل مشاهده‌اند',
+                        onTap: () => openPreview(
+                          loc['profile_caregivers'] ?? 'مراقبان',
+                          Icons.group,
+                          Colors.green,
+                        ),
                       ),
                       const Divider(height: 1, indent: 60, endIndent: 20),
                       _ProfileMenuTile(
@@ -248,10 +237,11 @@ class ProfileScreen extends StatelessWidget {
                         iconColor: Colors.purple,
                         label: loc['profile_app_settings'] ?? 'تنظیمات برنامه',
                         mainFont: mainFont,
+                        subtitle: 'زبان برنامه',
                         onTap: () {
-                          showDialog(
+                          showDialog<void>(
                             context: context,
-                            builder: (context) =>
+                            builder: (_) =>
                                 _LanguageDialog(mainFont: mainFont),
                           );
                         },
@@ -262,6 +252,12 @@ class ProfileScreen extends StatelessWidget {
                         iconColor: Colors.redAccent,
                         label: loc['profile_referral_code'] ?? 'کد معرف',
                         mainFont: mainFont,
+                        subtitle: 'در دست توسعه',
+                        onTap: () => openPreview(
+                          loc['profile_referral_code'] ?? 'کد معرف',
+                          Icons.card_giftcard,
+                          Colors.redAccent,
+                        ),
                       ),
                       const Divider(height: 1, indent: 60, endIndent: 20),
                       _ProfileMenuTile(
@@ -269,15 +265,22 @@ class ProfileScreen extends StatelessWidget {
                         iconColor: Colors.indigo,
                         label: loc['profile_support'] ?? 'پشتیبانی',
                         mainFont: mainFont,
+                        subtitle: 'در دست توسعه',
+                        onTap: () => openPreview(
+                          loc['profile_support'] ?? 'پشتیبانی',
+                          Icons.support_agent,
+                          Colors.indigo,
+                        ),
                       ),
                     ],
                   ),
                 ),
               ),
-              // Footer - Log Out
               Padding(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 24, vertical: 8),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 24,
+                  vertical: 8,
+                ),
                 child: Container(
                   width: double.infinity,
                   decoration: BoxDecoration(
@@ -294,33 +297,34 @@ class ProfileScreen extends StatelessWidget {
                   child: TextButton.icon(
                     style: TextButton.styleFrom(
                       padding: const EdgeInsets.symmetric(vertical: 16),
-                      backgroundColor: Colors.transparent,
                       shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(18)),
+                        borderRadius: BorderRadius.circular(18),
+                      ),
                     ),
                     icon: const Icon(Icons.logout, color: Colors.redAccent),
-                    label: Text(loc['profile_logout'] ?? 'خروج از حساب',
-                        style: TextStyle(
-                            fontFamily: mainFont,
-                            fontSize: 16,
-                            color: Colors.redAccent,
-                            fontWeight: FontWeight.bold)),
-                    onPressed: () {},
+                    label: Text(
+                      loc['profile_logout'] ?? 'خروج از حساب',
+                      style: TextStyle(
+                        fontFamily: mainFont,
+                        fontSize: 16,
+                        color: Colors.redAccent,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    onPressed: LifeMateAuth.signOut,
                   ),
                 ),
               ),
-
-              // Footer Message
               Padding(
                 padding: const EdgeInsets.only(top: 8, bottom: 24),
                 child: Text(
-                    (loc['footer_message'] ?? 'Version 1.0.0')
-                        .toString()
-                        .toPersianDigit(isPersian),
-                    style: TextStyle(
-                        fontFamily: mainFont,
-                        fontSize: 12,
-                        color: AppColors.secondaryText.withOpacity(0.7))),
+                  'CareMate 0.8.0-beta.3'.toPersianDigit(isPersian),
+                  style: TextStyle(
+                    fontFamily: mainFont,
+                    fontSize: 12,
+                    color: AppColors.secondaryText.withOpacity(0.7),
+                  ),
+                ),
               ),
             ],
           ),
@@ -330,20 +334,133 @@ class ProfileScreen extends StatelessWidget {
   }
 }
 
-class _ProfileMenuTile extends StatelessWidget {
-  final IconData icon;
-  final Color iconColor;
-  final String label;
-  final String mainFont;
-  final VoidCallback? onTap;
+class _CurrentCareMateIdentity extends StatefulWidget {
+  const _CurrentCareMateIdentity({required this.mainFont});
 
+  final String mainFont;
+
+  @override
+  State<_CurrentCareMateIdentity> createState() =>
+      _CurrentCareMateIdentityState();
+}
+
+class _CurrentCareMateIdentityState extends State<_CurrentCareMateIdentity> {
+  late final Future<Map<String, dynamic>> _future;
+
+  @override
+  void initState() {
+    super.initState();
+    _future = context.read<LifeMateApiClient>().getCurrentUser();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return FutureBuilder<Map<String, dynamic>>(
+      future: _future,
+      builder: (context, snapshot) {
+        final data = snapshot.data ?? const <String, dynamic>{};
+        final user = data['user'] as Map<String, dynamic>? ?? const {};
+        final profile = data['profile'] as Map<String, dynamic>? ?? const {};
+        final name = profile['displayName']?.toString().trim();
+        final email = user['email']?.toString() ?? '';
+
+        return Column(
+          children: [
+            Container(
+              width: 80,
+              height: 80,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: Colors.white,
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.08),
+                    blurRadius: 16,
+                    offset: const Offset(0, 4),
+                  ),
+                ],
+              ),
+              child: Stack(
+                alignment: Alignment.center,
+                children: [
+                  const CircleAvatar(
+                    radius: 36,
+                    backgroundColor: AppColors.avatarBackground,
+                    backgroundImage:
+                        AssetImage('assets/images/Caregiver.png'),
+                  ),
+                  Positioned(
+                    bottom: 8,
+                    right: 8,
+                    child: Container(
+                      padding: const EdgeInsets.all(2),
+                      decoration: const BoxDecoration(
+                        color: Colors.white,
+                        shape: BoxShape.circle,
+                      ),
+                      child: const Icon(
+                        Icons.lock_outline_rounded,
+                        size: 16,
+                        color: AppColors.primaryBlue,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              name == null || name.isEmpty ? 'کاربر CareMate' : name,
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontFamily: widget.mainFont,
+                fontSize: 22,
+                fontWeight: FontWeight.bold,
+                color: AppColors.darkBlue,
+              ),
+            ),
+            if (snapshot.connectionState == ConnectionState.waiting)
+              const Padding(
+                padding: EdgeInsets.only(top: 6),
+                child: SizedBox.square(
+                  dimension: 15,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                ),
+              )
+            else if (email.isNotEmpty)
+              Text(
+                email,
+                textDirection: TextDirection.ltr,
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  fontFamily: widget.mainFont,
+                  fontSize: 13,
+                  color: AppColors.primaryBlue,
+                ),
+              ),
+          ],
+        );
+      },
+    );
+  }
+}
+
+class _ProfileMenuTile extends StatelessWidget {
   const _ProfileMenuTile({
     required this.icon,
     required this.iconColor,
     required this.label,
     required this.mainFont,
+    this.subtitle,
     this.onTap,
   });
+
+  final IconData icon;
+  final Color iconColor;
+  final String label;
+  final String mainFont;
+  final String? subtitle;
+  final VoidCallback? onTap;
 
   @override
   Widget build(BuildContext context) {
@@ -364,27 +481,125 @@ class _ProfileMenuTile extends StatelessWidget {
         ),
         child: Icon(icon, color: iconColor, size: 24),
       ),
-      title: Text(label,
-          style: TextStyle(
-              fontFamily: mainFont, fontSize: 16, color: AppColors.darkBlue)),
+      title: Text(
+        label,
+        style: TextStyle(
+          fontFamily: mainFont,
+          fontSize: 16,
+          color: AppColors.darkBlue,
+        ),
+      ),
+      subtitle: subtitle == null
+          ? null
+          : Text(
+              subtitle!,
+              style: TextStyle(
+                fontFamily: mainFont,
+                fontSize: 11,
+                color: AppColors.secondaryText,
+              ),
+            ),
+      trailing: const Icon(Icons.chevron_right_rounded, size: 20),
       onTap: onTap,
     );
   }
 }
 
-class _LanguageDialog extends StatelessWidget {
-  final String mainFont;
-  const _LanguageDialog({required this.mainFont});
+class _ProfileFeatureScreen extends StatelessWidget {
+  const _ProfileFeatureScreen({
+    required this.title,
+    required this.icon,
+    required this.color,
+  });
+
+  final String title;
+  final IconData icon;
+  final Color color;
 
   @override
   Widget build(BuildContext context) {
-    final localeProvider = Provider.of<LocaleProvider>(context);
+    return Scaffold(
+      backgroundColor: AppColors.background,
+      appBar: AppBar(
+        backgroundColor: Colors.transparent,
+        surfaceTintColor: Colors.transparent,
+        title: Text(title),
+      ),
+      body: Center(
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Container(
+            width: double.infinity,
+            padding: const EdgeInsets.all(26),
+            decoration: AppColors.softDecoration(),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Container(
+                  width: 74,
+                  height: 74,
+                  decoration: BoxDecoration(
+                    color: color.withOpacity(0.12),
+                    shape: BoxShape.circle,
+                  ),
+                  child: Icon(icon, color: color, size: 38),
+                ),
+                const SizedBox(height: 18),
+                Text(
+                  title,
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(
+                    fontSize: 21,
+                    fontWeight: FontWeight.w800,
+                    color: AppColors.primaryText,
+                  ),
+                ),
+                const SizedBox(height: 10),
+                const Text(
+                  'صفحه و مسیر این قابلیت مطابق طراحی محصول حفظ شده است. اتصال Backend آن در دست توسعه قرار دارد.',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    height: 1.7,
+                    color: AppColors.secondaryText,
+                  ),
+                ),
+                const SizedBox(height: 18),
+                const SizedBox(
+                  width: double.infinity,
+                  child: OutlinedButton.icon(
+                    onPressed: null,
+                    icon: Icon(Icons.lock_outline_rounded),
+                    label: Text('در دست توسعه'),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _LanguageDialog extends StatelessWidget {
+  const _LanguageDialog({required this.mainFont});
+
+  final String mainFont;
+
+  @override
+  Widget build(BuildContext context) {
+    final localeProvider = context.watch<LocaleProvider>();
     final loc = AppLocalizations.of(context);
 
     return AlertDialog(
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
-      title: Text(loc['settings_language'] ?? 'Select Language',
-          style: TextStyle(fontFamily: mainFont, fontWeight: FontWeight.bold)),
+      title: Text(
+        loc['settings_language'] ?? 'Select Language',
+        style: TextStyle(
+          fontFamily: mainFont,
+          fontWeight: FontWeight.bold,
+        ),
+      ),
       content: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
@@ -414,11 +629,6 @@ class _LanguageDialog extends StatelessWidget {
 }
 
 class _LanguageOption extends StatelessWidget {
-  final String title;
-  final String font;
-  final bool isSelected;
-  final VoidCallback onTap;
-
   const _LanguageOption({
     required this.title,
     required this.font,
@@ -426,10 +636,16 @@ class _LanguageOption extends StatelessWidget {
     required this.onTap,
   });
 
+  final String title;
+  final String font;
+  final bool isSelected;
+  final VoidCallback onTap;
+
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
+    return InkWell(
       onTap: onTap,
+      borderRadius: BorderRadius.circular(12),
       child: Container(
         padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
         decoration: BoxDecoration(
@@ -438,19 +654,28 @@ class _LanguageOption extends StatelessWidget {
               : Colors.transparent,
           borderRadius: BorderRadius.circular(12),
           border: Border.all(
-              color: isSelected ? AppColors.primaryBlue : Colors.grey.shade300),
+            color: isSelected
+                ? AppColors.primaryBlue
+                : Colors.grey.shade300,
+          ),
         ),
         child: Row(
           children: [
-            Text(title,
-                style: TextStyle(
-                    fontFamily: font,
-                    fontSize: 16,
-                    color:
-                        isSelected ? AppColors.primaryBlue : Colors.black87)),
+            Text(
+              title,
+              style: TextStyle(
+                fontFamily: font,
+                fontSize: 16,
+                color:
+                    isSelected ? AppColors.primaryBlue : Colors.black87,
+              ),
+            ),
             const Spacer(),
             if (isSelected)
-              const Icon(Icons.check_circle, color: AppColors.primaryBlue),
+              const Icon(
+                Icons.check_circle,
+                color: AppColors.primaryBlue,
+              ),
           ],
         ),
       ),
