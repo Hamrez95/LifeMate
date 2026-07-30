@@ -18,7 +18,9 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 5
     steps:
-      - name: Probe protected runtime configuration
+      - name: Collect redacted runtime evidence
+        id: collect
+        continue-on-error: true
         shell: bash
         run: |
           set -euo pipefail
@@ -26,31 +28,42 @@ jobs:
           api_url='https://bwdvmniywyyijjauipnh.supabase.co/functions/v1/lifemate-api'
 
           smoke_response="$(curl --fail --silent --show-error --retry 4 --retry-all-errors "$smoke_url")"
-          echo "$smoke_response" | jq -e '
-            .dedicatedPresent == true and
-            .dedicatedLengthOk == true and
-            .defaultEqualsServiceRole == false
-          ' >/dev/null
-
           health_response="$(curl --fail --silent --show-error --retry 4 --retry-all-errors "$api_url/health")"
-          echo "$health_response" | jq -e '.status == "ok" and .database == "ready"' >/dev/null
-
           unauthorized_status="$(curl --silent --show-error --output /dev/null --write-out '%{http_code}' "$api_url/api/v1/me")"
-          test "$unauthorized_status" = '401'
 
           jq -n \
-            --argjson dedicated "$(echo "$smoke_response" | jq '.dedicatedPresent and .dedicatedLengthOk')" \
-            --argjson serviceRoleSeparated "$(echo "$smoke_response" | jq '(.defaultEqualsServiceRole | not)')" \
-            --arg health "$(echo "$health_response" | jq -r '.status')" \
-            --arg database "$(echo "$health_response" | jq -r '.database')" \
+            --argjson dedicatedPresent "$(echo "$smoke_response" | jq '.dedicatedPresent')" \
+            --argjson dedicatedLengthOk "$(echo "$smoke_response" | jq '.dedicatedLengthOk')" \
+            --argjson defaultPresent "$(echo "$smoke_response" | jq '.defaultPresent')" \
+            --argjson defaultLengthOk "$(echo "$smoke_response" | jq '.defaultLengthOk')" \
+            --argjson defaultEqualsServiceRole "$(echo "$smoke_response" | jq '.defaultEqualsServiceRole')" \
+            --argjson releaseVersionPresent "$(echo "$smoke_response" | jq '.releaseVersionPresent')" \
+            --arg health "$(echo "$health_response" | jq -r '.status // "missing"')" \
+            --arg database "$(echo "$health_response" | jq -r '.database // "missing"')" \
             --arg unauthorizedStatus "$unauthorized_status" \
-            '{dedicatedSecretReady:$dedicated,serviceRoleSeparated:$serviceRoleSeparated,health:$health,database:$database,unauthenticatedStatus:$unauthorizedStatus}' \
+            '{dedicatedPresent:$dedicatedPresent,dedicatedLengthOk:$dedicatedLengthOk,defaultPresent:$defaultPresent,defaultLengthOk:$defaultLengthOk,defaultEqualsServiceRole:$defaultEqualsServiceRole,releaseVersionPresent:$releaseVersionPresent,health:$health,database:$database,unauthenticatedStatus:$unauthorizedStatus}' \
             > release-live-probe.json
 
       - name: Upload redacted probe evidence
+        if: ${{ always() }}
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:
           name: release-live-probe
           path: release-live-probe.json
           if-no-files-found: error
           retention-days: 3
+
+      - name: Enforce release gates
+        if: ${{ always() }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "${{ steps.collect.outcome }}" = 'success'
+          jq -e '
+            .dedicatedPresent == true and
+            .dedicatedLengthOk == true and
+            .defaultEqualsServiceRole == false and
+            .health == "ok" and
+            .database == "ready" and
+            .unauthenticatedStatus == "401"
+          ' release-live-probe.json >/dev/null
