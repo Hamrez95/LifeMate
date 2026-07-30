@@ -90,7 +90,11 @@ export function requiredDate(value: unknown, field: string): string {
   const normalized = String(value ?? "");
   const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(normalized);
   if (!match) {
-    throw new ApiError(400, `invalid_${field}`, `${field} must be an ISO date.`);
+    throw new ApiError(
+      400,
+      `invalid_${field}`,
+      `${field} must be an ISO date.`,
+    );
   }
 
   const year = Number(match[1]);
@@ -102,7 +106,11 @@ export function requiredDate(value: unknown, field: string): string {
     date.getUTCMonth() !== month - 1 ||
     date.getUTCDate() !== day
   ) {
-    throw new ApiError(400, `invalid_${field}`, `${field} must be a valid date.`);
+    throw new ApiError(
+      400,
+      `invalid_${field}`,
+      `${field} must be a valid date.`,
+    );
   }
   return normalized;
 }
@@ -152,7 +160,11 @@ export function requiredTimeZone(value: unknown): string {
   try {
     new Intl.DateTimeFormat("en-US", { timeZone }).format(new Date());
   } catch {
-    throw new ApiError(400, "invalid_timeZone", "timeZone must be a valid IANA time zone.");
+    throw new ApiError(
+      400,
+      "invalid_timeZone",
+      "timeZone must be a valid IANA time zone.",
+    );
   }
   return timeZone;
 }
@@ -185,7 +197,9 @@ export function normalizeSchedules(value: unknown): Array<{
       throw new ApiError(400, "invalid_schedule", "Schedule is invalid.");
     }
     const record = entry as Record<string, unknown>;
-    const day = canonicalDays.get(String(record.dayOfWeek ?? "").trim().toLowerCase());
+    const day = canonicalDays.get(
+      String(record.dayOfWeek ?? "").trim().toLowerCase(),
+    );
     const match = /^(\d{2}):(\d{2})(?::(\d{2}))?$/.exec(
       String(record.localTime ?? "").trim(),
     );

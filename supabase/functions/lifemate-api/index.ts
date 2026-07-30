@@ -1,5 +1,5 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
-import { createLifeMateDatabase, type AuthUser } from "./database.ts";
+import { type AuthUser, createLifeMateDatabase } from "./database.ts";
 import { corsHeaders, json, problem, safeError } from "./http.ts";
 import { enforceRateLimit } from "./security.ts";
 import {
@@ -18,7 +18,8 @@ const publishableKey = publishableKeys.default ??
 const contactHashingSecret = Deno.env.get("LIFEMATE_CONTACT_HASHING_SECRET") ??
   secretKeys.contact_hashing ??
   secretKeys.default;
-const releaseVersion = Deno.env.get("LIFEMATE_RELEASE_VERSION") ?? "0.8.0-beta.2";
+const releaseVersion = Deno.env.get("LIFEMATE_RELEASE_VERSION") ??
+  "0.8.0-beta.2";
 
 if (!databaseUrl || !supabaseUrl || !publishableKey || !contactHashingSecret) {
   throw new Error(
@@ -110,7 +111,10 @@ async function route(
   if (request.method === "POST" && path === "/api/v1/medications") {
     enforceRateLimit(`write:${identity.appUserId}`, 30, 60_000);
     return json(
-      await db.createMedication(identity.appUserId, await readJsonObject(request)),
+      await db.createMedication(
+        identity.appUserId,
+        await readJsonObject(request),
+      ),
       201,
     );
   }
@@ -120,7 +124,10 @@ async function route(
   if (request.method === "POST" && path === "/api/v1/treatment-plans") {
     enforceRateLimit(`write:${identity.appUserId}`, 30, 60_000);
     return json(
-      await db.createTreatmentPlan(identity.appUserId, await readJsonObject(request)),
+      await db.createTreatmentPlan(
+        identity.appUserId,
+        await readJsonObject(request),
+      ),
       201,
     );
   }
@@ -202,7 +209,11 @@ async function route(
 async function authenticate(request: Request): Promise<AuthUser> {
   const authorization = request.headers.get("authorization") ?? "";
   if (!authorization.startsWith("Bearer ") || authorization.length > 4_096) {
-    throw new ApiError(401, "authorization_missing", "Authentication is required.");
+    throw new ApiError(
+      401,
+      "authorization_missing",
+      "Authentication is required.",
+    );
   }
 
   let response: Response;
@@ -222,21 +233,28 @@ async function authenticate(request: Request): Promise<AuthUser> {
     );
   }
   if (!response.ok) {
-    throw new ApiError(401, "invalid_session", "Authentication session is invalid.");
+    throw new ApiError(
+      401,
+      "invalid_session",
+      "Authentication session is invalid.",
+    );
   }
 
   const value = await response.json();
   if (!value?.id) {
-    throw new ApiError(401, "invalid_session", "Authentication session is invalid.");
+    throw new ApiError(
+      401,
+      "invalid_session",
+      "Authentication session is invalid.",
+    );
   }
   return {
     id: value.id,
     email: normalizeOptional(value.email)?.toLowerCase() ?? null,
     phone: normalizeOptional(value.phone),
-    userMetadata:
-      value.user_metadata && typeof value.user_metadata === "object"
-        ? value.user_metadata
-        : {},
+    userMetadata: value.user_metadata && typeof value.user_metadata === "object"
+      ? value.user_metadata
+      : {},
   };
 }
 

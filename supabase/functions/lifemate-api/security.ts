@@ -14,7 +14,11 @@ export function enforceRateLimit(
     return;
   }
   if (current.count >= limit) {
-    throw new ApiError(429, "rate_limit_exceeded", "Too many requests. Try again later.");
+    throw new ApiError(
+      429,
+      "rate_limit_exceeded",
+      "Too many requests. Try again later.",
+    );
   }
   current.count += 1;
 
@@ -36,7 +40,9 @@ export function createToken(): string {
 export function maskEmail(email: string): string {
   const [name, domain] = email.split("@");
   const visible = name.slice(0, Math.min(2, name.length));
-  return `${visible}${"*".repeat(Math.max(2, name.length - visible.length))}@${domain}`;
+  return `${visible}${
+    "*".repeat(Math.max(2, name.length - visible.length))
+  }@${domain}`;
 }
 
 export function createHmac(secret: string) {

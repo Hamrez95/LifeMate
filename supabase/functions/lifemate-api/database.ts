@@ -14,7 +14,12 @@ import {
   validateRange,
   validateReportedAt,
 } from "./validation.ts";
-import { createHmac, createToken, maskEmail, timingSafeEqual } from "./security.ts";
+import {
+  createHmac,
+  createToken,
+  maskEmail,
+  timingSafeEqual,
+} from "./security.ts";
 
 export type AuthUser = {
   id: string;
@@ -55,7 +60,10 @@ export function createLifeMateDatabase(
     const requestedName = normalizeOptional(body.displayName);
     const metadataName = normalizeOptional(auth.userMetadata?.display_name);
     const fallbackName = auth.email?.split("@")[0] ?? "LifeMate User";
-    const displayName = (requestedName ?? metadataName ?? fallbackName).slice(0, 120);
+    const displayName = (requestedName ?? metadataName ?? fallbackName).slice(
+      0,
+      120,
+    );
     const locale = (normalizeOptional(body.locale) ?? "fa").slice(0, 16);
     if (!/^[a-z]{2,3}(?:-[A-Z]{2})?$/.test(locale)) {
       throw new ApiError(400, "invalid_locale", "locale is invalid.");
@@ -109,7 +117,9 @@ export function createLifeMateDatabase(
     return { auth, appUserId: rows[0].id };
   }
 
-  async function currentUser(identity: AppIdentity): Promise<Record<string, unknown>> {
+  async function currentUser(
+    identity: AppIdentity,
+  ): Promise<Record<string, unknown>> {
     const rows = await sql`
       select
         u.id, u.auth_subject, u.status, u.created_at_utc, u.updated_at_utc,
@@ -158,12 +168,20 @@ export function createLifeMateDatabase(
            ${notes}, 1, ${now}, ${now})
         returning *
       `;
-      await insertAudit(tx, userId, "medication.created", "medication", rows[0].id);
+      await insertAudit(
+        tx,
+        userId,
+        "medication.created",
+        "medication",
+        rows[0].id,
+      );
       return mapMedication(rows[0]);
     });
   }
 
-  async function listMedications(userId: string): Promise<Record<string, unknown>[]> {
+  async function listMedications(
+    userId: string,
+  ): Promise<Record<string, unknown>[]> {
     const rows = await sql`
       select *
       from lifemate.medications
@@ -180,7 +198,11 @@ export function createLifeMateDatabase(
   ): Promise<Record<string, unknown>> {
     const medicationId = requiredUuid(body.medicationId, "medicationId");
     const doseText = requiredText(body.doseText, "doseText", 80);
-    const instructions = limitedOptional(body.instructions, "instructions", 500);
+    const instructions = limitedOptional(
+      body.instructions,
+      "instructions",
+      500,
+    );
     const startDate = requiredDate(body.startDate, "startDate");
     const endDate = body.endDate == null
       ? null
@@ -283,7 +305,9 @@ export function createLifeMateDatabase(
           created_at_utc: row.medication_created_at_utc,
           updated_at_utc: row.medication_updated_at_utc,
         },
-        schedules.filter((schedule: Row) => schedule.treatment_plan_id === row.id),
+        schedules.filter((schedule: Row) =>
+          schedule.treatment_plan_id === row.id
+        ),
       )
     );
   }
@@ -314,7 +338,10 @@ export function createLifeMateDatabase(
     body: Record<string, unknown>,
   ): Promise<Record<string, unknown>> {
     const occurrenceId = requiredUuid(occurrenceIdValue, "occurrenceId");
-    const clientRequestId = requiredUuid(body.clientRequestId, "clientRequestId");
+    const clientRequestId = requiredUuid(
+      body.clientRequestId,
+      "clientRequestId",
+    );
     const expectedVersion = requiredPositiveInt(body.version, "version");
     const target = normalizeDoseStatus(body.status);
     const occurredAt = requiredTimestamp(body.occurredAtUtc, "occurredAtUtc");
@@ -329,7 +356,11 @@ export function createLifeMateDatabase(
       `;
       const occurrence = rows[0];
       if (!occurrence) {
-        throw new ApiError(404, "dose_occurrence_not_found", "Dose was not found.");
+        throw new ApiError(
+          404,
+          "dose_occurrence_not_found",
+          "Dose was not found.",
+        );
       }
 
       const existingEvents = await tx`
@@ -521,7 +552,9 @@ export function createLifeMateDatabase(
         "Signed-in email is required.",
       );
     }
-    const contactHash = await hmac(`contact:${identity.auth.email.toLowerCase()}`);
+    const contactHash = await hmac(
+      `contact:${identity.auth.email.toLowerCase()}`,
+    );
     const now = new Date();
 
     return await sql.begin(async (tx: any) => {
@@ -533,7 +566,11 @@ export function createLifeMateDatabase(
       `;
       const invitation = invitations[0];
       if (!invitation) {
-        throw new ApiError(404, "invitation_not_found", "Invitation is invalid.");
+        throw new ApiError(
+          404,
+          "invitation_not_found",
+          "Invitation is invalid.",
+        );
       }
 
       if (
@@ -565,7 +602,11 @@ export function createLifeMateDatabase(
           set status = 'Expired'
           where id = ${invitation.id}
         `;
-        throw new ApiError(410, "invitation_expired", "Invitation has expired.");
+        throw new ApiError(
+          410,
+          "invitation_expired",
+          "Invitation has expired.",
+        );
       }
       if (!timingSafeEqual(invitation.contact_hash, contactHash)) {
         throw new ApiError(
@@ -708,7 +749,11 @@ export function createLifeMateDatabase(
       limit 1
     `;
     if (!relationships[0]) {
-      throw new ApiError(403, "care_access_denied", "Care access is not active.");
+      throw new ApiError(
+        403,
+        "care_access_denied",
+        "Care access is not active.",
+      );
     }
 
     await materializeOccurrences(patientUserId, fromDate, toDate);
@@ -803,12 +848,16 @@ export function createLifeMateDatabase(
     const names = await connection`
       select user_id, display_name
       from lifemate.user_profiles
-      where user_id in ${sql([
+      where user_id in ${
+      sql([
         relationship.patient_user_id,
         relationship.caregiver_user_id,
-      ])}
+      ])
+    }
     `;
-    const byId = new Map(names.map((row: Row) => [row.user_id, row.display_name]));
+    const byId = new Map(
+      names.map((row: Row) => [row.user_id, row.display_name]),
+    );
     return mapRelationshipRow({
       ...relationship,
       patient_display_name: byId.get(relationship.patient_user_id),
