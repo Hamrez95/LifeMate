@@ -5,12 +5,16 @@ on:
   pull_request:
     paths:
       - 'supabase/functions/lifemate-api/**'
+      - 'backend-dotnet/src/LifeMate.Infrastructure/Persistence/**'
+      - '.config/dotnet-tools.json'
       - '.github/workflows/edge-api.yml'
       - 'AGENTS.md'
   push:
     branches: [ main ]
     paths:
       - 'supabase/functions/lifemate-api/**'
+      - 'backend-dotnet/src/LifeMate.Infrastructure/Persistence/**'
+      - '.config/dotnet-tools.json'
       - '.github/workflows/edge-api.yml'
       - 'AGENTS.md'
 
@@ -59,3 +63,61 @@ jobs:
           grep -q 'actor_user_id = \${userId}' database.ts
           grep -q 'client_request_id = \${clientRequestId}' database.ts
           grep -q 'contactHashingSecret.length < 32' index.ts
+
+  postgres-role-journey:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    services:
+      postgres:
+        image: postgres:17.5-alpine
+        env:
+          POSTGRES_DB: lifemate_edge_tests
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d lifemate_edge_tests"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      DOTNET_CLI_TELEMETRY_OPTOUT: '1'
+      DOTNET_NOLOGO: '1'
+      ASPNETCORE_ENVIRONMENT: Testing
+      ConnectionStrings__LifeMateDb: Host=localhost;Port=5432;Database=lifemate_edge_tests;Username=postgres;Password=postgres
+      Security__Invitations__ContactPepper: integration-only-invitation-contact-pepper-32-bytes-minimum
+      TEST_DATABASE_URL: postgres://postgres:postgres@localhost:5432/lifemate_edge_tests
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          show-progress: false
+          persist-credentials: false
+
+      - uses: actions/setup-dotnet@67a3573c9a986a3f9c594539f4ab511d57bb3ce9
+        with:
+          dotnet-version: '10.0.x'
+
+      - uses: denoland/setup-deno@22d081ff2d3a40755e97629de92e3bcbfa7cf2ed
+        with:
+          deno-version: v2.9.4
+
+      - name: Restore backend and EF tools
+        run: |
+          dotnet restore backend-dotnet/LifeMate.sln --verbosity minimal
+          dotnet tool restore
+
+      - name: Build migration source
+        run: dotnet build backend-dotnet/LifeMate.sln --configuration Release --no-restore
+
+      - name: Apply canonical schema
+        run: |
+          dotnet ef database update \
+            --configuration Release \
+            --no-build \
+            --project backend-dotnet/src/LifeMate.Infrastructure \
+            --startup-project backend-dotnet/src/LifeMate.Api
+
+      - name: Run patient caregiver and unrelated-user journey
+        working-directory: supabase/functions/lifemate-api
+        run: deno task test:integration
