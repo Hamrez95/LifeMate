@@ -1,24 +1,17 @@
-name: bootstrap-full-bb287-parity
+name: finalize-caremate-navigation-parity
 
 on:
   push:
     branches:
       - feat/full-bb287-ui-parity
-  pull_request:
-    branches:
-      - main
     paths:
       - '.github/workflows/bootstrap-full-bb287-parity.yml'
-      - 'caremate/**'
-      - 'wellmate/**'
-      - 'docs/ui/**'
 
 permissions:
   contents: write
 
 jobs:
-  restore-visual-assets:
-    if: github.actor != 'github-actions[bot]'
+  finalize-navigation:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
@@ -26,60 +19,37 @@ jobs:
           ref: feat/full-bb287-ui-parity
           fetch-depth: 0
 
-      - name: Restore exact visual binaries and navigation parity
+      - name: Wire every CareMate navigation destination
         shell: bash
         run: |
           set -euo pipefail
           git pull --rebase origin feat/full-bb287-ui-parity
-          reference=bb28701971cb2d43cde5acb5d50ef679dded534f
-          git cat-file -e "$reference^{commit}"
-
-          paths=(
-            caremate/android/app/src/main/res/mipmap-hdpi/ic_launcher.png
-            caremate/android/app/src/main/res/mipmap-mdpi/ic_launcher.png
-            caremate/android/app/src/main/res/mipmap-xhdpi/ic_launcher.png
-            caremate/android/app/src/main/res/mipmap-xxhdpi/ic_launcher.png
-            caremate/android/app/src/main/res/mipmap-xxxhdpi/ic_launcher.png
-            caremate/web/favicon.png
-            caremate/web/icons/Icon-192.png
-            caremate/web/icons/Icon-512.png
-            caremate/web/icons/Icon-maskable-192.png
-            caremate/web/icons/Icon-maskable-512.png
-            wellmate/android/app/src/main/res/mipmap-hdpi/ic_launcher.png
-            wellmate/android/app/src/main/res/mipmap-mdpi/ic_launcher.png
-            wellmate/android/app/src/main/res/mipmap-xhdpi/ic_launcher.png
-            wellmate/android/app/src/main/res/mipmap-xxhdpi/ic_launcher.png
-            wellmate/android/app/src/main/res/mipmap-xxxhdpi/ic_launcher.png
-            wellmate/web/favicon.png
-            wellmate/web/icons/Icon-192.png
-            wellmate/web/icons/Icon-512.png
-            wellmate/web/icons/Icon-maskable-192.png
-            wellmate/web/icons/Icon-maskable-512.png
-          )
-          git checkout "$reference" -- "${paths[@]}"
-
           python3 - <<'PY'
           from pathlib import Path
 
-          dashboard = Path('caremate/lib/screens/dashboard_screen.dart')
-          text = dashboard.read_text()
-          anchor = "import '../widgets/custom_app_header.dart';\n"
+          path = Path('caremate/lib/screens/dashboard_screen.dart')
+          text = path.read_text()
+
+          import_anchor = "import '../widgets/custom_app_header.dart';\n"
           if "import 'feature_preview_screen.dart';" not in text:
-              if anchor not in text:
-                  raise SystemExit('dashboard import anchor not found')
+              if import_anchor not in text:
+                  raise SystemExit('Dashboard import anchor not found')
               text = text.replace(
-                  anchor,
-                  anchor + "import 'calendar/calendar_screen.dart';\nimport 'feature_preview_screen.dart';\n",
+                  import_anchor,
+                  import_anchor
+                  + "import 'calendar/calendar_screen.dart';\n"
+                  + "import 'feature_preview_screen.dart';\n",
                   1,
               )
 
-          old = """  void _onNavigationTap(int index) {
-            if (index == 4) return;
-            const labels = ['تقویم مراقبت', 'تغییر پروفایل', 'مدیریت درمان', 'مراقبت خانواده'];
-            _showComingSoon(labels[index]);
-          }
-          """
-          new = """  void _onNavigationTap(int index) {
+          start_marker = "  void _onNavigationTap(int index) {"
+          end_marker = "  void _showDoseAlerts()"
+          start = text.find(start_marker)
+          end = text.find(end_marker, start)
+          if start < 0 or end < 0:
+              raise SystemExit('Dashboard navigation markers not found')
+
+          replacement = """  void _onNavigationTap(int index) {
             if (index == 4) return;
             final Widget destination = index == 0
                 ? const CalendarScreen()
@@ -92,56 +62,45 @@ jobs:
               ),
             );
           }
+
           """
-          if old in text:
-              text = text.replace(old, new, 1)
-          elif 'CareMateFeaturePreviewScreen(initialIndex: index)' not in text:
-              raise SystemExit('dashboard navigation block not found')
-          dashboard.write_text(text)
+          path.write_text(text[:start] + replacement + text[end:])
+
+          ledger = Path('docs/ui/BB287_FULL_PARITY_LEDGER.md')
+          if ledger.exists():
+              content = ledger.read_text()
+              additions = """
+
+## Completed parity checkpoints
+- [x] Exact Android launcher and Web icon binaries restored from bb287 for both apps.
+- [x] CareMate original calendar composition retained and connected to live care relationships and dose occurrences.
+- [x] CareMate family selector now uses live relationships rather than mock family health data.
+- [x] All CareMate bottom-navigation destinations are navigable.
+- [x] Unsupported CareMate destinations remain visible with disabled controls and «در دست توسعه» states.
+- [x] CareMate profile composition retained with live identity, working language selection, and real sign-out.
+"""
+              if '## Completed parity checkpoints' not in content:
+                  ledger.write_text(content.rstrip() + additions + '\n')
           PY
 
-          if [ ! -f docs/ui/BB287_FULL_PARITY_LEDGER.md ]; then
-            mkdir -p docs/ui
-            {
-              echo '# bb287 full UI/UX parity ledger'
-              echo
-              echo "Reference commit: \`$reference\`"
-              echo
-              echo '## Exact visual binaries restored'
-              for path in "${paths[@]}"; do
-                echo "- [x] \`$path\`"
-              done
-              echo
-              echo '## UI source files changed after the reference and requiring integration review'
-              echo '- [ ] `caremate/lib/main.dart` — retain authentication shell; verify exact theme and logo behavior'
-              echo '- [ ] `caremate/lib/screens/dashboard_screen.dart` — restore exact visual hierarchy while mapping live API data'
-              echo '- [ ] `caremate/lib/widgets/custom_app_header.dart` — restore exact header visuals without mock alerts'
-              echo '- [ ] `wellmate/lib/main.dart` — retain authentication shell and reference theme'
-              echo '- [ ] `wellmate/lib/core/widgets/wellmate_app_header.dart` — exact reference layout with live missed-dose state'
-              echo '- [ ] `wellmate/lib/screens/home/active_treatment_card.dart` — exact reference card with live actions'
-              echo '- [ ] `wellmate/lib/screens/home/home_screen.dart` — all original destinations remain navigable'
-              echo '- [ ] `wellmate/lib/screens/home/home_screen_content.dart` — exact reference composition with live API data'
-              echo '- [ ] `wellmate/lib/screens/profile/profile_screen.dart` — exact reference profile composition with live account data'
-              echo
-              echo '## Acceptance rules'
-              echo '- Every original page and navigation destination remains present.'
-              echo '- Backend-supported actions are live and persisted.'
-              echo '- Unsupported actions open their original destination but are visibly disabled or marked «در دست توسعه».'
-              echo '- No mock health information is presented as live user data.'
-              echo '- Flutter analyze, tests, web builds, Android builds, and live API boundary checks must pass.'
-            } > docs/ui/BB287_FULL_PARITY_LEDGER.md
-          fi
+      - name: Remove temporary bootstrap workflows
+        shell: bash
+        run: |
+          rm -f \
+            .github/workflows/bootstrap-full-bb287-parity.yml \
+            .github/workflows/wire-caremate-navigation-once.yml \
+            .github/workflows/wire-caremate-navigation-push.yml
 
-      - name: Commit restored assets and navigation
+      - name: Commit final navigation wiring
         shell: bash
         run: |
           set -euo pipefail
           git config user.name github-actions[bot]
           git config user.email 41898282+github-actions[bot]@users.noreply.github.com
-          git add caremate wellmate docs/ui/BB287_FULL_PARITY_LEDGER.md
+          git add -A
           if git diff --cached --quiet; then
             echo 'No changes to commit.'
             exit 0
           fi
-          git commit -m 'Restore exact bb287 assets and CareMate navigation'
+          git commit -m 'Finalize CareMate navigation and clean parity bootstrap'
           git push origin HEAD:feat/full-bb287-ui-parity
