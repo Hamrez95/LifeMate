@@ -48,11 +48,13 @@ function isDedicatedSecret(
 export function selectContactHashingSecret(
   sources: ContactSecretSources,
 ): string {
-  for (const candidate of [
-    sources.environment,
-    sources.dictionary,
-    sources.vault,
-  ]) {
+  for (
+    const candidate of [
+      sources.environment,
+      sources.dictionary,
+      sources.vault,
+    ]
+  ) {
     if (isDedicatedSecret(candidate, sources.serviceRole)) return candidate;
   }
 
