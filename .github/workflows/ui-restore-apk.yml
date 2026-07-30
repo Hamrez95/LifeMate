@@ -1,0 +1,72 @@
+name: ui-restore-apk
+
+on:
+  push:
+    branches:
+      - fix/restore-bb287-ui
+
+permissions:
+  contents: read
+
+env:
+  PUB_ENVIRONMENT: bot:github_actions
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
+        with:
+          show-progress: false
+
+      - uses: subosito/flutter-action@4cab68ce0f1c7c924f688bff4792e044f1aeb30c
+        with:
+          flutter-version: '3.44.0'
+          channel: stable
+          cache: true
+
+      - name: Verify and build both apps
+        shell: bash
+        env:
+          SUPABASE_URL: https://bwdvmniywyyijjauipnh.supabase.co
+          SUPABASE_PUBLISHABLE_KEY: sb_publishable_6YpBDD0gAPcenbYGukOeWg_fZXxUb27
+          LIFEMATE_API_BASE_URL: https://bwdvmniywyyijjauipnh.supabase.co/functions/v1/lifemate-api
+        run: |
+          set -euo pipefail
+          health_response="$(curl --fail --silent --show-error --retry 3 --retry-all-errors "$LIFEMATE_API_BASE_URL/health")"
+          echo "$health_response" | grep -q '"status":"ok"'
+          echo "$health_response" | grep -q '"database":"ready"'
+          unauthorized_status="$(curl --silent --output /dev/null --write-out '%{http_code}' "$LIFEMATE_API_BASE_URL/api/v1/me")"
+          test "$unauthorized_status" = "401"
+
+          (cd packages/lifemate_client && flutter pub get && flutter analyze --no-fatal-warnings --no-fatal-infos && flutter test)
+          build_args=(
+            --release
+            --dart-define="SUPABASE_URL=$SUPABASE_URL"
+            --dart-define="SUPABASE_PUBLISHABLE_KEY=$SUPABASE_PUBLISHABLE_KEY"
+            --dart-define="LIFEMATE_API_BASE_URL=$LIFEMATE_API_BASE_URL"
+          )
+          for app in wellmate caremate; do
+            (cd "$app" && flutter pub get && flutter analyze --no-fatal-warnings --no-fatal-infos && flutter test && flutter build apk "${build_args[@]}")
+          done
+
+          mkdir -p release
+          cp wellmate/build/app/outputs/flutter-apk/app-release.apk release/wellmate-ui-restored.apk
+          cp caremate/build/app/outputs/flutter-apk/app-release.apk release/caremate-ui-restored.apk
+          sha256sum release/*.apk | tee release/SHA256SUMS.txt
+          cat > release/README.txt <<EOF
+          LifeMate UI restoration test build
+          Source design reference: bb28701971cb2d43cde5acb5d50ef679dded534f
+          Source commit: ${GITHUB_SHA}
+          Channel: internal UI review
+          Signing: CI debug fallback / not Play Store
+          EOF
+
+      - name: Upload UI restoration APKs
+        uses: actions/upload-artifact@v4
+        with:
+          name: lifemate-ui-restored-${{ github.sha }}
+          path: release/
+          if-no-files-found: error
+          retention-days: 14
