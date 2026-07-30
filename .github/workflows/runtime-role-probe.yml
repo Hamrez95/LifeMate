@@ -1,0 +1,43 @@
+name: runtime-role-probe
+
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/runtime-role-probe.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  probe:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - name: Collect redacted Edge database-role evidence
+        shell: bash
+        run: |
+          set -euo pipefail
+          response="$(curl --fail --silent --show-error --retry 5 --retry-all-errors \
+            'https://bwdvmniywyyijjauipnh.supabase.co/functions/v1/lifemate-smoke')"
+          echo "$response" | jq -e 'type == "object"' > runtime-role-evidence.json
+          jq -e '
+            .runtimeRole != null and
+            .runtimeRole.rolsuper == false and
+            .access.total_tables == 12 and
+            .access.anon_usage == false and
+            .access.authenticated_usage == false and
+            .access.service_role_usage == false and
+            .access.anon_any_dml == false and
+            .access.authenticated_any_dml == false and
+            .access.service_role_any_dml == false and
+            .dedicatedSecretReady == true
+          ' runtime-role-evidence.json >/dev/null
+
+      - name: Upload redacted role evidence
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: runtime-role-evidence
+          path: runtime-role-evidence.json
+          if-no-files-found: error
+          retention-days: 14
