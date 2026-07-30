@@ -18,32 +18,26 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 5
     steps:
-      - name: Collect redacted candidate evidence
+      - name: Collect redacted bootstrap diagnostics
         id: collect
         continue-on-error: true
         shell: bash
-        env:
-          EXPECTED_VERSION: 41cc58dc96d0c705703fa2968677585513119920
         run: |
           set -euo pipefail
-          candidate_url='https://bwdvmniywyyijjauipnh.supabase.co/functions/v1/lifemate-api-candidate'
+          diagnostic_url='https://bwdvmniywyyijjauipnh.supabase.co/functions/v1/lifemate-smoke'
           current_url='https://bwdvmniywyyijjauipnh.supabase.co/functions/v1/lifemate-api'
 
-          candidate_health="$(curl --fail --silent --show-error --retry 5 --retry-delay 2 --retry-all-errors "$candidate_url/health")"
-          candidate_unauthorized="$(curl --silent --show-error --output /dev/null --write-out '%{http_code}' "$candidate_url/api/v1/me")"
+          diagnostic="$(curl --fail --silent --show-error --retry 4 --retry-all-errors "$diagnostic_url")"
           current_health="$(curl --fail --silent --show-error --retry 4 --retry-all-errors "$current_url/health")"
+          current_unauthorized="$(curl --silent --show-error --output /dev/null --write-out '%{http_code}' "$current_url/api/v1/me")"
 
-          jq -n \
-            --arg expectedVersion "$EXPECTED_VERSION" \
-            --arg candidateStatus "$(echo "$candidate_health" | jq -r '.status // "missing"')" \
-            --arg candidateDatabase "$(echo "$candidate_health" | jq -r '.database // "missing"')" \
-            --arg candidateService "$(echo "$candidate_health" | jq -r '.service // "missing"')" \
-            --arg candidateVersion "$(echo "$candidate_health" | jq -r '.version // "missing"')" \
-            --arg candidateUnauthorized "$candidate_unauthorized" \
-            --arg currentStatus "$(echo "$current_health" | jq -r '.status // "missing"')" \
-            --arg currentDatabase "$(echo "$current_health" | jq -r '.database // "missing"')" \
-            '{expectedVersion:$expectedVersion,candidate:{status:$candidateStatus,database:$candidateDatabase,service:$candidateService,version:$candidateVersion,unauthenticatedStatus:$candidateUnauthorized},current:{status:$currentStatus,database:$currentDatabase}}' \
-            > release-live-probe.json
+          echo "$diagnostic" | jq -e 'type == "object"' > release-live-probe.json
+          jq --arg currentStatus "$(echo "$current_health" | jq -r '.status // "missing"')" \
+             --arg currentDatabase "$(echo "$current_health" | jq -r '.database // "missing"')" \
+             --arg currentUnauthorized "$current_unauthorized" \
+             '. + {current:{status:$currentStatus,database:$currentDatabase,unauthenticatedStatus:$currentUnauthorized}}' \
+             release-live-probe.json > release-live-probe.tmp
+          mv release-live-probe.tmp release-live-probe.json
 
       - name: Upload redacted probe evidence
         if: ${{ always() }}
@@ -54,18 +48,20 @@ jobs:
           if-no-files-found: error
           retention-days: 3
 
-      - name: Enforce candidate release gates
+      - name: Enforce bootstrap diagnostics
         if: ${{ always() }}
         shell: bash
         run: |
           set -euo pipefail
           test "${{ steps.collect.outcome }}" = 'success'
           jq -e '
-            .candidate.status == "ok" and
-            .candidate.database == "ready" and
-            .candidate.service == "lifemate-api" and
-            .candidate.version == .expectedVersion and
-            .candidate.unauthenticatedStatus == "401" and
+            .databaseUrlPresent == true and
+            .vaultReadable == true and
+            .dedicatedSecretLengthOk == true and
+            .envSetWorks == true and
+            .remoteSourceReachable == true and
+            .remoteSourceStatus == 200 and
             .current.status == "ok" and
-            .current.database == "ready"
+            .current.database == "ready" and
+            .current.unauthenticatedStatus == "401"
           ' release-live-probe.json >/dev/null
