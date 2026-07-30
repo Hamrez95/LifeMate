@@ -1,0 +1,113 @@
+name: wire-caremate-navigation-once
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - '.github/workflows/wire-caremate-navigation-once.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  wire-navigation:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
+        with:
+          ref: feat/full-bb287-ui-parity
+          fetch-depth: 0
+
+      - name: Wire every CareMate bottom-navigation destination
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+
+          dashboard = Path('caremate/lib/screens/dashboard_screen.dart')
+          text = dashboard.read_text()
+          anchor = "import '../widgets/custom_app_header.dart';\n"
+          imports = (
+              "import '../widgets/custom_app_header.dart';\n"
+              "import 'calendar/calendar_screen.dart';\n"
+              "import 'feature_preview_screen.dart';\n"
+          )
+          if "import 'feature_preview_screen.dart';" not in text:
+              if anchor not in text:
+                  raise SystemExit('dashboard import anchor not found')
+              text = text.replace(anchor, imports, 1)
+
+          old = """  void _onNavigationTap(int index) {
+            if (index == 4) return;
+            const labels = ['تقویم مراقبت', 'تغییر پروفایل', 'مدیریت درمان', 'مراقبت خانواده'];
+            _showComingSoon(labels[index]);
+          }
+          """
+          new = """  void _onNavigationTap(int index) {
+            if (index == 4) return;
+            final Widget destination = index == 0
+                ? const CalendarScreen()
+                : CareMateFeaturePreviewScreen(initialIndex: index);
+            Navigator.of(context).pushReplacement(
+              PageRouteBuilder<void>(
+                pageBuilder: (_, __, ___) => destination,
+                transitionDuration: Duration.zero,
+                reverseTransitionDuration: Duration.zero,
+              ),
+            );
+          }
+          """
+          if old not in text:
+              raise SystemExit('dashboard navigation block not found')
+          dashboard.write_text(text.replace(old, new, 1))
+
+          calendar = Path('caremate/lib/screens/calendar/calendar_screen.dart')
+          text = calendar.read_text()
+          anchor = "import 'package:caremate/screens/dashboard_screen.dart';\n"
+          imports = (
+              "import 'package:caremate/screens/dashboard_screen.dart';\n"
+              "import 'package:caremate/screens/feature_preview_screen.dart';\n"
+          )
+          if "feature_preview_screen.dart" not in text:
+              if anchor not in text:
+                  raise SystemExit('calendar import anchor not found')
+              text = text.replace(anchor, imports, 1)
+
+          start = text.index('        bottomNavigationBar: CareMateBottomNav(')
+          end_marker = '            }));\n'
+          end = text.index(end_marker, start) + len(end_marker)
+          replacement = """        bottomNavigationBar: CareMateBottomNav(
+          currentIndex: 0,
+          onTap: (index) {
+            if (index == 0) return;
+            final Widget destination = index == 4
+                ? const DashboardScreen()
+                : CareMateFeaturePreviewScreen(initialIndex: index);
+            Navigator.of(context).pushReplacement(
+              PageRouteBuilder<void>(
+                pageBuilder: (_, __, ___) => destination,
+                transitionDuration: Duration.zero,
+                reverseTransitionDuration: Duration.zero,
+              ),
+            );
+          },
+        ));
+          """
+          calendar.write_text(text[:start] + replacement + text[end:])
+          PY
+
+          dart format \
+            caremate/lib/screens/dashboard_screen.dart \
+            caremate/lib/screens/calendar/calendar_screen.dart \
+            caremate/lib/screens/feature_preview_screen.dart || true
+
+      - name: Commit navigation restoration
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add caremate/lib/screens
+          git commit -m 'Restore navigable CareMate feature destinations'
+          git push origin HEAD:feat/full-bb287-ui-parity
