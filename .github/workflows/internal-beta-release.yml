@@ -1,0 +1,304 @@
+name: internal-beta-release
+
+on:
+  workflow_dispatch:
+    inputs:
+      release_name:
+        description: Internal release name, for example 0.8.0-internal.1
+        required: true
+        default: 0.8.0-internal.1
+        type: string
+      confirm_release:
+        description: Type DEPLOY-INTERNAL-BETA to confirm a live Edge deployment
+        required: true
+        type: string
+      run_live_role_smoke:
+        description: Run the three-account live patient/caregiver/unrelated-user journey
+        required: true
+        default: true
+        type: boolean
+  pull_request:
+    paths:
+      - '.github/workflows/internal-beta-release.yml'
+      - 'tools/release/**'
+      - 'supabase/functions/lifemate-api/**'
+      - 'packages/lifemate_client/**'
+      - 'wellmate/**'
+      - 'caremate/**'
+      - 'AGENTS.md'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: internal-beta-release-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  SUPABASE_PROJECT_REF: bwdvmniywyyijjauipnh
+  SUPABASE_URL: https://bwdvmniywyyijjauipnh.supabase.co
+  LIFEMATE_API_BASE_URL: https://bwdvmniywyyijjauipnh.supabase.co/functions/v1/lifemate-api
+  SUPABASE_PUBLISHABLE_KEY: ${{ vars.SUPABASE_PUBLISHABLE_KEY || 'sb_publishable_6YpBDD0gAPcenbYGukOeWg_fZXxUb27' }}
+
+jobs:
+  validate-release-source:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
+        with:
+          show-progress: false
+          persist-credentials: false
+
+      - uses: denoland/setup-deno@22d081ff2d3a40755e97629de92e3bcbfa7cf2ed
+        with:
+          deno-version: v2.9.4
+
+      - name: Validate release scripts
+        shell: bash
+        run: |
+          set -euo pipefail
+          bash -n tools/release/live-beta-smoke.sh
+          shellcheck tools/release/live-beta-smoke.sh
+          ! grep -R --line-number 'SUPABASE_SERVICE_ROLE_KEY' \
+            supabase/functions/lifemate-api tools/release
+
+      - name: Verify Edge source
+        working-directory: supabase/functions/lifemate-api
+        run: |
+          deno fmt --check
+          deno task check
+          deno task test
+
+      - name: Validate dispatch inputs
+        if: ${{ github.event_name == 'workflow_dispatch' }}
+        shell: bash
+        env:
+          RELEASE_NAME: ${{ inputs.release_name }}
+          CONFIRM_RELEASE: ${{ inputs.confirm_release }}
+        run: |
+          set -euo pipefail
+          test "$GITHUB_REF" = 'refs/heads/main'
+          test "$CONFIRM_RELEASE" = 'DEPLOY-INTERNAL-BETA'
+          [[ "$RELEASE_NAME" =~ ^[0-9]+\.[0-9]+\.[0-9]+-internal\.[0-9]+$ ]]
+
+  deploy-edge:
+    if: ${{ github.event_name == 'workflow_dispatch' }}
+    needs: validate-release-source
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    environment: beta
+    env:
+      SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+      CONTACT_HASHING_SECRET: ${{ secrets.LIFEMATE_CONTACT_HASHING_SECRET }}
+    outputs:
+      release_version: ${{ steps.release-meta.outputs.release_version }}
+      short_sha: ${{ steps.release-meta.outputs.short_sha }}
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
+        with:
+          show-progress: false
+          persist-credentials: false
+
+      - uses: supabase/setup-cli@3c2f5e2ae34c34e428e8e206e2c4d21fa2d20fbf
+        with:
+          version: 2.101.0
+
+      - name: Validate protected configuration
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -n "$SUPABASE_ACCESS_TOKEN"
+          test "${#CONTACT_HASHING_SECRET}" -ge 32
+          test -n "$SUPABASE_PUBLISHABLE_KEY"
+
+      - name: Compute immutable release metadata
+        id: release-meta
+        shell: bash
+        run: |
+          set -euo pipefail
+          echo "release_version=$GITHUB_SHA" >> "$GITHUB_OUTPUT"
+          echo "short_sha=${GITHUB_SHA:0:8}" >> "$GITHUB_OUTPUT"
+
+      - name: Configure dedicated Edge secrets
+        shell: bash
+        run: |
+          set -euo pipefail
+          secret_file="$(mktemp)"
+          cleanup_secret_file() {
+            if command -v shred >/dev/null 2>&1; then
+              shred -u "$secret_file"
+            else
+              rm -f "$secret_file"
+            fi
+          }
+          trap cleanup_secret_file EXIT
+          chmod 600 "$secret_file"
+          printf 'LIFEMATE_CONTACT_HASHING_SECRET=%s\n' "$CONTACT_HASHING_SECRET" > "$secret_file"
+          printf 'LIFEMATE_RELEASE_VERSION=%s\n' "$GITHUB_SHA" >> "$secret_file"
+          supabase secrets set \
+            --project-ref "$SUPABASE_PROJECT_REF" \
+            --env-file "$secret_file"
+
+      - name: Deploy reviewed Edge source
+        shell: bash
+        run: |
+          set -euo pipefail
+          supabase functions deploy lifemate-api \
+            --project-ref "$SUPABASE_PROJECT_REF" \
+            --no-verify-jwt \
+            --use-api
+
+      - name: Verify deployed version and auth boundary
+        shell: bash
+        run: |
+          set -euo pipefail
+          health_response="$(curl --fail --silent --show-error \
+            --retry 5 --retry-delay 3 --retry-all-errors \
+            "$LIFEMATE_API_BASE_URL/health")"
+          echo "$health_response" | jq -e \
+            --arg version "$GITHUB_SHA" \
+            '.status == "ok" and .database == "ready" and .service == "lifemate-api" and .version == $version' \
+            >/dev/null
+          unauthorized_status="$(curl --silent --show-error \
+            --output /dev/null --write-out '%{http_code}' \
+            "$LIFEMATE_API_BASE_URL/api/v1/me")"
+          test "$unauthorized_status" = '401'
+
+  live-role-smoke:
+    if: ${{ github.event_name == 'workflow_dispatch' && inputs.run_live_role_smoke }}
+    needs: deploy-edge
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    environment: beta
+    env:
+      EXPECTED_RELEASE_VERSION: ${{ needs.deploy-edge.outputs.release_version }}
+      PATIENT_EMAIL: ${{ secrets.BETA_PATIENT_EMAIL }}
+      PATIENT_PASSWORD: ${{ secrets.BETA_PATIENT_PASSWORD }}
+      CAREGIVER_EMAIL: ${{ secrets.BETA_CAREGIVER_EMAIL }}
+      CAREGIVER_PASSWORD: ${{ secrets.BETA_CAREGIVER_PASSWORD }}
+      UNRELATED_EMAIL: ${{ secrets.BETA_UNRELATED_EMAIL }}
+      UNRELATED_PASSWORD: ${{ secrets.BETA_UNRELATED_PASSWORD }}
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
+        with:
+          show-progress: false
+          persist-credentials: false
+
+      - name: Execute live three-role journey
+        shell: bash
+        run: |
+          set -euo pipefail
+          bash tools/release/live-beta-smoke.sh | tee /tmp/lifemate-live-role-smoke.json
+          jq -e '.status == "passed" and .release == env.EXPECTED_RELEASE_VERSION' \
+            /tmp/lifemate-live-role-smoke.json >/dev/null
+
+      - name: Upload redacted smoke evidence
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: live-role-smoke-${{ needs.deploy-edge.outputs.short_sha }}
+          path: /tmp/lifemate-live-role-smoke.json
+          if-no-files-found: error
+          retention-days: 14
+
+  build-android-internal:
+    if: >-
+      ${{
+        always() &&
+        github.event_name == 'workflow_dispatch' &&
+        needs.deploy-edge.result == 'success' &&
+        (needs.live-role-smoke.result == 'success' || needs.live-role-smoke.result == 'skipped')
+      }}
+    needs: [deploy-edge, live-role-smoke]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 35
+    env:
+      RELEASE_NAME: ${{ inputs.release_name }}
+      RELEASE_VERSION: ${{ needs.deploy-edge.outputs.release_version }}
+      SHORT_SHA: ${{ needs.deploy-edge.outputs.short_sha }}
+      PUB_ENVIRONMENT: bot:github_actions
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
+        with:
+          show-progress: false
+          persist-credentials: false
+
+      - uses: subosito/flutter-action@4cab68ce0f1c7c924f688bff4792e044f1aeb30c
+        with:
+          flutter-version: '3.44.0'
+          channel: stable
+          cache: true
+
+      - name: Re-verify exact Flutter source
+        shell: bash
+        run: |
+          set -euo pipefail
+          (cd packages/lifemate_client && flutter pub get && flutter analyze --no-fatal-warnings --no-fatal-infos && flutter test)
+          (cd wellmate && flutter pub get && flutter analyze --no-fatal-warnings --no-fatal-infos && flutter test)
+          (cd caremate && flutter pub get && flutter analyze --no-fatal-warnings --no-fatal-infos && flutter test)
+
+      - name: Re-verify deployed API version
+        shell: bash
+        run: |
+          set -euo pipefail
+          health_response="$(curl --fail --silent --show-error \
+            --retry 3 --retry-all-errors "$LIFEMATE_API_BASE_URL/health")"
+          echo "$health_response" | jq -e \
+            --arg version "$RELEASE_VERSION" \
+            '.status == "ok" and .database == "ready" and .version == $version' >/dev/null
+
+      - name: Build installable internal APKs
+        shell: bash
+        run: |
+          set -euo pipefail
+          build_number="$GITHUB_RUN_NUMBER"
+          build_args=(
+            --release
+            --build-name="$RELEASE_NAME"
+            --build-number="$build_number"
+            --dart-define="SUPABASE_URL=$SUPABASE_URL"
+            --dart-define="SUPABASE_PUBLISHABLE_KEY=$SUPABASE_PUBLISHABLE_KEY"
+            --dart-define="LIFEMATE_API_BASE_URL=$LIFEMATE_API_BASE_URL"
+          )
+          (cd wellmate && flutter build apk "${build_args[@]}")
+          (cd caremate && flutter build apk "${build_args[@]}")
+
+      - name: Verify packages and create release manifest
+        shell: bash
+        run: |
+          set -euo pipefail
+          aapt_bin="$(find "$ANDROID_HOME/build-tools" -type f -name aapt | sort -V | tail -n 1)"
+          test -x "$aapt_bin"
+          mkdir -p dist
+          cp wellmate/build/app/outputs/flutter-apk/app-release.apk \
+            "dist/wellmate-$RELEASE_NAME-$SHORT_SHA-internal.apk"
+          cp caremate/build/app/outputs/flutter-apk/app-release.apk \
+            "dist/caremate-$RELEASE_NAME-$SHORT_SHA-internal.apk"
+
+          "$aapt_bin" dump badging "dist/wellmate-$RELEASE_NAME-$SHORT_SHA-internal.apk" \
+            | grep -q "package: name='com.lifemate.wellmate'"
+          "$aapt_bin" dump badging "dist/caremate-$RELEASE_NAME-$SHORT_SHA-internal.apk" \
+            | grep -q "package: name='com.lifemate.caremate'"
+          for apk in dist/*.apk; do
+            "$aapt_bin" dump permissions "$apk" | grep -Fq 'android.permission.INTERNET'
+          done
+
+          wellmate_sha="$(sha256sum dist/wellmate-*.apk | awk '{print $1}')"
+          caremate_sha="$(sha256sum dist/caremate-*.apk | awk '{print $1}')"
+          jq -n \
+            --arg releaseName "$RELEASE_NAME" \
+            --arg commit "$GITHUB_SHA" \
+            --arg apiVersion "$RELEASE_VERSION" \
+            --arg builtAt "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+            --arg wellmateSha256 "$wellmate_sha" \
+            --arg caremateSha256 "$caremate_sha" \
+            '{releaseName:$releaseName,commit:$commit,apiVersion:$apiVersion,builtAtUtc:$builtAt,channel:"internal/unstable",signing:"debug fallback; not Play Store",apps:{wellmate:{packageId:"com.lifemate.wellmate",sha256:$wellmateSha256},caremate:{packageId:"com.lifemate.caremate",sha256:$caremateSha256}},knownLimitations:["Not a stable beta or store release","Founder-owned release signing not configured","Human device/accessibility/privacy review remains required"]}' \
+            > dist/release-manifest.json
+
+      - name: Upload versioned internal release bundle
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: lifemate-${{ inputs.release_name }}-${{ needs.deploy-edge.outputs.short_sha }}-android-internal
+          path: dist
+          if-no-files-found: error
+          retention-days: 30
