@@ -36,6 +36,8 @@ class LifeMateApiClient {
   final AccessTokenProvider _accessToken;
   final http.Client _http;
   static const _requestTimeout = Duration(seconds: 20);
+  static const _retryDelay = Duration(milliseconds: 250);
+  static const _transientStatusCodes = <int>{502, 503, 504};
 
   static String createClientRequestId() {
     final bytes = List<int>.generate(16, (_) => Random.secure().nextInt(256));
@@ -67,8 +69,13 @@ class LifeMateApiClient {
     return _asObject(value);
   }
 
-  Future<Map<String, dynamic>> getCurrentUser() async =>
-      _asObject(await _send('GET', '/api/v1/me'));
+  Future<Map<String, dynamic>> getCurrentUser() async => _asObject(
+        await _send(
+          'GET',
+          '/api/v1/me',
+          retryable: true,
+        ),
+      );
 
   Future<List<Map<String, dynamic>>> getMedications() =>
       _getList('/api/v1/medications');
@@ -148,6 +155,7 @@ class LifeMateApiClient {
         'status': status,
         'occurredAtUtc': occurredAtUtc.toUtc().toIso8601String(),
       },
+      retryable: true,
     );
     return _asObject(value);
   }
@@ -186,13 +194,18 @@ class LifeMateApiClient {
             'consentVersion': 'care-caregiver-consent-v1',
             'confirmConsent': true,
           },
+          retryable: true,
         ),
       );
 
   Future<void> revokeCareRelationship({
     required String relationshipId,
   }) async {
-    await _send('DELETE', '/api/v1/care/relationships/$relationshipId');
+    await _send(
+      'DELETE',
+      '/api/v1/care/relationships/$relationshipId',
+      retryable: true,
+    );
   }
 
   Future<List<Map<String, dynamic>>> getCareRecipientDoseOccurrences({
@@ -212,7 +225,12 @@ class LifeMateApiClient {
     String path, {
     Map<String, String>? query,
   }) async {
-    final value = await _send('GET', path, query: query);
+    final value = await _send(
+      'GET',
+      path,
+      query: query,
+      retryable: true,
+    );
     if (value is! List) {
       throw const FormatException('LifeMate API returned a non-list payload.');
     }
@@ -224,6 +242,7 @@ class LifeMateApiClient {
     String path, {
     Map<String, String>? query,
     Object? body,
+    bool retryable = false,
   }) async {
     final token = _accessToken();
     if (token == null || token.isEmpty) {
@@ -241,27 +260,75 @@ class LifeMateApiClient {
       'Authorization': 'Bearer $token',
       if (body != null) 'Content-Type': 'application/json',
     };
-    late final http.Response response;
+    final encodedBody = body == null ? null : jsonEncode(body);
+    final maxAttempts = retryable ? 2 : 1;
+
+    for (var attempt = 1; attempt <= maxAttempts; attempt += 1) {
+      late final http.Response response;
+      try {
+        response = await _sendOnce(
+          method: method,
+          uri: uri,
+          headers: headers,
+          encodedBody: encodedBody,
+        ).timeout(_requestTimeout);
+      } on TimeoutException {
+        if (attempt < maxAttempts) {
+          await Future<void>.delayed(_retryDelay);
+          continue;
+        }
+        throw const LifeMateApiException(
+          statusCode: 0,
+          code: 'network_timeout',
+          message: 'LifeMate request timed out.',
+        );
+      } on http.ClientException {
+        if (attempt < maxAttempts) {
+          await Future<void>.delayed(_retryDelay);
+          continue;
+        }
+        throw const LifeMateApiException(
+          statusCode: 0,
+          code: 'network_unavailable',
+          message: 'LifeMate service is unavailable.',
+        );
+      }
+
+      if (
+          attempt < maxAttempts &&
+          _transientStatusCodes.contains(response.statusCode)) {
+        await Future<void>.delayed(_retryDelay);
+        continue;
+      }
+      return _decodeResponse(response);
+    }
+
+    throw StateError('LifeMate retry loop exited unexpectedly.');
+  }
+
+  Future<http.Response> _sendOnce({
+    required String method,
+    required Uri uri,
+    required Map<String, String> headers,
+    required String? encodedBody,
+  }) {
     switch (method) {
       case 'GET':
-        response =
-            await _http.get(uri, headers: headers).timeout(_requestTimeout);
-        break;
+        return _http.get(uri, headers: headers);
       case 'POST':
-        response = await _http.post(
+        return _http.post(
           uri,
           headers: headers,
-          body: body == null ? null : jsonEncode(body),
-        ).timeout(_requestTimeout);
-        break;
+          body: encodedBody,
+        );
       case 'DELETE':
-        response =
-            await _http.delete(uri, headers: headers).timeout(_requestTimeout);
-        break;
+        return _http.delete(uri, headers: headers);
       default:
         throw ArgumentError.value(method, 'method', 'Unsupported HTTP method');
     }
+  }
 
+  dynamic _decodeResponse(http.Response response) {
     dynamic decoded;
     if (response.body.isNotEmpty) {
       try {
