@@ -1,9 +1,14 @@
 name: ui-restore-apk
 
 on:
-  push:
+  pull_request:
     branches:
-      - fix/restore-bb287-ui
+      - main
+    paths:
+      - 'wellmate/**'
+      - 'caremate/**'
+      - 'packages/lifemate_client/**'
+      - '.github/workflows/ui-restore-apk.yml'
 
 permissions:
   contents: read
