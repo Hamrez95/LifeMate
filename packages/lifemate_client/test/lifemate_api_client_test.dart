@@ -125,7 +125,7 @@ void main() {
     expect(requestCount, 2);
     expect(requestBodies[0], requestBodies[1]);
     expect(
-      jsonDecode(requestBodies.single)['clientRequestId'],
+      jsonDecode(requestBodies.first)['clientRequestId'],
       '11111111-1111-4111-8111-111111111111',
     );
     expect(result['status'], 'taken');
