@@ -1,0 +1,94 @@
+name: bootstrap-full-bb287-parity
+
+on:
+  push:
+    branches:
+      - feat/full-bb287-ui-parity
+
+permissions:
+  contents: write
+
+jobs:
+  restore-visual-assets:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
+        with:
+          fetch-depth: 0
+
+      - name: Restore exact visual binaries from bb287
+        shell: bash
+        run: |
+          set -euo pipefail
+          reference=bb28701971cb2d43cde5acb5d50ef679dded534f
+          git cat-file -e "$reference^{commit}"
+
+          paths=(
+            caremate/android/app/src/main/res/mipmap-hdpi/ic_launcher.png
+            caremate/android/app/src/main/res/mipmap-mdpi/ic_launcher.png
+            caremate/android/app/src/main/res/mipmap-xhdpi/ic_launcher.png
+            caremate/android/app/src/main/res/mipmap-xxhdpi/ic_launcher.png
+            caremate/android/app/src/main/res/mipmap-xxxhdpi/ic_launcher.png
+            caremate/web/favicon.png
+            caremate/web/icons/Icon-192.png
+            caremate/web/icons/Icon-512.png
+            caremate/web/icons/Icon-maskable-192.png
+            caremate/web/icons/Icon-maskable-512.png
+            wellmate/android/app/src/main/res/mipmap-hdpi/ic_launcher.png
+            wellmate/android/app/src/main/res/mipmap-mdpi/ic_launcher.png
+            wellmate/android/app/src/main/res/mipmap-xhdpi/ic_launcher.png
+            wellmate/android/app/src/main/res/mipmap-xxhdpi/ic_launcher.png
+            wellmate/android/app/src/main/res/mipmap-xxxhdpi/ic_launcher.png
+            wellmate/web/favicon.png
+            wellmate/web/icons/Icon-192.png
+            wellmate/web/icons/Icon-512.png
+            wellmate/web/icons/Icon-maskable-192.png
+            wellmate/web/icons/Icon-maskable-512.png
+          )
+
+          git checkout "$reference" -- "${paths[@]}"
+
+          mkdir -p docs/ui
+          {
+            echo '# bb287 full UI/UX parity ledger'
+            echo
+            echo "Reference commit: \`$reference\`"
+            echo
+            echo '## Exact visual binaries restored'
+            for path in "${paths[@]}"; do
+              echo "- [x] \`$path\`"
+            done
+            echo
+            echo '## UI source files changed after the reference and requiring integration review'
+            echo '- [ ] `caremate/lib/main.dart` — retain authentication shell; verify exact theme and logo behavior'
+            echo '- [ ] `caremate/lib/screens/dashboard_screen.dart` — restore exact visual hierarchy while mapping live API data'
+            echo '- [ ] `caremate/lib/widgets/custom_app_header.dart` — restore exact header visuals without mock alerts'
+            echo '- [ ] `wellmate/lib/main.dart` — retain authentication shell and reference theme'
+            echo '- [ ] `wellmate/lib/core/widgets/wellmate_app_header.dart` — exact reference layout with live missed-dose state'
+            echo '- [ ] `wellmate/lib/screens/home/active_treatment_card.dart` — exact reference card with live actions'
+            echo '- [ ] `wellmate/lib/screens/home/home_screen.dart` — all original destinations remain navigable'
+            echo '- [ ] `wellmate/lib/screens/home/home_screen_content.dart` — exact reference composition with live API data'
+            echo '- [ ] `wellmate/lib/screens/profile/profile_screen.dart` — exact reference profile composition with live account data'
+            echo
+            echo '## Acceptance rules'
+            echo '- Every original page and navigation destination remains present.'
+            echo '- Backend-supported actions are live and persisted.'
+            echo '- Unsupported actions open their original destination but are visibly disabled or marked «در دست توسعه».'
+            echo '- No mock health information is presented as live user data.'
+            echo '- Flutter analyze, tests, web builds, Android builds, and live API boundary checks must pass.'
+          } > docs/ui/BB287_FULL_PARITY_LEDGER.md
+
+      - name: Commit restored assets and parity ledger
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add caremate wellmate docs/ui/BB287_FULL_PARITY_LEDGER.md
+          if git diff --cached --quiet; then
+            echo 'No changes to commit.'
+            exit 0
+          fi
+          git commit -m 'Restore exact bb287 app icons and visual parity ledger'
+          git push origin HEAD:feat/full-bb287-ui-parity
