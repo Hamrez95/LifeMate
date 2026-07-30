@@ -1,5 +1,13 @@
 {
+  "compilerOptions": {
+    "strict": true
+  },
   "imports": {
     "postgres": "npm:postgres@3.4.7"
+  },
+  "tasks": {
+    "check": "deno check index.ts validation_test.ts security_test.ts database_integration_test.ts",
+    "test": "deno test --no-check validation_test.ts security_test.ts",
+    "test:integration": "deno test --no-check --allow-env --allow-net=localhost:5432,127.0.0.1:5432 database_integration_test.ts"
   }
 }
