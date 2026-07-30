@@ -18,7 +18,7 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 5
     steps:
-      - name: Collect redacted candidate evidence
+      - name: Collect redacted live release evidence
         id: collect
         continue-on-error: true
         shell: bash
@@ -26,23 +26,19 @@ jobs:
           EXPECTED_VERSION: 1f094deccc6273b11e1db3b31ddd65eb07bcef98
         run: |
           set -euo pipefail
-          candidate_url='https://bwdvmniywyyijjauipnh.supabase.co/functions/v1/lifemate-api-candidate'
-          current_url='https://bwdvmniywyyijjauipnh.supabase.co/functions/v1/lifemate-api'
+          api_url='https://bwdvmniywyyijjauipnh.supabase.co/functions/v1/lifemate-api'
 
-          candidate_health="$(curl --fail --silent --show-error --retry 5 --retry-delay 2 --retry-all-errors "$candidate_url/health")"
-          candidate_unauthorized="$(curl --silent --show-error --output /dev/null --write-out '%{http_code}' "$candidate_url/api/v1/me")"
-          current_health="$(curl --fail --silent --show-error --retry 4 --retry-all-errors "$current_url/health")"
+          health_response="$(curl --fail --silent --show-error --retry 5 --retry-delay 2 --retry-all-errors "$api_url/health")"
+          unauthorized_status="$(curl --silent --show-error --output /dev/null --write-out '%{http_code}' "$api_url/api/v1/me")"
 
           jq -n \
             --arg expectedVersion "$EXPECTED_VERSION" \
-            --arg candidateStatus "$(echo "$candidate_health" | jq -r '.status // "missing"')" \
-            --arg candidateDatabase "$(echo "$candidate_health" | jq -r '.database // "missing"')" \
-            --arg candidateService "$(echo "$candidate_health" | jq -r '.service // "missing"')" \
-            --arg candidateVersion "$(echo "$candidate_health" | jq -r '.version // "missing"')" \
-            --arg candidateUnauthorized "$candidate_unauthorized" \
-            --arg currentStatus "$(echo "$current_health" | jq -r '.status // "missing"')" \
-            --arg currentDatabase "$(echo "$current_health" | jq -r '.database // "missing"')" \
-            '{expectedVersion:$expectedVersion,candidate:{status:$candidateStatus,database:$candidateDatabase,service:$candidateService,version:$candidateVersion,unauthenticatedStatus:$candidateUnauthorized},current:{status:$currentStatus,database:$currentDatabase}}' \
+            --arg status "$(echo "$health_response" | jq -r '.status // "missing"')" \
+            --arg database "$(echo "$health_response" | jq -r '.database // "missing"')" \
+            --arg service "$(echo "$health_response" | jq -r '.service // "missing"')" \
+            --arg version "$(echo "$health_response" | jq -r '.version // "missing"')" \
+            --arg unauthorizedStatus "$unauthorized_status" \
+            '{expectedVersion:$expectedVersion,live:{status:$status,database:$database,service:$service,version:$version,unauthenticatedStatus:$unauthorizedStatus}}' \
             > release-live-probe.json
 
       - name: Upload redacted probe evidence
@@ -52,20 +48,18 @@ jobs:
           name: release-live-probe
           path: release-live-probe.json
           if-no-files-found: error
-          retention-days: 3
+          retention-days: 14
 
-      - name: Enforce candidate release gates
+      - name: Enforce promoted release gates
         if: ${{ always() }}
         shell: bash
         run: |
           set -euo pipefail
           test "${{ steps.collect.outcome }}" = 'success'
           jq -e '
-            .candidate.status == "ok" and
-            .candidate.database == "ready" and
-            .candidate.service == "lifemate-api" and
-            .candidate.version == .expectedVersion and
-            .candidate.unauthenticatedStatus == "401" and
-            .current.status == "ok" and
-            .current.database == "ready"
+            .live.status == "ok" and
+            .live.database == "ready" and
+            .live.service == "lifemate-api" and
+            .live.version == .expectedVersion and
+            .live.unauthenticatedStatus == "401"
           ' release-live-probe.json >/dev/null
