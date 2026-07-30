@@ -1,7 +1,4 @@
-import {
-  assertEquals,
-  assertThrows,
-} from "jsr:@std/assert@1.0.14";
+import { assertEquals, assertThrows } from "jsr:@std/assert@1.0.14";
 import { selectContactHashingSecret } from "./runtime_config.ts";
 
 const environmentSecret = "environment-dedicated-secret-1234567890";
