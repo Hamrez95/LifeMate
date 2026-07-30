@@ -1,0 +1,59 @@
+name: edge-api
+
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - 'supabase/functions/lifemate-api/**'
+      - '.github/workflows/edge-api.yml'
+      - 'AGENTS.md'
+  push:
+    branches: [ main ]
+    paths:
+      - 'supabase/functions/lifemate-api/**'
+      - '.github/workflows/edge-api.yml'
+      - 'AGENTS.md'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: edge-api-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  check-test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    defaults:
+      run:
+        working-directory: supabase/functions/lifemate-api
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          show-progress: false
+
+      - uses: denoland/setup-deno@v2
+        with:
+          deno-version: v2.x
+
+      - name: Deno environment
+        run: deno --version
+
+      - name: Format
+        run: deno fmt --check
+
+      - name: Type check
+        run: deno task check
+
+      - name: Unit tests
+        run: deno task test
+
+      - name: Security invariants
+        shell: bash
+        run: |
+          set -euo pipefail
+          ! grep -R --line-number 'SUPABASE_SERVICE_ROLE_KEY' .
+          test "$(grep -R --include='*.ts' -l 'postgres(databaseUrl' . | wc -l)" -eq 1
+          grep -q 'actor_user_id = \${userId}' database.ts
+          grep -q 'client_request_id = \${clientRequestId}' database.ts
