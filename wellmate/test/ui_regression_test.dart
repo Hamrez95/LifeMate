@@ -47,6 +47,18 @@ void main() {
 
     expect(find.byType(ProfileScreen), findsOneWidget);
     expect(find.text('کاربر تست'), findsOneWidget);
+    expect(find.byIcon(Icons.camera_alt), findsOneWidget);
+    final avatar = tester.widget<CircleAvatar>(
+      find.byType(CircleAvatar).first,
+    );
+    expect(
+      avatar.backgroundImage,
+      isA<AssetImage>().having(
+        (image) => image.assetName,
+        'assetName',
+        'assets/images/mother_avatar.png',
+      ),
+    );
     expect(tester.takeException(), isNull);
   });
 
