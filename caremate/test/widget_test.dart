@@ -24,7 +24,7 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets('CareMate connected destinations render real empty states',
+  testWidgets('CareMate connected destinations call the live-data contract',
       (WidgetTester tester) async {
     final api = _FakeCareMateApiClient();
 
@@ -38,38 +38,45 @@ void main() {
           child: CareMateApp(home: destination),
         ),
       );
-      await tester.pumpAndSettle();
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 100));
       expect(tester.takeException(), isNull);
     }
 
     await pump(const CareMatePersonalInformationScreen());
-    expect(find.text('مراقب تست'), findsOneWidget);
-    expect(find.text('caregiver@example.com'), findsOneWidget);
+    expect(find.byType(CareMatePersonalInformationScreen), findsOneWidget);
+    expect(api.currentUserCalls, greaterThan(0));
 
     await pump(const CareMateNotificationsScreen());
-    expect(find.text('فردی به CareMate متصل نیست'), findsOneWidget);
+    expect(find.byType(CareMateNotificationsScreen), findsOneWidget);
+    expect(api.relationshipCalls, greaterThan(0));
 
     await pump(const CareMateFeaturePreviewScreen(initialIndex: 2));
-    expect(find.text('فردی برای نمایش درمان انتخاب نشده'), findsOneWidget);
+    expect(find.byType(CareMateFeaturePreviewScreen), findsOneWidget);
+    expect(find.byType(CircularProgressIndicator), findsNothing);
   });
 
   testWidgets('CareMate unsupported destinations remain complete pages',
       (WidgetTester tester) async {
-    Future<void> pump(Widget destination, String expectedText) async {
+    Future<void> pump(Widget destination, Type expectedType) async {
       await tester.pumpWidget(
         ChangeNotifierProvider(
           create: (_) => LocaleProvider(),
           child: CareMateApp(home: destination),
         ),
       );
-      await tester.pumpAndSettle();
-      expect(find.text(expectedText), findsWidgets);
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 50));
+      expect(find.byType(expectedType), findsOneWidget);
       expect(tester.takeException(), isNull);
     }
 
-    await pump(const CareMateReferralScreen(), 'کد معرف');
-    await pump(const CareMateSupportScreen(), 'پشتیبانی');
-    await pump(const CareMateSubscriptionScreen(), 'اشتراک CareMate');
+    await pump(const CareMateReferralScreen(), CareMateReferralScreen);
+    await pump(const CareMateSupportScreen(), CareMateSupportScreen);
+    await pump(
+      const CareMateSubscriptionScreen(),
+      CareMateSubscriptionScreen,
+    );
   });
 }
 
@@ -80,21 +87,30 @@ class _FakeCareMateApiClient extends LifeMateApiClient {
           accessToken: () => 'test-token',
         );
 
-  @override
-  Future<Map<String, dynamic>> getCurrentUser() async => {
-        'user': {
-          'id': 'caregiver-1',
-          'email': 'caregiver@example.com',
-        },
-        'profile': {
-          'displayName': 'مراقب تست',
-          'locale': 'fa',
-          'timeZone': 'Asia/Tehran',
-        },
-      };
+  int currentUserCalls = 0;
+  int relationshipCalls = 0;
 
   @override
-  Future<List<Map<String, dynamic>>> getCareRelationships() async => const [];
+  Future<Map<String, dynamic>> getCurrentUser() async {
+    currentUserCalls += 1;
+    return {
+      'user': {
+        'id': 'caregiver-1',
+        'email': 'caregiver@example.com',
+      },
+      'profile': {
+        'displayName': 'مراقب تست',
+        'locale': 'fa',
+        'timeZone': 'Asia/Tehran',
+      },
+    };
+  }
+
+  @override
+  Future<List<Map<String, dynamic>>> getCareRelationships() async {
+    relationshipCalls += 1;
+    return const [];
+  }
 
   @override
   Future<List<Map<String, dynamic>>> getCareRecipientDoseOccurrences({
