@@ -90,7 +90,7 @@ class ProfileAvatar extends StatelessWidget {
       padding: const EdgeInsets.all(4),
       child: const CircleAvatar(
         backgroundColor: Color(0xFFE2D4C8),
-        backgroundImage: AssetImage('../../assets/images/Caregiver.png'),
+        backgroundImage: AssetImage('assets/images/Caregiver.png'),
       ),
     );
   }

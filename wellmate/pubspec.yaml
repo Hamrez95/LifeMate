@@ -1,7 +1,7 @@
 name: wellmate
 description: WellMate Patient App
 publish_to: 'none'
-version: 0.8.0-beta.3+10
+version: 0.8.0-beta.4+11
 environment:
   sdk: ">=3.0.0 <4.0.0"
 dependencies:
@@ -29,6 +29,8 @@ flutter:
   uses-material-design: true
   assets:
     - assets/
+    - assets/images/
+    - assets/icons/
     - lib/localization/en.json
     - lib/localization/fa.json
   fonts:

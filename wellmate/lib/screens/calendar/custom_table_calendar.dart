@@ -8,6 +8,7 @@ class CustomTableCalendar extends StatelessWidget {
   final DateTime selectedDate;
   final bool isPersian;
   final Function(DateTime, DateTime) onDaySelected;
+  final ValueChanged<DateTime>? onPageChanged;
   final Set<String> Function(DateTime) getDayEventTypes;
 
   const CustomTableCalendar({
@@ -16,6 +17,7 @@ class CustomTableCalendar extends StatelessWidget {
     required this.selectedDate,
     required this.isPersian,
     required this.onDaySelected,
+    this.onPageChanged,
     required this.getDayEventTypes,
   }) : super(key: key);
 
@@ -51,6 +53,7 @@ class CustomTableCalendar extends StatelessWidget {
         startingDayOfWeek:
             isPersian ? StartingDayOfWeek.saturday : StartingDayOfWeek.sunday,
         onDaySelected: onDaySelected,
+        onPageChanged: onPageChanged,
         selectedDayPredicate: (day) => isSameDay(selectedDate, day),
         headerStyle: HeaderStyle(
           formatButtonVisible: false,

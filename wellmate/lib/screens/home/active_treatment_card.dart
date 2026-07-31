@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+
 import '../../core/theme/app_style.dart';
 import '../../core/utils/string_extensions.dart';
 import '../../localization/app_localizations.dart';
@@ -17,7 +18,7 @@ class ActiveTreatmentCard extends StatelessWidget {
   final TextStyle font;
 
   const ActiveTreatmentCard({
-    Key? key,
+    super.key,
     required this.treatmentName,
     required this.dose,
     required this.time,
@@ -29,15 +30,18 @@ class ActiveTreatmentCard extends StatelessWidget {
     required this.onEdit,
     this.isSubmitting = false,
     required this.font,
-  }) : super(key: key);
+  });
 
-  String _formatDuration(int totalSeconds) {
-    if (totalSeconds <= 0) return "الان!";
-    final h = (totalSeconds ~/ 3600);
-    final m = ((totalSeconds % 3600) ~/ 60).toString().padLeft(2, '0');
-    final s = (totalSeconds % 60).toString().padLeft(2, '0');
-    if (h > 0) return "$h:$m:$s";
-    return "$m:$s";
+  @visibleForTesting
+  static String formatCountdown(int totalSeconds) {
+    if (totalSeconds <= 0) return 'الان!';
+    final hours = totalSeconds ~/ 3600;
+    final minutes = ((totalSeconds % 3600) ~/ 60)
+        .toString()
+        .padLeft(2, '0');
+    final seconds = (totalSeconds % 60).toString().padLeft(2, '0');
+    if (hours > 0) return '$hours:$minutes:$seconds';
+    return '$minutes:$seconds';
   }
 
   @override
@@ -52,7 +56,7 @@ class ActiveTreatmentCard extends StatelessWidget {
         borderRadius: BorderRadius.circular(24),
         boxShadow: [
           BoxShadow(
-            color: AppColors.shadowDark.withOpacity(0.3),
+            color: AppColors.shadowDark.withValues(alpha: 0.3),
             blurRadius: 20,
             offset: const Offset(0, 10),
           ),
@@ -62,7 +66,6 @@ class ActiveTreatmentCard extends StatelessWidget {
         children: [
           Row(
             children: [
-              // اطلاعات درمان (ابتدا قرار می‌گیرد تا سمت راست بیفتد)
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -70,27 +73,31 @@ class ActiveTreatmentCard extends StatelessWidget {
                     Text(
                       treatmentName,
                       style: font.copyWith(
-                          fontSize: 18,
-                          fontWeight: FontWeight.bold,
-                          color: AppColors.textPrimary),
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                        color: AppColors.textPrimary,
+                      ),
                     ),
                     const SizedBox(height: 8),
                     Text(
                       dose.toPersianDigit(isPersian),
                       style: font.copyWith(
-                          color: AppColors.textSecondary, fontSize: 14),
+                        color: AppColors.textSecondary,
+                        fontSize: 14,
+                      ),
                     ),
                     const SizedBox(height: 4),
                     Text(
-                      loc['after_meal'] ?? 'بعد از غذا',
+                      loc['after_meal'],
                       style: font.copyWith(
-                          color: AppColors.textSecondary, fontSize: 14),
+                        color: AppColors.textSecondary,
+                        fontSize: 14,
+                      ),
                     ),
                   ],
                 ),
               ),
               const SizedBox(width: 20),
-              // حلقه پیشرفت با تایمر و آیکون (دوم قرار می‌گیرد تا سمت چپ بیفتد)
               SizedBox(
                 width: 100,
                 height: 100,
@@ -102,7 +109,8 @@ class ActiveTreatmentCard extends StatelessWidget {
                       strokeWidth: 8,
                       backgroundColor: AppColors.background,
                       valueColor: const AlwaysStoppedAnimation<Color>(
-                          AppColors.primaryLight),
+                        AppColors.primaryLight,
+                      ),
                     ),
                     Column(
                       mainAxisAlignment: MainAxisAlignment.center,
@@ -111,13 +119,14 @@ class ActiveTreatmentCard extends StatelessWidget {
                           assetIconPath,
                           width: 36,
                           height: 36,
-                          errorBuilder: (context, error, stackTrace) =>
-                              const Icon(Icons.medication,
-                                  color: AppColors.primary),
+                          errorBuilder: (_, __, ___) => const Icon(
+                            Icons.medication,
+                            color: AppColors.primary,
+                          ),
                         ),
                         const SizedBox(height: 4),
                         Text(
-                          _formatDuration(secondsLeft)
+                          formatCountdown(secondsLeft)
                               .toPersianDigit(isPersian),
                           style: font.copyWith(
                             color: AppColors.primary,
@@ -134,28 +143,37 @@ class ActiveTreatmentCard extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 24),
-          // دکمه‌های عملیاتی (ترتیب برای زبان فارسی اصلاح شد)
           Row(
             children: [
               Expanded(
-                flex: 1,
-                child: _buildButton(isSubmitting ? '...' : (loc['taken'] ?? 'مصرف شد'),
-                    AppColors.primaryLight, Colors.white, font,
-                    onTap: onTaken),
+                child: _buildButton(
+                  isSubmitting ? '...' : loc['taken'],
+                  AppColors.primaryLight,
+                  Colors.white,
+                  font,
+                  onTap: onTaken,
+                ),
               ),
               const SizedBox(width: 8),
               Expanded(
-                flex: 1,
-                child: _buildButton(loc['edit'] ?? 'ویرایش',
-                    AppColors.background, AppColors.primary, font,
-                    onTap: onEdit),
+                child: _buildButton(
+                  loc['edit'],
+                  AppColors.background,
+                  AppColors.primary,
+                  font,
+                  onTap: onEdit,
+                ),
               ),
               const SizedBox(width: 8),
               Expanded(
-                flex: 1,
-                child: _buildButton(loc['missed'] ?? 'مصرف نشد', Colors.white,
-                    AppColors.textSecondary, font,
-                    hasBorder: true, onTap: onSkipped),
+                child: _buildButton(
+                  loc['missed'],
+                  Colors.white,
+                  AppColors.textSecondary,
+                  font,
+                  hasBorder: true,
+                  onTap: onSkipped,
+                ),
               ),
             ],
           ),
@@ -165,22 +183,30 @@ class ActiveTreatmentCard extends StatelessWidget {
   }
 
   Widget _buildButton(
-      String text, Color bgColor, Color textColor, TextStyle font,
-      {bool hasBorder = false, VoidCallback? onTap}) {
+    String text,
+    Color backgroundColor,
+    Color textColor,
+    TextStyle textStyle, {
+    bool hasBorder = false,
+    VoidCallback? onTap,
+  }) {
     return GestureDetector(
       onTap: onTap,
       child: Container(
         padding: const EdgeInsets.symmetric(vertical: 12),
         decoration: BoxDecoration(
-          color: bgColor,
+          color: backgroundColor,
           borderRadius: BorderRadius.circular(16),
           border: hasBorder ? Border.all(color: Colors.grey.shade300) : null,
         ),
         alignment: Alignment.center,
         child: Text(
           text,
-          style: font.copyWith(
-              color: textColor, fontWeight: FontWeight.bold, fontSize: 13),
+          style: textStyle.copyWith(
+            color: textColor,
+            fontWeight: FontWeight.bold,
+            fontSize: 13,
+          ),
         ),
       ),
     );

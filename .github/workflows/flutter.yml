@@ -39,13 +39,13 @@ env:
 jobs:
   analyze-test-build:
     runs-on: ubuntu-latest
-    timeout-minutes: 25
+    timeout-minutes: 35
     steps:
       - uses: actions/checkout@v4
         with:
+          fetch-depth: 0
           show-progress: false
 
-      # Both the setup action and SDK are pinned for reproducible CI results.
       - uses: subosito/flutter-action@4cab68ce0f1c7c924f688bff4792e044f1aeb30c
         with:
           flutter-version: '3.44.0'
@@ -54,6 +54,35 @@ jobs:
 
       - name: Flutter environment
         run: flutter --version
+
+      - name: Verify bb287 visual binaries and mock-free runtime sources
+        shell: bash
+        run: |
+          set -euo pipefail
+          reference=bb28701971cb2d43cde5acb5d50ef679dded534f
+          git cat-file -e "$reference^{commit}"
+          git diff --quiet "$reference" -- \
+            caremate/assets \
+            caremate/android/app/src/main/res/mipmap-hdpi \
+            caremate/android/app/src/main/res/mipmap-mdpi \
+            caremate/android/app/src/main/res/mipmap-xhdpi \
+            caremate/android/app/src/main/res/mipmap-xxhdpi \
+            caremate/android/app/src/main/res/mipmap-xxxhdpi \
+            caremate/web/favicon.png \
+            caremate/web/icons \
+            wellmate/assets \
+            wellmate/android/app/src/main/res/mipmap-hdpi \
+            wellmate/android/app/src/main/res/mipmap-mdpi \
+            wellmate/android/app/src/main/res/mipmap-xhdpi \
+            wellmate/android/app/src/main/res/mipmap-xxhdpi \
+            wellmate/android/app/src/main/res/mipmap-xxxhdpi \
+            wellmate/web/favicon.png \
+            wellmate/web/icons
+          if grep -R -n -E 'app_mock_data|AppMockData|MockData' \
+            caremate/lib wellmate/lib --include='*.dart'; then
+            echo 'Mock health data is referenced by runtime UI sources.' >&2
+            exit 1
+          fi
 
       - name: Verify shared LifeMate client
         id: shared-client
@@ -85,7 +114,6 @@ jobs:
           set -o pipefail
           {
             flutter pub get
-            # Existing warning/info debt is reported but does not hide compile errors.
             flutter analyze --no-fatal-warnings --no-fatal-infos
             flutter test
             flutter build web --release
@@ -109,7 +137,6 @@ jobs:
           set -o pipefail
           {
             flutter pub get
-            # Existing warning/info debt is reported but does not hide compile errors.
             flutter analyze --no-fatal-warnings --no-fatal-infos
             flutter test
             flutter build web --release
@@ -131,12 +158,23 @@ jobs:
           test "${{ steps.wellmate.outcome }}" = "success"
           test "${{ steps.caremate.outcome }}" = "success"
 
+      - name: Decide Android checkpoint build
+        id: android-checkpoint
+        shell: bash
+        run: |
+          should_build=false
+          if [[ "${{ github.event_name }}" == "workflow_dispatch" && "${{ inputs.build_android }}" == "true" ]]; then
+            should_build=true
+          fi
+          if [[ "${{ github.event_name }}" == "pull_request" && "${{ github.head_ref }}" == "feat/full-bb287-ui-parity" ]]; then
+            should_build=true
+          fi
+          echo "should_build=$should_build" >> "$GITHUB_OUTPUT"
+
       - name: Build Android beta APKs
-        if: ${{ success() && github.event_name == 'workflow_dispatch' && inputs.build_android }}
+        if: ${{ success() && steps.android-checkpoint.outputs.should_build == 'true' }}
         shell: bash
         env:
-          # Supabase URL and publishable key are public mobile-client configuration.
-          # Repository variables override these beta defaults.
           SUPABASE_URL: ${{ vars.SUPABASE_URL || 'https://bwdvmniywyyijjauipnh.supabase.co' }}
           SUPABASE_PUBLISHABLE_KEY: ${{ vars.SUPABASE_PUBLISHABLE_KEY || 'sb_publishable_6YpBDD0gAPcenbYGukOeWg_fZXxUb27' }}
           LIFEMATE_API_BASE_URL: ${{ vars.LIFEMATE_API_BASE_URL || 'https://bwdvmniywyyijjauipnh.supabase.co/functions/v1/lifemate-api' }}
@@ -144,14 +182,10 @@ jobs:
           test -n "$SUPABASE_URL"
           test -n "$SUPABASE_PUBLISHABLE_KEY"
           test -n "$LIFEMATE_API_BASE_URL"
-          health_response="$(curl --fail --silent --show-error \
-            --retry 3 --retry-all-errors \
-            "$LIFEMATE_API_BASE_URL/health")"
+          health_response="$(curl --fail --silent --show-error --retry 3 --retry-all-errors "$LIFEMATE_API_BASE_URL/health")"
           echo "$health_response" | grep -q '"status":"ok"'
           echo "$health_response" | grep -q '"database":"ready"'
-          unauthorized_status="$(curl --silent --output /dev/null \
-            --write-out '%{http_code}' \
-            "$LIFEMATE_API_BASE_URL/api/v1/me")"
+          unauthorized_status="$(curl --silent --output /dev/null --write-out '%{http_code}' "$LIFEMATE_API_BASE_URL/api/v1/me")"
           test "$unauthorized_status" = "401"
           build_args=(
             --release
@@ -163,16 +197,12 @@ jobs:
           (cd caremate && flutter build apk "${build_args[@]}")
           aapt_bin="$(find "$ANDROID_HOME/build-tools" -type f -name aapt | sort -V | tail -n 1)"
           test -x "$aapt_bin"
-          for apk in \
-            wellmate/build/app/outputs/flutter-apk/app-release.apk \
-            caremate/build/app/outputs/flutter-apk/app-release.apk
-          do
-            "$aapt_bin" dump permissions "$apk" \
-              | grep -Fq "android.permission.INTERNET"
+          for apk in wellmate/build/app/outputs/flutter-apk/app-release.apk caremate/build/app/outputs/flutter-apk/app-release.apk; do
+            "$aapt_bin" dump permissions "$apk" | grep -Fq "android.permission.INTERNET"
           done
 
       - name: Upload Android beta APKs
-        if: ${{ success() && github.event_name == 'workflow_dispatch' && inputs.build_android }}
+        if: ${{ success() && steps.android-checkpoint.outputs.should_build == 'true' }}
         uses: actions/upload-artifact@v4
         with:
           name: lifemate-android-beta-apks
