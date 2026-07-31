@@ -308,7 +308,9 @@ class _ProfileMenuTile extends StatelessWidget {
   final VoidCallback? onTap;
   @override
   Widget build(BuildContext context) {
-    return ListTile(
+    return Material(
+      color: Colors.transparent,
+      child: ListTile(
       leading: Container(
         width: 40,
         height: 40,
@@ -324,7 +326,8 @@ class _ProfileMenuTile extends StatelessWidget {
           ? null
           : Text(subtitle!, style: TextStyle(fontFamily: mainFont, fontSize: 11, color: AppColors.secondaryText)),
       trailing: const Icon(Icons.chevron_right_rounded, size: 20),
-      onTap: onTap,
+        onTap: onTap,
+      ),
     );
   }
 }

@@ -454,7 +454,9 @@ class _ProfileMenuTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return ListTile(
+    return Material(
+      color: Colors.transparent,
+      child: ListTile(
       contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 3),
       leading: Container(
         width: 40,
@@ -495,7 +497,8 @@ class _ProfileMenuTile extends StatelessWidget {
         size: 14,
         color: Colors.grey,
       ),
-      onTap: onTap,
+        onTap: onTap,
+      ),
     );
   }
 }
