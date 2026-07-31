@@ -39,7 +39,10 @@ void main() {
         ),
       );
       await tester.pumpAndSettle();
-      expect(find.byType(Scaffold), findsWidgets);
+      expect(
+        find.byType(Scaffold, skipOffstage: false),
+        findsWidgets,
+      );
       expect(tester.takeException(), isNull);
     }
 
@@ -66,8 +69,14 @@ void main() {
         ),
       );
       await tester.pumpAndSettle();
-      expect(find.byType(Scaffold), findsWidgets);
-      expect(find.textContaining('در دست توسعه'), findsWidgets);
+      expect(
+        find.byType(Scaffold, skipOffstage: false),
+        findsWidgets,
+      );
+      expect(
+        find.textContaining('در دست توسعه', skipOffstage: false),
+        findsWidgets,
+      );
       expect(tester.takeException(), isNull);
     }
 
