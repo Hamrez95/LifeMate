@@ -43,6 +43,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
+          fetch-depth: 0
           show-progress: false
 
       - uses: subosito/flutter-action@4cab68ce0f1c7c924f688bff4792e044f1aeb30c
@@ -53,6 +54,35 @@ jobs:
 
       - name: Flutter environment
         run: flutter --version
+
+      - name: Verify bb287 visual binaries and mock-free runtime sources
+        shell: bash
+        run: |
+          set -euo pipefail
+          reference=bb28701971cb2d43cde5acb5d50ef679dded534f
+          git cat-file -e "$reference^{commit}"
+          git diff --quiet "$reference" -- \
+            caremate/assets \
+            caremate/android/app/src/main/res/mipmap-hdpi \
+            caremate/android/app/src/main/res/mipmap-mdpi \
+            caremate/android/app/src/main/res/mipmap-xhdpi \
+            caremate/android/app/src/main/res/mipmap-xxhdpi \
+            caremate/android/app/src/main/res/mipmap-xxxhdpi \
+            caremate/web/favicon.png \
+            caremate/web/icons \
+            wellmate/assets \
+            wellmate/android/app/src/main/res/mipmap-hdpi \
+            wellmate/android/app/src/main/res/mipmap-mdpi \
+            wellmate/android/app/src/main/res/mipmap-xhdpi \
+            wellmate/android/app/src/main/res/mipmap-xxhdpi \
+            wellmate/android/app/src/main/res/mipmap-xxxhdpi \
+            wellmate/web/favicon.png \
+            wellmate/web/icons
+          if grep -R -n -E 'app_mock_data|AppMockData|MockData' \
+            caremate/lib wellmate/lib --include='*.dart'; then
+            echo 'Mock health data is referenced by runtime UI sources.' >&2
+            exit 1
+          fi
 
       - name: Verify shared LifeMate client
         id: shared-client
