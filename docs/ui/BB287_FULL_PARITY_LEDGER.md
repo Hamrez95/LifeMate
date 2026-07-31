@@ -2,59 +2,68 @@
 
 Reference commit: `bb28701971cb2d43cde5acb5d50ef679dded534f`
 
+Target verification version: `0.8.0-beta.4+11`
+
 ## Exact visual binaries restored
 - [x] `caremate/assets/images/Caregiver.png` — exact reference blob `faf717eda6099c8d2c50f270153aa02b413d7722`
-- [x] `caremate/android/app/src/main/res/mipmap-hdpi/ic_launcher.png`
-- [x] `caremate/android/app/src/main/res/mipmap-mdpi/ic_launcher.png`
-- [x] `caremate/android/app/src/main/res/mipmap-xhdpi/ic_launcher.png`
-- [x] `caremate/android/app/src/main/res/mipmap-xxhdpi/ic_launcher.png`
-- [x] `caremate/android/app/src/main/res/mipmap-xxxhdpi/ic_launcher.png`
-- [x] `caremate/web/favicon.png`
-- [x] `caremate/web/icons/Icon-192.png`
-- [x] `caremate/web/icons/Icon-512.png`
-- [x] `caremate/web/icons/Icon-maskable-192.png`
-- [x] `caremate/web/icons/Icon-maskable-512.png`
-- [x] `wellmate/android/app/src/main/res/mipmap-hdpi/ic_launcher.png`
-- [x] `wellmate/android/app/src/main/res/mipmap-mdpi/ic_launcher.png`
-- [x] `wellmate/android/app/src/main/res/mipmap-xhdpi/ic_launcher.png`
-- [x] `wellmate/android/app/src/main/res/mipmap-xxhdpi/ic_launcher.png`
-- [x] `wellmate/android/app/src/main/res/mipmap-xxxhdpi/ic_launcher.png`
-- [x] `wellmate/web/favicon.png`
-- [x] `wellmate/web/icons/Icon-192.png`
-- [x] `wellmate/web/icons/Icon-512.png`
-- [x] `wellmate/web/icons/Icon-maskable-192.png`
-- [x] `wellmate/web/icons/Icon-maskable-512.png`
+- [x] CareMate Android launcher icons: mdpi, hdpi, xhdpi, xxhdpi, xxxhdpi
+- [x] CareMate favicon and all standard/maskable web icons
+- [x] WellMate Android launcher icons: mdpi, hdpi, xhdpi, xxhdpi, xxxhdpi
+- [x] WellMate favicon and all standard/maskable web icons
+- [x] `CareMateWithoutBack.png`, `Caregiver.png`, `WellMateWithoutBack.png`, `mother_avatar.png`, and WellMate medicine icons are explicitly declared and verified inside release APKs
 
-## UI source files changed after the reference and requiring integration review
-- [ ] `caremate/lib/main.dart` — retain authentication shell; verify exact theme and logo behavior
-- [ ] `caremate/lib/screens/dashboard_screen.dart` — restore exact visual hierarchy while mapping live API data
-- [ ] `caremate/lib/widgets/custom_app_header.dart` — restore exact header visuals without mock alerts
-- [ ] `wellmate/lib/main.dart` — retain authentication shell and reference theme
-- [x] `wellmate/lib/core/widgets/wellmate_app_header.dart` — reference layout preserved; only invalid legacy asset paths were normalized to declared Flutter asset paths, while live missed-dose and notification state remains connected
-- [x] `wellmate/lib/screens/home/active_treatment_card.dart` — exact reference dimensions, spacing, typography, progress ring, icon treatment, and three-action composition preserved; real taken, skipped, edit, and submitting states are wired without mock health data
-- [x] `wellmate/lib/screens/home/home_screen.dart` — exact reference scaffold, header, IndexedStack, background, and bottom-navigation composition preserved; the two former placeholder destinations now open live Treatments and Add Treatment screens and refresh Home after creation
-- [x] `wellmate/lib/screens/home/home_screen_content.dart` — reference page hierarchy, spacing, active-treatment placement, rounded schedule panel, schedule-card composition, loading treatment, and ordering are preserved; mock “مامان جون” filtering was removed and the screen now uses the authenticated profile, live treatment plans, live dose occurrences, persisted taken/skipped reporting, reminder synchronization, retry UI, and no fabricated health records
-- [x] `wellmate/lib/screens/profile/profile_screen.dart` — reference card hierarchy, pastel visual language, typography, subscription surface, menu grouping, settings dialog, and logout surface are preserved; identity and contact now come from the authenticated API profile, language/text-size controls remain functional, caregiver access navigates to a real connected screen, logout is real, and unsupported destinations remain visible with disabled «به‌زودی» state
+## CareMate visual and navigation review
+- [x] `caremate/lib/main.dart` — reference theme, Persian/English localization, and logo behavior retained; authentication is added outside a nested authenticated Navigator so every pushed route keeps `LifeMateApiClient` in scope
+- [x] `caremate/lib/screens/dashboard_screen.dart` — reference hierarchy retained: header, care recipient/treatment queue, paired pastel feature cards, daily progress summary, medicine list, and floating bottom navigation; mock pregnancy/baby values are not presented as live health data
+- [x] `caremate/lib/widgets/custom_app_header.dart` — centered CareMate logo, notification surface/dot, caregiver avatar, profile navigation, and logout retained with live alert state
+- [x] Calendar page is connected to active care relationships and real patient dose occurrences
+- [x] Profile page retains the original pastel card/menu hierarchy and uses live caregiver identity
+- [x] Profile, calendar, account, notification, referral, support, subscription, profile switching, treatment-view, and family-care destinations are real routes rather than snackbars
+- [x] Unsupported health/family features retain dedicated pages and visibly disabled `در دست توسعه` controls without fabricated health data
+- [x] CareMate profile route regression test opens the page through Navigator and verifies API Provider scope, preventing the release gray-screen regression
 
-## QA findings retained for follow-up
-- [ ] WellMate empty schedule copy must distinguish “no treatment plan/doses exist” from “all doses completed”; current fallback can imply completion when the API returns an empty list.
-- [ ] WellMate active-treatment edit action still opens a clearly labeled coming-soon message until the update-treatment API/UI route is wired.
-- [ ] Profile personal information, health record, referral, support, notification center, and subscription purchase require dedicated original-style destination pages rather than only disabled tiles/snackbars.
-- [ ] Verify every image asset reference against `pubspec.yaml`; legacy `../../assets/...` paths should be normalized only where required without changing visual binaries.
+## WellMate visual and navigation review
+- [x] `wellmate/lib/main.dart` — reference theme retained; authentication is wrapped around a nested Navigator so Profile and every pushed destination retain `LifeMateApiClient`
+- [x] `wellmate/lib/core/widgets/wellmate_app_header.dart` — reference layout, logo, avatar, notification dot, and missed-dose sheet retained with declared asset paths
+- [x] `wellmate/lib/screens/home/active_treatment_card.dart` — reference dimensions, spacing, typography, progress ring, countdown, medicine icon, and three-action composition retained; taken/skipped/edit callbacks use live state
+- [x] `wellmate/lib/screens/home/home_screen.dart` — reference scaffold, header, IndexedStack, pastel background, and four-item bottom navigation retained
+- [x] `wellmate/lib/screens/home/home_screen_content.dart` — greeting, next-dose treatment card, countdown, rounded white daily schedule panel, schedule cards, loading/error/empty states, and live API reporting retained
+- [x] Next-dose lookup covers the coming seven days so the countdown is not lost when today has no remaining dose
+- [x] No-treatment and no-next-dose states retain a visible timer surface (`تایمر درمان آماده است` / `--:--`) instead of removing the home timer area
+- [x] `wellmate/lib/screens/treatments/add_treatment_screen.dart` restores the multi-step tabbed flow: `دارو`, `برنامه`, and `مرور`
+- [x] Medication name, strength, form, dose, time, daily/selected weekdays, start date, optional end date, instructions, and final review are connected to `createMedication` and `createTreatmentPlan`
+- [x] Treatment list and dedicated treatment detail routes use live treatment plans; unsupported update/delete operations are not fabricated
+- [x] Profile restores the reference avatar (`mother_avatar.png`), camera badge, subscription card, grouped pastel menu, settings dialog, account destinations, caregiver access, and logout while using live identity/contact
+- [x] Personal information, health record, caregivers, notifications, referral, support, and subscription have dedicated original-style routes; unsupported mutations remain explicitly disabled
+- [x] Empty schedule copy distinguishes no treatment, no dose today, and all doses completed
 
-## Verified build checkpoint
-- [x] Shared client analyze and tests pass.
-- [x] WellMate analyze, tests, release Web build, and release Android APK pass.
-- [x] CareMate analyze, tests, release Web build, and release Android APK pass.
-- [x] Live API health reports `status=ok` and `database=ready`.
-- [x] Protected `/api/v1/me` boundary returns HTTP 401 without authentication.
-- [x] Both release APKs declare `android.permission.INTERNET`.
-- [x] Commit `fdbc346ad97c8ab3f2f211016baa26a43d85d253` passed both `flutter` and `internal-beta-release` workflows.
-- [x] Commit `89b4bc838bbb41fa9e12755ff3fce2b839f28709` passed both `flutter` and `internal-beta-release` workflows after the WellMate home parity audit.
+## Device-regression fixes prompted by beta.3
+- [x] Fixed gray Profile screens in both apps by keeping the API Provider above all pushed Navigator routes
+- [x] Added regression tests that navigate to both Profile screens and require successful rendering with live-data contracts
+- [x] Restored the WellMate profile avatar/camera composition and added assertions for the exact declared asset path
+- [x] Restored and tested the three treatment tabs
+- [x] Added deterministic countdown tests plus source contracts requiring both live and empty timer states and the circular progress ring
+- [x] Removed temporary one-shot repair workflows after use
+
+## Automated acceptance gates
+- [x] Exact bb287 visual binary comparison passes
+- [x] Runtime source scan rejects `AppMockData`/`MockData` health-data usage
+- [x] Shared LifeMate client analyze and tests pass
+- [x] WellMate analyze, unit/widget regression tests, and release Web build pass
+- [x] CareMate analyze, unit/widget regression tests, and release Web build pass
+- [x] Live API health reports `status=ok` and `database=ready`
+- [x] Protected `/api/v1/me` returns HTTP 401 without authentication
+- [x] WellMate and CareMate release Android APK builds pass and declare `android.permission.INTERNET`
+- [x] Required logos, avatars, medicine icon, and localization files are present inside the generated APK archives
+
+## Remaining manual acceptance boundary
+- [ ] Install `0.8.0-beta.4+11` on physical Android devices and visually inspect every route at the device's actual text scale and screen dimensions
+- [ ] Execute the real two-account WellMate invitation → CareMate acceptance flow on physical devices
+- [ ] Confirm notification permission/reminder behavior under the target OEM's background restrictions
 
 ## Acceptance rules
 - Every original page and navigation destination remains present.
 - Backend-supported actions are live and persisted.
-- Unsupported actions open their original destination but are visibly disabled or marked «در دست توسعه».
+- Unsupported actions open a dedicated destination and are visibly disabled or marked `در دست توسعه`.
 - No mock health information is presented as live user data.
-- Flutter analyze, tests, web builds, Android builds, and live API boundary checks must pass.
+- Flutter analyze, tests, web builds, Android builds, and live API boundary checks must pass before an APK is shared.
