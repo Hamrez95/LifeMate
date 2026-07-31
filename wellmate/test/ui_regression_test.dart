@@ -103,7 +103,12 @@ void main() {
         ),
       ),
     );
-    await tester.pumpAndSettle(const Duration(milliseconds: 50));
+    await tester.pump();
+    await tester.runAsync(() async {
+      await Future<void>.delayed(const Duration(milliseconds: 30));
+    });
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 100));
 
     expect(find.text('تایمر درمان آماده است'), findsOneWidget);
     expect(find.text('--:--'), findsOneWidget);
