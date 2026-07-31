@@ -105,7 +105,11 @@ class CareMateApp extends StatelessWidget {
       authenticatedBuilder: (context, apiClient) =>
           Provider<LifeMateApiClient>.value(
         value: apiClient,
-        child: const DashboardScreen(),
+        child: Navigator(
+          onGenerateRoute: (_) => MaterialPageRoute<void>(
+            builder: (_) => const DashboardScreen(),
+          ),
+        ),
       ),
     );
   }
