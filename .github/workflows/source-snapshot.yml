@@ -1,0 +1,24 @@
+name: source-snapshot
+
+on:
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  snapshot:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Create source snapshot
+        run: |
+          rm -rf .git
+          zip -qr lifemate-source.zip . -x "**/.dart_tool/**" "**/build/**"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: lifemate-source-snapshot
+          path: lifemate-source.zip
+          retention-days: 1
