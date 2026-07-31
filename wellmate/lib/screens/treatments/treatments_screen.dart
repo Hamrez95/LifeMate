@@ -87,12 +87,13 @@ class _TreatmentsScreenState extends State<TreatmentsScreen> {
                   plan['medication'] as Map<String, dynamic>? ?? const {};
               final schedules =
                   plan['schedules'] as List<dynamic>? ?? const [];
-              final firstTime = schedules.isEmpty
-                  ? 'بدون زمان'
+              final rawTime = schedules.isEmpty
+                  ? ''
                   : (schedules.first as Map<String, dynamic>)['localTime']
-                          ?.toString()
-                          .substring(0, 5) ??
-                      'بدون زمان';
+                          ?.toString() ??
+                      '';
+              final firstTime =
+                  rawTime.length >= 5 ? rawTime.substring(0, 5) : 'بدون زمان';
               return Card(
                 elevation: 0,
                 margin: const EdgeInsets.only(bottom: 12),
@@ -117,9 +118,21 @@ class _TreatmentsScreenState extends State<TreatmentsScreen> {
                       '${plan['doseText'] ?? ''} • هر روز ساعت $firstTime',
                     ),
                   ),
-                  trailing: Chip(
-                    label: Text(
-                      plan['status'] == 'active' ? 'فعال' : 'متوقف',
+                  trailing: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Chip(
+                        visualDensity: VisualDensity.compact,
+                        label: Text(
+                          plan['status'] == 'active' ? 'فعال' : 'متوقف',
+                        ),
+                      ),
+                      const Icon(Icons.chevron_right_rounded, size: 18),
+                    ],
+                  ),
+                  onTap: () => Navigator.of(context).push(
+                    MaterialPageRoute<void>(
+                      builder: (_) => _TreatmentDetailsScreen(plan: plan),
                     ),
                   ),
                 ),
@@ -386,3 +399,270 @@ class _MessageCard extends StatelessWidget {
     );
   }
 }
+
+
+class _TreatmentDetailsScreen extends StatelessWidget {
+  const _TreatmentDetailsScreen({required this.plan});
+
+  final Map<String, dynamic> plan;
+
+  @override
+  Widget build(BuildContext context) {
+    final medication =
+        plan['medication'] as Map<String, dynamic>? ?? const {};
+    final schedules = plan['schedules'] as List<dynamic>? ?? const [];
+    final status = plan['status']?.toString() ?? 'unknown';
+    return Scaffold(
+      backgroundColor: AppColors.background,
+      body: SafeArea(
+        child: Column(
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(12, 8, 20, 8),
+              child: Row(
+                children: [
+                  IconButton(
+                    tooltip: 'بازگشت',
+                    onPressed: () => Navigator.of(context).pop(),
+                    icon: const Icon(Icons.arrow_back_ios_new_rounded),
+                  ),
+                  const SizedBox(width: 4),
+                  const Expanded(
+                    child: Text(
+                      'جزئیات درمان',
+                      style: TextStyle(
+                        fontSize: 21,
+                        fontWeight: FontWeight.w900,
+                        color: AppColors.darkBlue,
+                      ),
+                    ),
+                  ),
+                  Container(
+                    width: 48,
+                    height: 48,
+                    decoration: BoxDecoration(
+                      color: AppColors.primary.withValues(alpha: 0.12),
+                      shape: BoxShape.circle,
+                    ),
+                    child: const Icon(
+                      Icons.medication_rounded,
+                      color: AppColors.primary,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            Expanded(
+              child: ListView(
+                padding: const EdgeInsets.fromLTRB(24, 16, 24, 32),
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(22),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(24),
+                      boxShadow: [
+                        BoxShadow(
+                          color: AppColors.shadowDark.withValues(alpha: 0.55),
+                          blurRadius: 18,
+                          offset: const Offset(0, 7),
+                        ),
+                      ],
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            Expanded(
+                              child: Text(
+                                _text(medication['name'], fallback: 'دارو'),
+                                style: const TextStyle(
+                                  fontSize: 22,
+                                  fontWeight: FontWeight.w900,
+                                  color: AppColors.darkBlue,
+                                ),
+                              ),
+                            ),
+                            Chip(
+                              label: Text(status == 'active' ? 'فعال' : 'متوقف'),
+                              side: BorderSide.none,
+                              backgroundColor: status == 'active'
+                                  ? AppColors.primary.withValues(alpha: 0.12)
+                                  : Colors.grey.shade100,
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 18),
+                        _TreatmentInfoRow(
+                          icon: Icons.science_outlined,
+                          label: 'قدرت دارو',
+                          value: _text(medication['strengthText']),
+                        ),
+                        _TreatmentInfoRow(
+                          icon: Icons.medication_liquid_rounded,
+                          label: 'مقدار مصرف',
+                          value: _text(plan['doseText']),
+                        ),
+                        _TreatmentInfoRow(
+                          icon: Icons.notes_rounded,
+                          label: 'دستور مصرف',
+                          value: _text(plan['instructions']),
+                        ),
+                        _TreatmentInfoRow(
+                          icon: Icons.calendar_today_outlined,
+                          label: 'تاریخ شروع',
+                          value: _text(plan['startDate']),
+                        ),
+                        _TreatmentInfoRow(
+                          icon: Icons.event_busy_outlined,
+                          label: 'تاریخ پایان',
+                          value: _text(plan['endDate'], fallback: 'بدون پایان'),
+                          showDivider: false,
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 18),
+                  Text(
+                    'زمان‌های مصرف',
+                    style: AppTextStyles.heading(context).copyWith(fontSize: 18),
+                  ),
+                  const SizedBox(height: 12),
+                  if (schedules.isEmpty)
+                    const _MessageCard(
+                      icon: Icons.schedule_rounded,
+                      message: 'زمانی برای این درمان ثبت نشده است.',
+                    )
+                  else
+                    ...schedules.map((schedule) {
+                      final value = schedule as Map<String, dynamic>;
+                      final rawTime = value['localTime']?.toString() ?? '';
+                      final time = rawTime.length >= 5
+                          ? rawTime.substring(0, 5)
+                          : _text(rawTime);
+                      return Card(
+                        elevation: 0,
+                        margin: const EdgeInsets.only(bottom: 10),
+                        child: ListTile(
+                          leading: const Icon(
+                            Icons.schedule_rounded,
+                            color: AppColors.primary,
+                          ),
+                          title: Text(time, textDirection: TextDirection.ltr),
+                          subtitle: Text(
+                            _weekdayLabel(value['dayOfWeek']?.toString()),
+                          ),
+                        ),
+                      );
+                    }),
+                  const SizedBox(height: 18),
+                  Container(
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      color: Colors.amber.shade50,
+                      borderRadius: BorderRadius.circular(18),
+                      border: Border.all(color: Colors.amber.shade100),
+                    ),
+                    child: const Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Icon(Icons.construction_rounded, color: Colors.amber),
+                        SizedBox(width: 10),
+                        Expanded(
+                          child: Text(
+                            'نمایش جزئیات از Backend واقعی انجام می‌شود. API ویرایش یا توقف درمان هنوز در این نسخه ارائه نشده است.',
+                            style: TextStyle(height: 1.6),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  const SizedBox(
+                    width: double.infinity,
+                    child: FilledButton.icon(
+                      onPressed: null,
+                      icon: Icon(Icons.edit_outlined),
+                      label: Text('ویرایش درمان — در دست توسعه'),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _TreatmentInfoRow extends StatelessWidget {
+  const _TreatmentInfoRow({
+    required this.icon,
+    required this.label,
+    required this.value,
+    this.showDivider = true,
+  });
+
+  final IconData icon;
+  final String label;
+  final String value;
+  final bool showDivider;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      children: [
+        Padding(
+          padding: const EdgeInsets.symmetric(vertical: 11),
+          child: Row(
+            children: [
+              Icon(icon, size: 21, color: AppColors.primaryBlue),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      label,
+                      style: const TextStyle(
+                        fontSize: 12,
+                        color: AppColors.textSecondary,
+                      ),
+                    ),
+                    const SizedBox(height: 3),
+                    Text(
+                      value,
+                      style: const TextStyle(
+                        fontSize: 15,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+        if (showDivider) const Divider(height: 1),
+      ],
+    );
+  }
+}
+
+String _text(dynamic value, {String fallback = 'ثبت نشده'}) {
+  final text = value?.toString().trim();
+  return text == null || text.isEmpty ? fallback : text;
+}
+
+String _weekdayLabel(String? value) => switch (value) {
+      'saturday' => 'شنبه',
+      'sunday' => 'یکشنبه',
+      'monday' => 'دوشنبه',
+      'tuesday' => 'سه‌شنبه',
+      'wednesday' => 'چهارشنبه',
+      'thursday' => 'پنجشنبه',
+      'friday' => 'جمعه',
+      _ => value ?? 'روز ثبت نشده',
+    };

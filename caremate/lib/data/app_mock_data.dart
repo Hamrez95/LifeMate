@@ -17,17 +17,17 @@ class AppMockData {
         id: 'u1',
         name: 'مریم',
         role: 'مادر',
-        avatarPath: '../../assets/images/mother_avatar.png'),
+        avatarPath: 'assets/images/mother_avatar.png'),
     UserModel(
         id: 'u2',
         name: 'علی',
         role: 'پدر',
-        avatarPath: '../../assets/images/father_avatar.png'),
+        avatarPath: 'assets/images/father_avatar.png'),
     UserModel(
         id: 'u3',
         name: 'سارا',
         role: 'فرزند',
-        avatarPath: '../../assets/images/child_avatar.png'),
+        avatarPath: 'assets/images/child_avatar.png'),
   ];
 
   static final DateTime _today =

@@ -11,7 +11,14 @@ import '../../models/schedule_item_model.dart';
 import 'soft_schedule_card.dart';
 
 class HomeScreenContent extends StatefulWidget {
-  const HomeScreenContent({Key? key}) : super(key: key);
+  const HomeScreenContent({
+    super.key,
+    required this.onOpenTreatments,
+    required this.onAddTreatment,
+  });
+
+  final VoidCallback onOpenTreatments;
+  final VoidCallback onAddTreatment;
 
   @override
   State<HomeScreenContent> createState() => _HomeScreenContentState();
@@ -23,6 +30,7 @@ class _HomeScreenContentState extends State<HomeScreenContent> {
   bool isLoading = true;
   String? loadError;
   String _displayName = '';
+  bool _hasTreatmentPlans = false;
   final Set<String> _submitting = {};
 
   @override
@@ -97,6 +105,7 @@ class _HomeScreenContentState extends State<HomeScreenContent> {
       setState(() {
         _displayName = profile['displayName']?.toString().trim() ?? '';
         scheduleList = items;
+        _hasTreatmentPlans = plans.isNotEmpty;
         isLoading = false;
       });
       context.read<MedicationProvider>().setMedications(items);
@@ -197,11 +206,11 @@ class _HomeScreenContentState extends State<HomeScreenContent> {
   String _getAssetPath(String type) {
     switch (type) {
       case 'visit':
-        return '../../assets/icons/stethoscope.png'; // آدرس آیکون ویزیت
+        return 'assets/icons/stethoscope.png'; // آدرس آیکون ویزیت
       case 'drop':
-        return '../../assets/icons/water_drop.png'; // آدرس آیکون قطره
+        return 'assets/icons/water_drop.png'; // آدرس آیکون قطره
       default:
-        return '../../assets/icons/pill.png'; // آدرس آیکون کپسول/دارو
+        return 'assets/icons/pill.png'; // آدرس آیکون کپسول/دارو
     }
   }
 
@@ -312,9 +321,7 @@ class _HomeScreenContentState extends State<HomeScreenContent> {
                 onSkipped: _submitting.contains(nextItem.id)
                     ? null
                     : () => _reportStatus(nextItem, 'skipped'),
-                onEdit: () => ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('ویرایش برنامه درمان به‌زودی فعال می‌شود.')),
-                ),
+                onEdit: widget.onOpenTreatments,
                 isSubmitting: _submitting.contains(nextItem.id),
                 font: font,
               ),
@@ -341,11 +348,12 @@ class _HomeScreenContentState extends State<HomeScreenContent> {
                   ),
                   Expanded(
                     child: displayList.isEmpty
-                        ? Center(
-                            child: Text(
-                                loc['all_done'] ?? 'همه داروها مصرف شدند!',
-                                style: font.copyWith(
-                                    color: AppColors.primary, fontSize: 16)))
+                        ? _HomeEmptyState(
+                            hasTreatmentPlans: _hasTreatmentPlans,
+                            hadDosesToday: scheduleList.isNotEmpty,
+                            onAddTreatment: widget.onAddTreatment,
+                            font: font,
+                          )
                         : ListView.separated(
                             padding: const EdgeInsetsDirectional.fromSTEB(
                                 24, 0, 24, 100),
@@ -374,6 +382,89 @@ class _HomeScreenContentState extends State<HomeScreenContent> {
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+
+class _HomeEmptyState extends StatelessWidget {
+  const _HomeEmptyState({
+    required this.hasTreatmentPlans,
+    required this.hadDosesToday,
+    required this.onAddTreatment,
+    required this.font,
+  });
+
+  final bool hasTreatmentPlans;
+  final bool hadDosesToday;
+  final VoidCallback onAddTreatment;
+  final TextStyle font;
+
+  @override
+  Widget build(BuildContext context) {
+    final title = !hasTreatmentPlans
+        ? 'هنوز برنامه درمانی ثبت نشده است.'
+        : hadDosesToday
+            ? 'همه داروهای امروز ثبت شده‌اند!'
+            : 'برای امروز دوزی برنامه‌ریزی نشده است.';
+    final subtitle = !hasTreatmentPlans
+        ? 'اولین دارو و زمان مصرف را اضافه کنید تا برنامه روزانه ساخته شود.'
+        : hadDosesToday
+            ? 'برای مشاهده جزئیات روزهای دیگر به تقویم بروید.'
+            : 'برنامه درمان فعال است، اما برای امروز دوزی از Backend برنگشته است.';
+
+    return Center(
+      child: SingleChildScrollView(
+        padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 24),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              width: 72,
+              height: 72,
+              decoration: BoxDecoration(
+                color: AppColors.primary.withOpacity(0.1),
+                shape: BoxShape.circle,
+              ),
+              child: Icon(
+                !hasTreatmentPlans
+                    ? Icons.medication_liquid_rounded
+                    : Icons.check_circle_outline_rounded,
+                color: AppColors.primary,
+                size: 36,
+              ),
+            ),
+            const SizedBox(height: 16),
+            Text(
+              title,
+              textAlign: TextAlign.center,
+              style: font.copyWith(
+                color: AppColors.textPrimary,
+                fontSize: 16,
+                fontWeight: FontWeight.w800,
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              subtitle,
+              textAlign: TextAlign.center,
+              style: font.copyWith(
+                color: AppColors.textSecondary,
+                fontSize: 13,
+                height: 1.6,
+              ),
+            ),
+            if (!hasTreatmentPlans) ...[
+              const SizedBox(height: 18),
+              FilledButton.icon(
+                onPressed: onAddTreatment,
+                icon: const Icon(Icons.add_rounded),
+                label: const Text('افزودن درمان'),
+              ),
+            ],
+          ],
+        ),
       ),
     );
   }

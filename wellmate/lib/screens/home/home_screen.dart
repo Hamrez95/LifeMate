@@ -37,7 +37,11 @@ class _HomeScreenState extends State<HomeScreen> {
       const CalendarScreen(),
       TreatmentsScreen(refreshToken: _refreshToken),
       AddTreatmentScreen(onCreated: _treatmentCreated),
-      HomeScreenContent(key: ValueKey(_refreshToken)),
+      HomeScreenContent(
+        key: ValueKey(_refreshToken),
+        onOpenTreatments: () => _onItemTapped(1),
+        onAddTreatment: () => _onItemTapped(2),
+      ),
     ];
     return Scaffold(
       backgroundColor: AppColors.background,

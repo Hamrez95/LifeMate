@@ -10,6 +10,7 @@ import 'package:wellmate/providers/settings_provider.dart'; // 👈 اضافه �
 import 'package:lifemate_client/lifemate_client.dart';
 
 import 'care_access_screen.dart';
+import 'profile_destination_screens.dart';
 
 class ProfileScreen extends StatelessWidget {
   const ProfileScreen({Key? key}) : super(key: key);
@@ -58,7 +59,11 @@ class ProfileScreen extends StatelessWidget {
                       IconButton(
                         icon: const Icon(Icons.notifications_none_rounded,
                             size: 24, color: AppColors.primaryBlue),
-                        onPressed: () => _showComingSoon(context),
+                        onPressed: () => Navigator.of(context).push(
+                          MaterialPageRoute<void>(
+                            builder: (_) => const NotificationCenterScreen(),
+                          ),
+                        ),
                         splashRadius: 24,
                       ),
                     ],
@@ -111,7 +116,11 @@ class ProfileScreen extends StatelessWidget {
                                         padding: const EdgeInsets.symmetric(
                                             horizontal: 18, vertical: 8),
                                       ),
-                                      onPressed: () => _showComingSoon(context),
+                                      onPressed: () => Navigator.of(context).push(
+                                        MaterialPageRoute<void>(
+                                          builder: (_) => const SubscriptionScreen(),
+                                        ),
+                                      ),
                                       child: Text(
                                           loc['profile_buy_plan'] ??
                                               'خرید اشتراک',
@@ -178,6 +187,11 @@ class ProfileScreen extends StatelessWidget {
                           label: loc['profile_personal_info'] ?? 'اطلاعات شخصی',
                           mainFont: mainFont,
                           textScale: textScale,
+                          onTap: () => Navigator.of(context).push(
+                            MaterialPageRoute<void>(
+                              builder: (_) => const PersonalInformationScreen(),
+                            ),
+                          ),
                         ),
                         const Divider(height: 1, indent: 60, endIndent: 20),
                         _ProfileMenuTile(
@@ -187,6 +201,11 @@ class ProfileScreen extends StatelessWidget {
                               loc['profile_health_profile'] ?? 'پرونده سلامت',
                           mainFont: mainFont,
                           textScale: textScale,
+                          onTap: () => Navigator.of(context).push(
+                            MaterialPageRoute<void>(
+                              builder: (_) => const HealthRecordScreen(),
+                            ),
+                          ),
                         ),
                         const Divider(height: 1, indent: 60, endIndent: 20),
                         _ProfileMenuTile(
@@ -225,6 +244,11 @@ class ProfileScreen extends StatelessWidget {
                           label: loc['profile_referral_code'] ?? 'کد معرف',
                           mainFont: mainFont,
                           textScale: textScale,
+                          onTap: () => Navigator.of(context).push(
+                            MaterialPageRoute<void>(
+                              builder: (_) => const ReferralScreen(),
+                            ),
+                          ),
                         ),
                         const Divider(height: 1, indent: 60, endIndent: 20),
                         _ProfileMenuTile(
@@ -233,6 +257,11 @@ class ProfileScreen extends StatelessWidget {
                           label: loc['profile_support'] ?? 'پشتیبانی',
                           mainFont: mainFont,
                           textScale: textScale,
+                          onTap: () => Navigator.of(context).push(
+                            MaterialPageRoute<void>(
+                              builder: (_) => const SupportScreen(),
+                            ),
+                          ),
                         ),
                       ],
                     ),
@@ -445,12 +474,6 @@ class _CurrentUserIdentityState extends State<_CurrentUserIdentity> {
       },
     );
   }
-}
-
-void _showComingSoon(BuildContext context) {
-  ScaffoldMessenger.of(context).showSnackBar(
-    const SnackBar(content: Text('این قابلیت در نسخه‌های بعدی فعال می‌شود.')),
-  );
 }
 
 // ---------------- دیالوگ تنظیمات (ترکیب زبان و سایز فونت) ----------------

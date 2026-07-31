@@ -11,6 +11,9 @@ import '../core/localization/locale_provider.dart';
 import '../core/utils/string_extensions.dart';
 import '../widgets/caremate_bottom_nav.dart';
 import '../widgets/custom_app_header.dart';
+import 'calendar/calendar_screen.dart';
+import 'feature_preview_screen.dart';
+import 'profile_destination_screens.dart';
 
 class DashboardScreen extends StatefulWidget {
   const DashboardScreen({super.key});
@@ -300,8 +303,16 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
   void _onNavigationTap(int index) {
     if (index == 4) return;
-    const labels = ['تقویم مراقبت', 'تغییر پروفایل', 'مدیریت درمان', 'مراقبت خانواده'];
-    _showComingSoon(labels[index]);
+    final Widget destination = index == 0
+        ? const CalendarScreen()
+        : CareMateFeaturePreviewScreen(initialIndex: index);
+    Navigator.of(context).pushReplacement(
+      PageRouteBuilder<void>(
+        pageBuilder: (_, __, ___) => destination,
+        transitionDuration: Duration.zero,
+        reverseTransitionDuration: Duration.zero,
+      ),
+    );
   }
 
   void _showDoseAlerts() {
@@ -480,7 +491,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
             children: [
               CustomAppHeader(
                 onNotificationTap: _showDoseAlerts,
-                onProfileTap: _showAccountSheet,
                 onSignOutTap: LifeMateAuth.signOut,
                 showNotificationDot: alerts > 0,
               ),
@@ -531,7 +541,16 @@ class _DashboardScreenState extends State<DashboardScreen> {
                               icon: Icons.favorite_rounded,
                               accent: const Color(0xFFE598D8),
                               background: const Color(0xFFFFF3FC),
-                              onTap: () => _showComingSoon('حال خانواده'),
+                              onTap: () => Navigator.of(context).push(
+                                MaterialPageRoute<void>(
+                                  builder: (_) => const CareMateComingFeatureScreen(
+                                    title: 'حال خانواده',
+                                    description: 'ثبت حال روحی، گفت‌وگوی روزانه و پیشنهاد مداخله پس از طراحی قرارداد حریم خصوصی و Backend این بخش فعال می‌شود.',
+                                    icon: Icons.favorite_rounded,
+                                    accent: Color(0xFFE598D8),
+                                  ),
+                                ),
+                              ),
                               font: mainFont,
                             ),
                           ),
@@ -543,7 +562,16 @@ class _DashboardScreenState extends State<DashboardScreen> {
                               icon: Icons.monitor_heart_rounded,
                               accent: const Color(0xFF5BA7E8),
                               background: const Color(0xFFF0F8FF),
-                              onTap: () => _showComingSoon('سلامت خانواده'),
+                              onTap: () => Navigator.of(context).push(
+                                MaterialPageRoute<void>(
+                                  builder: (_) => const CareMateComingFeatureScreen(
+                                    title: 'سلامت خانواده',
+                                    description: 'علائم حیاتی، اسناد پزشکی و نمودار روند سلامت پس از ایجاد مدل داده و دسترسی رضایت‌محور فعال می‌شود.',
+                                    icon: Icons.monitor_heart_rounded,
+                                    accent: Color(0xFF5BA7E8),
+                                  ),
+                                ),
+                              ),
                               font: mainFont,
                             ),
                           ),

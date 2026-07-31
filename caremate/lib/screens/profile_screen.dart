@@ -8,6 +8,8 @@ import '../../core/constants/app_colors.dart';
 import '../../core/localization/app_localizations.dart';
 import '../../core/localization/locale_provider.dart';
 import '../../core/utils/string_extensions.dart';
+import 'feature_preview_screen.dart';
+import 'profile_destination_screens.dart';
 
 class ProfileScreen extends StatelessWidget {
   const ProfileScreen({super.key});
@@ -19,17 +21,12 @@ class ProfileScreen extends StatelessWidget {
     final isPersian = localeProvider.locale.languageCode == 'fa';
     final mainFont = isPersian ? 'Vazir' : 'Nunito';
 
-    void openPreview(String title, IconData icon, Color color) {
+    void openScreen(Widget destination) {
       Navigator.of(context).push(
-        MaterialPageRoute<void>(
-          builder: (_) => _ProfileFeatureScreen(
-            title: title,
-            icon: icon,
-            color: color,
-          ),
-        ),
+        MaterialPageRoute<void>(builder: (_) => destination),
       );
     }
+
 
     return Scaffold(
       backgroundColor: AppColors.background,
@@ -52,7 +49,7 @@ class ProfileScreen extends StatelessWidget {
                     IconButton(
                       tooltip: 'اعلان‌های حساب',
                       icon: const Icon(Icons.notifications_none_rounded, size: 24, color: AppColors.primaryBlue),
-                      onPressed: () => openPreview('اعلان‌های حساب', Icons.notifications_none_rounded, AppColors.primaryBlue),
+                      onPressed: () => openScreen(const CareMateNotificationsScreen()),
                     ),
                   ],
                 ),
@@ -88,7 +85,7 @@ class ProfileScreen extends StatelessWidget {
                                       elevation: 0,
                                       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                                     ),
-                                    onPressed: null,
+                                    onPressed: () => openScreen(const CareMateSubscriptionScreen()),
                                     icon: const Icon(Icons.lock_outline_rounded, color: Colors.white, size: 16),
                                     label: Text(
                                       'در دست توسعه',
@@ -130,7 +127,7 @@ class ProfileScreen extends StatelessWidget {
                         label: loc['profile_personal_info'] ?? 'اطلاعات شخصی',
                         mainFont: mainFont,
                         subtitle: 'صفحه طراحی‌شده؛ ویرایش در دست توسعه',
-                        onTap: () => openPreview(loc['profile_personal_info'] ?? 'اطلاعات شخصی', Icons.person, Colors.blueAccent),
+                        onTap: () => openScreen(const CareMatePersonalInformationScreen()),
                       ),
                       const Divider(height: 1, indent: 60, endIndent: 20),
                       _ProfileMenuTile(
@@ -139,7 +136,7 @@ class ProfileScreen extends StatelessWidget {
                         label: loc['profile_health_profile'] ?? 'پرونده سلامت',
                         mainFont: mainFont,
                         subtitle: 'دسترسی مراقبتی محدود؛ در دست توسعه',
-                        onTap: () => openPreview(loc['profile_health_profile'] ?? 'پرونده سلامت', Icons.assignment_rounded, Colors.orangeAccent),
+                        onTap: () => openScreen(const CareMateFeaturePreviewScreen(initialIndex: 2)),
                       ),
                       const Divider(height: 1, indent: 60, endIndent: 20),
                       _ProfileMenuTile(
@@ -148,7 +145,7 @@ class ProfileScreen extends StatelessWidget {
                         label: loc['profile_caregivers'] ?? 'مراقبان',
                         mainFont: mainFont,
                         subtitle: 'روابط فعال از داشبورد قابل مشاهده‌اند',
-                        onTap: () => openPreview(loc['profile_caregivers'] ?? 'مراقبان', Icons.group, Colors.green),
+                        onTap: () => openScreen(const CareMateFeaturePreviewScreen(initialIndex: 3)),
                       ),
                       const Divider(height: 1, indent: 60, endIndent: 20),
                       _ProfileMenuTile(
@@ -168,7 +165,7 @@ class ProfileScreen extends StatelessWidget {
                         label: loc['profile_referral_code'] ?? 'کد معرف',
                         mainFont: mainFont,
                         subtitle: 'در دست توسعه',
-                        onTap: () => openPreview(loc['profile_referral_code'] ?? 'کد معرف', Icons.card_giftcard, Colors.redAccent),
+                        onTap: () => openScreen(const CareMateReferralScreen()),
                       ),
                       const Divider(height: 1, indent: 60, endIndent: 20),
                       _ProfileMenuTile(
@@ -177,7 +174,7 @@ class ProfileScreen extends StatelessWidget {
                         label: loc['profile_support'] ?? 'پشتیبانی',
                         mainFont: mainFont,
                         subtitle: 'در دست توسعه',
-                        onTap: () => openPreview(loc['profile_support'] ?? 'پشتیبانی', Icons.support_agent, Colors.indigo),
+                        onTap: () => openScreen(const CareMateSupportScreen()),
                       ),
                     ],
                   ),
@@ -328,58 +325,6 @@ class _ProfileMenuTile extends StatelessWidget {
           : Text(subtitle!, style: TextStyle(fontFamily: mainFont, fontSize: 11, color: AppColors.secondaryText)),
       trailing: const Icon(Icons.chevron_right_rounded, size: 20),
       onTap: onTap,
-    );
-  }
-}
-
-class _ProfileFeatureScreen extends StatelessWidget {
-  const _ProfileFeatureScreen({required this.title, required this.icon, required this.color});
-  final String title;
-  final IconData icon;
-  final Color color;
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: AppColors.background,
-      appBar: AppBar(backgroundColor: Colors.transparent, surfaceTintColor: Colors.transparent, title: Text(title)),
-      body: Center(
-        child: Padding(
-          padding: const EdgeInsets.all(24),
-          child: Container(
-            width: double.infinity,
-            padding: const EdgeInsets.all(26),
-            decoration: AppColors.softDecoration(),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Container(
-                  width: 74,
-                  height: 74,
-                  decoration: BoxDecoration(color: color.withOpacity(0.12), shape: BoxShape.circle),
-                  child: Icon(icon, color: color, size: 38),
-                ),
-                const SizedBox(height: 18),
-                Text(title, textAlign: TextAlign.center, style: const TextStyle(fontSize: 21, fontWeight: FontWeight.w800, color: AppColors.primaryText)),
-                const SizedBox(height: 10),
-                const Text(
-                  'صفحه و مسیر این قابلیت مطابق طراحی محصول حفظ شده است. اتصال Backend آن در دست توسعه قرار دارد.',
-                  textAlign: TextAlign.center,
-                  style: TextStyle(height: 1.7, color: AppColors.secondaryText),
-                ),
-                const SizedBox(height: 18),
-                SizedBox(
-                  width: double.infinity,
-                  child: OutlinedButton.icon(
-                    onPressed: null,
-                    icon: const Icon(Icons.lock_outline_rounded),
-                    label: const Text('در دست توسعه'),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-      ),
     );
   }
 }
