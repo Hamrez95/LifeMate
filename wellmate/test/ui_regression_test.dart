@@ -1,9 +1,11 @@
 import 'dart:io';
 
 import 'package:flutter/material.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:lifemate_client/lifemate_client.dart';
 import 'package:provider/provider.dart';
+import 'package:wellmate/localization/app_localizations.dart';
 import 'package:wellmate/localization/locale_provider.dart';
 import 'package:wellmate/main.dart';
 import 'package:wellmate/providers/medication_provider.dart';
@@ -91,8 +93,17 @@ void main() {
   testWidgets('active treatment card renders the countdown timer',
       (WidgetTester tester) async {
     await tester.pumpWidget(
-      _wellMateHarness(
-        const Scaffold(
+      const MaterialApp(
+        debugShowCheckedModeBanner: false,
+        locale: Locale('fa'),
+        supportedLocales: [Locale('fa'), Locale('en')],
+        localizationsDelegates: [
+          AppLocalizations.delegate,
+          GlobalMaterialLocalizations.delegate,
+          GlobalWidgetsLocalizations.delegate,
+          GlobalCupertinoLocalizations.delegate,
+        ],
+        home: Scaffold(
           body: SingleChildScrollView(
             padding: EdgeInsets.all(20),
             child: ActiveTreatmentCard(
@@ -113,9 +124,12 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    expect(find.byType(CircularProgressIndicator), findsOneWidget);
-    expect(find.text('۱:۰۱:۰۱'), findsOneWidget);
-    expect(find.text('داروی تست'), findsOneWidget);
+    expect(
+      find.byType(CircularProgressIndicator, skipOffstage: false),
+      findsOneWidget,
+    );
+    expect(find.text('۱:۰۱:۰۱', skipOffstage: false), findsOneWidget);
+    expect(find.text('داروی تست', skipOffstage: false), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
 
