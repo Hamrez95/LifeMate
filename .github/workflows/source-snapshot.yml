@@ -13,12 +13,16 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Create source snapshot
+        with:
+          fetch-depth: 0
+      - name: Create current and reference snapshots
         run: |
-          rm -rf .git
-          zip -qr lifemate-source.zip . -x "**/.dart_tool/**" "**/build/**"
+          git archive --format=zip --output=lifemate-current.zip HEAD
+          git archive --format=zip --output=lifemate-bb287-reference.zip bb28701971cb2d43cde5acb5d50ef679dded534f
       - uses: actions/upload-artifact@v4
         with:
-          name: lifemate-source-snapshot
-          path: lifemate-source.zip
+          name: lifemate-source-snapshots
+          path: |
+            lifemate-current.zip
+            lifemate-bb287-reference.zip
           retention-days: 1
