@@ -4,6 +4,7 @@ import '../../core/widgets/wellmate_app_header.dart';
 import '../../core/widgets/wellmate_bottom_nav.dart';
 import '../calendar/calendar_screen.dart';
 import '../profile/profile_screen.dart';
+import '../treatments/add_treatment_screen.dart';
 import '../treatments/treatments_screen.dart';
 import 'home_screen_content.dart';
 
@@ -15,7 +16,7 @@ class HomeScreen extends StatefulWidget {
 }
 
 class _HomeScreenState extends State<HomeScreen> {
-  int _currentIndex = 3; // ایندکس خانه حالا 3 است
+  int _currentIndex = 3;
   int _refreshToken = 0;
 
   void _treatmentCreated() {
@@ -26,9 +27,7 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   void _onItemTapped(int index) {
-    setState(() {
-      _currentIndex = index;
-    });
+    setState(() => _currentIndex = index);
   }
 
   @override
@@ -36,7 +35,7 @@ class _HomeScreenState extends State<HomeScreen> {
     final pages = [
       const CalendarScreen(),
       TreatmentsScreen(refreshToken: _refreshToken),
-      AddTreatmentScreen(onCreated: _treatmentCreated),
+      TabbedAddTreatmentScreen(onCreated: _treatmentCreated),
       HomeScreenContent(
         key: ValueKey(_refreshToken),
         onOpenTreatments: () => _onItemTapped(1),
@@ -54,8 +53,9 @@ class _HomeScreenState extends State<HomeScreen> {
               onProfileTap: () {
                 Navigator.push(
                   context,
-                  MaterialPageRoute(
-                      builder: (context) => const ProfileScreen()),
+                  MaterialPageRoute<void>(
+                    builder: (_) => const ProfileScreen(),
+                  ),
                 );
               },
             ),
