@@ -579,7 +579,7 @@ class _TreatmentDetailsScreen extends StatelessWidget {
                     ),
                   ),
                   const SizedBox(height: 16),
-                  const SizedBox(
+                  SizedBox(
                     width: double.infinity,
                     child: FilledButton.icon(
                       onPressed: null,

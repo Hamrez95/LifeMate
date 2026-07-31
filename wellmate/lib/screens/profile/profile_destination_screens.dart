@@ -96,7 +96,7 @@ class _PersonalInformationScreenState extends State<PersonalInformationScreen> {
                     'نمایش اطلاعات از حساب واقعی انجام می‌شود. ویرایش اطلاعات پس از اضافه‌شدن قرارداد امن Backend فعال خواهد شد.',
               ),
               const SizedBox(height: 16),
-              const SizedBox(
+              SizedBox(
                 width: double.infinity,
                 child: FilledButton.icon(
                   onPressed: null,
@@ -310,7 +310,7 @@ class ReferralScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return const _WellMateDestinationScaffold(
+    return _WellMateDestinationScaffold(
       title: 'کد معرف',
       subtitle: 'دعوت دوستان و اعضای خانواده',
       icon: Icons.card_giftcard_rounded,
@@ -360,7 +360,7 @@ class SupportScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return const _WellMateDestinationScaffold(
+    return _WellMateDestinationScaffold(
       title: 'پشتیبانی',
       subtitle: 'راهنما و ارتباط با تیم LifeMate',
       icon: Icons.support_agent_rounded,
