@@ -20,7 +20,16 @@ jobs:
       - name: Restore missing source files
         shell: bash
         run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          part = Path('.github/ui-new-files/part_01')
+          value = part.read_text()
+          if len(value) == 5999:
+              value = value[:523] + 'F' + value[523:]
+              part.write_text(value)
+          PY
           cat .github/ui-new-files/part_* > /tmp/ui-new-files.tar.gz.b64
+          test "$(sha256sum /tmp/ui-new-files.tar.gz.b64 | cut -d' ' -f1)" = "fb638610bf91b899e559ac0e0da2359e812b62475718d2971af860fac85060e5"
           base64 -d /tmp/ui-new-files.tar.gz.b64 > /tmp/ui-new-files.tar.gz
           test "$(sha256sum /tmp/ui-new-files.tar.gz | cut -d' ' -f1)" = "307fa014898c743b7bc409f113fef3950bd4b7172c0726b9552f5ce65d0e1a7e"
           tar -xzf /tmp/ui-new-files.tar.gz
