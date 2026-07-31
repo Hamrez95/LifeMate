@@ -1,0 +1,33 @@
+name: apply-ui-new-files
+
+on:
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  apply:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: feat/full-bb287-ui-parity
+          fetch-depth: 0
+      - name: Restore missing source files
+        shell: bash
+        run: |
+          cat .github/ui-new-files/part_* > /tmp/ui-new-files.tar.gz.b64
+          base64 -d /tmp/ui-new-files.tar.gz.b64 > /tmp/ui-new-files.tar.gz
+          test "$(sha256sum /tmp/ui-new-files.tar.gz | cut -d' ' -f1)" = "307fa014898c743b7bc409f113fef3950bd4b7172c0726b9552f5ce65d0e1a7e"
+          tar -xzf /tmp/ui-new-files.tar.gz
+          rm -rf .github/ui-new-files
+          rm -f .github/workflows/apply-ui-new-files.yml
+          git config user.name 'LifeMate UI Bot'
+          git config user.email 'actions@users.noreply.github.com'
+          git add caremate/lib/screens/profile_destination_screens.dart wellmate/lib/screens/profile/profile_destination_screens.dart .github/ui-new-files .github/workflows/apply-ui-new-files.yml
+          git commit -m 'feat: add complete profile destination screens for both apps'
+          git push origin HEAD:feat/full-bb287-ui-parity
