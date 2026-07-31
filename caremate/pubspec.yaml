@@ -24,6 +24,7 @@ flutter:
   uses-material-design: true
   assets:
     - assets/
+    - assets/images/
     - lib/core/localization/en.json
     - lib/core/localization/fa.json
   fonts:
