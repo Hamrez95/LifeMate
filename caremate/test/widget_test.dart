@@ -32,9 +32,9 @@ void main() {
       await tester.pumpWidget(
         Provider<LifeMateApiClient>.value(
           value: api,
-          child: MaterialApp(
-            debugShowCheckedModeBanner: false,
-            home: destination,
+          child: ChangeNotifierProvider(
+            create: (_) => LocaleProvider(),
+            child: CareMateApp(home: destination),
           ),
         ),
       );
@@ -61,9 +61,9 @@ void main() {
       (WidgetTester tester) async {
     Future<void> pump<T extends Widget>(T destination) async {
       await tester.pumpWidget(
-        MaterialApp(
-          debugShowCheckedModeBanner: false,
-          home: destination,
+        ChangeNotifierProvider(
+          create: (_) => LocaleProvider(),
+          child: CareMateApp(home: destination),
         ),
       );
       await tester.pumpAndSettle();
