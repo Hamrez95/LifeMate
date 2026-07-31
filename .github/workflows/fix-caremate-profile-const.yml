@@ -1,5 +1,6 @@
 name: fix-caremate-profile-const
 
+# Triggered maintenance repair for CareMate UI parity.
 on:
   push:
     branches: [feat/full-bb287-ui-parity]
