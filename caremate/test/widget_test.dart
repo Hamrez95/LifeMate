@@ -35,7 +35,7 @@ void main() {
             Provider<LifeMateApiClient>.value(value: api),
             ChangeNotifierProvider(create: (_) => LocaleProvider()),
           ],
-          child: MaterialApp(home: destination),
+          child: CareMateApp(home: destination),
         ),
       );
       await tester.pumpAndSettle();
@@ -50,13 +50,18 @@ void main() {
     expect(find.text('فردی به CareMate متصل نیست'), findsOneWidget);
 
     await pump(const CareMateFeaturePreviewScreen(initialIndex: 2));
-    expect(find.text('هنوز فردی برای مراقبت متصل نشده است.'), findsOneWidget);
+    expect(find.text('فردی برای نمایش درمان انتخاب نشده'), findsOneWidget);
   });
 
   testWidgets('CareMate unsupported destinations remain complete pages',
       (WidgetTester tester) async {
     Future<void> pump(Widget destination, String expectedText) async {
-      await tester.pumpWidget(MaterialApp(home: destination));
+      await tester.pumpWidget(
+        ChangeNotifierProvider(
+          create: (_) => LocaleProvider(),
+          child: CareMateApp(home: destination),
+        ),
+      );
       await tester.pumpAndSettle();
       expect(find.text(expectedText), findsWidgets);
       expect(tester.takeException(), isNull);
