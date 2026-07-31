@@ -1,0 +1,111 @@
+name: repair-caremate-parity-once
+
+on:
+  push:
+    branches: [main]
+    paths: ['.github/workflows/repair-caremate-parity-once.yml']
+
+permissions:
+  contents: write
+
+env:
+  FEATURE_BRANCH: feat/full-bb287-ui-parity
+
+jobs:
+  repair-and-verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.FEATURE_BRANCH }}
+          fetch-depth: 0
+      - uses: subosito/flutter-action@4cab68ce0f1c7c924f688bff4792e044f1aeb30c
+        with:
+          flutter-version: '3.44.0'
+          channel: stable
+          cache: true
+      - name: Apply direct compile repair and remove bootstrap workflow
+        shell: bash
+        run: |
+          set -euo pipefail
+          git pull --rebase origin "$FEATURE_BRANCH"
+          python3 - <<'PY'
+          from pathlib import Path
+          path = Path('caremate/lib/screens/profile_screen.dart')
+          text = path.read_text()
+          old = """                const SizedBox(
+                  width: double.infinity,
+                  child: OutlinedButton.icon(
+                    onPressed: null,
+"""
+          new = """                SizedBox(
+                  width: double.infinity,
+                  child: OutlinedButton.icon(
+                    onPressed: null,
+"""
+          if old in text:
+              path.write_text(text.replace(old, new, 1))
+          elif new not in text:
+              raise SystemExit('CareMate profile repair target not found')
+          Path('.github/workflows/fix-caremate-profile-const.yml').unlink(missing_ok=True)
+          PY
+          dart format caremate/lib/screens/profile_screen.dart
+      - name: Verify shared client
+        working-directory: packages/lifemate_client
+        run: |
+          flutter pub get
+          flutter analyze --no-fatal-warnings --no-fatal-infos
+          flutter test
+      - name: Verify WellMate
+        working-directory: wellmate
+        run: |
+          flutter pub get
+          flutter analyze --no-fatal-warnings --no-fatal-infos
+          flutter test
+          flutter build web --release
+      - name: Verify CareMate
+        working-directory: caremate
+        run: |
+          flutter pub get
+          flutter analyze --no-fatal-warnings --no-fatal-infos
+          flutter test
+          flutter build web --release
+      - name: Build Android APK checkpoints
+        shell: bash
+        run: |
+          set -euo pipefail
+          (cd wellmate && flutter build apk --release)
+          (cd caremate && flutter build apk --release)
+      - uses: actions/upload-artifact@v4
+        with:
+          name: lifemate-bb287-parity-apks
+          path: |
+            wellmate/build/app/outputs/flutter-apk/app-release.apk
+            caremate/build/app/outputs/flutter-apk/app-release.apk
+          retention-days: 14
+      - name: Commit verified repair to feature branch
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add -A
+          if ! git diff --cached --quiet; then
+            git commit -m 'Repair CareMate profile and verify parity checkpoint'
+            git push origin HEAD:"$FEATURE_BRANCH"
+          fi
+      - name: Remove one-shot workflow from main
+        if: always()
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch origin main
+          git switch --force-create cleanup-once origin/main
+          rm -f .github/workflows/repair-caremate-parity-once.yml
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add -A
+          if ! git diff --cached --quiet; then
+            git commit -m 'Remove completed one-shot parity repair workflow'
+            git push origin HEAD:main
+          fi
