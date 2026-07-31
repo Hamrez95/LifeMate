@@ -3,6 +3,7 @@
 Reference commit: `bb28701971cb2d43cde5acb5d50ef679dded534f`
 
 ## Exact visual binaries restored
+- [x] `caremate/assets/images/Caregiver.png` — exact reference blob `faf717eda6099c8d2c50f270153aa02b413d7722`
 - [x] `caremate/android/app/src/main/res/mipmap-hdpi/ic_launcher.png`
 - [x] `caremate/android/app/src/main/res/mipmap-mdpi/ic_launcher.png`
 - [x] `caremate/android/app/src/main/res/mipmap-xhdpi/ic_launcher.png`
