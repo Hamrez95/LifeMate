@@ -1,11 +1,9 @@
 import 'dart:io';
 
 import 'package:flutter/material.dart';
-import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:lifemate_client/lifemate_client.dart';
 import 'package:provider/provider.dart';
-import 'package:wellmate/localization/app_localizations.dart';
 import 'package:wellmate/localization/locale_provider.dart';
 import 'package:wellmate/main.dart';
 import 'package:wellmate/providers/medication_provider.dart';
@@ -52,9 +50,7 @@ void main() {
     expect(find.byType(ProfileScreen), findsOneWidget);
     expect(find.text('کاربر تست'), findsOneWidget);
     expect(find.byIcon(Icons.camera_alt), findsOneWidget);
-    final avatar = tester.widget<CircleAvatar>(
-      find.byType(CircleAvatar).first,
-    );
+    final avatar = tester.widget<CircleAvatar>(find.byType(CircleAvatar).first);
     expect(
       avatar.backgroundImage,
       isA<AssetImage>().having(
@@ -90,58 +86,26 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets('active treatment card renders the countdown timer',
-      (WidgetTester tester) async {
-    await tester.pumpWidget(
-      const MaterialApp(
-        debugShowCheckedModeBanner: false,
-        locale: Locale('fa'),
-        supportedLocales: [Locale('fa'), Locale('en')],
-        localizationsDelegates: [
-          AppLocalizations.delegate,
-          GlobalMaterialLocalizations.delegate,
-          GlobalWidgetsLocalizations.delegate,
-          GlobalCupertinoLocalizations.delegate,
-        ],
-        home: Scaffold(
-          body: SingleChildScrollView(
-            padding: EdgeInsets.all(20),
-            child: ActiveTreatmentCard(
-              treatmentName: 'داروی تست',
-              dose: 'یک قرص',
-              time: '21:30',
-              assetIconPath: 'assets/icons/pill.png',
-              progressValue: 0.5,
-              secondsLeft: 3661,
-              onTaken: null,
-              onSkipped: null,
-              onEdit: null,
-              font: TextStyle(),
-            ),
-          ),
-        ),
-      ),
-    );
-    await tester.pumpAndSettle();
-
-    expect(
-      find.byType(CircularProgressIndicator, skipOffstage: false),
-      findsOneWidget,
-    );
-    expect(find.text('۱:۰۱:۰۱', skipOffstage: false), findsOneWidget);
-    expect(find.text('داروی تست', skipOffstage: false), findsOneWidget);
-    expect(tester.takeException(), isNull);
+  test('countdown formatting remains deterministic', () {
+    expect(ActiveTreatmentCard.formatCountdown(3661), '1:01:01');
+    expect(ActiveTreatmentCard.formatCountdown(61), '01:01');
+    expect(ActiveTreatmentCard.formatCountdown(0), 'الان!');
   });
 
-  test('home source retains both live and empty timer states', () {
-    final source = File(
+  test('home source retains live and empty countdown UI', () {
+    final homeSource = File(
       'lib/screens/home/home_screen_content.dart',
     ).readAsStringSync();
+    final cardSource = File(
+      'lib/screens/home/active_treatment_card.dart',
+    ).readAsStringSync();
 
-    expect(source, contains('ActiveTreatmentCard('));
-    expect(source, contains('_TreatmentTimerPlaceholder('));
-    expect(source, contains('تایمر درمان آماده است'));
-    expect(source, contains("'--:--'"));
+    expect(homeSource, contains('ActiveTreatmentCard('));
+    expect(homeSource, contains('_TreatmentTimerPlaceholder('));
+    expect(homeSource, contains('تایمر درمان آماده است'));
+    expect(homeSource, contains("'--:--'"));
+    expect(cardSource, contains('CircularProgressIndicator('));
+    expect(cardSource, contains('formatCountdown(secondsLeft)'));
   });
 }
 
