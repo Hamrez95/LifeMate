@@ -55,14 +55,17 @@ void main() {
     final api = _FakeWellMateApiClient();
 
     await tester.pumpWidget(
-      _wellMateHarness(
-        Provider<LifeMateApiClient>.value(
-          value: api,
-          child: TabbedAddTreatmentScreen(onCreated: () {}),
+      Provider<LifeMateApiClient>.value(
+        value: api,
+        child: MaterialApp(
+          debugShowCheckedModeBanner: false,
+          home: Scaffold(
+            body: TabbedAddTreatmentScreen(onCreated: () {}),
+          ),
         ),
       ),
     );
-    await tester.pump();
+    await tester.pumpAndSettle();
 
     expect(find.text('دارو'), findsOneWidget);
     expect(find.text('برنامه'), findsOneWidget);
@@ -88,8 +91,7 @@ void main() {
         ),
       ),
     );
-    await tester.pump();
-    await tester.pump(const Duration(milliseconds: 100));
+    await tester.pumpAndSettle(const Duration(milliseconds: 50));
 
     expect(find.text('تایمر درمان آماده است'), findsOneWidget);
     expect(find.text('--:--'), findsOneWidget);
