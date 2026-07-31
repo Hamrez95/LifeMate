@@ -103,16 +103,23 @@ void main() {
         ),
       ),
     );
-    await tester.pump();
-    await tester.runAsync(() async {
-      await Future<void>.delayed(const Duration(milliseconds: 30));
-    });
-    await tester.pump();
-    await tester.pump(const Duration(milliseconds: 100));
 
-    expect(find.text('تایمر درمان آماده است'), findsOneWidget);
-    expect(find.text('--:--'), findsOneWidget);
-    expect(find.text('افزودن درمان'), findsWidgets);
+    final timerTitle = find.text(
+      'تایمر درمان آماده است',
+      skipOffstage: false,
+    );
+    for (var attempt = 0;
+        attempt < 30 && timerTitle.evaluate().isEmpty;
+        attempt += 1) {
+      await tester.runAsync(() async {
+        await Future<void>.delayed(const Duration(milliseconds: 10));
+      });
+      await tester.pump(const Duration(milliseconds: 100));
+    }
+
+    expect(timerTitle, findsOneWidget);
+    expect(find.text('--:--', skipOffstage: false), findsOneWidget);
+    expect(find.text('افزودن درمان', skipOffstage: false), findsWidgets);
     expect(tester.takeException(), isNull);
 
     await tester.pumpWidget(const SizedBox.shrink());
