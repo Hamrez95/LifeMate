@@ -38,22 +38,36 @@ void main() {
           child: CareMateApp(home: destination),
         ),
       );
-      await tester.pump();
-      await tester.pump(const Duration(milliseconds: 100));
+      await tester.pumpAndSettle();
       expect(tester.takeException(), isNull);
     }
 
     await pump(const CareMatePersonalInformationScreen());
-    expect(find.byType(CareMatePersonalInformationScreen), findsOneWidget);
+    expect(
+      find.byType(
+        CareMatePersonalInformationScreen,
+        skipOffstage: false,
+      ),
+      findsOneWidget,
+    );
     expect(api.currentUserCalls, greaterThan(0));
 
     await pump(const CareMateNotificationsScreen());
-    expect(find.byType(CareMateNotificationsScreen), findsOneWidget);
+    expect(
+      find.byType(CareMateNotificationsScreen, skipOffstage: false),
+      findsOneWidget,
+    );
     expect(api.relationshipCalls, greaterThan(0));
 
     await pump(const CareMateFeaturePreviewScreen(initialIndex: 2));
-    expect(find.byType(CareMateFeaturePreviewScreen), findsOneWidget);
-    expect(find.byType(CircularProgressIndicator), findsNothing);
+    expect(
+      find.byType(CareMateFeaturePreviewScreen, skipOffstage: false),
+      findsOneWidget,
+    );
+    expect(
+      find.byType(CircularProgressIndicator, skipOffstage: false),
+      findsNothing,
+    );
   });
 
   testWidgets('CareMate unsupported destinations remain complete pages',
@@ -65,9 +79,11 @@ void main() {
           child: CareMateApp(home: destination),
         ),
       );
-      await tester.pump();
-      await tester.pump(const Duration(milliseconds: 50));
-      expect(find.byType(expectedType), findsOneWidget);
+      await tester.pumpAndSettle();
+      expect(
+        find.byType(expectedType, skipOffstage: false),
+        findsOneWidget,
+      );
       expect(tester.takeException(), isNull);
     }
 
