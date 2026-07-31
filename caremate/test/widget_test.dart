@@ -28,18 +28,24 @@ void main() {
       (WidgetTester tester) async {
     final api = _FakeCareMateApiClient();
 
-    Future<void> pump<T extends Widget>(T destination) async {
+    Future<void> pump(Widget destination) async {
+      final destinationKey = UniqueKey();
       await tester.pumpWidget(
         Provider<LifeMateApiClient>.value(
           value: api,
           child: ChangeNotifierProvider(
             create: (_) => LocaleProvider(),
-            child: CareMateApp(home: destination),
+            child: CareMateApp(
+              home: KeyedSubtree(
+                key: destinationKey,
+                child: destination,
+              ),
+            ),
           ),
         ),
       );
       await tester.pumpAndSettle();
-      expect(find.byType(T), findsOneWidget);
+      expect(find.byKey(destinationKey), findsOneWidget);
       expect(find.byType(Scaffold), findsWidgets);
       expect(tester.takeException(), isNull);
     }
@@ -59,15 +65,21 @@ void main() {
 
   testWidgets('CareMate unsupported destinations remain complete pages',
       (WidgetTester tester) async {
-    Future<void> pump<T extends Widget>(T destination) async {
+    Future<void> pump(Widget destination) async {
+      final destinationKey = UniqueKey();
       await tester.pumpWidget(
         ChangeNotifierProvider(
           create: (_) => LocaleProvider(),
-          child: CareMateApp(home: destination),
+          child: CareMateApp(
+            home: KeyedSubtree(
+              key: destinationKey,
+              child: destination,
+            ),
+          ),
         ),
       );
       await tester.pumpAndSettle();
-      expect(find.byType(T), findsOneWidget);
+      expect(find.byKey(destinationKey), findsOneWidget);
       expect(find.byType(Scaffold), findsWidgets);
       expect(find.textContaining('در دست توسعه'), findsWidgets);
       expect(tester.takeException(), isNull);
