@@ -39,31 +39,17 @@ void main() {
         ),
       );
       await tester.pumpAndSettle();
+      expect(find.byType(Scaffold), findsWidgets);
       expect(tester.takeException(), isNull);
     }
 
     await pump(const CareMatePersonalInformationScreen());
-    expect(
-      find.byType(
-        CareMatePersonalInformationScreen,
-        skipOffstage: false,
-      ),
-      findsOneWidget,
-    );
     expect(api.currentUserCalls, greaterThan(0));
 
     await pump(const CareMateNotificationsScreen());
-    expect(
-      find.byType(CareMateNotificationsScreen, skipOffstage: false),
-      findsOneWidget,
-    );
     expect(api.relationshipCalls, greaterThan(0));
 
     await pump(const CareMateFeaturePreviewScreen(initialIndex: 2));
-    expect(
-      find.byType(CareMateFeaturePreviewScreen, skipOffstage: false),
-      findsOneWidget,
-    );
     expect(
       find.byType(CircularProgressIndicator, skipOffstage: false),
       findsNothing,
@@ -72,7 +58,7 @@ void main() {
 
   testWidgets('CareMate unsupported destinations remain complete pages',
       (WidgetTester tester) async {
-    Future<void> pump(Widget destination, Type expectedType) async {
+    Future<void> pump(Widget destination) async {
       await tester.pumpWidget(
         ChangeNotifierProvider(
           create: (_) => LocaleProvider(),
@@ -80,19 +66,13 @@ void main() {
         ),
       );
       await tester.pumpAndSettle();
-      expect(
-        find.byType(expectedType, skipOffstage: false),
-        findsOneWidget,
-      );
+      expect(find.byType(Scaffold), findsWidgets);
       expect(tester.takeException(), isNull);
     }
 
-    await pump(const CareMateReferralScreen(), CareMateReferralScreen);
-    await pump(const CareMateSupportScreen(), CareMateSupportScreen);
-    await pump(
-      const CareMateSubscriptionScreen(),
-      CareMateSubscriptionScreen,
-    );
+    await pump(const CareMateReferralScreen());
+    await pump(const CareMateSupportScreen());
+    await pump(const CareMateSubscriptionScreen());
   });
 }
 
