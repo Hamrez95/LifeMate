@@ -1,4 +1,4 @@
-name: fix-persistent-timer-once
+name: fix-profile-material-once
 
 on:
   push:
