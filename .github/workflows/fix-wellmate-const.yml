@@ -23,43 +23,46 @@ jobs:
           python3 - <<'PY'
           from pathlib import Path
 
-          profile = Path('wellmate/lib/screens/profile/profile_destination_screens.dart')
-          text = profile.read_text()
-
-          old = """              const SizedBox(
-                width: double.infinity,
-                child: FilledButton.icon("""
-          new = """              SizedBox(
-                width: double.infinity,
-                child: FilledButton.icon("""
-          if text.count(old) != 1:
-              raise SystemExit(f'expected one personal-info const blocker, got {text.count(old)}')
-          text = text.replace(old, new, 1)
-
-          def remove_scaffold_const(source: str, start_marker: str, end_marker: str) -> str:
+          def replace_in_section(source: str, start_marker: str, end_marker: str, old: str, new: str) -> str:
               start = source.index(start_marker)
               end = source.index(end_marker, start)
               section = source[start:end]
-              old_return = 'return const _WellMateDestinationScaffold('
-              if section.count(old_return) != 1:
-                  raise SystemExit(f'{start_marker}: expected one const scaffold, got {section.count(old_return)}')
-              section = section.replace(old_return, 'return _WellMateDestinationScaffold(', 1)
+              if section.count(old) != 1:
+                  raise SystemExit(f'{start_marker}: expected one match, got {section.count(old)}')
+              section = section.replace(old, new, 1)
               return source[:start] + section + source[end:]
 
-          text = remove_scaffold_const(text, 'class ReferralScreen', 'class SupportScreen')
-          text = remove_scaffold_const(text, 'class SupportScreen', 'class SubscriptionScreen')
+          profile = Path('wellmate/lib/screens/profile/profile_destination_screens.dart')
+          text = profile.read_text()
+          text = replace_in_section(
+              text,
+              'class PersonalInformationScreen',
+              'class HealthRecordScreen',
+              'const SizedBox(\n                width: double.infinity,\n                child: FilledButton.icon(',
+              'SizedBox(\n                width: double.infinity,\n                child: FilledButton.icon(',
+          )
+          text = replace_in_section(
+              text,
+              'class ReferralScreen',
+              'class SupportScreen',
+              'return const _WellMateDestinationScaffold(',
+              'return _WellMateDestinationScaffold(',
+          )
+          text = replace_in_section(
+              text,
+              'class SupportScreen',
+              'class SubscriptionScreen',
+              'return const _WellMateDestinationScaffold(',
+              'return _WellMateDestinationScaffold(',
+          )
           profile.write_text(text)
 
           treatments = Path('wellmate/lib/screens/treatments/treatments_screen.dart')
           treatment_text = treatments.read_text()
-          old_treatment = """                  const SizedBox(
-                    width: double.infinity,
-                    child: FilledButton.icon("""
-          new_treatment = """                  SizedBox(
-                    width: double.infinity,
-                    child: FilledButton.icon("""
+          old_treatment = 'const SizedBox(\n                    width: double.infinity,\n                    child: FilledButton.icon('
+          new_treatment = 'SizedBox(\n                    width: double.infinity,\n                    child: FilledButton.icon('
           if treatment_text.count(old_treatment) != 1:
-              raise SystemExit(f'expected one treatment const blocker, got {treatment_text.count(old_treatment)}')
+              raise SystemExit(f'treatments: expected one match, got {treatment_text.count(old_treatment)}')
           treatments.write_text(treatment_text.replace(old_treatment, new_treatment, 1))
           PY
           rm -f .github/workflows/fix-wellmate-const.yml
