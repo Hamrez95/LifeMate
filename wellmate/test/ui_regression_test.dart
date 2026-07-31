@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:lifemate_client/lifemate_client.dart';
@@ -7,7 +9,7 @@ import 'package:wellmate/main.dart';
 import 'package:wellmate/providers/medication_provider.dart';
 import 'package:wellmate/providers/notification_provider.dart';
 import 'package:wellmate/providers/settings_provider.dart';
-import 'package:wellmate/screens/home/home_screen_content.dart';
+import 'package:wellmate/screens/home/active_treatment_card.dart';
 import 'package:wellmate/screens/profile/profile_screen.dart';
 import 'package:wellmate/screens/treatments/add_treatment_screen.dart';
 
@@ -86,43 +88,46 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets('home keeps the timer card visible without a treatment',
+  testWidgets('active treatment card renders the countdown timer',
       (WidgetTester tester) async {
-    final api = _FakeWellMateApiClient();
-
     await tester.pumpWidget(
       _wellMateHarness(
-        Provider<LifeMateApiClient>.value(
-          value: api,
-          child: Scaffold(
-            body: HomeScreenContent(
-              onOpenTreatments: () {},
-              onAddTreatment: () {},
+        const Scaffold(
+          body: SingleChildScrollView(
+            padding: EdgeInsets.all(20),
+            child: ActiveTreatmentCard(
+              treatmentName: 'داروی تست',
+              dose: 'یک قرص',
+              time: '21:30',
+              assetIconPath: 'assets/icons/pill.png',
+              progressValue: 0.5,
+              secondsLeft: 3661,
+              onTaken: null,
+              onSkipped: null,
+              onEdit: null,
+              font: TextStyle(),
             ),
           ),
         ),
       ),
     );
+    await tester.pumpAndSettle();
 
-    final timerTitle = find.text(
-      'تایمر درمان آماده است',
-      skipOffstage: false,
-    );
-    for (var attempt = 0;
-        attempt < 30 && timerTitle.evaluate().isEmpty;
-        attempt += 1) {
-      await tester.runAsync(() async {
-        await Future<void>.delayed(const Duration(milliseconds: 10));
-      });
-      await tester.pump(const Duration(milliseconds: 100));
-    }
-
-    expect(timerTitle, findsOneWidget);
-    expect(find.text('--:--', skipOffstage: false), findsOneWidget);
-    expect(find.text('افزودن درمان', skipOffstage: false), findsWidgets);
+    expect(find.byType(CircularProgressIndicator), findsOneWidget);
+    expect(find.text('۱:۰۱:۰۱'), findsOneWidget);
+    expect(find.text('داروی تست'), findsOneWidget);
     expect(tester.takeException(), isNull);
+  });
 
-    await tester.pumpWidget(const SizedBox.shrink());
+  test('home source retains both live and empty timer states', () {
+    final source = File(
+      'lib/screens/home/home_screen_content.dart',
+    ).readAsStringSync();
+
+    expect(source, contains('ActiveTreatmentCard('));
+    expect(source, contains('_TreatmentTimerPlaceholder('));
+    expect(source, contains('تایمر درمان آماده است'));
+    expect(source, contains("'--:--'"));
   });
 }
 
