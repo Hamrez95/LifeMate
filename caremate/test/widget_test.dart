@@ -28,17 +28,18 @@ void main() {
       (WidgetTester tester) async {
     final api = _FakeCareMateApiClient();
 
-    Future<void> pump(Widget destination) async {
+    Future<void> pump<T extends Widget>(T destination) async {
       await tester.pumpWidget(
-        MultiProvider(
-          providers: [
-            Provider<LifeMateApiClient>.value(value: api),
-            ChangeNotifierProvider(create: (_) => LocaleProvider()),
-          ],
-          child: CareMateApp(home: destination),
+        Provider<LifeMateApiClient>.value(
+          value: api,
+          child: MaterialApp(
+            debugShowCheckedModeBanner: false,
+            home: destination,
+          ),
         ),
       );
       await tester.pumpAndSettle();
+      expect(find.byType(T), findsOneWidget);
       expect(find.byType(Scaffold), findsWidgets);
       expect(tester.takeException(), isNull);
     }
@@ -58,15 +59,17 @@ void main() {
 
   testWidgets('CareMate unsupported destinations remain complete pages',
       (WidgetTester tester) async {
-    Future<void> pump(Widget destination) async {
+    Future<void> pump<T extends Widget>(T destination) async {
       await tester.pumpWidget(
-        ChangeNotifierProvider(
-          create: (_) => LocaleProvider(),
-          child: CareMateApp(home: destination),
+        MaterialApp(
+          debugShowCheckedModeBanner: false,
+          home: destination,
         ),
       );
       await tester.pumpAndSettle();
+      expect(find.byType(T), findsOneWidget);
       expect(find.byType(Scaffold), findsWidgets);
+      expect(find.textContaining('در دست توسعه'), findsWidgets);
       expect(tester.takeException(), isNull);
     }
 
