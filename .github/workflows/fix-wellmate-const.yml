@@ -1,0 +1,70 @@
+name: fix-wellmate-const
+
+on:
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  fix:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: feat/full-bb287-ui-parity
+          fetch-depth: 0
+      - name: Remove invalid const wrappers
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+
+          profile = Path('wellmate/lib/screens/profile/profile_destination_screens.dart')
+          text = profile.read_text()
+
+          old = """              const SizedBox(
+                width: double.infinity,
+                child: FilledButton.icon("""
+          new = """              SizedBox(
+                width: double.infinity,
+                child: FilledButton.icon("""
+          if text.count(old) != 1:
+              raise SystemExit(f'expected one personal-info const blocker, got {text.count(old)}')
+          text = text.replace(old, new, 1)
+
+          def remove_scaffold_const(source: str, start_marker: str, end_marker: str) -> str:
+              start = source.index(start_marker)
+              end = source.index(end_marker, start)
+              section = source[start:end]
+              old_return = 'return const _WellMateDestinationScaffold('
+              if section.count(old_return) != 1:
+                  raise SystemExit(f'{start_marker}: expected one const scaffold, got {section.count(old_return)}')
+              section = section.replace(old_return, 'return _WellMateDestinationScaffold(', 1)
+              return source[:start] + section + source[end:]
+
+          text = remove_scaffold_const(text, 'class ReferralScreen', 'class SupportScreen')
+          text = remove_scaffold_const(text, 'class SupportScreen', 'class SubscriptionScreen')
+          profile.write_text(text)
+
+          treatments = Path('wellmate/lib/screens/treatments/treatments_screen.dart')
+          treatment_text = treatments.read_text()
+          old_treatment = """                  const SizedBox(
+                    width: double.infinity,
+                    child: FilledButton.icon("""
+          new_treatment = """                  SizedBox(
+                    width: double.infinity,
+                    child: FilledButton.icon("""
+          if treatment_text.count(old_treatment) != 1:
+              raise SystemExit(f'expected one treatment const blocker, got {treatment_text.count(old_treatment)}')
+          treatments.write_text(treatment_text.replace(old_treatment, new_treatment, 1))
+          PY
+          rm -f .github/workflows/fix-wellmate-const.yml
+          git config user.name 'LifeMate CI Repair Bot'
+          git config user.email 'actions@users.noreply.github.com'
+          git add wellmate/lib/screens/profile/profile_destination_screens.dart wellmate/lib/screens/treatments/treatments_screen.dart .github/workflows/fix-wellmate-const.yml
+          git commit -m 'fix: remove invalid const wrappers from WellMate destinations'
+          git push origin HEAD:feat/full-bb287-ui-parity
