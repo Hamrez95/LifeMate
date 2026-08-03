@@ -43,6 +43,92 @@ void main() {
     expect(result.single['medicationName'], 'Metformin');
   });
 
+  test('care recipient event request carries patient scope and range', () async {
+    late http.Request observed;
+    final api = LifeMateApiClient(
+      baseUri: Uri.parse('https://api.example.test'),
+      accessToken: () => 'access-token',
+      httpClient: MockClient((request) async {
+        observed = request;
+        return http.Response(
+          jsonEncode([
+            {
+              'id': 'event-1',
+              'eventType': 'appointment',
+              'title': 'Cardiology visit',
+            }
+          ]),
+          200,
+          headers: {'content-type': 'application/json'},
+        );
+      }),
+    );
+
+    final result = await api.getCareRecipientCareEvents(
+      patientUserId: 'patient-1',
+      fromDate: DateTime(2026, 8, 3),
+      toDate: DateTime(2026, 8, 10),
+    );
+
+    expect(observed.method, 'GET');
+    expect(
+      observed.url.path,
+      '/api/v1/care/patients/patient-1/care-events',
+    );
+    expect(observed.url.queryParameters['fromDate'], '2026-08-03');
+    expect(observed.url.queryParameters['toDate'], '2026-08-10');
+    expect(result.single['eventType'], 'appointment');
+  });
+
+  test('care event creation retries with an identical idempotent payload',
+      () async {
+    var requestCount = 0;
+    final requestBodies = <String>[];
+    final api = LifeMateApiClient(
+      baseUri: Uri.parse('https://api.example.test'),
+      accessToken: () => 'access-token',
+      httpClient: MockClient((request) async {
+        requestCount += 1;
+        requestBodies.add(request.body);
+        if (requestCount == 1) {
+          throw http.ClientException('response lost', request.url);
+        }
+        return http.Response(
+          jsonEncode({
+            'id': 'event-1',
+            'eventType': 'appointment',
+            'title': 'Cardiology visit',
+          }),
+          201,
+          headers: {'content-type': 'application/json'},
+        );
+      }),
+    );
+
+    final result = await api.createCareEvent(
+      clientRequestId: '33333333-3333-4333-8333-333333333333',
+      eventType: 'appointment',
+      title: 'Cardiology visit',
+      providerName: 'Dr. Sara Rad',
+      centerName: 'Heart Clinic',
+      addressLine: 'Tehran, Valiasr Street',
+      scheduledLocalDate: DateTime(2026, 8, 4),
+      scheduledLocalTime: '16:30',
+      timeZone: 'Asia/Tehran',
+    );
+
+    expect(requestCount, 2);
+    expect(requestBodies[0], requestBodies[1]);
+    final body = jsonDecode(requestBodies.first) as Map<String, dynamic>;
+    expect(
+      body['clientRequestId'],
+      '33333333-3333-4333-8333-333333333333',
+    );
+    expect(body['addressLine'], 'Tehran, Valiasr Street');
+    expect(body['scheduledLocalTime'], '16:30');
+    expect(result['eventType'], 'appointment');
+  });
+
   test('invitation acceptance sends current consent contract', () async {
     late Map<String, dynamic> body;
     final api = LifeMateApiClient(
