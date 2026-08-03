@@ -22,29 +22,44 @@ class _CarePlanHubScreenState extends State<CarePlanHubScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Column(
+    return Stack(
       children: [
-        Padding(
-          padding: const EdgeInsets.fromLTRB(20, 10, 20, 4),
-          child: _CareTypeSelector(
-            selectedIndex: _selectedIndex,
-            onChanged: (index) => setState(() => _selectedIndex = index),
-          ),
-        ),
-        Expanded(
+        Positioned.fill(
           child: IndexedStack(
             index: _selectedIndex,
             children: [
               TabbedAddTreatmentScreen(onCreated: widget.onCreated),
-              _CareEventForm(
-                kind: _CarePlanKind.appointment,
-                onCreated: widget.onCreated,
+              Padding(
+                padding: const EdgeInsets.only(top: 78),
+                child: _CareEventForm(
+                  kind: _CarePlanKind.appointment,
+                  onCreated: widget.onCreated,
+                ),
               ),
-              _CareEventForm(
-                kind: _CarePlanKind.injection,
-                onCreated: widget.onCreated,
+              Padding(
+                padding: const EdgeInsets.only(top: 78),
+                child: _CareEventForm(
+                  kind: _CarePlanKind.injection,
+                  onCreated: widget.onCreated,
+                ),
               ),
             ],
+          ),
+        ),
+        const Positioned(
+          top: 0,
+          left: 0,
+          right: 0,
+          height: 78,
+          child: ColoredBox(color: AppColors.background),
+        ),
+        Positioned(
+          top: 8,
+          left: 20,
+          right: 20,
+          child: _CareTypeSelector(
+            selectedIndex: _selectedIndex,
+            onChanged: (index) => setState(() => _selectedIndex = index),
           ),
         ),
       ],
