@@ -5,6 +5,7 @@ on:
     paths:
       - '.github/workflows/edge-api.yml'
       - 'tools/maintenance/auth_pairing_patch.py'
+      - 'tools/maintenance/run_auth_pairing_patch.py'
 
 permissions:
   contents: write
@@ -27,7 +28,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          python3 tools/maintenance/auth_pairing_patch.py
+          python3 tools/maintenance/run_auth_pairing_patch.py
           git diff --check
           grep -q 'auth-google' packages/lifemate_client/lib/src/session_gate.dart
           grep -q 'createQrInvitation' supabase/functions/lifemate-api/database.ts
