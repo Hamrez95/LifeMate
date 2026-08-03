@@ -1,44 +1,43 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import '../../core/localization/app_localizations.dart'; // مسیرها را چک کنید
+
+import '../../core/constants/app_colors.dart';
+import '../../core/localization/app_localizations.dart';
 import '../../core/localization/locale_provider.dart';
-import '../core/constants/app_colors.dart';
 
 class CareMateBottomNav extends StatelessWidget {
-  final int currentIndex;
-  final Function(int) onTap;
-
   const CareMateBottomNav({
-    Key? key,
+    super.key,
     required this.currentIndex,
     required this.onTap,
-  }) : super(key: key);
+  });
+
+  final int currentIndex;
+  final ValueChanged<int> onTap;
 
   @override
   Widget build(BuildContext context) {
     final loc = AppLocalizations.of(context);
     final isPersian =
         Provider.of<LocaleProvider>(context).locale.languageCode == 'fa';
-    final String fontFamily = isPersian ? 'Vazir' : 'Poppins';
+    final fontFamily = isPersian ? 'Vazir' : 'Poppins';
 
     return SafeArea(
       child: Container(
         margin: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
-        padding: const EdgeInsets.symmetric(vertical: 12),
+        padding: const EdgeInsets.symmetric(vertical: 8),
         decoration: BoxDecoration(
           color: Colors.white,
           borderRadius: BorderRadius.circular(35),
           boxShadow: [
             BoxShadow(
-              color: AppColors.primaryBlue
-                  .withOpacity(0.08), // سایه نرم و هماهنگ با تم اپ
+              color: AppColors.primaryBlue.withOpacity(0.08),
               blurRadius: 20,
               offset: const Offset(0, 10),
             ),
           ],
         ),
         child: Row(
-          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
           children: [
             _buildNavItem(
               icon: Icons.calendar_month_rounded,
@@ -52,7 +51,6 @@ class CareMateBottomNav extends StatelessWidget {
               index: 1,
               fontFamily: fontFamily,
             ),
-            // دکمه افزودن حالا به شکل مینیمال و هماهنگ درآمده است
             _buildNavItem(
               icon: Icons.medical_services,
               label: loc['nav_add_new_threadment'] ?? 'مدیریت درمان',
@@ -67,7 +65,7 @@ class CareMateBottomNav extends StatelessWidget {
             ),
             _buildNavItem(
               icon: Icons.home_rounded,
-              label: loc['nav_home'] ?? 'خانه', // داشبورد
+              label: loc['nav_home'] ?? 'خانه',
               index: 4,
               fontFamily: fontFamily,
             ),
@@ -88,29 +86,51 @@ class CareMateBottomNav extends StatelessWidget {
         ? AppColors.primaryBlue
         : AppColors.secondaryText.withOpacity(0.5);
 
-    return GestureDetector(
-      onTap: () => onTap(index),
-      behavior: HitTestBehavior.opaque,
-      child: Column(
-        mainAxisSize: MainAxisSize
-            .min, // باعث می‌شود ارتفاع دکمه فقط به اندازه محتوا باشد
-        children: [
-          Icon(
-            icon,
-            size: 26,
-            color: color,
-          ),
-          const SizedBox(height: 4),
-          Text(
-            label,
-            style: TextStyle(
-              fontFamily: fontFamily,
-              fontSize: 10,
-              fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
-              color: color,
+    return Expanded(
+      child: Semantics(
+        key: ValueKey<String>('caremate-nav-$index'),
+        button: true,
+        selected: isSelected,
+        label: label,
+        child: Tooltip(
+          message: label,
+          child: Material(
+            color: Colors.transparent,
+            child: InkWell(
+              onTap: () => onTap(index),
+              customBorder: const StadiumBorder(),
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(minHeight: 48),
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 1),
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(icon, size: 26, color: color),
+                      const SizedBox(height: 4),
+                      Text(
+                        label,
+                        maxLines: 1,
+                        overflow: TextOverflow.fade,
+                        softWrap: false,
+                        textAlign: TextAlign.center,
+                        excludeFromSemantics: true,
+                        style: TextStyle(
+                          fontFamily: fontFamily,
+                          fontSize: 10,
+                          fontWeight:
+                              isSelected ? FontWeight.w700 : FontWeight.w500,
+                          color: color,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
             ),
           ),
-        ],
+        ),
       ),
     );
   }
