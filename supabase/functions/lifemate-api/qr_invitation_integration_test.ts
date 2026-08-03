@@ -40,10 +40,11 @@ Deno.test({
       );
 
       await assertApiError(
-        () => db.createQrInvitation(patient, {
-          consentVersion: "wrong",
-          confirmConsent: true,
-        }),
+        () =>
+          db.createQrInvitation(patient, {
+            consentVersion: "wrong",
+            confirmConsent: true,
+          }),
         400,
         "patient_consent_required",
       );
@@ -56,11 +57,12 @@ Deno.test({
       assert(typeof first.token === "string");
 
       await assertApiError(
-        () => db.acceptInvitation(patient, {
-          token: first.token,
-          consentVersion: "care-caregiver-consent-v1",
-          confirmConsent: true,
-        }),
+        () =>
+          db.acceptInvitation(patient, {
+            token: first.token,
+            consentVersion: "care-caregiver-consent-v1",
+            confirmConsent: true,
+          }),
         400,
         "self_invitation_not_allowed",
       );
@@ -72,13 +74,14 @@ Deno.test({
       assert(first.token !== second.token);
 
       await assertApiError(
-        () => db.acceptInvitation(caregiver, {
-          token: first.token,
-          consentVersion: "care-caregiver-consent-v1",
-          confirmConsent: true,
-        }),
-        404,
-        "invitation_not_found",
+        () =>
+          db.acceptInvitation(caregiver, {
+            token: first.token,
+            consentVersion: "care-caregiver-consent-v1",
+            confirmConsent: true,
+          }),
+        409,
+        "invitation_not_pending",
       );
 
       const relationship = await db.acceptInvitation(caregiver, {
@@ -91,13 +94,14 @@ Deno.test({
       assertEquals(relationship.caregiverUserId, caregiver.appUserId);
 
       await assertApiError(
-        () => db.acceptInvitation(secondCaregiver, {
-          token: second.token,
-          consentVersion: "care-caregiver-consent-v1",
-          confirmConsent: true,
-        }),
-        404,
-        "invitation_not_found",
+        () =>
+          db.acceptInvitation(secondCaregiver, {
+            token: second.token,
+            consentVersion: "care-caregiver-consent-v1",
+            confirmConsent: true,
+          }),
+        409,
+        "invitation_not_pending",
       );
 
       const expired = await db.createQrInvitation(patient, {
@@ -110,11 +114,12 @@ Deno.test({
         where id = ${expired.id}
       `;
       await assertApiError(
-        () => db.acceptInvitation(secondCaregiver, {
-          token: expired.token,
-          consentVersion: "care-caregiver-consent-v1",
-          confirmConsent: true,
-        }),
+        () =>
+          db.acceptInvitation(secondCaregiver, {
+            token: expired.token,
+            consentVersion: "care-caregiver-consent-v1",
+            confirmConsent: true,
+          }),
         410,
         "invitation_expired",
       );
