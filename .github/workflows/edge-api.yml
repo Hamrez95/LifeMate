@@ -1,45 +1,137 @@
-name: restore-edge-api-workflow
+name: edge-api
 
 on:
+  workflow_dispatch:
   pull_request:
     paths:
+      - 'supabase/functions/lifemate-api/**'
+      - 'supabase/migrations/**'
+      - 'backend-dotnet/src/LifeMate.Infrastructure/Persistence/**'
+      - '.config/dotnet-tools.json'
       - '.github/workflows/edge-api.yml'
+      - 'AGENTS.md'
+  push:
+    branches: [ main ]
+    paths:
+      - 'supabase/functions/lifemate-api/**'
+      - 'supabase/migrations/**'
+      - 'backend-dotnet/src/LifeMate.Infrastructure/Persistence/**'
+      - '.config/dotnet-tools.json'
+      - '.github/workflows/edge-api.yml'
+      - 'AGENTS.md'
 
 permissions:
-  contents: write
+  contents: read
 
 concurrency:
-  group: restore-edge-api-workflow
-  cancel-in-progress: false
+  group: edge-api-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
-  restore:
+  check-test:
     runs-on: ubuntu-24.04
-    timeout-minutes: 5
+    timeout-minutes: 10
+    defaults:
+      run:
+        working-directory: supabase/functions/lifemate-api
     steps:
-      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
         with:
-          ref: feat/bb287-parity-completion
-          fetch-depth: 0
+          show-progress: false
+          persist-credentials: false
 
-      - name: Restore reviewed permanent workflow
+      - uses: denoland/setup-deno@22d081ff2d3a40755e97629de92e3bcbfa7cf2ed
+        with:
+          deno-version: v2.9.4
+
+      - name: Deno environment
+        run: deno --version
+
+      - name: Format
+        run: deno fmt --check
+
+      - name: Type check
+        run: deno task check
+
+      - name: Unit tests
+        run: deno task test
+
+      - name: Security invariants
         shell: bash
         run: |
           set -euo pipefail
-          curl --fail --silent --show-error \
-            https://raw.githubusercontent.com/Hamrez95/LifeMate/94f36e7bcdfa9c46f200ad2d23612ab056b88b2b/.github/workflows/edge-api.yml \
-            --output .github/workflows/edge-api.yml
-          grep -q 'contents: read' .github/workflows/edge-api.yml
-          grep -q 'postgres-role-journey' .github/workflows/edge-api.yml
-          ! grep -q 'one-shot' .github/workflows/edge-api.yml
-          git diff --check
+          ! grep -R --line-number 'SUPABASE_SERVICE_ROLE_KEY' .
+          test "$(grep -R --include='*.ts' --exclude='*_test.ts' -l 'postgres(databaseUrl' . | wc -l)" -eq 3
+          grep -q "from vault.decrypted_secrets" runtime_config.ts
+          grep -q "await sql.end({ timeout: 5 })" runtime_config.ts
+          grep -q 'value.length >= 32' runtime_config.ts
+          grep -q 'value !== serviceRole' runtime_config.ts
+          ! grep -q 'sources.defaultSecret' runtime_config.ts
+          grep -q 'actor_user_id = \${userId}' database.ts
+          grep -q 'client_request_id = \${clientRequestId}' database.ts
+          grep -q 'on conflict (patient_user_id, client_request_id) do nothing' care_events.ts
+          grep -q "and status = 'Active'" care_events.ts
+          grep -q 'care_access_denied' care_events.ts
+          grep -q 'care_event.created' care_events.ts
+          grep -q 'revoke all privileges on table lifemate.care_events' ../../migrations/20260803173000_add_consent_scoped_care_events.sql
 
-      - name: Commit restored workflow
-        shell: bash
+  postgres-role-journey:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    services:
+      postgres:
+        image: postgres:17.5-alpine
+        env:
+          POSTGRES_DB: lifemate_edge_tests
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d lifemate_edge_tests"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      DOTNET_CLI_TELEMETRY_OPTOUT: '1'
+      DOTNET_NOLOGO: '1'
+      ASPNETCORE_ENVIRONMENT: Testing
+      ConnectionStrings__LifeMateDb: Host=localhost;Port=5432;Database=lifemate_edge_tests;Username=postgres;Password=postgres
+      Security__Invitations__ContactPepper: integration-only-invitation-contact-pepper-32-bytes-minimum
+      TEST_DATABASE_URL: postgres://postgres:postgres@localhost:5432/lifemate_edge_tests
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          show-progress: false
+          persist-credentials: false
+
+      - uses: actions/setup-dotnet@67a3573c9a986a3f9c594539f4ab511d57bb3ce9
+        with:
+          dotnet-version: '10.0.x'
+
+      - uses: denoland/setup-deno@22d081ff2d3a40755e97629de92e3bcbfa7cf2ed
+        with:
+          deno-version: v2.9.4
+
+      - name: Restore backend and EF tools
         run: |
-          set -euo pipefail
-          git config user.name 'github-actions[bot]'
-          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git add .github/workflows/edge-api.yml
-          git commit -m 'chore(ci): restore permanent Edge verification workflow'
-          git push origin HEAD:feat/bb287-parity-completion
+          dotnet restore backend-dotnet/LifeMate.sln --verbosity minimal
+          dotnet tool restore
+
+      - name: Build migration source
+        run: dotnet build backend-dotnet/LifeMate.sln --configuration Release --no-restore
+
+      - name: Apply canonical schema
+        run: |
+          dotnet ef database update \
+            --configuration Release \
+            --no-build \
+            --project backend-dotnet/src/LifeMate.Infrastructure \
+            --startup-project backend-dotnet/src/LifeMate.Api
+          psql "$TEST_DATABASE_URL" \
+            --set=ON_ERROR_STOP=1 \
+            --file=supabase/migrations/20260803173000_add_consent_scoped_care_events.sql
+
+      - name: Run patient caregiver and unrelated-user journey
+        working-directory: supabase/functions/lifemate-api
+        run: deno task test:integration
