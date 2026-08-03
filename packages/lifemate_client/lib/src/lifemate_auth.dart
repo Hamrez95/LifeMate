@@ -1,6 +1,8 @@
 import 'package:flutter/foundation.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import 'feature_flags.dart';
+
 class LifeMateAuth {
   const LifeMateAuth._();
 
@@ -15,6 +17,9 @@ class LifeMateAuth {
   }
 
   static Future<bool> signInWithGoogle({required String appName}) {
+    if (!LifeMateFeatureFlags.googleAuthEnabled) {
+      return Future<bool>.value(false);
+    }
     return Supabase.instance.client.auth.signInWithOAuth(
       OAuthProvider.google,
       redirectTo: kIsWeb ? null : callbackUrlForApp(appName),
