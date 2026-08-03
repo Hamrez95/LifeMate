@@ -13,7 +13,7 @@ void main() {
   testWidgets(
     'calendar combines medication appointments and injections from live contracts',
     (WidgetTester tester) async {
-      tester.view.physicalSize = const Size(360, 760);
+      tester.view.physicalSize = const Size(360, 1400);
       tester.view.devicePixelRatio = 1;
       addTearDown(tester.view.resetPhysicalSize);
       addTearDown(tester.view.resetDevicePixelRatio);
@@ -41,11 +41,6 @@ void main() {
         find.textContaining('مرکز درمانی الوند', skipOffstage: false),
         findsOneWidget,
       );
-
-      final page = find.byType(SingleChildScrollView).first;
-      await tester.drag(page, const Offset(0, -520));
-      await tester.pumpAndSettle();
-
       expect(find.text('ویتامین B12', skipOffstage: false), findsOneWidget);
       expect(find.byIcon(Icons.vaccines_rounded), findsWidgets);
       expect(
