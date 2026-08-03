@@ -1,4 +1,5 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
+import { createCareEventStore } from "./care_events.ts";
 import { type AuthUser, createLifeMateDatabase } from "./database.ts";
 import { corsHeaders, json, problem, safeError } from "./http.ts";
 import { loadRuntimeConfig } from "./runtime_config.ts";
@@ -19,6 +20,7 @@ const {
 } = await loadRuntimeConfig();
 
 const db = createLifeMateDatabase(databaseUrl, contactHashingSecret);
+const careEvents = createCareEventStore(databaseUrl);
 
 Deno.serve(async (request: Request) => {
   const correlationId = crypto.randomUUID();
@@ -147,6 +149,27 @@ async function route(
     );
   }
 
+  if (request.method === "GET" && path === "/api/v1/care-events") {
+    const url = new URL(request.url);
+    return json(
+      await careEvents.listCareEvents(
+        identity.appUserId,
+        url.searchParams.get("fromDate"),
+        url.searchParams.get("toDate"),
+      ),
+    );
+  }
+  if (request.method === "POST" && path === "/api/v1/care-events") {
+    enforceRateLimit(`care-event:${identity.appUserId}`, 30, 60_000);
+    return json(
+      await careEvents.createCareEvent(
+        identity.appUserId,
+        await readJsonObject(request),
+      ),
+      201,
+    );
+  }
+
   if (request.method === "GET" && path === "/api/v1/care/invitations") {
     return json(await db.listInvitations(identity.appUserId));
   }
@@ -188,6 +211,21 @@ async function route(
       await db.listCareDoseOccurrences(
         identity.appUserId,
         careDoseMatch[1],
+        url.searchParams.get("fromDate"),
+        url.searchParams.get("toDate"),
+      ),
+    );
+  }
+
+  const careEventMatch = path.match(
+    /^\/api\/v1\/care\/patients\/([0-9a-f-]{36})\/care-events$/i,
+  );
+  if (request.method === "GET" && careEventMatch) {
+    const url = new URL(request.url);
+    return json(
+      await careEvents.listCareRecipientEvents(
+        identity.appUserId,
+        careEventMatch[1],
         url.searchParams.get("fromDate"),
         url.searchParams.get("toDate"),
       ),
