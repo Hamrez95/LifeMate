@@ -233,6 +233,32 @@ class _CalendarScreenState extends State<CalendarScreen> {
     if (monthChanged) await _loadMonth();
   }
 
+  Widget _eventCard(
+    BuildContext context,
+    ScheduleItemModel item,
+    AppLocalizations loc,
+    bool isPersian,
+  ) {
+    final now = DateTime.now();
+    final isFuture = _dateOnly(_selectedDate).isAfter(_dateOnly(now));
+    final isMedicine = item.type == 'medicine';
+    final isMissed = isMedicine &&
+        (item.status == 'missed' ||
+            (!item.isDone && _isTimePassed(item.time, _selectedDate)));
+    final showDoneMark = isMedicine && item.isDone && !isFuture;
+    return Padding(
+      key: ValueKey<String>('calendar-event-${item.id}'),
+      padding: const EdgeInsets.only(bottom: 12),
+      child: ScheduleItemCard(
+        item: item,
+        loc: loc,
+        isPersian: isPersian,
+        isMissed: isMissed,
+        showDone: showDoneMark,
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final loc = AppLocalizations.of(context);
@@ -323,36 +349,12 @@ class _CalendarScreenState extends State<CalendarScreen> {
                           ),
                         )
                       else
-                        ListView.builder(
-                          shrinkWrap: true,
-                          physics: const NeverScrollableScrollPhysics(),
-                          itemCount: selectedEvents.length,
-                          itemBuilder: (context, index) {
-                            final item = selectedEvents[index];
-                            final now = DateTime.now();
-                            final isFuture = _dateOnly(_selectedDate)
-                                .isAfter(_dateOnly(now));
-                            final isMedicine = item.type == 'medicine';
-                            final isMissed = isMedicine &&
-                                (item.status == 'missed' ||
-                                    (!item.isDone &&
-                                        _isTimePassed(
-                                          item.time,
-                                          _selectedDate,
-                                        )));
-                            final showDoneMark =
-                                isMedicine && item.isDone && !isFuture;
-                            return Padding(
-                              padding: const EdgeInsets.only(bottom: 12),
-                              child: ScheduleItemCard(
-                                item: item,
-                                loc: loc,
-                                isPersian: isPersian,
-                                isMissed: isMissed,
-                                showDone: showDoneMark,
-                              ),
-                            );
-                          },
+                        Column(
+                          key: const ValueKey<String>('calendar-event-list'),
+                          children: [
+                            for (final item in selectedEvents)
+                              _eventCard(context, item, loc, isPersian),
+                          ],
                         ),
                     ],
                   ),
