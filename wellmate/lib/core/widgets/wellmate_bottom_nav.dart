@@ -41,25 +41,25 @@ class WellMateBottomNav extends StatelessWidget {
           children: [
             _buildNavItem(
               icon: Icons.calendar_month_rounded,
-              label: loc['nav_calendar'] ?? 'تقویم',
+              label: loc['nav_calendar'],
               index: 0,
               fontFamily: fontFamily,
             ),
             _buildNavItem(
               icon: Icons.medication_rounded,
-              label: loc['nav_medications'] ?? 'داروها',
+              label: loc['nav_medications'],
               index: 1,
               fontFamily: fontFamily,
             ),
             _buildNavItem(
               icon: Icons.add_circle_outline_rounded,
-              label: loc['nav_add_treatment'] ?? 'افزودن درمان',
+              label: loc['nav_add_treatment'],
               index: 2,
               fontFamily: fontFamily,
             ),
             _buildNavItem(
               icon: Icons.home_rounded,
-              label: loc['nav_home'] ?? 'خانه',
+              label: loc['nav_home'],
               index: 3,
               fontFamily: fontFamily,
             ),
@@ -101,19 +101,20 @@ class WellMateBottomNav extends StatelessWidget {
                     children: [
                       Icon(icon, size: 26, color: color),
                       const SizedBox(height: 4),
-                      Text(
-                        label,
-                        maxLines: 1,
-                        overflow: TextOverflow.fade,
-                        softWrap: false,
-                        textAlign: TextAlign.center,
-                        excludeFromSemantics: true,
-                        style: TextStyle(
-                          fontFamily: fontFamily,
-                          fontSize: 10,
-                          fontWeight:
-                              isSelected ? FontWeight.w700 : FontWeight.w500,
-                          color: color,
+                      ExcludeSemantics(
+                        child: Text(
+                          label,
+                          maxLines: 1,
+                          overflow: TextOverflow.fade,
+                          softWrap: false,
+                          textAlign: TextAlign.center,
+                          style: TextStyle(
+                            fontFamily: fontFamily,
+                            fontSize: 10,
+                            fontWeight:
+                                isSelected ? FontWeight.w700 : FontWeight.w500,
+                            color: color,
+                          ),
                         ),
                       ),
                     ],
