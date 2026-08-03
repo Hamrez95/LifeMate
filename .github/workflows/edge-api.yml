@@ -211,7 +211,6 @@ jobs:
           replacement = '\n'.join(lines) + '\n'
           path.write_text(text[:start] + replacement + text[end:])
           PY
-          dart format wellmate/lib/screens/treatments/care_plan_hub_screen.dart
           git diff --check
           grep -q 'return Stack' \
             wellmate/lib/screens/treatments/care_plan_hub_screen.dart
