@@ -50,16 +50,20 @@ void main() {
       final appointmentForm = find.byKey(
         const ValueKey<String>('wellmate-appointment-form'),
       );
-      final appointmentScroll = find.descendant(
-        of: appointmentForm,
-        matching: find.byType(Scrollable),
-      );
+      final appointmentScroll = find
+          .descendant(
+            of: appointmentForm,
+            matching: find.byType(Scrollable),
+            skipOffstage: false,
+          )
+          .first;
       expect(appointmentForm, findsOneWidget);
       expect(find.text('نام پزشک'), findsOneWidget);
 
       final address = find.descendant(
         of: appointmentForm,
         matching: find.text('آدرس کامل', skipOffstage: false),
+        skipOffstage: false,
       );
       await tester.scrollUntilVisible(
         address,
