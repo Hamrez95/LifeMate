@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:lifemate_client/lifemate_client.dart';
 import 'package:provider/provider.dart';
@@ -44,11 +45,12 @@ void main() {
       expect(find.byKey(const Key('add-treatment-time')), findsOneWidget);
       expect(find.text('منطقه زمانی'), findsOneWidget);
       expect(find.text('Europe/Berlin'), findsOneWidget);
-      expect(
-        tester.takeException(),
-        isNull,
-        reason: 'The schedule tab overflowed after navigation.',
-      );
+
+      final layoutException = tester.takeException();
+      if (layoutException != null) {
+        debugDumpRenderTree();
+        fail('The schedule tab overflowed after navigation: $layoutException');
+      }
     },
   );
 }
