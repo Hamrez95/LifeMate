@@ -108,10 +108,11 @@ Deno.test({
         consentVersion: "care-patient-consent-v1",
         confirmConsent: true,
       });
+      const expiredId = String(expired.id);
       await admin`
         update lifemate.care_invitations
         set expires_at_utc = now() - interval '1 minute'
-        where id = ${expired.id}
+        where id = ${expiredId}
       `;
       await assertApiError(
         () =>
