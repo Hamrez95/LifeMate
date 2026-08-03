@@ -4,7 +4,7 @@ on:
   pull_request:
     paths:
       - '.github/workflows/edge-api.yml'
-      - '.github/workflows/one-shot-auth-pairing.yml'
+      - 'tools/maintenance/auth_pairing_patch.py'
 
 permissions:
   contents: write
@@ -23,29 +23,11 @@ jobs:
           ref: feat/bb287-parity-completion
           fetch-depth: 0
 
-      - name: Execute reviewed staged patch
+      - name: Execute deterministic source patch
         shell: bash
         run: |
           set -euo pipefail
-          python3 - <<'PY'
-          from pathlib import Path
-
-          workflow = Path('.github/workflows/one-shot-auth-pairing.yml').read_text()
-          start_marker = "          python3 - <<'PY'\n"
-          end_marker = "\n          PY\n\n          git diff --check"
-          if start_marker not in workflow or end_marker not in workflow:
-              raise SystemExit('Staged patch markers were not found.')
-          raw = workflow.split(start_marker, 1)[1].split(end_marker, 1)[0]
-          script = '\n'.join(
-              line[10:] if line.startswith('          ') else line
-              for line in raw.splitlines()
-          )
-          script = script.replace(
-              "raise SystemExit(f'{path}: expected one target, found {count}')",
-              "raise SystemExit(f'{path}: target={old[:90]!r}, found {count}')",
-          )
-          exec(compile(script, 'auth_pairing_patch.py', 'exec'))
-          PY
+          python3 tools/maintenance/auth_pairing_patch.py
           git diff --check
           grep -q 'auth-google' packages/lifemate_client/lib/src/session_gate.dart
           grep -q 'createQrInvitation' supabase/functions/lifemate-api/database.ts
