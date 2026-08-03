@@ -13,7 +13,10 @@ void main() {
   testWidgets(
     'calendar combines medication appointments and injections from live contracts',
     (WidgetTester tester) async {
-      tester.view.physicalSize = const Size(360, 1400);
+      // This test verifies the complete live-contract composition rather than
+      // viewport virtualization. Small-screen scrolling and overflow are covered
+      // by the dedicated accessibility tests, so keep both event cards mounted.
+      tester.view.physicalSize = const Size(360, 2400);
       tester.view.devicePixelRatio = 1;
       addTearDown(tester.view.resetPhysicalSize);
       addTearDown(tester.view.resetDevicePixelRatio);
@@ -41,17 +44,6 @@ void main() {
         find.textContaining('مرکز درمانی الوند', skipOffstage: false),
         findsOneWidget,
       );
-
-      // The event list lives below the month calendar inside the page scroll.
-      // On a small viewport the builder does not construct the second card until
-      // the user scrolls, so exercise the real interaction before asserting the
-      // injection mapping rather than relying on an oversized test viewport.
-      await tester.drag(
-        find.byType(SingleChildScrollView),
-        const Offset(0, -600),
-      );
-      await tester.pumpAndSettle();
-
       expect(find.text('ویتامین B12', skipOffstage: false), findsOneWidget);
       expect(find.byIcon(Icons.vaccines_rounded), findsWidgets);
       expect(
