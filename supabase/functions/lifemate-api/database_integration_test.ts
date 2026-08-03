@@ -144,7 +144,10 @@ Deno.test({
         target.date,
       );
       assert(patientEvents.some((event) => event.id === appointment.id));
-      assertEquals(patientEvents[0]?.addressLine, appointmentPayload.addressLine);
+      assertEquals(
+        patientEvents[0]?.addressLine,
+        appointmentPayload.addressLine,
+      );
 
       await assertApiError(
         () =>
