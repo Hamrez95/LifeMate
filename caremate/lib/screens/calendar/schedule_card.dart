@@ -1,53 +1,73 @@
 import 'package:flutter/material.dart';
+
 import '../../../core/constants/app_colors.dart';
 import '../../../core/utils/string_extensions.dart';
 import '../../../models/event_model.dart';
 
 class ScheduleCard extends StatelessWidget {
+  const ScheduleCard({
+    super.key,
+    required this.event,
+    required this.font,
+    required this.isPersian,
+  });
+
   final EventModel event;
   final TextStyle font;
   final bool isPersian;
 
-  const ScheduleCard({
-    Key? key,
-    required this.event,
-    required this.font,
-    required this.isPersian,
-  }) : super(key: key);
+  bool get _isMedication => event.type == EventType.medicine;
 
-  // فانکشن‌های کمکی که فقط به این ویجت مربوط هستند
   Map<String, dynamic> _getEventTheme(EventType type) {
     switch (type) {
       case EventType.medicine:
-        return {'color': Colors.pinkAccent, 'icon': Icons.medication};
+        return {'color': Colors.pinkAccent, 'icon': Icons.medication_rounded};
+      case EventType.appointment:
       case EventType.doctor:
-        return {'color': Colors.blueAccent, 'icon': Icons.medical_services};
+        return {
+          'color': Colors.blueAccent,
+          'icon': Icons.medical_services_rounded,
+        };
+      case EventType.injection:
       case EventType.checkup:
-        return {'color': Colors.orangeAccent, 'icon': Icons.vaccines};
+        return {'color': Colors.orangeAccent, 'icon': Icons.vaccines_rounded};
       case EventType.other:
-      default:
-        return {'color': AppColors.darkBlue, 'icon': Icons.event};
+        return {'color': AppColors.darkBlue, 'icon': Icons.event_rounded};
     }
   }
 
   DateTime _getEventDateTime(EventModel event) {
     final timeParts = event.time.split(':');
-    return DateTime(event.date.year, event.date.month, event.date.day,
-        int.parse(timeParts[0]), int.parse(timeParts[1]));
+    final hour = int.tryParse(timeParts.first) ?? 0;
+    final minute = timeParts.length > 1 ? int.tryParse(timeParts[1]) ?? 0 : 0;
+    return DateTime(
+      event.date.year,
+      event.date.month,
+      event.date.day,
+      hour,
+      minute,
+    );
   }
 
   @override
   Widget build(BuildContext context) {
     final theme = _getEventTheme(event.type);
-    final now = DateTime.now();
     final eventDateTime = _getEventDateTime(event);
-    final bool isPast = eventDateTime.isBefore(now);
-    final bool isOverdue =
-        isPast && (event.isCompleted == false || event.isCompleted == null);
-    final Color cardColor = isOverdue ? Colors.amber.shade100 : Colors.white;
+    final isPast = eventDateTime.isBefore(DateTime.now());
+    final isOverdue = _isMedication &&
+        isPast &&
+        (event.isCompleted == false || event.isCompleted == null);
+    final cardColor = isOverdue ? Colors.amber.shade100 : Colors.white;
 
     final Widget statusIcon;
-    if (isPast) {
+    if (!_isMedication) {
+      statusIcon = Icon(
+        event.type == EventType.injection
+            ? Icons.vaccines_outlined
+            : Icons.event_available_rounded,
+        color: theme['color'] as Color,
+      );
+    } else if (isPast) {
       statusIcon = event.isCompleted == true
           ? const Icon(Icons.check_circle, color: Colors.green)
           : const Icon(Icons.cancel, color: Colors.red);
@@ -63,9 +83,10 @@ class ScheduleCard extends StatelessWidget {
         borderRadius: BorderRadius.circular(20),
         boxShadow: [
           BoxShadow(
-              color: Colors.black.withOpacity(0.03),
-              offset: const Offset(2, 4),
-              blurRadius: 8),
+            color: Colors.black.withValues(alpha: 0.03),
+            offset: const Offset(2, 4),
+            blurRadius: 8,
+          ),
         ],
       ),
       child: Row(
@@ -73,30 +94,47 @@ class ScheduleCard extends StatelessWidget {
           Container(
             padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
-              color: (theme['color'] as Color).withOpacity(0.15),
+              color: (theme['color'] as Color).withValues(alpha: 0.15),
               borderRadius: BorderRadius.circular(15),
             ),
-            child: Icon(theme['icon'], color: theme['color'], size: 24),
+            child: Icon(
+              theme['icon'] as IconData,
+              color: theme['color'] as Color,
+              size: 24,
+            ),
           ),
           const SizedBox(width: 16),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(event.title,
-                    style: font.copyWith(
-                        fontSize: 16, fontWeight: FontWeight.bold)),
+                Text(
+                  event.title,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: font.copyWith(
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
                 const SizedBox(height: 4),
                 Text(
-                  event.description != null
-                      ? '${event.time} - ${event.description}'
+                  event.description != null && event.description!.isNotEmpty
+                      ? '${event.time} • ${event.description}'
                           .toPersianDigit(isPersian)
                       : event.time.toPersianDigit(isPersian),
-                  style: font.copyWith(fontSize: 13, color: Colors.grey[600]),
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: font.copyWith(
+                    fontSize: 13,
+                    height: 1.45,
+                    color: Colors.grey[600],
+                  ),
                 ),
               ],
             ),
           ),
+          const SizedBox(width: 10),
           statusIcon,
         ],
       ),
