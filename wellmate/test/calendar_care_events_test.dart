@@ -36,13 +36,18 @@ void main() {
         find.text('ویزیت متخصص قلب', skipOffstage: false),
         findsOneWidget,
       );
-      expect(find.text('ویتامین B12', skipOffstage: false), findsOneWidget);
       expect(find.byIcon(Icons.medical_services_rounded), findsWidgets);
-      expect(find.byIcon(Icons.vaccines_rounded), findsWidgets);
       expect(
         find.textContaining('مرکز درمانی الوند', skipOffstage: false),
         findsOneWidget,
       );
+
+      final page = find.byType(SingleChildScrollView).first;
+      await tester.drag(page, const Offset(0, -520));
+      await tester.pumpAndSettle();
+
+      expect(find.text('ویتامین B12', skipOffstage: false), findsOneWidget);
+      expect(find.byIcon(Icons.vaccines_rounded), findsWidgets);
       expect(
         find.textContaining('مرکز تزریقات', skipOffstage: false),
         findsOneWidget,
