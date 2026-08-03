@@ -35,39 +35,41 @@ Deno.test("profile patch permits clearing the optional phone number", () => {
 });
 
 Deno.test("profile patch rejects stale-shape and invalid identity fields", () => {
-  for (const body of [
-    {
-      version: 0,
-      displayName: "Owner",
-      locale: "fa",
-      timeZone: "Asia/Tehran",
-    },
-    {
-      version: 1,
-      displayName: "",
-      locale: "fa",
-      timeZone: "Asia/Tehran",
-    },
-    {
-      version: 1,
-      displayName: "Owner",
-      phoneNumber: "not-a-phone",
-      locale: "fa",
-      timeZone: "Asia/Tehran",
-    },
-    {
-      version: 1,
-      displayName: "Owner",
-      locale: "persian",
-      timeZone: "Asia/Tehran",
-    },
-    {
-      version: 1,
-      displayName: "Owner",
-      locale: "fa",
-      timeZone: "Invalid/Zone",
-    },
-  ]) {
+  for (
+    const body of [
+      {
+        version: 0,
+        displayName: "Owner",
+        locale: "fa",
+        timeZone: "Asia/Tehran",
+      },
+      {
+        version: 1,
+        displayName: "",
+        locale: "fa",
+        timeZone: "Asia/Tehran",
+      },
+      {
+        version: 1,
+        displayName: "Owner",
+        phoneNumber: "not-a-phone",
+        locale: "fa",
+        timeZone: "Asia/Tehran",
+      },
+      {
+        version: 1,
+        displayName: "Owner",
+        locale: "persian",
+        timeZone: "Asia/Tehran",
+      },
+      {
+        version: 1,
+        displayName: "Owner",
+        locale: "fa",
+        timeZone: "Invalid/Zone",
+      },
+    ]
+  ) {
     assertThrows(() => normalizeProfilePatch(body), ApiError);
   }
 });
