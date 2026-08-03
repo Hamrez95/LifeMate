@@ -377,36 +377,39 @@ class _ProfileMenuTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return ListTile(
-      leading: Container(
-        width: 40,
-        height: 40,
-        decoration: BoxDecoration(
-          color: iconColor.withOpacity(0.15),
-          shape: BoxShape.circle,
+    return Material(
+      color: Colors.transparent,
+      child: ListTile(
+        leading: Container(
+          width: 40,
+          height: 40,
+          decoration: BoxDecoration(
+            color: iconColor.withOpacity(0.15),
+            shape: BoxShape.circle,
+          ),
+          child: Icon(icon, color: iconColor, size: 24),
         ),
-        child: Icon(icon, color: iconColor, size: 24),
-      ),
-      title: Text(
-        label,
-        style: TextStyle(
-          fontFamily: mainFont,
-          fontSize: 16,
-          color: AppColors.darkBlue,
+        title: Text(
+          label,
+          style: TextStyle(
+            fontFamily: mainFont,
+            fontSize: 16,
+            color: AppColors.darkBlue,
+          ),
         ),
-      ),
-      subtitle: subtitle == null
-          ? null
-          : Text(
-              subtitle!,
-              style: TextStyle(
-                fontFamily: mainFont,
-                fontSize: 11,
-                color: AppColors.secondaryText,
+        subtitle: subtitle == null
+            ? null
+            : Text(
+                subtitle!,
+                style: TextStyle(
+                  fontFamily: mainFont,
+                  fontSize: 11,
+                  color: AppColors.secondaryText,
+                ),
               ),
-            ),
-      trailing: const Icon(Icons.chevron_right_rounded, size: 20),
-      onTap: onTap,
+        trailing: const Icon(Icons.chevron_right_rounded, size: 20),
+        onTap: onTap,
+      ),
     );
   }
 }
