@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import '../../core/constants/app_colors.dart';
 import '../../core/localization/app_localizations.dart';
 import '../../core/localization/locale_provider.dart';
+import '../screens/care_event_management_screen.dart';
 
 class CareMateBottomNav extends StatelessWidget {
   const CareMateBottomNav({
@@ -40,30 +41,35 @@ class CareMateBottomNav extends StatelessWidget {
         child: Row(
           children: [
             _buildNavItem(
+              context: context,
               icon: Icons.calendar_month_rounded,
               label: loc['nav_calendar'],
               index: 0,
               fontFamily: fontFamily,
             ),
             _buildNavItem(
+              context: context,
               icon: Icons.switch_account_rounded,
               label: loc['nav_profiles'],
               index: 1,
               fontFamily: fontFamily,
             ),
             _buildNavItem(
+              context: context,
               icon: Icons.medical_services,
               label: loc['nav_add_new_threadment'],
               index: 2,
               fontFamily: fontFamily,
             ),
             _buildNavItem(
+              context: context,
               icon: Icons.family_restroom_rounded,
               label: loc['nav_caring'],
               index: 3,
               fontFamily: fontFamily,
             ),
             _buildNavItem(
+              context: context,
               icon: Icons.home_rounded,
               label: loc['nav_home'],
               index: 4,
@@ -76,6 +82,7 @@ class CareMateBottomNav extends StatelessWidget {
   }
 
   Widget _buildNavItem({
+    required BuildContext context,
     required IconData icon,
     required String label,
     required int index,
@@ -97,7 +104,20 @@ class CareMateBottomNav extends StatelessWidget {
           child: Material(
             color: Colors.transparent,
             child: InkWell(
-              onTap: () => onTap(index),
+              onTap: () {
+                if (index == 2 && currentIndex != 2) {
+                  Navigator.of(context).pushReplacement(
+                    PageRouteBuilder<void>(
+                      pageBuilder: (_, __, ___) =>
+                          const CareEventManagementScreen(),
+                      transitionDuration: Duration.zero,
+                      reverseTransitionDuration: Duration.zero,
+                    ),
+                  );
+                  return;
+                }
+                onTap(index);
+              },
               customBorder: const StadiumBorder(),
               child: ConstrainedBox(
                 constraints: const BoxConstraints(minHeight: 48),
