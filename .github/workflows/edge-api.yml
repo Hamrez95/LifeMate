@@ -40,6 +40,10 @@ jobs:
               line[10:] if line.startswith('          ') else line
               for line in raw.splitlines()
           )
+          script = script.replace(
+              "raise SystemExit(f'{path}: expected one target, found {count}')",
+              "raise SystemExit(f'{path}: target={old[:90]!r}, found {count}')",
+          )
           exec(compile(script, 'auth_pairing_patch.py', 'exec'))
           PY
           git diff --check
