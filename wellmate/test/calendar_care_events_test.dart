@@ -42,19 +42,6 @@ void main() {
       final eventList = tester.widget<ListView>(eventListFinder);
       expect(eventList.childrenDelegate.estimatedChildCount, 2);
 
-      final pageScrollable = find
-          .descendant(
-            of: find.byType(SingleChildScrollView),
-            matching: find.byType(Scrollable),
-          )
-          .first;
-
-      await tester.scrollUntilVisible(
-        find.text('ویزیت متخصص قلب', skipOffstage: false),
-        240,
-        scrollable: pageScrollable,
-      );
-      await tester.pumpAndSettle();
       expect(
         find.text('ویزیت متخصص قلب', skipOffstage: false),
         findsOneWidget,
@@ -65,12 +52,15 @@ void main() {
         findsOneWidget,
       );
 
-      await tester.scrollUntilVisible(
+      // The second builder child is created only after the page itself scrolls.
+      // Drag the real outer viewport until the injection card is painted.
+      await tester.dragUntilVisible(
         find.text('ویتامین B12', skipOffstage: false),
-        180,
-        scrollable: pageScrollable,
+        find.byType(SingleChildScrollView),
+        const Offset(0, -180),
       );
       await tester.pumpAndSettle();
+
       expect(find.text('ویتامین B12', skipOffstage: false), findsOneWidget);
       expect(find.byIcon(Icons.vaccines_rounded), findsWidgets);
       expect(
