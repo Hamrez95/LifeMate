@@ -11,6 +11,7 @@ import '../../localization/app_localizations.dart';
 import '../../localization/locale_provider.dart';
 import '../../providers/settings_provider.dart';
 import 'care_access_screen.dart';
+import 'editable_profile_screen.dart';
 import 'profile_destination_screens.dart';
 
 class ProfileScreen extends StatelessWidget {
@@ -198,7 +199,7 @@ class ProfileScreen extends StatelessWidget {
                         iconColor: Colors.blueAccent,
                         label: loc['profile_personal_info'] ?? 'اطلاعات شخصی',
                         mainFont: mainFont,
-                        onTap: () => open(const PersonalInformationScreen()),
+                        onTap: () => open(const EditableProfileScreen()),
                       ),
                       const Divider(height: 1, indent: 60, endIndent: 20),
                       _ProfileMenuTile(
