@@ -3,6 +3,7 @@ import 'package:lifemate_client/lifemate_client.dart';
 import 'package:provider/provider.dart';
 
 import '../../core/theme/app_style.dart';
+import 'treatment_schedule_payload.dart';
 
 class TabbedAddTreatmentScreen extends StatefulWidget {
   const TabbedAddTreatmentScreen({
@@ -27,9 +28,15 @@ class _TabbedAddTreatmentScreenState extends State<TabbedAddTreatmentScreen>
   final _instructions = TextEditingController();
 
   late final TabController _tabs;
-  TimeOfDay _time = TimeOfDay.now();
+  final List<TimeOfDay> _times = [TimeOfDay.now()];
+  final Set<String> _availableTimeZones = {
+    'Asia/Tehran',
+    'Europe/Berlin',
+    'UTC',
+  };
   DateTime _startDate = DateTime.now();
   DateTime? _endDate;
+  String _timeZone = 'Asia/Tehran';
   String _form = 'tablet';
   String _frequency = 'daily';
   final Set<int> _selectedWeekdays = <int>{
@@ -42,6 +49,7 @@ class _TabbedAddTreatmentScreenState extends State<TabbedAddTreatmentScreen>
     DateTime.sunday,
   };
   bool _busy = false;
+  bool _profileTimeZoneRequested = false;
   String? _error;
 
   static const _forms = <String, String>{
@@ -82,6 +90,15 @@ class _TabbedAddTreatmentScreenState extends State<TabbedAddTreatmentScreen>
   }
 
   @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (!_profileTimeZoneRequested) {
+      _profileTimeZoneRequested = true;
+      _loadProfileTimeZone();
+    }
+  }
+
+  @override
   void dispose() {
     _tabs.dispose();
     _name.dispose();
@@ -91,9 +108,62 @@ class _TabbedAddTreatmentScreenState extends State<TabbedAddTreatmentScreen>
     super.dispose();
   }
 
-  Future<void> _pickTime() async {
-    final value = await showTimePicker(context: context, initialTime: _time);
-    if (value != null && mounted) setState(() => _time = value);
+  Future<void> _loadProfileTimeZone() async {
+    try {
+      final currentUser =
+          await context.read<LifeMateApiClient>().getCurrentUser();
+      final profile = currentUser['profile'] as Map<String, dynamic>?;
+      final value = profile?['timeZone']?.toString().trim();
+      if (!mounted || value == null || value.isEmpty) return;
+      setState(() {
+        _availableTimeZones.add(value);
+        _timeZone = value;
+      });
+    } catch (error) {
+      debugPrint('WellMate profile timezone was not available: $error');
+    }
+  }
+
+  Future<void> _pickTime({int? replaceIndex}) async {
+    final initialTime = replaceIndex == null
+        ? (_times.isEmpty ? TimeOfDay.now() : _times.last)
+        : _times[replaceIndex];
+    final value =
+        await showTimePicker(context: context, initialTime: initialTime);
+    if (value == null || !mounted) return;
+
+    final duplicateIndex = _times.indexWhere(
+      (time) =>
+          time.hour == value.hour &&
+          time.minute == value.minute &&
+          _times.indexOf(time) != replaceIndex,
+    );
+    if (duplicateIndex >= 0) {
+      setState(() => _error = 'این ساعت قبلاً به برنامه اضافه شده است.');
+      return;
+    }
+
+    setState(() {
+      _error = null;
+      if (replaceIndex == null) {
+        _times.add(value);
+      } else {
+        _times[replaceIndex] = value;
+      }
+      _times.sort(
+        (left, right) =>
+            (left.hour * 60 + left.minute) -
+            (right.hour * 60 + right.minute),
+      );
+    });
+  }
+
+  void _removeTime(int index) {
+    if (_busy || _times.length <= 1) return;
+    setState(() {
+      _times.removeAt(index);
+      _error = null;
+    });
   }
 
   Future<void> _pickStartDate() async {
@@ -121,15 +191,28 @@ class _TabbedAddTreatmentScreenState extends State<TabbedAddTreatmentScreen>
     if (value != null && mounted) setState(() => _endDate = value);
   }
 
+  bool _validateScheduleSelections() {
+    if (_selectedWeekdays.isEmpty) {
+      setState(() => _error = 'حداقل یک روز هفته را انتخاب کنید.');
+      return false;
+    }
+    if (_times.isEmpty) {
+      setState(() => _error = 'حداقل یک ساعت مصرف را اضافه کنید.');
+      return false;
+    }
+    if (_timeZone.trim().isEmpty) {
+      setState(() => _error = 'منطقه زمانی را انتخاب کنید.');
+      return false;
+    }
+    return true;
+  }
+
   void _next() {
     FocusScope.of(context).unfocus();
     if (_tabs.index == 0 && !_medicineFormKey.currentState!.validate()) return;
     if (_tabs.index == 1) {
       if (!_scheduleFormKey.currentState!.validate()) return;
-      if (_selectedWeekdays.isEmpty) {
-        setState(() => _error = 'حداقل یک روز هفته را انتخاب کنید.');
-        return;
-      }
+      if (!_validateScheduleSelections()) return;
     }
     setState(() => _error = null);
     _tabs.animateTo((_tabs.index + 1).clamp(0, 2));
@@ -147,11 +230,8 @@ class _TabbedAddTreatmentScreenState extends State<TabbedAddTreatmentScreen>
       _tabs.animateTo(_name.text.trim().isEmpty ? 0 : 1);
       return;
     }
-    if (_selectedWeekdays.isEmpty) {
-      setState(() {
-        _error = 'حداقل یک روز هفته را انتخاب کنید.';
-        _tabs.animateTo(1);
-      });
+    if (!_validateScheduleSelections()) {
+      _tabs.animateTo(1);
       return;
     }
 
@@ -167,25 +247,22 @@ class _TabbedAddTreatmentScreenState extends State<TabbedAddTreatmentScreen>
         form: _form,
         notes: _instructions.text,
       );
-      final localTime =
-          '${_time.hour.toString().padLeft(2, '0')}:${_time.minute.toString().padLeft(2, '0')}';
       final selectedDays = _frequency == 'daily'
           ? _backendWeekdays.keys.toSet()
           : _selectedWeekdays;
+      final schedules = buildTreatmentSchedules(
+        weekdays: selectedDays,
+        times: _times,
+        backendWeekdays: _backendWeekdays,
+      );
       await api.createTreatmentPlan(
         medicationId: medication['id'].toString(),
         doseText: _dose.text,
         instructions: _instructions.text,
         startDate: _startDate,
         endDate: _endDate,
-        timeZone: 'Asia/Tehran',
-        schedules: [
-          for (final day in selectedDays)
-            {
-              'dayOfWeek': _backendWeekdays[day]!,
-              'localTime': localTime,
-            },
-        ],
+        timeZone: _timeZone,
+        schedules: schedules,
       );
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
@@ -214,7 +291,9 @@ class _TabbedAddTreatmentScreenState extends State<TabbedAddTreatmentScreen>
     _dose.clear();
     _instructions.clear();
     setState(() {
-      _time = TimeOfDay.now();
+      _times
+        ..clear()
+        ..add(TimeOfDay.now());
       _startDate = DateTime.now();
       _endDate = null;
       _form = 'tablet';
@@ -227,10 +306,11 @@ class _TabbedAddTreatmentScreenState extends State<TabbedAddTreatmentScreen>
     _tabs.animateTo(0);
   }
 
+  String get _timesLabel =>
+      _times.map(formatTreatmentTime).join('، ');
+
   @override
   Widget build(BuildContext context) {
-    final timeLabel =
-        '${_time.hour.toString().padLeft(2, '0')}:${_time.minute.toString().padLeft(2, '0')}';
     return Column(
       children: [
         Padding(
@@ -292,8 +372,8 @@ class _TabbedAddTreatmentScreenState extends State<TabbedAddTreatmentScreen>
             physics: const NeverScrollableScrollPhysics(),
             children: [
               _medicineTab(),
-              _scheduleTab(timeLabel),
-              _reviewTab(timeLabel),
+              _scheduleTab(),
+              _reviewTab(),
             ],
           ),
         ),
@@ -316,36 +396,54 @@ class _TabbedAddTreatmentScreenState extends State<TabbedAddTreatmentScreen>
           ),
         Padding(
           padding: const EdgeInsets.fromLTRB(20, 4, 20, 112),
-          child: Row(
-            children: [
-              if (_tabs.index > 0) ...[
-                Expanded(
-                  child: OutlinedButton.icon(
-                    onPressed: _busy ? null : _previous,
-                    icon: const Icon(Icons.arrow_back_rounded),
-                    label: const Text('مرحله قبل'),
-                  ),
-                ),
-                const SizedBox(width: 10),
-              ],
-              Expanded(
-                flex: 2,
-                child: FilledButton.icon(
-                  onPressed: _busy
-                      ? null
-                      : (_tabs.index == 2 ? _create : _next),
-                  icon: _busy
-                      ? const SizedBox.square(
-                          dimension: 18,
-                          child: CircularProgressIndicator(strokeWidth: 2),
-                        )
-                      : Icon(_tabs.index == 2
-                          ? Icons.add_task_rounded
-                          : Icons.arrow_forward_rounded),
-                  label: Text(_tabs.index == 2 ? 'ثبت درمان' : 'مرحله بعد'),
-                ),
-              ),
-            ],
+          child: LayoutBuilder(
+            builder: (context, constraints) {
+              final largeText =
+                  MediaQuery.textScalerOf(context).scale(1) > 1.3;
+              final stackButtons = constraints.maxWidth < 340 || largeText;
+              final previousButton = OutlinedButton.icon(
+                onPressed: _busy ? null : _previous,
+                icon: const Icon(Icons.arrow_back_rounded),
+                label: const Text('مرحله قبل'),
+              );
+              final primaryButton = FilledButton.icon(
+                onPressed:
+                    _busy ? null : (_tabs.index == 2 ? _create : _next),
+                icon: _busy
+                    ? const SizedBox.square(
+                        dimension: 18,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    : Icon(
+                        _tabs.index == 2
+                            ? Icons.add_task_rounded
+                            : Icons.arrow_forward_rounded,
+                      ),
+                label: Text(_tabs.index == 2 ? 'ثبت درمان' : 'مرحله بعد'),
+              );
+
+              if (stackButtons) {
+                return Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    if (_tabs.index > 0) ...[
+                      previousButton,
+                      const SizedBox(height: 8),
+                    ],
+                    primaryButton,
+                  ],
+                );
+              }
+              return Row(
+                children: [
+                  if (_tabs.index > 0) ...[
+                    Expanded(child: previousButton),
+                    const SizedBox(width: 10),
+                  ],
+                  Expanded(flex: 2, child: primaryButton),
+                ],
+              );
+            },
           ),
         ),
       ],
@@ -416,7 +514,8 @@ class _TabbedAddTreatmentScreenState extends State<TabbedAddTreatmentScreen>
     );
   }
 
-  Widget _scheduleTab(String timeLabel) {
+  Widget _scheduleTab() {
+    final timeZones = _availableTimeZones.toList()..sort();
     return SingleChildScrollView(
       padding: const EdgeInsets.fromLTRB(20, 8, 20, 24),
       child: Form(
@@ -426,7 +525,7 @@ class _TabbedAddTreatmentScreenState extends State<TabbedAddTreatmentScreen>
             _SectionCard(
               icon: Icons.schedule_rounded,
               title: 'زمان و مقدار مصرف',
-              subtitle: 'برنامه واقعی دوزها از این اطلاعات ساخته می‌شود.',
+              subtitle: 'برای هر نوبت روزانه یک ساعت اضافه کنید.',
               child: Column(
                 children: [
                   TextFormField(
@@ -444,24 +543,64 @@ class _TabbedAddTreatmentScreenState extends State<TabbedAddTreatmentScreen>
                     onChanged: (_) => setState(() {}),
                   ),
                   const SizedBox(height: 14),
-                  InkWell(
-                    onTap: _busy ? null : _pickTime,
-                    borderRadius: BorderRadius.circular(12),
-                    child: InputDecorator(
-                      decoration: const InputDecoration(
-                        labelText: 'زمان مصرف',
-                        prefixIcon: Icon(Icons.access_time_rounded),
-                        border: OutlineInputBorder(),
-                      ),
-                      child: Text(
-                        timeLabel,
-                        textDirection: TextDirection.ltr,
-                        style: const TextStyle(
-                          fontSize: 18,
-                          fontWeight: FontWeight.w800,
+                  Column(
+                    children: [
+                      for (var index = 0; index < _times.length; index++) ...[
+                        _DoseTimeTile(
+                          key: ValueKey(
+                            'treatment-time-${formatTreatmentTime(_times[index])}',
+                          ),
+                          time: _times[index],
+                          canRemove: _times.length > 1 && !_busy,
+                          onEdit: _busy
+                              ? null
+                              : () => _pickTime(replaceIndex: index),
+                          onRemove: _busy ? null : () => _removeTime(index),
                         ),
-                      ),
+                        if (index != _times.length - 1)
+                          const SizedBox(height: 8),
+                      ],
+                    ],
+                  ),
+                  const SizedBox(height: 10),
+                  SizedBox(
+                    width: double.infinity,
+                    child: OutlinedButton.icon(
+                      key: const Key('add-treatment-time'),
+                      onPressed: _busy ? null : _pickTime,
+                      icon: const Icon(Icons.add_alarm_rounded),
+                      label: const Text('افزودن ساعت مصرف'),
                     ),
+                  ),
+                  const SizedBox(height: 14),
+                  DropdownButtonFormField<String>(
+                    value: _timeZone,
+                    isExpanded: true,
+                    decoration: const InputDecoration(
+                      labelText: 'منطقه زمانی',
+                      helperText:
+                          'یادآورها و دوزها بر اساس این منطقه زمانی ساخته می‌شوند.',
+                      prefixIcon: Icon(Icons.public_rounded),
+                      border: OutlineInputBorder(),
+                    ),
+                    items: timeZones
+                        .map(
+                          (value) => DropdownMenuItem(
+                            value: value,
+                            child: Text(
+                              value,
+                              textDirection: TextDirection.ltr,
+                            ),
+                          ),
+                        )
+                        .toList(growable: false),
+                    onChanged: _busy
+                        ? null
+                        : (value) {
+                            if (value != null) {
+                              setState(() => _timeZone = value);
+                            }
+                          },
                   ),
                 ],
               ),
@@ -529,7 +668,7 @@ class _TabbedAddTreatmentScreenState extends State<TabbedAddTreatmentScreen>
     );
   }
 
-  Widget _reviewTab(String timeLabel) {
+  Widget _reviewTab() {
     final selectedDays = _frequency == 'daily'
         ? 'هر روز هفته'
         : _weekdayLabels.entries
@@ -563,16 +702,22 @@ class _TabbedAddTreatmentScreenState extends State<TabbedAddTreatmentScreen>
                 const Divider(height: 28),
                 _ReviewRow(
                   icon: Icons.schedule_rounded,
-                  label: 'دوز و ساعت',
+                  label: 'دوز و ساعت‌ها',
                   value:
-                      '${_dose.text.trim().isEmpty ? 'بدون دوز' : _dose.text.trim()} • $timeLabel',
-                  ltr: false,
+                      '${_dose.text.trim().isEmpty ? 'بدون دوز' : _dose.text.trim()} • ${_timesLabel.isEmpty ? 'بدون ساعت' : _timesLabel}',
                 ),
                 const Divider(height: 28),
                 _ReviewRow(
                   icon: Icons.repeat_rounded,
                   label: 'روزهای مصرف',
                   value: selectedDays.isEmpty ? 'انتخاب نشده' : selectedDays,
+                ),
+                const Divider(height: 28),
+                _ReviewRow(
+                  icon: Icons.public_rounded,
+                  label: 'منطقه زمانی',
+                  value: _timeZone,
+                  ltr: true,
                 ),
               ],
             ),
@@ -584,23 +729,22 @@ class _TabbedAddTreatmentScreenState extends State<TabbedAddTreatmentScreen>
             subtitle: 'تاریخ پایان اختیاری است.',
             child: Column(
               children: [
-                Row(
+                Wrap(
+                  spacing: 10,
+                  runSpacing: 10,
                   children: [
-                    Expanded(
-                      child: OutlinedButton.icon(
-                        onPressed: _busy ? null : _pickStartDate,
-                        icon: const Icon(Icons.play_circle_outline_rounded),
-                        label: Text('شروع ${_formatDate(_startDate)}'),
-                      ),
+                    OutlinedButton.icon(
+                      onPressed: _busy ? null : _pickStartDate,
+                      icon: const Icon(Icons.play_circle_outline_rounded),
+                      label: Text('شروع ${_formatDate(_startDate)}'),
                     ),
-                    const SizedBox(width: 10),
-                    Expanded(
-                      child: OutlinedButton.icon(
-                        onPressed: _busy ? null : _pickEndDate,
-                        icon: const Icon(Icons.stop_circle_outlined),
-                        label: Text(_endDate == null
+                    OutlinedButton.icon(
+                      onPressed: _busy ? null : _pickEndDate,
+                      icon: const Icon(Icons.stop_circle_outlined),
+                      label: Text(
+                        _endDate == null
                             ? 'بدون پایان'
-                            : 'پایان ${_formatDate(_endDate!)}'),
+                            : 'پایان ${_formatDate(_endDate!)}',
                       ),
                     ),
                   ],
@@ -609,7 +753,9 @@ class _TabbedAddTreatmentScreenState extends State<TabbedAddTreatmentScreen>
                   Align(
                     alignment: Alignment.centerRight,
                     child: TextButton.icon(
-                      onPressed: _busy ? null : () => setState(() => _endDate = null),
+                      onPressed: _busy
+                          ? null
+                          : () => setState(() => _endDate = null),
                       icon: const Icon(Icons.close_rounded),
                       label: const Text('حذف تاریخ پایان'),
                     ),
@@ -669,7 +815,11 @@ class _TabbedAddTreatmentScreenState extends State<TabbedAddTreatmentScreen>
         return 'مشخصات دارو معتبر نیست.';
       case 'invalid_treatment_plan':
       case 'schedule_required':
+      case 'invalid_schedule':
+      case 'duplicate_schedule':
         return 'برنامه درمان معتبر نیست.';
+      case 'invalid_timeZone':
+        return 'منطقه زمانی معتبر نیست.';
       case 'medication_name_conflict':
         return 'دارویی با این نام از قبل وجود دارد.';
       default:
@@ -678,6 +828,65 @@ class _TabbedAddTreatmentScreenState extends State<TabbedAddTreatmentScreen>
             : 'ثبت درمان انجام نشد. دوباره تلاش کنید.';
     }
   }
+}
+
+class _DoseTimeTile extends StatelessWidget {
+  const _DoseTimeTile({
+    super.key,
+    required this.time,
+    required this.canRemove,
+    required this.onEdit,
+    required this.onRemove,
+  });
+
+  final TimeOfDay time;
+  final bool canRemove;
+  final VoidCallback? onEdit;
+  final VoidCallback? onRemove;
+
+  @override
+  Widget build(BuildContext context) => Semantics(
+        label: 'ساعت مصرف ${formatTreatmentTime(time)}',
+        container: true,
+        child: Container(
+          padding: const EdgeInsetsDirectional.fromSTEB(14, 8, 6, 8),
+          decoration: BoxDecoration(
+            color: AppColors.primary.withValues(alpha: 0.07),
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(
+              color: AppColors.primary.withValues(alpha: 0.16),
+            ),
+          ),
+          child: Row(
+            children: [
+              const Icon(Icons.access_time_rounded, color: AppColors.primary),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Text(
+                  formatTreatmentTime(time),
+                  textDirection: TextDirection.ltr,
+                  style: const TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.w900,
+                  ),
+                ),
+              ),
+              IconButton(
+                tooltip: 'ویرایش ساعت',
+                onPressed: onEdit,
+                icon: const Icon(Icons.edit_outlined),
+              ),
+              IconButton(
+                tooltip: canRemove
+                    ? 'حذف ساعت'
+                    : 'حداقل یک ساعت باید باقی بماند',
+                onPressed: canRemove ? onRemove : null,
+                icon: const Icon(Icons.delete_outline_rounded),
+              ),
+            ],
+          ),
+        ),
+      );
 }
 
 class _SectionCard extends StatelessWidget {
