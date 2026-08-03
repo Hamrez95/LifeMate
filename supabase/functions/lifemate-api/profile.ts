@@ -13,6 +13,26 @@ type ProfileAuthSnapshot = {
 
 type Row = Record<string, any>;
 
+export type ProfilePatch = {
+  expectedVersion: number;
+  displayName: string;
+  phoneNumber: string | null;
+  locale: string;
+  timeZone: string;
+};
+
+export function normalizeProfilePatch(
+  body: Record<string, unknown>,
+): ProfilePatch {
+  return {
+    expectedVersion: requiredPositiveInt(body.version, "version"),
+    displayName: requiredText(body.displayName, "displayName", 120),
+    phoneNumber: optionalPhone(body.phoneNumber),
+    locale: requiredLocale(body.locale),
+    timeZone: requiredTimeZone(body.timeZone),
+  };
+}
+
 export function createProfileStore(databaseUrl: string) {
   const sql = postgres(databaseUrl, {
     max: 2,
@@ -40,23 +60,19 @@ export function createProfileStore(databaseUrl: string) {
     auth: ProfileAuthSnapshot,
     body: Record<string, unknown>,
   ): Promise<Record<string, unknown>> {
-    const expectedVersion = requiredPositiveInt(body.version, "version");
-    const displayName = requiredText(body.displayName, "displayName", 120);
-    const locale = requiredLocale(body.locale);
-    const timeZone = requiredTimeZone(body.timeZone);
-    const phoneNumber = optionalPhone(body.phoneNumber);
+    const patch = normalizeProfilePatch(body);
 
     return await sql.begin(async (tx: any) => {
       const rows = await tx`
         update lifemate.user_profiles
-        set display_name = ${displayName},
-            phone_number = ${phoneNumber},
+        set display_name = ${patch.displayName},
+            phone_number = ${patch.phoneNumber},
             email = ${auth.email},
-            locale = ${locale},
-            time_zone = ${timeZone},
+            locale = ${patch.locale},
+            time_zone = ${patch.timeZone},
             version = version + 1,
             updated_at_utc = now()
-        where user_id = ${userId} and version = ${expectedVersion}
+        where user_id = ${userId} and version = ${patch.expectedVersion}
         returning id, user_id, display_name, phone_number, email, locale,
                   time_zone, version, created_at_utc, updated_at_utc
       `;
