@@ -61,7 +61,7 @@ jobs:
         run: |
           set -euo pipefail
           ! grep -R --line-number 'SUPABASE_SERVICE_ROLE_KEY' .
-          test "$(grep -R --include='*.ts' --exclude='*_test.ts' -l 'postgres(databaseUrl' . | wc -l)" -eq 3
+          test "$(grep -R --include='*.ts' --exclude='*_test.ts' -l 'postgres(databaseUrl' . | wc -l)" -eq 4
           grep -q "from vault.decrypted_secrets" runtime_config.ts
           grep -q "await sql.end({ timeout: 5 })" runtime_config.ts
           grep -q 'value.length >= 32' runtime_config.ts
@@ -73,7 +73,11 @@ jobs:
           grep -q "and status = 'Active'" care_events.ts
           grep -q 'care_access_denied' care_events.ts
           grep -q 'care_event.created' care_events.ts
+          grep -q "'profile.updated'" profile.ts
+          grep -q 'version = version + 1' profile.ts
           grep -q 'revoke all privileges on table lifemate.care_events' ../../migrations/20260803173000_add_consent_scoped_care_events.sql
+          grep -q 'health_status_deny_client_access' ../../migrations/20260804002000_lock_down_public_health_status.sql
+          grep -q 'user_profiles_version_positive' ../../migrations/20260804003000_add_user_profile_version.sql
 
   postgres-role-journey:
     runs-on: ubuntu-24.04
@@ -128,9 +132,15 @@ jobs:
             --no-build \
             --project backend-dotnet/src/LifeMate.Infrastructure \
             --startup-project backend-dotnet/src/LifeMate.Api
-          psql "$TEST_DATABASE_URL" \
-            --set=ON_ERROR_STOP=1 \
-            --file=supabase/migrations/20260803173000_add_consent_scoped_care_events.sql
+          for migration in \
+            supabase/migrations/20260803173000_add_consent_scoped_care_events.sql \
+            supabase/migrations/20260804002000_lock_down_public_health_status.sql \
+            supabase/migrations/20260804003000_add_user_profile_version.sql
+          do
+            psql "$TEST_DATABASE_URL" \
+              --set=ON_ERROR_STOP=1 \
+              --file="$migration"
+          done
 
       - name: Run patient caregiver and unrelated-user journey
         working-directory: supabase/functions/lifemate-api
