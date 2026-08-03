@@ -1,0 +1,65 @@
+name: candidate-care-event-smoke
+
+on:
+  push:
+    branches:
+      - feat/bb287-parity-completion
+    paths:
+      - '.github/workflows/candidate-care-event-smoke.yml'
+      - 'tools/release/live-care-event-smoke.sh'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: candidate-care-event-smoke
+  cancel-in-progress: false
+
+env:
+  SUPABASE_URL: https://bwdvmniywyyijjauipnh.supabase.co
+  SUPABASE_PUBLISHABLE_KEY: ${{ vars.SUPABASE_PUBLISHABLE_KEY || 'sb_publishable_6YpBDD0gAPcenbYGukOeWg_fZXxUb27' }}
+  LIFEMATE_API_BASE_URL: https://bwdvmniywyyijjauipnh.supabase.co/functions/v1/lifemate-api-candidate
+  EXPECTED_RELEASE_VERSION: 2b9596909c91e815ef046da9b7451896546e1bbb
+
+jobs:
+  live-care-event-smoke:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    environment: beta
+    env:
+      PATIENT_EMAIL: ${{ secrets.BETA_PATIENT_EMAIL }}
+      PATIENT_PASSWORD: ${{ secrets.BETA_PATIENT_PASSWORD }}
+      CAREGIVER_EMAIL: ${{ secrets.BETA_CAREGIVER_EMAIL }}
+      CAREGIVER_PASSWORD: ${{ secrets.BETA_CAREGIVER_PASSWORD }}
+      UNRELATED_EMAIL: ${{ secrets.BETA_UNRELATED_EMAIL }}
+      UNRELATED_PASSWORD: ${{ secrets.BETA_UNRELATED_PASSWORD }}
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
+        with:
+          show-progress: false
+          persist-credentials: false
+
+      - name: Validate smoke script
+        shell: bash
+        run: |
+          set -euo pipefail
+          bash -n tools/release/live-care-event-smoke.sh
+          shellcheck tools/release/live-care-event-smoke.sh
+
+      - name: Execute candidate care-event journey
+        shell: bash
+        run: |
+          set -euo pipefail
+          bash tools/release/live-care-event-smoke.sh \
+            | tee /tmp/lifemate-candidate-care-event-smoke.json
+          jq -e \
+            '.status == "passed" and .release == env.EXPECTED_RELEASE_VERSION' \
+            /tmp/lifemate-candidate-care-event-smoke.json >/dev/null
+
+      - name: Upload redacted evidence
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: candidate-care-event-smoke
+          path: /tmp/lifemate-candidate-care-event-smoke.json
+          if-no-files-found: error
+          retention-days: 7
