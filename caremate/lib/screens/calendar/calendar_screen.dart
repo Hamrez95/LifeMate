@@ -480,21 +480,30 @@ class _CalendarScreenState extends State<CalendarScreen> {
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 24),
                 child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    Text(
-                      loc['cal_schedule'],
-                      style: font.copyWith(
-                        fontSize: 18,
-                        fontWeight: FontWeight.bold,
+                    Expanded(
+                      child: Text(
+                        loc['cal_schedule'],
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: font.copyWith(
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                        ),
                       ),
                     ),
-                    Text(
-                      '${_selectedDate.day} $monthName, ${_selectedDate.year}'
-                          .toPersianDigit(isPersian),
-                      style: font.copyWith(
-                        fontSize: 16,
-                        fontWeight: FontWeight.bold,
+                    const SizedBox(width: 12),
+                    Flexible(
+                      child: Text(
+                        '${_selectedDate.day} $monthName, ${_selectedDate.year}'
+                            .toPersianDigit(isPersian),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        textAlign: TextAlign.end,
+                        style: font.copyWith(
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                        ),
                       ),
                     ),
                   ],
