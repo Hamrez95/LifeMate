@@ -170,6 +170,16 @@ async function route(
     );
   }
 
+  if (
+    request.method === "POST" &&
+    path === "/api/v1/care/invitations/qr"
+  ) {
+    enforceRateLimit(`qr-invite:${identity.appUserId}`, 10, 60 * 60_000);
+    return json(
+      await db.createQrInvitation(identity, await readJsonObject(request)),
+      201,
+    );
+  }
   if (request.method === "GET" && path === "/api/v1/care/invitations") {
     return json(await db.listInvitations(identity.appUserId));
   }

@@ -13,6 +13,7 @@ import '../widgets/caremate_bottom_nav.dart';
 import '../widgets/custom_app_header.dart';
 import 'calendar/calendar_screen.dart';
 import 'feature_preview_screen.dart';
+import 'pairing/care_invitation_scanner_screen.dart';
 import 'profile_destination_screens.dart';
 
 class DashboardScreen extends StatefulWidget {
@@ -155,6 +156,115 @@ class _DashboardScreenState extends State<DashboardScreen> {
     }
   }
 
+  Future<void> _showPairingOptions() async {
+    final action = await showModalBottomSheet<String>(
+      context: context,
+      backgroundColor: Colors.transparent,
+      builder: (context) => Container(
+        padding: const EdgeInsets.fromLTRB(24, 18, 24, 28),
+        decoration: const BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.vertical(top: Radius.circular(30)),
+        ),
+        child: SafeArea(
+          top: false,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Text(
+                'اتصال به WellMate',
+                style: TextStyle(fontSize: 19, fontWeight: FontWeight.w900),
+              ),
+              const SizedBox(height: 8),
+              const Text(
+                'ساده‌ترین روش، اسکن QR روی گوشی بیمار است.',
+                textAlign: TextAlign.center,
+                style: TextStyle(color: AppColors.secondaryText),
+              ),
+              const SizedBox(height: 18),
+              ListTile(
+                leading: const CircleAvatar(
+                  child: Icon(Icons.qr_code_scanner_rounded),
+                ),
+                title: const Text('اسکن QR'),
+                subtitle: const Text('اتصال کوتاه‌مدت و یک‌بارمصرف'),
+                onTap: () => Navigator.pop(context, 'qr'),
+              ),
+              ListTile(
+                leading: const CircleAvatar(
+                  child: Icon(Icons.keyboard_rounded),
+                ),
+                title: const Text('ورود کد دعوت'),
+                subtitle: const Text('روش پشتیبان برای دعوت ایمیلی یا کد کپی‌شده'),
+                onTap: () => Navigator.pop(context, 'manual'),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+    if (!mounted) return;
+    if (action == 'qr') {
+      await _showQrScanner();
+    } else if (action == 'manual') {
+      await _showAcceptInvitation();
+    }
+  }
+
+  Future<void> _showQrScanner() async {
+    final token = await Navigator.of(context).push<String>(
+      MaterialPageRoute<String>(
+        builder: (_) => const CareInvitationScannerScreen(),
+      ),
+    );
+    if (token == null || !mounted) return;
+
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('پذیرش مراقبت؟'),
+        content: const Text(
+          'با تأیید، اطلاعات درمانی بیمار فقط در محدوده رضایت او در CareMate نمایش داده می‌شود و هر دو طرف می‌توانند دسترسی را قطع کنند.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('انصراف'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('تأیید و اتصال'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed == true && mounted) await _acceptInvitationToken(token);
+  }
+
+  Future<void> _acceptInvitationToken(String token) async {
+    setState(() => _accepting = true);
+    try {
+      await context
+          .read<LifeMateApiClient>()
+          .acceptCareInvitation(token: token);
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('دعوت مراقبت با موفقیت پذیرفته شد.')),
+      );
+      await _refresh();
+    } on LifeMateApiException catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(_friendlyApiError(error)),
+          backgroundColor: Theme.of(context).colorScheme.error,
+        ),
+      );
+    } finally {
+      if (mounted) setState(() => _accepting = false);
+    }
+  }
+
   Future<void> _showAcceptInvitation() async {
     final tokenController = TextEditingController();
     var confirmed = false;
@@ -229,27 +339,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
     tokenController.dispose();
     if (token == null || !mounted) return;
 
-    setState(() => _accepting = true);
-    try {
-      await context
-          .read<LifeMateApiClient>()
-          .acceptCareInvitation(token: token);
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('دعوت مراقبت با موفقیت پذیرفته شد.')),
-      );
-      await _refresh();
-    } on LifeMateApiException catch (error) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(_friendlyApiError(error)),
-          backgroundColor: Theme.of(context).colorScheme.error,
-        ),
-      );
-    } finally {
-      if (mounted) setState(() => _accepting = false);
-    }
+    await _acceptInvitationToken(token);
   }
 
   Future<void> _revokeSelectedRelationship() async {
@@ -509,7 +599,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                       loading: _loading,
                       accepting: _accepting,
                       onChanged: _selectRelationship,
-                      onAcceptInvitation: _showAcceptInvitation,
+                      onAcceptInvitation: _showPairingOptions,
                       font: mainFont,
                     ),
                     const SizedBox(height: 24),
@@ -520,7 +610,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                       )
                     else if (_relationships.isEmpty)
                       _EmptyCareState(
-                        onAccept: _showAcceptInvitation,
+                        onAccept: _showPairingOptions,
                         font: mainFont,
                       )
                     else ...[

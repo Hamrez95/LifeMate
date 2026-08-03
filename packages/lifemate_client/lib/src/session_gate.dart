@@ -5,6 +5,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'app_config.dart';
 import 'lifemate_api_client.dart';
+import 'lifemate_auth.dart';
 
 typedef AuthenticatedBuilder = Widget Function(
   BuildContext context,
@@ -66,11 +67,17 @@ class _LifeMateSessionGateState extends State<LifeMateSessionGate> {
 
   Future<void> _bootstrapUser(Session session) async {
     final user = session.user;
-    final rawName = user.userMetadata?['display_name']?.toString().trim();
+    final metadata = user.userMetadata ?? const <String, dynamic>{};
+    String? displayName;
+    for (final key in const ['display_name', 'full_name', 'name']) {
+      final candidate = metadata[key]?.toString().trim();
+      if (candidate != null && candidate.isNotEmpty) {
+        displayName = candidate;
+        break;
+      }
+    }
     await _api.bootstrapUser(
-      displayName: rawName == null || rawName.isEmpty
-          ? user.email?.split('@').first
-          : rawName,
+      displayName: displayName ?? user.email?.split('@').first,
       email: user.email,
     );
   }
@@ -205,6 +212,7 @@ class _AuthScreenState extends State<_AuthScreen> {
         final response = await widget.supabase.auth.signUp(
           email: _email.text.trim(),
           password: _password.text,
+          emailRedirectTo: LifeMateAuth.callbackUrlForApp(widget.appName),
           data: {'display_name': _displayName.text.trim()},
         );
         if (!mounted) return;
@@ -229,6 +237,31 @@ class _AuthScreenState extends State<_AuthScreen> {
     }
   }
 
+  Future<void> _signInWithGoogle() async {
+    FocusScope.of(context).unfocus();
+    setState(() {
+      _busy = true;
+      _error = null;
+      _success = null;
+    });
+    try {
+      final launched = await LifeMateAuth.signInWithGoogle(
+        appName: widget.appName,
+      );
+      if (!launched && mounted) {
+        setState(() => _error = 'صفحه ورود گوگل باز نشد. دوباره تلاش کنید.');
+      }
+    } on AuthException catch (error) {
+      if (mounted) setState(() => _error = _friendlyAuthError(error));
+    } catch (_) {
+      if (mounted) {
+        setState(() => _error = 'ورود با گوگل انجام نشد. دوباره تلاش کنید.');
+      }
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
   Future<void> _sendPasswordReset() async {
     final email = _email.text.trim();
     if (!_looksLikeEmail(email)) {
@@ -246,7 +279,10 @@ class _AuthScreenState extends State<_AuthScreen> {
       _success = null;
     });
     try {
-      await widget.supabase.auth.resetPasswordForEmail(email);
+      await widget.supabase.auth.resetPasswordForEmail(
+        email,
+        redirectTo: LifeMateAuth.callbackUrlForApp(widget.appName),
+      );
       if (mounted) {
         setState(() {
           _success = 'لینک بازیابی رمز برای شما ارسال شد.';
@@ -385,6 +421,62 @@ class _AuthScreenState extends State<_AuthScreen> {
                                 ),
                               ),
                               const SizedBox(height: 22),
+                              OutlinedButton.icon(
+                                key: const ValueKey<String>('auth-google'),
+                                onPressed: _busy ? null : _signInWithGoogle,
+                                style: OutlinedButton.styleFrom(
+                                  minimumSize: const Size.fromHeight(52),
+                                  foregroundColor: const Color(0xFF283054),
+                                  side: const BorderSide(
+                                    color: Color(0xFFDCE3EB),
+                                  ),
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(17),
+                                  ),
+                                ),
+                                icon: Container(
+                                  width: 26,
+                                  height: 26,
+                                  alignment: Alignment.center,
+                                  decoration: BoxDecoration(
+                                    color: Colors.white,
+                                    shape: BoxShape.circle,
+                                    border: Border.all(
+                                      color: const Color(0xFFE4E8ED),
+                                    ),
+                                  ),
+                                  child: const Text(
+                                    'G',
+                                    style: TextStyle(
+                                      color: Color(0xFF4285F4),
+                                      fontWeight: FontWeight.w900,
+                                    ),
+                                  ),
+                                ),
+                                label: const Text(
+                                  'ادامه با حساب گوگل',
+                                  style: TextStyle(fontWeight: FontWeight.w800),
+                                ),
+                              ),
+                              const Padding(
+                                padding: EdgeInsets.symmetric(vertical: 16),
+                                child: Row(
+                                  children: [
+                                    Expanded(child: Divider()),
+                                    Padding(
+                                      padding: EdgeInsets.symmetric(horizontal: 10),
+                                      child: Text(
+                                        'یا با ایمیل',
+                                        style: TextStyle(
+                                          color: Color(0xFF8A96A8),
+                                          fontSize: 11,
+                                        ),
+                                      ),
+                                    ),
+                                    Expanded(child: Divider()),
+                                  ],
+                                ),
+                              ),
                               if (isSignUp) ...[
                                 _AuthTextField(
                                   controller: _displayName,
@@ -610,6 +702,9 @@ class _AuthScreenState extends State<_AuthScreen> {
     }
     if (message.contains('password')) {
       return 'رمز عبور شرایط امنیتی لازم را ندارد.';
+    }
+    if (message.contains('provider') && message.contains('enabled')) {
+      return 'ورود با گوگل هنوز برای این محیط فعال نشده است.';
     }
     if (message.contains('rate limit')) {
       return 'تعداد درخواست‌ها زیاد بوده است؛ کمی بعد دوباره تلاش کنید.';

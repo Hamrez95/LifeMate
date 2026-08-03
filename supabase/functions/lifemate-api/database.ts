@@ -58,7 +58,9 @@ export function createLifeMateDatabase(
   ): Promise<Record<string, unknown>> {
     const now = new Date();
     const requestedName = normalizeOptional(body.displayName);
-    const metadataName = normalizeOptional(auth.userMetadata?.display_name);
+    const metadataName = normalizeOptional(auth.userMetadata?.display_name) ??
+      normalizeOptional(auth.userMetadata?.full_name) ??
+      normalizeOptional(auth.userMetadata?.name);
     const fallbackName = auth.email?.split("@")[0] ?? "LifeMate User";
     const displayName = (requestedName ?? metadataName ?? fallbackName).slice(
       0,
@@ -90,7 +92,10 @@ export function createLifeMateDatabase(
           (${crypto.randomUUID()}, ${user.id}, ${displayName}, ${auth.phone},
            ${auth.email}, ${locale}, ${timeZone}, ${now}, ${now})
         on conflict (user_id) do update set
-          display_name = excluded.display_name,
+          display_name = coalesce(
+            nullif(lifemate.user_profiles.display_name, ''),
+            excluded.display_name
+          ),
           email = coalesce(excluded.email, lifemate.user_profiles.email),
           phone_number = coalesce(excluded.phone_number, lifemate.user_profiles.phone_number),
           locale = excluded.locale,
@@ -506,6 +511,63 @@ export function createLifeMateDatabase(
     });
   }
 
+  async function createQrInvitation(
+    identity: AppIdentity,
+    body: Record<string, unknown>,
+  ): Promise<Record<string, unknown>> {
+    if (
+      body.confirmConsent !== true ||
+      body.consentVersion !== "care-patient-consent-v1"
+    ) {
+      throw new ApiError(
+        400,
+        "patient_consent_required",
+        "Patient consent is required.",
+      );
+    }
+
+    const now = new Date();
+    const expires = new Date(now.getTime() + 10 * 60 * 1000);
+    const token = createToken();
+    const tokenHash = await hmac(`token:${token}`);
+    const id = crypto.randomUUID();
+    const contactHash = await hmac(`qr:${id}`);
+
+    return await sql.begin(async (tx: any) => {
+      await tx`
+        update lifemate.care_invitations
+        set status = 'Revoked', revoked_at_utc = ${now}
+        where inviter_user_id = ${identity.appUserId}
+          and contact_type = 'Qr'
+          and status = 'Pending'
+      `;
+      await tx`
+        insert into lifemate.care_invitations
+          (id, inviter_user_id, contact_type, contact_hash, contact_hint,
+           token_hash, patient_consent_version, status, expires_at_utc,
+           responded_by_user_id, responded_at_utc, revoked_at_utc, created_at_utc)
+        values
+          (${id}, ${identity.appUserId}, 'Qr', ${contactHash}, 'اسکن حضوری',
+           ${tokenHash}, 'care-patient-consent-v1', 'Pending', ${expires},
+           null, null, null, ${now})
+      `;
+      await insertAudit(
+        tx,
+        identity.appUserId,
+        "care_invitation.qr_created",
+        "care_invitation",
+        id,
+      );
+      return {
+        id,
+        contactType: "qr",
+        contactHint: "اسکن حضوری",
+        token,
+        expiresAtUtc: expires.toISOString(),
+      };
+    });
+  }
+
   async function listInvitations(
     userId: string,
   ): Promise<Record<string, unknown>[]> {
@@ -545,16 +607,6 @@ export function createLifeMateDatabase(
     }
     const token = requiredText(body.token, "token", 512);
     const tokenHash = await hmac(`token:${token}`);
-    if (!identity.auth.email) {
-      throw new ApiError(
-        403,
-        "invitation_contact_mismatch",
-        "Signed-in email is required.",
-      );
-    }
-    const contactHash = await hmac(
-      `contact:${identity.auth.email.toLowerCase()}`,
-    );
     const now = new Date();
 
     return await sql.begin(async (tx: any) => {
@@ -608,12 +660,24 @@ export function createLifeMateDatabase(
           "Invitation has expired.",
         );
       }
-      if (!timingSafeEqual(invitation.contact_hash, contactHash)) {
-        throw new ApiError(
-          403,
-          "invitation_contact_mismatch",
-          "Invitation belongs to another account.",
+      if (invitation.contact_type !== "Qr") {
+        if (!identity.auth.email) {
+          throw new ApiError(
+            403,
+            "invitation_contact_mismatch",
+            "Signed-in email is required.",
+          );
+        }
+        const contactHash = await hmac(
+          `contact:${identity.auth.email.toLowerCase()}`,
         );
+        if (!timingSafeEqual(invitation.contact_hash, contactHash)) {
+          throw new ApiError(
+            403,
+            "invitation_contact_mismatch",
+            "Invitation belongs to another account.",
+          );
+        }
       }
       if (invitation.inviter_user_id === identity.appUserId) {
         throw new ApiError(
@@ -877,6 +941,7 @@ export function createLifeMateDatabase(
     listDoseOccurrences,
     reportDose,
     createInvitation,
+    createQrInvitation,
     listInvitations,
     acceptInvitation,
     listRelationships,

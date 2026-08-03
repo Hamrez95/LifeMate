@@ -4,6 +4,7 @@ import 'package:lifemate_client/lifemate_client.dart';
 import 'package:provider/provider.dart';
 
 import '../../core/theme/app_style.dart';
+import 'care_pairing_qr_dialog.dart';
 
 class CareAccessScreen extends StatefulWidget {
   const CareAccessScreen({super.key});
@@ -152,6 +153,57 @@ class _CareAccessScreenState extends State<CareAccessScreen> {
     }
   }
 
+  Future<void> _createQrInvitation() async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('اتصال با QR'),
+        content: const Text(
+          'با ادامه، یک QR یک‌بارمصرف می‌سازید که فقط ۱۰ دقیقه معتبر است. آن را فقط به مراقب مورد اعتماد نشان دهید.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('انصراف'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('ساخت QR امن'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !mounted) return;
+
+    setState(() => _creating = true);
+    try {
+      final invitation = await context
+          .read<LifeMateApiClient>()
+          .createQrCareInvitation();
+      if (!mounted) return;
+      await showCarePairingQrDialog(
+        context: context,
+        token: invitation['token']?.toString() ?? '',
+        expiresAtUtc: invitation['expiresAtUtc']?.toString(),
+      );
+      await _refresh();
+    } on LifeMateApiException catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            error.code == 'patient_consent_required'
+                ? 'برای اتصال، تأیید رضایت بیمار لازم است.'
+                : 'ساخت QR انجام نشد. دوباره تلاش کنید.',
+          ),
+          backgroundColor: Theme.of(context).colorScheme.error,
+        ),
+      );
+    } finally {
+      if (mounted) setState(() => _creating = false);
+    }
+  }
+
   Future<void> _showInvitationToken(String token, String? expiresAt) async {
     await showDialog<void>(
       context: context,
@@ -253,15 +305,29 @@ class _CareAccessScreenState extends State<CareAccessScreen> {
           style: TextStyle(fontWeight: FontWeight.w800),
         ),
       ),
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: _creating ? null : _createInvitation,
-        icon: _creating
-            ? const SizedBox.square(
-                dimension: 18,
-                child: CircularProgressIndicator(strokeWidth: 2),
-              )
-            : const Icon(Icons.person_add_alt_1_rounded),
-        label: const Text('دعوت مراقب'),
+      floatingActionButton: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.end,
+        children: [
+          FloatingActionButton.extended(
+            heroTag: 'care-qr-invite',
+            onPressed: _creating ? null : _createQrInvitation,
+            icon: const Icon(Icons.qr_code_2_rounded),
+            label: const Text('اتصال با QR'),
+          ),
+          const SizedBox(height: 10),
+          FloatingActionButton.extended(
+            heroTag: 'care-email-invite',
+            onPressed: _creating ? null : _createInvitation,
+            icon: _creating
+                ? const SizedBox.square(
+                    dimension: 18,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  )
+                : const Icon(Icons.alternate_email_rounded),
+            label: const Text('دعوت با ایمیل'),
+          ),
+        ],
       ),
       body: RefreshIndicator(
         onRefresh: _refresh,
