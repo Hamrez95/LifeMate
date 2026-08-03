@@ -6,6 +6,9 @@ on:
       - feat/bb287-parity-completion
     paths:
       - '.github/workflows/one-shot-fix-care-plan-overflow.yml'
+  pull_request:
+    paths:
+      - '.github/workflows/one-shot-fix-care-plan-overflow.yml'
 
 permissions:
   contents: write
