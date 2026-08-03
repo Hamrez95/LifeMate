@@ -35,36 +35,115 @@ void main() {
       );
       await tester.pumpAndSettle();
 
+      final mainScroll = find.byType(Scrollable).first;
+      final firstSelector = find.byKey(
+        const ValueKey<String>('caremate-care-type-0'),
+        skipOffstage: false,
+      );
+      await tester.scrollUntilVisible(
+        firstSelector,
+        220,
+        scrollable: mainScroll,
+      );
+
       for (var index = 0; index < 3; index += 1) {
-        final selector =
-            find.byKey(ValueKey<String>('caremate-care-type-$index'));
+        final selector = find.byKey(
+          ValueKey<String>('caremate-care-type-$index'),
+          skipOffstage: false,
+        );
         expect(selector, findsOneWidget);
         expect(tester.getSize(selector).height, greaterThanOrEqualTo(58));
       }
 
-      expect(find.text('فرم ویزیت پزشکی'), findsOneWidget);
-      expect(find.text('آدرس کامل'), findsOneWidget);
-      expect(find.text('ویزیت‌های ثبت‌شده'), findsOneWidget);
+      final visitForm = find.text('فرم ویزیت پزشکی', skipOffstage: false);
+      await tester.scrollUntilVisible(
+        visitForm,
+        260,
+        scrollable: mainScroll,
+      );
+      expect(visitForm, findsOneWidget);
+
+      final visitAddress = find.text('آدرس کامل', skipOffstage: false);
+      await tester.scrollUntilVisible(
+        visitAddress,
+        260,
+        scrollable: mainScroll,
+      );
+      expect(visitAddress, findsOneWidget);
+
+      final visitList = find.text('ویزیت‌های ثبت‌شده', skipOffstage: false);
+      await tester.scrollUntilVisible(
+        visitList,
+        300,
+        scrollable: mainScroll,
+      );
+      expect(visitList, findsOneWidget);
       expect(find.text('ویزیت متخصص قلب'), findsOneWidget);
+      expect(tester.takeException(), isNull);
 
-      await tester.tap(
-        find.byKey(const ValueKey<String>('caremate-care-type-1')),
+      final medicineSelector = find.byKey(
+        const ValueKey<String>('caremate-care-type-1'),
+        skipOffstage: false,
       );
+      await tester.scrollUntilVisible(
+        medicineSelector,
+        -350,
+        scrollable: mainScroll,
+      );
+      await tester.tap(medicineSelector);
       await tester.pumpAndSettle();
 
-      expect(find.text('فرم داروی جدید'), findsOneWidget);
-      expect(find.text('برنامه واقعی هفت روز آینده'), findsOneWidget);
+      final medicineForm = find.text('فرم داروی جدید', skipOffstage: false);
+      await tester.scrollUntilVisible(
+        medicineForm,
+        260,
+        scrollable: mainScroll,
+      );
+      expect(medicineForm, findsOneWidget);
+
+      final medicineList =
+          find.text('برنامه واقعی هفت روز آینده', skipOffstage: false);
+      await tester.scrollUntilVisible(
+        medicineList,
+        300,
+        scrollable: mainScroll,
+      );
+      expect(medicineList, findsOneWidget);
       expect(find.text('متفورمین'), findsOneWidget);
+      expect(tester.takeException(), isNull);
 
-      await tester.tap(
-        find.byKey(const ValueKey<String>('caremate-care-type-2')),
+      final injectionSelector = find.byKey(
+        const ValueKey<String>('caremate-care-type-2'),
+        skipOffstage: false,
       );
+      await tester.scrollUntilVisible(
+        injectionSelector,
+        -350,
+        scrollable: mainScroll,
+      );
+      await tester.tap(injectionSelector);
       await tester.pumpAndSettle();
 
-      expect(find.text('فرم تزریقات'), findsOneWidget);
-      expect(find.text('تزریق‌های ثبت‌شده'), findsOneWidget);
+      final injectionForm = find.text('فرم تزریقات', skipOffstage: false);
+      await tester.scrollUntilVisible(
+        injectionForm,
+        260,
+        scrollable: mainScroll,
+      );
+      expect(injectionForm, findsOneWidget);
+
+      final injectionList = find.text('تزریق‌های ثبت‌شده', skipOffstage: false);
+      await tester.scrollUntilVisible(
+        injectionList,
+        320,
+        scrollable: mainScroll,
+      );
+      expect(injectionList, findsOneWidget);
       expect(find.text('ویتامین B12'), findsOneWidget);
-      expect(find.text('ثبت نیازمند مجوز صریح بیمار'), findsOneWidget);
+      expect(
+        find.text('ثبت نیازمند مجوز صریح بیمار', skipOffstage: false),
+        findsOneWidget,
+      );
       expect(tester.takeException(), isNull);
     },
   );
