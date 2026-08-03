@@ -22,29 +22,44 @@ class _CarePlanHubScreenState extends State<CarePlanHubScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Column(
+    return Stack(
       children: [
-        Padding(
-          padding: const EdgeInsets.fromLTRB(20, 12, 20, 4),
-          child: _CareTypeSelector(
-            selectedIndex: _selectedIndex,
-            onChanged: (index) => setState(() => _selectedIndex = index),
-          ),
-        ),
-        Expanded(
+        Positioned.fill(
           child: IndexedStack(
             index: _selectedIndex,
             children: [
               TabbedAddTreatmentScreen(onCreated: widget.onCreated),
-              _CareEventForm(
-                eventType: CareEventType.appointment,
-                onCreated: widget.onCreated,
+              Padding(
+                padding: const EdgeInsets.only(top: 82),
+                child: _CareEventForm(
+                  eventType: CareEventType.appointment,
+                  onCreated: widget.onCreated,
+                ),
               ),
-              _CareEventForm(
-                eventType: CareEventType.injection,
-                onCreated: widget.onCreated,
+              Padding(
+                padding: const EdgeInsets.only(top: 82),
+                child: _CareEventForm(
+                  eventType: CareEventType.injection,
+                  onCreated: widget.onCreated,
+                ),
               ),
             ],
+          ),
+        ),
+        const Positioned(
+          top: 0,
+          left: 0,
+          right: 0,
+          height: 84,
+          child: ColoredBox(color: AppColors.background),
+        ),
+        Positioned(
+          top: 10,
+          left: 20,
+          right: 20,
+          child: _CareTypeSelector(
+            selectedIndex: _selectedIndex,
+            onChanged: (index) => setState(() => _selectedIndex = index),
           ),
         ),
       ],
@@ -119,6 +134,7 @@ class _CareTypeSelector extends StatelessWidget {
                         item.$2,
                         maxLines: 1,
                         overflow: TextOverflow.fade,
+                        softWrap: false,
                         style: TextStyle(
                           fontWeight: FontWeight.w800,
                           fontSize: 12,
@@ -370,7 +386,7 @@ class _CareEventFormState extends State<_CareEventForm> {
                 icon: _isAppointment
                     ? Icons.event_note_rounded
                     : Icons.medication_liquid_rounded,
-                required: true,
+                isRequired: true,
               ),
               if (_isAppointment) ...[
                 _field(
@@ -378,7 +394,7 @@ class _CareEventFormState extends State<_CareEventForm> {
                   label: 'نام پزشک',
                   hint: 'مثلاً دکتر سارا راد',
                   icon: Icons.person_rounded,
-                  required: true,
+                  isRequired: true,
                 ),
                 _field(
                   controller: _specialty,
@@ -392,10 +408,10 @@ class _CareEventFormState extends State<_CareEventForm> {
                   label: 'دوز یا مقدار تزریق',
                   hint: 'مثلاً ۱ آمپول یا ۵۰۰ میلی‌گرم',
                   icon: Icons.straighten_rounded,
-                  required: true,
+                  isRequired: true,
                 ),
                 DropdownButtonFormField<String>(
-                  value: _route,
+                  initialValue: _route,
                   decoration: _decoration(
                     label: 'روش تزریق',
                     icon: Icons.route_rounded,
@@ -584,7 +600,7 @@ class _CareEventFormState extends State<_CareEventForm> {
     required String label,
     required String hint,
     required IconData icon,
-    bool required = false,
+    bool isRequired = false,
     int maxLines = 1,
     TextInputType? keyboardType,
     TextDirection? textDirection,
@@ -598,7 +614,7 @@ class _CareEventFormState extends State<_CareEventForm> {
         keyboardType: keyboardType,
         textDirection: textDirection,
         decoration: _decoration(label: label, hint: hint, icon: icon),
-        validator: required
+        validator: isRequired
             ? (value) => value == null || value.trim().isEmpty
                 ? '$label را وارد کنید.'
                 : null
@@ -677,12 +693,16 @@ class _FormSection extends StatelessWidget {
                 child: Icon(icon, color: AppColors.primary),
               ),
               const SizedBox(width: 11),
-              Text(
-                title,
-                style: const TextStyle(
-                  fontSize: 17,
-                  fontWeight: FontWeight.w900,
-                  color: AppColors.darkBlue,
+              Expanded(
+                child: Text(
+                  title,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    fontSize: 17,
+                    fontWeight: FontWeight.w900,
+                    color: AppColors.darkBlue,
+                  ),
                 ),
               ),
             ],
