@@ -32,13 +32,23 @@ void main() {
       );
       await tester.pumpAndSettle();
 
+      expect(
+        tester.takeException(),
+        isNull,
+        reason: 'The medicine tab overflowed before opening the schedule tab.',
+      );
+
       await tester.tap(find.text('برنامه'));
       await tester.pumpAndSettle();
 
       expect(find.byKey(const Key('add-treatment-time')), findsOneWidget);
       expect(find.text('منطقه زمانی'), findsOneWidget);
       expect(find.text('Europe/Berlin'), findsOneWidget);
-      expect(tester.takeException(), isNull);
+      expect(
+        tester.takeException(),
+        isNull,
+        reason: 'The schedule tab overflowed after navigation.',
+      );
     },
   );
 }
