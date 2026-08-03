@@ -98,7 +98,7 @@ export function createProfileStore(databaseUrl: string) {
       }
 
       await tx`
-        insert into lifemate.audit_events
+        insert into lifemate.audit_logs
           (id, actor_user_id, action, resource_type, resource_id,
            metadata_json, created_at_utc)
         values
