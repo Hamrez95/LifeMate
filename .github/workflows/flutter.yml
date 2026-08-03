@@ -163,9 +163,6 @@ jobs:
         shell: bash
         run: |
           should_build=false
-          if [[ "${{ github.event_name }}" == "pull_request" ]]; then
-            should_build=true
-          fi
           if [[ "${{ github.event_name }}" == "workflow_dispatch" && "${{ inputs.build_android }}" == "true" ]]; then
             should_build=true
           fi
