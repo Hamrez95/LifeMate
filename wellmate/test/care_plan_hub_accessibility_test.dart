@@ -40,24 +40,59 @@ void main() {
       }
 
       expect(find.text('افزودن دارو و برنامه درمان'), findsOneWidget);
+      expect(tester.takeException(), isNull);
 
       await tester.tap(
         find.byKey(const ValueKey<String>('wellmate-care-type-1')),
       );
       await tester.pumpAndSettle();
 
-      expect(
-        find.byKey(const ValueKey<String>('wellmate-appointment-form')),
-        findsOneWidget,
+      final appointmentForm = find.byKey(
+        const ValueKey<String>('wellmate-appointment-form'),
       );
+      final appointmentScroll = find.descendant(
+        of: appointmentForm,
+        matching: find.byType(Scrollable),
+      );
+      expect(appointmentForm, findsOneWidget);
       expect(find.text('نام پزشک'), findsOneWidget);
-      expect(find.text('آدرس کامل'), findsOneWidget);
-      expect(find.byKey(const ValueKey<String>('care-event-date')), findsOneWidget);
-      expect(find.byKey(const ValueKey<String>('care-event-time')), findsOneWidget);
+
+      final address = find.descendant(
+        of: appointmentForm,
+        matching: find.text('آدرس کامل', skipOffstage: false),
+      );
+      await tester.scrollUntilVisible(
+        address,
+        260,
+        scrollable: appointmentScroll,
+      );
+      expect(address, findsOneWidget);
+
+      final timeZone = find.byKey(
+        const ValueKey<String>('care-event-timezone'),
+        skipOffstage: false,
+      );
+      await tester.scrollUntilVisible(
+        timeZone,
+        260,
+        scrollable: appointmentScroll,
+      );
       expect(
-        find.byKey(const ValueKey<String>('care-event-timezone')),
+        find.byKey(
+          const ValueKey<String>('care-event-date'),
+          skipOffstage: false,
+        ),
         findsOneWidget,
       );
+      expect(
+        find.byKey(
+          const ValueKey<String>('care-event-time'),
+          skipOffstage: false,
+        ),
+        findsOneWidget,
+      );
+      expect(timeZone, findsOneWidget);
+      expect(tester.takeException(), isNull);
 
       await tester.tap(
         find.byKey(const ValueKey<String>('wellmate-care-type-2')),
