@@ -1,6 +1,11 @@
 name: one-shot-caremate-calendar-layout
 
 on:
+  push:
+    branches:
+      - feat/bb287-parity-completion
+    paths:
+      - '.github/workflows/one-shot-caremate-calendar-layout.yml'
   pull_request:
     paths:
       - '.github/workflows/one-shot-caremate-calendar-layout.yml'
