@@ -42,10 +42,22 @@ create index if not exists ix_care_events_patient_schedule
 create index if not exists ix_care_events_creator
     on lifemate.care_events(created_by_user_id, created_at_utc desc);
 
--- Mobile clients never receive direct table privileges. All access is enforced
--- by the authenticated LifeMate API and active care-relationship checks.
-revoke all privileges on table lifemate.care_events
-    from anon, authenticated, service_role;
+-- Supabase installs these roles, while the portable PostgreSQL CI container
+-- intentionally does not. Revoke every role that exists without making the
+-- migration dependent on Supabase-only bootstrap roles.
+do $migration$
+begin
+    if exists (select 1 from pg_roles where rolname = 'anon') then
+        execute 'revoke all privileges on table lifemate.care_events from anon';
+    end if;
+    if exists (select 1 from pg_roles where rolname = 'authenticated') then
+        execute 'revoke all privileges on table lifemate.care_events from authenticated';
+    end if;
+    if exists (select 1 from pg_roles where rolname = 'service_role') then
+        execute 'revoke all privileges on table lifemate.care_events from service_role';
+    end if;
+end
+$migration$;
 
 comment on table lifemate.care_events is
 'Patient-owned appointments and injection events exposed only through the LifeMate API.';
