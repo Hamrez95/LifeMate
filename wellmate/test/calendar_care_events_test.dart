@@ -13,10 +13,7 @@ void main() {
   testWidgets(
     'calendar combines medication appointments and injections from live contracts',
     (WidgetTester tester) async {
-      // This test verifies the complete live-contract composition rather than
-      // viewport virtualization. Small-screen scrolling and overflow are covered
-      // by the dedicated accessibility tests, so keep both event cards mounted.
-      tester.view.physicalSize = const Size(360, 2400);
+      tester.view.physicalSize = const Size(360, 800);
       tester.view.devicePixelRatio = 1;
       addTearDown(tester.view.resetPhysicalSize);
       addTearDown(tester.view.resetDevicePixelRatio);
@@ -35,6 +32,29 @@ void main() {
       );
       await tester.pumpAndSettle();
 
+      final eventListFinder = find.byWidgetPredicate(
+        (widget) =>
+            widget is ListView &&
+            widget.physics is NeverScrollableScrollPhysics,
+        description: 'the non-scrollable daily event list',
+      );
+      expect(eventListFinder, findsOneWidget);
+      final eventList = tester.widget<ListView>(eventListFinder);
+      expect(eventList.childrenDelegate.estimatedChildCount, 2);
+
+      final pageScrollable = find
+          .descendant(
+            of: find.byType(SingleChildScrollView),
+            matching: find.byType(Scrollable),
+          )
+          .first;
+
+      await tester.scrollUntilVisible(
+        find.text('ویزیت متخصص قلب', skipOffstage: false),
+        240,
+        scrollable: pageScrollable,
+      );
+      await tester.pumpAndSettle();
       expect(
         find.text('ویزیت متخصص قلب', skipOffstage: false),
         findsOneWidget,
@@ -44,6 +64,13 @@ void main() {
         find.textContaining('مرکز درمانی الوند', skipOffstage: false),
         findsOneWidget,
       );
+
+      await tester.scrollUntilVisible(
+        find.text('ویتامین B12', skipOffstage: false),
+        180,
+        scrollable: pageScrollable,
+      );
+      await tester.pumpAndSettle();
       expect(find.text('ویتامین B12', skipOffstage: false), findsOneWidget);
       expect(find.byIcon(Icons.vaccines_rounded), findsWidgets);
       expect(
