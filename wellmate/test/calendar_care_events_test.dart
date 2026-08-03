@@ -40,10 +40,9 @@ void main() {
         find.byKey(const ValueKey<String>('calendar-event-appointment-1')),
         findsOneWidget,
       );
-      expect(
-        find.byKey(const ValueKey<String>('calendar-event-injection-1')),
-        findsOneWidget,
-      );
+      final injectionCard =
+          find.byKey(const ValueKey<String>('calendar-event-injection-1'));
+      expect(injectionCard, findsOneWidget);
 
       expect(
         find.text('ویزیت متخصص قلب', skipOffstage: false),
@@ -54,6 +53,12 @@ void main() {
         find.textContaining('مرکز درمانی الوند', skipOffstage: false),
         findsOneWidget,
       );
+
+      // Keep the viewport realistic and verify that the second live-contract
+      // card is reachable through the actual page scroll before inspecting its
+      // rendered content.
+      await tester.ensureVisible(injectionCard);
+      await tester.pumpAndSettle();
 
       expect(
         find.text('ویتامین B12', skipOffstage: false),
