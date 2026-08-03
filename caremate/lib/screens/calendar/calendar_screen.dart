@@ -114,18 +114,29 @@ class _CalendarScreenState extends State<CalendarScreen> {
       _error = null;
     });
     try {
-      final doses = await context
-          .read<LifeMateApiClient>()
-          .getCareRecipientDoseOccurrences(
-            patientUserId: patientUserId,
-            fromDate: _monthStart(_focusedMonth),
-            toDate: _monthEnd(_focusedMonth),
-          );
-      final events = doses
-          .map((dose) => _eventFromDose(patientUserId, dose))
-          .whereType<EventModel>()
-          .toList(growable: false)
-        ..sort((a, b) {
+      final api = context.read<LifeMateApiClient>();
+      final results = await Future.wait([
+        api.getCareRecipientDoseOccurrences(
+          patientUserId: patientUserId,
+          fromDate: _monthStart(_focusedMonth),
+          toDate: _monthEnd(_focusedMonth),
+        ),
+        api.getCareRecipientCareEvents(
+          patientUserId: patientUserId,
+          fromDate: _monthStart(_focusedMonth),
+          toDate: _monthEnd(_focusedMonth),
+        ),
+      ]);
+      final doses = results[0];
+      final careEvents = results[1];
+      final events = <EventModel>[
+        ...doses
+            .map((dose) => _eventFromDose(patientUserId, dose))
+            .whereType<EventModel>(),
+        ...careEvents
+            .map((event) => _eventFromCareEvent(patientUserId, event))
+            .whereType<EventModel>(),
+      ]..sort((a, b) {
           final dateCompare = a.date.compareTo(b.date);
           return dateCompare == 0 ? a.time.compareTo(b.time) : dateCompare;
         });
@@ -138,7 +149,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
       _setError(_friendlyApiError(error));
     } catch (error) {
       debugPrint('CareMate calendar event load failed: $error');
-      _setError('برنامه دارویی این ماه دریافت نشد.');
+      _setError('برنامه درمان، ویزیت و تزریق این ماه دریافت نشد.');
     }
   }
 
@@ -172,10 +183,63 @@ class _CalendarScreenState extends State<CalendarScreen> {
           : 'دارو',
       date: _normalizeDate(date),
       time: time,
-      description: dose['doseText']?.toString(),
+      description: _nonEmpty(dose['doseText']),
       type: EventType.medicine,
       isCompleted: completed,
     );
+  }
+
+  EventModel? _eventFromCareEvent(
+    String patientUserId,
+    Map<String, dynamic> event,
+  ) {
+    final date = DateTime.tryParse(
+      event['scheduledLocalDate']?.toString() ?? '',
+    );
+    if (date == null) return null;
+    final rawTime = event['scheduledLocalTime']?.toString() ?? '--:--';
+    final eventType = event['eventType']?.toString().toLowerCase();
+    final type = eventType == 'injection'
+        ? EventType.injection
+        : EventType.appointment;
+    final details = <String>[
+      if (type == EventType.appointment)
+        _nonEmpty(event['providerName']) ?? _nonEmpty(event['specialty']) ?? '',
+      if (type == EventType.injection)
+        _nonEmpty(event['doseText']) ??
+            _administrationRouteLabel(event['administrationRoute']),
+      _nonEmpty(event['centerName']) ?? '',
+      _nonEmpty(event['addressLine']) ?? '',
+    ].where((value) => value.isNotEmpty).join(' • ');
+
+    return EventModel(
+      id: event['id']?.toString() ??
+          '${event['scheduledLocalDate']}-$rawTime-$eventType',
+      userId: patientUserId,
+      title: _nonEmpty(event['title']) ??
+          (type == EventType.injection ? 'تزریق' : 'ویزیت'),
+      date: _normalizeDate(date),
+      time: rawTime.length >= 5 ? rawTime.substring(0, 5) : rawTime,
+      description: details.isEmpty ? null : details,
+      type: type,
+      isCompleted:
+          event['status']?.toString().toLowerCase() == 'completed' ? true : null,
+    );
+  }
+
+  static String? _nonEmpty(dynamic value) {
+    final normalized = value?.toString().trim();
+    return normalized == null || normalized.isEmpty ? null : normalized;
+  }
+
+  static String _administrationRouteLabel(dynamic value) {
+    return switch (value?.toString().toLowerCase()) {
+      'intramuscular' => 'عضلانی',
+      'subcutaneous' => 'زیرجلدی',
+      'intravenous' => 'وریدی',
+      'other' => 'طبق دستور درمانگر',
+      _ => '',
+    };
   }
 
   void _setError(String message) {
@@ -213,7 +277,8 @@ class _CalendarScreenState extends State<CalendarScreen> {
     final today = _normalizeDate(DateTime.now());
     if (!day.isBefore(today)) return false;
     return _getEventsForDayAndUser(day).any(
-      (event) => event.isCompleted != true,
+      (event) =>
+          event.type == EventType.medicine && event.isCompleted != true,
     );
   }
 
@@ -223,6 +288,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
   List<EventModel> get _activeAlerts {
     final now = DateTime.now();
     return _events.where((event) {
+      if (event.type != EventType.medicine) return false;
       final parts = event.time.split(':');
       final hour = int.tryParse(parts.first) ?? 0;
       final minute = parts.length > 1 ? int.tryParse(parts[1]) ?? 0 : 0;
@@ -318,15 +384,35 @@ class _CalendarScreenState extends State<CalendarScreen> {
     final selectedUserId = _selectedUserId;
     final eventsForSelectedDay = _getEventsForDayAndUser(_selectedDate);
     const monthNamesEn = [
-      'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
-      'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
+      'Jan',
+      'Feb',
+      'Mar',
+      'Apr',
+      'May',
+      'Jun',
+      'Jul',
+      'Aug',
+      'Sep',
+      'Oct',
+      'Nov',
+      'Dec',
     ];
     const monthNamesFa = [
-      'ژانویه', 'فوریه', 'مارس', 'آوریل', 'مه', 'ژوئن',
-      'ژوئیه', 'اوت', 'سپتامبر', 'اکتبر', 'نوامبر', 'دسامبر',
+      'ژانویه',
+      'فوریه',
+      'مارس',
+      'آوریل',
+      'مه',
+      'ژوئن',
+      'ژوئیه',
+      'اوت',
+      'سپتامبر',
+      'اکتبر',
+      'نوامبر',
+      'دسامبر',
     ];
-    final monthName = (isPersian ? monthNamesFa : monthNamesEn)[
-        _selectedDate.month - 1];
+    final monthName =
+        (isPersian ? monthNamesFa : monthNamesEn)[_selectedDate.month - 1];
 
     return Scaffold(
       backgroundColor: AppColors.background,
@@ -527,9 +613,12 @@ class _EmptyCalendarState extends StatelessWidget {
                 ),
                 const SizedBox(height: 8),
                 const Text(
-                  'پس از پذیرش دعوت در صفحه خانه، برنامه واقعی داروها در همین تقویم نمایش داده می‌شود.',
+                  'پس از پذیرش دعوت، داروها، ویزیت‌ها و تزریق‌های واقعی بیمار در همین تقویم نمایش داده می‌شوند.',
                   textAlign: TextAlign.center,
-                  style: TextStyle(height: 1.6, color: AppColors.secondaryText),
+                  style: TextStyle(
+                    height: 1.6,
+                    color: AppColors.secondaryText,
+                  ),
                 ),
                 const SizedBox(height: 18),
                 OutlinedButton.icon(
