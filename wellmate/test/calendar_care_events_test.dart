@@ -55,9 +55,8 @@ void main() {
         findsOneWidget,
       );
 
-      // The outer calendar viewport can defer painting content below the fold.
-      // Inspect the actual mapped production card, then render that same widget
-      // in isolation to verify the injection UI without weakening the contract.
+      // Verify both the canonical live payload and the localized production
+      // rendering. Persian UI intentionally converts the numeric suffix in B12.
       final injectionPadding = tester.widget<Padding>(injectionCard);
       final injectionWidget = injectionPadding.child! as ScheduleItemCard;
       expect(injectionWidget.item.title, 'ویتامین B12');
@@ -72,7 +71,7 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      expect(find.text('ویتامین B12'), findsOneWidget);
+      expect(find.text('ویتامین B۱۲'), findsOneWidget);
       expect(find.byIcon(Icons.vaccines_rounded), findsOneWidget);
       expect(find.textContaining('مرکز تزریقات'), findsOneWidget);
       expect(tester.takeException(), isNull);
