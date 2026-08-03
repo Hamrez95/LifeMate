@@ -132,13 +132,17 @@ class _TabbedAddTreatmentScreenState extends State<TabbedAddTreatmentScreen>
         await showTimePicker(context: context, initialTime: initialTime);
     if (value == null || !mounted) return;
 
-    final duplicateIndex = _times.indexWhere(
-      (time) =>
+    var duplicateFound = false;
+    for (var index = 0; index < _times.length; index++) {
+      final time = _times[index];
+      if (index != replaceIndex &&
           time.hour == value.hour &&
-          time.minute == value.minute &&
-          _times.indexOf(time) != replaceIndex,
-    );
-    if (duplicateIndex >= 0) {
+          time.minute == value.minute) {
+        duplicateFound = true;
+        break;
+      }
+    }
+    if (duplicateFound) {
       setState(() => _error = 'این ساعت قبلاً به برنامه اضافه شده است.');
       return;
     }
@@ -306,8 +310,7 @@ class _TabbedAddTreatmentScreenState extends State<TabbedAddTreatmentScreen>
     _tabs.animateTo(0);
   }
 
-  String get _timesLabel =>
-      _times.map(formatTreatmentTime).join('، ');
+  String get _timesLabel => _times.map(formatTreatmentTime).join('، ');
 
   @override
   Widget build(BuildContext context) {
@@ -395,11 +398,10 @@ class _TabbedAddTreatmentScreenState extends State<TabbedAddTreatmentScreen>
             ),
           ),
         Padding(
-          padding: const EdgeInsets.fromLTRB(20, 4, 20, 112),
+          padding: const EdgeInsets.fromLTRB(20, 4, 20, 88),
           child: LayoutBuilder(
             builder: (context, constraints) {
-              final largeText =
-                  MediaQuery.textScalerOf(context).scale(1) > 1.3;
+              final largeText = MediaQuery.textScalerOf(context).scale(1) > 1.3;
               final stackButtons = constraints.maxWidth < 340 || largeText;
               final previousButton = OutlinedButton.icon(
                 onPressed: _busy ? null : _previous,
@@ -574,12 +576,11 @@ class _TabbedAddTreatmentScreenState extends State<TabbedAddTreatmentScreen>
                   ),
                   const SizedBox(height: 14),
                   DropdownButtonFormField<String>(
-                    value: _timeZone,
+                    key: ValueKey(_timeZone),
+                    initialValue: _timeZone,
                     isExpanded: true,
                     decoration: const InputDecoration(
                       labelText: 'منطقه زمانی',
-                      helperText:
-                          'یادآورها و دوزها بر اساس این منطقه زمانی ساخته می‌شوند.',
                       prefixIcon: Icon(Icons.public_rounded),
                       border: OutlineInputBorder(),
                     ),
@@ -602,6 +603,18 @@ class _TabbedAddTreatmentScreenState extends State<TabbedAddTreatmentScreen>
                             }
                           },
                   ),
+                  const SizedBox(height: 8),
+                  const Align(
+                    alignment: AlignmentDirectional.centerStart,
+                    child: Text(
+                      'یادآورها و دوزها بر اساس این منطقه زمانی ساخته می‌شوند.',
+                      style: TextStyle(
+                        fontSize: 12,
+                        height: 1.45,
+                        color: AppColors.textSecondary,
+                      ),
+                    ),
+                  ),
                 ],
               ),
             ),
@@ -612,30 +625,33 @@ class _TabbedAddTreatmentScreenState extends State<TabbedAddTreatmentScreen>
               subtitle: 'هر روز یا روزهای مشخص هفته را انتخاب کنید.',
               child: Column(
                 children: [
-                  SegmentedButton<String>(
-                    segments: const [
-                      ButtonSegment(
-                        value: 'daily',
-                        label: Text('هر روز'),
-                        icon: Icon(Icons.calendar_view_week_rounded),
-                      ),
-                      ButtonSegment(
-                        value: 'selected',
-                        label: Text('روزهای مشخص'),
-                        icon: Icon(Icons.event_available_rounded),
-                      ),
-                    ],
-                    selected: {_frequency},
-                    onSelectionChanged: _busy
-                        ? null
-                        : (values) => setState(() {
-                              _frequency = values.first;
-                              if (_frequency == 'daily') {
-                                _selectedWeekdays
-                                  ..clear()
-                                  ..addAll(_backendWeekdays.keys);
-                              }
-                            }),
+                  SingleChildScrollView(
+                    scrollDirection: Axis.horizontal,
+                    child: SegmentedButton<String>(
+                      segments: const [
+                        ButtonSegment(
+                          value: 'daily',
+                          label: Text('هر روز'),
+                          icon: Icon(Icons.calendar_view_week_rounded),
+                        ),
+                        ButtonSegment(
+                          value: 'selected',
+                          label: Text('روزهای مشخص'),
+                          icon: Icon(Icons.event_available_rounded),
+                        ),
+                      ],
+                      selected: {_frequency},
+                      onSelectionChanged: _busy
+                          ? null
+                          : (values) => setState(() {
+                                _frequency = values.first;
+                                if (_frequency == 'daily') {
+                                  _selectedWeekdays
+                                    ..clear()
+                                    ..addAll(_backendWeekdays.keys);
+                                }
+                              }),
+                    ),
                   ),
                   const SizedBox(height: 14),
                   Wrap(
