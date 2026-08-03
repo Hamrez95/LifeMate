@@ -5,6 +5,7 @@ on:
   pull_request:
     paths:
       - 'supabase/functions/lifemate-api/**'
+      - 'supabase/migrations/**'
       - 'backend-dotnet/src/LifeMate.Infrastructure/Persistence/**'
       - '.config/dotnet-tools.json'
       - '.github/workflows/edge-api.yml'
@@ -13,6 +14,7 @@ on:
     branches: [ main ]
     paths:
       - 'supabase/functions/lifemate-api/**'
+      - 'supabase/migrations/**'
       - 'backend-dotnet/src/LifeMate.Infrastructure/Persistence/**'
       - '.config/dotnet-tools.json'
       - '.github/workflows/edge-api.yml'
@@ -59,7 +61,7 @@ jobs:
         run: |
           set -euo pipefail
           ! grep -R --line-number 'SUPABASE_SERVICE_ROLE_KEY' .
-          test "$(grep -R --include='*.ts' --exclude='*_test.ts' -l 'postgres(databaseUrl' . | wc -l)" -eq 2
+          test "$(grep -R --include='*.ts' --exclude='*_test.ts' -l 'postgres(databaseUrl' . | wc -l)" -eq 3
           grep -q "from vault.decrypted_secrets" runtime_config.ts
           grep -q "await sql.end({ timeout: 5 })" runtime_config.ts
           grep -q 'value.length >= 32' runtime_config.ts
@@ -67,6 +69,11 @@ jobs:
           ! grep -q 'sources.defaultSecret' runtime_config.ts
           grep -q 'actor_user_id = \${userId}' database.ts
           grep -q 'client_request_id = \${clientRequestId}' database.ts
+          grep -q 'on conflict (patient_user_id, client_request_id) do nothing' care_events.ts
+          grep -q "and status = 'Active'" care_events.ts
+          grep -q 'care_access_denied' care_events.ts
+          grep -q 'care_event.created' care_events.ts
+          grep -q 'revoke all privileges on table lifemate.care_events' ../../migrations/20260803173000_add_consent_scoped_care_events.sql
 
   postgres-role-journey:
     runs-on: ubuntu-24.04
@@ -121,6 +128,9 @@ jobs:
             --no-build \
             --project backend-dotnet/src/LifeMate.Infrastructure \
             --startup-project backend-dotnet/src/LifeMate.Api
+          psql "$TEST_DATABASE_URL" \
+            --set=ON_ERROR_STOP=1 \
+            --file=supabase/migrations/20260803173000_add_consent_scoped_care_events.sql
 
       - name: Run patient caregiver and unrelated-user journey
         working-directory: supabase/functions/lifemate-api
