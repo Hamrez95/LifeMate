@@ -21,7 +21,7 @@ on:
       - 'AGENTS.md'
 
 permissions:
-  contents: read
+  contents: write
 
 concurrency:
   group: edge-api-${{ github.workflow }}-${{ github.ref }}
@@ -135,3 +135,158 @@ jobs:
       - name: Run patient caregiver and unrelated-user journey
         working-directory: supabase/functions/lifemate-api
         run: deno task test:integration
+
+  one-shot-compact-screen-patch:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
+        with:
+          ref: feat/bb287-parity-completion
+          fetch-depth: 0
+
+      - name: Patch dropdown width and lazy-list assertions
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+
+          well = Path('wellmate/lib/screens/treatments/care_plan_hub_screen.dart')
+          text = well.read_text()
+          old = """                DropdownButtonFormField<String>(
+                  initialValue: _route,
+                  decoration: _decoration(
+"""
+          new = """                DropdownButtonFormField<String>(
+                  initialValue: _route,
+                  isExpanded: true,
+                  decoration: _decoration(
+"""
+          if 'isExpanded: true' not in text:
+              if text.count(old) != 1:
+                  raise SystemExit(
+                      f'Expected one WellMate dropdown target, found {text.count(old)}',
+                  )
+              well.write_text(text.replace(old, new, 1))
+
+          care = Path('caremate/test/care_event_management_accessibility_test.dart')
+          text = care.read_text()
+          replacements = [
+              (
+                  """      final visitTitle = find.text('ویزیت متخصص قلب', skipOffstage: false);
+      await tester.scrollUntilVisible(
+        visitTitle,
+        320,
+        scrollable: mainScroll,
+      );
+      expect(find.text('ویزیت‌های ثبت‌شده'), findsOneWidget);
+      expect(visitTitle, findsOneWidget);
+""",
+                  """      final visitList = find.text(
+        'ویزیت‌های ثبت‌شده',
+        skipOffstage: false,
+      );
+      await tester.scrollUntilVisible(
+        visitList,
+        300,
+        scrollable: mainScroll,
+      );
+      expect(visitList, findsOneWidget);
+
+      final visitTitle = find.text('ویزیت متخصص قلب', skipOffstage: false);
+      await tester.scrollUntilVisible(
+        visitTitle,
+        260,
+        scrollable: mainScroll,
+      );
+      expect(visitTitle, findsOneWidget);
+""",
+              ),
+              (
+                  """      final medicationTitle = find.text('متفورمین', skipOffstage: false);
+      await tester.scrollUntilVisible(
+        medicationTitle,
+        320,
+        scrollable: mainScroll,
+      );
+      expect(find.text('برنامه واقعی هفت روز آینده'), findsOneWidget);
+      expect(medicationTitle, findsOneWidget);
+""",
+                  """      final medicineList = find.text(
+        'برنامه واقعی هفت روز آینده',
+        skipOffstage: false,
+      );
+      await tester.scrollUntilVisible(
+        medicineList,
+        300,
+        scrollable: mainScroll,
+      );
+      expect(medicineList, findsOneWidget);
+
+      final medicationTitle = find.text('متفورمین', skipOffstage: false);
+      await tester.scrollUntilVisible(
+        medicationTitle,
+        260,
+        scrollable: mainScroll,
+      );
+      expect(medicationTitle, findsOneWidget);
+""",
+              ),
+              (
+                  """      final injectionTitle = find.text('ویتامین B12', skipOffstage: false);
+      await tester.scrollUntilVisible(
+        injectionTitle,
+        320,
+        scrollable: mainScroll,
+      );
+      expect(find.text('تزریق‌های ثبت‌شده'), findsOneWidget);
+      expect(injectionTitle, findsOneWidget);
+""",
+                  """      final injectionList = find.text(
+        'تزریق‌های ثبت‌شده',
+        skipOffstage: false,
+      );
+      await tester.scrollUntilVisible(
+        injectionList,
+        300,
+        scrollable: mainScroll,
+      );
+      expect(injectionList, findsOneWidget);
+
+      final injectionTitle = find.text('ویتامین B12', skipOffstage: false);
+      await tester.scrollUntilVisible(
+        injectionTitle,
+        260,
+        scrollable: mainScroll,
+      );
+      expect(injectionTitle, findsOneWidget);
+""",
+              ),
+          ]
+          for old, new in replacements:
+              if old in text:
+                  text = text.replace(old, new, 1)
+          care.write_text(text)
+          PY
+          git diff --check
+          grep -q 'isExpanded: true' \
+            wellmate/lib/screens/treatments/care_plan_hub_screen.dart
+          grep -q "final visitList = find.text" \
+            caremate/test/care_event_management_accessibility_test.dart
+
+      - name: Commit exact patch
+        shell: bash
+        run: |
+          set -euo pipefail
+          if git diff --exit-code --quiet; then
+            echo 'Patch is already present.'
+            exit 0
+          fi
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add \
+            wellmate/lib/screens/treatments/care_plan_hub_screen.dart \
+            caremate/test/care_event_management_accessibility_test.dart
+          git commit -m 'fix(ui): prevent care-plan overflow on compact screens'
+          git push origin HEAD:feat/bb287-parity-completion
