@@ -45,57 +45,40 @@ class _CalendarScreenState extends State<CalendarScreen> {
     }
     try {
       final api = context.read<LifeMateApiClient>();
+      final monthStart = _monthStart(_focusedMonth);
+      final monthEnd = _monthEnd(_focusedMonth);
       final results = await Future.wait<dynamic>([
         api.getTreatmentPlans(),
         api.getDoseOccurrences(
-          fromDate: _monthStart(_focusedMonth),
-          toDate: _monthEnd(_focusedMonth),
+          fromDate: monthStart,
+          toDate: monthEnd,
+        ),
+        api.getCareEvents(
+          fromDate: monthStart,
+          toDate: monthEnd,
         ),
       ]);
       final plans = results[0] as List<Map<String, dynamic>>;
       final doses = results[1] as List<Map<String, dynamic>>;
+      final careEvents = results[2] as List<Map<String, dynamic>>;
       final plansById = <String, Map<String, dynamic>>{
         for (final plan in plans) plan['id'].toString(): plan,
       };
-      final items = doses.map((dose) {
-        final plan = plansById[dose['treatmentPlanId'].toString()] ?? const {};
-        final medication = plan['medication'] is Map<String, dynamic>
-            ? plan['medication'] as Map<String, dynamic>
-            : const <String, dynamic>{};
-        final status = dose['status']?.toString() ?? 'scheduled';
-        final rawTime = dose['scheduledLocalTime']?.toString() ?? '';
-        final scheduledDate = DateTime.tryParse(
-              dose['scheduledLocalDate']?.toString() ?? '',
-            ) ??
-            DateTime.tryParse(dose['scheduledAtUtc']?.toString() ?? '')
-                ?.toLocal() ??
-            _selectedDate;
-        return ScheduleItemModel(
-          id: dose['id']?.toString() ?? '',
-          title: medication['name']?.toString().trim().isNotEmpty == true
-              ? medication['name'].toString()
-              : dose['medicationName']?.toString() ?? 'دارو',
-          time: rawTime.length >= 5 ? rawTime.substring(0, 5) : rawTime,
-          dosage: plan['doseText']?.toString() ??
-              dose['doseText']?.toString() ??
-              '',
-          type: 'medicine',
-          frequency: 'یکباره',
-          isDone: status == 'taken' || status == 'skipped',
-          status: status,
-          version: dose['version'] is int ? dose['version'] as int : 1,
-          scheduledAtUtc:
-              DateTime.tryParse(dose['scheduledAtUtc']?.toString() ?? '')
-                  ?.toUtc(),
-          startDate: _dateOnly(scheduledDate),
-          intervalDays: 1,
-        );
-      }).toList(growable: false)
-        ..sort((a, b) {
+
+      final items = <ScheduleItemModel>[
+        ...doses.map(
+          (dose) => _scheduleItemFromDose(
+            dose,
+            plansById[dose['treatmentPlanId'].toString()] ?? const {},
+          ),
+        ),
+        ...careEvents.map(_scheduleItemFromCareEvent),
+      ]..sort((a, b) {
           final dateCompare = (a.startDate ?? _selectedDate)
               .compareTo(b.startDate ?? _selectedDate);
           return dateCompare == 0 ? a.time.compareTo(b.time) : dateCompare;
         });
+
       if (!mounted) return;
       setState(() {
         _monthItems = items;
@@ -105,12 +88,98 @@ class _CalendarScreenState extends State<CalendarScreen> {
       _setError(
         error.isUnauthorized
             ? 'نشست شما منقضی شده است. دوباره وارد شوید.'
-            : 'تقویم درمان دریافت نشد. دوباره تلاش کنید.',
+            : 'تقویم درمان و مراقبت دریافت نشد. دوباره تلاش کنید.',
       );
     } catch (error) {
       debugPrint('WellMate calendar load failed: $error');
-      _setError('تقویم درمان دریافت نشد. اتصال را بررسی کنید.');
+      _setError('تقویم درمان و مراقبت دریافت نشد. اتصال را بررسی کنید.');
     }
+  }
+
+  ScheduleItemModel _scheduleItemFromDose(
+    Map<String, dynamic> dose,
+    Map<String, dynamic> plan,
+  ) {
+    final medication = plan['medication'] is Map<String, dynamic>
+        ? plan['medication'] as Map<String, dynamic>
+        : const <String, dynamic>{};
+    final status = dose['status']?.toString() ?? 'scheduled';
+    final rawTime = dose['scheduledLocalTime']?.toString() ?? '';
+    final scheduledDate = DateTime.tryParse(
+          dose['scheduledLocalDate']?.toString() ?? '',
+        ) ??
+        DateTime.tryParse(dose['scheduledAtUtc']?.toString() ?? '')
+            ?.toLocal() ??
+        _selectedDate;
+    return ScheduleItemModel(
+      id: dose['id']?.toString() ?? '',
+      title: medication['name']?.toString().trim().isNotEmpty == true
+          ? medication['name'].toString()
+          : dose['medicationName']?.toString() ?? 'دارو',
+      time: rawTime.length >= 5 ? rawTime.substring(0, 5) : rawTime,
+      dosage: plan['doseText']?.toString() ??
+          dose['doseText']?.toString() ??
+          '',
+      type: 'medicine',
+      frequency: 'یکباره',
+      isDone: status == 'taken' || status == 'skipped',
+      status: status,
+      version: dose['version'] is int ? dose['version'] as int : 1,
+      scheduledAtUtc:
+          DateTime.tryParse(dose['scheduledAtUtc']?.toString() ?? '')?.toUtc(),
+      startDate: _dateOnly(scheduledDate),
+      intervalDays: 1,
+    );
+  }
+
+  ScheduleItemModel _scheduleItemFromCareEvent(Map<String, dynamic> event) {
+    final eventType = event['eventType']?.toString().toLowerCase();
+    final type = eventType == 'injection' ? 'injection' : 'appointment';
+    final rawTime = event['scheduledLocalTime']?.toString() ?? '--:--';
+    final date = DateTime.tryParse(
+          event['scheduledLocalDate']?.toString() ?? '',
+        ) ??
+        _selectedDate;
+    final status = event['status']?.toString().toLowerCase() ?? 'scheduled';
+    final details = <String>[
+      if (type == 'appointment')
+        _nonEmpty(event['providerName']) ?? _nonEmpty(event['specialty']) ?? '',
+      if (type == 'injection')
+        _nonEmpty(event['doseText']) ??
+            _administrationRouteLabel(event['administrationRoute']),
+      _nonEmpty(event['centerName']) ?? '',
+      _nonEmpty(event['addressLine']) ?? '',
+    ].where((value) => value.isNotEmpty).join(' • ');
+
+    return ScheduleItemModel(
+      id: event['id']?.toString() ?? '',
+      title: _nonEmpty(event['title']) ??
+          (type == 'injection' ? 'تزریق' : 'ویزیت'),
+      time: rawTime.length >= 5 ? rawTime.substring(0, 5) : rawTime,
+      dosage: details,
+      type: type,
+      frequency: type == 'injection' ? 'تزریق' : 'ویزیت',
+      isDone: status == 'completed',
+      status: status,
+      version: event['version'] is int ? event['version'] as int : 1,
+      startDate: _dateOnly(date),
+      intervalDays: 1,
+    );
+  }
+
+  static String? _nonEmpty(dynamic value) {
+    final normalized = value?.toString().trim();
+    return normalized == null || normalized.isEmpty ? null : normalized;
+  }
+
+  static String _administrationRouteLabel(dynamic value) {
+    return switch (value?.toString().toLowerCase()) {
+      'intramuscular' => 'عضلانی',
+      'subcutaneous' => 'زیرجلدی',
+      'intravenous' => 'وریدی',
+      'other' => 'طبق دستور درمانگر',
+      _ => '',
+    };
   }
 
   void _setError(String message) {
@@ -148,8 +217,9 @@ class _CalendarScreenState extends State<CalendarScreen> {
     final types = <String>{};
     for (final item in _getEventsForDay(day)) {
       types.add(item.type.isEmpty ? 'medicine' : item.type);
-      if (item.status == 'missed' ||
-          (!item.isDone && _isTimePassed(item.time, day))) {
+      if (item.type == 'medicine' &&
+          (item.status == 'missed' ||
+              (!item.isDone && _isTimePassed(item.time, day)))) {
         types.add('missed');
       }
     }
@@ -262,10 +332,16 @@ class _CalendarScreenState extends State<CalendarScreen> {
                             final now = DateTime.now();
                             final isFuture = _dateOnly(_selectedDate)
                                 .isAfter(_dateOnly(now));
-                            final isMissed = item.status == 'missed' ||
-                                (!item.isDone &&
-                                    _isTimePassed(item.time, _selectedDate));
-                            final showDoneMark = item.isDone && !isFuture;
+                            final isMedicine = item.type == 'medicine';
+                            final isMissed = isMedicine &&
+                                (item.status == 'missed' ||
+                                    (!item.isDone &&
+                                        _isTimePassed(
+                                          item.time,
+                                          _selectedDate,
+                                        )));
+                            final showDoneMark =
+                                isMedicine && item.isDone && !isFuture;
                             return Padding(
                               padding: const EdgeInsets.only(bottom: 12),
                               child: ScheduleItemCard(
@@ -304,8 +380,11 @@ class _CalendarErrorState extends StatelessWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Icon(Icons.cloud_off_rounded,
-                size: 48, color: AppColors.primary),
+            const Icon(
+              Icons.cloud_off_rounded,
+              size: 48,
+              color: AppColors.primary,
+            ),
             const SizedBox(height: 12),
             Text(message, textAlign: TextAlign.center),
             const SizedBox(height: 14),
