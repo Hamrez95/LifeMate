@@ -127,6 +127,62 @@ class LifeMateApiClient {
         ),
       );
 
+  Future<List<Map<String, dynamic>>> getCareEvents({
+    required DateTime fromDate,
+    required DateTime toDate,
+  }) =>
+      _getList(
+        '/api/v1/care-events',
+        query: {
+          'fromDate': _date(fromDate),
+          'toDate': _date(toDate),
+        },
+      );
+
+  Future<Map<String, dynamic>> createCareEvent({
+    required String clientRequestId,
+    required String eventType,
+    required String title,
+    required DateTime scheduledLocalDate,
+    required String scheduledLocalTime,
+    required String timeZone,
+    String? providerName,
+    String? specialty,
+    String? medicationName,
+    String? doseText,
+    String? administrationRoute,
+    String? reason,
+    String? instructions,
+    String? centerName,
+    String? addressLine,
+    String? phoneNumber,
+  }) async =>
+      _asObject(
+        await _send(
+          'POST',
+          '/api/v1/care-events',
+          body: {
+            'clientRequestId': clientRequestId,
+            'eventType': eventType.trim().toLowerCase(),
+            'title': title.trim(),
+            'providerName': _emptyToNull(providerName),
+            'specialty': _emptyToNull(specialty),
+            'medicationName': _emptyToNull(medicationName),
+            'doseText': _emptyToNull(doseText),
+            'administrationRoute': _emptyToNull(administrationRoute),
+            'reason': _emptyToNull(reason),
+            'instructions': _emptyToNull(instructions),
+            'centerName': _emptyToNull(centerName),
+            'addressLine': _emptyToNull(addressLine),
+            'phoneNumber': _emptyToNull(phoneNumber),
+            'scheduledLocalDate': _date(scheduledLocalDate),
+            'scheduledLocalTime': scheduledLocalTime.trim(),
+            'timeZone': timeZone.trim(),
+          },
+          retryable: true,
+        ),
+      );
+
   Future<List<Map<String, dynamic>>> getDoseOccurrences({
     required DateTime fromDate,
     required DateTime toDate,
@@ -221,6 +277,19 @@ class LifeMateApiClient {
         },
       );
 
+  Future<List<Map<String, dynamic>>> getCareRecipientCareEvents({
+    required String patientUserId,
+    required DateTime fromDate,
+    required DateTime toDate,
+  }) =>
+      _getList(
+        '/api/v1/care/patients/$patientUserId/care-events',
+        query: {
+          'fromDate': _date(fromDate),
+          'toDate': _date(toDate),
+        },
+      );
+
   Future<List<Map<String, dynamic>>> _getList(
     String path, {
     Map<String, String>? query,
@@ -294,8 +363,7 @@ class LifeMateApiClient {
         );
       }
 
-      if (
-          attempt < maxAttempts &&
+      if (attempt < maxAttempts &&
           _transientStatusCodes.contains(response.statusCode)) {
         await Future<void>.delayed(_retryDelay);
         continue;
