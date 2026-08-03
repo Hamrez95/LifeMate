@@ -1,0 +1,665 @@
+from pathlib import Path
+
+
+def replace_once(path: str, old: str, new: str, label: str) -> None:
+    file = Path(path)
+    text = file.read_text()
+    count = text.count(old)
+    if count != 1:
+        raise SystemExit(f"{label}: expected one target in {path}, found {count}")
+    file.write_text(text.replace(old, new, 1))
+
+
+# Shared auth screen: Google OAuth, stable metadata names, and callback-aware email flows.
+path = "packages/lifemate_client/lib/src/session_gate.dart"
+replace_once(
+    path,
+    "import 'app_config.dart';\nimport 'lifemate_api_client.dart';",
+    "import 'app_config.dart';\nimport 'lifemate_api_client.dart';\nimport 'lifemate_auth.dart';",
+    "auth import",
+)
+replace_once(
+    path,
+    """    final user = session.user;
+    final rawName = user.userMetadata?['display_name']?.toString().trim();
+    await _api.bootstrapUser(
+      displayName: rawName == null || rawName.isEmpty
+          ? user.email?.split('@').first
+          : rawName,
+      email: user.email,
+    );
+""",
+    """    final user = session.user;
+    final metadata = user.userMetadata ?? const <String, dynamic>{};
+    String? displayName;
+    for (final key in const ['display_name', 'full_name', 'name']) {
+      final candidate = metadata[key]?.toString().trim();
+      if (candidate != null && candidate.isNotEmpty) {
+        displayName = candidate;
+        break;
+      }
+    }
+    await _api.bootstrapUser(
+      displayName: displayName ?? user.email?.split('@').first,
+      email: user.email,
+    );
+""",
+    "identity metadata",
+)
+replace_once(
+    path,
+    """          password: _password.text,
+          data: {'display_name': _displayName.text.trim()},
+""",
+    """          password: _password.text,
+          emailRedirectTo: LifeMateAuth.callbackUrlForApp(widget.appName),
+          data: {'display_name': _displayName.text.trim()},
+""",
+    "signup redirect",
+)
+replace_once(
+    path,
+    """  Future<void> _sendPasswordReset() async {
+""",
+    """  Future<void> _signInWithGoogle() async {
+    FocusScope.of(context).unfocus();
+    setState(() {
+      _busy = true;
+      _error = null;
+      _success = null;
+    });
+    try {
+      final launched = await LifeMateAuth.signInWithGoogle(
+        appName: widget.appName,
+      );
+      if (!launched && mounted) {
+        setState(() => _error = 'صفحه ورود گوگل باز نشد. دوباره تلاش کنید.');
+      }
+    } on AuthException catch (error) {
+      if (mounted) setState(() => _error = _friendlyAuthError(error));
+    } catch (_) {
+      if (mounted) {
+        setState(() => _error = 'ورود با گوگل انجام نشد. دوباره تلاش کنید.');
+      }
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  Future<void> _sendPasswordReset() async {
+""",
+    "google method",
+)
+replace_once(
+    path,
+    """      await widget.supabase.auth.resetPasswordForEmail(email);
+""",
+    """      await widget.supabase.auth.resetPasswordForEmail(
+        email,
+        redirectTo: LifeMateAuth.callbackUrlForApp(widget.appName),
+      );
+""",
+    "password reset redirect",
+)
+replace_once(
+    path,
+    """                              const SizedBox(height: 22),
+                              if (isSignUp) ...[
+""",
+    """                              const SizedBox(height: 22),
+                              OutlinedButton.icon(
+                                key: const ValueKey<String>('auth-google'),
+                                onPressed: _busy ? null : _signInWithGoogle,
+                                style: OutlinedButton.styleFrom(
+                                  minimumSize: const Size.fromHeight(52),
+                                  foregroundColor: const Color(0xFF283054),
+                                  side: const BorderSide(
+                                    color: Color(0xFFDCE3EB),
+                                  ),
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(17),
+                                  ),
+                                ),
+                                icon: Container(
+                                  width: 26,
+                                  height: 26,
+                                  alignment: Alignment.center,
+                                  decoration: BoxDecoration(
+                                    color: Colors.white,
+                                    shape: BoxShape.circle,
+                                    border: Border.all(
+                                      color: const Color(0xFFE4E8ED),
+                                    ),
+                                  ),
+                                  child: const Text(
+                                    'G',
+                                    style: TextStyle(
+                                      color: Color(0xFF4285F4),
+                                      fontWeight: FontWeight.w900,
+                                    ),
+                                  ),
+                                ),
+                                label: const Text(
+                                  'ادامه با حساب گوگل',
+                                  style: TextStyle(fontWeight: FontWeight.w800),
+                                ),
+                              ),
+                              const Padding(
+                                padding: EdgeInsets.symmetric(vertical: 16),
+                                child: Row(
+                                  children: [
+                                    Expanded(child: Divider()),
+                                    Padding(
+                                      padding: EdgeInsets.symmetric(horizontal: 10),
+                                      child: Text(
+                                        'یا با ایمیل',
+                                        style: TextStyle(
+                                          color: Color(0xFF8A96A8),
+                                          fontSize: 11,
+                                        ),
+                                      ),
+                                    ),
+                                    Expanded(child: Divider()),
+                                  ],
+                                ),
+                              ),
+                              if (isSignUp) ...[
+""",
+    "google button",
+)
+replace_once(
+    path,
+    """    if (message.contains('rate limit')) {
+      return 'تعداد درخواست‌ها زیاد بوده است؛ کمی بعد دوباره تلاش کنید.';
+    }
+""",
+    """    if (message.contains('provider') && message.contains('enabled')) {
+      return 'ورود با گوگل هنوز برای این محیط فعال نشده است.';
+    }
+    if (message.contains('rate limit')) {
+      return 'تعداد درخواست‌ها زیاد بوده است؛ کمی بعد دوباره تلاش کنید.';
+    }
+""",
+    "google auth error",
+)
+
+# Shared API client: create a short-lived QR invitation.
+path = "packages/lifemate_client/lib/src/lifemate_api_client.dart"
+replace_once(
+    path,
+    """  Future<List<Map<String, dynamic>>> getOutgoingCareInvitations() =>
+      _getList('/api/v1/care/invitations');
+""",
+    """  Future<Map<String, dynamic>> createQrCareInvitation() async =>
+      _asObject(
+        await _send(
+          'POST',
+          '/api/v1/care/invitations/qr',
+          body: {
+            'consentVersion': 'care-patient-consent-v1',
+            'confirmConsent': true,
+          },
+        ),
+      );
+
+  Future<List<Map<String, dynamic>>> getOutgoingCareInvitations() =>
+      _getList('/api/v1/care/invitations');
+""",
+    "QR client method",
+)
+
+# Edge database: stable profile name and short-lived one-time QR invitations.
+path = "supabase/functions/lifemate-api/database.ts"
+replace_once(
+    path,
+    """    const metadataName = normalizeOptional(auth.userMetadata?.display_name);
+""",
+    """    const metadataName = normalizeOptional(auth.userMetadata?.display_name) ??
+      normalizeOptional(auth.userMetadata?.full_name) ??
+      normalizeOptional(auth.userMetadata?.name);
+""",
+    "Google profile metadata",
+)
+replace_once(
+    path,
+    """          display_name = excluded.display_name,
+""",
+    """          display_name = coalesce(
+            nullif(lifemate.user_profiles.display_name, ''),
+            excluded.display_name
+          ),
+""",
+    "stable profile name",
+)
+replace_once(
+    path,
+    """  async function listInvitations(
+""",
+    """  async function createQrInvitation(
+    identity: AppIdentity,
+    body: Record<string, unknown>,
+  ): Promise<Record<string, unknown>> {
+    if (
+      body.confirmConsent !== true ||
+      body.consentVersion !== "care-patient-consent-v1"
+    ) {
+      throw new ApiError(
+        400,
+        "patient_consent_required",
+        "Patient consent is required.",
+      );
+    }
+
+    const now = new Date();
+    const expires = new Date(now.getTime() + 10 * 60 * 1000);
+    const token = createToken();
+    const tokenHash = await hmac(`token:${token}`);
+    const id = crypto.randomUUID();
+    const contactHash = await hmac(`qr:${id}`);
+
+    return await sql.begin(async (tx: any) => {
+      await tx`
+        update lifemate.care_invitations
+        set status = 'Revoked', revoked_at_utc = ${now}
+        where inviter_user_id = ${identity.appUserId}
+          and contact_type = 'Qr'
+          and status = 'Pending'
+      `;
+      await tx`
+        insert into lifemate.care_invitations
+          (id, inviter_user_id, contact_type, contact_hash, contact_hint,
+           token_hash, patient_consent_version, status, expires_at_utc,
+           responded_by_user_id, responded_at_utc, revoked_at_utc, created_at_utc)
+        values
+          (${id}, ${identity.appUserId}, 'Qr', ${contactHash}, 'اسکن حضوری',
+           ${tokenHash}, 'care-patient-consent-v1', 'Pending', ${expires},
+           null, null, null, ${now})
+      `;
+      await insertAudit(
+        tx,
+        identity.appUserId,
+        "care_invitation.qr_created",
+        "care_invitation",
+        id,
+      );
+      return {
+        id,
+        contactType: "qr",
+        contactHint: "اسکن حضوری",
+        token,
+        expiresAtUtc: expires.toISOString(),
+      };
+    });
+  }
+
+  async function listInvitations(
+""",
+    "QR database method",
+)
+replace_once(
+    path,
+    """    if (!identity.auth.email) {
+      throw new ApiError(
+        403,
+        "invitation_contact_mismatch",
+        "Signed-in email is required.",
+      );
+    }
+    const contactHash = await hmac(
+      `contact:${identity.auth.email.toLowerCase()}`,
+    );
+    const now = new Date();
+""",
+    """    const now = new Date();
+""",
+    "defer email requirement",
+)
+replace_once(
+    path,
+    """      if (!timingSafeEqual(invitation.contact_hash, contactHash)) {
+        throw new ApiError(
+          403,
+          "invitation_contact_mismatch",
+          "Invitation belongs to another account.",
+        );
+      }
+""",
+    """      if (invitation.contact_type !== "Qr") {
+        if (!identity.auth.email) {
+          throw new ApiError(
+            403,
+            "invitation_contact_mismatch",
+            "Signed-in email is required.",
+          );
+        }
+        const contactHash = await hmac(
+          `contact:${identity.auth.email.toLowerCase()}`,
+        );
+        if (!timingSafeEqual(invitation.contact_hash, contactHash)) {
+          throw new ApiError(
+            403,
+            "invitation_contact_mismatch",
+            "Invitation belongs to another account.",
+          );
+        }
+      }
+""",
+    "QR acceptance scope",
+)
+replace_once(
+    path,
+    """    createInvitation,
+    listInvitations,
+""",
+    """    createInvitation,
+    createQrInvitation,
+    listInvitations,
+""",
+    "export QR method",
+)
+
+# Edge route for QR creation.
+path = "supabase/functions/lifemate-api/index.ts"
+replace_once(
+    path,
+    """  if (request.method === "GET" && path === "/api/v1/care/invitations") {
+""",
+    """  if (
+    request.method === "POST" &&
+    path === "/api/v1/care/invitations/qr"
+  ) {
+    enforceRateLimit(`qr-invite:${identity.appUserId}`, 10, 60 * 60_000);
+    return json(
+      await db.createQrInvitation(identity, await readJsonObject(request)),
+      201,
+    );
+  }
+  if (request.method === "GET" && path === "/api/v1/care/invitations") {
+""",
+    "QR API route",
+)
+
+# WellMate: QR generation alongside the existing email invitation.
+path = "wellmate/lib/screens/profile/care_access_screen.dart"
+replace_once(
+    path,
+    """import '../../core/theme/app_style.dart';
+""",
+    """import '../../core/theme/app_style.dart';
+import 'care_pairing_qr_dialog.dart';
+""",
+    "WellMate QR import",
+)
+replace_once(
+    path,
+    """  Future<void> _showInvitationToken(String token, String? expiresAt) async {
+""",
+    """  Future<void> _createQrInvitation() async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('اتصال با QR'),
+        content: const Text(
+          'با ادامه، یک QR یک‌بارمصرف می‌سازید که فقط ۱۰ دقیقه معتبر است. آن را فقط به مراقب مورد اعتماد نشان دهید.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('انصراف'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('ساخت QR امن'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !mounted) return;
+
+    setState(() => _creating = true);
+    try {
+      final invitation = await context
+          .read<LifeMateApiClient>()
+          .createQrCareInvitation();
+      if (!mounted) return;
+      await showCarePairingQrDialog(
+        context: context,
+        token: invitation['token']?.toString() ?? '',
+        expiresAtUtc: invitation['expiresAtUtc']?.toString(),
+      );
+      await _refresh();
+    } on LifeMateApiException catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            error.code == 'patient_consent_required'
+                ? 'برای اتصال، تأیید رضایت بیمار لازم است.'
+                : 'ساخت QR انجام نشد. دوباره تلاش کنید.',
+          ),
+          backgroundColor: Theme.of(context).colorScheme.error,
+        ),
+      );
+    } finally {
+      if (mounted) setState(() => _creating = false);
+    }
+  }
+
+  Future<void> _showInvitationToken(String token, String? expiresAt) async {
+""",
+    "WellMate QR method",
+)
+replace_once(
+    path,
+    """      floatingActionButton: FloatingActionButton.extended(
+        onPressed: _creating ? null : _createInvitation,
+        icon: _creating
+            ? const SizedBox.square(
+                dimension: 18,
+                child: CircularProgressIndicator(strokeWidth: 2),
+              )
+            : const Icon(Icons.person_add_alt_1_rounded),
+        label: const Text('دعوت مراقب'),
+      ),
+""",
+    """      floatingActionButton: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.end,
+        children: [
+          FloatingActionButton.extended(
+            heroTag: 'care-qr-invite',
+            onPressed: _creating ? null : _createQrInvitation,
+            icon: const Icon(Icons.qr_code_2_rounded),
+            label: const Text('اتصال با QR'),
+          ),
+          const SizedBox(height: 10),
+          FloatingActionButton.extended(
+            heroTag: 'care-email-invite',
+            onPressed: _creating ? null : _createInvitation,
+            icon: _creating
+                ? const SizedBox.square(
+                    dimension: 18,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  )
+                : const Icon(Icons.alternate_email_rounded),
+            label: const Text('دعوت با ایمیل'),
+          ),
+        ],
+      ),
+""",
+    "WellMate QR actions",
+)
+
+# CareMate: scanner-first connection with manual-token fallback.
+path = "caremate/lib/screens/dashboard_screen.dart"
+replace_once(
+    path,
+    """import 'feature_preview_screen.dart';
+import 'profile_destination_screens.dart';
+""",
+    """import 'feature_preview_screen.dart';
+import 'pairing/care_invitation_scanner_screen.dart';
+import 'profile_destination_screens.dart';
+""",
+    "CareMate scanner import",
+)
+replace_once(
+    path,
+    """  Future<void> _showAcceptInvitation() async {
+""",
+    """  Future<void> _showPairingOptions() async {
+    final action = await showModalBottomSheet<String>(
+      context: context,
+      backgroundColor: Colors.transparent,
+      builder: (context) => Container(
+        padding: const EdgeInsets.fromLTRB(24, 18, 24, 28),
+        decoration: const BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.vertical(top: Radius.circular(30)),
+        ),
+        child: SafeArea(
+          top: false,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Text(
+                'اتصال به WellMate',
+                style: TextStyle(fontSize: 19, fontWeight: FontWeight.w900),
+              ),
+              const SizedBox(height: 8),
+              const Text(
+                'ساده‌ترین روش، اسکن QR روی گوشی بیمار است.',
+                textAlign: TextAlign.center,
+                style: TextStyle(color: AppColors.secondaryText),
+              ),
+              const SizedBox(height: 18),
+              ListTile(
+                leading: const CircleAvatar(
+                  child: Icon(Icons.qr_code_scanner_rounded),
+                ),
+                title: const Text('اسکن QR'),
+                subtitle: const Text('اتصال کوتاه‌مدت و یک‌بارمصرف'),
+                onTap: () => Navigator.pop(context, 'qr'),
+              ),
+              ListTile(
+                leading: const CircleAvatar(
+                  child: Icon(Icons.keyboard_rounded),
+                ),
+                title: const Text('ورود کد دعوت'),
+                subtitle: const Text('روش پشتیبان برای دعوت ایمیلی یا کد کپی‌شده'),
+                onTap: () => Navigator.pop(context, 'manual'),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+    if (!mounted) return;
+    if (action == 'qr') {
+      await _showQrScanner();
+    } else if (action == 'manual') {
+      await _showAcceptInvitation();
+    }
+  }
+
+  Future<void> _showQrScanner() async {
+    final token = await Navigator.of(context).push<String>(
+      MaterialPageRoute<String>(
+        builder: (_) => const CareInvitationScannerScreen(),
+      ),
+    );
+    if (token == null || !mounted) return;
+
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('پذیرش مراقبت؟'),
+        content: const Text(
+          'با تأیید، اطلاعات درمانی بیمار فقط در محدوده رضایت او در CareMate نمایش داده می‌شود و هر دو طرف می‌توانند دسترسی را قطع کنند.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('انصراف'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('تأیید و اتصال'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed == true && mounted) await _acceptInvitationToken(token);
+  }
+
+  Future<void> _acceptInvitationToken(String token) async {
+    setState(() => _accepting = true);
+    try {
+      await context
+          .read<LifeMateApiClient>()
+          .acceptCareInvitation(token: token);
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('دعوت مراقبت با موفقیت پذیرفته شد.')),
+      );
+      await _refresh();
+    } on LifeMateApiException catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(_friendlyApiError(error)),
+          backgroundColor: Theme.of(context).colorScheme.error,
+        ),
+      );
+    } finally {
+      if (mounted) setState(() => _accepting = false);
+    }
+  }
+
+  Future<void> _showAcceptInvitation() async {
+""",
+    "CareMate pairing methods",
+)
+replace_once(
+    path,
+    """    setState(() => _accepting = true);
+    try {
+      await context
+          .read<LifeMateApiClient>()
+          .acceptCareInvitation(token: token);
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('دعوت مراقبت با موفقیت پذیرفته شد.')),
+      );
+      await _refresh();
+    } on LifeMateApiException catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(_friendlyApiError(error)),
+          backgroundColor: Theme.of(context).colorScheme.error,
+        ),
+      );
+    } finally {
+      if (mounted) setState(() => _accepting = false);
+    }
+""",
+    """    await _acceptInvitationToken(token);
+""",
+    "manual invitation shared accept",
+)
+file = Path(path)
+text = file.read_text()
+text = text.replace(
+    "onAcceptInvitation: _showAcceptInvitation,",
+    "onAcceptInvitation: _showPairingOptions,",
+)
+text = text.replace(
+    "onAccept: _showAcceptInvitation,",
+    "onAccept: _showPairingOptions,",
+)
+file.write_text(text)
+
+obsolete = Path(".github/workflows/one-shot-caremate-calendar-layout.yml")
+if obsolete.exists():
+    obsolete.unlink()
