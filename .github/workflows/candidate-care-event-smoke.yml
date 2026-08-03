@@ -7,13 +7,10 @@ on:
     paths:
       - '.github/workflows/candidate-care-event-smoke.yml'
       - 'tools/release/live-care-event-smoke.sh'
-  pull_request:
-    paths:
-      - '.github/workflows/candidate-care-event-smoke.yml'
-      - 'tools/release/live-care-event-smoke.sh'
 
 permissions:
   contents: read
+  issues: write
 
 concurrency:
   group: candidate-care-event-smoke
@@ -37,6 +34,7 @@ jobs:
       CAREGIVER_PASSWORD: ${{ secrets.BETA_CAREGIVER_PASSWORD }}
       UNRELATED_EMAIL: ${{ secrets.BETA_UNRELATED_EMAIL }}
       UNRELATED_PASSWORD: ${{ secrets.BETA_UNRELATED_PASSWORD }}
+      GH_TOKEN: ${{ github.token }}
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
         with:
@@ -51,6 +49,8 @@ jobs:
           shellcheck tools/release/live-care-event-smoke.sh
 
       - name: Execute candidate care-event journey
+        id: smoke
+        continue-on-error: true
         shell: bash
         run: |
           set -euo pipefail
@@ -61,9 +61,28 @@ jobs:
             /tmp/lifemate-candidate-care-event-smoke.json >/dev/null
 
       - name: Upload redacted evidence
+        if: ${{ steps.smoke.outcome == 'success' }}
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:
           name: candidate-care-event-smoke
           path: /tmp/lifemate-candidate-care-event-smoke.json
           if-no-files-found: error
           retention-days: 7
+
+      - name: Report one-shot result
+        if: ${{ always() }}
+        shell: bash
+        env:
+          SMOKE_OUTCOME: ${{ steps.smoke.outcome }}
+        run: |
+          set -euo pipefail
+          if [[ "$SMOKE_OUTCOME" == 'success' ]]; then
+            body="✅ Candidate care-event live smoke passed for API source \`$EXPECTED_RELEASE_VERSION\`. Patient create/list, pre-consent denial, caregiver read after consent, unrelated-user denial, idempotent retry and post-revocation denial were verified. Evidence artifact: candidate-care-event-smoke."
+          else
+            body="❌ Candidate care-event live smoke failed for API source \`$EXPECTED_RELEASE_VERSION\`. No credentials or tokens were included in this report. Inspect Actions run \`$GITHUB_RUN_ID\`."
+          fi
+          gh api \
+            --method POST \
+            "repos/$GITHUB_REPOSITORY/issues/42/comments" \
+            -f body="$body" >/dev/null
+          test "$SMOKE_OUTCOME" = 'success'
