@@ -1,9 +1,6 @@
 import { assertEquals, assertRejects } from "jsr:@std/assert@1.0.14";
 import postgres from "postgres";
-import {
-  type AuthUser,
-  createLifeMateDatabase,
-} from "./database.ts";
+import { type AuthUser, createLifeMateDatabase } from "./database.ts";
 import { createProfileStore } from "./profile.ts";
 import { ApiError } from "./validation.ts";
 
