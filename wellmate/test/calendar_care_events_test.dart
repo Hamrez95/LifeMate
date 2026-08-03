@@ -41,6 +41,17 @@ void main() {
         find.textContaining('مرکز درمانی الوند', skipOffstage: false),
         findsOneWidget,
       );
+
+      // The event list lives below the month calendar inside the page scroll.
+      // On a small viewport the builder does not construct the second card until
+      // the user scrolls, so exercise the real interaction before asserting the
+      // injection mapping rather than relying on an oversized test viewport.
+      await tester.drag(
+        find.byType(SingleChildScrollView),
+        const Offset(0, -600),
+      );
+      await tester.pumpAndSettle();
+
       expect(find.text('ویتامین B12', skipOffstage: false), findsOneWidget);
       expect(find.byIcon(Icons.vaccines_rounded), findsWidgets);
       expect(
