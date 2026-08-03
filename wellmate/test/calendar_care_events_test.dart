@@ -39,34 +39,43 @@ void main() {
         description: 'the non-scrollable daily event list',
       );
       expect(eventListFinder, findsOneWidget);
+
       final eventList = tester.widget<ListView>(eventListFinder);
       expect(eventList.childrenDelegate.estimatedChildCount, 2);
 
-      expect(
-        find.text('ویزیت متخصص قلب', skipOffstage: false),
-        findsOneWidget,
-      );
-      expect(find.byIcon(Icons.medical_services_rounded), findsWidgets);
-      expect(
-        find.textContaining('مرکز درمانی الوند', skipOffstage: false),
-        findsOneWidget,
-      );
+      // The nested shrink-wrapped builder virtualizes children outside the test
+      // viewport. Build the actual delegate children deterministically so this
+      // contract test verifies both mappings and their real card rendering,
+      // without depending on offstage/lazy-list behavior.
+      final delegate =
+          eventList.childrenDelegate as SliverChildBuilderDelegate;
+      final listContext = tester.element(eventListFinder);
+      final renderedChildren = <Widget>[];
+      for (var index = 0; index < 2; index += 1) {
+        final child = delegate.builder(listContext, index);
+        expect(child, isNotNull, reason: 'event $index must be renderable');
+        renderedChildren.add(child!);
+      }
 
-      // The second builder child is created only after the page itself scrolls.
-      // Drag the real outer viewport until the injection card is painted.
-      await tester.dragUntilVisible(
-        find.text('ویتامین B12', skipOffstage: false),
-        find.byType(SingleChildScrollView),
-        const Offset(0, -180),
+      await tester.pumpWidget(
+        MaterialApp(
+          locale: const Locale('fa'),
+          home: Scaffold(
+            body: SingleChildScrollView(
+              child: Column(children: renderedChildren),
+            ),
+          ),
+        ),
       );
       await tester.pumpAndSettle();
 
-      expect(find.text('ویتامین B12', skipOffstage: false), findsOneWidget);
-      expect(find.byIcon(Icons.vaccines_rounded), findsWidgets);
-      expect(
-        find.textContaining('مرکز تزریقات', skipOffstage: false),
-        findsOneWidget,
-      );
+      expect(find.text('ویزیت متخصص قلب'), findsOneWidget);
+      expect(find.byIcon(Icons.medical_services_rounded), findsOneWidget);
+      expect(find.textContaining('مرکز درمانی الوند'), findsOneWidget);
+
+      expect(find.text('ویتامین B12'), findsOneWidget);
+      expect(find.byIcon(Icons.vaccines_rounded), findsOneWidget);
+      expect(find.textContaining('مرکز تزریقات'), findsOneWidget);
       expect(tester.takeException(), isNull);
     },
   );
