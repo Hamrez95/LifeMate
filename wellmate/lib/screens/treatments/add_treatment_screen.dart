@@ -401,14 +401,26 @@ class _TabbedAddTreatmentScreenState extends State<TabbedAddTreatmentScreen>
           padding: const EdgeInsets.fromLTRB(20, 4, 20, 88),
           child: LayoutBuilder(
             builder: (context, constraints) {
-              final largeText = MediaQuery.textScalerOf(context).scale(1) > 1.3;
-              final stackButtons = constraints.maxWidth < 340 || largeText;
+              final compact = constraints.maxWidth < 360 ||
+                  MediaQuery.textScalerOf(context).scale(1) > 1.3;
+              final previousLabel = compact ? 'قبل' : 'مرحله قبل';
+              final nextLabel = compact
+                  ? (_tabs.index == 2 ? 'ثبت' : 'بعد')
+                  : (_tabs.index == 2 ? 'ثبت درمان' : 'مرحله بعد');
               final previousButton = OutlinedButton.icon(
+                style: OutlinedButton.styleFrom(
+                  minimumSize: const Size(0, 48),
+                  padding: const EdgeInsets.symmetric(horizontal: 8),
+                ),
                 onPressed: _busy ? null : _previous,
-                icon: const Icon(Icons.arrow_back_rounded),
-                label: const Text('مرحله قبل'),
+                icon: const Icon(Icons.arrow_back_rounded, size: 20),
+                label: Text(previousLabel),
               );
               final primaryButton = FilledButton.icon(
+                style: FilledButton.styleFrom(
+                  minimumSize: const Size(0, 48),
+                  padding: const EdgeInsets.symmetric(horizontal: 8),
+                ),
                 onPressed:
                     _busy ? null : (_tabs.index == 2 ? _create : _next),
                 icon: _busy
@@ -420,29 +432,21 @@ class _TabbedAddTreatmentScreenState extends State<TabbedAddTreatmentScreen>
                         _tabs.index == 2
                             ? Icons.add_task_rounded
                             : Icons.arrow_forward_rounded,
+                        size: 20,
                       ),
-                label: Text(_tabs.index == 2 ? 'ثبت درمان' : 'مرحله بعد'),
+                label: Text(nextLabel),
               );
 
-              if (stackButtons) {
-                return Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    if (_tabs.index > 0) ...[
-                      previousButton,
-                      const SizedBox(height: 8),
-                    ],
-                    primaryButton,
-                  ],
-                );
-              }
               return Row(
                 children: [
                   if (_tabs.index > 0) ...[
                     Expanded(child: previousButton),
-                    const SizedBox(width: 10),
+                    const SizedBox(width: 8),
                   ],
-                  Expanded(flex: 2, child: primaryButton),
+                  Expanded(
+                    flex: _tabs.index > 0 ? 1 : 2,
+                    child: primaryButton,
+                  ),
                 ],
               );
             },
