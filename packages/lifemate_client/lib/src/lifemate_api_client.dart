@@ -77,6 +77,35 @@ class LifeMateApiClient {
         ),
       );
 
+  Future<Map<String, dynamic>> getCurrentProfile() async => _asObject(
+        await _send(
+          'GET',
+          '/api/v1/me/profile',
+          retryable: true,
+        ),
+      );
+
+  Future<Map<String, dynamic>> updateCurrentProfile({
+    required int version,
+    required String displayName,
+    String? phoneNumber,
+    required String locale,
+    required String timeZone,
+  }) async =>
+      _asObject(
+        await _send(
+          'PATCH',
+          '/api/v1/me/profile',
+          body: {
+            'version': version,
+            'displayName': displayName.trim(),
+            'phoneNumber': _emptyToNull(phoneNumber),
+            'locale': locale.trim(),
+            'timeZone': timeZone.trim(),
+          },
+        ),
+      );
+
   Future<List<Map<String, dynamic>>> getMedications() =>
       _getList('/api/v1/medications');
 
@@ -397,6 +426,12 @@ class LifeMateApiClient {
         return _http.get(uri, headers: headers);
       case 'POST':
         return _http.post(
+          uri,
+          headers: headers,
+          body: encodedBody,
+        );
+      case 'PATCH':
+        return _http.patch(
           uri,
           headers: headers,
           body: encodedBody,
