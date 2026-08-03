@@ -2,6 +2,7 @@ import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createCareEventStore } from "./care_events.ts";
 import { type AuthUser, createLifeMateDatabase } from "./database.ts";
 import { corsHeaders, json, problem, safeError } from "./http.ts";
+import { createProfileStore } from "./profile.ts";
 import { loadRuntimeConfig } from "./runtime_config.ts";
 import { enforceRateLimit } from "./security.ts";
 import {
@@ -20,6 +21,7 @@ const {
 } = await loadRuntimeConfig();
 
 const db = createLifeMateDatabase(databaseUrl, contactHashingSecret);
+const profiles = createProfileStore(databaseUrl);
 const careEvents = createCareEventStore(databaseUrl);
 
 Deno.serve(async (request: Request) => {
@@ -97,6 +99,19 @@ async function route(
 
   if (request.method === "GET" && path === "/api/v1/me") {
     return json(await db.currentUser(identity));
+  }
+  if (request.method === "GET" && path === "/api/v1/me/profile") {
+    return json(await profiles.getProfile(identity.appUserId));
+  }
+  if (request.method === "PATCH" && path === "/api/v1/me/profile") {
+    enforceRateLimit(`profile:${identity.appUserId}`, 20, 60 * 60_000);
+    return json(
+      await profiles.updateProfile(
+        identity.appUserId,
+        auth,
+        await readJsonObject(request),
+      ),
+    );
   }
   if (request.method === "GET" && path === "/api/v1/medications") {
     return json(await db.listMedications(identity.appUserId));
