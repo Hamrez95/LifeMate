@@ -71,14 +71,14 @@ void main() {
       );
       expect(visitAddress, findsOneWidget);
 
-      final visitList = find.text('ویزیت‌های ثبت‌شده', skipOffstage: false);
+      final visitTitle = find.text('ویزیت متخصص قلب', skipOffstage: false);
       await tester.scrollUntilVisible(
-        visitList,
-        300,
+        visitTitle,
+        320,
         scrollable: mainScroll,
       );
-      expect(visitList, findsOneWidget);
-      expect(find.text('ویزیت متخصص قلب'), findsOneWidget);
+      expect(find.text('ویزیت‌های ثبت‌شده'), findsOneWidget);
+      expect(visitTitle, findsOneWidget);
       expect(tester.takeException(), isNull);
 
       final medicineSelector = find.byKey(
@@ -101,15 +101,14 @@ void main() {
       );
       expect(medicineForm, findsOneWidget);
 
-      final medicineList =
-          find.text('برنامه واقعی هفت روز آینده', skipOffstage: false);
+      final medicationTitle = find.text('متفورمین', skipOffstage: false);
       await tester.scrollUntilVisible(
-        medicineList,
-        300,
+        medicationTitle,
+        320,
         scrollable: mainScroll,
       );
-      expect(medicineList, findsOneWidget);
-      expect(find.text('متفورمین'), findsOneWidget);
+      expect(find.text('برنامه واقعی هفت روز آینده'), findsOneWidget);
+      expect(medicationTitle, findsOneWidget);
       expect(tester.takeException(), isNull);
 
       final injectionSelector = find.byKey(
@@ -132,14 +131,14 @@ void main() {
       );
       expect(injectionForm, findsOneWidget);
 
-      final injectionList = find.text('تزریق‌های ثبت‌شده', skipOffstage: false);
+      final injectionTitle = find.text('ویتامین B12', skipOffstage: false);
       await tester.scrollUntilVisible(
-        injectionList,
+        injectionTitle,
         320,
         scrollable: mainScroll,
       );
-      expect(injectionList, findsOneWidget);
-      expect(find.text('ویتامین B12'), findsOneWidget);
+      expect(find.text('تزریق‌های ثبت‌شده'), findsOneWidget);
+      expect(injectionTitle, findsOneWidget);
       expect(
         find.text('ثبت نیازمند مجوز صریح بیمار', skipOffstage: false),
         findsOneWidget,
