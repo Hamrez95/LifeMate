@@ -5,6 +5,7 @@ import 'package:lifemate_client/lifemate_client.dart';
 import 'package:provider/provider.dart';
 
 import '../../core/constants/app_colors.dart';
+import '../../core/constants/app_version.dart';
 import '../../core/localization/app_localizations.dart';
 import '../../core/localization/locale_provider.dart';
 import '../../core/utils/string_extensions.dart';
@@ -26,7 +27,6 @@ class ProfileScreen extends StatelessWidget {
         MaterialPageRoute<void>(builder: (_) => destination),
       );
     }
-
 
     return Scaffold(
       backgroundColor: AppColors.background,
@@ -206,7 +206,7 @@ class ProfileScreen extends StatelessWidget {
               Padding(
                 padding: const EdgeInsets.only(top: 8, bottom: 24),
                 child: Text(
-                  'CareMate 0.8.0-beta.3'.toPersianDigit(isPersian),
+                  'CareMate $careMateAppVersion'.toPersianDigit(isPersian),
                   style: TextStyle(fontFamily: mainFont, fontSize: 12, color: AppColors.secondaryText.withOpacity(0.7)),
                 ),
               ),
