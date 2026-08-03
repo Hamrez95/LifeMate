@@ -198,16 +198,34 @@ jobs:
           (cd caremate && flutter build apk "${build_args[@]}")
 
       - name: Inspect Android APK manifests, signing and packaged assets
+        id: apk-inspection
+        continue-on-error: true
         if: ${{ success() && steps.android-checkpoint.outputs.should_build == 'true' }}
         shell: bash
         run: |
-          set -euo pipefail
+          set -uo pipefail
           report_dir=/tmp/lifemate-apk-inspection
           mkdir -p "$report_dir"
+          : > "$report_dir/apk-sha256.txt"
+          : > "$report_dir/inspection-summary.txt"
+          failures=0
+
+          record_check() {
+            local app_name="$1"
+            local check_name="$2"
+            shift 2
+            if "$@"; then
+              printf '%s\tPASS\t%s\n' "$app_name" "$check_name" | tee -a "$report_dir/inspection-summary.txt"
+            else
+              printf '%s\tFAIL\t%s\n' "$app_name" "$check_name" | tee -a "$report_dir/inspection-summary.txt" >&2
+              failures=$((failures + 1))
+            fi
+          }
+
           aapt_bin="$(find "$ANDROID_HOME/build-tools" -type f -name aapt | sort -V | tail -n 1)"
           apksigner_bin="$(find "$ANDROID_HOME/build-tools" -type f -name apksigner | sort -V | tail -n 1)"
-          test -x "$aapt_bin"
-          test -x "$apksigner_bin"
+          record_check tools aapt test -x "$aapt_bin"
+          record_check tools apksigner test -x "$apksigner_bin"
 
           inspect_apk() {
             local app_name="$1"
@@ -216,16 +234,23 @@ jobs:
             local report="$report_dir/${app_name}.txt"
             local listing="$report_dir/${app_name}-zip-listing.txt"
 
-            test -s "$apk"
-            "$aapt_bin" dump badging "$apk" > "$report"
-            "$aapt_bin" dump permissions "$apk" >> "$report"
-            grep -Fq 'android.permission.INTERNET' "$report"
-            "$apksigner_bin" verify --verbose --print-certs "$apk" >> "$report"
+            record_check "$app_name" apk-present test -s "$apk"
+            if [[ ! -s "$apk" ]]; then
+              return
+            fi
+
+            "$aapt_bin" dump badging "$apk" > "$report" 2>&1
+            record_check "$app_name" manifest-badging test -s "$report"
+            "$aapt_bin" dump permissions "$apk" >> "$report" 2>&1
+            record_check "$app_name" internet-permission grep -Fq 'android.permission.INTERNET' "$report"
+            "$apksigner_bin" verify --verbose --print-certs "$apk" >> "$report" 2>&1
+            record_check "$app_name" signature-verification test "$?" -eq 0
+
             unzip -Z1 "$apk" > "$listing"
-            grep -Fq 'assets/flutter_assets/AssetManifest.bin' "$listing"
-            grep -Fq "assets/flutter_assets/$required_logo" "$listing"
-            grep -Fq 'assets/flutter_assets/assets/fonts/Vazir.ttf' "$listing"
-            grep -Eq '^res/mipmap-.*/ic_launcher\.(png|webp)$' "$listing"
+            record_check "$app_name" asset-manifest grep -Eq '^assets/flutter_assets/AssetManifest\.(bin|json)$' "$listing"
+            record_check "$app_name" product-logo grep -Fq "assets/flutter_assets/$required_logo" "$listing"
+            record_check "$app_name" vazir-font grep -Fq 'assets/flutter_assets/assets/fonts/Vazir.ttf' "$listing"
+            record_check "$app_name" launcher-icon grep -Eq '^res/(mipmap|drawable)[^/]*/ic_launcher[^/]*\.(png|webp|xml)$' "$listing"
             sha256sum "$apk" >> "$report_dir/apk-sha256.txt"
           }
 
@@ -238,8 +263,11 @@ jobs:
             caremate/build/app/outputs/flutter-apk/app-release.apk \
             assets/images/CareMateWithoutBack.png
 
+          printf 'TOTAL_FAILURES=%s\n' "$failures" | tee -a "$report_dir/inspection-summary.txt"
+          test "$failures" -eq 0
+
       - name: Upload Android beta APKs and inspection evidence
-        if: ${{ success() && steps.android-checkpoint.outputs.should_build == 'true' }}
+        if: ${{ always() && steps.android-checkpoint.outputs.should_build == 'true' }}
         uses: actions/upload-artifact@v4
         with:
           name: lifemate-android-beta-apks
@@ -249,3 +277,8 @@ jobs:
             /tmp/lifemate-apk-inspection/**
           if-no-files-found: error
           retention-days: 14
+
+      - name: Enforce Android inspection result
+        if: ${{ always() && steps.android-checkpoint.outputs.should_build == 'true' }}
+        shell: bash
+        run: test "${{ steps.apk-inspection.outcome }}" = "success"
