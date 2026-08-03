@@ -1,3 +1,6 @@
+import 'dart:io';
+
+import 'package:caremate/core/constants/app_version.dart';
 import 'package:caremate/core/localization/locale_provider.dart';
 import 'package:caremate/main.dart';
 import 'package:caremate/screens/profile_screen.dart';
@@ -46,6 +49,15 @@ void main() {
     expect(find.byType(ProfileScreen), findsOneWidget);
     expect(find.text('مراقب تست'), findsOneWidget);
     expect(tester.takeException(), isNull);
+  });
+
+  test('displayed app version matches caremate pubspec', () {
+    final versionLine = File('pubspec.yaml')
+        .readAsLinesSync()
+        .firstWhere((line) => line.startsWith('version:'));
+    final pubspecVersion = versionLine.substring('version:'.length).trim();
+
+    expect(careMateAppVersion, pubspecVersion);
   });
 }
 
