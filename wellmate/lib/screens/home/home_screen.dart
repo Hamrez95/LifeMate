@@ -4,7 +4,7 @@ import '../../core/widgets/wellmate_app_header.dart';
 import '../../core/widgets/wellmate_bottom_nav.dart';
 import '../calendar/calendar_screen.dart';
 import '../profile/profile_screen.dart';
-import '../treatments/add_treatment_screen.dart';
+import '../treatments/care_plan_hub_screen.dart';
 import '../treatments/treatments_screen.dart';
 import 'home_screen_content.dart';
 
@@ -35,7 +35,7 @@ class _HomeScreenState extends State<HomeScreen> {
     final pages = [
       const CalendarScreen(),
       TreatmentsScreen(refreshToken: _refreshToken),
-      TabbedAddTreatmentScreen(onCreated: _treatmentCreated),
+      CarePlanHubScreen(onCreated: _treatmentCreated),
       HomeScreenContent(
         key: ValueKey(_refreshToken),
         onOpenTreatments: () => _onItemTapped(1),
