@@ -286,9 +286,10 @@ Deno.test({
         (row) => row.action === "care_event.created",
       );
       assert(careEventAudit);
-      assertEquals(careEventAudit.metadata_json, {
-        eventType: "Appointment",
-      });
+      assertEquals(
+        careEventAudit.metadata_json,
+        JSON.stringify({ eventType: "Appointment" }),
+      );
       assert(
         auditRows
           .filter((row) => row.action !== "care_event.created")
