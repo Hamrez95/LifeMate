@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/rendering.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:lifemate_client/lifemate_client.dart';
 import 'package:provider/provider.dart';
@@ -7,7 +6,7 @@ import 'package:wellmate/screens/treatments/add_treatment_screen.dart';
 
 void main() {
   testWidgets(
-    'schedule tab keeps times and timezone usable on a small large-text screen',
+    'schedule tab keeps times and timezone usable on a small Persian large-text screen',
     (WidgetTester tester) async {
       tester.view.physicalSize = const Size(320, 640);
       tester.view.devicePixelRatio = 1;
@@ -23,8 +22,11 @@ void main() {
                 data: MediaQuery.of(context).copyWith(
                   textScaler: const TextScaler.linear(1.5),
                 ),
-                child: Scaffold(
-                  body: TabbedAddTreatmentScreen(onCreated: () {}),
+                child: Directionality(
+                  textDirection: TextDirection.rtl,
+                  child: Scaffold(
+                    body: TabbedAddTreatmentScreen(onCreated: () {}),
+                  ),
                 ),
               ),
             ),
@@ -45,12 +47,11 @@ void main() {
       expect(find.byKey(const Key('add-treatment-time')), findsOneWidget);
       expect(find.text('منطقه زمانی'), findsOneWidget);
       expect(find.text('Europe/Berlin'), findsOneWidget);
-
-      final layoutException = tester.takeException();
-      if (layoutException != null) {
-        debugDumpRenderTree();
-        fail('The schedule tab overflowed after navigation: $layoutException');
-      }
+      expect(
+        tester.takeException(),
+        isNull,
+        reason: 'The schedule tab overflowed after navigation.',
+      );
     },
   );
 }
