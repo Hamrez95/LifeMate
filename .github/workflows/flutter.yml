@@ -116,7 +116,7 @@ jobs:
             flutter pub get
             flutter analyze --no-fatal-warnings --no-fatal-infos
             flutter test
-            flutter build web --release
+            flutter build web --release --dart-define=ENABLE_GOOGLE_AUTH=false
           } 2>&1 | tee /tmp/wellmate-ci.log
 
       - name: Upload WellMate diagnostics
@@ -139,7 +139,7 @@ jobs:
             flutter pub get
             flutter analyze --no-fatal-warnings --no-fatal-infos
             flutter test
-            flutter build web --release
+            flutter build web --release --dart-define=ENABLE_GOOGLE_AUTH=false
           } 2>&1 | tee /tmp/caremate-ci.log
 
       - name: Upload CareMate diagnostics
@@ -177,12 +177,18 @@ jobs:
         env:
           SUPABASE_URL: ${{ vars.SUPABASE_URL || 'https://bwdvmniywyyijjauipnh.supabase.co' }}
           SUPABASE_PUBLISHABLE_KEY: ${{ vars.SUPABASE_PUBLISHABLE_KEY || 'sb_publishable_6YpBDD0gAPcenbYGukOeWg_fZXxUb27' }}
-          LIFEMATE_API_BASE_URL: ${{ vars.LIFEMATE_API_BASE_URL || 'https://bwdvmniywyyijjauipnh.supabase.co/functions/v1/lifemate-api' }}
+          LIFEMATE_API_BASE_URL: ${{ vars.LIFEMATE_CANDIDATE_API_BASE_URL || 'https://bwdvmniywyyijjauipnh.supabase.co/functions/v1/lifemate-api-candidate' }}
+          ENABLE_GOOGLE_AUTH: 'false'
         run: |
           set -euo pipefail
           test -n "$SUPABASE_URL"
           test -n "$SUPABASE_PUBLISHABLE_KEY"
           test -n "$LIFEMATE_API_BASE_URL"
+          test "$ENABLE_GOOGLE_AUTH" = "false"
+          case "$LIFEMATE_API_BASE_URL" in
+            */lifemate-api-candidate) ;;
+            *) echo 'Android checkpoint must use lifemate-api-candidate.' >&2; exit 1 ;;
+          esac
           health_response="$(curl --fail --silent --show-error --retry 3 --retry-all-errors "$LIFEMATE_API_BASE_URL/health")"
           echo "$health_response" | grep -q '"status":"ok"'
           echo "$health_response" | grep -q '"database":"ready"'
@@ -193,6 +199,7 @@ jobs:
             --dart-define="SUPABASE_URL=$SUPABASE_URL"
             --dart-define="SUPABASE_PUBLISHABLE_KEY=$SUPABASE_PUBLISHABLE_KEY"
             --dart-define="LIFEMATE_API_BASE_URL=$LIFEMATE_API_BASE_URL"
+            --dart-define="ENABLE_GOOGLE_AUTH=$ENABLE_GOOGLE_AUTH"
           )
           (cd wellmate && flutter build apk "${build_args[@]}")
           (cd caremate && flutter build apk "${build_args[@]}")
