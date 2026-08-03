@@ -12,4 +12,15 @@ void main() {
       'com.lifemate.caremate://login-callback/',
     );
   });
+
+  test('Google auth is fail-closed by default', () {
+    expect(LifeMateFeatureFlags.googleAuthEnabled, isFalse);
+  });
+
+  test('disabled Google auth returns before creating an OAuth request', () async {
+    expect(
+      await LifeMateAuth.signInWithGoogle(appName: 'WellMate'),
+      isFalse,
+    );
+  });
 }
