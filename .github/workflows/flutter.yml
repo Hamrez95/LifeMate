@@ -163,10 +163,10 @@ jobs:
         shell: bash
         run: |
           should_build=false
-          if [[ "${{ github.event_name }}" == "workflow_dispatch" && "${{ inputs.build_android }}" == "true" ]]; then
+          if [[ "${{ github.event_name }}" == "pull_request" ]]; then
             should_build=true
           fi
-          if [[ "${{ github.event_name }}" == "pull_request" && "${{ github.head_ref }}" == "feat/full-bb287-ui-parity" ]]; then
+          if [[ "${{ github.event_name }}" == "workflow_dispatch" && "${{ inputs.build_android }}" == "true" ]]; then
             should_build=true
           fi
           echo "should_build=$should_build" >> "$GITHUB_OUTPUT"
@@ -179,6 +179,7 @@ jobs:
           SUPABASE_PUBLISHABLE_KEY: ${{ vars.SUPABASE_PUBLISHABLE_KEY || 'sb_publishable_6YpBDD0gAPcenbYGukOeWg_fZXxUb27' }}
           LIFEMATE_API_BASE_URL: ${{ vars.LIFEMATE_API_BASE_URL || 'https://bwdvmniywyyijjauipnh.supabase.co/functions/v1/lifemate-api' }}
         run: |
+          set -euo pipefail
           test -n "$SUPABASE_URL"
           test -n "$SUPABASE_PUBLISHABLE_KEY"
           test -n "$LIFEMATE_API_BASE_URL"
@@ -195,13 +196,49 @@ jobs:
           )
           (cd wellmate && flutter build apk "${build_args[@]}")
           (cd caremate && flutter build apk "${build_args[@]}")
-          aapt_bin="$(find "$ANDROID_HOME/build-tools" -type f -name aapt | sort -V | tail -n 1)"
-          test -x "$aapt_bin"
-          for apk in wellmate/build/app/outputs/flutter-apk/app-release.apk caremate/build/app/outputs/flutter-apk/app-release.apk; do
-            "$aapt_bin" dump permissions "$apk" | grep -Fq "android.permission.INTERNET"
-          done
 
-      - name: Upload Android beta APKs
+      - name: Inspect Android APK manifests, signing and packaged assets
+        if: ${{ success() && steps.android-checkpoint.outputs.should_build == 'true' }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          report_dir=/tmp/lifemate-apk-inspection
+          mkdir -p "$report_dir"
+          aapt_bin="$(find "$ANDROID_HOME/build-tools" -type f -name aapt | sort -V | tail -n 1)"
+          apksigner_bin="$(find "$ANDROID_HOME/build-tools" -type f -name apksigner | sort -V | tail -n 1)"
+          test -x "$aapt_bin"
+          test -x "$apksigner_bin"
+
+          inspect_apk() {
+            local app_name="$1"
+            local apk="$2"
+            local required_logo="$3"
+            local report="$report_dir/${app_name}.txt"
+            local listing="$report_dir/${app_name}-zip-listing.txt"
+
+            test -s "$apk"
+            "$aapt_bin" dump badging "$apk" > "$report"
+            "$aapt_bin" dump permissions "$apk" >> "$report"
+            grep -Fq 'android.permission.INTERNET' "$report"
+            "$apksigner_bin" verify --verbose --print-certs "$apk" >> "$report"
+            unzip -Z1 "$apk" > "$listing"
+            grep -Fq 'assets/flutter_assets/AssetManifest.bin' "$listing"
+            grep -Fq "assets/flutter_assets/$required_logo" "$listing"
+            grep -Fq 'assets/flutter_assets/assets/fonts/Vazir.ttf' "$listing"
+            grep -Eq '^res/mipmap-.*/ic_launcher\.(png|webp)$' "$listing"
+            sha256sum "$apk" >> "$report_dir/apk-sha256.txt"
+          }
+
+          inspect_apk \
+            wellmate \
+            wellmate/build/app/outputs/flutter-apk/app-release.apk \
+            assets/images/WellMateWithoutBack.png
+          inspect_apk \
+            caremate \
+            caremate/build/app/outputs/flutter-apk/app-release.apk \
+            assets/images/CareMateWithoutBack.png
+
+      - name: Upload Android beta APKs and inspection evidence
         if: ${{ success() && steps.android-checkpoint.outputs.should_build == 'true' }}
         uses: actions/upload-artifact@v4
         with:
@@ -209,5 +246,6 @@ jobs:
           path: |
             wellmate/build/app/outputs/flutter-apk/app-release*.apk
             caremate/build/app/outputs/flutter-apk/app-release*.apk
+            /tmp/lifemate-apk-inspection/**
           if-no-files-found: error
           retention-days: 14
