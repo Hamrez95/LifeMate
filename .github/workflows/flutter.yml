@@ -250,7 +250,13 @@ jobs:
             record_check "$app_name" asset-manifest grep -Eq '^assets/flutter_assets/AssetManifest\.(bin|json)$' "$listing"
             record_check "$app_name" product-logo grep -Fq "assets/flutter_assets/$required_logo" "$listing"
             record_check "$app_name" vazir-font grep -Fq 'assets/flutter_assets/assets/fonts/Vazir.ttf' "$listing"
-            record_check "$app_name" launcher-icon grep -Eq '^res/(mipmap|drawable)[^/]*/ic_launcher[^/]*\.(png|webp|xml)$' "$listing"
+            record_check "$app_name" launcher-icon grep -Eq '^application-icon-[0-9]+:' "$report"
+
+            if grep -Fq 'CN=Android Debug' "$report"; then
+              printf '%s\tWARN\tinternal-debug-signing\n' "$app_name" | tee -a "$report_dir/inspection-summary.txt"
+            else
+              printf '%s\tINFO\tnon-debug-signing\n' "$app_name" | tee -a "$report_dir/inspection-summary.txt"
+            fi
             sha256sum "$apk" >> "$report_dir/apk-sha256.txt"
           }
 
