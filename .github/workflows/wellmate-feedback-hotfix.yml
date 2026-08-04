@@ -1,13 +1,9 @@
-# One-shot workflow. It removes itself after a verified build.
 name: wellmate-feedback-hotfix
 
 on:
-  push:
+  pull_request:
     branches:
       - feat/bb287-parity-completion
-    paths:
-      - tools/hotfix/apply_wellmate_feedback_hotfix.py
-      - .github/workflows/wellmate-feedback-hotfix.yml
 
 permissions:
   contents: write
