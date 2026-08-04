@@ -12,7 +12,7 @@ permissions:
   contents: write
 
 concurrency:
-  group: women-calendar-pilot-${{ github.ref }}
+  group: women-calendar-pilot-${{ github.event.pull_request.head.ref || github.ref_name }}
   cancel-in-progress: true
 
 jobs:
@@ -74,6 +74,7 @@ jobs:
           python3 tools/hotfix/apply_women_calendar_medical_copy_fix.py
           python3 tools/hotfix/apply_women_calendar_log_redaction.py
           python3 tools/hotfix/apply_notification_privacy_and_resync.py
+          python3 tools/hotfix/apply_caremate_log_redaction.py
 
       - name: Format generated and modified sources
         shell: bash
@@ -184,7 +185,6 @@ jobs:
           grep -q "selectEarliestReminderPerPatient" caremate/lib/providers/care_notification_provider.dart
           grep -q "pendingNotificationRequests" caremate/lib/providers/care_notification_provider.dart
           grep -q "pendingNotificationRequests" wellmate/lib/providers/notification_provider.dart
-          ! grep -q "cancelAll" caremate/lib/providers/care_notification_provider.dart
           grep -q "visibility: NotificationVisibility.private" caremate/lib/providers/care_notification_provider.dart
           grep -q "visibility: NotificationVisibility.private" wellmate/lib/providers/notification_provider.dart
           grep -q "medicineReminderWindow" wellmate/lib/screens/home/home_screen_content.dart
@@ -192,16 +192,37 @@ jobs:
           grep -q "تقویم بانوان" wellmate/lib/core/widgets/wellmate_bottom_nav.dart
           grep -q "حمایت‌های غیرپزشکی" caremate/lib/screens/women_calendar/care_women_calendar_screen.dart
           grep -q "تاریخ‌ها تخمینی هستند و جایگزین نظر پزشک نیستند" wellmate/lib/screens/women_calendar/women_calendar_screen.dart
-          ! grep -R --line-number -F ': $error' \
+
+          if grep -q "cancelAll" caremate/lib/providers/care_notification_provider.dart; then
+            echo '::error::CareMate reminder resync must not cancel unrelated notifications.'
+            exit 1
+          fi
+
+          if grep -R --line-number -F ': $error' \
             wellmate/lib/screens/women_calendar \
             wellmate/lib/screens/profile/care_access_settings_screen.dart \
             wellmate/lib/screens/home/home_screen.dart \
             wellmate/lib/screens/profile/profile_destination_screens.dart \
-            caremate/lib/screens/dashboard_screen.dart
-          ! grep -R --line-number -E "تخمک‌گذاری قطعی|روز قطعی تخمک|افزایش باروری|درمان ناباروری|روش پیشگیری از بارداری|ابزار پیشگیری از بارداری|fertility window|ovulation day|contraception method" \
+            caremate/lib/main.dart \
+            caremate/lib/screens/dashboard_screen.dart; then
+            echo '::error::Sensitive exception details must not be logged from calendar or patient flows.'
+            exit 1
+          fi
+
+          if grep -R --line-number -F '$stackTrace' \
+            caremate/lib/main.dart \
+            caremate/lib/screens/dashboard_screen.dart; then
+            echo '::error::Stack traces must not be logged from CareMate patient flows.'
+            exit 1
+          fi
+
+          if grep -R --line-number -E "تخمک‌گذاری قطعی|روز قطعی تخمک|افزایش باروری|درمان ناباروری|روش پیشگیری از بارداری|ابزار پیشگیری از بارداری|fertility window|ovulation day|contraception method" \
             wellmate/lib/screens/women_calendar \
             caremate/lib/screens/women_calendar \
-            supabase/functions/lifemate-api/women_calendar.ts
+            supabase/functions/lifemate-api/women_calendar.ts; then
+            echo '::error::Women calendar must remain a non-medical estimate tool.'
+            exit 1
+          fi
 
       - name: Commit verified product changes
         shell: bash
