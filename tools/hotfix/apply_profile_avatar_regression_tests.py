@@ -36,3 +36,14 @@ replace_once(
     expect(find.image(const AssetImage('assets/images/mother_avatar.png')), findsNothing);
 ''',
 )
+
+replace_once(
+    "supabase/functions/lifemate-api/profile.ts",
+    '''      await tx`
+        insert into lifemate.audit_logs
+''',
+    '''      // Privacy invariant: metadata_json, null; no profile or avatar values.
+      await tx`
+        insert into lifemate.audit_logs
+''',
+)
