@@ -131,18 +131,14 @@ class _CalendarApiClient extends LifeMateApiClient {
 
   final bool overdueAppointment;
 
-  String get _today {
-    final now = DateTime.now();
-    return '${now.year.toString().padLeft(4, '0')}-'
-        '${now.month.toString().padLeft(2, '0')}-'
-        '${now.day.toString().padLeft(2, '0')}';
-  }
+  static String _date(DateTime value) =>
+      '${value.year.toString().padLeft(4, '0')}-'
+      '${value.month.toString().padLeft(2, '0')}-'
+      '${value.day.toString().padLeft(2, '0')}';
 
-  String _timeFromNow(int minutes) {
-    final time = DateTime.now().add(Duration(minutes: minutes));
-    return '${time.hour.toString().padLeft(2, '0')}:'
-        '${time.minute.toString().padLeft(2, '0')}';
-  }
+  static String _time(DateTime value) =>
+      '${value.hour.toString().padLeft(2, '0')}:'
+      '${value.minute.toString().padLeft(2, '0')}';
 
   @override
   Future<List<Map<String, dynamic>>> getTreatmentPlans() async => const [];
@@ -157,33 +153,38 @@ class _CalendarApiClient extends LifeMateApiClient {
   Future<List<Map<String, dynamic>>> getCareEvents({
     required DateTime fromDate,
     required DateTime toDate,
-  }) async => [
-        {
-          'id': 'appointment-1',
-          'eventType': 'appointment',
-          'title': 'ویزیت متخصص قلب',
-          'providerName': 'دکتر سارا راد',
-          'centerName': 'مرکز درمانی الوند',
-          'addressLine': 'تهران، خیابان ولیعصر',
-          'scheduledLocalDate': _today,
-          'scheduledLocalTime': _timeFromNow(
-            overdueAppointment ? -30 : 60,
-          ),
-          'status': 'scheduled',
-          'version': 1,
-        },
-        {
-          'id': 'injection-1',
-          'eventType': 'injection',
-          'title': 'ویتامین B12',
-          'doseText': '۱ آمپول',
-          'administrationRoute': 'intramuscular',
-          'centerName': 'مرکز تزریقات',
-          'addressLine': 'تهران، میدان ونک',
-          'scheduledLocalDate': _today,
-          'scheduledLocalTime': _timeFromNow(120),
-          'status': 'scheduled',
-          'version': 1,
-        },
-      ];
+  }) async {
+    final appointmentAt = DateTime.now().add(
+      Duration(minutes: overdueAppointment ? -30 : 60),
+    );
+    final injectionAt = DateTime.now().add(const Duration(minutes: 120));
+
+    return [
+      {
+        'id': 'appointment-1',
+        'eventType': 'appointment',
+        'title': 'ویزیت متخصص قلب',
+        'providerName': 'دکتر سارا راد',
+        'centerName': 'مرکز درمانی الوند',
+        'addressLine': 'تهران، خیابان ولیعصر',
+        'scheduledLocalDate': _date(appointmentAt),
+        'scheduledLocalTime': _time(appointmentAt),
+        'status': 'scheduled',
+        'version': 1,
+      },
+      {
+        'id': 'injection-1',
+        'eventType': 'injection',
+        'title': 'ویتامین B12',
+        'doseText': '۱ آمپول',
+        'administrationRoute': 'intramuscular',
+        'centerName': 'مرکز تزریقات',
+        'addressLine': 'تهران، میدان ونک',
+        'scheduledLocalDate': _date(injectionAt),
+        'scheduledLocalTime': _time(injectionAt),
+        'status': 'scheduled',
+        'version': 1,
+      },
+    ];
+  }
 }
