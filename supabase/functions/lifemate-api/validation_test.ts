@@ -82,10 +82,24 @@ Deno.test("normalizeDoseStatus only accepts supported patient actions", () => {
   assertThrows(() => normalizeDoseStatus("missed"), ApiError);
 });
 
-Deno.test("normalizePath supports direct and Supabase function paths", () => {
+Deno.test("normalizePath supports direct production and candidate paths", () => {
   assertEquals(normalizePath("/api/v1/me"), "/api/v1/me");
   assertEquals(
     normalizePath("/functions/v1/lifemate-api/api/v1/me/"),
     "/api/v1/me",
+  );
+  assertEquals(
+    normalizePath("/lifemate-api-candidate/health"),
+    "/health",
+  );
+  assertEquals(
+    normalizePath(
+      "/functions/v1/lifemate-api-candidate/api/v1/care/relationships/",
+    ),
+    "/api/v1/care/relationships",
+  );
+  assertEquals(
+    normalizePath("/nested/lifemate-api-candidate/health"),
+    "/nested/lifemate-api-candidate/health",
   );
 });
