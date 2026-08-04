@@ -65,10 +65,13 @@ export function createProfilePhotoStorage(
 
   async function ensurePrivateBucket(): Promise<void> {
     bucketPromise ??= (async () => {
-      const existing = await fetch(`${storageRoot}/bucket/${profilePhotoBucket}`, {
-        method: "GET",
-        headers: headers(),
-      });
+      const existing = await fetch(
+        `${storageRoot}/bucket/${profilePhotoBucket}`,
+        {
+          method: "GET",
+          headers: headers(),
+        },
+      );
       if (existing.ok) return;
       if (existing.status !== 404) {
         throw storageUnavailable();
@@ -105,7 +108,8 @@ export function createProfilePhotoStorage(
     const uploadBytes = new Uint8Array(bytes.length);
     uploadBytes.set(bytes);
     await ensurePrivateBucket();
-    const objectPath = `${userId}/${crypto.randomUUID()}.${validated.extension}`;
+    const objectPath =
+      `${userId}/${crypto.randomUUID()}.${validated.extension}`;
     const response = await fetch(objectUrl(objectPath), {
       method: "POST",
       headers: {
@@ -123,7 +127,9 @@ export function createProfilePhotoStorage(
     assertSafePath(objectPath);
     await ensurePrivateBucket();
     const response = await fetch(
-      `${storageRoot}/object/sign/${profilePhotoBucket}/${encodePath(objectPath)}`,
+      `${storageRoot}/object/sign/${profilePhotoBucket}/${
+        encodePath(objectPath)
+      }`,
       {
         method: "POST",
         headers: headers("application/json"),
@@ -159,7 +165,9 @@ export function createProfilePhotoStorage(
 
   function objectUrl(objectPath: string): string {
     assertSafePath(objectPath);
-    return `${storageRoot}/object/${profilePhotoBucket}/${encodePath(objectPath)}`;
+    return `${storageRoot}/object/${profilePhotoBucket}/${
+      encodePath(objectPath)
+    }`;
   }
 
   return { upload, createSignedUrl, remove };
