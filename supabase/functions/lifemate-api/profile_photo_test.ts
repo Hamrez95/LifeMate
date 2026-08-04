@@ -43,11 +43,14 @@ Deno.test("profile photo validation accepts matching JPEG PNG and WebP signature
 });
 
 Deno.test("profile photo validation rejects spoofed and oversized payloads", () => {
-  assertThrows(
+  const spoofed = assertThrows(
     () => validateProfilePhoto(new Uint8Array([1, 2, 3]), "image/jpeg"),
     ApiError,
   );
-  assertThrows(
+  assertEquals(spoofed.code, "invalid_profile_photo");
+  assertEquals(spoofed.status, 415);
+
+  const oversized = assertThrows(
     () =>
       validateProfilePhoto(
         new Uint8Array(profilePhotoMaximumBytes + 1),
@@ -55,4 +58,6 @@ Deno.test("profile photo validation rejects spoofed and oversized payloads", () 
       ),
     ApiError,
   );
+  assertEquals(oversized.code, "profile_photo_too_large");
+  assertEquals(oversized.status, 413);
 });
