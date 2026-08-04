@@ -12,7 +12,7 @@ import 'package:wellmate/screens/calendar/schedule_item_card.dart';
 
 void main() {
   testWidgets(
-    'calendar combines medication appointments and injections from live contracts',
+    'calendar combines future medication appointments and injections from live contracts',
     (WidgetTester tester) async {
       tester.view.physicalSize = const Size(360, 800);
       tester.view.devicePixelRatio = 1;
@@ -22,7 +22,9 @@ void main() {
       await tester.pumpWidget(
         MultiProvider(
           providers: [
-            Provider<LifeMateApiClient>.value(value: _CalendarApiClient()),
+            Provider<LifeMateApiClient>.value(
+              value: _CalendarApiClient(overdueAppointment: false),
+            ),
             ChangeNotifierProvider(create: (_) => NotificationProvider()),
             ChangeNotifierProvider(create: (_) => LocaleProvider()),
             ChangeNotifierProvider(create: (_) => SettingsProvider()),
@@ -77,20 +79,69 @@ void main() {
       expect(tester.takeException(), isNull);
     },
   );
+
+  testWidgets('overdue appointment is rendered as missed and red', (
+    WidgetTester tester,
+  ) async {
+    tester.view.physicalSize = const Size(360, 800);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    await tester.pumpWidget(
+      MultiProvider(
+        providers: [
+          Provider<LifeMateApiClient>.value(
+            value: _CalendarApiClient(overdueAppointment: true),
+          ),
+          ChangeNotifierProvider(create: (_) => NotificationProvider()),
+          ChangeNotifierProvider(create: (_) => LocaleProvider()),
+          ChangeNotifierProvider(create: (_) => SettingsProvider()),
+          ChangeNotifierProvider(create: (_) => MedicationProvider()),
+        ],
+        child: const WellMateApp(home: CalendarScreen()),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    final appointmentCard = find.byKey(
+      const ValueKey<String>('calendar-event-appointment-1'),
+    );
+    expect(appointmentCard, findsOneWidget);
+    expect(
+      find.descendant(
+        of: appointmentCard,
+        matching: find.byIcon(Icons.warning_amber_rounded),
+      ),
+      findsWidgets,
+    );
+    final padding = tester.widget<Padding>(appointmentCard);
+    final card = padding.child! as ScheduleItemCard;
+    expect(card.item.status, 'missed');
+    expect(card.isMissed, isTrue);
+  });
 }
 
 class _CalendarApiClient extends LifeMateApiClient {
-  _CalendarApiClient()
+  _CalendarApiClient({required this.overdueAppointment})
       : super(
           baseUri: Uri.parse('https://example.invalid'),
           accessToken: () => 'test-token',
         );
+
+  final bool overdueAppointment;
 
   String get _today {
     final now = DateTime.now();
     return '${now.year.toString().padLeft(4, '0')}-'
         '${now.month.toString().padLeft(2, '0')}-'
         '${now.day.toString().padLeft(2, '0')}';
+  }
+
+  String _timeFromNow(int minutes) {
+    final time = DateTime.now().add(Duration(minutes: minutes));
+    return '${time.hour.toString().padLeft(2, '0')}:'
+        '${time.minute.toString().padLeft(2, '0')}';
   }
 
   @override
@@ -115,7 +166,9 @@ class _CalendarApiClient extends LifeMateApiClient {
           'centerName': 'مرکز درمانی الوند',
           'addressLine': 'تهران، خیابان ولیعصر',
           'scheduledLocalDate': _today,
-          'scheduledLocalTime': '16:30',
+          'scheduledLocalTime': _timeFromNow(
+            overdueAppointment ? -30 : 60,
+          ),
           'status': 'scheduled',
           'version': 1,
         },
@@ -128,7 +181,7 @@ class _CalendarApiClient extends LifeMateApiClient {
           'centerName': 'مرکز تزریقات',
           'addressLine': 'تهران، میدان ونک',
           'scheduledLocalDate': _today,
-          'scheduledLocalTime': '18:00',
+          'scheduledLocalTime': _timeFromNow(120),
           'status': 'scheduled',
           'version': 1,
         },
