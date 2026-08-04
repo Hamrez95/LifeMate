@@ -68,6 +68,7 @@ jobs:
           python3 tools/hotfix/apply_profile_photo_backend.py
           python3 tools/hotfix/apply_profile_photo_flutter.py
           python3 tools/hotfix/apply_profile_photo_safety_fix.py
+          python3 tools/hotfix/apply_profile_avatar_analyzer_fix.py
           mapfile -t dart_files < <(git diff --name-only --diff-filter=ACM | grep -E '\.dart$' || true)
           if (( ${#dart_files[@]} > 0 )); then
             dart format "${dart_files[@]}"
