@@ -13,7 +13,7 @@ permissions:
 
 concurrency:
   group: women-calendar-pilot-${{ github.ref }}
-  cancel-in-progress: false
+  cancel-in-progress: true
 
 jobs:
   apply-verify-commit:
