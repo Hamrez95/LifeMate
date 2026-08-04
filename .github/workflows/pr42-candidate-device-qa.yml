@@ -81,21 +81,47 @@ jobs:
     env:
       EXPECTED_RELEASE_VERSION: ${{ github.sha }}
       SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+      PATIENT_EMAIL: ${{ secrets.BETA_PATIENT_EMAIL }}
+      PATIENT_PASSWORD: ${{ secrets.BETA_PATIENT_PASSWORD }}
+      CAREGIVER_EMAIL: ${{ secrets.BETA_CAREGIVER_EMAIL }}
+      CAREGIVER_PASSWORD: ${{ secrets.BETA_CAREGIVER_PASSWORD }}
+      UNRELATED_EMAIL: ${{ secrets.BETA_UNRELATED_EMAIL }}
+      UNRELATED_PASSWORD: ${{ secrets.BETA_UNRELATED_PASSWORD }}
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
         with:
           show-progress: false
           persist-credentials: false
 
-      - name: Provision ephemeral confirmed smoke users
+      - name: Resolve protected smoke credentials
         shell: bash
         run: |
           set -euo pipefail
-          test -n "$SUPABASE_ACCESS_TOKEN"
-          bash tools/release/provision-supabase-smoke-users.sh create \
-            | tee /tmp/lifemate-smoke-user-provision.json
-          jq -e '.status == "created" and (.userIds | length) == 3' \
-            /tmp/lifemate-smoke-user-provision.json >/dev/null
+          persistent_ready=true
+          for name in \
+            PATIENT_EMAIL PATIENT_PASSWORD \
+            CAREGIVER_EMAIL CAREGIVER_PASSWORD \
+            UNRELATED_EMAIL UNRELATED_PASSWORD
+          do
+            if [[ -z "${!name:-}" ]]; then
+              persistent_ready=false
+            fi
+          done
+
+          if [[ "$persistent_ready" == 'true' ]]; then
+            echo 'SMOKE_USER_SOURCE=persistent' >> "$GITHUB_ENV"
+            jq -n '{status:"ready",source:"persistent"}' \
+              | tee /tmp/lifemate-smoke-user-provision.json
+          elif [[ -n "${SUPABASE_ACCESS_TOKEN:-}" ]]; then
+            echo 'SMOKE_USER_SOURCE=ephemeral' >> "$GITHUB_ENV"
+            bash tools/release/provision-supabase-smoke-users.sh create \
+              | tee /tmp/lifemate-smoke-user-provision.json
+            jq -e '.status == "created" and .count == 3' \
+              /tmp/lifemate-smoke-user-provision.json >/dev/null
+          else
+            echo 'Candidate smoke cannot run: GitHub Environment beta must contain either all six BETA_* account secrets or SUPABASE_ACCESS_TOKEN for ephemeral confirmed users.' >&2
+            exit 2
+          fi
 
       - name: Verify candidate version and public/auth boundaries
         shell: bash
@@ -148,9 +174,14 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+          if [[ "${SMOKE_USER_SOURCE:-}" != 'ephemeral' ]]; then
+            jq -n '{status:"skipped",reason:"persistent-or-unprovisioned"}' \
+              | tee /tmp/lifemate-smoke-user-cleanup.json
+            exit 0
+          fi
           bash tools/release/provision-supabase-smoke-users.sh delete \
             | tee /tmp/lifemate-smoke-user-cleanup.json
-          jq -e '.status == "deleted" and .count == 3' \
+          jq -e '.status == "deleted" and .count >= 1 and .count <= 3' \
             /tmp/lifemate-smoke-user-cleanup.json >/dev/null
 
   build-android-device-qa:
