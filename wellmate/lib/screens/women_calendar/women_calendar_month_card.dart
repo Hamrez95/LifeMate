@@ -18,8 +18,7 @@ class WomenCalendarMonthCard extends StatefulWidget {
   final DateTime? initialFocusedDate;
 
   @override
-  State<WomenCalendarMonthCard> createState() =>
-      _WomenCalendarMonthCardState();
+  State<WomenCalendarMonthCard> createState() => _WomenCalendarMonthCardState();
 }
 
 class _WomenCalendarMonthCardState extends State<WomenCalendarMonthCard> {
@@ -237,9 +236,7 @@ class _WomenCalendarMonthCardState extends State<WomenCalendarMonthCard> {
     for (final episode in widget.episodes) {
       final started = DateTime.tryParse(episode['startedOn']?.toString() ?? '');
       if (started == null) continue;
-      final parsedEnd = DateTime.tryParse(
-        episode['endedOn']?.toString() ?? '',
-      );
+      final parsedEnd = DateTime.tryParse(episode['endedOn']?.toString() ?? '');
       final end = _dateOnly(parsedEnd ?? today);
       final start = _dateOnly(started);
       if (!day.isBefore(start) && !day.isAfter(end)) return true;

@@ -5,6 +5,7 @@ import 'package:provider/provider.dart';
 import '../../core/theme/app_style.dart';
 import '../../core/utils/persian_date_utils.dart';
 import '../profile/profile_destination_screens.dart';
+import 'women_calendar_month_card.dart';
 
 class WomenCalendarScreen extends StatefulWidget {
   const WomenCalendarScreen({super.key, this.onProfileChanged});
@@ -161,16 +162,20 @@ class _WomenCalendarScreenState extends State<WomenCalendarScreen> {
     }
   }
 
-  Future<void> _startPeriodToday() async {
+  Future<void> _createEpisode() async {
     if (_saving) return;
+    final draft = await _showEpisodeEditor();
+    if (draft == null) return;
     setState(() => _saving = true);
     try {
       await context.read<LifeMateApiClient>().createWomenCalendarEpisode(
-        startedOn: DateTime.now(),
+        startedOn: draft.startedOn,
+        endedOn: draft.endedOn,
+        privateNotes: draft.privateNotes,
       );
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('شروع دوره برای امروز ثبت شد.')),
+        const SnackBar(content: Text('دوره و یادداشت خصوصی ثبت شد.')),
       );
       await _load();
       await widget.onProfileChanged?.call();
@@ -180,8 +185,8 @@ class _WomenCalendarScreenState extends State<WomenCalendarScreen> {
         SnackBar(
           content: Text(
             error.code == 'women_calendar_episode_overlap'
-                ? 'برای این بازه قبلاً یک دوره ثبت شده است.'
-                : 'ثبت شروع دوره انجام نشد.',
+                ? 'این بازه با یک ثبت قبلی هم‌پوشانی دارد.'
+                : 'ثبت دوره انجام نشد.',
           ),
         ),
       );
@@ -193,12 +198,15 @@ class _WomenCalendarScreenState extends State<WomenCalendarScreen> {
   Future<void> _finishPeriodToday() async {
     final episode = _openEpisode;
     if (episode == null || _saving) return;
+    final startedOn = DateTime.parse(episode['startedOn'].toString());
     setState(() => _saving = true);
     try {
-      await context.read<LifeMateApiClient>().completeWomenCalendarEpisode(
+      await context.read<LifeMateApiClient>().updateWomenCalendarEpisode(
         episodeId: episode['id'].toString(),
         version: episode['version'] is int ? episode['version'] as int : 1,
+        startedOn: startedOn,
         endedOn: DateTime.now(),
+        privateNotes: episode['privateNotes']?.toString(),
       );
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
@@ -208,6 +216,233 @@ class _WomenCalendarScreenState extends State<WomenCalendarScreen> {
     } finally {
       if (mounted) setState(() => _saving = false);
     }
+  }
+
+  Future<void> _editEpisode(Map<String, dynamic> episode) async {
+    if (_saving) return;
+    final draft = await _showEpisodeEditor(episode: episode);
+    if (draft == null) return;
+    if (draft.deleteRequested) {
+      await _deleteEpisode(episode);
+      return;
+    }
+    setState(() => _saving = true);
+    try {
+      await context.read<LifeMateApiClient>().updateWomenCalendarEpisode(
+        episodeId: episode['id'].toString(),
+        version: episode['version'] is int ? episode['version'] as int : 1,
+        startedOn: draft.startedOn,
+        endedOn: draft.endedOn,
+        privateNotes: draft.privateNotes,
+      );
+      if (!mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('ثبت دوره اصلاح شد.')));
+      await _load();
+      await widget.onProfileChanged?.call();
+    } on LifeMateApiException catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            error.code == 'stale_women_calendar_episode'
+                ? 'این ثبت تغییر کرده است؛ اطلاعات تازه‌سازی شد.'
+                : error.code == 'women_calendar_episode_overlap'
+                ? 'این بازه با یک ثبت قبلی هم‌پوشانی دارد.'
+                : 'اصلاح ثبت انجام نشد.',
+          ),
+        ),
+      );
+      await _load();
+    } finally {
+      if (mounted) setState(() => _saving = false);
+    }
+  }
+
+  Future<void> _deleteEpisode(Map<String, dynamic> episode) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('حذف ثبت اشتباه'),
+        content: const Text(
+          'این ثبت و یادداشت خصوصی آن حذف می‌شود. این کار قابل بازگشت نیست.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(false),
+            child: const Text('انصراف'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(dialogContext).pop(true),
+            child: const Text('حذف'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !mounted) return;
+    setState(() => _saving = true);
+    try {
+      await context.read<LifeMateApiClient>().deleteWomenCalendarEpisode(
+        episodeId: episode['id'].toString(),
+      );
+      if (!mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('ثبت اشتباه حذف شد.')));
+      await _load();
+      await widget.onProfileChanged?.call();
+    } finally {
+      if (mounted) setState(() => _saving = false);
+    }
+  }
+
+  Future<_EpisodeEditorResult?> _showEpisodeEditor({
+    Map<String, dynamic>? episode,
+  }) async {
+    var startedOn = episode == null
+        ? DateTime.now()
+        : DateTime.parse(episode['startedOn'].toString());
+    DateTime? endedOn = episode?['endedOn'] == null
+        ? null
+        : DateTime.parse(episode!['endedOn'].toString());
+    final notesController = TextEditingController(
+      text: episode?['privateNotes']?.toString() ?? '',
+    );
+    String? validationError;
+    final result = await showDialog<_EpisodeEditorResult>(
+      context: context,
+      builder: (dialogContext) => StatefulBuilder(
+        builder: (context, setDialogState) => AlertDialog(
+          title: Text(episode == null ? 'ثبت دوره' : 'اصلاح ثبت دوره'),
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                ListTile(
+                  contentPadding: EdgeInsets.zero,
+                  title: const Text('تاریخ شروع'),
+                  subtitle: Text(formatAppDate(context, startedOn)),
+                  trailing: const Icon(Icons.edit_calendar_rounded),
+                  onTap: () async {
+                    final value = await showAppDatePicker(
+                      context: context,
+                      initialDate: startedOn,
+                      firstDate: DateTime(2015),
+                      lastDate: DateTime.now(),
+                      title: 'تاریخ شروع دوره',
+                    );
+                    if (value != null) {
+                      setDialogState(() {
+                        startedOn = value;
+                        validationError = null;
+                      });
+                    }
+                  },
+                ),
+                ListTile(
+                  contentPadding: EdgeInsets.zero,
+                  title: const Text('تاریخ پایان'),
+                  subtitle: Text(
+                    endedOn == null
+                        ? 'هنوز ادامه دارد'
+                        : formatAppDate(context, endedOn!),
+                  ),
+                  trailing: Wrap(
+                    spacing: 2,
+                    children: [
+                      if (endedOn != null)
+                        IconButton(
+                          tooltip: 'حذف تاریخ پایان',
+                          onPressed: () => setDialogState(() => endedOn = null),
+                          icon: const Icon(Icons.clear_rounded),
+                        ),
+                      IconButton(
+                        tooltip: 'انتخاب تاریخ پایان',
+                        onPressed: () async {
+                          final value = await showAppDatePicker(
+                            context: context,
+                            initialDate: endedOn ?? startedOn,
+                            firstDate: startedOn,
+                            lastDate: DateTime.now(),
+                            title: 'تاریخ پایان دوره',
+                          );
+                          if (value != null) {
+                            setDialogState(() {
+                              endedOn = value;
+                              validationError = null;
+                            });
+                          }
+                        },
+                        icon: const Icon(Icons.edit_calendar_rounded),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 8),
+                TextField(
+                  controller: notesController,
+                  maxLength: 500,
+                  maxLines: 4,
+                  decoration: const InputDecoration(
+                    labelText: 'یادداشت خصوصی',
+                    hintText: 'این متن فقط برای خود شما نمایش داده می‌شود.',
+                    border: OutlineInputBorder(),
+                    prefixIcon: Icon(Icons.lock_outline_rounded),
+                  ),
+                ),
+                if (validationError != null)
+                  Text(
+                    validationError!,
+                    style: TextStyle(
+                      color: Theme.of(context).colorScheme.error,
+                    ),
+                  ),
+              ],
+            ),
+          ),
+          actions: [
+            if (episode != null)
+              TextButton(
+                onPressed: () => Navigator.of(dialogContext).pop(
+                  _EpisodeEditorResult(
+                    startedOn: startedOn,
+                    endedOn: endedOn,
+                    privateNotes: notesController.text.trim(),
+                    deleteRequested: true,
+                  ),
+                ),
+                child: const Text('حذف ثبت'),
+              ),
+            TextButton(
+              onPressed: () => Navigator.of(dialogContext).pop(),
+              child: const Text('انصراف'),
+            ),
+            FilledButton(
+              onPressed: () {
+                if (endedOn != null && endedOn!.isBefore(startedOn)) {
+                  setDialogState(() {
+                    validationError = 'تاریخ پایان نمی‌تواند قبل از شروع باشد.';
+                  });
+                  return;
+                }
+                Navigator.of(dialogContext).pop(
+                  _EpisodeEditorResult(
+                    startedOn: startedOn,
+                    endedOn: endedOn,
+                    privateNotes: notesController.text.trim(),
+                  ),
+                );
+              },
+              child: const Text('ذخیره'),
+            ),
+          ],
+        ),
+      ),
+    );
+    notesController.dispose();
+    return result;
   }
 
   @override
@@ -233,6 +468,8 @@ class _WomenCalendarScreenState extends State<WomenCalendarScreen> {
         children: [
           _SummaryCard(estimate: estimate),
           const SizedBox(height: 18),
+          WomenCalendarMonthCard(episodes: _episodes, estimate: estimate),
+          const SizedBox(height: 18),
           _TimelineCard(estimate: estimate),
           const SizedBox(height: 18),
           _SettingsCard(
@@ -253,8 +490,9 @@ class _WomenCalendarScreenState extends State<WomenCalendarScreen> {
             openEpisode: _openEpisode,
             episodes: _episodes,
             saving: _saving,
-            onStart: _startPeriodToday,
+            onStart: _createEpisode,
             onFinish: _finishPeriodToday,
+            onEdit: _editEpisode,
           ),
           const SizedBox(height: 18),
           Container(
@@ -536,6 +774,7 @@ class _EpisodeActionsCard extends StatelessWidget {
     required this.saving,
     required this.onStart,
     required this.onFinish,
+    required this.onEdit,
   });
 
   final Map<String, dynamic>? openEpisode;
@@ -543,6 +782,7 @@ class _EpisodeActionsCard extends StatelessWidget {
   final bool saving;
   final VoidCallback onStart;
   final VoidCallback onFinish;
+  final ValueChanged<Map<String, dynamic>> onEdit;
 
   @override
   Widget build(BuildContext context) {
@@ -563,42 +803,85 @@ class _EpisodeActionsCard extends StatelessWidget {
                     : Icons.stop_circle_rounded,
               ),
               label: Text(
-                openEpisode == null ? 'شروع دوره امروز' : 'پایان دوره امروز',
+                openEpisode == null ? 'ثبت شروع و یادداشت' : 'پایان دوره امروز',
               ),
             ),
           ),
-          if (episodes.isNotEmpty) ...[
-            const SizedBox(height: 16),
-            const Text(
-              'آخرین ثبت‌ها',
-              style: TextStyle(fontWeight: FontWeight.w800),
-            ),
-            const SizedBox(height: 8),
-            ...episodes
-                .take(4)
-                .map(
-                  (episode) => ListTile(
-                    dense: true,
-                    contentPadding: EdgeInsets.zero,
-                    leading: const Icon(Icons.water_drop_outlined),
-                    title: Text(
-                      formatAppDate(
-                        context,
-                        DateTime.parse(episode['startedOn'].toString()),
-                      ),
-                    ),
-                    subtitle: Text(
-                      episode['endedOn'] == null
-                          ? 'در حال ثبت'
-                          : 'تا ${formatAppDate(context, DateTime.parse(episode['endedOn'].toString()))}',
-                    ),
+          const SizedBox(height: 16),
+          const Text(
+            'آخرین ثبت‌ها',
+            style: TextStyle(fontWeight: FontWeight.w800),
+          ),
+          const SizedBox(height: 8),
+          if (episodes.isEmpty)
+            const Padding(
+              padding: EdgeInsets.symmetric(vertical: 10),
+              child: Text('هنوز دوره‌ای ثبت نشده است.'),
+            )
+          else
+            ...episodes.take(4).map((episode) {
+              final notes = episode['privateNotes']?.toString().trim() ?? '';
+              final endedOn = episode['endedOn'];
+              return ListTile(
+                dense: true,
+                contentPadding: EdgeInsets.zero,
+                leading: const Icon(Icons.water_drop_outlined),
+                title: Text(
+                  formatAppDate(
+                    context,
+                    DateTime.parse(episode['startedOn'].toString()),
                   ),
                 ),
-          ],
+                subtitle: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      endedOn == null
+                          ? 'در حال ثبت'
+                          : 'تا ${formatAppDate(context, DateTime.parse(endedOn.toString()))}',
+                    ),
+                    if (notes.isNotEmpty)
+                      Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Icon(Icons.lock_outline_rounded, size: 14),
+                          const SizedBox(width: 4),
+                          Expanded(
+                            child: Text(
+                              notes,
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                        ],
+                      ),
+                  ],
+                ),
+                trailing: IconButton(
+                  tooltip: 'اصلاح ثبت',
+                  onPressed: saving ? null : () => onEdit(episode),
+                  icon: const Icon(Icons.edit_rounded),
+                ),
+              );
+            }),
         ],
       ),
     );
   }
+}
+
+class _EpisodeEditorResult {
+  const _EpisodeEditorResult({
+    required this.startedOn,
+    required this.endedOn,
+    required this.privateNotes,
+    this.deleteRequested = false,
+  });
+
+  final DateTime startedOn;
+  final DateTime? endedOn;
+  final String privateNotes;
+  final bool deleteRequested;
 }
 
 class _SoftSection extends StatelessWidget {

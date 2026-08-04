@@ -224,7 +224,24 @@ export function createWomenCalendarStore(databaseUrl: string) {
   ): Promise<Record<string, unknown>> {
     const episodeId = requiredUuid(episodeIdValue, "episodeId");
     const expectedVersion = requiredPositiveInt(body.version, "version");
-    const endedOn = requiredDate(body.endedOn, "endedOn");
+    const startedOn = requiredDate(body.startedOn, "startedOn");
+    const endedOn = body.endedOn == null
+      ? null
+      : requiredDate(body.endedOn, "endedOn");
+    if (endedOn != null && endedOn < startedOn) {
+      throw new ApiError(
+        400,
+        "invalid_women_calendar_episode",
+        "endedOn cannot precede startedOn.",
+      );
+    }
+    const privateNotes = limitedOptional(
+      body.privateNotes,
+      "privateNotes",
+      500,
+    );
+    const endBoundary = endedOn ?? startedOn;
+
     return await sql.begin(async (tx: any) => {
       const existingRows = await tx`
         select * from lifemate.women_calendar_episodes
@@ -246,24 +263,44 @@ export function createWomenCalendarStore(databaseUrl: string) {
           "Period episode changed. Refresh and try again.",
         );
       }
-      const startedOn = dateString(existing.started_on);
-      if (endedOn < startedOn) {
+      const overlaps = await tx`
+        select id from lifemate.women_calendar_episodes
+        where owner_user_id = ${userId}
+          and id <> ${episodeId}
+          and started_on <= ${endBoundary}::date
+          and coalesce(ended_on, started_on) >= ${startedOn}::date
+        limit 1
+      `;
+      if (overlaps[0]) {
         throw new ApiError(
-          400,
-          "invalid_women_calendar_episode",
-          "endedOn cannot precede startedOn.",
+          409,
+          "women_calendar_episode_overlap",
+          "Period episode overlaps an existing episode.",
         );
       }
       const rows = await tx`
         update lifemate.women_calendar_episodes
-        set ended_on = ${endedOn}, version = version + 1, updated_at_utc = now()
+        set started_on = ${startedOn}, ended_on = ${endedOn},
+            private_notes = ${privateNotes}, version = version + 1,
+            updated_at_utc = now()
         where id = ${episodeId}
         returning *
+      `;
+      await tx`
+        update lifemate.women_calendar_profiles
+        set last_period_start = case
+              when last_period_start = ${dateString(existing.started_on)}::date
+                then ${startedOn}::date
+              else last_period_start
+            end,
+            version = version + 1,
+            updated_at_utc = now()
+        where owner_user_id = ${userId}
       `;
       await insertAudit(
         tx,
         userId,
-        "women_calendar.episode_completed",
+        "women_calendar.episode_updated",
         "women_calendar_episode",
         episodeId,
       );
@@ -280,7 +317,7 @@ export function createWomenCalendarStore(databaseUrl: string) {
       const rows = await tx`
         delete from lifemate.women_calendar_episodes
         where id = ${episodeId} and owner_user_id = ${userId}
-        returning id
+        returning id, started_on
       `;
       if (!rows[0]) {
         throw new ApiError(
@@ -289,6 +326,24 @@ export function createWomenCalendarStore(databaseUrl: string) {
           "Episode not found.",
         );
       }
+      await tx`
+        update lifemate.women_calendar_profiles
+        set last_period_start = case
+              when last_period_start = ${dateString(rows[0].started_on)}::date
+                then coalesce(
+              (
+                select max(started_on)
+                from lifemate.women_calendar_episodes
+                where owner_user_id = ${userId}
+              ),
+              last_period_start
+            )
+              else last_period_start
+            end,
+            version = version + 1,
+            updated_at_utc = now()
+        where owner_user_id = ${userId}
+      `;
       await insertAudit(
         tx,
         userId,

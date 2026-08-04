@@ -345,15 +345,22 @@ class LifeMateApiClient {
     ),
   );
 
-  Future<Map<String, dynamic>> completeWomenCalendarEpisode({
+  Future<Map<String, dynamic>> updateWomenCalendarEpisode({
     required String episodeId,
     required int version,
-    required DateTime endedOn,
+    required DateTime startedOn,
+    required DateTime? endedOn,
+    String? privateNotes,
   }) async => _asObject(
     await _send(
       'PATCH',
       '/api/v1/women-calendar/episodes/$episodeId',
-      body: {'version': version, 'endedOn': _date(endedOn)},
+      body: {
+        'version': version,
+        'startedOn': _date(startedOn),
+        'endedOn': endedOn == null ? null : _date(endedOn),
+        'privateNotes': _emptyToNull(privateNotes),
+      },
     ),
   );
 

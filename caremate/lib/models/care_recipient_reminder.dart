@@ -35,10 +35,7 @@ List<CareRecipientReminder> selectEarliestReminderPerPatient(
   return result;
 }
 
-int _compareReminder(
-  CareRecipientReminder left,
-  CareRecipientReminder right,
-) {
+int _compareReminder(CareRecipientReminder left, CareRecipientReminder right) {
   final byTime = left.scheduledAtUtc.toUtc().compareTo(
     right.scheduledAtUtc.toUtc(),
   );

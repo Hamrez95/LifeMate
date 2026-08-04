@@ -60,6 +60,33 @@ Deno.test({
       });
       assertEquals(episode.privateNotes, "owner-only secret note");
 
+      const correctedEpisode = await women.updateOwnerEpisode(
+        patient.appUserId,
+        episode.id,
+        {
+          version: episode.version,
+          startedOn: "2026-08-02",
+          endedOn: "2026-08-06",
+          privateNotes: "corrected owner-only note",
+        },
+      );
+      assertEquals(correctedEpisode.startedOn, "2026-08-02");
+      assertEquals(correctedEpisode.endedOn, "2026-08-06");
+      assertEquals(
+        correctedEpisode.privateNotes,
+        "corrected owner-only note",
+      );
+      const ownerEpisodes = await women.listOwnerEpisodes(patient.appUserId);
+      assertEquals(ownerEpisodes.length, 1);
+      assertEquals(ownerEpisodes[0].privateNotes, "corrected owner-only note");
+      const leakedAudit = await admin`
+        select count(*)::int as count
+        from lifemate.audit_logs as logs
+        where actor_user_id = ${patient.appUserId}
+          and to_jsonb(logs)::text ilike ${"%corrected owner-only note%"}
+      `;
+      assertEquals(leakedAudit[0].count, 0);
+
       await assertApiError(
         () => women.getCareSummary(caregiver.appUserId, patient.appUserId),
         403,
@@ -165,6 +192,18 @@ Deno.test({
         403,
         "women_calendar_access_denied",
       );
+
+      await women.deleteOwnerEpisode(
+        patient.appUserId,
+        correctedEpisode.id,
+      );
+      assertEquals(
+        (await women.listOwnerEpisodes(patient.appUserId)).length,
+        0,
+      );
+      const profileAfterDelete = await women.getOwnerProfile(patient.appUserId);
+      assertEquals(profileAfterDelete.enabled, true);
+      assertEquals(profileAfterDelete.lastPeriodStart, "2026-08-02");
     } finally {
       const authSubjects = [
         patientAuth.id,
