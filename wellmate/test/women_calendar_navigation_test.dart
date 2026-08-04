@@ -35,6 +35,7 @@ Widget _navHarness({required bool womenCalendarEnabled}) {
   return ChangeNotifierProvider(
     create: (_) => LocaleProvider(),
     child: MaterialApp(
+      key: ValueKey<bool>(womenCalendarEnabled),
       locale: const Locale('fa'),
       supportedLocales: const [Locale('fa'), Locale('en')],
       localizationsDelegates: const [
