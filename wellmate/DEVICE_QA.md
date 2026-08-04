@@ -24,4 +24,6 @@ Arbitrary gallery/camera uploads are intentionally outside this candidate. They 
 8. Relationship and women-calendar permission revoke on two real accounts.
 9. Avatar selection persistence after sign-out, sign-in, and app restart.
 
+The self-reporting `lifemate-device-qa-artifact` workflow posts the verified run ID and artifact name to Draft PR #58 after all Flutter, Edge, isolated database, access, privacy, and cleanup gates pass.
+
 The APKs must target the non-production candidate API. No Production migration or Edge deployment is authorized by this checklist.
