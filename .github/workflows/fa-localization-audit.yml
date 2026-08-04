@@ -1,0 +1,43 @@
+name: fa-localization-audit
+
+on:
+  pull_request:
+    branches:
+      - release/baseline-v0.9.0-internal.2
+
+permissions:
+  contents: read
+
+jobs:
+  audit:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
+      - name: Audit user-visible date and digit formatting
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          import re
+
+          roots = [Path('wellmate/lib'), Path('caremate/lib')]
+          patterns = [
+              re.compile(r"Text\([^\n]*\$\{"),
+              re.compile(r"Text\([^\n]*(?:\.day|\.month|\.year)"),
+              re.compile(r"(?:DateFormat|formatMediumDate|formatMonthYear|toIso8601String)"),
+              re.compile(r"(?:startDate|endDate|scheduledLocalDate|localTime).*toString\("),
+              re.compile(r"monthNamesFa|ژانویه|فوریه|مارس|آوریل|ژوئن|ژوئیه|اوت|سپتامبر|اکتبر|نوامبر|دسامبر"),
+          ]
+
+          findings = []
+          for root in roots:
+              for path in root.rglob('*.dart'):
+                  lines = path.read_text(encoding='utf-8').splitlines()
+                  for number, line in enumerate(lines, 1):
+                      if any(pattern.search(line) for pattern in patterns):
+                          findings.append(f'{path}:{number}:{line.strip()}')
+
+          print('\n'.join(findings))
+          print(f'\nTOTAL_FINDINGS={len(findings)}')
+          PY
