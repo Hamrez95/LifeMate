@@ -107,7 +107,7 @@ class _WomenCalendarMonthCardState extends State<WomenCalendarMonthCard> {
             physics: const NeverScrollableScrollPhysics(),
             gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
               crossAxisCount: 7,
-              childAspectRatio: 0.78,
+              mainAxisExtent: 52,
               crossAxisSpacing: 4,
               mainAxisSpacing: 4,
             ),
