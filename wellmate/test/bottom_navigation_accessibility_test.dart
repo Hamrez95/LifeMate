@@ -28,6 +28,7 @@ void main() {
             home: Scaffold(
               bottomNavigationBar: WellMateBottomNav(
                 currentIndex: 4,
+                womenCalendarEnabled: true,
                 onTap: (index) => tappedIndex = index,
               ),
             ),
@@ -43,6 +44,7 @@ void main() {
       }
       expect(find.bySemanticsLabel('تقویم'), findsOneWidget);
       expect(find.bySemanticsLabel('افزودن درمان'), findsOneWidget);
+      expect(find.bySemanticsLabel('تقویم بانوان'), findsOneWidget);
 
       await tester.tap(find.byKey(const ValueKey<String>('wellmate-nav-0')));
       await tester.pump();
