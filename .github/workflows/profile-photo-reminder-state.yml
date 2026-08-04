@@ -64,6 +64,7 @@ jobs:
         run: |
           set -euo pipefail
           python3 tools/hotfix/apply_reminder_state_and_lead_times.py
+          python3 tools/hotfix/apply_reminder_due_now_fix.py
           mapfile -t dart_files < <(git diff --name-only --diff-filter=ACM | grep -E '\.dart$' || true)
           if (( ${#dart_files[@]} > 0 )); then
             dart format "${dart_files[@]}"
