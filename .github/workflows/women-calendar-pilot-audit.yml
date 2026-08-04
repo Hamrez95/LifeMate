@@ -62,11 +62,12 @@ jobs:
         with:
           dotnet-version: '10.0.x'
 
-      - name: Apply pending product patches
+      - name: Apply pending product patches idempotently
         shell: bash
         run: |
           set -euo pipefail
 
+          women_core_ready=false
           if [[ -f supabase/migrations/20260804130000_add_women_calendar_pilot.sql ]] \
             && grep -q "class SubscriptionScreen extends StatefulWidget" wellmate/lib/screens/profile/profile_destination_screens.dart \
             && grep -q "selectEarliestReminderPerPatient" caremate/lib/providers/care_notification_provider.dart \
@@ -74,8 +75,10 @@ jobs:
             && grep -q "visibility: NotificationVisibility.private" wellmate/lib/providers/notification_provider.dart \
             && grep -q "visibility: NotificationVisibility.private" caremate/lib/providers/care_notification_provider.dart \
             && grep -q "تاریخ‌ها تخمینی هستند و جایگزین نظر پزشک نیستند" wellmate/lib/screens/women_calendar/women_calendar_screen.dart; then
-            echo 'Core women-calendar product patches are already materialized on the branch.'
-          else
+            women_core_ready=true
+          fi
+
+          if [[ "$women_core_ready" != 'true' ]]; then
             python3 tools/hotfix/apply_women_calendar_backend.py
             python3 tools/hotfix/apply_women_calendar_frontend.py
             python3 tools/hotfix/apply_caremate_notifications_and_women_view.py
@@ -84,62 +87,61 @@ jobs:
             python3 tools/hotfix/apply_women_calendar_medical_copy_fix.py
             python3 tools/hotfix/apply_women_calendar_log_redaction.py
             python3 tools/hotfix/apply_notification_privacy_and_resync.py
+          else
+            echo 'Core women-calendar product patches are already materialized.'
           fi
 
           python3 tools/hotfix/apply_caremate_log_redaction.py
-          python3 tools/hotfix/apply_women_calendar_episode_editor.py
-          python3 tools/hotfix/apply_women_calendar_delete_profile_fix.py
-          python3 tools/hotfix/apply_profile_avatar_selection.py
-          python3 tools/hotfix/apply_profile_avatar_selection_fix.py
+
+          if ! grep -q "corrected owner-only note" \
+            supabase/functions/lifemate-api/women_calendar_integration_test.ts \
+            || ! grep -q "women_calendar.episode_updated" \
+              supabase/functions/lifemate-api/women_calendar.ts \
+            || ! grep -q "updateWomenCalendarEpisode" \
+              packages/lifemate_client/lib/src/lifemate_api_client.dart; then
+            python3 tools/hotfix/apply_women_calendar_episode_editor.py
+          else
+            echo 'Women-calendar episode editor is already materialized.'
+          fi
+
+          if ! grep -q "profileAfterDelete" \
+            supabase/functions/lifemate-api/women_calendar_integration_test.ts; then
+            python3 tools/hotfix/apply_women_calendar_delete_profile_fix.py
+          else
+            echo 'Women-calendar delete/profile reconciliation is already materialized.'
+          fi
+
+          avatar_ready=false
+          if [[ -f supabase/migrations/20260804213000_add_profile_avatar_key.sql ]] \
+            && [[ -f packages/lifemate_client/lib/src/profile_avatar.dart ]] \
+            && grep -q "LifeMateAvatarPicker" wellmate/lib/screens/profile/editable_profile_screen.dart \
+            && grep -q "LifeMateAvatarPicker" caremate/lib/screens/editable_profile_screen.dart \
+            && grep -q "avatarKey" supabase/functions/lifemate-api/profile.ts; then
+            avatar_ready=true
+          fi
+
+          if [[ "$avatar_ready" != 'true' ]]; then
+            python3 tools/hotfix/apply_profile_avatar_selection.py
+            python3 tools/hotfix/apply_profile_avatar_selection_fix.py
+          else
+            echo 'Persisted profile-avatar selection is already materialized.'
+          fi
 
       - name: Format generated and modified sources
         shell: bash
         run: |
           set -euo pipefail
-          dart format \
-            packages/lifemate_client/lib/lifemate_client.dart \
-            packages/lifemate_client/lib/src/feature_flags.dart \
-            packages/lifemate_client/lib/src/lifemate_api_client.dart \
-            packages/lifemate_client/lib/src/profile_avatar.dart \
-            packages/lifemate_client/lib/src/women_calendar.dart \
-            packages/lifemate_client/test/profile_api_client_test.dart \
-            packages/lifemate_client/test/profile_avatar_test.dart \
-            packages/lifemate_client/test/women_calendar_api_client_test.dart \
-            packages/lifemate_client/test/women_calendar_test.dart \
-            wellmate/lib/core/widgets/wellmate_app_header.dart \
-            wellmate/lib/core/widgets/wellmate_bottom_nav.dart \
-            wellmate/lib/providers/notification_provider.dart \
-            wellmate/lib/screens/home/home_screen.dart \
-            wellmate/lib/screens/home/home_screen_content.dart \
-            wellmate/lib/screens/profile/care_access_screen.dart \
-            wellmate/lib/screens/profile/care_access_settings_screen.dart \
-            wellmate/lib/screens/profile/editable_profile_screen.dart \
-            wellmate/lib/screens/profile/profile_destination_screens.dart \
-            wellmate/lib/screens/profile/profile_screen.dart \
-            wellmate/lib/screens/women_calendar/women_calendar_month_card.dart \
-            wellmate/lib/screens/women_calendar/women_calendar_screen.dart \
-            wellmate/test/bottom_navigation_accessibility_test.dart \
-            wellmate/test/women_calendar_month_card_test.dart \
-            wellmate/test/women_calendar_navigation_test.dart \
-            caremate/lib/main.dart \
-            caremate/lib/models/care_recipient_reminder.dart \
-            caremate/lib/providers/care_notification_provider.dart \
-            caremate/lib/screens/dashboard_screen.dart \
-            caremate/lib/screens/editable_profile_screen.dart \
-            caremate/lib/screens/profile_screen.dart \
-            caremate/lib/screens/women_calendar/care_women_calendar_screen.dart \
-            caremate/lib/widgets/custom_app_header.dart \
-            caremate/lib/widgets/custom_ui_components.dart \
-            caremate/test/care_recipient_reminder_test.dart
-          deno fmt \
-            supabase/functions/lifemate-api/index.ts \
-            supabase/functions/lifemate-api/database.ts \
-            supabase/functions/lifemate-api/profile.ts \
-            supabase/functions/lifemate-api/profile_test.ts \
-            supabase/functions/lifemate-api/profile_integration_test.ts \
-            supabase/functions/lifemate-api/women_calendar.ts \
-            supabase/functions/lifemate-api/women_calendar_test.ts \
-            supabase/functions/lifemate-api/women_calendar_integration_test.ts
+          mapfile -t dart_files < <(git diff --name-only --diff-filter=ACM | grep -E '\.dart$' || true)
+          if (( ${#dart_files[@]} > 0 )); then
+            dart format "${dart_files[@]}"
+          fi
+          mapfile -t deno_files < <(
+            git diff --name-only --diff-filter=ACM \
+              | grep -E '^supabase/functions/lifemate-api/.*\.ts$' || true
+          )
+          if (( ${#deno_files[@]} > 0 )); then
+            deno fmt "${deno_files[@]}"
+          fi
 
       - name: Verify shared package
         shell: bash
@@ -213,7 +215,6 @@ jobs:
           grep -q "ENABLE_WOMEN_CALENDAR_PILOT" packages/lifemate_client/lib/src/feature_flags.dart
           grep -q "women_calendar_feature_disabled" supabase/functions/lifemate-api/index.ts
           grep -q "can_view_women_calendar boolean not null default false" supabase/migrations/20260804130000_add_women_calendar_pilot.sql
-          grep -q "privateNotes" supabase/functions/lifemate-api/women_calendar_integration_test.ts
           grep -q '"privateNotes" in episodes\[0\], false' supabase/functions/lifemate-api/women_calendar_integration_test.ts
           grep -q "women_calendar.episode_updated" supabase/functions/lifemate-api/women_calendar.ts
           grep -q "updateWomenCalendarEpisode" packages/lifemate_client/lib/src/lifemate_api_client.dart
@@ -277,62 +278,13 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          files=(
-            caremate/android/app/src/main/AndroidManifest.xml
-            caremate/lib/core/constants/app_version.dart
-            caremate/lib/main.dart
-            caremate/lib/models/care_recipient_reminder.dart
-            caremate/lib/providers/care_notification_provider.dart
-            caremate/lib/screens/dashboard_screen.dart
-            caremate/lib/screens/editable_profile_screen.dart
-            caremate/lib/screens/profile_screen.dart
-            caremate/lib/screens/women_calendar/care_women_calendar_screen.dart
-            caremate/lib/widgets/custom_app_header.dart
-            caremate/lib/widgets/custom_ui_components.dart
-            caremate/pubspec.yaml
-            caremate/pubspec.lock
-            caremate/test/care_recipient_reminder_test.dart
-            packages/lifemate_client/lib/lifemate_client.dart
-            packages/lifemate_client/lib/src/feature_flags.dart
-            packages/lifemate_client/lib/src/lifemate_api_client.dart
-            packages/lifemate_client/lib/src/profile_avatar.dart
-            packages/lifemate_client/lib/src/women_calendar.dart
-            packages/lifemate_client/test/profile_api_client_test.dart
-            packages/lifemate_client/test/profile_avatar_test.dart
-            packages/lifemate_client/test/women_calendar_api_client_test.dart
-            packages/lifemate_client/test/women_calendar_test.dart
-            supabase/functions/lifemate-api/database.ts
-            supabase/functions/lifemate-api/deno.json
-            supabase/functions/lifemate-api/deno.lock
-            supabase/functions/lifemate-api/index.ts
-            supabase/functions/lifemate-api/profile.ts
-            supabase/functions/lifemate-api/profile_test.ts
-            supabase/functions/lifemate-api/profile_integration_test.ts
-            supabase/functions/lifemate-api/women_calendar.ts
-            supabase/functions/lifemate-api/women_calendar_integration_test.ts
-            supabase/functions/lifemate-api/women_calendar_test.ts
-            supabase/migrations/20260804130000_add_women_calendar_pilot.sql
+          git add -- \
+            packages/lifemate_client \
+            wellmate \
+            caremate \
+            supabase/functions/lifemate-api \
+            supabase/migrations/20260804130000_add_women_calendar_pilot.sql \
             supabase/migrations/20260804213000_add_profile_avatar_key.sql
-            wellmate/lib/core/constants/app_version.dart
-            wellmate/lib/core/widgets/wellmate_app_header.dart
-            wellmate/lib/core/widgets/wellmate_bottom_nav.dart
-            wellmate/lib/providers/notification_provider.dart
-            wellmate/lib/screens/home/home_screen.dart
-            wellmate/lib/screens/home/home_screen_content.dart
-            wellmate/lib/screens/profile/care_access_screen.dart
-            wellmate/lib/screens/profile/care_access_settings_screen.dart
-            wellmate/lib/screens/profile/editable_profile_screen.dart
-            wellmate/lib/screens/profile/profile_destination_screens.dart
-            wellmate/lib/screens/profile/profile_screen.dart
-            wellmate/lib/screens/women_calendar/women_calendar_month_card.dart
-            wellmate/lib/screens/women_calendar/women_calendar_screen.dart
-            wellmate/pubspec.yaml
-            wellmate/pubspec.lock
-            wellmate/test/bottom_navigation_accessibility_test.dart
-            wellmate/test/women_calendar_month_card_test.dart
-            wellmate/test/women_calendar_navigation_test.dart
-          )
-          git add -- "${files[@]}"
           if git diff --cached --quiet; then
             echo 'No verified product changes to commit.'
             exit 0
@@ -340,6 +292,6 @@ jobs:
           echo 'Verified product files staged:'
           git diff --cached --name-only
           git config user.name 'github-actions[bot]'
-          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git config user.email '41898233+github-actions[bot]@users.noreply.github.com'
           git commit -m 'feat: add profile avatars and complete women calendar pilot'
           git push origin HEAD:feat/women-calendar-care-access-notifications
