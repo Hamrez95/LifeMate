@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:provider/provider.dart';
 import 'package:wellmate/core/widgets/wellmate_bottom_nav.dart';
+import 'package:wellmate/localization/app_localizations.dart';
 import 'package:wellmate/localization/locale_provider.dart';
-import 'package:wellmate/main.dart';
-import 'package:wellmate/providers/settings_provider.dart';
 
 void main() {
   testWidgets('women calendar navigation is hidden before activation', (
@@ -32,12 +32,17 @@ void main() {
 }
 
 Widget _navHarness({required bool womenCalendarEnabled}) {
-  return MultiProvider(
-    providers: [
-      ChangeNotifierProvider(create: (_) => LocaleProvider()),
-      ChangeNotifierProvider(create: (_) => SettingsProvider()),
-    ],
-    child: WellMateApp(
+  return ChangeNotifierProvider(
+    create: (_) => LocaleProvider(),
+    child: MaterialApp(
+      locale: const Locale('fa'),
+      supportedLocales: const [Locale('fa'), Locale('en')],
+      localizationsDelegates: const [
+        AppLocalizations.delegate,
+        GlobalMaterialLocalizations.delegate,
+        GlobalWidgetsLocalizations.delegate,
+        GlobalCupertinoLocalizations.delegate,
+      ],
       home: Scaffold(
         bottomNavigationBar: WellMateBottomNav(
           currentIndex: 4,
