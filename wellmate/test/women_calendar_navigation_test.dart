@@ -7,7 +7,7 @@ import 'package:wellmate/localization/app_localizations.dart';
 import 'package:wellmate/localization/locale_provider.dart';
 
 void main() {
-  testWidgets('women calendar navigation is hidden before activation', (
+  testWidgets('women calendar navigation follows activation state', (
     tester,
   ) async {
     await tester.pumpWidget(_navHarness(womenCalendarEnabled: false));
@@ -17,16 +17,15 @@ void main() {
     expect(find.bySemanticsLabel('تقویم بانوان'), findsNothing);
     expect(find.byKey(const ValueKey('wellmate-nav-4')), findsOneWidget);
     expect(tester.takeException(), isNull);
-  });
 
-  testWidgets('women calendar navigation appears after activation', (
-    tester,
-  ) async {
+    await tester.pumpWidget(const SizedBox.shrink());
+    await tester.pump();
     await tester.pumpWidget(_navHarness(womenCalendarEnabled: true));
     await tester.pumpAndSettle();
 
     expect(find.byKey(const ValueKey('wellmate-nav-3')), findsOneWidget);
     expect(find.bySemanticsLabel('تقویم بانوان'), findsOneWidget);
+    expect(find.byKey(const ValueKey('wellmate-nav-4')), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
 }
