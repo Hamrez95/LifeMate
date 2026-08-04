@@ -1,0 +1,174 @@
+name: publish-foundational-baseline-v0.9.0-internal.2
+
+on:
+  pull_request:
+    branches:
+      - feat/bb287-parity-completion
+
+permissions:
+  contents: write
+  actions: read
+
+concurrency:
+  group: publish-foundational-baseline-v0.9.0-internal.2
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    if: github.head_ref == 'release/publish-baseline-v0.9.0-internal.2'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    env:
+      BASELINE_SHA: 5133e40f37356a8568f8d5245d295bcad9fcd0d0
+      TAG_NAME: v0.9.0-internal.2
+      RELEASE_TITLE: LifeMate v0.9.0-internal.2 — Foundational Baseline Release 1
+      ARTIFACT_ID: '8887654645'
+    steps:
+      - name: Check out frozen baseline source
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
+        with:
+          ref: ${{ env.BASELINE_SHA }}
+          fetch-depth: 0
+          show-progress: false
+
+      - name: Download and verify the approved artifact
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$BASELINE_SHA"
+          gh api \
+            -H 'Accept: application/vnd.github+json' \
+            "repos/$GITHUB_REPOSITORY/actions/artifacts/$ARTIFACT_ID/zip" \
+            > baseline-artifact.zip
+          rm -rf release-assets
+          mkdir -p release-assets
+          unzip -q baseline-artifact.zip -d release-assets
+
+          test "$(jq -r '.releaseName' release-assets/release-manifest.json)" = '0.9.0-internal.2'
+          test "$(jq -r '.commit' release-assets/release-manifest.json)" = "$BASELINE_SHA"
+          test "$(jq -r '.channel' release-assets/release-manifest.json)" = 'internal/unstable-feedback'
+
+          wellmate_apk="$(find release-assets -maxdepth 1 -name 'WellMate-*.apk' -print -quit)"
+          caremate_apk="$(find release-assets -maxdepth 1 -name 'CareMate-*.apk' -print -quit)"
+          test -n "$wellmate_apk"
+          test -n "$caremate_apk"
+
+          expected_wellmate="$(jq -r '.apps.wellmate.sha256' release-assets/release-manifest.json)"
+          expected_caremate="$(jq -r '.apps.caremate.sha256' release-assets/release-manifest.json)"
+          test "$(sha256sum "$wellmate_apk" | awk '{print $1}')" = "$expected_wellmate"
+          test "$(sha256sum "$caremate_apk" | awk '{print $1}')" = "$expected_caremate"
+
+      - name: Prepare permanent release notes
+        shell: bash
+        run: |
+          set -euo pipefail
+          cat > release-notes.md <<'EOF'
+          # Foundational Baseline Release 1
+
+          This is the first frozen, working LifeMate development baseline. It is intentionally published as a **GitHub prerelease** because the product is not ready for public distribution or store launch.
+
+          ## Frozen identity
+
+          - Version/tag: `v0.9.0-internal.2`
+          - Source commit: `5133e40f37356a8568f8d5245d295bcad9fcd0d0`
+          - Baseline branch: `release/baseline-v0.9.0-internal.2`
+          - Backend channel: `lifemate-api-candidate`
+          - WellMate SHA-256: `78dcc933f72ee09d8a85ae328053912c251410a85a4266ce3ee50a9638f93bb0`
+          - CareMate SHA-256: `9f2380acf59cf7c9cb44dec15e36740e7a365262744759a1cf832b04a367f196`
+
+          ## Baseline capabilities
+
+          - Connected WellMate and CareMate Flutter applications
+          - Supabase authentication and candidate Edge API integration
+          - Treatment, visit and injection creation flows
+          - Single-page scrollable treatment form with safe bottom navigation clearance
+          - Persian RTL experience, Jalali calendar and Persian digits
+          - Home/calendar refresh after creating care events
+          - Internal signup without an email-confirmation round trip
+          - Branded Android launcher icons for both applications
+          - Automated analyze, tests, release APK build, signature/package inspection and checksum verification
+
+          ## Release boundaries
+
+          - This is an internal engineering baseline, not a public or store release.
+          - It is not approved for real patient health data.
+          - Physical Android regression testing remains required as development continues.
+          - Production signing, complete security hardening and remaining release gates are not claimed complete.
+          - PR #42 remains Draft and this release does not merge or deploy anything to `main` or the Production Edge function.
+
+          Future development must use a later version and must not replace, retag or overwrite this baseline.
+          EOF
+
+      - name: Create and verify the frozen annotated tag
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+
+          if git ls-remote --exit-code --tags origin "refs/tags/$TAG_NAME" >/dev/null 2>&1; then
+            git fetch --force origin "refs/tags/$TAG_NAME:refs/tags/$TAG_NAME"
+            tagged_sha="$(git rev-list -n 1 "$TAG_NAME")"
+            test "$tagged_sha" = "$BASELINE_SHA"
+          else
+            git tag -a "$TAG_NAME" "$BASELINE_SHA" \
+              -m 'LifeMate Foundational Baseline Release 1 — frozen internal baseline'
+            git push origin "refs/tags/$TAG_NAME"
+          fi
+
+      - name: Publish GitHub prerelease and permanent assets
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          wellmate_apk="$(find release-assets -maxdepth 1 -name 'WellMate-*.apk' -print -quit)"
+          caremate_apk="$(find release-assets -maxdepth 1 -name 'CareMate-*.apk' -print -quit)"
+
+          if gh release view "$TAG_NAME" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            gh release edit "$TAG_NAME" \
+              --repo "$GITHUB_REPOSITORY" \
+              --title "$RELEASE_TITLE" \
+              --notes-file release-notes.md \
+              --prerelease
+            gh release upload "$TAG_NAME" \
+              --repo "$GITHUB_REPOSITORY" \
+              --clobber \
+              "$wellmate_apk" \
+              "$caremate_apk" \
+              release-assets/release-manifest.json \
+              release-assets/apk-sha256.txt \
+              baseline-artifact.zip
+          else
+            gh release create "$TAG_NAME" \
+              --repo "$GITHUB_REPOSITORY" \
+              --verify-tag \
+              --prerelease \
+              --title "$RELEASE_TITLE" \
+              --notes-file release-notes.md \
+              "$wellmate_apk" \
+              "$caremate_apk" \
+              release-assets/release-manifest.json \
+              release-assets/apk-sha256.txt \
+              baseline-artifact.zip
+          fi
+
+      - name: Verify published release record
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          release_json="$(gh api "repos/$GITHUB_REPOSITORY/releases/tags/$TAG_NAME")"
+          test "$(jq -r '.tag_name' <<<"$release_json")" = "$TAG_NAME"
+          test "$(jq -r '.prerelease' <<<"$release_json")" = 'true'
+          test "$(jq -r '.draft' <<<"$release_json")" = 'false'
+          asset_names="$(jq -r '.assets[].name' <<<"$release_json")"
+          grep -q '^WellMate-.*\.apk$' <<<"$asset_names"
+          grep -q '^CareMate-.*\.apk$' <<<"$asset_names"
+          grep -qx 'release-manifest.json' <<<"$asset_names"
+          grep -qx 'apk-sha256.txt' <<<"$asset_names"
+          grep -qx 'baseline-artifact.zip' <<<"$asset_names"
+          echo "Published $TAG_NAME at $BASELINE_SHA as an internal prerelease baseline."
