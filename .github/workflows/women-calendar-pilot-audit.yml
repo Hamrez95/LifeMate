@@ -88,6 +88,7 @@ jobs:
 
           python3 tools/hotfix/apply_caremate_log_redaction.py
           python3 tools/hotfix/apply_women_calendar_episode_editor.py
+          python3 tools/hotfix/apply_women_calendar_delete_profile_fix.py
 
       - name: Format generated and modified sources
         shell: bash
