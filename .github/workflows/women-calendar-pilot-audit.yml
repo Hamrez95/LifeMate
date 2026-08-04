@@ -195,12 +195,51 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          if git diff --quiet; then
-            echo 'No generated changes to commit.'
+          files=(
+            caremate/android/app/src/main/AndroidManifest.xml
+            caremate/lib/core/constants/app_version.dart
+            caremate/lib/main.dart
+            caremate/lib/models/care_recipient_reminder.dart
+            caremate/lib/providers/care_notification_provider.dart
+            caremate/lib/screens/dashboard_screen.dart
+            caremate/lib/screens/women_calendar/care_women_calendar_screen.dart
+            caremate/pubspec.yaml
+            caremate/pubspec.lock
+            caremate/test/care_recipient_reminder_test.dart
+            packages/lifemate_client/lib/lifemate_client.dart
+            packages/lifemate_client/lib/src/feature_flags.dart
+            packages/lifemate_client/lib/src/lifemate_api_client.dart
+            packages/lifemate_client/lib/src/women_calendar.dart
+            packages/lifemate_client/test/women_calendar_test.dart
+            supabase/functions/lifemate-api/database.ts
+            supabase/functions/lifemate-api/deno.json
+            supabase/functions/lifemate-api/deno.lock
+            supabase/functions/lifemate-api/index.ts
+            supabase/functions/lifemate-api/women_calendar.ts
+            supabase/functions/lifemate-api/women_calendar_integration_test.ts
+            supabase/functions/lifemate-api/women_calendar_test.ts
+            supabase/migrations/20260804130000_add_women_calendar_pilot.sql
+            wellmate/lib/core/constants/app_version.dart
+            wellmate/lib/core/widgets/wellmate_bottom_nav.dart
+            wellmate/lib/providers/notification_provider.dart
+            wellmate/lib/screens/home/home_screen.dart
+            wellmate/lib/screens/home/home_screen_content.dart
+            wellmate/lib/screens/profile/care_access_screen.dart
+            wellmate/lib/screens/profile/care_access_settings_screen.dart
+            wellmate/lib/screens/profile/profile_destination_screens.dart
+            wellmate/lib/screens/women_calendar/women_calendar_screen.dart
+            wellmate/pubspec.yaml
+            wellmate/test/bottom_navigation_accessibility_test.dart
+            wellmate/test/women_calendar_navigation_test.dart
+          )
+          git add -- "${files[@]}"
+          if git diff --cached --quiet; then
+            echo 'No verified product changes to commit.'
             exit 0
           fi
+          echo 'Verified product files staged:'
+          git diff --cached --name-only
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git add -A
           git commit -m 'feat: implement women calendar pilot and caregiver reminders'
           git push origin HEAD:feat/women-calendar-care-access-notifications
