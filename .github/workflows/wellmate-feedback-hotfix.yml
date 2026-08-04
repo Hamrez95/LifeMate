@@ -40,7 +40,9 @@ jobs:
         run: |
           set -euo pipefail
           python3 tools/hotfix/apply_wellmate_feedback_hotfix.py
+          python3 tools/hotfix/fix_wellmate_feedback_hotfix_tests.py
           rm -f tools/hotfix/apply_wellmate_feedback_hotfix.py
+          rm -f tools/hotfix/fix_wellmate_feedback_hotfix_tests.py
           rm -f .github/workflows/wellmate-feedback-hotfix.yml
           dart format \
             wellmate/lib/core/utils/persian_date_utils.dart \
@@ -51,7 +53,9 @@ jobs:
             wellmate/lib/screens/home/home_screen.dart \
             wellmate/lib/screens/home/home_screen_content.dart \
             packages/lifemate_client/lib/src/session_gate_secure.dart \
-            wellmate/test/add_treatment_accessibility_test.dart
+            wellmate/test/add_treatment_accessibility_test.dart \
+            wellmate/test/ui_regression_test.dart \
+            wellmate/test/care_plan_hub_accessibility_test.dart
 
       - name: Generate branded launcher icons
         shell: bash
