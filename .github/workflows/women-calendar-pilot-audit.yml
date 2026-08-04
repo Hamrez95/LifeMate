@@ -70,6 +70,7 @@ jobs:
           python3 tools/hotfix/apply_women_calendar_frontend.py
           python3 tools/hotfix/apply_caremate_notifications_and_women_view.py
           python3 tools/hotfix/apply_women_calendar_integration.py
+          python3 tools/hotfix/apply_women_calendar_cleanup_fix.py
 
       - name: Format generated and modified sources
         shell: bash
