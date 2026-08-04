@@ -5,6 +5,7 @@ on:
     paths:
       - '.github/workflows/pr42-candidate-device-qa.yml'
       - 'tools/release/live-beta-smoke.sh'
+      - 'tools/release/live-pr42-auth-profile-qr-smoke.sh'
       - 'supabase/functions/lifemate-api/**'
       - 'packages/lifemate_client/**'
       - 'wellmate/**'
@@ -50,8 +51,13 @@ jobs:
             */lifemate-api-candidate) ;;
             *) echo 'Device-QA builds must target lifemate-api-candidate.' >&2; exit 1 ;;
           esac
-          bash -n tools/release/live-beta-smoke.sh
-          shellcheck tools/release/live-beta-smoke.sh
+          for script in \
+            tools/release/live-beta-smoke.sh \
+            tools/release/live-pr42-auth-profile-qr-smoke.sh
+          do
+            bash -n "$script"
+            shellcheck "$script"
+          done
           ! grep -R --line-number 'SUPABASE_SERVICE_ROLE_KEY' \
             supabase/functions/lifemate-api tools/release
 
@@ -66,7 +72,7 @@ jobs:
     if: ${{ github.event_name == 'push' }}
     needs: validate-candidate-source
     runs-on: ubuntu-24.04
-    timeout-minutes: 12
+    timeout-minutes: 15
     environment: beta
     env:
       EXPECTED_RELEASE_VERSION: ${{ github.sha }}
@@ -108,11 +114,23 @@ jobs:
             '.status == "passed" and .release == env.EXPECTED_RELEASE_VERSION' \
             /tmp/lifemate-candidate-role-smoke.json >/dev/null
 
+      - name: Execute live auth profile and QR journey
+        shell: bash
+        run: |
+          set -euo pipefail
+          bash tools/release/live-pr42-auth-profile-qr-smoke.sh \
+            | tee /tmp/lifemate-candidate-auth-profile-qr-smoke.json
+          jq -e \
+            '.status == "passed" and .release == env.EXPECTED_RELEASE_VERSION' \
+            /tmp/lifemate-candidate-auth-profile-qr-smoke.json >/dev/null
+
       - name: Upload redacted candidate smoke evidence
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:
-          name: pr42-candidate-role-smoke-${{ github.sha }}
-          path: /tmp/lifemate-candidate-role-smoke.json
+          name: pr42-candidate-smoke-${{ github.sha }}
+          path: |
+            /tmp/lifemate-candidate-role-smoke.json
+            /tmp/lifemate-candidate-auth-profile-qr-smoke.json
           if-no-files-found: error
           retention-days: 30
 
