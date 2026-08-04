@@ -26,12 +26,24 @@ List<CareRecipientReminder> selectEarliestReminderPerPatient(
     final scheduled = reminder.scheduledAtUtc.toUtc();
     if (!scheduled.isAfter(now)) continue;
     final existing = selected[reminder.patientUserId];
-    if (existing == null ||
-        scheduled.isBefore(existing.scheduledAtUtc.toUtc())) {
+    if (existing == null || _compareReminder(reminder, existing) < 0) {
       selected[reminder.patientUserId] = reminder;
     }
   }
   final result = selected.values.toList(growable: false)
-    ..sort((a, b) => a.scheduledAtUtc.compareTo(b.scheduledAtUtc));
+    ..sort(_compareReminder);
   return result;
+}
+
+int _compareReminder(
+  CareRecipientReminder left,
+  CareRecipientReminder right,
+) {
+  final byTime = left.scheduledAtUtc
+      .toUtc()
+      .compareTo(right.scheduledAtUtc.toUtc());
+  if (byTime != 0) return byTime;
+  final byPatient = left.patientUserId.compareTo(right.patientUserId);
+  if (byPatient != 0) return byPatient;
+  return left.doseId.compareTo(right.doseId);
 }
