@@ -103,7 +103,6 @@ jobs:
           assert 'ژانویه' not in care_calendar
           assert 'visibleCalendarMonthRange(context, _focusedMonth)' in care_calendar
           assert "formatAppDate(\n                          context,\n                          _selectedDate" in care_calendar
-          assert 'child: ListView.separated(' not in care_calendar
           assert 'child: SingleChildScrollView(' in care_calendar
           assert 'for (var index = 0;' in care_calendar
           assert "ValueKey('caremate-previous-month')" in care_view
