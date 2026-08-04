@@ -84,7 +84,7 @@ void main() {
   testWidgets('missed appointment card uses warning styling', (
     WidgetTester tester,
   ) async {
-    const item = ScheduleItemModel(
+    final item = ScheduleItemModel(
       id: 'appointment-missed',
       title: 'ویزیت متخصص قلب',
       time: '18:20',
@@ -96,13 +96,13 @@ void main() {
     );
 
     await tester.pumpWidget(
-      const MaterialApp(
-        locale: Locale('fa'),
+      MaterialApp(
+        locale: const Locale('fa'),
         home: Scaffold(
           body: ScheduleItemCard(
-            key: ValueKey<String>('missed-appointment-card'),
+            key: const ValueKey<String>('missed-appointment-card'),
             item: item,
-            loc: <String, String>{},
+            loc: const <String, String>{},
             isPersian: true,
             isMissed: true,
           ),
