@@ -62,18 +62,30 @@ jobs:
         with:
           dotnet-version: '10.0.x'
 
-      - name: Apply product patches
+      - name: Apply pending product patches
         shell: bash
         run: |
           set -euo pipefail
-          python3 tools/hotfix/apply_women_calendar_backend.py
-          python3 tools/hotfix/apply_women_calendar_frontend.py
-          python3 tools/hotfix/apply_caremate_notifications_and_women_view.py
-          python3 tools/hotfix/apply_women_calendar_integration.py
-          python3 tools/hotfix/apply_women_calendar_cleanup_fix.py
-          python3 tools/hotfix/apply_women_calendar_medical_copy_fix.py
-          python3 tools/hotfix/apply_women_calendar_log_redaction.py
-          python3 tools/hotfix/apply_notification_privacy_and_resync.py
+
+          if [[ -f supabase/migrations/20260804130000_add_women_calendar_pilot.sql ]] \
+            && grep -q "class SubscriptionScreen extends StatefulWidget" wellmate/lib/screens/profile/profile_destination_screens.dart \
+            && grep -q "selectEarliestReminderPerPatient" caremate/lib/providers/care_notification_provider.dart \
+            && grep -q "cleanupWomenCalendarRun" supabase/functions/lifemate-api/women_calendar_integration_test.ts \
+            && grep -q "visibility: NotificationVisibility.private" wellmate/lib/providers/notification_provider.dart \
+            && grep -q "visibility: NotificationVisibility.private" caremate/lib/providers/care_notification_provider.dart \
+            && grep -q "تاریخ‌ها تخمینی هستند و جایگزین نظر پزشک نیستند" wellmate/lib/screens/women_calendar/women_calendar_screen.dart; then
+            echo 'Core women-calendar product patches are already materialized on the branch.'
+          else
+            python3 tools/hotfix/apply_women_calendar_backend.py
+            python3 tools/hotfix/apply_women_calendar_frontend.py
+            python3 tools/hotfix/apply_caremate_notifications_and_women_view.py
+            python3 tools/hotfix/apply_women_calendar_integration.py
+            python3 tools/hotfix/apply_women_calendar_cleanup_fix.py
+            python3 tools/hotfix/apply_women_calendar_medical_copy_fix.py
+            python3 tools/hotfix/apply_women_calendar_log_redaction.py
+            python3 tools/hotfix/apply_notification_privacy_and_resync.py
+          fi
+
           python3 tools/hotfix/apply_caremate_log_redaction.py
 
       - name: Format generated and modified sources
