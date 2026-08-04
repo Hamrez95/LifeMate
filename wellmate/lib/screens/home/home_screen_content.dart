@@ -184,11 +184,20 @@ class _HomeScreenContentState extends State<HomeScreenContent> {
       final medicineToday = todayItems
           .where((item) => item.type == 'medicine')
           .toList(growable: false);
+      final medicineReminderWindow = allItems
+          .where(
+            (item) =>
+                item.type == 'medicine' &&
+                item.status == 'scheduled' &&
+                item.scheduledAtUtc?.isAfter(DateTime.now().toUtc()) == true,
+          )
+          .toList(growable: false);
       context.read<MedicationProvider>().setMedications(medicineToday);
       try {
         await context.read<NotificationProvider>().syncDoseReminders(
-          medicineToday,
+          medicineReminderWindow,
           timeZone: profile['timeZone']?.toString() ?? 'Asia/Tehran',
+          isPersian: Localizations.localeOf(context).languageCode == 'fa',
         );
       } catch (error) {
         debugPrint('WellMate reminder sync failed: $error');

@@ -754,6 +754,53 @@ export function createLifeMateDatabase(
     return rows.map(mapRelationshipRow);
   }
 
+  async function updateRelationshipPermissions(
+    userId: string,
+    relationshipIdValue: unknown,
+    body: Record<string, unknown>,
+  ): Promise<Record<string, unknown>> {
+    const relationshipId = requiredUuid(relationshipIdValue, "relationshipId");
+    if (typeof body.canViewWomenCalendar !== "boolean") {
+      throw new ApiError(
+        400,
+        "invalid_care_permission",
+        "canViewWomenCalendar must be a boolean.",
+      );
+    }
+    return await sql.begin(async (tx: any) => {
+      const existingRows = await tx`
+        select * from lifemate.care_relationships
+        where id = ${relationshipId}
+          and patient_user_id = ${userId}
+          and status = 'Active'
+        for update
+      `;
+      const existing = existingRows[0];
+      if (!existing) {
+        throw new ApiError(
+          404,
+          "relationship_not_found",
+          "Active owner relationship was not found.",
+        );
+      }
+      const rows = await tx`
+        update lifemate.care_relationships
+        set can_view_women_calendar = ${body.canViewWomenCalendar},
+            updated_at_utc = now()
+        where id = ${relationshipId}
+        returning *
+      `;
+      await insertAudit(
+        tx,
+        userId,
+        "care_relationship.permissions_updated",
+        "care_relationship",
+        relationshipId,
+      );
+      return await mapRelationship(tx, rows[0]);
+    });
+  }
+
   async function revokeRelationship(
     userId: string,
     relationshipIdValue: unknown,
@@ -945,6 +992,7 @@ export function createLifeMateDatabase(
     listInvitations,
     acceptInvitation,
     listRelationships,
+    updateRelationshipPermissions,
     revokeRelationship,
     listCareDoseOccurrences,
   };
@@ -1035,6 +1083,7 @@ function mapRelationshipRow(row: Row): Record<string, unknown> {
     caregiverUserId: row.caregiver_user_id,
     caregiverDisplayName: row.caregiver_display_name ?? "LifeMate User",
     status: String(row.status).toLowerCase(),
+    canViewWomenCalendar: row.can_view_women_calendar === true,
     patientConsentedAtUtc: iso(row.patient_consented_at_utc),
     caregiverConsentedAtUtc: iso(row.caregiver_consented_at_utc),
     revokedAtUtc: row.revoked_at_utc == null ? null : iso(row.revoked_at_utc),

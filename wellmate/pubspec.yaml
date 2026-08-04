@@ -1,7 +1,7 @@
 name: wellmate
 description: WellMate Patient App
 publish_to: 'none'
-version: 0.9.0-internal.3+14
+version: 0.9.0-internal.4+15
 environment:
   sdk: ">=3.0.0 <4.0.0"
 dependencies:

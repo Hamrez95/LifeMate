@@ -9,12 +9,15 @@ import 'package:provider/provider.dart';
 import '../core/constants/app_colors.dart';
 import '../core/localization/locale_provider.dart';
 import '../core/utils/string_extensions.dart';
+import '../models/care_recipient_reminder.dart';
+import '../providers/care_notification_provider.dart';
 import '../widgets/caremate_bottom_nav.dart';
 import '../widgets/custom_app_header.dart';
 import 'calendar/calendar_screen.dart';
 import 'feature_preview_screen.dart';
 import 'pairing/care_invitation_scanner_screen.dart';
 import 'profile_destination_screens.dart';
+import 'women_calendar/care_women_calendar_screen.dart';
 
 class DashboardScreen extends StatefulWidget {
   const DashboardScreen({super.key});
@@ -92,6 +95,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
         _selectedRelationshipId = selectedId;
       });
       await _loadSelectedDoses();
+      await _syncCareRecipientNotifications();
     } on LifeMateApiException catch (error) {
       _setError(_friendlyApiError(error));
     } catch (error) {
@@ -119,6 +123,61 @@ class _DashboardScreenState extends State<DashboardScreen> {
         );
     doses.sort((a, b) => _doseTime(a).compareTo(_doseTime(b)));
     if (mounted) setState(() => _doses = doses);
+  }
+
+  Future<void> _syncCareRecipientNotifications() async {
+    final now = DateTime.now();
+    final toDate = now.add(const Duration(days: 7));
+    final candidates = <CareRecipientReminder>[];
+    for (final relationship in _relationships) {
+      try {
+        final patientUserId = relationship['patientUserId'].toString();
+        final patientName =
+            relationship['patientDisplayName']?.toString() ?? 'فرد تحت مراقبت';
+        final doses = await context
+            .read<LifeMateApiClient>()
+            .getCareRecipientDoseOccurrences(
+              patientUserId: patientUserId,
+              fromDate: now,
+              toDate: toDate,
+            );
+        for (final dose in doses) {
+          if (dose['status']?.toString() != 'scheduled') continue;
+          final scheduled = DateTime.tryParse(
+            dose['scheduledAtUtc']?.toString() ?? '',
+          )?.toUtc();
+          if (scheduled == null || !scheduled.isAfter(DateTime.now().toUtc())) {
+            continue;
+          }
+          candidates.add(
+            CareRecipientReminder(
+              patientUserId: patientUserId,
+              patientName: patientName,
+              doseId: dose['id'].toString(),
+              medicationName: dose['medicationName']?.toString() ?? 'دارو',
+              doseText: dose['doseText']?.toString() ?? '',
+              scheduledAtUtc: scheduled,
+            ),
+          );
+        }
+      } catch (error) {
+        debugPrint('CareMate notification patient sync failed: $error');
+      }
+    }
+    if (!mounted) return;
+    final profile =
+        _currentUser['profile'] as Map<String, dynamic>? ?? const {};
+    final isPersian =
+        context.read<LocaleProvider>().locale.languageCode == 'fa';
+    try {
+      await context.read<CareNotificationProvider>().syncEarliestPerRecipient(
+        candidates,
+        timeZone: profile['timeZone']?.toString() ?? 'Asia/Tehran',
+        isPersian: isPersian,
+      );
+    } catch (error) {
+      debugPrint('CareMate notification scheduling failed.');
+    }
   }
 
   Map<String, dynamic>? get _selectedRelationship {
@@ -195,7 +254,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   child: Icon(Icons.keyboard_rounded),
                 ),
                 title: const Text('ورود کد دعوت'),
-                subtitle: const Text('روش پشتیبان برای دعوت ایمیلی یا کد کپی‌شده'),
+                subtitle: const Text(
+                  'روش پشتیبان برای دعوت ایمیلی یا کد کپی‌شده',
+                ),
                 onTap: () => Navigator.pop(context, 'manual'),
               ),
             ],
@@ -244,9 +305,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
   Future<void> _acceptInvitationToken(String token) async {
     setState(() => _accepting = true);
     try {
-      await context
-          .read<LifeMateApiClient>()
-          .acceptCareInvitation(token: token);
+      await context.read<LifeMateApiClient>().acceptCareInvitation(
+        token: token,
+      );
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('دعوت مراقبت با موفقیت پذیرفته شد.')),
@@ -277,8 +338,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
           ),
           title: const Row(
             children: [
-              Icon(Icons.family_restroom_rounded,
-                  color: AppColors.primaryBlue),
+              Icon(Icons.family_restroom_rounded, color: AppColors.primaryBlue),
               SizedBox(width: 10),
               Expanded(child: Text('پذیرش دعوت مراقبت')),
             ],
@@ -326,9 +386,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
             FilledButton(
               onPressed: confirmed && tokenController.text.trim().isNotEmpty
                   ? () => Navigator.pop(
-                        dialogContext,
-                        tokenController.text.trim(),
-                      )
+                      dialogContext,
+                      tokenController.text.trim(),
+                    )
                   : null,
               child: const Text('پذیرش امن'),
             ),
@@ -348,9 +408,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(24),
-        ),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
         title: const Text('قطع دسترسی مراقبت؟'),
         content: const Text(
           'پس از قطع دسترسی، دیگر وضعیت داروهای این بیمار را مشاهده نمی‌کنید. بیمار می‌تواند بعداً دعوت جدیدی بسازد.',
@@ -372,8 +430,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
     setState(() => _loading = true);
     try {
       await context.read<LifeMateApiClient>().revokeCareRelationship(
-            relationshipId: relationship['id'].toString(),
-          );
+        relationshipId: relationship['id'].toString(),
+      );
       await _refresh();
     } on LifeMateApiException catch (error) {
       _setError(_friendlyApiError(error));
@@ -407,9 +465,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
   void _showDoseAlerts() {
     final alertDoses = _doses
-        .where((dose) =>
-            dose['status']?.toString() == 'missed' ||
-            dose['status']?.toString() == 'skipped')
+        .where(
+          (dose) =>
+              dose['status']?.toString() == 'missed' ||
+              dose['status']?.toString() == 'skipped',
+        )
         .toList(growable: false);
     if (alertDoses.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -521,8 +581,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
               ],
               const SizedBox(height: 22),
               ListTile(
-                leading: const Icon(Icons.manage_accounts_outlined,
-                    color: AppColors.primaryBlue),
+                leading: const Icon(
+                  Icons.manage_accounts_outlined,
+                  color: AppColors.primaryBlue,
+                ),
                 title: const Text('ویرایش اطلاعات حساب'),
                 subtitle: const Text('در دست توسعه'),
                 enabled: false,
@@ -561,8 +623,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
     final selected = _selectedRelationship;
     final patientName =
         selected?['patientDisplayName']?.toString().trim().isNotEmpty == true
-            ? selected!['patientDisplayName'].toString()
-            : 'فرد تحت مراقبت';
+        ? selected!['patientDisplayName'].toString()
+        : 'فرد تحت مراقبت';
     final taken = _doses.where((dose) => dose['status'] == 'taken').length;
     final skipped = _doses.where((dose) => dose['status'] == 'skipped').length;
     final missed = _doses.where((dose) => dose['status'] == 'missed').length;
@@ -635,7 +697,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
                                 MaterialPageRoute<void>(
                                   builder: (_) => const CareMateComingFeatureScreen(
                                     title: 'حال خانواده',
-                                    description: 'ثبت حال روحی، گفت‌وگوی روزانه و پیشنهاد مداخله پس از طراحی قرارداد حریم خصوصی و Backend این بخش فعال می‌شود.',
+                                    description:
+                                        'ثبت حال روحی، گفت‌وگوی روزانه و پیشنهاد مداخله پس از طراحی قرارداد حریم خصوصی و Backend این بخش فعال می‌شود.',
                                     icon: Icons.favorite_rounded,
                                     accent: Color(0xFFE598D8),
                                   ),
@@ -656,7 +719,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
                                 MaterialPageRoute<void>(
                                   builder: (_) => const CareMateComingFeatureScreen(
                                     title: 'سلامت خانواده',
-                                    description: 'علائم حیاتی، اسناد پزشکی و نمودار روند سلامت پس از ایجاد مدل داده و دسترسی رضایت‌محور فعال می‌شود.',
+                                    description:
+                                        'علائم حیاتی، اسناد پزشکی و نمودار روند سلامت پس از ایجاد مدل داده و دسترسی رضایت‌محور فعال می‌شود.',
                                     icon: Icons.monitor_heart_rounded,
                                     accent: Color(0xFF5BA7E8),
                                   ),
@@ -667,6 +731,22 @@ class _DashboardScreenState extends State<DashboardScreen> {
                           ),
                         ],
                       ),
+                      if (selected?['canViewWomenCalendar'] == true) ...[
+                        const SizedBox(height: 24),
+                        _WomenCalendarAccessCard(
+                          patientName: patientName,
+                          onTap: () => Navigator.of(context).push(
+                            MaterialPageRoute<void>(
+                              builder: (_) => CareWomenCalendarScreen(
+                                patientUserId: selected!['patientUserId']
+                                    .toString(),
+                                patientName: patientName,
+                              ),
+                            ),
+                          ),
+                          font: mainFont,
+                        ),
+                      ],
                       const SizedBox(height: 24),
                       _SectionTitle(
                         title: 'خلاصه امروز',
@@ -913,61 +993,61 @@ class _TreatmentQueueCard extends StatelessWidget {
               child: Center(child: CircularProgressIndicator()),
             )
           : pending.isEmpty
-              ? Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 16),
-                  child: Column(
-                    children: [
-                      Container(
-                        padding: const EdgeInsets.all(14),
-                        decoration: BoxDecoration(
-                          color: const Color(0xFFEAF8F0),
-                          shape: BoxShape.circle,
-                        ),
-                        child: const Icon(
-                          Icons.task_alt_rounded,
-                          color: Color(0xFF36A269),
-                          size: 32,
-                        ),
-                      ),
-                      const SizedBox(height: 12),
-                      Text(
-                        'درمان در انتظار دیگری برای امروز نیست',
-                        textAlign: TextAlign.center,
-                        style: font.copyWith(
-                          fontSize: 15,
-                          fontWeight: FontWeight.w800,
-                          color: const Color(0xFF267B50),
-                        ),
-                      ),
-                    ],
-                  ),
-                )
-              : Column(
-                  children: [
-                    _TreatmentRow(
-                      label: 'درمان فعلی',
-                      dose: pending.first,
-                      patientName: patientName,
-                      current: true,
-                      isPersian: isPersian,
-                      font: font,
+          ? Padding(
+              padding: const EdgeInsets.symmetric(vertical: 16),
+              child: Column(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(14),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFEAF8F0),
+                      shape: BoxShape.circle,
                     ),
-                    if (pending.length > 1) ...[
-                      Padding(
-                        padding: const EdgeInsets.symmetric(vertical: 16),
-                        child: Divider(color: Colors.grey.shade200, height: 1),
-                      ),
-                      _TreatmentRow(
-                        label: 'درمان بعدی',
-                        dose: pending[1],
-                        patientName: patientName,
-                        current: false,
-                        isPersian: isPersian,
-                        font: font,
-                      ),
-                    ],
-                  ],
+                    child: const Icon(
+                      Icons.task_alt_rounded,
+                      color: Color(0xFF36A269),
+                      size: 32,
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  Text(
+                    'درمان در انتظار دیگری برای امروز نیست',
+                    textAlign: TextAlign.center,
+                    style: font.copyWith(
+                      fontSize: 15,
+                      fontWeight: FontWeight.w800,
+                      color: const Color(0xFF267B50),
+                    ),
+                  ),
+                ],
+              ),
+            )
+          : Column(
+              children: [
+                _TreatmentRow(
+                  label: 'درمان فعلی',
+                  dose: pending.first,
+                  patientName: patientName,
+                  current: true,
+                  isPersian: isPersian,
+                  font: font,
                 ),
+                if (pending.length > 1) ...[
+                  Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 16),
+                    child: Divider(color: Colors.grey.shade200, height: 1),
+                  ),
+                  _TreatmentRow(
+                    label: 'درمان بعدی',
+                    dose: pending[1],
+                    patientName: patientName,
+                    current: false,
+                    isPersian: isPersian,
+                    font: font,
+                  ),
+                ],
+              ],
+            ),
     );
   }
 }
@@ -1054,8 +1134,10 @@ class _TreatmentRow extends StatelessWidget {
               children: [
                 if (current) ...[
                   Container(
-                    padding:
-                        const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 10,
+                      vertical: 4,
+                    ),
                     decoration: BoxDecoration(
                       color: const Color(0xFFFFEEF0),
                       borderRadius: BorderRadius.circular(12),
@@ -1166,10 +1248,7 @@ class _FeaturePreviewCard extends StatelessWidget {
               const SizedBox(height: 14),
               Text(
                 title,
-                style: font.copyWith(
-                  fontSize: 14,
-                  fontWeight: FontWeight.w900,
-                ),
+                style: font.copyWith(fontSize: 14, fontWeight: FontWeight.w900),
               ),
               const SizedBox(height: 7),
               Expanded(
@@ -1185,8 +1264,7 @@ class _FeaturePreviewCard extends StatelessWidget {
                 ),
               ),
               Container(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
+                padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
                 decoration: BoxDecoration(
                   color: Colors.white.withOpacity(0.8),
                   borderRadius: BorderRadius.circular(12),
@@ -1200,6 +1278,72 @@ class _FeaturePreviewCard extends StatelessWidget {
                   ),
                 ),
               ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _WomenCalendarAccessCard extends StatelessWidget {
+  const _WomenCalendarAccessCard({
+    required this.patientName,
+    required this.onTap,
+    required this.font,
+  });
+
+  final String patientName;
+  final VoidCallback onTap;
+  final TextStyle font;
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(24),
+        child: Container(
+          width: double.infinity,
+          padding: const EdgeInsets.all(18),
+          decoration: const BoxDecoration(
+            gradient: LinearGradient(
+              colors: [Color(0xFFFFEDF6), Color(0xFFF2EDFF)],
+            ),
+            borderRadius: BorderRadius.all(Radius.circular(24)),
+          ),
+          child: Row(
+            children: [
+              const CircleAvatar(
+                radius: 28,
+                backgroundColor: Colors.white,
+                child: Icon(Icons.water_drop_rounded, color: Color(0xFFD95B93)),
+              ),
+              const SizedBox(width: 14),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'تقویم بانوان $patientName',
+                      style: font.copyWith(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w900,
+                      ),
+                    ),
+                    const SizedBox(height: 5),
+                    Text(
+                      'مشاهده خلاصه مجاز و ثبت حمایت‌های غیرپزشکی',
+                      style: font.copyWith(
+                        fontSize: 12,
+                        color: AppColors.secondaryText,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const Icon(Icons.arrow_forward_ios_rounded, size: 16),
             ],
           ),
         ),
@@ -1298,8 +1442,9 @@ class _ProgressSummaryCard extends StatelessWidget {
               value: progress,
               minHeight: 12,
               backgroundColor: const Color(0xFFE7EDF3),
-              valueColor:
-                  const AlwaysStoppedAnimation<Color>(Color(0xFF6FCF97)),
+              valueColor: const AlwaysStoppedAnimation<Color>(
+                Color(0xFF6FCF97),
+              ),
             ),
           ),
           const SizedBox(height: 16),

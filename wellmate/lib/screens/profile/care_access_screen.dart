@@ -4,6 +4,8 @@ import 'package:lifemate_client/lifemate_client.dart';
 import 'package:provider/provider.dart';
 
 import '../../core/theme/app_style.dart';
+import '../../core/utils/string_extensions.dart';
+import 'care_access_settings_screen.dart';
 import 'care_pairing_qr_dialog.dart';
 
 class CareAccessScreen extends StatefulWidget {
@@ -42,8 +44,8 @@ class _CareAccessScreenState extends State<CareAccessScreen> {
         api.getCareRelationships(),
       ]);
       final current = results[0] as Map<String, dynamic>;
-      final currentUserId =
-          (current['user'] as Map<String, dynamic>?)?['id']?.toString();
+      final currentUserId = (current['user'] as Map<String, dynamic>?)?['id']
+          ?.toString();
       final relationships = (results[2] as List<Map<String, dynamic>>)
           .where(
             (relationship) =>
@@ -109,9 +111,9 @@ class _CareAccessScreenState extends State<CareAccessScreen> {
             FilledButton(
               onPressed: confirmed && _looksLikeEmail(emailController.text)
                   ? () => Navigator.pop(
-                        dialogContext,
-                        emailController.text.trim(),
-                      )
+                      dialogContext,
+                      emailController.text.trim(),
+                    )
                   : null,
               child: const Text('ساخت دعوت'),
             ),
@@ -224,7 +226,9 @@ class _CareAccessScreenState extends State<CareAccessScreen> {
             ),
             if (expiresAt != null) ...[
               const SizedBox(height: 8),
-              Text('انقضا: $expiresAt'),
+              Text(
+                'انقضا: ${expiresAt.toPersianDigit(Localizations.localeOf(context).languageCode == 'fa')}',
+              ),
             ],
           ],
         ),
@@ -250,6 +254,15 @@ class _CareAccessScreenState extends State<CareAccessScreen> {
     );
   }
 
+  Future<void> _openAccessSettings(Map<String, dynamic> relationship) async {
+    await Navigator.of(context).push<void>(
+      MaterialPageRoute<void>(
+        builder: (_) => CareAccessSettingsScreen(relationship: relationship),
+      ),
+    );
+    await _refresh();
+  }
+
   Future<void> _revokeRelationship(Map<String, dynamic> relationship) async {
     final confirmed = await showDialog<bool>(
       context: context,
@@ -273,21 +286,22 @@ class _CareAccessScreenState extends State<CareAccessScreen> {
     if (confirmed != true || !mounted) return;
     try {
       await context.read<LifeMateApiClient>().revokeCareRelationship(
-            relationshipId: relationship['id'].toString(),
-          );
+        relationshipId: relationship['id'].toString(),
+      );
       await _refresh();
     } catch (error) {
       debugPrint('WellMate revoke caregiver failed: $error');
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('قطع دسترسی انجام نشد.')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('قطع دسترسی انجام نشد.')));
       }
     }
   }
 
   @override
   Widget build(BuildContext context) {
+    final isPersian = Localizations.localeOf(context).languageCode == 'fa';
     final active = _relationships
         .where((relationship) => relationship['status'] == 'active')
         .toList(growable: false);
@@ -346,15 +360,15 @@ class _CareAccessScreenState extends State<CareAccessScreen> {
               _ErrorState(message: _error!, onRetry: _refresh)
             else ...[
               Text(
-                'مراقبان فعال (${active.length})',
-                style:
-                    const TextStyle(fontSize: 18, fontWeight: FontWeight.w800),
+                'مراقبان فعال (${active.length.toString().toPersianDigit(isPersian)})',
+                style: const TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.w800,
+                ),
               ),
               const SizedBox(height: 8),
               if (active.isEmpty)
-                const _EmptySection(
-                  message: 'هنوز مراقب فعالی ندارید.',
-                )
+                const _EmptySection(message: 'هنوز مراقب فعالی ندارید.')
               else
                 ...active.map(
                   (relationship) => Card(
@@ -364,29 +378,44 @@ class _CareAccessScreenState extends State<CareAccessScreen> {
                         child: Icon(Icons.health_and_safety_rounded),
                       ),
                       title: Text(
-                        relationship['caregiverDisplayName']?.toString() ??
-                            'مراقب',
+                        (relationship['caregiverDisplayName']?.toString() ??
+                                'مراقب')
+                            .toPersianDigit(isPersian),
                       ),
-                      subtitle: const Text('دسترسی فعال به وضعیت مصرف دارو'),
-                      trailing: IconButton(
-                        tooltip: 'قطع دسترسی',
-                        onPressed: () => _revokeRelationship(relationship),
-                        icon: const Icon(Icons.link_off_rounded),
+                      subtitle: Text(
+                        relationship['canViewWomenCalendar'] == true
+                            ? 'دارو و تقویم بانوان'
+                            : 'دسترسی فعال به وضعیت مصرف دارو',
+                      ),
+                      trailing: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          IconButton(
+                            tooltip: 'تنظیمات دسترسی',
+                            onPressed: () => _openAccessSettings(relationship),
+                            icon: const Icon(Icons.tune_rounded),
+                          ),
+                          IconButton(
+                            tooltip: 'قطع دسترسی',
+                            onPressed: () => _revokeRelationship(relationship),
+                            icon: const Icon(Icons.link_off_rounded),
+                          ),
+                        ],
                       ),
                     ),
                   ),
                 ),
               const SizedBox(height: 20),
               Text(
-                'دعوت‌های در انتظار (${pending.length})',
-                style:
-                    const TextStyle(fontSize: 18, fontWeight: FontWeight.w800),
+                'دعوت‌های در انتظار (${pending.length.toString().toPersianDigit(isPersian)})',
+                style: const TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.w800,
+                ),
               ),
               const SizedBox(height: 8),
               if (pending.isEmpty)
-                const _EmptySection(
-                  message: 'دعوت در انتظاری وجود ندارد.',
-                )
+                const _EmptySection(message: 'دعوت در انتظاری وجود ندارد.')
               else
                 ...pending.map(
                   (invitation) => Card(
@@ -421,24 +450,24 @@ class _PrivacyNotice extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Container(
-        padding: const EdgeInsets.all(18),
-        decoration: BoxDecoration(
-          color: AppColors.primary.withValues(alpha: 0.08),
-          borderRadius: BorderRadius.circular(18),
+    padding: const EdgeInsets.all(18),
+    decoration: BoxDecoration(
+      color: AppColors.primary.withValues(alpha: 0.08),
+      borderRadius: BorderRadius.circular(18),
+    ),
+    child: const Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Icon(Icons.verified_user_outlined, color: AppColors.primary),
+        SizedBox(width: 12),
+        Expanded(
+          child: Text(
+            'کنترل دسترسی همیشه با شماست. فقط مراقبان فعال می‌توانند وضعیت برنامه و مصرف دارو را ببینند.',
+          ),
         ),
-        child: const Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Icon(Icons.verified_user_outlined, color: AppColors.primary),
-            SizedBox(width: 12),
-            Expanded(
-              child: Text(
-                'کنترل دسترسی همیشه با شماست. فقط مراقبان فعال می‌توانند وضعیت برنامه و مصرف دارو را ببینند.',
-              ),
-            ),
-          ],
-        ),
-      );
+      ],
+    ),
+  );
 }
 
 class _EmptySection extends StatelessWidget {
@@ -448,12 +477,12 @@ class _EmptySection extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Card(
-        elevation: 0,
-        child: Padding(
-          padding: const EdgeInsets.all(20),
-          child: Center(child: Text(message)),
-        ),
-      );
+    elevation: 0,
+    child: Padding(
+      padding: const EdgeInsets.all(20),
+      child: Center(child: Text(message)),
+    ),
+  );
 }
 
 class _ErrorState extends StatelessWidget {
@@ -464,22 +493,19 @@ class _ErrorState extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Padding(
-        padding: const EdgeInsets.all(28),
-        child: Column(
-          children: [
-            Icon(
-              Icons.cloud_off_rounded,
-              color: Theme.of(context).colorScheme.error,
-              size: 48,
-            ),
-            const SizedBox(height: 10),
-            Text(message),
-            const SizedBox(height: 12),
-            OutlinedButton(
-              onPressed: onRetry,
-              child: const Text('تلاش دوباره'),
-            ),
-          ],
+    padding: const EdgeInsets.all(28),
+    child: Column(
+      children: [
+        Icon(
+          Icons.cloud_off_rounded,
+          color: Theme.of(context).colorScheme.error,
+          size: 48,
         ),
-      );
+        const SizedBox(height: 10),
+        Text(message),
+        const SizedBox(height: 12),
+        OutlinedButton(onPressed: onRetry, child: const Text('تلاش دوباره')),
+      ],
+    ),
+  );
 }

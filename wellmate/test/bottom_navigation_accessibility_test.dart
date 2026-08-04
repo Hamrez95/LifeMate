@@ -27,7 +27,7 @@ void main() {
           child: WellMateApp(
             home: Scaffold(
               bottomNavigationBar: WellMateBottomNav(
-                currentIndex: 3,
+                currentIndex: 4,
                 onTap: (index) => tappedIndex = index,
               ),
             ),
@@ -36,7 +36,7 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      for (var index = 0; index < 4; index += 1) {
+      for (var index = 0; index < 5; index += 1) {
         final item = find.byKey(ValueKey<String>('wellmate-nav-$index'));
         expect(item, findsOneWidget);
         expect(tester.getSize(item).height, greaterThanOrEqualTo(48));
@@ -44,9 +44,7 @@ void main() {
       expect(find.bySemanticsLabel('تقویم'), findsOneWidget);
       expect(find.bySemanticsLabel('افزودن درمان'), findsOneWidget);
 
-      await tester.tap(
-        find.byKey(const ValueKey<String>('wellmate-nav-0')),
-      );
+      await tester.tap(find.byKey(const ValueKey<String>('wellmate-nav-0')));
       await tester.pump();
 
       expect(tappedIndex, 0);

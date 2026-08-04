@@ -6,6 +6,7 @@ import 'package:provider/provider.dart';
 import 'core/constants/app_colors.dart';
 import 'core/localization/app_localizations.dart';
 import 'core/localization/locale_provider.dart';
+import 'providers/care_notification_provider.dart';
 import 'screens/dashboard_screen.dart';
 
 Future<void> main() async {
@@ -20,13 +21,22 @@ Future<void> main() async {
     }
   }
 
+  final notificationProvider = CareNotificationProvider();
+  try {
+    await notificationProvider.initialize();
+  } catch (error, stackTrace) {
+    debugPrint(
+      'CareMate notification initialization failed: $error\n$stackTrace',
+    );
+  }
+
   runApp(
-    ChangeNotifierProvider(
-      create: (_) => LocaleProvider(),
-      child: CareMateApp(
-        config: config,
-        authInitialized: authInitialized,
-      ),
+    MultiProvider(
+      providers: [
+        ChangeNotifierProvider(create: (_) => LocaleProvider()),
+        ChangeNotifierProvider.value(value: notificationProvider),
+      ],
+      child: CareMateApp(config: config, authInitialized: authInitialized),
     ),
   );
 }
@@ -68,10 +78,7 @@ class CareMateApp extends StatelessWidget {
         useMaterial3: true,
       ),
       locale: localeProvider.locale,
-      supportedLocales: const [
-        Locale('en'),
-        Locale('fa'),
-      ],
+      supportedLocales: const [Locale('en'), Locale('fa')],
       localizationsDelegates: const [
         AppLocalizations.delegate,
         GlobalMaterialLocalizations.delegate,
@@ -82,10 +89,7 @@ class CareMateApp extends StatelessWidget {
     );
   }
 
-  static Widget _productionHome(
-    AppConfig config,
-    bool authInitialized,
-  ) {
+  static Widget _productionHome(AppConfig config, bool authInitialized) {
     if (!config.isConfigured) {
       return ConfigurationRequiredScreen(
         appName: 'CareMate',
@@ -104,13 +108,13 @@ class CareMateApp extends StatelessWidget {
       logoAssetPath: 'assets/images/CareMateWithoutBack.png',
       authenticatedBuilder: (context, apiClient) =>
           Provider<LifeMateApiClient>.value(
-        value: apiClient,
-        child: Navigator(
-          onGenerateRoute: (_) => MaterialPageRoute<void>(
-            builder: (_) => const DashboardScreen(),
+            value: apiClient,
+            child: Navigator(
+              onGenerateRoute: (_) => MaterialPageRoute<void>(
+                builder: (_) => const DashboardScreen(),
+              ),
+            ),
           ),
-        ),
-      ),
     );
   }
 }

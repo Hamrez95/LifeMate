@@ -3,6 +3,7 @@ import { createCareEventStore } from "./care_events.ts";
 import { type AuthUser, createLifeMateDatabase } from "./database.ts";
 import { corsHeaders, json, problem, safeError } from "./http.ts";
 import { createProfileStore } from "./profile.ts";
+import { createWomenCalendarStore } from "./women_calendar.ts";
 import { loadRuntimeConfig } from "./runtime_config.ts";
 import { enforceRateLimit } from "./security.ts";
 import {
@@ -23,6 +24,10 @@ const {
 const db = createLifeMateDatabase(databaseUrl, contactHashingSecret);
 const profiles = createProfileStore(databaseUrl);
 const careEvents = createCareEventStore(databaseUrl);
+const womenCalendar = createWomenCalendarStore(databaseUrl);
+const womenCalendarPilotEnabled =
+  (Deno.env.get("ENABLE_WOMEN_CALENDAR_PILOT") ?? "false").toLowerCase() ===
+    "true";
 
 Deno.serve(async (request: Request) => {
   const correlationId = crypto.randomUUID();
@@ -113,6 +118,65 @@ async function route(
       ),
     );
   }
+  if (request.method === "GET" && path === "/api/v1/women-calendar/profile") {
+    requireWomenCalendarPilot();
+    return json(await womenCalendar.getOwnerProfile(identity.appUserId));
+  }
+  if (request.method === "PATCH" && path === "/api/v1/women-calendar/profile") {
+    requireWomenCalendarPilot();
+    enforceRateLimit(
+      `women-calendar-profile:${identity.appUserId}`,
+      20,
+      60 * 60_000,
+    );
+    return json(
+      await womenCalendar.updateOwnerProfile(
+        identity.appUserId,
+        await readJsonObject(request),
+      ),
+    );
+  }
+  if (request.method === "GET" && path === "/api/v1/women-calendar/episodes") {
+    requireWomenCalendarPilot();
+    return json(await womenCalendar.listOwnerEpisodes(identity.appUserId));
+  }
+  if (request.method === "POST" && path === "/api/v1/women-calendar/episodes") {
+    requireWomenCalendarPilot();
+    enforceRateLimit(
+      `women-calendar-episode:${identity.appUserId}`,
+      30,
+      60 * 60_000,
+    );
+    return json(
+      await womenCalendar.createOwnerEpisode(
+        identity.appUserId,
+        await readJsonObject(request),
+      ),
+      201,
+    );
+  }
+  const womenEpisodeMatch = path.match(
+    /^\/api\/v1\/women-calendar\/episodes\/([0-9a-f-]{36})$/i,
+  );
+  if (request.method === "PATCH" && womenEpisodeMatch) {
+    requireWomenCalendarPilot();
+    return json(
+      await womenCalendar.updateOwnerEpisode(
+        identity.appUserId,
+        womenEpisodeMatch[1],
+        await readJsonObject(request),
+      ),
+    );
+  }
+  if (request.method === "DELETE" && womenEpisodeMatch) {
+    requireWomenCalendarPilot();
+    await womenCalendar.deleteOwnerEpisode(
+      identity.appUserId,
+      womenEpisodeMatch[1],
+    );
+    return new Response(null, { status: 204, headers: corsHeaders });
+  }
+
   if (request.method === "GET" && path === "/api/v1/medications") {
     return json(await db.listMedications(identity.appUserId));
   }
@@ -218,6 +282,21 @@ async function route(
     return json(await db.listRelationships(identity.appUserId));
   }
 
+  const relationshipPermissionMatch = path.match(
+    /^\/api\/v1\/care\/relationships\/([0-9a-f-]{36})\/permissions$/i,
+  );
+  if (request.method === "PATCH" && relationshipPermissionMatch) {
+    requireWomenCalendarPilot();
+    enforceRateLimit(`care-permissions:${identity.appUserId}`, 30, 60 * 60_000);
+    return json(
+      await db.updateRelationshipPermissions(
+        identity.appUserId,
+        relationshipPermissionMatch[1],
+        await readJsonObject(request),
+      ),
+    );
+  }
+
   const relationshipMatch = path.match(
     /^\/api\/v1\/care\/relationships\/([0-9a-f-]{36})$/i,
   );
@@ -254,6 +333,38 @@ async function route(
         url.searchParams.get("fromDate"),
         url.searchParams.get("toDate"),
       ),
+    );
+  }
+
+  const careWomenCalendarMatch = path.match(
+    /^\/api\/v1\/care\/patients\/([0-9a-f-]{36})\/women-calendar$/i,
+  );
+  if (request.method === "GET" && careWomenCalendarMatch) {
+    requireWomenCalendarPilot();
+    return json(
+      await womenCalendar.getCareSummary(
+        identity.appUserId,
+        careWomenCalendarMatch[1],
+      ),
+    );
+  }
+  const careWomenSupportMatch = path.match(
+    /^\/api\/v1\/care\/patients\/([0-9a-f-]{36})\/women-calendar\/support-actions$/i,
+  );
+  if (request.method === "POST" && careWomenSupportMatch) {
+    requireWomenCalendarPilot();
+    enforceRateLimit(
+      `women-calendar-support:${identity.appUserId}`,
+      30,
+      60 * 60_000,
+    );
+    return json(
+      await womenCalendar.recordCareSupportAction(
+        identity.appUserId,
+        careWomenSupportMatch[1],
+        await readJsonObject(request),
+      ),
+      201,
     );
   }
 
@@ -310,6 +421,16 @@ async function authenticate(request: Request): Promise<AuthUser> {
       ? value.user_metadata
       : {},
   };
+}
+
+function requireWomenCalendarPilot(): void {
+  if (!womenCalendarPilotEnabled) {
+    throw new ApiError(
+      404,
+      "women_calendar_feature_disabled",
+      "Women calendar pilot is disabled.",
+    );
+  }
 }
 
 function isPostgresConflict(error: unknown): boolean {
