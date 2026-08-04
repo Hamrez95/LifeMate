@@ -10,6 +10,8 @@ This build is for internal physical-device testing only. It is not Stable, RC, o
 - Persisted allow-listed profile avatars in WellMate and CareMate.
 - Scoped medication notification synchronization and lock-screen privacy.
 
+Arbitrary gallery/camera uploads are intentionally outside this candidate. They require a reviewed private-storage bucket, object ownership policy, image validation, deletion lifecycle, signed delivery, and privacy QA. The current avatar catalog gives users a persistent profile identity without introducing an unreviewed personal-photo data path.
+
 ## Required physical checks
 
 1. Notification permission UX on supported Android versions.
