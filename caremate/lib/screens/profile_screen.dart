@@ -24,9 +24,9 @@ class ProfileScreen extends StatelessWidget {
     final mainFont = isPersian ? 'Vazir' : 'Nunito';
 
     void openScreen(Widget destination) {
-      Navigator.of(context).push(
-        MaterialPageRoute<void>(builder: (_) => destination),
-      );
+      Navigator.of(
+        context,
+      ).push(MaterialPageRoute<void>(builder: (_) => destination));
     }
 
     return Scaffold(
@@ -115,8 +115,9 @@ class ProfileScreen extends StatelessWidget {
                                 ),
                                 elevation: 0,
                               ),
-                              onPressed: () =>
-                                  openScreen(const CareMateSubscriptionScreen()),
+                              onPressed: () => openScreen(
+                                const CareMateSubscriptionScreen(),
+                              ),
                               icon: const Icon(
                                 Icons.lock_outline_rounded,
                                 color: Colors.white,
@@ -167,16 +168,14 @@ class ProfileScreen extends StatelessWidget {
                         label: loc['profile_personal_info'] ?? 'اطلاعات شخصی',
                         mainFont: mainFont,
                         subtitle: 'متصل به پروفایل امن حساب',
-                        onTap: () => openScreen(
-                          const CareMateEditableProfileScreen(),
-                        ),
+                        onTap: () =>
+                            openScreen(const CareMateEditableProfileScreen()),
                       ),
                       const Divider(height: 1, indent: 60, endIndent: 20),
                       _ProfileMenuTile(
                         icon: Icons.assignment_rounded,
                         iconColor: Colors.orangeAccent,
-                        label:
-                            loc['profile_health_profile'] ?? 'پرونده سلامت',
+                        label: loc['profile_health_profile'] ?? 'پرونده سلامت',
                         mainFont: mainFont,
                         subtitle: 'دسترسی مراقبتی محدود؛ در دست توسعه',
                         onTap: () => openScreen(
@@ -198,8 +197,7 @@ class ProfileScreen extends StatelessWidget {
                       _ProfileMenuTile(
                         icon: Icons.settings,
                         iconColor: Colors.purple,
-                        label:
-                            loc['profile_app_settings'] ?? 'تنظیمات برنامه',
+                        label: loc['profile_app_settings'] ?? 'تنظیمات برنامه',
                         mainFont: mainFont,
                         subtitle: 'زبان برنامه',
                         onTap: () => showDialog<void>(
@@ -214,8 +212,7 @@ class ProfileScreen extends StatelessWidget {
                         label: loc['profile_referral_code'] ?? 'کد معرف',
                         mainFont: mainFont,
                         subtitle: 'در دست توسعه',
-                        onTap: () =>
-                            openScreen(const CareMateReferralScreen()),
+                        onTap: () => openScreen(const CareMateReferralScreen()),
                       ),
                       const Divider(height: 1, indent: 60, endIndent: 20),
                       _ProfileMenuTile(
@@ -296,12 +293,24 @@ class _CurrentCareMateIdentity extends StatefulWidget {
 }
 
 class _CurrentCareMateIdentityState extends State<_CurrentCareMateIdentity> {
-  late final Future<Map<String, dynamic>> _future;
+  late Future<Map<String, dynamic>> _future;
 
   @override
   void initState() {
     super.initState();
     _future = context.read<LifeMateApiClient>().getCurrentUser();
+  }
+
+  Future<void> _openEditor() async {
+    await Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) => const CareMateEditableProfileScreen(),
+      ),
+    );
+    if (!mounted) return;
+    setState(() {
+      _future = context.read<LifeMateApiClient>().getCurrentUser();
+    });
   }
 
   @override
@@ -316,10 +325,13 @@ class _CurrentCareMateIdentityState extends State<_CurrentCareMateIdentity> {
         final email = user['email']?.toString() ?? '';
         return Column(
           children: [
-            const CircleAvatar(
-              radius: 40,
-              backgroundColor: AppColors.avatarBackground,
-              backgroundImage: AssetImage('assets/images/Caregiver.png'),
+            InkWell(
+              onTap: _openEditor,
+              customBorder: const CircleBorder(),
+              child: LifeMateProfileAvatar(
+                avatarKey: profile['avatarKey']?.toString(),
+                radius: 40,
+              ),
             ),
             const SizedBox(height: 8),
             Text(
@@ -427,10 +439,7 @@ class _LanguageDialog extends StatelessWidget {
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
       title: Text(
         loc['settings_language'] ?? 'Select Language',
-        style: TextStyle(
-          fontFamily: mainFont,
-          fontWeight: FontWeight.bold,
-        ),
+        style: TextStyle(fontFamily: mainFont, fontWeight: FontWeight.bold),
       ),
       content: Column(
         mainAxisSize: MainAxisSize.min,
@@ -486,9 +495,7 @@ class _LanguageOption extends StatelessWidget {
               : Colors.transparent,
           borderRadius: BorderRadius.circular(12),
           border: Border.all(
-            color: isSelected
-                ? AppColors.primaryBlue
-                : Colors.grey.shade300,
+            color: isSelected ? AppColors.primaryBlue : Colors.grey.shade300,
           ),
         ),
         child: Row(

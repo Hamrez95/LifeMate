@@ -25,9 +25,7 @@ class ProfileScreen extends StatelessWidget {
     final mainFont = isPersian ? 'Vazir' : 'Poppins';
 
     void open(Widget page) {
-      Navigator.of(context).push(
-        MaterialPageRoute<void>(builder: (_) => page),
-      );
+      Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => page));
     }
 
     return Scaffold(
@@ -205,8 +203,7 @@ class ProfileScreen extends StatelessWidget {
                       _ProfileMenuTile(
                         icon: Icons.assignment_rounded,
                         iconColor: Colors.orangeAccent,
-                        label:
-                            loc['profile_health_profile'] ?? 'پرونده سلامت',
+                        label: loc['profile_health_profile'] ?? 'پرونده سلامت',
                         mainFont: mainFont,
                         onTap: () => open(const HealthRecordScreen()),
                       ),
@@ -222,14 +219,11 @@ class ProfileScreen extends StatelessWidget {
                       _ProfileMenuTile(
                         icon: Icons.settings,
                         iconColor: Colors.purple,
-                        label:
-                            loc['profile_app_settings'] ?? 'تنظیمات برنامه',
+                        label: loc['profile_app_settings'] ?? 'تنظیمات برنامه',
                         mainFont: mainFont,
                         onTap: () => showDialog<void>(
                           context: context,
-                          builder: (_) => _SettingsDialog(
-                            mainFont: mainFont,
-                          ),
+                          builder: (_) => _SettingsDialog(mainFont: mainFont),
                         ),
                       ),
                       const Divider(height: 1, indent: 60, endIndent: 20),
@@ -313,10 +307,7 @@ class ProfileScreen extends StatelessWidget {
 }
 
 class _CurrentUserIdentity extends StatefulWidget {
-  const _CurrentUserIdentity({
-    required this.mainFont,
-    required this.isPersian,
-  });
+  const _CurrentUserIdentity({required this.mainFont, required this.isPersian});
 
   final String mainFont;
   final bool isPersian;
@@ -326,12 +317,22 @@ class _CurrentUserIdentity extends StatefulWidget {
 }
 
 class _CurrentUserIdentityState extends State<_CurrentUserIdentity> {
-  late final Future<Map<String, dynamic>> _currentUser;
+  late Future<Map<String, dynamic>> _currentUser;
 
   @override
   void initState() {
     super.initState();
     _currentUser = context.read<LifeMateApiClient>().getCurrentUser();
+  }
+
+  Future<void> _openEditor() async {
+    await Navigator.of(context).push(
+      MaterialPageRoute<void>(builder: (_) => const EditableProfileScreen()),
+    );
+    if (!mounted) return;
+    setState(() {
+      _currentUser = context.read<LifeMateApiClient>().getCurrentUser();
+    });
   }
 
   @override
@@ -369,11 +370,12 @@ class _CurrentUserIdentityState extends State<_CurrentUserIdentity> {
               child: Stack(
                 alignment: Alignment.center,
                 children: [
-                  const CircleAvatar(
-                    radius: 36,
-                    backgroundColor: Colors.transparent,
-                    backgroundImage: AssetImage(
-                      'assets/images/mother_avatar.png',
+                  InkWell(
+                    onTap: _openEditor,
+                    customBorder: const CircleBorder(),
+                    child: LifeMateProfileAvatar(
+                      avatarKey: profile['avatarKey']?.toString(),
+                      radius: 36,
                     ),
                   ),
                   Positioned(
@@ -528,9 +530,7 @@ class _SettingsDialogState extends State<_SettingsDialog> {
     final localeProvider = context.watch<LocaleProvider>();
     final settingsProvider = context.read<SettingsProvider>();
     return AlertDialog(
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(24),
-      ),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
       title: Text(
         'تنظیمات برنامه',
         style: TextStyle(

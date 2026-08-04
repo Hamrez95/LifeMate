@@ -51,14 +51,17 @@ void main() {
     expect(find.byType(ProfileScreen), findsOneWidget);
     expect(find.text('کاربر تست'), findsOneWidget);
     expect(find.byIcon(Icons.camera_alt), findsOneWidget);
-    final avatar = tester.widget<CircleAvatar>(find.byType(CircleAvatar).first);
+    expect(find.byType(LifeMateProfileAvatar), findsWidgets);
+    final avatar = tester.widget<LifeMateProfileAvatar>(
+      find.byType(LifeMateProfileAvatar).first,
+    );
     expect(
-      avatar.backgroundImage,
-      isA<AssetImage>().having(
-        (image) => image.assetName,
-        'assetName',
-        'assets/images/mother_avatar.png',
-      ),
+      LifeMateProfileAvatars.normalize(avatar.avatarKey),
+      LifeMateProfileAvatars.defaultKey,
+    );
+    expect(
+      find.image(const AssetImage('assets/images/mother_avatar.png')),
+      findsNothing,
     );
     expect(tester.takeException(), isNull);
   });

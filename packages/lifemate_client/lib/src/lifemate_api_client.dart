@@ -83,6 +83,7 @@ class LifeMateApiClient {
     String? phoneNumber,
     required String locale,
     required String timeZone,
+    required String avatarKey,
   }) async => _asObject(
     await _send(
       'PATCH',
@@ -93,6 +94,7 @@ class LifeMateApiClient {
         'phoneNumber': _emptyToNull(phoneNumber),
         'locale': locale.trim(),
         'timeZone': timeZone.trim(),
+        'avatarKey': avatarKey.trim(),
       },
     ),
   );

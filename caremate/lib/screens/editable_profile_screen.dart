@@ -23,6 +23,7 @@ class _CareMateEditableProfileScreenState
   Future<Map<String, dynamic>>? _profileFuture;
   Map<String, dynamic>? _profile;
   String _locale = 'fa';
+  String _avatarKey = LifeMateProfileAvatars.defaultKey;
   bool _saving = false;
   String? _error;
 
@@ -46,6 +47,9 @@ class _CareMateEditableProfileScreenState
     _phone.text = profile['phoneNumber']?.toString() ?? '';
     _locale = profile['locale']?.toString() == 'en' ? 'en' : 'fa';
     _timeZone.text = profile['timeZone']?.toString() ?? 'Asia/Tehran';
+    _avatarKey = LifeMateProfileAvatars.normalize(
+      profile['avatarKey']?.toString(),
+    );
   }
 
   Future<void> _save() async {
@@ -54,7 +58,9 @@ class _CareMateEditableProfileScreenState
     final profile = _profile;
     final version = profile?['version'];
     if (profile == null || version is! int) {
-      setState(() => _error = 'اطلاعات پروفایل کامل نیست. دوباره بارگذاری کنید.');
+      setState(
+        () => _error = 'اطلاعات پروفایل کامل نیست. دوباره بارگذاری کنید.',
+      );
       return;
     }
 
@@ -63,12 +69,15 @@ class _CareMateEditableProfileScreenState
       _error = null;
     });
     try {
-      final updated = await context.read<LifeMateApiClient>().updateCurrentProfile(
+      final updated = await context
+          .read<LifeMateApiClient>()
+          .updateCurrentProfile(
             version: version,
             displayName: _displayName.text,
             phoneNumber: _phone.text,
             locale: _locale,
             timeZone: _timeZone.text,
+            avatarKey: _avatarKey,
           );
       if (!mounted) return;
       setState(() => _applyProfile(updated));
@@ -79,16 +88,23 @@ class _CareMateEditableProfileScreenState
       if (!mounted) return;
       if (error.code == 'stale_profile') {
         setState(() {
-          _error = 'پروفایل در دستگاه دیگری تغییر کرده است؛ اطلاعات تازه بارگذاری می‌شود.';
-          _profileFuture =
-              context.read<LifeMateApiClient>().getCurrentProfile();
+          _error =
+              'پروفایل در دستگاه دیگری تغییر کرده است؛ اطلاعات تازه بارگذاری می‌شود.';
+          _profileFuture = context
+              .read<LifeMateApiClient>()
+              .getCurrentProfile();
         });
       } else if (error.isUnauthorized) {
         setState(() => _error = 'نشست شما منقضی شده است. دوباره وارد شوید.');
       } else if (error.statusCode == 0) {
-        setState(() => _error = 'اتصال برقرار نشد. اینترنت را بررسی و دوباره تلاش کنید.');
+        setState(
+          () =>
+              _error = 'اتصال برقرار نشد. اینترنت را بررسی و دوباره تلاش کنید.',
+        );
       } else {
-        setState(() => _error = 'ذخیره اطلاعات انجام نشد. ورودی‌ها را بررسی کنید.');
+        setState(
+          () => _error = 'ذخیره اطلاعات انجام نشد. ورودی‌ها را بررسی کنید.',
+        );
       }
     } catch (_) {
       if (mounted) {
@@ -141,20 +157,22 @@ class _CareMateEditableProfileScreenState
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    const Center(
-                      child: CircleAvatar(
-                        radius: 44,
-                        backgroundColor: AppColors.avatarBackground,
-                        child: Icon(
-                          Icons.person_rounded,
-                          size: 50,
-                          color: AppColors.primaryBlue,
-                        ),
-                      ),
+                    const Text(
+                      'آواتار پروفایل',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(fontWeight: FontWeight.w800),
                     ),
                     const SizedBox(height: 12),
+                    LifeMateAvatarPicker(
+                      key: const ValueKey('care-profile-avatar-picker'),
+                      selectedKey: _avatarKey,
+                      onSelected: _saving
+                          ? null
+                          : (value) => setState(() => _avatarKey = value),
+                    ),
+                    const SizedBox(height: 10),
                     const Text(
-                      'تصویر محلی موقت',
+                      'آواتار انتخابی در حساب ذخیره می‌شود و در هر دو اپ نمایش داده خواهد شد.',
                       textAlign: TextAlign.center,
                       style: TextStyle(color: AppColors.secondaryText),
                     ),
@@ -205,9 +223,10 @@ class _CareMateEditableProfileScreenState
                       textDirection: TextDirection.ltr,
                       textInputAction: TextInputAction.next,
                       validator: (value) {
-                        final compact = (value ?? '')
-                            .trim()
-                            .replaceAll(RegExp(r'[\s()-]'), '');
+                        final compact = (value ?? '').trim().replaceAll(
+                          RegExp(r'[\s()-]'),
+                          '',
+                        );
                         if (compact.isEmpty) return null;
                         if (!RegExp(r'^\+?[0-9]{7,15}$').hasMatch(compact)) {
                           return 'شماره تماس معتبر وارد کنید.';
@@ -231,7 +250,7 @@ class _CareMateEditableProfileScreenState
                       onSelectionChanged: _saving
                           ? null
                           : (selection) =>
-                              setState(() => _locale = selection.single),
+                                setState(() => _locale = selection.single),
                     ),
                     const SizedBox(height: 18),
                     _ProfileField(
@@ -295,7 +314,9 @@ class _CareMateEditableProfileScreenState
                                 ),
                               )
                             : const Icon(Icons.save_outlined),
-                        label: Text(_saving ? 'در حال ذخیره...' : 'ذخیره اطلاعات'),
+                        label: Text(
+                          _saving ? 'در حال ذخیره...' : 'ذخیره اطلاعات',
+                        ),
                       ),
                     ),
                   ],

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:lifemate_client/lifemate_client.dart';
 import 'package:provider/provider.dart';
 import 'package:shamsi_date/shamsi_date.dart';
 import 'package:wellmate/core/utils/string_extensions.dart';
@@ -23,12 +24,16 @@ class WellMateAppHeader extends StatelessWidget {
 
   // نکته: حالا missedItems رو به عنوان ورودی به این متد پاس میدیم
   void _showMissedMedicationsPopup(
-      BuildContext context, List<ScheduleItemModel> missedItems) {
+    BuildContext context,
+    List<ScheduleItemModel> missedItems,
+  ) {
     if (missedItems.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('هیچ داروی فراموش شده‌ای وجود ندارد.',
-              style: AppTextStyles.body(context).copyWith(color: Colors.white)),
+          content: Text(
+            'هیچ داروی فراموش شده‌ای وجود ندارد.',
+            style: AppTextStyles.body(context).copyWith(color: Colors.white),
+          ),
           backgroundColor: AppColors.primary,
         ),
       );
@@ -36,79 +41,85 @@ class WellMateAppHeader extends StatelessWidget {
     }
 
     showModalBottomSheet(
-        context: context,
-        backgroundColor: Colors.transparent,
-        isScrollControlled: true,
-        builder: (bottomSheetContext) {
-          final font = AppTextStyles.body(context);
+      context: context,
+      backgroundColor: Colors.transparent,
+      isScrollControlled: true,
+      builder: (bottomSheetContext) {
+        final font = AppTextStyles.body(context);
 
-          // 👈 استفاده از Consumer برای اینکه با زدن دکمه لیست زنده آپدیت شود
-          return Consumer<MedicationProvider>(
-            builder: (context, medProvider, child) {
-              final missedItems = medProvider.missedItems;
+        // 👈 استفاده از Consumer برای اینکه با زدن دکمه لیست زنده آپدیت شود
+        return Consumer<MedicationProvider>(
+          builder: (context, medProvider, child) {
+            final missedItems = medProvider.missedItems;
 
-              // اگر همه داروها در پاپ آپ مصرف شدند، پاپ آپ را ببندد
-              if (missedItems.isEmpty) {
-                Future.microtask(() => Navigator.of(context).pop());
-                return const SizedBox.shrink();
-              }
-              return Container(
-                padding: const EdgeInsets.all(24),
-                decoration: const BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.vertical(top: Radius.circular(32)),
-                ),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      children: [
-                        Container(
-                          padding: const EdgeInsets.all(8),
-                          decoration: BoxDecoration(
-                            color: Colors.red.shade50,
-                            shape: BoxShape.circle,
-                          ),
-                          child: Icon(Icons.warning_amber_rounded,
-                              color: Colors.red.shade700),
+            // اگر همه داروها در پاپ آپ مصرف شدند، پاپ آپ را ببندد
+            if (missedItems.isEmpty) {
+              Future.microtask(() => Navigator.of(context).pop());
+              return const SizedBox.shrink();
+            }
+            return Container(
+              padding: const EdgeInsets.all(24),
+              decoration: const BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.vertical(top: Radius.circular(32)),
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(8),
+                        decoration: BoxDecoration(
+                          color: Colors.red.shade50,
+                          shape: BoxShape.circle,
                         ),
-                        const SizedBox(width: 12),
-                        Text(
-                          'داروهای فراموش شده',
-                          style: font.copyWith(
-                              fontSize: 18,
-                              fontWeight: FontWeight.bold,
-                              color: Colors.red.shade900),
+                        child: Icon(
+                          Icons.warning_amber_rounded,
+                          color: Colors.red.shade700,
                         ),
-                      ],
-                    ),
-                    const SizedBox(height: 20),
-                    ConstrainedBox(
-                      constraints: BoxConstraints(
-                        maxHeight: MediaQuery.of(context).size.height * 0.5,
                       ),
-                      child: ListView.separated(
-                        shrinkWrap: true,
-                        itemCount: missedItems.length,
-                        separatorBuilder: (_, __) => const SizedBox(height: 12),
-                        itemBuilder: (context, index) {
-                          final item = missedItems[index];
-                          return _buildMissedNotificationCard(item, context);
-                        },
+                      const SizedBox(width: 12),
+                      Text(
+                        'داروهای فراموش شده',
+                        style: font.copyWith(
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.red.shade900,
+                        ),
                       ),
+                    ],
+                  ),
+                  const SizedBox(height: 20),
+                  ConstrainedBox(
+                    constraints: BoxConstraints(
+                      maxHeight: MediaQuery.of(context).size.height * 0.5,
                     ),
-                    const SizedBox(height: 16),
-                  ],
-                ),
-              );
-            },
-          );
-        });
+                    child: ListView.separated(
+                      shrinkWrap: true,
+                      itemCount: missedItems.length,
+                      separatorBuilder: (_, __) => const SizedBox(height: 12),
+                      itemBuilder: (context, index) {
+                        final item = missedItems[index];
+                        return _buildMissedNotificationCard(item, context);
+                      },
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                ],
+              ),
+            );
+          },
+        );
+      },
+    );
   }
 
   Widget _buildMissedNotificationCard(
-      ScheduleItemModel item, BuildContext context) {
+    ScheduleItemModel item,
+    BuildContext context,
+  ) {
     // 👈 دریافت تاریخ سیستم و تبدیل به شمسی
     final isPersian = Localizations.localeOf(context).languageCode == 'fa';
 
@@ -158,17 +169,20 @@ class WellMateAppHeader extends StatelessWidget {
                 const SizedBox(height: 4),
                 Text(
                   dosageString,
-                  style: AppTextStyles.caption(context).copyWith(
-                    color: Colors.grey.shade600,
-                  ),
+                  style: AppTextStyles.caption(
+                    context,
+                  ).copyWith(color: Colors.grey.shade600),
                 ),
                 const SizedBox(height: 8),
 
                 // 👈 ردیف جدید برای نمایش تاریخ، روز و ساعت
                 Row(
                   children: [
-                    Icon(Icons.calendar_today_outlined,
-                        size: 14, color: AppColors.primary),
+                    Icon(
+                      Icons.calendar_today_outlined,
+                      size: 14,
+                      color: AppColors.primary,
+                    ),
                     const SizedBox(width: 4),
                     Text(
                       '$dayName، $dateString',
@@ -205,10 +219,9 @@ class WellMateAppHeader extends StatelessWidget {
               ),
               child: Text(
                 'مصرف کردم',
-                style: AppTextStyles.caption(context).copyWith(
-                  color: Colors.white,
-                  fontWeight: FontWeight.bold,
-                ),
+                style: AppTextStyles.caption(
+                  context,
+                ).copyWith(color: Colors.white, fontWeight: FontWeight.bold),
               ),
             ),
           ),
@@ -235,7 +248,8 @@ class WellMateAppHeader extends StatelessWidget {
               _buildSoftButton(
                 icon: Icons.notifications_none_rounded,
                 // نکته: لیست missedItems رو به متد پاس میدیم
-                onTap: onNotificationTap ??
+                onTap:
+                    onNotificationTap ??
                     () => _showMissedMedicationsPopup(context, missedItems),
               ),
               if (showRedDot)
@@ -273,13 +287,13 @@ class WellMateAppHeader extends StatelessWidget {
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
                 border: Border.all(
-                    color: AppColors.primary.withOpacity(0.1), width: 2),
+                  color: AppColors.primary.withOpacity(0.1),
+                  width: 2,
+                ),
               ),
-              child: const CircleAvatar(
+              child: LifeMateCurrentUserAvatar(
+                apiClient: context.read<LifeMateApiClient>(),
                 radius: 20,
-                backgroundColor: Colors.transparent,
-                backgroundImage:
-                    AssetImage('assets/images/mother_avatar.png'),
               ),
             ),
           ),

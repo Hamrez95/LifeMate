@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:lifemate_client/lifemate_client.dart';
+import 'package:provider/provider.dart';
 
 import '../../core/constants/app_colors.dart';
 import '../screens/profile_screen.dart';
@@ -89,8 +91,10 @@ class CustomAppHeader extends StatelessWidget {
                 value: 'profile',
                 child: Row(
                   children: [
-                    Icon(Icons.person_outline_rounded,
-                        color: AppColors.primaryBlue),
+                    Icon(
+                      Icons.person_outline_rounded,
+                      color: AppColors.primaryBlue,
+                    ),
                     SizedBox(width: 10),
                     Text('پروفایل'),
                   ],
@@ -124,7 +128,10 @@ class CustomAppHeader extends StatelessWidget {
                   ),
                 ],
               ),
-              child: const ProfileAvatar(),
+              child: LifeMateCurrentUserAvatar(
+                apiClient: context.read<LifeMateApiClient>(),
+                radius: 22,
+              ),
             ),
           ),
         ],

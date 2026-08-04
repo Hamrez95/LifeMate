@@ -102,7 +102,7 @@ export function createLifeMateDatabase(
           time_zone = excluded.time_zone,
           updated_at_utc = excluded.updated_at_utc
         returning id, user_id, display_name, phone_number, email, locale,
-                  time_zone, created_at_utc, updated_at_utc
+                  time_zone, avatar_key, created_at_utc, updated_at_utc
       `;
       await insertAudit(tx, user.id, "user.bootstrap", "app_user", user.id);
       return mapCurrentUser(user, profiles[0]);
@@ -129,7 +129,8 @@ export function createLifeMateDatabase(
       select
         u.id, u.auth_subject, u.status, u.created_at_utc, u.updated_at_utc,
         p.id as profile_id, p.display_name, p.phone_number, p.email,
-        p.locale, p.time_zone, p.created_at_utc as profile_created_at_utc,
+        p.locale, p.time_zone, p.avatar_key,
+        p.created_at_utc as profile_created_at_utc,
         p.updated_at_utc as profile_updated_at_utc
       from lifemate.app_users u
       join lifemate.user_profiles p on p.user_id = u.id
@@ -148,6 +149,7 @@ export function createLifeMateDatabase(
       email: row.email,
       locale: row.locale,
       time_zone: row.time_zone,
+      avatar_key: row.avatar_key,
       created_at_utc: row.profile_created_at_utc,
       updated_at_utc: row.profile_updated_at_utc,
     });
@@ -1015,6 +1017,7 @@ function mapCurrentUser(user: Row, profile: Row): Record<string, unknown> {
       email: profile.email,
       locale: profile.locale,
       timeZone: profile.time_zone,
+      avatarKey: profile.avatar_key ?? "person_blue",
     },
   };
 }

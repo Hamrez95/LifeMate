@@ -13,12 +13,22 @@ type ProfileAuthSnapshot = {
 
 type Row = Record<string, any>;
 
+const allowedAvatarKeys = new Set([
+  "person_blue",
+  "person_green",
+  "person_purple",
+  "person_orange",
+  "heart_coral",
+  "caregiver_teal",
+]);
+
 export type ProfilePatch = {
   expectedVersion: number;
   displayName: string;
   phoneNumber: string | null;
   locale: string;
   timeZone: string;
+  avatarKey: string | null;
 };
 
 export function normalizeProfilePatch(
@@ -30,6 +40,7 @@ export function normalizeProfilePatch(
     phoneNumber: optionalPhone(body.phoneNumber),
     locale: requiredLocale(body.locale),
     timeZone: requiredTimeZone(body.timeZone),
+    avatarKey: optionalAvatarKey(body.avatarKey),
   };
 }
 
@@ -65,14 +76,14 @@ export function createProfileStore(databaseUrl: string) {
     const rows = await (await hasVersionColumn()
       ? sql`
           select id, user_id, display_name, phone_number, email, locale,
-                 time_zone, version, created_at_utc, updated_at_utc
+                 time_zone, avatar_key, version, created_at_utc, updated_at_utc
           from lifemate.user_profiles
           where user_id = ${userId}
           limit 1
         `
       : sql`
           select id, user_id, display_name, phone_number, email, locale,
-                 time_zone,
+                 time_zone, avatar_key,
                  floor(extract(epoch from updated_at_utc) * 1000)::bigint
                    as version,
                  created_at_utc, updated_at_utc
@@ -103,11 +114,13 @@ export function createProfileStore(databaseUrl: string) {
                 email = ${auth.email},
                 locale = ${patch.locale},
                 time_zone = ${patch.timeZone},
+                avatar_key = coalesce(${patch.avatarKey}, avatar_key),
                 version = version + 1,
                 updated_at_utc = now()
             where user_id = ${userId} and version = ${patch.expectedVersion}
             returning id, user_id, display_name, phone_number, email, locale,
-                      time_zone, version, created_at_utc, updated_at_utc
+                      time_zone, avatar_key, version, created_at_utc,
+                      updated_at_utc
           `
         : tx`
             update lifemate.user_profiles
@@ -116,6 +129,7 @@ export function createProfileStore(databaseUrl: string) {
                 email = ${auth.email},
                 locale = ${patch.locale},
                 time_zone = ${patch.timeZone},
+                avatar_key = coalesce(${patch.avatarKey}, avatar_key),
                 updated_at_utc = greatest(
                   now(),
                   updated_at_utc + interval '1 millisecond'
@@ -124,7 +138,7 @@ export function createProfileStore(databaseUrl: string) {
               and floor(extract(epoch from updated_at_utc) * 1000)::bigint =
                   ${patch.expectedVersion}
             returning id, user_id, display_name, phone_number, email, locale,
-                      time_zone,
+                      time_zone, avatar_key,
                       floor(extract(epoch from updated_at_utc) * 1000)::bigint
                         as version,
                       created_at_utc, updated_at_utc
@@ -158,6 +172,7 @@ export function createProfileStore(databaseUrl: string) {
         );
       }
 
+      // Privacy invariant: metadata_json, null; no profile or avatar values.
       await tx`
         insert into lifemate.audit_logs
           (id, actor_user_id, action, resource_type, resource_id,
@@ -171,6 +186,19 @@ export function createProfileStore(databaseUrl: string) {
   }
 
   return { getProfile, updateProfile };
+}
+
+function optionalAvatarKey(value: unknown): string | null {
+  const normalized = normalizeOptional(value);
+  if (normalized == null) return null;
+  if (!allowedAvatarKeys.has(normalized)) {
+    throw new ApiError(
+      400,
+      "invalid_avatar_key",
+      "avatarKey is not supported.",
+    );
+  }
+  return normalized;
 }
 
 function requiredLocale(value: unknown): string {
@@ -208,6 +236,7 @@ function mapProfile(row: Row): Record<string, unknown> {
     email: row.email,
     locale: row.locale,
     timeZone: row.time_zone,
+    avatarKey: row.avatar_key ?? "person_blue",
     version: Number(row.version),
     createdAtUtc: iso(row.created_at_utc),
     updatedAtUtc: iso(row.updated_at_utc),
