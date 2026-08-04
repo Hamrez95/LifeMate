@@ -119,7 +119,7 @@ UNRELATED_ID="$(echo "$RESPONSE_BODY" | jq -er '.user.id')"
 request GET "$PATIENT_TOKEN" '/api/v1/me/profile' '' 200
 PROFILE_VERSION="$(echo "$RESPONSE_BODY" | jq -er '.version | numbers')"
 PROFILE_NAME="$(echo "$RESPONSE_BODY" | jq -er '.displayName')"
-PROFILE_PHONE="$(echo "$RESPONSE_BODY" | jq -er '.phoneNumber // empty')"
+PROFILE_PHONE="$(echo "$RESPONSE_BODY" | jq -r '.phoneNumber // ""')"
 PROFILE_LOCALE="$(echo "$RESPONSE_BODY" | jq -er '.locale')"
 PROFILE_TIME_ZONE="$(echo "$RESPONSE_BODY" | jq -er '.timeZone')"
 PROFILE_BODY="$(jq -cn \
