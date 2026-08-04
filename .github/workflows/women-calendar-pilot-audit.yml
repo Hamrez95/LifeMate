@@ -4,6 +4,9 @@ on:
   push:
     branches:
       - feat/women-calendar-care-access-notifications
+  pull_request:
+    branches:
+      - feat/v0.9.0-internal.3-localization
 
 permissions:
   contents: write
