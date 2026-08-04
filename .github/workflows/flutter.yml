@@ -55,11 +55,17 @@ jobs:
       - name: Flutter environment
         run: flutter --version
 
-      - name: Verify bb287 visual binaries and mock-free runtime sources
+      - name: Verify PR visual binaries and mock-free runtime sources
         shell: bash
         run: |
           set -euo pipefail
-          reference=bb28701971cb2d43cde5acb5d50ef679dded534f
+          if [[ "${{ github.event_name }}" == "pull_request" ]]; then
+            reference="${{ github.event.pull_request.base.sha }}"
+          elif [[ "${{ github.event_name }}" == "push" ]]; then
+            reference="${{ github.event.before }}"
+          else
+            reference=bb28701971cb2d43cde5acb5d50ef679dded534f
+          fi
           git cat-file -e "$reference^{commit}"
           git diff --quiet "$reference" -- \
             caremate/assets \
