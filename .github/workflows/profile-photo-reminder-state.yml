@@ -171,15 +171,20 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+          # Product materializers also keep the legacy aggregate workflows in
+          # sync. The Actions token cannot update workflow files, so those two
+          # files are restored here and updated separately through the reviewed
+          # repository connector after the product commit lands.
+          git restore -- \
+            .github/workflows/edge-api.yml \
+            .github/workflows/women-calendar-pilot-audit.yml
           git add -- \
             packages/lifemate_client \
             wellmate \
             caremate \
             supabase/functions/lifemate-api \
             supabase/migrations/20260805013000_add_reminder_lead_times.sql \
-            supabase/migrations/20260805023000_add_profile_photo_path.sql \
-            .github/workflows/edge-api.yml \
-            .github/workflows/women-calendar-pilot-audit.yml
+            supabase/migrations/20260805023000_add_profile_photo_path.sql
           if git diff --cached --quiet; then
             echo 'No reminder or profile-photo changes to commit.'
             exit 0
