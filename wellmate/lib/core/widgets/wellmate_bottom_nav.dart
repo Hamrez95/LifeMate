@@ -59,14 +59,13 @@ class WellMateBottomNav extends StatelessWidget {
               index: 2,
               fontFamily: fontFamily,
             ),
-            _buildNavItem(
-              icon: womenCalendarEnabled
-                  ? Icons.water_drop_rounded
-                  : Icons.lock_outline_rounded,
-              label: isPersian ? 'تقویم بانوان' : 'Women',
-              index: 3,
-              fontFamily: fontFamily,
-            ),
+            if (womenCalendarEnabled)
+              _buildNavItem(
+                icon: Icons.water_drop_rounded,
+                label: isPersian ? 'تقویم بانوان' : 'Women',
+                index: 3,
+                fontFamily: fontFamily,
+              ),
             _buildNavItem(
               icon: Icons.home_rounded,
               label: loc['nav_home'],
