@@ -87,6 +87,7 @@ jobs:
           fi
 
           python3 tools/hotfix/apply_caremate_log_redaction.py
+          python3 tools/hotfix/apply_women_calendar_episode_editor.py
 
       - name: Format generated and modified sources
         shell: bash
@@ -97,6 +98,7 @@ jobs:
             packages/lifemate_client/lib/src/feature_flags.dart \
             packages/lifemate_client/lib/src/lifemate_api_client.dart \
             packages/lifemate_client/lib/src/women_calendar.dart \
+            packages/lifemate_client/test/women_calendar_api_client_test.dart \
             packages/lifemate_client/test/women_calendar_test.dart \
             wellmate/lib/core/widgets/wellmate_bottom_nav.dart \
             wellmate/lib/providers/notification_provider.dart \
@@ -105,8 +107,10 @@ jobs:
             wellmate/lib/screens/profile/care_access_screen.dart \
             wellmate/lib/screens/profile/care_access_settings_screen.dart \
             wellmate/lib/screens/profile/profile_destination_screens.dart \
+            wellmate/lib/screens/women_calendar/women_calendar_month_card.dart \
             wellmate/lib/screens/women_calendar/women_calendar_screen.dart \
             wellmate/test/bottom_navigation_accessibility_test.dart \
+            wellmate/test/women_calendar_month_card_test.dart \
             wellmate/test/women_calendar_navigation_test.dart \
             caremate/lib/main.dart \
             caremate/lib/models/care_recipient_reminder.dart \
@@ -194,6 +198,10 @@ jobs:
           grep -q "can_view_women_calendar boolean not null default false" supabase/migrations/20260804130000_add_women_calendar_pilot.sql
           grep -q "privateNotes" supabase/functions/lifemate-api/women_calendar_integration_test.ts
           grep -q '"privateNotes" in episodes\[0\], false' supabase/functions/lifemate-api/women_calendar_integration_test.ts
+          grep -q "women_calendar.episode_updated" supabase/functions/lifemate-api/women_calendar.ts
+          grep -q "updateWomenCalendarEpisode" packages/lifemate_client/lib/src/lifemate_api_client.dart
+          grep -q "WomenCalendarMonthCard" wellmate/lib/screens/women_calendar/women_calendar_screen.dart
+          grep -q "یادداشت خصوصی" wellmate/lib/screens/women_calendar/women_calendar_screen.dart
           grep -q "selectEarliestReminderPerPatient" caremate/lib/providers/care_notification_provider.dart
           grep -q "pendingNotificationRequests" caremate/lib/providers/care_notification_provider.dart
           grep -q "pendingNotificationRequests" wellmate/lib/providers/notification_provider.dart
@@ -255,6 +263,7 @@ jobs:
             packages/lifemate_client/lib/src/feature_flags.dart
             packages/lifemate_client/lib/src/lifemate_api_client.dart
             packages/lifemate_client/lib/src/women_calendar.dart
+            packages/lifemate_client/test/women_calendar_api_client_test.dart
             packages/lifemate_client/test/women_calendar_test.dart
             supabase/functions/lifemate-api/database.ts
             supabase/functions/lifemate-api/deno.json
@@ -272,9 +281,11 @@ jobs:
             wellmate/lib/screens/profile/care_access_screen.dart
             wellmate/lib/screens/profile/care_access_settings_screen.dart
             wellmate/lib/screens/profile/profile_destination_screens.dart
+            wellmate/lib/screens/women_calendar/women_calendar_month_card.dart
             wellmate/lib/screens/women_calendar/women_calendar_screen.dart
             wellmate/pubspec.yaml
             wellmate/test/bottom_navigation_accessibility_test.dart
+            wellmate/test/women_calendar_month_card_test.dart
             wellmate/test/women_calendar_navigation_test.dart
           )
           git add -- "${files[@]}"
