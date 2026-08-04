@@ -153,3 +153,76 @@ replace_once(
 });
 ''',
 )
+
+# Exercise the real profile editors, not only the shared picker. Their fake API
+# clients must follow the production contract and prove the selected key is sent.
+for test_path, picker_key, selected_key, profile_id, user_id in [
+    (
+        "wellmate/test/editable_profile_screen_test.dart",
+        "profile-avatar-person_purple",
+        "person_purple",
+        "profile-1",
+        "user-1",
+    ),
+    (
+        "caremate/test/editable_profile_screen_test.dart",
+        "profile-avatar-caregiver_teal",
+        "caregiver_teal",
+        "profile-2",
+        "user-2",
+    ),
+]:
+    replace_once(
+        test_path,
+        "  String? savedTimeZone;\n",
+        "  String? savedTimeZone;\n  String? savedAvatarKey;\n",
+    )
+    replace_once(
+        test_path,
+        "        'timeZone': 'Asia/Tehran',\n        'version':",
+        "        'timeZone': 'Asia/Tehran',\n"
+        "        'avatarKey': 'person_blue',\n"
+        "        'version':",
+    )
+    replace_once(
+        test_path,
+        "    required String timeZone,\n  }) async {\n",
+        "    required String timeZone,\n"
+        "    required String avatarKey,\n"
+        "  }) async {\n",
+    )
+    replace_once(
+        test_path,
+        "    savedTimeZone = timeZone;\n",
+        "    savedTimeZone = timeZone;\n    savedAvatarKey = avatarKey;\n",
+    )
+    replace_once(
+        test_path,
+        "      'timeZone': timeZone.trim(),\n      'version': version + 1,\n",
+        "      'timeZone': timeZone.trim(),\n"
+        "      'avatarKey': avatarKey,\n"
+        "      'version': version + 1,\n",
+    )
+
+    target = ROOT / test_path
+    text = target.read_text(encoding="utf-8")
+    save_anchor = "    final save = find.byKey("
+    avatar_action = (
+        "    await tester.tap(find.byKey(const ValueKey<String>('"
+        + picker_key
+        + "')));\n"
+        "    await tester.pumpAndSettle();\n\n"
+    )
+    if avatar_action not in text:
+        anchor_index = text.find(save_anchor)
+        if anchor_index < 0:
+            raise SystemExit(f"Save anchor not found in {test_path}")
+        text = text[:anchor_index] + avatar_action + text[anchor_index:]
+        target.write_text(text, encoding="utf-8")
+
+    replace_once(
+        test_path,
+        "    expect(api.savedTimeZone, 'Europe/Berlin');\n",
+        "    expect(api.savedTimeZone, 'Europe/Berlin');\n"
+        f"    expect(api.savedAvatarKey, '{selected_key}');\n",
+    )
