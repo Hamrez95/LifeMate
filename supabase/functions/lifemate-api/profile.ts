@@ -33,6 +33,12 @@ export function normalizeProfilePatch(
   };
 }
 
+/// Profile persistence deliberately supports both the current live schema and
+/// the reviewed additive `version` migration. This lets the candidate function
+/// be smoke-tested without applying DDL to the production database. Once the
+/// migration is promoted, the exact same API automatically switches to the
+/// integer version column. Before that, the millisecond `updated_at_utc` value
+/// acts as a deterministic optimistic-concurrency token.
 export function createProfileStore(databaseUrl: string) {
   const sql = postgres(databaseUrl, {
     max: 2,
@@ -40,15 +46,40 @@ export function createProfileStore(databaseUrl: string) {
     connect_timeout: 10,
     prepare: false,
   });
+  let versionColumnPromise: Promise<boolean> | null = null;
+
+  function hasVersionColumn(): Promise<boolean> {
+    versionColumnPromise ??= sql`
+      select exists (
+        select 1
+        from information_schema.columns
+        where table_schema = 'lifemate'
+          and table_name = 'user_profiles'
+          and column_name = 'version'
+      ) as present
+    `.then((rows: Row[]) => rows[0]?.present === true);
+    return versionColumnPromise;
+  }
 
   async function getProfile(userId: string): Promise<Record<string, unknown>> {
-    const rows = await sql`
-      select id, user_id, display_name, phone_number, email, locale, time_zone,
-             version, created_at_utc, updated_at_utc
-      from lifemate.user_profiles
-      where user_id = ${userId}
-      limit 1
-    `;
+    const rows = await (await hasVersionColumn()
+      ? sql`
+          select id, user_id, display_name, phone_number, email, locale,
+                 time_zone, version, created_at_utc, updated_at_utc
+          from lifemate.user_profiles
+          where user_id = ${userId}
+          limit 1
+        `
+      : sql`
+          select id, user_id, display_name, phone_number, email, locale,
+                 time_zone,
+                 floor(extract(epoch from updated_at_utc) * 1000)::bigint
+                   as version,
+                 created_at_utc, updated_at_utc
+          from lifemate.user_profiles
+          where user_id = ${userId}
+          limit 1
+        `);
     if (!rows[0]) {
       throw new ApiError(404, "profile_missing", "User profile was not found.");
     }
@@ -61,28 +92,58 @@ export function createProfileStore(databaseUrl: string) {
     body: Record<string, unknown>,
   ): Promise<Record<string, unknown>> {
     const patch = normalizeProfilePatch(body);
+    const usesVersionColumn = await hasVersionColumn();
 
     return await sql.begin(async (tx: any) => {
-      const rows = await tx`
-        update lifemate.user_profiles
-        set display_name = ${patch.displayName},
-            phone_number = ${patch.phoneNumber},
-            email = ${auth.email},
-            locale = ${patch.locale},
-            time_zone = ${patch.timeZone},
-            version = version + 1,
-            updated_at_utc = now()
-        where user_id = ${userId} and version = ${patch.expectedVersion}
-        returning id, user_id, display_name, phone_number, email, locale,
-                  time_zone, version, created_at_utc, updated_at_utc
-      `;
+      const rows = await (usesVersionColumn
+        ? tx`
+            update lifemate.user_profiles
+            set display_name = ${patch.displayName},
+                phone_number = ${patch.phoneNumber},
+                email = ${auth.email},
+                locale = ${patch.locale},
+                time_zone = ${patch.timeZone},
+                version = version + 1,
+                updated_at_utc = now()
+            where user_id = ${userId} and version = ${patch.expectedVersion}
+            returning id, user_id, display_name, phone_number, email, locale,
+                      time_zone, version, created_at_utc, updated_at_utc
+          `
+        : tx`
+            update lifemate.user_profiles
+            set display_name = ${patch.displayName},
+                phone_number = ${patch.phoneNumber},
+                email = ${auth.email},
+                locale = ${patch.locale},
+                time_zone = ${patch.timeZone},
+                updated_at_utc = greatest(
+                  now(),
+                  updated_at_utc + interval '1 millisecond'
+                )
+            where user_id = ${userId}
+              and floor(extract(epoch from updated_at_utc) * 1000)::bigint =
+                  ${patch.expectedVersion}
+            returning id, user_id, display_name, phone_number, email, locale,
+                      time_zone,
+                      floor(extract(epoch from updated_at_utc) * 1000)::bigint
+                        as version,
+                      created_at_utc, updated_at_utc
+          `);
       if (!rows[0]) {
-        const current = await tx`
-          select version
-          from lifemate.user_profiles
-          where user_id = ${userId}
-          limit 1
-        `;
+        const current = await (usesVersionColumn
+          ? tx`
+              select version
+              from lifemate.user_profiles
+              where user_id = ${userId}
+              limit 1
+            `
+          : tx`
+              select floor(extract(epoch from updated_at_utc) * 1000)::bigint
+                       as version
+              from lifemate.user_profiles
+              where user_id = ${userId}
+              limit 1
+            `);
         if (!current[0]) {
           throw new ApiError(
             404,
@@ -147,7 +208,7 @@ function mapProfile(row: Row): Record<string, unknown> {
     email: row.email,
     locale: row.locale,
     timeZone: row.time_zone,
-    version: row.version,
+    version: Number(row.version),
     createdAtUtc: iso(row.created_at_utc),
     updatedAtUtc: iso(row.updated_at_utc),
   };
