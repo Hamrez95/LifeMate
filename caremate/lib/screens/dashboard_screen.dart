@@ -98,8 +98,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
       await _syncCareRecipientNotifications();
     } on LifeMateApiException catch (error) {
       _setError(_friendlyApiError(error));
-    } catch (error) {
-      debugPrint('CareMate refresh failed: $error');
+    } catch (_) {
+      debugPrint('CareMate refresh failed.');
       _setError('اطلاعات مراقبت دریافت نشد. اتصال اینترنت را بررسی کنید.');
     } finally {
       if (mounted) setState(() => _loading = false);
@@ -160,8 +160,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
             ),
           );
         }
-      } catch (error) {
-        debugPrint('CareMate notification patient sync failed: $error');
+      } catch (_) {
+        debugPrint('CareMate notification patient sync failed.');
       }
     }
     if (!mounted) return;
@@ -207,8 +207,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
       await _loadSelectedDoses();
     } on LifeMateApiException catch (error) {
       _setError(_friendlyApiError(error));
-    } catch (error) {
-      debugPrint('CareMate patient switch failed: $error');
+    } catch (_) {
+      debugPrint('CareMate patient switch failed.');
       _setError('وضعیت بیمار دریافت نشد.');
     } finally {
       if (mounted) setState(() => _loading = false);
