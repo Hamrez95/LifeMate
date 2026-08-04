@@ -8,7 +8,7 @@ import 'package:wellmate/providers/settings_provider.dart';
 import 'package:wellmate/screens/women_calendar/women_calendar_month_card.dart';
 
 void main() {
-  testWidgets('renders a Persian-digit Jalali month with recorded bleeding days', (
+  testWidgets('renders Jalali data and remains usable on small large-text screens', (
     tester,
   ) async {
     final estimate = WomenCalendarEstimate.calculate(
@@ -45,11 +45,9 @@ void main() {
       findsWidgets,
     );
     expect(tester.takeException(), isNull);
-  });
 
-  testWidgets('monthly calendar has no overflow on small large-text screens', (
-    tester,
-  ) async {
+    await tester.pumpWidget(const SizedBox.shrink());
+    await tester.pump();
     tester.view.physicalSize = const Size(320, 640);
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.resetPhysicalSize);
