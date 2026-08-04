@@ -8,10 +8,8 @@ import 'feature_flags.dart';
 import 'lifemate_api_client.dart';
 import 'lifemate_auth.dart';
 
-typedef SecureAuthenticatedBuilder = Widget Function(
-  BuildContext context,
-  LifeMateApiClient apiClient,
-);
+typedef SecureAuthenticatedBuilder =
+    Widget Function(BuildContext context, LifeMateApiClient apiClient);
 
 /// Authentication and session boundary shared by WellMate and CareMate.
 ///
@@ -71,7 +69,8 @@ class _LifeMateSessionGateState extends State<LifeMateSessionGate> {
           _authStreamError = null;
           _session = session;
           _passwordRecovery =
-              state.event == AuthChangeEvent.passwordRecovery && session != null;
+              state.event == AuthChangeEvent.passwordRecovery &&
+              session != null;
           _bootstrap = session == null ? null : _bootstrapUser(session);
         });
       },
@@ -166,7 +165,8 @@ class _LifeMateSessionGateState extends State<LifeMateSessionGate> {
           );
         }
         if (snapshot.hasError) {
-          final expired = snapshot.error is LifeMateApiException &&
+          final expired =
+              snapshot.error is LifeMateApiException &&
               (snapshot.error! as LifeMateApiException).isUnauthorized;
           return _BlockingState(
             appName: widget.appName,
@@ -208,8 +208,7 @@ class _EmailPasswordAuthScreen extends StatefulWidget {
       _EmailPasswordAuthScreenState();
 }
 
-class _EmailPasswordAuthScreenState
-    extends State<_EmailPasswordAuthScreen> {
+class _EmailPasswordAuthScreenState extends State<_EmailPasswordAuthScreen> {
   static const _requestTimeout = Duration(seconds: 20);
 
   final _formKey = GlobalKey<FormState>();
@@ -258,8 +257,7 @@ class _EmailPasswordAuthScreenState
         if (!mounted) return;
         if (response.session == null) {
           setState(() {
-            _success =
-                'حساب ساخته شد. ایمیل تأیید را بررسی کنید و سپس وارد شوید.';
+            _success = 'حساب ساخته شد. اکنون می‌توانید وارد شوید.';
             _mode = _AuthMode.signIn;
             _password.clear();
             _confirmPassword.clear();
@@ -268,7 +266,9 @@ class _EmailPasswordAuthScreenState
       }
     } on TimeoutException {
       if (mounted) {
-        setState(() => _error = 'پاسخی دریافت نشد. اتصال را بررسی و دوباره تلاش کنید.');
+        setState(
+          () => _error = 'پاسخی دریافت نشد. اتصال را بررسی و دوباره تلاش کنید.',
+        );
       }
     } on AuthException catch (error) {
       if (mounted) setState(() => _error = _friendlyAuthError(error));
@@ -317,7 +317,9 @@ class _EmailPasswordAuthScreenState
     } on AuthException catch (error) {
       if (!mounted) return;
       if (error.message.toLowerCase().contains('rate limit')) {
-        setState(() => _error = 'تعداد درخواست‌ها زیاد است؛ کمی بعد دوباره تلاش کنید.');
+        setState(
+          () => _error = 'تعداد درخواست‌ها زیاد است؛ کمی بعد دوباره تلاش کنید.',
+        );
       } else {
         setState(() {
           _success =
@@ -348,7 +350,8 @@ class _EmailPasswordAuthScreenState
         setState(() => _error = 'صفحه ورود گوگل باز نشد. دوباره تلاش کنید.');
       }
     } on TimeoutException {
-      if (mounted) setState(() => _error = 'درخواست ورود به پایان زمان مجاز رسید.');
+      if (mounted)
+        setState(() => _error = 'درخواست ورود به پایان زمان مجاز رسید.');
     } on AuthException catch (error) {
       if (mounted) setState(() => _error = _friendlyAuthError(error));
     } catch (_) {
@@ -408,9 +411,9 @@ class _EmailPasswordAuthScreenState
                           : 'همراه ساده و آرام برنامه درمان',
                       textAlign: TextAlign.center,
                       style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                            color: const Color(0xFF33416E),
-                            fontWeight: FontWeight.w800,
-                          ),
+                        color: const Color(0xFF33416E),
+                        fontWeight: FontWeight.w800,
+                      ),
                     ),
                     const SizedBox(height: 22),
                     Container(
@@ -439,9 +442,7 @@ class _EmailPasswordAuthScreenState
                             const SizedBox(height: 22),
                             Text(
                               isSignUp ? 'ساخت حساب جدید' : 'خوش آمدید',
-                              style: Theme.of(context)
-                                  .textTheme
-                                  .headlineSmall
+                              style: Theme.of(context).textTheme.headlineSmall
                                   ?.copyWith(
                                     fontWeight: FontWeight.w900,
                                     color: const Color(0xFF283054),
@@ -467,7 +468,9 @@ class _EmailPasswordAuthScreenState
                                   children: [
                                     Expanded(child: Divider()),
                                     Padding(
-                                      padding: EdgeInsets.symmetric(horizontal: 10),
+                                      padding: EdgeInsets.symmetric(
+                                        horizontal: 10,
+                                      ),
                                       child: Text('یا با ایمیل'),
                                     ),
                                     Expanded(child: Divider()),
@@ -484,8 +487,8 @@ class _EmailPasswordAuthScreenState
                                 autofillHints: const [AutofillHints.name],
                                 validator: (value) =>
                                     (value?.trim().length ?? 0) >= 2
-                                        ? null
-                                        : 'نام خود را وارد کنید.',
+                                    ? null
+                                    : 'نام خود را وارد کنید.',
                               ),
                               const SizedBox(height: 14),
                             ],
@@ -499,8 +502,8 @@ class _EmailPasswordAuthScreenState
                               autofillHints: const [AutofillHints.email],
                               validator: (value) =>
                                   _looksLikeEmail(value?.trim() ?? '')
-                                      ? null
-                                      : 'ایمیل معتبر وارد کنید.',
+                                  ? null
+                                  : 'ایمیل معتبر وارد کنید.',
                             ),
                             const SizedBox(height: 14),
                             _AuthTextField(
@@ -532,8 +535,8 @@ class _EmailPasswordAuthScreenState
                               validator: isSignUp
                                   ? _validateNewPassword
                                   : (value) => (value?.isNotEmpty ?? false)
-                                      ? null
-                                      : 'رمز عبور را وارد کنید.',
+                                        ? null
+                                        : 'رمز عبور را وارد کنید.',
                               onSubmitted: (_) {
                                 if (!isSignUp) _submit();
                               },
@@ -547,7 +550,9 @@ class _EmailPasswordAuthScreenState
                                 obscureText: _obscureConfirm,
                                 textDirection: TextDirection.ltr,
                                 textInputAction: TextInputAction.done,
-                                autofillHints: const [AutofillHints.newPassword],
+                                autofillHints: const [
+                                  AutofillHints.newPassword,
+                                ],
                                 suffix: IconButton(
                                   tooltip: _obscureConfirm
                                       ? 'نمایش تکرار رمز'
@@ -571,7 +576,9 @@ class _EmailPasswordAuthScreenState
                                 alignment: AlignmentDirectional.centerStart,
                                 child: TextButton(
                                   onPressed: _busy ? null : _sendPasswordReset,
-                                  child: const Text('رمز عبور را فراموش کرده‌ام'),
+                                  child: const Text(
+                                    'رمز عبور را فراموش کرده‌ام',
+                                  ),
                                 ),
                               ),
                             if (_error != null) ...[
@@ -610,9 +617,7 @@ class _EmailPasswordAuthScreenState
                                         ),
                                       )
                                     : Text(
-                                        isSignUp
-                                            ? 'ساخت حساب امن'
-                                            : 'ورود امن',
+                                        isSignUp ? 'ساخت حساب امن' : 'ورود امن',
                                       ),
                               ),
                             ),
@@ -712,10 +717,13 @@ class _PasswordRecoveryScreenState extends State<_PasswordRecoveryScreen> {
           .timeout(const Duration(seconds: 20));
       await widget.supabase.auth.signOut();
     } on TimeoutException {
-      if (mounted) setState(() => _error = 'پاسخی دریافت نشد. دوباره تلاش کنید.');
+      if (mounted)
+        setState(() => _error = 'پاسخی دریافت نشد. دوباره تلاش کنید.');
     } on AuthException {
       if (mounted) {
-        setState(() => _error = 'تغییر رمز انجام نشد. یک لینک بازیابی جدید بگیرید.');
+        setState(
+          () => _error = 'تغییر رمز انجام نشد. یک لینک بازیابی جدید بگیرید.',
+        );
       }
     } catch (_) {
       if (mounted) setState(() => _error = 'ارتباط با سرور برقرار نشد.');
@@ -762,14 +770,16 @@ class _PasswordRecoveryScreenState extends State<_PasswordRecoveryScreen> {
                           obscureText: _obscure,
                           textDirection: TextDirection.ltr,
                           suffix: IconButton(
-                            onPressed: () => setState(() => _obscure = !_obscure),
+                            onPressed: () =>
+                                setState(() => _obscure = !_obscure),
                             icon: Icon(
                               _obscure
                                   ? Icons.visibility_rounded
                                   : Icons.visibility_off_rounded,
                             ),
                           ),
-                          validator: _EmailPasswordAuthScreenState._validateNewPassword,
+                          validator: _EmailPasswordAuthScreenState
+                              ._validateNewPassword,
                         ),
                         const SizedBox(height: 14),
                         _AuthTextField(
@@ -793,7 +803,9 @@ class _PasswordRecoveryScreenState extends State<_PasswordRecoveryScreen> {
                         const SizedBox(height: 18),
                         FilledButton(
                           onPressed: _busy ? null : _save,
-                          style: FilledButton.styleFrom(backgroundColor: primary),
+                          style: FilledButton.styleFrom(
+                            backgroundColor: primary,
+                          ),
                           child: _busy
                               ? const SizedBox.square(
                                   dimension: 20,
@@ -933,7 +945,9 @@ class _MessageBanner extends StatelessWidget {
           children: [
             Icon(icon, color: color, size: 20),
             const SizedBox(width: 9),
-            Expanded(child: Text(message, style: TextStyle(color: color))),
+            Expanded(
+              child: Text(message, style: TextStyle(color: color)),
+            ),
           ],
         ),
       ),
@@ -1006,7 +1020,9 @@ class _BlockingState extends StatelessWidget {
                         const SizedBox(height: 22),
                         FilledButton(
                           onPressed: onPrimary,
-                          style: FilledButton.styleFrom(backgroundColor: primary),
+                          style: FilledButton.styleFrom(
+                            backgroundColor: primary,
+                          ),
                           child: Text(primaryLabel!),
                         ),
                       ],

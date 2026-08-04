@@ -3,13 +3,14 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:lifemate_client/lifemate_client.dart';
 import 'package:provider/provider.dart';
-import 'package:wellmate/providers/medication_provider.dart';
-import 'package:wellmate/providers/notification_provider.dart';
-import 'package:wellmate/screens/home/active_treatment_card.dart';
 
 import '../../core/theme/app_style.dart';
+import '../../core/utils/string_extensions.dart';
 import '../../localization/app_localizations.dart';
 import '../../models/schedule_item_model.dart';
+import '../../providers/medication_provider.dart';
+import '../../providers/notification_provider.dart';
+import 'active_treatment_card.dart';
 import 'soft_schedule_card.dart';
 
 class HomeScreenContent extends StatefulWidget {
@@ -27,14 +28,14 @@ class HomeScreenContent extends StatefulWidget {
 }
 
 class _HomeScreenContentState extends State<HomeScreenContent> {
-  List<ScheduleItemModel> scheduleList = [];
+  List<ScheduleItemModel> scheduleList = const [];
   ScheduleItemModel? _nextOccurrence;
   Timer? _timer;
   bool isLoading = true;
   String? loadError;
   String _displayName = '';
   bool _hasTreatmentPlans = false;
-  final Set<String> _submitting = {};
+  final Set<String> _submitting = <String>{};
 
   @override
   void initState() {
@@ -63,63 +64,113 @@ class _HomeScreenContentState extends State<HomeScreenContent> {
       final now = DateTime.now();
       final today = DateTime(now.year, now.month, now.day);
       final lastVisibleDay = today.add(const Duration(days: 7));
-      final results = await Future.wait([
+      final results = await Future.wait<dynamic>([
         api.getCurrentUser(),
         api.getTreatmentPlans(),
         api.getDoseOccurrences(fromDate: today, toDate: lastVisibleDay),
+        api.getCareEvents(fromDate: today, toDate: lastVisibleDay),
       ]);
       final currentUser = results[0] as Map<String, dynamic>;
       final plans = results[1] as List<Map<String, dynamic>>;
       final doses = results[2] as List<Map<String, dynamic>>;
+      final careEvents = results[3] as List<Map<String, dynamic>>;
       final profile =
           currentUser['profile'] as Map<String, dynamic>? ?? const {};
       final plansById = <String, Map<String, dynamic>>{
         for (final plan in plans) plan['id'].toString(): plan,
       };
 
-      final allItems = doses.map((dose) {
-        final plan = plansById[dose['treatmentPlanId'].toString()] ?? const {};
-        final medication = plan['medication'] is Map<String, dynamic>
-            ? plan['medication'] as Map<String, dynamic>
-            : const <String, dynamic>{};
-        final status = (dose['status'] ?? 'scheduled').toString();
-        final rawTime = (dose['scheduledLocalTime'] ?? '').toString();
-        final time = rawTime.length >= 5 ? rawTime.substring(0, 5) : rawTime;
-        return ScheduleItemModel(
-          id: dose['id'].toString(),
-          type: 'medicine',
-          title: (medication['name'] ?? 'دارو').toString(),
-          time: time,
-          dosage: (plan['doseText'] ?? '').toString(),
-          status: status,
-          version: dose['version'] is int ? dose['version'] as int : 1,
-          scheduledAtUtc: DateTime.tryParse(
-            dose['scheduledAtUtc']?.toString() ?? '',
-          )?.toUtc(),
-          isDone: status == 'taken' || status == 'skipped',
-          frequency: 'طبق برنامه درمان',
-          startDate: dose['scheduledLocalDate'] == null
-              ? today
-              : DateTime.tryParse(dose['scheduledLocalDate'].toString()),
-          intervalDays: 1,
-        );
-      }).toList()
-        ..sort(_compareOccurrence);
+      final allItems = <ScheduleItemModel>[
+        ...doses.map((dose) {
+          final plan =
+              plansById[dose['treatmentPlanId'].toString()] ?? const {};
+          final medication = plan['medication'] is Map<String, dynamic>
+              ? plan['medication'] as Map<String, dynamic>
+              : const <String, dynamic>{};
+          final status = (dose['status'] ?? 'scheduled').toString();
+          final rawTime = (dose['scheduledLocalTime'] ?? '').toString();
+          final time = rawTime.length >= 5 ? rawTime.substring(0, 5) : rawTime;
+          return ScheduleItemModel(
+            id: dose['id'].toString(),
+            type: 'medicine',
+            title: (medication['name'] ?? 'دارو').toString(),
+            time: time,
+            dosage: (plan['doseText'] ?? '').toString(),
+            status: status,
+            version: dose['version'] is int ? dose['version'] as int : 1,
+            scheduledAtUtc: DateTime.tryParse(
+              dose['scheduledAtUtc']?.toString() ?? '',
+            )?.toUtc(),
+            isDone: status == 'taken' || status == 'skipped',
+            frequency: 'طبق برنامه درمان',
+            startDate: dose['scheduledLocalDate'] == null
+                ? today
+                : DateTime.tryParse(dose['scheduledLocalDate'].toString()),
+            intervalDays: 1,
+          );
+        }),
+        ...careEvents.map((event) {
+          final eventType = event['eventType']?.toString().toLowerCase();
+          final type = eventType == 'injection' ? 'injection' : 'appointment';
+          final rawTime = event['scheduledLocalTime']?.toString() ?? '--:--';
+          final status =
+              event['status']?.toString().toLowerCase() ?? 'scheduled';
+          final details = <String>[
+            if (type == 'appointment')
+              _nonEmpty(event['providerName']) ??
+                  _nonEmpty(event['specialty']) ??
+                  '',
+            if (type == 'injection') _nonEmpty(event['doseText']) ?? '',
+            _nonEmpty(event['centerName']) ?? '',
+          ].where((value) => value.isNotEmpty).join(' • ');
+          return ScheduleItemModel(
+            id: event['id']?.toString() ?? '',
+            type: type,
+            title:
+                _nonEmpty(event['title']) ??
+                (type == 'injection' ? 'تزریق' : 'ویزیت'),
+            time: rawTime.length >= 5 ? rawTime.substring(0, 5) : rawTime,
+            dosage: details,
+            status: status,
+            version: event['version'] is int ? event['version'] as int : 1,
+            isDone: status == 'completed' || status == 'cancelled',
+            frequency: type == 'injection' ? 'تزریق' : 'ویزیت',
+            startDate: DateTime.tryParse(
+              event['scheduledLocalDate']?.toString() ?? '',
+            ),
+            intervalDays: 1,
+          );
+        }),
+      ]..sort(_compareOccurrence);
 
-      final todayItems = allItems.where((item) {
-        final date = item.startDate;
-        return date != null && _sameDay(date, today);
-      }).toList(growable: false);
-      final actionable = allItems
-          .where((item) => item.status == 'scheduled' || item.status == 'missed')
+      final todayItems = allItems
+          .where((item) {
+            final date = item.startDate;
+            return date != null && _sameDay(date, today);
+          })
           .toList(growable: false);
-      final future = actionable.where((item) {
-        final scheduled = item.scheduledAtUtc;
-        return scheduled == null || scheduled.isAfter(DateTime.now().toUtc());
-      }).toList(growable: false);
+      final actionable = allItems
+          .where((item) {
+            if (item.type == 'medicine') {
+              return item.status == 'scheduled' || item.status == 'missed';
+            }
+            return item.status != 'completed' && item.status != 'cancelled';
+          })
+          .toList(growable: false);
+      final future =
+          actionable
+              .where((item) {
+                final scheduled = _scheduledDateTime(item);
+                return scheduled != null && !scheduled.isBefore(DateTime.now());
+              })
+              .toList(growable: false)
+            ..sort(_compareOccurrence);
+      final missedMedicine = actionable.where(
+        (item) => item.type == 'medicine' && item.status == 'missed',
+      );
       final nextOccurrence = future.isNotEmpty
           ? future.first
-          : actionable.where((item) => item.status == 'missed').firstOrNull;
+          : (missedMedicine.isNotEmpty ? missedMedicine.first : null);
 
       if (!mounted) return;
       setState(() {
@@ -129,18 +180,21 @@ class _HomeScreenContentState extends State<HomeScreenContent> {
         _hasTreatmentPlans = plans.isNotEmpty;
         isLoading = false;
       });
-      context.read<MedicationProvider>().setMedications(todayItems);
-      final timeZone = profile['timeZone']?.toString() ?? 'Asia/Tehran';
+
+      final medicineToday = todayItems
+          .where((item) => item.type == 'medicine')
+          .toList(growable: false);
+      context.read<MedicationProvider>().setMedications(medicineToday);
       try {
         await context.read<NotificationProvider>().syncDoseReminders(
-              todayItems,
-              timeZone: timeZone,
-            );
+          medicineToday,
+          timeZone: profile['timeZone']?.toString() ?? 'Asia/Tehran',
+        );
       } catch (error) {
         debugPrint('WellMate reminder sync failed: $error');
       }
     } catch (error) {
-      debugPrint('WellMate dose sync failed: $error');
+      debugPrint('WellMate home schedule sync failed: $error');
       if (!mounted) return;
       setState(() {
         isLoading = false;
@@ -150,18 +204,17 @@ class _HomeScreenContentState extends State<HomeScreenContent> {
   }
 
   Future<void> _reportStatus(ScheduleItemModel item, String status) async {
-    if (_submitting.contains(item.id)) return;
+    if (item.type != 'medicine' || _submitting.contains(item.id)) return;
     setState(() => _submitting.add(item.id));
-
     try {
-      final api = context.read<LifeMateApiClient>();
-      final result = await api.reportDose(
+      final result = await context.read<LifeMateApiClient>().reportDose(
         occurrenceId: item.id,
         clientRequestId: LifeMateApiClient.createClientRequestId(),
         version: item.version,
         status: status,
         occurredAtUtc: DateTime.now().toUtc(),
       );
+      if (!mounted) return;
       final updated = item.copyWith(
         isDone: status == 'taken' || status == 'skipped',
         status: (result['status'] ?? status).toString(),
@@ -169,76 +222,47 @@ class _HomeScreenContentState extends State<HomeScreenContent> {
             ? result['version'] as int
             : item.version + 1,
       );
-      if (!mounted) return;
       setState(() {
-        final index =
-            scheduleList.indexWhere((element) => element.id == item.id);
-        if (index != -1) scheduleList[index] = updated;
+        final index = scheduleList.indexWhere((value) => value.id == item.id);
+        if (index >= 0) scheduleList[index] = updated;
         if (_nextOccurrence?.id == item.id) _nextOccurrence = null;
       });
-      context.read<MedicationProvider>().setMedications(scheduleList);
-      try {
-        final current = await api.getCurrentUser();
-        final profile =
-            current['profile'] as Map<String, dynamic>? ?? const {};
-        await context.read<NotificationProvider>().syncDoseReminders(
-              scheduleList,
-              timeZone: profile['timeZone']?.toString() ?? 'Asia/Tehran',
-            );
-      } catch (error) {
-        debugPrint('WellMate reminder update failed: $error');
-      }
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
             status == 'taken'
                 ? '${item.title} به عنوان مصرف‌شده ثبت شد.'
                 : '${item.title} به عنوان مصرف‌نشده ثبت شد.',
-            style: AppTextStyles.body(context).copyWith(color: Colors.white),
           ),
-          backgroundColor: Colors.green.shade600,
           behavior: SnackBarBehavior.floating,
         ),
       );
       await _fetchScheduleFromBackend();
     } catch (error) {
       debugPrint('WellMate dose report failed: $error');
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: const Text('ثبت مصرف انجام نشد؛ دوباره تلاش کنید.'),
-          backgroundColor: Theme.of(context).colorScheme.error,
-          behavior: SnackBarBehavior.floating,
-        ),
-      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('ثبت مصرف انجام نشد؛ دوباره تلاش کنید.'),
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      }
     } finally {
       if (mounted) setState(() => _submitting.remove(item.id));
     }
   }
 
   int _calculateSecondsLeft(ScheduleItemModel item) {
-    final scheduledUtc = item.scheduledAtUtc;
-    if (scheduledUtc != null) {
-      final seconds = scheduledUtc.difference(DateTime.now().toUtc()).inSeconds;
-      return seconds > 0 ? seconds : 0;
-    }
-    final parts = item.time.split(':');
-    if (parts.length < 2) return 0;
-    final now = DateTime.now();
-    final date = item.startDate ?? now;
-    final scheduleTime = DateTime(
-      date.year,
-      date.month,
-      date.day,
-      int.tryParse(parts[0]) ?? 0,
-      int.tryParse(parts[1]) ?? 0,
-    );
-    final seconds = scheduleTime.difference(now).inSeconds;
+    final scheduled = _scheduledDateTime(item);
+    if (scheduled == null) return 0;
+    final seconds = scheduled.difference(DateTime.now()).inSeconds;
     return seconds > 0 ? seconds : 0;
   }
 
   String _getAssetPath(String type) {
     switch (type) {
+      case 'appointment':
       case 'visit':
         return 'assets/icons/stethoscope.png';
       case 'drop':
@@ -253,19 +277,8 @@ class _HomeScreenContentState extends State<HomeScreenContent> {
     final loc = AppLocalizations.of(context);
     final font = AppTextStyles.body(context);
     final isPersian = Localizations.localeOf(context).languageCode == 'fa';
-
-    final unconsumedItems = scheduleList
-        .where((item) => item.status == 'scheduled' || item.status == 'missed')
-        .toList();
-    final upcomingItems = unconsumedItems
-        .where((item) => item.status == 'scheduled')
-        .toList()
+    final visibleToday = scheduleList.where((item) => !item.isDone).toList()
       ..sort(_compareOccurrence);
-    final missedItems = unconsumedItems
-        .where((item) => item.status == 'missed')
-        .toList()
-      ..sort(_compareOccurrence);
-    final displayList = [...upcomingItems, ...missedItems];
     final nextItem = _nextOccurrence;
 
     return Container(
@@ -273,52 +286,36 @@ class _HomeScreenContentState extends State<HomeScreenContent> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          SafeArea(
-            bottom: false,
-            child: Padding(
-              padding: const EdgeInsetsDirectional.fromSTEB(24, 20, 24, 16),
-              child: Text(
-                isPersian
-                    ? (_displayName.isEmpty
-                        ? 'سلام،'
-                        : 'سلام $_displayName جان،')
-                    : (_displayName.isEmpty ? 'Hello,' : 'Hi $_displayName,'),
-                style: font.copyWith(
-                  fontSize: 20,
-                  fontWeight: FontWeight.bold,
-                  color: AppColors.textPrimary,
-                ),
+          Padding(
+            padding: const EdgeInsetsDirectional.fromSTEB(24, 20, 24, 16),
+            child: Text(
+              isPersian
+                  ? (_displayName.isEmpty ? 'سلام،' : 'سلام $_displayName جان،')
+                  : (_displayName.isEmpty ? 'Hello,' : 'Hi $_displayName,'),
+              style: font.copyWith(
+                fontSize: 20,
+                fontWeight: FontWeight.bold,
+                color: AppColors.textPrimary,
               ),
             ),
           ),
           if (isLoading)
-            const Expanded(
-              child: Center(
-                child: CircularProgressIndicator(color: AppColors.primary),
-              ),
-            )
+            const Expanded(child: Center(child: CircularProgressIndicator()))
           else if (loadError != null)
             Expanded(
               child: Center(
-                child: Padding(
-                  padding: const EdgeInsets.all(24),
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      const Icon(
-                        Icons.cloud_off_rounded,
-                        size: 52,
-                        color: AppColors.primary,
-                      ),
-                      const SizedBox(height: 12),
-                      Text(loadError!, textAlign: TextAlign.center, style: font),
-                      const SizedBox(height: 16),
-                      FilledButton(
-                        onPressed: _fetchScheduleFromBackend,
-                        child: const Text('تلاش دوباره'),
-                      ),
-                    ],
-                  ),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Icon(Icons.cloud_off_rounded, size: 52),
+                    const SizedBox(height: 12),
+                    Text(loadError!, textAlign: TextAlign.center),
+                    const SizedBox(height: 14),
+                    FilledButton(
+                      onPressed: _fetchScheduleFromBackend,
+                      child: const Text('تلاش دوباره'),
+                    ),
+                  ],
                 ),
               ),
             )
@@ -333,14 +330,18 @@ class _HomeScreenContentState extends State<HomeScreenContent> {
                           : widget.onAddTreatment,
                       font: font,
                     )
-                  : ActiveTreatmentCard(
+                  : nextItem.type == 'medicine'
+                  ? ActiveTreatmentCard(
                       treatmentName: nextItem.title,
                       dose: nextItem.dosage,
                       time: nextItem.time,
                       assetIconPath: _getAssetPath(nextItem.type),
-                      progressValue: 1.0 -
-                          (_calculateSecondsLeft(nextItem) / 86400)
-                              .clamp(0.0, 1.0),
+                      progressValue:
+                          1.0 -
+                          (_calculateSecondsLeft(nextItem) / 86400).clamp(
+                            0.0,
+                            1.0,
+                          ),
                       secondsLeft: _calculateSecondsLeft(nextItem),
                       onTaken: _submitting.contains(nextItem.id)
                           ? null
@@ -350,6 +351,12 @@ class _HomeScreenContentState extends State<HomeScreenContent> {
                           : () => _reportStatus(nextItem, 'skipped'),
                       onEdit: widget.onOpenTreatments,
                       isSubmitting: _submitting.contains(nextItem.id),
+                      font: font,
+                    )
+                  : _UpcomingCareEventCard(
+                      item: nextItem,
+                      secondsLeft: _calculateSecondsLeft(nextItem),
+                      assetPath: _getAssetPath(nextItem.type),
                       font: font,
                     ),
             ),
@@ -365,11 +372,11 @@ class _HomeScreenContentState extends State<HomeScreenContent> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Padding(
-                      padding: const EdgeInsetsDirectional.only(
-                        start: 24,
-                        end: 24,
-                        top: 24,
-                        bottom: 16,
+                      padding: const EdgeInsetsDirectional.fromSTEB(
+                        24,
+                        24,
+                        24,
+                        16,
                       ),
                       child: Text(
                         loc['today_schedule'] ?? 'برنامه امروز',
@@ -380,38 +387,42 @@ class _HomeScreenContentState extends State<HomeScreenContent> {
                       ),
                     ),
                     Expanded(
-                      child: displayList.isEmpty
+                      child: visibleToday.isEmpty
                           ? _HomeEmptyState(
                               hasTreatmentPlans: _hasTreatmentPlans,
-                              hadDosesToday: scheduleList.isNotEmpty,
                               onAddTreatment: widget.onAddTreatment,
                               font: font,
                             )
-                          : ListView.separated(
-                              padding: const EdgeInsetsDirectional.fromSTEB(
-                                24,
-                                0,
-                                24,
-                                100,
+                          : RefreshIndicator(
+                              onRefresh: _fetchScheduleFromBackend,
+                              child: ListView.separated(
+                                padding: const EdgeInsetsDirectional.fromSTEB(
+                                  24,
+                                  0,
+                                  24,
+                                  110,
+                                ),
+                                itemCount: visibleToday.length,
+                                separatorBuilder: (_, __) =>
+                                    const SizedBox(height: 12),
+                                itemBuilder: (context, index) {
+                                  final item = visibleToday[index];
+                                  final missed =
+                                      item.type == 'medicine' &&
+                                      item.status == 'missed';
+                                  return SoftScheduleCard(
+                                    item: item,
+                                    index: index,
+                                    font: font,
+                                    assetPath: _getAssetPath(item.type),
+                                    isMissed: missed,
+                                    onTaken:
+                                        missed && !_submitting.contains(item.id)
+                                        ? () => _reportStatus(item, 'taken')
+                                        : null,
+                                  );
+                                },
                               ),
-                              itemCount: displayList.length,
-                              separatorBuilder: (_, __) =>
-                                  const SizedBox(height: 12),
-                              itemBuilder: (context, i) {
-                                final item = displayList[i];
-                                final isMissed = missedItems.contains(item);
-                                return SoftScheduleCard(
-                                  item: item,
-                                  index: i,
-                                  font: font,
-                                  assetPath: _getAssetPath(item.type),
-                                  isMissed: isMissed,
-                                  onTaken: isMissed &&
-                                          !_submitting.contains(item.id)
-                                      ? () => _reportStatus(item, 'taken')
-                                      : null,
-                                );
-                              },
                             ),
                     ),
                   ],
@@ -424,20 +435,139 @@ class _HomeScreenContentState extends State<HomeScreenContent> {
     );
   }
 
-  static int _compareOccurrence(
-    ScheduleItemModel a,
-    ScheduleItemModel b,
-  ) {
-    final aDate = a.scheduledAtUtc;
-    final bDate = b.scheduledAtUtc;
-    if (aDate != null && bDate != null) return aDate.compareTo(bDate);
-    final dateCompare = (a.startDate ?? DateTime(1970))
-        .compareTo(b.startDate ?? DateTime(1970));
-    return dateCompare != 0 ? dateCompare : a.time.compareTo(b.time);
+  static String? _nonEmpty(dynamic value) {
+    final text = value?.toString().trim();
+    return text == null || text.isEmpty ? null : text;
   }
 
-  static bool _sameDay(DateTime a, DateTime b) =>
-      a.year == b.year && a.month == b.month && a.day == b.day;
+  static DateTime? _scheduledDateTime(ScheduleItemModel item) {
+    if (item.scheduledAtUtc != null) return item.scheduledAtUtc!.toLocal();
+    final date = item.startDate;
+    final parts = item.time.split(':');
+    if (date == null || parts.length < 2) return null;
+    final hour = int.tryParse(parts[0]);
+    final minute = int.tryParse(parts[1].split(' ').first);
+    if (hour == null || minute == null) return null;
+    return DateTime(date.year, date.month, date.day, hour, minute);
+  }
+
+  static int _compareOccurrence(
+    ScheduleItemModel left,
+    ScheduleItemModel right,
+  ) {
+    final leftDate = _scheduledDateTime(left) ?? DateTime(2100);
+    final rightDate = _scheduledDateTime(right) ?? DateTime(2100);
+    return leftDate.compareTo(rightDate);
+  }
+
+  static bool _sameDay(DateTime left, DateTime right) =>
+      left.year == right.year &&
+      left.month == right.month &&
+      left.day == right.day;
+}
+
+class _UpcomingCareEventCard extends StatelessWidget {
+  const _UpcomingCareEventCard({
+    required this.item,
+    required this.secondsLeft,
+    required this.assetPath,
+    required this.font,
+  });
+
+  final ScheduleItemModel item;
+  final int secondsLeft;
+  final String assetPath;
+  final TextStyle font;
+
+  String _countdown(bool persian) {
+    final minutes = secondsLeft ~/ 60;
+    if (minutes < 60) return '$minutes دقیقه دیگر'.toPersianDigit(persian);
+    final hours = minutes ~/ 60;
+    final remaining = minutes % 60;
+    return '$hours ساعت و $remaining دقیقه دیگر'.toPersianDigit(persian);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final persian = Localizations.localeOf(context).languageCode == 'fa';
+    final kind = item.type == 'injection' ? 'زمان تزریق' : 'وقت ویزیت';
+    return Container(
+      padding: const EdgeInsets.all(22),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(28),
+        boxShadow: [
+          BoxShadow(
+            color: AppColors.shadowDark.withValues(alpha: 0.35),
+            blurRadius: 22,
+            offset: const Offset(0, 10),
+          ),
+        ],
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 92,
+            height: 92,
+            padding: const EdgeInsets.all(18),
+            decoration: BoxDecoration(
+              color: AppColors.primary.withValues(alpha: 0.10),
+              shape: BoxShape.circle,
+            ),
+            child: Image.asset(
+              assetPath,
+              errorBuilder: (_, __, ___) => Icon(
+                item.type == 'injection'
+                    ? Icons.vaccines_rounded
+                    : Icons.medical_services_rounded,
+                color: AppColors.primary,
+                size: 44,
+              ),
+            ),
+          ),
+          const SizedBox(width: 18),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  kind,
+                  style: font.copyWith(
+                    color: AppColors.primary,
+                    fontWeight: FontWeight.w900,
+                  ),
+                ),
+                const SizedBox(height: 5),
+                Text(
+                  item.title,
+                  style: font.copyWith(
+                    fontSize: 18,
+                    fontWeight: FontWeight.w900,
+                    color: AppColors.darkBlue,
+                  ),
+                ),
+                if (item.dosage.trim().isNotEmpty) ...[
+                  const SizedBox(height: 4),
+                  Text(
+                    item.dosage,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ],
+                const SizedBox(height: 8),
+                Text(
+                  '${item.time} • ${_countdown(persian)}'.toPersianDigit(
+                    persian,
+                  ),
+                  style: font.copyWith(fontWeight: FontWeight.w800),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
 }
 
 class _TreatmentTimerPlaceholder extends StatelessWidget {
@@ -452,188 +582,111 @@ class _TreatmentTimerPlaceholder extends StatelessWidget {
   final TextStyle font;
 
   @override
-  Widget build(BuildContext context) => Container(
-        padding: const EdgeInsets.all(20),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(24),
-          boxShadow: [
-            BoxShadow(
-              color: AppColors.shadowDark.withValues(alpha: 0.3),
-              blurRadius: 20,
-              offset: const Offset(0, 10),
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(22),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(28),
+      ),
+      child: Row(
+        children: [
+          const CircleAvatar(
+            radius: 48,
+            backgroundColor: Color(0xFFF1FAF5),
+            child: Icon(
+              Icons.medication_rounded,
+              size: 44,
+              color: AppColors.primary,
             ),
-          ],
-        ),
-        child: Column(
-          children: [
-            Row(
+          ),
+          const SizedBox(width: 18),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        hasTreatmentPlans
-                            ? 'دوز بعدی هنوز ساخته نشده است'
-                            : 'تایمر درمان آماده است',
-                        style: font.copyWith(
-                          fontSize: 18,
-                          fontWeight: FontWeight.bold,
-                          color: AppColors.textPrimary,
-                        ),
-                      ),
-                      const SizedBox(height: 8),
-                      Text(
-                        hasTreatmentPlans
-                            ? 'برنامه درمان فعال است؛ برای دیدن جزئیات و روزهای مصرف وارد درمان‌ها شوید.'
-                            : 'پس از ثبت اولین دارو، شمارش معکوس دوز بعدی در همین کارت نمایش داده می‌شود.',
-                        style: font.copyWith(
-                          color: AppColors.textSecondary,
-                          fontSize: 13,
-                          height: 1.5,
-                        ),
-                      ),
-                    ],
+                Text(
+                  hasTreatmentPlans
+                      ? 'برنامه بعدی در اینجا نمایش داده می‌شود'
+                      : 'تایمر درمان آماده است',
+                  style: font.copyWith(
+                    fontSize: 18,
+                    fontWeight: FontWeight.w900,
+                    color: AppColors.darkBlue,
                   ),
                 ),
-                const SizedBox(width: 18),
-                SizedBox(
-                  width: 100,
-                  height: 100,
-                  child: Stack(
-                    fit: StackFit.expand,
-                    children: [
-                      CircularProgressIndicator(
-                        value: 0,
-                        strokeWidth: 8,
-                        backgroundColor: AppColors.background,
-                        valueColor: const AlwaysStoppedAnimation<Color>(
-                          AppColors.primaryLight,
-                        ),
-                      ),
-                      Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Image.asset(
-                            'assets/icons/pill.png',
-                            width: 34,
-                            height: 34,
-                            errorBuilder: (_, __, ___) => const Icon(
-                              Icons.medication_rounded,
-                              color: AppColors.primary,
-                            ),
-                          ),
-                          const SizedBox(height: 5),
-                          Text(
-                            '--:--',
-                            textDirection: TextDirection.ltr,
-                            style: font.copyWith(
-                              color: AppColors.primary,
-                              fontSize: 12,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ],
-                  ),
+                const SizedBox(height: 8),
+                Text(
+                  hasTreatmentPlans
+                      ? 'برای دیدن جزئیات، برنامه درمان را باز کنید.'
+                      : 'پس از ثبت اولین دارو یا ویزیت، شمارش معکوس اینجا دیده می‌شود.',
+                  style: font.copyWith(color: AppColors.textSecondary),
+                ),
+                const SizedBox(height: 10),
+                TextButton.icon(
+                  onPressed: onAction,
+                  icon: const Icon(Icons.add_rounded),
+                  label: Text(hasTreatmentPlans ? 'درمان‌ها' : 'افزودن برنامه'),
                 ),
               ],
             ),
-            const SizedBox(height: 18),
-            SizedBox(
-              width: double.infinity,
-              child: OutlinedButton.icon(
-                onPressed: onAction,
-                icon: Icon(
-                  hasTreatmentPlans
-                      ? Icons.list_alt_rounded
-                      : Icons.add_rounded,
-                ),
-                label: Text(
-                  hasTreatmentPlans ? 'مشاهده درمان‌ها' : 'افزودن درمان',
-                ),
-              ),
-            ),
-          ],
-        ),
-      );
+          ),
+        ],
+      ),
+    );
+  }
 }
 
 class _HomeEmptyState extends StatelessWidget {
   const _HomeEmptyState({
     required this.hasTreatmentPlans,
-    required this.hadDosesToday,
     required this.onAddTreatment,
     required this.font,
   });
 
   final bool hasTreatmentPlans;
-  final bool hadDosesToday;
   final VoidCallback onAddTreatment;
   final TextStyle font;
 
   @override
   Widget build(BuildContext context) {
-    final title = !hasTreatmentPlans
-        ? 'هنوز برنامه درمانی ثبت نشده است.'
-        : hadDosesToday
-            ? 'همه داروهای امروز ثبت شده‌اند!'
-            : 'برای امروز دوزی برنامه‌ریزی نشده است.';
-    final subtitle = !hasTreatmentPlans
-        ? 'اولین دارو و زمان مصرف را اضافه کنید تا برنامه روزانه ساخته شود.'
-        : hadDosesToday
-            ? 'برای مشاهده جزئیات روزهای دیگر به تقویم بروید.'
-            : 'برنامه درمان فعال است، اما برای امروز دوزی از Backend برنگشته است.';
-
     return Center(
       child: SingleChildScrollView(
-        padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 24),
+        padding: const EdgeInsets.fromLTRB(24, 20, 24, 110),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Container(
-              width: 72,
-              height: 72,
-              decoration: BoxDecoration(
-                color: AppColors.primary.withValues(alpha: 0.1),
-                shape: BoxShape.circle,
-              ),
+            const CircleAvatar(
+              radius: 48,
+              backgroundColor: Color(0xFFE7F8F1),
               child: Icon(
-                !hasTreatmentPlans
-                    ? Icons.medication_liquid_rounded
-                    : Icons.check_circle_outline_rounded,
+                Icons.medication_liquid_rounded,
+                size: 48,
                 color: AppColors.primary,
-                size: 36,
               ),
             ),
-            const SizedBox(height: 16),
+            const SizedBox(height: 18),
             Text(
-              title,
+              hasTreatmentPlans
+                  ? 'برای امروز برنامه‌ای باقی نمانده است.'
+                  : 'هنوز برنامه درمانی ثبت نشده است.',
               textAlign: TextAlign.center,
-              style: font.copyWith(
-                color: AppColors.textPrimary,
-                fontSize: 16,
-                fontWeight: FontWeight.w800,
-              ),
+              style: font.copyWith(fontSize: 18, fontWeight: FontWeight.w900),
             ),
             const SizedBox(height: 8),
             Text(
-              subtitle,
+              hasTreatmentPlans
+                  ? 'برنامه‌های دارویی، ویزیت و تزریق بعدی به‌صورت خودکار نمایش داده می‌شوند.'
+                  : 'اولین دارو، ویزیت یا تزریق را اضافه کنید.',
               textAlign: TextAlign.center,
-              style: font.copyWith(
-                color: AppColors.textSecondary,
-                fontSize: 13,
-                height: 1.6,
-              ),
+              style: font.copyWith(color: AppColors.textSecondary),
             ),
             if (!hasTreatmentPlans) ...[
-              const SizedBox(height: 18),
+              const SizedBox(height: 14),
               FilledButton.icon(
                 onPressed: onAddTreatment,
                 icon: const Icon(Icons.add_rounded),
-                label: const Text('افزودن درمان'),
+                label: const Text('افزودن برنامه'),
               ),
             ],
           ],
@@ -641,8 +694,4 @@ class _HomeEmptyState extends StatelessWidget {
       ),
     );
   }
-}
-
-extension _FirstOrNullExtension<T> on Iterable<T> {
-  T? get firstOrNull => isEmpty ? null : first;
 }

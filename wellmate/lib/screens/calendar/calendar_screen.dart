@@ -1,17 +1,18 @@
 import 'package:flutter/material.dart';
-import 'package:intl/intl.dart';
 import 'package:lifemate_client/lifemate_client.dart';
 import 'package:provider/provider.dart';
-import 'package:wellmate/core/theme/app_style.dart';
 
-import '../../core/utils/string_extensions.dart';
+import '../../core/theme/app_style.dart';
+import '../../core/utils/persian_date_utils.dart';
 import '../../localization/app_localizations.dart';
 import '../../models/schedule_item_model.dart';
 import 'custom_table_calendar.dart';
 import 'schedule_item_card.dart';
 
 class CalendarScreen extends StatefulWidget {
-  const CalendarScreen({super.key});
+  const CalendarScreen({super.key, this.refreshToken = 0});
+
+  final int refreshToken;
 
   @override
   State<CalendarScreen> createState() => _CalendarScreenState();
@@ -27,36 +28,31 @@ class _CalendarScreenState extends State<CalendarScreen> {
   @override
   void initState() {
     super.initState();
-    _loadMonth();
+    WidgetsBinding.instance.addPostFrameCallback((_) => _loadMonth());
   }
 
-  DateTime _monthStart(DateTime date) => DateTime(date.year, date.month, 1);
+  @override
+  void didUpdateWidget(covariant CalendarScreen oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.refreshToken != widget.refreshToken) _loadMonth();
+  }
 
-  DateTime _monthEnd(DateTime date) => DateTime(date.year, date.month + 1, 0);
-
-  DateTime _dateOnly(DateTime date) => DateTime(date.year, date.month, date.day);
+  DateTime _dateOnly(DateTime date) =>
+      DateTime(date.year, date.month, date.day);
 
   Future<void> _loadMonth() async {
-    if (mounted) {
-      setState(() {
-        _loading = true;
-        _error = null;
-      });
-    }
+    if (!mounted) return;
+    setState(() {
+      _loading = true;
+      _error = null;
+    });
     try {
       final api = context.read<LifeMateApiClient>();
-      final monthStart = _monthStart(_focusedMonth);
-      final monthEnd = _monthEnd(_focusedMonth);
+      final range = visibleCalendarMonthRange(context, _focusedMonth);
       final results = await Future.wait<dynamic>([
         api.getTreatmentPlans(),
-        api.getDoseOccurrences(
-          fromDate: monthStart,
-          toDate: monthEnd,
-        ),
-        api.getCareEvents(
-          fromDate: monthStart,
-          toDate: monthEnd,
-        ),
+        api.getDoseOccurrences(fromDate: range.$1, toDate: range.$2),
+        api.getCareEvents(fromDate: range.$1, toDate: range.$2),
       ]);
       final plans = results[0] as List<Map<String, dynamic>>;
       final doses = results[1] as List<Map<String, dynamic>>;
@@ -64,21 +60,21 @@ class _CalendarScreenState extends State<CalendarScreen> {
       final plansById = <String, Map<String, dynamic>>{
         for (final plan in plans) plan['id'].toString(): plan,
       };
-
-      final items = <ScheduleItemModel>[
-        ...doses.map(
-          (dose) => _scheduleItemFromDose(
-            dose,
-            plansById[dose['treatmentPlanId'].toString()] ?? const {},
-          ),
-        ),
-        ...careEvents.map(_scheduleItemFromCareEvent),
-      ]..sort((a, b) {
-          final dateCompare = (a.startDate ?? _selectedDate)
-              .compareTo(b.startDate ?? _selectedDate);
-          return dateCompare == 0 ? a.time.compareTo(b.time) : dateCompare;
-        });
-
+      final items =
+          <ScheduleItemModel>[
+            ...doses.map(
+              (dose) => _scheduleItemFromDose(
+                dose,
+                plansById[dose['treatmentPlanId'].toString()] ?? const {},
+              ),
+            ),
+            ...careEvents.map(_scheduleItemFromCareEvent),
+          ]..sort((a, b) {
+            final dateCompare = (a.startDate ?? _selectedDate).compareTo(
+              b.startDate ?? _selectedDate,
+            );
+            return dateCompare == 0 ? a.time.compareTo(b.time) : dateCompare;
+          });
       if (!mounted) return;
       setState(() {
         _monthItems = items;
@@ -105,11 +101,11 @@ class _CalendarScreenState extends State<CalendarScreen> {
         : const <String, dynamic>{};
     final status = dose['status']?.toString() ?? 'scheduled';
     final rawTime = dose['scheduledLocalTime']?.toString() ?? '';
-    final scheduledDate = DateTime.tryParse(
-          dose['scheduledLocalDate']?.toString() ?? '',
-        ) ??
-        DateTime.tryParse(dose['scheduledAtUtc']?.toString() ?? '')
-            ?.toLocal() ??
+    final scheduledDate =
+        DateTime.tryParse(dose['scheduledLocalDate']?.toString() ?? '') ??
+        DateTime.tryParse(
+          dose['scheduledAtUtc']?.toString() ?? '',
+        )?.toLocal() ??
         _selectedDate;
     return ScheduleItemModel(
       id: dose['id']?.toString() ?? '',
@@ -117,16 +113,16 @@ class _CalendarScreenState extends State<CalendarScreen> {
           ? medication['name'].toString()
           : dose['medicationName']?.toString() ?? 'دارو',
       time: rawTime.length >= 5 ? rawTime.substring(0, 5) : rawTime,
-      dosage: plan['doseText']?.toString() ??
-          dose['doseText']?.toString() ??
-          '',
+      dosage:
+          plan['doseText']?.toString() ?? dose['doseText']?.toString() ?? '',
       type: 'medicine',
-      frequency: 'یکباره',
+      frequency: 'طبق برنامه درمان',
       isDone: status == 'taken' || status == 'skipped',
       status: status,
       version: dose['version'] is int ? dose['version'] as int : 1,
-      scheduledAtUtc:
-          DateTime.tryParse(dose['scheduledAtUtc']?.toString() ?? '')?.toUtc(),
+      scheduledAtUtc: DateTime.tryParse(
+        dose['scheduledAtUtc']?.toString() ?? '',
+      )?.toUtc(),
       startDate: _dateOnly(scheduledDate),
       intervalDays: 1,
     );
@@ -136,9 +132,8 @@ class _CalendarScreenState extends State<CalendarScreen> {
     final eventType = event['eventType']?.toString().toLowerCase();
     final type = eventType == 'injection' ? 'injection' : 'appointment';
     final rawTime = event['scheduledLocalTime']?.toString() ?? '--:--';
-    final date = DateTime.tryParse(
-          event['scheduledLocalDate']?.toString() ?? '',
-        ) ??
+    final date =
+        DateTime.tryParse(event['scheduledLocalDate']?.toString() ?? '') ??
         _selectedDate;
     final status = event['status']?.toString().toLowerCase() ?? 'scheduled';
     final details = <String>[
@@ -150,16 +145,16 @@ class _CalendarScreenState extends State<CalendarScreen> {
       _nonEmpty(event['centerName']) ?? '',
       _nonEmpty(event['addressLine']) ?? '',
     ].where((value) => value.isNotEmpty).join(' • ');
-
     return ScheduleItemModel(
       id: event['id']?.toString() ?? '',
-      title: _nonEmpty(event['title']) ??
+      title:
+          _nonEmpty(event['title']) ??
           (type == 'injection' ? 'تزریق' : 'ویزیت'),
       time: rawTime.length >= 5 ? rawTime.substring(0, 5) : rawTime,
       dosage: details,
       type: type,
       frequency: type == 'injection' ? 'تزریق' : 'ویزیت',
-      isDone: status == 'completed',
+      isDone: status == 'completed' || status == 'cancelled',
       status: status,
       version: event['version'] is int ? event['version'] as int : 1,
       startDate: _dateOnly(date),
@@ -227,10 +222,8 @@ class _CalendarScreenState extends State<CalendarScreen> {
   }
 
   Future<void> _changeMonth(DateTime focusedDay) async {
-    final monthChanged = focusedDay.year != _focusedMonth.year ||
-        focusedDay.month != _focusedMonth.month;
     setState(() => _focusedMonth = focusedDay);
-    if (monthChanged) await _loadMonth();
+    await _loadMonth();
   }
 
   Widget _eventCard(
@@ -242,7 +235,8 @@ class _CalendarScreenState extends State<CalendarScreen> {
     final now = DateTime.now();
     final isFuture = _dateOnly(_selectedDate).isAfter(_dateOnly(now));
     final isMedicine = item.type == 'medicine';
-    final isMissed = isMedicine &&
+    final isMissed =
+        isMedicine &&
         (item.status == 'missed' ||
             (!item.isDone && _isTimePassed(item.time, _selectedDate)));
     final showDoneMark = isMedicine && item.isDone && !isFuture;
@@ -264,13 +258,10 @@ class _CalendarScreenState extends State<CalendarScreen> {
     final loc = AppLocalizations.of(context);
     final isPersian = Localizations.localeOf(context).languageCode == 'fa';
     final selectedEvents = _getEventsForDay(_selectedDate);
-    final dayFormat =
-        DateFormat('d').format(_selectedDate).toPersianDigit(isPersian);
-    final monthFormat = isPersian
-        ? DateFormat('MMMM', 'fa_IR').format(_selectedDate)
-        : DateFormat('MMM').format(_selectedDate);
-    final scheduleTitle =
-        "${loc['calendar_schedule_for'] ?? 'برنامه روز'} $dayFormat $monthFormat";
+    final scheduleTitle = isPersian
+        ? 'برنامه روز ${formatAppDate(context, _selectedDate, includeWeekday: true)}'
+        : '${loc['calendar_schedule_for'] ?? 'Schedule for'} '
+              '${formatAppDate(context, _selectedDate)}';
 
     return Scaffold(
       backgroundColor: AppColors.background,
@@ -291,9 +282,11 @@ class _CalendarScreenState extends State<CalendarScreen> {
                     getDayEventTypes: _getDayEventTypes,
                     onPageChanged: _changeMonth,
                     onDaySelected: (selectedDay, focusedDay) async {
-                      final monthChanged =
-                          focusedDay.month != _focusedMonth.month ||
-                              focusedDay.year != _focusedMonth.year;
+                      final monthChanged = !isSameVisibleCalendarMonth(
+                        context,
+                        focusedDay,
+                        _focusedMonth,
+                      );
                       setState(() {
                         _selectedDate = selectedDay;
                         _focusedMonth = focusedDay;
@@ -305,15 +298,18 @@ class _CalendarScreenState extends State<CalendarScreen> {
                 const SizedBox(height: 25),
                 Container(
                   width: double.infinity,
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 24,
+                    vertical: 24,
+                  ),
                   decoration: BoxDecoration(
                     color: AppColors.background,
-                    borderRadius:
-                        const BorderRadius.vertical(top: Radius.circular(30)),
+                    borderRadius: const BorderRadius.vertical(
+                      top: Radius.circular(30),
+                    ),
                     boxShadow: [
                       BoxShadow(
-                        color: AppColors.shadowDark.withOpacity(0.5),
+                        color: AppColors.shadowDark.withValues(alpha: 0.5),
                         blurRadius: 10,
                         offset: const Offset(0, -5),
                       ),
@@ -324,8 +320,9 @@ class _CalendarScreenState extends State<CalendarScreen> {
                     children: [
                       Text(
                         scheduleTitle,
-                        style: AppTextStyles.heading(context)
-                            .copyWith(fontSize: 18),
+                        style: AppTextStyles.heading(
+                          context,
+                        ).copyWith(fontSize: 18),
                       ),
                       const SizedBox(height: 16),
                       if (_loading)

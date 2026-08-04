@@ -14,8 +14,9 @@ import 'package:wellmate/screens/profile/profile_screen.dart';
 import 'package:wellmate/screens/treatments/add_treatment_screen.dart';
 
 void main() {
-  testWidgets('profile route keeps LifeMateApiClient in scope',
-      (WidgetTester tester) async {
+  testWidgets('profile route keeps LifeMateApiClient in scope', (
+    WidgetTester tester,
+  ) async {
     final api = _FakeWellMateApiClient();
 
     await tester.pumpWidget(
@@ -62,8 +63,9 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets('add treatment retains medicine schedule and review tabs',
-      (WidgetTester tester) async {
+  testWidgets('add treatment uses one scrollable form without inner tabs', (
+    WidgetTester tester,
+  ) async {
     final api = _FakeWellMateApiClient();
 
     await tester.pumpWidget(
@@ -71,18 +73,22 @@ void main() {
         value: api,
         child: MaterialApp(
           debugShowCheckedModeBanner: false,
-          home: Scaffold(
-            body: TabbedAddTreatmentScreen(onCreated: () {}),
-          ),
+          home: Scaffold(body: TabbedAddTreatmentScreen(onCreated: () {})),
         ),
       ),
     );
     await tester.pumpAndSettle();
 
-    expect(find.text('دارو'), findsOneWidget);
-    expect(find.text('برنامه'), findsOneWidget);
-    expect(find.text('مرور'), findsOneWidget);
-    expect(find.text('افزودن دارو و برنامه درمان'), findsOneWidget);
+    expect(
+      find.byKey(const ValueKey('wellmate-treatment-single-page-form')),
+      findsOneWidget,
+    );
+    expect(find.text('افزودن درمان'), findsOneWidget);
+    expect(
+      find.text('همه اطلاعات دارو و برنامه مصرف را در همین صفحه وارد کنید.'),
+      findsOneWidget,
+    );
+    expect(find.byType(TabBar), findsNothing);
     expect(tester.takeException(), isNull);
   });
 
@@ -123,24 +129,21 @@ Widget _wellMateHarness(Widget home) {
 
 class _FakeWellMateApiClient extends LifeMateApiClient {
   _FakeWellMateApiClient()
-      : super(
-          baseUri: Uri.parse('https://example.invalid'),
-          accessToken: () => 'test-token',
-        );
+    : super(
+        baseUri: Uri.parse('https://example.invalid'),
+        accessToken: () => 'test-token',
+      );
 
   @override
   Future<Map<String, dynamic>> getCurrentUser() async => {
-        'user': {
-          'id': 'patient-1',
-          'email': 'patient@example.com',
-        },
-        'profile': {
-          'displayName': 'کاربر تست',
-          'email': 'patient@example.com',
-          'locale': 'fa',
-          'timeZone': 'Asia/Tehran',
-        },
-      };
+    'user': {'id': 'patient-1', 'email': 'patient@example.com'},
+    'profile': {
+      'displayName': 'کاربر تست',
+      'email': 'patient@example.com',
+      'locale': 'fa',
+      'timeZone': 'Asia/Tehran',
+    },
+  };
 
   @override
   Future<List<Map<String, dynamic>>> getTreatmentPlans() async => const [];

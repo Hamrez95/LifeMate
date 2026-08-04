@@ -33,7 +33,7 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   Widget build(BuildContext context) {
     final pages = [
-      const CalendarScreen(),
+      CalendarScreen(refreshToken: _refreshToken),
       TreatmentsScreen(refreshToken: _refreshToken),
       CarePlanHubScreen(onCreated: _treatmentCreated),
       HomeScreenContent(
@@ -60,10 +60,7 @@ class _HomeScreenState extends State<HomeScreen> {
               },
             ),
             Expanded(
-              child: IndexedStack(
-                index: _currentIndex,
-                children: pages,
-              ),
+              child: IndexedStack(index: _currentIndex, children: pages),
             ),
           ],
         ),

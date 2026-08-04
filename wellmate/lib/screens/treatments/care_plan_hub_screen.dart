@@ -3,13 +3,11 @@ import 'package:lifemate_client/lifemate_client.dart';
 import 'package:provider/provider.dart';
 
 import '../../core/theme/app_style.dart';
+import '../../core/utils/persian_date_utils.dart';
 import 'add_treatment_screen.dart';
 
 class CarePlanHubScreen extends StatefulWidget {
-  const CarePlanHubScreen({
-    required this.onCreated,
-    super.key,
-  });
+  const CarePlanHubScreen({required this.onCreated, super.key});
 
   final VoidCallback onCreated;
 
@@ -161,10 +159,7 @@ class _CareTypeSelector extends StatelessWidget {
 }
 
 class _CareEventForm extends StatefulWidget {
-  const _CareEventForm({
-    required this.kind,
-    required this.onCreated,
-  });
+  const _CareEventForm({required this.kind, required this.onCreated});
 
   final _CarePlanKind kind;
   final VoidCallback onCreated;
@@ -234,26 +229,22 @@ class _CareEventFormState extends State<_CareEventForm> {
   }
 
   Future<void> _pickDate() async {
-    final value = await showDatePicker(
+    final value = await showAppDatePicker(
       context: context,
       initialDate: _date,
       firstDate: DateTime.now().subtract(const Duration(days: 1)),
       lastDate: DateTime.now().add(const Duration(days: 3650)),
+      title: _isAppointment ? 'تاریخ ویزیت' : 'تاریخ تزریق',
     );
     if (mounted && value != null) setState(() => _date = value);
   }
 
   Future<void> _pickTime() async {
-    final value = await showTimePicker(
-      context: context,
-      initialTime: _time,
-    );
+    final value = await showTimePicker(context: context, initialTime: _time);
     if (mounted && value != null) setState(() => _time = value);
   }
 
-  String get _dateLabel =>
-      '${_date.year}/${_date.month.toString().padLeft(2, '0')}/'
-      '${_date.day.toString().padLeft(2, '0')}';
+  String get _dateLabel => formatAppDate(context, _date);
 
   String get _timeValue =>
       '${_time.hour.toString().padLeft(2, '0')}:'
@@ -269,24 +260,23 @@ class _CareEventFormState extends State<_CareEventForm> {
     });
     try {
       await context.read<LifeMateApiClient>().createCareEvent(
-            clientRequestId: _clientRequestId,
-            eventType: _isAppointment ? 'appointment' : 'injection',
-            title: _title.text,
-            providerName: _provider.text,
-            specialty: _isAppointment ? _specialty.text : null,
-            medicationName: _isAppointment ? null : _title.text,
-            doseText: _isAppointment ? null : _dose.text,
-            administrationRoute:
-                _isAppointment ? null : _administrationRoute,
-            reason: _reason.text,
-            instructions: _instructions.text,
-            centerName: _center.text,
-            addressLine: _address.text,
-            phoneNumber: _phone.text,
-            scheduledLocalDate: _date,
-            scheduledLocalTime: _timeValue,
-            timeZone: _timeZone,
-          );
+        clientRequestId: _clientRequestId,
+        eventType: _isAppointment ? 'appointment' : 'injection',
+        title: _title.text,
+        providerName: _provider.text,
+        specialty: _isAppointment ? _specialty.text : null,
+        medicationName: _isAppointment ? null : _title.text,
+        doseText: _isAppointment ? null : _dose.text,
+        administrationRoute: _isAppointment ? null : _administrationRoute,
+        reason: _reason.text,
+        instructions: _instructions.text,
+        centerName: _center.text,
+        addressLine: _address.text,
+        phoneNumber: _phone.text,
+        scheduledLocalDate: _date,
+        scheduledLocalTime: _timeValue,
+        timeZone: _timeZone,
+      );
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
@@ -340,8 +330,8 @@ class _CareEventFormState extends State<_CareEventForm> {
       'idempotency_key_reused' =>
         'این درخواست قبلاً برای برنامه دیگری استفاده شده است. دوباره تلاش کنید.',
       'invalid_medicationName' => 'نام داروی تزریقی را وارد کنید.',
-      'invalid_session' || 'session_missing' =>
-        'نشست شما منقضی شده است. دوباره وارد شوید.',
+      'invalid_session' ||
+      'session_missing' => 'نشست شما منقضی شده است. دوباره وارد شوید.',
       _ => 'ثبت برنامه انجام نشد. اطلاعات را بررسی و دوباره تلاش کنید.',
     };
   }
@@ -361,7 +351,12 @@ class _CareEventFormState extends State<_CareEventForm> {
               ? 'wellmate-appointment-form'
               : 'wellmate-injection-form',
         ),
-        padding: const EdgeInsets.fromLTRB(20, 14, 20, 120),
+        padding: EdgeInsets.fromLTRB(
+          20,
+          14,
+          20,
+          MediaQuery.paddingOf(context).bottom + 170,
+        ),
         keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
         children: [
           Text(
@@ -448,9 +443,9 @@ class _CareEventFormState extends State<_CareEventForm> {
                   onChanged: _busy
                       ? null
                       : (value) => setState(
-                            () => _administrationRoute =
-                                value ?? _administrationRoute,
-                          ),
+                          () => _administrationRoute =
+                              value ?? _administrationRoute,
+                        ),
                 ),
                 const SizedBox(height: 12),
                 _textField(
@@ -516,17 +511,13 @@ class _CareEventFormState extends State<_CareEventForm> {
                   final time = _PickerTile(
                     key: const ValueKey<String>('care-event-time'),
                     label: 'ساعت',
-                    value: _timeValue,
+                    value: formatAppTime(context, _time),
                     icon: Icons.access_time_rounded,
                     onTap: _busy ? null : _pickTime,
                   );
                   if (constraints.maxWidth < 320) {
                     return Column(
-                      children: [
-                        date,
-                        const SizedBox(height: 10),
-                        time,
-                      ],
+                      children: [date, const SizedBox(height: 10), time],
                     );
                   }
                   return Row(
@@ -633,8 +624,8 @@ class _CareEventFormState extends State<_CareEventForm> {
         decoration: _decoration(label: label, hint: hint, icon: icon),
         validator: required
             ? (value) => value == null || value.trim().isEmpty
-                ? '$label را وارد کنید.'
-                : null
+                  ? '$label را وارد کنید.'
+                  : null
             : null,
       ),
     );

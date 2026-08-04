@@ -19,12 +19,10 @@ void main() {
           child: MaterialApp(
             home: Builder(
               builder: (context) => MediaQuery(
-                data: MediaQuery.of(context).copyWith(
-                  textScaler: const TextScaler.linear(1.5),
-                ),
-                child: Scaffold(
-                  body: CarePlanHubScreen(onCreated: () {}),
-                ),
+                data: MediaQuery.of(
+                  context,
+                ).copyWith(textScaler: const TextScaler.linear(1.5)),
+                child: Scaffold(body: CarePlanHubScreen(onCreated: () {})),
               ),
             ),
           ),
@@ -33,13 +31,14 @@ void main() {
       await tester.pumpAndSettle();
 
       for (var index = 0; index < 3; index += 1) {
-        final selector =
-            find.byKey(ValueKey<String>('wellmate-care-type-$index'));
+        final selector = find.byKey(
+          ValueKey<String>('wellmate-care-type-$index'),
+        );
         expect(selector, findsOneWidget);
         expect(tester.getSize(selector).height, greaterThanOrEqualTo(52));
       }
 
-      expect(find.text('افزودن دارو و برنامه درمان'), findsOneWidget);
+      expect(find.text('افزودن درمان'), findsOneWidget);
       expect(tester.takeException(), isNull);
 
       await tester.tap(
@@ -116,18 +115,18 @@ void main() {
 
 class _CarePlanApiClient extends LifeMateApiClient {
   _CarePlanApiClient()
-      : super(
-          baseUri: Uri.parse('https://example.invalid'),
-          accessToken: () => 'test-token',
-        );
+    : super(
+        baseUri: Uri.parse('https://example.invalid'),
+        accessToken: () => 'test-token',
+      );
 
   @override
   Future<Map<String, dynamic>> getCurrentUser() async => {
-        'user': {'id': 'patient-1'},
-        'profile': {
-          'displayName': 'بیمار تست',
-          'locale': 'fa',
-          'timeZone': 'Europe/Berlin',
-        },
-      };
+    'user': {'id': 'patient-1'},
+    'profile': {
+      'displayName': 'بیمار تست',
+      'locale': 'fa',
+      'timeZone': 'Europe/Berlin',
+    },
+  };
 }
