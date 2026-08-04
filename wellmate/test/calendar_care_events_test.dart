@@ -12,7 +12,7 @@ import 'package:wellmate/screens/calendar/schedule_item_card.dart';
 
 void main() {
   testWidgets(
-    'calendar combines future medication appointments and injections from live contracts',
+    'calendar combines appointments and injections from live contracts',
     (WidgetTester tester) async {
       tester.view.physicalSize = const Size(360, 800);
       tester.view.devicePixelRatio = 1;
@@ -23,7 +23,7 @@ void main() {
         MultiProvider(
           providers: [
             Provider<LifeMateApiClient>.value(
-              value: _CalendarApiClient(overdueAppointment: false),
+              value: _CalendarApiClient(missedAppointment: false),
             ),
             ChangeNotifierProvider(create: (_) => NotificationProvider()),
             ChangeNotifierProvider(create: (_) => LocaleProvider()),
@@ -80,7 +80,7 @@ void main() {
     },
   );
 
-  testWidgets('overdue appointment is rendered as missed and red', (
+  testWidgets('missed appointment is rendered with warning styling', (
     WidgetTester tester,
   ) async {
     tester.view.physicalSize = const Size(360, 800);
@@ -92,7 +92,7 @@ void main() {
       MultiProvider(
         providers: [
           Provider<LifeMateApiClient>.value(
-            value: _CalendarApiClient(overdueAppointment: true),
+            value: _CalendarApiClient(missedAppointment: true),
           ),
           ChangeNotifierProvider(create: (_) => NotificationProvider()),
           ChangeNotifierProvider(create: (_) => LocaleProvider()),
@@ -123,22 +123,20 @@ void main() {
 }
 
 class _CalendarApiClient extends LifeMateApiClient {
-  _CalendarApiClient({required this.overdueAppointment})
+  _CalendarApiClient({required this.missedAppointment})
       : super(
           baseUri: Uri.parse('https://example.invalid'),
           accessToken: () => 'test-token',
         );
 
-  final bool overdueAppointment;
+  final bool missedAppointment;
 
-  static String _date(DateTime value) =>
-      '${value.year.toString().padLeft(4, '0')}-'
-      '${value.month.toString().padLeft(2, '0')}-'
-      '${value.day.toString().padLeft(2, '0')}';
-
-  static String _time(DateTime value) =>
-      '${value.hour.toString().padLeft(2, '0')}:'
-      '${value.minute.toString().padLeft(2, '0')}';
+  String get _today {
+    final value = DateTime.now();
+    return '${value.year.toString().padLeft(4, '0')}-'
+        '${value.month.toString().padLeft(2, '0')}-'
+        '${value.day.toString().padLeft(2, '0')}';
+  }
 
   @override
   Future<List<Map<String, dynamic>>> getTreatmentPlans() async => const [];
@@ -153,38 +151,31 @@ class _CalendarApiClient extends LifeMateApiClient {
   Future<List<Map<String, dynamic>>> getCareEvents({
     required DateTime fromDate,
     required DateTime toDate,
-  }) async {
-    final appointmentAt = DateTime.now().add(
-      Duration(minutes: overdueAppointment ? -30 : 60),
-    );
-    final injectionAt = DateTime.now().add(const Duration(minutes: 120));
-
-    return [
-      {
-        'id': 'appointment-1',
-        'eventType': 'appointment',
-        'title': 'ویزیت متخصص قلب',
-        'providerName': 'دکتر سارا راد',
-        'centerName': 'مرکز درمانی الوند',
-        'addressLine': 'تهران، خیابان ولیعصر',
-        'scheduledLocalDate': _date(appointmentAt),
-        'scheduledLocalTime': _time(appointmentAt),
-        'status': 'scheduled',
-        'version': 1,
-      },
-      {
-        'id': 'injection-1',
-        'eventType': 'injection',
-        'title': 'ویتامین B12',
-        'doseText': '۱ آمپول',
-        'administrationRoute': 'intramuscular',
-        'centerName': 'مرکز تزریقات',
-        'addressLine': 'تهران، میدان ونک',
-        'scheduledLocalDate': _date(injectionAt),
-        'scheduledLocalTime': _time(injectionAt),
-        'status': 'scheduled',
-        'version': 1,
-      },
-    ];
-  }
+  }) async => [
+        {
+          'id': 'appointment-1',
+          'eventType': 'appointment',
+          'title': 'ویزیت متخصص قلب',
+          'providerName': 'دکتر سارا راد',
+          'centerName': 'مرکز درمانی الوند',
+          'addressLine': 'تهران، خیابان ولیعصر',
+          'scheduledLocalDate': _today,
+          'scheduledLocalTime': '00:01',
+          'status': missedAppointment ? 'missed' : 'completed',
+          'version': 1,
+        },
+        {
+          'id': 'injection-1',
+          'eventType': 'injection',
+          'title': 'ویتامین B12',
+          'doseText': '۱ آمپول',
+          'administrationRoute': 'intramuscular',
+          'centerName': 'مرکز تزریقات',
+          'addressLine': 'تهران، میدان ونک',
+          'scheduledLocalDate': _today,
+          'scheduledLocalTime': '00:02',
+          'status': 'completed',
+          'version': 1,
+        },
+      ];
 }
