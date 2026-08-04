@@ -1,0 +1,169 @@
+name: pr42-device-qa-one-shot
+
+on:
+  push:
+    branches:
+      - release/pr42-device-qa
+
+permissions:
+  contents: read
+
+concurrency:
+  group: pr42-device-qa-one-shot-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  SUPABASE_URL: https://bwdvmniywyyijjauipnh.supabase.co
+  SUPABASE_PUBLISHABLE_KEY: sb_publishable_6YpBDD0gAPcenbYGukOeWg_fZXxUb27
+  LIFEMATE_API_BASE_URL: https://bwdvmniywyyijjauipnh.supabase.co/functions/v1/lifemate-api-candidate
+  ENABLE_GOOGLE_AUTH: 'false'
+  RELEASE_NAME: 0.9.0-internal.1
+  PATIENT_EMAIL: lifemate-ci-patient-7a5a8bea@example.com
+  PATIENT_PASSWORD: 'pKY8aZ0uZ5AaNbHDusUJL5VxRdn/ixCI'
+  CAREGIVER_EMAIL: lifemate-ci-caregiver-7e2d3a3f@example.com
+  CAREGIVER_PASSWORD: 'EXrQi/K6m8euA0+GsMeQ8fQdUjtVO94B'
+  UNRELATED_EMAIL: lifemate-ci-unrelated-d7f6fde9@example.com
+  UNRELATED_PASSWORD: '2X57DDlksWEbh4OWIJsny1FkmlL3JNzb'
+
+jobs:
+  live-candidate-smoke:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    env:
+      EXPECTED_RELEASE_VERSION: ${{ github.sha }}
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
+        with:
+          show-progress: false
+          persist-credentials: false
+
+      - name: Wait for exact candidate deployment
+        shell: bash
+        run: |
+          set -euo pipefail
+          for attempt in $(seq 1 30); do
+            response="$(curl --silent --show-error "$LIFEMATE_API_BASE_URL/health" || true)"
+            if echo "$response" | jq -e --arg version "$EXPECTED_RELEASE_VERSION" '.status == "ok" and .database == "ready" and .version == $version' >/dev/null 2>&1; then
+              exit 0
+            fi
+            sleep 5
+          done
+          echo 'Candidate did not reach the exact workflow commit in time.' >&2
+          exit 1
+
+      - name: Verify unauthenticated boundary
+        shell: bash
+        run: |
+          set -euo pipefail
+          status="$(curl --silent --show-error --output /dev/null --write-out '%{http_code}' "$LIFEMATE_API_BASE_URL/api/v1/me")"
+          test "$status" = '401'
+
+      - name: Run patient caregiver unrelated-user journey
+        shell: bash
+        run: |
+          set -euo pipefail
+          bash tools/release/live-beta-smoke.sh | tee /tmp/role-smoke.json
+          jq -e '.status == "passed" and .release == env.EXPECTED_RELEASE_VERSION' /tmp/role-smoke.json >/dev/null
+
+      - name: Run auth profile and QR journey
+        shell: bash
+        run: |
+          set -euo pipefail
+          bash tools/release/live-pr42-auth-profile-qr-smoke.sh | tee /tmp/auth-profile-qr-smoke.json
+          jq -e '.status == "passed" and .release == env.EXPECTED_RELEASE_VERSION' /tmp/auth-profile-qr-smoke.json >/dev/null
+
+      - name: Upload redacted smoke evidence
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: pr42-one-shot-smoke-${{ github.sha }}
+          path: |
+            /tmp/role-smoke.json
+            /tmp/auth-profile-qr-smoke.json
+          if-no-files-found: error
+          retention-days: 30
+
+  build-android-device-qa:
+    needs: live-candidate-smoke
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    env:
+      RELEASE_VERSION: ${{ github.sha }}
+      PUB_ENVIRONMENT: bot:github_actions
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
+        with:
+          show-progress: false
+          persist-credentials: false
+
+      - uses: subosito/flutter-action@4cab68ce0f1c7c924f688bff4792e044f1aeb30c
+        with:
+          flutter-version: '3.44.0'
+          channel: stable
+          cache: true
+
+      - name: Verify shared client and both apps
+        shell: bash
+        run: |
+          set -euo pipefail
+          (cd packages/lifemate_client && flutter pub get && flutter analyze --no-fatal-warnings --no-fatal-infos && flutter test)
+          (cd wellmate && flutter pub get && flutter analyze --no-fatal-warnings --no-fatal-infos && flutter test)
+          (cd caremate && flutter pub get && flutter analyze --no-fatal-warnings --no-fatal-infos && flutter test)
+
+      - name: Build release APKs against candidate
+        shell: bash
+        run: |
+          set -euo pipefail
+          args=(
+            --release
+            --build-name="$RELEASE_NAME"
+            --build-number="$GITHUB_RUN_NUMBER"
+            --dart-define="SUPABASE_URL=$SUPABASE_URL"
+            --dart-define="SUPABASE_PUBLISHABLE_KEY=$SUPABASE_PUBLISHABLE_KEY"
+            --dart-define="LIFEMATE_API_BASE_URL=$LIFEMATE_API_BASE_URL"
+            --dart-define="ENABLE_GOOGLE_AUTH=$ENABLE_GOOGLE_AUTH"
+          )
+          (cd wellmate && flutter build apk "${args[@]}")
+          (cd caremate && flutter build apk "${args[@]}")
+
+      - name: Inspect and package APKs
+        shell: bash
+        run: |
+          set -euo pipefail
+          aapt_bin="$(find "$ANDROID_HOME/build-tools" -type f -name aapt | sort -V | tail -n 1)"
+          apksigner_bin="$(find "$ANDROID_HOME/build-tools" -type f -name apksigner | sort -V | tail -n 1)"
+          test -x "$aapt_bin"
+          test -x "$apksigner_bin"
+          short_sha="${GITHUB_SHA:0:8}"
+          mkdir -p dist/inspection
+          cp wellmate/build/app/outputs/flutter-apk/app-release.apk "dist/wellmate-$RELEASE_NAME-$short_sha-device-qa.apk"
+          cp caremate/build/app/outputs/flutter-apk/app-release.apk "dist/caremate-$RELEASE_NAME-$short_sha-device-qa.apk"
+          inspect() {
+            local app="$1" apk="$2" package_id="$3" logo="$4"
+            "$aapt_bin" dump badging "$apk" > "dist/inspection/$app.txt"
+            "$aapt_bin" dump permissions "$apk" >> "dist/inspection/$app.txt"
+            "$apksigner_bin" verify --verbose --print-certs "$apk" >> "dist/inspection/$app.txt"
+            unzip -Z1 "$apk" > "dist/inspection/$app-zip-listing.txt"
+            grep -Fq "package: name='$package_id'" "dist/inspection/$app.txt"
+            grep -Fq 'android.permission.INTERNET' "dist/inspection/$app.txt"
+            grep -Eq '^application-icon-[0-9]+:' "dist/inspection/$app.txt"
+            grep -Fq "assets/flutter_assets/$logo" "dist/inspection/$app-zip-listing.txt"
+            grep -Fq 'assets/flutter_assets/assets/fonts/Vazir.ttf' "dist/inspection/$app-zip-listing.txt"
+          }
+          wellmate_apk="dist/wellmate-$RELEASE_NAME-$short_sha-device-qa.apk"
+          caremate_apk="dist/caremate-$RELEASE_NAME-$short_sha-device-qa.apk"
+          inspect wellmate "$wellmate_apk" com.lifemate.wellmate assets/images/WellMateWithoutBack.png
+          inspect caremate "$caremate_apk" com.lifemate.caremate assets/images/CareMateWithoutBack.png
+          grep -Fq 'android.permission.CAMERA' dist/inspection/caremate.txt
+          grep -Fq 'android.permission.POST_NOTIFICATIONS' dist/inspection/wellmate.txt
+          wellmate_sha="$(sha256sum "$wellmate_apk" | awk '{print $1}')"
+          caremate_sha="$(sha256sum "$caremate_apk" | awk '{print $1}')"
+          jq -n --arg releaseName "$RELEASE_NAME" --arg commit "$GITHUB_SHA" --arg apiVersion "$RELEASE_VERSION" --arg builtAt "$(date -u +%Y-%m-%dT%H:%M:%SZ)" --arg wellmateSha256 "$wellmate_sha" --arg caremateSha256 "$caremate_sha" '{releaseName:$releaseName,commit:$commit,apiVersion:$apiVersion,builtAtUtc:$builtAt,channel:"internal/unstable-device-qa",googleAuthEnabled:false,backend:"lifemate-api-candidate",signing:"CI internal signing; not a store release",apps:{wellmate:{packageId:"com.lifemate.wellmate",sha256:$wellmateSha256},caremate:{packageId:"com.lifemate.caremate",sha256:$caremateSha256}},knownLimitations:["Founder device QA is pending","Do not use real patient health data","Not a stable beta or store release","Production API and main were not changed"]}' > dist/release-manifest.json
+          sha256sum dist/*.apk > dist/apk-sha256.txt
+
+      - name: Upload device-QA bundle
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: lifemate-${{ env.RELEASE_NAME }}-${{ github.sha }}-device-qa
+          path: dist
+          if-no-files-found: error
+          retention-days: 30
