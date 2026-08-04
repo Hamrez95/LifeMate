@@ -171,6 +171,10 @@ jobs:
           should_build=false
           if [[ "${{ github.event_name }}" == "workflow_dispatch" && "${{ inputs.build_android }}" == "true" ]]; then
             should_build=true
+          elif [[ "${{ github.event_name }}" == "pull_request" \
+            && "${{ github.event.pull_request.head.ref }}" == "feat/women-calendar-care-access-notifications" ]]; then
+            # Internal Device-QA only; never a Stable or RC publication.
+            should_build=true
           fi
           echo "should_build=$should_build" >> "$GITHUB_OUTPUT"
 
@@ -203,9 +207,23 @@ jobs:
             --dart-define="SUPABASE_PUBLISHABLE_KEY=$SUPABASE_PUBLISHABLE_KEY"
             --dart-define="LIFEMATE_API_BASE_URL=$LIFEMATE_API_BASE_URL"
             --dart-define="ENABLE_GOOGLE_AUTH=$ENABLE_GOOGLE_AUTH"
+            --dart-define="ENABLE_WOMEN_CALENDAR_PILOT=true"
           )
+          grep -q '^version: 0.9.0-internal.5+16$' wellmate/pubspec.yaml
+          grep -q '^version: 0.9.0-internal.5+16$' caremate/pubspec.yaml
           (cd wellmate && flutter build apk "${build_args[@]}")
           (cd caremate && flutter build apk "${build_args[@]}")
+          cp wellmate/build/app/outputs/flutter-apk/app-release.apk \
+            wellmate/build/app/outputs/flutter-apk/WellMate-0.9.0-internal.5-device-qa.apk
+          cp caremate/build/app/outputs/flutter-apk/app-release.apk \
+            caremate/build/app/outputs/flutter-apk/CareMate-0.9.0-internal.5-device-qa.apk
+          cat > /tmp/LIFEMATE-DEVICE-QA-NOTICE.txt <<'EOF'
+LifeMate 0.9.0-internal.5+16
+Internal Device-QA only. Not Stable. Not RC. Not for public distribution.
+Candidate API only. Google authentication disabled. Women calendar pilot enabled.
+Physical notification QA remains required for permission, exact alarms,
+lock-screen privacy, reboot, timezone change and app-update resynchronization.
+EOF
 
       - name: Inspect Android APK manifests, signing and packaged assets
         id: apk-inspection
@@ -286,10 +304,11 @@ jobs:
         if: ${{ always() && steps.android-checkpoint.outputs.should_build == 'true' }}
         uses: actions/upload-artifact@v4
         with:
-          name: lifemate-android-beta-apks
+          name: lifemate-0.9.0-internal.5-device-qa-apks
           path: |
-            wellmate/build/app/outputs/flutter-apk/app-release*.apk
-            caremate/build/app/outputs/flutter-apk/app-release*.apk
+            wellmate/build/app/outputs/flutter-apk/WellMate-0.9.0-internal.5-device-qa.apk
+            caremate/build/app/outputs/flutter-apk/CareMate-0.9.0-internal.5-device-qa.apk
+            /tmp/LIFEMATE-DEVICE-QA-NOTICE.txt
             /tmp/lifemate-apk-inspection/**
           if-no-files-found: error
           retention-days: 14
