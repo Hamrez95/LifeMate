@@ -72,6 +72,7 @@ jobs:
           python3 tools/hotfix/apply_women_calendar_integration.py
           python3 tools/hotfix/apply_women_calendar_cleanup_fix.py
           python3 tools/hotfix/apply_women_calendar_medical_copy_fix.py
+          python3 tools/hotfix/apply_women_calendar_log_redaction.py
 
       - name: Format generated and modified sources
         shell: bash
@@ -186,6 +187,11 @@ jobs:
           grep -q "تقویم بانوان" wellmate/lib/core/widgets/wellmate_bottom_nav.dart
           grep -q "حمایت‌های غیرپزشکی" caremate/lib/screens/women_calendar/care_women_calendar_screen.dart
           grep -q "تاریخ‌ها تخمینی هستند و جایگزین نظر پزشک نیستند" wellmate/lib/screens/women_calendar/women_calendar_screen.dart
+          ! grep -R --line-number -F ': $error' \
+            wellmate/lib/screens/women_calendar \
+            wellmate/lib/screens/profile/care_access_settings_screen.dart \
+            wellmate/lib/screens/home/home_screen.dart \
+            wellmate/lib/screens/profile/profile_destination_screens.dart
           ! grep -R --line-number -E "تخمک‌گذاری قطعی|روز قطعی تخمک|افزایش باروری|درمان ناباروری|روش پیشگیری از بارداری|ابزار پیشگیری از بارداری|fertility window|ovulation day|contraception method" \
             wellmate/lib/screens/women_calendar \
             caremate/lib/screens/women_calendar \
