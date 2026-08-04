@@ -39,6 +39,7 @@ jobs:
             python3 tools/hotfix/apply_v090_internal3_localization.py
           fi
           python3 tools/hotfix/fix_v090_internal3_treatment_tile.py
+          python3 tools/hotfix/fix_v090_internal3_caremate_regressions.py
 
       - name: Format changed Dart sources
         shell: bash
@@ -52,6 +53,8 @@ jobs:
             caremate/lib/screens/calendar/calendar_view.dart \
             caremate/lib/screens/calendar/schedule_card.dart \
             caremate/lib/screens/care_event_management_screen.dart \
+            caremate/test/calendar_care_events_test.dart \
+            caremate/test/care_event_management_accessibility_test.dart \
             caremate/test/jalali_calendar_localization_test.dart
 
       - name: Verify shared package
@@ -99,10 +102,13 @@ jobs:
           assert 'ژانویه' not in care_calendar
           assert 'visibleCalendarMonthRange(context, _focusedMonth)' in care_calendar
           assert "formatAppDate(\n                          context,\n                          _selectedDate" in care_calendar
+          assert 'child: ListView.separated(' not in care_calendar
+          assert 'for (var index = 0;' in care_calendar
           assert "ValueKey('caremate-previous-month')" in care_view
           assert 'Icons.chevron_right_rounded' in care_view
           assert "ValueKey('caremate-next-month')" in care_view
           assert 'Icons.chevron_left_rounded' in care_view
+          assert 'mainAxisExtent: 42' in care_view
           assert 'formatAppDate(context, parsedDate)' in care_events
           assert 'trailing: Row(' in treatment
           print('Persian localization invariants passed.')
@@ -131,6 +137,8 @@ jobs:
             caremate/lib/screens/calendar/calendar_view.dart \
             caremate/lib/screens/calendar/schedule_card.dart \
             caremate/lib/screens/care_event_management_screen.dart \
+            caremate/test/calendar_care_events_test.dart \
+            caremate/test/care_event_management_accessibility_test.dart \
             caremate/test/jalali_calendar_localization_test.dart
           git commit -m 'fix: use Jalali dates and Persian digits across apps'
           git push origin HEAD:${{ github.head_ref }}
