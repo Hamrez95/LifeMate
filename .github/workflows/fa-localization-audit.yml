@@ -6,38 +6,129 @@ on:
       - release/baseline-v0.9.0-internal.2
 
 permissions:
-  contents: read
+  contents: write
+
+concurrency:
+  group: fa-localization-${{ github.event.pull_request.number }}
+  cancel-in-progress: false
 
 jobs:
-  audit:
+  apply-test:
     runs-on: ubuntu-24.04
+    timeout-minutes: 40
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
-      - name: Audit user-visible date and digit formatting
+        with:
+          ref: ${{ github.head_ref }}
+          fetch-depth: 0
+          show-progress: false
+
+      - uses: subosito/flutter-action@4cab68ce0f1c7c924f688bff4792e044f1aeb30c
+        with:
+          flutter-version: '3.44.0'
+          channel: stable
+          cache: true
+
+      - name: Apply localization patch once
+        shell: bash
+        run: |
+          set -euo pipefail
+          if grep -q '^version: 0.9.0-internal.3+14$' wellmate/pubspec.yaml; then
+            echo 'Localization patch already applied.'
+          else
+            python3 tools/hotfix/apply_v090_internal3_localization.py
+          fi
+
+      - name: Format changed Dart sources
+        shell: bash
+        run: |
+          set -euo pipefail
+          dart format \
+            wellmate/lib/screens/treatments/treatments_screen.dart \
+            wellmate/test/treatment_details_persian_localization_test.dart \
+            caremate/lib/core/utils/persian_date_utils.dart \
+            caremate/lib/screens/calendar/calendar_screen.dart \
+            caremate/lib/screens/calendar/calendar_view.dart \
+            caremate/lib/screens/calendar/schedule_card.dart \
+            caremate/lib/screens/care_event_management_screen.dart \
+            caremate/test/jalali_calendar_localization_test.dart
+
+      - name: Verify shared package
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd packages/lifemate_client
+          flutter pub get
+          flutter analyze
+          flutter test
+
+      - name: Verify WellMate
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd wellmate
+          flutter pub get
+          flutter analyze
+          flutter test
+
+      - name: Verify CareMate
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd caremate
+          flutter pub get
+          flutter analyze
+          flutter test
+
+      - name: Enforce Persian localization invariants
         shell: bash
         run: |
           set -euo pipefail
           python3 - <<'PY'
           from pathlib import Path
-          import re
 
-          roots = [Path('wellmate/lib'), Path('caremate/lib')]
-          patterns = [
-              re.compile(r"Text\([^\n]*\$\{"),
-              re.compile(r"Text\([^\n]*(?:\.day|\.month|\.year)"),
-              re.compile(r"(?:DateFormat|formatMediumDate|formatMonthYear|toIso8601String)"),
-              re.compile(r"(?:startDate|endDate|scheduledLocalDate|localTime).*toString\("),
-              re.compile(r"monthNamesFa|ژانویه|فوریه|مارس|آوریل|ژوئن|ژوئیه|اوت|سپتامبر|اکتبر|نوامبر|دسامبر"),
-          ]
+          treatment = Path('wellmate/lib/screens/treatments/treatments_screen.dart').read_text(encoding='utf-8')
+          care_calendar = Path('caremate/lib/screens/calendar/calendar_screen.dart').read_text(encoding='utf-8')
+          care_view = Path('caremate/lib/screens/calendar/calendar_view.dart').read_text(encoding='utf-8')
+          care_events = Path('caremate/lib/screens/care_event_management_screen.dart').read_text(encoding='utf-8')
 
-          findings = []
-          for root in roots:
-              for path in root.rglob('*.dart'):
-                  lines = path.read_text(encoding='utf-8').splitlines()
-                  for number, line in enumerate(lines, 1):
-                      if any(pattern.search(line) for pattern in patterns):
-                          findings.append(f'{path}:{number}:{line.strip()}')
-
-          print('\n'.join(findings))
-          print(f'\nTOTAL_FINDINGS={len(findings)}')
+          assert "value: _text(plan['startDate'])" not in treatment
+          assert "value: _text(plan['endDate']" not in treatment
+          assert 'monthNamesFa' not in care_calendar
+          assert 'ژانویه' not in care_calendar
+          assert 'visibleCalendarMonthRange(context, _focusedMonth)' in care_calendar
+          assert "formatAppDate(\n                          context,\n                          _selectedDate" in care_calendar
+          assert "ValueKey('caremate-previous-month')" in care_view
+          assert 'Icons.chevron_right_rounded' in care_view
+          assert "ValueKey('caremate-next-month')" in care_view
+          assert 'Icons.chevron_left_rounded' in care_view
+          assert 'formatAppDate(context, parsedDate)' in care_events
+          print('Persian localization invariants passed.')
           PY
+
+      - name: Commit verified localization changes
+        if: github.actor != 'github-actions[bot]'
+        shell: bash
+        run: |
+          set -euo pipefail
+          if git diff --quiet; then
+            echo 'No generated changes to commit.'
+            exit 0
+          fi
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add \
+            wellmate/pubspec.yaml \
+            wellmate/lib/core/constants/app_version.dart \
+            wellmate/lib/screens/treatments/treatments_screen.dart \
+            wellmate/test/treatment_details_persian_localization_test.dart \
+            caremate/pubspec.yaml \
+            caremate/lib/core/constants/app_version.dart \
+            caremate/lib/core/utils/persian_date_utils.dart \
+            caremate/lib/screens/calendar/calendar_screen.dart \
+            caremate/lib/screens/calendar/calendar_view.dart \
+            caremate/lib/screens/calendar/schedule_card.dart \
+            caremate/lib/screens/care_event_management_screen.dart \
+            caremate/test/jalali_calendar_localization_test.dart
+          git commit -m 'fix: use Jalali dates and Persian digits across apps'
+          git push origin HEAD:${{ github.head_ref }}
