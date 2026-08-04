@@ -80,6 +80,7 @@ Widget _harness(Widget child, {SettingsProvider? settings}) {
       ChangeNotifierProvider.value(value: settings ?? SettingsProvider()),
     ],
     child: WellMateApp(
+      key: UniqueKey(),
       home: Scaffold(
         body: SingleChildScrollView(
           padding: const EdgeInsets.all(12),
