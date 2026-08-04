@@ -330,6 +330,7 @@ class _CurrentCareMateIdentityState extends State<_CurrentCareMateIdentity> {
               customBorder: const CircleBorder(),
               child: LifeMateProfileAvatar(
                 avatarKey: profile['avatarKey']?.toString(),
+                photoUrl: profile['profilePhotoUrl']?.toString(),
                 radius: 40,
               ),
             ),

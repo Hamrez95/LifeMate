@@ -3,6 +3,10 @@ import { createCareEventStore } from "./care_events.ts";
 import { type AuthUser, createLifeMateDatabase } from "./database.ts";
 import { corsHeaders, json, problem, safeError } from "./http.ts";
 import { createProfileStore } from "./profile.ts";
+import {
+  createProfilePhotoStorage,
+  profilePhotoMaximumBytes,
+} from "./profile_photo.ts";
 import { createWomenCalendarStore } from "./women_calendar.ts";
 import { loadRuntimeConfig } from "./runtime_config.ts";
 import { enforceRateLimit } from "./security.ts";
@@ -17,12 +21,17 @@ const {
   databaseUrl,
   supabaseUrl,
   publishableKey,
+  storageServiceKey,
   contactHashingSecret,
   releaseVersion,
 } = await loadRuntimeConfig();
 
 const db = createLifeMateDatabase(databaseUrl, contactHashingSecret);
 const profiles = createProfileStore(databaseUrl);
+const profilePhotos = createProfilePhotoStorage(
+  supabaseUrl,
+  storageServiceKey,
+);
 const careEvents = createCareEventStore(databaseUrl);
 const womenCalendar = createWomenCalendarStore(databaseUrl);
 const womenCalendarPilotEnabled =
@@ -103,20 +112,72 @@ async function route(
   const identity = await db.requireIdentity(auth);
 
   if (request.method === "GET" && path === "/api/v1/me") {
-    return json(await db.currentUser(identity));
+    const current = await db.currentUser(identity);
+    return json({
+      ...current,
+      profile: await presentProfile(identity.appUserId),
+    });
   }
   if (request.method === "GET" && path === "/api/v1/me/profile") {
-    return json(await profiles.getProfile(identity.appUserId));
+    return json(await presentProfile(identity.appUserId));
   }
   if (request.method === "PATCH" && path === "/api/v1/me/profile") {
     enforceRateLimit(`profile:${identity.appUserId}`, 20, 60 * 60_000);
-    return json(
-      await profiles.updateProfile(
-        identity.appUserId,
-        auth,
-        await readJsonObject(request),
-      ),
+    await profiles.updateProfile(
+      identity.appUserId,
+      auth,
+      await readJsonObject(request),
     );
+    return json(await presentProfile(identity.appUserId));
+  }
+  if (request.method === "PUT" && path === "/api/v1/me/profile/photo") {
+    enforceRateLimit(`profile-photo:${identity.appUserId}`, 8, 60 * 60_000);
+    const declaredLength = Number(request.headers.get("content-length") ?? 0);
+    if (
+      Number.isFinite(declaredLength) &&
+      declaredLength > profilePhotoMaximumBytes
+    ) {
+      throw new ApiError(
+        413,
+        "profile_photo_too_large",
+        "Profile photo must be no larger than 3 MB.",
+      );
+    }
+    const bytes = new Uint8Array(await request.arrayBuffer());
+    const nextPath = await profilePhotos.upload(
+      identity.appUserId,
+      bytes,
+      request.headers.get("content-type") ?? "",
+    );
+    let previousPath: string | null = null;
+    try {
+      previousPath = await profiles.replaceProfilePhotoPath(
+        identity.appUserId,
+        nextPath,
+      );
+    } catch (error) {
+      await profilePhotos.remove(nextPath).catch(() => undefined);
+      throw error;
+    }
+    if (previousPath != null && previousPath !== nextPath) {
+      await profilePhotos.remove(previousPath).catch(() => {
+        console.warn("Previous profile photo cleanup was deferred.");
+      });
+    }
+    return json(await presentProfile(identity.appUserId));
+  }
+  if (request.method === "DELETE" && path === "/api/v1/me/profile/photo") {
+    enforceRateLimit(`profile-photo:${identity.appUserId}`, 8, 60 * 60_000);
+    const previousPath = await profiles.replaceProfilePhotoPath(
+      identity.appUserId,
+      null,
+    );
+    if (previousPath != null) {
+      await profilePhotos.remove(previousPath).catch(() => {
+        console.warn("Deleted profile photo cleanup was deferred.");
+      });
+    }
+    return json(await presentProfile(identity.appUserId));
   }
   if (request.method === "GET" && path === "/api/v1/women-calendar/profile") {
     requireWomenCalendarPilot();
@@ -421,6 +482,24 @@ async function authenticate(request: Request): Promise<AuthUser> {
       ? value.user_metadata
       : {},
   };
+}
+
+async function presentProfile(
+  userId: string,
+): Promise<Record<string, unknown>> {
+  const profile = await profiles.getProfile(userId);
+  const objectPath = await profiles.getProfilePhotoPath(userId);
+  let profilePhotoUrl: string | null = null;
+  if (objectPath != null) {
+    try {
+      profilePhotoUrl = await profilePhotos.createSignedUrl(objectPath);
+    } catch {
+      // The avatar catalog remains a safe fallback during a transient storage
+      // outage; profile reads must not be taken down by image delivery.
+      profilePhotoUrl = null;
+    }
+  }
+  return { ...profile, profilePhotoUrl };
 }
 
 function requireWomenCalendarPilot(): void {

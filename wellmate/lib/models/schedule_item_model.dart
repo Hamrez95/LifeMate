@@ -11,6 +11,8 @@ class ScheduleItemModel {
   final DateTime? scheduledAtUtc;
   final DateTime? startDate;
   final int? intervalDays;
+  final int patientReminderMinutesBefore;
+  final int caregiverReminderMinutesBefore;
 
   ScheduleItemModel({
     required this.id,
@@ -24,6 +26,8 @@ class ScheduleItemModel {
     this.scheduledAtUtc,
     this.startDate,
     this.intervalDays,
+    this.patientReminderMinutesBefore = 30,
+    this.caregiverReminderMinutesBefore = 60,
     required this.frequency,
   });
 
@@ -42,9 +46,20 @@ class ScheduleItemModel {
           ? null
           : DateTime.tryParse(json['scheduledAtUtc'].toString())?.toUtc(),
       frequency: json['frequency'] ?? 'روزانه',
-      startDate:
-          json['startDate'] != null ? DateTime.parse(json['startDate']) : null,
+      startDate: json['startDate'] != null
+          ? DateTime.parse(json['startDate'])
+          : null,
       intervalDays: json['intervalDays'],
+      patientReminderMinutesBefore:
+          int.tryParse(
+            json['patientReminderMinutesBefore']?.toString() ?? '',
+          ) ??
+          30,
+      caregiverReminderMinutesBefore:
+          int.tryParse(
+            json['caregiverReminderMinutesBefore']?.toString() ?? '',
+          ) ??
+          60,
     );
   }
 
@@ -62,6 +77,8 @@ class ScheduleItemModel {
       'frequency': frequency,
       'startDate': startDate?.toIso8601String(),
       'intervalDays': intervalDays,
+      'patientReminderMinutesBefore': patientReminderMinutesBefore,
+      'caregiverReminderMinutesBefore': caregiverReminderMinutesBefore,
     };
   }
 
@@ -78,6 +95,8 @@ class ScheduleItemModel {
     String? frequency,
     DateTime? startDate,
     int? intervalDays,
+    int? patientReminderMinutesBefore,
+    int? caregiverReminderMinutesBefore,
   }) {
     return ScheduleItemModel(
       id: id ?? this.id,
@@ -92,6 +111,10 @@ class ScheduleItemModel {
       frequency: frequency ?? this.frequency,
       startDate: startDate ?? this.startDate,
       intervalDays: intervalDays ?? this.intervalDays,
+      patientReminderMinutesBefore:
+          patientReminderMinutesBefore ?? this.patientReminderMinutesBefore,
+      caregiverReminderMinutesBefore:
+          caregiverReminderMinutesBefore ?? this.caregiverReminderMinutesBefore,
     );
   }
 }

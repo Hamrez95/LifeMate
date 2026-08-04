@@ -4,6 +4,7 @@ export type RuntimeConfig = {
   databaseUrl: string;
   supabaseUrl: string;
   publishableKey: string;
+  storageServiceKey: string;
   contactHashingSecret: string;
   releaseVersion: string;
 };
@@ -97,7 +98,7 @@ export async function loadRuntimeConfig(): Promise<RuntimeConfig> {
   );
   const serviceRole = Deno.env.get(serviceRoleKeyName);
 
-  if (!databaseUrl || !supabaseUrl || !publishableKey) {
+  if (!databaseUrl || !supabaseUrl || !publishableKey || !serviceRole) {
     throw new Error("Required Supabase runtime configuration is missing.");
   }
 
@@ -130,6 +131,7 @@ export async function loadRuntimeConfig(): Promise<RuntimeConfig> {
     databaseUrl,
     supabaseUrl,
     publishableKey,
+    storageServiceKey: serviceRole,
     contactHashingSecret,
     releaseVersion,
   };

@@ -184,6 +184,10 @@ class _CareEventFormState extends State<_CareEventForm> {
   TimeOfDay _time = TimeOfDay.now();
   String _timeZone = 'Asia/Tehran';
   String _administrationRoute = 'intramuscular';
+  int _patientReminderMinutesBefore =
+      LifeMateReminderLeadTimes.defaultPatientMinutes;
+  int _caregiverReminderMinutesBefore =
+      LifeMateReminderLeadTimes.defaultCaregiverMinutes;
   String _clientRequestId = LifeMateApiClient.createClientRequestId();
   bool _loadingTimeZone = false;
   bool _busy = false;
@@ -276,6 +280,8 @@ class _CareEventFormState extends State<_CareEventForm> {
         scheduledLocalDate: _date,
         scheduledLocalTime: _timeValue,
         timeZone: _timeZone,
+        patientReminderMinutesBefore: _patientReminderMinutesBefore,
+        caregiverReminderMinutesBefore: _caregiverReminderMinutesBefore,
       );
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
@@ -320,6 +326,10 @@ class _CareEventFormState extends State<_CareEventForm> {
       _date = DateTime.now();
       _time = TimeOfDay.now();
       _administrationRoute = 'intramuscular';
+      _patientReminderMinutesBefore =
+          LifeMateReminderLeadTimes.defaultPatientMinutes;
+      _caregiverReminderMinutesBefore =
+          LifeMateReminderLeadTimes.defaultCaregiverMinutes;
       _clientRequestId = LifeMateApiClient.createClientRequestId();
       _error = null;
     });
@@ -528,6 +538,52 @@ class _CareEventFormState extends State<_CareEventForm> {
                     ],
                   );
                 },
+              ),
+              const SizedBox(height: 16),
+              DropdownButtonFormField<int>(
+                key: const ValueKey('care-event-patient-reminder-lead'),
+                initialValue: _patientReminderMinutesBefore,
+                isExpanded: true,
+                decoration: _decoration(
+                  label: 'یادآوری برای خودم',
+                  icon: Icons.notifications_active_rounded,
+                ),
+                items: [
+                  for (final minutes in LifeMateReminderLeadTimes.presets)
+                    DropdownMenuItem(
+                      value: minutes,
+                      child: Text(LifeMateReminderLeadTimes.label(minutes)),
+                    ),
+                ],
+                onChanged: _busy
+                    ? null
+                    : (value) => setState(() {
+                        _patientReminderMinutesBefore =
+                            value ?? _patientReminderMinutesBefore;
+                      }),
+              ),
+              const SizedBox(height: 12),
+              DropdownButtonFormField<int>(
+                key: const ValueKey('care-event-caregiver-reminder-lead'),
+                initialValue: _caregiverReminderMinutesBefore,
+                isExpanded: true,
+                decoration: _decoration(
+                  label: 'یادآوری برای مراقب',
+                  icon: Icons.family_restroom_rounded,
+                ),
+                items: [
+                  for (final minutes in LifeMateReminderLeadTimes.presets)
+                    DropdownMenuItem(
+                      value: minutes,
+                      child: Text(LifeMateReminderLeadTimes.label(minutes)),
+                    ),
+                ],
+                onChanged: _busy
+                    ? null
+                    : (value) => setState(() {
+                        _caregiverReminderMinutesBefore =
+                            value ?? _caregiverReminderMinutesBefore;
+                      }),
               ),
               const SizedBox(height: 12),
               TextFormField(

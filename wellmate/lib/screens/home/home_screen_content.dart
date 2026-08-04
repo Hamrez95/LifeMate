@@ -107,14 +107,25 @@ class _HomeScreenContentState extends State<HomeScreenContent> {
                 ? today
                 : DateTime.tryParse(dose['scheduledLocalDate'].toString()),
             intervalDays: 1,
+            patientReminderMinutesBefore: LifeMateReminderLeadTimes.normalize(
+              dose['patientReminderMinutesBefore'],
+              fallback: LifeMateReminderLeadTimes.defaultPatientMinutes,
+            ),
+            caregiverReminderMinutesBefore: LifeMateReminderLeadTimes.normalize(
+              dose['caregiverReminderMinutesBefore'],
+              fallback: LifeMateReminderLeadTimes.defaultCaregiverMinutes,
+            ),
           );
         }),
         ...careEvents.map((event) {
           final eventType = event['eventType']?.toString().toLowerCase();
           final type = eventType == 'injection' ? 'injection' : 'appointment';
           final rawTime = event['scheduledLocalTime']?.toString() ?? '--:--';
-          final status =
+          final rawStatus =
               event['status']?.toString().toLowerCase() ?? 'scheduled';
+          final status = rawStatus == 'scheduled' && _isPastCareEvent(event)
+              ? 'missed'
+              : rawStatus;
           final details = <String>[
             if (type == 'appointment')
               _nonEmpty(event['providerName']) ??
@@ -139,6 +150,14 @@ class _HomeScreenContentState extends State<HomeScreenContent> {
               event['scheduledLocalDate']?.toString() ?? '',
             ),
             intervalDays: 1,
+            patientReminderMinutesBefore: LifeMateReminderLeadTimes.normalize(
+              event['patientReminderMinutesBefore'],
+              fallback: LifeMateReminderLeadTimes.defaultPatientMinutes,
+            ),
+            caregiverReminderMinutesBefore: LifeMateReminderLeadTimes.normalize(
+              event['caregiverReminderMinutesBefore'],
+              fallback: LifeMateReminderLeadTimes.defaultCaregiverMinutes,
+            ),
           );
         }),
       ]..sort(_compareOccurrence);
@@ -165,12 +184,14 @@ class _HomeScreenContentState extends State<HomeScreenContent> {
               })
               .toList(growable: false)
             ..sort(_compareOccurrence);
-      final missedMedicine = actionable.where(
-        (item) => item.type == 'medicine' && item.status == 'missed',
-      );
+      final missedOccurrences =
+          actionable
+              .where((item) => item.status == 'missed')
+              .toList(growable: false)
+            ..sort(_compareOccurrence);
       final nextOccurrence = future.isNotEmpty
           ? future.first
-          : (missedMedicine.isNotEmpty ? missedMedicine.first : null);
+          : (missedOccurrences.isNotEmpty ? missedOccurrences.first : null);
 
       if (!mounted) return;
       setState(() {
@@ -184,18 +205,17 @@ class _HomeScreenContentState extends State<HomeScreenContent> {
       final medicineToday = todayItems
           .where((item) => item.type == 'medicine')
           .toList(growable: false);
-      final medicineReminderWindow = allItems
-          .where(
-            (item) =>
-                item.type == 'medicine' &&
-                item.status == 'scheduled' &&
-                item.scheduledAtUtc?.isAfter(DateTime.now().toUtc()) == true,
-          )
+      final reminderWindow = allItems
+          .where((item) {
+            if (item.status != 'scheduled') return false;
+            final scheduled = _scheduledDateTime(item);
+            return scheduled != null && scheduled.isAfter(DateTime.now());
+          })
           .toList(growable: false);
       context.read<MedicationProvider>().setMedications(medicineToday);
       try {
-        await context.read<NotificationProvider>().syncDoseReminders(
-          medicineReminderWindow,
+        await context.read<NotificationProvider>().syncReminders(
+          reminderWindow,
           timeZone: profile['timeZone']?.toString() ?? 'Asia/Tehran',
           isPersian: Localizations.localeOf(context).languageCode == 'fa',
         );
@@ -364,6 +384,7 @@ class _HomeScreenContentState extends State<HomeScreenContent> {
                     )
                   : _UpcomingCareEventCard(
                       item: nextItem,
+                      isMissed: nextItem.status == 'missed',
                       secondsLeft: _calculateSecondsLeft(nextItem),
                       assetPath: _getAssetPath(nextItem.type),
                       font: font,
@@ -416,9 +437,7 @@ class _HomeScreenContentState extends State<HomeScreenContent> {
                                     const SizedBox(height: 12),
                                 itemBuilder: (context, index) {
                                   final item = visibleToday[index];
-                                  final missed =
-                                      item.type == 'medicine' &&
-                                      item.status == 'missed';
+                                  final missed = item.status == 'missed';
                                   return SoftScheduleCard(
                                     item: item,
                                     index: index,
@@ -447,6 +466,25 @@ class _HomeScreenContentState extends State<HomeScreenContent> {
   static String? _nonEmpty(dynamic value) {
     final text = value?.toString().trim();
     return text == null || text.isEmpty ? null : text;
+  }
+
+  static bool _isPastCareEvent(Map<String, dynamic> event) {
+    final date = DateTime.tryParse(
+      event['scheduledLocalDate']?.toString() ?? '',
+    );
+    final parts =
+        event['scheduledLocalTime']?.toString().split(':') ?? const [];
+    if (date == null || parts.length < 2) return false;
+    final hour = int.tryParse(parts[0]);
+    final minute = int.tryParse(parts[1]);
+    if (hour == null || minute == null) return false;
+    return DateTime(
+      date.year,
+      date.month,
+      date.day,
+      hour,
+      minute,
+    ).isBefore(DateTime.now());
   }
 
   static DateTime? _scheduledDateTime(ScheduleItemModel item) {
@@ -478,12 +516,14 @@ class _HomeScreenContentState extends State<HomeScreenContent> {
 class _UpcomingCareEventCard extends StatelessWidget {
   const _UpcomingCareEventCard({
     required this.item,
+    required this.isMissed,
     required this.secondsLeft,
     required this.assetPath,
     required this.font,
   });
 
   final ScheduleItemModel item;
+  final bool isMissed;
   final int secondsLeft;
   final String assetPath;
   final TextStyle font;
@@ -503,8 +543,9 @@ class _UpcomingCareEventCard extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(22),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: isMissed ? Colors.red.shade50 : Colors.white,
         borderRadius: BorderRadius.circular(28),
+        border: isMissed ? Border.all(color: Colors.red.shade200) : null,
         boxShadow: [
           BoxShadow(
             color: AppColors.shadowDark.withValues(alpha: 0.35),
@@ -565,9 +606,10 @@ class _UpcomingCareEventCard extends StatelessWidget {
                 ],
                 const SizedBox(height: 8),
                 Text(
-                  '${item.time} • ${_countdown(persian)}'.toPersianDigit(
-                    persian,
-                  ),
+                  (isMissed
+                          ? '${item.time} • زمان برنامه گذشته است'
+                          : '${item.time} • ${_countdown(persian)}')
+                      .toPersianDigit(persian),
                   style: font.copyWith(fontWeight: FontWeight.w800),
                 ),
               ],

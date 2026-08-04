@@ -375,6 +375,7 @@ class _CurrentUserIdentityState extends State<_CurrentUserIdentity> {
                     customBorder: const CircleBorder(),
                     child: LifeMateProfileAvatar(
                       avatarKey: profile['avatarKey']?.toString(),
+                      photoUrl: profile['profilePhotoUrl']?.toString(),
                       radius: 36,
                     ),
                   ),

@@ -46,20 +46,22 @@ class CareNotificationProvider extends ChangeNotifier {
 
     final pending = await _notifications.pendingNotificationRequests();
     for (final request in pending) {
-      if (request.payload?.startsWith('care-dose:') == true) {
+      if (request.payload?.startsWith('care-reminder:') == true ||
+          request.payload?.startsWith('care-dose:') == true) {
         await _notifications.cancel(request.id);
       }
     }
     final reminders = selectEarliestReminderPerPatient(candidates);
     for (final reminder in reminders) {
       final localTime = tz.TZDateTime.from(reminder.scheduledAtUtc, tz.local);
+      final triggerTime = tz.TZDateTime.from(reminder.triggerAtUtc, tz.local);
       final timeText =
           '${localTime.hour.toString().padLeft(2, '0')}:'
                   '${localTime.minute.toString().padLeft(2, '0')}'
               .toPersianDigit(isPersian);
       final title = isPersian
-          ? 'داروی بعدی ${reminder.patientName.toPersianDigit(true)}'
-          : '${reminder.patientName} next medicine';
+          ? '${_kindTitle(reminder.kind)} ${reminder.patientName.toPersianDigit(true)}'
+          : '${reminder.patientName} upcoming ${reminder.kind}';
       final detail = [
         reminder.medicationName,
         if (reminder.doseText.trim().isNotEmpty) reminder.doseText.trim(),
@@ -70,13 +72,13 @@ class CareNotificationProvider extends ChangeNotifier {
         _notificationId(reminder.patientUserId),
         title,
         detail,
-        localTime,
+        triggerTime,
         const NotificationDetails(
           android: AndroidNotificationDetails(
-            'caremate_next_dose',
-            'داروی بعدی افراد تحت مراقبت',
+            'caremate_next_treatment',
+            'برنامه بعدی افراد تحت مراقبت',
             channelDescription:
-                'فقط نزدیک‌ترین داروی هر فرد تحت مراقبت در CareMate',
+                'نزدیک‌ترین یادآور دارو، ویزیت یا تزریق هر فرد در CareMate',
             importance: Importance.high,
             priority: Priority.high,
             category: AndroidNotificationCategory.reminder,
@@ -84,10 +86,17 @@ class CareNotificationProvider extends ChangeNotifier {
           ),
         ),
         androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
-        payload: 'care-dose:${reminder.patientUserId}:${reminder.doseId}',
+        payload:
+            'care-reminder:${reminder.patientUserId}:${reminder.kind}:${reminder.doseId}',
       );
     }
   }
+
+  static String _kindTitle(String kind) => switch (kind) {
+    'appointment' => 'ویزیت بعدی',
+    'injection' => 'تزریق بعدی',
+    _ => 'داروی بعدی',
+  };
 
   static int _notificationId(String value) {
     var hash = 0x811c9dc5;

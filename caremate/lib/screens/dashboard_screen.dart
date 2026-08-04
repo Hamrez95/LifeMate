@@ -157,6 +157,47 @@ class _DashboardScreenState extends State<DashboardScreen> {
               medicationName: dose['medicationName']?.toString() ?? 'دارو',
               doseText: dose['doseText']?.toString() ?? '',
               scheduledAtUtc: scheduled,
+              reminderMinutesBefore: LifeMateReminderLeadTimes.normalize(
+                dose['caregiverReminderMinutesBefore'],
+                fallback: LifeMateReminderLeadTimes.defaultCaregiverMinutes,
+              ),
+            ),
+          );
+        }
+        final careEvents = await context
+            .read<LifeMateApiClient>()
+            .getCareRecipientCareEvents(
+              patientUserId: patientUserId,
+              fromDate: now,
+              toDate: toDate,
+            );
+        for (final event in careEvents) {
+          if (event['status']?.toString() != 'scheduled') continue;
+          final scheduled = DateTime.tryParse(
+            event['scheduledAtUtc']?.toString() ?? '',
+          )?.toUtc();
+          if (scheduled == null || !scheduled.isAfter(DateTime.now().toUtc())) {
+            continue;
+          }
+          final kind =
+              event['eventType']?.toString().toLowerCase() == 'injection'
+              ? 'injection'
+              : 'appointment';
+          candidates.add(
+            CareRecipientReminder(
+              patientUserId: patientUserId,
+              patientName: patientName,
+              doseId: event['id'].toString(),
+              medicationName:
+                  event['title']?.toString() ??
+                  (kind == 'injection' ? 'تزریق' : 'ویزیت'),
+              doseText: event['centerName']?.toString() ?? '',
+              scheduledAtUtc: scheduled,
+              reminderMinutesBefore: LifeMateReminderLeadTimes.normalize(
+                event['caregiverReminderMinutesBefore'],
+                fallback: LifeMateReminderLeadTimes.defaultCaregiverMinutes,
+              ),
+              kind: kind,
             ),
           );
         }

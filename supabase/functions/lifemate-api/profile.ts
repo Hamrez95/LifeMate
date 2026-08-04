@@ -58,6 +58,7 @@ export function createProfileStore(databaseUrl: string) {
     prepare: false,
   });
   let versionColumnPromise: Promise<boolean> | null = null;
+  let photoColumnPromise: Promise<boolean> | null = null;
 
   function hasVersionColumn(): Promise<boolean> {
     versionColumnPromise ??= sql`
@@ -70,6 +71,104 @@ export function createProfileStore(databaseUrl: string) {
       ) as present
     `.then((rows: Row[]) => rows[0]?.present === true);
     return versionColumnPromise;
+  }
+
+  function hasPhotoColumn(): Promise<boolean> {
+    photoColumnPromise ??= sql`
+      select exists (
+        select 1
+        from information_schema.columns
+        where table_schema = 'lifemate'
+          and table_name = 'user_profiles'
+          and column_name = 'profile_photo_path'
+      ) as present
+    `.then((rows: Row[]) => rows[0]?.present === true);
+    return photoColumnPromise;
+  }
+
+  async function getProfilePhotoPath(userId: string): Promise<string | null> {
+    if (!(await hasPhotoColumn())) return null;
+    const rows = await sql`
+      select profile_photo_path
+      from lifemate.user_profiles
+      where user_id = ${userId}
+      limit 1
+    `;
+    if (!rows[0]) {
+      throw new ApiError(404, "profile_missing", "User profile was not found.");
+    }
+    const value = rows[0].profile_photo_path;
+    return typeof value === "string" && value.length > 0 ? value : null;
+  }
+
+  async function replaceProfilePhotoPath(
+    userId: string,
+    nextPath: string | null,
+  ): Promise<string | null> {
+    if (!(await hasPhotoColumn())) {
+      throw new ApiError(
+        503,
+        "profile_photo_not_ready",
+        "Profile photo storage is not ready for this environment.",
+      );
+    }
+    if (nextPath != null && !nextPath.startsWith(`${userId}/`)) {
+      throw new ApiError(
+        400,
+        "invalid_profile_photo_path",
+        "Profile photo path does not belong to the current user.",
+      );
+    }
+    const usesVersionColumn = await hasVersionColumn();
+    return await sql.begin(async (tx: any) => {
+      const current = await tx`
+        select id, profile_photo_path
+        from lifemate.user_profiles
+        where user_id = ${userId}
+        for update
+      `;
+      if (!current[0]) {
+        throw new ApiError(
+          404,
+          "profile_missing",
+          "User profile was not found.",
+        );
+      }
+      const previous = typeof current[0].profile_photo_path === "string"
+        ? current[0].profile_photo_path
+        : null;
+      if (usesVersionColumn) {
+        await tx`
+          update lifemate.user_profiles
+          set profile_photo_path = ${nextPath},
+              version = version + 1,
+              updated_at_utc = now()
+          where user_id = ${userId}
+        `;
+      } else {
+        await tx`
+          update lifemate.user_profiles
+          set profile_photo_path = ${nextPath},
+              updated_at_utc = greatest(
+                now(),
+                updated_at_utc + interval '1 millisecond'
+              )
+          where user_id = ${userId}
+        `;
+      }
+      await tx`
+        insert into lifemate.audit_logs
+          (id, actor_user_id, action, resource_type, resource_id,
+           metadata_json, created_at_utc)
+        values
+          (${crypto.randomUUID()}, ${userId},
+           ${
+        nextPath == null ? "profile.photo_deleted" : "profile.photo_updated"
+      },
+           'user_profile', ${current[0].id}, null, now())
+      `;
+      return previous;
+    });
   }
 
   async function getProfile(userId: string): Promise<Record<string, unknown>> {
@@ -185,7 +284,12 @@ export function createProfileStore(databaseUrl: string) {
     });
   }
 
-  return { getProfile, updateProfile };
+  return {
+    getProfile,
+    updateProfile,
+    getProfilePhotoPath,
+    replaceProfilePhotoPath,
+  };
 }
 
 function optionalAvatarKey(value: unknown): string | null {

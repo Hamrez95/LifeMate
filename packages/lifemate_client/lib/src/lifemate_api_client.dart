@@ -1,8 +1,11 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:math';
+import 'dart:typed_data';
 
 import 'package:http/http.dart' as http;
+
+import 'reminder_lead_time.dart';
 
 typedef AccessTokenProvider = String? Function();
 
@@ -77,6 +80,21 @@ class LifeMateApiClient {
   Future<Map<String, dynamic>> getCurrentProfile() async =>
       _asObject(await _send('GET', '/api/v1/me/profile', retryable: true));
 
+  Future<Map<String, dynamic>> uploadCurrentProfilePhoto({
+    required Uint8List bytes,
+    required String contentType,
+  }) async => _asObject(
+    await _sendBinary(
+      'PUT',
+      '/api/v1/me/profile/photo',
+      bytes: bytes,
+      contentType: contentType,
+    ),
+  );
+
+  Future<Map<String, dynamic>> deleteCurrentProfilePhoto() async =>
+      _asObject(await _send('DELETE', '/api/v1/me/profile/photo'));
+
   Future<Map<String, dynamic>> updateCurrentProfile({
     required int version,
     required String displayName,
@@ -131,6 +149,10 @@ class LifeMateApiClient {
     required String timeZone,
     required List<Map<String, String>> schedules,
     String? instructions,
+    int patientReminderMinutesBefore =
+        LifeMateReminderLeadTimes.defaultPatientMinutes,
+    int caregiverReminderMinutesBefore =
+        LifeMateReminderLeadTimes.defaultCaregiverMinutes,
   }) async => _asObject(
     await _send(
       'POST',
@@ -143,6 +165,8 @@ class LifeMateApiClient {
         'endDate': endDate == null ? null : _date(endDate),
         'timeZone': timeZone,
         'schedules': schedules,
+        'patientReminderMinutesBefore': patientReminderMinutesBefore,
+        'caregiverReminderMinutesBefore': caregiverReminderMinutesBefore,
       },
     ),
   );
@@ -172,6 +196,10 @@ class LifeMateApiClient {
     String? centerName,
     String? addressLine,
     String? phoneNumber,
+    int patientReminderMinutesBefore =
+        LifeMateReminderLeadTimes.defaultPatientMinutes,
+    int caregiverReminderMinutesBefore =
+        LifeMateReminderLeadTimes.defaultCaregiverMinutes,
   }) async => _asObject(
     await _send(
       'POST',
@@ -193,6 +221,8 @@ class LifeMateApiClient {
         'scheduledLocalDate': _date(scheduledLocalDate),
         'scheduledLocalTime': scheduledLocalTime.trim(),
         'timeZone': timeZone.trim(),
+        'patientReminderMinutesBefore': patientReminderMinutesBefore,
+        'caregiverReminderMinutesBefore': caregiverReminderMinutesBefore,
       },
       retryable: true,
     ),
@@ -411,6 +441,51 @@ class LifeMateApiClient {
       throw const FormatException('LifeMate API returned a non-list payload.');
     }
     return value.map(_asObject).toList(growable: false);
+  }
+
+  Future<dynamic> _sendBinary(
+    String method,
+    String path, {
+    required Uint8List bytes,
+    required String contentType,
+  }) async {
+    final token = _accessToken();
+    if (token == null || token.isEmpty) {
+      throw const LifeMateApiException(
+        statusCode: 401,
+        code: 'session_missing',
+        message: 'Authentication session is missing.',
+      );
+    }
+    if (method != 'PUT') {
+      throw ArgumentError.value(method, 'method', 'Unsupported binary method');
+    }
+    try {
+      final response = await _http
+          .put(
+            _resolve(path),
+            headers: {
+              'Accept': 'application/json',
+              'Authorization': 'Bearer $token',
+              'Content-Type': contentType,
+            },
+            body: bytes,
+          )
+          .timeout(_requestTimeout);
+      return _decodeResponse(response);
+    } on TimeoutException {
+      throw const LifeMateApiException(
+        statusCode: 0,
+        code: 'network_timeout',
+        message: 'LifeMate request timed out.',
+      );
+    } on http.ClientException {
+      throw const LifeMateApiException(
+        statusCode: 0,
+        code: 'network_unavailable',
+        message: 'LifeMate service is unavailable.',
+      );
+    }
   }
 
   Future<dynamic> _send(

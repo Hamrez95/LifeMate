@@ -47,6 +47,10 @@ class _TabbedAddTreatmentScreenState extends State<TabbedAddTreatmentScreen> {
   String _timeZone = 'Asia/Tehran';
   String _form = 'tablet';
   String _frequency = 'daily';
+  int _patientReminderMinutesBefore =
+      LifeMateReminderLeadTimes.defaultPatientMinutes;
+  int _caregiverReminderMinutesBefore =
+      LifeMateReminderLeadTimes.defaultCaregiverMinutes;
   bool _busy = false;
   bool _profileTimeZoneRequested = false;
   String? _error;
@@ -217,6 +221,8 @@ class _TabbedAddTreatmentScreenState extends State<TabbedAddTreatmentScreen> {
         endDate: _endDate,
         timeZone: _timeZone,
         schedules: schedules,
+        patientReminderMinutesBefore: _patientReminderMinutesBefore,
+        caregiverReminderMinutesBefore: _caregiverReminderMinutesBefore,
       );
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
@@ -252,6 +258,10 @@ class _TabbedAddTreatmentScreenState extends State<TabbedAddTreatmentScreen> {
       _endDate = null;
       _form = 'tablet';
       _frequency = 'daily';
+      _patientReminderMinutesBefore =
+          LifeMateReminderLeadTimes.defaultPatientMinutes;
+      _caregiverReminderMinutesBefore =
+          LifeMateReminderLeadTimes.defaultCaregiverMinutes;
       _selectedWeekdays
         ..clear()
         ..addAll(_backendWeekdays.keys);
@@ -441,6 +451,57 @@ class _TabbedAddTreatmentScreenState extends State<TabbedAddTreatmentScreen> {
                             : () => setState(() => _endDate = null),
                         icon: const Icon(Icons.close_rounded),
                       ),
+              ),
+              const SizedBox(height: 16),
+              const Text(
+                'زمان یادآوری',
+                style: TextStyle(fontWeight: FontWeight.w800),
+              ),
+              const SizedBox(height: 8),
+              DropdownButtonFormField<int>(
+                key: const ValueKey('patient-reminder-lead'),
+                initialValue: _patientReminderMinutesBefore,
+                isExpanded: true,
+                decoration: _decoration(
+                  label: 'یادآوری برای خودم',
+                  icon: Icons.notifications_active_rounded,
+                ),
+                items: [
+                  for (final minutes in LifeMateReminderLeadTimes.presets)
+                    DropdownMenuItem(
+                      value: minutes,
+                      child: Text(LifeMateReminderLeadTimes.label(minutes)),
+                    ),
+                ],
+                onChanged: _busy
+                    ? null
+                    : (value) => setState(() {
+                        _patientReminderMinutesBefore =
+                            value ?? _patientReminderMinutesBefore;
+                      }),
+              ),
+              const SizedBox(height: 12),
+              DropdownButtonFormField<int>(
+                key: const ValueKey('caregiver-reminder-lead'),
+                initialValue: _caregiverReminderMinutesBefore,
+                isExpanded: true,
+                decoration: _decoration(
+                  label: 'یادآوری برای مراقب',
+                  icon: Icons.family_restroom_rounded,
+                ),
+                items: [
+                  for (final minutes in LifeMateReminderLeadTimes.presets)
+                    DropdownMenuItem(
+                      value: minutes,
+                      child: Text(LifeMateReminderLeadTimes.label(minutes)),
+                    ),
+                ],
+                onChanged: _busy
+                    ? null
+                    : (value) => setState(() {
+                        _caregiverReminderMinutesBefore =
+                            value ?? _caregiverReminderMinutesBefore;
+                      }),
               ),
               const SizedBox(height: 12),
               DropdownButtonFormField<String>(

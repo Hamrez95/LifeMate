@@ -5,6 +5,7 @@ import 'package:provider/provider.dart';
 import '../../core/theme/app_style.dart';
 import '../../core/widgets/wellmate_app_header.dart';
 import '../../core/widgets/wellmate_bottom_nav.dart';
+import '../../models/schedule_item_model.dart';
 import '../calendar/calendar_screen.dart';
 import '../profile/profile_screen.dart';
 import '../treatments/care_plan_hub_screen.dart';
@@ -68,6 +69,43 @@ class _HomeScreenState extends State<HomeScreen> {
     });
   }
 
+  Future<bool> _reportMissedDoseFromHeader(ScheduleItemModel item) async {
+    try {
+      await context.read<LifeMateApiClient>().reportDose(
+        occurrenceId: item.id,
+        clientRequestId: LifeMateApiClient.createClientRequestId(),
+        version: item.version,
+        status: 'taken',
+        occurredAtUtc: DateTime.now().toUtc(),
+      );
+      if (!mounted) return true;
+      setState(() => _refreshToken++);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('${item.title} به عنوان مصرف‌شده ثبت شد.')),
+      );
+      return true;
+    } on LifeMateApiException catch (error) {
+      if (!mounted) return false;
+      final message = error.code == 'stale_dose_occurrence'
+          ? 'وضعیت دارو تغییر کرده است؛ برنامه تازه‌سازی شد.'
+          : 'ثبت مصرف انجام نشد؛ دوباره تلاش کنید.';
+      setState(() => _refreshToken++);
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(message)));
+      return false;
+    } catch (_) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('ثبت مصرف انجام نشد؛ اتصال را بررسی کنید.'),
+          ),
+        );
+      }
+      return false;
+    }
+  }
+
   void _onItemTapped(int index) {
     if (index == 3 && !_womenCalendarEnabled) return;
     setState(() => _currentIndex = index);
@@ -94,6 +132,7 @@ class _HomeScreenState extends State<HomeScreen> {
         child: Column(
           children: [
             WellMateAppHeader(
+              onMissedMedicationTaken: _reportMissedDoseFromHeader,
               onProfileTap: () async {
                 await Navigator.push<void>(
                   context,
