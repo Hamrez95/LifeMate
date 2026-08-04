@@ -39,9 +39,9 @@ int _compareReminder(
   CareRecipientReminder left,
   CareRecipientReminder right,
 ) {
-  final byTime = left.scheduledAtUtc
-      .toUtc()
-      .compareTo(right.scheduledAtUtc.toUtc());
+  final byTime = left.scheduledAtUtc.toUtc().compareTo(
+    right.scheduledAtUtc.toUtc(),
+  );
   if (byTime != 0) return byTime;
   final byPatient = left.patientUserId.compareTo(right.patientUserId);
   if (byPatient != 0) return byPatient;
