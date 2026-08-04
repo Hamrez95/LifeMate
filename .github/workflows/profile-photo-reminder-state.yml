@@ -137,8 +137,10 @@ jobs:
           set -euo pipefail
           grep -q 'onMissedMedicationTaken' wellmate/lib/core/widgets/wellmate_app_header.dart
           grep -q 'reportDose' wellmate/lib/screens/home/home_screen.dart
-          grep -q "final missed = item.status == 'missed'" wellmate/lib/screens/home/home_screen_content.dart
-          grep -q "final isMissed = item.status == 'missed'" wellmate/lib/screens/calendar/calendar_screen.dart
+          grep -q 'final missed' wellmate/lib/screens/home/home_screen_content.dart
+          grep -q "item.status == 'missed'" wellmate/lib/screens/home/home_screen_content.dart
+          grep -q 'final isMissed' wellmate/lib/screens/calendar/calendar_screen.dart
+          grep -q "item.status == 'missed'" wellmate/lib/screens/calendar/calendar_screen.dart
           grep -q 'effective_status' supabase/functions/lifemate-api/care_events.ts
           grep -q 'patientReminderMinutesBefore' wellmate/lib/screens/treatments/add_treatment_screen.dart
           grep -q 'caregiverReminderMinutesBefore' wellmate/lib/screens/treatments/care_plan_hub_screen.dart
