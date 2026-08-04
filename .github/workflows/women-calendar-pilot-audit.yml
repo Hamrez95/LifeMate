@@ -18,7 +18,7 @@ concurrency:
 jobs:
   apply-verify-commit:
     runs-on: ubuntu-24.04
-    timeout-minutes: 55
+    timeout-minutes: 60
     services:
       postgres:
         image: postgres:17.5-alpine
@@ -89,6 +89,8 @@ jobs:
           python3 tools/hotfix/apply_caremate_log_redaction.py
           python3 tools/hotfix/apply_women_calendar_episode_editor.py
           python3 tools/hotfix/apply_women_calendar_delete_profile_fix.py
+          python3 tools/hotfix/apply_profile_avatar_selection.py
+          python3 tools/hotfix/apply_profile_avatar_selection_fix.py
 
       - name: Format generated and modified sources
         shell: bash
@@ -98,16 +100,22 @@ jobs:
             packages/lifemate_client/lib/lifemate_client.dart \
             packages/lifemate_client/lib/src/feature_flags.dart \
             packages/lifemate_client/lib/src/lifemate_api_client.dart \
+            packages/lifemate_client/lib/src/profile_avatar.dart \
             packages/lifemate_client/lib/src/women_calendar.dart \
+            packages/lifemate_client/test/profile_api_client_test.dart \
+            packages/lifemate_client/test/profile_avatar_test.dart \
             packages/lifemate_client/test/women_calendar_api_client_test.dart \
             packages/lifemate_client/test/women_calendar_test.dart \
+            wellmate/lib/core/widgets/wellmate_app_header.dart \
             wellmate/lib/core/widgets/wellmate_bottom_nav.dart \
             wellmate/lib/providers/notification_provider.dart \
             wellmate/lib/screens/home/home_screen.dart \
             wellmate/lib/screens/home/home_screen_content.dart \
             wellmate/lib/screens/profile/care_access_screen.dart \
             wellmate/lib/screens/profile/care_access_settings_screen.dart \
+            wellmate/lib/screens/profile/editable_profile_screen.dart \
             wellmate/lib/screens/profile/profile_destination_screens.dart \
+            wellmate/lib/screens/profile/profile_screen.dart \
             wellmate/lib/screens/women_calendar/women_calendar_month_card.dart \
             wellmate/lib/screens/women_calendar/women_calendar_screen.dart \
             wellmate/test/bottom_navigation_accessibility_test.dart \
@@ -117,11 +125,18 @@ jobs:
             caremate/lib/models/care_recipient_reminder.dart \
             caremate/lib/providers/care_notification_provider.dart \
             caremate/lib/screens/dashboard_screen.dart \
+            caremate/lib/screens/editable_profile_screen.dart \
+            caremate/lib/screens/profile_screen.dart \
             caremate/lib/screens/women_calendar/care_women_calendar_screen.dart \
+            caremate/lib/widgets/custom_app_header.dart \
+            caremate/lib/widgets/custom_ui_components.dart \
             caremate/test/care_recipient_reminder_test.dart
           deno fmt \
             supabase/functions/lifemate-api/index.ts \
             supabase/functions/lifemate-api/database.ts \
+            supabase/functions/lifemate-api/profile.ts \
+            supabase/functions/lifemate-api/profile_test.ts \
+            supabase/functions/lifemate-api/profile_integration_test.ts \
             supabase/functions/lifemate-api/women_calendar.ts \
             supabase/functions/lifemate-api/women_calendar_test.ts \
             supabase/functions/lifemate-api/women_calendar_integration_test.ts
@@ -177,7 +192,8 @@ jobs:
             supabase/migrations/20260803173000_add_consent_scoped_care_events.sql \
             supabase/migrations/20260804002000_lock_down_public_health_status.sql \
             supabase/migrations/20260804003000_add_user_profile_version.sql \
-            supabase/migrations/20260804130000_add_women_calendar_pilot.sql
+            supabase/migrations/20260804130000_add_women_calendar_pilot.sql \
+            supabase/migrations/20260804213000_add_profile_avatar_key.sql
           do
             psql "$TEST_DATABASE_URL" --set=ON_ERROR_STOP=1 --file="$migration"
           done
@@ -189,7 +205,7 @@ jobs:
           set -euo pipefail
           deno task test:integration
 
-      - name: Enforce feature privacy and notification invariants
+      - name: Enforce feature privacy profile and notification invariants
         shell: bash
         run: |
           set -euo pipefail
@@ -213,6 +229,18 @@ jobs:
           grep -q "تقویم بانوان" wellmate/lib/core/widgets/wellmate_bottom_nav.dart
           grep -q "حمایت‌های غیرپزشکی" caremate/lib/screens/women_calendar/care_women_calendar_screen.dart
           grep -q "تاریخ‌ها تخمینی هستند و جایگزین نظر پزشک نیستند" wellmate/lib/screens/women_calendar/women_calendar_screen.dart
+
+          grep -q "avatar_key character varying(32)" supabase/migrations/20260804213000_add_profile_avatar_key.sql
+          grep -q "default 'person_blue'" supabase/migrations/20260804213000_add_profile_avatar_key.sql
+          grep -q "invalid_avatar_key" supabase/functions/lifemate-api/profile.ts
+          grep -q "avatarKey" packages/lifemate_client/lib/src/lifemate_api_client.dart
+          grep -q "LifeMateAvatarPicker" wellmate/lib/screens/profile/editable_profile_screen.dart
+          grep -q "LifeMateAvatarPicker" caremate/lib/screens/editable_profile_screen.dart
+          grep -q "metadata_json, null" supabase/functions/lifemate-api/profile.ts
+          ! grep -q "mother_avatar.png" wellmate/lib/screens/profile/profile_screen.dart
+          ! grep -q "mother_avatar.png" wellmate/lib/core/widgets/wellmate_app_header.dart
+          ! grep -q "assets/images/Caregiver.png" caremate/lib/screens/profile_screen.dart
+          ! grep -q "assets/images/Caregiver.png" caremate/lib/widgets/custom_ui_components.dart
 
           if grep -q "cancelAll" caremate/lib/providers/care_notification_provider.dart; then
             echo '::error::CareMate reminder resync must not cancel unrelated notifications.'
@@ -256,35 +284,50 @@ jobs:
             caremate/lib/models/care_recipient_reminder.dart
             caremate/lib/providers/care_notification_provider.dart
             caremate/lib/screens/dashboard_screen.dart
+            caremate/lib/screens/editable_profile_screen.dart
+            caremate/lib/screens/profile_screen.dart
             caremate/lib/screens/women_calendar/care_women_calendar_screen.dart
+            caremate/lib/widgets/custom_app_header.dart
+            caremate/lib/widgets/custom_ui_components.dart
             caremate/pubspec.yaml
             caremate/pubspec.lock
             caremate/test/care_recipient_reminder_test.dart
             packages/lifemate_client/lib/lifemate_client.dart
             packages/lifemate_client/lib/src/feature_flags.dart
             packages/lifemate_client/lib/src/lifemate_api_client.dart
+            packages/lifemate_client/lib/src/profile_avatar.dart
             packages/lifemate_client/lib/src/women_calendar.dart
+            packages/lifemate_client/test/profile_api_client_test.dart
+            packages/lifemate_client/test/profile_avatar_test.dart
             packages/lifemate_client/test/women_calendar_api_client_test.dart
             packages/lifemate_client/test/women_calendar_test.dart
             supabase/functions/lifemate-api/database.ts
             supabase/functions/lifemate-api/deno.json
             supabase/functions/lifemate-api/deno.lock
             supabase/functions/lifemate-api/index.ts
+            supabase/functions/lifemate-api/profile.ts
+            supabase/functions/lifemate-api/profile_test.ts
+            supabase/functions/lifemate-api/profile_integration_test.ts
             supabase/functions/lifemate-api/women_calendar.ts
             supabase/functions/lifemate-api/women_calendar_integration_test.ts
             supabase/functions/lifemate-api/women_calendar_test.ts
             supabase/migrations/20260804130000_add_women_calendar_pilot.sql
+            supabase/migrations/20260804213000_add_profile_avatar_key.sql
             wellmate/lib/core/constants/app_version.dart
+            wellmate/lib/core/widgets/wellmate_app_header.dart
             wellmate/lib/core/widgets/wellmate_bottom_nav.dart
             wellmate/lib/providers/notification_provider.dart
             wellmate/lib/screens/home/home_screen.dart
             wellmate/lib/screens/home/home_screen_content.dart
             wellmate/lib/screens/profile/care_access_screen.dart
             wellmate/lib/screens/profile/care_access_settings_screen.dart
+            wellmate/lib/screens/profile/editable_profile_screen.dart
             wellmate/lib/screens/profile/profile_destination_screens.dart
+            wellmate/lib/screens/profile/profile_screen.dart
             wellmate/lib/screens/women_calendar/women_calendar_month_card.dart
             wellmate/lib/screens/women_calendar/women_calendar_screen.dart
             wellmate/pubspec.yaml
+            wellmate/pubspec.lock
             wellmate/test/bottom_navigation_accessibility_test.dart
             wellmate/test/women_calendar_month_card_test.dart
             wellmate/test/women_calendar_navigation_test.dart
@@ -298,5 +341,5 @@ jobs:
           git diff --cached --name-only
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git commit -m 'feat: implement women calendar pilot and caregiver reminders'
+          git commit -m 'feat: add profile avatars and complete women calendar pilot'
           git push origin HEAD:feat/women-calendar-care-access-notifications
