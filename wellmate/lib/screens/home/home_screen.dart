@@ -6,7 +6,6 @@ import '../../core/theme/app_style.dart';
 import '../../core/widgets/wellmate_app_header.dart';
 import '../../core/widgets/wellmate_bottom_nav.dart';
 import '../calendar/calendar_screen.dart';
-import '../profile/profile_destination_screens.dart';
 import '../profile/profile_screen.dart';
 import '../treatments/care_plan_hub_screen.dart';
 import '../treatments/treatments_screen.dart';
@@ -35,7 +34,12 @@ class _HomeScreenState extends State<HomeScreen> {
 
   Future<void> _loadWomenCalendarState() async {
     if (!LifeMateFeatureFlags.womenCalendarPilotEnabled) {
-      if (mounted) setState(() => _womenCalendarEnabled = false);
+      if (mounted) {
+        setState(() {
+          _womenCalendarEnabled = false;
+          if (_currentIndex == 3) _currentIndex = 4;
+        });
+      }
       return;
     }
     try {
@@ -43,10 +47,17 @@ class _HomeScreenState extends State<HomeScreen> {
           .read<LifeMateApiClient>()
           .getWomenCalendarProfile();
       if (mounted) {
-        setState(() => _womenCalendarEnabled = profile['enabled'] == true);
+        final enabled = profile['enabled'] == true;
+        setState(() {
+          _womenCalendarEnabled = enabled;
+          if (!enabled && _currentIndex == 3) _currentIndex = 4;
+        });
       }
-    } catch (error) {
+    } catch (_) {
       debugPrint('Women calendar navigation state failed.');
+      if (mounted && _currentIndex == 3) {
+        setState(() => _currentIndex = 4);
+      }
     }
   }
 
@@ -57,15 +68,9 @@ class _HomeScreenState extends State<HomeScreen> {
     });
   }
 
-  Future<void> _onItemTapped(int index) async {
-    if (index == 3 && !_womenCalendarEnabled) {
-      await Navigator.of(context).push<void>(
-        MaterialPageRoute<void>(builder: (_) => const SubscriptionScreen()),
-      );
-      await _loadWomenCalendarState();
-      if (!_womenCalendarEnabled) return;
-    }
-    if (mounted) setState(() => _currentIndex = index);
+  void _onItemTapped(int index) {
+    if (index == 3 && !_womenCalendarEnabled) return;
+    setState(() => _currentIndex = index);
   }
 
   @override
