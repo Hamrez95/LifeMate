@@ -6,6 +6,7 @@ on:
       - '.github/workflows/pr42-candidate-device-qa.yml'
       - 'tools/release/live-beta-smoke.sh'
       - 'tools/release/live-pr42-auth-profile-qr-smoke.sh'
+      - 'tools/release/provision-supabase-smoke-users.sh'
       - 'supabase/functions/lifemate-api/**'
       - 'packages/lifemate_client/**'
       - 'wellmate/**'
@@ -23,6 +24,7 @@ concurrency:
   cancel-in-progress: false
 
 env:
+  SUPABASE_PROJECT_REF: bwdvmniywyyijjauipnh
   SUPABASE_URL: https://bwdvmniywyyijjauipnh.supabase.co
   SUPABASE_PUBLISHABLE_KEY: ${{ vars.SUPABASE_PUBLISHABLE_KEY || 'sb_publishable_6YpBDD0gAPcenbYGukOeWg_fZXxUb27' }}
   LIFEMATE_API_BASE_URL: https://bwdvmniywyyijjauipnh.supabase.co/functions/v1/lifemate-api-candidate
@@ -54,7 +56,8 @@ jobs:
           esac
           for script in \
             tools/release/live-beta-smoke.sh \
-            tools/release/live-pr42-auth-profile-qr-smoke.sh
+            tools/release/live-pr42-auth-profile-qr-smoke.sh \
+            tools/release/provision-supabase-smoke-users.sh
           do
             bash -n "$script"
             shellcheck "$script"
@@ -73,21 +76,26 @@ jobs:
     if: ${{ github.event_name == 'push' }}
     needs: validate-candidate-source
     runs-on: ubuntu-24.04
-    timeout-minutes: 15
+    timeout-minutes: 18
     environment: beta
     env:
       EXPECTED_RELEASE_VERSION: ${{ github.sha }}
-      PATIENT_EMAIL: ${{ secrets.BETA_PATIENT_EMAIL }}
-      PATIENT_PASSWORD: ${{ secrets.BETA_PATIENT_PASSWORD }}
-      CAREGIVER_EMAIL: ${{ secrets.BETA_CAREGIVER_EMAIL }}
-      CAREGIVER_PASSWORD: ${{ secrets.BETA_CAREGIVER_PASSWORD }}
-      UNRELATED_EMAIL: ${{ secrets.BETA_UNRELATED_EMAIL }}
-      UNRELATED_PASSWORD: ${{ secrets.BETA_UNRELATED_PASSWORD }}
+      SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
         with:
           show-progress: false
           persist-credentials: false
+
+      - name: Provision ephemeral confirmed smoke users
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -n "$SUPABASE_ACCESS_TOKEN"
+          bash tools/release/provision-supabase-smoke-users.sh create \
+            | tee /tmp/lifemate-smoke-user-provision.json
+          jq -e '.status == "created" and (.userIds | length) == 3' \
+            /tmp/lifemate-smoke-user-provision.json >/dev/null
 
       - name: Verify candidate version and public/auth boundaries
         shell: bash
@@ -134,6 +142,16 @@ jobs:
             /tmp/lifemate-candidate-auth-profile-qr-smoke.json
           if-no-files-found: error
           retention-days: 30
+
+      - name: Delete ephemeral smoke users
+        if: ${{ always() }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          bash tools/release/provision-supabase-smoke-users.sh delete \
+            | tee /tmp/lifemate-smoke-user-cleanup.json
+          jq -e '.status == "deleted" and .count == 3' \
+            /tmp/lifemate-smoke-user-cleanup.json >/dev/null
 
   build-android-device-qa:
     if: ${{ github.event_name == 'push' }}
