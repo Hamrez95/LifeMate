@@ -40,6 +40,7 @@ jobs:
           fi
           python3 tools/hotfix/fix_v090_internal3_treatment_tile.py
           python3 tools/hotfix/fix_v090_internal3_caremate_regressions.py
+          python3 tools/hotfix/fix_v090_internal3_caremate_eager_day_list.py
 
       - name: Format changed Dart sources
         shell: bash
@@ -103,6 +104,7 @@ jobs:
           assert 'visibleCalendarMonthRange(context, _focusedMonth)' in care_calendar
           assert "formatAppDate(\n                          context,\n                          _selectedDate" in care_calendar
           assert 'child: ListView.separated(' not in care_calendar
+          assert 'child: SingleChildScrollView(' in care_calendar
           assert 'for (var index = 0;' in care_calendar
           assert "ValueKey('caremate-previous-month')" in care_view
           assert 'Icons.chevron_right_rounded' in care_view
