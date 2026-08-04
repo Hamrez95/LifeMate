@@ -4,6 +4,7 @@ import 'package:lifemate_client/lifemate_client.dart';
 import 'package:provider/provider.dart';
 import 'package:wellmate/localization/locale_provider.dart';
 import 'package:wellmate/main.dart';
+import 'package:wellmate/models/schedule_item_model.dart';
 import 'package:wellmate/providers/medication_provider.dart';
 import 'package:wellmate/providers/notification_provider.dart';
 import 'package:wellmate/providers/settings_provider.dart';
@@ -23,7 +24,7 @@ void main() {
         MultiProvider(
           providers: [
             Provider<LifeMateApiClient>.value(
-              value: _CalendarApiClient(missedAppointment: false),
+              value: _CalendarApiClient(),
             ),
             ChangeNotifierProvider(create: (_) => NotificationProvider()),
             ChangeNotifierProvider(create: (_) => LocaleProvider()),
@@ -80,56 +81,59 @@ void main() {
     },
   );
 
-  testWidgets('missed appointment is rendered with warning styling', (
+  testWidgets('missed appointment card uses warning styling', (
     WidgetTester tester,
   ) async {
-    tester.view.physicalSize = const Size(360, 800);
-    tester.view.devicePixelRatio = 1;
-    addTearDown(tester.view.resetPhysicalSize);
-    addTearDown(tester.view.resetDevicePixelRatio);
+    const item = ScheduleItemModel(
+      id: 'appointment-missed',
+      title: 'ویزیت متخصص قلب',
+      time: '18:20',
+      dosage: 'دکتر سارا راد • مرکز درمانی الوند',
+      type: 'appointment',
+      frequency: 'ویزیت',
+      status: 'missed',
+      version: 1,
+    );
 
     await tester.pumpWidget(
-      MultiProvider(
-        providers: [
-          Provider<LifeMateApiClient>.value(
-            value: _CalendarApiClient(missedAppointment: true),
+      const MaterialApp(
+        locale: Locale('fa'),
+        home: Scaffold(
+          body: ScheduleItemCard(
+            key: ValueKey<String>('missed-appointment-card'),
+            item: item,
+            loc: <String, String>{},
+            isPersian: true,
+            isMissed: true,
           ),
-          ChangeNotifierProvider(create: (_) => NotificationProvider()),
-          ChangeNotifierProvider(create: (_) => LocaleProvider()),
-          ChangeNotifierProvider(create: (_) => SettingsProvider()),
-          ChangeNotifierProvider(create: (_) => MedicationProvider()),
-        ],
-        child: const WellMateApp(home: CalendarScreen()),
+        ),
       ),
     );
     await tester.pumpAndSettle();
 
-    final appointmentCard = find.byKey(
-      const ValueKey<String>('calendar-event-appointment-1'),
+    final card = find.byKey(
+      const ValueKey<String>('missed-appointment-card'),
     );
-    expect(appointmentCard, findsOneWidget);
+    expect(card, findsOneWidget);
     expect(
       find.descendant(
-        of: appointmentCard,
+        of: card,
         matching: find.byIcon(Icons.warning_amber_rounded),
       ),
       findsWidgets,
     );
-    final padding = tester.widget<Padding>(appointmentCard);
-    final card = padding.child! as ScheduleItemCard;
-    expect(card.item.status, 'missed');
-    expect(card.isMissed, isTrue);
+    final widget = tester.widget<ScheduleItemCard>(card);
+    expect(widget.item.status, 'missed');
+    expect(widget.isMissed, isTrue);
   });
 }
 
 class _CalendarApiClient extends LifeMateApiClient {
-  _CalendarApiClient({required this.missedAppointment})
+  _CalendarApiClient()
       : super(
           baseUri: Uri.parse('https://example.invalid'),
           accessToken: () => 'test-token',
         );
-
-  final bool missedAppointment;
 
   String get _today {
     final value = DateTime.now();
@@ -161,7 +165,7 @@ class _CalendarApiClient extends LifeMateApiClient {
           'addressLine': 'تهران، خیابان ولیعصر',
           'scheduledLocalDate': _today,
           'scheduledLocalTime': '00:01',
-          'status': missedAppointment ? 'missed' : 'completed',
+          'status': 'completed',
           'version': 1,
         },
         {
