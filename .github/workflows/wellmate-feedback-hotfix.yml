@@ -41,8 +41,10 @@ jobs:
           set -euo pipefail
           python3 tools/hotfix/apply_wellmate_feedback_hotfix.py
           python3 tools/hotfix/fix_wellmate_feedback_hotfix_tests.py
+          python3 tools/hotfix/fix_wellmate_scrollable_finder.py
           rm -f tools/hotfix/apply_wellmate_feedback_hotfix.py
           rm -f tools/hotfix/fix_wellmate_feedback_hotfix_tests.py
+          rm -f tools/hotfix/fix_wellmate_scrollable_finder.py
           rm -f .github/workflows/wellmate-feedback-hotfix.yml
           dart format \
             wellmate/lib/core/utils/persian_date_utils.dart \
