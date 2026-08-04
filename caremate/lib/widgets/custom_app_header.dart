@@ -4,7 +4,6 @@ import 'package:provider/provider.dart';
 
 import '../../core/constants/app_colors.dart';
 import '../screens/profile_screen.dart';
-import 'custom_ui_components.dart';
 
 class CustomAppHeader extends StatelessWidget {
   const CustomAppHeader({
@@ -117,12 +116,12 @@ class CustomAppHeader extends StatelessWidget {
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
                 border: Border.all(
-                  color: AppColors.primaryBlue.withOpacity(0.14),
+                  color: AppColors.primaryBlue.withValues(alpha: 0.14),
                   width: 2,
                 ),
                 boxShadow: [
                   BoxShadow(
-                    color: AppColors.primaryBlue.withOpacity(0.08),
+                    color: AppColors.primaryBlue.withValues(alpha: 0.08),
                     blurRadius: 12,
                     offset: const Offset(0, 4),
                   ),
@@ -167,7 +166,7 @@ class _SoftHeaderButton extends StatelessWidget {
               shape: BoxShape.circle,
               boxShadow: [
                 BoxShadow(
-                  color: AppColors.primaryBlue.withOpacity(0.08),
+                  color: AppColors.primaryBlue.withValues(alpha: 0.08),
                   offset: const Offset(0, 4),
                   blurRadius: 12,
                 ),
