@@ -11,7 +11,7 @@ on:
       - '.github/workflows/edge-api.yml'
       - 'AGENTS.md'
   push:
-    branches: [ main ]
+    branches: [main]
     paths:
       - 'supabase/functions/lifemate-api/**'
       - 'supabase/migrations/**'
@@ -30,12 +30,12 @@ concurrency:
 jobs:
   check-test:
     runs-on: ubuntu-24.04
-    timeout-minutes: 10
+    timeout-minutes: 12
     defaults:
       run:
         working-directory: supabase/functions/lifemate-api
     steps:
-      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
         with:
           show-progress: false
           persist-credentials: false
@@ -43,9 +43,6 @@ jobs:
       - uses: denoland/setup-deno@22d081ff2d3a40755e97629de92e3bcbfa7cf2ed
         with:
           deno-version: v2.9.4
-
-      - name: Deno environment
-        run: deno --version
 
       - name: Format
         run: deno fmt --check
@@ -56,7 +53,7 @@ jobs:
       - name: Unit tests
         run: deno task test
 
-      - name: Security invariants
+      - name: Security and privacy invariants
         shell: bash
         run: |
           set -euo pipefail
@@ -72,21 +69,31 @@ jobs:
           grep -q 'on conflict (patient_user_id, client_request_id) do nothing' care_events.ts
           grep -q "and status = 'Active'" care_events.ts
           grep -q 'care_access_denied' care_events.ts
-          grep -q 'care_event.created' care_events.ts
+          grep -q 'effective_status' care_events.ts
+          grep -q 'patientReminderMinutesBefore' care_events.ts
+          grep -q 'caregiverReminderMinutesBefore' care_events.ts
           grep -q "'profile.updated'" profile.ts
           grep -q 'version = version + 1' profile.ts
           grep -q 'invalid_avatar_key' profile.ts
           grep -q 'metadata_json, null' profile.ts
+          grep -q 'public: false' profile_photo.ts
+          grep -q 'validateProfilePhoto' profile_photo.ts
+          grep -q 'profilePhotoMaximumBytes' profile_photo.ts
+          grep -q 'profile_photo_too_large' profile_photo_test.ts
+          grep -q 'privateNotes' women_calendar_integration_test.ts
           grep -q 'revoke all privileges on table lifemate.care_events' ../../migrations/20260803173000_add_consent_scoped_care_events.sql
           grep -q 'health_status_deny_client_access' ../../migrations/20260804002000_lock_down_public_health_status.sql
           grep -q 'user_profiles_version_positive' ../../migrations/20260804003000_add_user_profile_version.sql
           grep -q 'can_view_women_calendar boolean not null default false' ../../migrations/20260804130000_add_women_calendar_pilot.sql
           grep -q 'avatar_key character varying(32)' ../../migrations/20260804213000_add_profile_avatar_key.sql
-          grep -q 'privateNotes' women_calendar_integration_test.ts
+          grep -q 'patient_reminder_minutes_before' ../../migrations/20260805013000_add_reminder_lead_times.sql
+          grep -q 'profile_photo_path character varying(512)' ../../migrations/20260805023000_add_profile_photo_path.sql
+          ! grep -R --line-number 'profile-photo.*public.*true' . ../../migrations
+          ! grep -R --line-number 'profilePhotoPath.*metadata' .
 
   postgres-role-journey:
     runs-on: ubuntu-24.04
-    timeout-minutes: 15
+    timeout-minutes: 20
     services:
       postgres:
         image: postgres:17.5-alpine
@@ -109,7 +116,7 @@ jobs:
       Security__Invitations__ContactPepper: integration-only-invitation-contact-pepper-32-bytes-minimum
       TEST_DATABASE_URL: postgres://postgres:postgres@localhost:5432/lifemate_edge_tests
     steps:
-      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
         with:
           show-progress: false
           persist-credentials: false
@@ -122,16 +129,16 @@ jobs:
         with:
           deno-version: v2.9.4
 
-      - name: Restore backend and EF tools
+      - name: Restore and build canonical schema source
         run: |
+          set -euo pipefail
           dotnet restore backend-dotnet/LifeMate.sln --verbosity minimal
           dotnet tool restore
+          dotnet build backend-dotnet/LifeMate.sln --configuration Release --no-restore
 
-      - name: Build migration source
-        run: dotnet build backend-dotnet/LifeMate.sln --configuration Release --no-restore
-
-      - name: Apply canonical schema
+      - name: Apply canonical and additive schemas
         run: |
+          set -euo pipefail
           dotnet ef database update \
             --configuration Release \
             --no-build \
@@ -142,13 +149,13 @@ jobs:
             supabase/migrations/20260804002000_lock_down_public_health_status.sql \
             supabase/migrations/20260804003000_add_user_profile_version.sql \
             supabase/migrations/20260804130000_add_women_calendar_pilot.sql \
-            supabase/migrations/20260804213000_add_profile_avatar_key.sql
+            supabase/migrations/20260804213000_add_profile_avatar_key.sql \
+            supabase/migrations/20260805013000_add_reminder_lead_times.sql \
+            supabase/migrations/20260805023000_add_profile_photo_path.sql
           do
-            psql "$TEST_DATABASE_URL" \
-              --set=ON_ERROR_STOP=1 \
-              --file="$migration"
+            psql "$TEST_DATABASE_URL" --set=ON_ERROR_STOP=1 --file="$migration"
           done
 
-      - name: Run patient caregiver and unrelated-user journey
+      - name: Run patient caregiver privacy and cleanup journeys
         working-directory: supabase/functions/lifemate-api
         run: deno task test:integration
