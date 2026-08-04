@@ -16,6 +16,7 @@ on:
 
 permissions:
   contents: read
+  issues: write
 
 concurrency:
   group: pr42-candidate-device-qa-${{ github.ref }}
@@ -255,3 +256,42 @@ jobs:
           path: dist
           if-no-files-found: error
           retention-days: 30
+
+  report-device-qa:
+    if: ${{ always() && github.event_name == 'push' }}
+    needs:
+      - validate-candidate-source
+      - live-candidate-role-smoke
+      - build-android-device-qa
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    env:
+      GH_TOKEN: ${{ github.token }}
+      VALIDATE_RESULT: ${{ needs.validate-candidate-source.result }}
+      SMOKE_RESULT: ${{ needs.live-candidate-role-smoke.result }}
+      BUILD_RESULT: ${{ needs.build-android-device-qa.result }}
+    steps:
+      - name: Publish device-QA evidence to release gate
+        shell: bash
+        run: |
+          set -euo pipefail
+          artifact_name="lifemate-$RELEASE_NAME-$GITHUB_SHA-device-qa"
+          run_url="https://github.com/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID"
+          body="$(cat <<EOF
+          ## Automated device-QA checkpoint
+
+          - Head: \`$GITHUB_SHA\`
+          - Workflow run: \`$GITHUB_RUN_ID\`
+          - Source validation: **$VALIDATE_RESULT**
+          - Candidate live smoke: **$SMOKE_RESULT**
+          - Android build and inspection: **$BUILD_RESULT**
+          - Expected artifact: \`$artifact_name\`
+          - Run URL: $run_url
+
+          This is an Internal/Unstable device-QA checkpoint. PR #42 remains Draft and no Production deploy or Production migration is authorized by this run.
+          EOF
+          )"
+          gh api \
+            --method POST \
+            "repos/$GITHUB_REPOSITORY/issues/53/comments" \
+            -f body="$body"
