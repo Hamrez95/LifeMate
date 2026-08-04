@@ -3,6 +3,7 @@ import 'package:lifemate_client/lifemate_client.dart';
 import 'package:provider/provider.dart';
 
 import '../../core/theme/app_style.dart';
+import '../../core/utils/persian_date_utils.dart';
 
 class TreatmentsScreen extends StatefulWidget {
   const TreatmentsScreen({super.key, required this.refreshToken});
@@ -85,15 +86,16 @@ class _TreatmentsScreenState extends State<TreatmentsScreen> {
             ..._plans.map((plan) {
               final medication =
                   plan['medication'] as Map<String, dynamic>? ?? const {};
-              final schedules =
-                  plan['schedules'] as List<dynamic>? ?? const [];
+              final schedules = plan['schedules'] as List<dynamic>? ?? const [];
               final rawTime = schedules.isEmpty
                   ? ''
                   : (schedules.first as Map<String, dynamic>)['localTime']
-                          ?.toString() ??
-                      '';
-              final firstTime =
-                  rawTime.length >= 5 ? rawTime.substring(0, 5) : 'بدون زمان';
+                            ?.toString() ??
+                        '';
+              final firstTime = localizeDigits(
+                context,
+                rawTime.length >= 5 ? rawTime.substring(0, 5) : 'بدون زمان',
+              );
               return Card(
                 elevation: 0,
                 margin: const EdgeInsets.only(bottom: 12),
@@ -101,25 +103,30 @@ class _TreatmentsScreenState extends State<TreatmentsScreen> {
                 child: ListTile(
                   contentPadding: const EdgeInsets.all(16),
                   leading: CircleAvatar(
-                    backgroundColor:
-                        AppColors.primary.withValues(alpha: 0.12),
+                    backgroundColor: AppColors.primary.withValues(alpha: 0.12),
                     child: const Icon(
                       Icons.medication_rounded,
                       color: AppColors.primary,
                     ),
                   ),
                   title: Text(
-                    medication['name']?.toString() ?? 'دارو',
+                    localizeDigits(
+                      context,
+                      medication['name']?.toString() ?? 'دارو',
+                    ),
                     style: const TextStyle(fontWeight: FontWeight.w800),
                   ),
                   subtitle: Padding(
                     padding: const EdgeInsets.only(top: 6),
                     child: Text(
-                      '${plan['doseText'] ?? ''} • هر روز ساعت $firstTime',
+                      localizeDigits(
+                        context,
+                        '${plan['doseText'] ?? ''} • هر روز ساعت $firstTime',
+                      ),
                     ),
                   ),
-                  trailing: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
+                  trailing: Row(
+                    mainAxisSize: MainAxisSize.min,
                     children: [
                       Chip(
                         visualDensity: VisualDensity.compact,
@@ -127,6 +134,7 @@ class _TreatmentsScreenState extends State<TreatmentsScreen> {
                           plan['status'] == 'active' ? 'فعال' : 'متوقف',
                         ),
                       ),
+                      const SizedBox(width: 4),
                       const Icon(Icons.chevron_right_rounded, size: 18),
                     ],
                   ),
@@ -208,8 +216,7 @@ class _AddTreatmentScreenState extends State<AddTreatmentScreen> {
         startDate: DateTime.now(),
         timeZone: 'Asia/Tehran',
         schedules: [
-          for (final day in week)
-            {'dayOfWeek': day, 'localTime': localTime},
+          for (final day in week) {'dayOfWeek': day, 'localTime': localTime},
         ],
       );
       if (!mounted) return;
@@ -388,10 +395,7 @@ class _MessageCard extends StatelessWidget {
             Text(message, textAlign: TextAlign.center),
             if (actionLabel != null) ...[
               const SizedBox(height: 12),
-              OutlinedButton(
-                onPressed: onAction,
-                child: Text(actionLabel!),
-              ),
+              OutlinedButton(onPressed: onAction, child: Text(actionLabel!)),
             ],
           ],
         ),
@@ -400,7 +404,6 @@ class _MessageCard extends StatelessWidget {
   }
 }
 
-
 class _TreatmentDetailsScreen extends StatelessWidget {
   const _TreatmentDetailsScreen({required this.plan});
 
@@ -408,8 +411,7 @@ class _TreatmentDetailsScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final medication =
-        plan['medication'] as Map<String, dynamic>? ?? const {};
+    final medication = plan['medication'] as Map<String, dynamic>? ?? const {};
     final schedules = plan['schedules'] as List<dynamic>? ?? const [];
     final status = plan['status']?.toString() ?? 'unknown';
     return Scaffold(
@@ -476,7 +478,11 @@ class _TreatmentDetailsScreen extends StatelessWidget {
                           children: [
                             Expanded(
                               child: Text(
-                                _text(medication['name'], fallback: 'دارو'),
+                                _localizedText(
+                                  context,
+                                  medication['name'],
+                                  fallback: 'دارو',
+                                ),
                                 style: const TextStyle(
                                   fontSize: 22,
                                   fontWeight: FontWeight.w900,
@@ -485,7 +491,9 @@ class _TreatmentDetailsScreen extends StatelessWidget {
                               ),
                             ),
                             Chip(
-                              label: Text(status == 'active' ? 'فعال' : 'متوقف'),
+                              label: Text(
+                                status == 'active' ? 'فعال' : 'متوقف',
+                              ),
                               side: BorderSide.none,
                               backgroundColor: status == 'active'
                                   ? AppColors.primary.withValues(alpha: 0.12)
@@ -497,27 +505,34 @@ class _TreatmentDetailsScreen extends StatelessWidget {
                         _TreatmentInfoRow(
                           icon: Icons.science_outlined,
                           label: 'قدرت دارو',
-                          value: _text(medication['strengthText']),
+                          value: _localizedText(
+                            context,
+                            medication['strengthText'],
+                          ),
                         ),
                         _TreatmentInfoRow(
                           icon: Icons.medication_liquid_rounded,
                           label: 'مقدار مصرف',
-                          value: _text(plan['doseText']),
+                          value: _localizedText(context, plan['doseText']),
                         ),
                         _TreatmentInfoRow(
                           icon: Icons.notes_rounded,
                           label: 'دستور مصرف',
-                          value: _text(plan['instructions']),
+                          value: _localizedText(context, plan['instructions']),
                         ),
                         _TreatmentInfoRow(
                           icon: Icons.calendar_today_outlined,
                           label: 'تاریخ شروع',
-                          value: _text(plan['startDate']),
+                          value: _localizedDate(context, plan['startDate']),
                         ),
                         _TreatmentInfoRow(
                           icon: Icons.event_busy_outlined,
                           label: 'تاریخ پایان',
-                          value: _text(plan['endDate'], fallback: 'بدون پایان'),
+                          value: _localizedDate(
+                            context,
+                            plan['endDate'],
+                            fallback: 'بدون پایان',
+                          ),
                           showDivider: false,
                         ),
                       ],
@@ -526,7 +541,9 @@ class _TreatmentDetailsScreen extends StatelessWidget {
                   const SizedBox(height: 18),
                   Text(
                     'زمان‌های مصرف',
-                    style: AppTextStyles.heading(context).copyWith(fontSize: 18),
+                    style: AppTextStyles.heading(
+                      context,
+                    ).copyWith(fontSize: 18),
                   ),
                   const SizedBox(height: 12),
                   if (schedules.isEmpty)
@@ -549,7 +566,10 @@ class _TreatmentDetailsScreen extends StatelessWidget {
                             Icons.schedule_rounded,
                             color: AppColors.primary,
                           ),
-                          title: Text(time, textDirection: TextDirection.ltr),
+                          title: Text(
+                            localizeDigits(context, time),
+                            textDirection: TextDirection.ltr,
+                          ),
                           subtitle: Text(
                             _weekdayLabel(value['dayOfWeek']?.toString()),
                           ),
@@ -656,13 +676,32 @@ String _text(dynamic value, {String fallback = 'ثبت نشده'}) {
   return text == null || text.isEmpty ? fallback : text;
 }
 
+String _localizedText(
+  BuildContext context,
+  dynamic value, {
+  String fallback = 'ثبت نشده',
+}) => localizeDigits(context, _text(value, fallback: fallback));
+
+String _localizedDate(
+  BuildContext context,
+  dynamic value, {
+  String fallback = 'ثبت نشده',
+}) {
+  final text = value?.toString().trim();
+  if (text == null || text.isEmpty) return fallback;
+  final parsed = DateTime.tryParse(text);
+  return parsed == null
+      ? localizeDigits(context, text)
+      : formatAppDate(context, parsed);
+}
+
 String _weekdayLabel(String? value) => switch (value) {
-      'saturday' => 'شنبه',
-      'sunday' => 'یکشنبه',
-      'monday' => 'دوشنبه',
-      'tuesday' => 'سه‌شنبه',
-      'wednesday' => 'چهارشنبه',
-      'thursday' => 'پنجشنبه',
-      'friday' => 'جمعه',
-      _ => value ?? 'روز ثبت نشده',
-    };
+  'saturday' => 'شنبه',
+  'sunday' => 'یکشنبه',
+  'monday' => 'دوشنبه',
+  'tuesday' => 'سه‌شنبه',
+  'wednesday' => 'چهارشنبه',
+  'thursday' => 'پنجشنبه',
+  'friday' => 'جمعه',
+  _ => value ?? 'روز ثبت نشده',
+};
