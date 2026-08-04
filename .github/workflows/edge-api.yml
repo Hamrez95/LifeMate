@@ -75,10 +75,13 @@ jobs:
           grep -q 'care_event.created' care_events.ts
           grep -q "'profile.updated'" profile.ts
           grep -q 'version = version + 1' profile.ts
+          grep -q 'invalid_avatar_key' profile.ts
+          grep -q 'metadata_json, null' profile.ts
           grep -q 'revoke all privileges on table lifemate.care_events' ../../migrations/20260803173000_add_consent_scoped_care_events.sql
           grep -q 'health_status_deny_client_access' ../../migrations/20260804002000_lock_down_public_health_status.sql
           grep -q 'user_profiles_version_positive' ../../migrations/20260804003000_add_user_profile_version.sql
           grep -q 'can_view_women_calendar boolean not null default false' ../../migrations/20260804130000_add_women_calendar_pilot.sql
+          grep -q 'avatar_key character varying(32)' ../../migrations/20260804213000_add_profile_avatar_key.sql
           grep -q 'privateNotes' women_calendar_integration_test.ts
 
   postgres-role-journey:
@@ -138,7 +141,8 @@ jobs:
             supabase/migrations/20260803173000_add_consent_scoped_care_events.sql \
             supabase/migrations/20260804002000_lock_down_public_health_status.sql \
             supabase/migrations/20260804003000_add_user_profile_version.sql \
-            supabase/migrations/20260804130000_add_women_calendar_pilot.sql
+            supabase/migrations/20260804130000_add_women_calendar_pilot.sql \
+            supabase/migrations/20260804213000_add_profile_avatar_key.sql
           do
             psql "$TEST_DATABASE_URL" \
               --set=ON_ERROR_STOP=1 \
