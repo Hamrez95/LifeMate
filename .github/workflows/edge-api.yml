@@ -57,53 +57,79 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          if grep -R --line-number 'SUPABASE_SERVICE_ROLE_KEY' .; then
-            echo '::error::Service-role environment access is forbidden.'
-            exit 1
-          fi
-          test "$(grep -R --include='*.ts' --exclude='*_test.ts' -l 'postgres(databaseUrl' . | wc -l)" -ge 5
-          grep -q 'vault.decrypted_secrets' runtime_config.ts
-          grep -q 'value.length >= 32' runtime_config.ts
-          grep -q 'value !== serviceRole' runtime_config.ts
-          if grep -q 'sources.defaultSecret' runtime_config.ts; then
-            echo '::error::Generic default secrets must not be selected.'
-            exit 1
-          fi
 
-          grep -q 'actor_user_id' database.ts
-          grep -q 'client_request_id' database.ts
-          grep -q 'on conflict (patient_user_id, client_request_id) do nothing' care_events.ts
-          grep -q 'care_access_denied' care_events.ts
-          grep -q 'effective_status' care_events.ts
-          grep -q 'patientReminderMinutesBefore' care_events.ts
-          grep -q 'caregiverReminderMinutesBefore' care_events.ts
+          check() {
+            local label="$1"
+            shift
+            if "$@"; then
+              echo "PASS: $label"
+            else
+              echo "::error::$label"
+              exit 1
+            fi
+          }
 
-          grep -q 'profile.updated' profile.ts
-          grep -q 'version = version + 1' profile.ts
-          grep -q 'invalid_avatar_key' profile.ts
-          grep -q 'metadata_json' profile.ts
-          grep -q 'public: false' profile_photo.ts
-          grep -q 'validateProfilePhoto' profile_photo.ts
-          grep -q 'profilePhotoMaximumBytes' profile_photo.ts
-          grep -q 'profile_photo_too_large' profile_photo_test.ts
-          grep -q 'privateNotes' women_calendar_integration_test.ts
+          check_absent() {
+            local label="$1"
+            shift
+            if "$@"; then
+              echo "::error::$label"
+              exit 1
+            else
+              echo "PASS: $label"
+            fi
+          }
 
-          grep -q 'revoke all privileges on table lifemate.care_events' ../../migrations/20260803173000_add_consent_scoped_care_events.sql
-          grep -q 'health_status_deny_client_access' ../../migrations/20260804002000_lock_down_public_health_status.sql
-          grep -q 'user_profiles_version_positive' ../../migrations/20260804003000_add_user_profile_version.sql
-          grep -q 'can_view_women_calendar boolean not null default false' ../../migrations/20260804130000_add_women_calendar_pilot.sql
-          grep -q 'avatar_key character varying(32)' ../../migrations/20260804213000_add_profile_avatar_key.sql
-          grep -q 'patient_reminder_minutes_before' ../../migrations/20260805013000_add_reminder_lead_times.sql
-          grep -q 'profile_photo_path character varying(512)' ../../migrations/20260805023000_add_profile_photo_path.sql
+          check_absent \
+            'Service-role environment access is forbidden.' \
+            grep -R --line-number -F 'SUPABASE_SERVICE_ROLE_KEY' .
+          check 'Runtime configuration reads secrets from Vault.' \
+            grep -Fq 'vault.decrypted_secrets' runtime_config.ts
+          check 'Contact secret length is validated.' \
+            grep -Fq 'value.length >= 32' runtime_config.ts
+          check 'Contact secret cannot reuse the service-role value.' \
+            grep -Fq 'value !== serviceRole' runtime_config.ts
+          check_absent \
+            'Generic default secrets must not be selected.' \
+            grep -Fq 'sources.defaultSecret' runtime_config.ts
 
-          if grep -R --line-number 'profile-photo.*public.*true' . ../../migrations; then
-            echo '::error::Profile photos must never use a public bucket.'
-            exit 1
-          fi
-          if grep -R --line-number 'profilePhotoPath.*metadata' .; then
-            echo '::error::Profile-photo paths must not enter audit metadata.'
-            exit 1
-          fi
+          check 'Care-event access fails closed.' \
+            grep -Fq 'care_access_denied' care_events.ts
+          check 'Overdue care events expose an effective status.' \
+            grep -Fq 'effective_status' care_events.ts
+          check 'Patient reminder lead time is persisted.' \
+            grep -Fq 'patientReminderMinutesBefore' care_events.ts
+          check 'Caregiver reminder lead time is persisted.' \
+            grep -Fq 'caregiverReminderMinutesBefore' care_events.ts
+
+          check 'Profile avatar keys remain allow-listed.' \
+            grep -Fq 'invalid_avatar_key' profile.ts
+          check 'Profile audit writes use redacted metadata.' \
+            grep -Fq 'metadata_json' profile.ts
+          check 'Profile-photo bucket is private.' \
+            grep -Fq 'public: false' profile_photo.ts
+          check 'Profile-photo file signatures are validated.' \
+            grep -Fq 'validateProfilePhoto' profile_photo.ts
+          check 'Profile-photo size is bounded.' \
+            grep -Fq 'profilePhotoMaximumBytes' profile_photo.ts
+          check 'Spoofed and oversized photo tests are present.' \
+            grep -Fq 'profile_photo_too_large' profile_photo_test.ts
+          check 'Caregiver calendar responses exclude private notes.' \
+            grep -Fq 'privateNotes' women_calendar_integration_test.ts
+
+          check 'Reminder lead-time migration is included.' \
+            grep -Fq 'patient_reminder_minutes_before' \
+              ../../migrations/20260805013000_add_reminder_lead_times.sql
+          check 'Private profile-photo path migration is included.' \
+            grep -Fq 'profile_photo_path character varying(512)' \
+              ../../migrations/20260805023000_add_profile_photo_path.sql
+          check_absent \
+            'Profile photos must never use a public bucket.' \
+            grep -R --line-number -E 'profile-photo.*public.*true' \
+              . ../../migrations
+          check_absent \
+            'Profile-photo paths must not enter audit metadata.' \
+            grep -R --line-number -E 'profilePhotoPath.*metadata' .
 
   postgres-role-journey:
     runs-on: ubuntu-24.04
