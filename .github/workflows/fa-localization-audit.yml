@@ -38,6 +38,7 @@ jobs:
           else
             python3 tools/hotfix/apply_v090_internal3_localization.py
           fi
+          python3 tools/hotfix/fix_v090_internal3_treatment_tile.py
 
       - name: Format changed Dart sources
         shell: bash
@@ -103,6 +104,7 @@ jobs:
           assert "ValueKey('caremate-next-month')" in care_view
           assert 'Icons.chevron_left_rounded' in care_view
           assert 'formatAppDate(context, parsedDate)' in care_events
+          assert 'trailing: Row(' in treatment
           print('Persian localization invariants passed.')
           PY
 
