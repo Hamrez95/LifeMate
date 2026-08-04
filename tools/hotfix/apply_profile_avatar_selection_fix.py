@@ -1,4 +1,5 @@
 from pathlib import Path
+import runpy
 
 ROOT = Path(__file__).resolve().parents[2]
 
@@ -226,3 +227,8 @@ for test_path, picker_key, selected_key, profile_id, user_id in [
         "    expect(api.savedTimeZone, 'Europe/Berlin');\n"
         f"    expect(api.savedAvatarKey, '{selected_key}');\n",
     )
+
+runpy.run_path(
+    str(ROOT / "tools/hotfix/apply_profile_avatar_regression_tests.py"),
+    run_name="__main__",
+)
