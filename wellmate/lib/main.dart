@@ -18,15 +18,15 @@ Future<void> main() async {
   if (config.isConfigured) {
     try {
       authInitialized = await LifeMateBootstrap.initialize(config);
-    } catch (error, stackTrace) {
-      debugPrint('Supabase initialization failed: $error\n$stackTrace');
+    } catch (_) {
+      debugPrint('Supabase initialization failed.');
     }
   }
   final notificationProvider = NotificationProvider();
   try {
     await notificationProvider.initialize();
-  } catch (error, stackTrace) {
-    debugPrint('Notification initialization failed: $error\n$stackTrace');
+  } catch (_) {
+    debugPrint('Notification initialization failed.');
   }
 
   runApp(
