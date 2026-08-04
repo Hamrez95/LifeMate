@@ -1,0 +1,200 @@
+name: women-calendar-pilot-audit
+
+on:
+  push:
+    branches:
+      - feat/women-calendar-care-access-notifications
+
+permissions:
+  contents: write
+
+concurrency:
+  group: women-calendar-pilot-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  apply-verify-commit:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 55
+    services:
+      postgres:
+        image: postgres:17.5-alpine
+        env:
+          POSTGRES_DB: lifemate_women_calendar_tests
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d lifemate_women_calendar_tests"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      DOTNET_CLI_TELEMETRY_OPTOUT: '1'
+      DOTNET_NOLOGO: '1'
+      ASPNETCORE_ENVIRONMENT: Testing
+      ConnectionStrings__LifeMateDb: Host=localhost;Port=5432;Database=lifemate_women_calendar_tests;Username=postgres;Password=postgres
+      Security__Invitations__ContactPepper: integration-only-invitation-contact-pepper-32-bytes-minimum
+      TEST_DATABASE_URL: postgres://postgres:postgres@localhost:5432/lifemate_women_calendar_tests
+
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
+        with:
+          ref: feat/women-calendar-care-access-notifications
+          fetch-depth: 0
+          show-progress: false
+
+      - uses: subosito/flutter-action@4cab68ce0f1c7c924f688bff4792e044f1aeb30c
+        with:
+          flutter-version: '3.44.0'
+          channel: stable
+          cache: true
+
+      - uses: denoland/setup-deno@22d081ff2d3a40755e97629de92e3bcbfa7cf2ed
+        with:
+          deno-version: v2.9.4
+
+      - uses: actions/setup-dotnet@67a3573c9a986a3f9c594539f4ab511d57bb3ce9
+        with:
+          dotnet-version: '10.0.x'
+
+      - name: Apply product patches
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 tools/hotfix/apply_women_calendar_backend.py
+          python3 tools/hotfix/apply_women_calendar_frontend.py
+          python3 tools/hotfix/apply_caremate_notifications_and_women_view.py
+          python3 tools/hotfix/apply_women_calendar_integration.py
+
+      - name: Format generated and modified sources
+        shell: bash
+        run: |
+          set -euo pipefail
+          dart format \
+            packages/lifemate_client/lib/lifemate_client.dart \
+            packages/lifemate_client/lib/src/feature_flags.dart \
+            packages/lifemate_client/lib/src/lifemate_api_client.dart \
+            packages/lifemate_client/lib/src/women_calendar.dart \
+            packages/lifemate_client/test/women_calendar_test.dart \
+            wellmate/lib/core/widgets/wellmate_bottom_nav.dart \
+            wellmate/lib/providers/notification_provider.dart \
+            wellmate/lib/screens/home/home_screen.dart \
+            wellmate/lib/screens/home/home_screen_content.dart \
+            wellmate/lib/screens/profile/care_access_screen.dart \
+            wellmate/lib/screens/profile/care_access_settings_screen.dart \
+            wellmate/lib/screens/profile/profile_destination_screens.dart \
+            wellmate/lib/screens/women_calendar/women_calendar_screen.dart \
+            wellmate/test/bottom_navigation_accessibility_test.dart \
+            wellmate/test/women_calendar_navigation_test.dart \
+            caremate/lib/main.dart \
+            caremate/lib/models/care_recipient_reminder.dart \
+            caremate/lib/providers/care_notification_provider.dart \
+            caremate/lib/screens/dashboard_screen.dart \
+            caremate/lib/screens/women_calendar/care_women_calendar_screen.dart \
+            caremate/test/care_recipient_reminder_test.dart
+          deno fmt \
+            supabase/functions/lifemate-api/index.ts \
+            supabase/functions/lifemate-api/database.ts \
+            supabase/functions/lifemate-api/women_calendar.ts \
+            supabase/functions/lifemate-api/women_calendar_test.ts \
+            supabase/functions/lifemate-api/women_calendar_integration_test.ts
+
+      - name: Verify shared package
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd packages/lifemate_client
+          flutter pub get
+          flutter analyze --no-fatal-infos --no-fatal-warnings
+          flutter test
+
+      - name: Verify WellMate
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd wellmate
+          flutter pub get
+          flutter analyze --no-fatal-infos --no-fatal-warnings
+          flutter test
+
+      - name: Verify CareMate
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd caremate
+          flutter pub get
+          flutter analyze --no-fatal-infos --no-fatal-warnings
+          flutter test
+
+      - name: Verify Edge unit contract
+        working-directory: supabase/functions/lifemate-api
+        shell: bash
+        run: |
+          set -euo pipefail
+          deno task check
+          deno task test
+
+      - name: Build canonical database schema
+        shell: bash
+        run: |
+          set -euo pipefail
+          dotnet restore backend-dotnet/LifeMate.sln --verbosity minimal
+          dotnet tool restore
+          dotnet build backend-dotnet/LifeMate.sln --configuration Release --no-restore
+          dotnet ef database update \
+            --configuration Release \
+            --no-build \
+            --project backend-dotnet/src/LifeMate.Infrastructure \
+            --startup-project backend-dotnet/src/LifeMate.Api
+          for migration in \
+            supabase/migrations/20260803173000_add_consent_scoped_care_events.sql \
+            supabase/migrations/20260804002000_lock_down_public_health_status.sql \
+            supabase/migrations/20260804003000_add_user_profile_version.sql \
+            supabase/migrations/20260804130000_add_women_calendar_pilot.sql
+          do
+            psql "$TEST_DATABASE_URL" --set=ON_ERROR_STOP=1 --file="$migration"
+          done
+
+      - name: Verify database isolation journeys
+        working-directory: supabase/functions/lifemate-api
+        shell: bash
+        run: |
+          set -euo pipefail
+          deno task test:integration
+
+      - name: Enforce feature privacy and notification invariants
+        shell: bash
+        run: |
+          set -euo pipefail
+          grep -q "defaultValue: false" packages/lifemate_client/lib/src/feature_flags.dart
+          grep -q "ENABLE_WOMEN_CALENDAR_PILOT" packages/lifemate_client/lib/src/feature_flags.dart
+          grep -q "women_calendar_feature_disabled" supabase/functions/lifemate-api/index.ts
+          grep -q "can_view_women_calendar boolean not null default false" supabase/migrations/20260804130000_add_women_calendar_pilot.sql
+          grep -q "privateNotes" supabase/functions/lifemate-api/women_calendar_integration_test.ts
+          grep -q '"privateNotes" in episodes\[0\], false' supabase/functions/lifemate-api/women_calendar_integration_test.ts
+          grep -q "selectEarliestReminderPerPatient" caremate/lib/providers/care_notification_provider.dart
+          grep -q "await _notifications.cancelAll" caremate/lib/providers/care_notification_provider.dart
+          grep -q "medicineReminderWindow" wellmate/lib/screens/home/home_screen_content.dart
+          grep -q "مراقبان فعال.*toPersianDigit" wellmate/lib/screens/profile/care_access_screen.dart
+          grep -q "تقویم بانوان" wellmate/lib/core/widgets/wellmate_bottom_nav.dart
+          grep -q "حمایت‌های غیرپزشکی" caremate/lib/screens/women_calendar/care_women_calendar_screen.dart
+          ! grep -R --line-number -E "ovulation|fertility|contraception|تخمک|باروری|پیشگیری" \
+            wellmate/lib/screens/women_calendar \
+            caremate/lib/screens/women_calendar \
+            supabase/functions/lifemate-api/women_calendar.ts
+
+      - name: Commit verified product changes
+        shell: bash
+        run: |
+          set -euo pipefail
+          if git diff --quiet; then
+            echo 'No generated changes to commit.'
+            exit 0
+          fi
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add -A
+          git commit -m 'feat: implement women calendar pilot and caregiver reminders'
+          git push origin HEAD:feat/women-calendar-care-access-notifications
