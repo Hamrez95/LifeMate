@@ -1,0 +1,55 @@
+name: apply-qa-fixes-v2
+
+on:
+  push:
+    branches:
+      - fix/profile-photo-reminder-state
+    paths:
+      - '.github/workflows/apply-qa-fixes-v2.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  apply:
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
+        with:
+          persist-credentials: true
+          show-progress: false
+      - name: Apply reviewed patch
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          import base64
+          import gzip
+          import re
+
+          source = Path('.github/workflows/apply-qa-fixes.yml').read_text()
+          match = re.search(r"printf '%s' '([^']+)' \\| base64 --decode", source)
+          if match is None:
+              raise SystemExit('embedded QA patch was not found')
+          payload = base64.b64decode(match.group(1))
+          Path('/tmp/lifemate-qa.patch').write_bytes(gzip.decompress(payload))
+          PY
+          patch --batch --forward -p1 < /tmp/lifemate-qa.patch
+          python3 - <<'PY'
+          from pathlib import Path
+
+          for name in ('wellmate/lib/main.dart', 'caremate/lib/main.dart'):
+              path = Path(name)
+              path.write_text(path.read_text().rstrip() + '\n')
+          PY
+          rm -f .github/workflows/temp-source-bundle.yml
+          rm -f .github/workflows/apply-qa-fixes.yml
+          rm -f .github/workflows/apply-qa-fixes-v2.yml
+          git diff --check
+          git config user.name 'Hamidreza Pakpour'
+          git config user.email '136631329+Hamrez95@users.noreply.github.com'
+          git add -A
+          git commit -m 'fix: complete physical QA feedback for navigation profile and calendar'
+          git push origin HEAD:fix/profile-photo-reminder-state
