@@ -33,11 +33,8 @@ class LifeMateEditApi {
 
   static const _timeout = Duration(seconds: 20);
 
-  Future<Map<String, dynamic>> getCareEvent({
-    required String eventId,
-  }) async => _object(
-    await _request('GET', '/api/v1/care-events/$eventId'),
-  );
+  Future<Map<String, dynamic>> getCareEvent({required String eventId}) async =>
+      _object(await _request('GET', '/api/v1/care-events/$eventId'));
 
   Future<Map<String, dynamic>> updateTreatmentPlan({
     required String treatmentPlanId,
@@ -154,9 +151,10 @@ class LifeMateEditApi {
     try {
       response = switch (method) {
         'GET' => await _http.get(uri, headers: headers).timeout(_timeout),
-        'PATCH' => await _http
-            .patch(uri, headers: headers, body: jsonEncode(body))
-            .timeout(_timeout),
+        'PATCH' =>
+          await _http
+              .patch(uri, headers: headers, body: jsonEncode(body))
+              .timeout(_timeout),
         _ => throw ArgumentError.value(method, 'method'),
       };
     } catch (error) {
@@ -181,7 +179,8 @@ class LifeMateEditApi {
     throw LifeMateApiException(
       statusCode: response.statusCode,
       code: problem['code']?.toString() ?? 'request_failed',
-      message: problem['message']?.toString() ??
+      message:
+          problem['message']?.toString() ??
           problem['detail']?.toString() ??
           'LifeMate edit request failed.',
     );
@@ -189,7 +188,9 @@ class LifeMateEditApi {
 
   static Map<String, dynamic> _object(dynamic value) {
     if (value is! Map) {
-      throw const FormatException('LifeMate API returned a non-object payload.');
+      throw const FormatException(
+        'LifeMate API returned a non-object payload.',
+      );
     }
     return Map<String, dynamic>.from(value);
   }

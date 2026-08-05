@@ -6,11 +6,7 @@ import '../../core/utils/persian_date_utils.dart';
 import '../../core/widgets/labeled_form_field.dart';
 
 class EditCareEventScreen extends StatefulWidget {
-  const EditCareEventScreen({
-    super.key,
-    required this.eventId,
-    this.editApi,
-  });
+  const EditCareEventScreen({super.key, required this.eventId, this.editApi});
 
   final String eventId;
   final LifeMateEditApi? editApi;
@@ -129,7 +125,8 @@ class _EditCareEventScreenState extends State<EditCareEventScreen> {
     _date =
         DateTime.tryParse(event['scheduledLocalDate']?.toString() ?? '') ??
         DateTime.now();
-    final parts = event['scheduledLocalTime']?.toString().split(':') ?? const [];
+    final parts =
+        event['scheduledLocalTime']?.toString().split(':') ?? const [];
     final hour = parts.isNotEmpty ? int.tryParse(parts[0]) : null;
     final minute = parts.length > 1 ? int.tryParse(parts[1]) : null;
     if (hour != null && minute != null) {
@@ -196,8 +193,8 @@ class _EditCareEventScreenState extends State<EditCareEventScreen> {
         caregiverReminderMinutesBefore: _caregiverReminderMinutesBefore,
         status: _status,
       );
-      _version = int.tryParse(result['version']?.toString() ?? '') ??
-          _version + 1;
+      _version =
+          int.tryParse(result['version']?.toString() ?? '') ?? _version + 1;
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
@@ -215,7 +212,9 @@ class _EditCareEventScreenState extends State<EditCareEventScreen> {
     } catch (error) {
       debugPrint('WellMate care event update failed: $error');
       if (mounted) {
-        setState(() => _error = 'ذخیره تغییرات انجام نشد. اتصال را بررسی کنید.');
+        setState(
+          () => _error = 'ذخیره تغییرات انجام نشد. اتصال را بررسی کنید.',
+        );
       }
     } finally {
       if (mounted) setState(() => _busy = false);
@@ -228,7 +227,8 @@ class _EditCareEventScreenState extends State<EditCareEventScreen> {
         'این برنامه در جای دیگری تغییر کرده است. صفحه را ببندید و دوباره باز کنید.',
       'care_event_not_found' => 'این ویزیت یا تزریق دیگر وجود ندارد.',
       'invalid_medicationName' => 'نام داروی تزریقی را وارد کنید.',
-      'network_unavailable' => 'اتصال اینترنت برای ذخیره تغییرات در دسترس نیست.',
+      'network_unavailable' =>
+        'اتصال اینترنت برای ذخیره تغییرات در دسترس نیست.',
       'session_missing' ||
       'invalid_session' => 'نشست شما منقضی شده است. دوباره وارد شوید.',
       _ => 'اطلاعات واردشده معتبر نیست یا ذخیره انجام نشد.',
@@ -292,9 +292,7 @@ class _EditCareEventScreenState extends State<EditCareEventScreen> {
                         ),
                       ),
                     _Section(
-                      title: _isAppointment
-                          ? 'مشخصات ویزیت'
-                          : 'مشخصات تزریق',
+                      title: _isAppointment ? 'مشخصات ویزیت' : 'مشخصات تزریق',
                       icon: _isAppointment
                           ? Icons.medical_services_rounded
                           : Icons.vaccines_rounded,
@@ -468,10 +466,8 @@ class _EditCareEventScreenState extends State<EditCareEventScreen> {
                             isExpanded: true,
                             decoration: wellMateFieldDecoration(),
                             items: [
-                              for (
-                                final value
-                                in LifeMateReminderLeadTimes.presets
-                              )
+                              for (final value
+                                  in LifeMateReminderLeadTimes.presets)
                                 DropdownMenuItem(
                                   value: value,
                                   child: Text(
@@ -483,8 +479,7 @@ class _EditCareEventScreenState extends State<EditCareEventScreen> {
                                 ? null
                                 : (value) => setState(() {
                                     _patientReminderMinutesBefore =
-                                        value ??
-                                        _patientReminderMinutesBefore;
+                                        value ?? _patientReminderMinutesBefore;
                                   }),
                           ),
                         ),
@@ -496,10 +491,8 @@ class _EditCareEventScreenState extends State<EditCareEventScreen> {
                             isExpanded: true,
                             decoration: wellMateFieldDecoration(),
                             items: [
-                              for (
-                                final value
-                                in LifeMateReminderLeadTimes.presets
-                              )
+                              for (final value
+                                  in LifeMateReminderLeadTimes.presets)
                                 DropdownMenuItem(
                                   value: value,
                                   child: Text(

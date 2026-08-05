@@ -7,11 +7,7 @@ import '../../core/widgets/labeled_form_field.dart';
 import 'treatment_schedule_payload.dart';
 
 class EditTreatmentScreen extends StatefulWidget {
-  const EditTreatmentScreen({
-    super.key,
-    required this.plan,
-    this.editApi,
-  });
+  const EditTreatmentScreen({super.key, required this.plan, this.editApi});
 
   final Map<String, dynamic> plan;
   final LifeMateEditApi? editApi;
@@ -131,9 +127,8 @@ class _EditTreatmentScreenState extends State<EditTreatmentScreen> {
     for (final raw in schedules) {
       if (raw is! Map) continue;
       final schedule = Map<String, dynamic>.from(raw);
-      final day = _weekdayByBackend[
-        schedule['dayOfWeek']?.toString().toLowerCase()
-      ];
+      final day =
+          _weekdayByBackend[schedule['dayOfWeek']?.toString().toLowerCase()];
       if (day != null) _selectedWeekdays.add(day);
       final parsedTime = _parseTime(schedule['localTime']);
       if (parsedTime != null &&
@@ -175,15 +170,12 @@ class _EditTreatmentScreenState extends State<EditTreatmentScreen> {
   void _sortTimes() {
     _times.sort(
       (left, right) =>
-          (left.hour * 60 + left.minute) -
-          (right.hour * 60 + right.minute),
+          (left.hour * 60 + left.minute) - (right.hour * 60 + right.minute),
     );
   }
 
   Future<void> _pickTime({int? replaceIndex}) async {
-    final initial = replaceIndex == null
-        ? _times.last
-        : _times[replaceIndex];
+    final initial = replaceIndex == null ? _times.last : _times[replaceIndex];
     final value = await showTimePicker(context: context, initialTime: initial);
     if (value == null || !mounted) return;
     final duplicate = _times.asMap().entries.any(
@@ -271,8 +263,8 @@ class _EditTreatmentScreenState extends State<EditTreatmentScreen> {
         caregiverReminderMinutesBefore: _caregiverReminderMinutesBefore,
         status: _status,
       );
-      _version = int.tryParse(result['version']?.toString() ?? '') ??
-          _version + 1;
+      _version =
+          int.tryParse(result['version']?.toString() ?? '') ?? _version + 1;
       final medication = result['medication'];
       if (medication is Map) {
         _medicationVersion =
@@ -293,7 +285,9 @@ class _EditTreatmentScreenState extends State<EditTreatmentScreen> {
     } catch (error) {
       debugPrint('WellMate treatment update failed: $error');
       if (mounted) {
-        setState(() => _error = 'ذخیره تغییرات انجام نشد. اتصال را بررسی کنید.');
+        setState(
+          () => _error = 'ذخیره تغییرات انجام نشد. اتصال را بررسی کنید.',
+        );
       }
     } finally {
       if (mounted) setState(() => _busy = false);
@@ -302,11 +296,11 @@ class _EditTreatmentScreenState extends State<EditTreatmentScreen> {
 
   String _friendlyError(LifeMateApiException error) {
     return switch (error.code) {
-      'stale_treatment_plan' ||
-      'stale_medication' =>
+      'stale_treatment_plan' || 'stale_medication' =>
         'این درمان در جای دیگری تغییر کرده است. صفحه را ببندید و دوباره باز کنید.',
       'treatment_plan_not_found' => 'این درمان دیگر در حساب شما وجود ندارد.',
-      'network_unavailable' => 'اتصال اینترنت برای ذخیره تغییرات در دسترس نیست.',
+      'network_unavailable' =>
+        'اتصال اینترنت برای ذخیره تغییرات در دسترس نیست.',
       'session_missing' ||
       'invalid_session' => 'نشست شما منقضی شده است. دوباره وارد شوید.',
       _ => 'اطلاعات درمان معتبر نیست یا ذخیره انجام نشد.',
@@ -371,8 +365,7 @@ class _EditTreatmentScreenState extends State<EditTreatmentScreen> {
                       ],
                       onChanged: _busy
                           ? null
-                          : (value) =>
-                                setState(() => _form = value ?? _form),
+                          : (value) => setState(() => _form = value ?? _form),
                     ),
                   ),
                   _textField(
@@ -391,10 +384,7 @@ class _EditTreatmentScreenState extends State<EditTreatmentScreen> {
                       initialValue: _status,
                       decoration: wellMateFieldDecoration(),
                       items: const [
-                        DropdownMenuItem(
-                          value: 'active',
-                          child: Text('فعال'),
-                        ),
+                        DropdownMenuItem(value: 'active', child: Text('فعال')),
                         DropdownMenuItem(
                           value: 'stopped',
                           child: Text('متوقف'),
@@ -557,9 +547,8 @@ class _EditTreatmentScreenState extends State<EditTreatmentScreen> {
                       ],
                       onChanged: _busy
                           ? null
-                          : (value) => setState(
-                              () => _timeZone = value ?? _timeZone,
-                            ),
+                          : (value) =>
+                                setState(() => _timeZone = value ?? _timeZone),
                     ),
                   ),
                 ],

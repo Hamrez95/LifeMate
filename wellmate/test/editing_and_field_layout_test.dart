@@ -16,9 +16,7 @@ void main() {
         value: _FakeLifeMateApiClient(),
         child: MaterialApp(
           locale: const Locale('fa'),
-          home: Scaffold(
-            body: TabbedAddTreatmentScreen(onCreated: () {}),
-          ),
+          home: Scaffold(body: TabbedAddTreatmentScreen(onCreated: () {})),
         ),
       ),
     );
@@ -56,10 +54,7 @@ void main() {
     await tester.pumpWidget(
       MaterialApp(
         locale: const Locale('fa'),
-        home: EditTreatmentScreen(
-          editApi: editApi,
-          plan: _treatmentPlan(),
-        ),
+        home: EditTreatmentScreen(editApi: editApi, plan: _treatmentPlan()),
       ),
     );
     await tester.pumpAndSettle();
@@ -136,10 +131,10 @@ Map<String, dynamic> _treatmentPlan() => {
 
 class _FakeLifeMateApiClient extends LifeMateApiClient {
   _FakeLifeMateApiClient()
-      : super(
-          baseUri: Uri.parse('https://example.invalid'),
-          accessToken: () => 'test-token',
-        );
+    : super(
+        baseUri: Uri.parse('https://example.invalid'),
+        accessToken: () => 'test-token',
+      );
 
   @override
   Future<Map<String, dynamic>> getCurrentUser() async => const {
@@ -149,10 +144,10 @@ class _FakeLifeMateApiClient extends LifeMateApiClient {
 
 class _FakeEditApi extends LifeMateEditApi {
   _FakeEditApi()
-      : super(
-          baseUri: Uri.parse('https://example.invalid'),
-          accessToken: () => 'test-token',
-        );
+    : super(
+        baseUri: Uri.parse('https://example.invalid'),
+        accessToken: () => 'test-token',
+      );
 
   int treatmentUpdateCount = 0;
   int careEventUpdateCount = 0;
@@ -161,27 +156,26 @@ class _FakeEditApi extends LifeMateEditApi {
   int? lastCareEventVersion;
 
   @override
-  Future<Map<String, dynamic>> getCareEvent({
-    required String eventId,
-  }) async => const {
-    'id': '11111111-1111-4111-8111-111111111111',
-    'version': 3,
-    'eventType': 'appointment',
-    'status': 'scheduled',
-    'title': 'ویزیت متخصص قلب',
-    'providerName': 'دکتر سارا راد',
-    'specialty': 'متخصص قلب',
-    'reason': 'پیگیری',
-    'centerName': 'کلینیک الوند',
-    'addressLine': 'تهران',
-    'phoneNumber': '02100000000',
-    'instructions': 'آزمایش‌ها همراه باشد',
-    'scheduledLocalDate': '2026-08-10',
-    'scheduledLocalTime': '15:00',
-    'timeZone': 'Asia/Tehran',
-    'patientReminderMinutesBefore': 30,
-    'caregiverReminderMinutesBefore': 60,
-  };
+  Future<Map<String, dynamic>> getCareEvent({required String eventId}) async =>
+      const {
+        'id': '11111111-1111-4111-8111-111111111111',
+        'version': 3,
+        'eventType': 'appointment',
+        'status': 'scheduled',
+        'title': 'ویزیت متخصص قلب',
+        'providerName': 'دکتر سارا راد',
+        'specialty': 'متخصص قلب',
+        'reason': 'پیگیری',
+        'centerName': 'کلینیک الوند',
+        'addressLine': 'تهران',
+        'phoneNumber': '02100000000',
+        'instructions': 'آزمایش‌ها همراه باشد',
+        'scheduledLocalDate': '2026-08-10',
+        'scheduledLocalTime': '15:00',
+        'timeZone': 'Asia/Tehran',
+        'patientReminderMinutesBefore': 30,
+        'caregiverReminderMinutesBefore': 60,
+      };
 
   @override
   Future<Map<String, dynamic>> updateTreatmentPlan({

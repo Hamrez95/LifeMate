@@ -593,7 +593,10 @@ class _TreatmentDetailsScreen extends StatelessWidget {
                     child: const Row(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Icon(Icons.info_outline_rounded, color: AppColors.primary),
+                        Icon(
+                          Icons.info_outline_rounded,
+                          color: AppColors.primary,
+                        ),
                         SizedBox(width: 10),
                         Expanded(
                           child: Text(

@@ -539,9 +539,7 @@ class _TabbedAddTreatmentScreenState extends State<TabbedAddTreatmentScreen> {
                   controller: _instructions,
                   minLines: 3,
                   maxLines: 6,
-                  decoration: wellMateFieldDecoration(
-                    hint: 'مثلاً بعد از غذا',
-                  ),
+                  decoration: wellMateFieldDecoration(hint: 'مثلاً بعد از غذا'),
                 ),
               ),
             ],

@@ -104,16 +104,15 @@ InputDecoration wellMateFieldDecoration({
     fillColor: const Color(0xFFF8FCFA),
     isDense: false,
     contentPadding:
-        contentPadding ?? const EdgeInsets.symmetric(horizontal: 16, vertical: 17),
+        contentPadding ??
+        const EdgeInsets.symmetric(horizontal: 16, vertical: 17),
     border: OutlineInputBorder(
       borderRadius: BorderRadius.circular(17),
       borderSide: BorderSide.none,
     ),
     enabledBorder: OutlineInputBorder(
       borderRadius: BorderRadius.circular(17),
-      borderSide: BorderSide(
-        color: AppColors.primary.withValues(alpha: 0.10),
-      ),
+      borderSide: BorderSide(color: AppColors.primary.withValues(alpha: 0.10)),
     ),
     focusedBorder: OutlineInputBorder(
       borderRadius: BorderRadius.circular(17),

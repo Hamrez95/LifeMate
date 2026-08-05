@@ -9,11 +9,7 @@ import '../../core/widgets/labeled_form_field.dart';
 enum CarePlanKind { appointment, injection }
 
 class CareEventForm extends StatefulWidget {
-  const CareEventForm({
-    super.key,
-    required this.kind,
-    required this.onCreated,
-  });
+  const CareEventForm({super.key, required this.kind, required this.onCreated});
 
   final CarePlanKind kind;
   final VoidCallback onCreated;

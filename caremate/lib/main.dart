@@ -159,9 +159,8 @@ class _AuthenticatedCareMateShellState
         onPop: () => _navigatorKey.currentState?.pop<void>(),
         child: Navigator(
           key: _navigatorKey,
-          onGenerateRoute: (_) => MaterialPageRoute<void>(
-            builder: (_) => const DashboardScreen(),
-          ),
+          onGenerateRoute: (_) =>
+              MaterialPageRoute<void>(builder: (_) => const DashboardScreen()),
         ),
       ),
     );
