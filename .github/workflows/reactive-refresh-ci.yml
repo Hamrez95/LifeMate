@@ -6,7 +6,7 @@ on:
       - fix/reactive-refresh-and-profile-cache
 
 permissions:
-  contents: read
+  contents: write
 
 concurrency:
   group: reactive-refresh-${{ github.ref }}
@@ -46,6 +46,25 @@ jobs:
             wellmate/lib/main.dart \
             wellmate/lib/screens/home/home_screen.dart \
             wellmate/test/wellmate_refresh_observer_test.dart
+
+      - name: Persist canonical Dart formatting
+        shell: bash
+        run: |
+          set -euo pipefail
+          if git diff --quiet; then
+            exit 0
+          fi
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add \
+            packages/lifemate_client/lib/src/profile_avatar.dart \
+            packages/lifemate_client/test/profile_avatar_cache_test.dart \
+            wellmate/lib/core/state/wellmate_refresh.dart \
+            wellmate/lib/main.dart \
+            wellmate/lib/screens/home/home_screen.dart \
+            wellmate/test/wellmate_refresh_observer_test.dart
+          git commit -m 'style: apply canonical Dart formatting'
+          git push origin HEAD:fix/reactive-refresh-and-profile-cache
 
       - name: Verify shared client
         working-directory: packages/lifemate_client
