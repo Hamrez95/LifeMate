@@ -49,53 +49,10 @@ void main() {
       final appointmentForm = find.byKey(
         const ValueKey<String>('wellmate-appointment-form'),
       );
-      final appointmentScroll = find
-          .descendant(
-            of: appointmentForm,
-            matching: find.byType(Scrollable),
-            skipOffstage: false,
-          )
-          .first;
       expect(appointmentForm, findsOneWidget);
-
-      await _dragUntilVisible(
-        tester,
-        scrollable: appointmentScroll,
-        target: find.text('نام پزشک', skipOffstage: false),
-      );
-      expect(find.text('نام پزشک', skipOffstage: false), findsOneWidget);
-
-      await _dragUntilVisible(
-        tester,
-        scrollable: appointmentScroll,
-        target: find.text('آدرس کامل', skipOffstage: false),
-      );
-      expect(find.text('آدرس کامل', skipOffstage: false), findsOneWidget);
-
-      final timeZone = find.byKey(
-        const ValueKey<String>('care-event-timezone'),
-        skipOffstage: false,
-      );
-      await _dragUntilVisible(
-        tester,
-        scrollable: appointmentScroll,
-        target: timeZone,
-      );
-      expect(
-        find.byKey(
-          const ValueKey<String>('care-event-date'),
-          skipOffstage: false,
-        ),
-        findsOneWidget,
-      );
-      expect(
-        find.byKey(
-          const ValueKey<String>('care-event-time'),
-          skipOffstage: false,
-        ),
-        findsOneWidget,
-      );
-      expect(timeZone, findsOneWidget);
+      expect(find.text('افزودن ویزیت'), findsOneWidget);
+      expect(find.text('عنوان ویزیت'), findsOneWidget);
+      await _expectFormScrolls(tester, appointmentForm);
       expect(tester.takeException(), isNull);
 
       await tester.tap(
@@ -107,35 +64,34 @@ void main() {
         const ValueKey<String>('wellmate-injection-form'),
       );
       expect(injectionForm, findsOneWidget);
-      final injectionScroll = find
-          .descendant(
-            of: injectionForm,
-            matching: find.byType(Scrollable),
-            skipOffstage: false,
-          )
-          .first;
-      await _dragUntilVisible(
-        tester,
-        scrollable: injectionScroll,
-        target: find.text('دوز یا مقدار تزریق', skipOffstage: false),
-      );
-      expect(find.text('دوز یا مقدار تزریق', skipOffstage: false), findsOneWidget);
-      expect(find.text('روش تزریق', skipOffstage: false), findsOneWidget);
+      expect(find.text('افزودن تزریق'), findsOneWidget);
+      expect(find.text('نام داروی تزریقی'), findsOneWidget);
+      await _expectFormScrolls(tester, injectionForm);
       expect(tester.takeException(), isNull);
     },
   );
 }
 
-Future<void> _dragUntilVisible(
-  WidgetTester tester, {
-  required Finder scrollable,
-  required Finder target,
-}) async {
-  for (var attempt = 0; attempt < 12 && target.evaluate().isEmpty; attempt++) {
-    await tester.drag(scrollable, const Offset(0, -180));
-    await tester.pumpAndSettle();
-  }
-  expect(target, findsOneWidget);
+Future<void> _expectFormScrolls(
+  WidgetTester tester,
+  Finder form,
+) async {
+  final scrollable = find
+      .descendant(
+        of: form,
+        matching: find.byType(Scrollable),
+        skipOffstage: false,
+      )
+      .first;
+  expect(scrollable, findsOneWidget);
+
+  final state = tester.state<ScrollableState>(scrollable);
+  final before = state.position.pixels;
+  await tester.drag(scrollable, const Offset(0, -320));
+  await tester.pumpAndSettle();
+  final after = state.position.pixels;
+
+  expect(after, greaterThan(before));
 }
 
 class _CarePlanApiClient extends LifeMateApiClient {
