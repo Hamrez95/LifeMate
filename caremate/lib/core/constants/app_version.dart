@@ -3,4 +3,4 @@
 /// Keep this value aligned with `caremate/pubspec.yaml`. A regression test
 /// verifies the two values so the profile screen cannot silently show an old
 /// release number again.
-const String careMateAppVersion = '0.9.0-internal.7+18';
+const String careMateAppVersion = '0.9.0-internal.8+19';
