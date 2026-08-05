@@ -39,6 +39,7 @@ jobs:
         shell: bash
         run: |
           python3 - <<'PY'
+          import re
           from pathlib import Path
 
           path = Path('wellmate/lib/screens/women_calendar/women_companion_screen.dart')
@@ -61,60 +62,74 @@ jobs:
               "(value.cycleLength - value.pmsStartDay + 1)\n            .clamp(0, value.cycleLength)\n            .toInt(),",
           )
 
-          old_state = '''class _DailyCheckInSheetState extends State<_DailyCheckInSheet> {
-          late String _mood = widget.existing?['mood']?.toString() ?? 'good';
-          late int _energy = widget.existing?['energyLevel'] is int
-              ? widget.existing!['energyLevel'] as int
-              : 3;
-          late int _pain = widget.existing?['painLevel'] is int
-              ? widget.existing!['painLevel'] as int
-              : 0;
-          late Set<String> _symptoms = Set<String>.from(
-            (widget.existing?['symptoms'] as List<dynamic>? ?? const []).map(
-              (item) => item.toString(),
-            ),
-          );
-          late bool _share = widget.existing?['shareSummaryWithCompanion'] == true;
-          late final TextEditingController _notes = TextEditingController(
-            text: widget.existing?['privateNotes']?.toString() ?? '',
-          );
+          state_pattern = re.compile(
+              r"class _DailyCheckInSheetState extends State<_DailyCheckInSheet> \{.*?(?=\n  @override\n  void dispose\(\))",
+              re.S,
+          )
+          state_replacement = '''class _DailyCheckInSheetState extends State<_DailyCheckInSheet> {
+            late String _mood;
+            late int _energy;
+            late int _pain;
+            late Set<String> _symptoms;
+            late bool _share;
+            late final TextEditingController _notes;
 
-          @override
-          void dispose() {'''
-          new_state = '''class _DailyCheckInSheetState extends State<_DailyCheckInSheet> {
-          late String _mood;
-          late int _energy;
-          late int _pain;
-          late Set<String> _symptoms;
-          late bool _share;
-          late final TextEditingController _notes;
+            @override
+            void initState() {
+              super.initState();
+              final existing = widget.existing;
+              _mood = existing?['mood']?.toString() ?? 'good';
+              _energy = existing?['energyLevel'] is int
+                  ? existing!['energyLevel'] as int
+                  : 3;
+              _pain = existing?['painLevel'] is int
+                  ? existing!['painLevel'] as int
+                  : 0;
+              _symptoms = Set<String>.from(
+                (existing?['symptoms'] as List<dynamic>? ?? const []).map(
+                  (item) => item.toString(),
+                ),
+              );
+              _share = existing?['shareSummaryWithCompanion'] == true;
+              _notes = TextEditingController(
+                text: existing?['privateNotes']?.toString() ?? '',
+              );
+            }
+          '''
+          text = state_pattern.sub(state_replacement, text, count=1)
 
-          @override
-          void initState() {
-            super.initState();
-            final existing = widget.existing;
-            _mood = existing?['mood']?.toString() ?? 'good';
-            _energy = existing?['energyLevel'] is int
-                ? existing!['energyLevel'] as int
-                : 3;
-            _pain = existing?['painLevel'] is int
-                ? existing!['painLevel'] as int
-                : 0;
-            _symptoms = Set<String>.from(
-              (existing?['symptoms'] as List<dynamic>? ?? const []).map(
-                (item) => item.toString(),
-              ),
-            );
-            _share = existing?['shareSummaryWithCompanion'] == true;
-            _notes = TextEditingController(
-              text: existing?['privateNotes']?.toString() ?? '',
-            );
-          }
+          hero_class = text.index('class _CompanionHero')
+          hero_row = text.index('          Row(\n', hero_class)
+          hero_end_marker = '          const SizedBox(height: 12),'
+          hero_end = text.index(hero_end_marker, hero_row)
+          hero_segment = text[hero_row:hero_end]
+          if 'FittedBox(' not in hero_segment:
+              hero_segment = hero_segment.replace(
+                  '          Row(\n',
+                  '          FittedBox(\n            fit: BoxFit.scaleDown,\n            child: Row(\n',
+                  1,
+              )
+              hero_segment += '          ),\n'
+              text = text[:hero_row] + hero_segment + text[hero_end:]
 
-          @override
-          void dispose() {'''
-          if old_state in text:
-              text = text.replace(old_state, new_state)
+          switch_start = '            SwitchListTile.adaptive(\n'
+          if switch_start in text:
+              text = text.replace(
+                  switch_start,
+                  '            Material(\n              color: Colors.transparent,\n              child: SwitchListTile.adaptive(\n',
+                  1,
+              )
+              switch_end = (
+                  "              activeThumbColor: const Color(0xFFD75C8D),\n"
+                  "            ),"
+              )
+              text = text.replace(
+                  switch_end,
+                  "                activeThumbColor: const Color(0xFFD75C8D),\n"
+                  "              ),\n"
+                  "            ),",
+                  1,
+              )
 
           text = text.replace(
               "        const Spacer(),\n        Text(\n          label,",
@@ -160,7 +175,7 @@ jobs:
             supabase/functions/lifemate-api/index.ts \
             supabase/functions/lifemate-api/women_calendar.ts \
             supabase/functions/lifemate-api/women_calendar_integration_test.ts
-          git commit -m 'fix: finalize women companion source safety and formatting'
+          git commit -m 'fix: make women companion dashboard narrow-screen safe'
           git push origin HEAD:feat/women-companion-experience
 
   flutter:
