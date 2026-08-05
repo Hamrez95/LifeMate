@@ -1,0 +1,168 @@
+name: emotional-cycle-ci
+
+on:
+  push:
+    branches:
+      - feat/emotional-women-cycle-companion
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: emotional-cycle-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  format:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
+        with:
+          show-progress: false
+
+      - uses: subosito/flutter-action@4cab68ce0f1c7c924f688bff4792e044f1aeb30c
+        with:
+          flutter-version: '3.44.0'
+          channel: stable
+          cache: true
+
+      - uses: denoland/setup-deno@22d081ff2d3a40755e97629de92e3bcbfa7cf2ed
+        with:
+          deno-version: v2.9.4
+
+      - name: Apply canonical formatting
+        run: |
+          dart format \
+            packages/lifemate_client/lib/lifemate_client.dart \
+            packages/lifemate_client/lib/src/lifemate_api_client.dart \
+            packages/lifemate_client/lib/src/women_cycle_ring.dart \
+            wellmate/lib/screens/women_calendar/women_calendar_screen.dart \
+            wellmate/lib/screens/women_calendar/women_calendar_experience_widgets.dart \
+            wellmate/lib/screens/women_calendar/women_calendar_management_widgets.dart \
+            caremate/lib/screens/women_calendar/care_women_calendar_screen.dart
+          deno fmt supabase/functions/lifemate-api/women_calendar.ts
+
+      - name: Persist formatting
+        shell: bash
+        run: |
+          set -euo pipefail
+          if git diff --quiet; then
+            echo 'Sources already formatted.'
+            exit 0
+          fi
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add \
+            packages/lifemate_client/lib/lifemate_client.dart \
+            packages/lifemate_client/lib/src/lifemate_api_client.dart \
+            packages/lifemate_client/lib/src/women_cycle_ring.dart \
+            wellmate/lib/screens/women_calendar/women_calendar_screen.dart \
+            wellmate/lib/screens/women_calendar/women_calendar_experience_widgets.dart \
+            wellmate/lib/screens/women_calendar/women_calendar_management_widgets.dart \
+            caremate/lib/screens/women_calendar/care_women_calendar_screen.dart \
+            supabase/functions/lifemate-api/women_calendar.ts
+          git commit -m 'style: format emotional cycle experience sources'
+          git push origin HEAD:feat/emotional-women-cycle-companion
+
+  verify:
+    needs: format
+    runs-on: ubuntu-24.04
+    timeout-minutes: 55
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
+        with:
+          ref: feat/emotional-women-cycle-companion
+          show-progress: false
+
+      - uses: subosito/flutter-action@4cab68ce0f1c7c924f688bff4792e044f1aeb30c
+        with:
+          flutter-version: '3.44.0'
+          channel: stable
+          cache: true
+
+      - uses: denoland/setup-deno@22d081ff2d3a40755e97629de92e3bcbfa7cf2ed
+        with:
+          deno-version: v2.9.4
+
+      - name: Shared client
+        working-directory: packages/lifemate_client
+        run: |
+          flutter pub get
+          flutter analyze --no-fatal-warnings --no-fatal-infos
+          flutter test
+
+      - name: WellMate
+        working-directory: wellmate
+        run: |
+          flutter pub get
+          flutter analyze --no-fatal-warnings --no-fatal-infos
+          flutter test
+          flutter build web --release --dart-define=ENABLE_GOOGLE_AUTH=false --dart-define=ENABLE_WOMEN_CALENDAR_PILOT=true
+
+      - name: CareMate
+        working-directory: caremate
+        run: |
+          flutter pub get
+          flutter analyze --no-fatal-warnings --no-fatal-infos
+          flutter test
+          flutter build web --release --dart-define=ENABLE_GOOGLE_AUTH=false --dart-define=ENABLE_WOMEN_CALENDAR_PILOT=true
+
+      - name: Edge API
+        working-directory: supabase/functions/lifemate-api
+        run: |
+          deno fmt --check
+          deno task check
+          deno task test
+
+  android:
+    needs: verify
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
+        with:
+          ref: feat/emotional-women-cycle-companion
+          show-progress: false
+
+      - uses: subosito/flutter-action@4cab68ce0f1c7c924f688bff4792e044f1aeb30c
+        with:
+          flutter-version: '3.44.0'
+          channel: stable
+          cache: true
+
+      - name: Build Android internal APKs
+        env:
+          SUPABASE_URL: ${{ vars.SUPABASE_URL || 'https://bwdvmniywyyijjauipnh.supabase.co' }}
+          SUPABASE_PUBLISHABLE_KEY: ${{ vars.SUPABASE_PUBLISHABLE_KEY || 'sb_publishable_6YpBDD0gAPcenbYGukOeWg_fZXxUb27' }}
+          LIFEMATE_API_BASE_URL: ${{ vars.LIFEMATE_CANDIDATE_API_BASE_URL || 'https://bwdvmniywyyijjauipnh.supabase.co/functions/v1/lifemate-api-candidate' }}
+        run: |
+          set -euo pipefail
+          args=(
+            --release
+            --dart-define="SUPABASE_URL=$SUPABASE_URL"
+            --dart-define="SUPABASE_PUBLISHABLE_KEY=$SUPABASE_PUBLISHABLE_KEY"
+            --dart-define="LIFEMATE_API_BASE_URL=$LIFEMATE_API_BASE_URL"
+            --dart-define="ENABLE_GOOGLE_AUTH=false"
+            --dart-define="ENABLE_WOMEN_CALENDAR_PILOT=true"
+          )
+          (cd wellmate && flutter pub get && flutter build apk "${args[@]}")
+          (cd caremate && flutter pub get && flutter build apk "${args[@]}")
+          mkdir -p artifacts
+          cp wellmate/build/app/outputs/flutter-apk/app-release.apk artifacts/WellMate-emotional-cycle-internal.apk
+          cp caremate/build/app/outputs/flutter-apk/app-release.apk artifacts/CareMate-companion-internal.apk
+          sha256sum artifacts/*.apk > artifacts/SHA256SUMS.txt
+          cat > artifacts/README.txt <<'EOF'
+LifeMate emotional women-cycle / spouse companion internal candidate.
+Not Stable and not a public release.
+Women-calendar Feature Flag enabled; Google authentication disabled.
+The database migration and Edge Function changes must exist on the candidate backend for daily check-in persistence.
+Physical Android visual, notification, RTL and accessibility QA remain required.
+EOF
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: lifemate-emotional-cycle-android
+          path: artifacts
+          retention-days: 7
