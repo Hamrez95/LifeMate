@@ -309,66 +309,69 @@ class _CompanionHero extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 16),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Column(
-                children: [
-                  LifeMateCurrentUserAvatar(apiClient: api, radius: 34),
-                  const SizedBox(height: 6),
-                  Text(
-                    currentProfile['displayName']?.toString() ?? 'من',
-                    style: const TextStyle(
-                      fontSize: 11,
-                      fontWeight: FontWeight.w800,
-                    ),
-                  ),
-                ],
-              ),
-              Container(
-                width: 58,
-                height: 32,
-                margin: const EdgeInsets.symmetric(horizontal: 8),
-                child: Stack(
-                  alignment: Alignment.center,
+          FittedBox(
+            fit: BoxFit.scaleDown,
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Column(
                   children: [
-                    Container(
-                      height: 2,
-                      decoration: const BoxDecoration(
-                        gradient: LinearGradient(
-                          colors: [Color(0xFFE69AC6), Color(0xFFAB8BE7)],
-                        ),
-                      ),
-                    ),
-                    const CircleAvatar(
-                      radius: 14,
-                      backgroundColor: Colors.white,
-                      child: Icon(
-                        Icons.favorite_rounded,
-                        size: 15,
-                        color: Color(0xFFD66AA1),
+                    LifeMateCurrentUserAvatar(apiClient: api, radius: 34),
+                    const SizedBox(height: 6),
+                    Text(
+                      currentProfile['displayName']?.toString() ?? 'من',
+                      style: const TextStyle(
+                        fontSize: 11,
+                        fontWeight: FontWeight.w800,
                       ),
                     ),
                   ],
                 ),
-              ),
-              Column(
-                children: [
-                  const LifeMateProfileAvatar(
-                    avatarKey: 'caregiver_teal',
-                    radius: 34,
+                Container(
+                  width: 58,
+                  height: 32,
+                  margin: const EdgeInsets.symmetric(horizontal: 8),
+                  child: Stack(
+                    alignment: Alignment.center,
+                    children: [
+                      Container(
+                        height: 2,
+                        decoration: const BoxDecoration(
+                          gradient: LinearGradient(
+                            colors: [Color(0xFFE69AC6), Color(0xFFAB8BE7)],
+                          ),
+                        ),
+                      ),
+                      const CircleAvatar(
+                        radius: 14,
+                        backgroundColor: Colors.white,
+                        child: Icon(
+                          Icons.favorite_rounded,
+                          size: 15,
+                          color: Color(0xFFD66AA1),
+                        ),
+                      ),
+                    ],
                   ),
-                  const SizedBox(height: 6),
-                  Text(
-                    companionName,
-                    style: const TextStyle(
-                      fontSize: 11,
-                      fontWeight: FontWeight.w800,
+                ),
+                Column(
+                  children: [
+                    const LifeMateProfileAvatar(
+                      avatarKey: 'caregiver_teal',
+                      radius: 34,
                     ),
-                  ),
-                ],
-              ),
-            ],
+                    const SizedBox(height: 6),
+                    Text(
+                      companionName,
+                      style: const TextStyle(
+                        fontSize: 11,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
           ),
           const SizedBox(height: 12),
           Text(
@@ -1147,22 +1150,32 @@ class _DailyCheckInSheet extends StatefulWidget {
 }
 
 class _DailyCheckInSheetState extends State<_DailyCheckInSheet> {
-  late String _mood = widget.existing?['mood']?.toString() ?? 'good';
-  late int _energy = widget.existing?['energyLevel'] is int
-      ? widget.existing!['energyLevel'] as int
-      : 3;
-  late int _pain = widget.existing?['painLevel'] is int
-      ? widget.existing!['painLevel'] as int
-      : 0;
-  late Set<String> _symptoms = Set<String>.from(
-    (widget.existing?['symptoms'] as List<dynamic>? ?? const []).map(
-      (item) => item.toString(),
-    ),
-  );
-  late bool _share = widget.existing?['shareSummaryWithCompanion'] == true;
-  late final TextEditingController _notes = TextEditingController(
-    text: widget.existing?['privateNotes']?.toString() ?? '',
-  );
+  late String _mood;
+  late int _energy;
+  late int _pain;
+  late Set<String> _symptoms;
+  late bool _share;
+  late final TextEditingController _notes;
+
+  @override
+  void initState() {
+    super.initState();
+    final existing = widget.existing;
+    _mood = existing?['mood']?.toString() ?? 'good';
+    _energy = existing?['energyLevel'] is int
+        ? existing!['energyLevel'] as int
+        : 3;
+    _pain = existing?['painLevel'] is int ? existing!['painLevel'] as int : 0;
+    _symptoms = Set<String>.from(
+      (existing?['symptoms'] as List<dynamic>? ?? const []).map(
+        (item) => item.toString(),
+      ),
+    );
+    _share = existing?['shareSummaryWithCompanion'] == true;
+    _notes = TextEditingController(
+      text: existing?['privateNotes']?.toString() ?? '',
+    );
+  }
 
   @override
   void dispose() {
@@ -1291,19 +1304,22 @@ class _DailyCheckInSheetState extends State<_DailyCheckInSheet> {
                 prefixIcon: Icon(Icons.lock_outline_rounded),
               ),
             ),
-            SwitchListTile.adaptive(
-              contentPadding: EdgeInsets.zero,
-              value: _share,
-              onChanged: (value) => setState(() => _share = value),
-              title: const Text(
-                'اشتراک خلاصه با همدم',
-                style: TextStyle(fontWeight: FontWeight.w900),
+            Material(
+              color: Colors.transparent,
+              child: SwitchListTile.adaptive(
+                contentPadding: EdgeInsets.zero,
+                value: _share,
+                onChanged: (value) => setState(() => _share = value),
+                title: const Text(
+                  'اشتراک خلاصه با همدم',
+                  style: TextStyle(fontWeight: FontWeight.w900),
+                ),
+                subtitle: const Text(
+                  'فقط حال، انرژی، شدت درد و نشانه‌های انتخابی دیده می‌شود؛ یادداشت خصوصی هرگز به اشتراک گذاشته نمی‌شود.',
+                  style: TextStyle(fontSize: 10.5, height: 1.5),
+                ),
+                activeThumbColor: const Color(0xFFD75C8D),
               ),
-              subtitle: const Text(
-                'فقط حال، انرژی، شدت درد و نشانه‌های انتخابی دیده می‌شود؛ یادداشت خصوصی هرگز به اشتراک گذاشته نمی‌شود.',
-                style: TextStyle(fontSize: 10.5, height: 1.5),
-              ),
-              activeThumbColor: const Color(0xFFD75C8D),
             ),
             const SizedBox(height: 14),
             SizedBox(
