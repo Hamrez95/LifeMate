@@ -133,29 +133,27 @@ class _HomeScreenState extends State<HomeScreen> {
       },
       child: Scaffold(
         backgroundColor: AppColors.background,
-      extendBody: true,
-      body: SafeArea(
-        bottom: false,
-        child: Column(
-          children: [
-            WellMateAppHeader(
-              onMissedMedicationTaken: _reportMissedDoseFromHeader,
-              onProfileTap: () async {
-                await Navigator.push<void>(
-                  context,
-                  MaterialPageRoute<void>(
-                    builder: (_) => const ProfileScreen(),
-                  ),
-                );
-                await _loadWomenCalendarState();
-              },
-            ),
-            Expanded(
-              child: IndexedStack(index: _currentIndex, children: pages),
-            ),
-          ],
+        body: SafeArea(
+          child: Column(
+            children: [
+              WellMateAppHeader(
+                onMissedMedicationTaken: _reportMissedDoseFromHeader,
+                onProfileTap: () async {
+                  await Navigator.push<void>(
+                    context,
+                    MaterialPageRoute<void>(
+                      builder: (_) => const ProfileScreen(),
+                    ),
+                  );
+                  await _loadWomenCalendarState();
+                },
+              ),
+              Expanded(
+                child: IndexedStack(index: _currentIndex, children: pages),
+              ),
+            ],
+          ),
         ),
-      ),
         bottomNavigationBar: WellMateBottomNav(
           currentIndex: _currentIndex,
           womenCalendarEnabled: _womenCalendarEnabled,
