@@ -40,33 +40,17 @@ jobs:
 
           path = Path('wellmate/lib/screens/women_calendar/women_calendar_experience_widgets.dart')
           text = path.read_text(encoding='utf-8')
-
-          old_material = '''      child: child,
-            );
-          }
-        }
-
-        class WomenSectionHeader'''
-          new_material = '''      child: Material(
-              color: Colors.transparent,
-              child: child,
-            ),
-          );
-        }
-
-        class WomenSectionHeader'''
+          old_material = "      child: child,\n    );\n  }\n}\n\nclass WomenSectionHeader"
+          new_material = "      child: Material(\n        color: Colors.transparent,\n        child: child,\n      ),\n    );\n  }\n}\n\nclass WomenSectionHeader"
           if old_material in text:
               text = text.replace(old_material, new_material, 1)
           elif new_material not in text:
               raise SystemExit('WomenSoftCard material boundary was not found.')
 
           replacements = [
-              ('            height: 88,\n            child: ListView.separated(',
-               '            height: 92,\n            child: ListView.separated('),
-              ('                      padding: const EdgeInsets.symmetric(vertical: 9),',
-               '                      padding: const EdgeInsets.symmetric(vertical: 7),'),
-              ('                          const SizedBox(height: 5),\n                          Text(\n                            item.label,',
-               '                          const SizedBox(height: 3),\n                          Text(\n                            item.label,'),
+              ('            height: 88,\n            child: ListView.separated(', '            height: 92,\n            child: ListView.separated('),
+              ('                      padding: const EdgeInsets.symmetric(vertical: 9),', '                      padding: const EdgeInsets.symmetric(vertical: 7),'),
+              ('                          const SizedBox(height: 5),\n                          Text(\n                            item.label,', '                          const SizedBox(height: 3),\n                          Text(\n                            item.label,'),
           ]
           for old, new in replacements:
               if old in text:
