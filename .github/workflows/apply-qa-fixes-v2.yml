@@ -43,12 +43,10 @@ jobs:
               path = Path(name)
               path.write_text(path.read_text().rstrip() + '\n')
           PY
-          rm -f .github/workflows/temp-source-bundle.yml
-          rm -f .github/workflows/apply-qa-fixes.yml
-          rm -f .github/workflows/apply-qa-fixes-v2.yml
+          git checkout -- .github/workflows/internal-device-qa-apks.yml
           git diff --check
           git config user.name 'Hamidreza Pakpour'
           git config user.email '136631329+Hamrez95@users.noreply.github.com'
-          git add -A
+          git add caremate packages supabase wellmate
           git commit -m 'fix: complete physical QA feedback for navigation profile and calendar'
           git push origin HEAD:fix/profile-photo-reminder-state
