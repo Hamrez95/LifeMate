@@ -27,22 +27,16 @@ jobs:
           fetch-depth: 0
           show-progress: false
 
-      - name: Integrate current main and normalize stacked source
+      - name: Normalize consolidated source
         shell: bash
         run: |
           set -euo pipefail
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          before="$(git rev-parse HEAD)"
-          git fetch origin main
-          git merge -X ours --no-edit origin/main
           python3 .github/scripts/normalize_women_stack.py
           if ! git diff --quiet; then
             git add supabase/functions/lifemate-api/women_calendar.ts
-            git commit -m 'fix(edge): preserve consent-scoped daily summary after stack merge'
-          fi
-          after="$(git rev-parse HEAD)"
-          if [ "$before" != "$after" ]; then
+            git commit -m 'fix(edge): preserve consent-scoped daily summary'
             git push origin HEAD:feat/women-companion-experience
           fi
 
