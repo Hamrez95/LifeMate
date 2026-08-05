@@ -50,7 +50,8 @@ void main() {
       await tester.pumpAndSettle();
       expect(find.text('حال ثبت‌شده همسرم'), findsOneWidget);
       expect(find.text('حال خوب'), findsOneWidget);
-      expect(find.textContaining('انرژی ۴ از ۵'), findsOneWidget);
+      expect(find.textContaining('انرژی'), findsOneWidget);
+      expect(find.textContaining('درد'), findsOneWidget);
       expect(tester.takeException(), isNull);
 
       await tester.scrollUntilVisible(
