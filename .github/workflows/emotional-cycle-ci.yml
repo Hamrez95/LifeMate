@@ -32,24 +32,72 @@ jobs:
         with:
           deno-version: v2.9.4
 
+      - name: Apply narrow-screen UI QA corrections
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+
+          path = Path('wellmate/lib/screens/women_calendar/women_calendar_experience_widgets.dart')
+          text = path.read_text(encoding='utf-8')
+
+          old_material = '''      child: child,
+            );
+          }
+        }
+
+        class WomenSectionHeader'''
+          new_material = '''      child: Material(
+              color: Colors.transparent,
+              child: child,
+            ),
+          );
+        }
+
+        class WomenSectionHeader'''
+          if old_material in text:
+              text = text.replace(old_material, new_material, 1)
+          elif new_material not in text:
+              raise SystemExit('WomenSoftCard material boundary was not found.')
+
+          replacements = [
+              ('            height: 88,\n            child: ListView.separated(',
+               '            height: 92,\n            child: ListView.separated('),
+              ('                      padding: const EdgeInsets.symmetric(vertical: 9),',
+               '                      padding: const EdgeInsets.symmetric(vertical: 7),'),
+              ('                          const SizedBox(height: 5),\n                          Text(\n                            item.label,',
+               '                          const SizedBox(height: 3),\n                          Text(\n                            item.label,'),
+          ]
+          for old, new in replacements:
+              if old in text:
+                  text = text.replace(old, new, 1)
+              elif new not in text:
+                  raise SystemExit(f'Expected UI fragment was not found: {old!r}')
+
+          path.write_text(text, encoding='utf-8')
+          PY
+
       - name: Apply canonical formatting
         run: |
           dart format \
             packages/lifemate_client/lib/lifemate_client.dart \
             packages/lifemate_client/lib/src/lifemate_api_client.dart \
             packages/lifemate_client/lib/src/women_cycle_ring.dart \
+            packages/lifemate_client/test/women_calendar_daily_checkin_api_test.dart \
+            wellmate/lib/core/constants/app_version.dart \
             wellmate/lib/screens/women_calendar/women_calendar_screen.dart \
             wellmate/lib/screens/women_calendar/women_calendar_experience_widgets.dart \
             wellmate/lib/screens/women_calendar/women_calendar_management_widgets.dart \
+            wellmate/test/women_cycle_experience_widget_test.dart \
             caremate/lib/screens/women_calendar/care_women_calendar_screen.dart
           deno fmt supabase/functions/lifemate-api/women_calendar.ts
 
-      - name: Persist formatting
+      - name: Persist source corrections and formatting
         shell: bash
         run: |
           set -euo pipefail
           if git diff --quiet; then
-            echo 'Sources already formatted.'
+            echo 'Sources already formatted and corrected.'
             exit 0
           fi
           git config user.name 'github-actions[bot]'
@@ -58,12 +106,15 @@ jobs:
             packages/lifemate_client/lib/lifemate_client.dart \
             packages/lifemate_client/lib/src/lifemate_api_client.dart \
             packages/lifemate_client/lib/src/women_cycle_ring.dart \
+            packages/lifemate_client/test/women_calendar_daily_checkin_api_test.dart \
+            wellmate/lib/core/constants/app_version.dart \
             wellmate/lib/screens/women_calendar/women_calendar_screen.dart \
             wellmate/lib/screens/women_calendar/women_calendar_experience_widgets.dart \
             wellmate/lib/screens/women_calendar/women_calendar_management_widgets.dart \
+            wellmate/test/women_cycle_experience_widget_test.dart \
             caremate/lib/screens/women_calendar/care_women_calendar_screen.dart \
             supabase/functions/lifemate-api/women_calendar.ts
-          git commit -m 'style: format emotional cycle experience sources'
+          git commit -m 'fix(wellmate): polish narrow daily check-in layout'
           git push origin HEAD:feat/emotional-women-cycle-companion
 
   verify:
