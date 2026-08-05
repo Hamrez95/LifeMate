@@ -5,9 +5,18 @@ import {
   requiredDate,
   requiredPositiveInt,
   requiredUuid,
+  validateRange,
 } from "./validation.ts";
 
 type Row = Record<string, any>;
+
+type DetailedPhase =
+  | "period"
+  | "follicular"
+  | "fertile"
+  | "ovulation"
+  | "luteal"
+  | "pms";
 
 export type WomenCalendarEstimate = {
   cycleStart: string;
@@ -16,9 +25,34 @@ export type WomenCalendarEstimate = {
   periodLength: number;
   estimatedBleeding: boolean;
   phase: "period" | "post_period" | "cycle" | "pre_period";
+  detailedPhase: DetailedPhase;
+  ovulationDay: number;
+  fertileWindowStartDay: number;
+  fertileWindowEndDay: number;
+  pmsStartDay: number;
   nextPeriodStart: string;
   daysUntilNextPeriod: number;
   algorithmVersion: "calendar-estimate-v1";
+};
+
+const allowedMoods: Record<string, string> = {
+  great: "Great",
+  good: "Good",
+  neutral: "Neutral",
+  low: "Low",
+  overwhelmed: "Overwhelmed",
+};
+
+const allowedSymptoms: Record<string, string> = {
+  cramps: "Cramps",
+  headache: "Headache",
+  bloating: "Bloating",
+  fatigue: "Fatigue",
+  breast_tenderness: "BreastTenderness",
+  back_pain: "BackPain",
+  sleep_change: "SleepChange",
+  appetite_change: "AppetiteChange",
+  no_symptom: "NoSymptom",
 };
 
 export function createWomenCalendarStore(databaseUrl: string) {
@@ -80,11 +114,7 @@ export function createWomenCalendarStore(databaseUrl: string) {
       const existing = existingRows[0];
       if (!existing) {
         if (expectedVersion !== 0) {
-          throw new ApiError(
-            409,
-            "stale_women_calendar_profile",
-            "Women calendar profile changed. Refresh and try again.",
-          );
+          throw staleProfile();
         }
         const rows = await tx`
           insert into lifemate.women_calendar_profiles
@@ -107,11 +137,7 @@ export function createWomenCalendarStore(databaseUrl: string) {
         return mapProfile(rows[0]);
       }
       if (existing.version !== expectedVersion) {
-        throw new ApiError(
-          409,
-          "stale_women_calendar_profile",
-          "Women calendar profile changed. Refresh and try again.",
-        );
+        throw staleProfile();
       }
       const rows = await tx`
         update lifemate.women_calendar_profiles
@@ -354,6 +380,100 @@ export function createWomenCalendarStore(databaseUrl: string) {
     });
   }
 
+  async function listOwnerDailyLogs(
+    userId: string,
+    fromValue: unknown,
+    toValue: unknown,
+  ): Promise<Record<string, unknown>[]> {
+    const fromDate = requiredDate(fromValue, "fromDate");
+    const toDate = requiredDate(toValue, "toDate");
+    validateRange(fromDate, toDate);
+    const rows = await sql`
+      select * from lifemate.women_calendar_daily_logs
+      where owner_user_id = ${userId}
+        and logged_on between ${fromDate}::date and ${toDate}::date
+      order by logged_on desc, id
+      limit 180
+    `;
+    return rows.map(mapDailyLogOwner);
+  }
+
+  async function upsertOwnerDailyLog(
+    userId: string,
+    body: Record<string, unknown>,
+  ): Promise<Record<string, unknown>> {
+    const expectedVersion = nonNegativeInt(body.version, "version");
+    const loggedOn = requiredDate(body.loggedOn, "loggedOn");
+    const mood = normalizeMood(body.mood);
+    const energyLevel = boundedInt(body.energyLevel, "energyLevel", 1, 5);
+    const painLevel = boundedInt(body.painLevel, "painLevel", 0, 5);
+    const symptoms = normalizeSymptoms(body.symptoms);
+    const privateNotes = limitedOptional(
+      body.privateNotes,
+      "privateNotes",
+      500,
+    );
+    const shareSummaryWithCompanion = requiredBoolean(
+      body.shareSummaryWithCompanion,
+      "shareSummaryWithCompanion",
+    );
+    const now = new Date();
+
+    return await sql.begin(async (tx: any) => {
+      const existingRows = await tx`
+        select * from lifemate.women_calendar_daily_logs
+        where owner_user_id = ${userId} and logged_on = ${loggedOn}::date
+        for update
+      `;
+      const existing = existingRows[0];
+      let row: Row;
+      if (!existing) {
+        if (expectedVersion !== 0) throw staleDailyLog();
+        const id = crypto.randomUUID();
+        const rows = await tx`
+          insert into lifemate.women_calendar_daily_logs
+            (id, owner_user_id, logged_on, mood, energy_level, pain_level,
+             symptoms, private_notes, share_summary_with_companion, version,
+             created_at_utc, updated_at_utc)
+          values
+            (${id}, ${userId}, ${loggedOn}, ${mood}, ${energyLevel},
+             ${painLevel}, ${symptoms}, ${privateNotes},
+             ${shareSummaryWithCompanion}, 1, ${now}, ${now})
+          returning *
+        `;
+        row = rows[0];
+        await insertAudit(
+          tx,
+          userId,
+          "women_calendar.daily_log_created",
+          "women_calendar_daily_log",
+          id,
+        );
+      } else {
+        if (existing.version !== expectedVersion) throw staleDailyLog();
+        const rows = await tx`
+          update lifemate.women_calendar_daily_logs
+          set mood = ${mood}, energy_level = ${energyLevel},
+              pain_level = ${painLevel}, symptoms = ${symptoms},
+              private_notes = ${privateNotes},
+              share_summary_with_companion = ${shareSummaryWithCompanion},
+              version = version + 1, updated_at_utc = ${now}
+          where id = ${existing.id}
+          returning *
+        `;
+        row = rows[0];
+        await insertAudit(
+          tx,
+          userId,
+          "women_calendar.daily_log_updated",
+          "women_calendar_daily_log",
+          existing.id,
+        );
+      }
+      return mapDailyLogOwner(row);
+    });
+  }
+
   async function getCareSummary(
     caregiverUserId: string,
     patientUserIdValue: unknown,
@@ -386,6 +506,12 @@ export function createWomenCalendarStore(databaseUrl: string) {
         "Women calendar is not active for this patient.",
       );
     }
+    const patientProfiles = await sql`
+      select display_name, avatar_key
+      from lifemate.user_profiles
+      where user_id = ${patientUserId}
+      limit 1
+    `;
     const episodes = await sql`
       select id, started_on, ended_on, version, created_at_utc, updated_at_utc
       from lifemate.women_calendar_episodes
@@ -400,8 +526,23 @@ export function createWomenCalendarStore(databaseUrl: string) {
       order by performed_at_utc desc, id
       limit 20
     `;
+    const sharedLogs = await sql`
+      select logged_on, mood, energy_level, pain_level, symptoms, version,
+             updated_at_utc
+      from lifemate.women_calendar_daily_logs
+      where owner_user_id = ${patientUserId}
+        and share_summary_with_companion = true
+        and logged_on >= current_date - interval '14 days'
+      order by logged_on desc, id
+      limit 1
+    `;
     const profile = mapProfile(profiles[0]);
+    const patientProfile = patientProfiles[0];
     return {
+      patient: {
+        displayName: patientProfile?.display_name ?? "LifeMate User",
+        avatarKey: patientProfile?.avatar_key ?? "person_purple",
+      },
       profile: {
         enabled: profile.enabled,
         lastPeriodStart: profile.lastPeriodStart,
@@ -411,6 +552,9 @@ export function createWomenCalendarStore(databaseUrl: string) {
       },
       estimate: profile.estimate,
       episodes: episodes.map(mapEpisodeCaregiver),
+      latestSharedDailyLog: sharedLogs[0]
+        ? mapDailyLogCompanion(sharedLogs[0])
+        : null,
       supportActions: actions.map((row: Row) => ({
         actionType: String(row.action_type).toLowerCase(),
         performedAtUtc: iso(row.performed_at_utc),
@@ -430,6 +574,8 @@ export function createWomenCalendarStore(databaseUrl: string) {
       rest: "Rest",
       warmth: "Warmth",
       chores: "Chores",
+      walk: "Walk",
+      check_in: "CheckIn",
     } as Record<string, string>)[normalized];
     if (!actionType) {
       throw new ApiError(
@@ -497,6 +643,8 @@ export function createWomenCalendarStore(databaseUrl: string) {
     createOwnerEpisode,
     updateOwnerEpisode,
     deleteOwnerEpisode,
+    listOwnerDailyLogs,
+    upsertOwnerDailyLog,
     getCareSummary,
     recordCareSupportAction,
   };
@@ -527,12 +675,36 @@ export function calculateWomenCalendarEstimate(
     0,
     Math.floor((nextPeriodStart.getTime() - today.getTime()) / 86_400_000),
   );
-  const estimatedBleeding = cycleDay <= periodLength;
-  const phase = estimatedBleeding
+  const ovulationDay = clamp(cycleLength - 14, periodLength + 2, cycleLength - 5);
+  const fertileWindowStartDay = clamp(
+    ovulationDay - 5,
+    periodLength + 1,
+    ovulationDay,
+  );
+  const fertileWindowEndDay = clamp(
+    ovulationDay + 1,
+    ovulationDay,
+    cycleLength,
+  );
+  const pmsStartDay = clamp(
+    cycleLength - 4,
+    fertileWindowEndDay + 1,
+    cycleLength,
+  );
+  const detailedPhase = phaseForCycleDay(
+    cycleDay,
+    periodLength,
+    ovulationDay,
+    fertileWindowStartDay,
+    fertileWindowEndDay,
+    pmsStartDay,
+  );
+  const estimatedBleeding = detailedPhase === "period";
+  const phase = detailedPhase === "period"
     ? "period"
-    : cycleDay <= periodLength + 4
+    : detailedPhase === "follicular"
     ? "post_period"
-    : daysUntilNextPeriod <= 5
+    : detailedPhase === "pms"
     ? "pre_period"
     : "cycle";
   return {
@@ -542,6 +714,11 @@ export function calculateWomenCalendarEstimate(
     periodLength,
     estimatedBleeding,
     phase,
+    detailedPhase,
+    ovulationDay,
+    fertileWindowStartDay,
+    fertileWindowEndDay,
+    pmsStartDay,
     nextPeriodStart: formatDateOnly(nextPeriodStart),
     daysUntilNextPeriod,
     algorithmVersion: "calendar-estimate-v1",
@@ -610,6 +787,34 @@ function mapEpisodeCaregiver(row: Row): Record<string, unknown> {
   };
 }
 
+function mapDailyLogOwner(row: Row): Record<string, unknown> {
+  return {
+    id: row.id,
+    loggedOn: dateString(row.logged_on),
+    mood: String(row.mood).toLowerCase(),
+    energyLevel: row.energy_level,
+    painLevel: row.pain_level,
+    symptoms: normalizeStoredSymptoms(row.symptoms),
+    privateNotes: row.private_notes,
+    shareSummaryWithCompanion: row.share_summary_with_companion === true,
+    version: row.version,
+    createdAtUtc: iso(row.created_at_utc),
+    updatedAtUtc: iso(row.updated_at_utc),
+  };
+}
+
+function mapDailyLogCompanion(row: Row): Record<string, unknown> {
+  return {
+    loggedOn: dateString(row.logged_on),
+    mood: String(row.mood).toLowerCase(),
+    energyLevel: row.energy_level,
+    painLevel: row.pain_level,
+    symptoms: normalizeStoredSymptoms(row.symptoms),
+    version: row.version,
+    updatedAtUtc: iso(row.updated_at_utc),
+  };
+}
+
 async function insertAudit(
   connection: any,
   actorUserId: string,
@@ -625,6 +830,22 @@ async function insertAudit(
       (${crypto.randomUUID()}, ${actorUserId}, ${action}, ${resourceType},
        ${resourceId}, null, now())
   `;
+}
+
+function staleProfile(): ApiError {
+  return new ApiError(
+    409,
+    "stale_women_calendar_profile",
+    "Women calendar profile changed. Refresh and try again.",
+  );
+}
+
+function staleDailyLog(): ApiError {
+  return new ApiError(
+    409,
+    "stale_women_calendar_daily_log",
+    "Daily log changed. Refresh and try again.",
+  );
 }
 
 function requiredBoolean(value: unknown, field: string): boolean {
@@ -657,6 +878,79 @@ function nonNegativeInt(value: unknown, field: string): number {
     );
   }
   return number;
+}
+
+function normalizeMood(value: unknown): string {
+  const normalized = String(value ?? "").trim().toLowerCase();
+  const mood = allowedMoods[normalized];
+  if (!mood) {
+    throw new ApiError(
+      400,
+      "invalid_women_calendar_mood",
+      "Unsupported mood value.",
+    );
+  }
+  return mood;
+}
+
+function normalizeSymptoms(value: unknown): string[] {
+  if (!Array.isArray(value) || value.length > 8) {
+    throw new ApiError(
+      400,
+      "invalid_women_calendar_symptoms",
+      "symptoms must be an array with at most 8 items.",
+    );
+  }
+  const result = new Set<string>();
+  for (const item of value) {
+    const mapped = allowedSymptoms[String(item ?? "").trim().toLowerCase()];
+    if (!mapped) {
+      throw new ApiError(
+        400,
+        "invalid_women_calendar_symptoms",
+        "Unsupported symptom value.",
+      );
+    }
+    result.add(mapped);
+  }
+  if (result.has("NoSymptom") && result.size > 1) {
+    throw new ApiError(
+      400,
+      "invalid_women_calendar_symptoms",
+      "NoSymptom cannot be combined with other symptoms.",
+    );
+  }
+  return [...result];
+}
+
+function normalizeStoredSymptoms(value: unknown): string[] {
+  if (!Array.isArray(value)) return [];
+  const reverse = new Map(
+    Object.entries(allowedSymptoms).map(([key, stored]) => [stored, key]),
+  );
+  return value
+    .map((item) => reverse.get(String(item)))
+    .filter((item): item is string => item != null);
+}
+
+function phaseForCycleDay(
+  cycleDay: number,
+  periodLength: number,
+  ovulationDay: number,
+  fertileWindowStartDay: number,
+  fertileWindowEndDay: number,
+  pmsStartDay: number,
+): DetailedPhase {
+  if (cycleDay <= periodLength) return "period";
+  if (cycleDay < fertileWindowStartDay) return "follicular";
+  if (cycleDay === ovulationDay) return "ovulation";
+  if (cycleDay <= fertileWindowEndDay) return "fertile";
+  if (cycleDay >= pmsStartDay) return "pms";
+  return "luteal";
+}
+
+function clamp(value: number, min: number, max: number): number {
+  return Math.min(Math.max(value, min), max);
 }
 
 function parseDateOnly(value: string): Date {
