@@ -544,28 +544,27 @@ class _CycleRingPainter extends CustomPainter {
     final sections = <(int, Color)>[
       (value.periodLength, const Color(0xFFF15D7B)),
       (
-        (value.fertileWindowStartDay - value.periodLength - 1).clamp(
-          0,
-          value.cycleLength,
-        ),
+        (value.fertileWindowStartDay - value.periodLength - 1)
+            .clamp(0, value.cycleLength)
+            .toInt(),
         const Color(0xFFBA8CE2),
       ),
       (
-        (value.fertileWindowEndDay - value.fertileWindowStartDay + 1).clamp(
-          0,
-          value.cycleLength,
-        ),
+        (value.fertileWindowEndDay - value.fertileWindowStartDay + 1)
+            .clamp(0, value.cycleLength)
+            .toInt(),
         const Color(0xFF58C8B8),
       ),
       (
-        (value.pmsStartDay - value.fertileWindowEndDay - 1).clamp(
-          0,
-          value.cycleLength,
-        ),
+        (value.pmsStartDay - value.fertileWindowEndDay - 1)
+            .clamp(0, value.cycleLength)
+            .toInt(),
         const Color(0xFFF5BE58),
       ),
       (
-        (value.cycleLength - value.pmsStartDay + 1).clamp(0, value.cycleLength),
+        (value.cycleLength - value.pmsStartDay + 1)
+            .clamp(0, value.cycleLength)
+            .toInt(),
         const Color(0xFFE98A75),
       ),
     ];
@@ -985,7 +984,7 @@ class _ReportTile extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Icon(icon, color: color),
-        const Spacer(),
+        const SizedBox(height: 18),
         Text(
           label,
           style: const TextStyle(fontSize: 10, color: AppColors.textSecondary),
