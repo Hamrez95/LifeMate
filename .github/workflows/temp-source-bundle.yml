@@ -1,0 +1,37 @@
+name: temp-source-bundle
+
+on:
+  push:
+    branches:
+      - fix/profile-photo-reminder-state
+    paths:
+      - '.github/workflows/temp-source-bundle.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  bundle:
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
+        with:
+          persist-credentials: false
+          show-progress: false
+      - name: Package source
+        run: |
+          set -euo pipefail
+          tar -czf lifemate-source.tar.gz \
+            packages/lifemate_client \
+            wellmate \
+            caremate \
+            supabase \
+            .github/workflows/internal-device-qa-apks.yml
+      - name: Upload source bundle
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: lifemate-temp-source
+          path: lifemate-source.tar.gz
+          retention-days: 1
+          if-no-files-found: error
