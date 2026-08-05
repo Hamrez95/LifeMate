@@ -18,12 +18,27 @@ concurrency:
 jobs:
   verify:
     runs-on: ubuntu-24.04
-    timeout-minutes: 60
+    timeout-minutes: 70
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
         with:
           ref: feat/women-companion-experience
+          fetch-depth: 0
           show-progress: false
+
+      - name: Merge current women-calendar base
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git fetch origin feat/women-calendar-care-access-notifications
+          before="$(git rev-parse HEAD)"
+          git merge -X ours --no-edit origin/feat/women-calendar-care-access-notifications
+          after="$(git rev-parse HEAD)"
+          if [ "$before" != "$after" ]; then
+            git push origin HEAD:feat/women-companion-experience
+          fi
 
       - uses: subosito/flutter-action@4cab68ce0f1c7c924f688bff4792e044f1aeb30c
         with:
@@ -34,53 +49,6 @@ jobs:
       - uses: denoland/setup-deno@22d081ff2d3a40755e97629de92e3bcbfa7cf2ed
         with:
           deno-version: v2.9.4
-
-      - name: Make CareMate partner hero narrow-screen safe
-        shell: bash
-        run: |
-          python3 - <<'PY'
-          from pathlib import Path
-
-          path = Path('caremate/lib/screens/women_calendar/care_women_calendar_screen.dart')
-          text = path.read_text()
-          marker = 'class _ConnectedPartnerHero extends StatelessWidget'
-          start = text.index(marker)
-          row_start = text.index('              Row(\n', start)
-          row_end_marker = '              ),\n            ],\n          ),\n          const SizedBox(height: 12),'
-          row_end = text.index(row_end_marker, row_start)
-          segment = text[row_start:row_end + len('              ),\n')]
-          if 'FittedBox(' not in segment:
-              wrapped = segment.replace(
-                  '              Row(\n',
-                  '              FittedBox(\n                fit: BoxFit.scaleDown,\n                child: Row(\n',
-                  1,
-              )
-              wrapped = wrapped[:-len('              ),\n')] + '                ),\n              ),\n'
-              text = text[:row_start] + wrapped + text[row_end + len('              ),\n'):]
-          path.write_text(text)
-          PY
-
-      - name: Format changed Dart sources
-        run: |
-          dart format \
-            caremate/lib/screens/women_calendar/care_women_calendar_screen.dart \
-            caremate/test/care_women_companion_experience_test.dart
-
-      - name: Persist canonical correction
-        shell: bash
-        run: |
-          set -euo pipefail
-          if git diff --quiet; then
-            echo 'No source correction required.'
-          else
-            git config user.name 'github-actions[bot]'
-            git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-            git add \
-              caremate/lib/screens/women_calendar/care_women_calendar_screen.dart \
-              caremate/test/care_women_companion_experience_test.dart
-            git commit -m 'fix(caremate): make spouse dashboard narrow-screen safe'
-            git push origin HEAD:feat/women-companion-experience
-          fi
 
       - name: Shared client checks
         working-directory: packages/lifemate_client
