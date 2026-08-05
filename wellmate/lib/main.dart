@@ -138,7 +138,7 @@ class WellMateApp extends StatelessWidget {
         missingValues: ['SUPABASE_INITIALIZATION_FAILED'],
       );
     }
-    return LifeMateSessionGate(
+    return LifeMateExperienceGate(
       config: config,
       appName: 'WellMate',
       logoAssetPath: 'assets/images/WellMateWithoutBack.png',
