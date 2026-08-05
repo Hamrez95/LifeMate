@@ -16,6 +16,13 @@ class ActiveTreatmentCard extends StatelessWidget {
   final VoidCallback? onEdit;
   final bool isSubmitting;
   final TextStyle font;
+  final String? supportingText;
+  final String? countdownLabel;
+  final bool showActions;
+  final Color? accentColor;
+  final Color? progressColor;
+  final Color? progressBackgroundColor;
+  final IconData fallbackIcon;
 
   const ActiveTreatmentCard({
     super.key,
@@ -30,6 +37,13 @@ class ActiveTreatmentCard extends StatelessWidget {
     required this.onEdit,
     this.isSubmitting = false,
     required this.font,
+    this.supportingText,
+    this.countdownLabel,
+    this.showActions = true,
+    this.accentColor,
+    this.progressColor,
+    this.progressBackgroundColor,
+    this.fallbackIcon = Icons.medication,
   });
 
   @visibleForTesting
@@ -48,6 +62,11 @@ class ActiveTreatmentCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final isPersian = Localizations.localeOf(context).languageCode == 'fa';
     final loc = AppLocalizations.of(context);
+    final accent = accentColor ?? AppColors.primary;
+    final progress = progressColor ?? AppColors.primaryLight;
+    final progressBackground = progressBackgroundColor ?? AppColors.background;
+    final helper = supportingText ?? loc['after_meal'];
+    final countdown = countdownLabel ?? formatCountdown(secondsLeft);
 
     return Container(
       padding: const EdgeInsets.all(20),
@@ -72,28 +91,38 @@ class ActiveTreatmentCard extends StatelessWidget {
                   children: [
                     Text(
                       treatmentName,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
                       style: font.copyWith(
                         fontSize: 18,
                         fontWeight: FontWeight.bold,
                         color: AppColors.textPrimary,
                       ),
                     ),
-                    const SizedBox(height: 8),
-                    Text(
-                      dose.toPersianDigit(isPersian),
-                      style: font.copyWith(
-                        color: AppColors.textSecondary,
-                        fontSize: 14,
+                    if (dose.trim().isNotEmpty) ...[
+                      const SizedBox(height: 8),
+                      Text(
+                        dose.toPersianDigit(isPersian),
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: font.copyWith(
+                          color: AppColors.textSecondary,
+                          fontSize: 14,
+                        ),
                       ),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      loc['after_meal'],
-                      style: font.copyWith(
-                        color: AppColors.textSecondary,
-                        fontSize: 14,
+                    ],
+                    if (helper != null && helper.trim().isNotEmpty) ...[
+                      const SizedBox(height: 4),
+                      Text(
+                        helper.toPersianDigit(isPersian),
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: font.copyWith(
+                          color: AppColors.textSecondary,
+                          fontSize: 14,
+                        ),
                       ),
-                    ),
+                    ],
                   ],
                 ),
               ),
@@ -107,10 +136,8 @@ class ActiveTreatmentCard extends StatelessWidget {
                     CircularProgressIndicator(
                       value: progressValue,
                       strokeWidth: 8,
-                      backgroundColor: AppColors.background,
-                      valueColor: const AlwaysStoppedAnimation<Color>(
-                        AppColors.primaryLight,
-                      ),
+                      backgroundColor: progressBackground,
+                      valueColor: AlwaysStoppedAnimation<Color>(progress),
                     ),
                     Column(
                       mainAxisAlignment: MainAxisAlignment.center,
@@ -119,17 +146,19 @@ class ActiveTreatmentCard extends StatelessWidget {
                           assetIconPath,
                           width: 36,
                           height: 36,
-                          errorBuilder: (_, __, ___) => const Icon(
-                            Icons.medication,
-                            color: AppColors.primary,
+                          errorBuilder: (_, __, ___) => Icon(
+                            fallbackIcon,
+                            color: accent,
                           ),
                         ),
                         const SizedBox(height: 4),
                         Text(
-                          formatCountdown(secondsLeft)
-                              .toPersianDigit(isPersian),
+                          countdown.toPersianDigit(isPersian),
+                          maxLines: 1,
+                          overflow: TextOverflow.fade,
+                          softWrap: false,
                           style: font.copyWith(
-                            color: AppColors.primary,
+                            color: accent,
                             fontSize: 12,
                             fontWeight: FontWeight.bold,
                           ),
@@ -142,41 +171,43 @@ class ActiveTreatmentCard extends StatelessWidget {
               ),
             ],
           ),
-          const SizedBox(height: 24),
-          Row(
-            children: [
-              Expanded(
-                child: _buildButton(
-                  isSubmitting ? '...' : loc['taken'],
-                  AppColors.primaryLight,
-                  Colors.white,
-                  font,
-                  onTap: onTaken,
+          if (showActions) ...[
+            const SizedBox(height: 24),
+            Row(
+              children: [
+                Expanded(
+                  child: _buildButton(
+                    isSubmitting ? '...' : loc['taken'],
+                    AppColors.primaryLight,
+                    Colors.white,
+                    font,
+                    onTap: onTaken,
+                  ),
                 ),
-              ),
-              const SizedBox(width: 8),
-              Expanded(
-                child: _buildButton(
-                  loc['edit'],
-                  AppColors.background,
-                  AppColors.primary,
-                  font,
-                  onTap: onEdit,
+                const SizedBox(width: 8),
+                Expanded(
+                  child: _buildButton(
+                    loc['edit'],
+                    AppColors.background,
+                    AppColors.primary,
+                    font,
+                    onTap: onEdit,
+                  ),
                 ),
-              ),
-              const SizedBox(width: 8),
-              Expanded(
-                child: _buildButton(
-                  loc['missed'],
-                  Colors.white,
-                  AppColors.textSecondary,
-                  font,
-                  hasBorder: true,
-                  onTap: onSkipped,
+                const SizedBox(width: 8),
+                Expanded(
+                  child: _buildButton(
+                    loc['missed'],
+                    Colors.white,
+                    AppColors.textSecondary,
+                    font,
+                    hasBorder: true,
+                    onTap: onSkipped,
+                  ),
                 ),
-              ),
-            ],
-          ),
+              ],
+            ),
+          ],
         ],
       ),
     );

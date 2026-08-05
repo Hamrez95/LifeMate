@@ -1,8 +1,14 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createCareEventStore } from "./care_events.ts";
 import { type AuthUser, createLifeMateDatabase } from "./database.ts";
+import { createEditStore } from "./edit_store.ts";
 import { corsHeaders, json, problem, safeError } from "./http.ts";
 import { createProfileStore } from "./profile.ts";
+import {
+  createProfilePhotoStorage,
+  profilePhotoMaximumBytes,
+} from "./profile_photo.ts";
+import { createWomenCalendarStore } from "./women_calendar.ts";
 import { loadRuntimeConfig } from "./runtime_config.ts";
 import { enforceRateLimit } from "./security.ts";
 import {
@@ -16,13 +22,23 @@ const {
   databaseUrl,
   supabaseUrl,
   publishableKey,
+  storageServiceKey,
   contactHashingSecret,
   releaseVersion,
 } = await loadRuntimeConfig();
 
 const db = createLifeMateDatabase(databaseUrl, contactHashingSecret);
 const profiles = createProfileStore(databaseUrl);
+const profilePhotos = createProfilePhotoStorage(
+  supabaseUrl,
+  storageServiceKey,
+);
 const careEvents = createCareEventStore(databaseUrl);
+const edits = createEditStore(databaseUrl);
+const womenCalendar = createWomenCalendarStore(databaseUrl);
+const womenCalendarPilotEnabled =
+  (Deno.env.get("ENABLE_WOMEN_CALENDAR_PILOT") ?? "true").toLowerCase() !==
+    "false";
 
 Deno.serve(async (request: Request) => {
   const correlationId = crypto.randomUUID();
@@ -98,21 +114,161 @@ async function route(
   const identity = await db.requireIdentity(auth);
 
   if (request.method === "GET" && path === "/api/v1/me") {
-    return json(await db.currentUser(identity));
+    const current = await db.currentUser(identity);
+    return json({
+      ...current,
+      profile: await presentProfile(identity.appUserId),
+    });
   }
   if (request.method === "GET" && path === "/api/v1/me/profile") {
-    return json(await profiles.getProfile(identity.appUserId));
+    return json(await presentProfile(identity.appUserId));
   }
   if (request.method === "PATCH" && path === "/api/v1/me/profile") {
     enforceRateLimit(`profile:${identity.appUserId}`, 20, 60 * 60_000);
-    return json(
-      await profiles.updateProfile(
+    await profiles.updateProfile(
+      identity.appUserId,
+      auth,
+      await readJsonObject(request),
+    );
+    return json(await presentProfile(identity.appUserId));
+  }
+  if (request.method === "PUT" && path === "/api/v1/me/profile/photo") {
+    enforceRateLimit(`profile-photo:${identity.appUserId}`, 8, 60 * 60_000);
+    const declaredLength = Number(request.headers.get("content-length") ?? 0);
+    if (
+      Number.isFinite(declaredLength) &&
+      declaredLength > profilePhotoMaximumBytes
+    ) {
+      throw new ApiError(
+        413,
+        "profile_photo_too_large",
+        "Profile photo must be no larger than 3 MB.",
+      );
+    }
+    const bytes = new Uint8Array(await request.arrayBuffer());
+    const nextPath = await profilePhotos.upload(
+      identity.appUserId,
+      bytes,
+      request.headers.get("content-type") ?? "",
+    );
+    let previousPath: string | null = null;
+    try {
+      previousPath = await profiles.replaceProfilePhotoPath(
         identity.appUserId,
-        auth,
+        nextPath,
+      );
+    } catch (error) {
+      await profilePhotos.remove(nextPath).catch(() => undefined);
+      throw error;
+    }
+    if (previousPath != null && previousPath !== nextPath) {
+      await profilePhotos.remove(previousPath).catch(() => {
+        console.warn("Previous profile photo cleanup was deferred.");
+      });
+    }
+    return json(await presentProfile(identity.appUserId));
+  }
+  if (request.method === "DELETE" && path === "/api/v1/me/profile/photo") {
+    enforceRateLimit(`profile-photo:${identity.appUserId}`, 8, 60 * 60_000);
+    const previousPath = await profiles.replaceProfilePhotoPath(
+      identity.appUserId,
+      null,
+    );
+    if (previousPath != null) {
+      await profilePhotos.remove(previousPath).catch(() => {
+        console.warn("Deleted profile photo cleanup was deferred.");
+      });
+    }
+    return json(await presentProfile(identity.appUserId));
+  }
+  if (request.method === "GET" && path === "/api/v1/women-calendar/profile") {
+    requireWomenCalendarPilot();
+    return json(await womenCalendar.getOwnerProfile(identity.appUserId));
+  }
+  if (request.method === "PATCH" && path === "/api/v1/women-calendar/profile") {
+    requireWomenCalendarPilot();
+    enforceRateLimit(
+      `women-calendar-profile:${identity.appUserId}`,
+      20,
+      60 * 60_000,
+    );
+    return json(
+      await womenCalendar.updateOwnerProfile(
+        identity.appUserId,
         await readJsonObject(request),
       ),
     );
   }
+  if (request.method === "GET" && path === "/api/v1/women-calendar/episodes") {
+    requireWomenCalendarPilot();
+    return json(await womenCalendar.listOwnerEpisodes(identity.appUserId));
+  }
+  if (request.method === "POST" && path === "/api/v1/women-calendar/episodes") {
+    requireWomenCalendarPilot();
+    enforceRateLimit(
+      `women-calendar-episode:${identity.appUserId}`,
+      30,
+      60 * 60_000,
+    );
+    return json(
+      await womenCalendar.createOwnerEpisode(
+        identity.appUserId,
+        await readJsonObject(request),
+      ),
+      201,
+    );
+  }
+  const womenEpisodeMatch = path.match(
+    /^\/api\/v1\/women-calendar\/episodes\/([0-9a-f-]{36})$/i,
+  );
+  if (request.method === "PATCH" && womenEpisodeMatch) {
+    requireWomenCalendarPilot();
+    return json(
+      await womenCalendar.updateOwnerEpisode(
+        identity.appUserId,
+        womenEpisodeMatch[1],
+        await readJsonObject(request),
+      ),
+    );
+  }
+  if (request.method === "DELETE" && womenEpisodeMatch) {
+    requireWomenCalendarPilot();
+    await womenCalendar.deleteOwnerEpisode(
+      identity.appUserId,
+      womenEpisodeMatch[1],
+    );
+    return new Response(null, { status: 204, headers: corsHeaders });
+  }
+  if (
+    request.method === "GET" && path === "/api/v1/women-calendar/daily-logs"
+  ) {
+    requireWomenCalendarPilot();
+    const url = new URL(request.url);
+    return json(
+      await womenCalendar.listOwnerDailyLogs(
+        identity.appUserId,
+        url.searchParams.get("fromDate"),
+        url.searchParams.get("toDate"),
+      ),
+    );
+  }
+  if (
+    request.method === "PUT" && path === "/api/v1/women-calendar/daily-logs"
+  ) {
+    requireWomenCalendarPilot();
+    enforceRateLimit(
+      `women-calendar-daily-log:${identity.appUserId}`,
+      40,
+      60 * 60_000,
+    );
+    return json(
+      await womenCalendar.upsertOwnerDailyLog(
+        identity.appUserId,
+        await readJsonObject(request),
+      ),
+    );
+  }
+
   if (request.method === "GET" && path === "/api/v1/medications") {
     return json(await db.listMedications(identity.appUserId));
   }
@@ -137,6 +293,19 @@ async function route(
         await readJsonObject(request),
       ),
       201,
+    );
+  }
+  const treatmentPlanMatch = path.match(
+    /^\/api\/v1\/treatment-plans\/([0-9a-f-]{36})$/i,
+  );
+  if (request.method === "PATCH" && treatmentPlanMatch) {
+    enforceRateLimit(`edit-treatment:${identity.appUserId}`, 30, 60_000);
+    return json(
+      await edits.updateTreatmentPlan(
+        identity.appUserId,
+        treatmentPlanMatch[1],
+        await readJsonObject(request),
+      ),
     );
   }
   if (request.method === "GET" && path === "/api/v1/dose-occurrences") {
@@ -184,6 +353,24 @@ async function route(
       201,
     );
   }
+  const ownedCareEventMatch = path.match(
+    /^\/api\/v1\/care-events\/([0-9a-f-]{36})$/i,
+  );
+  if (request.method === "GET" && ownedCareEventMatch) {
+    return json(
+      await edits.getCareEvent(identity.appUserId, ownedCareEventMatch[1]),
+    );
+  }
+  if (request.method === "PATCH" && ownedCareEventMatch) {
+    enforceRateLimit(`edit-care-event:${identity.appUserId}`, 30, 60_000);
+    return json(
+      await edits.updateCareEvent(
+        identity.appUserId,
+        ownedCareEventMatch[1],
+        await readJsonObject(request),
+      ),
+    );
+  }
 
   if (
     request.method === "POST" &&
@@ -216,6 +403,21 @@ async function route(
   }
   if (request.method === "GET" && path === "/api/v1/care/relationships") {
     return json(await db.listRelationships(identity.appUserId));
+  }
+
+  const relationshipPermissionMatch = path.match(
+    /^\/api\/v1\/care\/relationships\/([0-9a-f-]{36})\/permissions$/i,
+  );
+  if (request.method === "PATCH" && relationshipPermissionMatch) {
+    requireWomenCalendarPilot();
+    enforceRateLimit(`care-permissions:${identity.appUserId}`, 30, 60 * 60_000);
+    return json(
+      await db.updateRelationshipPermissions(
+        identity.appUserId,
+        relationshipPermissionMatch[1],
+        await readJsonObject(request),
+      ),
+    );
   }
 
   const relationshipMatch = path.match(
@@ -254,6 +456,38 @@ async function route(
         url.searchParams.get("fromDate"),
         url.searchParams.get("toDate"),
       ),
+    );
+  }
+
+  const careWomenCalendarMatch = path.match(
+    /^\/api\/v1\/care\/patients\/([0-9a-f-]{36})\/women-calendar$/i,
+  );
+  if (request.method === "GET" && careWomenCalendarMatch) {
+    requireWomenCalendarPilot();
+    return json(
+      await womenCalendar.getCareSummary(
+        identity.appUserId,
+        careWomenCalendarMatch[1],
+      ),
+    );
+  }
+  const careWomenSupportMatch = path.match(
+    /^\/api\/v1\/care\/patients\/([0-9a-f-]{36})\/women-calendar\/support-actions$/i,
+  );
+  if (request.method === "POST" && careWomenSupportMatch) {
+    requireWomenCalendarPilot();
+    enforceRateLimit(
+      `women-calendar-support:${identity.appUserId}`,
+      30,
+      60 * 60_000,
+    );
+    return json(
+      await womenCalendar.recordCareSupportAction(
+        identity.appUserId,
+        careWomenSupportMatch[1],
+        await readJsonObject(request),
+      ),
+      201,
     );
   }
 
@@ -310,6 +544,32 @@ async function authenticate(request: Request): Promise<AuthUser> {
       ? value.user_metadata
       : {},
   };
+}
+
+async function presentProfile(
+  userId: string,
+): Promise<Record<string, unknown>> {
+  const profile = await profiles.getProfile(userId);
+  const objectPath = await profiles.getProfilePhotoPath(userId);
+  let profilePhotoUrl: string | null = null;
+  if (objectPath != null) {
+    try {
+      profilePhotoUrl = await profilePhotos.createSignedUrl(objectPath);
+    } catch {
+      profilePhotoUrl = null;
+    }
+  }
+  return { ...profile, profilePhotoUrl };
+}
+
+function requireWomenCalendarPilot(): void {
+  if (!womenCalendarPilotEnabled) {
+    throw new ApiError(
+      404,
+      "women_calendar_feature_disabled",
+      "Women calendar pilot is disabled.",
+    );
+  }
 }
 
 function isPostgresConflict(error: unknown): boolean {

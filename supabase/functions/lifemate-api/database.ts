@@ -102,7 +102,7 @@ export function createLifeMateDatabase(
           time_zone = excluded.time_zone,
           updated_at_utc = excluded.updated_at_utc
         returning id, user_id, display_name, phone_number, email, locale,
-                  time_zone, created_at_utc, updated_at_utc
+                  time_zone, avatar_key, created_at_utc, updated_at_utc
       `;
       await insertAudit(tx, user.id, "user.bootstrap", "app_user", user.id);
       return mapCurrentUser(user, profiles[0]);
@@ -129,7 +129,8 @@ export function createLifeMateDatabase(
       select
         u.id, u.auth_subject, u.status, u.created_at_utc, u.updated_at_utc,
         p.id as profile_id, p.display_name, p.phone_number, p.email,
-        p.locale, p.time_zone, p.created_at_utc as profile_created_at_utc,
+        p.locale, p.time_zone, p.avatar_key,
+        p.created_at_utc as profile_created_at_utc,
         p.updated_at_utc as profile_updated_at_utc
       from lifemate.app_users u
       join lifemate.user_profiles p on p.user_id = u.id
@@ -148,6 +149,7 @@ export function createLifeMateDatabase(
       email: row.email,
       locale: row.locale,
       time_zone: row.time_zone,
+      avatar_key: row.avatar_key,
       created_at_utc: row.profile_created_at_utc,
       updated_at_utc: row.profile_updated_at_utc,
     });
@@ -221,6 +223,16 @@ export function createLifeMateDatabase(
     }
     const timeZone = requiredTimeZone(body.timeZone);
     const schedules = normalizeSchedules(body.schedules);
+    const patientReminderMinutesBefore = reminderMinutes(
+      body.patientReminderMinutesBefore,
+      "patientReminderMinutesBefore",
+      30,
+    );
+    const caregiverReminderMinutesBefore = reminderMinutes(
+      body.caregiverReminderMinutesBefore,
+      "caregiverReminderMinutesBefore",
+      60,
+    );
     const now = new Date();
 
     return await sql.begin(async (tx: any) => {
@@ -242,11 +254,15 @@ export function createLifeMateDatabase(
       const planRows = await tx`
         insert into lifemate.treatment_plans
           (id, patient_user_id, medication_id, dose_text, instructions,
-           start_date, end_date, time_zone, status, version,
-           created_at_utc, updated_at_utc)
+           start_date, end_date, time_zone,
+           patient_reminder_minutes_before,
+           caregiver_reminder_minutes_before,
+           status, version, created_at_utc, updated_at_utc)
         values
           (${planId}, ${userId}, ${medicationId}, ${doseText}, ${instructions},
-           ${startDate}, ${endDate}, ${timeZone}, 'Active', 1, ${now}, ${now})
+           ${startDate}, ${endDate}, ${timeZone},
+           ${patientReminderMinutesBefore}, ${caregiverReminderMinutesBefore},
+           'Active', 1, ${now}, ${now})
         returning *
       `;
 
@@ -328,11 +344,13 @@ export function createLifeMateDatabase(
     await materializeOccurrences(patientUserId, fromDate, toDate);
 
     const rows = await sql`
-      select *
-      from lifemate.dose_occurrences
-      where patient_user_id = ${patientUserId}
-        and scheduled_local_date between ${fromDate}::date and ${toDate}::date
-      order by scheduled_at_utc, id
+      select o.*, p.patient_reminder_minutes_before,
+             p.caregiver_reminder_minutes_before
+      from lifemate.dose_occurrences o
+      join lifemate.treatment_plans p on p.id = o.treatment_plan_id
+      where o.patient_user_id = ${patientUserId}
+        and o.scheduled_local_date between ${fromDate}::date and ${toDate}::date
+      order by o.scheduled_at_utc, o.id
     `;
     return rows.map(mapDoseOccurrence);
   }
@@ -754,6 +772,53 @@ export function createLifeMateDatabase(
     return rows.map(mapRelationshipRow);
   }
 
+  async function updateRelationshipPermissions(
+    userId: string,
+    relationshipIdValue: unknown,
+    body: Record<string, unknown>,
+  ): Promise<Record<string, unknown>> {
+    const relationshipId = requiredUuid(relationshipIdValue, "relationshipId");
+    if (typeof body.canViewWomenCalendar !== "boolean") {
+      throw new ApiError(
+        400,
+        "invalid_care_permission",
+        "canViewWomenCalendar must be a boolean.",
+      );
+    }
+    return await sql.begin(async (tx: any) => {
+      const existingRows = await tx`
+        select * from lifemate.care_relationships
+        where id = ${relationshipId}
+          and patient_user_id = ${userId}
+          and status = 'Active'
+        for update
+      `;
+      const existing = existingRows[0];
+      if (!existing) {
+        throw new ApiError(
+          404,
+          "relationship_not_found",
+          "Active owner relationship was not found.",
+        );
+      }
+      const rows = await tx`
+        update lifemate.care_relationships
+        set can_view_women_calendar = ${body.canViewWomenCalendar},
+            updated_at_utc = now()
+        where id = ${relationshipId}
+        returning *
+      `;
+      await insertAudit(
+        tx,
+        userId,
+        "care_relationship.permissions_updated",
+        "care_relationship",
+        relationshipId,
+      );
+      return await mapRelationship(tx, rows[0]);
+    });
+  }
+
   async function revokeRelationship(
     userId: string,
     relationshipIdValue: unknown,
@@ -822,7 +887,9 @@ export function createLifeMateDatabase(
 
     await materializeOccurrences(patientUserId, fromDate, toDate);
     const rows = await sql`
-      select o.*, m.name as medication_name, p.dose_text
+      select o.*, m.name as medication_name, p.dose_text,
+             p.patient_reminder_minutes_before,
+             p.caregiver_reminder_minutes_before
       from lifemate.dose_occurrences o
       join lifemate.treatment_plans p on p.id = o.treatment_plan_id
       join lifemate.medications m on m.id = p.medication_id
@@ -945,9 +1012,27 @@ export function createLifeMateDatabase(
     listInvitations,
     acceptInvitation,
     listRelationships,
+    updateRelationshipPermissions,
     revokeRelationship,
     listCareDoseOccurrences,
   };
+}
+
+function reminderMinutes(
+  value: unknown,
+  field: string,
+  fallback: number,
+): number {
+  if (value == null || value === "") return fallback;
+  const number = Number(value);
+  if (!Number.isInteger(number) || number < 0 || number > 10080) {
+    throw new ApiError(
+      400,
+      `invalid_${field}`,
+      `${field} must be an integer between 0 and 10080.`,
+    );
+  }
+  return number;
 }
 
 function mapCurrentUser(user: Row, profile: Row): Record<string, unknown> {
@@ -967,6 +1052,7 @@ function mapCurrentUser(user: Row, profile: Row): Record<string, unknown> {
       email: profile.email,
       locale: profile.locale,
       timeZone: profile.time_zone,
+      avatarKey: profile.avatar_key ?? "person_blue",
     },
   };
 }
@@ -999,6 +1085,12 @@ function mapTreatmentPlan(
     endDate: row.end_date == null ? null : dateString(row.end_date),
     timeZone: row.time_zone,
     status: String(row.status).toLowerCase(),
+    patientReminderMinutesBefore: Number(
+      row.patient_reminder_minutes_before ?? 30,
+    ),
+    caregiverReminderMinutesBefore: Number(
+      row.caregiver_reminder_minutes_before ?? 60,
+    ),
     version: row.version,
     schedules: schedules.map((schedule) => ({
       id: schedule.id,
@@ -1023,6 +1115,12 @@ function mapDoseOccurrence(row: Row): Record<string, unknown> {
     respondedAtUtc: row.responded_at_utc == null
       ? null
       : iso(row.responded_at_utc),
+    patientReminderMinutesBefore: Number(
+      row.patient_reminder_minutes_before ?? 30,
+    ),
+    caregiverReminderMinutesBefore: Number(
+      row.caregiver_reminder_minutes_before ?? 60,
+    ),
     version: row.version,
   };
 }
@@ -1035,6 +1133,7 @@ function mapRelationshipRow(row: Row): Record<string, unknown> {
     caregiverUserId: row.caregiver_user_id,
     caregiverDisplayName: row.caregiver_display_name ?? "LifeMate User",
     status: String(row.status).toLowerCase(),
+    canViewWomenCalendar: row.can_view_women_calendar === true,
     patientConsentedAtUtc: iso(row.patient_consented_at_utc),
     caregiverConsentedAtUtc: iso(row.caregiver_consented_at_utc),
     revokedAtUtc: row.revoked_at_utc == null ? null : iso(row.revoked_at_utc),

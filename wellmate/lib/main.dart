@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:lifemate_client/lifemate_client.dart';
 import 'package:provider/provider.dart';
+import 'package:wellmate/core/state/wellmate_refresh.dart';
 import 'package:wellmate/core/theme/app_style.dart';
 import 'package:wellmate/providers/medication_provider.dart';
 import 'package:wellmate/providers/notification_provider.dart';
@@ -18,15 +19,15 @@ Future<void> main() async {
   if (config.isConfigured) {
     try {
       authInitialized = await LifeMateBootstrap.initialize(config);
-    } catch (error, stackTrace) {
-      debugPrint('Supabase initialization failed: $error\n$stackTrace');
+    } catch (_) {
+      debugPrint('Supabase initialization failed.');
     }
   }
   final notificationProvider = NotificationProvider();
   try {
     await notificationProvider.initialize();
-  } catch (error, stackTrace) {
-    debugPrint('Notification initialization failed: $error\n$stackTrace');
+  } catch (_) {
+    debugPrint('Notification initialization failed.');
   }
 
   runApp(
@@ -37,10 +38,7 @@ Future<void> main() async {
         ChangeNotifierProvider(create: (_) => SettingsProvider()),
         ChangeNotifierProvider(create: (_) => MedicationProvider()),
       ],
-      child: WellMateApp(
-        config: config,
-        authInitialized: authInitialized,
-      ),
+      child: WellMateApp(config: config, authInitialized: authInitialized),
     ),
   );
 }
@@ -76,6 +74,33 @@ class WellMateApp extends StatelessWidget {
               primary: AppColors.primary,
               secondary: AppColors.primary,
             ),
+            inputDecorationTheme: InputDecorationTheme(
+              filled: true,
+              fillColor: const Color(0xFFF8FCFA),
+              floatingLabelBehavior: FloatingLabelBehavior.always,
+              alignLabelWithHint: true,
+              contentPadding: const EdgeInsets.symmetric(
+                horizontal: 17,
+                vertical: 17,
+              ),
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(16),
+                borderSide: BorderSide.none,
+              ),
+              enabledBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(16),
+                borderSide: BorderSide(
+                  color: AppColors.primary.withValues(alpha: 0.10),
+                ),
+              ),
+              focusedBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(16),
+                borderSide: const BorderSide(
+                  color: AppColors.primary,
+                  width: 1.5,
+                ),
+              ),
+            ),
             useMaterial3: true,
           ),
           locale: localeProvider.locale,
@@ -85,10 +110,7 @@ class WellMateApp extends StatelessWidget {
             GlobalWidgetsLocalizations.delegate,
             GlobalCupertinoLocalizations.delegate,
           ],
-          supportedLocales: const [
-            Locale('fa'),
-            Locale('en'),
-          ],
+          supportedLocales: const [Locale('fa'), Locale('en')],
           builder: (context, child) {
             return MediaQuery(
               data: MediaQuery.of(context).copyWith(
@@ -103,10 +125,7 @@ class WellMateApp extends StatelessWidget {
     );
   }
 
-  static Widget _productionHome(
-    AppConfig config,
-    bool authInitialized,
-  ) {
+  static Widget _productionHome(AppConfig config, bool authInitialized) {
     if (!config.isConfigured) {
       return ConfigurationRequiredScreen(
         appName: 'WellMate',
@@ -124,12 +143,38 @@ class WellMateApp extends StatelessWidget {
       appName: 'WellMate',
       logoAssetPath: 'assets/images/WellMateWithoutBack.png',
       authenticatedBuilder: (context, apiClient) =>
-          Provider<LifeMateApiClient>.value(
-        value: apiClient,
+          _AuthenticatedWellMateShell(apiClient: apiClient),
+    );
+  }
+}
+
+class _AuthenticatedWellMateShell extends StatefulWidget {
+  const _AuthenticatedWellMateShell({required this.apiClient});
+
+  final LifeMateApiClient apiClient;
+
+  @override
+  State<_AuthenticatedWellMateShell> createState() =>
+      _AuthenticatedWellMateShellState();
+}
+
+class _AuthenticatedWellMateShellState
+    extends State<_AuthenticatedWellMateShell> {
+  final GlobalKey<NavigatorState> _navigatorKey = GlobalKey<NavigatorState>();
+  final WellMateNavigationRefreshObserver _refreshObserver =
+      WellMateNavigationRefreshObserver();
+
+  @override
+  Widget build(BuildContext context) {
+    return Provider<LifeMateApiClient>.value(
+      value: widget.apiClient,
+      child: NavigatorPopHandler<void>(
+        onPop: () => _navigatorKey.currentState?.pop<void>(),
         child: Navigator(
-          onGenerateRoute: (_) => MaterialPageRoute<void>(
-            builder: (_) => const HomeScreen(),
-          ),
+          key: _navigatorKey,
+          observers: [_refreshObserver],
+          onGenerateRoute: (_) =>
+              MaterialPageRoute<void>(builder: (_) => const HomeScreen()),
         ),
       ),
     );

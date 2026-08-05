@@ -6,6 +6,7 @@ import 'package:provider/provider.dart';
 import 'core/constants/app_colors.dart';
 import 'core/localization/app_localizations.dart';
 import 'core/localization/locale_provider.dart';
+import 'providers/care_notification_provider.dart';
 import 'screens/dashboard_screen.dart';
 
 Future<void> main() async {
@@ -15,18 +16,25 @@ Future<void> main() async {
   if (config.isConfigured) {
     try {
       authInitialized = await LifeMateBootstrap.initialize(config);
-    } catch (error, stackTrace) {
-      debugPrint('Supabase initialization failed: $error\n$stackTrace');
+    } catch (_) {
+      debugPrint('Supabase initialization failed.');
     }
   }
 
+  final notificationProvider = CareNotificationProvider();
+  try {
+    await notificationProvider.initialize();
+  } catch (_) {
+    debugPrint('CareMate notification initialization failed.');
+  }
+
   runApp(
-    ChangeNotifierProvider(
-      create: (_) => LocaleProvider(),
-      child: CareMateApp(
-        config: config,
-        authInitialized: authInitialized,
-      ),
+    MultiProvider(
+      providers: [
+        ChangeNotifierProvider(create: (_) => LocaleProvider()),
+        ChangeNotifierProvider.value(value: notificationProvider),
+      ],
+      child: CareMateApp(config: config, authInitialized: authInitialized),
     ),
   );
 }
@@ -65,13 +73,37 @@ class CareMateApp extends StatelessWidget {
           bodyLarge: TextStyle(fontSize: 18, fontWeight: FontWeight.w500),
           bodyMedium: TextStyle(fontSize: 16),
         ),
+        inputDecorationTheme: InputDecorationTheme(
+          filled: true,
+          fillColor: const Color(0xFFF6F9FD),
+          floatingLabelBehavior: FloatingLabelBehavior.always,
+          alignLabelWithHint: true,
+          contentPadding: const EdgeInsets.symmetric(
+            horizontal: 17,
+            vertical: 18,
+          ),
+          border: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(16),
+            borderSide: BorderSide.none,
+          ),
+          enabledBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(16),
+            borderSide: BorderSide(
+              color: AppColors.primaryBlue.withValues(alpha: 0.10),
+            ),
+          ),
+          focusedBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(16),
+            borderSide: const BorderSide(
+              color: AppColors.primaryBlue,
+              width: 1.5,
+            ),
+          ),
+        ),
         useMaterial3: true,
       ),
       locale: localeProvider.locale,
-      supportedLocales: const [
-        Locale('en'),
-        Locale('fa'),
-      ],
+      supportedLocales: const [Locale('en'), Locale('fa')],
       localizationsDelegates: const [
         AppLocalizations.delegate,
         GlobalMaterialLocalizations.delegate,
@@ -82,10 +114,7 @@ class CareMateApp extends StatelessWidget {
     );
   }
 
-  static Widget _productionHome(
-    AppConfig config,
-    bool authInitialized,
-  ) {
+  static Widget _productionHome(AppConfig config, bool authInitialized) {
     if (!config.isConfigured) {
       return ConfigurationRequiredScreen(
         appName: 'CareMate',
@@ -103,12 +132,35 @@ class CareMateApp extends StatelessWidget {
       appName: 'CareMate',
       logoAssetPath: 'assets/images/CareMateWithoutBack.png',
       authenticatedBuilder: (context, apiClient) =>
-          Provider<LifeMateApiClient>.value(
-        value: apiClient,
+          _AuthenticatedCareMateShell(apiClient: apiClient),
+    );
+  }
+}
+
+class _AuthenticatedCareMateShell extends StatefulWidget {
+  const _AuthenticatedCareMateShell({required this.apiClient});
+
+  final LifeMateApiClient apiClient;
+
+  @override
+  State<_AuthenticatedCareMateShell> createState() =>
+      _AuthenticatedCareMateShellState();
+}
+
+class _AuthenticatedCareMateShellState
+    extends State<_AuthenticatedCareMateShell> {
+  final GlobalKey<NavigatorState> _navigatorKey = GlobalKey<NavigatorState>();
+
+  @override
+  Widget build(BuildContext context) {
+    return Provider<LifeMateApiClient>.value(
+      value: widget.apiClient,
+      child: NavigatorPopHandler<void>(
+        onPop: () => _navigatorKey.currentState?.pop<void>(),
         child: Navigator(
-          onGenerateRoute: (_) => MaterialPageRoute<void>(
-            builder: (_) => const DashboardScreen(),
-          ),
+          key: _navigatorKey,
+          onGenerateRoute: (_) =>
+              MaterialPageRoute<void>(builder: (_) => const DashboardScreen()),
         ),
       ),
     );
