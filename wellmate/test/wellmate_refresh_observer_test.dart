@@ -7,10 +7,12 @@ void main() {
     tester,
   ) async {
     final observer = WellMateNavigationRefreshObserver();
+    final navigatorKey = GlobalKey<NavigatorState>();
     final initialRevision = WellMateRefreshSignal.revision.value;
 
     await tester.pumpWidget(
       MaterialApp(
+        navigatorKey: navigatorKey,
         navigatorObservers: [observer],
         home: Builder(
           builder: (context) => Scaffold(
@@ -31,13 +33,10 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('details'), findsOneWidget);
 
-    await tester.pageBack();
+    navigatorKey.currentState!.pop<void>();
     await tester.pumpAndSettle();
 
-    expect(
-      WellMateRefreshSignal.revision.value,
-      initialRevision + 1,
-    );
+    expect(WellMateRefreshSignal.revision.value, initialRevision + 1);
   });
 
   testWidgets('closing a dialog does not trigger a full data refresh', (
