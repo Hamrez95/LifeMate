@@ -7,6 +7,41 @@ EDGE_PATH = Path("supabase/functions/lifemate-api/women_calendar.ts")
 MIGRATIONS_PATH = Path("supabase/migrations")
 
 
+def ensure_legacy_daily_checkin_types() -> None:
+    text = EDGE_PATH.read_text(encoding="utf-8")
+    if "type DailyCheckIn =" in text and "const supportedSymptoms =" in text:
+        return
+
+    needle = "type Row = Record<string, any>;\n\n"
+    definitions = '''type Row = Record<string, any>;
+
+type DailyCheckIn = {
+  date: string;
+  mood: "Great" | "Good" | "Neutral" | "Low" | "Overwhelmed";
+  energy: number;
+  symptoms: string[];
+  supportNeed: "None" | "Rest" | "Talk" | "Space" | "Warmth" | "Walk" | "Hug";
+  privateNote: string | null;
+  shareSummary: boolean;
+};
+
+const supportedSymptoms = new Set([
+  "cramps",
+  "headache",
+  "bloating",
+  "fatigue",
+  "breast_tenderness",
+  "back_pain",
+  "sleep_change",
+  "appetite_change",
+]);
+
+'''
+    if needle not in text:
+        raise RuntimeError("Could not locate women-calendar Row type declaration.")
+    EDGE_PATH.write_text(text.replace(needle, definitions, 1), encoding="utf-8")
+
+
 def ensure_shared_daily_summary() -> None:
     text = EDGE_PATH.read_text(encoding="utf-8")
     if "const sharedDailySummary =" in text:
@@ -51,6 +86,7 @@ def assert_unique_migration_versions() -> None:
 
 
 def main() -> None:
+    ensure_legacy_daily_checkin_types()
     ensure_shared_daily_summary()
     assert_unique_migration_versions()
 
