@@ -57,7 +57,18 @@ void main() {
           )
           .first;
       expect(appointmentForm, findsOneWidget);
-      expect(find.text('نام پزشک'), findsOneWidget);
+
+      final doctorName = find.descendant(
+        of: appointmentForm,
+        matching: find.text('نام پزشک', skipOffstage: false),
+        skipOffstage: false,
+      );
+      await tester.scrollUntilVisible(
+        doctorName,
+        220,
+        scrollable: appointmentScroll,
+      );
+      expect(doctorName, findsOneWidget);
 
       final address = find.descendant(
         of: appointmentForm,
@@ -102,12 +113,36 @@ void main() {
       );
       await tester.pumpAndSettle();
 
+      final injectionForm = find.byKey(
+        const ValueKey<String>('wellmate-injection-form'),
+      );
+      expect(injectionForm, findsOneWidget);
+      final injectionScroll = find
+          .descendant(
+            of: injectionForm,
+            matching: find.byType(Scrollable),
+            skipOffstage: false,
+          )
+          .first;
+      final dose = find.descendant(
+        of: injectionForm,
+        matching: find.text('دوز یا مقدار تزریق', skipOffstage: false),
+        skipOffstage: false,
+      );
+      await tester.scrollUntilVisible(
+        dose,
+        220,
+        scrollable: injectionScroll,
+      );
+      expect(dose, findsOneWidget);
       expect(
-        find.byKey(const ValueKey<String>('wellmate-injection-form')),
+        find.descendant(
+          of: injectionForm,
+          matching: find.text('روش تزریق', skipOffstage: false),
+          skipOffstage: false,
+        ),
         findsOneWidget,
       );
-      expect(find.text('دوز یا مقدار تزریق'), findsOneWidget);
-      expect(find.text('روش تزریق'), findsOneWidget);
       expect(tester.takeException(), isNull);
     },
   );
