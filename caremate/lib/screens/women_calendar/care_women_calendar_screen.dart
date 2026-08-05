@@ -99,7 +99,9 @@ class _CareWomenCalendarScreenState extends State<CareWomenCalendarScreen> {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('$label ثبت شد؛ یک همراهی کوچک می‌تواند خیلی ارزشمند باشد.'),
+          content: Text(
+            '$label ثبت شد؛ یک همراهی کوچک می‌تواند خیلی ارزشمند باشد.',
+          ),
           behavior: SnackBarBehavior.floating,
         ),
       );
@@ -158,47 +160,44 @@ class _CareWomenCalendarScreenState extends State<CareWomenCalendarScreen> {
         child: _loading
             ? const Center(child: CircularProgressIndicator())
             : _error != null
-                ? _ErrorState(message: _error!, onRetry: _load)
-                : RefreshIndicator(
-                    onRefresh: _load,
-                    child: ListView(
-                      key: const ValueKey('care-companion-mobile-dashboard'),
-                      physics: const AlwaysScrollableScrollPhysics(),
-                      padding: const EdgeInsets.fromLTRB(18, 8, 18, 28),
-                      children: [
-                        _ConnectedPartnerHero(
-                          patientName: _patientName,
-                          patientAvatarKey: _patientAvatarKey,
-                        ),
-                        const SizedBox(height: 14),
-                        _PartnerCycleSummary(summary: _summary),
-                        const SizedBox(height: 14),
-                        _SharedWellbeingCard(summary: _summary),
-                        const SizedBox(height: 14),
-                        _TodayCareStatus(
-                          patientName: _patientName,
-                          doses: _todayDoses,
-                          events: _todayCareEvents,
-                        ),
-                        const SizedBox(height: 14),
-                        _SupportActions(
-                          saving: _saving,
-                          onAction: _recordAction,
-                        ),
-                        const SizedBox(height: 14),
-                        _ImportantReminders(
-                          doses: _todayDoses,
-                          events: _todayCareEvents,
-                        ),
-                        const SizedBox(height: 14),
-                        _CompassionMessage(summary: _summary),
-                        const SizedBox(height: 14),
-                        _RecentActions(summary: _summary),
-                        const SizedBox(height: 14),
-                        const _PrivacyNotice(),
-                      ],
+            ? _ErrorState(message: _error!, onRetry: _load)
+            : RefreshIndicator(
+                onRefresh: _load,
+                child: ListView(
+                  key: const ValueKey('care-companion-mobile-dashboard'),
+                  physics: const AlwaysScrollableScrollPhysics(),
+                  padding: const EdgeInsets.fromLTRB(18, 8, 18, 28),
+                  children: [
+                    _ConnectedPartnerHero(
+                      patientName: _patientName,
+                      patientAvatarKey: _patientAvatarKey,
                     ),
-                  ),
+                    const SizedBox(height: 14),
+                    _PartnerCycleSummary(summary: _summary),
+                    const SizedBox(height: 14),
+                    _SharedWellbeingCard(summary: _summary),
+                    const SizedBox(height: 14),
+                    _TodayCareStatus(
+                      patientName: _patientName,
+                      doses: _todayDoses,
+                      events: _todayCareEvents,
+                    ),
+                    const SizedBox(height: 14),
+                    _SupportActions(saving: _saving, onAction: _recordAction),
+                    const SizedBox(height: 14),
+                    _ImportantReminders(
+                      doses: _todayDoses,
+                      events: _todayCareEvents,
+                    ),
+                    const SizedBox(height: 14),
+                    _CompassionMessage(summary: _summary),
+                    const SizedBox(height: 14),
+                    _RecentActions(summary: _summary),
+                    const SizedBox(height: 14),
+                    const _PrivacyNotice(),
+                  ],
+                ),
+              ),
       ),
     );
   }
@@ -328,8 +327,8 @@ class _PartnerCycleSummary extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final estimate = summary['estimate'] as Map<String, dynamic>? ?? const {};
-    final phase = estimate['detailedPhase']?.toString() ??
-        estimate['phase']?.toString();
+    final phase =
+        estimate['detailedPhase']?.toString() ?? estimate['phase']?.toString();
     final visual = _phaseVisual(phase);
     final cycleDay = estimate['cycleDay'] is int
         ? estimate['cycleDay'] as int
@@ -388,7 +387,11 @@ class _PartnerCycleSummary extends StatelessWidget {
             );
           }
           return Row(
-            children: [ring, const SizedBox(width: 16), Expanded(child: copy)],
+            children: [
+              ring,
+              const SizedBox(width: 16),
+              Expanded(child: copy),
+            ],
           );
         },
       ),
@@ -409,40 +412,40 @@ class _MiniCycleRing extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => SizedBox.square(
-        dimension: 112,
-        child: Stack(
-          fit: StackFit.expand,
-          children: [
-            CustomPaint(
-              painter: _ProgressRingPainter(
-                progress: day == null ? 0 : day! / length,
-                color: color,
-              ),
-            ),
-            Center(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Text(
-                    day == null ? '—' : localizeDigits(context, day!),
-                    style: const TextStyle(
-                      fontSize: 27,
-                      fontWeight: FontWeight.w900,
-                    ),
-                  ),
-                  Text(
-                    'از ${localizeDigits(context, length)} روز',
-                    style: const TextStyle(
-                      fontSize: 9.5,
-                      color: AppColors.secondaryText,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ],
+    dimension: 112,
+    child: Stack(
+      fit: StackFit.expand,
+      children: [
+        CustomPaint(
+          painter: _ProgressRingPainter(
+            progress: day == null ? 0 : day! / length,
+            color: color,
+          ),
         ),
-      );
+        Center(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                day == null ? '—' : localizeDigits(context, day!),
+                style: const TextStyle(
+                  fontSize: 27,
+                  fontWeight: FontWeight.w900,
+                ),
+              ),
+              Text(
+                'از ${localizeDigits(context, length)} روز',
+                style: const TextStyle(
+                  fontSize: 9.5,
+                  color: AppColors.secondaryText,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
+    ),
+  );
 }
 
 class _ProgressRingPainter extends CustomPainter {
@@ -625,8 +628,9 @@ class _TodayCareStatus extends StatelessWidget {
         .where((item) => item['status']?.toString().toLowerCase() == 'taken')
         .length;
     final upcoming = events
-        .where((item) =>
-            item['status']?.toString().toLowerCase() == 'scheduled')
+        .where(
+          (item) => item['status']?.toString().toLowerCase() == 'scheduled',
+        )
         .length;
 
     return _SoftCard(
@@ -684,43 +688,43 @@ class _StatusLine extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Padding(
-        padding: const EdgeInsets.symmetric(vertical: 7),
-        child: Row(
-          children: [
-            Container(
-              width: 39,
-              height: 39,
-              decoration: BoxDecoration(
-                color: color.withValues(alpha: 0.1),
-                borderRadius: BorderRadius.circular(13),
-              ),
-              child: Icon(icon, color: color, size: 20),
-            ),
-            const SizedBox(width: 11),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    title,
-                    style: const TextStyle(
-                      fontSize: 11.5,
-                      fontWeight: FontWeight.w900,
-                    ),
-                  ),
-                  Text(
-                    value,
-                    style: const TextStyle(
-                      fontSize: 10,
-                      color: AppColors.secondaryText,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ],
+    padding: const EdgeInsets.symmetric(vertical: 7),
+    child: Row(
+      children: [
+        Container(
+          width: 39,
+          height: 39,
+          decoration: BoxDecoration(
+            color: color.withValues(alpha: 0.1),
+            borderRadius: BorderRadius.circular(13),
+          ),
+          child: Icon(icon, color: color, size: 20),
         ),
-      );
+        const SizedBox(width: 11),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                title,
+                style: const TextStyle(
+                  fontSize: 11.5,
+                  fontWeight: FontWeight.w900,
+                ),
+              ),
+              Text(
+                value,
+                style: const TextStyle(
+                  fontSize: 10,
+                  color: AppColors.secondaryText,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
+    ),
+  );
 }
 
 class _SupportActions extends StatelessWidget {
@@ -770,80 +774,80 @@ class _SupportActions extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => _SoftCard(
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const _SectionHeader(
-              icon: Icons.volunteer_activism_rounded,
-              title: 'امروز چطور همراه باشم؟',
-              subtitle: 'فقط کاری را ثبت کن که واقعاً انجام داده‌ای.',
-            ),
-            const SizedBox(height: 12),
-            LayoutBuilder(
-              builder: (context, constraints) {
-                final width = constraints.maxWidth < 330
-                    ? constraints.maxWidth
-                    : (constraints.maxWidth - 10) / 2;
-                return Wrap(
-                  spacing: 10,
-                  runSpacing: 10,
-                  children: actions
-                      .map(
-                        (action) => SizedBox(
-                          width: width,
-                          child: Material(
-                            color: action.color.withValues(alpha: 0.08),
-                            borderRadius: BorderRadius.circular(17),
-                            child: InkWell(
-                              onTap: saving
-                                  ? null
-                                  : () => onAction(action.type, action.label),
-                              borderRadius: BorderRadius.circular(17),
-                              child: Padding(
-                                padding: const EdgeInsets.all(11),
-                                child: Row(
-                                  children: [
-                                    Container(
-                                      width: 36,
-                                      height: 36,
-                                      decoration: BoxDecoration(
-                                        color: Colors.white,
-                                        borderRadius: BorderRadius.circular(12),
-                                      ),
-                                      child: Icon(
-                                        action.icon,
-                                        size: 19,
-                                        color: action.color,
-                                      ),
-                                    ),
-                                    const SizedBox(width: 9),
-                                    Expanded(
-                                      child: Text(
-                                        action.label,
-                                        style: const TextStyle(
-                                          fontSize: 10,
-                                          fontWeight: FontWeight.w900,
-                                        ),
-                                      ),
-                                    ),
-                                  ],
+    child: Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const _SectionHeader(
+          icon: Icons.volunteer_activism_rounded,
+          title: 'امروز چطور همراه باشم؟',
+          subtitle: 'فقط کاری را ثبت کن که واقعاً انجام داده‌ای.',
+        ),
+        const SizedBox(height: 12),
+        LayoutBuilder(
+          builder: (context, constraints) {
+            final width = constraints.maxWidth < 330
+                ? constraints.maxWidth
+                : (constraints.maxWidth - 10) / 2;
+            return Wrap(
+              spacing: 10,
+              runSpacing: 10,
+              children: actions
+                  .map(
+                    (action) => SizedBox(
+                      width: width,
+                      child: Material(
+                        color: action.color.withValues(alpha: 0.08),
+                        borderRadius: BorderRadius.circular(17),
+                        child: InkWell(
+                          onTap: saving
+                              ? null
+                              : () => onAction(action.type, action.label),
+                          borderRadius: BorderRadius.circular(17),
+                          child: Padding(
+                            padding: const EdgeInsets.all(11),
+                            child: Row(
+                              children: [
+                                Container(
+                                  width: 36,
+                                  height: 36,
+                                  decoration: BoxDecoration(
+                                    color: Colors.white,
+                                    borderRadius: BorderRadius.circular(12),
+                                  ),
+                                  child: Icon(
+                                    action.icon,
+                                    size: 19,
+                                    color: action.color,
+                                  ),
                                 ),
-                              ),
+                                const SizedBox(width: 9),
+                                Expanded(
+                                  child: Text(
+                                    action.label,
+                                    style: const TextStyle(
+                                      fontSize: 10,
+                                      fontWeight: FontWeight.w900,
+                                    ),
+                                  ),
+                                ),
+                              ],
                             ),
                           ),
                         ),
-                      )
-                      .toList(growable: false),
-                );
-              },
-            ),
-            if (saving) ...[
-              const SizedBox(height: 10),
-              const LinearProgressIndicator(minHeight: 2),
-            ],
-          ],
+                      ),
+                    ),
+                  )
+                  .toList(growable: false),
+            );
+          },
         ),
-      );
+        if (saving) ...[
+          const SizedBox(height: 10),
+          const LinearProgressIndicator(minHeight: 2),
+        ],
+      ],
+    ),
+  );
 }
 
 class _SupportDefinition {
@@ -1011,8 +1015,8 @@ class _CompassionMessage extends StatelessWidget {
     final estimate = summary['estimate'] as Map<String, dynamic>? ?? const {};
     final log = summary['latestSharedDailyLog'] as Map<String, dynamic>?;
     final mood = log?['mood']?.toString();
-    final phase = estimate['detailedPhase']?.toString() ??
-        estimate['phase']?.toString();
+    final phase =
+        estimate['detailedPhase']?.toString() ?? estimate['phase']?.toString();
     final message = _compassionCopy(phase, mood);
     return Container(
       padding: const EdgeInsets.all(18),
@@ -1030,10 +1034,7 @@ class _CompassionMessage extends StatelessWidget {
           const CircleAvatar(
             radius: 22,
             backgroundColor: Colors.white,
-            child: Icon(
-              Icons.format_quote_rounded,
-              color: Color(0xFF9B69C6),
-            ),
+            child: Icon(Icons.format_quote_rounded, color: Color(0xFF9B69C6)),
           ),
           const SizedBox(width: 12),
           Expanded(
@@ -1060,10 +1061,7 @@ class _CompassionMessage extends StatelessWidget {
               ],
             ),
           ),
-          const Icon(
-            Icons.local_florist_rounded,
-            color: Color(0xFFC47AC0),
-          ),
+          const Icon(Icons.local_florist_rounded, color: Color(0xFFC47AC0)),
         ],
       ),
     );
@@ -1141,30 +1139,30 @@ class _PrivacyNotice extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Container(
-        padding: const EdgeInsets.all(15),
-        decoration: BoxDecoration(
-          color: Colors.white.withValues(alpha: 0.74),
-          borderRadius: BorderRadius.circular(20),
-          border: Border.all(color: const Color(0xFFE8DDF0)),
-        ),
-        child: const Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Icon(Icons.lock_outline_rounded, color: Color(0xFF80649A)),
-            SizedBox(width: 10),
-            Expanded(
-              child: Text(
-                'این صفحه فقط خلاصه مجاز چرخه و ثبت‌هایی را نشان می‌دهد که همسرت صریحاً برای اشتراک انتخاب کرده است. یادداشت خصوصی، تاریخچه کامل علائم و اطلاعات حساس نمایش داده نمی‌شوند. برآوردها پزشکی نیستند.',
-                style: TextStyle(
-                  fontSize: 10.5,
-                  height: 1.65,
-                  color: Color(0xFF6D6174),
-                ),
-              ),
+    padding: const EdgeInsets.all(15),
+    decoration: BoxDecoration(
+      color: Colors.white.withValues(alpha: 0.74),
+      borderRadius: BorderRadius.circular(20),
+      border: Border.all(color: const Color(0xFFE8DDF0)),
+    ),
+    child: const Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Icon(Icons.lock_outline_rounded, color: Color(0xFF80649A)),
+        SizedBox(width: 10),
+        Expanded(
+          child: Text(
+            'این صفحه فقط خلاصه مجاز چرخه و ثبت‌هایی را نشان می‌دهد که همسرت صریحاً برای اشتراک انتخاب کرده است. یادداشت خصوصی، تاریخچه کامل علائم و اطلاعات حساس نمایش داده نمی‌شوند. برآوردها پزشکی نیستند.',
+            style: TextStyle(
+              fontSize: 10.5,
+              height: 1.65,
+              color: Color(0xFF6D6174),
             ),
-          ],
+          ),
         ),
-      );
+      ],
+    ),
+  );
 }
 
 class _SoftCard extends StatelessWidget {
@@ -1173,21 +1171,21 @@ class _SoftCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Container(
-        padding: const EdgeInsets.all(17),
-        decoration: BoxDecoration(
-          color: Colors.white.withValues(alpha: 0.91),
-          borderRadius: BorderRadius.circular(27),
-          border: Border.all(color: Colors.white),
-          boxShadow: const [
-            BoxShadow(
-              color: Color(0x109366A0),
-              blurRadius: 22,
-              offset: Offset(0, 9),
-            ),
-          ],
+    padding: const EdgeInsets.all(17),
+    decoration: BoxDecoration(
+      color: Colors.white.withValues(alpha: 0.91),
+      borderRadius: BorderRadius.circular(27),
+      border: Border.all(color: Colors.white),
+      boxShadow: const [
+        BoxShadow(
+          color: Color(0x109366A0),
+          blurRadius: 22,
+          offset: Offset(0, 9),
         ),
-        child: child,
-      );
+      ],
+    ),
+    child: child,
+  );
 }
 
 class _SectionHeader extends StatelessWidget {
@@ -1203,42 +1201,39 @@ class _SectionHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Container(
-            width: 42,
-            height: 42,
-            decoration: BoxDecoration(
-              color: const Color(0xFFF4ECFA),
-              borderRadius: BorderRadius.circular(14),
+    crossAxisAlignment: CrossAxisAlignment.start,
+    children: [
+      Container(
+        width: 42,
+        height: 42,
+        decoration: BoxDecoration(
+          color: const Color(0xFFF4ECFA),
+          borderRadius: BorderRadius.circular(14),
+        ),
+        child: Icon(icon, color: const Color(0xFF8E65AD), size: 21),
+      ),
+      const SizedBox(width: 11),
+      Expanded(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              title,
+              style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w900),
             ),
-            child: Icon(icon, color: const Color(0xFF8E65AD), size: 21),
-          ),
-          const SizedBox(width: 11),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  title,
-                  style: const TextStyle(
-                    fontSize: 15,
-                    fontWeight: FontWeight.w900,
-                  ),
-                ),
-                const SizedBox(height: 3),
-                Text(
-                  subtitle,
-                  style: const TextStyle(
-                    fontSize: 10,
-                    color: AppColors.secondaryText,
-                  ),
-                ),
-              ],
+            const SizedBox(height: 3),
+            Text(
+              subtitle,
+              style: const TextStyle(
+                fontSize: 10,
+                color: AppColors.secondaryText,
+              ),
             ),
-          ),
-        ],
-      );
+          ],
+        ),
+      ),
+    ],
+  );
 }
 
 class _ErrorState extends StatelessWidget {
@@ -1249,34 +1244,34 @@ class _ErrorState extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Center(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.all(26),
-          child: _SoftCard(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                const Icon(
-                  Icons.privacy_tip_outlined,
-                  size: 54,
-                  color: Color(0xFF8E65AD),
-                ),
-                const SizedBox(height: 14),
-                Text(
-                  message,
-                  textAlign: TextAlign.center,
-                  style: const TextStyle(height: 1.6),
-                ),
-                const SizedBox(height: 16),
-                OutlinedButton.icon(
-                  onPressed: onRetry,
-                  icon: const Icon(Icons.refresh_rounded),
-                  label: const Text('تلاش دوباره'),
-                ),
-              ],
+    child: SingleChildScrollView(
+      padding: const EdgeInsets.all(26),
+      child: _SoftCard(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Icon(
+              Icons.privacy_tip_outlined,
+              size: 54,
+              color: Color(0xFF8E65AD),
             ),
-          ),
+            const SizedBox(height: 14),
+            Text(
+              message,
+              textAlign: TextAlign.center,
+              style: const TextStyle(height: 1.6),
+            ),
+            const SizedBox(height: 16),
+            OutlinedButton.icon(
+              onPressed: onRetry,
+              icon: const Icon(Icons.refresh_rounded),
+              label: const Text('تلاش دوباره'),
+            ),
+          ],
         ),
-      );
+      ),
+    ),
+  );
 }
 
 class _PhaseVisual {

@@ -12,9 +12,9 @@ class WomenCompanionApi {
     required Uri baseUri,
     required String? Function() accessToken,
     http.Client? httpClient,
-  })  : _baseUri = baseUri,
-        _accessToken = accessToken,
-        _http = httpClient ?? http.Client();
+  }) : _baseUri = baseUri,
+       _accessToken = accessToken,
+       _http = httpClient ?? http.Client();
 
   factory WomenCompanionApi.fromEnvironment({http.Client? httpClient}) {
     final config = AppConfig.fromEnvironment();
@@ -39,10 +39,7 @@ class WomenCompanionApi {
     final value = await _send(
       'GET',
       '/api/v1/women-calendar/daily-logs',
-      query: {
-        'fromDate': _date(fromDate),
-        'toDate': _date(toDate),
-      },
+      query: {'fromDate': _date(fromDate), 'toDate': _date(toDate)},
     );
     if (value is! List) {
       throw const FormatException('Daily logs response must be a list.');
@@ -71,7 +68,9 @@ class WomenCompanionApi {
         'mood': mood.trim().toLowerCase(),
         'energyLevel': energyLevel,
         'painLevel': painLevel,
-        'symptoms': symptoms.map((value) => value.trim().toLowerCase()).toList(),
+        'symptoms': symptoms
+            .map((value) => value.trim().toLowerCase())
+            .toList(),
         'privateNotes': _emptyToNull(privateNotes),
         'shareSummaryWithCompanion': shareSummaryWithCompanion,
       },
@@ -106,9 +105,10 @@ class WomenCompanionApi {
       };
       response = switch (method) {
         'GET' => await _http.get(uri, headers: headers).timeout(_timeout),
-        'PUT' => await _http
-            .put(uri, headers: headers, body: jsonEncode(body))
-            .timeout(_timeout),
+        'PUT' =>
+          await _http
+              .put(uri, headers: headers, body: jsonEncode(body))
+              .timeout(_timeout),
         _ => throw ArgumentError.value(method, 'method'),
       };
     } on TimeoutException {

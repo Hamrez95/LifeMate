@@ -318,7 +318,10 @@ class _CompanionHero extends StatelessWidget {
                   const SizedBox(height: 6),
                   Text(
                     currentProfile['displayName']?.toString() ?? 'من',
-                    style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w800),
+                    style: const TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w800,
+                    ),
                   ),
                 ],
               ),
@@ -358,7 +361,10 @@ class _CompanionHero extends StatelessWidget {
                   const SizedBox(height: 6),
                   Text(
                     companionName,
-                    style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w800),
+                    style: const TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w800,
+                    ),
                   ),
                 ],
               ),
@@ -416,7 +422,10 @@ class _CycleOverviewCard extends StatelessWidget {
                 value == null
                     ? 'برای نمایش چرخه، اطلاعات پایه را کامل کن.'
                     : 'روز ${localizeDigits(context, value.cycleDay)} از چرخه ${localizeDigits(context, value.cycleLength)} روزه',
-                style: const TextStyle(color: AppColors.textSecondary, height: 1.5),
+                style: const TextStyle(
+                  color: AppColors.textSecondary,
+                  height: 1.5,
+                ),
               ),
               if (value != null) ...[
                 const SizedBox(height: 6),
@@ -446,11 +455,19 @@ class _CycleOverviewCard extends StatelessWidget {
           );
           if (narrow) {
             return Column(
-              children: [ring, const SizedBox(height: 14), Align(alignment: Alignment.centerRight, child: details)],
+              children: [
+                ring,
+                const SizedBox(height: 14),
+                Align(alignment: Alignment.centerRight, child: details),
+              ],
             );
           }
           return Row(
-            children: [ring, const SizedBox(width: 18), Expanded(child: details)],
+            children: [
+              ring,
+              const SizedBox(width: 18),
+              Expanded(child: details),
+            ],
           );
         },
       ),
@@ -478,15 +495,23 @@ class _CycleRing extends StatelessWidget {
               mainAxisSize: MainAxisSize.min,
               children: [
                 Text(
-                  value == null ? '—' : 'روز ${localizeDigits(context, value.cycleDay)}',
-                  style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w900),
+                  value == null
+                      ? '—'
+                      : 'روز ${localizeDigits(context, value.cycleDay)}',
+                  style: const TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.w900,
+                  ),
                 ),
                 const SizedBox(height: 3),
                 Text(
                   value == null
                       ? 'چرخه'
                       : 'از ${localizeDigits(context, value.cycleLength)} روز',
-                  style: const TextStyle(fontSize: 10.5, color: AppColors.textSecondary),
+                  style: const TextStyle(
+                    fontSize: 10.5,
+                    color: AppColors.textSecondary,
+                  ),
                 ),
               ],
             ),
@@ -518,10 +543,31 @@ class _CycleRingPainter extends CustomPainter {
 
     final sections = <(int, Color)>[
       (value.periodLength, const Color(0xFFF15D7B)),
-      ((value.fertileWindowStartDay - value.periodLength - 1).clamp(0, value.cycleLength), const Color(0xFFBA8CE2)),
-      ((value.fertileWindowEndDay - value.fertileWindowStartDay + 1).clamp(0, value.cycleLength), const Color(0xFF58C8B8)),
-      ((value.pmsStartDay - value.fertileWindowEndDay - 1).clamp(0, value.cycleLength), const Color(0xFFF5BE58)),
-      ((value.cycleLength - value.pmsStartDay + 1).clamp(0, value.cycleLength), const Color(0xFFE98A75)),
+      (
+        (value.fertileWindowStartDay - value.periodLength - 1).clamp(
+          0,
+          value.cycleLength,
+        ),
+        const Color(0xFFBA8CE2),
+      ),
+      (
+        (value.fertileWindowEndDay - value.fertileWindowStartDay + 1).clamp(
+          0,
+          value.cycleLength,
+        ),
+        const Color(0xFF58C8B8),
+      ),
+      (
+        (value.pmsStartDay - value.fertileWindowEndDay - 1).clamp(
+          0,
+          value.cycleLength,
+        ),
+        const Color(0xFFF5BE58),
+      ),
+      (
+        (value.cycleLength - value.pmsStartDay + 1).clamp(0, value.cycleLength),
+        const Color(0xFFE98A75),
+      ),
     ];
     var start = -math.pi / 2;
     const gap = 0.035;
@@ -533,11 +579,18 @@ class _CycleRingPainter extends CustomPainter {
         ..strokeWidth = 12
         ..strokeCap = StrokeCap.round
         ..color = section.$2;
-      canvas.drawArc(rect, start + gap / 2, math.max(0, sweep - gap), false, paint);
+      canvas.drawArc(
+        rect,
+        start + gap / 2,
+        math.max(0, sweep - gap),
+        false,
+        paint,
+      );
       start += sweep;
     }
 
-    final angle = -math.pi / 2 + math.pi * 2 * (value.cycleDay - 0.5) / value.cycleLength;
+    final angle =
+        -math.pi / 2 + math.pi * 2 * (value.cycleDay - 0.5) / value.cycleLength;
     final marker = Offset(
       center.dx + math.cos(angle) * radius,
       center.dy + math.sin(angle) * radius,
@@ -575,7 +628,9 @@ class _DailyCheckInCard extends StatelessWidget {
         children: [
           _SectionTitle(
             title: 'حال و احساس امروز',
-            subtitle: log == null ? 'امروز چه احساسی داری؟' : 'ثبت امروزت محفوظ است.',
+            subtitle: log == null
+                ? 'امروز چه احساسی داری؟'
+                : 'ثبت امروزت محفوظ است.',
             action: TextButton(
               onPressed: saving ? null : onEdit,
               child: Text(log == null ? 'ثبت حال' : 'ویرایش'),
@@ -609,11 +664,17 @@ class _DailyCheckInCard extends StatelessWidget {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(mood.label, style: const TextStyle(fontWeight: FontWeight.w900)),
+                        Text(
+                          mood.label,
+                          style: const TextStyle(fontWeight: FontWeight.w900),
+                        ),
                         const SizedBox(height: 4),
                         Text(
                           'انرژی ${localizeDigits(context, log!['energyLevel'] ?? '—')} از ۵ • درد ${localizeDigits(context, log!['painLevel'] ?? '—')} از ۵',
-                          style: const TextStyle(fontSize: 11, color: AppColors.textSecondary),
+                          style: const TextStyle(
+                            fontSize: 11,
+                            color: AppColors.textSecondary,
+                          ),
                         ),
                       ],
                     ),
@@ -646,20 +707,20 @@ class _MoodPreview extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Container(
-        width: 58,
-        padding: const EdgeInsets.symmetric(vertical: 9),
-        decoration: BoxDecoration(
-          color: const Color(0xFFFFF4F8),
-          borderRadius: BorderRadius.circular(18),
-        ),
-        child: Column(
-          children: [
-            Text(emoji, style: const TextStyle(fontSize: 22)),
-            const SizedBox(height: 4),
-            Text(label, style: const TextStyle(fontSize: 9.5)),
-          ],
-        ),
-      );
+    width: 58,
+    padding: const EdgeInsets.symmetric(vertical: 9),
+    decoration: BoxDecoration(
+      color: const Color(0xFFFFF4F8),
+      borderRadius: BorderRadius.circular(18),
+    ),
+    child: Column(
+      children: [
+        Text(emoji, style: const TextStyle(fontSize: 22)),
+        const SizedBox(height: 4),
+        Text(label, style: const TextStyle(fontSize: 9.5)),
+      ],
+    ),
+  );
 }
 
 class _DailyTipCard extends StatelessWidget {
@@ -690,7 +751,10 @@ class _DailyTipCard extends StatelessWidget {
           Container(
             width: 46,
             height: 46,
-            decoration: const BoxDecoration(color: Colors.white, shape: BoxShape.circle),
+            decoration: const BoxDecoration(
+              color: Colors.white,
+              shape: BoxShape.circle,
+            ),
             child: Icon(Icons.spa_rounded, color: visual.color),
           ),
           const SizedBox(width: 13),
@@ -698,9 +762,15 @@ class _DailyTipCard extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text('نکته امروز', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w900)),
+                const Text(
+                  'نکته امروز',
+                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.w900),
+                ),
                 const SizedBox(height: 6),
-                Text(text, style: const TextStyle(height: 1.7, color: Color(0xFF685B69))),
+                Text(
+                  text,
+                  style: const TextStyle(height: 1.7, color: Color(0xFF685B69)),
+                ),
               ],
             ),
           ),
@@ -733,15 +803,23 @@ class _FourteenDayStrip extends StatelessWidget {
               itemCount: 14,
               separatorBuilder: (_, __) => const SizedBox(width: 8),
               itemBuilder: (context, index) {
-                final date = DateTime(today.year, today.month, today.day)
-                    .add(Duration(days: index));
+                final date = DateTime(
+                  today.year,
+                  today.month,
+                  today.day,
+                ).add(Duration(days: index));
                 final phase = estimate?.phaseForDate(date);
                 final visual = phaseVisual(phase);
                 return Container(
                   width: 68,
-                  padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 6),
+                  padding: const EdgeInsets.symmetric(
+                    vertical: 10,
+                    horizontal: 6,
+                  ),
                   decoration: BoxDecoration(
-                    color: visual.color.withValues(alpha: index == 0 ? 0.18 : 0.09),
+                    color: visual.color.withValues(
+                      alpha: index == 0 ? 0.18 : 0.09,
+                    ),
                     borderRadius: BorderRadius.circular(20),
                     border: Border.all(
                       color: index == 0 ? visual.color : Colors.transparent,
@@ -750,11 +828,22 @@ class _FourteenDayStrip extends StatelessWidget {
                   child: Column(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      Text(index == 0 ? 'امروز' : localizeDigits(context, index), style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w900)),
+                      Text(
+                        index == 0 ? 'امروز' : localizeDigits(context, index),
+                        style: const TextStyle(
+                          fontSize: 10,
+                          fontWeight: FontWeight.w900,
+                        ),
+                      ),
                       const SizedBox(height: 7),
                       Icon(visual.icon, color: visual.color, size: 21),
                       const SizedBox(height: 6),
-                      Text(visual.shortLabel, textAlign: TextAlign.center, maxLines: 2, style: const TextStyle(fontSize: 8.5, height: 1.2)),
+                      Text(
+                        visual.shortLabel,
+                        textAlign: TextAlign.center,
+                        maxLines: 2,
+                        style: const TextStyle(fontSize: 8.5, height: 1.2),
+                      ),
                     ],
                   ),
                 );
@@ -780,25 +869,38 @@ class _ReportsCard extends StatelessWidget {
     final averagePeriod = completed.isEmpty
         ? null
         : completed
-                .map((item) {
-                  final start = DateTime.tryParse(item['startedOn']?.toString() ?? '');
-                  final end = DateTime.tryParse(item['endedOn']?.toString() ?? '');
-                  return start == null || end == null ? 0 : end.difference(start).inDays + 1;
-                })
-                .where((value) => value > 0)
-                .fold<int>(0, (sum, value) => sum + value) /
-            completed.length;
+                  .map((item) {
+                    final start = DateTime.tryParse(
+                      item['startedOn']?.toString() ?? '',
+                    );
+                    final end = DateTime.tryParse(
+                      item['endedOn']?.toString() ?? '',
+                    );
+                    return start == null || end == null
+                        ? 0
+                        : end.difference(start).inDays + 1;
+                  })
+                  .where((value) => value > 0)
+                  .fold<int>(0, (sum, value) => sum + value) /
+              completed.length;
     final symptomCounts = <String, int>{};
     var energySum = 0;
     for (final log in logs) {
       energySum += log['energyLevel'] is int ? log['energyLevel'] as int : 0;
       for (final symptom in (log['symptoms'] as List<dynamic>? ?? const [])) {
-        symptomCounts.update(symptom.toString(), (value) => value + 1, ifAbsent: () => 1);
+        symptomCounts.update(
+          symptom.toString(),
+          (value) => value + 1,
+          ifAbsent: () => 1,
+        );
       }
     }
     final commonSymptom = symptomCounts.entries.isEmpty
         ? null
-        : (symptomCounts.entries.toList()..sort((a, b) => b.value.compareTo(a.value))).first.key;
+        : (symptomCounts.entries.toList()
+                ..sort((a, b) => b.value.compareTo(a.value)))
+              .first
+              .key;
     final averageEnergy = logs.isEmpty ? null : energySum / logs.length;
 
     return _PastelCard(
@@ -832,7 +934,9 @@ class _ReportsCard extends StatelessWidget {
                     width: width,
                     icon: Icons.bubble_chart_rounded,
                     label: 'نشانه پرتکرار',
-                    value: commonSymptom == null ? 'ثبت ناکافی' : symptomLabel(commonSymptom),
+                    value: commonSymptom == null
+                        ? 'ثبت ناکافی'
+                        : symptomLabel(commonSymptom),
                     color: const Color(0xFF9C71D2),
                   ),
                   _ReportTile(
@@ -870,24 +974,32 @@ class _ReportTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Container(
-        width: width,
-        constraints: const BoxConstraints(minHeight: 116),
-        padding: const EdgeInsets.all(12),
-        decoration: BoxDecoration(
-          color: color.withValues(alpha: 0.08),
-          borderRadius: BorderRadius.circular(20),
+    width: width,
+    constraints: const BoxConstraints(minHeight: 116),
+    padding: const EdgeInsets.all(12),
+    decoration: BoxDecoration(
+      color: color.withValues(alpha: 0.08),
+      borderRadius: BorderRadius.circular(20),
+    ),
+    child: Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Icon(icon, color: color),
+        const Spacer(),
+        Text(
+          label,
+          style: const TextStyle(fontSize: 10, color: AppColors.textSecondary),
         ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Icon(icon, color: color),
-            const Spacer(),
-            Text(label, style: const TextStyle(fontSize: 10, color: AppColors.textSecondary)),
-            const SizedBox(height: 4),
-            Text(value, maxLines: 2, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w900)),
-          ],
+        const SizedBox(height: 4),
+        Text(
+          value,
+          maxLines: 2,
+          overflow: TextOverflow.ellipsis,
+          style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w900),
         ),
-      );
+      ],
+    ),
+  );
 }
 
 class _ReminderAndSettingsCard extends StatelessWidget {
@@ -900,7 +1012,9 @@ class _ReminderAndSettingsCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final lastStart = DateTime.tryParse(profile['lastPeriodStart']?.toString() ?? '');
+    final lastStart = DateTime.tryParse(
+      profile['lastPeriodStart']?.toString() ?? '',
+    );
     return _PastelCard(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -913,12 +1027,16 @@ class _ReminderAndSettingsCard extends StatelessWidget {
           _InfoLine(
             icon: Icons.notifications_active_rounded,
             title: 'یادآوری نزدیک‌شدن دوره',
-            value: profile['remindersEnabled'] == false ? 'خاموش' : 'فعال و خصوصی',
+            value: profile['remindersEnabled'] == false
+                ? 'خاموش'
+                : 'فعال و خصوصی',
           ),
           _InfoLine(
             icon: Icons.edit_calendar_rounded,
             title: 'آخرین شروع ثبت‌شده',
-            value: lastStart == null ? 'ثبت نشده' : formatAppDate(context, lastStart),
+            value: lastStart == null
+                ? 'ثبت نشده'
+                : formatAppDate(context, lastStart),
           ),
           const SizedBox(height: 12),
           SizedBox(
@@ -931,7 +1049,9 @@ class _ReminderAndSettingsCard extends StatelessWidget {
                 backgroundColor: const Color(0xFFD75C8D),
                 foregroundColor: Colors.white,
                 padding: const EdgeInsets.symmetric(vertical: 14),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(18),
+                ),
               ),
             ),
           ),
@@ -942,32 +1062,50 @@ class _ReminderAndSettingsCard extends StatelessWidget {
 }
 
 class _InfoLine extends StatelessWidget {
-  const _InfoLine({required this.icon, required this.title, required this.value});
+  const _InfoLine({
+    required this.icon,
+    required this.title,
+    required this.value,
+  });
   final IconData icon;
   final String title;
   final String value;
 
   @override
   Widget build(BuildContext context) => Padding(
-        padding: const EdgeInsets.symmetric(vertical: 7),
-        child: Row(
-          children: [
-            Container(
-              width: 38,
-              height: 38,
-              decoration: BoxDecoration(
-                color: const Color(0xFFFFEFF5),
-                borderRadius: BorderRadius.circular(13),
-              ),
-              child: Icon(icon, size: 20, color: const Color(0xFFD75C8D)),
-            ),
-            const SizedBox(width: 11),
-            Expanded(child: Text(title, style: const TextStyle(fontWeight: FontWeight.w800))),
-            const SizedBox(width: 8),
-            Flexible(child: Text(value, textAlign: TextAlign.end, style: const TextStyle(fontSize: 11, color: AppColors.textSecondary))),
-          ],
+    padding: const EdgeInsets.symmetric(vertical: 7),
+    child: Row(
+      children: [
+        Container(
+          width: 38,
+          height: 38,
+          decoration: BoxDecoration(
+            color: const Color(0xFFFFEFF5),
+            borderRadius: BorderRadius.circular(13),
+          ),
+          child: Icon(icon, size: 20, color: const Color(0xFFD75C8D)),
         ),
-      );
+        const SizedBox(width: 11),
+        Expanded(
+          child: Text(
+            title,
+            style: const TextStyle(fontWeight: FontWeight.w800),
+          ),
+        ),
+        const SizedBox(width: 8),
+        Flexible(
+          child: Text(
+            value,
+            textAlign: TextAlign.end,
+            style: const TextStyle(
+              fontSize: 11,
+              color: AppColors.textSecondary,
+            ),
+          ),
+        ),
+      ],
+    ),
+  );
 }
 
 class _MedicalSafetyCard extends StatelessWidget {
@@ -975,26 +1113,30 @@ class _MedicalSafetyCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Container(
-        padding: const EdgeInsets.all(15),
-        decoration: BoxDecoration(
-          color: const Color(0xFFFFF7E8),
-          borderRadius: BorderRadius.circular(20),
-          border: Border.all(color: const Color(0xFFFFE1A5)),
-        ),
-        child: const Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Icon(Icons.health_and_safety_outlined, color: Color(0xFFB97818)),
-            SizedBox(width: 10),
-            Expanded(
-              child: Text(
-                'چرخه و فازها تخمینی‌اند و برای تشخیص، اثبات تخمک‌گذاری یا پیشگیری از بارداری طراحی نشده‌اند. در درد شدید، خون‌ریزی غیرعادی یا نگرانی پزشکی با پزشک تماس بگیر.',
-                style: TextStyle(height: 1.65, fontSize: 11.5, color: Color(0xFF765A34)),
-              ),
+    padding: const EdgeInsets.all(15),
+    decoration: BoxDecoration(
+      color: const Color(0xFFFFF7E8),
+      borderRadius: BorderRadius.circular(20),
+      border: Border.all(color: const Color(0xFFFFE1A5)),
+    ),
+    child: const Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Icon(Icons.health_and_safety_outlined, color: Color(0xFFB97818)),
+        SizedBox(width: 10),
+        Expanded(
+          child: Text(
+            'چرخه و فازها تخمینی‌اند و برای تشخیص، اثبات تخمک‌گذاری یا پیشگیری از بارداری طراحی نشده‌اند. در درد شدید، خون‌ریزی غیرعادی یا نگرانی پزشکی با پزشک تماس بگیر.',
+            style: TextStyle(
+              height: 1.65,
+              fontSize: 11.5,
+              color: Color(0xFF765A34),
             ),
-          ],
+          ),
         ),
-      );
+      ],
+    ),
+  );
 }
 
 class _DailyCheckInSheet extends StatefulWidget {
@@ -1014,7 +1156,9 @@ class _DailyCheckInSheetState extends State<_DailyCheckInSheet> {
       ? widget.existing!['painLevel'] as int
       : 0;
   late Set<String> _symptoms = Set<String>.from(
-    (widget.existing?['symptoms'] as List<dynamic>? ?? const []).map((item) => item.toString()),
+    (widget.existing?['symptoms'] as List<dynamic>? ?? const []).map(
+      (item) => item.toString(),
+    ),
   );
   late bool _share = widget.existing?['shareSummaryWithCompanion'] == true;
   late final TextEditingController _notes = TextEditingController(
@@ -1031,7 +1175,9 @@ class _DailyCheckInSheetState extends State<_DailyCheckInSheet> {
   Widget build(BuildContext context) {
     final bottom = MediaQuery.viewInsetsOf(context).bottom;
     return Container(
-      constraints: BoxConstraints(maxHeight: MediaQuery.sizeOf(context).height * 0.9),
+      constraints: BoxConstraints(
+        maxHeight: MediaQuery.sizeOf(context).height * 0.9,
+      ),
       padding: EdgeInsets.fromLTRB(20, 16, 20, 20 + bottom),
       decoration: const BoxDecoration(
         color: Color(0xFFFFFBFD),
@@ -1042,28 +1188,46 @@ class _DailyCheckInSheetState extends State<_DailyCheckInSheet> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Center(
-              child: Container(width: 46, height: 4, decoration: BoxDecoration(color: const Color(0xFFE3DCE5), borderRadius: BorderRadius.circular(4))),
+              child: Container(
+                width: 46,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: const Color(0xFFE3DCE5),
+                  borderRadius: BorderRadius.circular(4),
+                ),
+              ),
             ),
             const SizedBox(height: 14),
-            const Text('حال امروز من', style: TextStyle(fontSize: 20, fontWeight: FontWeight.w900)),
+            const Text(
+              'حال امروز من',
+              style: TextStyle(fontSize: 20, fontWeight: FontWeight.w900),
+            ),
             const SizedBox(height: 4),
-            const Text('هر چیزی که ثبت می‌کنی ابتدا خصوصی است.', style: TextStyle(color: AppColors.textSecondary, fontSize: 11.5)),
+            const Text(
+              'هر چیزی که ثبت می‌کنی ابتدا خصوصی است.',
+              style: TextStyle(color: AppColors.textSecondary, fontSize: 11.5),
+            ),
             const SizedBox(height: 18),
-            const Text('حال روحی', style: TextStyle(fontWeight: FontWeight.w900)),
+            const Text(
+              'حال روحی',
+              style: TextStyle(fontWeight: FontWeight.w900),
+            ),
             const SizedBox(height: 8),
             Wrap(
               spacing: 8,
               runSpacing: 8,
               children: const ['great', 'good', 'neutral', 'low', 'overwhelmed']
                   .map((value) => moodVisual(value))
-                  .map((visual) => ChoiceChip(
-                        selected: _mood == visual.code,
-                        onSelected: (_) => setState(() => _mood = visual.code),
-                        avatar: Text(visual.emoji),
-                        label: Text(visual.label),
-                        selectedColor: visual.color.withValues(alpha: 0.18),
-                        side: BorderSide.none,
-                      ))
+                  .map(
+                    (visual) => ChoiceChip(
+                      selected: _mood == visual.code,
+                      onSelected: (_) => setState(() => _mood = visual.code),
+                      avatar: Text(visual.emoji),
+                      label: Text(visual.label),
+                      selectedColor: visual.color.withValues(alpha: 0.18),
+                      side: BorderSide.none,
+                    ),
+                  )
                   .toList(growable: false),
             ),
             const SizedBox(height: 18),
@@ -1084,31 +1248,38 @@ class _DailyCheckInSheetState extends State<_DailyCheckInSheet> {
               onChanged: (value) => setState(() => _pain = value),
             ),
             const SizedBox(height: 8),
-            const Text('نشانه‌ها', style: TextStyle(fontWeight: FontWeight.w900)),
+            const Text(
+              'نشانه‌ها',
+              style: TextStyle(fontWeight: FontWeight.w900),
+            ),
             const SizedBox(height: 8),
             Wrap(
               spacing: 8,
               runSpacing: 8,
-              children: symptomOptions.map((option) {
-                final selected = _symptoms.contains(option.code);
-                return FilterChip(
-                  selected: selected,
-                  onSelected: (value) {
-                    setState(() {
-                      if (option.code == 'no_symptom') {
-                        _symptoms = value ? {'no_symptom'} : {};
-                      } else {
-                        _symptoms.remove('no_symptom');
-                        value ? _symptoms.add(option.code) : _symptoms.remove(option.code);
-                      }
-                    });
-                  },
-                  avatar: Icon(option.icon, size: 17, color: option.color),
-                  label: Text(option.label),
-                  selectedColor: option.color.withValues(alpha: 0.14),
-                  side: BorderSide.none,
-                );
-              }).toList(growable: false),
+              children: symptomOptions
+                  .map((option) {
+                    final selected = _symptoms.contains(option.code);
+                    return FilterChip(
+                      selected: selected,
+                      onSelected: (value) {
+                        setState(() {
+                          if (option.code == 'no_symptom') {
+                            _symptoms = value ? {'no_symptom'} : {};
+                          } else {
+                            _symptoms.remove('no_symptom');
+                            value
+                                ? _symptoms.add(option.code)
+                                : _symptoms.remove(option.code);
+                          }
+                        });
+                      },
+                      avatar: Icon(option.icon, size: 17, color: option.color),
+                      label: Text(option.label),
+                      selectedColor: option.color.withValues(alpha: 0.14),
+                      side: BorderSide.none,
+                    );
+                  })
+                  .toList(growable: false),
             ),
             const SizedBox(height: 15),
             TextField(
@@ -1125,7 +1296,10 @@ class _DailyCheckInSheetState extends State<_DailyCheckInSheet> {
               contentPadding: EdgeInsets.zero,
               value: _share,
               onChanged: (value) => setState(() => _share = value),
-              title: const Text('اشتراک خلاصه با همدم', style: TextStyle(fontWeight: FontWeight.w900)),
+              title: const Text(
+                'اشتراک خلاصه با همدم',
+                style: TextStyle(fontWeight: FontWeight.w900),
+              ),
               subtitle: const Text(
                 'فقط حال، انرژی، شدت درد و نشانه‌های انتخابی دیده می‌شود؛ یادداشت خصوصی هرگز به اشتراک گذاشته نمی‌شود.',
                 style: TextStyle(fontSize: 10.5, height: 1.5),
@@ -1196,24 +1370,32 @@ class _LevelSlider extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+    crossAxisAlignment: CrossAxisAlignment.start,
+    children: [
+      Row(
         children: [
-          Row(
-            children: [
-              Expanded(child: Text(title, style: const TextStyle(fontWeight: FontWeight.w900))),
-              Text('${localizeDigits(context, value)} از ${localizeDigits(context, max)}', style: TextStyle(color: color, fontWeight: FontWeight.w900)),
-            ],
+          Expanded(
+            child: Text(
+              title,
+              style: const TextStyle(fontWeight: FontWeight.w900),
+            ),
           ),
-          Slider(
-            value: value.toDouble(),
-            min: min.toDouble(),
-            max: max.toDouble(),
-            divisions: max - min,
-            activeColor: color,
-            onChanged: (next) => onChanged(next.round()),
+          Text(
+            '${localizeDigits(context, value)} از ${localizeDigits(context, max)}',
+            style: TextStyle(color: color, fontWeight: FontWeight.w900),
           ),
         ],
-      );
+      ),
+      Slider(
+        value: value.toDouble(),
+        min: min.toDouble(),
+        max: max.toDouble(),
+        divisions: max - min,
+        activeColor: color,
+        onChanged: (next) => onChanged(next.round()),
+      ),
+    ],
+  );
 }
 
 class _PastelCard extends StatelessWidget {
@@ -1222,42 +1404,59 @@ class _PastelCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Container(
-        padding: const EdgeInsets.all(17),
-        decoration: BoxDecoration(
-          color: Colors.white.withValues(alpha: 0.9),
-          borderRadius: BorderRadius.circular(28),
-          border: Border.all(color: Colors.white),
-          boxShadow: const [
-            BoxShadow(color: Color(0x109A6D94), blurRadius: 22, offset: Offset(0, 9)),
-          ],
+    padding: const EdgeInsets.all(17),
+    decoration: BoxDecoration(
+      color: Colors.white.withValues(alpha: 0.9),
+      borderRadius: BorderRadius.circular(28),
+      border: Border.all(color: Colors.white),
+      boxShadow: const [
+        BoxShadow(
+          color: Color(0x109A6D94),
+          blurRadius: 22,
+          offset: Offset(0, 9),
         ),
-        child: child,
-      );
+      ],
+    ),
+    child: child,
+  );
 }
 
 class _SectionTitle extends StatelessWidget {
-  const _SectionTitle({required this.title, required this.subtitle, this.action});
+  const _SectionTitle({
+    required this.title,
+    required this.subtitle,
+    this.action,
+  });
   final String title;
   final String subtitle;
   final Widget? action;
 
   @override
   Widget build(BuildContext context) => Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(title, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w900)),
-                const SizedBox(height: 3),
-                Text(subtitle, style: const TextStyle(fontSize: 10.5, color: AppColors.textSecondary)),
-              ],
+    crossAxisAlignment: CrossAxisAlignment.start,
+    children: [
+      Expanded(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              title,
+              style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w900),
             ),
-          ),
-          if (action != null) action!,
-        ],
-      );
+            const SizedBox(height: 3),
+            Text(
+              subtitle,
+              style: const TextStyle(
+                fontSize: 10.5,
+                color: AppColors.textSecondary,
+              ),
+            ),
+          ],
+        ),
+      ),
+      if (action != null) action!,
+    ],
+  );
 }
 
 class _InactiveWomenExperience extends StatelessWidget {
@@ -1266,29 +1465,43 @@ class _InactiveWomenExperience extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => DecoratedBox(
-        decoration: const BoxDecoration(
-          gradient: LinearGradient(colors: [Color(0xFFFFF4F9), Color(0xFFF5F0FF)]),
-        ),
-        child: Center(
-          child: Padding(
-            padding: const EdgeInsets.all(26),
-            child: _PastelCard(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  const Icon(Icons.favorite_rounded, size: 56, color: Color(0xFFD85B8C)),
-                  const SizedBox(height: 14),
-                  const Text('فضای شخصی چرخه تو', style: TextStyle(fontSize: 20, fontWeight: FontWeight.w900)),
-                  const SizedBox(height: 8),
-                  const Text('برای دیدن ریتم چرخه، حال روزانه و گزارش‌های خصوصی، اطلاعات پایه را کامل کن.', textAlign: TextAlign.center, style: TextStyle(height: 1.6, color: AppColors.textSecondary)),
-                  const SizedBox(height: 18),
-                  FilledButton(onPressed: onOpenSettings, child: const Text('راه‌اندازی تقویم بانوان')),
-                ],
+    decoration: const BoxDecoration(
+      gradient: LinearGradient(colors: [Color(0xFFFFF4F9), Color(0xFFF5F0FF)]),
+    ),
+    child: Center(
+      child: Padding(
+        padding: const EdgeInsets.all(26),
+        child: _PastelCard(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Icon(
+                Icons.favorite_rounded,
+                size: 56,
+                color: Color(0xFFD85B8C),
               ),
-            ),
+              const SizedBox(height: 14),
+              const Text(
+                'فضای شخصی چرخه تو',
+                style: TextStyle(fontSize: 20, fontWeight: FontWeight.w900),
+              ),
+              const SizedBox(height: 8),
+              const Text(
+                'برای دیدن ریتم چرخه، حال روزانه و گزارش‌های خصوصی، اطلاعات پایه را کامل کن.',
+                textAlign: TextAlign.center,
+                style: TextStyle(height: 1.6, color: AppColors.textSecondary),
+              ),
+              const SizedBox(height: 18),
+              FilledButton(
+                onPressed: onOpenSettings,
+                child: const Text('راه‌اندازی تقویم بانوان'),
+              ),
+            ],
           ),
         ),
-      );
+      ),
+    ),
+  );
 }
 
 class _WomenError extends StatelessWidget {
@@ -1298,20 +1511,24 @@ class _WomenError extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Center(
-        child: Padding(
-          padding: const EdgeInsets.all(24),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const Icon(Icons.cloud_off_rounded, size: 52, color: Color(0xFFD75C8D)),
-              const SizedBox(height: 12),
-              Text(message, textAlign: TextAlign.center),
-              const SizedBox(height: 14),
-              FilledButton(onPressed: onRetry, child: const Text('تلاش دوباره')),
-            ],
+    child: Padding(
+      padding: const EdgeInsets.all(24),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const Icon(
+            Icons.cloud_off_rounded,
+            size: 52,
+            color: Color(0xFFD75C8D),
           ),
-        ),
-      );
+          const SizedBox(height: 12),
+          Text(message, textAlign: TextAlign.center),
+          const SizedBox(height: 14),
+          FilledButton(onPressed: onRetry, child: const Text('تلاش دوباره')),
+        ],
+      ),
+    ),
+  );
 }
 
 class PhaseVisual {
@@ -1330,14 +1547,56 @@ class PhaseVisual {
 }
 
 PhaseVisual phaseVisual(WomenCyclePhase? phase) => switch (phase) {
-      WomenCyclePhase.period => const PhaseVisual(label: 'فاز قاعدگی', shortLabel: 'قاعدگی', icon: Icons.water_drop_rounded, color: Color(0xFFF15D7B), foreground: Color(0xFF9F2847)),
-      WomenCyclePhase.follicular => const PhaseVisual(label: 'فاز فولیکولار', shortLabel: 'فولیکولار', icon: Icons.spa_rounded, color: Color(0xFFB48BE1), foreground: Color(0xFF6F439F)),
-      WomenCyclePhase.fertile => const PhaseVisual(label: 'پنجره باروری تخمینی', shortLabel: 'باروری', icon: Icons.local_florist_rounded, color: Color(0xFF57C5B5), foreground: Color(0xFF247D72)),
-      WomenCyclePhase.ovulation => const PhaseVisual(label: 'روز تخمک‌گذاری تخمینی', shortLabel: 'تخمک‌گذاری', icon: Icons.brightness_5_rounded, color: Color(0xFF55A8E8), foreground: Color(0xFF286A9D)),
-      WomenCyclePhase.luteal => const PhaseVisual(label: 'فاز لوتئال', shortLabel: 'لوتئال', icon: Icons.wb_twilight_rounded, color: Color(0xFFF3B651), foreground: Color(0xFF946517)),
-      WomenCyclePhase.pms => const PhaseVisual(label: 'روزهای پیش از دوره', shortLabel: 'PMS', icon: Icons.nightlight_round, color: Color(0xFFE88973), foreground: Color(0xFF9D4938)),
-      _ => const PhaseVisual(label: 'ریتم چرخه', shortLabel: 'چرخه', icon: Icons.favorite_outline_rounded, color: Color(0xFFB68DD9), foreground: Color(0xFF75519A)),
-    };
+  WomenCyclePhase.period => const PhaseVisual(
+    label: 'فاز قاعدگی',
+    shortLabel: 'قاعدگی',
+    icon: Icons.water_drop_rounded,
+    color: Color(0xFFF15D7B),
+    foreground: Color(0xFF9F2847),
+  ),
+  WomenCyclePhase.follicular => const PhaseVisual(
+    label: 'فاز فولیکولار',
+    shortLabel: 'فولیکولار',
+    icon: Icons.spa_rounded,
+    color: Color(0xFFB48BE1),
+    foreground: Color(0xFF6F439F),
+  ),
+  WomenCyclePhase.fertile => const PhaseVisual(
+    label: 'پنجره باروری تخمینی',
+    shortLabel: 'باروری',
+    icon: Icons.local_florist_rounded,
+    color: Color(0xFF57C5B5),
+    foreground: Color(0xFF247D72),
+  ),
+  WomenCyclePhase.ovulation => const PhaseVisual(
+    label: 'روز تخمک‌گذاری تخمینی',
+    shortLabel: 'تخمک‌گذاری',
+    icon: Icons.brightness_5_rounded,
+    color: Color(0xFF55A8E8),
+    foreground: Color(0xFF286A9D),
+  ),
+  WomenCyclePhase.luteal => const PhaseVisual(
+    label: 'فاز لوتئال',
+    shortLabel: 'لوتئال',
+    icon: Icons.wb_twilight_rounded,
+    color: Color(0xFFF3B651),
+    foreground: Color(0xFF946517),
+  ),
+  WomenCyclePhase.pms => const PhaseVisual(
+    label: 'روزهای پیش از دوره',
+    shortLabel: 'PMS',
+    icon: Icons.nightlight_round,
+    color: Color(0xFFE88973),
+    foreground: Color(0xFF9D4938),
+  ),
+  _ => const PhaseVisual(
+    label: 'ریتم چرخه',
+    shortLabel: 'چرخه',
+    icon: Icons.favorite_outline_rounded,
+    color: Color(0xFFB68DD9),
+    foreground: Color(0xFF75519A),
+  ),
+};
 
 class MoodVisual {
   const MoodVisual(this.code, this.label, this.emoji, this.color);
@@ -1348,13 +1607,18 @@ class MoodVisual {
 }
 
 MoodVisual moodVisual(String? code) => switch (code) {
-      'great' => const MoodVisual('great', 'عالی', '😊', Color(0xFF55B889)),
-      'good' => const MoodVisual('good', 'خوب', '🙂', Color(0xFF8D78D5)),
-      'neutral' => const MoodVisual('neutral', 'معمولی', '😐', Color(0xFFE7B650)),
-      'low' => const MoodVisual('low', 'کم‌انرژی', '😔', Color(0xFFE78D69)),
-      'overwhelmed' => const MoodVisual('overwhelmed', 'تحت فشار', '😣', Color(0xFFE46178)),
-      _ => const MoodVisual('good', 'ثبت نشده', '🌸', Color(0xFFB68DD9)),
-    };
+  'great' => const MoodVisual('great', 'عالی', '😊', Color(0xFF55B889)),
+  'good' => const MoodVisual('good', 'خوب', '🙂', Color(0xFF8D78D5)),
+  'neutral' => const MoodVisual('neutral', 'معمولی', '😐', Color(0xFFE7B650)),
+  'low' => const MoodVisual('low', 'کم‌انرژی', '😔', Color(0xFFE78D69)),
+  'overwhelmed' => const MoodVisual(
+    'overwhelmed',
+    'تحت فشار',
+    '😣',
+    Color(0xFFE46178),
+  ),
+  _ => const MoodVisual('good', 'ثبت نشده', '🌸', Color(0xFFB68DD9)),
+};
 
 class SymptomOption {
   const SymptomOption(this.code, this.label, this.icon, this.color);
@@ -1366,20 +1630,60 @@ class SymptomOption {
 
 const symptomOptions = <SymptomOption>[
   SymptomOption('cramps', 'درد شکم', Icons.bolt_rounded, Color(0xFFE76479)),
-  SymptomOption('headache', 'سردرد', Icons.psychology_alt_rounded, Color(0xFF9A78D3)),
-  SymptomOption('bloating', 'نفخ', Icons.bubble_chart_rounded, Color(0xFFE3AA4E)),
+  SymptomOption(
+    'headache',
+    'سردرد',
+    Icons.psychology_alt_rounded,
+    Color(0xFF9A78D3),
+  ),
+  SymptomOption(
+    'bloating',
+    'نفخ',
+    Icons.bubble_chart_rounded,
+    Color(0xFFE3AA4E),
+  ),
   SymptomOption('fatigue', 'خستگی', Icons.bedtime_rounded, Color(0xFF8674C8)),
-  SymptomOption('breast_tenderness', 'حساسیت سینه', Icons.favorite_outline_rounded, Color(0xFFE87B9D)),
-  SymptomOption('back_pain', 'کمردرد', Icons.accessibility_new_rounded, Color(0xFF6D9BCF)),
-  SymptomOption('sleep_change', 'تغییر خواب', Icons.nights_stay_rounded, Color(0xFF746CC1)),
-  SymptomOption('appetite_change', 'تغییر اشتها', Icons.restaurant_rounded, Color(0xFFE2975D)),
-  SymptomOption('no_symptom', 'بدون نشانه', Icons.check_circle_outline_rounded, Color(0xFF54A980)),
+  SymptomOption(
+    'breast_tenderness',
+    'حساسیت سینه',
+    Icons.favorite_outline_rounded,
+    Color(0xFFE87B9D),
+  ),
+  SymptomOption(
+    'back_pain',
+    'کمردرد',
+    Icons.accessibility_new_rounded,
+    Color(0xFF6D9BCF),
+  ),
+  SymptomOption(
+    'sleep_change',
+    'تغییر خواب',
+    Icons.nights_stay_rounded,
+    Color(0xFF746CC1),
+  ),
+  SymptomOption(
+    'appetite_change',
+    'تغییر اشتها',
+    Icons.restaurant_rounded,
+    Color(0xFFE2975D),
+  ),
+  SymptomOption(
+    'no_symptom',
+    'بدون نشانه',
+    Icons.check_circle_outline_rounded,
+    Color(0xFF54A980),
+  ),
 ];
 
 String symptomLabel(String code) => symptomOptions
     .firstWhere(
       (item) => item.code == code,
-      orElse: () => const SymptomOption('unknown', 'سایر', Icons.circle_outlined, Color(0xFF999999)),
+      orElse: () => const SymptomOption(
+        'unknown',
+        'سایر',
+        Icons.circle_outlined,
+        Color(0xFF999999),
+      ),
     )
     .label;
 
@@ -1389,12 +1693,18 @@ String phaseTip(WomenCyclePhase? phase, Map<String, dynamic>? log) {
     return 'امروز انرژی کمتری ثبت کردی. لازم نیست با سرعت همیشگی پیش بروی؛ کمی استراحت، آب کافی و مهربانی با خودت انتخاب خوبی است.';
   }
   return switch (phase) {
-    WomenCyclePhase.period => 'ممکن است بدنت استراحت و گرمای بیشتری بخواهد. فعالیت سبک، آب کافی و توجه به دردهای غیرعادی را در اولویت بگذار.',
-    WomenCyclePhase.follicular => 'ممکن است انرژی به‌تدریج بیشتر شود. یک برنامه سبک و انعطاف‌پذیر برای روزت انتخاب کن.',
-    WomenCyclePhase.fertile || WomenCyclePhase.ovulation => 'این روزها فقط یک برآورد تقویمی‌اند. برای حال بهتر، خواب منظم، آب کافی و حرکت سبک را فراموش نکن.',
-    WomenCyclePhase.luteal => 'ریتم آرام‌تر و وعده‌های منظم می‌تواند کمک‌کننده باشد. احساساتت را بدون قضاوت ثبت کن.',
-    WomenCyclePhase.pms => 'ممکن است حساس‌تر یا خسته‌تر باشی. امروز کمی فضای بیشتر، خواب کافی و گفت‌وگوی آرام با همدمت ارزشمند است.',
-    _ => 'بدنت ریتم خودش را دارد. چند لحظه مکث کن و ببین امروز واقعاً به چه چیزی نیاز داری.',
+    WomenCyclePhase.period =>
+      'ممکن است بدنت استراحت و گرمای بیشتری بخواهد. فعالیت سبک، آب کافی و توجه به دردهای غیرعادی را در اولویت بگذار.',
+    WomenCyclePhase.follicular =>
+      'ممکن است انرژی به‌تدریج بیشتر شود. یک برنامه سبک و انعطاف‌پذیر برای روزت انتخاب کن.',
+    WomenCyclePhase.fertile || WomenCyclePhase.ovulation =>
+      'این روزها فقط یک برآورد تقویمی‌اند. برای حال بهتر، خواب منظم، آب کافی و حرکت سبک را فراموش نکن.',
+    WomenCyclePhase.luteal =>
+      'ریتم آرام‌تر و وعده‌های منظم می‌تواند کمک‌کننده باشد. احساساتت را بدون قضاوت ثبت کن.',
+    WomenCyclePhase.pms =>
+      'ممکن است حساس‌تر یا خسته‌تر باشی. امروز کمی فضای بیشتر، خواب کافی و گفت‌وگوی آرام با همدمت ارزشمند است.',
+    _ =>
+      'بدنت ریتم خودش را دارد. چند لحظه مکث کن و ببین امروز واقعاً به چه چیزی نیاز داری.',
   };
 }
 
