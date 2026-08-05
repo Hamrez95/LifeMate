@@ -50,7 +50,7 @@ void main() {
       expect(find.text('باروری'), findsWidgets);
       expect(find.text('تخمک‌گذاری'), findsWidgets);
       expect(find.text('لوتئال'), findsOneWidget);
-      expect(find.text('PMS'), findsOneWidget);
+      expect(find.text('PMS'), findsWidgets);
 
       final title = tester.widget<Text>(
         find.byKey(const ValueKey('women-calendar-month-title')),

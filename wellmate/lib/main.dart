@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:lifemate_client/lifemate_client.dart';
 import 'package:provider/provider.dart';
+import 'package:wellmate/core/state/wellmate_refresh.dart';
 import 'package:wellmate/core/theme/app_style.dart';
 import 'package:wellmate/providers/medication_provider.dart';
 import 'package:wellmate/providers/notification_provider.dart';
@@ -37,10 +38,7 @@ Future<void> main() async {
         ChangeNotifierProvider(create: (_) => SettingsProvider()),
         ChangeNotifierProvider(create: (_) => MedicationProvider()),
       ],
-      child: WellMateApp(
-        config: config,
-        authInitialized: authInitialized,
-      ),
+      child: WellMateApp(config: config, authInitialized: authInitialized),
     ),
   );
 }
@@ -85,33 +83,22 @@ class WellMateApp extends StatelessWidget {
             GlobalWidgetsLocalizations.delegate,
             GlobalCupertinoLocalizations.delegate,
           ],
-          supportedLocales: const [
-            Locale('fa'),
-            Locale('en'),
-          ],
+          supportedLocales: const [Locale('fa'), Locale('en')],
           builder: (context, child) {
             return MediaQuery(
               data: MediaQuery.of(context).copyWith(
-                textScaler:
-                    TextScaler.linear(settingsProvider.textScaleFactor),
+                textScaler: TextScaler.linear(settingsProvider.textScaleFactor),
               ),
               child: child!,
             );
           },
-          home: home ??
-              _productionHome(
-                runtimeConfig,
-                authInitialized,
-              ),
+          home: home ?? _productionHome(runtimeConfig, authInitialized),
         );
       },
     );
   }
 
-  static Widget _productionHome(
-    AppConfig config,
-    bool authInitialized,
-  ) {
+  static Widget _productionHome(AppConfig config, bool authInitialized) {
     if (!config.isConfigured) {
       return ConfigurationRequiredScreen(
         appName: 'WellMate',
@@ -147,6 +134,8 @@ class _AuthenticatedWellMateShell extends StatefulWidget {
 class _AuthenticatedWellMateShellState
     extends State<_AuthenticatedWellMateShell> {
   final GlobalKey<NavigatorState> _navigatorKey = GlobalKey<NavigatorState>();
+  final WellMateNavigationRefreshObserver _refreshObserver =
+      WellMateNavigationRefreshObserver();
 
   @override
   Widget build(BuildContext context) {
@@ -156,9 +145,9 @@ class _AuthenticatedWellMateShellState
         onPop: () => _navigatorKey.currentState?.pop<void>(),
         child: Navigator(
           key: _navigatorKey,
-          onGenerateRoute: (_) => MaterialPageRoute<void>(
-            builder: (_) => const HomeScreen(),
-          ),
+          observers: [_refreshObserver],
+          onGenerateRoute: (_) =>
+              MaterialPageRoute<void>(builder: (_) => const HomeScreen()),
         ),
       ),
     );

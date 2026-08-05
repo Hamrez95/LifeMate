@@ -1,7 +1,10 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:lifemate_client/lifemate_client.dart';
 import 'package:provider/provider.dart';
 
+import '../../core/state/wellmate_refresh.dart';
 import '../../core/theme/app_style.dart';
 import '../../core/widgets/wellmate_app_header.dart';
 import '../../core/widgets/wellmate_bottom_nav.dart';
@@ -20,20 +23,64 @@ class HomeScreen extends StatefulWidget {
   State<HomeScreen> createState() => _HomeScreenState();
 }
 
-class _HomeScreenState extends State<HomeScreen> {
+class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
+  static const _womenStateTtl = Duration(seconds: 20);
+  static const _refreshDebounceDuration = Duration(milliseconds: 180);
+
   int _currentIndex = 4;
-  int _refreshToken = 0;
+  int _calendarRevision = 0;
+  int _treatmentsRevision = 0;
+  int _womenRevision = 0;
+  int _homeRevision = 0;
   bool _womenCalendarEnabled = false;
+  bool _womenCalendarLoading = false;
+  DateTime? _womenCalendarLoadedAt;
+  Timer? _refreshDebounce;
 
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
+    WellMateRefreshSignal.revision.addListener(_handleExternalRefresh);
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      _loadWomenCalendarState();
+      unawaited(_loadWomenCalendarState(force: true));
     });
   }
 
-  Future<void> _loadWomenCalendarState() async {
+  @override
+  void dispose() {
+    _refreshDebounce?.cancel();
+    WellMateRefreshSignal.revision.removeListener(_handleExternalRefresh);
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      _scheduleFullRefresh(forceWomenState: true);
+    }
+  }
+
+  void _handleExternalRefresh() {
+    _scheduleFullRefresh(forceWomenState: true);
+  }
+
+  void _scheduleFullRefresh({bool forceWomenState = false}) {
+    _refreshDebounce?.cancel();
+    _refreshDebounce = Timer(_refreshDebounceDuration, () {
+      if (!mounted) return;
+      setState(() {
+        _calendarRevision++;
+        _treatmentsRevision++;
+        _womenRevision++;
+        _homeRevision++;
+      });
+      unawaited(_loadWomenCalendarState(force: forceWomenState));
+    });
+  }
+
+  Future<void> _loadWomenCalendarState({bool force = false}) async {
     if (!LifeMateFeatureFlags.womenCalendarPilotEnabled) {
       if (mounted) {
         setState(() {
@@ -43,28 +90,42 @@ class _HomeScreenState extends State<HomeScreen> {
       }
       return;
     }
+
+    final loadedAt = _womenCalendarLoadedAt;
+    if (!force &&
+        loadedAt != null &&
+        DateTime.now().difference(loadedAt) < _womenStateTtl) {
+      return;
+    }
+    if (_womenCalendarLoading) return;
+    _womenCalendarLoading = true;
+
     try {
       final profile = await context
           .read<LifeMateApiClient>()
           .getWomenCalendarProfile();
-      if (mounted) {
-        final enabled = profile['enabled'] == true;
-        setState(() {
-          _womenCalendarEnabled = enabled;
-          if (!enabled && _currentIndex == 3) _currentIndex = 4;
-        });
-      }
+      if (!mounted) return;
+      final enabled = profile['enabled'] == true;
+      setState(() {
+        _womenCalendarEnabled = enabled;
+        _womenCalendarLoadedAt = DateTime.now();
+        if (!enabled && _currentIndex == 3) _currentIndex = 4;
+      });
     } catch (_) {
       debugPrint('Women calendar navigation state failed.');
       if (mounted && _currentIndex == 3) {
         setState(() => _currentIndex = 4);
       }
+    } finally {
+      _womenCalendarLoading = false;
     }
   }
 
   void _treatmentCreated() {
     setState(() {
-      _refreshToken++;
+      _calendarRevision++;
+      _treatmentsRevision++;
+      _homeRevision++;
       _currentIndex = 4;
     });
   }
@@ -79,7 +140,10 @@ class _HomeScreenState extends State<HomeScreen> {
         occurredAtUtc: DateTime.now().toUtc(),
       );
       if (!mounted) return true;
-      setState(() => _refreshToken++);
+      setState(() {
+        _calendarRevision++;
+        _homeRevision++;
+      });
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('${item.title} به عنوان مصرف‌شده ثبت شد.')),
       );
@@ -89,7 +153,10 @@ class _HomeScreenState extends State<HomeScreen> {
       final message = error.code == 'stale_dose_occurrence'
           ? 'وضعیت دارو تغییر کرده است؛ برنامه تازه‌سازی شد.'
           : 'ثبت مصرف انجام نشد؛ دوباره تلاش کنید.';
-      setState(() => _refreshToken++);
+      setState(() {
+        _calendarRevision++;
+        _homeRevision++;
+      });
       ScaffoldMessenger.of(
         context,
       ).showSnackBar(SnackBar(content: Text(message)));
@@ -108,18 +175,37 @@ class _HomeScreenState extends State<HomeScreen> {
 
   void _onItemTapped(int index) {
     if (index == 3 && !_womenCalendarEnabled) return;
-    setState(() => _currentIndex = index);
+    setState(() {
+      _currentIndex = index;
+      switch (index) {
+        case 0:
+          _calendarRevision++;
+          break;
+        case 1:
+          _treatmentsRevision++;
+          break;
+        case 3:
+          _womenRevision++;
+          break;
+        case 4:
+          _homeRevision++;
+          break;
+      }
+    });
   }
 
   @override
   Widget build(BuildContext context) {
     final pages = [
-      CalendarScreen(refreshToken: _refreshToken),
-      TreatmentsScreen(refreshToken: _refreshToken),
+      CalendarScreen(refreshToken: _calendarRevision),
+      TreatmentsScreen(refreshToken: _treatmentsRevision),
       CarePlanHubScreen(onCreated: _treatmentCreated),
-      WomenCalendarScreen(onProfileChanged: _loadWomenCalendarState),
+      WomenCalendarScreen(
+        key: ValueKey<int>(_womenRevision),
+        onProfileChanged: () => _loadWomenCalendarState(force: true),
+      ),
       HomeScreenContent(
-        key: ValueKey(_refreshToken),
+        key: ValueKey<int>(_homeRevision),
         onOpenTreatments: () => _onItemTapped(1),
         onAddTreatment: () => _onItemTapped(2),
       ),
@@ -128,7 +214,10 @@ class _HomeScreenState extends State<HomeScreen> {
       canPop: _currentIndex == 4,
       onPopInvokedWithResult: (didPop, result) {
         if (!didPop && _currentIndex != 4) {
-          setState(() => _currentIndex = 4);
+          setState(() {
+            _currentIndex = 4;
+            _homeRevision++;
+          });
         }
       },
       child: Scaffold(
@@ -145,7 +234,7 @@ class _HomeScreenState extends State<HomeScreen> {
                       builder: (_) => const ProfileScreen(),
                     ),
                   );
-                  await _loadWomenCalendarState();
+                  _scheduleFullRefresh(forceWomenState: true);
                 },
               ),
               Expanded(
