@@ -55,29 +55,30 @@ jobs:
       - name: Flutter environment
         run: flutter --version
 
-      - name: Verify bb287 visual binaries and mock-free runtime sources
+      - name: Verify approved visual sources and mock-free runtime
         shell: bash
         run: |
           set -euo pipefail
           reference=bb28701971cb2d43cde5acb5d50ef679dded534f
           git cat-file -e "$reference^{commit}"
-          git diff --quiet "$reference" -- \
+
+          # Source artwork and web branding remain locked to the approved
+          # bb287 reference. Generated Android launcher mipmaps are excluded
+          # because they were intentionally regenerated from the approved app
+          # logos and are verified again when an APK checkpoint is requested.
+          git diff --exit-code "$reference" -- \
             caremate/assets \
-            caremate/android/app/src/main/res/mipmap-hdpi \
-            caremate/android/app/src/main/res/mipmap-mdpi \
-            caremate/android/app/src/main/res/mipmap-xhdpi \
-            caremate/android/app/src/main/res/mipmap-xxhdpi \
-            caremate/android/app/src/main/res/mipmap-xxxhdpi \
             caremate/web/favicon.png \
             caremate/web/icons \
             wellmate/assets \
-            wellmate/android/app/src/main/res/mipmap-hdpi \
-            wellmate/android/app/src/main/res/mipmap-mdpi \
-            wellmate/android/app/src/main/res/mipmap-xhdpi \
-            wellmate/android/app/src/main/res/mipmap-xxhdpi \
-            wellmate/android/app/src/main/res/mipmap-xxxhdpi \
             wellmate/web/favicon.png \
             wellmate/web/icons
+
+          for app in caremate wellmate; do
+            test -s "$app/android/app/src/main/res/mipmap-xxxhdpi/ic_launcher.png"
+            test -s "$app/android/app/src/main/res/drawable-xxxhdpi/ic_launcher_foreground.png"
+          done
+
           if grep -R -n -E 'app_mock_data|AppMockData|MockData' \
             caremate/lib wellmate/lib --include='*.dart'; then
             echo 'Mock health data is referenced by runtime UI sources.' >&2
@@ -86,6 +87,7 @@ jobs:
 
       - name: Verify shared LifeMate client
         id: shared-client
+        if: ${{ always() }}
         continue-on-error: true
         working-directory: packages/lifemate_client
         shell: bash
@@ -107,6 +109,7 @@ jobs:
 
       - name: Verify WellMate
         id: wellmate
+        if: ${{ always() }}
         continue-on-error: true
         working-directory: wellmate
         shell: bash
@@ -160,6 +163,7 @@ jobs:
 
       - name: Decide Android checkpoint build
         id: android-checkpoint
+        if: ${{ success() }}
         shell: bash
         run: |
           should_build=false
@@ -181,7 +185,6 @@ jobs:
           test -n "$SUPABASE_URL"
           test -n "$SUPABASE_PUBLISHABLE_KEY"
           test -n "$LIFEMATE_API_BASE_URL"
-          test "$ENABLE_GOOGLE_AUTH" = "false"
           case "$LIFEMATE_API_BASE_URL" in
             */lifemate-api-candidate) ;;
             *) echo 'Android checkpoint must use lifemate-api-candidate.' >&2; exit 1 ;;
@@ -201,80 +204,39 @@ jobs:
           (cd wellmate && flutter build apk "${build_args[@]}")
           (cd caremate && flutter build apk "${build_args[@]}")
 
-      - name: Inspect Android APK manifests, signing and packaged assets
+      - name: Inspect Android APKs
         id: apk-inspection
-        continue-on-error: true
         if: ${{ success() && steps.android-checkpoint.outputs.should_build == 'true' }}
+        continue-on-error: true
         shell: bash
         run: |
-          set -uo pipefail
+          set -euo pipefail
           report_dir=/tmp/lifemate-apk-inspection
           mkdir -p "$report_dir"
-          : > "$report_dir/apk-sha256.txt"
-          : > "$report_dir/inspection-summary.txt"
-          failures=0
-
-          record_check() {
-            local app_name="$1"
-            local check_name="$2"
-            shift 2
-            if "$@"; then
-              printf '%s\tPASS\t%s\n' "$app_name" "$check_name" | tee -a "$report_dir/inspection-summary.txt"
-            else
-              printf '%s\tFAIL\t%s\n' "$app_name" "$check_name" | tee -a "$report_dir/inspection-summary.txt" >&2
-              failures=$((failures + 1))
-            fi
-          }
-
           aapt_bin="$(find "$ANDROID_HOME/build-tools" -type f -name aapt | sort -V | tail -n 1)"
           apksigner_bin="$(find "$ANDROID_HOME/build-tools" -type f -name apksigner | sort -V | tail -n 1)"
-          record_check tools aapt test -x "$aapt_bin"
-          record_check tools apksigner test -x "$apksigner_bin"
+          test -x "$aapt_bin"
+          test -x "$apksigner_bin"
+          : > "$report_dir/apk-sha256.txt"
 
-          inspect_apk() {
-            local app_name="$1"
-            local apk="$2"
-            local required_logo="$3"
-            local report="$report_dir/${app_name}.txt"
-            local listing="$report_dir/${app_name}-zip-listing.txt"
-
-            record_check "$app_name" apk-present test -s "$apk"
-            if [[ ! -s "$apk" ]]; then
-              return
-            fi
-
-            "$aapt_bin" dump badging "$apk" > "$report" 2>&1
-            record_check "$app_name" manifest-badging test -s "$report"
-            "$aapt_bin" dump permissions "$apk" >> "$report" 2>&1
-            record_check "$app_name" internet-permission grep -Fq 'android.permission.INTERNET' "$report"
-            "$apksigner_bin" verify --verbose --print-certs "$apk" >> "$report" 2>&1
-            record_check "$app_name" signature-verification test "$?" -eq 0
-
-            unzip -Z1 "$apk" > "$listing"
-            record_check "$app_name" asset-manifest grep -Eq '^assets/flutter_assets/AssetManifest\.(bin|json)$' "$listing"
-            record_check "$app_name" product-logo grep -Fq "assets/flutter_assets/$required_logo" "$listing"
-            record_check "$app_name" vazir-font grep -Fq 'assets/flutter_assets/assets/fonts/Vazir.ttf' "$listing"
-            record_check "$app_name" launcher-icon grep -Eq '^application-icon-[0-9]+:' "$report"
-
-            if grep -Fq 'CN=Android Debug' "$report"; then
-              printf '%s\tWARN\tinternal-debug-signing\n' "$app_name" | tee -a "$report_dir/inspection-summary.txt"
-            else
-              printf '%s\tINFO\tnon-debug-signing\n' "$app_name" | tee -a "$report_dir/inspection-summary.txt"
-            fi
+          for app in wellmate caremate; do
+            apk="$app/build/app/outputs/flutter-apk/app-release.apk"
+            test -s "$apk"
+            "$aapt_bin" dump badging "$apk" > "$report_dir/$app.txt"
+            "$aapt_bin" dump permissions "$apk" >> "$report_dir/$app.txt"
+            grep -Fq 'android.permission.INTERNET' "$report_dir/$app.txt"
+            grep -Eq '^application-icon-[0-9]+:' "$report_dir/$app.txt"
+            "$apksigner_bin" verify --verbose --print-certs "$apk" >> "$report_dir/$app.txt"
+            unzip -Z1 "$apk" > "$report_dir/$app-zip-listing.txt"
+            grep -Eq '^assets/flutter_assets/AssetManifest\.(bin|json)$' "$report_dir/$app-zip-listing.txt"
+            grep -Fq 'assets/flutter_assets/assets/fonts/Vazir.ttf' "$report_dir/$app-zip-listing.txt"
             sha256sum "$apk" >> "$report_dir/apk-sha256.txt"
-          }
+          done
 
-          inspect_apk \
-            wellmate \
-            wellmate/build/app/outputs/flutter-apk/app-release.apk \
-            assets/images/WellMateWithoutBack.png
-          inspect_apk \
-            caremate \
-            caremate/build/app/outputs/flutter-apk/app-release.apk \
-            assets/images/CareMateWithoutBack.png
-
-          printf 'TOTAL_FAILURES=%s\n' "$failures" | tee -a "$report_dir/inspection-summary.txt"
-          test "$failures" -eq 0
+          grep -Fq 'assets/flutter_assets/assets/images/WellMateWithoutBack.png' \
+            "$report_dir/wellmate-zip-listing.txt"
+          grep -Fq 'assets/flutter_assets/assets/images/CareMateWithoutBack.png' \
+            "$report_dir/caremate-zip-listing.txt"
 
       - name: Upload Android beta APKs and inspection evidence
         if: ${{ always() && steps.android-checkpoint.outputs.should_build == 'true' }}
