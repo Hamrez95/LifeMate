@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 
 import '../../core/theme/app_style.dart';
 import '../../core/utils/persian_date_utils.dart';
+import '../../core/widgets/labeled_form_field.dart';
 import 'treatment_schedule_payload.dart';
 
 /// Kept under the historical class name so existing routes remain compatible.
@@ -312,25 +313,25 @@ class _TabbedAddTreatmentScreenState extends State<TabbedAddTreatmentScreen> {
                 hint: 'مثلاً ۱۰ میلی‌گرم',
                 icon: Icons.science_rounded,
               ),
-              DropdownButtonFormField<String>(
-                initialValue: _form,
-                isExpanded: true,
-                decoration: _decoration(
-                  label: 'شکل دارو',
-                  icon: Icons.category_rounded,
+              WellMateLabeledField(
+                label: 'شکل دارو',
+                icon: Icons.category_rounded,
+                child: DropdownButtonFormField<String>(
+                  initialValue: _form,
+                  isExpanded: true,
+                  decoration: wellMateFieldDecoration(),
+                  items: [
+                    for (final entry in _forms.entries)
+                      DropdownMenuItem(
+                        value: entry.key,
+                        child: Text(entry.value),
+                      ),
+                  ],
+                  onChanged: _busy
+                      ? null
+                      : (value) => setState(() => _form = value ?? _form),
                 ),
-                items: [
-                  for (final entry in _forms.entries)
-                    DropdownMenuItem(
-                      value: entry.key,
-                      child: Text(entry.value),
-                    ),
-                ],
-                onChanged: _busy
-                    ? null
-                    : (value) => setState(() => _form = value ?? _form),
               ),
-              const SizedBox(height: 12),
               _textField(
                 controller: _dose,
                 label: 'مقدار مصرف',
@@ -434,7 +435,6 @@ class _TabbedAddTreatmentScreenState extends State<TabbedAddTreatmentScreen> {
                 icon: Icons.calendar_today_rounded,
                 onTap: _busy ? null : _pickStartDate,
               ),
-              const SizedBox(height: 12),
               _PickerField(
                 label: 'تاریخ پایان',
                 value: _endDate == null
@@ -452,72 +452,77 @@ class _TabbedAddTreatmentScreenState extends State<TabbedAddTreatmentScreen> {
                         icon: const Icon(Icons.close_rounded),
                       ),
               ),
-              const SizedBox(height: 16),
+              const SizedBox(height: 4),
               const Text(
                 'زمان یادآوری',
-                style: TextStyle(fontWeight: FontWeight.w800),
-              ),
-              const SizedBox(height: 8),
-              DropdownButtonFormField<int>(
-                key: const ValueKey('patient-reminder-lead'),
-                initialValue: _patientReminderMinutesBefore,
-                isExpanded: true,
-                decoration: _decoration(
-                  label: 'یادآوری برای خودم',
-                  icon: Icons.notifications_active_rounded,
-                ),
-                items: [
-                  for (final minutes in LifeMateReminderLeadTimes.presets)
-                    DropdownMenuItem(
-                      value: minutes,
-                      child: Text(LifeMateReminderLeadTimes.label(minutes)),
-                    ),
-                ],
-                onChanged: _busy
-                    ? null
-                    : (value) => setState(() {
-                        _patientReminderMinutesBefore =
-                            value ?? _patientReminderMinutesBefore;
-                      }),
+                style: TextStyle(fontWeight: FontWeight.w900),
               ),
               const SizedBox(height: 12),
-              DropdownButtonFormField<int>(
-                key: const ValueKey('caregiver-reminder-lead'),
-                initialValue: _caregiverReminderMinutesBefore,
-                isExpanded: true,
-                decoration: _decoration(
-                  label: 'یادآوری برای مراقب',
-                  icon: Icons.family_restroom_rounded,
+              WellMateLabeledField(
+                key: const ValueKey('patient-reminder-lead-label'),
+                label: 'یادآوری برای خودم',
+                icon: Icons.notifications_active_rounded,
+                child: DropdownButtonFormField<int>(
+                  key: const ValueKey('patient-reminder-lead'),
+                  initialValue: _patientReminderMinutesBefore,
+                  isExpanded: true,
+                  decoration: wellMateFieldDecoration(),
+                  items: [
+                    for (final minutes in LifeMateReminderLeadTimes.presets)
+                      DropdownMenuItem(
+                        value: minutes,
+                        child: Text(LifeMateReminderLeadTimes.label(minutes)),
+                      ),
+                  ],
+                  onChanged: _busy
+                      ? null
+                      : (value) => setState(() {
+                          _patientReminderMinutesBefore =
+                              value ?? _patientReminderMinutesBefore;
+                        }),
                 ),
-                items: [
-                  for (final minutes in LifeMateReminderLeadTimes.presets)
-                    DropdownMenuItem(
-                      value: minutes,
-                      child: Text(LifeMateReminderLeadTimes.label(minutes)),
-                    ),
-                ],
-                onChanged: _busy
-                    ? null
-                    : (value) => setState(() {
-                        _caregiverReminderMinutesBefore =
-                            value ?? _caregiverReminderMinutesBefore;
-                      }),
               ),
-              const SizedBox(height: 12),
-              DropdownButtonFormField<String>(
-                initialValue: _timeZone,
-                isExpanded: true,
-                decoration: _decoration(
-                  label: 'منطقه زمانی',
-                  icon: Icons.public_rounded,
+              WellMateLabeledField(
+                key: const ValueKey('caregiver-reminder-lead-label'),
+                label: 'یادآوری برای مراقب',
+                icon: Icons.family_restroom_rounded,
+                child: DropdownButtonFormField<int>(
+                  key: const ValueKey('caregiver-reminder-lead'),
+                  initialValue: _caregiverReminderMinutesBefore,
+                  isExpanded: true,
+                  decoration: wellMateFieldDecoration(),
+                  items: [
+                    for (final minutes in LifeMateReminderLeadTimes.presets)
+                      DropdownMenuItem(
+                        value: minutes,
+                        child: Text(LifeMateReminderLeadTimes.label(minutes)),
+                      ),
+                  ],
+                  onChanged: _busy
+                      ? null
+                      : (value) => setState(() {
+                          _caregiverReminderMinutesBefore =
+                              value ?? _caregiverReminderMinutesBefore;
+                        }),
                 ),
-                items: [
-                  for (final zone in sortedZones)
-                    DropdownMenuItem(value: zone, child: Text(zone)),
-                ],
-                onChanged: _busy
-                    ? null
-                    : (value) => setState(() => _timeZone = value ?? _timeZone),
+              ),
+              WellMateLabeledField(
+                label: 'منطقه زمانی',
+                icon: Icons.public_rounded,
+                bottomSpacing: 0,
+                child: DropdownButtonFormField<String>(
+                  initialValue: _timeZone,
+                  isExpanded: true,
+                  decoration: wellMateFieldDecoration(),
+                  items: [
+                    for (final zone in sortedZones)
+                      DropdownMenuItem(value: zone, child: Text(zone)),
+                  ],
+                  onChanged: _busy
+                      ? null
+                      : (value) =>
+                            setState(() => _timeZone = value ?? _timeZone),
+                ),
               ),
             ],
           ),
@@ -526,14 +531,17 @@ class _TabbedAddTreatmentScreenState extends State<TabbedAddTreatmentScreen> {
             icon: Icons.notes_rounded,
             title: 'توضیحات',
             children: [
-              TextFormField(
-                controller: _instructions,
-                minLines: 3,
-                maxLines: 6,
-                decoration: _decoration(
-                  label: 'دستور مصرف یا یادداشت',
-                  icon: Icons.edit_note_rounded,
-                  hint: 'مثلاً بعد از غذا',
+              WellMateLabeledField(
+                label: 'دستور مصرف یا یادداشت',
+                icon: Icons.edit_note_rounded,
+                bottomSpacing: 0,
+                child: TextFormField(
+                  controller: _instructions,
+                  minLines: 3,
+                  maxLines: 6,
+                  decoration: wellMateFieldDecoration(
+                    hint: 'مثلاً بعد از غذا',
+                  ),
                 ),
               ),
             ],
@@ -583,34 +591,18 @@ class _TabbedAddTreatmentScreenState extends State<TabbedAddTreatmentScreen> {
     String? hint,
     bool required = false,
   }) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 12),
+    return WellMateLabeledField(
+      label: label,
+      icon: icon,
+      required: required,
       child: TextFormField(
         controller: controller,
-        decoration: _decoration(label: label, icon: icon, hint: hint),
+        decoration: wellMateFieldDecoration(hint: hint),
         validator: required
             ? (value) => value?.trim().isNotEmpty == true
                   ? null
                   : '$label را وارد کنید.'
             : null,
-      ),
-    );
-  }
-
-  static InputDecoration _decoration({
-    required String label,
-    required IconData icon,
-    String? hint,
-  }) {
-    return InputDecoration(
-      labelText: label,
-      hintText: hint,
-      prefixIcon: Icon(icon),
-      filled: true,
-      fillColor: AppColors.background.withValues(alpha: 0.65),
-      border: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(16),
-        borderSide: BorderSide.none,
       ),
     );
   }
@@ -702,22 +694,22 @@ class _PickerField extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(16),
-      child: InputDecorator(
-        decoration: InputDecoration(
-          labelText: label,
-          prefixIcon: Icon(icon),
-          suffixIcon: trailing,
-          filled: true,
-          fillColor: AppColors.background.withValues(alpha: 0.65),
-          border: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(16),
-            borderSide: BorderSide.none,
+    return WellMateLabeledField(
+      label: label,
+      icon: icon,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(17),
+        child: InputDecorator(
+          decoration: wellMateFieldDecoration(suffixIcon: trailing),
+          child: Text(
+            value,
+            style: const TextStyle(
+              fontWeight: FontWeight.w800,
+              color: AppColors.darkBlue,
+            ),
           ),
         ),
-        child: Text(value, style: const TextStyle(fontWeight: FontWeight.w700)),
       ),
     );
   }
