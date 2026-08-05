@@ -5,7 +5,6 @@ import 'package:lifemate_client/lifemate_client.dart';
 import 'package:provider/provider.dart';
 
 import '../../core/theme/app_style.dart';
-import '../../core/utils/string_extensions.dart';
 import '../../localization/app_localizations.dart';
 import '../../models/schedule_item_model.dart';
 import '../../providers/medication_provider.dart';
@@ -59,6 +58,7 @@ class _HomeScreenContentState extends State<HomeScreenContent> {
         loadError = null;
       });
     }
+
     try {
       final api = context.read<LifeMateApiClient>();
       final now = DateTime.now();
@@ -70,6 +70,7 @@ class _HomeScreenContentState extends State<HomeScreenContent> {
         api.getDoseOccurrences(fromDate: today, toDate: lastVisibleDay),
         api.getCareEvents(fromDate: today, toDate: lastVisibleDay),
       ]);
+
       final currentUser = results[0] as Map<String, dynamic>;
       final plans = results[1] as List<Map<String, dynamic>>;
       final doses = results[2] as List<Map<String, dynamic>>;
@@ -144,6 +145,9 @@ class _HomeScreenContentState extends State<HomeScreenContent> {
             dosage: details,
             status: status,
             version: event['version'] is int ? event['version'] as int : 1,
+            scheduledAtUtc: DateTime.tryParse(
+              event['scheduledAtUtc']?.toString() ?? '',
+            )?.toUtc(),
             isDone: status == 'completed' || status == 'cancelled',
             frequency: type == 'injection' ? 'تزریق' : 'ویزیت',
             startDate: DateTime.tryParse(
@@ -176,19 +180,17 @@ class _HomeScreenContentState extends State<HomeScreenContent> {
             return item.status != 'completed' && item.status != 'cancelled';
           })
           .toList(growable: false);
-      final future =
-          actionable
-              .where((item) {
-                final scheduled = _scheduledDateTime(item);
-                return scheduled != null && !scheduled.isBefore(DateTime.now());
-              })
-              .toList(growable: false)
-            ..sort(_compareOccurrence);
-      final missedOccurrences =
-          actionable
-              .where((item) => item.status == 'missed')
-              .toList(growable: false)
-            ..sort(_compareOccurrence);
+      final future = actionable
+          .where((item) {
+            final scheduled = _scheduledDateTime(item);
+            return scheduled != null && !scheduled.isBefore(DateTime.now());
+          })
+          .toList(growable: false)
+        ..sort(_compareOccurrence);
+      final missedOccurrences = actionable
+          .where((item) => item.status == 'missed')
+          .toList(growable: false)
+        ..sort(_compareOccurrence);
       final nextOccurrence = future.isNotEmpty
           ? future.first
           : (missedOccurrences.isNotEmpty ? missedOccurrences.first : null);
@@ -289,6 +291,11 @@ class _HomeScreenContentState extends State<HomeScreenContent> {
     return seconds > 0 ? seconds : 0;
   }
 
+  double _progressValue(ScheduleItemModel item) {
+    return 1.0 -
+        (_calculateSecondsLeft(item) / 86400).clamp(0.0, 1.0).toDouble();
+  }
+
   String _getAssetPath(String type) {
     switch (type) {
       case 'appointment':
@@ -299,6 +306,63 @@ class _HomeScreenContentState extends State<HomeScreenContent> {
       default:
         return 'assets/icons/pill.png';
     }
+  }
+
+  Widget _buildNextOccurrenceCard({
+    required ScheduleItemModel item,
+    required TextStyle font,
+    required bool isPersian,
+  }) {
+    final secondsLeft = _calculateSecondsLeft(item);
+    if (item.type == 'medicine') {
+      return ActiveTreatmentCard(
+        treatmentName: item.title,
+        dose: item.dosage,
+        time: item.time,
+        assetIconPath: _getAssetPath(item.type),
+        progressValue: _progressValue(item),
+        secondsLeft: secondsLeft,
+        onTaken: _submitting.contains(item.id)
+            ? null
+            : () => _reportStatus(item, 'taken'),
+        onSkipped: _submitting.contains(item.id)
+            ? null
+            : () => _reportStatus(item, 'skipped'),
+        onEdit: widget.onOpenTreatments,
+        isSubmitting: _submitting.contains(item.id),
+        font: font,
+      );
+    }
+
+    final isAppointment = item.type == 'appointment';
+    final isMissed = item.status == 'missed';
+    final eventLabel = isAppointment ? 'وقت ویزیت' : 'زمان تزریق';
+    final missedColor = const Color(0xFFE06464);
+    return ActiveTreatmentCard(
+      treatmentName: item.title,
+      dose: item.dosage,
+      time: item.time,
+      assetIconPath: _getAssetPath(item.type),
+      progressValue: _progressValue(item),
+      secondsLeft: secondsLeft,
+      onTaken: null,
+      onSkipped: null,
+      onEdit: null,
+      showActions: false,
+      supportingText: isMissed
+          ? '$eventLabel انجام‌نشده • ${item.time}'
+          : '$eventLabel • ${item.time}',
+      countdownLabel: isMissed ? (isPersian ? 'گذشته' : 'Missed') : null,
+      accentColor: isMissed ? missedColor : AppColors.primary,
+      progressColor: isMissed ? missedColor : AppColors.primaryLight,
+      progressBackgroundColor: isMissed
+          ? const Color(0xFFFFEEEE)
+          : AppColors.background,
+      fallbackIcon: isAppointment
+          ? Icons.medical_services_rounded
+          : Icons.vaccines_rounded,
+      font: font,
+    );
   }
 
   @override
@@ -359,34 +423,8 @@ class _HomeScreenContentState extends State<HomeScreenContent> {
                           : widget.onAddTreatment,
                       font: font,
                     )
-                  : nextItem.type == 'medicine'
-                  ? ActiveTreatmentCard(
-                      treatmentName: nextItem.title,
-                      dose: nextItem.dosage,
-                      time: nextItem.time,
-                      assetIconPath: _getAssetPath(nextItem.type),
-                      progressValue:
-                          1.0 -
-                          (_calculateSecondsLeft(nextItem) / 86400).clamp(
-                            0.0,
-                            1.0,
-                          ),
-                      secondsLeft: _calculateSecondsLeft(nextItem),
-                      onTaken: _submitting.contains(nextItem.id)
-                          ? null
-                          : () => _reportStatus(nextItem, 'taken'),
-                      onSkipped: _submitting.contains(nextItem.id)
-                          ? null
-                          : () => _reportStatus(nextItem, 'skipped'),
-                      onEdit: widget.onOpenTreatments,
-                      isSubmitting: _submitting.contains(nextItem.id),
-                      font: font,
-                    )
-                  : _UpcomingCareEventCard(
+                  : _buildNextOccurrenceCard(
                       item: nextItem,
-                      isMissed: nextItem.status == 'missed',
-                      secondsLeft: _calculateSecondsLeft(nextItem),
-                      assetPath: _getAssetPath(nextItem.type),
                       font: font,
                       isPersian: isPersian,
                     ),
@@ -431,7 +469,7 @@ class _HomeScreenContentState extends State<HomeScreenContent> {
                                   24,
                                   0,
                                   24,
-                                  110,
+                                  16,
                                 ),
                                 itemCount: visibleToday.length,
                                 separatorBuilder: (_, __) =>
@@ -446,7 +484,9 @@ class _HomeScreenContentState extends State<HomeScreenContent> {
                                     assetPath: _getAssetPath(item.type),
                                     isMissed: missed,
                                     onTaken:
-                                        missed && !_submitting.contains(item.id)
+                                        item.type == 'medicine' &&
+                                            missed &&
+                                            !_submitting.contains(item.id)
                                         ? () => _reportStatus(item, 'taken')
                                         : null,
                                   );
@@ -512,324 +552,6 @@ class _HomeScreenContentState extends State<HomeScreenContent> {
       left.year == right.year &&
       left.month == right.month &&
       left.day == right.day;
-}
-
-class _UpcomingCareEventCard extends StatelessWidget {
-  const _UpcomingCareEventCard({
-    required this.item,
-    required this.isMissed,
-    required this.secondsLeft,
-    required this.font,
-    required this.isPersian,
-    required this.assetPath,
-  });
-
-  final ScheduleItemModel item;
-  final bool isMissed;
-  final int secondsLeft;
-  final TextStyle font;
-  final bool isPersian;
-  final String assetPath;
-
-  @override
-  Widget build(BuildContext context) {
-    final isAppointment = item.type == 'appointment';
-    final accent = isMissed
-        ? const Color(0xFFE06464)
-        : isAppointment
-        ? const Color(0xFF5AA7DF)
-        : const Color(0xFFD95B93);
-    final soft = isMissed
-        ? const Color(0xFFFFEEEE)
-        : isAppointment
-        ? const Color(0xFFEAF7FD)
-        : const Color(0xFFFFEDF5);
-    final compactCountdown = isMissed
-        ? (isPersian ? 'گذشته' : 'Missed')
-        : _formatCompactCountdown(secondsLeft, isPersian);
-    final fullCountdown = isMissed
-        ? (isPersian ? 'زمان این رویداد گذشته است' : 'This event time has passed')
-        : _formatCareEventCountdown(secondsLeft, isPersian);
-    final time = item.time.toPersianDigit(isPersian);
-
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsetsDirectional.fromSTEB(18, 20, 18, 20),
-      decoration: BoxDecoration(
-        color: isMissed ? const Color(0xFFFFFAFA) : Colors.white,
-        borderRadius: BorderRadius.circular(28),
-        border: isMissed ? Border.all(color: accent.withValues(alpha: 0.28)) : null,
-        boxShadow: [
-          BoxShadow(
-            color: AppColors.shadowDark.withValues(alpha: 0.65),
-            blurRadius: 22,
-            offset: const Offset(0, 8),
-          ),
-          const BoxShadow(
-            color: Colors.white,
-            blurRadius: 10,
-            offset: Offset(-5, -5),
-          ),
-        ],
-      ),
-      child: LayoutBuilder(
-        builder: (context, constraints) {
-          final compact = constraints.maxWidth < 330;
-          final countdown = _CareEventCountdownDial(
-            assetPath: assetPath,
-            accent: accent,
-            soft: soft,
-            secondsLeft: secondsLeft,
-            label: compactCountdown,
-          );
-          final details = Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                isMissed
-                    ? (isAppointment ? 'ویزیت انجام‌نشده' : 'تزریق انجام‌نشده')
-                    : (isAppointment ? 'وقت ویزیت' : 'یادآوری تزریق'),
-                style: font.copyWith(
-                  color: accent,
-                  fontSize: 16,
-                  fontWeight: FontWeight.w900,
-                ),
-              ),
-              const SizedBox(height: 5),
-              Text(
-                item.title,
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
-                style: font.copyWith(
-                  color: AppColors.textPrimary,
-                  fontSize: 20,
-                  height: 1.35,
-                  fontWeight: FontWeight.w900,
-                ),
-              ),
-              if (item.dosage.trim().isNotEmpty) ...[
-                const SizedBox(height: 5),
-                Text(
-                  item.dosage,
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                  style: font.copyWith(
-                    color: AppColors.textSecondary,
-                    fontSize: 13,
-                    height: 1.45,
-                  ),
-                ),
-              ],
-              const SizedBox(height: 12),
-              Wrap(
-                spacing: 8,
-                runSpacing: 8,
-                crossAxisAlignment: WrapCrossAlignment.center,
-                children: [
-                  _CareEventInfoPill(
-                    icon: Icons.schedule_rounded,
-                    label: time,
-                    accent: accent,
-                    forceLtr: true,
-                  ),
-                  Semantics(
-                    label: fullCountdown,
-                    child: Text(
-                      fullCountdown,
-                      style: font.copyWith(
-                        color: AppColors.textSecondary,
-                        fontSize: 12,
-                        fontWeight: FontWeight.w700,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ],
-          );
-
-          if (compact) {
-            return Column(
-              children: [
-                countdown,
-                const SizedBox(height: 16),
-                Align(
-                  alignment: AlignmentDirectional.centerStart,
-                  child: details,
-                ),
-              ],
-            );
-          }
-          return Row(
-            crossAxisAlignment: CrossAxisAlignment.center,
-            children: [
-              countdown,
-              const SizedBox(width: 18),
-              Expanded(child: details),
-            ],
-          );
-        },
-      ),
-    );
-  }
-}
-
-class _CareEventCountdownDial extends StatelessWidget {
-  const _CareEventCountdownDial({
-    required this.assetPath,
-    required this.accent,
-    required this.soft,
-    required this.secondsLeft,
-    required this.label,
-  });
-
-  final String assetPath;
-  final Color accent;
-  final Color soft;
-  final int secondsLeft;
-  final String label;
-
-  @override
-  Widget build(BuildContext context) {
-    final progress = secondsLeft <= 0
-        ? 1.0
-        : (1 - (secondsLeft.clamp(0, 86400) / 86400))
-              .clamp(0.08, 1.0)
-              .toDouble();
-    return Semantics(
-      label: 'شمارش معکوس $label',
-      image: true,
-      child: SizedBox.square(
-        dimension: 112,
-        child: Stack(
-          alignment: Alignment.center,
-          children: [
-            SizedBox.square(
-              dimension: 112,
-              child: CircularProgressIndicator(
-                value: progress,
-                strokeWidth: 8,
-                strokeCap: StrokeCap.round,
-                backgroundColor: soft,
-                valueColor: AlwaysStoppedAnimation<Color>(accent),
-              ),
-            ),
-            Container(
-              width: 88,
-              height: 88,
-              decoration: BoxDecoration(color: soft, shape: BoxShape.circle),
-              padding: const EdgeInsets.all(9),
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Image.asset(
-                    assetPath,
-                    width: 34,
-                    height: 34,
-                    fit: BoxFit.contain,
-                    errorBuilder: (_, __, ___) => Icon(
-                      Icons.event_available_rounded,
-                      color: accent,
-                      size: 32,
-                    ),
-                  ),
-                  const SizedBox(height: 3),
-                  FittedBox(
-                    fit: BoxFit.scaleDown,
-                    child: Directionality(
-                      textDirection: TextDirection.ltr,
-                      child: Text(
-                        label,
-                        maxLines: 1,
-                        style: TextStyle(
-                          color: accent,
-                          fontSize: 13,
-                          fontWeight: FontWeight.w900,
-                        ),
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _CareEventInfoPill extends StatelessWidget {
-  const _CareEventInfoPill({
-    required this.icon,
-    required this.label,
-    required this.accent,
-    this.forceLtr = false,
-  });
-
-  final IconData icon;
-  final String label;
-  final Color accent;
-  final bool forceLtr;
-
-  @override
-  Widget build(BuildContext context) {
-    final content = Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Icon(icon, size: 16, color: accent),
-        const SizedBox(width: 5),
-        Text(
-          label,
-          style: TextStyle(
-            color: accent,
-            fontSize: 13,
-            fontWeight: FontWeight.w900,
-          ),
-        ),
-      ],
-    );
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
-      decoration: BoxDecoration(
-        color: accent.withValues(alpha: 0.10),
-        borderRadius: BorderRadius.circular(14),
-      ),
-      child: forceLtr
-          ? Directionality(textDirection: TextDirection.ltr, child: content)
-          : content,
-    );
-  }
-}
-
-String _formatCareEventCountdown(int seconds, bool isPersian) {
-  if (seconds <= 0) return isPersian ? 'اکنون' : 'Now';
-  final totalMinutes = (seconds / 60).ceil();
-  final days = totalMinutes ~/ (24 * 60);
-  final hours = (totalMinutes % (24 * 60)) ~/ 60;
-  final minutes = totalMinutes % 60;
-  final raw = days > 0
-      ? (isPersian
-            ? '$days روز و $hours ساعت دیگر'
-            : 'in $days days and $hours hours')
-      : hours > 0
-      ? (isPersian
-            ? '$hours ساعت و $minutes دقیقه دیگر'
-            : 'in $hours hours and $minutes minutes')
-      : (isPersian ? '$minutes دقیقه دیگر' : 'in $minutes minutes');
-  return raw.toPersianDigit(isPersian);
-}
-
-String _formatCompactCountdown(int seconds, bool isPersian) {
-  if (seconds <= 0) return isPersian ? 'اکنون' : 'Now';
-  final totalMinutes = (seconds / 60).ceil();
-  final hours = totalMinutes ~/ 60;
-  final minutes = totalMinutes % 60;
-  final raw = hours > 0
-      ? '${hours.toString().padLeft(2, '0')}:${minutes.toString().padLeft(2, '0')}'
-      : '$minutes ${isPersian ? 'دقیقه' : 'min'}';
-  return raw.toPersianDigit(isPersian);
 }
 
 class _TreatmentTimerPlaceholder extends StatelessWidget {
@@ -914,7 +636,7 @@ class _HomeEmptyState extends StatelessWidget {
   Widget build(BuildContext context) {
     return Center(
       child: SingleChildScrollView(
-        padding: const EdgeInsets.fromLTRB(24, 20, 24, 110),
+        padding: const EdgeInsets.fromLTRB(24, 20, 24, 16),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
