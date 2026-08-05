@@ -43,13 +43,11 @@ abstract final class LifeMateProfileRefresh {
     LifeMateApiClient apiClient, {
     bool force = false,
   }) {
-    final entry = _cache.putIfAbsent(
-      apiClient,
-      _LifeMateProfileCacheEntry.new,
-    );
+    final entry = _cache.putIfAbsent(apiClient, _LifeMateProfileCacheEntry.new);
     final cached = entry.profile;
     final loadedAt = entry.loadedAt;
-    final isFresh = cached != null &&
+    final isFresh =
+        cached != null &&
         loadedAt != null &&
         DateTime.now().difference(loadedAt) < cacheDuration;
     if (!force && isFresh) return Future.value(cached!);
@@ -57,17 +55,20 @@ abstract final class LifeMateProfileRefresh {
     final inFlight = entry.inFlight;
     if (inFlight != null) return inFlight;
 
-    final request = apiClient.getCurrentProfile().then((profile) {
-      final stableProfile = Map<String, dynamic>.unmodifiable(
-        Map<String, dynamic>.from(profile),
-      );
-      entry
-        ..profile = stableProfile
-        ..loadedAt = DateTime.now();
-      return stableProfile;
-    }).whenComplete(() {
-      entry.inFlight = null;
-    });
+    final request = apiClient
+        .getCurrentProfile()
+        .then((profile) {
+          final stableProfile = Map<String, dynamic>.unmodifiable(
+            Map<String, dynamic>.from(profile),
+          );
+          entry
+            ..profile = stableProfile
+            ..loadedAt = DateTime.now();
+          return stableProfile;
+        })
+        .whenComplete(() {
+          entry.inFlight = null;
+        });
     entry.inFlight = request;
     return request;
   }
@@ -81,10 +82,7 @@ abstract final class LifeMateProfileRefresh {
     final stableProfile = Map<String, dynamic>.unmodifiable(
       Map<String, dynamic>.from(profile),
     );
-    final entry = _cache.putIfAbsent(
-      apiClient,
-      _LifeMateProfileCacheEntry.new,
-    );
+    final entry = _cache.putIfAbsent(apiClient, _LifeMateProfileCacheEntry.new);
     entry
       ..profile = stableProfile
       ..loadedAt = DateTime.now();
@@ -341,7 +339,8 @@ class _LifeMateCurrentUserAvatarState extends State<LifeMateCurrentUserAvatar> {
   @override
   void initState() {
     super.initState();
-    _profile = LifeMateProfileRefresh.peek(widget.apiClient) ??
+    _profile =
+        LifeMateProfileRefresh.peek(widget.apiClient) ??
         const <String, dynamic>{};
     LifeMateProfileRefresh.revision.addListener(_reload);
     _load();
@@ -370,7 +369,8 @@ class _LifeMateCurrentUserAvatarState extends State<LifeMateCurrentUserAvatar> {
   void didUpdateWidget(covariant LifeMateCurrentUserAvatar oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (!identical(oldWidget.apiClient, widget.apiClient)) {
-      _profile = LifeMateProfileRefresh.peek(widget.apiClient) ??
+      _profile =
+          LifeMateProfileRefresh.peek(widget.apiClient) ??
           const <String, dynamic>{};
       _load();
     }
