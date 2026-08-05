@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:lifemate_client/lifemate_client.dart';
 import 'package:provider/provider.dart';
+import 'package:wellmate/core/state/wellmate_refresh.dart';
 import 'package:wellmate/core/theme/app_style.dart';
 import 'package:wellmate/providers/medication_provider.dart';
 import 'package:wellmate/providers/notification_provider.dart';
@@ -147,6 +148,8 @@ class _AuthenticatedWellMateShell extends StatefulWidget {
 class _AuthenticatedWellMateShellState
     extends State<_AuthenticatedWellMateShell> {
   final GlobalKey<NavigatorState> _navigatorKey = GlobalKey<NavigatorState>();
+  final WellMateNavigationRefreshObserver _refreshObserver =
+      WellMateNavigationRefreshObserver();
 
   @override
   Widget build(BuildContext context) {
@@ -156,6 +159,7 @@ class _AuthenticatedWellMateShellState
         onPop: () => _navigatorKey.currentState?.pop<void>(),
         child: Navigator(
           key: _navigatorKey,
+          observers: [_refreshObserver],
           onGenerateRoute: (_) => MaterialPageRoute<void>(
             builder: (_) => const HomeScreen(),
           ),
