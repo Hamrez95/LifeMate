@@ -1,5 +1,6 @@
 import { assert, assertEquals, assertRejects } from "jsr:@std/assert@1.0.14";
 import postgres from "postgres";
+import { createCareEventStore } from "./care_events.ts";
 import {
   type AppIdentity,
   type AuthUser,
@@ -23,6 +24,7 @@ Deno.test({
   fn: async () => {
     const admin = postgres(databaseUrl, { max: 1, prepare: false });
     const db = createLifeMateDatabase(databaseUrl, contactSecret);
+    const careEvents = createCareEventStore(databaseUrl);
     const suffix = crypto.randomUUID();
 
     try {
@@ -107,6 +109,58 @@ Deno.test({
       );
       assertEquals(unrelatedTaken.status, "taken");
 
+      const careEventRequestId = crypto.randomUUID();
+      const appointmentPayload = {
+        clientRequestId: careEventRequestId,
+        eventType: "appointment",
+        title: "ویزیت متخصص قلب",
+        providerName: "دکتر تست",
+        specialty: "قلب و عروق",
+        medicationName: null,
+        doseText: null,
+        administrationRoute: null,
+        reason: "پیگیری برنامه درمان",
+        instructions: "مدارک قبلی همراه بیمار باشد",
+        centerName: "مرکز درمانی تست",
+        addressLine: "تهران، خیابان نمونه، پلاک ۱",
+        phoneNumber: "02100000000",
+        scheduledLocalDate: target.date,
+        scheduledLocalTime: target.localTime,
+        timeZone: "Asia/Tehran",
+      };
+      const appointment = await careEvents.createCareEvent(
+        patient.appUserId,
+        appointmentPayload,
+      );
+      const appointmentRetry = await careEvents.createCareEvent(
+        patient.appUserId,
+        appointmentPayload,
+      );
+      assertEquals(appointmentRetry.id, appointment.id);
+
+      const patientEvents = await careEvents.listCareEvents(
+        patient.appUserId,
+        target.date,
+        target.date,
+      );
+      assert(patientEvents.some((event) => event.id === appointment.id));
+      assertEquals(
+        patientEvents[0]?.addressLine,
+        appointmentPayload.addressLine,
+      );
+
+      await assertApiError(
+        () =>
+          careEvents.listCareRecipientEvents(
+            caregiver.appUserId,
+            patient.appUserId,
+            target.date,
+            target.date,
+          ),
+        403,
+        "care_access_denied",
+      );
+
       const invitation = await db.createInvitation(patient, {
         contact: caregiverAuth.email,
         consentVersion: "care-patient-consent-v1",
@@ -147,9 +201,28 @@ Deno.test({
       );
       assert(caregiverView.some((dose) => dose.id === patientOccurrence.id));
 
+      const caregiverEventView = await careEvents.listCareRecipientEvents(
+        caregiver.appUserId,
+        patient.appUserId,
+        target.date,
+        target.date,
+      );
+      assert(caregiverEventView.some((event) => event.id === appointment.id));
+
       await assertApiError(
         () =>
           db.listCareDoseOccurrences(
+            unrelated.appUserId,
+            patient.appUserId,
+            target.date,
+            target.date,
+          ),
+        403,
+        "care_access_denied",
+      );
+      await assertApiError(
+        () =>
+          careEvents.listCareRecipientEvents(
             unrelated.appUserId,
             patient.appUserId,
             target.date,
@@ -165,6 +238,17 @@ Deno.test({
       await assertApiError(
         () =>
           db.listCareDoseOccurrences(
+            caregiver.appUserId,
+            patient.appUserId,
+            target.date,
+            target.date,
+          ),
+        403,
+        "care_access_denied",
+      );
+      await assertApiError(
+        () =>
+          careEvents.listCareRecipientEvents(
             caregiver.appUserId,
             patient.appUserId,
             target.date,
@@ -197,8 +281,20 @@ Deno.test({
         ])
       }
       `;
-      assert(auditRows.length >= 8);
-      assert(auditRows.every((row) => row.metadata_json == null));
+      assert(auditRows.length >= 9);
+      const careEventAudit = auditRows.find(
+        (row) => row.action === "care_event.created",
+      );
+      assert(careEventAudit);
+      assertEquals(
+        careEventAudit.metadata_json,
+        JSON.stringify({ eventType: "Appointment" }),
+      );
+      assert(
+        auditRows
+          .filter((row) => row.action !== "care_event.created")
+          .every((row) => row.metadata_json == null),
+      );
 
       const reconnected = createLifeMateDatabase(databaseUrl, contactSecret);
       const persisted = await reconnected.listMedications(patient.appUserId);

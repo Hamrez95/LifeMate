@@ -1,30 +1,31 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:wellmate/localization/app_localizations.dart';
-import 'package:wellmate/localization/locale_provider.dart';
+
+import '../../localization/app_localizations.dart';
+import '../../localization/locale_provider.dart';
 import '../theme/app_style.dart';
 
 class WellMateBottomNav extends StatelessWidget {
-  final int currentIndex;
-  final Function(int) onTap;
-
   const WellMateBottomNav({
-    Key? key,
+    super.key,
     required this.currentIndex,
     required this.onTap,
-  }) : super(key: key);
+  });
+
+  final int currentIndex;
+  final ValueChanged<int> onTap;
 
   @override
   Widget build(BuildContext context) {
     final loc = AppLocalizations.of(context);
     final isPersian =
         Provider.of<LocaleProvider>(context).locale.languageCode == 'fa';
-    final String fontFamily = isPersian ? 'Vazir' : 'Poppins';
+    final fontFamily = isPersian ? 'Vazir' : 'Poppins';
 
     return SafeArea(
       child: Container(
         margin: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
-        padding: const EdgeInsets.symmetric(vertical: 12),
+        padding: const EdgeInsets.symmetric(vertical: 8),
         decoration: BoxDecoration(
           color: Colors.white,
           borderRadius: BorderRadius.circular(35),
@@ -37,33 +38,28 @@ class WellMateBottomNav extends StatelessWidget {
           ],
         ),
         child: Row(
-          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
           children: [
-            // سمت راست: تقویم (Index 0)
             _buildNavItem(
               icon: Icons.calendar_month_rounded,
-              label: loc['nav_calendar'] ?? 'تقویم',
+              label: loc['nav_calendar'],
               index: 0,
               fontFamily: fontFamily,
             ),
-            // کنار تقویم: داروها (Index 1)
             _buildNavItem(
               icon: Icons.medication_rounded,
-              label: loc['nav_medications'] ?? 'داروها',
+              label: loc['nav_medications'],
               index: 1,
               fontFamily: fontFamily,
             ),
-            // مرکز: افزودن درمان (Index 2)
             _buildNavItem(
               icon: Icons.add_circle_outline_rounded,
-              label: loc['nav_add_treatment'] ?? 'افزودن درمان',
+              label: loc['nav_add_treatment'],
               index: 2,
               fontFamily: fontFamily,
             ),
-            // سمت چپ: خانه (Index 3 - تغییر یافته از 4)
             _buildNavItem(
               icon: Icons.home_rounded,
-              label: loc['nav_home'] ?? 'خانه',
+              label: loc['nav_home'],
               index: 3,
               fontFamily: fontFamily,
             ),
@@ -82,24 +78,52 @@ class WellMateBottomNav extends StatelessWidget {
     final isSelected = currentIndex == index;
     final color = isSelected ? AppColors.primary : Colors.grey.shade400;
 
-    return GestureDetector(
-      onTap: () => onTap(index),
-      behavior: HitTestBehavior.opaque,
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(icon, size: 26, color: color),
-          const SizedBox(height: 4),
-          Text(
-            label,
-            style: TextStyle(
-              fontFamily: fontFamily,
-              fontSize: 10,
-              fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
-              color: color,
+    return Expanded(
+      child: Semantics(
+        key: ValueKey<String>('wellmate-nav-$index'),
+        button: true,
+        selected: isSelected,
+        label: label,
+        child: Tooltip(
+          message: label,
+          child: Material(
+            color: Colors.transparent,
+            child: InkWell(
+              onTap: () => onTap(index),
+              customBorder: const StadiumBorder(),
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(minHeight: 48),
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 2),
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(icon, size: 26, color: color),
+                      const SizedBox(height: 4),
+                      ExcludeSemantics(
+                        child: Text(
+                          label,
+                          maxLines: 1,
+                          overflow: TextOverflow.fade,
+                          softWrap: false,
+                          textAlign: TextAlign.center,
+                          style: TextStyle(
+                            fontFamily: fontFamily,
+                            fontSize: 10,
+                            fontWeight:
+                                isSelected ? FontWeight.w700 : FontWeight.w500,
+                            color: color,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
             ),
           ),
-        ],
+        ),
       ),
     );
   }

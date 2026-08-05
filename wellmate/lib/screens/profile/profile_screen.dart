@@ -4,12 +4,14 @@ import 'package:flutter/material.dart';
 import 'package:lifemate_client/lifemate_client.dart';
 import 'package:provider/provider.dart';
 
+import '../../core/constants/app_version.dart';
 import '../../core/theme/app_style.dart';
 import '../../core/utils/string_extensions.dart';
 import '../../localization/app_localizations.dart';
 import '../../localization/locale_provider.dart';
 import '../../providers/settings_provider.dart';
 import 'care_access_screen.dart';
+import 'editable_profile_screen.dart';
 import 'profile_destination_screens.dart';
 
 class ProfileScreen extends StatelessWidget {
@@ -197,7 +199,7 @@ class ProfileScreen extends StatelessWidget {
                         iconColor: Colors.blueAccent,
                         label: loc['profile_personal_info'] ?? 'اطلاعات شخصی',
                         mainFont: mainFont,
-                        onTap: () => open(const PersonalInformationScreen()),
+                        onTap: () => open(const EditableProfileScreen()),
                       ),
                       const Divider(height: 1, indent: 60, endIndent: 20),
                       _ProfileMenuTile(
@@ -294,7 +296,7 @@ class ProfileScreen extends StatelessWidget {
               Padding(
                 padding: const EdgeInsets.only(top: 8),
                 child: Text(
-                  'WellMate 0.8.0-beta.3'.toPersianDigit(isPersian),
+                  'WellMate $wellMateAppVersion'.toPersianDigit(isPersian),
                   style: TextStyle(
                     fontFamily: mainFont,
                     fontSize: 12,
@@ -457,46 +459,46 @@ class _ProfileMenuTile extends StatelessWidget {
     return Material(
       color: Colors.transparent,
       child: ListTile(
-      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 3),
-      leading: Container(
-        width: 40,
-        height: 40,
-        decoration: BoxDecoration(
-          color: iconColor.withOpacity(0.15),
-          shape: BoxShape.circle,
-          boxShadow: [
-            BoxShadow(
-              color: iconColor.withOpacity(0.25),
-              blurRadius: 8,
-              offset: const Offset(0, 4),
-            ),
-          ],
-        ),
-        child: Icon(icon, color: iconColor, size: 24),
-      ),
-      title: Text(
-        label,
-        style: TextStyle(
-          fontFamily: mainFont,
-          fontSize: 16,
-          color: AppColors.darkBlue,
-        ),
-      ),
-      subtitle: subtitle == null
-          ? null
-          : Text(
-              subtitle!,
-              style: TextStyle(
-                fontFamily: mainFont,
-                fontSize: 11,
-                color: AppColors.textSecondary,
+        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 3),
+        leading: Container(
+          width: 40,
+          height: 40,
+          decoration: BoxDecoration(
+            color: iconColor.withOpacity(0.15),
+            shape: BoxShape.circle,
+            boxShadow: [
+              BoxShadow(
+                color: iconColor.withOpacity(0.25),
+                blurRadius: 8,
+                offset: const Offset(0, 4),
               ),
-            ),
-      trailing: const Icon(
-        Icons.arrow_forward_ios_rounded,
-        size: 14,
-        color: Colors.grey,
-      ),
+            ],
+          ),
+          child: Icon(icon, color: iconColor, size: 24),
+        ),
+        title: Text(
+          label,
+          style: TextStyle(
+            fontFamily: mainFont,
+            fontSize: 16,
+            color: AppColors.darkBlue,
+          ),
+        ),
+        subtitle: subtitle == null
+            ? null
+            : Text(
+                subtitle!,
+                style: TextStyle(
+                  fontFamily: mainFont,
+                  fontSize: 11,
+                  color: AppColors.textSecondary,
+                ),
+              ),
+        trailing: const Icon(
+          Icons.arrow_forward_ios_rounded,
+          size: 14,
+          color: Colors.grey,
+        ),
         onTap: onTap,
       ),
     );

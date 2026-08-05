@@ -98,7 +98,7 @@ class CareMateApp extends StatelessWidget {
         missingValues: ['SUPABASE_INITIALIZATION_FAILED'],
       );
     }
-    return LifeMateSessionGate(
+    return LifeMateExperienceGate(
       config: config,
       appName: 'CareMate',
       logoAssetPath: 'assets/images/CareMateWithoutBack.png',

@@ -55,29 +55,30 @@ jobs:
       - name: Flutter environment
         run: flutter --version
 
-      - name: Verify bb287 visual binaries and mock-free runtime sources
+      - name: Verify approved visual sources and mock-free runtime
         shell: bash
         run: |
           set -euo pipefail
           reference=bb28701971cb2d43cde5acb5d50ef679dded534f
           git cat-file -e "$reference^{commit}"
-          git diff --quiet "$reference" -- \
+
+          # Source artwork and web branding remain locked to the approved
+          # bb287 reference. Generated Android launcher mipmaps are excluded
+          # because they were intentionally regenerated from the approved app
+          # logos and are verified again when an APK checkpoint is requested.
+          git diff --exit-code "$reference" -- \
             caremate/assets \
-            caremate/android/app/src/main/res/mipmap-hdpi \
-            caremate/android/app/src/main/res/mipmap-mdpi \
-            caremate/android/app/src/main/res/mipmap-xhdpi \
-            caremate/android/app/src/main/res/mipmap-xxhdpi \
-            caremate/android/app/src/main/res/mipmap-xxxhdpi \
             caremate/web/favicon.png \
             caremate/web/icons \
             wellmate/assets \
-            wellmate/android/app/src/main/res/mipmap-hdpi \
-            wellmate/android/app/src/main/res/mipmap-mdpi \
-            wellmate/android/app/src/main/res/mipmap-xhdpi \
-            wellmate/android/app/src/main/res/mipmap-xxhdpi \
-            wellmate/android/app/src/main/res/mipmap-xxxhdpi \
             wellmate/web/favicon.png \
             wellmate/web/icons
+
+          for app in caremate wellmate; do
+            test -s "$app/android/app/src/main/res/mipmap-xxxhdpi/ic_launcher.png"
+            test -s "$app/android/app/src/main/res/drawable-xxxhdpi/ic_launcher_foreground.png"
+          done
+
           if grep -R -n -E 'app_mock_data|AppMockData|MockData' \
             caremate/lib wellmate/lib --include='*.dart'; then
             echo 'Mock health data is referenced by runtime UI sources.' >&2
@@ -86,6 +87,7 @@ jobs:
 
       - name: Verify shared LifeMate client
         id: shared-client
+        if: ${{ always() }}
         continue-on-error: true
         working-directory: packages/lifemate_client
         shell: bash
@@ -107,6 +109,7 @@ jobs:
 
       - name: Verify WellMate
         id: wellmate
+        if: ${{ always() }}
         continue-on-error: true
         working-directory: wellmate
         shell: bash
@@ -116,7 +119,7 @@ jobs:
             flutter pub get
             flutter analyze --no-fatal-warnings --no-fatal-infos
             flutter test
-            flutter build web --release
+            flutter build web --release --dart-define=ENABLE_GOOGLE_AUTH=false
           } 2>&1 | tee /tmp/wellmate-ci.log
 
       - name: Upload WellMate diagnostics
@@ -139,7 +142,7 @@ jobs:
             flutter pub get
             flutter analyze --no-fatal-warnings --no-fatal-infos
             flutter test
-            flutter build web --release
+            flutter build web --release --dart-define=ENABLE_GOOGLE_AUTH=false
           } 2>&1 | tee /tmp/caremate-ci.log
 
       - name: Upload CareMate diagnostics
@@ -160,13 +163,11 @@ jobs:
 
       - name: Decide Android checkpoint build
         id: android-checkpoint
+        if: ${{ success() }}
         shell: bash
         run: |
           should_build=false
           if [[ "${{ github.event_name }}" == "workflow_dispatch" && "${{ inputs.build_android }}" == "true" ]]; then
-            should_build=true
-          fi
-          if [[ "${{ github.event_name }}" == "pull_request" && "${{ github.head_ref }}" == "feat/full-bb287-ui-parity" ]]; then
             should_build=true
           fi
           echo "should_build=$should_build" >> "$GITHUB_OUTPUT"
@@ -177,11 +178,17 @@ jobs:
         env:
           SUPABASE_URL: ${{ vars.SUPABASE_URL || 'https://bwdvmniywyyijjauipnh.supabase.co' }}
           SUPABASE_PUBLISHABLE_KEY: ${{ vars.SUPABASE_PUBLISHABLE_KEY || 'sb_publishable_6YpBDD0gAPcenbYGukOeWg_fZXxUb27' }}
-          LIFEMATE_API_BASE_URL: ${{ vars.LIFEMATE_API_BASE_URL || 'https://bwdvmniywyyijjauipnh.supabase.co/functions/v1/lifemate-api' }}
+          LIFEMATE_API_BASE_URL: ${{ vars.LIFEMATE_CANDIDATE_API_BASE_URL || 'https://bwdvmniywyyijjauipnh.supabase.co/functions/v1/lifemate-api-candidate' }}
+          ENABLE_GOOGLE_AUTH: 'false'
         run: |
+          set -euo pipefail
           test -n "$SUPABASE_URL"
           test -n "$SUPABASE_PUBLISHABLE_KEY"
           test -n "$LIFEMATE_API_BASE_URL"
+          case "$LIFEMATE_API_BASE_URL" in
+            */lifemate-api-candidate) ;;
+            *) echo 'Android checkpoint must use lifemate-api-candidate.' >&2; exit 1 ;;
+          esac
           health_response="$(curl --fail --silent --show-error --retry 3 --retry-all-errors "$LIFEMATE_API_BASE_URL/health")"
           echo "$health_response" | grep -q '"status":"ok"'
           echo "$health_response" | grep -q '"database":"ready"'
@@ -192,22 +199,58 @@ jobs:
             --dart-define="SUPABASE_URL=$SUPABASE_URL"
             --dart-define="SUPABASE_PUBLISHABLE_KEY=$SUPABASE_PUBLISHABLE_KEY"
             --dart-define="LIFEMATE_API_BASE_URL=$LIFEMATE_API_BASE_URL"
+            --dart-define="ENABLE_GOOGLE_AUTH=$ENABLE_GOOGLE_AUTH"
           )
           (cd wellmate && flutter build apk "${build_args[@]}")
           (cd caremate && flutter build apk "${build_args[@]}")
+
+      - name: Inspect Android APKs
+        id: apk-inspection
+        if: ${{ success() && steps.android-checkpoint.outputs.should_build == 'true' }}
+        continue-on-error: true
+        shell: bash
+        run: |
+          set -euo pipefail
+          report_dir=/tmp/lifemate-apk-inspection
+          mkdir -p "$report_dir"
           aapt_bin="$(find "$ANDROID_HOME/build-tools" -type f -name aapt | sort -V | tail -n 1)"
+          apksigner_bin="$(find "$ANDROID_HOME/build-tools" -type f -name apksigner | sort -V | tail -n 1)"
           test -x "$aapt_bin"
-          for apk in wellmate/build/app/outputs/flutter-apk/app-release.apk caremate/build/app/outputs/flutter-apk/app-release.apk; do
-            "$aapt_bin" dump permissions "$apk" | grep -Fq "android.permission.INTERNET"
+          test -x "$apksigner_bin"
+          : > "$report_dir/apk-sha256.txt"
+
+          for app in wellmate caremate; do
+            apk="$app/build/app/outputs/flutter-apk/app-release.apk"
+            test -s "$apk"
+            "$aapt_bin" dump badging "$apk" > "$report_dir/$app.txt"
+            "$aapt_bin" dump permissions "$apk" >> "$report_dir/$app.txt"
+            grep -Fq 'android.permission.INTERNET' "$report_dir/$app.txt"
+            grep -Eq '^application-icon-[0-9]+:' "$report_dir/$app.txt"
+            "$apksigner_bin" verify --verbose --print-certs "$apk" >> "$report_dir/$app.txt"
+            unzip -Z1 "$apk" > "$report_dir/$app-zip-listing.txt"
+            grep -Eq '^assets/flutter_assets/AssetManifest\.(bin|json)$' "$report_dir/$app-zip-listing.txt"
+            grep -Fq 'assets/flutter_assets/assets/fonts/Vazir.ttf' "$report_dir/$app-zip-listing.txt"
+            sha256sum "$apk" >> "$report_dir/apk-sha256.txt"
           done
 
-      - name: Upload Android beta APKs
-        if: ${{ success() && steps.android-checkpoint.outputs.should_build == 'true' }}
+          grep -Fq 'assets/flutter_assets/assets/images/WellMateWithoutBack.png' \
+            "$report_dir/wellmate-zip-listing.txt"
+          grep -Fq 'assets/flutter_assets/assets/images/CareMateWithoutBack.png' \
+            "$report_dir/caremate-zip-listing.txt"
+
+      - name: Upload Android beta APKs and inspection evidence
+        if: ${{ always() && steps.android-checkpoint.outputs.should_build == 'true' }}
         uses: actions/upload-artifact@v4
         with:
           name: lifemate-android-beta-apks
           path: |
             wellmate/build/app/outputs/flutter-apk/app-release*.apk
             caremate/build/app/outputs/flutter-apk/app-release*.apk
+            /tmp/lifemate-apk-inspection/**
           if-no-files-found: error
           retention-days: 14
+
+      - name: Enforce Android inspection result
+        if: ${{ always() && steps.android-checkpoint.outputs.should_build == 'true' }}
+        shell: bash
+        run: test "${{ steps.apk-inspection.outcome }}" = "success"

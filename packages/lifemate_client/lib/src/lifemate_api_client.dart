@@ -77,6 +77,35 @@ class LifeMateApiClient {
         ),
       );
 
+  Future<Map<String, dynamic>> getCurrentProfile() async => _asObject(
+        await _send(
+          'GET',
+          '/api/v1/me/profile',
+          retryable: true,
+        ),
+      );
+
+  Future<Map<String, dynamic>> updateCurrentProfile({
+    required int version,
+    required String displayName,
+    String? phoneNumber,
+    required String locale,
+    required String timeZone,
+  }) async =>
+      _asObject(
+        await _send(
+          'PATCH',
+          '/api/v1/me/profile',
+          body: {
+            'version': version,
+            'displayName': displayName.trim(),
+            'phoneNumber': _emptyToNull(phoneNumber),
+            'locale': locale.trim(),
+            'timeZone': timeZone.trim(),
+          },
+        ),
+      );
+
   Future<List<Map<String, dynamic>>> getMedications() =>
       _getList('/api/v1/medications');
 
@@ -124,6 +153,62 @@ class LifeMateApiClient {
             'timeZone': timeZone,
             'schedules': schedules,
           },
+        ),
+      );
+
+  Future<List<Map<String, dynamic>>> getCareEvents({
+    required DateTime fromDate,
+    required DateTime toDate,
+  }) =>
+      _getList(
+        '/api/v1/care-events',
+        query: {
+          'fromDate': _date(fromDate),
+          'toDate': _date(toDate),
+        },
+      );
+
+  Future<Map<String, dynamic>> createCareEvent({
+    required String clientRequestId,
+    required String eventType,
+    required String title,
+    required DateTime scheduledLocalDate,
+    required String scheduledLocalTime,
+    required String timeZone,
+    String? providerName,
+    String? specialty,
+    String? medicationName,
+    String? doseText,
+    String? administrationRoute,
+    String? reason,
+    String? instructions,
+    String? centerName,
+    String? addressLine,
+    String? phoneNumber,
+  }) async =>
+      _asObject(
+        await _send(
+          'POST',
+          '/api/v1/care-events',
+          body: {
+            'clientRequestId': clientRequestId,
+            'eventType': eventType.trim().toLowerCase(),
+            'title': title.trim(),
+            'providerName': _emptyToNull(providerName),
+            'specialty': _emptyToNull(specialty),
+            'medicationName': _emptyToNull(medicationName),
+            'doseText': _emptyToNull(doseText),
+            'administrationRoute': _emptyToNull(administrationRoute),
+            'reason': _emptyToNull(reason),
+            'instructions': _emptyToNull(instructions),
+            'centerName': _emptyToNull(centerName),
+            'addressLine': _emptyToNull(addressLine),
+            'phoneNumber': _emptyToNull(phoneNumber),
+            'scheduledLocalDate': _date(scheduledLocalDate),
+            'scheduledLocalTime': scheduledLocalTime.trim(),
+            'timeZone': timeZone.trim(),
+          },
+          retryable: true,
         ),
       );
 
@@ -179,6 +264,18 @@ class LifeMateApiClient {
         ),
       );
 
+  Future<Map<String, dynamic>> createQrCareInvitation() async =>
+      _asObject(
+        await _send(
+          'POST',
+          '/api/v1/care/invitations/qr',
+          body: {
+            'consentVersion': 'care-patient-consent-v1',
+            'confirmConsent': true,
+          },
+        ),
+      );
+
   Future<List<Map<String, dynamic>>> getOutgoingCareInvitations() =>
       _getList('/api/v1/care/invitations');
 
@@ -215,6 +312,19 @@ class LifeMateApiClient {
   }) =>
       _getList(
         '/api/v1/care/patients/$patientUserId/dose-occurrences',
+        query: {
+          'fromDate': _date(fromDate),
+          'toDate': _date(toDate),
+        },
+      );
+
+  Future<List<Map<String, dynamic>>> getCareRecipientCareEvents({
+    required String patientUserId,
+    required DateTime fromDate,
+    required DateTime toDate,
+  }) =>
+      _getList(
+        '/api/v1/care/patients/$patientUserId/care-events',
         query: {
           'fromDate': _date(fromDate),
           'toDate': _date(toDate),
@@ -294,8 +404,7 @@ class LifeMateApiClient {
         );
       }
 
-      if (
-          attempt < maxAttempts &&
+      if (attempt < maxAttempts &&
           _transientStatusCodes.contains(response.statusCode)) {
         await Future<void>.delayed(_retryDelay);
         continue;
@@ -317,6 +426,12 @@ class LifeMateApiClient {
         return _http.get(uri, headers: headers);
       case 'POST':
         return _http.post(
+          uri,
+          headers: headers,
+          body: encodedBody,
+        );
+      case 'PATCH':
+        return _http.patch(
           uri,
           headers: headers,
           body: encodedBody,

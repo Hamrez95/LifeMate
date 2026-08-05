@@ -92,17 +92,12 @@ class WellMateApp extends StatelessWidget {
           builder: (context, child) {
             return MediaQuery(
               data: MediaQuery.of(context).copyWith(
-                textScaler:
-                    TextScaler.linear(settingsProvider.textScaleFactor),
+                textScaler: TextScaler.linear(settingsProvider.textScaleFactor),
               ),
               child: child!,
             );
           },
-          home: home ??
-              _productionHome(
-                runtimeConfig,
-                authInitialized,
-              ),
+          home: home ?? _productionHome(runtimeConfig, authInitialized),
         );
       },
     );
@@ -124,7 +119,7 @@ class WellMateApp extends StatelessWidget {
         missingValues: ['SUPABASE_INITIALIZATION_FAILED'],
       );
     }
-    return LifeMateSessionGate(
+    return LifeMateExperienceGate(
       config: config,
       appName: 'WellMate',
       logoAssetPath: 'assets/images/WellMateWithoutBack.png',

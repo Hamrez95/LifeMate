@@ -242,11 +242,13 @@ export function normalizeDoseStatus(value: unknown): "Taken" | "Skipped" {
 }
 
 export function normalizePath(pathname: string): string {
-  const marker = "/lifemate-api";
-  const markerIndex = pathname.indexOf(marker);
-  const value = markerIndex >= 0
-    ? pathname.substring(markerIndex + marker.length)
-    : pathname;
+  // Supabase may expose the same reviewed source under the production slug or
+  // the isolated candidate slug. Strip only a leading function prefix so a
+  // nested value containing "lifemate-api" is never altered accidentally.
+  const value = pathname.replace(
+    /^\/(?:functions\/v1\/)?lifemate-api(?:-candidate)?(?=\/|$)/,
+    "",
+  );
   const normalized = value.startsWith("/") ? value : `/${value}`;
   return normalized.length > 1 && normalized.endsWith("/")
     ? normalized.substring(0, normalized.length - 1)
