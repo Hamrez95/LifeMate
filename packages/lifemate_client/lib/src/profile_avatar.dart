@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
 import 'lifemate_api_client.dart';
@@ -19,11 +20,91 @@ class LifeMateProfileAvatarOption {
   final Color foregroundColor;
 }
 
-abstract final class LifeMateProfileRefresh {
-  static final ValueNotifier<int> revision = ValueNotifier<int>(0);
+class _LifeMateProfileCacheEntry {
+  Map<String, dynamic>? profile;
+  DateTime? loadedAt;
+  Future<Map<String, dynamic>>? inFlight;
+}
 
-  static void notifyChanged() {
+/// Shared stale-while-revalidate cache for the signed profile-photo URL and
+/// avatar metadata. A single authenticated session can render the avatar in
+/// several routes; without this cache every widget requested a new signed URL,
+/// which changed the image key and forced another network download.
+abstract final class LifeMateProfileRefresh {
+  static const Duration cacheDuration = Duration(minutes: 10);
+  static final ValueNotifier<int> revision = ValueNotifier<int>(0);
+  static final Map<LifeMateApiClient, _LifeMateProfileCacheEntry> _cache =
+      Map<LifeMateApiClient, _LifeMateProfileCacheEntry>.identity();
+
+  static Map<String, dynamic>? peek(LifeMateApiClient apiClient) =>
+      _cache[apiClient]?.profile;
+
+  static Future<Map<String, dynamic>> loadProfile(
+    LifeMateApiClient apiClient, {
+    bool force = false,
+  }) {
+    final entry = _cache.putIfAbsent(
+      apiClient,
+      _LifeMateProfileCacheEntry.new,
+    );
+    final cached = entry.profile;
+    final loadedAt = entry.loadedAt;
+    final isFresh = cached != null &&
+        loadedAt != null &&
+        DateTime.now().difference(loadedAt) < cacheDuration;
+    if (!force && isFresh) return Future.value(cached!);
+
+    final inFlight = entry.inFlight;
+    if (inFlight != null) return inFlight;
+
+    final request = apiClient.getCurrentProfile().then((profile) {
+      final stableProfile = Map<String, dynamic>.unmodifiable(
+        Map<String, dynamic>.from(profile),
+      );
+      entry
+        ..profile = stableProfile
+        ..loadedAt = DateTime.now();
+      return stableProfile;
+    }).whenComplete(() {
+      entry.inFlight = null;
+    });
+    entry.inFlight = request;
+    return request;
+  }
+
+  /// Publishes the profile returned by a successful write immediately. This
+  /// avoids another API request and lets all visible avatars reuse one URL.
+  static void cacheProfile(
+    LifeMateApiClient apiClient,
+    Map<String, dynamic> profile,
+  ) {
+    final stableProfile = Map<String, dynamic>.unmodifiable(
+      Map<String, dynamic>.from(profile),
+    );
+    final entry = _cache.putIfAbsent(
+      apiClient,
+      _LifeMateProfileCacheEntry.new,
+    );
+    entry
+      ..profile = stableProfile
+      ..loadedAt = DateTime.now();
     revision.value = revision.value + 1;
+  }
+
+  /// Backwards-compatible invalidation for call sites that do not have the
+  /// updated profile payload. Existing image data remains visible while one
+  /// shared revalidation request runs.
+  static void notifyChanged() {
+    for (final entry in _cache.values) {
+      entry.loadedAt = null;
+    }
+    revision.value = revision.value + 1;
+  }
+
+  @visibleForTesting
+  static void clearCacheForTesting() {
+    _cache.clear();
+    revision.value = 0;
   }
 }
 
@@ -107,6 +188,10 @@ class LifeMateProfileAvatar extends StatelessWidget {
     final normalizedPhotoUrl = photoUrl?.trim();
     final hasPhoto =
         normalizedPhotoUrl != null && normalizedPhotoUrl.isNotEmpty;
+    final cacheWidth = (radius * 2 * MediaQuery.devicePixelRatioOf(context))
+        .round()
+        .clamp(48, 1024)
+        .toInt();
     return Semantics(
       image: true,
       label: hasPhoto ? 'عکس پروفایل' : 'آواتار پروفایل ${option.label}',
@@ -128,10 +213,12 @@ class LifeMateProfileAvatar extends StatelessWidget {
           child: hasPhoto
               ? Image.network(
                   normalizedPhotoUrl,
-                  key: const ValueKey('profile-photo-image'),
+                  key: ValueKey<String>('profile-photo-$normalizedPhotoUrl'),
                   fit: BoxFit.cover,
                   width: radius * 2,
                   height: radius * 2,
+                  cacheWidth: cacheWidth,
+                  gaplessPlayback: true,
                   errorBuilder: (context, error, stackTrace) =>
                       _AvatarFallback(option: option, iconSize: radius),
                   loadingBuilder: (context, child, progress) {
@@ -248,48 +335,60 @@ class LifeMateCurrentUserAvatar extends StatefulWidget {
 }
 
 class _LifeMateCurrentUserAvatarState extends State<LifeMateCurrentUserAvatar> {
-  late Future<Map<String, dynamic>> _future;
+  Map<String, dynamic> _profile = const <String, dynamic>{};
+  int _requestGeneration = 0;
 
   @override
   void initState() {
     super.initState();
-    _future = widget.apiClient.getCurrentProfile();
+    _profile = LifeMateProfileRefresh.peek(widget.apiClient) ??
+        const <String, dynamic>{};
     LifeMateProfileRefresh.revision.addListener(_reload);
+    _load();
   }
 
   void _reload() {
-    if (!mounted) return;
-    setState(() {
-      _future = widget.apiClient.getCurrentProfile();
-    });
+    _load();
+  }
+
+  Future<void> _load({bool force = false}) async {
+    final generation = ++_requestGeneration;
+    try {
+      final profile = await LifeMateProfileRefresh.loadProfile(
+        widget.apiClient,
+        force: force,
+      );
+      if (!mounted || generation != _requestGeneration) return;
+      setState(() => _profile = profile);
+    } catch (error) {
+      debugPrint('LifeMate profile avatar refresh failed: $error');
+      // Keep the last good avatar visible during transient failures.
+    }
   }
 
   @override
   void didUpdateWidget(covariant LifeMateCurrentUserAvatar oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (!identical(oldWidget.apiClient, widget.apiClient)) {
-      _future = widget.apiClient.getCurrentProfile();
+      _profile = LifeMateProfileRefresh.peek(widget.apiClient) ??
+          const <String, dynamic>{};
+      _load();
     }
   }
 
   @override
   void dispose() {
+    _requestGeneration++;
     LifeMateProfileRefresh.revision.removeListener(_reload);
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
-    return FutureBuilder<Map<String, dynamic>>(
-      future: _future,
-      builder: (context, snapshot) {
-        final profile = snapshot.data ?? const <String, dynamic>{};
-        return LifeMateProfileAvatar(
-          avatarKey: profile['avatarKey']?.toString(),
-          photoUrl: profile['profilePhotoUrl']?.toString(),
-          radius: widget.radius,
-        );
-      },
+    return LifeMateProfileAvatar(
+      avatarKey: _profile['avatarKey']?.toString(),
+      photoUrl: _profile['profilePhotoUrl']?.toString(),
+      radius: widget.radius,
     );
   }
 }
