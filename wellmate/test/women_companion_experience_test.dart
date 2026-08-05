@@ -34,18 +34,31 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      expect(
-        find.byKey(const ValueKey('women-companion-mobile-dashboard')),
-        findsOneWidget,
+      final dashboard = find.byKey(
+        const ValueKey('women-companion-mobile-dashboard'),
       );
+      expect(dashboard, findsOneWidget);
       expect(find.text('فاز قاعدگی'), findsOneWidget);
-      expect(find.text('حال و احساس امروز'), findsOneWidget);
-      expect(find.text('نکته امروز'), findsOneWidget);
-      expect(find.text('۱۴ روز پیش رو'), findsOneWidget);
-      expect(find.text('گزارش‌های من'), findsOneWidget);
+      expect(tester.takeException(), isNull);
+
+      for (final title in const [
+        'حال و احساس امروز',
+        'نکته امروز',
+        '۱۴ روز پیش رو',
+        'گزارش‌های من',
+      ]) {
+        await tester.scrollUntilVisible(
+          find.text(title),
+          260,
+          scrollable: find.byType(Scrollable).first,
+        );
+        await tester.pumpAndSettle();
+        expect(find.text(title), findsOneWidget);
+        expect(tester.takeException(), isNull);
+      }
+
       expect(find.textContaining('احتمال بارداری'), findsNothing);
       expect(find.textContaining('اقدام به بارداری'), findsNothing);
-      expect(tester.takeException(), isNull);
     },
     skip: !LifeMateFeatureFlags.womenCalendarPilotEnabled,
   );
@@ -73,6 +86,11 @@ void main() {
       );
       await tester.pumpAndSettle();
 
+      await tester.scrollUntilVisible(
+        find.text('ویرایش'),
+        240,
+        scrollable: find.byType(Scrollable).first,
+      );
       await tester.tap(find.text('ویرایش'));
       await tester.pumpAndSettle();
 
