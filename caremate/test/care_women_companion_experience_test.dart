@@ -34,14 +34,31 @@ void main() {
       );
       await tester.pumpAndSettle();
 
+      final scrollable = find.byType(Scrollable).first;
       expect(find.text('همدم من'), findsOneWidget);
       expect(
         find.byKey(const ValueKey('care-companion-mobile-dashboard')),
         findsOneWidget,
       );
+      expect(tester.takeException(), isNull);
+
+      await tester.scrollUntilVisible(
+        find.text('حال ثبت‌شده همسرم'),
+        260,
+        scrollable: scrollable,
+      );
+      await tester.pumpAndSettle();
       expect(find.text('حال ثبت‌شده همسرم'), findsOneWidget);
       expect(find.text('حال خوب'), findsOneWidget);
       expect(find.textContaining('انرژی ۴ از ۵'), findsOneWidget);
+      expect(tester.takeException(), isNull);
+
+      await tester.scrollUntilVisible(
+        find.text('امروز چطور همراه باشم؟'),
+        260,
+        scrollable: scrollable,
+      );
+      await tester.pumpAndSettle();
       expect(find.text('امروز چطور همراه باشم؟'), findsOneWidget);
       expect(find.textContaining('PRIVATE-NOTE-MUST-NOT-LEAK'), findsNothing);
       expect(find.textContaining('احتمال بارداری'), findsNothing);
