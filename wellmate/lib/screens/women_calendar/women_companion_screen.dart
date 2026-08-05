@@ -799,7 +799,7 @@ class _FourteenDayStrip extends StatelessWidget {
           ),
           const SizedBox(height: 12),
           SizedBox(
-            height: 108,
+            height: 142,
             child: ListView.separated(
               scrollDirection: Axis.horizontal,
               itemCount: 14,
