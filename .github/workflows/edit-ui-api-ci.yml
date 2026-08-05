@@ -1,0 +1,96 @@
+name: edit-ui-api-ci
+
+on:
+  push:
+    branches:
+      - fix/missed-care-events-bell
+
+permissions:
+  contents: write
+
+concurrency:
+  group: edit-ui-api-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  verify:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
+        with:
+          show-progress: false
+
+      - uses: subosito/flutter-action@4cab68ce0f1c7c924f688bff4792e044f1aeb30c
+        with:
+          flutter-version: '3.44.0'
+          channel: stable
+          cache: true
+
+      - uses: denoland/setup-deno@e95548e56dfa95d4e1a28d6f422fafe75c4c26fb
+        with:
+          deno-version: v2.x
+
+      - name: Format changed sources
+        run: |
+          dart format \
+            packages/lifemate_client/lib/src/lifemate_edit_api.dart \
+            packages/lifemate_client/test/lifemate_edit_api_test.dart \
+            wellmate/lib/core/widgets/labeled_form_field.dart \
+            wellmate/lib/main.dart \
+            wellmate/lib/screens/calendar/calendar_screen.dart \
+            wellmate/lib/screens/calendar/schedule_item_card.dart \
+            wellmate/lib/screens/treatments/add_treatment_screen.dart \
+            wellmate/lib/screens/treatments/care_event_form.dart \
+            wellmate/lib/screens/treatments/care_plan_hub_screen.dart \
+            wellmate/lib/screens/treatments/edit_care_event_screen.dart \
+            wellmate/lib/screens/treatments/edit_treatment_screen.dart \
+            wellmate/lib/screens/treatments/treatments_screen.dart \
+            wellmate/test/editing_and_field_layout_test.dart \
+            caremate/lib/main.dart
+          deno fmt \
+            supabase/functions/lifemate-api/edit_store.ts \
+            supabase/functions/lifemate-api/index.ts
+
+      - name: Persist canonical formatting
+        shell: bash
+        run: |
+          set -euo pipefail
+          if git diff --quiet; then
+            echo 'Sources are already formatted.'
+            exit 0
+          fi
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add packages wellmate caremate supabase/functions/lifemate-api
+          git commit -m 'style: format treatment and care editing changes'
+          git push origin HEAD:fix/missed-care-events-bell
+
+      - name: Verify shared client
+        working-directory: packages/lifemate_client
+        run: |
+          flutter pub get
+          flutter analyze --no-fatal-warnings --no-fatal-infos
+          flutter test
+
+      - name: Verify WellMate
+        working-directory: wellmate
+        run: |
+          flutter pub get
+          flutter analyze --no-fatal-warnings --no-fatal-infos
+          flutter test
+          flutter build web --release --dart-define=ENABLE_GOOGLE_AUTH=false
+
+      - name: Verify CareMate
+        working-directory: caremate
+        run: |
+          flutter pub get
+          flutter analyze --no-fatal-warnings --no-fatal-infos
+          flutter test
+          flutter build web --release --dart-define=ENABLE_GOOGLE_AUTH=false
+
+      - name: Verify edge API
+        run: |
+          deno fmt --check supabase/functions/lifemate-api
+          deno check supabase/functions/lifemate-api/index.ts
+          deno test --allow-env --allow-net supabase/functions/lifemate-api
