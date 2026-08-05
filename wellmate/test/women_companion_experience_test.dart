@@ -90,73 +90,73 @@ void main() {
 
 class _FakeLifeMateApiClient extends LifeMateApiClient {
   _FakeLifeMateApiClient()
-      : super(
-          baseUri: Uri.parse('https://example.invalid'),
-          accessToken: () => 'test-token',
-        );
+    : super(
+        baseUri: Uri.parse('https://example.invalid'),
+        accessToken: () => 'test-token',
+      );
 
   @override
   Future<Map<String, dynamic>> getWomenCalendarProfile() async => {
-        'enabled': true,
-        'lastPeriodStart': '2026-08-01',
-        'cycleLength': 28,
-        'periodLength': 5,
-        'remindersEnabled': true,
-        'version': 2,
-      };
+    'enabled': true,
+    'lastPeriodStart': '2026-08-01',
+    'cycleLength': 28,
+    'periodLength': 5,
+    'remindersEnabled': true,
+    'version': 2,
+  };
 
   @override
   Future<List<Map<String, dynamic>>> getWomenCalendarEpisodes() async => [
-        {
-          'id': 'episode-1',
-          'startedOn': '2026-08-01',
-          'endedOn': '2026-08-05',
-          'version': 1,
-        },
-      ];
+    {
+      'id': 'episode-1',
+      'startedOn': '2026-08-01',
+      'endedOn': '2026-08-05',
+      'version': 1,
+    },
+  ];
 
   @override
   Future<Map<String, dynamic>> getCurrentProfile() async => const {
-        'displayName': 'نازنین',
-        'avatarKey': 'person_pink',
-        'profilePhotoUrl': null,
-      };
+    'displayName': 'نازنین',
+    'avatarKey': 'person_pink',
+    'profilePhotoUrl': null,
+  };
 
   @override
   Future<List<Map<String, dynamic>>> getCareRelationships() async => [
-        {
-          'id': 'relationship-1',
-          'status': 'active',
-          'caregiverDisplayName': 'حمیدرضا',
-          'canViewWomenCalendar': true,
-        },
-      ];
+    {
+      'id': 'relationship-1',
+      'status': 'active',
+      'caregiverDisplayName': 'حمیدرضا',
+      'canViewWomenCalendar': true,
+    },
+  ];
 }
 
 class _FakeWomenCompanionApi extends WomenCompanionApi {
   _FakeWomenCompanionApi()
-      : super(
-          baseUri: Uri.parse('https://example.invalid'),
-          accessToken: () => 'test-token',
-        );
+    : super(
+        baseUri: Uri.parse('https://example.invalid'),
+        accessToken: () => 'test-token',
+      );
 
   @override
   Future<List<Map<String, dynamic>>> getDailyLogs({
     required DateTime fromDate,
     required DateTime toDate,
   }) async => [
-        {
-          'id': 'daily-1',
-          'loggedOn': '2026-08-05',
-          'mood': 'good',
-          'energyLevel': 4,
-          'painLevel': 1,
-          'symptoms': ['fatigue'],
-          'privateNotes': 'private owner note',
-          'shareSummaryWithCompanion': true,
-          'version': 1,
-        },
-      ];
+    {
+      'id': 'daily-1',
+      'loggedOn': '2026-08-05',
+      'mood': 'good',
+      'energyLevel': 4,
+      'painLevel': 1,
+      'symptoms': ['fatigue'],
+      'privateNotes': 'private owner note',
+      'shareSummaryWithCompanion': true,
+      'version': 1,
+    },
+  ];
 
   @override
   Future<Map<String, dynamic>> saveDailyLog({
@@ -169,14 +169,14 @@ class _FakeWomenCompanionApi extends WomenCompanionApi {
     String? privateNotes,
     required bool shareSummaryWithCompanion,
   }) async => {
-        'id': 'daily-1',
-        'loggedOn': '2026-08-05',
-        'mood': mood,
-        'energyLevel': energyLevel,
-        'painLevel': painLevel,
-        'symptoms': symptoms,
-        'privateNotes': privateNotes,
-        'shareSummaryWithCompanion': shareSummaryWithCompanion,
-        'version': version + 1,
-      };
+    'id': 'daily-1',
+    'loggedOn': '2026-08-05',
+    'mood': mood,
+    'energyLevel': energyLevel,
+    'painLevel': painLevel,
+    'symptoms': symptoms,
+    'privateNotes': privateNotes,
+    'shareSummaryWithCompanion': shareSummaryWithCompanion,
+    'version': version + 1,
+  };
 }

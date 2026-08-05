@@ -48,70 +48,75 @@ void main() {
     expect(result.single['privateNotes'], 'owner only');
   });
 
-  test('daily log save sends explicit companion consent and private note', () async {
-    late http.Request observed;
-    final api = WomenCompanionApi(
-      baseUri: Uri.parse('https://api.example.test'),
-      accessToken: () => 'access-token',
-      httpClient: MockClient((request) async {
-        observed = request;
-        return http.Response(
-          jsonEncode({
-            'id': 'daily-1',
-            'loggedOn': '2026-08-05',
-            'mood': 'low',
-            'energyLevel': 2,
-            'painLevel': 3,
-            'symptoms': ['cramps', 'fatigue'],
-            'privateNotes': 'فقط برای خودم',
-            'shareSummaryWithCompanion': true,
-            'version': 2,
-          }),
-          200,
-          headers: {'content-type': 'application/json'},
-        );
-      }),
-    );
+  test(
+    'daily log save sends explicit companion consent and private note',
+    () async {
+      late http.Request observed;
+      final api = WomenCompanionApi(
+        baseUri: Uri.parse('https://api.example.test'),
+        accessToken: () => 'access-token',
+        httpClient: MockClient((request) async {
+          observed = request;
+          return http.Response(
+            jsonEncode({
+              'id': 'daily-1',
+              'loggedOn': '2026-08-05',
+              'mood': 'low',
+              'energyLevel': 2,
+              'painLevel': 3,
+              'symptoms': ['cramps', 'fatigue'],
+              'privateNotes': 'فقط برای خودم',
+              'shareSummaryWithCompanion': true,
+              'version': 2,
+            }),
+            200,
+            headers: {'content-type': 'application/json'},
+          );
+        }),
+      );
 
-    final result = await api.saveDailyLog(
-      version: 1,
-      loggedOn: DateTime(2026, 8, 5),
-      mood: ' LOW ',
-      energyLevel: 2,
-      painLevel: 3,
-      symptoms: const [' Cramps ', 'Fatigue'],
-      privateNotes: '  فقط برای خودم  ',
-      shareSummaryWithCompanion: true,
-    );
+      final result = await api.saveDailyLog(
+        version: 1,
+        loggedOn: DateTime(2026, 8, 5),
+        mood: ' LOW ',
+        energyLevel: 2,
+        painLevel: 3,
+        symptoms: const [' Cramps ', 'Fatigue'],
+        privateNotes: '  فقط برای خودم  ',
+        shareSummaryWithCompanion: true,
+      );
 
-    expect(observed.method, 'PUT');
-    expect(observed.url.path, '/api/v1/women-calendar/daily-logs');
-    expect(observed.headers['authorization'], 'Bearer access-token');
-    expect(jsonDecode(observed.body), {
-      'version': 1,
-      'loggedOn': '2026-08-05',
-      'mood': 'low',
-      'energyLevel': 2,
-      'painLevel': 3,
-      'symptoms': ['cramps', 'fatigue'],
-      'privateNotes': 'فقط برای خودم',
-      'shareSummaryWithCompanion': true,
-    });
-    expect(result['version'], 2);
-  });
+      expect(observed.method, 'PUT');
+      expect(observed.url.path, '/api/v1/women-calendar/daily-logs');
+      expect(observed.headers['authorization'], 'Bearer access-token');
+      expect(jsonDecode(observed.body), {
+        'version': 1,
+        'loggedOn': '2026-08-05',
+        'mood': 'low',
+        'energyLevel': 2,
+        'painLevel': 3,
+        'symptoms': ['cramps', 'fatigue'],
+        'privateNotes': 'فقط برای خودم',
+        'shareSummaryWithCompanion': true,
+      });
+      expect(result['version'], 2);
+    },
+  );
 
   test('stale daily log response preserves API error code', () async {
     final api = WomenCompanionApi(
       baseUri: Uri.parse('https://api.example.test'),
       accessToken: () => 'access-token',
-      httpClient: MockClient((request) async => http.Response(
-            jsonEncode({
-              'code': 'stale_women_calendar_daily_log',
-              'message': 'Daily log changed.',
-            }),
-            409,
-            headers: {'content-type': 'application/json'},
-          )),
+      httpClient: MockClient(
+        (request) async => http.Response(
+          jsonEncode({
+            'code': 'stale_women_calendar_daily_log',
+            'message': 'Daily log changed.',
+          }),
+          409,
+          headers: {'content-type': 'application/json'},
+        ),
+      ),
     );
 
     await expectLater(
