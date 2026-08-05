@@ -13,39 +13,51 @@ dependencies:
   image_picker: ^1.1.2
   flutter_local_notifications: ^19.5.0
   timezone: ^0.10.1
-  shamsi_date: ^1.1.0
+  cupertino_icons: ^1.0.2
+  provider: ^6.0.5
+  http: ^1.1.0
+  table_calendar: ^3.2.0
+  flutter_gen: ^5.12.0
+  shamsi_date: ^1.0.0
   qr_flutter: ^4.1.0
-  mobile_scanner: ^7.1.2
-  provider: ^6.1.2
-  cupertino_icons: ^1.0.8
-  supabase_flutter: ^2.16.0
   flutter_localizations:
     sdk: flutter
-  intl: ^0.20.2
+  intl: any
 
 dev_dependencies:
   flutter_test:
     sdk: flutter
-  flutter_lints: ^6.0.0
+  flutter_launcher_icons: ^0.14.4
+
+flutter_launcher_icons:
+  android: true
+  image_path: assets/images/WellMateWithoutBack.png
+  adaptive_icon_background: '#F1FAF5'
+  adaptive_icon_foreground: assets/images/WellMateWithoutBack.png
+  min_sdk_android: 23
 
 flutter:
   uses-material-design: true
-
   assets:
+    - assets/
     - assets/images/
-    - assets/logos/
-    - assets/sounds/
-
+    - assets/icons/
+    - lib/localization/en.json
+    - lib/localization/fa.json
   fonts:
+    - family: Nunito
+      fonts:
+        - asset: assets/fonts/Nunito-Regular.ttf
+        - asset: assets/fonts/Nunito-Bold.ttf
     - family: Vazir
       fonts:
         - asset: assets/fonts/Vazir.ttf
         - asset: assets/fonts/Vazir-Bold.ttf
-          weight: 700
     - family: Poppins
       fonts:
-        - asset: assets/fonts/Poppins-Regular.ttf
-        - asset: assets/fonts/Poppins-Medium.ttf
+        - asset: assets/fonts/PoppinsLatin-Regular.ttf
+        - asset: assets/fonts/PoppinsLatin-Medium.ttf
           weight: 500
-        - asset: assets/fonts/Poppins-SemiBold.ttf
-          weight: 600
+        - asset: assets/fonts/PoppinsLatin-Bold.ttf
+          weight: 700
+  generate: true
