@@ -79,13 +79,13 @@ Deno.test({
       const ownerEpisodes = await women.listOwnerEpisodes(patient.appUserId);
       assertEquals(ownerEpisodes.length, 1);
       assertEquals(ownerEpisodes[0].privateNotes, "corrected owner-only note");
-      const leakedAudit = await admin`
+      const leakedEpisodeAudit = await admin`
         select count(*)::int as count
         from lifemate.audit_logs as logs
         where actor_user_id = ${patient.appUserId}
           and to_jsonb(logs)::text ilike ${"%corrected owner-only note%"}
       `;
-      assertEquals(leakedAudit[0].count, 0);
+      assertEquals(leakedEpisodeAudit[0].count, 0);
 
       await assertApiError(
         () => women.getCareSummary(caregiver.appUserId, patient.appUserId),
@@ -129,6 +129,75 @@ Deno.test({
       );
       assertEquals(permitted.canViewWomenCalendar, true);
 
+      const privateDailyLog = await women.upsertOwnerDailyLog(
+        patient.appUserId,
+        {
+          version: 0,
+          loggedOn: "2026-08-05",
+          mood: "low",
+          energyLevel: 2,
+          painLevel: 3,
+          symptoms: ["cramps", "fatigue"],
+          privateNotes: "daily note that must remain owner only",
+          shareSummaryWithCompanion: false,
+        },
+      );
+      assertEquals(privateDailyLog.version, 1);
+      assertEquals(privateDailyLog.shareSummaryWithCompanion, false);
+      assertEquals(
+        privateDailyLog.privateNotes,
+        "daily note that must remain owner only",
+      );
+
+      const ownerDailyLogs = await women.listOwnerDailyLogs(
+        patient.appUserId,
+        "2026-08-01",
+        "2026-08-06",
+      );
+      assertEquals(ownerDailyLogs.length, 1);
+      assertEquals(
+        ownerDailyLogs[0].privateNotes,
+        "daily note that must remain owner only",
+      );
+
+      await assertApiError(
+        () =>
+          women.upsertOwnerDailyLog(patient.appUserId, {
+            version: 0,
+            loggedOn: "2026-08-05",
+            mood: "good",
+            energyLevel: 3,
+            painLevel: 1,
+            symptoms: ["no_symptom"],
+            privateNotes: null,
+            shareSummaryWithCompanion: false,
+          }),
+        409,
+        "stale_women_calendar_daily_log",
+      );
+
+      const privateSummary = await women.getCareSummary(
+        caregiver.appUserId,
+        patient.appUserId,
+      );
+      assertEquals(privateSummary.latestSharedDailyLog, null);
+
+      const sharedDailyLog = await women.upsertOwnerDailyLog(
+        patient.appUserId,
+        {
+          version: privateDailyLog.version,
+          loggedOn: "2026-08-05",
+          mood: "good",
+          energyLevel: 4,
+          painLevel: 1,
+          symptoms: ["fatigue"],
+          privateNotes: "new private text must still never be shared",
+          shareSummaryWithCompanion: true,
+        },
+      );
+      assertEquals(sharedDailyLog.version, 2);
+      assertEquals(sharedDailyLog.shareSummaryWithCompanion, true);
+
       const summary = await women.getCareSummary(
         caregiver.appUserId,
         patient.appUserId,
@@ -137,6 +206,24 @@ Deno.test({
       const episodes = summary.episodes as Array<Record<string, unknown>>;
       assertEquals(episodes.length, 1);
       assertEquals("privateNotes" in episodes[0], false);
+      const sharedSummary = summary.latestSharedDailyLog as Record<
+        string,
+        unknown
+      >;
+      assertEquals(sharedSummary.mood, "good");
+      assertEquals(sharedSummary.energyLevel, 4);
+      assertEquals(sharedSummary.painLevel, 1);
+      assertEquals(sharedSummary.symptoms, ["fatigue"]);
+      assertEquals("privateNotes" in sharedSummary, false);
+      assertEquals("shareSummaryWithCompanion" in sharedSummary, false);
+
+      const leakedDailyAudit = await admin`
+        select count(*)::int as count
+        from lifemate.audit_logs as logs
+        where actor_user_id = ${patient.appUserId}
+          and to_jsonb(logs)::text ilike ${"%new private text must still never be shared%"}
+      `;
+      assertEquals(leakedDailyAudit[0].count, 0);
 
       await assertApiError(
         () => women.getCareSummary(unrelated.appUserId, patient.appUserId),
@@ -144,12 +231,26 @@ Deno.test({
         "women_calendar_access_denied",
       );
 
-      const support = await women.recordCareSupportAction(
+      const hydration = await women.recordCareSupportAction(
         caregiver.appUserId,
         patient.appUserId,
         { actionType: "hydration" },
       );
-      assertEquals(support.actionType, "hydration");
+      assertEquals(hydration.actionType, "hydration");
+
+      const walk = await women.recordCareSupportAction(
+        caregiver.appUserId,
+        patient.appUserId,
+        { actionType: "walk" },
+      );
+      assertEquals(walk.actionType, "walk");
+
+      const checkIn = await women.recordCareSupportAction(
+        caregiver.appUserId,
+        patient.appUserId,
+        { actionType: "check_in" },
+      );
+      assertEquals(checkIn.actionType, "checkin");
 
       await assertApiError(
         () =>
@@ -212,7 +313,6 @@ Deno.test({
       ];
       try {
         await cleanupWomenCalendarRun(admin, authSubjects);
-        // A second pass makes idempotency part of the integration contract.
         await cleanupWomenCalendarRun(admin, authSubjects);
       } finally {
         await admin.end({ timeout: 5 });
@@ -233,15 +333,17 @@ async function cleanupWomenCalendarRun(
     where auth_subject in ${admin(authSubjects)}
   `;
   const userIds = userRows.map((row) => String(row.id));
-  if (userIds.length === 0) {
-    return;
-  }
+  if (userIds.length === 0) return;
 
   await admin.begin(async (tx: any) => {
     await tx`
       delete from lifemate.women_calendar_support_actions
       where patient_user_id in ${tx(userIds)}
          or caregiver_user_id in ${tx(userIds)}
+    `;
+    await tx`
+      delete from lifemate.women_calendar_daily_logs
+      where owner_user_id in ${tx(userIds)}
     `;
     await tx`
       delete from lifemate.women_calendar_episodes
