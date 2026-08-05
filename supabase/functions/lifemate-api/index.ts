@@ -239,6 +239,31 @@ async function route(
     );
     return new Response(null, { status: 204, headers: corsHeaders });
   }
+  if (request.method === "GET" && path === "/api/v1/women-calendar/daily-logs") {
+    requireWomenCalendarPilot();
+    const url = new URL(request.url);
+    return json(
+      await womenCalendar.listOwnerDailyLogs(
+        identity.appUserId,
+        url.searchParams.get("fromDate"),
+        url.searchParams.get("toDate"),
+      ),
+    );
+  }
+  if (request.method === "PUT" && path === "/api/v1/women-calendar/daily-logs") {
+    requireWomenCalendarPilot();
+    enforceRateLimit(
+      `women-calendar-daily-log:${identity.appUserId}`,
+      40,
+      60 * 60_000,
+    );
+    return json(
+      await womenCalendar.upsertOwnerDailyLog(
+        identity.appUserId,
+        await readJsonObject(request),
+      ),
+    );
+  }
 
   if (request.method === "GET" && path === "/api/v1/medications") {
     return json(await db.listMedications(identity.appUserId));
