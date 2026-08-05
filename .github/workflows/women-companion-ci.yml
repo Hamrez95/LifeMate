@@ -1,0 +1,116 @@
+name: women-companion-ci
+
+on:
+  push:
+    branches:
+      - feat/women-companion-experience
+  pull_request:
+    branches:
+      - feat/women-calendar-care-access-notifications
+
+permissions:
+  contents: write
+
+concurrency:
+  group: women-companion-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  flutter:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
+        with:
+          show-progress: false
+
+      - uses: subosito/flutter-action@4cab68ce0f1c7c924f688bff4792e044f1aeb30c
+        with:
+          flutter-version: '3.44.0'
+          channel: stable
+          cache: true
+
+      - name: Format changed Dart sources
+        run: >-
+          dart format
+          packages/lifemate_client/lib/lifemate_client.dart
+          packages/lifemate_client/lib/src/women_companion_api.dart
+          wellmate/lib/screens/home/home_screen.dart
+          wellmate/lib/screens/women_calendar/women_companion_screen.dart
+          caremate/lib/screens/women_calendar/care_women_calendar_screen.dart
+
+      - name: Persist canonical Dart formatting
+        shell: bash
+        run: |
+          set -euo pipefail
+          if git diff --quiet; then
+            exit 0
+          fi
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add \
+            packages/lifemate_client/lib/lifemate_client.dart \
+            packages/lifemate_client/lib/src/women_companion_api.dart \
+            wellmate/lib/screens/home/home_screen.dart \
+            wellmate/lib/screens/women_calendar/women_companion_screen.dart \
+            caremate/lib/screens/women_calendar/care_women_calendar_screen.dart
+          git commit -m 'style: apply canonical women companion formatting'
+          git push origin HEAD:feat/women-companion-experience
+
+      - name: Shared client checks
+        working-directory: packages/lifemate_client
+        run: |
+          flutter pub get
+          flutter analyze --no-fatal-warnings --no-fatal-infos
+          flutter test
+
+      - name: WellMate checks
+        working-directory: wellmate
+        run: |
+          flutter pub get
+          flutter analyze --no-fatal-warnings --no-fatal-infos
+          flutter test
+          flutter build web --release --dart-define=ENABLE_GOOGLE_AUTH=false
+
+      - name: CareMate checks
+        working-directory: caremate
+        run: |
+          flutter pub get
+          flutter analyze --no-fatal-warnings --no-fatal-infos
+          flutter test
+          flutter build web --release --dart-define=ENABLE_GOOGLE_AUTH=false
+
+  edge:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
+        with:
+          show-progress: false
+
+      - uses: denoland/setup-deno@22d081ff2d3a40755e97629de92e3bcbfa7cf2ed
+        with:
+          deno-version: v2.2.8
+
+      - name: Format Edge sources
+        run: deno fmt supabase/functions/lifemate-api/index.ts supabase/functions/lifemate-api/women_calendar.ts
+
+      - name: Persist canonical Edge formatting
+        shell: bash
+        run: |
+          set -euo pipefail
+          if git diff --quiet; then
+            exit 0
+          fi
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add supabase/functions/lifemate-api/index.ts supabase/functions/lifemate-api/women_calendar.ts
+          git commit -m 'style(api): apply canonical women companion formatting'
+          git pull --rebase origin feat/women-companion-experience
+          git push origin HEAD:feat/women-companion-experience
+
+      - name: Edge checks
+        run: |
+          deno fmt --check supabase/functions/lifemate-api
+          deno check supabase/functions/lifemate-api/index.ts
+          deno test --allow-env --allow-net supabase/functions/lifemate-api
