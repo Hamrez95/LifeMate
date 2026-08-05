@@ -204,9 +204,6 @@ class _HomeScreenContentState extends State<HomeScreenContent> {
         isLoading = false;
       });
 
-      final medicineToday = todayItems
-          .where((item) => item.type == 'medicine')
-          .toList(growable: false);
       final reminderWindow = allItems
           .where((item) {
             if (item.status != 'scheduled') return false;
@@ -214,7 +211,7 @@ class _HomeScreenContentState extends State<HomeScreenContent> {
             return scheduled != null && scheduled.isAfter(DateTime.now());
           })
           .toList(growable: false);
-      context.read<MedicationProvider>().setMedications(medicineToday);
+      context.read<MedicationProvider>().setScheduleItems(todayItems);
       try {
         await context.read<NotificationProvider>().syncReminders(
           reminderWindow,
