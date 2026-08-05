@@ -9,6 +9,27 @@ import {
 
 type Row = Record<string, any>;
 
+type DailyCheckIn = {
+  date: string;
+  mood: "Great" | "Good" | "Neutral" | "Low" | "Overwhelmed";
+  energy: number;
+  symptoms: string[];
+  supportNeed: "None" | "Rest" | "Talk" | "Space" | "Warmth" | "Walk" | "Hug";
+  privateNote: string | null;
+  shareSummary: boolean;
+};
+
+const supportedSymptoms = new Set([
+  "cramps",
+  "headache",
+  "bloating",
+  "fatigue",
+  "breast_tenderness",
+  "back_pain",
+  "sleep_change",
+  "appetite_change",
+]);
+
 export type WomenCalendarEstimate = {
   cycleStart: string;
   cycleDay: number;
@@ -69,6 +90,13 @@ export function createWomenCalendarStore(databaseUrl: string) {
       "remindersEnabled",
     );
     const expectedVersion = nonNegativeInt(body.version, "version");
+    const hasDailyCheckIn = Object.prototype.hasOwnProperty.call(
+      body,
+      "dailyCheckIn",
+    );
+    const requestedDailyCheckIn = hasDailyCheckIn
+      ? parseDailyCheckIn(body.dailyCheckIn)
+      : undefined;
     const now = new Date();
 
     return await sql.begin(async (tx: any) => {
@@ -86,21 +114,29 @@ export function createWomenCalendarStore(databaseUrl: string) {
             "Women calendar profile changed. Refresh and try again.",
           );
         }
+        const daily = requestedDailyCheckIn ?? null;
         const rows = await tx`
           insert into lifemate.women_calendar_profiles
             (owner_user_id, enabled, last_period_start, cycle_length,
              period_length, reminders_enabled, algorithm_version, version,
+             daily_check_in_date, daily_mood, daily_energy, daily_symptoms,
+             daily_support_need, daily_private_note, share_daily_summary,
              created_at_utc, updated_at_utc)
           values
             (${userId}, ${enabled}, ${lastPeriodStart}, ${cycleLength},
              ${periodLength}, ${remindersEnabled}, 'calendar-estimate-v1', 1,
-             ${now}, ${now})
+             ${daily?.date ?? null}, ${daily?.mood ?? null},
+             ${daily?.energy ?? null}, ${daily?.symptoms ?? []},
+             ${daily?.supportNeed ?? null}, ${daily?.privateNote ?? null},
+             ${daily?.shareSummary ?? false}, ${now}, ${now})
           returning *
         `;
         await insertAudit(
           tx,
           userId,
-          "women_calendar.profile_created",
+          daily == null
+            ? "women_calendar.profile_created"
+            : "women_calendar.profile_and_check_in_created",
           "women_calendar_profile",
           userId,
         );
@@ -113,19 +149,37 @@ export function createWomenCalendarStore(databaseUrl: string) {
           "Women calendar profile changed. Refresh and try again.",
         );
       }
+
+      finalDailyCheckIn:
+      {
+        // A labeled block keeps the preservation rule visually explicit:
+        // omitted dailyCheckIn means settings-only update; null means clear.
+      }
+      const daily = hasDailyCheckIn
+        ? requestedDailyCheckIn
+        : dailyCheckInFromRow(existing);
       const rows = await tx`
         update lifemate.women_calendar_profiles
         set enabled = ${enabled}, last_period_start = ${lastPeriodStart},
             cycle_length = ${cycleLength}, period_length = ${periodLength},
-            reminders_enabled = ${remindersEnabled}, version = version + 1,
-            updated_at_utc = ${now}
+            reminders_enabled = ${remindersEnabled},
+            daily_check_in_date = ${daily?.date ?? null},
+            daily_mood = ${daily?.mood ?? null},
+            daily_energy = ${daily?.energy ?? null},
+            daily_symptoms = ${daily?.symptoms ?? []},
+            daily_support_need = ${daily?.supportNeed ?? null},
+            daily_private_note = ${daily?.privateNote ?? null},
+            share_daily_summary = ${daily?.shareSummary ?? false},
+            version = version + 1, updated_at_utc = ${now}
         where owner_user_id = ${userId}
         returning *
       `;
       await insertAudit(
         tx,
         userId,
-        enabled
+        hasDailyCheckIn
+          ? "women_calendar.daily_check_in_updated"
+          : enabled
           ? "women_calendar.profile_enabled_or_updated"
           : "women_calendar.profile_disabled",
         "women_calendar_profile",
@@ -401,6 +455,15 @@ export function createWomenCalendarStore(databaseUrl: string) {
       limit 20
     `;
     const profile = mapProfile(profiles[0]);
+    const dailyCheckIn = profile.dailyCheckIn as Record<string, unknown> | null;
+    const sharedDailySummary = dailyCheckIn?.shareSummary === true
+      ? {
+        date: dailyCheckIn.date,
+        mood: dailyCheckIn.mood,
+        energy: dailyCheckIn.energy,
+        supportNeed: dailyCheckIn.supportNeed,
+      }
+      : null;
     return {
       profile: {
         enabled: profile.enabled,
@@ -410,6 +473,7 @@ export function createWomenCalendarStore(databaseUrl: string) {
         algorithmVersion: profile.algorithmVersion,
       },
       estimate: profile.estimate,
+      sharedDailySummary,
       episodes: episodes.map(mapEpisodeCaregiver),
       supportActions: actions.map((row: Row) => ({
         actionType: String(row.action_type).toLowerCase(),
@@ -430,6 +494,10 @@ export function createWomenCalendarStore(databaseUrl: string) {
       rest: "Rest",
       warmth: "Warmth",
       chores: "Chores",
+      message: "Message",
+      hug: "Hug",
+      walk: "Walk",
+      tea: "Tea",
     } as Record<string, string>)[normalized];
     if (!actionType) {
       throw new ApiError(
@@ -568,6 +636,7 @@ function mapProfile(row: Row): Record<string, any> {
         row.period_length,
       )
       : null,
+    dailyCheckIn: dailyCheckInFromRow(row),
     createdAtUtc: iso(row.created_at_utc),
     updatedAtUtc: iso(row.updated_at_utc),
   };
@@ -584,8 +653,114 @@ function defaultProfile(userId: string): Record<string, unknown> {
     algorithmVersion: "calendar-estimate-v1",
     version: 0,
     estimate: null,
+    dailyCheckIn: null,
     createdAtUtc: null,
     updatedAtUtc: null,
+  };
+}
+
+function dailyCheckInFromRow(row: Row): DailyCheckIn | null {
+  if (row.daily_check_in_date == null || row.daily_mood == null) return null;
+  const rawSymptoms = Array.isArray(row.daily_symptoms)
+    ? row.daily_symptoms
+    : [];
+  return {
+    date: dateString(row.daily_check_in_date),
+    mood: String(row.daily_mood) as DailyCheckIn["mood"],
+    energy: Number(row.daily_energy ?? 3),
+    symptoms: rawSymptoms.map((value: unknown) => String(value).toLowerCase()),
+    supportNeed: String(
+      row.daily_support_need ?? "None",
+    ) as DailyCheckIn["supportNeed"],
+    privateNote: row.daily_private_note == null
+      ? null
+      : String(row.daily_private_note),
+    shareSummary: row.share_daily_summary === true,
+  };
+}
+
+function parseDailyCheckIn(value: unknown): DailyCheckIn | null {
+  if (value == null) return null;
+  if (typeof value !== "object" || Array.isArray(value)) {
+    throw new ApiError(
+      400,
+      "invalid_women_calendar_daily_check_in",
+      "dailyCheckIn must be an object or null.",
+    );
+  }
+  const object = value as Record<string, unknown>;
+  const date = requiredDate(object.date, "dailyCheckIn.date");
+  const moodMap: Record<string, DailyCheckIn["mood"]> = {
+    great: "Great",
+    good: "Good",
+    neutral: "Neutral",
+    low: "Low",
+    overwhelmed: "Overwhelmed",
+  };
+  const mood = moodMap[String(object.mood ?? "").trim().toLowerCase()];
+  if (!mood) {
+    throw new ApiError(
+      400,
+      "invalid_women_calendar_mood",
+      "Unsupported mood value.",
+    );
+  }
+  const energy = boundedInt(object.energy, "dailyCheckIn.energy", 1, 5);
+  const rawSymptoms = object.symptoms ?? [];
+  if (!Array.isArray(rawSymptoms)) {
+    throw new ApiError(
+      400,
+      "invalid_women_calendar_symptoms",
+      "dailyCheckIn.symptoms must be an array.",
+    );
+  }
+  const symptoms = [
+    ...new Set(
+      rawSymptoms.map((item) => String(item).trim().toLowerCase()),
+    ),
+  ];
+  if (
+    symptoms.length > 8 || symptoms.some((item) => !supportedSymptoms.has(item))
+  ) {
+    throw new ApiError(
+      400,
+      "invalid_women_calendar_symptoms",
+      "Unsupported or excessive symptom values.",
+    );
+  }
+  const supportMap: Record<string, DailyCheckIn["supportNeed"]> = {
+    none: "None",
+    rest: "Rest",
+    talk: "Talk",
+    space: "Space",
+    warmth: "Warmth",
+    walk: "Walk",
+    hug: "Hug",
+  };
+  const supportNeed = supportMap[
+    String(object.supportNeed ?? "none").trim().toLowerCase()
+  ];
+  if (!supportNeed) {
+    throw new ApiError(
+      400,
+      "invalid_women_calendar_support_need",
+      "Unsupported support need.",
+    );
+  }
+  return {
+    date,
+    mood,
+    energy,
+    symptoms,
+    supportNeed,
+    privateNote: limitedOptional(
+      object.privateNote,
+      "dailyCheckIn.privateNote",
+      500,
+    ),
+    shareSummary: object.shareSummary == null
+      ? false
+      : requiredBoolean(object.shareSummary, "dailyCheckIn.shareSummary"),
   };
 }
 
