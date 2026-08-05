@@ -1,5 +1,3 @@
-// ignore_for_file: deprecated_member_use
-
 import 'package:flutter/material.dart';
 import 'package:lifemate_client/lifemate_client.dart';
 import 'package:provider/provider.dart';
@@ -24,253 +22,326 @@ class ProfileScreen extends StatelessWidget {
     final mainFont = isPersian ? 'Vazir' : 'Nunito';
 
     void openScreen(Widget destination) {
-      Navigator.of(
-        context,
-      ).push(MaterialPageRoute<void>(builder: (_) => destination));
+      Navigator.of(context).push(
+        MaterialPageRoute<void>(builder: (_) => destination),
+      );
     }
 
     return Scaffold(
       backgroundColor: AppColors.background,
       body: SafeArea(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.only(bottom: 24),
-          child: Column(
-            children: [
-              Padding(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 24,
-                  vertical: 16,
-                ),
-                child: Row(
+        child: Column(
+          children: [
+            _ProfileTopBar(
+              mainFont: mainFont,
+              onNotifications: () =>
+                  openScreen(const CareMateNotificationsScreen()),
+            ),
+            Expanded(
+              child: SingleChildScrollView(
+                padding: const EdgeInsets.fromLTRB(20, 4, 20, 24),
+                child: Column(
                   children: [
-                    IconButton(
-                      tooltip: 'بازگشت',
-                      icon: const Icon(
-                        Icons.arrow_back_ios_new_rounded,
-                        size: 24,
-                        color: AppColors.primaryBlue,
-                      ),
-                      onPressed: () => Navigator.of(context).pop(),
+                    _CurrentCareMateIdentity(mainFont: mainFont),
+                    const SizedBox(height: 12),
+                    _SubscriptionCard(
+                      mainFont: mainFont,
+                      title: loc['profile_no_subscription'] ??
+                          'اشتراک مراقبتی',
+                      onTap: () =>
+                          openScreen(const CareMateSubscriptionScreen()),
                     ),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: _CurrentCareMateIdentity(mainFont: mainFont),
-                    ),
-                    const SizedBox(width: 8),
-                    IconButton(
-                      tooltip: 'اعلان‌های حساب',
-                      icon: const Icon(
-                        Icons.notifications_none_rounded,
-                        size: 24,
-                        color: AppColors.primaryBlue,
+                    const SizedBox(height: 12),
+                    Container(
+                      clipBehavior: Clip.antiAlias,
+                      decoration: _cardDecoration(),
+                      child: Column(
+                        children: [
+                          _ProfileMenuTile(
+                            icon: Icons.person_outline_rounded,
+                            iconColor: AppColors.primaryBlue,
+                            label: loc['profile_personal_info'] ??
+                                'اطلاعات شخصی',
+                            mainFont: mainFont,
+                            subtitle: 'ویرایش نام، تصویر و اطلاعات حساب',
+                            onTap: () => openScreen(
+                              const CareMateEditableProfileScreen(),
+                            ),
+                          ),
+                          const _MenuDivider(),
+                          _ProfileMenuTile(
+                            icon: Icons.assignment_outlined,
+                            iconColor: Colors.orangeAccent,
+                            label: loc['profile_health_profile'] ??
+                                'پرونده سلامت',
+                            mainFont: mainFont,
+                            subtitle: 'مشاهده اطلاعات مجاز فرد تحت مراقبت',
+                            onTap: () => openScreen(
+                              const CareMateFeaturePreviewScreen(
+                                initialIndex: 2,
+                              ),
+                            ),
+                          ),
+                          const _MenuDivider(),
+                          _ProfileMenuTile(
+                            icon: Icons.family_restroom_rounded,
+                            iconColor: const Color(0xFF43A574),
+                            label: loc['profile_caregivers'] ?? 'مراقبت خانواده',
+                            mainFont: mainFont,
+                            subtitle: 'روابط مراقبتی و محدوده دسترسی‌ها',
+                            onTap: () => openScreen(
+                              const CareMateFeaturePreviewScreen(
+                                initialIndex: 3,
+                              ),
+                            ),
+                          ),
+                          const _MenuDivider(),
+                          _ProfileMenuTile(
+                            icon: Icons.tune_rounded,
+                            iconColor: const Color(0xFF8B72D6),
+                            label: loc['profile_app_settings'] ??
+                                'تنظیمات برنامه',
+                            mainFont: mainFont,
+                            subtitle: 'زبان و نمایش برنامه',
+                            onTap: () => showDialog<void>(
+                              context: context,
+                              builder: (_) =>
+                                  _LanguageDialog(mainFont: mainFont),
+                            ),
+                          ),
+                          const _MenuDivider(),
+                          _ProfileMenuTile(
+                            icon: Icons.card_giftcard_rounded,
+                            iconColor: const Color(0xFFE06B7B),
+                            label: loc['profile_referral_code'] ?? 'کد معرف',
+                            mainFont: mainFont,
+                            subtitle: 'در دست توسعه',
+                            onTap: () =>
+                                openScreen(const CareMateReferralScreen()),
+                          ),
+                          const _MenuDivider(),
+                          _ProfileMenuTile(
+                            icon: Icons.support_agent_rounded,
+                            iconColor: const Color(0xFF5B69B2),
+                            label: loc['profile_support'] ?? 'پشتیبانی',
+                            mainFont: mainFont,
+                            subtitle: 'راهنما و پاسخ پرسش‌های متداول',
+                            onTap: () =>
+                                openScreen(const CareMateSupportScreen()),
+                          ),
+                          const _MenuDivider(),
+                          _ProfileMenuTile(
+                            key: const ValueKey<String>(
+                              'caremate-profile-sign-out',
+                            ),
+                            icon: Icons.logout_rounded,
+                            iconColor: Colors.redAccent,
+                            label: loc['profile_logout'] ?? 'خروج از حساب',
+                            mainFont: mainFont,
+                            subtitle: 'پایان‌دادن امن نشست روی این دستگاه',
+                            destructive: true,
+                            showChevron: false,
+                            onTap: () {
+                              _confirmSignOut(context, mainFont);
+                            },
+                          ),
+                        ],
                       ),
-                      onPressed: () =>
-                          openScreen(const CareMateNotificationsScreen()),
+                    ),
+                    const SizedBox(height: 14),
+                    Text(
+                      'CareMate $careMateAppVersion'.toPersianDigit(isPersian),
+                      style: TextStyle(
+                        fontFamily: mainFont,
+                        fontSize: 11,
+                        color: AppColors.secondaryText.withValues(alpha: 0.72),
+                      ),
                     ),
                   ],
                 ),
               ),
-              Padding(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 24,
-                  vertical: 8,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  static Future<void> _confirmSignOut(
+    BuildContext context,
+    String mainFont,
+  ) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+        title: Text(
+          'خروج از حساب؟',
+          style: TextStyle(fontFamily: mainFont, fontWeight: FontWeight.w900),
+        ),
+        content: Text(
+          'برای ورود دوباره باید ایمیل و رمز عبور خود را وارد کنید.',
+          style: TextStyle(fontFamily: mainFont, height: 1.6),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, false),
+            child: const Text('انصراف'),
+          ),
+          FilledButton(
+            style: FilledButton.styleFrom(backgroundColor: Colors.redAccent),
+            onPressed: () => Navigator.pop(dialogContext, true),
+            child: const Text('خروج امن'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed == true) await LifeMateAuth.signOut();
+  }
+
+  static BoxDecoration _cardDecoration() => BoxDecoration(
+        color: Colors.white.withValues(alpha: 0.96),
+        borderRadius: BorderRadius.circular(22),
+        border: Border.all(
+          color: AppColors.primaryBlue.withValues(alpha: 0.06),
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: AppColors.primaryBlue.withValues(alpha: 0.07),
+            blurRadius: 22,
+            offset: const Offset(0, 9),
+          ),
+        ],
+      );
+}
+
+class _ProfileTopBar extends StatelessWidget {
+  const _ProfileTopBar({
+    required this.mainFont,
+    required this.onNotifications,
+  });
+
+  final String mainFont;
+  final VoidCallback onNotifications;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(14, 8, 14, 8),
+      child: Row(
+        children: [
+          IconButton.filledTonal(
+            tooltip: 'بازگشت',
+            onPressed: () => Navigator.of(context).pop(),
+            icon: const Icon(Icons.arrow_back_ios_new_rounded, size: 20),
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Text(
+              'پروفایل',
+              style: TextStyle(
+                fontFamily: mainFont,
+                fontSize: 21,
+                fontWeight: FontWeight.w900,
+                color: AppColors.darkBlue,
+              ),
+            ),
+          ),
+          IconButton.filledTonal(
+            tooltip: 'اعلان‌های حساب',
+            onPressed: onNotifications,
+            icon: const Icon(Icons.notifications_none_rounded, size: 22),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _SubscriptionCard extends StatelessWidget {
+  const _SubscriptionCard({
+    required this.mainFont,
+    required this.title,
+    required this.onTap,
+  });
+
+  final String mainFont;
+  final String title;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(22),
+        child: Ink(
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            gradient: const LinearGradient(
+              begin: AlignmentDirectional.topStart,
+              end: AlignmentDirectional.bottomEnd,
+              colors: [Color(0xFFF4F8FF), Color(0xFFEAF3FF)],
+            ),
+            borderRadius: BorderRadius.circular(22),
+            border: Border.all(
+              color: AppColors.primaryBlue.withValues(alpha: 0.10),
+            ),
+          ),
+          child: Row(
+            children: [
+              Container(
+                width: 46,
+                height: 46,
+                decoration: BoxDecoration(
+                  color: Colors.white.withValues(alpha: 0.86),
+                  borderRadius: BorderRadius.circular(16),
                 ),
-                child: Container(
-                  padding: const EdgeInsets.symmetric(
-                    vertical: 16,
-                    horizontal: 18,
-                  ),
-                  decoration: BoxDecoration(
-                    color: AppColors.cardBackground,
-                    borderRadius: BorderRadius.circular(18),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withOpacity(0.07),
-                        blurRadius: 16,
-                        offset: const Offset(0, 4),
-                      ),
-                    ],
-                  ),
-                  child: Row(
-                    children: [
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              loc['profile_no_subscription'] ??
-                                  'اشتراک مراقبتی',
-                              style: TextStyle(
-                                fontFamily: mainFont,
-                                fontSize: 15,
-                                color: AppColors.darkBlue,
-                              ),
-                            ),
-                            const SizedBox(height: 8),
-                            ElevatedButton.icon(
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: AppColors.darkBlue,
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(12),
-                                ),
-                                elevation: 0,
-                              ),
-                              onPressed: () => openScreen(
-                                const CareMateSubscriptionScreen(),
-                              ),
-                              icon: const Icon(
-                                Icons.lock_outline_rounded,
-                                color: Colors.white,
-                                size: 16,
-                              ),
-                              label: Text(
-                                'در دست توسعه',
-                                style: TextStyle(
-                                  fontFamily: mainFont,
-                                  color: Colors.white,
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                      const Icon(
-                        Icons.emoji_events_rounded,
-                        size: 36,
-                        color: Colors.amber,
-                      ),
-                    ],
-                  ),
+                child: const Icon(
+                  Icons.workspace_premium_rounded,
+                  color: Color(0xFFE4A52C),
                 ),
               ),
-              Padding(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 24,
-                  vertical: 8,
-                ),
-                child: Container(
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(24),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withOpacity(0.07),
-                        blurRadius: 16,
-                        offset: const Offset(0, 4),
-                      ),
-                    ],
-                  ),
-                  child: Column(
-                    children: [
-                      _ProfileMenuTile(
-                        icon: Icons.person,
-                        iconColor: Colors.blueAccent,
-                        label: loc['profile_personal_info'] ?? 'اطلاعات شخصی',
-                        mainFont: mainFont,
-                        subtitle: 'متصل به پروفایل امن حساب',
-                        onTap: () =>
-                            openScreen(const CareMateEditableProfileScreen()),
-                      ),
-                      const Divider(height: 1, indent: 60, endIndent: 20),
-                      _ProfileMenuTile(
-                        icon: Icons.assignment_rounded,
-                        iconColor: Colors.orangeAccent,
-                        label: loc['profile_health_profile'] ?? 'پرونده سلامت',
-                        mainFont: mainFont,
-                        subtitle: 'دسترسی مراقبتی محدود؛ در دست توسعه',
-                        onTap: () => openScreen(
-                          const CareMateFeaturePreviewScreen(initialIndex: 2),
-                        ),
-                      ),
-                      const Divider(height: 1, indent: 60, endIndent: 20),
-                      _ProfileMenuTile(
-                        icon: Icons.group,
-                        iconColor: Colors.green,
-                        label: loc['profile_caregivers'] ?? 'مراقبان',
-                        mainFont: mainFont,
-                        subtitle: 'روابط فعال از داشبورد قابل مشاهده‌اند',
-                        onTap: () => openScreen(
-                          const CareMateFeaturePreviewScreen(initialIndex: 3),
-                        ),
-                      ),
-                      const Divider(height: 1, indent: 60, endIndent: 20),
-                      _ProfileMenuTile(
-                        icon: Icons.settings,
-                        iconColor: Colors.purple,
-                        label: loc['profile_app_settings'] ?? 'تنظیمات برنامه',
-                        mainFont: mainFont,
-                        subtitle: 'زبان برنامه',
-                        onTap: () => showDialog<void>(
-                          context: context,
-                          builder: (_) => _LanguageDialog(mainFont: mainFont),
-                        ),
-                      ),
-                      const Divider(height: 1, indent: 60, endIndent: 20),
-                      _ProfileMenuTile(
-                        icon: Icons.card_giftcard,
-                        iconColor: Colors.redAccent,
-                        label: loc['profile_referral_code'] ?? 'کد معرف',
-                        mainFont: mainFont,
-                        subtitle: 'در دست توسعه',
-                        onTap: () => openScreen(const CareMateReferralScreen()),
-                      ),
-                      const Divider(height: 1, indent: 60, endIndent: 20),
-                      _ProfileMenuTile(
-                        icon: Icons.support_agent,
-                        iconColor: Colors.indigo,
-                        label: loc['profile_support'] ?? 'پشتیبانی',
-                        mainFont: mainFont,
-                        subtitle: 'در دست توسعه',
-                        onTap: () => openScreen(const CareMateSupportScreen()),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-              Padding(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 24,
-                  vertical: 8,
-                ),
-                child: Container(
-                  width: double.infinity,
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(18),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.redAccent.withOpacity(0.12),
-                        blurRadius: 16,
-                        offset: const Offset(0, 4),
-                      ),
-                    ],
-                  ),
-                  child: TextButton.icon(
-                    style: TextButton.styleFrom(
-                      padding: const EdgeInsets.symmetric(vertical: 16),
-                    ),
-                    icon: const Icon(Icons.logout, color: Colors.redAccent),
-                    label: Text(
-                      loc['profile_logout'] ?? 'خروج از حساب',
+              const SizedBox(width: 13),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      title,
                       style: TextStyle(
                         fontFamily: mainFont,
-                        fontSize: 16,
-                        color: Colors.redAccent,
-                        fontWeight: FontWeight.bold,
+                        fontSize: 14,
+                        fontWeight: FontWeight.w900,
+                        color: AppColors.darkBlue,
                       ),
                     ),
-                    onPressed: LifeMateAuth.signOut,
-                  ),
+                    const SizedBox(height: 3),
+                    Text(
+                      'امکانات پایه مراقبت در نسخه آزمایشی فعال است',
+                      style: TextStyle(
+                        fontFamily: mainFont,
+                        fontSize: 11,
+                        color: AppColors.secondaryText,
+                      ),
+                    ),
+                  ],
                 ),
               ),
-              Padding(
-                padding: const EdgeInsets.only(top: 8),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 6),
+                decoration: BoxDecoration(
+                  color: Colors.white.withValues(alpha: 0.80),
+                  borderRadius: BorderRadius.circular(12),
+                ),
                 child: Text(
-                  'CareMate $careMateAppVersion'.toPersianDigit(isPersian),
+                  'آزمایشی',
                   style: TextStyle(
                     fontFamily: mainFont,
-                    fontSize: 12,
-                    color: AppColors.secondaryText.withOpacity(0.7),
+                    fontSize: 10,
+                    fontWeight: FontWeight.w800,
+                    color: AppColors.primaryBlue,
                   ),
                 ),
               ),
@@ -316,9 +387,7 @@ class _CurrentCareMateIdentityState extends State<_CurrentCareMateIdentity> {
       ),
     );
     if (!mounted) return;
-    setState(() {
-      _future = context.read<LifeMateApiClient>().getCurrentUser();
-    });
+    _reloadIdentity();
   }
 
   @override
@@ -336,63 +405,134 @@ class _CurrentCareMateIdentityState extends State<_CurrentCareMateIdentity> {
         final user = data['user'] as Map<String, dynamic>? ?? const {};
         final profile = data['profile'] as Map<String, dynamic>? ?? const {};
         final name = profile['displayName']?.toString().trim();
-        final email = user['email']?.toString() ?? '';
-        return Column(
-          children: [
-            InkWell(
-              onTap: _openEditor,
-              customBorder: const CircleBorder(),
-              child: LifeMateProfileAvatar(
-                avatarKey: profile['avatarKey']?.toString(),
-                photoUrl: profile['profilePhotoUrl']?.toString(),
-                radius: 40,
-              ),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              name == null || name.isEmpty ? 'کاربر CareMate' : name,
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                fontFamily: widget.mainFont,
-                fontSize: 22,
-                fontWeight: FontWeight.bold,
-                color: AppColors.darkBlue,
-              ),
-            ),
-            if (snapshot.connectionState == ConnectionState.waiting)
-              const Padding(
-                padding: EdgeInsets.only(top: 6),
-                child: SizedBox.square(
-                  dimension: 15,
-                  child: CircularProgressIndicator(strokeWidth: 2),
+        final email = profile['email']?.toString().trim().isNotEmpty == true
+            ? profile['email'].toString()
+            : user['email']?.toString() ?? '';
+
+        return Container(
+          width: double.infinity,
+          padding: const EdgeInsets.all(17),
+          decoration: ProfileScreen._cardDecoration(),
+          child: Row(
+            children: [
+              InkWell(
+                onTap: _openEditor,
+                customBorder: const CircleBorder(),
+                child: Stack(
+                  clipBehavior: Clip.none,
+                  children: [
+                    LifeMateProfileAvatar(
+                      avatarKey: profile['avatarKey']?.toString(),
+                      photoUrl: profile['profilePhotoUrl']?.toString(),
+                      radius: 36,
+                    ),
+                    PositionedDirectional(
+                      end: -3,
+                      bottom: -3,
+                      child: Container(
+                        width: 25,
+                        height: 25,
+                        decoration: BoxDecoration(
+                          color: AppColors.primaryBlue,
+                          shape: BoxShape.circle,
+                          border: Border.all(color: Colors.white, width: 2),
+                        ),
+                        child: const Icon(
+                          Icons.edit_rounded,
+                          size: 13,
+                          color: Colors.white,
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
-              )
-            else if (email.isNotEmpty)
-              Text(
-                email,
-                textDirection: TextDirection.ltr,
-                textAlign: TextAlign.center,
-                style: TextStyle(
-                  fontFamily: widget.mainFont,
-                  fontSize: 13,
-                  color: AppColors.primaryBlue,
+              ),
+              const SizedBox(width: 15),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      name == null || name.isEmpty ? 'کاربر CareMate' : name,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        fontFamily: widget.mainFont,
+                        fontSize: 18,
+                        fontWeight: FontWeight.w900,
+                        color: AppColors.darkBlue,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    if (snapshot.connectionState == ConnectionState.waiting)
+                      const SizedBox(
+                        width: 16,
+                        height: 16,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    else if (email.isNotEmpty)
+                      Text(
+                        email,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        textDirection: TextDirection.ltr,
+                        style: TextStyle(
+                          fontFamily: widget.mainFont,
+                          fontSize: 11,
+                          color: AppColors.secondaryText,
+                        ),
+                      ),
+                    const SizedBox(height: 7),
+                    Text(
+                      'برای ویرایش تصویر و اطلاعات حساب لمس کنید',
+                      style: TextStyle(
+                        fontFamily: widget.mainFont,
+                        fontSize: 10,
+                        color: AppColors.primaryBlue,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ],
                 ),
               ),
-          ],
+              IconButton(
+                tooltip: 'ویرایش پروفایل',
+                onPressed: _openEditor,
+                icon: const Icon(Icons.chevron_left_rounded),
+                color: AppColors.primaryBlue,
+              ),
+            ],
+          ),
         );
       },
     );
   }
 }
 
+class _MenuDivider extends StatelessWidget {
+  const _MenuDivider();
+
+  @override
+  Widget build(BuildContext context) => Divider(
+        height: 1,
+        thickness: 1,
+        indent: 66,
+        endIndent: 16,
+        color: AppColors.primaryBlue.withValues(alpha: 0.06),
+      );
+}
+
 class _ProfileMenuTile extends StatelessWidget {
   const _ProfileMenuTile({
+    super.key,
     required this.icon,
     required this.iconColor,
     required this.label,
     required this.mainFont,
     required this.onTap,
     this.subtitle,
+    this.destructive = false,
+    this.showChevron = true,
   });
 
   final IconData icon;
@@ -401,41 +541,75 @@ class _ProfileMenuTile extends StatelessWidget {
   final String mainFont;
   final String? subtitle;
   final VoidCallback onTap;
+  final bool destructive;
+  final bool showChevron;
 
   @override
   Widget build(BuildContext context) {
     return Material(
-      color: Colors.transparent,
-      child: ListTile(
-        leading: Container(
-          width: 40,
-          height: 40,
-          decoration: BoxDecoration(
-            color: iconColor.withOpacity(0.15),
-            shape: BoxShape.circle,
-          ),
-          child: Icon(icon, color: iconColor, size: 24),
-        ),
-        title: Text(
-          label,
-          style: TextStyle(
-            fontFamily: mainFont,
-            fontSize: 16,
-            color: AppColors.darkBlue,
-          ),
-        ),
-        subtitle: subtitle == null
-            ? null
-            : Text(
-                subtitle!,
-                style: TextStyle(
-                  fontFamily: mainFont,
-                  fontSize: 11,
-                  color: AppColors.secondaryText,
+      color: destructive
+          ? Colors.redAccent.withValues(alpha: 0.025)
+          : Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+          child: Row(
+            children: [
+              Container(
+                width: 40,
+                height: 40,
+                decoration: BoxDecoration(
+                  color: iconColor.withValues(alpha: 0.11),
+                  borderRadius: BorderRadius.circular(14),
+                ),
+                child: Icon(icon, color: iconColor, size: 21),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      label,
+                      style: TextStyle(
+                        fontFamily: mainFont,
+                        fontSize: 14,
+                        fontWeight: FontWeight.w800,
+                        color: destructive
+                            ? Colors.redAccent
+                            : AppColors.darkBlue,
+                      ),
+                    ),
+                    if (subtitle != null) ...[
+                      const SizedBox(height: 2),
+                      Text(
+                        subtitle!,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          fontFamily: mainFont,
+                          fontSize: 10,
+                          color: destructive
+                              ? Colors.redAccent.withValues(alpha: 0.72)
+                              : AppColors.secondaryText,
+                        ),
+                      ),
+                    ],
+                  ],
                 ),
               ),
-        trailing: const Icon(Icons.chevron_right_rounded, size: 20),
-        onTap: onTap,
+              if (showChevron)
+                Icon(
+                  Directionality.of(context) == TextDirection.rtl
+                      ? Icons.chevron_left_rounded
+                      : Icons.chevron_right_rounded,
+                  size: 20,
+                  color: AppColors.secondaryText.withValues(alpha: 0.72),
+                ),
+            ],
+          ),
+        ),
       ),
     );
   }
@@ -468,7 +642,7 @@ class _LanguageDialog extends StatelessWidget {
               Navigator.of(context).pop();
             },
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: 10),
           _LanguageOption(
             title: 'فارسی',
             font: 'Vazir',
@@ -501,14 +675,14 @@ class _LanguageOption extends StatelessWidget {
   Widget build(BuildContext context) {
     return InkWell(
       onTap: onTap,
-      borderRadius: BorderRadius.circular(12),
+      borderRadius: BorderRadius.circular(14),
       child: Container(
-        padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
+        padding: const EdgeInsets.symmetric(vertical: 11, horizontal: 14),
         decoration: BoxDecoration(
           color: isSelected
-              ? AppColors.primaryBlue.withOpacity(0.1)
+              ? AppColors.primaryBlue.withValues(alpha: 0.09)
               : Colors.transparent,
-          borderRadius: BorderRadius.circular(12),
+          borderRadius: BorderRadius.circular(14),
           border: Border.all(
             color: isSelected ? AppColors.primaryBlue : Colors.grey.shade300,
           ),
@@ -519,13 +693,17 @@ class _LanguageOption extends StatelessWidget {
               title,
               style: TextStyle(
                 fontFamily: font,
-                fontSize: 16,
+                fontSize: 15,
                 color: isSelected ? AppColors.primaryBlue : Colors.black87,
               ),
             ),
             const Spacer(),
             if (isSelected)
-              const Icon(Icons.check_circle, color: AppColors.primaryBlue),
+              const Icon(
+                Icons.check_circle_rounded,
+                color: AppColors.primaryBlue,
+                size: 21,
+              ),
           ],
         ),
       ),
