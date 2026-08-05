@@ -73,12 +73,22 @@ class _WomenCalendarMonthCardState extends State<WomenCalendarMonthCard> {
               IconButton(
                 tooltip: isPersian ? 'ماه قبل' : 'Previous month',
                 onPressed: () => _moveMonth(context, -1),
-                icon: const Icon(Icons.chevron_right_rounded),
+                icon: Icon(
+                  isPersian
+                      ? Icons.chevron_right_rounded
+                      : Icons.chevron_left_rounded,
+                  textDirection: TextDirection.ltr,
+                ),
               ),
               IconButton(
                 tooltip: isPersian ? 'ماه بعد' : 'Next month',
                 onPressed: () => _moveMonth(context, 1),
-                icon: const Icon(Icons.chevron_left_rounded),
+                icon: Icon(
+                  isPersian
+                      ? Icons.chevron_left_rounded
+                      : Icons.chevron_right_rounded,
+                  textDirection: TextDirection.ltr,
+                ),
               ),
             ],
           ),
