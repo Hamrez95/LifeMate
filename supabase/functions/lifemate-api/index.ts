@@ -1,6 +1,7 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createCareEventStore } from "./care_events.ts";
 import { type AuthUser, createLifeMateDatabase } from "./database.ts";
+import { createEditStore } from "./edit_store.ts";
 import { corsHeaders, json, problem, safeError } from "./http.ts";
 import { createProfileStore } from "./profile.ts";
 import {
@@ -33,6 +34,7 @@ const profilePhotos = createProfilePhotoStorage(
   storageServiceKey,
 );
 const careEvents = createCareEventStore(databaseUrl);
+const edits = createEditStore(databaseUrl);
 const womenCalendar = createWomenCalendarStore(databaseUrl);
 const womenCalendarPilotEnabled =
   (Deno.env.get("ENABLE_WOMEN_CALENDAR_PILOT") ?? "true").toLowerCase() !==
@@ -264,6 +266,19 @@ async function route(
       201,
     );
   }
+  const treatmentPlanMatch = path.match(
+    /^\/api\/v1\/treatment-plans\/([0-9a-f-]{36})$/i,
+  );
+  if (request.method === "PATCH" && treatmentPlanMatch) {
+    enforceRateLimit(`edit-treatment:${identity.appUserId}`, 30, 60_000);
+    return json(
+      await edits.updateTreatmentPlan(
+        identity.appUserId,
+        treatmentPlanMatch[1],
+        await readJsonObject(request),
+      ),
+    );
+  }
   if (request.method === "GET" && path === "/api/v1/dose-occurrences") {
     const url = new URL(request.url);
     return json(
@@ -307,6 +322,24 @@ async function route(
         await readJsonObject(request),
       ),
       201,
+    );
+  }
+  const ownedCareEventMatch = path.match(
+    /^\/api\/v1\/care-events\/([0-9a-f-]{36})$/i,
+  );
+  if (request.method === "GET" && ownedCareEventMatch) {
+    return json(
+      await edits.getCareEvent(identity.appUserId, ownedCareEventMatch[1]),
+    );
+  }
+  if (request.method === "PATCH" && ownedCareEventMatch) {
+    enforceRateLimit(`edit-care-event:${identity.appUserId}`, 30, 60_000);
+    return json(
+      await edits.updateCareEvent(
+        identity.appUserId,
+        ownedCareEventMatch[1],
+        await readJsonObject(request),
+      ),
     );
   }
 
@@ -494,8 +527,6 @@ async function presentProfile(
     try {
       profilePhotoUrl = await profilePhotos.createSignedUrl(objectPath);
     } catch {
-      // The avatar catalog remains a safe fallback during a transient storage
-      // outage; profile reads must not be taken down by image delivery.
       profilePhotoUrl = null;
     }
   }
