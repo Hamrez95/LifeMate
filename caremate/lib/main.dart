@@ -105,14 +105,38 @@ class CareMateApp extends StatelessWidget {
       appName: 'CareMate',
       logoAssetPath: 'assets/images/CareMateWithoutBack.png',
       authenticatedBuilder: (context, apiClient) =>
-          Provider<LifeMateApiClient>.value(
-            value: apiClient,
-            child: Navigator(
-              onGenerateRoute: (_) => MaterialPageRoute<void>(
-                builder: (_) => const DashboardScreen(),
-              ),
-            ),
+          _AuthenticatedCareMateShell(apiClient: apiClient),
+    );
+  }
+}
+
+class _AuthenticatedCareMateShell extends StatefulWidget {
+  const _AuthenticatedCareMateShell({required this.apiClient});
+
+  final LifeMateApiClient apiClient;
+
+  @override
+  State<_AuthenticatedCareMateShell> createState() =>
+      _AuthenticatedCareMateShellState();
+}
+
+class _AuthenticatedCareMateShellState
+    extends State<_AuthenticatedCareMateShell> {
+  final GlobalKey<NavigatorState> _navigatorKey = GlobalKey<NavigatorState>();
+
+  @override
+  Widget build(BuildContext context) {
+    return Provider<LifeMateApiClient>.value(
+      value: widget.apiClient,
+      child: NavigatorPopHandler<void>(
+        onPop: () => _navigatorKey.currentState?.pop<void>(),
+        child: Navigator(
+          key: _navigatorKey,
+          onGenerateRoute: (_) => MaterialPageRoute<void>(
+            builder: (_) => const DashboardScreen(),
           ),
+        ),
+      ),
     );
   }
 }

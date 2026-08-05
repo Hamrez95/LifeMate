@@ -35,8 +35,8 @@ const profilePhotos = createProfilePhotoStorage(
 const careEvents = createCareEventStore(databaseUrl);
 const womenCalendar = createWomenCalendarStore(databaseUrl);
 const womenCalendarPilotEnabled =
-  (Deno.env.get("ENABLE_WOMEN_CALENDAR_PILOT") ?? "false").toLowerCase() ===
-    "true";
+  (Deno.env.get("ENABLE_WOMEN_CALENDAR_PILOT") ?? "true").toLowerCase() !==
+    "false";
 
 Deno.serve(async (request: Request) => {
   const correlationId = crypto.randomUUID();

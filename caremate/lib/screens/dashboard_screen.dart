@@ -495,7 +495,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
     final Widget destination = index == 0
         ? const CalendarScreen()
         : CareMateFeaturePreviewScreen(initialIndex: index);
-    Navigator.of(context).pushReplacement(
+    Navigator.of(context).push(
       PageRouteBuilder<void>(
         pageBuilder: (_, __, ___) => destination,
         transitionDuration: Duration.zero,

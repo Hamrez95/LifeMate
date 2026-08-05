@@ -388,6 +388,7 @@ class _HomeScreenContentState extends State<HomeScreenContent> {
                       secondsLeft: _calculateSecondsLeft(nextItem),
                       assetPath: _getAssetPath(nextItem.type),
                       font: font,
+                      isPersian: isPersian,
                     ),
             ),
             const SizedBox(height: 24),
@@ -518,107 +519,317 @@ class _UpcomingCareEventCard extends StatelessWidget {
     required this.item,
     required this.isMissed,
     required this.secondsLeft,
-    required this.assetPath,
     required this.font,
+    required this.isPersian,
+    required this.assetPath,
   });
 
   final ScheduleItemModel item;
   final bool isMissed;
   final int secondsLeft;
-  final String assetPath;
   final TextStyle font;
-
-  String _countdown(bool persian) {
-    final minutes = secondsLeft ~/ 60;
-    if (minutes < 60) return '$minutes دقیقه دیگر'.toPersianDigit(persian);
-    final hours = minutes ~/ 60;
-    final remaining = minutes % 60;
-    return '$hours ساعت و $remaining دقیقه دیگر'.toPersianDigit(persian);
-  }
+  final bool isPersian;
+  final String assetPath;
 
   @override
   Widget build(BuildContext context) {
-    final persian = Localizations.localeOf(context).languageCode == 'fa';
-    final kind = item.type == 'injection' ? 'زمان تزریق' : 'وقت ویزیت';
+    final isAppointment = item.type == 'appointment';
+    final accent = isMissed
+        ? const Color(0xFFE06464)
+        : isAppointment
+        ? const Color(0xFF5AA7DF)
+        : const Color(0xFFD95B93);
+    final soft = isMissed
+        ? const Color(0xFFFFEEEE)
+        : isAppointment
+        ? const Color(0xFFEAF7FD)
+        : const Color(0xFFFFEDF5);
+    final compactCountdown = isMissed
+        ? (isPersian ? 'گذشته' : 'Missed')
+        : _formatCompactCountdown(secondsLeft, isPersian);
+    final fullCountdown = isMissed
+        ? (isPersian ? 'زمان این رویداد گذشته است' : 'This event time has passed')
+        : _formatCareEventCountdown(secondsLeft, isPersian);
+    final time = item.time.toPersianDigit(isPersian);
+
     return Container(
-      padding: const EdgeInsets.all(22),
+      width: double.infinity,
+      padding: const EdgeInsetsDirectional.fromSTEB(18, 20, 18, 20),
       decoration: BoxDecoration(
-        color: isMissed ? Colors.red.shade50 : Colors.white,
+        color: isMissed ? const Color(0xFFFFFAFA) : Colors.white,
         borderRadius: BorderRadius.circular(28),
-        border: isMissed ? Border.all(color: Colors.red.shade200) : null,
+        border: isMissed ? Border.all(color: accent.withValues(alpha: 0.28)) : null,
         boxShadow: [
           BoxShadow(
-            color: AppColors.shadowDark.withValues(alpha: 0.35),
+            color: AppColors.shadowDark.withValues(alpha: 0.65),
             blurRadius: 22,
-            offset: const Offset(0, 10),
+            offset: const Offset(0, 8),
+          ),
+          const BoxShadow(
+            color: Colors.white,
+            blurRadius: 10,
+            offset: Offset(-5, -5),
           ),
         ],
       ),
-      child: Row(
-        children: [
-          Container(
-            width: 92,
-            height: 92,
-            padding: const EdgeInsets.all(18),
-            decoration: BoxDecoration(
-              color: AppColors.primary.withValues(alpha: 0.10),
-              shape: BoxShape.circle,
-            ),
-            child: Image.asset(
-              assetPath,
-              errorBuilder: (_, __, ___) => Icon(
-                item.type == 'injection'
-                    ? Icons.vaccines_rounded
-                    : Icons.medical_services_rounded,
-                color: AppColors.primary,
-                size: 44,
-              ),
-            ),
-          ),
-          const SizedBox(width: 18),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  kind,
-                  style: font.copyWith(
-                    color: AppColors.primary,
-                    fontWeight: FontWeight.w900,
-                  ),
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final compact = constraints.maxWidth < 330;
+          final countdown = _CareEventCountdownDial(
+            assetPath: assetPath,
+            accent: accent,
+            soft: soft,
+            secondsLeft: secondsLeft,
+            label: compactCountdown,
+          );
+          final details = Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                isMissed
+                    ? (isAppointment ? 'ویزیت انجام‌نشده' : 'تزریق انجام‌نشده')
+                    : (isAppointment ? 'وقت ویزیت' : 'یادآوری تزریق'),
+                style: font.copyWith(
+                  color: accent,
+                  fontSize: 16,
+                  fontWeight: FontWeight.w900,
                 ),
+              ),
+              const SizedBox(height: 5),
+              Text(
+                item.title,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+                style: font.copyWith(
+                  color: AppColors.textPrimary,
+                  fontSize: 20,
+                  height: 1.35,
+                  fontWeight: FontWeight.w900,
+                ),
+              ),
+              if (item.dosage.trim().isNotEmpty) ...[
                 const SizedBox(height: 5),
                 Text(
-                  item.title,
+                  item.dosage,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
                   style: font.copyWith(
-                    fontSize: 18,
-                    fontWeight: FontWeight.w900,
-                    color: AppColors.darkBlue,
+                    color: AppColors.textSecondary,
+                    fontSize: 13,
+                    height: 1.45,
                   ),
-                ),
-                if (item.dosage.trim().isNotEmpty) ...[
-                  const SizedBox(height: 4),
-                  Text(
-                    item.dosage,
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                ],
-                const SizedBox(height: 8),
-                Text(
-                  (isMissed
-                          ? '${item.time} • زمان برنامه گذشته است'
-                          : '${item.time} • ${_countdown(persian)}')
-                      .toPersianDigit(persian),
-                  style: font.copyWith(fontWeight: FontWeight.w800),
                 ),
               ],
-            ),
-          ),
-        ],
+              const SizedBox(height: 12),
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                crossAxisAlignment: WrapCrossAlignment.center,
+                children: [
+                  _CareEventInfoPill(
+                    icon: Icons.schedule_rounded,
+                    label: time,
+                    accent: accent,
+                    forceLtr: true,
+                  ),
+                  Semantics(
+                    label: fullCountdown,
+                    child: Text(
+                      fullCountdown,
+                      style: font.copyWith(
+                        color: AppColors.textSecondary,
+                        fontSize: 12,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          );
+
+          if (compact) {
+            return Column(
+              children: [
+                countdown,
+                const SizedBox(height: 16),
+                Align(
+                  alignment: AlignmentDirectional.centerStart,
+                  child: details,
+                ),
+              ],
+            );
+          }
+          return Row(
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              countdown,
+              const SizedBox(width: 18),
+              Expanded(child: details),
+            ],
+          );
+        },
       ),
     );
   }
+}
+
+class _CareEventCountdownDial extends StatelessWidget {
+  const _CareEventCountdownDial({
+    required this.assetPath,
+    required this.accent,
+    required this.soft,
+    required this.secondsLeft,
+    required this.label,
+  });
+
+  final String assetPath;
+  final Color accent;
+  final Color soft;
+  final int secondsLeft;
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    final progress = secondsLeft <= 0
+        ? 1.0
+        : (1 - (secondsLeft.clamp(0, 86400) / 86400))
+              .clamp(0.08, 1.0)
+              .toDouble();
+    return Semantics(
+      label: 'شمارش معکوس $label',
+      image: true,
+      child: SizedBox.square(
+        dimension: 112,
+        child: Stack(
+          alignment: Alignment.center,
+          children: [
+            SizedBox.square(
+              dimension: 112,
+              child: CircularProgressIndicator(
+                value: progress,
+                strokeWidth: 8,
+                strokeCap: StrokeCap.round,
+                backgroundColor: soft,
+                valueColor: AlwaysStoppedAnimation<Color>(accent),
+              ),
+            ),
+            Container(
+              width: 88,
+              height: 88,
+              decoration: BoxDecoration(color: soft, shape: BoxShape.circle),
+              padding: const EdgeInsets.all(9),
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Image.asset(
+                    assetPath,
+                    width: 34,
+                    height: 34,
+                    fit: BoxFit.contain,
+                    errorBuilder: (_, __, ___) => Icon(
+                      Icons.event_available_rounded,
+                      color: accent,
+                      size: 32,
+                    ),
+                  ),
+                  const SizedBox(height: 3),
+                  FittedBox(
+                    fit: BoxFit.scaleDown,
+                    child: Directionality(
+                      textDirection: TextDirection.ltr,
+                      child: Text(
+                        label,
+                        maxLines: 1,
+                        style: TextStyle(
+                          color: accent,
+                          fontSize: 13,
+                          fontWeight: FontWeight.w900,
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _CareEventInfoPill extends StatelessWidget {
+  const _CareEventInfoPill({
+    required this.icon,
+    required this.label,
+    required this.accent,
+    this.forceLtr = false,
+  });
+
+  final IconData icon;
+  final String label;
+  final Color accent;
+  final bool forceLtr;
+
+  @override
+  Widget build(BuildContext context) {
+    final content = Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Icon(icon, size: 16, color: accent),
+        const SizedBox(width: 5),
+        Text(
+          label,
+          style: TextStyle(
+            color: accent,
+            fontSize: 13,
+            fontWeight: FontWeight.w900,
+          ),
+        ),
+      ],
+    );
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+      decoration: BoxDecoration(
+        color: accent.withValues(alpha: 0.10),
+        borderRadius: BorderRadius.circular(14),
+      ),
+      child: forceLtr
+          ? Directionality(textDirection: TextDirection.ltr, child: content)
+          : content,
+    );
+  }
+}
+
+String _formatCareEventCountdown(int seconds, bool isPersian) {
+  if (seconds <= 0) return isPersian ? 'اکنون' : 'Now';
+  final totalMinutes = (seconds / 60).ceil();
+  final days = totalMinutes ~/ (24 * 60);
+  final hours = (totalMinutes % (24 * 60)) ~/ 60;
+  final minutes = totalMinutes % 60;
+  final raw = days > 0
+      ? (isPersian
+            ? '$days روز و $hours ساعت دیگر'
+            : 'in $days days and $hours hours')
+      : hours > 0
+      ? (isPersian
+            ? '$hours ساعت و $minutes دقیقه دیگر'
+            : 'in $hours hours and $minutes minutes')
+      : (isPersian ? '$minutes دقیقه دیگر' : 'in $minutes minutes');
+  return raw.toPersianDigit(isPersian);
+}
+
+String _formatCompactCountdown(int seconds, bool isPersian) {
+  if (seconds <= 0) return isPersian ? 'اکنون' : 'Now';
+  final totalMinutes = (seconds / 60).ceil();
+  final hours = totalMinutes ~/ 60;
+  final minutes = totalMinutes % 60;
+  final raw = hours > 0
+      ? '${hours.toString().padLeft(2, '0')}:${minutes.toString().padLeft(2, '0')}'
+      : '$minutes ${isPersian ? 'دقیقه' : 'min'}';
+  return raw.toPersianDigit(isPersian);
 }
 
 class _TreatmentTimerPlaceholder extends StatelessWidget {

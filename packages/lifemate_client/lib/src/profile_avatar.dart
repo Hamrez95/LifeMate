@@ -19,6 +19,14 @@ class LifeMateProfileAvatarOption {
   final Color foregroundColor;
 }
 
+abstract final class LifeMateProfileRefresh {
+  static final ValueNotifier<int> revision = ValueNotifier<int>(0);
+
+  static void notifyChanged() {
+    revision.value = revision.value + 1;
+  }
+}
+
 abstract final class LifeMateProfileAvatars {
   static const String defaultKey = 'person_blue';
 
@@ -246,6 +254,14 @@ class _LifeMateCurrentUserAvatarState extends State<LifeMateCurrentUserAvatar> {
   void initState() {
     super.initState();
     _future = widget.apiClient.getCurrentProfile();
+    LifeMateProfileRefresh.revision.addListener(_reload);
+  }
+
+  void _reload() {
+    if (!mounted) return;
+    setState(() {
+      _future = widget.apiClient.getCurrentProfile();
+    });
   }
 
   @override
@@ -254,6 +270,12 @@ class _LifeMateCurrentUserAvatarState extends State<LifeMateCurrentUserAvatar> {
     if (!identical(oldWidget.apiClient, widget.apiClient)) {
       _future = widget.apiClient.getCurrentProfile();
     }
+  }
+
+  @override
+  void dispose() {
+    LifeMateProfileRefresh.revision.removeListener(_reload);
+    super.dispose();
   }
 
   @override

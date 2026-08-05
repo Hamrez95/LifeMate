@@ -124,8 +124,15 @@ class _HomeScreenState extends State<HomeScreen> {
         onAddTreatment: () => _onItemTapped(2),
       ),
     ];
-    return Scaffold(
-      backgroundColor: AppColors.background,
+    return PopScope<void>(
+      canPop: _currentIndex == 4,
+      onPopInvokedWithResult: (didPop, result) {
+        if (!didPop && _currentIndex != 4) {
+          setState(() => _currentIndex = 4);
+        }
+      },
+      child: Scaffold(
+        backgroundColor: AppColors.background,
       extendBody: true,
       body: SafeArea(
         bottom: false,
@@ -149,10 +156,11 @@ class _HomeScreenState extends State<HomeScreen> {
           ],
         ),
       ),
-      bottomNavigationBar: WellMateBottomNav(
-        currentIndex: _currentIndex,
-        womenCalendarEnabled: _womenCalendarEnabled,
-        onTap: _onItemTapped,
+        bottomNavigationBar: WellMateBottomNav(
+          currentIndex: _currentIndex,
+          womenCalendarEnabled: _womenCalendarEnabled,
+          onTap: _onItemTapped,
+        ),
       ),
     );
   }

@@ -73,7 +73,9 @@ export function createProfilePhotoStorage(
         },
       );
       if (existing.ok) return;
-      if (existing.status !== 404) {
+      // Supabase Storage reports a missing bucket as 400 in some hosted
+      // versions and 404 in others. Both mean we should create it.
+      if (existing.status !== 400 && existing.status !== 404) {
         throw storageUnavailable();
       }
 

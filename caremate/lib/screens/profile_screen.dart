@@ -299,6 +299,14 @@ class _CurrentCareMateIdentityState extends State<_CurrentCareMateIdentity> {
   void initState() {
     super.initState();
     _future = context.read<LifeMateApiClient>().getCurrentUser();
+    LifeMateProfileRefresh.revision.addListener(_reloadIdentity);
+  }
+
+  void _reloadIdentity() {
+    if (!mounted) return;
+    setState(() {
+      _future = context.read<LifeMateApiClient>().getCurrentUser();
+    });
   }
 
   Future<void> _openEditor() async {
@@ -311,6 +319,12 @@ class _CurrentCareMateIdentityState extends State<_CurrentCareMateIdentity> {
     setState(() {
       _future = context.read<LifeMateApiClient>().getCurrentUser();
     });
+  }
+
+  @override
+  void dispose() {
+    LifeMateProfileRefresh.revision.removeListener(_reloadIdentity);
+    super.dispose();
   }
 
   @override

@@ -1,7 +1,7 @@
 name: caremate
 description: CareMate Caregiver App
 publish_to: 'none'
-version: 0.9.0-internal.6+17
+version: 0.9.0-internal.7+18
 # Internal Device-QA candidate only; not Stable or RC.
 environment:
   sdk: ">=3.0.0 <4.0.0"

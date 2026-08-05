@@ -87,6 +87,7 @@ class _EditableProfileScreenState extends State<EditableProfileScreen> {
         _applyProfile(updated);
         _profileFuture = Future.value(updated);
       });
+      LifeMateProfileRefresh.notifyChanged();
       ScaffoldMessenger.of(
         context,
       ).showSnackBar(const SnackBar(content: Text('عکس پروفایل ذخیره شد.')));
@@ -130,6 +131,7 @@ class _EditableProfileScreenState extends State<EditableProfileScreen> {
         _applyProfile(updated);
         _profileFuture = Future.value(updated);
       });
+      LifeMateProfileRefresh.notifyChanged();
       ScaffoldMessenger.of(
         context,
       ).showSnackBar(const SnackBar(content: Text('عکس پروفایل حذف شد.')));
@@ -203,6 +205,7 @@ class _EditableProfileScreenState extends State<EditableProfileScreen> {
           );
       if (!mounted) return;
       setState(() => _applyProfile(updated));
+      LifeMateProfileRefresh.notifyChanged();
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('اطلاعات پروفایل با موفقیت ذخیره شد.')),
       );
