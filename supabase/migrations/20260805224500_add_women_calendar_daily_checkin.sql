@@ -29,6 +29,15 @@ alter table lifemate.women_calendar_profiles
         coalesce(array_length(daily_symptoms, 1), 0) <= 8
     );
 
+alter table lifemate.women_calendar_support_actions
+    drop constraint if exists ck_women_calendar_support_action_type,
+    add constraint ck_women_calendar_support_action_type check (
+        action_type in (
+            'Hydration', 'Rest', 'Warmth', 'Chores',
+            'Message', 'Hug', 'Walk', 'Tea'
+        )
+    );
+
 comment on column lifemate.women_calendar_profiles.daily_check_in_date is
 'Owner local date for the current private daily cycle check-in.';
 comment on column lifemate.women_calendar_profiles.daily_symptoms is
