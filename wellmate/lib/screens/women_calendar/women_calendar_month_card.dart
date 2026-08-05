@@ -305,7 +305,9 @@ class _CycleOverview extends StatelessWidget {
       children: [
         LayoutBuilder(
           builder: (context, constraints) {
-            final diameter = constraints.maxWidth.clamp(230.0, 330.0);
+            final diameter = constraints.maxWidth
+                .clamp(230.0, 330.0)
+                .toDouble();
             return SizedBox(
               width: diameter,
               height: diameter,
@@ -472,9 +474,18 @@ class _CycleRingPainter extends CustomPainter {
       ..strokeCap = StrokeCap.round;
     canvas.drawArc(ringRect, 0, math.pi * 2, false, trackPaint);
 
-    final postDays = math.min(4, math.max(1, cycleLength - periodLength - 6));
-    final preDays = math.min(5, math.max(1, cycleLength - periodLength - postDays - 1));
-    final cycleDays = math.max(1, cycleLength - periodLength - postDays - preDays);
+    final postDays = math
+        .min(4, math.max(1, cycleLength - periodLength - 6))
+        .toInt();
+    final preDays = math
+        .min(
+          5,
+          math.max(1, cycleLength - periodLength - postDays - 1),
+        )
+        .toInt();
+    final cycleDays = math
+        .max(1, cycleLength - periodLength - postDays - preDays)
+        .toInt();
     final segments = <({int days, Color color})>[
       (days: periodLength, color: _periodColor),
       (days: postDays, color: _postPeriodColor),
@@ -493,7 +504,7 @@ class _CycleRingPainter extends CustomPainter {
       canvas.drawArc(
         ringRect,
         cursor + gap,
-        math.max(0.01, sweep - (gap * 2)),
+        math.max(0.01, sweep - (gap * 2)).toDouble(),
         false,
         paint,
       );
@@ -510,7 +521,7 @@ class _CycleRingPainter extends CustomPainter {
       );
       canvas.drawCircle(
         point,
-        math.max(1.4, strokeWidth * 0.09),
+        math.max(1.4, strokeWidth * 0.09).toDouble(),
         Paint()..color = Colors.white.withValues(alpha: 0.9),
       );
     }
