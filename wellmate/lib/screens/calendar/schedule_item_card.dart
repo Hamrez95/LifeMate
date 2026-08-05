@@ -13,6 +13,7 @@ class ScheduleItemCard extends StatelessWidget {
     required this.isPersian,
     this.isMissed = false,
     this.showDone = false,
+    this.onTap,
   });
 
   final ScheduleItemModel item;
@@ -20,6 +21,7 @@ class ScheduleItemCard extends StatelessWidget {
   final bool isPersian;
   final bool isMissed;
   final bool showDone;
+  final VoidCallback? onTap;
 
   bool get _isMedicine => item.type == 'medicine' || item.type == 'med';
 
@@ -32,7 +34,7 @@ class ScheduleItemCard extends StatelessWidget {
         ? Icons.warning_amber_rounded
         : CalendarUtils.getIconForType(item.type);
 
-    return Container(
+    final content = Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: isMissed ? Colors.red.shade50 : AppColors.cardBackground,
@@ -136,10 +138,31 @@ class ScheduleItemCard extends StatelessWidget {
                   color: Colors.green,
                   size: 20,
                 ),
+              ] else if (onTap != null) ...[
+                const SizedBox(height: 5),
+                Icon(
+                  Icons.edit_outlined,
+                  color: itemColor.withValues(alpha: 0.85),
+                  size: 18,
+                ),
               ],
             ],
           ),
         ],
+      ),
+    );
+
+    if (onTap == null) return content;
+    return Semantics(
+      button: true,
+      label: 'ویرایش ${item.title}',
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          borderRadius: BorderRadius.circular(16),
+          onTap: onTap,
+          child: content,
+        ),
       ),
     );
   }
