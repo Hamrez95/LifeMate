@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 
 import '../../core/theme/app_style.dart';
 import '../../core/utils/persian_date_utils.dart';
+import 'edit_treatment_screen.dart';
 
 class TreatmentsScreen extends StatefulWidget {
   const TreatmentsScreen({super.key, required this.refreshToken});
@@ -138,11 +139,14 @@ class _TreatmentsScreenState extends State<TreatmentsScreen> {
                       const Icon(Icons.chevron_right_rounded, size: 18),
                     ],
                   ),
-                  onTap: () => Navigator.of(context).push(
-                    MaterialPageRoute<void>(
-                      builder: (_) => _TreatmentDetailsScreen(plan: plan),
-                    ),
-                  ),
+                  onTap: () async {
+                    final changed = await Navigator.of(context).push<bool>(
+                      MaterialPageRoute<bool>(
+                        builder: (_) => _TreatmentDetailsScreen(plan: plan),
+                      ),
+                    );
+                    if (changed == true && mounted) await _load();
+                  },
                 ),
               );
             }),
@@ -580,18 +584,23 @@ class _TreatmentDetailsScreen extends StatelessWidget {
                   Container(
                     padding: const EdgeInsets.all(16),
                     decoration: BoxDecoration(
-                      color: Colors.amber.shade50,
+                      color: AppColors.primary.withValues(alpha: 0.08),
                       borderRadius: BorderRadius.circular(18),
-                      border: Border.all(color: Colors.amber.shade100),
+                      border: Border.all(
+                        color: AppColors.primary.withValues(alpha: 0.16),
+                      ),
                     ),
                     child: const Row(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Icon(Icons.construction_rounded, color: Colors.amber),
+                        Icon(
+                          Icons.info_outline_rounded,
+                          color: AppColors.primary,
+                        ),
                         SizedBox(width: 10),
                         Expanded(
                           child: Text(
-                            'نمایش جزئیات از Backend واقعی انجام می‌شود. API ویرایش یا توقف درمان هنوز در این نسخه ارائه نشده است.',
+                            'ویرایش روزها، ساعت‌ها، یادآوری‌ها و وضعیت درمان با کنترل نسخه انجام می‌شود تا تغییرات هم‌زمان از بین نروند.',
                             style: TextStyle(height: 1.6),
                           ),
                         ),
@@ -602,9 +611,22 @@ class _TreatmentDetailsScreen extends StatelessWidget {
                   SizedBox(
                     width: double.infinity,
                     child: FilledButton.icon(
-                      onPressed: null,
-                      icon: Icon(Icons.edit_outlined),
-                      label: Text('ویرایش درمان — در دست توسعه'),
+                      key: const ValueKey('open-treatment-edit'),
+                      onPressed: () async {
+                        final changed = await Navigator.of(context).push<bool>(
+                          MaterialPageRoute<bool>(
+                            builder: (_) => EditTreatmentScreen(plan: plan),
+                          ),
+                        );
+                        if (changed == true && context.mounted) {
+                          Navigator.of(context).pop(true);
+                        }
+                      },
+                      icon: const Icon(Icons.edit_outlined),
+                      label: const Text(
+                        'ویرایش درمان',
+                        style: TextStyle(fontWeight: FontWeight.w900),
+                      ),
                     ),
                   ),
                 ],

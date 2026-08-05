@@ -6,6 +6,7 @@ import '../../core/theme/app_style.dart';
 import '../../core/utils/persian_date_utils.dart';
 import '../../localization/app_localizations.dart';
 import '../../models/schedule_item_model.dart';
+import '../treatments/edit_care_event_screen.dart';
 import 'custom_table_calendar.dart';
 import 'schedule_item_card.dart';
 
@@ -249,6 +250,15 @@ class _CalendarScreenState extends State<CalendarScreen> {
     await _loadMonth();
   }
 
+  Future<void> _openCareEventEditor(ScheduleItemModel item) async {
+    final changed = await Navigator.of(context).push<bool>(
+      MaterialPageRoute<bool>(
+        builder: (_) => EditCareEventScreen(eventId: item.id),
+      ),
+    );
+    if (changed == true && mounted) await _loadMonth();
+  }
+
   Widget _eventCard(
     BuildContext context,
     ScheduleItemModel item,
@@ -271,6 +281,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
         isPersian: isPersian,
         isMissed: isMissed,
         showDone: showDoneMark,
+        onTap: isMedicine ? null : () => _openCareEventEditor(item),
       ),
     );
   }

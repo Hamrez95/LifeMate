@@ -180,17 +180,19 @@ class _HomeScreenContentState extends State<HomeScreenContent> {
             return item.status != 'completed' && item.status != 'cancelled';
           })
           .toList(growable: false);
-      final future = actionable
-          .where((item) {
-            final scheduled = _scheduledDateTime(item);
-            return scheduled != null && !scheduled.isBefore(DateTime.now());
-          })
-          .toList(growable: false)
-        ..sort(_compareOccurrence);
-      final missedOccurrences = actionable
-          .where((item) => item.status == 'missed')
-          .toList(growable: false)
-        ..sort(_compareOccurrence);
+      final future =
+          actionable
+              .where((item) {
+                final scheduled = _scheduledDateTime(item);
+                return scheduled != null && !scheduled.isBefore(DateTime.now());
+              })
+              .toList(growable: false)
+            ..sort(_compareOccurrence);
+      final missedOccurrences =
+          actionable
+              .where((item) => item.status == 'missed')
+              .toList(growable: false)
+            ..sort(_compareOccurrence);
       final nextOccurrence = future.isNotEmpty
           ? future.first
           : (missedOccurrences.isNotEmpty ? missedOccurrences.first : null);
@@ -204,9 +206,6 @@ class _HomeScreenContentState extends State<HomeScreenContent> {
         isLoading = false;
       });
 
-      final medicineToday = todayItems
-          .where((item) => item.type == 'medicine')
-          .toList(growable: false);
       final reminderWindow = allItems
           .where((item) {
             if (item.status != 'scheduled') return false;
@@ -214,7 +213,7 @@ class _HomeScreenContentState extends State<HomeScreenContent> {
             return scheduled != null && scheduled.isAfter(DateTime.now());
           })
           .toList(growable: false);
-      context.read<MedicationProvider>().setMedications(medicineToday);
+      context.read<MedicationProvider>().setScheduleItems(todayItems);
       try {
         await context.read<NotificationProvider>().syncReminders(
           reminderWindow,
