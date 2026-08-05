@@ -389,122 +389,136 @@ class _CalendarScreenState extends State<CalendarScreen> {
 
     return Scaffold(
       backgroundColor: AppColors.background,
-      extendBody: true,
       body: SafeArea(
-        bottom: false,
         child: Column(
           children: [
             CustomAppHeader(
               onNotificationTap: _showAlerts,
-              onSignOutTap: LifeMateAuth.signOut,
               showNotificationDot: _activeAlerts.isNotEmpty,
             ),
-            const SizedBox(height: 10),
-            UserSelector(
-              users: _users,
-              selectedUserId: selectedUserId ?? '',
-              font: font,
-              onUserSelected: _selectUser,
-            ),
-            const SizedBox(height: 16),
-            if (_error != null)
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 24),
-                child: _CalendarErrorBanner(
-                  message: _error!,
-                  onRetry: _refreshRelationships,
-                ),
-              ),
-            if (_loadingRelationships)
-              const Expanded(child: Center(child: CircularProgressIndicator()))
-            else if (_users.isEmpty)
-              Expanded(
-                child: _EmptyCalendarState(onRefresh: _refreshRelationships),
-              )
-            else ...[
-              CalendarView(
-                focusedMonth: _focusedMonth,
-                selectedDate: _selectedDate,
-                onDaySelected: (selectedDay, focusedDay) {
-                  final monthChanged = !isSameVisibleCalendarMonth(
-                    context,
-                    focusedDay,
-                    _focusedMonth,
-                  );
-                  setState(() {
-                    _selectedDate = selectedDay;
-                    _focusedMonth = focusedDay;
-                  });
-                  if (monthChanged) _loadMonthEvents();
-                },
-                onPageChanged: (focusedDay) {
-                  setState(() {
-                    _focusedMonth = focusedDay;
-                    _selectedDate = focusedDay;
-                  });
-                  _loadMonthEvents();
-                },
-                getDayEventTypes: _getDayEventTypes,
-                hasOverdueEvents: _hasOverdueEvents,
-              ),
-              const SizedBox(height: 20),
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 24),
-                child: Row(
+            Expanded(
+              child: RefreshIndicator(
+                onRefresh: _refreshRelationships,
+                child: ListView(
+                  physics: const AlwaysScrollableScrollPhysics(),
+                  padding: const EdgeInsets.fromLTRB(0, 2, 0, 16),
                   children: [
-                    Expanded(
-                      child: Text(
-                        loc['cal_schedule'],
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
-                        style: font.copyWith(
-                          fontSize: 18,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    Flexible(
-                      child: Text(
-                        formatAppDate(
-                          context,
-                          _selectedDate,
-                          includeWeekday: isPersian,
-                        ),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        textAlign: TextAlign.end,
-                        style: font.copyWith(
-                          fontSize: 16,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 14),
-              Expanded(
-                child: _loadingEvents
-                    ? const Center(child: CircularProgressIndicator())
-                    : eventsForSelectedDay.isEmpty
-                    ? Center(
-                        child: Padding(
-                          padding: const EdgeInsets.all(24),
-                          child: Text(
-                            loc['no_events_today'],
-                            textAlign: TextAlign.center,
-                            style: font.copyWith(
-                              color: AppColors.secondaryText,
-                            ),
-                          ),
+                    if (_loadingRelationships)
+                      const SizedBox(
+                        height: 330,
+                        child: Center(child: CircularProgressIndicator()),
+                      )
+                    else if (_users.isEmpty)
+                      SizedBox(
+                        height: 390,
+                        child: _EmptyCalendarState(
+                          onRefresh: _refreshRelationships,
                         ),
                       )
-                    : RefreshIndicator(
-                        onRefresh: _loadMonthEvents,
-                        child: SingleChildScrollView(
-                          physics: const AlwaysScrollableScrollPhysics(),
-                          padding: const EdgeInsets.fromLTRB(24, 0, 24, 120),
+                    else ...[
+                      UserSelector(
+                        users: _users,
+                        selectedUserId: selectedUserId ?? '',
+                        font: font,
+                        onUserSelected: _selectUser,
+                      ),
+                      const SizedBox(height: 12),
+                      if (_error != null) ...[
+                        Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 24),
+                          child: _CalendarErrorBanner(
+                            message: _error!,
+                            onRetry: _refreshRelationships,
+                          ),
+                        ),
+                        const SizedBox(height: 12),
+                      ],
+                      CalendarView(
+                        focusedMonth: _focusedMonth,
+                        selectedDate: _selectedDate,
+                        onDaySelected: (selectedDay, focusedDay) {
+                          final monthChanged = !isSameVisibleCalendarMonth(
+                            context,
+                            focusedDay,
+                            _focusedMonth,
+                          );
+                          setState(() {
+                            _selectedDate = selectedDay;
+                            _focusedMonth = focusedDay;
+                          });
+                          if (monthChanged) _loadMonthEvents();
+                        },
+                        onPageChanged: (focusedDay) {
+                          setState(() {
+                            _focusedMonth = focusedDay;
+                            _selectedDate = focusedDay;
+                          });
+                          _loadMonthEvents();
+                        },
+                        getDayEventTypes: _getDayEventTypes,
+                        hasOverdueEvents: _hasOverdueEvents,
+                      ),
+                      const SizedBox(height: 12),
+                      Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 24),
+                        child: Row(
+                          children: [
+                            Expanded(
+                              child: Text(
+                                loc['cal_schedule'],
+                                maxLines: 2,
+                                overflow: TextOverflow.ellipsis,
+                                style: font.copyWith(
+                                  fontSize: 18,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: 12),
+                            Flexible(
+                              child: Text(
+                                formatAppDate(
+                                  context,
+                                  _selectedDate,
+                                  includeWeekday: isPersian,
+                                ),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                textAlign: TextAlign.end,
+                                style: font.copyWith(
+                                  fontSize: 15,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(height: 10),
+                      if (_loadingEvents)
+                        const Padding(
+                          padding: EdgeInsets.symmetric(vertical: 28),
+                          child: Center(child: CircularProgressIndicator()),
+                        )
+                      else if (eventsForSelectedDay.isEmpty)
+                        Padding(
+                          padding: const EdgeInsets.fromLTRB(24, 18, 24, 24),
+                          child: Container(
+                            width: double.infinity,
+                            padding: const EdgeInsets.all(20),
+                            decoration: AppColors.softDecoration(),
+                            child: Text(
+                              loc['no_events_today'],
+                              textAlign: TextAlign.center,
+                              style: font.copyWith(
+                                color: AppColors.secondaryText,
+                              ),
+                            ),
+                          ),
+                        )
+                      else
+                        Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 24),
                           child: Column(
                             children: [
                               for (
@@ -512,7 +526,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
                                 index < eventsForSelectedDay.length;
                                 index++
                               ) ...[
-                                if (index > 0) const SizedBox(height: 12),
+                                if (index > 0) const SizedBox(height: 10),
                                 ScheduleCard(
                                   event: eventsForSelectedDay[index],
                                   font: font,
@@ -522,9 +536,11 @@ class _CalendarScreenState extends State<CalendarScreen> {
                             ],
                           ),
                         ),
-                      ),
+                    ],
+                  ],
+                ),
               ),
-            ],
+            ),
           ],
         ),
       ),
@@ -555,21 +571,21 @@ class _CalendarErrorBanner extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Container(
-    padding: const EdgeInsets.all(14),
-    decoration: BoxDecoration(
-      color: Colors.red.shade50,
-      borderRadius: BorderRadius.circular(18),
-      border: Border.all(color: Colors.red.shade100),
-    ),
-    child: Row(
-      children: [
-        Icon(Icons.cloud_off_rounded, color: Colors.red.shade600),
-        const SizedBox(width: 10),
-        Expanded(child: Text(message)),
-        TextButton(onPressed: onRetry, child: const Text('تلاش دوباره')),
-      ],
-    ),
-  );
+        padding: const EdgeInsets.all(14),
+        decoration: BoxDecoration(
+          color: Colors.red.shade50,
+          borderRadius: BorderRadius.circular(18),
+          border: Border.all(color: Colors.red.shade100),
+        ),
+        child: Row(
+          children: [
+            Icon(Icons.cloud_off_rounded, color: Colors.red.shade600),
+            const SizedBox(width: 10),
+            Expanded(child: Text(message)),
+            TextButton(onPressed: onRetry, child: const Text('تلاش دوباره')),
+          ],
+        ),
+      );
 }
 
 class _EmptyCalendarState extends StatelessWidget {
@@ -579,41 +595,44 @@ class _EmptyCalendarState extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Center(
-    child: Padding(
-      padding: const EdgeInsets.all(28),
-      child: Container(
-        width: double.infinity,
-        padding: const EdgeInsets.all(24),
-        decoration: AppColors.softDecoration(),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const Icon(
-              Icons.family_restroom_rounded,
-              size: 58,
-              color: AppColors.primaryBlue,
+        child: Padding(
+          padding: const EdgeInsets.all(28),
+          child: Container(
+            width: double.infinity,
+            padding: const EdgeInsets.all(24),
+            decoration: AppColors.softDecoration(),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Icon(
+                  Icons.family_restroom_rounded,
+                  size: 58,
+                  color: AppColors.primaryBlue,
+                ),
+                const SizedBox(height: 14),
+                const Text(
+                  'هنوز فردی به مراقبت شما متصل نیست',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800),
+                ),
+                const SizedBox(height: 8),
+                const Text(
+                  'پس از پذیرش دعوت، داروها، ویزیت‌ها و تزریق‌های واقعی بیمار در همین تقویم نمایش داده می‌شوند.',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    height: 1.6,
+                    color: AppColors.secondaryText,
+                  ),
+                ),
+                const SizedBox(height: 18),
+                OutlinedButton.icon(
+                  onPressed: onRefresh,
+                  icon: const Icon(Icons.refresh_rounded),
+                  label: const Text('تازه‌سازی'),
+                ),
+              ],
             ),
-            const SizedBox(height: 14),
-            const Text(
-              'هنوز فردی به مراقبت شما متصل نیست',
-              textAlign: TextAlign.center,
-              style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800),
-            ),
-            const SizedBox(height: 8),
-            const Text(
-              'پس از پذیرش دعوت، داروها، ویزیت‌ها و تزریق‌های واقعی بیمار در همین تقویم نمایش داده می‌شوند.',
-              textAlign: TextAlign.center,
-              style: TextStyle(height: 1.6, color: AppColors.secondaryText),
-            ),
-            const SizedBox(height: 18),
-            OutlinedButton.icon(
-              onPressed: onRefresh,
-              icon: const Icon(Icons.refresh_rounded),
-              label: const Text('تازه‌سازی'),
-            ),
-          ],
+          ),
         ),
-      ),
-    ),
-  );
+      );
 }
