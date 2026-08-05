@@ -35,44 +35,52 @@ jobs:
         with:
           deno-version: v2.9.4
 
-      - name: Make women cycle components large-text safe
+      - name: Make CareMate partner hero narrow-screen safe
         shell: bash
         run: |
           python3 - <<'PY'
           from pathlib import Path
 
-          outlook = Path('wellmate/lib/screens/women_calendar/women_companion_screen.dart')
-          text = outlook.read_text()
-          text = text.replace('            height: 108,', '            height: 142,')
-          outlook.write_text(text)
-
-          calendar = Path('wellmate/lib/screens/women_calendar/women_calendar_month_card.dart')
-          text = calendar.read_text()
-          text = text.replace(
-              'padding: EdgeInsets.all(diameter * 0.245),',
-              'padding: EdgeInsets.all(diameter * 0.16),',
-          )
-          calendar.write_text(text)
+          path = Path('caremate/lib/screens/women_calendar/care_women_calendar_screen.dart')
+          text = path.read_text()
+          marker = 'class _ConnectedPartnerHero extends StatelessWidget'
+          start = text.index(marker)
+          row_start = text.index('              Row(\n', start)
+          row_end_marker = '              ),\n            ],\n          ),\n          const SizedBox(height: 12),'
+          row_end = text.index(row_end_marker, row_start)
+          segment = text[row_start:row_end + len('              ),\n')]
+          if 'FittedBox(' not in segment:
+              wrapped = segment.replace(
+                  '              Row(\n',
+                  '              FittedBox(\n                fit: BoxFit.scaleDown,\n                child: Row(\n',
+                  1,
+              )
+              wrapped = wrapped[:-len('              ),\n')] + '                ),\n              ),\n'
+              text = text[:row_start] + wrapped + text[row_end + len('              ),\n'):]
+          path.write_text(text)
           PY
-          dart format \
-            wellmate/lib/screens/women_calendar/women_companion_screen.dart \
-            wellmate/lib/screens/women_calendar/women_calendar_month_card.dart
 
-      - name: Persist source correction
+      - name: Format changed Dart sources
+        run: |
+          dart format \
+            caremate/lib/screens/women_calendar/care_women_calendar_screen.dart \
+            caremate/test/care_women_companion_experience_test.dart
+
+      - name: Persist canonical correction
         shell: bash
         run: |
           set -euo pipefail
           if git diff --quiet; then
             echo 'No source correction required.'
-            exit 0
+          else
+            git config user.name 'github-actions[bot]'
+            git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+            git add \
+              caremate/lib/screens/women_calendar/care_women_calendar_screen.dart \
+              caremate/test/care_women_companion_experience_test.dart
+            git commit -m 'fix(caremate): make spouse dashboard narrow-screen safe'
+            git push origin HEAD:feat/women-companion-experience
           fi
-          git config user.name 'github-actions[bot]'
-          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git add \
-            wellmate/lib/screens/women_calendar/women_companion_screen.dart \
-            wellmate/lib/screens/women_calendar/women_calendar_month_card.dart
-          git commit -m 'fix(wellmate): make embedded cycle calendar large-text safe'
-          git push origin HEAD:feat/women-companion-experience
 
       - name: Shared client checks
         working-directory: packages/lifemate_client
