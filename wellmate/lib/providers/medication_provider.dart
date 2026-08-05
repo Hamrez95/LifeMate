@@ -74,10 +74,7 @@ class MedicationProvider extends ChangeNotifier {
     if (index == -1) return;
 
     _scheduleItems = List<ScheduleItemModel>.of(_scheduleItems)
-      ..[index] = _scheduleItems[index].copyWith(
-        isDone: true,
-        status: 'taken',
-      );
+      ..[index] = _scheduleItems[index].copyWith(isDone: true, status: 'taken');
     notifyListeners();
   }
 }

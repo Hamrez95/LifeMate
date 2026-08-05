@@ -118,9 +118,7 @@ Future<void> _pumpHeader(
       ],
       child: MaterialApp(
         locale: const Locale('fa'),
-        home: Scaffold(
-          body: WellMateAppHeader(onProfileTap: () {}),
-        ),
+        home: Scaffold(body: WellMateAppHeader(onProfileTap: () {})),
       ),
     ),
   );
@@ -152,10 +150,10 @@ ScheduleItemModel _item({
 
 class _FakeLifeMateApiClient extends LifeMateApiClient {
   _FakeLifeMateApiClient()
-      : super(
-          baseUri: Uri.parse('https://example.invalid'),
-          accessToken: () => 'test-token',
-        );
+    : super(
+        baseUri: Uri.parse('https://example.invalid'),
+        accessToken: () => 'test-token',
+      );
 
   @override
   Future<Map<String, dynamic>> getCurrentProfile() async => const {
