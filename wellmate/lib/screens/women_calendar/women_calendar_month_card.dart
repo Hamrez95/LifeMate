@@ -7,10 +7,12 @@ import 'package:shamsi_date/shamsi_date.dart';
 import '../../core/theme/app_style.dart';
 import '../../core/utils/persian_date_utils.dart';
 
-const _periodColor = Color(0xFFFF5B72);
-const _postPeriodColor = Color(0xFFB99ADE);
-const _cycleColor = Color(0xFF28C4BF);
-const _prePeriodColor = Color(0xFFFFB02E);
+const _periodColor = Color(0xFFF45B78);
+const _follicularColor = Color(0xFF9B7BD4);
+const _fertileColor = Color(0xFF39BDB3);
+const _ovulationColor = Color(0xFF2A91D8);
+const _lutealColor = Color(0xFFF3B24C);
+const _pmsColor = Color(0xFFE48166);
 const _cycleTrackColor = Color(0xFFE9EDF1);
 
 class WomenCalendarMonthCard extends StatefulWidget {
@@ -78,48 +80,13 @@ class _WomenCalendarMonthCardState extends State<WomenCalendarMonthCard> {
             const _CycleOverviewEmpty(),
           const SizedBox(height: 18),
           const Divider(height: 1, color: Color(0xFFF0F2F5)),
-          const SizedBox(height: 14),
-          Directionality(
-            textDirection: isPersian
-                ? TextDirection.rtl
-                : TextDirection.ltr,
-            child: Row(
-              children: [
-                IconButton(
-                  tooltip: isPersian ? 'ماه قبل' : 'Previous month',
-                  onPressed: () => _moveMonth(context, -1),
-                  icon: Icon(
-                    isPersian
-                        ? Icons.chevron_right_rounded
-                        : Icons.chevron_left_rounded,
-                    textDirection: TextDirection.ltr,
-                  ),
-                ),
-                Expanded(
-                  child: Text(
-                    formatAppMonth(context, _focusedDate),
-                    key: const ValueKey('women-calendar-month-title'),
-                    textAlign: TextAlign.center,
-                    style: const TextStyle(
-                      fontSize: 17,
-                      fontWeight: FontWeight.w900,
-                    ),
-                  ),
-                ),
-                IconButton(
-                  tooltip: isPersian ? 'ماه بعد' : 'Next month',
-                  onPressed: () => _moveMonth(context, 1),
-                  icon: Icon(
-                    isPersian
-                        ? Icons.chevron_left_rounded
-                        : Icons.chevron_right_rounded,
-                    textDirection: TextDirection.ltr,
-                  ),
-                ),
-              ],
-            ),
+          const SizedBox(height: 12),
+          _MonthHeader(
+            focusedDate: _focusedDate,
+            onPrevious: () => _moveMonth(context, -1),
+            onNext: () => _moveMonth(context, 1),
           ),
-          const SizedBox(height: 6),
+          const SizedBox(height: 8),
           Row(
             children: [
               for (final label in weekdayLabels)
@@ -129,7 +96,7 @@ class _WomenCalendarMonthCardState extends State<WomenCalendarMonthCard> {
                       label,
                       style: const TextStyle(
                         color: AppColors.textSecondary,
-                        fontWeight: FontWeight.w700,
+                        fontWeight: FontWeight.w800,
                       ),
                     ),
                   ),
@@ -143,7 +110,7 @@ class _WomenCalendarMonthCardState extends State<WomenCalendarMonthCard> {
             physics: const NeverScrollableScrollPhysics(),
             gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
               crossAxisCount: 7,
-              mainAxisExtent: 52,
+              mainAxisExtent: 53,
               crossAxisSpacing: 4,
               mainAxisSpacing: 4,
             ),
@@ -154,48 +121,45 @@ class _WomenCalendarMonthCardState extends State<WomenCalendarMonthCard> {
                 Duration(days: index - leadingEmptyCells),
               );
               final actualBleeding = _isRecordedBleedingDay(date);
-              final estimatedBleeding =
-                  !actualBleeding && estimate?.isEstimatedPeriodDay(date) == true;
-              final phase = _phaseForDate(date, estimate);
+              final phase = estimate?.phaseForDate(date);
+              final predictedPeriod =
+                  !actualBleeding && phase == WomenCyclePhase.period;
               final isToday = _sameDay(date, DateTime.now());
               final dayNumber = isPersian
                   ? Jalali.fromDateTime(date).day
                   : date.day;
+              final visual = _phaseVisual(phase);
+              final background = actualBleeding
+                  ? const Color(0xFFFFD4DF)
+                  : predictedPeriod
+                  ? const Color(0xFFFFEEF3)
+                  : visual.background;
               final foreground = actualBleeding
                   ? const Color(0xFFB52E55)
-                  : estimatedBleeding
+                  : predictedPeriod
                   ? const Color(0xFFD3466B)
-                  : AppColors.textPrimary;
+                  : visual.foreground;
               final statusLabel = actualBleeding
                   ? (isPersian
                         ? 'روز ثبت‌شده خون‌ریزی'
                         : 'Recorded bleeding day')
-                  : estimatedBleeding
-                  ? (isPersian
-                        ? 'روز تخمینی دوره'
-                        : 'Estimated period day')
-                  : phase == WomenCalendarPhase.prePeriod
-                  ? (isPersian
-                        ? 'نزدیک دوره تخمینی'
-                        : 'Estimated pre-period day')
-                  : '';
+                  : phase == null
+                  ? ''
+                  : '${visual.label} ${isPersian ? 'تخمینی' : 'estimated'}';
 
               return Semantics(
                 label: [
                   formatAppDate(context, date),
                   if (statusLabel.isNotEmpty) statusLabel,
                 ].join('، '),
-                child: Container(
+                child: AnimatedContainer(
+                  duration: const Duration(milliseconds: 220),
                   decoration: BoxDecoration(
-                    color: actualBleeding
-                        ? const Color(0xFFFFD2DF)
-                        : estimatedBleeding
-                        ? const Color(0xFFFFEEF3)
-                        : const Color(0xFFF8F9FB),
-                    borderRadius: BorderRadius.circular(13),
+                    color: background,
+                    borderRadius: BorderRadius.circular(14),
                     border: Border.all(
-                      color: isToday ? _periodColor : Colors.transparent,
-                      width: isToday ? 1.6 : 1,
+                      color: isToday ? const Color(0xFF20B98A) : Colors.white,
+                      width: isToday ? 1.8 : 1,
                     ),
                   ),
                   child: Column(
@@ -206,19 +170,13 @@ class _WomenCalendarMonthCardState extends State<WomenCalendarMonthCard> {
                         maxLines: 1,
                         style: TextStyle(
                           color: foreground,
-                          fontWeight: FontWeight.w800,
+                          fontWeight: FontWeight.w900,
                         ),
                       ),
-                      const SizedBox(height: 5),
-                      Container(
-                        width: actualBleeding || estimatedBleeding ? 8 : 6,
-                        height: actualBleeding || estimatedBleeding ? 8 : 6,
-                        decoration: BoxDecoration(
-                          color: actualBleeding || estimatedBleeding
-                              ? _periodColor
-                              : _phaseColor(phase).withValues(alpha: 0.8),
-                          shape: BoxShape.circle,
-                        ),
+                      const SizedBox(height: 4),
+                      _DayPhaseMarker(
+                        phase: phase,
+                        actualBleeding: actualBleeding,
                       ),
                     ],
                   ),
@@ -228,6 +186,16 @@ class _WomenCalendarMonthCardState extends State<WomenCalendarMonthCard> {
           ),
           const SizedBox(height: 14),
           const _CalendarLegend(),
+          const SizedBox(height: 10),
+          const Text(
+            'این فازها بر پایه طول چرخه ثبت‌شده تخمین زده می‌شوند و برای تشخیص پزشکی یا پیشگیری از بارداری مناسب نیستند.',
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              fontSize: 10.5,
+              height: 1.5,
+              color: AppColors.textSecondary,
+            ),
+          ),
         ],
       ),
     );
@@ -272,6 +240,98 @@ class _WomenCalendarMonthCardState extends State<WomenCalendarMonthCard> {
   }
 }
 
+class _MonthHeader extends StatelessWidget {
+  const _MonthHeader({
+    required this.focusedDate,
+    required this.onPrevious,
+    required this.onNext,
+  });
+
+  final DateTime focusedDate;
+  final VoidCallback onPrevious;
+  final VoidCallback onNext;
+
+  @override
+  Widget build(BuildContext context) {
+    final isPersian = usesPersianCalendar(context);
+    return Directionality(
+      textDirection: isPersian ? TextDirection.rtl : TextDirection.ltr,
+      child: Row(
+        children: [
+          IconButton.filledTonal(
+            tooltip: isPersian ? 'ماه قبل' : 'Previous month',
+            onPressed: onPrevious,
+            icon: Icon(
+              isPersian
+                  ? Icons.chevron_right_rounded
+                  : Icons.chevron_left_rounded,
+              textDirection: TextDirection.ltr,
+            ),
+          ),
+          Expanded(
+            child: Text(
+              formatAppMonth(context, focusedDate),
+              key: const ValueKey('women-calendar-month-title'),
+              textAlign: TextAlign.center,
+              style: const TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.w900,
+              ),
+            ),
+          ),
+          IconButton.filledTonal(
+            tooltip: isPersian ? 'ماه بعد' : 'Next month',
+            onPressed: onNext,
+            icon: Icon(
+              isPersian
+                  ? Icons.chevron_left_rounded
+                  : Icons.chevron_right_rounded,
+              textDirection: TextDirection.ltr,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _DayPhaseMarker extends StatelessWidget {
+  const _DayPhaseMarker({required this.phase, required this.actualBleeding});
+
+  final WomenCyclePhase? phase;
+  final bool actualBleeding;
+
+  @override
+  Widget build(BuildContext context) {
+    if (actualBleeding) {
+      return const Icon(Icons.water_drop_rounded, size: 11, color: _periodColor);
+    }
+    final visual = _phaseVisual(phase);
+    if (phase == WomenCyclePhase.ovulation) {
+      return Container(
+        width: 12,
+        height: 12,
+        decoration: BoxDecoration(
+          color: visual.color,
+          shape: BoxShape.circle,
+          border: Border.all(color: Colors.white, width: 2),
+          boxShadow: [
+            BoxShadow(
+              color: visual.color.withValues(alpha: 0.28),
+              blurRadius: 5,
+            ),
+          ],
+        ),
+      );
+    }
+    return Container(
+      width: 7,
+      height: 7,
+      decoration: BoxDecoration(color: visual.color, shape: BoxShape.circle),
+    );
+  }
+}
+
 class _CycleOverview extends StatelessWidget {
   const _CycleOverview({
     required this.estimate,
@@ -284,21 +344,13 @@ class _CycleOverview extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final phase = recordedToday
-        ? WomenCalendarPhase.period
-        : estimate.phase;
-    final phaseLabel = recordedToday
-        ? 'دوره ثبت‌شده'
-        : switch (phase) {
-            WomenCalendarPhase.period => 'دوره تخمینی',
-            WomenCalendarPhase.postPeriod => 'روزهای پس از دوره',
-            WomenCalendarPhase.cycle => 'میانه چرخه',
-            WomenCalendarPhase.prePeriod => 'نزدیک دوره بعدی',
-          };
+        ? WomenCyclePhase.period
+        : estimate.detailedPhase;
+    final visual = _phaseVisual(phase);
+    final phaseLabel = recordedToday ? 'دوره ثبت‌شده' : visual.label;
     final helperText = recordedToday
         ? 'اطلاعات امروز بر اساس دوره‌ای است که ثبت کرده‌اید.'
-        : phase == WomenCalendarPhase.period
-        ? 'امروز در بازه تخمینی دوره قرار دارد.'
-        : 'شروع دوره بعدی حدود ${localizeDigits(context, estimate.daysUntilNextPeriod)} روز دیگر تخمین زده می‌شود.';
+        : _phaseHelper(context, estimate, phase);
 
     return Column(
       key: const ValueKey('women-calendar-cycle-ring'),
@@ -319,18 +371,13 @@ class _CycleOverview extends StatelessWidget {
                   children: [
                     CustomPaint(
                       painter: _CycleRingPainter(
-                        cycleDay: estimate.cycleDay,
-                        cycleLength: estimate.cycleLength,
-                        periodLength: estimate.periodLength,
-                        dayLabel: localizeDigits(
-                          context,
-                          estimate.cycleDay,
-                        ),
+                        estimate: estimate,
+                        dayLabel: localizeDigits(context, estimate.cycleDay),
                       ),
                     ),
                     Center(
                       child: Padding(
-                        padding: EdgeInsets.all(diameter * 0.25),
+                        padding: EdgeInsets.all(diameter * 0.245),
                         child: Column(
                           mainAxisSize: MainAxisSize.min,
                           children: [
@@ -342,7 +389,9 @@ class _CycleOverview extends StatelessWidget {
                                 fontWeight: FontWeight.w700,
                               ),
                             ),
-                            const SizedBox(height: 10),
+                            const SizedBox(height: 8),
+                            Icon(visual.icon, color: visual.color, size: 27),
+                            const SizedBox(height: 7),
                             FittedBox(
                               fit: BoxFit.scaleDown,
                               child: Text(
@@ -353,20 +402,20 @@ class _CycleOverview extends StatelessWidget {
                                 textAlign: TextAlign.center,
                                 maxLines: 1,
                                 style: const TextStyle(
-                                  fontSize: 21,
+                                  fontSize: 20,
                                   fontWeight: FontWeight.w900,
                                   color: AppColors.textPrimary,
                                 ),
                               ),
                             ),
-                            const SizedBox(height: 10),
+                            const SizedBox(height: 9),
                             Container(
                               padding: const EdgeInsets.symmetric(
-                                horizontal: 12,
-                                vertical: 7,
+                                horizontal: 11,
+                                vertical: 6,
                               ),
                               decoration: BoxDecoration(
-                                color: _phaseColor(phase).withValues(alpha: 0.12),
+                                color: visual.color.withValues(alpha: 0.12),
                                 borderRadius: BorderRadius.circular(999),
                               ),
                               child: Text(
@@ -376,8 +425,8 @@ class _CycleOverview extends StatelessWidget {
                                 ),
                                 maxLines: 1,
                                 style: TextStyle(
-                                  color: _phaseColor(phase),
-                                  fontWeight: FontWeight.w800,
+                                  color: visual.color,
+                                  fontWeight: FontWeight.w900,
                                 ),
                               ),
                             ),
@@ -447,25 +496,20 @@ class _CycleOverviewEmpty extends StatelessWidget {
 }
 
 class _CycleRingPainter extends CustomPainter {
-  const _CycleRingPainter({
-    required this.cycleDay,
-    required this.cycleLength,
-    required this.periodLength,
-    required this.dayLabel,
-  });
+  const _CycleRingPainter({required this.estimate, required this.dayLabel});
 
-  final int cycleDay;
-  final int cycleLength;
-  final int periodLength;
+  final WomenCalendarEstimate estimate;
   final String dayLabel;
 
   @override
   void paint(Canvas canvas, Size size) {
-    final strokeWidth = size.width * 0.075;
-    final rect = Offset.zero & size;
-    final ringRect = rect.deflate(strokeWidth * 1.35);
+    final strokeWidth = size.width * 0.073;
+    final center = size.center(Offset.zero);
+    final ringRect = Rect.fromCircle(
+      center: center,
+      radius: size.width / 2 - strokeWidth * 1.45,
+    );
     const startAngle = -math.pi / 2;
-    const gap = 0.028;
 
     final trackPaint = Paint()
       ..color = _cycleTrackColor
@@ -474,112 +518,89 @@ class _CycleRingPainter extends CustomPainter {
       ..strokeCap = StrokeCap.round;
     canvas.drawArc(ringRect, 0, math.pi * 2, false, trackPaint);
 
-    final postDays = math
-        .min(4, math.max(1, cycleLength - periodLength - 6))
-        .toInt();
-    final preDays = math
-        .min(
-          5,
-          math.max(1, cycleLength - periodLength - postDays - 1),
-        )
-        .toInt();
-    final cycleDays = math
-        .max(1, cycleLength - periodLength - postDays - preDays)
-        .toInt();
-    final segments = <({int days, Color color})>[
-      (days: periodLength, color: _periodColor),
-      (days: postDays, color: _postPeriodColor),
-      (days: cycleDays, color: _cycleColor),
-      (days: preDays, color: _prePeriodColor),
+    final segments = <_CycleSegment>[
+      _CycleSegment(1, estimate.periodLength, _periodColor),
+      _CycleSegment(
+        estimate.periodLength + 1,
+        estimate.fertileWindowStartDay - 1,
+        _follicularColor,
+      ),
+      _CycleSegment(
+        estimate.fertileWindowStartDay,
+        estimate.ovulationDay - 1,
+        _fertileColor,
+      ),
+      _CycleSegment(
+        estimate.ovulationDay,
+        estimate.ovulationDay,
+        _ovulationColor,
+      ),
+      _CycleSegment(
+        estimate.ovulationDay + 1,
+        estimate.fertileWindowEndDay,
+        _fertileColor,
+      ),
+      _CycleSegment(
+        estimate.fertileWindowEndDay + 1,
+        estimate.pmsStartDay - 1,
+        _lutealColor,
+      ),
+      _CycleSegment(
+        estimate.pmsStartDay,
+        estimate.cycleLength,
+        _pmsColor,
+      ),
     ];
 
-    var cursor = startAngle;
     for (final segment in segments) {
-      final sweep = math.pi * 2 * segment.days / cycleLength;
+      if (segment.endDay < segment.startDay) continue;
+      final start = startAngle +
+          ((segment.startDay - 1) / estimate.cycleLength) * math.pi * 2;
+      final fullSweep =
+          ((segment.endDay - segment.startDay + 1) / estimate.cycleLength) *
+          math.pi *
+          2;
+      final gap = math.min(0.045, fullSweep * 0.18);
       final paint = Paint()
         ..color = segment.color
         ..style = PaintingStyle.stroke
         ..strokeWidth = strokeWidth
         ..strokeCap = StrokeCap.round;
-      canvas.drawArc(
-        ringRect,
-        cursor + gap,
-        math.max(0.01, sweep - (gap * 2)).toDouble(),
-        false,
-        paint,
-      );
-      cursor += sweep;
+      canvas.drawArc(ringRect, start + gap / 2, fullSweep - gap, false, paint);
     }
 
-    final radius = ringRect.width / 2;
-    final center = ringRect.center;
-    for (var day = 1; day <= cycleLength; day++) {
-      final angle = startAngle + (math.pi * 2 * (day - 0.5) / cycleLength);
-      final point = Offset(
-        center.dx + math.cos(angle) * radius,
-        center.dy + math.sin(angle) * radius,
-      );
-      canvas.drawCircle(
-        point,
-        math.max(1.4, strokeWidth * 0.09).toDouble(),
-        Paint()..color = Colors.white.withValues(alpha: 0.9),
-      );
-    }
-
-    final markerAngle =
-        startAngle + (math.pi * 2 * (cycleDay - 0.5) / cycleLength);
+    final markerAngle = startAngle +
+        ((estimate.cycleDay - 0.5) / estimate.cycleLength) * math.pi * 2;
+    final markerRadius = ringRect.width / 2;
     final markerCenter = Offset(
-      center.dx + math.cos(markerAngle) * radius,
-      center.dy + math.sin(markerAngle) * radius,
+      center.dx + math.cos(markerAngle) * markerRadius,
+      center.dy + math.sin(markerAngle) * markerRadius,
     );
-    final markerColor = _phaseColorForDay(
-      cycleDay: cycleDay,
-      cycleLength: cycleLength,
-      periodLength: periodLength,
-      postDays: postDays,
-      preDays: preDays,
-    );
-    final markerRadius = strokeWidth * 1.08;
-    canvas.drawCircle(
-      markerCenter.translate(0, 3),
-      markerRadius + 3,
-      Paint()..color = Colors.black.withValues(alpha: 0.08),
-    );
-    canvas.drawCircle(markerCenter, markerRadius + 2, Paint()..color = Colors.white);
+    final markerColor = _phaseVisual(estimate.detailedPhase).color;
+    final markerRadiusValue = strokeWidth * 0.88;
     canvas.drawCircle(
       markerCenter,
-      markerRadius,
-      Paint()
-        ..color = markerColor
-        ..style = PaintingStyle.stroke
-        ..strokeWidth = 3,
+      markerRadiusValue + 4,
+      Paint()..color = Colors.white,
+    );
+    canvas.drawCircle(
+      markerCenter,
+      markerRadiusValue,
+      Paint()..color = markerColor,
     );
 
     final textPainter = TextPainter(
       text: TextSpan(
-        children: [
-          const TextSpan(
-            text: 'روز\n',
-            style: TextStyle(
-              color: AppColors.textSecondary,
-              fontSize: 9,
-              height: 1.1,
-            ),
-          ),
-          TextSpan(
-            text: dayLabel,
-            style: const TextStyle(
-              color: AppColors.textPrimary,
-              fontSize: 15,
-              fontWeight: FontWeight.w900,
-              height: 1.1,
-            ),
-          ),
-        ],
+        text: dayLabel,
+        style: TextStyle(
+          color: Colors.white,
+          fontSize: markerRadiusValue * 0.85,
+          fontWeight: FontWeight.w900,
+        ),
       ),
-      textAlign: TextAlign.center,
       textDirection: TextDirection.rtl,
-    )..layout(maxWidth: markerRadius * 1.7);
+      textAlign: TextAlign.center,
+    )..layout(maxWidth: markerRadiusValue * 1.8);
     textPainter.paint(
       canvas,
       markerCenter - Offset(textPainter.width / 2, textPainter.height / 2),
@@ -588,10 +609,18 @@ class _CycleRingPainter extends CustomPainter {
 
   @override
   bool shouldRepaint(covariant _CycleRingPainter oldDelegate) =>
-      oldDelegate.cycleDay != cycleDay ||
-      oldDelegate.cycleLength != cycleLength ||
-      oldDelegate.periodLength != periodLength ||
+      oldDelegate.estimate.cycleDay != estimate.cycleDay ||
+      oldDelegate.estimate.cycleLength != estimate.cycleLength ||
+      oldDelegate.estimate.periodLength != estimate.periodLength ||
       oldDelegate.dayLabel != dayLabel;
+}
+
+class _CycleSegment {
+  const _CycleSegment(this.startDay, this.endDay, this.color);
+
+  final int startDay;
+  final int endDay;
+  final Color color;
 }
 
 class _PhaseLegend extends StatelessWidget {
@@ -599,15 +628,17 @@ class _PhaseLegend extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return const Wrap(
+    return Wrap(
       alignment: WrapAlignment.center,
-      spacing: 14,
-      runSpacing: 9,
-      children: [
-        _LegendItem(color: _periodColor, label: 'دوره'),
-        _LegendItem(color: _postPeriodColor, label: 'پس از دوره'),
-        _LegendItem(color: _cycleColor, label: 'میانه چرخه'),
-        _LegendItem(color: _prePeriodColor, label: 'نزدیک دوره'),
+      spacing: 8,
+      runSpacing: 8,
+      children: const [
+        _LegendChip(label: 'قاعدگی', color: _periodColor),
+        _LegendChip(label: 'فولیکولار', color: _follicularColor),
+        _LegendChip(label: 'باروری', color: _fertileColor),
+        _LegendChip(label: 'تخمک‌گذاری', color: _ovulationColor),
+        _LegendChip(label: 'لوتئال', color: _lutealColor),
+        _LegendChip(label: 'PMS', color: _pmsColor),
       ],
     );
   }
@@ -618,87 +649,145 @@ class _CalendarLegend extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return const Wrap(
+    return Wrap(
       alignment: WrapAlignment.center,
-      spacing: 14,
+      spacing: 8,
       runSpacing: 8,
-      children: [
-        _LegendItem(color: _periodColor, label: 'روزهای دوره'),
-        _LegendItem(color: _cycleColor, label: 'میانه چرخه'),
-        _LegendItem(color: _prePeriodColor, label: 'نزدیک دوره'),
+      children: const [
+        _LegendChip(label: 'ثبت‌شده', color: Color(0xFFB52E55)),
+        _LegendChip(label: 'قاعدگی تخمینی', color: _periodColor),
+        _LegendChip(label: 'باروری', color: _fertileColor),
+        _LegendChip(label: 'تخمک‌گذاری', color: _ovulationColor),
+        _LegendChip(label: 'PMS', color: _pmsColor),
       ],
     );
   }
 }
 
-class _LegendItem extends StatelessWidget {
-  const _LegendItem({required this.color, required this.label});
+class _LegendChip extends StatelessWidget {
+  const _LegendChip({required this.label, required this.color});
 
-  final Color color;
   final String label;
+  final Color color;
 
   @override
-  Widget build(BuildContext context) => Row(
-    mainAxisSize: MainAxisSize.min,
-    children: [
-      Container(
-        width: 10,
-        height: 10,
-        decoration: BoxDecoration(color: color, shape: BoxShape.circle),
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 6),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.09),
+        borderRadius: BorderRadius.circular(999),
       ),
-      const SizedBox(width: 6),
-      Text(
-        label,
-        style: const TextStyle(
-          color: AppColors.textSecondary,
-          fontSize: 12,
-          fontWeight: FontWeight.w700,
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+            width: 8,
+            height: 8,
+            decoration: BoxDecoration(color: color, shape: BoxShape.circle),
+          ),
+          const SizedBox(width: 6),
+          Text(
+            label,
+            style: TextStyle(
+              color: color,
+              fontSize: 10.5,
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _PhaseVisual {
+  const _PhaseVisual({
+    required this.label,
+    required this.color,
+    required this.background,
+    required this.foreground,
+    required this.icon,
+  });
+
+  final String label;
+  final Color color;
+  final Color background;
+  final Color foreground;
+  final IconData icon;
+}
+
+_PhaseVisual _phaseVisual(WomenCyclePhase? phase) => switch (phase) {
+      WomenCyclePhase.period => const _PhaseVisual(
+          label: 'قاعدگی',
+          color: _periodColor,
+          background: Color(0xFFFFF0F4),
+          foreground: Color(0xFFB52E55),
+          icon: Icons.water_drop_rounded,
         ),
-      ),
-    ],
-  );
-}
+      WomenCyclePhase.follicular => const _PhaseVisual(
+          label: 'فاز فولیکولار',
+          color: _follicularColor,
+          background: Color(0xFFF5F1FC),
+          foreground: Color(0xFF7352A5),
+          icon: Icons.auto_awesome_rounded,
+        ),
+      WomenCyclePhase.fertile => const _PhaseVisual(
+          label: 'پنجره باروری تخمینی',
+          color: _fertileColor,
+          background: Color(0xFFECFAF8),
+          foreground: Color(0xFF1C827B),
+          icon: Icons.spa_rounded,
+        ),
+      WomenCyclePhase.ovulation => const _PhaseVisual(
+          label: 'روز تخمک‌گذاری تخمینی',
+          color: _ovulationColor,
+          background: Color(0xFFEDF7FD),
+          foreground: Color(0xFF17699E),
+          icon: Icons.blur_circular_rounded,
+        ),
+      WomenCyclePhase.luteal => const _PhaseVisual(
+          label: 'فاز لوتئال',
+          color: _lutealColor,
+          background: Color(0xFFFFF8EA),
+          foreground: Color(0xFF9B6D19),
+          icon: Icons.wb_sunny_outlined,
+        ),
+      WomenCyclePhase.pms => const _PhaseVisual(
+          label: 'PMS تخمینی',
+          color: _pmsColor,
+          background: Color(0xFFFFF1ED),
+          foreground: Color(0xFFA74D39),
+          icon: Icons.favorite_border_rounded,
+        ),
+      null => const _PhaseVisual(
+          label: 'بدون تخمین',
+          color: Color(0xFFB8C0C8),
+          background: Color(0xFFF8F9FB),
+          foreground: AppColors.textPrimary,
+          icon: Icons.circle_outlined,
+        ),
+    };
 
-WomenCalendarPhase? _phaseForDate(
-  DateTime date,
-  WomenCalendarEstimate? estimate,
-) {
-  if (estimate == null) return null;
-  final difference = _dateOnly(date).difference(estimate.cycleStart).inDays;
-  final normalized =
-      ((difference % estimate.cycleLength) + estimate.cycleLength) %
-      estimate.cycleLength;
-  final cycleDay = normalized + 1;
-  if (cycleDay <= estimate.periodLength) return WomenCalendarPhase.period;
-  if (cycleDay <= estimate.periodLength + 4) {
-    return WomenCalendarPhase.postPeriod;
-  }
-  if (estimate.cycleLength - cycleDay < 5) {
-    return WomenCalendarPhase.prePeriod;
-  }
-  return WomenCalendarPhase.cycle;
-}
-
-Color _phaseColor(WomenCalendarPhase? phase) => switch (phase) {
-  WomenCalendarPhase.period => _periodColor,
-  WomenCalendarPhase.postPeriod => _postPeriodColor,
-  WomenCalendarPhase.cycle => _cycleColor,
-  WomenCalendarPhase.prePeriod => _prePeriodColor,
-  null => const Color(0xFFCCD3DA),
-};
-
-Color _phaseColorForDay({
-  required int cycleDay,
-  required int cycleLength,
-  required int periodLength,
-  required int postDays,
-  required int preDays,
-}) {
-  if (cycleDay <= periodLength) return _periodColor;
-  if (cycleDay <= periodLength + postDays) return _postPeriodColor;
-  if (cycleDay > cycleLength - preDays) return _prePeriodColor;
-  return _cycleColor;
-}
+String _phaseHelper(
+  BuildContext context,
+  WomenCalendarEstimate estimate,
+  WomenCyclePhase phase,
+) =>
+    switch (phase) {
+      WomenCyclePhase.period =>
+        'امروز در بازه تخمینی قاعدگی قرار دارد؛ ثبت واقعی شما همیشه اولویت دارد.',
+      WomenCyclePhase.follicular =>
+        'فاز فولیکولار تخمینی است؛ انرژی و علائم هر فرد می‌تواند متفاوت باشد.',
+      WomenCyclePhase.fertile =>
+        'پنجره باروری فقط بر پایه طول چرخه تخمین زده شده و روش پیشگیری محسوب نمی‌شود.',
+      WomenCyclePhase.ovulation =>
+        'روز تخمک‌گذاری تخمینی است و بدون داده یا آزمایش پزشکی قطعی نیست.',
+      WomenCyclePhase.luteal =>
+        'فاز لوتئال تخمینی تا شروع دوره بعدی ادامه دارد.',
+      WomenCyclePhase.pms =>
+        'حدود ${localizeDigits(context, estimate.daysUntilNextPeriod)} روز تا شروع دوره بعدی باقی مانده است.',
+    };
 
 DateTime _dateOnly(DateTime value) =>
     DateTime(value.year, value.month, value.day);

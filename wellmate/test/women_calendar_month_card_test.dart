@@ -9,7 +9,7 @@ import 'package:wellmate/screens/women_calendar/women_calendar_month_card.dart';
 
 void main() {
   testWidgets(
-    'renders cycle ring, Jalali calendar and remains usable on small large-text screens',
+    'renders full cycle phases, Jalali calendar and remains usable on small large-text screens',
     (tester) async {
       final estimate = WomenCalendarEstimate.calculate(
         lastPeriodStart: DateTime(2026, 8, 1),
@@ -44,6 +44,13 @@ void main() {
       );
       expect(cycleDay.data, contains('۴'));
       expect(RegExp(r'[0-9]').hasMatch(cycleDay.data!), isFalse);
+
+      expect(find.text('قاعدگی'), findsWidgets);
+      expect(find.text('فولیکولار'), findsOneWidget);
+      expect(find.text('باروری'), findsWidgets);
+      expect(find.text('تخمک‌گذاری'), findsWidgets);
+      expect(find.text('لوتئال'), findsOneWidget);
+      expect(find.text('PMS'), findsOneWidget);
 
       final title = tester.widget<Text>(
         find.byKey(const ValueKey('women-calendar-month-title')),
