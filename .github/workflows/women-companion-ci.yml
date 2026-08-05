@@ -6,6 +6,7 @@ on:
       - feat/women-companion-experience
   pull_request:
     branches:
+      - main
       - feat/women-calendar-care-access-notifications
 
 permissions:
@@ -26,15 +27,52 @@ jobs:
           fetch-depth: 0
           show-progress: false
 
-      - name: Merge current women-calendar base
+      - name: Integrate current main and normalize stacked source
         shell: bash
         run: |
           set -euo pipefail
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git fetch origin feat/women-calendar-care-access-notifications
           before="$(git rev-parse HEAD)"
-          git merge -X ours --no-edit origin/feat/women-calendar-care-access-notifications
+          git fetch origin main
+          git merge -X ours --no-edit origin/main
+
+          python3 - <<'PY'
+          from pathlib import Path
+
+          path = Path('supabase/functions/lifemate-api/women_calendar.ts')
+          text = path.read_text()
+          needle = '''    const profile = mapProfile(profiles[0]);
+    const patientProfile = patientProfiles[0];
+    return {
+'''
+          replacement = '''    const profile = mapProfile(profiles[0]);
+    const dailyCheckIn = profile.dailyCheckIn as Record<string, unknown> | null;
+    const sharedDailySummary = dailyCheckIn?.shareSummary === true
+      ? {
+        date: dailyCheckIn.date,
+        mood: dailyCheckIn.mood,
+        energy: dailyCheckIn.energy,
+        supportNeed: dailyCheckIn.supportNeed,
+      }
+      : null;
+    const patientProfile = patientProfiles[0];
+    return {
+'''
+          if needle in text:
+              path.write_text(text.replace(needle, replacement, 1))
+          elif 'const sharedDailySummary =' not in text:
+              raise SystemExit('Unable to normalize sharedDailySummary after stacked merge')
+          PY
+
+          duplicate_versions="$(find supabase/migrations -maxdepth 1 -type f -name '*.sql' -printf '%f\n' | cut -c1-14 | sort | uniq -d)"
+          test -z "$duplicate_versions"
+
+          if ! git diff --quiet; then
+            deno fmt supabase/functions/lifemate-api/women_calendar.ts
+            git add supabase/functions/lifemate-api/women_calendar.ts
+            git commit -m 'fix(edge): preserve consent-scoped daily summary after stack merge'
+          fi
           after="$(git rev-parse HEAD)"
           if [ "$before" != "$after" ]; then
             git push origin HEAD:feat/women-companion-experience
