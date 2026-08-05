@@ -12,3 +12,4 @@ export 'src/reminder_lead_time.dart';
 export 'src/session_gate.dart' hide LifeMateSessionGate;
 export 'src/session_gate_secure.dart';
 export 'src/women_calendar.dart';
+export 'src/women_companion_api.dart';
