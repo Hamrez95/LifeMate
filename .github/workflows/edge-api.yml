@@ -127,9 +127,12 @@ jobs:
           check 'Private profile-photo path migration is included.' \
             grep -Fq 'profile_photo_path character varying(512)' \
               ../../migrations/20260805023000_add_profile_photo_path.sql
+          check 'Legacy daily check-in migration is included.' \
+            grep -Fq 'daily_check_in_date date' \
+              ../../migrations/20260805224500_add_women_calendar_daily_checkin.sql
           check 'Private daily women logs migration is included.' \
             grep -Fq 'share_summary_with_companion boolean not null default false' \
-              ../../migrations/20260805224500_add_women_daily_companion_logs.sql
+              ../../migrations/20260805230000_add_women_daily_companion_logs.sql
           check_absent \
             'Profile photos must never use a public bucket.' \
             grep -R --line-number -E 'profile-photo.*public.*true' \
@@ -199,7 +202,8 @@ jobs:
             supabase/migrations/20260804213000_add_profile_avatar_key.sql \
             supabase/migrations/20260805013000_add_reminder_lead_times.sql \
             supabase/migrations/20260805023000_add_profile_photo_path.sql \
-            supabase/migrations/20260805224500_add_women_daily_companion_logs.sql
+            supabase/migrations/20260805224500_add_women_calendar_daily_checkin.sql \
+            supabase/migrations/20260805230000_add_women_daily_companion_logs.sql
           do
             psql "$TEST_DATABASE_URL" --set=ON_ERROR_STOP=1 --file="$migration"
           done
