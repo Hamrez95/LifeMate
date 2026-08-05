@@ -24,9 +24,9 @@ void main() {
           child: CareMateApp(
             home: Builder(
               builder: (context) => MediaQuery(
-                data: MediaQuery.of(context).copyWith(
-                  textScaler: const TextScaler.linear(1.4),
-                ),
+                data: MediaQuery.of(
+                  context,
+                ).copyWith(textScaler: const TextScaler.linear(1.4)),
                 child: const CareEventManagementScreen(),
               ),
             ),
@@ -38,11 +38,7 @@ void main() {
       final scrollable = find.byType(Scrollable).first;
 
       Future<void> reveal(Finder target, [double delta = 280]) async {
-        await tester.scrollUntilVisible(
-          target,
-          delta,
-          scrollable: scrollable,
-        );
+        await tester.scrollUntilVisible(target, delta, scrollable: scrollable);
         await tester.pumpAndSettle();
       }
 
@@ -69,10 +65,7 @@ void main() {
       await reveal(visitAddress);
       expect(visitAddress, findsOneWidget);
 
-      final visitHeading = find.text(
-        'ویزیت‌های ثبت‌شده',
-        skipOffstage: false,
-      );
+      final visitHeading = find.text('ویزیت‌های ثبت‌شده', skipOffstage: false);
       await reveal(visitHeading, 320);
       expect(visitHeading, findsOneWidget);
 
@@ -131,7 +124,7 @@ void main() {
       await reveal(injectionHeading, 300);
       expect(injectionHeading, findsOneWidget);
 
-      final injectionCard = find.text('ویتامین B12', skipOffstage: false);
+      final injectionCard = find.text('ویتامین B۱۲', skipOffstage: false);
       await reveal(injectionCard, 180);
       expect(injectionCard, findsOneWidget);
       expect(tester.takeException(), isNull);
@@ -141,27 +134,27 @@ void main() {
 
 class _CareMateApiClient extends LifeMateApiClient {
   _CareMateApiClient()
-      : super(
-          baseUri: Uri.parse('https://example.invalid'),
-          accessToken: () => 'test-token',
-        );
+    : super(
+        baseUri: Uri.parse('https://example.invalid'),
+        accessToken: () => 'test-token',
+      );
 
   @override
   Future<Map<String, dynamic>> getCurrentUser() async => {
-        'user': {'id': 'caregiver-1'},
-        'profile': {'displayName': 'مراقب تست', 'timeZone': 'Asia/Tehran'},
-      };
+    'user': {'id': 'caregiver-1'},
+    'profile': {'displayName': 'مراقب تست', 'timeZone': 'Asia/Tehran'},
+  };
 
   @override
   Future<List<Map<String, dynamic>>> getCareRelationships() async => [
-        {
-          'id': 'relationship-1',
-          'status': 'active',
-          'patientUserId': 'patient-1',
-          'patientDisplayName': 'مامان جون',
-          'caregiverUserId': 'caregiver-1',
-        },
-      ];
+    {
+      'id': 'relationship-1',
+      'status': 'active',
+      'patientUserId': 'patient-1',
+      'patientDisplayName': 'مامان جون',
+      'caregiverUserId': 'caregiver-1',
+    },
+  ];
 
   @override
   Future<List<Map<String, dynamic>>> getCareRecipientDoseOccurrences({
@@ -169,13 +162,13 @@ class _CareMateApiClient extends LifeMateApiClient {
     required DateTime fromDate,
     required DateTime toDate,
   }) async => [
-        {
-          'id': 'dose-1',
-          'medicationName': 'متفورمین',
-          'scheduledLocalTime': '20:00',
-          'status': 'scheduled',
-        },
-      ];
+    {
+      'id': 'dose-1',
+      'medicationName': 'متفورمین',
+      'scheduledLocalTime': '20:00',
+      'status': 'scheduled',
+    },
+  ];
 
   @override
   Future<List<Map<String, dynamic>>> getCareRecipientCareEvents({
@@ -183,23 +176,23 @@ class _CareMateApiClient extends LifeMateApiClient {
     required DateTime fromDate,
     required DateTime toDate,
   }) async => [
-        {
-          'id': 'appointment-1',
-          'eventType': 'appointment',
-          'title': 'ویزیت متخصص قلب',
-          'centerName': 'مرکز درمانی الوند',
-          'addressLine': 'تهران، خیابان ولیعصر',
-          'scheduledLocalDate': '2026-08-04',
-          'scheduledLocalTime': '16:30',
-        },
-        {
-          'id': 'injection-1',
-          'eventType': 'injection',
-          'title': 'ویتامین B12',
-          'centerName': 'درمانگاه خانواده',
-          'addressLine': 'تهران، میدان ونک',
-          'scheduledLocalDate': '2026-08-05',
-          'scheduledLocalTime': '10:00',
-        },
-      ];
+    {
+      'id': 'appointment-1',
+      'eventType': 'appointment',
+      'title': 'ویزیت متخصص قلب',
+      'centerName': 'مرکز درمانی الوند',
+      'addressLine': 'تهران، خیابان ولیعصر',
+      'scheduledLocalDate': '2026-08-04',
+      'scheduledLocalTime': '16:30',
+    },
+    {
+      'id': 'injection-1',
+      'eventType': 'injection',
+      'title': 'ویتامین B12',
+      'centerName': 'درمانگاه خانواده',
+      'addressLine': 'تهران، میدان ونک',
+      'scheduledLocalDate': '2026-08-05',
+      'scheduledLocalTime': '10:00',
+    },
+  ];
 }

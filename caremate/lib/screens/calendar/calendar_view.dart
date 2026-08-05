@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:shamsi_date/shamsi_date.dart';
 import 'package:table_calendar/table_calendar.dart';
 
 import '../../core/constants/app_colors.dart';
+import '../../core/utils/persian_date_utils.dart';
 import '../../core/utils/string_extensions.dart';
 import '../../models/event_model.dart';
 
@@ -21,184 +23,356 @@ class CalendarView extends StatelessWidget {
 
   final DateTime focusedMonth;
   final DateTime selectedDate;
-  final Function(DateTime, DateTime) onDaySelected;
-  final Function(DateTime) onPageChanged;
+  final void Function(DateTime, DateTime) onDaySelected;
+  final ValueChanged<DateTime> onPageChanged;
   final GetEventTypesCallback getDayEventTypes;
   final HasOverdueEventsCallback hasOverdueEvents;
 
   @override
   Widget build(BuildContext context) {
-    final isRtl = Directionality.of(context) == TextDirection.rtl;
-    final font = Theme.of(context).textTheme.bodyMedium?.fontFamily ??
-        (isRtl ? 'Vazir' : 'Nunito');
-    final weekDays = isRtl
-        ? ['ش', 'ی', 'د', 'س', 'چ', 'پ', 'ج']
-        : ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
-    final today = _normalizeDate(DateTime.now());
-
+    final isPersian = usesPersianCalendar(context);
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16),
-      child: TableCalendar(
-        locale: isRtl ? 'fa_IR' : 'en_US',
-        firstDay: DateTime.utc(2020, 1, 1),
-        lastDay: DateTime.utc(2030, 12, 31),
-        focusedDay: focusedMonth,
-        currentDay: DateTime.now(),
-        calendarFormat: CalendarFormat.month,
-        startingDayOfWeek:
-            isRtl ? StartingDayOfWeek.saturday : StartingDayOfWeek.sunday,
-        onDaySelected: onDaySelected,
-        onPageChanged: onPageChanged,
-        selectedDayPredicate: (day) => isSameDay(selectedDate, day),
-        headerStyle: HeaderStyle(
-          formatButtonVisible: false,
-          titleCentered: true,
-          titleTextStyle: TextStyle(
-            fontFamily: font,
-            fontSize: 16,
-            fontWeight: FontWeight.bold,
-          ),
-          leftChevronIcon:
-              Icon(Icons.chevron_left, color: Colors.grey.shade700),
-          rightChevronIcon:
-              Icon(Icons.chevron_right, color: Colors.grey.shade700),
-        ),
-        calendarBuilders: CalendarBuilders(
-          dowBuilder: (context, day) {
-            final text = weekDays[day.weekday % 7];
-            return Center(
-              child: Text(
-                text,
-                style: TextStyle(
-                  fontFamily: font,
-                  color: Colors.grey.shade600,
-                  fontSize: 12,
-                ),
-              ),
-            );
-          },
-          defaultBuilder: (context, day, focusedDay) => _buildCalendarCell(
-            day: day,
-            eventTypes: getDayEventTypes(day),
-            isPastDay: day.isBefore(today),
-            isOverdue: hasOverdueEvents(day),
-            isSelected: false,
-            font: font,
-            isRtl: isRtl,
-          ),
-          todayBuilder: (context, day, focusedDay) => _buildCalendarCell(
-            day: day,
-            eventTypes: getDayEventTypes(day),
-            isPastDay: false,
-            isOverdue: false,
-            isSelected: isSameDay(day, selectedDate),
-            isToday: true,
-            font: font,
-            isRtl: isRtl,
-          ),
-          selectedBuilder: (context, day, focusedDay) => _buildCalendarCell(
-            day: day,
-            eventTypes: getDayEventTypes(day),
-            isPastDay: day.isBefore(today),
-            isOverdue: hasOverdueEvents(day),
-            isSelected: true,
-            font: font,
-            isRtl: isRtl,
-          ),
-          outsideBuilder: (context, day, focusedDay) => Center(
-            child: Text(
-              '${day.day}'.toPersianDigit(isRtl),
-              style: TextStyle(
-                fontFamily: font,
-                color: Colors.grey.shade300,
-              ),
+      child: isPersian
+          ? _PersianCalendar(
+              focusedMonth: focusedMonth,
+              selectedDate: selectedDate,
+              onDaySelected: onDaySelected,
+              onPageChanged: onPageChanged,
+              getDayEventTypes: getDayEventTypes,
+              hasOverdueEvents: hasOverdueEvents,
+            )
+          : _GregorianCalendar(
+              focusedMonth: focusedMonth,
+              selectedDate: selectedDate,
+              onDaySelected: onDaySelected,
+              onPageChanged: onPageChanged,
+              getDayEventTypes: getDayEventTypes,
+              hasOverdueEvents: hasOverdueEvents,
             ),
-          ),
-        ),
-      ),
-    );
-  }
-
-  static DateTime _normalizeDate(DateTime date) =>
-      DateTime(date.year, date.month, date.day);
-
-  Widget _buildCalendarCell({
-    required DateTime day,
-    required Set<EventType> eventTypes,
-    required bool isPastDay,
-    required bool isOverdue,
-    required bool isSelected,
-    bool isToday = false,
-    required String font,
-    required bool isRtl,
-  }) {
-    final cellColor =
-        isOverdue ? AppColors.CalBackForgotten : Colors.transparent;
-    final textColor = (isPastDay && !isSelected)
-        ? const Color.fromARGB(255, 80, 80, 80)
-        : Colors.black;
-
-    return AnimatedContainer(
-      duration: const Duration(milliseconds: 250),
-      margin: const EdgeInsets.all(4),
-      decoration: BoxDecoration(
-        color: cellColor,
-        borderRadius: BorderRadius.circular(8),
-        border: isToday && !isSelected
-            ? Border.all(color: AppColors.CalPrimary, width: 1.5)
-            : null,
-      ),
-      child: Container(
-        width: double.infinity,
-        decoration: BoxDecoration(
-          color: isSelected ? AppColors.CalPrimary : Colors.transparent,
-          borderRadius: BorderRadius.circular(8),
-        ),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            const Spacer(flex: 2),
-            Text(
-              '${day.day}'.toPersianDigit(isRtl),
-              style: TextStyle(
-                fontFamily: font,
-                color: isSelected ? Colors.white : textColor,
-              ),
-            ),
-            const Spacer(),
-            if (eventTypes.isNotEmpty) _buildEventDots(eventTypes),
-            const Spacer(flex: 2),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildEventDots(Set<EventType> eventTypes) {
-    final dots = <Widget>[];
-    if (eventTypes.contains(EventType.medicine)) {
-      dots.add(_dot(AppColors.CalFisrtDot));
-    }
-    if (eventTypes.contains(EventType.appointment) ||
-        eventTypes.contains(EventType.doctor)) {
-      dots.add(_dot(AppColors.CalSecondDot));
-    }
-    if (eventTypes.contains(EventType.injection) ||
-        eventTypes.contains(EventType.checkup)) {
-      dots.add(_dot(Colors.orangeAccent));
-    }
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.center,
-      children: dots.take(3).toList(),
-    );
-  }
-
-  Widget _dot(Color color) {
-    return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 1.5),
-      width: 5,
-      height: 5,
-      decoration: BoxDecoration(color: color, shape: BoxShape.circle),
     );
   }
 }
+
+class _PersianCalendar extends StatelessWidget {
+  const _PersianCalendar({
+    required this.focusedMonth,
+    required this.selectedDate,
+    required this.onDaySelected,
+    required this.onPageChanged,
+    required this.getDayEventTypes,
+    required this.hasOverdueEvents,
+  });
+
+  final DateTime focusedMonth;
+  final DateTime selectedDate;
+  final void Function(DateTime, DateTime) onDaySelected;
+  final ValueChanged<DateTime> onPageChanged;
+  final GetEventTypesCallback getDayEventTypes;
+  final HasOverdueEventsCallback hasOverdueEvents;
+
+  static const _weekDays = <String>['ش', 'ی', 'د', 'س', 'چ', 'پ', 'ج'];
+
+  DateTime _moveMonth(int delta) {
+    final current = Jalali.fromDateTime(focusedMonth);
+    var year = current.year;
+    var month = current.month + delta;
+    if (month < 1) {
+      year -= 1;
+      month = 12;
+    } else if (month > 12) {
+      year += 1;
+      month = 1;
+    }
+    return Jalali(year, month, 1).toDateTime();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final focused = Jalali.fromDateTime(focusedMonth);
+    final first = Jalali(focused.year, focused.month, 1);
+    final firstDate = first.toDateTime();
+    final leadingCells = (firstDate.weekday + 1) % 7;
+    final today = _dateOnly(DateTime.now());
+
+    return Column(
+      children: [
+        Directionality(
+          textDirection: TextDirection.rtl,
+          child: Row(
+            children: [
+              IconButton(
+                key: const ValueKey('caremate-previous-month'),
+                tooltip: 'ماه قبل',
+                onPressed: () => onPageChanged(_moveMonth(-1)),
+                icon: const Icon(
+                  Icons.chevron_right_rounded,
+                  textDirection: TextDirection.ltr,
+                ),
+              ),
+              Expanded(
+                child: Text(
+                  formatAppMonth(context, focusedMonth),
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(
+                    fontFamily: 'Vazir',
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ),
+              IconButton(
+                key: const ValueKey('caremate-next-month'),
+                tooltip: 'ماه بعد',
+                onPressed: () => onPageChanged(_moveMonth(1)),
+                icon: const Icon(
+                  Icons.chevron_left_rounded,
+                  textDirection: TextDirection.ltr,
+                ),
+              ),
+            ],
+          ),
+        ),
+        Row(
+          children: [
+            for (final label in _weekDays)
+              Expanded(
+                child: Center(
+                  child: Text(
+                    label,
+                    style: TextStyle(
+                      fontFamily: 'Vazir',
+                      color: Colors.grey.shade600,
+                      fontSize: 12,
+                    ),
+                  ),
+                ),
+              ),
+          ],
+        ),
+        const SizedBox(height: 6),
+        GridView.builder(
+          shrinkWrap: true,
+          physics: const NeverScrollableScrollPhysics(),
+          itemCount: leadingCells + first.monthLength,
+          gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+            crossAxisCount: 7,
+            mainAxisExtent: 42,
+          ),
+          itemBuilder: (context, index) {
+            if (index < leadingCells) return const SizedBox.shrink();
+            final dayNumber = index - leadingCells + 1;
+            final day = Jalali(
+              focused.year,
+              focused.month,
+              dayNumber,
+            ).toDateTime();
+            return _CalendarCell(
+              day: day,
+              label: '$dayNumber'.toPersianDigit(true),
+              eventTypes: getDayEventTypes(day),
+              isPastDay: _dateOnly(day).isBefore(today),
+              isOverdue: hasOverdueEvents(day),
+              isSelected: _sameDay(day, selectedDate),
+              isToday: _sameDay(day, today),
+              isPersian: true,
+              onTap: () => onDaySelected(day, day),
+            );
+          },
+        ),
+      ],
+    );
+  }
+}
+
+class _GregorianCalendar extends StatelessWidget {
+  const _GregorianCalendar({
+    required this.focusedMonth,
+    required this.selectedDate,
+    required this.onDaySelected,
+    required this.onPageChanged,
+    required this.getDayEventTypes,
+    required this.hasOverdueEvents,
+  });
+
+  final DateTime focusedMonth;
+  final DateTime selectedDate;
+  final void Function(DateTime, DateTime) onDaySelected;
+  final ValueChanged<DateTime> onPageChanged;
+  final GetEventTypesCallback getDayEventTypes;
+  final HasOverdueEventsCallback hasOverdueEvents;
+
+  @override
+  Widget build(BuildContext context) {
+    final today = _dateOnly(DateTime.now());
+    return TableCalendar(
+      locale: 'en_US',
+      firstDay: DateTime.utc(2020, 1, 1),
+      lastDay: DateTime.utc(2035, 12, 31),
+      focusedDay: focusedMonth,
+      currentDay: DateTime.now(),
+      calendarFormat: CalendarFormat.month,
+      startingDayOfWeek: StartingDayOfWeek.sunday,
+      onDaySelected: onDaySelected,
+      onPageChanged: onPageChanged,
+      selectedDayPredicate: (day) => _sameDay(selectedDate, day),
+      headerStyle: HeaderStyle(
+        formatButtonVisible: false,
+        titleCentered: true,
+        leftChevronIcon: Icon(
+          Icons.chevron_left_rounded,
+          color: Colors.grey.shade700,
+        ),
+        rightChevronIcon: Icon(
+          Icons.chevron_right_rounded,
+          color: Colors.grey.shade700,
+        ),
+      ),
+      calendarBuilders: CalendarBuilders(
+        defaultBuilder: (context, day, _) => _CalendarCell(
+          day: day,
+          label: '${day.day}',
+          eventTypes: getDayEventTypes(day),
+          isPastDay: _dateOnly(day).isBefore(today),
+          isOverdue: hasOverdueEvents(day),
+          isSelected: false,
+          isToday: false,
+          isPersian: false,
+          onTap: () => onDaySelected(day, day),
+        ),
+        todayBuilder: (context, day, _) => _CalendarCell(
+          day: day,
+          label: '${day.day}',
+          eventTypes: getDayEventTypes(day),
+          isPastDay: false,
+          isOverdue: false,
+          isSelected: _sameDay(day, selectedDate),
+          isToday: true,
+          isPersian: false,
+          onTap: () => onDaySelected(day, day),
+        ),
+        selectedBuilder: (context, day, _) => _CalendarCell(
+          day: day,
+          label: '${day.day}',
+          eventTypes: getDayEventTypes(day),
+          isPastDay: _dateOnly(day).isBefore(today),
+          isOverdue: hasOverdueEvents(day),
+          isSelected: true,
+          isToday: _sameDay(day, today),
+          isPersian: false,
+          onTap: () => onDaySelected(day, day),
+        ),
+      ),
+    );
+  }
+}
+
+class _CalendarCell extends StatelessWidget {
+  const _CalendarCell({
+    required this.day,
+    required this.label,
+    required this.eventTypes,
+    required this.isPastDay,
+    required this.isOverdue,
+    required this.isSelected,
+    required this.isToday,
+    required this.isPersian,
+    required this.onTap,
+  });
+
+  final DateTime day;
+  final String label;
+  final Set<EventType> eventTypes;
+  final bool isPastDay;
+  final bool isOverdue;
+  final bool isSelected;
+  final bool isToday;
+  final bool isPersian;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final textColor = isSelected
+        ? Colors.white
+        : isPastDay
+        ? const Color(0xFF666666)
+        : Colors.black;
+    return Padding(
+      padding: const EdgeInsets.all(3),
+      child: Material(
+        color: isSelected
+            ? AppColors.CalPrimary
+            : isOverdue
+            ? AppColors.CalBackForgotten
+            : Colors.transparent,
+        borderRadius: BorderRadius.circular(8),
+        child: InkWell(
+          borderRadius: BorderRadius.circular(8),
+          onTap: onTap,
+          child: Container(
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(8),
+              border: isToday && !isSelected
+                  ? Border.all(color: AppColors.CalPrimary, width: 1.5)
+                  : null,
+            ),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                const Spacer(flex: 2),
+                Text(
+                  label.toPersianDigit(isPersian),
+                  style: TextStyle(
+                    fontFamily: isPersian ? 'Vazir' : 'Nunito',
+                    color: textColor,
+                  ),
+                ),
+                const Spacer(),
+                if (eventTypes.isNotEmpty) _EventDots(eventTypes: eventTypes),
+                const Spacer(flex: 2),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _EventDots extends StatelessWidget {
+  const _EventDots({required this.eventTypes});
+
+  final Set<EventType> eventTypes;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = <Color>[
+      if (eventTypes.contains(EventType.medicine)) AppColors.CalFisrtDot,
+      if (eventTypes.contains(EventType.appointment) ||
+          eventTypes.contains(EventType.doctor))
+        AppColors.CalSecondDot,
+      if (eventTypes.contains(EventType.injection) ||
+          eventTypes.contains(EventType.checkup))
+        Colors.orangeAccent,
+    ];
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: [
+        for (final color in colors.take(3))
+          Container(
+            margin: const EdgeInsets.symmetric(horizontal: 1.5),
+            width: 5,
+            height: 5,
+            decoration: BoxDecoration(color: color, shape: BoxShape.circle),
+          ),
+      ],
+    );
+  }
+}
+
+DateTime _dateOnly(DateTime date) => DateTime(date.year, date.month, date.day);
+
+bool _sameDay(DateTime left, DateTime right) =>
+    left.year == right.year &&
+    left.month == right.month &&
+    left.day == right.day;

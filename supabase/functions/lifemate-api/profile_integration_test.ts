@@ -12,7 +12,8 @@ if (!databaseUrl) {
 }
 
 Deno.test({
-  name: "profile edits persist with optimistic concurrency and redacted audit",
+  name:
+    "profile avatar persists with optimistic concurrency and redacted audit",
   sanitizeOps: false,
   sanitizeResources: false,
   fn: async () => {
@@ -41,6 +42,7 @@ Deno.test({
       const initial = await profiles.getProfile(identity.appUserId);
       assertEquals(initial.version, 1);
       assertEquals(initial.displayName, "نام اولیه");
+      assertEquals(initial.avatarKey, "person_blue");
 
       const updated = await profiles.updateProfile(identity.appUserId, auth, {
         version: 1,
@@ -48,12 +50,14 @@ Deno.test({
         phoneNumber: "+98 (912) 123-4567",
         locale: "fa",
         timeZone: "Europe/Berlin",
+        avatarKey: "person_purple",
       });
       assertEquals(updated.version, 2);
       assertEquals(updated.displayName, "نام ویرایش‌شده");
       assertEquals(updated.phoneNumber, "+989121234567");
       assertEquals(updated.email, auth.email);
       assertEquals(updated.timeZone, "Europe/Berlin");
+      assertEquals(updated.avatarKey, "person_purple");
 
       const stale = await assertRejects(
         () =>
@@ -63,6 +67,7 @@ Deno.test({
             phoneNumber: null,
             locale: "fa",
             timeZone: "Asia/Tehran",
+            avatarKey: "person_green",
           }),
         ApiError,
       );
@@ -73,6 +78,11 @@ Deno.test({
       const persisted = await reconnected.getProfile(identity.appUserId);
       assertEquals(persisted.version, 2);
       assertEquals(persisted.displayName, "نام ویرایش‌شده");
+      assertEquals(persisted.avatarKey, "person_purple");
+
+      const current = await db.currentUser(identity);
+      const currentProfile = current.profile as Record<string, unknown>;
+      assertEquals(currentProfile.avatarKey, "person_purple");
 
       const audits = await admin`
         select action, resource_type, metadata_json
@@ -84,6 +94,22 @@ Deno.test({
       assertEquals(audits[0].resource_type, "user_profile");
       assertEquals(audits[0].metadata_json, null);
     } finally {
+      const users = await admin`
+        select id from lifemate.app_users where auth_subject = ${auth.id}
+      `;
+      if (users[0]) {
+        await admin`
+          delete from lifemate.audit_logs
+          where actor_user_id = ${users[0].id}
+             or resource_id = ${users[0].id}
+        `;
+        await admin`
+          delete from lifemate.user_profiles where user_id = ${users[0].id}
+        `;
+        await admin`
+          delete from lifemate.app_users where id = ${users[0].id}
+        `;
+      }
       await admin.end({ timeout: 5 });
     }
   },

@@ -4,6 +4,7 @@ import 'package:lifemate_client/lifemate_client.dart';
 import 'package:provider/provider.dart';
 import 'package:wellmate/localization/locale_provider.dart';
 import 'package:wellmate/main.dart';
+import 'package:wellmate/models/schedule_item_model.dart';
 import 'package:wellmate/providers/medication_provider.dart';
 import 'package:wellmate/providers/notification_provider.dart';
 import 'package:wellmate/providers/settings_provider.dart';
@@ -12,7 +13,7 @@ import 'package:wellmate/screens/calendar/schedule_item_card.dart';
 
 void main() {
   testWidgets(
-    'calendar combines medication appointments and injections from live contracts',
+    'calendar combines appointments and injections from live contracts',
     (WidgetTester tester) async {
       tester.view.physicalSize = const Size(360, 800);
       tester.view.devicePixelRatio = 1;
@@ -22,7 +23,9 @@ void main() {
       await tester.pumpWidget(
         MultiProvider(
           providers: [
-            Provider<LifeMateApiClient>.value(value: _CalendarApiClient()),
+            Provider<LifeMateApiClient>.value(
+              value: _CalendarApiClient(),
+            ),
             ChangeNotifierProvider(create: (_) => NotificationProvider()),
             ChangeNotifierProvider(create: (_) => LocaleProvider()),
             ChangeNotifierProvider(create: (_) => SettingsProvider()),
@@ -77,6 +80,52 @@ void main() {
       expect(tester.takeException(), isNull);
     },
   );
+
+  testWidgets('missed appointment card uses warning styling', (
+    WidgetTester tester,
+  ) async {
+    final item = ScheduleItemModel(
+      id: 'appointment-missed',
+      title: 'ویزیت متخصص قلب',
+      time: '18:20',
+      dosage: 'دکتر سارا راد • مرکز درمانی الوند',
+      type: 'appointment',
+      frequency: 'ویزیت',
+      status: 'missed',
+      version: 1,
+    );
+
+    await tester.pumpWidget(
+      MaterialApp(
+        locale: const Locale('fa'),
+        home: Scaffold(
+          body: ScheduleItemCard(
+            key: const ValueKey<String>('missed-appointment-card'),
+            item: item,
+            loc: const <String, String>{},
+            isPersian: true,
+            isMissed: true,
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    final card = find.byKey(
+      const ValueKey<String>('missed-appointment-card'),
+    );
+    expect(card, findsOneWidget);
+    expect(
+      find.descendant(
+        of: card,
+        matching: find.byIcon(Icons.warning_amber_rounded),
+      ),
+      findsWidgets,
+    );
+    final widget = tester.widget<ScheduleItemCard>(card);
+    expect(widget.item.status, 'missed');
+    expect(widget.isMissed, isTrue);
+  });
 }
 
 class _CalendarApiClient extends LifeMateApiClient {
@@ -87,10 +136,10 @@ class _CalendarApiClient extends LifeMateApiClient {
         );
 
   String get _today {
-    final now = DateTime.now();
-    return '${now.year.toString().padLeft(4, '0')}-'
-        '${now.month.toString().padLeft(2, '0')}-'
-        '${now.day.toString().padLeft(2, '0')}';
+    final value = DateTime.now();
+    return '${value.year.toString().padLeft(4, '0')}-'
+        '${value.month.toString().padLeft(2, '0')}-'
+        '${value.day.toString().padLeft(2, '0')}';
   }
 
   @override
@@ -115,8 +164,8 @@ class _CalendarApiClient extends LifeMateApiClient {
           'centerName': 'مرکز درمانی الوند',
           'addressLine': 'تهران، خیابان ولیعصر',
           'scheduledLocalDate': _today,
-          'scheduledLocalTime': '16:30',
-          'status': 'scheduled',
+          'scheduledLocalTime': '00:01',
+          'status': 'completed',
           'version': 1,
         },
         {
@@ -128,8 +177,8 @@ class _CalendarApiClient extends LifeMateApiClient {
           'centerName': 'مرکز تزریقات',
           'addressLine': 'تهران، میدان ونک',
           'scheduledLocalDate': _today,
-          'scheduledLocalTime': '18:00',
-          'status': 'scheduled',
+          'scheduledLocalTime': '00:02',
+          'status': 'completed',
           'version': 1,
         },
       ];

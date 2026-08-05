@@ -13,12 +13,22 @@ type ProfileAuthSnapshot = {
 
 type Row = Record<string, any>;
 
+const allowedAvatarKeys = new Set([
+  "person_blue",
+  "person_green",
+  "person_purple",
+  "person_orange",
+  "heart_coral",
+  "caregiver_teal",
+]);
+
 export type ProfilePatch = {
   expectedVersion: number;
   displayName: string;
   phoneNumber: string | null;
   locale: string;
   timeZone: string;
+  avatarKey: string | null;
 };
 
 export function normalizeProfilePatch(
@@ -30,6 +40,7 @@ export function normalizeProfilePatch(
     phoneNumber: optionalPhone(body.phoneNumber),
     locale: requiredLocale(body.locale),
     timeZone: requiredTimeZone(body.timeZone),
+    avatarKey: optionalAvatarKey(body.avatarKey),
   };
 }
 
@@ -47,6 +58,7 @@ export function createProfileStore(databaseUrl: string) {
     prepare: false,
   });
   let versionColumnPromise: Promise<boolean> | null = null;
+  let photoColumnPromise: Promise<boolean> | null = null;
 
   function hasVersionColumn(): Promise<boolean> {
     versionColumnPromise ??= sql`
@@ -61,18 +73,116 @@ export function createProfileStore(databaseUrl: string) {
     return versionColumnPromise;
   }
 
+  function hasPhotoColumn(): Promise<boolean> {
+    photoColumnPromise ??= sql`
+      select exists (
+        select 1
+        from information_schema.columns
+        where table_schema = 'lifemate'
+          and table_name = 'user_profiles'
+          and column_name = 'profile_photo_path'
+      ) as present
+    `.then((rows: Row[]) => rows[0]?.present === true);
+    return photoColumnPromise;
+  }
+
+  async function getProfilePhotoPath(userId: string): Promise<string | null> {
+    if (!(await hasPhotoColumn())) return null;
+    const rows = await sql`
+      select profile_photo_path
+      from lifemate.user_profiles
+      where user_id = ${userId}
+      limit 1
+    `;
+    if (!rows[0]) {
+      throw new ApiError(404, "profile_missing", "User profile was not found.");
+    }
+    const value = rows[0].profile_photo_path;
+    return typeof value === "string" && value.length > 0 ? value : null;
+  }
+
+  async function replaceProfilePhotoPath(
+    userId: string,
+    nextPath: string | null,
+  ): Promise<string | null> {
+    if (!(await hasPhotoColumn())) {
+      throw new ApiError(
+        503,
+        "profile_photo_not_ready",
+        "Profile photo storage is not ready for this environment.",
+      );
+    }
+    if (nextPath != null && !nextPath.startsWith(`${userId}/`)) {
+      throw new ApiError(
+        400,
+        "invalid_profile_photo_path",
+        "Profile photo path does not belong to the current user.",
+      );
+    }
+    const usesVersionColumn = await hasVersionColumn();
+    return await sql.begin(async (tx: any) => {
+      const current = await tx`
+        select id, profile_photo_path
+        from lifemate.user_profiles
+        where user_id = ${userId}
+        for update
+      `;
+      if (!current[0]) {
+        throw new ApiError(
+          404,
+          "profile_missing",
+          "User profile was not found.",
+        );
+      }
+      const previous = typeof current[0].profile_photo_path === "string"
+        ? current[0].profile_photo_path
+        : null;
+      if (usesVersionColumn) {
+        await tx`
+          update lifemate.user_profiles
+          set profile_photo_path = ${nextPath},
+              version = version + 1,
+              updated_at_utc = now()
+          where user_id = ${userId}
+        `;
+      } else {
+        await tx`
+          update lifemate.user_profiles
+          set profile_photo_path = ${nextPath},
+              updated_at_utc = greatest(
+                now(),
+                updated_at_utc + interval '1 millisecond'
+              )
+          where user_id = ${userId}
+        `;
+      }
+      await tx`
+        insert into lifemate.audit_logs
+          (id, actor_user_id, action, resource_type, resource_id,
+           metadata_json, created_at_utc)
+        values
+          (${crypto.randomUUID()}, ${userId},
+           ${
+        nextPath == null ? "profile.photo_deleted" : "profile.photo_updated"
+      },
+           'user_profile', ${current[0].id}, null, now())
+      `;
+      return previous;
+    });
+  }
+
   async function getProfile(userId: string): Promise<Record<string, unknown>> {
     const rows = await (await hasVersionColumn()
       ? sql`
           select id, user_id, display_name, phone_number, email, locale,
-                 time_zone, version, created_at_utc, updated_at_utc
+                 time_zone, avatar_key, version, created_at_utc, updated_at_utc
           from lifemate.user_profiles
           where user_id = ${userId}
           limit 1
         `
       : sql`
           select id, user_id, display_name, phone_number, email, locale,
-                 time_zone,
+                 time_zone, avatar_key,
                  floor(extract(epoch from updated_at_utc) * 1000)::bigint
                    as version,
                  created_at_utc, updated_at_utc
@@ -103,11 +213,13 @@ export function createProfileStore(databaseUrl: string) {
                 email = ${auth.email},
                 locale = ${patch.locale},
                 time_zone = ${patch.timeZone},
+                avatar_key = coalesce(${patch.avatarKey}, avatar_key),
                 version = version + 1,
                 updated_at_utc = now()
             where user_id = ${userId} and version = ${patch.expectedVersion}
             returning id, user_id, display_name, phone_number, email, locale,
-                      time_zone, version, created_at_utc, updated_at_utc
+                      time_zone, avatar_key, version, created_at_utc,
+                      updated_at_utc
           `
         : tx`
             update lifemate.user_profiles
@@ -116,6 +228,7 @@ export function createProfileStore(databaseUrl: string) {
                 email = ${auth.email},
                 locale = ${patch.locale},
                 time_zone = ${patch.timeZone},
+                avatar_key = coalesce(${patch.avatarKey}, avatar_key),
                 updated_at_utc = greatest(
                   now(),
                   updated_at_utc + interval '1 millisecond'
@@ -124,7 +237,7 @@ export function createProfileStore(databaseUrl: string) {
               and floor(extract(epoch from updated_at_utc) * 1000)::bigint =
                   ${patch.expectedVersion}
             returning id, user_id, display_name, phone_number, email, locale,
-                      time_zone,
+                      time_zone, avatar_key,
                       floor(extract(epoch from updated_at_utc) * 1000)::bigint
                         as version,
                       created_at_utc, updated_at_utc
@@ -158,6 +271,7 @@ export function createProfileStore(databaseUrl: string) {
         );
       }
 
+      // Privacy invariant: metadata_json, null; no profile or avatar values.
       await tx`
         insert into lifemate.audit_logs
           (id, actor_user_id, action, resource_type, resource_id,
@@ -170,7 +284,25 @@ export function createProfileStore(databaseUrl: string) {
     });
   }
 
-  return { getProfile, updateProfile };
+  return {
+    getProfile,
+    updateProfile,
+    getProfilePhotoPath,
+    replaceProfilePhotoPath,
+  };
+}
+
+function optionalAvatarKey(value: unknown): string | null {
+  const normalized = normalizeOptional(value);
+  if (normalized == null) return null;
+  if (!allowedAvatarKeys.has(normalized)) {
+    throw new ApiError(
+      400,
+      "invalid_avatar_key",
+      "avatarKey is not supported.",
+    );
+  }
+  return normalized;
 }
 
 function requiredLocale(value: unknown): string {
@@ -208,6 +340,7 @@ function mapProfile(row: Row): Record<string, unknown> {
     email: row.email,
     locale: row.locale,
     timeZone: row.time_zone,
+    avatarKey: row.avatar_key ?? "person_blue",
     version: Number(row.version),
     createdAtUtc: iso(row.created_at_utc),
     updatedAtUtc: iso(row.updated_at_utc),

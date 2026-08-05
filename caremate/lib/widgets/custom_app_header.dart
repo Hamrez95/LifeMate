@@ -1,8 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:lifemate_client/lifemate_client.dart';
+import 'package:provider/provider.dart';
 
 import '../../core/constants/app_colors.dart';
 import '../screens/profile_screen.dart';
-import 'custom_ui_components.dart';
 
 class CustomAppHeader extends StatelessWidget {
   const CustomAppHeader({
@@ -15,8 +16,23 @@ class CustomAppHeader extends StatelessWidget {
 
   final VoidCallback? onNotificationTap;
   final VoidCallback? onProfileTap;
+
+  /// Kept temporarily for source compatibility with the remaining CareMate
+  /// surfaces. Account sign-out intentionally lives only as the final action
+  /// on the profile page.
   final VoidCallback? onSignOutTap;
   final bool showNotificationDot;
+
+  void _openProfile(BuildContext context) {
+    final callback = onProfileTap;
+    if (callback != null) {
+      callback();
+      return;
+    }
+    Navigator.of(context).push(
+      MaterialPageRoute<void>(builder: (_) => const ProfileScreen()),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -63,68 +79,41 @@ class CustomAppHeader extends StatelessWidget {
               ),
             ),
           ),
-          PopupMenuButton<String>(
-            tooltip: 'حساب کاربری',
-            color: Colors.white,
-            elevation: 10,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(18),
-            ),
-            onSelected: (value) {
-              if (value == 'profile') {
-                final callback = onProfileTap;
-                if (callback != null) {
-                  callback();
-                } else {
-                  Navigator.of(context).push(
-                    MaterialPageRoute(builder: (_) => const ProfileScreen()),
-                  );
-                }
-              } else if (value == 'sign_out') {
-                onSignOutTap?.call();
-              }
-            },
-            itemBuilder: (_) => [
-              const PopupMenuItem(
-                value: 'profile',
-                child: Row(
-                  children: [
-                    Icon(Icons.person_outline_rounded,
-                        color: AppColors.primaryBlue),
-                    SizedBox(width: 10),
-                    Text('پروفایل'),
-                  ],
-                ),
-              ),
-              if (onSignOutTap != null)
-                const PopupMenuItem(
-                  value: 'sign_out',
-                  child: Row(
-                    children: [
-                      Icon(Icons.logout_rounded, color: Colors.redAccent),
-                      SizedBox(width: 10),
-                      Text('خروج از حساب'),
-                    ],
+          Semantics(
+            button: true,
+            label: 'بازکردن پروفایل',
+            child: Tooltip(
+              message: 'پروفایل',
+              child: Material(
+                color: Colors.transparent,
+                shape: const CircleBorder(),
+                child: InkWell(
+                  onTap: () => _openProfile(context),
+                  customBorder: const CircleBorder(),
+                  child: Container(
+                    padding: const EdgeInsets.all(3),
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: Colors.white.withValues(alpha: 0.78),
+                      border: Border.all(
+                        color: AppColors.primaryBlue.withValues(alpha: 0.16),
+                        width: 2,
+                      ),
+                      boxShadow: [
+                        BoxShadow(
+                          color: AppColors.primaryBlue.withValues(alpha: 0.10),
+                          blurRadius: 14,
+                          offset: const Offset(0, 5),
+                        ),
+                      ],
+                    ),
+                    child: LifeMateCurrentUserAvatar(
+                      apiClient: context.read<LifeMateApiClient>(),
+                      radius: 22,
+                    ),
                   ),
                 ),
-            ],
-            child: Container(
-              padding: const EdgeInsets.all(2),
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                border: Border.all(
-                  color: AppColors.primaryBlue.withOpacity(0.14),
-                  width: 2,
-                ),
-                boxShadow: [
-                  BoxShadow(
-                    color: AppColors.primaryBlue.withOpacity(0.08),
-                    blurRadius: 12,
-                    offset: const Offset(0, 4),
-                  ),
-                ],
               ),
-              child: const ProfileAvatar(),
             ),
           ),
         ],
@@ -160,7 +149,7 @@ class _SoftHeaderButton extends StatelessWidget {
               shape: BoxShape.circle,
               boxShadow: [
                 BoxShadow(
-                  color: AppColors.primaryBlue.withOpacity(0.08),
+                  color: AppColors.primaryBlue.withValues(alpha: 0.08),
                   offset: const Offset(0, 4),
                   blurRadius: 12,
                 ),

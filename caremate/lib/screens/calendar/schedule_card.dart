@@ -54,7 +54,8 @@ class ScheduleCard extends StatelessWidget {
     final theme = _getEventTheme(event.type);
     final eventDateTime = _getEventDateTime(event);
     final isPast = eventDateTime.isBefore(DateTime.now());
-    final isOverdue = _isMedication &&
+    final isOverdue =
+        _isMedication &&
         isPast &&
         (event.isCompleted == false || event.isCompleted == null);
     final cardColor = isOverdue ? Colors.amber.shade100 : Colors.white;
@@ -72,8 +73,10 @@ class ScheduleCard extends StatelessWidget {
           ? const Icon(Icons.check_circle, color: Colors.green)
           : const Icon(Icons.cancel, color: Colors.red);
     } else {
-      statusIcon =
-          const Icon(Icons.access_time_filled_rounded, color: Colors.grey);
+      statusIcon = const Icon(
+        Icons.access_time_filled_rounded,
+        color: Colors.grey,
+      );
     }
 
     return Container(
@@ -109,7 +112,7 @@ class ScheduleCard extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  event.title,
+                  event.title.toPersianDigit(isPersian),
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
                   style: font.copyWith(
@@ -120,8 +123,9 @@ class ScheduleCard extends StatelessWidget {
                 const SizedBox(height: 4),
                 Text(
                   event.description != null && event.description!.isNotEmpty
-                      ? '${event.time} • ${event.description}'
-                          .toPersianDigit(isPersian)
+                      ? '${event.time} • ${event.description}'.toPersianDigit(
+                          isPersian,
+                        )
                       : event.time.toPersianDigit(isPersian),
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,

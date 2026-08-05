@@ -29,6 +29,8 @@ type CareEventInput = {
   scheduledLocalDate: string;
   scheduledLocalTime: string;
   timeZone: string;
+  patientReminderMinutesBefore: number;
+  caregiverReminderMinutesBefore: number;
 };
 
 export function createCareEventStore(databaseUrl: string) {
@@ -69,6 +71,8 @@ export function createCareEventStore(databaseUrl: string) {
           scheduled_local_date,
           scheduled_local_time,
           time_zone,
+          patient_reminder_minutes_before,
+          caregiver_reminder_minutes_before,
           status,
           completed_at_utc,
           version,
@@ -94,6 +98,8 @@ export function createCareEventStore(databaseUrl: string) {
           ${input.scheduledLocalDate},
           ${input.scheduledLocalTime},
           ${input.timeZone},
+          ${input.patientReminderMinutesBefore},
+          ${input.caregiverReminderMinutesBefore},
           'Scheduled',
           null,
           1,
@@ -220,7 +226,34 @@ function normalizeCareEvent(body: Record<string, unknown>): CareEventInput {
     scheduledLocalDate,
     scheduledLocalTime,
     timeZone: requiredTimeZone(body.timeZone),
+    patientReminderMinutesBefore: reminderMinutes(
+      body.patientReminderMinutesBefore,
+      "patientReminderMinutesBefore",
+      30,
+    ),
+    caregiverReminderMinutesBefore: reminderMinutes(
+      body.caregiverReminderMinutesBefore,
+      "caregiverReminderMinutesBefore",
+      60,
+    ),
   };
+}
+
+function reminderMinutes(
+  value: unknown,
+  field: string,
+  fallback: number,
+): number {
+  if (value == null || value === "") return fallback;
+  const number = Number(value);
+  if (!Number.isInteger(number) || number < 0 || number > 10080) {
+    throw new ApiError(
+      400,
+      `invalid_${field}`,
+      `${field} must be an integer between 0 and 10080.`,
+    );
+  }
+  return number;
 }
 
 function normalizeEventType(value: unknown): "Appointment" | "Injection" {
@@ -265,7 +298,15 @@ async function selectCareEvents(
   toDate: string,
 ): Promise<Record<string, unknown>[]> {
   const rows = await sql`
-    select *
+    select *,
+      case
+        when status = 'Scheduled'
+          and ((scheduled_local_date + scheduled_local_time) at time zone time_zone) < now()
+        then 'Missed'
+        else status
+      end as effective_status,
+      ((scheduled_local_date + scheduled_local_time) at time zone time_zone)
+        as scheduled_at_utc
     from lifemate.care_events
     where patient_user_id = ${patientUserId}
       and scheduled_local_date between ${fromDate}::date and ${toDate}::date
@@ -309,7 +350,11 @@ function matchesIdempotentRequest(row: Row, input: CareEventInput): boolean {
     row.title === input.title &&
     dateString(row.scheduled_local_date) === input.scheduledLocalDate &&
     timeString(row.scheduled_local_time) === input.scheduledLocalTime &&
-    row.time_zone === input.timeZone;
+    row.time_zone === input.timeZone &&
+    Number(row.patient_reminder_minutes_before ?? 30) ===
+      input.patientReminderMinutesBefore &&
+    Number(row.caregiver_reminder_minutes_before ?? 60) ===
+      input.caregiverReminderMinutesBefore;
 }
 
 function mapCareEvent(row: Row): Record<string, unknown> {
@@ -333,7 +378,16 @@ function mapCareEvent(row: Row): Record<string, unknown> {
     scheduledLocalDate: dateString(row.scheduled_local_date),
     scheduledLocalTime: timeString(row.scheduled_local_time),
     timeZone: row.time_zone,
-    status: String(row.status).toLowerCase(),
+    scheduledAtUtc: row.scheduled_at_utc == null
+      ? null
+      : iso(row.scheduled_at_utc),
+    status: String(row.effective_status ?? row.status).toLowerCase(),
+    patientReminderMinutesBefore: Number(
+      row.patient_reminder_minutes_before ?? 30,
+    ),
+    caregiverReminderMinutesBefore: Number(
+      row.caregiver_reminder_minutes_before ?? 60,
+    ),
     version: row.version,
     completedAtUtc: row.completed_at_utc == null
       ? null

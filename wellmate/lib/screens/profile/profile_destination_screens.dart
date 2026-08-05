@@ -5,6 +5,7 @@ import 'package:lifemate_client/lifemate_client.dart';
 import 'package:provider/provider.dart';
 
 import '../../core/theme/app_style.dart';
+import '../../core/utils/persian_date_utils.dart';
 
 class PersonalInformationScreen extends StatefulWidget {
   const PersonalInformationScreen({super.key});
@@ -24,8 +25,8 @@ class _PersonalInformationScreenState extends State<PersonalInformationScreen> {
   }
 
   void _retry() => setState(
-        () => _future = context.read<LifeMateApiClient>().getCurrentUser(),
-      );
+    () => _future = context.read<LifeMateApiClient>().getCurrentUser(),
+  );
 
   @override
   Widget build(BuildContext context) {
@@ -158,15 +159,22 @@ class _HealthRecordScreenState extends State<HealthRecordScreen> {
               onRetry: _retry,
             );
           }
-          final plans = snapshot.data?[0] as List<Map<String, dynamic>>? ??
+          final plans =
+              snapshot.data?[0] as List<Map<String, dynamic>>? ??
               const <Map<String, dynamic>>[];
-          final doses = snapshot.data?[1] as List<Map<String, dynamic>>? ??
+          final doses =
+              snapshot.data?[1] as List<Map<String, dynamic>>? ??
               const <Map<String, dynamic>>[];
-          final active = plans.where((plan) => plan['status'] == 'active').length;
+          final active = plans
+              .where((plan) => plan['status'] == 'active')
+              .length;
           final taken = doses.where((dose) => dose['status'] == 'taken').length;
-          final skipped =
-              doses.where((dose) => dose['status'] == 'skipped').length;
-          final missed = doses.where((dose) => dose['status'] == 'missed').length;
+          final skipped = doses
+              .where((dose) => dose['status'] == 'skipped')
+              .length;
+          final missed = doses
+              .where((dose) => dose['status'] == 'missed')
+              .length;
           return Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -258,9 +266,10 @@ class _NotificationCenterScreenState extends State<NotificationCenterScreen> {
 
   Future<List<Map<String, dynamic>>> _load() {
     final today = DateTime.now();
-    return context
-        .read<LifeMateApiClient>()
-        .getDoseOccurrences(fromDate: today, toDate: today);
+    return context.read<LifeMateApiClient>().getDoseOccurrences(
+      fromDate: today,
+      toDate: today,
+    );
   }
 
   void _retry() => setState(() => _future = _load());
@@ -407,35 +416,178 @@ class SupportScreen extends StatelessWidget {
   }
 }
 
-class SubscriptionScreen extends StatelessWidget {
+class SubscriptionScreen extends StatefulWidget {
   const SubscriptionScreen({super.key});
 
   @override
+  State<SubscriptionScreen> createState() => _SubscriptionScreenState();
+}
+
+class _SubscriptionScreenState extends State<SubscriptionScreen> {
+  bool _loading = true;
+  bool _saving = false;
+  Map<String, dynamic> _profile = const {};
+
+  bool get _enabled => _profile['enabled'] == true;
+  int get _version =>
+      _profile['version'] is int ? _profile['version'] as int : 0;
+
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  Future<void> _load() async {
+    if (!LifeMateFeatureFlags.womenCalendarPilotEnabled) {
+      if (mounted) setState(() => _loading = false);
+      return;
+    }
+    try {
+      final profile = await context
+          .read<LifeMateApiClient>()
+          .getWomenCalendarProfile();
+      if (mounted) setState(() => _profile = profile);
+    } catch (error) {
+      debugPrint('Subscription women calendar load failed.');
+    } finally {
+      if (mounted) setState(() => _loading = false);
+    }
+  }
+
+  Future<void> _activate() async {
+    if (!LifeMateFeatureFlags.womenCalendarPilotEnabled) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('این قابلیت در Build فعلی فعال نیست.')),
+      );
+      return;
+    }
+    final selected = await showAppDatePicker(
+      context: context,
+      initialDate: DateTime.now(),
+      firstDate: DateTime(2015),
+      lastDate: DateTime.now(),
+      title: 'شروع آخرین دوره',
+    );
+    if (selected == null || !mounted) return;
+    await _save(enabled: true, lastPeriodStart: selected);
+  }
+
+  Future<void> _deactivate() async {
+    final currentStart = DateTime.tryParse(
+      _profile['lastPeriodStart']?.toString() ?? '',
+    );
+    await _save(enabled: false, lastPeriodStart: currentStart);
+  }
+
+  Future<void> _save({
+    required bool enabled,
+    required DateTime? lastPeriodStart,
+  }) async {
+    if (_saving) return;
+    setState(() => _saving = true);
+    try {
+      final profile = await context
+          .read<LifeMateApiClient>()
+          .updateWomenCalendarProfile(
+            version: _version,
+            enabled: enabled,
+            lastPeriodStart: lastPeriodStart,
+            cycleLength: _profile['cycleLength'] is int
+                ? _profile['cycleLength'] as int
+                : 28,
+            periodLength: _profile['periodLength'] is int
+                ? _profile['periodLength'] as int
+                : 5,
+            remindersEnabled: _profile['remindersEnabled'] != false,
+          );
+      if (!mounted) return;
+      setState(() => _profile = profile);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            enabled
+                ? 'تقویم بانوان برای نسخه داخلی فعال شد.'
+                : 'تقویم بانوان غیرفعال شد.',
+          ),
+        ),
+      );
+    } on LifeMateApiException catch (error) {
+      if (!mounted) return;
+      final message = switch (error.code) {
+        'women_calendar_feature_disabled' =>
+          'تقویم بانوان روی سرور این نسخه فعال نیست؛ نسخه جدید را نصب کنید.',
+        'stale_women_calendar_profile' =>
+          'تنظیمات تقویم تغییر کرده است؛ صفحه را تازه کنید و دوباره تلاش کنید.',
+        _ when error.statusCode == 0 =>
+          'اتصال برقرار نشد. اینترنت را بررسی و دوباره تلاش کنید.',
+        _ => 'فعال‌سازی تقویم بانوان انجام نشد. دوباره تلاش کنید.',
+      };
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(message), behavior: SnackBarBehavior.floating),
+      );
+    } catch (error) {
+      debugPrint('Subscription women calendar save failed: $error');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('فعال‌سازی انجام نشد. اتصال را بررسی کنید.'),
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _saving = false);
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
-    return const _WellMateDestinationScaffold(
+    return _WellMateDestinationScaffold(
       title: 'اشتراک LifeMate',
-      subtitle: 'امکانات پایه و آینده محصول',
+      subtitle: 'امکانات پایه و قابلیت‌های اختیاری',
       icon: Icons.emoji_events_rounded,
       accent: Colors.amber,
       child: Column(
         children: [
-          _SubscriptionPlanCard(
+          const _SubscriptionPlanCard(
             title: 'نسخه پایه',
             description:
                 'ثبت درمان، برنامه روزانه، اعلان محلی و اتصال امن یک مراقب',
             current: true,
+            statusLabel: 'فعال',
+            buttonLabel: 'نسخه فعلی',
           ),
-          SizedBox(height: 14),
+          const SizedBox(height: 14),
           _SubscriptionPlanCard(
+            title: 'تقویم بانوان',
+            description:
+                'تقویم شمسی، خط زمانی چرخه، ثبت شروع و پایان دوره و اشتراک‌گذاری اختیاری با مراقب',
+            current: _enabled,
+            statusLabel: _loading
+                ? 'در حال بررسی'
+                : _enabled
+                ? 'فعال'
+                : 'غیرفعال',
+            buttonLabel: _enabled ? 'غیرفعال‌سازی' : 'فعال‌سازی آزمایشی',
+            onPressed: _loading || _saving
+                ? null
+                : (_enabled ? _deactivate : _activate),
+            accent: const Color(0xFFD95B93),
+          ),
+          const SizedBox(height: 14),
+          const _SubscriptionPlanCard(
             title: 'نسخه خانواده',
             description:
                 'گزارش‌های پیشرفته، چند مراقب، پرونده سلامت و پشتیبانی ویژه',
             current: false,
+            statusLabel: 'در دست توسعه',
+            buttonLabel: 'خرید — در دست توسعه',
           ),
-          SizedBox(height: 16),
-          _DevelopmentNotice(
+          const SizedBox(height: 16),
+          const _DevelopmentNotice(
             message:
-                'پرداخت و اشتراک هنوز Backend و درگاه فعال ندارند. هیچ خریدی در این نسخه انجام نمی‌شود.',
+                'در این نسخه داخلی، فعال‌سازی تقویم بانوان آزمایشی است و هیچ پرداخت یا ارتباطی با درگاه بانکی انجام نمی‌شود.',
           ),
         ],
       ),
@@ -699,8 +851,7 @@ class _TreatmentSummaryCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final medication =
-        plan['medication'] as Map<String, dynamic>? ?? const {};
+    final medication = plan['medication'] as Map<String, dynamic>? ?? const {};
     final schedules = plan['schedules'] as List<dynamic>? ?? const [];
     final time = schedules.isEmpty
         ? 'بدون زمان'
@@ -737,9 +888,7 @@ class _TreatmentSummaryCard extends StatelessWidget {
                   const SizedBox(height: 5),
                   Text(
                     '${_value(plan['doseText'])} • $time',
-                    style: const TextStyle(
-                      color: AppColors.textSecondary,
-                    ),
+                    style: const TextStyle(color: AppColors.textSecondary),
                   ),
                 ],
               ),
@@ -799,9 +948,7 @@ class _NotificationDoseCard extends StatelessWidget {
                   const SizedBox(height: 5),
                   Text(
                     '${_doseTime(dose)} • ${_value(dose['doseText'])}',
-                    style: const TextStyle(
-                      color: AppColors.textSecondary,
-                    ),
+                    style: const TextStyle(color: AppColors.textSecondary),
                   ),
                 ],
               ),
@@ -888,11 +1035,19 @@ class _SubscriptionPlanCard extends StatelessWidget {
     required this.title,
     required this.description,
     required this.current,
+    required this.statusLabel,
+    required this.buttonLabel,
+    this.onPressed,
+    this.accent = AppColors.primary,
   });
 
   final String title;
   final String description;
   final bool current;
+  final String statusLabel;
+  final String buttonLabel;
+  final VoidCallback? onPressed;
+  final Color accent;
 
   @override
   Widget build(BuildContext context) {
@@ -902,6 +1057,21 @@ class _SubscriptionPlanCard extends StatelessWidget {
         children: [
           Row(
             children: [
+              Container(
+                width: 42,
+                height: 42,
+                decoration: BoxDecoration(
+                  color: accent.withOpacity(0.12),
+                  borderRadius: BorderRadius.circular(14),
+                ),
+                child: Icon(
+                  title == 'تقویم بانوان'
+                      ? Icons.water_drop_rounded
+                      : Icons.workspace_premium_rounded,
+                  color: accent,
+                ),
+              ),
+              const SizedBox(width: 12),
               Expanded(
                 child: Text(
                   title,
@@ -912,10 +1082,10 @@ class _SubscriptionPlanCard extends StatelessWidget {
                 ),
               ),
               Chip(
-                label: Text(current ? 'فعال' : 'در دست توسعه'),
+                label: Text(statusLabel),
                 side: BorderSide.none,
                 backgroundColor: current
-                    ? AppColors.primary.withOpacity(0.12)
+                    ? accent.withOpacity(0.12)
                     : Colors.amber.withOpacity(0.15),
               ),
             ],
@@ -923,17 +1093,14 @@ class _SubscriptionPlanCard extends StatelessWidget {
           const SizedBox(height: 10),
           Text(
             description,
-            style: const TextStyle(
-              height: 1.7,
-              color: AppColors.textSecondary,
-            ),
+            style: const TextStyle(height: 1.7, color: AppColors.textSecondary),
           ),
           const SizedBox(height: 16),
           SizedBox(
             width: double.infinity,
             child: OutlinedButton(
-              onPressed: null,
-              child: Text(current ? 'نسخه فعلی' : 'خرید — در دست توسعه'),
+              onPressed: onPressed,
+              child: Text(buttonLabel),
             ),
           ),
         ],
@@ -961,12 +1128,7 @@ class _DevelopmentNotice extends StatelessWidget {
         children: [
           Icon(Icons.construction_rounded, color: Colors.amber.shade800),
           const SizedBox(width: 10),
-          Expanded(
-            child: Text(
-              message,
-              style: const TextStyle(height: 1.65),
-            ),
-          ),
+          Expanded(child: Text(message, style: const TextStyle(height: 1.65))),
         ],
       ),
     );
@@ -1042,27 +1204,27 @@ class _StatusStyle {
 }
 
 _StatusStyle _statusStyle(String status) => switch (status) {
-      'taken' => const _StatusStyle(
-          'مصرف شد',
-          Icons.check_circle_rounded,
-          Colors.green,
-        ),
-      'skipped' => const _StatusStyle(
-          'مصرف نشد',
-          Icons.remove_circle_outline_rounded,
-          Colors.orange,
-        ),
-      'missed' => const _StatusStyle(
-          'فراموش شد',
-          Icons.error_outline_rounded,
-          Colors.redAccent,
-        ),
-      _ => const _StatusStyle(
-          'برنامه‌ریزی‌شده',
-          Icons.schedule_rounded,
-          AppColors.primaryBlue,
-        ),
-    };
+  'taken' => const _StatusStyle(
+    'مصرف شد',
+    Icons.check_circle_rounded,
+    Colors.green,
+  ),
+  'skipped' => const _StatusStyle(
+    'مصرف نشد',
+    Icons.remove_circle_outline_rounded,
+    Colors.orange,
+  ),
+  'missed' => const _StatusStyle(
+    'فراموش شد',
+    Icons.error_outline_rounded,
+    Colors.redAccent,
+  ),
+  _ => const _StatusStyle(
+    'برنامه‌ریزی‌شده',
+    Icons.schedule_rounded,
+    AppColors.primaryBlue,
+  ),
+};
 
 String _value(dynamic value, {String fallback = 'ثبت نشده'}) {
   final text = value?.toString().trim();

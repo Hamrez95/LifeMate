@@ -4,7 +4,7 @@ import 'package:provider/provider.dart';
 
 import '../../core/constants/app_colors.dart';
 import '../../core/localization/app_localizations.dart';
-import '../../core/utils/string_extensions.dart';
+import '../../core/utils/persian_date_utils.dart';
 import '../../models/event_model.dart';
 import '../../models/user_model.dart';
 import '../../widgets/caremate_bottom_nav.dart';
@@ -41,11 +41,6 @@ class _CalendarScreenState extends State<CalendarScreen> {
   DateTime _normalizeDate(DateTime date) =>
       DateTime(date.year, date.month, date.day);
 
-  DateTime _monthStart(DateTime date) => DateTime(date.year, date.month, 1);
-
-  DateTime _monthEnd(DateTime date) =>
-      DateTime(date.year, date.month + 1, 0);
-
   Future<void> _refreshRelationships() async {
     setState(() {
       _loadingRelationships = true;
@@ -73,7 +68,11 @@ class _CalendarScreenState extends State<CalendarScreen> {
           .map(
             (relationship) => UserModel(
               id: relationship['patientUserId'].toString(),
-              name: relationship['patientDisplayName']?.toString().trim().isNotEmpty ==
+              name:
+                  relationship['patientDisplayName']
+                          ?.toString()
+                          .trim()
+                          .isNotEmpty ==
                       true
                   ? relationship['patientDisplayName'].toString()
                   : 'فرد تحت مراقبت',
@@ -115,31 +114,33 @@ class _CalendarScreenState extends State<CalendarScreen> {
     });
     try {
       final api = context.read<LifeMateApiClient>();
+      final range = visibleCalendarMonthRange(context, _focusedMonth);
       final results = await Future.wait([
         api.getCareRecipientDoseOccurrences(
           patientUserId: patientUserId,
-          fromDate: _monthStart(_focusedMonth),
-          toDate: _monthEnd(_focusedMonth),
+          fromDate: range.$1,
+          toDate: range.$2,
         ),
         api.getCareRecipientCareEvents(
           patientUserId: patientUserId,
-          fromDate: _monthStart(_focusedMonth),
-          toDate: _monthEnd(_focusedMonth),
+          fromDate: range.$1,
+          toDate: range.$2,
         ),
       ]);
       final doses = results[0];
       final careEvents = results[1];
-      final events = <EventModel>[
-        ...doses
-            .map((dose) => _eventFromDose(patientUserId, dose))
-            .whereType<EventModel>(),
-        ...careEvents
-            .map((event) => _eventFromCareEvent(patientUserId, event))
-            .whereType<EventModel>(),
-      ]..sort((a, b) {
-          final dateCompare = a.date.compareTo(b.date);
-          return dateCompare == 0 ? a.time.compareTo(b.time) : dateCompare;
-        });
+      final events =
+          <EventModel>[
+            ...doses
+                .map((dose) => _eventFromDose(patientUserId, dose))
+                .whereType<EventModel>(),
+            ...careEvents
+                .map((event) => _eventFromCareEvent(patientUserId, event))
+                .whereType<EventModel>(),
+          ]..sort((a, b) {
+            final dateCompare = a.date.compareTo(b.date);
+            return dateCompare == 0 ? a.time.compareTo(b.time) : dateCompare;
+          });
       if (!mounted) return;
       setState(() {
         _events = events;
@@ -153,10 +154,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
     }
   }
 
-  EventModel? _eventFromDose(
-    String patientUserId,
-    Map<String, dynamic> dose,
-  ) {
+  EventModel? _eventFromDose(String patientUserId, Map<String, dynamic> dose) {
     final rawDate = dose['scheduledLocalDate']?.toString();
     final fallbackUtc = DateTime.tryParse(
       dose['scheduledAtUtc']?.toString() ?? '',
@@ -213,17 +211,20 @@ class _CalendarScreenState extends State<CalendarScreen> {
     ].where((value) => value.isNotEmpty).join(' • ');
 
     return EventModel(
-      id: event['id']?.toString() ??
+      id:
+          event['id']?.toString() ??
           '${event['scheduledLocalDate']}-$rawTime-$eventType',
       userId: patientUserId,
-      title: _nonEmpty(event['title']) ??
+      title:
+          _nonEmpty(event['title']) ??
           (type == EventType.injection ? 'تزریق' : 'ویزیت'),
       date: _normalizeDate(date),
       time: rawTime.length >= 5 ? rawTime.substring(0, 5) : rawTime,
       description: details.isEmpty ? null : details,
       type: type,
-      isCompleted:
-          event['status']?.toString().toLowerCase() == 'completed' ? true : null,
+      isCompleted: event['status']?.toString().toLowerCase() == 'completed'
+          ? true
+          : null,
     );
   }
 
@@ -277,8 +278,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
     final today = _normalizeDate(DateTime.now());
     if (!day.isBefore(today)) return false;
     return _getEventsForDayAndUser(day).any(
-      (event) =>
-          event.type == EventType.medicine && event.isCompleted != true,
+      (event) => event.type == EventType.medicine && event.isCompleted != true,
     );
   }
 
@@ -287,20 +287,22 @@ class _CalendarScreenState extends State<CalendarScreen> {
 
   List<EventModel> get _activeAlerts {
     final now = DateTime.now();
-    return _events.where((event) {
-      if (event.type != EventType.medicine) return false;
-      final parts = event.time.split(':');
-      final hour = int.tryParse(parts.first) ?? 0;
-      final minute = parts.length > 1 ? int.tryParse(parts[1]) ?? 0 : 0;
-      final scheduled = DateTime(
-        event.date.year,
-        event.date.month,
-        event.date.day,
-        hour,
-        minute,
-      );
-      return scheduled.isBefore(now) && event.isCompleted != true;
-    }).toList(growable: false);
+    return _events
+        .where((event) {
+          if (event.type != EventType.medicine) return false;
+          final parts = event.time.split(':');
+          final hour = int.tryParse(parts.first) ?? 0;
+          final minute = parts.length > 1 ? int.tryParse(parts[1]) ?? 0 : 0;
+          final scheduled = DateTime(
+            event.date.year,
+            event.date.month,
+            event.date.day,
+            hour,
+            minute,
+          );
+          return scheduled.isBefore(now) && event.isCompleted != true;
+        })
+        .toList(growable: false);
   }
 
   void _showAlerts() {
@@ -314,7 +316,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
       );
       return;
     }
-    final isPersian = Directionality.of(context) == TextDirection.rtl;
+    final isPersian = usesPersianCalendar(context);
     showModalBottomSheet<void>(
       context: context,
       backgroundColor: Colors.transparent,
@@ -346,7 +348,8 @@ class _CalendarScreenState extends State<CalendarScreen> {
                   separatorBuilder: (_, __) => const SizedBox(height: 10),
                   itemBuilder: (_, index) => ScheduleCard(
                     event: alerts[index],
-                    font: Theme.of(context).textTheme.bodyMedium ??
+                    font:
+                        Theme.of(context).textTheme.bodyMedium ??
                         const TextStyle(),
                     isPersian: isPersian,
                   ),
@@ -376,173 +379,168 @@ class _CalendarScreenState extends State<CalendarScreen> {
   @override
   Widget build(BuildContext context) {
     final loc = AppLocalizations.of(context);
-    final isPersian = Directionality.of(context) == TextDirection.rtl;
+    final isPersian = usesPersianCalendar(context);
     final font = TextStyle(
       fontFamily: isPersian ? 'Vazir' : 'Nunito',
       color: AppColors.primaryText,
     );
     final selectedUserId = _selectedUserId;
     final eventsForSelectedDay = _getEventsForDayAndUser(_selectedDate);
-    const monthNamesEn = [
-      'Jan',
-      'Feb',
-      'Mar',
-      'Apr',
-      'May',
-      'Jun',
-      'Jul',
-      'Aug',
-      'Sep',
-      'Oct',
-      'Nov',
-      'Dec',
-    ];
-    const monthNamesFa = [
-      'ژانویه',
-      'فوریه',
-      'مارس',
-      'آوریل',
-      'مه',
-      'ژوئن',
-      'ژوئیه',
-      'اوت',
-      'سپتامبر',
-      'اکتبر',
-      'نوامبر',
-      'دسامبر',
-    ];
-    final monthName =
-        (isPersian ? monthNamesFa : monthNamesEn)[_selectedDate.month - 1];
 
     return Scaffold(
       backgroundColor: AppColors.background,
-      extendBody: true,
       body: SafeArea(
-        bottom: false,
         child: Column(
           children: [
             CustomAppHeader(
               onNotificationTap: _showAlerts,
-              onSignOutTap: LifeMateAuth.signOut,
               showNotificationDot: _activeAlerts.isNotEmpty,
             ),
-            const SizedBox(height: 10),
-            UserSelector(
-              users: _users,
-              selectedUserId: selectedUserId ?? '',
-              font: font,
-              onUserSelected: _selectUser,
-            ),
-            const SizedBox(height: 16),
-            if (_error != null)
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 24),
-                child: _CalendarErrorBanner(
-                  message: _error!,
-                  onRetry: _refreshRelationships,
-                ),
-              ),
-            if (_loadingRelationships)
-              const Expanded(
-                child: Center(child: CircularProgressIndicator()),
-              )
-            else if (_users.isEmpty)
-              Expanded(
-                child: _EmptyCalendarState(
-                  onRefresh: _refreshRelationships,
-                ),
-              )
-            else ...[
-              CalendarView(
-                focusedMonth: _focusedMonth,
-                selectedDate: _selectedDate,
-                onDaySelected: (selectedDay, focusedDay) {
-                  setState(() {
-                    _selectedDate = selectedDay;
-                    _focusedMonth = focusedDay;
-                  });
-                },
-                onPageChanged: (focusedDay) {
-                  setState(() {
-                    _focusedMonth = focusedDay;
-                    _selectedDate = DateTime(
-                      focusedDay.year,
-                      focusedDay.month,
-                      1,
-                    );
-                  });
-                  _loadMonthEvents();
-                },
-                getDayEventTypes: _getDayEventTypes,
-                hasOverdueEvents: _hasOverdueEvents,
-              ),
-              const SizedBox(height: 20),
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 24),
-                child: Row(
+            Expanded(
+              child: RefreshIndicator(
+                onRefresh: _refreshRelationships,
+                child: ListView(
+                  physics: const AlwaysScrollableScrollPhysics(),
+                  padding: const EdgeInsets.fromLTRB(0, 2, 0, 16),
                   children: [
-                    Expanded(
-                      child: Text(
-                        loc['cal_schedule'],
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
-                        style: font.copyWith(
-                          fontSize: 18,
-                          fontWeight: FontWeight.bold,
+                    if (_loadingRelationships)
+                      const SizedBox(
+                        height: 330,
+                        child: Center(child: CircularProgressIndicator()),
+                      )
+                    else if (_users.isEmpty)
+                      SizedBox(
+                        height: 390,
+                        child: _EmptyCalendarState(
+                          onRefresh: _refreshRelationships,
                         ),
+                      )
+                    else ...[
+                      UserSelector(
+                        users: _users,
+                        selectedUserId: selectedUserId ?? '',
+                        font: font,
+                        onUserSelected: _selectUser,
                       ),
-                    ),
-                    const SizedBox(width: 12),
-                    Flexible(
-                      child: Text(
-                        '${_selectedDate.day} $monthName, ${_selectedDate.year}'
-                            .toPersianDigit(isPersian),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        textAlign: TextAlign.end,
-                        style: font.copyWith(
-                          fontSize: 16,
-                          fontWeight: FontWeight.bold,
+                      const SizedBox(height: 12),
+                      if (_error != null) ...[
+                        Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 24),
+                          child: _CalendarErrorBanner(
+                            message: _error!,
+                            onRetry: _refreshRelationships,
+                          ),
                         ),
+                        const SizedBox(height: 12),
+                      ],
+                      CalendarView(
+                        focusedMonth: _focusedMonth,
+                        selectedDate: _selectedDate,
+                        onDaySelected: (selectedDay, focusedDay) {
+                          final monthChanged = !isSameVisibleCalendarMonth(
+                            context,
+                            focusedDay,
+                            _focusedMonth,
+                          );
+                          setState(() {
+                            _selectedDate = selectedDay;
+                            _focusedMonth = focusedDay;
+                          });
+                          if (monthChanged) _loadMonthEvents();
+                        },
+                        onPageChanged: (focusedDay) {
+                          setState(() {
+                            _focusedMonth = focusedDay;
+                            _selectedDate = focusedDay;
+                          });
+                          _loadMonthEvents();
+                        },
+                        getDayEventTypes: _getDayEventTypes,
+                        hasOverdueEvents: _hasOverdueEvents,
                       ),
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 14),
-              Expanded(
-                child: _loadingEvents
-                    ? const Center(child: CircularProgressIndicator())
-                    : eventsForSelectedDay.isEmpty
-                        ? Center(
-                            child: Padding(
-                              padding: const EdgeInsets.all(24),
+                      const SizedBox(height: 12),
+                      Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 24),
+                        child: Row(
+                          children: [
+                            Expanded(
                               child: Text(
-                                loc['no_events_today'],
-                                textAlign: TextAlign.center,
+                                loc['cal_schedule'],
+                                maxLines: 2,
+                                overflow: TextOverflow.ellipsis,
                                 style: font.copyWith(
-                                  color: AppColors.secondaryText,
+                                  fontSize: 18,
+                                  fontWeight: FontWeight.bold,
                                 ),
                               ),
                             ),
-                          )
-                        : RefreshIndicator(
-                            onRefresh: _loadMonthEvents,
-                            child: ListView.separated(
-                              physics: const AlwaysScrollableScrollPhysics(),
-                              padding: const EdgeInsets.fromLTRB(24, 0, 24, 120),
-                              itemCount: eventsForSelectedDay.length,
-                              separatorBuilder: (_, __) =>
-                                  const SizedBox(height: 12),
-                              itemBuilder: (_, index) => ScheduleCard(
-                                event: eventsForSelectedDay[index],
-                                font: font,
-                                isPersian: isPersian,
+                            const SizedBox(width: 12),
+                            Flexible(
+                              child: Text(
+                                formatAppDate(
+                                  context,
+                                  _selectedDate,
+                                  includeWeekday: isPersian,
+                                ),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                textAlign: TextAlign.end,
+                                style: font.copyWith(
+                                  fontSize: 15,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(height: 10),
+                      if (_loadingEvents)
+                        const Padding(
+                          padding: EdgeInsets.symmetric(vertical: 28),
+                          child: Center(child: CircularProgressIndicator()),
+                        )
+                      else if (eventsForSelectedDay.isEmpty)
+                        Padding(
+                          padding: const EdgeInsets.fromLTRB(24, 18, 24, 24),
+                          child: Container(
+                            width: double.infinity,
+                            padding: const EdgeInsets.all(20),
+                            decoration: AppColors.softDecoration(),
+                            child: Text(
+                              loc['no_events_today'],
+                              textAlign: TextAlign.center,
+                              style: font.copyWith(
+                                color: AppColors.secondaryText,
                               ),
                             ),
                           ),
+                        )
+                      else
+                        Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 24),
+                          child: Column(
+                            children: [
+                              for (
+                                var index = 0;
+                                index < eventsForSelectedDay.length;
+                                index++
+                              ) ...[
+                                if (index > 0) const SizedBox(height: 10),
+                                ScheduleCard(
+                                  event: eventsForSelectedDay[index],
+                                  font: font,
+                                  isPersian: isPersian,
+                                ),
+                              ],
+                            ],
+                          ),
+                        ),
+                    ],
+                  ],
+                ),
               ),
-            ],
+            ),
           ],
         ),
       ),
@@ -566,10 +564,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
 }
 
 class _CalendarErrorBanner extends StatelessWidget {
-  const _CalendarErrorBanner({
-    required this.message,
-    required this.onRetry,
-  });
+  const _CalendarErrorBanner({required this.message, required this.onRetry});
 
   final String message;
   final Future<void> Function() onRetry;

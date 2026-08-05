@@ -2,7 +2,7 @@ import { assertEquals, assertThrows } from "jsr:@std/assert@1.0.14";
 import { ApiError } from "./validation.ts";
 import { normalizeProfilePatch } from "./profile.ts";
 
-Deno.test("profile patch normalizes phone and preserves explicit locale/timezone", () => {
+Deno.test("profile patch normalizes phone and persists an allow-listed avatar", () => {
   assertEquals(
     normalizeProfilePatch({
       version: 3,
@@ -10,6 +10,7 @@ Deno.test("profile patch normalizes phone and preserves explicit locale/timezone
       phoneNumber: "+98 (912) 123-4567",
       locale: "fa",
       timeZone: "Asia/Tehran",
+      avatarKey: "person_purple",
     }),
     {
       expectedVersion: 3,
@@ -17,21 +18,21 @@ Deno.test("profile patch normalizes phone and preserves explicit locale/timezone
       phoneNumber: "+989121234567",
       locale: "fa",
       timeZone: "Asia/Tehran",
+      avatarKey: "person_purple",
     },
   );
 });
 
-Deno.test("profile patch permits clearing the optional phone number", () => {
-  assertEquals(
-    normalizeProfilePatch({
-      version: 1,
-      displayName: "Owner",
-      phoneNumber: "",
-      locale: "en-US",
-      timeZone: "Europe/Berlin",
-    }).phoneNumber,
-    null,
-  );
+Deno.test("profile patch permits legacy clients and clearing the optional phone", () => {
+  const patch = normalizeProfilePatch({
+    version: 1,
+    displayName: "Owner",
+    phoneNumber: "",
+    locale: "en-US",
+    timeZone: "Europe/Berlin",
+  });
+  assertEquals(patch.phoneNumber, null);
+  assertEquals(patch.avatarKey, null);
 });
 
 Deno.test("profile patch rejects stale-shape and invalid identity fields", () => {
@@ -42,12 +43,14 @@ Deno.test("profile patch rejects stale-shape and invalid identity fields", () =>
         displayName: "Owner",
         locale: "fa",
         timeZone: "Asia/Tehran",
+        avatarKey: "person_blue",
       },
       {
         version: 1,
         displayName: "",
         locale: "fa",
         timeZone: "Asia/Tehran",
+        avatarKey: "person_blue",
       },
       {
         version: 1,
@@ -55,18 +58,28 @@ Deno.test("profile patch rejects stale-shape and invalid identity fields", () =>
         phoneNumber: "not-a-phone",
         locale: "fa",
         timeZone: "Asia/Tehran",
+        avatarKey: "person_blue",
       },
       {
         version: 1,
         displayName: "Owner",
         locale: "persian",
         timeZone: "Asia/Tehran",
+        avatarKey: "person_blue",
       },
       {
         version: 1,
         displayName: "Owner",
         locale: "fa",
         timeZone: "Invalid/Zone",
+        avatarKey: "person_blue",
+      },
+      {
+        version: 1,
+        displayName: "Owner",
+        locale: "fa",
+        timeZone: "Asia/Tehran",
+        avatarKey: "../../private-photo",
       },
     ]
   ) {

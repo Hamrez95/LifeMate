@@ -3,6 +3,7 @@ import 'package:lifemate_client/lifemate_client.dart';
 import 'package:provider/provider.dart';
 
 import '../core/constants/app_colors.dart';
+import '../core/utils/persian_date_utils.dart';
 import '../widgets/caremate_bottom_nav.dart';
 import '../widgets/custom_app_header.dart';
 import 'calendar/calendar_screen.dart';
@@ -17,8 +18,7 @@ class CareEventManagementScreen extends StatefulWidget {
       _CareEventManagementScreenState();
 }
 
-class _CareEventManagementScreenState
-    extends State<CareEventManagementScreen> {
+class _CareEventManagementScreenState extends State<CareEventManagementScreen> {
   int _selectedType = 0;
   bool _loading = true;
   String? _error;
@@ -101,15 +101,15 @@ class _CareEventManagementScreenState
     final today = DateTime.now();
     final results = await Future.wait([
       context.read<LifeMateApiClient>().getCareRecipientDoseOccurrences(
-            patientUserId: patientUserId,
-            fromDate: today,
-            toDate: today.add(const Duration(days: 7)),
-          ),
+        patientUserId: patientUserId,
+        fromDate: today,
+        toDate: today.add(const Duration(days: 7)),
+      ),
       context.read<LifeMateApiClient>().getCareRecipientCareEvents(
-            patientUserId: patientUserId,
-            fromDate: today.subtract(const Duration(days: 1)),
-            toDate: today.add(const Duration(days: 30)),
-          ),
+        patientUserId: patientUserId,
+        fromDate: today.subtract(const Duration(days: 1)),
+        toDate: today.add(const Duration(days: 30)),
+      ),
     ]);
     if (!mounted) return;
     setState(() {
@@ -179,8 +179,8 @@ class _CareEventManagementScreenState
   @override
   Widget build(BuildContext context) {
     final relationship = _selectedRelationship;
-    final patientName = relationship?['patientDisplayName']?.toString() ??
-        'فرد تحت مراقبت';
+    final patientName =
+        relationship?['patientDisplayName']?.toString() ?? 'فرد تحت مراقبت';
 
     return Scaffold(
       backgroundColor: AppColors.background,
@@ -247,19 +247,24 @@ class _CareEventManagementScreenState
                       const SizedBox(height: 16),
                       switch (_selectedType) {
                         0 => _AppointmentWorkspace(
-                            events: _events
-                                .where((event) =>
+                          events: _events
+                              .where(
+                                (event) =>
                                     event['eventType']?.toString() ==
-                                    'appointment')
-                                .toList(growable: false),
-                          ),
+                                    'appointment',
+                              )
+                              .toList(growable: false),
+                        ),
                         1 => _MedicationWorkspace(doses: _doses),
                         _ => _InjectionWorkspace(
-                            events: _events
-                                .where((event) =>
-                                    event['eventType']?.toString() == 'injection')
-                                .toList(growable: false),
-                          ),
+                          events: _events
+                              .where(
+                                (event) =>
+                                    event['eventType']?.toString() ==
+                                    'injection',
+                              )
+                              .toList(growable: false),
+                        ),
                       },
                     ],
                   ],
@@ -278,10 +283,7 @@ class _CareEventManagementScreenState
 }
 
 class _TypeSelector extends StatelessWidget {
-  const _TypeSelector({
-    required this.selectedIndex,
-    required this.onChanged,
-  });
+  const _TypeSelector({required this.selectedIndex, required this.onChanged});
 
   final int selectedIndex;
   final ValueChanged<int> onChanged;
@@ -323,8 +325,9 @@ class _TypeSelector extends StatelessWidget {
                   duration: const Duration(milliseconds: 180),
                   constraints: const BoxConstraints(minHeight: 58),
                   decoration: BoxDecoration(
-                    color:
-                        selected ? AppColors.primaryBlue : Colors.transparent,
+                    color: selected
+                        ? AppColors.primaryBlue
+                        : Colors.transparent,
                     borderRadius: BorderRadius.circular(17),
                   ),
                   child: Column(
@@ -425,7 +428,8 @@ class _PatientSelector extends StatelessWidget {
                             const SizedBox(width: 12),
                             Expanded(
                               child: Text(
-                                relationship['patientDisplayName']?.toString() ??
+                                relationship['patientDisplayName']
+                                        ?.toString() ??
                                     'فرد تحت مراقبت',
                                 overflow: TextOverflow.ellipsis,
                                 style: const TextStyle(
@@ -649,7 +653,8 @@ class _ReadOnlyForm extends StatelessWidget {
               padding: const EdgeInsets.only(bottom: 11),
               child: TextField(
                 enabled: false,
-                maxLines: field.$1.contains('آدرس') ||
+                maxLines:
+                    field.$1.contains('آدرس') ||
                         field.$1.contains('یادداشت') ||
                         field.$1.contains('دلیل')
                     ? 2
@@ -724,8 +729,16 @@ class _EventTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final isInjection = event['eventType']?.toString() == 'injection';
-    final date = event['scheduledLocalDate']?.toString() ?? '----/--/--';
-    final time = event['scheduledLocalTime']?.toString() ?? '--:--';
+    final rawDate = event['scheduledLocalDate']?.toString() ?? '';
+    final parsedDate = DateTime.tryParse(rawDate);
+    final date = parsedDate == null
+        ? localizeDigits(context, rawDate.isEmpty ? '----/--/--' : rawDate)
+        : formatAppDate(context, parsedDate);
+    final rawTime = event['scheduledLocalTime']?.toString() ?? '--:--';
+    final time = localizeDigits(
+      context,
+      rawTime.length >= 5 ? rawTime.substring(0, 5) : rawTime,
+    );
     final center = event['centerName']?.toString().trim();
     final address = event['addressLine']?.toString().trim();
 
@@ -767,14 +780,19 @@ class _EventTile extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  event['title']?.toString() ??
-                      (isInjection ? 'تزریق' : 'ویزیت'),
+                  localizeDigits(
+                    context,
+                    event['title']?.toString() ??
+                        (isInjection ? 'تزریق' : 'ویزیت'),
+                  ),
                   style: const TextStyle(fontWeight: FontWeight.w900),
                 ),
                 const SizedBox(height: 5),
                 Text(
-                  '$date  •  ${time.length >= 5 ? time.substring(0, 5) : time}',
-                  textDirection: TextDirection.ltr,
+                  '$date  •  $time',
+                  textDirection: usesPersianCalendar(context)
+                      ? TextDirection.rtl
+                      : TextDirection.ltr,
                   style: const TextStyle(
                     color: AppColors.secondaryText,
                     fontSize: 12,
@@ -782,7 +800,10 @@ class _EventTile extends StatelessWidget {
                 ),
                 if (center != null && center.isNotEmpty) ...[
                   const SizedBox(height: 5),
-                  Text(center, style: const TextStyle(fontSize: 12)),
+                  Text(
+                    localizeDigits(context, center),
+                    style: const TextStyle(fontSize: 12),
+                  ),
                 ],
                 if (address != null && address.isNotEmpty) ...[
                   const SizedBox(height: 4),
@@ -797,7 +818,7 @@ class _EventTile extends StatelessWidget {
                       const SizedBox(width: 4),
                       Expanded(
                         child: Text(
-                          address,
+                          localizeDigits(context, address),
                           style: const TextStyle(
                             color: AppColors.secondaryText,
                             fontSize: 11,
@@ -840,12 +861,18 @@ class _DoseTile extends StatelessWidget {
           const SizedBox(width: 12),
           Expanded(
             child: Text(
-              dose['medicationName']?.toString() ?? 'دارو',
+              localizeDigits(
+                context,
+                dose['medicationName']?.toString() ?? 'دارو',
+              ),
               style: const TextStyle(fontWeight: FontWeight.w800),
             ),
           ),
           Text(
-            time.length >= 5 ? time.substring(0, 5) : time,
+            localizeDigits(
+              context,
+              time.length >= 5 ? time.substring(0, 5) : time,
+            ),
             textDirection: TextDirection.ltr,
             style: const TextStyle(fontWeight: FontWeight.w800),
           ),
@@ -884,7 +911,8 @@ class _NoPatientState extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return const _InlineEmpty(
-      text: 'برای مشاهده یا آماده‌کردن برنامه، ابتدا یک بیمار را از طریق دعوت و رضایت معتبر متصل کنید.',
+      text:
+          'برای مشاهده یا آماده‌کردن برنامه، ابتدا یک بیمار را از طریق دعوت و رضایت معتبر متصل کنید.',
     );
   }
 }

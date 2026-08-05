@@ -106,7 +106,7 @@ class CareMateBottomNav extends StatelessWidget {
             child: InkWell(
               onTap: () {
                 if (index == 2 && currentIndex != 2) {
-                  Navigator.of(context).pushReplacement(
+                  Navigator.of(context).push(
                     PageRouteBuilder<void>(
                       pageBuilder: (_, __, ___) =>
                           const CareEventManagementScreen(),

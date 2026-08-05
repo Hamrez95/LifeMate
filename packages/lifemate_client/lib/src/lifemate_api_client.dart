@@ -1,8 +1,11 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:math';
+import 'dart:typed_data';
 
 import 'package:http/http.dart' as http;
+
+import 'reminder_lead_time.dart';
 
 typedef AccessTokenProvider = String? Function();
 
@@ -28,9 +31,9 @@ class LifeMateApiClient {
     required Uri baseUri,
     required AccessTokenProvider accessToken,
     http.Client? httpClient,
-  })  : _baseUri = baseUri,
-        _accessToken = accessToken,
-        _http = httpClient ?? http.Client();
+  }) : _baseUri = baseUri,
+       _accessToken = accessToken,
+       _http = httpClient ?? http.Client();
 
   final Uri _baseUri;
   final AccessTokenProvider _accessToken;
@@ -43,7 +46,9 @@ class LifeMateApiClient {
     final bytes = List<int>.generate(16, (_) => Random.secure().nextInt(256));
     bytes[6] = (bytes[6] & 0x0f) | 0x40;
     bytes[8] = (bytes[8] & 0x3f) | 0x80;
-    final hex = bytes.map((value) => value.toRadixString(16).padLeft(2, '0')).join();
+    final hex = bytes
+        .map((value) => value.toRadixString(16).padLeft(2, '0'))
+        .join();
     return '${hex.substring(0, 8)}-${hex.substring(8, 12)}-'
         '${hex.substring(12, 16)}-${hex.substring(16, 20)}-'
         '${hex.substring(20)}';
@@ -69,21 +74,26 @@ class LifeMateApiClient {
     return _asObject(value);
   }
 
-  Future<Map<String, dynamic>> getCurrentUser() async => _asObject(
-        await _send(
-          'GET',
-          '/api/v1/me',
-          retryable: true,
-        ),
-      );
+  Future<Map<String, dynamic>> getCurrentUser() async =>
+      _asObject(await _send('GET', '/api/v1/me', retryable: true));
 
-  Future<Map<String, dynamic>> getCurrentProfile() async => _asObject(
-        await _send(
-          'GET',
-          '/api/v1/me/profile',
-          retryable: true,
-        ),
-      );
+  Future<Map<String, dynamic>> getCurrentProfile() async =>
+      _asObject(await _send('GET', '/api/v1/me/profile', retryable: true));
+
+  Future<Map<String, dynamic>> uploadCurrentProfilePhoto({
+    required Uint8List bytes,
+    required String contentType,
+  }) async => _asObject(
+    await _sendBinary(
+      'PUT',
+      '/api/v1/me/profile/photo',
+      bytes: bytes,
+      contentType: contentType,
+    ),
+  );
+
+  Future<Map<String, dynamic>> deleteCurrentProfilePhoto() async =>
+      _asObject(await _send('DELETE', '/api/v1/me/profile/photo'));
 
   Future<Map<String, dynamic>> updateCurrentProfile({
     required int version,
@@ -91,20 +101,21 @@ class LifeMateApiClient {
     String? phoneNumber,
     required String locale,
     required String timeZone,
-  }) async =>
-      _asObject(
-        await _send(
-          'PATCH',
-          '/api/v1/me/profile',
-          body: {
-            'version': version,
-            'displayName': displayName.trim(),
-            'phoneNumber': _emptyToNull(phoneNumber),
-            'locale': locale.trim(),
-            'timeZone': timeZone.trim(),
-          },
-        ),
-      );
+    required String avatarKey,
+  }) async => _asObject(
+    await _send(
+      'PATCH',
+      '/api/v1/me/profile',
+      body: {
+        'version': version,
+        'displayName': displayName.trim(),
+        'phoneNumber': _emptyToNull(phoneNumber),
+        'locale': locale.trim(),
+        'timeZone': timeZone.trim(),
+        'avatarKey': avatarKey.trim(),
+      },
+    ),
+  );
 
   Future<List<Map<String, dynamic>>> getMedications() =>
       _getList('/api/v1/medications');
@@ -114,19 +125,18 @@ class LifeMateApiClient {
     String? strengthText,
     String? form,
     String? notes,
-  }) async =>
-      _asObject(
-        await _send(
-          'POST',
-          '/api/v1/medications',
-          body: {
-            'name': name.trim(),
-            'strengthText': _emptyToNull(strengthText),
-            'form': _emptyToNull(form),
-            'notes': _emptyToNull(notes),
-          },
-        ),
-      );
+  }) async => _asObject(
+    await _send(
+      'POST',
+      '/api/v1/medications',
+      body: {
+        'name': name.trim(),
+        'strengthText': _emptyToNull(strengthText),
+        'form': _emptyToNull(form),
+        'notes': _emptyToNull(notes),
+      },
+    ),
+  );
 
   Future<List<Map<String, dynamic>>> getTreatmentPlans() =>
       _getList('/api/v1/treatment-plans');
@@ -139,34 +149,35 @@ class LifeMateApiClient {
     required String timeZone,
     required List<Map<String, String>> schedules,
     String? instructions,
-  }) async =>
-      _asObject(
-        await _send(
-          'POST',
-          '/api/v1/treatment-plans',
-          body: {
-            'medicationId': medicationId,
-            'doseText': doseText.trim(),
-            'instructions': _emptyToNull(instructions),
-            'startDate': _date(startDate),
-            'endDate': endDate == null ? null : _date(endDate),
-            'timeZone': timeZone,
-            'schedules': schedules,
-          },
-        ),
-      );
+    int patientReminderMinutesBefore =
+        LifeMateReminderLeadTimes.defaultPatientMinutes,
+    int caregiverReminderMinutesBefore =
+        LifeMateReminderLeadTimes.defaultCaregiverMinutes,
+  }) async => _asObject(
+    await _send(
+      'POST',
+      '/api/v1/treatment-plans',
+      body: {
+        'medicationId': medicationId,
+        'doseText': doseText.trim(),
+        'instructions': _emptyToNull(instructions),
+        'startDate': _date(startDate),
+        'endDate': endDate == null ? null : _date(endDate),
+        'timeZone': timeZone,
+        'schedules': schedules,
+        'patientReminderMinutesBefore': patientReminderMinutesBefore,
+        'caregiverReminderMinutesBefore': caregiverReminderMinutesBefore,
+      },
+    ),
+  );
 
   Future<List<Map<String, dynamic>>> getCareEvents({
     required DateTime fromDate,
     required DateTime toDate,
-  }) =>
-      _getList(
-        '/api/v1/care-events',
-        query: {
-          'fromDate': _date(fromDate),
-          'toDate': _date(toDate),
-        },
-      );
+  }) => _getList(
+    '/api/v1/care-events',
+    query: {'fromDate': _date(fromDate), 'toDate': _date(toDate)},
+  );
 
   Future<Map<String, dynamic>> createCareEvent({
     required String clientRequestId,
@@ -185,44 +196,45 @@ class LifeMateApiClient {
     String? centerName,
     String? addressLine,
     String? phoneNumber,
-  }) async =>
-      _asObject(
-        await _send(
-          'POST',
-          '/api/v1/care-events',
-          body: {
-            'clientRequestId': clientRequestId,
-            'eventType': eventType.trim().toLowerCase(),
-            'title': title.trim(),
-            'providerName': _emptyToNull(providerName),
-            'specialty': _emptyToNull(specialty),
-            'medicationName': _emptyToNull(medicationName),
-            'doseText': _emptyToNull(doseText),
-            'administrationRoute': _emptyToNull(administrationRoute),
-            'reason': _emptyToNull(reason),
-            'instructions': _emptyToNull(instructions),
-            'centerName': _emptyToNull(centerName),
-            'addressLine': _emptyToNull(addressLine),
-            'phoneNumber': _emptyToNull(phoneNumber),
-            'scheduledLocalDate': _date(scheduledLocalDate),
-            'scheduledLocalTime': scheduledLocalTime.trim(),
-            'timeZone': timeZone.trim(),
-          },
-          retryable: true,
-        ),
-      );
+    int patientReminderMinutesBefore =
+        LifeMateReminderLeadTimes.defaultPatientMinutes,
+    int caregiverReminderMinutesBefore =
+        LifeMateReminderLeadTimes.defaultCaregiverMinutes,
+  }) async => _asObject(
+    await _send(
+      'POST',
+      '/api/v1/care-events',
+      body: {
+        'clientRequestId': clientRequestId,
+        'eventType': eventType.trim().toLowerCase(),
+        'title': title.trim(),
+        'providerName': _emptyToNull(providerName),
+        'specialty': _emptyToNull(specialty),
+        'medicationName': _emptyToNull(medicationName),
+        'doseText': _emptyToNull(doseText),
+        'administrationRoute': _emptyToNull(administrationRoute),
+        'reason': _emptyToNull(reason),
+        'instructions': _emptyToNull(instructions),
+        'centerName': _emptyToNull(centerName),
+        'addressLine': _emptyToNull(addressLine),
+        'phoneNumber': _emptyToNull(phoneNumber),
+        'scheduledLocalDate': _date(scheduledLocalDate),
+        'scheduledLocalTime': scheduledLocalTime.trim(),
+        'timeZone': timeZone.trim(),
+        'patientReminderMinutesBefore': patientReminderMinutesBefore,
+        'caregiverReminderMinutesBefore': caregiverReminderMinutesBefore,
+      },
+      retryable: true,
+    ),
+  );
 
   Future<List<Map<String, dynamic>>> getDoseOccurrences({
     required DateTime fromDate,
     required DateTime toDate,
-  }) =>
-      _getList(
-        '/api/v1/dose-occurrences',
-        query: {
-          'fromDate': _date(fromDate),
-          'toDate': _date(toDate),
-        },
-      );
+  }) => _getList(
+    '/api/v1/dose-occurrences',
+    query: {'fromDate': _date(fromDate), 'toDate': _date(toDate)},
+  );
 
   Future<Map<String, dynamic>> reportDose({
     required String occurrenceId,
@@ -250,54 +262,49 @@ class LifeMateApiClient {
 
   Future<Map<String, dynamic>> createCareInvitation({
     required String email,
-  }) async =>
-      _asObject(
-        await _send(
-          'POST',
-          '/api/v1/care/invitations',
-          body: {
-            'contactType': 'email',
-            'contact': email.trim(),
-            'consentVersion': 'care-patient-consent-v1',
-            'confirmConsent': true,
-          },
-        ),
-      );
+  }) async => _asObject(
+    await _send(
+      'POST',
+      '/api/v1/care/invitations',
+      body: {
+        'contactType': 'email',
+        'contact': email.trim(),
+        'consentVersion': 'care-patient-consent-v1',
+        'confirmConsent': true,
+      },
+    ),
+  );
 
-  Future<Map<String, dynamic>> createQrCareInvitation() async =>
-      _asObject(
-        await _send(
-          'POST',
-          '/api/v1/care/invitations/qr',
-          body: {
-            'consentVersion': 'care-patient-consent-v1',
-            'confirmConsent': true,
-          },
-        ),
-      );
+  Future<Map<String, dynamic>> createQrCareInvitation() async => _asObject(
+    await _send(
+      'POST',
+      '/api/v1/care/invitations/qr',
+      body: {
+        'consentVersion': 'care-patient-consent-v1',
+        'confirmConsent': true,
+      },
+    ),
+  );
 
   Future<List<Map<String, dynamic>>> getOutgoingCareInvitations() =>
       _getList('/api/v1/care/invitations');
 
   Future<Map<String, dynamic>> acceptCareInvitation({
     required String token,
-  }) async =>
-      _asObject(
-        await _send(
-          'POST',
-          '/api/v1/care/invitations/accept',
-          body: {
-            'token': token.trim(),
-            'consentVersion': 'care-caregiver-consent-v1',
-            'confirmConsent': true,
-          },
-          retryable: true,
-        ),
-      );
+  }) async => _asObject(
+    await _send(
+      'POST',
+      '/api/v1/care/invitations/accept',
+      body: {
+        'token': token.trim(),
+        'consentVersion': 'care-caregiver-consent-v1',
+        'confirmConsent': true,
+      },
+      retryable: true,
+    ),
+  );
 
-  Future<void> revokeCareRelationship({
-    required String relationshipId,
-  }) async {
+  Future<void> revokeCareRelationship({required String relationshipId}) async {
     await _send(
       'DELETE',
       '/api/v1/care/relationships/$relationshipId',
@@ -309,42 +316,179 @@ class LifeMateApiClient {
     required String patientUserId,
     required DateTime fromDate,
     required DateTime toDate,
-  }) =>
-      _getList(
-        '/api/v1/care/patients/$patientUserId/dose-occurrences',
-        query: {
-          'fromDate': _date(fromDate),
-          'toDate': _date(toDate),
-        },
-      );
+  }) => _getList(
+    '/api/v1/care/patients/$patientUserId/dose-occurrences',
+    query: {'fromDate': _date(fromDate), 'toDate': _date(toDate)},
+  );
 
   Future<List<Map<String, dynamic>>> getCareRecipientCareEvents({
     required String patientUserId,
     required DateTime fromDate,
     required DateTime toDate,
-  }) =>
-      _getList(
-        '/api/v1/care/patients/$patientUserId/care-events',
-        query: {
-          'fromDate': _date(fromDate),
-          'toDate': _date(toDate),
-        },
-      );
+  }) => _getList(
+    '/api/v1/care/patients/$patientUserId/care-events',
+    query: {'fromDate': _date(fromDate), 'toDate': _date(toDate)},
+  );
+
+  Future<Map<String, dynamic>> getWomenCalendarProfile() async => _asObject(
+    await _send('GET', '/api/v1/women-calendar/profile', retryable: true),
+  );
+
+  Future<Map<String, dynamic>> updateWomenCalendarProfile({
+    required int version,
+    required bool enabled,
+    required DateTime? lastPeriodStart,
+    required int cycleLength,
+    required int periodLength,
+    required bool remindersEnabled,
+    Map<String, dynamic>? dailyCheckIn,
+    bool includeDailyCheckIn = false,
+  }) async => _asObject(
+    await _send(
+      'PATCH',
+      '/api/v1/women-calendar/profile',
+      body: {
+        'version': version,
+        'enabled': enabled,
+        'lastPeriodStart': lastPeriodStart == null
+            ? null
+            : _date(lastPeriodStart),
+        'cycleLength': cycleLength,
+        'periodLength': periodLength,
+        'remindersEnabled': remindersEnabled,
+        if (includeDailyCheckIn) 'dailyCheckIn': dailyCheckIn,
+      },
+    ),
+  );
+
+  Future<List<Map<String, dynamic>>> getWomenCalendarEpisodes() =>
+      _getList('/api/v1/women-calendar/episodes');
+
+  Future<Map<String, dynamic>> createWomenCalendarEpisode({
+    required DateTime startedOn,
+    DateTime? endedOn,
+    String? privateNotes,
+  }) async => _asObject(
+    await _send(
+      'POST',
+      '/api/v1/women-calendar/episodes',
+      body: {
+        'startedOn': _date(startedOn),
+        'endedOn': endedOn == null ? null : _date(endedOn),
+        'privateNotes': _emptyToNull(privateNotes),
+      },
+    ),
+  );
+
+  Future<Map<String, dynamic>> updateWomenCalendarEpisode({
+    required String episodeId,
+    required int version,
+    required DateTime startedOn,
+    required DateTime? endedOn,
+    String? privateNotes,
+  }) async => _asObject(
+    await _send(
+      'PATCH',
+      '/api/v1/women-calendar/episodes/$episodeId',
+      body: {
+        'version': version,
+        'startedOn': _date(startedOn),
+        'endedOn': endedOn == null ? null : _date(endedOn),
+        'privateNotes': _emptyToNull(privateNotes),
+      },
+    ),
+  );
+
+  Future<void> deleteWomenCalendarEpisode({required String episodeId}) async {
+    await _send('DELETE', '/api/v1/women-calendar/episodes/$episodeId');
+  }
+
+  Future<Map<String, dynamic>> updateCareRelationshipPermissions({
+    required String relationshipId,
+    required bool canViewWomenCalendar,
+  }) async => _asObject(
+    await _send(
+      'PATCH',
+      '/api/v1/care/relationships/$relationshipId/permissions',
+      body: {'canViewWomenCalendar': canViewWomenCalendar},
+    ),
+  );
+
+  Future<Map<String, dynamic>> getCareRecipientWomenCalendar({
+    required String patientUserId,
+  }) async => _asObject(
+    await _send(
+      'GET',
+      '/api/v1/care/patients/$patientUserId/women-calendar',
+      retryable: true,
+    ),
+  );
+
+  Future<Map<String, dynamic>> recordCareRecipientWomenSupportAction({
+    required String patientUserId,
+    required String actionType,
+  }) async => _asObject(
+    await _send(
+      'POST',
+      '/api/v1/care/patients/$patientUserId/women-calendar/support-actions',
+      body: {'actionType': actionType.trim().toLowerCase()},
+    ),
+  );
 
   Future<List<Map<String, dynamic>>> _getList(
     String path, {
     Map<String, String>? query,
   }) async {
-    final value = await _send(
-      'GET',
-      path,
-      query: query,
-      retryable: true,
-    );
+    final value = await _send('GET', path, query: query, retryable: true);
     if (value is! List) {
       throw const FormatException('LifeMate API returned a non-list payload.');
     }
     return value.map(_asObject).toList(growable: false);
+  }
+
+  Future<dynamic> _sendBinary(
+    String method,
+    String path, {
+    required Uint8List bytes,
+    required String contentType,
+  }) async {
+    final token = _accessToken();
+    if (token == null || token.isEmpty) {
+      throw const LifeMateApiException(
+        statusCode: 401,
+        code: 'session_missing',
+        message: 'Authentication session is missing.',
+      );
+    }
+    if (method != 'PUT') {
+      throw ArgumentError.value(method, 'method', 'Unsupported binary method');
+    }
+    try {
+      final response = await _http
+          .put(
+            _resolve(path),
+            headers: {
+              'Accept': 'application/json',
+              'Authorization': 'Bearer $token',
+              'Content-Type': contentType,
+            },
+            body: bytes,
+          )
+          .timeout(_requestTimeout);
+      return _decodeResponse(response);
+    } on TimeoutException {
+      throw const LifeMateApiException(
+        statusCode: 0,
+        code: 'network_timeout',
+        message: 'LifeMate request timed out.',
+      );
+    } on http.ClientException {
+      throw const LifeMateApiException(
+        statusCode: 0,
+        code: 'network_unavailable',
+        message: 'LifeMate service is unavailable.',
+      );
+    }
   }
 
   Future<dynamic> _send(
@@ -425,17 +569,9 @@ class LifeMateApiClient {
       case 'GET':
         return _http.get(uri, headers: headers);
       case 'POST':
-        return _http.post(
-          uri,
-          headers: headers,
-          body: encodedBody,
-        );
+        return _http.post(uri, headers: headers, body: encodedBody);
       case 'PATCH':
-        return _http.patch(
-          uri,
-          headers: headers,
-          body: encodedBody,
-        );
+        return _http.patch(uri, headers: headers, body: encodedBody);
       case 'DELETE':
         return _http.delete(uri, headers: headers);
       default:
@@ -461,7 +597,8 @@ class LifeMateApiClient {
     final problem = decoded is Map<String, dynamic> ? decoded : const {};
     throw LifeMateApiException(
       statusCode: response.statusCode,
-      code: (problem['code'] ?? problem['title'] ?? 'request_failed').toString(),
+      code: (problem['code'] ?? problem['title'] ?? 'request_failed')
+          .toString(),
       message: (problem['detail'] ?? 'LifeMate request failed.').toString(),
     );
   }

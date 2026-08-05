@@ -7,4 +7,9 @@ abstract final class LifeMateFeatureFlags {
     'ENABLE_GOOGLE_AUTH',
     defaultValue: false,
   );
+
+  static const bool womenCalendarPilotEnabled = bool.fromEnvironment(
+    'ENABLE_WOMEN_CALENDAR_PILOT',
+    defaultValue: false,
+  );
 }

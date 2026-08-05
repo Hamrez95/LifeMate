@@ -28,7 +28,7 @@ void main() {
 
       expect(find.text('متفورمین'), findsOneWidget);
       expect(find.text('ویزیت متخصص قلب'), findsOneWidget);
-      expect(find.text('ویتامین B12'), findsOneWidget);
+      expect(find.text('ویتامین B۱۲'), findsOneWidget);
       expect(find.byIcon(Icons.medical_services_rounded), findsWidgets);
       expect(find.byIcon(Icons.vaccines_rounded), findsWidgets);
       expect(find.textContaining('مرکز درمانی الوند'), findsOneWidget);
@@ -40,10 +40,10 @@ void main() {
 
 class _CalendarApiClient extends LifeMateApiClient {
   _CalendarApiClient()
-      : super(
-          baseUri: Uri.parse('https://example.invalid'),
-          accessToken: () => 'test-token',
-        );
+    : super(
+        baseUri: Uri.parse('https://example.invalid'),
+        accessToken: () => 'test-token',
+      );
 
   String get _today {
     final now = DateTime.now();
@@ -54,20 +54,20 @@ class _CalendarApiClient extends LifeMateApiClient {
 
   @override
   Future<Map<String, dynamic>> getCurrentUser() async => {
-        'user': {'id': 'caregiver-1'},
-        'profile': {'displayName': 'مراقب تست'},
-      };
+    'user': {'id': 'caregiver-1'},
+    'profile': {'displayName': 'مراقب تست'},
+  };
 
   @override
   Future<List<Map<String, dynamic>>> getCareRelationships() async => [
-        {
-          'id': 'relationship-1',
-          'status': 'active',
-          'patientUserId': 'patient-1',
-          'patientDisplayName': 'مامان جون',
-          'caregiverUserId': 'caregiver-1',
-        },
-      ];
+    {
+      'id': 'relationship-1',
+      'status': 'active',
+      'patientUserId': 'patient-1',
+      'patientDisplayName': 'مامان جون',
+      'caregiverUserId': 'caregiver-1',
+    },
+  ];
 
   @override
   Future<List<Map<String, dynamic>>> getCareRecipientDoseOccurrences({
@@ -75,15 +75,15 @@ class _CalendarApiClient extends LifeMateApiClient {
     required DateTime fromDate,
     required DateTime toDate,
   }) async => [
-        {
-          'id': 'dose-1',
-          'medicationName': 'متفورمین',
-          'doseText': 'یک عدد',
-          'scheduledLocalDate': _today,
-          'scheduledLocalTime': '08:00',
-          'status': 'scheduled',
-        },
-      ];
+    {
+      'id': 'dose-1',
+      'medicationName': 'متفورمین',
+      'doseText': 'یک عدد',
+      'scheduledLocalDate': _today,
+      'scheduledLocalTime': '08:00',
+      'status': 'scheduled',
+    },
+  ];
 
   @override
   Future<List<Map<String, dynamic>>> getCareRecipientCareEvents({
@@ -91,28 +91,28 @@ class _CalendarApiClient extends LifeMateApiClient {
     required DateTime fromDate,
     required DateTime toDate,
   }) async => [
-        {
-          'id': 'appointment-1',
-          'eventType': 'appointment',
-          'title': 'ویزیت متخصص قلب',
-          'providerName': 'دکتر سارا راد',
-          'centerName': 'مرکز درمانی الوند',
-          'addressLine': 'تهران، خیابان ولیعصر',
-          'scheduledLocalDate': _today,
-          'scheduledLocalTime': '16:30',
-          'status': 'scheduled',
-        },
-        {
-          'id': 'injection-1',
-          'eventType': 'injection',
-          'title': 'ویتامین B12',
-          'doseText': '۱ آمپول',
-          'administrationRoute': 'intramuscular',
-          'centerName': 'مرکز تزریقات',
-          'addressLine': 'تهران، میدان ونک',
-          'scheduledLocalDate': _today,
-          'scheduledLocalTime': '18:00',
-          'status': 'scheduled',
-        },
-      ];
+    {
+      'id': 'appointment-1',
+      'eventType': 'appointment',
+      'title': 'ویزیت متخصص قلب',
+      'providerName': 'دکتر سارا راد',
+      'centerName': 'مرکز درمانی الوند',
+      'addressLine': 'تهران، خیابان ولیعصر',
+      'scheduledLocalDate': _today,
+      'scheduledLocalTime': '16:30',
+      'status': 'scheduled',
+    },
+    {
+      'id': 'injection-1',
+      'eventType': 'injection',
+      'title': 'ویتامین B12',
+      'doseText': '۱ آمپول',
+      'administrationRoute': 'intramuscular',
+      'centerName': 'مرکز تزریقات',
+      'addressLine': 'تهران، میدان ونک',
+      'scheduledLocalDate': _today,
+      'scheduledLocalTime': '18:00',
+      'status': 'scheduled',
+    },
+  ];
 }

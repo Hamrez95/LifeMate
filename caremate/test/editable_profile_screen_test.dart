@@ -5,8 +5,9 @@ import 'package:lifemate_client/lifemate_client.dart';
 import 'package:provider/provider.dart';
 
 void main() {
-  testWidgets('CareMate profile editor saves the stable backend profile',
-      (tester) async {
+  testWidgets('CareMate profile editor saves the stable backend profile', (
+    tester,
+  ) async {
     tester.view.physicalSize = const Size(390, 900);
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.resetPhysicalSize);
@@ -29,6 +30,13 @@ void main() {
     await tester.enterText(fields.at(2), '+49 151 7654321');
     await tester.enterText(fields.at(3), 'Europe/Berlin');
 
+    final caregiverAvatar = find.byKey(
+      const ValueKey<String>('profile-avatar-caregiver_teal'),
+    );
+    await tester.ensureVisible(caregiverAvatar);
+    await tester.tap(caregiverAvatar);
+    await tester.pumpAndSettle();
+
     final save = find.byKey(const ValueKey<String>('care-profile-save'));
     await tester.ensureVisible(save);
     await tester.tap(save);
@@ -39,6 +47,7 @@ void main() {
     expect(api.savedPhoneNumber, '+49 151 7654321');
     expect(api.savedLocale, 'fa');
     expect(api.savedTimeZone, 'Europe/Berlin');
+    expect(api.savedAvatarKey, 'caregiver_teal');
     expect(find.text('اطلاعات پروفایل با موفقیت ذخیره شد.'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
@@ -46,28 +55,30 @@ void main() {
 
 class _ProfileApiClient extends LifeMateApiClient {
   _ProfileApiClient()
-      : super(
-          baseUri: Uri.parse('https://example.invalid'),
-          accessToken: () => 'test-token',
-        );
+    : super(
+        baseUri: Uri.parse('https://example.invalid'),
+        accessToken: () => 'test-token',
+      );
 
   int? savedVersion;
   String? savedDisplayName;
   String? savedPhoneNumber;
   String? savedLocale;
   String? savedTimeZone;
+  String? savedAvatarKey;
 
   @override
   Future<Map<String, dynamic>> getCurrentProfile() async => {
-        'id': 'profile-2',
-        'userId': 'user-2',
-        'displayName': 'حمیدرضا',
-        'email': 'caregiver@example.test',
-        'phoneNumber': null,
-        'locale': 'fa',
-        'timeZone': 'Asia/Tehran',
-        'version': 4,
-      };
+    'id': 'profile-2',
+    'userId': 'user-2',
+    'displayName': 'حمیدرضا',
+    'email': 'caregiver@example.test',
+    'phoneNumber': null,
+    'locale': 'fa',
+    'timeZone': 'Asia/Tehran',
+    'avatarKey': 'person_blue',
+    'version': 4,
+  };
 
   @override
   Future<Map<String, dynamic>> updateCurrentProfile({
@@ -76,12 +87,14 @@ class _ProfileApiClient extends LifeMateApiClient {
     String? phoneNumber,
     required String locale,
     required String timeZone,
+    required String avatarKey,
   }) async {
     savedVersion = version;
     savedDisplayName = displayName;
     savedPhoneNumber = phoneNumber;
     savedLocale = locale;
     savedTimeZone = timeZone;
+    savedAvatarKey = avatarKey;
     return {
       'id': 'profile-2',
       'userId': 'user-2',
@@ -90,6 +103,7 @@ class _ProfileApiClient extends LifeMateApiClient {
       'phoneNumber': phoneNumber?.replaceAll(' ', ''),
       'locale': locale,
       'timeZone': timeZone.trim(),
+      'avatarKey': avatarKey,
       'version': version + 1,
     };
   }
