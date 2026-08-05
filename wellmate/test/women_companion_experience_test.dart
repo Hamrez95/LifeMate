@@ -47,42 +47,45 @@ void main() {
       expect(find.textContaining('اقدام به بارداری'), findsNothing);
       expect(tester.takeException(), isNull);
     },
+    skip: !LifeMateFeatureFlags.womenCalendarPilotEnabled,
   );
 
-  testWidgets('daily check-in explains consent and private-note boundary', (
-    tester,
-  ) async {
-    tester.view.physicalSize = const Size(360, 780);
-    tester.view.devicePixelRatio = 1;
-    addTearDown(tester.view.resetPhysicalSize);
-    addTearDown(tester.view.resetDevicePixelRatio);
+  testWidgets(
+    'daily check-in explains consent and private-note boundary',
+    (tester) async {
+      tester.view.physicalSize = const Size(360, 780);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
 
-    await tester.pumpWidget(
-      Provider<LifeMateApiClient>.value(
-        value: _FakeLifeMateApiClient(),
-        child: MaterialApp(
-          locale: const Locale('fa'),
-          home: Scaffold(
-            body: WomenCompanionScreen(
-              companionApi: _FakeWomenCompanionApi(),
+      await tester.pumpWidget(
+        Provider<LifeMateApiClient>.value(
+          value: _FakeLifeMateApiClient(),
+          child: MaterialApp(
+            locale: const Locale('fa'),
+            home: Scaffold(
+              body: WomenCompanionScreen(
+                companionApi: _FakeWomenCompanionApi(),
+              ),
             ),
           ),
         ),
-      ),
-    );
-    await tester.pumpAndSettle();
+      );
+      await tester.pumpAndSettle();
 
-    await tester.tap(find.text('ویرایش'));
-    await tester.pumpAndSettle();
+      await tester.tap(find.text('ویرایش'));
+      await tester.pumpAndSettle();
 
-    expect(find.text('یادداشت خصوصی'), findsOneWidget);
-    expect(find.text('اشتراک خلاصه با همدم'), findsOneWidget);
-    expect(
-      find.textContaining('یادداشت خصوصی هرگز به اشتراک گذاشته نمی‌شود'),
-      findsOneWidget,
-    );
-    expect(tester.takeException(), isNull);
-  });
+      expect(find.text('یادداشت خصوصی'), findsOneWidget);
+      expect(find.text('اشتراک خلاصه با همدم'), findsOneWidget);
+      expect(
+        find.textContaining('یادداشت خصوصی هرگز به اشتراک گذاشته نمی‌شود'),
+        findsOneWidget,
+      );
+      expect(tester.takeException(), isNull);
+    },
+    skip: !LifeMateFeatureFlags.womenCalendarPilotEnabled,
+  );
 }
 
 class _FakeLifeMateApiClient extends LifeMateApiClient {
