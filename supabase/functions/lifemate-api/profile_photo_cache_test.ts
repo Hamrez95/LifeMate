@@ -24,7 +24,8 @@ Deno.test("profile photo signed URLs are reused until the refresh window", async
       return Promise.resolve(
         new Response(
           JSON.stringify({
-            signedURL: `/storage/v1/object/sign/profile-photos/${objectPath}?token=${signRequests}`,
+            signedURL:
+              `/storage/v1/object/sign/profile-photos/${objectPath}?token=${signRequests}`,
           }),
           { status: 200, headers: { "content-type": "application/json" } },
         ),
