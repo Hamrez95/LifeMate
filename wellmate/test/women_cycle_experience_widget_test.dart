@@ -4,7 +4,9 @@ import 'package:lifemate_client/lifemate_client.dart';
 import 'package:wellmate/screens/women_calendar/women_calendar_experience_widgets.dart';
 
 void main() {
-  testWidgets('cycle hero remains usable at 320 logical pixels', (tester) async {
+  testWidgets('cycle hero remains usable at 320 logical pixels', (
+    tester,
+  ) async {
     tester.view.physicalSize = const Size(320, 780);
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.resetPhysicalSize);
@@ -34,7 +36,10 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    expect(find.byKey(const ValueKey('women-emotional-cycle-hero')), findsOneWidget);
+    expect(
+      find.byKey(const ValueKey('women-emotional-cycle-hero')),
+      findsOneWidget,
+    );
     expect(find.text('تقویم چرخه'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
@@ -78,7 +83,10 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    expect(find.byKey(const ValueKey('women-daily-check-in-card')), findsOneWidget);
+    expect(
+      find.byKey(const ValueKey('women-daily-check-in-card')),
+      findsOneWidget,
+    );
     expect(find.text('ثبت حال امروز'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });

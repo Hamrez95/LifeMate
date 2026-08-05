@@ -240,7 +240,7 @@ class WomenSoftCard extends StatelessWidget {
           ),
         ],
       ),
-      child: child,
+      child: Material(color: Colors.transparent, child: child),
     );
   }
 }
@@ -714,7 +714,7 @@ class WomenDailyCheckInCard extends StatelessWidget {
           ),
           const SizedBox(height: 16),
           SizedBox(
-            height: 88,
+            height: 92,
             child: ListView.separated(
               scrollDirection: Axis.horizontal,
               itemCount: womenMoods.length,
@@ -732,7 +732,7 @@ class WomenDailyCheckInCard extends StatelessWidget {
                     child: AnimatedContainer(
                       duration: const Duration(milliseconds: 180),
                       width: 67,
-                      padding: const EdgeInsets.symmetric(vertical: 9),
+                      padding: const EdgeInsets.symmetric(vertical: 7),
                       decoration: BoxDecoration(
                         color: selected
                             ? item.color.withValues(alpha: 0.18)
@@ -750,7 +750,7 @@ class WomenDailyCheckInCard extends StatelessWidget {
                             item.emoji,
                             style: const TextStyle(fontSize: 25),
                           ),
-                          const SizedBox(height: 5),
+                          const SizedBox(height: 3),
                           Text(
                             item.label,
                             style: TextStyle(
