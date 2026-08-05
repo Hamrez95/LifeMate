@@ -73,6 +73,33 @@ class CareMateApp extends StatelessWidget {
           bodyLarge: TextStyle(fontSize: 18, fontWeight: FontWeight.w500),
           bodyMedium: TextStyle(fontSize: 16),
         ),
+        inputDecorationTheme: InputDecorationTheme(
+          filled: true,
+          fillColor: const Color(0xFFF6F9FD),
+          floatingLabelBehavior: FloatingLabelBehavior.always,
+          alignLabelWithHint: true,
+          contentPadding: const EdgeInsets.symmetric(
+            horizontal: 17,
+            vertical: 18,
+          ),
+          border: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(16),
+            borderSide: BorderSide.none,
+          ),
+          enabledBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(16),
+            borderSide: BorderSide(
+              color: AppColors.primaryBlue.withValues(alpha: 0.10),
+            ),
+          ),
+          focusedBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(16),
+            borderSide: const BorderSide(
+              color: AppColors.primaryBlue,
+              width: 1.5,
+            ),
+          ),
+        ),
         useMaterial3: true,
       ),
       locale: localeProvider.locale,
