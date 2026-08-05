@@ -570,6 +570,15 @@ export function createWomenCalendarStore(databaseUrl: string) {
       limit 1
     `;
     const profile = mapProfile(profiles[0]);
+    const dailyCheckIn = profile.dailyCheckIn as Record<string, unknown> | null;
+    const sharedDailySummary = dailyCheckIn?.shareSummary === true
+      ? {
+        date: dailyCheckIn.date,
+        mood: dailyCheckIn.mood,
+        energy: dailyCheckIn.energy,
+        supportNeed: dailyCheckIn.supportNeed,
+      }
+      : null;
     const patientProfile = patientProfiles[0];
     return {
       patient: {
