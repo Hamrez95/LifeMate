@@ -257,41 +257,44 @@ class _ConnectedPartnerHero extends StatelessWidget {
                   borderRadius: BorderRadius.circular(70),
                 ),
               ),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  LifeMateProfileAvatar(
-                    avatarKey: patientAvatarKey,
-                    radius: 38,
-                  ),
-                  Transform.translate(
-                    offset: const Offset(5, 0),
-                    child: Container(
-                      width: 38,
-                      height: 38,
-                      decoration: BoxDecoration(
-                        color: Colors.white,
-                        shape: BoxShape.circle,
-                        border: Border.all(
-                          color: const Color(0xFFD98AD0),
-                          width: 2,
-                        ),
-                      ),
-                      child: const Icon(
-                        Icons.favorite_rounded,
-                        color: Color(0xFFD966A4),
-                        size: 20,
-                      ),
-                    ),
-                  ),
-                  Transform.translate(
-                    offset: const Offset(-5, 0),
-                    child: LifeMateCurrentUserAvatar(
-                      apiClient: api,
+              FittedBox(
+                fit: BoxFit.scaleDown,
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    LifeMateProfileAvatar(
+                      avatarKey: patientAvatarKey,
                       radius: 38,
                     ),
-                  ),
-                ],
+                    Transform.translate(
+                      offset: const Offset(5, 0),
+                      child: Container(
+                        width: 38,
+                        height: 38,
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          shape: BoxShape.circle,
+                          border: Border.all(
+                            color: const Color(0xFFD98AD0),
+                            width: 2,
+                          ),
+                        ),
+                        child: const Icon(
+                          Icons.favorite_rounded,
+                          color: Color(0xFFD966A4),
+                          size: 20,
+                        ),
+                      ),
+                    ),
+                    Transform.translate(
+                      offset: const Offset(-5, 0),
+                      child: LifeMateCurrentUserAvatar(
+                        apiClient: api,
+                        radius: 38,
+                      ),
+                    ),
+                  ],
+                ),
               ),
             ],
           ),
