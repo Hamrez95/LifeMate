@@ -74,6 +74,33 @@ class WellMateApp extends StatelessWidget {
               primary: AppColors.primary,
               secondary: AppColors.primary,
             ),
+            inputDecorationTheme: InputDecorationTheme(
+              filled: true,
+              fillColor: const Color(0xFFF8FCFA),
+              floatingLabelBehavior: FloatingLabelBehavior.always,
+              alignLabelWithHint: true,
+              contentPadding: const EdgeInsets.symmetric(
+                horizontal: 17,
+                vertical: 17,
+              ),
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(16),
+                borderSide: BorderSide.none,
+              ),
+              enabledBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(16),
+                borderSide: BorderSide(
+                  color: AppColors.primary.withValues(alpha: 0.10),
+                ),
+              ),
+              focusedBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(16),
+                borderSide: const BorderSide(
+                  color: AppColors.primary,
+                  width: 1.5,
+                ),
+              ),
+            ),
             useMaterial3: true,
           ),
           locale: localeProvider.locale,
