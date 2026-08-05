@@ -76,9 +76,7 @@ class _CareWomenCalendarScreenState extends State<CareWomenCalendarScreen> {
       final to = from.add(const Duration(days: 7));
       final api = context.read<LifeMateApiClient>();
       final results = await Future.wait<dynamic>([
-        api.getCareRecipientWomenCalendar(
-          patientUserId: widget.patientUserId,
-        ),
+        api.getCareRecipientWomenCalendar(patientUserId: widget.patientUserId),
         api.getCurrentProfile(),
         api.getCareRecipientDoseOccurrences(
           patientUserId: widget.patientUserId,
@@ -259,11 +257,7 @@ class _CompanionBackground extends StatelessWidget {
             gradient: LinearGradient(
               begin: Alignment.topRight,
               end: Alignment.bottomLeft,
-              colors: [
-                Color(0xFFFFF8FC),
-                Color(0xFFF6EFFF),
-                Color(0xFFFFF9F5),
-              ],
+              colors: [Color(0xFFFFF8FC), Color(0xFFF6EFFF), Color(0xFFFFF9F5)],
             ),
           ),
         ),
@@ -314,7 +308,9 @@ class _SoftCard extends StatelessWidget {
     width: double.infinity,
     padding: const EdgeInsets.all(18),
     decoration: BoxDecoration(
-      color: gradient == null ? (color ?? Colors.white).withValues(alpha: 0.95) : null,
+      color: gradient == null
+          ? (color ?? Colors.white).withValues(alpha: 0.95)
+          : null,
       gradient: gradient,
       borderRadius: BorderRadius.circular(28),
       border: Border.all(color: Colors.white.withValues(alpha: 0.82)),
@@ -331,7 +327,11 @@ class _SoftCard extends StatelessWidget {
 }
 
 class _SectionHeader extends StatelessWidget {
-  const _SectionHeader({required this.title, this.subtitle, required this.icon});
+  const _SectionHeader({
+    required this.title,
+    this.subtitle,
+    required this.icon,
+  });
 
   final String title;
   final String? subtitle;
@@ -592,7 +592,9 @@ class _CycleAndMoodCard extends StatelessWidget {
               .toDouble();
     final mood = sharedDailySummary?['mood']?.toString().toLowerCase();
     final energy = (sharedDailySummary?['energy'] as num?)?.round();
-    final support = sharedDailySummary?['supportNeed']?.toString().toLowerCase();
+    final support = sharedDailySummary?['supportNeed']
+        ?.toString()
+        .toLowerCase();
     return _SoftCard(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -680,7 +682,9 @@ class _CycleAndMoodCard extends StatelessWidget {
                 ],
               );
               return compact
-                  ? Column(children: [ring, const SizedBox(height: 16), details])
+                  ? Column(
+                      children: [ring, const SizedBox(height: 16), details],
+                    )
                   : Row(
                       children: [
                         ring,
@@ -821,25 +825,33 @@ class _TodayStatusCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final today = DateTime.now();
     final todayDoses = doses.where((dose) {
-      final date = DateTime.tryParse(dose['scheduledLocalDate']?.toString() ?? '');
+      final date = DateTime.tryParse(
+        dose['scheduledLocalDate']?.toString() ?? '',
+      );
       return date != null && _sameDay(date, today);
     }).toList();
     final missed = todayDoses
-        .where((dose) => {'missed', 'skipped'}.contains(dose['status']?.toString()))
+        .where(
+          (dose) => {'missed', 'skipped'}.contains(dose['status']?.toString()),
+        )
         .length;
     final taken = todayDoses
         .where((dose) => dose['status']?.toString() == 'taken')
         .length;
     final todayEvents = careEvents.where((event) {
-      final date = DateTime.tryParse(event['scheduledLocalDate']?.toString() ?? '');
+      final date = DateTime.tryParse(
+        event['scheduledLocalDate']?.toString() ?? '',
+      );
       return date != null && _sameDay(date, today);
     }).length;
-    final supportActions =
-        (_summaryList(summary, 'supportActions')).where((action) {
-          final date = DateTime.tryParse(action['performedAtUtc']?.toString() ?? '')
-              ?.toLocal();
-          return date != null && _sameDay(date, today);
-        }).length;
+    final supportActions = (_summaryList(summary, 'supportActions')).where((
+      action,
+    ) {
+      final date = DateTime.tryParse(
+        action['performedAtUtc']?.toString() ?? '',
+      )?.toLocal();
+      return date != null && _sameDay(date, today);
+    }).length;
 
     return _SoftCard(
       child: Column(
@@ -847,7 +859,8 @@ class _TodayStatusCard extends StatelessWidget {
         children: [
           _SectionHeader(
             title: 'وضعیت امروز',
-            subtitle: 'اطلاعات واقعی برنامه و حمایت‌های ثبت‌شده برای $patientName',
+            subtitle:
+                'اطلاعات واقعی برنامه و حمایت‌های ثبت‌شده برای $patientName',
             icon: Icons.today_rounded,
           ),
           const SizedBox(height: 14),
@@ -871,7 +884,8 @@ class _TodayStatusCard extends StatelessWidget {
             icon: Icons.favorite_outline_rounded,
             color: _rose,
             title: 'حمایت تو',
-            value: '${localizeDigits(context, supportActions)} مورد ثبت‌شده امروز',
+            value:
+                '${localizeDigits(context, supportActions)} مورد ثبت‌شده امروز',
           ),
         ],
       ),
@@ -904,7 +918,10 @@ class _StatusRow extends StatelessWidget {
         Icon(icon, color: color),
         const SizedBox(width: 10),
         Expanded(
-          child: Text(title, style: const TextStyle(fontWeight: FontWeight.w900)),
+          child: Text(
+            title,
+            style: const TextStyle(fontWeight: FontWeight.w900),
+          ),
         ),
         Flexible(
           child: Text(
@@ -952,8 +969,7 @@ class _ImportantRemindersCard extends StatelessWidget {
                 event['eventType']?.toString().toLowerCase() == 'injection';
             return _ReminderItem(
               title:
-                  event['title']?.toString() ??
-                  (injection ? 'تزریق' : 'ویزیت'),
+                  event['title']?.toString() ?? (injection ? 'تزریق' : 'ویزیت'),
               subtitle: event['centerName']?.toString() ?? '',
               scheduled: _scheduledDateTime(event),
               icon: injection
@@ -980,62 +996,66 @@ class _ImportantRemindersCard extends StatelessWidget {
               text: 'برنامه نزدیکِ انجام‌نشده‌ای وجود ندارد.',
             )
           else
-            ...reminders.take(4).map(
-              (item) => Padding(
-                padding: const EdgeInsets.only(bottom: 8),
-                child: Container(
-                  padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(
-                    color: item.color.withValues(alpha: 0.07),
-                    borderRadius: BorderRadius.circular(17),
-                  ),
-                  child: Row(
-                    children: [
-                      Container(
-                        width: 39,
-                        height: 39,
-                        decoration: BoxDecoration(
-                          color: Colors.white,
-                          borderRadius: BorderRadius.circular(13),
-                        ),
-                        child: Icon(item.icon, color: item.color, size: 21),
+            ...reminders
+                .take(4)
+                .map(
+                  (item) => Padding(
+                    padding: const EdgeInsets.only(bottom: 8),
+                    child: Container(
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: item.color.withValues(alpha: 0.07),
+                        borderRadius: BorderRadius.circular(17),
                       ),
-                      const SizedBox(width: 10),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              item.title,
-                              style: const TextStyle(fontWeight: FontWeight.w900),
+                      child: Row(
+                        children: [
+                          Container(
+                            width: 39,
+                            height: 39,
+                            decoration: BoxDecoration(
+                              color: Colors.white,
+                              borderRadius: BorderRadius.circular(13),
                             ),
-                            if (item.subtitle.trim().isNotEmpty)
-                              Text(
-                                item.subtitle,
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                                style: const TextStyle(
-                                  color: AppColors.secondaryText,
-                                  fontSize: 9.5,
+                            child: Icon(item.icon, color: item.color, size: 21),
+                          ),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  item.title,
+                                  style: const TextStyle(
+                                    fontWeight: FontWeight.w900,
+                                  ),
                                 ),
-                              ),
-                          ],
-                        ),
+                                if (item.subtitle.trim().isNotEmpty)
+                                  Text(
+                                    item.subtitle,
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: const TextStyle(
+                                      color: AppColors.secondaryText,
+                                      fontSize: 9.5,
+                                    ),
+                                  ),
+                              ],
+                            ),
+                          ),
+                          Text(
+                            '${formatAppDate(context, item.scheduled, includeWeekday: false)}\n${_timeLabel(context, item.scheduled)}',
+                            textAlign: TextAlign.end,
+                            style: TextStyle(
+                              color: item.color,
+                              fontSize: 9.5,
+                              fontWeight: FontWeight.w800,
+                            ),
+                          ),
+                        ],
                       ),
-                      Text(
-                        '${formatAppDate(context, item.scheduled, includeWeekday: false)}\n${_timeLabel(context, item.scheduled)}',
-                        textAlign: TextAlign.end,
-                        style: TextStyle(
-                          color: item.color,
-                          fontSize: 9.5,
-                          fontWeight: FontWeight.w800,
-                        ),
-                      ),
-                    ],
+                    ),
                   ),
                 ),
-              ),
-            ),
         ],
       ),
     );
@@ -1146,7 +1166,8 @@ class _SupportActionsCard extends StatelessWidget {
       children: [
         const _SectionHeader(
           title: 'امروز چطور همدل باشم؟',
-          subtitle: 'فقط کاری را ثبت کن که واقعاً انجام می‌دهی؛ حمایت جای درمان را نمی‌گیرد.',
+          subtitle:
+              'فقط کاری را ثبت کن که واقعاً انجام می‌دهی؛ حمایت جای درمان را نمی‌گیرد.',
           icon: Icons.volunteer_activism_rounded,
         ),
         const SizedBox(height: 13),
@@ -1172,7 +1193,11 @@ class _SupportActionsCard extends StatelessWidget {
                             padding: const EdgeInsets.all(12),
                             child: Row(
                               children: [
-                                Icon(action.icon, color: action.color, size: 21),
+                                Icon(
+                                  action.icon,
+                                  color: action.color,
+                                  size: 21,
+                                ),
                                 const SizedBox(width: 9),
                                 Expanded(
                                   child: Text(
@@ -1223,14 +1248,22 @@ class _CompanionMessageCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final phase = _phaseVisual(estimate?.detailedPhase);
-    final support = sharedDailySummary?['supportNeed']?.toString().toLowerCase();
+    final support = sharedDailySummary?['supportNeed']
+        ?.toString()
+        .toLowerCase();
     final message = switch (support) {
-      'rest' => 'امروز شاید بهترین کمک، سبک‌کردن برنامه و فراهم‌کردن کمی استراحت باشد.',
-      'talk' => 'یک گفت‌وگوی آرام و شنیدن بدون عجله، از هر توصیه‌ای باارزش‌تر است.',
-      'space' => 'کمی خلوت خواستن به معنی فاصله عاطفی نیست؛ به مرزش احترام بگذار.',
-      'warmth' => 'یک نوشیدنی گرم یا کیسه آب گرم می‌تواند یک توجه کوچک و دوست‌داشتنی باشد.',
-      'walk' => 'یک پیاده‌روی کوتاه و بدون فشار پیشنهاد بده؛ حق انتخاب با خودش است.',
-      'hug' => 'قبل از آغوش، با یک سؤال ساده مطمئن شو که الان همین را می‌خواهد.',
+      'rest' =>
+        'امروز شاید بهترین کمک، سبک‌کردن برنامه و فراهم‌کردن کمی استراحت باشد.',
+      'talk' =>
+        'یک گفت‌وگوی آرام و شنیدن بدون عجله، از هر توصیه‌ای باارزش‌تر است.',
+      'space' =>
+        'کمی خلوت خواستن به معنی فاصله عاطفی نیست؛ به مرزش احترام بگذار.',
+      'warmth' =>
+        'یک نوشیدنی گرم یا کیسه آب گرم می‌تواند یک توجه کوچک و دوست‌داشتنی باشد.',
+      'walk' =>
+        'یک پیاده‌روی کوتاه و بدون فشار پیشنهاد بده؛ حق انتخاب با خودش است.',
+      'hug' =>
+        'قبل از آغوش، با یک سؤال ساده مطمئن شو که الان همین را می‌خواهد.',
       _ => phase.tip,
     };
     return _SoftCard(

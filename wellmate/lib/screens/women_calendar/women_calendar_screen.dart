@@ -164,8 +164,7 @@ class _WomenCalendarScreenState extends State<WomenCalendarScreen> {
       _symptoms = (daily['symptoms'] as List<dynamic>? ?? const [])
           .map((value) => value.toString().toLowerCase())
           .toSet();
-      _supportNeed =
-          daily['supportNeed']?.toString().toLowerCase() ?? 'none';
+      _supportNeed = daily['supportNeed']?.toString().toLowerCase() ?? 'none';
       _shareSummary = daily['shareSummary'] == true;
       _dailyNoteController.text = daily['privateNote']?.toString() ?? '';
     } else {
@@ -695,8 +694,7 @@ class _WomenCalendarScreenState extends State<WomenCalendarScreen> {
               },
               onSupportNeedChanged: (value) =>
                   setState(() => _supportNeed = value),
-              onShareChanged: (value) =>
-                  setState(() => _shareSummary = value),
+              onShareChanged: (value) => setState(() => _shareSummary = value),
               onSave: _saveDailyCheckIn,
             ),
             const SizedBox(height: 14),
@@ -718,10 +716,7 @@ class _WomenCalendarScreenState extends State<WomenCalendarScreen> {
               activeTreatmentCount: _activeTreatmentCount,
             ),
             const SizedBox(height: 14),
-            WomenReportsCard(
-              episodes: _episodes,
-              currentSymptoms: _symptoms,
-            ),
+            WomenReportsCard(episodes: _episodes, currentSymptoms: _symptoms),
             const SizedBox(height: 14),
             WomenCycleSettingsCard(
               lastPeriodStart: _lastPeriodStart,

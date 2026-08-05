@@ -366,70 +366,74 @@ class WomenPeriodHistoryCard extends StatelessWidget {
               style: TextStyle(fontWeight: FontWeight.w900),
             ),
             const SizedBox(height: 9),
-            ...episodes.take(4).map(
-              (episode) => Padding(
-                padding: const EdgeInsets.only(bottom: 8),
-                child: Material(
-                  color: const Color(0xFFFFF8FB),
-                  borderRadius: BorderRadius.circular(17),
-                  child: InkWell(
-                    onTap: saving ? null : () => onEdit(episode),
-                    borderRadius: BorderRadius.circular(17),
-                    child: Padding(
-                      padding: const EdgeInsets.all(12),
-                      child: Row(
-                        children: [
-                          Container(
-                            width: 38,
-                            height: 38,
-                            decoration: BoxDecoration(
-                              color: womenBlush,
-                              borderRadius: BorderRadius.circular(13),
-                            ),
-                            child: const Icon(
-                              Icons.water_drop_rounded,
-                              color: womenRose,
-                              size: 20,
-                            ),
-                          ),
-                          const SizedBox(width: 10),
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  formatAppDate(
-                                    context,
-                                    DateTime.parse(episode['startedOn'].toString()),
-                                  ),
-                                  style: const TextStyle(
-                                    fontWeight: FontWeight.w900,
-                                  ),
+            ...episodes
+                .take(4)
+                .map(
+                  (episode) => Padding(
+                    padding: const EdgeInsets.only(bottom: 8),
+                    child: Material(
+                      color: const Color(0xFFFFF8FB),
+                      borderRadius: BorderRadius.circular(17),
+                      child: InkWell(
+                        onTap: saving ? null : () => onEdit(episode),
+                        borderRadius: BorderRadius.circular(17),
+                        child: Padding(
+                          padding: const EdgeInsets.all(12),
+                          child: Row(
+                            children: [
+                              Container(
+                                width: 38,
+                                height: 38,
+                                decoration: BoxDecoration(
+                                  color: womenBlush,
+                                  borderRadius: BorderRadius.circular(13),
                                 ),
-                                Text(
-                                  episode['endedOn'] == null
-                                      ? 'در حال ادامه'
-                                      : 'تا ${formatAppDate(context, DateTime.parse(episode['endedOn'].toString()))}',
-                                  style: const TextStyle(
-                                    color: AppColors.textSecondary,
-                                    fontSize: 10,
-                                  ),
+                                child: const Icon(
+                                  Icons.water_drop_rounded,
+                                  color: womenRose,
+                                  size: 20,
                                 ),
-                              ],
-                            ),
+                              ),
+                              const SizedBox(width: 10),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      formatAppDate(
+                                        context,
+                                        DateTime.parse(
+                                          episode['startedOn'].toString(),
+                                        ),
+                                      ),
+                                      style: const TextStyle(
+                                        fontWeight: FontWeight.w900,
+                                      ),
+                                    ),
+                                    Text(
+                                      episode['endedOn'] == null
+                                          ? 'در حال ادامه'
+                                          : 'تا ${formatAppDate(context, DateTime.parse(episode['endedOn'].toString()))}',
+                                      style: const TextStyle(
+                                        color: AppColors.textSecondary,
+                                        fontSize: 10,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              const Icon(
+                                Icons.edit_outlined,
+                                color: womenLilac,
+                                size: 19,
+                              ),
+                            ],
                           ),
-                          const Icon(
-                            Icons.edit_outlined,
-                            color: womenLilac,
-                            size: 19,
-                          ),
-                        ],
+                        ),
                       ),
                     ),
                   ),
                 ),
-              ),
-            ),
           ],
         ],
       ),

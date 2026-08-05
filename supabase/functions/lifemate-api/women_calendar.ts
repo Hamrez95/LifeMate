@@ -669,7 +669,9 @@ function dailyCheckInFromRow(row: Row): DailyCheckIn | null {
     mood: String(row.daily_mood) as DailyCheckIn["mood"],
     energy: Number(row.daily_energy ?? 3),
     symptoms: rawSymptoms.map((value: unknown) => String(value).toLowerCase()),
-    supportNeed: String(row.daily_support_need ?? "None") as DailyCheckIn["supportNeed"],
+    supportNeed: String(
+      row.daily_support_need ?? "None",
+    ) as DailyCheckIn["supportNeed"],
     privateNote: row.daily_private_note == null
       ? null
       : String(row.daily_private_note),
@@ -712,10 +714,14 @@ function parseDailyCheckIn(value: unknown): DailyCheckIn | null {
       "dailyCheckIn.symptoms must be an array.",
     );
   }
-  const symptoms = [...new Set(
-    rawSymptoms.map((item) => String(item).trim().toLowerCase()),
-  )];
-  if (symptoms.length > 8 || symptoms.some((item) => !supportedSymptoms.has(item))) {
+  const symptoms = [
+    ...new Set(
+      rawSymptoms.map((item) => String(item).trim().toLowerCase()),
+    ),
+  ];
+  if (
+    symptoms.length > 8 || symptoms.some((item) => !supportedSymptoms.has(item))
+  ) {
     throw new ApiError(
       400,
       "invalid_women_calendar_symptoms",

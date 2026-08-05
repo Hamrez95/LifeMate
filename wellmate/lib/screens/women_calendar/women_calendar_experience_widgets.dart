@@ -84,7 +84,8 @@ WomenPhaseVisual womenPhaseVisual(WomenCyclePhase? phase) {
       label: 'چرخه هنوز تنظیم نشده',
       color: womenLilac,
       icon: Icons.calendar_month_rounded,
-      message: 'با ثبت تاریخ آخرین دوره، تقویم شخصی و تخمین‌های چرخه آماده می‌شوند.',
+      message:
+          'با ثبت تاریخ آخرین دوره، تقویم شخصی و تخمین‌های چرخه آماده می‌شوند.',
       shortTip: 'اطلاعات پایه چرخه را در تنظیمات ثبت کن',
     ),
   };
@@ -341,7 +342,9 @@ class WomenPairHero extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      ownerName.isEmpty ? 'سلام عزیزم 💗' : 'سلام $ownerName جان 💗',
+                      ownerName.isEmpty
+                          ? 'سلام عزیزم 💗'
+                          : 'سلام $ownerName جان 💗',
                       style: const TextStyle(
                         color: womenInk,
                         fontSize: 19,
@@ -526,7 +529,9 @@ class WomenCycleHeroCard extends StatelessWidget {
             ],
           );
           if (compact) {
-            return Column(children: [ring, const SizedBox(height: 18), details]);
+            return Column(
+              children: [ring, const SizedBox(height: 18), details],
+            );
           }
           return Row(
             crossAxisAlignment: CrossAxisAlignment.center,
@@ -597,13 +602,48 @@ class SymptomDefinition {
 
 const womenSymptoms = <SymptomDefinition>[
   SymptomDefinition('cramps', 'درد شکم', Icons.bolt_rounded, Color(0xFFF06B8B)),
-  SymptomDefinition('headache', 'سردرد', Icons.psychology_alt_rounded, Color(0xFF9A78D2)),
-  SymptomDefinition('bloating', 'نفخ', Icons.bubble_chart_rounded, Color(0xFFF2B15D)),
-  SymptomDefinition('fatigue', 'خستگی', Icons.bedtime_rounded, Color(0xFF7B77D2)),
-  SymptomDefinition('breast_tenderness', 'حساسیت سینه', Icons.favorite_outline_rounded, Color(0xFFE87BA6)),
-  SymptomDefinition('back_pain', 'کمردرد', Icons.accessibility_new_rounded, Color(0xFF7AA8D9)),
-  SymptomDefinition('sleep_change', 'تغییر خواب', Icons.nights_stay_rounded, Color(0xFF836FC5)),
-  SymptomDefinition('appetite_change', 'تغییر اشتها', Icons.restaurant_rounded, Color(0xFFDB9A57)),
+  SymptomDefinition(
+    'headache',
+    'سردرد',
+    Icons.psychology_alt_rounded,
+    Color(0xFF9A78D2),
+  ),
+  SymptomDefinition(
+    'bloating',
+    'نفخ',
+    Icons.bubble_chart_rounded,
+    Color(0xFFF2B15D),
+  ),
+  SymptomDefinition(
+    'fatigue',
+    'خستگی',
+    Icons.bedtime_rounded,
+    Color(0xFF7B77D2),
+  ),
+  SymptomDefinition(
+    'breast_tenderness',
+    'حساسیت سینه',
+    Icons.favorite_outline_rounded,
+    Color(0xFFE87BA6),
+  ),
+  SymptomDefinition(
+    'back_pain',
+    'کمردرد',
+    Icons.accessibility_new_rounded,
+    Color(0xFF7AA8D9),
+  ),
+  SymptomDefinition(
+    'sleep_change',
+    'تغییر خواب',
+    Icons.nights_stay_rounded,
+    Color(0xFF836FC5),
+  ),
+  SymptomDefinition(
+    'appetite_change',
+    'تغییر اشتها',
+    Icons.restaurant_rounded,
+    Color(0xFFDB9A57),
+  ),
 ];
 
 class SupportNeedDefinition {
@@ -614,7 +654,11 @@ class SupportNeedDefinition {
 }
 
 const womenSupportNeeds = <SupportNeedDefinition>[
-  SupportNeedDefinition('none', 'فعلاً خوبم', Icons.check_circle_outline_rounded),
+  SupportNeedDefinition(
+    'none',
+    'فعلاً خوبم',
+    Icons.check_circle_outline_rounded,
+  ),
   SupportNeedDefinition('rest', 'استراحت', Icons.bedtime_outlined),
   SupportNeedDefinition('talk', 'گفت‌وگو', Icons.chat_bubble_outline_rounded),
   SupportNeedDefinition('space', 'کمی خلوت', Icons.self_improvement_rounded),
@@ -664,7 +708,8 @@ class WomenDailyCheckInCard extends StatelessWidget {
         children: [
           const WomenSectionHeader(
             title: 'حس و حال امروز من',
-            subtitle: 'هر چیزی را که دوست داری ثبت کن؛ یادداشت و علائم خصوصی می‌مانند.',
+            subtitle:
+                'هر چیزی را که دوست داری ثبت کن؛ یادداشت و علائم خصوصی می‌مانند.',
             icon: Icons.emoji_emotions_outlined,
           ),
           const SizedBox(height: 16),
@@ -701,7 +746,10 @@ class WomenDailyCheckInCard extends StatelessWidget {
                       ),
                       child: Column(
                         children: [
-                          Text(item.emoji, style: const TextStyle(fontSize: 25)),
+                          Text(
+                            item.emoji,
+                            style: const TextStyle(fontSize: 25),
+                          ),
                           const SizedBox(height: 5),
                           Text(
                             item.label,
@@ -760,29 +808,31 @@ class WomenDailyCheckInCard extends StatelessWidget {
           Wrap(
             spacing: 8,
             runSpacing: 8,
-            children: womenSymptoms.map((item) {
-              final selected = symptoms.contains(item.value);
-              return FilterChip(
-                selected: selected,
-                onSelected: (value) => onSymptomChanged(item.value, value),
-                avatar: Icon(
-                  item.icon,
-                  size: 17,
-                  color: selected ? item.color : AppColors.textSecondary,
-                ),
-                label: Text(item.label),
-                selectedColor: item.color.withValues(alpha: 0.13),
-                backgroundColor: const Color(0xFFFAF8FB),
-                side: BorderSide(
-                  color: selected
-                      ? item.color.withValues(alpha: 0.55)
-                      : const Color(0xFFF0ECF2),
-                ),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(15),
-                ),
-              );
-            }).toList(growable: false),
+            children: womenSymptoms
+                .map((item) {
+                  final selected = symptoms.contains(item.value);
+                  return FilterChip(
+                    selected: selected,
+                    onSelected: (value) => onSymptomChanged(item.value, value),
+                    avatar: Icon(
+                      item.icon,
+                      size: 17,
+                      color: selected ? item.color : AppColors.textSecondary,
+                    ),
+                    label: Text(item.label),
+                    selectedColor: item.color.withValues(alpha: 0.13),
+                    backgroundColor: const Color(0xFFFAF8FB),
+                    side: BorderSide(
+                      color: selected
+                          ? item.color.withValues(alpha: 0.55)
+                          : const Color(0xFFF0ECF2),
+                    ),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(15),
+                    ),
+                  );
+                })
+                .toList(growable: false),
           ),
           const SizedBox(height: 16),
           const Text(
@@ -793,29 +843,31 @@ class WomenDailyCheckInCard extends StatelessWidget {
           Wrap(
             spacing: 8,
             runSpacing: 8,
-            children: womenSupportNeeds.map((item) {
-              final selected = supportNeed == item.value;
-              return ChoiceChip(
-                selected: selected,
-                onSelected: (_) => onSupportNeedChanged(item.value),
-                avatar: Icon(
-                  item.icon,
-                  size: 17,
-                  color: selected ? womenRose : AppColors.textSecondary,
-                ),
-                label: Text(item.label),
-                selectedColor: womenBlush,
-                backgroundColor: const Color(0xFFFAF8FB),
-                side: BorderSide(
-                  color: selected
-                      ? womenRose.withValues(alpha: 0.45)
-                      : const Color(0xFFF0ECF2),
-                ),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(15),
-                ),
-              );
-            }).toList(growable: false),
+            children: womenSupportNeeds
+                .map((item) {
+                  final selected = supportNeed == item.value;
+                  return ChoiceChip(
+                    selected: selected,
+                    onSelected: (_) => onSupportNeedChanged(item.value),
+                    avatar: Icon(
+                      item.icon,
+                      size: 17,
+                      color: selected ? womenRose : AppColors.textSecondary,
+                    ),
+                    label: Text(item.label),
+                    selectedColor: womenBlush,
+                    backgroundColor: const Color(0xFFFAF8FB),
+                    side: BorderSide(
+                      color: selected
+                          ? womenRose.withValues(alpha: 0.45)
+                          : const Color(0xFFF0ECF2),
+                    ),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(15),
+                    ),
+                  );
+                })
+                .toList(growable: false),
           ),
           const SizedBox(height: 16),
           TextField(
@@ -967,7 +1019,8 @@ class _WomenTimelineCardState extends State<WomenTimelineCard> {
         children: [
           const WomenSectionHeader(
             title: '۱۴ روز آینده',
-            subtitle: 'هر روز را لمس کن تا فاز تخمینی و پیشنهاد ملایم همان روز را ببینی.',
+            subtitle:
+                'هر روز را لمس کن تا فاز تخمینی و پیشنهاد ملایم همان روز را ببینی.',
             icon: Icons.timeline_rounded,
           ),
           const SizedBox(height: 14),
@@ -1088,11 +1141,14 @@ class WomenReportsCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final sorted = episodes
-        .map((item) => DateTime.tryParse(item['startedOn']?.toString() ?? ''))
-        .whereType<DateTime>()
-        .toList()
-      ..sort();
+    final sorted =
+        episodes
+            .map(
+              (item) => DateTime.tryParse(item['startedOn']?.toString() ?? ''),
+            )
+            .whereType<DateTime>()
+            .toList()
+          ..sort();
     final cycleIntervals = <int>[];
     for (var index = 1; index < sorted.length; index++) {
       cycleIntervals.add(sorted[index].difference(sorted[index - 1]).inDays);

@@ -95,7 +95,10 @@ class _WomenCycleRingPainter extends CustomPainter {
     canvas.drawCircle(center, radius, basePaint);
 
     final positive = segments.where((segment) => segment.weight > 0).toList();
-    final total = positive.fold<double>(0, (sum, segment) => sum + segment.weight);
+    final total = positive.fold<double>(
+      0,
+      (sum, segment) => sum + segment.weight,
+    );
     if (total <= 0) return;
 
     const gap = 0.035;
