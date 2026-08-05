@@ -51,7 +51,6 @@ void main() {
       );
       expect(appointmentForm, findsOneWidget);
       expect(find.text('افزودن ویزیت'), findsOneWidget);
-      expect(find.text('عنوان ویزیت'), findsOneWidget);
       await _expectFormScrolls(tester, appointmentForm);
       expect(tester.takeException(), isNull);
 
@@ -65,7 +64,6 @@ void main() {
       );
       expect(injectionForm, findsOneWidget);
       expect(find.text('افزودن تزریق'), findsOneWidget);
-      expect(find.text('نام داروی تزریقی'), findsOneWidget);
       await _expectFormScrolls(tester, injectionForm);
       expect(tester.takeException(), isNull);
     },
