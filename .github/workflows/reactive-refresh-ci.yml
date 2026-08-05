@@ -1,0 +1,59 @@
+name: reactive-refresh-ci
+
+on:
+  push:
+    branches:
+      - fix/reactive-refresh-and-profile-cache
+
+permissions:
+  contents: read
+
+concurrency:
+  group: reactive-refresh-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  flutter-checks:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
+        with:
+          show-progress: false
+
+      - uses: subosito/flutter-action@4cab68ce0f1c7c924f688bff4792e044f1aeb30c
+        with:
+          flutter-version: '3.44.0'
+          channel: stable
+          cache: true
+
+      - name: Check formatting
+        run: >-
+          dart format --output=none --set-exit-if-changed
+          packages/lifemate_client/lib/src/profile_avatar.dart
+          packages/lifemate_client/test/profile_avatar_cache_test.dart
+          wellmate/lib/core/state/wellmate_refresh.dart
+          wellmate/lib/main.dart
+          wellmate/lib/screens/home/home_screen.dart
+          wellmate/test/wellmate_refresh_observer_test.dart
+
+      - name: Verify shared client
+        working-directory: packages/lifemate_client
+        run: |
+          flutter pub get
+          flutter analyze --no-fatal-warnings --no-fatal-infos
+          flutter test
+
+      - name: Verify WellMate
+        working-directory: wellmate
+        run: |
+          flutter pub get
+          flutter analyze --no-fatal-warnings --no-fatal-infos
+          flutter test
+
+      - name: Verify CareMate compatibility
+        working-directory: caremate
+        run: |
+          flutter pub get
+          flutter analyze --no-fatal-warnings --no-fatal-infos
+          flutter test
