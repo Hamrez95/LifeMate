@@ -27,9 +27,9 @@ jobs:
           channel: stable
           cache: true
 
-      - uses: denoland/setup-deno@e95548e56dfa95d4e1a28d6f422fafe75c4c26fb
+      - uses: denoland/setup-deno@22d081ff2d3a40755e97629de92e3bcbfa7cf2ed
         with:
-          deno-version: v2.x
+          deno-version: v2.9.4
 
       - name: Format changed sources
         run: |
@@ -90,7 +90,8 @@ jobs:
           flutter build web --release --dart-define=ENABLE_GOOGLE_AUTH=false
 
       - name: Verify edge API
+        working-directory: supabase/functions/lifemate-api
         run: |
-          deno fmt --check supabase/functions/lifemate-api
-          deno check supabase/functions/lifemate-api/index.ts
-          deno test --allow-env --allow-net supabase/functions/lifemate-api
+          deno fmt --check
+          deno task check
+          deno task test
