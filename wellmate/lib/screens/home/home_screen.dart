@@ -13,7 +13,7 @@ import '../calendar/calendar_screen.dart';
 import '../profile/profile_screen.dart';
 import '../treatments/care_plan_hub_screen.dart';
 import '../treatments/treatments_screen.dart';
-import '../women_calendar/women_calendar_screen.dart';
+import '../women_calendar/women_companion_screen.dart';
 import 'home_screen_content.dart';
 
 class HomeScreen extends StatefulWidget {
@@ -200,7 +200,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
       CalendarScreen(refreshToken: _calendarRevision),
       TreatmentsScreen(refreshToken: _treatmentsRevision),
       CarePlanHubScreen(onCreated: _treatmentCreated),
-      WomenCalendarScreen(
+      WomenCompanionScreen(
         key: ValueKey<int>(_womenRevision),
         onProfileChanged: () => _loadWomenCalendarState(force: true),
       ),
