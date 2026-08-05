@@ -623,7 +623,7 @@ class _CalendarLegend extends StatelessWidget {
       spacing: 14,
       runSpacing: 8,
       children: [
-        _LegendItem(color: _periodColor, label: 'ثبت‌شده یا تخمینی'),
+        _LegendItem(color: _periodColor, label: 'روزهای دوره'),
         _LegendItem(color: _cycleColor, label: 'میانه چرخه'),
         _LegendItem(color: _prePeriodColor, label: 'نزدیک دوره'),
       ],
