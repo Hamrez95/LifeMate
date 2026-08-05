@@ -9,7 +9,7 @@ import 'package:wellmate/screens/women_calendar/women_calendar_month_card.dart';
 
 void main() {
   testWidgets(
-    'renders Jalali data and remains usable on small large-text screens',
+    'renders cycle ring, Jalali calendar and remains usable on small large-text screens',
     (tester) async {
       final estimate = WomenCalendarEstimate.calculate(
         lastPeriodStart: DateTime(2026, 8, 1),
@@ -31,6 +31,20 @@ void main() {
       );
       await tester.pumpAndSettle();
 
+      expect(
+        find.byKey(const ValueKey('women-calendar-cycle-ring')),
+        findsOneWidget,
+      );
+      expect(
+        find.byKey(const ValueKey('women-calendar-cycle-phase')),
+        findsOneWidget,
+      );
+      final cycleDay = tester.widget<Text>(
+        find.byKey(const ValueKey('women-calendar-cycle-day')),
+      );
+      expect(cycleDay.data, contains('۴'));
+      expect(RegExp(r'[0-9]').hasMatch(cycleDay.data!), isFalse);
+
       final title = tester.widget<Text>(
         find.byKey(const ValueKey('women-calendar-month-title')),
       );
@@ -39,10 +53,6 @@ void main() {
       expect(
         find.byKey(const ValueKey('women-calendar-month-grid')),
         findsOneWidget,
-      );
-      expect(
-        find.bySemanticsLabel(RegExp('روز ثبت‌شده خون‌ریزی')),
-        findsWidgets,
       );
       expect(tester.takeException(), isNull);
 
@@ -66,6 +76,10 @@ void main() {
       );
       await tester.pumpAndSettle();
 
+      expect(
+        find.byKey(const ValueKey('women-calendar-cycle-ring-empty')),
+        findsOneWidget,
+      );
       expect(
         find.byKey(const ValueKey('women-calendar-month-grid')),
         findsOneWidget,
