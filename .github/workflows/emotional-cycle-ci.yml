@@ -154,12 +154,12 @@ jobs:
           cp caremate/build/app/outputs/flutter-apk/app-release.apk artifacts/CareMate-companion-internal.apk
           sha256sum artifacts/*.apk > artifacts/SHA256SUMS.txt
           cat > artifacts/README.txt <<'EOF'
-LifeMate emotional women-cycle / spouse companion internal candidate.
-Not Stable and not a public release.
-Women-calendar Feature Flag enabled; Google authentication disabled.
-The database migration and Edge Function changes must exist on the candidate backend for daily check-in persistence.
-Physical Android visual, notification, RTL and accessibility QA remain required.
-EOF
+          LifeMate emotional women-cycle / spouse companion internal candidate.
+          Not Stable and not a public release.
+          Women-calendar Feature Flag enabled; Google authentication disabled.
+          The database migration and Edge Function changes must exist on the candidate backend for daily check-in persistence.
+          Physical Android visual, notification, RTL and accessibility QA remain required.
+          EOF
 
       - uses: actions/upload-artifact@v4
         with:
