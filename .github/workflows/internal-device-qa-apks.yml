@@ -13,9 +13,9 @@ concurrency:
   cancel-in-progress: true
 
 env:
-  RELEASE_NAME: 0.9.0-internal.6
-  RELEASE_BUILD: '17'
-  EXPECTED_API_VERSION: ed00f5c999c42930e4ab1b70da87bad30ecfea8d
+  RELEASE_NAME: 0.9.0-internal.7
+  RELEASE_BUILD: '18'
+  EXPECTED_API_VERSION: fb96a2eb4b97f1dd36064b3256fd87a153bcc847
   SUPABASE_URL: https://bwdvmniywyyijjauipnh.supabase.co
   SUPABASE_PUBLISHABLE_KEY: ${{ vars.SUPABASE_PUBLISHABLE_KEY || 'sb_publishable_6YpBDD0gAPcenbYGukOeWg_fZXxUb27' }}
   LIFEMATE_API_BASE_URL: https://bwdvmniywyyijjauipnh.supabase.co/functions/v1/lifemate-api-candidate
@@ -40,8 +40,8 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          grep -q '^version: 0.9.0-internal.6+17$' wellmate/pubspec.yaml
-          grep -q '^version: 0.9.0-internal.6+17$' caremate/pubspec.yaml
+          grep -q '^version: 0.9.0-internal.7+18$' wellmate/pubspec.yaml
+          grep -q '^version: 0.9.0-internal.7+18$' caremate/pubspec.yaml
           for project in packages/lifemate_client wellmate caremate; do
             (
               cd "$project"
@@ -100,7 +100,7 @@ jobs:
           grep -Fq 'android.permission.INTERNET' dist/inspection/caremate.txt
           sha256sum dist/*.apk > dist/SHA256SUMS.txt
           printf '%s\n' \
-            'LifeMate 0.9.0-internal.6+17' \
+            'LifeMate 0.9.0-internal.7+18' \
             'Internal Device-QA only; women calendar pilot enabled.' \
             'Candidate backend only; Google authentication disabled.' \
             'Do not use real patient health data.' \
@@ -109,7 +109,7 @@ jobs:
       - name: Upload APK bundle
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:
-          name: lifemate-0.9.0-internal.6-device-qa-apks
+          name: lifemate-0.9.0-internal.7-device-qa-apks
           path: dist
           if-no-files-found: error
           retention-days: 30
