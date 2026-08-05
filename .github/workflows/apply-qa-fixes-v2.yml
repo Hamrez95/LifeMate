@@ -27,13 +27,12 @@ jobs:
           from pathlib import Path
           import base64
           import gzip
-          import re
 
           source = Path('.github/workflows/apply-qa-fixes.yml').read_text()
-          match = re.search(r"printf '%s' '([^']+)' \\| base64 --decode", source)
-          if match is None:
-              raise SystemExit('embedded QA patch was not found')
-          payload = base64.b64decode(match.group(1))
+          marker = "printf '%s' '"
+          start = source.index(marker) + len(marker)
+          end = source.index("' | base64 --decode", start)
+          payload = base64.b64decode(source[start:end])
           Path('/tmp/lifemate-qa.patch').write_bytes(gzip.decompress(payload))
           PY
           patch --batch --forward -p1 < /tmp/lifemate-qa.patch
