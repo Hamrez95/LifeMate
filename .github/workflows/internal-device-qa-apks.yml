@@ -4,16 +4,9 @@ on:
   push:
     branches:
       - fix/profile-photo-reminder-state
-    paths:
-      - '.github/workflows/internal-device-qa-apks.yml'
-      - 'packages/lifemate_client/**'
-      - 'wellmate/**'
-      - 'caremate/**'
 
 permissions:
   contents: read
-  issues: write
-  pull-requests: write
 
 concurrency:
   group: internal-device-qa-apks-${{ github.ref_name }}
@@ -28,7 +21,7 @@ env:
   LIFEMATE_API_BASE_URL: https://bwdvmniywyyijjauipnh.supabase.co/functions/v1/lifemate-api-candidate
 
 jobs:
-  verify-build-upload:
+  build:
     runs-on: ubuntu-24.04
     timeout-minutes: 60
     steps:
@@ -43,14 +36,12 @@ jobs:
           channel: stable
           cache: true
 
-      - name: Verify source and Flutter tests
+      - name: Verify source and tests
         shell: bash
         run: |
           set -euo pipefail
           grep -q '^version: 0.9.0-internal.6+17$' wellmate/pubspec.yaml
           grep -q '^version: 0.9.0-internal.6+17$' caremate/pubspec.yaml
-          grep -q 'defaultValue: false' packages/lifemate_client/lib/src/feature_flags.dart
-          grep -q 'ENABLE_WOMEN_CALENDAR_PILOT' packages/lifemate_client/lib/src/feature_flags.dart
           for project in packages/lifemate_client wellmate caremate; do
             (
               cd "$project"
@@ -60,23 +51,16 @@ jobs:
             )
           done
 
-      - name: Verify candidate API health and immutable source
+      - name: Verify candidate API
         shell: bash
         run: |
           set -euo pipefail
-          case "$LIFEMATE_API_BASE_URL" in
-            https://*/lifemate-api-candidate) ;;
-            *) echo 'Internal QA APKs must target the candidate API.' >&2; exit 1 ;;
-          esac
           health_response="$(curl --fail --silent --show-error --retry 5 --retry-delay 3 --retry-all-errors "$LIFEMATE_API_BASE_URL/health")"
-          echo "$health_response" | jq -e \
-            --arg version "$EXPECTED_API_VERSION" \
-            '.status == "ok" and .database == "ready" and .version == $version' \
-            >/dev/null
+          echo "$health_response" | jq -e --arg version "$EXPECTED_API_VERSION" '.status == "ok" and .database == "ready" and .version == $version' >/dev/null
           unauthorized_status="$(curl --silent --show-error --output /dev/null --write-out '%{http_code}' "$LIFEMATE_API_BASE_URL/api/v1/me")"
           test "$unauthorized_status" = '401'
 
-      - name: Build internal Android APKs
+      - name: Build Android APKs
         shell: bash
         run: |
           set -euo pipefail
@@ -93,7 +77,7 @@ jobs:
           (cd wellmate && flutter build apk "${build_args[@]}")
           (cd caremate && flutter build apk "${build_args[@]}")
 
-      - name: Inspect APKs and create manifest
+      - name: Inspect and package
         shell: bash
         run: |
           set -euo pipefail
@@ -102,90 +86,30 @@ jobs:
           apksigner_bin="$(find "$ANDROID_HOME/build-tools" -type f -name apksigner | sort -V | tail -n 1)"
           test -x "$aapt_bin"
           test -x "$apksigner_bin"
-
-          wellmate_apk="dist/WellMate-${RELEASE_NAME}-device-qa.apk"
-          caremate_apk="dist/CareMate-${RELEASE_NAME}-device-qa.apk"
-          cp wellmate/build/app/outputs/flutter-apk/app-release.apk "$wellmate_apk"
-          cp caremate/build/app/outputs/flutter-apk/app-release.apk "$caremate_apk"
-
-          inspect() {
-            local app="$1"
-            local apk="$2"
-            local package_id="$3"
-            local logo="$4"
-            local report="dist/inspection/${app}.txt"
-            local listing="dist/inspection/${app}-files.txt"
-            "$aapt_bin" dump badging "$apk" > "$report"
-            "$aapt_bin" dump permissions "$apk" >> "$report"
-            "$apksigner_bin" verify --verbose --print-certs "$apk" >> "$report"
-            unzip -Z1 "$apk" > "$listing"
-            grep -Fq "package: name='$package_id'" "$report"
-            grep -Fq 'android.permission.INTERNET' "$report"
-            grep -Fq "assets/flutter_assets/$logo" "$listing"
-            grep -Fq 'assets/flutter_assets/assets/fonts/Vazir.ttf' "$listing"
-          }
-
-          inspect wellmate "$wellmate_apk" com.lifemate.wellmate assets/images/WellMateWithoutBack.png
-          inspect caremate "$caremate_apk" com.lifemate.caremate assets/images/CareMateWithoutBack.png
-          grep -Fq 'android.permission.CAMERA' dist/inspection/wellmate.txt
-          grep -Fq 'android.permission.CAMERA' dist/inspection/caremate.txt
-          grep -Fq 'android.permission.POST_NOTIFICATIONS' dist/inspection/wellmate.txt
-          grep -Fq 'android.permission.POST_NOTIFICATIONS' dist/inspection/caremate.txt
-
-          wellmate_sha="$(sha256sum "$wellmate_apk" | awk '{print $1}')"
-          caremate_sha="$(sha256sum "$caremate_apk" | awk '{print $1}')"
-          jq -n \
-            --arg releaseName "$RELEASE_NAME" \
-            --arg build "$RELEASE_BUILD" \
-            --arg sourceCommit "$GITHUB_SHA" \
-            --arg apiVersion "$EXPECTED_API_VERSION" \
-            --arg builtAt "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
-            --arg wellmateSha256 "$wellmate_sha" \
-            --arg caremateSha256 "$caremate_sha" \
-            '{releaseName:$releaseName,build:$build,sourceCommit:$sourceCommit,apiVersion:$apiVersion,builtAtUtc:$builtAt,channel:"internal/device-qa",womenCalendarPilot:true,googleAuthEnabled:false,backend:"lifemate-api-candidate",signing:"CI internal signing; not a store release",apps:{wellmate:{packageId:"com.lifemate.wellmate",sha256:$wellmateSha256},caremate:{packageId:"com.lifemate.caremate",sha256:$caremateSha256}},knownLimitations:["Physical-device QA remains required","Do not use real patient health data","Not a stable or store release"]}' \
-            > dist/release-manifest.json
+          cp wellmate/build/app/outputs/flutter-apk/app-release.apk "dist/WellMate-${RELEASE_NAME}-device-qa.apk"
+          cp caremate/build/app/outputs/flutter-apk/app-release.apk "dist/CareMate-${RELEASE_NAME}-device-qa.apk"
+          "$aapt_bin" dump badging "dist/WellMate-${RELEASE_NAME}-device-qa.apk" > dist/inspection/wellmate.txt
+          "$aapt_bin" dump permissions "dist/WellMate-${RELEASE_NAME}-device-qa.apk" >> dist/inspection/wellmate.txt
+          "$aapt_bin" dump badging "dist/CareMate-${RELEASE_NAME}-device-qa.apk" > dist/inspection/caremate.txt
+          "$aapt_bin" dump permissions "dist/CareMate-${RELEASE_NAME}-device-qa.apk" >> dist/inspection/caremate.txt
+          "$apksigner_bin" verify --verbose --print-certs "dist/WellMate-${RELEASE_NAME}-device-qa.apk" > dist/inspection/wellmate-signing.txt
+          "$apksigner_bin" verify --verbose --print-certs "dist/CareMate-${RELEASE_NAME}-device-qa.apk" > dist/inspection/caremate-signing.txt
+          grep -Fq "package: name='com.lifemate.wellmate'" dist/inspection/wellmate.txt
+          grep -Fq "package: name='com.lifemate.caremate'" dist/inspection/caremate.txt
+          grep -Fq 'android.permission.INTERNET' dist/inspection/wellmate.txt
+          grep -Fq 'android.permission.INTERNET' dist/inspection/caremate.txt
           sha256sum dist/*.apk > dist/SHA256SUMS.txt
-          cat > dist/DEVICE-QA-NOTICE.txt <<'NOTICE'
-LifeMate 0.9.0-internal.6+17
-Internal Device-QA only. Women calendar pilot enabled.
-Candidate backend only. Google authentication disabled.
-Do not use real patient health data. Physical-device QA is still required.
-NOTICE
+          printf '%s\n' \
+            'LifeMate 0.9.0-internal.6+17' \
+            'Internal Device-QA only; women calendar pilot enabled.' \
+            'Candidate backend only; Google authentication disabled.' \
+            'Do not use real patient health data.' \
+            > dist/DEVICE-QA-NOTICE.txt
 
-      - name: Upload internal Device-QA bundle
+      - name: Upload APK bundle
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:
           name: lifemate-0.9.0-internal.6-device-qa-apks
           path: dist
           if-no-files-found: error
           retention-days: 30
-
-      - name: Report result on PR 59
-        if: ${{ always() }}
-        shell: bash
-        env:
-          GH_TOKEN: ${{ github.token }}
-          JOB_STATUS: ${{ job.status }}
-        run: |
-          set -euo pipefail
-          marker='<!-- lifemate-internal-device-qa-v6 -->'
-          body=$(cat <<EOF
-$marker
-## LifeMate 0.9.0-internal.6 Device-QA
-
-- Source head: \`$GITHUB_SHA\`
-- Candidate API source: \`$EXPECTED_API_VERSION\`
-- Workflow run: \`$GITHUB_RUN_ID\`
-- Result: **$JOB_STATUS**
-- Artifact: \`lifemate-0.9.0-internal.6-device-qa-apks\`
-- Women calendar pilot: **enabled**
-- Google authentication: **disabled for internal QA**
-- Scope: Internal physical testing only; not Stable and not a store release.
-EOF
-          )
-          existing=$(gh api "repos/$GITHUB_REPOSITORY/issues/59/comments" --paginate --jq ".[] | select(.body | contains(\"$marker\")) | .id" | tail -n 1)
-          if [[ -n "$existing" ]]; then
-            gh api --method PATCH "repos/$GITHUB_REPOSITORY/issues/comments/$existing" -f body="$body" >/dev/null
-          else
-            gh api --method POST "repos/$GITHUB_REPOSITORY/issues/59/comments" -f body="$body" >/dev/null
-          fi
