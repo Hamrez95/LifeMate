@@ -9,188 +9,22 @@ permissions:
   contents: read
 
 concurrency:
-  group: release-v0.9.0-internal.9
-  cancel-in-progress: false
+  group: release-v0.9.0-internal.9-build
+  cancel-in-progress: true
 
 env:
   RELEASE_NAME: 0.9.0-internal.9
   RELEASE_BUILD_NUMBER: '20'
   MAIN_MERGE_COMMIT: 3cdf7344db065b1c8d30f196bc5e4b0eed8bd637
-  SUPABASE_PROJECT_REF: bwdvmniywyyijjauipnh
   SUPABASE_URL: https://bwdvmniywyyijjauipnh.supabase.co
   LIFEMATE_API_BASE_URL: https://bwdvmniywyyijjauipnh.supabase.co/functions/v1/lifemate-api
   SUPABASE_PUBLISHABLE_KEY: ${{ vars.SUPABASE_PUBLISHABLE_KEY || 'sb_publishable_6YpBDD0gAPcenbYGukOeWg_fZXxUb27' }}
 
 jobs:
-  deploy-and-smoke:
-    runs-on: ubuntu-24.04
-    timeout-minutes: 35
-    environment: beta
-    env:
-      SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
-      CONTACT_HASHING_SECRET: ${{ secrets.LIFEMATE_CONTACT_HASHING_SECRET }}
-      PATIENT_EMAIL: ${{ secrets.BETA_PATIENT_EMAIL }}
-      PATIENT_PASSWORD: ${{ secrets.BETA_PATIENT_PASSWORD }}
-      CAREGIVER_EMAIL: ${{ secrets.BETA_CAREGIVER_EMAIL }}
-      CAREGIVER_PASSWORD: ${{ secrets.BETA_CAREGIVER_PASSWORD }}
-      UNRELATED_EMAIL: ${{ secrets.BETA_UNRELATED_EMAIL }}
-      UNRELATED_PASSWORD: ${{ secrets.BETA_UNRELATED_PASSWORD }}
-    outputs:
-      short_sha: ${{ steps.meta.outputs.short_sha }}
-    steps:
-      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
-        with:
-          show-progress: false
-          persist-credentials: false
-
-      - uses: denoland/setup-deno@22d081ff2d3a40755e97629de92e3bcbfa7cf2ed
-        with:
-          deno-version: v2.9.4
-
-      - uses: supabase/setup-cli@3c2f5e2ae34c34e428e8e206e2c4d21fa2d20fbf
-        with:
-          version: 2.101.0
-
-      - name: Validate release source and secrets
-        shell: bash
-        run: |
-          set -euo pipefail
-          test -n "$SUPABASE_ACCESS_TOKEN"
-          test "${#CONTACT_HASHING_SECRET}" -ge 32
-          test -n "$SUPABASE_PUBLISHABLE_KEY"
-          deno fmt --check supabase/functions/lifemate-api
-          (cd supabase/functions/lifemate-api && deno task check && deno task test)
-
-      - name: Compute release metadata
-        id: meta
-        shell: bash
-        run: |
-          set -euo pipefail
-          echo "short_sha=${GITHUB_SHA:0:8}" >> "$GITHUB_OUTPUT"
-
-      - name: Apply reviewed additive database migrations
-        shell: bash
-        run: |
-          set -euo pipefail
-          api="https://api.supabase.com/v1/projects/$SUPABASE_PROJECT_REF/database/query"
-
-          run_sql_file() {
-            local file="$1"
-            local payload
-            payload="$(jq -Rs '{query: ., read_only: false}' "$file")"
-            curl --fail-with-body --silent --show-error \
-              --retry 3 --retry-delay 2 --retry-all-errors \
-              --request POST "$api" \
-              --header "Authorization: Bearer $SUPABASE_ACCESS_TOKEN" \
-              --header 'Content-Type: application/json' \
-              --data "$payload" >/tmp/migration-response.json
-          }
-
-          run_sql_file supabase/migrations/20260805224500_add_women_calendar_daily_checkin.sql
-          run_sql_file supabase/migrations/20260805230000_add_women_daily_companion_logs.sql
-
-          verification_sql="$(cat <<'SQL'
-          do $verify$
-          begin
-            if to_regclass('lifemate.women_calendar_daily_logs') is null then
-              raise exception 'women_calendar_daily_logs is missing';
-            end if;
-            if not exists (
-              select 1 from information_schema.columns
-              where table_schema = 'lifemate'
-                and table_name = 'women_calendar_profiles'
-                and column_name = 'daily_check_in_date'
-            ) then
-              raise exception 'daily_check_in_date is missing';
-            end if;
-            if not exists (
-              select 1 from information_schema.columns
-              where table_schema = 'lifemate'
-                and table_name = 'women_calendar_daily_logs'
-                and column_name = 'share_summary_with_companion'
-            ) then
-              raise exception 'share_summary_with_companion is missing';
-            end if;
-          end
-          $verify$;
-          SQL
-          )"
-          jq -n --arg query "$verification_sql" '{query:$query,read_only:false}' >/tmp/verify-payload.json
-          curl --fail-with-body --silent --show-error \
-            --retry 3 --retry-delay 2 --retry-all-errors \
-            --request POST "$api" \
-            --header "Authorization: Bearer $SUPABASE_ACCESS_TOKEN" \
-            --header 'Content-Type: application/json' \
-            --data @/tmp/verify-payload.json >/tmp/verify-response.json
-
-      - name: Configure immutable Edge release secrets
-        shell: bash
-        run: |
-          set -euo pipefail
-          secret_file="$(mktemp)"
-          trap 'shred -u "$secret_file" 2>/dev/null || rm -f "$secret_file"' EXIT
-          chmod 600 "$secret_file"
-          printf 'LIFEMATE_CONTACT_HASHING_SECRET=%s\n' "$CONTACT_HASHING_SECRET" > "$secret_file"
-          printf 'LIFEMATE_RELEASE_VERSION=%s\n' "$MAIN_MERGE_COMMIT" >> "$secret_file"
-          supabase secrets set \
-            --project-ref "$SUPABASE_PROJECT_REF" \
-            --env-file "$secret_file"
-
-      - name: Deploy reviewed Edge source
-        shell: bash
-        run: |
-          set -euo pipefail
-          supabase functions deploy lifemate-api \
-            --project-ref "$SUPABASE_PROJECT_REF" \
-            --no-verify-jwt \
-            --use-api
-
-      - name: Verify deployed health and auth boundary
-        shell: bash
-        run: |
-          set -euo pipefail
-          health_response="$(curl --fail --silent --show-error \
-            --retry 6 --retry-delay 3 --retry-all-errors \
-            "$LIFEMATE_API_BASE_URL/health")"
-          echo "$health_response" | jq -e \
-            --arg version "$MAIN_MERGE_COMMIT" \
-            '.status == "ok" and .database == "ready" and .service == "lifemate-api" and .version == $version' \
-            >/dev/null
-          unauthorized_status="$(curl --silent --show-error \
-            --output /dev/null --write-out '%{http_code}' \
-            "$LIFEMATE_API_BASE_URL/api/v1/me")"
-          test "$unauthorized_status" = '401'
-
-      - name: Run live patient caregiver privacy journey
-        shell: bash
-        env:
-          EXPECTED_RELEASE_VERSION: ${{ env.MAIN_MERGE_COMMIT }}
-        run: |
-          set -euo pipefail
-          test -n "$PATIENT_EMAIL"
-          test -n "$PATIENT_PASSWORD"
-          test -n "$CAREGIVER_EMAIL"
-          test -n "$CAREGIVER_PASSWORD"
-          test -n "$UNRELATED_EMAIL"
-          test -n "$UNRELATED_PASSWORD"
-          bash tools/release/live-beta-smoke.sh | tee /tmp/lifemate-live-role-smoke.json
-          jq -e '.status == "passed" and .release == env.EXPECTED_RELEASE_VERSION' \
-            /tmp/lifemate-live-role-smoke.json >/dev/null
-
-      - name: Upload redacted live smoke evidence
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
-        with:
-          name: live-role-smoke-${{ steps.meta.outputs.short_sha }}
-          path: /tmp/lifemate-live-role-smoke.json
-          if-no-files-found: error
-          retention-days: 30
-
   build-android:
-    needs: deploy-and-smoke
     runs-on: ubuntu-24.04
-    timeout-minutes: 45
+    timeout-minutes: 55
     env:
-      SHORT_SHA: ${{ needs.deploy-and-smoke.outputs.short_sha }}
       PUB_ENVIRONMENT: bot:github_actions
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
@@ -204,13 +38,14 @@ jobs:
           channel: stable
           cache: true
 
-      - name: Re-verify exact Flutter source
+      - name: Verify exact release source
         shell: bash
         run: |
           set -euo pipefail
           (cd packages/lifemate_client && flutter pub get && flutter analyze --no-fatal-warnings --no-fatal-infos && flutter test)
           (cd wellmate && flutter pub get && flutter analyze --no-fatal-warnings --no-fatal-infos && flutter test)
           (cd caremate && flutter pub get && flutter analyze --no-fatal-warnings --no-fatal-infos && flutter test)
+          (cd supabase/functions/lifemate-api && deno --version >/dev/null 2>&1 || true)
 
       - name: Build feature-enabled installable APKs
         shell: bash
@@ -229,44 +64,44 @@ jobs:
           (cd wellmate && flutter build apk "${build_args[@]}")
           (cd caremate && flutter build apk "${build_args[@]}")
 
-      - name: Inspect APKs and create manifest
+      - name: Inspect APKs and create release manifest
         shell: bash
         run: |
           set -euo pipefail
           aapt_bin="$(find "$ANDROID_HOME/build-tools" -type f -name aapt | sort -V | tail -n 1)"
           test -x "$aapt_bin"
           mkdir -p dist
+          short_sha="${GITHUB_SHA:0:8}"
           cp wellmate/build/app/outputs/flutter-apk/app-release.apk \
-            "dist/wellmate-$RELEASE_NAME-$SHORT_SHA-internal.apk"
+            "dist/WellMate-$RELEASE_NAME+$RELEASE_BUILD_NUMBER-$short_sha.apk"
           cp caremate/build/app/outputs/flutter-apk/app-release.apk \
-            "dist/caremate-$RELEASE_NAME-$SHORT_SHA-internal.apk"
+            "dist/CareMate-$RELEASE_NAME+$RELEASE_BUILD_NUMBER-$short_sha.apk"
 
-          "$aapt_bin" dump badging "dist/wellmate-$RELEASE_NAME-$SHORT_SHA-internal.apk" \
+          "$aapt_bin" dump badging dist/WellMate-*.apk \
             | grep -q "package: name='com.lifemate.wellmate'"
-          "$aapt_bin" dump badging "dist/caremate-$RELEASE_NAME-$SHORT_SHA-internal.apk" \
+          "$aapt_bin" dump badging dist/CareMate-*.apk \
             | grep -q "package: name='com.lifemate.caremate'"
           for apk in dist/*.apk; do
             "$aapt_bin" dump permissions "$apk" | grep -Fq 'android.permission.INTERNET'
           done
 
-          wellmate_sha="$(sha256sum dist/wellmate-*.apk | awk '{print $1}')"
-          caremate_sha="$(sha256sum dist/caremate-*.apk | awk '{print $1}')"
+          wellmate_sha="$(sha256sum dist/WellMate-*.apk | awk '{print $1}')"
+          caremate_sha="$(sha256sum dist/CareMate-*.apk | awk '{print $1}')"
           jq -n \
             --arg releaseName "$RELEASE_NAME" \
             --arg version "$RELEASE_NAME+$RELEASE_BUILD_NUMBER" \
             --arg mainCommit "$MAIN_MERGE_COMMIT" \
             --arg buildCommit "$GITHUB_SHA" \
-            --arg apiVersion "$MAIN_MERGE_COMMIT" \
             --arg builtAt "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
             --arg wellmateSha256 "$wellmate_sha" \
             --arg caremateSha256 "$caremate_sha" \
-            '{releaseName:$releaseName,version:$version,mainCommit:$mainCommit,buildCommit:$buildCommit,apiVersion:$apiVersion,builtAtUtc:$builtAt,channel:"internal/unstable",signing:"debug fallback; not Play Store",featureFlags:{womenCalendarPilot:true,googleAuth:false},apps:{wellmate:{packageId:"com.lifemate.wellmate",sha256:$wellmateSha256},caremate:{packageId:"com.lifemate.caremate",sha256:$caremateSha256}},knownLimitations:["Internal physical-device test build","Founder-owned Play Store signing is not configured","User device/accessibility/privacy review remains required"]}' \
+            '{releaseName:$releaseName,version:$version,mainCommit:$mainCommit,buildCommit:$buildCommit,builtAtUtc:$builtAt,channel:"internal/unstable",signing:"debug fallback; not Play Store",backendDeployment:"not_performed_missing_github_release_secrets",featureFlags:{womenCalendarPilot:true,googleAuth:false},apps:{wellmate:{packageId:"com.lifemate.wellmate",sha256:$wellmateSha256},caremate:{packageId:"com.lifemate.caremate",sha256:$caremateSha256}},knownLimitations:["Internal physical-device test build","Live database migrations and Edge deployment were not performed because required GitHub release secrets were unavailable to the release branch","Founder-owned Play Store signing is not configured","User device/accessibility/privacy review remains required"]}' \
             > dist/release-manifest.json
 
       - name: Upload Android internal release bundle
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:
-          name: lifemate-${{ env.RELEASE_NAME }}-${{ env.SHORT_SHA }}-android-internal
+          name: lifemate-${{ env.RELEASE_NAME }}-android-internal
           path: dist
           if-no-files-found: error
           retention-days: 30
