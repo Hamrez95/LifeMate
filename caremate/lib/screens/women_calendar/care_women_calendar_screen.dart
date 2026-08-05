@@ -7,12 +7,6 @@ import 'package:provider/provider.dart';
 import '../../core/constants/app_colors.dart';
 import '../../core/utils/persian_date_utils.dart';
 
-const _rose = Color(0xFFF06494);
-const _lilac = Color(0xFF9564D5);
-const _lavender = Color(0xFFF0E7FF);
-const _peach = Color(0xFFF4AF78);
-const _ink = Color(0xFF2A2540);
-
 class CareWomenCalendarScreen extends StatefulWidget {
   const CareWomenCalendarScreen({
     super.key,
@@ -43,12 +37,10 @@ class _CareWomenCalendarScreenState extends State<CareWomenCalendarScreen> {
   }
 
   Future<void> _load() async {
-    if (mounted) {
-      setState(() {
-        _loading = true;
-        _error = null;
-      });
-    }
+    setState(() {
+      _loading = true;
+      _error = null;
+    });
     try {
       final api = context.read<LifeMateApiClient>();
       final today = DateTime.now();
@@ -94,7 +86,7 @@ class _CareWomenCalendarScreenState extends State<CareWomenCalendarScreen> {
     }
   }
 
-  Future<void> _recordAction(_SupportAction action) async {
+  Future<void> _recordAction(String actionType, String label) async {
     if (_saving) return;
     setState(() => _saving = true);
     try {
@@ -102,7 +94,7 @@ class _CareWomenCalendarScreenState extends State<CareWomenCalendarScreen> {
           .read<LifeMateApiClient>()
           .recordCareRecipientWomenSupportAction(
             patientUserId: widget.patientUserId,
-            actionType: action.type,
+            actionType: actionType,
           );
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
@@ -142,14 +134,6 @@ class _CareWomenCalendarScreenState extends State<CareWomenCalendarScreen> {
         title: const Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text(
-              'همدل من 💜',
-              style: TextStyle(
-                color: _ink,
-                fontSize: 19,
-                fontWeight: FontWeight.w900,
-              ),
-            ),
             Text(
               'همدم من',
               style: TextStyle(
@@ -688,14 +672,8 @@ class _TodayCareStatus extends StatelessWidget {
           ),
         ],
       ),
-      Positioned(
-        top: 300,
-        right: -100,
-        child: _Glow(color: _rose.withValues(alpha: 0.10), size: 270),
-      ),
-      child,
-    ],
-  );
+    );
+  }
 }
 
 class _StatusLine extends StatelessWidget {
@@ -755,8 +733,8 @@ class _StatusLine extends StatelessWidget {
 class _SupportActions extends StatelessWidget {
   const _SupportActions({required this.saving, required this.onAction});
 
-  final Color color;
-  final double size;
+  final bool saving;
+  final Future<void> Function(String, String) onAction;
 
   static const actions = <_SupportDefinition>[
     _SupportDefinition(
@@ -796,18 +774,6 @@ class _SupportActions extends StatelessWidget {
       color: Color(0xFFD7659B),
     ),
   ];
-}
-
-class _CycleAndMoodCard extends StatelessWidget {
-  const _CycleAndMoodCard({
-    required this.patientName,
-    required this.estimate,
-    required this.sharedDailySummary,
-  });
-
-  final String patientName;
-  final WomenCalendarEstimate? estimate;
-  final Map<String, dynamic>? sharedDailySummary;
 
   @override
   Widget build(BuildContext context) => _SoftCard(
@@ -1029,31 +995,9 @@ class _ReminderTile extends StatelessWidget {
                     fontSize: 10,
                     color: AppColors.secondaryText,
                   ),
-                  if (estimate != null) ...[
-                    const SizedBox(height: 9),
-                    Text(
-                      '${localizeDigits(context, estimate!.daysUntilNextPeriod)} روز تا دوره بعدی',
-                      style: TextStyle(
-                        color: visual.color,
-                        fontWeight: FontWeight.w900,
-                        fontSize: 11.5,
-                      ),
-                    ),
-                  ],
-                ],
-              );
-              return compact
-                  ? Column(
-                      children: [ring, const SizedBox(height: 16), details],
-                    )
-                  : Row(
-                      children: [
-                        ring,
-                        const SizedBox(width: 16),
-                        Expanded(child: details),
-                      ],
-                    );
-            },
+                ),
+              ],
+            ),
           ),
           Text(
             localizeDigits(context, item.time),
@@ -1297,6 +1241,7 @@ class _SectionHeader extends StatelessWidget {
 
 class _ErrorState extends StatelessWidget {
   const _ErrorState({required this.message, required this.onRetry});
+
   final String message;
   final Future<void> Function() onRetry;
 
@@ -1477,65 +1422,3 @@ String _compassionCopy(String? phase, String? mood) {
       return 'همراهی یعنی حضور آرام، پرسیدن بدون قضاوت و پذیرفتن اینکه نیاز امروز ممکن است با دیروز فرق داشته باشد.';
   }
 }
-
-List<Map<String, dynamic>> _summaryList(
-  Map<String, dynamic> summary,
-  String key,
-) => (summary[key] as List<dynamic>? ?? const [])
-    .whereType<Map<String, dynamic>>()
-    .toList(growable: false);
-
-String _moodLabel(String? value) => switch (value) {
-  'great' => 'عالی',
-  'good' => 'خوب',
-  'neutral' => 'معمولی',
-  'low' => 'کم‌حوصله',
-  'overwhelmed' => 'تحت فشار',
-  _ => 'ثبت نشده',
-};
-
-String _energyLabel(int? value) => switch (value) {
-  1 => 'خیلی کم',
-  2 => 'کم',
-  3 => 'متوسط',
-  4 => 'خوب',
-  5 => 'بالا',
-  _ => 'ثبت نشده',
-};
-
-String _supportLabel(String? value) => switch (value) {
-  'rest' => 'استراحت',
-  'talk' => 'گفت‌وگو',
-  'space' => 'کمی خلوت',
-  'warmth' => 'نوشیدنی گرم',
-  'walk' => 'پیاده‌روی',
-  'hug' => 'آغوش',
-  'none' => 'فعلاً خوب است',
-  _ => 'ثبت نشده',
-};
-
-DateTime _scheduledDateTime(Map<String, dynamic> value) {
-  final utc = DateTime.tryParse(value['scheduledAtUtc']?.toString() ?? '');
-  if (utc != null) return utc.toLocal();
-  final date = DateTime.tryParse(value['scheduledLocalDate']?.toString() ?? '');
-  final time = value['scheduledLocalTime']?.toString().split(':') ?? const [];
-  if (date == null) return DateTime(9999);
-  return DateTime(
-    date.year,
-    date.month,
-    date.day,
-    time.isEmpty ? 0 : int.tryParse(time[0]) ?? 0,
-    time.length < 2 ? 0 : int.tryParse(time[1]) ?? 0,
-  );
-}
-
-String _timeLabel(BuildContext context, DateTime value) {
-  final raw =
-      '${value.hour.toString().padLeft(2, '0')}:${value.minute.toString().padLeft(2, '0')}';
-  return localizeDigits(context, raw);
-}
-
-bool _sameDay(DateTime first, DateTime second) =>
-    first.year == second.year &&
-    first.month == second.month &&
-    first.day == second.day;
