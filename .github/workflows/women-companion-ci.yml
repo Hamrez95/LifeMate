@@ -69,7 +69,6 @@ jobs:
           test -z "$duplicate_versions"
 
           if ! git diff --quiet; then
-            deno fmt supabase/functions/lifemate-api/women_calendar.ts
             git add supabase/functions/lifemate-api/women_calendar.ts
             git commit -m 'fix(edge): preserve consent-scoped daily summary after stack merge'
           fi
