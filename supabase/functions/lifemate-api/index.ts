@@ -239,7 +239,9 @@ async function route(
     );
     return new Response(null, { status: 204, headers: corsHeaders });
   }
-  if (request.method === "GET" && path === "/api/v1/women-calendar/daily-logs") {
+  if (
+    request.method === "GET" && path === "/api/v1/women-calendar/daily-logs"
+  ) {
     requireWomenCalendarPilot();
     const url = new URL(request.url);
     return json(
@@ -250,7 +252,9 @@ async function route(
       ),
     );
   }
-  if (request.method === "PUT" && path === "/api/v1/women-calendar/daily-logs") {
+  if (
+    request.method === "PUT" && path === "/api/v1/women-calendar/daily-logs"
+  ) {
     requireWomenCalendarPilot();
     enforceRateLimit(
       `women-calendar-daily-log:${identity.appUserId}`,

@@ -675,7 +675,11 @@ export function calculateWomenCalendarEstimate(
     0,
     Math.floor((nextPeriodStart.getTime() - today.getTime()) / 86_400_000),
   );
-  const ovulationDay = clamp(cycleLength - 14, periodLength + 2, cycleLength - 5);
+  const ovulationDay = clamp(
+    cycleLength - 14,
+    periodLength + 2,
+    cycleLength - 5,
+  );
   const fertileWindowStartDay = clamp(
     ovulationDay - 5,
     periodLength + 1,
