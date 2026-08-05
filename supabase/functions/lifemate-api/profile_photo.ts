@@ -3,10 +3,17 @@ import { ApiError } from "./validation.ts";
 export const profilePhotoBucket = "profile-photos";
 export const profilePhotoMaximumBytes = 3 * 1024 * 1024;
 const signedUrlLifetimeSeconds = 15 * 60;
+const signedUrlRefreshBufferMilliseconds = 60 * 1000;
+const maximumSignedUrlCacheEntries = 256;
 
 export type ValidatedProfilePhoto = {
   contentType: "image/jpeg" | "image/png" | "image/webp";
   extension: "jpg" | "png" | "webp";
+};
+
+type SignedUrlCacheEntry = {
+  url: string;
+  expiresAt: number;
 };
 
 export function validateProfilePhoto(
@@ -56,6 +63,7 @@ export function createProfilePhotoStorage(
 ) {
   const storageRoot = `${supabaseUrl.replace(/\/+$/, "")}/storage/v1`;
   let bucketPromise: Promise<void> | null = null;
+  const signedUrlCache = new Map<string, SignedUrlCacheEntry>();
 
   const headers = (contentType?: string): Record<string, string> => ({
     apikey: serviceRoleKey,
@@ -127,6 +135,14 @@ export function createProfilePhotoStorage(
 
   async function createSignedUrl(objectPath: string): Promise<string> {
     assertSafePath(objectPath);
+    const cached = signedUrlCache.get(objectPath);
+    if (
+      cached != null &&
+      cached.expiresAt - signedUrlRefreshBufferMilliseconds > Date.now()
+    ) {
+      return cached.url;
+    }
+
     await ensurePrivateBucket();
     const response = await fetch(
       `${storageRoot}/object/sign/${profilePhotoBucket}/${
@@ -144,11 +160,26 @@ export function createProfilePhotoStorage(
     if (typeof signed !== "string" || signed.length == 0) {
       throw storageUnavailable();
     }
-    if (signed.startsWith("http")) return signed;
-    if (signed.startsWith("/storage/v1/")) {
-      return `${supabaseUrl.replace(/\/+$/, "")}${signed}`;
+    const absoluteUrl = signed.startsWith("http")
+      ? signed
+      : signed.startsWith("/storage/v1/")
+      ? `${supabaseUrl.replace(/\/+$/, "")}${signed}`
+      : `${storageRoot}${signed.startsWith("/") ? "" : "/"}${signed}`;
+    rememberSignedUrl(objectPath, absoluteUrl);
+    return absoluteUrl;
+  }
+
+  function rememberSignedUrl(objectPath: string, url: string): void {
+    signedUrlCache.delete(objectPath);
+    signedUrlCache.set(objectPath, {
+      url,
+      expiresAt: Date.now() + signedUrlLifetimeSeconds * 1000,
+    });
+    while (signedUrlCache.size > maximumSignedUrlCacheEntries) {
+      const oldest = signedUrlCache.keys().next().value;
+      if (typeof oldest !== "string") break;
+      signedUrlCache.delete(oldest);
     }
-    return `${storageRoot}${signed.startsWith("/") ? "" : "/"}${signed}`;
   }
 
   async function remove(objectPath: string): Promise<void> {
@@ -163,6 +194,7 @@ export function createProfilePhotoStorage(
       },
     );
     if (!response.ok && response.status !== 404) throw storageUnavailable();
+    signedUrlCache.delete(objectPath);
   }
 
   function objectUrl(objectPath: string): string {
