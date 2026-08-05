@@ -16,9 +16,9 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  prepare:
+  verify:
     runs-on: ubuntu-24.04
-    timeout-minutes: 20
+    timeout-minutes: 60
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
         with:
@@ -35,165 +35,31 @@ jobs:
         with:
           deno-version: v2.9.4
 
-      - name: Apply deterministic women dashboard source corrections
+      - name: Make 14-day phase cards large-text safe
         shell: bash
         run: |
           python3 - <<'PY'
-          import re
           from pathlib import Path
-
           path = Path('wellmate/lib/screens/women_calendar/women_companion_screen.dart')
           text = path.read_text()
-
-          text = text.replace(
-              "(value.fertileWindowStartDay - value.periodLength - 1).clamp(\n          0,\n          value.cycleLength,\n        ),",
-              "(value.fertileWindowStartDay - value.periodLength - 1)\n            .clamp(0, value.cycleLength)\n            .toInt(),",
-          )
-          text = text.replace(
-              "(value.fertileWindowEndDay - value.fertileWindowStartDay + 1).clamp(\n          0,\n          value.cycleLength,\n        ),",
-              "(value.fertileWindowEndDay - value.fertileWindowStartDay + 1)\n            .clamp(0, value.cycleLength)\n            .toInt(),",
-          )
-          text = text.replace(
-              "(value.pmsStartDay - value.fertileWindowEndDay - 1).clamp(\n          0,\n          value.cycleLength,\n        ),",
-              "(value.pmsStartDay - value.fertileWindowEndDay - 1)\n            .clamp(0, value.cycleLength)\n            .toInt(),",
-          )
-          text = text.replace(
-              "(value.cycleLength - value.pmsStartDay + 1).clamp(0, value.cycleLength),",
-              "(value.cycleLength - value.pmsStartDay + 1)\n            .clamp(0, value.cycleLength)\n            .toInt(),",
-          )
-
-          state_pattern = re.compile(
-              r"class _DailyCheckInSheetState extends State<_DailyCheckInSheet> \{.*?(?=\n  @override\n  void dispose\(\))",
-              re.S,
-          )
-          state_replacement = '''class _DailyCheckInSheetState extends State<_DailyCheckInSheet> {
-            late String _mood;
-            late int _energy;
-            late int _pain;
-            late Set<String> _symptoms;
-            late bool _share;
-            late final TextEditingController _notes;
-
-            @override
-            void initState() {
-              super.initState();
-              final existing = widget.existing;
-              _mood = existing?['mood']?.toString() ?? 'good';
-              _energy = existing?['energyLevel'] is int
-                  ? existing!['energyLevel'] as int
-                  : 3;
-              _pain = existing?['painLevel'] is int
-                  ? existing!['painLevel'] as int
-                  : 0;
-              _symptoms = Set<String>.from(
-                (existing?['symptoms'] as List<dynamic>? ?? const []).map(
-                  (item) => item.toString(),
-                ),
-              );
-              _share = existing?['shareSummaryWithCompanion'] == true;
-              _notes = TextEditingController(
-                text: existing?['privateNotes']?.toString() ?? '',
-              );
-            }
-          '''
-          text = state_pattern.sub(state_replacement, text, count=1)
-
-          hero_class = text.index('class _CompanionHero')
-          hero_row = text.index('          Row(\n', hero_class)
-          hero_end_marker = '          const SizedBox(height: 12),'
-          hero_end = text.index(hero_end_marker, hero_row)
-          hero_segment = text[hero_row:hero_end]
-          if 'FittedBox(' not in hero_segment:
-              hero_segment = hero_segment.replace(
-                  '          Row(\n',
-                  '          FittedBox(\n            fit: BoxFit.scaleDown,\n            child: Row(\n',
-                  1,
-              )
-              hero_segment += '          ),\n'
-              text = text[:hero_row] + hero_segment + text[hero_end:]
-
-          switch_start = '            SwitchListTile.adaptive(\n'
-          if switch_start in text:
-              text = text.replace(
-                  switch_start,
-                  '            Material(\n              color: Colors.transparent,\n              child: SwitchListTile.adaptive(\n',
-                  1,
-              )
-              switch_end = (
-                  "              activeThumbColor: const Color(0xFFD75C8D),\n"
-                  "            ),"
-              )
-              text = text.replace(
-                  switch_end,
-                  "                activeThumbColor: const Color(0xFFD75C8D),\n"
-                  "              ),\n"
-                  "            ),",
-                  1,
-              )
-
-          text = text.replace(
-              "        const Spacer(),\n        Text(\n          label,",
-              "        const SizedBox(height: 18),\n        Text(\n          label,",
-          )
+          text = text.replace('            height: 108,', '            height: 142,')
           path.write_text(text)
           PY
+          dart format wellmate/lib/screens/women_calendar/women_companion_screen.dart
 
-      - name: Format changed sources
-        run: |
-          dart format \
-            packages/lifemate_client/lib/lifemate_client.dart \
-            packages/lifemate_client/lib/src/women_companion_api.dart \
-            packages/lifemate_client/test/women_companion_api_test.dart \
-            wellmate/lib/screens/home/home_screen.dart \
-            wellmate/lib/screens/women_calendar/women_companion_screen.dart \
-            wellmate/test/women_companion_experience_test.dart \
-            caremate/lib/screens/women_calendar/care_women_calendar_screen.dart \
-            caremate/test/care_women_companion_experience_test.dart
-          deno fmt \
-            supabase/functions/lifemate-api/index.ts \
-            supabase/functions/lifemate-api/women_calendar.ts \
-            supabase/functions/lifemate-api/women_calendar_integration_test.ts
-
-      - name: Persist canonical sources
+      - name: Persist source correction
         shell: bash
         run: |
           set -euo pipefail
           if git diff --quiet; then
+            echo 'No source correction required.'
             exit 0
           fi
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git add \
-            packages/lifemate_client/lib/lifemate_client.dart \
-            packages/lifemate_client/lib/src/women_companion_api.dart \
-            packages/lifemate_client/test/women_companion_api_test.dart \
-            wellmate/lib/screens/home/home_screen.dart \
-            wellmate/lib/screens/women_calendar/women_companion_screen.dart \
-            wellmate/test/women_companion_experience_test.dart \
-            caremate/lib/screens/women_calendar/care_women_calendar_screen.dart \
-            caremate/test/care_women_companion_experience_test.dart \
-            supabase/functions/lifemate-api/index.ts \
-            supabase/functions/lifemate-api/women_calendar.ts \
-            supabase/functions/lifemate-api/women_calendar_integration_test.ts
-          git commit -m 'fix: make women companion dashboard narrow-screen safe'
+          git add wellmate/lib/screens/women_calendar/women_companion_screen.dart
+          git commit -m 'fix(wellmate): make cycle outlook large-text safe'
           git push origin HEAD:feat/women-companion-experience
-
-  flutter:
-    needs: prepare
-    runs-on: ubuntu-24.04
-    timeout-minutes: 45
-    steps:
-      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
-        with:
-          ref: feat/women-companion-experience
-          show-progress: false
-          persist-credentials: false
-
-      - uses: subosito/flutter-action@4cab68ce0f1c7c924f688bff4792e044f1aeb30c
-        with:
-          flutter-version: '3.44.0'
-          channel: stable
-          cache: true
 
       - name: Shared client checks
         working-directory: packages/lifemate_client
@@ -218,21 +84,6 @@ jobs:
           flutter analyze --no-fatal-warnings --no-fatal-infos
           flutter test
           flutter build web --release --dart-define=ENABLE_GOOGLE_AUTH=false --dart-define=ENABLE_WOMEN_CALENDAR_PILOT=true
-
-  edge:
-    needs: prepare
-    runs-on: ubuntu-24.04
-    timeout-minutes: 30
-    steps:
-      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
-        with:
-          ref: feat/women-companion-experience
-          show-progress: false
-          persist-credentials: false
-
-      - uses: denoland/setup-deno@22d081ff2d3a40755e97629de92e3bcbfa7cf2ed
-        with:
-          deno-version: v2.9.4
 
       - name: Edge checks
         working-directory: supabase/functions/lifemate-api
