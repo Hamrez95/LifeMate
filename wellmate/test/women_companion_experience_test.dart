@@ -54,7 +54,8 @@ void main() {
         );
         await tester.pumpAndSettle();
         expect(find.text(title), findsOneWidget);
-        expect(tester.takeException(), isNull);
+        final exception = tester.takeException();
+        expect(exception, isNull, reason: 'overflow after $title');
       }
 
       expect(find.textContaining('احتمال بارداری'), findsNothing);
