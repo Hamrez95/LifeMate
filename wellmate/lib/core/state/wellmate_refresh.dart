@@ -15,6 +15,8 @@ abstract final class WellMateRefreshSignal {
 }
 
 class WellMateNavigationRefreshObserver extends NavigatorObserver {
+  bool _isDataPage(Route<dynamic>? route) => route is PageRoute<dynamic>;
+
   void _notifyAfterNavigation() {
     scheduleMicrotask(WellMateRefreshSignal.notifyChanged);
   }
@@ -22,18 +24,20 @@ class WellMateNavigationRefreshObserver extends NavigatorObserver {
   @override
   void didPop(Route<dynamic> route, Route<dynamic>? previousRoute) {
     super.didPop(route, previousRoute);
-    _notifyAfterNavigation();
+    if (_isDataPage(route)) _notifyAfterNavigation();
   }
 
   @override
   void didRemove(Route<dynamic> route, Route<dynamic>? previousRoute) {
     super.didRemove(route, previousRoute);
-    _notifyAfterNavigation();
+    if (_isDataPage(route)) _notifyAfterNavigation();
   }
 
   @override
   void didReplace({Route<dynamic>? newRoute, Route<dynamic>? oldRoute}) {
     super.didReplace(newRoute: newRoute, oldRoute: oldRoute);
-    _notifyAfterNavigation();
+    if (_isDataPage(oldRoute) || _isDataPage(newRoute)) {
+      _notifyAfterNavigation();
+    }
   }
 }
