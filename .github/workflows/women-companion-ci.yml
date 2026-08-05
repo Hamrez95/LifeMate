@@ -16,12 +16,13 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  flutter:
+  prepare:
     runs-on: ubuntu-24.04
-    timeout-minutes: 45
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
         with:
+          ref: feat/women-companion-experience
           show-progress: false
 
       - uses: subosito/flutter-action@4cab68ce0f1c7c924f688bff4792e044f1aeb30c
@@ -30,19 +31,115 @@ jobs:
           channel: stable
           cache: true
 
-      - name: Format changed Dart sources
-        run: >-
-          dart format
-          packages/lifemate_client/lib/lifemate_client.dart
-          packages/lifemate_client/lib/src/women_companion_api.dart
-          packages/lifemate_client/test/women_companion_api_test.dart
-          wellmate/lib/screens/home/home_screen.dart
-          wellmate/lib/screens/women_calendar/women_companion_screen.dart
-          wellmate/test/women_companion_experience_test.dart
-          caremate/lib/screens/women_calendar/care_women_calendar_screen.dart
-          caremate/test/care_women_companion_experience_test.dart
+      - uses: denoland/setup-deno@22d081ff2d3a40755e97629de92e3bcbfa7cf2ed
+        with:
+          deno-version: v2.9.4
 
-      - name: Persist canonical Dart formatting
+      - name: Apply deterministic women dashboard source corrections
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+
+          path = Path('wellmate/lib/screens/women_calendar/women_companion_screen.dart')
+          text = path.read_text()
+
+          text = text.replace(
+              "(value.fertileWindowStartDay - value.periodLength - 1).clamp(\n          0,\n          value.cycleLength,\n        ),",
+              "(value.fertileWindowStartDay - value.periodLength - 1)\n            .clamp(0, value.cycleLength)\n            .toInt(),",
+          )
+          text = text.replace(
+              "(value.fertileWindowEndDay - value.fertileWindowStartDay + 1).clamp(\n          0,\n          value.cycleLength,\n        ),",
+              "(value.fertileWindowEndDay - value.fertileWindowStartDay + 1)\n            .clamp(0, value.cycleLength)\n            .toInt(),",
+          )
+          text = text.replace(
+              "(value.pmsStartDay - value.fertileWindowEndDay - 1).clamp(\n          0,\n          value.cycleLength,\n        ),",
+              "(value.pmsStartDay - value.fertileWindowEndDay - 1)\n            .clamp(0, value.cycleLength)\n            .toInt(),",
+          )
+          text = text.replace(
+              "(value.cycleLength - value.pmsStartDay + 1).clamp(0, value.cycleLength),",
+              "(value.cycleLength - value.pmsStartDay + 1)\n            .clamp(0, value.cycleLength)\n            .toInt(),",
+          )
+
+          old_state = '''class _DailyCheckInSheetState extends State<_DailyCheckInSheet> {
+          late String _mood = widget.existing?['mood']?.toString() ?? 'good';
+          late int _energy = widget.existing?['energyLevel'] is int
+              ? widget.existing!['energyLevel'] as int
+              : 3;
+          late int _pain = widget.existing?['painLevel'] is int
+              ? widget.existing!['painLevel'] as int
+              : 0;
+          late Set<String> _symptoms = Set<String>.from(
+            (widget.existing?['symptoms'] as List<dynamic>? ?? const []).map(
+              (item) => item.toString(),
+            ),
+          );
+          late bool _share = widget.existing?['shareSummaryWithCompanion'] == true;
+          late final TextEditingController _notes = TextEditingController(
+            text: widget.existing?['privateNotes']?.toString() ?? '',
+          );
+
+          @override
+          void dispose() {'''
+          new_state = '''class _DailyCheckInSheetState extends State<_DailyCheckInSheet> {
+          late String _mood;
+          late int _energy;
+          late int _pain;
+          late Set<String> _symptoms;
+          late bool _share;
+          late final TextEditingController _notes;
+
+          @override
+          void initState() {
+            super.initState();
+            final existing = widget.existing;
+            _mood = existing?['mood']?.toString() ?? 'good';
+            _energy = existing?['energyLevel'] is int
+                ? existing!['energyLevel'] as int
+                : 3;
+            _pain = existing?['painLevel'] is int
+                ? existing!['painLevel'] as int
+                : 0;
+            _symptoms = Set<String>.from(
+              (existing?['symptoms'] as List<dynamic>? ?? const []).map(
+                (item) => item.toString(),
+              ),
+            );
+            _share = existing?['shareSummaryWithCompanion'] == true;
+            _notes = TextEditingController(
+              text: existing?['privateNotes']?.toString() ?? '',
+            );
+          }
+
+          @override
+          void dispose() {'''
+          if old_state in text:
+              text = text.replace(old_state, new_state)
+
+          text = text.replace(
+              "        const Spacer(),\n        Text(\n          label,",
+              "        const SizedBox(height: 18),\n        Text(\n          label,",
+          )
+          path.write_text(text)
+          PY
+
+      - name: Format changed sources
+        run: |
+          dart format \
+            packages/lifemate_client/lib/lifemate_client.dart \
+            packages/lifemate_client/lib/src/women_companion_api.dart \
+            packages/lifemate_client/test/women_companion_api_test.dart \
+            wellmate/lib/screens/home/home_screen.dart \
+            wellmate/lib/screens/women_calendar/women_companion_screen.dart \
+            wellmate/test/women_companion_experience_test.dart \
+            caremate/lib/screens/women_calendar/care_women_calendar_screen.dart \
+            caremate/test/care_women_companion_experience_test.dart
+          deno fmt \
+            supabase/functions/lifemate-api/index.ts \
+            supabase/functions/lifemate-api/women_calendar.ts \
+            supabase/functions/lifemate-api/women_calendar_integration_test.ts
+
+      - name: Persist canonical sources
         shell: bash
         run: |
           set -euo pipefail
@@ -59,9 +156,29 @@ jobs:
             wellmate/lib/screens/women_calendar/women_companion_screen.dart \
             wellmate/test/women_companion_experience_test.dart \
             caremate/lib/screens/women_calendar/care_women_calendar_screen.dart \
-            caremate/test/care_women_companion_experience_test.dart
-          git commit -m 'style: apply canonical women companion formatting'
+            caremate/test/care_women_companion_experience_test.dart \
+            supabase/functions/lifemate-api/index.ts \
+            supabase/functions/lifemate-api/women_calendar.ts \
+            supabase/functions/lifemate-api/women_calendar_integration_test.ts
+          git commit -m 'fix: finalize women companion source safety and formatting'
           git push origin HEAD:feat/women-companion-experience
+
+  flutter:
+    needs: prepare
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
+        with:
+          ref: feat/women-companion-experience
+          show-progress: false
+          persist-credentials: false
+
+      - uses: subosito/flutter-action@4cab68ce0f1c7c924f688bff4792e044f1aeb30c
+        with:
+          flutter-version: '3.44.0'
+          channel: stable
+          cache: true
 
       - name: Shared client checks
         working-directory: packages/lifemate_client
@@ -88,37 +205,19 @@ jobs:
           flutter build web --release --dart-define=ENABLE_GOOGLE_AUTH=false --dart-define=ENABLE_WOMEN_CALENDAR_PILOT=true
 
   edge:
+    needs: prepare
     runs-on: ubuntu-24.04
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
         with:
+          ref: feat/women-companion-experience
           show-progress: false
+          persist-credentials: false
 
       - uses: denoland/setup-deno@22d081ff2d3a40755e97629de92e3bcbfa7cf2ed
         with:
           deno-version: v2.9.4
-
-      - name: Format Edge sources
-        working-directory: supabase/functions/lifemate-api
-        run: deno fmt index.ts women_calendar.ts women_calendar_integration_test.ts
-
-      - name: Persist canonical Edge formatting
-        shell: bash
-        run: |
-          set -euo pipefail
-          if git diff --quiet; then
-            exit 0
-          fi
-          git config user.name 'github-actions[bot]'
-          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git add \
-            supabase/functions/lifemate-api/index.ts \
-            supabase/functions/lifemate-api/women_calendar.ts \
-            supabase/functions/lifemate-api/women_calendar_integration_test.ts
-          git commit -m 'style(api): apply canonical women companion formatting'
-          git pull --rebase origin feat/women-companion-experience
-          git push origin HEAD:feat/women-companion-experience
 
       - name: Edge checks
         working-directory: supabase/functions/lifemate-api
