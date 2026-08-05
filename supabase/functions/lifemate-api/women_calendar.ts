@@ -10,6 +10,27 @@ import {
 
 type Row = Record<string, any>;
 
+type DailyCheckIn = {
+  date: string;
+  mood: "Great" | "Good" | "Neutral" | "Low" | "Overwhelmed";
+  energy: number;
+  symptoms: string[];
+  supportNeed: "None" | "Rest" | "Talk" | "Space" | "Warmth" | "Walk" | "Hug";
+  privateNote: string | null;
+  shareSummary: boolean;
+};
+
+const supportedSymptoms = new Set([
+  "cramps",
+  "headache",
+  "bloating",
+  "fatigue",
+  "breast_tenderness",
+  "back_pain",
+  "sleep_change",
+  "appetite_change",
+]);
+
 type DetailedPhase =
   | "period"
   | "follicular"
