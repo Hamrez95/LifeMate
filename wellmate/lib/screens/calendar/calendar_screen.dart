@@ -125,6 +125,14 @@ class _CalendarScreenState extends State<CalendarScreen> {
       )?.toUtc(),
       startDate: _dateOnly(scheduledDate),
       intervalDays: 1,
+      patientReminderMinutesBefore: LifeMateReminderLeadTimes.normalize(
+        dose['patientReminderMinutesBefore'],
+        fallback: LifeMateReminderLeadTimes.defaultPatientMinutes,
+      ),
+      caregiverReminderMinutesBefore: LifeMateReminderLeadTimes.normalize(
+        dose['caregiverReminderMinutesBefore'],
+        fallback: LifeMateReminderLeadTimes.defaultCaregiverMinutes,
+      ),
     );
   }
 
@@ -135,7 +143,15 @@ class _CalendarScreenState extends State<CalendarScreen> {
     final date =
         DateTime.tryParse(event['scheduledLocalDate']?.toString() ?? '') ??
         _selectedDate;
-    final status = event['status']?.toString().toLowerCase() ?? 'scheduled';
+    final rawStatus = event['status']?.toString().toLowerCase() ?? 'scheduled';
+    final status =
+        rawStatus == 'scheduled' &&
+            _isTimePassed(
+              rawTime.length >= 5 ? rawTime.substring(0, 5) : rawTime,
+              date,
+            )
+        ? 'missed'
+        : rawStatus;
     final details = <String>[
       if (type == 'appointment')
         _nonEmpty(event['providerName']) ?? _nonEmpty(event['specialty']) ?? '',
@@ -159,6 +175,14 @@ class _CalendarScreenState extends State<CalendarScreen> {
       version: event['version'] is int ? event['version'] as int : 1,
       startDate: _dateOnly(date),
       intervalDays: 1,
+      patientReminderMinutesBefore: LifeMateReminderLeadTimes.normalize(
+        event['patientReminderMinutesBefore'],
+        fallback: LifeMateReminderLeadTimes.defaultPatientMinutes,
+      ),
+      caregiverReminderMinutesBefore: LifeMateReminderLeadTimes.normalize(
+        event['caregiverReminderMinutesBefore'],
+        fallback: LifeMateReminderLeadTimes.defaultCaregiverMinutes,
+      ),
     );
   }
 
@@ -212,9 +236,8 @@ class _CalendarScreenState extends State<CalendarScreen> {
     final types = <String>{};
     for (final item in _getEventsForDay(day)) {
       types.add(item.type.isEmpty ? 'medicine' : item.type);
-      if (item.type == 'medicine' &&
-          (item.status == 'missed' ||
-              (!item.isDone && _isTimePassed(item.time, day)))) {
+      if (item.status == 'missed' ||
+          (!item.isDone && _isTimePassed(item.time, day))) {
         types.add('missed');
       }
     }
@@ -236,9 +259,8 @@ class _CalendarScreenState extends State<CalendarScreen> {
     final isFuture = _dateOnly(_selectedDate).isAfter(_dateOnly(now));
     final isMedicine = item.type == 'medicine';
     final isMissed =
-        isMedicine &&
-        (item.status == 'missed' ||
-            (!item.isDone && _isTimePassed(item.time, _selectedDate)));
+        item.status == 'missed' ||
+        (!item.isDone && _isTimePassed(item.time, _selectedDate));
     final showDoneMark = isMedicine && item.isDone && !isFuture;
     return Padding(
       key: ValueKey<String>('calendar-event-${item.id}'),

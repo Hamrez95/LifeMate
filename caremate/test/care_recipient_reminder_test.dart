@@ -92,4 +92,32 @@ void main() {
     expect(result.map((item) => item.patientUserId), ['p1', 'p2']);
     expect(result.first.doseId, 'dose-a');
   });
+
+  test('orders by reminder trigger rather than scheduled time', () {
+    final now = DateTime.utc(2026, 8, 5, 8);
+    final reminders = selectEarliestReminderPerPatient([
+      CareRecipientReminder(
+        patientUserId: 'p1',
+        patientName: 'A',
+        doseId: 'later-with-long-lead',
+        medicationName: 'Visit',
+        doseText: '',
+        scheduledAtUtc: DateTime.utc(2026, 8, 5, 12),
+        reminderMinutesBefore: 180,
+        kind: 'appointment',
+      ),
+      CareRecipientReminder(
+        patientUserId: 'p1',
+        patientName: 'A',
+        doseId: 'earlier-with-short-lead',
+        medicationName: 'Medicine',
+        doseText: '',
+        scheduledAtUtc: DateTime.utc(2026, 8, 5, 10),
+        reminderMinutesBefore: 30,
+      ),
+    ], nowUtc: now);
+
+    expect(reminders.single.doseId, 'later-with-long-lead');
+    expect(reminders.single.triggerAtUtc, DateTime.utc(2026, 8, 5, 9));
+  });
 }

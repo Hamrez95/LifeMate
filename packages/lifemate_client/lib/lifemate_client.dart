@@ -7,6 +7,7 @@ export 'src/lifemate_api_client.dart';
 export 'src/lifemate_auth.dart';
 export 'src/lifemate_bootstrap.dart';
 export 'src/profile_avatar.dart';
+export 'src/reminder_lead_time.dart';
 export 'src/session_gate.dart' hide LifeMateSessionGate;
 export 'src/session_gate_secure.dart';
 export 'src/women_calendar.dart';

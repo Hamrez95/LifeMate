@@ -323,6 +323,14 @@ class _CurrentUserIdentityState extends State<_CurrentUserIdentity> {
   void initState() {
     super.initState();
     _currentUser = context.read<LifeMateApiClient>().getCurrentUser();
+    LifeMateProfileRefresh.revision.addListener(_reloadIdentity);
+  }
+
+  void _reloadIdentity() {
+    if (!mounted) return;
+    setState(() {
+      _currentUser = context.read<LifeMateApiClient>().getCurrentUser();
+    });
   }
 
   Future<void> _openEditor() async {
@@ -333,6 +341,12 @@ class _CurrentUserIdentityState extends State<_CurrentUserIdentity> {
     setState(() {
       _currentUser = context.read<LifeMateApiClient>().getCurrentUser();
     });
+  }
+
+  @override
+  void dispose() {
+    LifeMateProfileRefresh.revision.removeListener(_reloadIdentity);
+    super.dispose();
   }
 
   @override
@@ -375,6 +389,7 @@ class _CurrentUserIdentityState extends State<_CurrentUserIdentity> {
                     customBorder: const CircleBorder(),
                     child: LifeMateProfileAvatar(
                       avatarKey: profile['avatarKey']?.toString(),
+                      photoUrl: profile['profilePhotoUrl']?.toString(),
                       radius: 36,
                     ),
                   ),

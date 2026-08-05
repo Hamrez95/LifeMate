@@ -11,15 +11,20 @@ import '../../providers/notification_provider.dart';
 import '../theme/app_style.dart';
 import '../../models/schedule_item_model.dart';
 
+typedef MissedMedicationReporter =
+    Future<bool> Function(ScheduleItemModel item);
+
 class WellMateAppHeader extends StatelessWidget {
   final VoidCallback onProfileTap;
   final VoidCallback? onNotificationTap;
+  final MissedMedicationReporter? onMissedMedicationTaken;
 
   // نکته: missedItems از اینجا حذف شد چون مستقیما از پرووایدر گرفته میشه
   const WellMateAppHeader({
     Key? key,
     required this.onProfileTap,
     this.onNotificationTap,
+    this.onMissedMedicationTaken,
   }) : super(key: key);
 
   // نکته: حالا missedItems رو به عنوان ورودی به این متد پاس میدیم
@@ -208,8 +213,13 @@ class WellMateAppHeader extends StatelessWidget {
           ),
           // 👈 مشکل اینجا بود! دکمه به داخل Row منتقل شد
           GestureDetector(
-            onTap: () {
-              context.read<MedicationProvider>().markAsDone(item.id);
+            onTap: () async {
+              final reporter = onMissedMedicationTaken;
+              if (reporter == null) return;
+              final success = await reporter(item);
+              if (success && context.mounted) {
+                context.read<MedicationProvider>().markAsDone(item.id);
+              }
             },
             child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),

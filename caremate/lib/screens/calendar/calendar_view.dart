@@ -105,7 +105,10 @@ class _PersianCalendar extends StatelessWidget {
                 key: const ValueKey('caremate-previous-month'),
                 tooltip: 'ماه قبل',
                 onPressed: () => onPageChanged(_moveMonth(-1)),
-                icon: const Icon(Icons.chevron_right_rounded),
+                icon: const Icon(
+                  Icons.chevron_right_rounded,
+                  textDirection: TextDirection.ltr,
+                ),
               ),
               Expanded(
                 child: Text(
@@ -122,7 +125,10 @@ class _PersianCalendar extends StatelessWidget {
                 key: const ValueKey('caremate-next-month'),
                 tooltip: 'ماه بعد',
                 onPressed: () => onPageChanged(_moveMonth(1)),
-                icon: const Icon(Icons.chevron_left_rounded),
+                icon: const Icon(
+                  Icons.chevron_left_rounded,
+                  textDirection: TextDirection.ltr,
+                ),
               ),
             ],
           ),

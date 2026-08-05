@@ -19,6 +19,14 @@ class LifeMateProfileAvatarOption {
   final Color foregroundColor;
 }
 
+abstract final class LifeMateProfileRefresh {
+  static final ValueNotifier<int> revision = ValueNotifier<int>(0);
+
+  static void notifyChanged() {
+    revision.value = revision.value + 1;
+  }
+}
+
 abstract final class LifeMateProfileAvatars {
   static const String defaultKey = 'person_blue';
 
@@ -83,20 +91,25 @@ class LifeMateProfileAvatar extends StatelessWidget {
   const LifeMateProfileAvatar({
     super.key,
     this.avatarKey,
+    this.photoUrl,
     this.radius = 36,
     this.showBorder = true,
   });
 
   final String? avatarKey;
+  final String? photoUrl;
   final double radius;
   final bool showBorder;
 
   @override
   Widget build(BuildContext context) {
     final option = LifeMateProfileAvatars.resolve(avatarKey);
+    final normalizedPhotoUrl = photoUrl?.trim();
+    final hasPhoto =
+        normalizedPhotoUrl != null && normalizedPhotoUrl.isNotEmpty;
     return Semantics(
       image: true,
-      label: 'آواتار پروفایل ${option.label}',
+      label: hasPhoto ? 'عکس پروفایل' : 'آواتار پروفایل ${option.label}',
       child: Container(
         width: radius * 2,
         height: radius * 2,
@@ -111,14 +124,53 @@ class LifeMateProfileAvatar extends StatelessWidget {
                 )
               : null,
         ),
-        child: CircleAvatar(
-          backgroundColor: option.backgroundColor,
-          child: Icon(
-            option.icon,
-            size: radius,
-            color: option.foregroundColor,
-          ),
+        child: ClipOval(
+          child: hasPhoto
+              ? Image.network(
+                  normalizedPhotoUrl,
+                  key: const ValueKey('profile-photo-image'),
+                  fit: BoxFit.cover,
+                  width: radius * 2,
+                  height: radius * 2,
+                  errorBuilder: (context, error, stackTrace) =>
+                      _AvatarFallback(option: option, iconSize: radius),
+                  loadingBuilder: (context, child, progress) {
+                    if (progress == null) return child;
+                    return Stack(
+                      fit: StackFit.expand,
+                      children: [
+                        _AvatarFallback(option: option, iconSize: radius),
+                        Center(
+                          child: SizedBox.square(
+                            dimension: radius * 0.55,
+                            child: const CircularProgressIndicator(
+                              strokeWidth: 2,
+                            ),
+                          ),
+                        ),
+                      ],
+                    );
+                  },
+                )
+              : _AvatarFallback(option: option, iconSize: radius),
         ),
+      ),
+    );
+  }
+}
+
+class _AvatarFallback extends StatelessWidget {
+  const _AvatarFallback({required this.option, required this.iconSize});
+
+  final LifeMateProfileAvatarOption option;
+  final double iconSize;
+
+  @override
+  Widget build(BuildContext context) {
+    return ColoredBox(
+      color: option.backgroundColor,
+      child: Center(
+        child: Icon(option.icon, size: iconSize, color: option.foregroundColor),
       ),
     );
   }
@@ -141,37 +193,41 @@ class LifeMateAvatarPicker extends StatelessWidget {
       alignment: WrapAlignment.center,
       spacing: 12,
       runSpacing: 12,
-      children: LifeMateProfileAvatars.options.map((option) {
-        final selected = option.key == normalized;
-        return Semantics(
-          button: true,
-          selected: selected,
-          label: 'انتخاب آواتار ${option.label}',
-          child: InkWell(
-            key: ValueKey('profile-avatar-${option.key}'),
-            onTap: onSelected == null ? null : () => onSelected!(option.key),
-            customBorder: const CircleBorder(),
-            child: AnimatedContainer(
-              duration: const Duration(milliseconds: 180),
-              padding: const EdgeInsets.all(3),
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                border: Border.all(
-                  color: selected
-                      ? option.foregroundColor
-                      : Colors.transparent,
-                  width: 3,
+      children: LifeMateProfileAvatars.options
+          .map((option) {
+            final selected = option.key == normalized;
+            return Semantics(
+              button: true,
+              selected: selected,
+              label: 'انتخاب آواتار ${option.label}',
+              child: InkWell(
+                key: ValueKey('profile-avatar-${option.key}'),
+                onTap: onSelected == null
+                    ? null
+                    : () => onSelected!(option.key),
+                customBorder: const CircleBorder(),
+                child: AnimatedContainer(
+                  duration: const Duration(milliseconds: 180),
+                  padding: const EdgeInsets.all(3),
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    border: Border.all(
+                      color: selected
+                          ? option.foregroundColor
+                          : Colors.transparent,
+                      width: 3,
+                    ),
+                  ),
+                  child: LifeMateProfileAvatar(
+                    avatarKey: option.key,
+                    radius: 30,
+                    showBorder: false,
+                  ),
                 ),
               ),
-              child: LifeMateProfileAvatar(
-                avatarKey: option.key,
-                radius: 30,
-                showBorder: false,
-              ),
-            ),
-          ),
-        );
-      }).toList(growable: false),
+            );
+          })
+          .toList(growable: false),
     );
   }
 }
@@ -197,15 +253,29 @@ class _LifeMateCurrentUserAvatarState extends State<LifeMateCurrentUserAvatar> {
   @override
   void initState() {
     super.initState();
-    _future = widget.apiClient.getCurrentUser();
+    _future = widget.apiClient.getCurrentProfile();
+    LifeMateProfileRefresh.revision.addListener(_reload);
+  }
+
+  void _reload() {
+    if (!mounted) return;
+    setState(() {
+      _future = widget.apiClient.getCurrentProfile();
+    });
   }
 
   @override
   void didUpdateWidget(covariant LifeMateCurrentUserAvatar oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (!identical(oldWidget.apiClient, widget.apiClient)) {
-      _future = widget.apiClient.getCurrentUser();
+      _future = widget.apiClient.getCurrentProfile();
     }
+  }
+
+  @override
+  void dispose() {
+    LifeMateProfileRefresh.revision.removeListener(_reload);
+    super.dispose();
   }
 
   @override
@@ -213,10 +283,10 @@ class _LifeMateCurrentUserAvatarState extends State<LifeMateCurrentUserAvatar> {
     return FutureBuilder<Map<String, dynamic>>(
       future: _future,
       builder: (context, snapshot) {
-        final data = snapshot.data ?? const <String, dynamic>{};
-        final profile = data['profile'] as Map<String, dynamic>? ?? const {};
+        final profile = snapshot.data ?? const <String, dynamic>{};
         return LifeMateProfileAvatar(
           avatarKey: profile['avatarKey']?.toString(),
+          photoUrl: profile['profilePhotoUrl']?.toString(),
           radius: widget.radius,
         );
       },

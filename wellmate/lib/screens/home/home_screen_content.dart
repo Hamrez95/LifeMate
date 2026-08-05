@@ -5,7 +5,6 @@ import 'package:lifemate_client/lifemate_client.dart';
 import 'package:provider/provider.dart';
 
 import '../../core/theme/app_style.dart';
-import '../../core/utils/string_extensions.dart';
 import '../../localization/app_localizations.dart';
 import '../../models/schedule_item_model.dart';
 import '../../providers/medication_provider.dart';
@@ -59,6 +58,7 @@ class _HomeScreenContentState extends State<HomeScreenContent> {
         loadError = null;
       });
     }
+
     try {
       final api = context.read<LifeMateApiClient>();
       final now = DateTime.now();
@@ -70,6 +70,7 @@ class _HomeScreenContentState extends State<HomeScreenContent> {
         api.getDoseOccurrences(fromDate: today, toDate: lastVisibleDay),
         api.getCareEvents(fromDate: today, toDate: lastVisibleDay),
       ]);
+
       final currentUser = results[0] as Map<String, dynamic>;
       final plans = results[1] as List<Map<String, dynamic>>;
       final doses = results[2] as List<Map<String, dynamic>>;
@@ -107,14 +108,25 @@ class _HomeScreenContentState extends State<HomeScreenContent> {
                 ? today
                 : DateTime.tryParse(dose['scheduledLocalDate'].toString()),
             intervalDays: 1,
+            patientReminderMinutesBefore: LifeMateReminderLeadTimes.normalize(
+              dose['patientReminderMinutesBefore'],
+              fallback: LifeMateReminderLeadTimes.defaultPatientMinutes,
+            ),
+            caregiverReminderMinutesBefore: LifeMateReminderLeadTimes.normalize(
+              dose['caregiverReminderMinutesBefore'],
+              fallback: LifeMateReminderLeadTimes.defaultCaregiverMinutes,
+            ),
           );
         }),
         ...careEvents.map((event) {
           final eventType = event['eventType']?.toString().toLowerCase();
           final type = eventType == 'injection' ? 'injection' : 'appointment';
           final rawTime = event['scheduledLocalTime']?.toString() ?? '--:--';
-          final status =
+          final rawStatus =
               event['status']?.toString().toLowerCase() ?? 'scheduled';
+          final status = rawStatus == 'scheduled' && _isPastCareEvent(event)
+              ? 'missed'
+              : rawStatus;
           final details = <String>[
             if (type == 'appointment')
               _nonEmpty(event['providerName']) ??
@@ -133,12 +145,23 @@ class _HomeScreenContentState extends State<HomeScreenContent> {
             dosage: details,
             status: status,
             version: event['version'] is int ? event['version'] as int : 1,
+            scheduledAtUtc: DateTime.tryParse(
+              event['scheduledAtUtc']?.toString() ?? '',
+            )?.toUtc(),
             isDone: status == 'completed' || status == 'cancelled',
             frequency: type == 'injection' ? 'تزریق' : 'ویزیت',
             startDate: DateTime.tryParse(
               event['scheduledLocalDate']?.toString() ?? '',
             ),
             intervalDays: 1,
+            patientReminderMinutesBefore: LifeMateReminderLeadTimes.normalize(
+              event['patientReminderMinutesBefore'],
+              fallback: LifeMateReminderLeadTimes.defaultPatientMinutes,
+            ),
+            caregiverReminderMinutesBefore: LifeMateReminderLeadTimes.normalize(
+              event['caregiverReminderMinutesBefore'],
+              fallback: LifeMateReminderLeadTimes.defaultCaregiverMinutes,
+            ),
           );
         }),
       ]..sort(_compareOccurrence);
@@ -157,20 +180,20 @@ class _HomeScreenContentState extends State<HomeScreenContent> {
             return item.status != 'completed' && item.status != 'cancelled';
           })
           .toList(growable: false);
-      final future =
-          actionable
-              .where((item) {
-                final scheduled = _scheduledDateTime(item);
-                return scheduled != null && !scheduled.isBefore(DateTime.now());
-              })
-              .toList(growable: false)
-            ..sort(_compareOccurrence);
-      final missedMedicine = actionable.where(
-        (item) => item.type == 'medicine' && item.status == 'missed',
-      );
+      final future = actionable
+          .where((item) {
+            final scheduled = _scheduledDateTime(item);
+            return scheduled != null && !scheduled.isBefore(DateTime.now());
+          })
+          .toList(growable: false)
+        ..sort(_compareOccurrence);
+      final missedOccurrences = actionable
+          .where((item) => item.status == 'missed')
+          .toList(growable: false)
+        ..sort(_compareOccurrence);
       final nextOccurrence = future.isNotEmpty
           ? future.first
-          : (missedMedicine.isNotEmpty ? missedMedicine.first : null);
+          : (missedOccurrences.isNotEmpty ? missedOccurrences.first : null);
 
       if (!mounted) return;
       setState(() {
@@ -184,18 +207,17 @@ class _HomeScreenContentState extends State<HomeScreenContent> {
       final medicineToday = todayItems
           .where((item) => item.type == 'medicine')
           .toList(growable: false);
-      final medicineReminderWindow = allItems
-          .where(
-            (item) =>
-                item.type == 'medicine' &&
-                item.status == 'scheduled' &&
-                item.scheduledAtUtc?.isAfter(DateTime.now().toUtc()) == true,
-          )
+      final reminderWindow = allItems
+          .where((item) {
+            if (item.status != 'scheduled') return false;
+            final scheduled = _scheduledDateTime(item);
+            return scheduled != null && scheduled.isAfter(DateTime.now());
+          })
           .toList(growable: false);
       context.read<MedicationProvider>().setMedications(medicineToday);
       try {
-        await context.read<NotificationProvider>().syncDoseReminders(
-          medicineReminderWindow,
+        await context.read<NotificationProvider>().syncReminders(
+          reminderWindow,
           timeZone: profile['timeZone']?.toString() ?? 'Asia/Tehran',
           isPersian: Localizations.localeOf(context).languageCode == 'fa',
         );
@@ -269,6 +291,11 @@ class _HomeScreenContentState extends State<HomeScreenContent> {
     return seconds > 0 ? seconds : 0;
   }
 
+  double _progressValue(ScheduleItemModel item) {
+    return 1.0 -
+        (_calculateSecondsLeft(item) / 86400).clamp(0.0, 1.0).toDouble();
+  }
+
   String _getAssetPath(String type) {
     switch (type) {
       case 'appointment':
@@ -279,6 +306,63 @@ class _HomeScreenContentState extends State<HomeScreenContent> {
       default:
         return 'assets/icons/pill.png';
     }
+  }
+
+  Widget _buildNextOccurrenceCard({
+    required ScheduleItemModel item,
+    required TextStyle font,
+    required bool isPersian,
+  }) {
+    final secondsLeft = _calculateSecondsLeft(item);
+    if (item.type == 'medicine') {
+      return ActiveTreatmentCard(
+        treatmentName: item.title,
+        dose: item.dosage,
+        time: item.time,
+        assetIconPath: _getAssetPath(item.type),
+        progressValue: _progressValue(item),
+        secondsLeft: secondsLeft,
+        onTaken: _submitting.contains(item.id)
+            ? null
+            : () => _reportStatus(item, 'taken'),
+        onSkipped: _submitting.contains(item.id)
+            ? null
+            : () => _reportStatus(item, 'skipped'),
+        onEdit: widget.onOpenTreatments,
+        isSubmitting: _submitting.contains(item.id),
+        font: font,
+      );
+    }
+
+    final isAppointment = item.type == 'appointment';
+    final isMissed = item.status == 'missed';
+    final eventLabel = isAppointment ? 'وقت ویزیت' : 'زمان تزریق';
+    final missedColor = const Color(0xFFE06464);
+    return ActiveTreatmentCard(
+      treatmentName: item.title,
+      dose: item.dosage,
+      time: item.time,
+      assetIconPath: _getAssetPath(item.type),
+      progressValue: _progressValue(item),
+      secondsLeft: secondsLeft,
+      onTaken: null,
+      onSkipped: null,
+      onEdit: null,
+      showActions: false,
+      supportingText: isMissed
+          ? '$eventLabel انجام‌نشده • ${item.time}'
+          : '$eventLabel • ${item.time}',
+      countdownLabel: isMissed ? (isPersian ? 'گذشته' : 'Missed') : null,
+      accentColor: isMissed ? missedColor : AppColors.primary,
+      progressColor: isMissed ? missedColor : AppColors.primaryLight,
+      progressBackgroundColor: isMissed
+          ? const Color(0xFFFFEEEE)
+          : AppColors.background,
+      fallbackIcon: isAppointment
+          ? Icons.medical_services_rounded
+          : Icons.vaccines_rounded,
+      font: font,
+    );
   }
 
   @override
@@ -339,34 +423,10 @@ class _HomeScreenContentState extends State<HomeScreenContent> {
                           : widget.onAddTreatment,
                       font: font,
                     )
-                  : nextItem.type == 'medicine'
-                  ? ActiveTreatmentCard(
-                      treatmentName: nextItem.title,
-                      dose: nextItem.dosage,
-                      time: nextItem.time,
-                      assetIconPath: _getAssetPath(nextItem.type),
-                      progressValue:
-                          1.0 -
-                          (_calculateSecondsLeft(nextItem) / 86400).clamp(
-                            0.0,
-                            1.0,
-                          ),
-                      secondsLeft: _calculateSecondsLeft(nextItem),
-                      onTaken: _submitting.contains(nextItem.id)
-                          ? null
-                          : () => _reportStatus(nextItem, 'taken'),
-                      onSkipped: _submitting.contains(nextItem.id)
-                          ? null
-                          : () => _reportStatus(nextItem, 'skipped'),
-                      onEdit: widget.onOpenTreatments,
-                      isSubmitting: _submitting.contains(nextItem.id),
-                      font: font,
-                    )
-                  : _UpcomingCareEventCard(
+                  : _buildNextOccurrenceCard(
                       item: nextItem,
-                      secondsLeft: _calculateSecondsLeft(nextItem),
-                      assetPath: _getAssetPath(nextItem.type),
                       font: font,
+                      isPersian: isPersian,
                     ),
             ),
             const SizedBox(height: 24),
@@ -409,16 +469,14 @@ class _HomeScreenContentState extends State<HomeScreenContent> {
                                   24,
                                   0,
                                   24,
-                                  110,
+                                  16,
                                 ),
                                 itemCount: visibleToday.length,
                                 separatorBuilder: (_, __) =>
                                     const SizedBox(height: 12),
                                 itemBuilder: (context, index) {
                                   final item = visibleToday[index];
-                                  final missed =
-                                      item.type == 'medicine' &&
-                                      item.status == 'missed';
+                                  final missed = item.status == 'missed';
                                   return SoftScheduleCard(
                                     item: item,
                                     index: index,
@@ -426,7 +484,9 @@ class _HomeScreenContentState extends State<HomeScreenContent> {
                                     assetPath: _getAssetPath(item.type),
                                     isMissed: missed,
                                     onTaken:
-                                        missed && !_submitting.contains(item.id)
+                                        item.type == 'medicine' &&
+                                            missed &&
+                                            !_submitting.contains(item.id)
                                         ? () => _reportStatus(item, 'taken')
                                         : null,
                                   );
@@ -447,6 +507,25 @@ class _HomeScreenContentState extends State<HomeScreenContent> {
   static String? _nonEmpty(dynamic value) {
     final text = value?.toString().trim();
     return text == null || text.isEmpty ? null : text;
+  }
+
+  static bool _isPastCareEvent(Map<String, dynamic> event) {
+    final date = DateTime.tryParse(
+      event['scheduledLocalDate']?.toString() ?? '',
+    );
+    final parts =
+        event['scheduledLocalTime']?.toString().split(':') ?? const [];
+    if (date == null || parts.length < 2) return false;
+    final hour = int.tryParse(parts[0]);
+    final minute = int.tryParse(parts[1]);
+    if (hour == null || minute == null) return false;
+    return DateTime(
+      date.year,
+      date.month,
+      date.day,
+      hour,
+      minute,
+    ).isBefore(DateTime.now());
   }
 
   static DateTime? _scheduledDateTime(ScheduleItemModel item) {
@@ -473,110 +552,6 @@ class _HomeScreenContentState extends State<HomeScreenContent> {
       left.year == right.year &&
       left.month == right.month &&
       left.day == right.day;
-}
-
-class _UpcomingCareEventCard extends StatelessWidget {
-  const _UpcomingCareEventCard({
-    required this.item,
-    required this.secondsLeft,
-    required this.assetPath,
-    required this.font,
-  });
-
-  final ScheduleItemModel item;
-  final int secondsLeft;
-  final String assetPath;
-  final TextStyle font;
-
-  String _countdown(bool persian) {
-    final minutes = secondsLeft ~/ 60;
-    if (minutes < 60) return '$minutes دقیقه دیگر'.toPersianDigit(persian);
-    final hours = minutes ~/ 60;
-    final remaining = minutes % 60;
-    return '$hours ساعت و $remaining دقیقه دیگر'.toPersianDigit(persian);
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final persian = Localizations.localeOf(context).languageCode == 'fa';
-    final kind = item.type == 'injection' ? 'زمان تزریق' : 'وقت ویزیت';
-    return Container(
-      padding: const EdgeInsets.all(22),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(28),
-        boxShadow: [
-          BoxShadow(
-            color: AppColors.shadowDark.withValues(alpha: 0.35),
-            blurRadius: 22,
-            offset: const Offset(0, 10),
-          ),
-        ],
-      ),
-      child: Row(
-        children: [
-          Container(
-            width: 92,
-            height: 92,
-            padding: const EdgeInsets.all(18),
-            decoration: BoxDecoration(
-              color: AppColors.primary.withValues(alpha: 0.10),
-              shape: BoxShape.circle,
-            ),
-            child: Image.asset(
-              assetPath,
-              errorBuilder: (_, __, ___) => Icon(
-                item.type == 'injection'
-                    ? Icons.vaccines_rounded
-                    : Icons.medical_services_rounded,
-                color: AppColors.primary,
-                size: 44,
-              ),
-            ),
-          ),
-          const SizedBox(width: 18),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  kind,
-                  style: font.copyWith(
-                    color: AppColors.primary,
-                    fontWeight: FontWeight.w900,
-                  ),
-                ),
-                const SizedBox(height: 5),
-                Text(
-                  item.title,
-                  style: font.copyWith(
-                    fontSize: 18,
-                    fontWeight: FontWeight.w900,
-                    color: AppColors.darkBlue,
-                  ),
-                ),
-                if (item.dosage.trim().isNotEmpty) ...[
-                  const SizedBox(height: 4),
-                  Text(
-                    item.dosage,
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                ],
-                const SizedBox(height: 8),
-                Text(
-                  '${item.time} • ${_countdown(persian)}'.toPersianDigit(
-                    persian,
-                  ),
-                  style: font.copyWith(fontWeight: FontWeight.w800),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
 }
 
 class _TreatmentTimerPlaceholder extends StatelessWidget {
@@ -661,7 +636,7 @@ class _HomeEmptyState extends StatelessWidget {
   Widget build(BuildContext context) {
     return Center(
       child: SingleChildScrollView(
-        padding: const EdgeInsets.fromLTRB(24, 20, 24, 110),
+        padding: const EdgeInsets.fromLTRB(24, 20, 24, 16),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [

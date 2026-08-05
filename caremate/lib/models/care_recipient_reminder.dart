@@ -6,6 +6,8 @@ class CareRecipientReminder {
     required this.medicationName,
     required this.doseText,
     required this.scheduledAtUtc,
+    this.reminderMinutesBefore = 60,
+    this.kind = 'medicine',
   });
 
   final String patientUserId;
@@ -14,6 +16,11 @@ class CareRecipientReminder {
   final String medicationName;
   final String doseText;
   final DateTime scheduledAtUtc;
+  final int reminderMinutesBefore;
+  final String kind;
+
+  DateTime get triggerAtUtc =>
+      scheduledAtUtc.toUtc().subtract(Duration(minutes: reminderMinutesBefore));
 }
 
 List<CareRecipientReminder> selectEarliestReminderPerPatient(
@@ -23,8 +30,10 @@ List<CareRecipientReminder> selectEarliestReminderPerPatient(
   final now = (nowUtc ?? DateTime.now().toUtc()).toUtc();
   final selected = <String, CareRecipientReminder>{};
   for (final reminder in reminders) {
-    final scheduled = reminder.scheduledAtUtc.toUtc();
-    if (!scheduled.isAfter(now)) continue;
+    if (!reminder.scheduledAtUtc.toUtc().isAfter(now) ||
+        reminder.triggerAtUtc.isBefore(now)) {
+      continue;
+    }
     final existing = selected[reminder.patientUserId];
     if (existing == null || _compareReminder(reminder, existing) < 0) {
       selected[reminder.patientUserId] = reminder;
@@ -36,6 +45,8 @@ List<CareRecipientReminder> selectEarliestReminderPerPatient(
 }
 
 int _compareReminder(CareRecipientReminder left, CareRecipientReminder right) {
+  final byTrigger = left.triggerAtUtc.compareTo(right.triggerAtUtc);
+  if (byTrigger != 0) return byTrigger;
   final byTime = left.scheduledAtUtc.toUtc().compareTo(
     right.scheduledAtUtc.toUtc(),
   );

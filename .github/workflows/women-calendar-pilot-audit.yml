@@ -9,16 +9,16 @@ on:
       - feat/v0.9.0-internal.3-localization
 
 permissions:
-  contents: write
+  contents: read
 
 concurrency:
   group: women-calendar-pilot-${{ github.event.pull_request.head.ref || github.ref_name }}
   cancel-in-progress: true
 
 jobs:
-  apply-verify-commit:
+  verify-current-product:
     runs-on: ubuntu-24.04
-    timeout-minutes: 60
+    timeout-minutes: 70
     services:
       postgres:
         image: postgres:17.5-alpine
@@ -44,9 +44,10 @@ jobs:
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
         with:
-          ref: feat/women-calendar-care-access-notifications
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
           fetch-depth: 0
           show-progress: false
+          persist-credentials: false
 
       - uses: subosito/flutter-action@4cab68ce0f1c7c924f688bff4792e044f1aeb30c
         with:
@@ -62,119 +63,25 @@ jobs:
         with:
           dotnet-version: '10.0.x'
 
-      - name: Apply pending product patches idempotently
+      - name: Verify Shared Flutter WellMate and CareMate
         shell: bash
         run: |
           set -euo pipefail
+          for project in packages/lifemate_client wellmate caremate; do
+            (
+              cd "$project"
+              flutter pub get
+              flutter analyze --no-fatal-infos --no-fatal-warnings
+              flutter test
+            )
+          done
 
-          women_core_ready=false
-          if [[ -f supabase/migrations/20260804130000_add_women_calendar_pilot.sql ]] \
-            && grep -q "class SubscriptionScreen extends StatefulWidget" wellmate/lib/screens/profile/profile_destination_screens.dart \
-            && grep -q "selectEarliestReminderPerPatient" caremate/lib/providers/care_notification_provider.dart \
-            && grep -q "cleanupWomenCalendarRun" supabase/functions/lifemate-api/women_calendar_integration_test.ts \
-            && grep -q "visibility: NotificationVisibility.private" wellmate/lib/providers/notification_provider.dart \
-            && grep -q "visibility: NotificationVisibility.private" caremate/lib/providers/care_notification_provider.dart \
-            && grep -q "تاریخ‌ها تخمینی هستند و جایگزین نظر پزشک نیستند" wellmate/lib/screens/women_calendar/women_calendar_screen.dart; then
-            women_core_ready=true
-          fi
-
-          if [[ "$women_core_ready" != 'true' ]]; then
-            python3 tools/hotfix/apply_women_calendar_backend.py
-            python3 tools/hotfix/apply_women_calendar_frontend.py
-            python3 tools/hotfix/apply_caremate_notifications_and_women_view.py
-            python3 tools/hotfix/apply_women_calendar_integration.py
-            python3 tools/hotfix/apply_women_calendar_cleanup_fix.py
-            python3 tools/hotfix/apply_women_calendar_medical_copy_fix.py
-            python3 tools/hotfix/apply_women_calendar_log_redaction.py
-            python3 tools/hotfix/apply_notification_privacy_and_resync.py
-          else
-            echo 'Core women-calendar product patches are already materialized.'
-          fi
-
-          python3 tools/hotfix/apply_caremate_log_redaction.py
-
-          if ! grep -q "corrected owner-only note" \
-            supabase/functions/lifemate-api/women_calendar_integration_test.ts \
-            || ! grep -q "women_calendar.episode_updated" \
-              supabase/functions/lifemate-api/women_calendar.ts \
-            || ! grep -q "updateWomenCalendarEpisode" \
-              packages/lifemate_client/lib/src/lifemate_api_client.dart; then
-            python3 tools/hotfix/apply_women_calendar_episode_editor.py
-          else
-            echo 'Women-calendar episode editor is already materialized.'
-          fi
-
-          if ! grep -q "profileAfterDelete" \
-            supabase/functions/lifemate-api/women_calendar_integration_test.ts; then
-            python3 tools/hotfix/apply_women_calendar_delete_profile_fix.py
-          else
-            echo 'Women-calendar delete/profile reconciliation is already materialized.'
-          fi
-
-          avatar_ready=false
-          if [[ -f supabase/migrations/20260804213000_add_profile_avatar_key.sql ]] \
-            && [[ -f packages/lifemate_client/lib/src/profile_avatar.dart ]] \
-            && grep -q "LifeMateAvatarPicker" wellmate/lib/screens/profile/editable_profile_screen.dart \
-            && grep -q "LifeMateAvatarPicker" caremate/lib/screens/editable_profile_screen.dart \
-            && grep -q "avatarKey" supabase/functions/lifemate-api/profile.ts; then
-            avatar_ready=true
-          fi
-
-          if [[ "$avatar_ready" != 'true' ]]; then
-            python3 tools/hotfix/apply_profile_avatar_selection.py
-            python3 tools/hotfix/apply_profile_avatar_selection_fix.py
-          else
-            echo 'Persisted profile-avatar selection is already materialized.'
-          fi
-
-      - name: Format generated and modified sources
-        shell: bash
-        run: |
-          set -euo pipefail
-          mapfile -t dart_files < <(git diff --name-only --diff-filter=ACM | grep -E '\.dart$' || true)
-          if (( ${#dart_files[@]} > 0 )); then
-            dart format "${dart_files[@]}"
-          fi
-          mapfile -t deno_files < <(
-            git diff --name-only --diff-filter=ACM \
-              | grep -E '^supabase/functions/lifemate-api/.*\.ts$' || true
-          )
-          if (( ${#deno_files[@]} > 0 )); then
-            deno fmt "${deno_files[@]}"
-          fi
-
-      - name: Verify shared package
-        shell: bash
-        run: |
-          set -euo pipefail
-          cd packages/lifemate_client
-          flutter pub get
-          flutter analyze --no-fatal-infos --no-fatal-warnings
-          flutter test
-
-      - name: Verify WellMate
-        shell: bash
-        run: |
-          set -euo pipefail
-          cd wellmate
-          flutter pub get
-          flutter analyze --no-fatal-infos --no-fatal-warnings
-          flutter test
-
-      - name: Verify CareMate
-        shell: bash
-        run: |
-          set -euo pipefail
-          cd caremate
-          flutter pub get
-          flutter analyze --no-fatal-infos --no-fatal-warnings
-          flutter test
-
-      - name: Verify Edge unit contract
+      - name: Verify Edge unit contracts
         working-directory: supabase/functions/lifemate-api
         shell: bash
         run: |
           set -euo pipefail
+          deno fmt --check
           deno task check
           deno task test
 
@@ -195,19 +102,18 @@ jobs:
             supabase/migrations/20260804002000_lock_down_public_health_status.sql \
             supabase/migrations/20260804003000_add_user_profile_version.sql \
             supabase/migrations/20260804130000_add_women_calendar_pilot.sql \
-            supabase/migrations/20260804213000_add_profile_avatar_key.sql
+            supabase/migrations/20260804213000_add_profile_avatar_key.sql \
+            supabase/migrations/20260805013000_add_reminder_lead_times.sql \
+            supabase/migrations/20260805023000_add_profile_photo_path.sql
           do
             psql "$TEST_DATABASE_URL" --set=ON_ERROR_STOP=1 --file="$migration"
           done
 
-      - name: Verify database isolation journeys
+      - name: Verify database isolation privacy and cleanup journeys
         working-directory: supabase/functions/lifemate-api
-        shell: bash
-        run: |
-          set -euo pipefail
-          deno task test:integration
+        run: deno task test:integration
 
-      - name: Enforce feature privacy profile and notification invariants
+      - name: Enforce calendar reminder profile and privacy invariants
         shell: bash
         run: |
           set -euo pipefail
@@ -216,37 +122,47 @@ jobs:
           grep -q "women_calendar_feature_disabled" supabase/functions/lifemate-api/index.ts
           grep -q "can_view_women_calendar boolean not null default false" supabase/migrations/20260804130000_add_women_calendar_pilot.sql
           grep -q '"privateNotes" in episodes\[0\], false' supabase/functions/lifemate-api/women_calendar_integration_test.ts
+          grep -q "cleanupWomenCalendarRun" supabase/functions/lifemate-api/women_calendar_integration_test.ts
           grep -q "women_calendar.episode_updated" supabase/functions/lifemate-api/women_calendar.ts
           grep -q "updateWomenCalendarEpisode" packages/lifemate_client/lib/src/lifemate_api_client.dart
           grep -q "WomenCalendarMonthCard" wellmate/lib/screens/women_calendar/women_calendar_screen.dart
           grep -q "یادداشت خصوصی" wellmate/lib/screens/women_calendar/women_calendar_screen.dart
-          grep -q "selectEarliestReminderPerPatient" caremate/lib/providers/care_notification_provider.dart
+          grep -q "تاریخ‌ها تخمینی هستند و جایگزین نظر پزشک نیستند" wellmate/lib/screens/women_calendar/women_calendar_screen.dart
+          grep -q "حمایت‌های غیرپزشکی" caremate/lib/screens/women_calendar/care_women_calendar_screen.dart
+
+          grep -q 'onMissedMedicationTaken' wellmate/lib/core/widgets/wellmate_app_header.dart
+          grep -q 'reportDose' wellmate/lib/screens/home/home_screen.dart
+          grep -q 'effective_status' supabase/functions/lifemate-api/care_events.ts
+          grep -q 'patient_reminder_minutes_before' supabase/migrations/20260805013000_add_reminder_lead_times.sql
+          grep -q 'caregiver_reminder_minutes_before' supabase/migrations/20260805013000_add_reminder_lead_times.sql
+          grep -q 'patientReminderMinutesBefore' wellmate/lib/screens/treatments/add_treatment_screen.dart
+          grep -q 'caregiverReminderMinutesBefore' wellmate/lib/screens/treatments/care_plan_hub_screen.dart
+          grep -q 'syncReminders' wellmate/lib/providers/notification_provider.dart
+          grep -q 'triggerAtUtc' caremate/lib/models/care_recipient_reminder.dart
+          grep -q 'getCareRecipientCareEvents' caremate/lib/screens/dashboard_screen.dart
           grep -q "pendingNotificationRequests" caremate/lib/providers/care_notification_provider.dart
           grep -q "pendingNotificationRequests" wellmate/lib/providers/notification_provider.dart
           grep -q "visibility: NotificationVisibility.private" caremate/lib/providers/care_notification_provider.dart
           grep -q "visibility: NotificationVisibility.private" wellmate/lib/providers/notification_provider.dart
-          grep -q "medicineReminderWindow" wellmate/lib/screens/home/home_screen_content.dart
-          grep -q "مراقبان فعال.*toPersianDigit" wellmate/lib/screens/profile/care_access_screen.dart
-          grep -q "تقویم بانوان" wellmate/lib/core/widgets/wellmate_bottom_nav.dart
-          grep -q "حمایت‌های غیرپزشکی" caremate/lib/screens/women_calendar/care_women_calendar_screen.dart
-          grep -q "تاریخ‌ها تخمینی هستند و جایگزین نظر پزشک نیستند" wellmate/lib/screens/women_calendar/women_calendar_screen.dart
+          ! grep -q "cancelAll" caremate/lib/providers/care_notification_provider.dart
 
           grep -q "avatar_key character varying(32)" supabase/migrations/20260804213000_add_profile_avatar_key.sql
-          grep -q "default 'person_blue'" supabase/migrations/20260804213000_add_profile_avatar_key.sql
           grep -q "invalid_avatar_key" supabase/functions/lifemate-api/profile.ts
-          grep -q "avatarKey" packages/lifemate_client/lib/src/lifemate_api_client.dart
           grep -q "LifeMateAvatarPicker" wellmate/lib/screens/profile/editable_profile_screen.dart
           grep -q "LifeMateAvatarPicker" caremate/lib/screens/editable_profile_screen.dart
+          grep -q 'profile_photo_path character varying(512)' supabase/migrations/20260805023000_add_profile_photo_path.sql
+          grep -q 'public: false' supabase/functions/lifemate-api/profile_photo.ts
+          grep -q 'validateProfilePhoto' supabase/functions/lifemate-api/profile_photo.ts
+          grep -q 'profilePhotoUrl' packages/lifemate_client/lib/src/profile_avatar.dart
+          grep -q 'ImageSource.camera' wellmate/lib/screens/profile/editable_profile_screen.dart
+          grep -q 'ImageSource.gallery' caremate/lib/screens/editable_profile_screen.dart
           grep -q "metadata_json, null" supabase/functions/lifemate-api/profile.ts
           ! grep -q "mother_avatar.png" wellmate/lib/screens/profile/profile_screen.dart
           ! grep -q "mother_avatar.png" wellmate/lib/core/widgets/wellmate_app_header.dart
           ! grep -q "assets/images/Caregiver.png" caremate/lib/screens/profile_screen.dart
           ! grep -q "assets/images/Caregiver.png" caremate/lib/widgets/custom_ui_components.dart
-
-          if grep -q "cancelAll" caremate/lib/providers/care_notification_provider.dart; then
-            echo '::error::CareMate reminder resync must not cancel unrelated notifications.'
-            exit 1
-          fi
+          ! grep -R --line-number 'profile-photo.*public.*true' supabase/functions/lifemate-api supabase/migrations
+          ! grep -R --line-number 'profilePhotoPath.*metadata' supabase/functions/lifemate-api
 
           if grep -R --line-number -F ': $error' \
             wellmate/lib/screens/women_calendar \
@@ -273,25 +189,3 @@ jobs:
             echo '::error::Women calendar must remain a non-medical estimate tool.'
             exit 1
           fi
-
-      - name: Commit verified product changes
-        shell: bash
-        run: |
-          set -euo pipefail
-          git add -- \
-            packages/lifemate_client \
-            wellmate \
-            caremate \
-            supabase/functions/lifemate-api \
-            supabase/migrations/20260804130000_add_women_calendar_pilot.sql \
-            supabase/migrations/20260804213000_add_profile_avatar_key.sql
-          if git diff --cached --quiet; then
-            echo 'No verified product changes to commit.'
-            exit 0
-          fi
-          echo 'Verified product files staged:'
-          git diff --cached --name-only
-          git config user.name 'github-actions[bot]'
-          git config user.email '41898233+github-actions[bot]@users.noreply.github.com'
-          git commit -m 'feat: add profile avatars and complete women calendar pilot'
-          git push origin HEAD:feat/women-calendar-care-access-notifications

@@ -512,6 +512,30 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
           ),
         ),
       );
+    } on LifeMateApiException catch (error) {
+      if (!mounted) return;
+      final message = switch (error.code) {
+        'women_calendar_feature_disabled' =>
+          'تقویم بانوان روی سرور این نسخه فعال نیست؛ نسخه جدید را نصب کنید.',
+        'stale_women_calendar_profile' =>
+          'تنظیمات تقویم تغییر کرده است؛ صفحه را تازه کنید و دوباره تلاش کنید.',
+        _ when error.statusCode == 0 =>
+          'اتصال برقرار نشد. اینترنت را بررسی و دوباره تلاش کنید.',
+        _ => 'فعال‌سازی تقویم بانوان انجام نشد. دوباره تلاش کنید.',
+      };
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(message), behavior: SnackBarBehavior.floating),
+      );
+    } catch (error) {
+      debugPrint('Subscription women calendar save failed: $error');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('فعال‌سازی انجام نشد. اتصال را بررسی کنید.'),
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      }
     } finally {
       if (mounted) setState(() => _saving = false);
     }

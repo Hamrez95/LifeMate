@@ -223,6 +223,16 @@ export function createLifeMateDatabase(
     }
     const timeZone = requiredTimeZone(body.timeZone);
     const schedules = normalizeSchedules(body.schedules);
+    const patientReminderMinutesBefore = reminderMinutes(
+      body.patientReminderMinutesBefore,
+      "patientReminderMinutesBefore",
+      30,
+    );
+    const caregiverReminderMinutesBefore = reminderMinutes(
+      body.caregiverReminderMinutesBefore,
+      "caregiverReminderMinutesBefore",
+      60,
+    );
     const now = new Date();
 
     return await sql.begin(async (tx: any) => {
@@ -244,11 +254,15 @@ export function createLifeMateDatabase(
       const planRows = await tx`
         insert into lifemate.treatment_plans
           (id, patient_user_id, medication_id, dose_text, instructions,
-           start_date, end_date, time_zone, status, version,
-           created_at_utc, updated_at_utc)
+           start_date, end_date, time_zone,
+           patient_reminder_minutes_before,
+           caregiver_reminder_minutes_before,
+           status, version, created_at_utc, updated_at_utc)
         values
           (${planId}, ${userId}, ${medicationId}, ${doseText}, ${instructions},
-           ${startDate}, ${endDate}, ${timeZone}, 'Active', 1, ${now}, ${now})
+           ${startDate}, ${endDate}, ${timeZone},
+           ${patientReminderMinutesBefore}, ${caregiverReminderMinutesBefore},
+           'Active', 1, ${now}, ${now})
         returning *
       `;
 
@@ -330,11 +344,13 @@ export function createLifeMateDatabase(
     await materializeOccurrences(patientUserId, fromDate, toDate);
 
     const rows = await sql`
-      select *
-      from lifemate.dose_occurrences
-      where patient_user_id = ${patientUserId}
-        and scheduled_local_date between ${fromDate}::date and ${toDate}::date
-      order by scheduled_at_utc, id
+      select o.*, p.patient_reminder_minutes_before,
+             p.caregiver_reminder_minutes_before
+      from lifemate.dose_occurrences o
+      join lifemate.treatment_plans p on p.id = o.treatment_plan_id
+      where o.patient_user_id = ${patientUserId}
+        and o.scheduled_local_date between ${fromDate}::date and ${toDate}::date
+      order by o.scheduled_at_utc, o.id
     `;
     return rows.map(mapDoseOccurrence);
   }
@@ -871,7 +887,9 @@ export function createLifeMateDatabase(
 
     await materializeOccurrences(patientUserId, fromDate, toDate);
     const rows = await sql`
-      select o.*, m.name as medication_name, p.dose_text
+      select o.*, m.name as medication_name, p.dose_text,
+             p.patient_reminder_minutes_before,
+             p.caregiver_reminder_minutes_before
       from lifemate.dose_occurrences o
       join lifemate.treatment_plans p on p.id = o.treatment_plan_id
       join lifemate.medications m on m.id = p.medication_id
@@ -1000,6 +1018,23 @@ export function createLifeMateDatabase(
   };
 }
 
+function reminderMinutes(
+  value: unknown,
+  field: string,
+  fallback: number,
+): number {
+  if (value == null || value === "") return fallback;
+  const number = Number(value);
+  if (!Number.isInteger(number) || number < 0 || number > 10080) {
+    throw new ApiError(
+      400,
+      `invalid_${field}`,
+      `${field} must be an integer between 0 and 10080.`,
+    );
+  }
+  return number;
+}
+
 function mapCurrentUser(user: Row, profile: Row): Record<string, unknown> {
   return {
     user: {
@@ -1050,6 +1085,12 @@ function mapTreatmentPlan(
     endDate: row.end_date == null ? null : dateString(row.end_date),
     timeZone: row.time_zone,
     status: String(row.status).toLowerCase(),
+    patientReminderMinutesBefore: Number(
+      row.patient_reminder_minutes_before ?? 30,
+    ),
+    caregiverReminderMinutesBefore: Number(
+      row.caregiver_reminder_minutes_before ?? 60,
+    ),
     version: row.version,
     schedules: schedules.map((schedule) => ({
       id: schedule.id,
@@ -1074,6 +1115,12 @@ function mapDoseOccurrence(row: Row): Record<string, unknown> {
     respondedAtUtc: row.responded_at_utc == null
       ? null
       : iso(row.responded_at_utc),
+    patientReminderMinutesBefore: Number(
+      row.patient_reminder_minutes_before ?? 30,
+    ),
+    caregiverReminderMinutesBefore: Number(
+      row.caregiver_reminder_minutes_before ?? 60,
+    ),
     version: row.version,
   };
 }

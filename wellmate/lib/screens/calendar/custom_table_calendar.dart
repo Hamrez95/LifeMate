@@ -109,7 +109,10 @@ class _PersianMonthGrid extends StatelessWidget {
             IconButton(
               tooltip: 'ماه قبل',
               onPressed: () => onPageChanged?.call(_moveMonth(-1)),
-              icon: const Icon(Icons.chevron_right_rounded),
+              icon: const Icon(
+                Icons.chevron_right_rounded,
+                textDirection: TextDirection.ltr,
+              ),
             ),
             Expanded(
               child: Text(
@@ -125,7 +128,10 @@ class _PersianMonthGrid extends StatelessWidget {
             IconButton(
               tooltip: 'ماه بعد',
               onPressed: () => onPageChanged?.call(_moveMonth(1)),
-              icon: const Icon(Icons.chevron_left_rounded),
+              icon: const Icon(
+                Icons.chevron_left_rounded,
+                textDirection: TextDirection.ltr,
+              ),
             ),
           ],
         ),

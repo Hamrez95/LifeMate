@@ -31,9 +31,11 @@ void main() {
     await tester.enterText(fields.at(2), '+49 151 1234567');
     await tester.enterText(fields.at(3), 'Europe/Berlin');
 
-    await tester.tap(
-      find.byKey(const ValueKey<String>('profile-avatar-person_purple')),
+    final purpleAvatar = find.byKey(
+      const ValueKey<String>('profile-avatar-person_purple'),
     );
+    await tester.ensureVisible(purpleAvatar);
+    await tester.tap(purpleAvatar);
     await tester.pumpAndSettle();
 
     final save = find.byKey(const ValueKey<String>('profile-save'));

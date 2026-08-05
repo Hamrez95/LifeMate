@@ -1,4 +1,7 @@
+import 'dart:typed_data';
+
 import 'package:flutter/material.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:lifemate_client/lifemate_client.dart';
 import 'package:provider/provider.dart';
 
@@ -24,7 +27,9 @@ class _CareMateEditableProfileScreenState
   Map<String, dynamic>? _profile;
   String _locale = 'fa';
   String _avatarKey = LifeMateProfileAvatars.defaultKey;
+  String? _profilePhotoUrl;
   bool _saving = false;
+  bool _photoBusy = false;
   String? _error;
 
   @override
@@ -50,6 +55,127 @@ class _CareMateEditableProfileScreenState
     _avatarKey = LifeMateProfileAvatars.normalize(
       profile['avatarKey']?.toString(),
     );
+    final photo = profile['profilePhotoUrl']?.toString().trim();
+    _profilePhotoUrl = photo == null || photo.isEmpty ? null : photo;
+  }
+
+  Future<void> _pickProfilePhoto(ImageSource source) async {
+    if (_saving || _photoBusy) return;
+    final picked = await ImagePicker().pickImage(
+      source: source,
+      maxWidth: 1024,
+      maxHeight: 1024,
+      imageQuality: 85,
+    );
+    if (picked == null || !mounted) return;
+    setState(() {
+      _photoBusy = true;
+      _error = null;
+    });
+    try {
+      final bytes = await picked.readAsBytes();
+      final contentType = _detectProfilePhotoType(bytes);
+      if (contentType == null) {
+        throw const FormatException('unsupported_profile_photo');
+      }
+      if (bytes.length > 3 * 1024 * 1024) {
+        throw const FormatException('profile_photo_too_large');
+      }
+      final updated = await context
+          .read<LifeMateApiClient>()
+          .uploadCurrentProfilePhoto(bytes: bytes, contentType: contentType);
+      if (!mounted) return;
+      setState(() {
+        _applyProfile(updated);
+        _profileFuture = Future.value(updated);
+      });
+      LifeMateProfileRefresh.notifyChanged();
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('عکس پروفایل ذخیره شد.')));
+    } on LifeMateApiException catch (error) {
+      if (!mounted) return;
+      setState(() {
+        _error = switch (error.code) {
+          'profile_photo_too_large' => 'حجم عکس باید کمتر از ۳ مگابایت باشد.',
+          'invalid_profile_photo' => 'فرمت عکس پشتیبانی نمی‌شود.',
+          _ => 'ذخیره عکس انجام نشد. دوباره تلاش کنید.',
+        };
+      });
+    } on FormatException catch (error) {
+      if (!mounted) return;
+      setState(() {
+        _error = error.message == 'profile_photo_too_large'
+            ? 'حجم عکس باید کمتر از ۳ مگابایت باشد.'
+            : 'فقط عکس JPEG، PNG یا WebP انتخاب کنید.';
+      });
+    } catch (_) {
+      if (mounted) {
+        setState(() => _error = 'خواندن یا ارسال عکس انجام نشد.');
+      }
+    } finally {
+      if (mounted) setState(() => _photoBusy = false);
+    }
+  }
+
+  Future<void> _removeProfilePhoto() async {
+    if (_saving || _photoBusy || _profilePhotoUrl == null) return;
+    setState(() {
+      _photoBusy = true;
+      _error = null;
+    });
+    try {
+      final updated = await context
+          .read<LifeMateApiClient>()
+          .deleteCurrentProfilePhoto();
+      if (!mounted) return;
+      setState(() {
+        _applyProfile(updated);
+        _profileFuture = Future.value(updated);
+      });
+      LifeMateProfileRefresh.notifyChanged();
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('عکس پروفایل حذف شد.')));
+    } on LifeMateApiException {
+      if (mounted) {
+        setState(() => _error = 'حذف عکس انجام نشد. دوباره تلاش کنید.');
+      }
+    } finally {
+      if (mounted) setState(() => _photoBusy = false);
+    }
+  }
+
+  static String? _detectProfilePhotoType(Uint8List bytes) {
+    if (bytes.length >= 3 &&
+        bytes[0] == 0xff &&
+        bytes[1] == 0xd8 &&
+        bytes[2] == 0xff) {
+      return 'image/jpeg';
+    }
+    if (bytes.length >= 8 &&
+        bytes[0] == 0x89 &&
+        bytes[1] == 0x50 &&
+        bytes[2] == 0x4e &&
+        bytes[3] == 0x47 &&
+        bytes[4] == 0x0d &&
+        bytes[5] == 0x0a &&
+        bytes[6] == 0x1a &&
+        bytes[7] == 0x0a) {
+      return 'image/png';
+    }
+    if (bytes.length >= 12 &&
+        bytes[0] == 0x52 &&
+        bytes[1] == 0x49 &&
+        bytes[2] == 0x46 &&
+        bytes[3] == 0x46 &&
+        bytes[8] == 0x57 &&
+        bytes[9] == 0x45 &&
+        bytes[10] == 0x42 &&
+        bytes[11] == 0x50) {
+      return 'image/webp';
+    }
+    return null;
   }
 
   Future<void> _save() async {
@@ -81,6 +207,7 @@ class _CareMateEditableProfileScreenState
           );
       if (!mounted) return;
       setState(() => _applyProfile(updated));
+      LifeMateProfileRefresh.notifyChanged();
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('اطلاعات پروفایل با موفقیت ذخیره شد.')),
       );
@@ -158,21 +285,90 @@ class _CareMateEditableProfileScreenState
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
                     const Text(
-                      'آواتار پروفایل',
+                      'عکس یا آواتار پروفایل',
                       textAlign: TextAlign.center,
                       style: TextStyle(fontWeight: FontWeight.w800),
+                    ),
+                    const SizedBox(height: 12),
+                    Center(
+                      child: Stack(
+                        clipBehavior: Clip.none,
+                        children: [
+                          LifeMateProfileAvatar(
+                            key: const ValueKey('care-profile-photo-preview'),
+                            avatarKey: _avatarKey,
+                            photoUrl: _profilePhotoUrl,
+                            radius: 52,
+                          ),
+                          if (_photoBusy)
+                            const Positioned.fill(
+                              child: DecoratedBox(
+                                decoration: BoxDecoration(
+                                  color: Color(0x66FFFFFF),
+                                  shape: BoxShape.circle,
+                                ),
+                                child: Center(
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                  ),
+                                ),
+                              ),
+                            ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 14),
+                    Wrap(
+                      alignment: WrapAlignment.center,
+                      spacing: 10,
+                      runSpacing: 10,
+                      children: [
+                        OutlinedButton.icon(
+                          key: const ValueKey('care-profile-photo-camera'),
+                          onPressed: _saving || _photoBusy
+                              ? null
+                              : () => _pickProfilePhoto(ImageSource.camera),
+                          icon: const Icon(Icons.photo_camera_rounded),
+                          label: const Text('دوربین'),
+                        ),
+                        OutlinedButton.icon(
+                          key: const ValueKey('care-profile-photo-gallery'),
+                          onPressed: _saving || _photoBusy
+                              ? null
+                              : () => _pickProfilePhoto(ImageSource.gallery),
+                          icon: const Icon(Icons.photo_library_rounded),
+                          label: const Text('گالری'),
+                        ),
+                        if (_profilePhotoUrl != null)
+                          TextButton.icon(
+                            key: const ValueKey('care-profile-photo-remove'),
+                            onPressed: _saving || _photoBusy
+                                ? null
+                                : _removeProfilePhoto,
+                            icon: const Icon(Icons.delete_outline_rounded),
+                            label: const Text('حذف عکس'),
+                          ),
+                      ],
+                    ),
+                    const SizedBox(height: 18),
+                    const Divider(),
+                    const SizedBox(height: 10),
+                    const Text(
+                      'یا یک آواتار آماده انتخاب کنید',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(fontWeight: FontWeight.w700),
                     ),
                     const SizedBox(height: 12),
                     LifeMateAvatarPicker(
                       key: const ValueKey('care-profile-avatar-picker'),
                       selectedKey: _avatarKey,
-                      onSelected: _saving
+                      onSelected: _saving || _photoBusy
                           ? null
                           : (value) => setState(() => _avatarKey = value),
                     ),
                     const SizedBox(height: 10),
                     const Text(
-                      'آواتار انتخابی در حساب ذخیره می‌شود و در هر دو اپ نمایش داده خواهد شد.',
+                      'عکس شخصی در فضای خصوصی نگهداری می‌شود. تا وقتی عکس وجود دارد، همان نمایش داده می‌شود؛ برای نمایش آواتار، عکس را حذف کنید.',
                       textAlign: TextAlign.center,
                       style: TextStyle(color: AppColors.secondaryText),
                     ),

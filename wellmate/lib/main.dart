@@ -129,9 +129,33 @@ class WellMateApp extends StatelessWidget {
       appName: 'WellMate',
       logoAssetPath: 'assets/images/WellMateWithoutBack.png',
       authenticatedBuilder: (context, apiClient) =>
-          Provider<LifeMateApiClient>.value(
-        value: apiClient,
+          _AuthenticatedWellMateShell(apiClient: apiClient),
+    );
+  }
+}
+
+class _AuthenticatedWellMateShell extends StatefulWidget {
+  const _AuthenticatedWellMateShell({required this.apiClient});
+
+  final LifeMateApiClient apiClient;
+
+  @override
+  State<_AuthenticatedWellMateShell> createState() =>
+      _AuthenticatedWellMateShellState();
+}
+
+class _AuthenticatedWellMateShellState
+    extends State<_AuthenticatedWellMateShell> {
+  final GlobalKey<NavigatorState> _navigatorKey = GlobalKey<NavigatorState>();
+
+  @override
+  Widget build(BuildContext context) {
+    return Provider<LifeMateApiClient>.value(
+      value: widget.apiClient,
+      child: NavigatorPopHandler<void>(
+        onPop: () => _navigatorKey.currentState?.pop<void>(),
         child: Navigator(
+          key: _navigatorKey,
           onGenerateRoute: (_) => MaterialPageRoute<void>(
             builder: (_) => const HomeScreen(),
           ),

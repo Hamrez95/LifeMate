@@ -1,0 +1,145 @@
+name: profile-photo-reminder-state
+
+on:
+  push:
+    branches:
+      - fix/profile-photo-reminder-state
+
+permissions:
+  contents: read
+
+concurrency:
+  group: profile-photo-reminder-state-${{ github.ref_name }}
+  cancel-in-progress: true
+
+jobs:
+  verify-current-product:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 70
+    services:
+      postgres:
+        image: postgres:17.5-alpine
+        env:
+          POSTGRES_DB: lifemate_reminder_tests
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d lifemate_reminder_tests"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      DOTNET_CLI_TELEMETRY_OPTOUT: '1'
+      DOTNET_NOLOGO: '1'
+      ASPNETCORE_ENVIRONMENT: Testing
+      ConnectionStrings__LifeMateDb: Host=localhost;Port=5432;Database=lifemate_reminder_tests;Username=postgres;Password=postgres
+      Security__Invitations__ContactPepper: integration-only-invitation-contact-pepper-32-bytes-minimum
+      TEST_DATABASE_URL: postgres://postgres:postgres@localhost:5432/lifemate_reminder_tests
+
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
+        with:
+          ref: fix/profile-photo-reminder-state
+          fetch-depth: 0
+          show-progress: false
+          persist-credentials: false
+
+      - uses: subosito/flutter-action@4cab68ce0f1c7c924f688bff4792e044f1aeb30c
+        with:
+          flutter-version: '3.44.0'
+          channel: stable
+          cache: true
+
+      - uses: denoland/setup-deno@22d081ff2d3a40755e97629de92e3bcbfa7cf2ed
+        with:
+          deno-version: v2.9.4
+
+      - uses: actions/setup-dotnet@67a3573c9a986a3f9c594539f4ab511d57bb3ce9
+        with:
+          dotnet-version: '10.0.x'
+
+      - name: Verify Flutter packages
+        shell: bash
+        run: |
+          set -euo pipefail
+          for project in packages/lifemate_client wellmate caremate; do
+            (
+              cd "$project"
+              flutter pub get
+              flutter analyze --no-fatal-infos --no-fatal-warnings
+              flutter test
+            )
+          done
+
+      - name: Verify Edge contracts
+        working-directory: supabase/functions/lifemate-api
+        shell: bash
+        run: |
+          set -euo pipefail
+          deno fmt --check
+          deno task check
+          deno task test
+
+      - name: Build isolated schema and run integration journeys
+        shell: bash
+        run: |
+          set -euo pipefail
+          dotnet restore backend-dotnet/LifeMate.sln --verbosity minimal
+          dotnet tool restore
+          dotnet build backend-dotnet/LifeMate.sln --configuration Release --no-restore
+          dotnet ef database update \
+            --configuration Release \
+            --no-build \
+            --project backend-dotnet/src/LifeMate.Infrastructure \
+            --startup-project backend-dotnet/src/LifeMate.Api
+          for migration in \
+            supabase/migrations/20260803173000_add_consent_scoped_care_events.sql \
+            supabase/migrations/20260804002000_lock_down_public_health_status.sql \
+            supabase/migrations/20260804003000_add_user_profile_version.sql \
+            supabase/migrations/20260804130000_add_women_calendar_pilot.sql \
+            supabase/migrations/20260804213000_add_profile_avatar_key.sql \
+            supabase/migrations/20260805013000_add_reminder_lead_times.sql \
+            supabase/migrations/20260805023000_add_profile_photo_path.sql
+          do
+            psql "$TEST_DATABASE_URL" --set=ON_ERROR_STOP=1 --file="$migration"
+          done
+          (
+            cd supabase/functions/lifemate-api
+            deno task test:integration
+          )
+
+      - name: Enforce physical-QA and privacy invariants
+        shell: bash
+        run: |
+          set -euo pipefail
+          grep -Fq 'onMissedMedicationTaken' wellmate/lib/core/widgets/wellmate_app_header.dart
+          grep -Fq 'reportDose' wellmate/lib/screens/home/home_screen.dart
+          grep -Fq "item.status == 'missed'" wellmate/lib/screens/home/home_screen_content.dart
+          grep -Fq "item.status == 'missed'" wellmate/lib/screens/calendar/calendar_screen.dart
+          grep -Fq 'effective_status' supabase/functions/lifemate-api/care_events.ts
+          grep -Fq 'patientReminderMinutesBefore' wellmate/lib/screens/treatments/add_treatment_screen.dart
+          grep -Fq 'caregiverReminderMinutesBefore' wellmate/lib/screens/treatments/care_plan_hub_screen.dart
+          grep -Fq 'patient_reminder_minutes_before' supabase/migrations/20260805013000_add_reminder_lead_times.sql
+          grep -Fq 'triggerAtUtc' caremate/lib/models/care_recipient_reminder.dart
+          grep -Fq 'getCareRecipientCareEvents' caremate/lib/screens/dashboard_screen.dart
+          ! grep -Fq 'cancelAll' caremate/lib/providers/care_notification_provider.dart
+          grep -Fq 'visibility: NotificationVisibility.private' wellmate/lib/providers/notification_provider.dart
+          grep -Fq 'visibility: NotificationVisibility.private' caremate/lib/providers/care_notification_provider.dart
+
+          grep -Fq 'profile_photo_path character varying(512)' supabase/migrations/20260805023000_add_profile_photo_path.sql
+          grep -Fq 'public: false' supabase/functions/lifemate-api/profile_photo.ts
+          grep -Fq 'validateProfilePhoto' supabase/functions/lifemate-api/profile_photo.ts
+          grep -Fq 'profilePhotoMaximumBytes' supabase/functions/lifemate-api/profile_photo.ts
+          grep -Fq 'metadata_json' supabase/functions/lifemate-api/profile.ts
+          grep -Fq 'profilePhotoUrl' packages/lifemate_client/lib/src/profile_avatar.dart
+          grep -Fq 'uploadCurrentProfilePhoto' packages/lifemate_client/lib/src/lifemate_api_client.dart
+          grep -Fq 'ImageSource.camera' wellmate/lib/screens/profile/editable_profile_screen.dart
+          grep -Fq 'ImageSource.gallery' wellmate/lib/screens/profile/editable_profile_screen.dart
+          grep -Fq 'ImageSource.camera' caremate/lib/screens/editable_profile_screen.dart
+          grep -Fq 'ImageSource.gallery' caremate/lib/screens/editable_profile_screen.dart
+          grep -Fq 'android.permission.CAMERA' wellmate/android/app/src/main/AndroidManifest.xml
+          grep -Fq 'android.permission.CAMERA' caremate/android/app/src/main/AndroidManifest.xml
+          ! grep -R --line-number -E 'profile-photo.*public.*true' supabase/functions/lifemate-api supabase/migrations
+          ! grep -R --line-number -E 'profilePhotoPath.*metadata' supabase/functions/lifemate-api
