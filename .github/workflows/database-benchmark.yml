@@ -1,0 +1,88 @@
+name: database-benchmark
+
+on:
+  workflow_dispatch:
+    inputs:
+      profile:
+        description: Dataset size
+        required: true
+        default: smoke
+        type: choice
+        options: [smoke, full]
+  push:
+    branches: ['feat/ecosystem-data-foundation']
+    paths:
+      - 'supabase/migrations/**'
+      - 'tools/benchmarks/**'
+      - '.github/workflows/database-benchmark.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  postgres-benchmark:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    services:
+      postgres:
+        image: postgres:17.6-alpine
+        env:
+          POSTGRES_DB: lifemate_benchmark_ci
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd "pg_isready -U postgres -d lifemate_benchmark_ci"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      TEST_DATABASE_URL: postgres://postgres:postgres@localhost:5432/lifemate_benchmark_ci
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
+        with:
+          persist-credentials: false
+          show-progress: false
+
+      - name: Apply canonical schema
+        shell: bash
+        run: |
+          set -euo pipefail
+          while IFS= read -r migration; do
+            psql "$TEST_DATABASE_URL" --set=ON_ERROR_STOP=1 --file="$migration" >/dev/null
+          done < <(find supabase/migrations -maxdepth 1 -type f -name '*.sql' | sort)
+
+      - name: Select scale
+        id: scale
+        shell: bash
+        run: |
+          set -euo pipefail
+          PROFILE='${{ github.event.inputs.profile }}'
+          if [[ "${GITHUB_EVENT_NAME}" == 'push' || -z "$PROFILE" || "$PROFILE" == 'smoke' ]]; then
+            echo 'args=-v accounts=10000 -v persons=12000 -v relationships=20000 -v plans=2500 -v doses=50000 -v adherence=50000 -v women_logs=20000 -v audits=20000' >> "$GITHUB_OUTPUT"
+            echo 'label=smoke-10k-accounts' >> "$GITHUB_OUTPUT"
+          else
+            echo 'args=-v accounts=1000000 -v persons=1200000 -v relationships=2000000 -v plans=250000 -v doses=5000000 -v adherence=5000000 -v women_logs=2000000 -v audits=2000000' >> "$GITHUB_OUTPUT"
+            echo 'label=full-1m-accounts' >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Generate synthetic benchmark data
+        shell: bash
+        run: |
+          set -euo pipefail
+          echo "Benchmark profile: ${{ steps.scale.outputs.label }}"
+          psql "$TEST_DATABASE_URL" ${{ steps.scale.outputs.args }} --file=tools/benchmarks/generate_ecosystem_dataset.sql
+
+      - name: Critical EXPLAIN ANALYZE queries
+        shell: bash
+        run: |
+          set -euo pipefail
+          psql "$TEST_DATABASE_URL" --file=tools/benchmarks/critical_queries.sql | tee database-benchmark-results.txt
+
+      - name: Assert dataset cardinalities
+        shell: bash
+        run: |
+          set -euo pipefail
+          psql "$TEST_DATABASE_URL" --set=ON_ERROR_STOP=1 -c "select count(*) as accounts from identity.accounts;"
+          psql "$TEST_DATABASE_URL" --set=ON_ERROR_STOP=1 -c "select count(*) as persons from core.persons;"
+          psql "$TEST_DATABASE_URL" --set=ON_ERROR_STOP=1 -c "select count(*) as dose_occurrences from lifemate.dose_occurrences;"
