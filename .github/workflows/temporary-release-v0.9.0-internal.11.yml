@@ -1,0 +1,237 @@
+name: temporary-release-v0.9.0-internal.11
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - '.github/workflows/temporary-release-v0.9.0-internal.11.yml'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: temporary-release-v0.9.0-internal.11
+  cancel-in-progress: false
+
+env:
+  RELEASE_NAME: 0.9.0-internal.11
+  RELEASE_BUILD_NUMBER: '22'
+  SOURCE_COMMIT: ae7950822cad8888f687ed33d29b563814bb29ae
+  SUPABASE_PROJECT_REF: bwdvmniywyyijjauipnh
+  SUPABASE_URL: https://bwdvmniywyyijjauipnh.supabase.co
+  SUPABASE_PUBLISHABLE_KEY: sb_publishable_6YpBDD0gAPcenbYGukOeWg_fZXxUb27
+  LIFEMATE_API_BASE_URL: https://bwdvmniywyyijjauipnh.supabase.co/functions/v1/lifemate-api
+
+jobs:
+  deploy-verify-build:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 80
+    environment: beta
+    env:
+      SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+      CONTACT_HASHING_SECRET: ${{ secrets.LIFEMATE_CONTACT_HASHING_SECRET }}
+      PATIENT_EMAIL: ${{ secrets.BETA_PATIENT_EMAIL }}
+      PATIENT_PASSWORD: ${{ secrets.BETA_PATIENT_PASSWORD }}
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
+        with:
+          fetch-depth: 2
+          show-progress: false
+          persist-credentials: false
+
+      - uses: denoland/setup-deno@22d081ff2d3a40755e97629de92e3bcbfa7cf2ed
+        with:
+          deno-version: v2.9.4
+
+      - uses: supabase/setup-cli@3c2f5e2ae34c34e428e8e206e2c4d21fa2d20fbf
+        with:
+          version: 2.101.0
+
+      - uses: subosito/flutter-action@4cab68ce0f1c7c924f688bff4792e044f1aeb30c
+        with:
+          flutter-version: '3.44.0'
+          channel: stable
+          cache: true
+
+      - name: Verify exact release source
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD^)" = "$SOURCE_COMMIT"
+          (cd supabase/functions/lifemate-api && deno fmt --check && deno task check && deno task test)
+          (cd packages/lifemate_client && flutter pub get && flutter analyze --no-fatal-warnings --no-fatal-infos && flutter test)
+          (cd wellmate && flutter pub get && flutter analyze --no-fatal-warnings --no-fatal-infos && flutter test)
+          (cd caremate && flutter pub get && flutter analyze --no-fatal-warnings --no-fatal-infos && flutter test)
+
+      - name: Validate protected release configuration
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -n "$SUPABASE_ACCESS_TOKEN"
+          test "${#CONTACT_HASHING_SECRET}" -ge 32
+          test -n "$PATIENT_EMAIL"
+          test -n "$PATIENT_PASSWORD"
+
+      - name: Configure immutable Edge release
+        shell: bash
+        run: |
+          set -euo pipefail
+          secret_file="$(mktemp)"
+          cleanup() {
+            if command -v shred >/dev/null 2>&1; then
+              shred -u "$secret_file"
+            else
+              rm -f "$secret_file"
+            fi
+          }
+          trap cleanup EXIT
+          chmod 600 "$secret_file"
+          printf 'LIFEMATE_CONTACT_HASHING_SECRET=%s\n' "$CONTACT_HASHING_SECRET" > "$secret_file"
+          printf 'LIFEMATE_RELEASE_VERSION=%s\n' "$SOURCE_COMMIT" >> "$secret_file"
+          supabase secrets set --project-ref "$SUPABASE_PROJECT_REF" --env-file "$secret_file"
+
+      - name: Deploy bounded-pool Edge API
+        shell: bash
+        run: |
+          set -euo pipefail
+          supabase functions deploy lifemate-api \
+            --project-ref "$SUPABASE_PROJECT_REF" \
+            --no-verify-jwt \
+            --use-api
+
+      - name: Verify deployed API and authenticate beta patient
+        shell: bash
+        run: |
+          set -euo pipefail
+          health="$(curl --fail-with-body --silent --show-error --retry 8 --retry-delay 3 --retry-all-errors "$LIFEMATE_API_BASE_URL/health")"
+          echo "$health" | jq -e --arg version "$SOURCE_COMMIT" \
+            '.status == "ok" and .database == "ready" and .service == "lifemate-api" and .version == $version' >/dev/null
+
+          assert_auth_route() {
+            local path="$1"
+            local status
+            status="$(curl --silent --show-error --output /tmp/unauthorized.json --write-out '%{http_code}' "$LIFEMATE_API_BASE_URL$path")"
+            test "$status" = '401'
+          }
+          assert_auth_route '/api/v1/home-snapshot?fromDate=2026-08-06&toDate=2026-08-13'
+          assert_auth_route '/api/v1/women-calendar/dashboard?fromDate=2026-05-09&toDate=2026-08-06'
+
+          auth_response="$(curl --fail-with-body --silent --show-error \
+            -X POST "$SUPABASE_URL/auth/v1/token?grant_type=password" \
+            -H "apikey: $SUPABASE_PUBLISHABLE_KEY" \
+            -H 'Content-Type: application/json' \
+            --data "$(jq -nc --arg email "$PATIENT_EMAIL" --arg password "$PATIENT_PASSWORD" '{email:$email,password:$password}')")"
+          access_token="$(echo "$auth_response" | jq -er '.access_token')"
+          test -n "$access_token"
+          printf '%s' "$access_token" > /tmp/lifemate-access-token
+          chmod 600 /tmp/lifemate-access-token
+
+      - name: Run authenticated startup concurrency smoke
+        shell: bash
+        run: |
+          set -euo pipefail
+          token="$(cat /tmp/lifemate-access-token)"
+          today="$(date -u +%F)"
+          next_week="$(date -u -d '+7 days' +%F)"
+          history_start="$(date -u -d '-89 days' +%F)"
+          mkdir -p /tmp/lifemate-stress
+
+          request_once() {
+            local label="$1"
+            local path="$2"
+            local output="$3"
+            local status
+            status="$(curl --silent --show-error \
+              --connect-timeout 10 --max-time 40 \
+              --output "$output" --write-out '%{http_code}' \
+              -H "Authorization: Bearer $token" \
+              -H "apikey: $SUPABASE_PUBLISHABLE_KEY" \
+              "$LIFEMATE_API_BASE_URL$path")"
+            if [ "$status" != '200' ]; then
+              echo "$label returned HTTP $status" >&2
+              cat "$output" >&2 || true
+              return 1
+            fi
+            jq -e 'type == "object"' "$output" >/dev/null
+          }
+          export -f request_once
+          export token SUPABASE_PUBLISHABLE_KEY LIFEMATE_API_BASE_URL today next_week history_start
+
+          seq 1 12 | xargs -P 4 -I{} bash -c '
+            request_once "home-{}" "/api/v1/home-snapshot?fromDate=$today&toDate=$next_week" "/tmp/lifemate-stress/home-{}.json"
+          '
+          seq 1 8 | xargs -P 4 -I{} bash -c '
+            request_once "women-{}" "/api/v1/women-calendar/dashboard?fromDate=$history_start&toDate=$today" "/tmp/lifemate-stress/women-{}.json"
+          '
+
+          jq -e 'has("currentUser") and has("doseOccurrences") and has("careEvents")' \
+            /tmp/lifemate-stress/home-1.json >/dev/null
+          jq -e 'has("profile") and has("episodes") and has("dailyLogs")' \
+            /tmp/lifemate-stress/women-1.json >/dev/null
+
+          jq -n \
+            --arg testedAt "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+            --arg apiVersion "$SOURCE_COMMIT" \
+            '{status:"passed",testedAtUtc:$testedAt,apiVersion:$apiVersion,parallelism:4,requests:{homeSnapshot:12,womenDashboard:8,total:20},expectedHttpStatus:200}' \
+            > /tmp/lifemate-live-concurrency.json
+
+      - name: Build installable Android APKs
+        shell: bash
+        run: |
+          set -euo pipefail
+          build_args=(
+            --release
+            --build-name="$RELEASE_NAME"
+            --build-number="$RELEASE_BUILD_NUMBER"
+            --dart-define="SUPABASE_URL=$SUPABASE_URL"
+            --dart-define="SUPABASE_PUBLISHABLE_KEY=$SUPABASE_PUBLISHABLE_KEY"
+            --dart-define="LIFEMATE_API_BASE_URL=$LIFEMATE_API_BASE_URL"
+            --dart-define="ENABLE_GOOGLE_AUTH=false"
+            --dart-define="ENABLE_WOMEN_CALENDAR_PILOT=true"
+          )
+          (cd wellmate && flutter build apk "${build_args[@]}")
+          (cd caremate && flutter build apk "${build_args[@]}")
+
+      - name: Inspect APKs and create evidence manifest
+        shell: bash
+        run: |
+          set -euo pipefail
+          aapt_bin="$(find "$ANDROID_HOME/build-tools" -type f -name aapt | sort -V | tail -n 1)"
+          test -x "$aapt_bin"
+          mkdir -p dist
+          cp wellmate/build/app/outputs/flutter-apk/app-release.apk \
+            "dist/WellMate-$RELEASE_NAME+$RELEASE_BUILD_NUMBER.apk"
+          cp caremate/build/app/outputs/flutter-apk/app-release.apk \
+            "dist/CareMate-$RELEASE_NAME+$RELEASE_BUILD_NUMBER.apk"
+          cp /tmp/lifemate-live-concurrency.json dist/live-concurrency-smoke.json
+
+          "$aapt_bin" dump badging "dist/WellMate-$RELEASE_NAME+$RELEASE_BUILD_NUMBER.apk" \
+            | grep -q "package: name='com.lifemate.wellmate'"
+          "$aapt_bin" dump badging "dist/CareMate-$RELEASE_NAME+$RELEASE_BUILD_NUMBER.apk" \
+            | grep -q "package: name='com.lifemate.caremate'"
+          for apk in dist/*.apk; do
+            "$aapt_bin" dump permissions "$apk" | grep -Fq 'android.permission.INTERNET'
+          done
+
+          wellmate_sha="$(sha256sum dist/WellMate-*.apk | awk '{print $1}')"
+          caremate_sha="$(sha256sum dist/CareMate-*.apk | awk '{print $1}')"
+          jq -n \
+            --arg releaseName "$RELEASE_NAME" \
+            --arg version "$RELEASE_NAME+$RELEASE_BUILD_NUMBER" \
+            --arg sourceCommit "$SOURCE_COMMIT" \
+            --arg workflowCommit "$GITHUB_SHA" \
+            --arg apiVersion "$SOURCE_COMMIT" \
+            --arg builtAt "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+            --arg wellmateSha256 "$wellmate_sha" \
+            --arg caremateSha256 "$caremate_sha" \
+            '{releaseName:$releaseName,version:$version,sourceCommit:$sourceCommit,workflowCommit:$workflowCommit,apiVersion:$apiVersion,builtAtUtc:$builtAt,channel:"internal/physical-qa",signing:"debug fallback; not Play Store",backend:{deployed:true,databasePool:"shared max=1 per Edge isolate",aggregateRoutes:["home-snapshot","women-calendar/dashboard"],authenticatedConcurrencySmoke:{passed:true,parallelism:4,totalRequests:20}},featureFlags:{womenCalendarPilot:true,googleAuth:false},apps:{wellmate:{packageId:"com.lifemate.wellmate",sha256:$wellmateSha256},caremate:{packageId:"com.lifemate.caremate",sha256:$caremateSha256}},fixes:["PostgreSQL connection exhaustion fixed","Startup tabs lazy-mounted","Home requests collapsed into one aggregate call","Women calendar requests collapsed into one aggregate call","Transient reads retry automatically"]}' \
+            > "dist/LifeMate-$RELEASE_NAME+$RELEASE_BUILD_NUMBER-manifest.json"
+
+      - name: Upload physical-QA bundle
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: lifemate-${{ env.RELEASE_NAME }}-android-physical-qa
+          path: dist
+          if-no-files-found: error
+          retention-days: 30
