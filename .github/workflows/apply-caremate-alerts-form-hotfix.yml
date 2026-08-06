@@ -1,0 +1,462 @@
+name: apply-caremate-alerts-form-hotfix
+
+on:
+  push:
+    branches:
+      - fix/caremate-alerts-and-form-labels
+    paths:
+      - '.github/workflows/apply-caremate-alerts-form-hotfix.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  patch-test-commit:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
+        with:
+          ref: fix/caremate-alerts-and-form-labels
+          fetch-depth: 0
+
+      - uses: subosito/flutter-action@4cab68ce0f1c7c924f688bff4792e044f1aeb30c
+        with:
+          flutter-version: '3.44.0'
+          channel: stable
+          cache: true
+
+      - name: Patch CareMate alert semantics and form fields
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+
+          calendar_path = Path('caremate/lib/screens/calendar/calendar_screen.dart')
+          calendar = calendar_path.read_text()
+          old_alerts = '''  List<EventModel> get _activeAlerts {
+            final now = DateTime.now();
+            return _events
+                .where((event) {
+                  if (event.type != EventType.medicine) return false;
+                  final parts = event.time.split(':');
+                  final hour = int.tryParse(parts.first) ?? 0;
+                  final minute = parts.length > 1 ? int.tryParse(parts[1]) ?? 0 : 0;
+                  final scheduled = DateTime(
+                    event.date.year,
+                    event.date.month,
+                    event.date.day,
+                    hour,
+                    minute,
+                  );
+                  return scheduled.isBefore(now) && event.isCompleted != true;
+                })
+                .toList(growable: false);
+          }
+          '''
+          new_alerts = '''  List<EventModel> get _activeAlerts {
+            final now = DateTime.now();
+            final today = _normalizeDate(now);
+            return _events
+                .where((event) {
+                  if (event.type != EventType.medicine) return false;
+                  if (_normalizeDate(event.date) != today) return false;
+                  if (event.isCompleted != false) return false;
+                  final parts = event.time.split(':');
+                  final hour = int.tryParse(parts.first) ?? 0;
+                  final minute = parts.length > 1 ? int.tryParse(parts[1]) ?? 0 : 0;
+                  final scheduled = DateTime(
+                    event.date.year,
+                    event.date.month,
+                    event.date.day,
+                    hour,
+                    minute,
+                  );
+                  return !scheduled.isAfter(now);
+                })
+                .toList(growable: false);
+          }
+          '''
+          if old_alerts not in calendar:
+              raise SystemExit('calendar alert block was not found')
+          calendar = calendar.replace(old_alerts, new_alerts, 1)
+          calendar = calendar.replace(
+              "                'هشدارهای دارویی',",
+              "                'هشدارهای دارویی امروز',",
+              1,
+          )
+          calendar_path.write_text(calendar)
+
+          form_path = Path('caremate/lib/screens/care_event_management_screen.dart')
+          form = form_path.read_text()
+          old_fields = '''          ...fields.map(
+            (field) => Padding(
+              padding: const EdgeInsets.only(bottom: 11),
+              child: TextField(
+                enabled: false,
+                maxLines:
+                    field.$1.contains('آدرس') ||
+                        field.$1.contains('یادداشت') ||
+                        field.$1.contains('دلیل')
+                    ? 2
+                    : 1,
+                decoration: InputDecoration(
+                  labelText: field.$1,
+                  prefixIcon: Icon(field.$2),
+                  filled: true,
+                  fillColor: const Color(0xFFF6F9FD),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(16),
+                    borderSide: BorderSide.none,
+                  ),
+                ),
+              ),
+            ),
+          ),
+          '''
+          new_fields = '''          ...fields.map(
+            (field) => Padding(
+              padding: const EdgeInsets.only(bottom: 14),
+              child: _ReadOnlyField(
+                label: field.$1,
+                icon: field.$2,
+                multiline:
+                    field.$1.contains('آدرس') ||
+                    field.$1.contains('یادداشت') ||
+                    field.$1.contains('دلیل') ||
+                    field.$1.contains('دستور'),
+              ),
+            ),
+          ),
+          '''
+          if old_fields not in form:
+              raise SystemExit('read-only field block was not found')
+          form = form.replace(old_fields, new_fields, 1)
+
+          marker = '''class _LiveEventList extends StatelessWidget {
+          '''
+          field_widget = '''class _ReadOnlyField extends StatelessWidget {
+            const _ReadOnlyField({
+              required this.label,
+              required this.icon,
+              required this.multiline,
+            });
+
+            final String label;
+            final IconData icon;
+            final bool multiline;
+
+            @override
+            Widget build(BuildContext context) {
+              return Semantics(
+                container: true,
+                label: label,
+                textField: true,
+                readOnly: true,
+                enabled: false,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Padding(
+                      padding: const EdgeInsetsDirectional.only(start: 4, end: 4),
+                      child: Text(
+                        label,
+                        style: const TextStyle(
+                          fontSize: 13,
+                          height: 1.35,
+                          fontWeight: FontWeight.w800,
+                          color: AppColors.primaryText,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 7),
+                    Container(
+                      key: ValueKey<String>('caremate-readonly-field-$label'),
+                      width: double.infinity,
+                      constraints: BoxConstraints(
+                        minHeight: multiline ? 84 : 62,
+                      ),
+                      padding: const EdgeInsetsDirectional.fromSTEB(13, 11, 13, 11),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFF6F9FD),
+                        borderRadius: BorderRadius.circular(17),
+                        border: Border.all(
+                          color: AppColors.primaryBlue.withValues(alpha: 0.08),
+                        ),
+                      ),
+                      child: Row(
+                        crossAxisAlignment: multiline
+                            ? CrossAxisAlignment.start
+                            : CrossAxisAlignment.center,
+                        children: [
+                          Container(
+                            width: 40,
+                            height: 40,
+                            decoration: BoxDecoration(
+                              color: const Color(0xFFEAF4FF),
+                              borderRadius: BorderRadius.circular(13),
+                            ),
+                            child: Icon(
+                              icon,
+                              size: 21,
+                              color: AppColors.primaryBlue,
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Text(
+                              'ثبت نشده',
+                              style: TextStyle(
+                                fontSize: 12,
+                                height: 1.4,
+                                color: AppColors.secondaryText.withValues(alpha: 0.82),
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          Icon(
+                            Icons.lock_outline_rounded,
+                            size: 17,
+                            color: AppColors.secondaryText.withValues(alpha: 0.62),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              );
+            }
+          }
+
+          class _LiveEventList extends StatelessWidget {
+          '''
+          if marker not in form:
+              raise SystemExit('live event marker was not found')
+          form = form.replace(marker, field_widget, 1)
+          form_path.write_text(form)
+
+          test_path = Path('caremate/test/calendar_alert_regression_test.dart')
+          test_path.write_text(r'''import 'package:caremate/core/localization/locale_provider.dart';
+          import 'package:caremate/main.dart';
+          import 'package:caremate/screens/calendar/calendar_screen.dart';
+          import 'package:flutter/material.dart';
+          import 'package:flutter_test/flutter_test.dart';
+          import 'package:lifemate_client/lifemate_client.dart';
+          import 'package:provider/provider.dart';
+
+          void main() {
+            testWidgets(
+              'bell ignores yesterday skipped and today scheduled doses',
+              (WidgetTester tester) async {
+                final now = DateTime.now();
+                final today = _date(now);
+                final yesterday = _date(now.subtract(const Duration(days: 1)));
+
+                await _pumpCalendar(
+                  tester,
+                  doses: [
+                    {
+                      'id': 'yesterday-skipped',
+                      'medicationName': 'سیتریزین دیروز',
+                      'doseText': 'یک قرص',
+                      'scheduledLocalDate': yesterday,
+                      'scheduledLocalTime': '21:00',
+                      'status': 'skipped',
+                    },
+                    {
+                      'id': 'today-scheduled',
+                      'medicationName': 'سیتریزین امشب',
+                      'doseText': 'یک قرص',
+                      'scheduledLocalDate': today,
+                      'scheduledLocalTime': '23:59',
+                      'status': 'scheduled',
+                    },
+                  ],
+                );
+
+                await tester.tap(find.byIcon(Icons.notifications_none_rounded));
+                await tester.pump();
+
+                expect(
+                  find.text('هشدار دارویی فعالی وجود ندارد.'),
+                  findsOneWidget,
+                );
+                expect(find.text('هشدارهای دارویی امروز'), findsNothing);
+                expect(tester.takeException(), isNull);
+              },
+            );
+
+            testWidgets('bell shows only a due missed dose from today', (
+              WidgetTester tester,
+            ) async {
+              final now = DateTime.now();
+              final today = _date(now);
+
+              await _pumpCalendar(
+                tester,
+                doses: [
+                  {
+                    'id': 'today-missed',
+                    'medicationName': 'دوز جاافتاده امروز',
+                    'doseText': 'یک عدد',
+                    'scheduledLocalDate': today,
+                    'scheduledLocalTime': '00:00',
+                    'status': 'missed',
+                  },
+                  {
+                    'id': 'today-scheduled',
+                    'medicationName': 'دوز برنامه‌ریزی‌شده امشب',
+                    'doseText': 'یک عدد',
+                    'scheduledLocalDate': today,
+                    'scheduledLocalTime': '23:59',
+                    'status': 'scheduled',
+                  },
+                ],
+              );
+
+              await tester.tap(find.byIcon(Icons.notifications_none_rounded));
+              await tester.pumpAndSettle();
+
+              expect(find.text('هشدارهای دارویی امروز'), findsOneWidget);
+              expect(find.text('دوز جاافتاده امروز'), findsWidgets);
+              expect(tester.takeException(), isNull);
+            });
+          }
+
+          Future<void> _pumpCalendar(
+            WidgetTester tester, {
+            required List<Map<String, dynamic>> doses,
+          }) async {
+            tester.view.physicalSize = const Size(390, 820);
+            tester.view.devicePixelRatio = 1;
+            addTearDown(tester.view.resetPhysicalSize);
+            addTearDown(tester.view.resetDevicePixelRatio);
+
+            await tester.pumpWidget(
+              MultiProvider(
+                providers: [
+                  ChangeNotifierProvider(create: (_) => LocaleProvider()),
+                  Provider<LifeMateApiClient>.value(
+                    value: _AlertApiClient(doses),
+                  ),
+                ],
+                child: const CareMateApp(home: CalendarScreen()),
+              ),
+            );
+            await tester.pumpAndSettle();
+          }
+
+          String _date(DateTime value) =>
+              '${value.year.toString().padLeft(4, '0')}-'
+              '${value.month.toString().padLeft(2, '0')}-'
+              '${value.day.toString().padLeft(2, '0')}';
+
+          class _AlertApiClient extends LifeMateApiClient {
+            _AlertApiClient(this.doses)
+              : super(
+                  baseUri: Uri.parse('https://example.invalid'),
+                  accessToken: () => 'test-token',
+                );
+
+            final List<Map<String, dynamic>> doses;
+
+            @override
+            Future<Map<String, dynamic>> getCurrentUser() async => {
+              'user': {'id': 'caregiver-1'},
+              'profile': {'displayName': 'مراقب تست'},
+            };
+
+            @override
+            Future<List<Map<String, dynamic>>> getCareRelationships() async => [
+              {
+                'id': 'relationship-1',
+                'status': 'active',
+                'patientUserId': 'patient-1',
+                'patientDisplayName': 'حمیدرضا',
+                'caregiverUserId': 'caregiver-1',
+              },
+            ];
+
+            @override
+            Future<List<Map<String, dynamic>>> getCareRecipientDoseOccurrences({
+              required String patientUserId,
+              required DateTime fromDate,
+              required DateTime toDate,
+            }) async => doses;
+
+            @override
+            Future<List<Map<String, dynamic>>> getCareRecipientCareEvents({
+              required String patientUserId,
+              required DateTime fromDate,
+              required DateTime toDate,
+            }) async => const [];
+          }
+          ''')
+
+          accessibility_test = Path(
+              'caremate/test/care_event_management_accessibility_test.dart'
+          )
+          accessibility = accessibility_test.read_text()
+          old_assertion = '''      final visitForm = find.text('فرم ویزیت پزشکی', skipOffstage: false);
+                await reveal(visitForm);
+                expect(visitForm, findsOneWidget);
+
+                final visitAddress = find.text('آدرس کامل', skipOffstage: false);
+          '''
+          new_assertion = '''      final visitForm = find.text('فرم ویزیت پزشکی', skipOffstage: false);
+                await reveal(visitForm);
+                expect(visitForm, findsOneWidget);
+
+                final doctorLabel = find.text('نام پزشک', skipOffstage: false);
+                await reveal(doctorLabel);
+                final doctorSurface = find.byKey(
+                  const ValueKey<String>('caremate-readonly-field-نام پزشک'),
+                  skipOffstage: false,
+                );
+                expect(doctorSurface, findsOneWidget);
+                expect(
+                  tester.getBottomLeft(doctorLabel).dy,
+                  lessThan(tester.getTopLeft(doctorSurface).dy),
+                );
+
+                final visitAddress = find.text('آدرس کامل', skipOffstage: false);
+          '''
+          if old_assertion not in accessibility:
+              raise SystemExit('accessibility assertion insertion point not found')
+          accessibility_test.write_text(
+              accessibility.replace(old_assertion, new_assertion, 1)
+          )
+          PY
+
+          dart format \
+            caremate/lib/screens/calendar/calendar_screen.dart \
+            caremate/lib/screens/care_event_management_screen.dart \
+            caremate/test/calendar_alert_regression_test.dart \
+            caremate/test/care_event_management_accessibility_test.dart
+
+      - name: Analyze and test CareMate
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd caremate
+          flutter pub get
+          flutter analyze --no-fatal-warnings --no-fatal-infos
+          flutter test test/calendar_alert_regression_test.dart
+          flutter test test/care_event_management_accessibility_test.dart
+          flutter test
+
+      - name: Commit verified hotfix
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm .github/workflows/apply-caremate-alerts-form-hotfix.yml
+          git config user.name 'Hamidreza Pakpour'
+          git config user.email '136631329+Hamrez95@users.noreply.github.com'
+          git add caremate/lib/screens/calendar/calendar_screen.dart \
+            caremate/lib/screens/care_event_management_screen.dart \
+            caremate/test/calendar_alert_regression_test.dart \
+            caremate/test/care_event_management_accessibility_test.dart \
+            .github/workflows/apply-caremate-alerts-form-hotfix.yml
+          git commit -m 'fix(caremate): align current alerts and form labels'
+          git push origin HEAD:fix/caremate-alerts-and-form-labels
