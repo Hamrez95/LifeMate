@@ -16,8 +16,6 @@ end $$;
 set synchronous_commit = off;
 set maintenance_work_mem = '1GB';
 
--- Avoid compatibility dual-write overhead because the benchmark explicitly
--- populates both legacy and target structures. This database is disposable.
 alter table lifemate.app_users disable trigger user;
 alter table lifemate.user_profiles disable trigger user;
 alter table lifemate.care_relationships disable trigger user;
@@ -58,14 +56,12 @@ from generate_series(1,:accounts) g
 cross join ecosystem.applications a
 where a.code in ('wellmate','caremate');
 
--- Account-level free CareMate capability.
 insert into commerce.entitlements(grantee_account_id,beneficiary_person_id,feature_id,source,source_key,status,starts_at_utc)
 select md5('acct-'||g)::uuid,null,f.id,'FREE','benchmark:care.basic','Active',now()
 from generate_series(1,:accounts) g
 cross join commerce.features f
 where f.code='care.basic';
 
--- Current compatibility relationships plus target access grants.
 with rel as (
   select g,
          ((g-1)%:accounts)+1 as patient_num,
@@ -128,7 +124,6 @@ select md5('consent-'||g)::uuid,
        array['treatment']::character varying[],'*','benchmark','Granted',now(),now(),now()
 from rel;
 
--- Treatment graph.
 insert into lifemate.medications(
   id,owner_user_id,owner_person_id,name,version,created_at_utc,updated_at_utc)
 select md5('med-'||g)::uuid,md5('acct-'||(((g-1)%:accounts)+1))::uuid,
@@ -185,7 +180,7 @@ insert into lifemate.women_calendar_daily_logs(
   id,owner_user_id,owner_person_id,logged_on,mood,energy_level,pain_level,
   symptoms,private_notes,share_summary_with_companion,version,created_at_utc,updated_at_utc)
 select md5('women-log-'||g)::uuid,md5('acct-'||owner_num)::uuid,md5('acct-'||owner_num)::uuid,
-       current_date-(slot%365)::integer,'okay',3,1,'{}'::character varying[],null,(g%10=0),1,now(),now()
+       current_date-(slot%365)::integer,'Neutral',3,1,'{}'::character varying[],null,(g%10=0),1,now(),now()
 from w;
 
 with a as (
