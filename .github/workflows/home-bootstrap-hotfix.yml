@@ -33,6 +33,8 @@ jobs:
         run: |
           python3 - <<'PY'
           from pathlib import Path
+          from textwrap import dedent
+
           path = Path('wellmate/lib/screens/home/home_screen_content.dart')
           text = path.read_text()
 
@@ -41,33 +43,35 @@ jobs:
           if loader_import not in text:
               text = text.replace(import_anchor, import_anchor + loader_import, 1)
 
-          old = """      final results = await Future.wait<dynamic>([
-        api.getCurrentUser(),
-        api.getTreatmentPlans(),
-        api.getDoseOccurrences(fromDate: today, toDate: lastVisibleDay),
-        api.getCareEvents(fromDate: today, toDate: lastVisibleDay),
-      ]);
+          old = dedent('''\
+                final results = await Future.wait<dynamic>([
+                  api.getCurrentUser(),
+                  api.getTreatmentPlans(),
+                  api.getDoseOccurrences(fromDate: today, toDate: lastVisibleDay),
+                  api.getCareEvents(fromDate: today, toDate: lastVisibleDay),
+                ]);
 
-      final currentUser = results[0] as Map<String, dynamic>;
-      final plans = results[1] as List<Map<String, dynamic>>;
-      final doses = results[2] as List<Map<String, dynamic>>;
-      final careEvents = results[3] as List<Map<String, dynamic>>;
-"""
-          new = """      final snapshot = await const HomeScheduleLoader().load(
-        api: api,
-        fromDate: today,
-        toDate: lastVisibleDay,
-      );
-      final currentUser = snapshot.currentUser;
-      final plans = snapshot.treatmentPlans;
-      final doses = snapshot.doseOccurrences;
-      final careEvents = snapshot.careEvents;
-      for (final failure in snapshot.failures) {
-        debugPrint(
-          'WellMate home partial load (${failure.source}): ${failure.error}',
-        );
-      }
-"""
+                final currentUser = results[0] as Map<String, dynamic>;
+                final plans = results[1] as List<Map<String, dynamic>>;
+                final doses = results[2] as List<Map<String, dynamic>>;
+                final careEvents = results[3] as List<Map<String, dynamic>>;
+          ''')
+          new = dedent('''\
+                final snapshot = await const HomeScheduleLoader().load(
+                  api: api,
+                  fromDate: today,
+                  toDate: lastVisibleDay,
+                );
+                final currentUser = snapshot.currentUser;
+                final plans = snapshot.treatmentPlans;
+                final doses = snapshot.doseOccurrences;
+                final careEvents = snapshot.careEvents;
+                for (final failure in snapshot.failures) {
+                  debugPrint(
+                    'WellMate home partial load (${failure.source}): ${failure.error}',
+                  );
+                }
+          ''')
           if old in text:
               text = text.replace(old, new, 1)
           elif new not in text:
