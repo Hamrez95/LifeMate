@@ -287,9 +287,12 @@ class _CalendarScreenState extends State<CalendarScreen> {
 
   List<EventModel> get _activeAlerts {
     final now = DateTime.now();
+    final today = _normalizeDate(now);
     return _events
         .where((event) {
           if (event.type != EventType.medicine) return false;
+          if (_normalizeDate(event.date) != today) return false;
+          if (event.isCompleted != false) return false;
           final parts = event.time.split(':');
           final hour = int.tryParse(parts.first) ?? 0;
           final minute = parts.length > 1 ? int.tryParse(parts[1]) ?? 0 : 0;
@@ -300,7 +303,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
             hour,
             minute,
           );
-          return scheduled.isBefore(now) && event.isCompleted != true;
+          return !scheduled.isAfter(now);
         })
         .toList(growable: false);
   }
@@ -334,7 +337,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               const Text(
-                'هشدارهای دارویی',
+                'هشدارهای دارویی امروز',
                 style: TextStyle(fontSize: 19, fontWeight: FontWeight.w800),
               ),
               const SizedBox(height: 14),
@@ -571,21 +574,21 @@ class _CalendarErrorBanner extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Container(
-        padding: const EdgeInsets.all(14),
-        decoration: BoxDecoration(
-          color: Colors.red.shade50,
-          borderRadius: BorderRadius.circular(18),
-          border: Border.all(color: Colors.red.shade100),
-        ),
-        child: Row(
-          children: [
-            Icon(Icons.cloud_off_rounded, color: Colors.red.shade600),
-            const SizedBox(width: 10),
-            Expanded(child: Text(message)),
-            TextButton(onPressed: onRetry, child: const Text('تلاش دوباره')),
-          ],
-        ),
-      );
+    padding: const EdgeInsets.all(14),
+    decoration: BoxDecoration(
+      color: Colors.red.shade50,
+      borderRadius: BorderRadius.circular(18),
+      border: Border.all(color: Colors.red.shade100),
+    ),
+    child: Row(
+      children: [
+        Icon(Icons.cloud_off_rounded, color: Colors.red.shade600),
+        const SizedBox(width: 10),
+        Expanded(child: Text(message)),
+        TextButton(onPressed: onRetry, child: const Text('تلاش دوباره')),
+      ],
+    ),
+  );
 }
 
 class _EmptyCalendarState extends StatelessWidget {
@@ -595,44 +598,41 @@ class _EmptyCalendarState extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Center(
-        child: Padding(
-          padding: const EdgeInsets.all(28),
-          child: Container(
-            width: double.infinity,
-            padding: const EdgeInsets.all(24),
-            decoration: AppColors.softDecoration(),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                const Icon(
-                  Icons.family_restroom_rounded,
-                  size: 58,
-                  color: AppColors.primaryBlue,
-                ),
-                const SizedBox(height: 14),
-                const Text(
-                  'هنوز فردی به مراقبت شما متصل نیست',
-                  textAlign: TextAlign.center,
-                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800),
-                ),
-                const SizedBox(height: 8),
-                const Text(
-                  'پس از پذیرش دعوت، داروها، ویزیت‌ها و تزریق‌های واقعی بیمار در همین تقویم نمایش داده می‌شوند.',
-                  textAlign: TextAlign.center,
-                  style: TextStyle(
-                    height: 1.6,
-                    color: AppColors.secondaryText,
-                  ),
-                ),
-                const SizedBox(height: 18),
-                OutlinedButton.icon(
-                  onPressed: onRefresh,
-                  icon: const Icon(Icons.refresh_rounded),
-                  label: const Text('تازه‌سازی'),
-                ),
-              ],
+    child: Padding(
+      padding: const EdgeInsets.all(28),
+      child: Container(
+        width: double.infinity,
+        padding: const EdgeInsets.all(24),
+        decoration: AppColors.softDecoration(),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Icon(
+              Icons.family_restroom_rounded,
+              size: 58,
+              color: AppColors.primaryBlue,
             ),
-          ),
+            const SizedBox(height: 14),
+            const Text(
+              'هنوز فردی به مراقبت شما متصل نیست',
+              textAlign: TextAlign.center,
+              style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800),
+            ),
+            const SizedBox(height: 8),
+            const Text(
+              'پس از پذیرش دعوت، داروها، ویزیت‌ها و تزریق‌های واقعی بیمار در همین تقویم نمایش داده می‌شوند.',
+              textAlign: TextAlign.center,
+              style: TextStyle(height: 1.6, color: AppColors.secondaryText),
+            ),
+            const SizedBox(height: 18),
+            OutlinedButton.icon(
+              onPressed: onRefresh,
+              icon: const Icon(Icons.refresh_rounded),
+              label: const Text('تازه‌سازی'),
+            ),
+          ],
         ),
-      );
+      ),
+    ),
+  );
 }

@@ -650,25 +650,91 @@ class _ReadOnlyForm extends StatelessWidget {
           const SizedBox(height: 16),
           ...fields.map(
             (field) => Padding(
-              padding: const EdgeInsets.only(bottom: 11),
-              child: TextField(
-                enabled: false,
-                maxLines:
-                    field.$1.contains('آدرس') ||
-                        field.$1.contains('یادداشت') ||
-                        field.$1.contains('دلیل')
-                    ? 2
-                    : 1,
-                decoration: InputDecoration(
-                  labelText: field.$1,
-                  prefixIcon: Icon(field.$2),
-                  filled: true,
-                  fillColor: const Color(0xFFF6F9FD),
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(16),
-                    borderSide: BorderSide.none,
+              padding: const EdgeInsets.only(bottom: 14),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Padding(
+                    padding: const EdgeInsetsDirectional.only(start: 4, end: 4),
+                    child: Text(
+                      field.$1,
+                      style: const TextStyle(
+                        fontSize: 13,
+                        height: 1.35,
+                        fontWeight: FontWeight.w800,
+                        color: AppColors.primaryText,
+                      ),
+                    ),
                   ),
-                ),
+                  const SizedBox(height: 7),
+                  Container(
+                    key: ValueKey<String>(
+                      'caremate-readonly-field-${field.$1}',
+                    ),
+                    width: double.infinity,
+                    constraints: BoxConstraints(
+                      minHeight:
+                          field.$1.contains('آدرس') ||
+                              field.$1.contains('یادداشت') ||
+                              field.$1.contains('دلیل') ||
+                              field.$1.contains('دستور')
+                          ? 84
+                          : 62,
+                    ),
+                    padding: const EdgeInsetsDirectional.fromSTEB(
+                      13,
+                      11,
+                      13,
+                      11,
+                    ),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFF6F9FD),
+                      borderRadius: BorderRadius.circular(17),
+                      border: Border.all(
+                        color: AppColors.primaryBlue.withValues(alpha: 0.08),
+                      ),
+                    ),
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.center,
+                      children: [
+                        Container(
+                          width: 40,
+                          height: 40,
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFEAF4FF),
+                            borderRadius: BorderRadius.circular(13),
+                          ),
+                          child: Icon(
+                            field.$2,
+                            size: 21,
+                            color: AppColors.primaryBlue,
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Text(
+                            'ثبت نشده',
+                            style: TextStyle(
+                              fontSize: 12,
+                              height: 1.4,
+                              color: AppColors.secondaryText.withValues(
+                                alpha: 0.82,
+                              ),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Icon(
+                          Icons.lock_outline_rounded,
+                          size: 17,
+                          color: AppColors.secondaryText.withValues(
+                            alpha: 0.62,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
               ),
             ),
           ),

@@ -61,6 +61,18 @@ void main() {
       await reveal(visitForm);
       expect(visitForm, findsOneWidget);
 
+      final doctorLabel = find.text('نام پزشک', skipOffstage: false);
+      await reveal(doctorLabel);
+      final doctorSurface = find.byKey(
+        const ValueKey<String>('caremate-readonly-field-نام پزشک'),
+        skipOffstage: false,
+      );
+      expect(doctorSurface, findsOneWidget);
+      expect(
+        tester.getBottomLeft(doctorLabel).dy,
+        lessThan(tester.getTopLeft(doctorSurface).dy),
+      );
+
       final visitAddress = find.text('آدرس کامل', skipOffstage: false);
       await reveal(visitAddress);
       expect(visitAddress, findsOneWidget);
