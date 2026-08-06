@@ -5,13 +5,15 @@ on:
   pull_request:
     paths:
       - 'supabase/functions/lifemate-api/**'
+      - 'supabase/bootstrap/**'
       - 'supabase/migrations/**'
       - '.github/workflows/edge-api.yml'
       - 'AGENTS.md'
   push:
-    branches: [main]
+    branches: [main, 'feat/ecosystem-data-foundation']
     paths:
       - 'supabase/functions/lifemate-api/**'
+      - 'supabase/bootstrap/**'
       - 'supabase/migrations/**'
       - '.github/workflows/edge-api.yml'
       - 'AGENTS.md'
@@ -96,6 +98,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+          psql "$TEST_DATABASE_URL" --set=ON_ERROR_STOP=1 --file=supabase/bootstrap/legacy_lifemate_baseline.sql
           while IFS= read -r migration; do
             psql "$TEST_DATABASE_URL" --set=ON_ERROR_STOP=1 --file="$migration"
           done < <(find supabase/migrations -maxdepth 1 -type f -name '*.sql' | sort)
