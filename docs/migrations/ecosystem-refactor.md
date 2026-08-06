@@ -6,11 +6,22 @@ The connected Supabase project contains 8 auth identities; most look test-like b
 
 ## Canonical migration ownership
 
-Current reality is split: four historical EF Core migrations create the base `lifemate` schema and later `supabase/migrations/*.sql` files add live production schema. The live database has tables/columns absent from the EF model.
+Before this refactor, four EF Core migrations created the base `lifemate` schema while later SQL migrations evolved the live database. The live database therefore contained tables/columns absent from the EF model.
 
-Target: `supabase/migrations/*.sql` becomes the single forward schema-evolution path, using portable PostgreSQL SQL. Existing EF migrations are frozen historical/bootstrap artifacts and .NET remains a domain/reference implementation, but no new EF migration may evolve production schema. CI applies SQL only to fresh PostgreSQL and detects drift.
+From this refactor forward, `supabase/migrations/*.sql` is the single production schema-evolution path and uses portable PostgreSQL. The four EF migrations are frozen historical artifacts; no new EF migration may evolve production schema.
 
-This choice is driven by the existing live drift and portability requirement, not by a preference for Supabase-specific database features.
+A portable, idempotent reconstruction of the old EF-created base lives at `supabase/bootstrap/legacy_lifemate_baseline.sql`. It is **bootstrap only**, not a new production migration. Historical migration marker files retain the exact versions already recorded in the connected Supabase migration ledger; Supabase-only one-time infrastructure work is represented by a no-op ledger marker and its operational implementation lives under `supabase/infrastructure/` when it still matters. New ecosystem migration filenames also match the live Supabase versions exactly.
+
+CI reconstructs a fresh PostgreSQL 17 database as:
+
+```text
+portable legacy bootstrap
+  -> exact-version migration ledger in lexical order
+  -> schema/authorization/privacy contracts
+  -> idempotency rerun
+```
+
+This choice is driven by the observed live drift and portability requirement, not by a preference for Supabase-specific database features.
 
 ## Phases
 
@@ -25,17 +36,35 @@ This choice is driven by the existing live drift and portability requirement, no
 9. Migrate Flutter/shared client to capabilities without making it authoritative.
 10. Remove compatibility fields only after release telemetry and rollback window prove no dependency.
 
+## Applied live migration ledger — ecosystem phase
+
+The connected project records these exact versions/names:
+
+- `20260806230837 ecosystem_data_foundation_20260807`
+- `20260806231045 ecosystem_compatibility_policies_20260807`
+- `20260806231112 person_ownership_compatibility_20260807`
+- `20260806231133 authorization_entitlement_policy_20260807`
+- `20260806231400 fix_entitlement_scope_semantics_20260807`
+- `20260806231530 cover_ecosystem_foreign_keys_20260807`
+- `20260806231838 harden_account_deletion_and_sync_20260807`
+- `20260806231949 hot_query_person_indexes_20260807`
+
+The repository filenames use those same versions so future migration tooling does not treat this refactor as an unrelated second chain.
+
 ## Compatibility and rollback
 
 - Existing UUIDs and API response fields are preserved.
-- No legacy ownership column is dropped in this PR.
+- No legacy ownership table/column is dropped in this phase.
 - Backfills are deterministic and idempotent.
-- New authorization data is seeded from current active relationships before Edge code requires it.
+- Existing care relationships dual-write target access scopes and versioned consent.
+- Existing health writers populate `person_id` through compatibility triggers only when an explicit Person is absent, allowing child/dependent ownership without an account.
 - Database rollback is forward-only: disable new code/features and apply an explicit corrective migration. Do not run destructive Down migrations against live health data.
-- Temporary dual-write has a removal issue/date once all clients consume scope-based permissions.
+- Temporary dual-write is removed only after Edge + shared client use central capability/scope contracts and a rollback window has elapsed.
 
-## Critical preconditions
+## Critical preconditions and verified results
 
-- Before adding the missing `dose_occurrences.treatment_schedule_id` FK, assert zero orphan rows. Migration fails closed if any exist.
-- Never backfill contact blind indexes without the dedicated server hashing secret; keep legacy contact data until a controlled application backfill can run.
-- Secondary commercial export remains disabled throughout this migration.
+- `dose_occurrences.treatment_schedule_id` had no FK; the live preflight found zero orphans, then the migration added the FK with a fail-closed orphan assertion.
+- Contact blind indexes are not backfilled until a dedicated server-side hashing secret is available; legacy contact values remain temporarily for current invitation/profile contracts.
+- Plaintext phone/email lookup indexes were removed from `lifemate.user_profiles`.
+- Commercial/pharma export remains globally disabled.
+- Health Connect and child/dependent commercial secondary use remain hard-denied by policy functions and contract tests.
