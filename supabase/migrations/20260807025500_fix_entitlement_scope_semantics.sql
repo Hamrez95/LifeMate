@@ -14,7 +14,7 @@ create unique index if not exists uq_entitlements_person_level
 -- account-level without changing any paid-product policy.
 insert into commerce.entitlements(
   grantee_account_id,beneficiary_person_id,feature_id,source,source_key,status,starts_at_utc)
-select distinct e.grantee_account_id,null,e.feature_id,e.source,e.source_key,e.status,e.starts_at_utc
+select distinct e.grantee_account_id,null::uuid,e.feature_id,e.source,e.source_key,e.status,e.starts_at_utc
 from commerce.entitlements e
 join commerce.features f on f.id=e.feature_id
 where e.source='FREE'
