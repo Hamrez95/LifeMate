@@ -43,7 +43,29 @@ class HomeScheduleLoader {
     required DateTime fromDate,
     required DateTime toDate,
   }) async {
-    // Start all requests before awaiting them so the home screen remains fast.
+    try {
+      final value = await api.getHomeSnapshot(
+        fromDate: fromDate,
+        toDate: toDate,
+      );
+      return HomeScheduleSnapshot(
+        currentUser: _object(value['currentUser'], 'currentUser'),
+        treatmentPlans: _objects(value['treatmentPlans'], 'treatmentPlans'),
+        doseOccurrences: _objects(value['doseOccurrences'], 'doseOccurrences'),
+        careEvents: _objects(value['careEvents'], 'careEvents'),
+        failures: const [],
+      );
+    } on LifeMateApiException catch (error) {
+      if (error.statusCode != 404 || error.code != 'route_not_found') rethrow;
+      return _loadLegacy(api: api, fromDate: fromDate, toDate: toDate);
+    }
+  }
+
+  Future<HomeScheduleSnapshot> _loadLegacy({
+    required LifeMateApiClient api,
+    required DateTime fromDate,
+    required DateTime toDate,
+  }) async {
     final currentUserFuture = _capture('current-user', api.getCurrentUser());
     final treatmentPlansFuture = _capture(
       'treatment-plans',
@@ -62,27 +84,18 @@ class HomeScheduleLoader {
     final treatmentPlans = await treatmentPlansFuture;
     final doseOccurrences = await doseOccurrencesFuture;
     final careEvents = await careEventsFuture;
-
-    // Identity is required. Do not turn an authentication/session problem into
-    // a misleading empty dashboard.
     currentUser.throwIfFailed();
-
-    // A deployment mismatch in one optional schedule endpoint must not hide
-    // data returned successfully by the other endpoint. Only fail the whole
-    // dashboard when neither medicines nor care events can be loaded.
     if (doseOccurrences.hasFailed && careEvents.hasFailed) {
       throw HomeScheduleLoadException([
         doseOccurrences.failure!,
         careEvents.failure!,
       ]);
     }
-
     final failures = <HomeScheduleLoadFailure>[
       if (treatmentPlans.failure case final failure?) failure,
       if (doseOccurrences.failure case final failure?) failure,
       if (careEvents.failure case final failure?) failure,
     ];
-
     return HomeScheduleSnapshot(
       currentUser: currentUser.value!,
       treatmentPlans: treatmentPlans.value ?? const [],
@@ -90,6 +103,18 @@ class HomeScheduleLoader {
       careEvents: careEvents.value ?? const [],
       failures: List<HomeScheduleLoadFailure>.unmodifiable(failures),
     );
+  }
+
+  Map<String, dynamic> _object(dynamic value, String field) {
+    if (value is Map<String, dynamic>) return value;
+    throw FormatException('Home snapshot field $field is not an object.');
+  }
+
+  List<Map<String, dynamic>> _objects(dynamic value, String field) {
+    if (value is! List) {
+      throw FormatException('Home snapshot field $field is not a list.');
+    }
+    return value.map((item) => _object(item, field)).toList(growable: false);
   }
 
   Future<_HomeLoadResult<T>> _capture<T>(

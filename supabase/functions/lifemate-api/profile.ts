@@ -1,4 +1,4 @@
-import postgres from "postgres";
+import { getLifeMateSql } from "./database_client.ts";
 import {
   ApiError,
   normalizeOptional,
@@ -51,12 +51,7 @@ export function normalizeProfilePatch(
 /// integer version column. Before that, the millisecond `updated_at_utc` value
 /// acts as a deterministic optimistic-concurrency token.
 export function createProfileStore(databaseUrl: string) {
-  const sql = postgres(databaseUrl, {
-    max: 2,
-    idle_timeout: 20,
-    connect_timeout: 10,
-    prepare: false,
-  });
+  const sql = getLifeMateSql(databaseUrl);
   let versionColumnPromise: Promise<boolean> | null = null;
   let photoColumnPromise: Promise<boolean> | null = null;
 

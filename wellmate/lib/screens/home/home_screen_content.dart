@@ -31,6 +31,9 @@ class _HomeScreenContentState extends State<HomeScreenContent> {
   List<ScheduleItemModel> scheduleList = const [];
   ScheduleItemModel? _nextOccurrence;
   Timer? _timer;
+  Timer? _retryTimer;
+  int _automaticRetryCount = 0;
+  static const _maximumAutomaticRetries = 2;
   bool isLoading = true;
   String? loadError;
   String _displayName = '';
@@ -49,6 +52,7 @@ class _HomeScreenContentState extends State<HomeScreenContent> {
   @override
   void dispose() {
     _timer?.cancel();
+    _retryTimer?.cancel();
     super.dispose();
   }
 
@@ -202,6 +206,8 @@ class _HomeScreenContentState extends State<HomeScreenContent> {
           : (missedOccurrences.isNotEmpty ? missedOccurrences.first : null);
 
       if (!mounted) return;
+      _automaticRetryCount = 0;
+      _retryTimer?.cancel();
       setState(() {
         _displayName = profile['displayName']?.toString().trim() ?? '';
         scheduleList = todayItems;
@@ -230,11 +236,45 @@ class _HomeScreenContentState extends State<HomeScreenContent> {
     } catch (error) {
       debugPrint('WellMate home schedule sync failed: $error');
       if (!mounted) return;
+      if (_isTransientLoadError(error) &&
+          _automaticRetryCount < _maximumAutomaticRetries) {
+        _automaticRetryCount += 1;
+        final delay = Duration(milliseconds: 500 * _automaticRetryCount);
+        setState(() {
+          isLoading = true;
+          loadError = null;
+        });
+        _retryTimer?.cancel();
+        _retryTimer = Timer(delay, _fetchScheduleFromBackend);
+        return;
+      }
       setState(() {
         isLoading = false;
         loadError = 'برنامه امروز دریافت نشد. اتصال را بررسی کنید.';
       });
     }
+  }
+
+  bool _isTransientLoadError(Object error) {
+    if (error is LifeMateApiException) {
+      return error.statusCode == 0 ||
+          error.statusCode == 500 ||
+          error.statusCode == 502 ||
+          error.statusCode == 503 ||
+          error.statusCode == 504;
+    }
+    if (error is HomeScheduleLoadException) {
+      return error.failures.any(
+        (failure) => _isTransientLoadError(failure.error),
+      );
+    }
+    return false;
+  }
+
+  void _retryManually() {
+    _automaticRetryCount = 0;
+    _retryTimer?.cancel();
+    _fetchScheduleFromBackend();
   }
 
   Future<void> _reportStatus(ScheduleItemModel item, String status) async {
@@ -408,7 +448,7 @@ class _HomeScreenContentState extends State<HomeScreenContent> {
                     Text(loadError!, textAlign: TextAlign.center),
                     const SizedBox(height: 14),
                     FilledButton(
-                      onPressed: _fetchScheduleFromBackend,
+                      onPressed: _retryManually,
                       child: const Text('تلاش دوباره'),
                     ),
                   ],

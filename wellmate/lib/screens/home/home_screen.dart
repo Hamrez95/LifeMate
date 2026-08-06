@@ -28,11 +28,12 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   static const _refreshDebounceDuration = Duration(milliseconds: 180);
 
   int _currentIndex = 4;
+  final Set<int> _visitedTabs = <int>{4};
   int _calendarRevision = 0;
   int _treatmentsRevision = 0;
   int _womenRevision = 0;
   int _homeRevision = 0;
-  bool _womenCalendarEnabled = false;
+  bool _womenCalendarEnabled = LifeMateFeatureFlags.womenCalendarPilotEnabled;
   bool _womenCalendarLoading = false;
   DateTime? _womenCalendarLoadedAt;
   Timer? _refreshDebounce;
@@ -112,10 +113,8 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
         if (!enabled && _currentIndex == 3) _currentIndex = 4;
       });
     } catch (_) {
+      // Preserve the last known feature state on transient failures.
       debugPrint('Women calendar navigation state failed.');
-      if (mounted && _currentIndex == 3) {
-        setState(() => _currentIndex = 4);
-      }
     } finally {
       _womenCalendarLoading = false;
     }
@@ -176,6 +175,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   void _onItemTapped(int index) {
     if (index == 3 && !_womenCalendarEnabled) return;
     setState(() {
+      _visitedTabs.add(index);
       _currentIndex = index;
       switch (index) {
         case 0:
@@ -194,22 +194,27 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     });
   }
 
-  @override
-  Widget build(BuildContext context) {
-    final pages = [
-      CalendarScreen(refreshToken: _calendarRevision),
-      TreatmentsScreen(refreshToken: _treatmentsRevision),
-      CarePlanHubScreen(onCreated: _treatmentCreated),
-      WomenCompanionScreen(
+  Widget _buildTab(int index) {
+    if (!_visitedTabs.contains(index)) return const SizedBox.shrink();
+    return switch (index) {
+      0 => CalendarScreen(refreshToken: _calendarRevision),
+      1 => TreatmentsScreen(refreshToken: _treatmentsRevision),
+      2 => CarePlanHubScreen(onCreated: _treatmentCreated),
+      3 => WomenCompanionScreen(
         key: ValueKey<int>(_womenRevision),
         onProfileChanged: () => _loadWomenCalendarState(force: true),
       ),
-      HomeScreenContent(
+      _ => HomeScreenContent(
         key: ValueKey<int>(_homeRevision),
         onOpenTreatments: () => _onItemTapped(1),
         onAddTreatment: () => _onItemTapped(2),
       ),
-    ];
+    };
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final pages = List<Widget>.generate(5, _buildTab);
     return PopScope<void>(
       canPop: _currentIndex == 4,
       onPopInvokedWithResult: (didPop, result) {

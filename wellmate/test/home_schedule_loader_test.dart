@@ -98,6 +98,18 @@ class _FakeHomeApi extends LifeMateApiClient {
   final bool failCareEvents;
 
   @override
+  Future<Map<String, dynamic>> getHomeSnapshot({
+    required DateTime fromDate,
+    required DateTime toDate,
+  }) async {
+    throw const LifeMateApiException(
+      statusCode: 404,
+      code: 'route_not_found',
+      message: 'Exercise the legacy partial-response fallback.',
+    );
+  }
+
+  @override
   Future<Map<String, dynamic>> getCurrentUser() async {
     if (failCurrentUser) {
       throw const LifeMateApiException(

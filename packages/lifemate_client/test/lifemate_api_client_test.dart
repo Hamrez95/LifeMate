@@ -15,11 +15,7 @@ void main() {
         observed = request;
         return http.Response(
           jsonEncode([
-            {
-              'id': 'dose-1',
-              'medicationName': 'Metformin',
-              'status': 'taken',
-            }
+            {'id': 'dose-1', 'medicationName': 'Metformin', 'status': 'taken'},
           ]),
           200,
           headers: {'content-type': 'application/json'},
@@ -43,91 +39,90 @@ void main() {
     expect(result.single['medicationName'], 'Metformin');
   });
 
-  test('care recipient event request carries patient scope and range', () async {
-    late http.Request observed;
-    final api = LifeMateApiClient(
-      baseUri: Uri.parse('https://api.example.test'),
-      accessToken: () => 'access-token',
-      httpClient: MockClient((request) async {
-        observed = request;
-        return http.Response(
-          jsonEncode([
-            {
+  test(
+    'care recipient event request carries patient scope and range',
+    () async {
+      late http.Request observed;
+      final api = LifeMateApiClient(
+        baseUri: Uri.parse('https://api.example.test'),
+        accessToken: () => 'access-token',
+        httpClient: MockClient((request) async {
+          observed = request;
+          return http.Response(
+            jsonEncode([
+              {
+                'id': 'event-1',
+                'eventType': 'appointment',
+                'title': 'Cardiology visit',
+              },
+            ]),
+            200,
+            headers: {'content-type': 'application/json'},
+          );
+        }),
+      );
+
+      final result = await api.getCareRecipientCareEvents(
+        patientUserId: 'patient-1',
+        fromDate: DateTime(2026, 8, 3),
+        toDate: DateTime(2026, 8, 10),
+      );
+
+      expect(observed.method, 'GET');
+      expect(observed.url.path, '/api/v1/care/patients/patient-1/care-events');
+      expect(observed.url.queryParameters['fromDate'], '2026-08-03');
+      expect(observed.url.queryParameters['toDate'], '2026-08-10');
+      expect(result.single['eventType'], 'appointment');
+    },
+  );
+
+  test(
+    'care event creation retries with an identical idempotent payload',
+    () async {
+      var requestCount = 0;
+      final requestBodies = <String>[];
+      final api = LifeMateApiClient(
+        baseUri: Uri.parse('https://api.example.test'),
+        accessToken: () => 'access-token',
+        httpClient: MockClient((request) async {
+          requestCount += 1;
+          requestBodies.add(request.body);
+          if (requestCount == 1) {
+            throw http.ClientException('response lost', request.url);
+          }
+          return http.Response(
+            jsonEncode({
               'id': 'event-1',
               'eventType': 'appointment',
               'title': 'Cardiology visit',
-            }
-          ]),
-          200,
-          headers: {'content-type': 'application/json'},
-        );
-      }),
-    );
+            }),
+            201,
+            headers: {'content-type': 'application/json'},
+          );
+        }),
+      );
 
-    final result = await api.getCareRecipientCareEvents(
-      patientUserId: 'patient-1',
-      fromDate: DateTime(2026, 8, 3),
-      toDate: DateTime(2026, 8, 10),
-    );
+      final result = await api.createCareEvent(
+        clientRequestId: '33333333-3333-4333-8333-333333333333',
+        eventType: 'appointment',
+        title: 'Cardiology visit',
+        providerName: 'Dr. Sara Rad',
+        centerName: 'Heart Clinic',
+        addressLine: 'Tehran, Valiasr Street',
+        scheduledLocalDate: DateTime(2026, 8, 4),
+        scheduledLocalTime: '16:30',
+        timeZone: 'Asia/Tehran',
+      );
 
-    expect(observed.method, 'GET');
-    expect(
-      observed.url.path,
-      '/api/v1/care/patients/patient-1/care-events',
-    );
-    expect(observed.url.queryParameters['fromDate'], '2026-08-03');
-    expect(observed.url.queryParameters['toDate'], '2026-08-10');
-    expect(result.single['eventType'], 'appointment');
-  });
-
-  test('care event creation retries with an identical idempotent payload',
-      () async {
-    var requestCount = 0;
-    final requestBodies = <String>[];
-    final api = LifeMateApiClient(
-      baseUri: Uri.parse('https://api.example.test'),
-      accessToken: () => 'access-token',
-      httpClient: MockClient((request) async {
-        requestCount += 1;
-        requestBodies.add(request.body);
-        if (requestCount == 1) {
-          throw http.ClientException('response lost', request.url);
-        }
-        return http.Response(
-          jsonEncode({
-            'id': 'event-1',
-            'eventType': 'appointment',
-            'title': 'Cardiology visit',
-          }),
-          201,
-          headers: {'content-type': 'application/json'},
-        );
-      }),
-    );
-
-    final result = await api.createCareEvent(
-      clientRequestId: '33333333-3333-4333-8333-333333333333',
-      eventType: 'appointment',
-      title: 'Cardiology visit',
-      providerName: 'Dr. Sara Rad',
-      centerName: 'Heart Clinic',
-      addressLine: 'Tehran, Valiasr Street',
-      scheduledLocalDate: DateTime(2026, 8, 4),
-      scheduledLocalTime: '16:30',
-      timeZone: 'Asia/Tehran',
-    );
-
-    expect(requestCount, 2);
-    expect(requestBodies[0], requestBodies[1]);
-    final body = jsonDecode(requestBodies.first) as Map<String, dynamic>;
-    expect(
-      body['clientRequestId'],
-      '33333333-3333-4333-8333-333333333333',
-    );
-    expect(body['addressLine'], 'Tehran, Valiasr Street');
-    expect(body['scheduledLocalTime'], '16:30');
-    expect(result['eventType'], 'appointment');
-  });
+      expect(requestCount, 2);
+      expect(requestBodies[0], requestBodies[1]);
+      final body = jsonDecode(requestBodies.first) as Map<String, dynamic>;
+      expect(body['clientRequestId'], '33333333-3333-4333-8333-333333333333');
+      expect(body['addressLine'], 'Tehran, Valiasr Street');
+      expect(body['scheduledLocalTime'], '16:30');
+      expect(result['eventType'], 'appointment');
+    },
+  );
 
   test('invitation acceptance sends current consent contract', () async {
     late Map<String, dynamic> body;
@@ -175,47 +170,45 @@ void main() {
     expect(requested, isFalse);
   });
 
-  test('dose report retries one transport failure with identical payload',
-      () async {
-    var requestCount = 0;
-    final requestBodies = <String>[];
-    final api = LifeMateApiClient(
-      baseUri: Uri.parse('https://api.example.test'),
-      accessToken: () => 'access-token',
-      httpClient: MockClient((request) async {
-        requestCount += 1;
-        requestBodies.add(request.body);
-        if (requestCount == 1) {
-          throw http.ClientException('response was lost', request.url);
-        }
-        return http.Response(
-          jsonEncode({
-            'id': 'dose-1',
-            'status': 'taken',
-            'version': 2,
-          }),
-          200,
-          headers: {'content-type': 'application/json'},
-        );
-      }),
-    );
+  test(
+    'dose report retries one transport failure with identical payload',
+    () async {
+      var requestCount = 0;
+      final requestBodies = <String>[];
+      final api = LifeMateApiClient(
+        baseUri: Uri.parse('https://api.example.test'),
+        accessToken: () => 'access-token',
+        httpClient: MockClient((request) async {
+          requestCount += 1;
+          requestBodies.add(request.body);
+          if (requestCount == 1) {
+            throw http.ClientException('response was lost', request.url);
+          }
+          return http.Response(
+            jsonEncode({'id': 'dose-1', 'status': 'taken', 'version': 2}),
+            200,
+            headers: {'content-type': 'application/json'},
+          );
+        }),
+      );
 
-    final result = await api.reportDose(
-      occurrenceId: 'dose-1',
-      clientRequestId: '11111111-1111-4111-8111-111111111111',
-      version: 1,
-      status: 'taken',
-      occurredAtUtc: DateTime.utc(2026, 7, 30, 12),
-    );
+      final result = await api.reportDose(
+        occurrenceId: 'dose-1',
+        clientRequestId: '11111111-1111-4111-8111-111111111111',
+        version: 1,
+        status: 'taken',
+        occurredAtUtc: DateTime.utc(2026, 7, 30, 12),
+      );
 
-    expect(requestCount, 2);
-    expect(requestBodies[0], requestBodies[1]);
-    expect(
-      jsonDecode(requestBodies.first)['clientRequestId'],
-      '11111111-1111-4111-8111-111111111111',
-    );
-    expect(result['status'], 'taken');
-  });
+      expect(requestCount, 2);
+      expect(requestBodies[0], requestBodies[1]);
+      expect(
+        jsonDecode(requestBodies.first)['clientRequestId'],
+        '11111111-1111-4111-8111-111111111111',
+      );
+      expect(result['status'], 'taken');
+    },
+  );
 
   test('safe GET retries one transient gateway response', () async {
     var requestCount = 0;
@@ -224,16 +217,16 @@ void main() {
       accessToken: () => 'access-token',
       httpClient: MockClient((request) async {
         requestCount += 1;
-        if (requestCount == 1) {
+        if (requestCount < 3) {
           return http.Response(
-            jsonEncode({'code': 'temporarily_unavailable'}),
+            jsonEncode({'code': 'database_busy'}),
             503,
             headers: {'content-type': 'application/json'},
           );
         }
         return http.Response(
           jsonEncode([
-            {'id': 'medication-1', 'name': 'Metformin'}
+            {'id': 'medication-1', 'name': 'Metformin'},
           ]),
           200,
           headers: {'content-type': 'application/json'},
@@ -243,34 +236,36 @@ void main() {
 
     final result = await api.getMedications();
 
-    expect(requestCount, 2);
+    expect(requestCount, 3);
     expect(result.single['id'], 'medication-1');
   });
 
-  test('non-idempotent creation is never retried on transport failure',
-      () async {
-    var requestCount = 0;
-    final api = LifeMateApiClient(
-      baseUri: Uri.parse('https://api.example.test'),
-      accessToken: () => 'access-token',
-      httpClient: MockClient((request) async {
-        requestCount += 1;
-        throw http.ClientException('connection lost', request.url);
-      }),
-    );
+  test(
+    'non-idempotent creation is never retried on transport failure',
+    () async {
+      var requestCount = 0;
+      final api = LifeMateApiClient(
+        baseUri: Uri.parse('https://api.example.test'),
+        accessToken: () => 'access-token',
+        httpClient: MockClient((request) async {
+          requestCount += 1;
+          throw http.ClientException('connection lost', request.url);
+        }),
+      );
 
-    await expectLater(
-      api.createMedication(name: 'Metformin'),
-      throwsA(
-        isA<LifeMateApiException>().having(
-          (error) => error.code,
-          'code',
-          'network_unavailable',
+      await expectLater(
+        api.createMedication(name: 'Metformin'),
+        throwsA(
+          isA<LifeMateApiException>().having(
+            (error) => error.code,
+            'code',
+            'network_unavailable',
+          ),
         ),
-      ),
-    );
-    expect(requestCount, 1);
-  });
+      );
+      expect(requestCount, 1);
+    },
+  );
 
   test('semantic conflict is not retried', () async {
     var requestCount = 0;
@@ -307,5 +302,37 @@ void main() {
       ),
     );
     expect(requestCount, 1);
+  });
+  test('home snapshot uses one range-scoped authenticated request', () async {
+    late http.Request observed;
+    final api = LifeMateApiClient(
+      baseUri: Uri.parse('https://api.example.test'),
+      accessToken: () => 'access-token',
+      httpClient: MockClient((request) async {
+        observed = request;
+        return http.Response(
+          jsonEncode({
+            'currentUser': {
+              'profile': {'displayName': 'Test'},
+            },
+            'treatmentPlans': [],
+            'doseOccurrences': [],
+            'careEvents': [],
+          }),
+          200,
+          headers: {'content-type': 'application/json'},
+        );
+      }),
+    );
+
+    final result = await api.getHomeSnapshot(
+      fromDate: DateTime(2026, 8, 6),
+      toDate: DateTime(2026, 8, 13),
+    );
+
+    expect(observed.url.path, '/api/v1/home-snapshot');
+    expect(observed.url.queryParameters['fromDate'], '2026-08-06');
+    expect(observed.url.queryParameters['toDate'], '2026-08-13');
+    expect(result['doseOccurrences'], isEmpty);
   });
 }

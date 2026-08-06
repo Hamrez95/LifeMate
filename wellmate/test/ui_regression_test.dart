@@ -14,6 +14,13 @@ import 'package:wellmate/screens/profile/profile_screen.dart';
 import 'package:wellmate/screens/treatments/add_treatment_screen.dart';
 
 void main() {
+  test('home mounts data-heavy tabs lazily', () {
+    final source = File('lib/screens/home/home_screen.dart').readAsStringSync();
+    expect(source, contains('final Set<int> _visitedTabs = <int>{4}'));
+    expect(source, contains('if (!_visitedTabs.contains(index))'));
+    expect(source, contains('_visitedTabs.add(index)'));
+  });
+
   testWidgets('profile route keeps LifeMateApiClient in scope', (
     WidgetTester tester,
   ) async {
