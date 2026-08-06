@@ -4,14 +4,16 @@ on:
   workflow_dispatch:
   pull_request:
     paths:
+      - 'supabase/bootstrap/**'
       - 'supabase/migrations/**'
       - 'supabase/infrastructure/**'
       - '.github/workflows/schema.yml'
       - 'docs/architecture/**'
       - 'docs/migrations/**'
   push:
-    branches: [main]
+    branches: [main, 'feat/ecosystem-data-foundation']
     paths:
+      - 'supabase/bootstrap/**'
       - 'supabase/migrations/**'
       - 'supabase/infrastructure/**'
       - '.github/workflows/schema.yml'
@@ -49,9 +51,9 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          test -f supabase/migrations/20260719000000_legacy_lifemate_baseline.sql
+          test -f supabase/bootstrap/legacy_lifemate_baseline.sql
           if grep -R --line-number -E '(^|[^a-zA-Z_])auth\.' supabase/migrations; then
-            echo '::error::Supabase Auth infrastructure SQL must live outside supabase/migrations.'
+            echo '::error::Supabase Auth infrastructure SQL must live outside portable business migrations.'
             exit 1
           fi
           if find backend-dotnet/src/LifeMate.Infrastructure/Persistence/Migrations \
@@ -61,6 +63,22 @@ jobs:
             echo '::error::EF Core production migrations are frozen. Add schema changes under supabase/migrations.'
             exit 1
           fi
+          # From the ecosystem refactor forward, repository filenames match the
+          # Supabase remote migration ledger versions exactly.
+          for required in \
+            20260806230837_ecosystem_data_foundation_20260807.sql \
+            20260806231045_ecosystem_compatibility_policies_20260807.sql \
+            20260806231112_person_ownership_compatibility_20260807.sql \
+            20260806231133_authorization_entitlement_policy_20260807.sql \
+            20260806231400_fix_entitlement_scope_semantics_20260807.sql \
+            20260806231530_cover_ecosystem_foreign_keys_20260807.sql \
+            20260806231838_harden_account_deletion_and_sync_20260807.sql \
+            20260806231949_hot_query_person_indexes_20260807.sql; do
+            test -f "supabase/migrations/$required" || { echo "::error::Missing live-ledger migration $required"; exit 1; }
+          done
+
+      - name: Apply portable bootstrap
+        run: psql "$TEST_DATABASE_URL" --set=ON_ERROR_STOP=1 --file=supabase/bootstrap/legacy_lifemate_baseline.sql
 
       - name: Apply all canonical SQL migrations to fresh PostgreSQL
         shell: bash
@@ -104,6 +122,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+          psql "$TEST_DATABASE_URL" --set=ON_ERROR_STOP=1 --file=supabase/bootstrap/legacy_lifemate_baseline.sql >/dev/null
           while IFS= read -r migration; do
             psql "$TEST_DATABASE_URL" --set=ON_ERROR_STOP=1 --file="$migration" >/dev/null
           done < <(find supabase/migrations -maxdepth 1 -type f -name '*.sql' | sort)
