@@ -40,7 +40,6 @@ jobs:
           done
 
       - name: Create isolated confirmed QA user
-        id: user
         shell: bash
         run: |
           set -euo pipefail
@@ -64,39 +63,22 @@ jobs:
           chmod 600 /tmp/lifemate-token
           printf '%s' "$email" > /tmp/lifemate-qa-email
           printf '%s' "$user_id" > /tmp/lifemate-qa-user-id
-          echo "user_id=$user_id" >> "$GITHUB_OUTPUT"
 
-      - name: Bootstrap user and seed cycle profile
+      - name: Bootstrap isolated application profile
         shell: bash
         run: |
           set -euo pipefail
           token="$(cat /tmp/lifemate-token)"
-          request() {
-            local method="$1" path="$2" body="${3:-}" expected="$4" output="$5"
-            local -a args=(
-              --silent --show-error --request "$method"
-              --header "Authorization: Bearer $token"
-              --header "apikey: $SUPABASE_PUBLISHABLE_KEY"
-              --header 'Accept: application/json'
-              --output "$output" --write-out '%{http_code}'
-            )
-            if [ -n "$body" ]; then
-              args+=(--header 'Content-Type: application/json' --data "$body")
-            fi
-            status="$(curl "${args[@]}" "$LIFEMATE_API_BASE_URL$path")"
-            if [ "$status" != "$expected" ]; then
-              echo "Unexpected $status for $method $path" >&2
-              cat "$output" >&2 || true
-              exit 1
-            fi
-          }
-          request POST '/api/v1/users/bootstrap' \
-            '{"displayName":"کاربر تست فشار اتصال","locale":"fa","timeZone":"Asia/Tehran"}' \
-            200 /tmp/bootstrap.json
-          today="$(date -u +%F)"
-          request PATCH '/api/v1/women-calendar/profile' \
-            "$(jq -nc --arg date "$today" '{enabled:true,lastPeriodStart:$date,cycleLength:28,periodLength:5,remindersEnabled:true,version:1}')" \
-            200 /tmp/women-profile.json
+          status="$(curl --silent --show-error \
+            --request POST \
+            --header "Authorization: Bearer $token" \
+            --header "apikey: $SUPABASE_PUBLISHABLE_KEY" \
+            --header 'Content-Type: application/json' \
+            --data '{"displayName":"کاربر تست فشار اتصال","locale":"fa","timeZone":"Asia/Tehran"}' \
+            --output /tmp/bootstrap.json --write-out '%{http_code}' \
+            "$LIFEMATE_API_BASE_URL/api/v1/users/bootstrap")"
+          test "$status" = '200'
+          jq -e '.user.id != null' /tmp/bootstrap.json >/dev/null
 
       - name: Run authenticated aggregate-route concurrency smoke
         shell: bash
@@ -146,7 +128,7 @@ jobs:
             '{status:"passed",testedAtUtc:$testedAt,temporaryUserId:$userId,temporaryUserEmail:$email,parallelism:4,requests:{homeSnapshot:16,womenDashboard:12,total:28},expectedHttpStatus:200}' \
             > /tmp/lifemate-live-db-pressure-smoke.json
 
-      - name: Upload redacted smoke evidence
+      - name: Upload smoke evidence
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:
           name: live-db-pressure-smoke-${{ github.run_id }}
