@@ -8,10 +8,11 @@ on:
       - 'supabase/tests/**'
       - '.github/workflows/ecosystem-contract.yml'
   push:
-    branches: [main]
+    branches: [main, 'feat/ecosystem-data-foundation']
     paths:
       - 'supabase/migrations/**'
       - 'supabase/tests/**'
+      - '.github/workflows/ecosystem-contract.yml'
 
 permissions:
   contents: read
@@ -47,5 +48,11 @@ jobs:
           while IFS= read -r migration; do
             psql "$TEST_DATABASE_URL" --set=ON_ERROR_STOP=1 --file="$migration"
           done < <(find supabase/migrations -maxdepth 1 -type f -name '*.sql' | sort)
-      - name: Run ecosystem database contract
-        run: psql "$TEST_DATABASE_URL" --set=ON_ERROR_STOP=1 --file=supabase/tests/ecosystem_contract.sql
+      - name: Run ecosystem database contracts
+        shell: bash
+        run: |
+          set -euo pipefail
+          while IFS= read -r test_file; do
+            echo "Running $test_file"
+            psql "$TEST_DATABASE_URL" --set=ON_ERROR_STOP=1 --file="$test_file"
+          done < <(find supabase/tests -maxdepth 1 -type f -name '*contract.sql' | sort)
