@@ -1,0 +1,123 @@
+name: package-v0.9.0-internal.12
+
+on:
+  push:
+    branches:
+      - release/build-v0.9.0-internal.12
+    paths:
+      - '.github/workflows/package-v0.9.0-internal.12.yml'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: package-v0.9.0-internal.12
+  cancel-in-progress: false
+
+env:
+  RELEASE_NAME: 0.9.0-internal.12
+  RELEASE_BUILD_NUMBER: '23'
+  SOURCE_COMMIT: e6898d2ffcb85a7079da87abaca90359d4bd789d
+  SUPABASE_URL: https://bwdvmniywyyijjauipnh.supabase.co
+  SUPABASE_PUBLISHABLE_KEY: sb_publishable_6YpBDD0gAPcenbYGukOeWg_fZXxUb27
+  LIFEMATE_API_BASE_URL: https://bwdvmniywyyijjauipnh.supabase.co/functions/v1/lifemate-api
+
+jobs:
+  verify-build-package:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 70
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
+        with:
+          fetch-depth: 2
+          show-progress: false
+          persist-credentials: false
+
+      - uses: subosito/flutter-action@4cab68ce0f1c7c924f688bff4792e044f1aeb30c
+        with:
+          flutter-version: '3.44.0'
+          channel: stable
+          cache: true
+
+      - name: Verify exact source and CareMate regression tests
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD^)" = "$SOURCE_COMMIT"
+          (cd caremate && flutter pub get && flutter analyze --no-fatal-warnings --no-fatal-infos)
+          (cd caremate && flutter test test/calendar_alert_regression_test.dart)
+          (cd caremate && flutter test test/care_event_management_accessibility_test.dart)
+          (cd caremate && flutter test)
+
+      - name: Build installable Android APKs
+        shell: bash
+        run: |
+          set -euo pipefail
+          build_args=(
+            --release
+            --build-name="$RELEASE_NAME"
+            --build-number="$RELEASE_BUILD_NUMBER"
+            --dart-define="SUPABASE_URL=$SUPABASE_URL"
+            --dart-define="SUPABASE_PUBLISHABLE_KEY=$SUPABASE_PUBLISHABLE_KEY"
+            --dart-define="LIFEMATE_API_BASE_URL=$LIFEMATE_API_BASE_URL"
+            --dart-define="ENABLE_GOOGLE_AUTH=false"
+            --dart-define="ENABLE_WOMEN_CALENDAR_PILOT=true"
+          )
+          (cd wellmate && flutter pub get && flutter build apk "${build_args[@]}")
+          (cd caremate && flutter build apk "${build_args[@]}")
+
+      - name: Inspect and package release
+        shell: bash
+        run: |
+          set -euo pipefail
+          aapt_bin="$(find "$ANDROID_HOME/build-tools" -type f -name aapt | sort -V | tail -n 1)"
+          test -x "$aapt_bin"
+          mkdir -p dist
+          cp wellmate/build/app/outputs/flutter-apk/app-release.apk \
+            "dist/WellMate-$RELEASE_NAME+$RELEASE_BUILD_NUMBER.apk"
+          cp caremate/build/app/outputs/flutter-apk/app-release.apk \
+            "dist/CareMate-$RELEASE_NAME+$RELEASE_BUILD_NUMBER.apk"
+          "$aapt_bin" dump badging "dist/WellMate-$RELEASE_NAME+$RELEASE_BUILD_NUMBER.apk" \
+            | head -n 1 > dist/wellmate-badging.txt
+          "$aapt_bin" dump badging "dist/CareMate-$RELEASE_NAME+$RELEASE_BUILD_NUMBER.apk" \
+            | head -n 1 > dist/caremate-badging.txt
+          sha256sum dist/*.apk > dist/SHA256SUMS.txt
+          python3 - <<'PY'
+          import hashlib
+          import json
+          import os
+          from pathlib import Path
+
+          release = os.environ['RELEASE_NAME']
+          build = os.environ['RELEASE_BUILD_NUMBER']
+          source = os.environ['SOURCE_COMMIT']
+          dist = Path('dist')
+          files = []
+          for path in sorted(dist.glob('*.apk')):
+              files.append({
+                  'name': path.name,
+                  'bytes': path.stat().st_size,
+                  'sha256': hashlib.sha256(path.read_bytes()).hexdigest(),
+              })
+          manifest = {
+              'release': release,
+              'buildNumber': int(build),
+              'sourceCommit': source,
+              'fixes': [
+                  'CareMate alerts are limited to due missed/skipped doses from today',
+                  'CareMate read-only form labels render above their boxes',
+              ],
+              'files': files,
+          }
+          (dist / 'manifest.json').write_text(
+              json.dumps(manifest, ensure_ascii=False, indent=2),
+              encoding='utf-8',
+          )
+          PY
+
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: lifemate-0.9.0-internal.12-android
+          path: dist
+          if-no-files-found: error
+          retention-days: 30
