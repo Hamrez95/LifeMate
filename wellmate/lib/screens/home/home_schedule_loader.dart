@@ -19,10 +19,7 @@ class HomeScheduleSnapshot {
 }
 
 class HomeScheduleLoadFailure {
-  const HomeScheduleLoadFailure({
-    required this.source,
-    required this.error,
-  });
+  const HomeScheduleLoadFailure({required this.source, required this.error});
 
   final String source;
   final Object error;
@@ -47,10 +44,7 @@ class HomeScheduleLoader {
     required DateTime toDate,
   }) async {
     // Start all requests before awaiting them so the home screen remains fast.
-    final currentUserFuture = _capture(
-      'current-user',
-      api.getCurrentUser(),
-    );
+    final currentUserFuture = _capture('current-user', api.getCurrentUser());
     final treatmentPlansFuture = _capture(
       'treatment-plans',
       api.getTreatmentPlans(),
@@ -114,9 +108,7 @@ class HomeScheduleLoader {
 }
 
 class _HomeLoadResult<T> {
-  const _HomeLoadResult.success(this.value)
-    : failure = null,
-      stackTrace = null;
+  const _HomeLoadResult.success(this.value) : failure = null, stackTrace = null;
 
   const _HomeLoadResult.failure(this.failure, this.stackTrace) : value = null;
 
