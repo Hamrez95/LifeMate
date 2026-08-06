@@ -1,0 +1,51 @@
+name: ecosystem-contract
+
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - 'supabase/migrations/**'
+      - 'supabase/tests/**'
+      - '.github/workflows/ecosystem-contract.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'supabase/migrations/**'
+      - 'supabase/tests/**'
+
+permissions:
+  contents: read
+
+jobs:
+  database-contract:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    services:
+      postgres:
+        image: postgres:17.6-alpine
+        env:
+          POSTGRES_DB: lifemate_contract
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd "pg_isready -U postgres -d lifemate_contract"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      TEST_DATABASE_URL: postgres://postgres:postgres@localhost:5432/lifemate_contract
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
+        with:
+          persist-credentials: false
+          show-progress: false
+      - name: Apply canonical schema
+        shell: bash
+        run: |
+          set -euo pipefail
+          while IFS= read -r migration; do
+            psql "$TEST_DATABASE_URL" --set=ON_ERROR_STOP=1 --file="$migration"
+          done < <(find supabase/migrations -maxdepth 1 -type f -name '*.sql' | sort)
+      - name: Run ecosystem database contract
+        run: psql "$TEST_DATABASE_URL" --set=ON_ERROR_STOP=1 --file=supabase/tests/ecosystem_contract.sql
