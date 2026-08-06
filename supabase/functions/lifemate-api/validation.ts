@@ -142,15 +142,19 @@ export function validateReportedAt(
   }
 }
 
-export function validateRange(fromDate: string, toDate: string): void {
+export function validateRange(
+  fromDate: string,
+  toDate: string,
+  maximumDays = 31,
+): void {
   const from = Date.parse(`${fromDate}T00:00:00Z`);
   const to = Date.parse(`${toDate}T00:00:00Z`);
   const days = Math.round((to - from) / 86400000);
-  if (days < 0 || days > 31) {
+  if (days < 0 || days > maximumDays) {
     throw new ApiError(
       400,
       "invalid_date_range",
-      "Date range must be between 0 and 31 days.",
+      `Date range must be between 0 and ${maximumDays} days.`,
     );
   }
 }
