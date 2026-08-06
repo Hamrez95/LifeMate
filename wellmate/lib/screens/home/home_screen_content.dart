@@ -10,6 +10,7 @@ import '../../models/schedule_item_model.dart';
 import '../../providers/medication_provider.dart';
 import '../../providers/notification_provider.dart';
 import 'active_treatment_card.dart';
+import 'home_schedule_loader.dart';
 import 'soft_schedule_card.dart';
 
 class HomeScreenContent extends StatefulWidget {
@@ -64,17 +65,20 @@ class _HomeScreenContentState extends State<HomeScreenContent> {
       final now = DateTime.now();
       final today = DateTime(now.year, now.month, now.day);
       final lastVisibleDay = today.add(const Duration(days: 7));
-      final results = await Future.wait<dynamic>([
-        api.getCurrentUser(),
-        api.getTreatmentPlans(),
-        api.getDoseOccurrences(fromDate: today, toDate: lastVisibleDay),
-        api.getCareEvents(fromDate: today, toDate: lastVisibleDay),
-      ]);
-
-      final currentUser = results[0] as Map<String, dynamic>;
-      final plans = results[1] as List<Map<String, dynamic>>;
-      final doses = results[2] as List<Map<String, dynamic>>;
-      final careEvents = results[3] as List<Map<String, dynamic>>;
+      final snapshot = await const HomeScheduleLoader().load(
+        api: api,
+        fromDate: today,
+        toDate: lastVisibleDay,
+      );
+      final currentUser = snapshot.currentUser;
+      final plans = snapshot.treatmentPlans;
+      final doses = snapshot.doseOccurrences;
+      final careEvents = snapshot.careEvents;
+      for (final failure in snapshot.failures) {
+        debugPrint(
+          'WellMate home partial load (${failure.source}): ${failure.error}',
+        );
+      }
       final profile =
           currentUser['profile'] as Map<String, dynamic>? ?? const {};
       final plansById = <String, Map<String, dynamic>>{
