@@ -1,4 +1,4 @@
-import postgres from "postgres";
+import { getLifeMateSql, type LifeMateSql } from "./database_client.ts";
 import {
   ApiError,
   limitedOptional,
@@ -10,7 +10,7 @@ import {
 } from "./validation.ts";
 
 type Row = Record<string, any>;
-type Sql = ReturnType<typeof postgres>;
+type Sql = LifeMateSql;
 
 type CareEventInput = {
   clientRequestId: string;
@@ -34,12 +34,7 @@ type CareEventInput = {
 };
 
 export function createCareEventStore(databaseUrl: string) {
-  const sql = postgres(databaseUrl, {
-    max: 2,
-    idle_timeout: 20,
-    connect_timeout: 10,
-    prepare: false,
-  });
+  const sql = getLifeMateSql(databaseUrl);
 
   async function createCareEvent(
     patientUserId: string,

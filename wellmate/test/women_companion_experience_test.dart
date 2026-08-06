@@ -115,6 +115,64 @@ class _FakeLifeMateApiClient extends LifeMateApiClient {
       );
 
   @override
+  Future<Map<String, dynamic>> getWomenCalendarDashboard({
+    required DateTime fromDate,
+    required DateTime toDate,
+  }) async {
+    final today = _dateOnly(DateTime.now());
+    final periodStart = today.subtract(const Duration(days: 2));
+    return {
+      'profile': {
+        'enabled': true,
+        'lastPeriodStart': _isoDate(periodStart),
+        'cycleLength': 28,
+        'periodLength': 5,
+        'remindersEnabled': true,
+        'version': 2,
+      },
+      'episodes': [
+        {
+          'id': 'episode-1',
+          'startedOn': _isoDate(periodStart),
+          'endedOn': null,
+          'version': 1,
+        },
+      ],
+      'currentUser': const {
+        'user': {'id': 'patient-1'},
+        'profile': {'displayName': 'نازنین'},
+      },
+      'currentProfile': const {
+        'displayName': 'نازنین',
+        'avatarKey': 'person_pink',
+        'profilePhotoUrl': null,
+      },
+      'relationships': const [
+        {
+          'id': 'relationship-1',
+          'status': 'active',
+          'caregiverDisplayName': 'حمیدرضا',
+          'canViewWomenCalendar': true,
+        },
+      ],
+      'treatmentPlans': const [],
+      'dailyLogs': [
+        {
+          'id': 'daily-1',
+          'loggedOn': _isoDate(today),
+          'mood': 'good',
+          'energyLevel': 4,
+          'painLevel': 1,
+          'symptoms': ['fatigue'],
+          'privateNotes': 'private owner note',
+          'shareSummaryWithCompanion': true,
+          'version': 1,
+        },
+      ],
+    };
+  }
+
+  @override
   Future<Map<String, dynamic>> getWomenCalendarProfile() async {
     final today = _dateOnly(DateTime.now());
     final periodStart = today.subtract(const Duration(days: 2));

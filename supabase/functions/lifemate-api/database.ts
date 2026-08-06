@@ -1,4 +1,4 @@
-import postgres from "postgres";
+import { getLifeMateSql, type LifeMateSql } from "./database_client.ts";
 import {
   ApiError,
   limitedOptional,
@@ -34,18 +34,13 @@ export type AppIdentity = {
 };
 
 type Row = Record<string, any>;
-type Sql = ReturnType<typeof postgres>;
+type Sql = LifeMateSql;
 
 export function createLifeMateDatabase(
   databaseUrl: string,
   contactHashingSecret: string,
 ) {
-  const sql = postgres(databaseUrl, {
-    max: 2,
-    idle_timeout: 20,
-    connect_timeout: 10,
-    prepare: false,
-  });
+  const sql = getLifeMateSql(databaseUrl);
   const hmac = createHmac(contactHashingSecret);
 
   async function health(): Promise<void> {

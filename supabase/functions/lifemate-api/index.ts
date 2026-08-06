@@ -1,6 +1,7 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createCareEventStore } from "./care_events.ts";
 import { type AuthUser, createLifeMateDatabase } from "./database.ts";
+import { isPostgresUnavailable } from "./database_client.ts";
 import { createEditStore } from "./edit_store.ts";
 import { corsHeaders, json, problem, safeError } from "./http.ts";
 import { createProfileStore } from "./profile.ts";
@@ -78,6 +79,20 @@ Deno.serve(async (request: Request) => {
     if (error instanceof ApiError) {
       return problem(error.status, error.code, error.message, correlationId);
     }
+    if (isPostgresUnavailable(error)) {
+      console.warn("LifeMate database temporarily unavailable", {
+        correlationId,
+        method: request.method,
+        path,
+        ...safeError(error),
+      });
+      return problem(
+        503,
+        "database_busy",
+        "Database is temporarily busy. Please retry.",
+        correlationId,
+      );
+    }
     if (isPostgresConflict(error)) {
       return problem(
         409,
@@ -112,6 +127,62 @@ async function route(
   }
 
   const identity = await db.requireIdentity(auth);
+
+  if (request.method === "GET" && path === "/api/v1/home-snapshot") {
+    const url = new URL(request.url);
+    const fromDate = url.searchParams.get("fromDate");
+    const toDate = url.searchParams.get("toDate");
+    // Keep these reads sequential. Every store shares one bounded SQL client,
+    // so one app screen consumes one database connection rather than a fan-out.
+    const currentUser = await db.currentUser(identity);
+    const treatmentPlans = await db.listTreatmentPlans(identity.appUserId);
+    const doseOccurrences = await db.listDoseOccurrences(
+      identity.appUserId,
+      fromDate,
+      toDate,
+    );
+    const ownerCareEvents = await careEvents.listCareEvents(
+      identity.appUserId,
+      fromDate,
+      toDate,
+    );
+    return json({
+      currentUser,
+      treatmentPlans,
+      doseOccurrences,
+      careEvents: ownerCareEvents,
+    });
+  }
+
+  if (
+    request.method === "GET" &&
+    path === "/api/v1/women-calendar/dashboard"
+  ) {
+    requireWomenCalendarPilot();
+    const url = new URL(request.url);
+    const fromDate = url.searchParams.get("fromDate");
+    const toDate = url.searchParams.get("toDate");
+    const profile = await womenCalendar.getOwnerProfile(identity.appUserId);
+    const episodes = await womenCalendar.listOwnerEpisodes(identity.appUserId);
+    const currentUser = await db.currentUser(identity);
+    const currentProfile = await presentProfile(identity.appUserId);
+    const relationships = await db.listRelationships(identity.appUserId);
+    const treatmentPlans = await db.listTreatmentPlans(identity.appUserId);
+    const dailyLogs = await womenCalendar.listOwnerDailyLogs(
+      identity.appUserId,
+      fromDate,
+      toDate,
+    );
+    return json({
+      profile,
+      episodes,
+      currentUser: { ...currentUser, profile: currentProfile },
+      currentProfile,
+      relationships,
+      treatmentPlans,
+      dailyLogs,
+    });
+  }
 
   if (request.method === "GET" && path === "/api/v1/me") {
     const current = await db.currentUser(identity);

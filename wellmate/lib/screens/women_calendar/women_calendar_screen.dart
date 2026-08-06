@@ -111,21 +111,25 @@ class _WomenCalendarScreenState extends State<WomenCalendarScreen> {
     }
     try {
       final api = context.read<LifeMateApiClient>();
-      final results = await Future.wait<dynamic>([
-        api.getWomenCalendarProfile(),
-        api.getWomenCalendarEpisodes(),
-        api.getCurrentUser(),
-        api.getCareRelationships(),
-        api.getTreatmentPlans(),
-      ]);
+      final now = DateTime.now();
+      final dashboard = await api.getWomenCalendarDashboard(
+        fromDate: now.subtract(const Duration(days: 89)),
+        toDate: now,
+      );
       if (!mounted) return;
-      final profile = results[0] as Map<String, dynamic>;
+      final profile = dashboard['profile'] as Map<String, dynamic>? ?? const {};
       setState(() {
         _profile = profile;
-        _episodes = results[1] as List<Map<String, dynamic>>;
-        _currentUser = results[2] as Map<String, dynamic>;
-        _relationships = results[3] as List<Map<String, dynamic>>;
-        _treatmentPlans = results[4] as List<Map<String, dynamic>>;
+        _episodes = (dashboard['episodes'] as List<dynamic>? ?? const [])
+            .cast<Map<String, dynamic>>();
+        _currentUser =
+            dashboard['currentUser'] as Map<String, dynamic>? ?? const {};
+        _relationships =
+            (dashboard['relationships'] as List<dynamic>? ?? const [])
+                .cast<Map<String, dynamic>>();
+        _treatmentPlans =
+            (dashboard['treatmentPlans'] as List<dynamic>? ?? const [])
+                .cast<Map<String, dynamic>>();
         _applyProfile(profile);
       });
     } on LifeMateApiException catch (error) {

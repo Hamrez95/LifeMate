@@ -39,7 +39,7 @@ class LifeMateApiClient {
   final AccessTokenProvider _accessToken;
   final http.Client _http;
   static const _requestTimeout = Duration(seconds: 20);
-  static const _retryDelay = Duration(milliseconds: 250);
+  static const _retryDelay = Duration(milliseconds: 350);
   static const _transientStatusCodes = <int>{502, 503, 504};
 
   static String createClientRequestId() {
@@ -79,6 +79,18 @@ class LifeMateApiClient {
 
   Future<Map<String, dynamic>> getCurrentProfile() async =>
       _asObject(await _send('GET', '/api/v1/me/profile', retryable: true));
+
+  Future<Map<String, dynamic>> getHomeSnapshot({
+    required DateTime fromDate,
+    required DateTime toDate,
+  }) async => _asObject(
+    await _send(
+      'GET',
+      '/api/v1/home-snapshot',
+      query: {'fromDate': _date(fromDate), 'toDate': _date(toDate)},
+      retryable: true,
+    ),
+  );
 
   Future<Map<String, dynamic>> uploadCurrentProfilePhoto({
     required Uint8List bytes,
@@ -334,6 +346,18 @@ class LifeMateApiClient {
     await _send('GET', '/api/v1/women-calendar/profile', retryable: true),
   );
 
+  Future<Map<String, dynamic>> getWomenCalendarDashboard({
+    required DateTime fromDate,
+    required DateTime toDate,
+  }) async => _asObject(
+    await _send(
+      'GET',
+      '/api/v1/women-calendar/dashboard',
+      query: {'fromDate': _date(fromDate), 'toDate': _date(toDate)},
+      retryable: true,
+    ),
+  );
+
   Future<Map<String, dynamic>> updateWomenCalendarProfile({
     required int version,
     required bool enabled,
@@ -515,7 +539,7 @@ class LifeMateApiClient {
       if (body != null) 'Content-Type': 'application/json',
     };
     final encodedBody = body == null ? null : jsonEncode(body);
-    final maxAttempts = retryable ? 2 : 1;
+    final maxAttempts = retryable ? 3 : 1;
 
     for (var attempt = 1; attempt <= maxAttempts; attempt += 1) {
       late final http.Response response;
