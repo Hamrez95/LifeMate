@@ -1,0 +1,155 @@
+name: live-db-pressure-smoke
+
+on:
+  push:
+    branches:
+      - release/build-v0.9.0-internal.11
+    paths:
+      - '.github/workflows/live-db-pressure-smoke.yml'
+
+permissions:
+  contents: read
+
+env:
+  SUPABASE_URL: https://bwdvmniywyyijjauipnh.supabase.co
+  SUPABASE_PUBLISHABLE_KEY: sb_publishable_6YpBDD0gAPcenbYGukOeWg_fZXxUb27
+  LIFEMATE_API_BASE_URL: https://bwdvmniywyyijjauipnh.supabase.co/functions/v1/lifemate-api
+
+jobs:
+  smoke:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    steps:
+      - name: Verify health and protected aggregate routes
+        shell: bash
+        run: |
+          set -euo pipefail
+          health_file="$(mktemp)"
+          status="$(curl --silent --show-error --retry 6 --retry-delay 2 --retry-all-errors \
+            --output "$health_file" --write-out '%{http_code}' \
+            "$LIFEMATE_API_BASE_URL/health")"
+          test "$status" = '200'
+          jq -e '.status == "ok" and .database == "ready" and .service == "lifemate-api"' "$health_file" >/dev/null
+
+          for path in \
+            '/api/v1/home-snapshot?fromDate=2026-08-06&toDate=2026-08-13' \
+            '/api/v1/women-calendar/dashboard?fromDate=2026-05-09&toDate=2026-08-06'; do
+            status="$(curl --silent --show-error --output /tmp/unauthorized.json --write-out '%{http_code}' \
+              -H "apikey: $SUPABASE_PUBLISHABLE_KEY" "$LIFEMATE_API_BASE_URL$path")"
+            test "$status" = '401'
+          done
+
+      - name: Create isolated confirmed QA user
+        id: user
+        shell: bash
+        run: |
+          set -euo pipefail
+          email="lifemate-pressure-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}@example.com"
+          password="Qa-${GITHUB_RUN_ID}-$(cat /proc/sys/kernel/random/uuid)-A9!"
+          body="$(jq -nc --arg email "$email" --arg password "$password" '{email:$email,password:$password}')"
+          signup_file="$(mktemp)"
+          status="$(curl --silent --show-error \
+            --request POST \
+            --header "apikey: $SUPABASE_PUBLISHABLE_KEY" \
+            --header 'Content-Type: application/json' \
+            --data "$body" \
+            --output "$signup_file" --write-out '%{http_code}' \
+            "$SUPABASE_URL/auth/v1/signup")"
+          test "$status" = '200'
+          token="$(jq -er '.access_token' "$signup_file")"
+          user_id="$(jq -er '.user.id' "$signup_file")"
+          test -n "$token"
+          test -n "$user_id"
+          printf '%s' "$token" > /tmp/lifemate-token
+          chmod 600 /tmp/lifemate-token
+          printf '%s' "$email" > /tmp/lifemate-qa-email
+          printf '%s' "$user_id" > /tmp/lifemate-qa-user-id
+          echo "user_id=$user_id" >> "$GITHUB_OUTPUT"
+
+      - name: Bootstrap user and seed cycle profile
+        shell: bash
+        run: |
+          set -euo pipefail
+          token="$(cat /tmp/lifemate-token)"
+          request() {
+            local method="$1" path="$2" body="${3:-}" expected="$4" output="$5"
+            local -a args=(
+              --silent --show-error --request "$method"
+              --header "Authorization: Bearer $token"
+              --header "apikey: $SUPABASE_PUBLISHABLE_KEY"
+              --header 'Accept: application/json'
+              --output "$output" --write-out '%{http_code}'
+            )
+            if [ -n "$body" ]; then
+              args+=(--header 'Content-Type: application/json' --data "$body")
+            fi
+            status="$(curl "${args[@]}" "$LIFEMATE_API_BASE_URL$path")"
+            if [ "$status" != "$expected" ]; then
+              echo "Unexpected $status for $method $path" >&2
+              cat "$output" >&2 || true
+              exit 1
+            fi
+          }
+          request POST '/api/v1/users/bootstrap' \
+            '{"displayName":"کاربر تست فشار اتصال","locale":"fa","timeZone":"Asia/Tehran"}' \
+            200 /tmp/bootstrap.json
+          today="$(date -u +%F)"
+          request PATCH '/api/v1/women-calendar/profile' \
+            "$(jq -nc --arg date "$today" '{enabled:true,lastPeriodStart:$date,cycleLength:28,periodLength:5,remindersEnabled:true,version:1}')" \
+            200 /tmp/women-profile.json
+
+      - name: Run authenticated aggregate-route concurrency smoke
+        shell: bash
+        run: |
+          set -euo pipefail
+          token="$(cat /tmp/lifemate-token)"
+          today="$(date -u +%F)"
+          next_week="$(date -u -d '+7 days' +%F)"
+          history_start="$(date -u -d '-89 days' +%F)"
+          mkdir -p /tmp/lifemate-stress
+
+          request_once() {
+            local label="$1" path="$2" output="$3"
+            local status
+            status="$(curl --silent --show-error \
+              --connect-timeout 10 --max-time 40 \
+              --output "$output" --write-out '%{http_code}' \
+              -H "Authorization: Bearer $token" \
+              -H "apikey: $SUPABASE_PUBLISHABLE_KEY" \
+              "$LIFEMATE_API_BASE_URL$path")"
+            if [ "$status" != '200' ]; then
+              echo "$label returned HTTP $status" >&2
+              cat "$output" >&2 || true
+              return 1
+            fi
+            jq -e 'type == "object"' "$output" >/dev/null
+          }
+          export -f request_once
+          export token SUPABASE_PUBLISHABLE_KEY LIFEMATE_API_BASE_URL today next_week history_start
+
+          seq 1 16 | xargs -P 4 -I{} bash -c '
+            request_once "home-{}" "/api/v1/home-snapshot?fromDate=$today&toDate=$next_week" "/tmp/lifemate-stress/home-{}.json"
+          '
+          seq 1 12 | xargs -P 4 -I{} bash -c '
+            request_once "women-{}" "/api/v1/women-calendar/dashboard?fromDate=$history_start&toDate=$today" "/tmp/lifemate-stress/women-{}.json"
+          '
+
+          jq -e 'has("currentUser") and has("treatmentPlans") and has("doseOccurrences") and has("careEvents")' \
+            /tmp/lifemate-stress/home-1.json >/dev/null
+          jq -e 'has("profile") and has("episodes") and has("currentProfile") and has("relationships") and has("treatmentPlans") and has("dailyLogs")' \
+            /tmp/lifemate-stress/women-1.json >/dev/null
+
+          jq -n \
+            --arg testedAt "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+            --arg userId "$(cat /tmp/lifemate-qa-user-id)" \
+            --arg email "$(cat /tmp/lifemate-qa-email)" \
+            '{status:"passed",testedAtUtc:$testedAt,temporaryUserId:$userId,temporaryUserEmail:$email,parallelism:4,requests:{homeSnapshot:16,womenDashboard:12,total:28},expectedHttpStatus:200}' \
+            > /tmp/lifemate-live-db-pressure-smoke.json
+
+      - name: Upload redacted smoke evidence
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: live-db-pressure-smoke-${{ github.run_id }}
+          path: /tmp/lifemate-live-db-pressure-smoke.json
+          if-no-files-found: error
+          retention-days: 14
