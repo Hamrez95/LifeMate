@@ -115,24 +115,32 @@ class _FakeLifeMateApiClient extends LifeMateApiClient {
       );
 
   @override
-  Future<Map<String, dynamic>> getWomenCalendarProfile() async => {
-    'enabled': true,
-    'lastPeriodStart': '2026-08-01',
-    'cycleLength': 28,
-    'periodLength': 5,
-    'remindersEnabled': true,
-    'version': 2,
-  };
+  Future<Map<String, dynamic>> getWomenCalendarProfile() async {
+    final today = _dateOnly(DateTime.now());
+    final periodStart = today.subtract(const Duration(days: 2));
+    return {
+      'enabled': true,
+      'lastPeriodStart': _isoDate(periodStart),
+      'cycleLength': 28,
+      'periodLength': 5,
+      'remindersEnabled': true,
+      'version': 2,
+    };
+  }
 
   @override
-  Future<List<Map<String, dynamic>>> getWomenCalendarEpisodes() async => [
-    {
-      'id': 'episode-1',
-      'startedOn': '2026-08-01',
-      'endedOn': '2026-08-05',
-      'version': 1,
-    },
-  ];
+  Future<List<Map<String, dynamic>>> getWomenCalendarEpisodes() async {
+    final today = _dateOnly(DateTime.now());
+    final periodStart = today.subtract(const Duration(days: 2));
+    return [
+      {
+        'id': 'episode-1',
+        'startedOn': _isoDate(periodStart),
+        'endedOn': null,
+        'version': 1,
+      },
+    ];
+  }
 
   @override
   Future<Map<String, dynamic>> getCurrentProfile() async => const {
@@ -166,7 +174,7 @@ class _FakeWomenCompanionApi extends WomenCompanionApi {
   }) async => [
     {
       'id': 'daily-1',
-      'loggedOn': '2026-08-05',
+      'loggedOn': _isoDate(_dateOnly(DateTime.now())),
       'mood': 'good',
       'energyLevel': 4,
       'painLevel': 1,
@@ -189,7 +197,7 @@ class _FakeWomenCompanionApi extends WomenCompanionApi {
     required bool shareSummaryWithCompanion,
   }) async => {
     'id': 'daily-1',
-    'loggedOn': '2026-08-05',
+    'loggedOn': _isoDate(loggedOn),
     'mood': mood,
     'energyLevel': energyLevel,
     'painLevel': painLevel,
@@ -199,3 +207,11 @@ class _FakeWomenCompanionApi extends WomenCompanionApi {
     'version': version + 1,
   };
 }
+
+DateTime _dateOnly(DateTime value) =>
+    DateTime(value.year, value.month, value.day);
+
+String _isoDate(DateTime value) =>
+    '${value.year.toString().padLeft(4, '0')}-'
+    '${value.month.toString().padLeft(2, '0')}-'
+    '${value.day.toString().padLeft(2, '0')}';
