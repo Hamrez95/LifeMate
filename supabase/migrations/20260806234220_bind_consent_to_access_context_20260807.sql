@@ -46,5 +46,20 @@ as $$
      )
 $$;
 
+-- PUBLIC exists on every PostgreSQL installation; Supabase client roles are
+-- revoked conditionally so this business migration remains portable.
 revoke execute on function security.can_access_person_feature(uuid,uuid,character varying,character varying,character varying,timestamp with time zone)
-from public, anon, authenticated, service_role;
+from public;
+
+do $migration$
+declare role_name text;
+begin
+  foreach role_name in array array['anon','authenticated','service_role'] loop
+    if exists(select 1 from pg_roles where rolname=role_name) then
+      execute format(
+        'revoke execute on function security.can_access_person_feature(uuid,uuid,character varying,character varying,character varying,timestamp with time zone) from %I',
+        role_name);
+    end if;
+  end loop;
+end
+$migration$;
