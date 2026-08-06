@@ -1,0 +1,897 @@
+name: db-pool-startup-resilience
+
+on:
+  push:
+    branches:
+      - fix/db-pool-startup-resilience
+
+permissions:
+  contents: write
+
+jobs:
+  patch-and-verify:
+    if: startsWith(github.event.head_commit.message, 'ci: apply db pool startup resilience')
+    runs-on: ubuntu-24.04
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
+        with:
+          ref: fix/db-pool-startup-resilience
+          show-progress: false
+
+      - uses: denoland/setup-deno@22d081ff2d3a40755e97629de92e3bcbfa7cf2ed
+        with:
+          deno-version: v2.9.4
+
+      - uses: subosito/flutter-action@4cab68ce0f1c7c924f688bff4792e044f1aeb30c
+        with:
+          flutter-version: '3.44.0'
+          channel: stable
+          cache: true
+
+      - name: Apply connection-pool and request-burst fixes
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          import re
+
+          def replace_once(path: str, old: str, new: str) -> None:
+              p = Path(path)
+              text = p.read_text()
+              if old not in text:
+                  raise SystemExit(f'anchor not found in {path}: {old[:120]!r}')
+              p.write_text(text.replace(old, new, 1))
+
+          def regex_once(path: str, pattern: str, replacement: str) -> None:
+              p = Path(path)
+              text = p.read_text()
+              updated, count = re.subn(pattern, replacement, text, count=1, flags=re.MULTILINE)
+              if count != 1:
+                  raise SystemExit(f'pattern count {count} in {path}: {pattern}')
+              p.write_text(updated)
+
+          edge = Path('supabase/functions/lifemate-api')
+          (edge / 'database_client.ts').write_text('''import postgres from "postgres";
+
+export type LifeMateSql = ReturnType<typeof postgres>;
+
+const clients = new Map<string, LifeMateSql>();
+
+/// Every Edge isolate shares one deliberately small postgres.js pool across all
+/// LifeMate stores. The previous five independent max=2 pools could reserve up
+/// to ten direct database connections per isolate and exhaust small Supabase
+/// projects during normal app startup.
+export function getLifeMateSql(databaseUrl: string): LifeMateSql {
+  const existing = clients.get(databaseUrl);
+  if (existing) return existing;
+
+  const client = postgres(databaseUrl, {
+    max: 1,
+    idle_timeout: 5,
+    connect_timeout: 10,
+    prepare: false,
+  });
+  clients.set(databaseUrl, client);
+  return client;
+}
+
+export function isPostgresUnavailable(error: unknown): boolean {
+  if (!error || typeof error !== "object") return false;
+  const value = error as Record<string, unknown>;
+  const code = String(value.code ?? "");
+  const message = String(value.message ?? "");
+  return code === "53300" ||
+    code === "57P03" ||
+    code.startsWith("08") ||
+    /too many clients|remaining connection slots|connection (?:refused|terminated|closed)|database system is starting up/i
+      .test(message);
+}
+
+export async function closeLifeMateSqlClientsForTest(): Promise<void> {
+  const current = [...clients.values()];
+  clients.clear();
+  await Promise.all(current.map((client) => client.end({ timeout: 1 })));
+}
+''')
+          (edge / 'database_client_test.ts').write_text('''import {
+  assert,
+  assertStrictEquals,
+} from "https://deno.land/std@0.224.0/assert/mod.ts";
+import {
+  closeLifeMateSqlClientsForTest,
+  getLifeMateSql,
+  isPostgresUnavailable,
+} from "./database_client.ts";
+
+Deno.test("database stores reuse one bounded client per Edge isolate", async () => {
+  const url = "postgres://user:password@127.0.0.1:5432/lifemate_test";
+  assertStrictEquals(getLifeMateSql(url), getLifeMateSql(url));
+  await closeLifeMateSqlClientsForTest();
+});
+
+Deno.test("database connection exhaustion is classified as retryable", () => {
+  assert(isPostgresUnavailable({ code: "53300", message: "too many clients" }));
+  assert(
+    isPostgresUnavailable({
+      message: "remaining connection slots are reserved for roles with the SUPERUSER attribute",
+    }),
+  );
+  assert(!isPostgresUnavailable({ code: "23505", message: "duplicate key" }));
+});
+''')
+
+          module_imports = {
+              'database.ts': 'import { getLifeMateSql, type LifeMateSql } from "./database_client.ts";\n',
+              'care_events.ts': 'import { getLifeMateSql, type LifeMateSql } from "./database_client.ts";\n',
+              'profile.ts': 'import { getLifeMateSql } from "./database_client.ts";\n',
+              'edit_store.ts': 'import { getLifeMateSql } from "./database_client.ts";\n',
+              'women_calendar.ts': 'import { getLifeMateSql } from "./database_client.ts";\n',
+          }
+          pool_pattern = r'''  const sql = postgres\(databaseUrl, \{\n    max: 2,\n    idle_timeout: 20,\n    connect_timeout: 10,\n    prepare: false,\n  \}\);'''
+          for filename, replacement in module_imports.items():
+              path = str(edge / filename)
+              replace_once(path, 'import postgres from "postgres";\n', replacement)
+              regex_once(path, pool_pattern, '  const sql = getLifeMateSql(databaseUrl);')
+
+          for filename in ('database.ts', 'care_events.ts'):
+              replace_once(
+                  str(edge / filename),
+                  'type Sql = ReturnType<typeof postgres>;\n',
+                  'type Sql = LifeMateSql;\n',
+              )
+
+          index_path = str(edge / 'index.ts')
+          replace_once(
+              index_path,
+              'import { type AuthUser, createLifeMateDatabase } from "./database.ts";\n',
+              'import { type AuthUser, createLifeMateDatabase } from "./database.ts";\nimport { isPostgresUnavailable } from "./database_client.ts";\n',
+          )
+          route_anchor = '  const identity = await db.requireIdentity(auth);\n\n'
+          aggregate_routes = '''  const identity = await db.requireIdentity(auth);
+
+  if (request.method === "GET" && path === "/api/v1/home-snapshot") {
+    const url = new URL(request.url);
+    const fromDate = url.searchParams.get("fromDate");
+    const toDate = url.searchParams.get("toDate");
+    // Keep this sequence intentional: all stores share a single bounded SQL
+    // client, avoiding a fan-out of direct database connections.
+    const currentUser = await db.currentUser(identity);
+    const treatmentPlans = await db.listTreatmentPlans(identity.appUserId);
+    const doseOccurrences = await db.listDoseOccurrences(
+      identity.appUserId,
+      fromDate,
+      toDate,
+    );
+    const ownerCareEvents = await careEvents.listCareEvents(
+      identity.appUserId,
+      fromDate,
+      toDate,
+    );
+    return json({
+      currentUser,
+      treatmentPlans,
+      doseOccurrences,
+      careEvents: ownerCareEvents,
+    });
+  }
+
+  if (
+    request.method === "GET" &&
+    path === "/api/v1/women-calendar/dashboard"
+  ) {
+    requireWomenCalendarPilot();
+    const url = new URL(request.url);
+    const fromDate = url.searchParams.get("fromDate");
+    const toDate = url.searchParams.get("toDate");
+    const profile = await womenCalendar.getOwnerProfile(identity.appUserId);
+    const episodes = await womenCalendar.listOwnerEpisodes(identity.appUserId);
+    const currentUser = await db.currentUser(identity);
+    const currentProfile = await presentProfile(identity.appUserId);
+    const relationships = await db.listRelationships(identity.appUserId);
+    const treatmentPlans = await db.listTreatmentPlans(identity.appUserId);
+    const dailyLogs = await womenCalendar.listOwnerDailyLogs(
+      identity.appUserId,
+      fromDate,
+      toDate,
+    );
+    return json({
+      profile,
+      episodes,
+      currentUser: { ...currentUser, profile: currentProfile },
+      currentProfile,
+      relationships,
+      treatmentPlans,
+      dailyLogs,
+    });
+  }
+
+'''
+          replace_once(index_path, route_anchor, aggregate_routes)
+          replace_once(
+              index_path,
+              '    if (isPostgresConflict(error)) {\n',
+              '''    if (isPostgresUnavailable(error)) {
+      console.warn("LifeMate database temporarily unavailable", {
+        correlationId,
+        method: request.method,
+        path,
+        ...safeError(error),
+      });
+      return problem(
+        503,
+        "database_busy",
+        "Database is temporarily busy. Please retry.",
+        correlationId,
+      );
+    }
+    if (isPostgresConflict(error)) {
+''',
+          )
+
+          deno_path = edge / 'deno.json'
+          deno = deno_path.read_text()
+          deno = deno.replace(
+              'index.ts validation_test.ts',
+              'index.ts database_client_test.ts validation_test.ts',
+              1,
+          ).replace(
+              'deno test --no-check validation_test.ts',
+              'deno test --no-check database_client_test.ts validation_test.ts',
+              1,
+          )
+          deno_path.write_text(deno)
+
+          client_path = 'packages/lifemate_client/lib/src/lifemate_api_client.dart'
+          replace_once(
+              client_path,
+              "  static const _retryDelay = Duration(milliseconds: 250);\n",
+              "  static const _retryDelay = Duration(milliseconds: 350);\n",
+          )
+          replace_once(
+              client_path,
+              '    final maxAttempts = retryable ? 2 : 1;\n',
+              '    final maxAttempts = retryable ? 3 : 1;\n',
+          )
+          replace_once(
+              client_path,
+              "  Future<Map<String, dynamic>> getCurrentProfile() async =>\n      _asObject(await _send('GET', '/api/v1/me/profile', retryable: true));\n\n",
+              """  Future<Map<String, dynamic>> getCurrentProfile() async =>
+      _asObject(await _send('GET', '/api/v1/me/profile', retryable: true));
+
+  Future<Map<String, dynamic>> getHomeSnapshot({
+    required DateTime fromDate,
+    required DateTime toDate,
+  }) async => _asObject(
+    await _send(
+      'GET',
+      '/api/v1/home-snapshot',
+      query: {'fromDate': _date(fromDate), 'toDate': _date(toDate)},
+      retryable: true,
+    ),
+  );
+
+""",
+          )
+          replace_once(
+              client_path,
+              "  Future<Map<String, dynamic>> getWomenCalendarProfile() async => _asObject(\n    await _send('GET', '/api/v1/women-calendar/profile', retryable: true),\n  );\n\n",
+              """  Future<Map<String, dynamic>> getWomenCalendarProfile() async => _asObject(
+    await _send('GET', '/api/v1/women-calendar/profile', retryable: true),
+  );
+
+  Future<Map<String, dynamic>> getWomenCalendarDashboard({
+    required DateTime fromDate,
+    required DateTime toDate,
+  }) async => _asObject(
+    await _send(
+      'GET',
+      '/api/v1/women-calendar/dashboard',
+      query: {'fromDate': _date(fromDate), 'toDate': _date(toDate)},
+      retryable: true,
+    ),
+  );
+
+""",
+          )
+
+          loader_path = Path('wellmate/lib/screens/home/home_schedule_loader.dart')
+          loader = loader_path.read_text()
+          start = loader.index('  Future<HomeScheduleSnapshot> load({')
+          end = loader.index('  Future<_HomeLoadResult<T>> _capture<T>(', start)
+          replacement = '''  Future<HomeScheduleSnapshot> load({
+    required LifeMateApiClient api,
+    required DateTime fromDate,
+    required DateTime toDate,
+  }) async {
+    try {
+      final value = await api.getHomeSnapshot(
+        fromDate: fromDate,
+        toDate: toDate,
+      );
+      return HomeScheduleSnapshot(
+        currentUser: _object(value['currentUser'], 'currentUser'),
+        treatmentPlans: _objects(value['treatmentPlans'], 'treatmentPlans'),
+        doseOccurrences: _objects(
+          value['doseOccurrences'],
+          'doseOccurrences',
+        ),
+        careEvents: _objects(value['careEvents'], 'careEvents'),
+        failures: const [],
+      );
+    } on LifeMateApiException catch (error) {
+      if (error.statusCode != 404 || error.code != 'route_not_found') rethrow;
+      return _loadLegacy(api: api, fromDate: fromDate, toDate: toDate);
+    }
+  }
+
+  Future<HomeScheduleSnapshot> _loadLegacy({
+    required LifeMateApiClient api,
+    required DateTime fromDate,
+    required DateTime toDate,
+  }) async {
+    final currentUserFuture = _capture('current-user', api.getCurrentUser());
+    final treatmentPlansFuture = _capture(
+      'treatment-plans',
+      api.getTreatmentPlans(),
+    );
+    final doseOccurrencesFuture = _capture(
+      'dose-occurrences',
+      api.getDoseOccurrences(fromDate: fromDate, toDate: toDate),
+    );
+    final careEventsFuture = _capture(
+      'care-events',
+      api.getCareEvents(fromDate: fromDate, toDate: toDate),
+    );
+
+    final currentUser = await currentUserFuture;
+    final treatmentPlans = await treatmentPlansFuture;
+    final doseOccurrences = await doseOccurrencesFuture;
+    final careEvents = await careEventsFuture;
+    currentUser.throwIfFailed();
+    if (doseOccurrences.hasFailed && careEvents.hasFailed) {
+      throw HomeScheduleLoadException([
+        doseOccurrences.failure!,
+        careEvents.failure!,
+      ]);
+    }
+    final failures = <HomeScheduleLoadFailure>[
+      if (treatmentPlans.failure case final failure?) failure,
+      if (doseOccurrences.failure case final failure?) failure,
+      if (careEvents.failure case final failure?) failure,
+    ];
+    return HomeScheduleSnapshot(
+      currentUser: currentUser.value!,
+      treatmentPlans: treatmentPlans.value ?? const [],
+      doseOccurrences: doseOccurrences.value ?? const [],
+      careEvents: careEvents.value ?? const [],
+      failures: List<HomeScheduleLoadFailure>.unmodifiable(failures),
+    );
+  }
+
+  Map<String, dynamic> _object(dynamic value, String field) {
+    if (value is Map<String, dynamic>) return value;
+    throw FormatException('Home snapshot field $field is not an object.');
+  }
+
+  List<Map<String, dynamic>> _objects(dynamic value, String field) {
+    if (value is! List) {
+      throw FormatException('Home snapshot field $field is not a list.');
+    }
+    return value
+        .map((item) => _object(item, field))
+        .toList(growable: false);
+  }
+
+'''
+          loader_path.write_text(loader[:start] + replacement + loader[end:])
+
+          home_path = 'wellmate/lib/screens/home/home_screen.dart'
+          replace_once(
+              home_path,
+              '  int _currentIndex = 4;\n',
+              '  int _currentIndex = 4;\n  final Set<int> _visitedTabs = <int>{4};\n',
+          )
+          replace_once(
+              home_path,
+              '  bool _womenCalendarEnabled = false;\n',
+              '  bool _womenCalendarEnabled =\n      LifeMateFeatureFlags.womenCalendarPilotEnabled;\n',
+          )
+          replace_once(
+              home_path,
+              "    } catch (_) {\n      debugPrint('Women calendar navigation state failed.');\n      if (mounted && _currentIndex == 3) {\n        setState(() => _currentIndex = 4);\n      }\n    } finally {\n",
+              "    } catch (_) {\n      // Keep the last known/feature-flag state on a transient backend failure.\n      debugPrint('Women calendar navigation state failed.');\n    } finally {\n",
+          )
+          replace_once(
+              home_path,
+              '    setState(() {\n      _currentIndex = index;\n      switch (index) {\n',
+              '    setState(() {\n      _visitedTabs.add(index);\n      _currentIndex = index;\n      switch (index) {\n',
+          )
+          old_pages = '''  @override
+  Widget build(BuildContext context) {
+    final pages = [
+      CalendarScreen(refreshToken: _calendarRevision),
+      TreatmentsScreen(refreshToken: _treatmentsRevision),
+      CarePlanHubScreen(onCreated: _treatmentCreated),
+      WomenCompanionScreen(
+        key: ValueKey<int>(_womenRevision),
+        onProfileChanged: () => _loadWomenCalendarState(force: true),
+      ),
+      HomeScreenContent(
+        key: ValueKey<int>(_homeRevision),
+        onOpenTreatments: () => _onItemTapped(1),
+        onAddTreatment: () => _onItemTapped(2),
+      ),
+    ];
+'''
+          new_pages = '''  Widget _buildTab(int index) {
+    if (!_visitedTabs.contains(index)) return const SizedBox.shrink();
+    return switch (index) {
+      0 => CalendarScreen(refreshToken: _calendarRevision),
+      1 => TreatmentsScreen(refreshToken: _treatmentsRevision),
+      2 => CarePlanHubScreen(onCreated: _treatmentCreated),
+      3 => WomenCompanionScreen(
+        key: ValueKey<int>(_womenRevision),
+        onProfileChanged: () => _loadWomenCalendarState(force: true),
+      ),
+      _ => HomeScreenContent(
+        key: ValueKey<int>(_homeRevision),
+        onOpenTreatments: () => _onItemTapped(1),
+        onAddTreatment: () => _onItemTapped(2),
+      ),
+    };
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final pages = List<Widget>.generate(5, _buildTab);
+'''
+          replace_once(home_path, old_pages, new_pages)
+
+          content_path = 'wellmate/lib/screens/home/home_screen_content.dart'
+          replace_once(
+              content_path,
+              '  Timer? _timer;\n',
+              '  Timer? _timer;\n  Timer? _retryTimer;\n  int _automaticRetryCount = 0;\n  static const _maximumAutomaticRetries = 2;\n',
+          )
+          replace_once(
+              content_path,
+              '  void dispose() {\n    _timer?.cancel();\n    super.dispose();\n  }\n',
+              '  void dispose() {\n    _timer?.cancel();\n    _retryTimer?.cancel();\n    super.dispose();\n  }\n',
+          )
+          replace_once(
+              content_path,
+              '      if (!mounted) return;\n      setState(() {\n        _displayName = profile[\'displayName\']?.toString().trim() ?? \'\';\n',
+              '      if (!mounted) return;\n      _automaticRetryCount = 0;\n      _retryTimer?.cancel();\n      setState(() {\n        _displayName = profile[\'displayName\']?.toString().trim() ?? \'\';\n',
+          )
+          old_catch = '''    } catch (error) {
+      debugPrint('WellMate home schedule sync failed: $error');
+      if (!mounted) return;
+      setState(() {
+        isLoading = false;
+        loadError = 'برنامه امروز دریافت نشد. اتصال را بررسی کنید.';
+      });
+    }
+  }
+'''
+          new_catch = '''    } catch (error) {
+      debugPrint('WellMate home schedule sync failed: $error');
+      if (!mounted) return;
+      if (_isTransientLoadError(error) &&
+          _automaticRetryCount < _maximumAutomaticRetries) {
+        _automaticRetryCount += 1;
+        final delay = Duration(milliseconds: 500 * _automaticRetryCount);
+        setState(() {
+          isLoading = true;
+          loadError = null;
+        });
+        _retryTimer?.cancel();
+        _retryTimer = Timer(delay, _fetchScheduleFromBackend);
+        return;
+      }
+      setState(() {
+        isLoading = false;
+        loadError = 'برنامه امروز دریافت نشد. اتصال را بررسی کنید.';
+      });
+    }
+  }
+
+  bool _isTransientLoadError(Object error) {
+    if (error is LifeMateApiException) {
+      return error.statusCode == 0 ||
+          error.statusCode == 500 ||
+          error.statusCode == 502 ||
+          error.statusCode == 503 ||
+          error.statusCode == 504;
+    }
+    if (error is HomeScheduleLoadException) {
+      return error.failures.any((failure) => _isTransientLoadError(failure.error));
+    }
+    return false;
+  }
+
+  void _retryManually() {
+    _automaticRetryCount = 0;
+    _retryTimer?.cancel();
+    _fetchScheduleFromBackend();
+  }
+'''
+          replace_once(content_path, old_catch, new_catch)
+          replace_once(
+              content_path,
+              '                      onPressed: _fetchScheduleFromBackend,\n',
+              '                      onPressed: _retryManually,\n',
+          )
+
+          companion_path = 'wellmate/lib/screens/women_calendar/women_companion_screen.dart'
+          old_load = '''      final api = context.read<LifeMateApiClient>();
+      final now = DateTime.now();
+      final results = await Future.wait<dynamic>([
+        api.getWomenCalendarProfile(),
+        api.getWomenCalendarEpisodes(),
+        api.getCurrentProfile(),
+        api.getCareRelationships(),
+        _companionApi.getDailyLogs(
+          fromDate: now.subtract(const Duration(days: 89)),
+          toDate: now,
+        ),
+      ]);
+      if (!mounted) return;
+      setState(() {
+        _profile = results[0] as Map<String, dynamic>;
+        _episodes = results[1] as List<Map<String, dynamic>>;
+        _currentProfile = results[2] as Map<String, dynamic>;
+        _relationships = results[3] as List<Map<String, dynamic>>;
+        _dailyLogs = results[4] as List<Map<String, dynamic>>;
+      });
+'''
+          new_load = '''      final api = context.read<LifeMateApiClient>();
+      final now = DateTime.now();
+      final dashboard = await api.getWomenCalendarDashboard(
+        fromDate: now.subtract(const Duration(days: 89)),
+        toDate: now,
+      );
+      if (!mounted) return;
+      setState(() {
+        _profile = dashboard['profile'] as Map<String, dynamic>? ?? const {};
+        _episodes = (dashboard['episodes'] as List<dynamic>? ?? const [])
+            .cast<Map<String, dynamic>>();
+        _currentProfile =
+            dashboard['currentProfile'] as Map<String, dynamic>? ?? const {};
+        _relationships =
+            (dashboard['relationships'] as List<dynamic>? ?? const [])
+                .cast<Map<String, dynamic>>();
+        _dailyLogs = (dashboard['dailyLogs'] as List<dynamic>? ?? const [])
+            .cast<Map<String, dynamic>>();
+      });
+'''
+          replace_once(companion_path, old_load, new_load)
+
+          calendar_path = 'wellmate/lib/screens/women_calendar/women_calendar_screen.dart'
+          old_calendar_load = '''      final api = context.read<LifeMateApiClient>();
+      final results = await Future.wait<dynamic>([
+        api.getWomenCalendarProfile(),
+        api.getWomenCalendarEpisodes(),
+        api.getCurrentUser(),
+        api.getCareRelationships(),
+        api.getTreatmentPlans(),
+      ]);
+      if (!mounted) return;
+      final profile = results[0] as Map<String, dynamic>;
+      setState(() {
+        _profile = profile;
+        _episodes = results[1] as List<Map<String, dynamic>>;
+        _currentUser = results[2] as Map<String, dynamic>;
+        _relationships = results[3] as List<Map<String, dynamic>>;
+        _treatmentPlans = results[4] as List<Map<String, dynamic>>;
+        _applyProfile(profile);
+      });
+'''
+          new_calendar_load = '''      final api = context.read<LifeMateApiClient>();
+      final now = DateTime.now();
+      final dashboard = await api.getWomenCalendarDashboard(
+        fromDate: now.subtract(const Duration(days: 89)),
+        toDate: now,
+      );
+      if (!mounted) return;
+      final profile =
+          dashboard['profile'] as Map<String, dynamic>? ?? const {};
+      setState(() {
+        _profile = profile;
+        _episodes = (dashboard['episodes'] as List<dynamic>? ?? const [])
+            .cast<Map<String, dynamic>>();
+        _currentUser =
+            dashboard['currentUser'] as Map<String, dynamic>? ?? const {};
+        _relationships =
+            (dashboard['relationships'] as List<dynamic>? ?? const [])
+                .cast<Map<String, dynamic>>();
+        _treatmentPlans =
+            (dashboard['treatmentPlans'] as List<dynamic>? ?? const [])
+                .cast<Map<String, dynamic>>();
+        _applyProfile(profile);
+      });
+'''
+          replace_once(calendar_path, old_calendar_load, new_calendar_load)
+
+          home_test = 'wellmate/test/home_schedule_loader_test.dart'
+          insert_anchor = '  @override\n  Future<Map<String, dynamic>> getCurrentUser() async {\n'
+          override = '''  @override
+  Future<Map<String, dynamic>> getHomeSnapshot({
+    required DateTime fromDate,
+    required DateTime toDate,
+  }) async {
+    throw const LifeMateApiException(
+      statusCode: 404,
+      code: 'route_not_found',
+      message: 'Exercise the legacy partial-response fallback.',
+    );
+  }
+
+'''
+          replace_once(home_test, insert_anchor, override + insert_anchor)
+
+          women_test = 'wellmate/test/women_companion_experience_test.dart'
+          insert_anchor = '  @override\n  Future<Map<String, dynamic>> getWomenCalendarProfile() async {\n'
+          dashboard_override = '''  @override
+  Future<Map<String, dynamic>> getWomenCalendarDashboard({
+    required DateTime fromDate,
+    required DateTime toDate,
+  }) async {
+    final today = _dateOnly(DateTime.now());
+    final periodStart = today.subtract(const Duration(days: 2));
+    return {
+      'profile': {
+        'enabled': true,
+        'lastPeriodStart': _isoDate(periodStart),
+        'cycleLength': 28,
+        'periodLength': 5,
+        'remindersEnabled': true,
+        'version': 2,
+      },
+      'episodes': [
+        {
+          'id': 'episode-1',
+          'startedOn': _isoDate(periodStart),
+          'endedOn': null,
+          'version': 1,
+        },
+      ],
+      'currentUser': const {
+        'user': {'id': 'patient-1'},
+        'profile': {'displayName': 'نازنین'},
+      },
+      'currentProfile': const {
+        'displayName': 'نازنین',
+        'avatarKey': 'person_pink',
+        'profilePhotoUrl': null,
+      },
+      'relationships': const [
+        {
+          'id': 'relationship-1',
+          'status': 'active',
+          'caregiverDisplayName': 'حمیدرضا',
+          'canViewWomenCalendar': true,
+        },
+      ],
+      'treatmentPlans': const [],
+      'dailyLogs': [
+        {
+          'id': 'daily-1',
+          'loggedOn': _isoDate(today),
+          'mood': 'good',
+          'energyLevel': 4,
+          'painLevel': 1,
+          'symptoms': ['fatigue'],
+          'privateNotes': 'private owner note',
+          'shareSummaryWithCompanion': true,
+          'version': 1,
+        },
+      ],
+    };
+  }
+
+'''
+          replace_once(women_test, insert_anchor, dashboard_override + insert_anchor)
+
+          client_test = Path('packages/lifemate_client/test/lifemate_api_client_test.dart')
+          text = client_test.read_text()
+          text = text.replace(
+              "        if (requestCount == 1) {\n          return http.Response(\n            jsonEncode({'code': 'temporarily_unavailable'}),\n",
+              "        if (requestCount < 3) {\n          return http.Response(\n            jsonEncode({'code': 'database_busy'}),\n",
+              1,
+          ).replace('    expect(requestCount, 2);\n    expect(result.single[\'id\'], \'medication-1\');\n',
+                    '    expect(requestCount, 3);\n    expect(result.single[\'id\'], \'medication-1\');\n', 1)
+          extra_test = '''
+  test('home snapshot uses one range-scoped authenticated request', () async {
+    late http.Request observed;
+    final api = LifeMateApiClient(
+      baseUri: Uri.parse('https://api.example.test'),
+      accessToken: () => 'access-token',
+      httpClient: MockClient((request) async {
+        observed = request;
+        return http.Response(
+          jsonEncode({
+            'currentUser': {'profile': {'displayName': 'Test'}},
+            'treatmentPlans': [],
+            'doseOccurrences': [],
+            'careEvents': [],
+          }),
+          200,
+          headers: {'content-type': 'application/json'},
+        );
+      }),
+    );
+
+    final result = await api.getHomeSnapshot(
+      fromDate: DateTime(2026, 8, 6),
+      toDate: DateTime(2026, 8, 13),
+    );
+
+    expect(observed.url.path, '/api/v1/home-snapshot');
+    expect(observed.url.queryParameters['fromDate'], '2026-08-06');
+    expect(observed.url.queryParameters['toDate'], '2026-08-13');
+    expect(result['doseOccurrences'], isEmpty);
+  });
+'''
+          closing = '\n}\n'
+          if not text.endswith(closing):
+              raise SystemExit('client test closing anchor missing')
+          client_test.write_text(text[:-len(closing)] + extra_test + closing)
+
+          startup_test = Path('wellmate/test/home_startup_request_budget_test.dart')
+          startup_test.write_text('''import 'package:flutter/material.dart';
+import 'package:flutter_test/flutter_test.dart';
+import 'package:lifemate_client/lifemate_client.dart';
+import 'package:provider/provider.dart';
+import 'package:wellmate/localization/app_localizations.dart';
+import 'package:wellmate/providers/medication_provider.dart';
+import 'package:wellmate/providers/notification_provider.dart';
+import 'package:wellmate/screens/home/home_screen.dart';
+
+void main() {
+  testWidgets('home startup does not mount every data-heavy tab', (tester) async {
+    final api = _BudgetApi();
+    await tester.pumpWidget(
+      MultiProvider(
+        providers: [
+          Provider<LifeMateApiClient>.value(value: api),
+          ChangeNotifierProvider(create: (_) => MedicationProvider()),
+          ChangeNotifierProvider<NotificationProvider>(
+            create: (_) => _NoOpNotificationProvider(),
+          ),
+        ],
+        child: MaterialApp(
+          locale: const Locale('fa'),
+          localizationsDelegates: const [
+            AppLocalizations.delegate,
+            DefaultMaterialLocalizations.delegate,
+            DefaultWidgetsLocalizations.delegate,
+          ],
+          supportedLocales: const [Locale('fa'), Locale('en')],
+          home: const HomeScreen(),
+        ),
+      ),
+    );
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 150));
+
+    expect(api.homeSnapshotCalls, 1);
+    expect(api.womenProfileCalls, 1);
+    expect(api.womenDashboardCalls, 0);
+    expect(api.legacyTreatmentCalls, 0);
+    expect(api.legacyRelationshipCalls, 0);
+    expect(tester.takeException(), isNull);
+
+    await tester.pumpWidget(const SizedBox.shrink());
+  });
+}
+
+class _BudgetApi extends LifeMateApiClient {
+  _BudgetApi()
+      : super(
+          baseUri: Uri.parse('https://example.invalid'),
+          accessToken: () => 'token',
+        );
+
+  int homeSnapshotCalls = 0;
+  int womenProfileCalls = 0;
+  int womenDashboardCalls = 0;
+  int legacyTreatmentCalls = 0;
+  int legacyRelationshipCalls = 0;
+
+  @override
+  Future<Map<String, dynamic>> getHomeSnapshot({
+    required DateTime fromDate,
+    required DateTime toDate,
+  }) async {
+    homeSnapshotCalls += 1;
+    return const {
+      'currentUser': {
+        'profile': {'displayName': 'کاربر', 'timeZone': 'Asia/Tehran'},
+      },
+      'treatmentPlans': [],
+      'doseOccurrences': [],
+      'careEvents': [],
+    };
+  }
+
+  @override
+  Future<Map<String, dynamic>> getWomenCalendarProfile() async {
+    womenProfileCalls += 1;
+    return const {'enabled': true};
+  }
+
+  @override
+  Future<Map<String, dynamic>> getWomenCalendarDashboard({
+    required DateTime fromDate,
+    required DateTime toDate,
+  }) async {
+    womenDashboardCalls += 1;
+    return const {};
+  }
+
+  @override
+  Future<Map<String, dynamic>> getCurrentProfile() async => const {
+        'displayName': 'کاربر',
+        'avatarKey': 'person_blue',
+        'profilePhotoUrl': null,
+      };
+
+  @override
+  Future<List<Map<String, dynamic>>> getTreatmentPlans() async {
+    legacyTreatmentCalls += 1;
+    return const [];
+  }
+
+  @override
+  Future<List<Map<String, dynamic>>> getCareRelationships() async {
+    legacyRelationshipCalls += 1;
+    return const [];
+  }
+}
+
+class _NoOpNotificationProvider extends NotificationProvider {
+  @override
+  Future<void> syncReminders(
+    List<dynamic> items, {
+    required String timeZone,
+    required bool isPersian,
+  }) async {}
+}
+''')
+
+          workflow = Path('.github/workflows/db-pool-startup-resilience.yml')
+          workflow.unlink()
+          PY
+
+          dart format packages/lifemate_client/lib/src/lifemate_api_client.dart \
+            packages/lifemate_client/test/lifemate_api_client_test.dart \
+            wellmate/lib/screens/home/home_screen.dart \
+            wellmate/lib/screens/home/home_screen_content.dart \
+            wellmate/lib/screens/home/home_schedule_loader.dart \
+            wellmate/lib/screens/women_calendar/women_companion_screen.dart \
+            wellmate/lib/screens/women_calendar/women_calendar_screen.dart \
+            wellmate/test/home_schedule_loader_test.dart \
+            wellmate/test/women_companion_experience_test.dart \
+            wellmate/test/home_startup_request_budget_test.dart
+          deno fmt supabase/functions/lifemate-api
+
+      - name: Verify Edge and Flutter changes
+        shell: bash
+        run: |
+          set -euo pipefail
+          (cd supabase/functions/lifemate-api && deno fmt --check && deno task check && deno task test)
+          (cd packages/lifemate_client && flutter pub get && flutter analyze --no-fatal-warnings --no-fatal-infos && flutter test)
+          (cd wellmate && flutter pub get && flutter analyze --no-fatal-warnings --no-fatal-infos && flutter test)
+          (cd caremate && flutter pub get && flutter analyze --no-fatal-warnings --no-fatal-infos && flutter test)
+          git diff --check
+
+      - name: Commit canonical fix
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'Hamidreza Pakpour'
+          git config user.email '136631329+Hamrez95@users.noreply.github.com'
+          git add -A
+          git commit -m 'fix: bound database connections and collapse startup fan-out'
+          git push origin HEAD:fix/db-pool-startup-resilience
