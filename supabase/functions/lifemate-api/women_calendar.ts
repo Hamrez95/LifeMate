@@ -436,7 +436,7 @@ export function createWomenCalendarStore(databaseUrl: string) {
   ): Promise<Record<string, unknown>[]> {
     const fromDate = requiredDate(fromValue, "fromDate");
     const toDate = requiredDate(toValue, "toDate");
-    validateRange(fromDate, toDate);
+    validateRange(fromDate, toDate, 90);
     const rows = await sql`
       select * from lifemate.women_calendar_daily_logs
       where owner_user_id = ${userId}

@@ -57,10 +57,12 @@ Deno.test("requiredTimeZone accepts IANA zones and rejects arbitrary text", () =
   assertThrows(() => requiredTimeZone("Tehran/Invalid"), ApiError);
 });
 
-Deno.test("validateRange permits 31 days and rejects reversed or larger ranges", () => {
+Deno.test("validateRange keeps strict defaults and supports explicit history", () => {
   validateRange("2026-07-01", "2026-08-01");
   assertThrows(() => validateRange("2026-08-02", "2026-08-01"), ApiError);
   assertThrows(() => validateRange("2026-07-01", "2026-08-02"), ApiError);
+  validateRange("2026-05-08", "2026-08-06", 90);
+  assertThrows(() => validateRange("2026-05-07", "2026-08-06", 90), ApiError);
 });
 
 Deno.test("validateReportedAt rejects implausible future and stale events", () => {
