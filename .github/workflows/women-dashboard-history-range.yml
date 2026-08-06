@@ -1,0 +1,126 @@
+name: women-dashboard-history-range
+
+on:
+  push:
+    branches:
+      - fix/women-dashboard-history-range
+
+permissions:
+  contents: write
+
+jobs:
+  patch-test-commit:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
+        with:
+          ref: fix/women-dashboard-history-range
+          show-progress: false
+
+      - uses: denoland/setup-deno@22d081ff2d3a40755e97629de92e3bcbfa7cf2ed
+        with:
+          deno-version: v2.9.4
+
+      - uses: subosito/flutter-action@4cab68ce0f1c7c924f688bff4792e044f1aeb30c
+        with:
+          flutter-version: '3.44.0'
+          channel: stable
+          cache: true
+
+      - name: Apply range correction and cleanup
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+
+          def replace_once(path, old, new):
+              p = Path(path)
+              text = p.read_text()
+              if old not in text:
+                  raise SystemExit(f'anchor missing in {path}')
+              p.write_text(text.replace(old, new, 1))
+
+          replace_once(
+              'supabase/functions/lifemate-api/validation.ts',
+              '''export function validateRange(fromDate: string, toDate: string): void {
+  const from = Date.parse(`${fromDate}T00:00:00Z`);
+  const to = Date.parse(`${toDate}T00:00:00Z`);
+  const days = Math.round((to - from) / 86400000);
+  if (days < 0 || days > 31) {
+    throw new ApiError(
+      400,
+      "invalid_date_range",
+      "Date range must be between 0 and 31 days.",
+    );
+  }
+}
+''',
+              '''export function validateRange(
+  fromDate: string,
+  toDate: string,
+  maximumDays = 31,
+): void {
+  const from = Date.parse(`${fromDate}T00:00:00Z`);
+  const to = Date.parse(`${toDate}T00:00:00Z`);
+  const days = Math.round((to - from) / 86400000);
+  if (days < 0 || days > maximumDays) {
+    throw new ApiError(
+      400,
+      "invalid_date_range",
+      `Date range must be between 0 and ${maximumDays} days.`,
+    );
+  }
+}
+''',
+          )
+          replace_once(
+              'supabase/functions/lifemate-api/women_calendar.ts',
+              '    validateRange(fromDate, toDate);\n',
+              '    validateRange(fromDate, toDate, 90);\n',
+          )
+          replace_once(
+              'supabase/functions/lifemate-api/validation_test.ts',
+              '''Deno.test("validateRange permits 31 days and rejects reversed or larger ranges", () => {
+  validateRange("2026-07-01", "2026-08-01");
+  assertThrows(() => validateRange("2026-08-02", "2026-08-01"), ApiError);
+  assertThrows(() => validateRange("2026-07-01", "2026-08-02"), ApiError);
+});
+''',
+              '''Deno.test("validateRange uses a strict default and an explicit bounded history window", () => {
+  validateRange("2026-07-01", "2026-08-01");
+  assertThrows(() => validateRange("2026-08-02", "2026-08-01"), ApiError);
+  assertThrows(() => validateRange("2026-07-01", "2026-08-02"), ApiError);
+  validateRange("2026-05-08", "2026-08-06", 90);
+  assertThrows(
+    () => validateRange("2026-05-07", "2026-08-06", 90),
+    ApiError,
+  );
+});
+''',
+          )
+          Path('.github/workflows/temporary-release-v0.9.0-internal.11.yml').unlink(missing_ok=True)
+          Path('.github/workflows/women-dashboard-history-range.yml').unlink()
+          PY
+          deno fmt supabase/functions/lifemate-api/validation.ts \
+            supabase/functions/lifemate-api/validation_test.ts \
+            supabase/functions/lifemate-api/women_calendar.ts
+
+      - name: Verify backend and applications
+        shell: bash
+        run: |
+          set -euo pipefail
+          (cd supabase/functions/lifemate-api && deno fmt --check && deno task check && deno task test)
+          (cd packages/lifemate_client && flutter pub get && flutter analyze --no-fatal-warnings --no-fatal-infos && flutter test)
+          (cd wellmate && flutter pub get && flutter analyze --no-fatal-warnings --no-fatal-infos && flutter test)
+          (cd caremate && flutter pub get && flutter analyze --no-fatal-warnings --no-fatal-infos && flutter test)
+          git diff --check
+
+      - name: Commit reviewed correction
+        shell: bash
+        run: |
+          git config user.name 'Hamidreza Pakpour'
+          git config user.email '136631329+Hamrez95@users.noreply.github.com'
+          git add -A
+          git commit -m 'fix: allow bounded women dashboard history queries'
+          git push origin HEAD:fix/women-dashboard-history-range
