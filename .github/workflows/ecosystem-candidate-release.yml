@@ -70,32 +70,38 @@ jobs:
         with:
           persist-credentials: false
           show-progress: false
-      - uses: supabase/setup-cli@3c2f5e2ae34c34e428e8e206e2c4d21fa2d20fbf
-        with:
-          version: 2.101.0
       - name: Verify protected deployment configuration
+        shell: bash
         run: |
           set -euo pipefail
-          test -n "$SUPABASE_ACCESS_TOKEN"
           test -n "$SUPABASE_PUBLISHABLE_KEY"
+          if [ -z "$SUPABASE_ACCESS_TOKEN" ]; then
+            echo 'SUPABASE_ACCESS_TOKEN is not configured; expecting a connector-assisted deployment of the exact candidate commit.'
+          fi
+      - uses: supabase/setup-cli@3c2f5e2ae34c34e428e8e206e2c4d21fa2d20fbf
+        if: ${{ env.SUPABASE_ACCESS_TOKEN != '' }}
+        with:
+          version: 2.101.0
       - name: Stage reviewed API source under isolated candidate slug
+        if: ${{ env.SUPABASE_ACCESS_TOKEN != '' }}
         shell: bash
         run: |
           set -euo pipefail
           rm -rf supabase/functions/lifemate-api-candidate
           cp -R supabase/functions/lifemate-api supabase/functions/lifemate-api-candidate
       - name: Deploy isolated candidate function
+        if: ${{ env.SUPABASE_ACCESS_TOKEN != '' }}
         run: >-
           supabase functions deploy lifemate-api-candidate
           --project-ref "$SUPABASE_PROJECT_REF"
           --no-verify-jwt
           --use-api
-      - name: Verify candidate health and authentication boundary
+      - name: Verify exact candidate health and authentication boundary
         shell: bash
         run: |
           set -euo pipefail
-          health="$(curl --fail --silent --show-error --retry 5 --retry-delay 2 --retry-all-errors "$CANDIDATE_API_BASE_URL/health")"
-          echo "$health" | jq -e '.status == "ok" and .database == "ready" and .service == "lifemate-api"' >/dev/null
+          health="$(curl --fail --silent --show-error --retry 8 --retry-delay 2 --retry-all-errors "$CANDIDATE_API_BASE_URL/health")"
+          echo "$health" | jq -e --arg expected "$GITHUB_SHA" '.status == "ok" and .database == "ready" and .service == "lifemate-api" and .version == $expected' >/dev/null
           status="$(curl --silent --show-error --output /dev/null --write-out '%{http_code}' "$CANDIDATE_API_BASE_URL/api/v1/me")"
           test "$status" = '401'
 
