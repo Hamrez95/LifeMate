@@ -23,9 +23,7 @@ class LifeMateAuth {
     return Supabase.instance.client.auth.signInWithOAuth(
       OAuthProvider.google,
       redirectTo: kIsWeb ? null : callbackUrlForApp(appName),
-      queryParams: const {
-        'prompt': 'select_account',
-      },
+      queryParams: const {'prompt': 'select_account'},
     );
   }
 
