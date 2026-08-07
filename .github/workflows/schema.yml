@@ -73,7 +73,9 @@ jobs:
             20260806231838_harden_account_deletion_and_sync_20260807.sql \
             20260806231949_hot_query_person_indexes_20260807.sql \
             20260806233634_decouple_legacy_account_fk_20260807.sql \
-            20260806234220_bind_consent_to_access_context_20260807.sql; do
+            20260806234220_bind_consent_to_access_context_20260807.sql \
+            20260807050708_complete_runtime_authorization_outbox_20260807.sql \
+            20260807050948_scope_outbox_worker_claims_20260807.sql; do
             test -f "supabase/migrations/$required" || { echo "::error::Missing live-ledger migration $required"; exit 1; }
           done
 
@@ -105,6 +107,15 @@ jobs:
             if to_regclass('consent.data_use_consents') is null then raise exception 'data_use_consents missing'; end if;
             if to_regclass('commerce.entitlements') is null then raise exception 'entitlements missing'; end if;
             if to_regclass('integration.outbox_messages') is null then raise exception 'outbox missing'; end if;
+            if to_regprocedure('integration.claim_outbox_messages_for_events(character varying,integer,character varying[])') is null then
+              raise exception 'scoped outbox claim function missing';
+            end if;
+            if to_regprocedure('care.rebuild_daily_adherence_summary(uuid,date)') is null then
+              raise exception 'adherence projection rebuild function missing';
+            end if;
+            if to_regprocedure('identity.finalize_account_deletion(uuid)') is null then
+              raise exception 'account deletion finalizer missing';
+            end if;
             if not exists (
               select 1 from pg_constraint
               where conname='FK_dose_occurrences_treatment_schedules_treatment_schedule_id'
