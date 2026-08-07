@@ -23,10 +23,10 @@ jobs:
         with:
           show-progress: false
           fetch-depth: 0
-      - uses: subosito/flutter-action@e938fdf56512cc96ef3f93601a5a40bde3801046
+      - uses: subosito/flutter-action@4cab68ce0f1c7c924f688bff4792e044f1aeb30c
         with:
-          flutter-version: '3.35.1'
-          channel: 'stable'
+          flutter-version: '3.44.0'
+          channel: stable
           cache: true
       - name: Apply exact client codemod
         run: python3 tools/refactor/complete_ecosystem_client.py
