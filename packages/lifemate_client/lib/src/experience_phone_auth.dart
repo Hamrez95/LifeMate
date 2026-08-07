@@ -1,10 +1,7 @@
 part of 'lifemate_experience_gate.dart';
 
 class _PhoneOtpButton extends StatelessWidget {
-  const _PhoneOtpButton({
-    required this.brand,
-    required this.enabled,
-  });
+  const _PhoneOtpButton({required this.brand, required this.enabled});
 
   final _BrandPalette brand;
   final bool enabled;
@@ -15,12 +12,12 @@ class _PhoneOtpButton extends StatelessWidget {
       key: const ValueKey('auth-phone-otp'),
       onPressed: enabled
           ? () => showModalBottomSheet<void>(
-                context: context,
-                isScrollControlled: true,
-                useSafeArea: true,
-                backgroundColor: Colors.transparent,
-                builder: (_) => _PhoneOtpSheet(brand: brand),
-              )
+              context: context,
+              isScrollControlled: true,
+              useSafeArea: true,
+              backgroundColor: Colors.transparent,
+              builder: (_) => _PhoneOtpSheet(brand: brand),
+            )
           : null,
       style: OutlinedButton.styleFrom(
         minimumSize: const Size.fromHeight(52),
@@ -81,7 +78,8 @@ class _PhoneOtpSheetState extends State<_PhoneOtpSheet> {
     } on AuthException catch (error) {
       if (mounted) setState(() => _error = _friendlyPhoneError(error));
     } catch (_) {
-      if (mounted) setState(() => _error = 'ارسال کد انجام نشد. دوباره تلاش کنید.');
+      if (mounted)
+        setState(() => _error = 'ارسال کد انجام نشد. دوباره تلاش کنید.');
     } finally {
       if (mounted) setState(() => _busy = false);
     }
@@ -139,7 +137,10 @@ class _PhoneOtpSheetState extends State<_PhoneOtpSheet> {
                         color: brand.primary.withValues(alpha: 0.1),
                         borderRadius: BorderRadius.circular(15),
                       ),
-                      child: Icon(Icons.phone_android_rounded, color: brand.primary),
+                      child: Icon(
+                        Icons.phone_android_rounded,
+                        color: brand.primary,
+                      ),
                     ),
                     const SizedBox(width: 12),
                     const Expanded(
@@ -148,19 +149,27 @@ class _PhoneOtpSheetState extends State<_PhoneOtpSheet> {
                         children: [
                           Text(
                             'ورود با موبایل',
-                            style: TextStyle(fontSize: 18, fontWeight: FontWeight.w900),
+                            style: TextStyle(
+                              fontSize: 18,
+                              fontWeight: FontWeight.w900,
+                            ),
                           ),
                           SizedBox(height: 3),
                           Text(
                             'شماره را با فرمت بین‌المللی وارد کنید.',
-                            style: TextStyle(fontSize: 12, color: Color(0xFF718096)),
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: Color(0xFF718096),
+                            ),
                           ),
                         ],
                       ),
                     ),
                     IconButton(
                       tooltip: 'بستن',
-                      onPressed: _busy ? null : () => Navigator.of(context).pop(),
+                      onPressed: _busy
+                          ? null
+                          : () => Navigator.of(context).pop(),
                       icon: const Icon(Icons.close_rounded),
                     ),
                   ],
@@ -177,7 +186,9 @@ class _PhoneOtpSheetState extends State<_PhoneOtpSheet> {
                     labelText: 'شماره موبایل',
                     hintText: '+989121234567',
                     prefixIcon: const Icon(Icons.phone_outlined),
-                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(16)),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(16),
+                    ),
                   ),
                 ),
                 if (_codeSent) ...[
@@ -194,7 +205,9 @@ class _PhoneOtpSheetState extends State<_PhoneOtpSheet> {
                       labelText: 'کد یک‌بارمصرف',
                       counterText: '',
                       prefixIcon: const Icon(Icons.password_rounded),
-                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(16)),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(16),
+                      ),
                     ),
                     onSubmitted: (_) => _verifyCode(),
                   ),
@@ -214,25 +227,42 @@ class _PhoneOtpSheetState extends State<_PhoneOtpSheet> {
                   const SizedBox(height: 12),
                   Text(
                     _message!,
-                    style: TextStyle(color: brand.primary, fontSize: 12, fontWeight: FontWeight.w700),
+                    style: TextStyle(
+                      color: brand.primary,
+                      fontSize: 12,
+                      fontWeight: FontWeight.w700,
+                    ),
                   ),
                 ],
                 const SizedBox(height: 18),
                 FilledButton.icon(
-                  key: ValueKey(_codeSent ? 'auth-phone-verify' : 'auth-phone-send'),
-                  onPressed: _busy ? null : (_codeSent ? _verifyCode : _sendCode),
+                  key: ValueKey(
+                    _codeSent ? 'auth-phone-verify' : 'auth-phone-send',
+                  ),
+                  onPressed: _busy
+                      ? null
+                      : (_codeSent ? _verifyCode : _sendCode),
                   style: FilledButton.styleFrom(
                     minimumSize: const Size.fromHeight(52),
                     backgroundColor: brand.primary,
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(17)),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(17),
+                    ),
                   ),
                   icon: _busy
                       ? const SizedBox(
                           width: 18,
                           height: 18,
-                          child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            color: Colors.white,
+                          ),
                         )
-                      : Icon(_codeSent ? Icons.verified_user_outlined : Icons.sms_outlined),
+                      : Icon(
+                          _codeSent
+                              ? Icons.verified_user_outlined
+                              : Icons.sms_outlined,
+                        ),
                   label: Text(_codeSent ? 'تأیید و ورود' : 'ارسال کد'),
                 ),
                 if (_codeSent) ...[
@@ -241,11 +271,11 @@ class _PhoneOtpSheetState extends State<_PhoneOtpSheet> {
                     onPressed: _busy
                         ? null
                         : () => setState(() {
-                              _codeSent = false;
-                              _otp.clear();
-                              _error = null;
-                              _message = null;
-                            }),
+                            _codeSent = false;
+                            _otp.clear();
+                            _error = null;
+                            _message = null;
+                          }),
                     child: const Text('اصلاح شماره موبایل'),
                   ),
                 ],
