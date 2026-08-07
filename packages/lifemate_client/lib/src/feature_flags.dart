@@ -8,6 +8,11 @@ abstract final class LifeMateFeatureFlags {
     defaultValue: false,
   );
 
+  static const bool phoneOtpEnabled = bool.fromEnvironment(
+    'ENABLE_PHONE_OTP',
+    defaultValue: false,
+  );
+
   static const bool womenCalendarPilotEnabled = bool.fromEnvironment(
     'ENABLE_WOMEN_CALENDAR_PILOT',
     defaultValue: false,
