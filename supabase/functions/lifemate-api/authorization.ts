@@ -39,7 +39,9 @@ export function createAuthorizationStore(databaseUrl: string) {
     }
   }
 
-  async function capabilitySnapshot(accountId: string): Promise<CapabilitySnapshot> {
+  async function capabilitySnapshot(
+    accountId: string,
+  ): Promise<CapabilitySnapshot> {
     const accountRows = await sql`
       select a.id,
         (
