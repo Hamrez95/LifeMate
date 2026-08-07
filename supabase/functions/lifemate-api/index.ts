@@ -1,5 +1,11 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createCareEventStore } from "./care_events.ts";
+import { createAccountLifecycleStore } from "./account_lifecycle.ts";
+import { createAuthorizationStore } from "./authorization.ts";
+import {
+  createIdentityBridge,
+  type ProviderIdentity,
+} from "./identity_bridge.ts";
 import { type AuthUser, createLifeMateDatabase } from "./database.ts";
 import { isPostgresUnavailable } from "./database_client.ts";
 import { createEditStore } from "./edit_store.ts";
@@ -19,6 +25,10 @@ import {
   readJsonObject,
 } from "./validation.ts";
 
+type AuthenticatedUser = AuthUser & {
+  identities: ProviderIdentity[];
+};
+
 const {
   databaseUrl,
   supabaseUrl,
@@ -35,6 +45,9 @@ const profilePhotos = createProfilePhotoStorage(
   storageServiceKey,
 );
 const careEvents = createCareEventStore(databaseUrl);
+const authorizationStore = createAuthorizationStore(databaseUrl);
+const identityBridge = createIdentityBridge(databaseUrl);
+const accountLifecycle = createAccountLifecycleStore(databaseUrl);
 const edits = createEditStore(databaseUrl);
 const womenCalendar = createWomenCalendarStore(databaseUrl);
 const womenCalendarPilotEnabled =
@@ -119,14 +132,79 @@ Deno.serve(async (request: Request) => {
 async function route(
   request: Request,
   path: string,
-  auth: AuthUser,
+  auth: AuthenticatedUser,
 ): Promise<Response> {
   if (request.method === "POST" && path === "/api/v1/users/bootstrap") {
     enforceRateLimit(`bootstrap:${auth.id}`, 10, 60_000);
-    return json(await db.bootstrapUser(auth, await readJsonObject(request)));
+    const bootstrapped = await db.bootstrapUser(
+      auth,
+      await readJsonObject(request),
+    );
+    const accountId = String(bootstrapped.id ?? "");
+    if (accountId) {
+      await identityBridge.syncExternalIdentities(accountId, auth);
+    }
+    return json(bootstrapped);
   }
 
   const identity = await db.requireIdentity(auth);
+
+  if (request.method === "GET" && path === "/api/v1/capabilities") {
+    return json(
+      await authorizationStore.capabilitySnapshot(identity.appUserId),
+    );
+  }
+
+  if (
+    request.method === "POST" &&
+    path === "/api/v1/me/identities/sync"
+  ) {
+    enforceRateLimit(`identity-sync:${identity.appUserId}`, 10, 60 * 60_000);
+    return json({
+      providers: await identityBridge.syncExternalIdentities(
+        identity.appUserId,
+        auth,
+      ),
+    });
+  }
+
+  if (
+    request.method === "GET" &&
+    path === "/api/v1/account/deletion-requests/latest"
+  ) {
+    return json(
+      await accountLifecycle.latestDeletionRequest(identity.appUserId),
+    );
+  }
+
+  if (
+    request.method === "POST" &&
+    path === "/api/v1/account/deletion-requests"
+  ) {
+    enforceRateLimit(
+      `account-deletion:${identity.appUserId}`,
+      3,
+      24 * 60 * 60_000,
+    );
+    const deletion = await accountLifecycle.requestDeletion(identity.appUserId);
+
+    // The database account is disabled synchronously, so subsequent API calls
+    // are denied even if a short-lived JWT still exists. Global logout is an
+    // additional best-effort session invalidation; the outbox worker is the
+    // durable path. Never log the Authorization header.
+    const authorizationHeader = request.headers.get("authorization");
+    if (authorizationHeader) {
+      await fetch(`${supabaseUrl}/auth/v1/logout?scope=global`, {
+        method: "POST",
+        headers: {
+          Authorization: authorizationHeader,
+          apikey: publishableKey,
+        },
+        signal: AbortSignal.timeout(5_000),
+      }).catch(() => undefined);
+    }
+    return json(deletion, 202);
+  }
 
   if (request.method === "GET" && path === "/api/v1/home-snapshot") {
     const url = new URL(request.url);
@@ -504,6 +582,12 @@ async function route(
     /^\/api\/v1\/care\/patients\/([0-9a-f-]{36})\/dose-occurrences$/i,
   );
   if (request.method === "GET" && careDoseMatch) {
+    await authorizationStore.requirePersonFeature(
+      identity.appUserId,
+      careDoseMatch[1],
+      "treatment.adherence.read",
+      "care.basic",
+    );
     const url = new URL(request.url);
     return json(
       await db.listCareDoseOccurrences(
@@ -519,6 +603,12 @@ async function route(
     /^\/api\/v1\/care\/patients\/([0-9a-f-]{36})\/care-events$/i,
   );
   if (request.method === "GET" && careEventMatch) {
+    await authorizationStore.requirePersonFeature(
+      identity.appUserId,
+      careEventMatch[1],
+      "care.events.read",
+      "care.basic",
+    );
     const url = new URL(request.url);
     return json(
       await careEvents.listCareRecipientEvents(
@@ -535,6 +625,12 @@ async function route(
   );
   if (request.method === "GET" && careWomenCalendarMatch) {
     requireWomenCalendarPilot();
+    await authorizationStore.requirePersonFeature(
+      identity.appUserId,
+      careWomenCalendarMatch[1],
+      "women_health.summary.read",
+      "care.basic",
+    );
     return json(
       await womenCalendar.getCareSummary(
         identity.appUserId,
@@ -547,6 +643,12 @@ async function route(
   );
   if (request.method === "POST" && careWomenSupportMatch) {
     requireWomenCalendarPilot();
+    await authorizationStore.requirePersonFeature(
+      identity.appUserId,
+      careWomenSupportMatch[1],
+      "women_health.support.write",
+      "care.basic",
+    );
     enforceRateLimit(
       `women-calendar-support:${identity.appUserId}`,
       30,
@@ -565,7 +667,7 @@ async function route(
   throw new ApiError(404, "route_not_found", "API route was not found.");
 }
 
-async function authenticate(request: Request): Promise<AuthUser> {
+async function authenticate(request: Request): Promise<AuthenticatedUser> {
   const authorization = request.headers.get("authorization") ?? "";
   if (!authorization.startsWith("Bearer ") || authorization.length > 4_096) {
     throw new ApiError(
@@ -614,6 +716,9 @@ async function authenticate(request: Request): Promise<AuthUser> {
     userMetadata: value.user_metadata && typeof value.user_metadata === "object"
       ? value.user_metadata
       : {},
+    identities: Array.isArray(value.identities)
+      ? value.identities as ProviderIdentity[]
+      : [],
   };
 }
 
