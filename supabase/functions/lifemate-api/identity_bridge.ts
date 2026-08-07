@@ -1,4 +1,5 @@
 import { getLifeMateSql } from "./database_client.ts";
+import { ApiError } from "./validation.ts";
 
 export type ProviderIdentity = {
   provider?: unknown;
@@ -75,7 +76,11 @@ export function createIdentityBridge(databaseUrl: string) {
         returning account_id
       `;
       if (rows[0]?.account_id !== accountId) {
-        throw new Error("external_identity_account_conflict");
+        throw new ApiError(
+          409,
+          "external_identity_account_conflict",
+          "This external identity is already linked to another LifeMate account.",
+        );
       }
       providers.add(provider);
     }
