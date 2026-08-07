@@ -21,11 +21,18 @@ text = replace_once(
     "runtime imports",
 )
 
+validation_anchor = '''import {
+  ApiError,
+  normalizeOptional,
+  normalizePath,
+  readJsonObject,
+} from "./validation.ts";
+'''
 text = replace_once(
     text,
-    'type AuthUser = {\n  id: string;\n  email: string | null;\n  phone: string | null;\n  userMetadata: Record<string, unknown>;\n};\n',
-    'type AuthUser = {\n  id: string;\n  email: string | null;\n  phone: string | null;\n  userMetadata: Record<string, unknown>;\n};\n\n'
-    'type AuthenticatedUser = AuthUser & {\n  identities: ProviderIdentity[];\n};\n',
+    validation_anchor,
+    validation_anchor
+    + '\ntype AuthenticatedUser = AuthUser & {\n  identities: ProviderIdentity[];\n};\n',
     "authenticated user type",
 )
 
@@ -65,7 +72,60 @@ text = replace_once(
 )
 
 identity_anchor = '  const identity = await db.requireIdentity(auth);\n\n'
-identity_routes = '''  const identity = await db.requireIdentity(auth);\n\n  if (request.method === "GET" && path === "/api/v1/capabilities") {\n    return json(await authorizationStore.capabilitySnapshot(identity.appUserId));\n  }\n\n  if (\n    request.method === "POST" &&\n    path === "/api/v1/me/identities/sync"\n  ) {\n    enforceRateLimit(`identity-sync:${identity.appUserId}`, 10, 60 * 60_000);\n    return json({\n      providers: await identityBridge.syncExternalIdentities(\n        identity.appUserId,\n        auth,\n      ),\n    });\n  }\n\n  if (\n    request.method === "GET" &&\n    path === "/api/v1/account/deletion-requests/latest"\n  ) {\n    return json(\n      await accountLifecycle.latestDeletionRequest(identity.appUserId),\n    );\n  }\n\n  if (\n    request.method === "POST" &&\n    path === "/api/v1/account/deletion-requests"\n  ) {\n    enforceRateLimit(`account-deletion:${identity.appUserId}`, 3, 24 * 60 * 60_000);\n    const deletion = await accountLifecycle.requestDeletion(identity.appUserId);\n\n    // The database account is disabled synchronously, so subsequent API calls\n    // are denied even if a short-lived JWT still exists. Global logout is an\n    // additional best-effort session invalidation; the outbox worker is the\n    // durable path. Never log the Authorization header.\n    const authorizationHeader = request.headers.get("authorization");\n    if (authorizationHeader) {\n      await fetch(`${supabaseUrl}/auth/v1/logout?scope=global`, {\n        method: "POST",\n        headers: {\n          Authorization: authorizationHeader,\n          apikey: publishableKey,\n        },\n        signal: AbortSignal.timeout(5_000),\n      }).catch(() => undefined);\n    }\n    return json(deletion, 202);\n  }\n\n'''
+identity_routes = '''  const identity = await db.requireIdentity(auth);
+
+  if (request.method === "GET" && path === "/api/v1/capabilities") {
+    return json(await authorizationStore.capabilitySnapshot(identity.appUserId));
+  }
+
+  if (
+    request.method === "POST" &&
+    path === "/api/v1/me/identities/sync"
+  ) {
+    enforceRateLimit(`identity-sync:${identity.appUserId}`, 10, 60 * 60_000);
+    return json({
+      providers: await identityBridge.syncExternalIdentities(
+        identity.appUserId,
+        auth,
+      ),
+    });
+  }
+
+  if (
+    request.method === "GET" &&
+    path === "/api/v1/account/deletion-requests/latest"
+  ) {
+    return json(
+      await accountLifecycle.latestDeletionRequest(identity.appUserId),
+    );
+  }
+
+  if (
+    request.method === "POST" &&
+    path === "/api/v1/account/deletion-requests"
+  ) {
+    enforceRateLimit(`account-deletion:${identity.appUserId}`, 3, 24 * 60 * 60_000);
+    const deletion = await accountLifecycle.requestDeletion(identity.appUserId);
+
+    // The database account is disabled synchronously, so subsequent API calls
+    // are denied even if a short-lived JWT still exists. Global logout is an
+    // additional best-effort session invalidation; the outbox worker is the
+    // durable path. Never log the Authorization header.
+    const authorizationHeader = request.headers.get("authorization");
+    if (authorizationHeader) {
+      await fetch(`${supabaseUrl}/auth/v1/logout?scope=global`, {
+        method: "POST",
+        headers: {
+          Authorization: authorizationHeader,
+          apikey: publishableKey,
+        },
+        signal: AbortSignal.timeout(5_000),
+      }).catch(() => undefined);
+    }
+    return json(deletion, 202);
+  }
+
+'''
 text = replace_once(text, identity_anchor, identity_routes, "account/capability routes")
 
 text = replace_once(
