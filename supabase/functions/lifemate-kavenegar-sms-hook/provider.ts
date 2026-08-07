@@ -16,7 +16,9 @@ export class KavenegarOtpProvider implements PhoneOtpProvider {
     }
 
     const url = new URL(
-      `https://api.kavenegar.com/v1/${encodeURIComponent(this.apiKey)}/verify/lookup.json`,
+      `https://api.kavenegar.com/v1/${
+        encodeURIComponent(this.apiKey)
+      }/verify/lookup.json`,
     );
     url.searchParams.set("receptor", receptor);
     url.searchParams.set("token", otp);
