@@ -4,7 +4,9 @@ import { createClient } from "supabase";
 
 const databaseUrl = Deno.env.get("SUPABASE_DB_URL");
 const supabaseUrl = Deno.env.get("SUPABASE_URL");
-const serviceRoleKey = Deno.env.get(["SUPABASE", "SERVICE", "ROLE", "KEY"].join("_"));
+const serviceRoleKey = Deno.env.get(
+  ["SUPABASE", "SERVICE", "ROLE", "KEY"].join("_"),
+);
 const workerToken = Deno.env.get("LIFEMATE_WORKER_TOKEN");
 
 if (!databaseUrl || !supabaseUrl || !serviceRoleKey) {
@@ -71,7 +73,10 @@ Deno.serve(async (request: Request) => {
     } catch (error) {
       failed++;
       const code = safeErrorCode(error);
-      const retrySeconds = Math.min(3600, 30 * Math.max(1, message.attempt_count));
+      const retrySeconds = Math.min(
+        3600,
+        30 * Math.max(1, message.attempt_count),
+      );
       await sql`
         select integration.fail_outbox_message(
           ${message.id}::uuid,
@@ -109,7 +114,9 @@ async function processMessage(message: OutboxMessage): Promise<void> {
       const { error } = await admin.auth.admin.updateUserById(authSubject, {
         ban_duration: "876000h",
       });
-      if (error) throw new Error(`auth_session_revoke:${error.status ?? "error"}`);
+      if (error) {
+        throw new Error(`auth_session_revoke:${error.status ?? "error"}`);
+      }
       return;
     }
     case "identity.account_deletion_requested": {
@@ -137,7 +144,9 @@ async function processMessage(message: OutboxMessage): Promise<void> {
       const finalized = await sql`
         select identity.finalize_account_deletion(${requestId}::uuid) as ok
       `;
-      if (finalized[0]?.ok !== true) throw new Error("deletion_finalize_failed");
+      if (finalized[0]?.ok !== true) {
+        throw new Error("deletion_finalize_failed");
+      }
       return;
     }
     default:
@@ -163,7 +172,9 @@ function requiredAggregateId(message: OutboxMessage): string {
 
 function stringField(value: Record<string, unknown>, field: string): string {
   const result = value?.[field];
-  if (typeof result !== "string" || result.length === 0 || result.length > 256) {
+  if (
+    typeof result !== "string" || result.length === 0 || result.length > 256
+  ) {
     throw new Error(`invalid_${field}`);
   }
   return result;
@@ -181,7 +192,8 @@ function constantTimeEqual(expected: string, actual: string): boolean {
   let difference = a.length ^ b.length;
   const length = Math.max(a.length, b.length);
   for (let i = 0; i < length; i++) {
-    difference |= (a[i % a.length] ?? 0) ^ (b[i % Math.max(1, b.length)] ?? 0);
+    difference |= (a[i % a.length] ?? 0) ^
+      (b[i % Math.max(1, b.length)] ?? 0);
   }
   return difference === 0;
 }
