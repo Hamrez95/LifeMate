@@ -6,21 +6,31 @@ type Row = Record<string, unknown>;
 export function createAccountLifecycleStore(databaseUrl: string) {
   const sql = getLifeMateSql(databaseUrl);
 
-  async function requestDeletion(accountId: string): Promise<Record<string, unknown>> {
+  async function requestDeletion(
+    accountId: string,
+  ): Promise<Record<string, unknown>> {
     let rows;
     try {
       rows = await sql`
         select identity.request_account_deletion(${accountId}::uuid) as request_id
       `;
     } catch (error) {
-      if (String((error as Record<string, unknown>)?.message ?? "").includes("account_not_found")) {
+      if (
+        String((error as Record<string, unknown>)?.message ?? "").includes(
+          "account_not_found",
+        )
+      ) {
         throw new ApiError(404, "account_not_found", "Account was not found.");
       }
       throw error;
     }
     const requestId = rows[0]?.request_id;
     if (typeof requestId !== "string") {
-      throw new ApiError(500, "deletion_request_failed", "Deletion request could not be created.");
+      throw new ApiError(
+        500,
+        "deletion_request_failed",
+        "Deletion request could not be created.",
+      );
     }
     return {
       id: requestId,
@@ -29,7 +39,9 @@ export function createAccountLifecycleStore(databaseUrl: string) {
     };
   }
 
-  async function latestDeletionRequest(accountId: string): Promise<Record<string, unknown> | null> {
+  async function latestDeletionRequest(
+    accountId: string,
+  ): Promise<Record<string, unknown> | null> {
     const rows = await sql`
       select * from identity.latest_account_deletion_request(${accountId}::uuid)
     `;
