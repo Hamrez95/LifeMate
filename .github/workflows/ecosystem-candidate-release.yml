@@ -1,0 +1,154 @@
+name: ecosystem-candidate-release
+
+on:
+  push:
+    branches: ['feat/ecosystem-data-foundation']
+    paths:
+      - 'tools/release/candidate-ecosystem.trigger'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ecosystem-candidate-release
+  cancel-in-progress: false
+
+env:
+  SUPABASE_PROJECT_REF: bwdvmniywyyijjauipnh
+  SUPABASE_URL: https://bwdvmniywyyijjauipnh.supabase.co
+  CANDIDATE_API_BASE_URL: https://bwdvmniywyyijjauipnh.supabase.co/functions/v1/lifemate-api-candidate
+  SUPABASE_PUBLISHABLE_KEY: ${{ vars.SUPABASE_PUBLISHABLE_KEY || 'sb_publishable_6YpBDD0gAPcenbYGukOeWg_fZXxUb27' }}
+
+jobs:
+  validate:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    env:
+      PUB_ENVIRONMENT: bot:github_actions
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
+        with:
+          persist-credentials: false
+          show-progress: false
+      - uses: denoland/setup-deno@22d081ff2d3a40755e97629de92e3bcbfa7cf2ed
+        with:
+          deno-version: v2.9.4
+      - uses: subosito/flutter-action@4cab68ce0f1c7c924f688bff4792e044f1aeb30c
+        with:
+          flutter-version: '3.44.0'
+          channel: stable
+          cache: true
+      - name: Validate Edge API
+        working-directory: supabase/functions/lifemate-api
+        run: |
+          deno fmt --check
+          deno task check
+          deno task test
+      - name: Validate background worker
+        working-directory: supabase/functions/lifemate-worker
+        run: deno task check
+      - name: Validate Kavenegar hook
+        working-directory: supabase/functions/lifemate-kavenegar-sms-hook
+        run: deno task check
+      - name: Validate shared client and both apps
+        shell: bash
+        run: |
+          set -euo pipefail
+          (cd packages/lifemate_client && flutter pub get && flutter analyze --no-fatal-warnings --no-fatal-infos && flutter test)
+          (cd wellmate && flutter pub get && flutter analyze --no-fatal-warnings --no-fatal-infos && flutter test)
+          (cd caremate && flutter pub get && flutter analyze --no-fatal-warnings --no-fatal-infos && flutter test)
+
+  deploy-candidate:
+    needs: validate
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    environment: beta
+    env:
+      SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
+        with:
+          persist-credentials: false
+          show-progress: false
+      - uses: supabase/setup-cli@3c2f5e2ae34c34e428e8e206e2c4d21fa2d20fbf
+        with:
+          version: 2.101.0
+      - name: Verify protected deployment configuration
+        run: |
+          set -euo pipefail
+          test -n "$SUPABASE_ACCESS_TOKEN"
+          test -n "$SUPABASE_PUBLISHABLE_KEY"
+      - name: Stage reviewed API source under isolated candidate slug
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -rf supabase/functions/lifemate-api-candidate
+          cp -R supabase/functions/lifemate-api supabase/functions/lifemate-api-candidate
+      - name: Deploy isolated candidate function
+        run: >-
+          supabase functions deploy lifemate-api-candidate
+          --project-ref "$SUPABASE_PROJECT_REF"
+          --no-verify-jwt
+          --use-api
+      - name: Verify candidate health and authentication boundary
+        shell: bash
+        run: |
+          set -euo pipefail
+          health="$(curl --fail --silent --show-error --retry 5 --retry-delay 2 --retry-all-errors "$CANDIDATE_API_BASE_URL/health")"
+          echo "$health" | jq -e '.status == "ok" and .database == "ready" and .service == "lifemate-api"' >/dev/null
+          status="$(curl --silent --show-error --output /dev/null --write-out '%{http_code}' "$CANDIDATE_API_BASE_URL/api/v1/me")"
+          test "$status" = '401'
+
+  build-apks:
+    needs: deploy-candidate
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    env:
+      PUB_ENVIRONMENT: bot:github_actions
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
+        with:
+          persist-credentials: false
+          show-progress: false
+      - uses: subosito/flutter-action@4cab68ce0f1c7c924f688bff4792e044f1aeb30c
+        with:
+          flutter-version: '3.44.0'
+          channel: stable
+          cache: true
+      - name: Build regression-test APKs against candidate API
+        shell: bash
+        run: |
+          set -euo pipefail
+          version="0.9.0-ecosystem.${GITHUB_RUN_NUMBER}"
+          args=(
+            --release
+            --build-name="$version"
+            --build-number="$GITHUB_RUN_NUMBER"
+            --dart-define="SUPABASE_URL=$SUPABASE_URL"
+            --dart-define="SUPABASE_PUBLISHABLE_KEY=$SUPABASE_PUBLISHABLE_KEY"
+            --dart-define="LIFEMATE_API_BASE_URL=$CANDIDATE_API_BASE_URL"
+            --dart-define="ENABLE_WOMEN_CALENDAR_PILOT=true"
+            --dart-define="ENABLE_GOOGLE_AUTH=false"
+            --dart-define="ENABLE_PHONE_OTP=false"
+          )
+          (cd wellmate && flutter pub get && flutter build apk "${args[@]}")
+          (cd caremate && flutter pub get && flutter build apk "${args[@]}")
+
+          mkdir -p dist
+          cp wellmate/build/app/outputs/flutter-apk/app-release.apk dist/wellmate-ecosystem-candidate.apk
+          cp caremate/build/app/outputs/flutter-apk/app-release.apk dist/caremate-ecosystem-candidate.apk
+          jq -n \
+            --arg commit "$GITHUB_SHA" \
+            --arg api "$CANDIDATE_API_BASE_URL" \
+            --arg builtAt "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+            --arg wellmateSha "$(sha256sum dist/wellmate-ecosystem-candidate.apk | awk '{print $1}')" \
+            --arg caremateSha "$(sha256sum dist/caremate-ecosystem-candidate.apk | awk '{print $1}')" \
+            '{commit:$commit,apiBase:$api,builtAtUtc:$builtAt,channel:"ecosystem-candidate",auth:{google:false,phoneOtp:false},womenCalendarPilot:true,apps:{wellmate:{sha256:$wellmateSha},caremate:{sha256:$caremateSha}},notes:["Candidate API is isolated from the active lifemate-api function","Phone OTP remains disabled in this APK until the Kavenegar hook secret/configuration gate is completed"]}' \
+            > dist/manifest.json
+      - name: Upload candidate test bundle
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: lifemate-ecosystem-candidate-${{ github.run_number }}
+          path: dist
+          if-no-files-found: error
+          retention-days: 30
