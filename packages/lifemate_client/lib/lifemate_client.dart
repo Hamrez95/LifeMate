@@ -1,6 +1,7 @@
 library lifemate_client;
 
 export 'src/app_config.dart';
+export 'src/capabilities.dart';
 export 'src/care_pairing_qr.dart';
 export 'src/feature_flags.dart';
 export 'src/health_facts.dart';
