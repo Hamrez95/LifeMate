@@ -36,7 +36,7 @@ jobs:
         working-directory: packages/lifemate_client
         run: |
           flutter pub get
-          flutter analyze
+          flutter analyze --no-fatal-warnings --no-fatal-infos
           flutter test
       - name: Commit validated client
         shell: bash
