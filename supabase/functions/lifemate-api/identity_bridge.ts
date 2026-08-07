@@ -57,7 +57,7 @@ export function createIdentityBridge(databaseUrl: string) {
         ? new Date(identity.created_at)
         : new Date();
 
-      await sql`
+      const rows = await sql`
         insert into identity.external_identities(
           account_id,provider,provider_subject,issuer,created_at_utc,
           last_authenticated_at_utc,status
@@ -66,13 +66,17 @@ export function createIdentityBridge(databaseUrl: string) {
           ${lastAuthenticatedAt},'Active'
         )
         on conflict(provider,issuer,provider_subject) do update set
-          account_id=excluded.account_id,
           last_authenticated_at_utc=greatest(
             identity.external_identities.last_authenticated_at_utc,
             excluded.last_authenticated_at_utc
           ),
           status='Active'
+        where identity.external_identities.account_id=excluded.account_id
+        returning account_id
       `;
+      if (rows[0]?.account_id !== accountId) {
+        throw new Error("external_identity_account_conflict");
+      }
       providers.add(provider);
     }
 
