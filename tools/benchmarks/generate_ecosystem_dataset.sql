@@ -16,9 +16,14 @@ end $$;
 set synchronous_commit = off;
 set maintenance_work_mem = '1GB';
 
+-- Synthetic fixtures write both legacy and target structures explicitly. Disable
+-- compatibility/projection triggers so dataset generation measures query/index
+-- behavior rather than spending most of the run materializing async side effects.
+-- Runtime trigger behavior is separately covered by ecosystem DB contracts.
 alter table lifemate.app_users disable trigger user;
 alter table lifemate.user_profiles disable trigger user;
 alter table lifemate.care_relationships disable trigger user;
+alter table lifemate.dose_occurrences disable trigger user;
 
 insert into lifemate.app_users(id,auth_subject,status,created_at_utc,updated_at_utc)
 select md5('acct-'||g)::uuid,'bench-subject-'||g,'Active',now(),now()
@@ -199,6 +204,7 @@ from generate_series(1,:accounts) g;
 alter table lifemate.app_users enable trigger user;
 alter table lifemate.user_profiles enable trigger user;
 alter table lifemate.care_relationships enable trigger user;
+alter table lifemate.dose_occurrences enable trigger user;
 
 analyze identity.accounts;
 analyze identity.external_identities;
