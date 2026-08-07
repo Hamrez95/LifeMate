@@ -1,6 +1,6 @@
 import { getLifeMateSql } from "./database_client.ts";
 
-type ProviderIdentity = {
+export type ProviderIdentity = {
   provider?: unknown;
   identity_data?: unknown;
   last_sign_in_at?: unknown;
