@@ -60,12 +60,19 @@ jobs:
         run: |
           set -euo pipefail
           PROFILE='${{ github.event.inputs.profile }}'
-          if [[ "${GITHUB_EVENT_NAME}" == 'push' || -z "$PROFILE" || "$PROFILE" == 'smoke' ]]; then
-            echo 'args=-v accounts=10000 -v persons=12000 -v relationships=20000 -v plans=2500 -v doses=50000 -v adherence=50000 -v women_logs=20000 -v audits=20000' >> "$GITHUB_OUTPUT"
-            echo 'label=smoke-10k-accounts' >> "$GITHUB_OUTPUT"
-          else
+          full_requested=false
+          if [[ "$PROFILE" == 'full' ]]; then
+            full_requested=true
+          elif [[ "${GITHUB_EVENT_NAME}" == 'push' && -f tools/benchmarks/RUN_FULL_BENCHMARK ]]; then
+            full_requested=true
+          fi
+
+          if [[ "$full_requested" == 'true' ]]; then
             echo 'args=-v accounts=1000000 -v persons=1200000 -v relationships=2000000 -v plans=250000 -v doses=5000000 -v adherence=5000000 -v women_logs=2000000 -v audits=2000000' >> "$GITHUB_OUTPUT"
             echo 'label=full-1m-accounts' >> "$GITHUB_OUTPUT"
+          else
+            echo 'args=-v accounts=10000 -v persons=12000 -v relationships=20000 -v plans=2500 -v doses=50000 -v adherence=50000 -v women_logs=20000 -v audits=20000' >> "$GITHUB_OUTPUT"
+            echo 'label=smoke-10k-accounts' >> "$GITHUB_OUTPUT"
           fi
 
       - name: Generate synthetic benchmark data
@@ -79,12 +86,26 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          psql "$TEST_DATABASE_URL" --file=tools/benchmarks/critical_queries.sql | tee database-benchmark-results.txt
+          {
+            echo "profile=${{ steps.scale.outputs.label }}"
+            echo "commit=$GITHUB_SHA"
+            echo "generated_at=$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+            psql "$TEST_DATABASE_URL" --file=tools/benchmarks/critical_queries.sql
+          } | tee database-benchmark-results.txt
 
       - name: Assert dataset cardinalities
         shell: bash
         run: |
           set -euo pipefail
-          psql "$TEST_DATABASE_URL" --set=ON_ERROR_STOP=1 -c "select count(*) as accounts from identity.accounts;"
-          psql "$TEST_DATABASE_URL" --set=ON_ERROR_STOP=1 -c "select count(*) as persons from core.persons;"
-          psql "$TEST_DATABASE_URL" --set=ON_ERROR_STOP=1 -c "select count(*) as dose_occurrences from lifemate.dose_occurrences;"
+          psql "$TEST_DATABASE_URL" --set=ON_ERROR_STOP=1 -c "select count(*) as accounts from identity.accounts;" | tee -a database-benchmark-results.txt
+          psql "$TEST_DATABASE_URL" --set=ON_ERROR_STOP=1 -c "select count(*) as persons from core.persons;" | tee -a database-benchmark-results.txt
+          psql "$TEST_DATABASE_URL" --set=ON_ERROR_STOP=1 -c "select count(*) as dose_occurrences from lifemate.dose_occurrences;" | tee -a database-benchmark-results.txt
+
+      - name: Upload benchmark evidence
+        if: ${{ always() }}
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: database-benchmark-${{ steps.scale.outputs.label }}-${{ github.run_number }}
+          path: database-benchmark-results.txt
+          if-no-files-found: warn
+          retention-days: 30
