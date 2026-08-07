@@ -155,7 +155,10 @@ Future<void> _showDeletionError(
       'حذف حساب انجام نشد',
       style: TextStyle(fontFamily: fontFamily, fontWeight: FontWeight.w900),
     ),
-    content: Text(message, style: TextStyle(fontFamily: fontFamily, height: 1.6)),
+    content: Text(
+      message,
+      style: TextStyle(fontFamily: fontFamily, height: 1.6),
+    ),
     actions: [
       TextButton(
         onPressed: () => Navigator.pop(dialogContext),

@@ -253,6 +253,36 @@ class ProfileScreen extends StatelessWidget {
                   horizontal: 24,
                   vertical: 8,
                 ),
+                child: OutlinedButton.icon(
+                  key: const ValueKey('wellmate-account-deletion'),
+                  style: OutlinedButton.styleFrom(
+                    minimumSize: const Size.fromHeight(52),
+                    foregroundColor: Colors.redAccent,
+                    side: BorderSide(color: Colors.redAccent.withOpacity(0.28)),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(18),
+                    ),
+                  ),
+                  icon: const Icon(Icons.delete_forever_outlined),
+                  label: Text(
+                    'حذف حساب و داده‌های شخصی',
+                    style: TextStyle(
+                      fontFamily: mainFont,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                  onPressed: () => showLifeMateAccountDeletionDialog(
+                    context,
+                    apiClient: context.read<LifeMateApiClient>(),
+                    fontFamily: mainFont,
+                  ),
+                ),
+              ),
+              Padding(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 24,
+                  vertical: 8,
+                ),
                 child: Container(
                   width: double.infinity,
                   decoration: BoxDecoration(

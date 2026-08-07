@@ -22,9 +22,9 @@ class ProfileScreen extends StatelessWidget {
     final mainFont = isPersian ? 'Vazir' : 'Nunito';
 
     void openScreen(Widget destination) {
-      Navigator.of(context).push(
-        MaterialPageRoute<void>(builder: (_) => destination),
-      );
+      Navigator.of(
+        context,
+      ).push(MaterialPageRoute<void>(builder: (_) => destination));
     }
 
     return Scaffold(
@@ -46,8 +46,7 @@ class ProfileScreen extends StatelessWidget {
                     const SizedBox(height: 12),
                     _SubscriptionCard(
                       mainFont: mainFont,
-                      title: loc['profile_no_subscription'] ??
-                          'اشتراک مراقبتی',
+                      title: loc['profile_no_subscription'] ?? 'اشتراک مراقبتی',
                       onTap: () =>
                           openScreen(const CareMateSubscriptionScreen()),
                     ),
@@ -60,8 +59,8 @@ class ProfileScreen extends StatelessWidget {
                           _ProfileMenuTile(
                             icon: Icons.person_outline_rounded,
                             iconColor: AppColors.primaryBlue,
-                            label: loc['profile_personal_info'] ??
-                                'اطلاعات شخصی',
+                            label:
+                                loc['profile_personal_info'] ?? 'اطلاعات شخصی',
                             mainFont: mainFont,
                             subtitle: 'ویرایش نام، تصویر و اطلاعات حساب',
                             onTap: () => openScreen(
@@ -72,8 +71,8 @@ class ProfileScreen extends StatelessWidget {
                           _ProfileMenuTile(
                             icon: Icons.assignment_outlined,
                             iconColor: Colors.orangeAccent,
-                            label: loc['profile_health_profile'] ??
-                                'پرونده سلامت',
+                            label:
+                                loc['profile_health_profile'] ?? 'پرونده سلامت',
                             mainFont: mainFont,
                             subtitle: 'مشاهده اطلاعات مجاز فرد تحت مراقبت',
                             onTap: () => openScreen(
@@ -86,7 +85,8 @@ class ProfileScreen extends StatelessWidget {
                           _ProfileMenuTile(
                             icon: Icons.family_restroom_rounded,
                             iconColor: const Color(0xFF43A574),
-                            label: loc['profile_caregivers'] ?? 'مراقبت خانواده',
+                            label:
+                                loc['profile_caregivers'] ?? 'مراقبت خانواده',
                             mainFont: mainFont,
                             subtitle: 'روابط مراقبتی و محدوده دسترسی‌ها',
                             onTap: () => openScreen(
@@ -99,8 +99,8 @@ class ProfileScreen extends StatelessWidget {
                           _ProfileMenuTile(
                             icon: Icons.tune_rounded,
                             iconColor: const Color(0xFF8B72D6),
-                            label: loc['profile_app_settings'] ??
-                                'تنظیمات برنامه',
+                            label:
+                                loc['profile_app_settings'] ?? 'تنظیمات برنامه',
                             mainFont: mainFont,
                             subtitle: 'زبان و نمایش برنامه',
                             onTap: () => showDialog<void>(
@@ -128,6 +128,25 @@ class ProfileScreen extends StatelessWidget {
                             subtitle: 'راهنما و پاسخ پرسش‌های متداول',
                             onTap: () =>
                                 openScreen(const CareMateSupportScreen()),
+                          ),
+                          const _MenuDivider(),
+                          _ProfileMenuTile(
+                            key: const ValueKey<String>(
+                              'caremate-account-deletion',
+                            ),
+                            icon: Icons.delete_forever_outlined,
+                            iconColor: Colors.redAccent,
+                            label: 'حذف حساب و داده‌های شخصی',
+                            mainFont: mainFont,
+                            subtitle:
+                                'لغو دسترسی‌ها و شروع حذف/ناشناس‌سازی امن',
+                            destructive: true,
+                            showChevron: false,
+                            onTap: () => showLifeMateAccountDeletionDialog(
+                              context,
+                              apiClient: context.read<LifeMateApiClient>(),
+                              fontFamily: mainFont,
+                            ),
                           ),
                           const _MenuDivider(),
                           _ProfileMenuTile(
@@ -200,26 +219,21 @@ class ProfileScreen extends StatelessWidget {
   }
 
   static BoxDecoration _cardDecoration() => BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.96),
-        borderRadius: BorderRadius.circular(22),
-        border: Border.all(
-          color: AppColors.primaryBlue.withValues(alpha: 0.06),
-        ),
-        boxShadow: [
-          BoxShadow(
-            color: AppColors.primaryBlue.withValues(alpha: 0.07),
-            blurRadius: 22,
-            offset: const Offset(0, 9),
-          ),
-        ],
-      );
+    color: Colors.white.withValues(alpha: 0.96),
+    borderRadius: BorderRadius.circular(22),
+    border: Border.all(color: AppColors.primaryBlue.withValues(alpha: 0.06)),
+    boxShadow: [
+      BoxShadow(
+        color: AppColors.primaryBlue.withValues(alpha: 0.07),
+        blurRadius: 22,
+        offset: const Offset(0, 9),
+      ),
+    ],
+  );
 }
 
 class _ProfileTopBar extends StatelessWidget {
-  const _ProfileTopBar({
-    required this.mainFont,
-    required this.onNotifications,
-  });
+  const _ProfileTopBar({required this.mainFont, required this.onNotifications});
 
   final String mainFont;
   final VoidCallback onNotifications;
@@ -514,12 +528,12 @@ class _MenuDivider extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Divider(
-        height: 1,
-        thickness: 1,
-        indent: 66,
-        endIndent: 16,
-        color: AppColors.primaryBlue.withValues(alpha: 0.06),
-      );
+    height: 1,
+    thickness: 1,
+    indent: 66,
+    endIndent: 16,
+    color: AppColors.primaryBlue.withValues(alpha: 0.06),
+  );
 }
 
 class _ProfileMenuTile extends StatelessWidget {
