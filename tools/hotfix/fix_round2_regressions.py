@@ -1,5 +1,6 @@
 from pathlib import Path
 
+# Re-run the one-shot verifier after the shared care-item time presentation fix.
 ROOT = Path(__file__).resolve().parents[2]
 
 
