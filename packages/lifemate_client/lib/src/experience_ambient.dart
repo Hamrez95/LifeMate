@@ -1,7 +1,11 @@
 part of 'lifemate_experience_gate.dart';
 
 class _AmbientBackdrop extends StatelessWidget {
-  const _AmbientBackdrop({required this.progress, required this.brand, this.quieter = false});
+  const _AmbientBackdrop({
+    required this.progress,
+    required this.brand,
+    this.quieter = false,
+  });
 
   final double progress;
   final _BrandPalette brand;
@@ -20,7 +24,11 @@ class _AmbientBackdrop extends StatelessWidget {
                 gradient: LinearGradient(
                   begin: Alignment.topLeft,
                   end: Alignment.bottomRight,
-                  colors: [brand.background, Colors.white, brand.backgroundDeep],
+                  colors: [
+                    brand.background,
+                    Colors.white,
+                    brand.backgroundDeep,
+                  ],
                 ),
               ),
             ),
@@ -68,7 +76,9 @@ class _AmbientBackdrop extends StatelessWidget {
               decoration: BoxDecoration(
                 color: Colors.white.withValues(alpha: 0.72),
                 shape: BoxShape.circle,
-                border: Border.all(color: brand.primary.withValues(alpha: 0.18)),
+                border: Border.all(
+                  color: brand.primary.withValues(alpha: 0.18),
+                ),
               ),
             ),
           ),
@@ -118,8 +128,18 @@ class _SoftWavePainter extends CustomPainter {
     final paint = Paint()..color = color;
     final path = Path()
       ..moveTo(0, size.height * 0.54)
-      ..quadraticBezierTo(size.width * 0.25, size.height * 0.15, size.width * 0.5, size.height * 0.5)
-      ..quadraticBezierTo(size.width * 0.76, size.height * 0.84, size.width, size.height * 0.32)
+      ..quadraticBezierTo(
+        size.width * 0.25,
+        size.height * 0.15,
+        size.width * 0.5,
+        size.height * 0.5,
+      )
+      ..quadraticBezierTo(
+        size.width * 0.76,
+        size.height * 0.84,
+        size.width,
+        size.height * 0.32,
+      )
       ..lineTo(size.width, size.height)
       ..lineTo(0, size.height)
       ..close();
@@ -127,5 +147,6 @@ class _SoftWavePainter extends CustomPainter {
   }
 
   @override
-  bool shouldRepaint(covariant _SoftWavePainter oldDelegate) => oldDelegate.color != color;
+  bool shouldRepaint(covariant _SoftWavePainter oldDelegate) =>
+      oldDelegate.color != color;
 }

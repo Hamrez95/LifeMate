@@ -16,7 +16,9 @@ void main() {
     expect(CarePairingQr.tryParseToken(''), isNull);
     expect(CarePairingQr.tryParseToken('https://example.com'), isNull);
     expect(
-      CarePairingQr.tryParseToken('lifemate://care-invite?v=2&token=123456789012345678901234'),
+      CarePairingQr.tryParseToken(
+        'lifemate://care-invite?v=2&token=123456789012345678901234',
+      ),
       isNull,
     );
     expect(

@@ -275,41 +275,48 @@ class _CalendarCell extends StatelessWidget {
 
     return Padding(
       padding: const EdgeInsets.all(3),
-      child: Material(
-        color: selected ? AppColors.primary : Colors.transparent,
-        borderRadius: BorderRadius.circular(13),
-        child: InkWell(
+      child: AnimatedScale(
+        scale: selected ? 1.06 : 1,
+        duration: const Duration(milliseconds: 170),
+        curve: Curves.easeOutCubic,
+        child: Material(
+          color: selected ? AppColors.primary : Colors.transparent,
           borderRadius: BorderRadius.circular(13),
-          onTap: onTap,
-          child: Container(
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(13),
-              border: today && !selected
-                  ? Border.all(
-                      color: hasMissed ? Colors.orange : AppColors.primary,
-                      width: 1.4,
-                    )
-                  : null,
-            ),
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Text(
-                  label,
-                  style: TextStyle(
-                    color: selected
-                        ? Colors.white
-                        : isPast
-                        ? Colors.grey.shade400
-                        : AppColors.textPrimary,
-                    fontWeight: selected ? FontWeight.bold : FontWeight.normal,
+          child: InkWell(
+            borderRadius: BorderRadius.circular(13),
+            onTap: onTap,
+            child: Container(
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(13),
+                border: today && !selected
+                    ? Border.all(
+                        color: hasMissed ? Colors.orange : AppColors.primary,
+                        width: 1.4,
+                      )
+                    : null,
+              ),
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Text(
+                    label,
+                    style: TextStyle(
+                      color: selected
+                          ? Colors.white
+                          : isPast
+                          ? Colors.grey.shade400
+                          : AppColors.textPrimary,
+                      fontWeight: selected
+                          ? FontWeight.bold
+                          : FontWeight.normal,
+                    ),
                   ),
-                ),
-                if (eventTypes.isNotEmpty) ...[
-                  const SizedBox(height: 3),
-                  _EventDots(eventTypes: eventTypes, faded: isPast),
+                  if (eventTypes.isNotEmpty) ...[
+                    const SizedBox(height: 3),
+                    _EventDots(eventTypes: eventTypes, faded: isPast),
+                  ],
                 ],
-              ],
+              ),
             ),
           ),
         ),

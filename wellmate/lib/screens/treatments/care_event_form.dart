@@ -134,15 +134,13 @@ class _CareEventFormState extends State<CareEventForm> {
         caregiverReminderMinutesBefore: _caregiverReminderMinutesBefore,
       );
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          behavior: SnackBarBehavior.floating,
-          content: Text(
-            _isAppointment
-                ? 'ویزیت با موفقیت ثبت شد.'
-                : 'نوبت تزریق با موفقیت ثبت شد.',
-          ),
-        ),
+      LifeMateNotice.show(
+        context,
+        type: LifeMateNoticeType.success,
+        title: _isAppointment ? 'ویزیت ثبت شد' : 'تزریق ثبت شد',
+        message: _isAppointment
+            ? 'ویزیت با موفقیت به برنامه اضافه شد.'
+            : 'نوبت تزریق با موفقیت به برنامه اضافه شد.',
       );
       _reset();
       widget.onCreated();

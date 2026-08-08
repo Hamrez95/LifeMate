@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:shamsi_date/shamsi_date.dart';
+import 'package:lifemate_client/lifemate_client.dart';
 
 import 'string_extensions.dart';
 
@@ -42,7 +43,7 @@ bool usesPersianCalendar(BuildContext context) =>
     Localizations.localeOf(context).languageCode == 'fa';
 
 String localizeDigits(BuildContext context, Object? value) =>
-    (value?.toString() ?? '').toPersianDigit(usesPersianCalendar(context));
+    LifeMateNumbers.localize(context, value);
 
 String formatAppDate(
   BuildContext context,
@@ -256,7 +257,8 @@ class _ModernPersianDatePickerState extends State<_ModernPersianDatePicker> {
                       ),
                       const SizedBox(width: 8),
                       FilledButton.icon(
-                        onPressed: () => Navigator.of(context).pop(_selectedDate),
+                        onPressed: () =>
+                            Navigator.of(context).pop(_selectedDate),
                         icon: const Icon(Icons.check_rounded),
                         label: const Text('تأیید تاریخ'),
                         style: FilledButton.styleFrom(
@@ -366,9 +368,11 @@ class _ModernPersianDatePickerState extends State<_ModernPersianDatePicker> {
             final day = index - leadingCells + 1;
             final jalali = Jalali(_focusedMonth.year, _focusedMonth.month, day);
             final date = _dateOnly(jalali.toDateTime());
-            final enabled = !_isBefore(date, widget.firstDate) &&
+            final enabled =
+                !_isBefore(date, widget.firstDate) &&
                 !_isAfter(date, widget.lastDate);
-            final selected = selectedJalali.year == jalali.year &&
+            final selected =
+                selectedJalali.year == jalali.year &&
                 selectedJalali.month == jalali.month &&
                 selectedJalali.day == jalali.day;
             final today = _sameDay(date, DateTime.now());
@@ -379,7 +383,9 @@ class _ModernPersianDatePickerState extends State<_ModernPersianDatePicker> {
               label:
                   '${day.toString().toPersianDigit(true)} ${_persianMonthNames[jalali.month - 1]}',
               child: InkWell(
-                onTap: enabled ? () => setState(() => _selectedDate = date) : null,
+                onTap: enabled
+                    ? () => setState(() => _selectedDate = date)
+                    : null,
                 borderRadius: BorderRadius.circular(14),
                 child: AnimatedContainer(
                   duration: const Duration(milliseconds: 180),

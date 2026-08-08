@@ -13,7 +13,8 @@ void main() {
   test('health facts are categorized and non-diagnostic', () {
     expect(
       lifeMateHealthFacts.every(
-        (fact) => fact.category.trim().isNotEmpty && fact.text.trim().isNotEmpty,
+        (fact) =>
+            fact.category.trim().isNotEmpty && fact.text.trim().isNotEmpty,
       ),
       isTrue,
     );

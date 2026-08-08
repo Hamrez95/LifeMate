@@ -4,21 +4,9 @@ abstract final class LifeMateReminderLeadTimes {
   static const int defaultPatientMinutes = 30;
   static const int defaultCaregiverMinutes = 60;
 
-  static const List<int> presets = <int>[
-    0,
-    5,
-    10,
-    15,
-    30,
-    60,
-    120,
-    1440,
-  ];
+  static const List<int> presets = <int>[0, 5, 10, 15, 30, 60, 120, 1440];
 
-  static int normalize(
-    Object? value, {
-    required int fallback,
-  }) {
+  static int normalize(Object? value, {required int fallback}) {
     final parsed = value is int ? value : int.tryParse(value?.toString() ?? '');
     if (parsed == null || parsed < minimumMinutes || parsed > maximumMinutes) {
       return fallback;

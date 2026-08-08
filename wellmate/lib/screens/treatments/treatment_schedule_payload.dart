@@ -9,11 +9,9 @@ List<Map<String, String>> buildTreatmentSchedules({
   required Map<int, String> backendWeekdays,
 }) {
   final normalizedDays = weekdays.toSet().toList()..sort();
-  final normalizedMinutes = times
-      .map((time) => time.hour * 60 + time.minute)
-      .toSet()
-      .toList()
-    ..sort();
+  final normalizedMinutes =
+      times.map((time) => time.hour * 60 + time.minute).toSet().toList()
+        ..sort();
 
   if (normalizedDays.isEmpty || normalizedMinutes.isEmpty) {
     return const <Map<String, String>>[];
@@ -23,7 +21,8 @@ List<Map<String, String>> buildTreatmentSchedules({
     for (final day in normalizedDays)
       for (final minuteOfDay in normalizedMinutes)
         {
-          'dayOfWeek': backendWeekdays[day] ??
+          'dayOfWeek':
+              backendWeekdays[day] ??
               (throw ArgumentError.value(
                 day,
                 'weekdays',

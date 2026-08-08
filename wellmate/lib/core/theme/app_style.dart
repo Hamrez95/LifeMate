@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
 
 class AppColors {
-  static const Color background =
-      Color(0xFFF4F9F6); // یک سبز-مینت بسیار روشن و فرِش
-  static const Color primary =
-      Color(0xFF10B981); // سبز زمردی زنده و درخشان (مثل CareMate)
+  static const Color background = Color(
+    0xFFF4F9F6,
+  ); // یک سبز-مینت بسیار روشن و فرِش
+  static const Color primary = Color(
+    0xFF10B981,
+  ); // سبز زمردی زنده و درخشان (مثل CareMate)
   static const Color primaryLight = Color(0xFF34D399);
 
   static const Color textPrimary = Color(0xFF1F2937); // متن تیره مدرن
@@ -20,24 +22,31 @@ class AppColors {
   static const Color primaryBlue = Color(0xFF4A90E2);
   static const Color error = Color.fromARGB(255, 168, 6, 0);
   static const Color darkBlue = Color(0xFF283054); // رنگ سرمه‌ای (متن‌های اصلی)
-  static const Color avatarBackground =
-      Color(0xFFE2D4C8); // رنگ پس‌زمینه آواتار
+  static const Color avatarBackground = Color(
+    0xFFE2D4C8,
+  ); // رنگ پس‌زمینه آواتار
   // رنگ پس‌زمینه کارت‌ها و کادرها
   static const Color secondaryText = Color(0xFF7B93DB); // متن‌های ثانویه
 
   static const Color textMain = Color(0xFF283054);
   // سایه تیره (برای ایجاد عمق در طراحی نئومورفیک)
-  static const Color shadow =
-      Color(0x14000000); // معادل Colors.black.withOpacity(0.08)
+  static const Color shadow = Color(
+    0x14000000,
+  ); // معادل Colors.black.withOpacity(0.08)
   // سایه روشن (برای ایجاد برجستگی در طراحی نئومورفیک)
   static const Color lightShadow = Colors.white;
 
   // --- رنگ‌های مخصوص تقویم ---
-  static const Color calOverdueBack =
-      Color(0xFFFFEBEE); // پس‌زمینه روزهای فراموش شده
-  static const Color calDotMedicine = Colors.pinkAccent;
-  static const Color calDotDoctor = Colors.blueAccent;
-  static const Color calDotTreatment = Colors.orangeAccent;
+  static const Color calOverdueBack = Color(
+    0xFFFFEBEE,
+  ); // پس‌زمینه روزهای فراموش شده
+  static const Color careMedication = Color(0xFFE95D8F);
+  static const Color careVisit = Color(0xFF4A90E2);
+  static const Color careInjection = Color(0xFFF2A43A);
+
+  static const Color calDotMedicine = careMedication;
+  static const Color calDotDoctor = careVisit;
+  static const Color calDotTreatment = careInjection;
 }
 
 class AppTextStyles {
@@ -59,10 +68,7 @@ class AppTextStyles {
   }
 
   static TextStyle button(BuildContext context) {
-    return body(context).copyWith(
-      fontSize: 14,
-      fontWeight: FontWeight.bold,
-    );
+    return body(context).copyWith(fontSize: 14, fontWeight: FontWeight.bold);
   }
 
   static TextStyle body(BuildContext context) {
@@ -84,8 +90,12 @@ class AppTextStyles {
   }
 
   // متد کمکی برای ساخت استایل‌های کاستوم و جلوگیری از ارور
-  static TextStyle get(BuildContext context,
-      {Color? color, FontWeight? fontWeight, double? fontSize}) {
+  static TextStyle get(
+    BuildContext context, {
+    Color? color,
+    FontWeight? fontWeight,
+    double? fontSize,
+  }) {
     return TextStyle(
       fontFamily: _getFontFamily(context),
       color: color ?? AppColors.textPrimary,

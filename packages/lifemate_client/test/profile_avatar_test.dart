@@ -15,7 +15,9 @@ void main() {
     expect(LifeMateProfileAvatars.isAllowed('person_green'), isTrue);
   });
 
-  testWidgets('avatar picker reports the selected persisted key', (tester) async {
+  testWidgets('avatar picker reports the selected persisted key', (
+    tester,
+  ) async {
     String? selected;
     await tester.pumpWidget(
       MaterialApp(
@@ -28,7 +30,9 @@ void main() {
       ),
     );
 
-    await tester.tap(find.byKey(const ValueKey('profile-avatar-person_purple')));
+    await tester.tap(
+      find.byKey(const ValueKey('profile-avatar-person_purple')),
+    );
     await tester.pumpAndSettle();
 
     expect(selected, 'person_purple');
@@ -39,9 +43,7 @@ void main() {
     final api = _RefreshingProfileApiClient();
     await tester.pumpWidget(
       MaterialApp(
-        home: Scaffold(
-          body: LifeMateCurrentUserAvatar(apiClient: api),
-        ),
+        home: Scaffold(body: LifeMateCurrentUserAvatar(apiClient: api)),
       ),
     );
     await tester.pumpAndSettle();
@@ -60,15 +62,14 @@ void main() {
     expect(avatar.avatarKey, 'heart_coral');
     expect(api.requests, 2);
   });
-
 }
 
 class _RefreshingProfileApiClient extends LifeMateApiClient {
   _RefreshingProfileApiClient()
-      : super(
-          baseUri: Uri.parse('https://example.invalid'),
-          accessToken: () => 'test-token',
-        );
+    : super(
+        baseUri: Uri.parse('https://example.invalid'),
+        accessToken: () => 'test-token',
+      );
 
   int requests = 0;
 

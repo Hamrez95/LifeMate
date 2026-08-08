@@ -6,11 +6,10 @@ class AppConfig {
   });
 
   factory AppConfig.fromEnvironment() => const AppConfig(
-        supabaseUrl: String.fromEnvironment('SUPABASE_URL'),
-        supabasePublishableKey:
-            String.fromEnvironment('SUPABASE_PUBLISHABLE_KEY'),
-        apiBaseUrl: String.fromEnvironment('LIFEMATE_API_BASE_URL'),
-      );
+    supabaseUrl: String.fromEnvironment('SUPABASE_URL'),
+    supabasePublishableKey: String.fromEnvironment('SUPABASE_PUBLISHABLE_KEY'),
+    apiBaseUrl: String.fromEnvironment('LIFEMATE_API_BASE_URL'),
+  );
 
   final String supabaseUrl;
   final String supabasePublishableKey;
@@ -22,19 +21,21 @@ class AppConfig {
       _isHttpUrl(apiBaseUrl);
 
   List<String> get missingOrInvalidValues => [
-        if (!_isHttpsUrl(supabaseUrl)) 'SUPABASE_URL',
-        if (!supabasePublishableKey.startsWith('sb_publishable_'))
-          'SUPABASE_PUBLISHABLE_KEY',
-        if (!_isHttpUrl(apiBaseUrl)) 'LIFEMATE_API_BASE_URL',
-      ];
+    if (!_isHttpsUrl(supabaseUrl)) 'SUPABASE_URL',
+    if (!supabasePublishableKey.startsWith('sb_publishable_'))
+      'SUPABASE_PUBLISHABLE_KEY',
+    if (!_isHttpUrl(apiBaseUrl)) 'LIFEMATE_API_BASE_URL',
+  ];
 
   Uri get apiBaseUri {
     if (!_isHttpUrl(apiBaseUrl)) {
       throw StateError('LifeMate API base URL is not configured.');
     }
-    return Uri.parse(apiBaseUrl.endsWith('/')
-        ? apiBaseUrl.substring(0, apiBaseUrl.length - 1)
-        : apiBaseUrl);
+    return Uri.parse(
+      apiBaseUrl.endsWith('/')
+          ? apiBaseUrl.substring(0, apiBaseUrl.length - 1)
+          : apiBaseUrl,
+    );
   }
 
   static bool _isHttpsUrl(String value) {
