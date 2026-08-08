@@ -61,4 +61,55 @@ void main() {
     );
     expect(CareItem.filterAndSort([injection], query: 'b12'), hasLength(1));
   });
+
+  test('taken dose occurrence is a completed medication care item', () {
+    final taken = CareItem.fromDoseOccurrence(
+      {
+        'id': 'dose-1',
+        'treatmentPlanId': 'med-1',
+        'scheduledLocalDate': '2026-08-08',
+        'scheduledLocalTime': '09:30',
+        'status': 'Taken',
+      },
+      {
+        'id': 'med-1',
+        'status': 'active',
+        'doseText': '۱ عدد',
+        'medication': {'name': 'ویتامین B'},
+      },
+    );
+
+    expect(taken.type, CareItemType.medication);
+    expect(taken.isCompleted, isTrue);
+    expect(
+      CareItem.filterAndSort([taken], status: CareItemStatusFilter.completed),
+      hasLength(1),
+    );
+  });
+
+  test('date range filter is inclusive and uses occurrence date', () {
+    final inside = CareItem.fromCareEvent({
+      'id': 'visit-range',
+      'eventType': 'appointment',
+      'title': 'ویزیت بازه',
+      'scheduledLocalDate': '2026-08-17',
+      'scheduledLocalTime': '10:00',
+      'status': 'scheduled',
+    });
+    final outside = CareItem.fromCareEvent({
+      'id': 'visit-outside',
+      'eventType': 'appointment',
+      'title': 'ویزیت خارج بازه',
+      'scheduledLocalDate': '2026-08-20',
+      'scheduledLocalTime': '10:00',
+      'status': 'scheduled',
+    });
+
+    final result = CareItem.filterAndSort(
+      [inside, outside],
+      fromDate: DateTime(2026, 8, 17),
+      toDate: DateTime(2026, 8, 17),
+    );
+    expect(result.map((item) => item.id), ['visit-range']);
+  });
 }

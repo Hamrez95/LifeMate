@@ -29,7 +29,7 @@ class HomeScreenContent extends StatefulWidget {
 
 class _HomeScreenContentState extends State<HomeScreenContent> {
   List<ScheduleItemModel> scheduleList = const [];
-  ScheduleItemModel? _nextOccurrence;
+  List<ScheduleItemModel> _countdownOccurrences = const [];
   Timer? _timer;
   Timer? _retryTimer;
   int _automaticRetryCount = 0;
@@ -181,30 +181,10 @@ class _HomeScreenContentState extends State<HomeScreenContent> {
             return date != null && _sameDay(date, today);
           })
           .toList(growable: false);
-      final actionable = allItems
-          .where((item) {
-            if (item.type == 'medicine') {
-              return item.status == 'scheduled' || item.status == 'missed';
-            }
-            return item.status != 'completed' && item.status != 'cancelled';
-          })
-          .toList(growable: false);
-      final future =
-          actionable
-              .where((item) {
-                final scheduled = _scheduledDateTime(item);
-                return scheduled != null && !scheduled.isBefore(DateTime.now());
-              })
-              .toList(growable: false)
-            ..sort(_compareOccurrence);
-      final missedOccurrences =
-          actionable
-              .where((item) => item.status == 'missed')
-              .toList(growable: false)
-            ..sort(_compareOccurrence);
-      final nextOccurrence = future.isNotEmpty
-          ? future.first
-          : (missedOccurrences.isNotEmpty ? missedOccurrences.first : null);
+      final countdownOccurrences = selectHomeCountdownItems(
+        allItems,
+        DateTime.now(),
+      );
 
       if (!mounted) return;
       _automaticRetryCount = 0;
@@ -212,7 +192,7 @@ class _HomeScreenContentState extends State<HomeScreenContent> {
       setState(() {
         _displayName = profile['displayName']?.toString().trim() ?? '';
         scheduleList = todayItems;
-        _nextOccurrence = nextOccurrence;
+        _countdownOccurrences = countdownOccurrences;
         _hasTreatmentPlans = plans.isNotEmpty;
         isLoading = false;
       });
@@ -300,7 +280,9 @@ class _HomeScreenContentState extends State<HomeScreenContent> {
       setState(() {
         final index = scheduleList.indexWhere((value) => value.id == item.id);
         if (index >= 0) scheduleList[index] = updated;
-        if (_nextOccurrence?.id == item.id) _nextOccurrence = null;
+        _countdownOccurrences = _countdownOccurrences
+            .where((value) => value.id != item.id)
+            .toList(growable: false);
       });
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
@@ -360,6 +342,7 @@ class _HomeScreenContentState extends State<HomeScreenContent> {
     final secondsLeft = _calculateSecondsLeft(item);
     if (item.type == 'medicine') {
       return ActiveTreatmentCard(
+        key: ValueKey('home-countdown-${item.type}-${item.id}'),
         treatmentName: item.title,
         dose: item.dosage,
         time: item.time,
@@ -382,11 +365,15 @@ class _HomeScreenContentState extends State<HomeScreenContent> {
     final isMissed = item.status == 'missed';
     final eventLabel = isAppointment ? 'وقت ویزیت' : 'زمان تزریق';
     final missedColor = const Color(0xFFE06464);
+    final eventAccent = isAppointment
+        ? AppColors.careVisit
+        : AppColors.careInjection;
     return ActiveTreatmentCard(
+      key: ValueKey('home-countdown-${item.type}-${item.id}'),
       treatmentName: item.title,
       dose: item.dosage,
       time: item.time,
-      assetIconPath: _getAssetPath(item.type),
+      assetIconPath: item.type == 'injection' ? null : _getAssetPath(item.type),
       progressValue: _progressValue(item),
       secondsLeft: secondsLeft,
       onTaken: null,
@@ -397,8 +384,8 @@ class _HomeScreenContentState extends State<HomeScreenContent> {
           ? '$eventLabel انجام‌نشده • ${item.time}'
           : '$eventLabel • ${item.time}',
       countdownLabel: isMissed ? (isPersian ? 'گذشته' : 'Missed') : null,
-      accentColor: isMissed ? missedColor : AppColors.primary,
-      progressColor: isMissed ? missedColor : AppColors.primaryLight,
+      accentColor: isMissed ? missedColor : eventAccent,
+      progressColor: isMissed ? missedColor : eventAccent,
       progressBackgroundColor: isMissed
           ? const Color(0xFFFFEEEE)
           : AppColors.background,
@@ -416,7 +403,7 @@ class _HomeScreenContentState extends State<HomeScreenContent> {
     final isPersian = Localizations.localeOf(context).languageCode == 'fa';
     final visibleToday = scheduleList.where((item) => !item.isDone).toList()
       ..sort(_compareOccurrence);
-    final nextItem = _nextOccurrence;
+    final countdownItems = _countdownOccurrences;
 
     return Container(
       color: AppColors.background,
@@ -459,7 +446,7 @@ class _HomeScreenContentState extends State<HomeScreenContent> {
           else ...[
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 20),
-              child: nextItem == null
+              child: countdownItems.isEmpty
                   ? _TreatmentTimerPlaceholder(
                       hasTreatmentPlans: _hasTreatmentPlans,
                       onAction: _hasTreatmentPlans
@@ -467,10 +454,37 @@ class _HomeScreenContentState extends State<HomeScreenContent> {
                           : widget.onAddTreatment,
                       font: font,
                     )
-                  : _buildNextOccurrenceCard(
-                      item: nextItem,
-                      font: font,
-                      isPersian: isPersian,
+                  : LayoutBuilder(
+                      builder: (context, constraints) {
+                        final cardWidth = countdownItems.length > 1
+                            ? constraints.maxWidth * 0.92
+                            : constraints.maxWidth;
+                        return SingleChildScrollView(
+                          key: const ValueKey('home-countdown-carousel'),
+                          scrollDirection: Axis.horizontal,
+                          physics: const BouncingScrollPhysics(),
+                          child: Row(
+                            children: [
+                              for (
+                                var index = 0;
+                                index < countdownItems.length;
+                                index += 1
+                              ) ...[
+                                SizedBox(
+                                  width: cardWidth,
+                                  child: _buildNextOccurrenceCard(
+                                    item: countdownItems[index],
+                                    font: font,
+                                    isPersian: isPersian,
+                                  ),
+                                ),
+                                if (index < countdownItems.length - 1)
+                                  const SizedBox(width: 12),
+                              ],
+                            ],
+                          ),
+                        );
+                      },
                     ),
             ),
             const SizedBox(height: 24),
@@ -596,6 +610,53 @@ class _HomeScreenContentState extends State<HomeScreenContent> {
       left.year == right.year &&
       left.month == right.month &&
       left.day == right.day;
+}
+
+@visibleForTesting
+List<ScheduleItemModel> selectHomeCountdownItems(
+  Iterable<ScheduleItemModel> items,
+  DateTime now, {
+  int limit = 4,
+}) {
+  final actionable = items
+      .where((item) {
+        if (item.type == 'medicine') {
+          return item.status == 'scheduled' || item.status == 'missed';
+        }
+        return item.status != 'completed' && item.status != 'cancelled';
+      })
+      .toList(growable: false);
+
+  final future =
+      actionable.where((item) {
+        final scheduled = _homeCountdownScheduledDateTime(item);
+        return scheduled != null && !scheduled.isBefore(now);
+      }).toList()..sort((left, right) {
+        final l = _homeCountdownScheduledDateTime(left) ?? DateTime(2100);
+        final r = _homeCountdownScheduledDateTime(right) ?? DateTime(2100);
+        return l.compareTo(r);
+      });
+
+  if (future.isNotEmpty) return future.take(limit).toList(growable: false);
+
+  final missed = actionable.where((item) => item.status == 'missed').toList()
+    ..sort((left, right) {
+      final l = _homeCountdownScheduledDateTime(left) ?? DateTime(2100);
+      final r = _homeCountdownScheduledDateTime(right) ?? DateTime(2100);
+      return l.compareTo(r);
+    });
+  return missed.take(1).toList(growable: false);
+}
+
+DateTime? _homeCountdownScheduledDateTime(ScheduleItemModel item) {
+  if (item.scheduledAtUtc != null) return item.scheduledAtUtc!.toLocal();
+  final date = item.startDate;
+  final parts = item.time.split(':');
+  if (date == null || parts.length < 2) return null;
+  final hour = int.tryParse(parts[0]);
+  final minute = int.tryParse(parts[1].split(' ').first);
+  if (hour == null || minute == null) return null;
+  return DateTime(date.year, date.month, date.day, hour, minute);
 }
 
 class _TreatmentTimerPlaceholder extends StatelessWidget {

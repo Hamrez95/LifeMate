@@ -19,10 +19,13 @@ class _TreatmentsScreenState extends State<TreatmentsScreen> {
   final _search = TextEditingController();
   bool _loading = true;
   String? _error;
-  List<CareItem> _items = const [];
+  List<CareItem> _planItems = const [];
+  List<CareItem> _careEventItems = const [];
+  List<CareItem> _doseItems = const [];
   CareItemType? _type;
   CareItemStatusFilter _status = CareItemStatusFilter.all;
   CareItemSort _sort = CareItemSort.nearest;
+  DateTimeRange? _dateRange;
 
   @override
   void initState() {
@@ -47,6 +50,29 @@ class _TreatmentsScreenState extends State<TreatmentsScreen> {
 
   void _onQueryChanged() => setState(() {});
 
+  Future<List<Map<String, dynamic>>> _loadBoundedRange(
+    DateTime fromDate,
+    DateTime toDate,
+    Future<List<Map<String, dynamic>>> Function(DateTime, DateTime) loader,
+  ) async {
+    final from = DateTime(fromDate.year, fromDate.month, fromDate.day);
+    final to = DateTime(toDate.year, toDate.month, toDate.day);
+    final values = <Map<String, dynamic>>[];
+    var cursor = from;
+    while (!cursor.isAfter(to)) {
+      final candidate = cursor.add(const Duration(days: 30));
+      final chunkEnd = candidate.isAfter(to) ? to : candidate;
+      values.addAll(await loader(cursor, chunkEnd));
+      cursor = chunkEnd.add(const Duration(days: 1));
+    }
+    final unique = <String, Map<String, dynamic>>{};
+    for (final value in values) {
+      final key = value['id']?.toString() ?? value.toString();
+      unique[key] = value;
+    }
+    return unique.values.toList(growable: false);
+  }
+
   Future<void> _load() async {
     if (mounted) {
       setState(() {
@@ -57,7 +83,11 @@ class _TreatmentsScreenState extends State<TreatmentsScreen> {
     try {
       final api = context.read<LifeMateApiClient>();
       final now = DateTime.now();
+      final range = _dateRange;
+      final fromDate = range?.start ?? now.subtract(const Duration(days: 31));
+      final toDate = range?.end ?? now.add(const Duration(days: 31));
       var failedSources = 0;
+
       Future<List<Map<String, dynamic>>> safeLoad(
         Future<List<Map<String, dynamic>>> request,
         String label,
@@ -73,68 +103,148 @@ class _TreatmentsScreenState extends State<TreatmentsScreen> {
 
       final results = await Future.wait<List<Map<String, dynamic>>>([
         safeLoad(api.getTreatmentPlans(), 'treatments'),
-        // The care-event endpoint is intentionally bounded. A one-month window
-        // keeps this hub fast while recurrence series are represented by the
-        // occurrence returned inside the window.
         safeLoad(
-          api.getCareEvents(
-            fromDate: now.subtract(const Duration(days: 31)),
-            toDate: now,
+          _loadBoundedRange(
+            fromDate,
+            toDate,
+            (from, to) => api.getCareEvents(fromDate: from, toDate: to),
           ),
-          'past care events',
+          'care events',
         ),
         safeLoad(
-          api.getCareEvents(
-            fromDate: now.add(const Duration(days: 1)),
-            toDate: now.add(const Duration(days: 31)),
+          _loadBoundedRange(
+            fromDate,
+            toDate,
+            (from, to) => api.getDoseOccurrences(fromDate: from, toDate: to),
           ),
-          'future care events',
+          'dose occurrences',
         ),
       ]);
-      final plans = results[0];
-      final pastEvents = results[1];
-      final futureEvents = results[2];
+
       if (failedSources == 3) {
         throw StateError('All treatment sources are unavailable.');
       }
-      final bySeries = <String, CareItem>{};
-      for (final event in [...pastEvents, ...futureEvents]) {
-        final item = CareItem.fromCareEvent(event);
-        final key = item.seriesId ?? item.id;
-        final previous = bySeries[key];
-        if (previous == null ||
-            (item.scheduledAt != null &&
-                (previous.scheduledAt == null ||
-                    item.scheduledAt!.isAfter(previous.scheduledAt!)))) {
-          bySeries[key] = item;
-        }
+
+      final plans = results[0];
+      final careEvents = results[1];
+      final doses = results[2];
+      final plansById = <String, Map<String, dynamic>>{
+        for (final plan in plans) plan['id'].toString(): plan,
+      };
+      final doseItems = <CareItem>[];
+      for (final dose in doses) {
+        final plan = plansById[dose['treatmentPlanId']?.toString() ?? ''];
+        if (plan == null) continue;
+        doseItems.add(CareItem.fromDoseOccurrence(dose, plan));
       }
-      final items = <CareItem>[
-        ...plans.map(CareItem.fromTreatmentPlan),
-        ...bySeries.values,
-      ];
+
       if (!mounted) return;
-      setState(() => _items = List<CareItem>.unmodifiable(items));
+      setState(() {
+        _planItems = List<CareItem>.unmodifiable(
+          plans.map(CareItem.fromTreatmentPlan),
+        );
+        _careEventItems = List<CareItem>.unmodifiable(
+          careEvents.map(CareItem.fromCareEvent),
+        );
+        _doseItems = List<CareItem>.unmodifiable(doseItems);
+      });
     } catch (error) {
       debugPrint('WellMate care hub load failed: $error');
-      if (mounted)
+      if (mounted) {
         setState(() => _error = 'درمان‌ها و برنامه‌های مراقبتی دریافت نشدند.');
+      }
     } finally {
       if (mounted) setState(() => _loading = false);
     }
   }
 
-  List<CareItem> get _visible => CareItem.filterAndSort(
-    _items,
-    type: _type,
-    status: _status,
-    query: _search.text,
-    sort: _sort,
-  );
+  List<CareItem> _groupCareSeries() {
+    final bySeries = <String, CareItem>{};
+    for (final item in _careEventItems) {
+      final key = item.seriesId ?? item.id;
+      final previous = bySeries[key];
+      if (previous == null ||
+          (item.scheduledAt != null &&
+              (previous.scheduledAt == null ||
+                  item.scheduledAt!.isAfter(previous.scheduledAt!)))) {
+        bySeries[key] = item;
+      }
+    }
+    return bySeries.values.toList(growable: false);
+  }
+
+  List<CareItem> get _visible {
+    final range = _dateRange;
+    final source = <CareItem>[];
+    if (range != null) {
+      // A range is an occurrence/history view, so medication rows come from
+      // real dose occurrences rather than the long-lived treatment plan.
+      source
+        ..addAll(_doseItems)
+        ..addAll(_careEventItems);
+    } else {
+      source
+        ..addAll(_planItems)
+        ..addAll(_groupCareSeries());
+      // The plan itself stays active after a dose is taken. Completed filtering
+      // therefore also needs resolved dose occurrences as first-class rows.
+      if (_status == CareItemStatusFilter.completed) {
+        source.addAll(_doseItems.where((item) => item.isCompleted));
+      }
+    }
+
+    return CareItem.filterAndSort(
+      source,
+      type: _type,
+      status: _status,
+      query: _search.text,
+      sort: _sort,
+      fromDate: range?.start,
+      toDate: range?.end,
+    );
+  }
+
+  Future<void> _pickDateRange() async {
+    final today = DateTime.now();
+    final current = _dateRange;
+    final start = await showAppDatePicker(
+      context: context,
+      initialDate: current?.start ?? today.subtract(const Duration(days: 7)),
+      firstDate: DateTime(2020),
+      lastDate: today.add(const Duration(days: 730)),
+      title: 'از تاریخ',
+    );
+    if (start == null || !mounted) return;
+    final initialEnd = current?.end != null && !current!.end.isBefore(start)
+        ? current.end
+        : start;
+    final end = await showAppDatePicker(
+      context: context,
+      initialDate: initialEnd,
+      firstDate: start,
+      lastDate: today.add(const Duration(days: 730)),
+      title: 'تا تاریخ',
+    );
+    if (end == null || !mounted) return;
+    setState(() {
+      _dateRange = DateTimeRange(
+        start: DateTime(start.year, start.month, start.day),
+        end: DateTime(end.year, end.month, end.day),
+      );
+    });
+    await _load();
+  }
+
+  Future<void> _clearDateRange() async {
+    if (_dateRange == null) return;
+    setState(() => _dateRange = null);
+    await _load();
+  }
 
   @override
   Widget build(BuildContext context) {
     final visible = _visible;
+    final range = _dateRange;
     return Material(
       color: Colors.transparent,
       child: RefreshIndicator(
@@ -256,6 +366,34 @@ class _TreatmentsScreenState extends State<TreatmentsScreen> {
                 ),
               ],
             ),
+            const SizedBox(height: 10),
+            Row(
+              children: [
+                Expanded(
+                  child: OutlinedButton.icon(
+                    key: const ValueKey('care-hub-date-range-filter'),
+                    onPressed: _loading ? null : _pickDateRange,
+                    icon: const Icon(Icons.date_range_rounded),
+                    label: Text(
+                      range == null
+                          ? 'بازه زمانی'
+                          : '${formatAppDate(context, range.start)} تا ${formatAppDate(context, range.end)}',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                ),
+                if (range != null) ...[
+                  const SizedBox(width: 6),
+                  IconButton(
+                    key: const ValueKey('care-hub-clear-date-range'),
+                    tooltip: 'حذف بازه زمانی',
+                    onPressed: _loading ? null : _clearDateRange,
+                    icon: const Icon(Icons.close_rounded),
+                  ),
+                ],
+              ],
+            ),
             const SizedBox(height: 18),
             if (_loading)
               const Padding(
@@ -276,7 +414,9 @@ class _TreatmentsScreenState extends State<TreatmentsScreen> {
                     : _type == CareItemType.visit
                     ? Icons.medical_services_rounded
                     : Icons.medication_rounded,
-                message: _search.text.trim().isEmpty
+                message: range != null
+                    ? 'در این بازه زمانی موردی برای فیلتر انتخابی وجود ندارد.'
+                    : _search.text.trim().isEmpty
                     ? 'برای این فیلتر موردی وجود ندارد.'
                     : 'نتیجه‌ای برای «${localizeDigits(context, _search.text.trim())}» پیدا نشد.',
               )

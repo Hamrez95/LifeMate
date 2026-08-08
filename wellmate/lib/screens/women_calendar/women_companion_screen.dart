@@ -242,18 +242,7 @@ class _WomenCompanionScreenState extends State<WomenCompanionScreen> {
               relationship: _companionRelationship,
             ),
             const SizedBox(height: 14),
-            _CycleOverviewCard(
-              estimate: estimate,
-              onOpenCalendar: _openAdvancedManagement,
-            ),
-            const SizedBox(height: 14),
-            _DailyCheckInCard(
-              log: _todayLog,
-              saving: _saving,
-              onEdit: () => _editDailyLog(DateTime.now()),
-            ),
-            const SizedBox(height: 14),
-            _DailyTipCard(estimate: estimate, log: _todayLog),
+            _CycleOverviewCard(estimate: estimate),
             const SizedBox(height: 14),
             WomenCalendarMonthCard(
               episodes: _episodes,
@@ -271,16 +260,24 @@ class _WomenCompanionScreenState extends State<WomenCompanionScreen> {
               onEdit: () => _editDailyLog(_selectedDate),
             ),
             const SizedBox(height: 14),
+            _DailyCheckInCard(
+              log: _todayLog,
+              saving: _saving,
+              onEdit: () => _editDailyLog(DateTime.now()),
+            ),
+            const SizedBox(height: 14),
+            _DailyTipCard(estimate: estimate, log: _todayLog),
+            const SizedBox(height: 14),
             _FourteenDayStrip(estimate: estimate),
             const SizedBox(height: 14),
             _ReportsCard(episodes: _episodes, logs: _dailyLogs),
+            const SizedBox(height: 14),
+            const _MedicalSafetyCard(),
             const SizedBox(height: 14),
             _ReminderAndSettingsCard(
               profile: _profile,
               onOpenSettings: _openAdvancedManagement,
             ),
-            const SizedBox(height: 14),
-            const _MedicalSafetyCard(),
           ],
         ),
       ),
@@ -422,13 +419,9 @@ class _CompanionHero extends StatelessWidget {
 }
 
 class _CycleOverviewCard extends StatelessWidget {
-  const _CycleOverviewCard({
-    required this.estimate,
-    required this.onOpenCalendar,
-  });
+  const _CycleOverviewCard({required this.estimate});
 
   final WomenCalendarEstimate? estimate;
-  final VoidCallback onOpenCalendar;
 
   @override
   Widget build(BuildContext context) {
@@ -437,15 +430,16 @@ class _CycleOverviewCard extends StatelessWidget {
     return _PastelCard(
       child: LayoutBuilder(
         builder: (context, constraints) {
-          final narrow = constraints.maxWidth < 330;
-          final ring = _CycleRing(estimate: value, size: narrow ? 142 : 164);
-          final details = Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
+          final ringSize = math.min(constraints.maxWidth, 270.0);
+          return Column(
+            key: const ValueKey('women-cycle-overview-large'),
             children: [
+              _CycleRing(estimate: value, size: ringSize),
+              const SizedBox(height: 16),
               Text(
                 visual.label,
                 style: TextStyle(
-                  fontSize: 19,
+                  fontSize: 21,
                   fontWeight: FontWeight.w900,
                   color: visual.foreground,
                 ),
@@ -453,17 +447,19 @@ class _CycleOverviewCard extends StatelessWidget {
               const SizedBox(height: 7),
               Text(
                 value == null
-                    ? 'برای نمایش چرخه، اطلاعات پایه را کامل کن.'
+                    ? 'برای نمایش چرخه، اطلاعات پایه را در تنظیمات کامل کن.'
                     : 'روز ${localizeDigits(context, value.cycleDay)} از چرخه ${localizeDigits(context, value.cycleLength)} روزه',
+                textAlign: TextAlign.center,
                 style: const TextStyle(
                   color: AppColors.textSecondary,
                   height: 1.5,
                 ),
               ),
               if (value != null) ...[
-                const SizedBox(height: 6),
+                const SizedBox(height: 5),
                 Text(
                   '${localizeDigits(context, value.daysUntilNextPeriod)} روز تا شروع تخمینی دوره بعدی',
+                  textAlign: TextAlign.center,
                   style: const TextStyle(
                     fontSize: 11.5,
                     color: Color(0xFF866A80),
@@ -471,35 +467,6 @@ class _CycleOverviewCard extends StatelessWidget {
                   ),
                 ),
               ],
-              const SizedBox(height: 12),
-              OutlinedButton.icon(
-                onPressed: onOpenCalendar,
-                icon: const Icon(Icons.calendar_month_rounded, size: 18),
-                label: const Text('تقویم و ثبت دوره'),
-                style: OutlinedButton.styleFrom(
-                  foregroundColor: const Color(0xFFD85586),
-                  side: const BorderSide(color: Color(0xFFF3AFC6)),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(16),
-                  ),
-                ),
-              ),
-            ],
-          );
-          if (narrow) {
-            return Column(
-              children: [
-                ring,
-                const SizedBox(height: 14),
-                Align(alignment: Alignment.centerRight, child: details),
-              ],
-            );
-          }
-          return Row(
-            children: [
-              ring,
-              const SizedBox(width: 18),
-              Expanded(child: details),
             ],
           );
         },
@@ -1401,7 +1368,8 @@ class _DailyCheckInSheetState extends State<_DailyCheckInSheet> {
 
   @override
   Widget build(BuildContext context) {
-    final bottom = MediaQuery.viewInsetsOf(context).bottom;
+    final media = MediaQuery.of(context);
+    final bottom = math.max(media.viewInsets.bottom, media.viewPadding.bottom);
     return Container(
       constraints: BoxConstraints(
         maxHeight: MediaQuery.sizeOf(context).height * 0.9,

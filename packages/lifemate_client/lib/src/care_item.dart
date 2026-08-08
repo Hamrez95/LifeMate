@@ -75,6 +75,44 @@ class CareItem {
     );
   }
 
+  static CareItem fromDoseOccurrence(
+    Map<String, dynamic> occurrence,
+    Map<String, dynamic> plan,
+  ) {
+    final medication = _object(plan['medication']);
+    final name = _text(medication['name']) ?? 'دارو';
+    final dose = _text(plan['doseText']) ?? '';
+    final instructions = _text(plan['instructions']) ?? '';
+    final date = DateTime.tryParse(
+      _text(occurrence['scheduledLocalDate']) ?? '',
+    );
+    final time = _text(occurrence['scheduledLocalTime']);
+    final scheduledAt =
+        DateTime.tryParse(
+          _text(occurrence['scheduledAtUtc']) ?? '',
+        )?.toLocal() ??
+        _combine(date, time);
+    return CareItem(
+      id: _text(occurrence['id']) ?? '',
+      seriesId: _text(occurrence['treatmentPlanId']) ?? _text(plan['id']),
+      type: CareItemType.medication,
+      title: name,
+      subtitle: dose,
+      status: (_text(occurrence['status']) ?? 'scheduled').toLowerCase(),
+      scheduledAt: scheduledAt,
+      searchText: _search([
+        name,
+        dose,
+        instructions,
+        medication['strengthText'],
+        medication['form'],
+        medication['notes'],
+      ]),
+      // Medication details still expect the treatment-plan contract.
+      raw: plan,
+    );
+  }
+
   static CareItem fromCareEvent(Map<String, dynamic> event) {
     final rawType = (_text(event['eventType']) ?? '').toLowerCase();
     final type = rawType == 'injection'
@@ -128,6 +166,8 @@ class CareItem {
     String query = '',
     CareItemSort sort = CareItemSort.nearest,
     DateTime? now,
+    DateTime? fromDate,
+    DateTime? toDate,
   }) {
     final reference = now ?? DateTime.now();
     final normalizedQuery = _normalize(query);
@@ -141,6 +181,27 @@ class CareItem {
             CareItemStatusFilter.completed => item.isCompleted,
           };
           if (!statusMatches) return false;
+          if (fromDate != null || toDate != null) {
+            final scheduled = item.scheduledAt;
+            if (scheduled == null) return false;
+            final day = DateTime(
+              scheduled.year,
+              scheduled.month,
+              scheduled.day,
+            );
+            if (fromDate != null) {
+              final from = DateTime(
+                fromDate.year,
+                fromDate.month,
+                fromDate.day,
+              );
+              if (day.isBefore(from)) return false;
+            }
+            if (toDate != null) {
+              final to = DateTime(toDate.year, toDate.month, toDate.day);
+              if (day.isAfter(to)) return false;
+            }
+          }
           return normalizedQuery.isEmpty ||
               item.searchText.contains(normalizedQuery);
         })
