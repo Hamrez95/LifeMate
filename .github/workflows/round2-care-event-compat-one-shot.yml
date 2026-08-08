@@ -1,0 +1,38 @@
+name: round2-care-event-compat-one-shot
+on:
+  push:
+    branches: [fix/wellmate-physical-qa-round-2]
+    paths:
+      - 'tools/hotfix/fix_care_event_created_by.py'
+      - '.github/workflows/round2-care-event-compat-one-shot.yml'
+permissions:
+  contents: write
+jobs:
+  apply-and-verify:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+      - uses: denoland/setup-deno@22d081ff2d3a40755e97629de92e3bcbfa7cf2ed
+        with:
+          deno-version: v2.9.4
+      - run: python3 tools/hotfix/fix_care_event_created_by.py
+      - run: deno fmt supabase/functions/lifemate-api/care_events.ts
+      - name: Verify edge unit/type checks
+        working-directory: supabase/functions/lifemate-api
+        run: |
+          deno task check
+          deno task test
+      - name: Commit compatibility fix
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add -A
+          git diff --cached --check
+          git commit -m 'fix: preserve care event creator ownership'
+          git push origin HEAD:fix/wellmate-physical-qa-round-2
