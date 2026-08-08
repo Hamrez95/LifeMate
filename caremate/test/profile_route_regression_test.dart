@@ -10,8 +10,9 @@ import 'package:lifemate_client/lifemate_client.dart';
 import 'package:provider/provider.dart';
 
 void main() {
-  testWidgets('profile route keeps LifeMateApiClient in scope',
-      (WidgetTester tester) async {
+  testWidgets('profile route keeps LifeMateApiClient in scope', (
+    WidgetTester tester,
+  ) async {
     final api = _FakeCareMateApiClient();
 
     await tester.pumpWidget(
@@ -52,9 +53,9 @@ void main() {
   });
 
   test('displayed app version matches caremate pubspec', () {
-    final versionLine = File('pubspec.yaml')
-        .readAsLinesSync()
-        .firstWhere((line) => line.startsWith('version:'));
+    final versionLine = File(
+      'pubspec.yaml',
+    ).readAsLinesSync().firstWhere((line) => line.startsWith('version:'));
     final pubspecVersion = versionLine.substring('version:'.length).trim();
 
     expect(careMateAppVersion, pubspecVersion);
@@ -63,21 +64,18 @@ void main() {
 
 class _FakeCareMateApiClient extends LifeMateApiClient {
   _FakeCareMateApiClient()
-      : super(
-          baseUri: Uri.parse('https://example.invalid'),
-          accessToken: () => 'test-token',
-        );
+    : super(
+        baseUri: Uri.parse('https://example.invalid'),
+        accessToken: () => 'test-token',
+      );
 
   @override
   Future<Map<String, dynamic>> getCurrentUser() async => {
-        'user': {
-          'id': 'caregiver-1',
-          'email': 'caregiver@example.com',
-        },
-        'profile': {
-          'displayName': 'مراقب تست',
-          'locale': 'fa',
-          'timeZone': 'Asia/Tehran',
-        },
-      };
+    'user': {'id': 'caregiver-1', 'email': 'caregiver@example.com'},
+    'profile': {
+      'displayName': 'مراقب تست',
+      'locale': 'fa',
+      'timeZone': 'Asia/Tehran',
+    },
+  };
 }

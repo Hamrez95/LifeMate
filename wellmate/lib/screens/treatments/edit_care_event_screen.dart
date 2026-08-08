@@ -196,15 +196,11 @@ class _EditCareEventScreenState extends State<EditCareEventScreen> {
       _version =
           int.tryParse(result['version']?.toString() ?? '') ?? _version + 1;
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          behavior: SnackBarBehavior.floating,
-          content: Text(
-            _isAppointment
-                ? 'تغییرات ویزیت ذخیره شد.'
-                : 'تغییرات تزریق ذخیره شد.',
-          ),
-        ),
+      LifeMateNotice.show(
+        context,
+        type: LifeMateNoticeType.success,
+        title: _isAppointment ? 'ویزیت به‌روزرسانی شد' : 'تزریق به‌روزرسانی شد',
+        message: 'تغییرات با موفقیت ذخیره شد.',
       );
       Navigator.of(context).pop(true);
     } on LifeMateApiException catch (error) {

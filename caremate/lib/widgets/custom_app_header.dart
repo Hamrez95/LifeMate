@@ -29,9 +29,9 @@ class CustomAppHeader extends StatelessWidget {
       callback();
       return;
     }
-    Navigator.of(context).push(
-      MaterialPageRoute<void>(builder: (_) => const ProfileScreen()),
-    );
+    Navigator.of(
+      context,
+    ).push(MaterialPageRoute<void>(builder: (_) => const ProfileScreen()));
   }
 
   @override

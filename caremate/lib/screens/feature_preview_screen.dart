@@ -14,10 +14,8 @@ import 'dashboard_screen.dart';
 /// destinations. Data that exists in the healthcare API is live; actions that
 /// have no safe caregiver contract remain visible and explicitly disabled.
 class CareMateFeaturePreviewScreen extends StatefulWidget {
-  const CareMateFeaturePreviewScreen({
-    required this.initialIndex,
-    super.key,
-  }) : assert(initialIndex >= 1 && initialIndex <= 3);
+  const CareMateFeaturePreviewScreen({required this.initialIndex, super.key})
+    : assert(initialIndex >= 1 && initialIndex <= 3);
 
   final int initialIndex;
 
@@ -84,9 +82,7 @@ class _CareMateFeaturePreviewScreenState
           .toList(growable: false);
 
       var selectedId = _selectedRelationshipId;
-      if (!relationships.any(
-        (item) => item['id']?.toString() == selectedId,
-      )) {
+      if (!relationships.any((item) => item['id']?.toString() == selectedId)) {
         selectedId = relationships.isEmpty
             ? null
             : relationships.first['id']?.toString();
@@ -223,19 +219,19 @@ class _CareMateFeaturePreviewScreenState
 
     setState(() => _accepting = true);
     try {
-      await context
-          .read<LifeMateApiClient>()
-          .acceptCareInvitation(token: token);
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('ارتباط مراقبتی فعال شد.')),
+      await context.read<LifeMateApiClient>().acceptCareInvitation(
+        token: token,
       );
+      if (!mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('ارتباط مراقبتی فعال شد.')));
       await _refresh();
     } on LifeMateApiException catch (error) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(_friendlyApiError(error))),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(_friendlyApiError(error))));
     } finally {
       if (mounted) setState(() => _accepting = false);
     }
@@ -245,9 +241,7 @@ class _CareMateFeaturePreviewScreenState
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (dialogContext) => AlertDialog(
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(24),
-        ),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
         title: const Text('لغو دسترسی مراقبتی'),
         content: Text(
           'دسترسی شما به اطلاعات ${_relationshipName(relationship)} فوراً لغو می‌شود.',
@@ -270,8 +264,8 @@ class _CareMateFeaturePreviewScreenState
     setState(() => _loading = true);
     try {
       await context.read<LifeMateApiClient>().revokeCareRelationship(
-            relationshipId: relationship['id'].toString(),
-          );
+        relationshipId: relationship['id'].toString(),
+      );
       await _refresh();
     } on LifeMateApiException catch (error) {
       _setError(_friendlyApiError(error));
@@ -359,28 +353,28 @@ class _CareMateFeaturePreviewScreenState
   }
 
   _FeatureDefinition get _feature => switch (_currentIndex) {
-        1 => const _FeatureDefinition(
-            title: 'تغییر پروفایل',
-            subtitle: 'انتخاب عضو خانواده و مشاهده محدوده دسترسی واقعی',
-            icon: Icons.switch_account_rounded,
-            accent: Color(0xFF7B93DB),
-            softBackground: Color(0xFFF2F4FF),
-          ),
-        2 => const _FeatureDefinition(
-            title: 'مدیریت درمان',
-            subtitle: 'مشاهده برنامه و وضعیت واقعی درمان فرد تحت مراقبت',
-            icon: Icons.medical_services_rounded,
-            accent: Color(0xFF5BA7E8),
-            softBackground: Color(0xFFF0F8FF),
-          ),
-        _ => const _FeatureDefinition(
-            title: 'مراقبت خانواده',
-            subtitle: 'مدیریت امن ارتباط‌های مراقبتی و دسترسی‌ها',
-            icon: Icons.family_restroom_rounded,
-            accent: Color(0xFFE598D8),
-            softBackground: Color(0xFFFFF3FC),
-          ),
-      };
+    1 => const _FeatureDefinition(
+      title: 'تغییر پروفایل',
+      subtitle: 'انتخاب عضو خانواده و مشاهده محدوده دسترسی واقعی',
+      icon: Icons.switch_account_rounded,
+      accent: Color(0xFF7B93DB),
+      softBackground: Color(0xFFF2F4FF),
+    ),
+    2 => const _FeatureDefinition(
+      title: 'مدیریت درمان',
+      subtitle: 'مشاهده برنامه و وضعیت واقعی درمان فرد تحت مراقبت',
+      icon: Icons.medical_services_rounded,
+      accent: Color(0xFF5BA7E8),
+      softBackground: Color(0xFFF0F8FF),
+    ),
+    _ => const _FeatureDefinition(
+      title: 'مراقبت خانواده',
+      subtitle: 'مدیریت امن ارتباط‌های مراقبتی و دسترسی‌ها',
+      icon: Icons.family_restroom_rounded,
+      accent: Color(0xFFE598D8),
+      softBackground: Color(0xFFFFF3FC),
+    ),
+  };
 
   @override
   Widget build(BuildContext context) {
@@ -464,10 +458,9 @@ class _CareMateFeaturePreviewScreenState
             padding: const EdgeInsets.only(bottom: 12),
             child: _RelationshipSelectionCard(
               relationship: relationship,
-              selected: relationship['id']?.toString() ==
-                  _selectedRelationshipId,
-              onTap: () =>
-                  _selectRelationship(relationship['id']?.toString()),
+              selected:
+                  relationship['id']?.toString() == _selectedRelationshipId,
+              onTap: () => _selectRelationship(relationship['id']?.toString()),
             ),
           ),
         ),
@@ -607,7 +600,8 @@ class _CareMateFeaturePreviewScreenState
         const SizedBox(height: 20),
         const _SectionTitle(
           title: 'تیم مراقبت',
-          subtitle: 'روابط فعال و قابل لغو، بدون نمایش اطلاعات خارج از رضایت بیمار.',
+          subtitle:
+              'روابط فعال و قابل لغو، بدون نمایش اطلاعات خارج از رضایت بیمار.',
         ),
         const SizedBox(height: 12),
         if (_relationships.isEmpty)
@@ -621,8 +615,8 @@ class _CareMateFeaturePreviewScreenState
               padding: const EdgeInsets.only(bottom: 12),
               child: _RelationshipManagementCard(
                 relationship: relationship,
-                selected: relationship['id']?.toString() ==
-                    _selectedRelationshipId,
+                selected:
+                    relationship['id']?.toString() == _selectedRelationshipId,
                 onSelect: () =>
                     _selectRelationship(relationship['id']?.toString()),
                 onRevoke: () => _revokeRelationship(relationship),
@@ -666,62 +660,62 @@ class _FeatureHero extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Container(
-        padding: const EdgeInsets.all(22),
-        decoration: BoxDecoration(
-          color: feature.softBackground,
-          borderRadius: BorderRadius.circular(28),
-          boxShadow: [
-            BoxShadow(
-              color: feature.accent.withOpacity(0.12),
-              blurRadius: 22,
-              offset: const Offset(0, 10),
-            ),
-          ],
+    padding: const EdgeInsets.all(22),
+    decoration: BoxDecoration(
+      color: feature.softBackground,
+      borderRadius: BorderRadius.circular(28),
+      boxShadow: [
+        BoxShadow(
+          color: feature.accent.withOpacity(0.12),
+          blurRadius: 22,
+          offset: const Offset(0, 10),
         ),
-        child: Row(
-          children: [
-            Container(
-              width: 66,
-              height: 66,
-              decoration: BoxDecoration(
-                color: Colors.white,
-                shape: BoxShape.circle,
-                boxShadow: [
-                  BoxShadow(
-                    color: feature.accent.withOpacity(0.15),
-                    blurRadius: 14,
-                  ),
-                ],
+      ],
+    ),
+    child: Row(
+      children: [
+        Container(
+          width: 66,
+          height: 66,
+          decoration: BoxDecoration(
+            color: Colors.white,
+            shape: BoxShape.circle,
+            boxShadow: [
+              BoxShadow(
+                color: feature.accent.withOpacity(0.15),
+                blurRadius: 14,
               ),
-              child: Icon(feature.icon, color: feature.accent, size: 34),
-            ),
-            const SizedBox(width: 16),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    feature.title,
-                    style: const TextStyle(
-                      fontSize: 21,
-                      fontWeight: FontWeight.w800,
-                      color: AppColors.primaryText,
-                    ),
-                  ),
-                  const SizedBox(height: 6),
-                  Text(
-                    feature.subtitle,
-                    style: const TextStyle(
-                      height: 1.55,
-                      color: AppColors.secondaryText,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ],
+            ],
+          ),
+          child: Icon(feature.icon, color: feature.accent, size: 34),
         ),
-      );
+        const SizedBox(width: 16),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                feature.title,
+                style: const TextStyle(
+                  fontSize: 21,
+                  fontWeight: FontWeight.w800,
+                  color: AppColors.primaryText,
+                ),
+              ),
+              const SizedBox(height: 6),
+              Text(
+                feature.subtitle,
+                style: const TextStyle(
+                  height: 1.55,
+                  color: AppColors.secondaryText,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
+    ),
+  );
 }
 
 class _SectionTitle extends StatelessWidget {
@@ -731,26 +725,23 @@ class _SectionTitle extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            title,
-            style: const TextStyle(
-              fontSize: 18,
-              fontWeight: FontWeight.w800,
-              color: AppColors.primaryText,
-            ),
-          ),
-          const SizedBox(height: 4),
-          Text(
-            subtitle,
-            style: const TextStyle(
-              height: 1.5,
-              color: AppColors.secondaryText,
-            ),
-          ),
-        ],
-      );
+    crossAxisAlignment: CrossAxisAlignment.start,
+    children: [
+      Text(
+        title,
+        style: const TextStyle(
+          fontSize: 18,
+          fontWeight: FontWeight.w800,
+          color: AppColors.primaryText,
+        ),
+      ),
+      const SizedBox(height: 4),
+      Text(
+        subtitle,
+        style: const TextStyle(height: 1.5, color: AppColors.secondaryText),
+      ),
+    ],
+  );
 }
 
 class _RelationshipSelectionCard extends StatelessWidget {
@@ -888,7 +879,10 @@ class _SelectedPatientCard extends StatelessWidget {
                     (item) => DropdownMenuItem<String>(
                       value: item['id']?.toString(),
                       child: Text(
-                        item['patientDisplayName']?.toString().trim().isNotEmpty ==
+                        item['patientDisplayName']
+                                    ?.toString()
+                                    .trim()
+                                    .isNotEmpty ==
                                 true
                             ? item['patientDisplayName'].toString()
                             : 'فرد تحت مراقبت',
@@ -922,32 +916,29 @@ class _MetricCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Container(
-        padding: const EdgeInsets.all(14),
-        decoration: AppColors.softDecoration(),
-        child: Column(
-          children: [
-            Icon(icon, color: color),
-            const SizedBox(height: 7),
-            Text(
-              '$value',
-              style: TextStyle(
-                fontSize: 22,
-                fontWeight: FontWeight.w900,
-                color: color,
-              ),
-            ),
-            const SizedBox(height: 3),
-            Text(
-              label,
-              textAlign: TextAlign.center,
-              style: const TextStyle(
-                fontSize: 11,
-                color: AppColors.secondaryText,
-              ),
-            ),
-          ],
+    padding: const EdgeInsets.all(14),
+    decoration: AppColors.softDecoration(),
+    child: Column(
+      children: [
+        Icon(icon, color: color),
+        const SizedBox(height: 7),
+        Text(
+          '$value',
+          style: TextStyle(
+            fontSize: 22,
+            fontWeight: FontWeight.w900,
+            color: color,
+          ),
         ),
-      );
+        const SizedBox(height: 3),
+        Text(
+          label,
+          textAlign: TextAlign.center,
+          style: const TextStyle(fontSize: 11, color: AppColors.secondaryText),
+        ),
+      ],
+    ),
+  );
 }
 
 class _DoseCard extends StatelessWidget {
@@ -959,29 +950,29 @@ class _DoseCard extends StatelessWidget {
     final status = dose['status']?.toString() ?? 'scheduled';
     final state = switch (status) {
       'taken' => (
-          'مصرف‌شده',
-          Icons.check_circle_rounded,
-          const Color(0xFF36A269),
-          const Color(0xFFEAF8F0),
-        ),
+        'مصرف‌شده',
+        Icons.check_circle_rounded,
+        const Color(0xFF36A269),
+        const Color(0xFFEAF8F0),
+      ),
       'skipped' => (
-          'ردشده',
-          Icons.block_rounded,
-          Colors.orange,
-          const Color(0xFFFFF6E8),
-        ),
+        'ردشده',
+        Icons.block_rounded,
+        Colors.orange,
+        const Color(0xFFFFF6E8),
+      ),
       'missed' => (
-          'فراموش‌شده',
-          Icons.warning_amber_rounded,
-          Colors.redAccent,
-          const Color(0xFFFFEEF0),
-        ),
+        'فراموش‌شده',
+        Icons.warning_amber_rounded,
+        Colors.redAccent,
+        const Color(0xFFFFEEF0),
+      ),
       _ => (
-          'در انتظار',
-          Icons.schedule_rounded,
-          AppColors.primaryBlue,
-          const Color(0xFFEAF4FF),
-        ),
+        'در انتظار',
+        Icons.schedule_rounded,
+        AppColors.primaryBlue,
+        const Color(0xFFEAF4FF),
+      ),
     };
     final rawTime = dose['scheduledLocalTime']?.toString() ?? '--:--';
     final time = rawTime.length >= 5 ? rawTime.substring(0, 5) : rawTime;
@@ -1108,17 +1099,16 @@ class _RelationshipManagementCard extends StatelessWidget {
                     const SizedBox(height: 3),
                     const Text(
                       'رضایت مراقبتی فعال',
-                      style: TextStyle(
-                        fontSize: 12,
-                        color: Color(0xFF36A269),
-                      ),
+                      style: TextStyle(fontSize: 12, color: Color(0xFF36A269)),
                     ),
                   ],
                 ),
               ),
               if (selected)
-                const Icon(Icons.check_circle_rounded,
-                    color: AppColors.primaryBlue),
+                const Icon(
+                  Icons.check_circle_rounded,
+                  color: AppColors.primaryBlue,
+                ),
             ],
           ),
           const SizedBox(height: 12),
@@ -1164,71 +1154,67 @@ class _DevelopmentCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Container(
-        padding: const EdgeInsets.all(18),
-        decoration: AppColors.softDecoration(),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
+    padding: const EdgeInsets.all(18),
+    decoration: AppColors.softDecoration(),
+    child: Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
           children: [
-            Row(
-              children: [
-                Container(
-                  width: 48,
-                  height: 48,
-                  decoration: BoxDecoration(
-                    color: accent.withOpacity(0.12),
-                    borderRadius: BorderRadius.circular(16),
-                  ),
-                  child: Icon(icon, color: accent),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Text(
-                    title,
-                    style: const TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.w800,
-                      color: AppColors.primaryText,
-                    ),
-                  ),
-                ),
-                Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFFF0F2F5),
-                    borderRadius: BorderRadius.circular(20),
-                  ),
-                  child: const Text(
-                    'در دست توسعه',
-                    style: TextStyle(
-                      fontSize: 10,
-                      color: AppColors.secondaryText,
-                      fontWeight: FontWeight.w700,
-                    ),
-                  ),
-                ),
-              ],
+            Container(
+              width: 48,
+              height: 48,
+              decoration: BoxDecoration(
+                color: accent.withOpacity(0.12),
+                borderRadius: BorderRadius.circular(16),
+              ),
+              child: Icon(icon, color: accent),
             ),
-            const SizedBox(height: 12),
-            Text(
-              description,
-              style: const TextStyle(
-                height: 1.65,
-                color: AppColors.secondaryText,
+            const SizedBox(width: 12),
+            Expanded(
+              child: Text(
+                title,
+                style: const TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w800,
+                  color: AppColors.primaryText,
+                ),
               ),
             ),
-            const SizedBox(height: 12),
-            SizedBox(
-              width: double.infinity,
-              child: OutlinedButton.icon(
-                onPressed: null,
-                icon: const Icon(Icons.lock_outline_rounded),
-                label: const Text('فعلاً غیرفعال'),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
+              decoration: BoxDecoration(
+                color: const Color(0xFFF0F2F5),
+                borderRadius: BorderRadius.circular(20),
+              ),
+              child: const Text(
+                'در دست توسعه',
+                style: TextStyle(
+                  fontSize: 10,
+                  color: AppColors.secondaryText,
+                  fontWeight: FontWeight.w700,
+                ),
               ),
             ),
           ],
         ),
-      );
+        const SizedBox(height: 12),
+        Text(
+          description,
+          style: const TextStyle(height: 1.65, color: AppColors.secondaryText),
+        ),
+        const SizedBox(height: 12),
+        SizedBox(
+          width: double.infinity,
+          child: OutlinedButton.icon(
+            onPressed: null,
+            icon: const Icon(Icons.lock_outline_rounded),
+            label: const Text('فعلاً غیرفعال'),
+          ),
+        ),
+      ],
+    ),
+  );
 }
 
 class _EmptyState extends StatelessWidget {
@@ -1247,36 +1233,33 @@ class _EmptyState extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Container(
-        width: double.infinity,
-        padding: const EdgeInsets.all(24),
-        decoration: AppColors.softDecoration(),
-        child: Column(
-          children: [
-            Icon(icon, size: 58, color: AppColors.primaryBlue),
-            const SizedBox(height: 14),
-            Text(
-              title,
-              textAlign: TextAlign.center,
-              style: const TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.w800,
-                color: AppColors.primaryText,
-              ),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              description,
-              textAlign: TextAlign.center,
-              style: const TextStyle(
-                height: 1.6,
-                color: AppColors.secondaryText,
-              ),
-            ),
-            const SizedBox(height: 18),
-            FilledButton(onPressed: onAction, child: Text(actionLabel)),
-          ],
+    width: double.infinity,
+    padding: const EdgeInsets.all(24),
+    decoration: AppColors.softDecoration(),
+    child: Column(
+      children: [
+        Icon(icon, size: 58, color: AppColors.primaryBlue),
+        const SizedBox(height: 14),
+        Text(
+          title,
+          textAlign: TextAlign.center,
+          style: const TextStyle(
+            fontSize: 18,
+            fontWeight: FontWeight.w800,
+            color: AppColors.primaryText,
+          ),
         ),
-      );
+        const SizedBox(height: 8),
+        Text(
+          description,
+          textAlign: TextAlign.center,
+          style: const TextStyle(height: 1.6, color: AppColors.secondaryText),
+        ),
+        const SizedBox(height: 18),
+        FilledButton(onPressed: onAction, child: Text(actionLabel)),
+      ],
+    ),
+  );
 }
 
 class _InlineEmptyState extends StatelessWidget {
@@ -1286,21 +1269,21 @@ class _InlineEmptyState extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Container(
-        width: double.infinity,
-        padding: const EdgeInsets.all(22),
-        decoration: AppColors.softDecoration(),
-        child: Column(
-          children: [
-            Icon(icon, size: 42, color: AppColors.primaryBlue),
-            const SizedBox(height: 10),
-            Text(
-              text,
-              textAlign: TextAlign.center,
-              style: const TextStyle(color: AppColors.secondaryText),
-            ),
-          ],
+    width: double.infinity,
+    padding: const EdgeInsets.all(22),
+    decoration: AppColors.softDecoration(),
+    child: Column(
+      children: [
+        Icon(icon, size: 42, color: AppColors.primaryBlue),
+        const SizedBox(height: 10),
+        Text(
+          text,
+          textAlign: TextAlign.center,
+          style: const TextStyle(color: AppColors.secondaryText),
         ),
-      );
+      ],
+    ),
+  );
 }
 
 class _ErrorBanner extends StatelessWidget {
@@ -1310,21 +1293,21 @@ class _ErrorBanner extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Container(
-        padding: const EdgeInsets.all(14),
-        decoration: BoxDecoration(
-          color: Colors.red.shade50,
-          borderRadius: BorderRadius.circular(18),
-          border: Border.all(color: Colors.red.shade100),
-        ),
-        child: Row(
-          children: [
-            Icon(Icons.cloud_off_rounded, color: Colors.red.shade600),
-            const SizedBox(width: 10),
-            Expanded(child: Text(message)),
-            TextButton(onPressed: onRetry, child: const Text('تلاش دوباره')),
-          ],
-        ),
-      );
+    padding: const EdgeInsets.all(14),
+    decoration: BoxDecoration(
+      color: Colors.red.shade50,
+      borderRadius: BorderRadius.circular(18),
+      border: Border.all(color: Colors.red.shade100),
+    ),
+    child: Row(
+      children: [
+        Icon(Icons.cloud_off_rounded, color: Colors.red.shade600),
+        const SizedBox(width: 10),
+        Expanded(child: Text(message)),
+        TextButton(onPressed: onRetry, child: const Text('تلاش دوباره')),
+      ],
+    ),
+  );
 }
 
 class _FeatureDefinition {

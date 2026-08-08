@@ -45,9 +45,8 @@ class _CareInvitationScannerScreenState
         children: [
           MobileScanner(
             onDetect: _handleCapture,
-            errorBuilder: (context, error) => _CameraError(
-              message: error.errorDetails?.message,
-            ),
+            errorBuilder: (context, error) =>
+                _CameraError(message: error.errorDetails?.message),
           ),
           IgnorePointer(
             child: Center(
@@ -56,10 +55,7 @@ class _CareInvitationScannerScreenState
                 height: 260,
                 decoration: BoxDecoration(
                   borderRadius: BorderRadius.circular(28),
-                  border: Border.all(
-                    color: AppColors.primaryBlue,
-                    width: 4,
-                  ),
+                  border: Border.all(color: AppColors.primaryBlue, width: 4),
                   boxShadow: const [
                     BoxShadow(
                       color: Colors.black54,

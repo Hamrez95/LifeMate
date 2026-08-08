@@ -139,8 +139,9 @@ class CareMateBottomNav extends StatelessWidget {
                           style: TextStyle(
                             fontFamily: fontFamily,
                             fontSize: 10,
-                            fontWeight:
-                                isSelected ? FontWeight.w700 : FontWeight.w500,
+                            fontWeight: isSelected
+                                ? FontWeight.w700
+                                : FontWeight.w500,
                             color: color,
                           ),
                         ),
