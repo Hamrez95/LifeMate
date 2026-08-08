@@ -1,0 +1,110 @@
+name: apply-session-profile-women-hotfix
+
+on:
+  push:
+    branches: [fix/session-profile-women-calendar-pilot]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: fix/session-profile-women-calendar-pilot
+
+      - name: Apply targeted hotfix
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+
+          def replace(path: str, old: str, new: str) -> None:
+              target = Path(path)
+              value = target.read_text(encoding='utf-8')
+              if new in value:
+                  return
+              if old not in value:
+                  raise RuntimeError(f'marker missing in {path}: {old[:80]!r}')
+              target.write_text(value.replace(old, new, 1), encoding='utf-8')
+
+          replace(
+              'packages/lifemate_client/lib/src/profile_avatar.dart',
+              '''  static void notifyChanged() {\n    for (final entry in _cache.values) {\n      entry.loadedAt = null;\n    }\n    revision.value = revision.value + 1;\n  }\n\n  @visibleForTesting''',
+              '''  static void notifyChanged() {\n    for (final entry in _cache.values) {\n      entry.loadedAt = null;\n    }\n    revision.value = revision.value + 1;\n  }\n\n  /// Drops profile/avatar state when the authenticated account changes.\n  /// This prevents a previous account's signed profile photo from being\n  /// rendered while the next account is bootstrapping.\n  static void clearForApiClient(LifeMateApiClient apiClient) {\n    _cache.remove(apiClient);\n    revision.value = revision.value + 1;\n  }\n\n  @visibleForTesting''',
+          )
+          replace(
+              'packages/lifemate_client/lib/src/profile_avatar.dart',
+              '''  void _reload() {\n    _load();\n  }''',
+              '''  void _reload() {\n    final cached = LifeMateProfileRefresh.peek(widget.apiClient);\n    if (mounted) {\n      setState(\n        () => _profile = cached ?? const <String, dynamic>{},\n      );\n    }\n    _load();\n  }''',
+          )
+
+          replace(
+              'packages/lifemate_client/lib/src/session_gate.dart',
+              "import 'lifemate_auth.dart';\n",
+              "import 'lifemate_auth.dart';\nimport 'profile_avatar.dart';\n",
+          )
+          replace(
+              'packages/lifemate_client/lib/src/session_gate.dart',
+              '''      (state) {\n        if (!mounted) return;\n        setState(() {\n          _authStreamError = null;\n          _session = state.session;''',
+              '''      (state) {\n        if (!mounted) return;\n        final previousUserId = _session?.user.id;\n        final nextUserId = state.session?.user.id;\n        if (previousUserId != nextUserId) {\n          LifeMateProfileRefresh.clearForApiClient(_api);\n        }\n        setState(() {\n          _authStreamError = null;\n          _session = state.session;''',
+          )
+
+          Path('packages/lifemate_client/test/profile_avatar_session_switch_test.dart').write_text(
+              '''import 'package:flutter_test/flutter_test.dart';\nimport 'package:lifemate_client/lifemate_client.dart';\n\nvoid main() {\n  setUp(LifeMateProfileRefresh.clearCacheForTesting);\n  tearDown(LifeMateProfileRefresh.clearCacheForTesting);\n\n  test('clears the previous account avatar when authenticated user changes', () {\n    final client = LifeMateApiClient(\n      baseUri: Uri.parse('https://lifemate.test'),\n      accessToken: () => 'test-token',\n    );\n    addTearDown(client.close);\n\n    LifeMateProfileRefresh.cacheProfile(client, {\n      'displayName': 'Hamidreza',\n      'avatarKey': 'person_blue',\n      'profilePhotoUrl': 'https://storage.test/hamidreza.jpg',\n    });\n    expect(\n      LifeMateProfileRefresh.peek(client)?['profilePhotoUrl'],\n      'https://storage.test/hamidreza.jpg',\n    );\n\n    final revisionBefore = LifeMateProfileRefresh.revision.value;\n    LifeMateProfileRefresh.clearForApiClient(client);\n\n    expect(LifeMateProfileRefresh.peek(client), isNull);\n    expect(LifeMateProfileRefresh.revision.value, revisionBefore + 1);\n\n    LifeMateProfileRefresh.cacheProfile(client, {\n      'displayName': 'Reyhaneh',\n      'avatarKey': 'person_green',\n      'profilePhotoUrl': 'https://storage.test/reyhaneh.jpg',\n    });\n    expect(\n      LifeMateProfileRefresh.peek(client)?['profilePhotoUrl'],\n      'https://storage.test/reyhaneh.jpg',\n    );\n  });\n}\n''',
+              encoding='utf-8',
+          )
+
+          release = Path('.github/workflows/main-final-android-release.yml')
+          value = release.read_text(encoding='utf-8')
+          replacements = {
+              "ENABLE_WOMEN_CALENDAR_PILOT: 'false'": "ENABLE_WOMEN_CALENDAR_PILOT: 'true'",
+              'build_name="0.9.0"': 'build_name="0.9.1"',
+              'dist/wellmate-0.9.0-main-${short_sha}.apk': 'dist/wellmate-0.9.1-main-${short_sha}.apk',
+              'dist/caremate-0.9.0-main-${short_sha}.apk': 'dist/caremate-0.9.1-main-${short_sha}.apk',
+              '--arg version "0.9.0"': '--arg version "0.9.1"',
+              '--argjson womenCalendarPilot false': '--argjson womenCalendarPilot true',
+          }
+          for old, new in replacements.items():
+              if new in value:
+                  continue
+              if old not in value:
+                  raise RuntimeError(f'release marker missing: {old}')
+              value = value.replace(old, new, 1)
+          release.write_text(value, encoding='utf-8')
+          PY
+
+      - name: Format changed Dart files
+        uses: dart-lang/setup-dart@v1
+        with:
+          sdk: stable
+
+      - shell: bash
+        run: |
+          dart format \
+            packages/lifemate_client/lib/src/profile_avatar.dart \
+            packages/lifemate_client/lib/src/session_gate.dart \
+            packages/lifemate_client/test/profile_avatar_session_switch_test.dart
+
+      - name: Commit hotfix source
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add \
+            packages/lifemate_client/lib/src/profile_avatar.dart \
+            packages/lifemate_client/lib/src/session_gate.dart \
+            packages/lifemate_client/test/profile_avatar_session_switch_test.dart \
+            .github/workflows/main-final-android-release.yml
+          git diff --cached --check
+          if git diff --cached --quiet; then
+            echo 'No changes to commit.'
+            exit 0
+          fi
+          git commit -m 'fix: isolate profile avatar cache and enable women calendar pilot'
+          git push origin HEAD:fix/session-profile-women-calendar-pilot
