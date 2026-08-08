@@ -1,8 +1,7 @@
--- Internal testing phase only.
--- Keep normal Supabase rate-limited email/password signup, but mark newly
--- inserted email users as confirmed so the apps receive a session immediately
--- and do not require an email-confirmation round trip.
--- Remove this trigger before public launch or when authentication is migrated.
+-- Supabase Auth infrastructure setting for the closed internal testing phase.
+-- This is intentionally NOT part of the portable PostgreSQL business-schema
+-- migration chain. It already exists on the connected test project.
+-- Remove the live trigger before public launch / phone+OIDC rollout.
 create or replace function public.lifemate_internal_auto_confirm_email()
 returns trigger
 language plpgsql

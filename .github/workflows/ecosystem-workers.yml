@@ -1,0 +1,54 @@
+name: ecosystem-workers
+
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - 'supabase/functions/lifemate-worker/**'
+      - 'supabase/functions/lifemate-kavenegar-sms-hook/**'
+      - '.github/workflows/ecosystem-workers.yml'
+  push:
+    branches: [main, 'feat/ecosystem-data-foundation']
+    paths:
+      - 'supabase/functions/lifemate-worker/**'
+      - 'supabase/functions/lifemate-kavenegar-sms-hook/**'
+      - '.github/workflows/ecosystem-workers.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  deno-checks:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
+        with:
+          persist-credentials: false
+          show-progress: false
+      - uses: denoland/setup-deno@22d081ff2d3a40755e97629de92e3bcbfa7cf2ed
+        with:
+          deno-version: v2.9.4
+      - name: Format
+        run: >-
+          deno fmt --check
+          supabase/functions/lifemate-worker
+          supabase/functions/lifemate-kavenegar-sms-hook
+      - name: Type check outbox worker
+        working-directory: supabase/functions/lifemate-worker
+        run: deno task check
+      - name: Type check Kavenegar SMS hook
+        working-directory: supabase/functions/lifemate-kavenegar-sms-hook
+        run: deno task check
+      - name: Security invariants
+        shell: bash
+        run: |
+          set -euo pipefail
+          ! grep -R -n -E 'KAVENEGAR_API_KEY\s*=|SERVICE_ROLE_KEY\s*=' \
+            supabase/functions/lifemate-worker \
+            supabase/functions/lifemate-kavenegar-sms-hook
+          grep -Fq 'Webhook' supabase/functions/lifemate-kavenegar-sms-hook/index.ts
+          grep -Fq 'LIFEMATE_WORKER_TOKEN' supabase/functions/lifemate-worker/index.ts
+          grep -Fq 'claim_outbox_messages_for_events' supabase/functions/lifemate-worker/index.ts
+          ! grep -R -n -E 'console\.(log|warn|error).*otp|console\.(log|warn|error).*phone' \
+            supabase/functions/lifemate-kavenegar-sms-hook

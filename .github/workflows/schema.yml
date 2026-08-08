@@ -1,0 +1,145 @@
+name: postgres-schema
+
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - 'supabase/bootstrap/**'
+      - 'supabase/migrations/**'
+      - 'supabase/infrastructure/**'
+      - '.github/workflows/schema.yml'
+      - 'docs/architecture/**'
+      - 'docs/migrations/**'
+  push:
+    branches: [main, 'feat/ecosystem-data-foundation']
+    paths:
+      - 'supabase/bootstrap/**'
+      - 'supabase/migrations/**'
+      - 'supabase/infrastructure/**'
+      - '.github/workflows/schema.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  portable-migrations:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    services:
+      postgres:
+        image: postgres:17.6-alpine
+        env:
+          POSTGRES_DB: lifemate_schema_tests
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d lifemate_schema_tests"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      TEST_DATABASE_URL: postgres://postgres:postgres@localhost:5432/lifemate_schema_tests
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
+        with:
+          show-progress: false
+          persist-credentials: false
+
+      - name: Enforce single portable migration owner
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -f supabase/bootstrap/legacy_lifemate_baseline.sql
+          if grep -R --line-number -E '(^|[^a-zA-Z_])auth\.' supabase/migrations; then
+            echo '::error::Supabase Auth infrastructure SQL must live outside portable business migrations.'
+            exit 1
+          fi
+          if find backend-dotnet/src/LifeMate.Infrastructure/Persistence/Migrations \
+              -maxdepth 1 -type f -name '20*.cs' \
+              | grep -Ev '/20260719000100_|/20260726204025_|/20260726210844_|/20260726222000_' \
+              | grep -q .; then
+            echo '::error::EF Core production migrations are frozen. Add schema changes under supabase/migrations.'
+            exit 1
+          fi
+          for required in \
+            20260806230837_ecosystem_data_foundation_20260807.sql \
+            20260806231045_ecosystem_compatibility_policies_20260807.sql \
+            20260806231112_person_ownership_compatibility_20260807.sql \
+            20260806231133_authorization_entitlement_policy_20260807.sql \
+            20260806231400_fix_entitlement_scope_semantics_20260807.sql \
+            20260806231530_cover_ecosystem_foreign_keys_20260807.sql \
+            20260806231838_harden_account_deletion_and_sync_20260807.sql \
+            20260806231949_hot_query_person_indexes_20260807.sql \
+            20260806233634_decouple_legacy_account_fk_20260807.sql \
+            20260806234220_bind_consent_to_access_context_20260807.sql \
+            20260807050708_complete_runtime_authorization_outbox_20260807.sql \
+            20260807050948_scope_outbox_worker_claims_20260807.sql; do
+            test -f "supabase/migrations/$required" || { echo "::error::Missing live-ledger migration $required"; exit 1; }
+          done
+
+      - name: Apply portable bootstrap
+        run: psql "$TEST_DATABASE_URL" --set=ON_ERROR_STOP=1 --file=supabase/bootstrap/legacy_lifemate_baseline.sql
+
+      - name: Apply all canonical SQL migrations to fresh PostgreSQL
+        shell: bash
+        run: |
+          set -euo pipefail
+          while IFS= read -r migration; do
+            echo "Applying $migration"
+            if ! psql "$TEST_DATABASE_URL" --set=ON_ERROR_STOP=1 --file="$migration"; then
+              echo "::error file=$migration::Canonical migration failed on fresh PostgreSQL"
+              exit 1
+            fi
+          done < <(find supabase/migrations -maxdepth 1 -type f -name '*.sql' | sort)
+
+      - name: Verify ecosystem invariants
+        shell: bash
+        run: |
+          set -euo pipefail
+          psql "$TEST_DATABASE_URL" --set=ON_ERROR_STOP=1 <<'SQL'
+          do $$
+          begin
+            if to_regclass('identity.accounts') is null then raise exception 'identity.accounts missing'; end if;
+            if to_regclass('core.persons') is null then raise exception 'core.persons missing'; end if;
+            if to_regclass('security.access_grants') is null then raise exception 'access_grants missing'; end if;
+            if to_regclass('consent.data_use_consents') is null then raise exception 'data_use_consents missing'; end if;
+            if to_regclass('commerce.entitlements') is null then raise exception 'entitlements missing'; end if;
+            if to_regclass('integration.outbox_messages') is null then raise exception 'outbox missing'; end if;
+            if to_regprocedure('integration.claim_outbox_messages_for_events(character varying,integer,character varying[])') is null then
+              raise exception 'scoped outbox claim function missing';
+            end if;
+            if to_regprocedure('care.rebuild_daily_adherence_summary(uuid,date)') is null then
+              raise exception 'adherence projection rebuild function missing';
+            end if;
+            if to_regprocedure('identity.finalize_account_deletion(uuid)') is null then
+              raise exception 'account deletion finalizer missing';
+            end if;
+            if not exists (
+              select 1 from pg_constraint
+              where conname='FK_dose_occurrences_treatment_schedules_treatment_schedule_id'
+            ) then raise exception 'dose schedule FK missing'; end if;
+            if analytics.commercial_export_allowed('HealthConnect','Adult',true,true) then
+              raise exception 'HealthConnect commercial policy must fail closed';
+            end if;
+            if analytics.commercial_export_allowed('FirstPartyUserInput','Child',true,true) then
+              raise exception 'Child commercial policy must fail closed';
+            end if;
+            if analytics.commercial_export_allowed('FirstPartyUserInput','Adult',true,true) then
+              raise exception 'Commercial export must remain globally disabled';
+            end if;
+          end $$;
+          SQL
+
+      - name: Verify migration rerun is idempotent
+        shell: bash
+        run: |
+          set -euo pipefail
+          psql "$TEST_DATABASE_URL" --set=ON_ERROR_STOP=1 --file=supabase/bootstrap/legacy_lifemate_baseline.sql >/dev/null
+          while IFS= read -r migration; do
+            if ! psql "$TEST_DATABASE_URL" --set=ON_ERROR_STOP=1 --file="$migration" >/dev/null; then
+              echo "::error file=$migration::Canonical migration is not idempotent"
+              exit 1
+            fi
+          done < <(find supabase/migrations -maxdepth 1 -type f -name '*.sql' | sort)

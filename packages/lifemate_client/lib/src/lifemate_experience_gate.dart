@@ -11,6 +11,7 @@ import 'lifemate_api_client.dart';
 import 'lifemate_auth.dart';
 
 part 'experience_auth.dart';
+part 'experience_phone_auth.dart';
 part 'experience_preparation.dart';
 part 'experience_recovery.dart';
 part 'experience_blocking.dart';

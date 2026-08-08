@@ -41,25 +41,32 @@ public sealed class AdherenceEndpointTests : IClassFixture<LifeMateApiFactory>
         var medication = await medicationResponse.Content.ReadFromJsonAsync<MedicationDto>(JsonOptions);
         Assert.NotNull(medication);
 
+        // Keep this scenario permanently in the future so the production missed-dose
+        // transition remains enabled while this test continues to verify the initial
+        // Scheduled state. Hard-coded calendar dates made the test expire over time.
+        var startDate = DateOnly.FromDateTime(DateTime.UtcNow).AddDays(7);
+        var endDate = startDate.AddDays(6);
+        var secondScheduledDate = startDate.AddDays(1);
+
         var planResponse = await patient.PostAsJsonAsync(
             "/api/v1/treatment-plans",
             new CreateTreatmentPlanRequest(
                 medication.Id,
                 "one tablet",
                 "after dinner",
-                new DateOnly(2026, 8, 1),
-                new DateOnly(2026, 8, 7),
+                startDate,
+                endDate,
                 "Asia/Tehran",
                 [
-                    new TreatmentScheduleRequest(DayOfWeek.Saturday, new TimeOnly(8, 30)),
-                    new TreatmentScheduleRequest(DayOfWeek.Sunday, new TimeOnly(20, 0))
+                    new TreatmentScheduleRequest(startDate.DayOfWeek, new TimeOnly(8, 30)),
+                    new TreatmentScheduleRequest(secondScheduledDate.DayOfWeek, new TimeOnly(20, 0))
                 ]),
             JsonOptions);
         planResponse.EnsureSuccessStatusCode();
         var plan = await planResponse.Content.ReadFromJsonAsync<TreatmentPlanDto>(JsonOptions);
         Assert.NotNull(plan);
 
-        const string range = "?fromDate=2026-08-01&toDate=2026-08-07";
+        var range = $"?fromDate={startDate:yyyy-MM-dd}&toDate={endDate:yyyy-MM-dd}";
         var first = await patient.GetFromJsonAsync<List<DoseOccurrenceDto>>(
             "/api/v1/dose-occurrences" + range,
             JsonOptions);

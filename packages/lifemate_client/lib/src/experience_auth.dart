@@ -57,15 +57,13 @@ class _LifeMateAuthExperienceState extends State<_LifeMateAuthExperience>
       parent: _entranceController,
       curve: const Interval(0, 0.8, curve: Curves.easeOut),
     );
-    _entranceOffset = Tween<Offset>(
-      begin: const Offset(0, 0.055),
-      end: Offset.zero,
-    ).animate(
-      CurvedAnimation(
-        parent: _entranceController,
-        curve: Curves.easeOutCubic,
-      ),
-    );
+    _entranceOffset =
+        Tween<Offset>(begin: const Offset(0, 0.055), end: Offset.zero).animate(
+          CurvedAnimation(
+            parent: _entranceController,
+            curve: Curves.easeOutCubic,
+          ),
+        );
   }
 
   Future<void> _submit() async {
@@ -335,10 +333,9 @@ class _LifeMateAuthExperienceState extends State<_LifeMateAuthExperience>
                       brand: brand,
                       textInputAction: TextInputAction.next,
                       autofillHints: const [AutofillHints.name],
-                      validator: (value) =>
-                          (value?.trim().length ?? 0) >= 2
-                              ? null
-                              : 'نام خود را وارد کنید.',
+                      validator: (value) => (value?.trim().length ?? 0) >= 2
+                          ? null
+                          : 'نام خود را وارد کنید.',
                     ),
                     const SizedBox(height: 13),
                   ],
@@ -352,10 +349,9 @@ class _LifeMateAuthExperienceState extends State<_LifeMateAuthExperience>
                     textDirection: TextDirection.ltr,
                     textInputAction: TextInputAction.next,
                     autofillHints: const [AutofillHints.email],
-                    validator: (value) =>
-                        _looksLikeEmail(value?.trim() ?? '')
-                            ? null
-                            : 'ایمیل معتبر وارد کنید.',
+                    validator: (value) => _looksLikeEmail(value?.trim() ?? '')
+                        ? null
+                        : 'ایمیل معتبر وارد کنید.',
                   ),
                   const SizedBox(height: 13),
                   _ExperienceTextField(
@@ -366,16 +362,18 @@ class _LifeMateAuthExperienceState extends State<_LifeMateAuthExperience>
                     brand: brand,
                     obscureText: _obscure,
                     textDirection: TextDirection.ltr,
-                    textInputAction:
-                        isSignUp ? TextInputAction.next : TextInputAction.done,
+                    textInputAction: isSignUp
+                        ? TextInputAction.next
+                        : TextInputAction.done,
                     autofillHints: [
                       isSignUp
                           ? AutofillHints.newPassword
                           : AutofillHints.password,
                     ],
                     suffix: IconButton(
-                      tooltip:
-                          _obscure ? 'نمایش رمز عبور' : 'پنهان‌کردن رمز عبور',
+                      tooltip: _obscure
+                          ? 'نمایش رمز عبور'
+                          : 'پنهان‌کردن رمز عبور',
                       onPressed: () => setState(() => _obscure = !_obscure),
                       icon: Icon(
                         _obscure
@@ -406,9 +404,8 @@ class _LifeMateAuthExperienceState extends State<_LifeMateAuthExperience>
                         tooltip: _obscureConfirm
                             ? 'نمایش تکرار رمز'
                             : 'پنهان‌کردن تکرار رمز',
-                        onPressed: () => setState(
-                          () => _obscureConfirm = !_obscureConfirm,
-                        ),
+                        onPressed: () =>
+                            setState(() => _obscureConfirm = !_obscureConfirm),
                         icon: Icon(
                           _obscureConfirm
                               ? Icons.visibility_off_outlined
@@ -463,7 +460,8 @@ class _LifeMateAuthExperienceState extends State<_LifeMateAuthExperience>
                   : Icons.shield_rounded,
               onPressed: _submit,
             ),
-            if (LifeMateFeatureFlags.googleAuthEnabled) ...[
+            if (LifeMateFeatureFlags.googleAuthEnabled ||
+                LifeMateFeatureFlags.phoneOtpEnabled) ...[
               const Padding(
                 padding: EdgeInsets.symmetric(vertical: 15),
                 child: Row(
@@ -483,32 +481,38 @@ class _LifeMateAuthExperienceState extends State<_LifeMateAuthExperience>
                   ],
                 ),
               ),
-              OutlinedButton.icon(
-                key: const ValueKey('auth-google'),
-                onPressed: _busy ? null : _signInWithGoogle,
-                style: OutlinedButton.styleFrom(
-                  minimumSize: const Size.fromHeight(52),
-                  foregroundColor: brand.ink,
-                  side: BorderSide(
-                    color: brand.primary.withValues(alpha: 0.16),
+              if (LifeMateFeatureFlags.phoneOtpEnabled)
+                _PhoneOtpButton(brand: brand, enabled: !_busy),
+              if (LifeMateFeatureFlags.phoneOtpEnabled &&
+                  LifeMateFeatureFlags.googleAuthEnabled)
+                const SizedBox(height: 10),
+              if (LifeMateFeatureFlags.googleAuthEnabled)
+                OutlinedButton.icon(
+                  key: const ValueKey('auth-google'),
+                  onPressed: _busy ? null : _signInWithGoogle,
+                  style: OutlinedButton.styleFrom(
+                    minimumSize: const Size.fromHeight(52),
+                    foregroundColor: brand.ink,
+                    side: BorderSide(
+                      color: brand.primary.withValues(alpha: 0.16),
+                    ),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(18),
+                    ),
                   ),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(18),
+                  icon: const Text(
+                    'G',
+                    style: TextStyle(
+                      color: Color(0xFF4285F4),
+                      fontWeight: FontWeight.w900,
+                      fontSize: 18,
+                    ),
+                  ),
+                  label: const Text(
+                    'ادامه با حساب گوگل',
+                    style: TextStyle(fontWeight: FontWeight.w800),
                   ),
                 ),
-                icon: const Text(
-                  'G',
-                  style: TextStyle(
-                    color: Color(0xFF4285F4),
-                    fontWeight: FontWeight.w900,
-                    fontSize: 18,
-                  ),
-                ),
-                label: const Text(
-                  'ادامه با حساب گوگل',
-                  style: TextStyle(fontWeight: FontWeight.w800),
-                ),
-              ),
             ],
             const SizedBox(height: 16),
             _PrivacyPromise(brand: brand),
@@ -585,11 +589,8 @@ class _AuthHero extends StatelessWidget {
             child: Image.asset(
               logoAssetPath,
               fit: BoxFit.contain,
-              errorBuilder: (_, __, ___) => Icon(
-                brand.heroIcon,
-                size: 68,
-                color: brand.primary,
-              ),
+              errorBuilder: (_, __, ___) =>
+                  Icon(brand.heroIcon, size: 68, color: brand.primary),
             ),
           ),
         ),
@@ -735,9 +736,7 @@ class _AuthModeButton extends StatelessWidget {
                 Text(
                   label,
                   style: TextStyle(
-                    color: selected
-                        ? brand.primary
-                        : const Color(0xFF7B879B),
+                    color: selected ? brand.primary : const Color(0xFF7B879B),
                     fontWeight: FontWeight.w900,
                   ),
                 ),
@@ -817,20 +816,24 @@ class _ExperienceTextField extends StatelessWidget {
             child: Icon(icon, color: brand.primary),
           ),
         ),
-        prefixIconConstraints: const BoxConstraints(minWidth: 58, minHeight: 54),
+        prefixIconConstraints: const BoxConstraints(
+          minWidth: 58,
+          minHeight: 54,
+        ),
         suffixIcon: suffix,
         filled: true,
         fillColor: Colors.white.withValues(alpha: 0.74),
-        contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 18),
+        contentPadding: const EdgeInsets.symmetric(
+          horizontal: 14,
+          vertical: 18,
+        ),
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(20),
           borderSide: BorderSide.none,
         ),
         enabledBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(20),
-          borderSide: BorderSide(
-            color: brand.primary.withValues(alpha: 0.11),
-          ),
+          borderSide: BorderSide(color: brand.primary.withValues(alpha: 0.11)),
         ),
         focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(20),

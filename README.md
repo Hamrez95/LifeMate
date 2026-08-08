@@ -1,15 +1,16 @@
 # LifeMate
 
-LifeMate is a connected digital-health and family-care ecosystem that helps a patient follow a treatment plan while an explicitly authorized caregiver can provide timely support.
+LifeMate is a multi-application digital-health and family ecosystem. A single login account can represent one person while also being granted explicit, revocable access to other people such as a parent, spouse or child. Future professional roles are contextual rather than fixed properties of a user.
 
-## Products
+## Current products
 
-- **WellMate** — patient-facing Flutter application for medication schedules, reminders and adherence reporting.
+- **WellMate** — self/patient Flutter application for medication, treatment, appointments and health tracking.
 - **CareMate** — caregiver/family Flutter application for consent-scoped monitoring and support.
-- **LifeMate closed-beta API** — hardened Supabase Edge Function for authenticated healthcare workflows.
-- **ASP.NET Core reference backend** — canonical domain model, EF migrations and parity/reference tests for the same PostgreSQL schema.
+- **Women Health pilot** — high-sensitivity tracking inside the current product surface with explicit companion-summary sharing.
+- **LifeMate closed-beta API** — Supabase Edge runtime for authenticated healthcare workflows.
+- **ASP.NET Core reference backend** — domain/reference implementation and parity tests; it is not the current mobile healthcare runtime.
 
-## Closed-beta architecture
+## Current runtime
 
 ```text
 WellMate / CareMate
@@ -18,39 +19,57 @@ WellMate / CareMate
         v
 Supabase Edge Function: lifemate-api
         |
-        | least-privilege server connection
+        | bounded server DB connection
         v
-PostgreSQL schema: lifemate
+PostgreSQL
+  identity / core / ecosystem / security / consent / commerce / integration / analytics
+  + lifemate compatibility health tables during migration
 ```
 
-Supabase provides Auth, the Edge runtime and managed PostgreSQL for the zero-cost closed beta. Mobile clients never directly read or mutate healthcare tables and never receive database/service-role credentials.
+Mobile clients never directly read or mutate healthcare tables and never receive database/service-role credentials.
 
-The repository has exactly one healthcare API runtime for this release: `supabase/functions/lifemate-api`. `backend-dotnet` remains the canonical schema/domain reference and owns reviewed EF migrations, but is not called by the closed-beta apps. Moving the runtime to ASP.NET Core later is an explicit migration—not a second parallel API.
+## Data foundation
+
+The ecosystem refactor separates:
+
+- **Account** — stable LifeMate login principal with one or more external identities.
+- **Person** — human/data subject; may exist without an account (child/dependent).
+- **Relationship/engagement** — human or domain context.
+- **Access grant + scope** — what an account may do with a person's data.
+- **Consent** — versioned purpose/data-category decision and append-oriented history.
+- **Entitlement** — commercial capability from free, subscription, trial, gift, family, organization or other sources.
+
+Paid entitlement never replaces health-data authorization or consent.
+
+## Canonical schema ownership
+
+`supabase/migrations/*.sql` is the single forward production business-schema migration chain and uses portable PostgreSQL. The existing four EF Core migrations under `backend-dotnet` are frozen historical bootstrap artifacts. Supabase-specific Auth/Storage operational SQL is isolated under `supabase/infrastructure/`.
+
+`.github/workflows/schema.yml` proves the SQL chain on fresh PostgreSQL and verifies ecosystem/privacy invariants. This removes the previous split where EF created the base and later SQL files evolved the live database.
 
 ## Repository map
 
 ```text
-wellmate/                         Flutter patient application
-caremate/                         Flutter caregiver application
+wellmate/                         Flutter self/patient application
+caremate/                         Flutter caregiver/family application
 packages/lifemate_client/         Shared authenticated mobile client
-supabase/functions/lifemate-api/  Closed-beta healthcare API runtime
-backend-dotnet/                   Domain/schema reference, EF migrations and tests
-backend/                          Temporary legacy Dart/Shelf demo; not production
-assets/                           Product artwork and design assets
-docs/                             Product, development, security and operations docs
-.github/workflows/                Path-scoped backend, Edge and Flutter CI
+supabase/functions/lifemate-api/  Current healthcare API runtime
+supabase/migrations/              Canonical portable PostgreSQL migrations
+supabase/infrastructure/          Supabase-specific operational configuration
+backend-dotnet/                   ASP.NET Core domain/reference implementation and tests
+backend/                          Legacy Dart/Shelf demo; not production
+docs/architecture/                Ecosystem/data/security architecture
+docs/security/                    Threat model and data classification
+docs/privacy/                     Consent/provenance/de-identification policy
+docs/compliance/                  Google Play health/data-safety mapping
+docs/migrations/                  Migration/rollback plans
 ```
 
-## Delivery control
-
-- [Launch roadmap](../../issues/7)
-- [Stable beta release gate](../../issues/14)
-- [Database/RLS hardening](../../issues/16)
-- [Closed-beta API decision](../../issues/18)
-
-`main` is reserved for reviewed, releasable increments. Production code changes use one focused branch and pull request with green CI. Internal APK artifacts remain test builds until the stable-release gate is complete.
-
 ## Verification
+
+### Database
+
+The authoritative migration workflow applies all canonical SQL in lexical order to fresh PostgreSQL 17, asserts Account/Person/access/consent/entitlement/outbox constraints and proves commercial export remains fail-closed.
 
 ### Edge API
 
@@ -61,9 +80,9 @@ deno task check
 deno task test
 ```
 
-The authoritative workflow additionally applies canonical EF migrations to temporary PostgreSQL and tests patient, caregiver and unrelated-user journeys.
+Integration CI uses the same canonical SQL migration chain.
 
-### Canonical schema/reference backend
+### ASP.NET Core reference
 
 ```bash
 dotnet restore backend-dotnet/LifeMate.sln
@@ -73,15 +92,15 @@ dotnet test backend-dotnet/LifeMate.sln --configuration Release --no-build
 
 ### Flutter
 
-Run dependency resolution, analysis and tests from each application directory. The authoritative versions and complete commands live in `.github/workflows/flutter.yml`.
+Run dependency resolution, analysis and tests from each application directory. Exact SDK versions and commands live in `.github/workflows/flutter.yml`.
 
 ## Safety rules
 
-- Never commit secrets, tokens, production connection strings, signing keystores or health data.
-- Keep authentication, ownership, consent, caregiver authorization, idempotency and revocation checks server-side.
-- Never reuse the Supabase service-role key as an invitation/contact hashing secret.
-- Do not make clinical diagnosis, prescribing, emergency-response or drug-interaction claims in the beta.
-- Apply database migrations only after review, green CI and a documented backup/rollback plan.
-- Validate a release on representative real Android devices before distribution.
+- Never commit secrets, tokens, production connection strings, signing keystores, PII or health data.
+- Keep authentication, ownership, consent, cross-person authorization, entitlement, idempotency and revocation checks server-side.
+- Women-health private notes are owner-only; a caregiver relationship is never sufficient to expose them.
+- Commercial/pharma secondary use is disabled by default. Health Connect / Android health-permission data is not eligible for commercial export.
+- No destructive reset is permitted on an environment unless every record is proven disposable.
+- Apply live migrations only after review/CI and use forward corrective migrations rather than destructive down migrations for health data.
 
-See [AGENTS.md](AGENTS.md), [the development workflow](docs/development/WORKFLOW.md) and [the beta operations runbook](docs/operations/BETA_OPERATIONS_RUNBOOK.md).
+See [AGENTS.md](AGENTS.md), [ecosystem data model](docs/architecture/ecosystem-data-model.md), [migration plan](docs/migrations/ecosystem-refactor.md) and [Google Play health compliance map](docs/compliance/google-play-health.md).
