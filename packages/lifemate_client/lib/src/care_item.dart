@@ -57,10 +57,10 @@ class CareItem {
       seriesId: _text(plan['id']),
       type: CareItemType.medication,
       title: name,
-      subtitle: [
-        dose,
-        if (firstTime != null) firstTime,
-      ].where((value) => value.trim().isNotEmpty).join(' • '),
+      // Time is rendered once in the unified card's dedicated schedule line.
+      // Keeping it out of the subtitle avoids duplicate values such as
+      // "۲۱:۰۰:۰۰" and "۲۱:۰۰" in the same card.
+      subtitle: dose,
       status: (_text(plan['status']) ?? 'active').toLowerCase(),
       scheduledAt: scheduledAt,
       searchText: _search([
@@ -131,20 +131,17 @@ class CareItem {
   }) {
     final reference = now ?? DateTime.now();
     final normalizedQuery = _normalize(query);
-    final items = source
-        .where((item) {
-          if (type != null && item.type != type) return false;
-          final statusMatches = switch (status) {
-            CareItemStatusFilter.all => true,
-            CareItemStatusFilter.active => item.isActive,
-            CareItemStatusFilter.upcoming => item.isUpcoming(reference),
-            CareItemStatusFilter.completed => item.isCompleted,
-          };
-          if (!statusMatches) return false;
-          return normalizedQuery.isEmpty ||
-              item.searchText.contains(normalizedQuery);
-        })
-        .toList(growable: false);
+    final items = source.where((item) {
+      if (type != null && item.type != type) return false;
+      final statusMatches = switch (status) {
+        CareItemStatusFilter.all => true,
+        CareItemStatusFilter.active => item.isActive,
+        CareItemStatusFilter.upcoming => item.isUpcoming(reference),
+        CareItemStatusFilter.completed => item.isCompleted,
+      };
+      if (!statusMatches) return false;
+      return normalizedQuery.isEmpty || item.searchText.contains(normalizedQuery);
+    }).toList(growable: false);
 
     int compareDate(CareItem left, CareItem right, {required bool newest}) {
       final l = left.scheduledAt;
