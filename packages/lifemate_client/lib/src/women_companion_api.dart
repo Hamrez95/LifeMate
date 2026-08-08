@@ -92,7 +92,7 @@ class WomenCompanionApi {
         message: 'Authentication session is missing.',
       );
     }
-    final resolved = _baseUri.resolve(path);
+    final resolved = _resolve(path);
     final uri = query == null
         ? resolved
         : resolved.replace(queryParameters: query);
@@ -134,6 +134,12 @@ class WomenCompanionApi {
       );
     }
     return decoded;
+  }
+
+  Uri _resolve(String path) {
+    final base = _baseUri.toString().replaceFirst(RegExp(r'/+$'), '');
+    final relative = path.replaceFirst(RegExp(r'^/+'), '');
+    return Uri.parse('$base/$relative');
   }
 
   static String _date(DateTime value) =>

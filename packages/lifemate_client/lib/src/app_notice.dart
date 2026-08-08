@@ -214,6 +214,7 @@ class _LifeMateNoticeOverlayState extends State<_LifeMateNoticeOverlay>
                                               fontWeight: FontWeight.w900,
                                               fontSize: 13.5,
                                               color: Color(0xFF253149),
+                                              decoration: TextDecoration.none,
                                             ),
                                           ),
                                         Text(
@@ -224,6 +225,7 @@ class _LifeMateNoticeOverlayState extends State<_LifeMateNoticeOverlay>
                                             height: 1.45,
                                             fontSize: 12.5,
                                             color: Color(0xFF4E596B),
+                                            decoration: TextDecoration.none,
                                           ),
                                         ),
                                       ],

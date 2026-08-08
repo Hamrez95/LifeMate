@@ -8,7 +8,7 @@ class ActiveTreatmentCard extends StatelessWidget {
   final String treatmentName;
   final String dose;
   final String time;
-  final String assetIconPath;
+  final String? assetIconPath;
   final double progressValue;
   final int secondsLeft;
   final VoidCallback? onTaken;
@@ -140,13 +140,16 @@ class ActiveTreatmentCard extends StatelessWidget {
                     Column(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        Image.asset(
-                          assetIconPath,
-                          width: 36,
-                          height: 36,
-                          errorBuilder: (_, __, ___) =>
-                              Icon(fallbackIcon, color: accent),
-                        ),
+                        if (assetIconPath?.trim().isNotEmpty == true)
+                          Image.asset(
+                            assetIconPath!,
+                            width: 36,
+                            height: 36,
+                            errorBuilder: (_, __, ___) =>
+                                Icon(fallbackIcon, color: accent),
+                          )
+                        else
+                          Icon(fallbackIcon, color: accent, size: 36),
                         const SizedBox(height: 4),
                         Text(
                           countdown.toPersianDigit(isPersian),

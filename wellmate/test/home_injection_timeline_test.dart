@@ -1,6 +1,8 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:lifemate_client/lifemate_client.dart';
+import 'package:wellmate/models/schedule_item_model.dart';
 import 'package:wellmate/screens/home/home_schedule_loader.dart';
+import 'package:wellmate/screens/home/home_screen_content.dart';
 
 void main() {
   test('injection appears in aggregate daily timeline snapshot', () async {
@@ -17,6 +19,45 @@ void main() {
       ),
       isTrue,
     );
+  });
+
+  test('countdown keeps injection when an earlier appointment also exists', () {
+    final date = DateTime(2026, 8, 17);
+    final items = [
+      ScheduleItemModel(
+        id: 'visit-1',
+        title: 'چکاپ',
+        time: '18:30',
+        dosage: '',
+        type: 'appointment',
+        frequency: 'ویزیت',
+        startDate: date,
+      ),
+      ScheduleItemModel(
+        id: 'dose-1',
+        title: 'دارو',
+        time: '21:00',
+        dosage: '۱ عدد',
+        type: 'medicine',
+        frequency: 'طبق برنامه',
+        startDate: date,
+      ),
+      ScheduleItemModel(
+        id: 'inj-1',
+        title: 'B12',
+        time: '21:30',
+        dosage: '۱ آمپول',
+        type: 'injection',
+        frequency: 'تزریق',
+        startDate: date,
+      ),
+    ];
+
+    final countdown = selectHomeCountdownItems(
+      items,
+      DateTime(2026, 8, 17, 17),
+    );
+    expect(countdown.map((item) => item.id), ['visit-1', 'dose-1', 'inj-1']);
   });
 }
 

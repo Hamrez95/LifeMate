@@ -105,6 +105,88 @@ void main() {
     },
     skip: !LifeMateFeatureFlags.womenCalendarPilotEnabled,
   );
+
+  testWidgets(
+    'daily check-in submit stays above Android navigation inset',
+    (tester) async {
+      tester.view.physicalSize = const Size(360, 780);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+
+      await tester.pumpWidget(
+        MediaQuery(
+          data: const MediaQueryData(
+            size: Size(360, 780),
+            viewPadding: EdgeInsets.only(bottom: 48),
+          ),
+          child: Provider<LifeMateApiClient>.value(
+            value: _FakeLifeMateApiClient(),
+            child: MaterialApp(
+              locale: const Locale('fa'),
+              home: Scaffold(
+                body: WomenCompanionScreen(
+                  companionApi: _FakeWomenCompanionApi(),
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      await tester.scrollUntilVisible(
+        find.text('ویرایش'),
+        240,
+        scrollable: find.byType(Scrollable).first,
+      );
+      await tester.tap(find.text('ویرایش'));
+      await tester.pumpAndSettle();
+      await tester.scrollUntilVisible(
+        find.text('ثبت حال امروز'),
+        220,
+        scrollable: find.byType(Scrollable).last,
+      );
+      await tester.pumpAndSettle();
+
+      final buttonRect = tester.getRect(find.text('ثبت حال امروز'));
+      expect(buttonRect.bottom, lessThanOrEqualTo(780 - 48));
+      expect(tester.takeException(), isNull);
+    },
+    skip: !LifeMateFeatureFlags.womenCalendarPilotEnabled,
+  );
+
+  testWidgets(
+    'women dashboard puts large cycle then calendar before mood',
+    (tester) async {
+      tester.view.physicalSize = const Size(420, 1200);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+
+      await tester.pumpWidget(
+        Provider<LifeMateApiClient>.value(
+          value: _FakeLifeMateApiClient(),
+          child: MaterialApp(
+            locale: const Locale('fa'),
+            home: Scaffold(
+              body: WomenCompanionScreen(
+                companionApi: _FakeWomenCompanionApi(),
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(
+        find.byKey(const ValueKey('women-cycle-overview-large')),
+        findsOneWidget,
+      );
+      expect(find.text('تقویم و ثبت دوره'), findsNothing);
+    },
+    skip: !LifeMateFeatureFlags.womenCalendarPilotEnabled,
+  );
 }
 
 class _FakeLifeMateApiClient extends LifeMateApiClient {
