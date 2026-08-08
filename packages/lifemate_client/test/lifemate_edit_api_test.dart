@@ -86,6 +86,58 @@ void main() {
     expect((body['schedules'] as List).single['localTime'], '08:00');
   });
 
+  test('status-only care event update preserves event fields', () async {
+    final requests = <http.Request>[];
+    final api = LifeMateEditApi(
+      baseUri: Uri.parse('https://api.example.test/functions/v1/lifemate-api'),
+      accessToken: () => 'token',
+      httpClient: MockClient((request) async {
+        requests.add(request);
+        if (request.method == 'GET') {
+          return http.Response(
+            jsonEncode({
+              'id': 'event-1',
+              'eventType': 'appointment',
+              'title': 'چکاپ زنان',
+              'providerName': 'سارا راد',
+              'centerName': 'مرکز الوند',
+              'scheduledLocalDate': '2026-08-08',
+              'scheduledLocalTime': '18:30',
+              'timeZone': 'Asia/Tehran',
+              'patientReminderMinutesBefore': 30,
+              'caregiverReminderMinutesBefore': 60,
+              'version': 3,
+              'status': 'missed',
+            }),
+            200,
+            headers: {'content-type': 'application/json; charset=utf-8'},
+          );
+        }
+        return http.Response(
+          jsonEncode({'id': 'event-1', 'status': 'completed', 'version': 4}),
+          200,
+          headers: {'content-type': 'application/json; charset=utf-8'},
+        );
+      }),
+    );
+
+    final result = await api.updateCareEventStatus(
+      eventId: 'event-1',
+      status: 'completed',
+    );
+
+    expect(result['status'], 'completed');
+    expect(requests, hasLength(2));
+    expect(requests.first.method, 'GET');
+    expect(requests.last.method, 'PATCH');
+    final body = jsonDecode(requests.last.body) as Map<String, dynamic>;
+    expect(body['version'], 3);
+    expect(body['title'], 'چکاپ زنان');
+    expect(body['providerName'], 'سارا راد');
+    expect(body['centerName'], 'مرکز الوند');
+    expect(body['status'], 'completed');
+  });
+
   test('maps stale care event response to LifeMateApiException', () async {
     final api = LifeMateEditApi(
       baseUri: Uri.parse('https://api.example.test'),

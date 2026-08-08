@@ -129,29 +129,57 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     });
   }
 
-  Future<bool> _reportMissedDoseFromHeader(ScheduleItemModel item) async {
+  Future<bool> _reportMissedItemFromHeader(ScheduleItemModel item) async {
     try {
-      await context.read<LifeMateApiClient>().reportDose(
-        occurrenceId: item.id,
-        clientRequestId: LifeMateApiClient.createClientRequestId(),
-        version: item.version,
-        status: 'taken',
-        occurredAtUtc: DateTime.now().toUtc(),
-      );
+      if (item.type == 'medicine') {
+        await context.read<LifeMateApiClient>().reportDose(
+          occurrenceId: item.id,
+          clientRequestId: LifeMateApiClient.createClientRequestId(),
+          version: item.version,
+          status: 'taken',
+          occurredAtUtc: DateTime.now().toUtc(),
+        );
+      } else {
+        final eventId = item.seriesId ?? item.id;
+        if (item.seriesId != null && item.id != item.seriesId) {
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text(
+                  'ثبت وضعیت یک نوبت تکرارشونده از اعلان‌ها هنوز پشتیبانی نمی‌شود.',
+                ),
+              ),
+            );
+          }
+          return false;
+        }
+        await LifeMateEditApi.fromEnvironment().updateCareEventStatus(
+          eventId: eventId,
+          status: 'completed',
+        );
+      }
       if (!mounted) return true;
       setState(() {
         _calendarRevision++;
         _homeRevision++;
       });
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('${item.title} به عنوان مصرف‌شده ثبت شد.')),
+        SnackBar(
+          content: Text(
+            item.type == 'medicine'
+                ? '${item.title} به عنوان مصرف‌شده ثبت شد.'
+                : '${item.title} به عنوان انجام‌شده ثبت شد.',
+          ),
+        ),
       );
       return true;
     } on LifeMateApiException catch (error) {
       if (!mounted) return false;
-      final message = error.code == 'stale_dose_occurrence'
-          ? 'وضعیت دارو تغییر کرده است؛ برنامه تازه‌سازی شد.'
-          : 'ثبت مصرف انجام نشد؛ دوباره تلاش کنید.';
+      final message =
+          error.code == 'stale_dose_occurrence' ||
+              error.code == 'stale_care_event'
+          ? 'وضعیت برنامه تغییر کرده است؛ صفحه تازه‌سازی شد.'
+          : 'ثبت وضعیت انجام نشد؛ دوباره تلاش کنید.';
       setState(() {
         _calendarRevision++;
         _homeRevision++;
@@ -164,7 +192,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text('ثبت مصرف انجام نشد؛ اتصال را بررسی کنید.'),
+            content: Text('ثبت وضعیت انجام نشد؛ اتصال را بررسی کنید.'),
           ),
         );
       }
@@ -231,7 +259,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
           child: Column(
             children: [
               WellMateAppHeader(
-                onMissedMedicationTaken: _reportMissedDoseFromHeader,
+                onMissedMedicationTaken: _reportMissedItemFromHeader,
                 onProfileTap: () async {
                   await Navigator.push<void>(
                     context,

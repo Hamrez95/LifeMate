@@ -242,8 +242,6 @@ class _WomenCompanionScreenState extends State<WomenCompanionScreen> {
               relationship: _companionRelationship,
             ),
             const SizedBox(height: 14),
-            _CycleOverviewCard(estimate: estimate),
-            const SizedBox(height: 14),
             WomenCalendarMonthCard(
               episodes: _episodes,
               estimate: estimate,
@@ -413,63 +411,6 @@ class _CompanionHero extends StatelessWidget {
             ),
           ),
         ],
-      ),
-    );
-  }
-}
-
-class _CycleOverviewCard extends StatelessWidget {
-  const _CycleOverviewCard({required this.estimate});
-
-  final WomenCalendarEstimate? estimate;
-
-  @override
-  Widget build(BuildContext context) {
-    final value = estimate;
-    final visual = phaseVisual(value?.detailedPhase);
-    return _PastelCard(
-      child: LayoutBuilder(
-        builder: (context, constraints) {
-          final ringSize = math.min(constraints.maxWidth, 270.0);
-          return Column(
-            key: const ValueKey('women-cycle-overview-large'),
-            children: [
-              _CycleRing(estimate: value, size: ringSize),
-              const SizedBox(height: 16),
-              Text(
-                visual.label,
-                style: TextStyle(
-                  fontSize: 21,
-                  fontWeight: FontWeight.w900,
-                  color: visual.foreground,
-                ),
-              ),
-              const SizedBox(height: 7),
-              Text(
-                value == null
-                    ? 'برای نمایش چرخه، اطلاعات پایه را در تنظیمات کامل کن.'
-                    : 'روز ${localizeDigits(context, value.cycleDay)} از چرخه ${localizeDigits(context, value.cycleLength)} روزه',
-                textAlign: TextAlign.center,
-                style: const TextStyle(
-                  color: AppColors.textSecondary,
-                  height: 1.5,
-                ),
-              ),
-              if (value != null) ...[
-                const SizedBox(height: 5),
-                Text(
-                  '${localizeDigits(context, value.daysUntilNextPeriod)} روز تا شروع تخمینی دوره بعدی',
-                  textAlign: TextAlign.center,
-                  style: const TextStyle(
-                    fontSize: 11.5,
-                    color: Color(0xFF866A80),
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-              ],
-            ],
-          );
-        },
       ),
     );
   }
