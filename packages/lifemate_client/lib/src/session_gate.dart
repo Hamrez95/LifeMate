@@ -6,11 +6,10 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'app_config.dart';
 import 'lifemate_api_client.dart';
 import 'lifemate_auth.dart';
+import 'profile_avatar.dart';
 
-typedef AuthenticatedBuilder = Widget Function(
-  BuildContext context,
-  LifeMateApiClient apiClient,
-);
+typedef AuthenticatedBuilder =
+    Widget Function(BuildContext context, LifeMateApiClient apiClient);
 
 class LifeMateSessionGate extends StatefulWidget {
   const LifeMateSessionGate({
@@ -51,11 +50,17 @@ class _LifeMateSessionGateState extends State<LifeMateSessionGate> {
     _authSubscription = _supabase.auth.onAuthStateChange.listen(
       (state) {
         if (!mounted) return;
+        final previousUserId = _session?.user.id;
+        final nextUserId = state.session?.user.id;
+        if (previousUserId != nextUserId) {
+          LifeMateProfileRefresh.clearForApiClient(_api);
+        }
         setState(() {
           _authStreamError = null;
           _session = state.session;
-          _bootstrap =
-              state.session == null ? null : _bootstrapUser(state.session!);
+          _bootstrap = state.session == null
+              ? null
+              : _bootstrapUser(state.session!);
         });
       },
       onError: (Object error, StackTrace stackTrace) {
@@ -130,7 +135,8 @@ class _LifeMateSessionGateState extends State<LifeMateSessionGate> {
           );
         }
         if (snapshot.hasError) {
-          final expired = snapshot.error is LifeMateApiException &&
+          final expired =
+              snapshot.error is LifeMateApiException &&
               (snapshot.error! as LifeMateApiException).isUnauthorized;
           return _BlockingState(
             appName: widget.appName,
@@ -141,8 +147,9 @@ class _LifeMateSessionGateState extends State<LifeMateSessionGate> {
                 ? 'برای ادامه دوباره وارد حساب شوید.'
                 : 'داده‌ای تغییر نکرده است. اتصال را بررسی و دوباره تلاش کنید.',
             primaryLabel: expired ? 'خروج و ورود دوباره' : 'تلاش دوباره',
-            onPrimary:
-                expired ? () => _supabase.auth.signOut() : _retryBootstrap,
+            onPrimary: expired
+                ? () => _supabase.auth.signOut()
+                : _retryBootstrap,
             secondaryLabel: expired ? null : 'خروج از حساب',
             onSecondary: expired ? null : () => _supabase.auth.signOut(),
           );
@@ -362,7 +369,8 @@ class _AuthScreenState extends State<_AuthScreen> {
                             ? 'همراه مطمئن مراقبت از خانواده'
                             : 'همراه ساده و آرام برنامه درمان',
                         textAlign: TextAlign.center,
-                        style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                        style: Theme.of(context).textTheme.titleMedium
+                            ?.copyWith(
                               color: const Color(0xFF33416E),
                               fontWeight: FontWeight.w800,
                             ),
@@ -402,9 +410,7 @@ class _AuthScreenState extends State<_AuthScreen> {
                               const SizedBox(height: 24),
                               Text(
                                 isSignUp ? 'ساخت حساب جدید' : 'خوش آمدید',
-                                style: Theme.of(context)
-                                    .textTheme
-                                    .headlineSmall
+                                style: Theme.of(context).textTheme.headlineSmall
                                     ?.copyWith(
                                       fontWeight: FontWeight.w900,
                                       color: const Color(0xFF283054),
@@ -464,7 +470,9 @@ class _AuthScreenState extends State<_AuthScreen> {
                                   children: [
                                     Expanded(child: Divider()),
                                     Padding(
-                                      padding: EdgeInsets.symmetric(horizontal: 10),
+                                      padding: EdgeInsets.symmetric(
+                                        horizontal: 10,
+                                      ),
                                       child: Text(
                                         'یا با ایمیل',
                                         style: TextStyle(
@@ -486,8 +494,8 @@ class _AuthScreenState extends State<_AuthScreen> {
                                   autofillHints: const [AutofillHints.name],
                                   validator: (value) =>
                                       (value?.trim().length ?? 0) >= 2
-                                          ? null
-                                          : 'نام خود را وارد کنید.',
+                                      ? null
+                                      : 'نام خود را وارد کنید.',
                                 ),
                                 const SizedBox(height: 14),
                               ],
@@ -501,8 +509,8 @@ class _AuthScreenState extends State<_AuthScreen> {
                                 autofillHints: const [AutofillHints.email],
                                 validator: (value) =>
                                     _looksLikeEmail(value?.trim() ?? '')
-                                        ? null
-                                        : 'ایمیل معتبر وارد کنید.',
+                                    ? null
+                                    : 'ایمیل معتبر وارد کنید.',
                               ),
                               const SizedBox(height: 14),
                               _AuthTextField(
@@ -555,8 +563,7 @@ class _AuthScreenState extends State<_AuthScreen> {
                                         ? 'نمایش تکرار رمز'
                                         : 'پنهان‌کردن تکرار رمز',
                                     onPressed: () => setState(
-                                      () => _obscureConfirm =
-                                          !_obscureConfirm,
+                                      () => _obscureConfirm = !_obscureConfirm,
                                     ),
                                     icon: Icon(
                                       _obscureConfirm
@@ -564,10 +571,9 @@ class _AuthScreenState extends State<_AuthScreen> {
                                           : Icons.visibility_off_rounded,
                                     ),
                                   ),
-                                  validator: (value) =>
-                                      value == _password.text
-                                          ? null
-                                          : 'تکرار رمز عبور یکسان نیست.',
+                                  validator: (value) => value == _password.text
+                                      ? null
+                                      : 'تکرار رمز عبور یکسان نیست.',
                                   onSubmitted: (_) {
                                     if (!_busy) _submit();
                                   },
@@ -576,9 +582,12 @@ class _AuthScreenState extends State<_AuthScreen> {
                                 Align(
                                   alignment: AlignmentDirectional.centerStart,
                                   child: TextButton(
-                                    onPressed:
-                                        _busy ? null : _sendPasswordReset,
-                                    child: const Text('رمز عبور را فراموش کرده‌ام'),
+                                    onPressed: _busy
+                                        ? null
+                                        : _sendPasswordReset,
+                                    child: const Text(
+                                      'رمز عبور را فراموش کرده‌ام',
+                                    ),
                                   ),
                                 ),
                               if (_error != null) ...[
@@ -941,12 +950,11 @@ class ConfigurationRequiredScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => _BlockingState(
-        appName: appName,
-        icon: Icons.settings_suggest_rounded,
-        title: '$appName هنوز برای این محیط تنظیم نشده است',
-        message:
-            'مقادیر build-time زیر لازم‌اند:\n${missingValues.join(', ')}',
-      );
+    appName: appName,
+    icon: Icons.settings_suggest_rounded,
+    title: '$appName هنوز برای این محیط تنظیم نشده است',
+    message: 'مقادیر build-time زیر لازم‌اند:\n${missingValues.join(', ')}',
+  );
 }
 
 class _BlockingState extends StatelessWidget {
@@ -975,10 +983,12 @@ class _BlockingState extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final careMate = appName.toLowerCase().contains('care');
-    final primary =
-        careMate ? const Color(0xFF4A90E2) : const Color(0xFF10B981);
-    final background =
-        careMate ? const Color(0xFFE2EFFF) : const Color(0xFFF1FAF5);
+    final primary = careMate
+        ? const Color(0xFF4A90E2)
+        : const Color(0xFF10B981);
+    final background = careMate
+        ? const Color(0xFFE2EFFF)
+        : const Color(0xFFF1FAF5);
 
     return Scaffold(
       backgroundColor: background,
@@ -1026,9 +1036,9 @@ class _BlockingState extends StatelessWidget {
                       title,
                       textAlign: TextAlign.center,
                       style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                            fontWeight: FontWeight.w900,
-                            color: const Color(0xFF283054),
-                          ),
+                        fontWeight: FontWeight.w900,
+                        color: const Color(0xFF283054),
+                      ),
                     ),
                     const SizedBox(height: 10),
                     Text(message, textAlign: TextAlign.center),
