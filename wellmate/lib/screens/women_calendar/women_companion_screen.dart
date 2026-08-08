@@ -35,6 +35,7 @@ class _WomenCompanionScreenState extends State<WomenCompanionScreen> {
   List<Map<String, dynamic>> _episodes = const [];
   List<Map<String, dynamic>> _dailyLogs = const [];
   List<Map<String, dynamic>> _relationships = const [];
+  DateTime _selectedDate = DateTime.now();
 
   bool get _enabled => _profile['enabled'] == true;
 
@@ -54,12 +55,30 @@ class _WomenCompanionScreenState extends State<WomenCompanionScreen> {
     );
   }
 
-  Map<String, dynamic>? get _todayLog {
-    final today = _dateKey(DateTime.now());
+  Map<String, dynamic>? get _todayLog => _logForDate(DateTime.now());
+
+  Map<String, dynamic>? _logForDate(DateTime date) {
+    final key = _dateKey(date);
     for (final log in _dailyLogs) {
-      if (log['loggedOn']?.toString() == today) return log;
+      if (log['loggedOn']?.toString() == key) return log;
     }
     return null;
+  }
+
+  bool _isRecordedBleedingDay(DateTime date) {
+    final day = DateTime(date.year, date.month, date.day);
+    final today = DateTime.now();
+    final todayOnly = DateTime(today.year, today.month, today.day);
+    for (final episode in _episodes) {
+      final start = DateTime.tryParse(episode['startedOn']?.toString() ?? '');
+      if (start == null) continue;
+      final parsedEnd = DateTime.tryParse(episode['endedOn']?.toString() ?? '');
+      final startOnly = DateTime(start.year, start.month, start.day);
+      final endValue = parsedEnd ?? todayOnly;
+      final endOnly = DateTime(endValue.year, endValue.month, endValue.day);
+      if (!day.isBefore(startOnly) && !day.isAfter(endOnly)) return true;
+    }
+    return false;
   }
 
   Map<String, dynamic>? get _companionRelationship {
@@ -127,7 +146,7 @@ class _WomenCompanionScreenState extends State<WomenCompanionScreen> {
         builder: (_) => Scaffold(
           backgroundColor: const Color(0xFFFFF8FC),
           appBar: AppBar(
-            title: const Text('تقویم و تنظیمات چرخه'),
+            title: const Text('تنظیمات و مدیریت ثبت‌ها'),
             backgroundColor: Colors.transparent,
             surfaceTintColor: Colors.transparent,
           ),
@@ -144,8 +163,8 @@ class _WomenCompanionScreenState extends State<WomenCompanionScreen> {
     await widget.onProfileChanged?.call();
   }
 
-  Future<void> _editTodayLog() async {
-    final current = _todayLog;
+  Future<void> _editDailyLog(DateTime date) async {
+    final current = _logForDate(date);
     final draft = await showModalBottomSheet<WomenDailyLogDraft>(
       context: context,
       isScrollControlled: true,
@@ -157,7 +176,7 @@ class _WomenCompanionScreenState extends State<WomenCompanionScreen> {
     try {
       await _companionApi.saveDailyLog(
         version: current?['version'] is int ? current!['version'] as int : 0,
-        loggedOn: DateTime.now(),
+        loggedOn: date,
         mood: draft.mood,
         energyLevel: draft.energyLevel,
         painLevel: draft.painLevel,
@@ -166,27 +185,25 @@ class _WomenCompanionScreenState extends State<WomenCompanionScreen> {
         shareSummaryWithCompanion: draft.shareWithCompanion,
       );
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            draft.shareWithCompanion
-                ? 'حال امروز ثبت شد؛ فقط خلاصه انتخاب‌شده با همدمت به اشتراک گذاشته می‌شود.'
-                : 'حال امروز به‌صورت خصوصی ثبت شد.',
-          ),
-          behavior: SnackBarBehavior.floating,
-        ),
+      final isToday = _dateKey(date) == _dateKey(DateTime.now());
+      LifeMateNotice.show(
+        context,
+        type: LifeMateNoticeType.success,
+        title: isToday ? 'حال امروز ثبت شد' : 'ثبت روز ذخیره شد',
+        message: draft.shareWithCompanion
+            ? 'فقط خلاصه‌ای که اجازه داده‌ای با همدمت به اشتراک گذاشته می‌شود.'
+            : 'این ثبت به‌صورت خصوصی ذخیره شد.',
       );
       await _load();
     } on LifeMateApiException catch (error) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            error.code == 'stale_women_calendar_daily_log'
-                ? 'ثبت امروز تغییر کرده بود؛ اطلاعات تازه شد.'
-                : 'ثبت حال امروز انجام نشد.',
-          ),
-        ),
+      LifeMateNotice.show(
+        context,
+        type: LifeMateNoticeType.error,
+        title: 'ثبت انجام نشد',
+        message: error.code == 'stale_women_calendar_daily_log'
+            ? 'این روز تغییر کرده بود؛ اطلاعات تازه شد و می‌توانی دوباره ویرایش کنی.'
+            : 'اطلاعات این روز ذخیره نشد. دوباره تلاش کن.',
       );
       await _load();
     } finally {
@@ -233,12 +250,26 @@ class _WomenCompanionScreenState extends State<WomenCompanionScreen> {
             _DailyCheckInCard(
               log: _todayLog,
               saving: _saving,
-              onEdit: _editTodayLog,
+              onEdit: () => _editDailyLog(DateTime.now()),
             ),
             const SizedBox(height: 14),
             _DailyTipCard(estimate: estimate, log: _todayLog),
             const SizedBox(height: 14),
-            WomenCalendarMonthCard(episodes: _episodes, estimate: estimate),
+            WomenCalendarMonthCard(
+              episodes: _episodes,
+              estimate: estimate,
+              selectedDate: _selectedDate,
+              onDateSelected: (date) => setState(() => _selectedDate = date),
+            ),
+            const SizedBox(height: 10),
+            _SelectedDaySummaryCard(
+              date: _selectedDate,
+              log: _logForDate(_selectedDate),
+              estimate: estimate,
+              recordedBleeding: _isRecordedBleedingDay(_selectedDate),
+              saving: _saving,
+              onEdit: () => _editDailyLog(_selectedDate),
+            ),
             const SizedBox(height: 14),
             _FourteenDayStrip(estimate: estimate),
             const SizedBox(height: 14),
@@ -779,6 +810,192 @@ class _DailyTipCard extends StatelessWidget {
       ),
     );
   }
+}
+
+class _SelectedDaySummaryCard extends StatelessWidget {
+  const _SelectedDaySummaryCard({
+    required this.date,
+    required this.log,
+    required this.estimate,
+    required this.recordedBleeding,
+    required this.saving,
+    required this.onEdit,
+  });
+
+  final DateTime date;
+  final Map<String, dynamic>? log;
+  final WomenCalendarEstimate? estimate;
+  final bool recordedBleeding;
+  final bool saving;
+  final VoidCallback onEdit;
+
+  @override
+  Widget build(BuildContext context) {
+    final phase = estimate?.phaseForDate(date);
+    final phaseValue = phaseVisual(phase);
+    final mood = moodVisual(log?['mood']?.toString());
+    final symptoms = (log?['symptoms'] as List<dynamic>? ?? const [])
+        .map((item) => _selectedDaySymptomLabel(item.toString()))
+        .toList(growable: false);
+    return _PastelCard(
+      child: Column(
+        key: const ValueKey('women-calendar-selected-day-summary'),
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      formatAppDate(context, date, includeWeekday: true),
+                      style: const TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w900,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      recordedBleeding
+                          ? 'پریود ثبت‌شده'
+                          : '${phaseValue.label} • تخمینی',
+                      style: TextStyle(
+                        color: recordedBleeding
+                            ? const Color(0xFFD64A70)
+                            : phaseValue.foreground,
+                        fontSize: 11.5,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              Icon(
+                recordedBleeding ? Icons.water_drop_rounded : phaseValue.icon,
+                color: recordedBleeding
+                    ? const Color(0xFFF15D7B)
+                    : phaseValue.color,
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          if (log == null) ...[
+            const Text(
+              'برای این روز چیزی ثبت نشده',
+              style: TextStyle(color: AppColors.textSecondary),
+            ),
+            const SizedBox(height: 10),
+            OutlinedButton.icon(
+              key: const ValueKey('women-calendar-selected-day-create'),
+              onPressed: saving ? null : onEdit,
+              icon: const Icon(Icons.add_rounded),
+              label: const Text('ثبت حال این روز'),
+            ),
+          ] else ...[
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: [
+                _DayFact(
+                  icon: Icons.mood_rounded,
+                  label: 'حال',
+                  value: '${mood.emoji} ${mood.label}',
+                ),
+                _DayFact(
+                  icon: Icons.bolt_rounded,
+                  label: 'انرژی',
+                  value:
+                      '${localizeDigits(context, log!['energyLevel'] ?? '—')}/۵',
+                ),
+                _DayFact(
+                  icon: Icons.monitor_heart_outlined,
+                  label: 'درد',
+                  value:
+                      '${localizeDigits(context, log!['painLevel'] ?? '—')}/۵',
+                ),
+                _DayFact(
+                  icon: Icons.water_drop_outlined,
+                  label: 'خونریزی',
+                  value: recordedBleeding ? 'ثبت‌شده' : 'ثبت نشده',
+                ),
+              ],
+            ),
+            if (symptoms.isNotEmpty) ...[
+              const SizedBox(height: 10),
+              Text(
+                'نشانه‌ها: ${symptoms.join('، ')}',
+                style: const TextStyle(
+                  color: AppColors.textSecondary,
+                  height: 1.5,
+                ),
+              ),
+            ],
+            const SizedBox(height: 10),
+            TextButton.icon(
+              key: const ValueKey('women-calendar-selected-day-edit'),
+              onPressed: saving ? null : onEdit,
+              icon: const Icon(Icons.edit_rounded, size: 18),
+              label: const Text('ویرایش ثبت روز'),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+class _DayFact extends StatelessWidget {
+  const _DayFact({
+    required this.icon,
+    required this.label,
+    required this.value,
+  });
+  final IconData icon;
+  final String label;
+  final String value;
+
+  @override
+  Widget build(BuildContext context) => Container(
+    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+    decoration: BoxDecoration(
+      color: Colors.white.withValues(alpha: 0.78),
+      borderRadius: BorderRadius.circular(14),
+    ),
+    child: Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Icon(icon, size: 15, color: const Color(0xFF8A66A6)),
+        const SizedBox(width: 5),
+        Text(
+          '$label: ',
+          style: const TextStyle(
+            fontSize: 10.5,
+            color: AppColors.textSecondary,
+          ),
+        ),
+        Text(
+          value,
+          style: const TextStyle(fontSize: 10.5, fontWeight: FontWeight.w900),
+        ),
+      ],
+    ),
+  );
+}
+
+String _selectedDaySymptomLabel(String raw) {
+  return switch (raw.trim().toLowerCase()) {
+    'cramps' => 'گرفتگی',
+    'headache' => 'سردرد',
+    'bloating' => 'نفخ',
+    'fatigue' => 'خستگی',
+    'breast_tenderness' || 'breasttenderness' => 'حساسیت سینه',
+    'back_pain' || 'backpain' => 'کمردرد',
+    'sleep_change' || 'sleepchange' => 'تغییر خواب',
+    'appetite_change' || 'appetitechange' => 'تغییر اشتها',
+    'no_symptom' || 'nosymptom' => 'بدون نشانه',
+    _ => raw,
+  };
 }
 
 class _FourteenDayStrip extends StatelessWidget {

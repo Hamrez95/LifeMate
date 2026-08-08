@@ -57,23 +57,46 @@ class _TreatmentsScreenState extends State<TreatmentsScreen> {
     try {
       final api = context.read<LifeMateApiClient>();
       final now = DateTime.now();
-      final results = await Future.wait<dynamic>([
-        api.getTreatmentPlans(),
+      var failedSources = 0;
+      Future<List<Map<String, dynamic>>> safeLoad(
+        Future<List<Map<String, dynamic>>> request,
+        String label,
+      ) async {
+        try {
+          return await request;
+        } catch (error) {
+          failedSources += 1;
+          debugPrint('WellMate care hub $label load failed: $error');
+          return const <Map<String, dynamic>>[];
+        }
+      }
+
+      final results = await Future.wait<List<Map<String, dynamic>>>([
+        safeLoad(api.getTreatmentPlans(), 'treatments'),
         // The care-event endpoint is intentionally bounded. A one-month window
         // keeps this hub fast while recurrence series are represented by the
         // occurrence returned inside the window.
-        api.getCareEvents(
-          fromDate: now.subtract(const Duration(days: 31)),
-          toDate: now,
+        safeLoad(
+          api.getCareEvents(
+            fromDate: now.subtract(const Duration(days: 31)),
+            toDate: now,
+          ),
+          'past care events',
         ),
-        api.getCareEvents(
-          fromDate: now.add(const Duration(days: 1)),
-          toDate: now.add(const Duration(days: 31)),
+        safeLoad(
+          api.getCareEvents(
+            fromDate: now.add(const Duration(days: 1)),
+            toDate: now.add(const Duration(days: 31)),
+          ),
+          'future care events',
         ),
       ]);
-      final plans = results[0] as List<Map<String, dynamic>>;
-      final pastEvents = results[1] as List<Map<String, dynamic>>;
-      final futureEvents = results[2] as List<Map<String, dynamic>>;
+      final plans = results[0];
+      final pastEvents = results[1];
+      final futureEvents = results[2];
+      if (failedSources == 3) {
+        throw StateError('All treatment sources are unavailable.');
+      }
       final bySeries = <String, CareItem>{};
       for (final event in [...pastEvents, ...futureEvents]) {
         final item = CareItem.fromCareEvent(event);
@@ -112,150 +135,173 @@ class _TreatmentsScreenState extends State<TreatmentsScreen> {
   @override
   Widget build(BuildContext context) {
     final visible = _visible;
-    return RefreshIndicator(
-      onRefresh: _load,
-      child: ListView(
-        key: const ValueKey('wellmate-unified-care-hub'),
-        physics: const AlwaysScrollableScrollPhysics(),
-        padding: const EdgeInsets.fromLTRB(20, 24, 20, 120),
-        children: [
-          const Text(
-            'درمان‌های من',
-            style: TextStyle(fontSize: 22, fontWeight: FontWeight.w900),
-          ),
-          const SizedBox(height: 6),
-          const Text(
-            'دارو، ویزیت و تزریق در یک نمای قابل جست‌وجو و مرتب‌سازی.',
-            style: TextStyle(color: AppColors.textSecondary),
-          ),
-          const SizedBox(height: 16),
-          TextField(
-            key: const ValueKey('care-hub-search'),
-            controller: _search,
-            textInputAction: TextInputAction.search,
-            decoration: const InputDecoration(
-              hintText: 'جست‌وجو در نام، پزشک، درمانگاه، آدرس یا توضیحات',
-              prefixIcon: Icon(Icons.search_rounded),
+    return Material(
+      color: Colors.transparent,
+      child: RefreshIndicator(
+        onRefresh: _load,
+        child: ListView(
+          key: const ValueKey('wellmate-unified-care-hub'),
+          physics: const AlwaysScrollableScrollPhysics(),
+          padding: const EdgeInsets.fromLTRB(20, 24, 20, 120),
+          children: [
+            const Text(
+              'درمان‌های من',
+              style: TextStyle(fontSize: 22, fontWeight: FontWeight.w900),
             ),
-          ),
-          const SizedBox(height: 12),
-          SingleChildScrollView(
-            scrollDirection: Axis.horizontal,
-            child: Row(
+            const SizedBox(height: 6),
+            const Text(
+              'دارو، ویزیت و تزریق در یک نمای قابل جست‌وجو و مرتب‌سازی.',
+              style: TextStyle(color: AppColors.textSecondary),
+            ),
+            const SizedBox(height: 16),
+            TextField(
+              key: const ValueKey('care-hub-search'),
+              controller: _search,
+              textInputAction: TextInputAction.search,
+              decoration: const InputDecoration(
+                hintText: 'جست‌وجو در نام، پزشک، درمانگاه، آدرس یا توضیحات',
+                prefixIcon: Icon(Icons.search_rounded),
+              ),
+            ),
+            const SizedBox(height: 12),
+            SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              child: Row(
+                children: [
+                  _TypeChip(
+                    label: 'همه',
+                    selected: _type == null,
+                    onTap: () => setState(() => _type = null),
+                  ),
+                  _TypeChip(
+                    label: 'دارو',
+                    selected: _type == CareItemType.medication,
+                    onTap: () =>
+                        setState(() => _type = CareItemType.medication),
+                  ),
+                  _TypeChip(
+                    label: 'ویزیت',
+                    selected: _type == CareItemType.visit,
+                    onTap: () => setState(() => _type = CareItemType.visit),
+                  ),
+                  _TypeChip(
+                    label: 'تزریق',
+                    selected: _type == CareItemType.injection,
+                    onTap: () => setState(() => _type = CareItemType.injection),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 10),
+            Row(
               children: [
-                _TypeChip(
-                  label: 'همه',
-                  selected: _type == null,
-                  onTap: () => setState(() => _type = null),
+                Expanded(
+                  child: DropdownButtonFormField<CareItemStatusFilter>(
+                    key: const ValueKey('care-hub-status-filter'),
+                    initialValue: _status,
+                    decoration: const InputDecoration(labelText: 'وضعیت'),
+                    items: const [
+                      DropdownMenuItem(
+                        value: CareItemStatusFilter.all,
+                        child: Text('همه وضعیت‌ها'),
+                      ),
+                      DropdownMenuItem(
+                        value: CareItemStatusFilter.active,
+                        child: Text('فعال'),
+                      ),
+                      DropdownMenuItem(
+                        value: CareItemStatusFilter.upcoming,
+                        child: Text('آینده'),
+                      ),
+                      DropdownMenuItem(
+                        value: CareItemStatusFilter.completed,
+                        child: Text('تمام‌شده'),
+                      ),
+                    ],
+                    onChanged: (value) =>
+                        setState(() => _status = value ?? _status),
+                  ),
                 ),
-                _TypeChip(
-                  label: 'دارو',
-                  selected: _type == CareItemType.medication,
-                  onTap: () => setState(() => _type = CareItemType.medication),
-                ),
-                _TypeChip(
-                  label: 'ویزیت',
-                  selected: _type == CareItemType.visit,
-                  onTap: () => setState(() => _type = CareItemType.visit),
-                ),
-                _TypeChip(
-                  label: 'تزریق',
-                  selected: _type == CareItemType.injection,
-                  onTap: () => setState(() => _type = CareItemType.injection),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: DropdownButtonFormField<CareItemSort>(
+                    key: const ValueKey('care-hub-sort'),
+                    initialValue: _sort,
+                    decoration: const InputDecoration(labelText: 'مرتب‌سازی'),
+                    items: const [
+                      DropdownMenuItem(
+                        value: CareItemSort.nearest,
+                        child: Text('نزدیک‌ترین'),
+                      ),
+                      DropdownMenuItem(
+                        value: CareItemSort.newest,
+                        child: Text('جدیدترین'),
+                      ),
+                      DropdownMenuItem(
+                        value: CareItemSort.oldest,
+                        child: Text('قدیمی‌ترین'),
+                      ),
+                      DropdownMenuItem(
+                        value: CareItemSort.name,
+                        child: Text('نام'),
+                      ),
+                      DropdownMenuItem(
+                        value: CareItemSort.type,
+                        child: Text('نوع'),
+                      ),
+                    ],
+                    onChanged: (value) =>
+                        setState(() => _sort = value ?? _sort),
+                  ),
                 ),
               ],
             ),
-          ),
-          const SizedBox(height: 10),
-          Row(
-            children: [
-              Expanded(
-                child: DropdownButtonFormField<CareItemStatusFilter>(
-                  key: const ValueKey('care-hub-status-filter'),
-                  initialValue: _status,
-                  decoration: const InputDecoration(labelText: 'وضعیت'),
-                  items: const [
-                    DropdownMenuItem(
-                      value: CareItemStatusFilter.all,
-                      child: Text('همه وضعیت‌ها'),
-                    ),
-                    DropdownMenuItem(
-                      value: CareItemStatusFilter.active,
-                      child: Text('فعال'),
-                    ),
-                    DropdownMenuItem(
-                      value: CareItemStatusFilter.upcoming,
-                      child: Text('آینده'),
-                    ),
-                    DropdownMenuItem(
-                      value: CareItemStatusFilter.completed,
-                      child: Text('تمام‌شده'),
-                    ),
-                  ],
-                  onChanged: (value) =>
-                      setState(() => _status = value ?? _status),
+            const SizedBox(height: 18),
+            if (_loading)
+              const Padding(
+                padding: EdgeInsets.all(48),
+                child: Center(child: CircularProgressIndicator()),
+              )
+            else if (_error != null)
+              _MessageCard(
+                icon: Icons.cloud_off_rounded,
+                message: _error!,
+                actionLabel: 'تلاش دوباره',
+                onAction: _load,
+              )
+            else if (visible.isEmpty)
+              _MessageCard(
+                icon: _type == CareItemType.injection
+                    ? Icons.vaccines_rounded
+                    : _type == CareItemType.visit
+                    ? Icons.medical_services_rounded
+                    : Icons.medication_rounded,
+                message: _search.text.trim().isEmpty
+                    ? 'برای این فیلتر موردی وجود ندارد.'
+                    : 'نتیجه‌ای برای «${localizeDigits(context, _search.text.trim())}» پیدا نشد.',
+              )
+            else
+              for (final item in visible)
+                Semantics(
+                  button: item.type == CareItemType.medication,
+                  label: item.type == CareItemType.medication
+                      ? 'جزئیات ${item.title}'
+                      : item.title,
+                  child: GestureDetector(
+                    behavior: HitTestBehavior.opaque,
+                    onTap: item.type == CareItemType.medication
+                        ? () => Navigator.of(context).push(
+                            MaterialPageRoute<void>(
+                              builder: (_) =>
+                                  _TreatmentDetailsScreen(plan: item.raw),
+                            ),
+                          )
+                        : null,
+                    child: _CareHubCard(item: item),
+                  ),
                 ),
-              ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: DropdownButtonFormField<CareItemSort>(
-                  key: const ValueKey('care-hub-sort'),
-                  initialValue: _sort,
-                  decoration: const InputDecoration(labelText: 'مرتب‌سازی'),
-                  items: const [
-                    DropdownMenuItem(
-                      value: CareItemSort.nearest,
-                      child: Text('نزدیک‌ترین'),
-                    ),
-                    DropdownMenuItem(
-                      value: CareItemSort.newest,
-                      child: Text('جدیدترین'),
-                    ),
-                    DropdownMenuItem(
-                      value: CareItemSort.oldest,
-                      child: Text('قدیمی‌ترین'),
-                    ),
-                    DropdownMenuItem(
-                      value: CareItemSort.name,
-                      child: Text('نام'),
-                    ),
-                    DropdownMenuItem(
-                      value: CareItemSort.type,
-                      child: Text('نوع'),
-                    ),
-                  ],
-                  onChanged: (value) => setState(() => _sort = value ?? _sort),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 18),
-          if (_loading)
-            const Padding(
-              padding: EdgeInsets.all(48),
-              child: Center(child: CircularProgressIndicator()),
-            )
-          else if (_error != null)
-            _MessageCard(
-              icon: Icons.cloud_off_rounded,
-              message: _error!,
-              actionLabel: 'تلاش دوباره',
-              onAction: _load,
-            )
-          else if (visible.isEmpty)
-            _MessageCard(
-              icon: _type == CareItemType.injection
-                  ? Icons.vaccines_rounded
-                  : _type == CareItemType.visit
-                  ? Icons.medical_services_rounded
-                  : Icons.medication_rounded,
-              message: _search.text.trim().isEmpty
-                  ? 'برای این فیلتر موردی وجود ندارد.'
-                  : 'نتیجه‌ای برای «${localizeDigits(context, _search.text.trim())}» پیدا نشد.',
-            )
-          else
-            for (final item in visible) _CareHubCard(item: item),
-        ],
+          ],
+        ),
       ),
     );
   }

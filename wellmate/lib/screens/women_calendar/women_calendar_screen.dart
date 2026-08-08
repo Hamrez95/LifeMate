@@ -19,9 +19,6 @@ class WomenCalendarScreen extends StatefulWidget {
 }
 
 class _WomenCalendarScreenState extends State<WomenCalendarScreen> {
-  final _dailyNoteController = TextEditingController();
-  final _monthKey = GlobalKey();
-
   bool _loading = true;
   bool _saving = false;
   String? _error;
@@ -35,12 +32,6 @@ class _WomenCalendarScreenState extends State<WomenCalendarScreen> {
   int _cycleLength = 28;
   int _periodLength = 5;
   bool _remindersEnabled = true;
-
-  String _mood = 'neutral';
-  int _energy = 3;
-  Set<String> _symptoms = <String>{};
-  String _supportNeed = 'none';
-  bool _shareSummary = false;
 
   bool get _enabled => _profile['enabled'] == true;
   int get _version =>
@@ -90,12 +81,6 @@ class _WomenCalendarScreenState extends State<WomenCalendarScreen> {
   void initState() {
     super.initState();
     _load();
-  }
-
-  @override
-  void dispose() {
-    _dailyNoteController.dispose();
-    super.dispose();
   }
 
   Future<void> _load() async {
@@ -158,27 +143,6 @@ class _WomenCalendarScreenState extends State<WomenCalendarScreen> {
         ? profile['periodLength'] as int
         : 5;
     _remindersEnabled = profile['remindersEnabled'] != false;
-
-    final daily = profile['dailyCheckIn'] as Map<String, dynamic>?;
-    final today = _dateOnly(DateTime.now());
-    final dailyDate = DateTime.tryParse(daily?['date']?.toString() ?? '');
-    if (daily != null && dailyDate != null && _sameDay(dailyDate, today)) {
-      _mood = daily['mood']?.toString().toLowerCase() ?? 'neutral';
-      _energy = (daily['energy'] as num?)?.round().clamp(1, 5) ?? 3;
-      _symptoms = (daily['symptoms'] as List<dynamic>? ?? const [])
-          .map((value) => value.toString().toLowerCase())
-          .toSet();
-      _supportNeed = daily['supportNeed']?.toString().toLowerCase() ?? 'none';
-      _shareSummary = daily['shareSummary'] == true;
-      _dailyNoteController.text = daily['privateNote']?.toString() ?? '';
-    } else {
-      _mood = 'neutral';
-      _energy = 3;
-      _symptoms = <String>{};
-      _supportNeed = 'none';
-      _shareSummary = false;
-      _dailyNoteController.clear();
-    }
   }
 
   Future<void> _openSubscription() async {
@@ -222,82 +186,22 @@ class _WomenCalendarScreenState extends State<WomenCalendarScreen> {
         _profile = profile;
         _applyProfile(profile);
       });
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('تنظیمات چرخه ذخیره شد.'),
-          behavior: SnackBarBehavior.floating,
-        ),
+      LifeMateNotice.show(
+        context,
+        type: LifeMateNoticeType.success,
+        title: 'تنظیمات ذخیره شد',
+        message: 'تنظیمات چرخه به‌روزرسانی شد.',
       );
       await widget.onProfileChanged?.call();
     } on LifeMateApiException catch (error) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            error.code == 'stale_women_calendar_profile'
-                ? 'اطلاعات تغییر کرده بود؛ صفحه تازه‌سازی شد.'
-                : 'ذخیره تنظیمات انجام نشد.',
-          ),
-          behavior: SnackBarBehavior.floating,
-        ),
-      );
-      await _load();
-    } finally {
-      if (mounted) setState(() => _saving = false);
-    }
-  }
-
-  Future<void> _saveDailyCheckIn() async {
-    final start = _lastPeriodStart;
-    if (start == null || _saving) return;
-    setState(() => _saving = true);
-    try {
-      final profile = await context
-          .read<LifeMateApiClient>()
-          .updateWomenCalendarProfile(
-            version: _version,
-            enabled: true,
-            lastPeriodStart: start,
-            cycleLength: _cycleLength,
-            periodLength: _periodLength,
-            remindersEnabled: _remindersEnabled,
-            includeDailyCheckIn: true,
-            dailyCheckIn: {
-              'date': _dateString(DateTime.now()),
-              'mood': _mood,
-              'energy': _energy,
-              'symptoms': _symptoms.toList(growable: false),
-              'supportNeed': _supportNeed,
-              'privateNote': _dailyNoteController.text.trim(),
-              'shareSummary': _shareSummary,
-            },
-          );
-      if (!mounted) return;
-      setState(() {
-        _profile = profile;
-        _applyProfile(profile);
-      });
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            _shareSummary
-                ? 'حال امروز ثبت شد؛ فقط خلاصه مجاز برای همدل نمایش داده می‌شود.'
-                : 'حال امروز به‌صورت خصوصی ثبت شد.',
-          ),
-          behavior: SnackBarBehavior.floating,
-        ),
-      );
-    } on LifeMateApiException catch (error) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            error.code == 'stale_women_calendar_profile'
-                ? 'اطلاعات تغییر کرده بود؛ دوباره تلاش کنید.'
-                : 'ثبت حال امروز انجام نشد.',
-          ),
-          behavior: SnackBarBehavior.floating,
-        ),
+      LifeMateNotice.show(
+        context,
+        type: LifeMateNoticeType.error,
+        title: 'ذخیره انجام نشد',
+        message: error.code == 'stale_women_calendar_profile'
+            ? 'اطلاعات تغییر کرده بود؛ صفحه تازه‌سازی شد.'
+            : 'تنظیمات ذخیره نشد.',
       );
       await _load();
     } finally {
@@ -317,25 +221,23 @@ class _WomenCalendarScreenState extends State<WomenCalendarScreen> {
         privateNotes: draft.privateNotes,
       );
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('دوره و یادداشت خصوصی ثبت شد.'),
-          behavior: SnackBarBehavior.floating,
-        ),
+      LifeMateNotice.show(
+        context,
+        type: LifeMateNoticeType.success,
+        title: 'دوره ثبت شد',
+        message: 'بازه دوره و یادداشت خصوصی ذخیره شد.',
       );
       await _load();
       await widget.onProfileChanged?.call();
     } on LifeMateApiException catch (error) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            error.code == 'women_calendar_episode_overlap'
-                ? 'این بازه با یک ثبت قبلی هم‌پوشانی دارد.'
-                : 'ثبت دوره انجام نشد.',
-          ),
-          behavior: SnackBarBehavior.floating,
-        ),
+      LifeMateNotice.show(
+        context,
+        type: LifeMateNoticeType.error,
+        title: 'ثبت دوره انجام نشد',
+        message: error.code == 'women_calendar_episode_overlap'
+            ? 'این بازه با یک ثبت قبلی هم‌پوشانی دارد.'
+            : 'تغییرات ثبت دوره ذخیره نشد.',
       );
     } finally {
       if (mounted) setState(() => _saving = false);
@@ -355,11 +257,11 @@ class _WomenCalendarScreenState extends State<WomenCalendarScreen> {
         privateNotes: episode['privateNotes']?.toString(),
       );
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('پایان دوره برای امروز ثبت شد.'),
-          behavior: SnackBarBehavior.floating,
-        ),
+      LifeMateNotice.show(
+        context,
+        type: LifeMateNoticeType.success,
+        title: 'پایان دوره ثبت شد',
+        message: 'پایان دوره برای امروز ذخیره شد.',
       );
       await _load();
     } finally {
@@ -385,25 +287,23 @@ class _WomenCalendarScreenState extends State<WomenCalendarScreen> {
         privateNotes: draft.privateNotes,
       );
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('ثبت دوره اصلاح شد.'),
-          behavior: SnackBarBehavior.floating,
-        ),
+      LifeMateNotice.show(
+        context,
+        type: LifeMateNoticeType.success,
+        title: 'ثبت دوره اصلاح شد',
+        message: 'تغییرات تاریخچه دوره ذخیره شد.',
       );
       await _load();
       await widget.onProfileChanged?.call();
     } on LifeMateApiException catch (error) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            error.code == 'women_calendar_episode_overlap'
-                ? 'این بازه با یک ثبت قبلی هم‌پوشانی دارد.'
-                : 'اصلاح ثبت انجام نشد.',
-          ),
-          behavior: SnackBarBehavior.floating,
-        ),
+      LifeMateNotice.show(
+        context,
+        type: LifeMateNoticeType.error,
+        title: 'ثبت دوره انجام نشد',
+        message: error.code == 'women_calendar_episode_overlap'
+            ? 'این بازه با یک ثبت قبلی هم‌پوشانی دارد.'
+            : 'تغییرات ثبت دوره ذخیره نشد.',
       );
       await _load();
     } finally {
@@ -611,17 +511,6 @@ class _WomenCalendarScreenState extends State<WomenCalendarScreen> {
     return result;
   }
 
-  void _scrollToMonth() {
-    final context = _monthKey.currentContext;
-    if (context == null) return;
-    Scrollable.ensureVisible(
-      context,
-      duration: const Duration(milliseconds: 450),
-      curve: Curves.easeOutCubic,
-      alignment: 0.08,
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
     if (_loading) {
@@ -651,7 +540,7 @@ class _WomenCalendarScreenState extends State<WomenCalendarScreen> {
         icon: Icons.local_florist_outlined,
         title: 'فضای شخصی چرخه آماده است',
         description:
-            'با فعال‌سازی تقویم بانوان، چرخه، حال روزانه و گزارش‌های خصوصی در WellMate نمایش داده می‌شوند.',
+            'با فعال‌سازی تقویم بانوان، تنظیمات چرخه و مدیریت ثبت‌های دوره در دسترس قرار می‌گیرد.',
         actionLabel: 'فعال‌سازی',
         onAction: _openSubscription,
       );
@@ -663,64 +552,33 @@ class _WomenCalendarScreenState extends State<WomenCalendarScreen> {
         onRefresh: _load,
         color: womenRose,
         child: ListView(
+          key: const ValueKey('women-calendar-settings-only'),
           physics: const AlwaysScrollableScrollPhysics(),
-          padding: const EdgeInsets.fromLTRB(18, 14, 18, 30),
+          padding: const EdgeInsets.fromLTRB(18, 18, 18, 32),
           children: [
-            WomenPairHero(
-              apiClient: context.read<LifeMateApiClient>(),
-              ownerName: _ownerName,
-              companionName: _companionName,
-            ),
-            const SizedBox(height: 14),
-            WomenCycleHeroCard(
-              estimate: estimate,
-              onOpenCalendar: _scrollToMonth,
-            ),
-            const SizedBox(height: 14),
-            WomenDailyCheckInCard(
-              mood: _mood,
-              energy: _energy,
-              symptoms: _symptoms,
-              supportNeed: _supportNeed,
-              noteController: _dailyNoteController,
-              shareSummary: _shareSummary,
-              saving: _saving,
-              onMoodChanged: (value) => setState(() => _mood = value),
-              onEnergyChanged: (value) => setState(() => _energy = value),
-              onSymptomChanged: (value, selected) {
-                setState(() {
-                  if (selected && _symptoms.length < 8) {
-                    _symptoms.add(value);
-                  } else if (!selected) {
-                    _symptoms.remove(value);
-                  }
-                });
-              },
-              onSupportNeedChanged: (value) =>
-                  setState(() => _supportNeed = value),
-              onShareChanged: (value) => setState(() => _shareSummary = value),
-              onSave: _saveDailyCheckIn,
-            ),
-            const SizedBox(height: 14),
-            WomenGuidanceCard(phase: estimate?.detailedPhase),
-            const SizedBox(height: 14),
-            KeyedSubtree(
-              key: _monthKey,
-              child: WomenCalendarMonthCard(
-                episodes: _episodes,
-                estimate: estimate,
+            const WomenSoftCard(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'تنظیمات و مدیریت ثبت‌ها',
+                    style: TextStyle(
+                      fontSize: 20,
+                      fontWeight: FontWeight.w900,
+                      color: womenInk,
+                    ),
+                  ),
+                  SizedBox(height: 7),
+                  Text(
+                    'اینجا فقط تنظیمات ماندگار چرخه، یادآوری‌ها و تاریخچه دوره‌ها مدیریت می‌شود. حال روزانه از خود تقویم ثبت می‌شود.',
+                    style: TextStyle(
+                      color: AppColors.textSecondary,
+                      height: 1.65,
+                    ),
+                  ),
+                ],
               ),
             ),
-            const SizedBox(height: 14),
-            WomenTimelineCard(estimate: estimate),
-            const SizedBox(height: 14),
-            WomenRemindersCard(
-              estimate: estimate,
-              remindersEnabled: _remindersEnabled,
-              activeTreatmentCount: _activeTreatmentCount,
-            ),
-            const SizedBox(height: 14),
-            WomenReportsCard(episodes: _episodes, currentSymptoms: _symptoms),
             const SizedBox(height: 14),
             WomenCycleSettingsCard(
               lastPeriodStart: _lastPeriodStart,
@@ -734,6 +592,12 @@ class _WomenCalendarScreenState extends State<WomenCalendarScreen> {
               onReminderChanged: (value) =>
                   setState(() => _remindersEnabled = value),
               onSave: _saveSettings,
+            ),
+            const SizedBox(height: 14),
+            WomenRemindersCard(
+              estimate: estimate,
+              remindersEnabled: _remindersEnabled,
+              activeTreatmentCount: _activeTreatmentCount,
             ),
             const SizedBox(height: 14),
             WomenPeriodHistoryCard(
@@ -754,16 +618,6 @@ class _WomenCalendarScreenState extends State<WomenCalendarScreen> {
 
   static DateTime _dateOnly(DateTime value) =>
       DateTime(value.year, value.month, value.day);
-
-  static bool _sameDay(DateTime left, DateTime right) =>
-      left.year == right.year &&
-      left.month == right.month &&
-      left.day == right.day;
-
-  static String _dateString(DateTime value) =>
-      '${value.year.toString().padLeft(4, '0')}-'
-      '${value.month.toString().padLeft(2, '0')}-'
-      '${value.day.toString().padLeft(2, '0')}';
 }
 
 class _EpisodeDraft {

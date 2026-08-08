@@ -119,13 +119,7 @@ export function createWomenCalendarStore(databaseUrl: string) {
       "remindersEnabled",
     );
     const expectedVersion = nonNegativeInt(body.version, "version");
-    const hasDailyCheckIn = Object.prototype.hasOwnProperty.call(
-      body,
-      "dailyCheckIn",
-    );
-    const requestedDailyCheckIn = hasDailyCheckIn
-      ? parseDailyCheckIn(body.dailyCheckIn)
-      : undefined;
+    assertCanonicalWomenDailyLogPayload(body);
     const now = new Date();
 
     return await sql.begin(async (tx: any) => {
@@ -139,29 +133,21 @@ export function createWomenCalendarStore(databaseUrl: string) {
         if (expectedVersion !== 0) {
           throw staleProfile();
         }
-        const daily = requestedDailyCheckIn ?? null;
         const rows = await tx`
           insert into lifemate.women_calendar_profiles
             (owner_user_id, enabled, last_period_start, cycle_length,
              period_length, reminders_enabled, algorithm_version, version,
-             daily_check_in_date, daily_mood, daily_energy, daily_symptoms,
-             daily_support_need, daily_private_note, share_daily_summary,
              created_at_utc, updated_at_utc)
           values
             (${userId}, ${enabled}, ${lastPeriodStart}, ${cycleLength},
              ${periodLength}, ${remindersEnabled}, 'calendar-estimate-v1', 1,
-             ${daily?.date ?? null}, ${daily?.mood ?? null},
-             ${daily?.energy ?? null}, ${daily?.symptoms ?? []},
-             ${daily?.supportNeed ?? null}, ${daily?.privateNote ?? null},
-             ${daily?.shareSummary ?? false}, ${now}, ${now})
+             ${now}, ${now})
           returning *
         `;
         await insertAudit(
           tx,
           userId,
-          daily == null
-            ? "women_calendar.profile_created"
-            : "women_calendar.profile_and_check_in_created",
+          "women_calendar.profile_created",
           "women_calendar_profile",
           userId,
         );
@@ -171,26 +157,11 @@ export function createWomenCalendarStore(databaseUrl: string) {
         throw staleProfile();
       }
 
-      finalDailyCheckIn:
-      {
-        // A labeled block keeps the preservation rule visually explicit:
-        // omitted dailyCheckIn means settings-only update; null means clear.
-      }
-      const daily = hasDailyCheckIn
-        ? requestedDailyCheckIn
-        : dailyCheckInFromRow(existing);
       const rows = await tx`
         update lifemate.women_calendar_profiles
         set enabled = ${enabled}, last_period_start = ${lastPeriodStart},
             cycle_length = ${cycleLength}, period_length = ${periodLength},
             reminders_enabled = ${remindersEnabled},
-            daily_check_in_date = ${daily?.date ?? null},
-            daily_mood = ${daily?.mood ?? null},
-            daily_energy = ${daily?.energy ?? null},
-            daily_symptoms = ${daily?.symptoms ?? []},
-            daily_support_need = ${daily?.supportNeed ?? null},
-            daily_private_note = ${daily?.privateNote ?? null},
-            share_daily_summary = ${daily?.shareSummary ?? false},
             version = version + 1, updated_at_utc = ${now}
         where owner_user_id = ${userId}
         returning *
@@ -198,9 +169,7 @@ export function createWomenCalendarStore(databaseUrl: string) {
       await insertAudit(
         tx,
         userId,
-        hasDailyCheckIn
-          ? "women_calendar.daily_check_in_updated"
-          : enabled
+        enabled
           ? "women_calendar.profile_enabled_or_updated"
           : "women_calendar.profile_disabled",
         "women_calendar_profile",
@@ -586,15 +555,16 @@ export function createWomenCalendarStore(databaseUrl: string) {
       limit 1
     `;
     const profile = mapProfile(profiles[0]);
-    const dailyCheckIn = profile.dailyCheckIn as Record<string, unknown> | null;
-    const sharedDailySummary = dailyCheckIn?.shareSummary === true
-      ? {
-        date: dailyCheckIn.date,
-        mood: dailyCheckIn.mood,
-        energy: dailyCheckIn.energy,
-        supportNeed: dailyCheckIn.supportNeed,
-      }
+    const canonicalSharedLog = sharedLogs[0]
+      ? mapDailyLogCompanion(sharedLogs[0])
       : null;
+    const sharedDailySummary = canonicalSharedLog == null ? null : {
+      date: canonicalSharedLog.loggedOn,
+      mood: canonicalSharedLog.mood,
+      energy: canonicalSharedLog.energyLevel,
+      pain: canonicalSharedLog.painLevel,
+      symptoms: canonicalSharedLog.symptoms,
+    };
     const patientProfile = patientProfiles[0];
     return {
       patient: {
@@ -611,9 +581,7 @@ export function createWomenCalendarStore(databaseUrl: string) {
       estimate: profile.estimate,
       sharedDailySummary,
       episodes: episodes.map(mapEpisodeCaregiver),
-      latestSharedDailyLog: sharedLogs[0]
-        ? mapDailyLogCompanion(sharedLogs[0])
-        : null,
+      latestSharedDailyLog: canonicalSharedLog,
       supportActions: actions.map((row: Row) => ({
         actionType: String(row.action_type).toLowerCase(),
         performedAtUtc: iso(row.performed_at_utc),
@@ -707,6 +675,18 @@ export function createWomenCalendarStore(databaseUrl: string) {
     getCareSummary,
     recordCareSupportAction,
   };
+}
+
+export function assertCanonicalWomenDailyLogPayload(
+  body: Record<string, unknown>,
+): void {
+  if (Object.prototype.hasOwnProperty.call(body, "dailyCheckIn")) {
+    throw new ApiError(
+      400,
+      "women_calendar_daily_log_endpoint_required",
+      "Daily wellbeing state must use /api/v1/women-calendar/daily-logs.",
+    );
+  }
 }
 
 export function calculateWomenCalendarEstimate(
@@ -808,7 +788,7 @@ function mapProfile(row: Row): Record<string, any> {
         row.period_length,
       )
       : null,
-    dailyCheckIn: dailyCheckInFromRow(row),
+    dailyCheckIn: null,
     createdAtUtc: iso(row.created_at_utc),
     updatedAtUtc: iso(row.updated_at_utc),
   };

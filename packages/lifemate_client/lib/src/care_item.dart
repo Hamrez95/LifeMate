@@ -131,17 +131,20 @@ class CareItem {
   }) {
     final reference = now ?? DateTime.now();
     final normalizedQuery = _normalize(query);
-    final items = source.where((item) {
-      if (type != null && item.type != type) return false;
-      final statusMatches = switch (status) {
-        CareItemStatusFilter.all => true,
-        CareItemStatusFilter.active => item.isActive,
-        CareItemStatusFilter.upcoming => item.isUpcoming(reference),
-        CareItemStatusFilter.completed => item.isCompleted,
-      };
-      if (!statusMatches) return false;
-      return normalizedQuery.isEmpty || item.searchText.contains(normalizedQuery);
-    }).toList(growable: false);
+    final items = source
+        .where((item) {
+          if (type != null && item.type != type) return false;
+          final statusMatches = switch (status) {
+            CareItemStatusFilter.all => true,
+            CareItemStatusFilter.active => item.isActive,
+            CareItemStatusFilter.upcoming => item.isUpcoming(reference),
+            CareItemStatusFilter.completed => item.isCompleted,
+          };
+          if (!statusMatches) return false;
+          return normalizedQuery.isEmpty ||
+              item.searchText.contains(normalizedQuery);
+        })
+        .toList(growable: false);
 
     int compareDate(CareItem left, CareItem right, {required bool newest}) {
       final l = left.scheduledAt;

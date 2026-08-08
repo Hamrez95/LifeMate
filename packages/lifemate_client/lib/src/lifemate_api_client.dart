@@ -401,8 +401,6 @@ class LifeMateApiClient {
     required int cycleLength,
     required int periodLength,
     required bool remindersEnabled,
-    Map<String, dynamic>? dailyCheckIn,
-    bool includeDailyCheckIn = false,
   }) async => _asObject(
     await _send(
       'PATCH',
@@ -416,7 +414,6 @@ class LifeMateApiClient {
         'cycleLength': cycleLength,
         'periodLength': periodLength,
         'remindersEnabled': remindersEnabled,
-        if (includeDailyCheckIn) 'dailyCheckIn': dailyCheckIn,
       },
     ),
   );

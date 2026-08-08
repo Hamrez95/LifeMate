@@ -21,11 +21,15 @@ class WomenCalendarMonthCard extends StatefulWidget {
     required this.episodes,
     required this.estimate,
     this.initialFocusedDate,
+    this.selectedDate,
+    this.onDateSelected,
   });
 
   final List<Map<String, dynamic>> episodes;
   final WomenCalendarEstimate? estimate;
   final DateTime? initialFocusedDate;
+  final DateTime? selectedDate;
+  final ValueChanged<DateTime>? onDateSelected;
 
   @override
   State<WomenCalendarMonthCard> createState() => _WomenCalendarMonthCardState();
@@ -122,6 +126,9 @@ class _WomenCalendarMonthCardState extends State<WomenCalendarMonthCard> {
               final predictedPeriod =
                   !actualBleeding && phase == WomenCyclePhase.period;
               final isToday = _sameDay(date, DateTime.now());
+              final isSelected =
+                  widget.selectedDate != null &&
+                  _sameDay(date, widget.selectedDate!);
               final dayNumber = isPersian
                   ? Jalali.fromDateTime(date).day
                   : date.day;
@@ -145,37 +152,72 @@ class _WomenCalendarMonthCardState extends State<WomenCalendarMonthCard> {
                   : '${visual.label} ${isPersian ? 'تخمینی' : 'estimated'}';
 
               return Semantics(
+                button: widget.onDateSelected != null,
+                selected: isSelected,
                 label: [
                   formatAppDate(context, date),
+                  if (isToday) isPersian ? 'امروز' : 'Today',
+                  if (isSelected) isPersian ? 'انتخاب‌شده' : 'Selected',
                   if (statusLabel.isNotEmpty) statusLabel,
                 ].join('، '),
-                child: AnimatedContainer(
-                  duration: const Duration(milliseconds: 220),
-                  decoration: BoxDecoration(
-                    color: background,
-                    borderRadius: BorderRadius.circular(14),
-                    border: Border.all(
-                      color: isToday ? const Color(0xFF20B98A) : Colors.white,
-                      width: isToday ? 1.8 : 1,
-                    ),
+                child: InkWell(
+                  key: ValueKey(
+                    'women-calendar-day-${date.year}-${date.month}-${date.day}',
                   ),
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Text(
-                        localizeDigits(context, dayNumber),
-                        maxLines: 1,
-                        style: TextStyle(
-                          color: foreground,
-                          fontWeight: FontWeight.w900,
+                  onTap: widget.onDateSelected == null
+                      ? null
+                      : () => widget.onDateSelected!(date),
+                  borderRadius: BorderRadius.circular(14),
+                  child: AnimatedScale(
+                    scale: isSelected ? 1.07 : 1,
+                    duration: const Duration(milliseconds: 170),
+                    curve: Curves.easeOutCubic,
+                    child: AnimatedContainer(
+                      duration: const Duration(milliseconds: 190),
+                      decoration: BoxDecoration(
+                        color: background,
+                        borderRadius: BorderRadius.circular(14),
+                        border: Border.all(
+                          color: isSelected
+                              ? const Color(0xFF9B68C7)
+                              : isToday
+                              ? const Color(0xFF20B98A)
+                              : Colors.white,
+                          width: isSelected
+                              ? 2.4
+                              : isToday
+                              ? 1.8
+                              : 1,
                         ),
+                        boxShadow: isSelected
+                            ? const [
+                                BoxShadow(
+                                  color: Color(0x249B68C7),
+                                  blurRadius: 10,
+                                  offset: Offset(0, 3),
+                                ),
+                              ]
+                            : null,
                       ),
-                      const SizedBox(height: 4),
-                      _DayPhaseMarker(
-                        phase: phase,
-                        actualBleeding: actualBleeding,
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Text(
+                            localizeDigits(context, dayNumber),
+                            maxLines: 1,
+                            style: TextStyle(
+                              color: foreground,
+                              fontWeight: FontWeight.w900,
+                            ),
+                          ),
+                          const SizedBox(height: 4),
+                          _DayPhaseMarker(
+                            phase: phase,
+                            actualBleeding: actualBleeding,
+                          ),
+                        ],
                       ),
-                    ],
+                    ),
                   ),
                 ),
               );
