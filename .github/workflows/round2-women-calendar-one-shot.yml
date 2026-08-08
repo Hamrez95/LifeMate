@@ -7,6 +7,7 @@ on:
     paths:
       - 'tools/hotfix/apply_round2_women_calendar.py'
       - 'tools/hotfix/fix_round2_regressions.py'
+      - 'tools/hotfix/fix_round2_women_backend.py'
       - '.github/workflows/round2-women-calendar-one-shot.yml'
 
 permissions:
@@ -49,8 +50,11 @@ jobs:
       - name: Apply women calendar refactor
         run: python3 tools/hotfix/apply_round2_women_calendar.py
 
-      - name: Apply discovered regression fixes
+      - name: Apply discovered Flutter regression fixes
         run: python3 tools/hotfix/fix_round2_regressions.py
+
+      - name: Remove legacy daily state from profile writes
+        run: python3 tools/hotfix/fix_round2_women_backend.py
 
       - name: Format touched sources
         run: |
