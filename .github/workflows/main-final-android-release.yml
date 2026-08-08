@@ -1,0 +1,139 @@
+name: main-final-android-release
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: main-final-android-release-${{ github.sha }}
+  cancel-in-progress: false
+
+env:
+  SUPABASE_PROJECT_REF: bwdvmniywyyijjauipnh
+  SUPABASE_URL: https://bwdvmniywyyijjauipnh.supabase.co
+  LIFEMATE_API_BASE_URL: https://bwdvmniywyyijjauipnh.supabase.co/functions/v1/lifemate-api
+  SUPABASE_PUBLISHABLE_KEY: ${{ vars.SUPABASE_PUBLISHABLE_KEY || 'sb_publishable_6YpBDD0gAPcenbYGukOeWg_fZXxUb27' }}
+  ENABLE_GOOGLE_AUTH: 'false'
+  ENABLE_PHONE_OTP: 'false'
+  ENABLE_WOMEN_CALENDAR_PILOT: 'false'
+
+jobs:
+  verify-and-build:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
+        with:
+          show-progress: false
+          persist-credentials: false
+
+      - name: Require main source
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$GITHUB_REF" = 'refs/heads/main'
+          test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
+
+      - uses: denoland/setup-deno@22d081ff2d3a40755e97629de92e3bcbfa7cf2ed
+        with:
+          deno-version: v2.9.4
+
+      - name: Verify Edge API and workers
+        shell: bash
+        run: |
+          set -euo pipefail
+          (cd supabase/functions/lifemate-api && deno fmt --check && deno task check && deno task test)
+          (cd supabase/functions/lifemate-worker && deno fmt --check && deno task check)
+          (cd supabase/functions/lifemate-kavenegar-sms-hook && deno fmt --check && deno task check)
+
+      - uses: actions/setup-dotnet@d4c94342e560b34958eacfc5d055d21461ed1c5d
+        with:
+          dotnet-version: '9.0.x'
+
+      - name: Verify backend .NET
+        shell: bash
+        run: |
+          set -euo pipefail
+          dotnet restore backend-dotnet/LifeMate.sln
+          dotnet build backend-dotnet/LifeMate.sln --configuration Release --no-restore
+          dotnet test backend-dotnet/LifeMate.sln --configuration Release --no-build
+
+      - uses: subosito/flutter-action@4cab68ce0f1c7c924f688bff4792e044f1aeb30c
+        with:
+          flutter-version: '3.44.0'
+          channel: stable
+          cache: true
+
+      - name: Verify Flutter source
+        shell: bash
+        run: |
+          set -euo pipefail
+          (cd packages/lifemate_client && flutter pub get && flutter analyze --no-fatal-warnings --no-fatal-infos && flutter test)
+          (cd wellmate && flutter pub get && flutter analyze --no-fatal-warnings --no-fatal-infos && flutter test)
+          (cd caremate && flutter pub get && flutter analyze --no-fatal-warnings --no-fatal-infos && flutter test)
+
+      - name: Require production API from this exact main commit
+        shell: bash
+        run: |
+          set -euo pipefail
+          health_response="$(curl --fail --silent --show-error --retry 5 --retry-delay 3 --retry-all-errors "$LIFEMATE_API_BASE_URL/health")"
+          echo "$health_response" | jq -e --arg version "$GITHUB_SHA" '.status == "ok" and .database == "ready" and .service == "lifemate-api" and .version == $version' >/dev/null
+          unauthorized_status="$(curl --silent --show-error --output /dev/null --write-out '%{http_code}' "$LIFEMATE_API_BASE_URL/api/v1/me")"
+          test "$unauthorized_status" = '401'
+
+      - name: Build exact-main release APKs
+        shell: bash
+        run: |
+          set -euo pipefail
+          build_name="0.9.0"
+          build_number="$GITHUB_RUN_NUMBER"
+          build_args=(
+            --release
+            --build-name="$build_name"
+            --build-number="$build_number"
+            --dart-define="SUPABASE_URL=$SUPABASE_URL"
+            --dart-define="SUPABASE_PUBLISHABLE_KEY=$SUPABASE_PUBLISHABLE_KEY"
+            --dart-define="LIFEMATE_API_BASE_URL=$LIFEMATE_API_BASE_URL"
+            --dart-define="ENABLE_GOOGLE_AUTH=$ENABLE_GOOGLE_AUTH"
+            --dart-define="ENABLE_PHONE_OTP=$ENABLE_PHONE_OTP"
+            --dart-define="ENABLE_WOMEN_CALENDAR_PILOT=$ENABLE_WOMEN_CALENDAR_PILOT"
+          )
+          (cd wellmate && flutter build apk "${build_args[@]}")
+          (cd caremate && flutter build apk "${build_args[@]}")
+
+      - name: Package and manifest
+        shell: bash
+        run: |
+          set -euo pipefail
+          short_sha="${GITHUB_SHA:0:8}"
+          mkdir -p dist
+          cp wellmate/build/app/outputs/flutter-apk/app-release.apk "dist/wellmate-0.9.0-main-${short_sha}.apk"
+          cp caremate/build/app/outputs/flutter-apk/app-release.apk "dist/caremate-0.9.0-main-${short_sha}.apk"
+          wellmate_sha="$(sha256sum dist/wellmate-*.apk | awk '{print $1}')"
+          caremate_sha="$(sha256sum dist/caremate-*.apk | awk '{print $1}')"
+          jq -n \
+            --arg mainCommit "$GITHUB_SHA" \
+            --arg buildNumber "$GITHUB_RUN_NUMBER" \
+            --arg version "0.9.0" \
+            --arg apiEnvironment "production" \
+            --arg apiBaseUrl "$LIFEMATE_API_BASE_URL" \
+            --arg builtAt "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+            --arg wellmateSha256 "$wellmate_sha" \
+            --arg caremateSha256 "$caremate_sha" \
+            --argjson googleAuth false \
+            --argjson phoneOtp false \
+            --argjson womenCalendarPilot false \
+            '{mainCommit:$mainCommit,version:$version,buildNumber:$buildNumber,builtAtUtc:$builtAt,apiEnvironment:$apiEnvironment,apiBaseUrl:$apiBaseUrl,featureFlags:{googleAuth:$googleAuth,phoneOtp:$phoneOtp,womenCalendarPilot:$womenCalendarPilot},apps:{wellmate:{packageId:"com.lifemate.wellmate",sha256:$wellmateSha256},caremate:{packageId:"com.lifemate.caremate",sha256:$caremateSha256}},releasePurpose:"physical-test-final-current-stage",storeSigningConfigured:false}' \
+            > dist/manifest.json
+
+      - name: Upload final exact-main Android bundle
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: lifemate-main-final-${{ github.sha }}
+          path: dist
+          if-no-files-found: error
+          retention-days: 30
