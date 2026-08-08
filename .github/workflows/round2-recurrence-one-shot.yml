@@ -31,6 +31,20 @@ jobs:
         with:
           deno-version: v2.4.5
 
+      - name: Make duplicate reminder-label edits sequential
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          path = Path('tools/hotfix/apply_round2_recurrence.py')
+          text = path.read_text(encoding='utf-8')
+          old = '''    if count != 1:\n        raise RuntimeError(f"{path}: expected one match, found {count}: {old[:90]!r}")\n    write(path, text.replace(old, new, 1))'''
+          new = '''    if count != 1 and not (\n        count == 2 and "LifeMateReminderLeadTimes.label(minutes)" in old\n    ):\n        raise RuntimeError(f"{path}: expected one match, found {count}: {old[:90]!r}")\n    write(path, text.replace(old, new, 1))'''
+          if old not in text:
+              raise SystemExit('replace_once implementation changed unexpectedly')
+          path.write_text(text.replace(old, new, 1), encoding='utf-8')
+          PY
+
       - name: Apply recurrence changes
         run: python3 tools/hotfix/apply_round2_recurrence.py
 
