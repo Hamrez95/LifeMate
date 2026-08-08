@@ -7,6 +7,7 @@ import 'package:http/http.dart' as http;
 
 import 'capabilities.dart';
 import 'reminder_lead_time.dart';
+import 'recurrence.dart';
 
 typedef AccessTokenProvider = String? Function();
 
@@ -241,6 +242,7 @@ class LifeMateApiClient {
     String? centerName,
     String? addressLine,
     String? phoneNumber,
+    RecurrenceRule recurrence = const RecurrenceRule.none(),
     int patientReminderMinutesBefore =
         LifeMateReminderLeadTimes.defaultPatientMinutes,
     int caregiverReminderMinutesBefore =
@@ -264,6 +266,7 @@ class LifeMateApiClient {
         'addressLine': _emptyToNull(addressLine),
         'phoneNumber': _emptyToNull(phoneNumber),
         'scheduledLocalDate': _date(scheduledLocalDate),
+        'recurrence': recurrence.toJson(),
         'scheduledLocalTime': scheduledLocalTime.trim(),
         'timeZone': timeZone.trim(),
         'patientReminderMinutesBefore': patientReminderMinutesBefore,
@@ -398,8 +401,6 @@ class LifeMateApiClient {
     required int cycleLength,
     required int periodLength,
     required bool remindersEnabled,
-    Map<String, dynamic>? dailyCheckIn,
-    bool includeDailyCheckIn = false,
   }) async => _asObject(
     await _send(
       'PATCH',
@@ -413,7 +414,6 @@ class LifeMateApiClient {
         'cycleLength': cycleLength,
         'periodLength': periodLength,
         'remindersEnabled': remindersEnabled,
-        if (includeDailyCheckIn) 'dailyCheckIn': dailyCheckIn,
       },
     ),
   );

@@ -43,7 +43,8 @@ class _PasswordRecoveryExperienceState
           .timeout(_requestTimeout);
       await widget.supabase.auth.signOut();
     } on TimeoutException {
-      if (mounted) setState(() => _error = 'پاسخی دریافت نشد. دوباره تلاش کنید.');
+      if (mounted)
+        setState(() => _error = 'پاسخی دریافت نشد. دوباره تلاش کنید.');
     } on AuthException catch (error) {
       if (mounted) setState(() => _error = error.message);
     } catch (_) {

@@ -16,7 +16,10 @@ void main() {
   test('builds a deterministic weekday by time cartesian product', () {
     final schedules = buildTreatmentSchedules(
       weekdays: const [DateTime.wednesday, DateTime.monday],
-      times: const [TimeOfDay(hour: 21, minute: 0), TimeOfDay(hour: 8, minute: 5)],
+      times: const [
+        TimeOfDay(hour: 21, minute: 0),
+        TimeOfDay(hour: 8, minute: 5),
+      ],
       backendWeekdays: backendDays,
     );
 
@@ -31,7 +34,10 @@ void main() {
   test('removes duplicate weekdays and times', () {
     final schedules = buildTreatmentSchedules(
       weekdays: const [DateTime.monday, DateTime.monday],
-      times: const [TimeOfDay(hour: 9, minute: 0), TimeOfDay(hour: 9, minute: 0)],
+      times: const [
+        TimeOfDay(hour: 9, minute: 0),
+        TimeOfDay(hour: 9, minute: 0),
+      ],
       backendWeekdays: backendDays,
     );
 

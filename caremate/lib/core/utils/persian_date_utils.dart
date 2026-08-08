@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:shamsi_date/shamsi_date.dart';
+import 'package:lifemate_client/lifemate_client.dart';
 
 import 'string_extensions.dart';
 
@@ -32,7 +33,7 @@ bool usesPersianCalendar(BuildContext context) =>
     Localizations.localeOf(context).languageCode == 'fa';
 
 String localizeDigits(BuildContext context, Object? value) =>
-    (value?.toString() ?? '').toPersianDigit(usesPersianCalendar(context));
+    LifeMateNumbers.localize(context, value);
 
 String formatAppDate(
   BuildContext context,

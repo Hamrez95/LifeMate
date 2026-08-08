@@ -6,31 +6,24 @@ import 'package:http/testing.dart';
 import 'package:lifemate_client/lifemate_client.dart';
 
 void main() {
-  test('daily check-in sends the explicit private owner payload', () async {
+  test('daily wellbeing uses only the canonical daily-log endpoint', () async {
     late http.Request observed;
-    final api = LifeMateApiClient(
+    final api = WomenCompanionApi(
       baseUri: Uri.parse('https://api.example.test'),
       accessToken: () => 'access-token',
       httpClient: MockClient((request) async {
         observed = request;
         return http.Response(
           jsonEncode({
-            'ownerUserId': 'owner-1',
-            'enabled': true,
-            'lastPeriodStart': '2026-08-01',
-            'cycleLength': 28,
-            'periodLength': 5,
-            'remindersEnabled': true,
-            'version': 4,
-            'dailyCheckIn': {
-              'date': '2026-08-05',
-              'mood': 'Good',
-              'energy': 4,
-              'symptoms': ['fatigue', 'headache'],
-              'supportNeed': 'Hug',
-              'privateNote': 'یادداشت خصوصی',
-              'shareSummary': true,
-            },
+            'id': 'log-1',
+            'loggedOn': '2026-08-05',
+            'mood': 'good',
+            'energyLevel': 4,
+            'painLevel': 2,
+            'symptoms': ['fatigue'],
+            'privateNotes': 'یادداشت خصوصی',
+            'shareSummaryWithCompanion': true,
+            'version': 1,
           }),
           200,
           headers: {'content-type': 'application/json'},
@@ -38,40 +31,27 @@ void main() {
       }),
     );
 
-    await api.updateWomenCalendarProfile(
-      version: 3,
-      enabled: true,
-      lastPeriodStart: DateTime(2026, 8, 1),
-      cycleLength: 28,
-      periodLength: 5,
-      remindersEnabled: true,
-      includeDailyCheckIn: true,
-      dailyCheckIn: {
-        'date': '2026-08-05',
-        'mood': 'good',
-        'energy': 4,
-        'symptoms': ['fatigue', 'headache'],
-        'supportNeed': 'hug',
-        'privateNote': 'یادداشت خصوصی',
-        'shareSummary': true,
-      },
+    await api.saveDailyLog(
+      version: 0,
+      loggedOn: DateTime(2026, 8, 5),
+      mood: 'good',
+      energyLevel: 4,
+      painLevel: 2,
+      symptoms: const ['fatigue'],
+      privateNotes: 'یادداشت خصوصی',
+      shareSummaryWithCompanion: true,
     );
 
-    expect(observed.method, 'PATCH');
-    expect(observed.url.path, '/api/v1/women-calendar/profile');
+    expect(observed.method, 'PUT');
+    expect(observed.url.path, '/api/v1/women-calendar/daily-logs');
     final payload = jsonDecode(observed.body) as Map<String, dynamic>;
-    expect(payload['dailyCheckIn'], {
-      'date': '2026-08-05',
-      'mood': 'good',
-      'energy': 4,
-      'symptoms': ['fatigue', 'headache'],
-      'supportNeed': 'hug',
-      'privateNote': 'یادداشت خصوصی',
-      'shareSummary': true,
-    });
+    expect(payload['loggedOn'], '2026-08-05');
+    expect(payload['energyLevel'], 4);
+    expect(payload['painLevel'], 2);
+    expect(payload.containsKey('supportNeed'), isFalse);
   });
 
-  test('settings-only update omits the daily check-in key', () async {
+  test('settings-only update has no daily state field', () async {
     late http.Request observed;
     final api = LifeMateApiClient(
       baseUri: Uri.parse('https://api.example.test'),

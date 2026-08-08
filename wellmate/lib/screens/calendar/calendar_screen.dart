@@ -164,6 +164,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
     ].where((value) => value.isNotEmpty).join(' • ');
     return ScheduleItemModel(
       id: event['id']?.toString() ?? '',
+      seriesId: event['seriesId']?.toString(),
       title:
           _nonEmpty(event['title']) ??
           (type == 'injection' ? 'تزریق' : 'ویزیت'),
@@ -253,7 +254,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
   Future<void> _openCareEventEditor(ScheduleItemModel item) async {
     final changed = await Navigator.of(context).push<bool>(
       MaterialPageRoute<bool>(
-        builder: (_) => EditCareEventScreen(eventId: item.id),
+        builder: (_) => EditCareEventScreen(eventId: item.seriesId ?? item.id),
       ),
     );
     if (changed == true && mounted) await _loadMonth();

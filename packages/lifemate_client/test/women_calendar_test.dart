@@ -77,14 +77,8 @@ void main() {
     final nextCycleStart = DateTime(2026, 8, 31);
     expect(estimate.cycleDayForDate(nextCycleStart), 1);
     expect(estimate.isEstimatedPeriodDay(nextCycleStart), isTrue);
-    expect(
-      estimate.isEstimatedFertileDay(DateTime(2026, 8, 16)),
-      isTrue,
-    );
-    expect(
-      estimate.isEstimatedOvulationDay(DateTime(2026, 8, 16)),
-      isTrue,
-    );
+    expect(estimate.isEstimatedFertileDay(DateTime(2026, 8, 16)), isTrue);
+    expect(estimate.isEstimatedOvulationDay(DateTime(2026, 8, 16)), isTrue);
     expect(estimate.isEstimatedPmsDay(DateTime(2026, 8, 27)), isTrue);
   });
 }

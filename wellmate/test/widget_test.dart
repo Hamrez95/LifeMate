@@ -10,8 +10,9 @@ import 'package:wellmate/providers/settings_provider.dart';
 import 'package:wellmate/screens/profile/profile_destination_screens.dart';
 
 void main() {
-  testWidgets('WellMate app shell builds with its root providers',
-      (WidgetTester tester) async {
+  testWidgets('WellMate app shell builds with its root providers', (
+    WidgetTester tester,
+  ) async {
     await tester.pumpWidget(
       MultiProvider(
         providers: [
@@ -31,8 +32,9 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets('WellMate live profile destinations render without mock data',
-      (WidgetTester tester) async {
+  testWidgets('WellMate live profile destinations render without mock data', (
+    WidgetTester tester,
+  ) async {
     final api = _FakeLifeMateApiClient();
 
     Future<void> pump(Widget destination) async {
@@ -57,8 +59,9 @@ void main() {
     expect(find.text('برای امروز یادآوری دارویی وجود ندارد.'), findsOneWidget);
   });
 
-  testWidgets('WellMate unsupported destinations remain complete pages',
-      (WidgetTester tester) async {
+  testWidgets('WellMate unsupported destinations remain complete pages', (
+    WidgetTester tester,
+  ) async {
     Future<void> pump(Widget destination, String expectedText) async {
       await tester.pumpWidget(MaterialApp(home: destination));
       await tester.pumpAndSettle();
@@ -74,23 +77,20 @@ void main() {
 
 class _FakeLifeMateApiClient extends LifeMateApiClient {
   _FakeLifeMateApiClient()
-      : super(
-          baseUri: Uri.parse('https://example.invalid'),
-          accessToken: () => 'test-token',
-        );
+    : super(
+        baseUri: Uri.parse('https://example.invalid'),
+        accessToken: () => 'test-token',
+      );
 
   @override
   Future<Map<String, dynamic>> getCurrentUser() async => {
-        'user': {
-          'id': 'patient-1',
-          'email': 'patient@example.com',
-        },
-        'profile': {
-          'displayName': 'کاربر تست',
-          'locale': 'fa',
-          'timeZone': 'Asia/Tehran',
-        },
-      };
+    'user': {'id': 'patient-1', 'email': 'patient@example.com'},
+    'profile': {
+      'displayName': 'کاربر تست',
+      'locale': 'fa',
+      'timeZone': 'Asia/Tehran',
+    },
+  };
 
   @override
   Future<List<Map<String, dynamic>>> getTreatmentPlans() async => const [];

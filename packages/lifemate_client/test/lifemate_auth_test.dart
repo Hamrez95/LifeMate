@@ -17,10 +17,10 @@ void main() {
     expect(LifeMateFeatureFlags.googleAuthEnabled, isFalse);
   });
 
-  test('disabled Google auth returns before creating an OAuth request', () async {
-    expect(
-      await LifeMateAuth.signInWithGoogle(appName: 'WellMate'),
-      isFalse,
-    );
-  });
+  test(
+    'disabled Google auth returns before creating an OAuth request',
+    () async {
+      expect(await LifeMateAuth.signInWithGoogle(appName: 'WellMate'), isFalse);
+    },
+  );
 }

@@ -8,15 +8,16 @@ class CarePairingQr {
   static String encodeToken(String token) {
     final normalized = token.trim();
     if (normalized.isEmpty) {
-      throw ArgumentError.value(token, 'token', 'Invitation token is required.');
+      throw ArgumentError.value(
+        token,
+        'token',
+        'Invitation token is required.',
+      );
     }
     return Uri(
       scheme: scheme,
       host: host,
-      queryParameters: {
-        'v': version,
-        'token': normalized,
-      },
+      queryParameters: {'v': version, 'token': normalized},
     ).toString();
   }
 

@@ -131,9 +131,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
         );
 
     allDoses.sort(
-      (a, b) => _scheduledLocalDateTime(a).compareTo(
-        _scheduledLocalDateTime(b),
-      ),
+      (a, b) =>
+          _scheduledLocalDateTime(a).compareTo(_scheduledLocalDateTime(b)),
     );
     final todayDoses = allDoses
         .where((dose) => _isSameLocalDay(_scheduledLocalDateTime(dose), start))
@@ -790,8 +789,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
         timeParts.length > 1 ? int.tryParse(timeParts[1]) ?? 0 : 0,
       );
     }
-    return DateTime.tryParse(dose['scheduledAtUtc']?.toString() ?? '')
-            ?.toLocal() ??
+    return DateTime.tryParse(
+          dose['scheduledAtUtc']?.toString() ?? '',
+        )?.toLocal() ??
         DateTime(9999);
   }
 
@@ -981,61 +981,61 @@ class _TreatmentQueueCard extends StatelessWidget {
               child: Center(child: CircularProgressIndicator()),
             )
           : treatments.isEmpty
-              ? Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 16),
-                  child: Column(
-                    children: [
-                      Container(
-                        padding: const EdgeInsets.all(14),
-                        decoration: const BoxDecoration(
-                          color: Color(0xFFEAF8F0),
-                          shape: BoxShape.circle,
-                        ),
-                        child: const Icon(
-                          Icons.task_alt_rounded,
-                          color: Color(0xFF36A269),
-                          size: 32,
-                        ),
-                      ),
-                      const SizedBox(height: 12),
-                      Text(
-                        'درمان فعالی برای بازه پیش رو ثبت نشده است',
-                        textAlign: TextAlign.center,
-                        style: font.copyWith(
-                          fontSize: 15,
-                          fontWeight: FontWeight.w800,
-                          color: const Color(0xFF267B50),
-                        ),
-                      ),
-                    ],
-                  ),
-                )
-              : Column(
-                  children: [
-                    _TreatmentRow(
-                      label: 'درمان فعلی',
-                      dose: treatments.first,
-                      patientName: patientName,
-                      current: true,
-                      isPersian: isPersian,
-                      font: font,
+          ? Padding(
+              padding: const EdgeInsets.symmetric(vertical: 16),
+              child: Column(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(14),
+                    decoration: const BoxDecoration(
+                      color: Color(0xFFEAF8F0),
+                      shape: BoxShape.circle,
                     ),
-                    if (treatments.length > 1) ...[
-                      Padding(
-                        padding: const EdgeInsets.symmetric(vertical: 16),
-                        child: Divider(color: Colors.grey.shade200, height: 1),
-                      ),
-                      _TreatmentRow(
-                        label: 'درمان بعدی',
-                        dose: treatments[1],
-                        patientName: patientName,
-                        current: false,
-                        isPersian: isPersian,
-                        font: font,
-                      ),
-                    ],
-                  ],
+                    child: const Icon(
+                      Icons.task_alt_rounded,
+                      color: Color(0xFF36A269),
+                      size: 32,
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  Text(
+                    'درمان فعالی برای بازه پیش رو ثبت نشده است',
+                    textAlign: TextAlign.center,
+                    style: font.copyWith(
+                      fontSize: 15,
+                      fontWeight: FontWeight.w800,
+                      color: const Color(0xFF267B50),
+                    ),
+                  ),
+                ],
+              ),
+            )
+          : Column(
+              children: [
+                _TreatmentRow(
+                  label: 'درمان فعلی',
+                  dose: treatments.first,
+                  patientName: patientName,
+                  current: true,
+                  isPersian: isPersian,
+                  font: font,
                 ),
+                if (treatments.length > 1) ...[
+                  Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 16),
+                    child: Divider(color: Colors.grey.shade200, height: 1),
+                  ),
+                  _TreatmentRow(
+                    label: 'درمان بعدی',
+                    dose: treatments[1],
+                    patientName: patientName,
+                    current: false,
+                    isPersian: isPersian,
+                    font: font,
+                  ),
+                ],
+              ],
+            ),
     );
   }
 }

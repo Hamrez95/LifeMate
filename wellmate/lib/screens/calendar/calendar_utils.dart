@@ -22,14 +22,14 @@ class CalendarUtils {
     switch (type) {
       case 'doctor':
       case 'appointment':
-        return AppColors.calDotDoctor;
+        return AppColors.careVisit;
       case 'injection':
-        return const Color(0xFFE97786);
+        return AppColors.careInjection;
       case 'treatment':
-        return AppColors.calDotTreatment;
+        return AppColors.careInjection;
       case 'medicine':
       case 'med':
-        return AppColors.calDotMedicine;
+        return AppColors.careMedication;
       default:
         return AppColors.primary;
     }

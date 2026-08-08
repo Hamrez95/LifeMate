@@ -79,6 +79,18 @@ class WellMateApp extends StatelessWidget {
               fillColor: const Color(0xFFF8FCFA),
               floatingLabelBehavior: FloatingLabelBehavior.always,
               alignLabelWithHint: true,
+              hintStyle: const TextStyle(
+                color: Color(0xFF8B95A3),
+                fontWeight: FontWeight.w400,
+              ),
+              labelStyle: const TextStyle(
+                color: Color(0xFF667085),
+                fontWeight: FontWeight.w600,
+              ),
+              floatingLabelStyle: TextStyle(
+                color: AppColors.primary,
+                fontWeight: FontWeight.w800,
+              ),
               contentPadding: const EdgeInsets.symmetric(
                 horizontal: 17,
                 vertical: 17,

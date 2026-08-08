@@ -9,7 +9,7 @@ class SoftScheduleCard extends StatelessWidget {
   final TextStyle font;
   final String assetPath;
   final bool isMissed;
-  final VoidCallback? onTaken; // 👈 اضافه شدن تابع برای دکمه مصرف
+  final VoidCallback? onTaken;
 
   const SoftScheduleCard({
     Key? key,
@@ -18,7 +18,7 @@ class SoftScheduleCard extends StatelessWidget {
     required this.font,
     required this.assetPath,
     this.isMissed = false,
-    this.onTaken, // 👈 دریافت از سازنده
+    this.onTaken,
   }) : super(key: key);
 
   @override
@@ -32,11 +32,12 @@ class SoftScheduleCard extends StatelessWidget {
         border: isMissed ? Border.all(color: Colors.red.shade200) : null,
         boxShadow: [
           BoxShadow(
-              color: isMissed
-                  ? Colors.red.withOpacity(0.1)
-                  : AppColors.shadowDark.withOpacity(0.4),
-              blurRadius: 20,
-              offset: const Offset(0, 10)),
+            color: isMissed
+                ? Colors.red.withOpacity(0.1)
+                : AppColors.shadowDark.withOpacity(0.4),
+            blurRadius: 20,
+            offset: const Offset(0, 10),
+          ),
         ],
       ),
       child: Padding(
@@ -50,17 +51,27 @@ class SoftScheduleCard extends StatelessWidget {
                   Row(
                     children: [
                       if (isMissed) ...[
-                        Icon(Icons.warning_amber_rounded,
-                            color: Colors.red.shade700, size: 18),
+                        Icon(
+                          Icons.warning_amber_rounded,
+                          color: Colors.red.shade700,
+                          size: 18,
+                        ),
                         const SizedBox(width: 4),
                       ],
-                      Text(item.title,
+                      Expanded(
+                        child: Text(
+                          item.title.toPersianDigit(isPersian),
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
                           style: font.copyWith(
-                              fontWeight: FontWeight.bold,
-                              fontSize: 16,
-                              color: isMissed
-                                  ? Colors.red.shade900
-                                  : AppColors.textPrimary)),
+                            fontWeight: FontWeight.bold,
+                            fontSize: 16,
+                            color: isMissed
+                                ? Colors.red.shade900
+                                : AppColors.textPrimary,
+                          ),
+                        ),
+                      ),
                     ],
                   ),
                   const SizedBox(height: 8),
@@ -68,27 +79,35 @@ class SoftScheduleCard extends StatelessWidget {
                     children: [
                       Container(
                         padding: const EdgeInsets.symmetric(
-                            horizontal: 8, vertical: 4),
+                          horizontal: 8,
+                          vertical: 4,
+                        ),
                         decoration: BoxDecoration(
-                            color: isMissed
-                                ? Colors.red.withOpacity(0.1)
-                                : AppColors.background,
-                            borderRadius: BorderRadius.circular(8)),
+                          color: isMissed
+                              ? Colors.red.withOpacity(0.1)
+                              : AppColors.background,
+                          borderRadius: BorderRadius.circular(8),
+                        ),
                         child: Row(
                           children: [
-                            Icon(Icons.access_time_rounded,
-                                size: 14,
+                            Icon(
+                              Icons.access_time_rounded,
+                              size: 14,
+                              color: isMissed
+                                  ? Colors.red.shade700
+                                  : AppColors.primary,
+                            ),
+                            const SizedBox(width: 4),
+                            Text(
+                              item.time.toPersianDigit(isPersian),
+                              style: font.copyWith(
                                 color: isMissed
                                     ? Colors.red.shade700
-                                    : AppColors.primary),
-                            const SizedBox(width: 4),
-                            Text(item.time.toPersianDigit(isPersian),
-                                style: font.copyWith(
-                                    color: isMissed
-                                        ? Colors.red.shade700
-                                        : AppColors.primary,
-                                    fontSize: 13,
-                                    fontWeight: FontWeight.bold)),
+                                    : AppColors.primary,
+                                fontSize: 13,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
                           ],
                         ),
                       ),
@@ -97,24 +116,26 @@ class SoftScheduleCard extends StatelessWidget {
                         child: Text(
                           item.dosage.toPersianDigit(isPersian),
                           style: font.copyWith(
-                              color: isMissed
-                                  ? Colors.red.shade400
-                                  : AppColors.textSecondary,
-                              fontSize: 13),
+                            color: isMissed
+                                ? Colors.red.shade400
+                                : AppColors.textSecondary,
+                            fontSize: 13,
+                          ),
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                         ),
                       ),
                     ],
                   ),
-                  // 👈 دکمه "مصرف کردم" برای حالت فراموش شده
                   if (isMissed) ...[
                     const SizedBox(height: 12),
                     GestureDetector(
                       onTap: onTaken,
                       child: Container(
                         padding: const EdgeInsets.symmetric(
-                            vertical: 6, horizontal: 16),
+                          vertical: 6,
+                          horizontal: 16,
+                        ),
                         decoration: BoxDecoration(
                           color: Colors.red.shade600,
                           borderRadius: BorderRadius.circular(8),
@@ -122,13 +143,14 @@ class SoftScheduleCard extends StatelessWidget {
                         child: Text(
                           'مصرف کردم',
                           style: font.copyWith(
-                              color: Colors.white,
-                              fontSize: 12,
-                              fontWeight: FontWeight.bold),
+                            color: Colors.white,
+                            fontSize: 12,
+                            fontWeight: FontWeight.bold,
+                          ),
                         ),
                       ),
                     ),
-                  ]
+                  ],
                 ],
               ),
             ),
@@ -149,9 +171,9 @@ class SoftScheduleCard extends StatelessWidget {
                   height: 32,
                   color: isMissed ? Colors.red.shade700 : null,
                   errorBuilder: (context, error, stackTrace) => Icon(
-                      Icons.medication,
-                      color:
-                          isMissed ? Colors.red.shade700 : AppColors.primary),
+                    Icons.medication,
+                    color: isMissed ? Colors.red.shade700 : AppColors.primary,
+                  ),
                 ),
               ),
             ),

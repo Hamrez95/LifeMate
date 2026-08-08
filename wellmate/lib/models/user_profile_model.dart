@@ -39,7 +39,7 @@ class UserProfileModel {
       'avatar_url': avatarUrl,
       'is_premium': isPremium,
       'join_date': joinDate,
-      'mobile_number': mobileNumber
+      'mobile_number': mobileNumber,
     };
   }
 }

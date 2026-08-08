@@ -226,11 +226,11 @@ class _TabbedAddTreatmentScreenState extends State<TabbedAddTreatmentScreen> {
         caregiverReminderMinutesBefore: _caregiverReminderMinutesBefore,
       );
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('درمان ثبت شد و برنامه امروز به‌روزرسانی شد.'),
-          behavior: SnackBarBehavior.floating,
-        ),
+      LifeMateNotice.show(
+        context,
+        type: LifeMateNoticeType.success,
+        title: 'درمان ثبت شد',
+        message: 'برنامه درمان ذخیره شد و برنامه امروز به‌روزرسانی می‌شود.',
       );
       _reset();
       widget.onCreated();

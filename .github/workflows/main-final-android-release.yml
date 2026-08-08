@@ -27,7 +27,9 @@ env:
 jobs:
   verify-and-build:
     runs-on: ubuntu-24.04
-    timeout-minutes: 45
+    timeout-minutes: 50
+    env:
+      SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
         with:
@@ -79,11 +81,39 @@ jobs:
           (cd wellmate && flutter pub get && flutter analyze --no-fatal-warnings --no-fatal-infos && flutter test)
           (cd caremate && flutter pub get && flutter analyze --no-fatal-warnings --no-fatal-infos && flutter test)
 
+      - uses: supabase/setup-cli@3c2f5e2ae34c34e428e8e206e2c4d21fa2d20fbf
+        with:
+          version: 2.101.0
+
+      - name: Deploy exact main Edge source
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -n "$SUPABASE_ACCESS_TOKEN"
+          secret_file="$(mktemp)"
+          cleanup_secret_file() {
+            if command -v shred >/dev/null 2>&1; then
+              shred -u "$secret_file"
+            else
+              rm -f "$secret_file"
+            fi
+          }
+          trap cleanup_secret_file EXIT
+          chmod 600 "$secret_file"
+          printf 'LIFEMATE_RELEASE_VERSION=%s\n' "$GITHUB_SHA" > "$secret_file"
+          supabase secrets set \
+            --project-ref "$SUPABASE_PROJECT_REF" \
+            --env-file "$secret_file"
+          supabase functions deploy lifemate-api \
+            --project-ref "$SUPABASE_PROJECT_REF" \
+            --no-verify-jwt \
+            --use-api
+
       - name: Require production API from this exact main commit
         shell: bash
         run: |
           set -euo pipefail
-          health_response="$(curl --fail --silent --show-error --retry 5 --retry-delay 3 --retry-all-errors "$LIFEMATE_API_BASE_URL/health")"
+          health_response="$(curl --fail --silent --show-error --retry 8 --retry-delay 3 --retry-all-errors "$LIFEMATE_API_BASE_URL/health")"
           echo "$health_response" | jq -e --arg version "$GITHUB_SHA" '.status == "ok" and .database == "ready" and .service == "lifemate-api" and .version == $version' >/dev/null
           unauthorized_status="$(curl --silent --show-error --output /dev/null --write-out '%{http_code}' "$LIFEMATE_API_BASE_URL/api/v1/me")"
           test "$unauthorized_status" = '401'
@@ -92,7 +122,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          build_name="0.9.1"
+          build_name="0.9.2"
           build_number="$GITHUB_RUN_NUMBER"
           build_args=(
             --release
@@ -114,14 +144,14 @@ jobs:
           set -euo pipefail
           short_sha="${GITHUB_SHA:0:8}"
           mkdir -p dist
-          cp wellmate/build/app/outputs/flutter-apk/app-release.apk "dist/wellmate-0.9.1-main-${short_sha}.apk"
-          cp caremate/build/app/outputs/flutter-apk/app-release.apk "dist/caremate-0.9.1-main-${short_sha}.apk"
+          cp wellmate/build/app/outputs/flutter-apk/app-release.apk "dist/wellmate-0.9.2-main-${short_sha}.apk"
+          cp caremate/build/app/outputs/flutter-apk/app-release.apk "dist/caremate-0.9.2-main-${short_sha}.apk"
           wellmate_sha="$(sha256sum dist/wellmate-*.apk | awk '{print $1}')"
           caremate_sha="$(sha256sum dist/caremate-*.apk | awk '{print $1}')"
           jq -n \
             --arg mainCommit "$GITHUB_SHA" \
             --arg buildNumber "$GITHUB_RUN_NUMBER" \
-            --arg version "0.9.1" \
+            --arg version "0.9.2" \
             --arg apiEnvironment "production" \
             --arg apiBaseUrl "$LIFEMATE_API_BASE_URL" \
             --arg builtAt "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
@@ -130,7 +160,7 @@ jobs:
             --argjson googleAuth false \
             --argjson phoneOtp false \
             --argjson womenCalendarPilot true \
-            '{mainCommit:$mainCommit,version:$version,buildNumber:$buildNumber,builtAtUtc:$builtAt,apiEnvironment:$apiEnvironment,apiBaseUrl:$apiBaseUrl,featureFlags:{googleAuth:$googleAuth,phoneOtp:$phoneOtp,womenCalendarPilot:$womenCalendarPilot},apps:{wellmate:{packageId:"com.lifemate.wellmate",sha256:$wellmateSha256},caremate:{packageId:"com.lifemate.caremate",sha256:$caremateSha256}},releasePurpose:"physical-test-final-current-stage",storeSigningConfigured:false}' \
+            '{mainCommit:$mainCommit,version:$version,buildNumber:$buildNumber,builtAtUtc:$builtAt,apiEnvironment:$apiEnvironment,apiBaseUrl:$apiBaseUrl,featureFlags:{googleAuth:$googleAuth,phoneOtp:$phoneOtp,womenCalendarPilot:$womenCalendarPilot},apps:{wellmate:{packageId:"com.lifemate.wellmate",sha256:$wellmateSha256},caremate:{packageId:"com.lifemate.caremate",sha256:$caremateSha256}},releasePurpose:"physical-test-round-2",storeSigningConfigured:false}' \
             > dist/manifest.json
 
       - name: Upload final exact-main Android bundle

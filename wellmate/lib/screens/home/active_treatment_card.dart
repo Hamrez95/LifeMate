@@ -50,9 +50,7 @@ class ActiveTreatmentCard extends StatelessWidget {
   static String formatCountdown(int totalSeconds) {
     if (totalSeconds <= 0) return 'الان!';
     final hours = totalSeconds ~/ 3600;
-    final minutes = ((totalSeconds % 3600) ~/ 60)
-        .toString()
-        .padLeft(2, '0');
+    final minutes = ((totalSeconds % 3600) ~/ 60).toString().padLeft(2, '0');
     final seconds = (totalSeconds % 60).toString().padLeft(2, '0');
     if (hours > 0) return '$hours:$minutes:$seconds';
     return '$minutes:$seconds';
@@ -146,10 +144,8 @@ class ActiveTreatmentCard extends StatelessWidget {
                           assetIconPath,
                           width: 36,
                           height: 36,
-                          errorBuilder: (_, __, ___) => Icon(
-                            fallbackIcon,
-                            color: accent,
-                          ),
+                          errorBuilder: (_, __, ___) =>
+                              Icon(fallbackIcon, color: accent),
                         ),
                         const SizedBox(height: 4),
                         Text(

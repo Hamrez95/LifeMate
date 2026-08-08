@@ -149,6 +149,30 @@ Deno.test({
         appointmentPayload.addressLine,
       );
 
+      const injection = await careEvents.createCareEvent(patient.appUserId, {
+        clientRequestId: crypto.randomUUID(),
+        eventType: "injection",
+        title: "B12",
+        medicationName: "B12",
+        doseText: "1 ampoule",
+        administrationRoute: "intramuscular",
+        scheduledLocalDate: target.date,
+        scheduledLocalTime: target.localTime,
+        timeZone: "Asia/Tehran",
+        recurrence: { enabled: true, unit: "month", interval: 6, weekdays: [] },
+      });
+      const eventsAfterInjection = await careEvents.listCareEvents(
+        patient.appUserId,
+        target.date,
+        target.date,
+      );
+      assert(
+        eventsAfterInjection.some((event) => event.seriesId === injection.id),
+      );
+      assert(
+        eventsAfterInjection.some((event) => event.eventType === "injection"),
+      );
+
       await assertApiError(
         () =>
           careEvents.listCareRecipientEvents(

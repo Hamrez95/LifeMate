@@ -272,11 +272,11 @@ class _EditTreatmentScreenState extends State<EditTreatmentScreen> {
             _medicationVersion + 1;
       }
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          behavior: SnackBarBehavior.floating,
-          content: Text('تغییرات درمان با موفقیت ذخیره شد.'),
-        ),
+      LifeMateNotice.show(
+        context,
+        type: LifeMateNoticeType.success,
+        title: 'درمان به‌روزرسانی شد',
+        message: 'تغییرات درمان با موفقیت ذخیره شد.',
       );
       Navigator.of(context).pop(true);
     } on LifeMateApiException catch (error) {

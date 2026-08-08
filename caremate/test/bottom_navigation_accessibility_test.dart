@@ -22,9 +22,9 @@ void main() {
           child: CareMateApp(
             home: Builder(
               builder: (context) => MediaQuery(
-                data: MediaQuery.of(context).copyWith(
-                  textScaler: const TextScaler.linear(1.5),
-                ),
+                data: MediaQuery.of(
+                  context,
+                ).copyWith(textScaler: const TextScaler.linear(1.5)),
                 child: Scaffold(
                   bottomNavigationBar: CareMateBottomNav(
                     currentIndex: 4,
@@ -46,9 +46,7 @@ void main() {
       expect(find.bySemanticsLabel('تقویم'), findsOneWidget);
       expect(find.bySemanticsLabel('تغییر پروفایل'), findsOneWidget);
 
-      await tester.tap(
-        find.byKey(const ValueKey<String>('caremate-nav-0')),
-      );
+      await tester.tap(find.byKey(const ValueKey<String>('caremate-nav-0')));
       await tester.pump();
 
       expect(tappedIndex, 0);

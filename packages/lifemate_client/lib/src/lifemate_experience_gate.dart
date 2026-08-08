@@ -18,10 +18,8 @@ part 'experience_blocking.dart';
 part 'experience_ambient.dart';
 part 'experience_brand.dart';
 
-typedef LifeMateExperienceAuthenticatedBuilder = Widget Function(
-  BuildContext context,
-  LifeMateApiClient apiClient,
-);
+typedef LifeMateExperienceAuthenticatedBuilder =
+    Widget Function(BuildContext context, LifeMateApiClient apiClient);
 
 /// The polished authentication and account-bootstrap boundary shared by
 /// WellMate and CareMate.
@@ -44,8 +42,7 @@ class LifeMateExperienceGate extends StatefulWidget {
   final LifeMateExperienceAuthenticatedBuilder authenticatedBuilder;
 
   @override
-  State<LifeMateExperienceGate> createState() =>
-      _LifeMateExperienceGateState();
+  State<LifeMateExperienceGate> createState() => _LifeMateExperienceGateState();
 }
 
 class _LifeMateExperienceGateState extends State<LifeMateExperienceGate> {
@@ -189,8 +186,9 @@ class _LifeMateExperienceGateState extends State<LifeMateExperienceGate> {
                 ? 'برای ادامه دوباره وارد حساب شوید.'
                 : 'داده‌ای تغییر نکرده است. اتصال را بررسی و دوباره تلاش کنید.',
             primaryLabel: expired ? 'ورود دوباره' : 'تلاش دوباره',
-            onPrimary:
-                expired ? () => _supabase.auth.signOut() : _retryBootstrap,
+            onPrimary: expired
+                ? () => _supabase.auth.signOut()
+                : _retryBootstrap,
             secondaryLabel: expired ? null : 'خروج از حساب',
             onSecondary: expired ? null : () => _supabase.auth.signOut(),
           );

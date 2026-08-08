@@ -127,15 +127,15 @@ class _AccountPreparationExperienceState
                             switchOutCurve: Curves.easeInCubic,
                             transitionBuilder: (child, animation) =>
                                 FadeTransition(
-                              opacity: animation,
-                              child: SlideTransition(
-                                position: Tween<Offset>(
-                                  begin: const Offset(0, 0.08),
-                                  end: Offset.zero,
-                                ).animate(animation),
-                                child: child,
-                              ),
-                            ),
+                                  opacity: animation,
+                                  child: SlideTransition(
+                                    position: Tween<Offset>(
+                                      begin: const Offset(0, 0.08),
+                                      end: Offset.zero,
+                                    ).animate(animation),
+                                    child: child,
+                                  ),
+                                ),
                             child: _HealthFactCard(
                               key: ValueKey(_factIndex),
                               fact: fact,
@@ -257,11 +257,8 @@ class _OrbitingLogo extends StatelessWidget {
                   child: Image.asset(
                     logoAssetPath,
                     fit: BoxFit.contain,
-                    errorBuilder: (_, __, ___) => Icon(
-                      brand.heroIcon,
-                      size: 70,
-                      color: brand.primary,
-                    ),
+                    errorBuilder: (_, __, ___) =>
+                        Icon(brand.heroIcon, size: 70, color: brand.primary),
                   ),
                 ),
               ),
@@ -274,10 +271,7 @@ class _OrbitingLogo extends StatelessWidget {
 }
 
 class _PreparationStages extends StatelessWidget {
-  const _PreparationStages({
-    required this.controller,
-    required this.brand,
-  });
+  const _PreparationStages({required this.controller, required this.brand});
 
   final AnimationController controller;
   final _BrandPalette brand;
@@ -306,8 +300,8 @@ class _PreparationStages extends StatelessWidget {
       child: AnimatedBuilder(
         animation: controller,
         builder: (context, child) {
-          final active = (controller.value * stages.length).floor() %
-              stages.length;
+          final active =
+              (controller.value * stages.length).floor() % stages.length;
           return Row(
             children: List.generate(stages.length * 2 - 1, (index) {
               if (index.isOdd) {
@@ -352,7 +346,9 @@ class _PreparationStages extends StatelessWidget {
                           boxShadow: highlighted
                               ? [
                                   BoxShadow(
-                                    color: brand.primary.withValues(alpha: 0.25),
+                                    color: brand.primary.withValues(
+                                      alpha: 0.25,
+                                    ),
                                     blurRadius: 18,
                                   ),
                                 ]
@@ -384,11 +380,7 @@ class _PreparationStages extends StatelessWidget {
 }
 
 class _HealthFactCard extends StatelessWidget {
-  const _HealthFactCard({
-    required this.fact,
-    required this.brand,
-    super.key,
-  });
+  const _HealthFactCard({required this.fact, required this.brand, super.key});
 
   final LifeMateHealthFact fact;
   final _BrandPalette brand;

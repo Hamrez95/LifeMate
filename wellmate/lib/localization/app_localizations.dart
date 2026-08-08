@@ -13,18 +13,24 @@ class AppLocalizations {
   }
 
   Future<bool> load() async {
-    String jsonString = await rootBundle.loadString('lib/localization/${locale.languageCode}.json');
+    String jsonString = await rootBundle.loadString(
+      'lib/localization/${locale.languageCode}.json',
+    );
     Map<String, dynamic> jsonMap = json.decode(jsonString);
-    _localizedStrings = jsonMap.map((key, value) => MapEntry(key, value.toString()));
+    _localizedStrings = jsonMap.map(
+      (key, value) => MapEntry(key, value.toString()),
+    );
     return true;
   }
 
   String operator [](String key) => _localizedStrings[key] ?? key;
 
-  static const LocalizationsDelegate<AppLocalizations> delegate = _AppLocalizationsDelegate();
+  static const LocalizationsDelegate<AppLocalizations> delegate =
+      _AppLocalizationsDelegate();
 }
 
-class _AppLocalizationsDelegate extends LocalizationsDelegate<AppLocalizations> {
+class _AppLocalizationsDelegate
+    extends LocalizationsDelegate<AppLocalizations> {
   const _AppLocalizationsDelegate();
 
   @override

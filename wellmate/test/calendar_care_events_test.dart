@@ -23,9 +23,7 @@ void main() {
       await tester.pumpWidget(
         MultiProvider(
           providers: [
-            Provider<LifeMateApiClient>.value(
-              value: _CalendarApiClient(),
-            ),
+            Provider<LifeMateApiClient>.value(value: _CalendarApiClient()),
             ChangeNotifierProvider(create: (_) => NotificationProvider()),
             ChangeNotifierProvider(create: (_) => LocaleProvider()),
             ChangeNotifierProvider(create: (_) => SettingsProvider()),
@@ -44,14 +42,12 @@ void main() {
         find.byKey(const ValueKey<String>('calendar-event-appointment-1')),
         findsOneWidget,
       );
-      final injectionCard =
-          find.byKey(const ValueKey<String>('calendar-event-injection-1'));
+      final injectionCard = find.byKey(
+        const ValueKey<String>('calendar-event-injection-1'),
+      );
       expect(injectionCard, findsOneWidget);
 
-      expect(
-        find.text('ویزیت متخصص قلب', skipOffstage: false),
-        findsOneWidget,
-      );
+      expect(find.text('ویزیت متخصص قلب', skipOffstage: false), findsOneWidget);
       expect(find.byIcon(Icons.medical_services_rounded), findsOneWidget);
       expect(
         find.textContaining('مرکز درمانی الوند', skipOffstage: false),
@@ -111,9 +107,7 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    final card = find.byKey(
-      const ValueKey<String>('missed-appointment-card'),
-    );
+    final card = find.byKey(const ValueKey<String>('missed-appointment-card'));
     expect(card, findsOneWidget);
     expect(
       find.descendant(
@@ -130,10 +124,10 @@ void main() {
 
 class _CalendarApiClient extends LifeMateApiClient {
   _CalendarApiClient()
-      : super(
-          baseUri: Uri.parse('https://example.invalid'),
-          accessToken: () => 'test-token',
-        );
+    : super(
+        baseUri: Uri.parse('https://example.invalid'),
+        accessToken: () => 'test-token',
+      );
 
   String get _today {
     final value = DateTime.now();
@@ -156,30 +150,30 @@ class _CalendarApiClient extends LifeMateApiClient {
     required DateTime fromDate,
     required DateTime toDate,
   }) async => [
-        {
-          'id': 'appointment-1',
-          'eventType': 'appointment',
-          'title': 'ویزیت متخصص قلب',
-          'providerName': 'دکتر سارا راد',
-          'centerName': 'مرکز درمانی الوند',
-          'addressLine': 'تهران، خیابان ولیعصر',
-          'scheduledLocalDate': _today,
-          'scheduledLocalTime': '00:01',
-          'status': 'completed',
-          'version': 1,
-        },
-        {
-          'id': 'injection-1',
-          'eventType': 'injection',
-          'title': 'ویتامین B12',
-          'doseText': '۱ آمپول',
-          'administrationRoute': 'intramuscular',
-          'centerName': 'مرکز تزریقات',
-          'addressLine': 'تهران، میدان ونک',
-          'scheduledLocalDate': _today,
-          'scheduledLocalTime': '00:02',
-          'status': 'completed',
-          'version': 1,
-        },
-      ];
+    {
+      'id': 'appointment-1',
+      'eventType': 'appointment',
+      'title': 'ویزیت متخصص قلب',
+      'providerName': 'دکتر سارا راد',
+      'centerName': 'مرکز درمانی الوند',
+      'addressLine': 'تهران، خیابان ولیعصر',
+      'scheduledLocalDate': _today,
+      'scheduledLocalTime': '00:01',
+      'status': 'completed',
+      'version': 1,
+    },
+    {
+      'id': 'injection-1',
+      'eventType': 'injection',
+      'title': 'ویتامین B12',
+      'doseText': '۱ آمپول',
+      'administrationRoute': 'intramuscular',
+      'centerName': 'مرکز تزریقات',
+      'addressLine': 'تهران، میدان ونک',
+      'scheduledLocalDate': _today,
+      'scheduledLocalTime': '00:02',
+      'status': 'completed',
+      'version': 1,
+    },
+  ];
 }

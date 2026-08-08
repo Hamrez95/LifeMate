@@ -25,10 +25,7 @@ class EventModel {
     this.endDate,
   });
 
-  EventModel copyWith({
-    required DateTime newDate,
-    bool? newIsCompleted,
-  }) {
+  EventModel copyWith({required DateTime newDate, bool? newIsCompleted}) {
     return EventModel(
       id: id,
       userId: userId,
