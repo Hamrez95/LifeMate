@@ -29,7 +29,9 @@ jobs:
           cache: true
 
       - name: Apply Round 4 patch
-        run: python3 tools/hotfix/apply_round4_physical_qa.py
+        run: |
+          python3 tools/hotfix/apply_round4_physical_qa.py
+          python3 tools/hotfix/diagnose_round4_status_test.py
 
       - name: Format changed Dart files
         run: |
