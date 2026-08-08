@@ -1,0 +1,94 @@
+name: round3-physical-qa-one-shot
+
+on:
+  push:
+    branches:
+      - fix/wellmate-physical-qa-round-3
+    paths:
+      - tools/hotfix/apply_round3_physical_qa.py
+      - .github/workflows/round3-physical-qa-one-shot.yml
+
+permissions:
+  contents: write
+
+concurrency:
+  group: round3-physical-qa-one-shot
+  cancel-in-progress: false
+
+jobs:
+  patch-test-commit:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
+        with:
+          ref: fix/wellmate-physical-qa-round-3
+          fetch-depth: 0
+
+      - name: Apply physical QA fixes
+        run: python3 tools/hotfix/apply_round3_physical_qa.py
+
+      - uses: subosito/flutter-action@4cab68ce0f1c7c924f688bff4792e044f1aeb30c
+        with:
+          flutter-version: '3.44.0'
+          channel: stable
+          cache: true
+
+      - name: Format changed Dart
+        shell: bash
+        run: |
+          set -euo pipefail
+          dart format \
+            packages/lifemate_client/lib/src/women_companion_api.dart \
+            packages/lifemate_client/lib/src/app_notice.dart \
+            packages/lifemate_client/lib/src/care_item.dart \
+            packages/lifemate_client/test/women_companion_api_test.dart \
+            packages/lifemate_client/test/app_notice_test.dart \
+            packages/lifemate_client/test/care_item_test.dart \
+            wellmate/lib/screens/treatments/treatments_screen.dart \
+            wellmate/lib/screens/home/home_screen_content.dart \
+            wellmate/lib/screens/home/active_treatment_card.dart \
+            wellmate/lib/screens/women_calendar/women_companion_screen.dart \
+            wellmate/test/home_injection_timeline_test.dart \
+            wellmate/test/treatments_round3_regression_test.dart \
+            wellmate/test/women_companion_experience_test.dart
+
+      - name: Verify shared client
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd packages/lifemate_client
+          flutter pub get
+          flutter analyze --no-fatal-warnings --no-fatal-infos
+          flutter test
+
+      - name: Verify WellMate
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd wellmate
+          flutter pub get
+          flutter analyze --no-fatal-warnings --no-fatal-infos
+          flutter test
+
+      - name: Verify CareMate regression
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd caremate
+          flutter pub get
+          flutter analyze --no-fatal-warnings --no-fatal-infos
+          flutter test
+
+      - name: Remove one-shot tooling and commit product changes
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -f tools/hotfix/apply_round3_physical_qa.py
+          rm -f .github/workflows/round3-physical-qa-one-shot.yml
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add -A
+          git diff --cached --check
+          git commit -m 'fix: address WellMate physical QA round 3'
+          git push origin HEAD:fix/wellmate-physical-qa-round-3
