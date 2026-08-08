@@ -85,29 +85,37 @@ replace_once(
       }''',
 )
 
+# The hub can be mounted directly by tests and embedded in non-Material shells.
+# Give all search/filter controls a shared transparent Material ancestor rather
+# than individually patching ChoiceChip/TextField/DropdownButton.
 replace_once(
     path,
-    '''          TextField(
-            key: const ValueKey('care-hub-search'),
-            controller: _search,
-            textInputAction: TextInputAction.search,
-            decoration: const InputDecoration(
-              hintText: 'جست‌وجو در نام، پزشک، درمانگاه، آدرس یا توضیحات',
-              prefixIcon: Icon(Icons.search_rounded),
-            ),
-          ),''',
-    '''          Material(
-            color: Colors.transparent,
-            child: TextField(
-              key: const ValueKey('care-hub-search'),
-              controller: _search,
-              textInputAction: TextInputAction.search,
-              decoration: const InputDecoration(
-                hintText: 'جست‌وجو در نام، پزشک، درمانگاه، آدرس یا توضیحات',
-                prefixIcon: Icon(Icons.search_rounded),
-              ),
-            ),
-          ),''',
+    '''    return RefreshIndicator(
+      onRefresh: _load,
+      child: ListView(''',
+    '''    return Material(
+      color: Colors.transparent,
+      child: RefreshIndicator(
+        onRefresh: _load,
+        child: ListView(''',
+)
+replace_once(
+    path,
+    '''        ],
+      ),
+    );
+  }
+}
+
+class _TypeChip''',
+    '''        ],
+        ),
+      ),
+    );
+  }
+}
+
+class _TypeChip''',
 )
 
 replace_once(
