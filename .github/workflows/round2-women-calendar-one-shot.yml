@@ -31,7 +31,7 @@ jobs:
         with:
           deno-version: v2.4.5
 
-      - name: Patch applicator after first compile finding
+      - name: Patch applicator after compile finding
         shell: bash
         run: |
           python3 - <<'PY'
@@ -47,6 +47,206 @@ jobs:
 
       - name: Apply women calendar refactor
         run: python3 tools/hotfix/apply_round2_women_calendar.py
+
+      - name: Preserve unified treatment resilience and existing details flow
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+
+          path = Path('wellmate/lib/screens/treatments/treatments_screen.dart')
+          text = path.read_text(encoding='utf-8')
+
+          old = """      final api = context.read<LifeMateApiClient>();
+              final now = DateTime.now();
+              final results = await Future.wait<dynamic>([
+                api.getTreatmentPlans(),
+                // The care-event endpoint is intentionally bounded. A one-month window
+                // keeps this hub fast while recurrence series are represented by the
+                // occurrence returned inside the window.
+                api.getCareEvents(
+                  fromDate: now.subtract(const Duration(days: 31)),
+                  toDate: now,
+                ),
+                api.getCareEvents(
+                  fromDate: now.add(const Duration(days: 1)),
+                  toDate: now.add(const Duration(days: 31)),
+                ),
+              ]);
+              final plans = results[0] as List<Map<String, dynamic>>;
+              final pastEvents = results[1] as List<Map<String, dynamic>>;
+              final futureEvents = results[2] as List<Map<String, dynamic>>;"""
+          new = """      final api = context.read<LifeMateApiClient>();
+              final now = DateTime.now();
+              var failedSources = 0;
+              Future<List<Map<String, dynamic>>> safeLoad(
+                Future<List<Map<String, dynamic>>> request,
+                String label,
+              ) async {
+                try {
+                  return await request;
+                } catch (error) {
+                  failedSources += 1;
+                  debugPrint('WellMate care hub $label load failed: $error');
+                  return const <Map<String, dynamic>>[];
+                }
+              }
+
+              final results = await Future.wait<List<Map<String, dynamic>>>([
+                safeLoad(api.getTreatmentPlans(), 'treatments'),
+                // The care-event endpoint is intentionally bounded. A one-month window
+                // keeps this hub fast while recurrence series are represented by the
+                // occurrence returned inside the window.
+                safeLoad(
+                  api.getCareEvents(
+                    fromDate: now.subtract(const Duration(days: 31)),
+                    toDate: now,
+                  ),
+                  'past care events',
+                ),
+                safeLoad(
+                  api.getCareEvents(
+                    fromDate: now.add(const Duration(days: 1)),
+                    toDate: now.add(const Duration(days: 31)),
+                  ),
+                  'future care events',
+                ),
+              ]);
+              final plans = results[0];
+              final pastEvents = results[1];
+              final futureEvents = results[2];
+              if (failedSources == 3) {
+                throw const LifeMateApiException(
+                  503,
+                  'care_hub_unavailable',
+                  'All treatment sources are unavailable.',
+                );
+              }"""
+          if old not in text:
+              raise SystemExit('treatment load block changed unexpectedly')
+          text = text.replace(old, new, 1)
+
+          old = """    return RefreshIndicator(
+              onRefresh: _load,
+              child: ListView("""
+          new = """    return Material(
+              color: Colors.transparent,
+              child: RefreshIndicator(
+                onRefresh: _load,
+                child: ListView("""
+          if old not in text:
+              raise SystemExit('treatment root changed unexpectedly')
+          text = text.replace(old, new, 1)
+          old = """        ],
+              ),
+            );
+          }
+        }
+
+        class _TypeChip"""
+          new = """        ],
+                ),
+              ),
+            );
+          }
+        }
+
+        class _TypeChip"""
+          if old not in text:
+              raise SystemExit('treatment root close changed unexpectedly')
+          text = text.replace(old, new, 1)
+
+          old = """          else
+                for (final item in visible) _CareHubCard(item: item),"""
+          new = """          else
+                for (final item in visible)
+                  _CareHubCard(
+                    item: item,
+                    onTap: item.type == CareItemType.medication
+                        ? () => Navigator.of(context).push(
+                              MaterialPageRoute<void>(
+                                builder: (_) => _TreatmentDetailsScreen(plan: item.raw),
+                              ),
+                            )
+                        : null,
+                  ),"""
+          if old not in text:
+              raise SystemExit('care hub card loop changed unexpectedly')
+          text = text.replace(old, new, 1)
+
+          old = """class _CareHubCard extends StatelessWidget {
+          const _CareHubCard({required this.item});
+          final CareItem item;"""
+          new = """class _CareHubCard extends StatelessWidget {
+          const _CareHubCard({required this.item, this.onTap});
+          final CareItem item;
+          final VoidCallback? onTap;"""
+          if old not in text:
+              raise SystemExit('care hub constructor changed unexpectedly')
+          text = text.replace(old, new, 1)
+
+          old = """    return Card(
+              elevation: 0,"""
+          new = """    final card = Card(
+              elevation: 0,"""
+          if old not in text:
+              raise SystemExit('care hub return card changed unexpectedly')
+          text = text.replace(old, new, 1)
+          old = """      ),
+            );
+          }
+        }
+
+        class AddTreatmentScreen"""
+          new = """      ),
+            );
+            if (onTap == null) return card;
+            return Semantics(
+              button: true,
+              label: 'جزئیات ${item.title}',
+              child: Material(
+                color: Colors.transparent,
+                child: InkWell(
+                  borderRadius: BorderRadius.circular(22),
+                  onTap: onTap,
+                  child: card,
+                ),
+              ),
+            );
+          }
+        }
+
+        class AddTreatmentScreen"""
+          if old not in text:
+              raise SystemExit('care hub card close changed unexpectedly')
+          text = text.replace(old, new, 1)
+          path.write_text(text, encoding='utf-8')
+
+          test = Path('wellmate/test/women_calendar_selected_day_test.dart')
+          content = test.read_text(encoding='utf-8')
+          old = """          body: SizedBox(
+                    width: 320,
+                    child: WomenCalendarMonthCard("""
+          new = """          body: SingleChildScrollView(
+                    child: SizedBox(
+                      width: 320,
+                      child: WomenCalendarMonthCard("""
+          if old not in content:
+              raise SystemExit('selected-day test body changed unexpectedly')
+          content = content.replace(old, new, 1)
+          old = """              onDateSelected: (value) => selected = value,
+                    ),
+                  ),
+                ),"""
+          new = """              onDateSelected: (value) => selected = value,
+                      ),
+                    ),
+                  ),
+                ),"""
+          if old not in content:
+              raise SystemExit('selected-day test close changed unexpectedly')
+          test.write_text(content.replace(old, new, 1), encoding='utf-8')
+          PY
 
       - name: Format touched sources
         run: |
