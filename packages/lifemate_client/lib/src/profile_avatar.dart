@@ -99,6 +99,14 @@ abstract final class LifeMateProfileRefresh {
     revision.value = revision.value + 1;
   }
 
+  /// Drops profile/avatar state when the authenticated account changes.
+  /// This prevents a previous account's signed profile photo from being
+  /// rendered while the next account is bootstrapping.
+  static void clearForApiClient(LifeMateApiClient apiClient) {
+    _cache.remove(apiClient);
+    revision.value = revision.value + 1;
+  }
+
   @visibleForTesting
   static void clearCacheForTesting() {
     _cache.clear();
@@ -347,6 +355,10 @@ class _LifeMateCurrentUserAvatarState extends State<LifeMateCurrentUserAvatar> {
   }
 
   void _reload() {
+    final cached = LifeMateProfileRefresh.peek(widget.apiClient);
+    if (mounted) {
+      setState(() => _profile = cached ?? const <String, dynamic>{});
+    }
     _load();
   }
 

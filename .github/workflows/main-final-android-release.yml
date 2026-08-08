@@ -19,7 +19,7 @@ env:
   SUPABASE_PUBLISHABLE_KEY: ${{ vars.SUPABASE_PUBLISHABLE_KEY || 'sb_publishable_6YpBDD0gAPcenbYGukOeWg_fZXxUb27' }}
   ENABLE_GOOGLE_AUTH: 'false'
   ENABLE_PHONE_OTP: 'false'
-  ENABLE_WOMEN_CALENDAR_PILOT: 'false'
+  ENABLE_WOMEN_CALENDAR_PILOT: 'true'
   DOTNET_CLI_TELEMETRY_OPTOUT: '1'
   DOTNET_NOLOGO: '1'
   Security__Invitations__ContactPepper: ci-only-invitation-contact-pepper-32-bytes-minimum
@@ -92,7 +92,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          build_name="0.9.0"
+          build_name="0.9.1"
           build_number="$GITHUB_RUN_NUMBER"
           build_args=(
             --release
@@ -114,14 +114,14 @@ jobs:
           set -euo pipefail
           short_sha="${GITHUB_SHA:0:8}"
           mkdir -p dist
-          cp wellmate/build/app/outputs/flutter-apk/app-release.apk "dist/wellmate-0.9.0-main-${short_sha}.apk"
-          cp caremate/build/app/outputs/flutter-apk/app-release.apk "dist/caremate-0.9.0-main-${short_sha}.apk"
+          cp wellmate/build/app/outputs/flutter-apk/app-release.apk "dist/wellmate-0.9.1-main-${short_sha}.apk"
+          cp caremate/build/app/outputs/flutter-apk/app-release.apk "dist/caremate-0.9.1-main-${short_sha}.apk"
           wellmate_sha="$(sha256sum dist/wellmate-*.apk | awk '{print $1}')"
           caremate_sha="$(sha256sum dist/caremate-*.apk | awk '{print $1}')"
           jq -n \
             --arg mainCommit "$GITHUB_SHA" \
             --arg buildNumber "$GITHUB_RUN_NUMBER" \
-            --arg version "0.9.0" \
+            --arg version "0.9.1" \
             --arg apiEnvironment "production" \
             --arg apiBaseUrl "$LIFEMATE_API_BASE_URL" \
             --arg builtAt "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
@@ -129,7 +129,7 @@ jobs:
             --arg caremateSha256 "$caremate_sha" \
             --argjson googleAuth false \
             --argjson phoneOtp false \
-            --argjson womenCalendarPilot false \
+            --argjson womenCalendarPilot true \
             '{mainCommit:$mainCommit,version:$version,buildNumber:$buildNumber,builtAtUtc:$builtAt,apiEnvironment:$apiEnvironment,apiBaseUrl:$apiBaseUrl,featureFlags:{googleAuth:$googleAuth,phoneOtp:$phoneOtp,womenCalendarPilot:$womenCalendarPilot},apps:{wellmate:{packageId:"com.lifemate.wellmate",sha256:$wellmateSha256},caremate:{packageId:"com.lifemate.caremate",sha256:$caremateSha256}},releasePurpose:"physical-test-final-current-stage",storeSigningConfigured:false}' \
             > dist/manifest.json
 
