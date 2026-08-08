@@ -668,17 +668,17 @@ async function insertAudit(
   sql: any,
   actorUserId: string,
   action: string,
-  entityType: string,
-  entityId: string,
+  resourceType: string,
+  resourceId: string,
   metadata: Record<string, unknown>,
 ): Promise<void> {
   const metadataJson = JSON.stringify(metadata);
   await sql`
     insert into lifemate.audit_logs
-      (id, actor_user_id, action, entity_type, entity_id, metadata_json,
-       occurred_at_utc)
+      (id, actor_user_id, action, resource_type, resource_id, metadata_json,
+       created_at_utc)
     values
-      (${crypto.randomUUID()}, ${actorUserId}, ${action}, ${entityType},
-       ${entityId}, ${metadataJson}, now())
+      (${crypto.randomUUID()}, ${actorUserId}, ${action}, ${resourceType},
+       ${resourceId}, ${metadataJson}, now())
   `;
 }
