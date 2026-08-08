@@ -70,10 +70,7 @@ void main() {
   );
 }
 
-Future<void> _expectFormScrolls(
-  WidgetTester tester,
-  Finder form,
-) async {
+Future<void> _expectFormScrolls(WidgetTester tester, Finder form) async {
   final scrollable = find
       .descendant(
         of: form,

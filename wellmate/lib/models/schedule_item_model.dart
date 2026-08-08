@@ -1,5 +1,6 @@
 class ScheduleItemModel {
   final String id;
+  final String? seriesId;
   final String title;
   final String time;
   final String dosage;
@@ -16,6 +17,7 @@ class ScheduleItemModel {
 
   ScheduleItemModel({
     required this.id,
+    this.seriesId,
     required this.title,
     required this.time,
     required this.dosage,
@@ -35,6 +37,7 @@ class ScheduleItemModel {
     final status = (json['status'] ?? 'scheduled').toString();
     return ScheduleItemModel(
       id: json['id']?.toString() ?? '',
+      seriesId: json['seriesId']?.toString(),
       title: json['title'] ?? json['name'] ?? '',
       time: json['time'] ?? '',
       dosage: json['dosage'] ?? json['details'] ?? '',
@@ -66,6 +69,7 @@ class ScheduleItemModel {
   Map<String, dynamic> toJson() {
     return {
       'id': id,
+      'seriesId': seriesId,
       'title': title,
       'time': time,
       'dosage': dosage,
@@ -84,6 +88,7 @@ class ScheduleItemModel {
 
   ScheduleItemModel copyWith({
     String? id,
+    String? seriesId,
     String? title,
     String? time,
     String? dosage,
@@ -100,6 +105,7 @@ class ScheduleItemModel {
   }) {
     return ScheduleItemModel(
       id: id ?? this.id,
+      seriesId: seriesId ?? this.seriesId,
       title: title ?? this.title,
       time: time ?? this.time,
       dosage: dosage ?? this.dosage,

@@ -17,6 +17,7 @@ export 'src/nullable_women_calendar_estimate.dart';
 export 'src/profile_avatar.dart';
 export 'src/presentation_numbers.dart';
 export 'src/reminder_lead_time.dart';
+export 'src/recurrence.dart';
 export 'src/session_gate.dart' hide LifeMateSessionGate;
 export 'src/session_gate_secure.dart';
 export 'src/women_calendar.dart';

@@ -19,9 +19,7 @@ class BackendService {
     int? itemId, // 👈 این پارامتر اضافه شد
   }) async {
     // ساخت داینامیک بادی درخواست
-    final Map<String, dynamic> requestBody = {
-      'status': status,
-    };
+    final Map<String, dynamic> requestBody = {'status': status};
     if (currentIndex != null) requestBody['currentIndex'] = currentIndex;
     if (itemId != null) requestBody['itemId'] = itemId;
 

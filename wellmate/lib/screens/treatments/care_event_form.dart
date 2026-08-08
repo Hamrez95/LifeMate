@@ -29,11 +29,16 @@ class _CareEventFormState extends State<CareEventForm> {
   final _address = TextEditingController();
   final _phone = TextEditingController();
   final _instructions = TextEditingController();
+  final _repeatInterval = TextEditingController(text: '1');
 
   DateTime _date = DateTime.now();
   TimeOfDay _time = TimeOfDay.now();
   String _timeZone = 'Asia/Tehran';
   String _administrationRoute = 'intramuscular';
+  bool _repeatEnabled = false;
+  RecurrenceUnit _repeatUnit = RecurrenceUnit.month;
+  DateTime? _repeatEndDate;
+  final Set<int> _repeatWeekdays = <int>{};
   int _patientReminderMinutesBefore =
       LifeMateReminderLeadTimes.defaultPatientMinutes;
   int _caregiverReminderMinutesBefore =
@@ -62,6 +67,7 @@ class _CareEventFormState extends State<CareEventForm> {
     _address.dispose();
     _phone.dispose();
     _instructions.dispose();
+    _repeatInterval.dispose();
     super.dispose();
   }
 
@@ -104,9 +110,41 @@ class _CareEventFormState extends State<CareEventForm> {
       '${_time.hour.toString().padLeft(2, '0')}:'
       '${_time.minute.toString().padLeft(2, '0')}';
 
+  RecurrenceRule? _recurrenceRule() {
+    if (!_repeatEnabled) return const RecurrenceRule.none();
+    final interval = LifeMateNumbers.tryParseInt(_repeatInterval.text);
+    if (interval == null || interval < 1 || interval > 365) {
+      setState(() => _error = 'فاصله تکرار باید یک عدد بین ۱ تا ۳۶۵ باشد.');
+      return null;
+    }
+    final weekdays = _repeatUnit == RecurrenceUnit.week
+        ? (_repeatWeekdays.isEmpty ? <int>{_date.weekday} : _repeatWeekdays)
+        : const <int>{};
+    return RecurrenceRule(
+      enabled: true,
+      unit: _repeatUnit,
+      interval: interval,
+      weekdays: weekdays,
+      endDate: _repeatEndDate,
+    );
+  }
+
+  Future<void> _pickRepeatEndDate() async {
+    final value = await showAppDatePicker(
+      context: context,
+      initialDate: _repeatEndDate ?? _date.add(const Duration(days: 180)),
+      firstDate: _date,
+      lastDate: _date.add(const Duration(days: 3650)),
+      title: 'پایان تکرار',
+    );
+    if (mounted && value != null) setState(() => _repeatEndDate = value);
+  }
+
   Future<void> _submit() async {
     FocusScope.of(context).unfocus();
     if (!_formKey.currentState!.validate()) return;
+    final recurrence = _recurrenceRule();
+    if (recurrence == null) return;
 
     setState(() {
       _busy = true;
@@ -130,6 +168,7 @@ class _CareEventFormState extends State<CareEventForm> {
         scheduledLocalDate: _date,
         scheduledLocalTime: _timeValue,
         timeZone: _timeZone,
+        recurrence: recurrence,
         patientReminderMinutesBefore: _patientReminderMinutesBefore,
         caregiverReminderMinutesBefore: _caregiverReminderMinutesBefore,
       );
@@ -174,6 +213,11 @@ class _CareEventFormState extends State<CareEventForm> {
       _date = DateTime.now();
       _time = TimeOfDay.now();
       _administrationRoute = 'intramuscular';
+      _repeatEnabled = false;
+      _repeatUnit = RecurrenceUnit.month;
+      _repeatInterval.text = '1';
+      _repeatEndDate = null;
+      _repeatWeekdays.clear();
       _patientReminderMinutesBefore =
           LifeMateReminderLeadTimes.defaultPatientMinutes;
       _caregiverReminderMinutesBefore =
@@ -388,6 +432,133 @@ class _CareEventFormState extends State<CareEventForm> {
                 },
               ),
               const SizedBox(height: 16),
+              SwitchListTile.adaptive(
+                key: const ValueKey('care-event-repeat-enabled'),
+                contentPadding: EdgeInsets.zero,
+                title: const Text(
+                  'تکرار برنامه',
+                  style: TextStyle(fontWeight: FontWeight.w900),
+                ),
+                subtitle: const Text(
+                  'برای چکاپ یا تزریق دوره‌ای، مثل هر ۶ ماه',
+                ),
+                value: _repeatEnabled,
+                onChanged: _busy
+                    ? null
+                    : (value) => setState(() => _repeatEnabled = value),
+              ),
+              if (_repeatEnabled) ...[
+                const SizedBox(height: 8),
+                Row(
+                  children: [
+                    Expanded(
+                      child: TextFormField(
+                        key: const ValueKey('care-event-repeat-interval'),
+                        controller: _repeatInterval,
+                        keyboardType: TextInputType.number,
+                        textDirection: TextDirection.ltr,
+                        decoration: wellMateFieldDecoration(hint: 'مثلاً ۶'),
+                        validator: (value) {
+                          final parsed = LifeMateNumbers.tryParseInt(value);
+                          return parsed != null && parsed >= 1 && parsed <= 365
+                              ? null
+                              : '۱ تا ۳۶۵';
+                        },
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      flex: 2,
+                      child: DropdownButtonFormField<RecurrenceUnit>(
+                        key: const ValueKey('care-event-repeat-unit'),
+                        initialValue: _repeatUnit,
+                        decoration: wellMateFieldDecoration(),
+                        items: const [
+                          DropdownMenuItem(
+                            value: RecurrenceUnit.day,
+                            child: Text('روز'),
+                          ),
+                          DropdownMenuItem(
+                            value: RecurrenceUnit.week,
+                            child: Text('هفته'),
+                          ),
+                          DropdownMenuItem(
+                            value: RecurrenceUnit.month,
+                            child: Text('ماه'),
+                          ),
+                          DropdownMenuItem(
+                            value: RecurrenceUnit.year,
+                            child: Text('سال'),
+                          ),
+                        ],
+                        onChanged: _busy
+                            ? null
+                            : (value) => setState(
+                                () => _repeatUnit = value ?? _repeatUnit,
+                              ),
+                      ),
+                    ),
+                  ],
+                ),
+                if (_repeatUnit == RecurrenceUnit.week) ...[
+                  const SizedBox(height: 12),
+                  const Text(
+                    'روزهای هفته',
+                    style: TextStyle(fontWeight: FontWeight.w800),
+                  ),
+                  const SizedBox(height: 8),
+                  Wrap(
+                    spacing: 6,
+                    runSpacing: 6,
+                    children: [
+                      for (final day in const <(int, String)>[
+                        (DateTime.saturday, 'ش'),
+                        (DateTime.sunday, 'ی'),
+                        (DateTime.monday, 'د'),
+                        (DateTime.tuesday, 'س'),
+                        (DateTime.wednesday, 'چ'),
+                        (DateTime.thursday, 'پ'),
+                        (DateTime.friday, 'ج'),
+                      ])
+                        FilterChip(
+                          label: Text(day.$2),
+                          selected: _repeatWeekdays.contains(day.$1),
+                          onSelected: _busy
+                              ? null
+                              : (selected) => setState(() {
+                                  if (selected) {
+                                    _repeatWeekdays.add(day.$1);
+                                  } else {
+                                    _repeatWeekdays.remove(day.$1);
+                                  }
+                                }),
+                        ),
+                    ],
+                  ),
+                ],
+                const SizedBox(height: 12),
+                _PickerTile(
+                  key: const ValueKey('care-event-repeat-end'),
+                  label: 'پایان تکرار',
+                  value: _repeatEndDate == null
+                      ? 'بدون تاریخ پایان'
+                      : formatAppDate(context, _repeatEndDate!),
+                  icon: Icons.event_repeat_rounded,
+                  onTap: _busy ? null : _pickRepeatEndDate,
+                ),
+                if (_repeatEndDate != null)
+                  Align(
+                    alignment: AlignmentDirectional.centerStart,
+                    child: TextButton.icon(
+                      onPressed: _busy
+                          ? null
+                          : () => setState(() => _repeatEndDate = null),
+                      icon: const Icon(Icons.close_rounded, size: 18),
+                      label: const Text('بدون تاریخ پایان'),
+                    ),
+                  ),
+              ],
+              const SizedBox(height: 16),
               WellMateLabeledField(
                 label: 'یادآوری برای خودم',
                 icon: Icons.notifications_active_rounded,
@@ -400,7 +571,12 @@ class _CareEventFormState extends State<CareEventForm> {
                     for (final minutes in LifeMateReminderLeadTimes.presets)
                       DropdownMenuItem(
                         value: minutes,
-                        child: Text(LifeMateReminderLeadTimes.label(minutes)),
+                        child: Text(
+                          localizeDigits(
+                            context,
+                            LifeMateReminderLeadTimes.label(minutes),
+                          ),
+                        ),
                       ),
                   ],
                   onChanged: _busy
@@ -423,7 +599,12 @@ class _CareEventFormState extends State<CareEventForm> {
                     for (final minutes in LifeMateReminderLeadTimes.presets)
                       DropdownMenuItem(
                         value: minutes,
-                        child: Text(LifeMateReminderLeadTimes.label(minutes)),
+                        child: Text(
+                          localizeDigits(
+                            context,
+                            LifeMateReminderLeadTimes.label(minutes),
+                          ),
+                        ),
                       ),
                   ],
                   onChanged: _busy

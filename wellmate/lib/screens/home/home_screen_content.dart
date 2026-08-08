@@ -145,6 +145,7 @@ class _HomeScreenContentState extends State<HomeScreenContent> {
           ].where((value) => value.isNotEmpty).join(' • ');
           return ScheduleItemModel(
             id: event['id']?.toString() ?? '',
+            seriesId: event['seriesId']?.toString(),
             type: type,
             title:
                 _nonEmpty(event['title']) ??
