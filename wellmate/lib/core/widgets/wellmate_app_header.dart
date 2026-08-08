@@ -228,49 +228,29 @@ class WellMateAppHeader extends StatelessWidget {
             ),
           ),
           const SizedBox(width: 8),
-          if (isMedicine)
-            GestureDetector(
-              onTap: () async {
-                final reporter = onMissedMedicationTaken;
-                if (reporter == null) return;
-                final success = await reporter(item);
-                if (success && context.mounted) {
-                  context.read<MedicationProvider>().markAsDone(item.id);
-                }
-              },
-              child: Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 12,
-                  vertical: 8,
-                ),
-                decoration: BoxDecoration(
-                  color: Colors.red.shade600,
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: Text(
-                  'مصرف کردم',
-                  style: AppTextStyles.caption(
-                    context,
-                  ).copyWith(color: Colors.white, fontWeight: FontWeight.bold),
-                ),
-              ),
-            )
-          else
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+          GestureDetector(
+            onTap: () async {
+              final reporter = onMissedMedicationTaken;
+              if (reporter == null) return;
+              final success = await reporter(item);
+              if (success && context.mounted) {
+                context.read<MedicationProvider>().markAsDone(item.id);
+              }
+            },
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
               decoration: BoxDecoration(
-                color: Colors.red.shade50,
+                color: Colors.red.shade600,
                 borderRadius: BorderRadius.circular(8),
-                border: Border.all(color: Colors.red.shade200),
               ),
               child: Text(
-                'انجام نشد',
-                style: AppTextStyles.caption(context).copyWith(
-                  color: Colors.red.shade700,
-                  fontWeight: FontWeight.bold,
-                ),
+                isMedicine ? 'مصرف کردم' : 'انجام شد',
+                style: AppTextStyles.caption(
+                  context,
+                ).copyWith(color: Colors.white, fontWeight: FontWeight.bold),
               ),
             ),
+          ),
         ],
       ),
     );

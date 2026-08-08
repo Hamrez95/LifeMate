@@ -310,6 +310,76 @@ class _HomeScreenContentState extends State<HomeScreenContent> {
     }
   }
 
+  Future<void> _reportCareEventStatus(
+    ScheduleItemModel item,
+    String status,
+  ) async {
+    if (item.type == 'medicine' || _submitting.contains(item.id)) return;
+    final eventId = item.seriesId ?? item.id;
+    if (eventId.isEmpty) return;
+
+    // The current recurrence contract stores status on the series row. Never
+    // silently complete/cancel an entire recurring series from one occurrence.
+    if (item.seriesId != null && item.id != item.seriesId) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text(
+              'ثبت وضعیت یک نوبت تکرارشونده از این کارت هنوز پشتیبانی نمی‌شود.',
+            ),
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      }
+      return;
+    }
+
+    setState(() => _submitting.add(item.id));
+    try {
+      final result = await LifeMateEditApi.fromEnvironment()
+          .updateCareEventStatus(eventId: eventId, status: status);
+      if (!mounted) return;
+      final normalized = (result['status'] ?? status).toString().toLowerCase();
+      final updated = item.copyWith(
+        isDone: normalized == 'completed' || normalized == 'cancelled',
+        status: normalized,
+        version: result['version'] is int
+            ? result['version'] as int
+            : item.version + 1,
+      );
+      setState(() {
+        final index = scheduleList.indexWhere((value) => value.id == item.id);
+        if (index >= 0) scheduleList[index] = updated;
+        _countdownOccurrences = _countdownOccurrences
+            .where((value) => value.id != item.id)
+            .toList(growable: false);
+      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            status == 'completed'
+                ? '${item.title} به عنوان انجام‌شده ثبت شد.'
+                : '${item.title} به عنوان انجام‌نشده ثبت شد.',
+          ),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+      await _fetchScheduleFromBackend();
+    } catch (error) {
+      debugPrint('WellMate care event status report failed: $error');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('ثبت وضعیت انجام نشد؛ دوباره تلاش کنید.'),
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _submitting.remove(item.id));
+    }
+  }
+
   int _calculateSecondsLeft(ScheduleItemModel item) {
     final scheduled = _scheduledDateTime(item);
     if (scheduled == null) return 0;
@@ -454,37 +524,10 @@ class _HomeScreenContentState extends State<HomeScreenContent> {
                           : widget.onAddTreatment,
                       font: font,
                     )
-                  : LayoutBuilder(
-                      builder: (context, constraints) {
-                        final cardWidth = countdownItems.length > 1
-                            ? constraints.maxWidth * 0.92
-                            : constraints.maxWidth;
-                        return SingleChildScrollView(
-                          key: const ValueKey('home-countdown-carousel'),
-                          scrollDirection: Axis.horizontal,
-                          physics: const BouncingScrollPhysics(),
-                          child: Row(
-                            children: [
-                              for (
-                                var index = 0;
-                                index < countdownItems.length;
-                                index += 1
-                              ) ...[
-                                SizedBox(
-                                  width: cardWidth,
-                                  child: _buildNextOccurrenceCard(
-                                    item: countdownItems[index],
-                                    font: font,
-                                    isPersian: isPersian,
-                                  ),
-                                ),
-                                if (index < countdownItems.length - 1)
-                                  const SizedBox(width: 12),
-                              ],
-                            ],
-                          ),
-                        );
-                      },
+                  : _buildNextOccurrenceCard(
+                      item: countdownItems.first,
+                      font: font,
+                      isPersian: isPersian,
                     ),
             ),
             const SizedBox(height: 24),
@@ -546,6 +589,24 @@ class _HomeScreenContentState extends State<HomeScreenContent> {
                                             missed &&
                                             !_submitting.contains(item.id)
                                         ? () => _reportStatus(item, 'taken')
+                                        : null,
+                                    onCompleted:
+                                        item.type != 'medicine' &&
+                                            missed &&
+                                            !_submitting.contains(item.id)
+                                        ? () => _reportCareEventStatus(
+                                            item,
+                                            'completed',
+                                          )
+                                        : null,
+                                    onNotCompleted:
+                                        item.type != 'medicine' &&
+                                            missed &&
+                                            !_submitting.contains(item.id)
+                                        ? () => _reportCareEventStatus(
+                                            item,
+                                            'cancelled',
+                                          )
                                         : null,
                                   );
                                 },
@@ -616,7 +677,7 @@ class _HomeScreenContentState extends State<HomeScreenContent> {
 List<ScheduleItemModel> selectHomeCountdownItems(
   Iterable<ScheduleItemModel> items,
   DateTime now, {
-  int limit = 4,
+  int limit = 1,
 }) {
   final actionable = items
       .where((item) {

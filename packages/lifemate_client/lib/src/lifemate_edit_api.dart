@@ -36,6 +36,62 @@ class LifeMateEditApi {
   Future<Map<String, dynamic>> getCareEvent({required String eventId}) async =>
       _object(await _request('GET', '/api/v1/care-events/$eventId'));
 
+  Future<Map<String, dynamic>> updateCareEventStatus({
+    required String eventId,
+    required String status,
+  }) async {
+    final event = await getCareEvent(eventId: eventId);
+    final eventType =
+        event['eventType']?.toString().trim().toLowerCase() == 'injection'
+        ? 'injection'
+        : 'appointment';
+    final title = event['title']?.toString().trim() ?? '';
+    final scheduledLocalDate = DateTime.tryParse(
+      event['scheduledLocalDate']?.toString() ?? '',
+    );
+    if (scheduledLocalDate == null) {
+      throw const FormatException('Care event is missing scheduledLocalDate.');
+    }
+
+    return updateCareEvent(
+      eventId: eventId,
+      version: int.tryParse(event['version']?.toString() ?? '') ?? 1,
+      eventType: eventType,
+      title: title,
+      providerName: _emptyToNull(event['providerName']?.toString()),
+      specialty: _emptyToNull(event['specialty']?.toString()),
+      medicationName: eventType == 'injection'
+          ? (_emptyToNull(event['medicationName']?.toString()) ?? title)
+          : null,
+      doseText: _emptyToNull(event['doseText']?.toString()),
+      administrationRoute: _emptyToNull(
+        event['administrationRoute']?.toString(),
+      ),
+      reason: _emptyToNull(event['reason']?.toString()),
+      instructions: _emptyToNull(event['instructions']?.toString()),
+      centerName: _emptyToNull(event['centerName']?.toString()),
+      addressLine: _emptyToNull(event['addressLine']?.toString()),
+      phoneNumber: _emptyToNull(event['phoneNumber']?.toString()),
+      scheduledLocalDate: scheduledLocalDate,
+      scheduledLocalTime:
+          event['scheduledLocalTime']?.toString().trim() ?? '00:00',
+      timeZone: event['timeZone']?.toString().trim().isNotEmpty == true
+          ? event['timeZone'].toString().trim()
+          : 'Asia/Tehran',
+      patientReminderMinutesBefore:
+          int.tryParse(
+            event['patientReminderMinutesBefore']?.toString() ?? '',
+          ) ??
+          30,
+      caregiverReminderMinutesBefore:
+          int.tryParse(
+            event['caregiverReminderMinutesBefore']?.toString() ?? '',
+          ) ??
+          60,
+      status: status,
+    );
+  }
+
   Future<Map<String, dynamic>> updateTreatmentPlan({
     required String treatmentPlanId,
     required int version,

@@ -24,14 +24,28 @@ void main() {
         ),
       ]);
 
-    await _pumpHeader(tester, provider);
+    var completed = false;
+    await _pumpHeader(
+      tester,
+      provider,
+      reporter: (item) async {
+        completed = item.id == 'visit-1';
+        return true;
+      },
+    );
     await tester.tap(find.byIcon(Icons.notifications_none_rounded));
     await tester.pumpAndSettle();
 
     expect(find.text('اعلان‌های انجام‌نشده'), findsOneWidget);
     expect(find.text('ویزیت دکتر قلب'), findsOneWidget);
-    expect(find.text('انجام نشد'), findsOneWidget);
+    expect(find.text('انجام شد'), findsOneWidget);
+    expect(find.text('انجام نشد'), findsNothing);
     expect(find.text('مصرف کردم'), findsNothing);
+    expect(find.byIcon(Icons.check_rounded), findsNothing);
+    await tester.tap(find.text('انجام شد'));
+    await tester.pumpAndSettle();
+    expect(completed, isTrue);
+    expect(provider.missedItems, isEmpty);
     expect(
       find.text('هیچ دارو، ویزیت یا تزریق انجام‌نشده‌ای وجود ندارد.'),
       findsNothing,
@@ -65,7 +79,8 @@ void main() {
     expect(find.text('آسپرین'), findsOneWidget);
     expect(find.text('ویزیت دکتر قلب'), findsOneWidget);
     expect(find.text('مصرف کردم'), findsOneWidget);
-    expect(find.text('انجام نشد'), findsOneWidget);
+    expect(find.text('انجام شد'), findsOneWidget);
+    expect(find.text('انجام نشد'), findsNothing);
   });
 
   testWidgets('empty bell uses a generic care empty state', (tester) async {
@@ -105,8 +120,9 @@ void main() {
 
 Future<void> _pumpHeader(
   WidgetTester tester,
-  MedicationProvider medicationProvider,
-) async {
+  MedicationProvider medicationProvider, {
+  MissedMedicationReporter? reporter,
+}) async {
   await tester.pumpWidget(
     MultiProvider(
       providers: [
@@ -118,7 +134,12 @@ Future<void> _pumpHeader(
       ],
       child: MaterialApp(
         locale: const Locale('fa'),
-        home: Scaffold(body: WellMateAppHeader(onProfileTap: () {})),
+        home: Scaffold(
+          body: WellMateAppHeader(
+            onProfileTap: () {},
+            onMissedMedicationTaken: reporter,
+          ),
+        ),
       ),
     ),
   );

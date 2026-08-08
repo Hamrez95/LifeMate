@@ -73,8 +73,12 @@ class MedicationProvider extends ChangeNotifier {
     final index = _scheduleItems.indexWhere((item) => item.id == id);
     if (index == -1) return;
 
+    final item = _scheduleItems[index];
     _scheduleItems = List<ScheduleItemModel>.of(_scheduleItems)
-      ..[index] = _scheduleItems[index].copyWith(isDone: true, status: 'taken');
+      ..[index] = item.copyWith(
+        isDone: true,
+        status: item.type == 'medicine' ? 'taken' : 'completed',
+      );
     notifyListeners();
   }
 }

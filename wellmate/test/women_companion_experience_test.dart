@@ -157,7 +157,7 @@ void main() {
   );
 
   testWidgets(
-    'women dashboard puts large cycle then calendar before mood',
+    'women dashboard removes only the duplicate top cycle overview',
     (tester) async {
       tester.view.physicalSize = const Size(420, 1200);
       tester.view.devicePixelRatio = 1;
@@ -181,9 +181,10 @@ void main() {
 
       expect(
         find.byKey(const ValueKey('women-cycle-overview-large')),
-        findsOneWidget,
+        findsNothing,
       );
       expect(find.text('تقویم و ثبت دوره'), findsNothing);
+      expect(find.text('فاز قاعدگی'), findsOneWidget);
     },
     skip: !LifeMateFeatureFlags.womenCalendarPilotEnabled,
   );

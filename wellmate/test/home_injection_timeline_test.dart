@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:flutter_test/flutter_test.dart';
 import 'package:lifemate_client/lifemate_client.dart';
 import 'package:wellmate/models/schedule_item_model.dart';
@@ -21,7 +23,7 @@ void main() {
     );
   });
 
-  test('countdown keeps injection when an earlier appointment also exists', () {
+  test('countdown stays single and injection is eligible when it is next', () {
     final date = DateTime(2026, 8, 17);
     final items = [
       ScheduleItemModel(
@@ -53,11 +55,23 @@ void main() {
       ),
     ];
 
-    final countdown = selectHomeCountdownItems(
-      items,
-      DateTime(2026, 8, 17, 17),
-    );
-    expect(countdown.map((item) => item.id), ['visit-1', 'dose-1', 'inj-1']);
+    final first = selectHomeCountdownItems(items, DateTime(2026, 8, 17, 17));
+    expect(first.map((item) => item.id), ['visit-1']);
+
+    final injectionNext = selectHomeCountdownItems([
+      items[0].copyWith(status: 'completed', isDone: true),
+      items[1].copyWith(status: 'taken', isDone: true),
+      items[2],
+    ], DateTime(2026, 8, 17, 19));
+    expect(injectionNext.map((item) => item.id), ['inj-1']);
+  });
+
+  test('home countdown UI is fixed rather than a carousel', () {
+    final source = File(
+      'lib/screens/home/home_screen_content.dart',
+    ).readAsStringSync();
+    expect(source, isNot(contains('home-countdown-carousel')));
+    expect(source, contains('item: countdownItems.first'));
   });
 }
 

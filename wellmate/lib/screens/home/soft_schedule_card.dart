@@ -10,6 +10,8 @@ class SoftScheduleCard extends StatelessWidget {
   final String assetPath;
   final bool isMissed;
   final VoidCallback? onTaken;
+  final VoidCallback? onCompleted;
+  final VoidCallback? onNotCompleted;
 
   const SoftScheduleCard({
     Key? key,
@@ -19,6 +21,8 @@ class SoftScheduleCard extends StatelessWidget {
     required this.assetPath,
     this.isMissed = false,
     this.onTaken,
+    this.onCompleted,
+    this.onNotCompleted,
   }) : super(key: key);
 
   @override
@@ -129,27 +133,78 @@ class SoftScheduleCard extends StatelessWidget {
                   ),
                   if (isMissed) ...[
                     const SizedBox(height: 12),
-                    GestureDetector(
-                      onTap: onTaken,
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(
-                          vertical: 6,
-                          horizontal: 16,
-                        ),
-                        decoration: BoxDecoration(
-                          color: Colors.red.shade600,
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                        child: Text(
-                          'مصرف کردم',
-                          style: font.copyWith(
-                            color: Colors.white,
-                            fontSize: 12,
-                            fontWeight: FontWeight.bold,
+                    if (item.type == 'medicine')
+                      GestureDetector(
+                        onTap: onTaken,
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(
+                            vertical: 6,
+                            horizontal: 16,
+                          ),
+                          decoration: BoxDecoration(
+                            color: Colors.red.shade600,
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: Text(
+                            'مصرف کردم',
+                            style: font.copyWith(
+                              color: Colors.white,
+                              fontSize: 12,
+                              fontWeight: FontWeight.bold,
+                            ),
                           ),
                         ),
+                      )
+                    else
+                      Wrap(
+                        spacing: 8,
+                        runSpacing: 8,
+                        children: [
+                          GestureDetector(
+                            onTap: onCompleted,
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(
+                                vertical: 6,
+                                horizontal: 16,
+                              ),
+                              decoration: BoxDecoration(
+                                color: Colors.red.shade600,
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                              child: Text(
+                                'انجام شد',
+                                style: font.copyWith(
+                                  color: Colors.white,
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                            ),
+                          ),
+                          GestureDetector(
+                            onTap: onNotCompleted,
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(
+                                vertical: 6,
+                                horizontal: 16,
+                              ),
+                              decoration: BoxDecoration(
+                                color: Colors.white,
+                                borderRadius: BorderRadius.circular(8),
+                                border: Border.all(color: Colors.red.shade300),
+                              ),
+                              child: Text(
+                                'انجام نشد',
+                                style: font.copyWith(
+                                  color: Colors.red.shade700,
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                            ),
+                          ),
+                        ],
                       ),
-                    ),
                   ],
                 ],
               ),
