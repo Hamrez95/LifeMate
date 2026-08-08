@@ -72,7 +72,7 @@ export function createCareEventStore(databaseUrl: string) {
       const id = crypto.randomUUID();
       const rows = await tx`
         insert into lifemate.care_events
-          (id, patient_user_id, client_request_id, event_type, title,
+          (id, patient_user_id, created_by_user_id, client_request_id, event_type, title,
            provider_name, specialty, medication_name, dose_text,
            administration_route, reason, instructions, center_name,
            address_line, phone_number, scheduled_local_date,
@@ -82,7 +82,7 @@ export function createCareEventStore(databaseUrl: string) {
            caregiver_reminder_minutes_before, status, version,
            created_at_utc, updated_at_utc)
         values
-          (${id}, ${patientUserId}, ${input.clientRequestId},
+          (${id}, ${patientUserId}, ${patientUserId}, ${input.clientRequestId},
            ${input.eventType}, ${input.title}, ${input.providerName},
            ${input.specialty}, ${input.medicationName}, ${input.doseText},
            ${input.administrationRoute}, ${input.reason}, ${input.instructions},
