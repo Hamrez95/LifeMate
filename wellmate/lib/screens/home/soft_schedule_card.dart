@@ -9,7 +9,7 @@ class SoftScheduleCard extends StatelessWidget {
   final TextStyle font;
   final String assetPath;
   final bool isMissed;
-  final VoidCallback? onTaken; // 👈 اضافه شدن تابع برای دکمه مصرف
+  final VoidCallback? onTaken;
 
   const SoftScheduleCard({
     Key? key,
@@ -18,7 +18,7 @@ class SoftScheduleCard extends StatelessWidget {
     required this.font,
     required this.assetPath,
     this.isMissed = false,
-    this.onTaken, // 👈 دریافت از سازنده
+    this.onTaken,
   }) : super(key: key);
 
   @override
@@ -58,14 +58,18 @@ class SoftScheduleCard extends StatelessWidget {
                         ),
                         const SizedBox(width: 4),
                       ],
-                      Text(
-                        item.title,
-                        style: font.copyWith(
-                          fontWeight: FontWeight.bold,
-                          fontSize: 16,
-                          color: isMissed
-                              ? Colors.red.shade900
-                              : AppColors.textPrimary,
+                      Expanded(
+                        child: Text(
+                          item.title.toPersianDigit(isPersian),
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                          style: font.copyWith(
+                            fontWeight: FontWeight.bold,
+                            fontSize: 16,
+                            color: isMissed
+                                ? Colors.red.shade900
+                                : AppColors.textPrimary,
+                          ),
                         ),
                       ),
                     ],
@@ -123,7 +127,6 @@ class SoftScheduleCard extends StatelessWidget {
                       ),
                     ],
                   ),
-                  // 👈 دکمه "مصرف کردم" برای حالت فراموش شده
                   if (isMissed) ...[
                     const SizedBox(height: 12),
                     GestureDetector(
