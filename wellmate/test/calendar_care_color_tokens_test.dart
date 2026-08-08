@@ -7,6 +7,7 @@ void main() {
     expect(CalendarUtils.getColorForType('med'), AppColors.careMedication);
     expect(CalendarUtils.getColorForType('appointment'), AppColors.careVisit);
     expect(CalendarUtils.getColorForType('injection'), AppColors.careInjection);
+    expect(CalendarUtils.getColorForType('treatment'), AppColors.careInjection);
     expect(AppColors.careInjection, isNot(AppColors.careVisit));
     expect(AppColors.careInjection, isNot(AppColors.careMedication));
   });
