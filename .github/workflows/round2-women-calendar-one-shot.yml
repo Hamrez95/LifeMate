@@ -31,6 +31,20 @@ jobs:
         with:
           deno-version: v2.4.5
 
+      - name: Patch applicator after first compile finding
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          path = Path('tools/hotfix/apply_round2_women_calendar.py')
+          text = path.read_text(encoding='utf-8')
+          old = """    return _PastelCard(\n      key: const ValueKey('women-calendar-selected-day-summary'),\n      child: Column(\n        crossAxisAlignment: CrossAxisAlignment.start,"""
+          new = """    return _PastelCard(\n      child: Column(\n        key: const ValueKey('women-calendar-selected-day-summary'),\n        crossAxisAlignment: CrossAxisAlignment.start,"""
+          if old not in text:
+              raise SystemExit('selected-day summary source changed unexpectedly')
+          path.write_text(text.replace(old, new, 1), encoding='utf-8')
+          PY
+
       - name: Apply women calendar refactor
         run: python3 tools/hotfix/apply_round2_women_calendar.py
 
