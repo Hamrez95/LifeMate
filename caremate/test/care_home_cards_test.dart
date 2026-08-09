@@ -3,8 +3,8 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:lifemate_client/lifemate_client.dart';
 import 'package:provider/provider.dart';
 
-import 'package:caremate/core/localization/app_localizations.dart';
 import 'package:caremate/core/localization/locale_provider.dart';
+import 'package:caremate/main.dart';
 import 'package:caremate/models/care_home_snapshot.dart';
 import 'package:caremate/providers/care_notification_provider.dart';
 import 'package:caremate/screens/dashboard_screen.dart';
@@ -159,12 +159,7 @@ void main() {
           ChangeNotifierProvider(create: (_) => LocaleProvider()),
           ChangeNotifierProvider(create: (_) => CareNotificationProvider()),
         ],
-        child: const MaterialApp(
-          locale: Locale('fa'),
-          supportedLocales: [Locale('fa'), Locale('en')],
-          localizationsDelegates: [AppLocalizations.delegate],
-          home: DashboardScreen(),
-        ),
+        child: const CareMateApp(home: DashboardScreen()),
       ),
     );
     await tester.pumpAndSettle();
