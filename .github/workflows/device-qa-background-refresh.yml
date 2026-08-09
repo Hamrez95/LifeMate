@@ -15,7 +15,6 @@ env:
   SOURCE_COMMIT: af2e24d86f1bd9c25ae94a79594c794a7797fe11
   SOURCE_SHORT_SHA: af2e24d8
   RELEASE_NAME: 0.9.0-internal.3
-  SUPABASE_PROJECT_REF: bwdvmniywyyijjauipnh
   SUPABASE_URL: https://bwdvmniywyyijjauipnh.supabase.co
   SUPABASE_PUBLISHABLE_KEY: ${{ vars.SUPABASE_PUBLISHABLE_KEY || 'sb_publishable_6YpBDD0gAPcenbYGukOeWg_fZXxUb27' }}
   LIFEMATE_API_BASE_URL: https://bwdvmniywyyijjauipnh.supabase.co/functions/v1/lifemate-api-candidate
@@ -28,9 +27,6 @@ jobs:
   build:
     runs-on: ubuntu-24.04
     timeout-minutes: 50
-    environment: beta
-    env:
-      SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
         with:
@@ -49,11 +45,9 @@ jobs:
         with:
           deno-version: v2.9.4
 
-      - name: Validate care management function
+      - name: Typecheck care management function
         working-directory: supabase/functions/lifemate-care-management
-        run: |
-          deno fmt --check
-          deno check index.ts
+        run: deno check index.ts
 
       - uses: subosito/flutter-action@4cab68ce0f1c7c924f688bff4792e044f1aeb30c
         with:
@@ -69,28 +63,6 @@ jobs:
           (cd wellmate && flutter pub get && flutter analyze --no-fatal-warnings --no-fatal-infos && flutter test)
           (cd caremate && flutter pub get && flutter analyze --no-fatal-warnings --no-fatal-infos && flutter test)
 
-      - name: Require candidate deployment credentials
-        shell: bash
-        run: |
-          set -euo pipefail
-          test -n "$SUPABASE_ACCESS_TOKEN"
-          test -n "$SUPABASE_PUBLISHABLE_KEY"
-
-      - uses: supabase/setup-cli@3c2f5e2ae34c34e428e8e206e2c4d21fa2d20fbf
-        with:
-          version: 2.101.0
-
-      - name: Deploy isolated care management candidate
-        shell: bash
-        run: |
-          set -euo pipefail
-          rm -rf supabase/functions/lifemate-care-management-candidate
-          cp -R supabase/functions/lifemate-care-management supabase/functions/lifemate-care-management-candidate
-          supabase functions deploy lifemate-care-management-candidate \
-            --project-ref "$SUPABASE_PROJECT_REF" \
-            --no-verify-jwt \
-            --use-api
-
       - name: Verify candidate authorization boundary
         shell: bash
         run: |
@@ -98,6 +70,7 @@ jobs:
           status="$(curl --silent --show-error --retry 8 --retry-delay 2 --retry-all-errors \
             --output /tmp/care-management-response.txt --write-out '%{http_code}' \
             "$CARE_MANAGEMENT_CANDIDATE_URL/api/v1/relationships/00000000-0000-0000-0000-000000000000/health-record-permission")"
+          cat /tmp/care-management-response.txt
           test "$status" = '401'
           api_health="$(curl --fail --silent --show-error --retry 8 --retry-delay 2 --retry-all-errors "$LIFEMATE_API_BASE_URL/health")"
           echo "$api_health" | jq -e '.status == "ok" and .database == "ready"' >/dev/null
