@@ -35,11 +35,13 @@ jobs:
         with:
           show-progress: false
           persist-credentials: false
+          fetch-depth: 0
 
       - name: Verify branch contains exact merged product source
         shell: bash
         run: |
           set -euo pipefail
+          git cat-file -e "$SOURCE_COMMIT^{commit}"
           git diff --exit-code "$SOURCE_COMMIT" -- \
             ':!.github/workflows/device-qa-merged-build.yml'
 
