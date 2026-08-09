@@ -32,6 +32,7 @@ class _WomenCompanionScreenState extends State<WomenCompanionScreen> {
   String? _error;
   Map<String, dynamic> _profile = const {};
   Map<String, dynamic> _currentProfile = const {};
+  String? _currentUserId;
   List<Map<String, dynamic>> _episodes = const [];
   List<Map<String, dynamic>> _dailyLogs = const [];
   List<Map<String, dynamic>> _relationships = const [];
@@ -82,9 +83,12 @@ class _WomenCompanionScreenState extends State<WomenCompanionScreen> {
   }
 
   Map<String, dynamic>? get _companionRelationship {
-    final active = _relationships.where(
-      (item) => item['status']?.toString() == 'active',
-    );
+    final currentUserId = _currentUserId;
+    final active = _relationships.where((item) {
+      if (item['status']?.toString() != 'active') return false;
+      if (currentUserId == null || currentUserId.isEmpty) return true;
+      return item['patientUserId']?.toString() == currentUserId;
+    });
     return active.isEmpty ? null : active.first;
   }
 
@@ -111,8 +115,12 @@ class _WomenCompanionScreenState extends State<WomenCompanionScreen> {
         toDate: now,
       );
       if (!mounted) return;
+      final currentUser =
+          dashboard['currentUser'] as Map<String, dynamic>? ?? const {};
+      final user = currentUser['user'] as Map<String, dynamic>? ?? const {};
       setState(() {
         _profile = dashboard['profile'] as Map<String, dynamic>? ?? const {};
+        _currentUserId = user['id']?.toString();
         _episodes = (dashboard['episodes'] as List<dynamic>? ?? const [])
             .cast<Map<String, dynamic>>();
         _currentProfile =
@@ -297,6 +305,10 @@ class _CompanionHero extends StatelessWidget {
     final api = context.read<LifeMateApiClient>();
     final name = relationship?['caregiverDisplayName']?.toString().trim();
     final companionName = name == null || name.isEmpty ? 'همدم من' : name;
+    final companionAvatarKey =
+        relationship?['caregiverAvatarKey']?.toString().trim();
+    final companionPhotoUrl =
+        relationship?['caregiverProfilePhotoUrl']?.toString().trim();
     return Container(
       padding: const EdgeInsets.fromLTRB(18, 18, 18, 16),
       decoration: BoxDecoration(
@@ -381,8 +393,12 @@ class _CompanionHero extends StatelessWidget {
                 ),
                 Column(
                   children: [
-                    const LifeMateProfileAvatar(
-                      avatarKey: 'caregiver_teal',
+                    LifeMateProfileAvatar(
+                      avatarKey:
+                          companionAvatarKey == null || companionAvatarKey.isEmpty
+                          ? 'caregiver_teal'
+                          : companionAvatarKey,
+                      photoUrl: companionPhotoUrl,
                       radius: 34,
                     ),
                     const SizedBox(height: 6),

@@ -9,6 +9,7 @@ import '../../localization/app_localizations.dart';
 import '../../models/schedule_item_model.dart';
 import '../../providers/medication_provider.dart';
 import '../../providers/notification_provider.dart';
+import '../treatments/edit_care_event_screen.dart';
 import 'active_treatment_card.dart';
 import 'home_schedule_loader.dart';
 import 'soft_schedule_card.dart';
@@ -392,16 +393,29 @@ class _HomeScreenContentState extends State<HomeScreenContent> {
         (_calculateSecondsLeft(item) / 86400).clamp(0.0, 1.0).toDouble();
   }
 
-  String _getAssetPath(String type) {
+  String? _getAssetPath(String type) {
     switch (type) {
       case 'appointment':
       case 'visit':
         return 'assets/icons/stethoscope.png';
+      case 'injection':
+        return null;
       case 'drop':
         return 'assets/icons/water_drop.png';
       default:
         return 'assets/icons/pill.png';
     }
+  }
+
+  Future<void> _editCareEvent(ScheduleItemModel item) async {
+    final eventId = item.seriesId ?? item.id;
+    if (eventId.isEmpty || !mounted) return;
+    await Navigator.of(context).push<void>(
+      MaterialPageRoute<void>(
+        builder: (_) => EditCareEventScreen(eventId: eventId),
+      ),
+    );
+    if (mounted) await _fetchScheduleFromBackend();
   }
 
   Widget _buildNextOccurrenceCard({
@@ -446,10 +460,17 @@ class _HomeScreenContentState extends State<HomeScreenContent> {
       assetIconPath: item.type == 'injection' ? null : _getAssetPath(item.type),
       progressValue: _progressValue(item),
       secondsLeft: secondsLeft,
-      onTaken: null,
-      onSkipped: null,
-      onEdit: null,
-      showActions: false,
+      onTaken: _submitting.contains(item.id)
+          ? null
+          : () => _reportCareEventStatus(item, 'completed'),
+      onSkipped: _submitting.contains(item.id)
+          ? null
+          : () => _reportCareEventStatus(item, 'cancelled'),
+      onEdit: _submitting.contains(item.id) ? null : () => _editCareEvent(item),
+      isSubmitting: _submitting.contains(item.id),
+      primaryActionLabel: isPersian ? 'انجام شد' : 'Done',
+      editActionLabel: isPersian ? 'ویرایش' : 'Edit',
+      secondaryActionLabel: isPersian ? 'انجام نشد' : 'Not done',
       supportingText: isMissed
           ? '$eventLabel انجام‌نشده • ${item.time}'
           : '$eventLabel • ${item.time}',

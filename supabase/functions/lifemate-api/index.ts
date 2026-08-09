@@ -244,7 +244,9 @@ async function route(
     const episodes = await womenCalendar.listOwnerEpisodes(identity.appUserId);
     const currentUser = await db.currentUser(identity);
     const currentProfile = await presentProfile(identity.appUserId);
-    const relationships = await db.listRelationships(identity.appUserId);
+    const relationships = await presentRelationships(
+      await db.listRelationships(identity.appUserId),
+    );
     const treatmentPlans = await db.listTreatmentPlans(identity.appUserId);
     const dailyLogs = await womenCalendar.listOwnerDailyLogs(
       identity.appUserId,
@@ -736,6 +738,48 @@ async function presentProfile(
     }
   }
   return { ...profile, profilePhotoUrl };
+}
+
+async function presentRelationships(
+  relationships: Record<string, unknown>[],
+): Promise<Record<string, unknown>[]> {
+  const cache = new Map<string, Promise<Record<string, unknown>>>();
+
+  const loadProfile = (userId: string) => {
+    let pending = cache.get(userId);
+    if (pending == null) {
+      pending = presentProfile(userId);
+      cache.set(userId, pending);
+    }
+    return pending;
+  };
+
+  const safeProfile = async (
+    userId: string,
+  ): Promise<Record<string, unknown>> => {
+    if (!userId) return {};
+    try {
+      return await loadProfile(userId);
+    } catch {
+      return {};
+    }
+  };
+
+  const presented: Record<string, unknown>[] = [];
+  for (const relationship of relationships) {
+    const patientUserId = String(relationship.patientUserId ?? "");
+    const caregiverUserId = String(relationship.caregiverUserId ?? "");
+    const patientProfile = await safeProfile(patientUserId);
+    const caregiverProfile = await safeProfile(caregiverUserId);
+    presented.push({
+      ...relationship,
+      patientAvatarKey: patientProfile.avatarKey ?? null,
+      patientProfilePhotoUrl: patientProfile.profilePhotoUrl ?? null,
+      caregiverAvatarKey: caregiverProfile.avatarKey ?? null,
+      caregiverProfilePhotoUrl: caregiverProfile.profilePhotoUrl ?? null,
+    });
+  }
+  return presented;
 }
 
 function requireWomenCalendarPilot(): void {

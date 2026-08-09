@@ -7,7 +7,7 @@ class SoftScheduleCard extends StatelessWidget {
   final ScheduleItemModel item;
   final int index;
   final TextStyle font;
-  final String assetPath;
+  final String? assetPath;
   final bool isMissed;
   final VoidCallback? onTaken;
   final VoidCallback? onCompleted;
@@ -24,6 +24,12 @@ class SoftScheduleCard extends StatelessWidget {
     this.onCompleted,
     this.onNotCompleted,
   }) : super(key: key);
+
+  IconData get _fallbackIcon => switch (item.type) {
+    'injection' => Icons.vaccines_rounded,
+    'appointment' || 'visit' => Icons.medical_services_rounded,
+    _ => Icons.medication,
+  };
 
   @override
   Widget build(BuildContext context) {
@@ -220,16 +226,25 @@ class SoftScheduleCard extends StatelessWidget {
                 borderRadius: BorderRadius.circular(20),
               ),
               child: Center(
-                child: Image.asset(
-                  assetPath,
-                  width: 32,
-                  height: 32,
-                  color: isMissed ? Colors.red.shade700 : null,
-                  errorBuilder: (context, error, stackTrace) => Icon(
-                    Icons.medication,
-                    color: isMissed ? Colors.red.shade700 : AppColors.primary,
-                  ),
-                ),
+                child: assetPath?.trim().isNotEmpty == true
+                    ? Image.asset(
+                        assetPath!,
+                        width: 32,
+                        height: 32,
+                        color: isMissed ? Colors.red.shade700 : null,
+                        errorBuilder: (context, error, stackTrace) => Icon(
+                          _fallbackIcon,
+                          color: isMissed
+                              ? Colors.red.shade700
+                              : AppColors.primary,
+                        ),
+                      )
+                    : Icon(
+                        _fallbackIcon,
+                        color: isMissed
+                            ? Colors.red.shade700
+                            : AppColors.primary,
+                      ),
               ),
             ),
           ],

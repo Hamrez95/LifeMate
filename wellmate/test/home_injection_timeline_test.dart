@@ -66,6 +66,31 @@ void main() {
     expect(injectionNext.map((item) => item.id), ['inj-1']);
   });
 
+  test('injection countdown exposes care actions and vaccine icon', () {
+    final homeSource = File(
+      'lib/screens/home/home_screen_content.dart',
+    ).readAsStringSync();
+    final scheduleCardSource = File(
+      'lib/screens/home/soft_schedule_card.dart',
+    ).readAsStringSync();
+
+    expect(
+      homeSource,
+      contains("primaryActionLabel: isPersian ? 'انجام شد' : 'Done'"),
+    );
+    expect(
+      homeSource,
+      contains("secondaryActionLabel: isPersian ? 'انجام نشد' : 'Not done'"),
+    );
+    expect(homeSource, contains("_reportCareEventStatus(item, 'completed')"));
+    expect(homeSource, contains("_reportCareEventStatus(item, 'cancelled')"));
+    expect(homeSource, contains("case 'injection':\n        return null;"));
+    expect(
+      scheduleCardSource,
+      contains("'injection' => Icons.vaccines_rounded"),
+    );
+  });
+
   test('home countdown UI is fixed rather than a carousel', () {
     final source = File(
       'lib/screens/home/home_screen_content.dart',
