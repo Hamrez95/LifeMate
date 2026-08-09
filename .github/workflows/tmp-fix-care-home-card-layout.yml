@@ -26,8 +26,8 @@ jobs:
           from pathlib import Path
           path = Path('caremate/lib/widgets/care_home_cards.dart')
           text = path.read_text()
-          old = '            height: 194,'
-          new = '            height: 194 * math.max(1.0, MediaQuery.textScalerOf(context).scale(1)),'
+          old = 'height: 194,'
+          new = 'height: 194 * math.max(1.0, MediaQuery.textScalerOf(context).scale(1)),'
           count = text.count(old)
           if count != 2:
               raise SystemExit(f'expected 2 fixed-height cards, found {count}')
