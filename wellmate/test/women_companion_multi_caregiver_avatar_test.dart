@@ -5,6 +5,7 @@ import 'package:provider/provider.dart';
 import 'package:wellmate/screens/women_calendar/women_companion_screen.dart';
 
 void main() {
+  // Covers the real multi-caregiver case where one caregiver has no photo.
   testWidgets(
     'women calendar keeps owner avatar and renders every permitted caregiver',
     (tester) async {
