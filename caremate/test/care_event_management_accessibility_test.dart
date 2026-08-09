@@ -61,10 +61,11 @@ void main() {
       expect(find.byTooltip('حذف'), findsWidgets);
       expect(tester.takeException(), isNull);
 
+      await _returnManagementToTop(tester, scrollable);
       final medicationSelector = find.byKey(
         const ValueKey('caremate-care-type-1'),
       );
-      await tester.ensureVisible(medicationSelector);
+      expect(medicationSelector, findsOneWidget);
       await tester.tap(medicationSelector);
       await tester.pumpAndSettle();
       await tester.scrollUntilVisible(
@@ -77,10 +78,11 @@ void main() {
       expect(find.text('افزودن دارو'), findsOneWidget);
       expect(tester.takeException(), isNull);
 
+      await _returnManagementToTop(tester, scrollable);
       final injectionSelector = find.byKey(
         const ValueKey('caremate-care-type-2'),
       );
-      await tester.ensureVisible(injectionSelector);
+      expect(injectionSelector, findsOneWidget);
       await tester.tap(injectionSelector);
       await tester.pumpAndSettle();
       await tester.scrollUntilVisible(
@@ -113,19 +115,24 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    final lockedFinder = find.byKey(
-      const ValueKey('caremate-health-management-locked'),
+    expect(
+      find.byKey(const ValueKey('caremate-health-management-locked')),
+      findsOneWidget,
     );
-    await tester.scrollUntilVisible(
-      lockedFinder,
-      180,
-      scrollable: find.byType(Scrollable).first,
-    );
-    await tester.pumpAndSettle();
-    expect(lockedFinder, findsOneWidget);
     expect(find.textContaining('مشاهده و ویرایش پرونده سلامت'), findsOneWidget);
     expect(find.text('افزودن دارو'), findsNothing);
   });
+}
+
+Future<void> _returnManagementToTop(
+  WidgetTester tester,
+  Finder scrollable,
+) async {
+  // The management body is lazy, so scrolling deeply can dispose the type
+  // selector widgets. Move the same scrollable back to its leading edge
+  // before trying to switch the management mode again.
+  await tester.fling(scrollable, const Offset(0, 1200), 3000);
+  await tester.pumpAndSettle();
 }
 
 class _CareMateApiClient extends LifeMateApiClient {
