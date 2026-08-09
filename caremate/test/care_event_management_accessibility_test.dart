@@ -48,19 +48,46 @@ void main() {
         expect(tester.getSize(selector).height, greaterThanOrEqualTo(58));
       }
 
+      final scrollable = find.byType(Scrollable).first;
+      await tester.scrollUntilVisible(
+        find.text('ویزیت متخصص قلب'),
+        180,
+        scrollable: scrollable,
+      );
+      await tester.pumpAndSettle();
       expect(find.text('ویزیت متخصص قلب'), findsOneWidget);
       expect(find.text('افزودن ویزیت'), findsOneWidget);
       expect(find.byTooltip('ویرایش'), findsWidgets);
       expect(find.byTooltip('حذف'), findsWidgets);
       expect(tester.takeException(), isNull);
 
-      await tester.tap(find.byKey(const ValueKey('caremate-care-type-1')));
+      final medicationSelector = find.byKey(
+        const ValueKey('caremate-care-type-1'),
+      );
+      await tester.ensureVisible(medicationSelector);
+      await tester.tap(medicationSelector);
+      await tester.pumpAndSettle();
+      await tester.scrollUntilVisible(
+        find.text('متفورمین'),
+        180,
+        scrollable: scrollable,
+      );
       await tester.pumpAndSettle();
       expect(find.text('متفورمین'), findsOneWidget);
       expect(find.text('افزودن دارو'), findsOneWidget);
       expect(tester.takeException(), isNull);
 
-      await tester.tap(find.byKey(const ValueKey('caremate-care-type-2')));
+      final injectionSelector = find.byKey(
+        const ValueKey('caremate-care-type-2'),
+      );
+      await tester.ensureVisible(injectionSelector);
+      await tester.tap(injectionSelector);
+      await tester.pumpAndSettle();
+      await tester.scrollUntilVisible(
+        find.text('ویتامین B12'),
+        180,
+        scrollable: scrollable,
+      );
       await tester.pumpAndSettle();
       expect(find.text('ویتامین B12'), findsOneWidget);
       expect(find.text('افزودن تزریق'), findsOneWidget);
@@ -86,10 +113,16 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    expect(
-      find.byKey(const ValueKey('caremate-health-management-locked')),
-      findsOneWidget,
+    final lockedFinder = find.byKey(
+      const ValueKey('caremate-health-management-locked'),
     );
+    await tester.scrollUntilVisible(
+      lockedFinder,
+      180,
+      scrollable: find.byType(Scrollable).first,
+    );
+    await tester.pumpAndSettle();
+    expect(lockedFinder, findsOneWidget);
     expect(find.textContaining('مشاهده و ویرایش پرونده سلامت'), findsOneWidget);
     expect(find.text('افزودن دارو'), findsNothing);
   });
