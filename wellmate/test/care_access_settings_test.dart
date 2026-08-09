@@ -10,6 +10,11 @@ void main() {
   testWidgets(
     'permission cards keep off switch visible and require explicit consent',
     (tester) async {
+      tester.view.physicalSize = const Size(390, 844);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+
       final management = _FakeManagementApi();
       await tester.pumpWidget(
         Provider<LifeMateApiClient>.value(
@@ -57,6 +62,7 @@ void main() {
         of: find.byKey(const ValueKey('care-permission-health-record')),
         matching: find.byType(Switch),
       );
+      await tester.ensureVisible(healthSwitch);
       await tester.tap(healthSwitch);
       await tester.pumpAndSettle();
 
@@ -67,11 +73,14 @@ void main() {
       expect(confirmFinder, findsOneWidget);
       expect(tester.widget<FilledButton>(confirmFinder).onPressed, isNull);
 
-      await tester.tap(
-        find.byKey(const ValueKey('health-record-consent-checkbox')),
+      final consentFinder = find.byKey(
+        const ValueKey('health-record-consent-checkbox'),
       );
+      await tester.ensureVisible(consentFinder);
+      await tester.tap(consentFinder);
       await tester.pump();
       expect(tester.widget<FilledButton>(confirmFinder).onPressed, isNotNull);
+      await tester.ensureVisible(confirmFinder);
       await tester.tap(confirmFinder);
       await tester.pumpAndSettle();
 
