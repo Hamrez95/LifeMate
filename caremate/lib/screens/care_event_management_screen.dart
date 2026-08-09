@@ -10,8 +10,12 @@ import 'calendar/calendar_screen.dart';
 import 'dashboard_screen.dart';
 import 'feature_preview_screen.dart';
 
+part 'care_event_management_forms.dart';
+
 class CareEventManagementScreen extends StatefulWidget {
-  const CareEventManagementScreen({super.key});
+  const CareEventManagementScreen({super.key, this.managementApi});
+
+  final LifeMateCareManagementApi? managementApi;
 
   @override
   State<CareEventManagementScreen> createState() =>
@@ -19,19 +23,18 @@ class CareEventManagementScreen extends StatefulWidget {
 }
 
 class _CareEventManagementScreenState extends State<CareEventManagementScreen> {
+  late final LifeMateCareManagementApi _managementApi =
+      widget.managementApi ?? LifeMateCareManagementApi.fromEnvironment();
+
   int _selectedType = 0;
   bool _loading = true;
+  bool _working = false;
   String? _error;
   String? _selectedRelationshipId;
   List<Map<String, dynamic>> _relationships = const [];
-  List<Map<String, dynamic>> _doses = const [];
+  List<Map<String, dynamic>> _plans = const [];
   List<Map<String, dynamic>> _events = const [];
-
-  @override
-  void initState() {
-    super.initState();
-    _refresh();
-  }
+  bool _canManageHealthRecord = false;
 
   Map<String, dynamic>? get _selectedRelationship {
     for (final relationship in _relationships) {
@@ -42,11 +45,22 @@ class _CareEventManagementScreenState extends State<CareEventManagementScreen> {
     return null;
   }
 
+  String get _patientUserId =>
+      _selectedRelationship?['patientUserId']?.toString() ?? '';
+
+  @override
+  void initState() {
+    super.initState();
+    _refresh();
+  }
+
   Future<void> _refresh() async {
-    setState(() {
-      _loading = true;
-      _error = null;
-    });
+    if (mounted) {
+      setState(() {
+        _loading = true;
+        _error = null;
+      });
+    }
     try {
       final api = context.read<LifeMateApiClient>();
       final values = await Future.wait([
@@ -54,8 +68,8 @@ class _CareEventManagementScreenState extends State<CareEventManagementScreen> {
         api.getCareRelationships(),
       ]);
       final current = values[0] as Map<String, dynamic>;
-      final user = current['user'] as Map<String, dynamic>? ?? const {};
-      final currentUserId = user['id']?.toString();
+      final currentUser = current['user'] as Map<String, dynamic>? ?? const {};
+      final currentUserId = currentUser['id']?.toString();
       final relationships = (values[1] as List<Map<String, dynamic>>)
           .where(
             (item) =>
@@ -79,7 +93,7 @@ class _CareEventManagementScreenState extends State<CareEventManagementScreen> {
     } on LifeMateApiException catch (error) {
       _setError(_friendlyError(error));
     } catch (error) {
-      debugPrint('CareMate treatment workspace load failed: $error');
+      debugPrint('CareMate management load failed: $error');
       _setError('اطلاعات درمان دریافت نشد. اتصال اینترنت را بررسی کنید.');
     } finally {
       if (mounted) setState(() => _loading = false);
@@ -91,30 +105,41 @@ class _CareEventManagementScreenState extends State<CareEventManagementScreen> {
     if (relationship == null) {
       if (mounted) {
         setState(() {
-          _doses = const [];
+          _plans = const [];
           _events = const [];
+          _canManageHealthRecord = false;
         });
       }
       return;
     }
+
+    final permission = await _managementApi.getRelationshipPermission(
+      relationshipId: relationship['id'].toString(),
+    );
+    final canManage = permission['canManageHealthRecord'] == true;
+    if (!canManage) {
+      if (mounted) {
+        setState(() {
+          _plans = const [];
+          _events = const [];
+          _canManageHealthRecord = false;
+        });
+      }
+      return;
+    }
+
     final patientUserId = relationship['patientUserId'].toString();
-    final today = DateTime.now();
-    final results = await Future.wait([
-      context.read<LifeMateApiClient>().getCareRecipientDoseOccurrences(
-        patientUserId: patientUserId,
-        fromDate: today,
-        toDate: today.add(const Duration(days: 7)),
-      ),
-      context.read<LifeMateApiClient>().getCareRecipientCareEvents(
-        patientUserId: patientUserId,
-        fromDate: today.subtract(const Duration(days: 1)),
-        toDate: today.add(const Duration(days: 30)),
-      ),
+    final values = await Future.wait([
+      _managementApi.getTreatmentPlans(patientUserId: patientUserId),
+      _managementApi.getCareEvents(patientUserId: patientUserId),
     ]);
     if (!mounted) return;
     setState(() {
-      _doses = results[0];
-      _events = results[1];
+      _canManageHealthRecord = true;
+      _plans = values[0] as List<Map<String, dynamic>>;
+      _events = (values[1] as List<Map<String, dynamic>>)
+          .where((event) => event['status']?.toString() != 'cancelled')
+          .toList(growable: false);
     });
   }
 
@@ -124,15 +149,16 @@ class _CareEventManagementScreenState extends State<CareEventManagementScreen> {
       _selectedRelationshipId = id;
       _loading = true;
       _error = null;
-      _doses = const [];
+      _plans = const [];
       _events = const [];
+      _canManageHealthRecord = false;
     });
     try {
       await _loadSelectedPatientData();
     } on LifeMateApiException catch (error) {
       _setError(_friendlyError(error));
     } catch (error) {
-      debugPrint('CareMate patient data switch failed: $error');
+      debugPrint('CareMate patient switch failed: $error');
       _setError('برنامه فرد تحت مراقبت دریافت نشد.');
     } finally {
       if (mounted) setState(() => _loading = false);
@@ -145,6 +171,283 @@ class _CareEventManagementScreenState extends State<CareEventManagementScreen> {
       _error = message;
       _loading = false;
     });
+  }
+
+  String _friendlyError(LifeMateApiException error) {
+    return switch (error.code) {
+      'health_record_management_denied' =>
+        'اجازه مشاهده و ویرایش پرونده سلامت برای این مراقب فعال نیست.',
+      'stale_treatment_plan' || 'stale_medication' || 'stale_care_event' =>
+        'اطلاعات درمان تغییر کرده است. صفحه را تازه کنید و دوباره تلاش کنید.',
+      'relationship_not_found' || 'care_access_denied' =>
+        'رابطه مراقبتی فعال نیست یا دسترسی شما لغو شده است.',
+      _ when error.isUnauthorized => 'نشست شما منقضی شده است. دوباره وارد شوید.',
+      _ => 'درخواست انجام نشد. دوباره تلاش کنید.',
+    };
+  }
+
+  void _notice({
+    required LifeMateNoticeType type,
+    required String title,
+    required String message,
+  }) {
+    if (!mounted) return;
+    LifeMateNotice.show(context, type: type, title: title, message: message);
+  }
+
+  Future<void> _runMutation(
+    Future<void> Function() mutation, {
+    required String successTitle,
+    required String successMessage,
+  }) async {
+    if (_working) return;
+    setState(() => _working = true);
+    try {
+      await mutation();
+      _notice(
+        type: LifeMateNoticeType.success,
+        title: successTitle,
+        message: successMessage,
+      );
+      await _loadSelectedPatientData();
+    } on LifeMateApiException catch (error) {
+      _notice(
+        type: LifeMateNoticeType.error,
+        title: 'تغییر ذخیره نشد',
+        message: _friendlyError(error),
+      );
+      if (error.code.startsWith('stale_')) await _loadSelectedPatientData();
+    } catch (error) {
+      debugPrint('CareMate management mutation failed: $error');
+      _notice(
+        type: LifeMateNoticeType.error,
+        title: 'تغییر ذخیره نشد',
+        message: 'اتصال را بررسی کنید و دوباره تلاش کنید.',
+      );
+    } finally {
+      if (mounted) setState(() => _working = false);
+    }
+  }
+
+  Future<void> _openMedicationForm([Map<String, dynamic>? plan]) async {
+    final patientId = _patientUserId;
+    if (patientId.isEmpty || !_canManageHealthRecord) return;
+    final draft = await showModalBottomSheet<_MedicationDraft>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (_) => _MedicationFormSheet(plan: plan),
+    );
+    if (draft == null || !mounted) return;
+
+    if (plan == null) {
+      await _runMutation(
+        () async {
+          await _managementApi.createTreatmentPlan(
+            patientUserId: patientId,
+            medicationName: draft.medicationName,
+            strengthText: draft.strengthText,
+            form: draft.form,
+            doseText: draft.doseText,
+            instructions: draft.instructions,
+            startDate: draft.startDate,
+            endDate: draft.endDate,
+            timeZone: 'Asia/Tehran',
+            schedules: draft.schedules,
+          );
+        },
+        successTitle: 'دارو اضافه شد',
+        successMessage: 'برنامه دارویی در پرونده سلامت ثبت شد.',
+      );
+      return;
+    }
+
+    final medication =
+        plan['medication'] as Map<String, dynamic>? ?? const <String, dynamic>{};
+    await _runMutation(
+      () async {
+        await _managementApi.updateTreatmentPlan(
+          patientUserId: patientId,
+          treatmentPlanId: plan['id'].toString(),
+          version: _asInt(plan['version'], 1),
+          medicationVersion: _asInt(medication['version'], 1),
+          medicationName: draft.medicationName,
+          strengthText: draft.strengthText,
+          form: draft.form,
+          doseText: draft.doseText,
+          instructions: draft.instructions,
+          startDate: draft.startDate,
+          endDate: draft.endDate,
+          timeZone: plan['timeZone']?.toString() ?? 'Asia/Tehran',
+          schedules: draft.schedules,
+          patientReminderMinutesBefore: _asInt(
+            plan['patientReminderMinutesBefore'],
+            LifeMateReminderLeadTimes.defaultPatientMinutes,
+          ),
+          caregiverReminderMinutesBefore: _asInt(
+            plan['caregiverReminderMinutesBefore'],
+            LifeMateReminderLeadTimes.defaultCaregiverMinutes,
+          ),
+          status: plan['status']?.toString() ?? 'active',
+        );
+      },
+      successTitle: 'دارو ویرایش شد',
+      successMessage: 'تغییرات برنامه دارویی ذخیره شد.',
+    );
+  }
+
+  Future<void> _deleteMedication(Map<String, dynamic> plan) async {
+    final confirmed = await _confirmDelete(
+      title: 'حذف برنامه دارویی؟',
+      message:
+          'این برنامه از درمان‌های فعال خارج می‌شود و نوبت‌های آینده آن حذف می‌شوند. سابقه تغییر برای پیگیری امنیتی نگه داشته می‌شود.',
+    );
+    if (!confirmed || !mounted) return;
+    await _runMutation(
+      () => _managementApi.deleteTreatmentPlan(
+        patientUserId: _patientUserId,
+        treatmentPlanId: plan['id'].toString(),
+        version: _asInt(plan['version'], 1),
+      ),
+      successTitle: 'برنامه دارویی حذف شد',
+      successMessage: 'این درمان دیگر در برنامه فعال بیمار نیست.',
+    );
+  }
+
+  Future<void> _openCareEventForm(
+    String eventType, [
+    Map<String, dynamic>? event,
+  ]) async {
+    final patientId = _patientUserId;
+    if (patientId.isEmpty || !_canManageHealthRecord) return;
+    final draft = await showModalBottomSheet<_CareEventDraft>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (_) => _CareEventFormSheet(eventType: eventType, event: event),
+    );
+    if (draft == null || !mounted) return;
+
+    if (event == null) {
+      await _runMutation(
+        () async {
+          await _managementApi.createCareEvent(
+            patientUserId: patientId,
+            clientRequestId: LifeMateApiClient.createClientRequestId(),
+            eventType: eventType,
+            title: draft.title,
+            providerName: draft.providerName,
+            specialty: draft.specialty,
+            medicationName: eventType == 'injection'
+                ? draft.medicationName
+                : null,
+            doseText: eventType == 'injection' ? draft.doseText : null,
+            administrationRoute: eventType == 'injection'
+                ? draft.administrationRoute
+                : null,
+            reason: draft.reason,
+            instructions: draft.instructions,
+            centerName: draft.centerName,
+            addressLine: draft.addressLine,
+            phoneNumber: draft.phoneNumber,
+            scheduledLocalDate: draft.date,
+            scheduledLocalTime: draft.time,
+            timeZone: 'Asia/Tehran',
+          );
+        },
+        successTitle: eventType == 'injection' ? 'تزریق اضافه شد' : 'ویزیت اضافه شد',
+        successMessage: 'نوبت جدید در پرونده سلامت ثبت شد.',
+      );
+      return;
+    }
+
+    final eventId = event['seriesId']?.toString() ?? event['id'].toString();
+    await _runMutation(
+      () async {
+        await _managementApi.updateCareEvent(
+          patientUserId: patientId,
+          eventId: eventId,
+          version: _asInt(event['version'], 1),
+          eventType: eventType,
+          title: draft.title,
+          providerName: draft.providerName,
+          specialty: draft.specialty,
+          medicationName: eventType == 'injection'
+              ? draft.medicationName
+              : null,
+          doseText: eventType == 'injection' ? draft.doseText : null,
+          administrationRoute: eventType == 'injection'
+              ? draft.administrationRoute
+              : null,
+          reason: draft.reason,
+          instructions: draft.instructions,
+          centerName: draft.centerName,
+          addressLine: draft.addressLine,
+          phoneNumber: draft.phoneNumber,
+          scheduledLocalDate: draft.date,
+          scheduledLocalTime: draft.time,
+          timeZone: event['timeZone']?.toString() ?? 'Asia/Tehran',
+          patientReminderMinutesBefore: _asInt(
+            event['patientReminderMinutesBefore'],
+            LifeMateReminderLeadTimes.defaultPatientMinutes,
+          ),
+          caregiverReminderMinutesBefore: _asInt(
+            event['caregiverReminderMinutesBefore'],
+            LifeMateReminderLeadTimes.defaultCaregiverMinutes,
+          ),
+        );
+      },
+      successTitle: eventType == 'injection' ? 'تزریق ویرایش شد' : 'ویزیت ویرایش شد',
+      successMessage: 'تغییرات نوبت ذخیره شد.',
+    );
+  }
+
+  Future<void> _deleteCareEvent(Map<String, dynamic> event) async {
+    final type = event['eventType']?.toString() == 'injection'
+        ? 'تزریق'
+        : 'ویزیت';
+    final confirmed = await _confirmDelete(
+      title: 'حذف $type؟',
+      message:
+          'این نوبت از برنامه فعال حذف می‌شود. سابقه تغییر برای پیگیری امنیتی نگه داشته می‌شود.',
+    );
+    if (!confirmed || !mounted) return;
+    await _runMutation(
+      () => _managementApi.deleteCareEvent(
+        patientUserId: _patientUserId,
+        eventId: event['seriesId']?.toString() ?? event['id'].toString(),
+        version: _asInt(event['version'], 1),
+      ),
+      successTitle: '$type حذف شد',
+      successMessage: 'این نوبت دیگر در برنامه فعال بیمار نیست.',
+    );
+  }
+
+  Future<bool> _confirmDelete({
+    required String title,
+    required String message,
+  }) async {
+    final result = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+        icon: const Icon(Icons.delete_outline_rounded, color: Colors.redAccent),
+        title: Text(title),
+        content: Text(message, style: const TextStyle(height: 1.65)),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, false),
+            child: const Text('انصراف'),
+          ),
+          FilledButton(
+            style: FilledButton.styleFrom(backgroundColor: Colors.redAccent),
+            onPressed: () => Navigator.pop(dialogContext, true),
+            child: const Text('حذف'),
+          ),
+        ],
+      ),
+    );
+    return result == true;
   }
 
   void _onNavigationTap(int index) {
@@ -163,24 +466,16 @@ class _CareEventManagementScreenState extends State<CareEventManagementScreen> {
     );
   }
 
-  String _friendlyError(LifeMateApiException error) {
-    if (error.isUnauthorized) {
-      return 'نشست شما منقضی شده است. دوباره وارد شوید.';
-    }
-    if (error.code == 'care_access_denied') {
-      return 'دسترسی مراقبتی این بیمار فعال نیست.';
-    }
-    if (error.code == 'route_not_found') {
-      return 'بخش ویزیت و تزریق هنوز روی سرور این نسخه فعال نشده است.';
-    }
-    return 'درخواست انجام نشد. دوباره تلاش کنید.';
-  }
-
   @override
   Widget build(BuildContext context) {
     final relationship = _selectedRelationship;
     final patientName =
         relationship?['patientDisplayName']?.toString() ?? 'فرد تحت مراقبت';
+
+    final filteredEvents = _events.where((event) {
+      final type = event['eventType']?.toString();
+      return _selectedType == 0 ? type == 'appointment' : type == 'injection';
+    }).toList(growable: false);
 
     return Scaffold(
       backgroundColor: AppColors.background,
@@ -203,7 +498,7 @@ class _CareEventManagementScreenState extends State<CareEventManagementScreen> {
                   padding: const EdgeInsets.fromLTRB(20, 8, 20, 128),
                   children: [
                     const Text(
-                      'افزودن برنامه مراقبتی',
+                      'مدیریت پرونده سلامت',
                       style: TextStyle(
                         fontSize: 22,
                         fontWeight: FontWeight.w900,
@@ -211,9 +506,11 @@ class _CareEventManagementScreenState extends State<CareEventManagementScreen> {
                       ),
                     ),
                     const SizedBox(height: 5),
-                    const Text(
-                      'درمان، ویزیت و تزریق به‌صورت جدا نمایش داده می‌شوند. اطلاعات واقعی فقط در محدوده رضایت بیمار خوانده می‌شود.',
-                      style: TextStyle(
+                    Text(
+                      _canManageHealthRecord
+                          ? 'با اجازه صریح بیمار، می‌توانید دارو، ویزیت و تزریق را اضافه، ویرایش یا حذف کنید.'
+                          : 'دسترسی ویرایش فقط با اجازه صریح بیمار از WellMate فعال می‌شود.',
+                      style: const TextStyle(
                         color: AppColors.secondaryText,
                         height: 1.55,
                       ),
@@ -227,8 +524,7 @@ class _CareEventManagementScreenState extends State<CareEventManagementScreen> {
                     const SizedBox(height: 16),
                     _TypeSelector(
                       selectedIndex: _selectedType,
-                      onChanged: (index) =>
-                          setState(() => _selectedType = index),
+                      onChanged: (index) => setState(() => _selectedType = index),
                     ),
                     const SizedBox(height: 18),
                     if (_error != null) ...[
@@ -242,28 +538,36 @@ class _CareEventManagementScreenState extends State<CareEventManagementScreen> {
                       )
                     else if (relationship == null)
                       const _NoPatientState()
+                    else if (!_canManageHealthRecord)
+                      _LockedManagementCard(patientName: patientName)
                     else ...[
-                      _PermissionNotice(patientName: patientName),
+                      _GrantedPermissionCard(patientName: patientName),
                       const SizedBox(height: 16),
                       switch (_selectedType) {
-                        0 => _AppointmentWorkspace(
-                          events: _events
-                              .where(
-                                (event) =>
-                                    event['eventType']?.toString() ==
-                                    'appointment',
-                              )
-                              .toList(growable: false),
+                        1 => _MedicationWorkspace(
+                          plans: _plans,
+                          working: _working,
+                          onAdd: () => _openMedicationForm(),
+                          onEdit: _openMedicationForm,
+                          onDelete: _deleteMedication,
                         ),
-                        1 => _MedicationWorkspace(doses: _doses),
-                        _ => _InjectionWorkspace(
-                          events: _events
-                              .where(
-                                (event) =>
-                                    event['eventType']?.toString() ==
-                                    'injection',
-                              )
-                              .toList(growable: false),
+                        0 => _CareEventWorkspace(
+                          type: 'appointment',
+                          events: filteredEvents,
+                          working: _working,
+                          onAdd: () => _openCareEventForm('appointment'),
+                          onEdit: (event) =>
+                              _openCareEventForm('appointment', event),
+                          onDelete: _deleteCareEvent,
+                        ),
+                        _ => _CareEventWorkspace(
+                          type: 'injection',
+                          events: filteredEvents,
+                          working: _working,
+                          onAdd: () => _openCareEventForm('injection'),
+                          onEdit: (event) =>
+                              _openCareEventForm('injection', event),
+                          onDelete: _deleteCareEvent,
                         ),
                       },
                     ],
@@ -291,9 +595,9 @@ class _TypeSelector extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     const items = [
-      (Icons.medical_services_rounded, 'ویزیت پزشکی'),
-      (Icons.medication_rounded, 'داروی جدید'),
-      (Icons.vaccines_rounded, 'تزریقات'),
+      (Icons.medical_services_rounded, 'ویزیت'),
+      (Icons.medication_rounded, 'دارو'),
+      (Icons.vaccines_rounded, 'تزریق'),
     ];
     return Container(
       padding: const EdgeInsets.all(5),
@@ -311,12 +615,11 @@ class _TypeSelector extends StatelessWidget {
       child: Row(
         children: List.generate(items.length, (index) {
           final selected = selectedIndex == index;
-          final item = items[index];
           return Expanded(
             child: Semantics(
               button: true,
               selected: selected,
-              label: item.$2,
+              label: items[index].$2,
               child: InkWell(
                 key: ValueKey('caremate-care-type-$index'),
                 borderRadius: BorderRadius.circular(17),
@@ -335,24 +638,17 @@ class _TypeSelector extends StatelessWidget {
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       Icon(
-                        item.$1,
+                        items[index].$1,
                         size: 21,
-                        color: selected
-                            ? Colors.white
-                            : AppColors.secondaryText,
+                        color: selected ? Colors.white : AppColors.secondaryText,
                       ),
                       const SizedBox(height: 4),
                       Text(
-                        item.$2,
-                        maxLines: 1,
-                        overflow: TextOverflow.fade,
-                        softWrap: false,
+                        items[index].$2,
                         style: TextStyle(
-                          fontSize: 10,
+                          fontSize: 10.5,
                           fontWeight: FontWeight.w800,
-                          color: selected
-                              ? Colors.white
-                              : AppColors.secondaryText,
+                          color: selected ? Colors.white : AppColors.secondaryText,
                         ),
                       ),
                     ],
@@ -385,23 +681,13 @@ class _PatientSelector extends StatelessWidget {
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(20),
-        boxShadow: [
-          BoxShadow(
-            color: AppColors.primaryBlue.withValues(alpha: 0.06),
-            blurRadius: 16,
-            offset: const Offset(0, 6),
-          ),
-        ],
       ),
       child: relationships.isEmpty
           ? const ListTile(
               contentPadding: EdgeInsets.zero,
               leading: CircleAvatar(
                 backgroundColor: Color(0xFFEAF4FF),
-                child: Icon(
-                  Icons.person_search_rounded,
-                  color: AppColors.primaryBlue,
-                ),
+                child: Icon(Icons.person_search_rounded, color: AppColors.primaryBlue),
               ),
               title: Text('فرد تحت مراقبت انتخاب نشده'),
               subtitle: Text('ابتدا دعوت معتبر بیمار را بپذیرید.'),
@@ -416,28 +702,11 @@ class _PatientSelector extends StatelessWidget {
                     .map(
                       (relationship) => DropdownMenuItem<String>(
                         value: relationship['id']?.toString(),
-                        child: Row(
-                          children: [
-                            const CircleAvatar(
-                              backgroundColor: Color(0xFFEAF4FF),
-                              child: Icon(
-                                Icons.person_rounded,
-                                color: AppColors.primaryBlue,
-                              ),
-                            ),
-                            const SizedBox(width: 12),
-                            Expanded(
-                              child: Text(
-                                relationship['patientDisplayName']
-                                        ?.toString() ??
-                                    'فرد تحت مراقبت',
-                                overflow: TextOverflow.ellipsis,
-                                style: const TextStyle(
-                                  fontWeight: FontWeight.w800,
-                                ),
-                              ),
-                            ),
-                          ],
+                        child: Text(
+                          relationship['patientDisplayName']?.toString() ??
+                              'فرد تحت مراقبت',
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(fontWeight: FontWeight.w800),
                         ),
                       ),
                     )
@@ -449,337 +718,167 @@ class _PatientSelector extends StatelessWidget {
   }
 }
 
-class _PermissionNotice extends StatelessWidget {
-  const _PermissionNotice({required this.patientName});
+class _LockedManagementCard extends StatelessWidget {
+  const _LockedManagementCard({required this.patientName});
 
   final String patientName;
 
   @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: const Color(0xFFFFF8E8),
-        borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: const Color(0xFFFFE3A0)),
+  Widget build(BuildContext context) => Container(
+    key: const ValueKey('caremate-health-management-locked'),
+    padding: const EdgeInsets.all(20),
+    decoration: BoxDecoration(
+      gradient: const LinearGradient(
+        begin: Alignment.topRight,
+        end: Alignment.bottomLeft,
+        colors: [Color(0xFFF4F1FF), Color(0xFFEAF4FF)],
       ),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Icon(Icons.lock_outline_rounded, color: Color(0xFFC58B00)),
-          const SizedBox(width: 10),
-          Expanded(
-            child: Text(
-              'فرم‌ها برای $patientName کامل هستند، اما ثبت یا تغییر درمان توسط CareMate تا اضافه‌شدن مجوز صریح «مدیریت برنامه درمان» غیرفعال است. اطلاعات موجود به‌صورت واقعی و فقط خواندنی نمایش داده می‌شود.',
-              style: const TextStyle(height: 1.55, color: Color(0xFF735200)),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _AppointmentWorkspace extends StatelessWidget {
-  const _AppointmentWorkspace({required this.events});
-
-  final List<Map<String, dynamic>> events;
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
+      borderRadius: BorderRadius.circular(26),
+      border: Border.all(color: const Color(0xFFD9D7F7)),
+    ),
+    child: Column(
       children: [
-        const _ReadOnlyForm(
-          icon: Icons.medical_services_rounded,
-          title: 'فرم ویزیت پزشکی',
-          fields: [
-            ('نام پزشک', Icons.person_rounded),
-            ('تخصص', Icons.workspace_premium_rounded),
-            ('دلیل مراجعه', Icons.notes_rounded),
-            ('نام مطب / مرکز درمانی', Icons.local_hospital_rounded),
-            ('آدرس کامل', Icons.map_rounded),
-            ('شماره تماس', Icons.phone_rounded),
-            ('تاریخ و ساعت', Icons.schedule_rounded),
-            ('یادداشت و مدارک همراه', Icons.description_rounded),
-          ],
+        const CircleAvatar(
+          radius: 27,
+          backgroundColor: Colors.white,
+          child: Icon(Icons.lock_rounded, color: Color(0xFF6C74D9), size: 28),
         ),
-        const SizedBox(height: 18),
-        _LiveEventList(
-          title: 'ویزیت‌های ثبت‌شده',
-          emptyText: 'ویزیتی برای ۳۰ روز آینده ثبت نشده است.',
-          events: events,
+        const SizedBox(height: 14),
+        const Text(
+          'اجازه مدیریت پرونده فعال نیست',
+          style: TextStyle(fontSize: 17, fontWeight: FontWeight.w900),
+        ),
+        const SizedBox(height: 7),
+        Text(
+          '$patientName باید در WellMate از «تنظیمات دسترسی» گزینه «مشاهده و ویرایش پرونده سلامت» را با تأیید آگاهانه فعال کند.',
+          textAlign: TextAlign.center,
+          style: const TextStyle(height: 1.65, color: AppColors.secondaryText),
         ),
       ],
-    );
-  }
+    ),
+  );
+}
+
+class _GrantedPermissionCard extends StatelessWidget {
+  const _GrantedPermissionCard({required this.patientName});
+
+  final String patientName;
+
+  @override
+  Widget build(BuildContext context) => Container(
+    key: const ValueKey('caremate-health-management-granted'),
+    padding: const EdgeInsets.all(14),
+    decoration: BoxDecoration(
+      color: const Color(0xFFEAF8F2),
+      borderRadius: BorderRadius.circular(18),
+      border: Border.all(color: const Color(0xFFC8EEDD)),
+    ),
+    child: Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Icon(Icons.verified_user_rounded, color: Color(0xFF21855F)),
+        const SizedBox(width: 10),
+        Expanded(
+          child: Text(
+            'اجازه صریح $patientName فعال است. هر تغییر با حساب شما ثبت می‌شود و بیمار می‌تواند هر زمان این دسترسی را لغو کند.',
+            style: const TextStyle(height: 1.55, color: Color(0xFF256349)),
+          ),
+        ),
+      ],
+    ),
+  );
 }
 
 class _MedicationWorkspace extends StatelessWidget {
-  const _MedicationWorkspace({required this.doses});
-
-  final List<Map<String, dynamic>> doses;
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        const _ReadOnlyForm(
-          icon: Icons.medication_rounded,
-          title: 'فرم داروی جدید',
-          fields: [
-            ('نام دارو', Icons.medication_rounded),
-            ('قدرت / غلظت', Icons.science_rounded),
-            ('شکل دارویی', Icons.category_rounded),
-            ('مقدار مصرف', Icons.straighten_rounded),
-            ('دلیل مصرف', Icons.notes_rounded),
-            ('ساعت یا چند ساعت مصرف', Icons.schedule_rounded),
-            ('روزها و بازه درمان', Icons.date_range_rounded),
-            ('منطقه زمانی و مرور نهایی', Icons.public_rounded),
-          ],
-        ),
-        const SizedBox(height: 18),
-        const Text(
-          'برنامه واقعی هفت روز آینده',
-          style: TextStyle(fontSize: 17, fontWeight: FontWeight.w900),
-        ),
-        const SizedBox(height: 10),
-        if (doses.isEmpty)
-          const _InlineEmpty(text: 'دوز دارویی فعالی در این بازه وجود ندارد.')
-        else
-          ...doses.map(
-            (dose) => Padding(
-              padding: const EdgeInsets.only(bottom: 10),
-              child: _DoseTile(dose: dose),
-            ),
-          ),
-      ],
-    );
-  }
-}
-
-class _InjectionWorkspace extends StatelessWidget {
-  const _InjectionWorkspace({required this.events});
-
-  final List<Map<String, dynamic>> events;
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        const _ReadOnlyForm(
-          icon: Icons.vaccines_rounded,
-          title: 'فرم تزریقات',
-          fields: [
-            ('نام داروی تزریقی', Icons.medication_liquid_rounded),
-            ('دوز یا مقدار', Icons.straighten_rounded),
-            ('روش تزریق', Icons.route_rounded),
-            ('نام درمانگر / مرکز تزریقات', Icons.health_and_safety_rounded),
-            ('آدرس کامل', Icons.map_rounded),
-            ('شماره تماس', Icons.phone_rounded),
-            ('تاریخ و ساعت', Icons.schedule_rounded),
-            ('دستور و نکات همراه', Icons.description_rounded),
-          ],
-        ),
-        const SizedBox(height: 18),
-        _LiveEventList(
-          title: 'تزریق‌های ثبت‌شده',
-          emptyText: 'نوبت تزریقی برای ۳۰ روز آینده ثبت نشده است.',
-          events: events,
-        ),
-      ],
-    );
-  }
-}
-
-class _ReadOnlyForm extends StatelessWidget {
-  const _ReadOnlyForm({
-    required this.icon,
-    required this.title,
-    required this.fields,
+  const _MedicationWorkspace({
+    required this.plans,
+    required this.working,
+    required this.onAdd,
+    required this.onEdit,
+    required this.onDelete,
   });
 
-  final IconData icon;
-  final String title;
-  final List<(String, IconData)> fields;
+  final List<Map<String, dynamic>> plans;
+  final bool working;
+  final VoidCallback onAdd;
+  final ValueChanged<Map<String, dynamic>> onEdit;
+  final ValueChanged<Map<String, dynamic>> onDelete;
 
   @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(17),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(24),
-        boxShadow: [
-          BoxShadow(
-            color: AppColors.primaryBlue.withValues(alpha: 0.06),
-            blurRadius: 18,
-            offset: const Offset(0, 7),
-          ),
-        ],
+  Widget build(BuildContext context) => Column(
+    children: [
+      _WorkspaceHeader(
+        icon: Icons.medication_rounded,
+        title: 'داروها',
+        actionLabel: 'افزودن دارو',
+        working: working,
+        onAdd: onAdd,
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Container(
-                width: 44,
-                height: 44,
-                decoration: BoxDecoration(
-                  color: const Color(0xFFEAF4FF),
-                  borderRadius: BorderRadius.circular(14),
-                ),
-                child: Icon(icon, color: AppColors.primaryBlue),
-              ),
-              const SizedBox(width: 11),
-              Expanded(
-                child: Text(
-                  title,
-                  style: const TextStyle(
-                    fontSize: 17,
-                    fontWeight: FontWeight.w900,
-                    color: AppColors.primaryText,
-                  ),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 16),
-          ...fields.map(
-            (field) => Padding(
-              padding: const EdgeInsets.only(bottom: 14),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Padding(
-                    padding: const EdgeInsetsDirectional.only(start: 4, end: 4),
-                    child: Text(
-                      field.$1,
-                      style: const TextStyle(
-                        fontSize: 13,
-                        height: 1.35,
-                        fontWeight: FontWeight.w800,
-                        color: AppColors.primaryText,
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 7),
-                  Container(
-                    key: ValueKey<String>(
-                      'caremate-readonly-field-${field.$1}',
-                    ),
-                    width: double.infinity,
-                    constraints: BoxConstraints(
-                      minHeight:
-                          field.$1.contains('آدرس') ||
-                              field.$1.contains('یادداشت') ||
-                              field.$1.contains('دلیل') ||
-                              field.$1.contains('دستور')
-                          ? 84
-                          : 62,
-                    ),
-                    padding: const EdgeInsetsDirectional.fromSTEB(
-                      13,
-                      11,
-                      13,
-                      11,
-                    ),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFFF6F9FD),
-                      borderRadius: BorderRadius.circular(17),
-                      border: Border.all(
-                        color: AppColors.primaryBlue.withValues(alpha: 0.08),
-                      ),
-                    ),
-                    child: Row(
-                      crossAxisAlignment: CrossAxisAlignment.center,
-                      children: [
-                        Container(
-                          width: 40,
-                          height: 40,
-                          decoration: BoxDecoration(
-                            color: const Color(0xFFEAF4FF),
-                            borderRadius: BorderRadius.circular(13),
-                          ),
-                          child: Icon(
-                            field.$2,
-                            size: 21,
-                            color: AppColors.primaryBlue,
-                          ),
-                        ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: Text(
-                            'ثبت نشده',
-                            style: TextStyle(
-                              fontSize: 12,
-                              height: 1.4,
-                              color: AppColors.secondaryText.withValues(
-                                alpha: 0.82,
-                              ),
-                            ),
-                          ),
-                        ),
-                        const SizedBox(width: 8),
-                        Icon(
-                          Icons.lock_outline_rounded,
-                          size: 17,
-                          color: AppColors.secondaryText.withValues(
-                            alpha: 0.62,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
+      const SizedBox(height: 12),
+      if (plans.isEmpty)
+        const _InlineEmpty(text: 'برنامه دارویی فعالی ثبت نشده است.')
+      else
+        ...plans.map(
+          (plan) => Padding(
+            padding: const EdgeInsets.only(bottom: 10),
+            child: _TreatmentPlanCard(
+              plan: plan,
+              working: working,
+              onEdit: () => onEdit(plan),
+              onDelete: () => onDelete(plan),
             ),
           ),
-          SizedBox(
-            width: double.infinity,
-            child: FilledButton.icon(
-              onPressed: null,
-              icon: const Icon(Icons.lock_rounded),
-              label: const Text('ثبت نیازمند مجوز صریح بیمار'),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
+        ),
+    ],
+  );
 }
 
-class _LiveEventList extends StatelessWidget {
-  const _LiveEventList({
-    required this.title,
-    required this.emptyText,
+class _CareEventWorkspace extends StatelessWidget {
+  const _CareEventWorkspace({
+    required this.type,
     required this.events,
+    required this.working,
+    required this.onAdd,
+    required this.onEdit,
+    required this.onDelete,
   });
 
-  final String title;
-  final String emptyText;
+  final String type;
   final List<Map<String, dynamic>> events;
+  final bool working;
+  final VoidCallback onAdd;
+  final ValueChanged<Map<String, dynamic>> onEdit;
+  final ValueChanged<Map<String, dynamic>> onDelete;
 
   @override
   Widget build(BuildContext context) {
+    final injection = type == 'injection';
     return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(
-          title,
-          style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w900),
+        _WorkspaceHeader(
+          icon: injection ? Icons.vaccines_rounded : Icons.medical_services_rounded,
+          title: injection ? 'تزریق‌ها' : 'ویزیت‌ها',
+          actionLabel: injection ? 'افزودن تزریق' : 'افزودن ویزیت',
+          working: working,
+          onAdd: onAdd,
         ),
-        const SizedBox(height: 10),
+        const SizedBox(height: 12),
         if (events.isEmpty)
-          _InlineEmpty(text: emptyText)
+          _InlineEmpty(
+            text: injection
+                ? 'تزریق فعالی در این بازه ثبت نشده است.'
+                : 'ویزیت فعالی در این بازه ثبت نشده است.',
+          )
         else
           ...events.map(
             (event) => Padding(
               padding: const EdgeInsets.only(bottom: 10),
-              child: _EventTile(event: event),
+              child: _CareEventCard(
+                event: event,
+                working: working,
+                onEdit: () => onEdit(event),
+                onDelete: () => onDelete(event),
+              ),
             ),
           ),
       ],
@@ -787,223 +886,259 @@ class _LiveEventList extends StatelessWidget {
   }
 }
 
-class _EventTile extends StatelessWidget {
-  const _EventTile({required this.event});
+class _WorkspaceHeader extends StatelessWidget {
+  const _WorkspaceHeader({
+    required this.icon,
+    required this.title,
+    required this.actionLabel,
+    required this.working,
+    required this.onAdd,
+  });
 
-  final Map<String, dynamic> event;
+  final IconData icon;
+  final String title;
+  final String actionLabel;
+  final bool working;
+  final VoidCallback onAdd;
+
+  @override
+  Widget build(BuildContext context) => Row(
+    children: [
+      CircleAvatar(
+        backgroundColor: const Color(0xFFEAF4FF),
+        child: Icon(icon, color: AppColors.primaryBlue),
+      ),
+      const SizedBox(width: 10),
+      Expanded(
+        child: Text(
+          title,
+          style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w900),
+        ),
+      ),
+      FilledButton.icon(
+        key: ValueKey('caremate-add-$title'),
+        onPressed: working ? null : onAdd,
+        icon: const Icon(Icons.add_rounded, size: 18),
+        label: Text(actionLabel),
+      ),
+    ],
+  );
+}
+
+class _TreatmentPlanCard extends StatelessWidget {
+  const _TreatmentPlanCard({
+    required this.plan,
+    required this.working,
+    required this.onEdit,
+    required this.onDelete,
+  });
+
+  final Map<String, dynamic> plan;
+  final bool working;
+  final VoidCallback onEdit;
+  final VoidCallback onDelete;
 
   @override
   Widget build(BuildContext context) {
-    final isInjection = event['eventType']?.toString() == 'injection';
+    final medication =
+        plan['medication'] as Map<String, dynamic>? ?? const <String, dynamic>{};
+    final schedules = plan['schedules'] as List<dynamic>? ?? const [];
+    final times = schedules
+        .map((item) => item is Map ? item['localTime']?.toString() : null)
+        .whereType<String>()
+        .toSet()
+        .join('، ');
+    return _ManagementCard(
+      key: ValueKey('caremate-plan-${plan['id']}'),
+      icon: Icons.medication_rounded,
+      iconColor: const Color(0xFF2D9B74),
+      title: medication['name']?.toString() ?? 'دارو',
+      subtitle: [
+        plan['doseText']?.toString(),
+        times.isEmpty ? null : times,
+      ].whereType<String>().where((value) => value.trim().isNotEmpty).join(' • '),
+      working: working,
+      onEdit: onEdit,
+      onDelete: onDelete,
+    );
+  }
+}
+
+class _CareEventCard extends StatelessWidget {
+  const _CareEventCard({
+    required this.event,
+    required this.working,
+    required this.onEdit,
+    required this.onDelete,
+  });
+
+  final Map<String, dynamic> event;
+  final bool working;
+  final VoidCallback onEdit;
+  final VoidCallback onDelete;
+
+  @override
+  Widget build(BuildContext context) {
+    final injection = event['eventType']?.toString() == 'injection';
     final rawDate = event['scheduledLocalDate']?.toString() ?? '';
     final parsedDate = DateTime.tryParse(rawDate);
     final date = parsedDate == null
-        ? localizeDigits(context, rawDate.isEmpty ? '----/--/--' : rawDate)
+        ? localizeDigits(context, rawDate)
         : formatAppDate(context, parsedDate);
     final rawTime = event['scheduledLocalTime']?.toString() ?? '--:--';
     final time = localizeDigits(
       context,
       rawTime.length >= 5 ? rawTime.substring(0, 5) : rawTime,
     );
-    final center = event['centerName']?.toString().trim();
-    final address = event['addressLine']?.toString().trim();
-
-    return Container(
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(20),
-        boxShadow: [
-          BoxShadow(
-            color: AppColors.primaryBlue.withValues(alpha: 0.05),
-            blurRadius: 14,
-            offset: const Offset(0, 5),
-          ),
-        ],
-      ),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Container(
-            width: 46,
-            height: 46,
-            decoration: BoxDecoration(
-              color: isInjection
-                  ? const Color(0xFFFFF0F2)
-                  : const Color(0xFFEAF4FF),
-              borderRadius: BorderRadius.circular(15),
-            ),
-            child: Icon(
-              isInjection
-                  ? Icons.vaccines_rounded
-                  : Icons.medical_services_rounded,
-              color: isInjection ? Colors.redAccent : AppColors.primaryBlue,
-            ),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  localizeDigits(
-                    context,
-                    event['title']?.toString() ??
-                        (isInjection ? 'تزریق' : 'ویزیت'),
-                  ),
-                  style: const TextStyle(fontWeight: FontWeight.w900),
-                ),
-                const SizedBox(height: 5),
-                Text(
-                  '$date  •  $time',
-                  textDirection: usesPersianCalendar(context)
-                      ? TextDirection.rtl
-                      : TextDirection.ltr,
-                  style: const TextStyle(
-                    color: AppColors.secondaryText,
-                    fontSize: 12,
-                  ),
-                ),
-                if (center != null && center.isNotEmpty) ...[
-                  const SizedBox(height: 5),
-                  Text(
-                    localizeDigits(context, center),
-                    style: const TextStyle(fontSize: 12),
-                  ),
-                ],
-                if (address != null && address.isNotEmpty) ...[
-                  const SizedBox(height: 4),
-                  Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const Icon(
-                        Icons.location_on_outlined,
-                        size: 15,
-                        color: AppColors.secondaryText,
-                      ),
-                      const SizedBox(width: 4),
-                      Expanded(
-                        child: Text(
-                          localizeDigits(context, address),
-                          style: const TextStyle(
-                            color: AppColors.secondaryText,
-                            fontSize: 11,
-                            height: 1.4,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ],
-              ],
-            ),
-          ),
-        ],
-      ),
+    return _ManagementCard(
+      key: ValueKey('caremate-event-${event['id']}'),
+      icon: injection ? Icons.vaccines_rounded : Icons.medical_services_rounded,
+      iconColor: injection ? const Color(0xFFD96570) : AppColors.primaryBlue,
+      title: event['title']?.toString() ?? (injection ? 'تزریق' : 'ویزیت'),
+      subtitle: '$date • $time${_detailSuffix(event)}',
+      working: working,
+      onEdit: onEdit,
+      onDelete: onDelete,
     );
+  }
+
+  String _detailSuffix(Map<String, dynamic> event) {
+    final center = event['centerName']?.toString().trim();
+    return center == null || center.isEmpty ? '' : ' • $center';
   }
 }
 
-class _DoseTile extends StatelessWidget {
-  const _DoseTile({required this.dose});
+class _ManagementCard extends StatelessWidget {
+  const _ManagementCard({
+    super.key,
+    required this.icon,
+    required this.iconColor,
+    required this.title,
+    required this.subtitle,
+    required this.working,
+    required this.onEdit,
+    required this.onDelete,
+  });
 
-  final Map<String, dynamic> dose;
+  final IconData icon;
+  final Color iconColor;
+  final String title;
+  final String subtitle;
+  final bool working;
+  final VoidCallback onEdit;
+  final VoidCallback onDelete;
 
   @override
-  Widget build(BuildContext context) {
-    final time = dose['scheduledLocalTime']?.toString() ?? '--:--';
-    return Container(
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(20),
-      ),
-      child: Row(
-        children: [
-          const CircleAvatar(
-            backgroundColor: Color(0xFFEAF4FF),
-            child: Icon(Icons.medication_rounded, color: AppColors.primaryBlue),
+  Widget build(BuildContext context) => Container(
+    padding: const EdgeInsets.all(14),
+    decoration: BoxDecoration(
+      color: Colors.white,
+      borderRadius: BorderRadius.circular(21),
+      boxShadow: [
+        BoxShadow(
+          color: AppColors.primaryBlue.withValues(alpha: 0.05),
+          blurRadius: 14,
+          offset: const Offset(0, 5),
+        ),
+      ],
+    ),
+    child: Row(
+      children: [
+        Container(
+          width: 46,
+          height: 46,
+          decoration: BoxDecoration(
+            color: iconColor.withValues(alpha: 0.10),
+            borderRadius: BorderRadius.circular(15),
           ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Text(
-              localizeDigits(
-                context,
-                dose['medicationName']?.toString() ?? 'دارو',
-              ),
-              style: const TextStyle(fontWeight: FontWeight.w800),
-            ),
+          child: Icon(icon, color: iconColor),
+        ),
+        const SizedBox(width: 12),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(title, style: const TextStyle(fontWeight: FontWeight.w900)),
+              if (subtitle.trim().isNotEmpty) ...[
+                const SizedBox(height: 5),
+                Text(
+                  subtitle,
+                  style: const TextStyle(
+                    color: AppColors.secondaryText,
+                    fontSize: 11.5,
+                    height: 1.4,
+                  ),
+                ),
+              ],
+            ],
           ),
-          Text(
-            localizeDigits(
-              context,
-              time.length >= 5 ? time.substring(0, 5) : time,
-            ),
-            textDirection: TextDirection.ltr,
-            style: const TextStyle(fontWeight: FontWeight.w800),
-          ),
-        ],
-      ),
-    );
-  }
+        ),
+        IconButton(
+          key: const ValueKey('caremate-edit-treatment'),
+          tooltip: 'ویرایش',
+          onPressed: working ? null : onEdit,
+          icon: const Icon(Icons.edit_outlined),
+        ),
+        IconButton(
+          key: const ValueKey('caremate-delete-treatment'),
+          tooltip: 'حذف',
+          onPressed: working ? null : onDelete,
+          color: Colors.redAccent,
+          icon: const Icon(Icons.delete_outline_rounded),
+        ),
+      ],
+    ),
+  );
 }
 
 class _InlineEmpty extends StatelessWidget {
   const _InlineEmpty({required this.text});
-
   final String text;
 
   @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(20),
-      ),
-      child: Text(
-        text,
-        textAlign: TextAlign.center,
-        style: const TextStyle(color: AppColors.secondaryText),
-      ),
-    );
-  }
+  Widget build(BuildContext context) => Container(
+    width: double.infinity,
+    padding: const EdgeInsets.all(20),
+    decoration: BoxDecoration(
+      color: Colors.white,
+      borderRadius: BorderRadius.circular(20),
+    ),
+    child: Text(
+      text,
+      textAlign: TextAlign.center,
+      style: const TextStyle(color: AppColors.secondaryText),
+    ),
+  );
 }
 
 class _NoPatientState extends StatelessWidget {
   const _NoPatientState();
 
   @override
-  Widget build(BuildContext context) {
-    return const _InlineEmpty(
-      text:
-          'برای مشاهده یا آماده‌کردن برنامه، ابتدا یک بیمار را از طریق دعوت و رضایت معتبر متصل کنید.',
-    );
-  }
+  Widget build(BuildContext context) => const _InlineEmpty(
+    text: 'برای مدیریت درمان، ابتدا یک بیمار را با دعوت و رضایت معتبر متصل کنید.',
+  );
 }
 
 class _ErrorCard extends StatelessWidget {
   const _ErrorCard({required this.message, required this.onRetry});
-
   final String message;
   final VoidCallback onRetry;
 
   @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: Colors.red.shade50,
-        borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: Colors.red.shade100),
-      ),
-      child: Row(
-        children: [
-          Expanded(child: Text(message)),
-          TextButton(onPressed: onRetry, child: const Text('تلاش دوباره')),
-        ],
-      ),
-    );
-  }
+  Widget build(BuildContext context) => Container(
+    padding: const EdgeInsets.all(14),
+    decoration: BoxDecoration(
+      color: const Color(0xFFFFF0F1),
+      borderRadius: BorderRadius.circular(18),
+    ),
+    child: Row(
+      children: [
+        const Icon(Icons.error_outline_rounded, color: Colors.redAccent),
+        const SizedBox(width: 9),
+        Expanded(child: Text(message)),
+        TextButton(onPressed: onRetry, child: const Text('تلاش دوباره')),
+      ],
+    ),
+  );
 }

@@ -11,6 +11,7 @@ export 'src/health_facts.dart';
 export 'src/lifemate_api_client.dart';
 export 'src/lifemate_auth.dart';
 export 'src/lifemate_bootstrap.dart';
+export 'src/lifemate_care_management_api.dart';
 export 'src/lifemate_edit_api.dart';
 export 'src/lifemate_experience_gate.dart';
 export 'src/nullable_women_calendar_estimate.dart';
