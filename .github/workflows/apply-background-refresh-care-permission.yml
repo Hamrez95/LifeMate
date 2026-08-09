@@ -1,0 +1,1255 @@
+name: apply-background-refresh-care-permission
+
+on:
+  push:
+    branches:
+      - fix/background-refresh-care-permission
+    paths:
+      - .github/workflows/apply-background-refresh-care-permission.yml
+
+permissions:
+  contents: write
+
+env:
+  PUB_ENVIRONMENT: bot:github_actions
+
+jobs:
+  patch-and-verify:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: fix/background-refresh-care-permission
+          fetch-depth: 0
+
+      - name: Apply deterministic source patch
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+
+          def replace(path, old, new, count=1):
+              p = Path(path)
+              text = p.read_text()
+              found = text.count(old)
+              if found != count:
+                  raise SystemExit(f'{path}: expected {count} occurrence(s), found {found}: {old[:100]!r}')
+              p.write_text(text.replace(old, new, count))
+
+          # Candidate-aware care-management endpoint mapping.
+          replace(
+              'packages/lifemate_client/lib/src/lifemate_care_management_api.dart',
+              """  factory LifeMateCareManagementApi.fromEnvironment({http.Client? httpClient}) {
+    final config = AppConfig.fromEnvironment();
+    final apiBase = config.apiBaseUri;
+    final segments = apiBase.pathSegments.toList(growable: true);
+    if (segments.isNotEmpty && segments.last == 'lifemate-api') {
+      segments[segments.length - 1] = 'lifemate-care-management';
+    } else {
+      segments.add('lifemate-care-management');
+    }
+    final baseUri = apiBase.replace(path: '/${segments.join('/')}');
+    return LifeMateCareManagementApi(
+      baseUri: baseUri,
+""",
+              """  factory LifeMateCareManagementApi.fromEnvironment({http.Client? httpClient}) {
+    final config = AppConfig.fromEnvironment();
+    return LifeMateCareManagementApi(
+      baseUri: managementBaseUriFor(config.apiBaseUri),
+""",
+          )
+          replace(
+              'packages/lifemate_client/lib/src/lifemate_care_management_api.dart',
+              """  final http.Client _http;
+
+  static const _timeout = Duration(seconds: 20);
+""",
+              """  final http.Client _http;
+
+  /// Resolves the dedicated care-management function alongside the configured
+  /// API function while preserving environment suffixes such as `-candidate`.
+  static Uri managementBaseUriFor(Uri apiBase) {
+    final segments = apiBase.pathSegments.toList(growable: true);
+    if (segments.isEmpty) {
+      segments.add('lifemate-care-management');
+    } else {
+      final last = segments.last;
+      if (last == 'lifemate-api') {
+        segments[segments.length - 1] = 'lifemate-care-management';
+      } else if (last.startsWith('lifemate-api-')) {
+        final suffix = last.substring('lifemate-api'.length);
+        segments[segments.length - 1] = 'lifemate-care-management$suffix';
+      } else if (!last.startsWith('lifemate-care-management')) {
+        segments.add('lifemate-care-management');
+      }
+    }
+    return apiBase.replace(path: '/${segments.join('/')}');
+  }
+
+  static const _timeout = Duration(seconds: 20);
+""",
+          )
+
+          test_path = Path('packages/lifemate_client/test/lifemate_care_management_api_test.dart')
+          test_text = test_path.read_text()
+          insert = """
+
+  test('care management base URI preserves candidate environment suffix', () {
+    expect(
+      LifeMateCareManagementApi.managementBaseUriFor(
+        Uri.parse(
+          'https://example.supabase.co/functions/v1/lifemate-api-candidate',
+        ),
+      ).toString(),
+      'https://example.supabase.co/functions/v1/lifemate-care-management-candidate',
+    );
+    expect(
+      LifeMateCareManagementApi.managementBaseUriFor(
+        Uri.parse('https://example.supabase.co/functions/v1/lifemate-api'),
+      ).toString(),
+      'https://example.supabase.co/functions/v1/lifemate-care-management',
+    );
+  });
+"""
+          idx = test_text.rfind('\n}')
+          if idx < 0:
+              raise SystemExit('could not locate test main closing brace')
+          test_path.write_text(test_text[:idx] + insert + test_text[idx:])
+
+          # CareMate bottom-nav can participate in a persistent IndexedStack shell.
+          replace(
+              'caremate/lib/widgets/caremate_bottom_nav.dart',
+              """    this.onTreatmentManagementReturned,
+  });
+
+  final int currentIndex;
+  final ValueChanged<int> onTap;
+  final VoidCallback? onTreatmentManagementReturned;
+""",
+              """    this.onTreatmentManagementReturned,
+    this.routeTreatmentScreen = true,
+  });
+
+  final int currentIndex;
+  final ValueChanged<int> onTap;
+  final VoidCallback? onTreatmentManagementReturned;
+  final bool routeTreatmentScreen;
+""",
+          )
+          replace(
+              'caremate/lib/widgets/caremate_bottom_nav.dart',
+              """                if (index == 2 && currentIndex != 2) {
+""",
+              """                if (routeTreatmentScreen && index == 2 && currentIndex != 2) {
+""",
+          )
+
+          # Dashboard: persistent shell navigation + silent refresh tokens.
+          replace(
+              'caremate/lib/screens/dashboard_screen.dart',
+              """class DashboardScreen extends StatefulWidget {
+  const DashboardScreen({super.key});
+
+  @override
+""",
+              """class DashboardScreen extends StatefulWidget {
+  const DashboardScreen({
+    super.key,
+    this.refreshToken = 0,
+    this.onNavigationTap,
+  });
+
+  final int refreshToken;
+  final ValueChanged<int>? onNavigationTap;
+
+  @override
+""",
+          )
+          replace(
+              'caremate/lib/screens/dashboard_screen.dart',
+              """  @override
+  void dispose() {
+""",
+              """  @override
+  void didUpdateWidget(covariant DashboardScreen oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.refreshToken != widget.refreshToken) {
+      unawaited(_refresh());
+    }
+  }
+
+  @override
+  void dispose() {
+""",
+          )
+          replace(
+              'caremate/lib/screens/dashboard_screen.dart',
+              """  void _onNavigationTap(int index) {
+    if (index == 4) return;
+""",
+              """  void _onNavigationTap(int index) {
+    final shellNavigation = widget.onNavigationTap;
+    if (shellNavigation != null) {
+      shellNavigation(index);
+      return;
+    }
+    if (index == 4) return;
+""",
+          )
+          replace(
+              'caremate/lib/screens/dashboard_screen.dart',
+              """      bottomNavigationBar: CareMateBottomNav(
+        currentIndex: 4,
+        onTap: _onNavigationTap,
+        onTreatmentManagementReturned: () => unawaited(_refresh()),
+      ),
+""",
+              """      bottomNavigationBar: CareMateBottomNav(
+        currentIndex: 4,
+        onTap: _onNavigationTap,
+        routeTreatmentScreen: widget.onNavigationTap == null,
+        onTreatmentManagementReturned: () => unawaited(_refresh()),
+      ),
+""",
+          )
+
+          # CareMate calendar: retain rendered data while backend refreshes.
+          replace(
+              'caremate/lib/screens/calendar/calendar_screen.dart',
+              """class CalendarScreen extends StatefulWidget {
+  const CalendarScreen({super.key});
+
+  @override
+""",
+              """class CalendarScreen extends StatefulWidget {
+  const CalendarScreen({
+    super.key,
+    this.refreshToken = 0,
+    this.onNavigationTap,
+  });
+
+  final int refreshToken;
+  final ValueChanged<int>? onNavigationTap;
+
+  @override
+""",
+          )
+          replace(
+              'caremate/lib/screens/calendar/calendar_screen.dart',
+              """  bool _loadingRelationships = true;
+  bool _loadingEvents = false;
+""",
+              """  bool _loadingRelationships = true;
+  bool _loadingEvents = false;
+  bool _backgroundRefreshing = false;
+""",
+          )
+          replace(
+              'caremate/lib/screens/calendar/calendar_screen.dart',
+              """  DateTime _normalizeDate(DateTime date) =>
+""",
+              """  @override
+  void didUpdateWidget(covariant CalendarScreen oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.refreshToken != widget.refreshToken) {
+      _refreshRelationships(background: true);
+    }
+  }
+
+  DateTime _normalizeDate(DateTime date) =>
+""",
+          )
+          replace(
+              'caremate/lib/screens/calendar/calendar_screen.dart',
+              """  Future<void> _refreshRelationships() async {
+    setState(() {
+      _loadingRelationships = true;
+      _error = null;
+    });
+""",
+              """  Future<void> _refreshRelationships({bool background = false}) async {
+    final blocking = _users.isEmpty;
+    setState(() {
+      if (blocking) {
+        _loadingRelationships = true;
+      } else if (background) {
+        _backgroundRefreshing = true;
+      }
+      _error = null;
+    });
+""",
+          )
+          replace(
+              'caremate/lib/screens/calendar/calendar_screen.dart',
+              """      setState(() {
+        _users = users;
+        _selectedUserId = selected;
+        _loadingRelationships = false;
+      });
+      await _loadMonthEvents();
+""",
+              """      setState(() {
+        _users = users;
+        _selectedUserId = selected;
+        _loadingRelationships = false;
+      });
+      await _loadMonthEvents(background: background);
+""",
+          )
+          replace(
+              'caremate/lib/screens/calendar/calendar_screen.dart',
+              """    } catch (error) {
+      debugPrint('CareMate calendar relationship load failed: $error');
+      _setError('اطلاعات تقویم دریافت نشد. اتصال اینترنت را بررسی کنید.');
+    }
+  }
+
+  Future<void> _loadMonthEvents() async {
+""",
+              """    } catch (error) {
+      debugPrint('CareMate calendar relationship load failed: $error');
+      _setError('اطلاعات تقویم دریافت نشد. اتصال اینترنت را بررسی کنید.');
+    } finally {
+      if (mounted) setState(() => _backgroundRefreshing = false);
+    }
+  }
+
+  Future<void> _loadMonthEvents({bool background = false}) async {
+""",
+          )
+          replace(
+              'caremate/lib/screens/calendar/calendar_screen.dart',
+              """    setState(() {
+      _loadingEvents = true;
+      _error = null;
+    });
+""",
+              """    setState(() {
+      if (!background || _events.isEmpty) _loadingEvents = true;
+      if (background && _events.isNotEmpty) _backgroundRefreshing = true;
+      _error = null;
+    });
+""",
+          )
+          replace(
+              'caremate/lib/screens/calendar/calendar_screen.dart',
+              """      setState(() {
+        _events = events;
+        _loadingEvents = false;
+      });
+""",
+              """      setState(() {
+        _events = events;
+        _loadingEvents = false;
+        _backgroundRefreshing = false;
+      });
+""",
+          )
+          replace(
+              'caremate/lib/screens/calendar/calendar_screen.dart',
+              """  void _onNavigationTap(int index) {
+    if (index == 0) return;
+""",
+              """  void _onNavigationTap(int index) {
+    final shellNavigation = widget.onNavigationTap;
+    if (shellNavigation != null) {
+      shellNavigation(index);
+      return;
+    }
+    if (index == 0) return;
+""",
+          )
+          replace(
+              'caremate/lib/screens/calendar/calendar_screen.dart',
+              """            Expanded(
+              child: RefreshIndicator(
+""",
+              """            if (_backgroundRefreshing)
+              const LinearProgressIndicator(minHeight: 2),
+            Expanded(
+              child: RefreshIndicator(
+""",
+          )
+          replace(
+              'caremate/lib/screens/calendar/calendar_screen.dart',
+              """      bottomNavigationBar: CareMateBottomNav(
+        currentIndex: 0,
+        onTap: _onNavigationTap,
+      ),
+""",
+              """      bottomNavigationBar: CareMateBottomNav(
+        currentIndex: 0,
+        onTap: _onNavigationTap,
+        routeTreatmentScreen: widget.onNavigationTap == null,
+      ),
+""",
+          )
+
+          # Feature destinations can stay mounted inside the CareMate root shell.
+          replace(
+              'caremate/lib/screens/feature_preview_screen.dart',
+              """class CareMateFeaturePreviewScreen extends StatefulWidget {
+  const CareMateFeaturePreviewScreen({required this.initialIndex, super.key})
+    : assert(initialIndex >= 1 && initialIndex <= 3);
+
+  final int initialIndex;
+""",
+              """class CareMateFeaturePreviewScreen extends StatefulWidget {
+  const CareMateFeaturePreviewScreen({
+    required this.initialIndex,
+    super.key,
+    this.refreshToken = 0,
+    this.onNavigationTap,
+  }) : assert(initialIndex >= 1 && initialIndex <= 3);
+
+  final int initialIndex;
+  final int refreshToken;
+  final ValueChanged<int>? onNavigationTap;
+""",
+          )
+          replace(
+              'caremate/lib/screens/feature_preview_screen.dart',
+              """  Map<String, dynamic>? get _selectedRelationship {
+""",
+              """  @override
+  void didUpdateWidget(covariant CareMateFeaturePreviewScreen oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.refreshToken != widget.refreshToken) _refresh();
+  }
+
+  Map<String, dynamic>? get _selectedRelationship {
+""",
+          )
+          replace(
+              'caremate/lib/screens/feature_preview_screen.dart',
+              """  void _onNavigationTap(int index) {
+    if (index == _currentIndex) return;
+""",
+              """  void _onNavigationTap(int index) {
+    final shellNavigation = widget.onNavigationTap;
+    if (shellNavigation != null) {
+      shellNavigation(index);
+      return;
+    }
+    if (index == _currentIndex) return;
+""",
+          )
+          replace(
+              'caremate/lib/screens/feature_preview_screen.dart',
+              """      bottomNavigationBar: CareMateBottomNav(
+        currentIndex: _currentIndex,
+        onTap: _onNavigationTap,
+      ),
+""",
+              """      bottomNavigationBar: CareMateBottomNav(
+        currentIndex: _currentIndex,
+        onTap: _onNavigationTap,
+        routeTreatmentScreen: widget.onNavigationTap == null,
+      ),
+""",
+          )
+
+          # CareMate treatment management: keep stale UI visible during refresh.
+          replace(
+              'caremate/lib/screens/care_event_management_screen.dart',
+              """class CareEventManagementScreen extends StatefulWidget {
+  const CareEventManagementScreen({super.key, this.managementApi});
+
+  final LifeMateCareManagementApi? managementApi;
+""",
+              """class CareEventManagementScreen extends StatefulWidget {
+  const CareEventManagementScreen({
+    super.key,
+    this.managementApi,
+    this.refreshToken = 0,
+    this.onNavigationTap,
+  });
+
+  final LifeMateCareManagementApi? managementApi;
+  final int refreshToken;
+  final ValueChanged<int>? onNavigationTap;
+""",
+          )
+          replace(
+              'caremate/lib/screens/care_event_management_screen.dart',
+              """  bool _loading = true;
+  bool _working = false;
+""",
+              """  bool _loading = true;
+  bool _backgroundRefreshing = false;
+  bool _working = false;
+""",
+          )
+          replace(
+              'caremate/lib/screens/care_event_management_screen.dart',
+              """  Map<String, dynamic>? get _selectedRelationship {
+""",
+              """  @override
+  void didUpdateWidget(covariant CareEventManagementScreen oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.refreshToken != widget.refreshToken) {
+      _refresh(background: true);
+    }
+  }
+
+  Map<String, dynamic>? get _selectedRelationship {
+""",
+          )
+          replace(
+              'caremate/lib/screens/care_event_management_screen.dart',
+              """  Future<void> _refresh() async {
+    if (mounted) {
+      setState(() {
+        _loading = true;
+        _error = null;
+      });
+    }
+""",
+              """  Future<void> _refresh({bool background = false}) async {
+    if (mounted) {
+      setState(() {
+        if (_relationships.isEmpty) {
+          _loading = true;
+        } else if (background) {
+          _backgroundRefreshing = true;
+        }
+        _error = null;
+      });
+    }
+""",
+          )
+          replace(
+              'caremate/lib/screens/care_event_management_screen.dart',
+              """    } finally {
+      if (mounted) setState(() => _loading = false);
+    }
+  }
+""",
+              """    } finally {
+      if (mounted) {
+        setState(() {
+          _loading = false;
+          _backgroundRefreshing = false;
+        });
+      }
+    }
+  }
+""",
+              count=1,
+          )
+          replace(
+              'caremate/lib/screens/care_event_management_screen.dart',
+              """  void _onNavigationTap(int index) {
+    if (index == 2) return;
+""",
+              """  void _onNavigationTap(int index) {
+    final shellNavigation = widget.onNavigationTap;
+    if (shellNavigation != null) {
+      shellNavigation(index);
+      return;
+    }
+    if (index == 2) return;
+""",
+          )
+          replace(
+              'caremate/lib/screens/care_event_management_screen.dart',
+              """            Expanded(
+              child: RefreshIndicator(
+""",
+              """            if (_backgroundRefreshing)
+              const LinearProgressIndicator(minHeight: 2),
+            Expanded(
+              child: RefreshIndicator(
+""",
+          )
+          replace(
+              'caremate/lib/screens/care_event_management_screen.dart',
+              """                    if (_loading)
+                      const Padding(
+""",
+              """                    if (_loading && _relationships.isEmpty)
+                      const Padding(
+""",
+          )
+          replace(
+              'caremate/lib/screens/care_event_management_screen.dart',
+              """      bottomNavigationBar: CareMateBottomNav(
+        currentIndex: 2,
+        onTap: _onNavigationTap,
+      ),
+""",
+              """      bottomNavigationBar: CareMateBottomNav(
+        currentIndex: 2,
+        onTap: _onNavigationTap,
+        routeTreatmentScreen: widget.onNavigationTap == null,
+      ),
+""",
+          )
+
+          # Persistent CareMate shell; inactive screens stay warm and active screen
+          # silently reconciles with backend every 8 seconds.
+          Path('caremate/lib/screens/caremate_root_shell.dart').write_text(r'''import 'dart:async';
+
+import 'package:flutter/material.dart';
+
+import 'calendar/calendar_screen.dart';
+import 'care_event_management_screen.dart';
+import 'dashboard_screen.dart';
+import 'feature_preview_screen.dart';
+
+class CareMateRootShell extends StatefulWidget {
+  const CareMateRootShell({super.key});
+
+  @override
+  State<CareMateRootShell> createState() => _CareMateRootShellState();
+}
+
+class _CareMateRootShellState extends State<CareMateRootShell>
+    with WidgetsBindingObserver {
+  static const _refreshInterval = Duration(seconds: 8);
+  static const _tickInterval = Duration(seconds: 2);
+
+  int _currentIndex = 4;
+  final List<int> _refreshTokens = List<int>.filled(5, 0);
+  final List<DateTime> _lastRefresh = List<DateTime>.filled(
+    5,
+    DateTime.now(),
+  );
+  Timer? _refreshTimer;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+    _refreshTimer = Timer.periodic(_tickInterval, (_) => _refreshActiveIfStale());
+  }
+
+  @override
+  void dispose() {
+    _refreshTimer?.cancel();
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      _refreshTab(_currentIndex, force: true);
+    }
+  }
+
+  void _selectTab(int index) {
+    if (index < 0 || index > 4) return;
+    if (_currentIndex != index) setState(() => _currentIndex = index);
+    _refreshTab(index);
+  }
+
+  void _refreshActiveIfStale() => _refreshTab(_currentIndex);
+
+  void _refreshTab(int index, {bool force = false}) {
+    final now = DateTime.now();
+    if (!force && now.difference(_lastRefresh[index]) < _refreshInterval) return;
+    _lastRefresh[index] = now;
+    if (!mounted) return;
+    setState(() => _refreshTokens[index]++);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return IndexedStack(
+      index: _currentIndex,
+      children: [
+        CalendarScreen(
+          refreshToken: _refreshTokens[0],
+          onNavigationTap: _selectTab,
+        ),
+        CareMateFeaturePreviewScreen(
+          initialIndex: 1,
+          refreshToken: _refreshTokens[1],
+          onNavigationTap: _selectTab,
+        ),
+        CareEventManagementScreen(
+          refreshToken: _refreshTokens[2],
+          onNavigationTap: _selectTab,
+        ),
+        CareMateFeaturePreviewScreen(
+          initialIndex: 3,
+          refreshToken: _refreshTokens[3],
+          onNavigationTap: _selectTab,
+        ),
+        DashboardScreen(
+          refreshToken: _refreshTokens[4],
+          onNavigationTap: _selectTab,
+        ),
+      ],
+    );
+  }
+}
+''')
+
+          replace(
+              'caremate/lib/main.dart',
+              """import 'screens/dashboard_screen.dart';
+""",
+              """import 'screens/caremate_root_shell.dart';
+""",
+          )
+          replace(
+              'caremate/lib/main.dart',
+              """          onGenerateRoute: (_) =>
+              MaterialPageRoute<void>(builder: (_) => const DashboardScreen()),
+""",
+              """          onGenerateRoute: (_) => MaterialPageRoute<void>(
+            builder: (_) => const CareMateRootShell(),
+          ),
+""",
+          )
+
+          # WellMate: prewarm tabs and reconcile active data every 8 seconds rather
+          # than refetching just because the user tapped a tab.
+          replace(
+              'wellmate/lib/screens/home/home_screen.dart',
+              """  static const _refreshDebounceDuration = Duration(milliseconds: 180);
+
+  int _currentIndex = 4;
+  final Set<int> _visitedTabs = <int>{4};
+""",
+              """  static const _refreshDebounceDuration = Duration(milliseconds: 180);
+  static const _backgroundRefreshInterval = Duration(seconds: 8);
+
+  int _currentIndex = 4;
+  final Set<int> _visitedTabs = <int>{0, 1, 2, 3, 4};
+""",
+          )
+          replace(
+              'wellmate/lib/screens/home/home_screen.dart',
+              """  Timer? _refreshDebounce;
+""",
+              """  Timer? _refreshDebounce;
+  Timer? _backgroundRefreshTimer;
+  DateTime _lastBackgroundRefresh = DateTime.now();
+""",
+          )
+          replace(
+              'wellmate/lib/screens/home/home_screen.dart',
+              """    WidgetsBinding.instance.addPostFrameCallback((_) {
+      unawaited(_loadWomenCalendarState(force: true));
+    });
+""",
+              """    WidgetsBinding.instance.addPostFrameCallback((_) {
+      unawaited(_loadWomenCalendarState(force: true));
+    });
+    _backgroundRefreshTimer = Timer.periodic(
+      const Duration(seconds: 2),
+      (_) => _refreshActiveTabIfStale(),
+    );
+""",
+          )
+          replace(
+              'wellmate/lib/screens/home/home_screen.dart',
+              """    _refreshDebounce?.cancel();
+""",
+              """    _refreshDebounce?.cancel();
+    _backgroundRefreshTimer?.cancel();
+""",
+              count=1,
+          )
+          replace(
+              'wellmate/lib/screens/home/home_screen.dart',
+              """  void _onItemTapped(int index) {
+    if (index == 3 && !_womenCalendarEnabled) return;
+    setState(() {
+      _visitedTabs.add(index);
+      _currentIndex = index;
+      switch (index) {
+        case 0:
+          _calendarRevision++;
+          break;
+        case 1:
+          _treatmentsRevision++;
+          break;
+        case 3:
+          _womenRevision++;
+          break;
+        case 4:
+          _homeRevision++;
+          break;
+      }
+    });
+  }
+""",
+              """  void _onItemTapped(int index) {
+    if (index == 3 && !_womenCalendarEnabled) return;
+    if (_currentIndex != index) {
+      setState(() {
+        _visitedTabs.add(index);
+        _currentIndex = index;
+      });
+    }
+    _refreshActiveTabIfStale();
+  }
+
+  void _refreshActiveTabIfStale() {
+    final now = DateTime.now();
+    if (now.difference(_lastBackgroundRefresh) < _backgroundRefreshInterval) {
+      return;
+    }
+    _lastBackgroundRefresh = now;
+    if (!mounted) return;
+    setState(() {
+      switch (_currentIndex) {
+        case 0:
+          _calendarRevision++;
+          break;
+        case 1:
+          _treatmentsRevision++;
+          break;
+        case 3:
+          _womenRevision++;
+          break;
+        case 4:
+          _homeRevision++;
+          break;
+      }
+    });
+  }
+""",
+          )
+          replace(
+              'wellmate/lib/screens/home/home_screen.dart',
+              """      3 => WomenCompanionScreen(
+        key: ValueKey<int>(_womenRevision),
+        onProfileChanged: () => _loadWomenCalendarState(force: true),
+      ),
+      _ => HomeScreenContent(
+        key: ValueKey<int>(_homeRevision),
+        onOpenTreatments: () => _onItemTapped(1),
+        onAddTreatment: () => _onItemTapped(2),
+      ),
+""",
+              """      3 => WomenCompanionScreen(
+        refreshToken: _womenRevision,
+        onProfileChanged: () => _loadWomenCalendarState(force: true),
+      ),
+      _ => HomeScreenContent(
+        refreshToken: _homeRevision,
+        onOpenTreatments: () => _onItemTapped(1),
+        onAddTreatment: () => _onItemTapped(2),
+      ),
+""",
+          )
+
+          # WellMate home keeps previous data while a background refresh runs.
+          replace(
+              'wellmate/lib/screens/home/home_screen_content.dart',
+              """    required this.onAddTreatment,
+  });
+
+  final VoidCallback onOpenTreatments;
+  final VoidCallback onAddTreatment;
+""",
+              """    required this.onAddTreatment,
+    this.refreshToken = 0,
+  });
+
+  final VoidCallback onOpenTreatments;
+  final VoidCallback onAddTreatment;
+  final int refreshToken;
+""",
+          )
+          replace(
+              'wellmate/lib/screens/home/home_screen_content.dart',
+              """  bool isLoading = true;
+  String? loadError;
+""",
+              """  bool isLoading = true;
+  bool _backgroundRefreshing = false;
+  String? loadError;
+""",
+          )
+          replace(
+              'wellmate/lib/screens/home/home_screen_content.dart',
+              """  @override
+  void dispose() {
+""",
+              """  @override
+  void didUpdateWidget(covariant HomeScreenContent oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.refreshToken != widget.refreshToken) {
+      _fetchScheduleFromBackend(background: true);
+    }
+  }
+
+  @override
+  void dispose() {
+""",
+          )
+          replace(
+              'wellmate/lib/screens/home/home_screen_content.dart',
+              """  Future<void> _fetchScheduleFromBackend() async {
+    if (mounted) {
+      setState(() {
+        isLoading = true;
+        loadError = null;
+      });
+    }
+""",
+              """  Future<void> _fetchScheduleFromBackend({bool background = false}) async {
+    if (mounted) {
+      setState(() {
+        if (scheduleList.isEmpty && _countdownOccurrences.isEmpty) {
+          isLoading = true;
+        } else if (background) {
+          _backgroundRefreshing = true;
+        }
+        loadError = null;
+      });
+    }
+""",
+          )
+          replace(
+              'wellmate/lib/screens/home/home_screen_content.dart',
+              """        isLoading = false;
+      });
+""",
+              """        isLoading = false;
+        _backgroundRefreshing = false;
+      });
+""",
+              count=1,
+          )
+          replace(
+              'wellmate/lib/screens/home/home_screen_content.dart',
+              """      setState(() {
+        isLoading = false;
+        loadError = 'برنامه امروز دریافت نشد. اتصال را بررسی کنید.';
+      });
+""",
+              """      setState(() {
+        isLoading = false;
+        _backgroundRefreshing = false;
+        loadError = 'برنامه امروز دریافت نشد. اتصال را بررسی کنید.';
+      });
+""",
+          )
+          # Add a subtle refresh marker above existing content, never replace it.
+          marker = """  @override
+  Widget build(BuildContext context) {
+"""
+          home_path = Path('wellmate/lib/screens/home/home_screen_content.dart')
+          home_text = home_path.read_text()
+          if marker not in home_text:
+              raise SystemExit('home content build marker missing')
+          # Existing build is complex; expose state without restructuring by showing
+          # a top LinearProgressIndicator in a Stack via an early wrapper is risky.
+          # Keeping stale content visible is the key UX guarantee, so no overlay here.
+
+          # WellMate Calendar: only block on the first load.
+          replace(
+              'wellmate/lib/screens/calendar/calendar_screen.dart',
+              """  bool _loading = true;
+  String? _error;
+""",
+              """  bool _loading = true;
+  bool _backgroundRefreshing = false;
+  String? _error;
+""",
+          )
+          replace(
+              'wellmate/lib/screens/calendar/calendar_screen.dart',
+              """  Future<void> _loadMonth() async {
+    if (!mounted) return;
+    setState(() {
+      _loading = true;
+      _error = null;
+    });
+""",
+              """  Future<void> _loadMonth() async {
+    if (!mounted) return;
+    setState(() {
+      if (_monthItems.isEmpty) {
+        _loading = true;
+      } else {
+        _backgroundRefreshing = true;
+      }
+      _error = null;
+    });
+""",
+          )
+          replace(
+              'wellmate/lib/screens/calendar/calendar_screen.dart',
+              """      setState(() {
+        _monthItems = items;
+        _loading = false;
+      });
+""",
+              """      setState(() {
+        _monthItems = items;
+        _loading = false;
+        _backgroundRefreshing = false;
+      });
+""",
+          )
+          replace(
+              'wellmate/lib/screens/calendar/calendar_screen.dart',
+              """    setState(() {
+      _loading = false;
+      _error = message;
+    });
+""",
+              """    setState(() {
+      _loading = false;
+      _backgroundRefreshing = false;
+      _error = message;
+    });
+""",
+          )
+          replace(
+              'wellmate/lib/screens/calendar/calendar_screen.dart',
+              """            child: Column(
+              children: [
+""",
+              """            child: Column(
+              children: [
+                if (_backgroundRefreshing)
+                  const LinearProgressIndicator(minHeight: 2),
+""",
+          )
+
+          # WellMate treatment list: preserve prior rows on reconciliation.
+          replace(
+              'wellmate/lib/screens/treatments/treatments_screen.dart',
+              """  bool _loading = true;
+  String? _error;
+""",
+              """  bool _loading = true;
+  bool _backgroundRefreshing = false;
+  String? _error;
+""",
+          )
+          replace(
+              'wellmate/lib/screens/treatments/treatments_screen.dart',
+              """    if (mounted) {
+      setState(() {
+        _loading = true;
+        _error = null;
+      });
+    }
+""",
+              """    if (mounted) {
+      setState(() {
+        final hasData = _planItems.isNotEmpty || _careEventItems.isNotEmpty || _doseItems.isNotEmpty;
+        if (hasData) {
+          _backgroundRefreshing = true;
+        } else {
+          _loading = true;
+        }
+        _error = null;
+      });
+    }
+""",
+              count=1,
+          )
+          replace(
+              'wellmate/lib/screens/treatments/treatments_screen.dart',
+              """    } finally {
+      if (mounted) setState(() => _loading = false);
+    }
+""",
+              """    } finally {
+      if (mounted) {
+        setState(() {
+          _loading = false;
+          _backgroundRefreshing = false;
+        });
+      }
+    }
+""",
+              count=1,
+          )
+          replace(
+              'wellmate/lib/screens/treatments/treatments_screen.dart',
+              """          children: [
+            const Text(
+              'درمان‌های من',
+""",
+              """          children: [
+            if (_backgroundRefreshing) ...[
+              const LinearProgressIndicator(minHeight: 2),
+              const SizedBox(height: 10),
+            ],
+            const Text(
+              'درمان‌های من',
+""",
+          )
+          replace(
+              'wellmate/lib/screens/treatments/treatments_screen.dart',
+              """            if (_loading)
+              const Padding(
+""",
+              """            if (_loading && visible.isEmpty)
+              const Padding(
+""",
+          )
+
+          # WellMate women calendar dashboard: persistent state + silent token refresh.
+          replace(
+              'wellmate/lib/screens/women_calendar/women_companion_screen.dart',
+              """    this.companionApi,
+  });
+
+  final Future<void> Function()? onProfileChanged;
+  final WomenCompanionApi? companionApi;
+""",
+              """    this.companionApi,
+    this.refreshToken = 0,
+  });
+
+  final Future<void> Function()? onProfileChanged;
+  final WomenCompanionApi? companionApi;
+  final int refreshToken;
+""",
+          )
+          replace(
+              'wellmate/lib/screens/women_calendar/women_companion_screen.dart',
+              """  bool _loading = true;
+  bool _saving = false;
+""",
+              """  bool _loading = true;
+  bool _backgroundRefreshing = false;
+  bool _saving = false;
+""",
+          )
+          replace(
+              'wellmate/lib/screens/women_calendar/women_companion_screen.dart',
+              """  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  Future<void> _load() async {
+""",
+              """  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  @override
+  void didUpdateWidget(covariant WomenCompanionScreen oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.refreshToken != widget.refreshToken) {
+      _load(background: true);
+    }
+  }
+
+  Future<void> _load({bool background = false}) async {
+""",
+          )
+          replace(
+              'wellmate/lib/screens/women_calendar/women_companion_screen.dart',
+              """    setState(() {
+      _loading = true;
+      _error = null;
+    });
+""",
+              """    setState(() {
+      if (_profile.isEmpty) {
+        _loading = true;
+      } else if (background) {
+        _backgroundRefreshing = true;
+      }
+      _error = null;
+    });
+""",
+              count=1,
+          )
+          replace(
+              'wellmate/lib/screens/women_calendar/women_companion_screen.dart',
+              """    } finally {
+      if (mounted) setState(() => _loading = false);
+    }
+""",
+              """    } finally {
+      if (mounted) {
+        setState(() {
+          _loading = false;
+          _backgroundRefreshing = false;
+        });
+      }
+    }
+""",
+              count=1,
+          )
+          replace(
+              'wellmate/lib/screens/women_calendar/women_companion_screen.dart',
+              """      child: RefreshIndicator(
+        onRefresh: _load,
+""",
+              """      child: RefreshIndicator(
+        onRefresh: _load,
+""",
+          )
+
+          # Remove this one-shot workflow from the resulting source commit.
+          Path('.github/workflows/apply-background-refresh-care-permission.yml').unlink()
+          PY
+
+      - uses: subosito/flutter-action@4cab68ce0f1c7c924f688bff4792e044f1aeb30c
+        with:
+          flutter-version: '3.44.0'
+          channel: stable
+          cache: true
+
+      - name: Format changed Dart files
+        shell: bash
+        run: |
+          dart format \
+            packages/lifemate_client/lib/src/lifemate_care_management_api.dart \
+            packages/lifemate_client/test/lifemate_care_management_api_test.dart \
+            caremate/lib/main.dart \
+            caremate/lib/widgets/caremate_bottom_nav.dart \
+            caremate/lib/screens/caremate_root_shell.dart \
+            caremate/lib/screens/dashboard_screen.dart \
+            caremate/lib/screens/calendar/calendar_screen.dart \
+            caremate/lib/screens/feature_preview_screen.dart \
+            caremate/lib/screens/care_event_management_screen.dart \
+            wellmate/lib/screens/home/home_screen.dart \
+            wellmate/lib/screens/home/home_screen_content.dart \
+            wellmate/lib/screens/calendar/calendar_screen.dart \
+            wellmate/lib/screens/treatments/treatments_screen.dart \
+            wellmate/lib/screens/women_calendar/women_companion_screen.dart
+
+      - name: Verify shared client
+        run: |
+          cd packages/lifemate_client
+          flutter pub get
+          flutter analyze --no-fatal-warnings --no-fatal-infos
+          flutter test
+
+      - name: Verify WellMate
+        run: |
+          cd wellmate
+          flutter pub get
+          flutter analyze --no-fatal-warnings --no-fatal-infos
+          flutter test
+
+      - name: Verify CareMate
+        run: |
+          cd caremate
+          flutter pub get
+          flutter analyze --no-fatal-warnings --no-fatal-infos
+          flutter test
+
+      - name: Commit verified patch
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add -A
+          git diff --cached --quiet && { echo 'No changes to commit' >&2; exit 1; }
+          git commit -m 'perf: keep LifeMate screens warm with background refresh'
+          git push origin HEAD:fix/background-refresh-care-permission
