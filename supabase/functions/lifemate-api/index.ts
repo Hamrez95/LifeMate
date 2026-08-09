@@ -553,7 +553,9 @@ async function route(
     );
   }
   if (request.method === "GET" && path === "/api/v1/care/relationships") {
-    return json(await db.listRelationships(identity.appUserId));
+    return json(
+      await presentRelationships(await db.listRelationships(identity.appUserId)),
+    );
   }
 
   const relationshipPermissionMatch = path.match(
