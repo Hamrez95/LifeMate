@@ -554,7 +554,9 @@ async function route(
   }
   if (request.method === "GET" && path === "/api/v1/care/relationships") {
     return json(
-      await presentRelationships(await db.listRelationships(identity.appUserId)),
+      await presentRelationships(
+        await db.listRelationships(identity.appUserId),
+      ),
     );
   }
 
