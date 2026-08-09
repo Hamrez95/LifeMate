@@ -29,11 +29,24 @@ class _CareWomenCalendarScreenState extends State<CareWomenCalendarScreen> {
   Map<String, dynamic> _summary = const {};
   List<Map<String, dynamic>> _todayDoses = const [];
   List<Map<String, dynamic>> _todayCareEvents = const [];
+  String? _relationshipPatientProfilePhotoUrl;
+  String? _relationshipPatientAvatarKey;
 
   @override
   void initState() {
     super.initState();
     _load();
+  }
+
+  Future<List<Map<String, dynamic>>> _loadRelationshipMetadata(
+    LifeMateApiClient api,
+  ) async {
+    try {
+      return await api.getCareRelationships();
+    } catch (error) {
+      debugPrint('Care companion relationship metadata load failed: $error');
+      return const <Map<String, dynamic>>[];
+    }
   }
 
   Future<void> _load() async {
@@ -56,12 +69,32 @@ class _CareWomenCalendarScreenState extends State<CareWomenCalendarScreen> {
           fromDate: today,
           toDate: today,
         ),
+        _loadRelationshipMetadata(api),
       ]);
       if (!mounted) return;
+      final relationships = results[3] as List<Map<String, dynamic>>;
+      Map<String, dynamic>? targetRelationship;
+      for (final relationship in relationships) {
+        if (relationship['status']?.toString().toLowerCase() != 'active') {
+          continue;
+        }
+        if (relationship['patientUserId']?.toString() != widget.patientUserId) {
+          continue;
+        }
+        if (relationship['canViewWomenCalendar'] != true) continue;
+        targetRelationship = relationship;
+        break;
+      }
       setState(() {
         _summary = results[0] as Map<String, dynamic>;
         _todayDoses = results[1] as List<Map<String, dynamic>>;
         _todayCareEvents = results[2] as List<Map<String, dynamic>>;
+        _relationshipPatientProfilePhotoUrl = _optionalText(
+          targetRelationship?['patientProfilePhotoUrl'],
+        );
+        _relationshipPatientAvatarKey = _optionalText(
+          targetRelationship?['patientAvatarKey'],
+        );
       });
     } on LifeMateApiException catch (error) {
       if (!mounted) return;
@@ -171,6 +204,7 @@ class _CareWomenCalendarScreenState extends State<CareWomenCalendarScreen> {
                     _ConnectedPartnerHero(
                       patientName: _patientName,
                       patientAvatarKey: _patientAvatarKey,
+                      patientProfilePhotoUrl: _patientProfilePhotoUrl,
                     ),
                     const SizedBox(height: 14),
                     _PartnerCycleSummary(summary: _summary),
@@ -204,13 +238,25 @@ class _CareWomenCalendarScreenState extends State<CareWomenCalendarScreen> {
 
   String get _patientName {
     final patient = _summary['patient'] as Map<String, dynamic>?;
-    final value = patient?['displayName']?.toString().trim();
-    return value == null || value.isEmpty ? widget.patientName : value;
+    return _optionalText(patient?['displayName']) ?? widget.patientName;
   }
 
   String get _patientAvatarKey {
     final patient = _summary['patient'] as Map<String, dynamic>?;
-    return patient?['avatarKey']?.toString() ?? 'person_purple';
+    return _optionalText(patient?['avatarKey']) ??
+        _relationshipPatientAvatarKey ??
+        'person_purple';
+  }
+
+  String? get _patientProfilePhotoUrl {
+    final patient = _summary['patient'] as Map<String, dynamic>?;
+    return _optionalText(patient?['profilePhotoUrl']) ??
+        _relationshipPatientProfilePhotoUrl;
+  }
+
+  static String? _optionalText(dynamic value) {
+    final text = value?.toString().trim();
+    return text == null || text.isEmpty ? null : text;
   }
 }
 
@@ -218,10 +264,12 @@ class _ConnectedPartnerHero extends StatelessWidget {
   const _ConnectedPartnerHero({
     required this.patientName,
     required this.patientAvatarKey,
+    required this.patientProfilePhotoUrl,
   });
 
   final String patientName;
   final String patientAvatarKey;
+  final String? patientProfilePhotoUrl;
 
   @override
   Widget build(BuildContext context) {
@@ -263,7 +311,9 @@ class _ConnectedPartnerHero extends StatelessWidget {
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
                     LifeMateProfileAvatar(
+                      key: const ValueKey('care-women-patient-avatar'),
                       avatarKey: patientAvatarKey,
+                      photoUrl: patientProfilePhotoUrl,
                       radius: 38,
                     ),
                     Transform.translate(
@@ -289,6 +339,7 @@ class _ConnectedPartnerHero extends StatelessWidget {
                     Transform.translate(
                       offset: const Offset(-5, 0),
                       child: LifeMateCurrentUserAvatar(
+                        key: const ValueKey('care-women-current-caregiver-avatar'),
                         apiClient: api,
                         radius: 38,
                       ),

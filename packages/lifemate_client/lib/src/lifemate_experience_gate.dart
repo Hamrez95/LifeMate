@@ -9,6 +9,7 @@ import 'feature_flags.dart';
 import 'health_facts.dart';
 import 'lifemate_api_client.dart';
 import 'lifemate_auth.dart';
+import 'profile_avatar.dart';
 
 part 'experience_auth.dart';
 part 'experience_phone_auth.dart';
@@ -77,6 +78,15 @@ class _LifeMateExperienceGateState extends State<LifeMateExperienceGate> {
       (state) {
         if (!mounted) return;
         final session = state.session;
+        final previousUserId = _session?.user.id;
+        final nextUserId = session?.user.id;
+        if (previousUserId != nextUserId) {
+          // The API client instance lives for the lifetime of the auth gate.
+          // Profile-photo cache entries are therefore explicitly scoped to
+          // the authenticated user so account B can never inherit account A's
+          // signed photo URL or avatar fallback.
+          LifeMateProfileRefresh.clearForApiClient(_api);
+        }
         setState(() {
           _authStreamError = null;
           _session = session;

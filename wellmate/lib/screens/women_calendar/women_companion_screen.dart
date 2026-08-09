@@ -8,6 +8,7 @@ import '../../core/theme/app_style.dart';
 import '../../core/utils/persian_date_utils.dart';
 import 'women_calendar_month_card.dart';
 import 'women_calendar_screen.dart';
+import 'women_companion_people_hero.dart';
 
 class WomenCompanionScreen extends StatefulWidget {
   const WomenCompanionScreen({
@@ -82,14 +83,14 @@ class _WomenCompanionScreenState extends State<WomenCompanionScreen> {
     return false;
   }
 
-  Map<String, dynamic>? get _companionRelationship {
+  List<Map<String, dynamic>> get _companionRelationships {
     final currentUserId = _currentUserId;
-    final active = _relationships.where((item) {
-      if (item['status']?.toString() != 'active') return false;
+    return _relationships.where((item) {
+      if (item['status']?.toString().toLowerCase() != 'active') return false;
+      if (item['canViewWomenCalendar'] != true) return false;
       if (currentUserId == null || currentUserId.isEmpty) return true;
       return item['patientUserId']?.toString() == currentUserId;
-    });
-    return active.isEmpty ? null : active.first;
+    }).toList(growable: false);
   }
 
   @override
@@ -245,9 +246,9 @@ class _WomenCompanionScreenState extends State<WomenCompanionScreen> {
           physics: const AlwaysScrollableScrollPhysics(),
           padding: const EdgeInsets.fromLTRB(18, 12, 18, 28),
           children: [
-            _CompanionHero(
+            WomenCompanionPeopleHero(
               currentProfile: _currentProfile,
-              relationship: _companionRelationship,
+              relationships: _companionRelationships,
             ),
             const SizedBox(height: 14),
             WomenCalendarMonthCard(
@@ -286,147 +287,6 @@ class _WomenCompanionScreenState extends State<WomenCompanionScreen> {
             ),
           ],
         ),
-      ),
-    );
-  }
-}
-
-class _CompanionHero extends StatelessWidget {
-  const _CompanionHero({
-    required this.currentProfile,
-    required this.relationship,
-  });
-
-  final Map<String, dynamic> currentProfile;
-  final Map<String, dynamic>? relationship;
-
-  @override
-  Widget build(BuildContext context) {
-    final api = context.read<LifeMateApiClient>();
-    final name = relationship?['caregiverDisplayName']?.toString().trim();
-    final companionName = name == null || name.isEmpty ? 'همدم من' : name;
-    final companionAvatarKey =
-        relationship?['caregiverAvatarKey']?.toString().trim();
-    final companionPhotoUrl =
-        relationship?['caregiverProfilePhotoUrl']?.toString().trim();
-    return Container(
-      padding: const EdgeInsets.fromLTRB(18, 18, 18, 16),
-      decoration: BoxDecoration(
-        gradient: const LinearGradient(
-          begin: Alignment.topRight,
-          end: Alignment.bottomLeft,
-          colors: [Color(0xFFF7E8FF), Color(0xFFFFEAF2), Color(0xFFFFF7EE)],
-        ),
-        borderRadius: BorderRadius.circular(30),
-        border: Border.all(color: Colors.white.withValues(alpha: 0.86)),
-        boxShadow: const [
-          BoxShadow(
-            color: Color(0x159D65C5),
-            blurRadius: 24,
-            offset: Offset(0, 10),
-          ),
-        ],
-      ),
-      child: Column(
-        children: [
-          const Row(
-            children: [
-              Icon(Icons.favorite_rounded, color: Color(0xFFE7598B), size: 19),
-              SizedBox(width: 7),
-              Expanded(
-                child: Text(
-                  'سلام عزیزِ من',
-                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.w900),
-                ),
-              ),
-              Text(
-                'امروز چطوری؟',
-                style: TextStyle(color: AppColors.textSecondary, fontSize: 11),
-              ),
-            ],
-          ),
-          const SizedBox(height: 16),
-          FittedBox(
-            fit: BoxFit.scaleDown,
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Column(
-                  children: [
-                    LifeMateCurrentUserAvatar(apiClient: api, radius: 34),
-                    const SizedBox(height: 6),
-                    Text(
-                      currentProfile['displayName']?.toString() ?? 'من',
-                      style: const TextStyle(
-                        fontSize: 11,
-                        fontWeight: FontWeight.w800,
-                      ),
-                    ),
-                  ],
-                ),
-                Container(
-                  width: 58,
-                  height: 32,
-                  margin: const EdgeInsets.symmetric(horizontal: 8),
-                  child: Stack(
-                    alignment: Alignment.center,
-                    children: [
-                      Container(
-                        height: 2,
-                        decoration: const BoxDecoration(
-                          gradient: LinearGradient(
-                            colors: [Color(0xFFE69AC6), Color(0xFFAB8BE7)],
-                          ),
-                        ),
-                      ),
-                      const CircleAvatar(
-                        radius: 14,
-                        backgroundColor: Colors.white,
-                        child: Icon(
-                          Icons.favorite_rounded,
-                          size: 15,
-                          color: Color(0xFFD66AA1),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                Column(
-                  children: [
-                    LifeMateProfileAvatar(
-                      avatarKey:
-                          companionAvatarKey == null || companionAvatarKey.isEmpty
-                          ? 'caregiver_teal'
-                          : companionAvatarKey,
-                      photoUrl: companionPhotoUrl,
-                      radius: 34,
-                    ),
-                    const SizedBox(height: 6),
-                    Text(
-                      companionName,
-                      style: const TextStyle(
-                        fontSize: 11,
-                        fontWeight: FontWeight.w800,
-                      ),
-                    ),
-                  ],
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(height: 12),
-          Text(
-            relationship == null
-                ? 'هر زمان آماده بودی، می‌توانی یک همدم قابل اعتماد را با رضایت خودت متصل کنی.'
-                : '$companionName فقط خلاصه‌هایی را می‌بیند که خودت برای اشتراک انتخاب کرده‌ای.',
-            textAlign: TextAlign.center,
-            style: const TextStyle(
-              height: 1.55,
-              color: Color(0xFF735C77),
-              fontSize: 11.5,
-            ),
-          ),
-        ],
       ),
     );
   }
