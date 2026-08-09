@@ -18,6 +18,7 @@ class TreatmentsScreen extends StatefulWidget {
 class _TreatmentsScreenState extends State<TreatmentsScreen> {
   final _search = TextEditingController();
   bool _loading = true;
+  bool _backgroundRefreshing = false;
   String? _error;
   List<CareItem> _planItems = const [];
   List<CareItem> _careEventItems = const [];
@@ -76,7 +77,15 @@ class _TreatmentsScreenState extends State<TreatmentsScreen> {
   Future<void> _load() async {
     if (mounted) {
       setState(() {
-        _loading = true;
+        final hasData =
+            _planItems.isNotEmpty ||
+            _careEventItems.isNotEmpty ||
+            _doseItems.isNotEmpty;
+        if (hasData) {
+          _backgroundRefreshing = true;
+        } else {
+          _loading = true;
+        }
         _error = null;
       });
     }
@@ -154,7 +163,12 @@ class _TreatmentsScreenState extends State<TreatmentsScreen> {
         setState(() => _error = 'درمان‌ها و برنامه‌های مراقبتی دریافت نشدند.');
       }
     } finally {
-      if (mounted) setState(() => _loading = false);
+      if (mounted) {
+        setState(() {
+          _loading = false;
+          _backgroundRefreshing = false;
+        });
+      }
     }
   }
 
@@ -254,6 +268,10 @@ class _TreatmentsScreenState extends State<TreatmentsScreen> {
           physics: const AlwaysScrollableScrollPhysics(),
           padding: const EdgeInsets.fromLTRB(20, 24, 20, 120),
           children: [
+            if (_backgroundRefreshing) ...[
+              const LinearProgressIndicator(minHeight: 2),
+              const SizedBox(height: 10),
+            ],
             const Text(
               'درمان‌های من',
               style: TextStyle(fontSize: 22, fontWeight: FontWeight.w900),
@@ -395,7 +413,7 @@ class _TreatmentsScreenState extends State<TreatmentsScreen> {
               ],
             ),
             const SizedBox(height: 18),
-            if (_loading)
+            if (_loading && visible.isEmpty)
               const Padding(
                 padding: EdgeInsets.all(48),
                 child: Center(child: CircularProgressIndicator()),

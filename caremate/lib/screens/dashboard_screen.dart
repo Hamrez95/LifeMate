@@ -19,7 +19,14 @@ import 'pairing/care_invitation_scanner_screen.dart';
 import 'women_calendar/care_women_calendar_screen.dart';
 
 class DashboardScreen extends StatefulWidget {
-  const DashboardScreen({super.key});
+  const DashboardScreen({
+    super.key,
+    this.refreshToken = 0,
+    this.onNavigationTap,
+  });
+
+  final int refreshToken;
+  final ValueChanged<int>? onNavigationTap;
 
   @override
   State<DashboardScreen> createState() => _DashboardScreenState();
@@ -39,6 +46,14 @@ class _DashboardScreenState extends State<DashboardScreen> {
     _clockTimer = Timer.periodic(const Duration(minutes: 1), (_) {
       if (mounted) setState(() {});
     });
+  }
+
+  @override
+  void didUpdateWidget(covariant DashboardScreen oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.refreshToken != widget.refreshToken) {
+      unawaited(_refresh());
+    }
   }
 
   @override
@@ -190,9 +205,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
   void _openCompanion() {
     final companion = _snapshot?.companion;
     final relationship = companion?.relationship;
-    if (companion == null ||
-        !companion.hasPermission ||
-        relationship == null) {
+    if (companion == null || !companion.hasPermission || relationship == null) {
       return;
     }
     Navigator.of(context).push(
@@ -240,7 +253,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 onTap: () => Navigator.pop(context, 'qr'),
               ),
               ListTile(
-                leading: const CircleAvatar(child: Icon(Icons.keyboard_rounded)),
+                leading: const CircleAvatar(
+                  child: Icon(Icons.keyboard_rounded),
+                ),
                 title: const Text('ورود کد دعوت'),
                 subtitle: const Text('روش پشتیبان برای کد کپی‌شده'),
                 onTap: () => Navigator.pop(context, 'manual'),
@@ -358,7 +373,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
     if (_accepting) return;
     setState(() => _accepting = true);
     try {
-      await context.read<LifeMateApiClient>().acceptCareInvitation(token: token);
+      await context.read<LifeMateApiClient>().acceptCareInvitation(
+        token: token,
+      );
       if (!mounted) return;
       LifeMateNotice.show(
         context,
@@ -379,6 +396,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
   }
 
   void _onNavigationTap(int index) {
+    final shellNavigation = widget.onNavigationTap;
+    if (shellNavigation != null) {
+      shellNavigation(index);
+      return;
+    }
     if (index == 4) return;
     final Widget destination = index == 0
         ? const CalendarScreen()
@@ -435,7 +457,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     ],
                     if (_error != null) ...[
                       const SizedBox(height: 12),
-                      _InlineRetry(message: _error!, onRetry: _refresh, font: font),
+                      _InlineRetry(
+                        message: _error!,
+                        onRetry: _refresh,
+                        font: font,
+                      ),
                     ],
                     if (snapshot != null && snapshot.relationships.isEmpty) ...[
                       const SizedBox(height: 18),
@@ -494,6 +520,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
       bottomNavigationBar: CareMateBottomNav(
         currentIndex: 4,
         onTap: _onNavigationTap,
+        routeTreatmentScreen: widget.onNavigationTap == null,
         onTreatmentManagementReturned: () => unawaited(_refresh()),
       ),
     );
@@ -539,7 +566,10 @@ class _LoadingQueueShell extends StatelessWidget {
             const SizedBox(height: 12),
             Text(
               'در حال آماده‌سازی صف مراقبت…',
-              style: font.copyWith(fontSize: 12, color: AppColors.secondaryText),
+              style: font.copyWith(
+                fontSize: 12,
+                color: AppColors.secondaryText,
+              ),
             ),
           ],
         ),
@@ -568,7 +598,10 @@ class _InlineRetry extends StatelessWidget {
             message,
             maxLines: 2,
             overflow: TextOverflow.ellipsis,
-            style: font.copyWith(fontSize: 11.5, color: const Color(0xFFB14955)),
+            style: font.copyWith(
+              fontSize: 11.5,
+              color: const Color(0xFFB14955),
+            ),
           ),
         ),
         TextButton(onPressed: onRetry, child: const Text('تلاش دوباره')),
@@ -611,7 +644,10 @@ class _ConnectCareCard extends StatelessWidget {
           Text(
             'با دعوت WellMate ارتباط مراقبتی امن را فعال کنید.',
             textAlign: TextAlign.center,
-            style: font.copyWith(fontSize: 11.5, color: const Color(0xFF7D8B9D)),
+            style: font.copyWith(
+              fontSize: 11.5,
+              color: const Color(0xFF7D8B9D),
+            ),
           ),
           const SizedBox(height: 14),
           FilledButton.icon(

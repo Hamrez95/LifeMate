@@ -15,10 +15,12 @@ class WomenCompanionScreen extends StatefulWidget {
     super.key,
     this.onProfileChanged,
     this.companionApi,
+    this.refreshToken = 0,
   });
 
   final Future<void> Function()? onProfileChanged;
   final WomenCompanionApi? companionApi;
+  final int refreshToken;
 
   @override
   State<WomenCompanionScreen> createState() => _WomenCompanionScreenState();
@@ -85,12 +87,15 @@ class _WomenCompanionScreenState extends State<WomenCompanionScreen> {
 
   List<Map<String, dynamic>> get _companionRelationships {
     final currentUserId = _currentUserId;
-    return _relationships.where((item) {
-      if (item['status']?.toString().toLowerCase() != 'active') return false;
-      if (item['canViewWomenCalendar'] != true) return false;
-      if (currentUserId == null || currentUserId.isEmpty) return true;
-      return item['patientUserId']?.toString() == currentUserId;
-    }).toList(growable: false);
+    return _relationships
+        .where((item) {
+          if (item['status']?.toString().toLowerCase() != 'active')
+            return false;
+          if (item['canViewWomenCalendar'] != true) return false;
+          if (currentUserId == null || currentUserId.isEmpty) return true;
+          return item['patientUserId']?.toString() == currentUserId;
+        })
+        .toList(growable: false);
   }
 
   @override
@@ -99,13 +104,26 @@ class _WomenCompanionScreenState extends State<WomenCompanionScreen> {
     _load();
   }
 
-  Future<void> _load() async {
+  @override
+  void didUpdateWidget(covariant WomenCompanionScreen oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.refreshToken != widget.refreshToken) {
+      _load(background: true);
+    }
+  }
+
+  Future<void> _load({bool background = false}) async {
+    if (background && _profile.isEmpty) {
+      background = false;
+    }
     if (!LifeMateFeatureFlags.womenCalendarPilotEnabled) {
       if (mounted) setState(() => _loading = false);
       return;
     }
     setState(() {
-      _loading = true;
+      if (_profile.isEmpty) {
+        _loading = true;
+      }
       _error = null;
     });
     try {

@@ -14,10 +14,16 @@ import 'dashboard_screen.dart';
 /// destinations. Data that exists in the healthcare API is live; actions that
 /// have no safe caregiver contract remain visible and explicitly disabled.
 class CareMateFeaturePreviewScreen extends StatefulWidget {
-  const CareMateFeaturePreviewScreen({required this.initialIndex, super.key})
-    : assert(initialIndex >= 1 && initialIndex <= 3);
+  const CareMateFeaturePreviewScreen({
+    required this.initialIndex,
+    super.key,
+    this.refreshToken = 0,
+    this.onNavigationTap,
+  }) : assert(initialIndex >= 1 && initialIndex <= 3);
 
   final int initialIndex;
+  final int refreshToken;
+  final ValueChanged<int>? onNavigationTap;
 
   @override
   State<CareMateFeaturePreviewScreen> createState() =>
@@ -40,6 +46,14 @@ class _CareMateFeaturePreviewScreenState
     super.initState();
     _currentIndex = widget.initialIndex;
     _refresh();
+  }
+
+  @override
+  void didUpdateWidget(covariant CareMateFeaturePreviewScreen oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.refreshToken != widget.refreshToken) {
+      _refresh();
+    }
   }
 
   Map<String, dynamic>? get _selectedRelationship {
@@ -328,6 +342,11 @@ class _CareMateFeaturePreviewScreenState
   }
 
   void _onNavigationTap(int index) {
+    final shellNavigation = widget.onNavigationTap;
+    if (shellNavigation != null) {
+      shellNavigation(index);
+      return;
+    }
     if (index == _currentIndex) return;
     if (index == 0) {
       Navigator.of(context).pushReplacement(
@@ -430,6 +449,7 @@ class _CareMateFeaturePreviewScreenState
       bottomNavigationBar: CareMateBottomNav(
         currentIndex: _currentIndex,
         onTap: _onNavigationTap,
+        routeTreatmentScreen: widget.onNavigationTap == null,
       ),
     );
   }

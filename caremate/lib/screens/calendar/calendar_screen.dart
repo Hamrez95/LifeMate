@@ -16,7 +16,14 @@ import 'schedule_card.dart';
 import 'user_selector.dart';
 
 class CalendarScreen extends StatefulWidget {
-  const CalendarScreen({super.key});
+  const CalendarScreen({
+    super.key,
+    this.refreshToken = 0,
+    this.onNavigationTap,
+  });
+
+  final int refreshToken;
+  final ValueChanged<int>? onNavigationTap;
 
   @override
   State<CalendarScreen> createState() => _CalendarScreenState();
@@ -28,6 +35,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
   String? _selectedUserId;
   bool _loadingRelationships = true;
   bool _loadingEvents = false;
+  bool _backgroundRefreshing = false;
   String? _error;
   List<UserModel> _users = const [];
   List<EventModel> _events = const [];
@@ -38,12 +46,24 @@ class _CalendarScreenState extends State<CalendarScreen> {
     _refreshRelationships();
   }
 
+  @override
+  void didUpdateWidget(covariant CalendarScreen oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.refreshToken != widget.refreshToken) {
+      _refreshRelationships(background: true);
+    }
+  }
+
   DateTime _normalizeDate(DateTime date) =>
       DateTime(date.year, date.month, date.day);
 
-  Future<void> _refreshRelationships() async {
+  Future<void> _refreshRelationships({bool background = false}) async {
     setState(() {
-      _loadingRelationships = true;
+      if (_users.isEmpty) {
+        _loadingRelationships = true;
+      } else if (background) {
+        _backgroundRefreshing = true;
+      }
       _error = null;
     });
     try {
@@ -91,16 +111,18 @@ class _CalendarScreenState extends State<CalendarScreen> {
         _selectedUserId = selected;
         _loadingRelationships = false;
       });
-      await _loadMonthEvents();
+      await _loadMonthEvents(background: background);
     } on LifeMateApiException catch (error) {
       _setError(_friendlyApiError(error));
     } catch (error) {
       debugPrint('CareMate calendar relationship load failed: $error');
       _setError('اطلاعات تقویم دریافت نشد. اتصال اینترنت را بررسی کنید.');
+    } finally {
+      if (mounted) setState(() => _backgroundRefreshing = false);
     }
   }
 
-  Future<void> _loadMonthEvents() async {
+  Future<void> _loadMonthEvents({bool background = false}) async {
     final patientUserId = _selectedUserId;
     if (patientUserId == null) {
       if (mounted) setState(() => _events = const []);
@@ -108,7 +130,10 @@ class _CalendarScreenState extends State<CalendarScreen> {
     }
 
     setState(() {
-      _loadingEvents = true;
+      if (_events.isEmpty || !background) {
+        _loadingEvents = _events.isEmpty;
+      }
+      if (background && _events.isNotEmpty) _backgroundRefreshing = true;
       _error = null;
     });
     try {
@@ -144,6 +169,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
       setState(() {
         _events = events;
         _loadingEvents = false;
+        _backgroundRefreshing = false;
       });
     } on LifeMateApiException catch (error) {
       _setError(_friendlyApiError(error));
@@ -365,6 +391,11 @@ class _CalendarScreenState extends State<CalendarScreen> {
   }
 
   void _onNavigationTap(int index) {
+    final shellNavigation = widget.onNavigationTap;
+    if (shellNavigation != null) {
+      shellNavigation(index);
+      return;
+    }
     if (index == 0) return;
     final Widget destination = index == 4
         ? const DashboardScreen()
@@ -398,6 +429,8 @@ class _CalendarScreenState extends State<CalendarScreen> {
               onNotificationTap: _showAlerts,
               showNotificationDot: _activeAlerts.isNotEmpty,
             ),
+            if (_backgroundRefreshing)
+              const LinearProgressIndicator(minHeight: 2),
             Expanded(
               child: RefreshIndicator(
                 onRefresh: _refreshRelationships,
@@ -549,6 +582,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
       bottomNavigationBar: CareMateBottomNav(
         currentIndex: 0,
         onTap: _onNavigationTap,
+        routeTreatmentScreen: widget.onNavigationTap == null,
       ),
     );
   }

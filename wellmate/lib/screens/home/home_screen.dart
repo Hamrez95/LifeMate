@@ -26,6 +26,8 @@ class HomeScreen extends StatefulWidget {
 class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   static const _womenStateTtl = Duration(seconds: 20);
   static const _refreshDebounceDuration = Duration(milliseconds: 180);
+  static const _backgroundRefreshInterval = Duration(seconds: 8);
+  static const _prewarmDelay = Duration(milliseconds: 350);
 
   int _currentIndex = 4;
   final Set<int> _visitedTabs = <int>{4};
@@ -37,6 +39,9 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   bool _womenCalendarLoading = false;
   DateTime? _womenCalendarLoadedAt;
   Timer? _refreshDebounce;
+  Timer? _backgroundRefreshTimer;
+  Timer? _prewarmTimer;
+  DateTime _lastBackgroundRefresh = DateTime.now();
 
   @override
   void initState() {
@@ -46,11 +51,21 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       unawaited(_loadWomenCalendarState(force: true));
     });
+    _backgroundRefreshTimer = Timer.periodic(
+      const Duration(seconds: 2),
+      (_) => _refreshActiveTabIfStale(),
+    );
+    _prewarmTimer = Timer(_prewarmDelay, () {
+      if (!mounted) return;
+      setState(() => _visitedTabs.addAll(const <int>{0, 1, 2, 3, 4}));
+    });
   }
 
   @override
   void dispose() {
     _refreshDebounce?.cancel();
+    _backgroundRefreshTimer?.cancel();
+    _prewarmTimer?.cancel();
     WellMateRefreshSignal.revision.removeListener(_handleExternalRefresh);
     WidgetsBinding.instance.removeObserver(this);
     super.dispose();
@@ -202,10 +217,24 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
 
   void _onItemTapped(int index) {
     if (index == 3 && !_womenCalendarEnabled) return;
+    if (_currentIndex != index) {
+      setState(() {
+        _visitedTabs.add(index);
+        _currentIndex = index;
+      });
+    }
+    _refreshActiveTabIfStale();
+  }
+
+  void _refreshActiveTabIfStale() {
+    final now = DateTime.now();
+    if (now.difference(_lastBackgroundRefresh) < _backgroundRefreshInterval) {
+      return;
+    }
+    _lastBackgroundRefresh = now;
+    if (!mounted) return;
     setState(() {
-      _visitedTabs.add(index);
-      _currentIndex = index;
-      switch (index) {
+      switch (_currentIndex) {
         case 0:
           _calendarRevision++;
           break;
@@ -229,11 +258,11 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
       1 => TreatmentsScreen(refreshToken: _treatmentsRevision),
       2 => CarePlanHubScreen(onCreated: _treatmentCreated),
       3 => WomenCompanionScreen(
-        key: ValueKey<int>(_womenRevision),
+        refreshToken: _womenRevision,
         onProfileChanged: () => _loadWomenCalendarState(force: true),
       ),
       _ => HomeScreenContent(
-        key: ValueKey<int>(_homeRevision),
+        refreshToken: _homeRevision,
         onOpenTreatments: () => _onItemTapped(1),
         onAddTreatment: () => _onItemTapped(2),
       ),

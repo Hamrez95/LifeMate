@@ -19,10 +19,12 @@ class HomeScreenContent extends StatefulWidget {
     super.key,
     required this.onOpenTreatments,
     required this.onAddTreatment,
+    this.refreshToken = 0,
   });
 
   final VoidCallback onOpenTreatments;
   final VoidCallback onAddTreatment;
+  final int refreshToken;
 
   @override
   State<HomeScreenContent> createState() => _HomeScreenContentState();
@@ -51,16 +53,26 @@ class _HomeScreenContentState extends State<HomeScreenContent> {
   }
 
   @override
+  void didUpdateWidget(covariant HomeScreenContent oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.refreshToken != widget.refreshToken) {
+      _fetchScheduleFromBackend(background: true);
+    }
+  }
+
+  @override
   void dispose() {
     _timer?.cancel();
     _retryTimer?.cancel();
     super.dispose();
   }
 
-  Future<void> _fetchScheduleFromBackend() async {
+  Future<void> _fetchScheduleFromBackend({bool background = false}) async {
     if (mounted) {
       setState(() {
-        isLoading = true;
+        if (scheduleList.isEmpty && _countdownOccurrences.isEmpty) {
+          isLoading = true;
+        }
         loadError = null;
       });
     }

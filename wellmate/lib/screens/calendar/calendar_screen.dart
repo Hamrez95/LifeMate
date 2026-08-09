@@ -23,6 +23,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
   DateTime _selectedDate = DateTime.now();
   DateTime _focusedMonth = DateTime.now();
   bool _loading = true;
+  bool _backgroundRefreshing = false;
   String? _error;
   List<ScheduleItemModel> _monthItems = const [];
 
@@ -44,7 +45,11 @@ class _CalendarScreenState extends State<CalendarScreen> {
   Future<void> _loadMonth() async {
     if (!mounted) return;
     setState(() {
-      _loading = true;
+      if (_monthItems.isEmpty) {
+        _loading = true;
+      } else {
+        _backgroundRefreshing = true;
+      }
       _error = null;
     });
     try {
@@ -80,6 +85,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
       setState(() {
         _monthItems = items;
         _loading = false;
+        _backgroundRefreshing = false;
       });
     } on LifeMateApiException catch (error) {
       _setError(
@@ -207,6 +213,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
     if (!mounted) return;
     setState(() {
       _loading = false;
+      _backgroundRefreshing = false;
       _error = message;
     });
   }
@@ -307,6 +314,8 @@ class _CalendarScreenState extends State<CalendarScreen> {
             padding: const EdgeInsets.only(bottom: 20, top: 10),
             child: Column(
               children: [
+                if (_backgroundRefreshing)
+                  const LinearProgressIndicator(minHeight: 2),
                 Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 24),
                   child: CustomTableCalendar(
