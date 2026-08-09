@@ -7,6 +7,7 @@ import 'package:caremate/screens/profile_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:lifemate_client/lifemate_client.dart';
+import 'package:lifemate_ui/lifemate_ui.dart';
 import 'package:provider/provider.dart';
 
 void main() {
@@ -48,7 +49,29 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.byType(ProfileScreen), findsOneWidget);
+    expect(find.byType(LifeMateSharedProfileScreen), findsOneWidget);
     expect(find.text('مراقب تست'), findsOneWidget);
+    expect(find.text('مدیریت افراد تحت مراقبت'), findsOneWidget);
+    expect(find.text('مدیریت اشتراک‌ها'), findsOneWidget);
+
+    final subscriptionCard = find.byKey(
+      const ValueKey('lifemate-subscription-card'),
+    );
+    expect(subscriptionCard, findsOneWidget);
+    expect(
+      find.descendant(
+        of: subscriptionCard,
+        matching: find.text('اشتراک فعال وجود ندارد'),
+      ),
+      findsNothing,
+    );
+    expect(
+      find.descendant(
+        of: subscriptionCard,
+        matching: find.text('در دست توسعه'),
+      ),
+      findsNothing,
+    );
     expect(tester.takeException(), isNull);
   });
 

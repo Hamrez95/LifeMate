@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:lifemate_client/lifemate_client.dart';
+import 'package:lifemate_ui/lifemate_ui.dart';
 import 'package:provider/provider.dart';
 import 'package:wellmate/localization/locale_provider.dart';
 import 'package:wellmate/main.dart';
@@ -56,9 +57,29 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.byType(ProfileScreen), findsOneWidget);
+    expect(find.byType(LifeMateSharedProfileScreen), findsOneWidget);
     expect(find.text('کاربر تست'), findsOneWidget);
     expect(find.byIcon(Icons.camera_alt), findsOneWidget);
     expect(find.byType(LifeMateProfileAvatar), findsWidgets);
+    expect(find.text('مدیریت اشتراک‌ها'), findsOneWidget);
+    final subscriptionCard = find.byKey(
+      const ValueKey('lifemate-subscription-card'),
+    );
+    expect(subscriptionCard, findsOneWidget);
+    expect(
+      find.descendant(
+        of: subscriptionCard,
+        matching: find.text('اشتراکی ندارید'),
+      ),
+      findsNothing,
+    );
+    expect(
+      find.descendant(
+        of: subscriptionCard,
+        matching: find.text('در دست توسعه'),
+      ),
+      findsNothing,
+    );
     final avatar = tester.widget<LifeMateProfileAvatar>(
       find.byType(LifeMateProfileAvatar).first,
     );

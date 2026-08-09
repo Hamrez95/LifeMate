@@ -1,0 +1,16 @@
+name: lifemate_ui
+description: Shared presentation components for LifeMate apps.
+publish_to: 'none'
+version: 0.1.0
+environment:
+  sdk: ">=3.0.0 <4.0.0"
+dependencies:
+  flutter:
+    sdk: flutter
+  image_picker: ^1.1.2
+  lifemate_client:
+    path: ../lifemate_client
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
