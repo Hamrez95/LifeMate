@@ -51,7 +51,12 @@ void main() {
         ),
         findsOneWidget,
       );
-      expect(find.byType(LifeMateProfileAvatar), findsNWidgets(3));
+      for (final patientId in const ['patient-1', 'patient-2', 'patient-3']) {
+        expect(
+          find.byKey(ValueKey<String>('care-calendar-avatar-$patientId')),
+          findsOneWidget,
+        );
+      }
       expect(api.requestedPatientIds.last, 'patient-1');
 
       await tester.tap(
