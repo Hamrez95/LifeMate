@@ -69,14 +69,13 @@ class _CalendarScreenState extends State<CalendarScreen> {
             (relationship) => UserModel(
               id: relationship['patientUserId'].toString(),
               name:
-                  relationship['patientDisplayName']
-                          ?.toString()
-                          .trim()
-                          .isNotEmpty ==
-                      true
-                  ? relationship['patientDisplayName'].toString()
-                  : 'فرد تحت مراقبت',
+                  _nonEmpty(relationship['patientDisplayName']) ??
+                  'فرد تحت مراقبت',
               role: 'فرد تحت مراقبت',
+              profilePhotoUrl: _nonEmpty(
+                relationship['patientProfilePhotoUrl'],
+              ),
+              avatarKey: _nonEmpty(relationship['patientAvatarKey']),
             ),
           )
           .toList(growable: false);
