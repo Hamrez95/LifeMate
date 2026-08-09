@@ -1,7 +1,6 @@
-// ignore_for_file: deprecated_member_use
-
 import 'package:flutter/material.dart';
 import 'package:lifemate_client/lifemate_client.dart';
+import 'package:lifemate_ui/lifemate_ui.dart';
 import 'package:provider/provider.dart';
 
 import '../../core/constants/app_version.dart';
@@ -28,526 +27,49 @@ class ProfileScreen extends StatelessWidget {
       Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => page));
     }
 
-    return Scaffold(
-      backgroundColor: AppColors.background,
-      body: SafeArea(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.only(bottom: 24),
-          child: Column(
-            children: [
-              Padding(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 24,
-                  vertical: 16,
-                ),
-                child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    IconButton(
-                      tooltip: 'بازگشت',
-                      icon: const Icon(
-                        Icons.arrow_back_ios_new_rounded,
-                        size: 24,
-                        color: AppColors.primaryBlue,
-                      ),
-                      onPressed: () => Navigator.of(context).pop(),
-                    ),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: _CurrentUserIdentity(
-                        mainFont: mainFont,
-                        isPersian: isPersian,
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    IconButton(
-                      tooltip: 'اعلان‌ها',
-                      icon: const Icon(
-                        Icons.notifications_none_rounded,
-                        size: 24,
-                        color: AppColors.primaryBlue,
-                      ),
-                      onPressed: () => open(const NotificationCenterScreen()),
-                    ),
-                  ],
-                ),
-              ),
-              Padding(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 24,
-                  vertical: 8,
-                ),
-                child: Container(
-                  padding: const EdgeInsets.symmetric(
-                    vertical: 16,
-                    horizontal: 18,
-                  ),
-                  decoration: BoxDecoration(
-                    color: AppColors.cardBackground,
-                    borderRadius: BorderRadius.circular(18),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withOpacity(0.07),
-                        blurRadius: 16,
-                        offset: const Offset(0, 4),
-                      ),
-                    ],
-                  ),
-                  child: Row(
-                    children: [
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              loc['profile_no_subscription'] ??
-                                  'اشتراکی ندارید',
-                              style: TextStyle(
-                                fontFamily: mainFont,
-                                fontSize: 15,
-                                color: AppColors.darkBlue,
-                              ),
-                            ),
-                            const SizedBox(height: 8),
-                            Wrap(
-                              spacing: 8,
-                              crossAxisAlignment: WrapCrossAlignment.center,
-                              children: [
-                                ElevatedButton(
-                                  style: ElevatedButton.styleFrom(
-                                    backgroundColor: AppColors.darkBlue,
-                                    shape: RoundedRectangleBorder(
-                                      borderRadius: BorderRadius.circular(12),
-                                    ),
-                                    elevation: 0,
-                                    padding: const EdgeInsets.symmetric(
-                                      horizontal: 18,
-                                      vertical: 8,
-                                    ),
-                                  ),
-                                  onPressed: () =>
-                                      open(const SubscriptionScreen()),
-                                  child: Text(
-                                    loc['profile_buy_plan'] ?? 'خرید اشتراک',
-                                    style: TextStyle(
-                                      fontFamily: mainFont,
-                                      fontSize: 14,
-                                      color: Colors.white,
-                                    ),
-                                  ),
-                                ),
-                                Text(
-                                  'در دست توسعه',
-                                  style: TextStyle(
-                                    fontFamily: mainFont,
-                                    fontSize: 12,
-                                    color: AppColors.primaryBlue,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ],
-                        ),
-                      ),
-                      const SizedBox(width: 12),
-                      Container(
-                        padding: const EdgeInsets.all(5),
-                        decoration: const BoxDecoration(
-                          color: Colors.white,
-                          shape: BoxShape.circle,
-                          boxShadow: [
-                            BoxShadow(
-                              color: Color.fromARGB(64, 255, 191, 0),
-                              blurRadius: 16,
-                              offset: Offset(0, 4),
-                            ),
-                          ],
-                        ),
-                        child: const Icon(
-                          Icons.emoji_events_rounded,
-                          size: 36,
-                          color: Colors.amber,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-              Padding(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 24,
-                  vertical: 8,
-                ),
-                child: Container(
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(24),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withOpacity(0.07),
-                        blurRadius: 16,
-                        offset: const Offset(0, 4),
-                      ),
-                    ],
-                  ),
-                  child: Column(
-                    children: [
-                      _ProfileMenuTile(
-                        icon: Icons.person,
-                        iconColor: Colors.blueAccent,
-                        label: loc['profile_personal_info'] ?? 'اطلاعات شخصی',
-                        mainFont: mainFont,
-                        onTap: () => open(const EditableProfileScreen()),
-                      ),
-                      const Divider(height: 1, indent: 60, endIndent: 20),
-                      _ProfileMenuTile(
-                        icon: Icons.assignment_rounded,
-                        iconColor: Colors.orangeAccent,
-                        label: loc['profile_health_profile'] ?? 'پرونده سلامت',
-                        mainFont: mainFont,
-                        onTap: () => open(const HealthRecordScreen()),
-                      ),
-                      const Divider(height: 1, indent: 60, endIndent: 20),
-                      _ProfileMenuTile(
-                        icon: Icons.group,
-                        iconColor: Colors.green,
-                        label: loc['profile_caregivers'] ?? 'مراقبان',
-                        mainFont: mainFont,
-                        onTap: () => open(const CareAccessScreen()),
-                      ),
-                      const Divider(height: 1, indent: 60, endIndent: 20),
-                      _ProfileMenuTile(
-                        icon: Icons.settings,
-                        iconColor: Colors.purple,
-                        label: loc['profile_app_settings'] ?? 'تنظیمات برنامه',
-                        mainFont: mainFont,
-                        onTap: () => showDialog<void>(
-                          context: context,
-                          builder: (_) => _SettingsDialog(mainFont: mainFont),
-                        ),
-                      ),
-                      const Divider(height: 1, indent: 60, endIndent: 20),
-                      _ProfileMenuTile(
-                        icon: Icons.card_giftcard,
-                        iconColor: Colors.redAccent,
-                        label: loc['profile_referral_code'] ?? 'کد معرف',
-                        mainFont: mainFont,
-                        subtitle: 'در دست توسعه',
-                        onTap: () => open(const ReferralScreen()),
-                      ),
-                      const Divider(height: 1, indent: 60, endIndent: 20),
-                      _ProfileMenuTile(
-                        icon: Icons.support_agent,
-                        iconColor: Colors.indigo,
-                        label: loc['profile_support'] ?? 'پشتیبانی',
-                        mainFont: mainFont,
-                        subtitle: 'راهنما فعال؛ ارسال تیکت در دست توسعه',
-                        onTap: () => open(const SupportScreen()),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-              Padding(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 24,
-                  vertical: 8,
-                ),
-                child: OutlinedButton.icon(
-                  key: const ValueKey('wellmate-account-deletion'),
-                  style: OutlinedButton.styleFrom(
-                    minimumSize: const Size.fromHeight(52),
-                    foregroundColor: Colors.redAccent,
-                    side: BorderSide(color: Colors.redAccent.withOpacity(0.28)),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(18),
-                    ),
-                  ),
-                  icon: const Icon(Icons.delete_forever_outlined),
-                  label: Text(
-                    'حذف حساب و داده‌های شخصی',
-                    style: TextStyle(
-                      fontFamily: mainFont,
-                      fontWeight: FontWeight.w800,
-                    ),
-                  ),
-                  onPressed: () => showLifeMateAccountDeletionDialog(
-                    context,
-                    apiClient: context.read<LifeMateApiClient>(),
-                    fontFamily: mainFont,
-                  ),
-                ),
-              ),
-              Padding(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 24,
-                  vertical: 8,
-                ),
-                child: Container(
-                  width: double.infinity,
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(18),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.redAccent.withOpacity(0.12),
-                        blurRadius: 16,
-                        offset: const Offset(0, 4),
-                      ),
-                    ],
-                  ),
-                  child: TextButton.icon(
-                    style: TextButton.styleFrom(
-                      padding: const EdgeInsets.symmetric(vertical: 16),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(18),
-                      ),
-                    ),
-                    icon: const Icon(Icons.logout, color: Colors.redAccent),
-                    label: Text(
-                      loc['profile_logout'] ?? 'خروج از حساب',
-                      style: TextStyle(
-                        fontFamily: mainFont,
-                        fontSize: 16,
-                        color: Colors.redAccent,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                    onPressed: LifeMateAuth.signOut,
-                  ),
-                ),
-              ),
-              Padding(
-                padding: const EdgeInsets.only(top: 8),
-                child: Text(
-                  'WellMate $wellMateAppVersion'.toPersianDigit(isPersian),
-                  style: TextStyle(
-                    fontFamily: mainFont,
-                    fontSize: 12,
-                    color: AppColors.secondaryText.withOpacity(0.7),
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ),
+    return LifeMateSharedProfileScreen(
+      apiClient: context.read<LifeMateApiClient>(),
+      theme: const LifeMateProfileThemeData(
+        background: AppColors.background,
+        accent: AppColors.primary,
+        titleColor: AppColors.darkBlue,
+        secondaryText: AppColors.textSecondary,
+        cardBackground: AppColors.cardBackground,
       ),
-    );
-  }
-}
-
-class _CurrentUserIdentity extends StatefulWidget {
-  const _CurrentUserIdentity({required this.mainFont, required this.isPersian});
-
-  final String mainFont;
-  final bool isPersian;
-
-  @override
-  State<_CurrentUserIdentity> createState() => _CurrentUserIdentityState();
-}
-
-class _CurrentUserIdentityState extends State<_CurrentUserIdentity> {
-  late Future<Map<String, dynamic>> _currentUser;
-
-  @override
-  void initState() {
-    super.initState();
-    _currentUser = context.read<LifeMateApiClient>().getCurrentUser();
-    LifeMateProfileRefresh.revision.addListener(_reloadIdentity);
-  }
-
-  void _reloadIdentity() {
-    if (!mounted) return;
-    setState(() {
-      _currentUser = context.read<LifeMateApiClient>().getCurrentUser();
-    });
-  }
-
-  Future<void> _openEditor() async {
-    await Navigator.of(context).push(
-      MaterialPageRoute<void>(builder: (_) => const EditableProfileScreen()),
-    );
-    if (!mounted) return;
-    setState(() {
-      _currentUser = context.read<LifeMateApiClient>().getCurrentUser();
-    });
-  }
-
-  @override
-  void dispose() {
-    LifeMateProfileRefresh.revision.removeListener(_reloadIdentity);
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return FutureBuilder<Map<String, dynamic>>(
-      future: _currentUser,
-      builder: (context, snapshot) {
-        final data = snapshot.data ?? const <String, dynamic>{};
-        final user = data['user'] as Map<String, dynamic>? ?? const {};
-        final profile = data['profile'] as Map<String, dynamic>? ?? const {};
-        final rawName = profile['displayName']?.toString().trim();
-        final name = rawName == null || rawName.isEmpty
-            ? 'کاربر LifeMate'
-            : rawName;
-        final phone = profile['phoneNumber']?.toString().trim() ?? '';
-        final email = user['email']?.toString().trim() ?? '';
-        final contact = phone.isNotEmpty ? phone : email;
-
-        return Column(
-          children: [
-            Container(
-              width: 80,
-              height: 80,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                color: Colors.white,
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withOpacity(0.08),
-                    blurRadius: 16,
-                    offset: const Offset(0, 4),
-                  ),
-                ],
-              ),
-              child: Stack(
-                alignment: Alignment.center,
-                children: [
-                  InkWell(
-                    onTap: _openEditor,
-                    customBorder: const CircleBorder(),
-                    child: LifeMateProfileAvatar(
-                      avatarKey: profile['avatarKey']?.toString(),
-                      photoUrl: profile['profilePhotoUrl']?.toString(),
-                      radius: 36,
-                    ),
-                  ),
-                  Positioned(
-                    bottom: 0,
-                    right: 0,
-                    child: Container(
-                      padding: const EdgeInsets.all(4),
-                      decoration: BoxDecoration(
-                        color: Colors.white,
-                        shape: BoxShape.circle,
-                        boxShadow: [
-                          BoxShadow(
-                            color: Colors.black.withOpacity(0.12),
-                            blurRadius: 8,
-                          ),
-                        ],
-                      ),
-                      child: const Icon(
-                        Icons.camera_alt,
-                        size: 16,
-                        color: AppColors.primaryBlue,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(height: 8),
-            if (snapshot.connectionState != ConnectionState.done)
-              const SizedBox.square(
-                dimension: 22,
-                child: CircularProgressIndicator(strokeWidth: 2),
-              )
-            else ...[
-              Text(
-                name,
-                textAlign: TextAlign.center,
-                style: TextStyle(
-                  fontFamily: widget.mainFont,
-                  fontSize: 22,
-                  fontWeight: FontWeight.bold,
-                  color: AppColors.darkBlue,
-                ),
-              ),
-              if (contact.isNotEmpty)
-                Text(
-                  contact.toPersianDigit(widget.isPersian),
-                  textAlign: TextAlign.center,
-                  textDirection: TextDirection.ltr,
-                  style: TextStyle(
-                    fontFamily: widget.mainFont,
-                    fontSize: 14,
-                    color: AppColors.primaryBlue,
-                  ),
-                ),
-            ],
-          ],
-        );
-      },
-    );
-  }
-}
-
-class _ProfileMenuTile extends StatelessWidget {
-  const _ProfileMenuTile({
-    required this.icon,
-    required this.iconColor,
-    required this.label,
-    required this.mainFont,
-    required this.onTap,
-    this.subtitle,
-  });
-
-  final IconData icon;
-  final Color iconColor;
-  final String label;
-  final String mainFont;
-  final VoidCallback onTap;
-  final String? subtitle;
-
-  @override
-  Widget build(BuildContext context) {
-    return Material(
-      color: Colors.transparent,
-      child: ListTile(
-        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 3),
-        leading: Container(
-          width: 40,
-          height: 40,
-          decoration: BoxDecoration(
-            color: iconColor.withOpacity(0.15),
-            shape: BoxShape.circle,
-            boxShadow: [
-              BoxShadow(
-                color: iconColor.withOpacity(0.25),
-                blurRadius: 8,
-                offset: const Offset(0, 4),
-              ),
-            ],
-          ),
-          child: Icon(icon, color: iconColor, size: 24),
-        ),
-        title: Text(
-          label,
-          style: TextStyle(
-            fontFamily: mainFont,
-            fontSize: 16,
-            color: AppColors.darkBlue,
-          ),
-        ),
-        subtitle: subtitle == null
-            ? null
-            : Text(
-                subtitle!,
-                style: TextStyle(
-                  fontFamily: mainFont,
-                  fontSize: 11,
-                  color: AppColors.textSecondary,
-                ),
-              ),
-        trailing: const Icon(
-          Icons.arrow_forward_ios_rounded,
-          size: 14,
-          color: Colors.grey,
-        ),
-        onTap: onTap,
+      labels: LifeMateProfileLabels(
+        personalInfo: loc['profile_personal_info'] ?? 'اطلاعات شخصی',
+        healthProfile: loc['profile_health_profile'] ?? 'پرونده سلامت',
+        careManagement: loc['profile_caregivers'] ?? 'مراقبان',
+        appSettings: loc['profile_app_settings'] ?? 'تنظیمات برنامه',
+        referral: loc['profile_referral_code'] ?? 'کد معرف',
+        support: loc['profile_support'] ?? 'پشتیبانی',
+        logout: loc['profile_logout'] ?? 'خروج از حساب',
+        subscriptionTitle:
+            loc['profile_no_subscription'] ?? (isPersian ? 'اشتراک' : 'Subscription'),
+        manageSubscriptions:
+            loc['profile_buy_plan'] ??
+            (isPersian ? 'مدیریت اشتراک‌ها' : 'Manage subscriptions'),
+        referralSubtitle: isPersian ? 'در دست توسعه' : 'Coming soon',
+        supportSubtitle: isPersian
+            ? 'راهنما فعال؛ ارسال تیکت در دست توسعه'
+            : 'Help is available; ticketing is coming soon',
       ),
+      fontFamily: mainFont,
+      appName: 'WellMate',
+      versionLabel: 'WellMate $wellMateAppVersion'.toPersianDigit(isPersian),
+      fallbackUserName: isPersian ? 'کاربر LifeMate' : 'LifeMate user',
+      isPersian: isPersian,
+      onNotifications: () => open(const NotificationCenterScreen()),
+      onEditProfile: () => open(const EditableProfileScreen()),
+      onHealthProfile: () => open(const HealthRecordScreen()),
+      onCareManagement: () => open(const CareAccessScreen()),
+      onAppSettings: () => showDialog<void>(
+        context: context,
+        builder: (_) => _SettingsDialog(mainFont: mainFont),
+      ),
+      onReferral: () => open(const ReferralScreen()),
+      onSupport: () => open(const SupportScreen()),
+      onManageSubscriptions: () => open(const SubscriptionScreen()),
     );
   }
 }
@@ -620,7 +142,7 @@ class _SettingsDialogState extends State<_SettingsDialog> {
               max: 1.5,
               divisions: 7,
               label: _textSize.toStringAsFixed(1),
-              activeColor: AppColors.primaryBlue,
+              activeColor: AppColors.primary,
               onChanged: (value) {
                 setState(() => _textSize = value);
                 settingsProvider.updateTextScale(value);

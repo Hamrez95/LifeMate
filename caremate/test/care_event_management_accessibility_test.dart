@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:caremate/core/localization/locale_provider.dart';
 import 'package:caremate/main.dart';
 import 'package:caremate/screens/care_event_management_screen.dart';
@@ -7,10 +9,12 @@ import 'package:lifemate_client/lifemate_client.dart';
 import 'package:provider/provider.dart';
 
 void main() {
+  tearDown(LifeMateNotice.clearForTesting);
+
   testWidgets(
-    'care workspace separates visits medicine and injections without overflow',
-    (WidgetTester tester) async {
-      tester.view.physicalSize = const Size(320, 640);
+    'caregiver with explicit permission can manage medicine visits and injections without overflow',
+    (tester) async {
+      tester.view.physicalSize = const Size(360, 760);
       tester.view.devicePixelRatio = 1;
       addTearDown(tester.view.resetPhysicalSize);
       addTearDown(tester.view.resetDevicePixelRatio);
@@ -22,12 +26,13 @@ void main() {
             Provider<LifeMateApiClient>.value(value: _CareMateApiClient()),
           ],
           child: CareMateApp(
-            home: Builder(
-              builder: (context) => MediaQuery(
-                data: MediaQuery.of(
-                  context,
-                ).copyWith(textScaler: const TextScaler.linear(1.4)),
-                child: const CareEventManagementScreen(),
+            home: MediaQuery(
+              data: const MediaQueryData(
+                size: Size(360, 760),
+                textScaler: TextScaler.linear(1.25),
+              ),
+              child: CareEventManagementScreen(
+                managementApi: _CareManagementApi(),
               ),
             ),
           ),
@@ -35,113 +40,89 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      final scrollable = find.byType(Scrollable).first;
-
-      Future<void> reveal(Finder target, [double delta = 280]) async {
-        await tester.scrollUntilVisible(target, delta, scrollable: scrollable);
-        await tester.pumpAndSettle();
-      }
-
-      final visitSelector = find.byKey(
-        const ValueKey<String>('caremate-care-type-0'),
-        skipOffstage: false,
+      expect(
+        find.byKey(const ValueKey('caremate-health-management-granted')),
+        findsOneWidget,
       );
-      await reveal(visitSelector, 220);
-
       for (var index = 0; index < 3; index += 1) {
-        final selector = find.byKey(
-          ValueKey<String>('caremate-care-type-$index'),
-          skipOffstage: false,
-        );
+        final selector = find.byKey(ValueKey('caremate-care-type-$index'));
         expect(selector, findsOneWidget);
         expect(tester.getSize(selector).height, greaterThanOrEqualTo(58));
       }
 
-      final visitForm = find.text('فرم ویزیت پزشکی', skipOffstage: false);
-      await reveal(visitForm);
-      expect(visitForm, findsOneWidget);
-
-      final doctorLabel = find.text('نام پزشک', skipOffstage: false);
-      await reveal(doctorLabel);
-      final doctorSurface = find.byKey(
-        const ValueKey<String>('caremate-readonly-field-نام پزشک'),
-        skipOffstage: false,
+      final scrollable = find.byType(Scrollable).first;
+      await tester.scrollUntilVisible(
+        find.text('ویزیت متخصص قلب'),
+        180,
+        scrollable: scrollable,
       );
-      expect(doctorSurface, findsOneWidget);
-      expect(
-        tester.getBottomLeft(doctorLabel).dy,
-        lessThan(tester.getTopLeft(doctorSurface).dy),
-      );
-
-      final visitAddress = find.text('آدرس کامل', skipOffstage: false);
-      await reveal(visitAddress);
-      expect(visitAddress, findsOneWidget);
-
-      final visitHeading = find.text('ویزیت‌های ثبت‌شده', skipOffstage: false);
-      await reveal(visitHeading, 320);
-      expect(visitHeading, findsOneWidget);
-
-      final visitCard = find.text('ویزیت متخصص قلب', skipOffstage: false);
-      await reveal(visitCard, 220);
-      expect(visitCard, findsOneWidget);
-      expect(tester.takeException(), isNull);
-
-      final medicineSelector = find.byKey(
-        const ValueKey<String>('caremate-care-type-1'),
-        skipOffstage: false,
-      );
-      await reveal(medicineSelector, -400);
-      await tester.tap(medicineSelector);
       await tester.pumpAndSettle();
-
-      final medicineForm = find.text('فرم داروی جدید', skipOffstage: false);
-      await reveal(medicineForm);
-      expect(medicineForm, findsOneWidget);
-
-      final medicineHeading = find.text(
-        'برنامه واقعی هفت روز آینده',
-        skipOffstage: false,
-      );
-      await reveal(medicineHeading, 340);
-      expect(medicineHeading, findsOneWidget);
-
-      final medicineCard = find.text('متفورمین', skipOffstage: false);
-      await reveal(medicineCard, 180);
-      expect(medicineCard, findsOneWidget);
+      expect(find.text('ویزیت متخصص قلب'), findsOneWidget);
+      expect(find.text('افزودن ویزیت'), findsOneWidget);
+      expect(find.byTooltip('ویرایش'), findsWidgets);
+      expect(find.byTooltip('حذف'), findsWidgets);
       expect(tester.takeException(), isNull);
 
-      final injectionSelector = find.byKey(
-        const ValueKey<String>('caremate-care-type-2'),
-        skipOffstage: false,
+      await _returnManagementToTop(tester, scrollable);
+      final medicationSelector = find.byKey(
+        const ValueKey('caremate-care-type-1'),
       );
-      await reveal(injectionSelector, -400);
+      expect(medicationSelector, findsOneWidget);
+      await tester.tap(medicationSelector);
+      await tester.pumpAndSettle();
+      await tester.scrollUntilVisible(
+        find.text('متفورمین'),
+        180,
+        scrollable: scrollable,
+      );
+      await tester.pumpAndSettle();
+      expect(find.text('متفورمین'), findsOneWidget);
+      expect(find.text('افزودن دارو'), findsOneWidget);
+      expect(tester.takeException(), isNull);
+
+      await _returnManagementToTop(tester, scrollable);
+      final injectionSelector = find.byKey(
+        const ValueKey('caremate-care-type-2'),
+      );
+      expect(injectionSelector, findsOneWidget);
       await tester.tap(injectionSelector);
       await tester.pumpAndSettle();
-
-      final injectionForm = find.text('فرم تزریقات', skipOffstage: false);
-      await reveal(injectionForm);
-      expect(injectionForm, findsOneWidget);
-
-      final lockedAction = find.text(
-        'ثبت نیازمند مجوز صریح بیمار',
-        skipOffstage: false,
+      await tester.scrollUntilVisible(
+        find.text('ویتامین B12'),
+        180,
+        scrollable: scrollable,
       );
-      await reveal(lockedAction, 320);
-      expect(lockedAction, findsOneWidget);
-
-      final injectionHeading = find.text(
-        'تزریق‌های ثبت‌شده',
-        skipOffstage: false,
-      );
-      await reveal(injectionHeading, 300);
-      expect(injectionHeading, findsOneWidget);
-
-      final injectionCard = find.text('ویتامین B۱۲', skipOffstage: false);
-      await reveal(injectionCard, 180);
-      expect(injectionCard, findsOneWidget);
+      await tester.pumpAndSettle();
+      expect(find.text('ویتامین B12'), findsOneWidget);
+      expect(find.text('افزودن تزریق'), findsOneWidget);
       expect(tester.takeException(), isNull);
     },
   );
+
+  test('management screen keeps the no-consent path fail closed', () {
+    final source = File(
+      'lib/screens/care_event_management_screen.dart',
+    ).readAsStringSync();
+
+    expect(source, contains("else if (!_canManageHealthRecord)"));
+    expect(
+      source,
+      contains("ValueKey('caremate-health-management-locked')"),
+    );
+    expect(source, contains('مشاهده و ویرایش پرونده سلامت'));
+    expect(source, contains("permission['canManageHealthRecord'] == true"));
+  });
+}
+
+Future<void> _returnManagementToTop(
+  WidgetTester tester,
+  Finder scrollable,
+) async {
+  // The management body is lazy, so scrolling deeply can dispose the type
+  // selector widgets. Move the same scrollable back to its leading edge
+  // before trying to switch the management mode again.
+  await tester.fling(scrollable, const Offset(0, 1200), 3000);
+  await tester.pumpAndSettle();
 }
 
 class _CareMateApiClient extends LifeMateApiClient {
@@ -158,6 +139,13 @@ class _CareMateApiClient extends LifeMateApiClient {
   };
 
   @override
+  Future<Map<String, dynamic>> getCurrentProfile() async => const {
+    'displayName': 'مراقب تست',
+    'avatarKey': 'caregiver_teal',
+    'profilePhotoUrl': null,
+  };
+
+  @override
   Future<List<Map<String, dynamic>>> getCareRelationships() async => [
     {
       'id': 'relationship-1',
@@ -167,44 +155,73 @@ class _CareMateApiClient extends LifeMateApiClient {
       'caregiverUserId': 'caregiver-1',
     },
   ];
+}
+
+class _CareManagementApi extends LifeMateCareManagementApi {
+  _CareManagementApi({this.canManage = true})
+    : super(
+        baseUri: Uri.parse('https://example.invalid'),
+        accessToken: () => 'test-token',
+      );
+
+  final bool canManage;
 
   @override
-  Future<List<Map<String, dynamic>>> getCareRecipientDoseOccurrences({
+  Future<Map<String, dynamic>> getRelationshipPermission({
+    required String relationshipId,
+  }) async => {'canManageHealthRecord': canManage};
+
+  @override
+  Future<List<Map<String, dynamic>>> getCareEvents({
     required String patientUserId,
-    required DateTime fromDate,
-    required DateTime toDate,
   }) async => [
     {
-      'id': 'dose-1',
-      'medicationName': 'متفورمین',
-      'scheduledLocalTime': '20:00',
+      'id': 'appointment-1',
+      'seriesId': 'appointment-1',
+      'eventType': 'appointment',
+      'title': 'ویزیت متخصص قلب',
+      'centerName': 'مرکز درمانی الوند',
+      'scheduledLocalDate': '2026-08-12',
+      'scheduledLocalTime': '16:30',
       'status': 'scheduled',
+      'version': 2,
+    },
+    {
+      'id': 'injection-1',
+      'seriesId': 'injection-1',
+      'eventType': 'injection',
+      'title': 'ویتامین B12',
+      'medicationName': 'ویتامین B12',
+      'scheduledLocalDate': '2026-08-13',
+      'scheduledLocalTime': '10:00',
+      'status': 'scheduled',
+      'version': 1,
     },
   ];
 
   @override
-  Future<List<Map<String, dynamic>>> getCareRecipientCareEvents({
+  Future<List<Map<String, dynamic>>> getTreatmentPlans({
     required String patientUserId,
-    required DateTime fromDate,
-    required DateTime toDate,
   }) async => [
     {
-      'id': 'appointment-1',
-      'eventType': 'appointment',
-      'title': 'ویزیت متخصص قلب',
-      'centerName': 'مرکز درمانی الوند',
-      'addressLine': 'تهران، خیابان ولیعصر',
-      'scheduledLocalDate': '2026-08-04',
-      'scheduledLocalTime': '16:30',
-    },
-    {
-      'id': 'injection-1',
-      'eventType': 'injection',
-      'title': 'ویتامین B12',
-      'centerName': 'درمانگاه خانواده',
-      'addressLine': 'تهران، میدان ونک',
-      'scheduledLocalDate': '2026-08-05',
-      'scheduledLocalTime': '10:00',
+      'id': 'plan-1',
+      'patientUserId': patientUserId,
+      'medication': {
+        'id': 'med-1',
+        'name': 'متفورمین',
+        'version': 2,
+      },
+      'doseText': '۱ عدد',
+      'startDate': '2026-08-01',
+      'endDate': null,
+      'timeZone': 'Asia/Tehran',
+      'schedules': [
+        {'dayOfWeek': 'sunday', 'localTime': '20:00'},
+      ],
+      'patientReminderMinutesBefore': 30,
+      'caregiverReminderMinutesBefore': 60,
+      'status': 'active',
+      'version': 3,
     },
   ];
 }

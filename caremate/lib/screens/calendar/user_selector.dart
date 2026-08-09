@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:lifemate_client/lifemate_client.dart';
 
-import '../../../core/constants/app_colors.dart';
-import '../../../models/user_model.dart';
+import '../../core/constants/app_colors.dart';
+import '../../models/user_model.dart';
 
 class UserSelector extends StatelessWidget {
   const UserSelector({
@@ -17,20 +18,6 @@ class UserSelector extends StatelessWidget {
   final TextStyle font;
   final ValueChanged<String> onUserSelected;
 
-  IconData _getIconForRole(String role) {
-    switch (role) {
-      case 'مادر':
-        return Icons.pregnant_woman_rounded;
-      case 'فرزند':
-        return Icons.child_care_rounded;
-      case 'پدر':
-      case 'همسر':
-        return Icons.favorite_rounded;
-      default:
-        return Icons.person_rounded;
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
     if (users.isEmpty) {
@@ -40,7 +27,7 @@ class UserSelector extends StatelessWidget {
           width: double.infinity,
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
           decoration: BoxDecoration(
-            color: Colors.white.withOpacity(0.72),
+            color: Colors.white.withValues(alpha: 0.72),
             borderRadius: BorderRadius.circular(20),
           ),
           child: Row(
@@ -65,81 +52,144 @@ class UserSelector extends StatelessWidget {
       );
     }
 
+    // The scroll view follows the app Directionality. In Persian the first
+    // recipient starts at the right edge and additional recipients naturally
+    // continue to the left, while still allowing horizontal scrolling.
     return SingleChildScrollView(
+      key: const ValueKey<String>('care-calendar-recipient-scroll'),
       scrollDirection: Axis.horizontal,
       padding: const EdgeInsets.symmetric(horizontal: 24),
       child: Row(
         children: users
             .map(
               (user) => Padding(
-                padding: const EdgeInsetsDirectional.only(end: 12),
-                child: _buildUserChip(user: user),
+                padding: const EdgeInsetsDirectional.only(end: 10),
+                child: _UserChip(
+                  user: user,
+                  selected: selectedUserId == user.id,
+                  font: font,
+                  onTap: () => onUserSelected(user.id),
+                ),
               ),
             )
             .toList(growable: false),
       ),
     );
   }
+}
 
-  Widget _buildUserChip({required UserModel user}) {
-    final isSelected = selectedUserId == user.id;
-    final Widget leadingWidget;
+class _UserChip extends StatelessWidget {
+  const _UserChip({
+    required this.user,
+    required this.selected,
+    required this.font,
+    required this.onTap,
+  });
 
-    if (user.avatarPath != null && user.avatarPath!.isNotEmpty) {
-      leadingWidget = CircleAvatar(
-        radius: 12,
-        backgroundColor: Colors.white,
-        backgroundImage: AssetImage(user.avatarPath!),
-      );
-    } else {
-      leadingWidget = Icon(
-        _getIconForRole(user.role),
-        size: 18,
-        color: isSelected ? Colors.white : AppColors.primaryText,
-      );
-    }
+  final UserModel user;
+  final bool selected;
+  final TextStyle font;
+  final VoidCallback onTap;
 
+  @override
+  Widget build(BuildContext context) {
     return Semantics(
       button: true,
-      selected: isSelected,
-      label: 'انتخاب ${user.name}',
-      child: InkWell(
-        onTap: () => onUserSelected(user.id),
-        borderRadius: BorderRadius.circular(20),
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 200),
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-          decoration: BoxDecoration(
-            color: isSelected
-                ? AppColors.darkBlue
-                : Colors.white.withOpacity(0.72),
-            borderRadius: BorderRadius.circular(20),
-            boxShadow: isSelected
-                ? [
-                    BoxShadow(
-                      color: AppColors.darkBlue.withOpacity(0.25),
-                      blurRadius: 8,
-                      offset: const Offset(0, 4),
+      selected: selected,
+      label: 'نمایش تقویم ${user.name}',
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          key: ValueKey<String>('care-calendar-recipient-${user.id}'),
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(22),
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 180),
+            constraints: const BoxConstraints(minHeight: 48),
+            padding: const EdgeInsetsDirectional.fromSTEB(9, 7, 14, 7),
+            decoration: BoxDecoration(
+              color: selected
+                  ? AppColors.darkBlue
+                  : Colors.white.withValues(alpha: 0.76),
+              borderRadius: BorderRadius.circular(22),
+              border: selected
+                  ? Border.all(color: Colors.white.withValues(alpha: 0.34))
+                  : Border.all(
+                      color: AppColors.primaryBlue.withValues(alpha: 0.08),
                     ),
-                  ]
-                : const [],
-          ),
-          child: Row(
-            children: [
-              leadingWidget,
-              const SizedBox(width: 8),
-              Text(
-                user.name,
-                style: font.copyWith(
-                  color: isSelected ? Colors.white : AppColors.primaryText,
-                  fontWeight: FontWeight.bold,
-                  fontSize: 14,
+              boxShadow: selected
+                  ? [
+                      BoxShadow(
+                        color: AppColors.darkBlue.withValues(alpha: 0.24),
+                        blurRadius: 10,
+                        offset: const Offset(0, 5),
+                      ),
+                    ]
+                  : const [],
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                _RecipientAvatar(user: user),
+                const SizedBox(width: 8),
+                ConstrainedBox(
+                  constraints: const BoxConstraints(maxWidth: 116),
+                  child: Text(
+                    user.name,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: font.copyWith(
+                      color: selected ? Colors.white : AppColors.primaryText,
+                      fontWeight: FontWeight.w800,
+                      fontSize: 14,
+                    ),
+                  ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
         ),
       ),
+    );
+  }
+}
+
+class _RecipientAvatar extends StatelessWidget {
+  const _RecipientAvatar({required this.user});
+
+  final UserModel user;
+
+  @override
+  Widget build(BuildContext context) {
+    final photoUrl = user.profilePhotoUrl?.trim();
+    final avatarKey = user.avatarKey?.trim();
+
+    if ((photoUrl != null && photoUrl.isNotEmpty) ||
+        (avatarKey != null && avatarKey.isNotEmpty)) {
+      return LifeMateProfileAvatar(
+        key: ValueKey<String>('care-calendar-avatar-${user.id}'),
+        photoUrl: photoUrl,
+        avatarKey: avatarKey,
+        radius: 14,
+        showBorder: true,
+      );
+    }
+
+    final legacyAsset = user.avatarPath?.trim();
+    if (legacyAsset != null && legacyAsset.isNotEmpty) {
+      return CircleAvatar(
+        key: ValueKey<String>('care-calendar-avatar-${user.id}'),
+        radius: 14,
+        backgroundColor: Colors.white,
+        backgroundImage: AssetImage(legacyAsset),
+      );
+    }
+
+    return LifeMateProfileAvatar(
+      key: ValueKey<String>('care-calendar-avatar-${user.id}'),
+      avatarKey: LifeMateProfileAvatars.defaultKey,
+      radius: 14,
+      showBorder: true,
     );
   }
 }

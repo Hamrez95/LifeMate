@@ -23,6 +23,9 @@ class ActiveTreatmentCard extends StatelessWidget {
   final Color? progressColor;
   final Color? progressBackgroundColor;
   final IconData fallbackIcon;
+  final String? primaryActionLabel;
+  final String? editActionLabel;
+  final String? secondaryActionLabel;
 
   const ActiveTreatmentCard({
     super.key,
@@ -44,6 +47,9 @@ class ActiveTreatmentCard extends StatelessWidget {
     this.progressColor,
     this.progressBackgroundColor,
     this.fallbackIcon = Icons.medication,
+    this.primaryActionLabel,
+    this.editActionLabel,
+    this.secondaryActionLabel,
   });
 
   @visibleForTesting
@@ -176,7 +182,9 @@ class ActiveTreatmentCard extends StatelessWidget {
               children: [
                 Expanded(
                   child: _buildButton(
-                    isSubmitting ? '...' : loc['taken'],
+                    isSubmitting
+                        ? '...'
+                        : (primaryActionLabel ?? loc['taken']),
                     AppColors.primaryLight,
                     Colors.white,
                     font,
@@ -186,7 +194,7 @@ class ActiveTreatmentCard extends StatelessWidget {
                 const SizedBox(width: 8),
                 Expanded(
                   child: _buildButton(
-                    loc['edit'],
+                    editActionLabel ?? loc['edit'],
                     AppColors.background,
                     AppColors.primary,
                     font,
@@ -196,7 +204,7 @@ class ActiveTreatmentCard extends StatelessWidget {
                 const SizedBox(width: 8),
                 Expanded(
                   child: _buildButton(
-                    loc['missed'],
+                    secondaryActionLabel ?? loc['missed'],
                     Colors.white,
                     AppColors.textSecondary,
                     font,

@@ -68,6 +68,15 @@ class _CareAccessScreenState extends State<CareAccessScreen> {
     }
   }
 
+  void _notice({
+    required LifeMateNoticeType type,
+    required String title,
+    required String message,
+  }) {
+    if (!mounted) return;
+    LifeMateNotice.show(context, type: type, title: title, message: message);
+  }
+
   Future<void> _createInvitation() async {
     final emailController = TextEditingController();
     var confirmed = false;
@@ -136,7 +145,6 @@ class _CareAccessScreenState extends State<CareAccessScreen> {
       );
       await _refresh();
     } on LifeMateApiException catch (error) {
-      if (!mounted) return;
       final message = switch (error.code) {
         'invitation_already_pending' =>
           'برای این ایمیل یک دعوت فعال وجود دارد.',
@@ -144,11 +152,10 @@ class _CareAccessScreenState extends State<CareAccessScreen> {
           'نمی‌توانید حساب خودتان را به‌عنوان مراقب دعوت کنید.',
         _ => 'دعوت ساخته نشد. دوباره تلاش کنید.',
       };
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(message),
-          backgroundColor: Theme.of(context).colorScheme.error,
-        ),
+      _notice(
+        type: LifeMateNoticeType.error,
+        title: 'دعوت ساخته نشد',
+        message: message,
       );
     } finally {
       if (mounted) setState(() => _creating = false);
@@ -190,16 +197,12 @@ class _CareAccessScreenState extends State<CareAccessScreen> {
       );
       await _refresh();
     } on LifeMateApiException catch (error) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            error.code == 'patient_consent_required'
-                ? 'برای اتصال، تأیید رضایت بیمار لازم است.'
-                : 'ساخت QR انجام نشد. دوباره تلاش کنید.',
-          ),
-          backgroundColor: Theme.of(context).colorScheme.error,
-        ),
+      _notice(
+        type: LifeMateNoticeType.error,
+        title: 'QR ساخته نشد',
+        message: error.code == 'patient_consent_required'
+            ? 'برای اتصال، تأیید رضایت بیمار لازم است.'
+            : 'ساخت QR انجام نشد. دوباره تلاش کنید.',
       );
     } finally {
       if (mounted) setState(() => _creating = false);
@@ -237,8 +240,11 @@ class _CareAccessScreenState extends State<CareAccessScreen> {
             onPressed: () async {
               await Clipboard.setData(ClipboardData(text: token));
               if (dialogContext.mounted) {
-                ScaffoldMessenger.of(dialogContext).showSnackBar(
-                  const SnackBar(content: Text('کد دعوت کپی شد.')),
+                LifeMateNotice.show(
+                  dialogContext,
+                  type: LifeMateNoticeType.success,
+                  title: 'کد کپی شد',
+                  message: 'کد دعوت در کلیپ‌بورد قرار گرفت.',
                 );
               }
             },
@@ -288,14 +294,20 @@ class _CareAccessScreenState extends State<CareAccessScreen> {
       await context.read<LifeMateApiClient>().revokeCareRelationship(
         relationshipId: relationship['id'].toString(),
       );
+      if (!mounted) return;
+      _notice(
+        type: LifeMateNoticeType.success,
+        title: 'دسترسی قطع شد',
+        message: 'همه دسترسی‌های این مراقب فوراً متوقف شد.',
+      );
       await _refresh();
     } catch (error) {
       debugPrint('WellMate revoke caregiver failed: $error');
-      if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(const SnackBar(content: Text('قطع دسترسی انجام نشد.')));
-      }
+      _notice(
+        type: LifeMateNoticeType.error,
+        title: 'قطع دسترسی انجام نشد',
+        message: 'دوباره تلاش کنید یا اتصال را بررسی کنید.',
+      );
     }
   }
 

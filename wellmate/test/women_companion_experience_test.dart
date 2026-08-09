@@ -39,6 +39,14 @@ void main() {
       );
       expect(dashboard, findsOneWidget);
       expect(find.text('فاز قاعدگی'), findsOneWidget);
+      final companionAvatar = tester
+          .widgetList<LifeMateProfileAvatar>(find.byType(LifeMateProfileAvatar))
+          .where(
+            (avatar) =>
+                avatar.photoUrl == 'https://example.invalid/caregiver.jpg',
+          )
+          .single;
+      expect(companionAvatar.avatarKey, 'person_green');
       expect(tester.takeException(), isNull);
 
       for (final title in const [
@@ -234,7 +242,11 @@ class _FakeLifeMateApiClient extends LifeMateApiClient {
         {
           'id': 'relationship-1',
           'status': 'active',
+          'patientUserId': 'patient-1',
+          'caregiverUserId': 'caregiver-1',
           'caregiverDisplayName': 'حمیدرضا',
+          'caregiverAvatarKey': 'person_green',
+          'caregiverProfilePhotoUrl': 'https://example.invalid/caregiver.jpg',
           'canViewWomenCalendar': true,
         },
       ],
@@ -295,7 +307,11 @@ class _FakeLifeMateApiClient extends LifeMateApiClient {
     {
       'id': 'relationship-1',
       'status': 'active',
+      'patientUserId': 'patient-1',
+      'caregiverUserId': 'caregiver-1',
       'caregiverDisplayName': 'حمیدرضا',
+      'caregiverAvatarKey': 'person_green',
+      'caregiverProfilePhotoUrl': 'https://example.invalid/caregiver.jpg',
       'canViewWomenCalendar': true,
     },
   ];

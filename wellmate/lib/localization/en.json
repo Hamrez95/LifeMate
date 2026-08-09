@@ -18,8 +18,8 @@
 
   "profile_name": "Maryam",
   "profile_phone": "0912***",
-  "profile_no_subscription": "No Active Subscription",
-  "profile_buy_plan": "Buy Plan",
+  "profile_no_subscription": "Subscription",
+  "profile_buy_plan": "Manage subscriptions",
   "profile_renew": "Renew",
   "profile_personal_info": "Personal Info.",
   "profile_health_profile": "Health Profile",

@@ -11,10 +11,12 @@ class CareMateBottomNav extends StatelessWidget {
     super.key,
     required this.currentIndex,
     required this.onTap,
+    this.onTreatmentManagementReturned,
   });
 
   final int currentIndex;
   final ValueChanged<int> onTap;
+  final VoidCallback? onTreatmentManagementReturned;
 
   @override
   Widget build(BuildContext context) {
@@ -106,14 +108,16 @@ class CareMateBottomNav extends StatelessWidget {
             child: InkWell(
               onTap: () {
                 if (index == 2 && currentIndex != 2) {
-                  Navigator.of(context).push(
-                    PageRouteBuilder<void>(
-                      pageBuilder: (_, __, ___) =>
-                          const CareEventManagementScreen(),
-                      transitionDuration: Duration.zero,
-                      reverseTransitionDuration: Duration.zero,
-                    ),
-                  );
+                  Navigator.of(context)
+                      .push(
+                        PageRouteBuilder<void>(
+                          pageBuilder: (_, __, ___) =>
+                              const CareEventManagementScreen(),
+                          transitionDuration: Duration.zero,
+                          reverseTransitionDuration: Duration.zero,
+                        ),
+                      )
+                      .then((_) => onTreatmentManagementReturned?.call());
                   return;
                 }
                 onTap(index);

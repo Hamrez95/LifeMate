@@ -10,6 +10,8 @@ dependencies:
     sdk: flutter
   lifemate_client:
     path: ../packages/lifemate_client
+  lifemate_ui:
+    path: ../packages/lifemate_ui
   image_picker: ^1.1.2
   flutter_local_notifications: ^19.5.0
   timezone: ^0.10.1
