@@ -100,7 +100,10 @@ void main() {
   testWidgets('caregiver without explicit permission sees locked management state', (
     tester,
   ) async {
-    tester.view.physicalSize = const Size(360, 760);
+    // This test validates the authorization state itself. A taller viewport
+    // keeps the lazy ListView from obscuring the locked card; small-screen
+    // scrolling/overflow is covered by the granted-state test above.
+    tester.view.physicalSize = const Size(390, 1200);
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.resetPhysicalSize);
     addTearDown(tester.view.resetDevicePixelRatio);
@@ -111,18 +114,9 @@ void main() {
           ChangeNotifierProvider(create: (_) => LocaleProvider()),
           Provider<LifeMateApiClient>.value(value: _CareMateApiClient()),
         ],
-        child: const SizedBox.shrink(),
-      ),
-    );
-    await tester.pumpWidget(
-      MultiProvider(
-        providers: [
-          ChangeNotifierProvider(create: (_) => LocaleProvider()),
-          Provider<LifeMateApiClient>.value(value: _CareMateApiClient()),
-        ],
         child: CareMateApp(
           home: MediaQuery(
-            data: const MediaQueryData(size: Size(360, 760)),
+            data: const MediaQueryData(size: Size(390, 1200)),
             child: CareEventManagementScreen(
               managementApi: _CareManagementApi(canManage: false),
             ),
@@ -132,20 +126,13 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    final locked = find.byKey(
-      const ValueKey('caremate-health-management-locked'),
+    expect(
+      find.byKey(const ValueKey('caremate-health-management-locked')),
+      findsOneWidget,
     );
-    if (locked.evaluate().isEmpty) {
-      await tester.scrollUntilVisible(
-        locked,
-        160,
-        scrollable: find.byType(Scrollable).first,
-      );
-      await tester.pumpAndSettle();
-    }
-    expect(locked, findsOneWidget);
     expect(find.textContaining('مشاهده و ویرایش پرونده سلامت'), findsOneWidget);
     expect(find.text('افزودن دارو'), findsNothing);
+    expect(tester.takeException(), isNull);
   });
 }
 
