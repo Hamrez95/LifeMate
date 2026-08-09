@@ -100,6 +100,20 @@ void main() {
   testWidgets('caregiver without explicit permission sees locked management state', (
     tester,
   ) async {
+    tester.view.physicalSize = const Size(360, 760);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    await tester.pumpWidget(
+      MultiProvider(
+        providers: [
+          ChangeNotifierProvider(create: (_) => LocaleProvider()),
+          Provider<LifeMateApiClient>.value(value: _CareMateApiClient()),
+        ],
+        child: const SizedBox.shrink(),
+      ),
+    );
     await tester.pumpWidget(
       MultiProvider(
         providers: [
@@ -107,18 +121,29 @@ void main() {
           Provider<LifeMateApiClient>.value(value: _CareMateApiClient()),
         ],
         child: CareMateApp(
-          home: CareEventManagementScreen(
-            managementApi: _CareManagementApi(canManage: false),
+          home: MediaQuery(
+            data: const MediaQueryData(size: Size(360, 760)),
+            child: CareEventManagementScreen(
+              managementApi: _CareManagementApi(canManage: false),
+            ),
           ),
         ),
       ),
     );
     await tester.pumpAndSettle();
 
-    expect(
-      find.byKey(const ValueKey('caremate-health-management-locked')),
-      findsOneWidget,
+    final locked = find.byKey(
+      const ValueKey('caremate-health-management-locked'),
     );
+    if (locked.evaluate().isEmpty) {
+      await tester.scrollUntilVisible(
+        locked,
+        160,
+        scrollable: find.byType(Scrollable).first,
+      );
+      await tester.pumpAndSettle();
+    }
+    expect(locked, findsOneWidget);
     expect(find.textContaining('مشاهده و ویرایش پرونده سلامت'), findsOneWidget);
     expect(find.text('افزودن دارو'), findsNothing);
   });
