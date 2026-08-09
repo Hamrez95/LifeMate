@@ -322,7 +322,7 @@ class CareHomeCompanionCard extends StatelessWidget {
           onTap: onTap,
           borderRadius: BorderRadius.circular(28),
           child: Container(
-            height: 194,
+            height: 194 * math.max(1.0, MediaQuery.textScalerOf(context).scale(1)),
             padding: const EdgeInsets.all(15),
             decoration: BoxDecoration(
               gradient: const LinearGradient(
@@ -495,7 +495,7 @@ class CareHomeChildPreviewCard extends StatelessWidget {
     return Semantics(
       label: 'وضعیت فرزند، به زودی',
       child: Container(
-        height: 194,
+        height: 194 * math.max(1.0, MediaQuery.textScalerOf(context).scale(1)),
         padding: const EdgeInsets.all(15),
         decoration: BoxDecoration(
           gradient: const LinearGradient(colors: [Color(0xFFF0F8FF), Color(0xFFF7FAFF)]),
