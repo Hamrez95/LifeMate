@@ -7,7 +7,7 @@ import 'core/constants/app_colors.dart';
 import 'core/localization/app_localizations.dart';
 import 'core/localization/locale_provider.dart';
 import 'providers/care_notification_provider.dart';
-import 'screens/dashboard_screen.dart';
+import 'screens/caremate_root_shell.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -171,8 +171,9 @@ class _AuthenticatedCareMateShellState
         onPop: () => _navigatorKey.currentState?.pop<void>(),
         child: Navigator(
           key: _navigatorKey,
-          onGenerateRoute: (_) =>
-              MaterialPageRoute<void>(builder: (_) => const DashboardScreen()),
+          onGenerateRoute: (_) => MaterialPageRoute<void>(
+            builder: (_) => const CareMateRootShell(),
+          ),
         ),
       ),
     );

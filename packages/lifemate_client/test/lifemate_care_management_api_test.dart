@@ -71,4 +71,21 @@ void main() {
       expect(jsonDecode(request.body), {'version': 4});
     },
   );
+
+  test('care management base URI preserves candidate environment suffix', () {
+    expect(
+      LifeMateCareManagementApi.managementBaseUriFor(
+        Uri.parse(
+          'https://example.supabase.co/functions/v1/lifemate-api-candidate',
+        ),
+      ).toString(),
+      'https://example.supabase.co/functions/v1/lifemate-care-management-candidate',
+    );
+    expect(
+      LifeMateCareManagementApi.managementBaseUriFor(
+        Uri.parse('https://example.supabase.co/functions/v1/lifemate-api'),
+      ).toString(),
+      'https://example.supabase.co/functions/v1/lifemate-care-management',
+    );
+  });
 }

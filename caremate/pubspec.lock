@@ -444,6 +444,13 @@ packages:
       relative: true
     source: path
     version: "0.1.0"
+  lifemate_ui:
+    dependency: "direct main"
+    description:
+      path: "../packages/lifemate_ui"
+      relative: true
+    source: path
+    version: "0.1.0"
   logging:
     dependency: transitive
     description:

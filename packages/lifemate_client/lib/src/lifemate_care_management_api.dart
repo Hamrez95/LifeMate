@@ -21,16 +21,8 @@ class LifeMateCareManagementApi {
 
   factory LifeMateCareManagementApi.fromEnvironment({http.Client? httpClient}) {
     final config = AppConfig.fromEnvironment();
-    final apiBase = config.apiBaseUri;
-    final segments = apiBase.pathSegments.toList(growable: true);
-    if (segments.isNotEmpty && segments.last == 'lifemate-api') {
-      segments[segments.length - 1] = 'lifemate-care-management';
-    } else {
-      segments.add('lifemate-care-management');
-    }
-    final baseUri = apiBase.replace(path: '/${segments.join('/')}');
     return LifeMateCareManagementApi(
-      baseUri: baseUri,
+      baseUri: managementBaseUriFor(config.apiBaseUri),
       accessToken: () =>
           Supabase.instance.client.auth.currentSession?.accessToken,
       httpClient: httpClient,
@@ -40,6 +32,26 @@ class LifeMateCareManagementApi {
   final Uri _baseUri;
   final LifeMateCareManagementAccessTokenProvider _accessToken;
   final http.Client _http;
+
+  /// Resolves the dedicated care-management function beside the configured
+  /// API function while preserving environment suffixes such as `-candidate`.
+  static Uri managementBaseUriFor(Uri apiBase) {
+    final segments = apiBase.pathSegments.toList(growable: true);
+    if (segments.isEmpty) {
+      segments.add('lifemate-care-management');
+    } else {
+      final last = segments.last;
+      if (last == 'lifemate-api') {
+        segments[segments.length - 1] = 'lifemate-care-management';
+      } else if (last.startsWith('lifemate-api-')) {
+        final suffix = last.substring('lifemate-api'.length);
+        segments[segments.length - 1] = 'lifemate-care-management$suffix';
+      } else if (!last.startsWith('lifemate-care-management')) {
+        segments.add('lifemate-care-management');
+      }
+    }
+    return apiBase.replace(path: '/${segments.join('/')}');
+  }
 
   static const _timeout = Duration(seconds: 20);
 
@@ -73,10 +85,7 @@ class LifeMateCareManagementApi {
   Future<List<Map<String, dynamic>>> getTreatmentPlans({
     required String patientUserId,
   }) async => _list(
-    await _request(
-      'GET',
-      '/api/v1/patients/$patientUserId/treatment-plans',
-    ),
+    await _request('GET', '/api/v1/patients/$patientUserId/treatment-plans'),
   );
 
   Future<Map<String, dynamic>> createTreatmentPlan({
@@ -169,10 +178,7 @@ class LifeMateCareManagementApi {
   Future<List<Map<String, dynamic>>> getCareEvents({
     required String patientUserId,
   }) async => _list(
-    await _request(
-      'GET',
-      '/api/v1/patients/$patientUserId/care-events',
-    ),
+    await _request('GET', '/api/v1/patients/$patientUserId/care-events'),
   );
 
   Future<Map<String, dynamic>> createCareEvent({
@@ -309,15 +315,18 @@ class LifeMateCareManagementApi {
     try {
       response = switch (method) {
         'GET' => await _http.get(uri, headers: headers).timeout(_timeout),
-        'POST' => await _http
-            .post(uri, headers: headers, body: encodedBody)
-            .timeout(_timeout),
-        'PATCH' => await _http
-            .patch(uri, headers: headers, body: encodedBody)
-            .timeout(_timeout),
-        'DELETE' => await _http
-            .delete(uri, headers: headers, body: encodedBody)
-            .timeout(_timeout),
+        'POST' =>
+          await _http
+              .post(uri, headers: headers, body: encodedBody)
+              .timeout(_timeout),
+        'PATCH' =>
+          await _http
+              .patch(uri, headers: headers, body: encodedBody)
+              .timeout(_timeout),
+        'DELETE' =>
+          await _http
+              .delete(uri, headers: headers, body: encodedBody)
+              .timeout(_timeout),
         _ => throw ArgumentError.value(method, 'method'),
       };
     } on TimeoutException {

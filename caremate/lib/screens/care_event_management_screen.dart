@@ -13,9 +13,16 @@ import 'feature_preview_screen.dart';
 part 'care_event_management_forms.dart';
 
 class CareEventManagementScreen extends StatefulWidget {
-  const CareEventManagementScreen({super.key, this.managementApi});
+  const CareEventManagementScreen({
+    super.key,
+    this.managementApi,
+    this.refreshToken = 0,
+    this.onNavigationTap,
+  });
 
   final LifeMateCareManagementApi? managementApi;
+  final int refreshToken;
+  final ValueChanged<int>? onNavigationTap;
 
   @override
   State<CareEventManagementScreen> createState() =>
@@ -28,6 +35,7 @@ class _CareEventManagementScreenState extends State<CareEventManagementScreen> {
 
   int _selectedType = 0;
   bool _loading = true;
+  bool _backgroundRefreshing = false;
   bool _working = false;
   String? _error;
   String? _selectedRelationshipId;
@@ -35,6 +43,14 @@ class _CareEventManagementScreenState extends State<CareEventManagementScreen> {
   List<Map<String, dynamic>> _plans = const [];
   List<Map<String, dynamic>> _events = const [];
   bool _canManageHealthRecord = false;
+
+  @override
+  void didUpdateWidget(covariant CareEventManagementScreen oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.refreshToken != widget.refreshToken) {
+      _refresh(background: true);
+    }
+  }
 
   Map<String, dynamic>? get _selectedRelationship {
     for (final relationship in _relationships) {
@@ -54,10 +70,14 @@ class _CareEventManagementScreenState extends State<CareEventManagementScreen> {
     _refresh();
   }
 
-  Future<void> _refresh() async {
+  Future<void> _refresh({bool background = false}) async {
     if (mounted) {
       setState(() {
-        _loading = true;
+        if (_relationships.isEmpty) {
+          _loading = true;
+        } else if (background) {
+          _backgroundRefreshing = true;
+        }
         _error = null;
       });
     }
@@ -96,7 +116,12 @@ class _CareEventManagementScreenState extends State<CareEventManagementScreen> {
       debugPrint('CareMate management load failed: $error');
       _setError('اطلاعات درمان دریافت نشد. اتصال اینترنت را بررسی کنید.');
     } finally {
-      if (mounted) setState(() => _loading = false);
+      if (mounted) {
+        setState(() {
+          _loading = false;
+          _backgroundRefreshing = false;
+        });
+      }
     }
   }
 
@@ -181,7 +206,8 @@ class _CareEventManagementScreenState extends State<CareEventManagementScreen> {
         'اطلاعات درمان تغییر کرده است. صفحه را تازه کنید و دوباره تلاش کنید.',
       'relationship_not_found' || 'care_access_denied' =>
         'رابطه مراقبتی فعال نیست یا دسترسی شما لغو شده است.',
-      _ when error.isUnauthorized => 'نشست شما منقضی شده است. دوباره وارد شوید.',
+      _ when error.isUnauthorized =>
+        'نشست شما منقضی شده است. دوباره وارد شوید.',
       _ => 'درخواست انجام نشد. دوباره تلاش کنید.',
     };
   }
@@ -263,7 +289,8 @@ class _CareEventManagementScreenState extends State<CareEventManagementScreen> {
     }
 
     final medication =
-        plan['medication'] as Map<String, dynamic>? ?? const <String, dynamic>{};
+        plan['medication'] as Map<String, dynamic>? ??
+        const <String, dynamic>{};
     await _runMutation(
       () async {
         await _managementApi.updateTreatmentPlan(
@@ -355,7 +382,9 @@ class _CareEventManagementScreenState extends State<CareEventManagementScreen> {
             timeZone: 'Asia/Tehran',
           );
         },
-        successTitle: eventType == 'injection' ? 'تزریق اضافه شد' : 'ویزیت اضافه شد',
+        successTitle: eventType == 'injection'
+            ? 'تزریق اضافه شد'
+            : 'ویزیت اضافه شد',
         successMessage: 'نوبت جدید در پرونده سلامت ثبت شد.',
       );
       return;
@@ -397,7 +426,9 @@ class _CareEventManagementScreenState extends State<CareEventManagementScreen> {
           ),
         );
       },
-      successTitle: eventType == 'injection' ? 'تزریق ویرایش شد' : 'ویزیت ویرایش شد',
+      successTitle: eventType == 'injection'
+          ? 'تزریق ویرایش شد'
+          : 'ویزیت ویرایش شد',
       successMessage: 'تغییرات نوبت ذخیره شد.',
     );
   }
@@ -451,6 +482,11 @@ class _CareEventManagementScreenState extends State<CareEventManagementScreen> {
   }
 
   void _onNavigationTap(int index) {
+    final shellNavigation = widget.onNavigationTap;
+    if (shellNavigation != null) {
+      shellNavigation(index);
+      return;
+    }
     if (index == 2) return;
     final Widget destination = switch (index) {
       0 => const CalendarScreen(),
@@ -472,10 +508,14 @@ class _CareEventManagementScreenState extends State<CareEventManagementScreen> {
     final patientName =
         relationship?['patientDisplayName']?.toString() ?? 'فرد تحت مراقبت';
 
-    final filteredEvents = _events.where((event) {
-      final type = event['eventType']?.toString();
-      return _selectedType == 0 ? type == 'appointment' : type == 'injection';
-    }).toList(growable: false);
+    final filteredEvents = _events
+        .where((event) {
+          final type = event['eventType']?.toString();
+          return _selectedType == 0
+              ? type == 'appointment'
+              : type == 'injection';
+        })
+        .toList(growable: false);
 
     return Scaffold(
       backgroundColor: AppColors.background,
@@ -488,6 +528,8 @@ class _CareEventManagementScreenState extends State<CareEventManagementScreen> {
               onNotificationTap: () {},
               onSignOutTap: LifeMateAuth.signOut,
             ),
+            if (_backgroundRefreshing)
+              const LinearProgressIndicator(minHeight: 2),
             Expanded(
               child: RefreshIndicator(
                 onRefresh: _refresh,
@@ -524,14 +566,15 @@ class _CareEventManagementScreenState extends State<CareEventManagementScreen> {
                     const SizedBox(height: 16),
                     _TypeSelector(
                       selectedIndex: _selectedType,
-                      onChanged: (index) => setState(() => _selectedType = index),
+                      onChanged: (index) =>
+                          setState(() => _selectedType = index),
                     ),
                     const SizedBox(height: 18),
                     if (_error != null) ...[
                       _ErrorCard(message: _error!, onRetry: _refresh),
                       const SizedBox(height: 16),
                     ],
-                    if (_loading)
+                    if (_loading && _relationships.isEmpty)
                       const Padding(
                         padding: EdgeInsets.symmetric(vertical: 80),
                         child: Center(child: CircularProgressIndicator()),
@@ -581,6 +624,7 @@ class _CareEventManagementScreenState extends State<CareEventManagementScreen> {
       bottomNavigationBar: CareMateBottomNav(
         currentIndex: 2,
         onTap: _onNavigationTap,
+        routeTreatmentScreen: widget.onNavigationTap == null,
       ),
     );
   }
@@ -640,7 +684,9 @@ class _TypeSelector extends StatelessWidget {
                       Icon(
                         items[index].$1,
                         size: 21,
-                        color: selected ? Colors.white : AppColors.secondaryText,
+                        color: selected
+                            ? Colors.white
+                            : AppColors.secondaryText,
                       ),
                       const SizedBox(height: 4),
                       Text(
@@ -648,7 +694,9 @@ class _TypeSelector extends StatelessWidget {
                         style: TextStyle(
                           fontSize: 10.5,
                           fontWeight: FontWeight.w800,
-                          color: selected ? Colors.white : AppColors.secondaryText,
+                          color: selected
+                              ? Colors.white
+                              : AppColors.secondaryText,
                         ),
                       ),
                     ],
@@ -687,7 +735,10 @@ class _PatientSelector extends StatelessWidget {
               contentPadding: EdgeInsets.zero,
               leading: CircleAvatar(
                 backgroundColor: Color(0xFFEAF4FF),
-                child: Icon(Icons.person_search_rounded, color: AppColors.primaryBlue),
+                child: Icon(
+                  Icons.person_search_rounded,
+                  color: AppColors.primaryBlue,
+                ),
               ),
               title: Text('فرد تحت مراقبت انتخاب نشده'),
               subtitle: Text('ابتدا دعوت معتبر بیمار را بپذیرید.'),
@@ -856,7 +907,9 @@ class _CareEventWorkspace extends StatelessWidget {
     return Column(
       children: [
         _WorkspaceHeader(
-          icon: injection ? Icons.vaccines_rounded : Icons.medical_services_rounded,
+          icon: injection
+              ? Icons.vaccines_rounded
+              : Icons.medical_services_rounded,
           title: injection ? 'تزریق‌ها' : 'ویزیت‌ها',
           actionLabel: injection ? 'افزودن تزریق' : 'افزودن ویزیت',
           working: working,
@@ -941,7 +994,8 @@ class _TreatmentPlanCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final medication =
-        plan['medication'] as Map<String, dynamic>? ?? const <String, dynamic>{};
+        plan['medication'] as Map<String, dynamic>? ??
+        const <String, dynamic>{};
     final schedules = plan['schedules'] as List<dynamic>? ?? const [];
     final times = schedules
         .map((item) => item is Map ? item['localTime']?.toString() : null)
@@ -953,10 +1007,10 @@ class _TreatmentPlanCard extends StatelessWidget {
       icon: Icons.medication_rounded,
       iconColor: const Color(0xFF2D9B74),
       title: medication['name']?.toString() ?? 'دارو',
-      subtitle: [
-        plan['doseText']?.toString(),
-        times.isEmpty ? null : times,
-      ].whereType<String>().where((value) => value.trim().isNotEmpty).join(' • '),
+      subtitle: [plan['doseText']?.toString(), times.isEmpty ? null : times]
+          .whereType<String>()
+          .where((value) => value.trim().isNotEmpty)
+          .join(' • '),
       working: working,
       onEdit: onEdit,
       onDelete: onDelete,
@@ -1116,7 +1170,8 @@ class _NoPatientState extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => const _InlineEmpty(
-    text: 'برای مدیریت درمان، ابتدا یک بیمار را با دعوت و رضایت معتبر متصل کنید.',
+    text:
+        'برای مدیریت درمان، ابتدا یک بیمار را با دعوت و رضایت معتبر متصل کنید.',
   );
 }
 
