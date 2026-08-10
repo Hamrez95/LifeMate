@@ -1,0 +1,130 @@
+name: wellmate-0.9.0-internal.5-device-qa
+
+on:
+  push:
+    branches:
+      - release/wellmate-0.9.0-internal.5-065faee7
+    paths:
+      - .github/workflows/wellmate-0.9.0-internal.5-device-qa.yml
+
+permissions:
+  contents: read
+
+env:
+  PUB_ENVIRONMENT: bot:github_actions
+  SOURCE_COMMIT: 065faee7277cb993c8c1924670b1186d173d3dad
+  SOURCE_SHORT_SHA: 065faee7
+  RELEASE_NAME: 0.9.0-internal.5
+  SUPABASE_URL: https://bwdvmniywyyijjauipnh.supabase.co
+  SUPABASE_PUBLISHABLE_KEY: ${{ vars.SUPABASE_PUBLISHABLE_KEY || 'sb_publishable_6YpBDD0gAPcenbYGukOeWg_fZXxUb27' }}
+  LIFEMATE_API_BASE_URL: https://bwdvmniywyyijjauipnh.supabase.co/functions/v1/lifemate-api-candidate
+  CARE_MANAGEMENT_CANDIDATE_URL: https://bwdvmniywyyijjauipnh.supabase.co/functions/v1/lifemate-care-management-candidate
+  ENABLE_GOOGLE_AUTH: 'false'
+  ENABLE_WOMEN_CALENDAR_PILOT: 'true'
+  ENABLE_PHONE_OTP: 'false'
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 50
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
+        with:
+          fetch-depth: 0
+          show-progress: false
+          persist-credentials: false
+
+      - name: Verify exact merged source
+        shell: bash
+        run: |
+          set -euo pipefail
+          git cat-file -e "$SOURCE_COMMIT^{commit}"
+          git diff --exit-code "$SOURCE_COMMIT" -- ':!.github/workflows/wellmate-0.9.0-internal.5-device-qa.yml'
+
+      - uses: subosito/flutter-action@4cab68ce0f1c7c924f688bff4792e044f1aeb30c
+        with:
+          flutter-version: '3.44.0'
+          channel: stable
+          cache: true
+
+      - name: Verify Flutter source
+        shell: bash
+        run: |
+          set -euo pipefail
+          (cd packages/lifemate_client && flutter pub get && flutter analyze --no-fatal-warnings --no-fatal-infos && flutter test)
+          (cd wellmate && flutter pub get && flutter analyze --no-fatal-warnings --no-fatal-infos && flutter test)
+
+      - name: Verify candidate backends
+        shell: bash
+        run: |
+          set -euo pipefail
+          api_health="$(curl --fail --silent --show-error --retry 8 --retry-delay 2 --retry-all-errors "$LIFEMATE_API_BASE_URL/health")"
+          echo "$api_health" | jq -e '.status == "ok" and .database == "ready"' >/dev/null
+          api_unauthorized="$(curl --silent --show-error --output /dev/null --write-out '%{http_code}' "$LIFEMATE_API_BASE_URL/api/v1/me")"
+          test "$api_unauthorized" = '401'
+          care_unauthorized="$(curl --silent --show-error --retry 5 --retry-delay 2 --retry-all-errors --output /tmp/care-response.json --write-out '%{http_code}' "$CARE_MANAGEMENT_CANDIDATE_URL/api/v1/relationships/00000000-0000-0000-0000-000000000000/health-record-permission")"
+          cat /tmp/care-response.json
+          test "$care_unauthorized" = '401'
+
+      - name: Build WellMate Android APK
+        working-directory: wellmate
+        shell: bash
+        run: |
+          set -euo pipefail
+          flutter build apk \
+            --release \
+            --build-name="$RELEASE_NAME" \
+            --build-number="$GITHUB_RUN_NUMBER" \
+            --dart-define="SUPABASE_URL=$SUPABASE_URL" \
+            --dart-define="SUPABASE_PUBLISHABLE_KEY=$SUPABASE_PUBLISHABLE_KEY" \
+            --dart-define="LIFEMATE_API_BASE_URL=$LIFEMATE_API_BASE_URL" \
+            --dart-define="ENABLE_GOOGLE_AUTH=$ENABLE_GOOGLE_AUTH" \
+            --dart-define="ENABLE_WOMEN_CALENDAR_PILOT=$ENABLE_WOMEN_CALENDAR_PILOT" \
+            --dart-define="ENABLE_PHONE_OTP=$ENABLE_PHONE_OTP"
+
+      - name: Inspect and package APK
+        shell: bash
+        run: |
+          set -euo pipefail
+          aapt_bin="$(find "$ANDROID_HOME/build-tools" -type f -name aapt | sort -V | tail -n 1)"
+          apksigner_bin="$(find "$ANDROID_HOME/build-tools" -type f -name apksigner | sort -V | tail -n 1)"
+          test -x "$aapt_bin"
+          test -x "$apksigner_bin"
+
+          mkdir -p dist/inspection
+          source_apk="wellmate/build/app/outputs/flutter-apk/app-release.apk"
+          apk="dist/WellMate-$RELEASE_NAME-$SOURCE_SHORT_SHA-device-qa.apk"
+          cp "$source_apk" "$apk"
+
+          "$aapt_bin" dump badging "$apk" > dist/inspection/wellmate.txt
+          "$aapt_bin" dump permissions "$apk" >> dist/inspection/wellmate.txt
+          "$apksigner_bin" verify --verbose --print-certs "$apk" >> dist/inspection/wellmate.txt
+          unzip -Z1 "$apk" > dist/inspection/wellmate-zip-listing.txt
+
+          grep -Fq "package: name='com.lifemate.wellmate'" dist/inspection/wellmate.txt
+          grep -Fq 'android.permission.INTERNET' dist/inspection/wellmate.txt
+          grep -Fq 'android.permission.POST_NOTIFICATIONS' dist/inspection/wellmate.txt
+          grep -Eq '^application-icon-[0-9]+:' dist/inspection/wellmate.txt
+          grep -Eq '^assets/flutter_assets/AssetManifest\.(bin|json)$' dist/inspection/wellmate-zip-listing.txt
+          grep -Fq 'assets/flutter_assets/assets/fonts/Vazir.ttf' dist/inspection/wellmate-zip-listing.txt
+          grep -Fq 'assets/flutter_assets/assets/images/WellMateWithoutBack.png' dist/inspection/wellmate-zip-listing.txt
+
+          apk_sha="$(sha256sum "$apk" | awk '{print $1}')"
+          sha256sum "$apk" > dist/apk-sha256.txt
+          jq -n \
+            --arg releaseName "$RELEASE_NAME" \
+            --arg sourceCommit "$SOURCE_COMMIT" \
+            --arg workflowCommit "$GITHUB_SHA" \
+            --arg api "$LIFEMATE_API_BASE_URL" \
+            --arg careApi "$CARE_MANAGEMENT_CANDIDATE_URL" \
+            --arg builtAt "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+            --arg apkSha "$apk_sha" \
+            '{releaseName:$releaseName,sourceCommit:$sourceCommit,workflowCommit:$workflowCommit,builtAtUtc:$builtAt,channel:"internal/device-qa",apiBase:$api,careManagementBase:$careApi,flags:{googleAuth:false,womenCalendarPilot:true,phoneOtp:false},app:{packageId:"com.lifemate.wellmate",sha256:$apkSha},fixes:["Home overdue items turn red immediately and sort after upcoming items","Empty caregiver request state has no fake approve/reject controls","Active caregiver cards use signed profile photos/avatar keys","Care-management auth_subject varchar/UUID mismatch fixed"]}' > dist/release-manifest.json
+
+      - name: Upload WellMate device-QA bundle
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: wellmate-${{ env.RELEASE_NAME }}-${{ env.SOURCE_SHORT_SHA }}-device-qa
+          path: dist
+          if-no-files-found: error
+          retention-days: 30
