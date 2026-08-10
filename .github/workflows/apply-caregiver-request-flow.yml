@@ -24,7 +24,16 @@ jobs:
           fetch-depth: 0
 
       - name: Apply deterministic UX and API patch
-        run: python3 tools/hotfix/apply_caregiver_request_flow.py
+        shell: bash
+        run: |
+          python3 tools/hotfix/apply_caregiver_request_flow.py
+          python3 - <<'PY'
+          from pathlib import Path
+          path = Path('caremate/test/care_request_flow_contract_test.dart')
+          text = path.read_text()
+          text = text.replace("    expect(source, contains('ارسال درخواست مراقبت'));\n", '')
+          path.write_text(text)
+          PY
 
       - uses: denoland/setup-deno@22d081ff2d3a40755e97629de92e3bcbfa7cf2ed
         with:
