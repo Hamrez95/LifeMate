@@ -6,6 +6,7 @@ import 'package:provider/provider.dart';
 import '../../core/constants/app_version.dart';
 import '../../core/theme/app_style.dart';
 import '../../core/utils/string_extensions.dart';
+import '../../core/widgets/medication_home_widget_service.dart';
 import '../../localization/app_localizations.dart';
 import '../../localization/locale_provider.dart';
 import '../../providers/settings_provider.dart';
@@ -22,13 +23,14 @@ class ProfileScreen extends StatelessWidget {
     final localeProvider = context.watch<LocaleProvider>();
     final isPersian = localeProvider.locale.languageCode == 'fa';
     final mainFont = isPersian ? 'Vazir' : 'Poppins';
+    final api = context.read<LifeMateApiClient>();
 
     void open(Widget page) {
       Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => page));
     }
 
-    return LifeMateSharedProfileScreen(
-      apiClient: context.read<LifeMateApiClient>(),
+    final sharedProfile = LifeMateSharedProfileScreen(
+      apiClient: api,
       theme: const LifeMateProfileThemeData(
         background: AppColors.background,
         accent: AppColors.primary,
@@ -45,7 +47,8 @@ class ProfileScreen extends StatelessWidget {
         support: loc['profile_support'] ?? 'پشتیبانی',
         logout: loc['profile_logout'] ?? 'خروج از حساب',
         subscriptionTitle:
-            loc['profile_no_subscription'] ?? (isPersian ? 'اشتراک' : 'Subscription'),
+            loc['profile_no_subscription'] ??
+            (isPersian ? 'اشتراک' : 'Subscription'),
         manageSubscriptions:
             loc['profile_buy_plan'] ??
             (isPersian ? 'مدیریت اشتراک‌ها' : 'Manage subscriptions'),
@@ -70,6 +73,153 @@ class ProfileScreen extends StatelessWidget {
       onReferral: () => open(const ReferralScreen()),
       onSupport: () => open(const SupportScreen()),
       onManageSubscriptions: () => open(const SubscriptionScreen()),
+    );
+
+    if (!MedicationHomeWidgetService.isSupportedPlatform) {
+      return sharedProfile;
+    }
+
+    return ColoredBox(
+      color: AppColors.background,
+      child: Column(
+        children: [
+          Expanded(child: sharedProfile),
+          SafeArea(
+            top: false,
+            minimum: const EdgeInsets.fromLTRB(24, 8, 24, 14),
+            child: _MedicationWidgetProfileButton(
+              fontFamily: mainFont,
+              onPressed: () => _pinMedicationWidget(context, api),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _pinMedicationWidget(
+    BuildContext context,
+    LifeMateApiClient api,
+  ) async {
+    try {
+      await MedicationHomeWidgetService.refreshFromApi(api);
+      final pinRequested = await MedicationHomeWidgetService.requestPin();
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          behavior: SnackBarBehavior.floating,
+          content: Text(
+            pinRequested
+                ? 'پنجره افزودن ویجت باز شد؛ «افزودن» را بزنید.'
+                : 'برای افزودن دستی، صفحه اصلی را نگه دارید و از بخش ویجت‌ها WellMate را انتخاب کنید.',
+          ),
+        ),
+      );
+    } catch (error) {
+      debugPrint('WellMate medication widget pin failed: $error');
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          behavior: SnackBarBehavior.floating,
+          content: Text('آماده‌سازی ویجت انجام نشد؛ دوباره تلاش کنید.'),
+        ),
+      );
+    }
+  }
+}
+
+class _MedicationWidgetProfileButton extends StatelessWidget {
+  const _MedicationWidgetProfileButton({
+    required this.fontFamily,
+    required this.onPressed,
+  });
+
+  final String fontFamily;
+  final VoidCallback onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    return Semantics(
+      button: true,
+      label: 'افزودن ویجت مصرف به صفحه اصلی',
+      hint: 'نمایش درمان بعدی و ثبت سریع مصرف از صفحه اصلی گوشی',
+      child: Material(
+        color: const Color(0xFFFFF4E9),
+        borderRadius: BorderRadius.circular(22),
+        elevation: 3,
+        shadowColor: const Color(0x22E76D5B),
+        child: InkWell(
+          key: const ValueKey('wellmate-add-medication-widget'),
+          borderRadius: BorderRadius.circular(22),
+          onTap: onPressed,
+          child: Padding(
+            padding: const EdgeInsetsDirectional.fromSTEB(14, 12, 14, 12),
+            child: Row(
+              children: [
+                Container(
+                  width: 52,
+                  height: 52,
+                  padding: const EdgeInsets.all(6),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFDDF2E5),
+                    borderRadius: BorderRadius.circular(16),
+                  ),
+                  child: Image.asset(
+                    'assets/images/WellMateWithoutBack.png',
+                    fit: BoxFit.contain,
+                    errorBuilder: (_, __, ___) => const Icon(
+                      Icons.widgets_rounded,
+                      color: Color(0xFF4AAE72),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'افزودن ویجت مصرف به صفحه اصلی',
+                        style: TextStyle(
+                          fontFamily: fontFamily,
+                          color: const Color(0xFF182435),
+                          fontSize: 15,
+                          fontWeight: FontWeight.w900,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        'نام درمان، دوز، ساعت و «مصرف کردم» همیشه جلوی چشم',
+                        style: TextStyle(
+                          fontFamily: fontFamily,
+                          color: const Color(0xFF667085),
+                          fontSize: 11.5,
+                          fontWeight: FontWeight.w600,
+                          height: 1.45,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Container(
+                  width: 42,
+                  height: 42,
+                  decoration: const BoxDecoration(
+                    color: Color(0xFFFF7362),
+                    shape: BoxShape.circle,
+                  ),
+                  child: const Icon(
+                    Icons.add_rounded,
+                    color: Colors.white,
+                    size: 26,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
     );
   }
 }

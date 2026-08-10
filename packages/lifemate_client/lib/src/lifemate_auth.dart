@@ -8,6 +8,22 @@ class LifeMateAuth {
 
   static Future<void> signOut() => Supabase.instance.client.auth.signOut();
 
+  static String? get currentAccessToken =>
+      Supabase.instance.client.auth.currentSession?.accessToken;
+
+  /// Returns an access token that is valid for an immediate authenticated API
+  /// call. Supabase Flutter restores a persisted session before an automatic
+  /// refresh is guaranteed, which matters for Android widget background
+  /// callbacks that may run long after the app was last opened.
+  static Future<String?> getValidAccessToken() async {
+    final auth = Supabase.instance.client.auth;
+    final session = auth.currentSession;
+    if (session == null) return null;
+    if (!session.isExpired) return session.accessToken;
+    final refreshed = await auth.refreshSession();
+    return refreshed.session?.accessToken;
+  }
+
   static String callbackUrlForApp(String appName) {
     final normalized = appName.trim().toLowerCase();
     final scheme = normalized.contains('care')

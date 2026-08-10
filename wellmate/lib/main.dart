@@ -1,9 +1,12 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:lifemate_client/lifemate_client.dart';
 import 'package:provider/provider.dart';
 import 'package:wellmate/core/state/wellmate_refresh.dart';
 import 'package:wellmate/core/theme/app_style.dart';
+import 'package:wellmate/core/widgets/medication_home_widget_service.dart';
 import 'package:wellmate/providers/medication_provider.dart';
 import 'package:wellmate/providers/notification_provider.dart';
 import 'package:wellmate/providers/settings_provider.dart';
@@ -28,6 +31,11 @@ Future<void> main() async {
     await notificationProvider.initialize();
   } catch (_) {
     debugPrint('Notification initialization failed.');
+  }
+  try {
+    await MedicationHomeWidgetService.initializeInteractivity();
+  } catch (error) {
+    debugPrint('Medication widget interaction initialization failed: $error');
   }
 
   runApp(
@@ -171,10 +179,60 @@ class _AuthenticatedWellMateShell extends StatefulWidget {
 }
 
 class _AuthenticatedWellMateShellState
-    extends State<_AuthenticatedWellMateShell> {
+    extends State<_AuthenticatedWellMateShell>
+    with WidgetsBindingObserver {
   final GlobalKey<NavigatorState> _navigatorKey = GlobalKey<NavigatorState>();
   final WellMateNavigationRefreshObserver _refreshObserver =
       WellMateNavigationRefreshObserver();
+  Timer? _widgetSyncTimer;
+  bool _widgetSyncInFlight = false;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+    WellMateRefreshSignal.revision.addListener(_scheduleMedicationWidgetSync);
+    scheduleMicrotask(_scheduleMedicationWidgetSync);
+    _widgetSyncTimer = Timer.periodic(
+      const Duration(minutes: 1),
+      (_) => _scheduleMedicationWidgetSync(),
+    );
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      _scheduleMedicationWidgetSync();
+    }
+  }
+
+  void _scheduleMedicationWidgetSync() {
+    unawaited(_syncMedicationWidget());
+  }
+
+  Future<void> _syncMedicationWidget() async {
+    if (_widgetSyncInFlight ||
+        !MedicationHomeWidgetService.isSupportedPlatform) {
+      return;
+    }
+    _widgetSyncInFlight = true;
+    try {
+      if (!await MedicationHomeWidgetService.hasInstalledWidget()) return;
+      await MedicationHomeWidgetService.refreshFromApi(widget.apiClient);
+    } catch (error) {
+      debugPrint('Medication widget sync failed: $error');
+    } finally {
+      _widgetSyncInFlight = false;
+    }
+  }
+
+  @override
+  void dispose() {
+    _widgetSyncTimer?.cancel();
+    WellMateRefreshSignal.revision.removeListener(_scheduleMedicationWidgetSync);
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
