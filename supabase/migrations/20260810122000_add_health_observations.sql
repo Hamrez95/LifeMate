@@ -57,8 +57,16 @@ create index if not exists ix_health_observations_person_local_date
 
 alter table lifemate.health_observations enable row level security;
 revoke all on table lifemate.health_observations from public;
-revoke all on table lifemate.health_observations from anon;
-revoke all on table lifemate.health_observations from authenticated;
+do $$
+begin
+  if exists (select 1 from pg_roles where rolname = 'anon') then
+    execute 'revoke all on table lifemate.health_observations from anon';
+  end if;
+  if exists (select 1 from pg_roles where rolname = 'authenticated') then
+    execute 'revoke all on table lifemate.health_observations from authenticated';
+  end if;
+end
+$$;
 
 comment on table lifemate.health_observations is
   'Canonical person-owned health observations. Manual and future device/provider measurements share one provenance-aware event model.';
