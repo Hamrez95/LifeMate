@@ -139,7 +139,8 @@ void main() {
 
     expect(homeSource, contains('ActiveTreatmentCard('));
     expect(homeSource, contains('_TreatmentTimerPlaceholder('));
-    expect(homeSource, contains('تایمر درمان آماده است'));
+    expect(homeSource, contains('شروع مراقبت از خودت'));
+    expect(homeSource, contains('ثبت اولین برنامه'));
     expect(homeSource, contains("'--:--'"));
     expect(cardSource, contains('CircularProgressIndicator('));
     expect(cardSource, contains('formatCountdown(secondsLeft)'));

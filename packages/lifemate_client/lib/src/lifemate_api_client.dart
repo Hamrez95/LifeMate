@@ -337,6 +337,14 @@ class LifeMateApiClient {
   Future<List<Map<String, dynamic>>> getOutgoingCareInvitations() =>
       _getList('/api/v1/care/invitations');
 
+  Future<void> revokeCareInvitation({required String invitationId}) async {
+    await _send(
+      'DELETE',
+      '/api/v1/care/invitations/$invitationId',
+      retryable: true,
+    );
+  }
+
   Future<Map<String, dynamic>> acceptCareInvitation({
     required String token,
   }) async => _asObject(

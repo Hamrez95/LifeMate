@@ -766,55 +766,139 @@ class _TreatmentTimerPlaceholder extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(22),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(28),
+    final title = hasTreatmentPlans
+        ? 'برنامه بعدی در راه است'
+        : 'شروع مراقبت از خودت';
+    final description = hasTreatmentPlans
+        ? 'وقتی زمان بعدی برسد، شمارش معکوس همین‌جا نمایش داده می‌شود.'
+        : 'اولین برنامه را ثبت کن؛ بعد از آن برنامه امروز و شمارش معکوس خودکار می‌شوند.';
+
+    return TweenAnimationBuilder<double>(
+      tween: Tween<double>(begin: 0.96, end: 1),
+      duration: const Duration(milliseconds: 420),
+      curve: Curves.easeOutBack,
+      builder: (context, value, child) => Transform.scale(
+        scale: value,
+        alignment: Alignment.center,
+        child: child,
       ),
-      child: Row(
-        children: [
-          const CircleAvatar(
-            radius: 48,
-            backgroundColor: Color(0xFFF1FAF5),
-            child: Icon(
-              Icons.medication_rounded,
-              size: 44,
-              color: AppColors.primary,
-            ),
+      child: Container(
+        padding: const EdgeInsets.all(17),
+        decoration: BoxDecoration(
+          gradient: const LinearGradient(
+            begin: Alignment.topRight,
+            end: Alignment.bottomLeft,
+            colors: [Color(0xFFFFFFFF), Color(0xFFF0FAF5)],
           ),
-          const SizedBox(width: 18),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  hasTreatmentPlans
-                      ? 'برنامه بعدی در اینجا نمایش داده می‌شود'
-                      : 'تایمر درمان آماده است',
-                  style: font.copyWith(
-                    fontSize: 18,
-                    fontWeight: FontWeight.w900,
-                    color: AppColors.darkBlue,
+          borderRadius: BorderRadius.circular(26),
+          border: Border.all(color: const Color(0xFFE5F1EA)),
+          boxShadow: const [
+            BoxShadow(
+              color: Color(0x0C1D5B43),
+              blurRadius: 20,
+              offset: Offset(0, 8),
+            ),
+          ],
+        ),
+        child: Row(
+          children: [
+            Container(
+              width: 70,
+              height: 70,
+              decoration: BoxDecoration(
+                color: const Color(0xFFE8F8F1),
+                borderRadius: BorderRadius.circular(22),
+              ),
+              child: Stack(
+                alignment: Alignment.center,
+                children: [
+                  Icon(
+                    hasTreatmentPlans
+                        ? Icons.schedule_rounded
+                        : Icons.auto_awesome_rounded,
+                    size: 34,
+                    color: AppColors.primary,
                   ),
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  hasTreatmentPlans
-                      ? 'برای دیدن جزئیات، برنامه درمان را باز کنید.'
-                      : 'پس از ثبت اولین دارو یا ویزیت، شمارش معکوس اینجا دیده می‌شود.',
-                  style: font.copyWith(color: AppColors.textSecondary),
-                ),
-                const SizedBox(height: 10),
-                TextButton.icon(
-                  onPressed: onAction,
-                  icon: const Icon(Icons.add_rounded),
-                  label: Text(hasTreatmentPlans ? 'درمان‌ها' : 'افزودن برنامه'),
-                ),
-              ],
+                  if (!hasTreatmentPlans)
+                    const Positioned(
+                      left: 9,
+                      bottom: 9,
+                      child: Icon(
+                        Icons.add_circle_rounded,
+                        size: 17,
+                        color: AppColors.primary,
+                      ),
+                    ),
+                ],
+              ),
             ),
-          ),
-        ],
+            const SizedBox(width: 14),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  if (!hasTreatmentPlans) ...[
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 8,
+                        vertical: 4,
+                      ),
+                      decoration: BoxDecoration(
+                        color: AppColors.primary.withValues(alpha: 0.09),
+                        borderRadius: BorderRadius.circular(20),
+                      ),
+                      child: const Text(
+                        'اولین قدم',
+                        style: TextStyle(
+                          fontSize: 10.5,
+                          fontWeight: FontWeight.w800,
+                          color: AppColors.primary,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 7),
+                  ],
+                  Text(
+                    title,
+                    style: font.copyWith(
+                      fontSize: 16.5,
+                      fontWeight: FontWeight.w900,
+                      color: AppColors.darkBlue,
+                    ),
+                  ),
+                  const SizedBox(height: 6),
+                  Text(
+                    description,
+                    style: font.copyWith(
+                      fontSize: 12.5,
+                      height: 1.55,
+                      color: AppColors.textSecondary,
+                    ),
+                  ),
+                  const SizedBox(height: 7),
+                  TextButton.icon(
+                    onPressed: onAction,
+                    style: TextButton.styleFrom(
+                      padding: EdgeInsets.zero,
+                      visualDensity: VisualDensity.compact,
+                    ),
+                    icon: Icon(
+                      hasTreatmentPlans
+                          ? Icons.arrow_back_rounded
+                          : Icons.add_rounded,
+                      size: 18,
+                    ),
+                    label: Text(
+                      hasTreatmentPlans
+                          ? 'مشاهده درمان‌ها'
+                          : 'ثبت اولین برنامه',
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -833,43 +917,92 @@ class _HomeEmptyState extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final title = hasTreatmentPlans
+        ? 'امروز برنامه‌ای باقی نمانده'
+        : 'امروز را از یک برنامه ساده شروع کن';
+    final description = hasTreatmentPlans
+        ? 'برنامه بعدی به‌صورت خودکار در خانه و تقویم نمایش داده می‌شود.'
+        : 'دارو، ویزیت یا تزریق را ثبت کن تا LifeMate زمان‌بندی و یادآوری‌ها را برایت مرتب کند.';
+
     return Center(
       child: SingleChildScrollView(
-        padding: const EdgeInsets.fromLTRB(24, 20, 24, 16),
+        padding: const EdgeInsets.fromLTRB(24, 10, 24, 18),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const CircleAvatar(
-              radius: 48,
-              backgroundColor: Color(0xFFE7F8F1),
-              child: Icon(
-                Icons.medication_liquid_rounded,
-                size: 48,
-                color: AppColors.primary,
+            TweenAnimationBuilder<double>(
+              tween: Tween<double>(begin: 0.86, end: 1),
+              duration: const Duration(milliseconds: 480),
+              curve: Curves.easeOutBack,
+              builder: (context, value, child) =>
+                  Transform.scale(scale: value, child: child),
+              child: Container(
+                width: 74,
+                height: 74,
+                decoration: const BoxDecoration(
+                  color: Color(0xFFE7F8F1),
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(
+                  hasTreatmentPlans
+                      ? Icons.task_alt_rounded
+                      : Icons.health_and_safety_rounded,
+                  size: 37,
+                  color: AppColors.primary,
+                ),
               ),
             ),
-            const SizedBox(height: 18),
+            const SizedBox(height: 14),
             Text(
-              hasTreatmentPlans
-                  ? 'برای امروز برنامه‌ای باقی نمانده است.'
-                  : 'هنوز برنامه درمانی ثبت نشده است.',
+              title,
               textAlign: TextAlign.center,
-              style: font.copyWith(fontSize: 18, fontWeight: FontWeight.w900),
+              style: font.copyWith(
+                fontSize: 16.5,
+                fontWeight: FontWeight.w900,
+                color: AppColors.darkBlue,
+              ),
             ),
-            const SizedBox(height: 8),
+            const SizedBox(height: 7),
             Text(
-              hasTreatmentPlans
-                  ? 'برنامه‌های دارویی، ویزیت و تزریق بعدی به‌صورت خودکار نمایش داده می‌شوند.'
-                  : 'اولین دارو، ویزیت یا تزریق را اضافه کنید.',
+              description,
               textAlign: TextAlign.center,
-              style: font.copyWith(color: AppColors.textSecondary),
+              style: font.copyWith(
+                fontSize: 12.5,
+                height: 1.6,
+                color: AppColors.textSecondary,
+              ),
             ),
             if (!hasTreatmentPlans) ...[
-              const SizedBox(height: 14),
+              const SizedBox(height: 16),
+              const Row(
+                children: [
+                  Expanded(
+                    child: _EmptyCareTypeChip(
+                      icon: Icons.medication_rounded,
+                      label: 'دارو',
+                    ),
+                  ),
+                  SizedBox(width: 8),
+                  Expanded(
+                    child: _EmptyCareTypeChip(
+                      icon: Icons.medical_services_rounded,
+                      label: 'ویزیت',
+                    ),
+                  ),
+                  SizedBox(width: 8),
+                  Expanded(
+                    child: _EmptyCareTypeChip(
+                      icon: Icons.vaccines_rounded,
+                      label: 'تزریق',
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 16),
               FilledButton.icon(
                 onPressed: onAddTreatment,
                 icon: const Icon(Icons.add_rounded),
-                label: const Text('افزودن برنامه'),
+                label: const Text('ثبت اولین برنامه'),
               ),
             ],
           ],
@@ -877,4 +1010,36 @@ class _HomeEmptyState extends StatelessWidget {
       ),
     );
   }
+}
+
+class _EmptyCareTypeChip extends StatelessWidget {
+  const _EmptyCareTypeChip({required this.icon, required this.label});
+
+  final IconData icon;
+  final String label;
+
+  @override
+  Widget build(BuildContext context) => Container(
+    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 10),
+    decoration: BoxDecoration(
+      color: const Color(0xFFF5FAF7),
+      borderRadius: BorderRadius.circular(15),
+      border: Border.all(color: const Color(0xFFE5F1EA)),
+    ),
+    child: Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Icon(icon, size: 20, color: AppColors.primary),
+        const SizedBox(height: 5),
+        Text(
+          label,
+          style: const TextStyle(
+            fontSize: 11.5,
+            fontWeight: FontWeight.w800,
+            color: AppColors.textSecondary,
+          ),
+        ),
+      ],
+    ),
+  );
 }

@@ -146,6 +146,33 @@ void main() {
     expect(body['confirmConsent'], isTrue);
   });
 
+  test('outgoing care invitation can be revoked by id', () async {
+    late http.Request observed;
+    final api = LifeMateApiClient(
+      baseUri: Uri.parse('https://api.example.test'),
+      accessToken: () => 'access-token',
+      httpClient: MockClient((request) async {
+        observed = request;
+        return http.Response(
+          jsonEncode({'id': '11111111-1111-4111-8111-111111111111'}),
+          200,
+          headers: {'content-type': 'application/json'},
+        );
+      }),
+    );
+
+    await api.revokeCareInvitation(
+      invitationId: '11111111-1111-4111-8111-111111111111',
+    );
+
+    expect(observed.method, 'DELETE');
+    expect(
+      observed.url.path,
+      '/api/v1/care/invitations/11111111-1111-4111-8111-111111111111',
+    );
+    expect(observed.headers['authorization'], 'Bearer access-token');
+  });
+
   test('missing session fails before a network request', () async {
     var requested = false;
     final api = LifeMateApiClient(
