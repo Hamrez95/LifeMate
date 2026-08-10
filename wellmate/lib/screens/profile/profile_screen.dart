@@ -86,7 +86,7 @@ class ProfileScreen extends StatelessWidget {
           Expanded(child: sharedProfile),
           SafeArea(
             top: false,
-            minimum: const EdgeInsetsDirectional.fromSTEB(24, 8, 24, 14),
+            minimum: const EdgeInsets.fromLTRB(24, 8, 24, 14),
             child: _MedicationWidgetProfileButton(
               fontFamily: mainFont,
               onPressed: () => _pinMedicationWidget(context, api),
