@@ -1,5 +1,6 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import postgres from "postgres";
+import { normalizeCareManagementPath } from "./path_utils.ts";
 
 const databaseUrl = Deno.env.get("SUPABASE_DB_URL");
 const supabaseUrl = Deno.env.get("SUPABASE_URL");
@@ -43,7 +44,7 @@ Deno.serve(async (request: Request) => {
   const correlationId = crypto.randomUUID();
   try {
     const appUserId = await authenticate(request);
-    const path = normalizePath(new URL(request.url).pathname);
+    const path = normalizeCareManagementPath(new URL(request.url).pathname);
     return await route(request, path, appUserId);
   } catch (error) {
     if (error instanceof ApiError) {
@@ -177,7 +178,11 @@ async function route(
 async function authenticate(request: Request): Promise<string> {
   const authorization = request.headers.get("authorization") ?? "";
   if (!authorization.startsWith("Bearer ") || authorization.length > 4096) {
-    throw new ApiError(401, "authorization_missing", "Authentication is required.");
+    throw new ApiError(
+      401,
+      "authorization_missing",
+      "Authentication is required.",
+    );
   }
 
   let response: Response;
@@ -197,12 +202,20 @@ async function authenticate(request: Request): Promise<string> {
     );
   }
   if (!response.ok) {
-    throw new ApiError(401, "invalid_session", "Authentication session is invalid.");
+    throw new ApiError(
+      401,
+      "invalid_session",
+      "Authentication session is invalid.",
+    );
   }
   const user = await response.json() as Record<string, unknown>;
   const authSubject = String(user.id ?? "");
   if (!isUuid(authSubject)) {
-    throw new ApiError(401, "invalid_session", "Authentication session is invalid.");
+    throw new ApiError(
+      401,
+      "invalid_session",
+      "Authentication session is invalid.",
+    );
   }
   const rows = await sql`
     select id
@@ -236,7 +249,11 @@ async function getHealthRecordPermission(
   `;
   const row = rows[0];
   if (!row) {
-    throw new ApiError(404, "relationship_not_found", "Care relationship was not found.");
+    throw new ApiError(
+      404,
+      "relationship_not_found",
+      "Care relationship was not found.",
+    );
   }
   return mapPermission(row);
 }
@@ -315,9 +332,7 @@ async function updateHealthRecordPermission(
       relationshipId,
       {
         caregiverUserId: existing.caregiver_user_id,
-        consentVersion: enabling
-          ? "health-record-management-consent-v1"
-          : null,
+        consentVersion: enabling ? "health-record-management-consent-v1" : null,
       },
     );
     return mapPermission(rows[0]);
@@ -473,7 +488,11 @@ async function updateTreatmentPlan(
     `;
     const existing = existingRows[0];
     if (!existing) {
-      throw new ApiError(404, "treatment_plan_not_found", "Treatment plan was not found.");
+      throw new ApiError(
+        404,
+        "treatment_plan_not_found",
+        "Treatment plan was not found.",
+      );
     }
     if (Number(existing.version) !== input.version) {
       throw new ApiError(
@@ -582,7 +601,11 @@ async function archiveTreatmentPlan(
     `;
     const plan = rows[0];
     if (!plan) {
-      throw new ApiError(404, "treatment_plan_not_found", "Treatment plan was not found.");
+      throw new ApiError(
+        404,
+        "treatment_plan_not_found",
+        "Treatment plan was not found.",
+      );
     }
     if (Number(plan.version) !== expectedVersion) {
       throw new ApiError(
@@ -699,7 +722,11 @@ async function updateCareEvent(
     `;
     const existing = existingRows[0];
     if (!existing) {
-      throw new ApiError(404, "care_event_not_found", "Care event was not found.");
+      throw new ApiError(
+        404,
+        "care_event_not_found",
+        "Care event was not found.",
+      );
     }
     if (Number(existing.version) !== input.version) {
       throw new ApiError(
@@ -709,7 +736,11 @@ async function updateCareEvent(
       );
     }
     if (String(existing.status) === "Cancelled") {
-      throw new ApiError(409, "care_event_cancelled", "Cancelled event cannot be edited.");
+      throw new ApiError(
+        409,
+        "care_event_cancelled",
+        "Cancelled event cannot be edited.",
+      );
     }
 
     const rows = await tx`
@@ -766,7 +797,11 @@ async function cancelCareEvent(
     `;
     const event = rows[0];
     if (!event) {
-      throw new ApiError(404, "care_event_not_found", "Care event was not found.");
+      throw new ApiError(
+        404,
+        "care_event_not_found",
+        "Care event was not found.",
+      );
     }
     if (Number(event.version) !== expectedVersion) {
       throw new ApiError(
@@ -821,7 +856,11 @@ function normalizeTreatment(
     ? null
     : requiredDate(body.endDate, "endDate");
   if (endDate && endDate < startDate) {
-    throw new ApiError(400, "invalid_treatment_plan", "End date cannot precede start date.");
+    throw new ApiError(
+      400,
+      "invalid_treatment_plan",
+      "End date cannot precede start date.",
+    );
   }
   const schedules = normalizeSchedules(body.schedules);
   return {
@@ -903,7 +942,10 @@ function normalizeCareEvent(
     centerName: optionalText(body.centerName, 200),
     addressLine: optionalText(body.addressLine, 500),
     phoneNumber: optionalText(body.phoneNumber, 40),
-    scheduledLocalDate: requiredDate(body.scheduledLocalDate, "scheduledLocalDate"),
+    scheduledLocalDate: requiredDate(
+      body.scheduledLocalDate,
+      "scheduledLocalDate",
+    ),
     scheduledLocalTime: requiredLocalTime(
       body.scheduledLocalTime,
       "scheduledLocalTime",
@@ -1051,7 +1093,9 @@ function normalizeSchedules(
 
 function normalizeEventType(value: unknown): "Appointment" | "Injection" {
   const normalized = String(value ?? "").trim().toLowerCase();
-  if (normalized === "appointment" || normalized === "visit") return "Appointment";
+  if (normalized === "appointment" || normalized === "visit") {
+    return "Appointment";
+  }
   if (normalized === "injection") return "Injection";
   throw new ApiError(400, "invalid_eventType", "Unsupported care event type.");
 }
@@ -1080,7 +1124,11 @@ function treatmentStatus(value: unknown): "Active" | "Stopped" {
   const normalized = String(value ?? "active").trim().toLowerCase();
   if (normalized === "active") return "Active";
   if (normalized === "stopped" || normalized === "paused") return "Stopped";
-  throw new ApiError(400, "invalid_treatment_status", "Treatment status is invalid.");
+  throw new ApiError(
+    400,
+    "invalid_treatment_status",
+    "Treatment status is invalid.",
+  );
 }
 
 function reminderMinutes(value: unknown, fallback: number): number {
@@ -1136,7 +1184,10 @@ function requiredDate(value: unknown, field: string): string {
     throw new ApiError(400, `invalid_${field}`, `${field} must be YYYY-MM-DD.`);
   }
   const date = new Date(`${normalized}T00:00:00.000Z`);
-  if (Number.isNaN(date.getTime()) || date.toISOString().slice(0, 10) !== normalized) {
+  if (
+    Number.isNaN(date.getTime()) ||
+    date.toISOString().slice(0, 10) !== normalized
+  ) {
     throw new ApiError(400, `invalid_${field}`, `${field} is invalid.`);
   }
   return normalized;
@@ -1198,23 +1249,15 @@ function problem(
   return json({ code, message, correlationId }, status);
 }
 
-function normalizePath(path: string): string {
-  const marker = "/lifemate-care-management";
-  const index = path.indexOf(marker);
-  if (index >= 0) {
-    const remaining = path.slice(index + marker.length);
-    return remaining || "/";
-  }
-  return path || "/";
-}
-
 function isUuid(value: string): boolean {
   return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
     .test(value);
 }
 
 function iso(value: unknown): string {
-  return value instanceof Date ? value.toISOString() : new Date(String(value)).toISOString();
+  return value instanceof Date
+    ? value.toISOString()
+    : new Date(String(value)).toISOString();
 }
 
 function dateValue(value: unknown): string {

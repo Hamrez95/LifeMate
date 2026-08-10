@@ -6,6 +6,7 @@ import 'package:provider/provider.dart';
 
 import '../core/constants/app_colors.dart';
 import '../widgets/care_profile_mask_selector.dart';
+import '../widgets/care_request_card.dart';
 import '../widgets/caremate_bottom_nav.dart';
 import '../widgets/custom_app_header.dart';
 import 'calendar/calendar_screen.dart';
@@ -36,10 +37,12 @@ class _CareMateFeaturePreviewScreenState
   late int _currentIndex;
   bool _loading = true;
   bool _accepting = false;
+  bool _requestingCare = false;
   String? _error;
   String? _currentUserId;
   String? _selectedRelationshipId;
   List<Map<String, dynamic>> _relationships = const [];
+  List<Map<String, dynamic>> _outgoingCareRequests = const [];
   List<Map<String, dynamic>> _doses = const [];
 
   @override
@@ -83,6 +86,7 @@ class _CareMateFeaturePreviewScreenState
       final values = await Future.wait([
         api.getCurrentUser(),
         api.getCareRelationships(),
+        api.getOutgoingCareRequests(),
       ]);
       final me = values[0] as Map<String, dynamic>;
       final allRelationships = values[1] as List<Map<String, dynamic>>;
@@ -106,6 +110,7 @@ class _CareMateFeaturePreviewScreenState
       setState(() {
         _currentUserId = userId;
         _relationships = relationships;
+        _outgoingCareRequests = values[2] as List<Map<String, dynamic>>;
         _selectedRelationshipId = selectedId;
       });
       await _loadSelectedDoses();
@@ -164,6 +169,151 @@ class _CareMateFeaturePreviewScreenState
       _setError('وضعیت فرد تحت مراقبت دریافت نشد.');
     } finally {
       if (mounted) setState(() => _loading = false);
+    }
+  }
+
+  Future<void> _showCareRequestSheet() async {
+    final controller = TextEditingController();
+    var consent = false;
+    final email = await showModalBottomSheet<String>(
+      context: context,
+      backgroundColor: Colors.transparent,
+      isScrollControlled: true,
+      builder: (sheetContext) => StatefulBuilder(
+        builder: (context, setSheetState) => Padding(
+          padding: EdgeInsets.only(
+            bottom: MediaQuery.viewInsetsOf(context).bottom,
+          ),
+          child: Container(
+            padding: const EdgeInsets.fromLTRB(22, 14, 22, 24),
+            decoration: const BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.vertical(top: Radius.circular(30)),
+            ),
+            child: SafeArea(
+              top: false,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Center(
+                    child: Container(
+                      width: 42,
+                      height: 4,
+                      decoration: BoxDecoration(
+                        color: Colors.black12,
+                        borderRadius: BorderRadius.circular(20),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 18),
+                  const Text(
+                    'درخواست مراقبت',
+                    style: TextStyle(fontSize: 20, fontWeight: FontWeight.w900),
+                  ),
+                  const SizedBox(height: 6),
+                  const Text(
+                    'ایمیل حساب WellMate فرد را وارد کنید. تا وقتی خودش تأیید نکند هیچ اطلاعاتی برای شما باز نمی‌شود.',
+                    style: TextStyle(
+                      height: 1.6,
+                      color: AppColors.secondaryText,
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  TextField(
+                    controller: controller,
+                    keyboardType: TextInputType.emailAddress,
+                    textDirection: TextDirection.ltr,
+                    autocorrect: false,
+                    onChanged: (_) => setSheetState(() {}),
+                    decoration: InputDecoration(
+                      labelText: 'ایمیل WellMate',
+                      prefixIcon: const Icon(Icons.alternate_email_rounded),
+                      filled: true,
+                      fillColor: const Color(0xFFF3F7FC),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(18),
+                        borderSide: BorderSide.none,
+                      ),
+                    ),
+                  ),
+                  CheckboxListTile(
+                    value: consent,
+                    contentPadding: EdgeInsets.zero,
+                    controlAffinity: ListTileControlAffinity.leading,
+                    onChanged: (value) =>
+                        setSheetState(() => consent = value ?? false),
+                    title: const Text(
+                      'می‌دانم دسترسی فقط با رضایت خود فرد فعال می‌شود و هر زمان قابل لغو است.',
+                      style: TextStyle(fontSize: 12.5, height: 1.55),
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  SizedBox(
+                    width: double.infinity,
+                    child: FilledButton.icon(
+                      onPressed: consent && _looksLikeEmail(controller.text)
+                          ? () => Navigator.pop(
+                              sheetContext,
+                              controller.text.trim(),
+                            )
+                          : null,
+                      icon: const Icon(Icons.send_rounded),
+                      label: const Text('ارسال درخواست'),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+    controller.dispose();
+    if (email == null || !mounted) return;
+
+    setState(() => _requestingCare = true);
+    try {
+      await context.read<LifeMateApiClient>().createCareRequest(email: email);
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('درخواست ارسال شد؛ منتظر تأیید در WellMate بمانید.'),
+        ),
+      );
+      await _refresh();
+    } on LifeMateApiException catch (error) {
+      if (!mounted) return;
+      final message = switch (error.code) {
+        'care_request_target_not_found' =>
+          'حساب WellMate فعالی با این ایمیل پیدا نشد.',
+        'care_request_already_pending' =>
+          'برای این فرد یک درخواست در انتظار دارید.',
+        'care_relationship_already_active' =>
+          'شما همین حالا مراقب این فرد هستید.',
+        'self_care_request_not_allowed' =>
+          'نمی‌توانید برای حساب خودتان درخواست مراقبت بفرستید.',
+        _ => _friendlyApiError(error),
+      };
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(message)));
+    } finally {
+      if (mounted) setState(() => _requestingCare = false);
+    }
+  }
+
+  Future<void> _cancelCareRequest(Map<String, dynamic> request) async {
+    final id = request['id']?.toString();
+    if (id == null || id.isEmpty) return;
+    try {
+      await context.read<LifeMateApiClient>().revokeCareRequest(requestId: id);
+      await _refresh();
+    } on LifeMateApiException catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(_friendlyApiError(error))));
     }
   }
 
@@ -564,27 +714,16 @@ class _CareMateFeaturePreviewScreenState
   }
 
   Widget _buildFamilyCare(_FeatureDefinition feature) {
+    final pendingRequests = _outgoingCareRequests
+        .where((request) => request['status']?.toString() == 'pending')
+        .toList(growable: false);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        SizedBox(
-          width: double.infinity,
-          child: FilledButton.icon(
-            onPressed: _accepting ? null : _showAcceptInvitation,
-            icon: _accepting
-                ? const SizedBox.square(
-                    dimension: 18,
-                    child: CircularProgressIndicator(strokeWidth: 2),
-                  )
-                : const Icon(Icons.person_add_alt_1_rounded),
-            label: const Text('پذیرش دعوت مراقبت'),
-          ),
-        ),
-        const SizedBox(height: 20),
         const _SectionTitle(
-          title: 'تیم مراقبت',
+          title: 'افراد تحت مراقبت',
           subtitle:
-              'روابط فعال و قابل لغو، بدون نمایش اطلاعات خارج از رضایت بیمار.',
+              'ارتباط‌های فعال شما؛ هر فرد فقط اطلاعات مجاز خودش را دارد.',
         ),
         const SizedBox(height: 12),
         if (_relationships.isEmpty)
@@ -606,6 +745,56 @@ class _CareMateFeaturePreviewScreenState
               ),
             ),
           ),
+        const SizedBox(height: 10),
+        CareRequestCard(
+          loading: _requestingCare,
+          pendingRequests: pendingRequests,
+          onRequest: _showCareRequestSheet,
+          onCancel: _cancelCareRequest,
+        ),
+        const SizedBox(height: 14),
+        Container(
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: Colors.white.withValues(alpha: 0.82),
+            borderRadius: BorderRadius.circular(22),
+          ),
+          child: Row(
+            children: [
+              const CircleAvatar(
+                backgroundColor: Color(0xFFF1F5FF),
+                child: Icon(
+                  Icons.qr_code_rounded,
+                  color: AppColors.primaryBlue,
+                ),
+              ),
+              const SizedBox(width: 12),
+              const Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'دعوت از طرف WellMate داری؟',
+                      style: TextStyle(fontWeight: FontWeight.w800),
+                    ),
+                    SizedBox(height: 3),
+                    Text(
+                      'کد یا QR دعوت را بپذیر تا ارتباط مراقبتی فعال شود.',
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: AppColors.secondaryText,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              TextButton(
+                onPressed: _accepting ? null : _showAcceptInvitation,
+                child: const Text('پذیرش'),
+              ),
+            ],
+          ),
+        ),
         const SizedBox(height: 8),
         _DevelopmentCard(
           accent: feature.accent,
@@ -616,6 +805,12 @@ class _CareMateFeaturePreviewScreenState
         ),
       ],
     );
+  }
+
+  static bool _looksLikeEmail(String value) {
+    final email = value.trim();
+    final at = email.indexOf('@');
+    return at > 0 && at < email.length - 3 && email.contains('.', at);
   }
 
   static String _doseTime(Map<String, dynamic> dose) {

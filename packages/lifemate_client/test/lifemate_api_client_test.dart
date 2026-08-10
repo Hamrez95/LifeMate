@@ -173,6 +173,54 @@ void main() {
     expect(observed.headers['authorization'], 'Bearer access-token');
   });
 
+  test('caregiver care request sends caregiver consent contract', () async {
+    late http.Request observed;
+    late Map<String, dynamic> body;
+    final api = LifeMateApiClient(
+      baseUri: Uri.parse('https://api.example.test'),
+      accessToken: () => 'access-token',
+      httpClient: MockClient((request) async {
+        observed = request;
+        body = jsonDecode(request.body) as Map<String, dynamic>;
+        return http.Response(
+          jsonEncode({'id': 'request-1', 'status': 'pending'}),
+          201,
+          headers: {'content-type': 'application/json'},
+        );
+      }),
+    );
+
+    await api.createCareRequest(email: ' patient@example.com ');
+
+    expect(observed.method, 'POST');
+    expect(observed.url.path, '/api/v1/care/requests');
+    expect(body['contact'], 'patient@example.com');
+    expect(body['consentVersion'], 'care-caregiver-request-v1');
+    expect(body['confirmConsent'], isTrue);
+  });
+
+  test('patient acceptance sends explicit patient consent', () async {
+    late Map<String, dynamic> body;
+    final api = LifeMateApiClient(
+      baseUri: Uri.parse('https://api.example.test'),
+      accessToken: () => 'access-token',
+      httpClient: MockClient((request) async {
+        body = jsonDecode(request.body) as Map<String, dynamic>;
+        return http.Response(
+          jsonEncode({'id': 'request-1', 'status': 'accepted'}),
+          200,
+          headers: {'content-type': 'application/json'},
+        );
+      }),
+    );
+
+    await api.respondCareRequest(requestId: 'request-1', accept: true);
+
+    expect(body['action'], 'accept');
+    expect(body['consentVersion'], 'care-patient-consent-v1');
+    expect(body['confirmConsent'], isTrue);
+  });
+
   test('missing session fails before a network request', () async {
     var requested = false;
     final api = LifeMateApiClient(

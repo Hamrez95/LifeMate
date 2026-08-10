@@ -345,6 +345,48 @@ class LifeMateApiClient {
     );
   }
 
+  Future<Map<String, dynamic>> createCareRequest({
+    required String email,
+  }) async => _asObject(
+    await _send(
+      'POST',
+      '/api/v1/care/requests',
+      body: {
+        'contactType': 'email',
+        'contact': email.trim(),
+        'consentVersion': 'care-caregiver-request-v1',
+        'confirmConsent': true,
+      },
+    ),
+  );
+
+  Future<List<Map<String, dynamic>>> getOutgoingCareRequests() =>
+      _getList('/api/v1/care/requests/outgoing');
+
+  Future<List<Map<String, dynamic>>> getIncomingCareRequests() =>
+      _getList('/api/v1/care/requests/incoming');
+
+  Future<Map<String, dynamic>> respondCareRequest({
+    required String requestId,
+    required bool accept,
+  }) async => _asObject(
+    await _send(
+      'POST',
+      '/api/v1/care/requests/$requestId/respond',
+      body: {
+        'action': accept ? 'accept' : 'reject',
+        if (accept) ...{
+          'consentVersion': 'care-patient-consent-v1',
+          'confirmConsent': true,
+        },
+      },
+    ),
+  );
+
+  Future<void> revokeCareRequest({required String requestId}) async {
+    await _send('DELETE', '/api/v1/care/requests/$requestId', retryable: true);
+  }
+
   Future<Map<String, dynamic>> acceptCareInvitation({
     required String token,
   }) async => _asObject(

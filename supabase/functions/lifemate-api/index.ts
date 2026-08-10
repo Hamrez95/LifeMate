@@ -1,5 +1,6 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createCareEventStore } from "./care_events.ts";
+import { createCareRequestStore } from "./care_requests.ts";
 import { createAccountLifecycleStore } from "./account_lifecycle.ts";
 import { createAuthorizationStore } from "./authorization.ts";
 import {
@@ -45,6 +46,7 @@ const profilePhotos = createProfilePhotoStorage(
   storageServiceKey,
 );
 const careEvents = createCareEventStore(databaseUrl);
+const careRequests = createCareRequestStore(databaseUrl, contactHashingSecret);
 const authorizationStore = createAuthorizationStore(databaseUrl);
 const identityBridge = createIdentityBridge(databaseUrl);
 const accountLifecycle = createAccountLifecycleStore(databaseUrl);
@@ -518,6 +520,76 @@ async function route(
       await edits.updateCareEvent(
         identity.appUserId,
         ownedCareEventMatch[1],
+        await readJsonObject(request),
+      ),
+    );
+  }
+
+  if (request.method === "POST" && path === "/api/v1/care/requests") {
+    enforceRateLimit(`care-request:${identity.appUserId}`, 8, 60 * 60_000);
+    return json(
+      await careRequests.create(identity, await readJsonObject(request)),
+      201,
+    );
+  }
+  if (
+    request.method === "GET" &&
+    path === "/api/v1/care/requests/outgoing"
+  ) {
+    return json(await careRequests.listOutgoing(identity.appUserId));
+  }
+  if (
+    request.method === "GET" &&
+    path === "/api/v1/care/requests/incoming"
+  ) {
+    const incoming = await careRequests.listIncoming(identity);
+    const presented = [];
+    for (const item of incoming) {
+      const requesterUserId = String(item.requesterUserId ?? "");
+      let requesterProfile: Record<string, unknown> = {};
+      if (requesterUserId) {
+        try {
+          requesterProfile = await presentProfile(requesterUserId);
+        } catch {
+          requesterProfile = {};
+        }
+      }
+      presented.push({
+        ...item,
+        requesterDisplayName: requesterProfile.displayName ??
+          item.requesterDisplayName,
+        requesterAvatarKey: requesterProfile.avatarKey ??
+          item.requesterAvatarKey ?? null,
+        requesterProfilePhotoUrl: requesterProfile.profilePhotoUrl ?? null,
+      });
+    }
+    return json(presented);
+  }
+  const careRequestMatch = path.match(
+    /^\/api\/v1\/care\/requests\/([0-9a-f-]{36})$/i,
+  );
+  if (request.method === "DELETE" && careRequestMatch) {
+    enforceRateLimit(
+      `care-request-cancel:${identity.appUserId}`,
+      20,
+      60 * 60_000,
+    );
+    await careRequests.cancel(identity.appUserId, careRequestMatch[1]);
+    return new Response(null, { status: 204, headers: corsHeaders });
+  }
+  const careRequestResponseMatch = path.match(
+    /^\/api\/v1\/care\/requests\/([0-9a-f-]{36})\/respond$/i,
+  );
+  if (request.method === "POST" && careRequestResponseMatch) {
+    enforceRateLimit(
+      `care-request-respond:${identity.appUserId}`,
+      20,
+      60 * 60_000,
+    );
+    return json(
+      await careRequests.respond(
+        identity,
+        careRequestResponseMatch[1],
         await readJsonObject(request),
       ),
     );
