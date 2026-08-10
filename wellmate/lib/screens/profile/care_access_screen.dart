@@ -22,6 +22,7 @@ class _CareAccessScreenState extends State<CareAccessScreen> {
   String? _currentUserId;
   List<Map<String, dynamic>> _invitations = const [];
   List<Map<String, dynamic>> _relationships = const [];
+  final Set<String> _cancellingInvitationIds = <String>{};
 
   @override
   void initState() {
@@ -77,6 +78,24 @@ class _CareAccessScreenState extends State<CareAccessScreen> {
     LifeMateNotice.show(context, type: type, title: title, message: message);
   }
 
+  Future<void> _openInviteSheet() async {
+    final action = await showModalBottomSheet<_InviteAction>(
+      context: context,
+      backgroundColor: Colors.transparent,
+      isScrollControlled: true,
+      builder: (context) => const _InviteOptionsSheet(),
+    );
+    if (!mounted || action == null) return;
+    switch (action) {
+      case _InviteAction.email:
+        await _createInvitation();
+        break;
+      case _InviteAction.qr:
+        await _createQrInvitation();
+        break;
+    }
+  }
+
   Future<void> _createInvitation() async {
     final emailController = TextEditingController();
     var confirmed = false;
@@ -84,6 +103,9 @@ class _CareAccessScreenState extends State<CareAccessScreen> {
       context: context,
       builder: (dialogContext) => StatefulBuilder(
         builder: (context, setDialogState) => AlertDialog(
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(24),
+          ),
           title: const Text('دعوت مراقب'),
           content: Column(
             mainAxisSize: MainAxisSize.min,
@@ -94,9 +116,15 @@ class _CareAccessScreenState extends State<CareAccessScreen> {
                 textDirection: TextDirection.ltr,
                 autocorrect: false,
                 onChanged: (_) => setDialogState(() {}),
-                decoration: const InputDecoration(
+                decoration: InputDecoration(
                   labelText: 'ایمیل مراقب',
-                  border: OutlineInputBorder(),
+                  prefixIcon: const Icon(Icons.alternate_email_rounded),
+                  filled: true,
+                  fillColor: const Color(0xFFF6FAF8),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(16),
+                    borderSide: BorderSide.none,
+                  ),
                 ),
               ),
               const SizedBox(height: 10),
@@ -108,6 +136,7 @@ class _CareAccessScreenState extends State<CareAccessScreen> {
                     setDialogState(() => confirmed = value ?? false),
                 title: const Text(
                   'اجازه می‌دهم این فرد وضعیت برنامه و مصرف داروهای من را ببیند. هر زمان بخواهم می‌توانم دسترسی را قطع کنم.',
+                  style: TextStyle(height: 1.55, fontSize: 12.5),
                 ),
               ),
             ],
@@ -166,9 +195,11 @@ class _CareAccessScreenState extends State<CareAccessScreen> {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
         title: const Text('اتصال با QR'),
         content: const Text(
           'با ادامه، یک QR یک‌بارمصرف می‌سازید که فقط ۱۰ دقیقه معتبر است. آن را فقط به مراقب مورد اعتماد نشان دهید.',
+          style: TextStyle(height: 1.6),
         ),
         actions: [
           TextButton(
@@ -214,12 +245,14 @@ class _CareAccessScreenState extends State<CareAccessScreen> {
       context: context,
       barrierDismissible: false,
       builder: (dialogContext) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
         title: const Text('کد دعوت آماده است'),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
             const Text(
               'این کد محرمانه را فقط برای همان مراقب ارسال کنید. کد پس از ۷۲ ساعت منقضی می‌شود.',
+              style: TextStyle(height: 1.55),
             ),
             const SizedBox(height: 16),
             SelectableText(
@@ -261,18 +294,27 @@ class _CareAccessScreenState extends State<CareAccessScreen> {
   }
 
   Future<void> _openAccessSettings(Map<String, dynamic> relationship) async {
-    await Navigator.of(context).push<void>(
-      MaterialPageRoute<void>(
-        builder: (_) => CareAccessSettingsScreen(relationship: relationship),
+    await showModalBottomSheet<void>(
+      context: context,
+      backgroundColor: Colors.transparent,
+      isScrollControlled: true,
+      useSafeArea: true,
+      builder: (context) => FractionallySizedBox(
+        heightFactor: 0.92,
+        child: ClipRRect(
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(30)),
+          child: CareAccessSettingsScreen(relationship: relationship),
+        ),
       ),
     );
-    await _refresh();
+    if (mounted) await _refresh();
   }
 
   Future<void> _revokeRelationship(Map<String, dynamic> relationship) async {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
         title: const Text('قطع دسترسی مراقب؟'),
         content: Text(
           'دسترسی ${relationship['caregiverDisplayName'] ?? 'این مراقب'} فوراً قطع می‌شود.',
@@ -311,6 +353,57 @@ class _CareAccessScreenState extends State<CareAccessScreen> {
     }
   }
 
+  Future<void> _cancelInvitation(Map<String, dynamic> invitation) async {
+    final id = invitation['id']?.toString();
+    if (id == null || id.isEmpty || _cancellingInvitationIds.contains(id)) {
+      return;
+    }
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+        title: const Text('لغو دعوت؟'),
+        content: Text(
+          'دعوت ${invitation['contactHint'] ?? ''} دیگر قابل استفاده نخواهد بود.',
+          style: const TextStyle(height: 1.55),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('انصراف'),
+          ),
+          FilledButton.tonal(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('لغو دعوت'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !mounted) return;
+    setState(() => _cancellingInvitationIds.add(id));
+    try {
+      await context.read<LifeMateApiClient>().revokeCareInvitation(
+        invitationId: id,
+      );
+      if (!mounted) return;
+      _notice(
+        type: LifeMateNoticeType.success,
+        title: 'دعوت لغو شد',
+        message: 'این دعوت دیگر معتبر نیست.',
+      );
+      await _refresh();
+    } catch (error) {
+      debugPrint('WellMate revoke invitation failed: $error');
+      _notice(
+        type: LifeMateNoticeType.error,
+        title: 'لغو دعوت انجام نشد',
+        message: 'دوباره تلاش کنید.',
+      );
+    } finally {
+      if (mounted) setState(() => _cancellingInvitationIds.remove(id));
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final isPersian = Localizations.localeOf(context).languageCode == 'fa';
@@ -328,121 +421,74 @@ class _CareAccessScreenState extends State<CareAccessScreen> {
         surfaceTintColor: Colors.transparent,
         title: const Text(
           'مراقبان من',
-          style: TextStyle(fontWeight: FontWeight.w800),
+          style: TextStyle(fontWeight: FontWeight.w900),
         ),
-      ),
-      floatingActionButton: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.end,
-        children: [
-          FloatingActionButton.extended(
-            heroTag: 'care-qr-invite',
-            onPressed: _creating ? null : _createQrInvitation,
-            icon: const Icon(Icons.qr_code_2_rounded),
-            label: const Text('اتصال با QR'),
-          ),
-          const SizedBox(height: 10),
-          FloatingActionButton.extended(
-            heroTag: 'care-email-invite',
-            onPressed: _creating ? null : _createInvitation,
-            icon: _creating
-                ? const SizedBox.square(
-                    dimension: 18,
-                    child: CircularProgressIndicator(strokeWidth: 2),
-                  )
-                : const Icon(Icons.alternate_email_rounded),
-            label: const Text('دعوت با ایمیل'),
-          ),
-        ],
       ),
       body: RefreshIndicator(
         onRefresh: _refresh,
         child: ListView(
           physics: const AlwaysScrollableScrollPhysics(),
-          padding: const EdgeInsets.fromLTRB(20, 8, 20, 100),
+          padding: const EdgeInsets.fromLTRB(20, 4, 20, 36),
           children: [
-            const _PrivacyNotice(),
-            const SizedBox(height: 20),
+            const _CareAccessHero(),
+            const SizedBox(height: 14),
+            _AddCaregiverCard(
+              loading: _creating,
+              onTap: _creating ? null : _openInviteSheet,
+            ),
+            const SizedBox(height: 24),
+            _SectionHeader(
+              title: 'درخواست‌های جدید',
+              count: 0,
+              isPersian: isPersian,
+            ),
+            const SizedBox(height: 10),
+            const _NoIncomingRequestsCard(),
+            const SizedBox(height: 24),
+            _SectionHeader(
+              title: 'مراقبان فعال',
+              count: active.length,
+              isPersian: isPersian,
+            ),
+            const SizedBox(height: 10),
             if (_loading && _currentUserId == null)
-              const Padding(
-                padding: EdgeInsets.all(40),
-                child: Center(child: CircularProgressIndicator()),
-              )
+              const _LoadingCard()
             else if (_error != null)
               _ErrorState(message: _error!, onRetry: _refresh)
-            else ...[
-              Text(
-                'مراقبان فعال (${active.length.toString().toPersianDigit(isPersian)})',
-                style: const TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.w800,
-                ),
-              ),
-              const SizedBox(height: 8),
-              if (active.isEmpty)
-                const _EmptySection(message: 'هنوز مراقب فعالی ندارید.')
-              else
-                ...active.map(
-                  (relationship) => Card(
-                    elevation: 0,
-                    child: ListTile(
-                      leading: const CircleAvatar(
-                        child: Icon(Icons.health_and_safety_rounded),
-                      ),
-                      title: Text(
-                        (relationship['caregiverDisplayName']?.toString() ??
-                                'مراقب')
-                            .toPersianDigit(isPersian),
-                      ),
-                      subtitle: Text(
-                        relationship['canViewWomenCalendar'] == true
-                            ? 'دارو و تقویم بانوان'
-                            : 'دسترسی فعال به وضعیت مصرف دارو',
-                      ),
-                      trailing: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          IconButton(
-                            tooltip: 'تنظیمات دسترسی',
-                            onPressed: () => _openAccessSettings(relationship),
-                            icon: const Icon(Icons.tune_rounded),
-                          ),
-                          IconButton(
-                            tooltip: 'قطع دسترسی',
-                            onPressed: () => _revokeRelationship(relationship),
-                            icon: const Icon(Icons.link_off_rounded),
-                          ),
-                        ],
-                      ),
-                    ),
+            else if (active.isEmpty)
+              const _CaregiverEmptyCard()
+            else
+              ...active.map(
+                (relationship) => Padding(
+                  padding: const EdgeInsets.only(bottom: 12),
+                  child: _CaregiverCard(
+                    relationship: relationship,
+                    onSettings: () => _openAccessSettings(relationship),
+                    onRevoke: () => _revokeRelationship(relationship),
                   ),
                 ),
-              const SizedBox(height: 20),
-              Text(
-                'دعوت‌های در انتظار (${pending.length.toString().toPersianDigit(isPersian)})',
-                style: const TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.w800,
-                ),
               ),
-              const SizedBox(height: 8),
-              if (pending.isEmpty)
-                const _EmptySection(message: 'دعوت در انتظاری وجود ندارد.')
-              else
-                ...pending.map(
-                  (invitation) => Card(
-                    elevation: 0,
-                    child: ListTile(
-                      leading: const Icon(Icons.schedule_send_rounded),
-                      title: Text(
-                        invitation['contactHint']?.toString() ?? 'مراقب',
-                      ),
-                      subtitle: const Text(
-                        'برای امنیت، کد دعوت دوباره نمایش داده نمی‌شود.',
-                      ),
+            if (pending.isNotEmpty) ...[
+              const SizedBox(height: 14),
+              _SectionHeader(
+                title: 'دعوت‌های ارسال‌شده',
+                count: pending.length,
+                isPersian: isPersian,
+              ),
+              const SizedBox(height: 10),
+              ...pending.map(
+                (invitation) => Padding(
+                  padding: const EdgeInsets.only(bottom: 10),
+                  child: _PendingInvitationCard(
+                    invitation: invitation,
+                    isPersian: isPersian,
+                    loading: _cancellingInvitationIds.contains(
+                      invitation['id']?.toString(),
                     ),
+                    onCancel: () => _cancelInvitation(invitation),
                   ),
                 ),
+              ),
             ],
           ],
         ),
@@ -457,24 +503,57 @@ class _CareAccessScreenState extends State<CareAccessScreen> {
   }
 }
 
-class _PrivacyNotice extends StatelessWidget {
-  const _PrivacyNotice();
+enum _InviteAction { email, qr }
+
+class _CareAccessHero extends StatelessWidget {
+  const _CareAccessHero();
 
   @override
   Widget build(BuildContext context) => Container(
     padding: const EdgeInsets.all(18),
     decoration: BoxDecoration(
-      color: AppColors.primary.withValues(alpha: 0.08),
-      borderRadius: BorderRadius.circular(18),
+      gradient: const LinearGradient(
+        begin: Alignment.topRight,
+        end: Alignment.bottomLeft,
+        colors: [Color(0xFFE9F8F2), Color(0xFFF6FBF8)],
+      ),
+      borderRadius: BorderRadius.circular(26),
+      border: Border.all(color: Colors.white),
+      boxShadow: const [
+        BoxShadow(
+          color: Color(0x0D27493D),
+          blurRadius: 22,
+          offset: Offset(0, 9),
+        ),
+      ],
     ),
     child: const Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Icon(Icons.verified_user_outlined, color: AppColors.primary),
-        SizedBox(width: 12),
+        _HeroIcon(),
+        SizedBox(width: 14),
         Expanded(
-          child: Text(
-            'کنترل دسترسی همیشه با شماست. فقط مراقبان فعال می‌توانند وضعیت برنامه و مصرف دارو را ببینند.',
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'تیم مراقبتت، زیر کنترل خودت',
+                style: TextStyle(
+                  fontSize: 17,
+                  fontWeight: FontWeight.w900,
+                  color: AppColors.darkBlue,
+                ),
+              ),
+              SizedBox(height: 6),
+              Text(
+                'مراقب اضافه کن، دسترسی هر نفر را جدا تنظیم کن و هر زمان خواستی ارتباط را قطع کن.',
+                style: TextStyle(
+                  height: 1.6,
+                  fontSize: 12.5,
+                  color: AppColors.textSecondary,
+                ),
+              ),
+            ],
           ),
         ),
       ],
@@ -482,17 +561,597 @@ class _PrivacyNotice extends StatelessWidget {
   );
 }
 
-class _EmptySection extends StatelessWidget {
-  const _EmptySection({required this.message});
-
-  final String message;
+class _HeroIcon extends StatelessWidget {
+  const _HeroIcon();
 
   @override
-  Widget build(BuildContext context) => Card(
-    elevation: 0,
-    child: Padding(
-      padding: const EdgeInsets.all(20),
-      child: Center(child: Text(message)),
+  Widget build(BuildContext context) => Container(
+    width: 52,
+    height: 52,
+    decoration: const BoxDecoration(
+      color: Colors.white,
+      shape: BoxShape.circle,
+    ),
+    child: const Icon(
+      Icons.diversity_1_rounded,
+      color: AppColors.primary,
+      size: 28,
+    ),
+  );
+}
+
+class _AddCaregiverCard extends StatelessWidget {
+  const _AddCaregiverCard({required this.loading, required this.onTap});
+
+  final bool loading;
+  final VoidCallback? onTap;
+
+  @override
+  Widget build(BuildContext context) => Material(
+    color: Colors.transparent,
+    child: InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(24),
+      child: Ink(
+        padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 17),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(24),
+          boxShadow: const [
+            BoxShadow(
+              color: Color(0x0D27493D),
+              blurRadius: 18,
+              offset: Offset(0, 8),
+            ),
+          ],
+        ),
+        child: Row(
+          children: [
+            Container(
+              width: 48,
+              height: 48,
+              decoration: BoxDecoration(
+                color: AppColors.primary.withValues(alpha: 0.10),
+                shape: BoxShape.circle,
+              ),
+              child: loading
+                  ? const Padding(
+                      padding: EdgeInsets.all(14),
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  : const Icon(
+                      Icons.person_add_alt_1_rounded,
+                      color: AppColors.primary,
+                    ),
+            ),
+            const SizedBox(width: 14),
+            const Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'افزودن مراقب جدید',
+                    style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w900,
+                      color: AppColors.darkBlue,
+                    ),
+                  ),
+                  SizedBox(height: 4),
+                  Text(
+                    'دعوت با ایمیل یا اتصال امن با QR',
+                    style: TextStyle(
+                      fontSize: 12.5,
+                      color: AppColors.textSecondary,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const Icon(Icons.chevron_left_rounded, color: Colors.black26),
+          ],
+        ),
+      ),
+    ),
+  );
+}
+
+class _SectionHeader extends StatelessWidget {
+  const _SectionHeader({
+    required this.title,
+    required this.count,
+    required this.isPersian,
+  });
+
+  final String title;
+  final int count;
+  final bool isPersian;
+
+  @override
+  Widget build(BuildContext context) => Row(
+    children: [
+      Expanded(
+        child: Text(
+          title,
+          style: const TextStyle(
+            fontSize: 17,
+            fontWeight: FontWeight.w900,
+            color: AppColors.darkBlue,
+          ),
+        ),
+      ),
+      Container(
+        padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(20),
+        ),
+        child: Text(
+          count.toString().toPersianDigit(isPersian),
+          style: const TextStyle(
+            fontWeight: FontWeight.w800,
+            color: AppColors.textSecondary,
+          ),
+        ),
+      ),
+    ],
+  );
+}
+
+class _NoIncomingRequestsCard extends StatelessWidget {
+  const _NoIncomingRequestsCard();
+
+  @override
+  Widget build(BuildContext context) => Container(
+    padding: const EdgeInsets.all(16),
+    decoration: BoxDecoration(
+      color: Colors.white.withValues(alpha: 0.78),
+      borderRadius: BorderRadius.circular(22),
+      border: Border.all(color: const Color(0xFFE4EEE8)),
+    ),
+    child: const Row(
+      children: [
+        _DecisionPreviewIcon(
+          icon: Icons.check_rounded,
+          background: Color(0xFFE7F8F1),
+          foreground: AppColors.primary,
+        ),
+        SizedBox(width: 8),
+        _DecisionPreviewIcon(
+          icon: Icons.close_rounded,
+          background: Color(0xFFFFEEEE),
+          foreground: Color(0xFFE65D5D),
+        ),
+        SizedBox(width: 12),
+        Expanded(
+          child: Text(
+            'درخواست جدیدی برای بررسی ندارید. درخواست‌های تازه با گزینه تأیید یا رد همین‌جا نمایش داده می‌شوند.',
+            style: TextStyle(
+              height: 1.55,
+              fontSize: 12.5,
+              color: AppColors.textSecondary,
+            ),
+          ),
+        ),
+      ],
+    ),
+  );
+}
+
+class _DecisionPreviewIcon extends StatelessWidget {
+  const _DecisionPreviewIcon({
+    required this.icon,
+    required this.background,
+    required this.foreground,
+  });
+
+  final IconData icon;
+  final Color background;
+  final Color foreground;
+
+  @override
+  Widget build(BuildContext context) => Container(
+    width: 34,
+    height: 34,
+    decoration: BoxDecoration(color: background, shape: BoxShape.circle),
+    child: Icon(icon, color: foreground, size: 18),
+  );
+}
+
+class _CaregiverCard extends StatelessWidget {
+  const _CaregiverCard({
+    required this.relationship,
+    required this.onSettings,
+    required this.onRevoke,
+  });
+
+  final Map<String, dynamic> relationship;
+  final VoidCallback onSettings;
+  final VoidCallback onRevoke;
+
+  @override
+  Widget build(BuildContext context) {
+    final rawName = relationship['caregiverDisplayName']?.toString().trim();
+    final name = rawName == null || rawName.isEmpty ? 'مراقب' : rawName;
+    final canSeeWomenCalendar = relationship['canViewWomenCalendar'] == true;
+    final initial = name.isEmpty ? 'م' : name.substring(0, 1);
+
+    return Container(
+      padding: const EdgeInsets.all(15),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(24),
+        boxShadow: const [
+          BoxShadow(
+            color: Color(0x0D27493D),
+            blurRadius: 18,
+            offset: Offset(0, 8),
+          ),
+        ],
+      ),
+      child: Column(
+        children: [
+          Row(
+            children: [
+              Container(
+                width: 58,
+                height: 58,
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    colors: [
+                      AppColors.primary.withValues(alpha: 0.18),
+                      const Color(0xFFEFFAF5),
+                    ],
+                  ),
+                  shape: BoxShape.circle,
+                ),
+                alignment: Alignment.center,
+                child: Text(
+                  initial,
+                  style: const TextStyle(
+                    fontSize: 21,
+                    fontWeight: FontWeight.w900,
+                    color: AppColors.primary,
+                  ),
+                ),
+              ),
+              const SizedBox(width: 13),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      name,
+                      style: const TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w900,
+                        color: AppColors.darkBlue,
+                      ),
+                    ),
+                    const SizedBox(height: 5),
+                    const Text(
+                      'مراقب فعال شما',
+                      style: TextStyle(
+                        fontSize: 12.5,
+                        color: AppColors.textSecondary,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              Material(
+                color: AppColors.primary.withValues(alpha: 0.10),
+                shape: const CircleBorder(),
+                child: IconButton(
+                  tooltip: 'تنظیمات دسترسی',
+                  onPressed: onSettings,
+                  icon: const Icon(
+                    Icons.settings_rounded,
+                    color: AppColors.primary,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 13),
+          Row(
+            children: [
+              const _AccessChip(icon: Icons.medication_rounded, label: 'دارو'),
+              if (canSeeWomenCalendar) ...[
+                const SizedBox(width: 7),
+                const _AccessChip(
+                  icon: Icons.calendar_month_rounded,
+                  label: 'تقویم بانوان',
+                ),
+              ],
+              const Spacer(),
+              TextButton.icon(
+                onPressed: onRevoke,
+                icon: const Icon(Icons.link_off_rounded, size: 18),
+                label: const Text('قطع ارتباط'),
+                style: TextButton.styleFrom(
+                  foregroundColor: const Color(0xFFB34A4A),
+                  textStyle: const TextStyle(fontSize: 12),
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _AccessChip extends StatelessWidget {
+  const _AccessChip({required this.icon, required this.label});
+
+  final IconData icon;
+  final String label;
+
+  @override
+  Widget build(BuildContext context) => Container(
+    padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 6),
+    decoration: BoxDecoration(
+      color: const Color(0xFFF2F8F5),
+      borderRadius: BorderRadius.circular(12),
+    ),
+    child: Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Icon(icon, size: 15, color: AppColors.primary),
+        const SizedBox(width: 5),
+        Text(
+          label,
+          style: const TextStyle(
+            fontSize: 11.5,
+            fontWeight: FontWeight.w700,
+            color: AppColors.textSecondary,
+          ),
+        ),
+      ],
+    ),
+  );
+}
+
+class _PendingInvitationCard extends StatelessWidget {
+  const _PendingInvitationCard({
+    required this.invitation,
+    required this.isPersian,
+    required this.loading,
+    required this.onCancel,
+  });
+
+  final Map<String, dynamic> invitation;
+  final bool isPersian;
+  final bool loading;
+  final VoidCallback onCancel;
+
+  @override
+  Widget build(BuildContext context) {
+    final contact = invitation['contactHint']?.toString() ?? 'مراقب';
+    final expiresAt = invitation['expiresAtUtc']?.toString();
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: 0.82),
+        borderRadius: BorderRadius.circular(20),
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 42,
+            height: 42,
+            decoration: BoxDecoration(
+              color: const Color(0xFFFFF7E8),
+              borderRadius: BorderRadius.circular(14),
+            ),
+            child: const Icon(
+              Icons.schedule_send_rounded,
+              color: Color(0xFFD6932C),
+            ),
+          ),
+          const SizedBox(width: 11),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  contact,
+                  style: const TextStyle(fontWeight: FontWeight.w800),
+                ),
+                const SizedBox(height: 3),
+                Text(
+                  expiresAt == null
+                      ? 'در انتظار پذیرش'
+                      : 'در انتظار پذیرش • انقضا ${expiresAt.toPersianDigit(isPersian)}',
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    fontSize: 11.5,
+                    color: AppColors.textSecondary,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          IconButton(
+            tooltip: 'لغو دعوت',
+            onPressed: loading ? null : onCancel,
+            icon: loading
+                ? const SizedBox.square(
+                    dimension: 18,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  )
+                : const Icon(Icons.close_rounded, color: Color(0xFFB34A4A)),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _CaregiverEmptyCard extends StatelessWidget {
+  const _CaregiverEmptyCard();
+
+  @override
+  Widget build(BuildContext context) => Container(
+    padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 24),
+    decoration: BoxDecoration(
+      color: Colors.white,
+      borderRadius: BorderRadius.circular(24),
+    ),
+    child: const Column(
+      children: [
+        Icon(Icons.group_add_rounded, color: AppColors.primary, size: 42),
+        SizedBox(height: 10),
+        Text(
+          'هنوز مراقب فعالی ندارید',
+          style: TextStyle(
+            fontWeight: FontWeight.w900,
+            color: AppColors.darkBlue,
+          ),
+        ),
+        SizedBox(height: 5),
+        Text(
+          'از کارت بالا یک نفر را با ایمیل یا QR دعوت کنید.',
+          textAlign: TextAlign.center,
+          style: TextStyle(fontSize: 12.5, color: AppColors.textSecondary),
+        ),
+      ],
+    ),
+  );
+}
+
+class _LoadingCard extends StatelessWidget {
+  const _LoadingCard();
+
+  @override
+  Widget build(BuildContext context) => const SizedBox(
+    height: 120,
+    child: Center(child: CircularProgressIndicator()),
+  );
+}
+
+class _InviteOptionsSheet extends StatelessWidget {
+  const _InviteOptionsSheet();
+
+  @override
+  Widget build(BuildContext context) => Container(
+    padding: const EdgeInsets.fromLTRB(20, 10, 20, 28),
+    decoration: const BoxDecoration(
+      color: Colors.white,
+      borderRadius: BorderRadius.vertical(top: Radius.circular(30)),
+    ),
+    child: SafeArea(
+      top: false,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Center(
+            child: Container(
+              width: 42,
+              height: 4,
+              margin: const EdgeInsets.only(bottom: 18),
+              decoration: BoxDecoration(
+                color: const Color(0xFFD7E0DB),
+                borderRadius: BorderRadius.circular(10),
+              ),
+            ),
+          ),
+          const Text(
+            'افزودن مراقب جدید',
+            style: TextStyle(
+              fontSize: 19,
+              fontWeight: FontWeight.w900,
+              color: AppColors.darkBlue,
+            ),
+          ),
+          const SizedBox(height: 5),
+          const Text(
+            'روش امنی که برای شما راحت‌تر است انتخاب کنید.',
+            style: TextStyle(color: AppColors.textSecondary),
+          ),
+          const SizedBox(height: 18),
+          _InviteOptionTile(
+            icon: Icons.qr_code_2_rounded,
+            title: 'اتصال با QR',
+            subtitle: 'برای وقتی که مراقب کنار شماست',
+            onTap: () => Navigator.pop(context, _InviteAction.qr),
+          ),
+          const SizedBox(height: 10),
+          _InviteOptionTile(
+            icon: Icons.alternate_email_rounded,
+            title: 'دعوت با ایمیل',
+            subtitle: 'ارسال کد دعوت برای مراقب مورد اعتماد',
+            onTap: () => Navigator.pop(context, _InviteAction.email),
+          ),
+        ],
+      ),
+    ),
+  );
+}
+
+class _InviteOptionTile extends StatelessWidget {
+  const _InviteOptionTile({
+    required this.icon,
+    required this.title,
+    required this.subtitle,
+    required this.onTap,
+  });
+
+  final IconData icon;
+  final String title;
+  final String subtitle;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) => Material(
+    color: const Color(0xFFF6FAF8),
+    borderRadius: BorderRadius.circular(20),
+    child: InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(20),
+      child: Padding(
+        padding: const EdgeInsets.all(15),
+        child: Row(
+          children: [
+            Container(
+              width: 48,
+              height: 48,
+              decoration: BoxDecoration(
+                color: AppColors.primary.withValues(alpha: 0.11),
+                borderRadius: BorderRadius.circular(16),
+              ),
+              child: Icon(icon, color: AppColors.primary),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    title,
+                    style: const TextStyle(
+                      fontWeight: FontWeight.w900,
+                      color: AppColors.darkBlue,
+                    ),
+                  ),
+                  const SizedBox(height: 3),
+                  Text(
+                    subtitle,
+                    style: const TextStyle(
+                      fontSize: 12,
+                      color: AppColors.textSecondary,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const Icon(Icons.chevron_left_rounded, color: Colors.black26),
+          ],
+        ),
+      ),
     ),
   );
 }
@@ -504,14 +1163,18 @@ class _ErrorState extends StatelessWidget {
   final Future<void> Function() onRetry;
 
   @override
-  Widget build(BuildContext context) => Padding(
-    padding: const EdgeInsets.all(28),
+  Widget build(BuildContext context) => Container(
+    padding: const EdgeInsets.all(22),
+    decoration: BoxDecoration(
+      color: Colors.white,
+      borderRadius: BorderRadius.circular(24),
+    ),
     child: Column(
       children: [
         Icon(
           Icons.cloud_off_rounded,
           color: Theme.of(context).colorScheme.error,
-          size: 48,
+          size: 42,
         ),
         const SizedBox(height: 10),
         Text(message),

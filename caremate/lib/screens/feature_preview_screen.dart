@@ -5,6 +5,7 @@ import 'package:lifemate_client/lifemate_client.dart';
 import 'package:provider/provider.dart';
 
 import '../core/constants/app_colors.dart';
+import '../widgets/care_profile_mask_selector.dart';
 import '../widgets/caremate_bottom_nav.dart';
 import '../widgets/custom_app_header.dart';
 import 'calendar/calendar_screen.dart';
@@ -374,7 +375,7 @@ class _CareMateFeaturePreviewScreenState
   _FeatureDefinition get _feature => switch (_currentIndex) {
     1 => const _FeatureDefinition(
       title: 'تغییر پروفایل',
-      subtitle: 'انتخاب عضو خانواده و مشاهده محدوده دسترسی واقعی',
+      subtitle: 'انتخاب نقش فعال و تجربه متناسب با آن در CareMate',
       icon: Icons.switch_account_rounded,
       accent: Color(0xFF7B93DB),
       softBackground: Color(0xFFF2F4FF),
@@ -435,7 +436,7 @@ class _CareMateFeaturePreviewScreenState
                       )
                     else
                       switch (_currentIndex) {
-                        1 => _buildProfileSelection(feature),
+                        1 => _buildProfileSelection(),
                         2 => _buildTreatmentManagement(feature),
                         _ => _buildFamilyCare(feature),
                       },
@@ -454,46 +455,8 @@ class _CareMateFeaturePreviewScreenState
     );
   }
 
-  Widget _buildProfileSelection(_FeatureDefinition feature) {
-    if (_relationships.isEmpty) {
-      return _EmptyState(
-        icon: Icons.family_restroom_rounded,
-        title: 'عضوی به CareMate متصل نیست',
-        description:
-            'دعوتی را که بیمار از WellMate ارسال کرده بپذیرید تا پروفایل او در این بخش ظاهر شود.',
-        actionLabel: 'پذیرش دعوت',
-        onAction: _accepting ? null : _showAcceptInvitation,
-      );
-    }
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        const _SectionTitle(
-          title: 'اعضای خانواده',
-          subtitle: 'پروفایل فعال برای تمام بخش‌های CareMate استفاده می‌شود.',
-        ),
-        const SizedBox(height: 12),
-        ..._relationships.map(
-          (relationship) => Padding(
-            padding: const EdgeInsets.only(bottom: 12),
-            child: _RelationshipSelectionCard(
-              relationship: relationship,
-              selected:
-                  relationship['id']?.toString() == _selectedRelationshipId,
-              onTap: () => _selectRelationship(relationship['id']?.toString()),
-            ),
-          ),
-        ),
-        const SizedBox(height: 4),
-        _DevelopmentCard(
-          accent: feature.accent,
-          icon: Icons.manage_accounts_outlined,
-          title: 'ویرایش اطلاعات عضو خانواده',
-          description:
-              'نام، تصویر و اطلاعات پزشکی فقط توسط خود بیمار در WellMate قابل مدیریت است. API ویرایش از سمت مراقب عمداً فعال نیست.',
-        ),
-      ],
-    );
+  Widget _buildProfileSelection() {
+    return const CareProfileMaskSelector();
   }
 
   Widget _buildTreatmentManagement(_FeatureDefinition feature) {
