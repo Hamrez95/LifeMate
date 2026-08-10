@@ -3,8 +3,8 @@ import {
   ApiError,
   limitedOptional,
   requiredDate,
-  requiredTimeZone,
   requiredTimestamp,
+  requiredTimeZone,
   requiredUuid,
   validateRange,
 } from "./validation.ts";
@@ -132,10 +132,10 @@ export function normalizeHealthObservationInput(
   );
   const valueSecondary = definition.secondary
     ? requiredMetricNumber(
-        body.valueSecondary,
-        "valueSecondary",
-        definition.secondary,
-      )
+      body.valueSecondary,
+      "valueSecondary",
+      definition.secondary,
+    )
     : null;
 
   if (
@@ -152,7 +152,8 @@ export function normalizeHealthObservationInput(
 
   return {
     clientRequestId,
-    observationType: observationType as NormalizedHealthObservation["observationType"],
+    observationType:
+      observationType as NormalizedHealthObservation["observationType"],
     valuePrimary,
     valueSecondary,
     unitPrimary: definition.unitPrimary,
@@ -270,10 +271,12 @@ export function createHealthObservationStore(databaseUrl: string) {
         values
           (${crypto.randomUUID()}, ${userId}::uuid,
            'health.observation_created', 'health_observation', ${id}::uuid,
-           ${JSON.stringify({
-             observationType: input.observationType,
-             sourceCategory: "FirstPartyUserInput",
-           })}::jsonb, now())
+           ${
+        JSON.stringify({
+          observationType: input.observationType,
+          sourceCategory: "FirstPartyUserInput",
+        })
+      }::jsonb, now())
       `;
       return mapObservation(rows[0]);
     });
@@ -308,9 +311,11 @@ export function createHealthObservationStore(databaseUrl: string) {
           (${crypto.randomUUID()}, ${userId}::uuid,
            'health.observation_deleted', 'health_observation',
            ${observationId}::uuid,
-           ${JSON.stringify({
-             observationType: String(deleted[0].observation_type),
-           })}::jsonb, now())
+           ${
+        JSON.stringify({
+          observationType: String(deleted[0].observation_type),
+        })
+      }::jsonb, now())
       `;
     });
   }

@@ -347,7 +347,9 @@ class _HealthEntrySheetState extends State<HealthEntrySheet> {
       final minutes = _parseNumber(_minutesController.text) ?? 0;
       primary = hours + (minutes / 60);
       if (primary > 24) {
-        setState(() => _submitError = 'مدت خواب نمی‌تواند بیشتر از ۲۴ ساعت باشد.');
+        setState(
+          () => _submitError = 'مدت خواب نمی‌تواند بیشتر از ۲۴ ساعت باشد.',
+        );
         return;
       }
     } else {
@@ -392,7 +394,8 @@ class _HealthEntrySheetState extends State<HealthEntrySheet> {
       if (mounted) {
         setState(() {
           _saving = false;
-          _submitError = 'ثبت اطلاعات انجام نشد. اتصال را بررسی و دوباره تلاش کن.';
+          _submitError =
+              'ثبت اطلاعات انجام نشد. اتصال را بررسی و دوباره تلاش کن.';
         });
       }
     }

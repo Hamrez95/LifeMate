@@ -12,11 +12,7 @@ import '../calendar/custom_table_calendar.dart';
 import 'health_entry_sheet.dart';
 
 class HealthScreen extends StatefulWidget {
-  const HealthScreen({
-    super.key,
-    this.refreshToken = 0,
-    this.healthApi,
-  });
+  const HealthScreen({super.key, this.refreshToken = 0, this.healthApi});
 
   final int refreshToken;
   final LifeMateHealthApi? healthApi;
@@ -118,9 +114,11 @@ class _HealthScreenState extends State<HealthScreen> {
   ) async {
     try {
       final now = DateTime.now();
-      final from = DateTime(now.year, now.month, now.day).subtract(
-        const Duration(days: 7),
-      );
+      final from = DateTime(
+        now.year,
+        now.month,
+        now.day,
+      ).subtract(const Duration(days: 7));
       final to = DateTime(now.year, now.month, now.day);
       final plans = await api.getTreatmentPlans();
       final plansById = <String, Map<String, dynamic>>{
@@ -167,7 +165,8 @@ class _HealthScreenState extends State<HealthScreen> {
         values.add(
           _TimelineEvent(
             occurredAt: timestamp.toLocal(),
-            title: '${event['title'] ?? (type == 'injection' ? 'تزریق' : 'ویزیت')} انجام شد',
+            title:
+                '${event['title'] ?? (type == 'injection' ? 'تزریق' : 'ویزیت')} انجام شد',
             subtitle: type == 'injection' ? 'تزریق' : 'رویداد مراقبتی',
             icon: type == 'injection'
                 ? Icons.vaccines_rounded
@@ -194,7 +193,9 @@ class _HealthScreenState extends State<HealthScreen> {
         toDate: range.$2,
       );
       if (!mounted) return;
-      setState(() => _observations = _sortedUnique([..._observations, ...additional]));
+      setState(
+        () => _observations = _sortedUnique([..._observations, ...additional]),
+      );
     } catch (_) {
       // Existing history stays visible when paging temporarily fails.
     }
@@ -231,12 +232,13 @@ class _HealthScreenState extends State<HealthScreen> {
           );
           await _load(background: true);
           WellMateRefreshSignal.notifyChanged();
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('اطلاعات سلامت ذخیره شد.')),
+            );
+          }
         },
       ),
-    );
-    if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('اطلاعات سلامت ذخیره شد.')),
     );
   }
 
@@ -394,7 +396,10 @@ class _HealthScreenState extends State<HealthScreen> {
         children: [
           Row(
             children: [
-              const Icon(Icons.event_available_rounded, color: AppColors.primary),
+              const Icon(
+                Icons.event_available_rounded,
+                color: AppColors.primary,
+              ),
               const SizedBox(width: 8),
               const Expanded(
                 child: Text(
@@ -431,9 +436,7 @@ class _HealthScreenState extends State<HealthScreen> {
                   icon: Icons.bedtime_rounded,
                   color: const Color(0xFF956CE6),
                   label: 'خواب',
-                  value: sleep == null
-                      ? '—'
-                      : _sleepLabel(sleep.valuePrimary),
+                  value: sleep == null ? '—' : _sleepLabel(sleep.valuePrimary),
                   onTap: () => _openEntry(HealthEntryType.sleep),
                 ),
               ),
@@ -481,11 +484,15 @@ class _HealthScreenState extends State<HealthScreen> {
   }
 
   Widget _buildBodyCards() {
-    final weights = _observations
-        .where((item) => item.observationType == 'weight')
-        .where((item) => DateTime.now().difference(item.observedAtUtc).inDays <= 30)
-        .toList(growable: false)
-      ..sort((a, b) => a.observedAtUtc.compareTo(b.observedAtUtc));
+    final weights =
+        _observations
+            .where((item) => item.observationType == 'weight')
+            .where(
+              (item) =>
+                  DateTime.now().difference(item.observedAtUtc).inDays <= 30,
+            )
+            .toList(growable: false)
+          ..sort((a, b) => a.observedAtUtc.compareTo(b.observedAtUtc));
     final latestWeight = _latest('weight');
     final bmi = _bmi;
     return LayoutBuilder(
@@ -508,15 +515,11 @@ class _HealthScreenState extends State<HealthScreen> {
         ];
         if (constraints.maxWidth < 350) {
           return Column(
-            children: [
-              cards[0],
-              const SizedBox(height: 12),
-              cards[1],
-            ],
+            children: [cards[0], const SizedBox(height: 12), cards[1]],
           );
         }
         return Row(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Expanded(child: cards[0]),
             const SizedBox(width: 12),
@@ -544,7 +547,9 @@ class _HealthScreenState extends State<HealthScreen> {
                   icon: Icons.bedtime_rounded,
                   color: const Color(0xFF956CE6),
                   label: 'خواب',
-                  value: sleep == null ? 'ثبت نشده' : _sleepLabel(sleep.valuePrimary),
+                  value: sleep == null
+                      ? 'ثبت نشده'
+                      : _sleepLabel(sleep.valuePrimary),
                   onTap: () => _openEntry(HealthEntryType.sleep),
                 ),
               ),
@@ -651,7 +656,8 @@ class _HealthScreenState extends State<HealthScreen> {
           if (visible.isEmpty)
             const _EmptyHint(
               icon: Icons.timeline_rounded,
-              text: 'با ثبت اولین اطلاعات، تایم‌لاین سلامتت از همین‌جا شروع می‌شود.',
+              text:
+                  'با ثبت اولین اطلاعات، تایم‌لاین سلامتت از همین‌جا شروع می‌شود.',
             )
           else
             for (var index = 0; index < visible.length; index++) ...[
@@ -708,7 +714,11 @@ class _HealthScreenState extends State<HealthScreen> {
                   const SizedBox(width: 8),
                   Expanded(
                     child: Text(
-                      formatAppDate(context, _selectedDate, includeWeekday: true),
+                      formatAppDate(
+                        context,
+                        _selectedDate,
+                        includeWeekday: true,
+                      ),
                       style: const TextStyle(fontWeight: FontWeight.w900),
                     ),
                   ),
@@ -747,7 +757,9 @@ class _HealthScreenState extends State<HealthScreen> {
   String _number(double? value, {int decimals = 1}) {
     if (value == null) return '—';
     final rounded = value.toStringAsFixed(decimals);
-    final display = decimals > 0 ? rounded.replaceFirst(RegExp(r'\.0+$'), '') : rounded;
+    final display = decimals > 0
+        ? rounded.replaceFirst(RegExp(r'\.0+$'), '')
+        : rounded;
     return localizeDigits(context, display);
   }
 
@@ -759,10 +771,8 @@ class _HealthScreenState extends State<HealthScreen> {
     return '${localizeDigits(context, whole)} ساعت و ${localizeDigits(context, minutes)} دقیقه';
   }
 
-  String _formatClock(DateTime value) => formatAppTime(
-    context,
-    TimeOfDay(hour: value.hour, minute: value.minute),
-  );
+  String _formatClock(DateTime value) =>
+      formatAppTime(context, TimeOfDay(hour: value.hour, minute: value.minute));
 }
 
 class _SurfaceCard extends StatelessWidget {
@@ -835,11 +845,8 @@ class _SectionTitle extends StatelessWidget {
 
 class _SummaryDivider extends StatelessWidget {
   @override
-  Widget build(BuildContext context) => Container(
-    width: 1,
-    height: 64,
-    color: const Color(0xFFEDF1EF),
-  );
+  Widget build(BuildContext context) =>
+      Container(width: 1, height: 64, color: const Color(0xFFEDF1EF));
 }
 
 class _SummaryMetric extends StatelessWidget {
@@ -927,7 +934,11 @@ class _BmiCard extends StatelessWidget {
             children: [
               const Row(
                 children: [
-                  Icon(Icons.info_outline_rounded, size: 18, color: Color(0xFF98A1AA)),
+                  Icon(
+                    Icons.info_outline_rounded,
+                    size: 18,
+                    color: Color(0xFF98A1AA),
+                  ),
                   Spacer(),
                   Text(
                     'شاخص توده بدنی (BMI)',
@@ -949,7 +960,10 @@ class _BmiCard extends StatelessWidget {
                           Text(
                             bmi == null
                                 ? '—'
-                                : localizeDigits(context, bmi!.toStringAsFixed(1)),
+                                : localizeDigits(
+                                    context,
+                                    bmi!.toStringAsFixed(1),
+                                  ),
                             style: const TextStyle(
                               fontSize: 27,
                               fontWeight: FontWeight.w900,
@@ -1044,7 +1058,8 @@ class _BmiGaugePainter extends CustomPainter {
   }
 
   @override
-  bool shouldRepaint(covariant _BmiGaugePainter oldDelegate) => oldDelegate.value != value;
+  bool shouldRepaint(covariant _BmiGaugePainter oldDelegate) =>
+      oldDelegate.value != value;
 }
 
 class _WeightTrendCard extends StatelessWidget {
@@ -1077,9 +1092,16 @@ class _WeightTrendCard extends StatelessWidget {
             children: [
               const Row(
                 children: [
-                  Icon(Icons.monitor_weight_rounded, color: AppColors.primary, size: 20),
+                  Icon(
+                    Icons.monitor_weight_rounded,
+                    color: AppColors.primary,
+                    size: 20,
+                  ),
                   Spacer(),
-                  Text('وزن', style: TextStyle(fontWeight: FontWeight.w900, fontSize: 14)),
+                  Text(
+                    'وزن',
+                    style: TextStyle(fontWeight: FontWeight.w900, fontSize: 14),
+                  ),
                 ],
               ),
               const SizedBox(height: 16),
@@ -1088,7 +1110,10 @@ class _WeightTrendCard extends StatelessWidget {
                     ? 'ثبت نشده'
                     : '${localizeDigits(context, latestValue.toStringAsFixed(1).replaceFirst(RegExp(r'\.0$'), ''))} کیلوگرم',
                 textAlign: TextAlign.center,
-                style: const TextStyle(fontSize: 23, fontWeight: FontWeight.w900),
+                style: const TextStyle(
+                  fontSize: 23,
+                  fontWeight: FontWeight.w900,
+                ),
               ),
               const SizedBox(height: 12),
               SizedBox(
@@ -1097,7 +1122,9 @@ class _WeightTrendCard extends StatelessWidget {
                     ? const _MiniEmptyChart()
                     : CustomPaint(
                         painter: _SparklinePainter(
-                          values.map((e) => e.valuePrimary ?? 0).toList(growable: false),
+                          values
+                              .map((e) => e.valuePrimary ?? 0)
+                              .toList(growable: false),
                         ),
                       ),
               ),
@@ -1105,10 +1132,16 @@ class _WeightTrendCard extends StatelessWidget {
               Text(
                 delta == null
                     ? 'با ثبت‌های بیشتر، روند ۳۰ روزه نمایش داده می‌شود'
-                    : '${delta > 0 ? '↑' : delta < 0 ? '↓' : '•'} ${localizeDigits(context, delta.abs().toStringAsFixed(1))} کیلو در ۳۰ روز',
+                    : '${delta > 0
+                          ? '↑'
+                          : delta < 0
+                          ? '↓'
+                          : '•'} ${localizeDigits(context, delta.abs().toStringAsFixed(1))} کیلو در ۳۰ روز',
                 textAlign: TextAlign.center,
                 style: TextStyle(
-                  color: delta == null ? AppColors.textSecondary : AppColors.primary,
+                  color: delta == null
+                      ? AppColors.textSecondary
+                      : AppColors.primary,
                   fontSize: 11,
                   fontWeight: FontWeight.w800,
                 ),
@@ -1134,7 +1167,8 @@ class _SparklinePainter extends CustomPainter {
     final points = <Offset>[];
     for (var index = 0; index < values.length; index++) {
       final x = size.width * index / (values.length - 1);
-      final y = size.height * 0.82 -
+      final y =
+          size.height * 0.82 -
           ((values[index] - minValue) / spread) * size.height * 0.62;
       points.add(Offset(x, y));
     }
@@ -1163,14 +1197,19 @@ class _SparklinePainter extends CustomPainter {
   }
 
   @override
-  bool shouldRepaint(covariant _SparklinePainter oldDelegate) => oldDelegate.values != values;
+  bool shouldRepaint(covariant _SparklinePainter oldDelegate) =>
+      oldDelegate.values != values;
 }
 
 class _MiniEmptyChart extends StatelessWidget {
   const _MiniEmptyChart();
   @override
   Widget build(BuildContext context) => Center(
-    child: Icon(Icons.show_chart_rounded, color: Colors.grey.shade300, size: 48),
+    child: Icon(
+      Icons.show_chart_rounded,
+      color: Colors.grey.shade300,
+      size: 48,
+    ),
   );
 }
 
@@ -1201,7 +1240,11 @@ class _VitalCard extends StatelessWidget {
           borderRadius: BorderRadius.circular(18),
           border: Border.all(color: const Color(0xFFEEF2EF)),
           boxShadow: const [
-            BoxShadow(color: Color(0x091A382C), blurRadius: 12, offset: Offset(0, 6)),
+            BoxShadow(
+              color: Color(0x091A382C),
+              blurRadius: 12,
+              offset: Offset(0, 6),
+            ),
           ],
         ),
         child: Column(
@@ -1211,7 +1254,10 @@ class _VitalCard extends StatelessWidget {
             Text(
               label,
               textAlign: TextAlign.center,
-              style: const TextStyle(color: AppColors.textSecondary, fontSize: 11.5),
+              style: const TextStyle(
+                color: AppColors.textSecondary,
+                fontSize: 11.5,
+              ),
             ),
             const SizedBox(height: 5),
             Text(
@@ -1221,7 +1267,7 @@ class _VitalCard extends StatelessWidget {
               textAlign: TextAlign.center,
               style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 12),
             ),
-            const Spacer(),
+            const SizedBox(height: 9),
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
               decoration: BoxDecoration(
@@ -1281,7 +1327,10 @@ class _QuickButton extends StatelessWidget {
                 label,
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
-                style: const TextStyle(fontSize: 10.5, fontWeight: FontWeight.w800),
+                style: const TextStyle(
+                  fontSize: 10.5,
+                  fontWeight: FontWeight.w800,
+                ),
               ),
             ],
           ),
@@ -1331,7 +1380,10 @@ class _TimelineRow extends StatelessWidget {
           Container(
             width: 8,
             height: 8,
-            decoration: const BoxDecoration(color: AppColors.primary, shape: BoxShape.circle),
+            decoration: const BoxDecoration(
+              color: AppColors.primary,
+              shape: BoxShape.circle,
+            ),
           ),
           const SizedBox(width: 9),
           Container(
@@ -1348,13 +1400,19 @@ class _TimelineRow extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(event.title, style: const TextStyle(fontWeight: FontWeight.w800)),
+                Text(
+                  event.title,
+                  style: const TextStyle(fontWeight: FontWeight.w800),
+                ),
                 if (event.subtitle.isNotEmpty)
                   Text(
                     event.subtitle,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(color: AppColors.textSecondary, fontSize: 11.5),
+                    style: const TextStyle(
+                      color: AppColors.textSecondary,
+                      fontSize: 11.5,
+                    ),
                   ),
               ],
             ),
@@ -1366,13 +1424,22 @@ class _TimelineRow extends StatelessWidget {
               Text(
                 formatAppTime(
                   context,
-                  TimeOfDay(hour: event.occurredAt.hour, minute: event.occurredAt.minute),
+                  TimeOfDay(
+                    hour: event.occurredAt.hour,
+                    minute: event.occurredAt.minute,
+                  ),
                 ),
-                style: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.w800),
+                style: const TextStyle(
+                  fontSize: 11.5,
+                  fontWeight: FontWeight.w800,
+                ),
               ),
               Text(
                 formatAppDate(context, event.occurredAt),
-                style: const TextStyle(color: AppColors.textSecondary, fontSize: 9.5),
+                style: const TextStyle(
+                  color: AppColors.textSecondary,
+                  fontSize: 9.5,
+                ),
               ),
             ],
           ),
@@ -1401,7 +1468,9 @@ _ObservationPresentation _observationPresentation(
 }) {
   String number(double? input, {int decimals = 1}) {
     if (input == null) return '—';
-    final raw = input.toStringAsFixed(decimals).replaceFirst(RegExp(r'\.0$'), '');
+    final raw = input
+        .toStringAsFixed(decimals)
+        .replaceFirst(RegExp(r'\.0$'), '');
     return context == null ? raw : localizeDigits(context, raw);
   }
 
@@ -1420,7 +1489,8 @@ _ObservationPresentation _observationPresentation(
     ),
     'blood_pressure' => _ObservationPresentation(
       label: 'فشار خون',
-      value: '${number(value.valuePrimary, decimals: 0)}/${number(value.valueSecondary, decimals: 0)} mmHg',
+      value:
+          '${number(value.valuePrimary, decimals: 0)}/${number(value.valueSecondary, decimals: 0)} mmHg',
       icon: Icons.water_drop_rounded,
       color: const Color(0xFFFF8A4C),
     ),
@@ -1470,7 +1540,10 @@ class _HistoryRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final presentation = _observationPresentation(observation, context: context);
+    final presentation = _observationPresentation(
+      observation,
+      context: context,
+    );
     final time = observation.observedAtUtc.toLocal();
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 8),
@@ -1490,18 +1563,27 @@ class _HistoryRow extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(presentation.label, style: const TextStyle(fontWeight: FontWeight.w800)),
+                Text(
+                  presentation.label,
+                  style: const TextStyle(fontWeight: FontWeight.w800),
+                ),
                 Text(
                   presentation.value,
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(color: AppColors.textSecondary, fontSize: 11.5),
+                  style: const TextStyle(
+                    color: AppColors.textSecondary,
+                    fontSize: 11.5,
+                  ),
                 ),
               ],
             ),
           ),
           Text(
-            formatAppTime(context, TimeOfDay(hour: time.hour, minute: time.minute)),
+            formatAppTime(
+              context,
+              TimeOfDay(hour: time.hour, minute: time.minute),
+            ),
             style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w700),
           ),
           PopupMenuButton<String>(
@@ -1569,8 +1651,16 @@ class _ErrorBanner extends StatelessWidget {
         children: [
           const Icon(Icons.cloud_off_rounded, color: Color(0xFFB5473E)),
           const SizedBox(width: 10),
-          Expanded(child: Text(message, style: const TextStyle(fontWeight: FontWeight.w700))),
-          TextButton(onPressed: () => onRetry(), child: const Text('تلاش دوباره')),
+          Expanded(
+            child: Text(
+              message,
+              style: const TextStyle(fontWeight: FontWeight.w700),
+            ),
+          ),
+          TextButton(
+            onPressed: () => onRetry(),
+            child: const Text('تلاش دوباره'),
+          ),
         ],
       ),
     );
@@ -1607,9 +1697,18 @@ class _ConnectedHealthComingSoon extends StatelessWidget {
                       child: const Row(
                         mainAxisAlignment: MainAxisAlignment.spaceAround,
                         children: [
-                          _GadgetPreview(icon: Icons.watch_rounded, label: 'ساعت هوشمند'),
-                          _GadgetPreview(icon: Icons.favorite_outline_rounded, label: 'Health Connect'),
-                          _GadgetPreview(icon: Icons.phone_iphone_rounded, label: 'اپ‌های سلامت'),
+                          _GadgetPreview(
+                            icon: Icons.watch_rounded,
+                            label: 'ساعت هوشمند',
+                          ),
+                          _GadgetPreview(
+                            icon: Icons.favorite_outline_rounded,
+                            label: 'Health Connect',
+                          ),
+                          _GadgetPreview(
+                            icon: Icons.phone_iphone_rounded,
+                            label: 'اپ‌های سلامت',
+                          ),
                         ],
                       ),
                     ),
@@ -1619,7 +1718,11 @@ class _ConnectedHealthComingSoon extends StatelessWidget {
                     child: Column(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        Icon(Icons.lock_clock_rounded, color: AppColors.primary, size: 29),
+                        Icon(
+                          Icons.lock_clock_rounded,
+                          color: AppColors.primary,
+                          size: 29,
+                        ),
                         SizedBox(height: 5),
                         Text(
                           'به‌زودی',
@@ -1663,15 +1766,23 @@ class _GadgetPreview extends StatelessWidget {
         Container(
           width: 50,
           height: 50,
-          decoration: const BoxDecoration(color: Colors.white, shape: BoxShape.circle),
+          decoration: const BoxDecoration(
+            color: Colors.white,
+            shape: BoxShape.circle,
+          ),
           child: Icon(icon, color: AppColors.primary),
         ),
         const SizedBox(height: 6),
-        Text(label, style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w700)),
+        Text(
+          label,
+          style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w700),
+        ),
       ],
     );
   }
 }
 
 bool _sameDay(DateTime left, DateTime right) =>
-    left.year == right.year && left.month == right.month && left.day == right.day;
+    left.year == right.year &&
+    left.month == right.month &&
+    left.day == right.day;

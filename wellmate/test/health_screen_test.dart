@@ -5,10 +5,10 @@ import 'package:wellmate/screens/health/health_screen.dart';
 
 class _FakeHealthApi extends LifeMateHealthApi {
   _FakeHealthApi()
-      : super(
-          baseUri: Uri.parse('https://api.example.test'),
-          accessToken: () => 'test-token',
-        );
+    : super(
+        baseUri: Uri.parse('https://api.example.test'),
+        accessToken: () => 'test-token',
+      );
 
   @override
   Future<List<LifeMateHealthObservation>> listObservations({
@@ -21,7 +21,70 @@ class _FakeHealthApi extends LifeMateHealthApi {
 }
 
 void main() {
-  testWidgets('health hub renders real-data empty states and coming soon gadget gate', (
+  testWidgets(
+    'health hub renders real-data empty states and coming soon gadget gate',
+    (tester) async {
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(body: HealthScreen(healthApi: _FakeHealthApi())),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.byKey(const ValueKey('health-title')), findsOneWidget);
+      expect(find.text('سلامت من'), findsOneWidget);
+
+      for (
+        var i = 0;
+        i < 8 &&
+            find.byKey(const ValueKey('health-quick-log')).evaluate().isEmpty;
+        i++
+      ) {
+        await tester.drag(find.byType(ListView).first, const Offset(0, -260));
+        await tester.pumpAndSettle();
+      }
+      expect(find.byKey(const ValueKey('health-quick-log')), findsOneWidget);
+      expect(find.text('ثبت سریع'), findsOneWidget);
+
+      for (
+        var i = 0;
+        i < 10 &&
+            find
+                .byKey(const ValueKey('health-calendar-history'))
+                .evaluate()
+                .isEmpty;
+        i++
+      ) {
+        await tester.drag(find.byType(ListView).first, const Offset(0, -300));
+        await tester.pumpAndSettle();
+      }
+      expect(
+        find.byKey(const ValueKey('health-calendar-history')),
+        findsOneWidget,
+      );
+      expect(find.text('تاریخچه سلامت'), findsOneWidget);
+
+      for (
+        var i = 0;
+        i < 10 &&
+            find
+                .byKey(const ValueKey('health-gadgets-coming-soon'))
+                .evaluate()
+                .isEmpty;
+        i++
+      ) {
+        await tester.drag(find.byType(ListView).first, const Offset(0, -300));
+        await tester.pumpAndSettle();
+      }
+      expect(
+        find.byKey(const ValueKey('health-gadgets-coming-soon')),
+        findsOneWidget,
+      );
+      expect(find.text('به‌زودی'), findsOneWidget);
+    },
+  );
+
+  testWidgets('quick note opens the polished dated entry sheet', (
     tester,
   ) async {
     await tester.pumpWidget(
@@ -31,28 +94,15 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    expect(find.byKey(const ValueKey('health-title')), findsOneWidget);
-    expect(find.text('سلامت من'), findsOneWidget);
-    expect(find.byKey(const ValueKey('health-quick-log')), findsOneWidget);
-    expect(find.text('ثبت سریع'), findsOneWidget);
-    expect(find.byKey(const ValueKey('health-calendar-history')), findsOneWidget);
-    expect(find.text('تاریخچه سلامت'), findsOneWidget);
-
-    await tester.drag(find.byType(ListView).first, const Offset(0, -1600));
-    await tester.pumpAndSettle();
-
-    expect(find.byKey(const ValueKey('health-gadgets-coming-soon')), findsOneWidget);
-    expect(find.text('به‌زودی'), findsOneWidget);
-  });
-
-  testWidgets('quick note opens the polished dated entry sheet', (tester) async {
-    await tester.pumpWidget(
-      MaterialApp(
-        home: Scaffold(body: HealthScreen(healthApi: _FakeHealthApi())),
-      ),
-    );
-    await tester.pumpAndSettle();
-
+    for (
+      var i = 0;
+      i < 8 &&
+          find.byKey(const ValueKey('health-quick-log')).evaluate().isEmpty;
+      i++
+    ) {
+      await tester.drag(find.byType(ListView).first, const Offset(0, -260));
+      await tester.pumpAndSettle();
+    }
     await tester.tap(find.text('یادداشت').last);
     await tester.pumpAndSettle();
 

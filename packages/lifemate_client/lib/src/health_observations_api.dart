@@ -28,7 +28,9 @@ class LifeMateHealthObservation {
   });
 
   factory LifeMateHealthObservation.fromJson(Map<String, dynamic> json) {
-    final observedAt = DateTime.tryParse(json['observedAtUtc']?.toString() ?? '');
+    final observedAt = DateTime.tryParse(
+      json['observedAtUtc']?.toString() ?? '',
+    );
     final localDate = DateTime.tryParse(
       json['observedLocalDate']?.toString() ?? '',
     );
@@ -45,7 +47,11 @@ class LifeMateHealthObservation {
       unitSecondary: json['unitSecondary']?.toString(),
       note: json['note']?.toString(),
       observedAtUtc: observedAt.toUtc(),
-      observedLocalDate: DateTime(localDate.year, localDate.month, localDate.day),
+      observedLocalDate: DateTime(
+        localDate.year,
+        localDate.month,
+        localDate.day,
+      ),
       timeZone: json['timeZone']?.toString() ?? 'Asia/Tehran',
       sourceCategory: json['sourceCategory']?.toString() ?? '',
       sourceProvider: json['sourceProvider']?.toString() ?? '',
@@ -109,7 +115,9 @@ class LifeMateHealthApi {
       query: {'fromDate': _date(fromDate), 'toDate': _date(toDate)},
     );
     if (value is! List) {
-      throw const FormatException('Health observations response is not a list.');
+      throw const FormatException(
+        'Health observations response is not a list.',
+      );
     }
     return value
         .map((entry) => LifeMateHealthObservation.fromJson(_object(entry)))
@@ -175,9 +183,10 @@ class LifeMateHealthApi {
     try {
       response = switch (method) {
         'GET' => await _http.get(uri, headers: headers).timeout(_timeout),
-        'POST' => await _http
-            .post(uri, headers: headers, body: jsonEncode(body))
-            .timeout(_timeout),
+        'POST' =>
+          await _http
+              .post(uri, headers: headers, body: jsonEncode(body))
+              .timeout(_timeout),
         'DELETE' => await _http.delete(uri, headers: headers).timeout(_timeout),
         _ => throw ArgumentError.value(method, 'method'),
       };
