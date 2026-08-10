@@ -1,0 +1,147 @@
+name: device-qa-profile-first-run-ux
+
+on:
+  push:
+    branches:
+      - release/device-qa-7fe7281e
+    paths:
+      - .github/workflows/device-qa-profile-first-run-ux.yml
+
+permissions:
+  contents: read
+
+env:
+  PUB_ENVIRONMENT: bot:github_actions
+  SOURCE_COMMIT: 7fe7281e4a98204cb6f6123719ac06c7249bf752
+  SOURCE_SHORT_SHA: 7fe7281e
+  RELEASE_NAME: 0.9.0-internal.4
+  SUPABASE_URL: https://bwdvmniywyyijjauipnh.supabase.co
+  SUPABASE_PUBLISHABLE_KEY: ${{ vars.SUPABASE_PUBLISHABLE_KEY || 'sb_publishable_6YpBDD0gAPcenbYGukOeWg_fZXxUb27' }}
+  LIFEMATE_API_BASE_URL: https://bwdvmniywyyijjauipnh.supabase.co/functions/v1/lifemate-api-candidate
+  CARE_MANAGEMENT_CANDIDATE_URL: https://bwdvmniywyyijjauipnh.supabase.co/functions/v1/lifemate-care-management-candidate
+  ENABLE_GOOGLE_AUTH: 'false'
+  ENABLE_WOMEN_CALENDAR_PILOT: 'true'
+  ENABLE_PHONE_OTP: 'false'
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 50
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
+        with:
+          fetch-depth: 0
+          show-progress: false
+          persist-credentials: false
+
+      - name: Verify exact merged source
+        shell: bash
+        run: |
+          set -euo pipefail
+          git cat-file -e "$SOURCE_COMMIT^{commit}"
+          git diff --exit-code "$SOURCE_COMMIT" -- ':!.github/workflows/device-qa-profile-first-run-ux.yml'
+
+      - uses: subosito/flutter-action@4cab68ce0f1c7c924f688bff4792e044f1aeb30c
+        with:
+          flutter-version: '3.44.0'
+          channel: stable
+          cache: true
+
+      - name: Verify Flutter source
+        shell: bash
+        run: |
+          set -euo pipefail
+          (cd packages/lifemate_client && flutter pub get && flutter analyze --no-fatal-warnings --no-fatal-infos && flutter test)
+          (cd wellmate && flutter pub get && flutter analyze --no-fatal-warnings --no-fatal-infos && flutter test)
+          (cd caremate && flutter pub get && flutter analyze --no-fatal-warnings --no-fatal-infos && flutter test)
+
+      - name: Verify candidate backends
+        shell: bash
+        run: |
+          set -euo pipefail
+          api_health="$(curl --fail --silent --show-error --retry 8 --retry-delay 2 --retry-all-errors "$LIFEMATE_API_BASE_URL/health")"
+          echo "$api_health" | jq -e '.status == "ok" and .database == "ready"' >/dev/null
+          unauthorized_api="$(curl --silent --show-error --output /dev/null --write-out '%{http_code}' "$LIFEMATE_API_BASE_URL/api/v1/me")"
+          test "$unauthorized_api" = '401'
+          unauthorized_care="$(curl --silent --show-error --retry 5 --retry-delay 2 --retry-all-errors --output /tmp/care-response.txt --write-out '%{http_code}' "$CARE_MANAGEMENT_CANDIDATE_URL/api/v1/relationships/00000000-0000-0000-0000-000000000000/health-record-permission")"
+          cat /tmp/care-response.txt
+          test "$unauthorized_care" = '401'
+
+      - name: Build internal Android APKs
+        shell: bash
+        run: |
+          set -euo pipefail
+          args=(
+            --release
+            --build-name="$RELEASE_NAME"
+            --build-number="$GITHUB_RUN_NUMBER"
+            --dart-define="SUPABASE_URL=$SUPABASE_URL"
+            --dart-define="SUPABASE_PUBLISHABLE_KEY=$SUPABASE_PUBLISHABLE_KEY"
+            --dart-define="LIFEMATE_API_BASE_URL=$LIFEMATE_API_BASE_URL"
+            --dart-define="ENABLE_GOOGLE_AUTH=$ENABLE_GOOGLE_AUTH"
+            --dart-define="ENABLE_WOMEN_CALENDAR_PILOT=$ENABLE_WOMEN_CALENDAR_PILOT"
+            --dart-define="ENABLE_PHONE_OTP=$ENABLE_PHONE_OTP"
+          )
+          (cd wellmate && flutter build apk "${args[@]}")
+          (cd caremate && flutter build apk "${args[@]}")
+
+      - name: Inspect and package APKs
+        shell: bash
+        run: |
+          set -euo pipefail
+          aapt_bin="$(find "$ANDROID_HOME/build-tools" -type f -name aapt | sort -V | tail -n 1)"
+          apksigner_bin="$(find "$ANDROID_HOME/build-tools" -type f -name apksigner | sort -V | tail -n 1)"
+          test -x "$aapt_bin"
+          test -x "$apksigner_bin"
+
+          mkdir -p dist/inspection
+          wellmate_apk="dist/wellmate-$RELEASE_NAME-$SOURCE_SHORT_SHA-device-qa.apk"
+          caremate_apk="dist/caremate-$RELEASE_NAME-$SOURCE_SHORT_SHA-device-qa.apk"
+          cp wellmate/build/app/outputs/flutter-apk/app-release.apk "$wellmate_apk"
+          cp caremate/build/app/outputs/flutter-apk/app-release.apk "$caremate_apk"
+
+          inspect() {
+            local app="$1"
+            local apk="$2"
+            local package_id="$3"
+            local logo="$4"
+            local report="dist/inspection/$app.txt"
+            local listing="dist/inspection/$app-zip-listing.txt"
+            "$aapt_bin" dump badging "$apk" > "$report"
+            "$aapt_bin" dump permissions "$apk" >> "$report"
+            "$apksigner_bin" verify --verbose --print-certs "$apk" >> "$report"
+            unzip -Z1 "$apk" > "$listing"
+            grep -Fq "package: name='$package_id'" "$report"
+            grep -Fq 'android.permission.INTERNET' "$report"
+            grep -Eq '^application-icon-[0-9]+:' "$report"
+            grep -Eq '^assets/flutter_assets/AssetManifest\.(bin|json)$' "$listing"
+            grep -Fq "assets/flutter_assets/$logo" "$listing"
+            grep -Fq 'assets/flutter_assets/assets/fonts/Vazir.ttf' "$listing"
+          }
+
+          inspect wellmate "$wellmate_apk" com.lifemate.wellmate assets/images/WellMateWithoutBack.png
+          inspect caremate "$caremate_apk" com.lifemate.caremate assets/images/CareMateWithoutBack.png
+          grep -Fq 'android.permission.CAMERA' dist/inspection/caremate.txt
+          grep -Fq 'android.permission.POST_NOTIFICATIONS' dist/inspection/wellmate.txt
+
+          wellmate_sha="$(sha256sum "$wellmate_apk" | awk '{print $1}')"
+          caremate_sha="$(sha256sum "$caremate_apk" | awk '{print $1}')"
+          jq -n \
+            --arg releaseName "$RELEASE_NAME" \
+            --arg sourceCommit "$SOURCE_COMMIT" \
+            --arg workflowCommit "$GITHUB_SHA" \
+            --arg api "$LIFEMATE_API_BASE_URL" \
+            --arg careApi "$CARE_MANAGEMENT_CANDIDATE_URL" \
+            --arg builtAt "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+            --arg wellmateSha "$wellmate_sha" \
+            --arg caremateSha "$caremate_sha" \
+            '{releaseName:$releaseName,sourceCommit:$sourceCommit,workflowCommit:$workflowCommit,builtAtUtc:$builtAt,channel:"internal/device-qa",apiBase:$api,careManagementBase:$careApi,flags:{googleAuth:false,womenCalendarPilot:true,phoneOtp:false},apps:{wellmate:{packageId:"com.lifemate.wellmate",sha256:$wellmateSha},caremate:{packageId:"com.lifemate.caremate",sha256:$caremateSha}},notes:["Caregiver management redesign with access settings modal","Fresh-account treatment onboarding redesign","CareMate profile-mask selector for family, spouse and child","Clinical and coach profiles remain locked","No production backend deployment"]}' > dist/release-manifest.json
+          sha256sum dist/*.apk > dist/apk-sha256.txt
+
+      - name: Upload device-QA bundle
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: lifemate-${{ env.RELEASE_NAME }}-${{ env.SOURCE_SHORT_SHA }}-device-qa
+          path: dist
+          if-no-files-found: error
+          retention-days: 30
