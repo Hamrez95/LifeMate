@@ -711,21 +711,19 @@ class _NoIncomingRequestsCard extends StatelessWidget {
     ),
     child: const Row(
       children: [
-        _DecisionPreviewIcon(
-          icon: Icons.check_rounded,
-          background: Color(0xFFE7F8F1),
-          foreground: AppColors.primary,
-        ),
-        SizedBox(width: 8),
-        _DecisionPreviewIcon(
-          icon: Icons.close_rounded,
-          background: Color(0xFFFFEEEE),
-          foreground: Color(0xFFE65D5D),
+        CircleAvatar(
+          radius: 21,
+          backgroundColor: Color(0xFFF0F6F3),
+          child: Icon(
+            Icons.inbox_outlined,
+            color: AppColors.textSecondary,
+            size: 21,
+          ),
         ),
         SizedBox(width: 12),
         Expanded(
           child: Text(
-            'درخواست جدیدی برای بررسی ندارید. درخواست‌های تازه با گزینه تأیید یا رد همین‌جا نمایش داده می‌شوند.',
+            'درخواست جدیدی برای بررسی ندارید. وقتی قابلیت درخواست مراقبت از سمت CareMate فعال شود، درخواست واقعی هر فرد همین‌جا نمایش داده می‌شود.',
             style: TextStyle(
               height: 1.55,
               fontSize: 12.5,
@@ -735,26 +733,6 @@ class _NoIncomingRequestsCard extends StatelessWidget {
         ),
       ],
     ),
-  );
-}
-
-class _DecisionPreviewIcon extends StatelessWidget {
-  const _DecisionPreviewIcon({
-    required this.icon,
-    required this.background,
-    required this.foreground,
-  });
-
-  final IconData icon;
-  final Color background;
-  final Color foreground;
-
-  @override
-  Widget build(BuildContext context) => Container(
-    width: 34,
-    height: 34,
-    decoration: BoxDecoration(color: background, shape: BoxShape.circle),
-    child: Icon(icon, color: foreground, size: 18),
   );
 }
 
@@ -774,7 +752,16 @@ class _CaregiverCard extends StatelessWidget {
     final rawName = relationship['caregiverDisplayName']?.toString().trim();
     final name = rawName == null || rawName.isEmpty ? 'مراقب' : rawName;
     final canSeeWomenCalendar = relationship['canViewWomenCalendar'] == true;
-    final initial = name.isEmpty ? 'م' : name.substring(0, 1);
+    final rawPhotoUrl = relationship['caregiverProfilePhotoUrl']
+        ?.toString()
+        .trim();
+    final photoUrl = rawPhotoUrl == null || rawPhotoUrl.isEmpty
+        ? null
+        : rawPhotoUrl;
+    final rawAvatarKey = relationship['caregiverAvatarKey']?.toString().trim();
+    final avatarKey = rawAvatarKey == null || rawAvatarKey.isEmpty
+        ? 'caregiver_teal'
+        : rawAvatarKey;
 
     return Container(
       padding: const EdgeInsets.all(15),
@@ -793,27 +780,11 @@ class _CaregiverCard extends StatelessWidget {
         children: [
           Row(
             children: [
-              Container(
-                width: 58,
-                height: 58,
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    colors: [
-                      AppColors.primary.withValues(alpha: 0.18),
-                      const Color(0xFFEFFAF5),
-                    ],
-                  ),
-                  shape: BoxShape.circle,
-                ),
-                alignment: Alignment.center,
-                child: Text(
-                  initial,
-                  style: const TextStyle(
-                    fontSize: 21,
-                    fontWeight: FontWeight.w900,
-                    color: AppColors.primary,
-                  ),
-                ),
+              LifeMateProfileAvatar(
+                key: ValueKey('caregiver-profile-avatar-${relationship['id']}'),
+                avatarKey: avatarKey,
+                photoUrl: photoUrl,
+                radius: 29,
               ),
               const SizedBox(width: 13),
               Expanded(

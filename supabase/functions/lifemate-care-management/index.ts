@@ -207,7 +207,7 @@ async function authenticate(request: Request): Promise<string> {
   const rows = await sql`
     select id
     from lifemate.app_users
-    where auth_subject = ${authSubject}::uuid and status = 'Active'
+    where auth_subject = ${authSubject} and status = 'Active'
     limit 1
   `;
   if (!rows[0]) {
@@ -1238,5 +1238,5 @@ function resolvePublishableKey(): string | null {
       // Fall through to the legacy anon key.
     }
   }
-  return Deno.env.get("SUPABASE_ANON_KEY");
+  return Deno.env.get("SUPABASE_ANON_KEY") ?? null;
 }
