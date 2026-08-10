@@ -1,0 +1,81 @@
+name: run-wellmate-overdue-caregiver-permission-fix
+
+on:
+  push:
+    branches:
+      - fix/wellmate-overdue-caregiver-permission
+    paths:
+      - .github/workflows/run-wellmate-overdue-caregiver-permission-fix.yml
+
+permissions:
+  contents: write
+
+env:
+  PUB_ENVIRONMENT: bot:github_actions
+
+jobs:
+  patch-test-commit:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
+        with:
+          ref: fix/wellmate-overdue-caregiver-permission
+          fetch-depth: 0
+
+      - name: Apply targeted fixes
+        run: python3 tools/hotfix/apply_wellmate_overdue_caregiver_permission_fix.py
+
+      - uses: denoland/setup-deno@22d081ff2d3a40755e97629de92e3bcbfa7cf2ed
+        with:
+          deno-version: v2.9.4
+
+      - name: Verify care-management source
+        working-directory: supabase/functions/lifemate-care-management
+        run: |
+          deno fmt index_test.ts
+          deno task check
+          deno test index_test.ts
+
+      - uses: subosito/flutter-action@4cab68ce0f1c7c924f688bff4792e044f1aeb30c
+        with:
+          flutter-version: '3.44.0'
+          channel: stable
+          cache: true
+
+      - name: Format WellMate changes
+        run: |
+          dart format \
+            wellmate/lib/screens/home/home_screen_content.dart \
+            wellmate/lib/screens/profile/care_access_screen.dart \
+            wellmate/test/home_overdue_display_test.dart \
+            wellmate/test/care_access_visual_contract_test.dart
+
+      - name: Verify shared client
+        working-directory: packages/lifemate_client
+        run: |
+          flutter pub get
+          flutter analyze --no-fatal-warnings --no-fatal-infos
+          flutter test
+
+      - name: Verify WellMate
+        working-directory: wellmate
+        run: |
+          flutter pub get
+          flutter analyze --no-fatal-warnings --no-fatal-infos
+          flutter test
+
+      - name: Commit verified fixes
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add supabase/functions/lifemate-care-management/index.ts \
+                  supabase/functions/lifemate-care-management/index_test.ts \
+                  wellmate/lib/screens/home/home_screen_content.dart \
+                  wellmate/lib/screens/profile/care_access_screen.dart \
+                  wellmate/test/home_overdue_display_test.dart \
+                  wellmate/test/care_access_visual_contract_test.dart
+          git diff --cached --quiet && { echo 'No changes to commit' >&2; exit 1; }
+          git commit -m 'fix: align overdue care and caregiver permissions'
+          git push origin HEAD:fix/wellmate-overdue-caregiver-permission
