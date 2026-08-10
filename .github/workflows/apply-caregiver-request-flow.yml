@@ -33,15 +33,18 @@ jobs:
       - name: Format and verify Edge Functions
         shell: bash
         run: |
-          deno fmt \
-            supabase/functions/lifemate-api/index.ts \
-            supabase/functions/lifemate-api/care_requests.ts \
-            supabase/functions/lifemate-care-management/index.ts \
-            supabase/functions/lifemate-care-management/path_utils.ts \
-            supabase/functions/lifemate-care-management/path_utils_test.ts
-          deno check supabase/functions/lifemate-api/index.ts
-          deno check supabase/functions/lifemate-care-management/index.ts
-          deno test supabase/functions/lifemate-care-management/path_utils_test.ts
+          set -euo pipefail
+          (
+            cd supabase/functions/lifemate-api
+            deno fmt index.ts care_requests.ts
+            deno check index.ts
+          )
+          (
+            cd supabase/functions/lifemate-care-management
+            deno fmt index.ts path_utils.ts path_utils_test.ts
+            deno check index.ts
+            deno test path_utils_test.ts
+          )
 
       - uses: subosito/flutter-action@4cab68ce0f1c7c924f688bff4792e044f1aeb30c
         with:
