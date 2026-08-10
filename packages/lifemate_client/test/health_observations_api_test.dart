@@ -1,0 +1,119 @@
+import 'dart:convert';
+
+import 'package:flutter_test/flutter_test.dart';
+import 'package:http/http.dart' as http;
+import 'package:http/testing.dart';
+import 'package:lifemate_client/lifemate_client.dart';
+
+void main() {
+  test('health observations list is authenticated and date scoped', () async {
+    late http.Request observed;
+    final api = LifeMateHealthApi(
+      baseUri: Uri.parse('https://api.example.test'),
+      accessToken: () => 'access-token',
+      httpClient: MockClient((request) async {
+        observed = request;
+        return http.Response(
+          jsonEncode([
+            {
+              'id': 'obs-1',
+              'personId': 'person-1',
+              'observationType': 'weight',
+              'valuePrimary': 78.4,
+              'valueSecondary': null,
+              'unitPrimary': 'kg',
+              'unitSecondary': null,
+              'note': null,
+              'observedAtUtc': '2026-08-10T08:00:00Z',
+              'observedLocalDate': '2026-08-10',
+              'timeZone': 'Asia/Tehran',
+              'sourceCategory': 'FirstPartyUserInput',
+              'sourceProvider': 'WellMate',
+              'version': 1,
+            },
+          ]),
+          200,
+        );
+      }),
+    );
+
+    final values = await api.listObservations(
+      fromDate: DateTime(2026, 8, 1),
+      toDate: DateTime(2026, 8, 10),
+    );
+
+    expect(observed.method, 'GET');
+    expect(observed.headers['authorization'], 'Bearer access-token');
+    expect(observed.url.path, '/api/v1/health/observations');
+    expect(observed.url.queryParameters['fromDate'], '2026-08-01');
+    expect(observed.url.queryParameters['toDate'], '2026-08-10');
+    expect(values.single.valuePrimary, 78.4);
+  });
+
+  test('health observation creation sends idempotent typed payload', () async {
+    late http.Request observed;
+    final api = LifeMateHealthApi(
+      baseUri: Uri.parse('https://api.example.test'),
+      accessToken: () => 'access-token',
+      httpClient: MockClient((request) async {
+        observed = request;
+        final body = jsonDecode(request.body) as Map<String, dynamic>;
+        return http.Response(
+          jsonEncode({
+            'id': 'obs-2',
+            'personId': 'person-1',
+            'observationType': body['observationType'],
+            'valuePrimary': body['valuePrimary'],
+            'valueSecondary': body['valueSecondary'],
+            'unitPrimary': 'mmHg',
+            'unitSecondary': 'mmHg',
+            'note': body['note'],
+            'observedAtUtc': body['observedAtUtc'],
+            'observedLocalDate': body['observedLocalDate'],
+            'timeZone': body['timeZone'],
+            'sourceCategory': 'FirstPartyUserInput',
+            'sourceProvider': 'WellMate',
+            'version': 1,
+          }),
+          201,
+        );
+      }),
+    );
+
+    await api.createObservation(
+      observationType: 'blood_pressure',
+      valuePrimary: 118,
+      valueSecondary: 76,
+      observedAtUtc: DateTime.utc(2026, 8, 10, 8),
+      observedLocalDate: DateTime(2026, 8, 10),
+      timeZone: 'Asia/Tehran',
+      clientRequestId: '123e4567-e89b-42d3-a456-426614174000',
+    );
+
+    final body = jsonDecode(observed.body) as Map<String, dynamic>;
+    expect(observed.method, 'POST');
+    expect(body['clientRequestId'], '123e4567-e89b-42d3-a456-426614174000');
+    expect(body['observationType'], 'blood_pressure');
+    expect(body['valuePrimary'], 118);
+    expect(body['valueSecondary'], 76);
+    expect(body['observedLocalDate'], '2026-08-10');
+  });
+
+  test('health observation delete remains behind the API boundary', () async {
+    late http.Request observed;
+    final api = LifeMateHealthApi(
+      baseUri: Uri.parse('https://api.example.test'),
+      accessToken: () => 'access-token',
+      httpClient: MockClient((request) async {
+        observed = request;
+        return http.Response('', 204);
+      }),
+    );
+
+    await api.deleteObservation(observationId: 'obs-3');
+
+    expect(observed.method, 'DELETE');
+    expect(observed.url.path, '/api/v1/health/observations/obs-3');
+    expect(observed.headers['authorization'], 'Bearer access-token');
+  });
+}
