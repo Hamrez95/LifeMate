@@ -35,6 +35,7 @@ jobs:
         with:
           show-progress: false
           persist-credentials: false
+          fetch-depth: 2
 
       - name: Require main source
         shell: bash
@@ -81,15 +82,35 @@ jobs:
           (cd wellmate && flutter pub get && flutter analyze --no-fatal-warnings --no-fatal-infos && flutter test)
           (cd caremate && flutter pub get && flutter analyze --no-fatal-warnings --no-fatal-infos && flutter test)
 
+      - name: Decide whether production Edge must be redeployed
+        id: edge-change
+        shell: bash
+        run: |
+          set -euo pipefail
+          edge_changed=false
+          if [ "$GITHUB_EVENT_NAME" = 'workflow_dispatch' ]; then
+            edge_changed=true
+          elif ! git rev-parse HEAD^ >/dev/null 2>&1; then
+            edge_changed=true
+          elif ! git diff --quiet HEAD^ HEAD -- supabase/functions/lifemate-api; then
+            edge_changed=true
+          fi
+          echo "edge_changed=$edge_changed" >> "$GITHUB_OUTPUT"
+          if [ "$edge_changed" = 'true' ] && [ -z "$SUPABASE_ACCESS_TOKEN" ]; then
+            echo '::error::SUPABASE_ACCESS_TOKEN is required because lifemate-api changed.'
+            exit 1
+          fi
+
       - uses: supabase/setup-cli@3c2f5e2ae34c34e428e8e206e2c4d21fa2d20fbf
+        if: ${{ steps.edge-change.outputs.edge_changed == 'true' }}
         with:
           version: 2.101.0
 
       - name: Deploy exact main Edge source
+        if: ${{ steps.edge-change.outputs.edge_changed == 'true' }}
         shell: bash
         run: |
           set -euo pipefail
-          test -n "$SUPABASE_ACCESS_TOKEN"
           secret_file="$(mktemp)"
           cleanup_secret_file() {
             if command -v shred >/dev/null 2>&1; then
@@ -109,12 +130,15 @@ jobs:
             --no-verify-jwt \
             --use-api
 
-      - name: Require production API from this exact main commit
+      - name: Require compatible production API
         shell: bash
         run: |
           set -euo pipefail
           health_response="$(curl --fail --silent --show-error --retry 8 --retry-delay 3 --retry-all-errors "$LIFEMATE_API_BASE_URL/health")"
-          echo "$health_response" | jq -e --arg version "$GITHUB_SHA" '.status == "ok" and .database == "ready" and .service == "lifemate-api" and .version == $version' >/dev/null
+          echo "$health_response" | jq -e '.status == "ok" and .database == "ready" and .service == "lifemate-api"' >/dev/null
+          if [ "${{ steps.edge-change.outputs.edge_changed }}" = 'true' ]; then
+            echo "$health_response" | jq -e --arg version "$GITHUB_SHA" '.version == $version' >/dev/null
+          fi
           unauthorized_status="$(curl --silent --show-error --output /dev/null --write-out '%{http_code}' "$LIFEMATE_API_BASE_URL/api/v1/me")"
           test "$unauthorized_status" = '401'
 
