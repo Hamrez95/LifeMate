@@ -436,7 +436,9 @@ class _HomeScreenContentState extends State<HomeScreenContent> {
     required bool isPersian,
   }) {
     final secondsLeft = _calculateSecondsLeft(item);
+    final overdue = isHomeScheduleOverdue(item, DateTime.now());
     if (item.type == 'medicine') {
+      const missedColor = Color(0xFFE06464);
       return ActiveTreatmentCard(
         key: ValueKey('home-countdown-${item.type}-${item.id}'),
         treatmentName: item.title,
@@ -453,6 +455,13 @@ class _HomeScreenContentState extends State<HomeScreenContent> {
             : () => _reportStatus(item, 'skipped'),
         onEdit: widget.onOpenTreatments,
         isSubmitting: _submitting.contains(item.id),
+        supportingText: overdue
+            ? (isPersian ? 'مصرف‌نشده • ${item.time}' : 'Missed • ${item.time}')
+            : null,
+        countdownLabel: overdue ? (isPersian ? 'گذشته' : 'Missed') : null,
+        accentColor: overdue ? missedColor : null,
+        progressColor: overdue ? missedColor : null,
+        progressBackgroundColor: overdue ? const Color(0xFFFFEEEE) : null,
         font: font,
       );
     }
@@ -504,8 +513,9 @@ class _HomeScreenContentState extends State<HomeScreenContent> {
     final loc = AppLocalizations.of(context);
     final font = AppTextStyles.body(context);
     final isPersian = Localizations.localeOf(context).languageCode == 'fa';
+    final now = DateTime.now();
     final visibleToday = scheduleList.where((item) => !item.isDone).toList()
-      ..sort(_compareOccurrence);
+      ..sort((left, right) => compareHomeScheduleForDisplay(left, right, now));
     final countdownItems = _countdownOccurrences;
 
     return Container(
@@ -610,7 +620,10 @@ class _HomeScreenContentState extends State<HomeScreenContent> {
                                     const SizedBox(height: 12),
                                 itemBuilder: (context, index) {
                                   final item = visibleToday[index];
-                                  final missed = item.status == 'missed';
+                                  final missed = isHomeScheduleOverdue(
+                                    item,
+                                    now,
+                                  );
                                   return SoftScheduleCard(
                                     item: item,
                                     index: index,
@@ -751,6 +764,30 @@ DateTime? _homeCountdownScheduledDateTime(ScheduleItemModel item) {
   final minute = int.tryParse(parts[1].split(' ').first);
   if (hour == null || minute == null) return null;
   return DateTime(date.year, date.month, date.day, hour, minute);
+}
+
+@visibleForTesting
+bool isHomeScheduleOverdue(ScheduleItemModel item, DateTime now) {
+  if (item.isDone) return false;
+  final status = item.status.trim().toLowerCase();
+  if (status == 'missed') return true;
+  if (status != 'scheduled') return false;
+  final scheduled = _homeCountdownScheduledDateTime(item);
+  return scheduled != null && scheduled.isBefore(now);
+}
+
+@visibleForTesting
+int compareHomeScheduleForDisplay(
+  ScheduleItemModel left,
+  ScheduleItemModel right,
+  DateTime now,
+) {
+  final leftOverdue = isHomeScheduleOverdue(left, now);
+  final rightOverdue = isHomeScheduleOverdue(right, now);
+  if (leftOverdue != rightOverdue) return leftOverdue ? 1 : -1;
+  final leftDate = _homeCountdownScheduledDateTime(left) ?? DateTime(2100);
+  final rightDate = _homeCountdownScheduledDateTime(right) ?? DateTime(2100);
+  return leftDate.compareTo(rightDate);
 }
 
 class _TreatmentTimerPlaceholder extends StatelessWidget {
