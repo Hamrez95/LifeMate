@@ -187,11 +187,16 @@ export function createCareRequestStore(
   ): Promise<Record<string, unknown>> {
     const action = requiredText(body.action, "action", 16).toLowerCase();
     if (action !== "accept" && action !== "reject") {
-      throw new ApiError(400, "invalid_care_request_action", "Action is invalid.");
+      throw new ApiError(
+        400,
+        "invalid_care_request_action",
+        "Action is invalid.",
+      );
     }
     if (
       action === "accept" &&
-      (body.confirmConsent !== true || body.consentVersion !== patientConsentVersion)
+      (body.confirmConsent !== true ||
+        body.consentVersion !== patientConsentVersion)
     ) {
       throw new ApiError(
         400,
@@ -220,20 +225,36 @@ export function createCareRequestStore(
       `;
       const request = rows[0];
       if (!request || request.contact_hash !== contactHash) {
-        throw new ApiError(404, "care_request_not_found", "Care request was not found.");
+        throw new ApiError(
+          404,
+          "care_request_not_found",
+          "Care request was not found.",
+        );
       }
       if (request.status !== "Pending") {
-        throw new ApiError(409, "care_request_not_pending", "Care request is no longer pending.");
+        throw new ApiError(
+          409,
+          "care_request_not_pending",
+          "Care request is no longer pending.",
+        );
       }
       if (new Date(request.expires_at_utc) <= now) {
         await tx`
           update lifemate.care_invitations set status = 'Expired'
           where id = ${request.id}
         `;
-        throw new ApiError(410, "care_request_expired", "Care request has expired.");
+        throw new ApiError(
+          410,
+          "care_request_expired",
+          "Care request has expired.",
+        );
       }
       if (request.inviter_user_id === identity.appUserId) {
-        throw new ApiError(400, "self_care_request_not_allowed", "Self care is not allowed.");
+        throw new ApiError(
+          400,
+          "self_care_request_not_allowed",
+          "Self care is not allowed.",
+        );
       }
 
       if (action === "reject") {
@@ -305,7 +326,10 @@ export function createCareRequestStore(
     });
   }
 
-  async function cancel(caregiverUserId: string, requestId: string): Promise<void> {
+  async function cancel(
+    caregiverUserId: string,
+    requestId: string,
+  ): Promise<void> {
     await sql.begin(async (tx: any) => {
       const rows = await tx`
         select * from lifemate.care_invitations
@@ -316,7 +340,11 @@ export function createCareRequestStore(
       `;
       const request = rows[0];
       if (!request) {
-        throw new ApiError(404, "care_request_not_found", "Care request was not found.");
+        throw new ApiError(
+          404,
+          "care_request_not_found",
+          "Care request was not found.",
+        );
       }
       if (request.status !== "Pending") return;
       await tx`
@@ -351,7 +379,8 @@ export function createCareRequestStore(
   }
 
   function mapRequest(row: Row): Record<string, unknown> {
-    const expired = row.status === "Pending" && new Date(row.expires_at_utc) <= new Date();
+    const expired = row.status === "Pending" &&
+      new Date(row.expires_at_utc) <= new Date();
     return {
       id: row.id,
       contactType: "email",

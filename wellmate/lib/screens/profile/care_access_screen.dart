@@ -6,6 +6,7 @@ import 'package:provider/provider.dart';
 import '../../core/theme/app_style.dart';
 import '../../core/utils/string_extensions.dart';
 import 'care_access_settings_screen.dart';
+import 'incoming_care_request_card.dart';
 import 'care_pairing_qr_dialog.dart';
 
 class CareAccessScreen extends StatefulWidget {
@@ -22,7 +23,9 @@ class _CareAccessScreenState extends State<CareAccessScreen> {
   String? _currentUserId;
   List<Map<String, dynamic>> _invitations = const [];
   List<Map<String, dynamic>> _relationships = const [];
+  List<Map<String, dynamic>> _incomingRequests = const [];
   final Set<String> _cancellingInvitationIds = <String>{};
+  final Set<String> _respondingCareRequestIds = <String>{};
 
   @override
   void initState() {
@@ -43,6 +46,7 @@ class _CareAccessScreenState extends State<CareAccessScreen> {
         api.getCurrentUser(),
         api.getOutgoingCareInvitations(),
         api.getCareRelationships(),
+        api.getIncomingCareRequests(),
       ]);
       final current = results[0] as Map<String, dynamic>;
       final currentUserId = (current['user'] as Map<String, dynamic>?)?['id']
@@ -58,6 +62,7 @@ class _CareAccessScreenState extends State<CareAccessScreen> {
         _currentUserId = currentUserId;
         _invitations = results[1] as List<Map<String, dynamic>>;
         _relationships = relationships;
+        _incomingRequests = results[3] as List<Map<String, dynamic>>;
       });
     } catch (error) {
       debugPrint('WellMate care access refresh failed: $error');
@@ -76,6 +81,72 @@ class _CareAccessScreenState extends State<CareAccessScreen> {
   }) {
     if (!mounted) return;
     LifeMateNotice.show(context, type: type, title: title, message: message);
+  }
+
+  Future<void> _respondToCareRequest(
+    Map<String, dynamic> request, {
+    required bool accept,
+  }) async {
+    final id = request['id']?.toString();
+    if (id == null || id.isEmpty || _respondingCareRequestIds.contains(id)) {
+      return;
+    }
+    if (accept) {
+      final name = request['requesterDisplayName']?.toString() ?? 'این فرد';
+      final confirmed = await showDialog<bool>(
+        context: context,
+        builder: (dialogContext) => AlertDialog(
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(24),
+          ),
+          title: const Text('تأیید درخواست مراقبت'),
+          content: Text(
+            'با تأیید، $name به‌عنوان مراقب شما فعال می‌شود. دسترسی‌های حساس مثل تقویم بانوان و مدیریت پرونده سلامت همچنان جداگانه و فقط با اجازه خودتان فعال می‌شوند.',
+            style: const TextStyle(height: 1.6),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(dialogContext, false),
+              child: const Text('فعلاً نه'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.pop(dialogContext, true),
+              child: const Text('تأیید مراقب'),
+            ),
+          ],
+        ),
+      );
+      if (confirmed != true || !mounted) return;
+    }
+
+    setState(() => _respondingCareRequestIds.add(id));
+    try {
+      await context.read<LifeMateApiClient>().respondCareRequest(
+        requestId: id,
+        accept: accept,
+      );
+      if (!mounted) return;
+      _notice(
+        type: LifeMateNoticeType.success,
+        title: accept ? 'مراقب اضافه شد' : 'درخواست رد شد',
+        message: accept
+            ? 'ارتباط مراقبتی فعال شد؛ حالا می‌توانید دسترسی‌هایش را تنظیم کنید.'
+            : 'این درخواست دیگر فعال نیست.',
+      );
+      await _refresh();
+    } on LifeMateApiException catch (error) {
+      _notice(
+        type: LifeMateNoticeType.error,
+        title: 'انجام نشد',
+        message: switch (error.code) {
+          'care_request_expired' => 'این درخواست منقضی شده است.',
+          'care_request_not_pending' => 'این درخواست قبلاً بررسی شده است.',
+          _ => 'دوباره تلاش کنید یا اتصال اینترنت را بررسی کنید.',
+        },
+      );
+    } finally {
+      if (mounted) setState(() => _respondingCareRequestIds.remove(id));
+    }
   }
 
   Future<void> _openInviteSheet() async {
@@ -413,6 +484,9 @@ class _CareAccessScreenState extends State<CareAccessScreen> {
     final pending = _invitations
         .where((invitation) => invitation['status'] == 'pending')
         .toList(growable: false);
+    final incoming = _incomingRequests
+        .where((request) => request['status'] == 'pending')
+        .toList(growable: false);
 
     return Scaffold(
       backgroundColor: AppColors.background,
@@ -439,11 +513,28 @@ class _CareAccessScreenState extends State<CareAccessScreen> {
             const SizedBox(height: 24),
             _SectionHeader(
               title: 'درخواست‌های جدید',
-              count: 0,
+              count: incoming.length,
               isPersian: isPersian,
             ),
             const SizedBox(height: 10),
-            const _NoIncomingRequestsCard(),
+            if (incoming.isEmpty)
+              const _NoIncomingRequestsCard()
+            else
+              ...incoming.map(
+                (request) => Padding(
+                  padding: const EdgeInsets.only(bottom: 10),
+                  child: IncomingCareRequestCard(
+                    request: request,
+                    loading: _respondingCareRequestIds.contains(
+                      request['id']?.toString(),
+                    ),
+                    onAccept: () =>
+                        _respondToCareRequest(request, accept: true),
+                    onReject: () =>
+                        _respondToCareRequest(request, accept: false),
+                  ),
+                ),
+              ),
             const SizedBox(height: 24),
             _SectionHeader(
               title: 'مراقبان فعال',
@@ -723,7 +814,7 @@ class _NoIncomingRequestsCard extends StatelessWidget {
         SizedBox(width: 12),
         Expanded(
           child: Text(
-            'درخواست جدیدی برای بررسی ندارید. وقتی قابلیت درخواست مراقبت از سمت CareMate فعال شود، درخواست واقعی هر فرد همین‌جا نمایش داده می‌شود.',
+            'درخواست جدیدی برای بررسی ندارید. اگر کسی از CareMate درخواست مراقبت بفرستد، نام و تصویرش همین‌جا نمایش داده می‌شود.',
             style: TextStyle(
               height: 1.55,
               fontSize: 12.5,
