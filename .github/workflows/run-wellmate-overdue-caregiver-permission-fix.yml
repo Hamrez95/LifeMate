@@ -35,7 +35,7 @@ jobs:
         run: |
           deno fmt index_test.ts
           deno task check
-          deno test index_test.ts
+          deno test --allow-read index_test.ts
 
       - uses: subosito/flutter-action@4cab68ce0f1c7c924f688bff4792e044f1aeb30c
         with:
