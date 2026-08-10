@@ -113,30 +113,30 @@ replace_file_once(
     '''    expect(find.byKey(const ValueKey('health-title')), findsOneWidget);
     expect(find.text('سلامت من'), findsOneWidget);
 
-    await tester.scrollUntilVisible(
-      find.byKey(const ValueKey('health-quick-log')),
-      280,
-      scrollable: find.byType(Scrollable).first,
-    );
-    await tester.pumpAndSettle();
+    for (var i = 0;
+        i < 8 && find.byKey(const ValueKey('health-quick-log')).evaluate().isEmpty;
+        i++) {
+      await tester.drag(find.byType(ListView).first, const Offset(0, -260));
+      await tester.pumpAndSettle();
+    }
     expect(find.byKey(const ValueKey('health-quick-log')), findsOneWidget);
     expect(find.text('ثبت سریع'), findsOneWidget);
 
-    await tester.scrollUntilVisible(
-      find.byKey(const ValueKey('health-calendar-history')),
-      320,
-      scrollable: find.byType(Scrollable).first,
-    );
-    await tester.pumpAndSettle();
+    for (var i = 0;
+        i < 10 && find.byKey(const ValueKey('health-calendar-history')).evaluate().isEmpty;
+        i++) {
+      await tester.drag(find.byType(ListView).first, const Offset(0, -300));
+      await tester.pumpAndSettle();
+    }
     expect(find.byKey(const ValueKey('health-calendar-history')), findsOneWidget);
     expect(find.text('تاریخچه سلامت'), findsOneWidget);
 
-    await tester.scrollUntilVisible(
-      find.byKey(const ValueKey('health-gadgets-coming-soon')),
-      320,
-      scrollable: find.byType(Scrollable).first,
-    );
-    await tester.pumpAndSettle();
+    for (var i = 0;
+        i < 10 && find.byKey(const ValueKey('health-gadgets-coming-soon')).evaluate().isEmpty;
+        i++) {
+      await tester.drag(find.byType(ListView).first, const Offset(0, -300));
+      await tester.pumpAndSettle();
+    }
     expect(find.byKey(const ValueKey('health-gadgets-coming-soon')), findsOneWidget);
     expect(find.text('به‌زودی'), findsOneWidget);
 ''',
@@ -150,12 +150,12 @@ replace_file_once(
 ''',
     '''    await tester.pumpAndSettle();
 
-    await tester.scrollUntilVisible(
-      find.byKey(const ValueKey('health-quick-log')),
-      280,
-      scrollable: find.byType(Scrollable).first,
-    );
-    await tester.pumpAndSettle();
+    for (var i = 0;
+        i < 8 && find.byKey(const ValueKey('health-quick-log')).evaluate().isEmpty;
+        i++) {
+      await tester.drag(find.byType(ListView).first, const Offset(0, -260));
+      await tester.pumpAndSettle();
+    }
     await tester.tap(find.text('یادداشت').last);
 ''',
     'health quick note lazy test',
