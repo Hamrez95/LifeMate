@@ -60,9 +60,59 @@ begin
 end
 $$;
 
+-- Rollout compatibility: the production API that existed before this migration
+-- did not send the two new columns. Keep that writer safe while the new API is
+-- deployed by deriving provenance for legacy WellMate inserts. New clients set
+-- both columns explicitly, so this trigger becomes a no-op for them.
+create or replace function lifemate.populate_health_observation_provenance()
+returns trigger
+language plpgsql
+as $$
+declare
+  v_application_code text;
+begin
+  if new.recorded_by_account_id is null and new.owner_user_id is not null then
+    new.recorded_by_account_id := new.owner_user_id;
+  end if;
+
+  if new.source_application_id is null then
+    v_application_code := lower(coalesce(nullif(btrim(new.source_provider), ''), 'wellmate'));
+
+    select id
+      into new.source_application_id
+    from ecosystem.applications
+    where code = v_application_code
+      and status = 'Active'
+    limit 1;
+
+    -- The only legacy writer at rollout is WellMate. If its historical provider
+    -- label does not exactly match the application code, preserve availability
+    -- by resolving the registered WellMate application explicitly.
+    if new.source_application_id is null and new.owner_user_id is not null then
+      select id
+        into new.source_application_id
+      from ecosystem.applications
+      where code = 'wellmate'
+        and status = 'Active'
+      limit 1;
+    end if;
+  end if;
+
+  return new;
+end
+$$;
+
+drop trigger if exists trg_populate_health_observation_provenance
+  on lifemate.health_observations;
+create trigger trg_populate_health_observation_provenance
+before insert on lifemate.health_observations
+for each row
+execute function lifemate.populate_health_observation_provenance();
+
 -- Every observation entering the LifeMate health domain must retain which
 -- ecosystem application captured it. External/device provider provenance stays
--- separately represented by source_category/source_provider.
+-- separately represented by source_category/source_provider. The compatibility
+-- trigger above ensures the old production writer still satisfies this rule.
 alter table lifemate.health_observations
   alter column source_application_id set not null;
 
