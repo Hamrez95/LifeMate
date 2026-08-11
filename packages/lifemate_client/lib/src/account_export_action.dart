@@ -1,11 +1,9 @@
 import 'dart:async';
 import 'dart:convert';
 
-import 'package:crypto/crypto.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:http/http.dart' as http;
-import 'package:shared_preferences/shared_preferences.dart';
+import 'package:share_plus/share_plus.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'app_config.dart';
@@ -90,79 +88,10 @@ class LifeMateAccountExportApi {
   void close() => _http.close();
 }
 
-/// Owns the temporary beta clipboard transport used by account export.
-///
-/// Only a SHA-256 digest of the exported text is persisted. The export itself is
-/// never stored by LifeMate. This lets a later app launch/resume clear the
-/// clipboard only when it still contains the exact LifeMate export; unrelated
-/// clipboard content is never erased.
-class LifeMateSensitiveClipboardGuard with WidgetsBindingObserver {
-  LifeMateSensitiveClipboardGuard._();
-
-  static const _digestKey = 'lifemate_sensitive_export_clipboard_sha256_v1';
-  static const _cleanupDelay = Duration(minutes: 1);
-  static final LifeMateSensitiveClipboardGuard _instance =
-      LifeMateSensitiveClipboardGuard._();
-  static bool _installed = false;
-  static Timer? _timer;
-
-  static Future<void> install() async {
-    if (!_installed) {
-      WidgetsBinding.instance.addObserver(_instance);
-      _installed = true;
-    }
-    await cleanupPendingExport();
-  }
-
-  static Future<void> copyExport(String text) async {
-    await install();
-    await Clipboard.setData(ClipboardData(text: text));
-    final prefs = SharedPreferencesAsync();
-    await prefs.setString(_digestKey, _digest(text));
-    _timer?.cancel();
-    _timer = Timer(_cleanupDelay, () {
-      unawaited(cleanupPendingExport());
-    });
-  }
-
-  static Future<void> cleanupPendingExport() async {
-    final prefs = SharedPreferencesAsync();
-    final expectedDigest = await prefs.getString(_digestKey);
-    if (expectedDigest == null || expectedDigest.isEmpty) return;
-
-    try {
-      final current = await Clipboard.getData(Clipboard.kTextPlain);
-      final currentText = current?.text;
-      if (currentText == null || currentText.isEmpty) {
-        await prefs.remove(_digestKey);
-        return;
-      }
-
-      if (_digest(currentText) == expectedDigest) {
-        await Clipboard.setData(const ClipboardData(text: ''));
-      }
-      // A digest mismatch means the user has replaced the clipboard. In both
-      // cases this LifeMate export no longer owns the clipboard slot.
-      await prefs.remove(_digestKey);
-    } catch (_) {
-      // Some platforms temporarily deny clipboard reads in background states.
-      // Keep the digest so the next resume/launch can retry safely.
-    }
-  }
-
-  static String _digest(String value) => sha256.convert(utf8.encode(value)).toString();
-
-  @override
-  void didChangeAppLifecycleState(AppLifecycleState state) {
-    if (state == AppLifecycleState.resumed) {
-      unawaited(cleanupPendingExport());
-    }
-  }
-}
-
-/// Self-service beta export. Data is fetched only after an explicit user action.
-/// Clipboard delivery requires a second confirmation and is guarded across app
-/// lifecycle/relaunch without persisting the exported JSON itself.
+/// Self-service beta export. The export is fetched only after an explicit user
+/// action and is handed to the operating-system share sheet as an in-memory JSON
+/// file. LifeMate does not place the health export on the general clipboard and
+/// does not persist the JSON in its own application storage.
 Future<void> showLifeMateAccountExportDialog(
   BuildContext context, {
   required String fontFamily,
@@ -176,7 +105,7 @@ Future<void> showLifeMateAccountExportDialog(
         style: TextStyle(fontFamily: fontFamily, fontWeight: FontWeight.w900),
       ),
       content: Text(
-        'یک نسخه JSON از اطلاعات حساب، درمان‌ها، ثبت‌های سلامت، داده‌های بانوان و رضایت‌های خودت آماده می‌شود. رمزها، توکن‌ها و اطلاعات خصوصی طرف مقابل وارد فایل نمی‌شوند.',
+        'یک نسخه JSON از اطلاعات حساب، درمان‌ها، ثبت‌های سلامت، داده‌های بانوان و رضایت‌های خودت آماده می‌شود. رمزها، توکن‌ها و اطلاعات خصوصی طرف مقابل وارد فایل نمی‌شوند. بعد از آماده‌سازی، خودت مقصد فایل را از پنجره اشتراک گوشی انتخاب می‌کنی.',
         style: TextStyle(fontFamily: fontFamily, height: 1.7),
       ),
       actions: [
@@ -184,9 +113,10 @@ Future<void> showLifeMateAccountExportDialog(
           onPressed: () => Navigator.pop(dialogContext, false),
           child: const Text('انصراف'),
         ),
-        FilledButton(
+        FilledButton.icon(
           onPressed: () => Navigator.pop(dialogContext, true),
-          child: const Text('آماده‌سازی'),
+          icon: const Icon(Icons.ios_share_rounded),
+          label: const Text('آماده‌سازی و اشتراک'),
         ),
       ],
     ),
@@ -197,6 +127,15 @@ Future<void> showLifeMateAccountExportDialog(
   Map<String, dynamic> exported;
   try {
     exported = await api.exportMyData();
+  } on LifeMateApiException catch (error) {
+    if (!context.mounted) return;
+    final message = error.statusCode == 429
+        ? 'برای حفاظت از داده‌ها، حداکثر سه خروجی در ۲۴ ساعت مجاز است.'
+        : 'دریافت داده‌ها انجام نشد. اتصال را بررسی کن.';
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(message)),
+    );
+    return;
   } catch (_) {
     if (context.mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -213,38 +152,34 @@ Future<void> showLifeMateAccountExportDialog(
 
   final jsonText = const JsonEncoder.withIndent('  ').convert(exported);
   final generatedAt = exported['generatedAtUtc']?.toString() ?? '';
-  final copy = await showDialog<bool>(
-    context: context,
-    builder: (dialogContext) => AlertDialog(
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
-      title: Text(
-        'نسخه داده‌ها آماده است',
-        style: TextStyle(fontFamily: fontFamily, fontWeight: FontWeight.w900),
-      ),
-      content: Text(
-        'نسخه در همین لحظه آماده شد${generatedAt.isEmpty ? '' : ' ($generatedAt)'}.\n\nدر نسخه بتا می‌توانی JSON را موقتاً در کلیپ‌بورد کپی کنی. اگر هنوز همان داده باشد، LifeMate بعد از یک دقیقه یا در بازگشت بعدی به برنامه آن را پاک می‌کند؛ داده اصلی روی دستگاه ذخیره نمی‌شود.',
-        style: TextStyle(fontFamily: fontFamily, height: 1.7),
-      ),
-      actions: [
-        TextButton(
-          onPressed: () => Navigator.pop(dialogContext, false),
-          child: const Text('بستن'),
-        ),
-        FilledButton.icon(
-          onPressed: () => Navigator.pop(dialogContext, true),
-          icon: const Icon(Icons.copy_rounded),
-          label: const Text('کپی موقت JSON'),
-        ),
-      ],
-    ),
-  );
-  if (copy != true || !context.mounted) return;
+  final stamp = DateTime.tryParse(generatedAt)?.toUtc() ?? DateTime.now().toUtc();
+  final fileName =
+      'lifemate-data-${stamp.year.toString().padLeft(4, '0')}${stamp.month.toString().padLeft(2, '0')}${stamp.day.toString().padLeft(2, '0')}.json';
+  final box = context.findRenderObject() as RenderBox?;
 
-  await LifeMateSensitiveClipboardGuard.copyExport(jsonText);
-  if (context.mounted) {
+  try {
+    await SharePlus.instance.share(
+      ShareParams(
+        title: 'خروجی داده‌های LifeMate',
+        subject: 'LifeMate data export',
+        files: [
+          XFile.fromData(
+            utf8.encode(jsonText),
+            mimeType: 'application/json',
+          ),
+        ],
+        fileNameOverrides: [fileName],
+        sharePositionOrigin: box == null
+            ? null
+            : box.localToGlobal(Offset.zero) & box.size,
+        downloadFallbackEnabled: false,
+      ),
+    );
+  } catch (_) {
+    if (!context.mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(
-        content: Text('JSON موقتاً کپی شد و LifeMate پاک‌سازی امن آن را پیگیری می‌کند.'),
+        content: Text('پنجره اشتراک باز نشد؛ دوباره تلاش کن.'),
       ),
     );
   }
