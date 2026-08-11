@@ -8,11 +8,6 @@ import 'offline_mutation_queue.dart';
 
 typedef LifeMateAccountIdProvider = String? Function();
 
-/// Durable transport for the closed-beta medication-adherence write only.
-///
-/// A queued payload never contains an access token. Every replay rechecks the
-/// current account and current token, and it may only target the reviewed API
-/// origin/path configured for this app build.
 class LifeMateDurableHttpClient extends http.BaseClient {
   LifeMateDurableHttpClient({
     required Uri apiBaseUri,
@@ -63,28 +58,33 @@ class LifeMateDurableHttpClient extends http.BaseClient {
         clientRequestId: durable.clientRequestId,
       );
     } catch (_) {
-      // If encrypted storage itself is unavailable, never claim persistence.
       queued = null;
     }
 
     final copy = _copyRequest(request, durable.bodyBytes);
     try {
-      // Complete before LifeMateApiClient's outer 20s timeout so a persisted
-      // dose is reported to the UI as queued even if the socket hangs.
       final response = await _inner.send(copy).timeout(_transportTimeout);
       if (queued != null) {
         if (_isSuccess(response.statusCode) ||
             _isTerminalClientFailure(response.statusCode)) {
           await _bestEffort(() => _queue.remove(queued!.id));
         } else {
-          await _bestEffort(() => _queue.markAttempt(queued!.id));
+          // 408/429/5xx leave the mutation durably queued. Do not return the
+          // transient failure to the API layer because that would trigger
+          // retries/new request IDs and make the UI claim the local action
+          // failed even though it is retained for replay.
+          await response.stream.drain<void>();
+          throw LifeMateOfflineQueuedException(
+            clientRequestId: queued.clientRequestId,
+          );
         }
       }
       if (_isSuccess(response.statusCode)) unawaited(flushPending());
       return response;
+    } on LifeMateOfflineQueuedException {
+      rethrow;
     } on TimeoutException {
       if (queued != null) {
-        await _bestEffort(() => _queue.markAttempt(queued!.id));
         throw LifeMateOfflineQueuedException(
           clientRequestId: queued.clientRequestId,
         );
@@ -92,7 +92,6 @@ class LifeMateDurableHttpClient extends http.BaseClient {
       rethrow;
     } on http.ClientException {
       if (queued != null) {
-        await _bestEffort(() => _queue.markAttempt(queued!.id));
         throw LifeMateOfflineQueuedException(
           clientRequestId: queued.clientRequestId,
         );
@@ -117,8 +116,6 @@ class LifeMateDurableHttpClient extends http.BaseClient {
       }
 
       for (final mutation in pending) {
-        // Logout/account switching is a hard replay boundary. Fetch the token
-        // fresh for every item so an expired token is not captured for a batch.
         final currentAccountId = _accountId()?.trim();
         final token = _accessToken()?.trim();
         if (currentAccountId != startingAccountId ||
@@ -146,9 +143,6 @@ class LifeMateDurableHttpClient extends http.BaseClient {
         try {
           final response = await _inner.send(replay).timeout(_transportTimeout);
           await response.stream.drain<void>();
-
-          // Do not start another replay if the visible/authenticated account
-          // changed while this request was in flight.
           if (_accountId()?.trim() != startingAccountId) break;
 
           if (_isSuccess(response.statusCode)) {
@@ -160,13 +154,10 @@ class LifeMateDurableHttpClient extends http.BaseClient {
             await _bestEffort(() => _queue.remove(mutation.id));
             continue;
           }
-          await _bestEffort(() => _queue.markAttempt(mutation.id));
           break;
         } on TimeoutException {
-          await _bestEffort(() => _queue.markAttempt(mutation.id));
           break;
         } on http.ClientException {
-          await _bestEffort(() => _queue.markAttempt(mutation.id));
           break;
         }
       }
@@ -223,7 +214,8 @@ class LifeMateDurableHttpClient extends http.BaseClient {
   bool _isAllowedPath(String path) => _doseReportPath.hasMatch(path);
 
   bool _isCurrentApiUri(Uri uri) {
-    final sameOrigin = uri.scheme.toLowerCase() == _apiBaseUri.scheme.toLowerCase() &&
+    final sameOrigin =
+        uri.scheme.toLowerCase() == _apiBaseUri.scheme.toLowerCase() &&
         uri.host.toLowerCase() == _apiBaseUri.host.toLowerCase() &&
         uri.port == _apiBaseUri.port;
     if (!sameOrigin) return false;
@@ -245,9 +237,7 @@ class LifeMateDurableHttpClient extends http.BaseClient {
   static Future<void> _bestEffort(Future<void> Function() action) async {
     try {
       await action();
-    } catch (_) {
-      // Queue bookkeeping must never replace the authoritative HTTP outcome.
-    }
+    } catch (_) {}
   }
 
   static http.Request _copyRequest(http.BaseRequest source, List<int> bodyBytes) {
