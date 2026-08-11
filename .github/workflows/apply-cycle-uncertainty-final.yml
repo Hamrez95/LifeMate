@@ -1,0 +1,42 @@
+name: apply-cycle-uncertainty-final
+
+on:
+  push:
+    branches:
+      - stabilization/cycle-uncertainty
+
+permissions:
+  contents: write
+
+jobs:
+  apply:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
+        with:
+          ref: stabilization/cycle-uncertainty
+          fetch-depth: 0
+      - name: Apply deterministic safety patch
+        run: python3 tools/hotfix/apply_cycle_uncertainty_final.py
+      - name: Commit patch if needed
+        shell: bash
+        run: |
+          set -euo pipefail
+          if git diff --quiet; then
+            echo 'No patch changes required.'
+            exit 0
+          fi
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add \
+            wellmate/lib/screens/women_calendar/women_calendar_screen.dart \
+            wellmate/lib/screens/women_calendar/women_companion_screen.dart \
+            wellmate/lib/screens/women_calendar/women_calendar_experience_widgets.dart \
+            wellmate/lib/screens/women_calendar/women_calendar_month_card.dart \
+            caremate/lib/screens/women_calendar/care_women_calendar_screen.dart \
+            supabase/functions/lifemate-api/women_calendar.ts \
+            supabase/functions/lifemate-api/women_calendar_test.ts
+          git commit -m 'fix(safety): wire cycle uncertainty through production surfaces'
+          git push origin HEAD:stabilization/cycle-uncertainty
