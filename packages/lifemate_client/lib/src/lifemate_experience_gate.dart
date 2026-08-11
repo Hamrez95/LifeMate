@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'app_config.dart';
+import 'durable_lifemate_api_client.dart';
 import 'feature_flags.dart';
 import 'health_facts.dart';
 import 'lifemate_api_client.dart';
@@ -22,12 +23,9 @@ part 'experience_brand.dart';
 typedef LifeMateExperienceAuthenticatedBuilder =
     Widget Function(BuildContext context, LifeMateApiClient apiClient);
 
-/// The polished authentication and account-bootstrap boundary shared by
-/// WellMate and CareMate.
-///
-/// The UI is rendered with native Flutter widgets rather than screenshot
-/// backgrounds, so form semantics, text scaling, RTL, validation and error
-/// states remain accessible and testable.
+/// The production authentication/bootstrap boundary shared by WellMate and
+/// CareMate. It also owns the durable adherence transport so the same client
+/// instance is provided to the real authenticated application tree.
 class LifeMateExperienceGate extends StatefulWidget {
   const LifeMateExperienceGate({
     required this.config,
@@ -46,11 +44,12 @@ class LifeMateExperienceGate extends StatefulWidget {
   State<LifeMateExperienceGate> createState() => _LifeMateExperienceGateState();
 }
 
-class _LifeMateExperienceGateState extends State<LifeMateExperienceGate> {
+class _LifeMateExperienceGateState extends State<LifeMateExperienceGate>
+    with WidgetsBindingObserver {
   static const _requestTimeout = Duration(seconds: 20);
 
   late final SupabaseClient _supabase;
-  late final LifeMateApiClient _api;
+  late final DurableLifeMateApiClient _api;
   StreamSubscription<AuthState>? _authSubscription;
   Session? _session;
   Future<void>? _bootstrap;
@@ -60,16 +59,25 @@ class _LifeMateExperienceGateState extends State<LifeMateExperienceGate> {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _supabase = Supabase.instance.client;
-    _api = LifeMateApiClient(
+    _api = DurableLifeMateApiClient(
       baseUri: widget.config.apiBaseUri,
       accessToken: () => _supabase.auth.currentSession?.accessToken,
+      accountId: () => _supabase.auth.currentUser?.id,
     );
     _session = _supabase.auth.currentSession;
     if (_session != null) {
       _bootstrap = _bootstrapUser(_session!);
     }
     _listenToAuth();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed && _session != null) {
+      unawaited(_api.flushPendingMutations());
+    }
   }
 
   void _listenToAuth() {
@@ -81,10 +89,6 @@ class _LifeMateExperienceGateState extends State<LifeMateExperienceGate> {
         final previousUserId = _session?.user.id;
         final nextUserId = session?.user.id;
         if (previousUserId != nextUserId) {
-          // The API client instance lives for the lifetime of the auth gate.
-          // Profile-photo cache entries are therefore explicitly scoped to
-          // the authenticated user so account B can never inherit account A's
-          // signed photo URL or avatar fallback.
           LifeMateProfileRefresh.clearForApiClient(_api);
         }
         setState(() {
@@ -120,6 +124,9 @@ class _LifeMateExperienceGateState extends State<LifeMateExperienceGate> {
           email: user.email,
         )
         .timeout(_requestTimeout);
+    // Bootstrap proves the session/API boundary is live. Replays are still
+    // account-scoped and fetch the current token before every queued item.
+    unawaited(_api.flushPendingMutations());
   }
 
   void _retryBootstrap() {
@@ -135,6 +142,7 @@ class _LifeMateExperienceGateState extends State<LifeMateExperienceGate> {
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _authSubscription?.cancel();
     _api.close();
     super.dispose();
