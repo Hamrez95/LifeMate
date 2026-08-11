@@ -86,13 +86,19 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          # ACLs are intentionally preserved. Runtime role passwords are not
-          # copied into CI; only security attributes needed to restore policy and
-          # grant targets are materialized into a separate cluster-role manifest.
-          pg_dump "$SOURCE_DATABASE_URL" \
-            --format=custom \
-            --no-owner \
-            --file="$RUNNER_TEMP/lifemate.restore-drill.dump"
+          # GitHub's host client may lag PostgreSQL 17. Use the exact reviewed
+          # PostgreSQL 17.6 image for pg_dump so server/client majors match.
+          docker run --rm --network host \
+            -e PGPASSWORD=postgres \
+            postgres:17.6-alpine \
+            pg_dump \
+              --host=localhost \
+              --port=5432 \
+              --username=postgres \
+              --dbname=lifemate_source \
+              --format=custom \
+              --no-owner \
+            > "$RUNNER_TEMP/lifemate.restore-drill.dump"
           test -s "$RUNNER_TEMP/lifemate.restore-drill.dump"
 
           psql "$SOURCE_DATABASE_URL" --set=ON_ERROR_STOP=1 --tuples-only --no-align <<'SQL' > "$RUNNER_TEMP/lifemate.runtime-roles.sql"
@@ -117,15 +123,19 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          # Port 5433 is a second PostgreSQL service/container. It shares no
-          # roles/catalog state with the source cluster on 5432.
           psql "$RESTORE_ADMIN_URL" --set=ON_ERROR_STOP=1 \
             --file="$RUNNER_TEMP/lifemate.runtime-roles.sql"
-          pg_restore \
-            --dbname="$RESTORE_DATABASE_URL" \
-            --no-owner \
-            --exit-on-error \
-            "$RUNNER_TEMP/lifemate.restore-drill.dump"
+          cat "$RUNNER_TEMP/lifemate.restore-drill.dump" | \
+            docker run --rm -i --network host \
+              -e PGPASSWORD=postgres \
+              postgres:17.6-alpine \
+              pg_restore \
+                --host=localhost \
+                --port=5433 \
+                --username=postgres \
+                --dbname=lifemate_restore \
+                --no-owner \
+                --exit-on-error
 
       - name: Verify restored data, ACL and RLS contracts
         shell: bash
@@ -194,7 +204,6 @@ jobs:
           $$;
           SQL
 
-          # ACL + RLS positive probes under the exact restored runtime roles.
           psql "$RESTORE_DATABASE_URL" --set=ON_ERROR_STOP=1 <<'SQL'
           set role lifemate_edge_runtime;
           select count(*) from ecosystem.applications;
@@ -205,7 +214,6 @@ jobs:
           reset role;
           SQL
 
-          # An unrelated role must not gain healthcare read access after restore.
           psql "$RESTORE_ADMIN_URL" --set=ON_ERROR_STOP=1 \
             -c 'create role restore_probe_unrelated nologin;'
           if psql "$RESTORE_DATABASE_URL" --set=ON_ERROR_STOP=1 \
@@ -222,6 +230,7 @@ jobs:
             echo ''
             echo '- source and restore: independent PostgreSQL 17.6 clusters'
             echo '- canonical baseline + every forward migration: source applied'
+            echo '- PostgreSQL 17.6 pg_dump/pg_restore tools: used'
             echo '- custom database dump with ACLs: restored'
             echo '- restricted runtime role attributes: restored from separate password-free manifest'
             echo '- synthetic data sentinel: restored'
