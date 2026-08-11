@@ -13,20 +13,22 @@ void main() {
       accessToken: () => 'access-token',
       httpClient: MockClient((request) async {
         observed = request;
-        return http.Response(
-          jsonEncode({
-            'exportVersion': 1,
-            'generatedAtUtc': '2026-08-11T19:30:00Z',
-            'dataSubject': {'personId': 'person-a'},
-            'account': {'status': 'Active'},
-            'profile': {'display_name': 'سارا'},
-            'treatment': {'medications': []},
-            'health': {'observations': []},
-            'womenHealth': {'profile': null, 'episodes': [], 'dailyLogs': []},
-            'care': {'relationships': []},
-            'privacy': {'consentRecords': []},
-          }),
+        final payload = jsonEncode({
+          'exportVersion': 1,
+          'generatedAtUtc': '2026-08-11T19:30:00Z',
+          'dataSubject': {'personId': 'person-a'},
+          'account': {'status': 'Active'},
+          'profile': {'display_name': 'سارا'},
+          'treatment': {'medications': []},
+          'health': {'observations': []},
+          'womenHealth': {'profile': null, 'episodes': [], 'dailyLogs': []},
+          'care': {'relationships': []},
+          'privacy': {'consentRecords': []},
+        });
+        return http.Response.bytes(
+          utf8.encode(payload),
           200,
+          headers: {'content-type': 'application/json; charset=utf-8'},
         );
       }),
     );
