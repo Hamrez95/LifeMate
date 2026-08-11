@@ -71,7 +71,7 @@ jobs:
 
   postgres-role-journey:
     runs-on: ubuntu-24.04
-    timeout-minutes: 20
+    timeout-minutes: 25
     services:
       postgres:
         image: postgres:17.6-alpine
@@ -107,3 +107,21 @@ jobs:
       - name: Run patient caregiver privacy and cleanup journeys
         working-directory: supabase/functions/lifemate-api
         run: deno task test:integration
+      - name: Prove restricted API role can run the same journeys
+        shell: bash
+        run: |
+          set -euo pipefail
+          runtime_password='ci-restricted-runtime-password-0123456789abcdef'
+          psql "$TEST_DATABASE_URL" --set=ON_ERROR_STOP=1 \
+            --set=runtime_password="$runtime_password" <<'SQL'
+          alter role lifemate_edge_runtime password :'runtime_password';
+          do $$
+          begin
+            if (select rolsuper or rolbypassrls or rolcreaterole or rolcreatedb
+                  from pg_roles where rolname='lifemate_edge_runtime') then
+              raise exception 'restricted role regained elevated privileges';
+            end if;
+          end $$;
+          SQL
+          restricted_url="postgres://lifemate_edge_runtime:${runtime_password}@localhost:5432/lifemate_edge_tests"
+          (cd supabase/functions/lifemate-api && TEST_DATABASE_URL="$restricted_url" deno task test:integration)
