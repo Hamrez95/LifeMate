@@ -14,10 +14,11 @@ values (
   now()
 );
 insert into lifemate.user_profiles(
-  user_id, display_name, phone_number, email, locale, time_zone,
+  id, user_id, display_name, phone_number, email, locale, time_zone,
   avatar_key, version, created_at_utc, updated_at_utc
 )
 values (
+  '5b2500d0-2209-4b6f-9e41-1f9ff3a84c02'::uuid,
   '5b2500d0-2209-4b6f-9e41-1f9ff3a84c01'::uuid,
   'Restricted Runtime Contract', null, 'runtime-contract@example.test',
   'fa', 'Asia/Tehran', 'person_blue', 1, now(), now()
