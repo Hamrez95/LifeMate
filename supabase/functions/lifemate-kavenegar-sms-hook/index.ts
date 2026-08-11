@@ -1,24 +1,28 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { Webhook } from "https://esm.sh/standardwebhooks@1.0.0";
-import { KavenegarOtpProvider } from "./provider.ts";
+import {
+  KavenegarOtpProvider,
+  KavenegarProviderError,
+} from "./provider.ts";
 
 type SendSmsEvent = {
   user: { phone?: unknown };
   sms: { otp?: unknown };
 };
 
-const apiKey = Deno.env.get("KAVENEGAR_API_KEY");
-const template = Deno.env.get("KAVENEGAR_VERIFY_TEMPLATE");
-const hookSecrets = Deno.env.get("SEND_SMS_HOOK_SECRETS");
+const apiKey = Deno.env.get("KAVENEGAR_API_KEY")?.trim();
+const template = Deno.env.get("KAVENEGAR_VERIFY_TEMPLATE")?.trim();
+const tag = Deno.env.get("KAVENEGAR_VERIFY_TAG")?.trim();
+const hookSecrets = Deno.env.get("SEND_SMS_HOOK_SECRETS")?.trim();
 
 Deno.serve(async (request: Request) => {
   if (request.method !== "POST") {
-    return json(400, {
-      error: { http_code: 400, message: "Invalid hook method." },
+    return json(405, {
+      error: { http_code: 405, message: "Invalid hook method." },
     });
   }
   if (!apiKey || !template || !hookSecrets) {
-    return retryable("SMS provider is not configured.");
+    return serviceUnavailable("SMS provider is not configured.", false);
   }
 
   const payload = await request.text();
@@ -43,7 +47,7 @@ Deno.serve(async (request: Request) => {
       ) as SendSmsEvent;
       break;
     } catch {
-      // Try the next rotation secret. Never log the hook body or OTP.
+      // Try the next rotation secret. Never log the hook body, phone or OTP.
     }
   }
   if (!event) {
@@ -61,35 +65,56 @@ Deno.serve(async (request: Request) => {
   }
 
   try {
-    const provider = new KavenegarOtpProvider(apiKey, template);
+    const provider = new KavenegarOtpProvider(apiKey, template, { tag });
     await provider.sendOtp(phone, otp);
+    // Supabase Send SMS hooks require no response body on success. An empty JSON
+    // object keeps the response explicit while containing no authentication data.
     return json(200, {});
   } catch (error) {
-    const code = error instanceof Error ? error.message : "sms_provider_error";
-    if (code === "iran_phone_required" || code === "invalid_otp_shape") {
-      return json(400, {
-        error: {
-          http_code: 400,
-          message: "Phone number is not eligible for the Iran SMS provider.",
-        },
+    if (error instanceof KavenegarProviderError) {
+      if (error.code === "iran_phone_required" || error.code === "invalid_otp_shape") {
+        return json(400, {
+          error: {
+            http_code: 400,
+            message: "Phone number is not eligible for the Iran SMS provider.",
+          },
+        });
+      }
+
+      // Provider status/code are operational metadata only. Never log the phone,
+      // token, template contents, API key, provider response body, or hook body.
+      console.warn("LifeMate OTP provider failed", {
+        code: safeCode(error.code),
+        providerStatus: error.providerStatus,
+        retryable: error.retryable,
       });
+      return serviceUnavailable(
+        "SMS delivery is temporarily unavailable.",
+        error.retryable,
+      );
     }
-    // Do not include phone, token, provider body, API key, or request payload.
-    console.warn("LifeMate OTP provider failed", { code: safeCode(code) });
-    return retryable("SMS delivery is temporarily unavailable.");
+
+    console.warn("LifeMate OTP provider failed", {
+      code: "sms_provider_error",
+      retryable: true,
+    });
+    return serviceUnavailable("SMS delivery is temporarily unavailable.", true);
   }
 });
 
-function retryable(message: string): Response {
+function serviceUnavailable(message: string, retryable: boolean): Response {
   const response = json(503, { error: { http_code: 503, message } });
-  response.headers.set("retry-after", "2");
+  if (retryable) response.headers.set("retry-after", "2");
   return response;
 }
 
 function json(status: number, body: Record<string, unknown>): Response {
   return new Response(JSON.stringify(body), {
     status,
-    headers: { "content-type": "application/json; charset=utf-8" },
+    headers: {
+      "content-type": "application/json; charset=utf-8",
+      "cache-control": "no-store",
+    },
   });
 }
 
