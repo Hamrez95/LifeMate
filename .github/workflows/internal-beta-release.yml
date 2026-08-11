@@ -60,6 +60,8 @@ jobs:
           set -euo pipefail
           bash -n tools/release/live-beta-smoke.sh
           shellcheck tools/release/live-beta-smoke.sh
+          bash -n tools/release/prepare-android-signing.sh
+          bash -n tools/release/verify-android-signing.sh
           ! grep -R --line-number 'SUPABASE_SERVICE_ROLE_KEY' \
             supabase/functions/lifemate-api tools/release
 
@@ -247,6 +249,19 @@ jobs:
             --arg version "$RELEASE_VERSION" \
             '.status == "ok" and .database == "ready" and .version == $version' >/dev/null
 
+      - name: Prepare founder-owned Android signing
+        shell: bash
+        env:
+          WELLMATE_KEYSTORE_BASE64: ${{ secrets.WELLMATE_KEYSTORE_BASE64 }}
+          WELLMATE_STORE_PASSWORD: ${{ secrets.WELLMATE_STORE_PASSWORD }}
+          WELLMATE_KEY_PASSWORD: ${{ secrets.WELLMATE_KEY_PASSWORD }}
+          WELLMATE_KEY_ALIAS: ${{ secrets.WELLMATE_KEY_ALIAS }}
+          CAREMATE_KEYSTORE_BASE64: ${{ secrets.CAREMATE_KEYSTORE_BASE64 }}
+          CAREMATE_STORE_PASSWORD: ${{ secrets.CAREMATE_STORE_PASSWORD }}
+          CAREMATE_KEY_PASSWORD: ${{ secrets.CAREMATE_KEY_PASSWORD }}
+          CAREMATE_KEY_ALIAS: ${{ secrets.CAREMATE_KEY_ALIAS }}
+        run: bash tools/release/prepare-android-signing.sh
+
       - name: Build installable internal APKs
         shell: bash
         run: |
@@ -262,6 +277,13 @@ jobs:
           )
           (cd wellmate && flutter build apk "${build_args[@]}")
           (cd caremate && flutter build apk "${build_args[@]}")
+
+      - name: Verify stable Android signatures
+        shell: bash
+        run: >-
+          bash tools/release/verify-android-signing.sh
+          wellmate/build/app/outputs/flutter-apk/app-release.apk
+          caremate/build/app/outputs/flutter-apk/app-release.apk
 
       - name: Verify packages and create release manifest
         shell: bash
@@ -285,6 +307,8 @@ jobs:
 
           wellmate_sha="$(sha256sum dist/wellmate-*.apk | awk '{print $1}')"
           caremate_sha="$(sha256sum dist/caremate-*.apk | awk '{print $1}')"
+          wellmate_cert_sha256="$(cat "$LIFEMATE_ANDROID_SIGNING_DIR/wellmate-cert-sha256.txt")"
+          caremate_cert_sha256="$(cat "$LIFEMATE_ANDROID_SIGNING_DIR/caremate-cert-sha256.txt")"
           jq -n \
             --arg releaseName "$RELEASE_NAME" \
             --arg commit "$GITHUB_SHA" \
@@ -292,7 +316,9 @@ jobs:
             --arg builtAt "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
             --arg wellmateSha256 "$wellmate_sha" \
             --arg caremateSha256 "$caremate_sha" \
-            '{releaseName:$releaseName,commit:$commit,apiVersion:$apiVersion,builtAtUtc:$builtAt,channel:"internal/unstable",signing:"debug fallback; not Play Store",apps:{wellmate:{packageId:"com.lifemate.wellmate",sha256:$wellmateSha256},caremate:{packageId:"com.lifemate.caremate",sha256:$caremateSha256}},knownLimitations:["Not a stable beta or store release","Founder-owned release signing not configured","Human device/accessibility/privacy review remains required"]}' \
+            --arg wellmateSigningCertSha256 "$wellmate_cert_sha256" \
+            --arg caremateSigningCertSha256 "$caremate_cert_sha256" \
+            '{releaseName:$releaseName,commit:$commit,apiVersion:$apiVersion,builtAtUtc:$builtAt,channel:"internal/unstable",signing:"founder-owned stable release keystores",apps:{wellmate:{packageId:"com.lifemate.wellmate",sha256:$wellmateSha256,signingCertSha256:$wellmateSigningCertSha256},caremate:{packageId:"com.lifemate.caremate",sha256:$caremateSha256,signingCertSha256:$caremateSigningCertSha256}},knownLimitations:["Not a stable beta or store release","Human device/accessibility/privacy review remains required"]}' \
             > dist/release-manifest.json
 
       - name: Upload versioned internal release bundle
@@ -302,3 +328,12 @@ jobs:
           path: dist
           if-no-files-found: error
           retention-days: 30
+
+      - name: Remove ephemeral signing material
+        if: ${{ always() }}
+        shell: bash
+        run: |
+          rm -f wellmate/android/key.properties caremate/android/key.properties
+          if [[ -n "${LIFEMATE_ANDROID_SIGNING_DIR:-}" ]]; then
+            rm -rf "$LIFEMATE_ANDROID_SIGNING_DIR"
+          fi

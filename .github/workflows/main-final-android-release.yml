@@ -142,6 +142,19 @@ jobs:
           unauthorized_status="$(curl --silent --show-error --output /dev/null --write-out '%{http_code}' "$LIFEMATE_API_BASE_URL/api/v1/me")"
           test "$unauthorized_status" = '401'
 
+      - name: Prepare founder-owned Android signing
+        shell: bash
+        env:
+          WELLMATE_KEYSTORE_BASE64: ${{ secrets.WELLMATE_KEYSTORE_BASE64 }}
+          WELLMATE_STORE_PASSWORD: ${{ secrets.WELLMATE_STORE_PASSWORD }}
+          WELLMATE_KEY_PASSWORD: ${{ secrets.WELLMATE_KEY_PASSWORD }}
+          WELLMATE_KEY_ALIAS: ${{ secrets.WELLMATE_KEY_ALIAS }}
+          CAREMATE_KEYSTORE_BASE64: ${{ secrets.CAREMATE_KEYSTORE_BASE64 }}
+          CAREMATE_STORE_PASSWORD: ${{ secrets.CAREMATE_STORE_PASSWORD }}
+          CAREMATE_KEY_PASSWORD: ${{ secrets.CAREMATE_KEY_PASSWORD }}
+          CAREMATE_KEY_ALIAS: ${{ secrets.CAREMATE_KEY_ALIAS }}
+        run: bash tools/release/prepare-android-signing.sh
+
       - name: Build exact-main release APKs
         shell: bash
         run: |
@@ -162,6 +175,13 @@ jobs:
           (cd wellmate && flutter build apk "${build_args[@]}")
           (cd caremate && flutter build apk "${build_args[@]}")
 
+      - name: Verify stable Android signatures
+        shell: bash
+        run: >-
+          bash tools/release/verify-android-signing.sh
+          wellmate/build/app/outputs/flutter-apk/app-release.apk
+          caremate/build/app/outputs/flutter-apk/app-release.apk
+
       - name: Package and manifest
         shell: bash
         run: |
@@ -172,6 +192,8 @@ jobs:
           cp caremate/build/app/outputs/flutter-apk/app-release.apk "dist/caremate-0.9.2-main-${short_sha}.apk"
           wellmate_sha="$(sha256sum dist/wellmate-*.apk | awk '{print $1}')"
           caremate_sha="$(sha256sum dist/caremate-*.apk | awk '{print $1}')"
+          wellmate_cert_sha256="$(cat "$LIFEMATE_ANDROID_SIGNING_DIR/wellmate-cert-sha256.txt")"
+          caremate_cert_sha256="$(cat "$LIFEMATE_ANDROID_SIGNING_DIR/caremate-cert-sha256.txt")"
           jq -n \
             --arg mainCommit "$GITHUB_SHA" \
             --arg buildNumber "$GITHUB_RUN_NUMBER" \
@@ -181,10 +203,12 @@ jobs:
             --arg builtAt "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
             --arg wellmateSha256 "$wellmate_sha" \
             --arg caremateSha256 "$caremate_sha" \
+            --arg wellmateSigningCertSha256 "$wellmate_cert_sha256" \
+            --arg caremateSigningCertSha256 "$caremate_cert_sha256" \
             --argjson googleAuth false \
             --argjson phoneOtp false \
             --argjson womenCalendarPilot true \
-            '{mainCommit:$mainCommit,version:$version,buildNumber:$buildNumber,builtAtUtc:$builtAt,apiEnvironment:$apiEnvironment,apiBaseUrl:$apiBaseUrl,featureFlags:{googleAuth:$googleAuth,phoneOtp:$phoneOtp,womenCalendarPilot:$womenCalendarPilot},apps:{wellmate:{packageId:"com.lifemate.wellmate",sha256:$wellmateSha256},caremate:{packageId:"com.lifemate.caremate",sha256:$caremateSha256}},releasePurpose:"physical-test-round-2",storeSigningConfigured:false}' \
+            '{mainCommit:$mainCommit,version:$version,buildNumber:$buildNumber,builtAtUtc:$builtAt,apiEnvironment:$apiEnvironment,apiBaseUrl:$apiBaseUrl,featureFlags:{googleAuth:$googleAuth,phoneOtp:$phoneOtp,womenCalendarPilot:$womenCalendarPilot},apps:{wellmate:{packageId:"com.lifemate.wellmate",sha256:$wellmateSha256,signingCertSha256:$wellmateSigningCertSha256},caremate:{packageId:"com.lifemate.caremate",sha256:$caremateSha256,signingCertSha256:$caremateSigningCertSha256}},releasePurpose:"physical-test-round-2",storeSigningConfigured:true}' \
             > dist/manifest.json
 
       - name: Upload final exact-main Android bundle
@@ -194,3 +218,12 @@ jobs:
           path: dist
           if-no-files-found: error
           retention-days: 30
+
+      - name: Remove ephemeral signing material
+        if: ${{ always() }}
+        shell: bash
+        run: |
+          rm -f wellmate/android/key.properties caremate/android/key.properties
+          if [[ -n "${LIFEMATE_ANDROID_SIGNING_DIR:-}" ]]; then
+            rm -rf "$LIFEMATE_ANDROID_SIGNING_DIR"
+          fi
