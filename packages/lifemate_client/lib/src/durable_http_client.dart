@@ -176,15 +176,19 @@ class LifeMateDurableHttpClient extends http.BaseClient {
     return synced;
   }
 
-  Future<int> pendingCount() async {
+  Future<List<LifeMateQueuedMutation>> pendingMutations() async {
     final accountId = _accountId()?.trim();
-    if (accountId == null || accountId.isEmpty) return 0;
+    if (accountId == null || accountId.isEmpty) {
+      return const <LifeMateQueuedMutation>[];
+    }
     try {
-      return await _queue.pendingCount(accountId);
+      return await _queue.pendingForAccount(accountId);
     } catch (_) {
-      return 0;
+      return const <LifeMateQueuedMutation>[];
     }
   }
+
+  Future<int> pendingCount() async => (await pendingMutations()).length;
 
   Future<_DurableCandidate?> _durableCandidate(http.BaseRequest request) async {
     if (request.method != 'POST' ||
