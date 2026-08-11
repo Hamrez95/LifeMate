@@ -9,7 +9,6 @@ type SendSmsEvent = {
 
 const apiKey = Deno.env.get("KAVENEGAR_API_KEY")?.trim();
 const template = Deno.env.get("KAVENEGAR_VERIFY_TEMPLATE")?.trim();
-const tag = Deno.env.get("KAVENEGAR_VERIFY_TAG")?.trim();
 const hookSecrets = Deno.env.get("SEND_SMS_HOOK_SECRETS")?.trim();
 
 Deno.serve(async (request: Request) => {
@@ -62,10 +61,10 @@ Deno.serve(async (request: Request) => {
   }
 
   try {
-    const provider = new KavenegarOtpProvider(apiKey, template, { tag });
+    const provider = new KavenegarOtpProvider(apiKey, template);
     await provider.sendOtp(phone, otp);
-    // Supabase Send SMS hooks require no response body on success. An empty JSON
-    // object keeps the response explicit while containing no authentication data.
+    // Supabase Send SMS hooks treat a successful 2xx response as delivery
+    // acceptance. Keep the response empty of authentication data.
     return json(200, {});
   } catch (error) {
     if (error instanceof KavenegarProviderError) {
