@@ -16,6 +16,12 @@
 .env
 .env.*
 
+# Android signing material
+**/android/key.properties
+**/*.jks
+**/*.keystore
+**/*.p12
+
 # Operating system files
 .DS_Store
 Thumbs.db
