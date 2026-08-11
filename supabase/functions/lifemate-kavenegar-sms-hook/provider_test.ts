@@ -105,10 +105,12 @@ Deno.test("Kavenegar OTP maps 607 to the documented IP restriction", async () =>
     "testApiKey123",
     "lifemate-login",
     {
+      // Kavenegar's logical status is carried in the JSON envelope. Standard
+      // Fetch Response objects cannot represent a non-standard HTTP status 607.
       fetcher: async () =>
         new Response(
           JSON.stringify({ return: { status: 607, message: "ip" } }),
-          { status: 607, headers: { "content-type": "application/json" } },
+          { status: 200, headers: { "content-type": "application/json" } },
         ),
     },
   );
