@@ -89,8 +89,9 @@ class LifeMateAccountExportApi {
 }
 
 /// Self-service beta export. Data is fetched only after an explicit user action.
-/// Copying to the system clipboard requires a second explicit confirmation and
-/// warns that clipboard contents may be visible to other apps on the device.
+/// Clipboard delivery is a temporary beta transport: it requires a second
+/// explicit confirmation, warns about OS clipboard exposure and is automatically
+/// cleared after one minute if the user has not replaced it with other content.
 Future<void> showLifeMateAccountExportDialog(
   BuildContext context, {
   required String fontFamily,
@@ -139,8 +140,7 @@ Future<void> showLifeMateAccountExportDialog(
   }
   if (!context.mounted) return;
 
-  final encoder = const JsonEncoder.withIndent('  ');
-  final jsonText = encoder.convert(exported);
+  final jsonText = const JsonEncoder.withIndent('  ').convert(exported);
   final generatedAt = exported['generatedAtUtc']?.toString() ?? '';
   final copy = await showDialog<bool>(
     context: context,
@@ -151,7 +151,7 @@ Future<void> showLifeMateAccountExportDialog(
         style: TextStyle(fontFamily: fontFamily, fontWeight: FontWeight.w900),
       ),
       content: Text(
-        'نسخه در همین لحظه آماده شد${generatedAt.isEmpty ? '' : ' ($generatedAt)'}.\n\nبرای نسخه بتا می‌توانی JSON را کپی کنی. توجه: کلیپ‌بورد گوشی ممکن است توسط برنامه‌های دیگر قابل مشاهده باشد؛ فقط اگر خودت می‌خواهی این کار را انجام بده.',
+        'نسخه در همین لحظه آماده شد${generatedAt.isEmpty ? '' : ' ($generatedAt)'}.\n\nدر نسخه بتا می‌توانی JSON را موقتاً در کلیپ‌بورد کپی کنی. کلیپ‌بورد سیستم ممکن است برای برنامه‌های دیگر قابل مشاهده باشد؛ LifeMate اگر هنوز همین متن باشد بعد از یک دقیقه آن را پاک می‌کند.',
         style: TextStyle(fontFamily: fontFamily, height: 1.7),
       ),
       actions: [
@@ -162,7 +162,7 @@ Future<void> showLifeMateAccountExportDialog(
         FilledButton.icon(
           onPressed: () => Navigator.pop(dialogContext, true),
           icon: const Icon(Icons.copy_rounded),
-          label: const Text('کپی JSON'),
+          label: const Text('کپی موقت JSON'),
         ),
       ],
     ),
@@ -170,11 +170,26 @@ Future<void> showLifeMateAccountExportDialog(
   if (copy != true || !context.mounted) return;
 
   await Clipboard.setData(ClipboardData(text: jsonText));
+  Timer(const Duration(minutes: 1), () {
+    unawaited(_clearClipboardIfUnchanged(jsonText));
+  });
   if (context.mounted) {
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(
-        content: Text('نسخه JSON داده‌های خودت در کلیپ‌بورد کپی شد.'),
+        content: Text('JSON کپی شد و اگر تغییرش ندهی تا یک دقیقه دیگر پاک می‌شود.'),
       ),
     );
+  }
+}
+
+Future<void> _clearClipboardIfUnchanged(String exportedText) async {
+  try {
+    final current = await Clipboard.getData(Clipboard.kTextPlain);
+    if (current?.text == exportedText) {
+      await Clipboard.setData(const ClipboardData(text: ''));
+    }
+  } catch (_) {
+    // Clipboard cleanup is best-effort; never crash the application after the
+    // user has already received an export.
   }
 }
