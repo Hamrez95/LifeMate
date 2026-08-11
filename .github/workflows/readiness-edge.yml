@@ -1,0 +1,47 @@
+name: readiness-edge
+
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - 'supabase/functions/lifemate-readiness/**'
+      - '.github/workflows/readiness-edge.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'supabase/functions/lifemate-readiness/**'
+      - '.github/workflows/readiness-edge.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 8
+    defaults:
+      run:
+        working-directory: supabase/functions/lifemate-readiness
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
+        with:
+          persist-credentials: false
+          show-progress: false
+      - uses: denoland/setup-deno@22d081ff2d3a40755e97629de92e3bcbfa7cf2ed
+        with:
+          deno-version: v2.9.4
+      - name: Format
+        run: deno fmt --check
+      - name: Type check
+        run: deno task check
+      - name: Fail-closed runtime invariants
+        shell: bash
+        run: |
+          set -euo pipefail
+          grep -Fq "lifemate_edge_runtime_password" index.ts
+          grep -Fq "lifemate_edge_runtime" index.ts
+          grep -Fq "where false" index.ts
+          if grep -Eq 'select \*|Authorization|SERVICE_ROLE_KEY' index.ts; then
+            echo 'Readiness probe must not select user rows or use caller/service auth.' >&2
+            exit 1
+          fi
