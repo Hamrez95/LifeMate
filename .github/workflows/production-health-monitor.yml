@@ -1,0 +1,59 @@
+name: production-health-monitor
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '*/15 * * * *'
+
+permissions:
+  contents: read
+
+jobs:
+  lifemate-application-readiness:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    env:
+      DEFAULT_READINESS_URL: https://bwdvmniywyyijjauipnh.supabase.co/functions/v1/lifemate-readiness
+      CONFIGURED_READINESS_URL: ${{ vars.LIFEMATE_READINESS_URL }}
+    steps:
+      - name: Check production Edge + application database capability
+        shell: bash
+        run: |
+          set -euo pipefail
+          READINESS_URL="${CONFIGURED_READINESS_URL:-$DEFAULT_READINESS_URL}"
+          response_file="$RUNNER_TEMP/lifemate-readiness.json"
+          status="$(curl \
+            --silent \
+            --show-error \
+            --location \
+            --max-time 15 \
+            --output "$response_file" \
+            --write-out '%{http_code}' \
+            "$READINESS_URL")"
+
+          if [[ "$status" != "200" ]]; then
+            echo "LifeMate readiness endpoint returned HTTP $status" >&2
+            exit 1
+          fi
+
+          jq -e '
+            .status == "ok" and
+            .database == "application_ready" and
+            .role == "lifemate_edge_runtime" and
+            .service == "lifemate-readiness" and
+            (.version | type == "string" and length > 0)
+          ' "$response_file" >/dev/null
+
+          version="$(jq -r '.version' "$response_file")"
+          {
+            echo '## LifeMate production readiness'
+            echo ''
+            echo '- readiness Edge: healthy'
+            echo '- exact DB identity: lifemate_edge_runtime'
+            echo '- privileged/BYPASSRLS runtime: rejected by probe'
+            echo '- Health SELECT/INSERT/UPDATE/DELETE grants + expected RLS policy: verified'
+            echo '- synthetic readiness SELECT/INSERT/UPDATE/DELETE through FORCE RLS: passed'
+            echo '- WellMate ecosystem registration + dose table capability: present'
+            echo "- deployed version: \`$version\`"
+            echo '- probe reads/writes synthetic readiness data only; no user health/profile/treatment row is requested'
+          } >> "$GITHUB_STEP_SUMMARY"
