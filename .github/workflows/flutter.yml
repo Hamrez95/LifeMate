@@ -15,6 +15,7 @@ on:
       - 'packages/lifemate_client/**'
       - 'assets/**'
       - '.github/workflows/flutter.yml'
+      - 'tools/release/**'
       - 'AGENTS.md'
   push:
     branches: [ main ]
@@ -24,6 +25,7 @@ on:
       - 'packages/lifemate_client/**'
       - 'assets/**'
       - '.github/workflows/flutter.yml'
+      - 'tools/release/**'
       - 'AGENTS.md'
 
 permissions:
@@ -172,6 +174,20 @@ jobs:
           fi
           echo "should_build=$should_build" >> "$GITHUB_OUTPUT"
 
+      - name: Prepare founder-owned Android signing
+        if: ${{ success() && steps.android-checkpoint.outputs.should_build == 'true' }}
+        shell: bash
+        env:
+          WELLMATE_KEYSTORE_BASE64: ${{ secrets.WELLMATE_KEYSTORE_BASE64 }}
+          WELLMATE_STORE_PASSWORD: ${{ secrets.WELLMATE_STORE_PASSWORD }}
+          WELLMATE_KEY_PASSWORD: ${{ secrets.WELLMATE_KEY_PASSWORD }}
+          WELLMATE_KEY_ALIAS: ${{ secrets.WELLMATE_KEY_ALIAS }}
+          CAREMATE_KEYSTORE_BASE64: ${{ secrets.CAREMATE_KEYSTORE_BASE64 }}
+          CAREMATE_STORE_PASSWORD: ${{ secrets.CAREMATE_STORE_PASSWORD }}
+          CAREMATE_KEY_PASSWORD: ${{ secrets.CAREMATE_KEY_PASSWORD }}
+          CAREMATE_KEY_ALIAS: ${{ secrets.CAREMATE_KEY_ALIAS }}
+        run: bash tools/release/prepare-android-signing.sh
+
       - name: Build Android beta APKs
         if: ${{ success() && steps.android-checkpoint.outputs.should_build == 'true' }}
         shell: bash
@@ -203,6 +219,14 @@ jobs:
           )
           (cd wellmate && flutter build apk "${build_args[@]}")
           (cd caremate && flutter build apk "${build_args[@]}")
+
+      - name: Verify stable Android signatures
+        if: ${{ success() && steps.android-checkpoint.outputs.should_build == 'true' }}
+        shell: bash
+        run: >-
+          bash tools/release/verify-android-signing.sh
+          wellmate/build/app/outputs/flutter-apk/app-release.apk
+          caremate/build/app/outputs/flutter-apk/app-release.apk
 
       - name: Inspect Android APKs
         id: apk-inspection
@@ -238,6 +262,9 @@ jobs:
           grep -Fq 'assets/flutter_assets/assets/images/CareMateWithoutBack.png' \
             "$report_dir/caremate-zip-listing.txt"
 
+          cp "$LIFEMATE_ANDROID_SIGNING_DIR/wellmate-cert-sha256.txt" "$report_dir/wellmate-signing-cert-sha256.txt"
+          cp "$LIFEMATE_ANDROID_SIGNING_DIR/caremate-cert-sha256.txt" "$report_dir/caremate-signing-cert-sha256.txt"
+
       - name: Upload Android beta APKs and inspection evidence
         if: ${{ always() && steps.android-checkpoint.outputs.should_build == 'true' }}
         uses: actions/upload-artifact@v4
@@ -254,3 +281,12 @@ jobs:
         if: ${{ always() && steps.android-checkpoint.outputs.should_build == 'true' }}
         shell: bash
         run: test "${{ steps.apk-inspection.outcome }}" = "success"
+
+      - name: Remove ephemeral signing material
+        if: ${{ always() && steps.android-checkpoint.outputs.should_build == 'true' }}
+        shell: bash
+        run: |
+          rm -f wellmate/android/key.properties caremate/android/key.properties
+          if [[ -n "${LIFEMATE_ANDROID_SIGNING_DIR:-}" ]]; then
+            rm -rf "$LIFEMATE_ANDROID_SIGNING_DIR"
+          fi
