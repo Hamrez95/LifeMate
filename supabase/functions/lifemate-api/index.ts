@@ -2,6 +2,7 @@ import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createCareEventStore } from "./care_events.ts";
 import { createCareRequestStore } from "./care_requests.ts";
 import { createAccountLifecycleStore } from "./account_lifecycle.ts";
+import { createAccountExportStore } from "./account_export.ts";
 import { createAuthorizationStore } from "./authorization.ts";
 import {
   createIdentityBridge,
@@ -51,6 +52,7 @@ const careRequests = createCareRequestStore(databaseUrl, contactHashingSecret);
 const authorizationStore = createAuthorizationStore(databaseUrl);
 const identityBridge = createIdentityBridge(databaseUrl);
 const accountLifecycle = createAccountLifecycleStore(databaseUrl);
+const accountExport = createAccountExportStore(databaseUrl);
 const edits = createEditStore(databaseUrl);
 const healthObservations = createHealthObservationStore(databaseUrl);
 const womenCalendar = createWomenCalendarStore(databaseUrl);
@@ -179,6 +181,15 @@ async function route(
     return json(
       await accountLifecycle.latestDeletionRequest(identity.appUserId),
     );
+  }
+
+  if (request.method === "GET" && path === "/api/v1/account/export") {
+    enforceRateLimit(
+      `account-export:${identity.appUserId}`,
+      3,
+      24 * 60 * 60_000,
+    );
+    return json(await accountExport.exportAccount(identity.appUserId));
   }
 
   if (
