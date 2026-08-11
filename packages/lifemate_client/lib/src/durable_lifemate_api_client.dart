@@ -17,14 +17,9 @@ class LifeMatePendingSyncEvent {
   final String status;
 }
 
-/// Lightweight production signal for an accepted local dose that has not yet
-/// been confirmed by the server. The value contains no token or health note.
 final ValueNotifier<LifeMatePendingSyncEvent?> lifeMatePendingSyncEvent =
     ValueNotifier<LifeMatePendingSyncEvent?>(null);
 
-/// Production API client used by authenticated LifeMate app surfaces.
-/// Reads and ordinary mutations behave exactly like [LifeMateApiClient]. Only
-/// explicitly-idempotent medication adherence writes are journaled for replay.
 class DurableLifeMateApiClient extends LifeMateApiClient {
   DurableLifeMateApiClient._({
     required Uri baseUri,
@@ -92,24 +87,26 @@ class DurableLifeMateApiClient extends LifeMateApiClient {
     }
   }
 
-  /// Overlay the encrypted journal on server reads until replay removes it.
-  /// This prevents an app-resume refresh from turning a locally accepted dose
-  /// back into an actionable `scheduled` item before the replay finishes.
+  /// Snapshot pending entries *before* the GET begins. If replay succeeds while
+  /// the GET is in flight, that GET may still return the older scheduled row.
+  /// Retaining the pre-read snapshot keeps that response non-actionable; the
+  /// following refresh can then observe the confirmed server state.
   @override
   Future<Map<String, dynamic>> getHomeSnapshot({
     required DateTime fromDate,
     required DateTime toDate,
   }) async {
+    final pendingBeforeRead = await _pendingDoseStates();
     final snapshot = await super.getHomeSnapshot(
       fromDate: fromDate,
       toDate: toDate,
     );
-    final pending = await _pendingDoseStates();
-    if (pending.isEmpty) return snapshot;
+    if (pendingBeforeRead.isEmpty) return snapshot;
 
     final occurrences = snapshot['doseOccurrences'];
     if (occurrences is List) {
-      snapshot['doseOccurrences'] = _overlayOccurrences(occurrences, pending);
+      snapshot['doseOccurrences'] =
+          _overlayOccurrences(occurrences, pendingBeforeRead);
     }
     return snapshot;
   }
@@ -119,13 +116,13 @@ class DurableLifeMateApiClient extends LifeMateApiClient {
     required DateTime fromDate,
     required DateTime toDate,
   }) async {
+    final pendingBeforeRead = await _pendingDoseStates();
     final values = await super.getDoseOccurrences(
       fromDate: fromDate,
       toDate: toDate,
     );
-    final pending = await _pendingDoseStates();
-    if (pending.isEmpty) return values;
-    return _overlayOccurrences(values, pending);
+    if (pendingBeforeRead.isEmpty) return values;
+    return _overlayOccurrences(values, pendingBeforeRead);
   }
 
   Future<Map<String, String>> _pendingDoseStates() async {
