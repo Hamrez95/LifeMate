@@ -11,7 +11,6 @@ import 'screens/caremate_root_shell.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  await LifeMateSensitiveClipboardGuard.install();
   final config = AppConfig.fromEnvironment();
   var authInitialized = false;
   if (config.isConfigured) {
@@ -48,6 +47,7 @@ class CareMateApp extends StatelessWidget {
     this.authInitialized = false,
   });
 
+  /// Allows tests to verify the application shell without network side effects.
   final Widget? home;
   final AppConfig? config;
   final bool authInitialized;
