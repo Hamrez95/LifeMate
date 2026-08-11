@@ -39,7 +39,7 @@ jobs:
           jq -e '
             .status == "ok" and
             .database == "application_ready" and
-            .role == "restricted" and
+            .role == "lifemate_edge_runtime" and
             .service == "lifemate-readiness" and
             (.version | type == "string" and length > 0)
           ' "$response_file" >/dev/null
@@ -49,9 +49,11 @@ jobs:
             echo '## LifeMate production readiness'
             echo ''
             echo '- readiness Edge: healthy'
-            echo '- restricted DB runtime: application schemas/grants usable'
-            echo '- WellMate ecosystem registration: present'
-            echo '- Health + dose tables: queryable through the restricted role'
+            echo '- exact DB identity: lifemate_edge_runtime'
+            echo '- privileged/BYPASSRLS runtime: rejected by probe'
+            echo '- Health SELECT/INSERT/UPDATE/DELETE grants + expected RLS policy: verified'
+            echo '- synthetic readiness SELECT/INSERT/UPDATE/DELETE through FORCE RLS: passed'
+            echo '- WellMate ecosystem registration + dose table capability: present'
             echo "- deployed version: \`$version\`"
-            echo '- probe reads no user rows and requests no profile/treatment/health payloads'
+            echo '- probe reads/writes synthetic readiness data only; no user health/profile/treatment row is requested'
           } >> "$GITHUB_STEP_SUMMARY"
