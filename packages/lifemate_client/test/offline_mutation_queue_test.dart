@@ -18,14 +18,14 @@ class _MemoryStorage implements LifeMateMutationStorage {
   }
 }
 
+Uri _doseUri(String id) => Uri.parse(
+      'https://api.example.test/api/v1/dose-occurrences/$id/report',
+    );
+
 void main() {
   test('queue deduplicates the same account + request id mutation', () async {
-    final storage = _MemoryStorage();
-    final queue = LifeMateOfflineMutationQueue(storage: storage);
-    final uri = Uri.parse(
-      'https://api.example.test/api/v1/dose-occurrences/'
-      '123e4567-e89b-42d3-a456-426614174010/report',
-    );
+    final queue = LifeMateOfflineMutationQueue(storage: _MemoryStorage());
+    final uri = _doseUri('123e4567-e89b-42d3-a456-426614174010');
 
     await queue.enqueue(
       accountId: 'account-a',
@@ -45,9 +45,26 @@ void main() {
     expect(await queue.pendingCount('account-a'), 1);
   });
 
+  test('concurrent queue writes are serialized without lost mutations', () async {
+    final queue = LifeMateOfflineMutationQueue(storage: _MemoryStorage());
+    await Future.wait([
+      for (var i = 0; i < 12; i++)
+        queue.enqueue(
+          accountId: 'account-a',
+          method: 'POST',
+          uri: _doseUri(
+            '123e4567-e89b-42d3-a456-${(426614174100 + i).toString()}',
+          ),
+          body: jsonEncode({'clientRequestId': 'request-$i'}),
+          clientRequestId: 'request-$i',
+        ),
+    ]);
+    expect(await queue.pendingCount('account-a'), 12);
+  });
+
   test('queued actions are isolated by authenticated account', () async {
     final queue = LifeMateOfflineMutationQueue(storage: _MemoryStorage());
-    final uri = Uri.parse('https://api.example.test/api/v1/care-events');
+    final uri = _doseUri('123e4567-e89b-42d3-a456-426614174010');
 
     await queue.enqueue(
       accountId: 'account-a',
@@ -69,8 +86,7 @@ void main() {
   });
 
   test('transport journals an idempotent dose action then replays it', () async {
-    final storage = _MemoryStorage();
-    final queue = LifeMateOfflineMutationQueue(storage: storage);
+    final queue = LifeMateOfflineMutationQueue(storage: _MemoryStorage());
     var online = false;
     final seen = <http.Request>[];
     final inner = MockClient((request) async {
@@ -79,15 +95,13 @@ void main() {
       return http.Response('{}', 200);
     });
     final durable = LifeMateDurableHttpClient(
+      apiBaseUri: Uri.parse('https://api.example.test'),
       accessToken: () => 'fresh-access-token',
       accountId: () => 'account-a',
       queue: queue,
       inner: inner,
     );
-    final uri = Uri.parse(
-      'https://api.example.test/api/v1/dose-occurrences/'
-      '123e4567-e89b-42d3-a456-426614174010/report',
-    );
+    final uri = _doseUri('123e4567-e89b-42d3-a456-426614174010');
     final body = jsonEncode({
       'clientRequestId': '123e4567-e89b-42d3-a456-426614174099',
       'version': 1,
@@ -116,9 +130,71 @@ void main() {
     expect(seen.last.headers['x-lifemate-replay'], '1');
   });
 
+  test('replay stops before another item when authenticated account changes', () async {
+    final queue = LifeMateOfflineMutationQueue(storage: _MemoryStorage());
+    for (var i = 0; i < 2; i++) {
+      await queue.enqueue(
+        accountId: 'account-a',
+        method: 'POST',
+        uri: _doseUri(
+          '123e4567-e89b-42d3-a456-${(426614174120 + i).toString()}',
+        ),
+        body: jsonEncode({'clientRequestId': 'request-$i'}),
+        clientRequestId: 'request-$i',
+      );
+    }
+    var account = 'account-a';
+    var sends = 0;
+    final durable = LifeMateDurableHttpClient(
+      apiBaseUri: Uri.parse('https://api.example.test'),
+      accessToken: () => 'token',
+      accountId: () => account,
+      queue: queue,
+      inner: MockClient((request) async {
+        sends++;
+        account = 'account-b';
+        return http.Response('{}', 200);
+      }),
+    );
+
+    await durable.flushPending();
+    expect(sends, 1);
+    expect(await queue.pendingCount('account-a'), 2);
+  });
+
+  test('replay never sends a token to an old API origin', () async {
+    final queue = LifeMateOfflineMutationQueue(storage: _MemoryStorage());
+    await queue.enqueue(
+      accountId: 'account-a',
+      method: 'POST',
+      uri: Uri.parse(
+        'https://old.example.test/api/v1/dose-occurrences/'
+        '123e4567-e89b-42d3-a456-426614174010/report',
+      ),
+      body: '{"clientRequestId":"request-old"}',
+      clientRequestId: 'request-old',
+    );
+    var sends = 0;
+    final durable = LifeMateDurableHttpClient(
+      apiBaseUri: Uri.parse('https://api.example.test'),
+      accessToken: () => 'fresh-token',
+      accountId: () => 'account-a',
+      queue: queue,
+      inner: MockClient((request) async {
+        sends++;
+        return http.Response('{}', 200);
+      }),
+    );
+
+    expect(await durable.flushPending(), 0);
+    expect(sends, 0);
+    expect(await queue.pendingCount('account-a'), 0);
+  });
+
   test('ordinary non-idempotent writes are never queued automatically', () async {
     final queue = LifeMateOfflineMutationQueue(storage: _MemoryStorage());
     final durable = LifeMateDurableHttpClient(
+      apiBaseUri: Uri.parse('https://api.example.test'),
       accessToken: () => 'token',
       accountId: () => 'account-a',
       queue: queue,
@@ -138,6 +214,32 @@ void main() {
     expect(await queue.pendingCount('account-a'), 0);
   });
 
+  test('durable API projects an offline queued dose as pending success', () async {
+    final queue = LifeMateOfflineMutationQueue(storage: _MemoryStorage());
+    final api = DurableLifeMateApiClient(
+      baseUri: Uri.parse('https://api.example.test'),
+      accessToken: () => 'token',
+      accountId: () => 'account-a',
+      queue: queue,
+      innerHttpClient: MockClient((request) async {
+        throw http.ClientException('offline', request.url);
+      }),
+    );
+
+    final result = await api.reportDose(
+      occurrenceId: '123e4567-e89b-42d3-a456-426614174010',
+      clientRequestId: '123e4567-e89b-42d3-a456-426614174099',
+      version: 4,
+      status: 'taken',
+      occurredAtUtc: DateTime.utc(2026, 8, 11, 18),
+    );
+
+    expect(result['pendingSync'], true);
+    expect(result['status'], 'taken');
+    expect(result['version'], 5);
+    expect(await queue.pendingCount('account-a'), 1);
+  });
+
   test('expired mutations are pruned instead of replayed forever', () async {
     final storage = _MemoryStorage();
     var now = DateTime.utc(2026, 8, 1);
@@ -149,7 +251,7 @@ void main() {
     await queue.enqueue(
       accountId: 'account-a',
       method: 'POST',
-      uri: Uri.parse('https://api.example.test/api/v1/care-events'),
+      uri: _doseUri('123e4567-e89b-42d3-a456-426614174010'),
       body: '{"clientRequestId":"request-a"}',
       clientRequestId: 'request-a',
     );
