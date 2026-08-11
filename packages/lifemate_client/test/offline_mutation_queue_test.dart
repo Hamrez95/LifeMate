@@ -13,8 +13,16 @@ class _MemoryStorage implements LifeMateMutationStorage {
   Future<String?> read(String key) async => values[key];
 
   @override
+  Future<Map<String, String>> readAll() async => Map<String, String>.from(values);
+
+  @override
   Future<void> write(String key, String value) async {
     values[key] = value;
+  }
+
+  @override
+  Future<void> delete(String key) async {
+    values.remove(key);
   }
 }
 
@@ -60,6 +68,58 @@ void main() {
         ),
     ]);
     expect(await queue.pendingCount('account-a'), 12);
+  });
+
+  test('separate queue instances cannot overwrite each other', () async {
+    final storage = _MemoryStorage();
+    final foreground = LifeMateOfflineMutationQueue(storage: storage);
+    final widget = LifeMateOfflineMutationQueue(storage: storage);
+
+    await Future.wait([
+      foreground.enqueue(
+        accountId: 'account-a',
+        method: 'POST',
+        uri: _doseUri('123e4567-e89b-42d3-a456-426614174201'),
+        body: '{"clientRequestId":"request-foreground"}',
+        clientRequestId: 'request-foreground',
+      ),
+      widget.enqueue(
+        accountId: 'account-a',
+        method: 'POST',
+        uri: _doseUri('123e4567-e89b-42d3-a456-426614174202'),
+        body: '{"clientRequestId":"request-widget"}',
+        clientRequestId: 'request-widget',
+      ),
+    ]);
+
+    expect(await foreground.pendingCount('account-a'), 2);
+    expect(await widget.pendingCount('account-a'), 2);
+  });
+
+  test('separate instances converge on the same idempotent request key', () async {
+    final storage = _MemoryStorage();
+    final foreground = LifeMateOfflineMutationQueue(storage: storage);
+    final widget = LifeMateOfflineMutationQueue(storage: storage);
+    final uri = _doseUri('123e4567-e89b-42d3-a456-426614174203');
+
+    await Future.wait([
+      foreground.enqueue(
+        accountId: 'account-a',
+        method: 'POST',
+        uri: uri,
+        body: '{"clientRequestId":"request-same"}',
+        clientRequestId: 'request-same',
+      ),
+      widget.enqueue(
+        accountId: 'account-a',
+        method: 'POST',
+        uri: uri,
+        body: '{"clientRequestId":"request-same"}',
+        clientRequestId: 'request-same',
+      ),
+    ]);
+
+    expect(await foreground.pendingCount('account-a'), 1);
   });
 
   test('queued actions are isolated by authenticated account', () async {
