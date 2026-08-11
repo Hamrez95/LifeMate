@@ -232,8 +232,6 @@ export function createHealthObservationStore(databaseUrl: string) {
     const id = rows[0]?.id;
     const code = rows[0]?.code;
     if (typeof id !== "string" || typeof code !== "string") {
-      // This is deployment/configuration failure, not something a mobile caller
-      // may select or fix through request data.
       throw new Error(
         `Trusted LifeMate source application is not registered: ${applicationCode}`,
       );
@@ -251,10 +249,6 @@ export function createHealthObservationStore(databaseUrl: string) {
     validateRange(fromDate, toDate, 3660);
     const personId = await resolveSelfPersonId(userId);
 
-    // Keep the requested history bounded independently from the canonical
-    // latest-per-type values. A future FitMate/wearable stream may legitimately
-    // fill the 5,000-row window, but that must never truncate an older height or
-    // another latest metric required by the dashboard.
     const windowRows = await sql`
       select h.*, app.code as source_application_code
       from lifemate.health_observations h
@@ -294,7 +288,7 @@ export function createHealthObservationStore(databaseUrl: string) {
   async function createOwnerObservation(
     userId: string,
     body: Record<string, unknown>,
-    trustedApplicationCode: string,
+    trustedApplicationCode = "wellmate",
   ): Promise<Record<string, unknown>> {
     const input = normalizeHealthObservationInput(body);
     const personId = await resolveSelfPersonId(userId);
@@ -349,9 +343,6 @@ export function createHealthObservationStore(databaseUrl: string) {
         });
       }
 
-      // Concurrent retries with the same request ID converge here after the
-      // unique-index conflict. Re-read the committed canonical row instead of
-      // leaking a database conflict to the user.
       const existing = await tx`
         select h.*, app.code as source_application_code
         from lifemate.health_observations h
