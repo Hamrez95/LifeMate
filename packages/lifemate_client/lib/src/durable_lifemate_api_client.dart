@@ -42,6 +42,37 @@ class DurableLifeMateApiClient extends LifeMateApiClient {
 
   final LifeMateDurableHttpClient _durableHttp;
 
+  /// A persisted offline adherence action is an accepted local action, not a
+  /// failed tap. Returning a pending-sync projection lets every existing dose
+  /// surface (including the primary home card) become non-repeatable locally
+  /// without each screen having to understand transport internals.
+  @override
+  Future<Map<String, dynamic>> reportDose({
+    required String occurrenceId,
+    required String clientRequestId,
+    required int version,
+    required String status,
+    required DateTime occurredAtUtc,
+  }) async {
+    try {
+      return await super.reportDose(
+        occurrenceId: occurrenceId,
+        clientRequestId: clientRequestId,
+        version: version,
+        status: status,
+        occurredAtUtc: occurredAtUtc,
+      );
+    } on LifeMateOfflineQueuedException {
+      return <String, dynamic>{
+        'id': occurrenceId,
+        'status': status,
+        'version': version + 1,
+        'pendingSync': true,
+        'clientRequestId': clientRequestId,
+      };
+    }
+  }
+
   Future<int> flushPendingMutations() => _durableHttp.flushPending();
 
   Future<int> pendingMutationCount() => _durableHttp.pendingCount();
