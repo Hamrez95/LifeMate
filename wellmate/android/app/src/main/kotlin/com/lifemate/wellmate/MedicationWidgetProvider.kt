@@ -81,7 +81,7 @@ class MedicationWidgetProvider : HomeWidgetProvider() {
             views.setViewVisibility(R.id.widget_countdown_static, View.VISIBLE)
             views.setTextViewText(
                 R.id.widget_countdown_static,
-                if (scheduledAtEpochMs <= 0L) "—" else "گذشته",
+                if (scheduledAtEpochMs <= 0L) "—" else "زمان مصرف گذشته",
             )
         } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
             val remainingMs = max(
@@ -125,6 +125,14 @@ class MedicationWidgetProvider : HomeWidgetProvider() {
             R.id.widget_take_button,
             "ثبت مصرف $treatmentName",
         )
+        views.setContentDescription(
+            R.id.widget_capsule_art,
+            "داروی بعدی $treatmentName",
+        )
+        views.setContentDescription(
+            R.id.widget_alarm_art,
+            if (overdue) "زمان مصرف گذشته" else "زمان باقی‌مانده تا مصرف",
+        )
     }
 
     private fun readLong(
@@ -147,8 +155,9 @@ class MedicationWidgetProvider : HomeWidgetProvider() {
         )
         val hours = remainingSeconds / 3600L
         val minutes = (remainingSeconds % 3600L) / 60L
+        val seconds = remainingSeconds % 60L
         return persianDigits(
-            String.format("%02d:%02d", hours, minutes),
+            String.format("%02d:%02d:%02d", hours, minutes, seconds),
         )
     }
 

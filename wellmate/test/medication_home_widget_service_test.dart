@@ -1,4 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
+import 'package:lifemate_client/lifemate_client.dart';
 import 'package:wellmate/core/widgets/medication_home_widget_service.dart';
 
 void main() {
@@ -65,6 +66,33 @@ void main() {
       expect(result.scheduledAt, DateTime(2026, 8, 11, 11));
     });
 
+    test('falls back to medication form when strength is absent', () {
+      final result = selectMedicationWidgetData(
+        now: DateTime(2026, 8, 11, 8),
+        treatmentPlans: [
+          {
+            'id': 'plan',
+            'doseText': '1 کپسول',
+            'medication': {'name': 'ویتامین B', 'form': 'کپسول'},
+          },
+        ],
+        doseOccurrences: [
+          {
+            'id': 'dose',
+            'treatmentPlanId': 'plan',
+            'status': 'scheduled',
+            'scheduledLocalDate': '2026-08-11',
+            'scheduledLocalTime': '09:30:00',
+          },
+        ],
+      );
+
+      expect(result, isNotNull);
+      expect(result!.quantity, '۱ کپسول');
+      expect(result.dose, 'کپسول');
+      expect(result.time, '۰۹:۳۰');
+    });
+
     test('keeps the newest overdue scheduled dose actionable', () {
       final now = DateTime(2026, 8, 11, 18);
       final result = selectMedicationWidgetData(
@@ -105,6 +133,46 @@ void main() {
       expect(result.dose, '۵۰۰ میلی‌گرم');
       expect(result.quantity, '۱ عدد');
       expect(result.time, '۱۷:۳۰');
+    });
+
+    test('recognizes the same completed occurrence as a duplicate tap', () {
+      expect(
+        shouldSkipDuplicateWidgetTap(
+          occurrenceId: 'dose-1',
+          lastCompletedOccurrenceId: 'dose-1',
+        ),
+        isTrue,
+      );
+      expect(
+        shouldSkipDuplicateWidgetTap(
+          occurrenceId: 'dose-2',
+          lastCompletedOccurrenceId: 'dose-1',
+        ),
+        isFalse,
+      );
+    });
+
+    test('maps unauthorized and network/API failures without false success', () {
+      expect(
+        widgetActionFailureMessage(
+          const LifeMateApiException(
+            statusCode: 401,
+            code: 'unauthorized',
+            message: 'expired',
+          ),
+        ),
+        'برای ثبت مصرف وارد WellMate شوید',
+      );
+      expect(
+        widgetActionFailureMessage(
+          const LifeMateApiException(
+            statusCode: 503,
+            code: 'database_busy',
+            message: 'retry',
+          ),
+        ),
+        'ثبت نشد؛ دوباره تلاش کنید',
+      );
     });
   });
 }
