@@ -51,7 +51,6 @@ Form fields:
 - `template`: approved Kavenegar verification-template name.
 - `type=sms`: text-message delivery. Voice fallback is not enabled in this
   baseline.
-- `tag`: optional Kavenegar tag when explicitly provisioned.
 
 The adapter uses POST form data so the phone number and OTP are not placed in
 ordinary request URLs/proxy access logs. The Kavenegar API key is part of the
@@ -66,8 +65,9 @@ Kavenegar documents the following relevant failures and the adapter maps them
 to privacy-safe internal codes: inactive/invalid account (`401`/`403`),
 insufficient credit (`418`), invalid token data (`422`/`431`), missing or
 unapproved template (`424`), advanced service required (`426`), missing token in
-template (`432`) and temporary provider unavailability (`409`). Provider bodies
-and messages are not returned to the mobile app.
+template (`432`), IP registration/restriction problems (`607`) and temporary
+provider unavailability (`409`). Provider bodies and messages are not returned
+to the mobile app.
 
 ## Secrets
 
@@ -75,7 +75,6 @@ Never commit these values. Configure them as Supabase Edge Function secrets:
 
 - `KAVENEGAR_API_KEY`
 - `KAVENEGAR_VERIFY_TEMPLATE`
-- `KAVENEGAR_VERIFY_TAG` (optional)
 - `SEND_SMS_HOOK_SECRETS`
 
 `SEND_SMS_HOOK_SECRETS` contains the Standard Webhooks secret generated when the
@@ -95,8 +94,7 @@ or repository files.
 3. Create a verification template such as `lifemate-login` and include `%token`
    in its text; wait for provider approval.
 4. Set `KAVENEGAR_API_KEY` and `KAVENEGAR_VERIFY_TEMPLATE` as Edge Function
-   secrets. Set `KAVENEGAR_VERIFY_TAG` only if a matching tag exists in the
-   Kavenegar panel.
+   secrets.
 5. Deploy `lifemate-kavenegar-sms-hook` with JWT verification disabled at the
    platform boundary. This function is a webhook and authenticates the caller
    by verifying the Supabase Standard Webhooks signature itself.
@@ -135,7 +133,8 @@ model and reviewed implementation.
 - Reject unsigned/invalid Supabase hook payloads before contacting Kavenegar.
 - Accept only Iranian mobile E.164 numbers in this first provider adapter.
 - Accept only numeric OTPs of 6-10 digits from the hook event.
-- Keep provider network calls bounded by timeout and fail closed.
+- Keep the Kavenegar request timeout comfortably below the enclosing Auth-hook
+  deadline and fail closed.
 - Treat Kavenegar as a replaceable delivery adapter; authentication and Person
   ownership remain LifeMate/Supabase concerns.
 - Do not enable email-based identity as a workaround for missing SMS-provider
