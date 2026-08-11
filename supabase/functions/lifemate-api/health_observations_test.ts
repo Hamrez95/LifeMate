@@ -12,7 +12,6 @@ Deno.test("health observation normalizes a manual weight record", () => {
   const value = normalizeHealthObservationInput(
     {
       clientRequestId: requestId,
-      sourceApplicationCode: "wellmate",
       observationType: "weight",
       valuePrimary: 78.4,
       observedAtUtc: "2026-08-10T08:00:00Z",
@@ -25,14 +24,13 @@ Deno.test("health observation normalizes a manual weight record", () => {
   assertEquals(value.valuePrimary, 78.4);
   assertEquals(value.valueSecondary, null);
   assertEquals(value.unitPrimary, "kg");
-  assertEquals(value.sourceApplicationCode, "wellmate");
 });
 
-Deno.test("health source application is normalized for ecosystem reuse", () => {
+Deno.test("health observation ignores client application provenance claims", () => {
   const value = normalizeHealthObservationInput(
     {
       clientRequestId: requestId,
-      sourceApplicationCode: "FitMate",
+      sourceApplicationCode: "caremate",
       observationType: "heart_rate",
       valuePrimary: 72,
       observedAtUtc: "2026-08-10T08:00:00Z",
@@ -41,27 +39,8 @@ Deno.test("health source application is normalized for ecosystem reuse", () => {
     },
     now,
   );
-  assertEquals(value.sourceApplicationCode, "fitmate");
-});
-
-Deno.test("health observation rejects malformed source application codes", () => {
-  const error = assertThrows(
-    () =>
-      normalizeHealthObservationInput(
-        {
-          clientRequestId: requestId,
-          sourceApplicationCode: "../fitmate",
-          observationType: "heart_rate",
-          valuePrimary: 72,
-          observedAtUtc: "2026-08-10T08:00:00Z",
-          observedLocalDate: "2026-08-10",
-          timeZone: "Asia/Tehran",
-        },
-        now,
-      ),
-    ApiError,
-  );
-  assertEquals(error.code, "invalid_sourceApplicationCode");
+  assertEquals(value.observationType, "heart_rate");
+  assertEquals("sourceApplicationCode" in value, false);
 });
 
 Deno.test("health observation accepts systolic and diastolic pressure", () => {
@@ -80,7 +59,6 @@ Deno.test("health observation accepts systolic and diastolic pressure", () => {
   assertEquals(value.valuePrimary, 118);
   assertEquals(value.valueSecondary, 76);
   assertEquals(value.unitPrimary, "mmHg");
-  assertEquals(value.sourceApplicationCode, "wellmate");
 });
 
 Deno.test("health note requires text and stores no numeric value", () => {
