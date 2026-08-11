@@ -27,13 +27,55 @@ export function createAccountExportStore(databaseUrl: string) {
     return personId;
   }
 
+  async function reserveExportQuota(accountId: string): Promise<void> {
+    // In-memory Edge rate limits are only a burst-control layer. This database
+    // reservation is the durable privacy/abuse boundary across isolates and
+    // deploys. The transaction-scoped advisory lock serializes concurrent export
+    // attempts for the same account before counting+reserving the quota slot.
+    await sql.begin(async (tx: any) => {
+      await tx`
+        select pg_advisory_xact_lock(
+          hashtextextended(${`account-export:${accountId}`}, 781245::bigint)
+        )
+      `;
+      const recent = await tx`
+        select count(*)::int as count
+        from lifemate.audit_logs
+        where actor_user_id=${accountId}::uuid
+          and action='account.data_export_requested'
+          and created_at_utc >= now() - interval '24 hours'
+      `;
+      if (Number(recent[0]?.count ?? 0) >= 3) {
+        throw new ApiError(
+          429,
+          "account_export_rate_limited",
+          "Account data export is limited to three requests per 24 hours.",
+        );
+      }
+      await tx`
+        insert into lifemate.audit_logs(
+          id, actor_user_id, action, resource_type, resource_id,
+          metadata_json, created_at_utc)
+        values(
+          ${crypto.randomUUID()}::uuid,
+          ${accountId}::uuid,
+          'account.data_export_requested',
+          'account',
+          ${accountId}::uuid,
+          ${JSON.stringify({ exportVersion: 1 })}::jsonb,
+          now())
+      `;
+    });
+  }
+
   async function exportAccount(accountId: string): Promise<Row> {
     const personId = await resolveSelfPersonId(accountId);
+    await reserveExportQuota(accountId);
 
     // Keep every query explicitly scoped to the authenticated account or its
-    // canonical self Person. Do not export internal auth subjects, contact
-    // hashes/ciphertext, service credentials, audit implementation metadata, or
-    // private data belonging only to a relationship counterpart.
+    // canonical self Person. Do not export auth/provider subjects, contact
+    // hashes/ciphertext, service credentials, audit internals, or the consent
+    // evidence that belongs to a relationship counterpart.
     const account = await sql`
       select id, status, created_at_utc, updated_at_utc
       from lifemate.app_users
@@ -147,13 +189,29 @@ export function createAccountExportStore(databaseUrl: string) {
       select id,
              case when patient_user_id=${accountId}::uuid
                   then 'patient' else 'caregiver' end as own_role,
-             status, patient_consent_version, patient_consented_at_utc,
-             caregiver_consent_version, caregiver_consented_at_utc,
-             revoked_at_utc, can_view_women_calendar,
-             can_manage_health_record,
-             health_record_management_consent_version,
-             health_record_management_consented_at_utc,
-             health_record_management_revoked_at_utc,
+             status,
+             case when patient_user_id=${accountId}::uuid
+                  then patient_consent_version else caregiver_consent_version
+             end as own_consent_version,
+             case when patient_user_id=${accountId}::uuid
+                  then patient_consented_at_utc else caregiver_consented_at_utc
+             end as own_consented_at_utc,
+             revoked_at_utc,
+             case when patient_user_id=${accountId}::uuid
+                  then can_view_women_calendar else null
+             end as women_calendar_sharing_granted_by_self,
+             case when patient_user_id=${accountId}::uuid
+                  then can_manage_health_record else null
+             end as health_record_management_granted_by_self,
+             case when patient_user_id=${accountId}::uuid
+                  then health_record_management_consent_version else null
+             end as health_record_management_consent_version,
+             case when patient_user_id=${accountId}::uuid
+                  then health_record_management_consented_at_utc else null
+             end as health_record_management_consented_at_utc,
+             case when patient_user_id=${accountId}::uuid
+                  then health_record_management_revoked_at_utc else null
+             end as health_record_management_revoked_at_utc,
              created_at_utc, updated_at_utc
       from lifemate.care_relationships
       where patient_user_id=${accountId}::uuid
@@ -173,7 +231,6 @@ export function createAccountExportStore(databaseUrl: string) {
              created_at_utc, updated_at_utc
       from consent.consent_records
       where subject_person_id=${personId}::uuid
-         or actor_account_id=${accountId}::uuid
       order by created_at_utc, id
     `;
     const dataUseConsents = await sql`
@@ -182,7 +239,6 @@ export function createAccountExportStore(databaseUrl: string) {
              created_at_utc, updated_at_utc
       from consent.data_use_consents
       where subject_person_id=${personId}::uuid
-         or actor_account_id=${accountId}::uuid
       order by created_at_utc, id
     `;
     const deletionRequests = await sql`
@@ -200,7 +256,7 @@ export function createAccountExportStore(databaseUrl: string) {
       values(
         ${crypto.randomUUID()}::uuid,
         ${accountId}::uuid,
-        'account.data_exported',
+        'account.data_export_completed',
         'account',
         ${accountId}::uuid,
         ${JSON.stringify({ exportVersion: 1 })}::jsonb,
@@ -236,7 +292,7 @@ export function createAccountExportStore(databaseUrl: string) {
       },
       exportNotes: [
         "Authentication secrets, access tokens, contact hashes/ciphertext and service-internal credentials are intentionally excluded.",
-        "Relationship counterpart private profile fields are intentionally excluded; only the requesting user's relationship/consent state is included.",
+        "Relationship counterpart consent evidence/private profile fields are excluded; only the requesting user's own relationship consent state is included.",
       ],
     };
   }
