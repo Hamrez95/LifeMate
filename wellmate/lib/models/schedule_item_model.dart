@@ -118,7 +118,7 @@ class ScheduleItemModel {
   }) {
     final nextStatus = status ?? this.status;
     final nextPending =
-        pendingSync ?? this.pendingSync || nextStatus == 'pending_sync';
+        (pendingSync ?? this.pendingSync) || nextStatus == 'pending_sync';
     return ScheduleItemModel(
       id: id ?? this.id,
       seriesId: seriesId ?? this.seriesId,
