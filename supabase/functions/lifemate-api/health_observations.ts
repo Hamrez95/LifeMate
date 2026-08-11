@@ -13,6 +13,7 @@ type Row = Record<string, any>;
 
 export type NormalizedHealthObservation = {
   clientRequestId: string;
+  sourceApplicationCode: string;
   observationType:
     | "weight"
     | "height"
@@ -74,6 +75,9 @@ export function normalizeHealthObservationInput(
   now = new Date(),
 ): NormalizedHealthObservation {
   const clientRequestId = requiredUuid(body.clientRequestId, "clientRequestId");
+  const sourceApplicationCode = normalizeApplicationCode(
+    body.sourceApplicationCode ?? "wellmate",
+  );
   const observationType = String(body.observationType ?? "")
     .trim()
     .toLowerCase();
@@ -113,6 +117,7 @@ export function normalizeHealthObservationInput(
     }
     return {
       clientRequestId,
+      sourceApplicationCode,
       observationType: "note",
       valuePrimary: null,
       valueSecondary: null,
@@ -152,6 +157,7 @@ export function normalizeHealthObservationInput(
 
   return {
     clientRequestId,
+    sourceApplicationCode,
     observationType:
       observationType as NormalizedHealthObservation["observationType"],
     valuePrimary,
@@ -163,6 +169,18 @@ export function normalizeHealthObservationInput(
     observedLocalDate,
     timeZone,
   };
+}
+
+function normalizeApplicationCode(value: unknown): string {
+  const code = String(value ?? "").trim().toLowerCase();
+  if (!/^[a-z0-9][a-z0-9_-]{1,63}$/.test(code)) {
+    throw new ApiError(
+      400,
+      "invalid_sourceApplicationCode",
+      "Source application code is invalid.",
+    );
+  }
+  return code;
 }
 
 function requiredMetricNumber(
@@ -208,6 +226,28 @@ export function createHealthObservationStore(databaseUrl: string) {
     return personId;
   }
 
+  async function resolveSourceApplication(
+    applicationCode: string,
+  ): Promise<{ id: string; code: string }> {
+    const rows = await sql`
+      select id, code
+      from ecosystem.applications
+      where code = ${applicationCode}
+        and status = 'Active'
+      limit 1
+    `;
+    const id = rows[0]?.id;
+    const code = rows[0]?.code;
+    if (typeof id !== "string" || typeof code !== "string") {
+      throw new ApiError(
+        400,
+        "source_application_unavailable",
+        "The source LifeMate application is not registered or active.",
+      );
+    }
+    return { id, code };
+  }
+
   async function listOwnerObservations(
     userId: string,
     fromDateValue: unknown,
@@ -217,12 +257,26 @@ export function createHealthObservationStore(databaseUrl: string) {
     const toDate = requiredDate(toDateValue, "toDate");
     validateRange(fromDate, toDate, 3660);
     const personId = await resolveSelfPersonId(userId);
+
+    // Besides the requested date window, carry the latest canonical value for
+    // every metric. This keeps long-lived facts such as height available to the
+    // dashboard/BMI without loading ten years of history. It also scales better
+    // for future high-frequency sources such as FitMate or device integrations.
     const rows = await sql`
-      select *
-      from lifemate.health_observations
-      where person_id = ${personId}::uuid
-        and observed_local_date between ${fromDate}::date and ${toDate}::date
-      order by observed_at_utc desc, id desc
+      select h.*, app.code as source_application_code
+      from lifemate.health_observations h
+      join ecosystem.applications app on app.id = h.source_application_id
+      where h.person_id = ${personId}::uuid
+        and (
+          h.observed_local_date between ${fromDate}::date and ${toDate}::date
+          or h.id in (
+            select distinct on (latest.observation_type) latest.id
+            from lifemate.health_observations latest
+            where latest.person_id = ${personId}::uuid
+            order by latest.observation_type, latest.observed_at_utc desc, latest.id desc
+          )
+        )
+      order by h.observed_at_utc desc, h.id desc
       limit 5000
     `;
     return rows.map(mapObservation);
@@ -234,51 +288,77 @@ export function createHealthObservationStore(databaseUrl: string) {
   ): Promise<Record<string, unknown>> {
     const input = normalizeHealthObservationInput(body);
     const personId = await resolveSelfPersonId(userId);
+    const sourceApplication = await resolveSourceApplication(
+      input.sourceApplicationCode,
+    );
 
     return await sql.begin(async (tx: any) => {
-      const existing = await tx`
-        select *
-        from lifemate.health_observations
-        where owner_user_id = ${userId}::uuid
-          and client_request_id = ${input.clientRequestId}::uuid
-        limit 1
-      `;
-      if (existing[0]) return mapObservation(existing[0]);
-
       const id = crypto.randomUUID();
-      const rows = await tx`
+      const inserted = await tx`
         insert into lifemate.health_observations
-          (id, owner_user_id, person_id, client_request_id,
+          (id, owner_user_id, person_id, recorded_by_account_id,
+           source_application_id, client_request_id,
            observation_type, value_primary, value_secondary,
            unit_primary, unit_secondary, note, observed_at_utc,
            observed_local_date, time_zone, source_category,
            source_provider, source_external_id, metadata_json,
            version, created_at_utc, updated_at_utc)
         values
-          (${id}, ${userId}::uuid, ${personId}::uuid,
-           ${input.clientRequestId}::uuid, ${input.observationType},
-           ${input.valuePrimary}, ${input.valueSecondary},
-           ${input.unitPrimary}, ${input.unitSecondary}, ${input.note},
-           ${input.observedAtUtc}, ${input.observedLocalDate}::date,
-           ${input.timeZone}, 'FirstPartyUserInput', 'WellMate', null,
+          (${id}, ${userId}::uuid, ${personId}::uuid, ${userId}::uuid,
+           ${sourceApplication.id}::uuid, ${input.clientRequestId}::uuid,
+           ${input.observationType}, ${input.valuePrimary},
+           ${input.valueSecondary}, ${input.unitPrimary},
+           ${input.unitSecondary}, ${input.note}, ${input.observedAtUtc},
+           ${input.observedLocalDate}::date, ${input.timeZone},
+           'FirstPartyUserInput', ${sourceApplication.code}, null,
            '{}'::jsonb, 1, now(), now())
+        on conflict (person_id, source_application_id, client_request_id)
+        do nothing
         returning *
       `;
-      await tx`
-        insert into lifemate.audit_logs
-          (id, actor_user_id, action, resource_type, resource_id,
-           metadata_json, created_at_utc)
-        values
-          (${crypto.randomUUID()}, ${userId}::uuid,
-           'health.observation_created', 'health_observation', ${id}::uuid,
-           ${
-        JSON.stringify({
-          observationType: input.observationType,
-          sourceCategory: "FirstPartyUserInput",
-        })
-      }::jsonb, now())
+
+      if (inserted[0]) {
+        await tx`
+          insert into lifemate.audit_logs
+            (id, actor_user_id, action, resource_type, resource_id,
+             metadata_json, created_at_utc)
+          values
+            (${crypto.randomUUID()}, ${userId}::uuid,
+             'health.observation_created', 'health_observation', ${id}::uuid,
+             ${
+          JSON.stringify({
+            observationType: input.observationType,
+            sourceCategory: "FirstPartyUserInput",
+            sourceApplicationCode: sourceApplication.code,
+          })
+        }::jsonb, now())
+        `;
+        return mapObservation({
+          ...inserted[0],
+          source_application_code: sourceApplication.code,
+        });
+      }
+
+      // Concurrent retries with the same request ID converge here after the
+      // unique-index conflict. Re-read the committed canonical row instead of
+      // leaking a database conflict to the user.
+      const existing = await tx`
+        select h.*, app.code as source_application_code
+        from lifemate.health_observations h
+        join ecosystem.applications app on app.id = h.source_application_id
+        where h.person_id = ${personId}::uuid
+          and h.source_application_id = ${sourceApplication.id}::uuid
+          and h.client_request_id = ${input.clientRequestId}::uuid
+        limit 1
       `;
-      return mapObservation(rows[0]);
+      if (!existing[0]) {
+        throw new ApiError(
+          409,
+          "health_observation_idempotency_conflict",
+          "The health observation could not be resolved after a retry.",
+        );
+      }
+      return mapObservation(existing[0]);
     });
   }
 
@@ -292,8 +372,8 @@ export function createHealthObservationStore(databaseUrl: string) {
       const deleted = await tx`
         delete from lifemate.health_observations
         where id = ${observationId}::uuid
-          and owner_user_id = ${userId}::uuid
           and person_id = ${personId}::uuid
+          and recorded_by_account_id = ${userId}::uuid
         returning id, observation_type
       `;
       if (!deleted[0]) {
@@ -344,6 +424,7 @@ function mapObservation(row: Row): Record<string, unknown> {
     timeZone: row.time_zone,
     sourceCategory: row.source_category,
     sourceProvider: row.source_provider,
+    sourceApplicationCode: row.source_application_code ?? null,
     version: Number(row.version),
     createdAtUtc: iso(row.created_at_utc),
     updatedAtUtc: iso(row.updated_at_utc),
