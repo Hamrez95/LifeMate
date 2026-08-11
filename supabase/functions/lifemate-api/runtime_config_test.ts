@@ -1,5 +1,8 @@
 import { assertEquals, assertThrows } from "jsr:@std/assert@1.0.14";
-import { selectContactHashingSecret } from "./runtime_config.ts";
+import {
+  buildRestrictedDatabaseUrl,
+  selectContactHashingSecret,
+} from "./runtime_config.ts";
 
 const environmentSecret = "environment-dedicated-secret-1234567890";
 const dictionarySecret = "dictionary-dedicated-secret-12345678901";
@@ -63,6 +66,50 @@ Deno.test("short or missing dedicated secrets fail closed", () => {
         vault: null,
         serviceRole,
       }),
+    Error,
+    "at least 32 characters",
+  );
+});
+
+Deno.test("restricted database URL replaces direct postgres login", () => {
+  const value = buildRestrictedDatabaseUrl(
+    "postgresql://postgres:admin-password@db.example.test:5432/postgres?sslmode=require",
+    "lifemate_edge_runtime",
+    "runtime-password-123456789012345678901234567890",
+  );
+  const parsed = new URL(value);
+  assertEquals(decodeURIComponent(parsed.username), "lifemate_edge_runtime");
+  assertEquals(
+    decodeURIComponent(parsed.password),
+    "runtime-password-123456789012345678901234567890",
+  );
+  assertEquals(parsed.hostname, "db.example.test");
+  assertEquals(parsed.port, "5432");
+  assertEquals(parsed.pathname, "/postgres");
+  assertEquals(parsed.searchParams.get("sslmode"), "require");
+});
+
+Deno.test("restricted database URL preserves Supabase pooler project suffix", () => {
+  const value = buildRestrictedDatabaseUrl(
+    "postgresql://postgres.projectref:admin-password@pooler.example.test:6543/postgres",
+    "lifemate_edge_runtime",
+    "runtime-password-123456789012345678901234567890",
+  );
+  const parsed = new URL(value);
+  assertEquals(
+    decodeURIComponent(parsed.username),
+    "lifemate_edge_runtime.projectref",
+  );
+});
+
+Deno.test("restricted database URL rejects weak credentials", () => {
+  assertThrows(
+    () =>
+      buildRestrictedDatabaseUrl(
+        "postgresql://postgres:admin@db.example.test/postgres",
+        "lifemate_edge_runtime",
+        "short",
+      ),
     Error,
     "at least 32 characters",
   );
