@@ -24,6 +24,14 @@ class LifeMateAuth {
     return refreshed.session?.accessToken;
   }
 
+  /// Forces a refresh even when the locally restored JWT has not yet crossed
+  /// its client-side expiry. This is used by isolated background work after a
+  /// server-side 401 so the retried request uses a newly issued token.
+  static Future<String?> refreshAccessToken() async {
+    final refreshed = await Supabase.instance.client.auth.refreshSession();
+    return refreshed.session?.accessToken;
+  }
+
   static String callbackUrlForApp(String appName) {
     final normalized = appName.trim().toLowerCase();
     final scheme = normalized.contains('care')
