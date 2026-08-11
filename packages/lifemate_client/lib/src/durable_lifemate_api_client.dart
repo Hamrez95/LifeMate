@@ -1,8 +1,24 @@
+import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 
 import 'durable_http_client.dart';
 import 'lifemate_api_client.dart';
 import 'offline_mutation_queue.dart';
+
+class LifeMatePendingSyncEvent {
+  const LifeMatePendingSyncEvent({
+    required this.occurrenceId,
+    required this.status,
+  });
+
+  final String occurrenceId;
+  final String status;
+}
+
+/// Lightweight production signal for an accepted local dose that has not yet
+/// been confirmed by the server. The value contains no token or health note.
+final ValueNotifier<LifeMatePendingSyncEvent?> lifeMatePendingSyncEvent =
+    ValueNotifier<LifeMatePendingSyncEvent?>(null);
 
 /// Production API client used by authenticated LifeMate app surfaces.
 /// Reads and ordinary mutations behave exactly like [LifeMateApiClient]. Only
@@ -44,8 +60,8 @@ class DurableLifeMateApiClient extends LifeMateApiClient {
 
   /// A persisted offline adherence action is an accepted local action, not a
   /// failed tap. Returning a pending-sync projection lets every existing dose
-  /// surface (including the primary home card) become non-repeatable locally
-  /// without each screen having to understand transport internals.
+  /// surface become non-repeatable locally while the shared production shell
+  /// visibly tells the user that server confirmation is still pending.
   @override
   Future<Map<String, dynamic>> reportDose({
     required String occurrenceId,
@@ -63,6 +79,10 @@ class DurableLifeMateApiClient extends LifeMateApiClient {
         occurredAtUtc: occurredAtUtc,
       );
     } on LifeMateOfflineQueuedException {
+      lifeMatePendingSyncEvent.value = LifeMatePendingSyncEvent(
+        occurrenceId: occurrenceId,
+        status: status,
+      );
       return <String, dynamic>{
         'id': occurrenceId,
         'status': status,
