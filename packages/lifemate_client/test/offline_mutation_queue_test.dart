@@ -295,7 +295,8 @@ void main() {
     );
 
     expect(result['pendingSync'], true);
-    expect(result['status'], 'taken');
+    expect(result['status'], 'pending_sync');
+    expect(result['pendingStatus'], 'taken');
     expect(result['version'], 5);
     expect(await queue.pendingCount('account-a'), 1);
   });
