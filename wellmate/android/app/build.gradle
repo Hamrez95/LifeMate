@@ -11,6 +11,21 @@ if (keystorePropertiesFile.exists()) {
     keystoreProperties.load(new FileInputStream(keystorePropertiesFile))
 }
 
+// GitHub's GITHUB_RUN_NUMBER is scoped per workflow, so two valid LifeMate
+// release workflows can otherwise produce Android versionCodes that move
+// backwards relative to one another. Every CI Android build therefore uses one
+// repository-wide monotonic time scale: UTC seconds since 2025-01-01.
+def lifemateCiVersionCode = null
+if (System.getenv("GITHUB_ACTIONS") == "true") {
+    final long baseEpochSeconds = 1735689600L
+    final long currentEpochSeconds = Math.floorDiv(System.currentTimeMillis(), 1000L)
+    final long computedVersionCode = currentEpochSeconds - baseEpochSeconds
+    if (computedVersionCode <= 0L || computedVersionCode > 2100000000L) {
+        throw new GradleException("LifeMate CI versionCode is outside Android's supported range: ${computedVersionCode}")
+    }
+    lifemateCiVersionCode = (int) computedVersionCode
+}
+
 android {
     namespace = "com.lifemate.wellmate"
     compileSdk = flutter.compileSdkVersion
@@ -28,11 +43,9 @@ android {
 
     defaultConfig {
         applicationId = "com.lifemate.wellmate"
-        // You can update the following values to match your application needs.
-        // For more information, see: https://flutter.dev/to/review-gradle-config.
         minSdk = flutter.minSdkVersion
         targetSdk = flutter.targetSdkVersion
-        versionCode = flutter.versionCode
+        versionCode = lifemateCiVersionCode != null ? lifemateCiVersionCode : flutter.versionCode
         versionName = flutter.versionName
     }
 
