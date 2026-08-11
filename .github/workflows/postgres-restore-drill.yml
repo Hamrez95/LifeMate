@@ -22,9 +22,9 @@ permissions:
 jobs:
   logical-backup-restore:
     runs-on: ubuntu-24.04
-    timeout-minutes: 20
+    timeout-minutes: 25
     services:
-      postgres:
+      source_postgres:
         image: postgres:17.6-alpine
         env:
           POSTGRES_DB: lifemate_source
@@ -36,13 +36,22 @@ jobs:
           --health-interval 5s
           --health-timeout 5s
           --health-retries 10
+      restore_postgres:
+        image: postgres:17.6-alpine
+        env:
+          POSTGRES_DB: lifemate_restore
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+        ports: ['5433:5432']
+        options: >-
+          --health-cmd "pg_isready -U postgres -d lifemate_restore"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
     env:
       SOURCE_DATABASE_URL: postgres://postgres:postgres@localhost:5432/lifemate_source
-      RESTORE_DATABASE_URL: postgres://postgres:postgres@localhost:5432/lifemate_restore
-      PGHOST: localhost
-      PGPORT: 5432
-      PGUSER: postgres
-      PGPASSWORD: postgres
+      RESTORE_ADMIN_URL: postgres://postgres:postgres@localhost:5433/postgres
+      RESTORE_DATABASE_URL: postgres://postgres:postgres@localhost:5433/lifemate_restore
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
         with:
@@ -73,33 +82,52 @@ jobs:
           values ('123e4567-e89b-42d3-a456-426614174777', 'lifemate-restore-drill');
           SQL
 
-      - name: Create logical backup
+      - name: Create database backup and cluster-role manifest
         shell: bash
         run: |
           set -euo pipefail
+          # ACLs are intentionally preserved. Runtime role passwords are not
+          # copied into CI; only security attributes needed to restore policy and
+          # grant targets are materialized into a separate cluster-role manifest.
           pg_dump "$SOURCE_DATABASE_URL" \
             --format=custom \
             --no-owner \
-            --no-acl \
             --file="$RUNNER_TEMP/lifemate.restore-drill.dump"
           test -s "$RUNNER_TEMP/lifemate.restore-drill.dump"
 
-      - name: Restore into a clean database
+          psql "$SOURCE_DATABASE_URL" --set=ON_ERROR_STOP=1 --tuples-only --no-align <<'SQL' > "$RUNNER_TEMP/lifemate.runtime-roles.sql"
+          select format(
+            'create role %I %s %s %s %s %s %s %s;',
+            rolname,
+            case when rolcanlogin then 'LOGIN' else 'NOLOGIN' end,
+            case when rolsuper then 'SUPERUSER' else 'NOSUPERUSER' end,
+            case when rolinherit then 'INHERIT' else 'NOINHERIT' end,
+            case when rolcreaterole then 'CREATEROLE' else 'NOCREATEROLE' end,
+            case when rolcreatedb then 'CREATEDB' else 'NOCREATEDB' end,
+            case when rolreplication then 'REPLICATION' else 'NOREPLICATION' end,
+            case when rolbypassrls then 'BYPASSRLS' else 'NOBYPASSRLS' end
+          )
+          from pg_roles
+          where rolname in ('lifemate_edge_runtime','lifemate_worker_runtime')
+          order by rolname;
+          SQL
+          test "$(grep -c '^create role lifemate_.*_runtime' "$RUNNER_TEMP/lifemate.runtime-roles.sql")" -eq 2
+
+      - name: Restore into an independent clean PostgreSQL cluster
         shell: bash
         run: |
           set -euo pipefail
-          psql postgres://postgres:postgres@localhost:5432/postgres \
-            --set=ON_ERROR_STOP=1 \
-            -c 'drop database if exists lifemate_restore with (force);' \
-            -c 'create database lifemate_restore;'
+          # Port 5433 is a second PostgreSQL service/container. It shares no
+          # roles/catalog state with the source cluster on 5432.
+          psql "$RESTORE_ADMIN_URL" --set=ON_ERROR_STOP=1 \
+            --file="$RUNNER_TEMP/lifemate.runtime-roles.sql"
           pg_restore \
             --dbname="$RESTORE_DATABASE_URL" \
             --no-owner \
-            --no-acl \
             --exit-on-error \
             "$RUNNER_TEMP/lifemate.restore-drill.dump"
 
-      - name: Verify restored data and security contracts
+      - name: Verify restored data, ACL and RLS contracts
         shell: bash
         run: |
           set -euo pipefail
@@ -137,6 +165,18 @@ jobs:
             end if;
 
             if not exists (
+              select 1
+              from pg_policies
+              where schemaname='lifemate'
+                and tablename='health_observations'
+                and policyname='lifemate_edge_runtime_access'
+                and cmd='ALL'
+                and 'lifemate_edge_runtime'=any(roles)
+            ) then
+              raise exception 'expected restricted Edge RLS policy missing';
+            end if;
+
+            if not exists (
               select 1 from pg_proc p
               join pg_namespace n on n.oid=p.pronamespace
               where n.nspname='identity'
@@ -154,17 +194,39 @@ jobs:
           $$;
           SQL
 
+          # ACL + RLS positive probes under the exact restored runtime roles.
+          psql "$RESTORE_DATABASE_URL" --set=ON_ERROR_STOP=1 <<'SQL'
+          set role lifemate_edge_runtime;
+          select count(*) from ecosystem.applications;
+          select count(*) from lifemate.health_observations;
+          reset role;
+          set role lifemate_worker_runtime;
+          select count(*) from integration.outbox_messages;
+          reset role;
+          SQL
+
+          # An unrelated role must not gain healthcare read access after restore.
+          psql "$RESTORE_ADMIN_URL" --set=ON_ERROR_STOP=1 \
+            -c 'create role restore_probe_unrelated nologin;'
+          if psql "$RESTORE_DATABASE_URL" --set=ON_ERROR_STOP=1 \
+            -c 'set role restore_probe_unrelated; select count(*) from lifemate.health_observations;'; then
+            echo 'Unrelated role unexpectedly read restored healthcare data.' >&2
+            exit 1
+          fi
+
       - name: Record drill evidence
         shell: bash
         run: |
           {
             echo '## PostgreSQL restore drill'
             echo ''
-            echo '- canonical baseline + every forward migration: applied'
-            echo '- logical pg_dump: created'
-            echo '- restore target: clean PostgreSQL 17.6 database'
+            echo '- source and restore: independent PostgreSQL 17.6 clusters'
+            echo '- canonical baseline + every forward migration: source applied'
+            echo '- custom database dump with ACLs: restored'
+            echo '- restricted runtime role attributes: restored from separate password-free manifest'
             echo '- synthetic data sentinel: restored'
-            echo '- critical schemas/tables: restored'
-            echo '- health RLS + FORCE RLS: restored'
-            echo '- restricted runtime role BYPASSRLS=false: verified'
+            echo '- critical schemas/functions: restored'
+            echo '- Health RLS + FORCE RLS + expected Edge policy: verified'
+            echo '- Edge and worker representative ACL probes: passed'
+            echo '- unrelated healthcare read: denied'
           } >> "$GITHUB_STEP_SUMMARY"
