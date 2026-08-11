@@ -92,31 +92,39 @@ class LifeMateAccountExportApi {
 /// action and is handed to the operating-system share sheet as text. LifeMate
 /// never places the health export on the general clipboard and does not create a
 /// temporary attachment/cache file or persist the JSON in application storage.
+/// If the platform share operation fails, the same in-memory payload can be
+/// retried without consuming another server-side export quota slot.
 Future<void> showLifeMateAccountExportDialog(
   BuildContext context, {
   required String fontFamily,
 }) async {
+  final isPersian = Localizations.localeOf(context).languageCode == 'fa';
+  String t(String fa, String en) => isPersian ? fa : en;
+
   final confirmed = await showDialog<bool>(
     context: context,
     builder: (dialogContext) => AlertDialog(
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
       title: Text(
-        'دریافت داده‌های من',
+        t('دریافت داده‌های من', 'Export my data'),
         style: TextStyle(fontFamily: fontFamily, fontWeight: FontWeight.w900),
       ),
       content: Text(
-        'یک نسخه JSON از اطلاعات حساب، درمان‌ها، ثبت‌های سلامت، داده‌های بانوان و رضایت‌های خودت آماده می‌شود. رمزها، توکن‌ها و اطلاعات خصوصی طرف مقابل وارد خروجی نمی‌شوند. بعد از آماده‌سازی، خودت مقصد را از پنجره اشتراک گوشی انتخاب می‌کنی.',
+        t(
+          'یک نسخه JSON از اطلاعات حساب، درمان‌ها، ثبت‌های سلامت، داده‌های بانوان و رضایت‌های خودت آماده می‌شود. رمزها، توکن‌ها و اطلاعات خصوصی طرف مقابل وارد خروجی نمی‌شوند. بعد از آماده‌سازی، خودت مقصد را از پنجره اشتراک گوشی انتخاب می‌کنی.',
+          'LifeMate will prepare a JSON copy of your account, treatments, health records, women-health data and your own consent records. Passwords, tokens and the other person’s private data are excluded. After preparation, you choose the destination from your device share sheet.',
+        ),
         style: TextStyle(fontFamily: fontFamily, height: 1.7),
       ),
       actions: [
         TextButton(
           onPressed: () => Navigator.pop(dialogContext, false),
-          child: const Text('انصراف'),
+          child: Text(t('انصراف', 'Cancel')),
         ),
         FilledButton.icon(
           onPressed: () => Navigator.pop(dialogContext, true),
           icon: const Icon(Icons.ios_share_rounded),
-          label: const Text('آماده‌سازی و اشتراک'),
+          label: Text(t('آماده‌سازی و اشتراک', 'Prepare and share')),
         ),
       ],
     ),
@@ -130,8 +138,14 @@ Future<void> showLifeMateAccountExportDialog(
   } on LifeMateApiException catch (error) {
     if (!context.mounted) return;
     final message = error.statusCode == 429
-        ? 'برای حفاظت از داده‌ها، حداکثر سه خروجی در ۲۴ ساعت مجاز است.'
-        : 'دریافت داده‌ها انجام نشد. اتصال را بررسی کن.';
+        ? t(
+            'برای حفاظت از داده‌ها، حداکثر سه خروجی در ۲۴ ساعت مجاز است.',
+            'To protect your data, at most three exports are allowed in 24 hours.',
+          )
+        : t(
+            'دریافت داده‌ها انجام نشد. اتصال را بررسی کن.',
+            'Could not export your data. Check your connection and try again.',
+          );
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(content: Text(message)),
     );
@@ -139,8 +153,13 @@ Future<void> showLifeMateAccountExportDialog(
   } catch (_) {
     if (context.mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('دریافت داده‌ها انجام نشد. اتصال را بررسی کن.'),
+        SnackBar(
+          content: Text(
+            t(
+              'دریافت داده‌ها انجام نشد. اتصال را بررسی کن.',
+              'Could not export your data. Check your connection and try again.',
+            ),
+          ),
         ),
       );
     }
@@ -150,27 +169,61 @@ Future<void> showLifeMateAccountExportDialog(
   }
   if (!context.mounted) return;
 
+  // Keep one server response in memory for all share retries. A share-sheet
+  // failure must not cause a second API request or burn another quota slot.
   final jsonText = const JsonEncoder.withIndent('  ').convert(exported);
   final box = context.findRenderObject() as RenderBox?;
 
-  try {
-    await SharePlus.instance.share(
-      ShareParams(
-        title: 'خروجی داده‌های LifeMate',
-        subject: 'LifeMate data export',
-        text: jsonText,
-        sharePositionOrigin: box == null
-            ? null
-            : box.localToGlobal(Offset.zero) & box.size,
-        downloadFallbackEnabled: false,
-      ),
-    );
-  } catch (_) {
-    if (!context.mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('پنجره اشتراک باز نشد؛ دوباره تلاش کن.'),
-      ),
-    );
+  while (context.mounted) {
+    try {
+      await SharePlus.instance.share(
+        ShareParams(
+          title: t('خروجی داده‌های LifeMate', 'LifeMate data export'),
+          subject: 'LifeMate data export',
+          text: jsonText,
+          sharePositionOrigin: box == null
+              ? null
+              : box.localToGlobal(Offset.zero) & box.size,
+          downloadFallbackEnabled: false,
+        ),
+      );
+      return;
+    } catch (_) {
+      if (!context.mounted) return;
+      final retry = await showDialog<bool>(
+        context: context,
+        builder: (dialogContext) => AlertDialog(
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(24),
+          ),
+          title: Text(
+            t('اشتراک انجام نشد', 'Sharing failed'),
+            style: TextStyle(
+              fontFamily: fontFamily,
+              fontWeight: FontWeight.w900,
+            ),
+          ),
+          content: Text(
+            t(
+              'خروجی هنوز فقط در حافظه همین صفحه است. می‌توانی بدون درخواست دوباره از سرور، اشتراک را دوباره امتحان کنی.',
+              'The export is still only in this screen’s memory. You can retry sharing without requesting another export from the server.',
+            ),
+            style: TextStyle(fontFamily: fontFamily, height: 1.6),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(dialogContext, false),
+              child: Text(t('بستن', 'Close')),
+            ),
+            FilledButton.icon(
+              onPressed: () => Navigator.pop(dialogContext, true),
+              icon: const Icon(Icons.refresh_rounded),
+              label: Text(t('تلاش دوباره', 'Retry')),
+            ),
+          ],
+        ),
+      );
+      if (retry != true) return;
+    }
   }
 }
