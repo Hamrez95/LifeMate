@@ -88,8 +88,25 @@ write_properties \
   "$CAREMATE_KEY_PASSWORD" \
   "$CAREMATE_KEY_ALIAS"
 
-wellmate_fingerprint="$(keytool -list -v -keystore "$wellmate_store" -storepass "$WELLMATE_STORE_PASSWORD" -alias "$WELLMATE_KEY_ALIAS" | awk '/SHA256:/{print $2; exit}')"
-caremate_fingerprint="$(keytool -list -v -keystore "$caremate_store" -storepass "$CAREMATE_STORE_PASSWORD" -alias "$CAREMATE_KEY_ALIAS" | awk '/SHA256:/{print $2; exit}')"
+certificate_sha256() {
+  local store_file="$1"
+  local store_password="$2"
+  local alias="$3"
+  local cert_file="$4"
+
+  keytool -exportcert \
+    -keystore "$store_file" \
+    -storepass "$store_password" \
+    -alias "$alias" \
+    -file "$cert_file" >/dev/null
+  test -s "$cert_file"
+  sha256sum "$cert_file" | awk '{print $1}'
+}
+
+wellmate_cert="$signing_dir/wellmate-signing-cert.der"
+caremate_cert="$signing_dir/caremate-signing-cert.der"
+wellmate_fingerprint="$(certificate_sha256 "$wellmate_store" "$WELLMATE_STORE_PASSWORD" "$WELLMATE_KEY_ALIAS" "$wellmate_cert")"
+caremate_fingerprint="$(certificate_sha256 "$caremate_store" "$CAREMATE_STORE_PASSWORD" "$CAREMATE_KEY_ALIAS" "$caremate_cert")"
 
 test -n "$wellmate_fingerprint"
 test -n "$caremate_fingerprint"
