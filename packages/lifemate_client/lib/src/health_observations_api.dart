@@ -3,6 +3,8 @@ import 'dart:convert';
 
 import 'package:http/http.dart' as http;
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:timezone/data/latest.dart' as tz_data;
+import 'package:timezone/timezone.dart' as tz;
 
 import 'app_config.dart';
 import 'lifemate_api_client.dart';
@@ -24,6 +26,7 @@ class LifeMateHealthObservation {
     required this.timeZone,
     required this.sourceCategory,
     required this.sourceProvider,
+    required this.sourceApplicationCode,
     required this.version,
   });
 
@@ -55,6 +58,7 @@ class LifeMateHealthObservation {
       timeZone: json['timeZone']?.toString() ?? 'Asia/Tehran',
       sourceCategory: json['sourceCategory']?.toString() ?? '',
       sourceProvider: json['sourceProvider']?.toString() ?? '',
+      sourceApplicationCode: json['sourceApplicationCode']?.toString(),
       version: int.tryParse(json['version']?.toString() ?? '') ?? 1,
     );
   }
@@ -72,6 +76,7 @@ class LifeMateHealthObservation {
   final String timeZone;
   final String sourceCategory;
   final String sourceProvider;
+  final String? sourceApplicationCode;
   final int version;
 
   static double? _number(Object? value) {
@@ -86,24 +91,33 @@ class LifeMateHealthApi {
     required Uri baseUri,
     required LifeMateHealthAccessTokenProvider accessToken,
     http.Client? httpClient,
+    String applicationCode = 'wellmate',
   }) : _baseUri = baseUri,
        _accessToken = accessToken,
-       _http = httpClient ?? http.Client();
+       _http = httpClient ?? http.Client(),
+       _applicationCode = _normalizeApplicationCode(applicationCode);
 
-  factory LifeMateHealthApi.fromEnvironment({http.Client? httpClient}) {
+  factory LifeMateHealthApi.fromEnvironment({
+    http.Client? httpClient,
+    String applicationCode = 'wellmate',
+  }) {
     final config = AppConfig.fromEnvironment();
     return LifeMateHealthApi(
       baseUri: config.apiBaseUri,
       accessToken: () =>
           Supabase.instance.client.auth.currentSession?.accessToken,
       httpClient: httpClient,
+      applicationCode: applicationCode,
     );
   }
 
   final Uri _baseUri;
   final LifeMateHealthAccessTokenProvider _accessToken;
   final http.Client _http;
+  final String _applicationCode;
+  final Map<String, String> _pendingCreateRequestIds = <String, String>{};
   static const _timeout = Duration(seconds: 20);
+  static bool _timeZonesInitialized = false;
 
   Future<List<LifeMateHealthObservation>> listObservations({
     required DateTime fromDate,
@@ -134,22 +148,51 @@ class LifeMateHealthApi {
     required String timeZone,
     String? clientRequestId,
   }) async {
-    final value = await _request(
-      'POST',
-      '/api/v1/health/observations',
-      body: {
-        'clientRequestId':
-            clientRequestId ?? LifeMateApiClient.createClientRequestId(),
-        'observationType': observationType.trim().toLowerCase(),
-        'valuePrimary': valuePrimary,
-        'valueSecondary': valueSecondary,
-        'note': _emptyToNull(note),
-        'observedAtUtc': observedAtUtc.toUtc().toIso8601String(),
-        'observedLocalDate': _date(observedLocalDate),
-        'timeZone': timeZone.trim(),
-      },
+    // `observedLocalDate` deliberately carries the wall-clock components from
+    // the entry sheet. Convert those components using the declared profile time
+    // zone rather than the device zone. This prevents travel/device-zone drift.
+    final canonicalObservedAtUtc = _wallClockToUtc(observedLocalDate, timeZone);
+    final fingerprint = _createFingerprint(
+      observationType: observationType,
+      valuePrimary: valuePrimary,
+      valueSecondary: valueSecondary,
+      note: note,
+      observedLocalDate: observedLocalDate,
+      timeZone: timeZone,
     );
-    return LifeMateHealthObservation.fromJson(_object(value));
+    final generatedRequestId = clientRequestId == null;
+    final requestId = clientRequestId ??
+        _pendingCreateRequestIds.putIfAbsent(
+          fingerprint,
+          LifeMateApiClient.createClientRequestId,
+        );
+
+    try {
+      final value = await _request(
+        'POST',
+        '/api/v1/health/observations',
+        body: {
+          'clientRequestId': requestId,
+          'sourceApplicationCode': _applicationCode,
+          'observationType': observationType.trim().toLowerCase(),
+          'valuePrimary': valuePrimary,
+          'valueSecondary': valueSecondary,
+          'note': _emptyToNull(note),
+          'observedAtUtc': canonicalObservedAtUtc.toIso8601String(),
+          'observedLocalDate': _date(observedLocalDate),
+          'timeZone': timeZone.trim(),
+        },
+      );
+      if (generatedRequestId) {
+        _pendingCreateRequestIds.remove(fingerprint);
+      }
+      return LifeMateHealthObservation.fromJson(_object(value));
+    } catch (_) {
+      // Keep the generated request ID after a timeout/network/server failure.
+      // If the server committed but the response was lost, retrying the same
+      // draft converges on the original observation instead of duplicating it.
+      rethrow;
+    }
   }
 
   Future<void> deleteObservation({required String observationId}) async {
@@ -223,6 +266,55 @@ class LifeMateHealthApi {
     );
   }
 
+  DateTime _wallClockToUtc(DateTime wallClock, String timeZone) {
+    if (!_timeZonesInitialized) {
+      tz_data.initializeTimeZones();
+      _timeZonesInitialized = true;
+    }
+    final normalizedZone = timeZone.trim();
+    try {
+      final location = tz.getLocation(normalizedZone);
+      return tz.TZDateTime(
+        location,
+        wallClock.year,
+        wallClock.month,
+        wallClock.day,
+        wallClock.hour,
+        wallClock.minute,
+        wallClock.second,
+        wallClock.millisecond,
+        wallClock.microsecond,
+      ).toUtc();
+    } catch (_) {
+      // Preserve the previous safe behavior only as a compatibility fallback;
+      // the server still validates the declared IANA zone and can reject it.
+      return wallClock.toUtc();
+    }
+  }
+
+  String _createFingerprint({
+    required String observationType,
+    required double? valuePrimary,
+    required double? valueSecondary,
+    required String? note,
+    required DateTime observedLocalDate,
+    required String timeZone,
+  }) => jsonEncode({
+    'application': _applicationCode,
+    'type': observationType.trim().toLowerCase(),
+    'primary': valuePrimary,
+    'secondary': valueSecondary,
+    'note': _emptyToNull(note),
+    'wallClock':
+        '${observedLocalDate.year.toString().padLeft(4, '0')}-'
+        '${observedLocalDate.month.toString().padLeft(2, '0')}-'
+        '${observedLocalDate.day.toString().padLeft(2, '0')}T'
+        '${observedLocalDate.hour.toString().padLeft(2, '0')}:'
+        '${observedLocalDate.minute.toString().padLeft(2, '0')}:'
+        '${observedLocalDate.second.toString().padLeft(2, '0')}',
+    'timeZone': timeZone.trim(),
+  });
+
   Uri _resolve(String path) {
     final base = _baseUri.toString().replaceFirst(RegExp(r'/+$'), '');
     final relative = path.replaceFirst(RegExp(r'^/+'), '');
@@ -240,10 +332,21 @@ class LifeMateHealthApi {
       '${value.month.toString().padLeft(2, '0')}-'
       '${value.day.toString().padLeft(2, '0')}';
 
+  static String _normalizeApplicationCode(String value) {
+    final normalized = value.trim().toLowerCase();
+    if (!RegExp(r'^[a-z0-9][a-z0-9_-]{1,63}$').hasMatch(normalized)) {
+      throw ArgumentError.value(value, 'applicationCode');
+    }
+    return normalized;
+  }
+
   static String? _emptyToNull(String? value) {
     final normalized = value?.trim();
     return normalized == null || normalized.isEmpty ? null : normalized;
   }
 
-  void close() => _http.close();
+  void close() {
+    _pendingCreateRequestIds.clear();
+    _http.close();
+  }
 }
