@@ -1,0 +1,170 @@
+name: postgres-restore-drill
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '17 3 * * 1'
+  pull_request:
+    paths:
+      - 'supabase/bootstrap/**'
+      - 'supabase/migrations/**'
+      - '.github/workflows/postgres-restore-drill.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'supabase/bootstrap/**'
+      - 'supabase/migrations/**'
+      - '.github/workflows/postgres-restore-drill.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  logical-backup-restore:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    services:
+      postgres:
+        image: postgres:17.6-alpine
+        env:
+          POSTGRES_DB: lifemate_source
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd "pg_isready -U postgres -d lifemate_source"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      SOURCE_DATABASE_URL: postgres://postgres:postgres@localhost:5432/lifemate_source
+      RESTORE_DATABASE_URL: postgres://postgres:postgres@localhost:5432/lifemate_restore
+      PGHOST: localhost
+      PGPORT: 5432
+      PGUSER: postgres
+      PGPASSWORD: postgres
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
+        with:
+          persist-credentials: false
+          show-progress: false
+
+      - name: Build canonical source database
+        shell: bash
+        run: |
+          set -euo pipefail
+          psql "$SOURCE_DATABASE_URL" --set=ON_ERROR_STOP=1 --file=supabase/bootstrap/legacy_lifemate_baseline.sql
+          while IFS= read -r migration; do
+            echo "Applying $migration"
+            psql "$SOURCE_DATABASE_URL" --set=ON_ERROR_STOP=1 --file="$migration"
+          done < <(find supabase/migrations -maxdepth 1 -type f -name '*.sql' | sort)
+
+      - name: Add synthetic restore sentinel
+        shell: bash
+        run: |
+          set -euo pipefail
+          psql "$SOURCE_DATABASE_URL" --set=ON_ERROR_STOP=1 <<'SQL'
+          create table public.restore_drill_fixture(
+            id uuid primary key,
+            marker text not null,
+            created_at_utc timestamptz not null default now()
+          );
+          insert into public.restore_drill_fixture(id, marker)
+          values ('123e4567-e89b-42d3-a456-426614174777', 'lifemate-restore-drill');
+          SQL
+
+      - name: Create logical backup
+        shell: bash
+        run: |
+          set -euo pipefail
+          pg_dump "$SOURCE_DATABASE_URL" \
+            --format=custom \
+            --no-owner \
+            --no-acl \
+            --file="$RUNNER_TEMP/lifemate.restore-drill.dump"
+          test -s "$RUNNER_TEMP/lifemate.restore-drill.dump"
+
+      - name: Restore into a clean database
+        shell: bash
+        run: |
+          set -euo pipefail
+          psql postgres://postgres:postgres@localhost:5432/postgres \
+            --set=ON_ERROR_STOP=1 \
+            -c 'drop database if exists lifemate_restore with (force);' \
+            -c 'create database lifemate_restore;'
+          pg_restore \
+            --dbname="$RESTORE_DATABASE_URL" \
+            --no-owner \
+            --no-acl \
+            --exit-on-error \
+            "$RUNNER_TEMP/lifemate.restore-drill.dump"
+
+      - name: Verify restored data and security contracts
+        shell: bash
+        run: |
+          set -euo pipefail
+          psql "$RESTORE_DATABASE_URL" --set=ON_ERROR_STOP=1 <<'SQL'
+          do $$
+          declare
+            v_marker_count integer;
+            v_health_rls boolean;
+            v_health_force_rls boolean;
+            v_runtime_bypass boolean;
+          begin
+            select count(*) into v_marker_count
+            from public.restore_drill_fixture
+            where id='123e4567-e89b-42d3-a456-426614174777'::uuid
+              and marker='lifemate-restore-drill';
+            if v_marker_count <> 1 then
+              raise exception 'restore sentinel missing after pg_restore';
+            end if;
+
+            if to_regclass('lifemate.health_observations') is null
+               or to_regclass('lifemate.dose_occurrences') is null
+               or to_regclass('identity.accounts') is null
+               or to_regclass('integration.outbox_messages') is null then
+              raise exception 'critical LifeMate relation missing after restore';
+            end if;
+
+            select relrowsecurity, relforcerowsecurity
+              into v_health_rls, v_health_force_rls
+            from pg_class c
+            join pg_namespace n on n.oid=c.relnamespace
+            where n.nspname='lifemate' and c.relname='health_observations';
+            if coalesce(v_health_rls,false) is not true
+               or coalesce(v_health_force_rls,false) is not true then
+              raise exception 'health_observations RLS/FORCE RLS was not restored';
+            end if;
+
+            if not exists (
+              select 1 from pg_proc p
+              join pg_namespace n on n.oid=p.pronamespace
+              where n.nspname='identity'
+                and p.proname='finalize_account_deletion'
+            ) then
+              raise exception 'account deletion function missing after restore';
+            end if;
+
+            select rolbypassrls into v_runtime_bypass
+            from pg_roles where rolname='lifemate_edge_runtime';
+            if coalesce(v_runtime_bypass,true) is true then
+              raise exception 'restricted Edge role restored with BYPASSRLS';
+            end if;
+          end
+          $$;
+          SQL
+
+      - name: Record drill evidence
+        shell: bash
+        run: |
+          {
+            echo '## PostgreSQL restore drill'
+            echo ''
+            echo '- canonical baseline + every forward migration: applied'
+            echo '- logical pg_dump: created'
+            echo '- restore target: clean PostgreSQL 17.6 database'
+            echo '- synthetic data sentinel: restored'
+            echo '- critical schemas/tables: restored'
+            echo '- health RLS + FORCE RLS: restored'
+            echo '- restricted runtime role BYPASSRLS=false: verified'
+          } >> "$GITHUB_STEP_SUMMARY"
