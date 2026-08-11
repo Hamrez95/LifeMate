@@ -1,3 +1,111 @@
+import 'dart:math' as math;
+
+class WomenCycleHistoryAssessment {
+  const WomenCycleHistoryAssessment({
+    required this.sampleCount,
+    required this.intervalCount,
+    required this.pattern,
+    required this.confidence,
+    required this.representativeCycleLength,
+    required this.minimumObservedCycleLength,
+    required this.maximumObservedCycleLength,
+  });
+
+  final int sampleCount;
+  final int intervalCount;
+  final WomenCyclePattern pattern;
+  final WomenCycleEstimateConfidence confidence;
+  final int representativeCycleLength;
+  final int? minimumObservedCycleLength;
+  final int? maximumObservedCycleLength;
+
+  bool get fertilityEstimateReliable =>
+      pattern == WomenCyclePattern.regular &&
+      confidence != WomenCycleEstimateConfidence.low;
+
+  String get uncertaintyReason => switch (pattern) {
+        WomenCyclePattern.insufficientData =>
+          'برای برآورد قابل‌اعتمادتر، چند شروع دوره دیگر ثبت کن.',
+        WomenCyclePattern.variable =>
+          'چرخه‌های ثبت‌شده متغیرند؛ تاریخ‌های آینده فقط تقریبی هستند.',
+        WomenCyclePattern.regular
+            when confidence == WomenCycleEstimateConfidence.medium =>
+          'این برآورد از تعداد محدودی چرخه ثبت‌شده ساخته شده است.',
+        WomenCyclePattern.regular =>
+          'این تاریخ‌ها همچنان تخمین تقویمی هستند و تشخیص پزشکی نیستند.',
+      };
+
+  static WomenCycleHistoryAssessment fromPeriodStarts({
+    required Iterable<DateTime> periodStarts,
+    required int fallbackCycleLength,
+  }) {
+    final normalized = periodStarts
+        .map((value) => DateTime(value.year, value.month, value.day))
+        .toSet()
+        .toList()
+      ..sort();
+    final intervals = <int>[];
+    for (var i = 1; i < normalized.length; i++) {
+      final days = normalized[i].difference(normalized[i - 1]).inDays;
+      if (days >= 15 && days <= 90) intervals.add(days);
+    }
+    final usable = intervals.where((value) => value >= 21 && value <= 45).toList();
+    final representative = usable.isEmpty
+        ? fallbackCycleLength.clamp(21, 45)
+        : _median(usable);
+
+    if (intervals.length < 2) {
+      return WomenCycleHistoryAssessment(
+        sampleCount: normalized.length,
+        intervalCount: intervals.length,
+        pattern: WomenCyclePattern.insufficientData,
+        confidence: WomenCycleEstimateConfidence.low,
+        representativeCycleLength: representative,
+        minimumObservedCycleLength:
+            intervals.isEmpty ? null : intervals.reduce(math.min),
+        maximumObservedCycleLength:
+            intervals.isEmpty ? null : intervals.reduce(math.max),
+      );
+    }
+
+    final minimum = intervals.reduce(math.min);
+    final maximum = intervals.reduce(math.max);
+    final spread = maximum - minimum;
+    final variable =
+        spread > 7 || intervals.any((value) => value < 21 || value > 45);
+    if (variable) {
+      return WomenCycleHistoryAssessment(
+        sampleCount: normalized.length,
+        intervalCount: intervals.length,
+        pattern: WomenCyclePattern.variable,
+        confidence: WomenCycleEstimateConfidence.low,
+        representativeCycleLength: representative,
+        minimumObservedCycleLength: minimum,
+        maximumObservedCycleLength: maximum,
+      );
+    }
+
+    return WomenCycleHistoryAssessment(
+      sampleCount: normalized.length,
+      intervalCount: intervals.length,
+      pattern: WomenCyclePattern.regular,
+      confidence: intervals.length >= 3 && spread <= 4
+          ? WomenCycleEstimateConfidence.high
+          : WomenCycleEstimateConfidence.medium,
+      representativeCycleLength: representative,
+      minimumObservedCycleLength: minimum,
+      maximumObservedCycleLength: maximum,
+    );
+  }
+
+  static int _median(List<int> values) {
+    final sorted = [...values]..sort();
+    final middle = sorted.length ~/ 2;
+    if (sorted.length.isOdd) return sorted[middle];
+    return ((sorted[middle - 1] + sorted[middle]) / 2).round();
+  }
+}
+
 class WomenCalendarEstimate {
   const WomenCalendarEstimate({
     required this.cycleStart,
@@ -14,6 +122,7 @@ class WomenCalendarEstimate {
     required this.pmsStartDay,
     required this.nextPeriodStart,
     required this.daysUntilNextPeriod,
+    this.historyAssessment,
   });
 
   final DateTime cycleStart;
@@ -22,11 +131,7 @@ class WomenCalendarEstimate {
   final int cycleLength;
   final int periodLength;
   final bool estimatedBleeding;
-
-  /// Compatibility summary retained for existing consumers.
   final WomenCalendarPhase phase;
-
-  /// The richer wellness phase used by the women calendar UI.
   final WomenCyclePhase detailedPhase;
   final int ovulationDay;
   final int fertileWindowStartDay;
@@ -34,12 +139,24 @@ class WomenCalendarEstimate {
   final int pmsStartDay;
   final DateTime nextPeriodStart;
   final int daysUntilNextPeriod;
+  final WomenCycleHistoryAssessment? historyAssessment;
+
+  WomenCycleEstimateConfidence get confidence =>
+      historyAssessment?.confidence ?? WomenCycleEstimateConfidence.low;
+  WomenCyclePattern get pattern =>
+      historyAssessment?.pattern ?? WomenCyclePattern.insufficientData;
+  bool get fertilityEstimateReliable =>
+      historyAssessment?.fertilityEstimateReliable ?? false;
+  String get uncertaintyReason =>
+      historyAssessment?.uncertaintyReason ??
+      'این تاریخ‌ها تخمین تقویمی هستند و برای تصمیم پزشکی یا پیشگیری از بارداری کافی نیستند.';
 
   static WomenCalendarEstimate calculate({
     required DateTime lastPeriodStart,
     required int cycleLength,
     required int periodLength,
     DateTime? today,
+    WomenCycleHistoryAssessment? historyAssessment,
   }) {
     if (cycleLength < 21 || cycleLength > 45) {
       throw ArgumentError.value(cycleLength, 'cycleLength');
@@ -86,6 +203,7 @@ class WomenCalendarEstimate {
       fertileWindowStartDay: fertileWindowStartDay,
       fertileWindowEndDay: fertileWindowEndDay,
       pmsStartDay: pmsStartDay,
+      fertilityReliable: historyAssessment?.fertilityEstimateReliable ?? false,
     );
     final phase = switch (detailedPhase) {
       WomenCyclePhase.period => WomenCalendarPhase.period,
@@ -111,6 +229,27 @@ class WomenCalendarEstimate {
       pmsStartDay: pmsStartDay,
       nextPeriodStart: nextPeriodStart,
       daysUntilNextPeriod: daysUntilNextPeriod,
+      historyAssessment: historyAssessment,
+    );
+  }
+
+  static WomenCalendarEstimate calculateFromEpisodes({
+    required DateTime lastPeriodStart,
+    required int configuredCycleLength,
+    required int periodLength,
+    required Iterable<DateTime> periodStarts,
+    DateTime? today,
+  }) {
+    final history = WomenCycleHistoryAssessment.fromPeriodStarts(
+      periodStarts: periodStarts,
+      fallbackCycleLength: configuredCycleLength,
+    );
+    return calculate(
+      lastPeriodStart: lastPeriodStart,
+      cycleLength: history.representativeCycleLength,
+      periodLength: periodLength,
+      today: today,
+      historyAssessment: history,
     );
   }
 
@@ -127,6 +266,7 @@ class WomenCalendarEstimate {
       fertileWindowStartDay: fertileWindowStartDay,
       fertileWindowEndDay: fertileWindowEndDay,
       pmsStartDay: pmsStartDay,
+      fertilityReliable: fertilityEstimateReliable,
     );
   }
 
@@ -134,12 +274,14 @@ class WomenCalendarEstimate {
       phaseForDate(value) == WomenCyclePhase.period;
 
   bool isEstimatedFertileDay(DateTime value) {
+    if (!fertilityEstimateReliable) return false;
     final phase = phaseForDate(value);
     return phase == WomenCyclePhase.fertile ||
         phase == WomenCyclePhase.ovulation;
   }
 
   bool isEstimatedOvulationDay(DateTime value) =>
+      fertilityEstimateReliable &&
       phaseForDate(value) == WomenCyclePhase.ovulation;
 
   bool isEstimatedPmsDay(DateTime value) =>
@@ -152,13 +294,20 @@ class WomenCalendarEstimate {
     required int fertileWindowStartDay,
     required int fertileWindowEndDay,
     required int pmsStartDay,
+    required bool fertilityReliable,
   }) {
     if (cycleDay <= periodLength) return WomenCyclePhase.period;
-    if (cycleDay < fertileWindowStartDay) return WomenCyclePhase.follicular;
-    if (cycleDay == ovulationDay) return WomenCyclePhase.ovulation;
-    if (cycleDay <= fertileWindowEndDay) return WomenCyclePhase.fertile;
+    if (fertilityReliable && cycleDay == ovulationDay) {
+      return WomenCyclePhase.ovulation;
+    }
+    if (fertilityReliable &&
+        cycleDay >= fertileWindowStartDay &&
+        cycleDay <= fertileWindowEndDay) {
+      return WomenCyclePhase.fertile;
+    }
     if (cycleDay >= pmsStartDay) return WomenCyclePhase.pms;
-    return WomenCyclePhase.luteal;
+    if (cycleDay > fertileWindowEndDay) return WomenCyclePhase.luteal;
+    return WomenCyclePhase.follicular;
   }
 
   static int _positiveModulo(int value, int divisor) =>
@@ -168,9 +317,10 @@ class WomenCalendarEstimate {
       DateTime(value.year, value.month, value.day);
 }
 
-/// Compatibility phase used by older clients.
 enum WomenCalendarPhase { period, postPeriod, cycle, prePeriod }
 
-/// Estimated wellness phases. They are not a medical diagnosis and must not be
-/// used as contraception or as proof of ovulation.
 enum WomenCyclePhase { period, follicular, fertile, ovulation, luteal, pms }
+
+enum WomenCycleEstimateConfidence { low, medium, high }
+
+enum WomenCyclePattern { insufficientData, regular, variable }
