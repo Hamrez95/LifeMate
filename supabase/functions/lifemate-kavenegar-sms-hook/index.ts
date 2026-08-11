@@ -1,9 +1,6 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { Webhook } from "https://esm.sh/standardwebhooks@1.0.0";
-import {
-  KavenegarOtpProvider,
-  KavenegarProviderError,
-} from "./provider.ts";
+import { KavenegarOtpProvider, KavenegarProviderError } from "./provider.ts";
 
 type SendSmsEvent = {
   user: { phone?: unknown };
@@ -72,7 +69,10 @@ Deno.serve(async (request: Request) => {
     return json(200, {});
   } catch (error) {
     if (error instanceof KavenegarProviderError) {
-      if (error.code === "iran_phone_required" || error.code === "invalid_otp_shape") {
+      if (
+        error.code === "iran_phone_required" ||
+        error.code === "invalid_otp_shape"
+      ) {
         return json(400, {
           error: {
             http_code: 400,
