@@ -192,6 +192,16 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
         ),
       );
       return true;
+    } on LifeMateOfflineQueuedException {
+      if (!mounted) return true;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            '${item.title} روی گوشی ذخیره شد و بعد از اتصال اینترنت همگام می‌شود.',
+          ),
+        ),
+      );
+      return true;
     } on LifeMateApiException catch (error) {
       if (!mounted) return false;
       final message =
