@@ -21,13 +21,14 @@ class ProfileScreen extends StatelessWidget {
     final localeProvider = context.watch<LocaleProvider>();
     final isPersian = localeProvider.locale.languageCode == 'fa';
     final mainFont = isPersian ? 'Vazir' : 'Poppins';
+    final api = context.read<LifeMateApiClient>();
 
     void open(Widget page) {
       Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => page));
     }
 
-    return LifeMateSharedProfileScreen(
-      apiClient: context.read<LifeMateApiClient>(),
+    final sharedProfile = LifeMateSharedProfileScreen(
+      apiClient: api,
       theme: const LifeMateProfileThemeData(
         background: AppColors.background,
         accent: AppColors.primaryBlue,
@@ -45,7 +46,8 @@ class ProfileScreen extends StatelessWidget {
         support: loc['profile_support'] ?? 'پشتیبانی',
         logout: loc['profile_logout'] ?? 'خروج از حساب',
         subscriptionTitle:
-            loc['profile_no_subscription'] ?? (isPersian ? 'اشتراک' : 'Subscription'),
+            loc['profile_no_subscription'] ??
+            (isPersian ? 'اشتراک' : 'Subscription'),
         manageSubscriptions:
             loc['profile_buy_plan'] ??
             (isPersian ? 'مدیریت اشتراک‌ها' : 'Manage subscriptions'),
@@ -74,6 +76,96 @@ class ProfileScreen extends StatelessWidget {
       onReferral: () => open(const CareMateReferralScreen()),
       onSupport: () => open(const CareMateSupportScreen()),
       onManageSubscriptions: () => open(const CareMateSubscriptionScreen()),
+    );
+
+    return ColoredBox(
+      color: AppColors.background,
+      child: Column(
+        children: [
+          Expanded(child: sharedProfile),
+          SafeArea(
+            top: false,
+            minimum: const EdgeInsets.fromLTRB(24, 6, 24, 12),
+            child: _AccountExportButton(
+              fontFamily: mainFont,
+              onPressed: () => showLifeMateAccountExportDialog(
+                context,
+                fontFamily: mainFont,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _AccountExportButton extends StatelessWidget {
+  const _AccountExportButton({
+    required this.fontFamily,
+    required this.onPressed,
+  });
+
+  final String fontFamily;
+  final VoidCallback onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    return Semantics(
+      button: true,
+      label: 'دریافت نسخه داده‌های من',
+      hint: 'خروجی امن اطلاعات حساب را از پنجره اشتراک گوشی دریافت می‌کند',
+      child: Material(
+        color: const Color(0xFFEEF5FF),
+        borderRadius: BorderRadius.circular(20),
+        child: InkWell(
+          key: const ValueKey('caremate-account-export'),
+          borderRadius: BorderRadius.circular(20),
+          onTap: onPressed,
+          child: Padding(
+            padding: const EdgeInsetsDirectional.fromSTEB(14, 11, 14, 11),
+            child: Row(
+              children: [
+                const Icon(
+                  Icons.file_download_outlined,
+                  color: AppColors.primaryBlue,
+                  size: 27,
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'دریافت نسخه داده‌های من',
+                        style: TextStyle(
+                          fontFamily: fontFamily,
+                          color: AppColors.darkBlue,
+                          fontWeight: FontWeight.w900,
+                        ),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        'فقط داده‌های متعلق به حساب و پروفایل خودت',
+                        style: TextStyle(
+                          fontFamily: fontFamily,
+                          color: AppColors.secondaryText,
+                          fontSize: 11.5,
+                          height: 1.4,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const Icon(
+                  Icons.chevron_left_rounded,
+                  color: AppColors.primaryBlue,
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
     );
   }
 }
