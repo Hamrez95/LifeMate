@@ -71,11 +71,19 @@ Android accepts an APK as an update only when all of these remain true:
 2. the new APK is signed by the same signing certificate as the installed APK;
 3. the new `versionCode` is greater than the installed version.
 
+GitHub `GITHUB_RUN_NUMBER` is scoped to an individual workflow, so it is not a
+safe global Android versionCode when several workflows can build APKs. To keep
+WellMate and CareMate updateable regardless of whether an APK came from the
+main-final, internal-beta, or manual checkpoint workflow, Android Gradle uses a
+single CI-wide monotonic scale: UTC seconds elapsed since
+`2025-01-01T00:00:00Z`. This value is applied only on GitHub Actions; local
+builds continue to use Flutter's configured versionCode.
+
 Older LifeMate test APKs were sometimes produced with ephemeral/debug signing.
 After stable founder-owned signing is enabled, those legacy APKs may require one
 final uninstall/reinstall. Once a founder-signed WellMate/CareMate APK is
-installed, subsequent founder-signed builds can be installed as updates without
-removing the previous app or its local state.
+installed, subsequent founder-signed CI builds can be installed as updates
+without removing the previous app or its local state.
 
 The release keystores are long-lived project assets. Losing them can prevent
 future direct APK updates. Keep at least one encrypted offline backup and store
