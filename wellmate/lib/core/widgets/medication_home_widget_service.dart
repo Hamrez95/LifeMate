@@ -20,6 +20,9 @@ const String _timeKey = 'wm_widget_time';
 const String _scheduledAtEpochMsKey = 'wm_widget_scheduled_at_epoch_ms';
 const String _overdueKey = 'wm_widget_overdue';
 const String _actionMessageKey = 'wm_widget_action_message';
+const String _actionInFlightKey = 'wm_widget_action_in_flight';
+const String _actionOccurrenceKey = 'wm_widget_action_occurrence';
+const String _lastCompletedOccurrenceKey = 'wm_widget_last_completed_occurrence';
 
 /// Small, intentionally Android-only bridge between WellMate's reviewed API
 /// boundary and the native home-screen medication widget.
@@ -58,6 +61,7 @@ abstract final class MedicationHomeWidgetService {
   static Future<void> refreshFromApi(
     LifeMateApiClient api, {
     DateTime? now,
+    String actionMessage = '',
   }) async {
     if (!isSupportedPlatform) return;
     final reference = now ?? DateTime.now();
@@ -72,6 +76,7 @@ abstract final class MedicationHomeWidgetService {
       treatmentPlans: treatmentPlans,
       doseOccurrences: doseOccurrences,
       now: reference,
+      actionMessage: actionMessage,
     );
   }
 
@@ -79,6 +84,7 @@ abstract final class MedicationHomeWidgetService {
     required List<Map<String, dynamic>> treatmentPlans,
     required List<Map<String, dynamic>> doseOccurrences,
     DateTime? now,
+    String actionMessage = '',
   }) async {
     if (!isSupportedPlatform) return;
     final reference = now ?? DateTime.now();
@@ -99,7 +105,6 @@ abstract final class MedicationHomeWidgetService {
       await HomeWidget.saveWidgetData<String>(_timeKey, '');
       await HomeWidget.saveWidgetData<int>(_scheduledAtEpochMsKey, 0);
       await HomeWidget.saveWidgetData<bool>(_overdueKey, false);
-      await HomeWidget.saveWidgetData<String>(_actionMessageKey, '');
     } else {
       await HomeWidget.saveWidgetData<bool>(_hasDataKey, true);
       await HomeWidget.saveWidgetData<String>(
@@ -126,9 +131,12 @@ abstract final class MedicationHomeWidgetService {
         _overdueKey,
         data.scheduledAt.isBefore(reference),
       );
-      await HomeWidget.saveWidgetData<String>(_actionMessageKey, '');
     }
 
+    await HomeWidget.saveWidgetData<String>(
+      _actionMessageKey,
+      toPersianDigits(actionMessage),
+    );
     await _update();
   }
 
@@ -205,8 +213,11 @@ MedicationWidgetData? selectMedicationWidgetData({
         _text(plan['instructions']) ??
         _text(medication['notes']) ??
         'طبق برنامه درمان';
-    final dose = _text(medication['strengthText']) ?? 'دوز ثبت نشده';
     final quantity = _text(plan['doseText']) ?? '۱ نوبت';
+    final dose =
+        _text(medication['strengthText']) ??
+        _text(medication['form']) ??
+        'دوز ثبت نشده';
     final rawTime = _text(occurrence['scheduledLocalTime']) ?? '--:--';
     final normalizedTime = rawTime.length >= 5
         ? rawTime.substring(0, 5)
@@ -265,6 +276,18 @@ String toPersianDigits(String value) {
   return buffer.toString();
 }
 
+@visibleForTesting
+bool shouldSkipDuplicateWidgetTap({
+  required String occurrenceId,
+  required String? lastCompletedOccurrenceId,
+}) => occurrenceId == lastCompletedOccurrenceId;
+
+@visibleForTesting
+String widgetActionFailureMessage(LifeMateApiException error) {
+  if (error.isUnauthorized) return 'برای ثبت مصرف وارد WellMate شوید';
+  return 'ثبت نشد؛ دوباره تلاش کنید';
+}
+
 class _MedicationWidgetCandidate {
   const _MedicationWidgetCandidate({required this.data});
 
@@ -309,39 +332,105 @@ FutureOr<void> medicationHomeWidgetBackgroundCallback(Uri? data) async {
   final occurrenceId = data.queryParameters['id']?.trim();
   final version = int.tryParse(data.queryParameters['version'] ?? '');
   if (occurrenceId == null || occurrenceId.isEmpty || version == null) {
-    await _setWidgetActionError('اطلاعات نوبت کامل نیست');
+    await _setWidgetActionMessage('اطلاعات نوبت کامل نیست');
     return;
   }
+
+  final lastCompletedOccurrence = await HomeWidget.getWidgetData<String>(
+    _lastCompletedOccurrenceKey,
+    defaultValue: '',
+  );
+  if (shouldSkipDuplicateWidgetTap(
+    occurrenceId: occurrenceId,
+    lastCompletedOccurrenceId: lastCompletedOccurrence,
+  )) {
+    await _setWidgetActionMessage('ثبت شد ✓');
+    return;
+  }
+
+  final actionInFlight = await HomeWidget.getWidgetData<bool>(
+    _actionInFlightKey,
+    defaultValue: false,
+  );
+  final actionOccurrence = await HomeWidget.getWidgetData<String>(
+    _actionOccurrenceKey,
+    defaultValue: '',
+  );
+  if (actionInFlight == true && actionOccurrence == occurrenceId) return;
+
+  await HomeWidget.saveWidgetData<bool>(_actionInFlightKey, true);
+  await HomeWidget.saveWidgetData<String>(_actionOccurrenceKey, occurrenceId);
+  await _setWidgetActionMessage('در حال ثبت…');
 
   LifeMateApiClient? api;
   try {
     final config = AppConfig.fromEnvironment();
     if (!config.isConfigured) {
-      await _setWidgetActionError('تنظیمات WellMate کامل نیست');
+      await _setWidgetActionMessage('تنظیمات WellMate کامل نیست');
       return;
     }
 
     await LifeMateBootstrap.initialize(config);
-    final accessToken = await LifeMateAuth.getValidAccessToken();
+    var accessToken = await LifeMateAuth.getValidAccessToken();
     if (accessToken == null || accessToken.isEmpty) {
-      await _setWidgetActionError('برای ثبت مصرف وارد WellMate شوید');
+      await _setWidgetActionMessage('برای ثبت مصرف وارد WellMate شوید');
       return;
     }
 
-    api = LifeMateApiClient(
+    LifeMateApiClient buildApi(String token) => LifeMateApiClient(
       baseUri: config.apiBaseUri,
-      accessToken: () => LifeMateAuth.currentAccessToken,
+      // Capture the token returned by the validated/refresh path instead of
+      // reading the session singleton again from a cold background isolate.
+      accessToken: () => token,
     );
-    await api.reportDose(
-      occurrenceId: occurrenceId,
-      clientRequestId: LifeMateApiClient.createClientRequestId(),
-      version: version,
-      status: 'taken',
-      occurredAtUtc: DateTime.now().toUtc(),
+
+    api = buildApi(accessToken);
+    final clientRequestId = LifeMateApiClient.createClientRequestId();
+
+    try {
+      await api.reportDose(
+        occurrenceId: occurrenceId,
+        clientRequestId: clientRequestId,
+        version: version,
+        status: 'taken',
+        occurredAtUtc: DateTime.now().toUtc(),
+      );
+    } on LifeMateApiException catch (error) {
+      if (!error.isUnauthorized) rethrow;
+
+      final refreshedToken = await LifeMateAuth.refreshAccessToken();
+      if (refreshedToken == null || refreshedToken.isEmpty) rethrow;
+      accessToken = refreshedToken;
+      api.close();
+      api = buildApi(accessToken);
+      await api.reportDose(
+        occurrenceId: occurrenceId,
+        clientRequestId: clientRequestId,
+        version: version,
+        status: 'taken',
+        occurredAtUtc: DateTime.now().toUtc(),
+      );
+    }
+
+    await HomeWidget.saveWidgetData<String>(
+      _lastCompletedOccurrenceKey,
+      occurrenceId,
     );
-    await MedicationHomeWidgetService.refreshFromApi(api);
+    await _setWidgetActionMessage('ثبت شد ✓');
+
+    // Keep success visible very briefly, then sync the next real occurrence.
+    // A refresh failure must not be presented as a failed dose report because
+    // the report above has already been committed by the API.
+    await Future<void>.delayed(const Duration(milliseconds: 650));
+    try {
+      await MedicationHomeWidgetService.refreshFromApi(api);
+    } catch (_) {
+      await _setWidgetActionMessage('ثبت شد ✓');
+    }
   } on LifeMateApiException catch (error) {
     if (error.statusCode == 409) {
+      // A second rapid tap or another client may already have advanced the
+      // occurrence. Refresh fail-closed rather than creating a second event.
       if (api != null) {
         try {
           await MedicationHomeWidgetService.refreshFromApi(api);
@@ -351,19 +440,17 @@ FutureOr<void> medicationHomeWidgetBackgroundCallback(Uri? data) async {
         }
       }
     }
-    await _setWidgetActionError(
-      error.isUnauthorized
-          ? 'برای ثبت مصرف وارد WellMate شوید'
-          : 'ثبت نشد؛ دوباره لمس کنید',
-    );
+    await _setWidgetActionMessage(widgetActionFailureMessage(error));
   } catch (_) {
-    await _setWidgetActionError('ثبت نشد؛ دوباره لمس کنید');
+    await _setWidgetActionMessage('ثبت نشد؛ دوباره تلاش کنید');
   } finally {
+    await HomeWidget.saveWidgetData<bool>(_actionInFlightKey, false);
+    await HomeWidget.saveWidgetData<String>(_actionOccurrenceKey, '');
     api?.close();
   }
 }
 
-Future<void> _setWidgetActionError(String message) async {
+Future<void> _setWidgetActionMessage(String message) async {
   if (!MedicationHomeWidgetService.isSupportedPlatform) return;
   await HomeWidget.saveWidgetData<String>(
     _actionMessageKey,
