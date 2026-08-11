@@ -1,12 +1,5 @@
-import {
-  assert,
-  assertEquals,
-  assertRejects,
-} from "jsr:@std/assert@1";
-import {
-  KavenegarOtpProvider,
-  KavenegarProviderError,
-} from "./provider.ts";
+import { assert, assertEquals, assertRejects } from "jsr:@std/assert@1";
+import { KavenegarOtpProvider, KavenegarProviderError } from "./provider.ts";
 
 Deno.test("Kavenegar OTP uses POST body and does not put phone/token in URL", async () => {
   let capturedUrl = "";
