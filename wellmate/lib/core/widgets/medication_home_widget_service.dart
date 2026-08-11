@@ -253,8 +253,6 @@ MedicationWidgetData? selectMedicationWidgetData({
     );
   if (future.isNotEmpty) return future.first.data;
 
-  // If the API has not yet rolled a past scheduled occurrence to `missed`,
-  // keep the newest overdue dose actionable instead of making the widget empty.
   final overdue = List<_MedicationWidgetCandidate>.from(candidates)
     ..sort(
       (left, right) =>
@@ -344,7 +342,7 @@ FutureOr<void> medicationHomeWidgetBackgroundCallback(Uri? data) async {
     occurrenceId: occurrenceId,
     lastCompletedOccurrenceId: lastCompletedOccurrence,
   )) {
-    await _setWidgetActionMessage('ثبت شد ✓');
+    await _setWidgetActionMessage('روی گوشی ذخیره شده ✓');
     return;
   }
 
@@ -362,7 +360,7 @@ FutureOr<void> medicationHomeWidgetBackgroundCallback(Uri? data) async {
   await HomeWidget.saveWidgetData<String>(_actionOccurrenceKey, occurrenceId);
   await _setWidgetActionMessage('در حال ثبت…');
 
-  LifeMateApiClient? api;
+  DurableLifeMateApiClient? api;
   try {
     final config = AppConfig.fromEnvironment();
     if (!config.isConfigured) {
@@ -372,23 +370,25 @@ FutureOr<void> medicationHomeWidgetBackgroundCallback(Uri? data) async {
 
     await LifeMateBootstrap.initialize(config);
     var accessToken = await LifeMateAuth.getValidAccessToken();
-    if (accessToken == null || accessToken.isEmpty) {
+    final accountId = LifeMateAuth.currentAccountId;
+    if (accessToken == null || accessToken.isEmpty || accountId == null) {
       await _setWidgetActionMessage('برای ثبت مصرف وارد WellMate شوید');
       return;
     }
 
-    LifeMateApiClient buildApi(String token) => LifeMateApiClient(
-      baseUri: config.apiBaseUri,
-      // Capture the token returned by the validated/refresh path instead of
-      // reading the session singleton again from a cold background isolate.
-      accessToken: () => token,
-    );
+    DurableLifeMateApiClient buildApi(String token) =>
+        DurableLifeMateApiClient(
+          baseUri: config.apiBaseUri,
+          accessToken: () => token,
+          accountId: () => LifeMateAuth.currentAccountId,
+        );
 
     api = buildApi(accessToken);
     final clientRequestId = LifeMateApiClient.createClientRequestId();
+    Map<String, dynamic> result;
 
     try {
-      await api.reportDose(
+      result = await api.reportDose(
         occurrenceId: occurrenceId,
         clientRequestId: clientRequestId,
         version: version,
@@ -403,7 +403,7 @@ FutureOr<void> medicationHomeWidgetBackgroundCallback(Uri? data) async {
       accessToken = refreshedToken;
       api.close();
       api = buildApi(accessToken);
-      await api.reportDose(
+      result = await api.reportDose(
         occurrenceId: occurrenceId,
         clientRequestId: clientRequestId,
         version: version,
@@ -416,11 +416,13 @@ FutureOr<void> medicationHomeWidgetBackgroundCallback(Uri? data) async {
       _lastCompletedOccurrenceKey,
       occurrenceId,
     );
-    await _setWidgetActionMessage('ثبت شد ✓');
+    final pendingSync = result['pendingSync'] == true;
+    if (pendingSync) {
+      await _setWidgetActionMessage('روی گوشی ذخیره شد؛ منتظر همگام‌سازی');
+      return;
+    }
 
-    // Keep success visible very briefly, then sync the next real occurrence.
-    // A refresh failure must not be presented as a failed dose report because
-    // the report above has already been committed by the API.
+    await _setWidgetActionMessage('ثبت شد ✓');
     await Future<void>.delayed(const Duration(milliseconds: 650));
     try {
       await MedicationHomeWidgetService.refreshFromApi(api);
@@ -429,15 +431,11 @@ FutureOr<void> medicationHomeWidgetBackgroundCallback(Uri? data) async {
     }
   } on LifeMateApiException catch (error) {
     if (error.statusCode == 409) {
-      // A second rapid tap or another client may already have advanced the
-      // occurrence. Refresh fail-closed rather than creating a second event.
       if (api != null) {
         try {
           await MedicationHomeWidgetService.refreshFromApi(api);
           return;
-        } catch (_) {
-          // Fall through to the retry message below.
-        }
+        } catch (_) {}
       }
     }
     await _setWidgetActionMessage(widgetActionFailureMessage(error));
