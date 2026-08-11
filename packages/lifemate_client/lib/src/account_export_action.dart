@@ -1,9 +1,11 @@
 import 'dart:async';
 import 'dart:convert';
 
+import 'package:crypto/crypto.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:http/http.dart' as http;
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'app_config.dart';
@@ -88,10 +90,79 @@ class LifeMateAccountExportApi {
   void close() => _http.close();
 }
 
+/// Owns the temporary beta clipboard transport used by account export.
+///
+/// Only a SHA-256 digest of the exported text is persisted. The export itself is
+/// never stored by LifeMate. This lets a later app launch/resume clear the
+/// clipboard only when it still contains the exact LifeMate export; unrelated
+/// clipboard content is never erased.
+class LifeMateSensitiveClipboardGuard with WidgetsBindingObserver {
+  LifeMateSensitiveClipboardGuard._();
+
+  static const _digestKey = 'lifemate_sensitive_export_clipboard_sha256_v1';
+  static const _cleanupDelay = Duration(minutes: 1);
+  static final LifeMateSensitiveClipboardGuard _instance =
+      LifeMateSensitiveClipboardGuard._();
+  static bool _installed = false;
+  static Timer? _timer;
+
+  static Future<void> install() async {
+    if (!_installed) {
+      WidgetsBinding.instance.addObserver(_instance);
+      _installed = true;
+    }
+    await cleanupPendingExport();
+  }
+
+  static Future<void> copyExport(String text) async {
+    await install();
+    await Clipboard.setData(ClipboardData(text: text));
+    final prefs = SharedPreferencesAsync();
+    await prefs.setString(_digestKey, _digest(text));
+    _timer?.cancel();
+    _timer = Timer(_cleanupDelay, () {
+      unawaited(cleanupPendingExport());
+    });
+  }
+
+  static Future<void> cleanupPendingExport() async {
+    final prefs = SharedPreferencesAsync();
+    final expectedDigest = await prefs.getString(_digestKey);
+    if (expectedDigest == null || expectedDigest.isEmpty) return;
+
+    try {
+      final current = await Clipboard.getData(Clipboard.kTextPlain);
+      final currentText = current?.text;
+      if (currentText == null || currentText.isEmpty) {
+        await prefs.remove(_digestKey);
+        return;
+      }
+
+      if (_digest(currentText) == expectedDigest) {
+        await Clipboard.setData(const ClipboardData(text: ''));
+      }
+      // A digest mismatch means the user has replaced the clipboard. In both
+      // cases this LifeMate export no longer owns the clipboard slot.
+      await prefs.remove(_digestKey);
+    } catch (_) {
+      // Some platforms temporarily deny clipboard reads in background states.
+      // Keep the digest so the next resume/launch can retry safely.
+    }
+  }
+
+  static String _digest(String value) => sha256.convert(utf8.encode(value)).toString();
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      unawaited(cleanupPendingExport());
+    }
+  }
+}
+
 /// Self-service beta export. Data is fetched only after an explicit user action.
-/// Clipboard delivery is a temporary beta transport: it requires a second
-/// explicit confirmation, warns about OS clipboard exposure and is automatically
-/// cleared after one minute if the user has not replaced it with other content.
+/// Clipboard delivery requires a second confirmation and is guarded across app
+/// lifecycle/relaunch without persisting the exported JSON itself.
 Future<void> showLifeMateAccountExportDialog(
   BuildContext context, {
   required String fontFamily,
@@ -151,7 +222,7 @@ Future<void> showLifeMateAccountExportDialog(
         style: TextStyle(fontFamily: fontFamily, fontWeight: FontWeight.w900),
       ),
       content: Text(
-        'نسخه در همین لحظه آماده شد${generatedAt.isEmpty ? '' : ' ($generatedAt)'}.\n\nدر نسخه بتا می‌توانی JSON را موقتاً در کلیپ‌بورد کپی کنی. کلیپ‌بورد سیستم ممکن است برای برنامه‌های دیگر قابل مشاهده باشد؛ LifeMate اگر هنوز همین متن باشد بعد از یک دقیقه آن را پاک می‌کند.',
+        'نسخه در همین لحظه آماده شد${generatedAt.isEmpty ? '' : ' ($generatedAt)'}.\n\nدر نسخه بتا می‌توانی JSON را موقتاً در کلیپ‌بورد کپی کنی. اگر هنوز همان داده باشد، LifeMate بعد از یک دقیقه یا در بازگشت بعدی به برنامه آن را پاک می‌کند؛ داده اصلی روی دستگاه ذخیره نمی‌شود.',
         style: TextStyle(fontFamily: fontFamily, height: 1.7),
       ),
       actions: [
@@ -169,27 +240,12 @@ Future<void> showLifeMateAccountExportDialog(
   );
   if (copy != true || !context.mounted) return;
 
-  await Clipboard.setData(ClipboardData(text: jsonText));
-  Timer(const Duration(minutes: 1), () {
-    unawaited(_clearClipboardIfUnchanged(jsonText));
-  });
+  await LifeMateSensitiveClipboardGuard.copyExport(jsonText);
   if (context.mounted) {
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(
-        content: Text('JSON کپی شد و اگر تغییرش ندهی تا یک دقیقه دیگر پاک می‌شود.'),
+        content: Text('JSON موقتاً کپی شد و LifeMate پاک‌سازی امن آن را پیگیری می‌کند.'),
       ),
     );
-  }
-}
-
-Future<void> _clearClipboardIfUnchanged(String exportedText) async {
-  try {
-    final current = await Clipboard.getData(Clipboard.kTextPlain);
-    if (current?.text == exportedText) {
-      await Clipboard.setData(const ClipboardData(text: ''));
-    }
-  } catch (_) {
-    // Clipboard cleanup is best-effort; never crash the application after the
-    // user has already received an export.
   }
 }
