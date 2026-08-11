@@ -75,10 +75,6 @@ class ProfileScreen extends StatelessWidget {
       onManageSubscriptions: () => open(const SubscriptionScreen()),
     );
 
-    if (!MedicationHomeWidgetService.isSupportedPlatform) {
-      return sharedProfile;
-    }
-
     return ColoredBox(
       color: AppColors.background,
       child: Column(
@@ -86,10 +82,25 @@ class ProfileScreen extends StatelessWidget {
           Expanded(child: sharedProfile),
           SafeArea(
             top: false,
-            minimum: const EdgeInsets.fromLTRB(24, 8, 24, 14),
-            child: _MedicationWidgetProfileButton(
-              fontFamily: mainFont,
-              onPressed: () => _pinMedicationWidget(context, api),
+            minimum: const EdgeInsets.fromLTRB(24, 6, 24, 12),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                _AccountExportButton(
+                  fontFamily: mainFont,
+                  onPressed: () => showLifeMateAccountExportDialog(
+                    context,
+                    fontFamily: mainFont,
+                  ),
+                ),
+                if (MedicationHomeWidgetService.isSupportedPlatform) ...[
+                  const SizedBox(height: 8),
+                  _MedicationWidgetProfileButton(
+                    fontFamily: mainFont,
+                    onPressed: () => _pinMedicationWidget(context, api),
+                  ),
+                ],
+              ],
             ),
           ),
         ],
@@ -125,6 +136,73 @@ class ProfileScreen extends StatelessWidget {
         ),
       );
     }
+  }
+}
+
+class _AccountExportButton extends StatelessWidget {
+  const _AccountExportButton({
+    required this.fontFamily,
+    required this.onPressed,
+  });
+
+  final String fontFamily;
+  final VoidCallback onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    return Semantics(
+      button: true,
+      label: 'دریافت نسخه داده‌های من',
+      hint: 'خروجی امن اطلاعات حساب و سلامت را از پنجره اشتراک گوشی دریافت می‌کند',
+      child: Material(
+        color: const Color(0xFFEAF8F1),
+        borderRadius: BorderRadius.circular(20),
+        child: InkWell(
+          key: const ValueKey('wellmate-account-export'),
+          borderRadius: BorderRadius.circular(20),
+          onTap: onPressed,
+          child: Padding(
+            padding: const EdgeInsetsDirectional.fromSTEB(14, 11, 14, 11),
+            child: Row(
+              children: [
+                const Icon(
+                  Icons.file_download_outlined,
+                  color: AppColors.primary,
+                  size: 27,
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'دریافت نسخه داده‌های من',
+                        style: TextStyle(
+                          fontFamily: fontFamily,
+                          color: AppColors.darkBlue,
+                          fontWeight: FontWeight.w900,
+                        ),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        'خروجی JSON فقط با درخواست خودت آماده می‌شود',
+                        style: TextStyle(
+                          fontFamily: fontFamily,
+                          color: AppColors.textSecondary,
+                          fontSize: 11.5,
+                          height: 1.4,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const Icon(Icons.chevron_left_rounded, color: AppColors.primary),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
   }
 }
 
