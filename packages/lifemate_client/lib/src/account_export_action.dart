@@ -89,9 +89,9 @@ class LifeMateAccountExportApi {
 }
 
 /// Self-service beta export. The export is fetched only after an explicit user
-/// action and is handed to the operating-system share sheet as an in-memory JSON
-/// file. LifeMate does not place the health export on the general clipboard and
-/// does not persist the JSON in its own application storage.
+/// action and is handed to the operating-system share sheet as text. LifeMate
+/// never places the health export on the general clipboard and does not create a
+/// temporary attachment/cache file or persist the JSON in application storage.
 Future<void> showLifeMateAccountExportDialog(
   BuildContext context, {
   required String fontFamily,
@@ -105,7 +105,7 @@ Future<void> showLifeMateAccountExportDialog(
         style: TextStyle(fontFamily: fontFamily, fontWeight: FontWeight.w900),
       ),
       content: Text(
-        'یک نسخه JSON از اطلاعات حساب، درمان‌ها، ثبت‌های سلامت، داده‌های بانوان و رضایت‌های خودت آماده می‌شود. رمزها، توکن‌ها و اطلاعات خصوصی طرف مقابل وارد فایل نمی‌شوند. بعد از آماده‌سازی، خودت مقصد فایل را از پنجره اشتراک گوشی انتخاب می‌کنی.',
+        'یک نسخه JSON از اطلاعات حساب، درمان‌ها، ثبت‌های سلامت، داده‌های بانوان و رضایت‌های خودت آماده می‌شود. رمزها، توکن‌ها و اطلاعات خصوصی طرف مقابل وارد خروجی نمی‌شوند. بعد از آماده‌سازی، خودت مقصد را از پنجره اشتراک گوشی انتخاب می‌کنی.',
         style: TextStyle(fontFamily: fontFamily, height: 1.7),
       ),
       actions: [
@@ -151,10 +151,6 @@ Future<void> showLifeMateAccountExportDialog(
   if (!context.mounted) return;
 
   final jsonText = const JsonEncoder.withIndent('  ').convert(exported);
-  final generatedAt = exported['generatedAtUtc']?.toString() ?? '';
-  final stamp = DateTime.tryParse(generatedAt)?.toUtc() ?? DateTime.now().toUtc();
-  final fileName =
-      'lifemate-data-${stamp.year.toString().padLeft(4, '0')}${stamp.month.toString().padLeft(2, '0')}${stamp.day.toString().padLeft(2, '0')}.json';
   final box = context.findRenderObject() as RenderBox?;
 
   try {
@@ -162,13 +158,7 @@ Future<void> showLifeMateAccountExportDialog(
       ShareParams(
         title: 'خروجی داده‌های LifeMate',
         subject: 'LifeMate data export',
-        files: [
-          XFile.fromData(
-            utf8.encode(jsonText),
-            mimeType: 'application/json',
-          ),
-        ],
-        fileNameOverrides: [fileName],
+        text: jsonText,
         sharePositionOrigin: box == null
             ? null
             : box.localToGlobal(Offset.zero) & box.size,
