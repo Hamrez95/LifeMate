@@ -55,11 +55,13 @@ class _LifeMateExperienceGateState extends State<LifeMateExperienceGate>
   Future<void>? _bootstrap;
   Object? _authStreamError;
   bool _passwordRecovery = false;
+  String? _lastPendingOccurrenceId;
 
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
+    lifeMatePendingSyncEvent.addListener(_showPendingSyncNotice);
     _supabase = Supabase.instance.client;
     _api = DurableLifeMateApiClient(
       baseUri: widget.config.apiBaseUri,
@@ -71,6 +73,37 @@ class _LifeMateExperienceGateState extends State<LifeMateExperienceGate>
       _bootstrap = _bootstrapUser(_session!);
     }
     _listenToAuth();
+  }
+
+  void _showPendingSyncNotice() {
+    final event = lifeMatePendingSyncEvent.value;
+    if (!mounted || event == null || event.occurrenceId == _lastPendingOccurrenceId) {
+      return;
+    }
+    _lastPendingOccurrenceId = event.occurrenceId;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      final messenger = ScaffoldMessenger.maybeOf(context);
+      if (messenger == null) return;
+      messenger.hideCurrentSnackBar();
+      messenger.showSnackBar(
+        const SnackBar(
+          behavior: SnackBarBehavior.floating,
+          duration: Duration(seconds: 5),
+          content: Row(
+            children: [
+              Icon(Icons.cloud_upload_outlined, color: Colors.white),
+              SizedBox(width: 10),
+              Expanded(
+                child: Text(
+                  'مصرف روی گوشی ذخیره شد؛ بعد از اتصال اینترنت همگام می‌شود.',
+                ),
+              ),
+            ],
+          ),
+        ),
+      );
+    });
   }
 
   @override
@@ -90,6 +123,7 @@ class _LifeMateExperienceGateState extends State<LifeMateExperienceGate>
         final nextUserId = session?.user.id;
         if (previousUserId != nextUserId) {
           LifeMateProfileRefresh.clearForApiClient(_api);
+          _lastPendingOccurrenceId = null;
         }
         setState(() {
           _authStreamError = null;
@@ -124,8 +158,6 @@ class _LifeMateExperienceGateState extends State<LifeMateExperienceGate>
           email: user.email,
         )
         .timeout(_requestTimeout);
-    // Bootstrap proves the session/API boundary is live. Replays are still
-    // account-scoped and fetch the current token before every queued item.
     unawaited(_api.flushPendingMutations());
   }
 
@@ -143,6 +175,7 @@ class _LifeMateExperienceGateState extends State<LifeMateExperienceGate>
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
+    lifeMatePendingSyncEvent.removeListener(_showPendingSyncNotice);
     _authSubscription?.cancel();
     _api.close();
     super.dispose();
