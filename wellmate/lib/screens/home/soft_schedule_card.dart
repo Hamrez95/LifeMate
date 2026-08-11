@@ -34,12 +34,21 @@ class SoftScheduleCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final isPersian = Localizations.localeOf(context).languageCode == 'fa';
+    final isPending = item.pendingSync || item.status == 'pending_sync';
 
     return Container(
       decoration: BoxDecoration(
-        color: isMissed ? Colors.red.shade50 : Colors.white,
+        color: isMissed
+            ? Colors.red.shade50
+            : isPending
+                ? const Color(0xFFF2F7FF)
+                : Colors.white,
         borderRadius: BorderRadius.circular(24),
-        border: isMissed ? Border.all(color: Colors.red.shade200) : null,
+        border: isMissed
+            ? Border.all(color: Colors.red.shade200)
+            : isPending
+                ? Border.all(color: const Color(0xFFB8CDF6))
+                : null,
         boxShadow: [
           BoxShadow(
             color: isMissed
@@ -67,6 +76,13 @@ class SoftScheduleCard extends StatelessWidget {
                           size: 18,
                         ),
                         const SizedBox(width: 4),
+                      ] else if (isPending) ...[
+                        const Icon(
+                          Icons.cloud_upload_outlined,
+                          color: Color(0xFF4F74C8),
+                          size: 18,
+                        ),
+                        const SizedBox(width: 5),
                       ],
                       Expanded(
                         child: Text(
@@ -84,6 +100,28 @@ class SoftScheduleCard extends StatelessWidget {
                       ),
                     ],
                   ),
+                  if (isPending) ...[
+                    const SizedBox(height: 7),
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 9,
+                        vertical: 5,
+                      ),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFDCE8FF),
+                        borderRadius: BorderRadius.circular(9),
+                      ),
+                      child: Text(
+                        'روی گوشی ذخیره شد • منتظر همگام‌سازی',
+                        key: const ValueKey('pending-sync-label'),
+                        style: font.copyWith(
+                          color: const Color(0xFF365DA8),
+                          fontSize: 11.5,
+                          fontWeight: FontWeight.w800,
+                        ),
+                      ),
+                    ),
+                  ],
                   const SizedBox(height: 8),
                   Row(
                     children: [
@@ -137,7 +175,7 @@ class SoftScheduleCard extends StatelessWidget {
                       ),
                     ],
                   ),
-                  if (isMissed) ...[
+                  if (isMissed && !isPending) ...[
                     const SizedBox(height: 12),
                     if (item.type == 'medicine')
                       GestureDetector(
@@ -241,9 +279,11 @@ class SoftScheduleCard extends StatelessWidget {
                       )
                     : Icon(
                         _fallbackIcon,
-                        color: isMissed
-                            ? Colors.red.shade700
-                            : AppColors.primary,
+                        color: isPending
+                            ? const Color(0xFF4F74C8)
+                            : isMissed
+                                ? Colors.red.shade700
+                                : AppColors.primary,
                       ),
               ),
             ),
