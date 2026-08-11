@@ -38,36 +38,35 @@ begin
     alter role lifemate_worker_runtime with login nosuperuser nocreatedb nocreaterole noinherit noreplication nobypassrls connection limit 5;
   end if;
 
-  -- Vault exists in Supabase but not in portable PostgreSQL CI. On Supabase,
-  -- persist generated passwords so the Edge runtime can derive a restricted URL
-  -- from the platform-provided host without exposing credentials to clients.
+  -- Vault exists in Supabase but not in portable PostgreSQL CI. Keep every Vault
+  -- reference dynamic so a fresh ordinary PostgreSQL database can replay this
+  -- canonical migration without the Supabase extension installed.
   if to_regnamespace('vault') is not null then
-    select id into v_secret_id
-      from vault.secrets
-     where name = 'lifemate_edge_runtime_password'
-     limit 1;
+    execute 'select id from vault.secrets where name = ''lifemate_edge_runtime_password'' limit 1'
+      into v_secret_id;
     if v_secret_id is null then
       if v_api_password is null then
         v_api_password := encode(gen_random_bytes(32), 'hex');
         execute format('alter role lifemate_edge_runtime password %L', v_api_password);
       end if;
-      perform vault.create_secret(
+      execute format(
+        'select vault.create_secret(%L,%L,%L)',
         v_api_password,
         'lifemate_edge_runtime_password',
         'Password for the least-privilege LifeMate healthcare Edge API database role'
       );
     end if;
 
-    select id into v_secret_id
-      from vault.secrets
-     where name = 'lifemate_worker_runtime_password'
-     limit 1;
+    v_secret_id := null;
+    execute 'select id from vault.secrets where name = ''lifemate_worker_runtime_password'' limit 1'
+      into v_secret_id;
     if v_secret_id is null then
       if v_worker_password is null then
         v_worker_password := encode(gen_random_bytes(32), 'hex');
         execute format('alter role lifemate_worker_runtime password %L', v_worker_password);
       end if;
-      perform vault.create_secret(
+      execute format(
+        'select vault.create_secret(%L,%L,%L)',
         v_worker_password,
         'lifemate_worker_runtime_password',
         'Password for the least-privilege LifeMate outbox worker database role'
@@ -77,9 +76,16 @@ begin
 end
 $$;
 
-revoke all on database postgres from lifemate_edge_runtime;
-revoke all on database postgres from lifemate_worker_runtime;
-grant connect on database postgres to lifemate_edge_runtime, lifemate_worker_runtime;
+do $$
+begin
+  execute format('revoke all on database %I from lifemate_edge_runtime', current_database());
+  execute format('revoke all on database %I from lifemate_worker_runtime', current_database());
+  execute format(
+    'grant connect on database %I to lifemate_edge_runtime, lifemate_worker_runtime',
+    current_database()
+  );
+end
+$$;
 
 -- Start from an explicit deny baseline.
 do $$
