@@ -39,6 +39,7 @@ class ScheduleItemModel {
 
   factory ScheduleItemModel.fromJson(Map<String, dynamic> json) {
     final status = (json['status'] ?? 'scheduled').toString();
+    final pending = json['pendingSync'] == true || status == 'pending_sync';
     return ScheduleItemModel(
       id: json['id']?.toString() ?? '',
       seriesId: json['seriesId']?.toString(),
@@ -46,8 +47,10 @@ class ScheduleItemModel {
       time: json['time'] ?? '',
       dosage: json['dosage'] ?? json['details'] ?? '',
       type: json['type'] ?? 'default',
-      isDone: json['is_done'] ?? status == 'taken' || status == 'skipped',
-      pendingSync: json['pendingSync'] == true || status == 'pending_sync',
+      isDone: pending
+          ? false
+          : (json['is_done'] ?? status == 'taken' || status == 'skipped'),
+      pendingSync: pending,
       pendingStatus: json['pendingStatus']?.toString(),
       status: status,
       version: json['version'] is int ? json['version'] as int : 1,
@@ -113,6 +116,9 @@ class ScheduleItemModel {
     int? patientReminderMinutesBefore,
     int? caregiverReminderMinutesBefore,
   }) {
+    final nextStatus = status ?? this.status;
+    final nextPending =
+        pendingSync ?? this.pendingSync || nextStatus == 'pending_sync';
     return ScheduleItemModel(
       id: id ?? this.id,
       seriesId: seriesId ?? this.seriesId,
@@ -120,10 +126,10 @@ class ScheduleItemModel {
       time: time ?? this.time,
       dosage: dosage ?? this.dosage,
       type: type ?? this.type,
-      isDone: isDone ?? this.isDone,
-      pendingSync: pendingSync ?? this.pendingSync,
+      isDone: nextPending ? false : (isDone ?? this.isDone),
+      pendingSync: nextPending,
       pendingStatus: pendingStatus ?? this.pendingStatus,
-      status: status ?? this.status,
+      status: nextStatus,
       version: version ?? this.version,
       scheduledAtUtc: scheduledAtUtc ?? this.scheduledAtUtc,
       frequency: frequency ?? this.frequency,
