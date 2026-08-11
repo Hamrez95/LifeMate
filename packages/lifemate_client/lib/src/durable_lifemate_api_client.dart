@@ -5,9 +5,8 @@ import 'lifemate_api_client.dart';
 import 'offline_mutation_queue.dart';
 
 /// Production API client used by authenticated LifeMate app surfaces.
-///
 /// Reads and ordinary mutations behave exactly like [LifeMateApiClient]. Only
-/// explicitly-idempotent adherence/care-event writes are journaled for replay.
+/// explicitly-idempotent medication adherence writes are journaled for replay.
 class DurableLifeMateApiClient extends LifeMateApiClient {
   DurableLifeMateApiClient._({
     required Uri baseUri,
@@ -28,6 +27,7 @@ class DurableLifeMateApiClient extends LifeMateApiClient {
     http.Client? innerHttpClient,
   }) {
     final durableHttp = LifeMateDurableHttpClient(
+      apiBaseUri: baseUri,
       accessToken: accessToken,
       accountId: accountId,
       queue: queue,
