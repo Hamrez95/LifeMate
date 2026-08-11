@@ -79,7 +79,9 @@ Deno.serve(async (request: Request) => {
     });
   } catch (error) {
     console.warn("LifeMate readiness failed", {
-      code: error instanceof Error ? error.message.slice(0, 80) : "probe_failed",
+      code: error instanceof Error
+        ? error.message.slice(0, 80)
+        : "probe_failed",
     });
     return response(503, {
       status: "error",
