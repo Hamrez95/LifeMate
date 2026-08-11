@@ -1,15 +1,16 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import postgres from "postgres";
 import { createClient } from "supabase";
+import { loadWorkerDatabaseUrl } from "./runtime_database.ts";
 
-const databaseUrl = Deno.env.get("SUPABASE_DB_URL");
+const databaseUrl = await loadWorkerDatabaseUrl();
 const supabaseUrl = Deno.env.get("SUPABASE_URL");
 const serviceRoleKey = Deno.env.get(
   ["SUPABASE", "SERVICE", "ROLE", "KEY"].join("_"),
 );
 const workerToken = Deno.env.get("LIFEMATE_WORKER_TOKEN");
 
-if (!databaseUrl || !supabaseUrl || !serviceRoleKey) {
+if (!supabaseUrl || !serviceRoleKey) {
   throw new Error("Required worker runtime configuration is missing.");
 }
 

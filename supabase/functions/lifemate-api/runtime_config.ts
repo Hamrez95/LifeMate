@@ -17,6 +17,11 @@ export type ContactSecretSources = {
   defaultSecret?: string | null;
 };
 
+type RuntimeVaultSecrets = {
+  contactHashing: string | null;
+  edgeDatabasePassword: string | null;
+};
+
 type ReleaseGlobal = typeof globalThis & {
   __LIFEMATE_RELEASE_VERSION__?: unknown;
 };
@@ -64,8 +69,37 @@ export function selectContactHashingSecret(
   );
 }
 
-async function readVaultSecret(databaseUrl: string): Promise<string | null> {
-  const sql = postgres(databaseUrl, {
+/// Reuses the platform-provided host/database/pooler suffix while replacing the
+/// privileged login with a dedicated restricted role. Supabase pooler usernames
+/// can be `postgres.<project-ref>`; that suffix must be preserved.
+export function buildRestrictedDatabaseUrl(
+  bootstrapDatabaseUrl: string,
+  roleName: string,
+  password: string,
+): string {
+  if (!roleName || !/^[a-z][a-z0-9_]{2,62}$/i.test(roleName)) {
+    throw new Error("Invalid restricted database role name.");
+  }
+  if (password.length < 32) {
+    throw new Error(
+      "Restricted database password must be at least 32 characters.",
+    );
+  }
+
+  const parsed = new URL(bootstrapDatabaseUrl);
+  const currentUser = decodeURIComponent(parsed.username);
+  if (!currentUser) throw new Error("Database URL is missing a username.");
+  const dot = currentUser.indexOf(".");
+  const poolerSuffix = dot >= 0 ? currentUser.slice(dot) : "";
+  parsed.username = `${roleName}${poolerSuffix}`;
+  parsed.password = password;
+  return parsed.toString();
+}
+
+async function readRuntimeVaultSecrets(
+  bootstrapDatabaseUrl: string,
+): Promise<RuntimeVaultSecrets> {
+  const sql = postgres(bootstrapDatabaseUrl, {
     max: 1,
     idle_timeout: 5,
     connect_timeout: 10,
@@ -74,20 +108,35 @@ async function readVaultSecret(databaseUrl: string): Promise<string | null> {
 
   try {
     const rows = await sql`
-      select decrypted_secret
+      select name, decrypted_secret
       from vault.decrypted_secrets
-      where name = 'lifemate_contact_hashing_secret'
-      limit 1
+      where name in (
+        'lifemate_contact_hashing_secret',
+        'lifemate_edge_runtime_password'
+      )
     `;
-    const value = rows[0]?.decrypted_secret;
-    return typeof value === "string" ? value : null;
+    const values = new Map<string, string>();
+    for (const row of rows) {
+      if (
+        typeof row.name === "string" &&
+        typeof row.decrypted_secret === "string"
+      ) {
+        values.set(row.name, row.decrypted_secret);
+      }
+    }
+    return {
+      contactHashing: values.get("lifemate_contact_hashing_secret") ?? null,
+      edgeDatabasePassword: values.get("lifemate_edge_runtime_password") ??
+        null,
+    };
   } finally {
     await sql.end({ timeout: 5 });
   }
 }
 
 export async function loadRuntimeConfig(): Promise<RuntimeConfig> {
-  const databaseUrl = Deno.env.get("SUPABASE_DB_URL");
+  const bootstrapDatabaseUrl = Deno.env.get("SUPABASE_DB_URL");
+  const explicitRuntimeDatabaseUrl = Deno.env.get("LIFEMATE_DB_URL");
   const supabaseUrl = Deno.env.get("SUPABASE_URL");
   const publishableKeys = readKeyDictionary("SUPABASE_PUBLISHABLE_KEYS");
   const secretKeys = readKeyDictionary("SUPABASE_SECRET_KEYS");
@@ -98,7 +147,9 @@ export async function loadRuntimeConfig(): Promise<RuntimeConfig> {
   );
   const serviceRole = Deno.env.get(serviceRoleKeyName);
 
-  if (!databaseUrl || !supabaseUrl || !publishableKey || !serviceRole) {
+  if (
+    !bootstrapDatabaseUrl || !supabaseUrl || !publishableKey || !serviceRole
+  ) {
     throw new Error("Required Supabase runtime configuration is missing.");
   }
 
@@ -106,18 +157,37 @@ export async function loadRuntimeConfig(): Promise<RuntimeConfig> {
     "LIFEMATE_CONTACT_HASHING_SECRET",
   );
   const dictionarySecret = secretKeys.contact_hashing;
-  const needsVault = !isDedicatedSecret(environmentSecret, serviceRole) &&
+  const needsContactVault =
+    !isDedicatedSecret(environmentSecret, serviceRole) &&
     !isDedicatedSecret(dictionarySecret, serviceRole);
-  const vaultSecret = needsVault ? await readVaultSecret(databaseUrl) : null;
+  const needsDatabaseVault = !explicitRuntimeDatabaseUrl;
+  const vaultSecrets = needsContactVault || needsDatabaseVault
+    ? await readRuntimeVaultSecrets(bootstrapDatabaseUrl)
+    : { contactHashing: null, edgeDatabasePassword: null };
+
   const contactHashingSecret = selectContactHashingSecret({
     environment: environmentSecret,
     dictionary: dictionarySecret,
-    vault: vaultSecret,
+    vault: vaultSecrets.contactHashing,
     serviceRole,
     // Intentionally ignored by selectContactHashingSecret. The generic default
     // secret previously matched the service-role key in the live project.
     defaultSecret: secretKeys.default,
   });
+
+  const databaseUrl = explicitRuntimeDatabaseUrl ??
+    (vaultSecrets.edgeDatabasePassword
+      ? buildRestrictedDatabaseUrl(
+        bootstrapDatabaseUrl,
+        "lifemate_edge_runtime",
+        vaultSecrets.edgeDatabasePassword,
+      )
+      : null);
+  if (!databaseUrl) {
+    throw new Error(
+      "Restricted LifeMate database runtime credential is missing. Refusing to use the privileged Supabase database URL for application queries.",
+    );
+  }
 
   const globalRelease = (globalThis as ReleaseGlobal)
     .__LIFEMATE_RELEASE_VERSION__;
