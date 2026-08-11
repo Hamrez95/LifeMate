@@ -13,7 +13,6 @@ type Row = Record<string, any>;
 
 export type NormalizedHealthObservation = {
   clientRequestId: string;
-  sourceApplicationCode: string;
   observationType:
     | "weight"
     | "height"
@@ -75,9 +74,6 @@ export function normalizeHealthObservationInput(
   now = new Date(),
 ): NormalizedHealthObservation {
   const clientRequestId = requiredUuid(body.clientRequestId, "clientRequestId");
-  const sourceApplicationCode = normalizeApplicationCode(
-    body.sourceApplicationCode ?? "wellmate",
-  );
   const observationType = String(body.observationType ?? "")
     .trim()
     .toLowerCase();
@@ -117,7 +113,6 @@ export function normalizeHealthObservationInput(
     }
     return {
       clientRequestId,
-      sourceApplicationCode,
       observationType: "note",
       valuePrimary: null,
       valueSecondary: null,
@@ -157,7 +152,6 @@ export function normalizeHealthObservationInput(
 
   return {
     clientRequestId,
-    sourceApplicationCode,
     observationType:
       observationType as NormalizedHealthObservation["observationType"],
     valuePrimary,
@@ -171,14 +165,10 @@ export function normalizeHealthObservationInput(
   };
 }
 
-function normalizeApplicationCode(value: unknown): string {
-  const code = String(value ?? "").trim().toLowerCase();
+function normalizeTrustedApplicationCode(value: string): string {
+  const code = value.trim().toLowerCase();
   if (!/^[a-z0-9][a-z0-9_-]{1,63}$/.test(code)) {
-    throw new ApiError(
-      400,
-      "invalid_sourceApplicationCode",
-      "Source application code is invalid.",
-    );
+    throw new Error("Trusted source application code is invalid.");
   }
   return code;
 }
@@ -227,8 +217,11 @@ export function createHealthObservationStore(databaseUrl: string) {
   }
 
   async function resolveSourceApplication(
-    applicationCode: string,
+    trustedApplicationCode: string,
   ): Promise<{ id: string; code: string }> {
+    const applicationCode = normalizeTrustedApplicationCode(
+      trustedApplicationCode,
+    );
     const rows = await sql`
       select id, code
       from ecosystem.applications
@@ -239,10 +232,10 @@ export function createHealthObservationStore(databaseUrl: string) {
     const id = rows[0]?.id;
     const code = rows[0]?.code;
     if (typeof id !== "string" || typeof code !== "string") {
-      throw new ApiError(
-        400,
-        "source_application_unavailable",
-        "The source LifeMate application is not registered or active.",
+      // This is deployment/configuration failure, not something a mobile caller
+      // may select or fix through request data.
+      throw new Error(
+        `Trusted LifeMate source application is not registered: ${applicationCode}`,
       );
     }
     return { id, code };
@@ -258,38 +251,55 @@ export function createHealthObservationStore(databaseUrl: string) {
     validateRange(fromDate, toDate, 3660);
     const personId = await resolveSelfPersonId(userId);
 
-    // Besides the requested date window, carry the latest canonical value for
-    // every metric. This keeps long-lived facts such as height available to the
-    // dashboard/BMI without loading ten years of history. It also scales better
-    // for future high-frequency sources such as FitMate or device integrations.
-    const rows = await sql`
+    // Keep the requested history bounded independently from the canonical
+    // latest-per-type values. A future FitMate/wearable stream may legitimately
+    // fill the 5,000-row window, but that must never truncate an older height or
+    // another latest metric required by the dashboard.
+    const windowRows = await sql`
       select h.*, app.code as source_application_code
       from lifemate.health_observations h
       join ecosystem.applications app on app.id = h.source_application_id
       where h.person_id = ${personId}::uuid
-        and (
-          h.observed_local_date between ${fromDate}::date and ${toDate}::date
-          or h.id in (
-            select distinct on (latest.observation_type) latest.id
-            from lifemate.health_observations latest
-            where latest.person_id = ${personId}::uuid
-            order by latest.observation_type, latest.observed_at_utc desc, latest.id desc
-          )
-        )
+        and h.observed_local_date between ${fromDate}::date and ${toDate}::date
       order by h.observed_at_utc desc, h.id desc
       limit 5000
     `;
-    return rows.map(mapObservation);
+    const latestRows = await sql`
+      select h.*, app.code as source_application_code
+      from lifemate.health_observations h
+      join ecosystem.applications app on app.id = h.source_application_id
+      join (
+        select distinct on (observation_type) id
+        from lifemate.health_observations
+        where person_id = ${personId}::uuid
+        order by observation_type, observed_at_utc desc, id desc
+      ) latest on latest.id = h.id
+      order by h.observed_at_utc desc, h.id desc
+    `;
+
+    const byId = new Map<string, Row>();
+    for (const row of [...windowRows, ...latestRows]) {
+      byId.set(String(row.id), row);
+    }
+    return [...byId.values()]
+      .sort((a, b) => {
+        const time = new Date(String(b.observed_at_utc)).getTime() -
+          new Date(String(a.observed_at_utc)).getTime();
+        if (time !== 0) return time;
+        return String(b.id).localeCompare(String(a.id));
+      })
+      .map(mapObservation);
   }
 
   async function createOwnerObservation(
     userId: string,
     body: Record<string, unknown>,
+    trustedApplicationCode: string,
   ): Promise<Record<string, unknown>> {
     const input = normalizeHealthObservationInput(body);
     const personId = await resolveSelfPersonId(userId);
     const sourceApplication = await resolveSourceApplication(
-      input.sourceApplicationCode,
+      trustedApplicationCode,
     );
 
     return await sql.begin(async (tx: any) => {
