@@ -17,6 +17,7 @@ import 'localization/locale_provider.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  await LifeMateSensitiveClipboardGuard.install();
   final config = AppConfig.fromEnvironment();
   var authInitialized = false;
   if (config.isConfigured) {
