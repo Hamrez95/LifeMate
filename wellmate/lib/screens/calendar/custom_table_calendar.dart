@@ -334,6 +334,7 @@ class _EventDots extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colors = <Color>[
+      if (eventTypes.contains('health')) AppColors.primary,
       if (eventTypes.contains('medicine') || eventTypes.contains('med'))
         AppColors.calDotMedicine,
       if (eventTypes.contains('doctor') || eventTypes.contains('appointment'))

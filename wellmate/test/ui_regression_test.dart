@@ -17,7 +17,7 @@ import 'package:wellmate/screens/treatments/add_treatment_screen.dart';
 void main() {
   test('home mounts data-heavy tabs lazily', () {
     final source = File('lib/screens/home/home_screen.dart').readAsStringSync();
-    expect(source, contains('final Set<int> _visitedTabs = <int>{4}'));
+    expect(source, contains('final Set<int> _visitedTabs = <int>{5}'));
     expect(source, contains('if (!_visitedTabs.contains(index))'));
     expect(source, contains('_visitedTabs.add(index)'));
   });

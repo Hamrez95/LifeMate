@@ -9,6 +9,7 @@ dependencies:
     sdk: flutter
   http: 1.6.0
   supabase_flutter: 2.16.0
+  timezone: ^0.10.1
 dev_dependencies:
   flutter_test:
     sdk: flutter

@@ -10,6 +10,7 @@ import {
 import { type AuthUser, createLifeMateDatabase } from "./database.ts";
 import { isPostgresUnavailable } from "./database_client.ts";
 import { createEditStore } from "./edit_store.ts";
+import { createHealthObservationStore } from "./health_observations.ts";
 import { corsHeaders, json, problem, safeError } from "./http.ts";
 import { createProfileStore } from "./profile.ts";
 import {
@@ -51,6 +52,7 @@ const authorizationStore = createAuthorizationStore(databaseUrl);
 const identityBridge = createIdentityBridge(databaseUrl);
 const accountLifecycle = createAccountLifecycleStore(databaseUrl);
 const edits = createEditStore(databaseUrl);
+const healthObservations = createHealthObservationStore(databaseUrl);
 const womenCalendar = createWomenCalendarStore(databaseUrl);
 const womenCalendarPilotEnabled =
   (Deno.env.get("ENABLE_WOMEN_CALENDAR_PILOT") ?? "true").toLowerCase() !==
@@ -334,6 +336,38 @@ async function route(
     }
     return json(await presentProfile(identity.appUserId));
   }
+  if (request.method === "GET" && path === "/api/v1/health/observations") {
+    const url = new URL(request.url);
+    return json(
+      await healthObservations.listOwnerObservations(
+        identity.appUserId,
+        url.searchParams.get("fromDate"),
+        url.searchParams.get("toDate"),
+      ),
+    );
+  }
+  if (request.method === "POST" && path === "/api/v1/health/observations") {
+    enforceRateLimit(`health-write:${identity.appUserId}`, 60, 60 * 60_000);
+    return json(
+      await healthObservations.createOwnerObservation(
+        identity.appUserId,
+        await readJsonObject(request),
+      ),
+      201,
+    );
+  }
+  const healthObservationMatch = path.match(
+    /^\/api\/v1\/health\/observations\/([0-9a-f-]{36})$/i,
+  );
+  if (request.method === "DELETE" && healthObservationMatch) {
+    enforceRateLimit(`health-delete:${identity.appUserId}`, 30, 60 * 60_000);
+    await healthObservations.deleteOwnerObservation(
+      identity.appUserId,
+      healthObservationMatch[1],
+    );
+    return new Response(null, { status: 204, headers: corsHeaders });
+  }
+
   if (request.method === "GET" && path === "/api/v1/women-calendar/profile") {
     requireWomenCalendarPilot();
     return json(await womenCalendar.getOwnerProfile(identity.appUserId));

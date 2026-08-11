@@ -10,6 +10,7 @@ import '../../core/widgets/wellmate_app_header.dart';
 import '../../core/widgets/wellmate_bottom_nav.dart';
 import '../../models/schedule_item_model.dart';
 import '../calendar/calendar_screen.dart';
+import '../health/health_screen.dart';
 import '../profile/profile_screen.dart';
 import '../treatments/care_plan_hub_screen.dart';
 import '../treatments/treatments_screen.dart';
@@ -29,10 +30,11 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   static const _backgroundRefreshInterval = Duration(seconds: 8);
   static const _prewarmDelay = Duration(milliseconds: 350);
 
-  int _currentIndex = 4;
-  final Set<int> _visitedTabs = <int>{4};
+  int _currentIndex = 5;
+  final Set<int> _visitedTabs = <int>{5};
   int _calendarRevision = 0;
   int _treatmentsRevision = 0;
+  int _healthRevision = 0;
   int _womenRevision = 0;
   int _homeRevision = 0;
   bool _womenCalendarEnabled = LifeMateFeatureFlags.womenCalendarPilotEnabled;
@@ -57,7 +59,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     );
     _prewarmTimer = Timer(_prewarmDelay, () {
       if (!mounted) return;
-      setState(() => _visitedTabs.addAll(const <int>{0, 1, 2, 3, 4}));
+      setState(() => _visitedTabs.addAll(const <int>{0, 1, 2, 3, 4, 5}));
     });
   }
 
@@ -89,6 +91,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
       setState(() {
         _calendarRevision++;
         _treatmentsRevision++;
+        _healthRevision++;
         _womenRevision++;
         _homeRevision++;
       });
@@ -101,7 +104,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
       if (mounted) {
         setState(() {
           _womenCalendarEnabled = false;
-          if (_currentIndex == 3) _currentIndex = 4;
+          if (_currentIndex == 4) _currentIndex = 5;
         });
       }
       return;
@@ -125,7 +128,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
       setState(() {
         _womenCalendarEnabled = enabled;
         _womenCalendarLoadedAt = DateTime.now();
-        if (!enabled && _currentIndex == 3) _currentIndex = 4;
+        if (!enabled && _currentIndex == 4) _currentIndex = 5;
       });
     } catch (_) {
       // Preserve the last known feature state on transient failures.
@@ -139,8 +142,9 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     setState(() {
       _calendarRevision++;
       _treatmentsRevision++;
+      _healthRevision++;
       _homeRevision++;
-      _currentIndex = 4;
+      _currentIndex = 5;
     });
   }
 
@@ -216,7 +220,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   }
 
   void _onItemTapped(int index) {
-    if (index == 3 && !_womenCalendarEnabled) return;
+    if (index == 4 && !_womenCalendarEnabled) return;
     if (_currentIndex != index) {
       setState(() {
         _visitedTabs.add(index);
@@ -242,9 +246,12 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
           _treatmentsRevision++;
           break;
         case 3:
-          _womenRevision++;
+          _healthRevision++;
           break;
         case 4:
+          _womenRevision++;
+          break;
+        case 5:
           _homeRevision++;
           break;
       }
@@ -257,7 +264,8 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
       0 => CalendarScreen(refreshToken: _calendarRevision),
       1 => TreatmentsScreen(refreshToken: _treatmentsRevision),
       2 => CarePlanHubScreen(onCreated: _treatmentCreated),
-      3 => WomenCompanionScreen(
+      3 => HealthScreen(refreshToken: _healthRevision),
+      4 => WomenCompanionScreen(
         refreshToken: _womenRevision,
         onProfileChanged: () => _loadWomenCalendarState(force: true),
       ),
@@ -271,13 +279,13 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
 
   @override
   Widget build(BuildContext context) {
-    final pages = List<Widget>.generate(5, _buildTab);
+    final pages = List<Widget>.generate(6, _buildTab);
     return PopScope<void>(
-      canPop: _currentIndex == 4,
+      canPop: _currentIndex == 5,
       onPopInvokedWithResult: (didPop, result) {
-        if (!didPop && _currentIndex != 4) {
+        if (!didPop && _currentIndex != 5) {
           setState(() {
-            _currentIndex = 4;
+            _currentIndex = 5;
             _homeRevision++;
           });
         }
