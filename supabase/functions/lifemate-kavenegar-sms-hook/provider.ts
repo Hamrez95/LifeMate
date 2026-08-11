@@ -21,7 +21,6 @@ export class KavenegarProviderError extends Error {
 type KavenegarProviderOptions = {
   fetcher?: FetchLike;
   timeoutMs?: number;
-  tag?: string;
 };
 
 type KavenegarEnvelope = {
@@ -42,7 +41,6 @@ type KavenegarEnvelope = {
 export class KavenegarOtpProvider implements PhoneOtpProvider {
   private readonly fetcher: FetchLike;
   private readonly timeoutMs: number;
-  private readonly tag?: string;
 
   constructor(
     private readonly apiKey: string,
@@ -50,14 +48,16 @@ export class KavenegarOtpProvider implements PhoneOtpProvider {
     options: KavenegarProviderOptions = {},
   ) {
     this.fetcher = options.fetcher ?? fetch;
-    this.timeoutMs = options.timeoutMs ?? 5_000;
-    this.tag = options.tag?.trim() || undefined;
+    // Supabase Auth HTTP hooks have an enclosing deadline. Keep enough budget
+    // for Edge startup, webhook verification, parsing and the final response so
+    // a slow provider cannot deliver an OTP after Supabase already timed out.
+    this.timeoutMs = options.timeoutMs ?? 3_500;
   }
 
   async sendOtp(phoneE164: string, otp: string): Promise<void> {
     const receptor = iranianReceptor(phoneE164);
     validateOtp(otp);
-    validateConfiguration(this.apiKey, this.template, this.tag);
+    validateConfiguration(this.apiKey, this.template);
 
     const endpoint = new URL(
       `https://api.kavenegar.com/v1/${
@@ -74,7 +74,6 @@ export class KavenegarOtpProvider implements PhoneOtpProvider {
     body.set("token", otp);
     body.set("template", this.template);
     body.set("type", "sms");
-    if (this.tag) body.set("tag", this.tag);
 
     let response: Response;
     try {
@@ -113,11 +112,7 @@ function validateOtp(otp: string): void {
   }
 }
 
-function validateConfiguration(
-  apiKey: string,
-  template: string,
-  tag?: string,
-): void {
+function validateConfiguration(apiKey: string, template: string): void {
   if (!apiKey.trim() || apiKey.length > 256 || /[\s/?#]/.test(apiKey)) {
     throw new KavenegarProviderError("invalid_kavenegar_api_key", false);
   }
@@ -126,10 +121,6 @@ function validateConfiguration(
   // spaces or underscore. We intentionally allow only a conservative subset.
   if (!/^[A-Za-z0-9-]{1,64}$/.test(template)) {
     throw new KavenegarProviderError("invalid_kavenegar_template", false);
-  }
-
-  if (tag != null && !/^[A-Za-z0-9\-ـ]{1,200}$/.test(tag)) {
-    throw new KavenegarProviderError("invalid_kavenegar_tag", false);
   }
 }
 
@@ -204,7 +195,11 @@ function mapProviderFailure(status: number): KavenegarProviderError {
         status,
       );
     case 607:
-      return new KavenegarProviderError("kavenegar_tag_invalid", false, status);
+      return new KavenegarProviderError(
+        "kavenegar_ip_restriction",
+        false,
+        status,
+      );
     default:
       return new KavenegarProviderError(
         status >= 500 || status === 429
