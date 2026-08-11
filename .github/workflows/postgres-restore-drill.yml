@@ -86,8 +86,6 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          # GitHub's host client may lag PostgreSQL 17. Use the exact reviewed
-          # PostgreSQL 17.6 image for pg_dump so server/client majors match.
           docker run --rm --network host \
             -e PGPASSWORD=postgres \
             postgres:17.6-alpine \
@@ -103,7 +101,7 @@ jobs:
 
           psql "$SOURCE_DATABASE_URL" --set=ON_ERROR_STOP=1 --tuples-only --no-align <<'SQL' > "$RUNNER_TEMP/lifemate.runtime-roles.sql"
           select format(
-            'create role %I %s %s %s %s %s %s %s;',
+            'create role %I %s %s %s %s %s %s %s connection limit %s;',
             rolname,
             case when rolcanlogin then 'LOGIN' else 'NOLOGIN' end,
             case when rolsuper then 'SUPERUSER' else 'NOSUPERUSER' end,
@@ -111,7 +109,8 @@ jobs:
             case when rolcreaterole then 'CREATEROLE' else 'NOCREATEROLE' end,
             case when rolcreatedb then 'CREATEDB' else 'NOCREATEDB' end,
             case when rolreplication then 'REPLICATION' else 'NOREPLICATION' end,
-            case when rolbypassrls then 'BYPASSRLS' else 'NOBYPASSRLS' end
+            case when rolbypassrls then 'BYPASSRLS' else 'NOBYPASSRLS' end,
+            rolconnlimit
           )
           from pg_roles
           where rolname in ('lifemate_edge_runtime','lifemate_worker_runtime')
@@ -137,7 +136,64 @@ jobs:
                 --no-owner \
                 --exit-on-error
 
-      - name: Verify restored data, ACL and RLS contracts
+      - name: Seed synthetic healthcare row in restored target
+        shell: bash
+        run: |
+          set -euo pipefail
+          psql "$RESTORE_DATABASE_URL" --set=ON_ERROR_STOP=1 <<'SQL'
+          insert into lifemate.app_users(id, auth_subject, status, created_at_utc, updated_at_utc)
+          values (
+            '5b2500d0-2209-4b6f-9e41-1f9ff3a84c11'::uuid,
+            'restore-health-contract-subject',
+            'Active', now(), now()
+          );
+          insert into lifemate.user_profiles(
+            id, user_id, display_name, phone_number, email, locale, time_zone,
+            avatar_key, version, created_at_utc, updated_at_utc
+          ) values (
+            '5b2500d0-2209-4b6f-9e41-1f9ff3a84c12'::uuid,
+            '5b2500d0-2209-4b6f-9e41-1f9ff3a84c11'::uuid,
+            'Restore Health Contract', null, 'restore-health@example.test',
+            'fa', 'Asia/Tehran', 'person_blue', 1, now(), now()
+          );
+
+          with self_person as (
+            select person_id
+            from core.account_person_links
+            where account_id='5b2500d0-2209-4b6f-9e41-1f9ff3a84c11'::uuid
+              and link_type='Self'
+              and status='Active'
+            limit 1
+          ), wellmate_app as (
+            select id
+            from ecosystem.applications
+            where code='wellmate' and status='Active'
+            limit 1
+          )
+          insert into lifemate.health_observations(
+            id, owner_user_id, person_id, recorded_by_account_id,
+            source_application_id, client_request_id,
+            observation_type, value_primary, value_secondary,
+            unit_primary, unit_secondary, note,
+            observed_at_utc, observed_local_date, time_zone,
+            source_category, source_provider, metadata_json,
+            version, created_at_utc, updated_at_utc
+          )
+          select
+            '123e4567-e89b-42d3-a456-426614174889'::uuid,
+            '5b2500d0-2209-4b6f-9e41-1f9ff3a84c11'::uuid,
+            self_person.person_id,
+            '5b2500d0-2209-4b6f-9e41-1f9ff3a84c11'::uuid,
+            wellmate_app.id,
+            '123e4567-e89b-42d3-a456-426614174890'::uuid,
+            'weight', 72.5, null, 'kg', null, null,
+            now(), current_date, 'Asia/Tehran',
+            'FirstPartyUserInput', 'wellmate', '{}'::jsonb,
+            1, now(), now()
+          from self_person cross join wellmate_app;
+          SQL
+
+      - name: Verify restored data, role attributes, ACL and RLS contracts
         shell: bash
         run: |
           set -euo pipefail
@@ -147,7 +203,6 @@ jobs:
             v_marker_count integer;
             v_health_rls boolean;
             v_health_force_rls boolean;
-            v_runtime_bypass boolean;
           begin
             select count(*) into v_marker_count
             from public.restore_drill_fixture
@@ -160,7 +215,8 @@ jobs:
             if to_regclass('lifemate.health_observations') is null
                or to_regclass('lifemate.dose_occurrences') is null
                or to_regclass('identity.accounts') is null
-               or to_regclass('integration.outbox_messages') is null then
+               or to_regclass('integration.outbox_messages') is null
+               or to_regclass('security.runtime_readiness_probe') is null then
               raise exception 'critical LifeMate relation missing after restore';
             end if;
 
@@ -175,15 +231,16 @@ jobs:
             end if;
 
             if not exists (
-              select 1
-              from pg_policies
+              select 1 from pg_policies
               where schemaname='lifemate'
                 and tablename='health_observations'
                 and policyname='lifemate_edge_runtime_access'
                 and cmd='ALL'
                 and 'lifemate_edge_runtime'=any(roles)
+                and coalesce(qual,'')='true'
+                and coalesce(with_check,'')='true'
             ) then
-              raise exception 'expected restricted Edge RLS policy missing';
+              raise exception 'expected restricted Edge health RLS policy missing';
             end if;
 
             if not exists (
@@ -195,10 +252,27 @@ jobs:
               raise exception 'account deletion function missing after restore';
             end if;
 
-            select rolbypassrls into v_runtime_bypass
-            from pg_roles where rolname='lifemate_edge_runtime';
-            if coalesce(v_runtime_bypass,true) is true then
-              raise exception 'restricted Edge role restored with BYPASSRLS';
+            if not exists (
+              select 1 from pg_roles
+              where rolname='lifemate_edge_runtime'
+                and rolbypassrls=false
+                and rolsuper=false
+                and rolcreaterole=false
+                and rolcreatedb=false
+                and rolconnlimit=20
+            ) then
+              raise exception 'Edge runtime security attributes/connection limit not restored';
+            end if;
+            if not exists (
+              select 1 from pg_roles
+              where rolname='lifemate_worker_runtime'
+                and rolbypassrls=false
+                and rolsuper=false
+                and rolcreaterole=false
+                and rolcreatedb=false
+                and rolconnlimit=5
+            ) then
+              raise exception 'worker runtime security attributes/connection limit not restored';
             end if;
           end
           $$;
@@ -206,9 +280,22 @@ jobs:
 
           psql "$RESTORE_DATABASE_URL" --set=ON_ERROR_STOP=1 <<'SQL'
           set role lifemate_edge_runtime;
+          do $$
+          begin
+            if not exists (
+              select 1
+              from lifemate.health_observations
+              where id='123e4567-e89b-42d3-a456-426614174889'::uuid
+                and observation_type='weight'
+                and value_primary=72.5
+            ) then
+              raise exception 'restricted Edge role could not read restored synthetic health row through RLS';
+            end if;
+          end
+          $$;
           select count(*) from ecosystem.applications;
-          select count(*) from lifemate.health_observations;
           reset role;
+
           set role lifemate_worker_runtime;
           select count(*) from integration.outbox_messages;
           reset role;
@@ -231,11 +318,11 @@ jobs:
             echo '- source and restore: independent PostgreSQL 17.6 clusters'
             echo '- canonical baseline + every forward migration: source applied'
             echo '- PostgreSQL 17.6 pg_dump/pg_restore tools: used'
-            echo '- custom database dump with ACLs: restored'
-            echo '- restricted runtime role attributes: restored from separate password-free manifest'
+            echo '- database ACLs + password-free runtime role manifest: restored'
+            echo '- Edge/worker role security attributes + connection limits: verified'
             echo '- synthetic data sentinel: restored'
-            echo '- critical schemas/functions: restored'
-            echo '- Health RLS + FORCE RLS + expected Edge policy: verified'
-            echo '- Edge and worker representative ACL probes: passed'
+            echo '- synthetic health row: visible to restricted Edge role through restored RLS'
+            echo '- Health RLS + FORCE RLS + expected policy expression: verified'
+            echo '- worker representative ACL probe: passed'
             echo '- unrelated healthcare read: denied'
           } >> "$GITHUB_STEP_SUMMARY"
