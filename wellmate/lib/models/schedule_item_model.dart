@@ -7,6 +7,8 @@ class ScheduleItemModel {
   final String type;
   final String frequency;
   final bool isDone;
+  final bool pendingSync;
+  final String? pendingStatus;
   final String status;
   final int version;
   final DateTime? scheduledAtUtc;
@@ -23,6 +25,8 @@ class ScheduleItemModel {
     required this.dosage,
     required this.type,
     this.isDone = false,
+    this.pendingSync = false,
+    this.pendingStatus,
     this.status = 'scheduled',
     this.version = 1,
     this.scheduledAtUtc,
@@ -43,6 +47,8 @@ class ScheduleItemModel {
       dosage: json['dosage'] ?? json['details'] ?? '',
       type: json['type'] ?? 'default',
       isDone: json['is_done'] ?? status == 'taken' || status == 'skipped',
+      pendingSync: json['pendingSync'] == true || status == 'pending_sync',
+      pendingStatus: json['pendingStatus']?.toString(),
       status: status,
       version: json['version'] is int ? json['version'] as int : 1,
       scheduledAtUtc: json['scheduledAtUtc'] == null
@@ -75,6 +81,8 @@ class ScheduleItemModel {
       'dosage': dosage,
       'type': type,
       'is_done': isDone,
+      'pendingSync': pendingSync,
+      'pendingStatus': pendingStatus,
       'status': status,
       'version': version,
       'scheduledAtUtc': scheduledAtUtc?.toIso8601String(),
@@ -94,6 +102,8 @@ class ScheduleItemModel {
     String? dosage,
     String? type,
     bool? isDone,
+    bool? pendingSync,
+    String? pendingStatus,
     String? status,
     int? version,
     DateTime? scheduledAtUtc,
@@ -111,6 +121,8 @@ class ScheduleItemModel {
       dosage: dosage ?? this.dosage,
       type: type ?? this.type,
       isDone: isDone ?? this.isDone,
+      pendingSync: pendingSync ?? this.pendingSync,
+      pendingStatus: pendingStatus ?? this.pendingStatus,
       status: status ?? this.status,
       version: version ?? this.version,
       scheduledAtUtc: scheduledAtUtc ?? this.scheduledAtUtc,
