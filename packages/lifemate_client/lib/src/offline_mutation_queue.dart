@@ -15,7 +15,9 @@ class LifeMateOfflineQueuedException implements Exception {
 
 abstract class LifeMateMutationStorage {
   Future<String?> read(String key);
+  Future<Map<String, String>> readAll();
   Future<void> write(String key, String value);
+  Future<void> delete(String key);
 }
 
 class LifeMateSecureMutationStorage implements LifeMateMutationStorage {
@@ -28,8 +30,14 @@ class LifeMateSecureMutationStorage implements LifeMateMutationStorage {
   Future<String?> read(String key) => _storage.read(key: key);
 
   @override
+  Future<Map<String, String>> readAll() => _storage.readAll();
+
+  @override
   Future<void> write(String key, String value) =>
       _storage.write(key: key, value: value);
+
+  @override
+  Future<void> delete(String key) => _storage.delete(key: key);
 }
 
 class LifeMateQueuedMutation {
@@ -68,17 +76,6 @@ class LifeMateQueuedMutation {
   final DateTime createdAtUtc;
   final int attemptCount;
 
-  LifeMateQueuedMutation withAttemptCount(int value) => LifeMateQueuedMutation(
-        id: id,
-        accountId: accountId,
-        method: method,
-        uri: uri,
-        body: body,
-        clientRequestId: clientRequestId,
-        createdAtUtc: createdAtUtc,
-        attemptCount: value,
-      );
-
   Map<String, dynamic> toJson() => {
         'id': id,
         'accountId': accountId,
@@ -91,9 +88,16 @@ class LifeMateQueuedMutation {
       };
 }
 
-/// A small encrypted queue for high-value, explicitly idempotent writes.
-/// Every read/modify/write is serialized so concurrent taps, replay and cleanup
-/// cannot overwrite another mutation after the UI was told it was persisted.
+/// Encrypted queue for the small allowlist of explicitly-idempotent writes.
+///
+/// Each mutation is stored under its own deterministic secure-storage key.
+/// This matters because the foreground app and Android home-widget callback can
+/// run with different [LifeMateOfflineMutationQueue] instances (and isolates).
+/// A single JSON-list key would require a cross-process compare-and-swap that
+/// flutter_secure_storage does not expose; independent item keys avoid the lost
+/// update entirely. The existing per-instance tail still orders operations made
+/// through one object, while distinct instances never overwrite each other's
+/// mutations.
 class LifeMateOfflineMutationQueue {
   LifeMateOfflineMutationQueue({
     LifeMateMutationStorage? storage,
@@ -103,13 +107,16 @@ class LifeMateOfflineMutationQueue {
   })  : _storage = storage ?? LifeMateSecureMutationStorage(),
         _now = now ?? (() => DateTime.now().toUtc());
 
+  /// Legacy v1 list key retained only for one-way migration.
   static const storageKey = 'lifemate.offline_mutations.v1';
+  static const _itemPrefix = 'lifemate.offline_mutation.v2.';
 
   final LifeMateMutationStorage _storage;
   final DateTime Function() _now;
   final int maximumItems;
   final Duration timeToLive;
   Future<void> _tail = Future<void>.value();
+  bool _legacyMigrationAttempted = false;
 
   Future<LifeMateQueuedMutation> enqueue({
     required String accountId,
@@ -118,65 +125,69 @@ class LifeMateOfflineMutationQueue {
     required String body,
     required String clientRequestId,
   }) => _serialized(() async {
-        if (accountId.trim().isEmpty || clientRequestId.trim().isEmpty) {
+        final normalizedAccount = accountId.trim();
+        final normalizedRequest = clientRequestId.trim();
+        if (normalizedAccount.isEmpty || normalizedRequest.isEmpty) {
           throw ArgumentError(
             'Offline mutations require account and request IDs.',
           );
         }
-        final values = await _loadAndPruneUnlocked();
-        for (final value in values) {
-          if (value.accountId == accountId &&
-              value.method == method &&
-              value.uri == uri.toString() &&
-              value.clientRequestId == clientRequestId) {
-            return value;
-          }
+
+        await _migrateLegacyUnlocked();
+        final id = '$normalizedAccount:$normalizedRequest';
+        final key = _itemKey(id);
+        final existing = await _readValidItemUnlocked(key);
+        if (existing != null) {
+          // The deterministic key makes the same idempotency request naturally
+          // converge even when two queue instances enqueue it concurrently.
+          return existing;
         }
+
+        final values = await _loadAndPruneUnlocked();
         if (values.length >= maximumItems) {
           throw StateError(
             'LifeMate offline queue is full; refusing to silently drop an action.',
           );
         }
+
         final value = LifeMateQueuedMutation(
-          id: '$accountId:$clientRequestId',
-          accountId: accountId,
+          id: id,
+          accountId: normalizedAccount,
           method: method,
           uri: uri.toString(),
           body: body,
-          clientRequestId: clientRequestId,
+          clientRequestId: normalizedRequest,
           createdAtUtc: _now(),
           attemptCount: 0,
         );
-        values.add(value);
-        await _saveUnlocked(values);
+        await _storage.write(key, jsonEncode(value.toJson()));
         return value;
       });
 
   Future<List<LifeMateQueuedMutation>> pendingForAccount(String accountId) =>
       _serialized(() async {
+        await _migrateLegacyUnlocked();
         final values = await _loadAndPruneUnlocked();
         final result = values
             .where((value) => value.accountId == accountId)
             .toList(growable: false);
-        result.sort((a, b) => a.createdAtUtc.compareTo(b.createdAtUtc));
+        result.sort((a, b) {
+          final byDate = a.createdAtUtc.compareTo(b.createdAtUtc);
+          return byDate != 0 ? byDate : a.id.compareTo(b.id);
+        });
         return result;
       });
 
   Future<void> remove(String id) => _serialized(() async {
-        final values = await _loadAndPruneUnlocked();
-        values.removeWhere((value) => value.id == id);
-        await _saveUnlocked(values);
+        await _migrateLegacyUnlocked();
+        await _storage.delete(_itemKey(id));
       });
 
-  Future<void> markAttempt(String id) => _serialized(() async {
-        final values = await _loadAndPruneUnlocked();
-        final index = values.indexWhere((value) => value.id == id);
-        if (index < 0) return;
-        values[index] = values[index].withAttemptCount(
-          values[index].attemptCount + 1,
-        );
-        await _saveUnlocked(values);
-      });
+  /// Attempt counters were diagnostic only and were never used to decide
+  /// replay. Persisting them would reintroduce a read-modify-write race where a
+  /// failed duplicate replay could resurrect an item that another isolate had
+  /// already successfully removed. Keep the queue append/remove-only instead.
+  Future<void> markAttempt(String id) async {}
 
   Future<int> pendingCount(String accountId) async =>
       (await pendingForAccount(accountId)).length;
@@ -193,40 +204,83 @@ class LifeMateOfflineMutationQueue {
     return completer.future;
   }
 
-  Future<List<LifeMateQueuedMutation>> _loadAndPruneUnlocked() async {
+  Future<void> _migrateLegacyUnlocked() async {
+    if (_legacyMigrationAttempted) return;
+    _legacyMigrationAttempted = true;
+
     final raw = await _storage.read(storageKey);
-    if (raw == null || raw.trim().isEmpty) return <LifeMateQueuedMutation>[];
+    if (raw == null || raw.trim().isEmpty) return;
 
-    List<dynamic> decoded;
     try {
-      decoded = jsonDecode(raw) as List<dynamic>;
+      final decoded = jsonDecode(raw);
+      if (decoded is List) {
+        final cutoff = _now().subtract(timeToLive);
+        for (final entry in decoded) {
+          if (entry is! Map) continue;
+          final value = LifeMateQueuedMutation.fromJson(
+            Map<String, dynamic>.from(entry),
+          );
+          if (!_isValid(value, cutoff)) continue;
+          final key = _itemKey(value.id);
+          if (await _storage.read(key) == null) {
+            await _storage.write(key, jsonEncode(value.toJson()));
+          }
+        }
+      }
     } catch (_) {
-      await _storage.write(storageKey, '[]');
-      return <LifeMateQueuedMutation>[];
+      // Corrupt legacy data is discarded rather than copied into v2.
+    } finally {
+      await _storage.delete(storageKey);
     }
+  }
 
+  Future<List<LifeMateQueuedMutation>> _loadAndPruneUnlocked() async {
+    final all = await _storage.readAll();
     final cutoff = _now().subtract(timeToLive);
     final values = <LifeMateQueuedMutation>[];
-    for (final entry in decoded) {
-      if (entry is! Map) continue;
-      final value = LifeMateQueuedMutation.fromJson(
-        Map<String, dynamic>.from(entry),
-      );
-      if (value.id.isEmpty ||
-          value.accountId.isEmpty ||
-          value.clientRequestId.isEmpty ||
-          !value.createdAtUtc.isAfter(cutoff)) {
+
+    for (final entry in all.entries) {
+      if (!entry.key.startsWith(_itemPrefix)) continue;
+      final value = _decode(entry.value);
+      if (value == null || !_isValid(value, cutoff)) {
+        await _storage.delete(entry.key);
         continue;
       }
       values.add(value);
     }
-    if (values.length != decoded.length) await _saveUnlocked(values);
     return values;
   }
 
-  Future<void> _saveUnlocked(List<LifeMateQueuedMutation> values) =>
-      _storage.write(
-        storageKey,
-        jsonEncode(values.map((value) => value.toJson()).toList()),
-      );
+  Future<LifeMateQueuedMutation?> _readValidItemUnlocked(String key) async {
+    final raw = await _storage.read(key);
+    if (raw == null || raw.trim().isEmpty) return null;
+    final value = _decode(raw);
+    final cutoff = _now().subtract(timeToLive);
+    if (value == null || !_isValid(value, cutoff)) {
+      await _storage.delete(key);
+      return null;
+    }
+    return value;
+  }
+
+  LifeMateQueuedMutation? _decode(String raw) {
+    try {
+      final decoded = jsonDecode(raw);
+      if (decoded is! Map) return null;
+      return LifeMateQueuedMutation.fromJson(Map<String, dynamic>.from(decoded));
+    } catch (_) {
+      return null;
+    }
+  }
+
+  bool _isValid(LifeMateQueuedMutation value, DateTime cutoff) =>
+      value.id.isNotEmpty &&
+      value.accountId.isNotEmpty &&
+      value.clientRequestId.isNotEmpty &&
+      value.createdAtUtc.isAfter(cutoff);
+
+  static String _itemKey(String id) {
+    final encoded = base64Url.encode(utf8.encode(id)).replaceAll('=', '');
+    return '$_itemPrefix$encoded';
+  }
 }
