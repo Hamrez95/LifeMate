@@ -195,19 +195,24 @@ begin
 end
 $$;
 
--- Preserve direct-client denial explicitly even if platform defaults change.
+-- Preserve direct-client denial explicitly if the Supabase client roles exist.
 do $$
 declare
   v_schema text;
+  v_role text;
 begin
   foreach v_schema in array array[
     'lifemate','identity','core','ecosystem','network','security','consent',
     'commerce','integration','analytics','care'
   ] loop
     if to_regnamespace(v_schema) is not null then
-      execute format('revoke all on schema %I from anon, authenticated', v_schema);
-      execute format('revoke all on all tables in schema %I from anon, authenticated', v_schema);
-      execute format('revoke all on all sequences in schema %I from anon, authenticated', v_schema);
+      foreach v_role in array array['anon','authenticated'] loop
+        if exists (select 1 from pg_roles where rolname = v_role) then
+          execute format('revoke all on schema %I from %I', v_schema, v_role);
+          execute format('revoke all on all tables in schema %I from %I', v_schema, v_role);
+          execute format('revoke all on all sequences in schema %I from %I', v_schema, v_role);
+        end if;
+      end loop;
     end if;
   end loop;
 end
