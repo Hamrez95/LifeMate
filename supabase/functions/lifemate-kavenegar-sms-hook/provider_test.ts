@@ -32,6 +32,7 @@ Deno.test("Kavenegar OTP uses POST body and does not put phone/token in URL", as
   assertEquals(form.get("token"), "852596");
   assertEquals(form.get("template"), "lifemate-login");
   assertEquals(form.get("type"), "sms");
+  assertEquals(form.has("tag"), false);
 });
 
 Deno.test("Kavenegar OTP rejects template names with underscore before network", async () => {
@@ -97,6 +98,28 @@ Deno.test("Kavenegar OTP maps temporary provider outage as retryable", async () 
   );
   assertEquals(error.code, "kavenegar_temporarily_unavailable");
   assertEquals(error.retryable, true);
+});
+
+Deno.test("Kavenegar OTP maps 607 to the documented IP restriction", async () => {
+  const provider = new KavenegarOtpProvider(
+    "testApiKey123",
+    "lifemate-login",
+    {
+      fetcher: async () =>
+        new Response(
+          JSON.stringify({ return: { status: 607, message: "ip" } }),
+          { status: 607, headers: { "content-type": "application/json" } },
+        ),
+    },
+  );
+
+  const error = await assertRejects(
+    () => provider.sendOtp("+989121234567", "852596"),
+    KavenegarProviderError,
+  );
+  assertEquals(error.code, "kavenegar_ip_restriction");
+  assertEquals(error.retryable, false);
+  assertEquals(error.providerStatus, 607);
 });
 
 Deno.test("Kavenegar OTP rejects non-Iran phone before network", async () => {
