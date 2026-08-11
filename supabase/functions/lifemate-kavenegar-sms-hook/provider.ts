@@ -60,7 +60,9 @@ export class KavenegarOtpProvider implements PhoneOtpProvider {
     validateConfiguration(this.apiKey, this.template, this.tag);
 
     const endpoint = new URL(
-      `https://api.kavenegar.com/v1/${encodeURIComponent(this.apiKey)}/verify/lookup.json`,
+      `https://api.kavenegar.com/v1/${
+        encodeURIComponent(this.apiKey)
+      }/verify/lookup.json`,
     );
 
     // Use form-encoded POST rather than query-string GET so the phone number
@@ -142,25 +144,65 @@ function mapProviderFailure(status: number): KavenegarProviderError {
     case 400:
       return new KavenegarProviderError("kavenegar_bad_request", false, status);
     case 401:
-      return new KavenegarProviderError("kavenegar_account_inactive", false, status);
+      return new KavenegarProviderError(
+        "kavenegar_account_inactive",
+        false,
+        status,
+      );
     case 403:
-      return new KavenegarProviderError("kavenegar_api_key_invalid", false, status);
+      return new KavenegarProviderError(
+        "kavenegar_api_key_invalid",
+        false,
+        status,
+      );
     case 409:
-      return new KavenegarProviderError("kavenegar_temporarily_unavailable", true, status);
+      return new KavenegarProviderError(
+        "kavenegar_temporarily_unavailable",
+        true,
+        status,
+      );
     case 418:
-      return new KavenegarProviderError("kavenegar_credit_insufficient", false, status);
+      return new KavenegarProviderError(
+        "kavenegar_credit_insufficient",
+        false,
+        status,
+      );
     case 422:
-      return new KavenegarProviderError("kavenegar_token_rejected", false, status);
+      return new KavenegarProviderError(
+        "kavenegar_token_rejected",
+        false,
+        status,
+      );
     case 424:
-      return new KavenegarProviderError("kavenegar_template_missing", false, status);
+      return new KavenegarProviderError(
+        "kavenegar_template_missing",
+        false,
+        status,
+      );
     case 426:
-      return new KavenegarProviderError("kavenegar_advanced_service_required", false, status);
+      return new KavenegarProviderError(
+        "kavenegar_advanced_service_required",
+        false,
+        status,
+      );
     case 428:
-      return new KavenegarProviderError("kavenegar_call_token_invalid", false, status);
+      return new KavenegarProviderError(
+        "kavenegar_call_token_invalid",
+        false,
+        status,
+      );
     case 431:
-      return new KavenegarProviderError("kavenegar_token_format_invalid", false, status);
+      return new KavenegarProviderError(
+        "kavenegar_token_format_invalid",
+        false,
+        status,
+      );
     case 432:
-      return new KavenegarProviderError("kavenegar_template_token_missing", false, status);
+      return new KavenegarProviderError(
+        "kavenegar_template_token_missing",
+        false,
+        status,
+      );
     case 607:
       return new KavenegarProviderError("kavenegar_tag_invalid", false, status);
     default:
