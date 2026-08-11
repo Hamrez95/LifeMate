@@ -2,48 +2,219 @@ export interface PhoneOtpProvider {
   sendOtp(phoneE164: string, otp: string): Promise<void>;
 }
 
+type FetchLike = (
+  input: string | URL | Request,
+  init?: RequestInit,
+) => Promise<Response>;
+
+export class KavenegarProviderError extends Error {
+  constructor(
+    readonly code: string,
+    readonly retryable: boolean,
+    readonly providerStatus?: number,
+  ) {
+    super(code);
+    this.name = "KavenegarProviderError";
+  }
+}
+
+type KavenegarProviderOptions = {
+  fetcher?: FetchLike;
+  timeoutMs?: number;
+};
+
+type KavenegarEnvelope = {
+  return?: {
+    status?: number;
+    message?: string;
+  };
+  entries?: unknown;
+};
+
+/**
+ * Delivery adapter for Kavenegar's verification-template endpoint.
+ *
+ * LifeMate/Supabase owns OTP generation and verification. Kavenegar only
+ * receives the already-generated token and delivers it; the provider must
+ * never generate, persist, verify, or log OTP values itself.
+ */
 export class KavenegarOtpProvider implements PhoneOtpProvider {
+  private readonly fetcher: FetchLike;
+  private readonly timeoutMs: number;
+
   constructor(
     private readonly apiKey: string,
     private readonly template: string,
-  ) {}
+    options: KavenegarProviderOptions = {},
+  ) {
+    this.fetcher = options.fetcher ?? fetch;
+    // Supabase Auth HTTP hooks have an enclosing deadline. Keep enough budget
+    // for Edge startup, webhook verification, parsing and the final response so
+    // a slow provider cannot deliver an OTP after Supabase already timed out.
+    this.timeoutMs = options.timeoutMs ?? 3_500;
+  }
 
   async sendOtp(phoneE164: string, otp: string): Promise<void> {
     const receptor = iranianReceptor(phoneE164);
-    if (!/^\d{6,10}$/.test(otp)) throw new Error("invalid_otp_shape");
-    if (!/^[A-Za-z0-9_-]{1,64}$/.test(this.template)) {
-      throw new Error("invalid_kavenegar_template");
-    }
+    validateOtp(otp);
+    validateConfiguration(this.apiKey, this.template);
 
-    const url = new URL(
+    const endpoint = new URL(
       `https://api.kavenegar.com/v1/${
         encodeURIComponent(this.apiKey)
       }/verify/lookup.json`,
     );
-    url.searchParams.set("receptor", receptor);
-    url.searchParams.set("token", otp);
-    url.searchParams.set("template", this.template);
 
-    const response = await fetch(url, {
-      method: "GET",
-      signal: AbortSignal.timeout(3_500),
-      headers: { accept: "application/json" },
-    });
-    if (!response.ok) throw new Error(`kavenegar_http_${response.status}`);
+    // Use form-encoded POST rather than query-string GET so the phone number
+    // and OTP are not copied into ordinary request URLs/proxy access logs.
+    // Kavenegar's REST API supports HTTP POST and the lookup fields below are
+    // the documented receptor/token/template/type parameters.
+    const body = new URLSearchParams();
+    body.set("receptor", receptor);
+    body.set("token", otp);
+    body.set("template", this.template);
+    body.set("type", "sms");
 
-    const body = await response.json().catch(() => null) as
-      | { return?: { status?: number } }
-      | null;
-    if (body?.return?.status !== 200) {
-      throw new Error("kavenegar_rejected");
+    let response: Response;
+    try {
+      response = await this.fetcher(endpoint, {
+        method: "POST",
+        signal: AbortSignal.timeout(this.timeoutMs),
+        headers: {
+          accept: "application/json",
+          "content-type": "application/x-www-form-urlencoded; charset=utf-8",
+        },
+        body: body.toString(),
+      });
+    } catch {
+      throw new KavenegarProviderError("kavenegar_transport_error", true);
     }
+
+    let envelope: KavenegarEnvelope | null = null;
+    try {
+      envelope = await response.json() as KavenegarEnvelope;
+    } catch {
+      // A malformed/non-JSON provider response is never forwarded to callers.
+    }
+
+    const providerStatus = asStatus(envelope?.return?.status);
+    if (!response.ok || providerStatus !== 200) {
+      throw mapProviderFailure(providerStatus ?? response.status);
+    }
+  }
+}
+
+function validateOtp(otp: string): void {
+  // Supabase currently emits a numeric OTP. Keep the accepted range narrow so
+  // a malformed hook payload can never become arbitrary verification content.
+  if (!/^\d{6,10}$/.test(otp)) {
+    throw new KavenegarProviderError("invalid_otp_shape", false);
+  }
+}
+
+function validateConfiguration(apiKey: string, template: string): void {
+  if (!apiKey.trim() || apiKey.length > 256 || /[\s/?#]/.test(apiKey)) {
+    throw new KavenegarProviderError("invalid_kavenegar_api_key", false);
+  }
+
+  // Kavenegar verification template names must be English and must not contain
+  // spaces or underscore. We intentionally allow only a conservative subset.
+  if (!/^[A-Za-z0-9-]{1,64}$/.test(template)) {
+    throw new KavenegarProviderError("invalid_kavenegar_template", false);
+  }
+}
+
+function asStatus(value: unknown): number | undefined {
+  if (typeof value === "number" && Number.isFinite(value)) return value;
+  if (typeof value === "string" && /^\d+$/.test(value)) return Number(value);
+  return undefined;
+}
+
+function mapProviderFailure(status: number): KavenegarProviderError {
+  switch (status) {
+    case 400:
+      return new KavenegarProviderError("kavenegar_bad_request", false, status);
+    case 401:
+      return new KavenegarProviderError(
+        "kavenegar_account_inactive",
+        false,
+        status,
+      );
+    case 403:
+      return new KavenegarProviderError(
+        "kavenegar_api_key_invalid",
+        false,
+        status,
+      );
+    case 409:
+      return new KavenegarProviderError(
+        "kavenegar_temporarily_unavailable",
+        true,
+        status,
+      );
+    case 418:
+      return new KavenegarProviderError(
+        "kavenegar_credit_insufficient",
+        false,
+        status,
+      );
+    case 422:
+      return new KavenegarProviderError(
+        "kavenegar_token_rejected",
+        false,
+        status,
+      );
+    case 424:
+      return new KavenegarProviderError(
+        "kavenegar_template_missing",
+        false,
+        status,
+      );
+    case 426:
+      return new KavenegarProviderError(
+        "kavenegar_advanced_service_required",
+        false,
+        status,
+      );
+    case 428:
+      return new KavenegarProviderError(
+        "kavenegar_call_token_invalid",
+        false,
+        status,
+      );
+    case 431:
+      return new KavenegarProviderError(
+        "kavenegar_token_format_invalid",
+        false,
+        status,
+      );
+    case 432:
+      return new KavenegarProviderError(
+        "kavenegar_template_token_missing",
+        false,
+        status,
+      );
+    case 607:
+      return new KavenegarProviderError(
+        "kavenegar_ip_restriction",
+        false,
+        status,
+      );
+    default:
+      return new KavenegarProviderError(
+        status >= 500 || status === 429
+          ? "kavenegar_provider_unavailable"
+          : "kavenegar_rejected",
+        status >= 500 || status === 429,
+        status,
+      );
   }
 }
 
 function iranianReceptor(phoneE164: string): string {
   const normalized = phoneE164.replace(/[\s()-]/g, "");
   if (!/^\+989\d{9}$/.test(normalized)) {
-    throw new Error("iran_phone_required");
+    throw new KavenegarProviderError("iran_phone_required", false);
   }
   return `0${normalized.slice(3)}`;
 }
