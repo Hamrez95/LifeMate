@@ -8,12 +8,13 @@ import 'offline_mutation_queue.dart';
 
 typedef LifeMateAccountIdProvider = String? Function();
 
-/// HTTP transport that durably journals only explicitly allowlisted,
-/// idempotent treatment mutations before sending them.
+/// HTTP transport that durably journals the highest-value explicitly
+/// idempotent offline action: reporting medication adherence.
 ///
-/// The Authorization header is never persisted. Replays obtain the current
-/// session token at send time and are restricted to the account that originally
-/// created the queued action.
+/// Other writes (profile edits, invitations, caregiver mutations, event
+/// creation) deliberately remain online-only until their UI can represent a
+/// pending state safely. The Authorization header is never persisted. Replays
+/// obtain the current session token and are isolated to the originating account.
 class LifeMateDurableHttpClient extends http.BaseClient {
   LifeMateDurableHttpClient({
     required AccessTokenProvider accessToken,
@@ -60,9 +61,9 @@ class LifeMateDurableHttpClient extends http.BaseClient {
         clientRequestId: durable.clientRequestId,
       );
     } catch (_) {
-      // Secure-storage availability must not block an otherwise-online dose or
-      // appointment action. We still attempt the network request; if transport
-      // is unavailable there is simply no false claim that it was queued.
+      // Secure-storage availability must not block an otherwise-online dose
+      // action. We still attempt the request; if transport is unavailable there
+      // is simply no false claim that the action was persisted offline.
       queued = null;
     }
 
@@ -127,8 +128,8 @@ class LifeMateDurableHttpClient extends http.BaseClient {
           }
           await response.stream.drain<void>();
           if (_isTerminalClientFailure(response.statusCode)) {
-            // The server says this mutation is no longer valid (e.g. revoked
-            // permission or stale object). Do not replay it forever.
+            // Access may have been revoked or the occurrence may have advanced;
+            // terminal 4xx results must not be replayed forever.
             await _queue.remove(mutation.id);
             continue;
           }
@@ -180,8 +181,7 @@ class LifeMateDurableHttpClient extends http.BaseClient {
     );
   }
 
-  bool _isAllowedPath(String path) =>
-      path.endsWith('/api/v1/care-events') || _doseReportPath.hasMatch(path);
+  bool _isAllowedPath(String path) => _doseReportPath.hasMatch(path);
 
   static bool _isSuccess(int status) => status >= 200 && status < 300;
 
