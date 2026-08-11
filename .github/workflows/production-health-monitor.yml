@@ -1,0 +1,54 @@
+name: production-health-monitor
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '*/15 * * * *'
+
+permissions:
+  contents: read
+
+jobs:
+  lifemate-api-health:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    env:
+      DEFAULT_HEALTH_URL: https://bwdvmniywyyijjauipnh.supabase.co/functions/v1/lifemate-api/health
+      CONFIGURED_HEALTH_URL: ${{ vars.LIFEMATE_HEALTH_URL }}
+    steps:
+      - name: Check production Edge + database health
+        shell: bash
+        run: |
+          set -euo pipefail
+          HEALTH_URL="${CONFIGURED_HEALTH_URL:-$DEFAULT_HEALTH_URL}"
+          response_file="$RUNNER_TEMP/lifemate-health.json"
+          status="$(curl \
+            --silent \
+            --show-error \
+            --location \
+            --max-time 15 \
+            --output "$response_file" \
+            --write-out '%{http_code}' \
+            "$HEALTH_URL")"
+
+          if [[ "$status" != "200" ]]; then
+            echo "LifeMate health endpoint returned HTTP $status" >&2
+            exit 1
+          fi
+
+          jq -e '
+            .status == "ok" and
+            .database == "ready" and
+            .service == "lifemate-api" and
+            (.version | type == "string" and length > 6)
+          ' "$response_file" >/dev/null
+
+          version="$(jq -r '.version' "$response_file")"
+          {
+            echo '## LifeMate production health'
+            echo ''
+            echo '- Edge API: healthy'
+            echo '- PostgreSQL: ready'
+            echo "- deployed version: \`$version\`"
+            echo '- check payload contains service metadata only; no user/health data is requested'
+          } >> "$GITHUB_STEP_SUMMARY"
