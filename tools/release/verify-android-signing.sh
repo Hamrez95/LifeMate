@@ -28,13 +28,17 @@ verify_one() {
 
   "$apksigner_bin" verify --verbose --print-certs "$apk" >"$report"
 
-  local expected actual
+  local expected actual signer_line
   expected="$(normalize_digest < "$expected_file")"
-  actual="$(sed -n -E 's/^Signer #[0-9]+ certificate SHA-256 digest:[[:space:]]*//p' "$report" | head -n 1 | normalize_digest)"
+  signer_line="$(grep -m1 -E 'certificate SHA-256 digest:' "$report" || true)"
+  actual="$(printf '%s\n' "$signer_line" | sed -E 's/.*certificate SHA-256 digest:[[:space:]]*//' | normalize_digest)"
 
   if [[ -z "$actual" ]]; then
     echo "::error::$app APK signer SHA-256 could not be parsed from apksigner output."
-    grep -E '^Signer #[0-9]+ certificate (DN|SHA-256 digest):' "$report" || true
+    # Certificate metadata is public. Print the signer-related lines only so
+    # future build-tools formatting changes are diagnosable without exposing
+    # keystore/password material.
+    grep -E 'certificate (DN|SHA-256 digest):' "$report" || true
     exit 1
   fi
 
