@@ -18,57 +18,8 @@ jobs:
         with:
           ref: stabilization/cycle-uncertainty
           fetch-depth: 0
-      - name: Prepare companion-specific estimator patch
-        shell: bash
-        run: |
-          python3 - <<'PY'
-          from pathlib import Path
-
-          companion = Path('wellmate/lib/screens/women_calendar/women_companion_screen.dart')
-          text = companion.read_text(encoding='utf-8')
-          old = '''    return WomenCalendarEstimate.calculate(
-                lastPeriodStart: start,
-                cycleLength: _profile['cycleLength'] is int
-                    ? _profile['cycleLength'] as int
-                    : 28,
-                periodLength: _profile['periodLength'] is int
-                    ? _profile['periodLength'] as int
-                    : 5,
-              );'''
-          new = '''    final periodStarts = _episodes
-                .map((episode) => DateTime.tryParse(episode['startedOn']?.toString() ?? ''))
-                .whereType<DateTime>()
-                .toList(growable: false);
-              return WomenCalendarEstimate.calculateFromEpisodes(
-                lastPeriodStart: start,
-                configuredCycleLength: _profile['cycleLength'] is int
-                    ? _profile['cycleLength'] as int
-                    : 28,
-                periodLength: _profile['periodLength'] is int
-                    ? _profile['periodLength'] as int
-                    : 5,
-                periodStarts: periodStarts,
-              );'''
-          if old not in text:
-              # Keep this idempotent if the source has already been patched.
-              if 'return WomenCalendarEstimate.calculateFromEpisodes(' not in text:
-                  raise SystemExit('Companion cycle estimator shape changed unexpectedly.')
-          else:
-              companion.write_text(text.replace(old, new, 1), encoding='utf-8')
-
-          patcher = Path('tools/hotfix/apply_cycle_uncertainty_final.py')
-          script = patcher.read_text(encoding='utf-8')
-          generic_companion = '''replace_once(
-              "wellmate/lib/screens/women_calendar/women_companion_screen.dart",
-              old_getter,
-              new_getter,
-          )
-          '''
-          if generic_companion in script:
-              patcher.write_text(script.replace(generic_companion, '', 1), encoding='utf-8')
-          PY
       - name: Apply reviewed deterministic patch
-        run: python3 tools/hotfix/apply_cycle_uncertainty_final.py
+        run: python3 tools/hotfix/apply_cycle_uncertainty_v3.py
       - name: Push only the cycle PR branch
         shell: bash
         run: |
