@@ -81,7 +81,9 @@ export function buildRestrictedDatabaseUrl(
     throw new Error("Invalid restricted database role name.");
   }
   if (password.length < 32) {
-    throw new Error("Restricted database password must be at least 32 characters.");
+    throw new Error(
+      "Restricted database password must be at least 32 characters.",
+    );
   }
 
   const parsed = new URL(bootstrapDatabaseUrl);
@@ -124,8 +126,8 @@ async function readRuntimeVaultSecrets(
     }
     return {
       contactHashing: values.get("lifemate_contact_hashing_secret") ?? null,
-      edgeDatabasePassword:
-        values.get("lifemate_edge_runtime_password") ?? null,
+      edgeDatabasePassword: values.get("lifemate_edge_runtime_password") ??
+        null,
     };
   } finally {
     await sql.end({ timeout: 5 });
@@ -145,7 +147,9 @@ export async function loadRuntimeConfig(): Promise<RuntimeConfig> {
   );
   const serviceRole = Deno.env.get(serviceRoleKeyName);
 
-  if (!bootstrapDatabaseUrl || !supabaseUrl || !publishableKey || !serviceRole) {
+  if (
+    !bootstrapDatabaseUrl || !supabaseUrl || !publishableKey || !serviceRole
+  ) {
     throw new Error("Required Supabase runtime configuration is missing.");
   }
 
