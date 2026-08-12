@@ -1,0 +1,11 @@
+@codex address that feedback
+
+Final cycle-safety pass required before release:
+1) Rebase/refresh this work against current main (do not overwrite the recent localization/signing work).
+2) Wire episode-history confidence through production WellMate, companion, CareMate, and the Edge API.
+3) Preserve the current women-calendar visual design: no redesign, no noisy per-day confidence badges, no extra clutter in the ring/card/calendar.
+4) When confidence is low/variable/insufficient, keep period and PMS visuals, suppress fertile/ovulation timing/segments/countdowns, and show at most one short calm inline explanatory sentence in the existing explanatory area.
+5) Keep FA RTL/Jalali/Persian digits and EN LTR/Gregorian/Latin digits.
+6) Remove temporary patch workflow/hotfix files from the final source once the implementation is materialized.
+7) Add/adjust tests for low/medium/high confidence, variable cycles, insufficient history, and production-surface gating.
+8) Run Flutter + Edge API tests and leave the PR mergeable against current main.
