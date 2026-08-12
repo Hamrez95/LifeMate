@@ -47,13 +47,16 @@ export type WomenCalendarEstimate = {
   estimatedBleeding: boolean;
   phase: "period" | "post_period" | "cycle" | "pre_period";
   detailedPhase: DetailedPhase;
-  ovulationDay: number;
-  fertileWindowStartDay: number;
-  fertileWindowEndDay: number;
+  ovulationDay: number | null;
+  fertileWindowStartDay: number | null;
+  fertileWindowEndDay: number | null;
   pmsStartDay: number;
   nextPeriodStart: string;
   daysUntilNextPeriod: number;
   algorithmVersion: "calendar-estimate-v1";
+  confidence: "low" | "medium" | "high";
+  cyclePattern: "insufficient_data" | "regular" | "variable";
+  fertilityEstimateReliable: boolean;
 };
 
 const allowedMoods: Record<string, string> = {
@@ -87,7 +90,14 @@ export function createWomenCalendarStore(databaseUrl: string) {
       where owner_user_id = ${userId}
       limit 1
     `;
-    return rows[0] ? mapProfile(rows[0]) : defaultProfile(userId);
+    if (!rows[0]) return defaultProfile(userId);
+    const episodes = await sql`
+      select started_on from lifemate.women_calendar_episodes
+      where owner_user_id = ${userId}
+      order by started_on asc
+      limit 100
+    `;
+    return mapProfileWithEpisodeHistory(rows[0], episodes);
   }
 
   async function updateOwnerProfile(
@@ -151,7 +161,13 @@ export function createWomenCalendarStore(databaseUrl: string) {
           "women_calendar_profile",
           userId,
         );
-        return mapProfile(rows[0]);
+        const episodes = await tx`
+          select started_on from lifemate.women_calendar_episodes
+          where owner_user_id = ${userId}
+          order by started_on asc
+          limit 100
+        `;
+        return mapProfileWithEpisodeHistory(rows[0], episodes);
       }
       if (existing.version !== expectedVersion) {
         throw staleProfile();
@@ -175,7 +191,13 @@ export function createWomenCalendarStore(databaseUrl: string) {
         "women_calendar_profile",
         userId,
       );
-      return mapProfile(rows[0]);
+      const episodes = await tx`
+        select started_on from lifemate.women_calendar_episodes
+        where owner_user_id = ${userId}
+        order by started_on asc
+        limit 100
+      `;
+      return mapProfileWithEpisodeHistory(rows[0], episodes);
     });
   }
 
@@ -555,6 +577,12 @@ export function createWomenCalendarStore(databaseUrl: string) {
       limit 1
     `;
     const profile = mapProfile(profiles[0]);
+    const estimate = calculateWomenCalendarEstimateFromEpisodes(
+      dateString(profiles[0].last_period_start),
+      profiles[0].cycle_length,
+      profiles[0].period_length,
+      episodes.map((episode: Row) => dateString(episode.started_on)),
+    );
     const canonicalSharedLog = sharedLogs[0]
       ? mapDailyLogCompanion(sharedLogs[0])
       : null;
@@ -578,7 +606,7 @@ export function createWomenCalendarStore(databaseUrl: string) {
         periodLength: profile.periodLength,
         algorithmVersion: profile.algorithmVersion,
       },
-      estimate: profile.estimate,
+      estimate,
       sharedDailySummary,
       episodes: episodes.map(mapEpisodeCaregiver),
       latestSharedDailyLog: canonicalSharedLog,
@@ -695,6 +723,50 @@ export function calculateWomenCalendarEstimate(
   periodLength: number,
   todayValue = new Date(),
 ): WomenCalendarEstimate {
+  return calculateCalendarCore(
+    lastPeriodStart,
+    cycleLength,
+    periodLength,
+    todayValue,
+    "low",
+    "insufficient_data",
+    false,
+  );
+}
+
+export function calculateWomenCalendarEstimateFromEpisodes(
+  lastPeriodStart: string,
+  configuredCycleLength: number,
+  periodLength: number,
+  periodStarts: string[],
+  todayValue = new Date(),
+): WomenCalendarEstimate {
+  const assessment = assessCycleHistory(
+    [...periodStarts, lastPeriodStart],
+    configuredCycleLength,
+  );
+  const reliable = assessment.pattern === "regular" &&
+    assessment.confidence !== "low";
+  return calculateCalendarCore(
+    lastPeriodStart,
+    assessment.representativeCycleLength,
+    periodLength,
+    todayValue,
+    assessment.confidence,
+    assessment.pattern,
+    reliable,
+  );
+}
+
+function calculateCalendarCore(
+  lastPeriodStart: string,
+  cycleLength: number,
+  periodLength: number,
+  todayValue: Date,
+  confidence: "low" | "medium" | "high",
+  cyclePattern: "insufficient_data" | "regular" | "variable",
+  fertilityEstimateReliable: boolean,
+): WomenCalendarEstimate {
   const start = parseDateOnly(lastPeriodStart);
   const today = new Date(Date.UTC(
     todayValue.getUTCFullYear(),
@@ -734,7 +806,7 @@ export function calculateWomenCalendarEstimate(
     fertileWindowEndDay + 1,
     cycleLength,
   );
-  const detailedPhase = phaseForCycleDay(
+  const rawDetailedPhase = phaseForCycleDay(
     cycleDay,
     periodLength,
     ovulationDay,
@@ -742,6 +814,10 @@ export function calculateWomenCalendarEstimate(
     fertileWindowEndDay,
     pmsStartDay,
   );
+  const detailedPhase: DetailedPhase = !fertilityEstimateReliable &&
+      rawDetailedPhase !== "period" && rawDetailedPhase !== "pms"
+    ? "follicular"
+    : rawDetailedPhase;
   const estimatedBleeding = detailedPhase === "period";
   const phase = detailedPhase === "period"
     ? "period"
@@ -758,13 +834,70 @@ export function calculateWomenCalendarEstimate(
     estimatedBleeding,
     phase,
     detailedPhase,
-    ovulationDay,
-    fertileWindowStartDay,
-    fertileWindowEndDay,
+    ovulationDay: fertilityEstimateReliable ? ovulationDay : null,
+    fertileWindowStartDay: fertilityEstimateReliable
+      ? fertileWindowStartDay
+      : null,
+    fertileWindowEndDay: fertilityEstimateReliable ? fertileWindowEndDay : null,
     pmsStartDay,
     nextPeriodStart: formatDateOnly(nextPeriodStart),
     daysUntilNextPeriod,
     algorithmVersion: "calendar-estimate-v1",
+    confidence,
+    cyclePattern,
+    fertilityEstimateReliable,
+  };
+}
+
+function assessCycleHistory(
+  periodStarts: string[],
+  configuredCycleLength: number,
+): {
+  pattern: "insufficient_data" | "regular" | "variable";
+  confidence: "low" | "medium" | "high";
+  representativeCycleLength: number;
+} {
+  const starts = Array.from(new Set(periodStarts))
+    .map(parseDateOnly)
+    .sort((a, b) => a.getTime() - b.getTime());
+  const intervals: number[] = [];
+  for (let index = 1; index < starts.length; index++) {
+    const days = Math.round(
+      (starts[index].getTime() - starts[index - 1].getTime()) / 86_400_000,
+    );
+    if (days >= 15 && days <= 90) intervals.push(days);
+  }
+  if (intervals.length < 2) {
+    return {
+      pattern: "insufficient_data",
+      confidence: "low",
+      representativeCycleLength: configuredCycleLength,
+    };
+  }
+  const usable = intervals.filter((value) => value >= 21 && value <= 45);
+  const sorted = [...usable].sort((a, b) => a - b);
+  const middle = Math.floor(sorted.length / 2);
+  const representativeCycleLength = sorted.length === 0
+    ? configuredCycleLength
+    : sorted.length % 2 === 1
+    ? sorted[middle]
+    : Math.round((sorted[middle - 1] + sorted[middle]) / 2);
+  const minimum = Math.min(...intervals);
+  const maximum = Math.max(...intervals);
+  const spread = maximum - minimum;
+  const variable = spread > 7 ||
+    intervals.some((value) => value < 21 || value > 45);
+  if (variable) {
+    return {
+      pattern: "variable",
+      confidence: "low",
+      representativeCycleLength: clamp(representativeCycleLength, 21, 45),
+    };
+  }
+  return {
+    pattern: "regular",
+    confidence: intervals.length >= 3 && spread <= 4 ? "high" : "medium",
+    representativeCycleLength,
   };
 }
 
@@ -792,6 +925,23 @@ function mapProfile(row: Row): Record<string, any> {
     createdAtUtc: iso(row.created_at_utc),
     updatedAtUtc: iso(row.updated_at_utc),
   };
+}
+
+function mapProfileWithEpisodeHistory(
+  row: Row,
+  episodeRows: Row[],
+): Record<string, any> {
+  const profile = mapProfile(row);
+  const lastPeriodStart = profile.lastPeriodStart;
+  if (profile.enabled === true && typeof lastPeriodStart === "string") {
+    profile.estimate = calculateWomenCalendarEstimateFromEpisodes(
+      lastPeriodStart,
+      Number(profile.cycleLength),
+      Number(profile.periodLength),
+      episodeRows.map((episode) => dateString(episode.started_on)),
+    );
+  }
+  return profile;
 }
 
 function defaultProfile(userId: string): Record<string, unknown> {

@@ -452,8 +452,14 @@ class _PartnerCycleSummary extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final estimate = summary['estimate'] as Map<String, dynamic>? ?? const {};
-    final phase =
+    final fertilityReliable = estimate['fertilityEstimateReliable'] == true;
+    final rawPhase =
         estimate['detailedPhase']?.toString() ?? estimate['phase']?.toString();
+    final phase =
+        !fertilityReliable && (rawPhase == 'fertile' || rawPhase == 'ovulation')
+        ? 'follicular'
+        : rawPhase;
+    final cyclePattern = estimate['cyclePattern']?.toString();
     final visual = _phaseVisual(phase);
     final cycleDay = estimate['cycleDay'] is int
         ? estimate['cycleDay'] as int
@@ -500,11 +506,11 @@ class _PartnerCycleSummary extends StatelessWidget {
                 daysLeft == null
                     ? LifeMateRuntimeLocale.select(
                         fa: 'اطلاعات کافی برای برآورد وجود ندارد.',
-                        en: "There is not enough information to estimate.",
+                        en: 'There is not enough information to estimate.',
                       )
                     : LifeMateRuntimeLocale.select(
                         fa: 'حدود ${localizeDigits(context, daysLeft)} روز تا شروع تخمینی دوره بعدی',
-                        en: "About ${localizeDigits(context, daysLeft)} days until the estimated start of the next period",
+                        en: 'About ${localizeDigits(context, daysLeft)} days until the estimated start of the next period',
                       ),
                 style: TextStyle(
                   fontSize: 11,
@@ -512,6 +518,24 @@ class _PartnerCycleSummary extends StatelessWidget {
                   color: AppColors.secondaryText,
                 ),
               ),
+              if (!fertilityReliable) ...[
+                const SizedBox(height: 6),
+                Text(
+                  LifeMateRuntimeLocale.select(
+                    fa: cyclePattern == 'variable'
+                        ? 'چرخه‌ها متغیرند؛ زمان باروری نمایش داده نمی‌شود.'
+                        : 'برای زمان باروری هنوز داده کافی ثبت نشده است.',
+                    en: cyclePattern == 'variable'
+                        ? 'Cycles vary, so fertility timing is hidden.'
+                        : 'There is not enough history to show fertility timing yet.',
+                  ),
+                  style: const TextStyle(
+                    fontSize: 10.5,
+                    height: 1.45,
+                    color: AppColors.secondaryText,
+                  ),
+                ),
+              ],
             ],
           );
           if (narrow) {

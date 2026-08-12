@@ -40,10 +40,18 @@ class _WomenCalendarScreenState extends State<WomenCalendarScreen> {
   WomenCalendarEstimate? get _estimate {
     final start = _lastPeriodStart;
     if (!_enabled || start == null) return null;
-    return WomenCalendarEstimate.calculate(
+    final periodStarts = _episodes
+        .map(
+          (episode) =>
+              DateTime.tryParse(episode['startedOn']?.toString() ?? ''),
+        )
+        .whereType<DateTime>()
+        .toList(growable: false);
+    return WomenCalendarEstimate.calculateFromEpisodes(
       lastPeriodStart: start,
-      cycleLength: _cycleLength,
+      configuredCycleLength: _cycleLength,
       periodLength: _periodLength,
+      periodStarts: periodStarts,
     );
   }
 

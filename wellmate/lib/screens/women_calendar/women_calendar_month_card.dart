@@ -247,16 +247,20 @@ class _WomenCalendarMonthCardState extends State<WomenCalendarMonthCard> {
             },
           ),
           SizedBox(height: 14),
-          _CalendarLegend(),
+          _CalendarLegend(
+            showFertility: estimate?.fertilityEstimateReliable == true,
+          ),
           SizedBox(height: 10),
           Text(
-            LifeMateRuntimeLocale.select(
-              fa: LifeMateRuntimeLocale.select(
-                fa: 'این فازها بر پایه طول چرخه ثبت‌شده تخمین زده می‌شوند و برای تشخیص پزشکی یا پیشگیری از بارداری مناسب نیستند.',
-                en: "These phases are estimated based on recorded cycle length and are not suitable for medical diagnosis or contraception.",
-              ),
-              en: "These phases are estimated based on recorded cycle length and are not suitable for medical diagnosis or contraception.",
-            ),
+            estimate?.fertilityEstimateReliable == true
+                ? LifeMateRuntimeLocale.select(
+                    fa: 'فازهای باروری فقط برآورد تقویمی‌اند و برای تشخیص پزشکی یا پیشگیری مناسب نیستند.',
+                    en: 'Fertility phases are calendar estimates only and must not be used for diagnosis or contraception.',
+                  )
+                : LifeMateRuntimeLocale.select(
+                    fa: 'قاعدگی و PMS همچنان تقریبی‌اند؛ زمان باروری تا ثبت داده کافی نمایش داده نمی‌شود.',
+                    en: 'Period and PMS timing remain approximate; fertility timing stays hidden until enough history is recorded.',
+                  ),
             textAlign: TextAlign.center,
             style: TextStyle(
               fontSize: 10.5,
@@ -431,11 +435,17 @@ class _CycleOverview extends StatelessWidget {
         : visual.label;
     final helperText = recordedToday
         ? LifeMateRuntimeLocale.select(
-            fa: LifeMateRuntimeLocale.select(
-              fa: 'اطلاعات امروز بر اساس دوره‌ای است که ثبت کرده‌اید.',
-              en: "Today's information is based on the course you have registered.",
-            ),
-            en: "Today's information is based on the course you have registered.",
+            fa: 'اطلاعات امروز بر اساس دوره‌ای است که ثبت کرده‌اید.',
+            en: "Today's information is based on the period you recorded.",
+          )
+        : !estimate.fertilityEstimateReliable
+        ? LifeMateRuntimeLocale.select(
+            fa: estimate.pattern == WomenCyclePattern.variable
+                ? 'چرخه‌های ثبت‌شده متغیرند؛ زمان باروری فعلاً نمایش داده نمی‌شود.'
+                : 'برای برآورد مطمئن‌تر باروری، چند شروع دوره دیگر ثبت کن.',
+            en: estimate.pattern == WomenCyclePattern.variable
+                ? 'Your recorded cycles vary, so fertility timing is hidden for now.'
+                : 'Log a few more period starts before showing fertility timing.',
           )
         : _phaseHelper(context, estimate, phase);
 
@@ -541,7 +551,7 @@ class _CycleOverview extends StatelessWidget {
           style: const TextStyle(color: AppColors.textSecondary, height: 1.55),
         ),
         const SizedBox(height: 14),
-        const _PhaseLegend(),
+        _PhaseLegend(showFertility: estimate.fertilityEstimateReliable),
       ],
     );
   }
@@ -617,35 +627,53 @@ class _CycleRingPainter extends CustomPainter {
       ..strokeCap = StrokeCap.round;
     canvas.drawArc(ringRect, 0, math.pi * 2, false, trackPaint);
 
-    final segments = <_CycleSegment>[
-      _CycleSegment(1, estimate.periodLength, _periodColor),
-      _CycleSegment(
-        estimate.periodLength + 1,
-        estimate.fertileWindowStartDay - 1,
-        _follicularColor,
-      ),
-      _CycleSegment(
-        estimate.fertileWindowStartDay,
-        estimate.ovulationDay - 1,
-        _fertileColor,
-      ),
-      _CycleSegment(
-        estimate.ovulationDay,
-        estimate.ovulationDay,
-        _ovulationColor,
-      ),
-      _CycleSegment(
-        estimate.ovulationDay + 1,
-        estimate.fertileWindowEndDay,
-        _fertileColor,
-      ),
-      _CycleSegment(
-        estimate.fertileWindowEndDay + 1,
-        estimate.pmsStartDay - 1,
-        _lutealColor,
-      ),
-      _CycleSegment(estimate.pmsStartDay, estimate.cycleLength, _pmsColor),
-    ];
+    final segments = estimate.fertilityEstimateReliable
+        ? <_CycleSegment>[
+            _CycleSegment(1, estimate.periodLength, _periodColor),
+            _CycleSegment(
+              estimate.periodLength + 1,
+              estimate.fertileWindowStartDay - 1,
+              _follicularColor,
+            ),
+            _CycleSegment(
+              estimate.fertileWindowStartDay,
+              estimate.ovulationDay - 1,
+              _fertileColor,
+            ),
+            _CycleSegment(
+              estimate.ovulationDay,
+              estimate.ovulationDay,
+              _ovulationColor,
+            ),
+            _CycleSegment(
+              estimate.ovulationDay + 1,
+              estimate.fertileWindowEndDay,
+              _fertileColor,
+            ),
+            _CycleSegment(
+              estimate.fertileWindowEndDay + 1,
+              estimate.pmsStartDay - 1,
+              _lutealColor,
+            ),
+            _CycleSegment(
+              estimate.pmsStartDay,
+              estimate.cycleLength,
+              _pmsColor,
+            ),
+          ]
+        : <_CycleSegment>[
+            _CycleSegment(1, estimate.periodLength, _periodColor),
+            _CycleSegment(
+              estimate.periodLength + 1,
+              estimate.pmsStartDay - 1,
+              _follicularColor,
+            ),
+            _CycleSegment(
+              estimate.pmsStartDay,
+              estimate.cycleLength,
+              _pmsColor,
+            ),
+          ];
 
     for (final segment in segments) {
       if (segment.endDay < segment.startDay) continue;
@@ -711,6 +739,8 @@ class _CycleRingPainter extends CustomPainter {
       oldDelegate.estimate.cycleDay != estimate.cycleDay ||
       oldDelegate.estimate.cycleLength != estimate.cycleLength ||
       oldDelegate.estimate.periodLength != estimate.periodLength ||
+      oldDelegate.estimate.fertilityEstimateReliable !=
+          estimate.fertilityEstimateReliable ||
       oldDelegate.dayLabel != dayLabel;
 }
 
@@ -723,7 +753,9 @@ class _CycleSegment {
 }
 
 class _PhaseLegend extends StatelessWidget {
-  const _PhaseLegend();
+  const _PhaseLegend({required this.showFertility});
+
+  final bool showFertility;
 
   @override
   Widget build(BuildContext context) {
@@ -746,20 +778,19 @@ class _PhaseLegend extends StatelessWidget {
           ),
           color: _follicularColor,
         ),
-        _LegendChip(
-          label: LifeMateRuntimeLocale.select(
-            fa: LifeMateRuntimeLocale.select(fa: 'باروری', en: "fertility"),
-            en: "fertility",
+        if (showFertility) ...[
+          _LegendChip(
+            label: LifeMateRuntimeLocale.select(fa: 'باروری', en: 'Fertility'),
+            color: _fertileColor,
           ),
-          color: _fertileColor,
-        ),
-        _LegendChip(
-          label: LifeMateRuntimeLocale.select(
-            fa: LifeMateRuntimeLocale.select(fa: 'تخمک‌گذاری', en: "Ovulation"),
-            en: "Ovulation",
+          _LegendChip(
+            label: LifeMateRuntimeLocale.select(
+              fa: 'تخمک‌گذاری',
+              en: 'Ovulation',
+            ),
+            color: _ovulationColor,
           ),
-          color: _ovulationColor,
-        ),
+        ],
         _LegendChip(
           label: LifeMateRuntimeLocale.select(
             fa: LifeMateRuntimeLocale.select(fa: 'لوتئال', en: "Luteal"),
@@ -774,7 +805,9 @@ class _PhaseLegend extends StatelessWidget {
 }
 
 class _CalendarLegend extends StatelessWidget {
-  const _CalendarLegend();
+  const _CalendarLegend({required this.showFertility});
+
+  final bool showFertility;
 
   @override
   Widget build(BuildContext context) {
@@ -800,20 +833,19 @@ class _CalendarLegend extends StatelessWidget {
           ),
           color: _periodColor,
         ),
-        _LegendChip(
-          label: LifeMateRuntimeLocale.select(
-            fa: LifeMateRuntimeLocale.select(fa: 'باروری', en: "fertility"),
-            en: "fertility",
+        if (showFertility) ...[
+          _LegendChip(
+            label: LifeMateRuntimeLocale.select(fa: 'باروری', en: 'Fertility'),
+            color: _fertileColor,
           ),
-          color: _fertileColor,
-        ),
-        _LegendChip(
-          label: LifeMateRuntimeLocale.select(
-            fa: LifeMateRuntimeLocale.select(fa: 'تخمک‌گذاری', en: "Ovulation"),
-            en: "Ovulation",
+          _LegendChip(
+            label: LifeMateRuntimeLocale.select(
+              fa: 'تخمک‌گذاری',
+              en: 'Ovulation',
+            ),
+            color: _ovulationColor,
           ),
-          color: _ovulationColor,
-        ),
+        ],
         _LegendChip(label: 'PMS', color: _pmsColor),
       ],
     );

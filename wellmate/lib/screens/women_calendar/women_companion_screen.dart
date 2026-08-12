@@ -48,14 +48,22 @@ class _WomenCompanionScreenState extends State<WomenCompanionScreen> {
       _profile['lastPeriodStart']?.toString() ?? '',
     );
     if (!_enabled || start == null) return null;
-    return WomenCalendarEstimate.calculate(
+    final periodStarts = _episodes
+        .map(
+          (episode) =>
+              DateTime.tryParse(episode['startedOn']?.toString() ?? ''),
+        )
+        .whereType<DateTime>()
+        .toList(growable: false);
+    return WomenCalendarEstimate.calculateFromEpisodes(
       lastPeriodStart: start,
-      cycleLength: _profile['cycleLength'] is int
+      configuredCycleLength: _profile['cycleLength'] is int
           ? _profile['cycleLength'] as int
           : 28,
       periodLength: _profile['periodLength'] is int
           ? _profile['periodLength'] as int
           : 5,
+      periodStarts: periodStarts,
     );
   }
 
@@ -451,33 +459,49 @@ class _CycleRingPainter extends CustomPainter {
     final value = estimate;
     if (value == null) return;
 
-    final sections = <(int, Color)>[
-      (value.periodLength, const Color(0xFFF15D7B)),
-      (
-        (value.fertileWindowStartDay - value.periodLength - 1)
-            .clamp(0, value.cycleLength)
-            .toInt(),
-        const Color(0xFFBA8CE2),
-      ),
-      (
-        (value.fertileWindowEndDay - value.fertileWindowStartDay + 1)
-            .clamp(0, value.cycleLength)
-            .toInt(),
-        const Color(0xFF58C8B8),
-      ),
-      (
-        (value.pmsStartDay - value.fertileWindowEndDay - 1)
-            .clamp(0, value.cycleLength)
-            .toInt(),
-        const Color(0xFFF5BE58),
-      ),
-      (
-        (value.cycleLength - value.pmsStartDay + 1)
-            .clamp(0, value.cycleLength)
-            .toInt(),
-        const Color(0xFFE98A75),
-      ),
-    ];
+    final sections = value.fertilityEstimateReliable
+        ? <(int, Color)>[
+            (value.periodLength, const Color(0xFFF15D7B)),
+            (
+              (value.fertileWindowStartDay - value.periodLength - 1)
+                  .clamp(0, value.cycleLength)
+                  .toInt(),
+              const Color(0xFFBA8CE2),
+            ),
+            (
+              (value.fertileWindowEndDay - value.fertileWindowStartDay + 1)
+                  .clamp(0, value.cycleLength)
+                  .toInt(),
+              const Color(0xFF58C8B8),
+            ),
+            (
+              (value.pmsStartDay - value.fertileWindowEndDay - 1)
+                  .clamp(0, value.cycleLength)
+                  .toInt(),
+              const Color(0xFFF5BE58),
+            ),
+            (
+              (value.cycleLength - value.pmsStartDay + 1)
+                  .clamp(0, value.cycleLength)
+                  .toInt(),
+              const Color(0xFFE98A75),
+            ),
+          ]
+        : <(int, Color)>[
+            (value.periodLength, const Color(0xFFF15D7B)),
+            (
+              (value.pmsStartDay - value.periodLength - 1)
+                  .clamp(0, value.cycleLength)
+                  .toInt(),
+              const Color(0xFFBA8CE2),
+            ),
+            (
+              (value.cycleLength - value.pmsStartDay + 1)
+                  .clamp(0, value.cycleLength)
+                  .toInt(),
+              const Color(0xFFE98A75),
+            ),
+          ];
     var start = -math.pi / 2;
     const gap = 0.035;
     for (final section in sections) {
