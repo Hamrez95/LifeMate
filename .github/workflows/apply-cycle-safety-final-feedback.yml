@@ -1,0 +1,51 @@
+name: apply-cycle-safety-final-feedback
+
+on:
+  push:
+    branches:
+      - fix/cycle-confidence-current-main
+
+permissions:
+  contents: write
+
+jobs:
+  apply:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
+        with:
+          ref: fix/cycle-confidence-current-main
+          fetch-depth: 0
+      - uses: denoland/setup-deno@22d081ff2d3a40755e97629de92e3bcbfa7cf2ed
+        with:
+          deno-version: v2.9.4
+      - uses: subosito/flutter-action@4cab68ce0f1c7c924f688bff4792e044f1aeb30c
+        with:
+          channel: stable
+      - name: Apply safety feedback
+        run: python3 tools/hotfix/apply_cycle_safety_final_feedback.py
+      - name: Format touched source
+        shell: bash
+        run: |
+          set -euo pipefail
+          deno fmt \
+            supabase/functions/lifemate-api/women_calendar.ts \
+            supabase/functions/lifemate-api/women_calendar_test.ts
+          dart format \
+            packages/lifemate_client/lib/src/women_calendar.dart \
+            packages/lifemate_client/test/women_calendar_test.dart
+      - name: Commit safety fixes
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add \
+            packages/lifemate_client/lib/src/women_calendar.dart \
+            packages/lifemate_client/test/women_calendar_test.dart \
+            supabase/functions/lifemate-api/women_calendar.ts \
+            supabase/functions/lifemate-api/women_calendar_test.ts
+          git commit -m 'fix(safety): close final cycle confidence review gaps'
+          git push origin HEAD:fix/cycle-confidence-current-main
