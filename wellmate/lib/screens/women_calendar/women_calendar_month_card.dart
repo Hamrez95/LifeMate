@@ -7,6 +7,8 @@ import 'package:shamsi_date/shamsi_date.dart';
 import '../../core/theme/app_style.dart';
 import '../../core/utils/persian_date_utils.dart';
 
+import 'women_cycle_character_card.dart';
+
 const _periodColor = Color(0xFFF45B78);
 const _follicularColor = Color(0xFF9B7BD4);
 const _fertileColor = Color(0xFF39BDB3);
@@ -84,7 +86,7 @@ class _WomenCalendarMonthCardState extends State<WomenCalendarMonthCard> {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           if (estimate != null)
-            _CycleOverview(estimate: estimate, recordedToday: recordedToday)
+            WomenCycleCharacterCard(estimate: estimate, recordedToday: recordedToday)
           else
             const _CycleOverviewEmpty(),
           const SizedBox(height: 18),
