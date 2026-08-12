@@ -37,10 +37,7 @@ class WomenCycleCharacterCard extends StatelessWidget {
         ? WomenCyclePhase.period
         : estimate.detailedPhase;
     final visual = _visual(phase);
-    final upcoming = _upcoming(estimate, phase);
-    final stages = estimate.fertilityEstimateReliable
-        ? upcoming
-        : upcoming.take(math.max(0, upcoming.length - 1)).toList();
+    final stages = _majorUpcoming(estimate);
 
     return Container(
       key: const ValueKey('women-calendar-cycle-ring'),
@@ -400,5 +397,80 @@ List<(Color, double)> _segments(WomenCalendarEstimate e) {
     (_fertileColor, fertileAfter),
     (_lutealColor, luteal),
     (_pmsColor, pms),
+  ];
+}
+
+List<_Stage> _majorUpcoming(WomenCalendarEstimate estimate) {
+  final reliable = estimate.fertilityEstimateReliable;
+  final stages = <_Stage>[
+    _Stage(
+      LifeMateRuntimeLocale.select(fa: 'قاعدگی بعدی', en: 'Next period'),
+      LifeMateRuntimeLocale.select(
+        fa: 'روز ۱ تا ${estimate.periodLength}',
+        en: 'Day 1–${estimate.periodLength}',
+      ),
+      _periodAsset,
+      _periodColor,
+    ),
+    _Stage(
+      LifeMateRuntimeLocale.select(fa: 'فاز فولیکولی', en: 'Follicular phase'),
+      LifeMateRuntimeLocale.select(
+        fa: 'روز ${estimate.periodLength + 1} تا ${reliable ? estimate.fertileWindowStartDay - 1 : estimate.pmsStartDay - 1}',
+        en: 'Day ${estimate.periodLength + 1}–${reliable ? estimate.fertileWindowStartDay - 1 : estimate.pmsStartDay - 1}',
+      ),
+      _follicularAsset,
+      _follicularColor,
+    ),
+    if (reliable)
+      _Stage(
+        LifeMateRuntimeLocale.select(fa: 'روزهای باروری', en: 'Fertile window'),
+        LifeMateRuntimeLocale.select(
+          fa: 'روز ${estimate.fertileWindowStartDay} تا ${estimate.fertileWindowEndDay}',
+          en: 'Day ${estimate.fertileWindowStartDay}–${estimate.fertileWindowEndDay}',
+        ),
+        _ovulationAsset,
+        _fertileColor,
+      ),
+    if (reliable)
+      _Stage(
+        LifeMateRuntimeLocale.select(fa: 'فاز لوتئال', en: 'Luteal phase'),
+        LifeMateRuntimeLocale.select(
+          fa: 'روز ${estimate.fertileWindowEndDay + 1} تا ${estimate.pmsStartDay - 1}',
+          en: 'Day ${estimate.fertileWindowEndDay + 1}–${estimate.pmsStartDay - 1}',
+        ),
+        _lutealAsset,
+        _lutealColor,
+      ),
+    _Stage(
+      'PMS',
+      LifeMateRuntimeLocale.select(
+        fa: 'روز ${estimate.pmsStartDay} تا ${estimate.cycleLength}',
+        en: 'Day ${estimate.pmsStartDay}–${estimate.cycleLength}',
+      ),
+      _pmsAsset,
+      _pmsColor,
+    ),
+  ];
+
+  final current = !reliable
+      ? (estimate.cycleDay <= estimate.periodLength
+            ? 0
+            : estimate.cycleDay >= estimate.pmsStartDay
+            ? 2
+            : 1)
+      : (estimate.cycleDay <= estimate.periodLength
+            ? 0
+            : estimate.cycleDay < estimate.fertileWindowStartDay
+            ? 1
+            : estimate.cycleDay <= estimate.fertileWindowEndDay
+            ? 2
+            : estimate.cycleDay < estimate.pmsStartDay
+            ? 3
+            : 4);
+
+  final count = math.min(4, math.max(0, stages.length - 1));
+  return [
+    for (var offset = 1; offset <= count; offset++)
+      stages[(current + offset) % stages.length],
   ];
 }
