@@ -455,8 +455,8 @@ class _PartnerCycleSummary extends StatelessWidget {
     final fertilityReliable = estimate['fertilityEstimateReliable'] == true;
     final rawPhase =
         estimate['detailedPhase']?.toString() ?? estimate['phase']?.toString();
-    final phase = !fertilityReliable &&
-            (rawPhase == 'fertile' || rawPhase == 'ovulation')
+    final phase =
+        !fertilityReliable && (rawPhase == 'fertile' || rawPhase == 'ovulation')
         ? 'follicular'
         : rawPhase;
     final cyclePattern = estimate['cyclePattern']?.toString();

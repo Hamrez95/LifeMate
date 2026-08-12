@@ -247,7 +247,9 @@ class _WomenCalendarMonthCardState extends State<WomenCalendarMonthCard> {
             },
           ),
           SizedBox(height: 14),
-          _CalendarLegend(showFertility: estimate?.fertilityEstimateReliable == true),
+          _CalendarLegend(
+            showFertility: estimate?.fertilityEstimateReliable == true,
+          ),
           SizedBox(height: 10),
           Text(
             estimate?.fertilityEstimateReliable == true
@@ -638,7 +640,11 @@ class _CycleRingPainter extends CustomPainter {
               estimate.ovulationDay - 1,
               _fertileColor,
             ),
-            _CycleSegment(estimate.ovulationDay, estimate.ovulationDay, _ovulationColor),
+            _CycleSegment(
+              estimate.ovulationDay,
+              estimate.ovulationDay,
+              _ovulationColor,
+            ),
             _CycleSegment(
               estimate.ovulationDay + 1,
               estimate.fertileWindowEndDay,
@@ -649,7 +655,11 @@ class _CycleRingPainter extends CustomPainter {
               estimate.pmsStartDay - 1,
               _lutealColor,
             ),
-            _CycleSegment(estimate.pmsStartDay, estimate.cycleLength, _pmsColor),
+            _CycleSegment(
+              estimate.pmsStartDay,
+              estimate.cycleLength,
+              _pmsColor,
+            ),
           ]
         : <_CycleSegment>[
             _CycleSegment(1, estimate.periodLength, _periodColor),
@@ -658,7 +668,11 @@ class _CycleRingPainter extends CustomPainter {
               estimate.pmsStartDay - 1,
               _follicularColor,
             ),
-            _CycleSegment(estimate.pmsStartDay, estimate.cycleLength, _pmsColor),
+            _CycleSegment(
+              estimate.pmsStartDay,
+              estimate.cycleLength,
+              _pmsColor,
+            ),
           ];
 
     for (final segment in segments) {
@@ -768,7 +782,10 @@ class _PhaseLegend extends StatelessWidget {
             color: _fertileColor,
           ),
           _LegendChip(
-            label: LifeMateRuntimeLocale.select(fa: 'تخمک‌گذاری', en: 'Ovulation'),
+            label: LifeMateRuntimeLocale.select(
+              fa: 'تخمک‌گذاری',
+              en: 'Ovulation',
+            ),
             color: _ovulationColor,
           ),
         ],
@@ -820,7 +837,10 @@ class _CalendarLegend extends StatelessWidget {
             color: _fertileColor,
           ),
           _LegendChip(
-            label: LifeMateRuntimeLocale.select(fa: 'تخمک‌گذاری', en: 'Ovulation'),
+            label: LifeMateRuntimeLocale.select(
+              fa: 'تخمک‌گذاری',
+              en: 'Ovulation',
+            ),
             color: _ovulationColor,
           ),
         ],

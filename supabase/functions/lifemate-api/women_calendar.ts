@@ -723,8 +723,8 @@ export function calculateWomenCalendarEstimateFromEpisodes(
   todayValue = new Date(),
 ): WomenCalendarEstimate {
   const assessment = assessCycleHistory(periodStarts, configuredCycleLength);
-  const reliable =
-    assessment.pattern === "regular" && assessment.confidence !== "low";
+  const reliable = assessment.pattern === "regular" &&
+    assessment.confidence !== "low";
   return calculateCalendarCore(
     lastPeriodStart,
     assessment.representativeCycleLength,
@@ -860,7 +860,8 @@ function assessCycleHistory(
   const minimum = Math.min(...intervals);
   const maximum = Math.max(...intervals);
   const spread = maximum - minimum;
-  const variable = spread > 7 || intervals.some((value) => value < 21 || value > 45);
+  const variable = spread > 7 ||
+    intervals.some((value) => value < 21 || value > 45);
   if (variable) {
     return {
       pattern: "variable",

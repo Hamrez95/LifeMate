@@ -1,5 +1,8 @@
 import { assertEquals } from "https://deno.land/std@0.224.0/assert/mod.ts";
-import { calculateWomenCalendarEstimate, calculateWomenCalendarEstimateFromEpisodes } from "./women_calendar.ts";
+import {
+  calculateWomenCalendarEstimate,
+  calculateWomenCalendarEstimateFromEpisodes,
+} from "./women_calendar.ts";
 
 Deno.test("women calendar estimate is deterministic without fertility claims", () => {
   const estimate = calculateWomenCalendarEstimate(
@@ -28,7 +31,6 @@ Deno.test("women calendar estimate marks the pre-period window as an estimate", 
   assertEquals(estimate.daysUntilNextPeriod, 3);
 });
 
-
 Deno.test("cycle history with insufficient data suppresses fertility timing", () => {
   const estimate = calculateWomenCalendarEstimateFromEpisodes(
     "2026-08-01",
@@ -40,7 +42,10 @@ Deno.test("cycle history with insufficient data suppresses fertility timing", ()
   assertEquals(estimate.confidence, "low");
   assertEquals(estimate.cyclePattern, "insufficient_data");
   assertEquals(estimate.fertilityEstimateReliable, false);
-  assertEquals(["fertile", "ovulation"].includes(estimate.detailedPhase), false);
+  assertEquals(
+    ["fertile", "ovulation"].includes(estimate.detailedPhase),
+    false,
+  );
 });
 
 Deno.test("cycle history enables fertility only for stable repeated intervals", () => {
@@ -67,5 +72,8 @@ Deno.test("variable cycle history suppresses fertility timing", () => {
   assertEquals(estimate.cyclePattern, "variable");
   assertEquals(estimate.confidence, "low");
   assertEquals(estimate.fertilityEstimateReliable, false);
-  assertEquals(["fertile", "ovulation"].includes(estimate.detailedPhase), false);
+  assertEquals(
+    ["fertile", "ovulation"].includes(estimate.detailedPhase),
+    false,
+  );
 });

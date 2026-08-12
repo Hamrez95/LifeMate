@@ -27,17 +27,20 @@ class WomenCycleHistoryAssessment {
     required Iterable<DateTime> periodStarts,
     required int fallbackCycleLength,
   }) {
-    final normalized = periodStarts
-        .map((value) => DateTime(value.year, value.month, value.day))
-        .toSet()
-        .toList()
-      ..sort();
+    final normalized =
+        periodStarts
+            .map((value) => DateTime(value.year, value.month, value.day))
+            .toSet()
+            .toList()
+          ..sort();
     final intervals = <int>[];
     for (var index = 1; index < normalized.length; index++) {
       final days = normalized[index].difference(normalized[index - 1]).inDays;
       if (days >= 15 && days <= 90) intervals.add(days);
     }
-    final usable = intervals.where((value) => value >= 21 && value <= 45).toList();
+    final usable = intervals
+        .where((value) => value >= 21 && value <= 45)
+        .toList();
     final representative = usable.isEmpty
         ? fallbackCycleLength.clamp(21, 45)
         : _median(usable);
@@ -49,10 +52,12 @@ class WomenCycleHistoryAssessment {
         pattern: WomenCyclePattern.insufficientData,
         confidence: WomenCycleEstimateConfidence.low,
         representativeCycleLength: representative,
-        minimumObservedCycleLength:
-            intervals.isEmpty ? null : intervals.reduce(math.min),
-        maximumObservedCycleLength:
-            intervals.isEmpty ? null : intervals.reduce(math.max),
+        minimumObservedCycleLength: intervals.isEmpty
+            ? null
+            : intervals.reduce(math.min),
+        maximumObservedCycleLength: intervals.isEmpty
+            ? null
+            : intervals.reduce(math.max),
       );
     }
 

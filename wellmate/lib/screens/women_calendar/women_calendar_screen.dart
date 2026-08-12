@@ -41,7 +41,10 @@ class _WomenCalendarScreenState extends State<WomenCalendarScreen> {
     final start = _lastPeriodStart;
     if (!_enabled || start == null) return null;
     final periodStarts = _episodes
-        .map((episode) => DateTime.tryParse(episode['startedOn']?.toString() ?? ''))
+        .map(
+          (episode) =>
+              DateTime.tryParse(episode['startedOn']?.toString() ?? ''),
+        )
         .whereType<DateTime>()
         .toList(growable: false);
     return WomenCalendarEstimate.calculateFromEpisodes(
