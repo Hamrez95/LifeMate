@@ -117,6 +117,43 @@ void main() {
     },
   );
 
+  test('latest configured period start participates in confidence history', () {
+    final estimate = WomenCalendarEstimate.calculateFromEpisodes(
+      lastPeriodStart: DateTime(2026, 8, 1),
+      configuredCycleLength: 28,
+      periodLength: 5,
+      periodStarts: [
+        DateTime(2026, 5, 1),
+        DateTime(2026, 5, 29),
+        DateTime(2026, 6, 26),
+      ],
+      today: DateTime(2026, 8, 1),
+    );
+
+    expect(estimate.pattern, WomenCyclePattern.variable);
+    expect(estimate.confidence, WomenCycleEstimateConfidence.low);
+    expect(estimate.fertilityEstimateReliable, isFalse);
+  });
+
+  test(
+    'low confidence does not reveal the ovulation boundary via luteal phase',
+    () {
+      final estimate = WomenCalendarEstimate.calculate(
+        lastPeriodStart: DateTime(2026, 8, 1),
+        cycleLength: 28,
+        periodLength: 5,
+        today: DateTime(2026, 8, 16),
+      );
+
+      expect(estimate.fertilityEstimateReliable, isFalse);
+      expect(estimate.detailedPhase, WomenCyclePhase.follicular);
+      expect(
+        estimate.phaseForDate(DateTime(2026, 8, 16)),
+        WomenCyclePhase.follicular,
+      );
+    },
+  );
+
   test(
     'normalizes episode gaps by calendar date rather than elapsed local hours',
     () {

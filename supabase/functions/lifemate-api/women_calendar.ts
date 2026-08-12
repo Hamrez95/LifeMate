@@ -741,7 +741,10 @@ export function calculateWomenCalendarEstimateFromEpisodes(
   periodStarts: string[],
   todayValue = new Date(),
 ): WomenCalendarEstimate {
-  const assessment = assessCycleHistory(periodStarts, configuredCycleLength);
+  const assessment = assessCycleHistory(
+    [...periodStarts, lastPeriodStart],
+    configuredCycleLength,
+  );
   const reliable = assessment.pattern === "regular" &&
     assessment.confidence !== "low";
   return calculateCalendarCore(
@@ -812,8 +815,8 @@ function calculateCalendarCore(
     pmsStartDay,
   );
   const detailedPhase: DetailedPhase = !fertilityEstimateReliable &&
-      (rawDetailedPhase === "fertile" || rawDetailedPhase === "ovulation")
-    ? (cycleDay <= ovulationDay ? "follicular" : "luteal")
+      rawDetailedPhase !== "period" && rawDetailedPhase !== "pms"
+    ? "follicular"
     : rawDetailedPhase;
   const estimatedBleeding = detailedPhase === "period";
   const phase = detailedPhase === "period"

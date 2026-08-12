@@ -233,7 +233,7 @@ class WomenCalendarEstimate {
     DateTime? today,
   }) {
     final history = WomenCycleHistoryAssessment.fromPeriodStarts(
-      periodStarts: periodStarts,
+      periodStarts: [...periodStarts, lastPeriodStart],
       fallbackCycleLength: configuredCycleLength,
     );
     return calculate(
@@ -289,12 +289,12 @@ class WomenCalendarEstimate {
     required bool fertilityReliable,
   }) {
     if (cycleDay <= periodLength) return WomenCyclePhase.period;
-    if (fertilityReliable && cycleDay == ovulationDay) {
-      return WomenCyclePhase.ovulation;
+    if (!fertilityReliable) {
+      if (cycleDay >= pmsStartDay) return WomenCyclePhase.pms;
+      return WomenCyclePhase.follicular;
     }
-    if (fertilityReliable &&
-        cycleDay >= fertileWindowStartDay &&
-        cycleDay <= fertileWindowEndDay) {
+    if (cycleDay == ovulationDay) return WomenCyclePhase.ovulation;
+    if (cycleDay >= fertileWindowStartDay && cycleDay <= fertileWindowEndDay) {
       return WomenCyclePhase.fertile;
     }
     if (cycleDay >= pmsStartDay) return WomenCyclePhase.pms;

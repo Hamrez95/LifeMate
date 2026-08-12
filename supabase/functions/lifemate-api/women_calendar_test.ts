@@ -86,3 +86,31 @@ Deno.test("variable cycle history suppresses fertility timing", () => {
     false,
   );
 });
+
+Deno.test("latest configured period start participates in server confidence history", () => {
+  const estimate = calculateWomenCalendarEstimateFromEpisodes(
+    "2026-08-01",
+    28,
+    5,
+    ["2026-05-01", "2026-05-29", "2026-06-26"],
+    new Date("2026-08-01T00:00:00Z"),
+  );
+  assertEquals(estimate.cyclePattern, "variable");
+  assertEquals(estimate.confidence, "low");
+  assertEquals(estimate.fertilityEstimateReliable, false);
+});
+
+Deno.test("low confidence does not expose ovulation boundary through luteal phase", () => {
+  const estimate = calculateWomenCalendarEstimateFromEpisodes(
+    "2026-08-01",
+    28,
+    5,
+    ["2026-08-01"],
+    new Date("2026-08-16T00:00:00Z"),
+  );
+  assertEquals(estimate.fertilityEstimateReliable, false);
+  assertEquals(estimate.detailedPhase, "follicular");
+  assertEquals(estimate.ovulationDay, null);
+  assertEquals(estimate.fertileWindowStartDay, null);
+  assertEquals(estimate.fertileWindowEndDay, null);
+});
