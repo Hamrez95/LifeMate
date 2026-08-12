@@ -164,7 +164,12 @@ class CareHomeAggregator {
   ) {
     final scheduledAt = _scheduledAt(dose);
     if (scheduledAt == null) return null;
-    final title = _text(dose['medicationName']) ?? 'دارو';
+    final title =
+        _text(dose['medicationName']) ??
+        LifeMateRuntimeLocale.select(
+          fa: LifeMateRuntimeLocale.select(fa: 'دارو', en: "Medication"),
+          en: "medicine",
+        );
     return CareHomeTreatmentItem(
       relationshipId: relationship.relationshipId,
       patientUserId: relationship.patientUserId,
@@ -172,8 +177,7 @@ class CareHomeAggregator {
       patientProfilePhotoUrl: relationship.patientProfilePhotoUrl,
       patientAvatarKey: relationship.patientAvatarKey,
       type: CareItemType.medication,
-      treatmentId:
-          _text(dose['treatmentPlanId']) ?? _text(dose['id']) ?? '',
+      treatmentId: _text(dose['treatmentPlanId']) ?? _text(dose['id']) ?? '',
       occurrenceId: _text(dose['id']) ?? '',
       title: title,
       subtitle: _text(dose['doseText']) ?? '',

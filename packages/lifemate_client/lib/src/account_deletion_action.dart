@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import 'lifemate_api_client.dart';
 import 'lifemate_auth.dart';
+import 'runtime_locale.dart';
 
 Future<bool> showLifeMateAccountDeletionDialog(
   BuildContext context, {
@@ -14,22 +15,47 @@ Future<bool> showLifeMateAccountDeletionDialog(
     builder: (dialogContext) => AlertDialog(
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
       title: Text(
-        'درخواست حذف حساب LifeMate',
+        LifeMateRuntimeLocale.select(
+          fa: LifeMateRuntimeLocale.select(
+            fa: 'درخواست حذف حساب LifeMate',
+            en: "Request to delete LifeMate account",
+          ),
+          en: "Request to delete LifeMate account",
+        ),
         style: TextStyle(fontFamily: fontFamily, fontWeight: FontWeight.w900),
       ),
       content: Text(
-        'با ادامه، دسترسی حساب بلافاصله غیرفعال می‌شود، ارتباط‌های اشتراک‌گذاری و دسترسی‌های فعال لغو می‌شوند و پردازش حذف/ناشناس‌سازی طبق سیاست نگهداری داده آغاز می‌شود. اطلاعاتی که نگهداری آن‌ها الزام قانونی یا ایمنی دارد فوراً پاک نمی‌شوند.',
+        LifeMateRuntimeLocale.select(
+          fa: LifeMateRuntimeLocale.select(
+            fa: 'با ادامه، دسترسی حساب بلافاصله غیرفعال می‌شود، ارتباط‌های اشتراک‌گذاری و دسترسی‌های فعال لغو می‌شوند و پردازش حذف/ناشناس‌سازی طبق سیاست نگهداری داده آغاز می‌شود. اطلاعاتی که نگهداری آن‌ها الزام قانونی یا ایمنی دارد فوراً پاک نمی‌شوند.',
+            en: "Upon proceeding, account access will be immediately disabled, sharing connections and active accesses will be revoked, and deletion/anonymization processing will begin in accordance with the data retention policy. Information whose retention is required by law or safety is not immediately deleted.",
+          ),
+          en: "Upon proceeding, account access will be immediately disabled, sharing connections and active accesses will be revoked, and deletion/anonymization processing will begin in accordance with the data retention policy. Information whose retention is required by law or safety is not immediately deleted.",
+        ),
         style: TextStyle(fontFamily: fontFamily, height: 1.7),
       ),
       actions: [
         TextButton(
           onPressed: () => Navigator.pop(dialogContext, false),
-          child: const Text('انصراف'),
+          child: Text(
+            LifeMateRuntimeLocale.select(
+              fa: LifeMateRuntimeLocale.select(fa: 'انصراف', en: "opt out"),
+              en: "opt out",
+            ),
+          ),
         ),
         FilledButton(
           style: FilledButton.styleFrom(backgroundColor: Colors.redAccent),
           onPressed: () => Navigator.pop(dialogContext, true),
-          child: const Text('ادامه حذف حساب'),
+          child: Text(
+            LifeMateRuntimeLocale.select(
+              fa: LifeMateRuntimeLocale.select(
+                fa: 'ادامه حذف حساب',
+                en: "Continue to delete the account",
+              ),
+              en: "Continue to delete the account",
+            ),
+          ),
         ),
       ],
     ),
@@ -41,7 +67,16 @@ Future<bool> showLifeMateAccountDeletionDialog(
     barrierDismissible: false,
     builder: (dialogContext) => _DeletionPhraseDialog(fontFamily: fontFamily),
   );
-  if (typed != 'حذف حساب' || !context.mounted) return false;
+  if (typed !=
+          LifeMateRuntimeLocale.select(
+            fa: LifeMateRuntimeLocale.select(
+              fa: 'حذف حساب',
+              en: "delete account",
+            ),
+            en: "delete account",
+          ) ||
+      !context.mounted)
+    return false;
 
   showDialog<void>(
     context: context,
@@ -63,7 +98,13 @@ Future<bool> showLifeMateAccountDeletionDialog(
     if (!context.mounted) return false;
     await _showDeletionError(
       context,
-      'درخواست حذف ثبت نشد. اتصال را بررسی و دوباره تلاش کنید.',
+      LifeMateRuntimeLocale.select(
+        fa: LifeMateRuntimeLocale.select(
+          fa: 'درخواست حذف ثبت نشد. اتصال را بررسی و دوباره تلاش کنید.',
+          en: "The deletion request was not registered. Check the connection and try again.",
+        ),
+        en: "The deletion request was not registered. Check the connection and try again.",
+      ),
       fontFamily,
     );
     return false;
@@ -92,11 +133,19 @@ class _DeletionPhraseDialogState extends State<_DeletionPhraseDialog> {
   @override
   Widget build(BuildContext context) {
     return Directionality(
-      textDirection: TextDirection.rtl,
+      textDirection: LifeMateRuntimeLocale.isPersian
+          ? TextDirection.rtl
+          : TextDirection.ltr,
       child: AlertDialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
         title: Text(
-          'تأیید نهایی',
+          LifeMateRuntimeLocale.select(
+            fa: LifeMateRuntimeLocale.select(
+              fa: 'تأیید نهایی',
+              en: "Final approval",
+            ),
+            en: "Final approval",
+          ),
           style: TextStyle(
             fontFamily: widget.fontFamily,
             fontWeight: FontWeight.w900,
@@ -107,20 +156,40 @@ class _DeletionPhraseDialogState extends State<_DeletionPhraseDialog> {
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             Text(
-              'برای جلوگیری از حذف تصادفی، عبارت «حذف حساب» را وارد کنید.',
+              LifeMateRuntimeLocale.select(
+                fa: LifeMateRuntimeLocale.select(
+                  fa: 'برای جلوگیری از حذف تصادفی، عبارت «حذف حساب» را وارد کنید.',
+                  en: "To prevent accidental deletion, enter the phrase \"delete account\".",
+                ),
+                en: "To prevent accidental deletion, enter the phrase \"delete account\".",
+              ),
               style: TextStyle(fontFamily: widget.fontFamily, height: 1.6),
             ),
-            const SizedBox(height: 14),
+            SizedBox(height: 14),
             TextField(
-              key: const ValueKey('account-deletion-confirmation'),
+              key: ValueKey('account-deletion-confirmation'),
               controller: _controller,
               autofocus: true,
-              decoration: const InputDecoration(
-                labelText: 'حذف حساب',
+              decoration: InputDecoration(
+                labelText: LifeMateRuntimeLocale.select(
+                  fa: LifeMateRuntimeLocale.select(
+                    fa: 'حذف حساب',
+                    en: "delete account",
+                  ),
+                  en: "delete account",
+                ),
                 border: OutlineInputBorder(),
               ),
               onChanged: (value) => setState(() {
-                _matches = value.trim() == 'حذف حساب';
+                _matches =
+                    value.trim() ==
+                    LifeMateRuntimeLocale.select(
+                      fa: LifeMateRuntimeLocale.select(
+                        fa: 'حذف حساب',
+                        en: "delete account",
+                      ),
+                      en: "delete account",
+                    );
               }),
             ),
           ],
@@ -128,14 +197,27 @@ class _DeletionPhraseDialogState extends State<_DeletionPhraseDialog> {
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: const Text('انصراف'),
+            child: Text(
+              LifeMateRuntimeLocale.select(
+                fa: LifeMateRuntimeLocale.select(fa: 'انصراف', en: "opt out"),
+                en: "opt out",
+              ),
+            ),
           ),
           FilledButton(
             style: FilledButton.styleFrom(backgroundColor: Colors.redAccent),
             onPressed: _matches
                 ? () => Navigator.pop(context, _controller.text.trim())
                 : null,
-            child: const Text('ثبت درخواست حذف'),
+            child: Text(
+              LifeMateRuntimeLocale.select(
+                fa: LifeMateRuntimeLocale.select(
+                  fa: 'ثبت درخواست حذف',
+                  en: "Registration of deletion request",
+                ),
+                en: "Registration of deletion request",
+              ),
+            ),
           ),
         ],
       ),
@@ -152,7 +234,13 @@ Future<void> _showDeletionError(
   builder: (dialogContext) => AlertDialog(
     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
     title: Text(
-      'حذف حساب انجام نشد',
+      LifeMateRuntimeLocale.select(
+        fa: LifeMateRuntimeLocale.select(
+          fa: 'حذف حساب انجام نشد',
+          en: "Account deletion failed",
+        ),
+        en: "Account deletion failed",
+      ),
       style: TextStyle(fontFamily: fontFamily, fontWeight: FontWeight.w900),
     ),
     content: Text(
@@ -162,7 +250,15 @@ Future<void> _showDeletionError(
     actions: [
       TextButton(
         onPressed: () => Navigator.pop(dialogContext),
-        child: const Text('متوجه شدم'),
+        child: Text(
+          LifeMateRuntimeLocale.select(
+            fa: LifeMateRuntimeLocale.select(
+              fa: 'متوجه شدم',
+              en: "I understand",
+            ),
+            en: "I understand",
+          ),
+        ),
       ),
     ],
   ),

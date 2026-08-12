@@ -114,7 +114,15 @@ class _CareEventManagementScreenState extends State<CareEventManagementScreen> {
       _setError(_friendlyError(error));
     } catch (error) {
       debugPrint('CareMate management load failed: $error');
-      _setError('اطلاعات درمان دریافت نشد. اتصال اینترنت را بررسی کنید.');
+      _setError(
+        LifeMateRuntimeLocale.select(
+          fa: LifeMateRuntimeLocale.select(
+            fa: 'اطلاعات درمان دریافت نشد. اتصال اینترنت را بررسی کنید.',
+            en: "Treatment information not received. Check your internet connection.",
+          ),
+          en: "Treatment information not received. Check your internet connection.",
+        ),
+      );
     } finally {
       if (mounted) {
         setState(() {
@@ -184,7 +192,15 @@ class _CareEventManagementScreenState extends State<CareEventManagementScreen> {
       _setError(_friendlyError(error));
     } catch (error) {
       debugPrint('CareMate patient switch failed: $error');
-      _setError('برنامه فرد تحت مراقبت دریافت نشد.');
+      _setError(
+        LifeMateRuntimeLocale.select(
+          fa: LifeMateRuntimeLocale.select(
+            fa: 'برنامه فرد تحت مراقبت دریافت نشد.',
+            en: "Caregiver application not received.",
+          ),
+          en: "Caregiver application not received.",
+        ),
+      );
     } finally {
       if (mounted) setState(() => _loading = false);
     }
@@ -200,15 +216,44 @@ class _CareEventManagementScreenState extends State<CareEventManagementScreen> {
 
   String _friendlyError(LifeMateApiException error) {
     return switch (error.code) {
-      'health_record_management_denied' =>
-        'اجازه مشاهده و ویرایش پرونده سلامت برای این مراقب فعال نیست.',
-      'stale_treatment_plan' || 'stale_medication' || 'stale_care_event' =>
-        'اطلاعات درمان تغییر کرده است. صفحه را تازه کنید و دوباره تلاش کنید.',
-      'relationship_not_found' || 'care_access_denied' =>
-        'رابطه مراقبتی فعال نیست یا دسترسی شما لغو شده است.',
-      _ when error.isUnauthorized =>
-        'نشست شما منقضی شده است. دوباره وارد شوید.',
-      _ => 'درخواست انجام نشد. دوباره تلاش کنید.',
+      'health_record_management_denied' => LifeMateRuntimeLocale.select(
+        fa: LifeMateRuntimeLocale.select(
+          fa: 'اجازه مشاهده و ویرایش پرونده سلامت برای این مراقب فعال نیست.',
+          en: "The permission to view and edit the health record is not active for this caregiver.",
+        ),
+        en: "The permission to view and edit the health record is not active for this caregiver.",
+      ),
+      'stale_treatment_plan' ||
+      'stale_medication' ||
+      'stale_care_event' => LifeMateRuntimeLocale.select(
+        fa: LifeMateRuntimeLocale.select(
+          fa: 'اطلاعات درمان تغییر کرده است. صفحه را تازه کنید و دوباره تلاش کنید.',
+          en: "Treatment information has changed. Refresh the page and try again.",
+        ),
+        en: "Treatment information has changed. Refresh the page and try again.",
+      ),
+      'relationship_not_found' ||
+      'care_access_denied' => LifeMateRuntimeLocale.select(
+        fa: LifeMateRuntimeLocale.select(
+          fa: 'رابطه مراقبتی فعال نیست یا دسترسی شما لغو شده است.',
+          en: "The care relationship is not active or your access has been revoked.",
+        ),
+        en: "The care relationship is not active or your access has been revoked.",
+      ),
+      _ when error.isUnauthorized => LifeMateRuntimeLocale.select(
+        fa: LifeMateRuntimeLocale.select(
+          fa: 'نشست شما منقضی شده است. دوباره وارد شوید.',
+          en: "Your session has expired. Sign in again.",
+        ),
+        en: "Your session has expired. Sign in again.",
+      ),
+      _ => LifeMateRuntimeLocale.select(
+        fa: LifeMateRuntimeLocale.select(
+          fa: 'درخواست انجام نشد. دوباره تلاش کنید.',
+          en: "Request failed. Try again.",
+        ),
+        en: "Request failed. Try again.",
+      ),
     };
   }
 
@@ -239,7 +284,13 @@ class _CareEventManagementScreenState extends State<CareEventManagementScreen> {
     } on LifeMateApiException catch (error) {
       _notice(
         type: LifeMateNoticeType.error,
-        title: 'تغییر ذخیره نشد',
+        title: LifeMateRuntimeLocale.select(
+          fa: LifeMateRuntimeLocale.select(
+            fa: 'تغییر ذخیره نشد',
+            en: "The change was not saved",
+          ),
+          en: "The change was not saved",
+        ),
         message: _friendlyError(error),
       );
       if (error.code.startsWith('stale_')) await _loadSelectedPatientData();
@@ -247,8 +298,20 @@ class _CareEventManagementScreenState extends State<CareEventManagementScreen> {
       debugPrint('CareMate management mutation failed: $error');
       _notice(
         type: LifeMateNoticeType.error,
-        title: 'تغییر ذخیره نشد',
-        message: 'اتصال را بررسی کنید و دوباره تلاش کنید.',
+        title: LifeMateRuntimeLocale.select(
+          fa: LifeMateRuntimeLocale.select(
+            fa: 'تغییر ذخیره نشد',
+            en: "The change was not saved",
+          ),
+          en: "The change was not saved",
+        ),
+        message: LifeMateRuntimeLocale.select(
+          fa: LifeMateRuntimeLocale.select(
+            fa: 'اتصال را بررسی کنید و دوباره تلاش کنید.',
+            en: "Check the connection and try again.",
+          ),
+          en: "Check the connection and try again.",
+        ),
       );
     } finally {
       if (mounted) setState(() => _working = false);
@@ -282,8 +345,20 @@ class _CareEventManagementScreenState extends State<CareEventManagementScreen> {
             schedules: draft.schedules,
           );
         },
-        successTitle: 'دارو اضافه شد',
-        successMessage: 'برنامه دارویی در پرونده سلامت ثبت شد.',
+        successTitle: LifeMateRuntimeLocale.select(
+          fa: LifeMateRuntimeLocale.select(
+            fa: 'دارو اضافه شد',
+            en: "The drug was added",
+          ),
+          en: "The drug was added",
+        ),
+        successMessage: LifeMateRuntimeLocale.select(
+          fa: LifeMateRuntimeLocale.select(
+            fa: 'برنامه دارویی در پرونده سلامت ثبت شد.',
+            en: "The drug program was recorded in the health record.",
+          ),
+          en: "The drug program was recorded in the health record.",
+        ),
       );
       return;
     }
@@ -318,16 +393,39 @@ class _CareEventManagementScreenState extends State<CareEventManagementScreen> {
           status: plan['status']?.toString() ?? 'active',
         );
       },
-      successTitle: 'دارو ویرایش شد',
-      successMessage: 'تغییرات برنامه دارویی ذخیره شد.',
+      successTitle: LifeMateRuntimeLocale.select(
+        fa: LifeMateRuntimeLocale.select(
+          fa: 'دارو ویرایش شد',
+          en: "The medicine was edited",
+        ),
+        en: "The medicine was edited",
+      ),
+      successMessage: LifeMateRuntimeLocale.select(
+        fa: LifeMateRuntimeLocale.select(
+          fa: 'تغییرات برنامه دارویی ذخیره شد.',
+          en: "Medication schedule changes saved.",
+        ),
+        en: "Medication schedule changes saved.",
+      ),
     );
   }
 
   Future<void> _deleteMedication(Map<String, dynamic> plan) async {
     final confirmed = await _confirmDelete(
-      title: 'حذف برنامه دارویی؟',
-      message:
-          'این برنامه از درمان‌های فعال خارج می‌شود و نوبت‌های آینده آن حذف می‌شوند. سابقه تغییر برای پیگیری امنیتی نگه داشته می‌شود.',
+      title: LifeMateRuntimeLocale.select(
+        fa: LifeMateRuntimeLocale.select(
+          fa: 'حذف برنامه دارویی؟',
+          en: "Delete the drug program?",
+        ),
+        en: "Delete the drug program?",
+      ),
+      message: LifeMateRuntimeLocale.select(
+        fa: LifeMateRuntimeLocale.select(
+          fa: 'این برنامه از درمان‌های فعال خارج می‌شود و نوبت‌های آینده آن حذف می‌شوند. سابقه تغییر برای پیگیری امنیتی نگه داشته می‌شود.',
+          en: "This program will be removed from active treatments and future appointments will be removed. Change history is kept for security tracking.",
+        ),
+        en: "This program will be removed from active treatments and future appointments will be removed. Change history is kept for security tracking.",
+      ),
     );
     if (!confirmed || !mounted) return;
     await _runMutation(
@@ -336,8 +434,20 @@ class _CareEventManagementScreenState extends State<CareEventManagementScreen> {
         treatmentPlanId: plan['id'].toString(),
         version: _asInt(plan['version'], 1),
       ),
-      successTitle: 'برنامه دارویی حذف شد',
-      successMessage: 'این درمان دیگر در برنامه فعال بیمار نیست.',
+      successTitle: LifeMateRuntimeLocale.select(
+        fa: LifeMateRuntimeLocale.select(
+          fa: 'برنامه دارویی حذف شد',
+          en: "The drug program was removed",
+        ),
+        en: "The drug program was removed",
+      ),
+      successMessage: LifeMateRuntimeLocale.select(
+        fa: LifeMateRuntimeLocale.select(
+          fa: 'این درمان دیگر در برنامه فعال بیمار نیست.',
+          en: "This treatment is no longer on the patient's active schedule.",
+        ),
+        en: "This treatment is no longer on the patient's active schedule.",
+      ),
     );
   }
 
@@ -383,9 +493,27 @@ class _CareEventManagementScreenState extends State<CareEventManagementScreen> {
           );
         },
         successTitle: eventType == 'injection'
-            ? 'تزریق اضافه شد'
-            : 'ویزیت اضافه شد',
-        successMessage: 'نوبت جدید در پرونده سلامت ثبت شد.',
+            ? LifeMateRuntimeLocale.select(
+                fa: LifeMateRuntimeLocale.select(
+                  fa: 'تزریق اضافه شد',
+                  en: "injection was added",
+                ),
+                en: "injection was added",
+              )
+            : LifeMateRuntimeLocale.select(
+                fa: LifeMateRuntimeLocale.select(
+                  fa: 'ویزیت اضافه شد',
+                  en: "Visit added",
+                ),
+                en: "Visit added",
+              ),
+        successMessage: LifeMateRuntimeLocale.select(
+          fa: LifeMateRuntimeLocale.select(
+            fa: 'نوبت جدید در پرونده سلامت ثبت شد.',
+            en: "The new appointment was registered in the health file.",
+          ),
+          en: "The new appointment was registered in the health file.",
+        ),
       );
       return;
     }
@@ -427,20 +555,52 @@ class _CareEventManagementScreenState extends State<CareEventManagementScreen> {
         );
       },
       successTitle: eventType == 'injection'
-          ? 'تزریق ویرایش شد'
-          : 'ویزیت ویرایش شد',
-      successMessage: 'تغییرات نوبت ذخیره شد.',
+          ? LifeMateRuntimeLocale.select(
+              fa: LifeMateRuntimeLocale.select(
+                fa: 'تزریق ویرایش شد',
+                en: "The injection was edited",
+              ),
+              en: "The injection was edited",
+            )
+          : LifeMateRuntimeLocale.select(
+              fa: LifeMateRuntimeLocale.select(
+                fa: 'ویزیت ویرایش شد',
+                en: "The visit was edited",
+              ),
+              en: "The visit was edited",
+            ),
+      successMessage: LifeMateRuntimeLocale.select(
+        fa: LifeMateRuntimeLocale.select(
+          fa: 'تغییرات نوبت ذخیره شد.',
+          en: "Turn changes saved.",
+        ),
+        en: "Turn changes saved.",
+      ),
     );
   }
 
   Future<void> _deleteCareEvent(Map<String, dynamic> event) async {
     final type = event['eventType']?.toString() == 'injection'
-        ? 'تزریق'
-        : 'ویزیت';
+        ? LifeMateRuntimeLocale.select(
+            fa: LifeMateRuntimeLocale.select(fa: 'تزریق', en: "Injection"),
+            en: "Injection",
+          )
+        : LifeMateRuntimeLocale.select(
+            fa: LifeMateRuntimeLocale.select(fa: 'ویزیت', en: "Appointment"),
+            en: "visit",
+          );
     final confirmed = await _confirmDelete(
-      title: 'حذف $type؟',
-      message:
-          'این نوبت از برنامه فعال حذف می‌شود. سابقه تغییر برای پیگیری امنیتی نگه داشته می‌شود.',
+      title: LifeMateRuntimeLocale.select(
+        fa: LifeMateRuntimeLocale.select(fa: 'حذف $type؟', en: "Delete $type?"),
+        en: "Delete $type?",
+      ),
+      message: LifeMateRuntimeLocale.select(
+        fa: LifeMateRuntimeLocale.select(
+          fa: 'این نوبت از برنامه فعال حذف می‌شود. سابقه تغییر برای پیگیری امنیتی نگه داشته می‌شود.',
+          en: "This turn will be removed from the active program. Change history is kept for security tracking.",
+        ),
+        en: "This turn will be removed from the active program. Change history is kept for security tracking.",
+      ),
     );
     if (!confirmed || !mounted) return;
     await _runMutation(
@@ -449,8 +609,20 @@ class _CareEventManagementScreenState extends State<CareEventManagementScreen> {
         eventId: event['seriesId']?.toString() ?? event['id'].toString(),
         version: _asInt(event['version'], 1),
       ),
-      successTitle: '$type حذف شد',
-      successMessage: 'این نوبت دیگر در برنامه فعال بیمار نیست.',
+      successTitle: LifeMateRuntimeLocale.select(
+        fa: LifeMateRuntimeLocale.select(
+          fa: '$type حذف شد',
+          en: "$type removed",
+        ),
+        en: "$type removed",
+      ),
+      successMessage: LifeMateRuntimeLocale.select(
+        fa: LifeMateRuntimeLocale.select(
+          fa: 'این نوبت دیگر در برنامه فعال بیمار نیست.',
+          en: "This appointment is no longer in the patient's active schedule.",
+        ),
+        en: "This appointment is no longer in the patient's active schedule.",
+      ),
     );
   }
 
@@ -462,18 +634,28 @@ class _CareEventManagementScreenState extends State<CareEventManagementScreen> {
       context: context,
       builder: (dialogContext) => AlertDialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
-        icon: const Icon(Icons.delete_outline_rounded, color: Colors.redAccent),
+        icon: Icon(Icons.delete_outline_rounded, color: Colors.redAccent),
         title: Text(title),
-        content: Text(message, style: const TextStyle(height: 1.65)),
+        content: Text(message, style: TextStyle(height: 1.65)),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(dialogContext, false),
-            child: const Text('انصراف'),
+            child: Text(
+              LifeMateRuntimeLocale.select(
+                fa: LifeMateRuntimeLocale.select(fa: 'انصراف', en: "opt out"),
+                en: "opt out",
+              ),
+            ),
           ),
           FilledButton(
             style: FilledButton.styleFrom(backgroundColor: Colors.redAccent),
             onPressed: () => Navigator.pop(dialogContext, true),
-            child: const Text('حذف'),
+            child: Text(
+              LifeMateRuntimeLocale.select(
+                fa: LifeMateRuntimeLocale.select(fa: 'حذف', en: "Delete"),
+                en: "remove",
+              ),
+            ),
           ),
         ],
       ),
@@ -506,7 +688,14 @@ class _CareEventManagementScreenState extends State<CareEventManagementScreen> {
   Widget build(BuildContext context) {
     final relationship = _selectedRelationship;
     final patientName =
-        relationship?['patientDisplayName']?.toString() ?? 'فرد تحت مراقبت';
+        relationship?['patientDisplayName']?.toString() ??
+        LifeMateRuntimeLocale.select(
+          fa: LifeMateRuntimeLocale.select(
+            fa: 'فرد تحت مراقبت',
+            en: "Person under care",
+          ),
+          en: "Person under care",
+        );
 
     final filteredEvents = _events
         .where((event) {
@@ -528,64 +717,81 @@ class _CareEventManagementScreenState extends State<CareEventManagementScreen> {
               onNotificationTap: () {},
               onSignOutTap: LifeMateAuth.signOut,
             ),
-            if (_backgroundRefreshing)
-              const LinearProgressIndicator(minHeight: 2),
+            if (_backgroundRefreshing) LinearProgressIndicator(minHeight: 2),
             Expanded(
               child: RefreshIndicator(
                 onRefresh: _refresh,
                 child: ListView(
-                  physics: const AlwaysScrollableScrollPhysics(),
+                  physics: AlwaysScrollableScrollPhysics(),
                   keyboardDismissBehavior:
                       ScrollViewKeyboardDismissBehavior.onDrag,
-                  padding: const EdgeInsets.fromLTRB(20, 8, 20, 128),
+                  padding: EdgeInsets.fromLTRB(20, 8, 20, 128),
                   children: [
-                    const Text(
-                      'مدیریت پرونده سلامت',
+                    Text(
+                      LifeMateRuntimeLocale.select(
+                        fa: LifeMateRuntimeLocale.select(
+                          fa: 'مدیریت پرونده سلامت',
+                          en: "Health case management",
+                        ),
+                        en: "Health case management",
+                      ),
                       style: TextStyle(
                         fontSize: 22,
                         fontWeight: FontWeight.w900,
                         color: AppColors.primaryText,
                       ),
                     ),
-                    const SizedBox(height: 5),
+                    SizedBox(height: 5),
                     Text(
                       _canManageHealthRecord
-                          ? 'با اجازه صریح بیمار، می‌توانید دارو، ویزیت و تزریق را اضافه، ویرایش یا حذف کنید.'
-                          : 'دسترسی ویرایش فقط با اجازه صریح بیمار از WellMate فعال می‌شود.',
-                      style: const TextStyle(
+                          ? LifeMateRuntimeLocale.select(
+                              fa: LifeMateRuntimeLocale.select(
+                                fa: 'با اجازه صریح بیمار، می‌توانید دارو، ویزیت و تزریق را اضافه، ویرایش یا حذف کنید.',
+                                en: "With the patient's express permission, you can add, edit, or delete medications, visits, and injections.",
+                              ),
+                              en: "With the patient's express permission, you can add, edit, or delete medications, visits, and injections.",
+                            )
+                          : LifeMateRuntimeLocale.select(
+                              fa: LifeMateRuntimeLocale.select(
+                                fa: 'دسترسی ویرایش فقط با اجازه صریح بیمار از WellMate فعال می‌شود.',
+                                en: "Editing access is enabled only with the patient's express permission from WellMate.",
+                              ),
+                              en: "Editing access is enabled only with the patient's express permission from WellMate.",
+                            ),
+                      style: TextStyle(
                         color: AppColors.secondaryText,
                         height: 1.55,
                       ),
                     ),
-                    const SizedBox(height: 16),
+                    SizedBox(height: 16),
                     _PatientSelector(
                       relationships: _relationships,
                       selectedId: _selectedRelationshipId,
                       onChanged: _loading ? null : _selectRelationship,
                     ),
-                    const SizedBox(height: 16),
+                    SizedBox(height: 16),
                     _TypeSelector(
                       selectedIndex: _selectedType,
                       onChanged: (index) =>
                           setState(() => _selectedType = index),
                     ),
-                    const SizedBox(height: 18),
+                    SizedBox(height: 18),
                     if (_error != null) ...[
                       _ErrorCard(message: _error!, onRetry: _refresh),
-                      const SizedBox(height: 16),
+                      SizedBox(height: 16),
                     ],
                     if (_loading && _relationships.isEmpty)
-                      const Padding(
+                      Padding(
                         padding: EdgeInsets.symmetric(vertical: 80),
                         child: Center(child: CircularProgressIndicator()),
                       )
                     else if (relationship == null)
-                      const _NoPatientState()
+                      _NoPatientState()
                     else if (!_canManageHealthRecord)
                       _LockedManagementCard(patientName: patientName)
                     else ...[
                       _GrantedPermissionCard(patientName: patientName),
-                      const SizedBox(height: 16),
+                      SizedBox(height: 16),
                       switch (_selectedType) {
                         1 => _MedicationWorkspace(
                           plans: _plans,
@@ -638,10 +844,28 @@ class _TypeSelector extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    const items = [
-      (Icons.medical_services_rounded, 'ویزیت'),
-      (Icons.medication_rounded, 'دارو'),
-      (Icons.vaccines_rounded, 'تزریق'),
+    final items = [
+      (
+        Icons.medical_services_rounded,
+        LifeMateRuntimeLocale.select(
+          fa: LifeMateRuntimeLocale.select(fa: 'ویزیت', en: "Appointment"),
+          en: "visit",
+        ),
+      ),
+      (
+        Icons.medication_rounded,
+        LifeMateRuntimeLocale.select(
+          fa: LifeMateRuntimeLocale.select(fa: 'دارو', en: "Medication"),
+          en: "medicine",
+        ),
+      ),
+      (
+        Icons.vaccines_rounded,
+        LifeMateRuntimeLocale.select(
+          fa: LifeMateRuntimeLocale.select(fa: 'تزریق', en: "Injection"),
+          en: "Injection",
+        ),
+      ),
     ];
     return Container(
       padding: const EdgeInsets.all(5),
@@ -725,13 +949,13 @@ class _PatientSelector extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+      padding: EdgeInsets.symmetric(horizontal: 16, vertical: 6),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(20),
       ),
       child: relationships.isEmpty
-          ? const ListTile(
+          ? ListTile(
               contentPadding: EdgeInsets.zero,
               leading: CircleAvatar(
                 backgroundColor: Color(0xFFEAF4FF),
@@ -740,24 +964,46 @@ class _PatientSelector extends StatelessWidget {
                   color: AppColors.primaryBlue,
                 ),
               ),
-              title: Text('فرد تحت مراقبت انتخاب نشده'),
-              subtitle: Text('ابتدا دعوت معتبر بیمار را بپذیرید.'),
+              title: Text(
+                LifeMateRuntimeLocale.select(
+                  fa: LifeMateRuntimeLocale.select(
+                    fa: 'فرد تحت مراقبت انتخاب نشده',
+                    en: "Caregiver not selected",
+                  ),
+                  en: "Caregiver not selected",
+                ),
+              ),
+              subtitle: Text(
+                LifeMateRuntimeLocale.select(
+                  fa: LifeMateRuntimeLocale.select(
+                    fa: 'ابتدا دعوت معتبر بیمار را بپذیرید.',
+                    en: "First, accept the patient's valid invitation.",
+                  ),
+                  en: "First, accept the patient's valid invitation.",
+                ),
+              ),
             )
           : DropdownButtonHideUnderline(
               child: DropdownButton<String>(
                 value: selectedId,
                 isExpanded: true,
                 borderRadius: BorderRadius.circular(18),
-                icon: const Icon(Icons.keyboard_arrow_down_rounded),
+                icon: Icon(Icons.keyboard_arrow_down_rounded),
                 items: relationships
                     .map(
                       (relationship) => DropdownMenuItem<String>(
                         value: relationship['id']?.toString(),
                         child: Text(
                           relationship['patientDisplayName']?.toString() ??
-                              'فرد تحت مراقبت',
+                              LifeMateRuntimeLocale.select(
+                                fa: LifeMateRuntimeLocale.select(
+                                  fa: 'فرد تحت مراقبت',
+                                  en: "Person under care",
+                                ),
+                                en: "Person under care",
+                              ),
                           overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(fontWeight: FontWeight.w800),
+                          style: TextStyle(fontWeight: FontWeight.w800),
                         ),
                       ),
                     )
@@ -776,34 +1022,46 @@ class _LockedManagementCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Container(
-    key: const ValueKey('caremate-health-management-locked'),
-    padding: const EdgeInsets.all(20),
+    key: ValueKey('caremate-health-management-locked'),
+    padding: EdgeInsets.all(20),
     decoration: BoxDecoration(
-      gradient: const LinearGradient(
+      gradient: LinearGradient(
         begin: Alignment.topRight,
         end: Alignment.bottomLeft,
         colors: [Color(0xFFF4F1FF), Color(0xFFEAF4FF)],
       ),
       borderRadius: BorderRadius.circular(26),
-      border: Border.all(color: const Color(0xFFD9D7F7)),
+      border: Border.all(color: Color(0xFFD9D7F7)),
     ),
     child: Column(
       children: [
-        const CircleAvatar(
+        CircleAvatar(
           radius: 27,
           backgroundColor: Colors.white,
           child: Icon(Icons.lock_rounded, color: Color(0xFF6C74D9), size: 28),
         ),
-        const SizedBox(height: 14),
-        const Text(
-          'اجازه مدیریت پرونده فعال نیست',
+        SizedBox(height: 14),
+        Text(
+          LifeMateRuntimeLocale.select(
+            fa: LifeMateRuntimeLocale.select(
+              fa: 'اجازه مدیریت پرونده فعال نیست',
+              en: "File management permission is not enabled",
+            ),
+            en: "File management permission is not enabled",
+          ),
           style: TextStyle(fontSize: 17, fontWeight: FontWeight.w900),
         ),
-        const SizedBox(height: 7),
+        SizedBox(height: 7),
         Text(
-          '$patientName باید در WellMate از «تنظیمات دسترسی» گزینه «مشاهده و ویرایش پرونده سلامت» را با تأیید آگاهانه فعال کند.',
+          LifeMateRuntimeLocale.select(
+            fa: LifeMateRuntimeLocale.select(
+              fa: '$patientName باید در WellMate از «تنظیمات دسترسی» گزینه «مشاهده و ویرایش پرونده سلامت» را با تأیید آگاهانه فعال کند.',
+              en: "$patientName must enable the \"View and Edit Health Record\" option in WellMate from \"Access Settings\" with informed consent.",
+            ),
+            en: "$patientName must enable the \"View and Edit Health Record\" option in WellMate from \"Access Settings\" with informed consent.",
+          ),
           textAlign: TextAlign.center,
-          style: const TextStyle(height: 1.65, color: AppColors.secondaryText),
+          style: TextStyle(height: 1.65, color: AppColors.secondaryText),
         ),
       ],
     ),
@@ -817,22 +1075,28 @@ class _GrantedPermissionCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Container(
-    key: const ValueKey('caremate-health-management-granted'),
-    padding: const EdgeInsets.all(14),
+    key: ValueKey('caremate-health-management-granted'),
+    padding: EdgeInsets.all(14),
     decoration: BoxDecoration(
-      color: const Color(0xFFEAF8F2),
+      color: Color(0xFFEAF8F2),
       borderRadius: BorderRadius.circular(18),
-      border: Border.all(color: const Color(0xFFC8EEDD)),
+      border: Border.all(color: Color(0xFFC8EEDD)),
     ),
     child: Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Icon(Icons.verified_user_rounded, color: Color(0xFF21855F)),
-        const SizedBox(width: 10),
+        Icon(Icons.verified_user_rounded, color: Color(0xFF21855F)),
+        SizedBox(width: 10),
         Expanded(
           child: Text(
-            'اجازه صریح $patientName فعال است. هر تغییر با حساب شما ثبت می‌شود و بیمار می‌تواند هر زمان این دسترسی را لغو کند.',
-            style: const TextStyle(height: 1.55, color: Color(0xFF256349)),
+            LifeMateRuntimeLocale.select(
+              fa: LifeMateRuntimeLocale.select(
+                fa: 'اجازه صریح $patientName فعال است. هر تغییر با حساب شما ثبت می‌شود و بیمار می‌تواند هر زمان این دسترسی را لغو کند.',
+                en: "$patientName explicit permission is enabled. Any changes are registered with your account and the patient can revoke this access at any time.",
+              ),
+              en: "$patientName explicit permission is enabled. Any changes are registered with your account and the patient can revoke this access at any time.",
+            ),
+            style: TextStyle(height: 1.55, color: Color(0xFF256349)),
           ),
         ),
       ],
@@ -860,18 +1124,35 @@ class _MedicationWorkspace extends StatelessWidget {
     children: [
       _WorkspaceHeader(
         icon: Icons.medication_rounded,
-        title: 'داروها',
-        actionLabel: 'افزودن دارو',
+        title: LifeMateRuntimeLocale.select(
+          fa: LifeMateRuntimeLocale.select(fa: 'داروها', en: "Medications"),
+          en: "Medicines",
+        ),
+        actionLabel: LifeMateRuntimeLocale.select(
+          fa: LifeMateRuntimeLocale.select(
+            fa: 'افزودن دارو',
+            en: "Addition of medicine",
+          ),
+          en: "Addition of medicine",
+        ),
         working: working,
         onAdd: onAdd,
       ),
-      const SizedBox(height: 12),
+      SizedBox(height: 12),
       if (plans.isEmpty)
-        const _InlineEmpty(text: 'برنامه دارویی فعالی ثبت نشده است.')
+        _InlineEmpty(
+          text: LifeMateRuntimeLocale.select(
+            fa: LifeMateRuntimeLocale.select(
+              fa: 'برنامه دارویی فعالی ثبت نشده است.',
+              en: "No active medication program has been registered.",
+            ),
+            en: "No active medication program has been registered.",
+          ),
+        )
       else
         ...plans.map(
           (plan) => Padding(
-            padding: const EdgeInsets.only(bottom: 10),
+            padding: EdgeInsets.only(bottom: 10),
             child: _TreatmentPlanCard(
               plan: plan,
               working: working,
@@ -910,22 +1191,62 @@ class _CareEventWorkspace extends StatelessWidget {
           icon: injection
               ? Icons.vaccines_rounded
               : Icons.medical_services_rounded,
-          title: injection ? 'تزریق‌ها' : 'ویزیت‌ها',
-          actionLabel: injection ? 'افزودن تزریق' : 'افزودن ویزیت',
+          title: injection
+              ? LifeMateRuntimeLocale.select(
+                  fa: LifeMateRuntimeLocale.select(
+                    fa: 'تزریق‌ها',
+                    en: "Injections",
+                  ),
+                  en: "Injections",
+                )
+              : LifeMateRuntimeLocale.select(
+                  fa: LifeMateRuntimeLocale.select(
+                    fa: 'ویزیت‌ها',
+                    en: "Appointments",
+                  ),
+                  en: "visits",
+                ),
+          actionLabel: injection
+              ? LifeMateRuntimeLocale.select(
+                  fa: LifeMateRuntimeLocale.select(
+                    fa: 'افزودن تزریق',
+                    en: "Add injection",
+                  ),
+                  en: "Add injection",
+                )
+              : LifeMateRuntimeLocale.select(
+                  fa: LifeMateRuntimeLocale.select(
+                    fa: 'افزودن ویزیت',
+                    en: "Add a visit",
+                  ),
+                  en: "Add a visit",
+                ),
           working: working,
           onAdd: onAdd,
         ),
-        const SizedBox(height: 12),
+        SizedBox(height: 12),
         if (events.isEmpty)
           _InlineEmpty(
             text: injection
-                ? 'تزریق فعالی در این بازه ثبت نشده است.'
-                : 'ویزیت فعالی در این بازه ثبت نشده است.',
+                ? LifeMateRuntimeLocale.select(
+                    fa: LifeMateRuntimeLocale.select(
+                      fa: 'تزریق فعالی در این بازه ثبت نشده است.',
+                      en: "No active injection has been registered in this period.",
+                    ),
+                    en: "No active injection has been registered in this period.",
+                  )
+                : LifeMateRuntimeLocale.select(
+                    fa: LifeMateRuntimeLocale.select(
+                      fa: 'ویزیت فعالی در این بازه ثبت نشده است.',
+                      en: "No active visits have been registered in this period.",
+                    ),
+                    en: "No active visits have been registered in this period.",
+                  ),
           )
         else
           ...events.map(
             (event) => Padding(
-              padding: const EdgeInsets.only(bottom: 10),
+              padding: EdgeInsets.only(bottom: 10),
               child: _CareEventCard(
                 event: event,
                 working: working,
@@ -1001,12 +1322,22 @@ class _TreatmentPlanCard extends StatelessWidget {
         .map((item) => item is Map ? item['localTime']?.toString() : null)
         .whereType<String>()
         .toSet()
-        .join('، ');
+        .join(
+          LifeMateRuntimeLocale.select(
+            fa: LifeMateRuntimeLocale.select(fa: '، ', en: ","),
+            en: ",",
+          ),
+        );
     return _ManagementCard(
       key: ValueKey('caremate-plan-${plan['id']}'),
       icon: Icons.medication_rounded,
-      iconColor: const Color(0xFF2D9B74),
-      title: medication['name']?.toString() ?? 'دارو',
+      iconColor: Color(0xFF2D9B74),
+      title:
+          medication['name']?.toString() ??
+          LifeMateRuntimeLocale.select(
+            fa: LifeMateRuntimeLocale.select(fa: 'دارو', en: "Medication"),
+            en: "medicine",
+          ),
       subtitle: [plan['doseText']?.toString(), times.isEmpty ? null : times]
           .whereType<String>()
           .where((value) => value.trim().isNotEmpty)
@@ -1047,8 +1378,24 @@ class _CareEventCard extends StatelessWidget {
     return _ManagementCard(
       key: ValueKey('caremate-event-${event['id']}'),
       icon: injection ? Icons.vaccines_rounded : Icons.medical_services_rounded,
-      iconColor: injection ? const Color(0xFFD96570) : AppColors.primaryBlue,
-      title: event['title']?.toString() ?? (injection ? 'تزریق' : 'ویزیت'),
+      iconColor: injection ? Color(0xFFD96570) : AppColors.primaryBlue,
+      title:
+          event['title']?.toString() ??
+          (injection
+              ? LifeMateRuntimeLocale.select(
+                  fa: LifeMateRuntimeLocale.select(
+                    fa: 'تزریق',
+                    en: "Injection",
+                  ),
+                  en: "Injection",
+                )
+              : LifeMateRuntimeLocale.select(
+                  fa: LifeMateRuntimeLocale.select(
+                    fa: 'ویزیت',
+                    en: "Appointment",
+                  ),
+                  en: "visit",
+                )),
       subtitle: '$date • $time${_detailSuffix(event)}',
       working: working,
       onEdit: onEdit,
@@ -1107,17 +1454,17 @@ class _ManagementCard extends StatelessWidget {
           ),
           child: Icon(icon, color: iconColor),
         ),
-        const SizedBox(width: 12),
+        SizedBox(width: 12),
         Expanded(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(title, style: const TextStyle(fontWeight: FontWeight.w900)),
+              Text(title, style: TextStyle(fontWeight: FontWeight.w900)),
               if (subtitle.trim().isNotEmpty) ...[
-                const SizedBox(height: 5),
+                SizedBox(height: 5),
                 Text(
                   subtitle,
-                  style: const TextStyle(
+                  style: TextStyle(
                     color: AppColors.secondaryText,
                     fontSize: 11.5,
                     height: 1.4,
@@ -1128,17 +1475,23 @@ class _ManagementCard extends StatelessWidget {
           ),
         ),
         IconButton(
-          key: const ValueKey('caremate-edit-treatment'),
-          tooltip: 'ویرایش',
+          key: ValueKey('caremate-edit-treatment'),
+          tooltip: LifeMateRuntimeLocale.select(
+            fa: LifeMateRuntimeLocale.select(fa: 'ویرایش', en: "Edit"),
+            en: "Edit",
+          ),
           onPressed: working ? null : onEdit,
-          icon: const Icon(Icons.edit_outlined),
+          icon: Icon(Icons.edit_outlined),
         ),
         IconButton(
-          key: const ValueKey('caremate-delete-treatment'),
-          tooltip: 'حذف',
+          key: ValueKey('caremate-delete-treatment'),
+          tooltip: LifeMateRuntimeLocale.select(
+            fa: LifeMateRuntimeLocale.select(fa: 'حذف', en: "Delete"),
+            en: "remove",
+          ),
           onPressed: working ? null : onDelete,
           color: Colors.redAccent,
-          icon: const Icon(Icons.delete_outline_rounded),
+          icon: Icon(Icons.delete_outline_rounded),
         ),
       ],
     ),
@@ -1169,9 +1522,14 @@ class _NoPatientState extends StatelessWidget {
   const _NoPatientState();
 
   @override
-  Widget build(BuildContext context) => const _InlineEmpty(
-    text:
-        'برای مدیریت درمان، ابتدا یک بیمار را با دعوت و رضایت معتبر متصل کنید.',
+  Widget build(BuildContext context) => _InlineEmpty(
+    text: LifeMateRuntimeLocale.select(
+      fa: LifeMateRuntimeLocale.select(
+        fa: 'برای مدیریت درمان، ابتدا یک بیمار را با دعوت و رضایت معتبر متصل کنید.',
+        en: "To manage treatment, first connect a patient with valid invitation and consent.",
+      ),
+      en: "To manage treatment, first connect a patient with valid invitation and consent.",
+    ),
   );
 }
 
@@ -1182,17 +1540,28 @@ class _ErrorCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Container(
-    padding: const EdgeInsets.all(14),
+    padding: EdgeInsets.all(14),
     decoration: BoxDecoration(
-      color: const Color(0xFFFFF0F1),
+      color: Color(0xFFFFF0F1),
       borderRadius: BorderRadius.circular(18),
     ),
     child: Row(
       children: [
-        const Icon(Icons.error_outline_rounded, color: Colors.redAccent),
-        const SizedBox(width: 9),
+        Icon(Icons.error_outline_rounded, color: Colors.redAccent),
+        SizedBox(width: 9),
         Expanded(child: Text(message)),
-        TextButton(onPressed: onRetry, child: const Text('تلاش دوباره')),
+        TextButton(
+          onPressed: onRetry,
+          child: Text(
+            LifeMateRuntimeLocale.select(
+              fa: LifeMateRuntimeLocale.select(
+                fa: 'تلاش دوباره',
+                en: "Try again",
+              ),
+              en: "Try again",
+            ),
+          ),
+        ),
       ],
     ),
   );

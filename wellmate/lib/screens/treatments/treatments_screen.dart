@@ -160,7 +160,15 @@ class _TreatmentsScreenState extends State<TreatmentsScreen> {
     } catch (error) {
       debugPrint('WellMate care hub load failed: $error');
       if (mounted) {
-        setState(() => _error = 'درمان‌ها و برنامه‌های مراقبتی دریافت نشدند.');
+        setState(
+          () => _error = LifeMateRuntimeLocale.select(
+            fa: LifeMateRuntimeLocale.select(
+              fa: 'درمان‌ها و برنامه‌های مراقبتی دریافت نشدند.',
+              en: "Treatments and care plans were not received.",
+            ),
+            en: "Treatments and care plans were not received.",
+          ),
+        );
       }
     } finally {
       if (mounted) {
@@ -223,10 +231,13 @@ class _TreatmentsScreenState extends State<TreatmentsScreen> {
     final current = _dateRange;
     final start = await showAppDatePicker(
       context: context,
-      initialDate: current?.start ?? today.subtract(const Duration(days: 7)),
+      initialDate: current?.start ?? today.subtract(Duration(days: 7)),
       firstDate: DateTime(2020),
-      lastDate: today.add(const Duration(days: 730)),
-      title: 'از تاریخ',
+      lastDate: today.add(Duration(days: 730)),
+      title: LifeMateRuntimeLocale.select(
+        fa: LifeMateRuntimeLocale.select(fa: 'از تاریخ', en: "From history"),
+        en: "From history",
+      ),
     );
     if (start == null || !mounted) return;
     final initialEnd = current?.end != null && !current!.end.isBefore(start)
@@ -236,8 +247,11 @@ class _TreatmentsScreenState extends State<TreatmentsScreen> {
       context: context,
       initialDate: initialEnd,
       firstDate: start,
-      lastDate: today.add(const Duration(days: 730)),
-      title: 'تا تاریخ',
+      lastDate: today.add(Duration(days: 730)),
+      title: LifeMateRuntimeLocale.select(
+        fa: LifeMateRuntimeLocale.select(fa: 'تا تاریخ', en: "to date"),
+        en: "to date",
+      ),
     );
     if (end == null || !mounted) return;
     setState(() {
@@ -264,118 +278,248 @@ class _TreatmentsScreenState extends State<TreatmentsScreen> {
       child: RefreshIndicator(
         onRefresh: _load,
         child: ListView(
-          key: const ValueKey('wellmate-unified-care-hub'),
-          physics: const AlwaysScrollableScrollPhysics(),
-          padding: const EdgeInsets.fromLTRB(20, 24, 20, 120),
+          key: ValueKey('wellmate-unified-care-hub'),
+          physics: AlwaysScrollableScrollPhysics(),
+          padding: EdgeInsets.fromLTRB(20, 24, 20, 120),
           children: [
             if (_backgroundRefreshing) ...[
-              const LinearProgressIndicator(minHeight: 2),
-              const SizedBox(height: 10),
+              LinearProgressIndicator(minHeight: 2),
+              SizedBox(height: 10),
             ],
-            const Text(
-              'درمان‌های من',
+            Text(
+              LifeMateRuntimeLocale.select(
+                fa: LifeMateRuntimeLocale.select(
+                  fa: 'درمان‌های من',
+                  en: "My treatments",
+                ),
+                en: "My treatments",
+              ),
               style: TextStyle(fontSize: 22, fontWeight: FontWeight.w900),
             ),
-            const SizedBox(height: 6),
-            const Text(
-              'دارو، ویزیت و تزریق در یک نمای قابل جست‌وجو و مرتب‌سازی.',
+            SizedBox(height: 6),
+            Text(
+              LifeMateRuntimeLocale.select(
+                fa: LifeMateRuntimeLocale.select(
+                  fa: 'دارو، ویزیت و تزریق در یک نمای قابل جست‌وجو و مرتب‌سازی.',
+                  en: "Medicines, visits and injections in a searchable and sortable view.",
+                ),
+                en: "Medicines, visits and injections in a searchable and sortable view.",
+              ),
               style: TextStyle(color: AppColors.textSecondary),
             ),
-            const SizedBox(height: 16),
+            SizedBox(height: 16),
             TextField(
-              key: const ValueKey('care-hub-search'),
+              key: ValueKey('care-hub-search'),
               controller: _search,
               textInputAction: TextInputAction.search,
-              decoration: const InputDecoration(
-                hintText: 'جست‌وجو در نام، پزشک، درمانگاه، آدرس یا توضیحات',
+              decoration: InputDecoration(
+                hintText: LifeMateRuntimeLocale.select(
+                  fa: LifeMateRuntimeLocale.select(
+                    fa: 'جست‌وجو در نام، پزشک، درمانگاه، آدرس یا توضیحات',
+                    en: "Search by name, doctor, clinic, address or description",
+                  ),
+                  en: "Search by name, doctor, clinic, address or description",
+                ),
                 prefixIcon: Icon(Icons.search_rounded),
               ),
             ),
-            const SizedBox(height: 12),
+            SizedBox(height: 12),
             SingleChildScrollView(
               scrollDirection: Axis.horizontal,
               child: Row(
                 children: [
                   _TypeChip(
-                    label: 'همه',
+                    label: LifeMateRuntimeLocale.select(
+                      fa: LifeMateRuntimeLocale.select(
+                        fa: 'همه',
+                        en: "everyone",
+                      ),
+                      en: "everyone",
+                    ),
                     selected: _type == null,
                     onTap: () => setState(() => _type = null),
                   ),
                   _TypeChip(
-                    label: 'دارو',
+                    label: LifeMateRuntimeLocale.select(
+                      fa: LifeMateRuntimeLocale.select(
+                        fa: 'دارو',
+                        en: "Medication",
+                      ),
+                      en: "medicine",
+                    ),
                     selected: _type == CareItemType.medication,
                     onTap: () =>
                         setState(() => _type = CareItemType.medication),
                   ),
                   _TypeChip(
-                    label: 'ویزیت',
+                    label: LifeMateRuntimeLocale.select(
+                      fa: LifeMateRuntimeLocale.select(
+                        fa: 'ویزیت',
+                        en: "Appointment",
+                      ),
+                      en: "visit",
+                    ),
                     selected: _type == CareItemType.visit,
                     onTap: () => setState(() => _type = CareItemType.visit),
                   ),
                   _TypeChip(
-                    label: 'تزریق',
+                    label: LifeMateRuntimeLocale.select(
+                      fa: LifeMateRuntimeLocale.select(
+                        fa: 'تزریق',
+                        en: "Injection",
+                      ),
+                      en: "Injection",
+                    ),
                     selected: _type == CareItemType.injection,
                     onTap: () => setState(() => _type = CareItemType.injection),
                   ),
                 ],
               ),
             ),
-            const SizedBox(height: 10),
+            SizedBox(height: 10),
             Row(
               children: [
                 Expanded(
                   child: DropdownButtonFormField<CareItemStatusFilter>(
-                    key: const ValueKey('care-hub-status-filter'),
+                    key: ValueKey('care-hub-status-filter'),
                     initialValue: _status,
-                    decoration: const InputDecoration(labelText: 'وضعیت'),
-                    items: const [
+                    decoration: InputDecoration(
+                      labelText: LifeMateRuntimeLocale.select(
+                        fa: LifeMateRuntimeLocale.select(
+                          fa: 'وضعیت',
+                          en: "status",
+                        ),
+                        en: "status",
+                      ),
+                    ),
+                    items: [
                       DropdownMenuItem(
                         value: CareItemStatusFilter.all,
-                        child: Text('همه وضعیت‌ها'),
+                        child: Text(
+                          LifeMateRuntimeLocale.select(
+                            fa: LifeMateRuntimeLocale.select(
+                              fa: 'همه وضعیت‌ها',
+                              en: "All situations",
+                            ),
+                            en: "All situations",
+                          ),
+                        ),
                       ),
                       DropdownMenuItem(
                         value: CareItemStatusFilter.active,
-                        child: Text('فعال'),
+                        child: Text(
+                          LifeMateRuntimeLocale.select(
+                            fa: LifeMateRuntimeLocale.select(
+                              fa: 'فعال',
+                              en: "active",
+                            ),
+                            en: "active",
+                          ),
+                        ),
                       ),
                       DropdownMenuItem(
                         value: CareItemStatusFilter.upcoming,
-                        child: Text('آینده'),
+                        child: Text(
+                          LifeMateRuntimeLocale.select(
+                            fa: LifeMateRuntimeLocale.select(
+                              fa: 'آینده',
+                              en: "the future",
+                            ),
+                            en: "the future",
+                          ),
+                        ),
                       ),
                       DropdownMenuItem(
                         value: CareItemStatusFilter.completed,
-                        child: Text('تمام‌شده'),
+                        child: Text(
+                          LifeMateRuntimeLocale.select(
+                            fa: LifeMateRuntimeLocale.select(
+                              fa: 'تمام‌شده',
+                              en: "finished",
+                            ),
+                            en: "finished",
+                          ),
+                        ),
                       ),
                     ],
                     onChanged: (value) =>
                         setState(() => _status = value ?? _status),
                   ),
                 ),
-                const SizedBox(width: 10),
+                SizedBox(width: 10),
                 Expanded(
                   child: DropdownButtonFormField<CareItemSort>(
-                    key: const ValueKey('care-hub-sort'),
+                    key: ValueKey('care-hub-sort'),
                     initialValue: _sort,
-                    decoration: const InputDecoration(labelText: 'مرتب‌سازی'),
-                    items: const [
+                    decoration: InputDecoration(
+                      labelText: LifeMateRuntimeLocale.select(
+                        fa: LifeMateRuntimeLocale.select(
+                          fa: 'مرتب‌سازی',
+                          en: "sorting",
+                        ),
+                        en: "sorting",
+                      ),
+                    ),
+                    items: [
                       DropdownMenuItem(
                         value: CareItemSort.nearest,
-                        child: Text('نزدیک‌ترین'),
+                        child: Text(
+                          LifeMateRuntimeLocale.select(
+                            fa: LifeMateRuntimeLocale.select(
+                              fa: 'نزدیک‌ترین',
+                              en: "the closest",
+                            ),
+                            en: "the closest",
+                          ),
+                        ),
                       ),
                       DropdownMenuItem(
                         value: CareItemSort.newest,
-                        child: Text('جدیدترین'),
+                        child: Text(
+                          LifeMateRuntimeLocale.select(
+                            fa: LifeMateRuntimeLocale.select(
+                              fa: 'جدیدترین',
+                              en: "The newest",
+                            ),
+                            en: "The newest",
+                          ),
+                        ),
                       ),
                       DropdownMenuItem(
                         value: CareItemSort.oldest,
-                        child: Text('قدیمی‌ترین'),
+                        child: Text(
+                          LifeMateRuntimeLocale.select(
+                            fa: LifeMateRuntimeLocale.select(
+                              fa: 'قدیمی‌ترین',
+                              en: "the oldest",
+                            ),
+                            en: "the oldest",
+                          ),
+                        ),
                       ),
                       DropdownMenuItem(
                         value: CareItemSort.name,
-                        child: Text('نام'),
+                        child: Text(
+                          LifeMateRuntimeLocale.select(
+                            fa: LifeMateRuntimeLocale.select(
+                              fa: 'نام',
+                              en: "name",
+                            ),
+                            en: "name",
+                          ),
+                        ),
                       ),
                       DropdownMenuItem(
                         value: CareItemSort.type,
-                        child: Text('نوع'),
+                        child: Text(
+                          LifeMateRuntimeLocale.select(
+                            fa: LifeMateRuntimeLocale.select(
+                              fa: 'نوع',
+                              en: "type",
+                            ),
+                            en: "type",
+                          ),
+                        ),
                       ),
                     ],
                     onChanged: (value) =>
@@ -384,37 +528,55 @@ class _TreatmentsScreenState extends State<TreatmentsScreen> {
                 ),
               ],
             ),
-            const SizedBox(height: 10),
+            SizedBox(height: 10),
             Row(
               children: [
                 Expanded(
                   child: OutlinedButton.icon(
-                    key: const ValueKey('care-hub-date-range-filter'),
+                    key: ValueKey('care-hub-date-range-filter'),
                     onPressed: _loading ? null : _pickDateRange,
-                    icon: const Icon(Icons.date_range_rounded),
+                    icon: Icon(Icons.date_range_rounded),
                     label: Text(
                       range == null
-                          ? 'بازه زمانی'
-                          : '${formatAppDate(context, range.start)} تا ${formatAppDate(context, range.end)}',
+                          ? LifeMateRuntimeLocale.select(
+                              fa: LifeMateRuntimeLocale.select(
+                                fa: 'بازه زمانی',
+                                en: "time frame",
+                              ),
+                              en: "time frame",
+                            )
+                          : LifeMateRuntimeLocale.select(
+                              fa: LifeMateRuntimeLocale.select(
+                                fa: '${formatAppDate(context, range.start)} تا ${formatAppDate(context, range.end)}',
+                                en: "${formatAppDate(context, range.start)} to ${formatAppDate(context, range.end)}",
+                              ),
+                              en: "${formatAppDate(context, range.start)} to ${formatAppDate(context, range.end)}",
+                            ),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                     ),
                   ),
                 ),
                 if (range != null) ...[
-                  const SizedBox(width: 6),
+                  SizedBox(width: 6),
                   IconButton(
-                    key: const ValueKey('care-hub-clear-date-range'),
-                    tooltip: 'حذف بازه زمانی',
+                    key: ValueKey('care-hub-clear-date-range'),
+                    tooltip: LifeMateRuntimeLocale.select(
+                      fa: LifeMateRuntimeLocale.select(
+                        fa: 'حذف بازه زمانی',
+                        en: "Remove time frame",
+                      ),
+                      en: "Remove time frame",
+                    ),
                     onPressed: _loading ? null : _clearDateRange,
-                    icon: const Icon(Icons.close_rounded),
+                    icon: Icon(Icons.close_rounded),
                   ),
                 ],
               ],
             ),
-            const SizedBox(height: 18),
+            SizedBox(height: 18),
             if (_loading && visible.isEmpty)
-              const Padding(
+              Padding(
                 padding: EdgeInsets.all(48),
                 child: Center(child: CircularProgressIndicator()),
               )
@@ -422,7 +584,13 @@ class _TreatmentsScreenState extends State<TreatmentsScreen> {
               _MessageCard(
                 icon: Icons.cloud_off_rounded,
                 message: _error!,
-                actionLabel: 'تلاش دوباره',
+                actionLabel: LifeMateRuntimeLocale.select(
+                  fa: LifeMateRuntimeLocale.select(
+                    fa: 'تلاش دوباره',
+                    en: "Try again",
+                  ),
+                  en: "Try again",
+                ),
                 onAction: _load,
               )
             else if (visible.isEmpty)
@@ -435,7 +603,10 @@ class _TreatmentsScreenState extends State<TreatmentsScreen> {
                 message: range != null
                     ? 'در این بازه زمانی موردی برای فیلتر انتخابی وجود ندارد.'
                     : _search.text.trim().isEmpty
-                    ? 'برای این فیلتر موردی وجود ندارد.'
+                    ? LifeMateRuntimeLocale.select(
+                        fa: 'برای این فیلتر موردی وجود ندارد.',
+                        en: "There are no items for this filter.",
+                      )
                     : 'نتیجه‌ای برای «${localizeDigits(context, _search.text.trim())}» پیدا نشد.',
               )
             else
@@ -443,7 +614,13 @@ class _TreatmentsScreenState extends State<TreatmentsScreen> {
                 Semantics(
                   button: item.type == CareItemType.medication,
                   label: item.type == CareItemType.medication
-                      ? 'جزئیات ${item.title}'
+                      ? LifeMateRuntimeLocale.select(
+                          fa: LifeMateRuntimeLocale.select(
+                            fa: 'جزئیات ${item.title}',
+                            en: "${item.title} details",
+                          ),
+                          en: "${item.title} details",
+                        )
                       : item.title,
                   child: GestureDetector(
                     behavior: HitTestBehavior.opaque,
@@ -496,17 +673,26 @@ class _CareHubCard extends StatelessWidget {
       CareItemType.medication => (
         Icons.medication_rounded,
         AppColors.careMedication,
-        'دارو',
+        LifeMateRuntimeLocale.select(
+          fa: LifeMateRuntimeLocale.select(fa: 'دارو', en: "Medication"),
+          en: "medicine",
+        ),
       ),
       CareItemType.visit => (
         Icons.medical_services_rounded,
         AppColors.careVisit,
-        'ویزیت',
+        LifeMateRuntimeLocale.select(
+          fa: LifeMateRuntimeLocale.select(fa: 'ویزیت', en: "Appointment"),
+          en: "visit",
+        ),
       ),
       CareItemType.injection => (
         Icons.vaccines_rounded,
         AppColors.careInjection,
-        'تزریق',
+        LifeMateRuntimeLocale.select(
+          fa: LifeMateRuntimeLocale.select(fa: 'تزریق', en: "Injection"),
+          en: "Injection",
+        ),
       ),
     };
     final time = item.scheduledAt == null
@@ -654,8 +840,16 @@ class _AddTreatmentScreenState extends State<AddTreatmentScreen> {
       _dose.clear();
       _instructions.clear();
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('درمان ثبت شد و برنامه امروز به‌روزرسانی می‌شود.'),
+        SnackBar(
+          content: Text(
+            LifeMateRuntimeLocale.select(
+              fa: LifeMateRuntimeLocale.select(
+                fa: 'درمان ثبت شد و برنامه امروز به‌روزرسانی می‌شود.',
+                en: "The treatment was recorded and the program will be updated today.",
+              ),
+              en: "The treatment was recorded and the program will be updated today.",
+            ),
+          ),
         ),
       );
       widget.onCreated();
@@ -666,7 +860,15 @@ class _AddTreatmentScreenState extends State<AddTreatmentScreen> {
     } catch (error) {
       debugPrint('WellMate treatment creation failed: $error');
       if (mounted) {
-        setState(() => _error = 'ثبت درمان انجام نشد. اتصال را بررسی کنید.');
+        setState(
+          () => _error = LifeMateRuntimeLocale.select(
+            fa: LifeMateRuntimeLocale.select(
+              fa: 'ثبت درمان انجام نشد. اتصال را بررسی کنید.',
+              en: "The treatment was not recorded. Check the connection.",
+            ),
+            en: "The treatment was not recorded. Check the connection.",
+          ),
+        );
       }
     } finally {
       if (mounted) setState(() => _busy = false);
@@ -678,101 +880,181 @@ class _AddTreatmentScreenState extends State<AddTreatmentScreen> {
     final timeLabel =
         '${_time.hour.toString().padLeft(2, '0')}:${_time.minute.toString().padLeft(2, '0')}';
     return SingleChildScrollView(
-      padding: const EdgeInsets.fromLTRB(20, 24, 20, 120),
+      padding: EdgeInsets.fromLTRB(20, 24, 20, 120),
       child: Form(
         key: _formKey,
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text(
-              'افزودن درمان روزانه',
+            Text(
+              LifeMateRuntimeLocale.select(
+                fa: LifeMateRuntimeLocale.select(
+                  fa: 'افزودن درمان روزانه',
+                  en: "Add daily treatment",
+                ),
+                en: "Add daily treatment",
+              ),
               style: TextStyle(fontSize: 22, fontWeight: FontWeight.w800),
             ),
-            const SizedBox(height: 6),
-            const Text(
-              'نسخه MVP یک برنامه روزانه می‌سازد؛ بعداً می‌توانید الگوهای پیچیده‌تر اضافه کنید.',
+            SizedBox(height: 6),
+            Text(
+              LifeMateRuntimeLocale.select(
+                fa: LifeMateRuntimeLocale.select(
+                  fa: 'نسخه MVP یک برنامه روزانه می‌سازد؛ بعداً می‌توانید الگوهای پیچیده‌تر اضافه کنید.',
+                  en: "The MVP version creates a daily schedule; You can add more complex patterns later.",
+                ),
+                en: "The MVP version creates a daily schedule; You can add more complex patterns later.",
+              ),
             ),
-            const SizedBox(height: 22),
+            SizedBox(height: 22),
             TextFormField(
               controller: _name,
-              decoration: const InputDecoration(
-                labelText: 'نام دارو',
+              decoration: InputDecoration(
+                labelText: LifeMateRuntimeLocale.select(
+                  fa: LifeMateRuntimeLocale.select(
+                    fa: 'نام دارو',
+                    en: "name of the drug",
+                  ),
+                  en: "name of the drug",
+                ),
                 prefixIcon: Icon(Icons.medication_rounded),
                 border: OutlineInputBorder(),
               ),
               validator: (value) => (value?.trim().isNotEmpty ?? false)
                   ? null
-                  : 'نام دارو را وارد کنید.',
+                  : LifeMateRuntimeLocale.select(
+                      fa: LifeMateRuntimeLocale.select(
+                        fa: 'نام دارو را وارد کنید.',
+                        en: "Enter the name of the drug.",
+                      ),
+                      en: "Enter the name of the drug.",
+                    ),
             ),
-            const SizedBox(height: 14),
+            SizedBox(height: 14),
             TextFormField(
               controller: _strength,
-              decoration: const InputDecoration(
-                labelText: 'قدرت دارو (اختیاری)',
-                hintText: 'مثلاً ۵۰ میلی‌گرم',
+              decoration: InputDecoration(
+                labelText: LifeMateRuntimeLocale.select(
+                  fa: LifeMateRuntimeLocale.select(
+                    fa: 'قدرت دارو (اختیاری)',
+                    en: "potion strength (optional)",
+                  ),
+                  en: "potion strength (optional)",
+                ),
+                hintText: LifeMateRuntimeLocale.select(
+                  fa: LifeMateRuntimeLocale.select(
+                    fa: 'مثلاً ۵۰ میلی‌گرم',
+                    en: "For example, 50 mg",
+                  ),
+                  en: "For example, 50 mg",
+                ),
                 border: OutlineInputBorder(),
               ),
             ),
-            const SizedBox(height: 14),
+            SizedBox(height: 14),
             TextFormField(
               controller: _dose,
-              decoration: const InputDecoration(
-                labelText: 'مقدار مصرف',
-                hintText: 'مثلاً یک قرص',
+              decoration: InputDecoration(
+                labelText: LifeMateRuntimeLocale.select(
+                  fa: LifeMateRuntimeLocale.select(
+                    fa: 'مقدار مصرف',
+                    en: "Consumption amount",
+                  ),
+                  en: "Consumption amount",
+                ),
+                hintText: LifeMateRuntimeLocale.select(
+                  fa: LifeMateRuntimeLocale.select(
+                    fa: 'مثلاً یک قرص',
+                    en: "For example, a pill",
+                  ),
+                  en: "For example, a pill",
+                ),
                 border: OutlineInputBorder(),
               ),
               validator: (value) => (value?.trim().isNotEmpty ?? false)
                   ? null
-                  : 'مقدار مصرف را وارد کنید.',
+                  : LifeMateRuntimeLocale.select(
+                      fa: LifeMateRuntimeLocale.select(
+                        fa: 'مقدار مصرف را وارد کنید.',
+                        en: "Enter the consumption amount.",
+                      ),
+                      en: "Enter the consumption amount.",
+                    ),
             ),
-            const SizedBox(height: 14),
+            SizedBox(height: 14),
             InkWell(
               onTap: _busy ? null : _pickTime,
               borderRadius: BorderRadius.circular(12),
               child: InputDecorator(
-                decoration: const InputDecoration(
-                  labelText: 'زمان مصرف روزانه',
+                decoration: InputDecoration(
+                  labelText: LifeMateRuntimeLocale.select(
+                    fa: LifeMateRuntimeLocale.select(
+                      fa: 'زمان مصرف روزانه',
+                      en: "Daily use time",
+                    ),
+                    en: "Daily use time",
+                  ),
                   prefixIcon: Icon(Icons.schedule_rounded),
                   border: OutlineInputBorder(),
                 ),
                 child: Text(
                   timeLabel,
                   textDirection: TextDirection.ltr,
-                  style: const TextStyle(fontSize: 17),
+                  style: TextStyle(fontSize: 17),
                 ),
               ),
             ),
-            const SizedBox(height: 14),
+            SizedBox(height: 14),
             TextFormField(
               controller: _instructions,
               minLines: 2,
               maxLines: 4,
-              decoration: const InputDecoration(
-                labelText: 'توضیحات (اختیاری)',
-                hintText: 'مثلاً بعد از غذا',
+              decoration: InputDecoration(
+                labelText: LifeMateRuntimeLocale.select(
+                  fa: LifeMateRuntimeLocale.select(
+                    fa: 'توضیحات (اختیاری)',
+                    en: "Description (optional)",
+                  ),
+                  en: "Description (optional)",
+                ),
+                hintText: LifeMateRuntimeLocale.select(
+                  fa: LifeMateRuntimeLocale.select(
+                    fa: 'مثلاً بعد از غذا',
+                    en: "For example, after a meal",
+                  ),
+                  en: "For example, after a meal",
+                ),
                 border: OutlineInputBorder(),
               ),
             ),
             if (_error != null) ...[
-              const SizedBox(height: 14),
+              SizedBox(height: 14),
               Text(
                 _error!,
                 style: TextStyle(color: Theme.of(context).colorScheme.error),
               ),
             ],
-            const SizedBox(height: 22),
+            SizedBox(height: 22),
             SizedBox(
               width: double.infinity,
               height: 52,
               child: FilledButton.icon(
                 onPressed: _busy ? null : _create,
                 icon: _busy
-                    ? const SizedBox.square(
+                    ? SizedBox.square(
                         dimension: 20,
                         child: CircularProgressIndicator(strokeWidth: 2),
                       )
-                    : const Icon(Icons.add_task_rounded),
-                label: const Text('ثبت درمان'),
+                    : Icon(Icons.add_task_rounded),
+                label: Text(
+                  LifeMateRuntimeLocale.select(
+                    fa: LifeMateRuntimeLocale.select(
+                      fa: 'ثبت درمان',
+                      en: "Treatment registration",
+                    ),
+                    en: "Treatment registration",
+                  ),
+                ),
               ),
             ),
           ],
@@ -785,14 +1067,38 @@ class _AddTreatmentScreenState extends State<AddTreatmentScreen> {
     switch (error.code) {
       case 'invalid_medication':
       case 'invalid_name':
-        return 'مشخصات دارو معتبر نیست.';
+        return LifeMateRuntimeLocale.select(
+          fa: LifeMateRuntimeLocale.select(
+            fa: 'مشخصات دارو معتبر نیست.',
+            en: "The drug specification is not valid.",
+          ),
+          en: "The drug specification is not valid.",
+        );
       case 'invalid_treatment_plan':
       case 'schedule_required':
-        return 'برنامه درمان معتبر نیست.';
+        return LifeMateRuntimeLocale.select(
+          fa: LifeMateRuntimeLocale.select(
+            fa: 'برنامه درمان معتبر نیست.',
+            en: "The treatment plan is not valid.",
+          ),
+          en: "The treatment plan is not valid.",
+        );
       default:
         return error.isUnauthorized
-            ? 'نشست شما منقضی شده است؛ دوباره وارد شوید.'
-            : 'ثبت درمان انجام نشد. دوباره تلاش کنید.';
+            ? LifeMateRuntimeLocale.select(
+                fa: LifeMateRuntimeLocale.select(
+                  fa: 'نشست شما منقضی شده است؛ دوباره وارد شوید.',
+                  en: "Your session has expired; Sign in again.",
+                ),
+                en: "Your session has expired; Sign in again.",
+              )
+            : LifeMateRuntimeLocale.select(
+                fa: LifeMateRuntimeLocale.select(
+                  fa: 'ثبت درمان انجام نشد. دوباره تلاش کنید.',
+                  en: "The treatment was not registered. Try again.",
+                ),
+                en: "The treatment was not registered. Try again.",
+              );
     }
   }
 }
@@ -849,18 +1155,30 @@ class _TreatmentDetailsScreen extends StatelessWidget {
         child: Column(
           children: [
             Padding(
-              padding: const EdgeInsets.fromLTRB(12, 8, 20, 8),
+              padding: EdgeInsets.fromLTRB(12, 8, 20, 8),
               child: Row(
                 children: [
                   IconButton(
-                    tooltip: 'بازگشت',
+                    tooltip: LifeMateRuntimeLocale.select(
+                      fa: LifeMateRuntimeLocale.select(
+                        fa: 'بازگشت',
+                        en: "Back",
+                      ),
+                      en: "return",
+                    ),
                     onPressed: () => Navigator.of(context).pop(),
-                    icon: const Icon(Icons.arrow_back_ios_new_rounded),
+                    icon: Icon(Icons.arrow_back_ios_new_rounded),
                   ),
-                  const SizedBox(width: 4),
-                  const Expanded(
+                  SizedBox(width: 4),
+                  Expanded(
                     child: Text(
-                      'جزئیات درمان',
+                      LifeMateRuntimeLocale.select(
+                        fa: LifeMateRuntimeLocale.select(
+                          fa: 'جزئیات درمان',
+                          en: "Treatment details",
+                        ),
+                        en: "Treatment details",
+                      ),
                       style: TextStyle(
                         fontSize: 21,
                         fontWeight: FontWeight.w900,
@@ -875,7 +1193,7 @@ class _TreatmentDetailsScreen extends StatelessWidget {
                       color: AppColors.primary.withValues(alpha: 0.12),
                       shape: BoxShape.circle,
                     ),
-                    child: const Icon(
+                    child: Icon(
                       Icons.medication_rounded,
                       color: AppColors.primary,
                     ),
@@ -885,10 +1203,10 @@ class _TreatmentDetailsScreen extends StatelessWidget {
             ),
             Expanded(
               child: ListView(
-                padding: const EdgeInsets.fromLTRB(24, 16, 24, 32),
+                padding: EdgeInsets.fromLTRB(24, 16, 24, 32),
                 children: [
                   Container(
-                    padding: const EdgeInsets.all(22),
+                    padding: EdgeInsets.all(22),
                     decoration: BoxDecoration(
                       color: Colors.white,
                       borderRadius: BorderRadius.circular(24),
@@ -896,7 +1214,7 @@ class _TreatmentDetailsScreen extends StatelessWidget {
                         BoxShadow(
                           color: AppColors.shadowDark.withValues(alpha: 0.55),
                           blurRadius: 18,
-                          offset: const Offset(0, 7),
+                          offset: Offset(0, 7),
                         ),
                       ],
                     ),
@@ -910,9 +1228,15 @@ class _TreatmentDetailsScreen extends StatelessWidget {
                                 _localizedText(
                                   context,
                                   medication['name'],
-                                  fallback: 'دارو',
+                                  fallback: LifeMateRuntimeLocale.select(
+                                    fa: LifeMateRuntimeLocale.select(
+                                      fa: 'دارو',
+                                      en: "Medication",
+                                    ),
+                                    en: "medicine",
+                                  ),
                                 ),
-                                style: const TextStyle(
+                                style: TextStyle(
                                   fontSize: 22,
                                   fontWeight: FontWeight.w900,
                                   color: AppColors.darkBlue,
@@ -921,7 +1245,21 @@ class _TreatmentDetailsScreen extends StatelessWidget {
                             ),
                             Chip(
                               label: Text(
-                                status == 'active' ? 'فعال' : 'متوقف',
+                                status == 'active'
+                                    ? LifeMateRuntimeLocale.select(
+                                        fa: LifeMateRuntimeLocale.select(
+                                          fa: 'فعال',
+                                          en: "active",
+                                        ),
+                                        en: "active",
+                                      )
+                                    : LifeMateRuntimeLocale.select(
+                                        fa: LifeMateRuntimeLocale.select(
+                                          fa: 'متوقف',
+                                          en: "stopped",
+                                        ),
+                                        en: "stopped",
+                                      ),
                               ),
                               side: BorderSide.none,
                               backgroundColor: status == 'active'
@@ -930,10 +1268,16 @@ class _TreatmentDetailsScreen extends StatelessWidget {
                             ),
                           ],
                         ),
-                        const SizedBox(height: 18),
+                        SizedBox(height: 18),
                         _TreatmentInfoRow(
                           icon: Icons.science_outlined,
-                          label: 'قدرت دارو',
+                          label: LifeMateRuntimeLocale.select(
+                            fa: LifeMateRuntimeLocale.select(
+                              fa: 'قدرت دارو',
+                              en: "The power of medicine",
+                            ),
+                            en: "The power of medicine",
+                          ),
                           value: _localizedText(
                             context,
                             medication['strengthText'],
@@ -941,44 +1285,86 @@ class _TreatmentDetailsScreen extends StatelessWidget {
                         ),
                         _TreatmentInfoRow(
                           icon: Icons.medication_liquid_rounded,
-                          label: 'مقدار مصرف',
+                          label: LifeMateRuntimeLocale.select(
+                            fa: LifeMateRuntimeLocale.select(
+                              fa: 'مقدار مصرف',
+                              en: "Consumption amount",
+                            ),
+                            en: "Consumption amount",
+                          ),
                           value: _localizedText(context, plan['doseText']),
                         ),
                         _TreatmentInfoRow(
                           icon: Icons.notes_rounded,
-                          label: 'دستور مصرف',
+                          label: LifeMateRuntimeLocale.select(
+                            fa: LifeMateRuntimeLocale.select(
+                              fa: 'دستور مصرف',
+                              en: "Instructions for use",
+                            ),
+                            en: "Instructions for use",
+                          ),
                           value: _localizedText(context, plan['instructions']),
                         ),
                         _TreatmentInfoRow(
                           icon: Icons.calendar_today_outlined,
-                          label: 'تاریخ شروع',
+                          label: LifeMateRuntimeLocale.select(
+                            fa: LifeMateRuntimeLocale.select(
+                              fa: 'تاریخ شروع',
+                              en: "start date",
+                            ),
+                            en: "start date",
+                          ),
                           value: _localizedDate(context, plan['startDate']),
                         ),
                         _TreatmentInfoRow(
                           icon: Icons.event_busy_outlined,
-                          label: 'تاریخ پایان',
+                          label: LifeMateRuntimeLocale.select(
+                            fa: LifeMateRuntimeLocale.select(
+                              fa: 'تاریخ پایان',
+                              en: "end date",
+                            ),
+                            en: "end date",
+                          ),
                           value: _localizedDate(
                             context,
                             plan['endDate'],
-                            fallback: 'بدون پایان',
+                            fallback: LifeMateRuntimeLocale.select(
+                              fa: LifeMateRuntimeLocale.select(
+                                fa: 'بدون پایان',
+                                en: "no end",
+                              ),
+                              en: "no end",
+                            ),
                           ),
                           showDivider: false,
                         ),
                       ],
                     ),
                   ),
-                  const SizedBox(height: 18),
+                  SizedBox(height: 18),
                   Text(
-                    'زمان‌های مصرف',
+                    LifeMateRuntimeLocale.select(
+                      fa: LifeMateRuntimeLocale.select(
+                        fa: 'زمان‌های مصرف',
+                        en: "Consumption times",
+                      ),
+                      en: "Consumption times",
+                    ),
                     style: AppTextStyles.heading(
                       context,
                     ).copyWith(fontSize: 18),
                   ),
-                  const SizedBox(height: 12),
+                  SizedBox(height: 12),
                   if (schedules.isEmpty)
-                    const _MessageCard(
+                    _MessageCard(
                       icon: Icons.schedule_rounded,
-                      message: 'زمانی برای این درمان ثبت نشده است.',
+                      message: LifeMateRuntimeLocale.select(
+                        fa: LifeMateRuntimeLocale.select(
+                          fa: 'زمانی برای این درمان ثبت نشده است.',
+                          en: "No time has been recorded for this treatment.",
+                        ),
+                        en: "No time has been recorded for this treatment.",
+                      ),
                     )
                   else
                     ...schedules.map((schedule) {
@@ -1005,9 +1391,9 @@ class _TreatmentDetailsScreen extends StatelessWidget {
                         ),
                       );
                     }),
-                  const SizedBox(height: 18),
+                  SizedBox(height: 18),
                   Container(
-                    padding: const EdgeInsets.all(16),
+                    padding: EdgeInsets.all(16),
                     decoration: BoxDecoration(
                       color: AppColors.primary.withValues(alpha: 0.08),
                       borderRadius: BorderRadius.circular(18),
@@ -1015,7 +1401,7 @@ class _TreatmentDetailsScreen extends StatelessWidget {
                         color: AppColors.primary.withValues(alpha: 0.16),
                       ),
                     ),
-                    child: const Row(
+                    child: Row(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Icon(
@@ -1025,18 +1411,24 @@ class _TreatmentDetailsScreen extends StatelessWidget {
                         SizedBox(width: 10),
                         Expanded(
                           child: Text(
-                            'ویرایش روزها، ساعت‌ها، یادآوری‌ها و وضعیت درمان با کنترل نسخه انجام می‌شود تا تغییرات هم‌زمان از بین نروند.',
+                            LifeMateRuntimeLocale.select(
+                              fa: LifeMateRuntimeLocale.select(
+                                fa: 'ویرایش روزها، ساعت‌ها، یادآوری‌ها و وضعیت درمان با کنترل نسخه انجام می‌شود تا تغییرات هم‌زمان از بین نروند.',
+                                en: "Editing of days, hours, reminders and treatment status is done with version control so that changes are not lost at the same time.",
+                              ),
+                              en: "Editing of days, hours, reminders and treatment status is done with version control so that changes are not lost at the same time.",
+                            ),
                             style: TextStyle(height: 1.6),
                           ),
                         ),
                       ],
                     ),
                   ),
-                  const SizedBox(height: 16),
+                  SizedBox(height: 16),
                   SizedBox(
                     width: double.infinity,
                     child: FilledButton.icon(
-                      key: const ValueKey('open-treatment-edit'),
+                      key: ValueKey('open-treatment-edit'),
                       onPressed: () async {
                         final changed = await Navigator.of(context).push<bool>(
                           MaterialPageRoute<bool>(
@@ -1047,9 +1439,15 @@ class _TreatmentDetailsScreen extends StatelessWidget {
                           Navigator.of(context).pop(true);
                         }
                       },
-                      icon: const Icon(Icons.edit_outlined),
-                      label: const Text(
-                        'ویرایش درمان',
+                      icon: Icon(Icons.edit_outlined),
+                      label: Text(
+                        LifeMateRuntimeLocale.select(
+                          fa: LifeMateRuntimeLocale.select(
+                            fa: 'ویرایش درمان',
+                            en: "Editing treatment",
+                          ),
+                          en: "Editing treatment",
+                        ),
                         style: TextStyle(fontWeight: FontWeight.w900),
                       ),
                     ),
@@ -1118,24 +1516,26 @@ class _TreatmentInfoRow extends StatelessWidget {
   }
 }
 
-String _text(dynamic value, {String fallback = 'ثبت نشده'}) {
+String _text(dynamic value, {String? fallback}) {
   final text = value?.toString().trim();
-  return text == null || text.isEmpty ? fallback : text;
+  final emptyValue =
+      fallback ??
+      LifeMateRuntimeLocale.select(fa: 'ثبت نشده', en: 'Not recorded');
+  return text == null || text.isEmpty ? emptyValue : text;
 }
 
 String _localizedText(
   BuildContext context,
   dynamic value, {
-  String fallback = 'ثبت نشده',
+  String? fallback,
 }) => localizeDigits(context, _text(value, fallback: fallback));
 
-String _localizedDate(
-  BuildContext context,
-  dynamic value, {
-  String fallback = 'ثبت نشده',
-}) {
+String _localizedDate(BuildContext context, dynamic value, {String? fallback}) {
   final text = value?.toString().trim();
-  if (text == null || text.isEmpty) return fallback;
+  final emptyValue =
+      fallback ??
+      LifeMateRuntimeLocale.select(fa: 'ثبت نشده', en: 'Not recorded');
+  if (text == null || text.isEmpty) return emptyValue;
   final parsed = DateTime.tryParse(text);
   return parsed == null
       ? localizeDigits(context, text)
@@ -1143,12 +1543,41 @@ String _localizedDate(
 }
 
 String _weekdayLabel(String? value) => switch (value) {
-  'saturday' => 'شنبه',
-  'sunday' => 'یکشنبه',
-  'monday' => 'دوشنبه',
-  'tuesday' => 'سه‌شنبه',
-  'wednesday' => 'چهارشنبه',
-  'thursday' => 'پنجشنبه',
-  'friday' => 'جمعه',
-  _ => value ?? 'روز ثبت نشده',
+  'saturday' => LifeMateRuntimeLocale.select(
+    fa: LifeMateRuntimeLocale.select(fa: 'شنبه', en: "Saturday"),
+    en: "Saturday",
+  ),
+  'sunday' => LifeMateRuntimeLocale.select(
+    fa: LifeMateRuntimeLocale.select(fa: 'یکشنبه', en: "Sunday"),
+    en: "Sunday",
+  ),
+  'monday' => LifeMateRuntimeLocale.select(
+    fa: LifeMateRuntimeLocale.select(fa: 'دوشنبه', en: "Monday"),
+    en: "Monday",
+  ),
+  'tuesday' => LifeMateRuntimeLocale.select(
+    fa: LifeMateRuntimeLocale.select(fa: 'سه‌شنبه', en: "Tuesday"),
+    en: "Tuesday",
+  ),
+  'wednesday' => LifeMateRuntimeLocale.select(
+    fa: LifeMateRuntimeLocale.select(fa: 'چهارشنبه', en: "Wednesday"),
+    en: "Wednesday",
+  ),
+  'thursday' => LifeMateRuntimeLocale.select(
+    fa: LifeMateRuntimeLocale.select(fa: 'پنجشنبه', en: "Thursday"),
+    en: "Thursday",
+  ),
+  'friday' => LifeMateRuntimeLocale.select(
+    fa: LifeMateRuntimeLocale.select(fa: 'جمعه', en: "Friday"),
+    en: "Friday",
+  ),
+  _ =>
+    value ??
+        LifeMateRuntimeLocale.select(
+          fa: LifeMateRuntimeLocale.select(
+            fa: 'روز ثبت نشده',
+            en: "Unregistered day",
+          ),
+          en: "Unregistered day",
+        ),
 };

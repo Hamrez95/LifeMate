@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import '../../localization/app_localizations.dart';
 import '../../localization/locale_provider.dart';
 import '../theme/app_style.dart';
+import 'package:lifemate_client/lifemate_client.dart';
 
 class WellMateBottomNav extends StatelessWidget {
   const WellMateBottomNav({
@@ -26,8 +27,8 @@ class WellMateBottomNav extends StatelessWidget {
 
     return SafeArea(
       child: Container(
-        margin: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
-        padding: const EdgeInsets.symmetric(vertical: 7),
+        margin: EdgeInsets.symmetric(horizontal: 18, vertical: 14),
+        padding: EdgeInsets.symmetric(vertical: 7),
         decoration: BoxDecoration(
           color: Colors.white,
           borderRadius: BorderRadius.circular(35),
@@ -35,7 +36,7 @@ class WellMateBottomNav extends StatelessWidget {
             BoxShadow(
               color: AppColors.primary.withOpacity(0.08),
               blurRadius: 20,
-              offset: const Offset(0, 10),
+              offset: Offset(0, 10),
             ),
           ],
         ),
@@ -61,14 +62,21 @@ class WellMateBottomNav extends StatelessWidget {
             ),
             _buildNavItem(
               icon: Icons.monitor_heart_rounded,
-              label: isPersian ? 'سلامت' : 'Health',
+              label: isPersian
+                  ? LifeMateRuntimeLocale.select(fa: 'سلامت', en: "Health")
+                  : 'Health',
               index: 3,
               fontFamily: fontFamily,
             ),
             if (womenCalendarEnabled)
               _buildNavItem(
                 icon: Icons.water_drop_rounded,
-                label: isPersian ? 'تقویم بانوان' : 'Women',
+                label: isPersian
+                    ? LifeMateRuntimeLocale.select(
+                        fa: 'تقویم بانوان',
+                        en: "Women's Calendar",
+                      )
+                    : 'Women',
                 index: 4,
                 fontFamily: fontFamily,
               ),

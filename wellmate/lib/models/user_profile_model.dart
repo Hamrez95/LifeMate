@@ -1,3 +1,5 @@
+import 'package:lifemate_client/lifemate_client.dart';
+
 class UserProfileModel {
   final String id;
   final String fullName; // نام و نام خانوادگی
@@ -21,7 +23,15 @@ class UserProfileModel {
   factory UserProfileModel.fromJson(Map<String, dynamic> json) {
     return UserProfileModel(
       id: json['id']?.toString() ?? '',
-      fullName: json['full_name'] ?? 'کاربر مهمان',
+      fullName:
+          json['full_name'] ??
+          LifeMateRuntimeLocale.select(
+            fa: LifeMateRuntimeLocale.select(
+              fa: 'کاربر مهمان',
+              en: "Guest user",
+            ),
+            en: "Guest user",
+          ),
       email: json['email'] ?? '',
       avatarUrl: json['avatar_url'] ?? '',
       isPremium: json['is_premium'] ?? false,

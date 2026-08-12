@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../core/theme/app_style.dart';
 import 'add_treatment_screen.dart';
 import 'care_event_form.dart';
+import 'package:lifemate_client/lifemate_client.dart';
 
 class CarePlanHubScreen extends StatefulWidget {
   const CarePlanHubScreen({required this.onCreated, super.key});
@@ -74,10 +75,28 @@ class _CareTypeSelector extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    const items = <(IconData, String)>[
-      (Icons.medication_rounded, 'درمان'),
-      (Icons.medical_services_rounded, 'ویزیت'),
-      (Icons.vaccines_rounded, 'تزریق'),
+    final items = <(IconData, String)>[
+      (
+        Icons.medication_rounded,
+        LifeMateRuntimeLocale.select(
+          fa: LifeMateRuntimeLocale.select(fa: 'درمان', en: "Treatment"),
+          en: "treatment",
+        ),
+      ),
+      (
+        Icons.medical_services_rounded,
+        LifeMateRuntimeLocale.select(
+          fa: LifeMateRuntimeLocale.select(fa: 'ویزیت', en: "Appointment"),
+          en: "visit",
+        ),
+      ),
+      (
+        Icons.vaccines_rounded,
+        LifeMateRuntimeLocale.select(
+          fa: LifeMateRuntimeLocale.select(fa: 'تزریق', en: "Injection"),
+          en: "Injection",
+        ),
+      ),
     ];
 
     return DecoratedBox(

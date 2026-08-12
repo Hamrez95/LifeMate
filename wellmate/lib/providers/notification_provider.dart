@@ -5,6 +5,7 @@ import 'package:timezone/timezone.dart' as tz;
 
 import '../core/utils/string_extensions.dart';
 import '../models/schedule_item_model.dart';
+import 'package:lifemate_client/lifemate_client.dart';
 
 class NotificationProvider extends ChangeNotifier {
   final FlutterLocalNotificationsPlugin _notifications =
@@ -80,11 +81,23 @@ class NotificationProvider extends ChangeNotifier {
         title.toPersianDigit(isPersian),
         detail.toPersianDigit(isPersian),
         tz.TZDateTime.from(triggerUtc, tz.local),
-        const NotificationDetails(
+        NotificationDetails(
           android: AndroidNotificationDetails(
             'wellmate_treatment_reminders',
-            'یادآور برنامه درمان و مراقبت',
-            channelDescription: 'یادآورهای دارو، ویزیت و تزریق WellMate',
+            LifeMateRuntimeLocale.select(
+              fa: LifeMateRuntimeLocale.select(
+                fa: 'یادآور برنامه درمان و مراقبت',
+                en: "A reminder of the treatment and care plan",
+              ),
+              en: "A reminder of the treatment and care plan",
+            ),
+            channelDescription: LifeMateRuntimeLocale.select(
+              fa: LifeMateRuntimeLocale.select(
+                fa: 'یادآورهای دارو، ویزیت و تزریق WellMate',
+                en: "WellMate medication, visit and injection reminders",
+              ),
+              en: "WellMate medication, visit and injection reminders",
+            ),
             importance: Importance.high,
             priority: Priority.high,
             category: AndroidNotificationCategory.reminder,
@@ -124,17 +137,48 @@ class NotificationProvider extends ChangeNotifier {
       };
     }
     return switch (item.type) {
-      'appointment' => 'یادآوری ویزیت ${item.title}',
-      'injection' => 'یادآوری تزریق ${item.title}',
-      _ => 'زمان مصرف ${item.title}',
+      'appointment' => LifeMateRuntimeLocale.select(
+        fa: LifeMateRuntimeLocale.select(
+          fa: 'یادآوری ویزیت ${item.title}',
+          en: "Visit reminder ${item.title}",
+        ),
+        en: "Visit reminder ${item.title}",
+      ),
+      'injection' => LifeMateRuntimeLocale.select(
+        fa: LifeMateRuntimeLocale.select(
+          fa: 'یادآوری تزریق ${item.title}',
+          en: "${item.title} injection reminder",
+        ),
+        en: "${item.title} injection reminder",
+      ),
+      _ => LifeMateRuntimeLocale.select(
+        fa: LifeMateRuntimeLocale.select(
+          fa: 'زمان مصرف ${item.title}',
+          en: "${item.title} consumption time",
+        ),
+        en: "${item.title} consumption time",
+      ),
     };
   }
 
   static String _detail(ScheduleItemModel item, bool persian) {
     final lead = item.patientReminderMinutesBefore;
     final leadText = lead <= 0
-        ? (persian ? 'اکنون' : 'now')
-        : (persian ? '$lead دقیقه پیش از برنامه' : '$lead minutes before');
+        ? (persian
+              ? LifeMateRuntimeLocale.select(
+                  fa: LifeMateRuntimeLocale.select(fa: 'اکنون', en: "now"),
+                  en: "now",
+                )
+              : 'now')
+        : (persian
+              ? LifeMateRuntimeLocale.select(
+                  fa: LifeMateRuntimeLocale.select(
+                    fa: '$lead دقیقه پیش از برنامه',
+                    en: "$lead minutes before the scheduled time",
+                  ),
+                  en: "$lead minutes before schedule",
+                )
+              : '$lead minutes before');
     final detail = item.dosage.trim();
     if (detail.isEmpty) return leadText;
     return '$detail — $leadText';

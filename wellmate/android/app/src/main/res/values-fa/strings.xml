@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="wellmate_medication_widget_description">درمان بعدی و ثبت سریع مصرف در WellMate</string>
+    <string name="widget_next_medication">داروی بعدی</string>
+    <string name="widget_next_medication_art">داروی بعدی</string>
+    <string name="widget_quantity">تعداد</string>
+    <string name="widget_dose">دوز</string>
+    <string name="widget_dose_time">زمان مصرف</string>
+    <string name="widget_time_remaining">زمان باقی‌مانده تا مصرف</string>
+    <string name="widget_taken">مصرف کردم</string>
+    <string name="widget_empty_title">برنامه بعدی در راه است</string>
+    <string name="widget_empty_subtitle">برای دیدن برنامه درمان، WellMate را باز کنید.</string>
+</resources>

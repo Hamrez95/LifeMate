@@ -53,7 +53,9 @@ class _AccountPreparationExperienceState
     final brand = _brand;
     final fact = lifeMateHealthFacts[_factIndex];
     return Directionality(
-      textDirection: TextDirection.rtl,
+      textDirection: LifeMateRuntimeLocale.isPersian
+          ? TextDirection.rtl
+          : TextDirection.ltr,
       child: Scaffold(
         backgroundColor: brand.background,
         body: Stack(
@@ -71,9 +73,9 @@ class _AccountPreparationExperienceState
             SafeArea(
               child: Center(
                 child: SingleChildScrollView(
-                  padding: const EdgeInsets.fromLTRB(22, 28, 22, 30),
+                  padding: EdgeInsets.fromLTRB(22, 28, 22, 30),
                   child: ConstrainedBox(
-                    constraints: const BoxConstraints(maxWidth: 470),
+                    constraints: BoxConstraints(maxWidth: 470),
                     child: Column(
                       children: [
                         _OrbitingLogo(
@@ -81,7 +83,7 @@ class _AccountPreparationExperienceState
                           logoAssetPath: widget.logoAssetPath,
                           brand: brand,
                         ),
-                        const SizedBox(height: 26),
+                        SizedBox(height: 26),
                         Text(
                           brand.eyebrow,
                           style: TextStyle(
@@ -90,9 +92,15 @@ class _AccountPreparationExperienceState
                             fontWeight: FontWeight.w900,
                           ),
                         ),
-                        const SizedBox(height: 12),
+                        SizedBox(height: 12),
                         Text(
-                          'در حال آماده‌سازی حساب',
+                          LifeMateRuntimeLocale.select(
+                            fa: LifeMateRuntimeLocale.select(
+                              fa: 'در حال آماده‌سازی حساب',
+                              en: "Preparing account",
+                            ),
+                            en: "Preparing account",
+                          ),
                           textAlign: TextAlign.center,
                           style: TextStyle(
                             color: brand.ink,
@@ -101,28 +109,28 @@ class _AccountPreparationExperienceState
                             fontWeight: FontWeight.w900,
                           ),
                         ),
-                        const SizedBox(height: 10),
+                        SizedBox(height: 10),
                         Text(
                           brand.preparationSubtitle,
                           textAlign: TextAlign.center,
-                          style: const TextStyle(
+                          style: TextStyle(
                             color: Color(0xFF687895),
                             fontSize: 14,
                             height: 1.8,
                             fontWeight: FontWeight.w600,
                           ),
                         ),
-                        const SizedBox(height: 24),
+                        SizedBox(height: 24),
                         _PreparationStages(
                           controller: _controller,
                           brand: brand,
                         ),
-                        const SizedBox(height: 18),
+                        SizedBox(height: 18),
                         Semantics(
                           liveRegion: true,
                           label: '${fact.category}: ${fact.text}',
                           child: AnimatedSwitcher(
-                            duration: const Duration(milliseconds: 520),
+                            duration: Duration(milliseconds: 520),
                             switchInCurve: Curves.easeOutCubic,
                             switchOutCurve: Curves.easeInCubic,
                             transitionBuilder: (child, animation) =>
@@ -130,7 +138,7 @@ class _AccountPreparationExperienceState
                                   opacity: animation,
                                   child: SlideTransition(
                                     position: Tween<Offset>(
-                                      begin: const Offset(0, 0.08),
+                                      begin: Offset(0, 0.08),
                                       end: Offset.zero,
                                     ).animate(animation),
                                     child: child,
@@ -143,9 +151,15 @@ class _AccountPreparationExperienceState
                             ),
                           ),
                         ),
-                        const SizedBox(height: 12),
-                        const Text(
-                          'نکته‌های عمومی سلامت هستند و جایگزین توصیه پزشک شما نیستند.',
+                        SizedBox(height: 12),
+                        Text(
+                          LifeMateRuntimeLocale.select(
+                            fa: LifeMateRuntimeLocale.select(
+                              fa: 'نکته‌های عمومی سلامت هستند و جایگزین توصیه پزشک شما نیستند.',
+                              en: "These are general health tips and are not a substitute for your doctor's advice.",
+                            ),
+                            en: "These are general health tips and are not a substitute for your doctor's advice.",
+                          ),
                           textAlign: TextAlign.center,
                           style: TextStyle(
                             color: Color(0xFF8A95A8),
@@ -278,10 +292,34 @@ class _PreparationStages extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    const stages = [
-      (Icons.cloud_download_rounded, 'دریافت اطلاعات'),
-      (Icons.event_available_rounded, 'تنظیم برنامه'),
-      (Icons.shield_rounded, 'ایمن‌سازی'),
+    final stages = [
+      (
+        Icons.cloud_download_rounded,
+        LifeMateRuntimeLocale.select(
+          fa: LifeMateRuntimeLocale.select(
+            fa: 'دریافت اطلاعات',
+            en: "Get information",
+          ),
+          en: "Get information",
+        ),
+      ),
+      (
+        Icons.event_available_rounded,
+        LifeMateRuntimeLocale.select(
+          fa: LifeMateRuntimeLocale.select(
+            fa: 'تنظیم برنامه',
+            en: "Program setting",
+          ),
+          en: "Program setting",
+        ),
+      ),
+      (
+        Icons.shield_rounded,
+        LifeMateRuntimeLocale.select(
+          fa: LifeMateRuntimeLocale.select(fa: 'ایمن‌سازی', en: "Immunization"),
+          en: "Immunization",
+        ),
+      ),
     ];
     return Container(
       padding: const EdgeInsets.fromLTRB(12, 16, 12, 14),

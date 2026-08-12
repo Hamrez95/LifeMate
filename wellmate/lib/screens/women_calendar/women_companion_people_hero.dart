@@ -24,25 +24,37 @@ class WomenCompanionPeopleHero extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final ownerName = _text(currentProfile['displayName']) ?? 'من';
+    final ownerName =
+        _text(currentProfile['displayName']) ??
+        LifeMateRuntimeLocale.select(
+          fa: LifeMateRuntimeLocale.select(fa: 'من', en: "i"),
+          en: "i",
+        );
     final ownerPhotoUrl = _text(currentProfile['profilePhotoUrl']);
     final ownerAvatarKey = _text(currentProfile['avatarKey']);
     final caregiverCount = relationships.length;
     final singleCaregiverName = caregiverCount == 1
-        ? _text(relationships.first['caregiverDisplayName']) ?? 'همدم من'
+        ? _text(relationships.first['caregiverDisplayName']) ??
+              LifeMateRuntimeLocale.select(
+                fa: LifeMateRuntimeLocale.select(
+                  fa: 'همدم من',
+                  en: "my companion",
+                ),
+                en: "my companion",
+              )
         : null;
 
     return Container(
-      padding: const EdgeInsets.fromLTRB(18, 18, 18, 16),
+      padding: EdgeInsets.fromLTRB(18, 18, 18, 16),
       decoration: BoxDecoration(
-        gradient: const LinearGradient(
+        gradient: LinearGradient(
           begin: Alignment.topRight,
           end: Alignment.bottomLeft,
           colors: [Color(0xFFF7E8FF), Color(0xFFFFEAF2), Color(0xFFFFF7EE)],
         ),
         borderRadius: BorderRadius.circular(30),
         border: Border.all(color: Colors.white.withValues(alpha: 0.86)),
-        boxShadow: const [
+        boxShadow: [
           BoxShadow(
             color: Color(0x159D65C5),
             blurRadius: 24,
@@ -52,23 +64,35 @@ class WomenCompanionPeopleHero extends StatelessWidget {
       ),
       child: Column(
         children: [
-          const Row(
+          Row(
             children: [
               Icon(Icons.favorite_rounded, color: Color(0xFFE7598B), size: 19),
               SizedBox(width: 7),
               Expanded(
                 child: Text(
-                  'سلام عزیزِ من',
+                  LifeMateRuntimeLocale.select(
+                    fa: LifeMateRuntimeLocale.select(
+                      fa: 'سلام عزیزِ من',
+                      en: "hello my dear",
+                    ),
+                    en: "hello my dear",
+                  ),
                   style: TextStyle(fontSize: 18, fontWeight: FontWeight.w900),
                 ),
               ),
               Text(
-                'امروز چطوری؟',
+                LifeMateRuntimeLocale.select(
+                  fa: LifeMateRuntimeLocale.select(
+                    fa: 'امروز چطوری؟',
+                    en: "how are you today",
+                  ),
+                  en: "how are you today",
+                ),
                 style: TextStyle(color: AppColors.textSecondary, fontSize: 11),
               ),
             ],
           ),
-          const SizedBox(height: 16),
+          SizedBox(height: 16),
           FittedBox(
             fit: BoxFit.scaleDown,
             child: Row(
@@ -77,19 +101,19 @@ class WomenCompanionPeopleHero extends StatelessWidget {
                 Column(
                   children: [
                     LifeMateProfileAvatar(
-                      key: const ValueKey('women-companion-owner-avatar'),
+                      key: ValueKey('women-companion-owner-avatar'),
                       avatarKey: ownerAvatarKey,
                       photoUrl: ownerPhotoUrl,
                       radius: 34,
                     ),
-                    const SizedBox(height: 6),
+                    SizedBox(height: 6),
                     ConstrainedBox(
-                      constraints: const BoxConstraints(maxWidth: 100),
+                      constraints: BoxConstraints(maxWidth: 100),
                       child: Text(
                         ownerName,
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
+                        style: TextStyle(
                           fontSize: 11,
                           fontWeight: FontWeight.w800,
                         ),
@@ -100,19 +124,19 @@ class WomenCompanionPeopleHero extends StatelessWidget {
                 Container(
                   width: 58,
                   height: 32,
-                  margin: const EdgeInsets.symmetric(horizontal: 8),
+                  margin: EdgeInsets.symmetric(horizontal: 8),
                   child: Stack(
                     alignment: Alignment.center,
                     children: [
                       Container(
                         height: 2,
-                        decoration: const BoxDecoration(
+                        decoration: BoxDecoration(
                           gradient: LinearGradient(
                             colors: [Color(0xFFE69AC6), Color(0xFFAB8BE7)],
                           ),
                         ),
                       ),
-                      const CircleAvatar(
+                      CircleAvatar(
                         radius: 14,
                         backgroundColor: Colors.white,
                         child: Icon(
@@ -127,15 +151,21 @@ class WomenCompanionPeopleHero extends StatelessWidget {
                 Column(
                   children: [
                     _CaregiverAvatarStack(relationships: relationships),
-                    const SizedBox(height: 6),
+                    SizedBox(height: 6),
                     Text(
                       caregiverCount == 0
-                          ? 'همدم من'
+                          ? LifeMateRuntimeLocale.select(
+                              fa: 'همدم من',
+                              en: "my companion",
+                            )
                           : caregiverCount == 1
                           ? singleCaregiverName!
-                          : '${localizeDigits(context, caregiverCount)} مراقب',
-                      key: const ValueKey('women-companion-caregiver-count'),
-                      style: const TextStyle(
+                          : LifeMateRuntimeLocale.select(
+                              fa: '${localizeDigits(context, caregiverCount)} مراقب',
+                              en: "${localizeDigits(context, caregiverCount)} caregivers",
+                            ),
+                      key: ValueKey('women-companion-caregiver-count'),
+                      style: TextStyle(
                         fontSize: 11,
                         fontWeight: FontWeight.w800,
                       ),
@@ -145,15 +175,24 @@ class WomenCompanionPeopleHero extends StatelessWidget {
               ],
             ),
           ),
-          const SizedBox(height: 12),
+          SizedBox(height: 12),
           Text(
             caregiverCount == 0
-                ? 'هر زمان آماده بودی، می‌توانی یک همدم قابل اعتماد را با رضایت خودت متصل کنی.'
+                ? LifeMateRuntimeLocale.select(
+                    fa: 'هر زمان آماده بودی، می‌توانی یک همدم قابل اعتماد را با رضایت خودت متصل کنی.',
+                    en: "Whenever you are ready, you can connect a trusted companion to your satisfaction.",
+                  )
                 : caregiverCount == 1
-                ? '$singleCaregiverName فقط خلاصه‌هایی را می‌بیند که خودت برای اشتراک انتخاب کرده‌ای.'
-                : '${localizeDigits(context, caregiverCount)} مراقب فقط خلاصه‌هایی را می‌بینند که خودت برای اشتراک انتخاب کرده‌ای.',
+                ? LifeMateRuntimeLocale.select(
+                    fa: '$singleCaregiverName فقط خلاصه‌هایی را می‌بیند که خودت برای اشتراک انتخاب کرده‌ای.',
+                    en: "$singleCaregiverName only sees the summaries you choose to share.",
+                  )
+                : LifeMateRuntimeLocale.select(
+                    fa: '${localizeDigits(context, caregiverCount)} مراقب فقط خلاصه‌هایی را می‌بینند که خودت برای اشتراک انتخاب کرده‌ای.',
+                    en: "${localizeDigits(context, caregiverCount)} Caregivers will only see summaries that you have chosen to subscribe to.",
+                  ),
             textAlign: TextAlign.center,
-            style: const TextStyle(
+            style: TextStyle(
               height: 1.55,
               color: Color(0xFF735C77),
               fontSize: 11.5,
@@ -193,9 +232,15 @@ class _CaregiverAvatarStack extends StatelessWidget {
 
     return Semantics(
       container: true,
-      label: '${relationships.length} مراقب دارای دسترسی تقویم بانوان',
+      label: LifeMateRuntimeLocale.select(
+        fa: LifeMateRuntimeLocale.select(
+          fa: '${relationships.length} مراقب دارای دسترسی تقویم بانوان',
+          en: "${relationships.length} Caregiver with ladies calendar access",
+        ),
+        en: "${relationships.length} Caregiver with ladies calendar access",
+      ),
       child: SizedBox(
-        key: const ValueKey('women-companion-caregiver-stack'),
+        key: ValueKey('women-companion-caregiver-stack'),
         width: width,
         height: radius * 2,
         child: Stack(
@@ -248,23 +293,23 @@ class _CaregiverAvatarStack extends StatelessWidget {
 }
 
 class _RelationshipAvatar extends StatelessWidget {
-  const _RelationshipAvatar({
-    required this.relationship,
-    required this.radius,
-  });
+  const _RelationshipAvatar({required this.relationship, required this.radius});
 
   final Map<String, dynamic> relationship;
   final double radius;
 
   @override
   Widget build(BuildContext context) {
-    final id = relationship['id']?.toString() ??
+    final id =
+        relationship['id']?.toString() ??
         relationship['caregiverUserId']?.toString() ??
         relationship.hashCode.toString();
-    final name = WomenCompanionPeopleHero._text(
-          relationship['caregiverDisplayName'],
-        ) ??
-        'مراقب';
+    final name =
+        WomenCompanionPeopleHero._text(relationship['caregiverDisplayName']) ??
+        LifeMateRuntimeLocale.select(
+          fa: LifeMateRuntimeLocale.select(fa: 'مراقب', en: "Caregiver"),
+          en: "Careful",
+        );
     final photoUrl = WomenCompanionPeopleHero._text(
       relationship['caregiverProfilePhotoUrl'],
     );
@@ -274,10 +319,16 @@ class _RelationshipAvatar extends StatelessWidget {
 
     return Semantics(
       image: true,
-      label: 'تصویر پروفایل $name',
+      label: LifeMateRuntimeLocale.select(
+        fa: LifeMateRuntimeLocale.select(
+          fa: 'تصویر پروفایل $name',
+          en: "$name profile picture",
+        ),
+        en: "$name profile picture",
+      ),
       child: Container(
-        padding: const EdgeInsets.all(2),
-        decoration: const BoxDecoration(
+        padding: EdgeInsets.all(2),
+        decoration: BoxDecoration(
           color: Colors.white,
           shape: BoxShape.circle,
           boxShadow: [

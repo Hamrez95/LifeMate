@@ -60,7 +60,13 @@ class _CareAccessSettingsScreenState extends State<CareAccessSettingsScreen> {
       }
     } catch (error) {
       debugPrint('Care permission women profile load failed: $error');
-      errorMessage = 'وضعیت تقویم بانوان دریافت نشد.';
+      errorMessage = LifeMateRuntimeLocale.select(
+        fa: LifeMateRuntimeLocale.select(
+          fa: 'وضعیت تقویم بانوان دریافت نشد.',
+          en: "The status of the women's calendar was not received.",
+        ),
+        en: "The status of the women's calendar was not received.",
+      );
     }
 
     try {
@@ -74,7 +80,13 @@ class _CareAccessSettingsScreenState extends State<CareAccessSettingsScreen> {
       }
     } catch (error) {
       debugPrint('Care health-record permission load failed: $error');
-      errorMessage ??= 'وضعیت دسترسی پرونده سلامت دریافت نشد.';
+      errorMessage ??= LifeMateRuntimeLocale.select(
+        fa: LifeMateRuntimeLocale.select(
+          fa: 'وضعیت دسترسی پرونده سلامت دریافت نشد.',
+          en: "The access status of the health record was not received.",
+        ),
+        en: "The access status of the health record was not received.",
+      );
     }
 
     if (mounted) {
@@ -102,10 +114,36 @@ class _CareAccessSettingsScreenState extends State<CareAccessSettingsScreen> {
       LifeMateNotice.show(
         context,
         type: LifeMateNoticeType.success,
-        title: value ? 'دسترسی فعال شد' : 'دسترسی غیرفعال شد',
+        title: value
+            ? LifeMateRuntimeLocale.select(
+                fa: LifeMateRuntimeLocale.select(
+                  fa: 'دسترسی فعال شد',
+                  en: "Access enabled",
+                ),
+                en: "Access enabled",
+              )
+            : LifeMateRuntimeLocale.select(
+                fa: LifeMateRuntimeLocale.select(
+                  fa: 'دسترسی غیرفعال شد',
+                  en: "Access disabled",
+                ),
+                en: "Access disabled",
+              ),
         message: value
-            ? 'خلاصه تقویم بانوان برای این مراقب قابل مشاهده است.'
-            : 'تقویم بانوان دیگر برای این مراقب نمایش داده نمی‌شود.',
+            ? LifeMateRuntimeLocale.select(
+                fa: LifeMateRuntimeLocale.select(
+                  fa: 'خلاصه تقویم بانوان برای این مراقب قابل مشاهده است.',
+                  en: "A summary of the women's calendar is visible to this caregiver.",
+                ),
+                en: "A summary of the women's calendar is visible to this caregiver.",
+              )
+            : LifeMateRuntimeLocale.select(
+                fa: LifeMateRuntimeLocale.select(
+                  fa: 'تقویم بانوان دیگر برای این مراقب نمایش داده نمی‌شود.',
+                  en: "The ladies calendar is no longer displayed for this caregiver.",
+                ),
+                en: "The ladies calendar is no longer displayed for this caregiver.",
+              ),
       );
     } catch (error) {
       debugPrint('Care women permission update failed: $error');
@@ -113,8 +151,20 @@ class _CareAccessSettingsScreenState extends State<CareAccessSettingsScreen> {
         LifeMateNotice.show(
           context,
           type: LifeMateNoticeType.error,
-          title: 'تغییر دسترسی انجام نشد',
-          message: 'وضعیت تقویم بانوان ذخیره نشد. دوباره تلاش کنید.',
+          title: LifeMateRuntimeLocale.select(
+            fa: LifeMateRuntimeLocale.select(
+              fa: 'تغییر دسترسی انجام نشد',
+              en: "Access change failed",
+            ),
+            en: "Access change failed",
+          ),
+          message: LifeMateRuntimeLocale.select(
+            fa: LifeMateRuntimeLocale.select(
+              fa: 'وضعیت تقویم بانوان ذخیره نشد. دوباره تلاش کنید.',
+              en: "The status of the women's calendar was not saved. Try again.",
+            ),
+            en: "The status of the women's calendar was not saved. Try again.",
+          ),
         );
       }
     } finally {
@@ -132,7 +182,13 @@ class _CareAccessSettingsScreenState extends State<CareAccessSettingsScreen> {
         builder: (_) => _HealthRecordConsentDialog(
           caregiverName:
               widget.relationship['caregiverDisplayName']?.toString() ??
-              'این مراقب',
+              LifeMateRuntimeLocale.select(
+                fa: LifeMateRuntimeLocale.select(
+                  fa: 'این مراقب',
+                  en: "This is careful",
+                ),
+                en: "This is careful",
+              ),
         ),
       );
       if (accepted != true || !mounted) return;
@@ -152,20 +208,64 @@ class _CareAccessSettingsScreenState extends State<CareAccessSettingsScreen> {
       LifeMateNotice.show(
         context,
         type: LifeMateNoticeType.success,
-        title: value ? 'مدیریت پرونده فعال شد' : 'مدیریت پرونده متوقف شد',
+        title: value
+            ? LifeMateRuntimeLocale.select(
+                fa: LifeMateRuntimeLocale.select(
+                  fa: 'مدیریت پرونده فعال شد',
+                  en: "File management is activated",
+                ),
+                en: "File management is activated",
+              )
+            : LifeMateRuntimeLocale.select(
+                fa: LifeMateRuntimeLocale.select(
+                  fa: 'مدیریت پرونده متوقف شد',
+                  en: "Case management stopped",
+                ),
+                en: "Case management stopped",
+              ),
         message: value
-            ? 'مراقب می‌تواند دارو، ویزیت و تزریق را اضافه، ویرایش یا حذف کند.'
-            : 'امکان تغییر درمان‌ها برای این مراقب فوراً متوقف شد.',
+            ? LifeMateRuntimeLocale.select(
+                fa: LifeMateRuntimeLocale.select(
+                  fa: 'مراقب می‌تواند دارو، ویزیت و تزریق را اضافه، ویرایش یا حذف کند.',
+                  en: "The caregiver can add, edit, or delete medications, visits, and injections.",
+                ),
+                en: "The caregiver can add, edit, or delete medications, visits, and injections.",
+              )
+            : LifeMateRuntimeLocale.select(
+                fa: LifeMateRuntimeLocale.select(
+                  fa: 'امکان تغییر درمان‌ها برای این مراقب فوراً متوقف شد.',
+                  en: "The ability to change treatments for this caregiver was immediately stopped.",
+                ),
+                en: "The ability to change treatments for this caregiver was immediately stopped.",
+              ),
       );
     } on LifeMateApiException catch (error) {
       if (!mounted) return;
       LifeMateNotice.show(
         context,
         type: LifeMateNoticeType.error,
-        title: 'تغییر دسترسی انجام نشد',
+        title: LifeMateRuntimeLocale.select(
+          fa: LifeMateRuntimeLocale.select(
+            fa: 'تغییر دسترسی انجام نشد',
+            en: "Access change failed",
+          ),
+          en: "Access change failed",
+        ),
         message: error.code == 'health_record_consent_required'
-            ? 'برای فعال‌سازی این دسترسی، تأیید آگاهانه شما لازم است.'
-            : 'دسترسی پرونده سلامت ذخیره نشد. دوباره تلاش کنید.',
+            ? LifeMateRuntimeLocale.select(
+                fa: LifeMateRuntimeLocale.select(
+                  fa: 'برای فعال‌سازی این دسترسی، تأیید آگاهانه شما لازم است.',
+                  en: "Your informed consent is required to enable this access.",
+                ),
+                en: "Your informed consent is required to enable this access.",
+              )
+            : LifeMateRuntimeLocale.select(
+                fa: LifeMateRuntimeLocale.select(
+                  fa: 'دسترسی پرونده سلامت ذخیره نشد. دوباره تلاش کنید.',
+                  en: "Access to the health record could not be saved. Try again.",
+                ),
+                en: "Access to the health record could not be saved. Try again.",
+              ),
       );
     } catch (error) {
       debugPrint('Care health-record permission update failed: $error');
@@ -173,8 +273,20 @@ class _CareAccessSettingsScreenState extends State<CareAccessSettingsScreen> {
         LifeMateNotice.show(
           context,
           type: LifeMateNoticeType.error,
-          title: 'تغییر دسترسی انجام نشد',
-          message: 'اتصال را بررسی کنید و دوباره تلاش کنید.',
+          title: LifeMateRuntimeLocale.select(
+            fa: LifeMateRuntimeLocale.select(
+              fa: 'تغییر دسترسی انجام نشد',
+              en: "Access change failed",
+            ),
+            en: "Access change failed",
+          ),
+          message: LifeMateRuntimeLocale.select(
+            fa: LifeMateRuntimeLocale.select(
+              fa: 'اتصال را بررسی کنید و دوباره تلاش کنید.',
+              en: "Check the connection and try again.",
+            ),
+            en: "Check the connection and try again.",
+          ),
         );
       }
     } finally {
@@ -185,7 +297,11 @@ class _CareAccessSettingsScreenState extends State<CareAccessSettingsScreen> {
   @override
   Widget build(BuildContext context) {
     final name =
-        widget.relationship['caregiverDisplayName']?.toString() ?? 'مراقب';
+        widget.relationship['caregiverDisplayName']?.toString() ??
+        LifeMateRuntimeLocale.select(
+          fa: LifeMateRuntimeLocale.select(fa: 'مراقب', en: "Caregiver"),
+          en: "Careful",
+        );
     final womenAvailable =
         LifeMateFeatureFlags.womenCalendarPilotEnabled && _womenCalendarEnabled;
 
@@ -195,56 +311,111 @@ class _CareAccessSettingsScreenState extends State<CareAccessSettingsScreen> {
         backgroundColor: Colors.transparent,
         surfaceTintColor: Colors.transparent,
         title: Text(
-          'تنظیمات دسترسی $name',
-          style: const TextStyle(fontWeight: FontWeight.w900),
+          LifeMateRuntimeLocale.select(
+            fa: LifeMateRuntimeLocale.select(
+              fa: 'تنظیمات دسترسی $name',
+              en: "$name access settings",
+            ),
+            en: "$name access settings",
+          ),
+          style: TextStyle(fontWeight: FontWeight.w900),
         ),
       ),
       body: RefreshIndicator(
         onRefresh: _load,
         child: ListView(
-          physics: const AlwaysScrollableScrollPhysics(),
-          padding: const EdgeInsets.fromLTRB(20, 8, 20, 28),
+          physics: AlwaysScrollableScrollPhysics(),
+          padding: EdgeInsets.fromLTRB(20, 8, 20, 28),
           children: [
             _PrivacyHero(name: name),
-            const SizedBox(height: 18),
-            const _PermissionCard(
+            SizedBox(height: 18),
+            _PermissionCard(
               key: ValueKey('care-permission-medication'),
               icon: Icons.medication_rounded,
               accent: Color(0xFF2FB486),
               softColor: Color(0xFFE9F8F2),
-              title: 'برنامه و مصرف دارو',
-              subtitle:
-                  'دسترسی پایه رابطه مراقبتی برای مشاهده برنامه و وضعیت مصرف.',
+              title: LifeMateRuntimeLocale.select(
+                fa: LifeMateRuntimeLocale.select(
+                  fa: 'برنامه و مصرف دارو',
+                  en: "Program and drug use",
+                ),
+                en: "Program and drug use",
+              ),
+              subtitle: LifeMateRuntimeLocale.select(
+                fa: LifeMateRuntimeLocale.select(
+                  fa: 'دسترسی پایه رابطه مراقبتی برای مشاهده برنامه و وضعیت مصرف.',
+                  en: "Basic access to the care relationship to view the application and consumption status.",
+                ),
+                en: "Basic access to the care relationship to view the application and consumption status.",
+              ),
               value: true,
               enabled: false,
-              badge: 'پایه',
+              badge: LifeMateRuntimeLocale.select(
+                fa: LifeMateRuntimeLocale.select(fa: 'پایه', en: "base"),
+                en: "base",
+              ),
             ),
-            const SizedBox(height: 12),
+            SizedBox(height: 12),
             _PermissionCard(
-              key: const ValueKey('care-permission-women-calendar'),
+              key: ValueKey('care-permission-women-calendar'),
               icon: Icons.calendar_month_rounded,
-              accent: const Color(0xFFE45D8F),
-              softColor: const Color(0xFFFFEEF4),
-              title: 'تقویم بانوان',
+              accent: Color(0xFFE45D8F),
+              softColor: Color(0xFFFFEEF4),
+              title: LifeMateRuntimeLocale.select(
+                fa: LifeMateRuntimeLocale.select(
+                  fa: 'تقویم بانوان',
+                  en: "Women's Calendar",
+                ),
+                en: "Women's calendar",
+              ),
               subtitle: !LifeMateFeatureFlags.womenCalendarPilotEnabled
-                  ? 'در این Build فعال نیست.'
+                  ? LifeMateRuntimeLocale.select(
+                      fa: LifeMateRuntimeLocale.select(
+                        fa: 'در این Build فعال نیست.',
+                        en: "It is not active in this build.",
+                      ),
+                      en: "It is not active in this build.",
+                    )
                   : !_womenCalendarEnabled
-                  ? 'ابتدا تقویم بانوان را برای خودتان فعال کنید.'
-                  : 'نمایش خلاصه چرخه؛ یادداشت خصوصی هرگز به اشتراک گذاشته نمی‌شود.',
+                  ? LifeMateRuntimeLocale.select(
+                      fa: LifeMateRuntimeLocale.select(
+                        fa: 'ابتدا تقویم بانوان را برای خودتان فعال کنید.',
+                        en: "First, activate the women's calendar for yourself.",
+                      ),
+                      en: "First, activate the women's calendar for yourself.",
+                    )
+                  : LifeMateRuntimeLocale.select(
+                      fa: LifeMateRuntimeLocale.select(
+                        fa: 'نمایش خلاصه چرخه؛ یادداشت خصوصی هرگز به اشتراک گذاشته نمی‌شود.',
+                        en: "cycle summary display; A private note is never shared.",
+                      ),
+                      en: "cycle summary display; A private note is never shared.",
+                    ),
               value: _canViewWomenCalendar,
               enabled: !_loading && !_savingWomenCalendar && womenAvailable,
               onChanged: _setWomenCalendarAccess,
               loading: _savingWomenCalendar,
             ),
-            const SizedBox(height: 12),
+            SizedBox(height: 12),
             _PermissionCard(
-              key: const ValueKey('care-permission-health-record'),
+              key: ValueKey('care-permission-health-record'),
               icon: Icons.folder_shared_rounded,
-              accent: const Color(0xFF6C74D9),
-              softColor: const Color(0xFFF0F1FF),
-              title: 'مشاهده و ویرایش پرونده سلامت',
-              subtitle:
-                  'اجازه مشاهده و مدیریت درمان‌ها؛ شامل افزودن، ویرایش و حذف دارو، ویزیت و تزریق.',
+              accent: Color(0xFF6C74D9),
+              softColor: Color(0xFFF0F1FF),
+              title: LifeMateRuntimeLocale.select(
+                fa: LifeMateRuntimeLocale.select(
+                  fa: 'مشاهده و ویرایش پرونده سلامت',
+                  en: "View and edit health records",
+                ),
+                en: "View and edit health records",
+              ),
+              subtitle: LifeMateRuntimeLocale.select(
+                fa: LifeMateRuntimeLocale.select(
+                  fa: 'اجازه مشاهده و مدیریت درمان‌ها؛ شامل افزودن، ویرایش و حذف دارو، ویزیت و تزریق.',
+                  en: "Permission to view and manage treatments; including adding, editing and deleting drugs, visits and injections.",
+                ),
+                en: "Permission to view and manage treatments; including adding, editing and deleting drugs, visits and injections.",
+              ),
               value: _canManageHealthRecord,
               enabled: !_loading && !_savingHealthRecord,
               onChanged: _setHealthRecordAccess,
@@ -273,14 +444,14 @@ class _PrivacyHero extends StatelessWidget {
   Widget build(BuildContext context) => Container(
     padding: const EdgeInsets.all(18),
     decoration: BoxDecoration(
-      gradient: const LinearGradient(
+      gradient: LinearGradient(
         begin: Alignment.topRight,
         end: Alignment.bottomLeft,
         colors: [Color(0xFFEAF7F2), Color(0xFFF3F5FF)],
       ),
       borderRadius: BorderRadius.circular(26),
       border: Border.all(color: Colors.white),
-      boxShadow: const [
+      boxShadow: [
         BoxShadow(
           color: Color(0x0F203C55),
           blurRadius: 20,
@@ -294,28 +465,40 @@ class _PrivacyHero extends StatelessWidget {
         Container(
           width: 48,
           height: 48,
-          decoration: const BoxDecoration(
+          decoration: BoxDecoration(
             color: Colors.white,
             shape: BoxShape.circle,
           ),
-          child: const Icon(Icons.shield_outlined, color: Color(0xFF397B70)),
+          child: Icon(Icons.shield_outlined, color: Color(0xFF397B70)),
         ),
-        const SizedBox(width: 13),
+        SizedBox(width: 13),
         Expanded(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Text(
-                'کنترل دسترسی دست شماست',
+              Text(
+                LifeMateRuntimeLocale.select(
+                  fa: LifeMateRuntimeLocale.select(
+                    fa: 'کنترل دسترسی دست شماست',
+                    en: "Access control is yours",
+                  ),
+                  en: "Access control is yours",
+                ),
                 style: TextStyle(
                   fontSize: 16,
                   fontWeight: FontWeight.w900,
                   color: AppColors.textPrimary,
                 ),
               ),
-              const SizedBox(height: 6),
+              SizedBox(height: 6),
               Text(
-                'هر دسترسی برای $name مستقل فعال می‌شود. هر زمان بخواهید می‌توانید آن را خاموش کنید؛ قطع رابطه نیز همه دسترسی‌ها را متوقف می‌کند.',
+                LifeMateRuntimeLocale.select(
+                  fa: LifeMateRuntimeLocale.select(
+                    fa: 'هر دسترسی برای $name مستقل فعال می‌شود. هر زمان بخواهید می‌توانید آن را خاموش کنید؛ قطع رابطه نیز همه دسترسی‌ها را متوقف می‌کند.',
+                    en: "Each access is enabled for an independent $name. You can turn it off whenever you want; Disconnecting also stops all access.",
+                  ),
+                  en: "Each access is enabled for an independent $name. You can turn it off whenever you want; Disconnecting also stops all access.",
+                ),
                 style: const TextStyle(
                   height: 1.65,
                   fontSize: 12.5,
@@ -486,7 +669,7 @@ class _HealthRecordConsentDialogState
   Widget build(BuildContext context) {
     return AlertDialog(
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(28)),
-      title: const Row(
+      title: Row(
         children: [
           CircleAvatar(
             backgroundColor: Color(0xFFFFF0E6),
@@ -495,52 +678,90 @@ class _HealthRecordConsentDialogState
           SizedBox(width: 11),
           Expanded(
             child: Text(
-              'تأیید دسترسی حساس',
+              LifeMateRuntimeLocale.select(
+                fa: LifeMateRuntimeLocale.select(
+                  fa: 'تأیید دسترسی حساس',
+                  en: "Sensitive access authentication",
+                ),
+                en: "Sensitive access authentication",
+              ),
               style: TextStyle(fontWeight: FontWeight.w900),
             ),
           ),
         ],
       ),
       content: ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: 430, maxHeight: 520),
+        constraints: BoxConstraints(maxWidth: 430, maxHeight: 520),
         child: SingleChildScrollView(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                'با فعال‌کردن «مشاهده و ویرایش پرونده سلامت»، شما با آگاهی به ${widget.caregiverName} اجازه می‌دهید برنامه‌های درمانی شما را مدیریت کند.',
-                style: const TextStyle(height: 1.65),
+                LifeMateRuntimeLocale.select(
+                  fa: LifeMateRuntimeLocale.select(
+                    fa: 'با فعال‌کردن «مشاهده و ویرایش پرونده سلامت»، شما با آگاهی به ${widget.caregiverName} اجازه می‌دهید برنامه‌های درمانی شما را مدیریت کند.',
+                    en: "By enabling View and Edit Health Record, you are knowingly allowing ${widget.caregiverName} to manage your treatment plans.",
+                  ),
+                  en: "By enabling View and Edit Health Record, you are knowingly allowing ${widget.caregiverName} to manage your treatment plans.",
+                ),
+                style: TextStyle(height: 1.65),
               ),
-              const SizedBox(height: 14),
-              const _ConsentPoint(
+              SizedBox(height: 14),
+              _ConsentPoint(
                 icon: Icons.visibility_outlined,
-                text:
-                    'مراقب می‌تواند داروها، ویزیت‌ها و تزریق‌های ثبت‌شده را مشاهده کند.',
+                text: LifeMateRuntimeLocale.select(
+                  fa: LifeMateRuntimeLocale.select(
+                    fa: 'مراقب می‌تواند داروها، ویزیت‌ها و تزریق‌های ثبت‌شده را مشاهده کند.',
+                    en: "The caregiver can view recorded medications, visits, and injections.",
+                  ),
+                  en: "The caregiver can view recorded medications, visits, and injections.",
+                ),
               ),
-              const _ConsentPoint(
+              _ConsentPoint(
                 icon: Icons.edit_note_rounded,
-                text:
-                    'مراقب می‌تواند درمان جدید اضافه کند یا اطلاعات درمان‌های موجود را ویرایش کند.',
+                text: LifeMateRuntimeLocale.select(
+                  fa: LifeMateRuntimeLocale.select(
+                    fa: 'مراقب می‌تواند درمان جدید اضافه کند یا اطلاعات درمان‌های موجود را ویرایش کند.',
+                    en: "Caregiver can add new treatment or edit existing treatment information.",
+                  ),
+                  en: "Caregiver can add new treatment or edit existing treatment information.",
+                ),
               ),
-              const _ConsentPoint(
+              _ConsentPoint(
                 icon: Icons.delete_outline_rounded,
-                text:
-                    'مراقب می‌تواند درمان را حذف کند؛ حذف در سیستم به‌صورت توقف/بایگانی امن ثبت می‌شود.',
+                text: LifeMateRuntimeLocale.select(
+                  fa: LifeMateRuntimeLocale.select(
+                    fa: 'مراقب می‌تواند درمان را حذف کند؛ حذف در سیستم به‌صورت توقف/بایگانی امن ثبت می‌شود.',
+                    en: "Caregiver can remove treatment; Deletion is recorded in the system as a safe stop/archive.",
+                  ),
+                  en: "Caregiver can remove treatment; Deletion is recorded in the system as a safe stop/archive.",
+                ),
               ),
-              const _ConsentPoint(
+              _ConsentPoint(
                 icon: Icons.notifications_active_outlined,
-                text:
-                    'این تغییرات می‌توانند روی برنامه روزانه، یادآورها و اطلاعاتی که در WellMate و CareMate می‌بینید اثر بگذارند.',
+                text: LifeMateRuntimeLocale.select(
+                  fa: LifeMateRuntimeLocale.select(
+                    fa: 'این تغییرات می‌توانند روی برنامه روزانه، یادآورها و اطلاعاتی که در WellMate و CareMate می‌بینید اثر بگذارند.',
+                    en: "These changes can affect the daily schedule, reminders, and information you see in WellMate and CareMate.",
+                  ),
+                  en: "These changes can affect the daily schedule, reminders, and information you see in WellMate and CareMate.",
+                ),
               ),
-              const SizedBox(height: 10),
+              SizedBox(height: 10),
               Container(
-                padding: const EdgeInsets.all(13),
+                padding: EdgeInsets.all(13),
                 decoration: BoxDecoration(
-                  color: const Color(0xFFFFF7E8),
+                  color: Color(0xFFFFF7E8),
                   borderRadius: BorderRadius.circular(16),
                 ),
-                child: const Text(
-                  'این دسترسی جایگزین نظر پزشک نیست. مسئولیت تصمیم برای اعطای این دسترسی و بررسی صحت تغییرات ثبت‌شده بر عهده شماست. می‌توانید هر زمان این دسترسی را غیرفعال کنید. برای امنیت، اعطا، لغو و تغییرات درمانی ثبت و قابل پیگیری هستند.',
+                child: Text(
+                  LifeMateRuntimeLocale.select(
+                    fa: LifeMateRuntimeLocale.select(
+                      fa: 'این دسترسی جایگزین نظر پزشک نیست. مسئولیت تصمیم برای اعطای این دسترسی و بررسی صحت تغییرات ثبت‌شده بر عهده شماست. می‌توانید هر زمان این دسترسی را غیرفعال کنید. برای امنیت، اعطا، لغو و تغییرات درمانی ثبت و قابل پیگیری هستند.',
+                      en: "This access is not a substitute for a doctor's opinion. It is your responsibility to decide whether to grant this access and to verify the correctness of the recorded changes. You can disable this access at any time. For security, grants, cancellations and treatment changes are recorded and trackable.",
+                    ),
+                    en: "This access is not a substitute for a doctor's opinion. It is your responsibility to decide whether to grant this access and to verify the correctness of the recorded changes. You can disable this access at any time. For security, grants, cancellations and treatment changes are recorded and trackable.",
+                  ),
                   style: TextStyle(
                     height: 1.65,
                     fontSize: 11.5,
@@ -548,16 +769,22 @@ class _HealthRecordConsentDialogState
                   ),
                 ),
               ),
-              const SizedBox(height: 8),
+              SizedBox(height: 8),
               CheckboxListTile(
-                key: const ValueKey('health-record-consent-checkbox'),
+                key: ValueKey('health-record-consent-checkbox'),
                 contentPadding: EdgeInsets.zero,
                 controlAffinity: ListTileControlAffinity.leading,
                 value: _accepted,
                 onChanged: (value) =>
                     setState(() => _accepted = value ?? false),
-                title: const Text(
-                  'متوجه محدوده این دسترسی و امکان تغییر پرونده درمانی توسط مراقب هستم و با فعال‌سازی آن موافقم.',
+                title: Text(
+                  LifeMateRuntimeLocale.select(
+                    fa: LifeMateRuntimeLocale.select(
+                      fa: 'متوجه محدوده این دسترسی و امکان تغییر پرونده درمانی توسط مراقب هستم و با فعال‌سازی آن موافقم.',
+                      en: "I understand the scope of this access and the possibility of changing the medical file by the caregiver, and I agree with its activation.",
+                    ),
+                    en: "I understand the scope of this access and the possibility of changing the medical file by the caregiver, and I agree with its activation.",
+                  ),
                   style: TextStyle(
                     height: 1.55,
                     fontSize: 12.5,
@@ -572,14 +799,27 @@ class _HealthRecordConsentDialogState
       actions: [
         TextButton(
           onPressed: () => Navigator.pop(context, false),
-          child: const Text('انصراف'),
+          child: Text(
+            LifeMateRuntimeLocale.select(
+              fa: LifeMateRuntimeLocale.select(fa: 'انصراف', en: "opt out"),
+              en: "opt out",
+            ),
+          ),
         ),
         FilledButton.icon(
-          key: const ValueKey('confirm-health-record-access'),
+          key: ValueKey('confirm-health-record-access'),
           onPressed: _accepted ? () => Navigator.pop(context, true) : null,
-          icon: const Icon(Icons.lock_open_rounded),
-          label: const Text('تأیید و فعال‌سازی'),
-          style: FilledButton.styleFrom(backgroundColor: const Color(0xFF626BD1)),
+          icon: Icon(Icons.lock_open_rounded),
+          label: Text(
+            LifeMateRuntimeLocale.select(
+              fa: LifeMateRuntimeLocale.select(
+                fa: 'تأیید و فعال‌سازی',
+                en: "Verification and activation",
+              ),
+              en: "Verification and activation",
+            ),
+          ),
+          style: FilledButton.styleFrom(backgroundColor: Color(0xFF626BD1)),
         ),
       ],
     );
@@ -601,10 +841,7 @@ class _ConsentPoint extends StatelessWidget {
         Icon(icon, size: 19, color: const Color(0xFF626BD1)),
         const SizedBox(width: 9),
         Expanded(
-          child: Text(
-            text,
-            style: const TextStyle(height: 1.55, fontSize: 12),
-          ),
+          child: Text(text, style: const TextStyle(height: 1.55, fontSize: 12)),
         ),
       ],
     ),
@@ -619,18 +856,29 @@ class _InlineError extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Container(
-    padding: const EdgeInsets.all(14),
+    padding: EdgeInsets.all(14),
     decoration: BoxDecoration(
-      color: const Color(0xFFFFF0F1),
+      color: Color(0xFFFFF0F1),
       borderRadius: BorderRadius.circular(18),
-      border: Border.all(color: const Color(0xFFFFD6DA)),
+      border: Border.all(color: Color(0xFFFFD6DA)),
     ),
     child: Row(
       children: [
-        const Icon(Icons.cloud_off_rounded, color: Color(0xFFD95D66)),
-        const SizedBox(width: 9),
+        Icon(Icons.cloud_off_rounded, color: Color(0xFFD95D66)),
+        SizedBox(width: 9),
         Expanded(child: Text(message)),
-        TextButton(onPressed: onRetry, child: const Text('تلاش دوباره')),
+        TextButton(
+          onPressed: onRetry,
+          child: Text(
+            LifeMateRuntimeLocale.select(
+              fa: LifeMateRuntimeLocale.select(
+                fa: 'تلاش دوباره',
+                en: "Try again",
+              ),
+              en: "Try again",
+            ),
+          ),
+        ),
       ],
     ),
   );
@@ -641,19 +889,25 @@ class _SecurityFooter extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Padding(
-    padding: const EdgeInsets.symmetric(horizontal: 5),
+    padding: EdgeInsets.symmetric(horizontal: 5),
     child: Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Icon(
+        Icon(
           Icons.info_outline_rounded,
           size: 18,
           color: AppColors.textSecondary,
         ),
-        const SizedBox(width: 8),
+        SizedBox(width: 8),
         Expanded(
           child: Text(
-            'دسترسی مدیریت پرونده فقط برای همان مراقب و همان رابطه فعال است و با خاموش‌کردن گزینه یا قطع رابطه متوقف می‌شود.',
+            LifeMateRuntimeLocale.select(
+              fa: LifeMateRuntimeLocale.select(
+                fa: 'دسترسی مدیریت پرونده فقط برای همان مراقب و همان رابطه فعال است و با خاموش‌کردن گزینه یا قطع رابطه متوقف می‌شود.',
+                en: "Case management access is only active for the same carer and the same relationship and is stopped by turning off the option or disconnecting the relationship.",
+              ),
+              en: "Case management access is only active for the same carer and the same relationship and is stopped by turning off the option or disconnecting the relationship.",
+            ),
             style: TextStyle(
               height: 1.55,
               fontSize: 10.5,

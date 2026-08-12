@@ -163,9 +163,15 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
         if (item.seriesId != null && item.id != item.seriesId) {
           if (mounted) {
             ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(
+              SnackBar(
                 content: Text(
-                  'ثبت وضعیت یک نوبت تکرارشونده از اعلان‌ها هنوز پشتیبانی نمی‌شود.',
+                  LifeMateRuntimeLocale.select(
+                    fa: LifeMateRuntimeLocale.select(
+                      fa: 'ثبت وضعیت یک نوبت تکرارشونده از اعلان‌ها هنوز پشتیبانی نمی‌شود.',
+                      en: "Recording the status of a recurring notification session is not yet supported.",
+                    ),
+                    en: "Recording the status of a recurring notification session is not yet supported.",
+                  ),
                 ),
               ),
             );
@@ -186,8 +192,20 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
         SnackBar(
           content: Text(
             item.type == 'medicine'
-                ? '${item.title} به عنوان مصرف‌شده ثبت شد.'
-                : '${item.title} به عنوان انجام‌شده ثبت شد.',
+                ? LifeMateRuntimeLocale.select(
+                    fa: LifeMateRuntimeLocale.select(
+                      fa: '${item.title} به عنوان مصرف‌شده ثبت شد.',
+                      en: "${item.title} was marked as taken.",
+                    ),
+                    en: "${item.title} registered as spent.",
+                  )
+                : LifeMateRuntimeLocale.select(
+                    fa: LifeMateRuntimeLocale.select(
+                      fa: '${item.title} به عنوان انجام‌شده ثبت شد.',
+                      en: "${item.title} was marked as done.",
+                    ),
+                    en: "${item.title} registered as done.",
+                  ),
           ),
         ),
       );
@@ -197,8 +215,20 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
       final message =
           error.code == 'stale_dose_occurrence' ||
               error.code == 'stale_care_event'
-          ? 'وضعیت برنامه تغییر کرده است؛ صفحه تازه‌سازی شد.'
-          : 'ثبت وضعیت انجام نشد؛ دوباره تلاش کنید.';
+          ? LifeMateRuntimeLocale.select(
+              fa: LifeMateRuntimeLocale.select(
+                fa: 'وضعیت برنامه تغییر کرده است؛ صفحه تازه‌سازی شد.',
+                en: "The application status has changed; The page has been updated.",
+              ),
+              en: "The application status has changed; The page has been updated.",
+            )
+          : LifeMateRuntimeLocale.select(
+              fa: LifeMateRuntimeLocale.select(
+                fa: 'ثبت وضعیت انجام نشد؛ دوباره تلاش کنید.',
+                en: "status registration was not done; Try again.",
+              ),
+              en: "status registration was not done; Try again.",
+            );
       setState(() {
         _calendarRevision++;
         _homeRevision++;
@@ -210,8 +240,16 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     } catch (_) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('ثبت وضعیت انجام نشد؛ اتصال را بررسی کنید.'),
+          SnackBar(
+            content: Text(
+              LifeMateRuntimeLocale.select(
+                fa: LifeMateRuntimeLocale.select(
+                  fa: 'ثبت وضعیت انجام نشد؛ اتصال را بررسی کنید.',
+                  en: "status registration was not done; Check the connection.",
+                ),
+                en: "status registration was not done; Check the connection.",
+              ),
+            ),
           ),
         );
       }

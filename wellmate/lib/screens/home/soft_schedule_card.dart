@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../../core/theme/app_style.dart';
 import '../../models/schedule_item_model.dart';
 import '../../../core/utils/string_extensions.dart';
+import 'package:lifemate_client/lifemate_client.dart';
 
 class SoftScheduleCard extends StatelessWidget {
   final ScheduleItemModel item;
@@ -121,7 +122,7 @@ class SoftScheduleCard extends StatelessWidget {
                           ],
                         ),
                       ),
-                      const SizedBox(width: 12),
+                      SizedBox(width: 12),
                       Expanded(
                         child: Text(
                           item.dosage.toPersianDigit(isPersian),
@@ -138,12 +139,12 @@ class SoftScheduleCard extends StatelessWidget {
                     ],
                   ),
                   if (isMissed) ...[
-                    const SizedBox(height: 12),
+                    SizedBox(height: 12),
                     if (item.type == 'medicine')
                       GestureDetector(
                         onTap: onTaken,
                         child: Container(
-                          padding: const EdgeInsets.symmetric(
+                          padding: EdgeInsets.symmetric(
                             vertical: 6,
                             horizontal: 16,
                           ),
@@ -152,7 +153,13 @@ class SoftScheduleCard extends StatelessWidget {
                             borderRadius: BorderRadius.circular(8),
                           ),
                           child: Text(
-                            'مصرف کردم',
+                            LifeMateRuntimeLocale.select(
+                              fa: LifeMateRuntimeLocale.select(
+                                fa: 'مصرف کردم',
+                                en: "Taken",
+                              ),
+                              en: "I consumed",
+                            ),
                             style: font.copyWith(
                               color: Colors.white,
                               fontSize: 12,
@@ -169,7 +176,7 @@ class SoftScheduleCard extends StatelessWidget {
                           GestureDetector(
                             onTap: onCompleted,
                             child: Container(
-                              padding: const EdgeInsets.symmetric(
+                              padding: EdgeInsets.symmetric(
                                 vertical: 6,
                                 horizontal: 16,
                               ),
@@ -178,7 +185,13 @@ class SoftScheduleCard extends StatelessWidget {
                                 borderRadius: BorderRadius.circular(8),
                               ),
                               child: Text(
-                                'انجام شد',
+                                LifeMateRuntimeLocale.select(
+                                  fa: LifeMateRuntimeLocale.select(
+                                    fa: 'انجام شد',
+                                    en: "Done",
+                                  ),
+                                  en: "done",
+                                ),
                                 style: font.copyWith(
                                   color: Colors.white,
                                   fontSize: 12,
@@ -190,7 +203,7 @@ class SoftScheduleCard extends StatelessWidget {
                           GestureDetector(
                             onTap: onNotCompleted,
                             child: Container(
-                              padding: const EdgeInsets.symmetric(
+                              padding: EdgeInsets.symmetric(
                                 vertical: 6,
                                 horizontal: 16,
                               ),
@@ -200,7 +213,13 @@ class SoftScheduleCard extends StatelessWidget {
                                 border: Border.all(color: Colors.red.shade300),
                               ),
                               child: Text(
-                                'انجام نشد',
+                                LifeMateRuntimeLocale.select(
+                                  fa: LifeMateRuntimeLocale.select(
+                                    fa: 'انجام نشد',
+                                    en: "not done",
+                                  ),
+                                  en: "not done",
+                                ),
                                 style: font.copyWith(
                                   color: Colors.red.shade700,
                                   fontSize: 12,
@@ -215,7 +234,7 @@ class SoftScheduleCard extends StatelessWidget {
                 ],
               ),
             ),
-            const SizedBox(width: 16),
+            SizedBox(width: 16),
             Container(
               width: 60,
               height: 60,

@@ -4,6 +4,7 @@ import 'package:wellmate/core/theme/app_style.dart';
 import '../../../core/utils/string_extensions.dart';
 import '../../../models/schedule_item_model.dart';
 import 'calendar_utils.dart';
+import 'package:lifemate_client/lifemate_client.dart';
 
 class ScheduleItemCard extends StatelessWidget {
   const ScheduleItemCard({
@@ -69,7 +70,7 @@ class ScheduleItemCard extends StatelessWidget {
             ),
             child: Icon(itemIcon, color: itemColor, size: 28),
           ),
-          const SizedBox(width: 16),
+          SizedBox(width: 16),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -82,7 +83,7 @@ class ScheduleItemCard extends StatelessWidget {
                         color: Colors.red.shade700,
                         size: 16,
                       ),
-                      const SizedBox(width: 4),
+                      SizedBox(width: 4),
                     ],
                     Expanded(
                       child: Text(
@@ -100,10 +101,13 @@ class ScheduleItemCard extends StatelessWidget {
                   ],
                 ),
                 if (item.dosage.isNotEmpty) ...[
-                  const SizedBox(height: 5),
+                  SizedBox(height: 5),
                   Text(
                     _isMedicine
-                        ? "${loc['med_qty'] ?? 'مقدار'}: ${item.dosage.toPersianDigit(isPersian)}"
+                        ? LifeMateRuntimeLocale.select(
+                            fa: "${loc['med_qty'] ?? 'مقدار'}: ${item.dosage.toPersianDigit(isPersian)}",
+                            en: "${loc['med_qty'] ?? 'مقدار'}: ${item.dosage.toPersianDigit(isPersian)}",
+                          )
                         : item.dosage.toPersianDigit(isPersian),
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
@@ -116,7 +120,7 @@ class ScheduleItemCard extends StatelessWidget {
               ],
             ),
           ),
-          const SizedBox(width: 10),
+          SizedBox(width: 10),
           Column(
             mainAxisAlignment: MainAxisAlignment.center,
             crossAxisAlignment: CrossAxisAlignment.end,
@@ -132,14 +136,10 @@ class ScheduleItemCard extends StatelessWidget {
                 ),
               ),
               if (showDone) ...[
-                const SizedBox(height: 4),
-                const Icon(
-                  Icons.check_circle_rounded,
-                  color: Colors.green,
-                  size: 20,
-                ),
+                SizedBox(height: 4),
+                Icon(Icons.check_circle_rounded, color: Colors.green, size: 20),
               ] else if (onTap != null) ...[
-                const SizedBox(height: 5),
+                SizedBox(height: 5),
                 Icon(
                   Icons.edit_outlined,
                   color: itemColor.withValues(alpha: 0.85),
@@ -155,7 +155,13 @@ class ScheduleItemCard extends StatelessWidget {
     if (onTap == null) return content;
     return Semantics(
       button: true,
-      label: 'ویرایش ${item.title}',
+      label: LifeMateRuntimeLocale.select(
+        fa: LifeMateRuntimeLocale.select(
+          fa: 'ویرایش ${item.title}',
+          en: "Edit ${item.title}",
+        ),
+        en: "Edit ${item.title}",
+      ),
       child: Material(
         color: Colors.transparent,
         child: InkWell(

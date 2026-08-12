@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../core/theme/app_style.dart';
 import '../../core/utils/string_extensions.dart';
 import '../../localization/app_localizations.dart';
+import 'package:lifemate_client/lifemate_client.dart';
 
 class ActiveTreatmentCard extends StatelessWidget {
   final String treatmentName;
@@ -54,7 +55,11 @@ class ActiveTreatmentCard extends StatelessWidget {
 
   @visibleForTesting
   static String formatCountdown(int totalSeconds) {
-    if (totalSeconds <= 0) return 'الان!';
+    if (totalSeconds <= 0)
+      return LifeMateRuntimeLocale.select(
+        fa: LifeMateRuntimeLocale.select(fa: 'الان!', en: "Now!"),
+        en: "Now!",
+      );
     final hours = totalSeconds ~/ 3600;
     final minutes = ((totalSeconds % 3600) ~/ 60).toString().padLeft(2, '0');
     final seconds = (totalSeconds % 60).toString().padLeft(2, '0');
@@ -182,9 +187,7 @@ class ActiveTreatmentCard extends StatelessWidget {
               children: [
                 Expanded(
                   child: _buildButton(
-                    isSubmitting
-                        ? '...'
-                        : (primaryActionLabel ?? loc['taken']),
+                    isSubmitting ? '...' : (primaryActionLabel ?? loc['taken']),
                     AppColors.primaryLight,
                     Colors.white,
                     font,

@@ -18,50 +18,84 @@ Future<void> showCarePairingQrDialog({
     barrierDismissible: false,
     builder: (dialogContext) => AlertDialog(
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(28)),
-      title: const Row(
+      title: Row(
         children: [
           Icon(Icons.qr_code_2_rounded),
           SizedBox(width: 10),
-          Expanded(child: Text('اتصال امن CareMate')),
+          Expanded(
+            child: Text(
+              LifeMateRuntimeLocale.select(
+                fa: LifeMateRuntimeLocale.select(
+                  fa: 'اتصال امن CareMate',
+                  en: "CareMate secure connection",
+                ),
+                en: "CareMate secure connection",
+              ),
+            ),
+          ),
         ],
       ),
       content: SingleChildScrollView(
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Text(
-              'در CareMate گزینه «اسکن QR» را بزنید و این تصویر را فقط به مراقب مورد اعتماد نشان دهید.',
+            Text(
+              LifeMateRuntimeLocale.select(
+                fa: LifeMateRuntimeLocale.select(
+                  fa: 'در CareMate گزینه «اسکن QR» را بزنید و این تصویر را فقط به مراقب مورد اعتماد نشان دهید.',
+                  en: "Tap \"Scan QR\" in CareMate and show this image only to a trusted caregiver.",
+                ),
+                en: "Tap \"Scan QR\" in CareMate and show this image only to a trusted caregiver.",
+              ),
               textAlign: TextAlign.center,
               style: TextStyle(height: 1.55),
             ),
-            const SizedBox(height: 18),
+            SizedBox(height: 18),
             Container(
-              padding: const EdgeInsets.all(14),
+              padding: EdgeInsets.all(14),
               decoration: BoxDecoration(
                 color: Colors.white,
                 borderRadius: BorderRadius.circular(22),
-                border: Border.all(color: const Color(0xFFE5ECE8)),
+                border: Border.all(color: Color(0xFFE5ECE8)),
               ),
               child: QrImageView(
                 data: payload,
                 version: QrVersions.auto,
                 size: 230,
-                semanticsLabel: 'کد اتصال مراقب LifeMate',
+                semanticsLabel: LifeMateRuntimeLocale.select(
+                  fa: LifeMateRuntimeLocale.select(
+                    fa: 'کد اتصال مراقب LifeMate',
+                    en: "LifeMate Caregiver Connection Code",
+                  ),
+                  en: "LifeMate Caregiver Connection Code",
+                ),
                 errorCorrectionLevel: QrErrorCorrectLevel.M,
               ),
             ),
-            const SizedBox(height: 14),
+            SizedBox(height: 14),
             Container(
               width: double.infinity,
-              padding: const EdgeInsets.all(12),
+              padding: EdgeInsets.all(12),
               decoration: BoxDecoration(
-                color: const Color(0xFFFFF7E8),
+                color: Color(0xFFFFF7E8),
                 borderRadius: BorderRadius.circular(16),
               ),
               child: Text(
                 expiresAt == null
-                    ? 'این دعوت کوتاه‌مدت و یک‌بارمصرف است.'
-                    : 'مهلت استفاده: ${_formatDateTime(expiresAt)}؛ پس از پذیرش یا پایان مهلت، QR دیگر معتبر نیست.',
+                    ? LifeMateRuntimeLocale.select(
+                        fa: LifeMateRuntimeLocale.select(
+                          fa: 'این دعوت کوتاه‌مدت و یک‌بارمصرف است.',
+                          en: "This invitation is short-term and disposable.",
+                        ),
+                        en: "This invitation is short-term and disposable.",
+                      )
+                    : LifeMateRuntimeLocale.select(
+                        fa: LifeMateRuntimeLocale.select(
+                          fa: 'مهلت استفاده: ${_formatDateTime(expiresAt)}؛ پس از پذیرش یا پایان مهلت، QR دیگر معتبر نیست.',
+                          en: "Expiry date: ${_formatDateTime(expiresAt)}; Once accepted or expired, the QR is no longer valid.",
+                        ),
+                        en: "Expiry date: ${_formatDateTime(expiresAt)}; Once accepted or expired, the QR is no longer valid.",
+                      ),
                 textAlign: TextAlign.center,
                 style: const TextStyle(
                   color: Color(0xFF8B5E12),
@@ -79,19 +113,40 @@ Future<void> showCarePairingQrDialog({
             await Clipboard.setData(ClipboardData(text: token));
             if (dialogContext.mounted) {
               ScaffoldMessenger.of(dialogContext).showSnackBar(
-                const SnackBar(
-                  content: Text('کد پشتیبان کپی شد.'),
+                SnackBar(
+                  content: Text(
+                    LifeMateRuntimeLocale.select(
+                      fa: LifeMateRuntimeLocale.select(
+                        fa: 'کد پشتیبان کپی شد.',
+                        en: "Backup code copied.",
+                      ),
+                      en: "Backup code copied.",
+                    ),
+                  ),
                   behavior: SnackBarBehavior.floating,
                 ),
               );
             }
           },
-          icon: const Icon(Icons.copy_rounded),
-          label: const Text('کپی کد پشتیبان'),
+          icon: Icon(Icons.copy_rounded),
+          label: Text(
+            LifeMateRuntimeLocale.select(
+              fa: LifeMateRuntimeLocale.select(
+                fa: 'کپی کد پشتیبان',
+                en: "Copy the backup code",
+              ),
+              en: "Copy the backup code",
+            ),
+          ),
         ),
         FilledButton(
           onPressed: () => Navigator.of(dialogContext).pop(),
-          child: const Text('تمام'),
+          child: Text(
+            LifeMateRuntimeLocale.select(
+              fa: LifeMateRuntimeLocale.select(fa: 'تمام', en: "all"),
+              en: "all",
+            ),
+          ),
         ),
       ],
     ),

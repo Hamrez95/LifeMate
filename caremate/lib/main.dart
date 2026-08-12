@@ -122,6 +122,10 @@ class CareMateApp extends StatelessWidget {
         GlobalWidgetsLocalizations.delegate,
         GlobalCupertinoLocalizations.delegate,
       ],
+      builder: (context, child) => Directionality(
+        textDirection: isPersian ? TextDirection.rtl : TextDirection.ltr,
+        child: child ?? const SizedBox.shrink(),
+      ),
       home: home ?? _productionHome(runtimeConfig, authInitialized),
     );
   }

@@ -115,7 +115,16 @@ class _HomeScreenContentState extends State<HomeScreenContent> {
           return ScheduleItemModel(
             id: dose['id'].toString(),
             type: 'medicine',
-            title: (medication['name'] ?? 'دارو').toString(),
+            title:
+                (medication['name'] ??
+                        LifeMateRuntimeLocale.select(
+                          fa: LifeMateRuntimeLocale.select(
+                            fa: 'دارو',
+                            en: "Medication",
+                          ),
+                          en: "medicine",
+                        ))
+                    .toString(),
             time: time,
             dosage: (plan['doseText'] ?? '').toString(),
             status: status,
@@ -124,7 +133,13 @@ class _HomeScreenContentState extends State<HomeScreenContent> {
               dose['scheduledAtUtc']?.toString() ?? '',
             )?.toUtc(),
             isDone: status == 'taken' || status == 'skipped',
-            frequency: 'طبق برنامه درمان',
+            frequency: LifeMateRuntimeLocale.select(
+              fa: LifeMateRuntimeLocale.select(
+                fa: 'طبق برنامه درمان',
+                en: "According to the treatment plan",
+              ),
+              en: "According to the treatment plan",
+            ),
             startDate: dose['scheduledLocalDate'] == null
                 ? today
                 : DateTime.tryParse(dose['scheduledLocalDate'].toString()),
@@ -162,7 +177,21 @@ class _HomeScreenContentState extends State<HomeScreenContent> {
             type: type,
             title:
                 _nonEmpty(event['title']) ??
-                (type == 'injection' ? 'تزریق' : 'ویزیت'),
+                (type == 'injection'
+                    ? LifeMateRuntimeLocale.select(
+                        fa: LifeMateRuntimeLocale.select(
+                          fa: 'تزریق',
+                          en: "Injection",
+                        ),
+                        en: "Injection",
+                      )
+                    : LifeMateRuntimeLocale.select(
+                        fa: LifeMateRuntimeLocale.select(
+                          fa: 'ویزیت',
+                          en: "Appointment",
+                        ),
+                        en: "visit",
+                      )),
             time: rawTime.length >= 5 ? rawTime.substring(0, 5) : rawTime,
             dosage: details,
             status: status,
@@ -171,7 +200,21 @@ class _HomeScreenContentState extends State<HomeScreenContent> {
               event['scheduledAtUtc']?.toString() ?? '',
             )?.toUtc(),
             isDone: status == 'completed' || status == 'cancelled',
-            frequency: type == 'injection' ? 'تزریق' : 'ویزیت',
+            frequency: type == 'injection'
+                ? LifeMateRuntimeLocale.select(
+                    fa: LifeMateRuntimeLocale.select(
+                      fa: 'تزریق',
+                      en: "Injection",
+                    ),
+                    en: "Injection",
+                  )
+                : LifeMateRuntimeLocale.select(
+                    fa: LifeMateRuntimeLocale.select(
+                      fa: 'ویزیت',
+                      en: "Appointment",
+                    ),
+                    en: "visit",
+                  ),
             startDate: DateTime.tryParse(
               event['scheduledLocalDate']?.toString() ?? '',
             ),
@@ -244,7 +287,13 @@ class _HomeScreenContentState extends State<HomeScreenContent> {
       }
       setState(() {
         isLoading = false;
-        loadError = 'برنامه امروز دریافت نشد. اتصال را بررسی کنید.';
+        loadError = LifeMateRuntimeLocale.select(
+          fa: LifeMateRuntimeLocale.select(
+            fa: 'برنامه امروز دریافت نشد. اتصال را بررسی کنید.',
+            en: "Today's program was not received. Check the connection.",
+          ),
+          en: "Today's program was not received. Check the connection.",
+        );
       });
     }
   }
@@ -301,8 +350,20 @@ class _HomeScreenContentState extends State<HomeScreenContent> {
         SnackBar(
           content: Text(
             status == 'taken'
-                ? '${item.title} به عنوان مصرف‌شده ثبت شد.'
-                : '${item.title} به عنوان مصرف‌نشده ثبت شد.',
+                ? LifeMateRuntimeLocale.select(
+                    fa: LifeMateRuntimeLocale.select(
+                      fa: '${item.title} به عنوان مصرف‌شده ثبت شد.',
+                      en: "${item.title} was marked as taken.",
+                    ),
+                    en: "${item.title} registered as spent.",
+                  )
+                : LifeMateRuntimeLocale.select(
+                    fa: LifeMateRuntimeLocale.select(
+                      fa: '${item.title} به عنوان مصرف‌نشده ثبت شد.',
+                      en: "${item.title} was marked as not taken.",
+                    ),
+                    en: "${item.title} was registered as unused.",
+                  ),
           ),
           behavior: SnackBarBehavior.floating,
         ),
@@ -312,8 +373,16 @@ class _HomeScreenContentState extends State<HomeScreenContent> {
       debugPrint('WellMate dose report failed: $error');
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('ثبت مصرف انجام نشد؛ دوباره تلاش کنید.'),
+          SnackBar(
+            content: Text(
+              LifeMateRuntimeLocale.select(
+                fa: LifeMateRuntimeLocale.select(
+                  fa: 'ثبت مصرف انجام نشد؛ دوباره تلاش کنید.',
+                  en: "Consumption registration was not done; Try again.",
+                ),
+                en: "Consumption registration was not done; Try again.",
+              ),
+            ),
             behavior: SnackBarBehavior.floating,
           ),
         );
@@ -336,9 +405,15 @@ class _HomeScreenContentState extends State<HomeScreenContent> {
     if (item.seriesId != null && item.id != item.seriesId) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
+          SnackBar(
             content: Text(
-              'ثبت وضعیت یک نوبت تکرارشونده از این کارت هنوز پشتیبانی نمی‌شود.',
+              LifeMateRuntimeLocale.select(
+                fa: LifeMateRuntimeLocale.select(
+                  fa: 'ثبت وضعیت یک نوبت تکرارشونده از این کارت هنوز پشتیبانی نمی‌شود.',
+                  en: "Registering the status of a recurring turn from this card is not yet supported.",
+                ),
+                en: "Registering the status of a recurring turn from this card is not yet supported.",
+              ),
             ),
             behavior: SnackBarBehavior.floating,
           ),
@@ -371,8 +446,20 @@ class _HomeScreenContentState extends State<HomeScreenContent> {
         SnackBar(
           content: Text(
             status == 'completed'
-                ? '${item.title} به عنوان انجام‌شده ثبت شد.'
-                : '${item.title} به عنوان انجام‌نشده ثبت شد.',
+                ? LifeMateRuntimeLocale.select(
+                    fa: LifeMateRuntimeLocale.select(
+                      fa: '${item.title} به عنوان انجام‌شده ثبت شد.',
+                      en: "${item.title} was marked as done.",
+                    ),
+                    en: "${item.title} registered as done.",
+                  )
+                : LifeMateRuntimeLocale.select(
+                    fa: LifeMateRuntimeLocale.select(
+                      fa: '${item.title} به عنوان انجام‌نشده ثبت شد.',
+                      en: "${item.title} was marked as not done.",
+                    ),
+                    en: "${item.title} was registered as not committed.",
+                  ),
           ),
           behavior: SnackBarBehavior.floating,
         ),
@@ -382,8 +469,16 @@ class _HomeScreenContentState extends State<HomeScreenContent> {
       debugPrint('WellMate care event status report failed: $error');
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('ثبت وضعیت انجام نشد؛ دوباره تلاش کنید.'),
+          SnackBar(
+            content: Text(
+              LifeMateRuntimeLocale.select(
+                fa: LifeMateRuntimeLocale.select(
+                  fa: 'ثبت وضعیت انجام نشد؛ دوباره تلاش کنید.',
+                  en: "status registration was not done; Try again.",
+                ),
+                en: "status registration was not done; Try again.",
+              ),
+            ),
             behavior: SnackBarBehavior.floating,
           ),
         );
@@ -456,19 +551,38 @@ class _HomeScreenContentState extends State<HomeScreenContent> {
         onEdit: widget.onOpenTreatments,
         isSubmitting: _submitting.contains(item.id),
         supportingText: overdue
-            ? (isPersian ? 'مصرف‌نشده • ${item.time}' : 'Missed • ${item.time}')
+            ? (isPersian
+                  ? LifeMateRuntimeLocale.select(
+                      fa: 'مصرف‌نشده • ${item.time}',
+                      en: "Unused • ${item.time}",
+                    )
+                  : 'Missed • ${item.time}')
             : null,
         countdownLabel: overdue ? (isPersian ? 'گذشته' : 'Missed') : null,
         accentColor: overdue ? missedColor : null,
         progressColor: overdue ? missedColor : null,
-        progressBackgroundColor: overdue ? const Color(0xFFFFEEEE) : null,
+        progressBackgroundColor: overdue ? Color(0xFFFFEEEE) : null,
         font: font,
       );
     }
 
     final isAppointment = item.type == 'appointment';
     final isMissed = item.status == 'missed';
-    final eventLabel = isAppointment ? 'وقت ویزیت' : 'زمان تزریق';
+    final eventLabel = isAppointment
+        ? LifeMateRuntimeLocale.select(
+            fa: LifeMateRuntimeLocale.select(
+              fa: 'وقت ویزیت',
+              en: "Visiting time",
+            ),
+            en: "Visiting time",
+          )
+        : LifeMateRuntimeLocale.select(
+            fa: LifeMateRuntimeLocale.select(
+              fa: 'زمان تزریق',
+              en: "injection time",
+            ),
+            en: "injection time",
+          );
     final missedColor = const Color(0xFFE06464);
     final eventAccent = isAppointment
         ? AppColors.careVisit
@@ -489,17 +603,30 @@ class _HomeScreenContentState extends State<HomeScreenContent> {
           : () => _reportCareEventStatus(item, 'cancelled'),
       onEdit: _submitting.contains(item.id) ? null : () => _editCareEvent(item),
       isSubmitting: _submitting.contains(item.id),
-      primaryActionLabel: isPersian ? 'انجام شد' : 'Done',
-      editActionLabel: isPersian ? 'ویرایش' : 'Edit',
-      secondaryActionLabel: isPersian ? 'انجام نشد' : 'Not done',
+      primaryActionLabel: isPersian
+          ? LifeMateRuntimeLocale.select(fa: 'انجام شد', en: "Done")
+          : 'Done',
+      editActionLabel: isPersian
+          ? LifeMateRuntimeLocale.select(fa: 'ویرایش', en: "Edit")
+          : 'Edit',
+      secondaryActionLabel: isPersian
+          ? LifeMateRuntimeLocale.select(fa: 'انجام نشد', en: "not done")
+          : 'Not done',
       supportingText: isMissed
-          ? '$eventLabel انجام‌نشده • ${item.time}'
+          ? LifeMateRuntimeLocale.select(
+              fa: '$eventLabel انجام‌نشده • ${item.time}',
+              en: "$eventLabel not done • ${item.time}",
+            )
           : '$eventLabel • ${item.time}',
-      countdownLabel: isMissed ? (isPersian ? 'گذشته' : 'Missed') : null,
+      countdownLabel: isMissed
+          ? (isPersian
+                ? LifeMateRuntimeLocale.select(fa: 'گذشته', en: "the past")
+                : 'Missed')
+          : null,
       accentColor: isMissed ? missedColor : eventAccent,
       progressColor: isMissed ? missedColor : eventAccent,
       progressBackgroundColor: isMissed
-          ? const Color(0xFFFFEEEE)
+          ? Color(0xFFFFEEEE)
           : AppColors.background,
       fallbackIcon: isAppointment
           ? Icons.medical_services_rounded
@@ -524,10 +651,18 @@ class _HomeScreenContentState extends State<HomeScreenContent> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Padding(
-            padding: const EdgeInsetsDirectional.fromSTEB(24, 20, 24, 16),
+            padding: EdgeInsetsDirectional.fromSTEB(24, 20, 24, 16),
             child: Text(
               isPersian
-                  ? (_displayName.isEmpty ? 'سلام،' : 'سلام $_displayName جان،')
+                  ? (_displayName.isEmpty
+                        ? LifeMateRuntimeLocale.select(
+                            fa: 'سلام،',
+                            en: "Hello,",
+                          )
+                        : LifeMateRuntimeLocale.select(
+                            fa: 'سلام $_displayName جان،',
+                            en: "Hi $_displayName John,",
+                          ))
                   : (_displayName.isEmpty ? 'Hello,' : 'Hi $_displayName,'),
               style: font.copyWith(
                 fontSize: 20,
@@ -537,20 +672,28 @@ class _HomeScreenContentState extends State<HomeScreenContent> {
             ),
           ),
           if (isLoading)
-            const Expanded(child: Center(child: CircularProgressIndicator()))
+            Expanded(child: Center(child: CircularProgressIndicator()))
           else if (loadError != null)
             Expanded(
               child: Center(
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    const Icon(Icons.cloud_off_rounded, size: 52),
-                    const SizedBox(height: 12),
+                    Icon(Icons.cloud_off_rounded, size: 52),
+                    SizedBox(height: 12),
                     Text(loadError!, textAlign: TextAlign.center),
-                    const SizedBox(height: 14),
+                    SizedBox(height: 14),
                     FilledButton(
                       onPressed: _retryManually,
-                      child: const Text('تلاش دوباره'),
+                      child: Text(
+                        LifeMateRuntimeLocale.select(
+                          fa: LifeMateRuntimeLocale.select(
+                            fa: 'تلاش دوباره',
+                            en: "Try again",
+                          ),
+                          en: "Try again",
+                        ),
+                      ),
                     ),
                   ],
                 ),
@@ -558,7 +701,7 @@ class _HomeScreenContentState extends State<HomeScreenContent> {
             )
           else ...[
             Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 20),
+              padding: EdgeInsets.symmetric(horizontal: 20),
               child: countdownItems.isEmpty
                   ? _TreatmentTimerPlaceholder(
                       hasTreatmentPlans: _hasTreatmentPlans,
@@ -573,11 +716,11 @@ class _HomeScreenContentState extends State<HomeScreenContent> {
                       isPersian: isPersian,
                     ),
             ),
-            const SizedBox(height: 24),
+            SizedBox(height: 24),
             Expanded(
               child: Container(
                 width: double.infinity,
-                decoration: const BoxDecoration(
+                decoration: BoxDecoration(
                   color: Colors.white,
                   borderRadius: BorderRadius.vertical(top: Radius.circular(30)),
                 ),
@@ -585,14 +728,16 @@ class _HomeScreenContentState extends State<HomeScreenContent> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Padding(
-                      padding: const EdgeInsetsDirectional.fromSTEB(
-                        24,
-                        24,
-                        24,
-                        16,
-                      ),
+                      padding: EdgeInsetsDirectional.fromSTEB(24, 24, 24, 16),
                       child: Text(
-                        loc['today_schedule'] ?? 'برنامه امروز',
+                        loc['today_schedule'] ??
+                            LifeMateRuntimeLocale.select(
+                              fa: LifeMateRuntimeLocale.select(
+                                fa: 'برنامه امروز',
+                                en: "Today's program",
+                              ),
+                              en: "Today's program",
+                            ),
                         style: font.copyWith(
                           fontSize: 18,
                           fontWeight: FontWeight.bold,
@@ -609,7 +754,7 @@ class _HomeScreenContentState extends State<HomeScreenContent> {
                           : RefreshIndicator(
                               onRefresh: _fetchScheduleFromBackend,
                               child: ListView.separated(
-                                padding: const EdgeInsetsDirectional.fromSTEB(
+                                padding: EdgeInsetsDirectional.fromSTEB(
                                   24,
                                   0,
                                   24,
@@ -617,7 +762,7 @@ class _HomeScreenContentState extends State<HomeScreenContent> {
                                 ),
                                 itemCount: visibleToday.length,
                                 separatorBuilder: (_, __) =>
-                                    const SizedBox(height: 12),
+                                    SizedBox(height: 12),
                                 itemBuilder: (context, index) {
                                   final item = visibleToday[index];
                                   final missed = isHomeScheduleOverdue(
@@ -804,11 +949,35 @@ class _TreatmentTimerPlaceholder extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final title = hasTreatmentPlans
-        ? 'برنامه بعدی در راه است'
-        : 'شروع مراقبت از خودت';
+        ? LifeMateRuntimeLocale.select(
+            fa: LifeMateRuntimeLocale.select(
+              fa: 'برنامه بعدی در راه است',
+              en: "The next program is coming",
+            ),
+            en: "The next program is coming",
+          )
+        : LifeMateRuntimeLocale.select(
+            fa: LifeMateRuntimeLocale.select(
+              fa: 'شروع مراقبت از خودت',
+              en: "Start taking care of yourself",
+            ),
+            en: "Start taking care of yourself",
+          );
     final description = hasTreatmentPlans
-        ? 'وقتی زمان بعدی برسد، شمارش معکوس همین‌جا نمایش داده می‌شود.'
-        : 'اولین برنامه را ثبت کن؛ بعد از آن برنامه امروز و شمارش معکوس خودکار می‌شوند.';
+        ? LifeMateRuntimeLocale.select(
+            fa: LifeMateRuntimeLocale.select(
+              fa: 'وقتی زمان بعدی برسد، شمارش معکوس همین‌جا نمایش داده می‌شود.',
+              en: "When the next time arrives, the countdown will be displayed here.",
+            ),
+            en: "When the next time arrives, the countdown will be displayed here.",
+          )
+        : LifeMateRuntimeLocale.select(
+            fa: LifeMateRuntimeLocale.select(
+              fa: 'اولین برنامه را ثبت کن؛ بعد از آن برنامه امروز و شمارش معکوس خودکار می‌شوند.',
+              en: "Record the first program; After that, today's schedule and countdown will be automatic.",
+            ),
+            en: "Record the first program; After that, today's schedule and countdown will be automatic.",
+          );
 
     return TweenAnimationBuilder<double>(
       tween: Tween<double>(begin: 0.96, end: 1),
@@ -857,7 +1026,7 @@ class _TreatmentTimerPlaceholder extends StatelessWidget {
                     color: AppColors.primary,
                   ),
                   if (!hasTreatmentPlans)
-                    const Positioned(
+                    Positioned(
                       left: 9,
                       bottom: 9,
                       child: Icon(
@@ -869,23 +1038,26 @@ class _TreatmentTimerPlaceholder extends StatelessWidget {
                 ],
               ),
             ),
-            const SizedBox(width: 14),
+            SizedBox(width: 14),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   if (!hasTreatmentPlans) ...[
                     Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 8,
-                        vertical: 4,
-                      ),
+                      padding: EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                       decoration: BoxDecoration(
                         color: AppColors.primary.withValues(alpha: 0.09),
                         borderRadius: BorderRadius.circular(20),
                       ),
-                      child: const Text(
-                        'اولین قدم',
+                      child: Text(
+                        LifeMateRuntimeLocale.select(
+                          fa: LifeMateRuntimeLocale.select(
+                            fa: 'اولین قدم',
+                            en: "The first step",
+                          ),
+                          en: "The first step",
+                        ),
                         style: TextStyle(
                           fontSize: 10.5,
                           fontWeight: FontWeight.w800,
@@ -893,7 +1065,7 @@ class _TreatmentTimerPlaceholder extends StatelessWidget {
                         ),
                       ),
                     ),
-                    const SizedBox(height: 7),
+                    SizedBox(height: 7),
                   ],
                   Text(
                     title,
@@ -903,7 +1075,7 @@ class _TreatmentTimerPlaceholder extends StatelessWidget {
                       color: AppColors.darkBlue,
                     ),
                   ),
-                  const SizedBox(height: 6),
+                  SizedBox(height: 6),
                   Text(
                     description,
                     style: font.copyWith(
@@ -912,7 +1084,7 @@ class _TreatmentTimerPlaceholder extends StatelessWidget {
                       color: AppColors.textSecondary,
                     ),
                   ),
-                  const SizedBox(height: 7),
+                  SizedBox(height: 7),
                   TextButton.icon(
                     onPressed: onAction,
                     style: TextButton.styleFrom(
@@ -927,8 +1099,20 @@ class _TreatmentTimerPlaceholder extends StatelessWidget {
                     ),
                     label: Text(
                       hasTreatmentPlans
-                          ? 'مشاهده درمان‌ها'
-                          : 'ثبت اولین برنامه',
+                          ? LifeMateRuntimeLocale.select(
+                              fa: LifeMateRuntimeLocale.select(
+                                fa: 'مشاهده درمان‌ها',
+                                en: "View treatments",
+                              ),
+                              en: "View treatments",
+                            )
+                          : LifeMateRuntimeLocale.select(
+                              fa: LifeMateRuntimeLocale.select(
+                                fa: 'ثبت اولین برنامه',
+                                en: "Registration of the first program",
+                              ),
+                              en: "Registration of the first program",
+                            ),
                     ),
                   ),
                 ],
@@ -955,11 +1139,35 @@ class _HomeEmptyState extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final title = hasTreatmentPlans
-        ? 'امروز برنامه‌ای باقی نمانده'
-        : 'امروز را از یک برنامه ساده شروع کن';
+        ? LifeMateRuntimeLocale.select(
+            fa: LifeMateRuntimeLocale.select(
+              fa: 'امروز برنامه‌ای باقی نمانده',
+              en: "There are no programs left today",
+            ),
+            en: "There are no programs left today",
+          )
+        : LifeMateRuntimeLocale.select(
+            fa: LifeMateRuntimeLocale.select(
+              fa: 'امروز را از یک برنامه ساده شروع کن',
+              en: "Start today with a simple plan",
+            ),
+            en: "Start today with a simple plan",
+          );
     final description = hasTreatmentPlans
-        ? 'برنامه بعدی به‌صورت خودکار در خانه و تقویم نمایش داده می‌شود.'
-        : 'دارو، ویزیت یا تزریق را ثبت کن تا LifeMate زمان‌بندی و یادآوری‌ها را برایت مرتب کند.';
+        ? LifeMateRuntimeLocale.select(
+            fa: LifeMateRuntimeLocale.select(
+              fa: 'برنامه بعدی به‌صورت خودکار در خانه و تقویم نمایش داده می‌شود.',
+              en: "The next program is automatically displayed in the home and calendar.",
+            ),
+            en: "The next program is automatically displayed in the home and calendar.",
+          )
+        : LifeMateRuntimeLocale.select(
+            fa: LifeMateRuntimeLocale.select(
+              fa: 'دارو، ویزیت یا تزریق را ثبت کن تا LifeMate زمان‌بندی و یادآوری‌ها را برایت مرتب کند.',
+              en: "Record a medication, visit, or injection and LifeMate will organize the schedule and reminders for you.",
+            ),
+            en: "Record a medication, visit, or injection and LifeMate will organize the schedule and reminders for you.",
+          );
 
     return Center(
       child: SingleChildScrollView(
@@ -989,7 +1197,7 @@ class _HomeEmptyState extends StatelessWidget {
                 ),
               ),
             ),
-            const SizedBox(height: 14),
+            SizedBox(height: 14),
             Text(
               title,
               textAlign: TextAlign.center,
@@ -999,7 +1207,7 @@ class _HomeEmptyState extends StatelessWidget {
                 color: AppColors.darkBlue,
               ),
             ),
-            const SizedBox(height: 7),
+            SizedBox(height: 7),
             Text(
               description,
               textAlign: TextAlign.center,
@@ -1010,36 +1218,62 @@ class _HomeEmptyState extends StatelessWidget {
               ),
             ),
             if (!hasTreatmentPlans) ...[
-              const SizedBox(height: 16),
-              const Row(
+              SizedBox(height: 16),
+              Row(
                 children: [
                   Expanded(
                     child: _EmptyCareTypeChip(
                       icon: Icons.medication_rounded,
-                      label: 'دارو',
+                      label: LifeMateRuntimeLocale.select(
+                        fa: LifeMateRuntimeLocale.select(
+                          fa: 'دارو',
+                          en: "Medication",
+                        ),
+                        en: "medicine",
+                      ),
                     ),
                   ),
                   SizedBox(width: 8),
                   Expanded(
                     child: _EmptyCareTypeChip(
                       icon: Icons.medical_services_rounded,
-                      label: 'ویزیت',
+                      label: LifeMateRuntimeLocale.select(
+                        fa: LifeMateRuntimeLocale.select(
+                          fa: 'ویزیت',
+                          en: "Appointment",
+                        ),
+                        en: "visit",
+                      ),
                     ),
                   ),
                   SizedBox(width: 8),
                   Expanded(
                     child: _EmptyCareTypeChip(
                       icon: Icons.vaccines_rounded,
-                      label: 'تزریق',
+                      label: LifeMateRuntimeLocale.select(
+                        fa: LifeMateRuntimeLocale.select(
+                          fa: 'تزریق',
+                          en: "Injection",
+                        ),
+                        en: "Injection",
+                      ),
                     ),
                   ),
                 ],
               ),
-              const SizedBox(height: 16),
+              SizedBox(height: 16),
               FilledButton.icon(
                 onPressed: onAddTreatment,
-                icon: const Icon(Icons.add_rounded),
-                label: const Text('ثبت اولین برنامه'),
+                icon: Icon(Icons.add_rounded),
+                label: Text(
+                  LifeMateRuntimeLocale.select(
+                    fa: LifeMateRuntimeLocale.select(
+                      fa: 'ثبت اولین برنامه',
+                      en: "Registration of the first program",
+                    ),
+                    en: "Registration of the first program",
+                  ),
+                ),
               ),
             ],
           ],

@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 
 import '../../core/theme/app_style.dart';
 import '../../core/utils/persian_date_utils.dart';
+import 'package:lifemate_client/lifemate_client.dart';
 
 enum HealthEntryType {
   weight,
@@ -86,7 +87,9 @@ class _HealthEntrySheetState extends State<HealthEntrySheet> {
   Widget build(BuildContext context) {
     final media = MediaQuery.of(context);
     return Directionality(
-      textDirection: TextDirection.rtl,
+      textDirection: LifeMateRuntimeLocale.isPersian
+          ? TextDirection.rtl
+          : TextDirection.ltr,
       child: SafeArea(
         top: false,
         child: Padding(
@@ -132,43 +135,55 @@ class _HealthEntrySheetState extends State<HealthEntrySheet> {
                             Container(
                               padding: const EdgeInsets.all(12),
                               decoration: BoxDecoration(
-                                color: const Color(0xFFFFF1F1),
+                                color: Color(0xFFFFF1F1),
                                 borderRadius: BorderRadius.circular(14),
                               ),
                               child: Text(
                                 _submitError!,
-                                style: const TextStyle(
+                                style: TextStyle(
                                   color: Color(0xFFB42318),
                                   fontWeight: FontWeight.w700,
                                 ),
                               ),
                             ),
                           ],
-                          const SizedBox(height: 20),
+                          SizedBox(height: 20),
                           FilledButton.icon(
-                            key: const ValueKey('health-entry-save'),
+                            key: ValueKey('health-entry-save'),
                             onPressed: _saving ? null : _submit,
                             style: FilledButton.styleFrom(
-                              minimumSize: const Size.fromHeight(54),
+                              minimumSize: Size.fromHeight(54),
                               backgroundColor: AppColors.primary,
                               shape: RoundedRectangleBorder(
                                 borderRadius: BorderRadius.circular(17),
                               ),
                             ),
                             icon: _saving
-                                ? const SizedBox.square(
+                                ? SizedBox.square(
                                     dimension: 20,
                                     child: CircularProgressIndicator(
                                       strokeWidth: 2.4,
                                       color: Colors.white,
                                     ),
                                   )
-                                : const Icon(Icons.check_rounded),
+                                : Icon(Icons.check_rounded),
                             label: Text(
-                              _saving ? 'در حال ثبت…' : 'ثبت در سلامت من',
-                              style: const TextStyle(
-                                fontWeight: FontWeight.w900,
-                              ),
+                              _saving
+                                  ? LifeMateRuntimeLocale.select(
+                                      fa: LifeMateRuntimeLocale.select(
+                                        fa: 'در حال ثبت…',
+                                        en: "Saving…",
+                                      ),
+                                      en: "Saving…",
+                                    )
+                                  : LifeMateRuntimeLocale.select(
+                                      fa: LifeMateRuntimeLocale.select(
+                                        fa: 'ثبت در سلامت من',
+                                        en: "Save to My Health",
+                                      ),
+                                      en: "Save to My Health",
+                                    ),
+                              style: TextStyle(fontWeight: FontWeight.w900),
                             ),
                           ),
                         ],
@@ -187,6 +202,7 @@ class _HealthEntrySheetState extends State<HealthEntrySheet> {
   Widget _buildFields() {
     final numberFormatters = <TextInputFormatter>[
       FilteringTextInputFormatter.allow(RegExp(r'[0-9۰-۹\.\,]')),
+      const LifeMateLocaleDigitInputFormatter(),
     ];
     switch (widget.type) {
       case HealthEntryType.bloodPressure:
@@ -195,19 +211,40 @@ class _HealthEntrySheetState extends State<HealthEntrySheet> {
             Expanded(
               child: _MetricField(
                 controller: _secondaryController,
-                label: 'دیاستول',
-                hint: 'مثلاً ۷۶',
+                label: LifeMateRuntimeLocale.select(
+                  fa: LifeMateRuntimeLocale.select(
+                    fa: 'دیاستول',
+                    en: "diastole",
+                  ),
+                  en: "diastole",
+                ),
+                hint: LifeMateRuntimeLocale.select(
+                  fa: LifeMateRuntimeLocale.select(
+                    fa: 'مثلاً ۷۶',
+                    en: "For example, 76",
+                  ),
+                  en: "For example, 76",
+                ),
                 suffix: 'mmHg',
                 formatters: numberFormatters,
                 validator: (value) => _validateNumber(value, 20, 200),
               ),
             ),
-            const SizedBox(width: 12),
+            SizedBox(width: 12),
             Expanded(
               child: _MetricField(
                 controller: _primaryController,
-                label: 'سیستول',
-                hint: 'مثلاً ۱۱۸',
+                label: LifeMateRuntimeLocale.select(
+                  fa: LifeMateRuntimeLocale.select(fa: 'سیستول', en: "systole"),
+                  en: "systole",
+                ),
+                hint: LifeMateRuntimeLocale.select(
+                  fa: LifeMateRuntimeLocale.select(
+                    fa: 'مثلاً ۱۱۸',
+                    en: "For example, 118",
+                  ),
+                  en: "For example, 118",
+                ),
                 suffix: 'mmHg',
                 formatters: numberFormatters,
                 validator: (value) => _validateNumber(value, 40, 300),
@@ -221,20 +258,38 @@ class _HealthEntrySheetState extends State<HealthEntrySheet> {
             Expanded(
               child: _MetricField(
                 controller: _minutesController,
-                label: 'دقیقه',
-                hint: '۱۲',
-                suffix: 'دقیقه',
+                label: LifeMateRuntimeLocale.select(
+                  fa: LifeMateRuntimeLocale.select(fa: 'دقیقه', en: "minutes"),
+                  en: "minutes",
+                ),
+                hint: LifeMateRuntimeLocale.select(
+                  fa: LifeMateRuntimeLocale.select(fa: '۱۲', en: "12"),
+                  en: "12",
+                ),
+                suffix: LifeMateRuntimeLocale.select(
+                  fa: LifeMateRuntimeLocale.select(fa: 'دقیقه', en: "minutes"),
+                  en: "minutes",
+                ),
                 formatters: numberFormatters,
                 validator: (value) => _validateNumber(value, 0, 59),
               ),
             ),
-            const SizedBox(width: 12),
+            SizedBox(width: 12),
             Expanded(
               child: _MetricField(
                 controller: _primaryController,
-                label: 'ساعت',
-                hint: '۷',
-                suffix: 'ساعت',
+                label: LifeMateRuntimeLocale.select(
+                  fa: LifeMateRuntimeLocale.select(fa: 'ساعت', en: "hour"),
+                  en: "hour",
+                ),
+                hint: LifeMateRuntimeLocale.select(
+                  fa: LifeMateRuntimeLocale.select(fa: '۷', en: "7"),
+                  en: "7",
+                ),
+                suffix: LifeMateRuntimeLocale.select(
+                  fa: LifeMateRuntimeLocale.select(fa: 'ساعت', en: "hour"),
+                  en: "hour",
+                ),
                 formatters: numberFormatters,
                 validator: (value) => _validateNumber(value, 0, 24),
               ),
@@ -248,38 +303,89 @@ class _HealthEntrySheetState extends State<HealthEntrySheet> {
           maxLines: 7,
           maxLength: 500,
           textInputAction: TextInputAction.newline,
-          decoration: const InputDecoration(
-            labelText: 'یادداشت سلامت',
-            hintText: 'هر چیزی که دوست داری برای این روز یادت بماند…',
+          decoration: InputDecoration(
+            labelText: LifeMateRuntimeLocale.select(
+              fa: LifeMateRuntimeLocale.select(
+                fa: 'یادداشت سلامت',
+                en: "health note",
+              ),
+              en: "health note",
+            ),
+            hintText: LifeMateRuntimeLocale.select(
+              fa: LifeMateRuntimeLocale.select(
+                fa: 'هر چیزی که دوست داری برای این روز یادت بماند…',
+                en: "Whatever you want to remember for this day…",
+              ),
+              en: "Whatever you want to remember for this day…",
+            ),
             prefixIcon: Icon(Icons.notes_rounded),
           ),
           validator: (value) => value == null || value.trim().isEmpty
-              ? 'یادداشت نمی‌تواند خالی باشد.'
+              ? LifeMateRuntimeLocale.select(
+                  fa: LifeMateRuntimeLocale.select(
+                    fa: 'یادداشت نمی‌تواند خالی باشد.',
+                    en: "Note cannot be empty.",
+                  ),
+                  en: "Note cannot be empty.",
+                )
               : null,
         );
       case HealthEntryType.weight:
         return _MetricField(
           controller: _primaryController,
-          label: 'وزن',
-          hint: 'مثلاً ۷۸.۴',
-          suffix: 'کیلوگرم',
+          label: LifeMateRuntimeLocale.select(
+            fa: LifeMateRuntimeLocale.select(fa: 'وزن', en: "weight"),
+            en: "weight",
+          ),
+          hint: LifeMateRuntimeLocale.select(
+            fa: LifeMateRuntimeLocale.select(
+              fa: 'مثلاً ۷۸.۴',
+              en: "For example, 78.4",
+            ),
+            en: "For example, 78.4",
+          ),
+          suffix: LifeMateRuntimeLocale.select(
+            fa: LifeMateRuntimeLocale.select(fa: 'کیلوگرم', en: "kg"),
+            en: "kg",
+          ),
           formatters: numberFormatters,
           validator: (value) => _validateNumber(value, 1, 500),
         );
       case HealthEntryType.height:
         return _MetricField(
           controller: _primaryController,
-          label: 'قد',
-          hint: 'مثلاً ۱۷۰',
-          suffix: 'سانتی‌متر',
+          label: LifeMateRuntimeLocale.select(
+            fa: LifeMateRuntimeLocale.select(fa: 'قد', en: "height"),
+            en: "height",
+          ),
+          hint: LifeMateRuntimeLocale.select(
+            fa: LifeMateRuntimeLocale.select(
+              fa: 'مثلاً ۱۷۰',
+              en: "For example, 170",
+            ),
+            en: "For example, 170",
+          ),
+          suffix: LifeMateRuntimeLocale.select(
+            fa: LifeMateRuntimeLocale.select(fa: 'سانتی‌متر', en: "cm"),
+            en: "cm",
+          ),
           formatters: numberFormatters,
           validator: (value) => _validateNumber(value, 30, 250),
         );
       case HealthEntryType.bloodGlucose:
         return _MetricField(
           controller: _primaryController,
-          label: 'قند خون',
-          hint: 'مثلاً ۹۵',
+          label: LifeMateRuntimeLocale.select(
+            fa: LifeMateRuntimeLocale.select(fa: 'قند خون', en: "blood sugar"),
+            en: "blood sugar",
+          ),
+          hint: LifeMateRuntimeLocale.select(
+            fa: LifeMateRuntimeLocale.select(
+              fa: 'مثلاً ۹۵',
+              en: "For example, 95",
+            ),
+            en: "For example, 95",
+          ),
           suffix: 'mg/dL',
           formatters: numberFormatters,
           validator: (value) => _validateNumber(value, 20, 1000),
@@ -287,9 +393,24 @@ class _HealthEntrySheetState extends State<HealthEntrySheet> {
       case HealthEntryType.heartRate:
         return _MetricField(
           controller: _primaryController,
-          label: 'ضربان قلب',
-          hint: 'مثلاً ۷۲',
-          suffix: 'ضربه/دقیقه',
+          label: LifeMateRuntimeLocale.select(
+            fa: LifeMateRuntimeLocale.select(fa: 'ضربان قلب', en: "heartbeat"),
+            en: "heartbeat",
+          ),
+          hint: LifeMateRuntimeLocale.select(
+            fa: LifeMateRuntimeLocale.select(
+              fa: 'مثلاً ۷۲',
+              en: "For example, 72",
+            ),
+            en: "For example, 72",
+          ),
+          suffix: LifeMateRuntimeLocale.select(
+            fa: LifeMateRuntimeLocale.select(
+              fa: 'ضربه/دقیقه',
+              en: "hit/minute",
+            ),
+            en: "hit/minute",
+          ),
           formatters: numberFormatters,
           validator: (value) => _validateNumber(value, 20, 300),
         );
@@ -298,15 +419,41 @@ class _HealthEntrySheetState extends State<HealthEntrySheet> {
 
   String? _validateNumber(String? value, double min, double max) {
     final parsed = _parseNumber(value);
-    if (parsed == null) return 'یک مقدار معتبر وارد کن.';
-    if (parsed < min || parsed > max) return 'مقدار واردشده خارج از بازه است.';
+    if (parsed == null)
+      return LifeMateRuntimeLocale.select(
+        fa: LifeMateRuntimeLocale.select(
+          fa: 'یک مقدار معتبر وارد کن.',
+          en: "Enter a valid value.",
+        ),
+        en: "Enter a valid value.",
+      );
+    if (parsed < min || parsed > max)
+      return LifeMateRuntimeLocale.select(
+        fa: LifeMateRuntimeLocale.select(
+          fa: 'مقدار واردشده خارج از بازه است.',
+          en: "The entered value is out of range.",
+        ),
+        en: "The entered value is out of range.",
+      );
     return null;
   }
 
   double? _parseNumber(String? value) {
     if (value == null) return null;
-    var normalized = value.trim().replaceAll(',', '.').replaceAll('،', '.');
-    const persian = '۰۱۲۳۴۵۶۷۸۹';
+    var normalized = value
+        .trim()
+        .replaceAll(',', '.')
+        .replaceAll(
+          LifeMateRuntimeLocale.select(
+            fa: LifeMateRuntimeLocale.select(fa: '،', en: ","),
+            en: ",",
+          ),
+          '.',
+        );
+    final persian = LifeMateRuntimeLocale.select(
+      fa: LifeMateRuntimeLocale.select(fa: '۰۱۲۳۴۵۶۷۸۹', en: "0123456789"),
+      en: "0123456789",
+    );
     for (var index = 0; index < persian.length; index++) {
       normalized = normalized.replaceAll(persian[index], '$index');
     }
@@ -317,9 +464,15 @@ class _HealthEntrySheetState extends State<HealthEntrySheet> {
     final value = await showAppDatePicker(
       context: context,
       initialDate: _selectedDate,
-      firstDate: DateTime.now().subtract(const Duration(days: 3650)),
+      firstDate: DateTime.now().subtract(Duration(days: 3650)),
       lastDate: DateTime.now(),
-      title: 'تاریخ ثبت اطلاعات',
+      title: LifeMateRuntimeLocale.select(
+        fa: LifeMateRuntimeLocale.select(
+          fa: 'تاریخ ثبت اطلاعات',
+          en: "Data registration date",
+        ),
+        en: "Data registration date",
+      ),
     );
     if (value != null && mounted) setState(() => _selectedDate = value);
   }
@@ -328,7 +481,13 @@ class _HealthEntrySheetState extends State<HealthEntrySheet> {
     final value = await showTimePicker(
       context: context,
       initialTime: _selectedTime,
-      helpText: 'زمان ثبت اطلاعات',
+      helpText: LifeMateRuntimeLocale.select(
+        fa: LifeMateRuntimeLocale.select(
+          fa: 'زمان ثبت اطلاعات',
+          en: "Time to record information",
+        ),
+        en: "Time to record information",
+      ),
     );
     if (value != null && mounted) setState(() => _selectedTime = value);
   }
@@ -348,7 +507,13 @@ class _HealthEntrySheetState extends State<HealthEntrySheet> {
       primary = hours + (minutes / 60);
       if (primary > 24) {
         setState(
-          () => _submitError = 'مدت خواب نمی‌تواند بیشتر از ۲۴ ساعت باشد.',
+          () => _submitError = LifeMateRuntimeLocale.select(
+            fa: LifeMateRuntimeLocale.select(
+              fa: 'مدت خواب نمی‌تواند بیشتر از ۲۴ ساعت باشد.',
+              en: "The duration of sleep cannot be more than 24 hours.",
+            ),
+            en: "The duration of sleep cannot be more than 24 hours.",
+          ),
         );
         return;
       }
@@ -361,7 +526,15 @@ class _HealthEntrySheetState extends State<HealthEntrySheet> {
           primary != null &&
           secondary != null &&
           primary <= secondary) {
-        setState(() => _submitError = 'عدد سیستول باید از دیاستول بیشتر باشد.');
+        setState(
+          () => _submitError = LifeMateRuntimeLocale.select(
+            fa: LifeMateRuntimeLocale.select(
+              fa: 'عدد سیستول باید از دیاستول بیشتر باشد.',
+              en: "The number of systole should be greater than diastole.",
+            ),
+            en: "The number of systole should be greater than diastole.",
+          ),
+        );
         return;
       }
     }
@@ -374,7 +547,15 @@ class _HealthEntrySheetState extends State<HealthEntrySheet> {
       _selectedTime.minute,
     );
     if (localDateTime.isAfter(DateTime.now().add(const Duration(minutes: 5)))) {
-      setState(() => _submitError = 'زمان ثبت نمی‌تواند در آینده باشد.');
+      setState(
+        () => _submitError = LifeMateRuntimeLocale.select(
+          fa: LifeMateRuntimeLocale.select(
+            fa: 'زمان ثبت نمی‌تواند در آینده باشد.',
+            en: "The recording time cannot be in the future.",
+          ),
+          en: "The recording time cannot be in the future.",
+        ),
+      );
       return;
     }
 
@@ -394,8 +575,13 @@ class _HealthEntrySheetState extends State<HealthEntrySheet> {
       if (mounted) {
         setState(() {
           _saving = false;
-          _submitError =
-              'ثبت اطلاعات انجام نشد. اتصال را بررسی و دوباره تلاش کن.';
+          _submitError = LifeMateRuntimeLocale.select(
+            fa: LifeMateRuntimeLocale.select(
+              fa: 'ثبت اطلاعات انجام نشد. اتصال را بررسی و دوباره تلاش کن.',
+              en: "Data registration was not done. Check the connection and try again.",
+            ),
+            en: "Data registration was not done. Check the connection and try again.",
+          );
         });
       }
     }
@@ -422,23 +608,23 @@ class _Header extends StatelessWidget {
           ),
           child: Icon(data.icon, color: data.color, size: 28),
         ),
-        const SizedBox(width: 13),
+        SizedBox(width: 13),
         Expanded(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
                 data.title,
-                style: const TextStyle(
+                style: TextStyle(
                   fontSize: 20,
                   fontWeight: FontWeight.w900,
                   color: AppColors.textPrimary,
                 ),
               ),
-              const SizedBox(height: 3),
+              SizedBox(height: 3),
               Text(
                 data.subtitle,
-                style: const TextStyle(
+                style: TextStyle(
                   fontSize: 13,
                   color: AppColors.textSecondary,
                   fontWeight: FontWeight.w600,
@@ -448,9 +634,12 @@ class _Header extends StatelessWidget {
           ),
         ),
         IconButton(
-          tooltip: 'بستن',
+          tooltip: LifeMateRuntimeLocale.select(
+            fa: LifeMateRuntimeLocale.select(fa: 'بستن', en: "to close"),
+            en: "to close",
+          ),
           onPressed: () => Navigator.of(context).pop(),
-          icon: const Icon(Icons.close_rounded),
+          icon: Icon(Icons.close_rounded),
         ),
       ],
     );
@@ -510,7 +699,7 @@ class _DateTimeCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.all(14),
+      padding: EdgeInsets.all(14),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(18),
@@ -521,16 +710,22 @@ class _DateTimeCard extends StatelessWidget {
           Expanded(
             child: _DateTimeButton(
               icon: Icons.access_time_rounded,
-              label: 'زمان',
+              label: LifeMateRuntimeLocale.select(
+                fa: LifeMateRuntimeLocale.select(fa: 'زمان', en: "time"),
+                en: "time",
+              ),
               value: formatAppTime(context, time),
               onTap: onTimeTap,
             ),
           ),
-          Container(width: 1, height: 42, color: const Color(0xFFE9EEEB)),
+          Container(width: 1, height: 42, color: Color(0xFFE9EEEB)),
           Expanded(
             child: _DateTimeButton(
               icon: Icons.calendar_today_rounded,
-              label: 'تاریخ',
+              label: LifeMateRuntimeLocale.select(
+                fa: LifeMateRuntimeLocale.select(fa: 'تاریخ', en: "date"),
+                en: "date",
+              ),
               value: formatAppDate(context, date),
               onTap: onDateTap,
             ),
@@ -602,45 +797,117 @@ class _EntryPresentation {
 }
 
 _EntryPresentation _entryPresentation(HealthEntryType type) => switch (type) {
-  HealthEntryType.weight => const _EntryPresentation(
-    'ثبت وزن',
-    'وزنت را برای دیدن روند تغییرات ثبت کن',
+  HealthEntryType.weight => _EntryPresentation(
+    LifeMateRuntimeLocale.select(
+      fa: LifeMateRuntimeLocale.select(fa: 'ثبت وزن', en: "Record weight"),
+      en: "Record weight",
+    ),
+    LifeMateRuntimeLocale.select(
+      fa: LifeMateRuntimeLocale.select(
+        fa: 'وزنت را برای دیدن روند تغییرات ثبت کن',
+        en: "Record your weight to see the changes",
+      ),
+      en: "Record your weight to see the changes",
+    ),
     Icons.monitor_weight_rounded,
     Color(0xFF48B9C7),
   ),
-  HealthEntryType.height => const _EntryPresentation(
-    'ثبت قد',
-    'قد برای محاسبه شاخص توده بدنی استفاده می‌شود',
+  HealthEntryType.height => _EntryPresentation(
+    LifeMateRuntimeLocale.select(
+      fa: LifeMateRuntimeLocale.select(fa: 'ثبت قد', en: "Record height"),
+      en: "Record height",
+    ),
+    LifeMateRuntimeLocale.select(
+      fa: LifeMateRuntimeLocale.select(
+        fa: 'قد برای محاسبه شاخص توده بدنی استفاده می‌شود',
+        en: "Height is used to calculate body mass index",
+      ),
+      en: "Height is used to calculate body mass index",
+    ),
     Icons.height_rounded,
     Color(0xFF6EA7EB),
   ),
-  HealthEntryType.bloodPressure => const _EntryPresentation(
-    'ثبت فشار خون',
-    'سیستول و دیاستول را همان‌طور که دستگاه نشان می‌دهد وارد کن',
+  HealthEntryType.bloodPressure => _EntryPresentation(
+    LifeMateRuntimeLocale.select(
+      fa: LifeMateRuntimeLocale.select(
+        fa: 'ثبت فشار خون',
+        en: "Record blood pressure",
+      ),
+      en: "Record blood pressure",
+    ),
+    LifeMateRuntimeLocale.select(
+      fa: LifeMateRuntimeLocale.select(
+        fa: 'سیستول و دیاستول را همان‌طور که دستگاه نشان می‌دهد وارد کن',
+        en: "Enter systole and diastole as shown by the device",
+      ),
+      en: "Enter systole and diastole as shown by the device",
+    ),
     Icons.water_drop_rounded,
     Color(0xFFFF8A4C),
   ),
-  HealthEntryType.bloodGlucose => const _EntryPresentation(
-    'ثبت قند خون',
-    'مقدار اندازه‌گیری‌شده را همراه تاریخ و زمان نگه دار',
+  HealthEntryType.bloodGlucose => _EntryPresentation(
+    LifeMateRuntimeLocale.select(
+      fa: LifeMateRuntimeLocale.select(
+        fa: 'ثبت قند خون',
+        en: "Record blood sugar",
+      ),
+      en: "Record blood sugar",
+    ),
+    LifeMateRuntimeLocale.select(
+      fa: LifeMateRuntimeLocale.select(
+        fa: 'مقدار اندازه‌گیری‌شده را همراه تاریخ و زمان نگه دار',
+        en: "Save the measured value along with the date and time",
+      ),
+      en: "Save the measured value along with the date and time",
+    ),
     Icons.bloodtype_rounded,
     Color(0xFFFF9A58),
   ),
-  HealthEntryType.heartRate => const _EntryPresentation(
-    'ثبت ضربان قلب',
-    'تعداد ضربان در دقیقه را وارد کن',
+  HealthEntryType.heartRate => _EntryPresentation(
+    LifeMateRuntimeLocale.select(
+      fa: LifeMateRuntimeLocale.select(
+        fa: 'ثبت ضربان قلب',
+        en: "Heart rate recording",
+      ),
+      en: "Heart rate recording",
+    ),
+    LifeMateRuntimeLocale.select(
+      fa: LifeMateRuntimeLocale.select(
+        fa: 'تعداد ضربان در دقیقه را وارد کن',
+        en: "Enter the number of beats per minute",
+      ),
+      en: "Enter the number of beats per minute",
+    ),
     Icons.favorite_rounded,
     Color(0xFFF26C7D),
   ),
-  HealthEntryType.sleep => const _EntryPresentation(
-    'ثبت خواب',
-    'مدت خواب این شب را ثبت کن',
+  HealthEntryType.sleep => _EntryPresentation(
+    LifeMateRuntimeLocale.select(
+      fa: LifeMateRuntimeLocale.select(fa: 'ثبت خواب', en: "sleep register"),
+      en: "sleep register",
+    ),
+    LifeMateRuntimeLocale.select(
+      fa: LifeMateRuntimeLocale.select(
+        fa: 'مدت خواب این شب را ثبت کن',
+        en: "Record the duration of sleep this night",
+      ),
+      en: "Record the duration of sleep this night",
+    ),
     Icons.bedtime_rounded,
     Color(0xFF956CE6),
   ),
-  HealthEntryType.note => const _EntryPresentation(
-    'یادداشت سلامت',
-    'احساس، علامت یا نکته‌ای که برایت مهم است ثبت کن',
+  HealthEntryType.note => _EntryPresentation(
+    LifeMateRuntimeLocale.select(
+      fa: LifeMateRuntimeLocale.select(fa: 'یادداشت سلامت', en: "health note"),
+      en: "health note",
+    ),
+    LifeMateRuntimeLocale.select(
+      fa: LifeMateRuntimeLocale.select(
+        fa: 'احساس، علامت یا نکته‌ای که برایت مهم است ثبت کن',
+        en: "Record the feeling, sign or point that is important to you",
+      ),
+      en: "Record the feeling, sign or point that is important to you",
+    ),
     Icons.notes_rounded,
     Color(0xFF8D72D7),
   ),

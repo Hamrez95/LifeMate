@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../core/constants/app_colors.dart';
+import 'package:lifemate_client/lifemate_client.dart';
 
 class CareRequestCard extends StatelessWidget {
   const CareRequestCard({
@@ -28,7 +29,7 @@ class CareRequestCard extends StatelessWidget {
         ),
         borderRadius: BorderRadius.circular(28),
         border: Border.all(color: Colors.white),
-        boxShadow: const [
+        boxShadow: [
           BoxShadow(
             color: Color(0x115A78A8),
             blurRadius: 24,
@@ -44,23 +45,29 @@ class CareRequestCard extends StatelessWidget {
               Container(
                 width: 52,
                 height: 52,
-                decoration: const BoxDecoration(
+                decoration: BoxDecoration(
                   color: Colors.white,
                   shape: BoxShape.circle,
                 ),
-                child: const Icon(
+                child: Icon(
                   Icons.volunteer_activism_rounded,
                   color: AppColors.primaryBlue,
                   size: 28,
                 ),
               ),
-              const SizedBox(width: 14),
-              const Expanded(
+              SizedBox(width: 14),
+              Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      'می‌خواهی مراقب کسی باشی؟',
+                      LifeMateRuntimeLocale.select(
+                        fa: LifeMateRuntimeLocale.select(
+                          fa: 'می‌خواهی مراقب کسی باشی؟',
+                          en: "Do you want to take care of someone?",
+                        ),
+                        en: "Do you want to take care of someone?",
+                      ),
                       style: TextStyle(
                         fontSize: 17,
                         fontWeight: FontWeight.w900,
@@ -69,7 +76,13 @@ class CareRequestCard extends StatelessWidget {
                     ),
                     SizedBox(height: 5),
                     Text(
-                      'با ایمیل WellMate او درخواست بفرست. دسترسی فقط بعد از تأیید خودش فعال می‌شود.',
+                      LifeMateRuntimeLocale.select(
+                        fa: LifeMateRuntimeLocale.select(
+                          fa: 'با ایمیل WellMate او درخواست بفرست. دسترسی فقط بعد از تأیید خودش فعال می‌شود.',
+                          en: "Apply with his WellMate email. Access is enabled only after self-verification.",
+                        ),
+                        en: "Apply with his WellMate email. Access is enabled only after self-verification.",
+                      ),
                       style: TextStyle(
                         height: 1.55,
                         fontSize: 12.5,
@@ -81,47 +94,58 @@ class CareRequestCard extends StatelessWidget {
               ),
             ],
           ),
-          const SizedBox(height: 16),
+          SizedBox(height: 16),
           SizedBox(
             width: double.infinity,
             child: FilledButton.icon(
               onPressed: loading ? null : onRequest,
               icon: loading
-                  ? const SizedBox.square(
+                  ? SizedBox.square(
                       dimension: 18,
                       child: CircularProgressIndicator(strokeWidth: 2),
                     )
-                  : const Icon(Icons.send_rounded),
-              label: const Text('ارسال درخواست مراقبت'),
+                  : Icon(Icons.send_rounded),
+              label: Text(
+                LifeMateRuntimeLocale.select(
+                  fa: LifeMateRuntimeLocale.select(
+                    fa: 'ارسال درخواست مراقبت',
+                    en: "Submit a care request",
+                  ),
+                  en: "Submit a care request",
+                ),
+              ),
             ),
           ),
           if (pendingRequests.isNotEmpty) ...[
-            const SizedBox(height: 16),
-            const Divider(height: 1),
-            const SizedBox(height: 12),
-            const Text(
-              'درخواست‌های در انتظار',
+            SizedBox(height: 16),
+            Divider(height: 1),
+            SizedBox(height: 12),
+            Text(
+              LifeMateRuntimeLocale.select(
+                fa: LifeMateRuntimeLocale.select(
+                  fa: 'درخواست‌های در انتظار',
+                  en: "Pending requests",
+                ),
+                en: "Pending requests",
+              ),
               style: TextStyle(
                 fontWeight: FontWeight.w800,
                 color: AppColors.primaryText,
               ),
             ),
-            const SizedBox(height: 8),
+            SizedBox(height: 8),
             ...pendingRequests.map(
               (request) => Padding(
-                padding: const EdgeInsets.only(top: 7),
+                padding: EdgeInsets.only(top: 7),
                 child: Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 12,
-                    vertical: 10,
-                  ),
+                  padding: EdgeInsets.symmetric(horizontal: 12, vertical: 10),
                   decoration: BoxDecoration(
                     color: Colors.white.withValues(alpha: 0.82),
                     borderRadius: BorderRadius.circular(18),
                   ),
                   child: Row(
                     children: [
-                      const CircleAvatar(
+                      CircleAvatar(
                         radius: 18,
                         backgroundColor: Color(0xFFEAF4FF),
                         child: Icon(
@@ -130,23 +154,27 @@ class CareRequestCard extends StatelessWidget {
                           color: AppColors.primaryBlue,
                         ),
                       ),
-                      const SizedBox(width: 10),
+                      SizedBox(width: 10),
                       Expanded(
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Text(
                               request['targetDisplayName']?.toString() ??
-                                  'در انتظار تأیید',
-                              style: const TextStyle(
-                                fontWeight: FontWeight.w800,
-                              ),
+                                  LifeMateRuntimeLocale.select(
+                                    fa: LifeMateRuntimeLocale.select(
+                                      fa: 'در انتظار تأیید',
+                                      en: "Awaiting confirmation",
+                                    ),
+                                    en: "Awaiting confirmation",
+                                  ),
+                              style: TextStyle(fontWeight: FontWeight.w800),
                             ),
-                            const SizedBox(height: 2),
+                            SizedBox(height: 2),
                             Text(
                               request['contactHint']?.toString() ?? '',
                               textDirection: TextDirection.ltr,
-                              style: const TextStyle(
+                              style: TextStyle(
                                 fontSize: 11.5,
                                 color: AppColors.secondaryText,
                               ),
@@ -155,9 +183,15 @@ class CareRequestCard extends StatelessWidget {
                         ),
                       ),
                       IconButton(
-                        tooltip: 'لغو درخواست',
+                        tooltip: LifeMateRuntimeLocale.select(
+                          fa: LifeMateRuntimeLocale.select(
+                            fa: 'لغو درخواست',
+                            en: "Cancel the request",
+                          ),
+                          en: "Cancel the request",
+                        ),
                         onPressed: () => onCancel(request),
-                        icon: const Icon(
+                        icon: Icon(
                           Icons.close_rounded,
                           color: Colors.redAccent,
                         ),

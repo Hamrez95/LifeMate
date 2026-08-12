@@ -5,6 +5,7 @@ import 'package:table_calendar/table_calendar.dart';
 import '../../core/theme/app_style.dart';
 import '../../core/utils/persian_date_utils.dart';
 import '../../core/utils/string_extensions.dart';
+import 'package:lifemate_client/lifemate_client.dart';
 
 class CustomTableCalendar extends StatelessWidget {
   const CustomTableCalendar({
@@ -78,7 +79,36 @@ class _PersianMonthGrid extends StatelessWidget {
   final ValueChanged<DateTime>? onPageChanged;
   final Set<String> Function(DateTime) getDayEventTypes;
 
-  static const weekDays = <String>['ش', 'ی', 'د', 'س', 'چ', 'پ', 'ج'];
+  static final weekDays = <String>[
+    LifeMateRuntimeLocale.select(
+      fa: LifeMateRuntimeLocale.select(fa: 'ش', en: "Sat"),
+      en: "Sat",
+    ),
+    LifeMateRuntimeLocale.select(
+      fa: LifeMateRuntimeLocale.select(fa: 'ی', en: "Sun"),
+      en: "Sun",
+    ),
+    LifeMateRuntimeLocale.select(
+      fa: LifeMateRuntimeLocale.select(fa: 'د', en: "Mon"),
+      en: "Mon",
+    ),
+    LifeMateRuntimeLocale.select(
+      fa: LifeMateRuntimeLocale.select(fa: 'س', en: "Tue"),
+      en: "Tue",
+    ),
+    LifeMateRuntimeLocale.select(
+      fa: LifeMateRuntimeLocale.select(fa: 'چ', en: "Wed"),
+      en: "Wed",
+    ),
+    LifeMateRuntimeLocale.select(
+      fa: LifeMateRuntimeLocale.select(fa: 'پ', en: "Thu"),
+      en: "Thu",
+    ),
+    LifeMateRuntimeLocale.select(
+      fa: LifeMateRuntimeLocale.select(fa: 'ج', en: "Fri"),
+      en: "Fri",
+    ),
+  ];
 
   DateTime _moveMonth(int delta) {
     final current = Jalali.fromDateTime(focusedMonth);
@@ -107,9 +137,15 @@ class _PersianMonthGrid extends StatelessWidget {
         Row(
           children: [
             IconButton(
-              tooltip: 'ماه قبل',
+              tooltip: LifeMateRuntimeLocale.select(
+                fa: LifeMateRuntimeLocale.select(
+                  fa: 'ماه قبل',
+                  en: "the previous month",
+                ),
+                en: "the previous month",
+              ),
               onPressed: () => onPageChanged?.call(_moveMonth(-1)),
-              icon: const Icon(
+              icon: Icon(
                 Icons.chevron_right_rounded,
                 textDirection: TextDirection.ltr,
               ),
@@ -118,7 +154,7 @@ class _PersianMonthGrid extends StatelessWidget {
               child: Text(
                 formatAppMonth(context, focusedMonth),
                 textAlign: TextAlign.center,
-                style: const TextStyle(
+                style: TextStyle(
                   fontSize: 16,
                   fontWeight: FontWeight.w900,
                   color: AppColors.textPrimary,
@@ -126,16 +162,22 @@ class _PersianMonthGrid extends StatelessWidget {
               ),
             ),
             IconButton(
-              tooltip: 'ماه بعد',
+              tooltip: LifeMateRuntimeLocale.select(
+                fa: LifeMateRuntimeLocale.select(
+                  fa: 'ماه بعد',
+                  en: "next month",
+                ),
+                en: "next month",
+              ),
               onPressed: () => onPageChanged?.call(_moveMonth(1)),
-              icon: const Icon(
+              icon: Icon(
                 Icons.chevron_left_rounded,
                 textDirection: TextDirection.ltr,
               ),
             ),
           ],
         ),
-        const SizedBox(height: 4),
+        SizedBox(height: 4),
         Row(
           children: [
             for (final label in weekDays)
@@ -143,7 +185,7 @@ class _PersianMonthGrid extends StatelessWidget {
                 child: Center(
                   child: Text(
                     label,
-                    style: const TextStyle(
+                    style: TextStyle(
                       color: AppColors.textSecondary,
                       fontSize: 12,
                       fontWeight: FontWeight.bold,
@@ -153,17 +195,17 @@ class _PersianMonthGrid extends StatelessWidget {
               ),
           ],
         ),
-        const SizedBox(height: 6),
+        SizedBox(height: 6),
         GridView.builder(
           shrinkWrap: true,
-          physics: const NeverScrollableScrollPhysics(),
+          physics: NeverScrollableScrollPhysics(),
           itemCount: leadingEmptyCells + monthLength,
-          gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+          gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
             crossAxisCount: 7,
             childAspectRatio: 0.92,
           ),
           itemBuilder: (context, index) {
-            if (index < leadingEmptyCells) return const SizedBox.shrink();
+            if (index < leadingEmptyCells) return SizedBox.shrink();
             final day = index - leadingEmptyCells + 1;
             final gregorian = Jalali(
               focused.year,

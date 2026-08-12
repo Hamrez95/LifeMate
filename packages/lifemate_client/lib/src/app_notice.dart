@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:ui';
 
 import 'package:flutter/material.dart';
+import 'runtime_locale.dart';
 
 enum LifeMateNoticeType { success, info, warning, error }
 
@@ -126,7 +127,7 @@ class _LifeMateNoticeOverlayState extends State<_LifeMateNoticeOverlay>
         bottom: false,
         child: Center(
           child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 430),
+            constraints: BoxConstraints(maxWidth: 430),
             child: FadeTransition(
               opacity: CurvedAnimation(
                 parent: _controller,
@@ -135,7 +136,7 @@ class _LifeMateNoticeOverlayState extends State<_LifeMateNoticeOverlay>
               child: SlideTransition(
                 position:
                     Tween<Offset>(
-                      begin: const Offset(0, -0.22),
+                      begin: Offset(0, -0.22),
                       end: Offset.zero,
                     ).animate(
                       CurvedAnimation(
@@ -150,10 +151,14 @@ class _LifeMateNoticeOverlayState extends State<_LifeMateNoticeOverlay>
                   child: Semantics(
                     liveRegion: true,
                     container: true,
-                    label: [
-                      widget.title,
-                      widget.message,
-                    ].whereType<String>().join('، '),
+                    label: [widget.title, widget.message]
+                        .whereType<String>()
+                        .join(
+                          LifeMateRuntimeLocale.select(
+                            fa: LifeMateRuntimeLocale.select(fa: '، ', en: ","),
+                            en: ",",
+                          ),
+                        ),
                     child: ClipRRect(
                       borderRadius: BorderRadius.circular(24),
                       child: BackdropFilter(
@@ -165,7 +170,7 @@ class _LifeMateNoticeOverlayState extends State<_LifeMateNoticeOverlay>
                             border: Border.all(
                               color: visual.color.withValues(alpha: 0.18),
                             ),
-                            boxShadow: const [
+                            boxShadow: [
                               BoxShadow(
                                 color: Color(0x16000000),
                                 blurRadius: 26,
@@ -176,7 +181,7 @@ class _LifeMateNoticeOverlayState extends State<_LifeMateNoticeOverlay>
                           child: Directionality(
                             textDirection: textDirection,
                             child: Padding(
-                              padding: const EdgeInsetsDirectional.fromSTEB(
+                              padding: EdgeInsetsDirectional.fromSTEB(
                                 14,
                                 12,
                                 10,
@@ -199,7 +204,7 @@ class _LifeMateNoticeOverlayState extends State<_LifeMateNoticeOverlay>
                                       color: visual.color,
                                     ),
                                   ),
-                                  const SizedBox(width: 11),
+                                  SizedBox(width: 11),
                                   Expanded(
                                     child: Column(
                                       crossAxisAlignment:
@@ -210,7 +215,7 @@ class _LifeMateNoticeOverlayState extends State<_LifeMateNoticeOverlay>
                                             true)
                                           Text(
                                             widget.title!,
-                                            style: const TextStyle(
+                                            style: TextStyle(
                                               fontWeight: FontWeight.w900,
                                               fontSize: 13.5,
                                               color: Color(0xFF253149),
@@ -221,7 +226,7 @@ class _LifeMateNoticeOverlayState extends State<_LifeMateNoticeOverlay>
                                           widget.message,
                                           maxLines: 4,
                                           overflow: TextOverflow.ellipsis,
-                                          style: const TextStyle(
+                                          style: TextStyle(
                                             height: 1.45,
                                             fontSize: 12.5,
                                             color: Color(0xFF4E596B),
@@ -232,10 +237,16 @@ class _LifeMateNoticeOverlayState extends State<_LifeMateNoticeOverlay>
                                     ),
                                   ),
                                   IconButton(
-                                    tooltip: 'بستن',
+                                    tooltip: LifeMateRuntimeLocale.select(
+                                      fa: LifeMateRuntimeLocale.select(
+                                        fa: 'بستن',
+                                        en: "to close",
+                                      ),
+                                      en: "to close",
+                                    ),
                                     onPressed: _dismiss,
                                     visualDensity: VisualDensity.compact,
-                                    icon: const Icon(
+                                    icon: Icon(
                                       Icons.close_rounded,
                                       size: 19,
                                       color: Color(0xFF7B8492),

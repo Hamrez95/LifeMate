@@ -161,7 +161,8 @@ class LifeMateHealthApi {
       timeZone: timeZone,
     );
     final generatedRequestId = clientRequestId == null;
-    final requestId = clientRequestId ??
+    final requestId =
+        clientRequestId ??
         _pendingCreateRequestIds.putIfAbsent(
           fingerprint,
           LifeMateApiClient.createClientRequestId,

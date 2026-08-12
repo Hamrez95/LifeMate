@@ -2,6 +2,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
 import 'lifemate_api_client.dart';
+import 'runtime_locale.dart';
 
 @immutable
 class LifeMateProfileAvatarOption {
@@ -117,45 +118,63 @@ abstract final class LifeMateProfileRefresh {
 abstract final class LifeMateProfileAvatars {
   static const String defaultKey = 'person_blue';
 
-  static const List<LifeMateProfileAvatarOption> options = [
+  static final List<LifeMateProfileAvatarOption> options = [
     LifeMateProfileAvatarOption(
       key: 'person_blue',
-      label: 'آبی',
+      label: LifeMateRuntimeLocale.select(
+        fa: LifeMateRuntimeLocale.select(fa: 'آبی', en: "blue"),
+        en: "blue",
+      ),
       icon: Icons.person_rounded,
       backgroundColor: Color(0xFFE4F2FF),
       foregroundColor: Color(0xFF2878B8),
     ),
     LifeMateProfileAvatarOption(
       key: 'person_green',
-      label: 'سبز',
+      label: LifeMateRuntimeLocale.select(
+        fa: LifeMateRuntimeLocale.select(fa: 'سبز', en: "green"),
+        en: "green",
+      ),
       icon: Icons.person_rounded,
       backgroundColor: Color(0xFFE3F7EE),
       foregroundColor: Color(0xFF2D8A67),
     ),
     LifeMateProfileAvatarOption(
       key: 'person_purple',
-      label: 'یاسی',
+      label: LifeMateRuntimeLocale.select(
+        fa: LifeMateRuntimeLocale.select(fa: 'یاسی', en: "Yasi"),
+        en: "Yasi",
+      ),
       icon: Icons.person_rounded,
       backgroundColor: Color(0xFFF0E8FF),
       foregroundColor: Color(0xFF7652B5),
     ),
     LifeMateProfileAvatarOption(
       key: 'person_orange',
-      label: 'گلبهی',
+      label: LifeMateRuntimeLocale.select(
+        fa: LifeMateRuntimeLocale.select(fa: 'گلبهی', en: "Golbehi"),
+        en: "Golbehi",
+      ),
       icon: Icons.person_rounded,
       backgroundColor: Color(0xFFFFECE4),
       foregroundColor: Color(0xFFB85E3B),
     ),
     LifeMateProfileAvatarOption(
       key: 'heart_coral',
-      label: 'قلب',
+      label: LifeMateRuntimeLocale.select(
+        fa: LifeMateRuntimeLocale.select(fa: 'قلب', en: "the heart"),
+        en: "the heart",
+      ),
       icon: Icons.favorite_rounded,
       backgroundColor: Color(0xFFFFE7EA),
       foregroundColor: Color(0xFFC84F65),
     ),
     LifeMateProfileAvatarOption(
       key: 'caregiver_teal',
-      label: 'مراقب',
+      label: LifeMateRuntimeLocale.select(
+        fa: LifeMateRuntimeLocale.select(fa: 'مراقب', en: "Caregiver"),
+        en: "Careful",
+      ),
       icon: Icons.volunteer_activism_rounded,
       backgroundColor: Color(0xFFE2F7F6),
       foregroundColor: Color(0xFF277F7C),
@@ -200,7 +219,21 @@ class LifeMateProfileAvatar extends StatelessWidget {
         .toInt();
     return Semantics(
       image: true,
-      label: hasPhoto ? 'عکس پروفایل' : 'آواتار پروفایل ${option.label}',
+      label: hasPhoto
+          ? LifeMateRuntimeLocale.select(
+              fa: LifeMateRuntimeLocale.select(
+                fa: 'عکس پروفایل',
+                en: "Profile photo",
+              ),
+              en: "Profile photo",
+            )
+          : LifeMateRuntimeLocale.select(
+              fa: LifeMateRuntimeLocale.select(
+                fa: 'آواتار پروفایل ${option.label}',
+                en: "Profile avatar ${option.label}",
+              ),
+              en: "Profile avatar ${option.label}",
+            ),
       child: Container(
         width: radius * 2,
         height: radius * 2,
@@ -292,16 +325,22 @@ class LifeMateAvatarPicker extends StatelessWidget {
             return Semantics(
               button: true,
               selected: selected,
-              label: 'انتخاب آواتار ${option.label}',
+              label: LifeMateRuntimeLocale.select(
+                fa: LifeMateRuntimeLocale.select(
+                  fa: 'انتخاب آواتار ${option.label}',
+                  en: "${option.label} avatar selection",
+                ),
+                en: "${option.label} avatar selection",
+              ),
               child: InkWell(
                 key: ValueKey('profile-avatar-${option.key}'),
                 onTap: onSelected == null
                     ? null
                     : () => onSelected!(option.key),
-                customBorder: const CircleBorder(),
+                customBorder: CircleBorder(),
                 child: AnimatedContainer(
-                  duration: const Duration(milliseconds: 180),
-                  padding: const EdgeInsets.all(3),
+                  duration: Duration(milliseconds: 180),
+                  padding: EdgeInsets.all(3),
                   decoration: BoxDecoration(
                     shape: BoxShape.circle,
                     border: Border.all(

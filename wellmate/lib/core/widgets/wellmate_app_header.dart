@@ -34,7 +34,13 @@ class WellMateAppHeader extends StatelessWidget {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
-            'هیچ دارو، ویزیت یا تزریق انجام‌نشده‌ای وجود ندارد.',
+            LifeMateRuntimeLocale.select(
+              fa: LifeMateRuntimeLocale.select(
+                fa: 'هیچ دارو، ویزیت یا تزریق انجام‌نشده‌ای وجود ندارد.',
+                en: "There are no missed medications, visits or injections.",
+              ),
+              en: "There are no missed medications, visits or injections.",
+            ),
             style: AppTextStyles.body(context).copyWith(color: Colors.white),
           ),
           backgroundColor: AppColors.primary,
@@ -61,8 +67,8 @@ class WellMateAppHeader extends StatelessWidget {
               return const SizedBox.shrink();
             }
             return Container(
-              padding: const EdgeInsets.all(24),
-              decoration: const BoxDecoration(
+              padding: EdgeInsets.all(24),
+              decoration: BoxDecoration(
                 color: Colors.white,
                 borderRadius: BorderRadius.vertical(top: Radius.circular(32)),
               ),
@@ -73,7 +79,7 @@ class WellMateAppHeader extends StatelessWidget {
                   Row(
                     children: [
                       Container(
-                        padding: const EdgeInsets.all(8),
+                        padding: EdgeInsets.all(8),
                         decoration: BoxDecoration(
                           color: Colors.red.shade50,
                           shape: BoxShape.circle,
@@ -83,9 +89,15 @@ class WellMateAppHeader extends StatelessWidget {
                           color: Colors.red.shade700,
                         ),
                       ),
-                      const SizedBox(width: 12),
+                      SizedBox(width: 12),
                       Text(
-                        'اعلان‌های انجام‌نشده',
+                        LifeMateRuntimeLocale.select(
+                          fa: LifeMateRuntimeLocale.select(
+                            fa: 'اعلان‌های انجام‌نشده',
+                            en: "Notifications not done",
+                          ),
+                          en: "Notifications not done",
+                        ),
                         style: font.copyWith(
                           fontSize: 18,
                           fontWeight: FontWeight.bold,
@@ -94,7 +106,7 @@ class WellMateAppHeader extends StatelessWidget {
                       ),
                     ],
                   ),
-                  const SizedBox(height: 20),
+                  SizedBox(height: 20),
                   ConstrainedBox(
                     constraints: BoxConstraints(
                       maxHeight: MediaQuery.of(context).size.height * 0.5,
@@ -102,7 +114,7 @@ class WellMateAppHeader extends StatelessWidget {
                     child: ListView.separated(
                       shrinkWrap: true,
                       itemCount: currentMissedItems.length,
-                      separatorBuilder: (_, __) => const SizedBox(height: 12),
+                      separatorBuilder: (_, __) => SizedBox(height: 12),
                       itemBuilder: (context, index) {
                         return _buildMissedNotificationCard(
                           currentMissedItems[index],
@@ -172,7 +184,7 @@ class WellMateAppHeader extends StatelessWidget {
                   ),
                 ),
                 if (dosageString.trim().isNotEmpty) ...[
-                  const SizedBox(height: 4),
+                  SizedBox(height: 4),
                   Text(
                     dosageString,
                     style: AppTextStyles.caption(
@@ -180,7 +192,7 @@ class WellMateAppHeader extends StatelessWidget {
                     ).copyWith(color: Colors.grey.shade600),
                   ),
                 ],
-                const SizedBox(height: 8),
+                SizedBox(height: 8),
                 Wrap(
                   spacing: 12,
                   runSpacing: 4,
@@ -194,9 +206,15 @@ class WellMateAppHeader extends StatelessWidget {
                           size: 14,
                           color: AppColors.primary,
                         ),
-                        const SizedBox(width: 4),
+                        SizedBox(width: 4),
                         Text(
-                          '$dayName، $dateString',
+                          LifeMateRuntimeLocale.select(
+                            fa: LifeMateRuntimeLocale.select(
+                              fa: '$dayName، $dateString',
+                              en: "$dayName, $dateString",
+                            ),
+                            en: "$dayName, $dateString",
+                          ),
                           style: AppTextStyles.caption(context).copyWith(
                             color: Colors.grey.shade700,
                             fontWeight: FontWeight.bold,
@@ -207,12 +225,12 @@ class WellMateAppHeader extends StatelessWidget {
                     Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        const Icon(
+                        Icon(
                           Icons.access_time,
                           size: 14,
                           color: AppColors.error,
                         ),
-                        const SizedBox(width: 4),
+                        SizedBox(width: 4),
                         Text(
                           timeString,
                           style: AppTextStyles.caption(context).copyWith(
@@ -227,7 +245,7 @@ class WellMateAppHeader extends StatelessWidget {
               ],
             ),
           ),
-          const SizedBox(width: 8),
+          SizedBox(width: 8),
           GestureDetector(
             onTap: () async {
               final reporter = onMissedMedicationTaken;
@@ -238,13 +256,27 @@ class WellMateAppHeader extends StatelessWidget {
               }
             },
             child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              padding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
               decoration: BoxDecoration(
                 color: Colors.red.shade600,
                 borderRadius: BorderRadius.circular(8),
               ),
               child: Text(
-                isMedicine ? 'مصرف کردم' : 'انجام شد',
+                isMedicine
+                    ? LifeMateRuntimeLocale.select(
+                        fa: LifeMateRuntimeLocale.select(
+                          fa: 'مصرف کردم',
+                          en: "Taken",
+                        ),
+                        en: "I consumed",
+                      )
+                    : LifeMateRuntimeLocale.select(
+                        fa: LifeMateRuntimeLocale.select(
+                          fa: 'انجام شد',
+                          en: "Done",
+                        ),
+                        en: "done",
+                      ),
                 style: AppTextStyles.caption(
                   context,
                 ).copyWith(color: Colors.white, fontWeight: FontWeight.bold),

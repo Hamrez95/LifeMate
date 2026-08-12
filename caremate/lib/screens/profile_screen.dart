@@ -28,7 +28,7 @@ class ProfileScreen extends StatelessWidget {
 
     return LifeMateSharedProfileScreen(
       apiClient: context.read<LifeMateApiClient>(),
-      theme: const LifeMateProfileThemeData(
+      theme: LifeMateProfileThemeData(
         background: AppColors.background,
         accent: AppColors.primaryBlue,
         titleColor: AppColors.darkBlue,
@@ -36,44 +36,92 @@ class ProfileScreen extends StatelessWidget {
         cardBackground: AppColors.cardBackground,
       ),
       labels: LifeMateProfileLabels(
-        personalInfo: loc['profile_personal_info'] ?? 'اطلاعات شخصی',
-        healthProfile: loc['profile_health_profile'] ?? 'پرونده سلامت',
+        personalInfo:
+            loc['profile_personal_info'] ??
+            LifeMateRuntimeLocale.select(
+              fa: LifeMateRuntimeLocale.select(
+                fa: 'اطلاعات شخصی',
+                en: "Personal information",
+              ),
+              en: "Personal information",
+            ),
+        healthProfile:
+            loc['profile_health_profile'] ??
+            LifeMateRuntimeLocale.select(
+              fa: LifeMateRuntimeLocale.select(
+                fa: 'پرونده سلامت',
+                en: "health file",
+              ),
+              en: "health file",
+            ),
         careManagement:
-            loc['profile_caregivers'] ?? 'مدیریت افراد تحت مراقبت',
-        appSettings: loc['profile_app_settings'] ?? 'تنظیمات برنامه',
-        referral: loc['profile_referral_code'] ?? 'کد معرف',
+            loc['profile_caregivers'] ??
+            LifeMateRuntimeLocale.select(
+              fa: LifeMateRuntimeLocale.select(
+                fa: 'مدیریت افراد تحت مراقبت',
+                en: "Management of people under care",
+              ),
+              en: "Management of people under care",
+            ),
+        appSettings:
+            loc['profile_app_settings'] ??
+            LifeMateRuntimeLocale.select(
+              fa: LifeMateRuntimeLocale.select(
+                fa: 'تنظیمات برنامه',
+                en: "Program settings",
+              ),
+              en: "Program settings",
+            ),
+        referral:
+            loc['profile_referral_code'] ??
+            LifeMateRuntimeLocale.select(
+              fa: 'کد معرف',
+              en: "Identification code",
+            ),
         support: loc['profile_support'] ?? 'پشتیبانی',
         logout: loc['profile_logout'] ?? 'خروج از حساب',
         subscriptionTitle:
-            loc['profile_no_subscription'] ?? (isPersian ? 'اشتراک' : 'Subscription'),
+            loc['profile_no_subscription'] ??
+            (isPersian ? 'اشتراک' : 'Subscription'),
         manageSubscriptions:
             loc['profile_buy_plan'] ??
             (isPersian ? 'مدیریت اشتراک‌ها' : 'Manage subscriptions'),
-        referralSubtitle: isPersian ? 'در دست توسعه' : 'Coming soon',
+        referralSubtitle: isPersian
+            ? LifeMateRuntimeLocale.select(
+                fa: 'در دست توسعه',
+                en: "Under development",
+              )
+            : 'Coming soon',
         supportSubtitle: isPersian
-            ? 'راهنما فعال؛ ارسال تیکت در دست توسعه'
+            ? LifeMateRuntimeLocale.select(
+                fa: 'راهنما فعال؛ ارسال تیکت در دست توسعه',
+                en: "active guide; Submit ticket under development",
+              )
             : 'Help is available; ticketing is coming soon',
       ),
       fontFamily: mainFont,
       appName: 'CareMate',
       versionLabel: 'CareMate $careMateAppVersion'.toPersianDigit(isPersian),
-      fallbackUserName: isPersian ? 'کاربر LifeMate' : 'LifeMate user',
+      fallbackUserName: isPersian
+          ? LifeMateRuntimeLocale.select(
+              fa: 'کاربر LifeMate',
+              en: "LifeMate user",
+            )
+          : 'LifeMate user',
       isPersian: isPersian,
-      onNotifications: () => open(const CareMateNotificationsScreen()),
-      onEditProfile: () => open(const CareMateEditableProfileScreen()),
-      onHealthProfile: () => open(
-        const CareMateFeaturePreviewScreen(initialIndex: 2),
-      ),
-      onCareManagement: () => open(
-        const CareMateFeaturePreviewScreen(initialIndex: 3),
-      ),
+      onNotifications: () => open(CareMateNotificationsScreen()),
+      onEditProfile: () => open(CareMateEditableProfileScreen()),
+      onHealthProfile: () =>
+          open(CareMateFeaturePreviewScreen(initialIndex: 2)),
+      onCareManagement: () =>
+          open(CareMateFeaturePreviewScreen(initialIndex: 3)),
       onAppSettings: () => showDialog<void>(
         context: context,
         builder: (_) => _LanguageDialog(mainFont: mainFont),
       ),
-      onReferral: () => open(const CareMateReferralScreen()),
-      onSupport: () => open(const CareMateSupportScreen()),
-      onManageSubscriptions: () => open(const CareMateSubscriptionScreen()),
+      onReferral: () => open(CareMateReferralScreen()),
+      onSupport: () => open(CareMateSupportScreen()),
+      onManageSubscriptions: () => open(CareMateSubscriptionScreen()),
     );
   }
 }
@@ -94,8 +142,16 @@ class _LanguageDialog extends StatelessWidget {
         style: TextStyle(fontFamily: mainFont, fontWeight: FontWeight.bold),
       ),
       content: SegmentedButton<String>(
-        segments: const [
-          ButtonSegment(value: 'fa', label: Text('فارسی')),
+        segments: [
+          ButtonSegment(
+            value: 'fa',
+            label: Text(
+              LifeMateRuntimeLocale.select(
+                fa: LifeMateRuntimeLocale.select(fa: 'فارسی', en: "Farsi"),
+                en: "Farsi",
+              ),
+            ),
+          ),
           ButtonSegment(value: 'en', label: Text('English')),
         ],
         selected: {localeProvider.locale.languageCode},
@@ -106,7 +162,11 @@ class _LanguageDialog extends StatelessWidget {
       actions: [
         FilledButton(
           onPressed: () => Navigator.of(context).pop(),
-          child: Text(isPersian ? 'تمام' : 'Done'),
+          child: Text(
+            isPersian
+                ? LifeMateRuntimeLocale.select(fa: 'تمام', en: "all")
+                : 'Done',
+          ),
         ),
       ],
     );

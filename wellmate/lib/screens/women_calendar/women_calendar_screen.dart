@@ -121,12 +121,33 @@ class _WomenCalendarScreenState extends State<WomenCalendarScreen> {
       if (!mounted) return;
       setState(() {
         _error = error.code == 'women_calendar_feature_disabled'
-            ? 'تقویم بانوان در این نسخه داخلی فعال نشده است.'
-            : 'اطلاعات تقویم بانوان دریافت نشد.';
+            ? LifeMateRuntimeLocale.select(
+                fa: LifeMateRuntimeLocale.select(
+                  fa: 'تقویم بانوان در این نسخه داخلی فعال نشده است.',
+                  en: "Ladies calendar is not enabled in this internal version.",
+                ),
+                en: "Ladies calendar is not enabled in this internal version.",
+              )
+            : LifeMateRuntimeLocale.select(
+                fa: LifeMateRuntimeLocale.select(
+                  fa: 'اطلاعات تقویم بانوان دریافت نشد.',
+                  en: "Women's calendar information was not received.",
+                ),
+                en: "Women's calendar information was not received.",
+              );
       });
     } catch (error) {
       debugPrint('Women calendar experience load failed: $error');
-      if (mounted) setState(() => _error = 'اطلاعات تقویم بانوان دریافت نشد.');
+      if (mounted)
+        setState(
+          () => _error = LifeMateRuntimeLocale.select(
+            fa: LifeMateRuntimeLocale.select(
+              fa: 'اطلاعات تقویم بانوان دریافت نشد.',
+              en: "Women's calendar information was not received.",
+            ),
+            en: "Women's calendar information was not received.",
+          ),
+        );
     } finally {
       if (mounted) setState(() => _loading = false);
     }
@@ -159,7 +180,13 @@ class _WomenCalendarScreenState extends State<WomenCalendarScreen> {
       initialDate: _lastPeriodStart ?? DateTime.now(),
       firstDate: DateTime(2015),
       lastDate: DateTime.now(),
-      title: 'تاریخ شروع آخرین دوره',
+      title: LifeMateRuntimeLocale.select(
+        fa: LifeMateRuntimeLocale.select(
+          fa: 'تاریخ شروع آخرین دوره',
+          en: "Last term start date",
+        ),
+        en: "Last term start date",
+      ),
     );
     if (selected != null && mounted) {
       setState(() => _lastPeriodStart = selected);
@@ -189,8 +216,20 @@ class _WomenCalendarScreenState extends State<WomenCalendarScreen> {
       LifeMateNotice.show(
         context,
         type: LifeMateNoticeType.success,
-        title: 'تنظیمات ذخیره شد',
-        message: 'تنظیمات چرخه به‌روزرسانی شد.',
+        title: LifeMateRuntimeLocale.select(
+          fa: LifeMateRuntimeLocale.select(
+            fa: 'تنظیمات ذخیره شد',
+            en: "Settings saved",
+          ),
+          en: "Settings saved",
+        ),
+        message: LifeMateRuntimeLocale.select(
+          fa: LifeMateRuntimeLocale.select(
+            fa: 'تنظیمات چرخه به‌روزرسانی شد.',
+            en: "Updated cycle settings.",
+          ),
+          en: "Updated cycle settings.",
+        ),
       );
       await widget.onProfileChanged?.call();
     } on LifeMateApiException catch (error) {
@@ -198,10 +237,28 @@ class _WomenCalendarScreenState extends State<WomenCalendarScreen> {
       LifeMateNotice.show(
         context,
         type: LifeMateNoticeType.error,
-        title: 'ذخیره انجام نشد',
+        title: LifeMateRuntimeLocale.select(
+          fa: LifeMateRuntimeLocale.select(
+            fa: 'ذخیره انجام نشد',
+            en: "Failed to save",
+          ),
+          en: "Failed to save",
+        ),
         message: error.code == 'stale_women_calendar_profile'
-            ? 'اطلاعات تغییر کرده بود؛ صفحه تازه‌سازی شد.'
-            : 'تنظیمات ذخیره نشد.',
+            ? LifeMateRuntimeLocale.select(
+                fa: LifeMateRuntimeLocale.select(
+                  fa: 'اطلاعات تغییر کرده بود؛ صفحه تازه‌سازی شد.',
+                  en: "The information had changed; The page has been updated.",
+                ),
+                en: "The information had changed; The page has been updated.",
+              )
+            : LifeMateRuntimeLocale.select(
+                fa: LifeMateRuntimeLocale.select(
+                  fa: 'تنظیمات ذخیره نشد.',
+                  en: "Settings could not be saved.",
+                ),
+                en: "Settings could not be saved.",
+              ),
       );
       await _load();
     } finally {
@@ -224,8 +281,20 @@ class _WomenCalendarScreenState extends State<WomenCalendarScreen> {
       LifeMateNotice.show(
         context,
         type: LifeMateNoticeType.success,
-        title: 'دوره ثبت شد',
-        message: 'بازه دوره و یادداشت خصوصی ذخیره شد.',
+        title: LifeMateRuntimeLocale.select(
+          fa: LifeMateRuntimeLocale.select(
+            fa: 'دوره ثبت شد',
+            en: "The course was registered",
+          ),
+          en: "The course was registered",
+        ),
+        message: LifeMateRuntimeLocale.select(
+          fa: LifeMateRuntimeLocale.select(
+            fa: 'بازه دوره و یادداشت خصوصی ذخیره شد.',
+            en: "Course interval and private note saved.",
+          ),
+          en: "Course interval and private note saved.",
+        ),
       );
       await _load();
       await widget.onProfileChanged?.call();
@@ -234,10 +303,28 @@ class _WomenCalendarScreenState extends State<WomenCalendarScreen> {
       LifeMateNotice.show(
         context,
         type: LifeMateNoticeType.error,
-        title: 'ثبت دوره انجام نشد',
+        title: LifeMateRuntimeLocale.select(
+          fa: LifeMateRuntimeLocale.select(
+            fa: 'ثبت دوره انجام نشد',
+            en: "Course registration failed",
+          ),
+          en: "Course registration failed",
+        ),
         message: error.code == 'women_calendar_episode_overlap'
-            ? 'این بازه با یک ثبت قبلی هم‌پوشانی دارد.'
-            : 'تغییرات ثبت دوره ذخیره نشد.',
+            ? LifeMateRuntimeLocale.select(
+                fa: LifeMateRuntimeLocale.select(
+                  fa: 'این بازه با یک ثبت قبلی هم‌پوشانی دارد.',
+                  en: "This interval overlaps with a previous record.",
+                ),
+                en: "This interval overlaps with a previous record.",
+              )
+            : LifeMateRuntimeLocale.select(
+                fa: LifeMateRuntimeLocale.select(
+                  fa: 'تغییرات ثبت دوره ذخیره نشد.',
+                  en: "Course registration changes were not saved.",
+                ),
+                en: "Course registration changes were not saved.",
+              ),
       );
     } finally {
       if (mounted) setState(() => _saving = false);
@@ -260,8 +347,20 @@ class _WomenCalendarScreenState extends State<WomenCalendarScreen> {
       LifeMateNotice.show(
         context,
         type: LifeMateNoticeType.success,
-        title: 'پایان دوره ثبت شد',
-        message: 'پایان دوره برای امروز ذخیره شد.',
+        title: LifeMateRuntimeLocale.select(
+          fa: LifeMateRuntimeLocale.select(
+            fa: 'پایان دوره ثبت شد',
+            en: "The end of the course was recorded",
+          ),
+          en: "The end of the course was recorded",
+        ),
+        message: LifeMateRuntimeLocale.select(
+          fa: LifeMateRuntimeLocale.select(
+            fa: 'پایان دوره برای امروز ذخیره شد.',
+            en: "End of course saved for today.",
+          ),
+          en: "End of course saved for today.",
+        ),
       );
       await _load();
     } finally {
@@ -290,8 +389,20 @@ class _WomenCalendarScreenState extends State<WomenCalendarScreen> {
       LifeMateNotice.show(
         context,
         type: LifeMateNoticeType.success,
-        title: 'ثبت دوره اصلاح شد',
-        message: 'تغییرات تاریخچه دوره ذخیره شد.',
+        title: LifeMateRuntimeLocale.select(
+          fa: LifeMateRuntimeLocale.select(
+            fa: 'ثبت دوره اصلاح شد',
+            en: "Course registration was modified",
+          ),
+          en: "Course registration was modified",
+        ),
+        message: LifeMateRuntimeLocale.select(
+          fa: LifeMateRuntimeLocale.select(
+            fa: 'تغییرات تاریخچه دوره ذخیره شد.',
+            en: "Course history changes saved.",
+          ),
+          en: "Course history changes saved.",
+        ),
       );
       await _load();
       await widget.onProfileChanged?.call();
@@ -300,10 +411,28 @@ class _WomenCalendarScreenState extends State<WomenCalendarScreen> {
       LifeMateNotice.show(
         context,
         type: LifeMateNoticeType.error,
-        title: 'ثبت دوره انجام نشد',
+        title: LifeMateRuntimeLocale.select(
+          fa: LifeMateRuntimeLocale.select(
+            fa: 'ثبت دوره انجام نشد',
+            en: "Course registration failed",
+          ),
+          en: "Course registration failed",
+        ),
         message: error.code == 'women_calendar_episode_overlap'
-            ? 'این بازه با یک ثبت قبلی هم‌پوشانی دارد.'
-            : 'تغییرات ثبت دوره ذخیره نشد.',
+            ? LifeMateRuntimeLocale.select(
+                fa: LifeMateRuntimeLocale.select(
+                  fa: 'این بازه با یک ثبت قبلی هم‌پوشانی دارد.',
+                  en: "This interval overlaps with a previous record.",
+                ),
+                en: "This interval overlaps with a previous record.",
+              )
+            : LifeMateRuntimeLocale.select(
+                fa: LifeMateRuntimeLocale.select(
+                  fa: 'تغییرات ثبت دوره ذخیره نشد.',
+                  en: "Course registration changes were not saved.",
+                ),
+                en: "Course registration changes were not saved.",
+              ),
       );
       await _load();
     } finally {
@@ -316,18 +445,42 @@ class _WomenCalendarScreenState extends State<WomenCalendarScreen> {
       context: context,
       builder: (dialogContext) => AlertDialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
-        title: const Text('حذف ثبت دوره؟'),
-        content: const Text(
-          'این ثبت و یادداشت خصوصی آن حذف می‌شود و قابل بازگشت نیست.',
+        title: Text(
+          LifeMateRuntimeLocale.select(
+            fa: LifeMateRuntimeLocale.select(
+              fa: 'حذف ثبت دوره؟',
+              en: "Remove course registration?",
+            ),
+            en: "Remove course registration?",
+          ),
+        ),
+        content: Text(
+          LifeMateRuntimeLocale.select(
+            fa: LifeMateRuntimeLocale.select(
+              fa: 'این ثبت و یادداشت خصوصی آن حذف می‌شود و قابل بازگشت نیست.',
+              en: "This registration and its private note will be deleted and cannot be returned.",
+            ),
+            en: "This registration and its private note will be deleted and cannot be returned.",
+          ),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(dialogContext, false),
-            child: const Text('انصراف'),
+            child: Text(
+              LifeMateRuntimeLocale.select(
+                fa: LifeMateRuntimeLocale.select(fa: 'انصراف', en: "opt out"),
+                en: "opt out",
+              ),
+            ),
           ),
           FilledButton(
             onPressed: () => Navigator.pop(dialogContext, true),
-            child: const Text('حذف'),
+            child: Text(
+              LifeMateRuntimeLocale.select(
+                fa: LifeMateRuntimeLocale.select(fa: 'حذف', en: "Delete"),
+                en: "remove",
+              ),
+            ),
           ),
         ],
       ),
@@ -370,7 +523,7 @@ class _WomenCalendarScreenState extends State<WomenCalendarScreen> {
             20,
             MediaQuery.viewInsetsOf(context).bottom + 24,
           ),
-          decoration: const BoxDecoration(
+          decoration: BoxDecoration(
             color: Color(0xFFFFFBFD),
             borderRadius: BorderRadius.vertical(top: Radius.circular(32)),
           ),
@@ -391,18 +544,38 @@ class _WomenCalendarScreenState extends State<WomenCalendarScreen> {
                       ),
                     ),
                   ),
-                  const SizedBox(height: 18),
+                  SizedBox(height: 18),
                   Text(
-                    episode == null ? 'ثبت دوره جدید' : 'ویرایش دوره',
-                    style: const TextStyle(
+                    episode == null
+                        ? LifeMateRuntimeLocale.select(
+                            fa: LifeMateRuntimeLocale.select(
+                              fa: 'ثبت دوره جدید',
+                              en: "New course registration",
+                            ),
+                            en: "New course registration",
+                          )
+                        : LifeMateRuntimeLocale.select(
+                            fa: LifeMateRuntimeLocale.select(
+                              fa: 'ویرایش دوره',
+                              en: "Course editing",
+                            ),
+                            en: "Course editing",
+                          ),
+                    style: TextStyle(
                       fontSize: 20,
                       fontWeight: FontWeight.w900,
                       color: womenInk,
                     ),
                   ),
-                  const SizedBox(height: 16),
+                  SizedBox(height: 16),
                   _EpisodeDateField(
-                    label: 'تاریخ شروع',
+                    label: LifeMateRuntimeLocale.select(
+                      fa: LifeMateRuntimeLocale.select(
+                        fa: 'تاریخ شروع',
+                        en: "start date",
+                      ),
+                      en: "start date",
+                    ),
                     value: formatAppDate(context, startedOn),
                     icon: Icons.play_circle_outline_rounded,
                     onTap: () async {
@@ -411,7 +584,13 @@ class _WomenCalendarScreenState extends State<WomenCalendarScreen> {
                         initialDate: startedOn,
                         firstDate: DateTime(2015),
                         lastDate: DateTime.now(),
-                        title: 'تاریخ شروع دوره',
+                        title: LifeMateRuntimeLocale.select(
+                          fa: LifeMateRuntimeLocale.select(
+                            fa: 'تاریخ شروع دوره',
+                            en: "Course start date",
+                          ),
+                          en: "Course start date",
+                        ),
                       );
                       if (value != null) {
                         setSheetState(() {
@@ -423,11 +602,23 @@ class _WomenCalendarScreenState extends State<WomenCalendarScreen> {
                       }
                     },
                   ),
-                  const SizedBox(height: 10),
+                  SizedBox(height: 10),
                   _EpisodeDateField(
-                    label: 'تاریخ پایان',
+                    label: LifeMateRuntimeLocale.select(
+                      fa: LifeMateRuntimeLocale.select(
+                        fa: 'تاریخ پایان',
+                        en: "end date",
+                      ),
+                      en: "end date",
+                    ),
                     value: endedOn == null
-                        ? 'هنوز ادامه دارد'
+                        ? LifeMateRuntimeLocale.select(
+                            fa: LifeMateRuntimeLocale.select(
+                              fa: 'هنوز ادامه دارد',
+                              en: "It is still going on",
+                            ),
+                            en: "It is still going on",
+                          )
                         : formatAppDate(context, endedOn!),
                     icon: Icons.stop_circle_outlined,
                     onTap: () async {
@@ -436,7 +627,13 @@ class _WomenCalendarScreenState extends State<WomenCalendarScreen> {
                         initialDate: endedOn ?? startedOn,
                         firstDate: startedOn,
                         lastDate: DateTime.now(),
-                        title: 'تاریخ پایان دوره',
+                        title: LifeMateRuntimeLocale.select(
+                          fa: LifeMateRuntimeLocale.select(
+                            fa: 'تاریخ پایان دوره',
+                            en: "Course end date",
+                          ),
+                          en: "Course end date",
+                        ),
                       );
                       if (value != null) setSheetState(() => endedOn = value);
                     },
@@ -444,24 +641,36 @@ class _WomenCalendarScreenState extends State<WomenCalendarScreen> {
                         ? null
                         : () => setSheetState(() => endedOn = null),
                   ),
-                  const SizedBox(height: 12),
+                  SizedBox(height: 12),
                   TextField(
                     controller: notesController,
                     maxLength: 500,
                     maxLines: 4,
                     decoration: InputDecoration(
-                      labelText: 'یادداشت خصوصی',
-                      hintText: 'این متن فقط برای خودت نمایش داده می‌شود.',
-                      prefixIcon: const Icon(Icons.lock_outline_rounded),
+                      labelText: LifeMateRuntimeLocale.select(
+                        fa: LifeMateRuntimeLocale.select(
+                          fa: 'یادداشت خصوصی',
+                          en: "Private note",
+                        ),
+                        en: "Private note",
+                      ),
+                      hintText: LifeMateRuntimeLocale.select(
+                        fa: LifeMateRuntimeLocale.select(
+                          fa: 'این متن فقط برای خودت نمایش داده می‌شود.',
+                          en: "This text is displayed only for you.",
+                        ),
+                        en: "This text is displayed only for you.",
+                      ),
+                      prefixIcon: Icon(Icons.lock_outline_rounded),
                       filled: true,
-                      fillColor: const Color(0xFFF8F3F8),
+                      fillColor: Color(0xFFF8F3F8),
                       border: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(18),
                         borderSide: BorderSide.none,
                       ),
                     ),
                   ),
-                  const SizedBox(height: 10),
+                  SizedBox(height: 10),
                   Row(
                     children: [
                       if (episode != null)
@@ -475,15 +684,31 @@ class _WomenCalendarScreenState extends State<WomenCalendarScreen> {
                               deleteRequested: true,
                             ),
                           ),
-                          icon: const Icon(Icons.delete_outline_rounded),
-                          label: const Text('حذف'),
+                          icon: Icon(Icons.delete_outline_rounded),
+                          label: Text(
+                            LifeMateRuntimeLocale.select(
+                              fa: LifeMateRuntimeLocale.select(
+                                fa: 'حذف',
+                                en: "Delete",
+                              ),
+                              en: "remove",
+                            ),
+                          ),
                         ),
-                      const Spacer(),
+                      Spacer(),
                       TextButton(
                         onPressed: () => Navigator.pop(sheetContext),
-                        child: const Text('انصراف'),
+                        child: Text(
+                          LifeMateRuntimeLocale.select(
+                            fa: LifeMateRuntimeLocale.select(
+                              fa: 'انصراف',
+                              en: "opt out",
+                            ),
+                            en: "opt out",
+                          ),
+                        ),
                       ),
-                      const SizedBox(width: 8),
+                      SizedBox(width: 8),
                       FilledButton(
                         onPressed: () => Navigator.pop(
                           sheetContext,
@@ -496,7 +721,15 @@ class _WomenCalendarScreenState extends State<WomenCalendarScreen> {
                         style: FilledButton.styleFrom(
                           backgroundColor: womenRose,
                         ),
-                        child: const Text('ذخیره'),
+                        child: Text(
+                          LifeMateRuntimeLocale.select(
+                            fa: LifeMateRuntimeLocale.select(
+                              fa: 'ذخیره',
+                              en: "Save",
+                            ),
+                            en: "save",
+                          ),
+                        ),
                       ),
                     ],
                   ),
@@ -519,29 +752,69 @@ class _WomenCalendarScreenState extends State<WomenCalendarScreen> {
     if (!LifeMateFeatureFlags.womenCalendarPilotEnabled) {
       return _FeatureGate(
         icon: Icons.lock_outline_rounded,
-        title: 'تقویم بانوان در این Build فعال نیست',
-        description:
-            'این قابلیت فقط در نسخه داخلی دارای Feature Flag نمایش داده می‌شود.',
-        actionLabel: 'مشاهده اشتراک‌ها',
+        title: LifeMateRuntimeLocale.select(
+          fa: LifeMateRuntimeLocale.select(
+            fa: 'تقویم بانوان در این Build فعال نیست',
+            en: "Ladies calendar is not active in this build",
+          ),
+          en: "Ladies calendar is not active in this build",
+        ),
+        description: LifeMateRuntimeLocale.select(
+          fa: LifeMateRuntimeLocale.select(
+            fa: 'این قابلیت فقط در نسخه داخلی دارای Feature Flag نمایش داده می‌شود.',
+            en: "This feature is displayed only in the built-in version with Feature Flag.",
+          ),
+          en: "This feature is displayed only in the built-in version with Feature Flag.",
+        ),
+        actionLabel: LifeMateRuntimeLocale.select(
+          fa: LifeMateRuntimeLocale.select(
+            fa: 'مشاهده اشتراک‌ها',
+            en: "View subscriptions",
+          ),
+          en: "View subscriptions",
+        ),
         onAction: _openSubscription,
       );
     }
     if (_error != null) {
       return _FeatureGate(
         icon: Icons.cloud_off_rounded,
-        title: 'اطلاعات چرخه دریافت نشد',
+        title: LifeMateRuntimeLocale.select(
+          fa: LifeMateRuntimeLocale.select(
+            fa: 'اطلاعات چرخه دریافت نشد',
+            en: "Cycle information not received",
+          ),
+          en: "Cycle information not received",
+        ),
         description: _error!,
-        actionLabel: 'تلاش دوباره',
+        actionLabel: LifeMateRuntimeLocale.select(
+          fa: LifeMateRuntimeLocale.select(fa: 'تلاش دوباره', en: "Try again"),
+          en: "Try again",
+        ),
         onAction: _load,
       );
     }
     if (!_enabled) {
       return _FeatureGate(
         icon: Icons.local_florist_outlined,
-        title: 'فضای شخصی چرخه آماده است',
-        description:
-            'با فعال‌سازی تقویم بانوان، تنظیمات چرخه و مدیریت ثبت‌های دوره در دسترس قرار می‌گیرد.',
-        actionLabel: 'فعال‌سازی',
+        title: LifeMateRuntimeLocale.select(
+          fa: LifeMateRuntimeLocale.select(
+            fa: 'فضای شخصی چرخه آماده است',
+            en: "The personal space of the cycle is ready",
+          ),
+          en: "The personal space of the cycle is ready",
+        ),
+        description: LifeMateRuntimeLocale.select(
+          fa: LifeMateRuntimeLocale.select(
+            fa: 'با فعال‌سازی تقویم بانوان، تنظیمات چرخه و مدیریت ثبت‌های دوره در دسترس قرار می‌گیرد.',
+            en: "By activating the women's calendar, cycle settings and period registration management are available.",
+          ),
+          en: "By activating the women's calendar, cycle settings and period registration management are available.",
+        ),
+        actionLabel: LifeMateRuntimeLocale.select(
+          fa: LifeMateRuntimeLocale.select(fa: 'فعال‌سازی', en: "Activation"),
+          en: "Activation",
+        ),
         onAction: _openSubscription,
       );
     }
@@ -552,16 +825,22 @@ class _WomenCalendarScreenState extends State<WomenCalendarScreen> {
         onRefresh: _load,
         color: womenRose,
         child: ListView(
-          key: const ValueKey('women-calendar-settings-only'),
-          physics: const AlwaysScrollableScrollPhysics(),
-          padding: const EdgeInsets.fromLTRB(18, 18, 18, 32),
+          key: ValueKey('women-calendar-settings-only'),
+          physics: AlwaysScrollableScrollPhysics(),
+          padding: EdgeInsets.fromLTRB(18, 18, 18, 32),
           children: [
-            const WomenSoftCard(
+            WomenSoftCard(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    'تنظیمات و مدیریت ثبت‌ها',
+                    LifeMateRuntimeLocale.select(
+                      fa: LifeMateRuntimeLocale.select(
+                        fa: 'تنظیمات و مدیریت ثبت‌ها',
+                        en: "Settings and registration management",
+                      ),
+                      en: "Settings and registration management",
+                    ),
                     style: TextStyle(
                       fontSize: 20,
                       fontWeight: FontWeight.w900,
@@ -570,7 +849,13 @@ class _WomenCalendarScreenState extends State<WomenCalendarScreen> {
                   ),
                   SizedBox(height: 7),
                   Text(
-                    'اینجا فقط تنظیمات ماندگار چرخه، یادآوری‌ها و تاریخچه دوره‌ها مدیریت می‌شود. حال روزانه از خود تقویم ثبت می‌شود.',
+                    LifeMateRuntimeLocale.select(
+                      fa: LifeMateRuntimeLocale.select(
+                        fa: 'اینجا فقط تنظیمات ماندگار چرخه، یادآوری‌ها و تاریخچه دوره‌ها مدیریت می‌شود. حال روزانه از خود تقویم ثبت می‌شود.',
+                        en: "Only persistent cycle settings, reminders and course history are managed here. It is recorded daily from the calendar itself.",
+                      ),
+                      en: "Only persistent cycle settings, reminders and course history are managed here. It is recorded daily from the calendar itself.",
+                    ),
                     style: TextStyle(
                       color: AppColors.textSecondary,
                       height: 1.65,
@@ -579,7 +864,7 @@ class _WomenCalendarScreenState extends State<WomenCalendarScreen> {
                 ],
               ),
             ),
-            const SizedBox(height: 14),
+            SizedBox(height: 14),
             WomenCycleSettingsCard(
               lastPeriodStart: _lastPeriodStart,
               cycleLength: _cycleLength,
@@ -593,13 +878,13 @@ class _WomenCalendarScreenState extends State<WomenCalendarScreen> {
                   setState(() => _remindersEnabled = value),
               onSave: _saveSettings,
             ),
-            const SizedBox(height: 14),
+            SizedBox(height: 14),
             WomenRemindersCard(
               estimate: estimate,
               remindersEnabled: _remindersEnabled,
               activeTreatmentCount: _activeTreatmentCount,
             ),
-            const SizedBox(height: 14),
+            SizedBox(height: 14),
             WomenPeriodHistoryCard(
               episodes: _episodes,
               hasOpenEpisode: _openEpisode != null,
@@ -608,8 +893,8 @@ class _WomenCalendarScreenState extends State<WomenCalendarScreen> {
               onFinish: _finishPeriodToday,
               onEdit: _editEpisode,
             ),
-            const SizedBox(height: 14),
-            const WomenPrivacyNotice(),
+            SizedBox(height: 14),
+            WomenPrivacyNotice(),
           ],
         ),
       ),

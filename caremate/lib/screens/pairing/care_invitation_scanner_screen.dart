@@ -27,7 +27,15 @@ class _CareInvitationScannerScreenState
       return;
     }
     if (mounted) {
-      setState(() => _message = 'این QR متعلق به دعوت LifeMate نیست.');
+      setState(
+        () => _message = LifeMateRuntimeLocale.select(
+          fa: LifeMateRuntimeLocale.select(
+            fa: 'این QR متعلق به دعوت LifeMate نیست.',
+            en: "This QR does not belong to LifeMate Invitation.",
+          ),
+          en: "This QR does not belong to LifeMate Invitation.",
+        ),
+      );
     }
   }
 
@@ -38,7 +46,15 @@ class _CareInvitationScannerScreenState
       appBar: AppBar(
         backgroundColor: Colors.black,
         foregroundColor: Colors.white,
-        title: const Text('اسکن دعوت مراقبت'),
+        title: Text(
+          LifeMateRuntimeLocale.select(
+            fa: LifeMateRuntimeLocale.select(
+              fa: 'اسکن دعوت مراقبت',
+              en: "Scan invitation to care",
+            ),
+            en: "Scan invitation to care",
+          ),
+        ),
       ),
       body: Stack(
         fit: StackFit.expand,
@@ -56,7 +72,7 @@ class _CareInvitationScannerScreenState
                 decoration: BoxDecoration(
                   borderRadius: BorderRadius.circular(28),
                   border: Border.all(color: AppColors.primaryBlue, width: 4),
-                  boxShadow: const [
+                  boxShadow: [
                     BoxShadow(
                       color: Colors.black54,
                       blurRadius: 0,
@@ -69,29 +85,32 @@ class _CareInvitationScannerScreenState
           ),
           SafeArea(
             child: Padding(
-              padding: const EdgeInsets.fromLTRB(24, 18, 24, 26),
+              padding: EdgeInsets.fromLTRB(24, 18, 24, 26),
               child: Column(
                 children: [
                   Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 16,
-                      vertical: 12,
-                    ),
+                    padding: EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                     decoration: BoxDecoration(
                       color: Colors.black.withValues(alpha: 0.68),
                       borderRadius: BorderRadius.circular(18),
                     ),
-                    child: const Text(
-                      'QR نمایش‌داده‌شده در WellMate بیمار را داخل کادر قرار دهید.',
+                    child: Text(
+                      LifeMateRuntimeLocale.select(
+                        fa: LifeMateRuntimeLocale.select(
+                          fa: 'QR نمایش‌داده‌شده در WellMate بیمار را داخل کادر قرار دهید.',
+                          en: "Enter the QR displayed on the patient's WellMate into the box.",
+                        ),
+                        en: "Enter the QR displayed on the patient's WellMate into the box.",
+                      ),
                       textAlign: TextAlign.center,
                       style: TextStyle(color: Colors.white, height: 1.5),
                     ),
                   ),
-                  const Spacer(),
+                  Spacer(),
                   if (_message != null)
                     Container(
                       width: double.infinity,
-                      padding: const EdgeInsets.all(12),
+                      padding: EdgeInsets.all(12),
                       decoration: BoxDecoration(
                         color: Colors.red.shade700.withValues(alpha: 0.88),
                         borderRadius: BorderRadius.circular(16),
@@ -99,7 +118,7 @@ class _CareInvitationScannerScreenState
                       child: Text(
                         _message!,
                         textAlign: TextAlign.center,
-                        style: const TextStyle(color: Colors.white),
+                        style: TextStyle(color: Colors.white),
                       ),
                     ),
                 ],
@@ -123,18 +142,20 @@ class _CameraError extends StatelessWidget {
       color: Colors.black,
       child: Center(
         child: Padding(
-          padding: const EdgeInsets.all(28),
+          padding: EdgeInsets.all(28),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              const Icon(
-                Icons.no_photography_rounded,
-                color: Colors.white,
-                size: 58,
-              ),
-              const SizedBox(height: 16),
-              const Text(
-                'دسترسی دوربین برای اسکن QR لازم است.',
+              Icon(Icons.no_photography_rounded, color: Colors.white, size: 58),
+              SizedBox(height: 16),
+              Text(
+                LifeMateRuntimeLocale.select(
+                  fa: LifeMateRuntimeLocale.select(
+                    fa: 'دسترسی دوربین برای اسکن QR لازم است.',
+                    en: "Camera access is required to scan QR.",
+                  ),
+                  en: "Camera access is required to scan QR.",
+                ),
                 textAlign: TextAlign.center,
                 style: TextStyle(
                   color: Colors.white,
@@ -143,21 +164,29 @@ class _CameraError extends StatelessWidget {
                 ),
               ),
               if (message != null && message!.trim().isNotEmpty) ...[
-                const SizedBox(height: 8),
+                SizedBox(height: 8),
                 Text(
                   message!,
                   textAlign: TextAlign.center,
-                  style: const TextStyle(color: Colors.white70),
+                  style: TextStyle(color: Colors.white70),
                 ),
               ],
-              const SizedBox(height: 18),
+              SizedBox(height: 18),
               OutlinedButton(
                 onPressed: () => Navigator.of(context).pop(),
                 style: OutlinedButton.styleFrom(
                   foregroundColor: Colors.white,
-                  side: const BorderSide(color: Colors.white54),
+                  side: BorderSide(color: Colors.white54),
                 ),
-                child: const Text('بازگشت و ورود دستی کد'),
+                child: Text(
+                  LifeMateRuntimeLocale.select(
+                    fa: LifeMateRuntimeLocale.select(
+                      fa: 'بازگشت و ورود دستی کد',
+                      en: "Return and manual code entry",
+                    ),
+                    en: "Return and manual code entry",
+                  ),
+                ),
               ),
             ],
           ),

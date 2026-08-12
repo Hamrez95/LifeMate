@@ -53,8 +53,16 @@ class _WomenCalendarMonthCardState extends State<WomenCalendarMonthCard> {
     final dayCount = lastDate.difference(firstDate).inDays + 1;
     final isPersian = usesPersianCalendar(context);
     final weekdayLabels = isPersian
-        ? const ['ش', 'ی', 'د', 'س', 'چ', 'پ', 'ج']
-        : const ['S', 'S', 'M', 'T', 'W', 'T', 'F'];
+        ? [
+            LifeMateRuntimeLocale.select(fa: 'ش', en: "Sh"),
+            LifeMateRuntimeLocale.select(fa: 'ی', en: "Y"),
+            LifeMateRuntimeLocale.select(fa: 'د', en: "d"),
+            LifeMateRuntimeLocale.select(fa: 'س', en: "Q"),
+            LifeMateRuntimeLocale.select(fa: 'چ', en: "Ch"),
+            LifeMateRuntimeLocale.select(fa: 'پ', en: "P"),
+            LifeMateRuntimeLocale.select(fa: 'ج', en: "c"),
+          ]
+        : ['S', 'S', 'M', 'T', 'W', 'T', 'F'];
     final estimate = widget.estimate;
     final overviewDate = estimate?.today ?? DateTime.now();
     final recordedToday = _isRecordedBleedingDay(overviewDate);
@@ -145,21 +153,36 @@ class _WomenCalendarMonthCardState extends State<WomenCalendarMonthCard> {
                   : visual.foreground;
               final statusLabel = actualBleeding
                   ? (isPersian
-                        ? 'روز ثبت‌شده خون‌ریزی'
+                        ? LifeMateRuntimeLocale.select(
+                            fa: 'روز ثبت‌شده خون‌ریزی',
+                            en: "Recorded day of bleeding",
+                          )
                         : 'Recorded bleeding day')
                   : phase == null
                   ? ''
-                  : '${visual.label} ${isPersian ? 'تخمینی' : 'estimated'}';
+                  : LifeMateRuntimeLocale.select(
+                      fa: '${visual.label} ${isPersian ? 'تخمینی' : 'estimated'}',
+                      en: "${visual.label} ${isPersian ? 'تخمینی' : 'estimated'}",
+                    );
 
               return Semantics(
                 button: widget.onDateSelected != null,
                 selected: isSelected,
                 label: [
                   formatAppDate(context, date),
-                  if (isToday) isPersian ? 'امروز' : 'Today',
-                  if (isSelected) isPersian ? 'انتخاب‌شده' : 'Selected',
+                  if (isToday)
+                    isPersian
+                        ? LifeMateRuntimeLocale.select(fa: 'امروز', en: "Today")
+                        : 'Today',
+                  if (isSelected)
+                    isPersian
+                        ? LifeMateRuntimeLocale.select(
+                            fa: 'انتخاب‌شده',
+                            en: "selected",
+                          )
+                        : 'Selected',
                   if (statusLabel.isNotEmpty) statusLabel,
-                ].join('، '),
+                ].join(LifeMateRuntimeLocale.select(fa: '، ', en: ",")),
                 child: InkWell(
                   key: ValueKey(
                     'women-calendar-day-${date.year}-${date.month}-${date.day}',
@@ -170,18 +193,18 @@ class _WomenCalendarMonthCardState extends State<WomenCalendarMonthCard> {
                   borderRadius: BorderRadius.circular(14),
                   child: AnimatedScale(
                     scale: isSelected ? 1.07 : 1,
-                    duration: const Duration(milliseconds: 170),
+                    duration: Duration(milliseconds: 170),
                     curve: Curves.easeOutCubic,
                     child: AnimatedContainer(
-                      duration: const Duration(milliseconds: 190),
+                      duration: Duration(milliseconds: 190),
                       decoration: BoxDecoration(
                         color: background,
                         borderRadius: BorderRadius.circular(14),
                         border: Border.all(
                           color: isSelected
-                              ? const Color(0xFF9B68C7)
+                              ? Color(0xFF9B68C7)
                               : isToday
-                              ? const Color(0xFF20B98A)
+                              ? Color(0xFF20B98A)
                               : Colors.white,
                           width: isSelected
                               ? 2.4
@@ -190,7 +213,7 @@ class _WomenCalendarMonthCardState extends State<WomenCalendarMonthCard> {
                               : 1,
                         ),
                         boxShadow: isSelected
-                            ? const [
+                            ? [
                                 BoxShadow(
                                   color: Color(0x249B68C7),
                                   blurRadius: 10,
@@ -210,7 +233,7 @@ class _WomenCalendarMonthCardState extends State<WomenCalendarMonthCard> {
                               fontWeight: FontWeight.w900,
                             ),
                           ),
-                          const SizedBox(height: 4),
+                          SizedBox(height: 4),
                           _DayPhaseMarker(
                             phase: phase,
                             actualBleeding: actualBleeding,
@@ -223,11 +246,17 @@ class _WomenCalendarMonthCardState extends State<WomenCalendarMonthCard> {
               );
             },
           ),
-          const SizedBox(height: 14),
-          const _CalendarLegend(),
-          const SizedBox(height: 10),
-          const Text(
-            'این فازها بر پایه طول چرخه ثبت‌شده تخمین زده می‌شوند و برای تشخیص پزشکی یا پیشگیری از بارداری مناسب نیستند.',
+          SizedBox(height: 14),
+          _CalendarLegend(),
+          SizedBox(height: 10),
+          Text(
+            LifeMateRuntimeLocale.select(
+              fa: LifeMateRuntimeLocale.select(
+                fa: 'این فازها بر پایه طول چرخه ثبت‌شده تخمین زده می‌شوند و برای تشخیص پزشکی یا پیشگیری از بارداری مناسب نیستند.',
+                en: "These phases are estimated based on recorded cycle length and are not suitable for medical diagnosis or contraception.",
+              ),
+              en: "These phases are estimated based on recorded cycle length and are not suitable for medical diagnosis or contraception.",
+            ),
             textAlign: TextAlign.center,
             style: TextStyle(
               fontSize: 10.5,
@@ -298,7 +327,12 @@ class _MonthHeader extends StatelessWidget {
       child: Row(
         children: [
           IconButton.filledTonal(
-            tooltip: isPersian ? 'ماه قبل' : 'Previous month',
+            tooltip: isPersian
+                ? LifeMateRuntimeLocale.select(
+                    fa: 'ماه قبل',
+                    en: "the previous month",
+                  )
+                : 'Previous month',
             onPressed: onPrevious,
             icon: Icon(
               isPersian
@@ -310,13 +344,15 @@ class _MonthHeader extends StatelessWidget {
           Expanded(
             child: Text(
               formatAppMonth(context, focusedDate),
-              key: const ValueKey('women-calendar-month-title'),
+              key: ValueKey('women-calendar-month-title'),
               textAlign: TextAlign.center,
-              style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w900),
+              style: TextStyle(fontSize: 18, fontWeight: FontWeight.w900),
             ),
           ),
           IconButton.filledTonal(
-            tooltip: isPersian ? 'ماه بعد' : 'Next month',
+            tooltip: isPersian
+                ? LifeMateRuntimeLocale.select(fa: 'ماه بعد', en: "next month")
+                : 'Next month',
             onPressed: onNext,
             icon: Icon(
               isPersian
@@ -384,9 +420,23 @@ class _CycleOverview extends StatelessWidget {
         ? WomenCyclePhase.period
         : estimate.detailedPhase;
     final visual = _phaseVisual(phase);
-    final phaseLabel = recordedToday ? 'دوره ثبت‌شده' : visual.label;
+    final phaseLabel = recordedToday
+        ? LifeMateRuntimeLocale.select(
+            fa: LifeMateRuntimeLocale.select(
+              fa: 'دوره ثبت‌شده',
+              en: "Registered course",
+            ),
+            en: "Registered course",
+          )
+        : visual.label;
     final helperText = recordedToday
-        ? 'اطلاعات امروز بر اساس دوره‌ای است که ثبت کرده‌اید.'
+        ? LifeMateRuntimeLocale.select(
+            fa: LifeMateRuntimeLocale.select(
+              fa: 'اطلاعات امروز بر اساس دوره‌ای است که ثبت کرده‌اید.',
+              en: "Today's information is based on the course you have registered.",
+            ),
+            en: "Today's information is based on the course you have registered.",
+          )
         : _phaseHelper(context, estimate, phase);
 
     return Column(
@@ -401,8 +451,13 @@ class _CycleOverview extends StatelessWidget {
               width: diameter,
               height: diameter,
               child: Semantics(
-                label:
-                    'روز ${localizeDigits(context, estimate.cycleDay)} از چرخه، $phaseLabel',
+                label: LifeMateRuntimeLocale.select(
+                  fa: LifeMateRuntimeLocale.select(
+                    fa: 'روز ${localizeDigits(context, estimate.cycleDay)} از چرخه، $phaseLabel',
+                    en: "${localizeDigits(context, estimate.cycleDay)} day of cycle, $phaseLabel",
+                  ),
+                  en: "${localizeDigits(context, estimate.cycleDay)} day of cycle, $phaseLabel",
+                ),
                 child: Stack(
                   fit: StackFit.expand,
                   children: [
@@ -421,33 +476,31 @@ class _CycleOverview extends StatelessWidget {
                             Text(
                               formatAppDate(context, estimate.today),
                               textAlign: TextAlign.center,
-                              style: const TextStyle(
+                              style: TextStyle(
                                 color: AppColors.textSecondary,
                                 fontWeight: FontWeight.w700,
                               ),
                             ),
-                            const SizedBox(height: 8),
+                            SizedBox(height: 8),
                             Icon(visual.icon, color: visual.color, size: 27),
-                            const SizedBox(height: 7),
+                            SizedBox(height: 7),
                             FittedBox(
                               fit: BoxFit.scaleDown,
                               child: Text(
                                 phaseLabel,
-                                key: const ValueKey(
-                                  'women-calendar-cycle-phase',
-                                ),
+                                key: ValueKey('women-calendar-cycle-phase'),
                                 textAlign: TextAlign.center,
                                 maxLines: 1,
-                                style: const TextStyle(
+                                style: TextStyle(
                                   fontSize: 20,
                                   fontWeight: FontWeight.w900,
                                   color: AppColors.textPrimary,
                                 ),
                               ),
                             ),
-                            const SizedBox(height: 9),
+                            SizedBox(height: 9),
                             Container(
-                              padding: const EdgeInsets.symmetric(
+                              padding: EdgeInsets.symmetric(
                                 horizontal: 11,
                                 vertical: 6,
                               ),
@@ -456,8 +509,14 @@ class _CycleOverview extends StatelessWidget {
                                 borderRadius: BorderRadius.circular(999),
                               ),
                               child: Text(
-                                'روز ${localizeDigits(context, estimate.cycleDay)} از ${localizeDigits(context, estimate.cycleLength)}',
-                                key: const ValueKey('women-calendar-cycle-day'),
+                                LifeMateRuntimeLocale.select(
+                                  fa: LifeMateRuntimeLocale.select(
+                                    fa: 'روز ${localizeDigits(context, estimate.cycleDay)} از ${localizeDigits(context, estimate.cycleLength)}',
+                                    en: "${localizeDigits(context, estimate.cycleDay)} day from ${localizeDigits(context, estimate.cycleLength)}",
+                                  ),
+                                  en: "${localizeDigits(context, estimate.cycleDay)} day from ${localizeDigits(context, estimate.cycleLength)}",
+                                ),
+                                key: ValueKey('women-calendar-cycle-day'),
                                 maxLines: 1,
                                 style: TextStyle(
                                   color: visual.color,
@@ -494,26 +553,38 @@ class _CycleOverviewEmpty extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      key: const ValueKey('women-calendar-cycle-ring-empty'),
-      padding: const EdgeInsets.all(20),
+      key: ValueKey('women-calendar-cycle-ring-empty'),
+      padding: EdgeInsets.all(20),
       decoration: BoxDecoration(
-        gradient: const LinearGradient(
+        gradient: LinearGradient(
           colors: [Color(0xFFFFF3F7), Color(0xFFF4F0FF)],
         ),
         borderRadius: BorderRadius.circular(24),
       ),
-      child: const Column(
+      child: Column(
         children: [
           Icon(Icons.donut_large_rounded, size: 48, color: Color(0xFF9D69B8)),
           SizedBox(height: 12),
           Text(
-            'نمای چرخه پس از ثبت اطلاعات فعال می‌شود',
+            LifeMateRuntimeLocale.select(
+              fa: LifeMateRuntimeLocale.select(
+                fa: 'نمای چرخه پس از ثبت اطلاعات فعال می‌شود',
+                en: "The cycle view is activated after registering the information",
+              ),
+              en: "The cycle view is activated after registering the information",
+            ),
             textAlign: TextAlign.center,
             style: TextStyle(fontSize: 16, fontWeight: FontWeight.w900),
           ),
           SizedBox(height: 6),
           Text(
-            'تاریخ شروع آخرین دوره، طول چرخه و مدت دوره را در تنظیمات ثبت کنید.',
+            LifeMateRuntimeLocale.select(
+              fa: LifeMateRuntimeLocale.select(
+                fa: 'تاریخ شروع آخرین دوره، طول چرخه و مدت دوره را در تنظیمات ثبت کنید.',
+                en: "Enter the start date of the last period, the cycle length and the duration of the period in the settings.",
+              ),
+              en: "Enter the start date of the last period, the cycle length and the duration of the period in the settings.",
+            ),
             textAlign: TextAlign.center,
             style: TextStyle(color: AppColors.textSecondary, height: 1.5),
           ),
@@ -624,7 +695,9 @@ class _CycleRingPainter extends CustomPainter {
           fontWeight: FontWeight.w900,
         ),
       ),
-      textDirection: TextDirection.rtl,
+      textDirection: LifeMateRuntimeLocale.isPersian
+          ? TextDirection.rtl
+          : TextDirection.ltr,
       textAlign: TextAlign.center,
     )..layout(maxWidth: markerRadiusValue * 1.8);
     textPainter.paint(
@@ -658,12 +731,42 @@ class _PhaseLegend extends StatelessWidget {
       alignment: WrapAlignment.center,
       spacing: 8,
       runSpacing: 8,
-      children: const [
-        _LegendChip(label: 'قاعدگی', color: _periodColor),
-        _LegendChip(label: 'فولیکولار', color: _follicularColor),
-        _LegendChip(label: 'باروری', color: _fertileColor),
-        _LegendChip(label: 'تخمک‌گذاری', color: _ovulationColor),
-        _LegendChip(label: 'لوتئال', color: _lutealColor),
+      children: [
+        _LegendChip(
+          label: LifeMateRuntimeLocale.select(
+            fa: LifeMateRuntimeLocale.select(fa: 'قاعدگی', en: "Menstruation"),
+            en: "Menstruation",
+          ),
+          color: _periodColor,
+        ),
+        _LegendChip(
+          label: LifeMateRuntimeLocale.select(
+            fa: LifeMateRuntimeLocale.select(fa: 'فولیکولار', en: "follicular"),
+            en: "follicular",
+          ),
+          color: _follicularColor,
+        ),
+        _LegendChip(
+          label: LifeMateRuntimeLocale.select(
+            fa: LifeMateRuntimeLocale.select(fa: 'باروری', en: "fertility"),
+            en: "fertility",
+          ),
+          color: _fertileColor,
+        ),
+        _LegendChip(
+          label: LifeMateRuntimeLocale.select(
+            fa: LifeMateRuntimeLocale.select(fa: 'تخمک‌گذاری', en: "Ovulation"),
+            en: "Ovulation",
+          ),
+          color: _ovulationColor,
+        ),
+        _LegendChip(
+          label: LifeMateRuntimeLocale.select(
+            fa: LifeMateRuntimeLocale.select(fa: 'لوتئال', en: "Luteal"),
+            en: "Luteal",
+          ),
+          color: _lutealColor,
+        ),
         _LegendChip(label: 'PMS', color: _pmsColor),
       ],
     );
@@ -679,11 +782,38 @@ class _CalendarLegend extends StatelessWidget {
       alignment: WrapAlignment.center,
       spacing: 8,
       runSpacing: 8,
-      children: const [
-        _LegendChip(label: 'ثبت‌شده', color: Color(0xFFB52E55)),
-        _LegendChip(label: 'قاعدگی تخمینی', color: _periodColor),
-        _LegendChip(label: 'باروری', color: _fertileColor),
-        _LegendChip(label: 'تخمک‌گذاری', color: _ovulationColor),
+      children: [
+        _LegendChip(
+          label: LifeMateRuntimeLocale.select(
+            fa: LifeMateRuntimeLocale.select(fa: 'ثبت‌شده', en: "registered"),
+            en: "registered",
+          ),
+          color: Color(0xFFB52E55),
+        ),
+        _LegendChip(
+          label: LifeMateRuntimeLocale.select(
+            fa: LifeMateRuntimeLocale.select(
+              fa: 'قاعدگی تخمینی',
+              en: "Estimated menstruation",
+            ),
+            en: "Estimated menstruation",
+          ),
+          color: _periodColor,
+        ),
+        _LegendChip(
+          label: LifeMateRuntimeLocale.select(
+            fa: LifeMateRuntimeLocale.select(fa: 'باروری', en: "fertility"),
+            en: "fertility",
+          ),
+          color: _fertileColor,
+        ),
+        _LegendChip(
+          label: LifeMateRuntimeLocale.select(
+            fa: LifeMateRuntimeLocale.select(fa: 'تخمک‌گذاری', en: "Ovulation"),
+            en: "Ovulation",
+          ),
+          color: _ovulationColor,
+        ),
         _LegendChip(label: 'PMS', color: _pmsColor),
       ],
     );
@@ -744,50 +874,80 @@ class _PhaseVisual {
 }
 
 _PhaseVisual _phaseVisual(WomenCyclePhase? phase) => switch (phase) {
-  WomenCyclePhase.period => const _PhaseVisual(
-    label: 'قاعدگی',
+  WomenCyclePhase.period => _PhaseVisual(
+    label: LifeMateRuntimeLocale.select(
+      fa: LifeMateRuntimeLocale.select(fa: 'قاعدگی', en: "Menstruation"),
+      en: "Menstruation",
+    ),
     color: _periodColor,
     background: Color(0xFFFFF0F4),
     foreground: Color(0xFFB52E55),
     icon: Icons.water_drop_rounded,
   ),
-  WomenCyclePhase.follicular => const _PhaseVisual(
-    label: 'فاز فولیکولار',
+  WomenCyclePhase.follicular => _PhaseVisual(
+    label: LifeMateRuntimeLocale.select(
+      fa: LifeMateRuntimeLocale.select(
+        fa: 'فاز فولیکولار',
+        en: "Follicular phase",
+      ),
+      en: "Follicular phase",
+    ),
     color: _follicularColor,
     background: Color(0xFFF5F1FC),
     foreground: Color(0xFF7352A5),
     icon: Icons.auto_awesome_rounded,
   ),
-  WomenCyclePhase.fertile => const _PhaseVisual(
-    label: 'پنجره باروری تخمینی',
+  WomenCyclePhase.fertile => _PhaseVisual(
+    label: LifeMateRuntimeLocale.select(
+      fa: LifeMateRuntimeLocale.select(
+        fa: 'پنجره باروری تخمینی',
+        en: "Estimated fertility window",
+      ),
+      en: "Estimated fertility window",
+    ),
     color: _fertileColor,
     background: Color(0xFFECFAF8),
     foreground: Color(0xFF1C827B),
     icon: Icons.spa_rounded,
   ),
-  WomenCyclePhase.ovulation => const _PhaseVisual(
-    label: 'روز تخمک‌گذاری تخمینی',
+  WomenCyclePhase.ovulation => _PhaseVisual(
+    label: LifeMateRuntimeLocale.select(
+      fa: LifeMateRuntimeLocale.select(
+        fa: 'روز تخمک‌گذاری تخمینی',
+        en: "Estimated day of ovulation",
+      ),
+      en: "Estimated day of ovulation",
+    ),
     color: _ovulationColor,
     background: Color(0xFFEDF7FD),
     foreground: Color(0xFF17699E),
     icon: Icons.blur_circular_rounded,
   ),
-  WomenCyclePhase.luteal => const _PhaseVisual(
-    label: 'فاز لوتئال',
+  WomenCyclePhase.luteal => _PhaseVisual(
+    label: LifeMateRuntimeLocale.select(
+      fa: LifeMateRuntimeLocale.select(fa: 'فاز لوتئال', en: "Luteal phase"),
+      en: "Luteal phase",
+    ),
     color: _lutealColor,
     background: Color(0xFFFFF8EA),
     foreground: Color(0xFF9B6D19),
     icon: Icons.wb_sunny_outlined,
   ),
-  WomenCyclePhase.pms => const _PhaseVisual(
-    label: 'PMS تخمینی',
+  WomenCyclePhase.pms => _PhaseVisual(
+    label: LifeMateRuntimeLocale.select(
+      fa: LifeMateRuntimeLocale.select(fa: 'PMS تخمینی', en: "Estimated PMS"),
+      en: "Estimated PMS",
+    ),
     color: _pmsColor,
     background: Color(0xFFFFF1ED),
     foreground: Color(0xFFA74D39),
     icon: Icons.favorite_border_rounded,
   ),
-  null => const _PhaseVisual(
-    label: 'بدون تخمین',
+  null => _PhaseVisual(
+    label: LifeMateRuntimeLocale.select(
+      fa: LifeMateRuntimeLocale.select(fa: 'بدون تخمین', en: "No estimate"),
+      en: "No estimate",
+    ),
     color: Color(0xFFB8C0C8),
     background: Color(0xFFF8F9FB),
     foreground: AppColors.textPrimary,
@@ -800,17 +960,48 @@ String _phaseHelper(
   WomenCalendarEstimate estimate,
   WomenCyclePhase phase,
 ) => switch (phase) {
-  WomenCyclePhase.period =>
-    'امروز در بازه تخمینی قاعدگی قرار دارد؛ ثبت واقعی شما همیشه اولویت دارد.',
-  WomenCyclePhase.follicular =>
-    'فاز فولیکولار تخمینی است؛ انرژی و علائم هر فرد می‌تواند متفاوت باشد.',
-  WomenCyclePhase.fertile =>
-    'پنجره باروری فقط بر پایه طول چرخه تخمین زده شده و روش پیشگیری محسوب نمی‌شود.',
-  WomenCyclePhase.ovulation =>
-    'روز تخمک‌گذاری تخمینی است و بدون داده یا آزمایش پزشکی قطعی نیست.',
-  WomenCyclePhase.luteal => 'فاز لوتئال تخمینی تا شروع دوره بعدی ادامه دارد.',
-  WomenCyclePhase.pms =>
-    'حدود ${localizeDigits(context, estimate.daysUntilNextPeriod)} روز تا شروع دوره بعدی باقی مانده است.',
+  WomenCyclePhase.period => LifeMateRuntimeLocale.select(
+    fa: LifeMateRuntimeLocale.select(
+      fa: 'امروز در بازه تخمینی قاعدگی قرار دارد؛ ثبت واقعی شما همیشه اولویت دارد.',
+      en: "Today is in the estimated period of menstruation; Your actual registration always takes priority.",
+    ),
+    en: "Today is in the estimated period of menstruation; Your actual registration always takes priority.",
+  ),
+  WomenCyclePhase.follicular => LifeMateRuntimeLocale.select(
+    fa: LifeMateRuntimeLocale.select(
+      fa: 'فاز فولیکولار تخمینی است؛ انرژی و علائم هر فرد می‌تواند متفاوت باشد.',
+      en: "Follicular phase is estimated; Each person's energy and symptoms can be different.",
+    ),
+    en: "Follicular phase is estimated; Each person's energy and symptoms can be different.",
+  ),
+  WomenCyclePhase.fertile => LifeMateRuntimeLocale.select(
+    fa: LifeMateRuntimeLocale.select(
+      fa: 'پنجره باروری فقط بر پایه طول چرخه تخمین زده شده و روش پیشگیری محسوب نمی‌شود.',
+      en: "Fertility window is only estimated based on cycle length and is not considered a contraceptive method.",
+    ),
+    en: "Fertility window is only estimated based on cycle length and is not considered a contraceptive method.",
+  ),
+  WomenCyclePhase.ovulation => LifeMateRuntimeLocale.select(
+    fa: LifeMateRuntimeLocale.select(
+      fa: 'روز تخمک‌گذاری تخمینی است و بدون داده یا آزمایش پزشکی قطعی نیست.',
+      en: "Ovulation day is an estimate and is not certain without data or medical tests.",
+    ),
+    en: "Ovulation day is an estimate and is not certain without data or medical tests.",
+  ),
+  WomenCyclePhase.luteal => LifeMateRuntimeLocale.select(
+    fa: LifeMateRuntimeLocale.select(
+      fa: 'فاز لوتئال تخمینی تا شروع دوره بعدی ادامه دارد.',
+      en: "The estimated luteal phase lasts until the start of the next period.",
+    ),
+    en: "The estimated luteal phase lasts until the start of the next period.",
+  ),
+  WomenCyclePhase.pms => LifeMateRuntimeLocale.select(
+    fa: LifeMateRuntimeLocale.select(
+      fa: 'حدود ${localizeDigits(context, estimate.daysUntilNextPeriod)} روز تا شروع دوره بعدی باقی مانده است.',
+      en: "About ${localizeDigits(context, estimate.daysUntilNextPeriod)} days left until the next period starts.",
+    ),
+    en: "About ${localizeDigits(context, estimate.daysUntilNextPeriod)} days left until the next period starts.",
+  ),
 };
 
 DateTime _dateOnly(DateTime value) =>
