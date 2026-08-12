@@ -215,6 +215,27 @@ List<WomenCycleRingSegment> womenCycleSegments(
       WomenCycleRingSegment(color: womenPeach, weight: 10),
     ];
   }
+  final pms = math.max(1, estimate.cycleLength - estimate.pmsStartDay + 1);
+  if (!estimate.fertilityEstimateReliable) {
+    final middle = math.max(
+      1,
+      estimate.pmsStartDay - estimate.periodLength - 1,
+    );
+    return [
+      WomenCycleRingSegment(
+        color: const Color(0xFFF05F78),
+        weight: estimate.periodLength.toDouble(),
+      ),
+      WomenCycleRingSegment(
+        color: const Color(0xFFB889E8),
+        weight: middle.toDouble(),
+      ),
+      WomenCycleRingSegment(
+        color: const Color(0xFFE78374),
+        weight: pms.toDouble(),
+      ),
+    ];
+  }
   final follicular = math.max(
     1,
     estimate.fertileWindowStartDay - estimate.periodLength - 1,
@@ -227,7 +248,6 @@ List<WomenCycleRingSegment> womenCycleSegments(
     1,
     estimate.pmsStartDay - estimate.fertileWindowEndDay - 1,
   );
-  final pms = math.max(1, estimate.cycleLength - estimate.pmsStartDay + 1);
   return [
     WomenCycleRingSegment(
       color: const Color(0xFFF05F78),
@@ -667,15 +687,19 @@ class WomenCycleHeroCard extends StatelessWidget {
                 ),
                 SizedBox(height: 8),
                 _CycleMetric(
-                  icon: Icons.local_florist_outlined,
+                  icon: value.fertilityEstimateReliable
+                      ? Icons.local_florist_outlined
+                      : Icons.info_outline_rounded,
                   color: womenLilac,
-                  label: LifeMateRuntimeLocale.select(
-                    fa: LifeMateRuntimeLocale.select(
-                      fa: '${localizeDigits(context, math.max(0, value.ovulationDay - value.cycleDay))} روز تا تخمک‌گذاری تخمینی',
-                      en: "${localizeDigits(context, math.max(0, value.ovulationDay - value.cycleDay))} Days to Estimated Ovulation",
-                    ),
-                    en: "${localizeDigits(context, math.max(0, value.ovulationDay - value.cycleDay))} Days to Estimated Ovulation",
-                  ),
+                  label: value.fertilityEstimateReliable
+                      ? LifeMateRuntimeLocale.select(
+                          fa: '${localizeDigits(context, math.max(0, value.ovulationDay - value.cycleDay))} روز تا تخمک‌گذاری تخمینی',
+                          en: "${localizeDigits(context, math.max(0, value.ovulationDay - value.cycleDay))} days to estimated ovulation",
+                        )
+                      : LifeMateRuntimeLocale.select(
+                          fa: 'برای زمان باروری، چند دوره دیگر ثبت کن',
+                          en: 'Log a few more periods before showing fertility timing',
+                        ),
                 ),
               ],
               SizedBox(height: 13),

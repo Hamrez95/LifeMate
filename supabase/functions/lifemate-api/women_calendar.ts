@@ -54,6 +54,9 @@ export type WomenCalendarEstimate = {
   nextPeriodStart: string;
   daysUntilNextPeriod: number;
   algorithmVersion: "calendar-estimate-v1";
+  confidence: "low" | "medium" | "high";
+  cyclePattern: "insufficient_data" | "regular" | "variable";
+  fertilityEstimateReliable: boolean;
 };
 
 const allowedMoods: Record<string, string> = {
@@ -555,6 +558,12 @@ export function createWomenCalendarStore(databaseUrl: string) {
       limit 1
     `;
     const profile = mapProfile(profiles[0]);
+    const estimate = calculateWomenCalendarEstimateFromEpisodes(
+      dateString(profiles[0].last_period_start),
+      profiles[0].cycle_length,
+      profiles[0].period_length,
+      episodes.map((episode: Row) => dateString(episode.started_on)),
+    );
     const canonicalSharedLog = sharedLogs[0]
       ? mapDailyLogCompanion(sharedLogs[0])
       : null;
@@ -578,7 +587,7 @@ export function createWomenCalendarStore(databaseUrl: string) {
         periodLength: profile.periodLength,
         algorithmVersion: profile.algorithmVersion,
       },
-      estimate: profile.estimate,
+      estimate,
       sharedDailySummary,
       episodes: episodes.map(mapEpisodeCaregiver),
       latestSharedDailyLog: canonicalSharedLog,
@@ -695,6 +704,47 @@ export function calculateWomenCalendarEstimate(
   periodLength: number,
   todayValue = new Date(),
 ): WomenCalendarEstimate {
+  return calculateCalendarCore(
+    lastPeriodStart,
+    cycleLength,
+    periodLength,
+    todayValue,
+    "low",
+    "insufficient_data",
+    false,
+  );
+}
+
+export function calculateWomenCalendarEstimateFromEpisodes(
+  lastPeriodStart: string,
+  configuredCycleLength: number,
+  periodLength: number,
+  periodStarts: string[],
+  todayValue = new Date(),
+): WomenCalendarEstimate {
+  const assessment = assessCycleHistory(periodStarts, configuredCycleLength);
+  const reliable =
+    assessment.pattern === "regular" && assessment.confidence !== "low";
+  return calculateCalendarCore(
+    lastPeriodStart,
+    assessment.representativeCycleLength,
+    periodLength,
+    todayValue,
+    assessment.confidence,
+    assessment.pattern,
+    reliable,
+  );
+}
+
+function calculateCalendarCore(
+  lastPeriodStart: string,
+  cycleLength: number,
+  periodLength: number,
+  todayValue: Date,
+  confidence: "low" | "medium" | "high",
+  cyclePattern: "insufficient_data" | "regular" | "variable",
+  fertilityEstimateReliable: boolean,
+): WomenCalendarEstimate {
   const start = parseDateOnly(lastPeriodStart);
   const today = new Date(Date.UTC(
     todayValue.getUTCFullYear(),
@@ -734,7 +784,7 @@ export function calculateWomenCalendarEstimate(
     fertileWindowEndDay + 1,
     cycleLength,
   );
-  const detailedPhase = phaseForCycleDay(
+  const rawDetailedPhase = phaseForCycleDay(
     cycleDay,
     periodLength,
     ovulationDay,
@@ -742,6 +792,10 @@ export function calculateWomenCalendarEstimate(
     fertileWindowEndDay,
     pmsStartDay,
   );
+  const detailedPhase: DetailedPhase = !fertilityEstimateReliable &&
+      (rawDetailedPhase === "fertile" || rawDetailedPhase === "ovulation")
+    ? (cycleDay <= ovulationDay ? "follicular" : "luteal")
+    : rawDetailedPhase;
   const estimatedBleeding = detailedPhase === "period";
   const phase = detailedPhase === "period"
     ? "period"
@@ -765,6 +819,59 @@ export function calculateWomenCalendarEstimate(
     nextPeriodStart: formatDateOnly(nextPeriodStart),
     daysUntilNextPeriod,
     algorithmVersion: "calendar-estimate-v1",
+    confidence,
+    cyclePattern,
+    fertilityEstimateReliable,
+  };
+}
+
+function assessCycleHistory(
+  periodStarts: string[],
+  configuredCycleLength: number,
+): {
+  pattern: "insufficient_data" | "regular" | "variable";
+  confidence: "low" | "medium" | "high";
+  representativeCycleLength: number;
+} {
+  const starts = Array.from(new Set(periodStarts))
+    .map(parseDateOnly)
+    .sort((a, b) => a.getTime() - b.getTime());
+  const intervals: number[] = [];
+  for (let index = 1; index < starts.length; index++) {
+    const days = Math.round(
+      (starts[index].getTime() - starts[index - 1].getTime()) / 86_400_000,
+    );
+    if (days >= 15 && days <= 90) intervals.push(days);
+  }
+  if (intervals.length < 2) {
+    return {
+      pattern: "insufficient_data",
+      confidence: "low",
+      representativeCycleLength: configuredCycleLength,
+    };
+  }
+  const usable = intervals.filter((value) => value >= 21 && value <= 45);
+  const source = usable.length === 0 ? intervals : usable;
+  const sorted = [...source].sort((a, b) => a - b);
+  const middle = Math.floor(sorted.length / 2);
+  const representativeCycleLength = sorted.length % 2 === 1
+    ? sorted[middle]
+    : Math.round((sorted[middle - 1] + sorted[middle]) / 2);
+  const minimum = Math.min(...intervals);
+  const maximum = Math.max(...intervals);
+  const spread = maximum - minimum;
+  const variable = spread > 7 || intervals.some((value) => value < 21 || value > 45);
+  if (variable) {
+    return {
+      pattern: "variable",
+      confidence: "low",
+      representativeCycleLength: clamp(representativeCycleLength, 21, 45),
+    };
+  }
+  return {
+    pattern: "regular",
+    confidence: intervals.length >= 3 && spread <= 4 ? "high" : "medium",
+    representativeCycleLength,
   };
 }
 

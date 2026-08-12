@@ -48,14 +48,19 @@ class _WomenCompanionScreenState extends State<WomenCompanionScreen> {
       _profile['lastPeriodStart']?.toString() ?? '',
     );
     if (!_enabled || start == null) return null;
-    return WomenCalendarEstimate.calculate(
+    final periodStarts = _episodes
+        .map((episode) => DateTime.tryParse(episode['startedOn']?.toString() ?? ''))
+        .whereType<DateTime>()
+        .toList(growable: false);
+    return WomenCalendarEstimate.calculateFromEpisodes(
       lastPeriodStart: start,
-      cycleLength: _profile['cycleLength'] is int
+      configuredCycleLength: _profile['cycleLength'] is int
           ? _profile['cycleLength'] as int
           : 28,
       periodLength: _profile['periodLength'] is int
           ? _profile['periodLength'] as int
           : 5,
+      periodStarts: periodStarts,
     );
   }
 
