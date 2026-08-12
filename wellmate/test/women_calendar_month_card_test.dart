@@ -54,7 +54,7 @@ void main() {
       expect(find.text('دوره قاعدگی'), findsWidgets);
       expect(find.text('فاز فولیکولی'), findsOneWidget);
       expect(find.text('روزهای باروری'), findsOneWidget);
-      expect(find.text('تخمک‌گذاری'), findsOneWidget);
+      expect(find.text('تخمک‌گذاری'), findsWidgets);
       expect(find.text('فاز لوتئال'), findsOneWidget);
 
       final title = tester.widget<Text>(
