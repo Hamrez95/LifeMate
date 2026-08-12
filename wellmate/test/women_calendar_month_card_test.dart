@@ -9,7 +9,7 @@ import 'package:wellmate/screens/women_calendar/women_calendar_month_card.dart';
 
 void main() {
   testWidgets(
-    'renders full cycle phases, Jalali calendar and remains usable on small large-text screens',
+    'renders character-led cycle phases, Jalali calendar and remains usable on small large-text screens',
     (tester) async {
       final estimate = WomenCalendarEstimate.calculateFromEpisodes(
         lastPeriodStart: DateTime(2026, 8, 1),
@@ -51,12 +51,11 @@ void main() {
       expect(cycleDay.data, contains('۴'));
       expect(RegExp(r'[0-9]').hasMatch(cycleDay.data!), isFalse);
 
-      expect(find.text('قاعدگی'), findsWidgets);
-      expect(find.text('فولیکولار'), findsOneWidget);
-      expect(find.text('باروری'), findsWidgets);
-      expect(find.text('تخمک‌گذاری'), findsWidgets);
-      expect(find.text('لوتئال'), findsOneWidget);
-      expect(find.text('PMS'), findsWidgets);
+      expect(find.text('دوره قاعدگی'), findsWidgets);
+      expect(find.text('فاز فولیکولی'), findsOneWidget);
+      expect(find.text('روزهای باروری'), findsOneWidget);
+      expect(find.text('تخمک‌گذاری'), findsOneWidget);
+      expect(find.text('فاز لوتئال'), findsOneWidget);
 
       final title = tester.widget<Text>(
         find.byKey(const ValueKey('women-calendar-month-title')),
