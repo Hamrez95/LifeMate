@@ -31,7 +31,7 @@ jobs:
         run: |
           set -euo pipefail
           deno fmt supabase/functions/lifemate-api/women_calendar.ts supabase/functions/lifemate-api/women_calendar_test.ts
-          deno test supabase/functions/lifemate-api/women_calendar_test.ts
+          (cd supabase/functions/lifemate-api && deno task test)
           dart format packages/lifemate_client/lib/src/women_calendar.dart packages/lifemate_client/test/women_calendar_test.dart
           cd packages/lifemate_client
           flutter pub get
