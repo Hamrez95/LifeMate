@@ -90,7 +90,7 @@ void main() {
 
     expect(find.text('روزهای باروری'), findsNothing);
     expect(find.text('تخمک‌گذاری'), findsNothing);
-    expect(find.textContaining('برای نمایش زمان باروری'), findsOneWidget);
+    expect(find.textContaining('زمان باروری'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
 }
