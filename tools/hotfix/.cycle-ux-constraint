@@ -1,0 +1,8 @@
+Cycle safety UX constraint for final stabilization:
+- Preserve the existing women-calendar visual hierarchy, ring/card styling, spacing and overall calm aesthetic.
+- Low confidence must NOT add noisy badges to every calendar day or redesign the card.
+- Period and PMS presentation remain available.
+- Fertility/ovulation timing must be hidden/suppressed when confidence is low or history is variable/insufficient.
+- Use at most one short, calm inline explanation in the existing explanatory area, localized FA/EN.
+- WellMate, companion surfaces and CareMate must all consume the same confidence contract.
+- English remains LTR/Gregorian/Latin digits; Persian remains RTL/Jalali/Persian digits.
