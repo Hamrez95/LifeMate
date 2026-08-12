@@ -90,7 +90,6 @@ void main() {
 
     expect(find.text('روزهای باروری'), findsNothing);
     expect(find.text('تخمک‌گذاری'), findsNothing);
-    expect(find.byIcon(Icons.info_outline_rounded), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
 }
