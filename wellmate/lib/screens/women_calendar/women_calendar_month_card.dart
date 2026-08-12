@@ -739,6 +739,8 @@ class _CycleRingPainter extends CustomPainter {
       oldDelegate.estimate.cycleDay != estimate.cycleDay ||
       oldDelegate.estimate.cycleLength != estimate.cycleLength ||
       oldDelegate.estimate.periodLength != estimate.periodLength ||
+      oldDelegate.estimate.fertilityEstimateReliable !=
+          estimate.fertilityEstimateReliable ||
       oldDelegate.dayLabel != dayLabel;
 }
 

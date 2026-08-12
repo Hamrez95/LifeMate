@@ -459,33 +459,49 @@ class _CycleRingPainter extends CustomPainter {
     final value = estimate;
     if (value == null) return;
 
-    final sections = <(int, Color)>[
-      (value.periodLength, const Color(0xFFF15D7B)),
-      (
-        (value.fertileWindowStartDay - value.periodLength - 1)
-            .clamp(0, value.cycleLength)
-            .toInt(),
-        const Color(0xFFBA8CE2),
-      ),
-      (
-        (value.fertileWindowEndDay - value.fertileWindowStartDay + 1)
-            .clamp(0, value.cycleLength)
-            .toInt(),
-        const Color(0xFF58C8B8),
-      ),
-      (
-        (value.pmsStartDay - value.fertileWindowEndDay - 1)
-            .clamp(0, value.cycleLength)
-            .toInt(),
-        const Color(0xFFF5BE58),
-      ),
-      (
-        (value.cycleLength - value.pmsStartDay + 1)
-            .clamp(0, value.cycleLength)
-            .toInt(),
-        const Color(0xFFE98A75),
-      ),
-    ];
+    final sections = value.fertilityEstimateReliable
+        ? <(int, Color)>[
+            (value.periodLength, const Color(0xFFF15D7B)),
+            (
+              (value.fertileWindowStartDay - value.periodLength - 1)
+                  .clamp(0, value.cycleLength)
+                  .toInt(),
+              const Color(0xFFBA8CE2),
+            ),
+            (
+              (value.fertileWindowEndDay - value.fertileWindowStartDay + 1)
+                  .clamp(0, value.cycleLength)
+                  .toInt(),
+              const Color(0xFF58C8B8),
+            ),
+            (
+              (value.pmsStartDay - value.fertileWindowEndDay - 1)
+                  .clamp(0, value.cycleLength)
+                  .toInt(),
+              const Color(0xFFF5BE58),
+            ),
+            (
+              (value.cycleLength - value.pmsStartDay + 1)
+                  .clamp(0, value.cycleLength)
+                  .toInt(),
+              const Color(0xFFE98A75),
+            ),
+          ]
+        : <(int, Color)>[
+            (value.periodLength, const Color(0xFFF15D7B)),
+            (
+              (value.pmsStartDay - value.periodLength - 1)
+                  .clamp(0, value.cycleLength)
+                  .toInt(),
+              const Color(0xFFBA8CE2),
+            ),
+            (
+              (value.cycleLength - value.pmsStartDay + 1)
+                  .clamp(0, value.cycleLength)
+                  .toInt(),
+              const Color(0xFFE98A75),
+            ),
+          ];
     var start = -math.pi / 2;
     const gap = 0.035;
     for (final section in sections) {

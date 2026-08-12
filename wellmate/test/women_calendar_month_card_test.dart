@@ -11,10 +11,16 @@ void main() {
   testWidgets(
     'renders full cycle phases, Jalali calendar and remains usable on small large-text screens',
     (tester) async {
-      final estimate = WomenCalendarEstimate.calculate(
+      final estimate = WomenCalendarEstimate.calculateFromEpisodes(
         lastPeriodStart: DateTime(2026, 8, 1),
-        cycleLength: 28,
+        configuredCycleLength: 28,
         periodLength: 5,
+        periodStarts: [
+          DateTime(2026, 5, 9),
+          DateTime(2026, 6, 6),
+          DateTime(2026, 7, 4),
+          DateTime(2026, 8, 1),
+        ],
         today: DateTime(2026, 8, 4),
       );
 

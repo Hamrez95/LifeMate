@@ -851,10 +851,11 @@ function assessCycleHistory(
     };
   }
   const usable = intervals.filter((value) => value >= 21 && value <= 45);
-  const source = usable.length === 0 ? intervals : usable;
-  const sorted = [...source].sort((a, b) => a - b);
+  const sorted = [...usable].sort((a, b) => a - b);
   const middle = Math.floor(sorted.length / 2);
-  const representativeCycleLength = sorted.length % 2 === 1
+  const representativeCycleLength = sorted.length === 0
+    ? configuredCycleLength
+    : sorted.length % 2 === 1
     ? sorted[middle]
     : Math.round((sorted[middle - 1] + sorted[middle]) / 2);
   const minimum = Math.min(...intervals);
