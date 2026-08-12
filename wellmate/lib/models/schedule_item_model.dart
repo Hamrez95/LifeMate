@@ -1,3 +1,5 @@
+import 'package:lifemate_client/lifemate_client.dart';
+
 class ScheduleItemModel {
   final String id;
   final String? seriesId;
@@ -48,7 +50,12 @@ class ScheduleItemModel {
       scheduledAtUtc: json['scheduledAtUtc'] == null
           ? null
           : DateTime.tryParse(json['scheduledAtUtc'].toString())?.toUtc(),
-      frequency: json['frequency'] ?? 'روزانه',
+      frequency:
+          json['frequency'] ??
+          LifeMateRuntimeLocale.select(
+            fa: LifeMateRuntimeLocale.select(fa: 'روزانه', en: "daily"),
+            en: "daily",
+          ),
       startDate: json['startDate'] != null
           ? DateTime.parse(json['startDate'])
           : null,

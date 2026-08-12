@@ -5,6 +5,7 @@ import 'package:timezone/timezone.dart' as tz;
 
 import '../core/utils/string_extensions.dart';
 import '../models/care_recipient_reminder.dart';
+import 'package:lifemate_client/lifemate_client.dart';
 
 class CareNotificationProvider extends ChangeNotifier {
   final FlutterLocalNotificationsPlugin _notifications =
@@ -73,12 +74,23 @@ class CareNotificationProvider extends ChangeNotifier {
         title,
         detail,
         triggerTime,
-        const NotificationDetails(
+        NotificationDetails(
           android: AndroidNotificationDetails(
             'caremate_next_treatment',
-            'برنامه بعدی افراد تحت مراقبت',
-            channelDescription:
-                'نزدیک‌ترین یادآور دارو، ویزیت یا تزریق هر فرد در CareMate',
+            LifeMateRuntimeLocale.select(
+              fa: LifeMateRuntimeLocale.select(
+                fa: 'برنامه بعدی افراد تحت مراقبت',
+                en: "Next program of people in care",
+              ),
+              en: "Next program of people in care",
+            ),
+            channelDescription: LifeMateRuntimeLocale.select(
+              fa: LifeMateRuntimeLocale.select(
+                fa: 'نزدیک‌ترین یادآور دارو، ویزیت یا تزریق هر فرد در CareMate',
+                en: "The nearest reminder of anyone's medication, visit or injection in CareMate",
+              ),
+              en: "The nearest reminder of anyone's medication, visit or injection in CareMate",
+            ),
             importance: Importance.high,
             priority: Priority.high,
             category: AndroidNotificationCategory.reminder,
@@ -93,9 +105,18 @@ class CareNotificationProvider extends ChangeNotifier {
   }
 
   static String _kindTitle(String kind) => switch (kind) {
-    'appointment' => 'ویزیت بعدی',
-    'injection' => 'تزریق بعدی',
-    _ => 'داروی بعدی',
+    'appointment' => LifeMateRuntimeLocale.select(
+      fa: LifeMateRuntimeLocale.select(fa: 'ویزیت بعدی', en: "Next visit"),
+      en: "Next visit",
+    ),
+    'injection' => LifeMateRuntimeLocale.select(
+      fa: LifeMateRuntimeLocale.select(fa: 'تزریق بعدی', en: "Next injection"),
+      en: "Next injection",
+    ),
+    _ => LifeMateRuntimeLocale.select(
+      fa: LifeMateRuntimeLocale.select(fa: 'داروی بعدی', en: "Next medication"),
+      en: "Next medication",
+    ),
   };
 
   static int _notificationId(String value) {

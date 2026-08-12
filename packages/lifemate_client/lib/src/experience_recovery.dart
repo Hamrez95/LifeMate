@@ -44,11 +44,28 @@ class _PasswordRecoveryExperienceState
       await widget.supabase.auth.signOut();
     } on TimeoutException {
       if (mounted)
-        setState(() => _error = 'پاسخی دریافت نشد. دوباره تلاش کنید.');
+        setState(
+          () => _error = LifeMateRuntimeLocale.select(
+            fa: LifeMateRuntimeLocale.select(
+              fa: 'پاسخی دریافت نشد. دوباره تلاش کنید.',
+              en: "No response received. Try again.",
+            ),
+            en: "No response received. Try again.",
+          ),
+        );
     } on AuthException catch (error) {
       if (mounted) setState(() => _error = error.message);
     } catch (_) {
-      if (mounted) setState(() => _error = 'تغییر رمز عبور انجام نشد.');
+      if (mounted)
+        setState(
+          () => _error = LifeMateRuntimeLocale.select(
+            fa: LifeMateRuntimeLocale.select(
+              fa: 'تغییر رمز عبور انجام نشد.',
+              en: "Password change failed.",
+            ),
+            en: "Password change failed.",
+          ),
+        );
     } finally {
       if (mounted) setState(() => _busy = false);
     }
@@ -65,7 +82,9 @@ class _PasswordRecoveryExperienceState
   Widget build(BuildContext context) {
     final brand = _brand;
     return Directionality(
-      textDirection: TextDirection.rtl,
+      textDirection: LifeMateRuntimeLocale.isPersian
+          ? TextDirection.rtl
+          : TextDirection.ltr,
       child: Scaffold(
         backgroundColor: brand.background,
         body: Stack(
@@ -76,11 +95,11 @@ class _PasswordRecoveryExperienceState
             SafeArea(
               child: Center(
                 child: SingleChildScrollView(
-                  padding: const EdgeInsets.all(22),
+                  padding: EdgeInsets.all(22),
                   child: ConstrainedBox(
-                    constraints: const BoxConstraints(maxWidth: 450),
+                    constraints: BoxConstraints(maxWidth: 450),
                     child: Container(
-                      padding: const EdgeInsets.all(22),
+                      padding: EdgeInsets.all(22),
                       decoration: BoxDecoration(
                         color: Colors.white.withValues(alpha: 0.9),
                         borderRadius: BorderRadius.circular(32),
@@ -88,7 +107,7 @@ class _PasswordRecoveryExperienceState
                           BoxShadow(
                             color: brand.primary.withValues(alpha: 0.14),
                             blurRadius: 34,
-                            offset: const Offset(0, 18),
+                            offset: Offset(0, 18),
                           ),
                         ],
                       ),
@@ -106,9 +125,15 @@ class _PasswordRecoveryExperienceState
                                 color: brand.primary,
                               ),
                             ),
-                            const SizedBox(height: 16),
+                            SizedBox(height: 16),
                             Text(
-                              'ساخت رمز عبور جدید',
+                              LifeMateRuntimeLocale.select(
+                                fa: LifeMateRuntimeLocale.select(
+                                  fa: 'ساخت رمز عبور جدید',
+                                  en: "Create a new password",
+                                ),
+                                en: "Create a new password",
+                              ),
                               textAlign: TextAlign.center,
                               style: TextStyle(
                                 color: brand.ink,
@@ -116,25 +141,37 @@ class _PasswordRecoveryExperienceState
                                 fontWeight: FontWeight.w900,
                               ),
                             ),
-                            const SizedBox(height: 8),
-                            const Text(
-                              'یک رمز قوی و متفاوت از رمزهای قبلی انتخاب کنید.',
+                            SizedBox(height: 8),
+                            Text(
+                              LifeMateRuntimeLocale.select(
+                                fa: LifeMateRuntimeLocale.select(
+                                  fa: 'یک رمز قوی و متفاوت از رمزهای قبلی انتخاب کنید.',
+                                  en: "Choose a strong password that is different from previous passwords.",
+                                ),
+                                en: "Choose a strong password that is different from previous passwords.",
+                              ),
                               textAlign: TextAlign.center,
                               style: TextStyle(
                                 color: Color(0xFF71809A),
                                 height: 1.6,
                               ),
                             ),
-                            const SizedBox(height: 22),
+                            SizedBox(height: 22),
                             _ExperienceTextField(
                               controller: _password,
-                              label: 'رمز عبور جدید',
+                              label: LifeMateRuntimeLocale.select(
+                                fa: LifeMateRuntimeLocale.select(
+                                  fa: 'رمز عبور جدید',
+                                  en: "New password",
+                                ),
+                                en: "New password",
+                              ),
                               icon: Icons.lock_outline_rounded,
                               brand: brand,
                               obscureText: _obscure,
                               textDirection: TextDirection.ltr,
                               textInputAction: TextInputAction.next,
-                              autofillHints: const [AutofillHints.newPassword],
+                              autofillHints: [AutofillHints.newPassword],
                               suffix: IconButton(
                                 onPressed: () =>
                                     setState(() => _obscure = !_obscure),
@@ -146,43 +183,75 @@ class _PasswordRecoveryExperienceState
                               ),
                               validator: (value) => (value?.length ?? 0) >= 8
                                   ? null
-                                  : 'رمز باید حداقل ۸ کاراکتر باشد.',
+                                  : LifeMateRuntimeLocale.select(
+                                      fa: LifeMateRuntimeLocale.select(
+                                        fa: 'رمز باید حداقل ۸ کاراکتر باشد.',
+                                        en: "Password must be at least 8 characters long.",
+                                      ),
+                                      en: "Password must be at least 8 characters long.",
+                                    ),
                             ),
-                            const SizedBox(height: 13),
+                            SizedBox(height: 13),
                             _ExperienceTextField(
                               controller: _confirm,
-                              label: 'تکرار رمز عبور',
+                              label: LifeMateRuntimeLocale.select(
+                                fa: LifeMateRuntimeLocale.select(
+                                  fa: 'تکرار رمز عبور',
+                                  en: "Repeat password",
+                                ),
+                                en: "Repeat password",
+                              ),
                               icon: Icons.lock_reset_rounded,
                               brand: brand,
                               obscureText: _obscure,
                               textDirection: TextDirection.ltr,
                               textInputAction: TextInputAction.done,
-                              autofillHints: const [AutofillHints.newPassword],
+                              autofillHints: [AutofillHints.newPassword],
                               validator: (value) => value == _password.text
                                   ? null
-                                  : 'تکرار رمز یکسان نیست.',
+                                  : LifeMateRuntimeLocale.select(
+                                      fa: LifeMateRuntimeLocale.select(
+                                        fa: 'تکرار رمز یکسان نیست.',
+                                        en: "Repeating the password is not the same.",
+                                      ),
+                                      en: "Repeating the password is not the same.",
+                                    ),
                               onSubmitted: (_) => _savePassword(),
                             ),
                             if (_error != null) ...[
-                              const SizedBox(height: 12),
+                              SizedBox(height: 12),
                               _StatusBanner(
                                 message: _error!,
                                 icon: Icons.error_outline_rounded,
                                 color: Theme.of(context).colorScheme.error,
                               ),
                             ],
-                            const SizedBox(height: 18),
+                            SizedBox(height: 18),
                             _GradientActionButton(
                               brand: brand,
                               busy: _busy,
-                              label: 'ذخیره رمز جدید',
+                              label: LifeMateRuntimeLocale.select(
+                                fa: LifeMateRuntimeLocale.select(
+                                  fa: 'ذخیره رمز جدید',
+                                  en: "Save the new password",
+                                ),
+                                en: "Save the new password",
+                              ),
                               icon: Icons.verified_user_rounded,
                               onPressed: _savePassword,
                             ),
-                            const SizedBox(height: 8),
+                            SizedBox(height: 8),
                             TextButton(
                               onPressed: _busy ? null : widget.onCancelled,
-                              child: const Text('انصراف و بازگشت به ورود'),
+                              child: Text(
+                                LifeMateRuntimeLocale.select(
+                                  fa: LifeMateRuntimeLocale.select(
+                                    fa: 'انصراف و بازگشت به ورود',
+                                    en: "Cancel and return to login",
+                                  ),
+                                  en: "Cancel and return to login",
+                                ),
+                              ),
                             ),
                           ],
                         ),

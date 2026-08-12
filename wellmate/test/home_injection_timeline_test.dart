@@ -66,7 +66,7 @@ void main() {
     expect(injectionNext.map((item) => item.id), ['inj-1']);
   });
 
-  test('injection countdown exposes care actions and vaccine icon', () {
+  test('injection countdown exposes bilingual care actions and vaccine icon', () {
     final homeSource = File(
       'lib/screens/home/home_screen_content.dart',
     ).readAsStringSync();
@@ -76,11 +76,13 @@ void main() {
 
     expect(
       homeSource,
-      contains("primaryActionLabel: isPersian ? 'انجام شد' : 'Done'"),
+      contains("LifeMateRuntimeLocale.select(fa: 'انجام شد', en: \"Done\")"),
     );
     expect(
       homeSource,
-      contains("secondaryActionLabel: isPersian ? 'انجام نشد' : 'Not done'"),
+      contains(
+        "LifeMateRuntimeLocale.select(fa: 'انجام نشد', en: \"not done\")",
+      ),
     );
     expect(homeSource, contains("_reportCareEventStatus(item, 'completed')"));
     expect(homeSource, contains("_reportCareEventStatus(item, 'cancelled')"));
@@ -128,6 +130,7 @@ class _InjectionSnapshotApi extends LifeMateApiClient {
         'scheduledLocalDate': '2026-08-17',
         'scheduledLocalTime': '21:30',
         'status': 'scheduled',
+        'version': 1,
       },
     ],
   };

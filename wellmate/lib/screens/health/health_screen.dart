@@ -104,7 +104,13 @@ class _HealthScreenState extends State<HealthScreen> {
       if (!mounted) return;
       setState(() {
         _loading = false;
-        _loadError = 'اطلاعات سلامت دریافت نشد. اتصال را بررسی کن.';
+        _loadError = LifeMateRuntimeLocale.select(
+          fa: LifeMateRuntimeLocale.select(
+            fa: 'اطلاعات سلامت دریافت نشد. اتصال را بررسی کن.',
+            en: "Health information not received. Check the connection.",
+          ),
+          en: "Health information not received. Check the connection.",
+        );
       });
     }
   }
@@ -145,11 +151,23 @@ class _HealthScreenState extends State<HealthScreen> {
           _TimelineEvent(
             occurredAt: timestamp.toLocal(),
             title: medicationName?.isNotEmpty == true
-                ? 'داروی $medicationName مصرف شد'
-                : 'مصرف دارو ثبت شد',
+                ? LifeMateRuntimeLocale.select(
+                    fa: LifeMateRuntimeLocale.select(
+                      fa: 'داروی $medicationName مصرف شد',
+                      en: "$medicationName medicine was consumed",
+                    ),
+                    en: "$medicationName medicine was consumed",
+                  )
+                : LifeMateRuntimeLocale.select(
+                    fa: LifeMateRuntimeLocale.select(
+                      fa: 'مصرف دارو ثبت شد',
+                      en: "Medication intake was recorded",
+                    ),
+                    en: "Medication intake was recorded",
+                  ),
             subtitle: plan?['doseText']?.toString() ?? '',
             icon: Icons.medication_rounded,
-            color: const Color(0xFF31B99B),
+            color: Color(0xFF31B99B),
           ),
         );
       }
@@ -165,15 +183,29 @@ class _HealthScreenState extends State<HealthScreen> {
         values.add(
           _TimelineEvent(
             occurredAt: timestamp.toLocal(),
-            title:
-                '${event['title'] ?? (type == 'injection' ? 'تزریق' : 'ویزیت')} انجام شد',
-            subtitle: type == 'injection' ? 'تزریق' : 'رویداد مراقبتی',
+            title: LifeMateRuntimeLocale.select(
+              fa: '${event['title'] ?? (type == 'injection' ? 'تزریق' : 'ویزیت')} انجام شد',
+              en: "${event['title'] ?? (type == 'injection' ? 'تزریق' : 'ویزیت')} done",
+            ),
+            subtitle: type == 'injection'
+                ? LifeMateRuntimeLocale.select(
+                    fa: LifeMateRuntimeLocale.select(
+                      fa: 'تزریق',
+                      en: "Injection",
+                    ),
+                    en: "Injection",
+                  )
+                : LifeMateRuntimeLocale.select(
+                    fa: LifeMateRuntimeLocale.select(
+                      fa: 'رویداد مراقبتی',
+                      en: "Care event",
+                    ),
+                    en: "Care event",
+                  ),
             icon: type == 'injection'
                 ? Icons.vaccines_rounded
                 : Icons.event_available_rounded,
-            color: type == 'injection'
-                ? const Color(0xFFF2A43A)
-                : const Color(0xFF5A9EE7),
+            color: type == 'injection' ? Color(0xFFF2A43A) : Color(0xFF5A9EE7),
           ),
         );
       }
@@ -234,7 +266,17 @@ class _HealthScreenState extends State<HealthScreen> {
           WellMateRefreshSignal.notifyChanged();
           if (mounted) {
             ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: Text('اطلاعات سلامت ذخیره شد.')),
+              SnackBar(
+                content: Text(
+                  LifeMateRuntimeLocale.select(
+                    fa: LifeMateRuntimeLocale.select(
+                      fa: 'اطلاعات سلامت ذخیره شد.',
+                      en: "Health information saved.",
+                    ),
+                    en: "Health information saved.",
+                  ),
+                ),
+              ),
             );
           }
         },
@@ -246,16 +288,42 @@ class _HealthScreenState extends State<HealthScreen> {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('حذف این ثبت؟'),
-        content: const Text('این مورد از تاریخچه سلامت حذف می‌شود.'),
+        title: Text(
+          LifeMateRuntimeLocale.select(
+            fa: LifeMateRuntimeLocale.select(
+              fa: 'حذف این ثبت؟',
+              en: "Delete this record?",
+            ),
+            en: "Delete this record?",
+          ),
+        ),
+        content: Text(
+          LifeMateRuntimeLocale.select(
+            fa: LifeMateRuntimeLocale.select(
+              fa: 'این مورد از تاریخچه سلامت حذف می‌شود.',
+              en: "This item will be removed from your health history.",
+            ),
+            en: "This item will be removed from your health history.",
+          ),
+        ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
-            child: const Text('انصراف'),
+            child: Text(
+              LifeMateRuntimeLocale.select(
+                fa: LifeMateRuntimeLocale.select(fa: 'انصراف', en: "opt out"),
+                en: "opt out",
+              ),
+            ),
           ),
           FilledButton(
             onPressed: () => Navigator.pop(context, true),
-            child: const Text('حذف'),
+            child: Text(
+              LifeMateRuntimeLocale.select(
+                fa: LifeMateRuntimeLocale.select(fa: 'حذف', en: "Delete"),
+                en: "remove",
+              ),
+            ),
           ),
         ],
       ),
@@ -268,7 +336,17 @@ class _HealthScreenState extends State<HealthScreen> {
     } catch (_) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('حذف انجام نشد. دوباره تلاش کن.')),
+          SnackBar(
+            content: Text(
+              LifeMateRuntimeLocale.select(
+                fa: LifeMateRuntimeLocale.select(
+                  fa: 'حذف انجام نشد. دوباره تلاش کن.',
+                  en: "Delete failed. try again",
+                ),
+                en: "Delete failed. try again",
+              ),
+            ),
+          ),
         );
       }
     }
@@ -344,23 +422,29 @@ class _HealthScreenState extends State<HealthScreen> {
               BoxShadow(
                 color: AppColors.primary.withValues(alpha: 0.09),
                 blurRadius: 18,
-                offset: const Offset(0, 7),
+                offset: Offset(0, 7),
               ),
             ],
           ),
-          child: const Icon(
+          child: Icon(
             Icons.monitor_heart_outlined,
             color: AppColors.primary,
             size: 29,
           ),
         ),
-        const SizedBox(width: 13),
-        const Expanded(
+        SizedBox(width: 13),
+        Expanded(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                'سلامت من',
+                LifeMateRuntimeLocale.select(
+                  fa: LifeMateRuntimeLocale.select(
+                    fa: 'سلامت من',
+                    en: "My Health",
+                  ),
+                  en: "my health",
+                ),
                 key: ValueKey('health-title'),
                 style: TextStyle(
                   color: AppColors.textPrimary,
@@ -370,7 +454,13 @@ class _HealthScreenState extends State<HealthScreen> {
               ),
               SizedBox(height: 3),
               Text(
-                'خلاصه وضعیت بدن و علائم حیاتی',
+                LifeMateRuntimeLocale.select(
+                  fa: LifeMateRuntimeLocale.select(
+                    fa: 'خلاصه وضعیت بدن و علائم حیاتی',
+                    en: "Summary of body condition and vital signs",
+                  ),
+                  en: "Summary of body condition and vital signs",
+                ),
                 style: TextStyle(
                   color: AppColors.textSecondary,
                   fontSize: 13,
@@ -396,46 +486,64 @@ class _HealthScreenState extends State<HealthScreen> {
         children: [
           Row(
             children: [
-              const Icon(
-                Icons.event_available_rounded,
-                color: AppColors.primary,
-              ),
-              const SizedBox(width: 8),
-              const Expanded(
+              Icon(Icons.event_available_rounded, color: AppColors.primary),
+              SizedBox(width: 8),
+              Expanded(
                 child: Text(
-                  'خلاصه امروز',
+                  LifeMateRuntimeLocale.select(
+                    fa: LifeMateRuntimeLocale.select(
+                      fa: 'خلاصه امروز',
+                      en: "Today's summary",
+                    ),
+                    en: "Today's summary",
+                  ),
                   style: TextStyle(fontSize: 17, fontWeight: FontWeight.w900),
                 ),
               ),
               Container(
                 width: 8,
                 height: 8,
-                decoration: const BoxDecoration(
+                decoration: BoxDecoration(
                   color: AppColors.primary,
                   shape: BoxShape.circle,
                 ),
               ),
             ],
           ),
-          const SizedBox(height: 5),
+          SizedBox(height: 5),
           Text(
             latest == null
-                ? 'هنوز اطلاعاتی ثبت نشده'
-                : 'آخرین ثبت: ${formatAppDate(context, latest.observedLocalDate)} • ${_formatClock(latest.observedAtUtc.toLocal())}',
-            style: const TextStyle(
+                ? LifeMateRuntimeLocale.select(
+                    fa: LifeMateRuntimeLocale.select(
+                      fa: 'هنوز اطلاعاتی ثبت نشده',
+                      en: "No information has been registered yet",
+                    ),
+                    en: "No information has been registered yet",
+                  )
+                : LifeMateRuntimeLocale.select(
+                    fa: LifeMateRuntimeLocale.select(
+                      fa: 'آخرین ثبت: ${formatAppDate(context, latest.observedLocalDate)} • ${_formatClock(latest.observedAtUtc.toLocal())}',
+                      en: "Last registration: ${formatAppDate(context, latest.observedLocalDate)} • ${_formatClock(latest.observedAtUtc.toLocal())}",
+                    ),
+                    en: "Last registration: ${formatAppDate(context, latest.observedLocalDate)} • ${_formatClock(latest.observedAtUtc.toLocal())}",
+                  ),
+            style: TextStyle(
               color: AppColors.textSecondary,
               fontSize: 12,
               fontWeight: FontWeight.w600,
             ),
           ),
-          const SizedBox(height: 18),
+          SizedBox(height: 18),
           Row(
             children: [
               Expanded(
                 child: _SummaryMetric(
                   icon: Icons.bedtime_rounded,
-                  color: const Color(0xFF956CE6),
-                  label: 'خواب',
+                  color: Color(0xFF956CE6),
+                  label: LifeMateRuntimeLocale.select(
+                    fa: LifeMateRuntimeLocale.select(fa: 'خواب', en: "sleep"),
+                    en: "sleep",
+                  ),
                   value: sleep == null ? '—' : _sleepLabel(sleep.valuePrimary),
                   onTap: () => _openEntry(HealthEntryType.sleep),
                 ),
@@ -444,8 +552,14 @@ class _HealthScreenState extends State<HealthScreen> {
               Expanded(
                 child: _SummaryMetric(
                   icon: Icons.favorite_rounded,
-                  color: const Color(0xFFF26C7D),
-                  label: 'ضربان قلب',
+                  color: Color(0xFFF26C7D),
+                  label: LifeMateRuntimeLocale.select(
+                    fa: LifeMateRuntimeLocale.select(
+                      fa: 'ضربان قلب',
+                      en: "heartbeat",
+                    ),
+                    en: "heartbeat",
+                  ),
                   value: heartRate == null
                       ? '—'
                       : '${_number(heartRate.valuePrimary, decimals: 0)} bpm',
@@ -456,8 +570,14 @@ class _HealthScreenState extends State<HealthScreen> {
               Expanded(
                 child: _SummaryMetric(
                   icon: Icons.water_drop_rounded,
-                  color: const Color(0xFFFF8A4C),
-                  label: 'فشار خون',
+                  color: Color(0xFFFF8A4C),
+                  label: LifeMateRuntimeLocale.select(
+                    fa: LifeMateRuntimeLocale.select(
+                      fa: 'فشار خون',
+                      en: "blood pressure",
+                    ),
+                    en: "blood pressure",
+                  ),
                   value: pressure == null
                       ? '—'
                       : '${_number(pressure.valuePrimary, decimals: 0)}/${_number(pressure.valueSecondary, decimals: 0)}',
@@ -468,8 +588,11 @@ class _HealthScreenState extends State<HealthScreen> {
               Expanded(
                 child: _SummaryMetric(
                   icon: Icons.monitor_weight_rounded,
-                  color: const Color(0xFF48B9C7),
-                  label: 'وزن',
+                  color: Color(0xFF48B9C7),
+                  label: LifeMateRuntimeLocale.select(
+                    fa: LifeMateRuntimeLocale.select(fa: 'وزن', en: "weight"),
+                    en: "weight",
+                  ),
                   value: weight == null
                       ? '—'
                       : '${_number(weight.valuePrimary)} kg',
@@ -538,41 +661,88 @@ class _HealthScreenState extends State<HealthScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          const _SectionTitle(title: 'علائم حیاتی'),
-          const SizedBox(height: 12),
+          _SectionTitle(
+            title: LifeMateRuntimeLocale.select(
+              fa: LifeMateRuntimeLocale.select(
+                fa: 'علائم حیاتی',
+                en: "Vital signs",
+              ),
+              en: "Vital signs",
+            ),
+          ),
+          SizedBox(height: 12),
           Row(
             children: [
               Expanded(
                 child: _VitalCard(
                   icon: Icons.bedtime_rounded,
-                  color: const Color(0xFF956CE6),
-                  label: 'خواب',
+                  color: Color(0xFF956CE6),
+                  label: LifeMateRuntimeLocale.select(
+                    fa: LifeMateRuntimeLocale.select(fa: 'خواب', en: "sleep"),
+                    en: "sleep",
+                  ),
                   value: sleep == null
-                      ? 'ثبت نشده'
+                      ? LifeMateRuntimeLocale.select(
+                          fa: LifeMateRuntimeLocale.select(
+                            fa: 'ثبت نشده',
+                            en: "Not recorded",
+                          ),
+                          en: "not registered",
+                        )
                       : _sleepLabel(sleep.valuePrimary),
                   onTap: () => _openEntry(HealthEntryType.sleep),
                 ),
               ),
-              const SizedBox(width: 8),
+              SizedBox(width: 8),
               Expanded(
                 child: _VitalCard(
                   icon: Icons.favorite_rounded,
-                  color: const Color(0xFFF26C7D),
-                  label: 'ضربان قلب',
+                  color: Color(0xFFF26C7D),
+                  label: LifeMateRuntimeLocale.select(
+                    fa: LifeMateRuntimeLocale.select(
+                      fa: 'ضربان قلب',
+                      en: "heartbeat",
+                    ),
+                    en: "heartbeat",
+                  ),
                   value: heart == null
-                      ? 'ثبت نشده'
-                      : '${_number(heart.valuePrimary, decimals: 0)} ضربه/دقیقه',
+                      ? LifeMateRuntimeLocale.select(
+                          fa: LifeMateRuntimeLocale.select(
+                            fa: 'ثبت نشده',
+                            en: "Not recorded",
+                          ),
+                          en: "not registered",
+                        )
+                      : LifeMateRuntimeLocale.select(
+                          fa: LifeMateRuntimeLocale.select(
+                            fa: '${_number(heart.valuePrimary, decimals: 0)} ضربه/دقیقه',
+                            en: "${_number(heart.valuePrimary, decimals: 0)} beats/min",
+                          ),
+                          en: "${_number(heart.valuePrimary, decimals: 0)} beats/min",
+                        ),
                   onTap: () => _openEntry(HealthEntryType.heartRate),
                 ),
               ),
-              const SizedBox(width: 8),
+              SizedBox(width: 8),
               Expanded(
                 child: _VitalCard(
                   icon: Icons.water_drop_rounded,
-                  color: const Color(0xFFFF8A4C),
-                  label: 'فشار خون',
+                  color: Color(0xFFFF8A4C),
+                  label: LifeMateRuntimeLocale.select(
+                    fa: LifeMateRuntimeLocale.select(
+                      fa: 'فشار خون',
+                      en: "blood pressure",
+                    ),
+                    en: "blood pressure",
+                  ),
                   value: pressure == null
-                      ? 'ثبت نشده'
+                      ? LifeMateRuntimeLocale.select(
+                          fa: LifeMateRuntimeLocale.select(
+                            fa: 'ثبت نشده',
+                            en: "Not recorded",
+                          ),
+                          en: "not registered",
+                        )
                       : '${_number(pressure.valuePrimary, decimals: 0)}/${_number(pressure.valueSecondary, decimals: 0)}',
                   onTap: () => _openEntry(HealthEntryType.bloodPressure),
                 ),
@@ -586,49 +756,73 @@ class _HealthScreenState extends State<HealthScreen> {
 
   Widget _buildQuickLog() {
     return _SurfaceCard(
-      key: const ValueKey('health-quick-log'),
+      key: ValueKey('health-quick-log'),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          const _SectionTitle(
-            title: 'ثبت سریع',
+          _SectionTitle(
+            title: LifeMateRuntimeLocale.select(
+              fa: LifeMateRuntimeLocale.select(
+                fa: 'ثبت سریع',
+                en: "Quick registration",
+              ),
+              en: "Quick registration",
+            ),
             trailing: Icon(Icons.bolt_rounded, color: AppColors.primary),
           ),
-          const SizedBox(height: 12),
+          SizedBox(height: 12),
           Row(
             children: [
               Expanded(
                 child: _QuickButton(
                   icon: Icons.notes_rounded,
-                  color: const Color(0xFF8D72D7),
-                  label: 'یادداشت',
+                  color: Color(0xFF8D72D7),
+                  label: LifeMateRuntimeLocale.select(
+                    fa: LifeMateRuntimeLocale.select(fa: 'یادداشت', en: "Note"),
+                    en: "Note",
+                  ),
                   onTap: () => _openEntry(HealthEntryType.note),
                 ),
               ),
-              const SizedBox(width: 8),
+              SizedBox(width: 8),
               Expanded(
                 child: _QuickButton(
                   icon: Icons.bloodtype_rounded,
-                  color: const Color(0xFFFF9A58),
-                  label: 'قند خون',
+                  color: Color(0xFFFF9A58),
+                  label: LifeMateRuntimeLocale.select(
+                    fa: LifeMateRuntimeLocale.select(
+                      fa: 'قند خون',
+                      en: "blood sugar",
+                    ),
+                    en: "blood sugar",
+                  ),
                   onTap: () => _openEntry(HealthEntryType.bloodGlucose),
                 ),
               ),
-              const SizedBox(width: 8),
+              SizedBox(width: 8),
               Expanded(
                 child: _QuickButton(
                   icon: Icons.favorite_rounded,
-                  color: const Color(0xFF31B99B),
-                  label: 'فشار خون',
+                  color: Color(0xFF31B99B),
+                  label: LifeMateRuntimeLocale.select(
+                    fa: LifeMateRuntimeLocale.select(
+                      fa: 'فشار خون',
+                      en: "blood pressure",
+                    ),
+                    en: "blood pressure",
+                  ),
                   onTap: () => _openEntry(HealthEntryType.bloodPressure),
                 ),
               ),
-              const SizedBox(width: 8),
+              SizedBox(width: 8),
               Expanded(
                 child: _QuickButton(
                   icon: Icons.monitor_weight_rounded,
-                  color: const Color(0xFF48B9C7),
-                  label: 'وزن',
+                  color: Color(0xFF48B9C7),
+                  label: LifeMateRuntimeLocale.select(
+                    fa: LifeMateRuntimeLocale.select(fa: 'وزن', en: "weight"),
+                    en: "weight",
+                  ),
                   onTap: () => _openEntry(HealthEntryType.weight),
                 ),
               ),
@@ -648,16 +842,27 @@ class _HealthScreenState extends State<HealthScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          const _SectionTitle(
-            title: 'تایم‌لاین سلامت',
+          _SectionTitle(
+            title: LifeMateRuntimeLocale.select(
+              fa: LifeMateRuntimeLocale.select(
+                fa: 'تایم‌لاین سلامت',
+                en: "Timeline of health",
+              ),
+              en: "Timeline of health",
+            ),
             trailing: Icon(Icons.history_rounded, color: AppColors.primary),
           ),
-          const SizedBox(height: 8),
+          SizedBox(height: 8),
           if (visible.isEmpty)
-            const _EmptyHint(
+            _EmptyHint(
               icon: Icons.timeline_rounded,
-              text:
-                  'با ثبت اولین اطلاعات، تایم‌لاین سلامتت از همین‌جا شروع می‌شود.',
+              text: LifeMateRuntimeLocale.select(
+                fa: LifeMateRuntimeLocale.select(
+                  fa: 'با ثبت اولین اطلاعات، تایم‌لاین سلامتت از همین‌جا شروع می‌شود.',
+                  en: "By registering the first information, your health timeline starts from here.",
+                ),
+                en: "By registering the first information, your health timeline starts from here.",
+              ),
             )
           else
             for (var index = 0; index < visible.length; index++) ...[
@@ -673,17 +878,29 @@ class _HealthScreenState extends State<HealthScreen> {
   Widget _buildCalendarHistory() {
     final selected = _forDay(_selectedDate);
     return Column(
-      key: const ValueKey('health-calendar-history'),
+      key: ValueKey('health-calendar-history'),
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        const Padding(
+        Padding(
           padding: EdgeInsets.symmetric(horizontal: 4),
           child: _SectionTitle(
-            title: 'تاریخچه سلامت',
-            subtitle: 'هر روز را انتخاب کن تا ثبت‌های همان روز را ببینی',
+            title: LifeMateRuntimeLocale.select(
+              fa: LifeMateRuntimeLocale.select(
+                fa: 'تاریخچه سلامت',
+                en: "Health history",
+              ),
+              en: "Health history",
+            ),
+            subtitle: LifeMateRuntimeLocale.select(
+              fa: LifeMateRuntimeLocale.select(
+                fa: 'هر روز را انتخاب کن تا ثبت‌های همان روز را ببینی',
+                en: "Select any day to see the records of that day",
+              ),
+              en: "Select any day to see the records of that day",
+            ),
           ),
         ),
-        const SizedBox(height: 12),
+        SizedBox(height: 12),
         CustomTableCalendar(
           focusedMonth: _focusedMonth,
           selectedDate: _selectedDate,
@@ -695,23 +912,22 @@ class _HealthScreenState extends State<HealthScreen> {
             });
           },
           onPageChanged: _loadFocusedMonth,
-          getDayEventTypes: (day) => _forDay(day).isEmpty
-              ? const <String>{}
-              : const <String>{'health'},
+          getDayEventTypes: (day) =>
+              _forDay(day).isEmpty ? <String>{} : <String>{'health'},
         ),
-        const SizedBox(height: 12),
+        SizedBox(height: 12),
         _SurfaceCard(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               Row(
                 children: [
-                  const Icon(
+                  Icon(
                     Icons.calendar_today_rounded,
                     size: 19,
                     color: AppColors.primary,
                   ),
-                  const SizedBox(width: 8),
+                  SizedBox(width: 8),
                   Expanded(
                     child: Text(
                       formatAppDate(
@@ -719,12 +935,18 @@ class _HealthScreenState extends State<HealthScreen> {
                         _selectedDate,
                         includeWeekday: true,
                       ),
-                      style: const TextStyle(fontWeight: FontWeight.w900),
+                      style: TextStyle(fontWeight: FontWeight.w900),
                     ),
                   ),
                   Text(
-                    '${localizeDigits(context, selected.length)} ثبت',
-                    style: const TextStyle(
+                    LifeMateRuntimeLocale.select(
+                      fa: LifeMateRuntimeLocale.select(
+                        fa: '${localizeDigits(context, selected.length)} ثبت',
+                        en: "${localizeDigits(context, selected.length)} registration",
+                      ),
+                      en: "${localizeDigits(context, selected.length)} registration",
+                    ),
+                    style: TextStyle(
                       color: AppColors.textSecondary,
                       fontSize: 12,
                       fontWeight: FontWeight.w700,
@@ -732,11 +954,17 @@ class _HealthScreenState extends State<HealthScreen> {
                   ),
                 ],
               ),
-              const SizedBox(height: 10),
+              SizedBox(height: 10),
               if (selected.isEmpty)
-                const _EmptyHint(
+                _EmptyHint(
                   icon: Icons.event_note_rounded,
-                  text: 'برای این روز اطلاعات سلامتی ثبت نشده.',
+                  text: LifeMateRuntimeLocale.select(
+                    fa: LifeMateRuntimeLocale.select(
+                      fa: 'برای این روز اطلاعات سلامتی ثبت نشده.',
+                      en: "No health information has been recorded for this day.",
+                    ),
+                    en: "No health information has been recorded for this day.",
+                  ),
                 )
               else
                 for (var index = 0; index < selected.length; index++) ...[
@@ -767,8 +995,15 @@ class _HealthScreenState extends State<HealthScreen> {
     if (hours == null) return '—';
     final whole = hours.floor();
     final minutes = ((hours - whole) * 60).round();
-    if (minutes == 0) return '${localizeDigits(context, whole)} ساعت';
-    return '${localizeDigits(context, whole)} ساعت و ${localizeDigits(context, minutes)} دقیقه';
+    if (minutes == 0)
+      return LifeMateRuntimeLocale.select(
+        fa: '${localizeDigits(context, whole)} ساعت',
+        en: "${localizeDigits(context, whole)} hours",
+      );
+    return LifeMateRuntimeLocale.select(
+      fa: '${localizeDigits(context, whole)} ساعت و ${localizeDigits(context, minutes)} دقیقه',
+      en: "${localizeDigits(context, whole)} hours and ${localizeDigits(context, minutes)} minutes",
+    );
   }
 
   String _formatClock(DateTime value) =>
@@ -915,24 +1150,56 @@ class _BmiCard extends StatelessWidget {
 
   String get _label {
     final value = bmi;
-    if (value == null) return hasHeight ? 'وزن را ثبت کن' : 'قد را ثبت کن';
-    if (value < 18.5) return 'کمتر از محدوده معمول';
-    if (value < 25) return 'محدوده معمول';
-    return 'بالاتر از محدوده معمول';
+    if (value == null)
+      return hasHeight
+          ? LifeMateRuntimeLocale.select(
+              fa: LifeMateRuntimeLocale.select(
+                fa: 'وزن را ثبت کن',
+                en: "Record the weight",
+              ),
+              en: "Record the weight",
+            )
+          : LifeMateRuntimeLocale.select(
+              fa: LifeMateRuntimeLocale.select(
+                fa: 'قد را ثبت کن',
+                en: "Record the height",
+              ),
+              en: "Record the height",
+            );
+    if (value < 18.5)
+      return LifeMateRuntimeLocale.select(
+        fa: LifeMateRuntimeLocale.select(
+          fa: 'کمتر از محدوده معمول',
+          en: "Less than normal range",
+        ),
+        en: "Less than normal range",
+      );
+    if (value < 25)
+      return LifeMateRuntimeLocale.select(
+        fa: LifeMateRuntimeLocale.select(fa: 'محدوده معمول', en: "Usual range"),
+        en: "Usual range",
+      );
+    return LifeMateRuntimeLocale.select(
+      fa: LifeMateRuntimeLocale.select(
+        fa: 'بالاتر از محدوده معمول',
+        en: "Above the normal range",
+      ),
+      en: "Above the normal range",
+    );
   }
 
   @override
   Widget build(BuildContext context) {
     return _SurfaceCard(
       child: InkWell(
-        key: const ValueKey('health-bmi-card'),
+        key: ValueKey('health-bmi-card'),
         borderRadius: BorderRadius.circular(18),
         onTap: onTap,
         child: Padding(
-          padding: const EdgeInsets.all(2),
+          padding: EdgeInsets.all(2),
           child: Column(
             children: [
-              const Row(
+              Row(
                 children: [
                   Icon(
                     Icons.info_outline_rounded,
@@ -941,19 +1208,25 @@ class _BmiCard extends StatelessWidget {
                   ),
                   Spacer(),
                   Text(
-                    'شاخص توده بدنی (BMI)',
+                    LifeMateRuntimeLocale.select(
+                      fa: LifeMateRuntimeLocale.select(
+                        fa: 'شاخص توده بدنی (BMI)',
+                        en: "body mass index (BMI)",
+                      ),
+                      en: "body mass index (BMI)",
+                    ),
                     style: TextStyle(fontWeight: FontWeight.w900, fontSize: 14),
                   ),
                 ],
               ),
-              const SizedBox(height: 8),
+              SizedBox(height: 8),
               SizedBox(
                 height: 130,
                 child: CustomPaint(
                   painter: _BmiGaugePainter(bmi),
                   child: Center(
                     child: Padding(
-                      padding: const EdgeInsets.only(top: 52),
+                      padding: EdgeInsets.only(top: 52),
                       child: Column(
                         mainAxisSize: MainAxisSize.min,
                         children: [
@@ -964,7 +1237,7 @@ class _BmiCard extends StatelessWidget {
                                     context,
                                     bmi!.toStringAsFixed(1),
                                   ),
-                            style: const TextStyle(
+                            style: TextStyle(
                               fontSize: 27,
                               fontWeight: FontWeight.w900,
                               color: AppColors.textPrimary,
@@ -973,7 +1246,7 @@ class _BmiCard extends StatelessWidget {
                           Text(
                             _label,
                             textAlign: TextAlign.center,
-                            style: const TextStyle(
+                            style: TextStyle(
                               color: AppColors.primary,
                               fontSize: 11.5,
                               fontWeight: FontWeight.w900,
@@ -987,10 +1260,22 @@ class _BmiCard extends StatelessWidget {
               ),
               Text(
                 bmi == null
-                    ? 'برای محاسبه، قد و وزن لازم است'
-                    : 'BMI یک شاخص غربالگری است، نه تشخیص پزشکی',
+                    ? LifeMateRuntimeLocale.select(
+                        fa: LifeMateRuntimeLocale.select(
+                          fa: 'برای محاسبه، قد و وزن لازم است',
+                          en: "Height and weight are required for calculation",
+                        ),
+                        en: "Height and weight are required for calculation",
+                      )
+                    : LifeMateRuntimeLocale.select(
+                        fa: LifeMateRuntimeLocale.select(
+                          fa: 'BMI یک شاخص غربالگری است، نه تشخیص پزشکی',
+                          en: "BMI is a screening indicator, not a medical diagnosis.",
+                        ),
+                        en: "BMI is a screening index, not a medical diagnosis",
+                      ),
                 textAlign: TextAlign.center,
-                style: const TextStyle(
+                style: TextStyle(
                   color: AppColors.textSecondary,
                   fontSize: 10.5,
                   fontWeight: FontWeight.w600,
@@ -1086,11 +1371,11 @@ class _WeightTrendCard extends StatelessWidget {
         borderRadius: BorderRadius.circular(18),
         onTap: onTap,
         child: Padding(
-          padding: const EdgeInsets.all(2),
+          padding: EdgeInsets.all(2),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              const Row(
+              Row(
                 children: [
                   Icon(
                     Icons.monitor_weight_rounded,
@@ -1099,27 +1384,27 @@ class _WeightTrendCard extends StatelessWidget {
                   ),
                   Spacer(),
                   Text(
-                    'وزن',
+                    LifeMateRuntimeLocale.select(
+                      fa: LifeMateRuntimeLocale.select(fa: 'وزن', en: "weight"),
+                      en: "weight",
+                    ),
                     style: TextStyle(fontWeight: FontWeight.w900, fontSize: 14),
                   ),
                 ],
               ),
-              const SizedBox(height: 16),
+              SizedBox(height: 16),
               Text(
                 latestValue == null
                     ? 'ثبت نشده'
                     : '${localizeDigits(context, latestValue.toStringAsFixed(1).replaceFirst(RegExp(r'\.0$'), ''))} کیلوگرم',
                 textAlign: TextAlign.center,
-                style: const TextStyle(
-                  fontSize: 23,
-                  fontWeight: FontWeight.w900,
-                ),
+                style: TextStyle(fontSize: 23, fontWeight: FontWeight.w900),
               ),
-              const SizedBox(height: 12),
+              SizedBox(height: 12),
               SizedBox(
                 height: 78,
                 child: values.length < 2
-                    ? const _MiniEmptyChart()
+                    ? _MiniEmptyChart()
                     : CustomPaint(
                         painter: _SparklinePainter(
                           values
@@ -1128,10 +1413,16 @@ class _WeightTrendCard extends StatelessWidget {
                         ),
                       ),
               ),
-              const SizedBox(height: 8),
+              SizedBox(height: 8),
               Text(
                 delta == null
-                    ? 'با ثبت‌های بیشتر، روند ۳۰ روزه نمایش داده می‌شود'
+                    ? LifeMateRuntimeLocale.select(
+                        fa: LifeMateRuntimeLocale.select(
+                          fa: 'با ثبت‌های بیشتر، روند ۳۰ روزه نمایش داده می‌شود',
+                          en: "With more registrations, the 30-day trend is displayed",
+                        ),
+                        en: "With more registrations, the 30-day trend is displayed",
+                      )
                     : '${delta > 0
                           ? '↑'
                           : delta < 0
@@ -1239,7 +1530,7 @@ class _VitalCard extends StatelessWidget {
           color: Colors.white,
           borderRadius: BorderRadius.circular(18),
           border: Border.all(color: const Color(0xFFEEF2EF)),
-          boxShadow: const [
+          boxShadow: [
             BoxShadow(
               color: Color(0x091A382C),
               blurRadius: 12,
@@ -1250,32 +1541,35 @@ class _VitalCard extends StatelessWidget {
         child: Column(
           children: [
             Icon(icon, color: color, size: 26),
-            const SizedBox(height: 7),
+            SizedBox(height: 7),
             Text(
               label,
               textAlign: TextAlign.center,
-              style: const TextStyle(
-                color: AppColors.textSecondary,
-                fontSize: 11.5,
-              ),
+              style: TextStyle(color: AppColors.textSecondary, fontSize: 11.5),
             ),
-            const SizedBox(height: 5),
+            SizedBox(height: 5),
             Text(
               value,
               maxLines: 2,
               overflow: TextOverflow.ellipsis,
               textAlign: TextAlign.center,
-              style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 12),
+              style: TextStyle(fontWeight: FontWeight.w900, fontSize: 12),
             ),
-            const SizedBox(height: 9),
+            SizedBox(height: 9),
             Container(
-              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+              padding: EdgeInsets.symmetric(horizontal: 10, vertical: 4),
               decoration: BoxDecoration(
                 color: AppColors.primary.withValues(alpha: 0.09),
                 borderRadius: BorderRadius.circular(999),
               ),
-              child: const Text(
-                'آخرین ثبت',
+              child: Text(
+                LifeMateRuntimeLocale.select(
+                  fa: LifeMateRuntimeLocale.select(
+                    fa: 'آخرین ثبت',
+                    en: "last registration",
+                  ),
+                  en: "last registration",
+                ),
                 style: TextStyle(
                   color: AppColors.primary,
                   fontSize: 9.5,
@@ -1306,31 +1600,34 @@ class _QuickButton extends StatelessWidget {
   Widget build(BuildContext context) {
     return Semantics(
       button: true,
-      label: 'ثبت $label',
+      label: LifeMateRuntimeLocale.select(
+        fa: LifeMateRuntimeLocale.select(
+          fa: 'ثبت $label',
+          en: "Register $label",
+        ),
+        en: "Register $label",
+      ),
       child: InkWell(
         onTap: onTap,
         borderRadius: BorderRadius.circular(16),
         child: Container(
-          constraints: const BoxConstraints(minHeight: 78),
-          padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 10),
+          constraints: BoxConstraints(minHeight: 78),
+          padding: EdgeInsets.symmetric(horizontal: 4, vertical: 10),
           decoration: BoxDecoration(
             color: Colors.white,
             borderRadius: BorderRadius.circular(16),
-            border: Border.all(color: const Color(0xFFEEF2EF)),
+            border: Border.all(color: Color(0xFFEEF2EF)),
           ),
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
               Icon(icon, color: color, size: 24),
-              const SizedBox(height: 6),
+              SizedBox(height: 6),
               Text(
                 label,
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
-                style: const TextStyle(
-                  fontSize: 10.5,
-                  fontWeight: FontWeight.w800,
-                ),
+                style: TextStyle(fontSize: 10.5, fontWeight: FontWeight.w800),
               ),
             ],
           ),
@@ -1353,7 +1650,13 @@ class _TimelineEvent {
     final presentation = _observationPresentation(value);
     return _TimelineEvent(
       occurredAt: value.observedAtUtc.toLocal(),
-      title: '${presentation.label} ثبت شد',
+      title: LifeMateRuntimeLocale.select(
+        fa: LifeMateRuntimeLocale.select(
+          fa: '${presentation.label} ثبت شد',
+          en: "${presentation.label} registered",
+        ),
+        en: "${presentation.label} registered",
+      ),
       subtitle: presentation.value,
       icon: presentation.icon,
       color: presentation.color,
@@ -1476,59 +1779,122 @@ _ObservationPresentation _observationPresentation(
 
   return switch (value.observationType) {
     'weight' => _ObservationPresentation(
-      label: 'وزن',
-      value: '${number(value.valuePrimary)} کیلوگرم',
+      label: LifeMateRuntimeLocale.select(
+        fa: LifeMateRuntimeLocale.select(fa: 'وزن', en: "weight"),
+        en: "weight",
+      ),
+      value: LifeMateRuntimeLocale.select(
+        fa: LifeMateRuntimeLocale.select(
+          fa: '${number(value.valuePrimary)} کیلوگرم',
+          en: "${number(value.valuePrimary)} kg",
+        ),
+        en: "${number(value.valuePrimary)} kg",
+      ),
       icon: Icons.monitor_weight_rounded,
-      color: const Color(0xFF48B9C7),
+      color: Color(0xFF48B9C7),
     ),
     'height' => _ObservationPresentation(
-      label: 'قد',
-      value: '${number(value.valuePrimary, decimals: 0)} سانتی‌متر',
+      label: LifeMateRuntimeLocale.select(
+        fa: LifeMateRuntimeLocale.select(fa: 'قد', en: "height"),
+        en: "height",
+      ),
+      value: LifeMateRuntimeLocale.select(
+        fa: LifeMateRuntimeLocale.select(
+          fa: '${number(value.valuePrimary, decimals: 0)} سانتی‌متر',
+          en: "${number(value.valuePrimary, decimals: 0)} cm",
+        ),
+        en: "${number(value.valuePrimary, decimals: 0)} cm",
+      ),
       icon: Icons.height_rounded,
-      color: const Color(0xFF6EA7EB),
+      color: Color(0xFF6EA7EB),
     ),
     'blood_pressure' => _ObservationPresentation(
-      label: 'فشار خون',
+      label: LifeMateRuntimeLocale.select(
+        fa: LifeMateRuntimeLocale.select(fa: 'فشار خون', en: "blood pressure"),
+        en: "blood pressure",
+      ),
       value:
           '${number(value.valuePrimary, decimals: 0)}/${number(value.valueSecondary, decimals: 0)} mmHg',
       icon: Icons.water_drop_rounded,
-      color: const Color(0xFFFF8A4C),
+      color: Color(0xFFFF8A4C),
     ),
     'heart_rate' => _ObservationPresentation(
-      label: 'ضربان قلب',
-      value: '${number(value.valuePrimary, decimals: 0)} ضربه/دقیقه',
+      label: LifeMateRuntimeLocale.select(
+        fa: LifeMateRuntimeLocale.select(fa: 'ضربان قلب', en: "heartbeat"),
+        en: "heartbeat",
+      ),
+      value: LifeMateRuntimeLocale.select(
+        fa: LifeMateRuntimeLocale.select(
+          fa: '${number(value.valuePrimary, decimals: 0)} ضربه/دقیقه',
+          en: "${number(value.valuePrimary, decimals: 0)} beats/min",
+        ),
+        en: "${number(value.valuePrimary, decimals: 0)} beats/min",
+      ),
       icon: Icons.favorite_rounded,
-      color: const Color(0xFFF26C7D),
+      color: Color(0xFFF26C7D),
     ),
     'blood_glucose' => _ObservationPresentation(
-      label: 'قند خون',
+      label: LifeMateRuntimeLocale.select(
+        fa: LifeMateRuntimeLocale.select(fa: 'قند خون', en: "blood sugar"),
+        en: "blood sugar",
+      ),
       value: '${number(value.valuePrimary, decimals: 0)} mg/dL',
       icon: Icons.bloodtype_rounded,
-      color: const Color(0xFFFF9A58),
+      color: Color(0xFFFF9A58),
     ),
     'sleep_duration' => _ObservationPresentation(
-      label: 'خواب',
-      value: '${number(value.valuePrimary)} ساعت',
+      label: LifeMateRuntimeLocale.select(
+        fa: LifeMateRuntimeLocale.select(fa: 'خواب', en: "sleep"),
+        en: "sleep",
+      ),
+      value: LifeMateRuntimeLocale.select(
+        fa: LifeMateRuntimeLocale.select(
+          fa: '${number(value.valuePrimary)} ساعت',
+          en: "${number(value.valuePrimary)} hours",
+        ),
+        en: "${number(value.valuePrimary)} hours",
+      ),
       icon: Icons.bedtime_rounded,
-      color: const Color(0xFF956CE6),
+      color: Color(0xFF956CE6),
     ),
     'oxygen_saturation' => _ObservationPresentation(
-      label: 'اکسیژن خون',
-      value: '${number(value.valuePrimary, decimals: 0)}٪',
+      label: LifeMateRuntimeLocale.select(
+        fa: LifeMateRuntimeLocale.select(fa: 'اکسیژن خون', en: "blood oxygen"),
+        en: "blood oxygen",
+      ),
+      value: LifeMateRuntimeLocale.select(
+        fa: LifeMateRuntimeLocale.select(
+          fa: '${number(value.valuePrimary, decimals: 0)}٪',
+          en: "${number(value.valuePrimary, decimals: 0)}%",
+        ),
+        en: "${number(value.valuePrimary, decimals: 0)}%",
+      ),
       icon: Icons.air_rounded,
-      color: const Color(0xFF4A9FE0),
+      color: Color(0xFF4A9FE0),
     ),
     'body_temperature' => _ObservationPresentation(
-      label: 'دمای بدن',
+      label: LifeMateRuntimeLocale.select(
+        fa: LifeMateRuntimeLocale.select(
+          fa: 'دمای بدن',
+          en: "body temperature",
+        ),
+        en: "body temperature",
+      ),
       value: '${number(value.valuePrimary)} °C',
       icon: Icons.thermostat_rounded,
-      color: const Color(0xFFF07D68),
+      color: Color(0xFFF07D68),
     ),
     _ => _ObservationPresentation(
-      label: 'یادداشت سلامت',
+      label: LifeMateRuntimeLocale.select(
+        fa: LifeMateRuntimeLocale.select(
+          fa: 'یادداشت سلامت',
+          en: "health note",
+        ),
+        en: "health note",
+      ),
       value: value.note ?? '',
       icon: Icons.notes_rounded,
-      color: const Color(0xFF8D72D7),
+      color: Color(0xFF8D72D7),
     ),
   };
 }
@@ -1558,20 +1924,20 @@ class _HistoryRow extends StatelessWidget {
             ),
             child: Icon(presentation.icon, color: presentation.color, size: 22),
           ),
-          const SizedBox(width: 10),
+          SizedBox(width: 10),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
                   presentation.label,
-                  style: const TextStyle(fontWeight: FontWeight.w800),
+                  style: TextStyle(fontWeight: FontWeight.w800),
                 ),
                 Text(
                   presentation.value,
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
+                  style: TextStyle(
                     color: AppColors.textSecondary,
                     fontSize: 11.5,
                   ),
@@ -1584,15 +1950,32 @@ class _HistoryRow extends StatelessWidget {
               context,
               TimeOfDay(hour: time.hour, minute: time.minute),
             ),
-            style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w700),
+            style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700),
           ),
           PopupMenuButton<String>(
-            tooltip: 'گزینه‌های ثبت',
+            tooltip: LifeMateRuntimeLocale.select(
+              fa: LifeMateRuntimeLocale.select(
+                fa: 'گزینه‌های ثبت',
+                en: "Registration options",
+              ),
+              en: "Registration options",
+            ),
             onSelected: (value) {
               if (value == 'delete') onDelete();
             },
-            itemBuilder: (_) => const [
-              PopupMenuItem(value: 'delete', child: Text('حذف ثبت')),
+            itemBuilder: (_) => [
+              PopupMenuItem(
+                value: 'delete',
+                child: Text(
+                  LifeMateRuntimeLocale.select(
+                    fa: LifeMateRuntimeLocale.select(
+                      fa: 'حذف ثبت',
+                      en: "Delete registration",
+                    ),
+                    en: "Delete registration",
+                  ),
+                ),
+              ),
             ],
           ),
         ],
@@ -1642,24 +2025,29 @@ class _ErrorBanner extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.all(14),
+      padding: EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: const Color(0xFFFFF4F2),
+        color: Color(0xFFFFF4F2),
         borderRadius: BorderRadius.circular(18),
       ),
       child: Row(
         children: [
-          const Icon(Icons.cloud_off_rounded, color: Color(0xFFB5473E)),
-          const SizedBox(width: 10),
+          Icon(Icons.cloud_off_rounded, color: Color(0xFFB5473E)),
+          SizedBox(width: 10),
           Expanded(
-            child: Text(
-              message,
-              style: const TextStyle(fontWeight: FontWeight.w700),
-            ),
+            child: Text(message, style: TextStyle(fontWeight: FontWeight.w700)),
           ),
           TextButton(
             onPressed: () => onRetry(),
-            child: const Text('تلاش دوباره'),
+            child: Text(
+              LifeMateRuntimeLocale.select(
+                fa: LifeMateRuntimeLocale.select(
+                  fa: 'تلاش دوباره',
+                  en: "Try again",
+                ),
+                en: "Try again",
+              ),
+            ),
           ),
         ],
       ),
@@ -1673,15 +2061,27 @@ class _ConnectedHealthComingSoon extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return _SurfaceCard(
-      key: const ValueKey('health-gadgets-coming-soon'),
+      key: ValueKey('health-gadgets-coming-soon'),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          const _SectionTitle(
-            title: 'گجت‌ها و اپ‌های سلامت',
-            subtitle: 'همگام‌سازی خودکار داده‌ها در نسخه‌های بعدی',
+          _SectionTitle(
+            title: LifeMateRuntimeLocale.select(
+              fa: LifeMateRuntimeLocale.select(
+                fa: 'گجت‌ها و اپ‌های سلامت',
+                en: "Health gadgets and apps",
+              ),
+              en: "Health gadgets and apps",
+            ),
+            subtitle: LifeMateRuntimeLocale.select(
+              fa: LifeMateRuntimeLocale.select(
+                fa: 'همگام‌سازی خودکار داده‌ها در نسخه‌های بعدی',
+                en: "Automatic data synchronization in later versions",
+              ),
+              en: "Automatic data synchronization in later versions",
+            ),
           ),
-          const SizedBox(height: 12),
+          SizedBox(height: 12),
           ClipRRect(
             borderRadius: BorderRadius.circular(20),
             child: SizedBox(
@@ -1692,14 +2092,20 @@ class _ConnectedHealthComingSoon extends StatelessWidget {
                   ImageFiltered(
                     imageFilter: ImageFilter.blur(sigmaX: 2.1, sigmaY: 2.1),
                     child: Container(
-                      color: const Color(0xFFF1F8F5),
-                      padding: const EdgeInsets.symmetric(horizontal: 18),
-                      child: const Row(
+                      color: Color(0xFFF1F8F5),
+                      padding: EdgeInsets.symmetric(horizontal: 18),
+                      child: Row(
                         mainAxisAlignment: MainAxisAlignment.spaceAround,
                         children: [
                           _GadgetPreview(
                             icon: Icons.watch_rounded,
-                            label: 'ساعت هوشمند',
+                            label: LifeMateRuntimeLocale.select(
+                              fa: LifeMateRuntimeLocale.select(
+                                fa: 'ساعت هوشمند',
+                                en: "smart watch",
+                              ),
+                              en: "smart watch",
+                            ),
                           ),
                           _GadgetPreview(
                             icon: Icons.favorite_outline_rounded,
@@ -1707,14 +2113,20 @@ class _ConnectedHealthComingSoon extends StatelessWidget {
                           ),
                           _GadgetPreview(
                             icon: Icons.phone_iphone_rounded,
-                            label: 'اپ‌های سلامت',
+                            label: LifeMateRuntimeLocale.select(
+                              fa: LifeMateRuntimeLocale.select(
+                                fa: 'اپ‌های سلامت',
+                                en: "Health apps",
+                              ),
+                              en: "Health apps",
+                            ),
                           ),
                         ],
                       ),
                     ),
                   ),
                   Container(color: Colors.white.withValues(alpha: 0.43)),
-                  const Center(
+                  Center(
                     child: Column(
                       mainAxisSize: MainAxisSize.min,
                       children: [
@@ -1725,7 +2137,13 @@ class _ConnectedHealthComingSoon extends StatelessWidget {
                         ),
                         SizedBox(height: 5),
                         Text(
-                          'به‌زودی',
+                          LifeMateRuntimeLocale.select(
+                            fa: LifeMateRuntimeLocale.select(
+                              fa: 'به‌زودی',
+                              en: "Coming soon",
+                            ),
+                            en: "soon",
+                          ),
                           style: TextStyle(
                             color: AppColors.textPrimary,
                             fontSize: 18,
@@ -1733,7 +2151,13 @@ class _ConnectedHealthComingSoon extends StatelessWidget {
                           ),
                         ),
                         Text(
-                          'اتصال به گجت‌ها فعلاً غیرفعال است',
+                          LifeMateRuntimeLocale.select(
+                            fa: LifeMateRuntimeLocale.select(
+                              fa: 'اتصال به گجت‌ها فعلاً غیرفعال است',
+                              en: "Connecting to gadgets is currently disabled",
+                            ),
+                            en: "Connecting to gadgets is currently disabled",
+                          ),
                           style: TextStyle(
                             color: AppColors.textSecondary,
                             fontSize: 11.5,

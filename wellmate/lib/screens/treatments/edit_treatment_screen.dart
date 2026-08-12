@@ -44,23 +44,62 @@ class _EditTreatmentScreenState extends State<EditTreatmentScreen> {
   bool _busy = false;
   String? _error;
 
-  static const _forms = <String, String>{
-    'tablet': 'قرص',
-    'capsule': 'کپسول',
-    'syrup': 'شربت',
-    'drop': 'قطره',
-    'injection': 'تزریقی',
-    'other': 'سایر',
+  static final _forms = <String, String>{
+    'tablet': LifeMateRuntimeLocale.select(
+      fa: LifeMateRuntimeLocale.select(fa: 'قرص', en: "Tablet"),
+      en: "Tablet",
+    ),
+    'capsule': LifeMateRuntimeLocale.select(
+      fa: LifeMateRuntimeLocale.select(fa: 'کپسول', en: "Capsule"),
+      en: "Capsule",
+    ),
+    'syrup': LifeMateRuntimeLocale.select(
+      fa: LifeMateRuntimeLocale.select(fa: 'شربت', en: "Syrup"),
+      en: "Syrup",
+    ),
+    'drop': LifeMateRuntimeLocale.select(
+      fa: LifeMateRuntimeLocale.select(fa: 'قطره', en: "Drops"),
+      en: "Drops",
+    ),
+    'injection': LifeMateRuntimeLocale.select(
+      fa: LifeMateRuntimeLocale.select(fa: 'تزریقی', en: "Injection"),
+      en: "Injection",
+    ),
+    'other': LifeMateRuntimeLocale.select(
+      fa: LifeMateRuntimeLocale.select(fa: 'سایر', en: "Other"),
+      en: "Other",
+    ),
   };
 
-  static const _weekdayLabels = <int, String>{
-    DateTime.saturday: 'ش',
-    DateTime.sunday: 'ی',
-    DateTime.monday: 'د',
-    DateTime.tuesday: 'س',
-    DateTime.wednesday: 'چ',
-    DateTime.thursday: 'پ',
-    DateTime.friday: 'ج',
+  static final _weekdayLabels = <int, String>{
+    DateTime.saturday: LifeMateRuntimeLocale.select(
+      fa: LifeMateRuntimeLocale.select(fa: 'ش', en: "Sat"),
+      en: "Sat",
+    ),
+    DateTime.sunday: LifeMateRuntimeLocale.select(
+      fa: LifeMateRuntimeLocale.select(fa: 'ی', en: "Sun"),
+      en: "Sun",
+    ),
+    DateTime.monday: LifeMateRuntimeLocale.select(
+      fa: LifeMateRuntimeLocale.select(fa: 'د', en: "Mon"),
+      en: "Mon",
+    ),
+    DateTime.tuesday: LifeMateRuntimeLocale.select(
+      fa: LifeMateRuntimeLocale.select(fa: 'س', en: "Tue"),
+      en: "Tue",
+    ),
+    DateTime.wednesday: LifeMateRuntimeLocale.select(
+      fa: LifeMateRuntimeLocale.select(fa: 'چ', en: "Wed"),
+      en: "Wed",
+    ),
+    DateTime.thursday: LifeMateRuntimeLocale.select(
+      fa: LifeMateRuntimeLocale.select(fa: 'پ', en: "Thu"),
+      en: "Thu",
+    ),
+    DateTime.friday: LifeMateRuntimeLocale.select(
+      fa: LifeMateRuntimeLocale.select(fa: 'ج', en: "Fri"),
+      en: "Fri",
+    ),
   };
 
   static const _backendWeekdays = <int, String>{
@@ -185,7 +224,15 @@ class _EditTreatmentScreenState extends State<EditTreatmentScreen> {
           entry.value.minute == value.minute,
     );
     if (duplicate) {
-      setState(() => _error = 'این ساعت قبلاً در برنامه وجود دارد.');
+      setState(
+        () => _error = LifeMateRuntimeLocale.select(
+          fa: LifeMateRuntimeLocale.select(
+            fa: 'این ساعت قبلاً در برنامه وجود دارد.',
+            en: "This watch is already in the app.",
+          ),
+          en: "This watch is already in the app.",
+        ),
+      );
       return;
     }
     setState(() {
@@ -204,8 +251,14 @@ class _EditTreatmentScreenState extends State<EditTreatmentScreen> {
       context: context,
       initialDate: _startDate,
       firstDate: DateTime(2020),
-      lastDate: DateTime.now().add(const Duration(days: 3650)),
-      title: 'تاریخ شروع درمان',
+      lastDate: DateTime.now().add(Duration(days: 3650)),
+      title: LifeMateRuntimeLocale.select(
+        fa: LifeMateRuntimeLocale.select(
+          fa: 'تاریخ شروع درمان',
+          en: "Treatment start date",
+        ),
+        en: "Treatment start date",
+      ),
     );
     if (value == null || !mounted) return;
     setState(() {
@@ -217,10 +270,16 @@ class _EditTreatmentScreenState extends State<EditTreatmentScreen> {
   Future<void> _pickEndDate() async {
     final value = await showAppDatePicker(
       context: context,
-      initialDate: _endDate ?? _startDate.add(const Duration(days: 30)),
+      initialDate: _endDate ?? _startDate.add(Duration(days: 30)),
       firstDate: _startDate,
-      lastDate: _startDate.add(const Duration(days: 3650)),
-      title: 'تاریخ پایان درمان',
+      lastDate: _startDate.add(Duration(days: 3650)),
+      title: LifeMateRuntimeLocale.select(
+        fa: LifeMateRuntimeLocale.select(
+          fa: 'تاریخ پایان درمان',
+          en: "End date of treatment",
+        ),
+        en: "End date of treatment",
+      ),
     );
     if (value != null && mounted) setState(() => _endDate = value);
   }
@@ -229,11 +288,27 @@ class _EditTreatmentScreenState extends State<EditTreatmentScreen> {
     FocusScope.of(context).unfocus();
     if (_busy || !_formKey.currentState!.validate()) return;
     if (_selectedWeekdays.isEmpty) {
-      setState(() => _error = 'حداقل یک روز مصرف را انتخاب کنید.');
+      setState(
+        () => _error = LifeMateRuntimeLocale.select(
+          fa: LifeMateRuntimeLocale.select(
+            fa: 'حداقل یک روز مصرف را انتخاب کنید.',
+            en: "Select at least one day of use.",
+          ),
+          en: "Select at least one day of use.",
+        ),
+      );
       return;
     }
     if (_times.isEmpty) {
-      setState(() => _error = 'حداقل یک ساعت مصرف لازم است.');
+      setState(
+        () => _error = LifeMateRuntimeLocale.select(
+          fa: LifeMateRuntimeLocale.select(
+            fa: 'حداقل یک ساعت مصرف لازم است.',
+            en: "At least one hour of consumption is required.",
+          ),
+          en: "At least one hour of consumption is required.",
+        ),
+      );
       return;
     }
 
@@ -275,8 +350,20 @@ class _EditTreatmentScreenState extends State<EditTreatmentScreen> {
       LifeMateNotice.show(
         context,
         type: LifeMateNoticeType.success,
-        title: 'درمان به‌روزرسانی شد',
-        message: 'تغییرات درمان با موفقیت ذخیره شد.',
+        title: LifeMateRuntimeLocale.select(
+          fa: LifeMateRuntimeLocale.select(
+            fa: 'درمان به‌روزرسانی شد',
+            en: "Treatment updated",
+          ),
+          en: "Treatment updated",
+        ),
+        message: LifeMateRuntimeLocale.select(
+          fa: LifeMateRuntimeLocale.select(
+            fa: 'تغییرات درمان با موفقیت ذخیره شد.',
+            en: "Treatment changes saved successfully.",
+          ),
+          en: "Treatment changes saved successfully.",
+        ),
       );
       Navigator.of(context).pop(true);
     } on LifeMateApiException catch (error) {
@@ -286,7 +373,13 @@ class _EditTreatmentScreenState extends State<EditTreatmentScreen> {
       debugPrint('WellMate treatment update failed: $error');
       if (mounted) {
         setState(
-          () => _error = 'ذخیره تغییرات انجام نشد. اتصال را بررسی کنید.',
+          () => _error = LifeMateRuntimeLocale.select(
+            fa: LifeMateRuntimeLocale.select(
+              fa: 'ذخیره تغییرات انجام نشد. اتصال را بررسی کنید.',
+              en: "Failed to save changes. Check the connection.",
+            ),
+            en: "Failed to save changes. Check the connection.",
+          ),
         );
       }
     } finally {
@@ -296,14 +389,42 @@ class _EditTreatmentScreenState extends State<EditTreatmentScreen> {
 
   String _friendlyError(LifeMateApiException error) {
     return switch (error.code) {
-      'stale_treatment_plan' || 'stale_medication' =>
-        'این درمان در جای دیگری تغییر کرده است. صفحه را ببندید و دوباره باز کنید.',
-      'treatment_plan_not_found' => 'این درمان دیگر در حساب شما وجود ندارد.',
-      'network_unavailable' =>
-        'اتصال اینترنت برای ذخیره تغییرات در دسترس نیست.',
-      'session_missing' ||
-      'invalid_session' => 'نشست شما منقضی شده است. دوباره وارد شوید.',
-      _ => 'اطلاعات درمان معتبر نیست یا ذخیره انجام نشد.',
+      'stale_treatment_plan' ||
+      'stale_medication' => LifeMateRuntimeLocale.select(
+        fa: LifeMateRuntimeLocale.select(
+          fa: 'این درمان در جای دیگری تغییر کرده است. صفحه را ببندید و دوباره باز کنید.',
+          en: "This treatment has been modified elsewhere. Close and reopen the page.",
+        ),
+        en: "This treatment has been modified elsewhere. Close and reopen the page.",
+      ),
+      'treatment_plan_not_found' => LifeMateRuntimeLocale.select(
+        fa: LifeMateRuntimeLocale.select(
+          fa: 'این درمان دیگر در حساب شما وجود ندارد.',
+          en: "This treatment no longer exists in your account.",
+        ),
+        en: "This treatment no longer exists in your account.",
+      ),
+      'network_unavailable' => LifeMateRuntimeLocale.select(
+        fa: LifeMateRuntimeLocale.select(
+          fa: 'اتصال اینترنت برای ذخیره تغییرات در دسترس نیست.',
+          en: "Internet connection is not available to save changes.",
+        ),
+        en: "Internet connection is not available to save changes.",
+      ),
+      'session_missing' || 'invalid_session' => LifeMateRuntimeLocale.select(
+        fa: LifeMateRuntimeLocale.select(
+          fa: 'نشست شما منقضی شده است. دوباره وارد شوید.',
+          en: "Your session has expired. Sign in again.",
+        ),
+        en: "Your session has expired. Sign in again.",
+      ),
+      _ => LifeMateRuntimeLocale.select(
+        fa: LifeMateRuntimeLocale.select(
+          fa: 'اطلاعات درمان معتبر نیست یا ذخیره انجام نشد.',
+          en: "The treatment information is not valid or could not be saved.",
+        ),
+        en: "The treatment information is not valid or could not be saved.",
+      ),
     };
   }
 
@@ -315,8 +436,14 @@ class _EditTreatmentScreenState extends State<EditTreatmentScreen> {
       appBar: AppBar(
         backgroundColor: AppColors.background,
         elevation: 0,
-        title: const Text(
-          'ویرایش درمان',
+        title: Text(
+          LifeMateRuntimeLocale.select(
+            fa: LifeMateRuntimeLocale.select(
+              fa: 'ویرایش درمان',
+              en: "Editing treatment",
+            ),
+            en: "Editing treatment",
+          ),
           style: TextStyle(
             color: AppColors.darkBlue,
             fontWeight: FontWeight.w900,
@@ -328,29 +455,65 @@ class _EditTreatmentScreenState extends State<EditTreatmentScreen> {
         child: Form(
           key: _formKey,
           child: ListView(
-            key: const ValueKey('edit-treatment-form'),
+            key: ValueKey('edit-treatment-form'),
             keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
-            padding: const EdgeInsets.fromLTRB(20, 12, 20, 36),
+            padding: EdgeInsets.fromLTRB(20, 12, 20, 36),
             children: [
               _EditSection(
-                title: 'مشخصات درمان',
+                title: LifeMateRuntimeLocale.select(
+                  fa: LifeMateRuntimeLocale.select(
+                    fa: 'مشخصات درمان',
+                    en: "Treatment specifications",
+                  ),
+                  en: "Treatment specifications",
+                ),
                 icon: Icons.medication_rounded,
                 children: [
                   _textField(
                     controller: _name,
-                    label: 'نام دارو',
-                    hint: 'نام دارو',
+                    label: LifeMateRuntimeLocale.select(
+                      fa: LifeMateRuntimeLocale.select(
+                        fa: 'نام دارو',
+                        en: "name of the drug",
+                      ),
+                      en: "name of the drug",
+                    ),
+                    hint: LifeMateRuntimeLocale.select(
+                      fa: LifeMateRuntimeLocale.select(
+                        fa: 'نام دارو',
+                        en: "name of the drug",
+                      ),
+                      en: "name of the drug",
+                    ),
                     icon: Icons.medication_rounded,
                     required: true,
                   ),
                   _textField(
                     controller: _strength,
-                    label: 'قدرت دارو',
-                    hint: 'مثلاً ۱۰ میلی‌گرم',
+                    label: LifeMateRuntimeLocale.select(
+                      fa: LifeMateRuntimeLocale.select(
+                        fa: 'قدرت دارو',
+                        en: "The power of medicine",
+                      ),
+                      en: "The power of medicine",
+                    ),
+                    hint: LifeMateRuntimeLocale.select(
+                      fa: LifeMateRuntimeLocale.select(
+                        fa: 'مثلاً ۱۰ میلی‌گرم',
+                        en: "For example, 10 mg",
+                      ),
+                      en: "For example, 10 mg",
+                    ),
                     icon: Icons.science_rounded,
                   ),
                   WellMateLabeledField(
-                    label: 'شکل دارو',
+                    label: LifeMateRuntimeLocale.select(
+                      fa: LifeMateRuntimeLocale.select(
+                        fa: 'شکل دارو',
+                        en: "Drug form",
+                      ),
+                      en: "Drug form",
+                    ),
                     icon: Icons.category_rounded,
                     child: DropdownButtonFormField<String>(
                       initialValue: _form,
@@ -370,24 +533,61 @@ class _EditTreatmentScreenState extends State<EditTreatmentScreen> {
                   ),
                   _textField(
                     controller: _dose,
-                    label: 'مقدار مصرف',
-                    hint: 'مثلاً ۱ قرص',
+                    label: LifeMateRuntimeLocale.select(
+                      fa: LifeMateRuntimeLocale.select(
+                        fa: 'مقدار مصرف',
+                        en: "Consumption amount",
+                      ),
+                      en: "Consumption amount",
+                    ),
+                    hint: LifeMateRuntimeLocale.select(
+                      fa: LifeMateRuntimeLocale.select(
+                        fa: 'مثلاً ۱ قرص',
+                        en: "For example, 1 tablet",
+                      ),
+                      en: "For example, 1 tablet",
+                    ),
                     icon: Icons.straighten_rounded,
                     required: true,
                   ),
                   WellMateLabeledField(
-                    label: 'وضعیت درمان',
+                    label: LifeMateRuntimeLocale.select(
+                      fa: LifeMateRuntimeLocale.select(
+                        fa: 'وضعیت درمان',
+                        en: "Treatment status",
+                      ),
+                      en: "Treatment status",
+                    ),
                     icon: Icons.toggle_on_rounded,
                     bottomSpacing: 0,
                     child: DropdownButtonFormField<String>(
-                      key: const ValueKey('edit-treatment-status'),
+                      key: ValueKey('edit-treatment-status'),
                       initialValue: _status,
                       decoration: wellMateFieldDecoration(),
-                      items: const [
-                        DropdownMenuItem(value: 'active', child: Text('فعال')),
+                      items: [
+                        DropdownMenuItem(
+                          value: 'active',
+                          child: Text(
+                            LifeMateRuntimeLocale.select(
+                              fa: LifeMateRuntimeLocale.select(
+                                fa: 'فعال',
+                                en: "active",
+                              ),
+                              en: "active",
+                            ),
+                          ),
+                        ),
                         DropdownMenuItem(
                           value: 'stopped',
-                          child: Text('متوقف'),
+                          child: Text(
+                            LifeMateRuntimeLocale.select(
+                              fa: LifeMateRuntimeLocale.select(
+                                fa: 'متوقف',
+                                en: "stopped",
+                              ),
+                              en: "stopped",
+                            ),
+                          ),
                         ),
                       ],
                       onChanged: _busy
@@ -398,16 +598,28 @@ class _EditTreatmentScreenState extends State<EditTreatmentScreen> {
                   ),
                 ],
               ),
-              const SizedBox(height: 16),
+              SizedBox(height: 16),
               _EditSection(
-                title: 'روزها و ساعت‌های مصرف',
+                title: LifeMateRuntimeLocale.select(
+                  fa: LifeMateRuntimeLocale.select(
+                    fa: 'روزها و ساعت‌های مصرف',
+                    en: "Days and hours of use",
+                  ),
+                  en: "Days and hours of use",
+                ),
                 icon: Icons.schedule_rounded,
                 children: [
-                  const Text(
-                    'روزهای مصرف',
+                  Text(
+                    LifeMateRuntimeLocale.select(
+                      fa: LifeMateRuntimeLocale.select(
+                        fa: 'روزهای مصرف',
+                        en: "days of use",
+                      ),
+                      en: "days of use",
+                    ),
                     style: TextStyle(fontWeight: FontWeight.w900),
                   ),
-                  const SizedBox(height: 10),
+                  SizedBox(height: 10),
                   Wrap(
                     spacing: 8,
                     runSpacing: 8,
@@ -428,12 +640,18 @@ class _EditTreatmentScreenState extends State<EditTreatmentScreen> {
                         ),
                     ],
                   ),
-                  const SizedBox(height: 18),
-                  const Text(
-                    'ساعت‌های مصرف',
+                  SizedBox(height: 18),
+                  Text(
+                    LifeMateRuntimeLocale.select(
+                      fa: LifeMateRuntimeLocale.select(
+                        fa: 'ساعت‌های مصرف',
+                        en: "Hours of use",
+                      ),
+                      en: "Hours of use",
+                    ),
                     style: TextStyle(fontWeight: FontWeight.w900),
                   ),
-                  const SizedBox(height: 10),
+                  SizedBox(height: 10),
                   Wrap(
                     spacing: 8,
                     runSpacing: 8,
@@ -441,10 +659,7 @@ class _EditTreatmentScreenState extends State<EditTreatmentScreen> {
                       for (var index = 0; index < _times.length; index++)
                         InputChip(
                           label: Text(formatAppTime(context, _times[index])),
-                          avatar: const Icon(
-                            Icons.access_time_rounded,
-                            size: 18,
-                          ),
+                          avatar: Icon(Icons.access_time_rounded, size: 18),
                           onPressed: _busy
                               ? null
                               : () => _pickTime(replaceIndex: index),
@@ -453,44 +668,88 @@ class _EditTreatmentScreenState extends State<EditTreatmentScreen> {
                               : () => setState(() => _times.removeAt(index)),
                         ),
                       ActionChip(
-                        avatar: const Icon(Icons.add_rounded, size: 18),
-                        label: const Text('افزودن ساعت'),
+                        avatar: Icon(Icons.add_rounded, size: 18),
+                        label: Text(
+                          LifeMateRuntimeLocale.select(
+                            fa: LifeMateRuntimeLocale.select(
+                              fa: 'افزودن ساعت',
+                              en: "Add hours",
+                            ),
+                            en: "Add hours",
+                          ),
+                        ),
                         onPressed: _busy ? null : _pickTime,
                       ),
                     ],
                   ),
                 ],
               ),
-              const SizedBox(height: 16),
+              SizedBox(height: 16),
               _EditSection(
-                title: 'بازه و یادآوری',
+                title: LifeMateRuntimeLocale.select(
+                  fa: LifeMateRuntimeLocale.select(
+                    fa: 'بازه و یادآوری',
+                    en: "interval and reminder",
+                  ),
+                  en: "interval and reminder",
+                ),
                 icon: Icons.notifications_active_rounded,
                 children: [
                   _DateField(
-                    label: 'تاریخ شروع',
+                    label: LifeMateRuntimeLocale.select(
+                      fa: LifeMateRuntimeLocale.select(
+                        fa: 'تاریخ شروع',
+                        en: "start date",
+                      ),
+                      en: "start date",
+                    ),
                     icon: Icons.calendar_today_rounded,
                     value: formatAppDate(context, _startDate),
                     onTap: _busy ? null : _pickStartDate,
                   ),
                   _DateField(
-                    label: 'تاریخ پایان',
+                    label: LifeMateRuntimeLocale.select(
+                      fa: LifeMateRuntimeLocale.select(
+                        fa: 'تاریخ پایان',
+                        en: "end date",
+                      ),
+                      en: "end date",
+                    ),
                     icon: Icons.event_available_rounded,
                     value: _endDate == null
-                        ? 'بدون تاریخ پایان'
+                        ? LifeMateRuntimeLocale.select(
+                            fa: LifeMateRuntimeLocale.select(
+                              fa: 'بدون تاریخ پایان',
+                              en: "No end date",
+                            ),
+                            en: "No end date",
+                          )
                         : formatAppDate(context, _endDate!),
                     onTap: _busy ? null : _pickEndDate,
                     suffix: _endDate == null
                         ? null
                         : IconButton(
-                            tooltip: 'حذف تاریخ پایان',
+                            tooltip: LifeMateRuntimeLocale.select(
+                              fa: LifeMateRuntimeLocale.select(
+                                fa: 'حذف تاریخ پایان',
+                                en: "Remove the end date",
+                              ),
+                              en: "Remove the end date",
+                            ),
                             onPressed: _busy
                                 ? null
                                 : () => setState(() => _endDate = null),
-                            icon: const Icon(Icons.close_rounded),
+                            icon: Icon(Icons.close_rounded),
                           ),
                   ),
                   WellMateLabeledField(
-                    label: 'یادآوری برای خودم',
+                    label: LifeMateRuntimeLocale.select(
+                      fa: LifeMateRuntimeLocale.select(
+                        fa: 'یادآوری برای خودم',
+                        en: "A reminder to myself",
+                      ),
+                      en: "A reminder to myself",
+                    ),
                     icon: Icons.notifications_active_rounded,
                     child: DropdownButtonFormField<int>(
                       initialValue: _patientReminderMinutesBefore,
@@ -512,7 +771,13 @@ class _EditTreatmentScreenState extends State<EditTreatmentScreen> {
                     ),
                   ),
                   WellMateLabeledField(
-                    label: 'یادآوری برای مراقب',
+                    label: LifeMateRuntimeLocale.select(
+                      fa: LifeMateRuntimeLocale.select(
+                        fa: 'یادآوری برای مراقب',
+                        en: "Reminder for caregivers",
+                      ),
+                      en: "Reminder for caregivers",
+                    ),
                     icon: Icons.family_restroom_rounded,
                     child: DropdownButtonFormField<int>(
                       initialValue: _caregiverReminderMinutesBefore,
@@ -534,7 +799,13 @@ class _EditTreatmentScreenState extends State<EditTreatmentScreen> {
                     ),
                   ),
                   WellMateLabeledField(
-                    label: 'منطقه زمانی',
+                    label: LifeMateRuntimeLocale.select(
+                      fa: LifeMateRuntimeLocale.select(
+                        fa: 'منطقه زمانی',
+                        en: "time zone",
+                      ),
+                      en: "time zone",
+                    ),
                     icon: Icons.public_rounded,
                     bottomSpacing: 0,
                     child: DropdownButtonFormField<String>(
@@ -553,13 +824,25 @@ class _EditTreatmentScreenState extends State<EditTreatmentScreen> {
                   ),
                 ],
               ),
-              const SizedBox(height: 16),
+              SizedBox(height: 16),
               _EditSection(
-                title: 'توضیحات',
+                title: LifeMateRuntimeLocale.select(
+                  fa: LifeMateRuntimeLocale.select(
+                    fa: 'توضیحات',
+                    en: "Description",
+                  ),
+                  en: "Description",
+                ),
                 icon: Icons.notes_rounded,
                 children: [
                   WellMateLabeledField(
-                    label: 'دستور مصرف یا یادداشت',
+                    label: LifeMateRuntimeLocale.select(
+                      fa: LifeMateRuntimeLocale.select(
+                        fa: 'دستور مصرف یا یادداشت',
+                        en: "Instructions for use or notes",
+                      ),
+                      en: "Instructions for use or notes",
+                    ),
                     icon: Icons.edit_note_rounded,
                     bottomSpacing: 0,
                     child: TextFormField(
@@ -567,16 +850,22 @@ class _EditTreatmentScreenState extends State<EditTreatmentScreen> {
                       minLines: 3,
                       maxLines: 6,
                       decoration: wellMateFieldDecoration(
-                        hint: 'مثلاً بعد از غذا',
+                        hint: LifeMateRuntimeLocale.select(
+                          fa: LifeMateRuntimeLocale.select(
+                            fa: 'مثلاً بعد از غذا',
+                            en: "For example, after a meal",
+                          ),
+                          en: "For example, after a meal",
+                        ),
                       ),
                     ),
                   ),
                 ],
               ),
               if (_error != null) ...[
-                const SizedBox(height: 14),
+                SizedBox(height: 14),
                 Container(
-                  padding: const EdgeInsets.all(14),
+                  padding: EdgeInsets.all(14),
                   decoration: BoxDecoration(
                     color: Colors.red.shade50,
                     borderRadius: BorderRadius.circular(16),
@@ -591,28 +880,42 @@ class _EditTreatmentScreenState extends State<EditTreatmentScreen> {
                   ),
                 ),
               ],
-              const SizedBox(height: 20),
+              SizedBox(height: 20),
               FilledButton.icon(
-                key: const ValueKey('save-treatment-edit'),
+                key: ValueKey('save-treatment-edit'),
                 style: FilledButton.styleFrom(
-                  minimumSize: const Size.fromHeight(56),
+                  minimumSize: Size.fromHeight(56),
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(18),
                   ),
                 ),
                 onPressed: _busy ? null : _save,
                 icon: _busy
-                    ? const SizedBox.square(
+                    ? SizedBox.square(
                         dimension: 20,
                         child: CircularProgressIndicator(
                           strokeWidth: 2,
                           color: Colors.white,
                         ),
                       )
-                    : const Icon(Icons.save_rounded),
+                    : Icon(Icons.save_rounded),
                 label: Text(
-                  _busy ? 'در حال ذخیره...' : 'ذخیره تغییرات درمان',
-                  style: const TextStyle(fontWeight: FontWeight.w900),
+                  _busy
+                      ? LifeMateRuntimeLocale.select(
+                          fa: LifeMateRuntimeLocale.select(
+                            fa: 'در حال ذخیره...',
+                            en: "Saving...",
+                          ),
+                          en: "Saving...",
+                        )
+                      : LifeMateRuntimeLocale.select(
+                          fa: LifeMateRuntimeLocale.select(
+                            fa: 'ذخیره تغییرات درمان',
+                            en: "Save treatment changes",
+                          ),
+                          en: "Save treatment changes",
+                        ),
+                  style: TextStyle(fontWeight: FontWeight.w900),
                 ),
               ),
             ],
@@ -639,7 +942,13 @@ class _EditTreatmentScreenState extends State<EditTreatmentScreen> {
         decoration: wellMateFieldDecoration(hint: hint),
         validator: required
             ? (value) => value == null || value.trim().isEmpty
-                  ? '$label را وارد کنید.'
+                  ? LifeMateRuntimeLocale.select(
+                      fa: LifeMateRuntimeLocale.select(
+                        fa: '$label را وارد کنید.',
+                        en: "Enter $label.",
+                      ),
+                      en: "Enter $label.",
+                    )
                   : null
             : null,
       ),

@@ -89,7 +89,13 @@ class _EditCareEventScreenState extends State<EditCareEventScreen> {
       if (mounted) {
         setState(() {
           _loading = false;
-          _error = 'اطلاعات ویزیت یا تزریق دریافت نشد.';
+          _error = LifeMateRuntimeLocale.select(
+            fa: LifeMateRuntimeLocale.select(
+              fa: 'اطلاعات ویزیت یا تزریق دریافت نشد.',
+              en: "Visit or injection information was not received.",
+            ),
+            en: "Visit or injection information was not received.",
+          );
         });
       }
     }
@@ -148,8 +154,22 @@ class _EditCareEventScreenState extends State<EditCareEventScreen> {
       context: context,
       initialDate: _date,
       firstDate: DateTime(2020),
-      lastDate: DateTime.now().add(const Duration(days: 3650)),
-      title: _isAppointment ? 'تاریخ ویزیت' : 'تاریخ تزریق',
+      lastDate: DateTime.now().add(Duration(days: 3650)),
+      title: _isAppointment
+          ? LifeMateRuntimeLocale.select(
+              fa: LifeMateRuntimeLocale.select(
+                fa: 'تاریخ ویزیت',
+                en: "Date of visit",
+              ),
+              en: "Date of visit",
+            )
+          : LifeMateRuntimeLocale.select(
+              fa: LifeMateRuntimeLocale.select(
+                fa: 'تاریخ تزریق',
+                en: "Date of injection",
+              ),
+              en: "Date of injection",
+            ),
     );
     if (value != null && mounted) setState(() => _date = value);
   }
@@ -199,8 +219,28 @@ class _EditCareEventScreenState extends State<EditCareEventScreen> {
       LifeMateNotice.show(
         context,
         type: LifeMateNoticeType.success,
-        title: _isAppointment ? 'ویزیت به‌روزرسانی شد' : 'تزریق به‌روزرسانی شد',
-        message: 'تغییرات با موفقیت ذخیره شد.',
+        title: _isAppointment
+            ? LifeMateRuntimeLocale.select(
+                fa: LifeMateRuntimeLocale.select(
+                  fa: 'ویزیت به‌روزرسانی شد',
+                  en: "The visit has been updated",
+                ),
+                en: "The visit has been updated",
+              )
+            : LifeMateRuntimeLocale.select(
+                fa: LifeMateRuntimeLocale.select(
+                  fa: 'تزریق به‌روزرسانی شد',
+                  en: "Injection updated",
+                ),
+                en: "Injection updated",
+              ),
+        message: LifeMateRuntimeLocale.select(
+          fa: LifeMateRuntimeLocale.select(
+            fa: 'تغییرات با موفقیت ذخیره شد.',
+            en: "Changes saved successfully.",
+          ),
+          en: "Changes saved successfully.",
+        ),
       );
       Navigator.of(context).pop(true);
     } on LifeMateApiException catch (error) {
@@ -209,7 +249,13 @@ class _EditCareEventScreenState extends State<EditCareEventScreen> {
       debugPrint('WellMate care event update failed: $error');
       if (mounted) {
         setState(
-          () => _error = 'ذخیره تغییرات انجام نشد. اتصال را بررسی کنید.',
+          () => _error = LifeMateRuntimeLocale.select(
+            fa: LifeMateRuntimeLocale.select(
+              fa: 'ذخیره تغییرات انجام نشد. اتصال را بررسی کنید.',
+              en: "Failed to save changes. Check the connection.",
+            ),
+            en: "Failed to save changes. Check the connection.",
+          ),
         );
       }
     } finally {
@@ -219,21 +265,68 @@ class _EditCareEventScreenState extends State<EditCareEventScreen> {
 
   String _friendlyError(LifeMateApiException error) {
     return switch (error.code) {
-      'stale_care_event' =>
-        'این برنامه در جای دیگری تغییر کرده است. صفحه را ببندید و دوباره باز کنید.',
-      'care_event_not_found' => 'این ویزیت یا تزریق دیگر وجود ندارد.',
-      'invalid_medicationName' => 'نام داروی تزریقی را وارد کنید.',
-      'network_unavailable' =>
-        'اتصال اینترنت برای ذخیره تغییرات در دسترس نیست.',
-      'session_missing' ||
-      'invalid_session' => 'نشست شما منقضی شده است. دوباره وارد شوید.',
-      _ => 'اطلاعات واردشده معتبر نیست یا ذخیره انجام نشد.',
+      'stale_care_event' => LifeMateRuntimeLocale.select(
+        fa: LifeMateRuntimeLocale.select(
+          fa: 'این برنامه در جای دیگری تغییر کرده است. صفحه را ببندید و دوباره باز کنید.',
+          en: "This program has changed elsewhere. Close and reopen the page.",
+        ),
+        en: "This program has changed elsewhere. Close and reopen the page.",
+      ),
+      'care_event_not_found' => LifeMateRuntimeLocale.select(
+        fa: LifeMateRuntimeLocale.select(
+          fa: 'این ویزیت یا تزریق دیگر وجود ندارد.',
+          en: "There is no more visit or injection.",
+        ),
+        en: "There is no more visit or injection.",
+      ),
+      'invalid_medicationName' => LifeMateRuntimeLocale.select(
+        fa: LifeMateRuntimeLocale.select(
+          fa: 'نام داروی تزریقی را وارد کنید.',
+          en: "Enter the name of the injectable drug.",
+        ),
+        en: "Enter the name of the injectable drug.",
+      ),
+      'network_unavailable' => LifeMateRuntimeLocale.select(
+        fa: LifeMateRuntimeLocale.select(
+          fa: 'اتصال اینترنت برای ذخیره تغییرات در دسترس نیست.',
+          en: "Internet connection is not available to save changes.",
+        ),
+        en: "Internet connection is not available to save changes.",
+      ),
+      'session_missing' || 'invalid_session' => LifeMateRuntimeLocale.select(
+        fa: LifeMateRuntimeLocale.select(
+          fa: 'نشست شما منقضی شده است. دوباره وارد شوید.',
+          en: "Your session has expired. Sign in again.",
+        ),
+        en: "Your session has expired. Sign in again.",
+      ),
+      _ => LifeMateRuntimeLocale.select(
+        fa: LifeMateRuntimeLocale.select(
+          fa: 'اطلاعات واردشده معتبر نیست یا ذخیره انجام نشد.',
+          en: "The information entered is not valid or could not be saved.",
+        ),
+        en: "The information entered is not valid or could not be saved.",
+      ),
     };
   }
 
   @override
   Widget build(BuildContext context) {
-    final screenTitle = _isAppointment ? 'ویرایش ویزیت' : 'ویرایش تزریق';
+    final screenTitle = _isAppointment
+        ? LifeMateRuntimeLocale.select(
+            fa: LifeMateRuntimeLocale.select(
+              fa: 'ویرایش ویزیت',
+              en: "Edit visit",
+            ),
+            en: "Edit visit",
+          )
+        : LifeMateRuntimeLocale.select(
+            fa: LifeMateRuntimeLocale.select(
+              fa: 'ویرایش تزریق',
+              en: "Edit injection",
+            ),
+            en: "Edit injection",
+          );
     return Scaffold(
       backgroundColor: AppColors.background,
       appBar: AppBar(
@@ -250,27 +343,27 @@ class _EditCareEventScreenState extends State<EditCareEventScreen> {
       body: SafeArea(
         top: false,
         child: _loading
-            ? const Center(child: CircularProgressIndicator())
+            ? Center(child: CircularProgressIndicator())
             : _error != null && _title.text.isEmpty
             ? _LoadError(message: _error!, onRetry: _load)
             : Form(
                 key: _formKey,
                 child: ListView(
-                  key: const ValueKey('edit-care-event-form'),
+                  key: ValueKey('edit-care-event-form'),
                   keyboardDismissBehavior:
                       ScrollViewKeyboardDismissBehavior.onDrag,
-                  padding: const EdgeInsets.fromLTRB(20, 12, 20, 36),
+                  padding: EdgeInsets.fromLTRB(20, 12, 20, 36),
                   children: [
                     if (_wasMissed)
                       Container(
-                        margin: const EdgeInsets.only(bottom: 16),
-                        padding: const EdgeInsets.all(14),
+                        margin: EdgeInsets.only(bottom: 16),
+                        padding: EdgeInsets.all(14),
                         decoration: BoxDecoration(
                           color: Colors.orange.shade50,
                           borderRadius: BorderRadius.circular(16),
                           border: Border.all(color: Colors.orange.shade100),
                         ),
-                        child: const Row(
+                        child: Row(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Icon(
@@ -280,7 +373,13 @@ class _EditCareEventScreenState extends State<EditCareEventScreen> {
                             SizedBox(width: 10),
                             Expanded(
                               child: Text(
-                                'زمان این برنامه گذشته است. می‌توانید تاریخ و ساعت جدید تعیین کنید یا وضعیت آن را تغییر دهید.',
+                                LifeMateRuntimeLocale.select(
+                                  fa: LifeMateRuntimeLocale.select(
+                                    fa: 'زمان این برنامه گذشته است. می‌توانید تاریخ و ساعت جدید تعیین کنید یا وضعیت آن را تغییر دهید.',
+                                    en: "The time for this program has passed. You can set a new date and time or change its status.",
+                                  ),
+                                  en: "The time for this program has passed. You can set a new date and time or change its status.",
+                                ),
                                 style: TextStyle(height: 1.5),
                               ),
                             ),
@@ -288,7 +387,21 @@ class _EditCareEventScreenState extends State<EditCareEventScreen> {
                         ),
                       ),
                     _Section(
-                      title: _isAppointment ? 'مشخصات ویزیت' : 'مشخصات تزریق',
+                      title: _isAppointment
+                          ? LifeMateRuntimeLocale.select(
+                              fa: LifeMateRuntimeLocale.select(
+                                fa: 'مشخصات ویزیت',
+                                en: "Visit details",
+                              ),
+                              en: "Visit details",
+                            )
+                          : LifeMateRuntimeLocale.select(
+                              fa: LifeMateRuntimeLocale.select(
+                                fa: 'مشخصات تزریق',
+                                en: "Injection specifications",
+                              ),
+                              en: "Injection specifications",
+                            ),
                       icon: _isAppointment
                           ? Icons.medical_services_rounded
                           : Icons.vaccines_rounded,
@@ -296,59 +409,157 @@ class _EditCareEventScreenState extends State<EditCareEventScreen> {
                         _textField(
                           controller: _title,
                           label: _isAppointment
-                              ? 'عنوان ویزیت'
-                              : 'نام داروی تزریقی',
+                              ? LifeMateRuntimeLocale.select(
+                                  fa: LifeMateRuntimeLocale.select(
+                                    fa: 'عنوان ویزیت',
+                                    en: "The title of the visit",
+                                  ),
+                                  en: "The title of the visit",
+                                )
+                              : LifeMateRuntimeLocale.select(
+                                  fa: LifeMateRuntimeLocale.select(
+                                    fa: 'نام داروی تزریقی',
+                                    en: "The name of the injectable drug",
+                                  ),
+                                  en: "The name of the injectable drug",
+                                ),
                           hint: _isAppointment
-                              ? 'مثلاً ویزیت متخصص قلب'
-                              : 'مثلاً ویتامین B12',
+                              ? LifeMateRuntimeLocale.select(
+                                  fa: LifeMateRuntimeLocale.select(
+                                    fa: 'مثلاً ویزیت متخصص قلب',
+                                    en: "For example, a visit to a cardiologist",
+                                  ),
+                                  en: "For example, a visit to a cardiologist",
+                                )
+                              : LifeMateRuntimeLocale.select(
+                                  fa: LifeMateRuntimeLocale.select(
+                                    fa: 'مثلاً ویتامین B12',
+                                    en: "For example, vitamin B12",
+                                  ),
+                                  en: "For example, vitamin B12",
+                                ),
                           icon: Icons.event_note_rounded,
                           required: true,
                         ),
                         if (_isAppointment) ...[
                           _textField(
                             controller: _provider,
-                            label: 'نام پزشک',
-                            hint: 'نام پزشک',
+                            label: LifeMateRuntimeLocale.select(
+                              fa: LifeMateRuntimeLocale.select(
+                                fa: 'نام پزشک',
+                                en: "Doctor's name",
+                              ),
+                              en: "Doctor's name",
+                            ),
+                            hint: LifeMateRuntimeLocale.select(
+                              fa: LifeMateRuntimeLocale.select(
+                                fa: 'نام پزشک',
+                                en: "Doctor's name",
+                              ),
+                              en: "Doctor's name",
+                            ),
                             icon: Icons.person_rounded,
                             required: true,
                           ),
                           _textField(
                             controller: _specialty,
-                            label: 'تخصص',
-                            hint: 'مثلاً متخصص قلب و عروق',
+                            label: LifeMateRuntimeLocale.select(
+                              fa: LifeMateRuntimeLocale.select(
+                                fa: 'تخصص',
+                                en: "Expertise",
+                              ),
+                              en: "Expertise",
+                            ),
+                            hint: LifeMateRuntimeLocale.select(
+                              fa: LifeMateRuntimeLocale.select(
+                                fa: 'مثلاً متخصص قلب و عروق',
+                                en: "For example, a cardiologist",
+                              ),
+                              en: "For example, a cardiologist",
+                            ),
                             icon: Icons.workspace_premium_rounded,
                           ),
                         ] else ...[
                           _textField(
                             controller: _dose,
-                            label: 'دوز یا مقدار تزریق',
-                            hint: 'مثلاً ۱ آمپول',
+                            label: LifeMateRuntimeLocale.select(
+                              fa: LifeMateRuntimeLocale.select(
+                                fa: 'دوز یا مقدار تزریق',
+                                en: "Dose or amount of injection",
+                              ),
+                              en: "Dose or amount of injection",
+                            ),
+                            hint: LifeMateRuntimeLocale.select(
+                              fa: LifeMateRuntimeLocale.select(
+                                fa: 'مثلاً ۱ آمپول',
+                                en: "For example, 1 ampoule",
+                              ),
+                              en: "For example, 1 ampoule",
+                            ),
                             icon: Icons.straighten_rounded,
                             required: true,
                           ),
                           WellMateLabeledField(
-                            label: 'روش تزریق',
+                            label: LifeMateRuntimeLocale.select(
+                              fa: LifeMateRuntimeLocale.select(
+                                fa: 'روش تزریق',
+                                en: "Injection method",
+                              ),
+                              en: "Injection method",
+                            ),
                             icon: Icons.route_rounded,
                             child: DropdownButtonFormField<String>(
                               initialValue: _administrationRoute,
                               isExpanded: true,
                               decoration: wellMateFieldDecoration(),
-                              items: const [
+                              items: [
                                 DropdownMenuItem(
                                   value: 'intramuscular',
-                                  child: Text('عضلانی'),
+                                  child: Text(
+                                    LifeMateRuntimeLocale.select(
+                                      fa: LifeMateRuntimeLocale.select(
+                                        fa: 'عضلانی',
+                                        en: "muscular",
+                                      ),
+                                      en: "muscular",
+                                    ),
+                                  ),
                                 ),
                                 DropdownMenuItem(
                                   value: 'subcutaneous',
-                                  child: Text('زیرجلدی'),
+                                  child: Text(
+                                    LifeMateRuntimeLocale.select(
+                                      fa: LifeMateRuntimeLocale.select(
+                                        fa: 'زیرجلدی',
+                                        en: "Undercover",
+                                      ),
+                                      en: "Undercover",
+                                    ),
+                                  ),
                                 ),
                                 DropdownMenuItem(
                                   value: 'intravenous',
-                                  child: Text('وریدی'),
+                                  child: Text(
+                                    LifeMateRuntimeLocale.select(
+                                      fa: LifeMateRuntimeLocale.select(
+                                        fa: 'وریدی',
+                                        en: "vein",
+                                      ),
+                                      en: "vein",
+                                    ),
+                                  ),
                                 ),
                                 DropdownMenuItem(
                                   value: 'other',
-                                  child: Text('سایر / طبق دستور درمانگر'),
+                                  child: Text(
+                                    LifeMateRuntimeLocale.select(
+                                      fa: LifeMateRuntimeLocale.select(
+                                        fa: 'سایر / طبق دستور درمانگر',
+                                        en: "Other / according to the therapist's instructions",
+                                      ),
+                                      en: "Other / according to the therapist's instructions",
+                                    ),
+                                  ),
                                 ),
                               ],
                               onChanged: _busy
@@ -361,40 +572,100 @@ class _EditCareEventScreenState extends State<EditCareEventScreen> {
                           ),
                           _textField(
                             controller: _provider,
-                            label: 'تزریق توسط / نام درمانگر',
-                            hint: 'اختیاری',
+                            label: LifeMateRuntimeLocale.select(
+                              fa: LifeMateRuntimeLocale.select(
+                                fa: 'تزریق توسط / نام درمانگر',
+                                en: "Injection by / name of therapist",
+                              ),
+                              en: "Injection by / name of therapist",
+                            ),
+                            hint: LifeMateRuntimeLocale.select(
+                              fa: LifeMateRuntimeLocale.select(
+                                fa: 'اختیاری',
+                                en: "optional",
+                              ),
+                              en: "optional",
+                            ),
                             icon: Icons.health_and_safety_rounded,
                           ),
                         ],
                         _textField(
                           controller: _reason,
                           label: _isAppointment
-                              ? 'دلیل مراجعه'
-                              : 'علت یا دستور تزریق',
-                          hint: 'توضیح کوتاه',
+                              ? LifeMateRuntimeLocale.select(
+                                  fa: LifeMateRuntimeLocale.select(
+                                    fa: 'دلیل مراجعه',
+                                    en: "Reason for referral",
+                                  ),
+                                  en: "Reason for referral",
+                                )
+                              : LifeMateRuntimeLocale.select(
+                                  fa: LifeMateRuntimeLocale.select(
+                                    fa: 'علت یا دستور تزریق',
+                                    en: "Cause or order of injection",
+                                  ),
+                                  en: "Cause or order of injection",
+                                ),
+                          hint: LifeMateRuntimeLocale.select(
+                            fa: LifeMateRuntimeLocale.select(
+                              fa: 'توضیح کوتاه',
+                              en: "short explanation",
+                            ),
+                            en: "short explanation",
+                          ),
                           icon: Icons.notes_rounded,
                           maxLines: 3,
                         ),
                         WellMateLabeledField(
-                          label: 'وضعیت',
+                          label: LifeMateRuntimeLocale.select(
+                            fa: LifeMateRuntimeLocale.select(
+                              fa: 'وضعیت',
+                              en: "status",
+                            ),
+                            en: "status",
+                          ),
                           icon: Icons.task_alt_rounded,
                           bottomSpacing: 0,
                           child: DropdownButtonFormField<String>(
-                            key: const ValueKey('edit-care-event-status'),
+                            key: ValueKey('edit-care-event-status'),
                             initialValue: _status,
                             decoration: wellMateFieldDecoration(),
-                            items: const [
+                            items: [
                               DropdownMenuItem(
                                 value: 'scheduled',
-                                child: Text('برنامه‌ریزی‌شده'),
+                                child: Text(
+                                  LifeMateRuntimeLocale.select(
+                                    fa: LifeMateRuntimeLocale.select(
+                                      fa: 'برنامه‌ریزی‌شده',
+                                      en: "planned",
+                                    ),
+                                    en: "planned",
+                                  ),
+                                ),
                               ),
                               DropdownMenuItem(
                                 value: 'completed',
-                                child: Text('انجام‌شده'),
+                                child: Text(
+                                  LifeMateRuntimeLocale.select(
+                                    fa: LifeMateRuntimeLocale.select(
+                                      fa: 'انجام‌شده',
+                                      en: "done",
+                                    ),
+                                    en: "done",
+                                  ),
+                                ),
                               ),
                               DropdownMenuItem(
                                 value: 'cancelled',
-                                child: Text('لغوشده'),
+                                child: Text(
+                                  LifeMateRuntimeLocale.select(
+                                    fa: LifeMateRuntimeLocale.select(
+                                      fa: 'لغوشده',
+                                      en: "canceled",
+                                    ),
+                                    en: "canceled",
+                                  ),
+                                ),
                               ),
                             ],
                             onChanged: _busy
@@ -406,56 +677,128 @@ class _EditCareEventScreenState extends State<EditCareEventScreen> {
                         ),
                       ],
                     ),
-                    const SizedBox(height: 16),
+                    SizedBox(height: 16),
                     _Section(
-                      title: 'مرکز و آدرس',
+                      title: LifeMateRuntimeLocale.select(
+                        fa: LifeMateRuntimeLocale.select(
+                          fa: 'مرکز و آدرس',
+                          en: "Center and address",
+                        ),
+                        en: "Center and address",
+                      ),
                       icon: Icons.location_on_rounded,
                       children: [
                         _textField(
                           controller: _center,
                           label: _isAppointment
-                              ? 'نام مطب / کلینیک / بیمارستان'
-                              : 'نام مرکز تزریقات / درمانگاه',
-                          hint: 'نام مرکز',
+                              ? LifeMateRuntimeLocale.select(
+                                  fa: LifeMateRuntimeLocale.select(
+                                    fa: 'نام مطب / کلینیک / بیمارستان',
+                                    en: "Name of office/clinic/hospital",
+                                  ),
+                                  en: "Name of office/clinic/hospital",
+                                )
+                              : LifeMateRuntimeLocale.select(
+                                  fa: LifeMateRuntimeLocale.select(
+                                    fa: 'نام مرکز تزریقات / درمانگاه',
+                                    en: "Name of the injection center/clinic",
+                                  ),
+                                  en: "Name of the injection center/clinic",
+                                ),
+                          hint: LifeMateRuntimeLocale.select(
+                            fa: LifeMateRuntimeLocale.select(
+                              fa: 'نام مرکز',
+                              en: "Name of the center",
+                            ),
+                            en: "Name of the center",
+                          ),
                           icon: Icons.local_hospital_rounded,
                         ),
                         _textField(
                           controller: _address,
-                          label: 'آدرس کامل',
-                          hint: 'شهر، خیابان و پلاک',
+                          label: LifeMateRuntimeLocale.select(
+                            fa: LifeMateRuntimeLocale.select(
+                              fa: 'آدرس کامل',
+                              en: "Full address",
+                            ),
+                            en: "Full address",
+                          ),
+                          hint: LifeMateRuntimeLocale.select(
+                            fa: LifeMateRuntimeLocale.select(
+                              fa: 'شهر، خیابان و پلاک',
+                              en: "City, street and number plate",
+                            ),
+                            en: "City, street and number plate",
+                          ),
                           icon: Icons.map_rounded,
                           maxLines: 3,
                         ),
                         _textField(
                           controller: _phone,
-                          label: 'شماره تماس مرکز',
-                          hint: 'اختیاری',
+                          label: LifeMateRuntimeLocale.select(
+                            fa: LifeMateRuntimeLocale.select(
+                              fa: 'شماره تماس مرکز',
+                              en: "Center contact number",
+                            ),
+                            en: "Center contact number",
+                          ),
+                          hint: LifeMateRuntimeLocale.select(
+                            fa: LifeMateRuntimeLocale.select(
+                              fa: 'اختیاری',
+                              en: "optional",
+                            ),
+                            en: "optional",
+                          ),
                           icon: Icons.phone_rounded,
                           keyboardType: TextInputType.phone,
                           textDirection: TextDirection.ltr,
                         ),
                       ],
                     ),
-                    const SizedBox(height: 16),
+                    SizedBox(height: 16),
                     _Section(
-                      title: 'تاریخ، زمان و یادآوری',
+                      title: LifeMateRuntimeLocale.select(
+                        fa: LifeMateRuntimeLocale.select(
+                          fa: 'تاریخ، زمان و یادآوری',
+                          en: "Date, time and reminder",
+                        ),
+                        en: "Date, time and reminder",
+                      ),
                       icon: Icons.schedule_rounded,
                       children: [
                         _PickerField(
-                          label: 'تاریخ',
+                          label: LifeMateRuntimeLocale.select(
+                            fa: LifeMateRuntimeLocale.select(
+                              fa: 'تاریخ',
+                              en: "date",
+                            ),
+                            en: "date",
+                          ),
                           value: formatAppDate(context, _date),
                           icon: Icons.calendar_month_rounded,
                           onTap: _busy ? null : _pickDate,
                         ),
                         _PickerField(
-                          label: 'ساعت',
+                          label: LifeMateRuntimeLocale.select(
+                            fa: LifeMateRuntimeLocale.select(
+                              fa: 'ساعت',
+                              en: "hour",
+                            ),
+                            en: "hour",
+                          ),
                           value: formatAppTime(context, _time),
                           icon: Icons.access_time_rounded,
                           onTap: _busy ? null : _pickTime,
                           ltr: true,
                         ),
                         WellMateLabeledField(
-                          label: 'یادآوری برای خودم',
+                          label: LifeMateRuntimeLocale.select(
+                            fa: LifeMateRuntimeLocale.select(
+                              fa: 'یادآوری برای خودم',
+                              en: "A reminder to myself",
+                            ),
+                            en: "A reminder to myself",
+                          ),
                           icon: Icons.notifications_active_rounded,
                           child: DropdownButtonFormField<int>(
                             initialValue: _patientReminderMinutesBefore,
@@ -480,7 +823,13 @@ class _EditCareEventScreenState extends State<EditCareEventScreen> {
                           ),
                         ),
                         WellMateLabeledField(
-                          label: 'یادآوری برای مراقب',
+                          label: LifeMateRuntimeLocale.select(
+                            fa: LifeMateRuntimeLocale.select(
+                              fa: 'یادآوری برای مراقب',
+                              en: "Reminder for caregivers",
+                            ),
+                            en: "Reminder for caregivers",
+                          ),
                           icon: Icons.family_restroom_rounded,
                           child: DropdownButtonFormField<int>(
                             initialValue: _caregiverReminderMinutesBefore,
@@ -506,7 +855,13 @@ class _EditCareEventScreenState extends State<EditCareEventScreen> {
                           ),
                         ),
                         WellMateLabeledField(
-                          label: 'منطقه زمانی',
+                          label: LifeMateRuntimeLocale.select(
+                            fa: LifeMateRuntimeLocale.select(
+                              fa: 'منطقه زمانی',
+                              en: "time zone",
+                            ),
+                            en: "time zone",
+                          ),
                           icon: Icons.public_rounded,
                           child: TextFormField(
                             initialValue: _timeZone,
@@ -515,24 +870,42 @@ class _EditCareEventScreenState extends State<EditCareEventScreen> {
                             decoration: wellMateFieldDecoration(),
                             validator: (value) =>
                                 value == null || value.trim().isEmpty
-                                ? 'منطقه زمانی لازم است.'
+                                ? LifeMateRuntimeLocale.select(
+                                    fa: LifeMateRuntimeLocale.select(
+                                      fa: 'منطقه زمانی لازم است.',
+                                      en: "Time zone is required.",
+                                    ),
+                                    en: "Time zone is required.",
+                                  )
                                 : null,
                             onChanged: (value) => _timeZone = value.trim(),
                           ),
                         ),
                         _textField(
                           controller: _instructions,
-                          label: 'یادداشت و نکات همراه',
-                          hint: 'مدارک، آزمایش یا نسخه موردنیاز',
+                          label: LifeMateRuntimeLocale.select(
+                            fa: LifeMateRuntimeLocale.select(
+                              fa: 'یادداشت و نکات همراه',
+                              en: "Notes and accompanying notes",
+                            ),
+                            en: "Notes and accompanying notes",
+                          ),
+                          hint: LifeMateRuntimeLocale.select(
+                            fa: LifeMateRuntimeLocale.select(
+                              fa: 'مدارک، آزمایش یا نسخه موردنیاز',
+                              en: "Required documents, tests or prescriptions",
+                            ),
+                            en: "Required documents, tests or prescriptions",
+                          ),
                           icon: Icons.description_rounded,
                           maxLines: 4,
                         ),
                       ],
                     ),
                     if (_error != null) ...[
-                      const SizedBox(height: 14),
+                      SizedBox(height: 14),
                       Container(
-                        padding: const EdgeInsets.all(14),
+                        padding: EdgeInsets.all(14),
                         decoration: BoxDecoration(
                           color: Colors.red.shade50,
                           borderRadius: BorderRadius.circular(16),
@@ -546,28 +919,42 @@ class _EditCareEventScreenState extends State<EditCareEventScreen> {
                         ),
                       ),
                     ],
-                    const SizedBox(height: 20),
+                    SizedBox(height: 20),
                     FilledButton.icon(
-                      key: const ValueKey('save-care-event-edit'),
+                      key: ValueKey('save-care-event-edit'),
                       style: FilledButton.styleFrom(
-                        minimumSize: const Size.fromHeight(56),
+                        minimumSize: Size.fromHeight(56),
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(18),
                         ),
                       ),
                       onPressed: _busy ? null : _save,
                       icon: _busy
-                          ? const SizedBox.square(
+                          ? SizedBox.square(
                               dimension: 20,
                               child: CircularProgressIndicator(
                                 strokeWidth: 2,
                                 color: Colors.white,
                               ),
                             )
-                          : const Icon(Icons.save_rounded),
+                          : Icon(Icons.save_rounded),
                       label: Text(
-                        _busy ? 'در حال ذخیره...' : 'ذخیره تغییرات',
-                        style: const TextStyle(fontWeight: FontWeight.w900),
+                        _busy
+                            ? LifeMateRuntimeLocale.select(
+                                fa: LifeMateRuntimeLocale.select(
+                                  fa: 'در حال ذخیره...',
+                                  en: "Saving...",
+                                ),
+                                en: "Saving...",
+                              )
+                            : LifeMateRuntimeLocale.select(
+                                fa: LifeMateRuntimeLocale.select(
+                                  fa: 'ذخیره تغییرات',
+                                  en: "Save changes",
+                                ),
+                                en: "Save changes",
+                              ),
+                        style: TextStyle(fontWeight: FontWeight.w900),
                       ),
                     ),
                   ],
@@ -596,11 +983,18 @@ class _EditCareEventScreenState extends State<EditCareEventScreen> {
         enabled: !_busy,
         maxLines: maxLines,
         keyboardType: keyboardType,
+        inputFormatters: const [LifeMateLocaleDigitInputFormatter()],
         textDirection: textDirection,
         decoration: wellMateFieldDecoration(hint: hint),
         validator: required
             ? (value) => value == null || value.trim().isEmpty
-                  ? '$label را وارد کنید.'
+                  ? LifeMateRuntimeLocale.select(
+                      fa: LifeMateRuntimeLocale.select(
+                        fa: '$label را وارد کنید.',
+                        en: "Enter $label.",
+                      ),
+                      en: "Enter $label.",
+                    )
                   : null
             : null,
       ),
@@ -718,22 +1112,26 @@ class _LoadError extends StatelessWidget {
   Widget build(BuildContext context) {
     return Center(
       child: Padding(
-        padding: const EdgeInsets.all(24),
+        padding: EdgeInsets.all(24),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Icon(
-              Icons.cloud_off_rounded,
-              size: 52,
-              color: AppColors.primary,
-            ),
-            const SizedBox(height: 12),
+            Icon(Icons.cloud_off_rounded, size: 52, color: AppColors.primary),
+            SizedBox(height: 12),
             Text(message, textAlign: TextAlign.center),
-            const SizedBox(height: 16),
+            SizedBox(height: 16),
             OutlinedButton.icon(
               onPressed: onRetry,
-              icon: const Icon(Icons.refresh_rounded),
-              label: const Text('تلاش دوباره'),
+              icon: Icon(Icons.refresh_rounded),
+              label: Text(
+                LifeMateRuntimeLocale.select(
+                  fa: LifeMateRuntimeLocale.select(
+                    fa: 'تلاش دوباره',
+                    en: "Try again",
+                  ),
+                  en: "Try again",
+                ),
+              ),
             ),
           ],
         ),

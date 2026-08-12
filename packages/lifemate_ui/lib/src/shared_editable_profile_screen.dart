@@ -114,28 +114,78 @@ class _LifeMateSharedEditableProfileScreenState
       LifeMateProfileRefresh.notifyChanged();
       _notice(
         LifeMateNoticeType.success,
-        title: 'عکس ذخیره شد',
-        message: 'عکس پروفایل ذخیره شد.',
+        title: LifeMateRuntimeLocale.select(
+          fa: LifeMateRuntimeLocale.select(
+            fa: 'عکس ذخیره شد',
+            en: "The photo is saved",
+          ),
+          en: "The photo is saved",
+        ),
+        message: LifeMateRuntimeLocale.select(
+          fa: LifeMateRuntimeLocale.select(
+            fa: 'عکس پروفایل ذخیره شد.',
+            en: "Profile picture saved.",
+          ),
+          en: "Profile picture saved.",
+        ),
       );
     } on LifeMateApiException catch (error) {
       if (!mounted) return;
       setState(() {
         _error = switch (error.code) {
-          'profile_photo_too_large' => 'حجم عکس باید کمتر از ۳ مگابایت باشد.',
-          'invalid_profile_photo' => 'فرمت عکس پشتیبانی نمی‌شود.',
-          _ => 'ذخیره عکس انجام نشد. دوباره تلاش کنید.',
+          'profile_photo_too_large' => LifeMateRuntimeLocale.select(
+            fa: LifeMateRuntimeLocale.select(
+              fa: 'حجم عکس باید کمتر از ۳ مگابایت باشد.',
+              en: "The size of the photo must be less than 3 MB.",
+            ),
+            en: "The size of the photo must be less than 3 MB.",
+          ),
+          'invalid_profile_photo' => LifeMateRuntimeLocale.select(
+            fa: LifeMateRuntimeLocale.select(
+              fa: 'فرمت عکس پشتیبانی نمی‌شود.',
+              en: "The image format is not supported.",
+            ),
+            en: "The image format is not supported.",
+          ),
+          _ => LifeMateRuntimeLocale.select(
+            fa: LifeMateRuntimeLocale.select(
+              fa: 'ذخیره عکس انجام نشد. دوباره تلاش کنید.',
+              en: "Failed to save photo. Try again.",
+            ),
+            en: "Failed to save photo. Try again.",
+          ),
         };
       });
     } on FormatException catch (error) {
       if (!mounted) return;
       setState(() {
         _error = error.message == 'profile_photo_too_large'
-            ? 'حجم عکس باید کمتر از ۳ مگابایت باشد.'
-            : 'فقط عکس JPEG، PNG یا WebP انتخاب کنید.';
+            ? LifeMateRuntimeLocale.select(
+                fa: LifeMateRuntimeLocale.select(
+                  fa: 'حجم عکس باید کمتر از ۳ مگابایت باشد.',
+                  en: "The size of the photo must be less than 3 MB.",
+                ),
+                en: "The size of the photo must be less than 3 MB.",
+              )
+            : LifeMateRuntimeLocale.select(
+                fa: LifeMateRuntimeLocale.select(
+                  fa: 'فقط عکس JPEG، PNG یا WebP انتخاب کنید.',
+                  en: "Choose JPEG, PNG or WebP image only.",
+                ),
+                en: "Choose JPEG, PNG or WebP image only.",
+              );
       });
     } catch (_) {
       if (mounted) {
-        setState(() => _error = 'خواندن یا ارسال عکس انجام نشد.');
+        setState(
+          () => _error = LifeMateRuntimeLocale.select(
+            fa: LifeMateRuntimeLocale.select(
+              fa: 'خواندن یا ارسال عکس انجام نشد.',
+              en: "Failed to read or send photo.",
+            ),
+            en: "Failed to read or send photo.",
+          ),
+        );
       }
     } finally {
       if (mounted) setState(() => _photoBusy = false);
@@ -158,12 +208,32 @@ class _LifeMateSharedEditableProfileScreenState
       LifeMateProfileRefresh.notifyChanged();
       _notice(
         LifeMateNoticeType.success,
-        title: 'عکس حذف شد',
-        message: 'از این پس آواتار انتخابی شما نمایش داده می‌شود.',
+        title: LifeMateRuntimeLocale.select(
+          fa: LifeMateRuntimeLocale.select(
+            fa: 'عکس حذف شد',
+            en: "Photo removed",
+          ),
+          en: "Photo removed",
+        ),
+        message: LifeMateRuntimeLocale.select(
+          fa: LifeMateRuntimeLocale.select(
+            fa: 'از این پس آواتار انتخابی شما نمایش داده می‌شود.',
+            en: "From now on, your selected avatar will be displayed.",
+          ),
+          en: "From now on, your selected avatar will be displayed.",
+        ),
       );
     } on LifeMateApiException {
       if (mounted) {
-        setState(() => _error = 'حذف عکس انجام نشد. دوباره تلاش کنید.');
+        setState(
+          () => _error = LifeMateRuntimeLocale.select(
+            fa: LifeMateRuntimeLocale.select(
+              fa: 'حذف عکس انجام نشد. دوباره تلاش کنید.',
+              en: "The photo could not be deleted. Try again.",
+            ),
+            en: "The photo could not be deleted. Try again.",
+          ),
+        );
       }
     } finally {
       if (mounted) setState(() => _photoBusy = false);
@@ -209,7 +279,13 @@ class _LifeMateSharedEditableProfileScreenState
     final version = profile?['version'];
     if (profile == null || version is! int) {
       setState(
-        () => _error = 'اطلاعات پروفایل کامل نیست. دوباره بارگذاری کنید.',
+        () => _error = LifeMateRuntimeLocale.select(
+          fa: LifeMateRuntimeLocale.select(
+            fa: 'اطلاعات پروفایل کامل نیست. دوباره بارگذاری کنید.',
+            en: "Profile information is not complete. Reload.",
+          ),
+          en: "Profile information is not complete. Reload.",
+        ),
       );
       return;
     }
@@ -232,32 +308,76 @@ class _LifeMateSharedEditableProfileScreenState
       LifeMateProfileRefresh.notifyChanged();
       _notice(
         LifeMateNoticeType.success,
-        title: 'پروفایل ذخیره شد',
-        message: 'اطلاعات پروفایل با موفقیت ذخیره شد.',
+        title: LifeMateRuntimeLocale.select(
+          fa: LifeMateRuntimeLocale.select(
+            fa: 'پروفایل ذخیره شد',
+            en: "Profile saved",
+          ),
+          en: "Profile saved",
+        ),
+        message: LifeMateRuntimeLocale.select(
+          fa: LifeMateRuntimeLocale.select(
+            fa: 'اطلاعات پروفایل با موفقیت ذخیره شد.',
+            en: "Profile information saved successfully.",
+          ),
+          en: "Profile information saved successfully.",
+        ),
       );
     } on LifeMateApiException catch (error) {
       if (!mounted) return;
       if (error.code == 'stale_profile') {
         setState(() {
-          _error =
-              'پروفایل در دستگاه دیگری تغییر کرده است؛ اطلاعات تازه بارگذاری می‌شود.';
+          _error = LifeMateRuntimeLocale.select(
+            fa: LifeMateRuntimeLocale.select(
+              fa: 'پروفایل در دستگاه دیگری تغییر کرده است؛ اطلاعات تازه بارگذاری می‌شود.',
+              en: "The profile has been changed on another device; New information is being loaded.",
+            ),
+            en: "The profile has been changed on another device; New information is being loaded.",
+          );
           _profileFuture = widget.apiClient.getCurrentProfile();
         });
       } else if (error.isUnauthorized) {
-        setState(() => _error = 'نشست شما منقضی شده است. دوباره وارد شوید.');
+        setState(
+          () => _error = LifeMateRuntimeLocale.select(
+            fa: LifeMateRuntimeLocale.select(
+              fa: 'نشست شما منقضی شده است. دوباره وارد شوید.',
+              en: "Your session has expired. Sign in again.",
+            ),
+            en: "Your session has expired. Sign in again.",
+          ),
+        );
       } else if (error.statusCode == 0) {
         setState(
-          () =>
-              _error = 'اتصال برقرار نشد. اینترنت را بررسی و دوباره تلاش کنید.',
+          () => _error = LifeMateRuntimeLocale.select(
+            fa: LifeMateRuntimeLocale.select(
+              fa: 'اتصال برقرار نشد. اینترنت را بررسی و دوباره تلاش کنید.',
+              en: "Connection failed. Check the internet and try again.",
+            ),
+            en: "Connection failed. Check the internet and try again.",
+          ),
         );
       } else {
         setState(
-          () => _error = 'ذخیره اطلاعات انجام نشد. ورودی‌ها را بررسی کنید.',
+          () => _error = LifeMateRuntimeLocale.select(
+            fa: LifeMateRuntimeLocale.select(
+              fa: 'ذخیره اطلاعات انجام نشد. ورودی‌ها را بررسی کنید.',
+              en: "Data could not be saved. Check the entries.",
+            ),
+            en: "Data could not be saved. Check the entries.",
+          ),
         );
       }
     } catch (_) {
       if (mounted) {
-        setState(() => _error = 'ذخیره اطلاعات انجام نشد. دوباره تلاش کنید.');
+        setState(
+          () => _error = LifeMateRuntimeLocale.select(
+            fa: LifeMateRuntimeLocale.select(
+              fa: 'ذخیره اطلاعات انجام نشد. دوباره تلاش کنید.',
+              en: "Data could not be saved. Try again.",
+            ),
+            en: "Data could not be saved. Try again.",
+          ),
+        );
       }
     } finally {
       if (mounted) setState(() => _saving = false);
@@ -278,9 +398,9 @@ class _LifeMateSharedEditableProfileScreenState
     final textStyle = TextStyle(fontFamily: widget.fontFamily);
     return Theme(
       data: Theme.of(context).copyWith(
-        colorScheme: Theme.of(context).colorScheme.copyWith(
-          primary: widget.theme.accent,
-        ),
+        colorScheme: Theme.of(
+          context,
+        ).colorScheme.copyWith(primary: widget.theme.accent),
         textTheme: Theme.of(context).textTheme.apply(
           fontFamily: widget.fontFamily,
           bodyColor: widget.theme.titleColor,
@@ -288,10 +408,19 @@ class _LifeMateSharedEditableProfileScreenState
         ),
       ),
       child: Scaffold(
-        key: const ValueKey('lifemate-shared-editable-profile-layout'),
+        key: ValueKey('lifemate-shared-editable-profile-layout'),
         backgroundColor: widget.theme.background,
         appBar: AppBar(
-          title: Text('اطلاعات شخصی', style: textStyle),
+          title: Text(
+            LifeMateRuntimeLocale.select(
+              fa: LifeMateRuntimeLocale.select(
+                fa: 'اطلاعات شخصی',
+                en: "Personal information",
+              ),
+              en: "Personal information",
+            ),
+            style: textStyle,
+          ),
           backgroundColor: widget.theme.background,
           surfaceTintColor: Colors.transparent,
         ),
@@ -313,28 +442,35 @@ class _LifeMateSharedEditableProfileScreenState
               }
               final data = snapshot.data ?? const <String, dynamic>{};
               if (!identical(_profile, data) &&
-                  (_profile == null || _profile?['version'] != data['version'])) {
+                  (_profile == null ||
+                      _profile?['version'] != data['version'])) {
                 WidgetsBinding.instance.addPostFrameCallback((_) {
                   if (mounted) setState(() => _applyProfile(data));
                 });
               }
 
               return SingleChildScrollView(
-                padding: const EdgeInsets.fromLTRB(20, 12, 20, 32),
+                padding: EdgeInsets.fromLTRB(20, 12, 20, 32),
                 child: Form(
                   key: _formKey,
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
                       Text(
-                        'عکس یا آواتار پروفایل',
+                        LifeMateRuntimeLocale.select(
+                          fa: LifeMateRuntimeLocale.select(
+                            fa: 'عکس یا آواتار پروفایل',
+                            en: "Profile picture or avatar",
+                          ),
+                          en: "Profile picture or avatar",
+                        ),
                         textAlign: TextAlign.center,
                         style: TextStyle(
                           fontFamily: widget.fontFamily,
                           fontWeight: FontWeight.w800,
                         ),
                       ),
-                      const SizedBox(height: 12),
+                      SizedBox(height: 12),
                       Center(
                         child: Stack(
                           clipBehavior: Clip.none,
@@ -346,7 +482,7 @@ class _LifeMateSharedEditableProfileScreenState
                               radius: 52,
                             ),
                             if (_photoBusy)
-                              const Positioned.fill(
+                              Positioned.fill(
                                 child: DecoratedBox(
                                   decoration: BoxDecoration(
                                     color: Color(0x66FFFFFF),
@@ -362,7 +498,7 @@ class _LifeMateSharedEditableProfileScreenState
                           ],
                         ),
                       ),
-                      const SizedBox(height: 14),
+                      SizedBox(height: 14),
                       Wrap(
                         alignment: WrapAlignment.center,
                         spacing: 10,
@@ -373,16 +509,32 @@ class _LifeMateSharedEditableProfileScreenState
                             onPressed: _saving || _photoBusy
                                 ? null
                                 : () => _pickProfilePhoto(ImageSource.camera),
-                            icon: const Icon(Icons.photo_camera_rounded),
-                            label: const Text('دوربین'),
+                            icon: Icon(Icons.photo_camera_rounded),
+                            label: Text(
+                              LifeMateRuntimeLocale.select(
+                                fa: LifeMateRuntimeLocale.select(
+                                  fa: 'دوربین',
+                                  en: "camera",
+                                ),
+                                en: "camera",
+                              ),
+                            ),
                           ),
                           OutlinedButton.icon(
                             key: ValueKey(keyName('photo-gallery')),
                             onPressed: _saving || _photoBusy
                                 ? null
                                 : () => _pickProfilePhoto(ImageSource.gallery),
-                            icon: const Icon(Icons.photo_library_rounded),
-                            label: const Text('گالری'),
+                            icon: Icon(Icons.photo_library_rounded),
+                            label: Text(
+                              LifeMateRuntimeLocale.select(
+                                fa: LifeMateRuntimeLocale.select(
+                                  fa: 'گالری',
+                                  en: "Gallery",
+                                ),
+                                en: "Gallery",
+                              ),
+                            ),
                           ),
                           if (_profilePhotoUrl != null)
                             TextButton.icon(
@@ -390,23 +542,37 @@ class _LifeMateSharedEditableProfileScreenState
                               onPressed: _saving || _photoBusy
                                   ? null
                                   : _removeProfilePhoto,
-                              icon: const Icon(Icons.delete_outline_rounded),
-                              label: const Text('حذف عکس'),
+                              icon: Icon(Icons.delete_outline_rounded),
+                              label: Text(
+                                LifeMateRuntimeLocale.select(
+                                  fa: LifeMateRuntimeLocale.select(
+                                    fa: 'حذف عکس',
+                                    en: "Delete photo",
+                                  ),
+                                  en: "Delete photo",
+                                ),
+                              ),
                             ),
                         ],
                       ),
-                      const SizedBox(height: 18),
-                      const Divider(),
-                      const SizedBox(height: 10),
+                      SizedBox(height: 18),
+                      Divider(),
+                      SizedBox(height: 10),
                       Text(
-                        'یا یک آواتار آماده انتخاب کنید',
+                        LifeMateRuntimeLocale.select(
+                          fa: LifeMateRuntimeLocale.select(
+                            fa: 'یا یک آواتار آماده انتخاب کنید',
+                            en: "Or choose a ready-made avatar",
+                          ),
+                          en: "Or choose a ready-made avatar",
+                        ),
                         textAlign: TextAlign.center,
                         style: TextStyle(
                           fontFamily: widget.fontFamily,
                           fontWeight: FontWeight.w700,
                         ),
                       ),
-                      const SizedBox(height: 12),
+                      SizedBox(height: 12),
                       LifeMateAvatarPicker(
                         key: ValueKey(keyName('avatar-picker')),
                         selectedKey: _avatarKey,
@@ -414,46 +580,82 @@ class _LifeMateSharedEditableProfileScreenState
                             ? null
                             : (value) => setState(() => _avatarKey = value),
                       ),
-                      const SizedBox(height: 10),
+                      SizedBox(height: 10),
                       Text(
-                        'عکس شخصی در فضای خصوصی نگهداری می‌شود. تا وقتی عکس وجود دارد، همان نمایش داده می‌شود؛ برای نمایش آواتار، عکس را حذف کنید.',
+                        LifeMateRuntimeLocale.select(
+                          fa: LifeMateRuntimeLocale.select(
+                            fa: 'عکس شخصی در فضای خصوصی نگهداری می‌شود. تا وقتی عکس وجود دارد، همان نمایش داده می‌شود؛ برای نمایش آواتار، عکس را حذف کنید.',
+                            en: "Personal photo is kept in private space. As long as the photo exists, it will be displayed; Remove photo to show avatar.",
+                          ),
+                          en: "Personal photo is kept in private space. As long as the photo exists, it will be displayed; Remove photo to show avatar.",
+                        ),
                         textAlign: TextAlign.center,
                         style: TextStyle(
                           fontFamily: widget.fontFamily,
                           color: widget.theme.secondaryText,
                         ),
                       ),
-                      const SizedBox(height: 24),
+                      SizedBox(height: 24),
                       _ProfileField(
                         key: ValueKey(keyName('display-name')),
                         controller: _displayName,
-                        label: 'نام نمایشی',
+                        label: LifeMateRuntimeLocale.select(
+                          fa: LifeMateRuntimeLocale.select(
+                            fa: 'نام نمایشی',
+                            en: "display name",
+                          ),
+                          en: "display name",
+                        ),
                         icon: Icons.badge_outlined,
                         textInputAction: TextInputAction.next,
                         validator: (value) {
                           final normalized = value?.trim() ?? '';
                           if (normalized.length < 2) {
-                            return 'نام نمایشی را وارد کنید.';
+                            return LifeMateRuntimeLocale.select(
+                              fa: LifeMateRuntimeLocale.select(
+                                fa: 'نام نمایشی را وارد کنید.',
+                                en: "Enter a display name.",
+                              ),
+                              en: "Enter a display name.",
+                            );
                           }
                           if (normalized.length > 120) {
-                            return 'نام نمایشی بیش از حد طولانی است.';
+                            return LifeMateRuntimeLocale.select(
+                              fa: LifeMateRuntimeLocale.select(
+                                fa: 'نام نمایشی بیش از حد طولانی است.',
+                                en: "Display name is too long.",
+                              ),
+                              en: "Display name is too long.",
+                            );
                           }
                           return null;
                         },
                       ),
-                      const SizedBox(height: 14),
+                      SizedBox(height: 14),
                       _ProfileField(
                         key: ValueKey(keyName('email')),
                         controller: _email,
-                        label: 'ایمیل حساب',
+                        label: LifeMateRuntimeLocale.select(
+                          fa: LifeMateRuntimeLocale.select(
+                            fa: 'ایمیل حساب',
+                            en: "Account email",
+                          ),
+                          en: "Account email",
+                        ),
                         icon: Icons.alternate_email_rounded,
                         enabled: false,
                         textDirection: TextDirection.ltr,
                       ),
                       Padding(
-                        padding: const EdgeInsets.only(top: 6),
+                        padding: EdgeInsets.only(top: 6),
                         child: Text(
-                          'تغییر ایمیل نیازمند تأیید جداگانه حساب است و از این صفحه انجام نمی‌شود.',
+                          LifeMateRuntimeLocale.select(
+                            fa: LifeMateRuntimeLocale.select(
+                              fa: 'تغییر ایمیل نیازمند تأیید جداگانه حساب است و از این صفحه انجام نمی‌شود.',
+                              en: "Changing email requires separate account verification and cannot be done from this page.",
+                            ),
+                            en: "Changing email requires separate account verification and cannot be done from this page.",
+                          ),
                           style: TextStyle(
                             fontFamily: widget.fontFamily,
                             fontSize: 12,
@@ -461,11 +663,17 @@ class _LifeMateSharedEditableProfileScreenState
                           ),
                         ),
                       ),
-                      const SizedBox(height: 14),
+                      SizedBox(height: 14),
                       _ProfileField(
                         key: ValueKey(keyName('phone')),
                         controller: _phone,
-                        label: 'شماره تماس اختیاری',
+                        label: LifeMateRuntimeLocale.select(
+                          fa: LifeMateRuntimeLocale.select(
+                            fa: 'شماره تماس اختیاری',
+                            en: "Optional contact number",
+                          ),
+                          en: "Optional contact number",
+                        ),
                         icon: Icons.phone_outlined,
                         keyboardType: TextInputType.phone,
                         textDirection: TextDirection.ltr,
@@ -477,24 +685,44 @@ class _LifeMateSharedEditableProfileScreenState
                           );
                           if (compact.isEmpty) return null;
                           if (!RegExp(r'^\+?[0-9]{7,15}$').hasMatch(compact)) {
-                            return 'شماره تماس معتبر وارد کنید.';
+                            return LifeMateRuntimeLocale.select(
+                              fa: 'شماره تماس معتبر وارد کنید.',
+                              en: 'Enter a valid phone number.',
+                            );
                           }
                           return null;
                         },
                       ),
-                      const SizedBox(height: 18),
+                      SizedBox(height: 18),
                       Text(
-                        'زبان نمایش',
+                        LifeMateRuntimeLocale.select(
+                          fa: LifeMateRuntimeLocale.select(
+                            fa: 'زبان نمایش',
+                            en: "Display language",
+                          ),
+                          en: "Display language",
+                        ),
                         style: TextStyle(
                           fontFamily: widget.fontFamily,
                           fontWeight: FontWeight.w800,
                         ),
                       ),
-                      const SizedBox(height: 8),
+                      SizedBox(height: 8),
                       SegmentedButton<String>(
                         key: ValueKey(keyName('locale')),
-                        segments: const [
-                          ButtonSegment(value: 'fa', label: Text('فارسی')),
+                        segments: [
+                          ButtonSegment(
+                            value: 'fa',
+                            label: Text(
+                              LifeMateRuntimeLocale.select(
+                                fa: LifeMateRuntimeLocale.select(
+                                  fa: 'فارسی',
+                                  en: "Farsi",
+                                ),
+                                en: "Farsi",
+                              ),
+                            ),
+                          ),
                           ButtonSegment(value: 'en', label: Text('English')),
                         ],
                         selected: {_locale},
@@ -503,23 +731,42 @@ class _LifeMateSharedEditableProfileScreenState
                             : (selection) =>
                                   setState(() => _locale = selection.single),
                       ),
-                      const SizedBox(height: 18),
+                      SizedBox(height: 18),
                       _ProfileField(
                         key: ValueKey(keyName('time-zone')),
                         controller: _timeZone,
-                        label: 'منطقه زمانی',
+                        label: LifeMateRuntimeLocale.select(
+                          fa: LifeMateRuntimeLocale.select(
+                            fa: 'منطقه زمانی',
+                            en: "time zone",
+                          ),
+                          en: "time zone",
+                        ),
                         icon: Icons.schedule_rounded,
                         textDirection: TextDirection.ltr,
                         textInputAction: TextInputAction.done,
                         onFieldSubmitted: (_) => _save(),
-                        validator: (value) => (value?.trim().isNotEmpty ?? false)
+                        validator: (value) =>
+                            (value?.trim().isNotEmpty ?? false)
                             ? null
-                            : 'منطقه زمانی را وارد کنید.',
+                            : LifeMateRuntimeLocale.select(
+                                fa: LifeMateRuntimeLocale.select(
+                                  fa: 'منطقه زمانی را وارد کنید.',
+                                  en: "Enter the time zone.",
+                                ),
+                                en: "Enter the time zone.",
+                              ),
                       ),
                       Padding(
-                        padding: const EdgeInsets.only(top: 6),
+                        padding: EdgeInsets.only(top: 6),
                         child: Text(
-                          'نمونه: Asia/Tehran یا Europe/Berlin',
+                          LifeMateRuntimeLocale.select(
+                            fa: LifeMateRuntimeLocale.select(
+                              fa: 'نمونه: Asia/Tehran یا Europe/Berlin',
+                              en: "Example: Asia/Tehran or Europe/Berlin",
+                            ),
+                            en: "Example: Asia/Tehran or Europe/Berlin",
+                          ),
                           textDirection: TextDirection.ltr,
                           style: TextStyle(
                             fontFamily: widget.fontFamily,
@@ -529,11 +776,11 @@ class _LifeMateSharedEditableProfileScreenState
                         ),
                       ),
                       if (_error != null) ...[
-                        const SizedBox(height: 16),
+                        SizedBox(height: 16),
                         Semantics(
                           liveRegion: true,
                           child: Container(
-                            padding: const EdgeInsets.all(12),
+                            padding: EdgeInsets.all(12),
                             decoration: BoxDecoration(
                               color: Colors.red.withValues(alpha: 0.06),
                               borderRadius: BorderRadius.circular(14),
@@ -551,7 +798,7 @@ class _LifeMateSharedEditableProfileScreenState
                           ),
                         ),
                       ],
-                      const SizedBox(height: 22),
+                      SizedBox(height: 22),
                       SizedBox(
                         height: 52,
                         child: FilledButton.icon(
@@ -564,16 +811,30 @@ class _LifeMateSharedEditableProfileScreenState
                           ),
                           onPressed: _saving || _profile == null ? null : _save,
                           icon: _saving
-                              ? const SizedBox.square(
+                              ? SizedBox.square(
                                   dimension: 20,
                                   child: CircularProgressIndicator(
                                     strokeWidth: 2,
                                     color: Colors.white,
                                   ),
                                 )
-                              : const Icon(Icons.save_outlined),
+                              : Icon(Icons.save_outlined),
                           label: Text(
-                            _saving ? 'در حال ذخیره...' : 'ذخیره اطلاعات',
+                            _saving
+                                ? LifeMateRuntimeLocale.select(
+                                    fa: LifeMateRuntimeLocale.select(
+                                      fa: 'در حال ذخیره...',
+                                      en: "Saving...",
+                                    ),
+                                    en: "Saving...",
+                                  )
+                                : LifeMateRuntimeLocale.select(
+                                    fa: LifeMateRuntimeLocale.select(
+                                      fa: 'ذخیره اطلاعات',
+                                      en: "Save information",
+                                    ),
+                                    en: "Save information",
+                                  ),
                             style: TextStyle(fontFamily: widget.fontFamily),
                           ),
                         ),
@@ -620,6 +881,7 @@ class _ProfileField extends StatelessWidget {
       controller: controller,
       enabled: enabled,
       keyboardType: keyboardType,
+      inputFormatters: const [LifeMateLocaleDigitInputFormatter()],
       textDirection: textDirection,
       textInputAction: textInputAction,
       validator: validator,
@@ -653,23 +915,38 @@ class _LoadError extends StatelessWidget {
   Widget build(BuildContext context) {
     return Center(
       child: Padding(
-        padding: const EdgeInsets.all(28),
+        padding: EdgeInsets.all(28),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
             Icon(Icons.cloud_off_rounded, size: 48, color: accent),
-            const SizedBox(height: 12),
+            SizedBox(height: 12),
             Text(
-              'اطلاعات پروفایل دریافت نشد.',
+              LifeMateRuntimeLocale.select(
+                fa: LifeMateRuntimeLocale.select(
+                  fa: 'اطلاعات پروفایل دریافت نشد.',
+                  en: "Profile information not received.",
+                ),
+                en: "Profile information not received.",
+              ),
               textAlign: TextAlign.center,
               style: TextStyle(fontFamily: fontFamily),
             ),
-            const SizedBox(height: 16),
+            SizedBox(height: 16),
             FilledButton.icon(
               style: FilledButton.styleFrom(backgroundColor: accent),
               onPressed: onRetry,
-              icon: const Icon(Icons.refresh_rounded),
-              label: Text('تلاش دوباره', style: TextStyle(fontFamily: fontFamily)),
+              icon: Icon(Icons.refresh_rounded),
+              label: Text(
+                LifeMateRuntimeLocale.select(
+                  fa: LifeMateRuntimeLocale.select(
+                    fa: 'تلاش دوباره',
+                    en: "Try again",
+                  ),
+                  en: "Try again",
+                ),
+                style: TextStyle(fontFamily: fontFamily),
+              ),
             ),
           ],
         ),

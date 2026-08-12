@@ -44,23 +44,26 @@ class LifeMateSharedProfileScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      key: const ValueKey('lifemate-shared-profile-layout'),
+      key: ValueKey('lifemate-shared-profile-layout'),
       backgroundColor: theme.background,
       body: SafeArea(
         child: SingleChildScrollView(
-          padding: const EdgeInsets.only(bottom: 24),
+          padding: EdgeInsets.only(bottom: 24),
           child: Column(
             children: [
               Padding(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 24,
-                  vertical: 16,
-                ),
+                padding: EdgeInsets.symmetric(horizontal: 24, vertical: 16),
                 child: Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     IconButton(
-                      tooltip: 'بازگشت',
+                      tooltip: LifeMateRuntimeLocale.select(
+                        fa: LifeMateRuntimeLocale.select(
+                          fa: 'بازگشت',
+                          en: "Back",
+                        ),
+                        en: "return",
+                      ),
                       icon: Icon(
                         Icons.arrow_back_ios_new_rounded,
                         size: 24,
@@ -68,7 +71,7 @@ class LifeMateSharedProfileScreen extends StatelessWidget {
                       ),
                       onPressed: () => Navigator.of(context).pop(),
                     ),
-                    const SizedBox(width: 8),
+                    SizedBox(width: 8),
                     Expanded(
                       child: _CurrentUserIdentity(
                         apiClient: apiClient,
@@ -79,9 +82,15 @@ class LifeMateSharedProfileScreen extends StatelessWidget {
                         onEditProfile: onEditProfile,
                       ),
                     ),
-                    const SizedBox(width: 8),
+                    SizedBox(width: 8),
                     IconButton(
-                      tooltip: 'اعلان‌ها',
+                      tooltip: LifeMateRuntimeLocale.select(
+                        fa: LifeMateRuntimeLocale.select(
+                          fa: 'اعلان‌ها',
+                          en: "Notifications",
+                        ),
+                        en: "Notifications",
+                      ),
                       icon: Icon(
                         Icons.notifications_none_rounded,
                         size: 24,
@@ -93,10 +102,7 @@ class LifeMateSharedProfileScreen extends StatelessWidget {
                 ),
               ),
               Padding(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 24,
-                  vertical: 8,
-                ),
+                padding: EdgeInsets.symmetric(horizontal: 24, vertical: 8),
                 child: _SubscriptionCard(
                   theme: theme,
                   fontFamily: fontFamily,
@@ -106,10 +112,7 @@ class LifeMateSharedProfileScreen extends StatelessWidget {
                 ),
               ),
               Padding(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 24,
-                  vertical: 8,
-                ),
+                padding: EdgeInsets.symmetric(horizontal: 24, vertical: 8),
                 child: Container(
                   decoration: BoxDecoration(
                     color: theme.cardBackground,
@@ -118,7 +121,7 @@ class LifeMateSharedProfileScreen extends StatelessWidget {
                       BoxShadow(
                         color: Colors.black.withValues(alpha: 0.07),
                         blurRadius: 16,
-                        offset: const Offset(0, 4),
+                        offset: Offset(0, 4),
                       ),
                     ],
                   ),
@@ -133,7 +136,7 @@ class LifeMateSharedProfileScreen extends StatelessWidget {
                         secondaryText: theme.secondaryText,
                         onTap: onEditProfile,
                       ),
-                      const Divider(height: 1, indent: 60, endIndent: 20),
+                      Divider(height: 1, indent: 60, endIndent: 20),
                       _ProfileMenuTile(
                         icon: Icons.assignment_rounded,
                         iconColor: Colors.orangeAccent,
@@ -143,9 +146,9 @@ class LifeMateSharedProfileScreen extends StatelessWidget {
                         secondaryText: theme.secondaryText,
                         onTap: onHealthProfile,
                       ),
-                      const Divider(height: 1, indent: 60, endIndent: 20),
+                      Divider(height: 1, indent: 60, endIndent: 20),
                       _ProfileMenuTile(
-                        key: const ValueKey('profile-care-management'),
+                        key: ValueKey('profile-care-management'),
                         icon: Icons.group,
                         iconColor: Colors.green,
                         label: labels.careManagement,
@@ -154,7 +157,7 @@ class LifeMateSharedProfileScreen extends StatelessWidget {
                         secondaryText: theme.secondaryText,
                         onTap: onCareManagement,
                       ),
-                      const Divider(height: 1, indent: 60, endIndent: 20),
+                      Divider(height: 1, indent: 60, endIndent: 20),
                       _ProfileMenuTile(
                         icon: Icons.settings,
                         iconColor: Colors.purple,
@@ -175,7 +178,7 @@ class LifeMateSharedProfileScreen extends StatelessWidget {
                         secondaryText: theme.secondaryText,
                         onTap: onReferral,
                       ),
-                      const Divider(height: 1, indent: 60, endIndent: 20),
+                      Divider(height: 1, indent: 60, endIndent: 20),
                       _ProfileMenuTile(
                         icon: Icons.support_agent,
                         iconColor: Colors.indigo,
@@ -191,14 +194,11 @@ class LifeMateSharedProfileScreen extends StatelessWidget {
                 ),
               ),
               Padding(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 24,
-                  vertical: 8,
-                ),
+                padding: EdgeInsets.symmetric(horizontal: 24, vertical: 8),
                 child: OutlinedButton.icon(
                   key: ValueKey('${appName.toLowerCase()}-account-deletion'),
                   style: OutlinedButton.styleFrom(
-                    minimumSize: const Size.fromHeight(52),
+                    minimumSize: Size.fromHeight(52),
                     foregroundColor: Colors.redAccent,
                     side: BorderSide(
                       color: Colors.redAccent.withValues(alpha: 0.28),
@@ -207,9 +207,15 @@ class LifeMateSharedProfileScreen extends StatelessWidget {
                       borderRadius: BorderRadius.circular(18),
                     ),
                   ),
-                  icon: const Icon(Icons.delete_forever_outlined),
+                  icon: Icon(Icons.delete_forever_outlined),
                   label: Text(
-                    'حذف حساب و داده‌های شخصی',
+                    LifeMateRuntimeLocale.select(
+                      fa: LifeMateRuntimeLocale.select(
+                        fa: 'حذف حساب و داده‌های شخصی',
+                        en: "Delete account and personal data",
+                      ),
+                      en: "Delete account and personal data",
+                    ),
                     style: TextStyle(
                       fontFamily: fontFamily,
                       fontWeight: FontWeight.w800,
@@ -223,10 +229,7 @@ class LifeMateSharedProfileScreen extends StatelessWidget {
                 ),
               ),
               Padding(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 24,
-                  vertical: 8,
-                ),
+                padding: EdgeInsets.symmetric(horizontal: 24, vertical: 8),
                 child: Container(
                   width: double.infinity,
                   decoration: BoxDecoration(
@@ -236,19 +239,19 @@ class LifeMateSharedProfileScreen extends StatelessWidget {
                       BoxShadow(
                         color: Colors.redAccent.withValues(alpha: 0.12),
                         blurRadius: 16,
-                        offset: const Offset(0, 4),
+                        offset: Offset(0, 4),
                       ),
                     ],
                   ),
                   child: TextButton.icon(
                     key: ValueKey('${appName.toLowerCase()}-profile-sign-out'),
                     style: TextButton.styleFrom(
-                      padding: const EdgeInsets.symmetric(vertical: 16),
+                      padding: EdgeInsets.symmetric(vertical: 16),
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(18),
                       ),
                     ),
-                    icon: const Icon(Icons.logout, color: Colors.redAccent),
+                    icon: Icon(Icons.logout, color: Colors.redAccent),
                     label: Text(
                       labels.logout,
                       style: TextStyle(
@@ -263,7 +266,7 @@ class LifeMateSharedProfileScreen extends StatelessWidget {
                 ),
               ),
               Padding(
-                padding: const EdgeInsets.only(top: 8),
+                padding: EdgeInsets.only(top: 8),
                 child: Text(
                   versionLabel,
                   style: TextStyle(
@@ -286,22 +289,47 @@ class LifeMateSharedProfileScreen extends StatelessWidget {
       builder: (dialogContext) => AlertDialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
         title: Text(
-          'خروج از حساب؟',
+          LifeMateRuntimeLocale.select(
+            fa: LifeMateRuntimeLocale.select(
+              fa: 'خروج از حساب؟',
+              en: "Sign out?",
+            ),
+            en: "Sign out?",
+          ),
           style: TextStyle(fontFamily: fontFamily, fontWeight: FontWeight.w900),
         ),
         content: Text(
-          'برای ورود دوباره باید اطلاعات ورود خود را وارد کنید.',
+          LifeMateRuntimeLocale.select(
+            fa: LifeMateRuntimeLocale.select(
+              fa: 'برای ورود دوباره باید اطلاعات ورود خود را وارد کنید.',
+              en: "You must enter your login information to log in again.",
+            ),
+            en: "You must enter your login information to log in again.",
+          ),
           style: TextStyle(fontFamily: fontFamily, height: 1.6),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(dialogContext, false),
-            child: const Text('انصراف'),
+            child: Text(
+              LifeMateRuntimeLocale.select(
+                fa: LifeMateRuntimeLocale.select(fa: 'انصراف', en: "opt out"),
+                en: "opt out",
+              ),
+            ),
           ),
           FilledButton(
             style: FilledButton.styleFrom(backgroundColor: Colors.redAccent),
             onPressed: () => Navigator.pop(dialogContext, true),
-            child: const Text('خروج امن'),
+            child: Text(
+              LifeMateRuntimeLocale.select(
+                fa: LifeMateRuntimeLocale.select(
+                  fa: 'خروج امن',
+                  en: "safe exit",
+                ),
+                en: "safe exit",
+              ),
+            ),
           ),
         ],
       ),
@@ -638,13 +666,5 @@ class _ProfileMenuTile extends StatelessWidget {
   }
 }
 
-String _localizeDigits(String value, bool persian) {
-  if (!persian) return value;
-  const english = '0123456789';
-  const farsi = '۰۱۲۳۴۵۶۷۸۹';
-  var result = value;
-  for (var i = 0; i < english.length; i += 1) {
-    result = result.replaceAll(english[i], farsi[i]);
-  }
-  return result;
-}
+String _localizeDigits(String value, bool persian) =>
+    persian ? LifeMateNumbers.toPersian(value) : LifeMateNumbers.toLatin(value);

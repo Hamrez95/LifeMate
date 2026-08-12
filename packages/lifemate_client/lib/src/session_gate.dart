@@ -7,6 +7,7 @@ import 'app_config.dart';
 import 'lifemate_api_client.dart';
 import 'lifemate_auth.dart';
 import 'profile_avatar.dart';
+import 'runtime_locale.dart';
 
 typedef AuthenticatedBuilder =
     Widget Function(BuildContext context, LifeMateApiClient apiClient);
@@ -107,9 +108,24 @@ class _LifeMateSessionGateState extends State<LifeMateSessionGate> {
         appName: widget.appName,
         logoAssetPath: widget.logoAssetPath,
         icon: Icons.cloud_off_rounded,
-        title: 'ارتباط امن با حساب کاربری قطع شد',
-        message: 'اتصال اینترنت را بررسی کنید و دوباره تلاش کنید.',
-        primaryLabel: 'تلاش دوباره',
+        title: LifeMateRuntimeLocale.select(
+          fa: LifeMateRuntimeLocale.select(
+            fa: 'ارتباط امن با حساب کاربری قطع شد',
+            en: "The secure connection with the user account was lost",
+          ),
+          en: "The secure connection with the user account was lost",
+        ),
+        message: LifeMateRuntimeLocale.select(
+          fa: LifeMateRuntimeLocale.select(
+            fa: 'اتصال اینترنت را بررسی کنید و دوباره تلاش کنید.',
+            en: "Check your internet connection and try again.",
+          ),
+          en: "Check your internet connection and try again.",
+        ),
+        primaryLabel: LifeMateRuntimeLocale.select(
+          fa: LifeMateRuntimeLocale.select(fa: 'تلاش دوباره', en: "Try again"),
+          en: "Try again",
+        ),
         onPrimary: () => setState(() => _authStreamError = null),
       );
     }
@@ -130,8 +146,20 @@ class _LifeMateSessionGateState extends State<LifeMateSessionGate> {
             appName: widget.appName,
             logoAssetPath: widget.logoAssetPath,
             icon: Icons.health_and_safety_rounded,
-            title: 'در حال آماده‌سازی حساب',
-            message: 'اطلاعات شما به‌صورت امن همگام می‌شود.',
+            title: LifeMateRuntimeLocale.select(
+              fa: LifeMateRuntimeLocale.select(
+                fa: 'در حال آماده‌سازی حساب',
+                en: "Preparing account",
+              ),
+              en: "Preparing account",
+            ),
+            message: LifeMateRuntimeLocale.select(
+              fa: LifeMateRuntimeLocale.select(
+                fa: 'اطلاعات شما به‌صورت امن همگام می‌شود.',
+                en: "Your information is synced securely.",
+              ),
+              en: "Your information is synced securely.",
+            ),
           );
         }
         if (snapshot.hasError) {
@@ -142,15 +170,63 @@ class _LifeMateSessionGateState extends State<LifeMateSessionGate> {
             appName: widget.appName,
             logoAssetPath: widget.logoAssetPath,
             icon: Icons.sync_problem_rounded,
-            title: expired ? 'نشست شما منقضی شده است' : 'همگام‌سازی انجام نشد',
+            title: expired
+                ? LifeMateRuntimeLocale.select(
+                    fa: LifeMateRuntimeLocale.select(
+                      fa: 'نشست شما منقضی شده است',
+                      en: "Your session has expired",
+                    ),
+                    en: "Your session has expired",
+                  )
+                : LifeMateRuntimeLocale.select(
+                    fa: LifeMateRuntimeLocale.select(
+                      fa: 'همگام‌سازی انجام نشد',
+                      en: "Synchronization failed",
+                    ),
+                    en: "Synchronization failed",
+                  ),
             message: expired
-                ? 'برای ادامه دوباره وارد حساب شوید.'
-                : 'داده‌ای تغییر نکرده است. اتصال را بررسی و دوباره تلاش کنید.',
-            primaryLabel: expired ? 'خروج و ورود دوباره' : 'تلاش دوباره',
+                ? LifeMateRuntimeLocale.select(
+                    fa: LifeMateRuntimeLocale.select(
+                      fa: 'برای ادامه دوباره وارد حساب شوید.',
+                      en: "Log in again to continue.",
+                    ),
+                    en: "Log in again to continue.",
+                  )
+                : LifeMateRuntimeLocale.select(
+                    fa: LifeMateRuntimeLocale.select(
+                      fa: 'داده‌ای تغییر نکرده است. اتصال را بررسی و دوباره تلاش کنید.',
+                      en: "No data has changed. Check the connection and try again.",
+                    ),
+                    en: "No data has changed. Check the connection and try again.",
+                  ),
+            primaryLabel: expired
+                ? LifeMateRuntimeLocale.select(
+                    fa: LifeMateRuntimeLocale.select(
+                      fa: 'خروج و ورود دوباره',
+                      en: "Exit and re-enter",
+                    ),
+                    en: "Exit and re-enter",
+                  )
+                : LifeMateRuntimeLocale.select(
+                    fa: LifeMateRuntimeLocale.select(
+                      fa: 'تلاش دوباره',
+                      en: "Try again",
+                    ),
+                    en: "Try again",
+                  ),
             onPrimary: expired
                 ? () => _supabase.auth.signOut()
                 : _retryBootstrap,
-            secondaryLabel: expired ? null : 'خروج از حساب',
+            secondaryLabel: expired
+                ? null
+                : LifeMateRuntimeLocale.select(
+                    fa: LifeMateRuntimeLocale.select(
+                      fa: 'خروج از حساب',
+                      en: "Sign out of the account",
+                    ),
+                    en: "Sign out of the account",
+                  ),
             onSecondary: expired ? null : () => _supabase.auth.signOut(),
           );
         }
@@ -225,8 +301,13 @@ class _AuthScreenState extends State<_AuthScreen> {
         if (!mounted) return;
         if (response.session == null) {
           setState(() {
-            _success =
-                'حساب ساخته شد. ایمیل تأیید را بررسی کنید و سپس وارد شوید.';
+            _success = LifeMateRuntimeLocale.select(
+              fa: LifeMateRuntimeLocale.select(
+                fa: 'حساب ساخته شد. ایمیل تأیید را بررسی کنید و سپس وارد شوید.',
+                en: "Account created. Check the confirmation email and then sign in.",
+              ),
+              en: "Account created. Check the confirmation email and then sign in.",
+            );
             _mode = _AuthMode.signIn;
             _password.clear();
             _confirmPassword.clear();
@@ -237,7 +318,15 @@ class _AuthScreenState extends State<_AuthScreen> {
       if (mounted) setState(() => _error = _friendlyAuthError(error));
     } catch (_) {
       if (mounted) {
-        setState(() => _error = 'ارتباط با سرور برقرار نشد. دوباره تلاش کنید.');
+        setState(
+          () => _error = LifeMateRuntimeLocale.select(
+            fa: LifeMateRuntimeLocale.select(
+              fa: 'ارتباط با سرور برقرار نشد. دوباره تلاش کنید.',
+              en: "The connection with the server could not be established. Try again.",
+            ),
+            en: "The connection with the server could not be established. Try again.",
+          ),
+        );
       }
     } finally {
       if (mounted) setState(() => _busy = false);
@@ -256,13 +345,29 @@ class _AuthScreenState extends State<_AuthScreen> {
         appName: widget.appName,
       );
       if (!launched && mounted) {
-        setState(() => _error = 'صفحه ورود گوگل باز نشد. دوباره تلاش کنید.');
+        setState(
+          () => _error = LifeMateRuntimeLocale.select(
+            fa: LifeMateRuntimeLocale.select(
+              fa: 'صفحه ورود گوگل باز نشد. دوباره تلاش کنید.',
+              en: "The Google login page did not open. Try again.",
+            ),
+            en: "The Google login page did not open. Try again.",
+          ),
+        );
       }
     } on AuthException catch (error) {
       if (mounted) setState(() => _error = _friendlyAuthError(error));
     } catch (_) {
       if (mounted) {
-        setState(() => _error = 'ورود با گوگل انجام نشد. دوباره تلاش کنید.');
+        setState(
+          () => _error = LifeMateRuntimeLocale.select(
+            fa: LifeMateRuntimeLocale.select(
+              fa: 'ورود با گوگل انجام نشد. دوباره تلاش کنید.',
+              en: "Login with Google failed. Try again.",
+            ),
+            en: "Login with Google failed. Try again.",
+          ),
+        );
       }
     } finally {
       if (mounted) setState(() => _busy = false);
@@ -273,7 +378,13 @@ class _AuthScreenState extends State<_AuthScreen> {
     final email = _email.text.trim();
     if (!_looksLikeEmail(email)) {
       setState(() {
-        _error = 'ابتدا ایمیل معتبر خود را در کادر ایمیل وارد کنید.';
+        _error = LifeMateRuntimeLocale.select(
+          fa: LifeMateRuntimeLocale.select(
+            fa: 'ابتدا ایمیل معتبر خود را در کادر ایمیل وارد کنید.',
+            en: "First, enter your valid email in the email box.",
+          ),
+          en: "First, enter your valid email in the email box.",
+        );
         _success = null;
       });
       return;
@@ -292,14 +403,28 @@ class _AuthScreenState extends State<_AuthScreen> {
       );
       if (mounted) {
         setState(() {
-          _success = 'لینک بازیابی رمز برای شما ارسال شد.';
+          _success = LifeMateRuntimeLocale.select(
+            fa: LifeMateRuntimeLocale.select(
+              fa: 'لینک بازیابی رمز برای شما ارسال شد.',
+              en: "The password recovery link has been sent to you.",
+            ),
+            en: "The password recovery link has been sent to you.",
+          );
         });
       }
     } on AuthException catch (error) {
       if (mounted) setState(() => _error = _friendlyAuthError(error));
     } catch (_) {
       if (mounted) {
-        setState(() => _error = 'ارسال لینک بازیابی انجام نشد.');
+        setState(
+          () => _error = LifeMateRuntimeLocale.select(
+            fa: LifeMateRuntimeLocale.select(
+              fa: 'ارسال لینک بازیابی انجام نشد.',
+              en: "Failed to send recovery link.",
+            ),
+            en: "Failed to send recovery link.",
+          ),
+        );
       }
     } finally {
       if (mounted) setState(() => _busy = false);
@@ -345,9 +470,9 @@ class _AuthScreenState extends State<_AuthScreen> {
           SafeArea(
             child: Center(
               child: SingleChildScrollView(
-                padding: const EdgeInsets.fromLTRB(22, 24, 22, 32),
+                padding: EdgeInsets.fromLTRB(22, 24, 22, 32),
                 child: ConstrainedBox(
-                  constraints: const BoxConstraints(maxWidth: 440),
+                  constraints: BoxConstraints(maxWidth: 440),
                   child: Column(
                     children: [
                       Hero(
@@ -363,21 +488,33 @@ class _AuthScreenState extends State<_AuthScreen> {
                           ),
                         ),
                       ),
-                      const SizedBox(height: 16),
+                      SizedBox(height: 16),
                       Text(
                         _isCareMate
-                            ? 'همراه مطمئن مراقبت از خانواده'
-                            : 'همراه ساده و آرام برنامه درمان',
+                            ? LifeMateRuntimeLocale.select(
+                                fa: LifeMateRuntimeLocale.select(
+                                  fa: 'همراه مطمئن مراقبت از خانواده',
+                                  en: "Reliable family care companion",
+                                ),
+                                en: "Reliable family care companion",
+                              )
+                            : LifeMateRuntimeLocale.select(
+                                fa: LifeMateRuntimeLocale.select(
+                                  fa: 'همراه ساده و آرام برنامه درمان',
+                                  en: "A simple and calm companion to the treatment program",
+                                ),
+                                en: "A simple and calm companion to the treatment program",
+                              ),
                         textAlign: TextAlign.center,
                         style: Theme.of(context).textTheme.titleMedium
                             ?.copyWith(
-                              color: const Color(0xFF33416E),
+                              color: Color(0xFF33416E),
                               fontWeight: FontWeight.w800,
                             ),
                       ),
-                      const SizedBox(height: 22),
+                      SizedBox(height: 22),
                       Container(
-                        padding: const EdgeInsets.all(22),
+                        padding: EdgeInsets.all(22),
                         decoration: BoxDecoration(
                           color: Colors.white.withOpacity(0.94),
                           borderRadius: BorderRadius.circular(30),
@@ -388,12 +525,12 @@ class _AuthScreenState extends State<_AuthScreen> {
                             BoxShadow(
                               color: _primary.withOpacity(0.10),
                               blurRadius: 28,
-                              offset: const Offset(0, 14),
+                              offset: Offset(0, 14),
                             ),
                             BoxShadow(
                               color: Colors.white.withOpacity(0.8),
                               blurRadius: 12,
-                              offset: const Offset(-6, -6),
+                              offset: Offset(-6, -6),
                             ),
                           ],
                         ),
@@ -407,35 +544,59 @@ class _AuthScreenState extends State<_AuthScreen> {
                                 primary: _primary,
                                 onChanged: _changeMode,
                               ),
-                              const SizedBox(height: 24),
+                              SizedBox(height: 24),
                               Text(
-                                isSignUp ? 'ساخت حساب جدید' : 'خوش آمدید',
+                                isSignUp
+                                    ? LifeMateRuntimeLocale.select(
+                                        fa: LifeMateRuntimeLocale.select(
+                                          fa: 'ساخت حساب جدید',
+                                          en: "Create a new account",
+                                        ),
+                                        en: "Create a new account",
+                                      )
+                                    : LifeMateRuntimeLocale.select(
+                                        fa: LifeMateRuntimeLocale.select(
+                                          fa: 'خوش آمدید',
+                                          en: "welcome",
+                                        ),
+                                        en: "welcome",
+                                      ),
                                 style: Theme.of(context).textTheme.headlineSmall
                                     ?.copyWith(
                                       fontWeight: FontWeight.w900,
-                                      color: const Color(0xFF283054),
+                                      color: Color(0xFF283054),
                                     ),
                               ),
-                              const SizedBox(height: 6),
+                              SizedBox(height: 6),
                               Text(
                                 isSignUp
-                                    ? 'برای شروع، اطلاعات اصلی حساب را وارد کنید.'
-                                    : 'برای ادامه وارد حساب LifeMate خود شوید.',
-                                style: const TextStyle(
+                                    ? LifeMateRuntimeLocale.select(
+                                        fa: LifeMateRuntimeLocale.select(
+                                          fa: 'برای شروع، اطلاعات اصلی حساب را وارد کنید.',
+                                          en: "To get started, enter basic account information.",
+                                        ),
+                                        en: "To get started, enter basic account information.",
+                                      )
+                                    : LifeMateRuntimeLocale.select(
+                                        fa: LifeMateRuntimeLocale.select(
+                                          fa: 'برای ادامه وارد حساب LifeMate خود شوید.',
+                                          en: "Log in to your LifeMate account to continue.",
+                                        ),
+                                        en: "Log in to your LifeMate account to continue.",
+                                      ),
+                                style: TextStyle(
                                   color: Color(0xFF71819C),
                                   fontSize: 13,
                                 ),
                               ),
-                              const SizedBox(height: 22),
+                              SizedBox(height: 22),
                               OutlinedButton.icon(
-                                key: const ValueKey<String>('auth-google'),
+                                key: ValueKey<String>('auth-google'),
                                 onPressed: _busy ? null : _signInWithGoogle,
                                 style: OutlinedButton.styleFrom(
-                                  minimumSize: const Size.fromHeight(52),
-                                  foregroundColor: const Color(0xFF283054),
-                                  side: const BorderSide(
-                                    color: Color(0xFFDCE3EB),
-                                  ),
+                                  minimumSize: Size.fromHeight(52),
+                                  foregroundColor: Color(0xFF283054),
+                                  side: BorderSide(color: Color(0xFFDCE3EB)),
                                   shape: RoundedRectangleBorder(
                                     borderRadius: BorderRadius.circular(17),
                                   ),
@@ -448,10 +609,10 @@ class _AuthScreenState extends State<_AuthScreen> {
                                     color: Colors.white,
                                     shape: BoxShape.circle,
                                     border: Border.all(
-                                      color: const Color(0xFFE4E8ED),
+                                      color: Color(0xFFE4E8ED),
                                     ),
                                   ),
-                                  child: const Text(
+                                  child: Text(
                                     'G',
                                     style: TextStyle(
                                       color: Color(0xFF4285F4),
@@ -459,12 +620,18 @@ class _AuthScreenState extends State<_AuthScreen> {
                                     ),
                                   ),
                                 ),
-                                label: const Text(
-                                  'ادامه با حساب گوگل',
+                                label: Text(
+                                  LifeMateRuntimeLocale.select(
+                                    fa: LifeMateRuntimeLocale.select(
+                                      fa: 'ادامه با حساب گوگل',
+                                      en: "Continue with Google account",
+                                    ),
+                                    en: "Continue with Google account",
+                                  ),
                                   style: TextStyle(fontWeight: FontWeight.w800),
                                 ),
                               ),
-                              const Padding(
+                              Padding(
                                 padding: EdgeInsets.symmetric(vertical: 16),
                                 child: Row(
                                   children: [
@@ -474,7 +641,13 @@ class _AuthScreenState extends State<_AuthScreen> {
                                         horizontal: 10,
                                       ),
                                       child: Text(
-                                        'یا با ایمیل',
+                                        LifeMateRuntimeLocale.select(
+                                          fa: LifeMateRuntimeLocale.select(
+                                            fa: 'یا با ایمیل',
+                                            en: "or by email",
+                                          ),
+                                          en: "or by email",
+                                        ),
                                         style: TextStyle(
                                           color: Color(0xFF8A96A8),
                                           fontSize: 11,
@@ -488,34 +661,64 @@ class _AuthScreenState extends State<_AuthScreen> {
                               if (isSignUp) ...[
                                 _AuthTextField(
                                   controller: _displayName,
-                                  label: 'نام و نام خانوادگی',
+                                  label: LifeMateRuntimeLocale.select(
+                                    fa: LifeMateRuntimeLocale.select(
+                                      fa: 'نام و نام خانوادگی',
+                                      en: "Name and surname",
+                                    ),
+                                    en: "Name and surname",
+                                  ),
                                   icon: Icons.person_outline_rounded,
                                   textInputAction: TextInputAction.next,
-                                  autofillHints: const [AutofillHints.name],
+                                  autofillHints: [AutofillHints.name],
                                   validator: (value) =>
                                       (value?.trim().length ?? 0) >= 2
                                       ? null
-                                      : 'نام خود را وارد کنید.',
+                                      : LifeMateRuntimeLocale.select(
+                                          fa: LifeMateRuntimeLocale.select(
+                                            fa: 'نام خود را وارد کنید.',
+                                            en: "Enter your name.",
+                                          ),
+                                          en: "Enter your name.",
+                                        ),
                                 ),
-                                const SizedBox(height: 14),
+                                SizedBox(height: 14),
                               ],
                               _AuthTextField(
                                 controller: _email,
-                                label: 'ایمیل',
+                                label: LifeMateRuntimeLocale.select(
+                                  fa: LifeMateRuntimeLocale.select(
+                                    fa: 'ایمیل',
+                                    en: "Email",
+                                  ),
+                                  en: "Email",
+                                ),
                                 icon: Icons.alternate_email_rounded,
                                 keyboardType: TextInputType.emailAddress,
                                 textDirection: TextDirection.ltr,
                                 textInputAction: TextInputAction.next,
-                                autofillHints: const [AutofillHints.email],
+                                autofillHints: [AutofillHints.email],
                                 validator: (value) =>
                                     _looksLikeEmail(value?.trim() ?? '')
                                     ? null
-                                    : 'ایمیل معتبر وارد کنید.',
+                                    : LifeMateRuntimeLocale.select(
+                                        fa: LifeMateRuntimeLocale.select(
+                                          fa: 'ایمیل معتبر وارد کنید.',
+                                          en: "Enter a valid email.",
+                                        ),
+                                        en: "Enter a valid email.",
+                                      ),
                               ),
-                              const SizedBox(height: 14),
+                              SizedBox(height: 14),
                               _AuthTextField(
                                 controller: _password,
-                                label: 'رمز عبور',
+                                label: LifeMateRuntimeLocale.select(
+                                  fa: LifeMateRuntimeLocale.select(
+                                    fa: 'رمز عبور',
+                                    en: "password",
+                                  ),
+                                  en: "password",
+                                ),
                                 icon: Icons.lock_outline_rounded,
                                 obscureText: _obscure,
                                 textDirection: TextDirection.ltr,
@@ -529,8 +732,20 @@ class _AuthScreenState extends State<_AuthScreen> {
                                 ],
                                 suffix: IconButton(
                                   tooltip: _obscure
-                                      ? 'نمایش رمز عبور'
-                                      : 'پنهان‌کردن رمز عبور',
+                                      ? LifeMateRuntimeLocale.select(
+                                          fa: LifeMateRuntimeLocale.select(
+                                            fa: 'نمایش رمز عبور',
+                                            en: "Show password",
+                                          ),
+                                          en: "Show password",
+                                        )
+                                      : LifeMateRuntimeLocale.select(
+                                          fa: LifeMateRuntimeLocale.select(
+                                            fa: 'پنهان‌کردن رمز عبور',
+                                            en: "Hide password",
+                                          ),
+                                          en: "Hide password",
+                                        ),
                                   onPressed: () =>
                                       setState(() => _obscure = !_obscure),
                                   icon: Icon(
@@ -541,27 +756,49 @@ class _AuthScreenState extends State<_AuthScreen> {
                                 ),
                                 validator: (value) => (value?.length ?? 0) >= 8
                                     ? null
-                                    : 'رمز عبور باید حداقل ۸ کاراکتر باشد.',
+                                    : LifeMateRuntimeLocale.select(
+                                        fa: LifeMateRuntimeLocale.select(
+                                          fa: 'رمز عبور باید حداقل ۸ کاراکتر باشد.',
+                                          en: "Password must be at least 8 characters long.",
+                                        ),
+                                        en: "Password must be at least 8 characters long.",
+                                      ),
                                 onSubmitted: (_) {
                                   if (!isSignUp && !_busy) _submit();
                                 },
                               ),
                               if (isSignUp) ...[
-                                const SizedBox(height: 14),
+                                SizedBox(height: 14),
                                 _AuthTextField(
                                   controller: _confirmPassword,
-                                  label: 'تکرار رمز عبور',
+                                  label: LifeMateRuntimeLocale.select(
+                                    fa: LifeMateRuntimeLocale.select(
+                                      fa: 'تکرار رمز عبور',
+                                      en: "Repeat password",
+                                    ),
+                                    en: "Repeat password",
+                                  ),
                                   icon: Icons.lock_reset_rounded,
                                   obscureText: _obscureConfirm,
                                   textDirection: TextDirection.ltr,
                                   textInputAction: TextInputAction.done,
-                                  autofillHints: const [
-                                    AutofillHints.newPassword,
-                                  ],
+                                  autofillHints: [AutofillHints.newPassword],
                                   suffix: IconButton(
                                     tooltip: _obscureConfirm
-                                        ? 'نمایش تکرار رمز'
-                                        : 'پنهان‌کردن تکرار رمز',
+                                        ? LifeMateRuntimeLocale.select(
+                                            fa: LifeMateRuntimeLocale.select(
+                                              fa: 'نمایش تکرار رمز',
+                                              en: "Show password repetition",
+                                            ),
+                                            en: "Show password repetition",
+                                          )
+                                        : LifeMateRuntimeLocale.select(
+                                            fa: LifeMateRuntimeLocale.select(
+                                              fa: 'پنهان‌کردن تکرار رمز',
+                                              en: "Hide password repetition",
+                                            ),
+                                            en: "Hide password repetition",
+                                          ),
                                     onPressed: () => setState(
                                       () => _obscureConfirm = !_obscureConfirm,
                                     ),
@@ -573,7 +810,13 @@ class _AuthScreenState extends State<_AuthScreen> {
                                   ),
                                   validator: (value) => value == _password.text
                                       ? null
-                                      : 'تکرار رمز عبور یکسان نیست.',
+                                      : LifeMateRuntimeLocale.select(
+                                          fa: LifeMateRuntimeLocale.select(
+                                            fa: 'تکرار رمز عبور یکسان نیست.',
+                                            en: "Repeating the password is not the same.",
+                                          ),
+                                          en: "Repeating the password is not the same.",
+                                        ),
                                   onSubmitted: (_) {
                                     if (!_busy) _submit();
                                   },
@@ -585,13 +828,19 @@ class _AuthScreenState extends State<_AuthScreen> {
                                     onPressed: _busy
                                         ? null
                                         : _sendPasswordReset,
-                                    child: const Text(
-                                      'رمز عبور را فراموش کرده‌ام',
+                                    child: Text(
+                                      LifeMateRuntimeLocale.select(
+                                        fa: LifeMateRuntimeLocale.select(
+                                          fa: 'رمز عبور را فراموش کرده‌ام',
+                                          en: "I forgot the password",
+                                        ),
+                                        en: "I forgot the password",
+                                      ),
                                     ),
                                   ),
                                 ),
                               if (_error != null) ...[
-                                const SizedBox(height: 8),
+                                SizedBox(height: 8),
                                 _MessageBanner(
                                   message: _error!,
                                   icon: Icons.error_outline_rounded,
@@ -599,14 +848,14 @@ class _AuthScreenState extends State<_AuthScreen> {
                                 ),
                               ],
                               if (_success != null) ...[
-                                const SizedBox(height: 8),
+                                SizedBox(height: 8),
                                 _MessageBanner(
                                   message: _success!,
                                   icon: Icons.mark_email_read_outlined,
-                                  color: const Color(0xFF16845B),
+                                  color: Color(0xFF16845B),
                                 ),
                               ],
-                              const SizedBox(height: 20),
+                              SizedBox(height: 20),
                               SizedBox(
                                 height: 54,
                                 child: FilledButton(
@@ -619,7 +868,7 @@ class _AuthScreenState extends State<_AuthScreen> {
                                   ),
                                   onPressed: _busy ? null : _submit,
                                   child: _busy
-                                      ? const SizedBox.square(
+                                      ? SizedBox.square(
                                           dimension: 22,
                                           child: CircularProgressIndicator(
                                             strokeWidth: 2,
@@ -628,15 +877,27 @@ class _AuthScreenState extends State<_AuthScreen> {
                                         )
                                       : Text(
                                           isSignUp
-                                              ? 'ساخت حساب امن'
-                                              : 'ورود امن',
-                                          style: const TextStyle(
+                                              ? LifeMateRuntimeLocale.select(
+                                                  fa: LifeMateRuntimeLocale.select(
+                                                    fa: 'ساخت حساب امن',
+                                                    en: "Create a secure account",
+                                                  ),
+                                                  en: "Create a secure account",
+                                                )
+                                              : LifeMateRuntimeLocale.select(
+                                                  fa: LifeMateRuntimeLocale.select(
+                                                    fa: 'ورود امن',
+                                                    en: "Secure login",
+                                                  ),
+                                                  en: "Secure login",
+                                                ),
+                                          style: TextStyle(
                                             fontWeight: FontWeight.w800,
                                           ),
                                         ),
                                 ),
                               ),
-                              const SizedBox(height: 14),
+                              SizedBox(height: 14),
                               Row(
                                 mainAxisAlignment: MainAxisAlignment.center,
                                 children: [
@@ -645,10 +906,16 @@ class _AuthScreenState extends State<_AuthScreen> {
                                     size: 16,
                                     color: _primary,
                                   ),
-                                  const SizedBox(width: 6),
-                                  const Flexible(
+                                  SizedBox(width: 6),
+                                  Flexible(
                                     child: Text(
-                                      'اطلاعات سلامت فقط در محدوده دسترسی مجاز نمایش داده می‌شود.',
+                                      LifeMateRuntimeLocale.select(
+                                        fa: LifeMateRuntimeLocale.select(
+                                          fa: 'اطلاعات سلامت فقط در محدوده دسترسی مجاز نمایش داده می‌شود.',
+                                          en: "Health information is displayed only within the scope of authorized access.",
+                                        ),
+                                        en: "Health information is displayed only within the scope of authorized access.",
+                                      ),
                                       textAlign: TextAlign.center,
                                       style: TextStyle(
                                         fontSize: 10,
@@ -662,9 +929,9 @@ class _AuthScreenState extends State<_AuthScreen> {
                           ),
                         ),
                       ),
-                      const SizedBox(height: 16),
+                      SizedBox(height: 16),
                       Container(
-                        padding: const EdgeInsets.symmetric(
+                        padding: EdgeInsets.symmetric(
                           horizontal: 12,
                           vertical: 7,
                         ),
@@ -672,8 +939,14 @@ class _AuthScreenState extends State<_AuthScreen> {
                           color: Colors.white.withOpacity(0.72),
                           borderRadius: BorderRadius.circular(14),
                         ),
-                        child: const Text(
-                          'نسخه آزمایشی LifeMate',
+                        child: Text(
+                          LifeMateRuntimeLocale.select(
+                            fa: LifeMateRuntimeLocale.select(
+                              fa: 'نسخه آزمایشی LifeMate',
+                              en: "LifeMate trial version",
+                            ),
+                            en: "LifeMate trial version",
+                          ),
                           style: TextStyle(
                             color: Color(0xFF71819C),
                             fontSize: 11,
@@ -701,24 +974,66 @@ class _AuthScreenState extends State<_AuthScreen> {
   static String _friendlyAuthError(AuthException error) {
     final message = error.message.toLowerCase();
     if (message.contains('invalid login credentials')) {
-      return 'ایمیل یا رمز عبور درست نیست.';
+      return LifeMateRuntimeLocale.select(
+        fa: LifeMateRuntimeLocale.select(
+          fa: 'ایمیل یا رمز عبور درست نیست.',
+          en: "The email or password is incorrect.",
+        ),
+        en: "The email or password is incorrect.",
+      );
     }
     if (message.contains('email not confirmed')) {
-      return 'ابتدا ایمیل خود را تأیید کنید.';
+      return LifeMateRuntimeLocale.select(
+        fa: LifeMateRuntimeLocale.select(
+          fa: 'ابتدا ایمیل خود را تأیید کنید.',
+          en: "First, verify your email.",
+        ),
+        en: "First, verify your email.",
+      );
     }
     if (message.contains('user already registered')) {
-      return 'این ایمیل قبلاً ثبت شده است؛ وارد حساب شوید.';
+      return LifeMateRuntimeLocale.select(
+        fa: LifeMateRuntimeLocale.select(
+          fa: 'این ایمیل قبلاً ثبت شده است؛ وارد حساب شوید.',
+          en: "This email has already been registered; Log in to the account.",
+        ),
+        en: "This email has already been registered; Log in to the account.",
+      );
     }
     if (message.contains('password')) {
-      return 'رمز عبور شرایط امنیتی لازم را ندارد.';
+      return LifeMateRuntimeLocale.select(
+        fa: LifeMateRuntimeLocale.select(
+          fa: 'رمز عبور شرایط امنیتی لازم را ندارد.',
+          en: "The password does not meet the security requirements.",
+        ),
+        en: "The password does not meet the security requirements.",
+      );
     }
     if (message.contains('provider') && message.contains('enabled')) {
-      return 'ورود با گوگل هنوز برای این محیط فعال نشده است.';
+      return LifeMateRuntimeLocale.select(
+        fa: LifeMateRuntimeLocale.select(
+          fa: 'ورود با گوگل هنوز برای این محیط فعال نشده است.',
+          en: "Sign in with Google is not yet enabled for this environment.",
+        ),
+        en: "Sign in with Google is not yet enabled for this environment.",
+      );
     }
     if (message.contains('rate limit')) {
-      return 'تعداد درخواست‌ها زیاد بوده است؛ کمی بعد دوباره تلاش کنید.';
+      return LifeMateRuntimeLocale.select(
+        fa: LifeMateRuntimeLocale.select(
+          fa: 'تعداد درخواست‌ها زیاد بوده است؛ کمی بعد دوباره تلاش کنید.',
+          en: "The number of requests has been high; Try again later.",
+        ),
+        en: "The number of requests has been high; Try again later.",
+      );
     }
-    return 'عملیات حساب انجام نشد. اطلاعات را بررسی و دوباره تلاش کنید.';
+    return LifeMateRuntimeLocale.select(
+      fa: LifeMateRuntimeLocale.select(
+        fa: 'عملیات حساب انجام نشد. اطلاعات را بررسی و دوباره تلاش کنید.',
+        en: "The account operation was not completed. Check the information and try again.",
+      ),
+      en: "The account operation was not completed. Check the information and try again.",
+    );
   }
 }
 
@@ -736,16 +1051,19 @@ class _ModeSelector extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.all(4),
+      padding: EdgeInsets.all(4),
       decoration: BoxDecoration(
-        color: const Color(0xFFF1F4F8),
+        color: Color(0xFFF1F4F8),
         borderRadius: BorderRadius.circular(17),
       ),
       child: Row(
         children: [
           Expanded(
             child: _ModeButton(
-              label: 'ورود',
+              label: LifeMateRuntimeLocale.select(
+                fa: LifeMateRuntimeLocale.select(fa: 'ورود', en: "login"),
+                en: "login",
+              ),
               selected: mode == _AuthMode.signIn,
               primary: primary,
               onTap: () => onChanged(_AuthMode.signIn),
@@ -753,7 +1071,13 @@ class _ModeSelector extends StatelessWidget {
           ),
           Expanded(
             child: _ModeButton(
-              label: 'ثبت‌نام',
+              label: LifeMateRuntimeLocale.select(
+                fa: LifeMateRuntimeLocale.select(
+                  fa: 'ثبت‌نام',
+                  en: "registration",
+                ),
+                en: "registration",
+              ),
               selected: mode == _AuthMode.signUp,
               primary: primary,
               onTap: () => onChanged(_AuthMode.signUp),
@@ -952,8 +1276,17 @@ class ConfigurationRequiredScreen extends StatelessWidget {
   Widget build(BuildContext context) => _BlockingState(
     appName: appName,
     icon: Icons.settings_suggest_rounded,
-    title: '$appName هنوز برای این محیط تنظیم نشده است',
-    message: 'مقادیر build-time زیر لازم‌اند:\n${missingValues.join(', ')}',
+    title: LifeMateRuntimeLocale.select(
+      fa: LifeMateRuntimeLocale.select(
+        fa: '$appName هنوز برای این محیط تنظیم نشده است',
+        en: "$appName has not yet been set for this environment",
+      ),
+      en: "$appName has not yet been set for this environment",
+    ),
+    message: LifeMateRuntimeLocale.select(
+      fa: 'مقادیر build-time زیر لازم‌اند:\n${missingValues.join(', ')}',
+      en: "The following build-time values ​​are required:\\n${missingValues.join(', ')}",
+    ),
   );
 }
 

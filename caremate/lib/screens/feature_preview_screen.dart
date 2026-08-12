@@ -71,7 +71,15 @@ class _CareMateFeaturePreviewScreenState
 
   String _relationshipName(Map<String, dynamic> relationship) {
     final name = relationship['patientDisplayName']?.toString().trim();
-    return name == null || name.isEmpty ? 'فرد تحت مراقبت' : name;
+    return name == null || name.isEmpty
+        ? LifeMateRuntimeLocale.select(
+            fa: LifeMateRuntimeLocale.select(
+              fa: 'فرد تحت مراقبت',
+              en: "Person under care",
+            ),
+            en: "Person under care",
+          )
+        : name;
   }
 
   Future<void> _refresh() async {
@@ -118,7 +126,15 @@ class _CareMateFeaturePreviewScreenState
       _setError(_friendlyApiError(error));
     } catch (error) {
       debugPrint('CareMate feature load failed: $error');
-      _setError('اطلاعات مراقبت دریافت نشد. اتصال اینترنت را بررسی کنید.');
+      _setError(
+        LifeMateRuntimeLocale.select(
+          fa: LifeMateRuntimeLocale.select(
+            fa: 'اطلاعات مراقبت دریافت نشد. اتصال اینترنت را بررسی کنید.',
+            en: "Care information not received. Check your internet connection.",
+          ),
+          en: "Care information not received. Check your internet connection.",
+        ),
+      );
     } finally {
       if (mounted) setState(() => _loading = false);
     }
@@ -166,7 +182,15 @@ class _CareMateFeaturePreviewScreenState
       _setError(_friendlyApiError(error));
     } catch (error) {
       debugPrint('CareMate profile switch failed: $error');
-      _setError('وضعیت فرد تحت مراقبت دریافت نشد.');
+      _setError(
+        LifeMateRuntimeLocale.select(
+          fa: LifeMateRuntimeLocale.select(
+            fa: 'وضعیت فرد تحت مراقبت دریافت نشد.',
+            en: "The status of the person under care was not received.",
+          ),
+          en: "The status of the person under care was not received.",
+        ),
+      );
     } finally {
       if (mounted) setState(() => _loading = false);
     }
@@ -185,8 +209,8 @@ class _CareMateFeaturePreviewScreenState
             bottom: MediaQuery.viewInsetsOf(context).bottom,
           ),
           child: Container(
-            padding: const EdgeInsets.fromLTRB(22, 14, 22, 24),
-            decoration: const BoxDecoration(
+            padding: EdgeInsets.fromLTRB(22, 14, 22, 24),
+            decoration: BoxDecoration(
               color: Colors.white,
               borderRadius: BorderRadius.vertical(top: Radius.circular(30)),
             ),
@@ -206,20 +230,32 @@ class _CareMateFeaturePreviewScreenState
                       ),
                     ),
                   ),
-                  const SizedBox(height: 18),
-                  const Text(
-                    'درخواست مراقبت',
+                  SizedBox(height: 18),
+                  Text(
+                    LifeMateRuntimeLocale.select(
+                      fa: LifeMateRuntimeLocale.select(
+                        fa: 'درخواست مراقبت',
+                        en: "Care request",
+                      ),
+                      en: "Care request",
+                    ),
                     style: TextStyle(fontSize: 20, fontWeight: FontWeight.w900),
                   ),
-                  const SizedBox(height: 6),
-                  const Text(
-                    'ایمیل حساب WellMate فرد را وارد کنید. تا وقتی خودش تأیید نکند هیچ اطلاعاتی برای شما باز نمی‌شود.',
+                  SizedBox(height: 6),
+                  Text(
+                    LifeMateRuntimeLocale.select(
+                      fa: LifeMateRuntimeLocale.select(
+                        fa: 'ایمیل حساب WellMate فرد را وارد کنید. تا وقتی خودش تأیید نکند هیچ اطلاعاتی برای شما باز نمی‌شود.',
+                        en: "Enter the person's WellMate account email. No information will be opened for you until he confirms it.",
+                      ),
+                      en: "Enter the person's WellMate account email. No information will be opened for you until he confirms it.",
+                    ),
                     style: TextStyle(
                       height: 1.6,
                       color: AppColors.secondaryText,
                     ),
                   ),
-                  const SizedBox(height: 16),
+                  SizedBox(height: 16),
                   TextField(
                     controller: controller,
                     keyboardType: TextInputType.emailAddress,
@@ -227,10 +263,16 @@ class _CareMateFeaturePreviewScreenState
                     autocorrect: false,
                     onChanged: (_) => setSheetState(() {}),
                     decoration: InputDecoration(
-                      labelText: 'ایمیل WellMate',
-                      prefixIcon: const Icon(Icons.alternate_email_rounded),
+                      labelText: LifeMateRuntimeLocale.select(
+                        fa: LifeMateRuntimeLocale.select(
+                          fa: 'ایمیل WellMate',
+                          en: "Email WellMate",
+                        ),
+                        en: "Email WellMate",
+                      ),
+                      prefixIcon: Icon(Icons.alternate_email_rounded),
                       filled: true,
-                      fillColor: const Color(0xFFF3F7FC),
+                      fillColor: Color(0xFFF3F7FC),
                       border: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(18),
                         borderSide: BorderSide.none,
@@ -243,12 +285,18 @@ class _CareMateFeaturePreviewScreenState
                     controlAffinity: ListTileControlAffinity.leading,
                     onChanged: (value) =>
                         setSheetState(() => consent = value ?? false),
-                    title: const Text(
-                      'می‌دانم دسترسی فقط با رضایت خود فرد فعال می‌شود و هر زمان قابل لغو است.',
+                    title: Text(
+                      LifeMateRuntimeLocale.select(
+                        fa: LifeMateRuntimeLocale.select(
+                          fa: 'می‌دانم دسترسی فقط با رضایت خود فرد فعال می‌شود و هر زمان قابل لغو است.',
+                          en: "I understand that access is activated only with the consent of the individual and can be canceled at any time.",
+                        ),
+                        en: "I understand that access is activated only with the consent of the individual and can be canceled at any time.",
+                      ),
                       style: TextStyle(fontSize: 12.5, height: 1.55),
                     ),
                   ),
-                  const SizedBox(height: 4),
+                  SizedBox(height: 4),
                   SizedBox(
                     width: double.infinity,
                     child: FilledButton.icon(
@@ -258,8 +306,16 @@ class _CareMateFeaturePreviewScreenState
                               controller.text.trim(),
                             )
                           : null,
-                      icon: const Icon(Icons.send_rounded),
-                      label: const Text('ارسال درخواست'),
+                      icon: Icon(Icons.send_rounded),
+                      label: Text(
+                        LifeMateRuntimeLocale.select(
+                          fa: LifeMateRuntimeLocale.select(
+                            fa: 'ارسال درخواست',
+                            en: "Submit request",
+                          ),
+                          en: "Submit request",
+                        ),
+                      ),
                     ),
                   ),
                 ],
@@ -277,22 +333,50 @@ class _CareMateFeaturePreviewScreenState
       await context.read<LifeMateApiClient>().createCareRequest(email: email);
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('درخواست ارسال شد؛ منتظر تأیید در WellMate بمانید.'),
+        SnackBar(
+          content: Text(
+            LifeMateRuntimeLocale.select(
+              fa: LifeMateRuntimeLocale.select(
+                fa: 'درخواست ارسال شد؛ منتظر تأیید در WellMate بمانید.',
+                en: "Request sent; Wait for confirmation in WellMate.",
+              ),
+              en: "Request sent; Wait for confirmation in WellMate.",
+            ),
+          ),
         ),
       );
       await _refresh();
     } on LifeMateApiException catch (error) {
       if (!mounted) return;
       final message = switch (error.code) {
-        'care_request_target_not_found' =>
-          'حساب WellMate فعالی با این ایمیل پیدا نشد.',
-        'care_request_already_pending' =>
-          'برای این فرد یک درخواست در انتظار دارید.',
-        'care_relationship_already_active' =>
-          'شما همین حالا مراقب این فرد هستید.',
-        'self_care_request_not_allowed' =>
-          'نمی‌توانید برای حساب خودتان درخواست مراقبت بفرستید.',
+        'care_request_target_not_found' => LifeMateRuntimeLocale.select(
+          fa: LifeMateRuntimeLocale.select(
+            fa: 'حساب WellMate فعالی با این ایمیل پیدا نشد.',
+            en: "No active WellMate account found with this email.",
+          ),
+          en: "No active WellMate account found with this email.",
+        ),
+        'care_request_already_pending' => LifeMateRuntimeLocale.select(
+          fa: LifeMateRuntimeLocale.select(
+            fa: 'برای این فرد یک درخواست در انتظار دارید.',
+            en: "You have a pending request for this person.",
+          ),
+          en: "You have a pending request for this person.",
+        ),
+        'care_relationship_already_active' => LifeMateRuntimeLocale.select(
+          fa: LifeMateRuntimeLocale.select(
+            fa: 'شما همین حالا مراقب این فرد هستید.',
+            en: "You are taking care of this person right now.",
+          ),
+          en: "You are taking care of this person right now.",
+        ),
+        'self_care_request_not_allowed' => LifeMateRuntimeLocale.select(
+          fa: LifeMateRuntimeLocale.select(
+            fa: 'نمی‌توانید برای حساب خودتان درخواست مراقبت بفرستید.',
+            en: "You cannot submit maintenance requests for your own account.",
+          ),
+          en: "You cannot submit maintenance requests for your own account.",
+        ),
         _ => _friendlyApiError(error),
       };
       ScaffoldMessenger.of(
@@ -327,25 +411,45 @@ class _CareMateFeaturePreviewScreenState
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(24),
           ),
-          title: const Text('پذیرش دعوت مراقبت'),
+          title: Text(
+            LifeMateRuntimeLocale.select(
+              fa: LifeMateRuntimeLocale.select(
+                fa: 'پذیرش دعوت مراقبت',
+                en: "Accept the invitation to care",
+              ),
+              en: "Accept the invitation to care",
+            ),
+          ),
           content: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              const Text(
-                'کدی را وارد کنید که بیمار مستقیماً برای شما ارسال کرده است.',
+              Text(
+                LifeMateRuntimeLocale.select(
+                  fa: LifeMateRuntimeLocale.select(
+                    fa: 'کدی را وارد کنید که بیمار مستقیماً برای شما ارسال کرده است.',
+                    en: "Enter the code that the patient sent you directly.",
+                  ),
+                  en: "Enter the code that the patient sent you directly.",
+                ),
                 style: TextStyle(height: 1.6),
               ),
-              const SizedBox(height: 14),
+              SizedBox(height: 14),
               TextField(
                 controller: controller,
                 textDirection: TextDirection.ltr,
                 autocorrect: false,
                 onChanged: (_) => setDialogState(() {}),
                 decoration: InputDecoration(
-                  labelText: 'کد دعوت',
-                  prefixIcon: const Icon(Icons.vpn_key_rounded),
+                  labelText: LifeMateRuntimeLocale.select(
+                    fa: LifeMateRuntimeLocale.select(
+                      fa: 'کد دعوت',
+                      en: "invitation code",
+                    ),
+                    en: "invitation code",
+                  ),
+                  prefixIcon: Icon(Icons.vpn_key_rounded),
                   filled: true,
-                  fillColor: const Color(0xFFF6F9FD),
+                  fillColor: Color(0xFFF6F9FD),
                   border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(16),
                     borderSide: BorderSide.none,
@@ -358,8 +462,14 @@ class _CareMateFeaturePreviewScreenState
                 controlAffinity: ListTileControlAffinity.leading,
                 onChanged: (value) =>
                     setDialogState(() => consent = value ?? false),
-                title: const Text(
-                  'محدوده دسترسی مراقبتی و حریم خصوصی بیمار را می‌پذیرم.',
+                title: Text(
+                  LifeMateRuntimeLocale.select(
+                    fa: LifeMateRuntimeLocale.select(
+                      fa: 'محدوده دسترسی مراقبتی و حریم خصوصی بیمار را می‌پذیرم.',
+                      en: "I accept the scope of care access and patient privacy.",
+                    ),
+                    en: "I accept the scope of care access and patient privacy.",
+                  ),
                 ),
               ),
             ],
@@ -367,13 +477,26 @@ class _CareMateFeaturePreviewScreenState
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(dialogContext),
-              child: const Text('انصراف'),
+              child: Text(
+                LifeMateRuntimeLocale.select(
+                  fa: LifeMateRuntimeLocale.select(fa: 'انصراف', en: "opt out"),
+                  en: "opt out",
+                ),
+              ),
             ),
             FilledButton(
               onPressed: consent && controller.text.trim().isNotEmpty
                   ? () => Navigator.pop(dialogContext, controller.text.trim())
                   : null,
-              child: const Text('پذیرش امن'),
+              child: Text(
+                LifeMateRuntimeLocale.select(
+                  fa: LifeMateRuntimeLocale.select(
+                    fa: 'پذیرش امن',
+                    en: "Safe reception",
+                  ),
+                  en: "Safe reception",
+                ),
+              ),
             ),
           ],
         ),
@@ -388,9 +511,19 @@ class _CareMateFeaturePreviewScreenState
         token: token,
       );
       if (!mounted) return;
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('ارتباط مراقبتی فعال شد.')));
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            LifeMateRuntimeLocale.select(
+              fa: LifeMateRuntimeLocale.select(
+                fa: 'ارتباط مراقبتی فعال شد.',
+                en: "Care connection activated.",
+              ),
+              en: "Care connection activated.",
+            ),
+          ),
+        ),
+      );
       await _refresh();
     } on LifeMateApiException catch (error) {
       if (!mounted) return;
@@ -407,20 +540,47 @@ class _CareMateFeaturePreviewScreenState
       context: context,
       builder: (dialogContext) => AlertDialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
-        title: const Text('لغو دسترسی مراقبتی'),
+        title: Text(
+          LifeMateRuntimeLocale.select(
+            fa: LifeMateRuntimeLocale.select(
+              fa: 'لغو دسترسی مراقبتی',
+              en: "Revoke maintenance access",
+            ),
+            en: "Revoke maintenance access",
+          ),
+        ),
         content: Text(
-          'دسترسی شما به اطلاعات ${_relationshipName(relationship)} فوراً لغو می‌شود.',
-          style: const TextStyle(height: 1.6),
+          LifeMateRuntimeLocale.select(
+            fa: LifeMateRuntimeLocale.select(
+              fa: 'دسترسی شما به اطلاعات ${_relationshipName(relationship)} فوراً لغو می‌شود.',
+              en: "Your access to the ${_relationshipName(relationship)} information will be revoked immediately.",
+            ),
+            en: "Your access to the ${_relationshipName(relationship)} information will be revoked immediately.",
+          ),
+          style: TextStyle(height: 1.6),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(dialogContext, false),
-            child: const Text('انصراف'),
+            child: Text(
+              LifeMateRuntimeLocale.select(
+                fa: LifeMateRuntimeLocale.select(fa: 'انصراف', en: "opt out"),
+                en: "opt out",
+              ),
+            ),
           ),
           FilledButton(
             style: FilledButton.styleFrom(backgroundColor: Colors.redAccent),
             onPressed: () => Navigator.pop(dialogContext, true),
-            child: const Text('لغو دسترسی'),
+            child: Text(
+              LifeMateRuntimeLocale.select(
+                fa: LifeMateRuntimeLocale.select(
+                  fa: 'لغو دسترسی',
+                  en: "Revoke access",
+                ),
+                en: "Revoke access",
+              ),
+            ),
           ),
         ],
       ),
@@ -449,7 +609,17 @@ class _CareMateFeaturePreviewScreenState
         .toList(growable: false);
     if (alerts.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('هشدار دارویی فعالی وجود ندارد.')),
+        SnackBar(
+          content: Text(
+            LifeMateRuntimeLocale.select(
+              fa: LifeMateRuntimeLocale.select(
+                fa: 'هشدار دارویی فعالی وجود ندارد.',
+                en: "There is no active drug warning.",
+              ),
+              en: "There is no active drug warning.",
+            ),
+          ),
+        ),
       );
       return;
     }
@@ -458,8 +628,8 @@ class _CareMateFeaturePreviewScreenState
       backgroundColor: Colors.transparent,
       isScrollControlled: true,
       builder: (context) => Container(
-        padding: const EdgeInsets.fromLTRB(24, 18, 24, 28),
-        decoration: const BoxDecoration(
+        padding: EdgeInsets.fromLTRB(24, 18, 24, 28),
+        decoration: BoxDecoration(
           color: Colors.white,
           borderRadius: BorderRadius.vertical(top: Radius.circular(32)),
         ),
@@ -469,11 +639,17 @@ class _CareMateFeaturePreviewScreenState
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Text(
-                'هشدارهای دارویی امروز',
+              Text(
+                LifeMateRuntimeLocale.select(
+                  fa: LifeMateRuntimeLocale.select(
+                    fa: 'هشدارهای دارویی امروز',
+                    en: "Today's drug warnings",
+                  ),
+                  en: "Today's drug warnings",
+                ),
                 style: TextStyle(fontSize: 19, fontWeight: FontWeight.w800),
               ),
-              const SizedBox(height: 14),
+              SizedBox(height: 14),
               ConstrainedBox(
                 constraints: BoxConstraints(
                   maxHeight: MediaQuery.sizeOf(context).height * 0.55,
@@ -481,7 +657,7 @@ class _CareMateFeaturePreviewScreenState
                 child: ListView.separated(
                   shrinkWrap: true,
                   itemCount: alerts.length,
-                  separatorBuilder: (_, __) => const SizedBox(height: 10),
+                  separatorBuilder: (_, __) => SizedBox(height: 10),
                   itemBuilder: (_, index) => _DoseCard(dose: alerts[index]),
                 ),
               ),
@@ -523,23 +699,59 @@ class _CareMateFeaturePreviewScreenState
   }
 
   _FeatureDefinition get _feature => switch (_currentIndex) {
-    1 => const _FeatureDefinition(
-      title: 'تغییر پروفایل',
-      subtitle: 'انتخاب نقش فعال و تجربه متناسب با آن در CareMate',
+    1 => _FeatureDefinition(
+      title: LifeMateRuntimeLocale.select(
+        fa: LifeMateRuntimeLocale.select(
+          fa: 'تغییر پروفایل',
+          en: "Change profile",
+        ),
+        en: "Change profile",
+      ),
+      subtitle: LifeMateRuntimeLocale.select(
+        fa: LifeMateRuntimeLocale.select(
+          fa: 'انتخاب نقش فعال و تجربه متناسب با آن در CareMate',
+          en: "Choose an active role and experience accordingly in CareMate",
+        ),
+        en: "Choose an active role and experience accordingly in CareMate",
+      ),
       icon: Icons.switch_account_rounded,
       accent: Color(0xFF7B93DB),
       softBackground: Color(0xFFF2F4FF),
     ),
-    2 => const _FeatureDefinition(
-      title: 'مدیریت درمان',
-      subtitle: 'مشاهده برنامه و وضعیت واقعی درمان فرد تحت مراقبت',
+    2 => _FeatureDefinition(
+      title: LifeMateRuntimeLocale.select(
+        fa: LifeMateRuntimeLocale.select(
+          fa: 'مدیریت درمان',
+          en: "Treatment management",
+        ),
+        en: "Treatment management",
+      ),
+      subtitle: LifeMateRuntimeLocale.select(
+        fa: LifeMateRuntimeLocale.select(
+          fa: 'مشاهده برنامه و وضعیت واقعی درمان فرد تحت مراقبت',
+          en: "Viewing the program and actual treatment status of the person under care",
+        ),
+        en: "Viewing the program and actual treatment status of the person under care",
+      ),
       icon: Icons.medical_services_rounded,
       accent: Color(0xFF5BA7E8),
       softBackground: Color(0xFFF0F8FF),
     ),
-    _ => const _FeatureDefinition(
-      title: 'مراقبت خانواده',
-      subtitle: 'مدیریت امن ارتباط‌های مراقبتی و دسترسی‌ها',
+    _ => _FeatureDefinition(
+      title: LifeMateRuntimeLocale.select(
+        fa: LifeMateRuntimeLocale.select(
+          fa: 'مراقبت خانواده',
+          en: "Family care",
+        ),
+        en: "Family care",
+      ),
+      subtitle: LifeMateRuntimeLocale.select(
+        fa: LifeMateRuntimeLocale.select(
+          fa: 'مدیریت امن ارتباط‌های مراقبتی و دسترسی‌ها',
+          en: "Secure management of care communications and access",
+        ),
+        en: "Secure management of care communications and access",
+      ),
       icon: Icons.family_restroom_rounded,
       accent: Color(0xFFE598D8),
       softBackground: Color(0xFFFFF3FC),
@@ -614,9 +826,27 @@ class _CareMateFeaturePreviewScreenState
     if (relationship == null) {
       return _EmptyState(
         icon: Icons.medical_services_outlined,
-        title: 'فردی برای نمایش درمان انتخاب نشده',
-        description: 'ابتدا یک دعوت مراقبتی معتبر را بپذیرید.',
-        actionLabel: 'رفتن به مراقبت خانواده',
+        title: LifeMateRuntimeLocale.select(
+          fa: LifeMateRuntimeLocale.select(
+            fa: 'فردی برای نمایش درمان انتخاب نشده',
+            en: "Individuals not selected to display treatment",
+          ),
+          en: "Individuals not selected to display treatment",
+        ),
+        description: LifeMateRuntimeLocale.select(
+          fa: LifeMateRuntimeLocale.select(
+            fa: 'ابتدا یک دعوت مراقبتی معتبر را بپذیرید.',
+            en: "First, accept a valid care invitation.",
+          ),
+          en: "First, accept a valid care invitation.",
+        ),
+        actionLabel: LifeMateRuntimeLocale.select(
+          fa: LifeMateRuntimeLocale.select(
+            fa: 'رفتن به مراقبت خانواده',
+            en: "Go to family care",
+          ),
+          en: "Go to family care",
+        ),
         onAction: () => setState(() => _currentIndex = 3),
       );
     }
@@ -634,21 +864,33 @@ class _CareMateFeaturePreviewScreenState
           selectedId: _selectedRelationshipId,
           onChanged: _selectRelationship,
         ),
-        const SizedBox(height: 18),
+        SizedBox(height: 18),
         Row(
           children: [
             Expanded(
               child: _MetricCard(
-                label: 'مصرف‌شده',
+                label: LifeMateRuntimeLocale.select(
+                  fa: LifeMateRuntimeLocale.select(
+                    fa: 'مصرف‌شده',
+                    en: "consumed",
+                  ),
+                  en: "consumed",
+                ),
                 value: taken,
                 icon: Icons.check_circle_rounded,
-                color: const Color(0xFF36A269),
+                color: Color(0xFF36A269),
               ),
             ),
-            const SizedBox(width: 10),
+            SizedBox(width: 10),
             Expanded(
               child: _MetricCard(
-                label: 'در انتظار',
+                label: LifeMateRuntimeLocale.select(
+                  fa: LifeMateRuntimeLocale.select(
+                    fa: 'در انتظار',
+                    en: "waiting",
+                  ),
+                  en: "waiting",
+                ),
                 value: scheduled,
                 icon: Icons.schedule_rounded,
                 color: AppColors.primaryBlue,
@@ -656,21 +898,30 @@ class _CareMateFeaturePreviewScreenState
             ),
           ],
         ),
-        const SizedBox(height: 10),
+        SizedBox(height: 10),
         Row(
           children: [
             Expanded(
               child: _MetricCard(
-                label: 'ردشده',
+                label: LifeMateRuntimeLocale.select(
+                  fa: LifeMateRuntimeLocale.select(fa: 'ردشده', en: "rejected"),
+                  en: "rejected",
+                ),
                 value: skipped,
                 icon: Icons.block_rounded,
                 color: Colors.orange,
               ),
             ),
-            const SizedBox(width: 10),
+            SizedBox(width: 10),
             Expanded(
               child: _MetricCard(
-                label: 'فراموش‌شده',
+                label: LifeMateRuntimeLocale.select(
+                  fa: LifeMateRuntimeLocale.select(
+                    fa: 'فراموش‌شده',
+                    en: "forgotten",
+                  ),
+                  en: "forgotten",
+                ),
                 value: missed,
                 icon: Icons.warning_amber_rounded,
                 color: Colors.redAccent,
@@ -678,36 +929,65 @@ class _CareMateFeaturePreviewScreenState
             ),
           ],
         ),
-        const SizedBox(height: 22),
-        const _SectionTitle(
-          title: 'برنامه امروز',
-          subtitle: 'وضعیت‌ها مستقیماً از پایگاه داده LifeMate خوانده می‌شوند.',
+        SizedBox(height: 22),
+        _SectionTitle(
+          title: LifeMateRuntimeLocale.select(
+            fa: LifeMateRuntimeLocale.select(
+              fa: 'برنامه امروز',
+              en: "Today's program",
+            ),
+            en: "Today's program",
+          ),
+          subtitle: LifeMateRuntimeLocale.select(
+            fa: LifeMateRuntimeLocale.select(
+              fa: 'وضعیت‌ها مستقیماً از پایگاه داده LifeMate خوانده می‌شوند.',
+              en: "Statuses are read directly from the LifeMate database.",
+            ),
+            en: "Statuses are read directly from the LifeMate database.",
+          ),
         ),
-        const SizedBox(height: 12),
+        SizedBox(height: 12),
         if (_loading)
-          const Padding(
+          Padding(
             padding: EdgeInsets.symmetric(vertical: 34),
             child: Center(child: CircularProgressIndicator()),
           )
         else if (_doses.isEmpty)
-          const _InlineEmptyState(
+          _InlineEmptyState(
             icon: Icons.event_available_rounded,
-            text: 'برای امروز برنامه دارویی ثبت نشده است.',
+            text: LifeMateRuntimeLocale.select(
+              fa: LifeMateRuntimeLocale.select(
+                fa: 'برای امروز برنامه دارویی ثبت نشده است.',
+                en: "There is no medication program registered for today.",
+              ),
+              en: "There is no medication program registered for today.",
+            ),
           )
         else
           ..._doses.map(
             (dose) => Padding(
-              padding: const EdgeInsets.only(bottom: 10),
+              padding: EdgeInsets.only(bottom: 10),
               child: _DoseCard(dose: dose),
             ),
           ),
-        const SizedBox(height: 10),
+        SizedBox(height: 10),
         _DevelopmentCard(
           accent: feature.accent,
           icon: Icons.edit_calendar_rounded,
-          title: 'ویرایش برنامه درمان',
-          description:
-              'CareMate در این نسخه مشاهده‌گر است. تغییر نسخه دارو یا زمان‌بندی باید توسط بیمار یا پزشک و با قرارداد Backend مجزا انجام شود.',
+          title: LifeMateRuntimeLocale.select(
+            fa: LifeMateRuntimeLocale.select(
+              fa: 'ویرایش برنامه درمان',
+              en: "Edit the treatment plan",
+            ),
+            en: "Edit the treatment plan",
+          ),
+          description: LifeMateRuntimeLocale.select(
+            fa: LifeMateRuntimeLocale.select(
+              fa: 'CareMate در این نسخه مشاهده‌گر است. تغییر نسخه دارو یا زمان‌بندی باید توسط بیمار یا پزشک و با قرارداد Backend مجزا انجام شود.',
+              en: "CareMate is an observer in this version. Changing the drug prescription or schedule must be done by the patient or doctor with a separate backend contract.",
+            ),
+            en: "CareMate is an observer in this version. Changing the drug prescription or schedule must be done by the patient or doctor with a separate backend contract.",
+          ),
         ),
       ],
     );
@@ -720,21 +1000,38 @@ class _CareMateFeaturePreviewScreenState
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const _SectionTitle(
-          title: 'افراد تحت مراقبت',
-          subtitle:
-              'ارتباط‌های فعال شما؛ هر فرد فقط اطلاعات مجاز خودش را دارد.',
+        _SectionTitle(
+          title: LifeMateRuntimeLocale.select(
+            fa: LifeMateRuntimeLocale.select(
+              fa: 'افراد تحت مراقبت',
+              en: "People under care",
+            ),
+            en: "People under care",
+          ),
+          subtitle: LifeMateRuntimeLocale.select(
+            fa: LifeMateRuntimeLocale.select(
+              fa: 'ارتباط‌های فعال شما؛ هر فرد فقط اطلاعات مجاز خودش را دارد.',
+              en: "Your active connections; Each person has only his authorized information.",
+            ),
+            en: "Your active connections; Each person has only his authorized information.",
+          ),
         ),
-        const SizedBox(height: 12),
+        SizedBox(height: 12),
         if (_relationships.isEmpty)
-          const _InlineEmptyState(
+          _InlineEmptyState(
             icon: Icons.group_off_rounded,
-            text: 'هنوز ارتباط مراقبتی فعالی وجود ندارد.',
+            text: LifeMateRuntimeLocale.select(
+              fa: LifeMateRuntimeLocale.select(
+                fa: 'هنوز ارتباط مراقبتی فعالی وجود ندارد.',
+                en: "There is no active care relationship yet.",
+              ),
+              en: "There is no active care relationship yet.",
+            ),
           )
         else
           ..._relationships.map(
             (relationship) => Padding(
-              padding: const EdgeInsets.only(bottom: 12),
+              padding: EdgeInsets.only(bottom: 12),
               child: _RelationshipManagementCard(
                 relationship: relationship,
                 selected:
@@ -745,41 +1042,53 @@ class _CareMateFeaturePreviewScreenState
               ),
             ),
           ),
-        const SizedBox(height: 10),
+        SizedBox(height: 10),
         CareRequestCard(
           loading: _requestingCare,
           pendingRequests: pendingRequests,
           onRequest: _showCareRequestSheet,
           onCancel: _cancelCareRequest,
         ),
-        const SizedBox(height: 14),
+        SizedBox(height: 14),
         Container(
-          padding: const EdgeInsets.all(16),
+          padding: EdgeInsets.all(16),
           decoration: BoxDecoration(
             color: Colors.white.withValues(alpha: 0.82),
             borderRadius: BorderRadius.circular(22),
           ),
           child: Row(
             children: [
-              const CircleAvatar(
+              CircleAvatar(
                 backgroundColor: Color(0xFFF1F5FF),
                 child: Icon(
                   Icons.qr_code_rounded,
                   color: AppColors.primaryBlue,
                 ),
               ),
-              const SizedBox(width: 12),
-              const Expanded(
+              SizedBox(width: 12),
+              Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      'دعوت از طرف WellMate داری؟',
+                      LifeMateRuntimeLocale.select(
+                        fa: LifeMateRuntimeLocale.select(
+                          fa: 'دعوت از طرف WellMate داری؟',
+                          en: "Do you have an invitation from WellMate?",
+                        ),
+                        en: "Do you have an invitation from WellMate?",
+                      ),
                       style: TextStyle(fontWeight: FontWeight.w800),
                     ),
                     SizedBox(height: 3),
                     Text(
-                      'کد یا QR دعوت را بپذیر تا ارتباط مراقبتی فعال شود.',
+                      LifeMateRuntimeLocale.select(
+                        fa: LifeMateRuntimeLocale.select(
+                          fa: 'کد یا QR دعوت را بپذیر تا ارتباط مراقبتی فعال شود.',
+                          en: "Accept the invite code or QR to activate the care connection.",
+                        ),
+                        en: "Accept the invite code or QR to activate the care connection.",
+                      ),
                       style: TextStyle(
                         fontSize: 12,
                         color: AppColors.secondaryText,
@@ -790,18 +1099,37 @@ class _CareMateFeaturePreviewScreenState
               ),
               TextButton(
                 onPressed: _accepting ? null : _showAcceptInvitation,
-                child: const Text('پذیرش'),
+                child: Text(
+                  LifeMateRuntimeLocale.select(
+                    fa: LifeMateRuntimeLocale.select(
+                      fa: 'پذیرش',
+                      en: "acceptance",
+                    ),
+                    en: "acceptance",
+                  ),
+                ),
               ),
             ],
           ),
         ),
-        const SizedBox(height: 8),
+        SizedBox(height: 8),
         _DevelopmentCard(
           accent: feature.accent,
           icon: Icons.insights_rounded,
-          title: 'گزارش خانوادگی هفتگی',
-          description:
-              'صفحه گزارش و اشتراک‌گذاری مطابق طراحی محصول حفظ شده، اما تا ایجاد API گزارش و رضایت‌نامه اشتراک‌گذاری غیرفعال است.',
+          title: LifeMateRuntimeLocale.select(
+            fa: LifeMateRuntimeLocale.select(
+              fa: 'گزارش خانوادگی هفتگی',
+              en: "Weekly family report",
+            ),
+            en: "Weekly family report",
+          ),
+          description: LifeMateRuntimeLocale.select(
+            fa: LifeMateRuntimeLocale.select(
+              fa: 'صفحه گزارش و اشتراک‌گذاری مطابق طراحی محصول حفظ شده، اما تا ایجاد API گزارش و رضایت‌نامه اشتراک‌گذاری غیرفعال است.',
+              en: "The reporting and sharing page is preserved as per the product design, but is disabled until the reporting and sharing consent API is created.",
+            ),
+            en: "The reporting and sharing page is preserved as per the product design, but is disabled until the reporting and sharing consent API is created.",
+          ),
         ),
       ],
     );
@@ -821,13 +1149,37 @@ class _CareMateFeaturePreviewScreenState
   static String _friendlyApiError(LifeMateApiException error) {
     switch (error.code) {
       case 'invalid_invitation_token':
-        return 'کد دعوت نامعتبر یا منقضی شده است.';
+        return LifeMateRuntimeLocale.select(
+          fa: LifeMateRuntimeLocale.select(
+            fa: 'کد دعوت نامعتبر یا منقضی شده است.',
+            en: "The invitation code is invalid or expired.",
+          ),
+          en: "The invitation code is invalid or expired.",
+        );
       case 'care_access_denied':
-        return 'دسترسی مراقبتی برای این بیمار فعال نیست.';
+        return LifeMateRuntimeLocale.select(
+          fa: LifeMateRuntimeLocale.select(
+            fa: 'دسترسی مراقبتی برای این بیمار فعال نیست.',
+            en: "Care access is not active for this patient.",
+          ),
+          en: "Care access is not active for this patient.",
+        );
       default:
         return error.isUnauthorized
-            ? 'نشست شما منقضی شده است. دوباره وارد شوید.'
-            : 'درخواست انجام نشد. دوباره تلاش کنید.';
+            ? LifeMateRuntimeLocale.select(
+                fa: LifeMateRuntimeLocale.select(
+                  fa: 'نشست شما منقضی شده است. دوباره وارد شوید.',
+                  en: "Your session has expired. Sign in again.",
+                ),
+                en: "Your session has expired. Sign in again.",
+              )
+            : LifeMateRuntimeLocale.select(
+                fa: LifeMateRuntimeLocale.select(
+                  fa: 'درخواست انجام نشد. دوباره تلاش کنید.',
+                  en: "Request failed. Try again.",
+                ),
+                en: "Request failed. Try again.",
+              );
     }
   }
 }
@@ -936,7 +1288,15 @@ class _RelationshipSelectionCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final name = relationship['patientDisplayName']?.toString().trim();
-    final displayName = name == null || name.isEmpty ? 'فرد تحت مراقبت' : name;
+    final displayName = name == null || name.isEmpty
+        ? LifeMateRuntimeLocale.select(
+            fa: LifeMateRuntimeLocale.select(
+              fa: 'فرد تحت مراقبت',
+              en: "Person under care",
+            ),
+            en: "Person under care",
+          )
+        : name;
     return Material(
       color: Colors.transparent,
       child: InkWell(
@@ -958,7 +1318,7 @@ class _RelationshipSelectionCard extends StatelessWidget {
               BoxShadow(
                 color: AppColors.primaryBlue.withOpacity(0.08),
                 blurRadius: 14,
-                offset: const Offset(0, 6),
+                offset: Offset(0, 6),
               ),
             ],
           ),
@@ -966,32 +1326,38 @@ class _RelationshipSelectionCard extends StatelessWidget {
             children: [
               CircleAvatar(
                 radius: 28,
-                backgroundColor: const Color(0xFFEAF4FF),
+                backgroundColor: Color(0xFFEAF4FF),
                 child: Text(
                   displayName.characters.first,
-                  style: const TextStyle(
+                  style: TextStyle(
                     color: AppColors.primaryBlue,
                     fontSize: 20,
                     fontWeight: FontWeight.w900,
                   ),
                 ),
               ),
-              const SizedBox(width: 14),
+              SizedBox(width: 14),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
                       displayName,
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontSize: 16,
                         fontWeight: FontWeight.w800,
                         color: AppColors.primaryText,
                       ),
                     ),
-                    const SizedBox(height: 4),
-                    const Text(
-                      'دسترسی فعال مراقبتی',
+                    SizedBox(height: 4),
+                    Text(
+                      LifeMateRuntimeLocale.select(
+                        fa: LifeMateRuntimeLocale.select(
+                          fa: 'دسترسی فعال مراقبتی',
+                          en: "Active Care Access",
+                        ),
+                        en: "Active Care Access",
+                      ),
                       style: TextStyle(
                         fontSize: 12,
                         color: AppColors.secondaryText,
@@ -1030,11 +1396,11 @@ class _SelectedPatientCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final name = relationship['patientDisplayName']?.toString().trim();
     return Container(
-      padding: const EdgeInsets.all(18),
+      padding: EdgeInsets.all(18),
       decoration: AppColors.softDecoration(),
       child: Row(
         children: [
-          const CircleAvatar(
+          CircleAvatar(
             radius: 26,
             backgroundColor: Color(0xFFEAF4FF),
             child: Icon(
@@ -1043,13 +1409,19 @@ class _SelectedPatientCard extends StatelessWidget {
               size: 30,
             ),
           ),
-          const SizedBox(width: 14),
+          SizedBox(width: 14),
           Expanded(
             child: DropdownButtonFormField<String>(
               value: selectedId,
               isExpanded: true,
-              decoration: const InputDecoration(
-                labelText: 'فرد تحت مراقبت',
+              decoration: InputDecoration(
+                labelText: LifeMateRuntimeLocale.select(
+                  fa: LifeMateRuntimeLocale.select(
+                    fa: 'فرد تحت مراقبت',
+                    en: "Person under care",
+                  ),
+                  en: "Person under care",
+                ),
                 border: InputBorder.none,
               ),
               items: relationships
@@ -1063,7 +1435,13 @@ class _SelectedPatientCard extends StatelessWidget {
                                     .isNotEmpty ==
                                 true
                             ? item['patientDisplayName'].toString()
-                            : 'فرد تحت مراقبت',
+                            : LifeMateRuntimeLocale.select(
+                                fa: LifeMateRuntimeLocale.select(
+                                  fa: 'فرد تحت مراقبت',
+                                  en: "Person under care",
+                                ),
+                                en: "Person under care",
+                              ),
                         overflow: TextOverflow.ellipsis,
                       ),
                     ),
@@ -1073,7 +1451,7 @@ class _SelectedPatientCard extends StatelessWidget {
             ),
           ),
           if (name != null && name.isNotEmpty)
-            const Icon(Icons.verified_user_rounded, color: Color(0xFF36A269)),
+            Icon(Icons.verified_user_rounded, color: Color(0xFF36A269)),
         ],
       ),
     );
@@ -1128,28 +1506,40 @@ class _DoseCard extends StatelessWidget {
     final status = dose['status']?.toString() ?? 'scheduled';
     final state = switch (status) {
       'taken' => (
-        'مصرف‌شده',
+        LifeMateRuntimeLocale.select(
+          fa: LifeMateRuntimeLocale.select(fa: 'مصرف‌شده', en: "consumed"),
+          en: "consumed",
+        ),
         Icons.check_circle_rounded,
-        const Color(0xFF36A269),
-        const Color(0xFFEAF8F0),
+        Color(0xFF36A269),
+        Color(0xFFEAF8F0),
       ),
       'skipped' => (
-        'ردشده',
+        LifeMateRuntimeLocale.select(
+          fa: LifeMateRuntimeLocale.select(fa: 'ردشده', en: "rejected"),
+          en: "rejected",
+        ),
         Icons.block_rounded,
         Colors.orange,
-        const Color(0xFFFFF6E8),
+        Color(0xFFFFF6E8),
       ),
       'missed' => (
-        'فراموش‌شده',
+        LifeMateRuntimeLocale.select(
+          fa: LifeMateRuntimeLocale.select(fa: 'فراموش‌شده', en: "forgotten"),
+          en: "forgotten",
+        ),
         Icons.warning_amber_rounded,
         Colors.redAccent,
-        const Color(0xFFFFEEF0),
+        Color(0xFFFFEEF0),
       ),
       _ => (
-        'در انتظار',
+        LifeMateRuntimeLocale.select(
+          fa: LifeMateRuntimeLocale.select(fa: 'در انتظار', en: "waiting"),
+          en: "waiting",
+        ),
         Icons.schedule_rounded,
         AppColors.primaryBlue,
-        const Color(0xFFEAF4FF),
+        Color(0xFFEAF4FF),
       ),
     };
     final rawTime = dose['scheduledLocalTime']?.toString() ?? '--:--';
@@ -1158,7 +1548,7 @@ class _DoseCard extends StatelessWidget {
     final doseText = dose['doseText']?.toString().trim();
 
     return Container(
-      padding: const EdgeInsets.all(14),
+      padding: EdgeInsets.all(14),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(20),
@@ -1166,7 +1556,7 @@ class _DoseCard extends StatelessWidget {
           BoxShadow(
             color: AppColors.primaryBlue.withOpacity(0.06),
             blurRadius: 14,
-            offset: const Offset(0, 5),
+            offset: Offset(0, 5),
           ),
         ],
       ),
@@ -1181,25 +1571,31 @@ class _DoseCard extends StatelessWidget {
             ),
             child: Icon(state.$2, color: state.$3),
           ),
-          const SizedBox(width: 12),
+          SizedBox(width: 12),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
                   medication == null || medication.isEmpty
-                      ? 'دارو'
+                      ? LifeMateRuntimeLocale.select(
+                          fa: LifeMateRuntimeLocale.select(
+                            fa: 'دارو',
+                            en: "Medication",
+                          ),
+                          en: "medicine",
+                        )
                       : medication,
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontWeight: FontWeight.w800,
                     color: AppColors.primaryText,
                   ),
                 ),
                 if (doseText != null && doseText.isNotEmpty) ...[
-                  const SizedBox(height: 3),
+                  SizedBox(height: 3),
                   Text(
                     doseText,
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontSize: 12,
                       color: AppColors.secondaryText,
                     ),
@@ -1214,9 +1610,9 @@ class _DoseCard extends StatelessWidget {
               Text(
                 time,
                 textDirection: TextDirection.ltr,
-                style: const TextStyle(fontWeight: FontWeight.w800),
+                style: TextStyle(fontWeight: FontWeight.w800),
               ),
-              const SizedBox(height: 4),
+              SizedBox(height: 4),
               Text(
                 state.$1,
                 style: TextStyle(
@@ -1248,66 +1644,93 @@ class _RelationshipManagementCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final name = relationship['patientDisplayName']?.toString().trim();
-    final displayName = name == null || name.isEmpty ? 'فرد تحت مراقبت' : name;
+    final displayName = name == null || name.isEmpty
+        ? LifeMateRuntimeLocale.select(
+            fa: LifeMateRuntimeLocale.select(
+              fa: 'فرد تحت مراقبت',
+              en: "Person under care",
+            ),
+            en: "Person under care",
+          )
+        : name;
     return Container(
-      padding: const EdgeInsets.all(16),
+      padding: EdgeInsets.all(16),
       decoration: AppColors.softDecoration(
-        color: selected ? const Color(0xFFF0F6FF) : Colors.white,
+        color: selected ? Color(0xFFF0F6FF) : Colors.white,
       ),
       child: Column(
         children: [
           Row(
             children: [
-              const CircleAvatar(
+              CircleAvatar(
                 backgroundColor: Color(0xFFEAF4FF),
                 child: Icon(Icons.person_rounded, color: AppColors.primaryBlue),
               ),
-              const SizedBox(width: 12),
+              SizedBox(width: 12),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
                       displayName,
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontWeight: FontWeight.w800,
                         color: AppColors.primaryText,
                       ),
                     ),
-                    const SizedBox(height: 3),
-                    const Text(
-                      'رضایت مراقبتی فعال',
+                    SizedBox(height: 3),
+                    Text(
+                      LifeMateRuntimeLocale.select(
+                        fa: LifeMateRuntimeLocale.select(
+                          fa: 'رضایت مراقبتی فعال',
+                          en: "Consent to active care",
+                        ),
+                        en: "Consent to active care",
+                      ),
                       style: TextStyle(fontSize: 12, color: Color(0xFF36A269)),
                     ),
                   ],
                 ),
               ),
               if (selected)
-                const Icon(
-                  Icons.check_circle_rounded,
-                  color: AppColors.primaryBlue,
-                ),
+                Icon(Icons.check_circle_rounded, color: AppColors.primaryBlue),
             ],
           ),
-          const SizedBox(height: 12),
+          SizedBox(height: 12),
           Row(
             children: [
               Expanded(
                 child: OutlinedButton.icon(
                   onPressed: onSelect,
-                  icon: const Icon(Icons.visibility_outlined),
-                  label: const Text('مشاهده'),
+                  icon: Icon(Icons.visibility_outlined),
+                  label: Text(
+                    LifeMateRuntimeLocale.select(
+                      fa: LifeMateRuntimeLocale.select(
+                        fa: 'مشاهده',
+                        en: "view",
+                      ),
+                      en: "view",
+                    ),
+                  ),
                 ),
               ),
-              const SizedBox(width: 10),
+              SizedBox(width: 10),
               Expanded(
                 child: OutlinedButton.icon(
                   style: OutlinedButton.styleFrom(
                     foregroundColor: Colors.redAccent,
                   ),
                   onPressed: onRevoke,
-                  icon: const Icon(Icons.link_off_rounded),
-                  label: const Text('لغو دسترسی'),
+                  icon: Icon(Icons.link_off_rounded),
+                  label: Text(
+                    LifeMateRuntimeLocale.select(
+                      fa: LifeMateRuntimeLocale.select(
+                        fa: 'لغو دسترسی',
+                        en: "Revoke access",
+                      ),
+                      en: "Revoke access",
+                    ),
+                  ),
                 ),
               ),
             ],
@@ -1332,7 +1755,7 @@ class _DevelopmentCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Container(
-    padding: const EdgeInsets.all(18),
+    padding: EdgeInsets.all(18),
     decoration: AppColors.softDecoration(),
     child: Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -1348,11 +1771,11 @@ class _DevelopmentCard extends StatelessWidget {
               ),
               child: Icon(icon, color: accent),
             ),
-            const SizedBox(width: 12),
+            SizedBox(width: 12),
             Expanded(
               child: Text(
                 title,
-                style: const TextStyle(
+                style: TextStyle(
                   fontSize: 16,
                   fontWeight: FontWeight.w800,
                   color: AppColors.primaryText,
@@ -1360,13 +1783,19 @@ class _DevelopmentCard extends StatelessWidget {
               ),
             ),
             Container(
-              padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
+              padding: EdgeInsets.symmetric(horizontal: 9, vertical: 5),
               decoration: BoxDecoration(
-                color: const Color(0xFFF0F2F5),
+                color: Color(0xFFF0F2F5),
                 borderRadius: BorderRadius.circular(20),
               ),
-              child: const Text(
-                'در دست توسعه',
+              child: Text(
+                LifeMateRuntimeLocale.select(
+                  fa: LifeMateRuntimeLocale.select(
+                    fa: 'در دست توسعه',
+                    en: "Under development",
+                  ),
+                  en: "Under development",
+                ),
                 style: TextStyle(
                   fontSize: 10,
                   color: AppColors.secondaryText,
@@ -1376,18 +1805,26 @@ class _DevelopmentCard extends StatelessWidget {
             ),
           ],
         ),
-        const SizedBox(height: 12),
+        SizedBox(height: 12),
         Text(
           description,
-          style: const TextStyle(height: 1.65, color: AppColors.secondaryText),
+          style: TextStyle(height: 1.65, color: AppColors.secondaryText),
         ),
-        const SizedBox(height: 12),
+        SizedBox(height: 12),
         SizedBox(
           width: double.infinity,
           child: OutlinedButton.icon(
             onPressed: null,
-            icon: const Icon(Icons.lock_outline_rounded),
-            label: const Text('فعلاً غیرفعال'),
+            icon: Icon(Icons.lock_outline_rounded),
+            label: Text(
+              LifeMateRuntimeLocale.select(
+                fa: LifeMateRuntimeLocale.select(
+                  fa: 'فعلاً غیرفعال',
+                  en: "Currently inactive",
+                ),
+                en: "Currently inactive",
+              ),
+            ),
           ),
         ),
       ],
@@ -1471,7 +1908,7 @@ class _ErrorBanner extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Container(
-    padding: const EdgeInsets.all(14),
+    padding: EdgeInsets.all(14),
     decoration: BoxDecoration(
       color: Colors.red.shade50,
       borderRadius: BorderRadius.circular(18),
@@ -1480,9 +1917,20 @@ class _ErrorBanner extends StatelessWidget {
     child: Row(
       children: [
         Icon(Icons.cloud_off_rounded, color: Colors.red.shade600),
-        const SizedBox(width: 10),
+        SizedBox(width: 10),
         Expanded(child: Text(message)),
-        TextButton(onPressed: onRetry, child: const Text('تلاش دوباره')),
+        TextButton(
+          onPressed: onRetry,
+          child: Text(
+            LifeMateRuntimeLocale.select(
+              fa: LifeMateRuntimeLocale.select(
+                fa: 'تلاش دوباره',
+                en: "Try again",
+              ),
+              en: "Try again",
+            ),
+          ),
+        ),
       ],
     ),
   );

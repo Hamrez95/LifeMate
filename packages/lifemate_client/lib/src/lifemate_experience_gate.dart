@@ -9,7 +9,9 @@ import 'feature_flags.dart';
 import 'health_facts.dart';
 import 'lifemate_api_client.dart';
 import 'lifemate_auth.dart';
+import 'locale_digit_input_formatter.dart';
 import 'profile_avatar.dart';
+import 'runtime_locale.dart';
 
 part 'experience_auth.dart';
 part 'experience_phone_auth.dart';
@@ -147,9 +149,24 @@ class _LifeMateExperienceGateState extends State<LifeMateExperienceGate> {
         appName: widget.appName,
         logoAssetPath: widget.logoAssetPath,
         icon: Icons.cloud_off_rounded,
-        title: 'ارتباط امن با حساب قطع شد',
-        message: 'اتصال اینترنت را بررسی کنید و دوباره تلاش کنید.',
-        primaryLabel: 'تلاش دوباره',
+        title: LifeMateRuntimeLocale.select(
+          fa: LifeMateRuntimeLocale.select(
+            fa: 'ارتباط امن با حساب قطع شد',
+            en: "The secure connection to the account was terminated",
+          ),
+          en: "The secure connection to the account was terminated",
+        ),
+        message: LifeMateRuntimeLocale.select(
+          fa: LifeMateRuntimeLocale.select(
+            fa: 'اتصال اینترنت را بررسی کنید و دوباره تلاش کنید.',
+            en: "Check your internet connection and try again.",
+          ),
+          en: "Check your internet connection and try again.",
+        ),
+        primaryLabel: LifeMateRuntimeLocale.select(
+          fa: LifeMateRuntimeLocale.select(fa: 'تلاش دوباره', en: "Try again"),
+          en: "Try again",
+        ),
         onPrimary: _retryAuthStream,
       );
     }
@@ -191,15 +208,63 @@ class _LifeMateExperienceGateState extends State<LifeMateExperienceGate> {
             appName: widget.appName,
             logoAssetPath: widget.logoAssetPath,
             icon: Icons.sync_problem_rounded,
-            title: expired ? 'نشست شما منقضی شده است' : 'همگام‌سازی انجام نشد',
+            title: expired
+                ? LifeMateRuntimeLocale.select(
+                    fa: LifeMateRuntimeLocale.select(
+                      fa: 'نشست شما منقضی شده است',
+                      en: "Your session has expired",
+                    ),
+                    en: "Your session has expired",
+                  )
+                : LifeMateRuntimeLocale.select(
+                    fa: LifeMateRuntimeLocale.select(
+                      fa: 'همگام‌سازی انجام نشد',
+                      en: "Synchronization failed",
+                    ),
+                    en: "Synchronization failed",
+                  ),
             message: expired
-                ? 'برای ادامه دوباره وارد حساب شوید.'
-                : 'داده‌ای تغییر نکرده است. اتصال را بررسی و دوباره تلاش کنید.',
-            primaryLabel: expired ? 'ورود دوباره' : 'تلاش دوباره',
+                ? LifeMateRuntimeLocale.select(
+                    fa: LifeMateRuntimeLocale.select(
+                      fa: 'برای ادامه دوباره وارد حساب شوید.',
+                      en: "Log in again to continue.",
+                    ),
+                    en: "Log in again to continue.",
+                  )
+                : LifeMateRuntimeLocale.select(
+                    fa: LifeMateRuntimeLocale.select(
+                      fa: 'داده‌ای تغییر نکرده است. اتصال را بررسی و دوباره تلاش کنید.',
+                      en: "No data has changed. Check the connection and try again.",
+                    ),
+                    en: "No data has changed. Check the connection and try again.",
+                  ),
+            primaryLabel: expired
+                ? LifeMateRuntimeLocale.select(
+                    fa: LifeMateRuntimeLocale.select(
+                      fa: 'ورود دوباره',
+                      en: "Login again",
+                    ),
+                    en: "Login again",
+                  )
+                : LifeMateRuntimeLocale.select(
+                    fa: LifeMateRuntimeLocale.select(
+                      fa: 'تلاش دوباره',
+                      en: "Try again",
+                    ),
+                    en: "Try again",
+                  ),
             onPrimary: expired
                 ? () => _supabase.auth.signOut()
                 : _retryBootstrap,
-            secondaryLabel: expired ? null : 'خروج از حساب',
+            secondaryLabel: expired
+                ? null
+                : LifeMateRuntimeLocale.select(
+                    fa: LifeMateRuntimeLocale.select(
+                      fa: 'خروج از حساب',
+                      en: "Sign out of the account",
+                    ),
+                    en: "Sign out of the account",
+                  ),
             onSecondary: expired ? null : () => _supabase.auth.signOut(),
           );
         }

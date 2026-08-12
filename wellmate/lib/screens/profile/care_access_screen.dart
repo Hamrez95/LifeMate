@@ -67,7 +67,15 @@ class _CareAccessScreenState extends State<CareAccessScreen> {
     } catch (error) {
       debugPrint('WellMate care access refresh failed: $error');
       if (mounted) {
-        setState(() => _error = 'اطلاعات مراقبان دریافت نشد.');
+        setState(
+          () => _error = LifeMateRuntimeLocale.select(
+            fa: LifeMateRuntimeLocale.select(
+              fa: 'اطلاعات مراقبان دریافت نشد.',
+              en: "Caregiver information was not received.",
+            ),
+            en: "Caregiver information was not received.",
+          ),
+        );
       }
     } finally {
       if (mounted) setState(() => _loading = false);
@@ -92,26 +100,61 @@ class _CareAccessScreenState extends State<CareAccessScreen> {
       return;
     }
     if (accept) {
-      final name = request['requesterDisplayName']?.toString() ?? 'این فرد';
+      final name =
+          request['requesterDisplayName']?.toString() ??
+          LifeMateRuntimeLocale.select(
+            fa: LifeMateRuntimeLocale.select(fa: 'این فرد', en: "this person"),
+            en: "this person",
+          );
       final confirmed = await showDialog<bool>(
         context: context,
         builder: (dialogContext) => AlertDialog(
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(24),
           ),
-          title: const Text('تأیید درخواست مراقبت'),
+          title: Text(
+            LifeMateRuntimeLocale.select(
+              fa: LifeMateRuntimeLocale.select(
+                fa: 'تأیید درخواست مراقبت',
+                en: "Confirmation of care request",
+              ),
+              en: "Confirmation of care request",
+            ),
+          ),
           content: Text(
-            'با تأیید، $name به‌عنوان مراقب شما فعال می‌شود. دسترسی‌های حساس مثل تقویم بانوان و مدیریت پرونده سلامت همچنان جداگانه و فقط با اجازه خودتان فعال می‌شوند.',
-            style: const TextStyle(height: 1.6),
+            LifeMateRuntimeLocale.select(
+              fa: LifeMateRuntimeLocale.select(
+                fa: 'با تأیید، $name به‌عنوان مراقب شما فعال می‌شود. دسترسی‌های حساس مثل تقویم بانوان و مدیریت پرونده سلامت همچنان جداگانه و فقط با اجازه خودتان فعال می‌شوند.',
+                en: "Upon approval, $name will be activated as your guardian. Sensitive accesses such as women's calendar and health record management are still activated separately and only with your permission.",
+              ),
+              en: "Upon approval, $name will be activated as your guardian. Sensitive accesses such as women's calendar and health record management are still activated separately and only with your permission.",
+            ),
+            style: TextStyle(height: 1.6),
           ),
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(dialogContext, false),
-              child: const Text('فعلاً نه'),
+              child: Text(
+                LifeMateRuntimeLocale.select(
+                  fa: LifeMateRuntimeLocale.select(
+                    fa: 'فعلاً نه',
+                    en: "Not for now",
+                  ),
+                  en: "Not for now",
+                ),
+              ),
             ),
             FilledButton(
               onPressed: () => Navigator.pop(dialogContext, true),
-              child: const Text('تأیید مراقب'),
+              child: Text(
+                LifeMateRuntimeLocale.select(
+                  fa: LifeMateRuntimeLocale.select(
+                    fa: 'تأیید مراقب',
+                    en: "Carer's approval",
+                  ),
+                  en: "Carer's approval",
+                ),
+              ),
             ),
           ],
         ),
@@ -128,20 +171,67 @@ class _CareAccessScreenState extends State<CareAccessScreen> {
       if (!mounted) return;
       _notice(
         type: LifeMateNoticeType.success,
-        title: accept ? 'مراقب اضافه شد' : 'درخواست رد شد',
+        title: accept
+            ? LifeMateRuntimeLocale.select(
+                fa: LifeMateRuntimeLocale.select(
+                  fa: 'مراقب اضافه شد',
+                  en: "Caregiver added",
+                ),
+                en: "Caregiver added",
+              )
+            : LifeMateRuntimeLocale.select(
+                fa: LifeMateRuntimeLocale.select(
+                  fa: 'درخواست رد شد',
+                  en: "The request was rejected",
+                ),
+                en: "The request was rejected",
+              ),
         message: accept
-            ? 'ارتباط مراقبتی فعال شد؛ حالا می‌توانید دسترسی‌هایش را تنظیم کنید.'
-            : 'این درخواست دیگر فعال نیست.',
+            ? LifeMateRuntimeLocale.select(
+                fa: LifeMateRuntimeLocale.select(
+                  fa: 'ارتباط مراقبتی فعال شد؛ حالا می‌توانید دسترسی‌هایش را تنظیم کنید.',
+                  en: "Care connection activated; Now you can set its access.",
+                ),
+                en: "Care connection activated; Now you can set its access.",
+              )
+            : LifeMateRuntimeLocale.select(
+                fa: LifeMateRuntimeLocale.select(
+                  fa: 'این درخواست دیگر فعال نیست.',
+                  en: "This request is no longer active.",
+                ),
+                en: "This request is no longer active.",
+              ),
       );
       await _refresh();
     } on LifeMateApiException catch (error) {
       _notice(
         type: LifeMateNoticeType.error,
-        title: 'انجام نشد',
+        title: LifeMateRuntimeLocale.select(
+          fa: LifeMateRuntimeLocale.select(fa: 'انجام نشد', en: "not done"),
+          en: "not done",
+        ),
         message: switch (error.code) {
-          'care_request_expired' => 'این درخواست منقضی شده است.',
-          'care_request_not_pending' => 'این درخواست قبلاً بررسی شده است.',
-          _ => 'دوباره تلاش کنید یا اتصال اینترنت را بررسی کنید.',
+          'care_request_expired' => LifeMateRuntimeLocale.select(
+            fa: LifeMateRuntimeLocale.select(
+              fa: 'این درخواست منقضی شده است.',
+              en: "This request has expired.",
+            ),
+            en: "This request has expired.",
+          ),
+          'care_request_not_pending' => LifeMateRuntimeLocale.select(
+            fa: LifeMateRuntimeLocale.select(
+              fa: 'این درخواست قبلاً بررسی شده است.',
+              en: "This request has already been reviewed.",
+            ),
+            en: "This request has already been reviewed.",
+          ),
+          _ => LifeMateRuntimeLocale.select(
+            fa: LifeMateRuntimeLocale.select(
+              fa: 'دوباره تلاش کنید یا اتصال اینترنت را بررسی کنید.',
+              en: "Try again or check your internet connection.",
+            ),
+            en: "Try again or check your internet connection.",
+          ),
         },
       );
     } finally {
@@ -177,7 +267,15 @@ class _CareAccessScreenState extends State<CareAccessScreen> {
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(24),
           ),
-          title: const Text('دعوت مراقب'),
+          title: Text(
+            LifeMateRuntimeLocale.select(
+              fa: LifeMateRuntimeLocale.select(
+                fa: 'دعوت مراقب',
+                en: "Careful invitation",
+              ),
+              en: "Careful invitation",
+            ),
+          ),
           content: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
@@ -188,25 +286,37 @@ class _CareAccessScreenState extends State<CareAccessScreen> {
                 autocorrect: false,
                 onChanged: (_) => setDialogState(() {}),
                 decoration: InputDecoration(
-                  labelText: 'ایمیل مراقب',
-                  prefixIcon: const Icon(Icons.alternate_email_rounded),
+                  labelText: LifeMateRuntimeLocale.select(
+                    fa: LifeMateRuntimeLocale.select(
+                      fa: 'ایمیل مراقب',
+                      en: "Careful email",
+                    ),
+                    en: "Careful email",
+                  ),
+                  prefixIcon: Icon(Icons.alternate_email_rounded),
                   filled: true,
-                  fillColor: const Color(0xFFF6FAF8),
+                  fillColor: Color(0xFFF6FAF8),
                   border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(16),
                     borderSide: BorderSide.none,
                   ),
                 ),
               ),
-              const SizedBox(height: 10),
+              SizedBox(height: 10),
               CheckboxListTile(
                 contentPadding: EdgeInsets.zero,
                 value: confirmed,
                 controlAffinity: ListTileControlAffinity.leading,
                 onChanged: (value) =>
                     setDialogState(() => confirmed = value ?? false),
-                title: const Text(
-                  'اجازه می‌دهم این فرد وضعیت برنامه و مصرف داروهای من را ببیند. هر زمان بخواهم می‌توانم دسترسی را قطع کنم.',
+                title: Text(
+                  LifeMateRuntimeLocale.select(
+                    fa: LifeMateRuntimeLocale.select(
+                      fa: 'اجازه می‌دهم این فرد وضعیت برنامه و مصرف داروهای من را ببیند. هر زمان بخواهم می‌توانم دسترسی را قطع کنم.',
+                      en: "I allow this person to see my schedule and medication status. I can terminate access at any time.",
+                    ),
+                    en: "I allow this person to see my schedule and medication status. I can terminate access at any time.",
+                  ),
                   style: TextStyle(height: 1.55, fontSize: 12.5),
                 ),
               ),
@@ -215,7 +325,12 @@ class _CareAccessScreenState extends State<CareAccessScreen> {
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(dialogContext),
-              child: const Text('انصراف'),
+              child: Text(
+                LifeMateRuntimeLocale.select(
+                  fa: LifeMateRuntimeLocale.select(fa: 'انصراف', en: "opt out"),
+                  en: "opt out",
+                ),
+              ),
             ),
             FilledButton(
               onPressed: confirmed && _looksLikeEmail(emailController.text)
@@ -224,7 +339,15 @@ class _CareAccessScreenState extends State<CareAccessScreen> {
                       emailController.text.trim(),
                     )
                   : null,
-              child: const Text('ساخت دعوت'),
+              child: Text(
+                LifeMateRuntimeLocale.select(
+                  fa: LifeMateRuntimeLocale.select(
+                    fa: 'ساخت دعوت',
+                    en: "Make an invitation",
+                  ),
+                  en: "Make an invitation",
+                ),
+              ),
             ),
           ],
         ),
@@ -246,15 +369,37 @@ class _CareAccessScreenState extends State<CareAccessScreen> {
       await _refresh();
     } on LifeMateApiException catch (error) {
       final message = switch (error.code) {
-        'invitation_already_pending' =>
-          'برای این ایمیل یک دعوت فعال وجود دارد.',
-        'self_invitation_not_allowed' =>
-          'نمی‌توانید حساب خودتان را به‌عنوان مراقب دعوت کنید.',
-        _ => 'دعوت ساخته نشد. دوباره تلاش کنید.',
+        'invitation_already_pending' => LifeMateRuntimeLocale.select(
+          fa: LifeMateRuntimeLocale.select(
+            fa: 'برای این ایمیل یک دعوت فعال وجود دارد.',
+            en: "There is an active invite for this email.",
+          ),
+          en: "There is an active invite for this email.",
+        ),
+        'self_invitation_not_allowed' => LifeMateRuntimeLocale.select(
+          fa: LifeMateRuntimeLocale.select(
+            fa: 'نمی‌توانید حساب خودتان را به‌عنوان مراقب دعوت کنید.',
+            en: "You cannot invite your own account as a caregiver.",
+          ),
+          en: "You cannot invite your own account as a caregiver.",
+        ),
+        _ => LifeMateRuntimeLocale.select(
+          fa: LifeMateRuntimeLocale.select(
+            fa: 'دعوت ساخته نشد. دوباره تلاش کنید.',
+            en: "The invitation was not created. Try again.",
+          ),
+          en: "The invitation was not created. Try again.",
+        ),
       };
       _notice(
         type: LifeMateNoticeType.error,
-        title: 'دعوت ساخته نشد',
+        title: LifeMateRuntimeLocale.select(
+          fa: LifeMateRuntimeLocale.select(
+            fa: 'دعوت ساخته نشد',
+            en: "The invitation was not created",
+          ),
+          en: "The invitation was not created",
+        ),
         message: message,
       );
     } finally {
@@ -267,19 +412,46 @@ class _CareAccessScreenState extends State<CareAccessScreen> {
       context: context,
       builder: (context) => AlertDialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
-        title: const Text('اتصال با QR'),
-        content: const Text(
-          'با ادامه، یک QR یک‌بارمصرف می‌سازید که فقط ۱۰ دقیقه معتبر است. آن را فقط به مراقب مورد اعتماد نشان دهید.',
+        title: Text(
+          LifeMateRuntimeLocale.select(
+            fa: LifeMateRuntimeLocale.select(
+              fa: 'اتصال با QR',
+              en: "Connect with QR",
+            ),
+            en: "Connect with QR",
+          ),
+        ),
+        content: Text(
+          LifeMateRuntimeLocale.select(
+            fa: LifeMateRuntimeLocale.select(
+              fa: 'با ادامه، یک QR یک‌بارمصرف می‌سازید که فقط ۱۰ دقیقه معتبر است. آن را فقط به مراقب مورد اعتماد نشان دهید.',
+              en: "By continuing, you will create a single-use QR that is only valid for 10 minutes. Show it only to a trusted caregiver.",
+            ),
+            en: "By continuing, you will create a single-use QR that is only valid for 10 minutes. Show it only to a trusted caregiver.",
+          ),
           style: TextStyle(height: 1.6),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
-            child: const Text('انصراف'),
+            child: Text(
+              LifeMateRuntimeLocale.select(
+                fa: LifeMateRuntimeLocale.select(fa: 'انصراف', en: "opt out"),
+                en: "opt out",
+              ),
+            ),
           ),
           FilledButton(
             onPressed: () => Navigator.pop(context, true),
-            child: const Text('ساخت QR امن'),
+            child: Text(
+              LifeMateRuntimeLocale.select(
+                fa: LifeMateRuntimeLocale.select(
+                  fa: 'ساخت QR امن',
+                  en: "Make QR safe",
+                ),
+                en: "Make QR safe",
+              ),
+            ),
           ),
         ],
       ),
@@ -301,10 +473,28 @@ class _CareAccessScreenState extends State<CareAccessScreen> {
     } on LifeMateApiException catch (error) {
       _notice(
         type: LifeMateNoticeType.error,
-        title: 'QR ساخته نشد',
+        title: LifeMateRuntimeLocale.select(
+          fa: LifeMateRuntimeLocale.select(
+            fa: 'QR ساخته نشد',
+            en: "QR was not created",
+          ),
+          en: "QR was not created",
+        ),
         message: error.code == 'patient_consent_required'
-            ? 'برای اتصال، تأیید رضایت بیمار لازم است.'
-            : 'ساخت QR انجام نشد. دوباره تلاش کنید.',
+            ? LifeMateRuntimeLocale.select(
+                fa: LifeMateRuntimeLocale.select(
+                  fa: 'برای اتصال، تأیید رضایت بیمار لازم است.',
+                  en: "Confirmation of patient consent is required for connection.",
+                ),
+                en: "Confirmation of patient consent is required for connection.",
+              )
+            : LifeMateRuntimeLocale.select(
+                fa: LifeMateRuntimeLocale.select(
+                  fa: 'ساخت QR انجام نشد. دوباره تلاش کنید.',
+                  en: "Failed to create QR. Try again.",
+                ),
+                en: "Failed to create QR. Try again.",
+              ),
       );
     } finally {
       if (mounted) setState(() => _creating = false);
@@ -317,22 +507,36 @@ class _CareAccessScreenState extends State<CareAccessScreen> {
       barrierDismissible: false,
       builder: (dialogContext) => AlertDialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
-        title: const Text('کد دعوت آماده است'),
+        title: Text(
+          LifeMateRuntimeLocale.select(
+            fa: LifeMateRuntimeLocale.select(
+              fa: 'کد دعوت آماده است',
+              en: "The invitation code is ready",
+            ),
+            en: "The invitation code is ready",
+          ),
+        ),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Text(
-              'این کد محرمانه را فقط برای همان مراقب ارسال کنید. کد پس از ۷۲ ساعت منقضی می‌شود.',
+            Text(
+              LifeMateRuntimeLocale.select(
+                fa: LifeMateRuntimeLocale.select(
+                  fa: 'این کد محرمانه را فقط برای همان مراقب ارسال کنید. کد پس از ۷۲ ساعت منقضی می‌شود.',
+                  en: "Send this secret code to the same caregiver only. Code expires after 72 hours.",
+                ),
+                en: "Send this secret code to the same caregiver only. Code expires after 72 hours.",
+              ),
               style: TextStyle(height: 1.55),
             ),
-            const SizedBox(height: 16),
+            SizedBox(height: 16),
             SelectableText(
               token,
               textDirection: TextDirection.ltr,
-              style: const TextStyle(fontWeight: FontWeight.w700),
+              style: TextStyle(fontWeight: FontWeight.w700),
             ),
             if (expiresAt != null) ...[
-              const SizedBox(height: 8),
+              SizedBox(height: 8),
               Text(
                 'انقضا: ${expiresAt.toPersianDigit(Localizations.localeOf(context).languageCode == 'fa')}',
               ),
@@ -347,17 +551,42 @@ class _CareAccessScreenState extends State<CareAccessScreen> {
                 LifeMateNotice.show(
                   dialogContext,
                   type: LifeMateNoticeType.success,
-                  title: 'کد کپی شد',
-                  message: 'کد دعوت در کلیپ‌بورد قرار گرفت.',
+                  title: LifeMateRuntimeLocale.select(
+                    fa: LifeMateRuntimeLocale.select(
+                      fa: 'کد کپی شد',
+                      en: "The code was copied",
+                    ),
+                    en: "The code was copied",
+                  ),
+                  message: LifeMateRuntimeLocale.select(
+                    fa: LifeMateRuntimeLocale.select(
+                      fa: 'کد دعوت در کلیپ‌بورد قرار گرفت.',
+                      en: "The invitation code was placed in the clipboard.",
+                    ),
+                    en: "The invitation code was placed in the clipboard.",
+                  ),
                 );
               }
             },
-            icon: const Icon(Icons.copy_rounded),
-            label: const Text('کپی کد'),
+            icon: Icon(Icons.copy_rounded),
+            label: Text(
+              LifeMateRuntimeLocale.select(
+                fa: LifeMateRuntimeLocale.select(
+                  fa: 'کپی کد',
+                  en: "Copy the code",
+                ),
+                en: "Copy the code",
+              ),
+            ),
           ),
           FilledButton(
             onPressed: () => Navigator.pop(dialogContext),
-            child: const Text('تمام'),
+            child: Text(
+              LifeMateRuntimeLocale.select(
+                fa: LifeMateRuntimeLocale.select(fa: 'تمام', en: "all"),
+                en: "all",
+              ),
+            ),
           ),
         ],
       ),
@@ -386,18 +615,42 @@ class _CareAccessScreenState extends State<CareAccessScreen> {
       context: context,
       builder: (context) => AlertDialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
-        title: const Text('قطع دسترسی مراقب؟'),
+        title: Text(
+          LifeMateRuntimeLocale.select(
+            fa: LifeMateRuntimeLocale.select(
+              fa: 'قطع دسترسی مراقب؟',
+              en: "Cut off caregiver access?",
+            ),
+            en: "Cut off caregiver access?",
+          ),
+        ),
         content: Text(
-          'دسترسی ${relationship['caregiverDisplayName'] ?? 'این مراقب'} فوراً قطع می‌شود.',
+          LifeMateRuntimeLocale.select(
+            fa: 'دسترسی ${relationship['caregiverDisplayName'] ?? 'این مراقب'} فوراً قطع می‌شود.',
+            en: "${relationship['caregiverDisplayName'] ?? 'این مراقب'} access will be terminated immediately.",
+          ),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
-            child: const Text('انصراف'),
+            child: Text(
+              LifeMateRuntimeLocale.select(
+                fa: LifeMateRuntimeLocale.select(fa: 'انصراف', en: "opt out"),
+                en: "opt out",
+              ),
+            ),
           ),
           FilledButton.tonal(
             onPressed: () => Navigator.pop(context, true),
-            child: const Text('قطع دسترسی'),
+            child: Text(
+              LifeMateRuntimeLocale.select(
+                fa: LifeMateRuntimeLocale.select(
+                  fa: 'قطع دسترسی',
+                  en: "Access cut off",
+                ),
+                en: "Access cut off",
+              ),
+            ),
           ),
         ],
       ),
@@ -410,16 +663,40 @@ class _CareAccessScreenState extends State<CareAccessScreen> {
       if (!mounted) return;
       _notice(
         type: LifeMateNoticeType.success,
-        title: 'دسترسی قطع شد',
-        message: 'همه دسترسی‌های این مراقب فوراً متوقف شد.',
+        title: LifeMateRuntimeLocale.select(
+          fa: LifeMateRuntimeLocale.select(
+            fa: 'دسترسی قطع شد',
+            en: "Access is blocked",
+          ),
+          en: "Access is blocked",
+        ),
+        message: LifeMateRuntimeLocale.select(
+          fa: LifeMateRuntimeLocale.select(
+            fa: 'همه دسترسی‌های این مراقب فوراً متوقف شد.',
+            en: "All access to this caregiver is immediately terminated.",
+          ),
+          en: "All access to this caregiver is immediately terminated.",
+        ),
       );
       await _refresh();
     } catch (error) {
       debugPrint('WellMate revoke caregiver failed: $error');
       _notice(
         type: LifeMateNoticeType.error,
-        title: 'قطع دسترسی انجام نشد',
-        message: 'دوباره تلاش کنید یا اتصال را بررسی کنید.',
+        title: LifeMateRuntimeLocale.select(
+          fa: LifeMateRuntimeLocale.select(
+            fa: 'قطع دسترسی انجام نشد',
+            en: "Access was not terminated",
+          ),
+          en: "Access was not terminated",
+        ),
+        message: LifeMateRuntimeLocale.select(
+          fa: LifeMateRuntimeLocale.select(
+            fa: 'دوباره تلاش کنید یا اتصال را بررسی کنید.',
+            en: "Try again or check the connection.",
+          ),
+          en: "Try again or check the connection.",
+        ),
       );
     }
   }
@@ -433,19 +710,43 @@ class _CareAccessScreenState extends State<CareAccessScreen> {
       context: context,
       builder: (context) => AlertDialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
-        title: const Text('لغو دعوت؟'),
+        title: Text(
+          LifeMateRuntimeLocale.select(
+            fa: LifeMateRuntimeLocale.select(
+              fa: 'لغو دعوت؟',
+              en: "Cancel invitation?",
+            ),
+            en: "Cancel invitation?",
+          ),
+        ),
         content: Text(
-          'دعوت ${invitation['contactHint'] ?? ''} دیگر قابل استفاده نخواهد بود.',
-          style: const TextStyle(height: 1.55),
+          LifeMateRuntimeLocale.select(
+            fa: 'دعوت ${invitation['contactHint'] ?? ''} دیگر قابل استفاده نخواهد بود.',
+            en: "${invitation['contactHint'] ?? ''} invitation will no longer be usable.",
+          ),
+          style: TextStyle(height: 1.55),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
-            child: const Text('انصراف'),
+            child: Text(
+              LifeMateRuntimeLocale.select(
+                fa: LifeMateRuntimeLocale.select(fa: 'انصراف', en: "opt out"),
+                en: "opt out",
+              ),
+            ),
           ),
           FilledButton.tonal(
             onPressed: () => Navigator.pop(context, true),
-            child: const Text('لغو دعوت'),
+            child: Text(
+              LifeMateRuntimeLocale.select(
+                fa: LifeMateRuntimeLocale.select(
+                  fa: 'لغو دعوت',
+                  en: "cancel invitation",
+                ),
+                en: "cancel invitation",
+              ),
+            ),
           ),
         ],
       ),
@@ -459,16 +760,40 @@ class _CareAccessScreenState extends State<CareAccessScreen> {
       if (!mounted) return;
       _notice(
         type: LifeMateNoticeType.success,
-        title: 'دعوت لغو شد',
-        message: 'این دعوت دیگر معتبر نیست.',
+        title: LifeMateRuntimeLocale.select(
+          fa: LifeMateRuntimeLocale.select(
+            fa: 'دعوت لغو شد',
+            en: "The invitation was cancelled",
+          ),
+          en: "The invitation was cancelled",
+        ),
+        message: LifeMateRuntimeLocale.select(
+          fa: LifeMateRuntimeLocale.select(
+            fa: 'این دعوت دیگر معتبر نیست.',
+            en: "This invitation is no longer valid.",
+          ),
+          en: "This invitation is no longer valid.",
+        ),
       );
       await _refresh();
     } catch (error) {
       debugPrint('WellMate revoke invitation failed: $error');
       _notice(
         type: LifeMateNoticeType.error,
-        title: 'لغو دعوت انجام نشد',
-        message: 'دوباره تلاش کنید.',
+        title: LifeMateRuntimeLocale.select(
+          fa: LifeMateRuntimeLocale.select(
+            fa: 'لغو دعوت انجام نشد',
+            en: "Unable to cancel invitation",
+          ),
+          en: "Unable to cancel invitation",
+        ),
+        message: LifeMateRuntimeLocale.select(
+          fa: LifeMateRuntimeLocale.select(
+            fa: 'دوباره تلاش کنید.',
+            en: "Try again.",
+          ),
+          en: "Try again.",
+        ),
       );
     } finally {
       if (mounted) setState(() => _cancellingInvitationIds.remove(id));
@@ -493,36 +818,45 @@ class _CareAccessScreenState extends State<CareAccessScreen> {
       appBar: AppBar(
         backgroundColor: Colors.transparent,
         surfaceTintColor: Colors.transparent,
-        title: const Text(
-          'مراقبان من',
+        title: Text(
+          LifeMateRuntimeLocale.select(
+            fa: LifeMateRuntimeLocale.select(
+              fa: 'مراقبان من',
+              en: "my caregivers",
+            ),
+            en: "my caregivers",
+          ),
           style: TextStyle(fontWeight: FontWeight.w900),
         ),
       ),
       body: RefreshIndicator(
         onRefresh: _refresh,
         child: ListView(
-          physics: const AlwaysScrollableScrollPhysics(),
-          padding: const EdgeInsets.fromLTRB(20, 4, 20, 36),
+          physics: AlwaysScrollableScrollPhysics(),
+          padding: EdgeInsets.fromLTRB(20, 4, 20, 36),
           children: [
-            const _CareAccessHero(),
-            const SizedBox(height: 14),
+            _CareAccessHero(),
+            SizedBox(height: 14),
             _AddCaregiverCard(
               loading: _creating,
               onTap: _creating ? null : _openInviteSheet,
             ),
-            const SizedBox(height: 24),
+            SizedBox(height: 24),
             _SectionHeader(
-              title: 'درخواست‌های جدید',
+              title: LifeMateRuntimeLocale.select(
+                fa: 'درخواست‌های جدید',
+                en: "New requests",
+              ),
               count: incoming.length,
               isPersian: isPersian,
             ),
-            const SizedBox(height: 10),
+            SizedBox(height: 10),
             if (incoming.isEmpty)
-              const _NoIncomingRequestsCard()
+              _NoIncomingRequestsCard()
             else
               ...incoming.map(
                 (request) => Padding(
-                  padding: const EdgeInsets.only(bottom: 10),
+                  padding: EdgeInsets.only(bottom: 10),
                   child: IncomingCareRequestCard(
                     request: request,
                     loading: _respondingCareRequestIds.contains(
@@ -535,23 +869,29 @@ class _CareAccessScreenState extends State<CareAccessScreen> {
                   ),
                 ),
               ),
-            const SizedBox(height: 24),
+            SizedBox(height: 24),
             _SectionHeader(
-              title: 'مراقبان فعال',
+              title: LifeMateRuntimeLocale.select(
+                fa: LifeMateRuntimeLocale.select(
+                  fa: 'مراقبان فعال',
+                  en: "Active caregivers",
+                ),
+                en: "Active caregivers",
+              ),
               count: active.length,
               isPersian: isPersian,
             ),
-            const SizedBox(height: 10),
+            SizedBox(height: 10),
             if (_loading && _currentUserId == null)
-              const _LoadingCard()
+              _LoadingCard()
             else if (_error != null)
               _ErrorState(message: _error!, onRetry: _refresh)
             else if (active.isEmpty)
-              const _CaregiverEmptyCard()
+              _CaregiverEmptyCard()
             else
               ...active.map(
                 (relationship) => Padding(
-                  padding: const EdgeInsets.only(bottom: 12),
+                  padding: EdgeInsets.only(bottom: 12),
                   child: _CaregiverCard(
                     relationship: relationship,
                     onSettings: () => _openAccessSettings(relationship),
@@ -560,16 +900,19 @@ class _CareAccessScreenState extends State<CareAccessScreen> {
                 ),
               ),
             if (pending.isNotEmpty) ...[
-              const SizedBox(height: 14),
+              SizedBox(height: 14),
               _SectionHeader(
-                title: 'دعوت‌های ارسال‌شده',
+                title: LifeMateRuntimeLocale.select(
+                  fa: 'دعوت‌های ارسال‌شده',
+                  en: "Invitations sent",
+                ),
                 count: pending.length,
                 isPersian: isPersian,
               ),
-              const SizedBox(height: 10),
+              SizedBox(height: 10),
               ...pending.map(
                 (invitation) => Padding(
-                  padding: const EdgeInsets.only(bottom: 10),
+                  padding: EdgeInsets.only(bottom: 10),
                   child: _PendingInvitationCard(
                     invitation: invitation,
                     isPersian: isPersian,
@@ -601,16 +944,16 @@ class _CareAccessHero extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Container(
-    padding: const EdgeInsets.all(18),
+    padding: EdgeInsets.all(18),
     decoration: BoxDecoration(
-      gradient: const LinearGradient(
+      gradient: LinearGradient(
         begin: Alignment.topRight,
         end: Alignment.bottomLeft,
         colors: [Color(0xFFE9F8F2), Color(0xFFF6FBF8)],
       ),
       borderRadius: BorderRadius.circular(26),
       border: Border.all(color: Colors.white),
-      boxShadow: const [
+      boxShadow: [
         BoxShadow(
           color: Color(0x0D27493D),
           blurRadius: 22,
@@ -618,7 +961,7 @@ class _CareAccessHero extends StatelessWidget {
         ),
       ],
     ),
-    child: const Row(
+    child: Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         _HeroIcon(),
@@ -628,7 +971,13 @@ class _CareAccessHero extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                'تیم مراقبتت، زیر کنترل خودت',
+                LifeMateRuntimeLocale.select(
+                  fa: LifeMateRuntimeLocale.select(
+                    fa: 'تیم مراقبتت، زیر کنترل خودت',
+                    en: "Your care team, under your control",
+                  ),
+                  en: "Your care team, under your control",
+                ),
                 style: TextStyle(
                   fontSize: 17,
                   fontWeight: FontWeight.w900,
@@ -637,7 +986,13 @@ class _CareAccessHero extends StatelessWidget {
               ),
               SizedBox(height: 6),
               Text(
-                'مراقب اضافه کن، دسترسی هر نفر را جدا تنظیم کن و هر زمان خواستی ارتباط را قطع کن.',
+                LifeMateRuntimeLocale.select(
+                  fa: LifeMateRuntimeLocale.select(
+                    fa: 'مراقب اضافه کن، دسترسی هر نفر را جدا تنظیم کن و هر زمان خواستی ارتباط را قطع کن.',
+                    en: "Add caregivers, set each person's access separately and disconnect whenever you want.",
+                  ),
+                  en: "Add caregivers, set each person's access separately and disconnect whenever you want.",
+                ),
                 style: TextStyle(
                   height: 1.6,
                   fontSize: 12.5,
@@ -688,7 +1043,7 @@ class _AddCaregiverCard extends StatelessWidget {
         decoration: BoxDecoration(
           color: Colors.white,
           borderRadius: BorderRadius.circular(24),
-          boxShadow: const [
+          boxShadow: [
             BoxShadow(
               color: Color(0x0D27493D),
               blurRadius: 18,
@@ -706,22 +1061,28 @@ class _AddCaregiverCard extends StatelessWidget {
                 shape: BoxShape.circle,
               ),
               child: loading
-                  ? const Padding(
+                  ? Padding(
                       padding: EdgeInsets.all(14),
                       child: CircularProgressIndicator(strokeWidth: 2),
                     )
-                  : const Icon(
+                  : Icon(
                       Icons.person_add_alt_1_rounded,
                       color: AppColors.primary,
                     ),
             ),
-            const SizedBox(width: 14),
-            const Expanded(
+            SizedBox(width: 14),
+            Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    'افزودن مراقب جدید',
+                    LifeMateRuntimeLocale.select(
+                      fa: LifeMateRuntimeLocale.select(
+                        fa: 'افزودن مراقب جدید',
+                        en: "Add a new caregiver",
+                      ),
+                      en: "Add a new caregiver",
+                    ),
                     style: TextStyle(
                       fontSize: 16,
                       fontWeight: FontWeight.w900,
@@ -730,7 +1091,13 @@ class _AddCaregiverCard extends StatelessWidget {
                   ),
                   SizedBox(height: 4),
                   Text(
-                    'دعوت با ایمیل یا اتصال امن با QR',
+                    LifeMateRuntimeLocale.select(
+                      fa: LifeMateRuntimeLocale.select(
+                        fa: 'دعوت با ایمیل یا اتصال امن با QR',
+                        en: "Invite by email or secure connection with QR",
+                      ),
+                      en: "Invite by email or secure connection with QR",
+                    ),
                     style: TextStyle(
                       fontSize: 12.5,
                       color: AppColors.textSecondary,
@@ -739,7 +1106,7 @@ class _AddCaregiverCard extends StatelessWidget {
                 ],
               ),
             ),
-            const Icon(Icons.chevron_left_rounded, color: Colors.black26),
+            Icon(Icons.chevron_left_rounded, color: Colors.black26),
           ],
         ),
       ),
@@ -794,13 +1161,13 @@ class _NoIncomingRequestsCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Container(
-    padding: const EdgeInsets.all(16),
+    padding: EdgeInsets.all(16),
     decoration: BoxDecoration(
       color: Colors.white.withValues(alpha: 0.78),
       borderRadius: BorderRadius.circular(22),
-      border: Border.all(color: const Color(0xFFE4EEE8)),
+      border: Border.all(color: Color(0xFFE4EEE8)),
     ),
-    child: const Row(
+    child: Row(
       children: [
         CircleAvatar(
           radius: 21,
@@ -814,7 +1181,13 @@ class _NoIncomingRequestsCard extends StatelessWidget {
         SizedBox(width: 12),
         Expanded(
           child: Text(
-            'درخواست جدیدی برای بررسی ندارید. اگر کسی از CareMate درخواست مراقبت بفرستد، نام و تصویرش همین‌جا نمایش داده می‌شود.',
+            LifeMateRuntimeLocale.select(
+              fa: LifeMateRuntimeLocale.select(
+                fa: 'درخواست جدیدی برای بررسی ندارید. اگر کسی از CareMate درخواست مراقبت بفرستد، نام و تصویرش همین‌جا نمایش داده می‌شود.',
+                en: "You have no new requests to review. If someone requests care from CareMate, their name and picture will be displayed here.",
+              ),
+              en: "You have no new requests to review. If someone requests care from CareMate, their name and picture will be displayed here.",
+            ),
             style: TextStyle(
               height: 1.55,
               fontSize: 12.5,
@@ -841,7 +1214,12 @@ class _CaregiverCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final rawName = relationship['caregiverDisplayName']?.toString().trim();
-    final name = rawName == null || rawName.isEmpty ? 'مراقب' : rawName;
+    final name = rawName == null || rawName.isEmpty
+        ? LifeMateRuntimeLocale.select(
+            fa: LifeMateRuntimeLocale.select(fa: 'مراقب', en: "Caregiver"),
+            en: "Careful",
+          )
+        : rawName;
     final canSeeWomenCalendar = relationship['canViewWomenCalendar'] == true;
     final rawPhotoUrl = relationship['caregiverProfilePhotoUrl']
         ?.toString()
@@ -859,7 +1237,7 @@ class _CaregiverCard extends StatelessWidget {
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(24),
-        boxShadow: const [
+        boxShadow: [
           BoxShadow(
             color: Color(0x0D27493D),
             blurRadius: 18,
@@ -877,22 +1255,28 @@ class _CaregiverCard extends StatelessWidget {
                 photoUrl: photoUrl,
                 radius: 29,
               ),
-              const SizedBox(width: 13),
+              SizedBox(width: 13),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
                       name,
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontSize: 16,
                         fontWeight: FontWeight.w900,
                         color: AppColors.darkBlue,
                       ),
                     ),
-                    const SizedBox(height: 5),
-                    const Text(
-                      'مراقب فعال شما',
+                    SizedBox(height: 5),
+                    Text(
+                      LifeMateRuntimeLocale.select(
+                        fa: LifeMateRuntimeLocale.select(
+                          fa: 'مراقب فعال شما',
+                          en: "Your active caregiver",
+                        ),
+                        en: "Your active caregiver",
+                      ),
                       style: TextStyle(
                         fontSize: 12.5,
                         color: AppColors.textSecondary,
@@ -903,37 +1287,63 @@ class _CaregiverCard extends StatelessWidget {
               ),
               Material(
                 color: AppColors.primary.withValues(alpha: 0.10),
-                shape: const CircleBorder(),
+                shape: CircleBorder(),
                 child: IconButton(
-                  tooltip: 'تنظیمات دسترسی',
-                  onPressed: onSettings,
-                  icon: const Icon(
-                    Icons.settings_rounded,
-                    color: AppColors.primary,
+                  tooltip: LifeMateRuntimeLocale.select(
+                    fa: LifeMateRuntimeLocale.select(
+                      fa: 'تنظیمات دسترسی',
+                      en: "Access settings",
+                    ),
+                    en: "Access settings",
                   ),
+                  onPressed: onSettings,
+                  icon: Icon(Icons.settings_rounded, color: AppColors.primary),
                 ),
               ),
             ],
           ),
-          const SizedBox(height: 13),
+          SizedBox(height: 13),
           Row(
             children: [
-              const _AccessChip(icon: Icons.medication_rounded, label: 'دارو'),
+              _AccessChip(
+                icon: Icons.medication_rounded,
+                label: LifeMateRuntimeLocale.select(
+                  fa: LifeMateRuntimeLocale.select(
+                    fa: 'دارو',
+                    en: "Medication",
+                  ),
+                  en: "medicine",
+                ),
+              ),
               if (canSeeWomenCalendar) ...[
-                const SizedBox(width: 7),
-                const _AccessChip(
+                SizedBox(width: 7),
+                _AccessChip(
                   icon: Icons.calendar_month_rounded,
-                  label: 'تقویم بانوان',
+                  label: LifeMateRuntimeLocale.select(
+                    fa: LifeMateRuntimeLocale.select(
+                      fa: 'تقویم بانوان',
+                      en: "Women's Calendar",
+                    ),
+                    en: "Women's calendar",
+                  ),
                 ),
               ],
-              const Spacer(),
+              Spacer(),
               TextButton.icon(
                 onPressed: onRevoke,
-                icon: const Icon(Icons.link_off_rounded, size: 18),
-                label: const Text('قطع ارتباط'),
+                icon: Icon(Icons.link_off_rounded, size: 18),
+                label: Text(
+                  LifeMateRuntimeLocale.select(
+                    fa: LifeMateRuntimeLocale.select(
+                      fa: 'قطع ارتباط',
+                      en: "disconnection",
+                    ),
+                    en: "disconnection",
+                  ),
+                ),
                 style: TextButton.styleFrom(
-                  foregroundColor: const Color(0xFFB34A4A),
-                  textStyle: const TextStyle(fontSize: 12),
+                  foregroundColor: Color(0xFFB34A4A),
+                  textStyle: TextStyle(fontSize: 12),
                 ),
               ),
             ],
@@ -990,7 +1400,12 @@ class _PendingInvitationCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final contact = invitation['contactHint']?.toString() ?? 'مراقب';
+    final contact =
+        invitation['contactHint']?.toString() ??
+        LifeMateRuntimeLocale.select(
+          fa: LifeMateRuntimeLocale.select(fa: 'مراقب', en: "Caregiver"),
+          en: "Careful",
+        );
     final expiresAt = invitation['expiresAtUtc']?.toString();
     return Container(
       padding: const EdgeInsets.all(14),
@@ -1004,31 +1419,25 @@ class _PendingInvitationCard extends StatelessWidget {
             width: 42,
             height: 42,
             decoration: BoxDecoration(
-              color: const Color(0xFFFFF7E8),
+              color: Color(0xFFFFF7E8),
               borderRadius: BorderRadius.circular(14),
             ),
-            child: const Icon(
-              Icons.schedule_send_rounded,
-              color: Color(0xFFD6932C),
-            ),
+            child: Icon(Icons.schedule_send_rounded, color: Color(0xFFD6932C)),
           ),
-          const SizedBox(width: 11),
+          SizedBox(width: 11),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  contact,
-                  style: const TextStyle(fontWeight: FontWeight.w800),
-                ),
-                const SizedBox(height: 3),
+                Text(contact, style: TextStyle(fontWeight: FontWeight.w800)),
+                SizedBox(height: 3),
                 Text(
                   expiresAt == null
                       ? 'در انتظار پذیرش'
                       : 'در انتظار پذیرش • انقضا ${expiresAt.toPersianDigit(isPersian)}',
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: 11.5,
                     color: AppColors.textSecondary,
                   ),
@@ -1037,14 +1446,20 @@ class _PendingInvitationCard extends StatelessWidget {
             ),
           ),
           IconButton(
-            tooltip: 'لغو دعوت',
+            tooltip: LifeMateRuntimeLocale.select(
+              fa: LifeMateRuntimeLocale.select(
+                fa: 'لغو دعوت',
+                en: "cancel invitation",
+              ),
+              en: "cancel invitation",
+            ),
             onPressed: loading ? null : onCancel,
             icon: loading
-                ? const SizedBox.square(
+                ? SizedBox.square(
                     dimension: 18,
                     child: CircularProgressIndicator(strokeWidth: 2),
                   )
-                : const Icon(Icons.close_rounded, color: Color(0xFFB34A4A)),
+                : Icon(Icons.close_rounded, color: Color(0xFFB34A4A)),
           ),
         ],
       ),
@@ -1057,17 +1472,23 @@ class _CaregiverEmptyCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Container(
-    padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 24),
+    padding: EdgeInsets.symmetric(horizontal: 18, vertical: 24),
     decoration: BoxDecoration(
       color: Colors.white,
       borderRadius: BorderRadius.circular(24),
     ),
-    child: const Column(
+    child: Column(
       children: [
         Icon(Icons.group_add_rounded, color: AppColors.primary, size: 42),
         SizedBox(height: 10),
         Text(
-          'هنوز مراقب فعالی ندارید',
+          LifeMateRuntimeLocale.select(
+            fa: LifeMateRuntimeLocale.select(
+              fa: 'هنوز مراقب فعالی ندارید',
+              en: "You do not have an active caregiver yet",
+            ),
+            en: "You do not have an active caregiver yet",
+          ),
           style: TextStyle(
             fontWeight: FontWeight.w900,
             color: AppColors.darkBlue,
@@ -1075,7 +1496,13 @@ class _CaregiverEmptyCard extends StatelessWidget {
         ),
         SizedBox(height: 5),
         Text(
-          'از کارت بالا یک نفر را با ایمیل یا QR دعوت کنید.',
+          LifeMateRuntimeLocale.select(
+            fa: LifeMateRuntimeLocale.select(
+              fa: 'از کارت بالا یک نفر را با ایمیل یا QR دعوت کنید.',
+              en: "Invite someone by email or QR from the above card.",
+            ),
+            en: "Invite someone by email or QR from the above card.",
+          ),
           textAlign: TextAlign.center,
           style: TextStyle(fontSize: 12.5, color: AppColors.textSecondary),
         ),
@@ -1099,8 +1526,8 @@ class _InviteOptionsSheet extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Container(
-    padding: const EdgeInsets.fromLTRB(20, 10, 20, 28),
-    decoration: const BoxDecoration(
+    padding: EdgeInsets.fromLTRB(20, 10, 20, 28),
+    decoration: BoxDecoration(
       color: Colors.white,
       borderRadius: BorderRadius.vertical(top: Radius.circular(30)),
     ),
@@ -1114,38 +1541,74 @@ class _InviteOptionsSheet extends StatelessWidget {
             child: Container(
               width: 42,
               height: 4,
-              margin: const EdgeInsets.only(bottom: 18),
+              margin: EdgeInsets.only(bottom: 18),
               decoration: BoxDecoration(
-                color: const Color(0xFFD7E0DB),
+                color: Color(0xFFD7E0DB),
                 borderRadius: BorderRadius.circular(10),
               ),
             ),
           ),
-          const Text(
-            'افزودن مراقب جدید',
+          Text(
+            LifeMateRuntimeLocale.select(
+              fa: LifeMateRuntimeLocale.select(
+                fa: 'افزودن مراقب جدید',
+                en: "Add a new caregiver",
+              ),
+              en: "Add a new caregiver",
+            ),
             style: TextStyle(
               fontSize: 19,
               fontWeight: FontWeight.w900,
               color: AppColors.darkBlue,
             ),
           ),
-          const SizedBox(height: 5),
-          const Text(
-            'روش امنی که برای شما راحت‌تر است انتخاب کنید.',
+          SizedBox(height: 5),
+          Text(
+            LifeMateRuntimeLocale.select(
+              fa: LifeMateRuntimeLocale.select(
+                fa: 'روش امنی که برای شما راحت‌تر است انتخاب کنید.',
+                en: "Choose the safe method that is most convenient for you.",
+              ),
+              en: "Choose the safe method that is most convenient for you.",
+            ),
             style: TextStyle(color: AppColors.textSecondary),
           ),
-          const SizedBox(height: 18),
+          SizedBox(height: 18),
           _InviteOptionTile(
             icon: Icons.qr_code_2_rounded,
-            title: 'اتصال با QR',
-            subtitle: 'برای وقتی که مراقب کنار شماست',
+            title: LifeMateRuntimeLocale.select(
+              fa: LifeMateRuntimeLocale.select(
+                fa: 'اتصال با QR',
+                en: "Connect with QR",
+              ),
+              en: "Connect with QR",
+            ),
+            subtitle: LifeMateRuntimeLocale.select(
+              fa: LifeMateRuntimeLocale.select(
+                fa: 'برای وقتی که مراقب کنار شماست',
+                en: "For when the caretaker is by your side",
+              ),
+              en: "For when the caretaker is by your side",
+            ),
             onTap: () => Navigator.pop(context, _InviteAction.qr),
           ),
-          const SizedBox(height: 10),
+          SizedBox(height: 10),
           _InviteOptionTile(
             icon: Icons.alternate_email_rounded,
-            title: 'دعوت با ایمیل',
-            subtitle: 'ارسال کد دعوت برای مراقب مورد اعتماد',
+            title: LifeMateRuntimeLocale.select(
+              fa: LifeMateRuntimeLocale.select(
+                fa: 'دعوت با ایمیل',
+                en: "Invitation by email",
+              ),
+              en: "Invitation by email",
+            ),
+            subtitle: LifeMateRuntimeLocale.select(
+              fa: LifeMateRuntimeLocale.select(
+                fa: 'ارسال کد دعوت برای مراقب مورد اعتماد',
+                en: "Send invitation code to trusted caregiver",
+              ),
+              en: "Send invitation code to trusted caregiver",
+            ),
             onTap: () => Navigator.pop(context, _InviteAction.email),
           ),
         ],
@@ -1226,7 +1689,7 @@ class _ErrorState extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Container(
-    padding: const EdgeInsets.all(22),
+    padding: EdgeInsets.all(22),
     decoration: BoxDecoration(
       color: Colors.white,
       borderRadius: BorderRadius.circular(24),
@@ -1238,10 +1701,21 @@ class _ErrorState extends StatelessWidget {
           color: Theme.of(context).colorScheme.error,
           size: 42,
         ),
-        const SizedBox(height: 10),
+        SizedBox(height: 10),
         Text(message),
-        const SizedBox(height: 12),
-        OutlinedButton(onPressed: onRetry, child: const Text('تلاش دوباره')),
+        SizedBox(height: 12),
+        OutlinedButton(
+          onPressed: onRetry,
+          child: Text(
+            LifeMateRuntimeLocale.select(
+              fa: LifeMateRuntimeLocale.select(
+                fa: 'تلاش دوباره',
+                en: "Try again",
+              ),
+              en: "Try again",
+            ),
+          ),
+        ),
       ],
     ),
   );

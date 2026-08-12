@@ -90,12 +90,32 @@ class _CalendarScreenState extends State<CalendarScreen> {
     } on LifeMateApiException catch (error) {
       _setError(
         error.isUnauthorized
-            ? 'نشست شما منقضی شده است. دوباره وارد شوید.'
-            : 'تقویم درمان و مراقبت دریافت نشد. دوباره تلاش کنید.',
+            ? LifeMateRuntimeLocale.select(
+                fa: LifeMateRuntimeLocale.select(
+                  fa: 'نشست شما منقضی شده است. دوباره وارد شوید.',
+                  en: "Your session has expired. Sign in again.",
+                ),
+                en: "Your session has expired. Sign in again.",
+              )
+            : LifeMateRuntimeLocale.select(
+                fa: LifeMateRuntimeLocale.select(
+                  fa: 'تقویم درمان و مراقبت دریافت نشد. دوباره تلاش کنید.',
+                  en: "The treatment and care calendar was not received. Try again.",
+                ),
+                en: "The treatment and care calendar was not received. Try again.",
+              ),
       );
     } catch (error) {
       debugPrint('WellMate calendar load failed: $error');
-      _setError('تقویم درمان و مراقبت دریافت نشد. اتصال را بررسی کنید.');
+      _setError(
+        LifeMateRuntimeLocale.select(
+          fa: LifeMateRuntimeLocale.select(
+            fa: 'تقویم درمان و مراقبت دریافت نشد. اتصال را بررسی کنید.',
+            en: "The treatment and care calendar was not received. Check the connection.",
+          ),
+          en: "The treatment and care calendar was not received. Check the connection.",
+        ),
+      );
     }
   }
 
@@ -118,12 +138,25 @@ class _CalendarScreenState extends State<CalendarScreen> {
       id: dose['id']?.toString() ?? '',
       title: medication['name']?.toString().trim().isNotEmpty == true
           ? medication['name'].toString()
-          : dose['medicationName']?.toString() ?? 'دارو',
+          : dose['medicationName']?.toString() ??
+                LifeMateRuntimeLocale.select(
+                  fa: LifeMateRuntimeLocale.select(
+                    fa: 'دارو',
+                    en: "Medication",
+                  ),
+                  en: "medicine",
+                ),
       time: rawTime.length >= 5 ? rawTime.substring(0, 5) : rawTime,
       dosage:
           plan['doseText']?.toString() ?? dose['doseText']?.toString() ?? '',
       type: 'medicine',
-      frequency: 'طبق برنامه درمان',
+      frequency: LifeMateRuntimeLocale.select(
+        fa: LifeMateRuntimeLocale.select(
+          fa: 'طبق برنامه درمان',
+          en: "According to the treatment plan",
+        ),
+        en: "According to the treatment plan",
+      ),
       isDone: status == 'taken' || status == 'skipped',
       status: status,
       version: dose['version'] is int ? dose['version'] as int : 1,
@@ -173,11 +206,33 @@ class _CalendarScreenState extends State<CalendarScreen> {
       seriesId: event['seriesId']?.toString(),
       title:
           _nonEmpty(event['title']) ??
-          (type == 'injection' ? 'تزریق' : 'ویزیت'),
+          (type == 'injection'
+              ? LifeMateRuntimeLocale.select(
+                  fa: LifeMateRuntimeLocale.select(
+                    fa: 'تزریق',
+                    en: "Injection",
+                  ),
+                  en: "Injection",
+                )
+              : LifeMateRuntimeLocale.select(
+                  fa: LifeMateRuntimeLocale.select(
+                    fa: 'ویزیت',
+                    en: "Appointment",
+                  ),
+                  en: "visit",
+                )),
       time: rawTime.length >= 5 ? rawTime.substring(0, 5) : rawTime,
       dosage: details,
       type: type,
-      frequency: type == 'injection' ? 'تزریق' : 'ویزیت',
+      frequency: type == 'injection'
+          ? LifeMateRuntimeLocale.select(
+              fa: LifeMateRuntimeLocale.select(fa: 'تزریق', en: "Injection"),
+              en: "Injection",
+            )
+          : LifeMateRuntimeLocale.select(
+              fa: LifeMateRuntimeLocale.select(fa: 'ویزیت', en: "Appointment"),
+              en: "visit",
+            ),
       isDone: status == 'completed' || status == 'cancelled',
       status: status,
       version: event['version'] is int ? event['version'] as int : 1,
@@ -201,10 +256,25 @@ class _CalendarScreenState extends State<CalendarScreen> {
 
   static String _administrationRouteLabel(dynamic value) {
     return switch (value?.toString().toLowerCase()) {
-      'intramuscular' => 'عضلانی',
-      'subcutaneous' => 'زیرجلدی',
-      'intravenous' => 'وریدی',
-      'other' => 'طبق دستور درمانگر',
+      'intramuscular' => LifeMateRuntimeLocale.select(
+        fa: LifeMateRuntimeLocale.select(fa: 'عضلانی', en: "muscular"),
+        en: "muscular",
+      ),
+      'subcutaneous' => LifeMateRuntimeLocale.select(
+        fa: LifeMateRuntimeLocale.select(fa: 'زیرجلدی', en: "Undercover"),
+        en: "Undercover",
+      ),
+      'intravenous' => LifeMateRuntimeLocale.select(
+        fa: LifeMateRuntimeLocale.select(fa: 'وریدی', en: "vein"),
+        en: "vein",
+      ),
+      'other' => LifeMateRuntimeLocale.select(
+        fa: LifeMateRuntimeLocale.select(
+          fa: 'طبق دستور درمانگر',
+          en: "According to the therapist's instructions",
+        ),
+        en: "According to the therapist's instructions",
+      ),
       _ => '',
     };
   }
@@ -300,7 +370,10 @@ class _CalendarScreenState extends State<CalendarScreen> {
     final isPersian = Localizations.localeOf(context).languageCode == 'fa';
     final selectedEvents = _getEventsForDay(_selectedDate);
     final scheduleTitle = isPersian
-        ? 'برنامه روز ${formatAppDate(context, _selectedDate, includeWeekday: true)}'
+        ? LifeMateRuntimeLocale.select(
+            fa: 'برنامه روز ${formatAppDate(context, _selectedDate, includeWeekday: true)}',
+            en: "Program of the day ${formatAppDate(context, _selectedDate, includeWeekday: true)}",
+          )
         : '${loc['calendar_schedule_for'] ?? 'Schedule for'} '
               '${formatAppDate(context, _selectedDate)}';
 
@@ -354,7 +427,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
                       BoxShadow(
                         color: AppColors.shadowDark.withValues(alpha: 0.5),
                         blurRadius: 10,
-                        offset: const Offset(0, -5),
+                        offset: Offset(0, -5),
                       ),
                     ],
                   ),
@@ -367,9 +440,9 @@ class _CalendarScreenState extends State<CalendarScreen> {
                           context,
                         ).copyWith(fontSize: 18),
                       ),
-                      const SizedBox(height: 16),
+                      SizedBox(height: 16),
                       if (_loading)
-                        const Padding(
+                        Padding(
                           padding: EdgeInsets.symmetric(vertical: 48),
                           child: Center(child: CircularProgressIndicator()),
                         )
@@ -380,17 +453,24 @@ class _CalendarScreenState extends State<CalendarScreen> {
                         )
                       else if (selectedEvents.isEmpty)
                         Padding(
-                          padding: const EdgeInsets.symmetric(vertical: 40),
+                          padding: EdgeInsets.symmetric(vertical: 40),
                           child: Center(
                             child: Text(
-                              loc['calendar_empty'] ?? 'بدون برنامه',
+                              loc['calendar_empty'] ??
+                                  LifeMateRuntimeLocale.select(
+                                    fa: LifeMateRuntimeLocale.select(
+                                      fa: 'بدون برنامه',
+                                      en: "No program",
+                                    ),
+                                    en: "No program",
+                                  ),
                               style: AppTextStyles.body(context),
                             ),
                           ),
                         )
                       else
                         Column(
-                          key: const ValueKey<String>('calendar-event-list'),
+                          key: ValueKey<String>('calendar-event-list'),
                           children: [
                             for (final item in selectedEvents)
                               _eventCard(context, item, loc, isPersian),
@@ -417,23 +497,27 @@ class _CalendarErrorState extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 34),
+      padding: EdgeInsets.symmetric(vertical: 34),
       child: Center(
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Icon(
-              Icons.cloud_off_rounded,
-              size: 48,
-              color: AppColors.primary,
-            ),
-            const SizedBox(height: 12),
+            Icon(Icons.cloud_off_rounded, size: 48, color: AppColors.primary),
+            SizedBox(height: 12),
             Text(message, textAlign: TextAlign.center),
-            const SizedBox(height: 14),
+            SizedBox(height: 14),
             OutlinedButton.icon(
               onPressed: onRetry,
-              icon: const Icon(Icons.refresh_rounded),
-              label: const Text('تلاش دوباره'),
+              icon: Icon(Icons.refresh_rounded),
+              label: Text(
+                LifeMateRuntimeLocale.select(
+                  fa: LifeMateRuntimeLocale.select(
+                    fa: 'تلاش دوباره',
+                    en: "Try again",
+                  ),
+                  en: "Try again",
+                ),
+              ),
             ),
           ],
         ),

@@ -1,3 +1,5 @@
+import 'runtime_locale.dart';
+
 enum CareItemType { medication, visit, injection }
 
 enum CareItemSort { nearest, newest, oldest, name, type }
@@ -44,7 +46,12 @@ class CareItem {
   static CareItem fromTreatmentPlan(Map<String, dynamic> plan) {
     final medication = _object(plan['medication']);
     final schedules = _objects(plan['schedules']);
-    final name = _text(medication['name']) ?? 'دارو';
+    final name =
+        _text(medication['name']) ??
+        LifeMateRuntimeLocale.select(
+          fa: LifeMateRuntimeLocale.select(fa: 'دارو', en: "Medication"),
+          en: "medicine",
+        );
     final dose = _text(plan['doseText']) ?? '';
     final instructions = _text(plan['instructions']) ?? '';
     final firstTime = schedules.isEmpty
@@ -80,7 +87,12 @@ class CareItem {
     Map<String, dynamic> plan,
   ) {
     final medication = _object(plan['medication']);
-    final name = _text(medication['name']) ?? 'دارو';
+    final name =
+        _text(medication['name']) ??
+        LifeMateRuntimeLocale.select(
+          fa: LifeMateRuntimeLocale.select(fa: 'دارو', en: "Medication"),
+          en: "medicine",
+        );
     final dose = _text(plan['doseText']) ?? '';
     final instructions = _text(plan['instructions']) ?? '';
     final date = DateTime.tryParse(
@@ -120,7 +132,18 @@ class CareItem {
         : CareItemType.visit;
     final title =
         _text(event['title']) ??
-        (type == CareItemType.injection ? 'تزریق' : 'ویزیت');
+        (type == CareItemType.injection
+            ? LifeMateRuntimeLocale.select(
+                fa: LifeMateRuntimeLocale.select(fa: 'تزریق', en: "Injection"),
+                en: "Injection",
+              )
+            : LifeMateRuntimeLocale.select(
+                fa: LifeMateRuntimeLocale.select(
+                  fa: 'ویزیت',
+                  en: "Appointment",
+                ),
+                en: "visit",
+              ));
     final date = DateTime.tryParse(_text(event['scheduledLocalDate']) ?? '');
     final time = _text(event['scheduledLocalTime']);
     final scheduledAt =
@@ -235,8 +258,26 @@ class CareItem {
   static String _normalize(String input) => input
       .trim()
       .toLowerCase()
-      .replaceAll('ي', 'ی')
-      .replaceAll('ك', 'ک')
+      .replaceAll(
+        LifeMateRuntimeLocale.select(
+          fa: LifeMateRuntimeLocale.select(fa: 'ي', en: "Y"),
+          en: "Y",
+        ),
+        LifeMateRuntimeLocale.select(
+          fa: LifeMateRuntimeLocale.select(fa: 'ی', en: "Y"),
+          en: "Y",
+        ),
+      )
+      .replaceAll(
+        LifeMateRuntimeLocale.select(
+          fa: LifeMateRuntimeLocale.select(fa: 'ك', en: "K"),
+          en: "K",
+        ),
+        LifeMateRuntimeLocale.select(
+          fa: LifeMateRuntimeLocale.select(fa: 'ک', en: "K"),
+          en: "K",
+        ),
+      )
       .replaceAll(RegExp(r'\s+'), ' ');
 
   static Map<String, dynamic> _object(dynamic value) =>

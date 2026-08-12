@@ -179,7 +179,9 @@ class _ModernPersianDatePickerState extends State<_ModernPersianDatePicker> {
     final maxHeight = MediaQuery.sizeOf(context).height * 0.88;
 
     return Directionality(
-      textDirection: TextDirection.rtl,
+      textDirection: LifeMateRuntimeLocale.isPersian
+          ? TextDirection.rtl
+          : TextDirection.ltr,
       child: SafeArea(
         top: false,
         child: ConstrainedBox(

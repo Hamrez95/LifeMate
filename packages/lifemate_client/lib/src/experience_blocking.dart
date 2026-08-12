@@ -27,7 +27,9 @@ class _ExperienceBlockingState extends StatelessWidget {
   Widget build(BuildContext context) {
     final brand = _BrandPalette.forApp(appName);
     return Directionality(
-      textDirection: TextDirection.rtl,
+      textDirection: LifeMateRuntimeLocale.isPersian
+          ? TextDirection.rtl
+          : TextDirection.ltr,
       child: Scaffold(
         backgroundColor: brand.background,
         body: Stack(

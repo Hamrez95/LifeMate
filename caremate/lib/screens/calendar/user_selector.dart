@@ -22,24 +22,27 @@ class UserSelector extends StatelessWidget {
   Widget build(BuildContext context) {
     if (users.isEmpty) {
       return Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 24),
+        padding: EdgeInsets.symmetric(horizontal: 24),
         child: Container(
           width: double.infinity,
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+          padding: EdgeInsets.symmetric(horizontal: 16, vertical: 14),
           decoration: BoxDecoration(
             color: Colors.white.withValues(alpha: 0.72),
             borderRadius: BorderRadius.circular(20),
           ),
           child: Row(
             children: [
-              const Icon(
-                Icons.family_restroom_rounded,
-                color: AppColors.primaryBlue,
-              ),
-              const SizedBox(width: 10),
+              Icon(Icons.family_restroom_rounded, color: AppColors.primaryBlue),
+              SizedBox(width: 10),
               Expanded(
                 child: Text(
-                  'هنوز فردی به حساب مراقبت شما متصل نیست.',
+                  LifeMateRuntimeLocale.select(
+                    fa: LifeMateRuntimeLocale.select(
+                      fa: 'هنوز فردی به حساب مراقبت شما متصل نیست.',
+                      en: "No one is connected to your care account yet.",
+                    ),
+                    en: "No one is connected to your care account yet.",
+                  ),
                   style: font.copyWith(
                     color: AppColors.secondaryText,
                     fontSize: 13,
@@ -96,7 +99,13 @@ class _UserChip extends StatelessWidget {
     return Semantics(
       button: true,
       selected: selected,
-      label: 'نمایش تقویم ${user.name}',
+      label: LifeMateRuntimeLocale.select(
+        fa: LifeMateRuntimeLocale.select(
+          fa: 'نمایش تقویم ${user.name}',
+          en: "Display calendar ${user.name}",
+        ),
+        en: "Display calendar ${user.name}",
+      ),
       child: Material(
         color: Colors.transparent,
         child: InkWell(
@@ -104,9 +113,9 @@ class _UserChip extends StatelessWidget {
           onTap: onTap,
           borderRadius: BorderRadius.circular(22),
           child: AnimatedContainer(
-            duration: const Duration(milliseconds: 180),
-            constraints: const BoxConstraints(minHeight: 48),
-            padding: const EdgeInsetsDirectional.fromSTEB(9, 7, 14, 7),
+            duration: Duration(milliseconds: 180),
+            constraints: BoxConstraints(minHeight: 48),
+            padding: EdgeInsetsDirectional.fromSTEB(9, 7, 14, 7),
             decoration: BoxDecoration(
               color: selected
                   ? AppColors.darkBlue
@@ -122,18 +131,18 @@ class _UserChip extends StatelessWidget {
                       BoxShadow(
                         color: AppColors.darkBlue.withValues(alpha: 0.24),
                         blurRadius: 10,
-                        offset: const Offset(0, 5),
+                        offset: Offset(0, 5),
                       ),
                     ]
-                  : const [],
+                  : [],
             ),
             child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
                 _RecipientAvatar(user: user),
-                const SizedBox(width: 8),
+                SizedBox(width: 8),
                 ConstrainedBox(
-                  constraints: const BoxConstraints(maxWidth: 116),
+                  constraints: BoxConstraints(maxWidth: 116),
                   child: Text(
                     user.name,
                     maxLines: 1,

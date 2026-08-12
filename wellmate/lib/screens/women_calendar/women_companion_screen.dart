@@ -154,13 +154,33 @@ class _WomenCompanionScreenState extends State<WomenCompanionScreen> {
       if (!mounted) return;
       setState(() {
         _error = error.code == 'women_calendar_feature_disabled'
-            ? 'تقویم بانوان در این نسخه فعال نیست.'
-            : 'اطلاعات چرخه دریافت نشد. دوباره تلاش کنید.';
+            ? LifeMateRuntimeLocale.select(
+                fa: LifeMateRuntimeLocale.select(
+                  fa: 'تقویم بانوان در این نسخه فعال نیست.',
+                  en: "The women's calendar is not active in this version.",
+                ),
+                en: "The women's calendar is not active in this version.",
+              )
+            : LifeMateRuntimeLocale.select(
+                fa: LifeMateRuntimeLocale.select(
+                  fa: 'اطلاعات چرخه دریافت نشد. دوباره تلاش کنید.',
+                  en: "Cycle information not received. Try again.",
+                ),
+                en: "Cycle information not received. Try again.",
+              );
       });
     } catch (error) {
       debugPrint('Women companion dashboard load failed: $error');
       if (mounted) {
-        setState(() => _error = 'اطلاعات چرخه دریافت نشد. دوباره تلاش کنید.');
+        setState(
+          () => _error = LifeMateRuntimeLocale.select(
+            fa: LifeMateRuntimeLocale.select(
+              fa: 'اطلاعات چرخه دریافت نشد. دوباره تلاش کنید.',
+              en: "Cycle information not received. Try again.",
+            ),
+            en: "Cycle information not received. Try again.",
+          ),
+        );
       }
     } finally {
       if (mounted) setState(() => _loading = false);
@@ -171,9 +191,17 @@ class _WomenCompanionScreenState extends State<WomenCompanionScreen> {
     await Navigator.of(context).push<void>(
       MaterialPageRoute<void>(
         builder: (_) => Scaffold(
-          backgroundColor: const Color(0xFFFFF8FC),
+          backgroundColor: Color(0xFFFFF8FC),
           appBar: AppBar(
-            title: const Text('تنظیمات و مدیریت ثبت‌ها'),
+            title: Text(
+              LifeMateRuntimeLocale.select(
+                fa: LifeMateRuntimeLocale.select(
+                  fa: 'تنظیمات و مدیریت ثبت‌ها',
+                  en: "Settings and registration management",
+                ),
+                en: "Settings and registration management",
+              ),
+            ),
             backgroundColor: Colors.transparent,
             surfaceTintColor: Colors.transparent,
           ),
@@ -216,10 +244,36 @@ class _WomenCompanionScreenState extends State<WomenCompanionScreen> {
       LifeMateNotice.show(
         context,
         type: LifeMateNoticeType.success,
-        title: isToday ? 'حال امروز ثبت شد' : 'ثبت روز ذخیره شد',
+        title: isToday
+            ? LifeMateRuntimeLocale.select(
+                fa: LifeMateRuntimeLocale.select(
+                  fa: 'حال امروز ثبت شد',
+                  en: "It was registered today",
+                ),
+                en: "It was registered today",
+              )
+            : LifeMateRuntimeLocale.select(
+                fa: LifeMateRuntimeLocale.select(
+                  fa: 'ثبت روز ذخیره شد',
+                  en: "The record of the day was saved",
+                ),
+                en: "The record of the day was saved",
+              ),
         message: draft.shareWithCompanion
-            ? 'فقط خلاصه‌ای که اجازه داده‌ای با همدمت به اشتراک گذاشته می‌شود.'
-            : 'این ثبت به‌صورت خصوصی ذخیره شد.',
+            ? LifeMateRuntimeLocale.select(
+                fa: LifeMateRuntimeLocale.select(
+                  fa: 'فقط خلاصه‌ای که اجازه داده‌ای با همدمت به اشتراک گذاشته می‌شود.',
+                  en: "Only the summary you have given permission will be shared with your partner.",
+                ),
+                en: "Only the summary you have given permission will be shared with your partner.",
+              )
+            : LifeMateRuntimeLocale.select(
+                fa: LifeMateRuntimeLocale.select(
+                  fa: 'این ثبت به‌صورت خصوصی ذخیره شد.',
+                  en: "This recording was saved privately.",
+                ),
+                en: "This recording was saved privately.",
+              ),
       );
       await _load();
     } on LifeMateApiException catch (error) {
@@ -227,10 +281,28 @@ class _WomenCompanionScreenState extends State<WomenCompanionScreen> {
       LifeMateNotice.show(
         context,
         type: LifeMateNoticeType.error,
-        title: 'ثبت انجام نشد',
+        title: LifeMateRuntimeLocale.select(
+          fa: LifeMateRuntimeLocale.select(
+            fa: 'ثبت انجام نشد',
+            en: "Registration failed",
+          ),
+          en: "Registration failed",
+        ),
         message: error.code == 'stale_women_calendar_daily_log'
-            ? 'این روز تغییر کرده بود؛ اطلاعات تازه شد و می‌توانی دوباره ویرایش کنی.'
-            : 'اطلاعات این روز ذخیره نشد. دوباره تلاش کن.',
+            ? LifeMateRuntimeLocale.select(
+                fa: LifeMateRuntimeLocale.select(
+                  fa: 'این روز تغییر کرده بود؛ اطلاعات تازه شد و می‌توانی دوباره ویرایش کنی.',
+                  en: "This day had changed; The information is updated and you can edit again.",
+                ),
+                en: "This day had changed; The information is updated and you can edit again.",
+              )
+            : LifeMateRuntimeLocale.select(
+                fa: LifeMateRuntimeLocale.select(
+                  fa: 'اطلاعات این روز ذخیره نشد. دوباره تلاش کن.',
+                  en: "This day's information was not saved. try again",
+                ),
+                en: "This day's information was not saved. try again",
+              ),
       );
       await _load();
     } finally {
@@ -332,18 +404,21 @@ class _CycleRing extends StatelessWidget {
                 Text(
                   value == null
                       ? '—'
-                      : 'روز ${localizeDigits(context, value.cycleDay)}',
-                  style: const TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.w900,
-                  ),
+                      : LifeMateRuntimeLocale.select(
+                          fa: 'روز ${localizeDigits(context, value.cycleDay)}',
+                          en: "Day ${localizeDigits(context, value.cycleDay)}",
+                        ),
+                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.w900),
                 ),
-                const SizedBox(height: 3),
+                SizedBox(height: 3),
                 Text(
                   value == null
-                      ? 'چرخه'
-                      : 'از ${localizeDigits(context, value.cycleLength)} روز',
-                  style: const TextStyle(
+                      ? LifeMateRuntimeLocale.select(fa: 'چرخه', en: "Cycle")
+                      : LifeMateRuntimeLocale.select(
+                          fa: 'از ${localizeDigits(context, value.cycleLength)} روز',
+                          en: "of ${localizeDigits(context, value.cycleLength)} days",
+                        ),
+                  style: TextStyle(
                     fontSize: 10.5,
                     color: AppColors.textSecondary,
                   ),
@@ -461,51 +536,127 @@ class _DailyCheckInCard extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           _SectionTitle(
-            title: 'حال و احساس امروز',
+            title: LifeMateRuntimeLocale.select(
+              fa: LifeMateRuntimeLocale.select(
+                fa: 'حال و احساس امروز',
+                en: "Feeling today",
+              ),
+              en: "Feeling today",
+            ),
             subtitle: log == null
-                ? 'امروز چه احساسی داری؟'
-                : 'ثبت امروزت محفوظ است.',
+                ? LifeMateRuntimeLocale.select(
+                    fa: LifeMateRuntimeLocale.select(
+                      fa: 'امروز چه احساسی داری؟',
+                      en: "how are you feeling today",
+                    ),
+                    en: "how are you feeling today",
+                  )
+                : LifeMateRuntimeLocale.select(
+                    fa: LifeMateRuntimeLocale.select(
+                      fa: 'ثبت امروزت محفوظ است.',
+                      en: "Your registration today is reserved.",
+                    ),
+                    en: "Your registration today is reserved.",
+                  ),
             action: TextButton(
               onPressed: saving ? null : onEdit,
-              child: Text(log == null ? 'ثبت حال' : 'ویرایش'),
+              child: Text(
+                log == null
+                    ? LifeMateRuntimeLocale.select(
+                        fa: LifeMateRuntimeLocale.select(
+                          fa: 'ثبت حال',
+                          en: "Register now",
+                        ),
+                        en: "Register now",
+                      )
+                    : LifeMateRuntimeLocale.select(
+                        fa: LifeMateRuntimeLocale.select(
+                          fa: 'ویرایش',
+                          en: "Edit",
+                        ),
+                        en: "Edit",
+                      ),
+              ),
             ),
           ),
-          const SizedBox(height: 12),
+          SizedBox(height: 12),
           if (log == null)
             Wrap(
               spacing: 8,
               runSpacing: 8,
-              children: const [
-                _MoodPreview(emoji: '😊', label: 'عالی'),
-                _MoodPreview(emoji: '🙂', label: 'خوب'),
-                _MoodPreview(emoji: '😐', label: 'معمولی'),
-                _MoodPreview(emoji: '😔', label: 'کم‌انرژی'),
-                _MoodPreview(emoji: '😣', label: 'تحت فشار'),
+              children: [
+                _MoodPreview(
+                  emoji: '😊',
+                  label: LifeMateRuntimeLocale.select(
+                    fa: LifeMateRuntimeLocale.select(fa: 'عالی', en: "great"),
+                    en: "great",
+                  ),
+                ),
+                _MoodPreview(
+                  emoji: '🙂',
+                  label: LifeMateRuntimeLocale.select(
+                    fa: LifeMateRuntimeLocale.select(fa: 'خوب', en: "good"),
+                    en: "good",
+                  ),
+                ),
+                _MoodPreview(
+                  emoji: '😐',
+                  label: LifeMateRuntimeLocale.select(
+                    fa: LifeMateRuntimeLocale.select(
+                      fa: 'معمولی',
+                      en: "normal",
+                    ),
+                    en: "normal",
+                  ),
+                ),
+                _MoodPreview(
+                  emoji: '😔',
+                  label: LifeMateRuntimeLocale.select(
+                    fa: LifeMateRuntimeLocale.select(
+                      fa: 'کم‌انرژی',
+                      en: "low energy",
+                    ),
+                    en: "low energy",
+                  ),
+                ),
+                _MoodPreview(
+                  emoji: '😣',
+                  label: LifeMateRuntimeLocale.select(
+                    fa: LifeMateRuntimeLocale.select(
+                      fa: 'تحت فشار',
+                      en: "under pressure",
+                    ),
+                    en: "under pressure",
+                  ),
+                ),
               ],
             )
           else
             Container(
-              padding: const EdgeInsets.all(14),
+              padding: EdgeInsets.all(14),
               decoration: BoxDecoration(
                 color: mood.color.withValues(alpha: 0.11),
                 borderRadius: BorderRadius.circular(20),
               ),
               child: Row(
                 children: [
-                  Text(mood.emoji, style: const TextStyle(fontSize: 30)),
-                  const SizedBox(width: 12),
+                  Text(mood.emoji, style: TextStyle(fontSize: 30)),
+                  SizedBox(width: 12),
                   Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
                           mood.label,
-                          style: const TextStyle(fontWeight: FontWeight.w900),
+                          style: TextStyle(fontWeight: FontWeight.w900),
                         ),
-                        const SizedBox(height: 4),
+                        SizedBox(height: 4),
                         Text(
-                          'انرژی ${localizeDigits(context, log!['energyLevel'] ?? '—')} از ۵ • درد ${localizeDigits(context, log!['painLevel'] ?? '—')} از ۵',
-                          style: const TextStyle(
+                          LifeMateRuntimeLocale.select(
+                            fa: 'انرژی ${localizeDigits(context, log!['energyLevel'] ?? '—')} از ۵ • درد ${localizeDigits(context, log!['painLevel'] ?? '—')} از ۵',
+                            en: "Energy ${localizeDigits(context, log!['energyLevel'] ?? '—')} out of 5 • Pain ${localizeDigits(context, log!['painLevel'] ?? '—')} out of 5",
+                          ),
+                          style: TextStyle(
                             fontSize: 11,
                             color: AppColors.textSecondary,
                           ),
@@ -518,15 +669,15 @@ class _DailyCheckInCard extends StatelessWidget {
                         ? Icons.favorite_rounded
                         : Icons.lock_rounded,
                     color: log!['shareSummaryWithCompanion'] == true
-                        ? const Color(0xFFE55A8B)
-                        : const Color(0xFF8A8791),
+                        ? Color(0xFFE55A8B)
+                        : Color(0xFF8A8791),
                   ),
                 ],
               ),
             ),
           if (saving) ...[
-            const SizedBox(height: 10),
-            const LinearProgressIndicator(minHeight: 2),
+            SizedBox(height: 10),
+            LinearProgressIndicator(minHeight: 2),
           ],
         ],
       ),
@@ -567,15 +718,12 @@ class _DailyTipCard extends StatelessWidget {
     final visual = phaseVisual(estimate?.detailedPhase);
     final text = phaseTip(estimate?.detailedPhase, log);
     return Container(
-      padding: const EdgeInsets.all(18),
+      padding: EdgeInsets.all(18),
       decoration: BoxDecoration(
         gradient: LinearGradient(
           begin: Alignment.topRight,
           end: Alignment.bottomLeft,
-          colors: [
-            visual.color.withValues(alpha: 0.15),
-            const Color(0xFFFFF3F7),
-          ],
+          colors: [visual.color.withValues(alpha: 0.15), Color(0xFFFFF3F7)],
         ),
         borderRadius: BorderRadius.circular(28),
       ),
@@ -585,25 +733,31 @@ class _DailyTipCard extends StatelessWidget {
           Container(
             width: 46,
             height: 46,
-            decoration: const BoxDecoration(
+            decoration: BoxDecoration(
               color: Colors.white,
               shape: BoxShape.circle,
             ),
             child: Icon(Icons.spa_rounded, color: visual.color),
           ),
-          const SizedBox(width: 13),
+          SizedBox(width: 13),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text(
-                  'نکته امروز',
+                Text(
+                  LifeMateRuntimeLocale.select(
+                    fa: LifeMateRuntimeLocale.select(
+                      fa: 'نکته امروز',
+                      en: "Today's tip",
+                    ),
+                    en: "Today's tip",
+                  ),
                   style: TextStyle(fontSize: 16, fontWeight: FontWeight.w900),
                 ),
-                const SizedBox(height: 6),
+                SizedBox(height: 6),
                 Text(
                   text,
-                  style: const TextStyle(height: 1.7, color: Color(0xFF685B69)),
+                  style: TextStyle(height: 1.7, color: Color(0xFF685B69)),
                 ),
               ],
             ),
@@ -641,7 +795,7 @@ class _SelectedDaySummaryCard extends StatelessWidget {
         .toList(growable: false);
     return _PastelCard(
       child: Column(
-        key: const ValueKey('women-calendar-selected-day-summary'),
+        key: ValueKey('women-calendar-selected-day-summary'),
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
@@ -652,19 +806,31 @@ class _SelectedDaySummaryCard extends StatelessWidget {
                   children: [
                     Text(
                       formatAppDate(context, date, includeWeekday: true),
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontSize: 16,
                         fontWeight: FontWeight.w900,
                       ),
                     ),
-                    const SizedBox(height: 4),
+                    SizedBox(height: 4),
                     Text(
                       recordedBleeding
-                          ? 'پریود ثبت‌شده'
-                          : '${phaseValue.label} • تخمینی',
+                          ? LifeMateRuntimeLocale.select(
+                              fa: LifeMateRuntimeLocale.select(
+                                fa: 'پریود ثبت‌شده',
+                                en: "Recorded period",
+                              ),
+                              en: "Recorded period",
+                            )
+                          : LifeMateRuntimeLocale.select(
+                              fa: LifeMateRuntimeLocale.select(
+                                fa: '${phaseValue.label} • تخمینی',
+                                en: "${phaseValue.label} • Est",
+                              ),
+                              en: "${phaseValue.label} • Est",
+                            ),
                       style: TextStyle(
                         color: recordedBleeding
-                            ? const Color(0xFFD64A70)
+                            ? Color(0xFFD64A70)
                             : phaseValue.foreground,
                         fontSize: 11.5,
                         fontWeight: FontWeight.w800,
@@ -675,24 +841,36 @@ class _SelectedDaySummaryCard extends StatelessWidget {
               ),
               Icon(
                 recordedBleeding ? Icons.water_drop_rounded : phaseValue.icon,
-                color: recordedBleeding
-                    ? const Color(0xFFF15D7B)
-                    : phaseValue.color,
+                color: recordedBleeding ? Color(0xFFF15D7B) : phaseValue.color,
               ),
             ],
           ),
-          const SizedBox(height: 12),
+          SizedBox(height: 12),
           if (log == null) ...[
-            const Text(
-              'برای این روز چیزی ثبت نشده',
+            Text(
+              LifeMateRuntimeLocale.select(
+                fa: LifeMateRuntimeLocale.select(
+                  fa: 'برای این روز چیزی ثبت نشده',
+                  en: "Nothing registered for this day",
+                ),
+                en: "Nothing registered for this day",
+              ),
               style: TextStyle(color: AppColors.textSecondary),
             ),
-            const SizedBox(height: 10),
+            SizedBox(height: 10),
             OutlinedButton.icon(
-              key: const ValueKey('women-calendar-selected-day-create'),
+              key: ValueKey('women-calendar-selected-day-create'),
               onPressed: saving ? null : onEdit,
-              icon: const Icon(Icons.add_rounded),
-              label: const Text('ثبت حال این روز'),
+              icon: Icon(Icons.add_rounded),
+              label: Text(
+                LifeMateRuntimeLocale.select(
+                  fa: LifeMateRuntimeLocale.select(
+                    fa: 'ثبت حال این روز',
+                    en: "Record the current state of this day",
+                  ),
+                  en: "Record the current state of this day",
+                ),
+              ),
             ),
           ] else ...[
             Wrap(
@@ -701,7 +879,10 @@ class _SelectedDaySummaryCard extends StatelessWidget {
               children: [
                 _DayFact(
                   icon: Icons.mood_rounded,
-                  label: 'حال',
+                  label: LifeMateRuntimeLocale.select(
+                    fa: LifeMateRuntimeLocale.select(fa: 'حال', en: "now"),
+                    en: "now",
+                  ),
                   value: '${mood.emoji} ${mood.label}',
                 ),
                 _DayFact(
@@ -719,26 +900,48 @@ class _SelectedDaySummaryCard extends StatelessWidget {
                 _DayFact(
                   icon: Icons.water_drop_outlined,
                   label: 'خونریزی',
-                  value: recordedBleeding ? 'ثبت‌شده' : 'ثبت نشده',
+                  value: recordedBleeding
+                      ? LifeMateRuntimeLocale.select(
+                          fa: LifeMateRuntimeLocale.select(
+                            fa: 'ثبت‌شده',
+                            en: "registered",
+                          ),
+                          en: "registered",
+                        )
+                      : LifeMateRuntimeLocale.select(
+                          fa: LifeMateRuntimeLocale.select(
+                            fa: 'ثبت نشده',
+                            en: "Not recorded",
+                          ),
+                          en: "not registered",
+                        ),
                 ),
               ],
             ),
             if (symptoms.isNotEmpty) ...[
-              const SizedBox(height: 10),
+              SizedBox(height: 10),
               Text(
-                'نشانه‌ها: ${symptoms.join('، ')}',
-                style: const TextStyle(
-                  color: AppColors.textSecondary,
-                  height: 1.5,
+                LifeMateRuntimeLocale.select(
+                  fa: 'نشانه‌ها: ${symptoms.join('، ')}',
+                  en: "Tokens: ${symptoms.join('، ')}",
                 ),
+                style: TextStyle(color: AppColors.textSecondary, height: 1.5),
               ),
             ],
-            const SizedBox(height: 10),
+            SizedBox(height: 10),
             TextButton.icon(
-              key: const ValueKey('women-calendar-selected-day-edit'),
+              key: ValueKey('women-calendar-selected-day-edit'),
               onPressed: saving ? null : onEdit,
-              icon: const Icon(Icons.edit_rounded, size: 18),
-              label: const Text('ویرایش ثبت روز'),
+              icon: Icon(Icons.edit_rounded, size: 18),
+              label: Text(
+                LifeMateRuntimeLocale.select(
+                  fa: LifeMateRuntimeLocale.select(
+                    fa: 'ویرایش ثبت روز',
+                    en: "Edit the day log",
+                  ),
+                  en: "Edit the day log",
+                ),
+              ),
             ),
           ],
         ],
@@ -787,15 +990,48 @@ class _DayFact extends StatelessWidget {
 
 String _selectedDaySymptomLabel(String raw) {
   return switch (raw.trim().toLowerCase()) {
-    'cramps' => 'گرفتگی',
-    'headache' => 'سردرد',
-    'bloating' => 'نفخ',
-    'fatigue' => 'خستگی',
-    'breast_tenderness' || 'breasttenderness' => 'حساسیت سینه',
-    'back_pain' || 'backpain' => 'کمردرد',
-    'sleep_change' || 'sleepchange' => 'تغییر خواب',
-    'appetite_change' || 'appetitechange' => 'تغییر اشتها',
-    'no_symptom' || 'nosymptom' => 'بدون نشانه',
+    'cramps' => LifeMateRuntimeLocale.select(
+      fa: LifeMateRuntimeLocale.select(fa: 'گرفتگی', en: "cramps"),
+      en: "cramps",
+    ),
+    'headache' => LifeMateRuntimeLocale.select(
+      fa: LifeMateRuntimeLocale.select(fa: 'سردرد', en: "headache"),
+      en: "headache",
+    ),
+    'bloating' => LifeMateRuntimeLocale.select(
+      fa: LifeMateRuntimeLocale.select(fa: 'نفخ', en: "flatulence"),
+      en: "flatulence",
+    ),
+    'fatigue' => LifeMateRuntimeLocale.select(
+      fa: LifeMateRuntimeLocale.select(fa: 'خستگی', en: "tiredness"),
+      en: "tiredness",
+    ),
+    'breast_tenderness' || 'breasttenderness' => LifeMateRuntimeLocale.select(
+      fa: LifeMateRuntimeLocale.select(
+        fa: 'حساسیت سینه',
+        en: "Breast tenderness",
+      ),
+      en: "Breast tenderness",
+    ),
+    'back_pain' || 'backpain' => LifeMateRuntimeLocale.select(
+      fa: LifeMateRuntimeLocale.select(fa: 'کمردرد', en: "back pain"),
+      en: "back pain",
+    ),
+    'sleep_change' || 'sleepchange' => LifeMateRuntimeLocale.select(
+      fa: LifeMateRuntimeLocale.select(fa: 'تغییر خواب', en: "sleep change"),
+      en: "sleep change",
+    ),
+    'appetite_change' || 'appetitechange' => LifeMateRuntimeLocale.select(
+      fa: LifeMateRuntimeLocale.select(
+        fa: 'تغییر اشتها',
+        en: "Change in appetite",
+      ),
+      en: "Change in appetite",
+    ),
+    'no_symptom' || 'nosymptom' => LifeMateRuntimeLocale.select(
+      fa: LifeMateRuntimeLocale.select(fa: 'بدون نشانه', en: "no sign"),
+      en: "no sign",
+    ),
     _ => raw,
   };
 }
@@ -811,17 +1047,29 @@ class _FourteenDayStrip extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const _SectionTitle(
-            title: '۱۴ روز پیش رو',
-            subtitle: 'یک نگاه آرام به ریتم تخمینی چرخه',
+          _SectionTitle(
+            title: LifeMateRuntimeLocale.select(
+              fa: LifeMateRuntimeLocale.select(
+                fa: '۱۴ روز پیش رو',
+                en: "14 days ahead",
+              ),
+              en: "14 days ahead",
+            ),
+            subtitle: LifeMateRuntimeLocale.select(
+              fa: LifeMateRuntimeLocale.select(
+                fa: 'یک نگاه آرام به ریتم تخمینی چرخه',
+                en: "A relaxed look at the approximate rhythm of the cycle",
+              ),
+              en: "A relaxed look at the approximate rhythm of the cycle",
+            ),
           ),
-          const SizedBox(height: 12),
+          SizedBox(height: 12),
           SizedBox(
             height: 142,
             child: ListView.separated(
               scrollDirection: Axis.horizontal,
               itemCount: 14,
-              separatorBuilder: (_, __) => const SizedBox(width: 8),
+              separatorBuilder: (_, __) => SizedBox(width: 8),
               itemBuilder: (context, index) {
                 final date = DateTime(
                   today.year,
@@ -832,10 +1080,7 @@ class _FourteenDayStrip extends StatelessWidget {
                 final visual = phaseVisual(phase);
                 return Container(
                   width: 68,
-                  padding: const EdgeInsets.symmetric(
-                    vertical: 10,
-                    horizontal: 6,
-                  ),
+                  padding: EdgeInsets.symmetric(vertical: 10, horizontal: 6),
                   decoration: BoxDecoration(
                     color: visual.color.withValues(
                       alpha: index == 0 ? 0.18 : 0.09,
@@ -849,20 +1094,25 @@ class _FourteenDayStrip extends StatelessWidget {
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
                       Text(
-                        index == 0 ? 'امروز' : localizeDigits(context, index),
-                        style: const TextStyle(
+                        index == 0
+                            ? LifeMateRuntimeLocale.select(
+                                fa: 'امروز',
+                                en: "Today",
+                              )
+                            : localizeDigits(context, index),
+                        style: TextStyle(
                           fontSize: 10,
                           fontWeight: FontWeight.w900,
                         ),
                       ),
-                      const SizedBox(height: 7),
+                      SizedBox(height: 7),
                       Icon(visual.icon, color: visual.color, size: 21),
-                      const SizedBox(height: 6),
+                      SizedBox(height: 6),
                       Text(
                         visual.shortLabel,
                         textAlign: TextAlign.center,
                         maxLines: 2,
-                        style: const TextStyle(fontSize: 8.5, height: 1.2),
+                        style: TextStyle(fontSize: 8.5, height: 1.2),
                       ),
                     ],
                   ),
@@ -927,11 +1177,23 @@ class _ReportsCard extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const _SectionTitle(
-            title: 'گزارش‌های من',
-            subtitle: 'خلاصه ساده از ثبت‌های خودت، بدون تشخیص پزشکی',
+          _SectionTitle(
+            title: LifeMateRuntimeLocale.select(
+              fa: LifeMateRuntimeLocale.select(
+                fa: 'گزارش‌های من',
+                en: "My reports",
+              ),
+              en: "My reports",
+            ),
+            subtitle: LifeMateRuntimeLocale.select(
+              fa: LifeMateRuntimeLocale.select(
+                fa: 'خلاصه ساده از ثبت‌های خودت، بدون تشخیص پزشکی',
+                en: "Simple summary of your records, without medical diagnosis",
+              ),
+              en: "Simple summary of your records, without medical diagnosis",
+            ),
           ),
-          const SizedBox(height: 12),
+          SizedBox(height: 12),
           LayoutBuilder(
             builder: (context, constraints) {
               final width = constraints.maxWidth < 330
@@ -948,25 +1210,46 @@ class _ReportsCard extends StatelessWidget {
                     value: averagePeriod == null
                         ? 'ثبت ناکافی'
                         : 'میانگین ${localizeDigits(context, averagePeriod.round())} روز',
-                    color: const Color(0xFFE65F8C),
+                    color: Color(0xFFE65F8C),
                   ),
                   _ReportTile(
                     width: width,
                     icon: Icons.bubble_chart_rounded,
-                    label: 'نشانه پرتکرار',
+                    label: LifeMateRuntimeLocale.select(
+                      fa: LifeMateRuntimeLocale.select(
+                        fa: 'نشانه پرتکرار',
+                        en: "Frequent symptom",
+                      ),
+                      en: "Frequent symptom",
+                    ),
                     value: commonSymptom == null
-                        ? 'ثبت ناکافی'
+                        ? LifeMateRuntimeLocale.select(
+                            fa: LifeMateRuntimeLocale.select(
+                              fa: 'ثبت ناکافی',
+                              en: "Insufficient registration",
+                            ),
+                            en: "Insufficient registration",
+                          )
                         : symptomLabel(commonSymptom),
-                    color: const Color(0xFF9C71D2),
+                    color: Color(0xFF9C71D2),
                   ),
                   _ReportTile(
                     width: width,
                     icon: Icons.bolt_rounded,
-                    label: 'انرژی',
+                    label: LifeMateRuntimeLocale.select(
+                      fa: 'انرژی',
+                      en: "energy",
+                    ),
                     value: averageEnergy == null
-                        ? 'ثبت ناکافی'
-                        : '${localizeDigits(context, averageEnergy.toStringAsFixed(1))} از ۵',
-                    color: const Color(0xFFF0A643),
+                        ? LifeMateRuntimeLocale.select(
+                            fa: 'ثبت ناکافی',
+                            en: "Insufficient registration",
+                          )
+                        : LifeMateRuntimeLocale.select(
+                            fa: '${localizeDigits(context, averageEnergy.toStringAsFixed(1))} از ۵',
+                            en: "${localizeDigits(context, averageEnergy.toStringAsFixed(1))} of 5",
+                          ),
+                    color: Color(0xFFF0A643),
                   ),
                 ],
               );
@@ -1039,36 +1322,83 @@ class _ReminderAndSettingsCard extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const _SectionTitle(
-            title: 'یادآوری‌ها و تنظیمات',
-            subtitle: 'کنترل چرخه همیشه دست خودت است.',
+          _SectionTitle(
+            title: LifeMateRuntimeLocale.select(
+              fa: LifeMateRuntimeLocale.select(
+                fa: 'یادآوری‌ها و تنظیمات',
+                en: "Reminders and settings",
+              ),
+              en: "Reminders and settings",
+            ),
+            subtitle: LifeMateRuntimeLocale.select(
+              fa: LifeMateRuntimeLocale.select(
+                fa: 'کنترل چرخه همیشه دست خودت است.',
+                en: "The control of the cycle is always in your hands.",
+              ),
+              en: "The control of the cycle is always in your hands.",
+            ),
           ),
-          const SizedBox(height: 10),
+          SizedBox(height: 10),
           _InfoLine(
             icon: Icons.notifications_active_rounded,
-            title: 'یادآوری نزدیک‌شدن دوره',
+            title: LifeMateRuntimeLocale.select(
+              fa: LifeMateRuntimeLocale.select(
+                fa: 'یادآوری نزدیک‌شدن دوره',
+                en: "Reminder of approaching period",
+              ),
+              en: "Reminder of approaching period",
+            ),
             value: profile['remindersEnabled'] == false
-                ? 'خاموش'
-                : 'فعال و خصوصی',
+                ? LifeMateRuntimeLocale.select(
+                    fa: LifeMateRuntimeLocale.select(fa: 'خاموش', en: "off"),
+                    en: "off",
+                  )
+                : LifeMateRuntimeLocale.select(
+                    fa: LifeMateRuntimeLocale.select(
+                      fa: 'فعال و خصوصی',
+                      en: "Active and private",
+                    ),
+                    en: "Active and private",
+                  ),
           ),
           _InfoLine(
             icon: Icons.edit_calendar_rounded,
-            title: 'آخرین شروع ثبت‌شده',
+            title: LifeMateRuntimeLocale.select(
+              fa: LifeMateRuntimeLocale.select(
+                fa: 'آخرین شروع ثبت‌شده',
+                en: "Last recorded start",
+              ),
+              en: "Last recorded start",
+            ),
             value: lastStart == null
-                ? 'ثبت نشده'
+                ? LifeMateRuntimeLocale.select(
+                    fa: LifeMateRuntimeLocale.select(
+                      fa: 'ثبت نشده',
+                      en: "Not recorded",
+                    ),
+                    en: "not registered",
+                  )
                 : formatAppDate(context, lastStart),
           ),
-          const SizedBox(height: 12),
+          SizedBox(height: 12),
           SizedBox(
             width: double.infinity,
             child: FilledButton.icon(
               onPressed: onOpenSettings,
-              icon: const Icon(Icons.tune_rounded),
-              label: const Text('تنظیمات و مدیریت ثبت‌ها'),
+              icon: Icon(Icons.tune_rounded),
+              label: Text(
+                LifeMateRuntimeLocale.select(
+                  fa: LifeMateRuntimeLocale.select(
+                    fa: 'تنظیمات و مدیریت ثبت‌ها',
+                    en: "Settings and registration management",
+                  ),
+                  en: "Settings and registration management",
+                ),
+              ),
               style: FilledButton.styleFrom(
-                backgroundColor: const Color(0xFFD75C8D),
+                backgroundColor: Color(0xFFD75C8D),
                 foregroundColor: Colors.white,
-                padding: const EdgeInsets.symmetric(vertical: 14),
+                padding: EdgeInsets.symmetric(vertical: 14),
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(18),
                 ),
@@ -1133,20 +1463,26 @@ class _MedicalSafetyCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Container(
-    padding: const EdgeInsets.all(15),
+    padding: EdgeInsets.all(15),
     decoration: BoxDecoration(
-      color: const Color(0xFFFFF7E8),
+      color: Color(0xFFFFF7E8),
       borderRadius: BorderRadius.circular(20),
-      border: Border.all(color: const Color(0xFFFFE1A5)),
+      border: Border.all(color: Color(0xFFFFE1A5)),
     ),
-    child: const Row(
+    child: Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Icon(Icons.health_and_safety_outlined, color: Color(0xFFB97818)),
         SizedBox(width: 10),
         Expanded(
           child: Text(
-            'چرخه و فازها تخمینی‌اند و برای تشخیص، اثبات تخمک‌گذاری یا پیشگیری از بارداری طراحی نشده‌اند. در درد شدید، خون‌ریزی غیرعادی یا نگرانی پزشکی با پزشک تماس بگیر.',
+            LifeMateRuntimeLocale.select(
+              fa: LifeMateRuntimeLocale.select(
+                fa: 'چرخه و فازها تخمینی‌اند و برای تشخیص، اثبات تخمک‌گذاری یا پیشگیری از بارداری طراحی نشده‌اند. در درد شدید، خون‌ریزی غیرعادی یا نگرانی پزشکی با پزشک تماس بگیر.',
+                en: "Cycles and phases are estimates and are not designed to diagnose, prove ovulation or prevent pregnancy. Call your doctor if you have severe pain, unusual bleeding, or a medical concern.",
+              ),
+              en: "Cycles and phases are estimates and are not designed to diagnose, prove ovulation or prevent pregnancy. Call your doctor if you have severe pain, unusual bleeding, or a medical concern.",
+            ),
             style: TextStyle(
               height: 1.65,
               fontSize: 11.5,
@@ -1210,7 +1546,7 @@ class _DailyCheckInSheetState extends State<_DailyCheckInSheet> {
         maxHeight: MediaQuery.sizeOf(context).height * 0.9,
       ),
       padding: EdgeInsets.fromLTRB(20, 16, 20, 20 + bottom),
-      decoration: const BoxDecoration(
+      decoration: BoxDecoration(
         color: Color(0xFFFFFBFD),
         borderRadius: BorderRadius.vertical(top: Radius.circular(32)),
       ),
@@ -1223,31 +1559,49 @@ class _DailyCheckInSheetState extends State<_DailyCheckInSheet> {
                 width: 46,
                 height: 4,
                 decoration: BoxDecoration(
-                  color: const Color(0xFFE3DCE5),
+                  color: Color(0xFFE3DCE5),
                   borderRadius: BorderRadius.circular(4),
                 ),
               ),
             ),
-            const SizedBox(height: 14),
-            const Text(
-              'حال امروز من',
+            SizedBox(height: 14),
+            Text(
+              LifeMateRuntimeLocale.select(
+                fa: LifeMateRuntimeLocale.select(
+                  fa: 'حال امروز من',
+                  en: "How am I today?",
+                ),
+                en: "How am I today?",
+              ),
               style: TextStyle(fontSize: 20, fontWeight: FontWeight.w900),
             ),
-            const SizedBox(height: 4),
-            const Text(
-              'هر چیزی که ثبت می‌کنی ابتدا خصوصی است.',
+            SizedBox(height: 4),
+            Text(
+              LifeMateRuntimeLocale.select(
+                fa: LifeMateRuntimeLocale.select(
+                  fa: 'هر چیزی که ثبت می‌کنی ابتدا خصوصی است.',
+                  en: "Everything you record is private at first.",
+                ),
+                en: "Everything you record is private at first.",
+              ),
               style: TextStyle(color: AppColors.textSecondary, fontSize: 11.5),
             ),
-            const SizedBox(height: 18),
-            const Text(
-              'حال روحی',
+            SizedBox(height: 18),
+            Text(
+              LifeMateRuntimeLocale.select(
+                fa: LifeMateRuntimeLocale.select(
+                  fa: 'حال روحی',
+                  en: "state of mind",
+                ),
+                en: "state of mind",
+              ),
               style: TextStyle(fontWeight: FontWeight.w900),
             ),
-            const SizedBox(height: 8),
+            SizedBox(height: 8),
             Wrap(
               spacing: 8,
               runSpacing: 8,
-              children: const ['great', 'good', 'neutral', 'low', 'overwhelmed']
+              children: ['great', 'good', 'neutral', 'low', 'overwhelmed']
                   .map((value) => moodVisual(value))
                   .map(
                     (visual) => ChoiceChip(
@@ -1261,29 +1615,44 @@ class _DailyCheckInSheetState extends State<_DailyCheckInSheet> {
                   )
                   .toList(growable: false),
             ),
-            const SizedBox(height: 18),
+            SizedBox(height: 18),
             _LevelSlider(
-              title: 'انرژی امروز',
+              title: LifeMateRuntimeLocale.select(
+                fa: LifeMateRuntimeLocale.select(
+                  fa: 'انرژی امروز',
+                  en: "Energy today",
+                ),
+                en: "Energy today",
+              ),
               value: _energy,
               min: 1,
               max: 5,
-              color: const Color(0xFFF0A643),
+              color: Color(0xFFF0A643),
               onChanged: (value) => setState(() => _energy = value),
             ),
             _LevelSlider(
-              title: 'شدت درد',
+              title: LifeMateRuntimeLocale.select(
+                fa: LifeMateRuntimeLocale.select(
+                  fa: 'شدت درد',
+                  en: "intensity of pain",
+                ),
+                en: "intensity of pain",
+              ),
               value: _pain,
               min: 0,
               max: 5,
-              color: const Color(0xFFE46378),
+              color: Color(0xFFE46378),
               onChanged: (value) => setState(() => _pain = value),
             ),
-            const SizedBox(height: 8),
-            const Text(
-              'نشانه‌ها',
+            SizedBox(height: 8),
+            Text(
+              LifeMateRuntimeLocale.select(
+                fa: LifeMateRuntimeLocale.select(fa: 'نشانه‌ها', en: "signs"),
+                en: "signs",
+              ),
               style: TextStyle(fontWeight: FontWeight.w900),
             ),
-            const SizedBox(height: 8),
+            SizedBox(height: 8),
             Wrap(
               spacing: 8,
               runSpacing: 8,
@@ -1312,14 +1681,26 @@ class _DailyCheckInSheetState extends State<_DailyCheckInSheet> {
                   })
                   .toList(growable: false),
             ),
-            const SizedBox(height: 15),
+            SizedBox(height: 15),
             TextField(
               controller: _notes,
               maxLength: 500,
               maxLines: 3,
-              decoration: const InputDecoration(
-                labelText: 'یادداشت خصوصی',
-                hintText: 'حس، خواب یا اتفاق امروز را برای خودت بنویس...',
+              decoration: InputDecoration(
+                labelText: LifeMateRuntimeLocale.select(
+                  fa: LifeMateRuntimeLocale.select(
+                    fa: 'یادداشت خصوصی',
+                    en: "Private note",
+                  ),
+                  en: "Private note",
+                ),
+                hintText: LifeMateRuntimeLocale.select(
+                  fa: LifeMateRuntimeLocale.select(
+                    fa: 'حس، خواب یا اتفاق امروز را برای خودت بنویس...',
+                    en: "Write the feeling, dream or today's event for yourself...",
+                  ),
+                  en: "Write the feeling, dream or today's event for yourself...",
+                ),
                 prefixIcon: Icon(Icons.lock_outline_rounded),
               ),
             ),
@@ -1329,18 +1710,30 @@ class _DailyCheckInSheetState extends State<_DailyCheckInSheet> {
                 contentPadding: EdgeInsets.zero,
                 value: _share,
                 onChanged: (value) => setState(() => _share = value),
-                title: const Text(
-                  'اشتراک خلاصه با همدم',
+                title: Text(
+                  LifeMateRuntimeLocale.select(
+                    fa: LifeMateRuntimeLocale.select(
+                      fa: 'اشتراک خلاصه با همدم',
+                      en: "Share the summary with the companion",
+                    ),
+                    en: "Share the summary with the companion",
+                  ),
                   style: TextStyle(fontWeight: FontWeight.w900),
                 ),
-                subtitle: const Text(
-                  'فقط حال، انرژی، شدت درد و نشانه‌های انتخابی دیده می‌شود؛ یادداشت خصوصی هرگز به اشتراک گذاشته نمی‌شود.',
+                subtitle: Text(
+                  LifeMateRuntimeLocale.select(
+                    fa: LifeMateRuntimeLocale.select(
+                      fa: 'فقط حال، انرژی، شدت درد و نشانه‌های انتخابی دیده می‌شود؛ یادداشت خصوصی هرگز به اشتراک گذاشته نمی‌شود.',
+                      en: "Only current, energy, pain intensity and selected symptoms are seen; A private note is never shared.",
+                    ),
+                    en: "Only current, energy, pain intensity and selected symptoms are seen; A private note is never shared.",
+                  ),
                   style: TextStyle(fontSize: 10.5, height: 1.5),
                 ),
-                activeThumbColor: const Color(0xFFD75C8D),
+                activeThumbColor: Color(0xFFD75C8D),
               ),
             ),
-            const SizedBox(height: 14),
+            SizedBox(height: 14),
             SizedBox(
               width: double.infinity,
               child: FilledButton.icon(
@@ -1354,11 +1747,19 @@ class _DailyCheckInSheetState extends State<_DailyCheckInSheet> {
                     shareWithCompanion: _share,
                   ),
                 ),
-                icon: const Icon(Icons.favorite_rounded),
-                label: const Text('ثبت حال امروز'),
+                icon: Icon(Icons.favorite_rounded),
+                label: Text(
+                  LifeMateRuntimeLocale.select(
+                    fa: LifeMateRuntimeLocale.select(
+                      fa: 'ثبت حال امروز',
+                      en: "Register today",
+                    ),
+                    en: "Register today",
+                  ),
+                ),
                 style: FilledButton.styleFrom(
-                  backgroundColor: const Color(0xFFD75C8D),
-                  padding: const EdgeInsets.symmetric(vertical: 15),
+                  backgroundColor: Color(0xFFD75C8D),
+                  padding: EdgeInsets.symmetric(vertical: 15),
                 ),
               ),
             ),
@@ -1409,13 +1810,16 @@ class _LevelSlider extends StatelessWidget {
       Row(
         children: [
           Expanded(
-            child: Text(
-              title,
-              style: const TextStyle(fontWeight: FontWeight.w900),
-            ),
+            child: Text(title, style: TextStyle(fontWeight: FontWeight.w900)),
           ),
           Text(
-            '${localizeDigits(context, value)} از ${localizeDigits(context, max)}',
+            LifeMateRuntimeLocale.select(
+              fa: LifeMateRuntimeLocale.select(
+                fa: '${localizeDigits(context, value)} از ${localizeDigits(context, max)}',
+                en: "${localizeDigits(context, value)} from ${localizeDigits(context, max)}",
+              ),
+              en: "${localizeDigits(context, value)} from ${localizeDigits(context, max)}",
+            ),
             style: TextStyle(color: color, fontWeight: FontWeight.w900),
           ),
         ],
@@ -1499,36 +1903,52 @@ class _InactiveWomenExperience extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => DecoratedBox(
-    decoration: const BoxDecoration(
+    decoration: BoxDecoration(
       gradient: LinearGradient(colors: [Color(0xFFFFF4F9), Color(0xFFF5F0FF)]),
     ),
     child: Center(
       child: Padding(
-        padding: const EdgeInsets.all(26),
+        padding: EdgeInsets.all(26),
         child: _PastelCard(
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              const Icon(
-                Icons.favorite_rounded,
-                size: 56,
-                color: Color(0xFFD85B8C),
-              ),
-              const SizedBox(height: 14),
-              const Text(
-                'فضای شخصی چرخه تو',
+              Icon(Icons.favorite_rounded, size: 56, color: Color(0xFFD85B8C)),
+              SizedBox(height: 14),
+              Text(
+                LifeMateRuntimeLocale.select(
+                  fa: LifeMateRuntimeLocale.select(
+                    fa: 'فضای شخصی چرخه تو',
+                    en: "Personal space of your cycle",
+                  ),
+                  en: "Personal space of your cycle",
+                ),
                 style: TextStyle(fontSize: 20, fontWeight: FontWeight.w900),
               ),
-              const SizedBox(height: 8),
-              const Text(
-                'برای دیدن ریتم چرخه، حال روزانه و گزارش‌های خصوصی، اطلاعات پایه را کامل کن.',
+              SizedBox(height: 8),
+              Text(
+                LifeMateRuntimeLocale.select(
+                  fa: LifeMateRuntimeLocale.select(
+                    fa: 'برای دیدن ریتم چرخه، حال روزانه و گزارش‌های خصوصی، اطلاعات پایه را کامل کن.',
+                    en: "Complete basic information to see cycle rhythm, daily status and private reports.",
+                  ),
+                  en: "Complete basic information to see cycle rhythm, daily status and private reports.",
+                ),
                 textAlign: TextAlign.center,
                 style: TextStyle(height: 1.6, color: AppColors.textSecondary),
               ),
-              const SizedBox(height: 18),
+              SizedBox(height: 18),
               FilledButton(
                 onPressed: onOpenSettings,
-                child: const Text('راه‌اندازی تقویم بانوان'),
+                child: Text(
+                  LifeMateRuntimeLocale.select(
+                    fa: LifeMateRuntimeLocale.select(
+                      fa: 'راه‌اندازی تقویم بانوان',
+                      en: "Launching a women's calendar",
+                    ),
+                    en: "Launching a women's calendar",
+                  ),
+                ),
               ),
             ],
           ),
@@ -1546,19 +1966,26 @@ class _WomenError extends StatelessWidget {
   @override
   Widget build(BuildContext context) => Center(
     child: Padding(
-      padding: const EdgeInsets.all(24),
+      padding: EdgeInsets.all(24),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          const Icon(
-            Icons.cloud_off_rounded,
-            size: 52,
-            color: Color(0xFFD75C8D),
-          ),
-          const SizedBox(height: 12),
+          Icon(Icons.cloud_off_rounded, size: 52, color: Color(0xFFD75C8D)),
+          SizedBox(height: 12),
           Text(message, textAlign: TextAlign.center),
-          const SizedBox(height: 14),
-          FilledButton(onPressed: onRetry, child: const Text('تلاش دوباره')),
+          SizedBox(height: 14),
+          FilledButton(
+            onPressed: onRetry,
+            child: Text(
+              LifeMateRuntimeLocale.select(
+                fa: LifeMateRuntimeLocale.select(
+                  fa: 'تلاش دوباره',
+                  en: "Try again",
+                ),
+                en: "Try again",
+              ),
+            ),
+          ),
         ],
       ),
     ),
@@ -1581,51 +2008,102 @@ class PhaseVisual {
 }
 
 PhaseVisual phaseVisual(WomenCyclePhase? phase) => switch (phase) {
-  WomenCyclePhase.period => const PhaseVisual(
-    label: 'فاز قاعدگی',
-    shortLabel: 'قاعدگی',
+  WomenCyclePhase.period => PhaseVisual(
+    label: LifeMateRuntimeLocale.select(
+      fa: LifeMateRuntimeLocale.select(fa: 'فاز قاعدگی', en: "Menstrual phase"),
+      en: "Menstrual phase",
+    ),
+    shortLabel: LifeMateRuntimeLocale.select(
+      fa: LifeMateRuntimeLocale.select(fa: 'قاعدگی', en: "Menstruation"),
+      en: "Menstruation",
+    ),
     icon: Icons.water_drop_rounded,
     color: Color(0xFFF15D7B),
     foreground: Color(0xFF9F2847),
   ),
-  WomenCyclePhase.follicular => const PhaseVisual(
-    label: 'فاز فولیکولار',
-    shortLabel: 'فولیکولار',
+  WomenCyclePhase.follicular => PhaseVisual(
+    label: LifeMateRuntimeLocale.select(
+      fa: LifeMateRuntimeLocale.select(
+        fa: 'فاز فولیکولار',
+        en: "Follicular phase",
+      ),
+      en: "Follicular phase",
+    ),
+    shortLabel: LifeMateRuntimeLocale.select(
+      fa: LifeMateRuntimeLocale.select(fa: 'فولیکولار', en: "follicular"),
+      en: "follicular",
+    ),
     icon: Icons.spa_rounded,
     color: Color(0xFFB48BE1),
     foreground: Color(0xFF6F439F),
   ),
-  WomenCyclePhase.fertile => const PhaseVisual(
-    label: 'پنجره باروری تخمینی',
-    shortLabel: 'باروری',
+  WomenCyclePhase.fertile => PhaseVisual(
+    label: LifeMateRuntimeLocale.select(
+      fa: LifeMateRuntimeLocale.select(
+        fa: 'پنجره باروری تخمینی',
+        en: "Estimated fertility window",
+      ),
+      en: "Estimated fertility window",
+    ),
+    shortLabel: LifeMateRuntimeLocale.select(
+      fa: LifeMateRuntimeLocale.select(fa: 'باروری', en: "fertility"),
+      en: "fertility",
+    ),
     icon: Icons.local_florist_rounded,
     color: Color(0xFF57C5B5),
     foreground: Color(0xFF247D72),
   ),
-  WomenCyclePhase.ovulation => const PhaseVisual(
-    label: 'روز تخمک‌گذاری تخمینی',
-    shortLabel: 'تخمک‌گذاری',
+  WomenCyclePhase.ovulation => PhaseVisual(
+    label: LifeMateRuntimeLocale.select(
+      fa: LifeMateRuntimeLocale.select(
+        fa: 'روز تخمک‌گذاری تخمینی',
+        en: "Estimated day of ovulation",
+      ),
+      en: "Estimated day of ovulation",
+    ),
+    shortLabel: LifeMateRuntimeLocale.select(
+      fa: LifeMateRuntimeLocale.select(fa: 'تخمک‌گذاری', en: "Ovulation"),
+      en: "Ovulation",
+    ),
     icon: Icons.brightness_5_rounded,
     color: Color(0xFF55A8E8),
     foreground: Color(0xFF286A9D),
   ),
-  WomenCyclePhase.luteal => const PhaseVisual(
-    label: 'فاز لوتئال',
-    shortLabel: 'لوتئال',
+  WomenCyclePhase.luteal => PhaseVisual(
+    label: LifeMateRuntimeLocale.select(
+      fa: LifeMateRuntimeLocale.select(fa: 'فاز لوتئال', en: "Luteal phase"),
+      en: "Luteal phase",
+    ),
+    shortLabel: LifeMateRuntimeLocale.select(
+      fa: LifeMateRuntimeLocale.select(fa: 'لوتئال', en: "Luteal"),
+      en: "Luteal",
+    ),
     icon: Icons.wb_twilight_rounded,
     color: Color(0xFFF3B651),
     foreground: Color(0xFF946517),
   ),
-  WomenCyclePhase.pms => const PhaseVisual(
-    label: 'روزهای پیش از دوره',
+  WomenCyclePhase.pms => PhaseVisual(
+    label: LifeMateRuntimeLocale.select(
+      fa: LifeMateRuntimeLocale.select(
+        fa: 'روزهای پیش از دوره',
+        en: "Days before the period",
+      ),
+      en: "Days before the period",
+    ),
     shortLabel: 'PMS',
     icon: Icons.nightlight_round,
     color: Color(0xFFE88973),
     foreground: Color(0xFF9D4938),
   ),
-  _ => const PhaseVisual(
-    label: 'ریتم چرخه',
-    shortLabel: 'چرخه',
+  _ => PhaseVisual(
+    label: LifeMateRuntimeLocale.select(
+      fa: LifeMateRuntimeLocale.select(fa: 'ریتم چرخه', en: "Cycle rhythm"),
+      en: "Cycle rhythm",
+    ),
+    shortLabel: LifeMateRuntimeLocale.select(
+      fa: LifeMateRuntimeLocale.select(fa: 'چرخه', en: "Cycle"),
+      en: "cycle",
+    ),
     icon: Icons.favorite_outline_rounded,
     color: Color(0xFFB68DD9),
     foreground: Color(0xFF75519A),
@@ -1641,17 +2119,60 @@ class MoodVisual {
 }
 
 MoodVisual moodVisual(String? code) => switch (code) {
-  'great' => const MoodVisual('great', 'عالی', '😊', Color(0xFF55B889)),
-  'good' => const MoodVisual('good', 'خوب', '🙂', Color(0xFF8D78D5)),
-  'neutral' => const MoodVisual('neutral', 'معمولی', '😐', Color(0xFFE7B650)),
-  'low' => const MoodVisual('low', 'کم‌انرژی', '😔', Color(0xFFE78D69)),
-  'overwhelmed' => const MoodVisual(
+  'great' => MoodVisual(
+    'great',
+    LifeMateRuntimeLocale.select(
+      fa: LifeMateRuntimeLocale.select(fa: 'عالی', en: "great"),
+      en: "great",
+    ),
+    '😊',
+    Color(0xFF55B889),
+  ),
+  'good' => MoodVisual(
+    'good',
+    LifeMateRuntimeLocale.select(
+      fa: LifeMateRuntimeLocale.select(fa: 'خوب', en: "good"),
+      en: "good",
+    ),
+    '🙂',
+    Color(0xFF8D78D5),
+  ),
+  'neutral' => MoodVisual(
+    'neutral',
+    LifeMateRuntimeLocale.select(
+      fa: LifeMateRuntimeLocale.select(fa: 'معمولی', en: "normal"),
+      en: "normal",
+    ),
+    '😐',
+    Color(0xFFE7B650),
+  ),
+  'low' => MoodVisual(
+    'low',
+    LifeMateRuntimeLocale.select(
+      fa: LifeMateRuntimeLocale.select(fa: 'کم‌انرژی', en: "low energy"),
+      en: "low energy",
+    ),
+    '😔',
+    Color(0xFFE78D69),
+  ),
+  'overwhelmed' => MoodVisual(
     'overwhelmed',
-    'تحت فشار',
+    LifeMateRuntimeLocale.select(
+      fa: LifeMateRuntimeLocale.select(fa: 'تحت فشار', en: "under pressure"),
+      en: "under pressure",
+    ),
     '😣',
     Color(0xFFE46178),
   ),
-  _ => const MoodVisual('good', 'ثبت نشده', '🌸', Color(0xFFB68DD9)),
+  _ => MoodVisual(
+    'good',
+    LifeMateRuntimeLocale.select(
+      fa: LifeMateRuntimeLocale.select(fa: 'ثبت نشده', en: "Not recorded"),
+      en: "not registered",
+    ),
+    '🌸',
+    Color(0xFFB68DD9),
+  ),
 };
 
 class SymptomOption {
@@ -1662,48 +2183,91 @@ class SymptomOption {
   final Color color;
 }
 
-const symptomOptions = <SymptomOption>[
-  SymptomOption('cramps', 'درد شکم', Icons.bolt_rounded, Color(0xFFE76479)),
+final symptomOptions = <SymptomOption>[
+  SymptomOption(
+    'cramps',
+    LifeMateRuntimeLocale.select(
+      fa: LifeMateRuntimeLocale.select(fa: 'درد شکم', en: "Abdominal pain"),
+      en: "Abdominal pain",
+    ),
+    Icons.bolt_rounded,
+    Color(0xFFE76479),
+  ),
   SymptomOption(
     'headache',
-    'سردرد',
+    LifeMateRuntimeLocale.select(
+      fa: LifeMateRuntimeLocale.select(fa: 'سردرد', en: "headache"),
+      en: "headache",
+    ),
     Icons.psychology_alt_rounded,
     Color(0xFF9A78D3),
   ),
   SymptomOption(
     'bloating',
-    'نفخ',
+    LifeMateRuntimeLocale.select(
+      fa: LifeMateRuntimeLocale.select(fa: 'نفخ', en: "flatulence"),
+      en: "flatulence",
+    ),
     Icons.bubble_chart_rounded,
     Color(0xFFE3AA4E),
   ),
-  SymptomOption('fatigue', 'خستگی', Icons.bedtime_rounded, Color(0xFF8674C8)),
+  SymptomOption(
+    'fatigue',
+    LifeMateRuntimeLocale.select(
+      fa: LifeMateRuntimeLocale.select(fa: 'خستگی', en: "tiredness"),
+      en: "tiredness",
+    ),
+    Icons.bedtime_rounded,
+    Color(0xFF8674C8),
+  ),
   SymptomOption(
     'breast_tenderness',
-    'حساسیت سینه',
+    LifeMateRuntimeLocale.select(
+      fa: LifeMateRuntimeLocale.select(
+        fa: 'حساسیت سینه',
+        en: "Breast tenderness",
+      ),
+      en: "Breast tenderness",
+    ),
     Icons.favorite_outline_rounded,
     Color(0xFFE87B9D),
   ),
   SymptomOption(
     'back_pain',
-    'کمردرد',
+    LifeMateRuntimeLocale.select(
+      fa: LifeMateRuntimeLocale.select(fa: 'کمردرد', en: "back pain"),
+      en: "back pain",
+    ),
     Icons.accessibility_new_rounded,
     Color(0xFF6D9BCF),
   ),
   SymptomOption(
     'sleep_change',
-    'تغییر خواب',
+    LifeMateRuntimeLocale.select(
+      fa: LifeMateRuntimeLocale.select(fa: 'تغییر خواب', en: "sleep change"),
+      en: "sleep change",
+    ),
     Icons.nights_stay_rounded,
     Color(0xFF746CC1),
   ),
   SymptomOption(
     'appetite_change',
-    'تغییر اشتها',
+    LifeMateRuntimeLocale.select(
+      fa: LifeMateRuntimeLocale.select(
+        fa: 'تغییر اشتها',
+        en: "Change in appetite",
+      ),
+      en: "Change in appetite",
+    ),
     Icons.restaurant_rounded,
     Color(0xFFE2975D),
   ),
   SymptomOption(
     'no_symptom',
-    'بدون نشانه',
+    LifeMateRuntimeLocale.select(
+      fa: LifeMateRuntimeLocale.select(fa: 'بدون نشانه', en: "no sign"),
+      en: "no sign",
+    ),
     Icons.check_circle_outline_rounded,
     Color(0xFF54A980),
   ),
@@ -1712,9 +2276,12 @@ const symptomOptions = <SymptomOption>[
 String symptomLabel(String code) => symptomOptions
     .firstWhere(
       (item) => item.code == code,
-      orElse: () => const SymptomOption(
+      orElse: () => SymptomOption(
         'unknown',
-        'سایر',
+        LifeMateRuntimeLocale.select(
+          fa: LifeMateRuntimeLocale.select(fa: 'سایر', en: "other"),
+          en: "other",
+        ),
         Icons.circle_outlined,
         Color(0xFF999999),
       ),
@@ -1724,21 +2291,58 @@ String symptomLabel(String code) => symptomOptions
 String phaseTip(WomenCyclePhase? phase, Map<String, dynamic>? log) {
   final lowEnergy = (log?['energyLevel'] as int? ?? 5) <= 2;
   if (lowEnergy) {
-    return 'امروز انرژی کمتری ثبت کردی. لازم نیست با سرعت همیشگی پیش بروی؛ کمی استراحت، آب کافی و مهربانی با خودت انتخاب خوبی است.';
+    return LifeMateRuntimeLocale.select(
+      fa: LifeMateRuntimeLocale.select(
+        fa: 'امروز انرژی کمتری ثبت کردی. لازم نیست با سرعت همیشگی پیش بروی؛ کمی استراحت، آب کافی و مهربانی با خودت انتخاب خوبی است.',
+        en: "You registered less energy today. You don't have to go at the usual speed; A little rest, plenty of water and being kind to yourself is a good choice.",
+      ),
+      en: "You registered less energy today. You don't have to go at the usual speed; A little rest, plenty of water and being kind to yourself is a good choice.",
+    );
   }
   return switch (phase) {
-    WomenCyclePhase.period =>
-      'ممکن است بدنت استراحت و گرمای بیشتری بخواهد. فعالیت سبک، آب کافی و توجه به دردهای غیرعادی را در اولویت بگذار.',
-    WomenCyclePhase.follicular =>
-      'ممکن است انرژی به‌تدریج بیشتر شود. یک برنامه سبک و انعطاف‌پذیر برای روزت انتخاب کن.',
-    WomenCyclePhase.fertile || WomenCyclePhase.ovulation =>
-      'این روزها فقط یک برآورد تقویمی‌اند. برای حال بهتر، خواب منظم، آب کافی و حرکت سبک را فراموش نکن.',
-    WomenCyclePhase.luteal =>
-      'ریتم آرام‌تر و وعده‌های منظم می‌تواند کمک‌کننده باشد. احساساتت را بدون قضاوت ثبت کن.',
-    WomenCyclePhase.pms =>
-      'ممکن است حساس‌تر یا خسته‌تر باشی. امروز کمی فضای بیشتر، خواب کافی و گفت‌وگوی آرام با همدمت ارزشمند است.',
-    _ =>
-      'بدنت ریتم خودش را دارد. چند لحظه مکث کن و ببین امروز واقعاً به چه چیزی نیاز داری.',
+    WomenCyclePhase.period => LifeMateRuntimeLocale.select(
+      fa: LifeMateRuntimeLocale.select(
+        fa: 'ممکن است بدنت استراحت و گرمای بیشتری بخواهد. فعالیت سبک، آب کافی و توجه به دردهای غیرعادی را در اولویت بگذار.',
+        en: "Your body may need more rest and warmth. Prioritize light activity, enough water and paying attention to unusual pains.",
+      ),
+      en: "Your body may need more rest and warmth. Prioritize light activity, enough water and paying attention to unusual pains.",
+    ),
+    WomenCyclePhase.follicular => LifeMateRuntimeLocale.select(
+      fa: LifeMateRuntimeLocale.select(
+        fa: 'ممکن است انرژی به‌تدریج بیشتر شود. یک برنامه سبک و انعطاف‌پذیر برای روزت انتخاب کن.',
+        en: "The energy may increase gradually. Choose a light and flexible schedule for your day.",
+      ),
+      en: "The energy may increase gradually. Choose a light and flexible schedule for your day.",
+    ),
+    WomenCyclePhase.fertile ||
+    WomenCyclePhase.ovulation => LifeMateRuntimeLocale.select(
+      fa: LifeMateRuntimeLocale.select(
+        fa: 'این روزها فقط یک برآورد تقویمی‌اند. برای حال بهتر، خواب منظم، آب کافی و حرکت سبک را فراموش نکن.',
+        en: "These days are just a calendar estimate. For a better mood, do not forget regular sleep, enough water and light movement.",
+      ),
+      en: "These days are just a calendar estimate. For a better mood, do not forget regular sleep, enough water and light movement.",
+    ),
+    WomenCyclePhase.luteal => LifeMateRuntimeLocale.select(
+      fa: LifeMateRuntimeLocale.select(
+        fa: 'ریتم آرام‌تر و وعده‌های منظم می‌تواند کمک‌کننده باشد. احساساتت را بدون قضاوت ثبت کن.',
+        en: "A calmer rhythm and regular meals can help. Record your feelings without judgment.",
+      ),
+      en: "A calmer rhythm and regular meals can help. Record your feelings without judgment.",
+    ),
+    WomenCyclePhase.pms => LifeMateRuntimeLocale.select(
+      fa: LifeMateRuntimeLocale.select(
+        fa: 'ممکن است حساس‌تر یا خسته‌تر باشی. امروز کمی فضای بیشتر، خواب کافی و گفت‌وگوی آرام با همدمت ارزشمند است.',
+        en: "You may be more sensitive or tired. Today, a little more space, enough sleep and a quiet conversation with your companion are valuable.",
+      ),
+      en: "You may be more sensitive or tired. Today, a little more space, enough sleep and a quiet conversation with your companion are valuable.",
+    ),
+    _ => LifeMateRuntimeLocale.select(
+      fa: LifeMateRuntimeLocale.select(
+        fa: 'بدنت ریتم خودش را دارد. چند لحظه مکث کن و ببین امروز واقعاً به چه چیزی نیاز داری.',
+        en: "Your body has its own rhythm. Take a moment and see what you really need today.",
+      ),
+      en: "Your body has its own rhythm. Take a moment and see what you really need today.",
+    ),
   };
 }
 

@@ -31,7 +31,7 @@ class ProfileScreen extends StatelessWidget {
 
     final sharedProfile = LifeMateSharedProfileScreen(
       apiClient: api,
-      theme: const LifeMateProfileThemeData(
+      theme: LifeMateProfileThemeData(
         background: AppColors.background,
         accent: AppColors.primary,
         titleColor: AppColors.darkBlue,
@@ -39,11 +39,48 @@ class ProfileScreen extends StatelessWidget {
         cardBackground: AppColors.cardBackground,
       ),
       labels: LifeMateProfileLabels(
-        personalInfo: loc['profile_personal_info'] ?? 'اطلاعات شخصی',
-        healthProfile: loc['profile_health_profile'] ?? 'پرونده سلامت',
-        careManagement: loc['profile_caregivers'] ?? 'مراقبان',
-        appSettings: loc['profile_app_settings'] ?? 'تنظیمات برنامه',
-        referral: loc['profile_referral_code'] ?? 'کد معرف',
+        personalInfo:
+            loc['profile_personal_info'] ??
+            LifeMateRuntimeLocale.select(
+              fa: LifeMateRuntimeLocale.select(
+                fa: 'اطلاعات شخصی',
+                en: "Personal information",
+              ),
+              en: "Personal information",
+            ),
+        healthProfile:
+            loc['profile_health_profile'] ??
+            LifeMateRuntimeLocale.select(
+              fa: LifeMateRuntimeLocale.select(
+                fa: 'پرونده سلامت',
+                en: "health file",
+              ),
+              en: "health file",
+            ),
+        careManagement:
+            loc['profile_caregivers'] ??
+            LifeMateRuntimeLocale.select(
+              fa: LifeMateRuntimeLocale.select(fa: 'مراقبان', en: "Caregivers"),
+              en: "Caregivers",
+            ),
+        appSettings:
+            loc['profile_app_settings'] ??
+            LifeMateRuntimeLocale.select(
+              fa: LifeMateRuntimeLocale.select(
+                fa: 'تنظیمات برنامه',
+                en: "Program settings",
+              ),
+              en: "Program settings",
+            ),
+        referral:
+            loc['profile_referral_code'] ??
+            LifeMateRuntimeLocale.select(
+              fa: LifeMateRuntimeLocale.select(
+                fa: 'کد معرف',
+                en: "Identification code",
+              ),
+              en: "Identification code",
+            ),
         support: loc['profile_support'] ?? 'پشتیبانی',
         logout: loc['profile_logout'] ?? 'خروج از حساب',
         subscriptionTitle:
@@ -51,28 +88,46 @@ class ProfileScreen extends StatelessWidget {
             (isPersian ? 'اشتراک' : 'Subscription'),
         manageSubscriptions:
             loc['profile_buy_plan'] ??
-            (isPersian ? 'مدیریت اشتراک‌ها' : 'Manage subscriptions'),
-        referralSubtitle: isPersian ? 'در دست توسعه' : 'Coming soon',
+            (isPersian
+                ? LifeMateRuntimeLocale.select(
+                    fa: 'مدیریت اشتراک‌ها',
+                    en: "Management of subscriptions",
+                  )
+                : 'Manage subscriptions'),
+        referralSubtitle: isPersian
+            ? LifeMateRuntimeLocale.select(
+                fa: 'در دست توسعه',
+                en: "Under development",
+              )
+            : 'Coming soon',
         supportSubtitle: isPersian
-            ? 'راهنما فعال؛ ارسال تیکت در دست توسعه'
+            ? LifeMateRuntimeLocale.select(
+                fa: 'راهنما فعال؛ ارسال تیکت در دست توسعه',
+                en: "active guide; Submit ticket under development",
+              )
             : 'Help is available; ticketing is coming soon',
       ),
       fontFamily: mainFont,
       appName: 'WellMate',
       versionLabel: 'WellMate $wellMateAppVersion'.toPersianDigit(isPersian),
-      fallbackUserName: isPersian ? 'کاربر LifeMate' : 'LifeMate user',
+      fallbackUserName: isPersian
+          ? LifeMateRuntimeLocale.select(
+              fa: 'کاربر LifeMate',
+              en: "LifeMate user",
+            )
+          : 'LifeMate user',
       isPersian: isPersian,
-      onNotifications: () => open(const NotificationCenterScreen()),
-      onEditProfile: () => open(const EditableProfileScreen()),
-      onHealthProfile: () => open(const HealthRecordScreen()),
-      onCareManagement: () => open(const CareAccessScreen()),
+      onNotifications: () => open(NotificationCenterScreen()),
+      onEditProfile: () => open(EditableProfileScreen()),
+      onHealthProfile: () => open(HealthRecordScreen()),
+      onCareManagement: () => open(CareAccessScreen()),
       onAppSettings: () => showDialog<void>(
         context: context,
         builder: (_) => _SettingsDialog(mainFont: mainFont),
       ),
-      onReferral: () => open(const ReferralScreen()),
-      onSupport: () => open(const SupportScreen()),
-      onManageSubscriptions: () => open(const SubscriptionScreen()),
+      onReferral: () => open(ReferralScreen()),
+      onSupport: () => open(SupportScreen()),
+      onManageSubscriptions: () => open(SubscriptionScreen()),
     );
 
     if (!MedicationHomeWidgetService.isSupportedPlatform) {
@@ -110,8 +165,20 @@ class ProfileScreen extends StatelessWidget {
           behavior: SnackBarBehavior.floating,
           content: Text(
             pinRequested
-                ? 'پنجره افزودن ویجت باز شد؛ «افزودن» را بزنید.'
-                : 'برای افزودن دستی، صفحه اصلی را نگه دارید و از بخش ویجت‌ها WellMate را انتخاب کنید.',
+                ? LifeMateRuntimeLocale.select(
+                    fa: LifeMateRuntimeLocale.select(
+                      fa: 'پنجره افزودن ویجت باز شد؛ «افزودن» را بزنید.',
+                      en: "The add widget window is opened; Click \"Add\".",
+                    ),
+                    en: "The add widget window is opened; Click \"Add\".",
+                  )
+                : LifeMateRuntimeLocale.select(
+                    fa: LifeMateRuntimeLocale.select(
+                      fa: 'برای افزودن دستی، صفحه اصلی را نگه دارید و از بخش ویجت‌ها WellMate را انتخاب کنید.',
+                      en: "To add manually, hold the home screen and select WellMate from the widgets section.",
+                    ),
+                    en: "To add manually, hold the home screen and select WellMate from the widgets section.",
+                  ),
           ),
         ),
       );
@@ -119,9 +186,17 @@ class ProfileScreen extends StatelessWidget {
       debugPrint('WellMate medication widget pin failed: $error');
       if (!context.mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
+        SnackBar(
           behavior: SnackBarBehavior.floating,
-          content: Text('آماده‌سازی ویجت انجام نشد؛ دوباره تلاش کنید.'),
+          content: Text(
+            LifeMateRuntimeLocale.select(
+              fa: LifeMateRuntimeLocale.select(
+                fa: 'آماده‌سازی ویجت انجام نشد؛ دوباره تلاش کنید.',
+                en: "Failed to prepare widget; Try again.",
+              ),
+              en: "Failed to prepare widget; Try again.",
+            ),
+          ),
         ),
       );
     }
@@ -141,58 +216,80 @@ class _MedicationWidgetProfileButton extends StatelessWidget {
   Widget build(BuildContext context) {
     return Semantics(
       button: true,
-      label: 'افزودن ویجت مصرف به صفحه اصلی',
-      hint: 'نمایش درمان بعدی و ثبت سریع مصرف از صفحه اصلی گوشی',
+      label: LifeMateRuntimeLocale.select(
+        fa: LifeMateRuntimeLocale.select(
+          fa: 'افزودن ویجت مصرف به صفحه اصلی',
+          en: "Add consumption widget to home page",
+        ),
+        en: "Add consumption widget to home page",
+      ),
+      hint: LifeMateRuntimeLocale.select(
+        fa: LifeMateRuntimeLocale.select(
+          fa: 'نمایش درمان بعدی و ثبت سریع مصرف از صفحه اصلی گوشی',
+          en: "Display the next treatment and record consumption quickly from the main screen of the phone",
+        ),
+        en: "Display the next treatment and record consumption quickly from the main screen of the phone",
+      ),
       child: Material(
-        color: const Color(0xFFFFF4E9),
+        color: Color(0xFFFFF4E9),
         borderRadius: BorderRadius.circular(22),
         elevation: 3,
-        shadowColor: const Color(0x22E76D5B),
+        shadowColor: Color(0x22E76D5B),
         child: InkWell(
-          key: const ValueKey('wellmate-add-medication-widget'),
+          key: ValueKey('wellmate-add-medication-widget'),
           borderRadius: BorderRadius.circular(22),
           onTap: onPressed,
           child: Padding(
-            padding: const EdgeInsetsDirectional.fromSTEB(14, 12, 14, 12),
+            padding: EdgeInsetsDirectional.fromSTEB(14, 12, 14, 12),
             child: Row(
               children: [
                 Container(
                   width: 52,
                   height: 52,
-                  padding: const EdgeInsets.all(6),
+                  padding: EdgeInsets.all(6),
                   decoration: BoxDecoration(
-                    color: const Color(0xFFDDF2E5),
+                    color: Color(0xFFDDF2E5),
                     borderRadius: BorderRadius.circular(16),
                   ),
                   child: Image.asset(
                     'assets/images/WellMateWithoutBack.png',
                     fit: BoxFit.contain,
-                    errorBuilder: (_, __, ___) => const Icon(
-                      Icons.widgets_rounded,
-                      color: Color(0xFF4AAE72),
-                    ),
+                    errorBuilder: (_, __, ___) =>
+                        Icon(Icons.widgets_rounded, color: Color(0xFF4AAE72)),
                   ),
                 ),
-                const SizedBox(width: 12),
+                SizedBox(width: 12),
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        'افزودن ویجت مصرف به صفحه اصلی',
+                        LifeMateRuntimeLocale.select(
+                          fa: LifeMateRuntimeLocale.select(
+                            fa: 'افزودن ویجت مصرف به صفحه اصلی',
+                            en: "Add consumption widget to home page",
+                          ),
+                          en: "Add consumption widget to home page",
+                        ),
                         style: TextStyle(
                           fontFamily: fontFamily,
-                          color: const Color(0xFF182435),
+                          color: Color(0xFF182435),
                           fontSize: 15,
                           fontWeight: FontWeight.w900,
                         ),
                       ),
-                      const SizedBox(height: 4),
+                      SizedBox(height: 4),
                       Text(
-                        'نام درمان، دوز، ساعت و «مصرف کردم» همیشه جلوی چشم',
+                        LifeMateRuntimeLocale.select(
+                          fa: LifeMateRuntimeLocale.select(
+                            fa: 'نام درمان، دوز، ساعت و «مصرف کردم» همیشه جلوی چشم',
+                            en: "The name of the treatment, dose, time and \"I took it\" always in front of the eyes",
+                          ),
+                          en: "The name of the treatment, dose, time and \"I took it\" always in front of the eyes",
+                        ),
                         style: TextStyle(
                           fontFamily: fontFamily,
-                          color: const Color(0xFF667085),
+                          color: Color(0xFF667085),
                           fontSize: 11.5,
                           fontWeight: FontWeight.w600,
                           height: 1.45,
@@ -201,19 +298,15 @@ class _MedicationWidgetProfileButton extends StatelessWidget {
                     ],
                   ),
                 ),
-                const SizedBox(width: 10),
+                SizedBox(width: 10),
                 Container(
                   width: 42,
                   height: 42,
-                  decoration: const BoxDecoration(
+                  decoration: BoxDecoration(
                     color: Color(0xFFFF7362),
                     shape: BoxShape.circle,
                   ),
-                  child: const Icon(
-                    Icons.add_rounded,
-                    color: Colors.white,
-                    size: 26,
-                  ),
+                  child: Icon(Icons.add_rounded, color: Colors.white, size: 26),
                 ),
               ],
             ),
@@ -249,7 +342,13 @@ class _SettingsDialogState extends State<_SettingsDialog> {
     return AlertDialog(
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
       title: Text(
-        'تنظیمات برنامه',
+        LifeMateRuntimeLocale.select(
+          fa: LifeMateRuntimeLocale.select(
+            fa: 'تنظیمات برنامه',
+            en: "Program settings",
+          ),
+          en: "Program settings",
+        ),
         style: TextStyle(
           fontFamily: widget.mainFont,
           fontWeight: FontWeight.bold,
@@ -261,16 +360,30 @@ class _SettingsDialogState extends State<_SettingsDialog> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              'زبان',
+              LifeMateRuntimeLocale.select(
+                fa: LifeMateRuntimeLocale.select(fa: 'زبان', en: "language"),
+                en: "language",
+              ),
               style: TextStyle(
                 fontFamily: widget.mainFont,
                 fontWeight: FontWeight.bold,
               ),
             ),
-            const SizedBox(height: 10),
+            SizedBox(height: 10),
             SegmentedButton<String>(
-              segments: const [
-                ButtonSegment(value: 'fa', label: Text('فارسی')),
+              segments: [
+                ButtonSegment(
+                  value: 'fa',
+                  label: Text(
+                    LifeMateRuntimeLocale.select(
+                      fa: LifeMateRuntimeLocale.select(
+                        fa: 'فارسی',
+                        en: "Farsi",
+                      ),
+                      en: "Farsi",
+                    ),
+                  ),
+                ),
                 ButtonSegment(value: 'en', label: Text('English')),
               ],
               selected: {localeProvider.locale.languageCode},
@@ -278,9 +391,15 @@ class _SettingsDialogState extends State<_SettingsDialog> {
                 localeProvider.setLocale(Locale(values.first));
               },
             ),
-            const SizedBox(height: 24),
+            SizedBox(height: 24),
             Text(
-              'اندازه متن',
+              LifeMateRuntimeLocale.select(
+                fa: LifeMateRuntimeLocale.select(
+                  fa: 'اندازه متن',
+                  en: "Text size",
+                ),
+                en: "Text size",
+              ),
               style: TextStyle(
                 fontFamily: widget.mainFont,
                 fontWeight: FontWeight.bold,
@@ -304,7 +423,12 @@ class _SettingsDialogState extends State<_SettingsDialog> {
       actions: [
         FilledButton(
           onPressed: () => Navigator.of(context).pop(),
-          child: const Text('تمام'),
+          child: Text(
+            LifeMateRuntimeLocale.select(
+              fa: LifeMateRuntimeLocale.select(fa: 'تمام', en: "all"),
+              en: "all",
+            ),
+          ),
         ),
       ],
     );

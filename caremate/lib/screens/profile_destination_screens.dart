@@ -30,14 +30,20 @@ class _CareMatePersonalInformationScreenState
 
   @override
   Widget build(BuildContext context) => _DestinationScaffold(
-    title: 'اطلاعات شخصی',
+    title: LifeMateRuntimeLocale.select(
+      fa: LifeMateRuntimeLocale.select(
+        fa: 'اطلاعات شخصی',
+        en: "Personal information",
+      ),
+      en: "Personal information",
+    ),
     icon: Icons.person_rounded,
     accent: Colors.blueAccent,
     child: FutureBuilder<Map<String, dynamic>>(
       future: _future,
       builder: (context, snapshot) {
         if (snapshot.connectionState != ConnectionState.done) {
-          return const _LoadingCard();
+          return _LoadingCard();
         }
         if (snapshot.hasError) {
           return _ErrorCard(onRetry: _retry);
@@ -52,49 +58,107 @@ class _CareMatePersonalInformationScreenState
               children: [
                 _InformationRow(
                   icon: Icons.badge_outlined,
-                  label: 'نام نمایشی',
+                  label: LifeMateRuntimeLocale.select(
+                    fa: LifeMateRuntimeLocale.select(
+                      fa: 'نام نمایشی',
+                      en: "display name",
+                    ),
+                    en: "display name",
+                  ),
                   value: displayName == null || displayName.isEmpty
-                      ? 'ثبت نشده'
+                      ? LifeMateRuntimeLocale.select(
+                          fa: LifeMateRuntimeLocale.select(
+                            fa: 'ثبت نشده',
+                            en: "Not recorded",
+                          ),
+                          en: "not registered",
+                        )
                       : displayName,
                 ),
-                const Divider(height: 28),
+                Divider(height: 28),
                 _InformationRow(
                   icon: Icons.email_outlined,
-                  label: 'ایمیل',
-                  value: user['email']?.toString() ?? 'ثبت نشده',
+                  label: LifeMateRuntimeLocale.select(
+                    fa: LifeMateRuntimeLocale.select(fa: 'ایمیل', en: "Email"),
+                    en: "Email",
+                  ),
+                  value:
+                      user['email']?.toString() ??
+                      LifeMateRuntimeLocale.select(
+                        fa: LifeMateRuntimeLocale.select(
+                          fa: 'ثبت نشده',
+                          en: "Not recorded",
+                        ),
+                        en: "not registered",
+                      ),
                   ltr: true,
                 ),
-                const Divider(height: 28),
+                Divider(height: 28),
                 _InformationRow(
                   icon: Icons.phone_outlined,
-                  label: 'شماره تماس',
+                  label: LifeMateRuntimeLocale.select(
+                    fa: LifeMateRuntimeLocale.select(
+                      fa: 'شماره تماس',
+                      en: "Contact number",
+                    ),
+                    en: "Contact number",
+                  ),
                   value:
                       profile['phoneNumber']?.toString().trim().isNotEmpty ==
                           true
                       ? profile['phoneNumber'].toString()
-                      : 'ثبت نشده',
+                      : LifeMateRuntimeLocale.select(
+                          fa: LifeMateRuntimeLocale.select(
+                            fa: 'ثبت نشده',
+                            en: "Not recorded",
+                          ),
+                          en: "not registered",
+                        ),
                   ltr: true,
                 ),
-                const Divider(height: 28),
+                Divider(height: 28),
                 _InformationRow(
                   icon: Icons.language_rounded,
-                  label: 'زبان حساب',
+                  label: LifeMateRuntimeLocale.select(
+                    fa: LifeMateRuntimeLocale.select(
+                      fa: 'زبان حساب',
+                      en: "Account language",
+                    ),
+                    en: "Account language",
+                  ),
                   value: profile['locale']?.toString() ?? 'fa',
                 ),
-                const Divider(height: 28),
+                Divider(height: 28),
                 _InformationRow(
                   icon: Icons.schedule_rounded,
-                  label: 'منطقه زمانی',
+                  label: LifeMateRuntimeLocale.select(
+                    fa: LifeMateRuntimeLocale.select(
+                      fa: 'منطقه زمانی',
+                      en: "time zone",
+                    ),
+                    en: "time zone",
+                  ),
                   value: profile['timeZone']?.toString() ?? 'Asia/Tehran',
                   ltr: true,
                 ),
               ],
             ),
-            const SizedBox(height: 16),
-            const _DevelopmentNotice(
-              title: 'ویرایش امن اطلاعات حساب',
-              description:
-                  'اطلاعات واقعی حساب از Supabase و LifeMate API خوانده می‌شود. تا اضافه‌شدن قرارداد ویرایش پروفایل، تغییر این اطلاعات غیرفعال است.',
+            SizedBox(height: 16),
+            _DevelopmentNotice(
+              title: LifeMateRuntimeLocale.select(
+                fa: LifeMateRuntimeLocale.select(
+                  fa: 'ویرایش امن اطلاعات حساب',
+                  en: "Secure editing of account information",
+                ),
+                en: "Secure editing of account information",
+              ),
+              description: LifeMateRuntimeLocale.select(
+                fa: LifeMateRuntimeLocale.select(
+                  fa: 'اطلاعات واقعی حساب از Supabase و LifeMate API خوانده می‌شود. تا اضافه‌شدن قرارداد ویرایش پروفایل، تغییر این اطلاعات غیرفعال است.',
+                  en: "Actual account information is read from Supabase and LifeMate API. Changing this information is disabled until the profile editing contract is added.",
+                ),
+                en: "Actual account information is read from Supabase and LifeMate API. Changing this information is disabled until the profile editing contract is added.",
+              ),
             ),
           ],
         );
@@ -156,7 +220,13 @@ class _CareMateNotificationsScreenState
                       .isNotEmpty ==
                   true
               ? relationship['patientDisplayName'].toString()
-              : 'فرد تحت مراقبت',
+              : LifeMateRuntimeLocale.select(
+                  fa: LifeMateRuntimeLocale.select(
+                    fa: 'فرد تحت مراقبت',
+                    en: "Person under care",
+                  ),
+                  en: "Person under care",
+                ),
           doses: doses,
         ),
       );
@@ -168,25 +238,42 @@ class _CareMateNotificationsScreenState
 
   @override
   Widget build(BuildContext context) => _DestinationScaffold(
-    title: 'مرکز اعلان‌ها',
+    title: LifeMateRuntimeLocale.select(
+      fa: LifeMateRuntimeLocale.select(
+        fa: 'مرکز اعلان‌ها',
+        en: "Notification Center",
+      ),
+      en: "Notification Center",
+    ),
     icon: Icons.notifications_active_rounded,
     accent: AppColors.primaryBlue,
     child: FutureBuilder<_CareNotificationData>(
       future: _future,
       builder: (context, snapshot) {
         if (snapshot.connectionState != ConnectionState.done) {
-          return const _LoadingCard();
+          return _LoadingCard();
         }
         if (snapshot.hasError) {
           return _ErrorCard(onRetry: _retry);
         }
         final groups = snapshot.data?.groups ?? const [];
         if (groups.isEmpty) {
-          return const _EmptyCard(
+          return _EmptyCard(
             icon: Icons.group_off_rounded,
-            title: 'فردی به CareMate متصل نیست',
-            description:
-                'پس از فعال‌شدن ارتباط مراقبتی، اعلان‌های واقعی دارویی اینجا نمایش داده می‌شوند.',
+            title: LifeMateRuntimeLocale.select(
+              fa: LifeMateRuntimeLocale.select(
+                fa: 'فردی به CareMate متصل نیست',
+                en: "Someone is not connected to CareMate",
+              ),
+              en: "Someone is not connected to CareMate",
+            ),
+            description: LifeMateRuntimeLocale.select(
+              fa: LifeMateRuntimeLocale.select(
+                fa: 'پس از فعال‌شدن ارتباط مراقبتی، اعلان‌های واقعی دارویی اینجا نمایش داده می‌شوند.',
+                en: "Once Care Connection is enabled, real medication notifications will be displayed here.",
+              ),
+              en: "Once Care Connection is enabled, real medication notifications will be displayed here.",
+            ),
           );
         }
         final alerts = <({String patient, Map<String, dynamic> dose})>[];
@@ -199,10 +286,22 @@ class _CareMateNotificationsScreenState
           }
         }
         if (alerts.isEmpty) {
-          return const _EmptyCard(
+          return _EmptyCard(
             icon: Icons.notifications_paused_rounded,
-            title: 'هشدار فعالی وجود ندارد',
-            description: 'برای امروز دوز فراموش‌شده یا ردشده‌ای ثبت نشده است.',
+            title: LifeMateRuntimeLocale.select(
+              fa: LifeMateRuntimeLocale.select(
+                fa: 'هشدار فعالی وجود ندارد',
+                en: "There is no active alert",
+              ),
+              en: "There is no active alert",
+            ),
+            description: LifeMateRuntimeLocale.select(
+              fa: LifeMateRuntimeLocale.select(
+                fa: 'برای امروز دوز فراموش‌شده یا ردشده‌ای ثبت نشده است.',
+                en: "No missed or missed dose recorded for today.",
+              ),
+              en: "No missed or missed dose recorded for today.",
+            ),
           );
         }
         return Column(
@@ -229,19 +328,60 @@ class CareMateReferralScreen extends StatelessWidget {
   const CareMateReferralScreen({super.key});
 
   @override
-  Widget build(BuildContext context) => const _StaticDestinationScreen(
-    title: 'کد معرف',
+  Widget build(BuildContext context) => _StaticDestinationScreen(
+    title: LifeMateRuntimeLocale.select(
+      fa: LifeMateRuntimeLocale.select(
+        fa: 'کد معرف',
+        en: "Identification code",
+      ),
+      en: "Identification code",
+    ),
     icon: Icons.card_giftcard_rounded,
     accent: Colors.redAccent,
-    heading: 'دعوت دوستان به LifeMate',
-    description:
-        'این صفحه بخشی از طراحی اصلی محصول است. کد ساختگی نمایش داده نمی‌شود و اشتراک‌گذاری تا ایجاد سرویس معرفی غیرفعال می‌ماند.',
+    heading: LifeMateRuntimeLocale.select(
+      fa: LifeMateRuntimeLocale.select(
+        fa: 'دعوت دوستان به LifeMate',
+        en: "Invite friends to LifeMate",
+      ),
+      en: "Invite friends to LifeMate",
+    ),
+    description: LifeMateRuntimeLocale.select(
+      fa: LifeMateRuntimeLocale.select(
+        fa: 'این صفحه بخشی از طراحی اصلی محصول است. کد ساختگی نمایش داده نمی‌شود و اشتراک‌گذاری تا ایجاد سرویس معرفی غیرفعال می‌ماند.',
+        en: "This page is part of the original product design. Dummy code will not be displayed and sharing will be disabled until referral service is created.",
+      ),
+      en: "This page is part of the original product design. Dummy code will not be displayed and sharing will be disabled until referral service is created.",
+    ),
     features: [
-      'پاداش شفاف و قابل رهگیری',
-      'حفظ حریم خصوصی دعوت‌شونده',
-      'اشتراک‌گذاری فقط با رضایت کاربر',
+      LifeMateRuntimeLocale.select(
+        fa: LifeMateRuntimeLocale.select(
+          fa: 'پاداش شفاف و قابل رهگیری',
+          en: "Transparent and trackable reward",
+        ),
+        en: "Transparent and trackable reward",
+      ),
+      LifeMateRuntimeLocale.select(
+        fa: LifeMateRuntimeLocale.select(
+          fa: 'حفظ حریم خصوصی دعوت‌شونده',
+          en: "Protecting invitee privacy",
+        ),
+        en: "Protecting invitee privacy",
+      ),
+      LifeMateRuntimeLocale.select(
+        fa: LifeMateRuntimeLocale.select(
+          fa: 'اشتراک‌گذاری فقط با رضایت کاربر',
+          en: "Sharing only with user consent",
+        ),
+        en: "Sharing only with user consent",
+      ),
     ],
-    actionLabel: 'اشتراک‌گذاری کد معرف',
+    actionLabel: LifeMateRuntimeLocale.select(
+      fa: LifeMateRuntimeLocale.select(
+        fa: 'اشتراک‌گذاری کد معرف',
+        en: "Share ID",
+      ),
+      en: "Share ID",
+    ),
   );
 }
 
@@ -250,40 +390,87 @@ class CareMateSupportScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => _DestinationScaffold(
-    title: 'پشتیبانی',
+    title: LifeMateRuntimeLocale.select(
+      fa: LifeMateRuntimeLocale.select(fa: 'پشتیبانی', en: "Support"),
+      en: "Support",
+    ),
     icon: Icons.support_agent_rounded,
     accent: Colors.indigo,
     child: Column(
       children: [
-        const _InformationCard(
+        _InformationCard(
           children: [
             _HelpItem(
               icon: Icons.person_add_alt_1_rounded,
-              title: 'پذیرش دعوت چگونه انجام می‌شود؟',
-              description:
-                  'در بخش مراقبت خانواده، کد ارسال‌شده توسط بیمار را وارد و رضایت‌نامه را تأیید کنید.',
+              title: LifeMateRuntimeLocale.select(
+                fa: LifeMateRuntimeLocale.select(
+                  fa: 'پذیرش دعوت چگونه انجام می‌شود؟',
+                  en: "How to accept an invitation?",
+                ),
+                en: "How to accept an invitation?",
+              ),
+              description: LifeMateRuntimeLocale.select(
+                fa: LifeMateRuntimeLocale.select(
+                  fa: 'در بخش مراقبت خانواده، کد ارسال‌شده توسط بیمار را وارد و رضایت‌نامه را تأیید کنید.',
+                  en: "In the Family Care section, enter the code sent by the patient and confirm the consent form.",
+                ),
+                en: "In the Family Care section, enter the code sent by the patient and confirm the consent form.",
+              ),
             ),
             Divider(height: 28),
             _HelpItem(
               icon: Icons.security_rounded,
-              title: 'چرا بعضی اطلاعات قابل ویرایش نیست؟',
-              description:
-                  'CareMate فقط در محدوده رضایت بیمار اطلاعات درمان را نمایش می‌دهد و تغییر درمان از سمت مراقب غیرفعال است.',
+              title: LifeMateRuntimeLocale.select(
+                fa: LifeMateRuntimeLocale.select(
+                  fa: 'چرا بعضی اطلاعات قابل ویرایش نیست؟',
+                  en: "Why can't some information be edited?",
+                ),
+                en: "Why can't some information be edited?",
+              ),
+              description: LifeMateRuntimeLocale.select(
+                fa: LifeMateRuntimeLocale.select(
+                  fa: 'CareMate فقط در محدوده رضایت بیمار اطلاعات درمان را نمایش می‌دهد و تغییر درمان از سمت مراقب غیرفعال است.',
+                  en: "CareMate only displays treatment information within the scope of the patient's consent, and changing the treatment from the caregiver's side is disabled.",
+                ),
+                en: "CareMate only displays treatment information within the scope of the patient's consent, and changing the treatment from the caregiver's side is disabled.",
+              ),
             ),
             Divider(height: 28),
             _HelpItem(
               icon: Icons.sync_problem_rounded,
-              title: 'اطلاعات تازه نمی‌شود',
-              description:
-                  'اتصال اینترنت را بررسی و صفحه را به پایین بکشید. در صورت انقضای نشست دوباره وارد شوید.',
+              title: LifeMateRuntimeLocale.select(
+                fa: LifeMateRuntimeLocale.select(
+                  fa: 'اطلاعات تازه نمی‌شود',
+                  en: "The information is not updated",
+                ),
+                en: "The information is not updated",
+              ),
+              description: LifeMateRuntimeLocale.select(
+                fa: LifeMateRuntimeLocale.select(
+                  fa: 'اتصال اینترنت را بررسی و صفحه را به پایین بکشید. در صورت انقضای نشست دوباره وارد شوید.',
+                  en: "Check your internet connection and scroll down. Log in again if the session expires.",
+                ),
+                en: "Check your internet connection and scroll down. Log in again if the session expires.",
+              ),
             ),
           ],
         ),
-        const SizedBox(height: 16),
-        const _DevelopmentNotice(
-          title: 'ارسال تیکت پشتیبانی',
-          description:
-              'راهنمای کاربردی در دسترس است، اما ارسال تیکت تا اتصال سرویس پشتیبانی غیرفعال باقی می‌ماند.',
+        SizedBox(height: 16),
+        _DevelopmentNotice(
+          title: LifeMateRuntimeLocale.select(
+            fa: LifeMateRuntimeLocale.select(
+              fa: 'ارسال تیکت پشتیبانی',
+              en: "Submit a support ticket",
+            ),
+            en: "Submit a support ticket",
+          ),
+          description: LifeMateRuntimeLocale.select(
+            fa: LifeMateRuntimeLocale.select(
+              fa: 'راهنمای کاربردی در دسترس است، اما ارسال تیکت تا اتصال سرویس پشتیبانی غیرفعال باقی می‌ماند.',
+              en: "Application help is available, but ticket submission remains disabled until support service is connected.",
+            ),
+            en: "Application help is available, but ticket submission remains disabled until support service is connected.",
+          ),
         ),
       ],
     ),
@@ -295,27 +482,68 @@ class CareMateSubscriptionScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => _DestinationScaffold(
-    title: 'اشتراک CareMate',
+    title: LifeMateRuntimeLocale.select(
+      fa: LifeMateRuntimeLocale.select(
+        fa: 'اشتراک CareMate',
+        en: "CareMate subscription",
+      ),
+      en: "CareMate subscription",
+    ),
     icon: Icons.workspace_premium_rounded,
     accent: Colors.amber,
     child: Column(
       children: [
-        const _PlanCard(
-          title: 'مراقبت پایه',
-          description: 'اتصال امن به یک عضو خانواده و مشاهده برنامه درمان',
+        _PlanCard(
+          title: LifeMateRuntimeLocale.select(
+            fa: LifeMateRuntimeLocale.select(
+              fa: 'مراقبت پایه',
+              en: "Basic care",
+            ),
+            en: "Basic care",
+          ),
+          description: LifeMateRuntimeLocale.select(
+            fa: LifeMateRuntimeLocale.select(
+              fa: 'اتصال امن به یک عضو خانواده و مشاهده برنامه درمان',
+              en: "Connect securely to a family member and view a treatment plan",
+            ),
+            en: "Connect securely to a family member and view a treatment plan",
+          ),
           current: true,
         ),
-        const SizedBox(height: 14),
-        const _PlanCard(
-          title: 'مراقبت خانواده',
-          description: 'اعضای بیشتر، گزارش‌های هفتگی و هماهنگی تیم مراقبت',
+        SizedBox(height: 14),
+        _PlanCard(
+          title: LifeMateRuntimeLocale.select(
+            fa: LifeMateRuntimeLocale.select(
+              fa: 'مراقبت خانواده',
+              en: "Family care",
+            ),
+            en: "Family care",
+          ),
+          description: LifeMateRuntimeLocale.select(
+            fa: LifeMateRuntimeLocale.select(
+              fa: 'اعضای بیشتر، گزارش‌های هفتگی و هماهنگی تیم مراقبت',
+              en: "More members, weekly reports and care team coordination",
+            ),
+            en: "More members, weekly reports and care team coordination",
+          ),
           current: false,
         ),
-        const SizedBox(height: 16),
-        const _DevelopmentNotice(
-          title: 'پرداخت هنوز فعال نیست',
-          description:
-              'هیچ خرید یا پرداختی در این نسخه انجام نمی‌شود. فعال‌سازی پس از قرارداد پرداخت، قیمت‌گذاری و بازبینی حقوقی خواهد بود.',
+        SizedBox(height: 16),
+        _DevelopmentNotice(
+          title: LifeMateRuntimeLocale.select(
+            fa: LifeMateRuntimeLocale.select(
+              fa: 'پرداخت هنوز فعال نیست',
+              en: "Payment is not yet active",
+            ),
+            en: "Payment is not yet active",
+          ),
+          description: LifeMateRuntimeLocale.select(
+            fa: LifeMateRuntimeLocale.select(
+              fa: 'هیچ خرید یا پرداختی در این نسخه انجام نمی‌شود. فعال‌سازی پس از قرارداد پرداخت، قیمت‌گذاری و بازبینی حقوقی خواهد بود.',
+              en: "No purchases or payments are made in this version. Activation will be after contract payment, pricing and legal review.",
+            ),
+            en: "No purchases or payments are made in this version. Activation will be after contract payment, pricing and legal review.",
+          ),
         ),
       ],
     ),
@@ -341,16 +569,19 @@ class _DestinationScaffold extends StatelessWidget {
       child: Column(
         children: [
           Padding(
-            padding: const EdgeInsets.fromLTRB(16, 10, 20, 6),
+            padding: EdgeInsets.fromLTRB(16, 10, 20, 6),
             child: Row(
               children: [
                 IconButton(
-                  tooltip: 'بازگشت',
+                  tooltip: LifeMateRuntimeLocale.select(
+                    fa: LifeMateRuntimeLocale.select(fa: 'بازگشت', en: "Back"),
+                    en: "return",
+                  ),
                   onPressed: () => Navigator.of(context).pop(),
-                  icon: const Icon(Icons.arrow_back_ios_new_rounded),
+                  icon: Icon(Icons.arrow_back_ios_new_rounded),
                   color: AppColors.primaryBlue,
                 ),
-                const SizedBox(width: 4),
+                SizedBox(width: 4),
                 Container(
                   width: 44,
                   height: 44,
@@ -360,11 +591,11 @@ class _DestinationScaffold extends StatelessWidget {
                   ),
                   child: Icon(icon, color: accent),
                 ),
-                const SizedBox(width: 12),
+                SizedBox(width: 12),
                 Expanded(
                   child: Text(
                     title,
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontSize: 20,
                       fontWeight: FontWeight.w900,
                       color: AppColors.primaryText,
@@ -376,7 +607,7 @@ class _DestinationScaffold extends StatelessWidget {
           ),
           Expanded(
             child: SingleChildScrollView(
-              padding: const EdgeInsets.fromLTRB(24, 16, 24, 32),
+              padding: EdgeInsets.fromLTRB(24, 16, 24, 32),
               child: child,
             ),
           ),
@@ -430,41 +661,46 @@ class _StaticDestinationScreen extends StatelessWidget {
               Text(
                 heading,
                 textAlign: TextAlign.center,
-                style: const TextStyle(
+                style: TextStyle(
                   fontSize: 20,
                   fontWeight: FontWeight.w900,
                   color: AppColors.primaryText,
                 ),
               ),
-              const SizedBox(height: 10),
+              SizedBox(height: 10),
               Text(
                 description,
                 textAlign: TextAlign.center,
-                style: const TextStyle(
-                  height: 1.7,
-                  color: AppColors.secondaryText,
-                ),
+                style: TextStyle(height: 1.7, color: AppColors.secondaryText),
               ),
-              const SizedBox(height: 18),
+              SizedBox(height: 18),
               ...features.map(
                 (feature) => Padding(
-                  padding: const EdgeInsets.only(bottom: 10),
+                  padding: EdgeInsets.only(bottom: 10),
                   child: Row(
                     children: [
                       Icon(Icons.check_circle_rounded, size: 20, color: accent),
-                      const SizedBox(width: 10),
+                      SizedBox(width: 10),
                       Expanded(child: Text(feature)),
                     ],
                   ),
                 ),
               ),
-              const SizedBox(height: 12),
+              SizedBox(height: 12),
               SizedBox(
                 width: double.infinity,
                 child: OutlinedButton.icon(
                   onPressed: null,
-                  icon: const Icon(Icons.lock_outline_rounded),
-                  label: Text('$actionLabel — در دست توسعه'),
+                  icon: Icon(Icons.lock_outline_rounded),
+                  label: Text(
+                    LifeMateRuntimeLocale.select(
+                      fa: LifeMateRuntimeLocale.select(
+                        fa: '$actionLabel — در دست توسعه',
+                        en: "$actionLabel — under development",
+                      ),
+                      en: "$actionLabel — under development",
+                    ),
+                  ),
                 ),
               ),
             ],
@@ -548,7 +784,7 @@ class _DevelopmentNotice extends StatelessWidget {
   @override
   Widget build(BuildContext context) => Container(
     width: double.infinity,
-    padding: const EdgeInsets.all(18),
+    padding: EdgeInsets.all(18),
     decoration: BoxDecoration(
       color: Colors.amber.shade50,
       borderRadius: BorderRadius.circular(20),
@@ -560,24 +796,29 @@ class _DevelopmentNotice extends StatelessWidget {
         Row(
           children: [
             Icon(Icons.construction_rounded, color: Colors.amber.shade800),
-            const SizedBox(width: 9),
+            SizedBox(width: 9),
             Expanded(
-              child: Text(
-                title,
-                style: const TextStyle(fontWeight: FontWeight.w800),
-              ),
+              child: Text(title, style: TextStyle(fontWeight: FontWeight.w800)),
             ),
           ],
         ),
-        const SizedBox(height: 8),
-        Text(description, style: const TextStyle(height: 1.65)),
-        const SizedBox(height: 12),
+        SizedBox(height: 8),
+        Text(description, style: TextStyle(height: 1.65)),
+        SizedBox(height: 12),
         SizedBox(
           width: double.infinity,
           child: OutlinedButton.icon(
             onPressed: null,
-            icon: const Icon(Icons.lock_outline_rounded),
-            label: const Text('در دست توسعه'),
+            icon: Icon(Icons.lock_outline_rounded),
+            label: Text(
+              LifeMateRuntimeLocale.select(
+                fa: LifeMateRuntimeLocale.select(
+                  fa: 'در دست توسعه',
+                  en: "Under development",
+                ),
+                en: "Under development",
+              ),
+            ),
           ),
         ),
       ],
@@ -597,9 +838,9 @@ class _AlertCard extends StatelessWidget {
     final raw = dose['scheduledLocalTime']?.toString() ?? '--:--';
     final time = raw.length >= 5 ? raw.substring(0, 5) : raw;
     return Container(
-      padding: const EdgeInsets.all(16),
+      padding: EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: skipped ? const Color(0xFFFFF6E8) : const Color(0xFFFFEEF0),
+        color: skipped ? Color(0xFFFFF6E8) : Color(0xFFFFEEF0),
         borderRadius: BorderRadius.circular(20),
         border: Border.all(
           color: skipped ? Colors.orange.shade100 : Colors.red.shade100,
@@ -611,19 +852,29 @@ class _AlertCard extends StatelessWidget {
             skipped ? Icons.block_rounded : Icons.warning_amber_rounded,
             color: skipped ? Colors.orange : Colors.redAccent,
           ),
-          const SizedBox(width: 12),
+          SizedBox(width: 12),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  dose['medicationName']?.toString() ?? 'دارو',
-                  style: const TextStyle(fontWeight: FontWeight.w800),
+                  dose['medicationName']?.toString() ??
+                      LifeMateRuntimeLocale.select(
+                        fa: LifeMateRuntimeLocale.select(
+                          fa: 'دارو',
+                          en: "Medication",
+                        ),
+                        en: "medicine",
+                      ),
+                  style: TextStyle(fontWeight: FontWeight.w800),
                 ),
-                const SizedBox(height: 3),
+                SizedBox(height: 3),
                 Text(
-                  '$patient • ${skipped ? 'ردشده' : 'فراموش‌شده'}',
-                  style: const TextStyle(fontSize: 12),
+                  LifeMateRuntimeLocale.select(
+                    fa: '$patient • ${skipped ? 'ردشده' : 'فراموش‌شده'}',
+                    en: "$patient • ${skipped ? 'ردشده' : 'فراموش‌شده'}",
+                  ),
+                  style: TextStyle(fontSize: 12),
                 ),
               ],
             ),
@@ -631,7 +882,7 @@ class _AlertCard extends StatelessWidget {
           Text(
             time,
             textDirection: TextDirection.ltr,
-            style: const TextStyle(fontWeight: FontWeight.w800),
+            style: TextStyle(fontWeight: FontWeight.w800),
           ),
         ],
       ),
@@ -708,7 +959,7 @@ class _PlanCard extends StatelessWidget {
         BoxShadow(
           color: AppColors.primaryBlue.withOpacity(0.08),
           blurRadius: 16,
-          offset: const Offset(0, 6),
+          offset: Offset(0, 6),
         ),
       ],
     ),
@@ -720,7 +971,7 @@ class _PlanCard extends StatelessWidget {
             Expanded(
               child: Text(
                 title,
-                style: const TextStyle(
+                style: TextStyle(
                   fontSize: 18,
                   fontWeight: FontWeight.w900,
                   color: AppColors.primaryText,
@@ -729,13 +980,16 @@ class _PlanCard extends StatelessWidget {
             ),
             if (current)
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
+                padding: EdgeInsets.symmetric(horizontal: 9, vertical: 5),
                 decoration: BoxDecoration(
-                  color: const Color(0xFFEAF4FF),
+                  color: Color(0xFFEAF4FF),
                   borderRadius: BorderRadius.circular(20),
                 ),
-                child: const Text(
-                  'فعلی',
+                child: Text(
+                  LifeMateRuntimeLocale.select(
+                    fa: LifeMateRuntimeLocale.select(fa: 'فعلی', en: "current"),
+                    en: "current",
+                  ),
                   style: TextStyle(
                     fontSize: 11,
                     fontWeight: FontWeight.w700,
@@ -745,17 +999,33 @@ class _PlanCard extends StatelessWidget {
               ),
           ],
         ),
-        const SizedBox(height: 8),
+        SizedBox(height: 8),
         Text(
           description,
-          style: const TextStyle(height: 1.6, color: AppColors.secondaryText),
+          style: TextStyle(height: 1.6, color: AppColors.secondaryText),
         ),
-        const SizedBox(height: 14),
+        SizedBox(height: 14),
         SizedBox(
           width: double.infinity,
           child: OutlinedButton(
             onPressed: null,
-            child: Text(current ? 'اشتراک فعلی' : 'در دست توسعه'),
+            child: Text(
+              current
+                  ? LifeMateRuntimeLocale.select(
+                      fa: LifeMateRuntimeLocale.select(
+                        fa: 'اشتراک فعلی',
+                        en: "Current subscription",
+                      ),
+                      en: "Current subscription",
+                    )
+                  : LifeMateRuntimeLocale.select(
+                      fa: LifeMateRuntimeLocale.select(
+                        fa: 'در دست توسعه',
+                        en: "Under development",
+                      ),
+                      en: "Under development",
+                    ),
+            ),
           ),
         ),
       ],
@@ -780,12 +1050,29 @@ class _ErrorCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) => _EmptyCard(
     icon: Icons.cloud_off_rounded,
-    title: 'اطلاعات دریافت نشد',
-    description: 'اتصال اینترنت را بررسی و دوباره تلاش کنید.',
+    title: LifeMateRuntimeLocale.select(
+      fa: LifeMateRuntimeLocale.select(
+        fa: 'اطلاعات دریافت نشد',
+        en: "Information not received",
+      ),
+      en: "Information not received",
+    ),
+    description: LifeMateRuntimeLocale.select(
+      fa: LifeMateRuntimeLocale.select(
+        fa: 'اتصال اینترنت را بررسی و دوباره تلاش کنید.',
+        en: "Check your internet connection and try again.",
+      ),
+      en: "Check your internet connection and try again.",
+    ),
     action: OutlinedButton.icon(
       onPressed: onRetry,
-      icon: const Icon(Icons.refresh_rounded),
-      label: const Text('تلاش دوباره'),
+      icon: Icon(Icons.refresh_rounded),
+      label: Text(
+        LifeMateRuntimeLocale.select(
+          fa: LifeMateRuntimeLocale.select(fa: 'تلاش دوباره', en: "Try again"),
+          en: "Try again",
+        ),
+      ),
     ),
   );
 }
@@ -874,53 +1161,64 @@ class CareMateComingFeatureScreen extends StatelessWidget {
                 ),
                 child: Icon(icon, color: accent, size: 42),
               ),
-              const SizedBox(height: 18),
+              SizedBox(height: 18),
               Text(
                 title,
                 textAlign: TextAlign.center,
-                style: const TextStyle(
+                style: TextStyle(
                   fontSize: 21,
                   fontWeight: FontWeight.w900,
                   color: AppColors.primaryText,
                 ),
               ),
-              const SizedBox(height: 10),
+              SizedBox(height: 10),
               Text(
                 description,
                 textAlign: TextAlign.center,
-                style: const TextStyle(
-                  height: 1.7,
-                  color: AppColors.secondaryText,
-                ),
+                style: TextStyle(height: 1.7, color: AppColors.secondaryText),
               ),
-              const SizedBox(height: 18),
+              SizedBox(height: 18),
               Container(
-                padding: const EdgeInsets.all(14),
+                padding: EdgeInsets.all(14),
                 decoration: BoxDecoration(
                   color: Colors.amber.shade50,
                   borderRadius: BorderRadius.circular(18),
                   border: Border.all(color: Colors.amber.shade100),
                 ),
-                child: const Row(
+                child: Row(
                   children: [
                     Icon(Icons.shield_outlined, color: Colors.amber),
                     SizedBox(width: 10),
                     Expanded(
                       child: Text(
-                        'این صفحه و مسیر مطابق طراحی اصلی حفظ شده است؛ تا ایجاد Backend معتبر هیچ داده ساختگی ثبت یا نمایش داده نمی‌شود.',
+                        LifeMateRuntimeLocale.select(
+                          fa: LifeMateRuntimeLocale.select(
+                            fa: 'این صفحه و مسیر مطابق طراحی اصلی حفظ شده است؛ تا ایجاد Backend معتبر هیچ داده ساختگی ثبت یا نمایش داده نمی‌شود.',
+                            en: "This page and path have been preserved according to the original design; No dummy data is recorded or displayed until a valid backend is created.",
+                          ),
+                          en: "This page and path have been preserved according to the original design; No dummy data is recorded or displayed until a valid backend is created.",
+                        ),
                         style: TextStyle(height: 1.55),
                       ),
                     ),
                   ],
                 ),
               ),
-              const SizedBox(height: 16),
+              SizedBox(height: 16),
               SizedBox(
                 width: double.infinity,
                 child: OutlinedButton.icon(
                   onPressed: null,
-                  icon: const Icon(Icons.lock_outline_rounded),
-                  label: const Text('در دست توسعه'),
+                  icon: Icon(Icons.lock_outline_rounded),
+                  label: Text(
+                    LifeMateRuntimeLocale.select(
+                      fa: LifeMateRuntimeLocale.select(
+                        fa: 'در دست توسعه',
+                        en: "Under development",
+                      ),
+                      en: "Under development",
+                    ),
+                  ),
                 ),
               ),
             ],

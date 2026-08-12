@@ -22,7 +22,15 @@ class CareHomeRelationship {
     return CareHomeRelationship(
       relationshipId: value['id']?.toString() ?? '',
       patientUserId: value['patientUserId']?.toString() ?? '',
-      patientDisplayName: name == null || name.isEmpty ? 'فرد تحت مراقبت' : name,
+      patientDisplayName: name == null || name.isEmpty
+          ? LifeMateRuntimeLocale.select(
+              fa: LifeMateRuntimeLocale.select(
+                fa: 'فرد تحت مراقبت',
+                en: "Person under care",
+              ),
+              en: "Person under care",
+            )
+          : name,
       patientProfilePhotoUrl: _nullableText(value['patientProfilePhotoUrl']),
       patientAvatarKey: _nullableText(value['patientAvatarKey']),
       canViewWomenCalendar: value['canViewWomenCalendar'] == true,
@@ -63,10 +71,8 @@ class CareHomeTreatmentItem {
   final String status;
   final Map<String, dynamic> raw;
 
-  bool get isQueueEligible => const <String>{
-    'scheduled',
-    'pending',
-  }.contains(status.toLowerCase());
+  bool get isQueueEligible =>
+      const <String>{'scheduled', 'pending'}.contains(status.toLowerCase());
 
   bool get isIrrelevant => const <String>{
     'cancelled',
@@ -75,15 +81,11 @@ class CareHomeTreatmentItem {
     'stopped',
   }.contains(status.toLowerCase());
 
-  bool get isCompleted => const <String>{
-    'taken',
-    'completed',
-  }.contains(status.toLowerCase());
+  bool get isCompleted =>
+      const <String>{'taken', 'completed'}.contains(status.toLowerCase());
 
-  bool get isAlert => const <String>{
-    'missed',
-    'skipped',
-  }.contains(status.toLowerCase());
+  bool get isAlert =>
+      const <String>{'missed', 'skipped'}.contains(status.toLowerCase());
 }
 
 class CareCompanionHomeSummary {
@@ -107,10 +109,8 @@ class CareCompanionHomeSummary {
   final int? energyLevel;
   final String? errorCode;
 
-  factory CareCompanionHomeSummary.locked() => const CareCompanionHomeSummary(
-    hasPermission: false,
-    available: false,
-  );
+  factory CareCompanionHomeSummary.locked() =>
+      const CareCompanionHomeSummary(hasPermission: false, available: false);
 
   factory CareCompanionHomeSummary.unavailable({
     required CareHomeRelationship relationship,
@@ -165,9 +165,8 @@ class CareHomeSnapshot {
 
   int get alertsToday => todayItems.where((item) => item.isAlert).length;
 
-  int get pendingToday => todayItems
-      .where((item) => item.isQueueEligible)
-      .length;
+  int get pendingToday =>
+      todayItems.where((item) => item.isQueueEligible).length;
 }
 
 String? _nullableText(dynamic value) {

@@ -37,7 +37,7 @@ class CustomAppHeader extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+      padding: EdgeInsets.symmetric(horizontal: 24, vertical: 12),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
@@ -45,7 +45,13 @@ class CustomAppHeader extends StatelessWidget {
             clipBehavior: Clip.none,
             children: [
               _SoftHeaderButton(
-                tooltip: 'هشدارهای مراقبتی',
+                tooltip: LifeMateRuntimeLocale.select(
+                  fa: LifeMateRuntimeLocale.select(
+                    fa: 'هشدارهای مراقبتی',
+                    en: "Careful warnings",
+                  ),
+                  en: "Careful warnings",
+                ),
                 icon: Icons.notifications_none_rounded,
                 onTap: onNotificationTap,
               ),
@@ -72,7 +78,7 @@ class CustomAppHeader extends StatelessWidget {
               'assets/images/CareMateWithoutBack.png',
               height: 55,
               fit: BoxFit.contain,
-              errorBuilder: (_, __, ___) => const Icon(
+              errorBuilder: (_, __, ___) => Icon(
                 Icons.health_and_safety_rounded,
                 size: 44,
                 color: AppColors.primaryBlue,
@@ -81,17 +87,26 @@ class CustomAppHeader extends StatelessWidget {
           ),
           Semantics(
             button: true,
-            label: 'بازکردن پروفایل',
+            label: LifeMateRuntimeLocale.select(
+              fa: LifeMateRuntimeLocale.select(
+                fa: 'بازکردن پروفایل',
+                en: "Open profile",
+              ),
+              en: "Open profile",
+            ),
             child: Tooltip(
-              message: 'پروفایل',
+              message: LifeMateRuntimeLocale.select(
+                fa: LifeMateRuntimeLocale.select(fa: 'پروفایل', en: "Profile"),
+                en: "Profile",
+              ),
               child: Material(
                 color: Colors.transparent,
-                shape: const CircleBorder(),
+                shape: CircleBorder(),
                 child: InkWell(
                   onTap: () => _openProfile(context),
-                  customBorder: const CircleBorder(),
+                  customBorder: CircleBorder(),
                   child: Container(
-                    padding: const EdgeInsets.all(3),
+                    padding: EdgeInsets.all(3),
                     decoration: BoxDecoration(
                       shape: BoxShape.circle,
                       color: Colors.white.withValues(alpha: 0.78),
@@ -103,7 +118,7 @@ class CustomAppHeader extends StatelessWidget {
                         BoxShadow(
                           color: AppColors.primaryBlue.withValues(alpha: 0.10),
                           blurRadius: 14,
-                          offset: const Offset(0, 5),
+                          offset: Offset(0, 5),
                         ),
                       ],
                     ),

@@ -20,14 +20,56 @@ class _MedicationFormSheetState extends State<_MedicationFormSheet> {
   late TimeOfDay _time;
   late Set<String> _weekdays;
 
-  static const _days = <(String, String)>[
-    ('saturday', 'ش'),
-    ('sunday', 'ی'),
-    ('monday', 'د'),
-    ('tuesday', 'س'),
-    ('wednesday', 'چ'),
-    ('thursday', 'پ'),
-    ('friday', 'ج'),
+  static final _days = <(String, String)>[
+    (
+      'saturday',
+      LifeMateRuntimeLocale.select(
+        fa: LifeMateRuntimeLocale.select(fa: 'ش', en: "Sat"),
+        en: "Sat",
+      ),
+    ),
+    (
+      'sunday',
+      LifeMateRuntimeLocale.select(
+        fa: LifeMateRuntimeLocale.select(fa: 'ی', en: "Sun"),
+        en: "Sun",
+      ),
+    ),
+    (
+      'monday',
+      LifeMateRuntimeLocale.select(
+        fa: LifeMateRuntimeLocale.select(fa: 'د', en: "Mon"),
+        en: "Mon",
+      ),
+    ),
+    (
+      'tuesday',
+      LifeMateRuntimeLocale.select(
+        fa: LifeMateRuntimeLocale.select(fa: 'س', en: "Tue"),
+        en: "Tue",
+      ),
+    ),
+    (
+      'wednesday',
+      LifeMateRuntimeLocale.select(
+        fa: LifeMateRuntimeLocale.select(fa: 'چ', en: "Wed"),
+        en: "Wed",
+      ),
+    ),
+    (
+      'thursday',
+      LifeMateRuntimeLocale.select(
+        fa: LifeMateRuntimeLocale.select(fa: 'پ', en: "Thu"),
+        en: "Thu",
+      ),
+    ),
+    (
+      'friday',
+      LifeMateRuntimeLocale.select(
+        fa: LifeMateRuntimeLocale.select(fa: 'ج', en: "Fri"),
+        en: "Fri",
+      ),
+    ),
   ];
 
   @override
@@ -35,7 +77,8 @@ class _MedicationFormSheetState extends State<_MedicationFormSheet> {
     super.initState();
     final plan = widget.plan;
     final medication =
-        plan?['medication'] as Map<String, dynamic>? ?? const <String, dynamic>{};
+        plan?['medication'] as Map<String, dynamic>? ??
+        const <String, dynamic>{};
     _name = TextEditingController(text: medication['name']?.toString() ?? '');
     _strength = TextEditingController(
       text: medication['strengthText']?.toString() ?? '',
@@ -45,7 +88,8 @@ class _MedicationFormSheetState extends State<_MedicationFormSheet> {
     _instructions = TextEditingController(
       text: plan?['instructions']?.toString() ?? '',
     );
-    _startDate = DateTime.tryParse(plan?['startDate']?.toString() ?? '') ??
+    _startDate =
+        DateTime.tryParse(plan?['startDate']?.toString() ?? '') ??
         DateTime.now();
     _endDate = DateTime.tryParse(plan?['endDate']?.toString() ?? '');
     final schedules = plan?['schedules'] as List<dynamic>? ?? const [];
@@ -79,9 +123,11 @@ class _MedicationFormSheetState extends State<_MedicationFormSheet> {
   Widget build(BuildContext context) {
     final bottom = MediaQuery.viewInsetsOf(context).bottom;
     return Container(
-      constraints: BoxConstraints(maxHeight: MediaQuery.sizeOf(context).height * .92),
+      constraints: BoxConstraints(
+        maxHeight: MediaQuery.sizeOf(context).height * .92,
+      ),
       padding: EdgeInsets.fromLTRB(20, 16, 20, 20 + bottom),
-      decoration: const BoxDecoration(
+      decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.vertical(top: Radius.circular(30)),
       ),
@@ -91,77 +137,184 @@ class _MedicationFormSheetState extends State<_MedicationFormSheet> {
           children: [
             _SheetHeader(
               icon: Icons.medication_rounded,
-              title: widget.plan == null ? 'افزودن دارو' : 'ویرایش دارو',
+              title: widget.plan == null
+                  ? LifeMateRuntimeLocale.select(
+                      fa: LifeMateRuntimeLocale.select(
+                        fa: 'افزودن دارو',
+                        en: "Addition of medicine",
+                      ),
+                      en: "Addition of medicine",
+                    )
+                  : LifeMateRuntimeLocale.select(
+                      fa: LifeMateRuntimeLocale.select(
+                        fa: 'ویرایش دارو',
+                        en: "Drug editing",
+                      ),
+                      en: "Drug editing",
+                    ),
             ),
-            const SizedBox(height: 16),
-            _Input(controller: _name, label: 'نام دارو *'),
-            _Input(controller: _strength, label: 'قدرت / غلظت'),
-            _Input(controller: _form, label: 'شکل دارویی'),
-            _Input(controller: _dose, label: 'مقدار مصرف *'),
+            SizedBox(height: 16),
+            _Input(
+              controller: _name,
+              label: LifeMateRuntimeLocale.select(
+                fa: LifeMateRuntimeLocale.select(
+                  fa: 'نام دارو *',
+                  en: "Drug name *",
+                ),
+                en: "Drug name *",
+              ),
+            ),
+            _Input(
+              controller: _strength,
+              label: LifeMateRuntimeLocale.select(
+                fa: LifeMateRuntimeLocale.select(
+                  fa: 'قدرت / غلظت',
+                  en: "Strength/concentration",
+                ),
+                en: "Strength/concentration",
+              ),
+            ),
+            _Input(
+              controller: _form,
+              label: LifeMateRuntimeLocale.select(
+                fa: LifeMateRuntimeLocale.select(
+                  fa: 'شکل دارویی',
+                  en: "Pharmaceutical form",
+                ),
+                en: "Pharmaceutical form",
+              ),
+            ),
+            _Input(
+              controller: _dose,
+              label: LifeMateRuntimeLocale.select(
+                fa: LifeMateRuntimeLocale.select(
+                  fa: 'مقدار مصرف *',
+                  en: "consumption amount *",
+                ),
+                en: "consumption amount *",
+              ),
+            ),
             _Input(
               controller: _instructions,
-              label: 'دستور و توضیحات',
+              label: LifeMateRuntimeLocale.select(
+                fa: LifeMateRuntimeLocale.select(
+                  fa: 'دستور و توضیحات',
+                  en: "Instructions and explanations",
+                ),
+                en: "Instructions and explanations",
+              ),
               maxLines: 3,
             ),
-            const SizedBox(height: 4),
-            const Text('روزهای مصرف', style: TextStyle(fontWeight: FontWeight.w900)),
-            const SizedBox(height: 8),
+            SizedBox(height: 4),
+            Text(
+              LifeMateRuntimeLocale.select(
+                fa: LifeMateRuntimeLocale.select(
+                  fa: 'روزهای مصرف',
+                  en: "days of use",
+                ),
+                en: "days of use",
+              ),
+              style: TextStyle(fontWeight: FontWeight.w900),
+            ),
+            SizedBox(height: 8),
             Wrap(
               spacing: 7,
-              children: _days.map((day) {
-                final selected = _weekdays.contains(day.$1);
-                return FilterChip(
-                  selected: selected,
-                  label: Text(day.$2),
-                  onSelected: (value) => setState(() {
-                    value ? _weekdays.add(day.$1) : _weekdays.remove(day.$1);
-                  }),
-                );
-              }).toList(growable: false),
+              children: _days
+                  .map((day) {
+                    final selected = _weekdays.contains(day.$1);
+                    return FilterChip(
+                      selected: selected,
+                      label: Text(day.$2),
+                      onSelected: (value) => setState(() {
+                        value
+                            ? _weekdays.add(day.$1)
+                            : _weekdays.remove(day.$1);
+                      }),
+                    );
+                  })
+                  .toList(growable: false),
             ),
-            const SizedBox(height: 12),
+            SizedBox(height: 12),
             Row(
               children: [
                 Expanded(
                   child: _PickerButton(
                     icon: Icons.schedule_rounded,
-                    label: 'ساعت ${_time.format(context)}',
+                    label: LifeMateRuntimeLocale.select(
+                      fa: LifeMateRuntimeLocale.select(
+                        fa: 'ساعت ${_time.format(context)}',
+                        en: "Clock ${_time.format(context)}",
+                      ),
+                      en: "Clock ${_time.format(context)}",
+                    ),
                     onTap: _pickTime,
                   ),
                 ),
-                const SizedBox(width: 8),
+                SizedBox(width: 8),
                 Expanded(
                   child: _PickerButton(
                     icon: Icons.calendar_today_rounded,
-                    label: 'شروع ${formatAppDate(context, _startDate)}',
+                    label: LifeMateRuntimeLocale.select(
+                      fa: LifeMateRuntimeLocale.select(
+                        fa: 'شروع ${formatAppDate(context, _startDate)}',
+                        en: "Start ${formatAppDate(context, _startDate)}",
+                      ),
+                      en: "Start ${formatAppDate(context, _startDate)}",
+                    ),
                     onTap: _pickStartDate,
                   ),
                 ),
               ],
             ),
-            const SizedBox(height: 8),
+            SizedBox(height: 8),
             _PickerButton(
               icon: Icons.event_available_rounded,
               label: _endDate == null
-                  ? 'پایان: بدون تاریخ پایان'
-                  : 'پایان ${formatAppDate(context, _endDate!)}',
+                  ? LifeMateRuntimeLocale.select(
+                      fa: LifeMateRuntimeLocale.select(
+                        fa: 'پایان: بدون تاریخ پایان',
+                        en: "End: No end date",
+                      ),
+                      en: "End: No end date",
+                    )
+                  : LifeMateRuntimeLocale.select(
+                      fa: LifeMateRuntimeLocale.select(
+                        fa: 'پایان ${formatAppDate(context, _endDate!)}',
+                        en: "End ${formatAppDate(context, _endDate!)}",
+                      ),
+                      en: "End ${formatAppDate(context, _endDate!)}",
+                    ),
               onTap: _pickEndDate,
               trailing: _endDate == null
                   ? null
                   : IconButton(
-                      tooltip: 'حذف تاریخ پایان',
+                      tooltip: LifeMateRuntimeLocale.select(
+                        fa: LifeMateRuntimeLocale.select(
+                          fa: 'حذف تاریخ پایان',
+                          en: "Remove the end date",
+                        ),
+                        en: "Remove the end date",
+                      ),
                       onPressed: () => setState(() => _endDate = null),
-                      icon: const Icon(Icons.close_rounded),
+                      icon: Icon(Icons.close_rounded),
                     ),
             ),
-            const SizedBox(height: 18),
+            SizedBox(height: 18),
             SizedBox(
               width: double.infinity,
               child: FilledButton.icon(
-                key: const ValueKey('save-caregiver-medication'),
+                key: ValueKey('save-caregiver-medication'),
                 onPressed: _submit,
-                icon: const Icon(Icons.save_rounded),
-                label: const Text('ذخیره در پرونده سلامت'),
+                icon: Icon(Icons.save_rounded),
+                label: Text(
+                  LifeMateRuntimeLocale.select(
+                    fa: LifeMateRuntimeLocale.select(
+                      fa: 'ذخیره در پرونده سلامت',
+                      en: "Save in health file",
+                    ),
+                    en: "Save in health file",
+                  ),
+                ),
               ),
             ),
           ],
@@ -202,8 +355,20 @@ class _MedicationFormSheetState extends State<_MedicationFormSheet> {
       LifeMateNotice.show(
         context,
         type: LifeMateNoticeType.warning,
-        title: 'اطلاعات کامل نیست',
-        message: 'نام دارو، مقدار مصرف و حداقل یک روز مصرف را وارد کنید.',
+        title: LifeMateRuntimeLocale.select(
+          fa: LifeMateRuntimeLocale.select(
+            fa: 'اطلاعات کامل نیست',
+            en: "The information is not complete",
+          ),
+          en: "The information is not complete",
+        ),
+        message: LifeMateRuntimeLocale.select(
+          fa: LifeMateRuntimeLocale.select(
+            fa: 'نام دارو، مقدار مصرف و حداقل یک روز مصرف را وارد کنید.',
+            en: "Enter the name of the drug, dosage and at least one day of use.",
+          ),
+          en: "Enter the name of the drug, dosage and at least one day of use.",
+        ),
       );
       return;
     }
@@ -258,18 +423,35 @@ class _CareEventFormSheetState extends State<_CareEventFormSheet> {
     super.initState();
     final event = widget.event;
     _title = TextEditingController(text: event?['title']?.toString() ?? '');
-    _provider = TextEditingController(text: event?['providerName']?.toString() ?? '');
-    _specialty = TextEditingController(text: event?['specialty']?.toString() ?? '');
+    _provider = TextEditingController(
+      text: event?['providerName']?.toString() ?? '',
+    );
+    _specialty = TextEditingController(
+      text: event?['specialty']?.toString() ?? '',
+    );
     _medication = TextEditingController(
-      text: event?['medicationName']?.toString() ?? event?['title']?.toString() ?? '',
+      text:
+          event?['medicationName']?.toString() ??
+          event?['title']?.toString() ??
+          '',
     );
     _dose = TextEditingController(text: event?['doseText']?.toString() ?? '');
     _reason = TextEditingController(text: event?['reason']?.toString() ?? '');
-    _instructions = TextEditingController(text: event?['instructions']?.toString() ?? '');
-    _center = TextEditingController(text: event?['centerName']?.toString() ?? '');
-    _address = TextEditingController(text: event?['addressLine']?.toString() ?? '');
-    _phone = TextEditingController(text: event?['phoneNumber']?.toString() ?? '');
-    _date = DateTime.tryParse(event?['scheduledLocalDate']?.toString() ?? '') ?? DateTime.now();
+    _instructions = TextEditingController(
+      text: event?['instructions']?.toString() ?? '',
+    );
+    _center = TextEditingController(
+      text: event?['centerName']?.toString() ?? '',
+    );
+    _address = TextEditingController(
+      text: event?['addressLine']?.toString() ?? '',
+    );
+    _phone = TextEditingController(
+      text: event?['phoneNumber']?.toString() ?? '',
+    );
+    _date =
+        DateTime.tryParse(event?['scheduledLocalDate']?.toString() ?? '') ??
+        DateTime.now();
     final rawTime = event?['scheduledLocalTime']?.toString() ?? '09:00';
     final parts = rawTime.split(':');
     _time = TimeOfDay(
@@ -277,7 +459,12 @@ class _CareEventFormSheetState extends State<_CareEventFormSheet> {
       minute: parts.length > 1 ? int.tryParse(parts[1]) ?? 0 : 0,
     );
     final route = event?['administrationRoute']?.toString().toLowerCase();
-    if (const {'intramuscular', 'subcutaneous', 'intravenous', 'other'}.contains(route)) {
+    if (const {
+      'intramuscular',
+      'subcutaneous',
+      'intravenous',
+      'other',
+    }.contains(route)) {
       _route = route!;
     }
   }
@@ -305,9 +492,11 @@ class _CareEventFormSheetState extends State<_CareEventFormSheet> {
   Widget build(BuildContext context) {
     final bottom = MediaQuery.viewInsetsOf(context).bottom;
     return Container(
-      constraints: BoxConstraints(maxHeight: MediaQuery.sizeOf(context).height * .92),
+      constraints: BoxConstraints(
+        maxHeight: MediaQuery.sizeOf(context).height * .92,
+      ),
       padding: EdgeInsets.fromLTRB(20, 16, 20, 20 + bottom),
-      decoration: const BoxDecoration(
+      decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.vertical(top: Radius.circular(30)),
       ),
@@ -316,37 +505,206 @@ class _CareEventFormSheetState extends State<_CareEventFormSheet> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             _SheetHeader(
-              icon: _injection ? Icons.vaccines_rounded : Icons.medical_services_rounded,
+              icon: _injection
+                  ? Icons.vaccines_rounded
+                  : Icons.medical_services_rounded,
               title: widget.event == null
-                  ? (_injection ? 'افزودن تزریق' : 'افزودن ویزیت')
-                  : (_injection ? 'ویرایش تزریق' : 'ویرایش ویزیت'),
+                  ? (_injection
+                        ? LifeMateRuntimeLocale.select(
+                            fa: LifeMateRuntimeLocale.select(
+                              fa: 'افزودن تزریق',
+                              en: "Add injection",
+                            ),
+                            en: "Add injection",
+                          )
+                        : LifeMateRuntimeLocale.select(
+                            fa: LifeMateRuntimeLocale.select(
+                              fa: 'افزودن ویزیت',
+                              en: "Add a visit",
+                            ),
+                            en: "Add a visit",
+                          ))
+                  : (_injection
+                        ? LifeMateRuntimeLocale.select(
+                            fa: LifeMateRuntimeLocale.select(
+                              fa: 'ویرایش تزریق',
+                              en: "Edit injection",
+                            ),
+                            en: "Edit injection",
+                          )
+                        : LifeMateRuntimeLocale.select(
+                            fa: LifeMateRuntimeLocale.select(
+                              fa: 'ویرایش ویزیت',
+                              en: "Edit visit",
+                            ),
+                            en: "Edit visit",
+                          )),
             ),
-            const SizedBox(height: 16),
+            SizedBox(height: 16),
             if (_injection) ...[
-              _Input(controller: _medication, label: 'نام داروی تزریقی *'),
-              _Input(controller: _dose, label: 'دوز یا مقدار'),
+              _Input(
+                controller: _medication,
+                label: LifeMateRuntimeLocale.select(
+                  fa: LifeMateRuntimeLocale.select(
+                    fa: 'نام داروی تزریقی *',
+                    en: "name of injectable drug *",
+                  ),
+                  en: "name of injectable drug *",
+                ),
+              ),
+              _Input(
+                controller: _dose,
+                label: LifeMateRuntimeLocale.select(
+                  fa: LifeMateRuntimeLocale.select(
+                    fa: 'دوز یا مقدار',
+                    en: "Dose or quantity",
+                  ),
+                  en: "Dose or quantity",
+                ),
+              ),
               DropdownButtonFormField<String>(
                 value: _route,
-                decoration: const InputDecoration(labelText: 'روش تزریق'),
-                items: const [
-                  DropdownMenuItem(value: 'intramuscular', child: Text('عضلانی')),
-                  DropdownMenuItem(value: 'subcutaneous', child: Text('زیرجلدی')),
-                  DropdownMenuItem(value: 'intravenous', child: Text('وریدی')),
-                  DropdownMenuItem(value: 'other', child: Text('سایر')),
+                decoration: InputDecoration(
+                  labelText: LifeMateRuntimeLocale.select(
+                    fa: LifeMateRuntimeLocale.select(
+                      fa: 'روش تزریق',
+                      en: "Injection method",
+                    ),
+                    en: "Injection method",
+                  ),
+                ),
+                items: [
+                  DropdownMenuItem(
+                    value: 'intramuscular',
+                    child: Text(
+                      LifeMateRuntimeLocale.select(
+                        fa: LifeMateRuntimeLocale.select(
+                          fa: 'عضلانی',
+                          en: "muscular",
+                        ),
+                        en: "muscular",
+                      ),
+                    ),
+                  ),
+                  DropdownMenuItem(
+                    value: 'subcutaneous',
+                    child: Text(
+                      LifeMateRuntimeLocale.select(
+                        fa: LifeMateRuntimeLocale.select(
+                          fa: 'زیرجلدی',
+                          en: "Undercover",
+                        ),
+                        en: "Undercover",
+                      ),
+                    ),
+                  ),
+                  DropdownMenuItem(
+                    value: 'intravenous',
+                    child: Text(
+                      LifeMateRuntimeLocale.select(
+                        fa: LifeMateRuntimeLocale.select(
+                          fa: 'وریدی',
+                          en: "vein",
+                        ),
+                        en: "vein",
+                      ),
+                    ),
+                  ),
+                  DropdownMenuItem(
+                    value: 'other',
+                    child: Text(
+                      LifeMateRuntimeLocale.select(
+                        fa: LifeMateRuntimeLocale.select(
+                          fa: 'سایر',
+                          en: "other",
+                        ),
+                        en: "other",
+                      ),
+                    ),
+                  ),
                 ],
                 onChanged: (value) => setState(() => _route = value ?? _route),
               ),
-              const SizedBox(height: 10),
+              SizedBox(height: 10),
             ] else ...[
-              _Input(controller: _title, label: 'عنوان ویزیت *'),
-              _Input(controller: _provider, label: 'نام پزشک'),
-              _Input(controller: _specialty, label: 'تخصص'),
+              _Input(
+                controller: _title,
+                label: LifeMateRuntimeLocale.select(
+                  fa: LifeMateRuntimeLocale.select(
+                    fa: 'عنوان ویزیت *',
+                    en: "Title of visit *",
+                  ),
+                  en: "Title of visit *",
+                ),
+              ),
+              _Input(
+                controller: _provider,
+                label: LifeMateRuntimeLocale.select(
+                  fa: LifeMateRuntimeLocale.select(
+                    fa: 'نام پزشک',
+                    en: "Doctor's name",
+                  ),
+                  en: "Doctor's name",
+                ),
+              ),
+              _Input(
+                controller: _specialty,
+                label: LifeMateRuntimeLocale.select(
+                  fa: LifeMateRuntimeLocale.select(fa: 'تخصص', en: "Expertise"),
+                  en: "Expertise",
+                ),
+              ),
             ],
-            _Input(controller: _reason, label: 'دلیل / توضیح'),
-            _Input(controller: _center, label: 'مرکز درمانی'),
-            _Input(controller: _address, label: 'آدرس', maxLines: 2),
-            _Input(controller: _phone, label: 'شماره تماس', keyboardType: TextInputType.phone),
-            _Input(controller: _instructions, label: 'دستور و نکات', maxLines: 3),
+            _Input(
+              controller: _reason,
+              label: LifeMateRuntimeLocale.select(
+                fa: LifeMateRuntimeLocale.select(
+                  fa: 'دلیل / توضیح',
+                  en: "Reason / explanation",
+                ),
+                en: "Reason / explanation",
+              ),
+            ),
+            _Input(
+              controller: _center,
+              label: LifeMateRuntimeLocale.select(
+                fa: LifeMateRuntimeLocale.select(
+                  fa: 'مرکز درمانی',
+                  en: "Treatment center",
+                ),
+                en: "Treatment center",
+              ),
+            ),
+            _Input(
+              controller: _address,
+              label: LifeMateRuntimeLocale.select(
+                fa: LifeMateRuntimeLocale.select(fa: 'آدرس', en: "address"),
+                en: "address",
+              ),
+              maxLines: 2,
+            ),
+            _Input(
+              controller: _phone,
+              label: LifeMateRuntimeLocale.select(
+                fa: LifeMateRuntimeLocale.select(
+                  fa: 'شماره تماس',
+                  en: "Contact number",
+                ),
+                en: "Contact number",
+              ),
+              keyboardType: TextInputType.phone,
+            ),
+            _Input(
+              controller: _instructions,
+              label: LifeMateRuntimeLocale.select(
+                fa: LifeMateRuntimeLocale.select(
+                  fa: 'دستور و نکات',
+                  en: "Instructions and tips",
+                ),
+                en: "Instructions and tips",
+              ),
+              maxLines: 3,
+            ),
             Row(
               children: [
                 Expanded(
@@ -356,7 +714,7 @@ class _CareEventFormSheetState extends State<_CareEventFormSheet> {
                     onTap: _pickDate,
                   ),
                 ),
-                const SizedBox(width: 8),
+                SizedBox(width: 8),
                 Expanded(
                   child: _PickerButton(
                     icon: Icons.schedule_rounded,
@@ -366,14 +724,22 @@ class _CareEventFormSheetState extends State<_CareEventFormSheet> {
                 ),
               ],
             ),
-            const SizedBox(height: 18),
+            SizedBox(height: 18),
             SizedBox(
               width: double.infinity,
               child: FilledButton.icon(
-                key: const ValueKey('save-caregiver-care-event'),
+                key: ValueKey('save-caregiver-care-event'),
                 onPressed: _submit,
-                icon: const Icon(Icons.save_rounded),
-                label: const Text('ذخیره در پرونده سلامت'),
+                icon: Icon(Icons.save_rounded),
+                label: Text(
+                  LifeMateRuntimeLocale.select(
+                    fa: LifeMateRuntimeLocale.select(
+                      fa: 'ذخیره در پرونده سلامت',
+                      en: "Save in health file",
+                    ),
+                    en: "Save in health file",
+                  ),
+                ),
               ),
             ),
           ],
@@ -404,8 +770,28 @@ class _CareEventFormSheetState extends State<_CareEventFormSheet> {
       LifeMateNotice.show(
         context,
         type: LifeMateNoticeType.warning,
-        title: 'اطلاعات کامل نیست',
-        message: _injection ? 'نام داروی تزریقی را وارد کنید.' : 'عنوان ویزیت را وارد کنید.',
+        title: LifeMateRuntimeLocale.select(
+          fa: LifeMateRuntimeLocale.select(
+            fa: 'اطلاعات کامل نیست',
+            en: "The information is not complete",
+          ),
+          en: "The information is not complete",
+        ),
+        message: _injection
+            ? LifeMateRuntimeLocale.select(
+                fa: LifeMateRuntimeLocale.select(
+                  fa: 'نام داروی تزریقی را وارد کنید.',
+                  en: "Enter the name of the injectable drug.",
+                ),
+                en: "Enter the name of the injectable drug.",
+              )
+            : LifeMateRuntimeLocale.select(
+                fa: LifeMateRuntimeLocale.select(
+                  fa: 'عنوان ویزیت را وارد کنید.',
+                  en: "Enter the title of the visit.",
+                ),
+                en: "Enter the title of the visit.",
+              ),
       );
       return;
     }
@@ -451,6 +837,7 @@ class _Input extends StatelessWidget {
       controller: controller,
       maxLines: maxLines,
       keyboardType: keyboardType,
+      inputFormatters: const [LifeMateLocaleDigitInputFormatter()],
       decoration: InputDecoration(
         labelText: label,
         filled: true,
@@ -508,20 +895,23 @@ class _SheetHeader extends StatelessWidget {
   Widget build(BuildContext context) => Row(
     children: [
       CircleAvatar(
-        backgroundColor: const Color(0xFFEAF4FF),
+        backgroundColor: Color(0xFFEAF4FF),
         child: Icon(icon, color: AppColors.primaryBlue),
       ),
-      const SizedBox(width: 10),
+      SizedBox(width: 10),
       Expanded(
         child: Text(
           title,
-          style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w900),
+          style: TextStyle(fontSize: 20, fontWeight: FontWeight.w900),
         ),
       ),
       IconButton(
-        tooltip: 'بستن',
+        tooltip: LifeMateRuntimeLocale.select(
+          fa: LifeMateRuntimeLocale.select(fa: 'بستن', en: "to close"),
+          en: "to close",
+        ),
         onPressed: () => Navigator.pop(context),
-        icon: const Icon(Icons.close_rounded),
+        icon: Icon(Icons.close_rounded),
       ),
     ],
   );

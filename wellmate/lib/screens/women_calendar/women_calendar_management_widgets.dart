@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../core/theme/app_style.dart';
 import '../../core/utils/persian_date_utils.dart';
 import 'women_calendar_experience_widgets.dart';
+import 'package:lifemate_client/lifemate_client.dart';
 
 class WomenCycleSettingsCard extends StatelessWidget {
   const WomenCycleSettingsCard({
@@ -33,45 +34,87 @@ class WomenCycleSettingsCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return WomenSoftCard(
-      key: const ValueKey('women-calendar-settings-card'),
+      key: ValueKey('women-calendar-settings-card'),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const WomenSectionHeader(
-            title: 'تنظیمات چرخه',
-            subtitle: 'اطلاعات پایه برای تخمین تقویم و یادآوری خصوصی',
+          WomenSectionHeader(
+            title: LifeMateRuntimeLocale.select(
+              fa: LifeMateRuntimeLocale.select(
+                fa: 'تنظیمات چرخه',
+                en: "Cycle settings",
+              ),
+              en: "Cycle settings",
+            ),
+            subtitle: LifeMateRuntimeLocale.select(
+              fa: LifeMateRuntimeLocale.select(
+                fa: 'اطلاعات پایه برای تخمین تقویم و یادآوری خصوصی',
+                en: "Basic information for calendar estimates and private reminders",
+              ),
+              en: "Basic information for calendar estimates and private reminders",
+            ),
             icon: Icons.tune_rounded,
           ),
-          const SizedBox(height: 16),
+          SizedBox(height: 16),
           _SettingsTile(
-            key: const ValueKey('women-calendar-last-period-picker'),
-            label: 'شروع آخرین دوره',
+            key: ValueKey('women-calendar-last-period-picker'),
+            label: LifeMateRuntimeLocale.select(
+              fa: LifeMateRuntimeLocale.select(
+                fa: 'شروع آخرین دوره',
+                en: "The beginning of the last period",
+              ),
+              en: "The beginning of the last period",
+            ),
             value: lastPeriodStart == null
-                ? 'انتخاب تاریخ'
+                ? LifeMateRuntimeLocale.select(
+                    fa: LifeMateRuntimeLocale.select(
+                      fa: 'انتخاب تاریخ',
+                      en: "Select date",
+                    ),
+                    en: "Select date",
+                  )
                 : formatAppDate(context, lastPeriodStart!),
             icon: Icons.event_rounded,
             color: womenRose,
             onTap: onPickDate,
           ),
-          const SizedBox(height: 12),
+          SizedBox(height: 12),
           LayoutBuilder(
             builder: (context, constraints) {
               final compact = constraints.maxWidth < 330;
               final cycle = _NumberSetting(
-                title: 'طول معمول چرخه',
+                title: LifeMateRuntimeLocale.select(
+                  fa: LifeMateRuntimeLocale.select(
+                    fa: 'طول معمول چرخه',
+                    en: "Normal cycle length",
+                  ),
+                  en: "Normal cycle length",
+                ),
                 value: cycleLength,
                 min: 21,
                 max: 45,
-                suffix: 'روز',
+                suffix: LifeMateRuntimeLocale.select(
+                  fa: LifeMateRuntimeLocale.select(fa: 'روز', en: "day"),
+                  en: "day",
+                ),
                 color: womenLilac,
                 onChanged: onCycleChanged,
               );
               final period = _NumberSetting(
-                title: 'طول معمول خون‌ریزی',
+                title: LifeMateRuntimeLocale.select(
+                  fa: LifeMateRuntimeLocale.select(
+                    fa: 'طول معمول خون‌ریزی',
+                    en: "Normal length of bleeding",
+                  ),
+                  en: "Normal length of bleeding",
+                ),
                 value: periodLength,
                 min: 1,
                 max: 10,
-                suffix: 'روز',
+                suffix: LifeMateRuntimeLocale.select(
+                  fa: LifeMateRuntimeLocale.select(fa: 'روز', en: "day"),
+                  en: "day",
+                ),
                 color: womenRose,
                 onChanged: onPeriodChanged,
               );
@@ -90,45 +133,73 @@ class WomenCycleSettingsCard extends StatelessWidget {
               );
             },
           ),
-          const SizedBox(height: 13),
+          SizedBox(height: 13),
           Container(
-            padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 8),
+            padding: EdgeInsets.symmetric(horizontal: 13, vertical: 8),
             decoration: BoxDecoration(
-              color: const Color(0xFFFFF8FC),
+              color: Color(0xFFFFF8FC),
               borderRadius: BorderRadius.circular(18),
-              border: Border.all(color: const Color(0xFFF2E8F0)),
+              border: Border.all(color: Color(0xFFF2E8F0)),
             ),
             child: SwitchListTile.adaptive(
               contentPadding: EdgeInsets.zero,
               value: remindersEnabled,
               onChanged: onReminderChanged,
               activeTrackColor: womenRose.withValues(alpha: 0.5),
-              title: const Text(
-                'یادآوری نزدیک‌شدن دوره',
+              title: Text(
+                LifeMateRuntimeLocale.select(
+                  fa: LifeMateRuntimeLocale.select(
+                    fa: 'یادآوری نزدیک‌شدن دوره',
+                    en: "Reminder of approaching period",
+                  ),
+                  en: "Reminder of approaching period",
+                ),
                 style: TextStyle(fontWeight: FontWeight.w900),
               ),
-              subtitle: const Text(
-                'متن اعلان بدون نمایش جزئیات حساس ارسال می‌شود.',
+              subtitle: Text(
+                LifeMateRuntimeLocale.select(
+                  fa: LifeMateRuntimeLocale.select(
+                    fa: 'متن اعلان بدون نمایش جزئیات حساس ارسال می‌شود.',
+                    en: "The notification text is sent without displaying sensitive details.",
+                  ),
+                  en: "The notification text is sent without displaying sensitive details.",
+                ),
                 style: TextStyle(fontSize: 10.5, height: 1.5),
               ),
             ),
           ),
-          const SizedBox(height: 14),
+          SizedBox(height: 14),
           SizedBox(
             width: double.infinity,
             child: FilledButton.icon(
               onPressed: saving || lastPeriodStart == null ? null : onSave,
               icon: saving
-                  ? const SizedBox.square(
+                  ? SizedBox.square(
                       dimension: 18,
                       child: CircularProgressIndicator(strokeWidth: 2),
                     )
-                  : const Icon(Icons.save_rounded),
-              label: Text(saving ? 'در حال ذخیره…' : 'ذخیره تنظیمات'),
+                  : Icon(Icons.save_rounded),
+              label: Text(
+                saving
+                    ? LifeMateRuntimeLocale.select(
+                        fa: LifeMateRuntimeLocale.select(
+                          fa: 'در حال ذخیره…',
+                          en: "Saving…",
+                        ),
+                        en: "Saving…",
+                      )
+                    : LifeMateRuntimeLocale.select(
+                        fa: LifeMateRuntimeLocale.select(
+                          fa: 'ذخیره تنظیمات',
+                          en: "Save settings",
+                        ),
+                        en: "Save settings",
+                      ),
+              ),
               style: FilledButton.styleFrom(
                 backgroundColor: womenLilac,
                 foregroundColor: Colors.white,
-                padding: const EdgeInsets.symmetric(vertical: 14),
+                padding: EdgeInsets.symmetric(vertical: 14),
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(18),
                 ),
@@ -327,16 +398,28 @@ class WomenPeriodHistoryCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return WomenSoftCard(
-      key: const ValueKey('women-period-history-card'),
+      key: ValueKey('women-period-history-card'),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const WomenSectionHeader(
-            title: 'ثبت دوره و یادداشت',
-            subtitle: 'تاریخ واقعی دوره‌ها را ثبت کن تا گزارش‌ها دقیق‌تر شوند.',
+          WomenSectionHeader(
+            title: LifeMateRuntimeLocale.select(
+              fa: LifeMateRuntimeLocale.select(
+                fa: 'ثبت دوره و یادداشت',
+                en: "Course registration and notes",
+              ),
+              en: "Course registration and notes",
+            ),
+            subtitle: LifeMateRuntimeLocale.select(
+              fa: LifeMateRuntimeLocale.select(
+                fa: 'تاریخ واقعی دوره‌ها را ثبت کن تا گزارش‌ها دقیق‌تر شوند.',
+                en: "Record the actual dates of the courses to make the reports more accurate.",
+              ),
+              en: "Record the actual dates of the courses to make the reports more accurate.",
+            ),
             icon: Icons.edit_note_rounded,
           ),
-          const SizedBox(height: 14),
+          SizedBox(height: 14),
           SizedBox(
             width: double.infinity,
             child: FilledButton.icon(
@@ -347,12 +430,26 @@ class WomenPeriodHistoryCard extends StatelessWidget {
                     : Icons.play_circle_outline_rounded,
               ),
               label: Text(
-                hasOpenEpisode ? 'ثبت پایان دوره برای امروز' : 'شروع دوره جدید',
+                hasOpenEpisode
+                    ? LifeMateRuntimeLocale.select(
+                        fa: LifeMateRuntimeLocale.select(
+                          fa: 'ثبت پایان دوره برای امروز',
+                          en: "Record the end of the course for today",
+                        ),
+                        en: "Record the end of the course for today",
+                      )
+                    : LifeMateRuntimeLocale.select(
+                        fa: LifeMateRuntimeLocale.select(
+                          fa: 'شروع دوره جدید',
+                          en: "The beginning of a new period",
+                        ),
+                        en: "The beginning of a new period",
+                      ),
               ),
               style: FilledButton.styleFrom(
                 backgroundColor: womenRose,
                 foregroundColor: Colors.white,
-                padding: const EdgeInsets.symmetric(vertical: 13),
+                padding: EdgeInsets.symmetric(vertical: 13),
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(17),
                 ),
@@ -360,25 +457,31 @@ class WomenPeriodHistoryCard extends StatelessWidget {
             ),
           ),
           if (episodes.isNotEmpty) ...[
-            const SizedBox(height: 15),
-            const Text(
-              'ثبت‌های اخیر',
+            SizedBox(height: 15),
+            Text(
+              LifeMateRuntimeLocale.select(
+                fa: LifeMateRuntimeLocale.select(
+                  fa: 'ثبت‌های اخیر',
+                  en: "Recent registrations",
+                ),
+                en: "Recent registrations",
+              ),
               style: TextStyle(fontWeight: FontWeight.w900),
             ),
-            const SizedBox(height: 9),
+            SizedBox(height: 9),
             ...episodes
                 .take(4)
                 .map(
                   (episode) => Padding(
-                    padding: const EdgeInsets.only(bottom: 8),
+                    padding: EdgeInsets.only(bottom: 8),
                     child: Material(
-                      color: const Color(0xFFFFF8FB),
+                      color: Color(0xFFFFF8FB),
                       borderRadius: BorderRadius.circular(17),
                       child: InkWell(
                         onTap: saving ? null : () => onEdit(episode),
                         borderRadius: BorderRadius.circular(17),
                         child: Padding(
-                          padding: const EdgeInsets.all(12),
+                          padding: EdgeInsets.all(12),
                           child: Row(
                             children: [
                               Container(
@@ -388,13 +491,13 @@ class WomenPeriodHistoryCard extends StatelessWidget {
                                   color: womenBlush,
                                   borderRadius: BorderRadius.circular(13),
                                 ),
-                                child: const Icon(
+                                child: Icon(
                                   Icons.water_drop_rounded,
                                   color: womenRose,
                                   size: 20,
                                 ),
                               ),
-                              const SizedBox(width: 10),
+                              SizedBox(width: 10),
                               Expanded(
                                 child: Column(
                                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -406,15 +509,24 @@ class WomenPeriodHistoryCard extends StatelessWidget {
                                           episode['startedOn'].toString(),
                                         ),
                                       ),
-                                      style: const TextStyle(
+                                      style: TextStyle(
                                         fontWeight: FontWeight.w900,
                                       ),
                                     ),
                                     Text(
                                       episode['endedOn'] == null
-                                          ? 'در حال ادامه'
-                                          : 'تا ${formatAppDate(context, DateTime.parse(episode['endedOn'].toString()))}',
-                                      style: const TextStyle(
+                                          ? LifeMateRuntimeLocale.select(
+                                              fa: LifeMateRuntimeLocale.select(
+                                                fa: 'در حال ادامه',
+                                                en: "in progress",
+                                              ),
+                                              en: "in progress",
+                                            )
+                                          : LifeMateRuntimeLocale.select(
+                                              fa: 'تا ${formatAppDate(context, DateTime.parse(episode['endedOn'].toString()))}',
+                                              en: "up to ${formatAppDate(context, DateTime.parse(episode['endedOn'].toString()))}",
+                                            ),
+                                      style: TextStyle(
                                         color: AppColors.textSecondary,
                                         fontSize: 10,
                                       ),
@@ -422,7 +534,7 @@ class WomenPeriodHistoryCard extends StatelessWidget {
                                   ],
                                 ),
                               ),
-                              const Icon(
+                              Icon(
                                 Icons.edit_outlined,
                                 color: womenLilac,
                                 size: 19,

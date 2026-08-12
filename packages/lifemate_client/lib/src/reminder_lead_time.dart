@@ -1,3 +1,5 @@
+import 'runtime_locale.dart';
+
 abstract final class LifeMateReminderLeadTimes {
   static const int minimumMinutes = 0;
   static const int maximumMinutes = 10080;
@@ -15,14 +17,55 @@ abstract final class LifeMateReminderLeadTimes {
   }
 
   static String label(int minutes) {
-    if (minutes <= 0) return 'در زمان برنامه';
-    if (minutes < 60) return '$minutes دقیقه قبل';
-    if (minutes == 60) return '۱ ساعت قبل';
+    if (minutes <= 0)
+      return LifeMateRuntimeLocale.select(
+        fa: LifeMateRuntimeLocale.select(
+          fa: 'در زمان برنامه',
+          en: "During the program",
+        ),
+        en: "During the program",
+      );
+    if (minutes < 60)
+      return LifeMateRuntimeLocale.select(
+        fa: LifeMateRuntimeLocale.select(
+          fa: '$minutes دقیقه قبل',
+          en: "$minutes minutes ago",
+        ),
+        en: "$minutes minutes ago",
+      );
+    if (minutes == 60)
+      return LifeMateRuntimeLocale.select(
+        fa: LifeMateRuntimeLocale.select(fa: '۱ ساعت قبل', en: "1 hour ago"),
+        en: "1 hour ago",
+      );
     if (minutes < 1440 && minutes % 60 == 0) {
-      return '${minutes ~/ 60} ساعت قبل';
+      return LifeMateRuntimeLocale.select(
+        fa: LifeMateRuntimeLocale.select(
+          fa: '${minutes ~/ 60} ساعت قبل',
+          en: "${minutes ~/ 60} hours ago",
+        ),
+        en: "${minutes ~/ 60} hours ago",
+      );
     }
-    if (minutes == 1440) return '۱ روز قبل';
-    if (minutes % 1440 == 0) return '${minutes ~/ 1440} روز قبل';
-    return '$minutes دقیقه قبل';
+    if (minutes == 1440)
+      return LifeMateRuntimeLocale.select(
+        fa: LifeMateRuntimeLocale.select(fa: '۱ روز قبل', en: "1 day ago"),
+        en: "1 day ago",
+      );
+    if (minutes % 1440 == 0)
+      return LifeMateRuntimeLocale.select(
+        fa: LifeMateRuntimeLocale.select(
+          fa: '${minutes ~/ 1440} روز قبل',
+          en: "${minutes ~/ 1440} the day before",
+        ),
+        en: "${minutes ~/ 1440} the day before",
+      );
+    return LifeMateRuntimeLocale.select(
+      fa: LifeMateRuntimeLocale.select(
+        fa: '$minutes دقیقه قبل',
+        en: "$minutes minutes ago",
+      ),
+      en: "$minutes minutes ago",
+    );
   }
 }

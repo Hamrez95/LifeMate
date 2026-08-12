@@ -90,8 +90,20 @@ class _CalendarScreenState extends State<CalendarScreen> {
               id: relationship['patientUserId'].toString(),
               name:
                   _nonEmpty(relationship['patientDisplayName']) ??
-                  'فرد تحت مراقبت',
-              role: 'فرد تحت مراقبت',
+                  LifeMateRuntimeLocale.select(
+                    fa: LifeMateRuntimeLocale.select(
+                      fa: 'فرد تحت مراقبت',
+                      en: "Person under care",
+                    ),
+                    en: "Person under care",
+                  ),
+              role: LifeMateRuntimeLocale.select(
+                fa: LifeMateRuntimeLocale.select(
+                  fa: 'فرد تحت مراقبت',
+                  en: "Person under care",
+                ),
+                en: "Person under care",
+              ),
               profilePhotoUrl: _nonEmpty(
                 relationship['patientProfilePhotoUrl'],
               ),
@@ -116,7 +128,15 @@ class _CalendarScreenState extends State<CalendarScreen> {
       _setError(_friendlyApiError(error));
     } catch (error) {
       debugPrint('CareMate calendar relationship load failed: $error');
-      _setError('اطلاعات تقویم دریافت نشد. اتصال اینترنت را بررسی کنید.');
+      _setError(
+        LifeMateRuntimeLocale.select(
+          fa: LifeMateRuntimeLocale.select(
+            fa: 'اطلاعات تقویم دریافت نشد. اتصال اینترنت را بررسی کنید.',
+            en: "Calendar information not received. Check your internet connection.",
+          ),
+          en: "Calendar information not received. Check your internet connection.",
+        ),
+      );
     } finally {
       if (mounted) setState(() => _backgroundRefreshing = false);
     }
@@ -175,7 +195,15 @@ class _CalendarScreenState extends State<CalendarScreen> {
       _setError(_friendlyApiError(error));
     } catch (error) {
       debugPrint('CareMate calendar event load failed: $error');
-      _setError('برنامه درمان، ویزیت و تزریق این ماه دریافت نشد.');
+      _setError(
+        LifeMateRuntimeLocale.select(
+          fa: LifeMateRuntimeLocale.select(
+            fa: 'برنامه درمان، ویزیت و تزریق این ماه دریافت نشد.',
+            en: "This month's treatment, visit and injection schedule was not received.",
+          ),
+          en: "This month's treatment, visit and injection schedule was not received.",
+        ),
+      );
     }
   }
 
@@ -203,7 +231,10 @@ class _CalendarScreenState extends State<CalendarScreen> {
       userId: patientUserId,
       title: dose['medicationName']?.toString().trim().isNotEmpty == true
           ? dose['medicationName'].toString()
-          : 'دارو',
+          : LifeMateRuntimeLocale.select(
+              fa: LifeMateRuntimeLocale.select(fa: 'دارو', en: "Medication"),
+              en: "medicine",
+            ),
       date: _normalizeDate(date),
       time: time,
       description: _nonEmpty(dose['doseText']),
@@ -242,7 +273,21 @@ class _CalendarScreenState extends State<CalendarScreen> {
       userId: patientUserId,
       title:
           _nonEmpty(event['title']) ??
-          (type == EventType.injection ? 'تزریق' : 'ویزیت'),
+          (type == EventType.injection
+              ? LifeMateRuntimeLocale.select(
+                  fa: LifeMateRuntimeLocale.select(
+                    fa: 'تزریق',
+                    en: "Injection",
+                  ),
+                  en: "Injection",
+                )
+              : LifeMateRuntimeLocale.select(
+                  fa: LifeMateRuntimeLocale.select(
+                    fa: 'ویزیت',
+                    en: "Appointment",
+                  ),
+                  en: "visit",
+                )),
       date: _normalizeDate(date),
       time: rawTime.length >= 5 ? rawTime.substring(0, 5) : rawTime,
       description: details.isEmpty ? null : details,
@@ -260,10 +305,25 @@ class _CalendarScreenState extends State<CalendarScreen> {
 
   static String _administrationRouteLabel(dynamic value) {
     return switch (value?.toString().toLowerCase()) {
-      'intramuscular' => 'عضلانی',
-      'subcutaneous' => 'زیرجلدی',
-      'intravenous' => 'وریدی',
-      'other' => 'طبق دستور درمانگر',
+      'intramuscular' => LifeMateRuntimeLocale.select(
+        fa: LifeMateRuntimeLocale.select(fa: 'عضلانی', en: "muscular"),
+        en: "muscular",
+      ),
+      'subcutaneous' => LifeMateRuntimeLocale.select(
+        fa: LifeMateRuntimeLocale.select(fa: 'زیرجلدی', en: "Undercover"),
+        en: "Undercover",
+      ),
+      'intravenous' => LifeMateRuntimeLocale.select(
+        fa: LifeMateRuntimeLocale.select(fa: 'وریدی', en: "vein"),
+        en: "vein",
+      ),
+      'other' => LifeMateRuntimeLocale.select(
+        fa: LifeMateRuntimeLocale.select(
+          fa: 'طبق دستور درمانگر',
+          en: "According to the therapist's instructions",
+        ),
+        en: "According to the therapist's instructions",
+      ),
       _ => '',
     };
   }
@@ -337,8 +397,16 @@ class _CalendarScreenState extends State<CalendarScreen> {
     final alerts = _activeAlerts;
     if (alerts.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('هشدار دارویی فعالی وجود ندارد.'),
+        SnackBar(
+          content: Text(
+            LifeMateRuntimeLocale.select(
+              fa: LifeMateRuntimeLocale.select(
+                fa: 'هشدار دارویی فعالی وجود ندارد.',
+                en: "There is no active drug warning.",
+              ),
+              en: "There is no active drug warning.",
+            ),
+          ),
           behavior: SnackBarBehavior.floating,
         ),
       );
@@ -350,8 +418,8 @@ class _CalendarScreenState extends State<CalendarScreen> {
       backgroundColor: Colors.transparent,
       isScrollControlled: true,
       builder: (context) => Container(
-        padding: const EdgeInsets.fromLTRB(24, 18, 24, 30),
-        decoration: const BoxDecoration(
+        padding: EdgeInsets.fromLTRB(24, 18, 24, 30),
+        decoration: BoxDecoration(
           color: Colors.white,
           borderRadius: BorderRadius.vertical(top: Radius.circular(32)),
         ),
@@ -361,11 +429,17 @@ class _CalendarScreenState extends State<CalendarScreen> {
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Text(
-                'هشدارهای دارویی امروز',
+              Text(
+                LifeMateRuntimeLocale.select(
+                  fa: LifeMateRuntimeLocale.select(
+                    fa: 'هشدارهای دارویی امروز',
+                    en: "Today's drug warnings",
+                  ),
+                  en: "Today's drug warnings",
+                ),
                 style: TextStyle(fontSize: 19, fontWeight: FontWeight.w800),
               ),
-              const SizedBox(height: 14),
+              SizedBox(height: 14),
               ConstrainedBox(
                 constraints: BoxConstraints(
                   maxHeight: MediaQuery.sizeOf(context).height * 0.55,
@@ -373,12 +447,10 @@ class _CalendarScreenState extends State<CalendarScreen> {
                 child: ListView.separated(
                   shrinkWrap: true,
                   itemCount: alerts.length,
-                  separatorBuilder: (_, __) => const SizedBox(height: 10),
+                  separatorBuilder: (_, __) => SizedBox(height: 10),
                   itemBuilder: (_, index) => ScheduleCard(
                     event: alerts[index],
-                    font:
-                        Theme.of(context).textTheme.bodyMedium ??
-                        const TextStyle(),
+                    font: Theme.of(context).textTheme.bodyMedium ?? TextStyle(),
                     isPersian: isPersian,
                   ),
                 ),
@@ -590,11 +662,29 @@ class _CalendarScreenState extends State<CalendarScreen> {
   static String _friendlyApiError(LifeMateApiException error) {
     switch (error.code) {
       case 'care_access_denied':
-        return 'دسترسی مراقبت لغو شده است. فهرست را تازه‌سازی کنید.';
+        return LifeMateRuntimeLocale.select(
+          fa: LifeMateRuntimeLocale.select(
+            fa: 'دسترسی مراقبت لغو شده است. فهرست را تازه‌سازی کنید.',
+            en: "Care access has been revoked. Refresh the list.",
+          ),
+          en: "Care access has been revoked. Refresh the list.",
+        );
       default:
         return error.isUnauthorized
-            ? 'نشست شما منقضی شده است. دوباره وارد شوید.'
-            : 'درخواست تقویم انجام نشد. دوباره تلاش کنید.';
+            ? LifeMateRuntimeLocale.select(
+                fa: LifeMateRuntimeLocale.select(
+                  fa: 'نشست شما منقضی شده است. دوباره وارد شوید.',
+                  en: "Your session has expired. Sign in again.",
+                ),
+                en: "Your session has expired. Sign in again.",
+              )
+            : LifeMateRuntimeLocale.select(
+                fa: LifeMateRuntimeLocale.select(
+                  fa: 'درخواست تقویم انجام نشد. دوباره تلاش کنید.',
+                  en: "Calendar request failed. Try again.",
+                ),
+                en: "Calendar request failed. Try again.",
+              );
     }
   }
 }
@@ -607,7 +697,7 @@ class _CalendarErrorBanner extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Container(
-    padding: const EdgeInsets.all(14),
+    padding: EdgeInsets.all(14),
     decoration: BoxDecoration(
       color: Colors.red.shade50,
       borderRadius: BorderRadius.circular(18),
@@ -616,9 +706,20 @@ class _CalendarErrorBanner extends StatelessWidget {
     child: Row(
       children: [
         Icon(Icons.cloud_off_rounded, color: Colors.red.shade600),
-        const SizedBox(width: 10),
+        SizedBox(width: 10),
         Expanded(child: Text(message)),
-        TextButton(onPressed: onRetry, child: const Text('تلاش دوباره')),
+        TextButton(
+          onPressed: onRetry,
+          child: Text(
+            LifeMateRuntimeLocale.select(
+              fa: LifeMateRuntimeLocale.select(
+                fa: 'تلاش دوباره',
+                en: "Try again",
+              ),
+              en: "Try again",
+            ),
+          ),
+        ),
       ],
     ),
   );
@@ -632,36 +733,56 @@ class _EmptyCalendarState extends StatelessWidget {
   @override
   Widget build(BuildContext context) => Center(
     child: Padding(
-      padding: const EdgeInsets.all(28),
+      padding: EdgeInsets.all(28),
       child: Container(
         width: double.infinity,
-        padding: const EdgeInsets.all(24),
+        padding: EdgeInsets.all(24),
         decoration: AppColors.softDecoration(),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Icon(
+            Icon(
               Icons.family_restroom_rounded,
               size: 58,
               color: AppColors.primaryBlue,
             ),
-            const SizedBox(height: 14),
-            const Text(
-              'هنوز فردی به مراقبت شما متصل نیست',
+            SizedBox(height: 14),
+            Text(
+              LifeMateRuntimeLocale.select(
+                fa: LifeMateRuntimeLocale.select(
+                  fa: 'هنوز فردی به مراقبت شما متصل نیست',
+                  en: "No one is connected to your care yet",
+                ),
+                en: "No one is connected to your care yet",
+              ),
               textAlign: TextAlign.center,
               style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800),
             ),
-            const SizedBox(height: 8),
-            const Text(
-              'پس از پذیرش دعوت، داروها، ویزیت‌ها و تزریق‌های واقعی بیمار در همین تقویم نمایش داده می‌شوند.',
+            SizedBox(height: 8),
+            Text(
+              LifeMateRuntimeLocale.select(
+                fa: LifeMateRuntimeLocale.select(
+                  fa: 'پس از پذیرش دعوت، داروها، ویزیت‌ها و تزریق‌های واقعی بیمار در همین تقویم نمایش داده می‌شوند.',
+                  en: "After accepting the invitation, the patient's actual medications, visits, and injections are displayed in this calendar.",
+                ),
+                en: "After accepting the invitation, the patient's actual medications, visits, and injections are displayed in this calendar.",
+              ),
               textAlign: TextAlign.center,
               style: TextStyle(height: 1.6, color: AppColors.secondaryText),
             ),
-            const SizedBox(height: 18),
+            SizedBox(height: 18),
             OutlinedButton.icon(
               onPressed: onRefresh,
-              icon: const Icon(Icons.refresh_rounded),
-              label: const Text('تازه‌سازی'),
+              icon: Icon(Icons.refresh_rounded),
+              label: Text(
+                LifeMateRuntimeLocale.select(
+                  fa: LifeMateRuntimeLocale.select(
+                    fa: 'تازه‌سازی',
+                    en: "refresh",
+                  ),
+                  en: "refresh",
+                ),
+              ),
             ),
           ],
         ),

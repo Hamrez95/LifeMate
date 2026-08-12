@@ -132,11 +132,17 @@ class WellMateApp extends StatelessWidget {
           ],
           supportedLocales: const [Locale('fa'), Locale('en')],
           builder: (context, child) {
-            return MediaQuery(
-              data: MediaQuery.of(context).copyWith(
-                textScaler: TextScaler.linear(settingsProvider.textScaleFactor),
+            final appChild = child ?? const SizedBox.shrink();
+            return Directionality(
+              textDirection: isPersian ? TextDirection.rtl : TextDirection.ltr,
+              child: MediaQuery(
+                data: MediaQuery.of(context).copyWith(
+                  textScaler: TextScaler.linear(
+                    settingsProvider.textScaleFactor,
+                  ),
+                ),
+                child: appChild,
               ),
-              child: child!,
             );
           },
           home: home ?? _productionHome(runtimeConfig, authInitialized),
@@ -229,7 +235,9 @@ class _AuthenticatedWellMateShellState
   @override
   void dispose() {
     _widgetSyncTimer?.cancel();
-    WellMateRefreshSignal.revision.removeListener(_scheduleMedicationWidgetSync);
+    WellMateRefreshSignal.revision.removeListener(
+      _scheduleMedicationWidgetSync,
+    );
     WidgetsBinding.instance.removeObserver(this);
     super.dispose();
   }

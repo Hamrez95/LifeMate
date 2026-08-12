@@ -100,19 +100,48 @@ class _CareWomenCalendarScreenState extends State<CareWomenCalendarScreen> {
       if (!mounted) return;
       setState(() {
         _error = switch (error.code) {
-          'women_calendar_access_denied' =>
-            'دسترسی همدم به چرخه فعال نیست یا توسط همسرت متوقف شده است.',
-          'women_calendar_not_active' =>
-            'تقویم بانوان برای ${widget.patientName} فعال نیست.',
-          'women_calendar_feature_disabled' =>
-            'این قابلیت در نسخه فعلی فعال نیست.',
-          _ => 'خلاصه همدم دریافت نشد. دوباره تلاش کنید.',
+          'women_calendar_access_denied' => LifeMateRuntimeLocale.select(
+            fa: LifeMateRuntimeLocale.select(
+              fa: 'دسترسی همدم به چرخه فعال نیست یا توسط همسرت متوقف شده است.',
+              en: "Companion access to the cycle is not active or has been stopped by your partner.",
+            ),
+            en: "Companion access to the cycle is not active or has been stopped by your partner.",
+          ),
+          'women_calendar_not_active' => LifeMateRuntimeLocale.select(
+            fa: LifeMateRuntimeLocale.select(
+              fa: 'تقویم بانوان برای ${widget.patientName} فعال نیست.',
+              en: "Ladies calendar is not enabled for ${widget.patientName}.",
+            ),
+            en: "Ladies calendar is not enabled for ${widget.patientName}.",
+          ),
+          'women_calendar_feature_disabled' => LifeMateRuntimeLocale.select(
+            fa: LifeMateRuntimeLocale.select(
+              fa: 'این قابلیت در نسخه فعلی فعال نیست.',
+              en: "This feature is not enabled in the current version.",
+            ),
+            en: "This feature is not enabled in the current version.",
+          ),
+          _ => LifeMateRuntimeLocale.select(
+            fa: LifeMateRuntimeLocale.select(
+              fa: 'خلاصه همدم دریافت نشد. دوباره تلاش کنید.',
+              en: "The companion summary was not received. Try again.",
+            ),
+            en: "The companion summary was not received. Try again.",
+          ),
         };
       });
     } catch (error) {
       debugPrint('Care companion dashboard load failed: $error');
       if (mounted) {
-        setState(() => _error = 'خلاصه همدم دریافت نشد. دوباره تلاش کنید.');
+        setState(
+          () => _error = LifeMateRuntimeLocale.select(
+            fa: LifeMateRuntimeLocale.select(
+              fa: 'خلاصه همدم دریافت نشد. دوباره تلاش کنید.',
+              en: "The companion summary was not received. Try again.",
+            ),
+            en: "The companion summary was not received. Try again.",
+          ),
+        );
       }
     } finally {
       if (mounted) setState(() => _loading = false);
@@ -133,7 +162,13 @@ class _CareWomenCalendarScreenState extends State<CareWomenCalendarScreen> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
-            '$label ثبت شد؛ یک همراهی کوچک می‌تواند خیلی ارزشمند باشد.',
+            LifeMateRuntimeLocale.select(
+              fa: LifeMateRuntimeLocale.select(
+                fa: '$label ثبت شد؛ یک همراهی کوچک می‌تواند خیلی ارزشمند باشد.',
+                en: "$label registered; A little companionship can be very valuable.",
+              ),
+              en: "$label registered; A little companionship can be very valuable.",
+            ),
           ),
           behavior: SnackBarBehavior.floating,
         ),
@@ -145,8 +180,20 @@ class _CareWomenCalendarScreenState extends State<CareWomenCalendarScreen> {
         SnackBar(
           content: Text(
             error.code == 'women_calendar_access_denied'
-                ? 'دسترسی همدم دیگر فعال نیست.'
-                : 'ثبت همراهی انجام نشد.',
+                ? LifeMateRuntimeLocale.select(
+                    fa: LifeMateRuntimeLocale.select(
+                      fa: 'دسترسی همدم دیگر فعال نیست.',
+                      en: "Companion access is no longer enabled.",
+                    ),
+                    en: "Companion access is no longer enabled.",
+                  )
+                : LifeMateRuntimeLocale.select(
+                    fa: LifeMateRuntimeLocale.select(
+                      fa: 'ثبت همراهی انجام نشد.',
+                      en: "Accompanying registration was not done.",
+                    ),
+                    en: "Accompanying registration was not done.",
+                  ),
           ),
         ),
       );
@@ -158,17 +205,23 @@ class _CareWomenCalendarScreenState extends State<CareWomenCalendarScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFFBF7FF),
+      backgroundColor: Color(0xFFFBF7FF),
       appBar: AppBar(
         toolbarHeight: 66,
         backgroundColor: Colors.transparent,
         surfaceTintColor: Colors.transparent,
         elevation: 0,
-        title: const Column(
+        title: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              'همدم من',
+              LifeMateRuntimeLocale.select(
+                fa: LifeMateRuntimeLocale.select(
+                  fa: 'همدم من',
+                  en: "my companion",
+                ),
+                en: "my companion",
+              ),
               style: TextStyle(
                 fontSize: 20,
                 fontWeight: FontWeight.w900,
@@ -176,14 +229,20 @@ class _CareWomenCalendarScreenState extends State<CareWomenCalendarScreen> {
               ),
             ),
             Text(
-              'همراهی محترمانه، با رضایت و بدون قضاوت',
+              LifeMateRuntimeLocale.select(
+                fa: LifeMateRuntimeLocale.select(
+                  fa: 'همراهی محترمانه، با رضایت و بدون قضاوت',
+                  en: "Respectful companionship, with consent and without judgment",
+                ),
+                en: "Respectful companionship, with consent and without judgment",
+              ),
               style: TextStyle(fontSize: 10, color: Color(0xFF8B789D)),
             ),
           ],
         ),
       ),
       body: DecoratedBox(
-        decoration: const BoxDecoration(
+        decoration: BoxDecoration(
           gradient: LinearGradient(
             begin: Alignment.topCenter,
             end: Alignment.bottomCenter,
@@ -191,44 +250,44 @@ class _CareWomenCalendarScreenState extends State<CareWomenCalendarScreen> {
           ),
         ),
         child: _loading
-            ? const Center(child: CircularProgressIndicator())
+            ? Center(child: CircularProgressIndicator())
             : _error != null
             ? _ErrorState(message: _error!, onRetry: _load)
             : RefreshIndicator(
                 onRefresh: _load,
                 child: ListView(
-                  key: const ValueKey('care-companion-mobile-dashboard'),
-                  physics: const AlwaysScrollableScrollPhysics(),
-                  padding: const EdgeInsets.fromLTRB(18, 8, 18, 28),
+                  key: ValueKey('care-companion-mobile-dashboard'),
+                  physics: AlwaysScrollableScrollPhysics(),
+                  padding: EdgeInsets.fromLTRB(18, 8, 18, 28),
                   children: [
                     _ConnectedPartnerHero(
                       patientName: _patientName,
                       patientAvatarKey: _patientAvatarKey,
                       patientProfilePhotoUrl: _patientProfilePhotoUrl,
                     ),
-                    const SizedBox(height: 14),
+                    SizedBox(height: 14),
                     _PartnerCycleSummary(summary: _summary),
-                    const SizedBox(height: 14),
+                    SizedBox(height: 14),
                     _SharedWellbeingCard(summary: _summary),
-                    const SizedBox(height: 14),
+                    SizedBox(height: 14),
                     _TodayCareStatus(
                       patientName: _patientName,
                       doses: _todayDoses,
                       events: _todayCareEvents,
                     ),
-                    const SizedBox(height: 14),
+                    SizedBox(height: 14),
                     _SupportActions(saving: _saving, onAction: _recordAction),
-                    const SizedBox(height: 14),
+                    SizedBox(height: 14),
                     _ImportantReminders(
                       doses: _todayDoses,
                       events: _todayCareEvents,
                     ),
-                    const SizedBox(height: 14),
+                    SizedBox(height: 14),
                     _CompassionMessage(summary: _summary),
-                    const SizedBox(height: 14),
+                    SizedBox(height: 14),
                     _RecentActions(summary: _summary),
-                    const SizedBox(height: 14),
-                    const _PrivacyNotice(),
+                    SizedBox(height: 14),
+                    _PrivacyNotice(),
                   ],
                 ),
               ),
@@ -317,7 +376,7 @@ class _ConnectedPartnerHero extends StatelessWidget {
                       radius: 38,
                     ),
                     Transform.translate(
-                      offset: const Offset(5, 0),
+                      offset: Offset(5, 0),
                       child: Container(
                         width: 38,
                         height: 38,
@@ -325,11 +384,11 @@ class _ConnectedPartnerHero extends StatelessWidget {
                           color: Colors.white,
                           shape: BoxShape.circle,
                           border: Border.all(
-                            color: const Color(0xFFD98AD0),
+                            color: Color(0xFFD98AD0),
                             width: 2,
                           ),
                         ),
-                        child: const Icon(
+                        child: Icon(
                           Icons.favorite_rounded,
                           color: Color(0xFFD966A4),
                           size: 20,
@@ -337,9 +396,9 @@ class _ConnectedPartnerHero extends StatelessWidget {
                       ),
                     ),
                     Transform.translate(
-                      offset: const Offset(-5, 0),
+                      offset: Offset(-5, 0),
                       child: LifeMateCurrentUserAvatar(
-                        key: const ValueKey('care-women-current-caregiver-avatar'),
+                        key: ValueKey('care-women-current-caregiver-avatar'),
                         apiClient: api,
                         radius: 38,
                       ),
@@ -349,20 +408,32 @@ class _ConnectedPartnerHero extends StatelessWidget {
               ),
             ],
           ),
-          const SizedBox(height: 12),
-          const Text(
-            'ما کنار هم مراقبت می‌کنیم',
+          SizedBox(height: 12),
+          Text(
+            LifeMateRuntimeLocale.select(
+              fa: LifeMateRuntimeLocale.select(
+                fa: 'ما کنار هم مراقبت می‌کنیم',
+                en: "We care together",
+              ),
+              en: "We care together",
+            ),
             style: TextStyle(
               fontSize: 17,
               fontWeight: FontWeight.w900,
               color: Color(0xFF4E3568),
             ),
           ),
-          const SizedBox(height: 5),
+          SizedBox(height: 5),
           Text(
-            'وضعیت $patientName فقط در محدوده‌ای نمایش داده می‌شود که خودش انتخاب کرده است.',
+            LifeMateRuntimeLocale.select(
+              fa: LifeMateRuntimeLocale.select(
+                fa: 'وضعیت $patientName فقط در محدوده‌ای نمایش داده می‌شود که خودش انتخاب کرده است.',
+                en: "$patientName status is only displayed in the range it has selected.",
+              ),
+              en: "$patientName status is only displayed in the range it has selected.",
+            ),
             textAlign: TextAlign.center,
-            style: const TextStyle(
+            style: TextStyle(
               fontSize: 10.5,
               height: 1.55,
               color: Color(0xFF7D6A8D),
@@ -406,11 +477,17 @@ class _PartnerCycleSummary extends StatelessWidget {
           final copy = Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Text(
-                'خلاصه چرخه',
+              Text(
+                LifeMateRuntimeLocale.select(
+                  fa: LifeMateRuntimeLocale.select(
+                    fa: 'خلاصه چرخه',
+                    en: "Summary of the cycle",
+                  ),
+                  en: "Summary of the cycle",
+                ),
                 style: TextStyle(fontSize: 16, fontWeight: FontWeight.w900),
               ),
-              const SizedBox(height: 5),
+              SizedBox(height: 5),
               Text(
                 visual.label,
                 style: TextStyle(
@@ -418,12 +495,18 @@ class _PartnerCycleSummary extends StatelessWidget {
                   fontWeight: FontWeight.w900,
                 ),
               ),
-              const SizedBox(height: 6),
+              SizedBox(height: 6),
               Text(
                 daysLeft == null
-                    ? 'اطلاعات کافی برای برآورد وجود ندارد.'
-                    : 'حدود ${localizeDigits(context, daysLeft)} روز تا شروع تخمینی دوره بعدی',
-                style: const TextStyle(
+                    ? LifeMateRuntimeLocale.select(
+                        fa: 'اطلاعات کافی برای برآورد وجود ندارد.',
+                        en: "There is not enough information to estimate.",
+                      )
+                    : LifeMateRuntimeLocale.select(
+                        fa: 'حدود ${localizeDigits(context, daysLeft)} روز تا شروع تخمینی دوره بعدی',
+                        en: "About ${localizeDigits(context, daysLeft)} days until the estimated start of the next period",
+                      ),
+                style: TextStyle(
                   fontSize: 11,
                   height: 1.45,
                   color: AppColors.secondaryText,
@@ -482,17 +565,17 @@ class _MiniCycleRing extends StatelessWidget {
             children: [
               Text(
                 day == null ? '—' : localizeDigits(context, day!),
-                style: const TextStyle(
-                  fontSize: 27,
-                  fontWeight: FontWeight.w900,
-                ),
+                style: TextStyle(fontSize: 27, fontWeight: FontWeight.w900),
               ),
               Text(
-                'از ${localizeDigits(context, length)} روز',
-                style: const TextStyle(
-                  fontSize: 9.5,
-                  color: AppColors.secondaryText,
+                LifeMateRuntimeLocale.select(
+                  fa: LifeMateRuntimeLocale.select(
+                    fa: 'از ${localizeDigits(context, length)} روز',
+                    en: "of ${localizeDigits(context, length)} days",
+                  ),
+                  en: "of ${localizeDigits(context, length)} days",
                 ),
+                style: TextStyle(fontSize: 9.5, color: AppColors.secondaryText),
               ),
             ],
           ),
@@ -550,22 +633,40 @@ class _SharedWellbeingCard extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const _SectionHeader(
+          _SectionHeader(
             icon: Icons.favorite_border_rounded,
-            title: 'حال ثبت‌شده همسرم',
-            subtitle: 'فقط خلاصه‌ای که خودش برای اشتراک انتخاب کرده',
+            title: LifeMateRuntimeLocale.select(
+              fa: LifeMateRuntimeLocale.select(
+                fa: 'حال ثبت‌شده همسرم',
+                en: "My wife's registered status",
+              ),
+              en: "My wife's registered status",
+            ),
+            subtitle: LifeMateRuntimeLocale.select(
+              fa: LifeMateRuntimeLocale.select(
+                fa: 'فقط خلاصه‌ای که خودش برای اشتراک انتخاب کرده',
+                en: "Only the summary that he chose to share",
+              ),
+              en: "Only the summary that he chose to share",
+            ),
           ),
-          const SizedBox(height: 13),
+          SizedBox(height: 13),
           if (log == null)
             Container(
               width: double.infinity,
-              padding: const EdgeInsets.all(15),
+              padding: EdgeInsets.all(15),
               decoration: BoxDecoration(
-                color: const Color(0xFFF8F3FC),
+                color: Color(0xFFF8F3FC),
                 borderRadius: BorderRadius.circular(18),
               ),
-              child: const Text(
-                'امروز خلاصه‌ای به اشتراک گذاشته نشده است. همین که بدون اصرار کنارش باشی، حمایت ارزشمندی است.',
+              child: Text(
+                LifeMateRuntimeLocale.select(
+                  fa: LifeMateRuntimeLocale.select(
+                    fa: 'امروز خلاصه‌ای به اشتراک گذاشته نشده است. همین که بدون اصرار کنارش باشی، حمایت ارزشمندی است.',
+                    en: "No summary has been shared today. Just being by his side without insistence is a valuable support.",
+                  ),
+                  en: "No summary has been shared today. Just being by his side without insistence is a valuable support.",
+                ),
                 style: TextStyle(
                   fontSize: 11.5,
                   height: 1.65,
@@ -603,25 +704,25 @@ class _SharedSummary extends StatelessWidget {
                 borderRadius: BorderRadius.circular(18),
               ),
               child: Center(
-                child: Text(mood.emoji, style: const TextStyle(fontSize: 28)),
+                child: Text(mood.emoji, style: TextStyle(fontSize: 28)),
               ),
             ),
-            const SizedBox(width: 12),
+            SizedBox(width: 12),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
                     mood.label,
-                    style: const TextStyle(
-                      fontSize: 15,
-                      fontWeight: FontWeight.w900,
-                    ),
+                    style: TextStyle(fontSize: 15, fontWeight: FontWeight.w900),
                   ),
-                  const SizedBox(height: 4),
+                  SizedBox(height: 4),
                   Text(
-                    'انرژی ${localizeDigits(context, log['energyLevel'] ?? '—')} از ۵ • درد ${localizeDigits(context, log['painLevel'] ?? '—')} از ۵',
-                    style: const TextStyle(
+                    LifeMateRuntimeLocale.select(
+                      fa: 'انرژی ${localizeDigits(context, log['energyLevel'] ?? '—')} از ۵ • درد ${localizeDigits(context, log['painLevel'] ?? '—')} از ۵',
+                      en: "Energy ${localizeDigits(context, log['energyLevel'] ?? '—')} out of 5 • Pain ${localizeDigits(context, log['painLevel'] ?? '—')} out of 5",
+                    ),
+                    style: TextStyle(
                       fontSize: 10.5,
                       color: AppColors.secondaryText,
                     ),
@@ -632,7 +733,7 @@ class _SharedSummary extends StatelessWidget {
           ],
         ),
         if (symptoms.isNotEmpty) ...[
-          const SizedBox(height: 12),
+          SizedBox(height: 12),
           Align(
             alignment: Alignment.centerRight,
             child: Wrap(
@@ -641,15 +742,15 @@ class _SharedSummary extends StatelessWidget {
               children: symptoms
                   .map(
                     (label) => Container(
-                      padding: const EdgeInsets.symmetric(
+                      padding: EdgeInsets.symmetric(
                         horizontal: 10,
                         vertical: 6,
                       ),
                       decoration: BoxDecoration(
-                        color: const Color(0xFFFFEFF5),
+                        color: Color(0xFFFFEFF5),
                         borderRadius: BorderRadius.circular(12),
                       ),
-                      child: Text(label, style: const TextStyle(fontSize: 10)),
+                      child: Text(label, style: TextStyle(fontSize: 10)),
                     ),
                   )
                   .toList(growable: false),
@@ -691,25 +792,41 @@ class _TodayCareStatus extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const _SectionHeader(
+          _SectionHeader(
             icon: Icons.today_rounded,
-            title: 'وضعیت امروز',
-            subtitle: 'سلامت و برنامه‌های روزانه، جدا از اطلاعات خصوصی چرخه',
+            title: LifeMateRuntimeLocale.select(
+              fa: LifeMateRuntimeLocale.select(
+                fa: 'وضعیت امروز',
+                en: "Today's situation",
+              ),
+              en: "Today's situation",
+            ),
+            subtitle: LifeMateRuntimeLocale.select(
+              fa: LifeMateRuntimeLocale.select(
+                fa: 'سلامت و برنامه‌های روزانه، جدا از اطلاعات خصوصی چرخه',
+                en: "Health and daily schedules, separate from private cycle information",
+              ),
+              en: "Health and daily schedules, separate from private cycle information",
+            ),
           ),
-          const SizedBox(height: 12),
+          SizedBox(height: 12),
           _StatusLine(
             icon: Icons.medication_rounded,
-            color: missed > 0
-                ? const Color(0xFFE15C72)
-                : const Color(0xFF5AA781),
-            title: 'داروها',
+            color: missed > 0 ? Color(0xFFE15C72) : Color(0xFF5AA781),
+            title: LifeMateRuntimeLocale.select(
+              fa: 'داروها',
+              en: "Medications",
+            ),
             value: missed > 0
-                ? '${localizeDigits(context, missed)} مورد انجام‌نشده'
+                ? LifeMateRuntimeLocale.select(
+                    fa: '${localizeDigits(context, missed)} مورد انجام‌نشده',
+                    en: "${localizeDigits(context, missed)} Item not done",
+                  )
                 : '${localizeDigits(context, taken)} مورد ثبت‌شده',
           ),
           _StatusLine(
             icon: Icons.calendar_month_rounded,
-            color: const Color(0xFF8E70CE),
+            color: Color(0xFF8E70CE),
             title: 'ویزیت و تزریق',
             value: upcoming == 0
                 ? 'برنامه‌ای برای امروز نیست'
@@ -717,9 +834,21 @@ class _TodayCareStatus extends StatelessWidget {
           ),
           _StatusLine(
             icon: Icons.favorite_rounded,
-            color: const Color(0xFFD8679C),
-            title: 'نوع همراهی',
-            value: 'پرسیدن، شنیدن و احترام به نیاز $patientName',
+            color: Color(0xFFD8679C),
+            title: LifeMateRuntimeLocale.select(
+              fa: LifeMateRuntimeLocale.select(
+                fa: 'نوع همراهی',
+                en: "Companion type",
+              ),
+              en: "Companion type",
+            ),
+            value: LifeMateRuntimeLocale.select(
+              fa: LifeMateRuntimeLocale.select(
+                fa: 'پرسیدن، شنیدن و احترام به نیاز $patientName',
+                en: "Asking, listening and respecting the need for $patientName",
+              ),
+              en: "Asking, listening and respecting the need for $patientName",
+            ),
           ),
         ],
       ),
@@ -787,40 +916,76 @@ class _SupportActions extends StatelessWidget {
   final bool saving;
   final Future<void> Function(String, String) onAction;
 
-  static const actions = <_SupportDefinition>[
+  static final actions = <_SupportDefinition>[
     _SupportDefinition(
       type: 'hydration',
-      label: 'نوشیدنی آماده کردم',
+      label: LifeMateRuntimeLocale.select(
+        fa: LifeMateRuntimeLocale.select(
+          fa: 'نوشیدنی آماده کردم',
+          en: "I prepared a drink",
+        ),
+        en: "I prepared a drink",
+      ),
       icon: Icons.local_drink_rounded,
       color: Color(0xFF4C9BE8),
     ),
     _SupportDefinition(
       type: 'rest',
-      label: 'فضای استراحت دادم',
+      label: LifeMateRuntimeLocale.select(
+        fa: LifeMateRuntimeLocale.select(
+          fa: 'فضای استراحت دادم',
+          en: "I gave space to rest",
+        ),
+        en: "I gave space to rest",
+      ),
       icon: Icons.bedtime_rounded,
       color: Color(0xFF7772D7),
     ),
     _SupportDefinition(
       type: 'warmth',
-      label: 'گرمای ملایم آماده کردم',
+      label: LifeMateRuntimeLocale.select(
+        fa: LifeMateRuntimeLocale.select(
+          fa: 'گرمای ملایم آماده کردم',
+          en: "I prepared gentle heat",
+        ),
+        en: "I prepared gentle heat",
+      ),
       icon: Icons.device_thermostat_rounded,
       color: Color(0xFFE58970),
     ),
     _SupportDefinition(
       type: 'chores',
-      label: 'در کارها کمک کردم',
+      label: LifeMateRuntimeLocale.select(
+        fa: LifeMateRuntimeLocale.select(
+          fa: 'در کارها کمک کردم',
+          en: "I helped with the work",
+        ),
+        en: "I helped with the work",
+      ),
       icon: Icons.home_work_rounded,
       color: Color(0xFF55A77A),
     ),
     _SupportDefinition(
       type: 'walk',
-      label: 'پیاده‌روی پیشنهاد دادم',
+      label: LifeMateRuntimeLocale.select(
+        fa: LifeMateRuntimeLocale.select(
+          fa: 'پیاده‌روی پیشنهاد دادم',
+          en: "I suggested a walk",
+        ),
+        en: "I suggested a walk",
+      ),
       icon: Icons.directions_walk_rounded,
       color: Color(0xFFB57A4E),
     ),
     _SupportDefinition(
       type: 'check_in',
-      label: 'با آرامش حالش را پرسیدم',
+      label: LifeMateRuntimeLocale.select(
+        fa: LifeMateRuntimeLocale.select(
+          fa: 'با آرامش حالش را پرسیدم',
+          en: "I asked him calmly",
+        ),
+        en: "I asked him calmly",
+      ),
       icon: Icons.forum_rounded,
       color: Color(0xFFD7659B),
     ),
@@ -831,12 +996,24 @@ class _SupportActions extends StatelessWidget {
     child: Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const _SectionHeader(
+        _SectionHeader(
           icon: Icons.volunteer_activism_rounded,
-          title: 'امروز چطور همراه باشم؟',
-          subtitle: 'فقط کاری را ثبت کن که واقعاً انجام داده‌ای.',
+          title: LifeMateRuntimeLocale.select(
+            fa: LifeMateRuntimeLocale.select(
+              fa: 'امروز چطور همراه باشم؟',
+              en: "How can I be with you today?",
+            ),
+            en: "How can I be with you today?",
+          ),
+          subtitle: LifeMateRuntimeLocale.select(
+            fa: LifeMateRuntimeLocale.select(
+              fa: 'فقط کاری را ثبت کن که واقعاً انجام داده‌ای.',
+              en: "Just record what you actually did.",
+            ),
+            en: "Just record what you actually did.",
+          ),
         ),
-        const SizedBox(height: 12),
+        SizedBox(height: 12),
         LayoutBuilder(
           builder: (context, constraints) {
             final width = constraints.maxWidth < 330
@@ -932,9 +1109,28 @@ class _ImportantReminders extends StatelessWidget {
       if (status == 'taken' || status == 'cancelled') continue;
       items.add(
         _ReminderItem(
-          title: dose['medicationName']?.toString() ?? 'دارو',
+          title:
+              dose['medicationName']?.toString() ??
+              LifeMateRuntimeLocale.select(
+                fa: LifeMateRuntimeLocale.select(fa: 'دارو', en: "Medication"),
+                en: "medicine",
+              ),
           time: _time(dose['scheduledLocalTime']),
-          detail: status == 'missed' ? 'انجام‌نشده' : 'در انتظار',
+          detail: status == 'missed'
+              ? LifeMateRuntimeLocale.select(
+                  fa: LifeMateRuntimeLocale.select(
+                    fa: 'انجام‌نشده',
+                    en: "not done",
+                  ),
+                  en: "not done",
+                )
+              : LifeMateRuntimeLocale.select(
+                  fa: LifeMateRuntimeLocale.select(
+                    fa: 'در انتظار',
+                    en: "waiting",
+                  ),
+                  en: "waiting",
+                ),
           icon: Icons.medication_rounded,
           urgent: status == 'missed',
         ),
@@ -946,9 +1142,39 @@ class _ImportantReminders extends StatelessWidget {
           event['eventType']?.toString().toLowerCase() == 'injection';
       items.add(
         _ReminderItem(
-          title: event['title']?.toString() ?? (injection ? 'تزریق' : 'ویزیت'),
+          title:
+              event['title']?.toString() ??
+              (injection
+                  ? LifeMateRuntimeLocale.select(
+                      fa: LifeMateRuntimeLocale.select(
+                        fa: 'تزریق',
+                        en: "Injection",
+                      ),
+                      en: "Injection",
+                    )
+                  : LifeMateRuntimeLocale.select(
+                      fa: LifeMateRuntimeLocale.select(
+                        fa: 'ویزیت',
+                        en: "Appointment",
+                      ),
+                      en: "visit",
+                    )),
           time: _time(event['scheduledLocalTime']),
-          detail: injection ? 'تزریق' : 'ویزیت',
+          detail: injection
+              ? LifeMateRuntimeLocale.select(
+                  fa: LifeMateRuntimeLocale.select(
+                    fa: 'تزریق',
+                    en: "Injection",
+                  ),
+                  en: "Injection",
+                )
+              : LifeMateRuntimeLocale.select(
+                  fa: LifeMateRuntimeLocale.select(
+                    fa: 'ویزیت',
+                    en: "Appointment",
+                  ),
+                  en: "visit",
+                ),
           icon: injection
               ? Icons.vaccines_rounded
               : Icons.medical_services_rounded,
@@ -961,17 +1187,35 @@ class _ImportantReminders extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const _SectionHeader(
+          _SectionHeader(
             icon: Icons.notifications_active_outlined,
-            title: 'یادآوری‌های مهم',
-            subtitle: 'برنامه‌های مراقبتی امروز، بدون اطلاعات خصوصی چرخه',
+            title: LifeMateRuntimeLocale.select(
+              fa: LifeMateRuntimeLocale.select(
+                fa: 'یادآوری‌های مهم',
+                en: "Important reminders",
+              ),
+              en: "Important reminders",
+            ),
+            subtitle: LifeMateRuntimeLocale.select(
+              fa: LifeMateRuntimeLocale.select(
+                fa: 'برنامه‌های مراقبتی امروز، بدون اطلاعات خصوصی چرخه',
+                en: "Care plans today, without private cycle information",
+              ),
+              en: "Care plans today, without private cycle information",
+            ),
           ),
-          const SizedBox(height: 10),
+          SizedBox(height: 10),
           if (items.isEmpty)
-            const Padding(
+            Padding(
               padding: EdgeInsets.symmetric(vertical: 10),
               child: Text(
-                'یادآوری فعالی برای امروز وجود ندارد.',
+                LifeMateRuntimeLocale.select(
+                  fa: LifeMateRuntimeLocale.select(
+                    fa: 'یادآوری فعالی برای امروز وجود ندارد.',
+                    en: "There are no active reminders for today.",
+                  ),
+                  en: "There are no active reminders for today.",
+                ),
                 style: TextStyle(color: AppColors.secondaryText),
               ),
             )
@@ -1073,9 +1317,9 @@ class _CompassionMessage extends StatelessWidget {
         estimate['detailedPhase']?.toString() ?? estimate['phase']?.toString();
     final message = _compassionCopy(phase, mood);
     return Container(
-      padding: const EdgeInsets.all(18),
+      padding: EdgeInsets.all(18),
       decoration: BoxDecoration(
-        gradient: const LinearGradient(
+        gradient: LinearGradient(
           begin: Alignment.topRight,
           end: Alignment.bottomLeft,
           colors: [Color(0xFFF2E5FF), Color(0xFFFFEEF6)],
@@ -1085,28 +1329,34 @@ class _CompassionMessage extends StatelessWidget {
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const CircleAvatar(
+          CircleAvatar(
             radius: 22,
             backgroundColor: Colors.white,
             child: Icon(Icons.format_quote_rounded, color: Color(0xFF9B69C6)),
           ),
-          const SizedBox(width: 12),
+          SizedBox(width: 12),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text(
-                  'سخن امروز برای همدم',
+                Text(
+                  LifeMateRuntimeLocale.select(
+                    fa: LifeMateRuntimeLocale.select(
+                      fa: 'سخن امروز برای همدم',
+                      en: "Today's speech is for my companion",
+                    ),
+                    en: "Today's speech is for my companion",
+                  ),
                   style: TextStyle(
                     fontSize: 15,
                     fontWeight: FontWeight.w900,
                     color: Color(0xFF694384),
                   ),
                 ),
-                const SizedBox(height: 6),
+                SizedBox(height: 6),
                 Text(
                   message,
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: 11.5,
                     height: 1.7,
                     color: Color(0xFF6C5A72),
@@ -1115,7 +1365,7 @@ class _CompassionMessage extends StatelessWidget {
               ],
             ),
           ),
-          const Icon(Icons.local_florist_rounded, color: Color(0xFFC47AC0)),
+          Icon(Icons.local_florist_rounded, color: Color(0xFFC47AC0)),
         ],
       ),
     );
@@ -1137,15 +1387,33 @@ class _RecentActions extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const _SectionHeader(
+          _SectionHeader(
             icon: Icons.history_rounded,
-            title: 'همراهی‌های اخیر',
-            subtitle: 'کارهای کوچک و واقعی که ثبت کرده‌ای',
+            title: LifeMateRuntimeLocale.select(
+              fa: LifeMateRuntimeLocale.select(
+                fa: 'همراهی‌های اخیر',
+                en: "Recent companions",
+              ),
+              en: "Recent companions",
+            ),
+            subtitle: LifeMateRuntimeLocale.select(
+              fa: LifeMateRuntimeLocale.select(
+                fa: 'کارهای کوچک و واقعی که ثبت کرده‌ای',
+                en: "Small and real things that you have recorded",
+              ),
+              en: "Small and real things that you have recorded",
+            ),
           ),
-          const SizedBox(height: 10),
+          SizedBox(height: 10),
           if (actions.isEmpty)
-            const Text(
-              'هنوز همراهی‌ای ثبت نشده است.',
+            Text(
+              LifeMateRuntimeLocale.select(
+                fa: LifeMateRuntimeLocale.select(
+                  fa: 'هنوز همراهی‌ای ثبت نشده است.',
+                  en: "No accompaniment has been registered yet.",
+                ),
+                en: "No accompaniment has been registered yet.",
+              ),
               style: TextStyle(color: AppColors.secondaryText),
             )
           else
@@ -1193,20 +1461,26 @@ class _PrivacyNotice extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Container(
-    padding: const EdgeInsets.all(15),
+    padding: EdgeInsets.all(15),
     decoration: BoxDecoration(
       color: Colors.white.withValues(alpha: 0.74),
       borderRadius: BorderRadius.circular(20),
-      border: Border.all(color: const Color(0xFFE8DDF0)),
+      border: Border.all(color: Color(0xFFE8DDF0)),
     ),
-    child: const Row(
+    child: Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Icon(Icons.lock_outline_rounded, color: Color(0xFF80649A)),
         SizedBox(width: 10),
         Expanded(
           child: Text(
-            'این صفحه فقط خلاصه مجاز چرخه و ثبت‌هایی را نشان می‌دهد که همسرت صریحاً برای اشتراک انتخاب کرده است. یادداشت خصوصی، تاریخچه کامل علائم و اطلاعات حساس نمایش داده نمی‌شوند. برآوردها پزشکی نیستند.',
+            LifeMateRuntimeLocale.select(
+              fa: LifeMateRuntimeLocale.select(
+                fa: 'این صفحه فقط خلاصه مجاز چرخه و ثبت‌هایی را نشان می‌دهد که همسرت صریحاً برای اشتراک انتخاب کرده است. یادداشت خصوصی، تاریخچه کامل علائم و اطلاعات حساس نمایش داده نمی‌شوند. برآوردها پزشکی نیستند.',
+                en: "This page only shows authorized cycle summaries and records that your partner has explicitly chosen to subscribe to. Private notes, full symptom history, and sensitive information are not displayed. Estimates are not medical.",
+              ),
+              en: "This page only shows authorized cycle summaries and records that your partner has explicitly chosen to subscribe to. Private notes, full symptom history, and sensitive information are not displayed. Estimates are not medical.",
+            ),
             style: TextStyle(
               fontSize: 10.5,
               height: 1.65,
@@ -1299,27 +1573,35 @@ class _ErrorState extends StatelessWidget {
   @override
   Widget build(BuildContext context) => Center(
     child: SingleChildScrollView(
-      padding: const EdgeInsets.all(26),
+      padding: EdgeInsets.all(26),
       child: _SoftCard(
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Icon(
+            Icon(
               Icons.privacy_tip_outlined,
               size: 54,
               color: Color(0xFF8E65AD),
             ),
-            const SizedBox(height: 14),
+            SizedBox(height: 14),
             Text(
               message,
               textAlign: TextAlign.center,
-              style: const TextStyle(height: 1.6),
+              style: TextStyle(height: 1.6),
             ),
-            const SizedBox(height: 16),
+            SizedBox(height: 16),
             OutlinedButton.icon(
               onPressed: onRetry,
-              icon: const Icon(Icons.refresh_rounded),
-              label: const Text('تلاش دوباره'),
+              icon: Icon(Icons.refresh_rounded),
+              label: Text(
+                LifeMateRuntimeLocale.select(
+                  fa: LifeMateRuntimeLocale.select(
+                    fa: 'تلاش دوباره',
+                    en: "Try again",
+                  ),
+                  en: "Try again",
+                ),
+              ),
             ),
           ],
         ),
@@ -1339,47 +1621,86 @@ class _PhaseVisual {
 _PhaseVisual _phaseVisual(String? phase) {
   switch (phase) {
     case 'period':
-      return const _PhaseVisual(
-        'فاز قاعدگی',
+      return _PhaseVisual(
+        LifeMateRuntimeLocale.select(
+          fa: LifeMateRuntimeLocale.select(
+            fa: 'فاز قاعدگی',
+            en: "Menstrual phase",
+          ),
+          en: "Menstrual phase",
+        ),
         Color(0xFFF15D7B),
         Color(0xFF9F2847),
       );
     case 'follicular':
     case 'post_period':
-      return const _PhaseVisual(
-        'فاز فولیکولار',
+      return _PhaseVisual(
+        LifeMateRuntimeLocale.select(
+          fa: LifeMateRuntimeLocale.select(
+            fa: 'فاز فولیکولار',
+            en: "Follicular phase",
+          ),
+          en: "Follicular phase",
+        ),
         Color(0xFFB48BE1),
         Color(0xFF6F439F),
       );
     case 'fertile':
-      return const _PhaseVisual(
-        'پنجره باروری تخمینی',
+      return _PhaseVisual(
+        LifeMateRuntimeLocale.select(
+          fa: LifeMateRuntimeLocale.select(
+            fa: 'پنجره باروری تخمینی',
+            en: "Estimated fertility window",
+          ),
+          en: "Estimated fertility window",
+        ),
         Color(0xFF57C5B5),
         Color(0xFF247D72),
       );
     case 'ovulation':
-      return const _PhaseVisual(
-        'روز تخمک‌گذاری تخمینی',
+      return _PhaseVisual(
+        LifeMateRuntimeLocale.select(
+          fa: LifeMateRuntimeLocale.select(
+            fa: 'روز تخمک‌گذاری تخمینی',
+            en: "Estimated day of ovulation",
+          ),
+          en: "Estimated day of ovulation",
+        ),
         Color(0xFF55A8E8),
         Color(0xFF286A9D),
       );
     case 'luteal':
     case 'cycle':
-      return const _PhaseVisual(
-        'فاز لوتئال',
+      return _PhaseVisual(
+        LifeMateRuntimeLocale.select(
+          fa: LifeMateRuntimeLocale.select(
+            fa: 'فاز لوتئال',
+            en: "Luteal phase",
+          ),
+          en: "Luteal phase",
+        ),
         Color(0xFFF3B651),
         Color(0xFF946517),
       );
     case 'pms':
     case 'pre_period':
-      return const _PhaseVisual(
-        'روزهای پیش از دوره',
+      return _PhaseVisual(
+        LifeMateRuntimeLocale.select(
+          fa: LifeMateRuntimeLocale.select(
+            fa: 'روزهای پیش از دوره',
+            en: "Days before the period",
+          ),
+          en: "Days before the period",
+        ),
         Color(0xFFE88973),
         Color(0xFF9D4938),
       );
     default:
-      return const _PhaseVisual(
-        'ریتم چرخه',
+      return _PhaseVisual(
+        LifeMateRuntimeLocale.select(
+          fa: LifeMateRuntimeLocale.select(fa: 'ریتم چرخه', en: "Cycle rhythm"),
+          en: "Cycle rhythm",
+        ),
         Color(0xFFB48BE1),
         Color(0xFF6F439F),
       );
@@ -1397,79 +1718,235 @@ class _MoodVisual {
 _MoodVisual _moodVisual(String? mood) {
   switch (mood) {
     case 'great':
-      return const _MoodVisual('حال عالی', '😊', Color(0xFF55B889));
+      return _MoodVisual(
+        LifeMateRuntimeLocale.select(
+          fa: LifeMateRuntimeLocale.select(fa: 'حال عالی', en: "great now"),
+          en: "great now",
+        ),
+        '😊',
+        Color(0xFF55B889),
+      );
     case 'good':
-      return const _MoodVisual('حال خوب', '🙂', Color(0xFF8D78D5));
+      return _MoodVisual(
+        LifeMateRuntimeLocale.select(
+          fa: LifeMateRuntimeLocale.select(fa: 'حال خوب', en: "good mood"),
+          en: "good mood",
+        ),
+        '🙂',
+        Color(0xFF8D78D5),
+      );
     case 'neutral':
-      return const _MoodVisual('حال معمولی', '😐', Color(0xFFE7B650));
+      return _MoodVisual(
+        LifeMateRuntimeLocale.select(
+          fa: LifeMateRuntimeLocale.select(fa: 'حال معمولی', en: "Normal now"),
+          en: "Normal now",
+        ),
+        '😐',
+        Color(0xFFE7B650),
+      );
     case 'low':
-      return const _MoodVisual('انرژی کمتر', '😔', Color(0xFFE78D69));
+      return _MoodVisual(
+        LifeMateRuntimeLocale.select(
+          fa: LifeMateRuntimeLocale.select(fa: 'انرژی کمتر', en: "Less energy"),
+          en: "Less energy",
+        ),
+        '😔',
+        Color(0xFFE78D69),
+      );
     case 'overwhelmed':
-      return const _MoodVisual('تحت فشار', '😣', Color(0xFFE46178));
+      return _MoodVisual(
+        LifeMateRuntimeLocale.select(
+          fa: LifeMateRuntimeLocale.select(
+            fa: 'تحت فشار',
+            en: "under pressure",
+          ),
+          en: "under pressure",
+        ),
+        '😣',
+        Color(0xFFE46178),
+      );
     default:
-      return const _MoodVisual('ثبت نشده', '🌸', Color(0xFFB68DD9));
+      return _MoodVisual(
+        LifeMateRuntimeLocale.select(
+          fa: LifeMateRuntimeLocale.select(fa: 'ثبت نشده', en: "Not recorded"),
+          en: "not registered",
+        ),
+        '🌸',
+        Color(0xFFB68DD9),
+      );
   }
 }
 
 String _symptomLabel(String code) {
   switch (code) {
     case 'cramps':
-      return 'درد شکم';
+      return LifeMateRuntimeLocale.select(
+        fa: LifeMateRuntimeLocale.select(fa: 'درد شکم', en: "Abdominal pain"),
+        en: "Abdominal pain",
+      );
     case 'headache':
-      return 'سردرد';
+      return LifeMateRuntimeLocale.select(
+        fa: LifeMateRuntimeLocale.select(fa: 'سردرد', en: "headache"),
+        en: "headache",
+      );
     case 'bloating':
-      return 'نفخ';
+      return LifeMateRuntimeLocale.select(
+        fa: LifeMateRuntimeLocale.select(fa: 'نفخ', en: "flatulence"),
+        en: "flatulence",
+      );
     case 'fatigue':
-      return 'خستگی';
+      return LifeMateRuntimeLocale.select(
+        fa: LifeMateRuntimeLocale.select(fa: 'خستگی', en: "tiredness"),
+        en: "tiredness",
+      );
     case 'breast_tenderness':
-      return 'حساسیت سینه';
+      return LifeMateRuntimeLocale.select(
+        fa: LifeMateRuntimeLocale.select(
+          fa: 'حساسیت سینه',
+          en: "Breast tenderness",
+        ),
+        en: "Breast tenderness",
+      );
     case 'back_pain':
-      return 'کمردرد';
+      return LifeMateRuntimeLocale.select(
+        fa: LifeMateRuntimeLocale.select(fa: 'کمردرد', en: "back pain"),
+        en: "back pain",
+      );
     case 'sleep_change':
-      return 'تغییر خواب';
+      return LifeMateRuntimeLocale.select(
+        fa: LifeMateRuntimeLocale.select(fa: 'تغییر خواب', en: "sleep change"),
+        en: "sleep change",
+      );
     case 'appetite_change':
-      return 'تغییر اشتها';
+      return LifeMateRuntimeLocale.select(
+        fa: LifeMateRuntimeLocale.select(
+          fa: 'تغییر اشتها',
+          en: "Change in appetite",
+        ),
+        en: "Change in appetite",
+      );
     case 'no_symptom':
-      return 'بدون نشانه';
+      return LifeMateRuntimeLocale.select(
+        fa: LifeMateRuntimeLocale.select(fa: 'بدون نشانه', en: "no sign"),
+        en: "no sign",
+      );
     default:
-      return 'نشانه ثبت‌شده';
+      return LifeMateRuntimeLocale.select(
+        fa: LifeMateRuntimeLocale.select(
+          fa: 'نشانه ثبت‌شده',
+          en: "Registered mark",
+        ),
+        en: "Registered mark",
+      );
   }
 }
 
 String _supportLabel(String type) {
   switch (type) {
     case 'hydration':
-      return 'آب یا نوشیدنی آماده کردم';
+      return LifeMateRuntimeLocale.select(
+        fa: LifeMateRuntimeLocale.select(
+          fa: 'آب یا نوشیدنی آماده کردم',
+          en: "I prepared water or drink",
+        ),
+        en: "I prepared water or drink",
+      );
     case 'rest':
-      return 'زمان استراحت فراهم کردم';
+      return LifeMateRuntimeLocale.select(
+        fa: LifeMateRuntimeLocale.select(
+          fa: 'زمان استراحت فراهم کردم',
+          en: "I provided rest time",
+        ),
+        en: "I provided rest time",
+      );
     case 'warmth':
-      return 'گرمای ملایم آماده کردم';
+      return LifeMateRuntimeLocale.select(
+        fa: LifeMateRuntimeLocale.select(
+          fa: 'گرمای ملایم آماده کردم',
+          en: "I prepared gentle heat",
+        ),
+        en: "I prepared gentle heat",
+      );
     case 'chores':
-      return 'در کارهای خانه کمک کردم';
+      return LifeMateRuntimeLocale.select(
+        fa: LifeMateRuntimeLocale.select(
+          fa: 'در کارهای خانه کمک کردم',
+          en: "I helped with the housework",
+        ),
+        en: "I helped with the housework",
+      );
     case 'walk':
-      return 'پیاده‌روی کوتاه پیشنهاد دادم';
+      return LifeMateRuntimeLocale.select(
+        fa: LifeMateRuntimeLocale.select(
+          fa: 'پیاده‌روی کوتاه پیشنهاد دادم',
+          en: "I suggested a short walk",
+        ),
+        en: "I suggested a short walk",
+      );
     case 'checkin':
     case 'check_in':
-      return 'با آرامش حالش را پرسیدم';
+      return LifeMateRuntimeLocale.select(
+        fa: LifeMateRuntimeLocale.select(
+          fa: 'با آرامش حالش را پرسیدم',
+          en: "I asked him calmly",
+        ),
+        en: "I asked him calmly",
+      );
     default:
-      return 'یک همراهی ثبت کردم';
+      return LifeMateRuntimeLocale.select(
+        fa: LifeMateRuntimeLocale.select(
+          fa: 'یک همراهی ثبت کردم',
+          en: "I registered a companion",
+        ),
+        en: "I registered a companion",
+      );
   }
 }
 
 String _compassionCopy(String? phase, String? mood) {
   if (mood == 'low' || mood == 'overwhelmed') {
-    return 'امروز شاید بیشتر از راه‌حل، به شنیده‌شدن نیاز داشته باشد. آرام بپرس چه کمکی دوست دارد و انتخابش را محترم بدان.';
+    return LifeMateRuntimeLocale.select(
+      fa: LifeMateRuntimeLocale.select(
+        fa: 'امروز شاید بیشتر از راه‌حل، به شنیده‌شدن نیاز داشته باشد. آرام بپرس چه کمکی دوست دارد و انتخابش را محترم بدان.',
+        en: "Today, perhaps more than a solution, it needs to be heard. Ask calmly what kind of help he likes and respect his choice.",
+      ),
+      en: "Today, perhaps more than a solution, it needs to be heard. Ask calmly what kind of help he likes and respect his choice.",
+    );
   }
   switch (phase) {
     case 'period':
-      return 'ممکن است استراحت، گرمای ملایم یا کمک کوچک در کارها خوشایند باشد؛ اول بپرس و بعد همراهی کن.';
+      return LifeMateRuntimeLocale.select(
+        fa: LifeMateRuntimeLocale.select(
+          fa: 'ممکن است استراحت، گرمای ملایم یا کمک کوچک در کارها خوشایند باشد؛ اول بپرس و بعد همراهی کن.',
+          en: "Rest, gentle warmth, or a little help with chores may be welcome; Ask first and then accompany.",
+        ),
+        en: "Rest, gentle warmth, or a little help with chores may be welcome; Ask first and then accompany.",
+      );
     case 'pms':
     case 'pre_period':
-      return 'امروز کمی صبورتر باش. یک گفت‌وگوی آرام، کم‌کردن فشار روز و احترام به نیازش می‌تواند ارزشمند باشد.';
+      return LifeMateRuntimeLocale.select(
+        fa: LifeMateRuntimeLocale.select(
+          fa: 'امروز کمی صبورتر باش. یک گفت‌وگوی آرام، کم‌کردن فشار روز و احترام به نیازش می‌تواند ارزشمند باشد.',
+          en: "Be a little more patient today. A calm conversation, de-stressing the day and respecting his needs can be valuable.",
+        ),
+        en: "Be a little more patient today. A calm conversation, de-stressing the day and respecting his needs can be valuable.",
+      );
     case 'follicular':
     case 'post_period':
-      return 'حال خوب را هم بدون انتظار و فشار شریک شو؛ یک برنامه سبک دونفره می‌تواند دلنشین باشد.';
+      return LifeMateRuntimeLocale.select(
+        fa: LifeMateRuntimeLocale.select(
+          fa: 'حال خوب را هم بدون انتظار و فشار شریک شو؛ یک برنامه سبک دونفره می‌تواند دلنشین باشد.',
+          en: "Share the good mood without waiting and pressure; A two-person style program can be enjoyable.",
+        ),
+        en: "Share the good mood without waiting and pressure; A two-person style program can be enjoyable.",
+      );
     default:
-      return 'همراهی یعنی حضور آرام، پرسیدن بدون قضاوت و پذیرفتن اینکه نیاز امروز ممکن است با دیروز فرق داشته باشد.';
+      return LifeMateRuntimeLocale.select(
+        fa: LifeMateRuntimeLocale.select(
+          fa: 'همراهی یعنی حضور آرام، پرسیدن بدون قضاوت و پذیرفتن اینکه نیاز امروز ممکن است با دیروز فرق داشته باشد.',
+          en: "Companionship means being quietly present, asking questions without judgment, and accepting that today's needs may be different from yesterday's.",
+        ),
+        en: "Companionship means being quietly present, asking questions without judgment, and accepting that today's needs may be different from yesterday's.",
+      );
   }
 }

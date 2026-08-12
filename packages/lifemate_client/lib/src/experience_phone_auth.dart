@@ -9,7 +9,7 @@ class _PhoneOtpButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return OutlinedButton.icon(
-      key: const ValueKey('auth-phone-otp'),
+      key: ValueKey('auth-phone-otp'),
       onPressed: enabled
           ? () => showModalBottomSheet<void>(
               context: context,
@@ -20,14 +20,20 @@ class _PhoneOtpButton extends StatelessWidget {
             )
           : null,
       style: OutlinedButton.styleFrom(
-        minimumSize: const Size.fromHeight(52),
+        minimumSize: Size.fromHeight(52),
         foregroundColor: brand.ink,
         side: BorderSide(color: brand.primary.withValues(alpha: 0.16)),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
       ),
       icon: Icon(Icons.sms_outlined, color: brand.primary),
-      label: const Text(
-        'ورود با شماره موبایل',
+      label: Text(
+        LifeMateRuntimeLocale.select(
+          fa: LifeMateRuntimeLocale.select(
+            fa: 'ورود با شماره موبایل',
+            en: "Login with mobile number",
+          ),
+          en: "Login with mobile number",
+        ),
         style: TextStyle(fontWeight: FontWeight.w800),
       ),
     );
@@ -71,15 +77,38 @@ class _PhoneOtpSheetState extends State<_PhoneOtpSheet> {
       if (!mounted) return;
       setState(() {
         _codeSent = true;
-        _message = 'کد یک‌بارمصرف برای شماره شما ارسال شد.';
+        _message = LifeMateRuntimeLocale.select(
+          fa: LifeMateRuntimeLocale.select(
+            fa: 'کد یک‌بارمصرف برای شماره شما ارسال شد.',
+            en: "A one-time code has been sent to your number.",
+          ),
+          en: "A one-time code has been sent to your number.",
+        );
       });
     } on TimeoutException {
-      if (mounted) setState(() => _error = 'ارسال کد بیش از حد طول کشید.');
+      if (mounted)
+        setState(
+          () => _error = LifeMateRuntimeLocale.select(
+            fa: LifeMateRuntimeLocale.select(
+              fa: 'ارسال کد بیش از حد طول کشید.',
+              en: "It took too long to send the code.",
+            ),
+            en: "It took too long to send the code.",
+          ),
+        );
     } on AuthException catch (error) {
       if (mounted) setState(() => _error = _friendlyPhoneError(error));
     } catch (_) {
       if (mounted)
-        setState(() => _error = 'ارسال کد انجام نشد. دوباره تلاش کنید.');
+        setState(
+          () => _error = LifeMateRuntimeLocale.select(
+            fa: LifeMateRuntimeLocale.select(
+              fa: 'ارسال کد انجام نشد. دوباره تلاش کنید.',
+              en: "The code could not be sent. Try again.",
+            ),
+            en: "The code could not be sent. Try again.",
+          ),
+        );
     } finally {
       if (mounted) setState(() => _busy = false);
     }
@@ -100,11 +129,29 @@ class _PhoneOtpSheetState extends State<_PhoneOtpSheet> {
       if (!mounted) return;
       Navigator.of(context).pop();
     } on TimeoutException {
-      if (mounted) setState(() => _error = 'بررسی کد بیش از حد طول کشید.');
+      if (mounted)
+        setState(
+          () => _error = LifeMateRuntimeLocale.select(
+            fa: LifeMateRuntimeLocale.select(
+              fa: 'بررسی کد بیش از حد طول کشید.',
+              en: "Code review took too long.",
+            ),
+            en: "Code review took too long.",
+          ),
+        );
     } on AuthException catch (error) {
       if (mounted) setState(() => _error = _friendlyPhoneError(error));
     } catch (_) {
-      if (mounted) setState(() => _error = 'کد تأیید نشد. دوباره تلاش کنید.');
+      if (mounted)
+        setState(
+          () => _error = LifeMateRuntimeLocale.select(
+            fa: LifeMateRuntimeLocale.select(
+              fa: 'کد تأیید نشد. دوباره تلاش کنید.',
+              en: "The code was not verified. Try again.",
+            ),
+            en: "The code was not verified. Try again.",
+          ),
+        );
     } finally {
       if (mounted) setState(() => _busy = false);
     }
@@ -115,7 +162,9 @@ class _PhoneOtpSheetState extends State<_PhoneOtpSheet> {
     final brand = widget.brand;
     final bottomInset = MediaQuery.viewInsetsOf(context).bottom;
     return Directionality(
-      textDirection: TextDirection.rtl,
+      textDirection: LifeMateRuntimeLocale.isPersian
+          ? TextDirection.rtl
+          : TextDirection.ltr,
       child: Padding(
         padding: EdgeInsets.fromLTRB(12, 12, 12, 12 + bottomInset),
         child: Material(
@@ -123,7 +172,7 @@ class _PhoneOtpSheetState extends State<_PhoneOtpSheet> {
           borderRadius: BorderRadius.circular(28),
           clipBehavior: Clip.antiAlias,
           child: SingleChildScrollView(
-            padding: const EdgeInsets.fromLTRB(20, 18, 20, 24),
+            padding: EdgeInsets.fromLTRB(20, 18, 20, 24),
             child: Column(
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -142,13 +191,19 @@ class _PhoneOtpSheetState extends State<_PhoneOtpSheet> {
                         color: brand.primary,
                       ),
                     ),
-                    const SizedBox(width: 12),
-                    const Expanded(
+                    SizedBox(width: 12),
+                    Expanded(
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
-                            'ورود با موبایل',
+                            LifeMateRuntimeLocale.select(
+                              fa: LifeMateRuntimeLocale.select(
+                                fa: 'ورود با موبایل',
+                                en: "Login with mobile",
+                              ),
+                              en: "Login with mobile",
+                            ),
                             style: TextStyle(
                               fontSize: 18,
                               fontWeight: FontWeight.w900,
@@ -156,7 +211,13 @@ class _PhoneOtpSheetState extends State<_PhoneOtpSheet> {
                           ),
                           SizedBox(height: 3),
                           Text(
-                            'شماره را با فرمت بین‌المللی وارد کنید.',
+                            LifeMateRuntimeLocale.select(
+                              fa: LifeMateRuntimeLocale.select(
+                                fa: 'شماره را با فرمت بین‌المللی وارد کنید.',
+                                en: "Enter the number in international format.",
+                              ),
+                              en: "Enter the number in international format.",
+                            ),
                             style: TextStyle(
                               fontSize: 12,
                               color: Color(0xFF718096),
@@ -166,45 +227,67 @@ class _PhoneOtpSheetState extends State<_PhoneOtpSheet> {
                       ),
                     ),
                     IconButton(
-                      tooltip: 'بستن',
+                      tooltip: LifeMateRuntimeLocale.select(
+                        fa: LifeMateRuntimeLocale.select(
+                          fa: 'بستن',
+                          en: "to close",
+                        ),
+                        en: "to close",
+                      ),
                       onPressed: _busy
                           ? null
                           : () => Navigator.of(context).pop(),
-                      icon: const Icon(Icons.close_rounded),
+                      icon: Icon(Icons.close_rounded),
                     ),
                   ],
                 ),
-                const SizedBox(height: 18),
+                SizedBox(height: 18),
                 TextField(
-                  key: const ValueKey('auth-phone-number'),
+                  key: ValueKey('auth-phone-number'),
                   controller: _phone,
                   enabled: !_busy && !_codeSent,
                   keyboardType: TextInputType.phone,
+                  inputFormatters: const [LifeMateLocaleDigitInputFormatter()],
                   textDirection: TextDirection.ltr,
-                  autofillHints: const [AutofillHints.telephoneNumber],
+                  autofillHints: [AutofillHints.telephoneNumber],
                   decoration: InputDecoration(
-                    labelText: 'شماره موبایل',
+                    labelText: LifeMateRuntimeLocale.select(
+                      fa: LifeMateRuntimeLocale.select(
+                        fa: 'شماره موبایل',
+                        en: "mobile number",
+                      ),
+                      en: "mobile number",
+                    ),
                     hintText: '+989121234567',
-                    prefixIcon: const Icon(Icons.phone_outlined),
+                    prefixIcon: Icon(Icons.phone_outlined),
                     border: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(16),
                     ),
                   ),
                 ),
                 if (_codeSent) ...[
-                  const SizedBox(height: 13),
+                  SizedBox(height: 13),
                   TextField(
-                    key: const ValueKey('auth-phone-otp-code'),
+                    key: ValueKey('auth-phone-otp-code'),
                     controller: _otp,
                     enabled: !_busy,
                     keyboardType: TextInputType.number,
+                    inputFormatters: const [
+                      LifeMateLocaleDigitInputFormatter(),
+                    ],
                     textDirection: TextDirection.ltr,
-                    autofillHints: const [AutofillHints.oneTimeCode],
+                    autofillHints: [AutofillHints.oneTimeCode],
                     maxLength: 10,
                     decoration: InputDecoration(
-                      labelText: 'کد یک‌بارمصرف',
+                      labelText: LifeMateRuntimeLocale.select(
+                        fa: LifeMateRuntimeLocale.select(
+                          fa: 'کد یک‌بارمصرف',
+                          en: "One-time use code",
+                        ),
+                        en: "One-time use code",
+                      ),
                       counterText: '',
-                      prefixIcon: const Icon(Icons.password_rounded),
+                      prefixIcon: Icon(Icons.password_rounded),
                       border: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(16),
                       ),
@@ -213,7 +296,7 @@ class _PhoneOtpSheetState extends State<_PhoneOtpSheet> {
                   ),
                 ],
                 if (_error != null) ...[
-                  const SizedBox(height: 12),
+                  SizedBox(height: 12),
                   Text(
                     _error!,
                     style: TextStyle(
@@ -224,7 +307,7 @@ class _PhoneOtpSheetState extends State<_PhoneOtpSheet> {
                   ),
                 ],
                 if (_message != null) ...[
-                  const SizedBox(height: 12),
+                  SizedBox(height: 12),
                   Text(
                     _message!,
                     style: TextStyle(
@@ -234,7 +317,7 @@ class _PhoneOtpSheetState extends State<_PhoneOtpSheet> {
                     ),
                   ),
                 ],
-                const SizedBox(height: 18),
+                SizedBox(height: 18),
                 FilledButton.icon(
                   key: ValueKey(
                     _codeSent ? 'auth-phone-verify' : 'auth-phone-send',
@@ -243,14 +326,14 @@ class _PhoneOtpSheetState extends State<_PhoneOtpSheet> {
                       ? null
                       : (_codeSent ? _verifyCode : _sendCode),
                   style: FilledButton.styleFrom(
-                    minimumSize: const Size.fromHeight(52),
+                    minimumSize: Size.fromHeight(52),
                     backgroundColor: brand.primary,
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(17),
                     ),
                   ),
                   icon: _busy
-                      ? const SizedBox(
+                      ? SizedBox(
                           width: 18,
                           height: 18,
                           child: CircularProgressIndicator(
@@ -263,10 +346,26 @@ class _PhoneOtpSheetState extends State<_PhoneOtpSheet> {
                               ? Icons.verified_user_outlined
                               : Icons.sms_outlined,
                         ),
-                  label: Text(_codeSent ? 'تأیید و ورود' : 'ارسال کد'),
+                  label: Text(
+                    _codeSent
+                        ? LifeMateRuntimeLocale.select(
+                            fa: LifeMateRuntimeLocale.select(
+                              fa: 'تأیید و ورود',
+                              en: "Verification and login",
+                            ),
+                            en: "Verification and login",
+                          )
+                        : LifeMateRuntimeLocale.select(
+                            fa: LifeMateRuntimeLocale.select(
+                              fa: 'ارسال کد',
+                              en: "Send code",
+                            ),
+                            en: "Send code",
+                          ),
+                  ),
                 ),
                 if (_codeSent) ...[
-                  const SizedBox(height: 6),
+                  SizedBox(height: 6),
                   TextButton(
                     onPressed: _busy
                         ? null
@@ -276,7 +375,15 @@ class _PhoneOtpSheetState extends State<_PhoneOtpSheet> {
                             _error = null;
                             _message = null;
                           }),
-                    child: const Text('اصلاح شماره موبایل'),
+                    child: Text(
+                      LifeMateRuntimeLocale.select(
+                        fa: LifeMateRuntimeLocale.select(
+                          fa: 'اصلاح شماره موبایل',
+                          en: "Modify mobile number",
+                        ),
+                        en: "Modify mobile number",
+                      ),
+                    ),
                   ),
                 ],
               ],
@@ -290,14 +397,38 @@ class _PhoneOtpSheetState extends State<_PhoneOtpSheet> {
   static String _friendlyPhoneError(AuthException error) {
     final message = error.message.toLowerCase();
     if (message.contains('rate') || message.contains('limit')) {
-      return 'تعداد درخواست‌ها زیاد بوده است؛ کمی بعد دوباره تلاش کنید.';
+      return LifeMateRuntimeLocale.select(
+        fa: LifeMateRuntimeLocale.select(
+          fa: 'تعداد درخواست‌ها زیاد بوده است؛ کمی بعد دوباره تلاش کنید.',
+          en: "The number of requests has been high; Try again later.",
+        ),
+        en: "The number of requests has been high; Try again later.",
+      );
     }
     if (message.contains('expired') || message.contains('invalid')) {
-      return 'کد واردشده معتبر نیست یا منقضی شده است.';
+      return LifeMateRuntimeLocale.select(
+        fa: LifeMateRuntimeLocale.select(
+          fa: 'کد واردشده معتبر نیست یا منقضی شده است.',
+          en: "The code entered is invalid or has expired.",
+        ),
+        en: "The code entered is invalid or has expired.",
+      );
     }
     if (message.contains('phone')) {
-      return 'شماره موبایل را با فرمت +98 وارد کنید.';
+      return LifeMateRuntimeLocale.select(
+        fa: LifeMateRuntimeLocale.select(
+          fa: 'شماره موبایل را با فرمت +98 وارد کنید.',
+          en: "Enter the mobile number in +98 format.",
+        ),
+        en: "Enter the mobile number in +98 format.",
+      );
     }
-    return 'ورود با شماره موبایل انجام نشد.';
+    return LifeMateRuntimeLocale.select(
+      fa: LifeMateRuntimeLocale.select(
+        fa: 'ورود با شماره موبایل انجام نشد.',
+        en: "Login with mobile number was not done.",
+      ),
+      en: "Login with mobile number was not done.",
+    );
   }
 }

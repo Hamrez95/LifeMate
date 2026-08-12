@@ -20,9 +20,11 @@ const String _timeKey = 'wm_widget_time';
 const String _scheduledAtEpochMsKey = 'wm_widget_scheduled_at_epoch_ms';
 const String _overdueKey = 'wm_widget_overdue';
 const String _actionMessageKey = 'wm_widget_action_message';
+const String _languageCodeKey = 'wm_widget_language_code';
 const String _actionInFlightKey = 'wm_widget_action_in_flight';
 const String _actionOccurrenceKey = 'wm_widget_action_occurrence';
-const String _lastCompletedOccurrenceKey = 'wm_widget_last_completed_occurrence';
+const String _lastCompletedOccurrenceKey =
+    'wm_widget_last_completed_occurrence';
 
 /// Small, intentionally Android-only bridge between WellMate's reviewed API
 /// boundary and the native home-screen medication widget.
@@ -35,9 +37,21 @@ abstract final class MedicationHomeWidgetService {
 
   static Future<void> initializeInteractivity() async {
     if (!isSupportedPlatform) return;
+    await HomeWidget.saveWidgetData<String>(
+      _languageCodeKey,
+      LifeMateRuntimeLocale.languageCode,
+    );
     await HomeWidget.registerInteractivityCallback(
       medicationHomeWidgetBackgroundCallback,
     );
+  }
+
+  static Future<void> updateLocale(String languageCode) async {
+    if (!isSupportedPlatform) return;
+    final normalized = languageCode.toLowerCase() == 'en' ? 'en' : 'fa';
+    LifeMateRuntimeLocale.setLanguageCode(normalized);
+    await HomeWidget.saveWidgetData<String>(_languageCodeKey, normalized);
+    await _update();
   }
 
   static Future<bool> hasInstalledWidget() async {
@@ -87,6 +101,10 @@ abstract final class MedicationHomeWidgetService {
     String actionMessage = '',
   }) async {
     if (!isSupportedPlatform) return;
+    await HomeWidget.saveWidgetData<String>(
+      _languageCodeKey,
+      LifeMateRuntimeLocale.languageCode,
+    );
     final reference = now ?? DateTime.now();
     final data = selectMedicationWidgetData(
       treatmentPlans: treatmentPlans,
@@ -152,8 +170,7 @@ abstract final class MedicationHomeWidgetService {
         .whereType<Map>()
         .map<Map<String, dynamic>>(
           (item) => <String, dynamic>{
-            for (final entry in item.entries)
-              entry.key.toString(): entry.value,
+            for (final entry in item.entries) entry.key.toString(): entry.value,
           },
         )
         .toList(growable: false);
@@ -208,16 +225,38 @@ MedicationWidgetData? selectMedicationWidgetData({
     if (scheduledAt == null) continue;
 
     final medication = _object(plan['medication']);
-    final treatmentName = _text(medication['name']) ?? 'دارو';
+    final treatmentName =
+        _text(medication['name']) ??
+        LifeMateRuntimeLocale.select(
+          fa: LifeMateRuntimeLocale.select(fa: 'دارو', en: "Medication"),
+          en: "Medication",
+        );
     final description =
         _text(plan['instructions']) ??
         _text(medication['notes']) ??
-        'طبق برنامه درمان';
-    final quantity = _text(plan['doseText']) ?? '۱ نوبت';
+        LifeMateRuntimeLocale.select(
+          fa: LifeMateRuntimeLocale.select(
+            fa: 'طبق برنامه درمان',
+            en: "According to the treatment plan",
+          ),
+          en: "According to the treatment plan",
+        );
+    final quantity =
+        _text(plan['doseText']) ??
+        LifeMateRuntimeLocale.select(
+          fa: LifeMateRuntimeLocale.select(fa: '۱ نوبت', en: "1 dose"),
+          en: "1 dose",
+        );
     final dose =
         _text(medication['strengthText']) ??
         _text(medication['form']) ??
-        'دوز ثبت نشده';
+        LifeMateRuntimeLocale.select(
+          fa: LifeMateRuntimeLocale.select(
+            fa: 'دوز ثبت نشده',
+            en: "Dose not recorded",
+          ),
+          en: "Dose not recorded",
+        );
     final rawTime = _text(occurrence['scheduledLocalTime']) ?? '--:--';
     final normalizedTime = rawTime.length >= 5
         ? rawTime.substring(0, 5)
@@ -244,37 +283,27 @@ MedicationWidgetData? selectMedicationWidgetData({
 
   if (candidates.isEmpty) return null;
 
-  final future = candidates
-      .where((candidate) => !candidate.data.scheduledAt.isBefore(now))
-      .toList()
-    ..sort(
-      (left, right) =>
-          left.data.scheduledAt.compareTo(right.data.scheduledAt),
-    );
+  final future =
+      candidates
+          .where((candidate) => !candidate.data.scheduledAt.isBefore(now))
+          .toList()
+        ..sort(
+          (left, right) =>
+              left.data.scheduledAt.compareTo(right.data.scheduledAt),
+        );
   if (future.isNotEmpty) return future.first.data;
 
   // If the API has not yet rolled a past scheduled occurrence to `missed`,
   // keep the newest overdue dose actionable instead of making the widget empty.
   final overdue = List<_MedicationWidgetCandidate>.from(candidates)
     ..sort(
-      (left, right) =>
-          right.data.scheduledAt.compareTo(left.data.scheduledAt),
+      (left, right) => right.data.scheduledAt.compareTo(left.data.scheduledAt),
     );
   return overdue.first.data;
 }
 
 @visibleForTesting
-String toPersianDigits(String value) {
-  const western = '0123456789';
-  const persian = '۰۱۲۳۴۵۶۷۸۹';
-  final buffer = StringBuffer();
-  for (final rune in value.runes) {
-    final character = String.fromCharCode(rune);
-    final index = western.indexOf(character);
-    buffer.write(index < 0 ? character : persian[index]);
-  }
-  return buffer.toString();
-}
+String toPersianDigits(String value) => LifeMateRuntimeLocale.digits(value);
 
 @visibleForTesting
 bool shouldSkipDuplicateWidgetTap({
@@ -284,8 +313,21 @@ bool shouldSkipDuplicateWidgetTap({
 
 @visibleForTesting
 String widgetActionFailureMessage(LifeMateApiException error) {
-  if (error.isUnauthorized) return 'برای ثبت مصرف وارد WellMate شوید';
-  return 'ثبت نشد؛ دوباره تلاش کنید';
+  if (error.isUnauthorized)
+    return LifeMateRuntimeLocale.select(
+      fa: LifeMateRuntimeLocale.select(
+        fa: 'برای ثبت مصرف وارد WellMate شوید',
+        en: "Open WellMate to log this dose",
+      ),
+      en: "Open WellMate to log this dose",
+    );
+  return LifeMateRuntimeLocale.select(
+    fa: LifeMateRuntimeLocale.select(
+      fa: 'ثبت نشد؛ دوباره تلاش کنید',
+      en: "Could not save. Try again",
+    ),
+    en: "Could not save. Try again",
+  );
 }
 
 class _MedicationWidgetCandidate {
@@ -307,9 +349,7 @@ String? _text(dynamic value) {
 }
 
 DateTime? _scheduledAt(Map<String, dynamic> occurrence) {
-  final utc = DateTime.tryParse(
-    occurrence['scheduledAtUtc']?.toString() ?? '',
-  );
+  final utc = DateTime.tryParse(occurrence['scheduledAtUtc']?.toString() ?? '');
   if (utc != null) return utc.toLocal();
 
   final date = DateTime.tryParse(
@@ -327,12 +367,25 @@ DateTime? _scheduledAt(Map<String, dynamic> occurrence) {
 @pragma('vm:entry-point')
 FutureOr<void> medicationHomeWidgetBackgroundCallback(Uri? data) async {
   WidgetsFlutterBinding.ensureInitialized();
+  final storedLanguageCode = await HomeWidget.getWidgetData<String>(
+    _languageCodeKey,
+    defaultValue: 'fa',
+  );
+  LifeMateRuntimeLocale.setLanguageCode(storedLanguageCode ?? 'fa');
   if (data == null || data.host.toLowerCase() != 'taken') return;
 
   final occurrenceId = data.queryParameters['id']?.trim();
   final version = int.tryParse(data.queryParameters['version'] ?? '');
   if (occurrenceId == null || occurrenceId.isEmpty || version == null) {
-    await _setWidgetActionMessage('اطلاعات نوبت کامل نیست');
+    await _setWidgetActionMessage(
+      LifeMateRuntimeLocale.select(
+        fa: LifeMateRuntimeLocale.select(
+          fa: 'اطلاعات نوبت کامل نیست',
+          en: "Dose information is incomplete",
+        ),
+        en: "Dose information is incomplete",
+      ),
+    );
     return;
   }
 
@@ -344,7 +397,12 @@ FutureOr<void> medicationHomeWidgetBackgroundCallback(Uri? data) async {
     occurrenceId: occurrenceId,
     lastCompletedOccurrenceId: lastCompletedOccurrence,
   )) {
-    await _setWidgetActionMessage('ثبت شد ✓');
+    await _setWidgetActionMessage(
+      LifeMateRuntimeLocale.select(
+        fa: LifeMateRuntimeLocale.select(fa: 'ثبت شد ✓', en: "Saved ✓"),
+        en: "Saved ✓",
+      ),
+    );
     return;
   }
 
@@ -360,20 +418,41 @@ FutureOr<void> medicationHomeWidgetBackgroundCallback(Uri? data) async {
 
   await HomeWidget.saveWidgetData<bool>(_actionInFlightKey, true);
   await HomeWidget.saveWidgetData<String>(_actionOccurrenceKey, occurrenceId);
-  await _setWidgetActionMessage('در حال ثبت…');
+  await _setWidgetActionMessage(
+    LifeMateRuntimeLocale.select(
+      fa: LifeMateRuntimeLocale.select(fa: 'در حال ثبت…', en: "Saving…"),
+      en: "Saving…",
+    ),
+  );
 
   LifeMateApiClient? api;
   try {
     final config = AppConfig.fromEnvironment();
     if (!config.isConfigured) {
-      await _setWidgetActionMessage('تنظیمات WellMate کامل نیست');
+      await _setWidgetActionMessage(
+        LifeMateRuntimeLocale.select(
+          fa: LifeMateRuntimeLocale.select(
+            fa: 'تنظیمات WellMate کامل نیست',
+            en: "WellMate settings are not complete",
+          ),
+          en: "WellMate settings are not complete",
+        ),
+      );
       return;
     }
 
     await LifeMateBootstrap.initialize(config);
     var accessToken = await LifeMateAuth.getValidAccessToken();
     if (accessToken == null || accessToken.isEmpty) {
-      await _setWidgetActionMessage('برای ثبت مصرف وارد WellMate شوید');
+      await _setWidgetActionMessage(
+        LifeMateRuntimeLocale.select(
+          fa: LifeMateRuntimeLocale.select(
+            fa: 'برای ثبت مصرف وارد WellMate شوید',
+            en: "Open WellMate to log this dose",
+          ),
+          en: "Open WellMate to log this dose",
+        ),
+      );
       return;
     }
 
@@ -416,7 +495,12 @@ FutureOr<void> medicationHomeWidgetBackgroundCallback(Uri? data) async {
       _lastCompletedOccurrenceKey,
       occurrenceId,
     );
-    await _setWidgetActionMessage('ثبت شد ✓');
+    await _setWidgetActionMessage(
+      LifeMateRuntimeLocale.select(
+        fa: LifeMateRuntimeLocale.select(fa: 'ثبت شد ✓', en: "Saved ✓"),
+        en: "Saved ✓",
+      ),
+    );
 
     // Keep success visible very briefly, then sync the next real occurrence.
     // A refresh failure must not be presented as a failed dose report because
@@ -425,7 +509,12 @@ FutureOr<void> medicationHomeWidgetBackgroundCallback(Uri? data) async {
     try {
       await MedicationHomeWidgetService.refreshFromApi(api);
     } catch (_) {
-      await _setWidgetActionMessage('ثبت شد ✓');
+      await _setWidgetActionMessage(
+        LifeMateRuntimeLocale.select(
+          fa: LifeMateRuntimeLocale.select(fa: 'ثبت شد ✓', en: "Saved ✓"),
+          en: "Saved ✓",
+        ),
+      );
     }
   } on LifeMateApiException catch (error) {
     if (error.statusCode == 409) {
@@ -442,7 +531,15 @@ FutureOr<void> medicationHomeWidgetBackgroundCallback(Uri? data) async {
     }
     await _setWidgetActionMessage(widgetActionFailureMessage(error));
   } catch (_) {
-    await _setWidgetActionMessage('ثبت نشد؛ دوباره تلاش کنید');
+    await _setWidgetActionMessage(
+      LifeMateRuntimeLocale.select(
+        fa: LifeMateRuntimeLocale.select(
+          fa: 'ثبت نشد؛ دوباره تلاش کنید',
+          en: "Could not save. Try again",
+        ),
+        en: "Could not save. Try again",
+      ),
+    );
   } finally {
     await HomeWidget.saveWidgetData<bool>(_actionInFlightKey, false);
     await HomeWidget.saveWidgetData<String>(_actionOccurrenceKey, '');

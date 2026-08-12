@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../core/constants/app_colors.dart';
+import 'package:lifemate_client/lifemate_client.dart';
 
 class CareProfileMaskSelector extends StatefulWidget {
   const CareProfileMaskSelector({super.key});
@@ -13,41 +14,143 @@ class CareProfileMaskSelector extends StatefulWidget {
 class _CareProfileMaskSelectorState extends State<CareProfileMaskSelector> {
   String _selectedId = 'family';
 
-  static const _activeProfiles = <_CareProfileDefinition>[
+  static final _activeProfiles = <_CareProfileDefinition>[
     _CareProfileDefinition(
       id: 'family',
-      title: 'مراقبت از خانواده',
-      subtitle: 'برای مدیریت مراقبت چند عضو خانواده',
+      title: LifeMateRuntimeLocale.select(
+        fa: LifeMateRuntimeLocale.select(
+          fa: 'مراقبت از خانواده',
+          en: "Family care",
+        ),
+        en: "Family care",
+      ),
+      subtitle: LifeMateRuntimeLocale.select(
+        fa: LifeMateRuntimeLocale.select(
+          fa: 'برای مدیریت مراقبت چند عضو خانواده',
+          en: "To manage the care of multiple family members",
+        ),
+        en: "To manage the care of multiple family members",
+      ),
       icon: Icons.family_restroom_rounded,
       accent: Color(0xFF4A90E2),
       soft: Color(0xFFEAF4FF),
-      capabilities: ['برنامه درمان', 'تقویم', 'چند عضو'],
+      capabilities: [
+        LifeMateRuntimeLocale.select(
+          fa: LifeMateRuntimeLocale.select(
+            fa: 'برنامه درمان',
+            en: "Treatment plan",
+          ),
+          en: "Treatment plan",
+        ),
+        LifeMateRuntimeLocale.select(
+          fa: LifeMateRuntimeLocale.select(fa: 'تقویم', en: "Calendar"),
+          en: "Calendar",
+        ),
+        LifeMateRuntimeLocale.select(
+          fa: LifeMateRuntimeLocale.select(
+            fa: 'چند عضو',
+            en: "How many members?",
+          ),
+          en: "How many members?",
+        ),
+      ],
     ),
     _CareProfileDefinition(
       id: 'spouse',
-      title: 'مراقبت از همسر',
-      subtitle: 'برای همراهی روزانه و مراقبت مشترک',
+      title: LifeMateRuntimeLocale.select(
+        fa: LifeMateRuntimeLocale.select(
+          fa: 'مراقبت از همسر',
+          en: "Caring for your wife",
+        ),
+        en: "Caring for your wife",
+      ),
+      subtitle: LifeMateRuntimeLocale.select(
+        fa: LifeMateRuntimeLocale.select(
+          fa: 'برای همراهی روزانه و مراقبت مشترک',
+          en: "For daily companionship and shared care",
+        ),
+        en: "For daily companionship and shared care",
+      ),
       icon: Icons.favorite_rounded,
       accent: Color(0xFFE46D9C),
       soft: Color(0xFFFFEEF5),
-      capabilities: ['برنامه درمان', 'تقویم', 'تقویم بانوان با اجازه'],
+      capabilities: [
+        LifeMateRuntimeLocale.select(
+          fa: LifeMateRuntimeLocale.select(
+            fa: 'برنامه درمان',
+            en: "Treatment plan",
+          ),
+          en: "Treatment plan",
+        ),
+        LifeMateRuntimeLocale.select(
+          fa: LifeMateRuntimeLocale.select(fa: 'تقویم', en: "Calendar"),
+          en: "Calendar",
+        ),
+        LifeMateRuntimeLocale.select(
+          fa: LifeMateRuntimeLocale.select(
+            fa: 'تقویم بانوان با اجازه',
+            en: "Ladies calendar with permission",
+          ),
+          en: "Ladies calendar with permission",
+        ),
+      ],
     ),
     _CareProfileDefinition(
       id: 'child',
-      title: 'مراقبت از فرزند',
-      subtitle: 'برای پیگیری درمان، ویزیت و تزریق',
+      title: LifeMateRuntimeLocale.select(
+        fa: LifeMateRuntimeLocale.select(
+          fa: 'مراقبت از فرزند',
+          en: "Child care",
+        ),
+        en: "Child care",
+      ),
+      subtitle: LifeMateRuntimeLocale.select(
+        fa: LifeMateRuntimeLocale.select(
+          fa: 'برای پیگیری درمان، ویزیت و تزریق',
+          en: "To follow up treatment, visits and injections",
+        ),
+        en: "To follow up treatment, visits and injections",
+      ),
       icon: Icons.child_care_rounded,
       accent: Color(0xFFF0A440),
       soft: Color(0xFFFFF6E8),
-      capabilities: ['دارو', 'ویزیت و تزریق', 'تقویم'],
+      capabilities: [
+        LifeMateRuntimeLocale.select(
+          fa: LifeMateRuntimeLocale.select(fa: 'دارو', en: "Medication"),
+          en: "medicine",
+        ),
+        LifeMateRuntimeLocale.select(
+          fa: LifeMateRuntimeLocale.select(
+            fa: 'ویزیت و تزریق',
+            en: "Visit and injection",
+          ),
+          en: "Visit and injection",
+        ),
+        LifeMateRuntimeLocale.select(
+          fa: LifeMateRuntimeLocale.select(fa: 'تقویم', en: "Calendar"),
+          en: "Calendar",
+        ),
+      ],
     ),
   ];
 
-  static const _lockedProfiles = <_CareProfileDefinition>[
+  static final _lockedProfiles = <_CareProfileDefinition>[
     _CareProfileDefinition(
       id: 'clinical',
-      title: 'مراقبت از بیماران',
-      subtitle: 'پروفایل پزشک و پرستار',
+      title: LifeMateRuntimeLocale.select(
+        fa: LifeMateRuntimeLocale.select(
+          fa: 'مراقبت از بیماران',
+          en: "Caring for patients",
+        ),
+        en: "Caring for patients",
+      ),
+      subtitle: LifeMateRuntimeLocale.select(
+        fa: LifeMateRuntimeLocale.select(
+          fa: 'پروفایل پزشک و پرستار',
+          en: "Doctor and nurse profile",
+        ),
+        en: "Doctor and nurse profile",
+      ),
       icon: Icons.medical_services_rounded,
       accent: Color(0xFF5A79C9),
       soft: Color(0xFFEEF2FF),
@@ -56,8 +159,20 @@ class _CareProfileMaskSelectorState extends State<CareProfileMaskSelector> {
     ),
     _CareProfileDefinition(
       id: 'coach',
-      title: 'مراقبت از شاگردان',
-      subtitle: 'پروفایل مربی‌های ورزشی',
+      title: LifeMateRuntimeLocale.select(
+        fa: LifeMateRuntimeLocale.select(
+          fa: 'مراقبت از شاگردان',
+          en: "Caring for students",
+        ),
+        en: "Caring for students",
+      ),
+      subtitle: LifeMateRuntimeLocale.select(
+        fa: LifeMateRuntimeLocale.select(
+          fa: 'پروفایل مربی‌های ورزشی',
+          en: "Profile of sports coaches",
+        ),
+        en: "Profile of sports coaches",
+      ),
       icon: Icons.fitness_center_rounded,
       accent: Color(0xFF7C8A94),
       soft: Color(0xFFF1F3F5),
@@ -76,17 +191,28 @@ class _CareProfileMaskSelectorState extends State<CareProfileMaskSelector> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const _ProfileIntroCard(),
-        const SizedBox(height: 22),
-        const _SectionLabel(
-          title: 'پروفایل‌های فعال',
-          subtitle:
-              'نقشی را انتخاب کنید که الان با آن از CareMate استفاده می‌کنید.',
+        _ProfileIntroCard(),
+        SizedBox(height: 22),
+        _SectionLabel(
+          title: LifeMateRuntimeLocale.select(
+            fa: LifeMateRuntimeLocale.select(
+              fa: 'پروفایل‌های فعال',
+              en: "Active profiles",
+            ),
+            en: "Active profiles",
+          ),
+          subtitle: LifeMateRuntimeLocale.select(
+            fa: LifeMateRuntimeLocale.select(
+              fa: 'نقشی را انتخاب کنید که الان با آن از CareMate استفاده می‌کنید.',
+              en: "Select the role you are currently using CareMate with.",
+            ),
+            en: "Select the role you are currently using CareMate with.",
+          ),
         ),
-        const SizedBox(height: 12),
+        SizedBox(height: 12),
         ..._activeProfiles.map(
           (profile) => Padding(
-            padding: const EdgeInsets.only(bottom: 11),
+            padding: EdgeInsets.only(bottom: 11),
             child: _ProfileMaskCard(
               profile: profile,
               selected: profile.id == _selectedId,
@@ -94,9 +220,9 @@ class _CareProfileMaskSelectorState extends State<CareProfileMaskSelector> {
             ),
           ),
         ),
-        const SizedBox(height: 4),
+        SizedBox(height: 4),
         AnimatedSwitcher(
-          duration: const Duration(milliseconds: 220),
+          duration: Duration(milliseconds: 220),
           switchInCurve: Curves.easeOutCubic,
           switchOutCurve: Curves.easeInCubic,
           child: _CapabilitiesCard(
@@ -104,16 +230,27 @@ class _CareProfileMaskSelectorState extends State<CareProfileMaskSelector> {
             profile: _selected,
           ),
         ),
-        const SizedBox(height: 26),
-        const _SectionLabel(
-          title: 'سایر پروفایل‌ها',
-          subtitle:
-              'این نقش‌ها بعداً محیط و ابزارهای اختصاصی خودشان را خواهند داشت.',
+        SizedBox(height: 26),
+        _SectionLabel(
+          title: LifeMateRuntimeLocale.select(
+            fa: LifeMateRuntimeLocale.select(
+              fa: 'سایر پروفایل‌ها',
+              en: "Other profiles",
+            ),
+            en: "Other profiles",
+          ),
+          subtitle: LifeMateRuntimeLocale.select(
+            fa: LifeMateRuntimeLocale.select(
+              fa: 'این نقش‌ها بعداً محیط و ابزارهای اختصاصی خودشان را خواهند داشت.',
+              en: "These roles will later have their own dedicated environment and tools.",
+            ),
+            en: "These roles will later have their own dedicated environment and tools.",
+          ),
         ),
-        const SizedBox(height: 12),
+        SizedBox(height: 12),
         ..._lockedProfiles.map(
           (profile) => Padding(
-            padding: const EdgeInsets.only(bottom: 11),
+            padding: EdgeInsets.only(bottom: 11),
             child: _ProfileMaskCard(
               profile: profile,
               selected: false,
@@ -131,16 +268,16 @@ class _ProfileIntroCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Container(
-    padding: const EdgeInsets.all(18),
+    padding: EdgeInsets.all(18),
     decoration: BoxDecoration(
-      gradient: const LinearGradient(
+      gradient: LinearGradient(
         begin: Alignment.topRight,
         end: Alignment.bottomLeft,
         colors: [Color(0xFFF3F7FF), Color(0xFFFFFFFF)],
       ),
       borderRadius: BorderRadius.circular(26),
-      border: Border.all(color: const Color(0xFFDDE8F7)),
-      boxShadow: const [
+      border: Border.all(color: Color(0xFFDDE8F7)),
+      boxShadow: [
         BoxShadow(
           color: Color(0x0B31547C),
           blurRadius: 22,
@@ -148,7 +285,7 @@ class _ProfileIntroCard extends StatelessWidget {
         ),
       ],
     ),
-    child: const Row(
+    child: Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         _ProfileIntroIcon(),
@@ -158,7 +295,13 @@ class _ProfileIntroCard extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                'یک حساب، چند نقش',
+                LifeMateRuntimeLocale.select(
+                  fa: LifeMateRuntimeLocale.select(
+                    fa: 'یک حساب، چند نقش',
+                    en: "One account, multiple roles",
+                  ),
+                  en: "One account, multiple roles",
+                ),
                 style: TextStyle(
                   fontSize: 17,
                   fontWeight: FontWeight.w900,
@@ -167,7 +310,13 @@ class _ProfileIntroCard extends StatelessWidget {
               ),
               SizedBox(height: 6),
               Text(
-                'LifeMate به‌مرور بر اساس نقشی که انتخاب می‌کنید چیدمان و ابزارهای مرتبط را نشان می‌دهد. فعلاً سه پروفایل خانوادگی فعال‌اند.',
+                LifeMateRuntimeLocale.select(
+                  fa: LifeMateRuntimeLocale.select(
+                    fa: 'LifeMate به‌مرور بر اساس نقشی که انتخاب می‌کنید چیدمان و ابزارهای مرتبط را نشان می‌دهد. فعلاً سه پروفایل خانوادگی فعال‌اند.',
+                    en: "LifeMate will automatically display layouts and related tools based on the role you select. Currently, three family profiles are active.",
+                  ),
+                  en: "LifeMate will automatically display layouts and related tools based on the role you select. Currently, three family profiles are active.",
+                ),
                 style: TextStyle(
                   height: 1.6,
                   fontSize: 12.5,
@@ -286,7 +435,7 @@ class _ProfileMaskCard extends StatelessWidget {
                   ),
                   child: Icon(profile.icon, color: profile.accent, size: 31),
                 ),
-                const SizedBox(width: 13),
+                SizedBox(width: 13),
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -296,7 +445,7 @@ class _ProfileMaskCard extends StatelessWidget {
                           Expanded(
                             child: Text(
                               profile.title,
-                              style: const TextStyle(
+                              style: TextStyle(
                                 fontSize: 16,
                                 fontWeight: FontWeight.w900,
                                 color: AppColors.primaryText,
@@ -305,16 +454,22 @@ class _ProfileMaskCard extends StatelessWidget {
                           ),
                           if (locked)
                             Container(
-                              padding: const EdgeInsets.symmetric(
+                              padding: EdgeInsets.symmetric(
                                 horizontal: 8,
                                 vertical: 4,
                               ),
                               decoration: BoxDecoration(
-                                color: const Color(0xFFF0F2F5),
+                                color: Color(0xFFF0F2F5),
                                 borderRadius: BorderRadius.circular(20),
                               ),
-                              child: const Text(
-                                'به‌زودی',
+                              child: Text(
+                                LifeMateRuntimeLocale.select(
+                                  fa: LifeMateRuntimeLocale.select(
+                                    fa: 'به‌زودی',
+                                    en: "Coming soon",
+                                  ),
+                                  en: "soon",
+                                ),
                                 style: TextStyle(
                                   fontSize: 10.5,
                                   fontWeight: FontWeight.w800,
@@ -324,10 +479,10 @@ class _ProfileMaskCard extends StatelessWidget {
                             ),
                         ],
                       ),
-                      const SizedBox(height: 5),
+                      SizedBox(height: 5),
                       Text(
                         profile.subtitle,
-                        style: const TextStyle(
+                        style: TextStyle(
                           fontSize: 12,
                           color: AppColors.secondaryText,
                         ),
@@ -335,13 +490,13 @@ class _ProfileMaskCard extends StatelessWidget {
                     ],
                   ),
                 ),
-                const SizedBox(width: 8),
+                SizedBox(width: 8),
                 Container(
                   width: 38,
                   height: 38,
                   decoration: BoxDecoration(
                     color: locked
-                        ? const Color(0xFFF1F3F5)
+                        ? Color(0xFFF1F3F5)
                         : selected
                         ? profile.accent
                         : profile.soft,
@@ -354,7 +509,7 @@ class _ProfileMaskCard extends StatelessWidget {
                         ? Icons.workspace_premium_rounded
                         : Icons.circle_outlined,
                     color: locked
-                        ? const Color(0xFF9DA5AC)
+                        ? Color(0xFF9DA5AC)
                         : selected
                         ? Colors.white
                         : profile.accent,
@@ -378,7 +533,7 @@ class _CapabilitiesCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) => Container(
     width: double.infinity,
-    padding: const EdgeInsets.all(16),
+    padding: EdgeInsets.all(16),
     decoration: BoxDecoration(
       color: profile.soft,
       borderRadius: BorderRadius.circular(22),
@@ -387,28 +542,31 @@ class _CapabilitiesCard extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
-          'پروفایل فعال: ${profile.title}',
-          key: const ValueKey('care-profile-active-label'),
+          LifeMateRuntimeLocale.select(
+            fa: LifeMateRuntimeLocale.select(
+              fa: 'پروفایل فعال: ${profile.title}',
+              en: "Active profile: ${profile.title}",
+            ),
+            en: "Active profile: ${profile.title}",
+          ),
+          key: ValueKey('care-profile-active-label'),
           style: TextStyle(fontWeight: FontWeight.w900, color: profile.accent),
         ),
-        const SizedBox(height: 10),
+        SizedBox(height: 10),
         Wrap(
           spacing: 8,
           runSpacing: 8,
           children: profile.capabilities
               .map(
                 (capability) => Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 10,
-                    vertical: 7,
-                  ),
+                  padding: EdgeInsets.symmetric(horizontal: 10, vertical: 7),
                   decoration: BoxDecoration(
                     color: Colors.white.withValues(alpha: 0.82),
                     borderRadius: BorderRadius.circular(14),
                   ),
                   child: Text(
                     capability,
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontSize: 11.5,
                       fontWeight: FontWeight.w700,
                       color: AppColors.primaryText,
