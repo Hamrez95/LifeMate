@@ -25,7 +25,9 @@ jobs:
         with:
           channel: stable
       - name: Apply safety feedback
-        run: python3 tools/hotfix/apply_cycle_safety_final_feedback.py
+        run: |
+          python3 tools/hotfix/apply_cycle_safety_final_feedback.py
+          python3 tools/hotfix/post_fix_cycle_safety_redaction.py
       - name: Format touched source
         shell: bash
         run: |
