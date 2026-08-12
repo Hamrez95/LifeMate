@@ -45,6 +45,7 @@ flutter:
     - assets/
     - assets/images/
     - assets/icons/
+    - feature_assets/women_cycle/
     - lib/localization/en.json
     - lib/localization/fa.json
   fonts:
