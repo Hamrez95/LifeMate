@@ -113,10 +113,14 @@ jobs:
             rolconnlimit
           )
           from pg_roles
-          where rolname in ('lifemate_edge_runtime','lifemate_worker_runtime')
+          where rolname in (
+            'lifemate_edge_runtime',
+            'lifemate_worker_runtime',
+            'lifemate_admin_runtime'
+          )
           order by rolname;
           SQL
-          test "$(grep -c '^create role lifemate_.*_runtime' "$RUNNER_TEMP/lifemate.runtime-roles.sql")" -eq 2
+          test "$(grep -c '^create role lifemate_.*_runtime' "$RUNNER_TEMP/lifemate.runtime-roles.sql")" -eq 3
 
       - name: Restore into an independent clean PostgreSQL cluster
         shell: bash
@@ -216,6 +220,7 @@ jobs:
                or to_regclass('lifemate.dose_occurrences') is null
                or to_regclass('identity.accounts') is null
                or to_regclass('integration.outbox_messages') is null
+               or to_regclass('admin.audit_events') is null
                or to_regclass('security.runtime_readiness_probe') is null then
               raise exception 'critical LifeMate relation missing after restore';
             end if;
@@ -274,6 +279,17 @@ jobs:
             ) then
               raise exception 'worker runtime security attributes/connection limit not restored';
             end if;
+            if not exists (
+              select 1 from pg_roles
+              where rolname='lifemate_admin_runtime'
+                and rolbypassrls=false
+                and rolsuper=false
+                and rolcreaterole=false
+                and rolcreatedb=false
+                and rolconnlimit=10
+            ) then
+              raise exception 'Admin runtime security attributes/connection limit not restored';
+            end if;
           end
           $$;
           SQL
@@ -299,7 +315,18 @@ jobs:
           set role lifemate_worker_runtime;
           select count(*) from integration.outbox_messages;
           reset role;
+
+          set role lifemate_admin_runtime;
+          select count(*) from admin.permissions;
+          select count(*) from identity.accounts;
+          reset role;
           SQL
+
+          if psql "$RESTORE_DATABASE_URL" --set=ON_ERROR_STOP=1 \
+            -c 'set role lifemate_admin_runtime; select count(*) from lifemate.health_observations;'; then
+            echo 'Admin runtime unexpectedly read restored healthcare data.' >&2
+            exit 1
+          fi
 
           psql "$RESTORE_ADMIN_URL" --set=ON_ERROR_STOP=1 \
             -c 'create role restore_probe_unrelated nologin;'
@@ -319,9 +346,10 @@ jobs:
             echo '- canonical baseline + every forward migration: source applied'
             echo '- PostgreSQL 17.6 pg_dump/pg_restore tools: used'
             echo '- database ACLs + password-free runtime role manifest: restored'
-            echo '- Edge/worker role security attributes + connection limits: verified'
+            echo '- Edge/worker/admin role security attributes + connection limits: verified'
             echo '- synthetic data sentinel: restored'
             echo '- synthetic health row: visible to restricted Edge role through restored RLS'
+            echo '- Admin runtime health-table read: denied'
             echo '- Health RLS + FORCE RLS + expected policy expression: verified'
             echo '- worker representative ACL probe: passed'
             echo '- unrelated healthcare read: denied'
