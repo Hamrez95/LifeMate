@@ -20,9 +20,10 @@ export function normalizePath(pathname: string): string {
 export function requireUuid(value: unknown, field: string): string {
   if (
     typeof value !== "string" ||
-    !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(
-      value,
-    )
+    !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
+      .test(
+        value,
+      )
   ) {
     throw new ApiError(400, "invalid_request", `${field} must be a UUID.`);
   }
@@ -37,7 +38,11 @@ export function boundedInteger(
 ): number {
   if (value == null || value === "") return fallback;
   if (!/^\d+$/.test(value)) {
-    throw new ApiError(400, "invalid_request", "Query parameter must be an integer.");
+    throw new ApiError(
+      400,
+      "invalid_request",
+      "Query parameter must be an integer.",
+    );
   }
   const parsed = Number(value);
   if (!Number.isSafeInteger(parsed) || parsed < minimum || parsed > maximum) {

@@ -31,7 +31,11 @@ Deno.serve(async (request: Request) => {
     origin = assertAllowedOrigin(request, config.allowedOrigins);
     if (request.method === "OPTIONS") {
       if (!origin) {
-        throw new ApiError(403, "origin_denied", "Request origin is not allowed.");
+        throw new ApiError(
+          403,
+          "origin_denied",
+          "Request origin is not allowed.",
+        );
       }
       return preflight(origin);
     }
@@ -63,7 +67,11 @@ Deno.serve(async (request: Request) => {
         !config.bootstrapAuthSubject ||
         principal.providerSubject !== config.bootstrapAuthSubject
       ) {
-        throw new ApiError(403, "admin_bootstrap_denied", "Admin bootstrap is not permitted.");
+        throw new ApiError(
+          403,
+          "admin_bootstrap_denied",
+          "Admin bootstrap is not permitted.",
+        );
       }
       const idempotencyKey = requireIdempotencyKey(request);
       const result = await store.bootstrapFounder(
@@ -95,10 +103,20 @@ Deno.serve(async (request: Request) => {
       return json({ events: await store.listAudit(limit) }, 200, origin);
     }
 
-    throw new ApiError(404, "route_not_found", "Admin API route was not found.");
+    throw new ApiError(
+      404,
+      "route_not_found",
+      "Admin API route was not found.",
+    );
   } catch (error) {
     if (error instanceof ApiError) {
-      return problem(error.status, error.code, error.message, correlationId, origin);
+      return problem(
+        error.status,
+        error.code,
+        error.message,
+        correlationId,
+        origin,
+      );
     }
     if (isPostgresUnavailable(error)) {
       console.warn("LifeMate Admin database temporarily unavailable", {

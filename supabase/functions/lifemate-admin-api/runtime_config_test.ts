@@ -9,7 +9,10 @@ Deno.test("restricted database URL preserves Supabase pooler suffix", () => {
     "0123456789abcdef0123456789abcdef",
   );
   const parsed = new URL(value);
-  assertEquals(decodeURIComponent(parsed.username), "lifemate_admin_runtime.projectref");
+  assertEquals(
+    decodeURIComponent(parsed.username),
+    "lifemate_admin_runtime.projectref",
+  );
   assertEquals(parsed.password, "0123456789abcdef0123456789abcdef");
 });
 

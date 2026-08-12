@@ -11,7 +11,9 @@ function encoded(value: Record<string, unknown>): string {
 }
 
 function token(subject: string, aal: string): string {
-  return `${encoded({ alg: "none", typ: "JWT" })}.${encoded({ sub: subject, aal })}.signature`;
+  return `${encoded({ alg: "none", typ: "JWT" })}.${
+    encoded({ sub: subject, aal })
+  }.signature`;
 }
 
 Deno.test("reads AAL only from the token already verified for the same user", () => {

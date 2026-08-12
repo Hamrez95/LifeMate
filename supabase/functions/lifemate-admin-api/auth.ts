@@ -17,7 +17,11 @@ function decodeBase64Url(value: string): string {
   try {
     return atob(padded);
   } catch {
-    throw new ApiError(401, "invalid_session", "Authentication session is invalid.");
+    throw new ApiError(
+      401,
+      "invalid_session",
+      "Authentication session is invalid.",
+    );
   }
 }
 
@@ -27,7 +31,11 @@ export function readVerifiedSessionClaims(
 ): { subject: string; aal: "aal1" | "aal2" } {
   const parts = token.split(".");
   if (parts.length !== 3) {
-    throw new ApiError(401, "invalid_session", "Authentication session is invalid.");
+    throw new ApiError(
+      401,
+      "invalid_session",
+      "Authentication session is invalid.",
+    );
   }
 
   let claims: TokenClaims;
@@ -35,11 +43,19 @@ export function readVerifiedSessionClaims(
     claims = JSON.parse(decodeBase64Url(parts[1])) as TokenClaims;
   } catch (error) {
     if (error instanceof ApiError) throw error;
-    throw new ApiError(401, "invalid_session", "Authentication session is invalid.");
+    throw new ApiError(
+      401,
+      "invalid_session",
+      "Authentication session is invalid.",
+    );
   }
 
   if (claims.sub !== verifiedUserId) {
-    throw new ApiError(401, "invalid_session", "Authentication session is invalid.");
+    throw new ApiError(
+      401,
+      "invalid_session",
+      "Authentication session is invalid.",
+    );
   }
   const aal = claims.aal === "aal2" ? "aal2" : "aal1";
   return { subject: verifiedUserId, aal };
@@ -52,11 +68,19 @@ export async function authenticate(
 ): Promise<AdminPrincipal> {
   const authorization = request.headers.get("authorization") ?? "";
   if (!authorization.startsWith("Bearer ") || authorization.length > 4_096) {
-    throw new ApiError(401, "authorization_missing", "Authentication is required.");
+    throw new ApiError(
+      401,
+      "authorization_missing",
+      "Authentication is required.",
+    );
   }
   const token = authorization.slice("Bearer ".length).trim();
   if (!token) {
-    throw new ApiError(401, "authorization_missing", "Authentication is required.");
+    throw new ApiError(
+      401,
+      "authorization_missing",
+      "Authentication is required.",
+    );
   }
 
   let response: Response;
@@ -77,11 +101,19 @@ export async function authenticate(
   }
 
   if (!response.ok) {
-    throw new ApiError(401, "invalid_session", "Authentication session is invalid.");
+    throw new ApiError(
+      401,
+      "invalid_session",
+      "Authentication session is invalid.",
+    );
   }
   const user = await response.json();
   if (!user?.id || typeof user.id !== "string") {
-    throw new ApiError(401, "invalid_session", "Authentication session is invalid.");
+    throw new ApiError(
+      401,
+      "invalid_session",
+      "Authentication session is invalid.",
+    );
   }
 
   // The same bearer token was just verified by Supabase Auth. Reading its AAL claim

@@ -38,7 +38,8 @@ export function preflight(origin: string): Response {
     headers: {
       ...responseHeaders(origin),
       "access-control-allow-methods": "GET,POST,OPTIONS",
-      "access-control-allow-headers": "authorization,content-type,idempotency-key",
+      "access-control-allow-headers":
+        "authorization,content-type,idempotency-key",
       "access-control-max-age": "600",
     },
   });

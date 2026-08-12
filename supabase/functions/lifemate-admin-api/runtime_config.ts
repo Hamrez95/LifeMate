@@ -18,7 +18,9 @@ export function buildRestrictedDatabaseUrl(
     throw new Error("Invalid restricted database role name.");
   }
   if (password.length < 32) {
-    throw new Error("Restricted database password must be at least 32 characters.");
+    throw new Error(
+      "Restricted database password must be at least 32 characters.",
+    );
   }
 
   const parsed = new URL(bootstrapDatabaseUrl);
@@ -78,10 +80,13 @@ export async function loadRuntimeConfig(): Promise<AdminRuntimeConfig> {
   const explicitDatabaseUrl = Deno.env.get("LIFEMATE_ADMIN_DB_URL");
   const supabaseUrl = Deno.env.get("SUPABASE_URL");
   const publishableKeys = readDictionary("SUPABASE_PUBLISHABLE_KEYS");
-  const publishableKey = publishableKeys.default ?? Deno.env.get("SUPABASE_ANON_KEY");
+  const publishableKey = publishableKeys.default ??
+    Deno.env.get("SUPABASE_ANON_KEY");
 
   if (!bootstrapDatabaseUrl || !supabaseUrl || !publishableKey) {
-    throw new Error("Required LifeMate Admin runtime configuration is missing.");
+    throw new Error(
+      "Required LifeMate Admin runtime configuration is missing.",
+    );
   }
 
   const vaultPassword = explicitDatabaseUrl
@@ -113,9 +118,11 @@ export async function loadRuntimeConfig(): Promise<AdminRuntimeConfig> {
     supabaseUrl: supabaseUrl.replace(/\/$/, ""),
     publishableKey,
     allowedOrigins,
-    bootstrapAuthSubject: Deno.env.get("LIFEMATE_ADMIN_BOOTSTRAP_AUTH_SUBJECT")?.trim() ||
+    bootstrapAuthSubject:
+      Deno.env.get("LIFEMATE_ADMIN_BOOTSTRAP_AUTH_SUBJECT")?.trim() ||
       null,
-    releaseVersion: (Deno.env.get("LIFEMATE_ADMIN_RELEASE_VERSION") ?? "unversioned")
-      .slice(0, 128),
+    releaseVersion:
+      (Deno.env.get("LIFEMATE_ADMIN_RELEASE_VERSION") ?? "unversioned")
+        .slice(0, 128),
   };
 }

@@ -54,7 +54,9 @@ export function createAdminStore(databaseUrl: string) {
     return id;
   }
 
-  async function getSnapshot(accountId: string): Promise<AdminCapabilitySnapshot> {
+  async function getSnapshot(
+    accountId: string,
+  ): Promise<AdminCapabilitySnapshot> {
     const memberRows = await sql`
       select account_id
       from admin.members
@@ -109,7 +111,8 @@ export function createAdminStore(databaseUrl: string) {
   ): Promise<{ created: boolean }> {
     return await sql.begin(async (tx) => {
       await tx`select pg_advisory_xact_lock(hashtext('lifemate-admin-founder-bootstrap'))`;
-      const existingMembers = await tx`select count(*)::integer as count from admin.members`;
+      const existingMembers =
+        await tx`select count(*)::integer as count from admin.members`;
       const count = Number(existingMembers[0]?.count ?? 0);
 
       if (count > 0) {
@@ -140,7 +143,11 @@ export function createAdminStore(databaseUrl: string) {
       `;
       const founderRoleId = founderRows[0]?.id;
       if (typeof founderRoleId !== "string") {
-        throw new ApiError(503, "admin_role_unavailable", "Founder role is unavailable.");
+        throw new ApiError(
+          503,
+          "admin_role_unavailable",
+          "Founder role is unavailable.",
+        );
       }
 
       await tx`
@@ -175,7 +182,9 @@ export function createAdminStore(databaseUrl: string) {
     `;
     return rows.map((row) => ({
       id: String(row.id),
-      actorAccountId: typeof row.actor_account_id === "string" ? row.actor_account_id : null,
+      actorAccountId: typeof row.actor_account_id === "string"
+        ? row.actor_account_id
+        : null,
       action: String(row.action),
       resourceType: String(row.resource_type),
       resourceId: typeof row.resource_id === "string" ? row.resource_id : null,
