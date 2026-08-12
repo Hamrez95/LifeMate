@@ -58,7 +58,7 @@ void main() {
     expect(image.image, isA<AssetImage>());
     expect(
       (image.image as AssetImage).assetName,
-      'assets/images/women_cycle_period.webp',
+      'feature_assets/women_cycle/period.webp',
     );
     expect(tester.takeException(), isNull);
   });
