@@ -29,7 +29,7 @@ class WomenCycleHistoryAssessment {
   }) {
     final normalized =
         periodStarts
-            .map((value) => DateTime(value.year, value.month, value.day))
+            .map((value) => DateTime.utc(value.year, value.month, value.day))
             .toSet()
             .toList()
           ..sort();

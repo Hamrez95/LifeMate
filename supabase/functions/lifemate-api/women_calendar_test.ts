@@ -42,6 +42,9 @@ Deno.test("cycle history with insufficient data suppresses fertility timing", ()
   assertEquals(estimate.confidence, "low");
   assertEquals(estimate.cyclePattern, "insufficient_data");
   assertEquals(estimate.fertilityEstimateReliable, false);
+  assertEquals(estimate.ovulationDay, null);
+  assertEquals(estimate.fertileWindowStartDay, null);
+  assertEquals(estimate.fertileWindowEndDay, null);
   assertEquals(
     ["fertile", "ovulation"].includes(estimate.detailedPhase),
     false,
@@ -59,6 +62,9 @@ Deno.test("cycle history enables fertility only for stable repeated intervals", 
   assertEquals(estimate.cyclePattern, "regular");
   assertEquals(estimate.confidence, "high");
   assertEquals(estimate.fertilityEstimateReliable, true);
+  assertEquals(typeof estimate.ovulationDay, "number");
+  assertEquals(typeof estimate.fertileWindowStartDay, "number");
+  assertEquals(typeof estimate.fertileWindowEndDay, "number");
 });
 
 Deno.test("variable cycle history suppresses fertility timing", () => {
@@ -72,6 +78,9 @@ Deno.test("variable cycle history suppresses fertility timing", () => {
   assertEquals(estimate.cyclePattern, "variable");
   assertEquals(estimate.confidence, "low");
   assertEquals(estimate.fertilityEstimateReliable, false);
+  assertEquals(estimate.ovulationDay, null);
+  assertEquals(estimate.fertileWindowStartDay, null);
+  assertEquals(estimate.fertileWindowEndDay, null);
   assertEquals(
     ["fertile", "ovulation"].includes(estimate.detailedPhase),
     false,

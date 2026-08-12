@@ -47,9 +47,9 @@ export type WomenCalendarEstimate = {
   estimatedBleeding: boolean;
   phase: "period" | "post_period" | "cycle" | "pre_period";
   detailedPhase: DetailedPhase;
-  ovulationDay: number;
-  fertileWindowStartDay: number;
-  fertileWindowEndDay: number;
+  ovulationDay: number | null;
+  fertileWindowStartDay: number | null;
+  fertileWindowEndDay: number | null;
   pmsStartDay: number;
   nextPeriodStart: string;
   daysUntilNextPeriod: number;
@@ -90,7 +90,14 @@ export function createWomenCalendarStore(databaseUrl: string) {
       where owner_user_id = ${userId}
       limit 1
     `;
-    return rows[0] ? mapProfile(rows[0]) : defaultProfile(userId);
+    if (!rows[0]) return defaultProfile(userId);
+    const episodes = await sql`
+      select started_on from lifemate.women_calendar_episodes
+      where owner_user_id = ${userId}
+      order by started_on asc
+      limit 100
+    `;
+    return mapProfileWithEpisodeHistory(rows[0], episodes);
   }
 
   async function updateOwnerProfile(
@@ -154,7 +161,13 @@ export function createWomenCalendarStore(databaseUrl: string) {
           "women_calendar_profile",
           userId,
         );
-        return mapProfile(rows[0]);
+        const episodes = await tx`
+          select started_on from lifemate.women_calendar_episodes
+          where owner_user_id = ${userId}
+          order by started_on asc
+          limit 100
+        `;
+        return mapProfileWithEpisodeHistory(rows[0], episodes);
       }
       if (existing.version !== expectedVersion) {
         throw staleProfile();
@@ -178,7 +191,13 @@ export function createWomenCalendarStore(databaseUrl: string) {
         "women_calendar_profile",
         userId,
       );
-      return mapProfile(rows[0]);
+      const episodes = await tx`
+        select started_on from lifemate.women_calendar_episodes
+        where owner_user_id = ${userId}
+        order by started_on asc
+        limit 100
+      `;
+      return mapProfileWithEpisodeHistory(rows[0], episodes);
     });
   }
 
@@ -812,9 +831,11 @@ function calculateCalendarCore(
     estimatedBleeding,
     phase,
     detailedPhase,
-    ovulationDay,
-    fertileWindowStartDay,
-    fertileWindowEndDay,
+    ovulationDay: fertilityEstimateReliable ? ovulationDay : null,
+    fertileWindowStartDay: fertilityEstimateReliable
+      ? fertileWindowStartDay
+      : null,
+    fertileWindowEndDay: fertilityEstimateReliable ? fertileWindowEndDay : null,
     pmsStartDay,
     nextPeriodStart: formatDateOnly(nextPeriodStart),
     daysUntilNextPeriod,
@@ -901,6 +922,23 @@ function mapProfile(row: Row): Record<string, any> {
     createdAtUtc: iso(row.created_at_utc),
     updatedAtUtc: iso(row.updated_at_utc),
   };
+}
+
+function mapProfileWithEpisodeHistory(
+  row: Row,
+  episodeRows: Row[],
+): Record<string, any> {
+  const profile = mapProfile(row);
+  const lastPeriodStart = profile.lastPeriodStart;
+  if (profile.enabled === true && typeof lastPeriodStart === "string") {
+    profile.estimate = calculateWomenCalendarEstimateFromEpisodes(
+      lastPeriodStart,
+      Number(profile.cycleLength),
+      Number(profile.periodLength),
+      episodeRows.map((episode) => dateString(episode.started_on)),
+    );
+  }
+  return profile;
 }
 
 function defaultProfile(userId: string): Record<string, unknown> {

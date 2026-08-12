@@ -116,4 +116,21 @@ void main() {
       expect(estimate.isEstimatedPmsDay(DateTime(2026, 8, 27)), isTrue);
     },
   );
+
+  test(
+    'normalizes episode gaps by calendar date rather than elapsed local hours',
+    () {
+      final assessment = WomenCycleHistoryAssessment.fromPeriodStarts(
+        periodStarts: [
+          DateTime(2026, 2, 22, 23, 30),
+          DateTime(2026, 3, 15, 0, 15),
+          DateTime(2026, 4, 5, 18),
+        ],
+        fallbackCycleLength: 21,
+      );
+
+      expect(assessment.pattern, WomenCyclePattern.regular);
+      expect(assessment.representativeCycleLength, 21);
+    },
+  );
 }
