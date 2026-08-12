@@ -7,6 +7,7 @@ on:
       - 'supabase/bootstrap/**'
       - 'supabase/migrations/**'
       - 'supabase/infrastructure/**'
+      - 'supabase/tests/admin_security_denial_contract.sql'
       - '.github/workflows/schema.yml'
       - 'docs/architecture/**'
       - 'docs/migrations/**'
@@ -16,6 +17,7 @@ on:
       - 'supabase/bootstrap/**'
       - 'supabase/migrations/**'
       - 'supabase/infrastructure/**'
+      - 'supabase/tests/admin_security_denial_contract.sql'
       - '.github/workflows/schema.yml'
 
 permissions:
@@ -75,7 +77,8 @@ jobs:
             20260806233634_decouple_legacy_account_fk_20260807.sql \
             20260806234220_bind_consent_to_access_context_20260807.sql \
             20260807050708_complete_runtime_authorization_outbox_20260807.sql \
-            20260807050948_scope_outbox_worker_claims_20260807.sql; do
+            20260807050948_scope_outbox_worker_claims_20260807.sql \
+            20260813011500_admin_control_plane_foundation.sql; do
             test -f "supabase/migrations/$required" || { echo "::error::Missing live-ledger migration $required"; exit 1; }
           done
 
@@ -94,7 +97,7 @@ jobs:
             fi
           done < <(find supabase/migrations -maxdepth 1 -type f -name '*.sql' | sort)
 
-      - name: Verify ecosystem invariants
+      - name: Verify ecosystem and admin invariants
         shell: bash
         run: |
           set -euo pipefail
@@ -107,6 +110,15 @@ jobs:
             if to_regclass('consent.data_use_consents') is null then raise exception 'data_use_consents missing'; end if;
             if to_regclass('commerce.entitlements') is null then raise exception 'entitlements missing'; end if;
             if to_regclass('integration.outbox_messages') is null then raise exception 'outbox missing'; end if;
+            if to_regclass('admin.members') is null then raise exception 'admin.members missing'; end if;
+            if to_regclass('admin.audit_events') is null then raise exception 'admin.audit_events missing'; end if;
+            if to_regclass('admin.elevated_access_requests') is null then raise exception 'admin.elevated_access_requests missing'; end if;
+            if to_regprocedure('admin.account_has_permission(uuid,character varying,timestamp with time zone)') is null then
+              raise exception 'admin permission function missing';
+            end if;
+            if to_regprocedure('admin.account_has_elevated_access(uuid,uuid,character varying,timestamp with time zone)') is null then
+              raise exception 'admin elevated-access function missing';
+            end if;
             if to_regprocedure('integration.claim_outbox_messages_for_events(character varying,integer,character varying[])') is null then
               raise exception 'scoped outbox claim function missing';
             end if;
@@ -129,8 +141,17 @@ jobs:
             if analytics.commercial_export_allowed('FirstPartyUserInput','Adult',true,true) then
               raise exception 'Commercial export must remain globally disabled';
             end if;
+            if exists (
+              select 1
+              from admin.role_permissions rp
+              join admin.permissions p on p.code=rp.permission_code
+              where p.role_assignable=false
+            ) then raise exception 'non-role-assignable elevated permission assigned to admin role'; end if;
           end $$;
           SQL
+
+      - name: Prove Admin RBAC and database denial boundaries
+        run: psql "$TEST_DATABASE_URL" --set=ON_ERROR_STOP=1 --file=supabase/tests/admin_security_denial_contract.sql
 
       - name: Verify migration rerun is idempotent
         shell: bash

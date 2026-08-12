@@ -1,0 +1,61 @@
+name: admin-edge-api
+
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - 'supabase/functions/lifemate-admin-api/**'
+      - 'supabase/migrations/**'
+      - 'supabase/tests/admin_security_denial_contract.sql'
+      - '.github/workflows/admin-edge-api.yml'
+      - 'AGENTS.md'
+  push:
+    branches: [main]
+    paths:
+      - 'supabase/functions/lifemate-admin-api/**'
+      - 'supabase/migrations/**'
+      - 'supabase/tests/admin_security_denial_contract.sql'
+      - '.github/workflows/admin-edge-api.yml'
+      - 'AGENTS.md'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: admin-edge-api-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  check-test:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    defaults:
+      run:
+        working-directory: supabase/functions/lifemate-admin-api
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
+        with:
+          show-progress: false
+          persist-credentials: false
+      - uses: denoland/setup-deno@22d081ff2d3a40755e97629de92e3bcbfa7cf2ed
+        with:
+          deno-version: v2.9.4
+      - name: Format
+        run: deno fmt --check
+      - name: Type check
+        run: deno task check
+      - name: Unit tests
+        run: deno task test
+      - name: Security invariants
+        shell: bash
+        run: |
+          set -euo pipefail
+          check() { local label="$1"; shift; if "$@"; then echo "PASS: $label"; else echo "::error::$label"; exit 1; fi; }
+          check_absent() { local label="$1"; shift; if "$@"; then echo "::error::$label"; exit 1; else echo "PASS: $label"; fi; }
+          check_absent 'Admin API must not read Supabase service-role credentials.' grep -R --line-number -E 'SERVICE_ROLE|service.role' .
+          check 'Admin API refuses privileged database fallback.' grep -Fq 'Refusing privileged DB fallback' runtime_config.ts
+          check 'MFA AAL2 is enforced.' grep -Fq 'requireAal2' index.ts
+          check 'Admin membership is server resolved.' grep -Fq 'getSnapshot(accountId)' index.ts
+          check 'Audit access requires server-side permission.' grep -Fq 'security.audit.read' index.ts
+          check 'Browser origins are allow-listed.' grep -Fq 'assertAllowedOrigin' index.ts
+          check_absent 'Admin API must never query medication tables.' grep -R --line-number -E 'lifemate\.(medications|treatment_plans|dose_occurrences|women_calendar)' .
