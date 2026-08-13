@@ -18,10 +18,6 @@ export type UserDirectoryResult = {
   total: number;
 };
 
-function escapeLike(value: string): string {
-  return value.replace(/[\\%_]/g, "\\$&");
-}
-
 function asIso(value: unknown): string {
   return value instanceof Date ? value.toISOString() : String(value);
 }
@@ -40,7 +36,6 @@ export async function listUserDirectory(
   sql: AdminSql,
   query: UserDirectoryQuery,
 ): Promise<UserDirectoryResult> {
-  const searchPattern = query.search ? `%${escapeLike(query.search)}%` : null;
   const searchUuid = query.search &&
       /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(
         query.search,
@@ -51,11 +46,11 @@ export async function listUserDirectory(
   const countRows = await sql`
     select count(*)::integer as total
     from admin.user_directory_v1
-    where (${query.status}::text is null or account_status = ${query.status})
-      and (${query.application}::text is null or ${query.application} = any(application_codes))
+    where (${query.status}::text is null or account_status = ${query.status}::varchar)
+      and (${query.application}::text is null or ${query.application}::varchar = any(application_codes))
       and (
-        ${searchPattern}::text is null
-        or display_name ilike ${searchPattern} escape '\\'
+        ${query.search}::text is null
+        or strpos(lower(coalesce(display_name, '')), lower(${query.search}::text)) > 0
         or (${searchUuid}::uuid is not null and account_id = ${searchUuid}::uuid)
       )
   `;
@@ -64,11 +59,11 @@ export async function listUserDirectory(
     select account_id, person_id, display_name, account_status, application_codes,
            created_at_utc, last_active_at_utc
     from admin.user_directory_v1
-    where (${query.status}::text is null or account_status = ${query.status})
-      and (${query.application}::text is null or ${query.application} = any(application_codes))
+    where (${query.status}::text is null or account_status = ${query.status}::varchar)
+      and (${query.application}::text is null or ${query.application}::varchar = any(application_codes))
       and (
-        ${searchPattern}::text is null
-        or display_name ilike ${searchPattern} escape '\\'
+        ${query.search}::text is null
+        or strpos(lower(coalesce(display_name, '')), lower(${query.search}::text)) > 0
         or (${searchUuid}::uuid is not null and account_id = ${searchUuid}::uuid)
       )
     order by
