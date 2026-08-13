@@ -3,6 +3,7 @@ import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { authenticate, requireAal2 } from "./auth.ts";
 import { requirePermission } from "./authorization.ts";
 import { isPostgresUnavailable } from "./database_client.ts";
+import { parseUserDirectoryQuery } from "./directory.ts";
 import {
   assertAllowedOrigin,
   json,
@@ -94,6 +95,26 @@ Deno.serve(async (request: Request) => {
 
     if (request.method === "GET" && path === "/api/v1/me") {
       return json({ admin }, 200, origin);
+    }
+
+    if (request.method === "GET" && path === "/api/v1/users") {
+      requirePermission(admin, "users.read.basic");
+      const query = parseUserDirectoryQuery(new URL(request.url));
+      const result = await store.listUsers(query);
+      return json(
+        {
+          items: result.items,
+          page: query.page,
+          pageSize: query.pageSize,
+          total: result.total,
+          freshness: {
+            status: "fresh",
+            asOfUtc: new Date().toISOString(),
+          },
+        },
+        200,
+        origin,
+      );
     }
 
     if (request.method === "GET" && path === "/api/v1/audit") {
