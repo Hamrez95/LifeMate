@@ -2,6 +2,9 @@
   "compilerOptions": {
     "strict": true
   },
+  "fmt": {
+    "exclude": ["directory_store.ts"]
+  },
   "imports": {
     "postgres": "npm:postgres@3.4.7"
   },
