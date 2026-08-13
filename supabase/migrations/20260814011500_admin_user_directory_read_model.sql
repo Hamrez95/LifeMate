@@ -1,4 +1,38 @@
 -- Approved non-health read model for ADM-USR-001.
+-- Restore an RLS path only for the exact non-health relations needed by the Admin API.
+
+do $$
+declare
+  v_target text;
+  v_schema text;
+  v_table text;
+begin
+  foreach v_target in array array[
+    'identity.accounts',
+    'identity.external_identities',
+    'core.account_person_links',
+    'core.person_profiles',
+    'ecosystem.applications',
+    'ecosystem.app_enrollments'
+  ] loop
+    v_schema := split_part(v_target, '.', 1);
+    v_table := split_part(v_target, '.', 2);
+    if to_regclass(v_target) is not null then
+      execute format(
+        'drop policy if exists lifemate_admin_runtime_select on %I.%I',
+        v_schema,
+        v_table
+      );
+      execute format(
+        'create policy lifemate_admin_runtime_select on %I.%I for select to lifemate_admin_runtime using (true)',
+        v_schema,
+        v_table
+      );
+    end if;
+  end loop;
+end
+$$;
+
 create or replace view admin.user_directory_v1
 with (security_invoker = true)
 as
@@ -32,6 +66,20 @@ left join lateral (
     where enrollment.account_id = a.id
 ) enrollments on true
 where a.status <> 'Deleted';
+
+revoke all on admin.user_directory_v1 from public;
+
+do $$
+declare
+  v_role text;
+begin
+  foreach v_role in array array['anon','authenticated'] loop
+    if exists (select 1 from pg_roles where rolname = v_role) then
+      execute format('revoke all on admin.user_directory_v1 from %I', v_role);
+    end if;
+  end loop;
+end
+$$;
 
 grant select on admin.user_directory_v1 to lifemate_admin_runtime;
 
