@@ -33,7 +33,6 @@ begin
     '91000000-0000-4000-8000-000000000001','security.roles.write'
   ) then raise exception 'Support obtained role administration'; end if;
 
-  -- Even Founder cannot receive raw health access through an ordinary role.
   if admin.account_has_permission(
     '91000000-0000-4000-8000-000000000002','health.read.elevated'
   ) then raise exception 'Founder role bypassed break-glass health access'; end if;
@@ -65,6 +64,23 @@ begin
      or has_table_privilege('lifemate_admin_runtime','admin.audit_events','TRUNCATE') then
     raise exception 'Admin runtime can mutate or erase audit history';
   end if;
+
+  if not has_table_privilege('lifemate_admin_runtime','admin.user_directory_v1','SELECT') then
+    raise exception 'Admin runtime cannot read approved user directory view';
+  end if;
+
+  if not exists (
+    select 1 from pg_policies
+    where schemaname='identity' and tablename='accounts'
+      and policyname='lifemate_admin_runtime_select'
+      and 'lifemate_admin_runtime'=any(roles)
+  ) then raise exception 'Admin runtime lacks identity account RLS read path'; end if;
+
+  if exists (
+    select 1 from pg_policies
+    where schemaname='identity' and tablename='contact_points'
+      and 'lifemate_admin_runtime'=any(roles)
+  ) then raise exception 'Admin runtime gained contact-point RLS access'; end if;
 
   if not (select relrowsecurity and relforcerowsecurity
           from pg_class c join pg_namespace n on n.oid=c.relnamespace

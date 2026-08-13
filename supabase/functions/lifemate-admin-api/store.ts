@@ -1,5 +1,7 @@
-import { type AdminSql, getAdminSql } from "./database_client.ts";
 import type { AdminCapabilitySnapshot } from "./authorization.ts";
+import { type AdminSql, getAdminSql } from "./database_client.ts";
+import type { UserDirectoryQuery } from "./directory.ts";
+import { listUserDirectory } from "./directory_store.ts";
 import { ApiError } from "./validation.ts";
 
 type Row = Record<string, unknown>;
@@ -199,5 +201,16 @@ export function createAdminStore(databaseUrl: string) {
     }));
   }
 
-  return { health, resolveAccountId, getSnapshot, bootstrapFounder, listAudit };
+  async function listUsers(query: UserDirectoryQuery) {
+    return await listUserDirectory(sql, query);
+  }
+
+  return {
+    health,
+    resolveAccountId,
+    getSnapshot,
+    bootstrapFounder,
+    listAudit,
+    listUsers,
+  };
 }
