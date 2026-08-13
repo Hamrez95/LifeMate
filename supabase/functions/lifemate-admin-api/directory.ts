@@ -15,7 +15,11 @@ export type UserDirectoryQuery = {
 };
 
 const ACCOUNT_STATUSES = new Set(["Active", "Disabled", "DeletionPending"]);
-const SORTS = new Set<UserDirectorySort>(["createdAt", "displayName", "lastActiveAt"]);
+const SORTS = new Set<UserDirectorySort>([
+  "createdAt",
+  "displayName",
+  "lastActiveAt",
+]);
 
 function optionalSearch(value: string | null): string | null {
   if (value == null) return null;
@@ -33,7 +37,11 @@ function optionalSearch(value: string | null): string | null {
 function optionalStatus(value: string | null): string | null {
   if (value == null || value === "") return null;
   if (!ACCOUNT_STATUSES.has(value)) {
-    throw new ApiError(400, "invalid_request", "Account status filter is invalid.");
+    throw new ApiError(
+      400,
+      "invalid_request",
+      "Account status filter is invalid.",
+    );
   }
   return value;
 }
@@ -41,7 +49,11 @@ function optionalStatus(value: string | null): string | null {
 function optionalApplication(value: string | null): string | null {
   if (value == null || value === "") return null;
   if (!/^[A-Za-z0-9_-]{1,64}$/.test(value)) {
-    throw new ApiError(400, "invalid_request", "Application filter is invalid.");
+    throw new ApiError(
+      400,
+      "invalid_request",
+      "Application filter is invalid.",
+    );
   }
   return value.toLowerCase();
 }
