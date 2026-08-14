@@ -1,0 +1,127 @@
+name: scale05-retention-patch
+
+on:
+  push:
+    branches: ['perf/scale-05-idempotency-retry']
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
+        with:
+          ref: perf/scale-05-idempotency-retry
+          fetch-depth: 0
+      - uses: denoland/setup-deno@22d081ff2d3a40755e97629de92e3bcbfa7cf2ed
+        with:
+          deno-version: v2.9.4
+      - name: Make expiry exact without cleanup on every mutation
+        shell: python
+        run: |
+          from pathlib import Path
+
+          path = Path('supabase/functions/lifemate-api/idempotency.ts')
+          text = path.read_text()
+          old_cleanup = '''    // Keep physical retention bounded without a separate scheduler. The expiry
+              // index makes this a small opportunistic cleanup on ordinary mutations.
+              await sql`
+                delete from lifemate.idempotency_keys
+                where ctid in (
+                  select ctid
+                  from lifemate.idempotency_keys
+                  where expires_at_utc <= now()
+                  order by expires_at_utc
+                  limit 100
+                )
+              `;
+          '''
+          new_cleanup = '''    // Reclaim expired rows in small sampled batches so retention stays bounded
+              // without adding a cleanup query to every healthcare mutation. Exact-key
+              // expiry is handled atomically by the claim below.
+              if (Number.parseInt(hash.slice(0, 2), 16) < 4) {
+                await sql`
+                  delete from lifemate.idempotency_keys
+                  where ctid in (
+                    select ctid
+                    from lifemate.idempotency_keys
+                    where expires_at_utc <= now()
+                    order by expires_at_utc
+                    limit 100
+                  )
+                `;
+              }
+          '''
+          if old_cleanup not in text:
+              raise SystemExit('cleanup block not found')
+          text = text.replace(old_cleanup, new_cleanup, 1)
+
+          old_conflict = '''      on conflict (actor_auth_subject, operation, idempotency_key)
+                do nothing
+                returning actor_auth_subject
+          '''
+          new_conflict = '''      on conflict (actor_auth_subject, operation, idempotency_key)
+                do update set
+                  request_hash = excluded.request_hash,
+                  status = 'Processing',
+                  response_status = null,
+                  response_body = null,
+                  created_at_utc = excluded.created_at_utc,
+                  updated_at_utc = excluded.updated_at_utc,
+                  expires_at_utc = excluded.expires_at_utc
+                where lifemate.idempotency_keys.expires_at_utc <= now()
+                returning actor_auth_subject
+          '''
+          if old_conflict not in text:
+              raise SystemExit('claim conflict block not found')
+          path.write_text(text.replace(old_conflict, new_conflict, 1))
+
+          test_path = Path('supabase/functions/lifemate-api/idempotency_integration_test.ts')
+          test = test_path.read_text()
+          marker = '''      assertEquals(conflict.code, "idempotency_key_reused");
+
+              let signalStarted!: () => void;
+          '''
+          insertion = '''      assertEquals(conflict.code, "idempotency_key_reused");
+
+              await sql`
+                update lifemate.idempotency_keys
+                set expires_at_utc = now() - interval '1 second'
+                where actor_auth_subject = ${actor}::uuid
+                  and operation = ${operation}
+                  and idempotency_key = ${replayKey}
+              `;
+              const afterExpiry = await store.execute(
+                actor,
+                operation,
+                replayKey,
+                '{"dose":"1000"}',
+                async () => {
+                  sideEffects += 1;
+                  return json({ id: "resource-2", version: 1 }, 201);
+                },
+              );
+              assertEquals(await afterExpiry.json(), { id: "resource-2", version: 1 });
+              assertEquals(sideEffects, 2);
+
+              let signalStarted!: () => void;
+          '''
+          if marker not in test:
+              raise SystemExit('integration insertion marker not found')
+          test_path.write_text(test.replace(marker, insertion, 1))
+      - name: Format and commit
+        shell: bash
+        run: |
+          set -euo pipefail
+          deno fmt \
+            supabase/functions/lifemate-api/idempotency.ts \
+            supabase/functions/lifemate-api/idempotency_integration_test.ts
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add supabase/functions/lifemate-api/idempotency.ts \
+                  supabase/functions/lifemate-api/idempotency_integration_test.ts
+          git commit -m 'perf(scale): make idempotency expiry exact and sampled'
+          git push origin HEAD:perf/scale-05-idempotency-retry
