@@ -13,6 +13,9 @@ import {
 } from "./http.ts";
 import { loadRuntimeConfig } from "./runtime_config.ts";
 import { createAdminStore } from "./store.ts";
+import { matchUserDetailPath } from "./user_detail.ts";
+import { getUserDetailSectionPermissions } from "./user_detail_permissions.ts";
+import { createUserDetailStore } from "./user_detail_store.ts";
 import {
   ApiError,
   boundedInteger,
@@ -22,6 +25,31 @@ import {
 
 const config = await loadRuntimeConfig();
 const store = createAdminStore(config.databaseUrl);
+const userDetailStore = createUserDetailStore(config.databaseUrl);
+
+async function optionalSection<T>(
+  allowed: boolean,
+  load: () => Promise<T>,
+  isEmpty: (value: T) => boolean,
+  correlationId: string,
+  section: string,
+) {
+  if (!allowed) return { state: "forbidden" as const };
+
+  try {
+    const data = await load();
+    return isEmpty(data)
+      ? { state: "empty" as const }
+      : { state: "ready" as const, data };
+  } catch (error) {
+    console.warn("LifeMate Admin optional User 360 section unavailable", {
+      correlationId,
+      section,
+      ...safeError(error),
+    });
+    return { state: "unavailable" as const };
+  }
+}
 
 Deno.serve(async (request: Request) => {
   const correlationId = crypto.randomUUID();
@@ -107,6 +135,77 @@ Deno.serve(async (request: Request) => {
           page: query.page,
           pageSize: query.pageSize,
           total: result.total,
+          freshness: {
+            status: "fresh",
+            asOfUtc: new Date().toISOString(),
+          },
+        },
+        200,
+        origin,
+      );
+    }
+
+    const detailAccountId = matchUserDetailPath(path);
+    if (request.method === "GET" && detailAccountId) {
+      requirePermission(admin, "users.read.basic");
+      const base = await userDetailStore.getBase(detailAccountId);
+      if (!base) {
+        throw new ApiError(404, "user_not_found", "User was not found.");
+      }
+
+      const permissions = getUserDetailSectionPermissions(admin.permissions);
+      const personId = base.person?.id ?? null;
+      const [products, commerce, relationships, adminActivity] =
+        await Promise.all([
+          optionalSection(
+            true,
+            () => userDetailStore.listEnrollments(detailAccountId),
+            (value) => value.length === 0,
+            correlationId,
+            "products",
+          ),
+          optionalSection(
+            permissions.commerce,
+            () => userDetailStore.getCommerce(detailAccountId, personId),
+            (value) =>
+              value.subscriptions.length === 0 &&
+              value.entitlements.length === 0,
+            correlationId,
+            "commerce",
+          ),
+          optionalSection(
+            permissions.relationships,
+            () => userDetailStore.getRelationships(personId),
+            (value) => value.length === 0,
+            correlationId,
+            "relationships",
+          ),
+          optionalSection(
+            permissions.adminActivity,
+            () => userDetailStore.getAdminActivity(detailAccountId),
+            (value) => value.total === 0,
+            correlationId,
+            "adminActivity",
+          ),
+        ]);
+
+      return json(
+        {
+          account: {
+            state: "ready",
+            data: {
+              id: base.accountId,
+              status: base.status,
+              createdAtUtc: base.createdAtUtc,
+            },
+          },
+          person: base.person
+            ? { state: "ready", data: base.person }
+            : { state: "empty" },
+          products,
+          commerce,
+          relationships,
+          adminActivity,
           freshness: {
             status: "fresh",
             asOfUtc: new Date().toISOString(),
