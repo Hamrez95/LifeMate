@@ -19,6 +19,7 @@ import {
 } from "./profile_photo.ts";
 import { createWomenCalendarStore } from "./women_calendar.ts";
 import { loadRuntimeConfig } from "./runtime_config.ts";
+import { createRequestRateLimiterFromEnvironment } from "./rate_limit.ts";
 import { enforceRateLimit } from "./security.ts";
 import {
   ApiError,
@@ -57,6 +58,7 @@ const womenCalendar = createWomenCalendarStore(databaseUrl);
 const womenCalendarPilotEnabled =
   (Deno.env.get("ENABLE_WOMEN_CALENDAR_PILOT") ?? "true").toLowerCase() !==
     "false";
+const requestRateLimiter = createRequestRateLimiterFromEnvironment();
 
 Deno.serve(async (request: Request) => {
   const correlationId = crypto.randomUUID();
@@ -91,6 +93,7 @@ Deno.serve(async (request: Request) => {
 
   try {
     const auth = await authenticate(request);
+    await requestRateLimiter.enforce(request.method, path, auth.id);
     return await route(request, path, auth);
   } catch (error) {
     if (error instanceof ApiError) {
