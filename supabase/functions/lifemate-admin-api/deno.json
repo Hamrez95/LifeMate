@@ -9,7 +9,7 @@
     "postgres": "npm:postgres@3.4.7"
   },
   "tasks": {
-    "check": "deno check index.ts auth_test.ts authorization_test.ts runtime_config_test.ts validation_test.ts directory_test.ts user_detail_test.ts user_detail_permissions_test.ts analytics_catalog_test.ts analytics_kpis_test.ts",
-    "test": "deno test --no-check auth_test.ts authorization_test.ts runtime_config_test.ts validation_test.ts directory_test.ts user_detail_test.ts user_detail_permissions_test.ts analytics_catalog_test.ts analytics_kpis_test.ts"
+    "check": "deno check index.ts auth_test.ts authorization_test.ts runtime_config_test.ts validation_test.ts directory_test.ts user_detail_test.ts user_detail_permissions_test.ts analytics_catalog_test.ts analytics_kpis_test.ts relationships_test.ts",
+    "test": "deno test --no-check auth_test.ts authorization_test.ts runtime_config_test.ts validation_test.ts directory_test.ts user_detail_test.ts user_detail_permissions_test.ts analytics_catalog_test.ts analytics_kpis_test.ts relationships_test.ts"
   }
 }
