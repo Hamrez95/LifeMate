@@ -36,8 +36,8 @@ Deno.test({
           (${caregiverUserId}::uuid,${crypto.randomUUID()},'Active',now(),now())
       `;
 
-      -- Remove the bootstrap same-ID compatibility projection so every tested
-      -- trigger must use the explicit provider-agnostic bridge below.
+      // Remove the bootstrap same-ID compatibility projection so every tested
+      // trigger must use the explicit provider-agnostic bridge below.
       await sql`
         delete from commerce.entitlements
         where grantee_account_id in (${patientUserId}::uuid,${caregiverUserId}::uuid)
@@ -92,8 +92,8 @@ Deno.test({
         )
       `;
 
-      -- owner_person_id is intentionally omitted; BEFORE INSERT compatibility
-      -- logic must resolve it through Account -> Self Person.
+      // owner_person_id is intentionally omitted; BEFORE INSERT compatibility
+      // logic must resolve it through Account -> Self Person.
       await sql`
         insert into lifemate.medications(
           id,owner_user_id,name,version,created_at_utc,updated_at_utc
