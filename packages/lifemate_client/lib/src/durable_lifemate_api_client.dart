@@ -25,12 +25,12 @@ class DurableLifeMateApiClient extends LifeMateApiClient {
     required Uri baseUri,
     required AccessTokenProvider accessToken,
     required LifeMateDurableHttpClient durableHttp,
-  }) : _durableHttp = durableHttp,
-       super(
-         baseUri: baseUri,
-         accessToken: accessToken,
-         httpClient: durableHttp,
-       );
+  })  : _durableHttp = durableHttp,
+        super(
+          baseUri: baseUri,
+          accessToken: accessToken,
+          httpClient: durableHttp,
+        );
 
   factory DurableLifeMateApiClient({
     required Uri baseUri,

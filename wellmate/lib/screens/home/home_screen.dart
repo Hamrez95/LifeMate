@@ -150,14 +150,16 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
 
   Future<bool> _reportMissedItemFromHeader(ScheduleItemModel item) async {
     try {
+      var pendingSync = false;
       if (item.type == 'medicine') {
-        await context.read<LifeMateApiClient>().reportDose(
+        final result = await context.read<LifeMateApiClient>().reportDose(
           occurrenceId: item.id,
           clientRequestId: LifeMateApiClient.createClientRequestId(),
           version: item.version,
           status: 'taken',
           occurredAtUtc: DateTime.now().toUtc(),
         );
+        pendingSync = result['pendingSync'] == true;
       } else {
         final eventId = item.seriesId ?? item.id;
         if (item.seriesId != null && item.id != item.seriesId) {
@@ -191,7 +193,12 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
-            item.type == 'medicine'
+            pendingSync
+                ? LifeMateRuntimeLocale.select(
+                    fa: '${item.title} روی گوشی ذخیره شد و بعد از اتصال اینترنت همگام می‌شود.',
+                    en: '${item.title} was saved on this device and will sync when you reconnect.',
+                  )
+                : item.type == 'medicine'
                 ? LifeMateRuntimeLocale.select(
                     fa: LifeMateRuntimeLocale.select(
                       fa: '${item.title} به عنوان مصرف‌شده ثبت شد.',

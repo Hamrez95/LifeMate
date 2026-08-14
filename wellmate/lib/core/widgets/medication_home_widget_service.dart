@@ -425,7 +425,7 @@ FutureOr<void> medicationHomeWidgetBackgroundCallback(Uri? data) async {
     ),
   );
 
-  LifeMateApiClient? api;
+  DurableLifeMateApiClient? api;
   try {
     final config = AppConfig.fromEnvironment();
     if (!config.isConfigured) {
@@ -443,7 +443,8 @@ FutureOr<void> medicationHomeWidgetBackgroundCallback(Uri? data) async {
 
     await LifeMateBootstrap.initialize(config);
     var accessToken = await LifeMateAuth.getValidAccessToken();
-    if (accessToken == null || accessToken.isEmpty) {
+    final accountId = LifeMateAuth.currentAccountId;
+    if (accessToken == null || accessToken.isEmpty || accountId == null) {
       await _setWidgetActionMessage(
         LifeMateRuntimeLocale.select(
           fa: LifeMateRuntimeLocale.select(
@@ -456,18 +457,18 @@ FutureOr<void> medicationHomeWidgetBackgroundCallback(Uri? data) async {
       return;
     }
 
-    LifeMateApiClient buildApi(String token) => LifeMateApiClient(
+    DurableLifeMateApiClient buildApi(String token) => DurableLifeMateApiClient(
       baseUri: config.apiBaseUri,
-      // Capture the token returned by the validated/refresh path instead of
-      // reading the session singleton again from a cold background isolate.
       accessToken: () => token,
+      accountId: () => LifeMateAuth.currentAccountId,
     );
 
     api = buildApi(accessToken);
     final clientRequestId = LifeMateApiClient.createClientRequestId();
+    Map<String, dynamic> result;
 
     try {
-      await api.reportDose(
+      result = await api.reportDose(
         occurrenceId: occurrenceId,
         clientRequestId: clientRequestId,
         version: version,
@@ -482,7 +483,7 @@ FutureOr<void> medicationHomeWidgetBackgroundCallback(Uri? data) async {
       accessToken = refreshedToken;
       api.close();
       api = buildApi(accessToken);
-      await api.reportDose(
+      result = await api.reportDose(
         occurrenceId: occurrenceId,
         clientRequestId: clientRequestId,
         version: version,
@@ -495,6 +496,17 @@ FutureOr<void> medicationHomeWidgetBackgroundCallback(Uri? data) async {
       _lastCompletedOccurrenceKey,
       occurrenceId,
     );
+    final pendingSync = result['pendingSync'] == true;
+    if (pendingSync) {
+      await _setWidgetActionMessage(
+        LifeMateRuntimeLocale.select(
+          fa: 'روی گوشی ذخیره شد؛ منتظر همگام‌سازی',
+          en: 'Saved on device; waiting to sync',
+        ),
+      );
+      return;
+    }
+
     await _setWidgetActionMessage(
       LifeMateRuntimeLocale.select(
         fa: LifeMateRuntimeLocale.select(fa: 'ثبت شد ✓', en: "Saved ✓"),

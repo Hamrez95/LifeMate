@@ -13,7 +13,8 @@ class _MemoryStorage implements LifeMateMutationStorage {
   Future<String?> read(String key) async => values[key];
 
   @override
-  Future<Map<String, String>> readAll() async => Map<String, String>.from(values);
+  Future<Map<String, String>> readAll() async =>
+      Map<String, String>.from(values);
 
   @override
   Future<void> write(String key, String value) async {
@@ -27,8 +28,8 @@ class _MemoryStorage implements LifeMateMutationStorage {
 }
 
 Uri _doseUri(String id) => Uri.parse(
-  'https://api.example.test/api/v1/dose-occurrences/$id/report',
-);
+      'https://api.example.test/api/v1/dose-occurrences/$id/report',
+    );
 
 void main() {
   test('queue deduplicates the same account + request id mutation', () async {
@@ -53,7 +54,8 @@ void main() {
     expect(await queue.pendingCount('account-a'), 1);
   });
 
-  test('concurrent queue writes are serialized without lost mutations', () async {
+  test('concurrent queue writes are serialized without lost mutations',
+      () async {
     final queue = LifeMateOfflineMutationQueue(storage: _MemoryStorage());
     await Future.wait([
       for (var i = 0; i < 12; i++)
@@ -119,7 +121,8 @@ void main() {
     expect(await queue.pendingCount('account-b'), 1);
   });
 
-  test('transport journals an idempotent dose action then replays it', () async {
+  test('transport journals an idempotent dose action then replays it',
+      () async {
     final queue = LifeMateOfflineMutationQueue(storage: _MemoryStorage());
     var online = false;
     final seen = <http.Request>[];
@@ -164,7 +167,8 @@ void main() {
     expect(seen.last.headers['x-lifemate-replay'], '1');
   });
 
-  test('expired session keeps the queued action until a fresh token succeeds', () async {
+  test('expired session keeps the queued action until a fresh token succeeds',
+      () async {
     final queue = LifeMateOfflineMutationQueue(storage: _MemoryStorage());
     await queue.enqueue(
       accountId: 'account-a',
@@ -201,7 +205,8 @@ void main() {
     expect(await queue.pendingCount('account-a'), 0);
   });
 
-  test('replay stops before another item when authenticated account changes', () async {
+  test('replay stops before another item when authenticated account changes',
+      () async {
     final queue = LifeMateOfflineMutationQueue(storage: _MemoryStorage());
     for (var i = 0; i < 2; i++) {
       await queue.enqueue(
@@ -262,7 +267,8 @@ void main() {
     expect(await queue.pendingCount('account-a'), 0);
   });
 
-  test('ordinary non-idempotent writes are never queued automatically', () async {
+  test('ordinary non-idempotent writes are never queued automatically',
+      () async {
     final queue = LifeMateOfflineMutationQueue(storage: _MemoryStorage());
     final durable = LifeMateDurableHttpClient(
       apiBaseUri: Uri.parse('https://api.example.test'),
@@ -285,7 +291,8 @@ void main() {
     expect(await queue.pendingCount('account-a'), 0);
   });
 
-  test('durable API projects an offline queued dose as pending state', () async {
+  test('durable API projects an offline queued dose as pending state',
+      () async {
     final queue = LifeMateOfflineMutationQueue(storage: _MemoryStorage());
     final api = DurableLifeMateApiClient(
       baseUri: Uri.parse('https://api.example.test'),

@@ -11,6 +11,11 @@ class LifeMateAuth {
   static String? get currentAccessToken =>
       Supabase.instance.client.auth.currentSession?.accessToken;
 
+  /// Auth account scope used only to isolate local encrypted queue entries.
+  /// It is never persisted as healthcare ownership or a Person identifier.
+  static String? get currentAccountId =>
+      Supabase.instance.client.auth.currentUser?.id;
+
   /// Returns an access token that is valid for an immediate authenticated API
   /// call. Supabase Flutter restores a persisted session before an automatic
   /// refresh is guaranteed, which matters for Android widget background
