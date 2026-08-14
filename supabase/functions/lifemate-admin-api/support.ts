@@ -51,7 +51,11 @@ function optionalSearch(value: string | null): string | null {
     normalized.length > 120 ||
     /[\u0000-\u001f\u007f]/.test(normalized)
   ) {
-    throw new ApiError(400, "invalid_request", "Support search query is invalid.");
+    throw new ApiError(
+      400,
+      "invalid_request",
+      "Support search query is invalid.",
+    );
   }
   return normalized;
 }
