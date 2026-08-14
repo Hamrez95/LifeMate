@@ -5,6 +5,8 @@ import { createAnalyticsKpiStore } from "./analytics_kpi_service.ts";
 import { parseAnalyticsKpiQuery } from "./analytics_kpis.ts";
 import { authenticate, requireAal2 } from "./auth.ts";
 import { requirePermission } from "./authorization.ts";
+import { parseCommerceOverviewQuery } from "./commerce.ts";
+import { createCommerceOverviewStore } from "./commerce_service.ts";
 import { isPostgresUnavailable } from "./database_client.ts";
 import { parseUserDirectoryQuery } from "./directory.ts";
 import {
@@ -56,6 +58,7 @@ const store = createAdminStore(config.databaseUrl);
 const userDetailStore = createUserDetailStore(config.databaseUrl);
 const userAccountActionStore = createUserAccountActionStore(config.databaseUrl);
 const analyticsKpiStore = createAnalyticsKpiStore(config.databaseUrl);
+const commerceOverviewStore = createCommerceOverviewStore(config.databaseUrl);
 const relationshipOverviewStore = createRelationshipOverviewStore(
   config.databaseUrl,
 );
@@ -178,6 +181,29 @@ Deno.serve(async (request: Request) => {
           query,
           values: await analyticsKpiStore.getValues(query),
           generatedAtUtc: new Date().toISOString(),
+        },
+        200,
+        origin,
+      );
+    }
+
+    if (request.method === "GET" && path === "/api/v1/commerce/overview") {
+      requirePermission(admin, "commerce.read");
+      const query = parseCommerceOverviewQuery(new URL(request.url));
+      const result = await commerceOverviewStore.getOverview(query);
+      return json(
+        {
+          ...result,
+          page: query.page,
+          pageSize: query.pageSize,
+          filters: {
+            product: query.product,
+            status: query.status,
+          },
+          freshness: {
+            status: "fresh",
+            asOfUtc: new Date().toISOString(),
+          },
         },
         200,
         origin,
