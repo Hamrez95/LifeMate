@@ -14,6 +14,8 @@ import {
   problem,
   safeError,
 } from "./http.ts";
+import { parseRelationshipLedgerQuery } from "./relationship_ledger.ts";
+import { createRelationshipLedgerStore } from "./relationship_ledger_service.ts";
 import { createRelationshipOverviewStore } from "./relationship_overview_service.ts";
 import { parseRelationshipOverviewQuery } from "./relationships.ts";
 import { loadRuntimeConfig } from "./runtime_config.ts";
@@ -33,6 +35,9 @@ const store = createAdminStore(config.databaseUrl);
 const userDetailStore = createUserDetailStore(config.databaseUrl);
 const analyticsKpiStore = createAnalyticsKpiStore(config.databaseUrl);
 const relationshipOverviewStore = createRelationshipOverviewStore(
+  config.databaseUrl,
+);
+const relationshipLedgerStore = createRelationshipLedgerStore(
   config.databaseUrl,
 );
 
@@ -168,6 +173,34 @@ Deno.serve(async (request: Request) => {
           filters: {
             kind: query.kind,
             status: query.status,
+          },
+          freshness: {
+            status: "fresh",
+            asOfUtc: new Date().toISOString(),
+          },
+        },
+        200,
+        origin,
+      );
+    }
+
+    if (
+      request.method === "GET" &&
+      path === "/api/v1/relationships/ledger"
+    ) {
+      requirePermission(admin, "relationships.read");
+      const query = parseRelationshipLedgerQuery(new URL(request.url));
+      const result = await relationshipLedgerStore.getLedger(query);
+      return json(
+        {
+          ...result,
+          page: query.page,
+          pageSize: query.pageSize,
+          filters: {
+            kind: query.kind,
+            status: query.status,
+            from: query.from,
+            to: query.to,
           },
           freshness: {
             status: "fresh",
