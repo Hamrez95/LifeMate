@@ -29,7 +29,7 @@ Deno.test("Edge database client uses one bounded connection and query timeouts",
   assertEquals(options.connect_timeout, 10);
   assertEquals(options.max_lifetime, 600);
   assertEquals(options.connection.application_name, "lifemate-api-test");
-  assertEquals(options.connection.statement_timeout, "5000");
-  assertEquals(options.connection.lock_timeout, "2000");
-  assertEquals(options.connection.idle_in_transaction_session_timeout, "5000");
+  assertEquals(options.connection.statement_timeout, 5000);
+  assertEquals(options.connection.lock_timeout, 2000);
+  assertEquals(options.connection.idle_in_transaction_session_timeout, 5000);
 });
