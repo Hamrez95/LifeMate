@@ -107,7 +107,9 @@ function positiveIntegerEnv(name: string, fallback: number): number {
   if (!raw) return fallback;
   const parsed = Number(raw);
   if (!Number.isSafeInteger(parsed) || parsed <= 0 || parsed > 10_000) {
-    throw new Error(`${name} must be a positive integer no greater than 10000.`);
+    throw new Error(
+      `${name} must be a positive integer no greater than 10000.`,
+    );
   }
   return parsed;
 }
