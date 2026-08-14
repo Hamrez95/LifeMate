@@ -1,4 +1,4 @@
-import { getAdminSql, type AdminSql } from "./database_client.ts";
+import { type AdminSql, getAdminSql } from "./database_client.ts";
 import type { CommerceOverviewQuery } from "./commerce.ts";
 
 function iso(value: unknown): string {
@@ -308,16 +308,23 @@ export function createCommerceOverviewStore(databaseUrl: string) {
   const sql = getAdminSql(databaseUrl);
   return {
     async getOverview(query: CommerceOverviewQuery) {
-      const [summary, products, planDistribution, entitlementCoverage, renewals, expiries, subscriptions] =
-        await Promise.all([
-          getSummary(sql, query.product),
-          listProducts(sql),
-          getPlanDistribution(sql, query.product),
-          getEntitlementCoverage(sql, query.product),
-          getRenewalHighlights(sql, query.product),
-          getEntitlementExpiryHighlights(sql, query.product),
-          listSubscriptions(sql, query),
-        ]);
+      const [
+        summary,
+        products,
+        planDistribution,
+        entitlementCoverage,
+        renewals,
+        expiries,
+        subscriptions,
+      ] = await Promise.all([
+        getSummary(sql, query.product),
+        listProducts(sql),
+        getPlanDistribution(sql, query.product),
+        getEntitlementCoverage(sql, query.product),
+        getRenewalHighlights(sql, query.product),
+        getEntitlementExpiryHighlights(sql, query.product),
+        listSubscriptions(sql, query),
+      ]);
 
       return {
         summary,
