@@ -50,12 +50,17 @@ sign_in() {
     | jq -er '.access_token'
 }
 
+uuid() {
+  cat /proc/sys/kernel/random/uuid
+}
+
 request() {
   local method="$1"
   local token="$2"
   local path="$3"
   local body="${4:-}"
   local expected_status="$5"
+  local idempotency_key="${6:-}"
   local response_file
   local status
   response_file="$(mktemp)"
@@ -73,6 +78,14 @@ request() {
   if [[ -n "$body" ]]; then
     args+=(--header 'Content-Type: application/json' --data "$body")
   fi
+  case "$method" in
+    POST|PATCH|PUT|DELETE)
+      if [[ -z "$idempotency_key" ]]; then
+        idempotency_key="$(uuid)"
+      fi
+      args+=(--header "Idempotency-Key: $idempotency_key")
+      ;;
+  esac
 
   status="$(curl "${args[@]}" "$API_BASE$path")"
   RESPONSE_BODY="$(cat "$response_file")"
@@ -85,10 +98,6 @@ request() {
     fi
     exit 1
   fi
-}
-
-uuid() {
-  cat /proc/sys/kernel/random/uuid
 }
 
 bootstrap() {
@@ -178,36 +187,38 @@ REPORT_BODY="$(jq -cn \
   --argjson version "$PATIENT_VERSION" \
   '{clientRequestId:$requestId,version:$version,status:"taken",occurredAtUtc:$occurredAt}')"
 
-request POST "$PATIENT_TOKEN" "/api/v1/dose-occurrences/$PATIENT_OCCURRENCE_ID/report" "$REPORT_BODY" 200
+request POST "$PATIENT_TOKEN" "/api/v1/dose-occurrences/$PATIENT_OCCURRENCE_ID/report" "$REPORT_BODY" 200 "$SHARED_REQUEST_ID"
 [[ "$(echo "$RESPONSE_BODY" | jq -r '.status')" == 'taken' ]]
-request POST "$PATIENT_TOKEN" "/api/v1/dose-occurrences/$PATIENT_OCCURRENCE_ID/report" "$REPORT_BODY" 200
+request POST "$PATIENT_TOKEN" "/api/v1/dose-occurrences/$PATIENT_OCCURRENCE_ID/report" "$REPORT_BODY" 200 "$SHARED_REQUEST_ID"
 [[ "$(echo "$RESPONSE_BODY" | jq -r '.id')" == "$PATIENT_OCCURRENCE_ID" ]]
 
-request POST "$UNRELATED_TOKEN" "/api/v1/dose-occurrences/$PATIENT_OCCURRENCE_ID/report" "$REPORT_BODY" 404
+request POST "$UNRELATED_TOKEN" "/api/v1/dose-occurrences/$PATIENT_OCCURRENCE_ID/report" "$REPORT_BODY" 404 "$SHARED_REQUEST_ID"
 
 UNRELATED_OCCURRENCE="$(create_occurrence "$UNRELATED_TOKEN" "داروی تست نامرتبط $RUN_SUFFIX" "$LOCAL_DATE" "$WEEKDAY" "$LOCAL_TIME")"
 UNRELATED_OCCURRENCE_ID="$(echo "$UNRELATED_OCCURRENCE" | jq -er '.id')"
 UNRELATED_VERSION="$(echo "$UNRELATED_OCCURRENCE" | jq -er '.version')"
 UNRELATED_REPORT_BODY="$(echo "$REPORT_BODY" | jq --argjson version "$UNRELATED_VERSION" '.version=$version')"
-request POST "$UNRELATED_TOKEN" "/api/v1/dose-occurrences/$UNRELATED_OCCURRENCE_ID/report" "$UNRELATED_REPORT_BODY" 200
+request POST "$UNRELATED_TOKEN" "/api/v1/dose-occurrences/$UNRELATED_OCCURRENCE_ID/report" "$UNRELATED_REPORT_BODY" 200 "$SHARED_REQUEST_ID"
 
 INVITATION_BODY="$(jq -cn --arg contact "$CAREGIVER_EMAIL" '{contactType:"email",contact:$contact,consentVersion:"care-patient-consent-v1",confirmConsent:true}')"
 request POST "$PATIENT_TOKEN" '/api/v1/care/invitations' "$INVITATION_BODY" 201
 INVITATION_TOKEN="$(echo "$RESPONSE_BODY" | jq -er '.token')"
 ACCEPT_BODY="$(jq -cn --arg token "$INVITATION_TOKEN" '{token:$token,consentVersion:"care-caregiver-consent-v1",confirmConsent:true}')"
+ACCEPT_REQUEST_ID="$(uuid)"
 
-request POST "$UNRELATED_TOKEN" '/api/v1/care/invitations/accept' "$ACCEPT_BODY" 403
-request POST "$CAREGIVER_TOKEN" '/api/v1/care/invitations/accept' "$ACCEPT_BODY" 200
+request POST "$UNRELATED_TOKEN" '/api/v1/care/invitations/accept' "$ACCEPT_BODY" 403 "$ACCEPT_REQUEST_ID"
+request POST "$CAREGIVER_TOKEN" '/api/v1/care/invitations/accept' "$ACCEPT_BODY" 200 "$ACCEPT_REQUEST_ID"
 RELATIONSHIP_ID="$(echo "$RESPONSE_BODY" | jq -er '.id')"
-request POST "$CAREGIVER_TOKEN" '/api/v1/care/invitations/accept' "$ACCEPT_BODY" 200
+request POST "$CAREGIVER_TOKEN" '/api/v1/care/invitations/accept' "$ACCEPT_BODY" 200 "$ACCEPT_REQUEST_ID"
 [[ "$(echo "$RESPONSE_BODY" | jq -r '.id')" == "$RELATIONSHIP_ID" ]]
 
 request GET "$CAREGIVER_TOKEN" "/api/v1/care/patients/$PATIENT_ID/dose-occurrences?fromDate=$LOCAL_DATE&toDate=$LOCAL_DATE" '' 200
 echo "$RESPONSE_BODY" | jq -e --arg occurrenceId "$PATIENT_OCCURRENCE_ID" '.[] | select(.id == $occurrenceId and .status == "taken")' >/dev/null
 request GET "$UNRELATED_TOKEN" "/api/v1/care/patients/$PATIENT_ID/dose-occurrences?fromDate=$LOCAL_DATE&toDate=$LOCAL_DATE" '' 403
 
-request DELETE "$PATIENT_TOKEN" "/api/v1/care/relationships/$RELATIONSHIP_ID" '' 204
-request DELETE "$PATIENT_TOKEN" "/api/v1/care/relationships/$RELATIONSHIP_ID" '' 204
+RELATIONSHIP_DELETE_KEY="$(uuid)"
+request DELETE "$PATIENT_TOKEN" "/api/v1/care/relationships/$RELATIONSHIP_ID" '' 204 "$RELATIONSHIP_DELETE_KEY"
+request DELETE "$PATIENT_TOKEN" "/api/v1/care/relationships/$RELATIONSHIP_ID" '' 204 "$RELATIONSHIP_DELETE_KEY"
 request GET "$CAREGIVER_TOKEN" "/api/v1/care/patients/$PATIENT_ID/dose-occurrences?fromDate=$LOCAL_DATE&toDate=$LOCAL_DATE" '' 403
 
 request GET "$PATIENT_TOKEN" '/api/v1/medications' '' 200
