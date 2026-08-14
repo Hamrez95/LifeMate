@@ -171,7 +171,8 @@ export function createMutationIdempotencyStore(databaseUrl: string) {
     const completed = await sql`
       update lifemate.idempotency_keys
       set status = 'Completed', response_status = ${response.status},
-          response_body = ${storedBody}, updated_at_utc = now()
+          response_body = ${storedBody.length === 0 ? null : storedBody},
+          updated_at_utc = now()
       where actor_auth_subject = ${actorAuthSubject}::uuid
         and operation = ${operation}
         and idempotency_key = ${idempotencyKey}
