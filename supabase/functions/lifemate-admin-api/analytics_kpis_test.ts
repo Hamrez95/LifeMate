@@ -31,6 +31,18 @@ Deno.test("analytics KPI query accepts explicit bounded filters", () => {
   });
 });
 
+Deno.test("analytics KPI query recognizes every approved product", () => {
+  for (const product of ["wellmate", "caremate", "women_health"] as const) {
+    const result = parseAnalyticsKpiQuery(
+      new URL(
+        `https://admin.example/api/v1/analytics/kpis?from=2026-08-01&to=2026-08-14&product=${product}`,
+      ),
+      NOW,
+    );
+    assertEquals(result.product, product);
+  }
+});
+
 Deno.test("analytics KPI query rejects inverted or oversized ranges", () => {
   assertThrows(
     () =>
