@@ -1,4 +1,7 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:lifemate_client/lifemate_client.dart';
 
 import 'profile_theme.dart';
@@ -196,6 +199,34 @@ class LifeMateSharedProfileScreen extends StatelessWidget {
               Padding(
                 padding: EdgeInsets.symmetric(horizontal: 24, vertical: 8),
                 child: OutlinedButton.icon(
+                  key: ValueKey('${appName.toLowerCase()}-data-export'),
+                  style: OutlinedButton.styleFrom(
+                    minimumSize: Size.fromHeight(52),
+                    foregroundColor: theme.accent,
+                    side: BorderSide(
+                      color: theme.accent.withValues(alpha: 0.24),
+                    ),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(18),
+                    ),
+                  ),
+                  icon: Icon(Icons.download_for_offline_outlined),
+                  label: Text(
+                    LifeMateRuntimeLocale.select(
+                      fa: 'دریافت نسخه‌ای از داده‌های من',
+                      en: 'Export my data',
+                    ),
+                    style: TextStyle(
+                      fontFamily: fontFamily,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                  onPressed: () => _exportPersonalData(context),
+                ),
+              ),
+              Padding(
+                padding: EdgeInsets.symmetric(horizontal: 24, vertical: 8),
+                child: OutlinedButton.icon(
                   key: ValueKey('${appName.toLowerCase()}-account-deletion'),
                   style: OutlinedButton.styleFrom(
                     minimumSize: Size.fromHeight(52),
@@ -281,6 +312,94 @@ class LifeMateSharedProfileScreen extends StatelessWidget {
         ),
       ),
     );
+  }
+
+  Future<void> _exportPersonalData(BuildContext context) async {
+    showDialog<void>(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) => const Center(child: CircularProgressIndicator()),
+    );
+    try {
+      final exported = await apiClient.exportAccountData();
+      final encoded = const JsonEncoder.withIndent('  ').convert(exported);
+      if (context.mounted) Navigator.of(context, rootNavigator: true).pop();
+      if (!context.mounted) return;
+      await showDialog<void>(
+        context: context,
+        builder: (dialogContext) => AlertDialog(
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(24),
+          ),
+          title: Text(
+            LifeMateRuntimeLocale.select(
+              fa: 'خروجی داده‌ها آماده است',
+              en: 'Your data export is ready',
+            ),
+            style: TextStyle(
+              fontFamily: fontFamily,
+              fontWeight: FontWeight.w900,
+            ),
+          ),
+          content: Text(
+            LifeMateRuntimeLocale.select(
+              fa: 'این فایل متنی شامل اطلاعات شخصی و سلامت شماست. فقط در محل امن نگهش دارید. با انتخاب «کپی JSON»، کل خروجی در کلیپ‌بورد دستگاه قرار می‌گیرد.',
+              en: 'This JSON contains your personal and health information. Keep it only in a safe place. Choosing Copy JSON places the complete export on this device clipboard.',
+            ),
+            style: TextStyle(fontFamily: fontFamily, height: 1.6),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(dialogContext),
+              child: Text(
+                LifeMateRuntimeLocale.select(fa: 'بستن', en: 'Close'),
+              ),
+            ),
+            FilledButton.icon(
+              onPressed: () async {
+                await Clipboard.setData(ClipboardData(text: encoded));
+                if (dialogContext.mounted) Navigator.pop(dialogContext);
+                if (context.mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text(
+                        LifeMateRuntimeLocale.select(
+                          fa: 'خروجی JSON در کلیپ‌بورد کپی شد.',
+                          en: 'The JSON export was copied to the clipboard.',
+                        ),
+                      ),
+                    ),
+                  );
+                }
+              },
+              icon: const Icon(Icons.copy_all_outlined),
+              label: Text(
+                LifeMateRuntimeLocale.select(fa: 'کپی JSON', en: 'Copy JSON'),
+              ),
+            ),
+          ],
+        ),
+      );
+    } on LifeMateApiException catch (error) {
+      if (context.mounted) Navigator.of(context, rootNavigator: true).pop();
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(error.message)));
+    } catch (_) {
+      if (context.mounted) Navigator.of(context, rootNavigator: true).pop();
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            LifeMateRuntimeLocale.select(
+              fa: 'دریافت خروجی انجام نشد؛ اتصال را بررسی و دوباره تلاش کنید.',
+              en: 'Data export failed. Check your connection and try again.',
+            ),
+          ),
+        ),
+      );
+    }
   }
 
   Future<void> _confirmSignOut(BuildContext context) async {

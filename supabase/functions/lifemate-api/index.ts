@@ -2,6 +2,10 @@ import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createCareEventStore } from "./care_events.ts";
 import { createCareRequestStore } from "./care_requests.ts";
 import { createAccountLifecycleStore } from "./account_lifecycle.ts";
+import {
+  createDataExportStore,
+  portableExportSchemaVersion,
+} from "./data_export.ts";
 import { createAuthorizationStore } from "./authorization.ts";
 import {
   createIdentityBridge,
@@ -64,6 +68,7 @@ const careRequests = createCareRequestStore(databaseUrl, contactHashingSecret);
 const authorizationStore = createAuthorizationStore(databaseUrl);
 const identityBridge = createIdentityBridge(databaseUrl);
 const accountLifecycle = createAccountLifecycleStore(databaseUrl);
+const dataExport = createDataExportStore(databaseUrl);
 const edits = createEditStore(databaseUrl);
 const healthObservations = createHealthObservationStore(databaseUrl);
 const womenCalendar = createWomenCalendarStore(databaseUrl);
@@ -253,6 +258,17 @@ async function route(
         identity.appUserId,
         auth,
       ),
+    });
+  }
+
+  if (request.method === "GET" && path === "/api/v1/account/data-export") {
+    enforceRateLimit(`account-export:${identity.appUserId}`, 3, 60 * 60_000);
+    const exported = await dataExport.exportAccountData(identity.appUserId);
+    const date = new Date().toISOString().slice(0, 10);
+    return json(exported, 200, {
+      "Content-Disposition":
+        `attachment; filename="lifemate-data-export-${date}.json"`,
+      "X-LifeMate-Export-Schema": portableExportSchemaVersion,
     });
   }
 
