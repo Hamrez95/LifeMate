@@ -20,7 +20,11 @@ import { createRelationshipOverviewStore } from "./relationship_overview_service
 import { parseRelationshipOverviewQuery } from "./relationships.ts";
 import { loadRuntimeConfig } from "./runtime_config.ts";
 import { createAdminStore } from "./store.ts";
-import { matchUserDetailPath } from "./user_detail.ts";
+import {
+  matchUserActivityPath,
+  matchUserDetailPath,
+  parseUserActivityQuery,
+} from "./user_detail.ts";
 import { getUserDetailSectionPermissions } from "./user_detail_permissions.ts";
 import { createUserDetailStore } from "./user_detail_store.ts";
 import {
@@ -222,6 +226,34 @@ Deno.serve(async (request: Request) => {
           page: query.page,
           pageSize: query.pageSize,
           total: result.total,
+          freshness: {
+            status: "fresh",
+            asOfUtc: new Date().toISOString(),
+          },
+        },
+        200,
+        origin,
+      );
+    }
+
+    const activityAccountId = matchUserActivityPath(path);
+    if (request.method === "GET" && activityAccountId) {
+      requirePermission(admin, "users.read.basic");
+      requirePermission(admin, "security.audit.read");
+      const base = await userDetailStore.getBase(activityAccountId);
+      if (!base) {
+        throw new ApiError(404, "user_not_found", "User was not found.");
+      }
+      const query = parseUserActivityQuery(new URL(request.url));
+      const result = await userDetailStore.listAdminActivity(
+        activityAccountId,
+        query,
+      );
+      return json(
+        {
+          ...result,
+          page: query.page,
+          pageSize: query.pageSize,
           freshness: {
             status: "fresh",
             asOfUtc: new Date().toISOString(),

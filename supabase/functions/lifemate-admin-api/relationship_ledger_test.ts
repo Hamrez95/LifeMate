@@ -41,7 +41,9 @@ Deno.test("relationship ledger rejects invalid type status and date bounds", () 
   assertThrows(
     () =>
       parseRelationshipLedgerQuery(
-        new URL("https://admin.example/api/v1/relationships/ledger?kind=permission"),
+        new URL(
+          "https://admin.example/api/v1/relationships/ledger?kind=permission",
+        ),
         NOW,
       ),
     ApiError,

@@ -1,5 +1,9 @@
 import { getAdminSql } from "./database_client.ts";
-import { getUserAdminActivitySummary } from "./user_detail_activity.ts";
+import {
+  getUserAdminActivitySummary,
+  listUserAdminActivity,
+} from "./user_detail_activity.ts";
+import type { UserActivityQuery } from "./user_detail.ts";
 import { getUserDetailBase, listUserEnrollments } from "./user_detail_base.ts";
 import { getUserCommerceSummary } from "./user_detail_commerce.ts";
 import { getUserRelationshipSummary } from "./user_detail_relationships.ts";
@@ -16,5 +20,7 @@ export function createUserDetailStore(databaseUrl: string) {
       getUserRelationshipSummary(sql, personId),
     getAdminActivity: (accountId: string) =>
       getUserAdminActivitySummary(sql, accountId),
+    listAdminActivity: (accountId: string, query: UserActivityQuery) =>
+      listUserAdminActivity(sql, accountId, query),
   };
 }

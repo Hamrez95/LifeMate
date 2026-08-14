@@ -1,7 +1,17 @@
 import type { AdminSql } from "./database_client.ts";
+import type { UserActivityQuery } from "./user_detail.ts";
 
 function iso(value: unknown): string {
   return value instanceof Date ? value.toISOString() : String(value);
+}
+
+function mapEvent(row: Record<string, unknown>) {
+  return {
+    id: String(row.id),
+    action: String(row.action),
+    result: String(row.result),
+    occurredAtUtc: iso(row.occurred_at_utc),
+  };
 }
 
 export async function getUserAdminActivitySummary(
@@ -23,11 +33,31 @@ export async function getUserAdminActivitySummary(
 
   return {
     total: Number(countRows[0]?.total ?? 0),
-    latest: latestRows.map((row) => ({
-      id: String(row.id),
-      action: String(row.action),
-      result: String(row.result),
-      occurredAtUtc: iso(row.occurred_at_utc),
-    })),
+    latest: latestRows.map(mapEvent),
+  };
+}
+
+export async function listUserAdminActivity(
+  sql: AdminSql,
+  accountId: string,
+  query: UserActivityQuery,
+) {
+  const offset = (query.page - 1) * query.pageSize;
+  const countRows = await sql`
+    select count(*)::integer as total
+    from admin.audit_events
+    where resource_id = ${accountId}
+  `;
+  const rows = await sql`
+    select id, action, result, occurred_at_utc
+    from admin.audit_events
+    where resource_id = ${accountId}
+    order by occurred_at_utc desc, id desc
+    limit ${query.pageSize} offset ${offset}
+  `;
+
+  return {
+    items: rows.map(mapEvent),
+    total: Number(countRows[0]?.total ?? 0),
   };
 }
