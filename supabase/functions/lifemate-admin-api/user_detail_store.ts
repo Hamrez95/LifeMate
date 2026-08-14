@@ -12,7 +12,9 @@ export function createUserDetailStore(databaseUrl: string) {
     listEnrollments: (accountId: string) => listUserEnrollments(sql, accountId),
     getCommerce: (accountId: string, personId: string | null) =>
       getUserCommerceSummary(sql, accountId, personId),
-    getRelationships: (personId: string | null) => getUserRelationshipSummary(sql, personId),
-    getAdminActivity: (accountId: string) => getUserAdminActivitySummary(sql, accountId),
+    getRelationships: (personId: string | null) =>
+      getUserRelationshipSummary(sql, personId),
+    getAdminActivity: (accountId: string) =>
+      getUserAdminActivitySummary(sql, accountId),
   };
 }
