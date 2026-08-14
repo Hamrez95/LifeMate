@@ -6,6 +6,8 @@ type Row = Record<string, unknown>;
 
 const mutationMethods = new Set(["POST", "PATCH", "DELETE"]);
 const maximumStoredResponseBytes = 64 * 1024;
+const textEncoder = new TextEncoder();
+const textDecoder = new TextDecoder();
 
 export function shouldProtectMutation(method: string, path: string): boolean {
   if (!path.startsWith("/api/v1/")) return false;
@@ -31,15 +33,27 @@ export function requireMutationIdempotencyKey(request: Request): string {
 export async function requestHash(body: string): Promise<string> {
   const digest = await crypto.subtle.digest(
     "SHA-256",
-    new TextEncoder().encode(body),
+    textEncoder.encode(body),
   );
   return [...new Uint8Array(digest)]
     .map((value) => value.toString(16).padStart(2, "0"))
     .join("");
 }
 
-export function createMutationIdempotencyStore(databaseUrl: string) {
+export function createMutationIdempotencyStore(
+  databaseUrl: string,
+  responseEncryptionSecret: string,
+) {
+  if (responseEncryptionSecret.length < 32) {
+    throw new Error("Idempotency response encryption secret is too short.");
+  }
+
   const sql = getLifeMateSql(databaseUrl);
+  // The deployment already carries a protected high-entropy healthcare secret.
+  // Derive a purpose-separated AES key so replay envelopes (which may contain
+  // medical data or one-time invitation tokens) are never duplicated in
+  // plaintext inside the ledger.
+  const responseKey = deriveResponseEncryptionKey(responseEncryptionSecret);
 
   async function execute(
     actorAuthSubject: string,
@@ -130,16 +144,20 @@ export function createMutationIdempotencyStore(databaseUrl: string) {
           "Stored mutation response is unavailable.",
         );
       }
-      return new Response(
-        existing.response_body == null ? null : String(existing.response_body),
-        {
-          status: responseStatus,
-          headers: {
-            ...corsHeaders,
-            "X-Idempotency-Replayed": "true",
-          },
+      const replayBody = existing.response_body == null
+        ? null
+        : await decryptResponseBody(
+          String(existing.response_body),
+          responseKey,
+          replayContext(actorAuthSubject, operation, idempotencyKey, hash),
+        );
+      return new Response(replayBody, {
+        status: responseStatus,
+        headers: {
+          ...corsHeaders,
+          "X-Idempotency-Replayed": "true",
         },
-      );
+      });
     }
 
     let response: Response;
@@ -163,8 +181,7 @@ export function createMutationIdempotencyStore(databaseUrl: string) {
 
     const storedBody = await response.clone().text();
     if (
-      new TextEncoder().encode(storedBody).byteLength >
-        maximumStoredResponseBytes
+      textEncoder.encode(storedBody).byteLength > maximumStoredResponseBytes
     ) {
       await sql`
         delete from lifemate.idempotency_keys
@@ -180,6 +197,14 @@ export function createMutationIdempotencyStore(databaseUrl: string) {
       );
     }
 
+    const encryptedBody = storedBody.length === 0
+      ? null
+      : await encryptResponseBody(
+        storedBody,
+        responseKey,
+        replayContext(actorAuthSubject, operation, idempotencyKey, hash),
+      );
+
     // Do not convert this completion failure into a reusable key. A successful
     // domain mutation followed by a ledger write failure is uncertain; leaving
     // Processing in place makes subsequent retries fail closed instead of
@@ -187,8 +212,7 @@ export function createMutationIdempotencyStore(databaseUrl: string) {
     const completed = await sql`
       update lifemate.idempotency_keys
       set status = 'Completed', response_status = ${response.status},
-          response_body = ${storedBody.length === 0 ? null : storedBody},
-          updated_at_utc = now()
+          response_body = ${encryptedBody}, updated_at_utc = now()
       where actor_auth_subject = ${actorAuthSubject}::uuid
         and operation = ${operation}
         and idempotency_key = ${idempotencyKey}
@@ -207,4 +231,104 @@ export function createMutationIdempotencyStore(databaseUrl: string) {
   }
 
   return { execute };
+}
+
+async function deriveResponseEncryptionKey(secret: string): Promise<CryptoKey> {
+  const keyMaterial = await crypto.subtle.digest(
+    "SHA-256",
+    textEncoder.encode(`lifemate:idempotency-response:v1:${secret}`),
+  );
+  return await crypto.subtle.importKey(
+    "raw",
+    keyMaterial,
+    "AES-GCM",
+    false,
+    ["encrypt", "decrypt"],
+  );
+}
+
+function replayContext(
+  actorAuthSubject: string,
+  operation: string,
+  idempotencyKey: string,
+  hash: string,
+): string {
+  return `${actorAuthSubject}\n${operation}\n${idempotencyKey}\n${hash}`;
+}
+
+async function encryptResponseBody(
+  value: string,
+  keyPromise: Promise<CryptoKey>,
+  context: string,
+): Promise<string> {
+  const key = await keyPromise;
+  const iv = crypto.getRandomValues(new Uint8Array(12));
+  const encrypted = new Uint8Array(
+    await crypto.subtle.encrypt(
+      {
+        name: "AES-GCM",
+        iv,
+        additionalData: textEncoder.encode(context),
+      },
+      key,
+      textEncoder.encode(value),
+    ),
+  );
+  return `v1.${base64UrlEncode(iv)}.${base64UrlEncode(encrypted)}`;
+}
+
+async function decryptResponseBody(
+  envelope: string,
+  keyPromise: Promise<CryptoKey>,
+  context: string,
+): Promise<string> {
+  const [version, ivValue, ciphertextValue, extra] = envelope.split(".");
+  if (version !== "v1" || !ivValue || !ciphertextValue || extra != null) {
+    throw new ApiError(
+      503,
+      "idempotency_state_unavailable",
+      "Stored mutation response is unavailable.",
+    );
+  }
+  try {
+    const key = await keyPromise;
+    const decrypted = await crypto.subtle.decrypt(
+      {
+        name: "AES-GCM",
+        iv: base64UrlDecode(ivValue),
+        additionalData: textEncoder.encode(context),
+      },
+      key,
+      base64UrlDecode(ciphertextValue),
+    );
+    return textDecoder.decode(decrypted);
+  } catch (_) {
+    throw new ApiError(
+      503,
+      "idempotency_state_unavailable",
+      "Stored mutation response is unavailable.",
+    );
+  }
+}
+
+function base64UrlEncode(value: Uint8Array): string {
+  let binary = "";
+  for (let index = 0; index < value.length; index += 0x8000) {
+    binary += String.fromCharCode(...value.subarray(index, index + 0x8000));
+  }
+  return btoa(binary)
+    .replaceAll("+", "-")
+    .replaceAll("/", "_")
+    .replace(/=+$/g, "");
+}
+
+function base64UrlDecode(value: string): Uint8Array {
+  const base64 = value.replaceAll("-", "+").replaceAll("_", "/");
+  const padded = base64 + "=".repeat((4 - base64.length % 4) % 4);
+  const binary = atob(padded);
+  const result = new Uint8Array(binary.length);
+  for (let index = 0; index < binary.length; index += 1) {
+    result[index] = binary.charCodeAt(index);
+  }
+  return result;
 }
