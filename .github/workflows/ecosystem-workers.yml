@@ -6,12 +6,16 @@ on:
     paths:
       - 'supabase/functions/lifemate-worker/**'
       - 'supabase/functions/lifemate-kavenegar-sms-hook/**'
+      - 'supabase/migrations/**'
+      - 'supabase/bootstrap/**'
       - '.github/workflows/ecosystem-workers.yml'
   push:
     branches: [main, 'feat/ecosystem-data-foundation']
     paths:
       - 'supabase/functions/lifemate-worker/**'
       - 'supabase/functions/lifemate-kavenegar-sms-hook/**'
+      - 'supabase/migrations/**'
+      - 'supabase/bootstrap/**'
       - '.github/workflows/ecosystem-workers.yml'
 
 permissions:
@@ -37,6 +41,9 @@ jobs:
       - name: Type check outbox worker
         working-directory: supabase/functions/lifemate-worker
         run: deno task check
+      - name: Test outbox worker policy
+        working-directory: supabase/functions/lifemate-worker
+        run: deno task test
       - name: Type check Kavenegar SMS hook
         working-directory: supabase/functions/lifemate-kavenegar-sms-hook
         run: deno task check
@@ -54,5 +61,46 @@ jobs:
           grep -Fq 'method: "POST"' supabase/functions/lifemate-kavenegar-sms-hook/provider.ts
           grep -Fq 'LIFEMATE_WORKER_TOKEN' supabase/functions/lifemate-worker/index.ts
           grep -Fq 'claim_outbox_messages_for_events' supabase/functions/lifemate-worker/index.ts
+          grep -Fq 'fail_outbox_message_safely' supabase/functions/lifemate-worker/index.ts
+          grep -Fq 'outbox_consumer_receipt_exists' supabase/functions/lifemate-worker/index.ts
           ! grep -R -n -E 'console\.(log|warn|error).*otp|console\.(log|warn|error).*phone' \
             supabase/functions/lifemate-kavenegar-sms-hook
+
+  outbox-queue-integration:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    services:
+      postgres:
+        image: postgres:17.6-alpine
+        env:
+          POSTGRES_DB: lifemate_worker_tests
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d lifemate_worker_tests"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      TEST_DATABASE_URL: postgres://postgres:postgres@localhost:5432/lifemate_worker_tests
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
+        with:
+          persist-credentials: false
+          show-progress: false
+      - uses: denoland/setup-deno@22d081ff2d3a40755e97629de92e3bcbfa7cf2ed
+        with:
+          deno-version: v2.9.4
+      - name: Apply canonical portable schema
+        shell: bash
+        run: |
+          set -euo pipefail
+          psql "$TEST_DATABASE_URL" --set=ON_ERROR_STOP=1 --file=supabase/bootstrap/legacy_lifemate_baseline.sql
+          while IFS= read -r migration; do
+            psql "$TEST_DATABASE_URL" --set=ON_ERROR_STOP=1 --file="$migration"
+          done < <(find supabase/migrations -maxdepth 1 -type f -name '*.sql' | sort)
+      - name: Exercise outbox queue safety and recovery
+        working-directory: supabase/functions/lifemate-worker
+        run: deno task test:integration
