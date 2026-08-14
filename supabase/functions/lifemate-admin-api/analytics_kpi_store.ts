@@ -95,7 +95,8 @@ async function accountsCreated(
     value: total,
     numerator: total,
     denominator: null,
-    source: "identity.accounts.created_at_utc; excludes accounts currently marked Deleted",
+    source:
+      "identity.accounts.created_at_utc; excludes accounts currently marked Deleted",
     freshness: {
       status: "partial",
       asOfUtc: new Date().toISOString(),
@@ -171,9 +172,9 @@ export async function getKpiValues(
   return KPI_DEFINITIONS.map(
     (definition) =>
       values.get(definition.name) ??
-      unavailable(
-        definition.name,
-        "The canonical lifecycle event history required by this KPI is not yet instrumented.",
-      ),
+        unavailable(
+          definition.name,
+          "The canonical lifecycle event history required by this KPI is not yet instrumented.",
+        ),
   );
 }
