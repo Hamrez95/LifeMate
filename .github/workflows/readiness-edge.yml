@@ -5,11 +5,15 @@ on:
   pull_request:
     paths:
       - 'supabase/functions/lifemate-readiness/**'
+      - 'supabase/migrations/**'
+      - 'supabase/bootstrap/**'
       - '.github/workflows/readiness-edge.yml'
   push:
     branches: [main]
     paths:
       - 'supabase/functions/lifemate-readiness/**'
+      - 'supabase/migrations/**'
+      - 'supabase/bootstrap/**'
       - '.github/workflows/readiness-edge.yml'
 
 permissions:
@@ -34,14 +38,67 @@ jobs:
         run: deno fmt --check
       - name: Type check
         run: deno task check
-      - name: Fail-closed runtime invariants
+      - name: Lightweight runtime invariants
         shell: bash
         run: |
           set -euo pipefail
-          grep -Fq "lifemate_edge_runtime_password" index.ts
-          grep -Fq "lifemate_edge_runtime" index.ts
-          grep -Fq "where false" index.ts
-          if grep -Eq 'select \*|Authorization|SERVICE_ROLE_KEY' index.ts; then
-            echo 'Readiness probe must not select user rows or use caller/service auth.' >&2
+          grep -Fq 'loadReadinessDatabaseUrl' index.ts
+          grep -Fq 'current_user as role_name' index.ts
+          grep -Fq 'mode: "lightweight"' index.ts
+          grep -Fq 'statement_timeout: 1500' index.ts
+          if grep -Eq 'runtime_readiness_probe|health_observations|dose_occurrences|pg_roles|sql\.begin|insert into|update .* set|delete from' index.ts; then
+            echo 'Frequent readiness must remain one small read-only dependency query.' >&2
             exit 1
           fi
+          grep -Fq 'runtime_readiness_probe' deep_verification.ts
+          grep -Fq 'health_observations' deep_verification.ts
+          grep -Fq 'sql.begin' deep_verification.ts
+
+  deep-deployment-verification:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    services:
+      postgres:
+        image: postgres:17.6-alpine
+        env:
+          POSTGRES_DB: lifemate_readiness_tests
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d lifemate_readiness_tests"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      TEST_ADMIN_DATABASE_URL: postgres://postgres:postgres@localhost:5432/lifemate_readiness_tests
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
+        with:
+          persist-credentials: false
+          show-progress: false
+      - uses: denoland/setup-deno@22d081ff2d3a40755e97629de92e3bcbfa7cf2ed
+        with:
+          deno-version: v2.9.4
+      - name: Apply canonical portable schema
+        shell: bash
+        run: |
+          set -euo pipefail
+          psql "$TEST_ADMIN_DATABASE_URL" --set=ON_ERROR_STOP=1 --file=supabase/bootstrap/legacy_lifemate_baseline.sql
+          while IFS= read -r migration; do
+            psql "$TEST_ADMIN_DATABASE_URL" --set=ON_ERROR_STOP=1 --file="$migration"
+          done < <(find supabase/migrations -maxdepth 1 -type f -name '*.sql' | sort)
+      - name: Configure restricted runtime test credential
+        shell: bash
+        run: |
+          set -euo pipefail
+          runtime_password='ci-readiness-runtime-password-0123456789abcdef'
+          psql "$TEST_ADMIN_DATABASE_URL" --set=ON_ERROR_STOP=1 \
+            --set=runtime_password="$runtime_password" <<'SQL'
+          alter role lifemate_edge_runtime password :'runtime_password';
+          SQL
+          echo "TEST_DATABASE_URL=postgres://lifemate_edge_runtime:${runtime_password}@localhost:5432/lifemate_readiness_tests" >> "$GITHUB_ENV"
+      - name: Run comprehensive restricted-role readiness contract
+        working-directory: supabase/functions/lifemate-readiness
+        run: deno task test:integration
