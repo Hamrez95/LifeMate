@@ -1,0 +1,51 @@
+name: privacy-export-format
+
+on:
+  push:
+    branches: ['privacy/p0-self-service-data-export']
+
+permissions:
+  contents: write
+
+jobs:
+  format:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
+        with:
+          ref: privacy/p0-self-service-data-export
+      - uses: denoland/setup-deno@22d081ff2d3a40755e97629de92e3bcbfa7cf2ed
+        with:
+          deno-version: v2.9.4
+      - uses: subosito/flutter-action@4cab68ce0f1c7c924f688bff4792e044f1aeb30c
+        with:
+          flutter-version: '3.44.0'
+          channel: stable
+      - name: Apply canonical formatters
+        shell: bash
+        run: |
+          set -euo pipefail
+          deno fmt \
+            supabase/functions/lifemate-api/data_export.ts \
+            supabase/functions/lifemate-api/data_export_test.ts \
+            supabase/functions/lifemate-api/data_export_integration_test.ts \
+            supabase/functions/lifemate-api/index.ts \
+            supabase/functions/lifemate-api/rate_limit.ts \
+            supabase/functions/lifemate-api/http.ts
+          dart format \
+            packages/lifemate_client/lib/src/lifemate_api_client.dart \
+            packages/lifemate_ui/lib/src/shared_profile_screen.dart
+      - name: Commit formatting
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add \
+            supabase/functions/lifemate-api \
+            packages/lifemate_client/lib/src/lifemate_api_client.dart \
+            packages/lifemate_ui/lib/src/shared_profile_screen.dart
+          if git diff --cached --quiet; then exit 0; fi
+          git commit -m 'style: format privacy export implementation'
+          git push origin HEAD:privacy/p0-self-service-data-export
