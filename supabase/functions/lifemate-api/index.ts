@@ -20,6 +20,7 @@ import {
 import { createWomenCalendarStore } from "./women_calendar.ts";
 import { loadRuntimeConfig } from "./runtime_config.ts";
 import { createRequestRateLimiterFromEnvironment } from "./rate_limit.ts";
+import { createRequestConcurrencyGateFromEnvironment } from "./concurrency.ts";
 import { enforceRateLimit } from "./security.ts";
 import {
   ApiError,
@@ -59,6 +60,7 @@ const womenCalendarPilotEnabled =
   (Deno.env.get("ENABLE_WOMEN_CALENDAR_PILOT") ?? "true").toLowerCase() !==
     "false";
 const requestRateLimiter = createRequestRateLimiterFromEnvironment();
+const requestConcurrency = createRequestConcurrencyGateFromEnvironment();
 
 Deno.serve(async (request: Request) => {
   const correlationId = crypto.randomUUID();
@@ -91,7 +93,9 @@ Deno.serve(async (request: Request) => {
     }
   }
 
+  let concurrencyLease;
   try {
+    concurrencyLease = requestConcurrency.acquire(request.method, path);
     const auth = await authenticate(request);
     await requestRateLimiter.enforce(request.method, path, auth.id);
     return await route(request, path, auth);
@@ -133,6 +137,8 @@ Deno.serve(async (request: Request) => {
       "The request could not be completed.",
       correlationId,
     );
+  } finally {
+    concurrencyLease?.release();
   }
 });
 
