@@ -1,6 +1,8 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 
 import { getAnalyticsCatalog } from "./analytics_catalog.ts";
+import { createAnalyticsKpiStore } from "./analytics_kpi_service.ts";
+import { parseAnalyticsKpiQuery } from "./analytics_kpis.ts";
 import { authenticate, requireAal2 } from "./auth.ts";
 import { requirePermission } from "./authorization.ts";
 import { isPostgresUnavailable } from "./database_client.ts";
@@ -27,6 +29,7 @@ import {
 const config = await loadRuntimeConfig();
 const store = createAdminStore(config.databaseUrl);
 const userDetailStore = createUserDetailStore(config.databaseUrl);
+const analyticsKpiStore = createAnalyticsKpiStore(config.databaseUrl);
 
 async function optionalSection<T>(
   allowed: boolean,
@@ -129,6 +132,20 @@ Deno.serve(async (request: Request) => {
     if (request.method === "GET" && path === "/api/v1/analytics/catalog") {
       requirePermission(admin, "analytics.read");
       return json(getAnalyticsCatalog(), 200, origin);
+    }
+
+    if (request.method === "GET" && path === "/api/v1/analytics/kpis") {
+      requirePermission(admin, "analytics.read");
+      const query = parseAnalyticsKpiQuery(new URL(request.url));
+      return json(
+        {
+          query,
+          values: await analyticsKpiStore.getValues(query),
+          generatedAtUtc: new Date().toISOString(),
+        },
+        200,
+        origin,
+      );
     }
 
     if (request.method === "GET" && path === "/api/v1/users") {
