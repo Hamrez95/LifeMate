@@ -1,7 +1,9 @@
 import { assertEquals, assertThrows } from "jsr:@std/assert@1.0.14";
 import {
   buildRestrictedDatabaseUrl,
+  isSupabaseTransactionPoolerUrl,
   selectContactHashingSecret,
+  validateEdgeDatabaseUrl,
 } from "./runtime_config.ts";
 
 const environmentSecret = "environment-dedicated-secret-1234567890";
@@ -91,7 +93,7 @@ Deno.test("restricted database URL replaces direct postgres login", () => {
 
 Deno.test("restricted database URL preserves Supabase pooler project suffix", () => {
   const value = buildRestrictedDatabaseUrl(
-    "postgresql://postgres.projectref:admin-password@pooler.example.test:6543/postgres",
+    "postgresql://postgres.projectref:admin-password@aws-0-eu-west-1.pooler.supabase.com:6543/postgres",
     "lifemate_edge_runtime",
     "runtime-password-123456789012345678901234567890",
   );
@@ -100,6 +102,7 @@ Deno.test("restricted database URL preserves Supabase pooler project suffix", ()
     decodeURIComponent(parsed.username),
     "lifemate_edge_runtime.projectref",
   );
+  assertEquals(parsed.port, "6543");
 });
 
 Deno.test("restricted database URL rejects weak credentials", () => {
@@ -112,5 +115,42 @@ Deno.test("restricted database URL rejects weak credentials", () => {
       ),
     Error,
     "at least 32 characters",
+  );
+});
+
+Deno.test("transaction pooler detector accepts Supavisor port 6543 only", () => {
+  assertEquals(
+    isSupabaseTransactionPoolerUrl(
+      "postgresql://lifemate_edge_runtime.projectref:secret@aws-0-eu-west-1.pooler.supabase.com:6543/postgres",
+    ),
+    true,
+  );
+  assertEquals(
+    isSupabaseTransactionPoolerUrl(
+      "postgresql://lifemate_edge_runtime.projectref:secret@aws-0-eu-west-1.pooler.supabase.com:5432/postgres",
+    ),
+    false,
+  );
+  assertEquals(
+    isSupabaseTransactionPoolerUrl(
+      "postgresql://lifemate_edge_runtime:secret@db.projectref.supabase.co:5432/postgres",
+    ),
+    false,
+  );
+});
+
+Deno.test("serverless pooler requirement rejects direct database URLs", () => {
+  assertThrows(
+    () =>
+      validateEdgeDatabaseUrl(
+        "postgresql://lifemate_edge_runtime:secret@db.projectref.supabase.co:5432/postgres",
+        true,
+      ),
+    Error,
+    "transaction-pooler",
+  );
+  validateEdgeDatabaseUrl(
+    "postgresql://lifemate_edge_runtime.projectref:secret@aws-0-eu-west-1.pooler.supabase.com:6543/postgres",
+    true,
   );
 });
