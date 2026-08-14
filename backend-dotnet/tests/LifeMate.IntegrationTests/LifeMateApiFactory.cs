@@ -5,23 +5,20 @@ using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
-using Testcontainers.PostgreSql;
 using Xunit;
 
 namespace LifeMate.IntegrationTests;
 
 public sealed class LifeMateApiFactory : WebApplicationFactory<Program>, IAsyncLifetime
 {
-    private readonly PostgreSqlContainer _postgres = new PostgreSqlBuilder("postgres:17-alpine")
-        .WithDatabase("lifemate_tests")
-        .WithUsername("lifemate")
-        .WithPassword("lifemate_test_password")
-        .Build();
+    private readonly string _connectionString =
+        Environment.GetEnvironmentVariable("LIFEMATE_INTEGRATION_DB_CONNECTION")
+        ?? Environment.GetEnvironmentVariable("ConnectionStrings__LifeMateDb")
+        ?? throw new InvalidOperationException(
+            "Integration tests require LIFEMATE_INTEGRATION_DB_CONNECTION or ConnectionStrings__LifeMateDb.");
 
     public async Task InitializeAsync()
     {
-        await _postgres.StartAsync();
-
         using var scope = Services.CreateScope();
         var dbContext = scope.ServiceProvider.GetRequiredService<LifeMateDbContext>();
         await dbContext.Database.MigrateAsync();
@@ -29,7 +26,6 @@ public sealed class LifeMateApiFactory : WebApplicationFactory<Program>, IAsyncL
 
     public new async Task DisposeAsync()
     {
-        await _postgres.DisposeAsync();
         await base.DisposeAsync();
     }
 
@@ -40,6 +36,7 @@ public sealed class LifeMateApiFactory : WebApplicationFactory<Program>, IAsyncL
         {
             configuration.AddInMemoryCollection(new Dictionary<string, string?>
             {
+                ["ConnectionStrings:LifeMateDb"] = _connectionString,
                 ["Security:Invitations:ContactPepper"] =
                     "integration-test-contact-pepper-at-least-32-bytes"
             });
@@ -57,7 +54,7 @@ public sealed class LifeMateApiFactory : WebApplicationFactory<Program>, IAsyncL
 
             services.AddDbContext<LifeMateDbContext>(options =>
                 options.UseNpgsql(
-                    _postgres.GetConnectionString(),
+                    _connectionString,
                     npgsql => npgsql.MigrationsHistoryTable(
                         "__ef_migrations_history",
                         "lifemate")));
