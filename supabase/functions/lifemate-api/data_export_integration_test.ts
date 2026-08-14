@@ -1,23 +1,20 @@
-import {
-  assert,
-  assertEquals,
-} from "jsr:@std/assert@1.0.14";
+import { assert, assertEquals } from "jsr:@std/assert@1.0.14";
 import postgres from "postgres";
 import { createDataExportStore } from "./data_export.ts";
-import {
-  type AuthUser,
-  createLifeMateDatabase,
-} from "./database.ts";
+import { type AuthUser, createLifeMateDatabase } from "./database.ts";
 
 const databaseUrl = Deno.env.get("TEST_DATABASE_URL");
 if (!databaseUrl) {
-  throw new Error("TEST_DATABASE_URL is required for data export integration tests.");
+  throw new Error(
+    "TEST_DATABASE_URL is required for data export integration tests.",
+  );
 }
 
 const contactSecret = "integration-only-contact-secret-with-32-plus-characters";
 
 Deno.test({
-  name: "self-service export includes owned data but excludes linked-user ids and invitation hashes",
+  name:
+    "self-service export includes owned data but excludes linked-user ids and invitation hashes",
   sanitizeOps: false,
   sanitizeResources: false,
   fn: async () => {
@@ -102,21 +99,27 @@ Deno.test({
       assert(!encoded.includes(invitationTokenHash));
 
       const careAndConsent = exported.careAndConsent as Record<string, unknown>;
-      const relationships = careAndConsent.relationships as Array<Record<string, unknown>>;
+      const relationships = careAndConsent.relationships as Array<
+        Record<string, unknown>
+      >;
       assertEquals(relationships.length, 1);
       assertEquals(relationships[0].selfRole, "patient");
       assert(!("caregiverUserId" in relationships[0]));
       assert(!("patientUserId" in relationships[0]));
     } finally {
       if (patientId || linkedId) {
-        const ids = [patientId, linkedId].filter((value): value is string => value != null);
+        const ids = [patientId, linkedId].filter((value): value is string =>
+          value != null
+        );
         await sql`
           delete from lifemate.care_invitations
           where inviter_user_id in ${sql(ids)}
         `.catch(() => undefined);
         await sql`
           delete from lifemate.care_relationships
-          where patient_user_id in ${sql(ids)} or caregiver_user_id in ${sql(ids)}
+          where patient_user_id in ${sql(ids)} or caregiver_user_id in ${
+          sql(ids)
+        }
         `.catch(() => undefined);
         await sql`
           delete from lifemate.medications

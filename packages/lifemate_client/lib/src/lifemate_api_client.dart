@@ -99,9 +99,8 @@ class LifeMateApiClient {
         .toList(growable: false);
   }
 
-  Future<Map<String, dynamic>> exportAccountData() async => _asObject(
-    await _send('GET', '/api/v1/account/data-export'),
-  );
+  Future<Map<String, dynamic>> exportAccountData() async =>
+      _asObject(await _send('GET', '/api/v1/account/data-export'));
 
   Future<LifeMateAccountDeletionStatus> requestAccountDeletion() async =>
       LifeMateAccountDeletionStatus.fromJson(

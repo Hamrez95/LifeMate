@@ -328,13 +328,18 @@ class LifeMateSharedProfileScreen extends StatelessWidget {
       await showDialog<void>(
         context: context,
         builder: (dialogContext) => AlertDialog(
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(24),
+          ),
           title: Text(
             LifeMateRuntimeLocale.select(
               fa: 'خروجی داده‌ها آماده است',
               en: 'Your data export is ready',
             ),
-            style: TextStyle(fontFamily: fontFamily, fontWeight: FontWeight.w900),
+            style: TextStyle(
+              fontFamily: fontFamily,
+              fontWeight: FontWeight.w900,
+            ),
           ),
           content: Text(
             LifeMateRuntimeLocale.select(
@@ -346,7 +351,9 @@ class LifeMateSharedProfileScreen extends StatelessWidget {
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(dialogContext),
-              child: Text(LifeMateRuntimeLocale.select(fa: 'بستن', en: 'Close')),
+              child: Text(
+                LifeMateRuntimeLocale.select(fa: 'بستن', en: 'Close'),
+              ),
             ),
             FilledButton.icon(
               onPressed: () async {
@@ -366,7 +373,9 @@ class LifeMateSharedProfileScreen extends StatelessWidget {
                 }
               },
               icon: const Icon(Icons.copy_all_outlined),
-              label: Text(LifeMateRuntimeLocale.select(fa: 'کپی JSON', en: 'Copy JSON')),
+              label: Text(
+                LifeMateRuntimeLocale.select(fa: 'کپی JSON', en: 'Copy JSON'),
+              ),
             ),
           ],
         ),
@@ -374,9 +383,9 @@ class LifeMateSharedProfileScreen extends StatelessWidget {
     } on LifeMateApiException catch (error) {
       if (context.mounted) Navigator.of(context, rootNavigator: true).pop();
       if (!context.mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(error.message)),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(error.message)));
     } catch (_) {
       if (context.mounted) Navigator.of(context, rootNavigator: true).pop();
       if (!context.mounted) return;

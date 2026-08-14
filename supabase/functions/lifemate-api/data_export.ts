@@ -47,24 +47,20 @@ export function createDataExportStore(databaseUrl: string) {
       `,
     );
 
-    const contactPoints = accountId == null
-      ? []
-      : await bounded(
-        "contact_points",
-        sql`
+    const contactPoints = accountId == null ? [] : await bounded(
+      "contact_points",
+      sql`
           select kind, status, verified_at_utc, created_at_utc, updated_at_utc
           from identity.contact_points
           where account_id = ${accountId}
           order by created_at_utc, id
           limit ${portableExportRowLimit + 1}
         `,
-      );
+    );
 
-    const externalIdentities = accountId == null
-      ? []
-      : await bounded(
-        "external_identities",
-        sql`
+    const externalIdentities = accountId == null ? [] : await bounded(
+      "external_identities",
+      sql`
           select provider, issuer, status, created_at_utc,
                  last_authenticated_at_utc
           from identity.external_identities
@@ -72,13 +68,11 @@ export function createDataExportStore(databaseUrl: string) {
           order by created_at_utc, id
           limit ${portableExportRowLimit + 1}
         `,
-      );
+    );
 
-    const enrollments = accountId == null
-      ? []
-      : await bounded(
-        "app_enrollments",
-        sql`
+    const enrollments = accountId == null ? [] : await bounded(
+      "app_enrollments",
+      sql`
           select a.code as application_code, a.display_name as application_name,
                  e.status, e.enrolled_at_utc, e.last_active_at_utc
           from ecosystem.app_enrollments e
@@ -87,13 +81,11 @@ export function createDataExportStore(databaseUrl: string) {
           order by e.enrolled_at_utc, e.id
           limit ${portableExportRowLimit + 1}
         `,
-      );
+    );
 
-    const deletionRequests = accountId == null
-      ? []
-      : await bounded(
-        "account_deletion_requests",
-        sql`
+    const deletionRequests = accountId == null ? [] : await bounded(
+      "account_deletion_requests",
+      sql`
           select status, requested_at_utc, processing_started_at_utc,
                  completed_at_utc, retention_policy_version, reason_code
           from identity.account_deletion_requests
@@ -101,7 +93,7 @@ export function createDataExportStore(databaseUrl: string) {
           order by requested_at_utc, id
           limit ${portableExportRowLimit + 1}
         `,
-      );
+    );
 
     const medications = await bounded(
       "medications",
@@ -348,7 +340,9 @@ export function createDataExportStore(databaseUrl: string) {
         profiles: portableRows(womenCalendarProfiles),
         episodes: portableRows(womenCalendarEpisodes),
         dailyLogs: portableRows(womenCalendarDailyLogs),
-        supportActionsReceived: portableRows(womenCalendarSupportActionsReceived),
+        supportActionsReceived: portableRows(
+          womenCalendarSupportActionsReceived,
+        ),
       },
       exclusions: [
         "raw authentication/provider subjects",
@@ -366,7 +360,10 @@ export function createDataExportStore(databaseUrl: string) {
   return { exportAccountData };
 }
 
-async function bounded(label: string, rowsPromise: PromiseLike<Row[]>): Promise<Row[]> {
+async function bounded(
+  label: string,
+  rowsPromise: PromiseLike<Row[]>,
+): Promise<Row[]> {
   const rows = await rowsPromise;
   if (rows.length > portableExportRowLimit) {
     throw new ApiError(
@@ -400,5 +397,8 @@ export function portableRow(row: Row): Row {
 }
 
 function camelCase(value: string): string {
-  return value.replace(/_([a-z])/g, (_, letter: string) => letter.toUpperCase());
+  return value.replace(
+    /_([a-z])/g,
+    (_, letter: string) => letter.toUpperCase(),
+  );
 }
