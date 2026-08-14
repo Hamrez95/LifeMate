@@ -17,7 +17,8 @@ Deno.test("ignores non-detail routes", () => {
 
 Deno.test("rejects malformed UUID-shaped detail paths", () => {
   assertThrows(
-    () => matchUserDetailPath("/api/v1/users/91000000-0000-0000-0000-000000000001"),
+    () =>
+      matchUserDetailPath("/api/v1/users/91000000-0000-0000-0000-000000000001"),
     ApiError,
   );
 });
