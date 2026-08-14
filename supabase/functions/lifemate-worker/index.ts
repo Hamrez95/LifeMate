@@ -1,6 +1,7 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import postgres from "postgres";
 import { createClient } from "supabase";
+import { purgeProfilePhotoFolder } from "./account_deletion_storage.ts";
 import {
   boundedMessageTimeoutMs,
   boundedWorkerBatchSize,
@@ -254,6 +255,17 @@ async function processMessage(message: OutboxMessage): Promise<void> {
         }
       }
 
+      // Storage must be removed before SQL finalization clears the profile path.
+      // Purging the whole server-owned user folder also removes orphaned previous
+      // avatars left by an earlier best-effort replacement cleanup.
+      const appUserId = await appUserIdForAccount(accountId);
+      if (appUserId) {
+        await purgeProfilePhotoFolder(
+          admin.storage.from("profile-photos"),
+          appUserId,
+        );
+      }
+
       const finalized = await sql`
         select identity.finalize_account_deletion(${requestId}::uuid) as ok
       `;
@@ -302,16 +314,34 @@ async function timedFetch(
   }
 }
 
+async function appUserIdForAccount(accountId: string): Promise<string | null> {
+  const rows = await sql`
+    select coalesce(a.legacy_app_user_id, legacy.id) as app_user_id
+    from identity.accounts a
+    left join lifemate.app_users legacy on legacy.id = a.id
+    where a.id=${accountId}::uuid
+    limit 1
+  `;
+  const value = rows[0]?.app_user_id;
+  return typeof value === "string" && uuidPattern.test(value) ? value : null;
+}
+
 async function authSubjectFor(accountId: string): Promise<string | null> {
   const rows = await sql`
-    select auth_subject
-    from lifemate.app_users
-    where id=${accountId}::uuid
+    select u.auth_subject
+    from identity.accounts a
+    join lifemate.app_users u
+      on u.id = coalesce(a.legacy_app_user_id,a.id)
+    where a.id=${accountId}::uuid
+      and u.status <> 'Deleted'
     limit 1
   `;
   const value = rows[0]?.auth_subject;
-  return typeof value === "string" && value.length > 0 ? value : null;
+  return typeof value === "string" && uuidPattern.test(value) ? value : null;
 }
+
+const uuidPattern =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
 function requiredAggregateId(message: OutboxMessage): string {
   if (!message.aggregate_id) throw new Error("aggregate_id_missing");
