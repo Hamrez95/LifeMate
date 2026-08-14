@@ -5,6 +5,7 @@ on:
   pull_request:
     paths:
       - 'supabase/functions/lifemate-api/**'
+      - 'supabase/functions/lifemate-care-management/**'
       - 'supabase/bootstrap/**'
       - 'supabase/migrations/**'
       - 'supabase/tests/**'
@@ -14,6 +15,7 @@ on:
     branches: [main, 'feat/ecosystem-data-foundation']
     paths:
       - 'supabase/functions/lifemate-api/**'
+      - 'supabase/functions/lifemate-care-management/**'
       - 'supabase/bootstrap/**'
       - 'supabase/migrations/**'
       - 'supabase/tests/**'
@@ -68,6 +70,27 @@ jobs:
           check 'Daily companion sharing is explicit per entry.' grep -Fq 'share_summary_with_companion = true' women_calendar.ts
           check_absent 'Profile photos must never use a public bucket.' grep -R --line-number -E 'profile-photo.*public.*true' . ../../migrations
           check_absent 'Profile-photo paths must not enter audit metadata.' grep -R --line-number -E 'profilePhotoPath.*metadata' .
+
+  care-management-check-test:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    defaults:
+      run:
+        working-directory: supabase/functions/lifemate-care-management
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
+        with:
+          show-progress: false
+          persist-credentials: false
+      - uses: denoland/setup-deno@22d081ff2d3a40755e97629de92e3bcbfa7cf2ed
+        with:
+          deno-version: v2.9.4
+      - name: Format
+        run: deno fmt --check
+      - name: Type check
+        run: deno task check
+      - name: Unit tests
+        run: deno task test
 
   postgres-role-journey:
     runs-on: ubuntu-24.04
