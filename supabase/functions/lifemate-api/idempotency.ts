@@ -50,18 +50,21 @@ export function createMutationIdempotencyStore(databaseUrl: string) {
   ): Promise<Response> {
     const hash = await requestHash(requestBody);
 
-    // Keep physical retention bounded without a separate scheduler. The expiry
-    // index makes this a small opportunistic cleanup on ordinary mutations.
-    await sql`
-      delete from lifemate.idempotency_keys
-      where ctid in (
-        select ctid
-        from lifemate.idempotency_keys
-        where expires_at_utc <= now()
-        order by expires_at_utc
-        limit 100
-      )
-    `;
+    // Reclaim expired rows in small sampled batches so retention stays bounded
+    // without adding a cleanup query to every healthcare mutation. Exact-key
+    // expiry is handled atomically by the claim below.
+    if (Number.parseInt(hash.slice(0, 2), 16) < 4) {
+      await sql`
+        delete from lifemate.idempotency_keys
+        where ctid in (
+          select ctid
+          from lifemate.idempotency_keys
+          where expires_at_utc <= now()
+          order by expires_at_utc
+          limit 100
+        )
+      `;
+    }
 
     const claimed = await sql`
       insert into lifemate.idempotency_keys
@@ -72,7 +75,15 @@ export function createMutationIdempotencyStore(databaseUrl: string) {
         (${actorAuthSubject}::uuid, ${operation}, ${idempotencyKey}, ${hash},
          'Processing', null, null, now(), now(), now() + interval '24 hours')
       on conflict (actor_auth_subject, operation, idempotency_key)
-      do nothing
+      do update set
+        request_hash = excluded.request_hash,
+        status = 'Processing',
+        response_status = null,
+        response_body = null,
+        created_at_utc = excluded.created_at_utc,
+        updated_at_utc = excluded.updated_at_utc,
+        expires_at_utc = excluded.expires_at_utc
+      where lifemate.idempotency_keys.expires_at_utc <= now()
       returning actor_auth_subject
     `;
 
