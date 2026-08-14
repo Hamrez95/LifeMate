@@ -64,8 +64,11 @@ function get(path, route) {
     timeout: "10s",
   });
   const ok = response.status >= 200 && response.status < 300;
-  const shed = response.status === 429 || response.status === 503;
-  const uncontrolledServerError = response.status >= 500 && response.status !== 503;
+  const retryAfter =
+    response.headers["Retry-After"] ?? response.headers["retry-after"] ?? "";
+  const shed = response.status === 429 ||
+    (response.status === 503 && retryAfter.length > 0);
+  const uncontrolledServerError = response.status >= 500 && !shed;
   const correlationId =
     response.headers["X-Correlation-Id"] ??
     response.headers["x-correlation-id"] ??

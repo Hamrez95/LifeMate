@@ -58,7 +58,7 @@ Local example:
 DATABASE_URL='postgres://postgres:postgres@127.0.0.1:54322/postgres' \
 INTERVAL_SECONDS=5 \
 DURATION_SECONDS=120 \
-tools/load/collect-runtime-pressure.sh
+bash tools/load/collect-runtime-pressure.sh
 ```
 
 A remote read-only staging collector is allowed only with an explicit marker:
@@ -66,7 +66,7 @@ A remote read-only staging collector is allowed only with an explicit marker:
 ```bash
 LIFEMATE_OBSERVABILITY_TARGET=staging \
 DATABASE_URL='<protected-staging-database-url>' \
-tools/load/collect-runtime-pressure.sh
+bash tools/load/collect-runtime-pressure.sh
 ```
 
 The collector writes `runtime-pressure.ndjson`. It reads aggregate PostgreSQL connection/wait/query-age metadata plus outbox count/age metrics; it does **not** select healthcare rows or outbox payloads. The script intentionally has no `production` mode.

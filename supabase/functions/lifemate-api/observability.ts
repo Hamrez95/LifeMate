@@ -23,6 +23,7 @@ export type RequestTelemetryInput = {
   method: string;
   path: string;
   status: number;
+  controlledOverload: boolean;
   durationMs: number;
   subsystem: TelemetrySubsystem;
   concurrency: ConcurrencyTelemetrySnapshot;
@@ -109,7 +110,10 @@ export class ApiObservability {
     nowMs = Date.now(),
   ): TelemetryWindow | null {
     this.requests += 1;
-    const category = statusCategory(input.status);
+    const category = statusCategory(
+      input.status,
+      input.controlledOverload,
+    );
     this[category] += 1;
     if (category !== "success") {
       this.failuresBySubsystem.set(
@@ -288,9 +292,10 @@ export function withCorrelationId(
 
 function statusCategory(
   status: number,
+  controlledOverload: boolean,
 ): "success" | "controlledOverload" | "clientError" | "serverError" {
   if (status >= 200 && status < 400) return "success";
-  if (status === 429 || status === 503) return "controlledOverload";
+  if (controlledOverload) return "controlledOverload";
   if (status >= 400 && status < 500) return "clientError";
   return "serverError";
 }

@@ -82,14 +82,24 @@ Deno.serve(async (request: Request) => {
   const correlationId = crypto.randomUUID();
   const path = normalizePath(new URL(request.url).pathname);
   const startedAt = performance.now();
-  let responseStatus = 500;
-  let telemetrySubsystem: TelemetrySubsystem = "application";
   const finish = (
     response: Response,
-    subsystem: TelemetrySubsystem = telemetrySubsystem,
+    subsystem: TelemetrySubsystem = "application",
   ): Response => {
-    responseStatus = response.status;
-    telemetrySubsystem = subsystem;
+    const telemetryWindow = apiObservability.record({
+      method: request.method,
+      path,
+      status: response.status,
+      controlledOverload: response.status === 429 ||
+        (response.status === 503 && response.headers.has("Retry-After")),
+      durationMs: performance.now() - startedAt,
+      subsystem,
+      concurrency: requestConcurrency.snapshot(),
+      rateLimiter: requestRateLimiter.snapshot(),
+    });
+    if (telemetryWindow) {
+      console.info("LifeMate telemetry window", telemetryWindow);
+    }
     return withCorrelationId(response, correlationId);
   };
 
@@ -177,20 +187,7 @@ Deno.serve(async (request: Request) => {
       correlationId,
     ));
   } finally {
-    const concurrencySnapshot = requestConcurrency.snapshot();
     concurrencyLease?.release();
-    const telemetryWindow = apiObservability.record({
-      method: request.method,
-      path,
-      status: responseStatus,
-      durationMs: performance.now() - startedAt,
-      subsystem: telemetrySubsystem,
-      concurrency: concurrencySnapshot,
-      rateLimiter: requestRateLimiter.snapshot(),
-    });
-    if (telemetryWindow) {
-      console.info("LifeMate telemetry window", telemetryWindow);
-    }
   }
 });
 
