@@ -60,7 +60,10 @@ Deno.test("KPI sources reference only canonical analytics events", () => {
   const events = new Set(ANALYTICS_EVENTS.map((event) => event.name));
   for (const definition of KPI_DEFINITIONS) {
     for (const source of definition.eventSources) {
-      assert(events.has(source), `${definition.name} references unknown event ${source}`);
+      assert(
+        events.has(source),
+        `${definition.name} references unknown event ${source}`,
+      );
     }
   }
 });
