@@ -1,49 +1,6 @@
--- Provider-agnostic compatibility helpers.
---
--- Legacy API tables still carry app-user UUIDs while the ecosystem authority is
--- Account -> Self Person. These helpers are deliberately narrow SECURITY DEFINER
--- lookups so trigger code can resolve the bridge without granting broad identity
--- table reads to every runtime role.
-create or replace function identity.account_id_for_legacy_app_user(p_app_user_id uuid)
-returns uuid
-language sql
-stable
-security definer
-set search_path = pg_catalog, identity, pg_temp
-as $$
-  select a.id
-  from identity.accounts a
-  where a.legacy_app_user_id = p_app_user_id
-    and a.status <> 'Deleted'
-  order by a.created_at_utc,a.id
-  limit 1
-$$;
-
-create or replace function core.self_person_id_for_legacy_app_user(p_app_user_id uuid)
-returns uuid
-language sql
-stable
-security definer
-set search_path = pg_catalog, identity, core, pg_temp
-as $$
-  select l.person_id
-  from identity.accounts a
-  join core.account_person_links l
-    on l.account_id=a.id
-   and l.link_type='Self'
-   and l.status='Active'
-  where a.legacy_app_user_id=p_app_user_id
-    and a.status <> 'Deleted'
-  order by l.created_at_utc,l.person_id
-  limit 1
-$$;
-
-revoke all on function identity.account_id_for_legacy_app_user(uuid) from public;
-revoke all on function core.self_person_id_for_legacy_app_user(uuid) from public;
-grant execute on function identity.account_id_for_legacy_app_user(uuid)
-  to lifemate_edge_runtime,lifemate_worker_runtime;
-grant execute on function core.self_person_id_for_legacy_app_user(uuid)
-  to lifemate_edge_runtime,lifemate_worker_runtime;
+-- Provider-agnostic compatibility trigger functions.
+-- Resolver helpers are created by the preceding 20260814215150 migration so a
+-- fresh restore compiles these PL/pgSQL functions against existing dependencies.
 
 -- User-profile compatibility projection must follow the mapped Self Person; a
 -- provider-agnostic Account UUID is not required to equal either AppUser or Person.
@@ -85,7 +42,7 @@ create or replace function core.sync_health_person_id()
 returns trigger
 language plpgsql
 set search_path = pg_catalog, core, pg_temp
-as $$;
+as $$
 declare
   v_legacy_user_id uuid;
   v_person_id uuid;
@@ -134,7 +91,7 @@ create or replace function security.sync_legacy_care_access()
 returns trigger
 language plpgsql
 set search_path = pg_catalog, security, identity, core, lifemate, pg_temp
-as $$;
+as $$
 declare
   v_grant_id uuid;
   v_patient_person_id uuid;
