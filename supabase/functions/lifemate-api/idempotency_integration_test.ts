@@ -68,6 +68,26 @@ if (databaseUrl) {
       );
       assertEquals(conflict.code, "idempotency_key_reused");
 
+      await sql`
+        update lifemate.idempotency_keys
+        set expires_at_utc = now() - interval '1 second'
+        where actor_auth_subject = ${actor}::uuid
+          and operation = ${operation}
+          and idempotency_key = ${replayKey}
+      `;
+      const afterExpiry = await store.execute(
+        actor,
+        operation,
+        replayKey,
+        '{"dose":"1000"}',
+        async () => {
+          sideEffects += 1;
+          return json({ id: "resource-2", version: 1 }, 201);
+        },
+      );
+      assertEquals(await afterExpiry.json(), { id: "resource-2", version: 1 });
+      assertEquals(sideEffects, 2);
+
       let signalStarted!: () => void;
       const started = new Promise<void>((resolve) => signalStarted = resolve);
       let releaseFirst!: () => void;
