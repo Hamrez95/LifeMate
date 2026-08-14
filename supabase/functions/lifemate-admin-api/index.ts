@@ -20,6 +20,12 @@ import { createRelationshipOverviewStore } from "./relationship_overview_service
 import { parseRelationshipOverviewQuery } from "./relationships.ts";
 import { loadRuntimeConfig } from "./runtime_config.ts";
 import { createAdminStore } from "./store.ts";
+import { createUserAccountActionStore } from "./user_action_store.ts";
+import {
+  hashUserAccountActionRequest,
+  matchUserAccountActionPath,
+  parseUserAccountActionRequest,
+} from "./user_actions.ts";
 import {
   matchUserActivityPath,
   matchUserDetailPath,
@@ -37,6 +43,7 @@ import {
 const config = await loadRuntimeConfig();
 const store = createAdminStore(config.databaseUrl);
 const userDetailStore = createUserDetailStore(config.databaseUrl);
+const userAccountActionStore = createUserAccountActionStore(config.databaseUrl);
 const analyticsKpiStore = createAnalyticsKpiStore(config.databaseUrl);
 const relationshipOverviewStore = createRelationshipOverviewStore(
   config.databaseUrl,
@@ -232,6 +239,47 @@ Deno.serve(async (request: Request) => {
           },
         },
         200,
+        origin,
+      );
+    }
+
+    const userActionRoute = matchUserAccountActionPath(path);
+    if (request.method === "POST" && userActionRoute) {
+      requirePermission(admin, "users.suspend");
+      const idempotencyKey = requireIdempotencyKey(request);
+      const body = await parseUserAccountActionRequest(request);
+      const requestHash = await hashUserAccountActionRequest(
+        userActionRoute.accountId,
+        userActionRoute.action,
+        body.reason,
+      );
+      const result = await userAccountActionStore.execute({
+        actorAccountId: accountId,
+        targetAccountId: userActionRoute.accountId,
+        action: userActionRoute.action,
+        reason: body.reason,
+        correlationId,
+        idempotencyKey,
+        requestHash,
+      });
+
+      if (result.httpStatus >= 400) {
+        throw new ApiError(
+          result.httpStatus,
+          result.code,
+          result.message ?? "User account action was not completed.",
+        );
+      }
+
+      return json(
+        {
+          accountId: result.accountId,
+          action: result.action,
+          previousStatus: result.previousStatus,
+          status: result.status,
+          replayed: result.replayed,
+        },
+        result.httpStatus,
         origin,
       );
     }
