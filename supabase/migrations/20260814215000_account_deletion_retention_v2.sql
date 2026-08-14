@@ -308,7 +308,7 @@ begin
            email = null,
            locale = 'en',
            time_zone = 'UTC',
-           avatar_key = '',
+           avatar_key = null,
            profile_photo_path = null,
            version = version + 1,
            updated_at_utc = now()

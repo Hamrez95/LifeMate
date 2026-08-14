@@ -88,7 +88,7 @@ Deno.test({
           id,user_id,display_name,locale,time_zone,avatar_key,created_at_utc,updated_at_utc
         ) values (
           ${crypto.randomUUID()}::uuid,${patientUserId}::uuid,'Mapped Patient',
-          'fa','Asia/Tehran','',now(),now()
+          'fa','Asia/Tehran','person_blue',now(),now()
         )
       `;
 

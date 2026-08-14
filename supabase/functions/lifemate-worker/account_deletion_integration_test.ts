@@ -165,7 +165,7 @@ Deno.test({
           profile_photo_path,created_at_utc,updated_at_utc
         ) values (
           ${crypto.randomUUID()}::uuid,${appUserId}::uuid,'Delete Me',
-          '+989121234567','delete-me@example.test','fa','Asia/Tehran','custom',
+          '+989121234567','delete-me@example.test','fa','Asia/Tehran','person_green',
           ${`${appUserId}/${crypto.randomUUID()}.jpg`},now(),now()
         )
       `;
