@@ -1,5 +1,7 @@
 from pathlib import Path
 
+# One-shot deterministic source transformation for Scale-02. The helper and
+# workflow are removed from the feature branch after the generated patch lands.
 path = Path("supabase/functions/lifemate-api/index.ts")
 text = path.read_text(encoding="utf-8")
 
