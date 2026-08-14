@@ -192,6 +192,10 @@ jobs:
           mkdir -p dist
           cp wellmate/build/app/outputs/flutter-apk/app-release.apk "dist/wellmate-0.9.2-main-${short_sha}.apk"
           cp caremate/build/app/outputs/flutter-apk/app-release.apk "dist/caremate-0.9.2-main-${short_sha}.apk"
+          aapt_bin="$(find "$ANDROID_HOME/build-tools" -type f -name aapt | sort -V | tail -n 1)"
+          test -x "$aapt_bin"
+          wellmate_android="$(bash tools/release/extract-android-apk-metadata.sh dist/wellmate-*.apk "$aapt_bin" com.lifemate.wellmate)"
+          caremate_android="$(bash tools/release/extract-android-apk-metadata.sh dist/caremate-*.apk "$aapt_bin" com.lifemate.caremate)"
           wellmate_sha="$(sha256sum dist/wellmate-*.apk | awk '{print $1}')"
           caremate_sha="$(sha256sum dist/caremate-*.apk | awk '{print $1}')"
           wellmate_cert_sha256="$(cat "$LIFEMATE_ANDROID_SIGNING_DIR/wellmate-cert-sha256.txt")"
@@ -207,10 +211,12 @@ jobs:
             --arg caremateSha256 "$caremate_sha" \
             --arg wellmateSigningCertSha256 "$wellmate_cert_sha256" \
             --arg caremateSigningCertSha256 "$caremate_cert_sha256" \
+            --argjson wellmateAndroid "$wellmate_android" \
+            --argjson caremateAndroid "$caremate_android" \
             --argjson googleAuth false \
             --argjson phoneOtp false \
             --argjson womenCalendarPilot true \
-            '{mainCommit:$mainCommit,version:$version,buildNumber:$buildNumber,builtAtUtc:$builtAt,apiEnvironment:$apiEnvironment,apiBaseUrl:$apiBaseUrl,featureFlags:{googleAuth:$googleAuth,phoneOtp:$phoneOtp,womenCalendarPilot:$womenCalendarPilot},apps:{wellmate:{packageId:"com.lifemate.wellmate",sha256:$wellmateSha256,signingCertSha256:$wellmateSigningCertSha256},caremate:{packageId:"com.lifemate.caremate",sha256:$caremateSha256,signingCertSha256:$caremateSigningCertSha256}},releasePurpose:"physical-test-round-2",storeSigningConfigured:true}' \
+            '{mainCommit:$mainCommit,version:$version,buildNumber:$buildNumber,builtAtUtc:$builtAt,apiEnvironment:$apiEnvironment,apiBaseUrl:$apiBaseUrl,featureFlags:{googleAuth:$googleAuth,phoneOtp:$phoneOtp,womenCalendarPilot:$womenCalendarPilot},apps:{wellmate:{packageId:"com.lifemate.wellmate",sha256:$wellmateSha256,signingCertSha256:$wellmateSigningCertSha256,android:$wellmateAndroid},caremate:{packageId:"com.lifemate.caremate",sha256:$caremateSha256,signingCertSha256:$caremateSigningCertSha256,android:$caremateAndroid}},releasePurpose:"physical-test-round-2",storeSigningConfigured:true}' \
             > dist/manifest.json
 
       - name: Upload final exact-main Android bundle
