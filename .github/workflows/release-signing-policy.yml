@@ -31,7 +31,7 @@ jobs:
         with:
           persist-credentials: false
           show-progress: false
-      - name: Enforce fail-closed stable signing contract
+      - name: Enforce fail-closed stable signing and deployment contract
         shell: bash
         run: |
           set -euo pipefail
@@ -46,12 +46,23 @@ jobs:
             grep -Fq 'release keystore file is missing' "$gradle"
           done
 
-          grep -Fq "LIFEMATE_REQUIRE_RELEASE_SIGNING: 'true'" \
-            .github/workflows/main-final-android-release.yml
-          grep -Fq 'bash tools/release/prepare-android-signing.sh' \
-            .github/workflows/main-final-android-release.yml
-          grep -Fq 'bash tools/release/verify-android-signing.sh' \
-            .github/workflows/main-final-android-release.yml
+          release_workflow=.github/workflows/main-final-android-release.yml
+          grep -Fq "LIFEMATE_REQUIRE_RELEASE_SIGNING: 'true'" "$release_workflow"
+          grep -Fq 'bash tools/release/prepare-android-signing.sh' "$release_workflow"
+          grep -Fq 'bash tools/release/verify-android-signing.sh' "$release_workflow"
+
+          # A failed deployment on commit N must never allow commit N+1 to build
+          # against stale production merely because the last commit did not edit
+          # Edge source. Every final build deploys and proves its exact main SHA.
+          grep -Fq 'Require exact-main deployment credentials' "$release_workflow"
+          grep -Fq 'SUPABASE_ACCESS_TOKEN is required for every exact-main release deployment.' "$release_workflow"
+          grep -Fq 'Deploy exact main Edge source' "$release_workflow"
+          grep -Fq 'LIFEMATE_RELEASE_VERSION=%s' "$release_workflow"
+          grep -Fq '.version == $version' "$release_workflow"
+          if grep -Fq 'steps.edge-change.outputs.edge_changed' "$release_workflow"; then
+            echo '::error::Final release must not infer deployment success from a one-commit source diff.'
+            exit 1
+          fi
 
           for name in \
             WELLMATE_KEYSTORE_BASE64 WELLMATE_STORE_PASSWORD WELLMATE_KEY_PASSWORD WELLMATE_KEY_ALIAS \
