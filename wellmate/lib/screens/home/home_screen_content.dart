@@ -110,6 +110,8 @@ class _HomeScreenContentState extends State<HomeScreenContent> {
               ? plan['medication'] as Map<String, dynamic>
               : const <String, dynamic>{};
           final status = (dose['status'] ?? 'scheduled').toString();
+          final pending =
+              dose['pendingSync'] == true || status == 'pending_sync';
           final rawTime = (dose['scheduledLocalTime'] ?? '').toString();
           final time = rawTime.length >= 5 ? rawTime.substring(0, 5) : rawTime;
           return ScheduleItemModel(
@@ -132,7 +134,9 @@ class _HomeScreenContentState extends State<HomeScreenContent> {
             scheduledAtUtc: DateTime.tryParse(
               dose['scheduledAtUtc']?.toString() ?? '',
             )?.toUtc(),
-            isDone: status == 'taken' || status == 'skipped',
+            isDone: pending ? false : status == 'taken' || status == 'skipped',
+            pendingSync: pending,
+            pendingStatus: dose['pendingStatus']?.toString(),
             frequency: LifeMateRuntimeLocale.select(
               fa: LifeMateRuntimeLocale.select(
                 fa: 'طبق برنامه درمان',
@@ -332,8 +336,11 @@ class _HomeScreenContentState extends State<HomeScreenContent> {
         occurredAtUtc: DateTime.now().toUtc(),
       );
       if (!mounted) return;
+      final pendingSync = result['pendingSync'] == true;
       final updated = item.copyWith(
-        isDone: status == 'taken' || status == 'skipped',
+        isDone: pendingSync ? false : status == 'taken' || status == 'skipped',
+        pendingSync: pendingSync,
+        pendingStatus: pendingSync ? status : null,
         status: (result['status'] ?? status).toString(),
         version: result['version'] is int
             ? result['version'] as int
@@ -349,20 +356,19 @@ class _HomeScreenContentState extends State<HomeScreenContent> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
-            status == 'taken'
+            pendingSync
                 ? LifeMateRuntimeLocale.select(
-                    fa: LifeMateRuntimeLocale.select(
-                      fa: '${item.title} به عنوان مصرف‌شده ثبت شد.',
-                      en: "${item.title} was marked as taken.",
-                    ),
-                    en: "${item.title} registered as spent.",
+                    fa: '${item.title} روی گوشی ذخیره شد و بعد از اتصال اینترنت همگام می‌شود.',
+                    en: '${item.title} was saved on this device and will sync when you reconnect.',
+                  )
+                : status == 'taken'
+                ? LifeMateRuntimeLocale.select(
+                    fa: '${item.title} به عنوان مصرف‌شده ثبت شد.',
+                    en: '${item.title} was marked as taken.',
                   )
                 : LifeMateRuntimeLocale.select(
-                    fa: LifeMateRuntimeLocale.select(
-                      fa: '${item.title} به عنوان مصرف‌نشده ثبت شد.',
-                      en: "${item.title} was marked as not taken.",
-                    ),
-                    en: "${item.title} was registered as unused.",
+                    fa: '${item.title} به عنوان مصرف‌نشده ثبت شد.',
+                    en: '${item.title} was marked as skipped.',
                   ),
           ),
           behavior: SnackBarBehavior.floating,

@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'app_config.dart';
+import 'durable_lifemate_api_client.dart';
 import 'feature_flags.dart';
 import 'health_facts.dart';
 import 'lifemate_api_client.dart';
@@ -21,8 +22,8 @@ part 'experience_blocking.dart';
 part 'experience_ambient.dart';
 part 'experience_brand.dart';
 
-typedef LifeMateExperienceAuthenticatedBuilder =
-    Widget Function(BuildContext context, LifeMateApiClient apiClient);
+typedef LifeMateExperienceAuthenticatedBuilder = Widget Function(
+    BuildContext context, LifeMateApiClient apiClient);
 
 /// The polished authentication and account-bootstrap boundary shared by
 /// WellMate and CareMate.
@@ -48,11 +49,12 @@ class LifeMateExperienceGate extends StatefulWidget {
   State<LifeMateExperienceGate> createState() => _LifeMateExperienceGateState();
 }
 
-class _LifeMateExperienceGateState extends State<LifeMateExperienceGate> {
+class _LifeMateExperienceGateState extends State<LifeMateExperienceGate>
+    with WidgetsBindingObserver {
   static const _requestTimeout = Duration(seconds: 20);
 
   late final SupabaseClient _supabase;
-  late final LifeMateApiClient _api;
+  late final DurableLifeMateApiClient _api;
   StreamSubscription<AuthState>? _authSubscription;
   Session? _session;
   Future<void>? _bootstrap;
@@ -62,10 +64,12 @@ class _LifeMateExperienceGateState extends State<LifeMateExperienceGate> {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _supabase = Supabase.instance.client;
-    _api = LifeMateApiClient(
+    _api = DurableLifeMateApiClient(
       baseUri: widget.config.apiBaseUri,
       accessToken: () => _supabase.auth.currentSession?.accessToken,
+      accountId: () => _supabase.auth.currentUser?.id,
     );
     _session = _supabase.auth.currentSession;
     if (_session != null) {
@@ -92,8 +96,7 @@ class _LifeMateExperienceGateState extends State<LifeMateExperienceGate> {
         setState(() {
           _authStreamError = null;
           _session = session;
-          _passwordRecovery =
-              state.event == AuthChangeEvent.passwordRecovery &&
+          _passwordRecovery = state.event == AuthChangeEvent.passwordRecovery &&
               session != null;
           _bootstrap = session == null ? null : _bootstrapUser(session);
         });
@@ -122,6 +125,14 @@ class _LifeMateExperienceGateState extends State<LifeMateExperienceGate> {
           email: user.email,
         )
         .timeout(_requestTimeout);
+    unawaited(_api.flushPendingMutations());
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed && _session != null) {
+      unawaited(_api.flushPendingMutations());
+    }
   }
 
   void _retryBootstrap() {
@@ -137,6 +148,7 @@ class _LifeMateExperienceGateState extends State<LifeMateExperienceGate> {
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _authSubscription?.cancel();
     _api.close();
     super.dispose();
@@ -201,8 +213,7 @@ class _LifeMateExperienceGateState extends State<LifeMateExperienceGate> {
           );
         }
         if (snapshot.hasError) {
-          final expired =
-              snapshot.error is LifeMateApiException &&
+          final expired = snapshot.error is LifeMateApiException &&
               (snapshot.error! as LifeMateApiException).isUnauthorized;
           return _ExperienceBlockingState(
             appName: widget.appName,
@@ -253,9 +264,8 @@ class _LifeMateExperienceGateState extends State<LifeMateExperienceGate> {
                     ),
                     en: "Try again",
                   ),
-            onPrimary: expired
-                ? () => _supabase.auth.signOut()
-                : _retryBootstrap,
+            onPrimary:
+                expired ? () => _supabase.auth.signOut() : _retryBootstrap,
             secondaryLabel: expired
                 ? null
                 : LifeMateRuntimeLocale.select(
