@@ -1,5 +1,6 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 
+import { getAnalyticsCatalog } from "./analytics_catalog.ts";
 import { authenticate, requireAal2 } from "./auth.ts";
 import { requirePermission } from "./authorization.ts";
 import { isPostgresUnavailable } from "./database_client.ts";
@@ -123,6 +124,11 @@ Deno.serve(async (request: Request) => {
 
     if (request.method === "GET" && path === "/api/v1/me") {
       return json({ admin }, 200, origin);
+    }
+
+    if (request.method === "GET" && path === "/api/v1/analytics/catalog") {
+      requirePermission(admin, "analytics.read");
+      return json(getAnalyticsCatalog(), 200, origin);
     }
 
     if (request.method === "GET" && path === "/api/v1/users") {
