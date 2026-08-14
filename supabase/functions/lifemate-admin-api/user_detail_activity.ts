@@ -4,7 +4,10 @@ function iso(value: unknown): string {
   return value instanceof Date ? value.toISOString() : String(value);
 }
 
-export async function getUserAdminActivitySummary(sql: AdminSql, accountId: string) {
+export async function getUserAdminActivitySummary(
+  sql: AdminSql,
+  accountId: string,
+) {
   const countRows = await sql`
     select count(*)::integer as total
     from admin.audit_events
