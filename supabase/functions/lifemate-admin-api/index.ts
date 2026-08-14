@@ -155,8 +155,8 @@ Deno.serve(async (request: Request) => {
 
       const permissions = getUserDetailSectionPermissions(admin.permissions);
       const personId = base.person?.id ?? null;
-      const [products, commerce, relationships, adminActivity] =
-        await Promise.all([
+      const [products, commerce, relationships, adminActivity] = await Promise
+        .all([
           optionalSection(
             true,
             () => userDetailStore.listEnrollments(detailAccountId),
