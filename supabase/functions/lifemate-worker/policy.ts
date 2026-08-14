@@ -37,7 +37,7 @@ export function isPermanentWorkerError(errorCode: string): boolean {
   return errorCode === "unsupported_event" ||
     errorCode === "aggregate_id_missing" ||
     errorCode.startsWith("invalid_") ||
-    /^auth_(?:session_revoke|delete):4(?!08|09)\d$/.test(errorCode);
+    /^auth_(?:session_revoke|delete):4(?!08|09|29)\d{2}$/.test(errorCode);
 }
 
 export function queueLagLevel(
