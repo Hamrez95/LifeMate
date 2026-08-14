@@ -4,7 +4,9 @@ export type LifeMateSql = ReturnType<typeof postgres>;
 
 const clients = new Map<string, LifeMateSql>();
 
-export function lifeMateDatabaseClientOptions(applicationName = "lifemate-api") {
+export function lifeMateDatabaseClientOptions(
+  applicationName = "lifemate-api",
+) {
   return {
     // One client connection per Edge isolate. Server-side Supavisor transaction
     // pooling is responsible for multiplexing many transient Edge clients onto
