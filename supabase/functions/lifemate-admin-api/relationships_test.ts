@@ -32,7 +32,9 @@ Deno.test("relationship overview query accepts approved kind and status", () => 
 Deno.test("relationship overview query accepts all canonical kinds", () => {
   for (const kind of ["relationship", "consent", "access_grant"] as const) {
     const query = parseRelationshipOverviewQuery(
-      new URL(`https://admin.example/api/v1/relationships/overview?kind=${kind}`),
+      new URL(
+        `https://admin.example/api/v1/relationships/overview?kind=${kind}`,
+      ),
     );
     assertEquals(query.kind, kind);
   }
@@ -42,7 +44,9 @@ Deno.test("relationship overview query rejects unknown kinds and malformed statu
   assertThrows(
     () =>
       parseRelationshipOverviewQuery(
-        new URL("https://admin.example/api/v1/relationships/overview?kind=permission"),
+        new URL(
+          "https://admin.example/api/v1/relationships/overview?kind=permission",
+        ),
       ),
     ApiError,
   );
