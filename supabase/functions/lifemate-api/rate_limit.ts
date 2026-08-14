@@ -32,6 +32,13 @@ type FetchLike = (
   init?: RequestInit,
 ) => Promise<Response>;
 
+export type RateLimiterSnapshot = {
+  source: "local" | "redis";
+  state: "healthy" | "degraded";
+  lastFailureCode: string | null;
+  lastFailureAgeMs: number | null;
+};
+
 const policies: Record<RateLimitClass, RateLimitPolicy> = {
   // These are project-wide admission ceilings. Existing route-specific local
   // limits in security.ts remain in place as a second layer and are often
@@ -48,6 +55,9 @@ const policies: Record<RateLimitClass, RateLimitPolicy> = {
 export class RequestRateLimiter {
   private readonly fallback: InMemoryCounterStore;
   private lastDegradedWarningAt = 0;
+  private primaryHealthy = true;
+  private lastPrimaryFailureAt = 0;
+  private lastPrimaryFailureCode: string | null = null;
 
   constructor(
     private readonly primary: CounterStore,
@@ -66,7 +76,11 @@ export class RequestRateLimiter {
 
     try {
       result = await this.primary.consume(key, policy);
+      this.primaryHealthy = true;
     } catch (error) {
+      this.primaryHealthy = false;
+      this.lastPrimaryFailureAt = Date.now();
+      this.lastPrimaryFailureCode = safeRateLimitError(error);
       // Shared rate limiting must never silently become unlimited. If Redis is
       // unavailable, use a deliberately conservative isolate-local fallback.
       const degradedPolicy = {
@@ -81,7 +95,7 @@ export class RequestRateLimiter {
         console.warn("LifeMate distributed rate limiter degraded", {
           source: this.source,
           rateClass,
-          code: safeRateLimitError(error),
+          code: this.lastPrimaryFailureCode,
         });
       }
     }
@@ -93,6 +107,17 @@ export class RequestRateLimiter {
         "Too many requests. Try again later.",
       );
     }
+  }
+
+  snapshot(now = Date.now()): RateLimiterSnapshot {
+    return {
+      source: this.source,
+      state: this.primaryHealthy ? "healthy" : "degraded",
+      lastFailureCode: this.lastPrimaryFailureCode,
+      lastFailureAgeMs: this.lastPrimaryFailureAt > 0
+        ? Math.max(0, now - this.lastPrimaryFailureAt)
+        : null,
+    };
   }
 }
 

@@ -32,6 +32,8 @@ if (!(PROFILE in profiles)) throw new Error(`Unsupported LOAD_PROFILE: ${PROFILE
 
 const unexpectedResponses = new Rate("unexpected_response_rate");
 const controlledOverload = new Rate("controlled_overload_rate");
+const serverErrors = new Rate("server_error_rate");
+const missingCorrelationId = new Rate("missing_correlation_id_rate");
 const apiLatency = new Trend("lifemate_api_latency", true);
 
 export const options = {
@@ -39,6 +41,8 @@ export const options = {
   thresholds: {
     checks: ["rate>0.99"],
     unexpected_response_rate: ["rate<0.01"],
+    server_error_rate: ["rate<0.005"],
+    missing_correlation_id_rate: ["rate<0.001"],
     lifemate_api_latency: ["p(95)<1500", "p(99)<3000"],
   },
 };
@@ -60,11 +64,29 @@ function get(path, route) {
     timeout: "10s",
   });
   const ok = response.status >= 200 && response.status < 300;
-  const shed = response.status === 429 || response.status === 503;
+  const retryAfter =
+    response.headers["Retry-After"] ?? response.headers["retry-after"] ?? "";
+  const shed = response.status === 429 ||
+    (response.status === 503 && retryAfter.length > 0);
+  const uncontrolledServerError = response.status >= 500 && !shed;
+  const correlationId =
+    response.headers["X-Correlation-Id"] ??
+    response.headers["x-correlation-id"] ??
+    "";
+
   unexpectedResponses.add(!ok && !shed, { route });
   controlledOverload.add(shed, { route });
+  serverErrors.add(uncontrolledServerError, { route });
+  missingCorrelationId.add(correlationId.length === 0, { route });
   apiLatency.add(response.timings.duration, { route });
-  check(response, { "success or controlled overload": () => ok || shed }, { route });
+  check(
+    response,
+    {
+      "success or controlled overload": () => ok || shed,
+      "correlation id present": () => correlationId.length > 0,
+    },
+    { route },
+  );
 }
 
 export default function () {

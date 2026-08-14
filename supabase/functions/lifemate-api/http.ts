@@ -5,7 +5,8 @@ export const corsHeaders = {
   "Access-Control-Allow-Headers":
     "authorization, apikey, content-type, idempotency-key, x-client-info",
   "Access-Control-Allow-Methods": "GET, POST, PATCH, PUT, DELETE, OPTIONS",
-  "Access-Control-Expose-Headers": "Retry-After, X-Idempotency-Replayed",
+  "Access-Control-Expose-Headers":
+    "Retry-After, X-Idempotency-Replayed, X-Correlation-Id",
   "Content-Type": "application/json; charset=utf-8",
   "Cache-Control": "no-store",
   "X-Content-Type-Options": "nosniff",
