@@ -1,0 +1,69 @@
+name: retention-diagnostic
+
+on:
+  push:
+    branches: ['privacy/p0-retention-v2-account-deletion']
+
+permissions:
+  contents: write
+
+jobs:
+  diagnose:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    services:
+      postgres:
+        image: postgres:17.6-alpine
+        env:
+          POSTGRES_DB: lifemate_worker_tests
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d lifemate_worker_tests"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      TEST_DATABASE_URL: postgres://postgres:postgres@localhost:5432/lifemate_worker_tests
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
+        with:
+          ref: privacy/p0-retention-v2-account-deletion
+          fetch-depth: 0
+      - uses: denoland/setup-deno@22d081ff2d3a40755e97629de92e3bcbfa7cf2ed
+        with:
+          deno-version: v2.9.4
+      - name: Reproduce worker integration and capture exact failure
+        shell: bash
+        run: |
+          set -uo pipefail
+          log=/tmp/retention-diagnostic.log
+          : > "$log"
+          {
+            set -e
+            psql "$TEST_DATABASE_URL" --set=ON_ERROR_STOP=1 --file=supabase/bootstrap/legacy_lifemate_baseline.sql
+            while IFS= read -r migration; do
+              psql "$TEST_DATABASE_URL" --set=ON_ERROR_STOP=1 --file="$migration"
+            done < <(find supabase/migrations -maxdepth 1 -type f -name '*.sql' | sort)
+            cd supabase/functions/lifemate-worker
+            deno task test:integration
+          } >"$log" 2>&1
+          status=$?
+          {
+            echo '# Temporary retention diagnostic'
+            echo
+            echo "exit_status=$status"
+            echo
+            echo '```text'
+            tail -n 180 "$log"
+            echo '```'
+          } > retention-diagnostic.txt
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add retention-diagnostic.txt
+          git commit -m 'chore: capture retention integration failure'
+          git push origin HEAD:privacy/p0-retention-v2-account-deletion
+          exit "$status"
