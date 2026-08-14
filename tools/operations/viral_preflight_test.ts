@@ -91,11 +91,13 @@ Deno.test("red blocks stale evidence, write-integrity failures and missing gatew
   const result = evaluateViralPreflight(evidence, now);
 
   assertEquals(result.status, "red");
-  for (const code of [
-    "capacity_report_stale",
-    "critical_write_integrity_failed",
-    "gateway_gate_incomplete",
-  ]) {
+  for (
+    const code of [
+      "capacity_report_stale",
+      "critical_write_integrity_failed",
+      "gateway_gate_incomplete",
+    ]
+  ) {
     assertExists(result.findings.find((finding) => finding.code === code));
   }
 });
@@ -108,9 +110,15 @@ Deno.test("yellow preserves a go-with-caution state only when no red gate fails"
   const result = evaluateViralPreflight(evidence, now);
 
   assertEquals(result.status, "yellow");
-  assertExists(result.findings.find((finding) => finding.code === "p95_headroom_low"));
-  assertExists(result.findings.find((finding) => finding.code === "database_headroom_low"));
-  assertExists(result.findings.find((finding) => finding.code === "worker_lag_elevated"));
+  assertExists(
+    result.findings.find((finding) => finding.code === "p95_headroom_low"),
+  );
+  assertExists(
+    result.findings.find((finding) => finding.code === "database_headroom_low"),
+  );
+  assertExists(
+    result.findings.find((finding) => finding.code === "worker_lag_elevated"),
+  );
 });
 
 Deno.test("capacity is evaluated against campaign demand plus safety factor", () => {
@@ -120,5 +128,9 @@ Deno.test("capacity is evaluated against campaign demand plus safety factor", ()
   const result = evaluateViralPreflight(evidence, now);
 
   assertEquals(result.status, "red");
-  assertExists(result.findings.find((finding) => finding.code === "peak_capacity_insufficient"));
+  assertExists(
+    result.findings.find((finding) =>
+      finding.code === "peak_capacity_insufficient"
+    ),
+  );
 });

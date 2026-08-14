@@ -104,7 +104,10 @@ export function evaluateViralPreflight(
     message: string,
   ) => findings.push({ level, code, message });
 
-  const measuredAt = parseUtc(evidence.capacity.measuredAtUtc, "capacity.measuredAtUtc");
+  const measuredAt = parseUtc(
+    evidence.capacity.measuredAtUtc,
+    "capacity.measuredAtUtc",
+  );
   const ageMs = now.getTime() - measuredAt.getTime();
   if (ageMs < -5 * 60 * 1000 || ageMs > maximumEvidenceAgeMs) {
     add(
@@ -130,14 +133,18 @@ export function evaluateViralPreflight(
     add(
       "red",
       "sustained_capacity_insufficient",
-      `Measured sustained capacity ${evidence.capacity.sustainedRps} RPS is below required ${round(requiredSustained)} RPS including safety factor.`,
+      `Measured sustained capacity ${evidence.capacity.sustainedRps} RPS is below required ${
+        round(requiredSustained)
+      } RPS including safety factor.`,
     );
   }
   if (evidence.capacity.spikeRps < requiredPeak) {
     add(
       "red",
       "peak_capacity_insufficient",
-      `Measured spike capacity ${evidence.capacity.spikeRps} RPS is below required ${round(requiredPeak)} RPS including safety factor.`,
+      `Measured spike capacity ${evidence.capacity.spikeRps} RPS is below required ${
+        round(requiredPeak)
+      } RPS including safety factor.`,
     );
   }
   if (evidence.capacity.spikeSeconds < evidence.campaign.expectedPeakSeconds) {
@@ -147,7 +154,10 @@ export function evaluateViralPreflight(
       "Measured spike duration is shorter than the campaign peak-duration assumption.",
     );
   }
-  if (evidence.capacity.sustainedMinutes < 10 || evidence.capacity.soakMinutes < 30) {
+  if (
+    evidence.capacity.sustainedMinutes < 10 ||
+    evidence.capacity.soakMinutes < 30
+  ) {
     add(
       "yellow",
       "capacity_duration_weak",
@@ -156,20 +166,38 @@ export function evaluateViralPreflight(
   }
 
   if (evidence.capacity.p95Ms > p95TargetMs) {
-    add("red", "p95_slo_failed", `p95 ${evidence.capacity.p95Ms} ms exceeds ${p95TargetMs} ms.`);
+    add(
+      "red",
+      "p95_slo_failed",
+      `p95 ${evidence.capacity.p95Ms} ms exceeds ${p95TargetMs} ms.`,
+    );
   } else if (evidence.capacity.p95Ms > 1200) {
-    add("yellow", "p95_headroom_low", "p95 latency is within SLO but leaves little campaign headroom.");
+    add(
+      "yellow",
+      "p95_headroom_low",
+      "p95 latency is within SLO but leaves little campaign headroom.",
+    );
   }
   if (evidence.capacity.p99Ms > p99TargetMs) {
-    add("red", "p99_slo_failed", `p99 ${evidence.capacity.p99Ms} ms exceeds ${p99TargetMs} ms.`);
+    add(
+      "red",
+      "p99_slo_failed",
+      `p99 ${evidence.capacity.p99Ms} ms exceeds ${p99TargetMs} ms.`,
+    );
   } else if (evidence.capacity.p99Ms > 2400) {
-    add("yellow", "p99_headroom_low", "p99 latency is within SLO but leaves little campaign headroom.");
+    add(
+      "yellow",
+      "p99_headroom_low",
+      "p99 latency is within SLO but leaves little campaign headroom.",
+    );
   }
   if (evidence.capacity.uncontrolled5xxRate >= uncontrolled5xxTarget) {
     add(
       "red",
       "uncontrolled_5xx_high",
-      `Uncontrolled 5xx rate ${(evidence.capacity.uncontrolled5xxRate * 100).toFixed(2)}% exceeds the 0.5% launch gate.`,
+      `Uncontrolled 5xx rate ${
+        (evidence.capacity.uncontrolled5xxRate * 100).toFixed(2)
+      }% exceeds the 0.5% launch gate.`,
     );
   }
   if (
@@ -193,38 +221,84 @@ export function evaluateViralPreflight(
   const connectionRatio = evidence.database.peakConnections /
     evidence.database.maxConnections;
   if (!evidence.database.poolerEnforced) {
-    add("red", "pooler_not_enforced", "Serverless database traffic must use the approved transaction pooler.");
+    add(
+      "red",
+      "pooler_not_enforced",
+      "Serverless database traffic must use the approved transaction pooler.",
+    );
   }
   if (connectionRatio >= 0.85) {
-    add("red", "database_headroom_critical", "Peak database connections consumed at least 85% of max connections.");
+    add(
+      "red",
+      "database_headroom_critical",
+      "Peak database connections consumed at least 85% of max connections.",
+    );
   } else if (connectionRatio >= 0.70) {
-    add("yellow", "database_headroom_low", "Peak database connections consumed at least 70% of max connections.");
+    add(
+      "yellow",
+      "database_headroom_low",
+      "Peak database connections consumed at least 70% of max connections.",
+    );
   }
   if (evidence.database.queryTimeouts > 0) {
-    add("red", "database_timeouts", "Database query timeouts occurred during the measured capacity run.");
+    add(
+      "red",
+      "database_timeouts",
+      "Database query timeouts occurred during the measured capacity run.",
+    );
   }
 
   if (!evidence.admissionControl.distributed) {
-    add("red", "distributed_admission_missing", "Shared/distributed request admission is not enabled.");
+    add(
+      "red",
+      "distributed_admission_missing",
+      "Shared/distributed request admission is not enabled.",
+    );
   }
   if (!evidence.admissionControl.healthy) {
-    add("red", "distributed_admission_unhealthy", "Distributed request admission is not healthy.");
+    add(
+      "red",
+      "distributed_admission_unhealthy",
+      "Distributed request admission is not healthy.",
+    );
   }
   if (!evidence.admissionControl.outageFallbackTested) {
-    add("red", "admission_fallback_unproven", "Rate-limiter outage fallback has not been tested.");
+    add(
+      "red",
+      "admission_fallback_unproven",
+      "Rate-limiter outage fallback has not been tested.",
+    );
   }
 
-  if (!evidence.auth.quotasReviewed || !evidence.auth.expectedBurstWithinQuota) {
-    add("red", "auth_quota_unverified", "Signup/login burst assumptions are not verified against current Auth quotas.");
+  if (
+    !evidence.auth.quotasReviewed || !evidence.auth.expectedBurstWithinQuota
+  ) {
+    add(
+      "red",
+      "auth_quota_unverified",
+      "Signup/login burst assumptions are not verified against current Auth quotas.",
+    );
   }
 
   if (evidence.worker.oldestReadyAgeSeconds >= 900) {
-    add("red", "worker_lag_critical", "Outbox oldest-ready age is at or above 15 minutes.");
+    add(
+      "red",
+      "worker_lag_critical",
+      "Outbox oldest-ready age is at or above 15 minutes.",
+    );
   } else if (evidence.worker.oldestReadyAgeSeconds >= 120) {
-    add("yellow", "worker_lag_elevated", "Outbox oldest-ready age is at or above 2 minutes.");
+    add(
+      "yellow",
+      "worker_lag_elevated",
+      "Outbox oldest-ready age is at or above 2 minutes.",
+    );
   }
   if (evidence.worker.unexplainedDeadLetters > 0) {
-    add("red", "dead_letters_unexplained", "Unexplained dead-letter messages must be resolved before launch.");
+    add(
+      "red",
+      "dead_letters_unexplained",
+      "Unexplained dead-letter messages must be resolved before launch.",
+    );
   }
 
   if (
@@ -234,23 +308,46 @@ export function evaluateViralPreflight(
     !evidence.observability.workerLagMetrics ||
     !evidence.observability.alertsEnabled
   ) {
-    add("red", "observability_incomplete", "Campaign telemetry/alerts are incomplete.");
+    add(
+      "red",
+      "observability_incomplete",
+      "Campaign telemetry/alerts are incomplete.",
+    );
   }
-  if (!evidence.readiness.lightweight || !evidence.readiness.deepVerificationPassed) {
-    add("red", "readiness_gate_incomplete", "Lightweight readiness and deep deployment verification must both be green.");
+  if (
+    !evidence.readiness.lightweight ||
+    !evidence.readiness.deepVerificationPassed
+  ) {
+    add(
+      "red",
+      "readiness_gate_incomplete",
+      "Lightweight readiness and deep deployment verification must both be green.",
+    );
   }
   if (
     !evidence.gateway.enabled ||
     !evidence.gateway.stagedLogToBlockCompleted ||
     !evidence.gateway.emergencyRuleTested
   ) {
-    add("red", "gateway_gate_incomplete", "Managed edge gateway controls and emergency rule must be staged and tested.");
+    add(
+      "red",
+      "gateway_gate_incomplete",
+      "Managed edge gateway controls and emergency rule must be staged and tested.",
+    );
   }
   if (!evidence.rollback.tested) {
-    add("red", "rollback_unproven", "Rollback must be tested for the exact release path.");
+    add(
+      "red",
+      "rollback_unproven",
+      "Rollback must be tested for the exact release path.",
+    );
   }
   if (!evidence.budget.usageAlertsEnabled) {
-    add("red", "budget_alerts_missing", "Provider budget/usage alerts must be enabled before a viral campaign.");
+    add(
+      "red",
+      "budget_alerts_missing",
+      "Provider budget/usage alerts must be enabled before a viral campaign.",
+    );
   }
 
   const status: GateLevel = findings.some((finding) => finding.level === "red")
@@ -264,8 +361,12 @@ export function evaluateViralPreflight(
     evaluatedAtUtc: now.toISOString(),
     releaseCommit: evidence.releaseCommit,
     measuredCapacityHeadroom: {
-      sustainedRatio: round(evidence.capacity.sustainedRps / evidence.campaign.expectedSustainedRps),
-      peakRatio: round(evidence.capacity.spikeRps / evidence.campaign.expectedPeakRps),
+      sustainedRatio: round(
+        evidence.capacity.sustainedRps / evidence.campaign.expectedSustainedRps,
+      ),
+      peakRatio: round(
+        evidence.capacity.spikeRps / evidence.campaign.expectedPeakRps,
+      ),
       databaseConnectionRatio: round(connectionRatio),
     },
     findings,
@@ -273,9 +374,13 @@ export function evaluateViralPreflight(
 }
 
 function validateEvidence(evidence: ViralPreflightEvidence): void {
-  if (evidence.schemaVersion !== 1) throw new Error("unsupported_schema_version");
+  if (evidence.schemaVersion !== 1) {
+    throw new Error("unsupported_schema_version");
+  }
   parseUtc(evidence.generatedAtUtc, "generatedAtUtc");
-  if (!/^[0-9a-f]{40}$/i.test(evidence.releaseCommit)) throw new Error("invalid_release_commit");
+  if (!/^[0-9a-f]{40}$/i.test(evidence.releaseCommit)) {
+    throw new Error("invalid_release_commit");
+  }
   if (!/^[0-9a-f]{40}$/i.test(evidence.deployedReleaseCommit)) {
     throw new Error("invalid_deployed_release_commit");
   }
@@ -290,19 +395,28 @@ function validateEvidence(evidence: ViralPreflightEvidence): void {
     throw new Error("invalid_safety_factor");
   }
   positive(evidence.database.maxConnections, "maxConnections");
-  if (evidence.database.peakConnections < 0) throw new Error("invalid_peak_connections");
-  if (evidence.capacity.uncontrolled5xxRate < 0 || evidence.capacity.uncontrolled5xxRate > 1) {
+  if (evidence.database.peakConnections < 0) {
+    throw new Error("invalid_peak_connections");
+  }
+  if (
+    evidence.capacity.uncontrolled5xxRate < 0 ||
+    evidence.capacity.uncontrolled5xxRate > 1
+  ) {
     throw new Error("invalid_5xx_rate");
   }
 }
 
 function positive(value: number, field: string): void {
-  if (!Number.isFinite(value) || value <= 0) throw new Error(`invalid_${field}`);
+  if (!Number.isFinite(value) || value <= 0) {
+    throw new Error(`invalid_${field}`);
+  }
 }
 
 function parseUtc(value: string, field: string): Date {
   const parsed = new Date(value);
-  if (!value.endsWith("Z") || Number.isNaN(parsed.getTime())) throw new Error(`invalid_${field}`);
+  if (!value.endsWith("Z") || Number.isNaN(parsed.getTime())) {
+    throw new Error(`invalid_${field}`);
+  }
   return parsed;
 }
 
@@ -314,10 +428,14 @@ if (import.meta.main) {
   const inputPath = Deno.args[0];
   const outputPath = Deno.args[1] ?? "viral-preflight-result.json";
   if (!inputPath) {
-    console.error("Usage: deno run --allow-read --allow-write viral_preflight.ts <evidence.json> [result.json]");
+    console.error(
+      "Usage: deno run --allow-read --allow-write viral_preflight.ts <evidence.json> [result.json]",
+    );
     Deno.exit(2);
   }
-  const evidence = JSON.parse(await Deno.readTextFile(inputPath)) as ViralPreflightEvidence;
+  const evidence = JSON.parse(
+    await Deno.readTextFile(inputPath),
+  ) as ViralPreflightEvidence;
   const result = evaluateViralPreflight(evidence);
   await Deno.writeTextFile(outputPath, `${JSON.stringify(result, null, 2)}\n`);
   console.log(JSON.stringify(result, null, 2));
