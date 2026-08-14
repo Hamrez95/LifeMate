@@ -69,6 +69,22 @@ begin
     raise exception 'Admin runtime cannot read approved user directory view';
   end if;
 
+  if has_table_privilege('lifemate_admin_runtime','identity.accounts','UPDATE') then
+    raise exception 'Admin runtime gained direct identity account UPDATE privilege';
+  end if;
+
+  if not has_function_privilege(
+    'lifemate_admin_runtime',
+    'admin.execute_user_account_action(uuid,uuid,character varying,character varying,uuid,character varying,character varying)',
+    'EXECUTE'
+  ) then raise exception 'Admin runtime cannot execute the narrow user action boundary'; end if;
+
+  if exists (select 1 from pg_roles where rolname='authenticated') and has_function_privilege(
+    'authenticated',
+    'admin.execute_user_account_action(uuid,uuid,character varying,character varying,uuid,character varying,character varying)',
+    'EXECUTE'
+  ) then raise exception 'Browser authenticated role can execute admin user actions'; end if;
+
   if not exists (
     select 1 from pg_policies
     where schemaname='identity' and tablename='accounts'
