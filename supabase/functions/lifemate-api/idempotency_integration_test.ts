@@ -1,4 +1,5 @@
 import {
+  assert,
   assertEquals,
   assertRejects,
 } from "https://deno.land/std@0.224.0/assert/mod.ts";
@@ -12,7 +13,10 @@ const databaseUrl = Deno.env.get("TEST_DATABASE_URL");
 if (databaseUrl) {
   Deno.test("durable idempotency replays, rejects conflicts and serializes duplicates", async () => {
     const sql = getLifeMateSql(databaseUrl);
-    const store = createMutationIdempotencyStore(databaseUrl);
+    const store = createMutationIdempotencyStore(
+      databaseUrl,
+      "test-idempotency-response-secret-0000000000000001",
+    );
     const actor = "10000000-0000-4000-8000-000000000137";
     const operation = "POST /api/v1/test-idempotency";
     const replayKey = "scale05-replay-0001";
@@ -39,6 +43,18 @@ if (databaseUrl) {
       );
       assertEquals(first.status, 201);
       assertEquals(sideEffects, 1);
+
+      const storedEnvelopeRows = await sql`
+        select response_body
+        from lifemate.idempotency_keys
+        where actor_auth_subject = ${actor}::uuid
+          and operation = ${operation}
+          and idempotency_key = ${replayKey}
+        limit 1
+      `;
+      const storedEnvelope = String(storedEnvelopeRows[0]?.response_body ?? "");
+      assert(storedEnvelope.startsWith("v1."));
+      assert(!storedEnvelope.includes("resource-1"));
 
       const replay = await store.execute(
         actor,
