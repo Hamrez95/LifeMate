@@ -1,0 +1,118 @@
+name: viral-campaign-preflight
+
+on:
+  pull_request:
+    paths:
+      - 'tools/operations/viral_preflight*.ts'
+      - 'docs/operations/viral-campaign-preflight.md'
+      - '.github/workflows/viral-campaign-preflight.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'tools/operations/viral_preflight*.ts'
+      - 'docs/operations/viral-campaign-preflight.md'
+      - '.github/workflows/viral-campaign-preflight.yml'
+  workflow_dispatch:
+    inputs:
+      evidence_path:
+        description: 'Committed non-sensitive preflight evidence JSON under docs/operations/evidence/'
+        required: true
+        default: 'docs/operations/evidence/viral-preflight.json'
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  validator-tests:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
+        with:
+          persist-credentials: false
+          show-progress: false
+      - uses: denoland/setup-deno@22d081ff2d3a40755e97629de92e3bcbfa7cf2ed
+        with:
+          deno-version: v2.9.4
+      - name: Format
+        run: deno fmt --check tools/operations/viral_preflight.ts tools/operations/viral_preflight_test.ts
+      - name: Type check
+        run: deno check tools/operations/viral_preflight.ts tools/operations/viral_preflight_test.ts
+      - name: Gate tests
+        run: deno test --no-check tools/operations/viral_preflight_test.ts
+
+  evaluate-campaign:
+    if: github.event_name == 'workflow_dispatch'
+    needs: validator-tests
+    runs-on: ubuntu-24.04
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
+        with:
+          persist-credentials: false
+          show-progress: false
+      - uses: denoland/setup-deno@22d081ff2d3a40755e97629de92e3bcbfa7cf2ed
+        with:
+          deno-version: v2.9.4
+      - name: Validate evidence path
+        id: evidence
+        shell: bash
+        env:
+          EVIDENCE_PATH: ${{ inputs.evidence_path }}
+        run: |
+          set -euo pipefail
+          case "$EVIDENCE_PATH" in
+            docs/operations/evidence/*.json) ;;
+            *) echo 'Evidence path must be a committed JSON file under docs/operations/evidence/.' >&2; exit 2 ;;
+          esac
+          test -f "$EVIDENCE_PATH"
+          echo "path=$EVIDENCE_PATH" >> "$GITHUB_OUTPUT"
+      - name: Evaluate viral campaign gate
+        id: gate
+        continue-on-error: true
+        shell: bash
+        run: |
+          set -euo pipefail
+          deno run --allow-read --allow-write \
+            tools/operations/viral_preflight.ts \
+            '${{ steps.evidence.outputs.path }}' \
+            viral-preflight-result.json
+      - name: Publish preflight summary
+        if: always()
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ ! -s viral-preflight-result.json ]]; then
+            echo '## Viral campaign preflight' >> "$GITHUB_STEP_SUMMARY"
+            echo '' >> "$GITHUB_STEP_SUMMARY"
+            echo '**RED — no valid result was produced.**' >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+          status="$(jq -r '.status' viral-preflight-result.json)"
+          release="$(jq -r '.releaseCommit' viral-preflight-result.json)"
+          {
+            echo '## Viral campaign preflight'
+            echo ''
+            echo "- status: **${status^^}**"
+            echo "- release: \`$release\`"
+            echo "- sustained measured/expected ratio: $(jq -r '.measuredCapacityHeadroom.sustainedRatio' viral-preflight-result.json)x"
+            echo "- peak measured/expected ratio: $(jq -r '.measuredCapacityHeadroom.peakRatio' viral-preflight-result.json)x"
+            echo "- database peak/max ratio: $(jq -r '.measuredCapacityHeadroom.databaseConnectionRatio' viral-preflight-result.json)"
+            echo ''
+            echo '### Findings'
+            jq -r '.findings[]? | "- [\(.level | ascii_upcase)] `\(.code)`: \(.message)"' viral-preflight-result.json
+          } >> "$GITHUB_STEP_SUMMARY"
+      - name: Upload preflight evidence result
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: viral-campaign-preflight-result
+          path: viral-preflight-result.json
+          if-no-files-found: ignore
+          retention-days: 30
+      - name: Enforce green campaign gate
+        if: steps.gate.outcome != 'success'
+        run: |
+          echo 'Campaign preflight is not GREEN. High-traffic launch is blocked.' >&2
+          exit 1
