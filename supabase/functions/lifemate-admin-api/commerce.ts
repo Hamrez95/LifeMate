@@ -35,10 +35,16 @@ function optionalCode(value: string | null, label: string): string | null {
   return normalized;
 }
 
-function optionalStatus(value: string | null): CommerceSubscriptionStatus | null {
+function optionalStatus(
+  value: string | null,
+): CommerceSubscriptionStatus | null {
   if (value == null || value === "") return null;
   if (!STATUSES.has(value as CommerceSubscriptionStatus)) {
-    throw new ApiError(400, "invalid_request", "Subscription status filter is invalid.");
+    throw new ApiError(
+      400,
+      "invalid_request",
+      "Subscription status filter is invalid.",
+    );
   }
   return value as CommerceSubscriptionStatus;
 }
