@@ -1,4 +1,7 @@
-export type AnalyticsInstrumentationState = "instrumented" | "partial" | "planned";
+export type AnalyticsInstrumentationState =
+  | "instrumented"
+  | "partial"
+  | "planned";
 export type AnalyticsKpiAvailability = "available" | "partial" | "unavailable";
 
 export type AnalyticsEventDefinition = {
@@ -38,7 +41,8 @@ export const ANALYTICS_EVENTS: readonly AnalyticsEventDefinition[] = [
     instrumentationState: "partial",
     descriptionFa: "ایجاد حساب LifeMate بدون اطلاعات تماس یا داده سلامت.",
     source: "identity.accounts lifecycle",
-    privacyPolicy: "Account lifecycle only; no contact values or health payload.",
+    privacyPolicy:
+      "Account lifecycle only; no contact values or health payload.",
   },
   {
     name: "profile_completed",
@@ -83,7 +87,8 @@ export const ANALYTICS_EVENTS: readonly AnalyticsEventDefinition[] = [
     instrumentationState: "planned",
     descriptionFa: "فعال شدن Relationship؛ مستقل از Consent و Access Grant.",
     source: "care relationship lifecycle event producer (planned)",
-    privacyPolicy: "Relationship lifecycle only; does not imply consent or data access.",
+    privacyPolicy:
+      "Relationship lifecycle only; does not imply consent or data access.",
   },
   {
     name: "trial_started",
@@ -92,7 +97,8 @@ export const ANALYTICS_EVENTS: readonly AnalyticsEventDefinition[] = [
     instrumentationState: "planned",
     descriptionFa: "شروع دوره آزمایشی بدون داده پرداخت.",
     source: "commerce lifecycle event producer (planned)",
-    privacyPolicy: "No payment credential, provider secret or raw provider payload.",
+    privacyPolicy:
+      "No payment credential, provider secret or raw provider payload.",
   },
   {
     name: "subscription_started",
@@ -146,7 +152,8 @@ export const ANALYTICS_EVENTS: readonly AnalyticsEventDefinition[] = [
     instrumentationState: "planned",
     descriptionFa: "انتشار محتوای تأییدشده انسانی در سطح lifecycle.",
     source: "marketing publishing lifecycle event producer (planned)",
-    privacyPolicy: "Human-approved publishing lifecycle only; no provider token.",
+    privacyPolicy:
+      "Human-approved publishing lifecycle only; no provider token.",
   },
   {
     name: "incident_created",
@@ -170,9 +177,12 @@ export const KPI_DEFINITIONS: readonly AnalyticsKpiDefinition[] = [
     denominator: null,
     timeWindow: "selected date range",
     timezone: "Asia/Tehran",
-    exclusions: ["Deleted accounts are excluded from snapshot-derived fallback reads."],
+    exclusions: [
+      "Deleted accounts are excluded from snapshot-derived fallback reads.",
+    ],
     eventSources: ["account_created"],
-    freshnessRule: "Unavailable until canonical history or an explicitly marked partial snapshot is supplied.",
+    freshnessRule:
+      "Unavailable until canonical history or an explicitly marked partial snapshot is supplied.",
     availability: "partial",
   },
   {
@@ -185,7 +195,10 @@ export const KPI_DEFINITIONS: readonly AnalyticsKpiDefinition[] = [
     denominator: "distinct accounts with account_created in the cohort",
     timeWindow: "account-created cohort within selected date range",
     timezone: "Asia/Tehran",
-    exclusions: ["Deleted accounts", "Events without a valid cohort definition"],
+    exclusions: [
+      "Deleted accounts",
+      "Events without a valid cohort definition",
+    ],
     eventSources: ["account_created", "profile_completed"],
     freshnessRule: "Unavailable while profile_completed is not instrumented.",
     availability: "unavailable",
@@ -202,7 +215,8 @@ export const KPI_DEFINITIONS: readonly AnalyticsKpiDefinition[] = [
     timezone: "Asia/Tehran",
     exclusions: ["Deleted accounts", "Non-user operational traffic"],
     eventSources: ["app_opened"],
-    freshnessRule: "Unavailable until app_opened telemetry is instrumented; partial snapshots must be labeled partial.",
+    freshnessRule:
+      "Unavailable until app_opened telemetry is instrumented; partial snapshots must be labeled partial.",
     availability: "unavailable",
   },
   {
@@ -211,13 +225,15 @@ export const KPI_DEFINITIONS: readonly AnalyticsKpiDefinition[] = [
     definitionVersion: 1,
     unit: "rate",
     formula: "care_relationship_activated / care_invitation_created",
-    numerator: "distinct care invitations resulting in care_relationship_activated",
+    numerator:
+      "distinct care invitations resulting in care_relationship_activated",
     denominator: "distinct care_invitation_created",
     timeWindow: "invitation cohort within selected date range",
     timezone: "Asia/Tehran",
     exclusions: ["Revoked invitations before acceptance", "Test fixtures"],
     eventSources: ["care_invitation_created", "care_relationship_activated"],
-    freshnessRule: "Unavailable until both care lifecycle events are instrumented.",
+    freshnessRule:
+      "Unavailable until both care lifecycle events are instrumented.",
     availability: "unavailable",
   },
   {
@@ -232,7 +248,8 @@ export const KPI_DEFINITIONS: readonly AnalyticsKpiDefinition[] = [
     timezone: "Asia/Tehran",
     exclusions: ["Synthetic/test accounts"],
     eventSources: ["treatment_created"],
-    freshnessRule: "Unavailable until privacy-safe treatment_created instrumentation exists.",
+    freshnessRule:
+      "Unavailable until privacy-safe treatment_created instrumentation exists.",
     availability: "unavailable",
   },
   {
@@ -241,13 +258,18 @@ export const KPI_DEFINITIONS: readonly AnalyticsKpiDefinition[] = [
     definitionVersion: 1,
     unit: "rate",
     formula: "subscription_started after trial_started / trial_started",
-    numerator: "distinct trials followed by subscription_started within the conversion window",
+    numerator:
+      "distinct trials followed by subscription_started within the conversion window",
     denominator: "distinct trial_started",
     timeWindow: "trial cohort; conversion window 30 days",
     timezone: "Asia/Tehran",
-    exclusions: ["Administrative grants", "Complimentary entitlements without a trial"],
+    exclusions: [
+      "Administrative grants",
+      "Complimentary entitlements without a trial",
+    ],
     eventSources: ["trial_started", "subscription_started"],
-    freshnessRule: "Unavailable until both trial and subscription lifecycle events are instrumented.",
+    freshnessRule:
+      "Unavailable until both trial and subscription lifecycle events are instrumented.",
     availability: "unavailable",
   },
   {
@@ -260,9 +282,13 @@ export const KPI_DEFINITIONS: readonly AnalyticsKpiDefinition[] = [
     denominator: "distinct subscriptions reaching renewal eligibility",
     timeWindow: "renewal eligibility within selected date range",
     timezone: "Asia/Tehran",
-    exclusions: ["Cancelled before renewal eligibility", "Refunded before renewal eligibility"],
+    exclusions: [
+      "Cancelled before renewal eligibility",
+      "Refunded before renewal eligibility",
+    ],
     eventSources: ["subscription_renewed", "subscription_expired"],
-    freshnessRule: "Unavailable until renewal eligibility and lifecycle event history are instrumented.",
+    freshnessRule:
+      "Unavailable until renewal eligibility and lifecycle event history are instrumented.",
     availability: "unavailable",
   },
   {
@@ -277,7 +303,8 @@ export const KPI_DEFINITIONS: readonly AnalyticsKpiDefinition[] = [
     timezone: "Asia/Tehran",
     exclusions: ["Spam/test tickets"],
     eventSources: ["support_ticket_created"],
-    freshnessRule: "Unavailable until support ticket lifecycle instrumentation exists.",
+    freshnessRule:
+      "Unavailable until support ticket lifecycle instrumentation exists.",
     availability: "unavailable",
   },
   {
@@ -292,7 +319,8 @@ export const KPI_DEFINITIONS: readonly AnalyticsKpiDefinition[] = [
     timezone: "Asia/Tehran",
     exclusions: ["Failed or cancelled publish attempts"],
     eventSources: ["social_post_published"],
-    freshnessRule: "Unavailable until human-approved publishing lifecycle events are instrumented.",
+    freshnessRule:
+      "Unavailable until human-approved publishing lifecycle events are instrumented.",
     availability: "unavailable",
   },
   {
@@ -307,7 +335,8 @@ export const KPI_DEFINITIONS: readonly AnalyticsKpiDefinition[] = [
     timezone: "Asia/Tehran",
     exclusions: ["Test incidents"],
     eventSources: ["incident_created"],
-    freshnessRule: "Unavailable until incident lifecycle instrumentation exists.",
+    freshnessRule:
+      "Unavailable until incident lifecycle instrumentation exists.",
     availability: "unavailable",
   },
 ] as const;
