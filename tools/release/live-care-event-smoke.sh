@@ -51,12 +51,17 @@ sign_in() {
     | jq -er '.access_token'
 }
 
+uuid() {
+  cat /proc/sys/kernel/random/uuid
+}
+
 request() {
   local method="$1"
   local token="$2"
   local path="$3"
   local body="${4:-}"
   local expected_status="$5"
+  local idempotency_key="${6:-}"
   local response_file
   local status
   response_file="$(mktemp)"
@@ -74,6 +79,14 @@ request() {
   if [[ -n "$body" ]]; then
     args+=(--header 'Content-Type: application/json' --data "$body")
   fi
+  case "$method" in
+    POST|PATCH|PUT|DELETE)
+      if [[ -z "$idempotency_key" ]]; then
+        idempotency_key="$(uuid)"
+      fi
+      args+=(--header "Idempotency-Key: $idempotency_key")
+      ;;
+  esac
 
   status="$(curl "${args[@]}" "$API_BASE$path")"
   RESPONSE_BODY="$(cat "$response_file")"
@@ -88,10 +101,6 @@ request() {
     fi
     exit 1
   fi
-}
-
-uuid() {
-  cat /proc/sys/kernel/random/uuid
 }
 
 bootstrap() {
@@ -173,13 +182,13 @@ CARE_EVENT_BODY="$(jq -cn \
     timeZone:"Asia/Tehran"
   }')"
 
-request POST "$PATIENT_TOKEN" '/api/v1/care-events' "$CARE_EVENT_BODY" 201
+request POST "$PATIENT_TOKEN" '/api/v1/care-events' "$CARE_EVENT_BODY" 201 "$CARE_EVENT_REQUEST_ID"
 CARE_EVENT_ID="$(echo "$RESPONSE_BODY" | jq -er '.id')"
 [[ "$(echo "$RESPONSE_BODY" | jq -r '.eventType')" == 'appointment' ]]
 [[ "$(echo "$RESPONSE_BODY" | jq -r '.addressLine')" == 'تهران، خیابان تست، پلاک ۱' ]]
 
 # A transport retry with the same idempotency key must return the same resource.
-request POST "$PATIENT_TOKEN" '/api/v1/care-events' "$CARE_EVENT_BODY" 201
+request POST "$PATIENT_TOKEN" '/api/v1/care-events' "$CARE_EVENT_BODY" 201 "$CARE_EVENT_REQUEST_ID"
 [[ "$(echo "$RESPONSE_BODY" | jq -r '.id')" == "$CARE_EVENT_ID" ]]
 
 request GET "$PATIENT_TOKEN" \
@@ -219,8 +228,9 @@ request GET "$UNRELATED_TOKEN" \
   "/api/v1/care/patients/$PATIENT_ID/care-events?fromDate=$LOCAL_DATE&toDate=$LOCAL_DATE" \
   '' 403
 
-request DELETE "$PATIENT_TOKEN" "/api/v1/care/relationships/$RELATIONSHIP_ID" '' 204
-request DELETE "$PATIENT_TOKEN" "/api/v1/care/relationships/$RELATIONSHIP_ID" '' 204
+RELATIONSHIP_DELETE_KEY="$(uuid)"
+request DELETE "$PATIENT_TOKEN" "/api/v1/care/relationships/$RELATIONSHIP_ID" '' 204 "$RELATIONSHIP_DELETE_KEY"
+request DELETE "$PATIENT_TOKEN" "/api/v1/care/relationships/$RELATIONSHIP_ID" '' 204 "$RELATIONSHIP_DELETE_KEY"
 request GET "$CAREGIVER_TOKEN" \
   "/api/v1/care/patients/$PATIENT_ID/care-events?fromDate=$LOCAL_DATE&toDate=$LOCAL_DATE" \
   '' 403

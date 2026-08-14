@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:math';
 
 import 'package:http/http.dart' as http;
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -117,6 +118,11 @@ class LifeMateHealthApi {
   final String _applicationCode;
   final Map<String, String> _pendingCreateRequestIds = <String, String>{};
   static const _timeout = Duration(seconds: 20);
+  static const _retryBudget = Duration(seconds: 30);
+  static const _retryBaseDelay = Duration(milliseconds: 250);
+  static const _retryMaxDelay = Duration(seconds: 2);
+  static const _transientStatusCodes = <int>{502, 503, 504};
+  static final Random _retryRandom = Random.secure();
   static bool _timeZonesInitialized = false;
 
   Future<List<LifeMateHealthObservation>> listObservations({
@@ -127,6 +133,7 @@ class LifeMateHealthApi {
       'GET',
       '/api/v1/health/observations',
       query: {'fromDate': _date(fromDate), 'toDate': _date(toDate)},
+      retryable: true,
     );
     if (value is! List) {
       throw const FormatException(
@@ -183,6 +190,8 @@ class LifeMateHealthApi {
           'observedLocalDate': _date(observedLocalDate),
           'timeZone': timeZone.trim(),
         },
+        idempotencyKey: requestId,
+        retryable: true,
       );
       if (generatedRequestId) {
         _pendingCreateRequestIds.remove(fingerprint);
@@ -197,7 +206,12 @@ class LifeMateHealthApi {
   }
 
   Future<void> deleteObservation({required String observationId}) async {
-    await _request('DELETE', '/api/v1/health/observations/$observationId');
+    await _request(
+      'DELETE',
+      '/api/v1/health/observations/$observationId',
+      idempotencyKey: LifeMateApiClient.createClientRequestId(),
+      retryable: true,
+    );
   }
 
   Future<dynamic> _request(
@@ -205,6 +219,8 @@ class LifeMateHealthApi {
     String path, {
     Map<String, String>? query,
     Map<String, dynamic>? body,
+    String? idempotencyKey,
+    bool retryable = false,
   }) async {
     final token = _accessToken();
     if (token == null || token.isEmpty) {
@@ -221,33 +237,113 @@ class LifeMateHealthApi {
       'Accept': 'application/json',
       'Authorization': 'Bearer $token',
       if (body != null) 'Content-Type': 'application/json',
+      if (idempotencyKey != null) 'Idempotency-Key': idempotencyKey,
     };
+    final encodedBody = body == null ? null : jsonEncode(body);
+    final maxAttempts = retryable ? 3 : 1;
+    final budget = Stopwatch()..start();
 
-    late final http.Response response;
-    try {
-      response = switch (method) {
-        'GET' => await _http.get(uri, headers: headers).timeout(_timeout),
-        'POST' =>
-          await _http
-              .post(uri, headers: headers, body: jsonEncode(body))
-              .timeout(_timeout),
-        'DELETE' => await _http.delete(uri, headers: headers).timeout(_timeout),
-        _ => throw ArgumentError.value(method, 'method'),
-      };
-    } on TimeoutException {
-      throw const LifeMateApiException(
-        statusCode: 0,
-        code: 'network_timeout',
-        message: 'LifeMate request timed out.',
+    for (var attempt = 1; attempt <= maxAttempts; attempt += 1) {
+      final remainingMilliseconds =
+          _retryBudget.inMilliseconds - budget.elapsedMilliseconds;
+      if (remainingMilliseconds <= 0) {
+        throw const LifeMateApiException(
+          statusCode: 0,
+          code: 'retry_budget_exhausted',
+          message: 'LifeMate retry budget was exhausted.',
+        );
+      }
+      final attemptTimeout = Duration(
+        milliseconds: min(_timeout.inMilliseconds, remainingMilliseconds),
       );
-    } on http.ClientException {
-      throw const LifeMateApiException(
-        statusCode: 0,
-        code: 'network_unavailable',
-        message: 'LifeMate service is unavailable.',
-      );
+
+      late final http.Response response;
+      try {
+        response = switch (method) {
+          'GET' =>
+            await _http.get(uri, headers: headers).timeout(attemptTimeout),
+          'POST' =>
+            await _http
+                .post(uri, headers: headers, body: encodedBody)
+                .timeout(attemptTimeout),
+          'DELETE' =>
+            await _http.delete(uri, headers: headers).timeout(attemptTimeout),
+          _ => throw ArgumentError.value(method, 'method'),
+        };
+      } on TimeoutException {
+        if (attempt < maxAttempts && await _waitBeforeRetry(attempt, budget)) {
+          continue;
+        }
+        throw const LifeMateApiException(
+          statusCode: 0,
+          code: 'network_timeout',
+          message: 'LifeMate request timed out.',
+        );
+      } on http.ClientException {
+        if (attempt < maxAttempts && await _waitBeforeRetry(attempt, budget)) {
+          continue;
+        }
+        throw const LifeMateApiException(
+          statusCode: 0,
+          code: 'network_unavailable',
+          message: 'LifeMate service is unavailable.',
+        );
+      }
+
+      final retryResponse = _shouldRetryResponse(response);
+      if (attempt < maxAttempts &&
+          retryResponse &&
+          await _waitBeforeRetry(attempt, budget, response: response)) {
+        continue;
+      }
+      return _decodeHealthResponse(response);
     }
 
+    throw StateError('LifeMate health retry loop exited unexpectedly.');
+  }
+
+  Future<bool> _waitBeforeRetry(
+    int attempt,
+    Stopwatch budget, {
+    http.Response? response,
+  }) async {
+    var delay = _retryDelayForAttempt(attempt);
+    final retryAfter = response == null
+        ? null
+        : int.tryParse(response.headers['retry-after'] ?? '');
+    if (retryAfter != null && retryAfter > 0) {
+      final serverDelay = Duration(seconds: retryAfter);
+      if (serverDelay > delay) delay = serverDelay;
+    }
+    if (budget.elapsedMilliseconds + delay.inMilliseconds >=
+        _retryBudget.inMilliseconds) {
+      return false;
+    }
+    await Future<void>.delayed(delay);
+    return true;
+  }
+
+  Duration _retryDelayForAttempt(int attempt) {
+    final exponential = _retryBaseDelay.inMilliseconds * (1 << (attempt - 1));
+    final jitter = _retryRandom.nextInt(_retryBaseDelay.inMilliseconds + 1);
+    return Duration(
+      milliseconds: min(_retryMaxDelay.inMilliseconds, exponential + jitter),
+    );
+  }
+
+  bool _shouldRetryResponse(http.Response response) {
+    if (_transientStatusCodes.contains(response.statusCode)) return true;
+    if (response.statusCode != 409 || response.body.isEmpty) return false;
+    try {
+      final decoded = jsonDecode(response.body);
+      return decoded is Map<String, dynamic> &&
+          decoded['code']?.toString() == 'idempotency_in_progress';
+    } on FormatException {
+      return false;
+    }
+  }
+
+  dynamic _decodeHealthResponse(http.Response response) {
     if (response.statusCode >= 200 && response.statusCode < 300) {
       if (response.body.isEmpty) return null;
       return jsonDecode(response.body);

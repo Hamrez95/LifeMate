@@ -49,7 +49,7 @@ void main() {
   });
 
   test(
-    'daily log save sends explicit companion consent and private note',
+    'daily log save sends explicit companion consent and idempotency key',
     () async {
       late http.Request observed;
       final api = WomenCompanionApi(
@@ -89,6 +89,7 @@ void main() {
       expect(observed.method, 'PUT');
       expect(observed.url.path, '/api/v1/women-calendar/daily-logs');
       expect(observed.headers['authorization'], 'Bearer access-token');
+      expect(observed.headers['idempotency-key'], isNotEmpty);
       expect(jsonDecode(observed.body), {
         'version': 1,
         'loggedOn': '2026-08-05',
@@ -102,6 +103,52 @@ void main() {
       expect(result['version'], 2);
     },
   );
+
+  test('daily log lost-response retry reuses one idempotency key', () async {
+    var attempts = 0;
+    final idempotencyKeys = <String?>[];
+    final api = WomenCompanionApi(
+      baseUri: Uri.parse('https://api.example.test'),
+      accessToken: () => 'access-token',
+      httpClient: MockClient((request) async {
+        attempts += 1;
+        idempotencyKeys.add(request.headers['idempotency-key']);
+        if (attempts == 1) {
+          throw http.ClientException('response lost', request.url);
+        }
+        return http.Response(
+          jsonEncode({
+            'id': 'daily-retry',
+            'loggedOn': '2026-08-05',
+            'mood': 'good',
+            'energyLevel': 4,
+            'painLevel': 0,
+            'symptoms': ['no_symptom'],
+            'privateNotes': null,
+            'shareSummaryWithCompanion': false,
+            'version': 2,
+          }),
+          200,
+          headers: {'content-type': 'application/json'},
+        );
+      }),
+    );
+
+    final result = await api.saveDailyLog(
+      version: 1,
+      loggedOn: DateTime(2026, 8, 5),
+      mood: 'good',
+      energyLevel: 4,
+      painLevel: 0,
+      symptoms: const ['no_symptom'],
+      shareSummaryWithCompanion: false,
+    );
+
+    expect(attempts, 2);
+    expect(idempotencyKeys.first, isNotNull);
+    expect(idempotencyKeys[1], idempotencyKeys.first);
+    expect(result['id'], 'daily-retry');
+  });
 
   test('stale daily log response preserves API error code', () async {
     final api = WomenCompanionApi(

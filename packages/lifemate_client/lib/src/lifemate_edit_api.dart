@@ -1,4 +1,6 @@
+import 'dart:async';
 import 'dart:convert';
+import 'dart:math';
 
 import 'package:http/http.dart' as http;
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -32,9 +34,20 @@ class LifeMateEditApi {
   final http.Client _http;
 
   static const _timeout = Duration(seconds: 20);
+  static const _retryBudget = Duration(seconds: 30);
+  static const _retryBaseDelay = Duration(milliseconds: 250);
+  static const _retryMaxDelay = Duration(seconds: 2);
+  static const _transientStatusCodes = <int>{502, 503, 504};
+  static final Random _retryRandom = Random.secure();
 
   Future<Map<String, dynamic>> getCareEvent({required String eventId}) async =>
-      _object(await _request('GET', '/api/v1/care-events/$eventId'));
+      _object(
+        await _request(
+          'GET',
+          '/api/v1/care-events/$eventId',
+          retryable: true,
+        ),
+      );
 
   Future<Map<String, dynamic>> updateCareEventStatus({
     required String eventId,
@@ -128,6 +141,7 @@ class LifeMateEditApi {
         'caregiverReminderMinutesBefore': caregiverReminderMinutesBefore,
         'status': status.trim().toLowerCase(),
       },
+      retryable: true,
     ),
   );
 
@@ -177,6 +191,7 @@ class LifeMateEditApi {
         'caregiverReminderMinutesBefore': caregiverReminderMinutesBefore,
         'status': status.trim().toLowerCase(),
       },
+      retryable: true,
     ),
   );
 
@@ -184,6 +199,7 @@ class LifeMateEditApi {
     String method,
     String path, {
     Map<String, dynamic>? body,
+    bool retryable = false,
   }) async {
     final token = _accessToken();
     if (token == null || token.isEmpty) {
@@ -197,31 +213,123 @@ class LifeMateEditApi {
     final uri = _baseUri.replace(
       path: '${_baseUri.path.replaceFirst(RegExp(r'/$'), '')}$path',
     );
+    final isMutation = method == 'PATCH';
+    final idempotencyKey = isMutation
+        ? LifeMateApiClient.createClientRequestId()
+        : null;
     final headers = <String, String>{
       'Accept': 'application/json',
       'Authorization': 'Bearer $token',
       if (body != null) 'Content-Type': 'application/json',
+      if (idempotencyKey != null) 'Idempotency-Key': idempotencyKey,
     };
+    final encodedBody = body == null ? null : jsonEncode(body);
+    final maxAttempts = retryable ? 3 : 1;
+    final budget = Stopwatch()..start();
 
-    late final http.Response response;
-    try {
-      response = switch (method) {
-        'GET' => await _http.get(uri, headers: headers).timeout(_timeout),
-        'PATCH' =>
-          await _http
-              .patch(uri, headers: headers, body: jsonEncode(body))
-              .timeout(_timeout),
-        _ => throw ArgumentError.value(method, 'method'),
-      };
-    } catch (error) {
-      if (error is LifeMateApiException) rethrow;
-      throw const LifeMateApiException(
-        statusCode: 503,
-        code: 'network_unavailable',
-        message: 'The edit request could not reach LifeMate API.',
+    for (var attempt = 1; attempt <= maxAttempts; attempt += 1) {
+      final remainingMilliseconds =
+          _retryBudget.inMilliseconds - budget.elapsedMilliseconds;
+      if (remainingMilliseconds <= 0) {
+        throw const LifeMateApiException(
+          statusCode: 0,
+          code: 'retry_budget_exhausted',
+          message: 'LifeMate edit retry budget was exhausted.',
+        );
+      }
+      final attemptTimeout = Duration(
+        milliseconds: min(_timeout.inMilliseconds, remainingMilliseconds),
       );
+
+      late final http.Response response;
+      try {
+        response = switch (method) {
+          'GET' => await _http.get(uri, headers: headers).timeout(attemptTimeout),
+          'PATCH' => await _http
+              .patch(uri, headers: headers, body: encodedBody)
+              .timeout(attemptTimeout),
+          _ => throw ArgumentError.value(method, 'method'),
+        };
+      } on TimeoutException {
+        if (attempt < maxAttempts && await _waitBeforeRetry(attempt, budget)) {
+          continue;
+        }
+        throw const LifeMateApiException(
+          statusCode: 0,
+          code: 'network_timeout',
+          message: 'The edit request timed out.',
+        );
+      } on http.ClientException {
+        if (attempt < maxAttempts && await _waitBeforeRetry(attempt, budget)) {
+          continue;
+        }
+        throw const LifeMateApiException(
+          statusCode: 0,
+          code: 'network_unavailable',
+          message: 'The edit request could not reach LifeMate API.',
+        );
+      }
+
+      if (
+        attempt < maxAttempts &&
+        _shouldRetryResponse(response) &&
+        await _waitBeforeRetry(attempt, budget, response: response)
+      ) {
+        continue;
+      }
+      return _decode(response);
     }
 
+    throw StateError('LifeMate edit retry loop exited unexpectedly.');
+  }
+
+  Future<bool> _waitBeforeRetry(
+    int attempt,
+    Stopwatch budget, {
+    http.Response? response,
+  }) async {
+    var delay = _retryDelayForAttempt(attempt);
+    final retryAfter = response == null
+        ? null
+        : int.tryParse(response.headers['retry-after'] ?? '');
+    if (retryAfter != null && retryAfter > 0) {
+      final serverDelay = Duration(seconds: retryAfter);
+      if (serverDelay > delay) delay = serverDelay;
+    }
+    if (
+      budget.elapsedMilliseconds + delay.inMilliseconds >=
+          _retryBudget.inMilliseconds
+    ) {
+      return false;
+    }
+    await Future<void>.delayed(delay);
+    return true;
+  }
+
+  Duration _retryDelayForAttempt(int attempt) {
+    final exponential = _retryBaseDelay.inMilliseconds * (1 << (attempt - 1));
+    final jitter = _retryRandom.nextInt(_retryBaseDelay.inMilliseconds + 1);
+    return Duration(
+      milliseconds: min(
+        _retryMaxDelay.inMilliseconds,
+        exponential + jitter,
+      ),
+    );
+  }
+
+  bool _shouldRetryResponse(http.Response response) {
+    if (_transientStatusCodes.contains(response.statusCode)) return true;
+    if (response.statusCode != 409 || response.body.isEmpty) return false;
+    try {
+      final decoded = jsonDecode(response.body);
+      return decoded is Map &&
+          decoded['code']?.toString() == 'idempotency_in_progress';
+    } on FormatException {
+      return false;
+    }
+  }
+
+  dynamic _decode(http.Response response) {
     final decoded = response.body.trim().isEmpty
         ? null
         : jsonDecode(response.body);
@@ -236,8 +344,8 @@ class LifeMateEditApi {
       statusCode: response.statusCode,
       code: problem['code']?.toString() ?? 'request_failed',
       message:
-          problem['message']?.toString() ??
           problem['detail']?.toString() ??
+          problem['message']?.toString() ??
           'LifeMate edit request failed.',
     );
   }

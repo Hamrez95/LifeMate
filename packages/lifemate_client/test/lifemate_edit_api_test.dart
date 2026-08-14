@@ -37,7 +37,7 @@ void main() {
     expect(captured.headers['authorization'], 'Bearer access-token');
   });
 
-  test('sends optimistic treatment edit payload', () async {
+  test('sends optimistic treatment edit payload with idempotency key', () async {
     late http.Request captured;
     final api = LifeMateEditApi(
       baseUri: Uri.parse('https://api.example.test/functions/v1/lifemate-api'),
@@ -77,6 +77,7 @@ void main() {
 
     final body = jsonDecode(captured.body) as Map<String, dynamic>;
     expect(captured.method, 'PATCH');
+    expect(captured.headers['idempotency-key'], isNotEmpty);
     expect(body['version'], 4);
     expect(body['medicationVersion'], 2);
     expect(body['medicationName'], 'سیتریزین');
@@ -84,6 +85,44 @@ void main() {
     expect(body['endDate'], isNull);
     expect(body['patientReminderMinutesBefore'], 30);
     expect((body['schedules'] as List).single['localTime'], '08:00');
+  });
+
+  test('edit lost-response retry reuses one idempotency key', () async {
+    var attempts = 0;
+    final keys = <String?>[];
+    final api = LifeMateEditApi(
+      baseUri: Uri.parse('https://api.example.test/functions/v1/lifemate-api'),
+      accessToken: () => 'token',
+      httpClient: MockClient((request) async {
+        attempts += 1;
+        keys.add(request.headers['idempotency-key']);
+        if (attempts == 1) {
+          throw http.ClientException('response lost', request.url);
+        }
+        return http.Response(
+          jsonEncode({'id': 'event-1', 'status': 'completed', 'version': 4}),
+          200,
+        );
+      }),
+    );
+
+    final result = await api.updateCareEvent(
+      eventId: 'event-1',
+      version: 3,
+      eventType: 'appointment',
+      title: 'visit',
+      scheduledLocalDate: DateTime(2026, 8, 5),
+      scheduledLocalTime: '12:30',
+      timeZone: 'Asia/Tehran',
+      patientReminderMinutesBefore: 30,
+      caregiverReminderMinutesBefore: 60,
+      status: 'completed',
+    );
+
+    expect(attempts, 2);
+    expect(keys.first, isNotNull);
+    expect(keys[1], keys.first);
+    expect(result['version'], 4);
   });
 
   test('status-only care event update preserves event fields', () async {
@@ -130,6 +169,7 @@ void main() {
     expect(requests, hasLength(2));
     expect(requests.first.method, 'GET');
     expect(requests.last.method, 'PATCH');
+    expect(requests.last.headers['idempotency-key'], isNotEmpty);
     final body = jsonDecode(requests.last.body) as Map<String, dynamic>;
     expect(body['version'], 3);
     expect(body['title'], 'چکاپ زنان');

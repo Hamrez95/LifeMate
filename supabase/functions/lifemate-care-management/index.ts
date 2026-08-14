@@ -1,6 +1,13 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import postgres from "postgres";
 import { normalizeCareManagementPath } from "./path_utils.ts";
+import {
+  type CareManagementIdentity,
+  createCareManagementIdempotencyStore,
+  requireCareManagementIdempotencyKey,
+  resolveCareManagementIdempotencySecret,
+  shouldProtectCareManagementMutation,
+} from "./idempotency.ts";
 
 const databaseUrl = Deno.env.get("SUPABASE_DB_URL");
 const supabaseUrl = Deno.env.get("SUPABASE_URL");
@@ -19,10 +26,19 @@ const sql = postgres(databaseUrl, {
 
 const corsHeaders = {
   "access-control-allow-origin": "*",
-  "access-control-allow-headers": "authorization, apikey, content-type",
+  "access-control-allow-headers":
+    "authorization, apikey, content-type, idempotency-key",
   "access-control-allow-methods": "GET, POST, PATCH, DELETE, OPTIONS",
+  "access-control-expose-headers": "Retry-After, X-Idempotency-Replayed",
   "content-type": "application/json; charset=utf-8",
 };
+
+const idempotencySecret = await resolveCareManagementIdempotencySecret(sql);
+const mutationIdempotency = createCareManagementIdempotencyStore(
+  sql,
+  idempotencySecret,
+  corsHeaders,
+);
 
 class ApiError extends Error {
   constructor(
@@ -43,9 +59,9 @@ Deno.serve(async (request: Request) => {
 
   const correlationId = crypto.randomUUID();
   try {
-    const appUserId = await authenticate(request);
+    const identity = await authenticate(request);
     const path = normalizeCareManagementPath(new URL(request.url).pathname);
-    return await route(request, path, appUserId);
+    return await routeWithIdempotency(request, path, identity);
   } catch (error) {
     if (error instanceof ApiError) {
       return problem(error.status, error.code, error.message, correlationId);
@@ -62,6 +78,79 @@ Deno.serve(async (request: Request) => {
     );
   }
 });
+
+async function routeWithIdempotency(
+  request: Request,
+  path: string,
+  identity: CareManagementIdentity,
+): Promise<Response> {
+  if (!shouldProtectCareManagementMutation(request.method, path)) {
+    return await route(request, path, identity.appUserId);
+  }
+
+  let idempotencyKey: string;
+  try {
+    idempotencyKey = requireCareManagementIdempotencyKey(request);
+  } catch (error) {
+    throw mapIdempotencyError(error);
+  }
+  const body = await request.text();
+  const replayableRequest = new Request(request.url, {
+    method: request.method,
+    headers: request.headers,
+    body: body.length === 0 ? undefined : body,
+  });
+
+  try {
+    return await mutationIdempotency.execute(
+      identity.authSubject,
+      `care-management:${request.method} ${path}`,
+      idempotencyKey,
+      body,
+      () => route(replayableRequest, path, identity.appUserId),
+    );
+  } catch (error) {
+    throw mapIdempotencyError(error);
+  }
+}
+
+function mapIdempotencyError(error: unknown): Error {
+  const code = error instanceof Error ? error.message : "";
+  switch (code) {
+    case "idempotency_key_required":
+      return new ApiError(
+        400,
+        code,
+        "A valid Idempotency-Key header is required for this mutation.",
+      );
+    case "idempotency_key_reused":
+      return new ApiError(
+        409,
+        code,
+        "Idempotency-Key was already used with a different request payload.",
+      );
+    case "idempotency_in_progress":
+      return new ApiError(
+        409,
+        code,
+        "A matching mutation is already being processed. Retry shortly.",
+      );
+    case "idempotency_state_unavailable":
+      return new ApiError(
+        503,
+        code,
+        "Mutation retry state is temporarily unavailable.",
+      );
+    case "idempotency_response_too_large":
+      return new ApiError(
+        500,
+        code,
+        "Mutation response exceeded the replay safety limit.",
+      );
+    default:
+      return error instanceof Error ? error : new Error("idempotency_error");
+  }
+}
 
 async function route(
   request: Request,
@@ -175,7 +264,9 @@ async function route(
   throw new ApiError(404, "route_not_found", "API route was not found.");
 }
 
-async function authenticate(request: Request): Promise<string> {
+async function authenticate(
+  request: Request,
+): Promise<CareManagementIdentity> {
   const authorization = request.headers.get("authorization") ?? "";
   if (!authorization.startsWith("Bearer ") || authorization.length > 4096) {
     throw new ApiError(
@@ -226,7 +317,7 @@ async function authenticate(request: Request): Promise<string> {
   if (!rows[0]) {
     throw new ApiError(404, "not_onboarded", "Bootstrap is required.");
   }
-  return String(rows[0].id);
+  return { authSubject, appUserId: String(rows[0].id) };
 }
 
 async function getHealthRecordPermission(

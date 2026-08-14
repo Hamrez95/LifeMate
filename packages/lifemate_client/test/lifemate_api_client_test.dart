@@ -316,29 +316,33 @@ void main() {
   });
 
   test(
-    'non-idempotent creation is never retried on transport failure',
+    'critical creation retries with one stable generated idempotency key',
     () async {
       var requestCount = 0;
+      final idempotencyKeys = <String?>[];
       final api = LifeMateApiClient(
         baseUri: Uri.parse('https://api.example.test'),
         accessToken: () => 'access-token',
         httpClient: MockClient((request) async {
           requestCount += 1;
-          throw http.ClientException('connection lost', request.url);
+          idempotencyKeys.add(request.headers['idempotency-key']);
+          if (requestCount == 1) {
+            throw http.ClientException('response lost', request.url);
+          }
+          return http.Response(
+            jsonEncode({'id': 'medication-1', 'name': 'Metformin'}),
+            201,
+            headers: {'content-type': 'application/json'},
+          );
         }),
       );
 
-      await expectLater(
-        api.createMedication(name: 'Metformin'),
-        throwsA(
-          isA<LifeMateApiException>().having(
-            (error) => error.code,
-            'code',
-            'network_unavailable',
-          ),
-        ),
-      );
-      expect(requestCount, 1);
+      final result = await api.createMedication(name: 'Metformin');
+
+      expect(requestCount, 2);
+      expect(idempotencyKeys.first, isNotNull);
+      expect(idempotencyKeys[1], idempotencyKeys.first);
+      expect(result['id'], 'medication-1');
     },
   );
 
