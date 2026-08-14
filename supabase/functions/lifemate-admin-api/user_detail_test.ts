@@ -18,7 +18,10 @@ Deno.test("matches the paginated user activity path without colliding with detai
     matchUserActivityPath(`/api/v1/users/${ACCOUNT_ID}/activity`),
     ACCOUNT_ID,
   );
-  assertEquals(matchUserDetailPath(`/api/v1/users/${ACCOUNT_ID}/activity`), null);
+  assertEquals(
+    matchUserDetailPath(`/api/v1/users/${ACCOUNT_ID}/activity`),
+    null,
+  );
 });
 
 Deno.test("ignores non-detail routes", () => {
@@ -44,7 +47,9 @@ Deno.test("rejects malformed UUID-shaped detail and activity paths", () => {
 
 Deno.test("uses bounded defaults for user activity pagination", () => {
   assertEquals(
-    parseUserActivityQuery(new URL(`https://admin.example/api/v1/users/${ACCOUNT_ID}/activity`)),
+    parseUserActivityQuery(
+      new URL(`https://admin.example/api/v1/users/${ACCOUNT_ID}/activity`),
+    ),
     { page: 1, pageSize: 20 },
   );
   assertEquals(
