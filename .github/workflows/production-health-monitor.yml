@@ -11,12 +11,12 @@ permissions:
 jobs:
   lifemate-application-readiness:
     runs-on: ubuntu-24.04
-    timeout-minutes: 5
+    timeout-minutes: 3
     env:
       DEFAULT_READINESS_URL: https://bwdvmniywyyijjauipnh.supabase.co/functions/v1/lifemate-readiness
       CONFIGURED_READINESS_URL: ${{ vars.LIFEMATE_READINESS_URL }}
     steps:
-      - name: Check production Edge + application database capability
+      - name: Check production Edge and restricted database dependency
         shell: bash
         run: |
           set -euo pipefail
@@ -26,7 +26,8 @@ jobs:
             --silent \
             --show-error \
             --location \
-            --max-time 15 \
+            --connect-timeout 3 \
+            --max-time 8 \
             --output "$response_file" \
             --write-out '%{http_code}' \
             "$READINESS_URL")"
@@ -41,19 +42,20 @@ jobs:
             .database == "application_ready" and
             .role == "lifemate_edge_runtime" and
             .service == "lifemate-readiness" and
+            .mode == "lightweight" and
+            (.durationMs | type == "number" and . >= 0 and . <= 2000) and
             (.version | type == "string" and length > 0)
           ' "$response_file" >/dev/null
 
           version="$(jq -r '.version' "$response_file")"
+          duration_ms="$(jq -r '.durationMs' "$response_file")"
           {
-            echo '## LifeMate production readiness'
+            echo '## LifeMate production lightweight readiness'
             echo ''
             echo '- readiness Edge: healthy'
-            echo '- exact DB identity: lifemate_edge_runtime'
-            echo '- privileged/BYPASSRLS runtime: rejected by probe'
-            echo '- Health SELECT/INSERT/UPDATE/DELETE grants + expected RLS policy: verified'
-            echo '- synthetic readiness SELECT/INSERT/UPDATE/DELETE through FORCE RLS: passed'
-            echo '- WellMate ecosystem registration + dose table capability: present'
+            echo '- restricted DB identity/connectivity: healthy'
+            echo '- frequent probe DB work: one read-only constant-cost query'
+            echo "- probe query duration: ${duration_ms} ms"
             echo "- deployed version: \`$version\`"
-            echo '- probe reads/writes synthetic readiness data only; no user health/profile/treatment row is requested'
+            echo '- deep grant/RLS/DML verification is intentionally kept in deployment CI, not the recurring production monitor'
           } >> "$GITHUB_STEP_SUMMARY"
