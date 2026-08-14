@@ -1,4 +1,7 @@
-import { assert, assertEquals } from "https://deno.land/std@0.224.0/assert/mod.ts";
+import {
+  assert,
+  assertEquals,
+} from "https://deno.land/std@0.224.0/assert/mod.ts";
 import {
   isPostgresUnavailable,
   lifeMateDatabaseClientOptions,
@@ -12,7 +15,9 @@ Deno.test("connection exhaustion is returned as retryable unavailability", () =>
         "remaining connection slots are reserved for roles with the SUPERUSER attribute",
     }),
   );
-  assert(isPostgresUnavailable({ code: "57014", message: "statement timeout" }));
+  assert(
+    isPostgresUnavailable({ code: "57014", message: "statement timeout" }),
+  );
   assert(!isPostgresUnavailable({ code: "23505", message: "duplicate key" }));
 });
 
