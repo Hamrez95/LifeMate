@@ -21,6 +21,11 @@ import { createWomenCalendarStore } from "./women_calendar.ts";
 import { loadRuntimeConfig } from "./runtime_config.ts";
 import { createRequestRateLimiterFromEnvironment } from "./rate_limit.ts";
 import { createRequestConcurrencyGateFromEnvironment } from "./concurrency.ts";
+import {
+  createMutationIdempotencyStore,
+  requireMutationIdempotencyKey,
+  shouldProtectMutation,
+} from "./idempotency.ts";
 import { enforceRateLimit } from "./security.ts";
 import {
   ApiError,
@@ -61,6 +66,7 @@ const womenCalendarPilotEnabled =
     "false";
 const requestRateLimiter = createRequestRateLimiterFromEnvironment();
 const requestConcurrency = createRequestConcurrencyGateFromEnvironment();
+const mutationIdempotency = createMutationIdempotencyStore(databaseUrl);
 
 Deno.serve(async (request: Request) => {
   const correlationId = crypto.randomUUID();
@@ -98,7 +104,7 @@ Deno.serve(async (request: Request) => {
     concurrencyLease = requestConcurrency.acquire(request.method, path);
     const auth = await authenticate(request);
     await requestRateLimiter.enforce(request.method, path, auth.id);
-    return await route(request, path, auth);
+    return await routeWithIdempotency(request, path, auth);
   } catch (error) {
     if (error instanceof ApiError) {
       return problem(error.status, error.code, error.message, correlationId);
@@ -141,6 +147,32 @@ Deno.serve(async (request: Request) => {
     concurrencyLease?.release();
   }
 });
+
+async function routeWithIdempotency(
+  request: Request,
+  path: string,
+  auth: AuthenticatedUser,
+): Promise<Response> {
+  if (!shouldProtectMutation(request.method, path)) {
+    return await route(request, path, auth);
+  }
+
+  const idempotencyKey = requireMutationIdempotencyKey(request);
+  const body = await request.text();
+  const replayableRequest = new Request(request.url, {
+    method: request.method,
+    headers: request.headers,
+    body: body.length === 0 ? undefined : body,
+  });
+
+  return await mutationIdempotency.execute(
+    auth.id,
+    `${request.method} ${path}`,
+    idempotencyKey,
+    body,
+    () => route(replayableRequest, path, auth),
+  );
+}
 
 async function route(
   request: Request,
