@@ -60,7 +60,7 @@ LOAD_PROFILE=ramp ACCESS_TOKEN='<synthetic-non-production-token>' \
 
 # terminal 2 - local database telemetry
 DATABASE_URL='postgres://...' \
-  tools/load/collect-runtime-pressure.sh
+  bash tools/load/collect-runtime-pressure.sh
 ```
 
 A protected remote/staging collector requires `LIFEMATE_OBSERVABILITY_TARGET=staging`. Never use a production healthcare database for destructive load generation.
