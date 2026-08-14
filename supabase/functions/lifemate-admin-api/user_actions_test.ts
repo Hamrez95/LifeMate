@@ -41,7 +41,9 @@ Deno.test("normalizes and validates mandatory action reasons", async () => {
   const request = new Request("https://admin.example", {
     method: "POST",
     headers: { "content-type": "application/json" },
-    body: JSON.stringify({ reason: "  Repeated abuse confirmed by support.  " }),
+    body: JSON.stringify({
+      reason: "  Repeated abuse confirmed by support.  ",
+    }),
   });
   assertEquals(await parseUserAccountActionRequest(request), {
     reason: "Repeated abuse confirmed by support.",
