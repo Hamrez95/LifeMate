@@ -82,12 +82,19 @@ Deno.serve(async (request: Request) => {
   const workerId = `edge:${crypto.randomUUID()}`;
   const before = await queueMetrics();
   const claimed = await sql<OutboxMessage[]>`
-    select *
-    from integration.claim_outbox_messages_for_events(
-      ${workerId}::character varying,
-      ${workerBatchSize},
-      ${supportedEvents}::character varying[]
+    with claimed as (
+      select *
+      from integration.claim_outbox_messages_for_events(
+        ${workerId}::character varying,
+        ${workerBatchSize},
+        ${supportedEvents}::character varying[]
+      )
     )
+    select c.id,c.aggregate_type,c.aggregate_id,c.event_type,c.payload_json,
+           c.attempt_count,m.priority,m.max_attempts,m.max_age_seconds,m.created_at_utc
+    from claimed c
+    join integration.outbox_messages m on m.id=c.id
+    order by m.priority,m.created_at_utc,m.id
   `;
 
   let processed = 0;

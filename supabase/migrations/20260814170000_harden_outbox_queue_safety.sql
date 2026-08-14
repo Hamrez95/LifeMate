@@ -160,13 +160,6 @@ begin
 end
 $$;
 
--- PostgreSQL cannot CREATE OR REPLACE a function when its OUT/RETURNS TABLE
--- row shape changes. Drop the previous signature inside this migration and
--- recreate it immediately below; worker EXECUTE grants are restored later.
-drop function if exists integration.claim_outbox_messages_for_events(
-  character varying, integer, character varying[]
-);
-
 create or replace function integration.claim_outbox_messages_for_events(
     p_worker_id character varying,
     p_batch_size integer,
@@ -177,11 +170,7 @@ create or replace function integration.claim_outbox_messages_for_events(
     aggregate_id uuid,
     event_type character varying,
     payload_json jsonb,
-    attempt_count integer,
-    priority smallint,
-    max_attempts smallint,
-    max_age_seconds integer,
-    created_at_utc timestamp with time zone
+    attempt_count integer
 )
 language plpgsql
 set search_path = integration, pg_temp
@@ -229,7 +218,7 @@ begin
   from candidates c
   where m.id=c.id
   returning m.id,m.aggregate_type,m.aggregate_id,m.event_type,m.payload_json,
-            m.attempt_count,m.priority,m.max_attempts,m.max_age_seconds,m.created_at_utc;
+            m.attempt_count;
 end
 $$;
 

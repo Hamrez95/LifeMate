@@ -94,7 +94,12 @@ Deno.test({
         firstClaim[0].event_type,
         "identity.session_revoke_requested",
       );
-      assertEquals(Number(firstClaim[0].priority), 5);
+      const firstClaimPolicy = await sql`
+      select priority
+      from integration.outbox_messages
+      where id=${firstClaim[0].id}::uuid
+    `;
+      assertEquals(Number(firstClaimPolicy[0].priority), 5);
 
       const completed = await sql`
         select integration.complete_outbox_message(
