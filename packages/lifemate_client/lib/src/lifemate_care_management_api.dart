@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:math';
 
 import 'package:http/http.dart' as http;
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -32,6 +33,7 @@ class LifeMateCareManagementApi {
   final Uri _baseUri;
   final LifeMateCareManagementAccessTokenProvider _accessToken;
   final http.Client _http;
+  final Map<String, String> _pendingMutationKeys = <String, String>{};
 
   /// Resolves the dedicated care-management function beside the configured
   /// API function while preserving environment suffixes such as `-candidate`.
@@ -54,6 +56,11 @@ class LifeMateCareManagementApi {
   }
 
   static const _timeout = Duration(seconds: 20);
+  static const _retryBudget = Duration(seconds: 30);
+  static const _retryBaseDelay = Duration(milliseconds: 250);
+  static const _retryMaxDelay = Duration(seconds: 2);
+  static const _transientStatusCodes = <int>{502, 503, 504};
+  static final Random _retryRandom = Random.secure();
 
   Future<Map<String, dynamic>> getRelationshipPermission({
     required String relationshipId,
@@ -227,6 +234,7 @@ class LifeMateCareManagementApi {
         'patientReminderMinutesBefore': patientReminderMinutesBefore,
         'caregiverReminderMinutesBefore': caregiverReminderMinutesBefore,
       },
+      idempotencyKey: clientRequestId,
     ),
   );
 
@@ -294,6 +302,7 @@ class LifeMateCareManagementApi {
     String method,
     String path, {
     Map<String, dynamic>? body,
+    String? idempotencyKey,
   }) async {
     final token = _accessToken();
     if (token == null || token.isEmpty) {
@@ -304,45 +313,148 @@ class LifeMateCareManagementApi {
       );
     }
     final uri = _resolve(path);
+    final encodedBody = body == null ? null : jsonEncode(body);
+    final isMutation =
+        method == 'POST' || method == 'PATCH' || method == 'DELETE';
+    final fingerprint = isMutation
+        ? '$method ${uri.toString()}\n${encodedBody ?? ''}'
+        : null;
+    final generatedKey = isMutation && idempotencyKey == null;
+    final mutationKey = !isMutation
+        ? null
+        : idempotencyKey ??
+              _pendingMutationKeys.putIfAbsent(
+                fingerprint!,
+                LifeMateApiClient.createClientRequestId,
+              );
     final headers = <String, String>{
       'Accept': 'application/json',
       'Authorization': 'Bearer $token',
       if (body != null) 'Content-Type': 'application/json',
+      if (mutationKey != null) 'Idempotency-Key': mutationKey,
     };
-    final encodedBody = body == null ? null : jsonEncode(body);
+    final budget = Stopwatch()..start();
+    const maxAttempts = 3;
 
-    late final http.Response response;
-    try {
-      response = switch (method) {
-        'GET' => await _http.get(uri, headers: headers).timeout(_timeout),
-        'POST' =>
-          await _http
-              .post(uri, headers: headers, body: encodedBody)
-              .timeout(_timeout),
-        'PATCH' =>
-          await _http
-              .patch(uri, headers: headers, body: encodedBody)
-              .timeout(_timeout),
-        'DELETE' =>
-          await _http
-              .delete(uri, headers: headers, body: encodedBody)
-              .timeout(_timeout),
-        _ => throw ArgumentError.value(method, 'method'),
-      };
-    } on TimeoutException {
-      throw const LifeMateApiException(
-        statusCode: 0,
-        code: 'network_timeout',
-        message: 'LifeMate care management request timed out.',
+    for (var attempt = 1; attempt <= maxAttempts; attempt += 1) {
+      final remainingMilliseconds =
+          _retryBudget.inMilliseconds - budget.elapsedMilliseconds;
+      if (remainingMilliseconds <= 0) {
+        throw const LifeMateApiException(
+          statusCode: 0,
+          code: 'retry_budget_exhausted',
+          message: 'LifeMate care management retry budget was exhausted.',
+        );
+      }
+      final attemptTimeout = Duration(
+        milliseconds: min(_timeout.inMilliseconds, remainingMilliseconds),
       );
-    } on http.ClientException {
-      throw const LifeMateApiException(
-        statusCode: 0,
-        code: 'network_unavailable',
-        message: 'LifeMate care management service is unavailable.',
-      );
+
+      late final http.Response response;
+      try {
+        response = switch (method) {
+          'GET' =>
+            await _http.get(uri, headers: headers).timeout(attemptTimeout),
+          'POST' =>
+            await _http
+                .post(uri, headers: headers, body: encodedBody)
+                .timeout(attemptTimeout),
+          'PATCH' =>
+            await _http
+                .patch(uri, headers: headers, body: encodedBody)
+                .timeout(attemptTimeout),
+          'DELETE' =>
+            await _http
+                .delete(uri, headers: headers, body: encodedBody)
+                .timeout(attemptTimeout),
+          _ => throw ArgumentError.value(method, 'method'),
+        };
+      } on TimeoutException {
+        if (attempt < maxAttempts && await _waitBeforeRetry(attempt, budget)) {
+          continue;
+        }
+        throw const LifeMateApiException(
+          statusCode: 0,
+          code: 'network_timeout',
+          message: 'LifeMate care management request timed out.',
+        );
+      } on http.ClientException {
+        if (attempt < maxAttempts && await _waitBeforeRetry(attempt, budget)) {
+          continue;
+        }
+        throw const LifeMateApiException(
+          statusCode: 0,
+          code: 'network_unavailable',
+          message: 'LifeMate care management service is unavailable.',
+        );
+      }
+
+      final retryResponse = _shouldRetryResponse(response);
+      if (attempt < maxAttempts &&
+          retryResponse &&
+          await _waitBeforeRetry(attempt, budget, response: response)) {
+        continue;
+      }
+
+      try {
+        final decoded = _decode(response);
+        if (generatedKey) _pendingMutationKeys.remove(fingerprint);
+        return decoded;
+      } on LifeMateApiException {
+        if (generatedKey && !retryResponse) {
+          _pendingMutationKeys.remove(fingerprint);
+        }
+        rethrow;
+      }
     }
 
+    throw StateError(
+      'LifeMate care management retry loop exited unexpectedly.',
+    );
+  }
+
+  Future<bool> _waitBeforeRetry(
+    int attempt,
+    Stopwatch budget, {
+    http.Response? response,
+  }) async {
+    var delay = _retryDelayForAttempt(attempt);
+    final retryAfter = response == null
+        ? null
+        : int.tryParse(response.headers['retry-after'] ?? '');
+    if (retryAfter != null && retryAfter > 0) {
+      final serverDelay = Duration(seconds: retryAfter);
+      if (serverDelay > delay) delay = serverDelay;
+    }
+    if (budget.elapsedMilliseconds + delay.inMilliseconds >=
+        _retryBudget.inMilliseconds) {
+      return false;
+    }
+    await Future<void>.delayed(delay);
+    return true;
+  }
+
+  Duration _retryDelayForAttempt(int attempt) {
+    final exponential = _retryBaseDelay.inMilliseconds * (1 << (attempt - 1));
+    final jitter = _retryRandom.nextInt(_retryBaseDelay.inMilliseconds + 1);
+    return Duration(
+      milliseconds: min(_retryMaxDelay.inMilliseconds, exponential + jitter),
+    );
+  }
+
+  bool _shouldRetryResponse(http.Response response) {
+    if (_transientStatusCodes.contains(response.statusCode)) return true;
+    if (response.statusCode != 409 || response.body.isEmpty) return false;
+    try {
+      final decoded = jsonDecode(response.body);
+      return decoded is Map &&
+          decoded['code']?.toString() == 'idempotency_in_progress';
+    } on FormatException {
+      return false;
+    }
+  }
+
+  dynamic _decode(http.Response response) {
     final decoded = response.body.trim().isEmpty
         ? null
         : jsonDecode(response.body);
@@ -356,10 +468,15 @@ class LifeMateCareManagementApi {
       statusCode: response.statusCode,
       code: problem['code']?.toString() ?? 'request_failed',
       message:
-          problem['message']?.toString() ??
           problem['detail']?.toString() ??
+          problem['message']?.toString() ??
           'LifeMate care management request failed.',
     );
+  }
+
+  void close() {
+    _pendingMutationKeys.clear();
+    _http.close();
   }
 
   Uri _resolve(String path) {
