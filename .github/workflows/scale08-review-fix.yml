@@ -1,0 +1,121 @@
+name: scale08-review-fix
+
+on:
+  push:
+    branches: ['perf/scale-08-observability-slos']
+
+permissions:
+  contents: write
+
+jobs:
+  fix:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
+        with:
+          ref: perf/scale-08-observability-slos
+          fetch-depth: 0
+      - uses: denoland/setup-deno@22d081ff2d3a40755e97629de92e3bcbfa7cf2ed
+        with:
+          deno-version: v2.9.4
+      - name: Apply review fixes
+        shell: python
+        run: |
+          from pathlib import Path
+
+          def once(text: str, old: str, new: str, label: str) -> str:
+              count = text.count(old)
+              if count == 0 and new in text:
+                  return text
+              if count != 1:
+                  raise SystemExit(f'{label}: expected one match, got {count}')
+              return text.replace(old, new, 1)
+
+          obs = Path('supabase/functions/lifemate-api/observability.ts')
+          text = obs.read_text()
+          text = once(
+              text,
+              '''  status: number;\n  durationMs: number;\n''',
+              '''  status: number;\n  controlledOverload: boolean;\n  durationMs: number;\n''',
+              'telemetry overload input',
+          )
+          text = once(
+              text,
+              '''    const category = statusCategory(input.status);\n''',
+              '''    const category = statusCategory(\n      input.status,\n      input.controlledOverload,\n    );\n''',
+              'telemetry status category call',
+          )
+          text = once(
+              text,
+              '''function statusCategory(\n  status: number,\n): "success" | "controlledOverload" | "clientError" | "serverError" {\n  if (status >= 200 && status < 400) return "success";\n  if (status === 429 || status === 503) return "controlledOverload";\n''',
+              '''function statusCategory(\n  status: number,\n  controlledOverload: boolean,\n): "success" | "controlledOverload" | "clientError" | "serverError" {\n  if (status >= 200 && status < 400) return "success";\n  if (controlledOverload) return "controlledOverload";\n''',
+              'telemetry status category function',
+          )
+          obs.write_text(text)
+
+          tests = Path('supabase/functions/lifemate-api/observability_test.ts')
+          text = tests.read_text()
+          text = text.replace(
+              '''      status: 200,\n      durationMs: 112,\n''',
+              '''      status: 200,\n      controlledOverload: false,\n      durationMs: 112,\n''',
+              1,
+          )
+          text = text.replace(
+              '''    status: 503,\n    durationMs: 8,\n''',
+              '''    status: 503,\n    controlledOverload: true,\n    durationMs: 8,\n''',
+              1,
+          )
+          tests.write_text(text)
+
+          index = Path('supabase/functions/lifemate-api/index.ts')
+          text = index.read_text()
+          old_setup = '''  const startedAt = performance.now();\n  let responseStatus = 500;\n  let telemetrySubsystem: TelemetrySubsystem = "application";\n  const finish = (\n    response: Response,\n    subsystem: TelemetrySubsystem = telemetrySubsystem,\n  ): Response => {\n    responseStatus = response.status;\n    telemetrySubsystem = subsystem;\n    return withCorrelationId(response, correlationId);\n  };\n'''
+          new_setup = '''  const startedAt = performance.now();\n  const finish = (\n    response: Response,\n    subsystem: TelemetrySubsystem = "application",\n  ): Response => {\n    const telemetryWindow = apiObservability.record({\n      method: request.method,\n      path,\n      status: response.status,\n      controlledOverload: response.status === 429 ||\n        (response.status === 503 && response.headers.has("Retry-After")),\n      durationMs: performance.now() - startedAt,\n      subsystem,\n      concurrency: requestConcurrency.snapshot(),\n      rateLimiter: requestRateLimiter.snapshot(),\n    });\n    if (telemetryWindow) {\n      console.info("LifeMate telemetry window", telemetryWindow);\n    }\n    return withCorrelationId(response, correlationId);\n  };\n'''
+          text = once(text, old_setup, new_setup, 'handler finish telemetry')
+          old_finally = '''  } finally {\n    const concurrencySnapshot = requestConcurrency.snapshot();\n    concurrencyLease?.release();\n    const telemetryWindow = apiObservability.record({\n      method: request.method,\n      path,\n      status: responseStatus,\n      durationMs: performance.now() - startedAt,\n      subsystem: telemetrySubsystem,\n      concurrency: concurrencySnapshot,\n      rateLimiter: requestRateLimiter.snapshot(),\n    });\n    if (telemetryWindow) {\n      console.info("LifeMate telemetry window", telemetryWindow);\n    }\n  }\n'''
+          new_finally = '''  } finally {\n    concurrencyLease?.release();\n  }\n'''
+          text = once(text, old_finally, new_finally, 'handler finally')
+          index.write_text(text)
+
+          load = Path('tools/load/lifemate-api-local.js')
+          text = load.read_text()
+          text = once(
+              text,
+              '''  const ok = response.status >= 200 && response.status < 300;\n  const shed = response.status === 429 || response.status === 503;\n  const uncontrolledServerError = response.status >= 500 && response.status !== 503;\n  const correlationId =\n''',
+              '''  const ok = response.status >= 200 && response.status < 300;\n  const retryAfter =\n    response.headers["Retry-After"] ?? response.headers["retry-after"] ?? "";\n  const shed = response.status === 429 ||\n    (response.status === 503 && retryAfter.length > 0);\n  const uncontrolledServerError = response.status >= 500 && !shed;\n  const correlationId =\n''',
+              'k6 controlled overload semantics',
+          )
+          load.write_text(text)
+
+          readme = Path('tools/load/README.md')
+          text = readme.read_text().replace(
+              'tools/load/collect-runtime-pressure.sh',
+              'bash tools/load/collect-runtime-pressure.sh',
+          )
+          readme.write_text(text)
+      - name: Format and verify API tests
+        shell: bash
+        run: |
+          set -euo pipefail
+          deno fmt \
+            supabase/functions/lifemate-api/index.ts \
+            supabase/functions/lifemate-api/observability.ts \
+            supabase/functions/lifemate-api/observability_test.ts
+          cd supabase/functions/lifemate-api
+          deno task check
+          deno task test
+      - name: Commit fixes
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add \
+            supabase/functions/lifemate-api/index.ts \
+            supabase/functions/lifemate-api/observability.ts \
+            supabase/functions/lifemate-api/observability_test.ts \
+            tools/load/lifemate-api-local.js \
+            tools/load/README.md
+          git commit -m 'fix(scale): distinguish controlled overload telemetry'
+          git push origin HEAD:perf/scale-08-observability-slos
