@@ -8,7 +8,9 @@ export type SupportTicketAction =
 
 export type SupportTicketActionPayload =
   | { note: string }
-  | { status: "Open" | "Pending" | "WaitingOnUser" | "Resolved" | "Closed" }
+  | {
+    status: "Open" | "Pending" | "WaitingOnUser" | "Resolved" | "Closed";
+  }
   | { priority: "Low" | "Normal" | "High" | "Urgent" }
   | { assigneeAccountId: string | null };
 
@@ -48,7 +50,13 @@ const ACTION_ALIASES: Record<string, SupportTicketAction> = {
   assignee: "set_assignee",
 };
 
-const STATUSES = new Set(["Open", "Pending", "WaitingOnUser", "Resolved", "Closed"]);
+const STATUSES = new Set([
+  "Open",
+  "Pending",
+  "WaitingOnUser",
+  "Resolved",
+  "Closed",
+]);
 const PRIORITIES = new Set(["Low", "Normal", "High", "Urgent"]);
 
 function matchTicketId(path: string, pattern: RegExp): string | null {
@@ -76,21 +84,33 @@ export function matchSupportTicketActionPath(
   };
 }
 
-export function parseSupportTicketEventsQuery(url: URL): SupportTicketEventsQuery {
+export function parseSupportTicketEventsQuery(
+  url: URL,
+): SupportTicketEventsQuery {
   const page = boundedInteger(url.searchParams.get("page"), 1, 1, 100_000);
   const pageSize = boundedInteger(url.searchParams.get("pageSize"), 20, 5, 50);
   return { page, pageSize, offset: (page - 1) * pageSize };
 }
 
-async function readJsonObject(request: Request): Promise<Record<string, unknown>> {
+async function readJsonObject(
+  request: Request,
+): Promise<Record<string, unknown>> {
   let value: unknown;
   try {
     value = await request.json();
   } catch {
-    throw new ApiError(400, "invalid_request", "Request body must be valid JSON.");
+    throw new ApiError(
+      400,
+      "invalid_request",
+      "Request body must be valid JSON.",
+    );
   }
   if (!value || typeof value !== "object" || Array.isArray(value)) {
-    throw new ApiError(400, "invalid_request", "Request body must be an object.");
+    throw new ApiError(
+      400,
+      "invalid_request",
+      "Request body must be an object.",
+    );
   }
   return value as Record<string, unknown>;
 }
@@ -116,10 +136,19 @@ export async function parseSupportTicketActionPayload(
   if (action === "set_status") {
     const status = typeof body.status === "string" ? body.status : "";
     if (!STATUSES.has(status)) {
-      throw new ApiError(400, "support_status_invalid", "Support status is invalid.");
+      throw new ApiError(
+        400,
+        "support_status_invalid",
+        "Support status is invalid.",
+      );
     }
     return {
-      status: status as "Open" | "Pending" | "WaitingOnUser" | "Resolved" | "Closed",
+      status: status as
+        | "Open"
+        | "Pending"
+        | "WaitingOnUser"
+        | "Resolved"
+        | "Closed",
     };
   }
 

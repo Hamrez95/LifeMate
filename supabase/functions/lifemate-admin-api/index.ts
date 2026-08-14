@@ -21,6 +21,15 @@ import { parseRelationshipOverviewQuery } from "./relationships.ts";
 import { loadRuntimeConfig } from "./runtime_config.ts";
 import { createAdminStore } from "./store.ts";
 import { parseSupportQueueQuery } from "./support.ts";
+import {
+  hashSupportTicketActionRequest,
+  matchSupportTicketActionPath,
+  matchSupportTicketDetailPath,
+  matchSupportTicketEventsPath,
+  parseSupportTicketActionPayload,
+  parseSupportTicketEventsQuery,
+} from "./support_detail.ts";
+import { createSupportTicketDetailStore } from "./support_detail_store.ts";
 import { createSupportQueueStore } from "./support_service.ts";
 import { createUserAccountActionStore } from "./user_action_store.ts";
 import {
@@ -54,6 +63,9 @@ const relationshipLedgerStore = createRelationshipLedgerStore(
   config.databaseUrl,
 );
 const supportQueueStore = createSupportQueueStore(config.databaseUrl);
+const supportTicketDetailStore = createSupportTicketDetailStore(
+  config.databaseUrl,
+);
 
 async function optionalSection<T>(
   allowed: boolean,
@@ -271,6 +283,124 @@ Deno.serve(async (request: Request) => {
           },
         },
         200,
+        origin,
+      );
+    }
+
+    if (request.method === "GET" && path === "/api/v1/support/assignees") {
+      requirePermission(admin, "support.write");
+      return json(
+        {
+          items: await supportTicketDetailStore.listAssignees(),
+          freshness: {
+            status: "fresh",
+            asOfUtc: new Date().toISOString(),
+          },
+        },
+        200,
+        origin,
+      );
+    }
+
+    const supportTicketDetailId = matchSupportTicketDetailPath(path);
+    if (request.method === "GET" && supportTicketDetailId) {
+      requirePermission(admin, "support.read");
+      const ticket = await supportTicketDetailStore.getDetail(
+        supportTicketDetailId,
+      );
+      if (!ticket) {
+        throw new ApiError(
+          404,
+          "support_ticket_not_found",
+          "Support ticket was not found.",
+        );
+      }
+      return json(
+        {
+          ticket,
+          freshness: {
+            status: "fresh",
+            asOfUtc: new Date().toISOString(),
+          },
+        },
+        200,
+        origin,
+      );
+    }
+
+    const supportTicketEventsId = matchSupportTicketEventsPath(path);
+    if (request.method === "GET" && supportTicketEventsId) {
+      requirePermission(admin, "support.read");
+      const ticket = await supportTicketDetailStore.getDetail(
+        supportTicketEventsId,
+      );
+      if (!ticket) {
+        throw new ApiError(
+          404,
+          "support_ticket_not_found",
+          "Support ticket was not found.",
+        );
+      }
+      const query = parseSupportTicketEventsQuery(new URL(request.url));
+      const result = await supportTicketDetailStore.listEvents(
+        supportTicketEventsId,
+        query,
+      );
+      return json(
+        {
+          ...result,
+          page: query.page,
+          pageSize: query.pageSize,
+          freshness: {
+            status: "fresh",
+            asOfUtc: new Date().toISOString(),
+          },
+        },
+        200,
+        origin,
+      );
+    }
+
+    const supportTicketActionRoute = matchSupportTicketActionPath(path);
+    if (request.method === "POST" && supportTicketActionRoute) {
+      requirePermission(admin, "support.write");
+      const idempotencyKey = requireIdempotencyKey(request);
+      const payload = await parseSupportTicketActionPayload(
+        request,
+        supportTicketActionRoute.action,
+      );
+      const requestHash = await hashSupportTicketActionRequest(
+        supportTicketActionRoute.ticketId,
+        supportTicketActionRoute.action,
+        payload,
+      );
+      const result = await supportTicketDetailStore.execute({
+        actorAccountId: accountId,
+        ticketId: supportTicketActionRoute.ticketId,
+        action: supportTicketActionRoute.action,
+        payload,
+        correlationId,
+        idempotencyKey,
+        requestHash,
+      });
+      if (result.httpStatus >= 400) {
+        throw new ApiError(
+          result.httpStatus,
+          result.code,
+          result.message ?? "Support ticket action was not completed.",
+        );
+      }
+      return json(
+        {
+          ticketId: result.ticketId,
+          status: result.status,
+          priority: result.priority,
+          assignedAdminAccountId: result.assignedAdminAccountId ?? null,
+          lastActivityAtUtc: result.lastActivityAtUtc,
+          action: result.action,
+          replayed: result.replayed,
+        },
+        result.httpStatus,
         origin,
       );
     }
