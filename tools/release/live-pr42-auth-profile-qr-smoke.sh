@@ -50,12 +50,17 @@ sign_in() {
     | jq -er '.access_token'
 }
 
+uuid() {
+  cat /proc/sys/kernel/random/uuid
+}
+
 request() {
   local method="$1"
   local token="$2"
   local path="$3"
   local body="${4:-}"
   local expected_status="$5"
+  local idempotency_key="${6:-}"
   local response_file
   local status
   response_file="$(mktemp)"
@@ -73,6 +78,14 @@ request() {
   if [[ -n "$body" ]]; then
     args+=(--header 'Content-Type: application/json' --data "$body")
   fi
+  case "$method" in
+    POST|PATCH|PUT|DELETE)
+      if [[ -z "$idempotency_key" ]]; then
+        idempotency_key="$(uuid)"
+      fi
+      args+=(--header "Idempotency-Key: $idempotency_key")
+      ;;
+  esac
 
   status="$(curl "${args[@]}" "$API_BASE$path")"
   RESPONSE_BODY="$(cat "$response_file")"
@@ -155,11 +168,12 @@ second_accept_body="$(jq -cn --arg token "$SECOND_QR_TOKEN" '{token:$token,conse
 request POST "$CAREGIVER_TOKEN" '/api/v1/care/invitations/accept' "$first_accept_body" 409
 request POST "$PATIENT_TOKEN" '/api/v1/care/invitations/accept' "$second_accept_body" 400
 [[ "$(echo "$RESPONSE_BODY" | jq -r '.code')" == 'self_invitation_not_allowed' ]]
-request POST "$CAREGIVER_TOKEN" '/api/v1/care/invitations/accept' "$second_accept_body" 200
+ACCEPT_REQUEST_ID="$(uuid)"
+request POST "$CAREGIVER_TOKEN" '/api/v1/care/invitations/accept' "$second_accept_body" 200 "$ACCEPT_REQUEST_ID"
 RELATIONSHIP_ID="$(echo "$RESPONSE_BODY" | jq -er '.id')"
-request POST "$CAREGIVER_TOKEN" '/api/v1/care/invitations/accept' "$second_accept_body" 200
+request POST "$CAREGIVER_TOKEN" '/api/v1/care/invitations/accept' "$second_accept_body" 200 "$ACCEPT_REQUEST_ID"
 [[ "$(echo "$RESPONSE_BODY" | jq -r '.id')" == "$RELATIONSHIP_ID" ]]
-request POST "$UNRELATED_TOKEN" '/api/v1/care/invitations/accept' "$second_accept_body" 409
+request POST "$UNRELATED_TOKEN" '/api/v1/care/invitations/accept' "$second_accept_body" 409 "$ACCEPT_REQUEST_ID"
 
 LOCAL_DATE="$(TZ=Asia/Tehran date +%F)"
 request GET "$CAREGIVER_TOKEN" "/api/v1/care/patients/$PATIENT_ID/dose-occurrences?fromDate=$LOCAL_DATE&toDate=$LOCAL_DATE" '' 200
