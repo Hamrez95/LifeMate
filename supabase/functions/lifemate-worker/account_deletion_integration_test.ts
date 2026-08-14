@@ -3,7 +3,9 @@ import postgres from "postgres";
 
 const databaseUrl = Deno.env.get("TEST_DATABASE_URL");
 if (!databaseUrl) {
-  throw new Error("TEST_DATABASE_URL is required for deletion integration tests.");
+  throw new Error(
+    "TEST_DATABASE_URL is required for deletion integration tests.",
+  );
 }
 
 const sql = postgres(databaseUrl, {
@@ -260,11 +262,15 @@ Deno.test({
       assertEquals(preFinalize[0].network_status, "Ended");
 
       assertEquals(
-        (await sql`select has_table_privilege('lifemate_worker_runtime','lifemate.medications','DELETE') as allowed`)[0].allowed,
+        (await sql`select has_table_privilege('lifemate_worker_runtime','lifemate.medications','DELETE') as allowed`)[
+          0
+        ].allowed,
         false,
       );
       assertEquals(
-        (await sql`select has_function_privilege('lifemate_worker_runtime','identity.finalize_account_deletion(uuid)','EXECUTE') as allowed`)[0].allowed,
+        (await sql`select has_function_privilege('lifemate_worker_runtime','identity.finalize_account_deletion(uuid)','EXECUTE') as allowed`)[
+          0
+        ].allowed,
         true,
       );
 
@@ -278,25 +284,30 @@ Deno.test({
         await sql.unsafe("reset role");
       }
 
-      for (const table of [
-        "medications",
-        "treatment_plans",
-        "dose_occurrences",
-        "health_observations",
-        "women_calendar_profiles",
-        "women_calendar_episodes",
-        "women_calendar_daily_logs",
-        "women_calendar_support_actions",
-      ]) {
+      for (
+        const table of [
+          "medications",
+          "treatment_plans",
+          "dose_occurrences",
+          "health_observations",
+          "women_calendar_profiles",
+          "women_calendar_episodes",
+          "women_calendar_daily_logs",
+          "women_calendar_support_actions",
+        ]
+      ) {
         const count = await sql.unsafe(
           `select count(*)::int as count from lifemate.${table} where ` +
             (table === "health_observations"
               ? `owner_user_id='${appUserId}'::uuid`
               : table.startsWith("women_calendar")
-              ? `owner_user_id='${appUserId}'::uuid or patient_user_id='${appUserId}'::uuid`.replace(
-                "owner_user_id='${appUserId}'::uuid or ",
-                table === "women_calendar_support_actions" ? "" : "owner_user_id='${appUserId}'::uuid or ",
-              )
+              ? `owner_user_id='${appUserId}'::uuid or patient_user_id='${appUserId}'::uuid`
+                .replace(
+                  "owner_user_id='${appUserId}'::uuid or ",
+                  table === "women_calendar_support_actions"
+                    ? ""
+                    : "owner_user_id='${appUserId}'::uuid or ",
+                )
               : table === "medications"
               ? `owner_user_id='${appUserId}'::uuid`
               : `patient_user_id='${appUserId}'::uuid`),
@@ -305,15 +316,27 @@ Deno.test({
       }
 
       assertEquals(
-        Number((await sql`select count(*)::int as count from lifemate.care_events where patient_user_id=${appUserId}::uuid`)[0].count),
+        Number(
+          (await sql`select count(*)::int as count from lifemate.care_events where patient_user_id=${appUserId}::uuid`)[
+            0
+          ].count,
+        ),
         0,
       );
       assertEquals(
-        Number((await sql`select count(*)::int as count from lifemate.care_events where id=${survivorCareEventId}::uuid`)[0].count),
+        Number(
+          (await sql`select count(*)::int as count from lifemate.care_events where id=${survivorCareEventId}::uuid`)[
+            0
+          ].count,
+        ),
         1,
       );
       assertEquals(
-        Number((await sql`select count(*)::int as count from lifemate.idempotency_keys where actor_auth_subject=${authSubject}::uuid`)[0].count),
+        Number(
+          (await sql`select count(*)::int as count from lifemate.idempotency_keys where actor_auth_subject=${authSubject}::uuid`)[
+            0
+          ].count,
+        ),
         0,
       );
 
@@ -360,20 +383,34 @@ Deno.test({
       assertEquals(survivorInvitation[0].responded_by_user_id, null);
     } finally {
       await sql.unsafe("reset role").catch(() => undefined);
-      await sql`delete from integration.outbox_messages where aggregate_id=${accountId}::uuid`.catch(() => undefined);
-      await sql`delete from identity.account_deletion_requests where account_id=${accountId}::uuid`.catch(() => undefined);
-      await sql`delete from lifemate.care_invitations where inviter_user_id in (${appUserId}::uuid,${survivorUserId}::uuid)`.catch(() => undefined);
-      await sql`delete from lifemate.women_calendar_support_actions where caregiver_user_id in (${appUserId}::uuid,${survivorUserId}::uuid)`.catch(() => undefined);
-      await sql`delete from lifemate.care_relationships where patient_user_id in (${appUserId}::uuid,${survivorUserId}::uuid) or caregiver_user_id in (${appUserId}::uuid,${survivorUserId}::uuid)`.catch(() => undefined);
-      await sql`delete from lifemate.care_events where patient_user_id in (${appUserId}::uuid,${survivorUserId}::uuid) or created_by_user_id in (${appUserId}::uuid,${survivorUserId}::uuid)`.catch(() => undefined);
-      await sql`delete from lifemate.audit_logs where actor_user_id in (${appUserId}::uuid,${survivorUserId}::uuid) or actor_user_id is null`.catch(() => undefined);
-      await sql`delete from network.person_relationships where source_person_id in (${personId}::uuid,${survivorPersonId}::uuid) or target_person_id in (${personId}::uuid,${survivorPersonId}::uuid)`.catch(() => undefined);
-      await sql`delete from core.account_person_links where account_id in (${accountId}::uuid,${survivorAccountId}::uuid)`.catch(() => undefined);
-      await sql`delete from core.person_profiles where person_id in (${personId}::uuid,${survivorPersonId}::uuid)`.catch(() => undefined);
-      await sql`delete from core.persons where id in (${personId}::uuid,${survivorPersonId}::uuid)`.catch(() => undefined);
-      await sql`delete from lifemate.user_profiles where user_id in (${appUserId}::uuid,${survivorUserId}::uuid)`.catch(() => undefined);
-      await sql`delete from identity.accounts where id in (${accountId}::uuid,${survivorAccountId}::uuid)`.catch(() => undefined);
-      await sql`delete from lifemate.app_users where id in (${appUserId}::uuid,${survivorUserId}::uuid)`.catch(() => undefined);
+      await sql`delete from integration.outbox_messages where aggregate_id=${accountId}::uuid`
+        .catch(() => undefined);
+      await sql`delete from identity.account_deletion_requests where account_id=${accountId}::uuid`
+        .catch(() => undefined);
+      await sql`delete from lifemate.care_invitations where inviter_user_id in (${appUserId}::uuid,${survivorUserId}::uuid)`
+        .catch(() => undefined);
+      await sql`delete from lifemate.women_calendar_support_actions where caregiver_user_id in (${appUserId}::uuid,${survivorUserId}::uuid)`
+        .catch(() => undefined);
+      await sql`delete from lifemate.care_relationships where patient_user_id in (${appUserId}::uuid,${survivorUserId}::uuid) or caregiver_user_id in (${appUserId}::uuid,${survivorUserId}::uuid)`
+        .catch(() => undefined);
+      await sql`delete from lifemate.care_events where patient_user_id in (${appUserId}::uuid,${survivorUserId}::uuid) or created_by_user_id in (${appUserId}::uuid,${survivorUserId}::uuid)`
+        .catch(() => undefined);
+      await sql`delete from lifemate.audit_logs where actor_user_id in (${appUserId}::uuid,${survivorUserId}::uuid) or actor_user_id is null`
+        .catch(() => undefined);
+      await sql`delete from network.person_relationships where source_person_id in (${personId}::uuid,${survivorPersonId}::uuid) or target_person_id in (${personId}::uuid,${survivorPersonId}::uuid)`
+        .catch(() => undefined);
+      await sql`delete from core.account_person_links where account_id in (${accountId}::uuid,${survivorAccountId}::uuid)`
+        .catch(() => undefined);
+      await sql`delete from core.person_profiles where person_id in (${personId}::uuid,${survivorPersonId}::uuid)`
+        .catch(() => undefined);
+      await sql`delete from core.persons where id in (${personId}::uuid,${survivorPersonId}::uuid)`
+        .catch(() => undefined);
+      await sql`delete from lifemate.user_profiles where user_id in (${appUserId}::uuid,${survivorUserId}::uuid)`
+        .catch(() => undefined);
+      await sql`delete from identity.accounts where id in (${accountId}::uuid,${survivorAccountId}::uuid)`
+        .catch(() => undefined);
+      await sql`delete from lifemate.app_users where id in (${appUserId}::uuid,${survivorUserId}::uuid)`
+        .catch(() => undefined);
     }
   },
 });

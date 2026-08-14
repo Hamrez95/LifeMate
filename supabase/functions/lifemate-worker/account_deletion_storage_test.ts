@@ -8,7 +8,8 @@ import {
 class FakeBucket implements ProfilePhotoBucket {
   constructor(
     private readonly files: StorageFileEntry[],
-    private readonly listError: { message?: string; status?: number } | null = null,
+    private readonly listError: { message?: string; status?: number } | null =
+      null,
   ) {}
 
   removed: string[][] = [];
@@ -44,7 +45,10 @@ Deno.test("purges every service-owned profile photo under the account prefix", a
 });
 
 Deno.test("missing profile-photo bucket is equivalent to no stored objects", async () => {
-  const bucket = new FakeBucket([], { message: "Bucket not found", status: 404 });
+  const bucket = new FakeBucket([], {
+    message: "Bucket not found",
+    status: 404,
+  });
   assertEquals(
     await purgeProfilePhotoFolder(
       bucket,
