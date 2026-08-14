@@ -58,14 +58,16 @@ Deno.test("support queue supports the explicit unassigned filter", () => {
 });
 
 Deno.test("support queue rejects unsafe filters and pagination", () => {
-  for (const url of [
-    "https://admin.example/api/v1/support/tickets?page=0",
-    "https://admin.example/api/v1/support/tickets?priority=Critical",
-    "https://admin.example/api/v1/support/tickets?sla=Unknown",
-    "https://admin.example/api/v1/support/tickets?product=bad%20product",
-    "https://admin.example/api/v1/support/tickets?assignee=not-a-uuid",
-    "https://admin.example/api/v1/support/tickets?q=x",
-  ]) {
+  for (
+    const url of [
+      "https://admin.example/api/v1/support/tickets?page=0",
+      "https://admin.example/api/v1/support/tickets?priority=Critical",
+      "https://admin.example/api/v1/support/tickets?sla=Unknown",
+      "https://admin.example/api/v1/support/tickets?product=bad%20product",
+      "https://admin.example/api/v1/support/tickets?assignee=not-a-uuid",
+      "https://admin.example/api/v1/support/tickets?q=x",
+    ]
+  ) {
     assertThrows(() => parseSupportQueueQuery(new URL(url)), ApiError);
   }
 });
