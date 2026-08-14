@@ -24,11 +24,13 @@ export async function getUserDetailBase(sql: AdminSql, accountId: string) {
     createdAtUtc: iso(row.created_at_utc),
     person: typeof row.person_id === "string"
       ? {
-          id: row.person_id,
-          displayName: typeof row.display_name === "string" ? row.display_name : null,
-          locale: typeof row.locale === "string" ? row.locale : null,
-          timeZone: typeof row.time_zone === "string" ? row.time_zone : null,
-        }
+        id: row.person_id,
+        displayName: typeof row.display_name === "string"
+          ? row.display_name
+          : null,
+        locale: typeof row.locale === "string" ? row.locale : null,
+        timeZone: typeof row.time_zone === "string" ? row.time_zone : null,
+      }
       : null,
   };
 }
@@ -48,6 +50,8 @@ export async function listUserEnrollments(sql: AdminSql, accountId: string) {
     applicationName: String(row.display_name),
     status: String(row.status),
     enrolledAtUtc: iso(row.enrolled_at_utc),
-    lastActiveAtUtc: row.last_active_at_utc == null ? null : iso(row.last_active_at_utc),
+    lastActiveAtUtc: row.last_active_at_utc == null
+      ? null
+      : iso(row.last_active_at_utc),
   }));
 }
