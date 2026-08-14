@@ -69,6 +69,39 @@ export function selectContactHashingSecret(
   );
 }
 
+export function isSupabaseTransactionPoolerUrl(value: string): boolean {
+  try {
+    const parsed = new URL(value);
+    if (parsed.protocol !== "postgres:" && parsed.protocol !== "postgresql:") {
+      return false;
+    }
+    if (parsed.port !== "6543") return false;
+    const host = parsed.hostname.toLowerCase();
+    return host.endsWith(".pooler.supabase.com") ||
+      (host.startsWith("db.") && host.endsWith(".supabase.co"));
+  } catch {
+    return false;
+  }
+}
+
+export function validateEdgeDatabaseUrl(
+  databaseUrl: string,
+  requireTransactionPooler: boolean,
+): void {
+  const parsed = new URL(databaseUrl);
+  if (!parsed.username || !parsed.password || !parsed.hostname) {
+    throw new Error("LifeMate runtime database URL is incomplete.");
+  }
+  if (
+    requireTransactionPooler &&
+    !isSupabaseTransactionPoolerUrl(databaseUrl)
+  ) {
+    throw new Error(
+      "LifeMate Edge runtime requires a Supabase transaction-pooler database URL on port 6543.",
+    );
+  }
+}
+
 /// Reuses the platform-provided host/database/pooler suffix while replacing the
 /// privileged login with a dedicated restricted role. Supabase pooler usernames
 /// can be `postgres.<project-ref>`; that suffix must be preserved.
@@ -188,6 +221,12 @@ export async function loadRuntimeConfig(): Promise<RuntimeConfig> {
       "Restricted LifeMate database runtime credential is missing. Refusing to use the privileged Supabase database URL for application queries.",
     );
   }
+
+  const requireTransactionPooler =
+    (Deno.env.get("LIFEMATE_REQUIRE_TRANSACTION_POOLER") ?? "false")
+      .trim()
+      .toLowerCase() === "true";
+  validateEdgeDatabaseUrl(databaseUrl, requireTransactionPooler);
 
   const globalRelease = (globalThis as ReleaseGlobal)
     .__LIFEMATE_RELEASE_VERSION__;
