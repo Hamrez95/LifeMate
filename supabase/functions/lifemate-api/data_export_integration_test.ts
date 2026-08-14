@@ -34,18 +34,20 @@ Deno.test({
     let linkedId: string | null = null;
 
     try {
-      const patient = await db.bootstrapUser(patientAuth, {
+      await db.bootstrapUser(patientAuth, {
         displayName: "Export Patient",
         locale: "fa",
         timeZone: "Asia/Tehran",
       });
-      const linked = await db.bootstrapUser(linkedAuth, {
+      await db.bootstrapUser(linkedAuth, {
         displayName: "Linked Person",
         locale: "fa",
         timeZone: "Asia/Tehran",
       });
-      patientId = String(patient.id);
-      linkedId = String(linked.id);
+      const patient = await db.requireIdentity(patientAuth);
+      const linked = await db.requireIdentity(linkedAuth);
+      patientId = patient.appUserId;
+      linkedId = linked.appUserId;
 
       await db.createMedication(patientId, {
         name: `private-medication-${suffix}`,
@@ -107,10 +109,11 @@ Deno.test({
       assert(!("caregiverUserId" in relationships[0]));
       assert(!("patientUserId" in relationships[0]));
     } finally {
-      if (patientId || linkedId) {
-        const ids = [patientId, linkedId].filter((value): value is string =>
-          value != null
-        );
+      const ids = [patientId, linkedId].filter(
+        (value): value is string =>
+          value != null && value !== "undefined" && value.length > 0,
+      );
+      if (ids.length > 0) {
         await sql`
           delete from lifemate.care_invitations
           where inviter_user_id in ${sql(ids)}
