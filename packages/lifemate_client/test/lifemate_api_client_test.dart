@@ -316,35 +316,35 @@ void main() {
   });
 
   test(
-  'critical creation retries with one stable generated idempotency key',
-  () async {
-    var requestCount = 0;
-    final idempotencyKeys = <String?>[];
-    final api = LifeMateApiClient(
-      baseUri: Uri.parse('https://api.example.test'),
-      accessToken: () => 'access-token',
-      httpClient: MockClient((request) async {
-        requestCount += 1;
-        idempotencyKeys.add(request.headers['idempotency-key']);
-        if (requestCount == 1) {
-          throw http.ClientException('response lost', request.url);
-        }
-        return http.Response(
-          jsonEncode({'id': 'medication-1', 'name': 'Metformin'}),
-          201,
-          headers: {'content-type': 'application/json'},
-        );
-      }),
-    );
+    'critical creation retries with one stable generated idempotency key',
+    () async {
+      var requestCount = 0;
+      final idempotencyKeys = <String?>[];
+      final api = LifeMateApiClient(
+        baseUri: Uri.parse('https://api.example.test'),
+        accessToken: () => 'access-token',
+        httpClient: MockClient((request) async {
+          requestCount += 1;
+          idempotencyKeys.add(request.headers['idempotency-key']);
+          if (requestCount == 1) {
+            throw http.ClientException('response lost', request.url);
+          }
+          return http.Response(
+            jsonEncode({'id': 'medication-1', 'name': 'Metformin'}),
+            201,
+            headers: {'content-type': 'application/json'},
+          );
+        }),
+      );
 
-    final result = await api.createMedication(name: 'Metformin');
+      final result = await api.createMedication(name: 'Metformin');
 
-    expect(requestCount, 2);
-    expect(idempotencyKeys.first, isNotNull);
-    expect(idempotencyKeys[1], idempotencyKeys.first);
-    expect(result['id'], 'medication-1');
-  },
-);
+      expect(requestCount, 2);
+      expect(idempotencyKeys.first, isNotNull);
+      expect(idempotencyKeys[1], idempotencyKeys.first);
+      expect(result['id'], 'medication-1');
+    },
+  );
 
   test('semantic conflict is not retried', () async {
     var requestCount = 0;

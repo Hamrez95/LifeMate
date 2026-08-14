@@ -605,164 +605,157 @@ class LifeMateApiClient {
   }
 
   Future<dynamic> _send(
-  String method,
-  String path, {
-  Map<String, String>? query,
-  Object? body,
-  bool retryable = false,
-  String? idempotencyKey,
-}) async {
-  final token = _accessToken();
-  if (token == null || token.isEmpty) {
-    throw const LifeMateApiException(
-      statusCode: 401,
-      code: 'session_missing',
-      message: 'Authentication session is missing.',
+    String method,
+    String path, {
+    Map<String, String>? query,
+    Object? body,
+    bool retryable = false,
+    String? idempotencyKey,
+  }) async {
+    final token = _accessToken();
+    if (token == null || token.isEmpty) {
+      throw const LifeMateApiException(
+        statusCode: 401,
+        code: 'session_missing',
+        message: 'Authentication session is missing.',
+      );
+    }
+
+    var uri = _resolve(path);
+    if (query != null) uri = uri.replace(queryParameters: query);
+    final encodedBody = body == null ? null : jsonEncode(body);
+    final isMutation =
+        method == 'POST' || method == 'PATCH' || method == 'DELETE';
+    final mutationFingerprint = isMutation
+        ? '$method ${uri.toString()}\n${encodedBody ?? ''}'
+        : null;
+    final generatedMutationKey = isMutation && idempotencyKey == null;
+    final mutationKey = !isMutation
+        ? null
+        : idempotencyKey ??
+              _pendingMutationKeys.putIfAbsent(
+                mutationFingerprint!,
+                LifeMateApiClient.createClientRequestId,
+              );
+    final headers = <String, String>{
+      'Accept': 'application/json',
+      'Authorization': 'Bearer $token',
+      if (body != null) 'Content-Type': 'application/json',
+      if (mutationKey != null) 'Idempotency-Key': mutationKey,
+    };
+    final maxAttempts = retryable || isMutation ? 3 : 1;
+    final budget = Stopwatch()..start();
+
+    for (var attempt = 1; attempt <= maxAttempts; attempt += 1) {
+      final remainingMilliseconds =
+          _retryBudget.inMilliseconds - budget.elapsedMilliseconds;
+      if (remainingMilliseconds <= 0) {
+        throw const LifeMateApiException(
+          statusCode: 0,
+          code: 'retry_budget_exhausted',
+          message: 'LifeMate retry budget was exhausted.',
+        );
+      }
+      final attemptTimeout = Duration(
+        milliseconds: min(
+          _requestTimeout.inMilliseconds,
+          remainingMilliseconds,
+        ),
+      );
+
+      late final http.Response response;
+      try {
+        response = await _sendOnce(
+          method: method,
+          uri: uri,
+          headers: headers,
+          encodedBody: encodedBody,
+        ).timeout(attemptTimeout);
+      } on TimeoutException {
+        if (attempt < maxAttempts && await _waitBeforeRetry(attempt, budget)) {
+          continue;
+        }
+        throw const LifeMateApiException(
+          statusCode: 0,
+          code: 'network_timeout',
+          message: 'LifeMate request timed out.',
+        );
+      } on http.ClientException {
+        if (attempt < maxAttempts && await _waitBeforeRetry(attempt, budget)) {
+          continue;
+        }
+        throw const LifeMateApiException(
+          statusCode: 0,
+          code: 'network_unavailable',
+          message: 'LifeMate service is unavailable.',
+        );
+      }
+
+      final retryResponse = _shouldRetryResponse(response);
+      if (attempt < maxAttempts &&
+          retryResponse &&
+          await _waitBeforeRetry(attempt, budget, response: response)) {
+        continue;
+      }
+
+      try {
+        final decoded = _decodeResponse(response);
+        if (generatedMutationKey) {
+          _pendingMutationKeys.remove(mutationFingerprint);
+        }
+        return decoded;
+      } on LifeMateApiException {
+        if (generatedMutationKey && !retryResponse) {
+          _pendingMutationKeys.remove(mutationFingerprint);
+        }
+        rethrow;
+      }
+    }
+
+    throw StateError('LifeMate retry loop exited unexpectedly.');
+  }
+
+  Future<bool> _waitBeforeRetry(
+    int attempt,
+    Stopwatch budget, {
+    http.Response? response,
+  }) async {
+    var delay = _retryDelayForAttempt(attempt);
+    final retryAfter = response == null
+        ? null
+        : int.tryParse(response.headers['retry-after'] ?? '');
+    if (retryAfter != null && retryAfter > 0) {
+      final serverDelay = Duration(seconds: retryAfter);
+      if (serverDelay > delay) delay = serverDelay;
+    }
+    if (budget.elapsedMilliseconds + delay.inMilliseconds >=
+        _retryBudget.inMilliseconds) {
+      return false;
+    }
+    await Future<void>.delayed(delay);
+    return true;
+  }
+
+  Duration _retryDelayForAttempt(int attempt) {
+    final exponent = 1 << (attempt - 1);
+    final exponential = _retryBaseDelay.inMilliseconds * exponent;
+    final jitter = _retryRandom.nextInt(_retryBaseDelay.inMilliseconds + 1);
+    return Duration(
+      milliseconds: min(_retryMaxDelay.inMilliseconds, exponential + jitter),
     );
   }
 
-  var uri = _resolve(path);
-  if (query != null) uri = uri.replace(queryParameters: query);
-  final encodedBody = body == null ? null : jsonEncode(body);
-  final isMutation =
-      method == 'POST' || method == 'PATCH' || method == 'DELETE';
-  final mutationFingerprint = isMutation
-      ? '$method ${uri.toString()}\n${encodedBody ?? ''}'
-      : null;
-  final generatedMutationKey = isMutation && idempotencyKey == null;
-  final mutationKey = !isMutation
-      ? null
-      : idempotencyKey ??
-            _pendingMutationKeys.putIfAbsent(
-              mutationFingerprint!,
-              LifeMateApiClient.createClientRequestId,
-            );
-  final headers = <String, String>{
-    'Accept': 'application/json',
-    'Authorization': 'Bearer $token',
-    if (body != null) 'Content-Type': 'application/json',
-    if (mutationKey != null) 'Idempotency-Key': mutationKey,
-  };
-  final maxAttempts = retryable || isMutation ? 3 : 1;
-  final budget = Stopwatch()..start();
-
-  for (var attempt = 1; attempt <= maxAttempts; attempt += 1) {
-    final remainingMilliseconds =
-        _retryBudget.inMilliseconds - budget.elapsedMilliseconds;
-    if (remainingMilliseconds <= 0) {
-      throw const LifeMateApiException(
-        statusCode: 0,
-        code: 'retry_budget_exhausted',
-        message: 'LifeMate retry budget was exhausted.',
-      );
-    }
-    final attemptTimeout = Duration(
-      milliseconds: min(
-        _requestTimeout.inMilliseconds,
-        remainingMilliseconds,
-      ),
-    );
-
-    late final http.Response response;
+  bool _shouldRetryResponse(http.Response response) {
+    if (_transientStatusCodes.contains(response.statusCode)) return true;
+    if (response.statusCode != 409 || response.body.isEmpty) return false;
     try {
-      response = await _sendOnce(
-        method: method,
-        uri: uri,
-        headers: headers,
-        encodedBody: encodedBody,
-      ).timeout(attemptTimeout);
-    } on TimeoutException {
-      if (attempt < maxAttempts &&
-          await _waitBeforeRetry(attempt, budget)) {
-        continue;
-      }
-      throw const LifeMateApiException(
-        statusCode: 0,
-        code: 'network_timeout',
-        message: 'LifeMate request timed out.',
-      );
-    } on http.ClientException {
-      if (attempt < maxAttempts &&
-          await _waitBeforeRetry(attempt, budget)) {
-        continue;
-      }
-      throw const LifeMateApiException(
-        statusCode: 0,
-        code: 'network_unavailable',
-        message: 'LifeMate service is unavailable.',
-      );
-    }
-
-    final retryResponse = _shouldRetryResponse(response);
-    if (attempt < maxAttempts &&
-        retryResponse &&
-        await _waitBeforeRetry(attempt, budget, response: response)) {
-      continue;
-    }
-
-    try {
-      final decoded = _decodeResponse(response);
-      if (generatedMutationKey) {
-        _pendingMutationKeys.remove(mutationFingerprint);
-      }
-      return decoded;
-    } on LifeMateApiException {
-      if (generatedMutationKey && !retryResponse) {
-        _pendingMutationKeys.remove(mutationFingerprint);
-      }
-      rethrow;
+      final decoded = jsonDecode(response.body);
+      return decoded is Map<String, dynamic> &&
+          decoded['code']?.toString() == 'idempotency_in_progress';
+    } on FormatException {
+      return false;
     }
   }
-
-  throw StateError('LifeMate retry loop exited unexpectedly.');
-}
-
-Future<bool> _waitBeforeRetry(
-  int attempt,
-  Stopwatch budget, {
-  http.Response? response,
-}) async {
-  var delay = _retryDelayForAttempt(attempt);
-  final retryAfter = response == null
-      ? null
-      : int.tryParse(response.headers['retry-after'] ?? '');
-  if (retryAfter != null && retryAfter > 0) {
-    final serverDelay = Duration(seconds: retryAfter);
-    if (serverDelay > delay) delay = serverDelay;
-  }
-  if (budget.elapsedMilliseconds + delay.inMilliseconds >=
-      _retryBudget.inMilliseconds) {
-    return false;
-  }
-  await Future<void>.delayed(delay);
-  return true;
-}
-
-Duration _retryDelayForAttempt(int attempt) {
-  final exponent = 1 << (attempt - 1);
-  final exponential = _retryBaseDelay.inMilliseconds * exponent;
-  final jitter = _retryRandom.nextInt(
-    _retryBaseDelay.inMilliseconds + 1,
-  );
-  return Duration(
-    milliseconds: min(
-      _retryMaxDelay.inMilliseconds,
-      exponential + jitter,
-    ),
-  );
-}
-
-bool _shouldRetryResponse(http.Response response) {
-  if (_transientStatusCodes.contains(response.statusCode)) return true;
-  if (response.statusCode != 409 || response.body.isEmpty) return false;
-  try {
-    final decoded = jsonDecode(response.body);
-    return decoded is Map<String, dynamic> &&
-        decoded['code']?.toString() == 'idempotency_in_progress';
-  } on FormatException {
-    return false;
-  }
-}
 
   Future<http.Response> _sendOnce({
     required String method,

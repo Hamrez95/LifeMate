@@ -108,26 +108,81 @@ void main() {
     expect(body['observedLocalDate'], '2026-08-10');
   });
 
-  test('entered wall clock is converted using the declared profile zone', () async {
-    late Map<String, dynamic> sent;
+  test(
+    'entered wall clock is converted using the declared profile zone',
+    () async {
+      late Map<String, dynamic> sent;
+      final api = LifeMateHealthApi(
+        baseUri: Uri.parse('https://api.example.test'),
+        accessToken: () => 'access-token',
+        httpClient: MockClient((request) async {
+          sent = jsonDecode(request.body) as Map<String, dynamic>;
+          return http.Response(
+            jsonEncode({
+              'id': 'obs-time',
+              'personId': 'person-1',
+              'observationType': sent['observationType'],
+              'valuePrimary': sent['valuePrimary'],
+              'valueSecondary': null,
+              'unitPrimary': 'kg',
+              'unitSecondary': null,
+              'note': null,
+              'observedAtUtc': sent['observedAtUtc'],
+              'observedLocalDate': sent['observedLocalDate'],
+              'timeZone': sent['timeZone'],
+              'sourceCategory': 'FirstPartyUserInput',
+              'sourceProvider': 'wellmate',
+              'sourceApplicationCode': 'wellmate',
+              'version': 1,
+            }),
+            201,
+          );
+        }),
+      );
+
+      await api.createObservation(
+        observationType: 'weight',
+        valuePrimary: 78,
+        observedAtUtc: DateTime.utc(2026, 8, 10, 12),
+        observedLocalDate: DateTime(2026, 8, 10, 12),
+        timeZone: 'Asia/Tehran',
+        clientRequestId: '123e4567-e89b-42d3-a456-426614174001',
+      );
+
+      // Tehran is UTC+03:30 in August 2026. The device zone must not affect the
+      // instant represented by the user's entered 12:00 wall clock.
+      expect(sent['observedAtUtc'], '2026-08-10T08:30:00.000Z');
+    },
+  );
+
+  test('automatic client request id survives a lost-response retry', () async {
+    final requestIds = <String>[];
+    final idempotencyKeys = <String?>[];
+    var attempts = 0;
     final api = LifeMateHealthApi(
       baseUri: Uri.parse('https://api.example.test'),
       accessToken: () => 'access-token',
       httpClient: MockClient((request) async {
-        sent = jsonDecode(request.body) as Map<String, dynamic>;
+        final body = jsonDecode(request.body) as Map<String, dynamic>;
+        requestIds.add(body['clientRequestId'].toString());
+        idempotencyKeys.add(request.headers['idempotency-key']);
+        attempts++;
+        if (attempts == 1) {
+          throw http.ClientException('response lost');
+        }
         return http.Response(
           jsonEncode({
-            'id': 'obs-time',
+            'id': 'obs-retry',
             'personId': 'person-1',
-            'observationType': sent['observationType'],
-            'valuePrimary': sent['valuePrimary'],
+            'observationType': body['observationType'],
+            'valuePrimary': body['valuePrimary'],
             'valueSecondary': null,
             'unitPrimary': 'kg',
             'unitSecondary': null,
             'note': null,
-            'observedAtUtc': sent['observedAtUtc'],
-            'observedLocalDate': sent['observedLocalDate'],
-            'timeZone': sent['timeZone'],
+            'observedAtUtc': body['observedAtUtc'],
+            'observedLocalDate': body['observedLocalDate'],
+            'timeZone': body['timeZone'],
             'sourceCategory': 'FirstPartyUserInput',
             'sourceProvider': 'wellmate',
             'sourceApplicationCode': 'wellmate',
@@ -141,68 +196,16 @@ void main() {
     await api.createObservation(
       observationType: 'weight',
       valuePrimary: 78,
-      observedAtUtc: DateTime.utc(2026, 8, 10, 12),
-      observedLocalDate: DateTime(2026, 8, 10, 12),
+      observedAtUtc: DateTime.utc(2026, 8, 10, 8),
+      observedLocalDate: DateTime(2026, 8, 10, 11, 30),
       timeZone: 'Asia/Tehran',
-      clientRequestId: '123e4567-e89b-42d3-a456-426614174001',
     );
 
-    // Tehran is UTC+03:30 in August 2026. The device zone must not affect the
-    // instant represented by the user's entered 12:00 wall clock.
-    expect(sent['observedAtUtc'], '2026-08-10T08:30:00.000Z');
+    expect(requestIds, hasLength(2));
+    expect(requestIds[1], requestIds[0]);
+    expect(idempotencyKeys[0], requestIds[0]);
+    expect(idempotencyKeys[1], requestIds[0]);
   });
-
-  test('automatic client request id survives a lost-response retry', () async {
-  final requestIds = <String>[];
-  final idempotencyKeys = <String?>[];
-  var attempts = 0;
-  final api = LifeMateHealthApi(
-    baseUri: Uri.parse('https://api.example.test'),
-    accessToken: () => 'access-token',
-    httpClient: MockClient((request) async {
-      final body = jsonDecode(request.body) as Map<String, dynamic>;
-      requestIds.add(body['clientRequestId'].toString());
-      idempotencyKeys.add(request.headers['idempotency-key']);
-      attempts++;
-      if (attempts == 1) {
-        throw http.ClientException('response lost');
-      }
-      return http.Response(
-        jsonEncode({
-          'id': 'obs-retry',
-          'personId': 'person-1',
-          'observationType': body['observationType'],
-          'valuePrimary': body['valuePrimary'],
-          'valueSecondary': null,
-          'unitPrimary': 'kg',
-          'unitSecondary': null,
-          'note': null,
-          'observedAtUtc': body['observedAtUtc'],
-          'observedLocalDate': body['observedLocalDate'],
-          'timeZone': body['timeZone'],
-          'sourceCategory': 'FirstPartyUserInput',
-          'sourceProvider': 'wellmate',
-          'sourceApplicationCode': 'wellmate',
-          'version': 1,
-        }),
-        201,
-      );
-    }),
-  );
-
-  await api.createObservation(
-    observationType: 'weight',
-    valuePrimary: 78,
-    observedAtUtc: DateTime.utc(2026, 8, 10, 8),
-    observedLocalDate: DateTime(2026, 8, 10, 11, 30),
-    timeZone: 'Asia/Tehran',
-  );
-
-  expect(requestIds, hasLength(2));
-  expect(requestIds[1], requestIds[0]);
-  expect(idempotencyKeys[0], requestIds[0]);
-  expect(idempotencyKeys[1], requestIds[0]);
-});
 
   test('health observation delete remains behind the API boundary', () async {
     late http.Request observed;

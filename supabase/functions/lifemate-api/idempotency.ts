@@ -109,8 +109,10 @@ export function createMutationIdempotencyStore(databaseUrl: string) {
         );
       }
       const responseStatus = Number(existing.response_status);
-      if (!Number.isInteger(responseStatus) || responseStatus < 200 ||
-        responseStatus > 299) {
+      if (
+        !Number.isInteger(responseStatus) || responseStatus < 200 ||
+        responseStatus > 299
+      ) {
         throw new ApiError(
           503,
           "idempotency_state_unavailable",
@@ -149,7 +151,10 @@ export function createMutationIdempotencyStore(databaseUrl: string) {
     }
 
     const storedBody = await response.clone().text();
-    if (new TextEncoder().encode(storedBody).byteLength > maximumStoredResponseBytes) {
+    if (
+      new TextEncoder().encode(storedBody).byteLength >
+        maximumStoredResponseBytes
+    ) {
       await sql`
         delete from lifemate.idempotency_keys
         where actor_auth_subject = ${actorAuthSubject}::uuid
