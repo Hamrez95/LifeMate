@@ -1,0 +1,257 @@
+name: offline-queue-patch
+
+on:
+  push:
+    branches: ['reliability/p0-durable-offline-dose-queue']
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
+        with:
+          ref: reliability/p0-durable-offline-dose-queue
+          fetch-depth: 0
+      - uses: subosito/flutter-action@4cab68ce0f1c7c924f688bff4792e044f1aeb30c
+        with:
+          flutter-version: '3.44.0'
+          channel: stable
+      - name: Wire production durable transport
+        shell: python
+        run: |
+          from pathlib import Path
+
+          def once(path, old, new, label):
+              path = Path(path)
+              text = path.read_text()
+              if new in text and old not in text:
+                  return
+              count = text.count(old)
+              if count != 1:
+                  raise SystemExit(f'{label}: expected one match, got {count}')
+              path.write_text(text.replace(old, new, 1))
+
+          # Shared package dependency and public surface.
+          once(
+              'packages/lifemate_client/pubspec.yaml',
+              '  flutter:\n    sdk: flutter\n  http: 1.6.0\n',
+              '  flutter:\n    sdk: flutter\n  flutter_secure_storage: ^10.3.1\n  http: 1.6.0\n',
+              'secure storage dependency',
+          )
+          once(
+              'packages/lifemate_client/lib/lifemate_client.dart',
+              "export 'src/feature_flags.dart';\n",
+              "export 'src/durable_lifemate_api_client.dart';\nexport 'src/feature_flags.dart';\n",
+              'durable api export',
+          )
+          once(
+              'packages/lifemate_client/lib/lifemate_client.dart',
+              "export 'src/nullable_women_calendar_estimate.dart';\n",
+              "export 'src/nullable_women_calendar_estimate.dart';\nexport 'src/offline_mutation_queue.dart';\n",
+              'offline queue export',
+          )
+          once(
+              'packages/lifemate_client/lib/src/lifemate_auth.dart',
+              "  static String? get currentAccessToken =>\n      Supabase.instance.client.auth.currentSession?.accessToken;\n\n",
+              "  static String? get currentAccessToken =>\n      Supabase.instance.client.auth.currentSession?.accessToken;\n\n  /// Auth account scope used only to isolate local encrypted queue entries.\n  /// It is never persisted as healthcare ownership or a Person identifier.\n  static String? get currentAccountId =>\n      Supabase.instance.client.auth.currentUser?.id;\n\n",
+              'auth account id',
+          )
+
+          # The proven auth/bootstrap boundary now owns the durable API client.
+          gate = Path('packages/lifemate_client/lib/src/lifemate_experience_gate.dart')
+          once(
+              gate,
+              "import 'app_config.dart';\nimport 'feature_flags.dart';\n",
+              "import 'app_config.dart';\nimport 'durable_lifemate_api_client.dart';\nimport 'feature_flags.dart';\n",
+              'gate import',
+          )
+          once(
+              gate,
+              'class _LifeMateExperienceGateState extends State<LifeMateExperienceGate> {\n',
+              'class _LifeMateExperienceGateState extends State<LifeMateExperienceGate>\n    with WidgetsBindingObserver {\n',
+              'gate observer',
+          )
+          once(
+              gate,
+              '  late final LifeMateApiClient _api;\n',
+              '  late final DurableLifeMateApiClient _api;\n',
+              'gate api type',
+          )
+          once(
+              gate,
+              '''    super.initState();\n    _supabase = Supabase.instance.client;\n    _api = LifeMateApiClient(\n      baseUri: widget.config.apiBaseUri,\n      accessToken: () => _supabase.auth.currentSession?.accessToken,\n    );\n''',
+              '''    super.initState();\n    WidgetsBinding.instance.addObserver(this);\n    _supabase = Supabase.instance.client;\n    _api = DurableLifeMateApiClient(\n      baseUri: widget.config.apiBaseUri,\n      accessToken: () => _supabase.auth.currentSession?.accessToken,\n      accountId: () => _supabase.auth.currentUser?.id,\n    );\n''',
+              'gate durable init',
+          )
+          once(
+              gate,
+              '''        .timeout(_requestTimeout);\n  }\n\n  void _retryBootstrap() {\n''',
+              '''        .timeout(_requestTimeout);\n    unawaited(_api.flushPendingMutations());\n  }\n\n  @override\n  void didChangeAppLifecycleState(AppLifecycleState state) {\n    if (state == AppLifecycleState.resumed && _session != null) {\n      unawaited(_api.flushPendingMutations());\n    }\n  }\n\n  void _retryBootstrap() {\n''',
+              'gate reconnect flush',
+          )
+          once(
+              gate,
+              '''  void dispose() {\n    _authSubscription?.cancel();\n    _api.close();\n''',
+              '''  void dispose() {\n    WidgetsBinding.instance.removeObserver(this);\n    _authSubscription?.cancel();\n    _api.close();\n''',
+              'gate dispose',
+          )
+
+          # WellMate schedule model carries explicit local pending state.
+          model = Path('wellmate/lib/models/schedule_item_model.dart')
+          once(
+              model,
+              '  final bool isDone;\n  final String status;\n',
+              '  final bool isDone;\n  final bool pendingSync;\n  final String? pendingStatus;\n  final String status;\n',
+              'model pending fields',
+          )
+          once(
+              model,
+              '    this.isDone = false,\n    this.status = \'scheduled\',\n',
+              '    this.isDone = false,\n    this.pendingSync = false,\n    this.pendingStatus,\n    this.status = \'scheduled\',\n',
+              'model constructor',
+          )
+          once(
+              model,
+              "    final status = (json['status'] ?? 'scheduled').toString();\n    return ScheduleItemModel(\n",
+              "    final status = (json['status'] ?? 'scheduled').toString();\n    final pending = json['pendingSync'] == true || status == 'pending_sync';\n    return ScheduleItemModel(\n",
+              'model fromjson pending',
+          )
+          once(
+              model,
+              "      isDone: json['is_done'] ?? status == 'taken' || status == 'skipped',\n      status: status,\n",
+              "      isDone: pending\n          ? false\n          : (json['is_done'] ?? status == 'taken' || status == 'skipped'),\n      pendingSync: pending,\n      pendingStatus: json['pendingStatus']?.toString(),\n      status: status,\n",
+              'model fromjson state',
+          )
+          once(
+              model,
+              "      'is_done': isDone,\n      'status': status,\n",
+              "      'is_done': isDone,\n      'pendingSync': pendingSync,\n      'pendingStatus': pendingStatus,\n      'status': status,\n",
+              'model json state',
+          )
+          once(
+              model,
+              '    bool? isDone,\n    String? status,\n',
+              '    bool? isDone,\n    bool? pendingSync,\n    String? pendingStatus,\n    String? status,\n',
+              'model copy args',
+          )
+          once(
+              model,
+              '''    return ScheduleItemModel(\n      id: id ?? this.id,\n''',
+              '''    final nextStatus = status ?? this.status;\n    final nextPending =\n        (pendingSync ?? this.pendingSync) || nextStatus == 'pending_sync';\n    return ScheduleItemModel(\n      id: id ?? this.id,\n''',
+              'model copy state calc',
+          )
+          once(
+              model,
+              '''      type: type ?? this.type,\n      isDone: isDone ?? this.isDone,\n      status: status ?? this.status,\n''',
+              '''      type: type ?? this.type,\n      isDone: nextPending ? false : (isDone ?? this.isDone),\n      pendingSync: nextPending,\n      pendingStatus: pendingStatus ?? this.pendingStatus,\n      status: nextStatus,\n''',
+              'model copy state',
+          )
+
+          # Home loader and dose action keep a locally queued dose non-actionable
+          # and clearly tell the patient it has not reached the server yet.
+          home = Path('wellmate/lib/screens/home/home_screen_content.dart')
+          once(
+              home,
+              "          final status = (dose['status'] ?? 'scheduled').toString();\n          final rawTime = (dose['scheduledLocalTime'] ?? '').toString();\n",
+              "          final status = (dose['status'] ?? 'scheduled').toString();\n          final pending = dose['pendingSync'] == true || status == 'pending_sync';\n          final rawTime = (dose['scheduledLocalTime'] ?? '').toString();\n",
+              'home pending parse',
+          )
+          once(
+              home,
+              "            isDone: status == 'taken' || status == 'skipped',\n            frequency:",
+              "            isDone: pending ? false : status == 'taken' || status == 'skipped',\n            pendingSync: pending,\n            pendingStatus: dose['pendingStatus']?.toString(),\n            frequency:",
+              'home pending model',
+          )
+          once(
+              home,
+              '''      final updated = item.copyWith(\n        isDone: status == 'taken' || status == 'skipped',\n        status: (result['status'] ?? status).toString(),\n''',
+              '''      final pendingSync = result['pendingSync'] == true;\n      final updated = item.copyWith(\n        isDone: pendingSync ? false : status == 'taken' || status == 'skipped',\n        pendingSync: pendingSync,\n        pendingStatus: pendingSync ? status : null,\n        status: (result['status'] ?? status).toString(),\n''',
+              'home action pending state',
+          )
+          old_snack = '''      ScaffoldMessenger.of(context).showSnackBar(\n        SnackBar(\n          content: Text(\n            status == 'taken'\n                ? LifeMateRuntimeLocale.select(\n                    fa: LifeMateRuntimeLocale.select(\n                      fa: '${item.title} به عنوان مصرف‌شده ثبت شد.',\n                      en: "${item.title} was marked as taken.",\n                    ),\n                    en: "${item.title} registered as spent.",\n                  )\n                : LifeMateRuntimeLocale.select(\n                    fa: LifeMateRuntimeLocale.select(\n                      fa: '${item.title} به عنوان مصرف‌نشده ثبت شد.',\n                      en: "${item.title} was marked as not taken.",\n                    ),\n                    en: "${item.title} was registered as unused.",\n                  ),\n          ),\n          behavior: SnackBarBehavior.floating,\n        ),\n      );\n'''
+          new_snack = '''      ScaffoldMessenger.of(context).showSnackBar(\n        SnackBar(\n          content: Text(\n            pendingSync\n                ? LifeMateRuntimeLocale.select(\n                    fa: '${item.title} روی گوشی ذخیره شد و بعد از اتصال اینترنت همگام می‌شود.',\n                    en: '${item.title} was saved on this device and will sync when you reconnect.',\n                  )\n                : status == 'taken'\n                ? LifeMateRuntimeLocale.select(\n                    fa: '${item.title} به عنوان مصرف‌شده ثبت شد.',\n                    en: '${item.title} was marked as taken.',\n                  )\n                : LifeMateRuntimeLocale.select(\n                    fa: '${item.title} به عنوان مصرف‌نشده ثبت شد.',\n                    en: '${item.title} was marked as skipped.',\n                  ),\n          ),\n          behavior: SnackBarBehavior.floating,\n        ),\n      );\n'''
+          once(home, old_snack, new_snack, 'home pending snackbar')
+
+          # Header quick action must also distinguish server-confirmed from local-only.
+          root = Path('wellmate/lib/screens/home/home_screen.dart')
+          once(
+              root,
+              '''      if (item.type == 'medicine') {\n        await context.read<LifeMateApiClient>().reportDose(\n          occurrenceId: item.id,\n          clientRequestId: LifeMateApiClient.createClientRequestId(),\n          version: item.version,\n          status: 'taken',\n          occurredAtUtc: DateTime.now().toUtc(),\n        );\n      } else {\n''',
+              '''      var pendingSync = false;\n      if (item.type == 'medicine') {\n        final result = await context.read<LifeMateApiClient>().reportDose(\n          occurrenceId: item.id,\n          clientRequestId: LifeMateApiClient.createClientRequestId(),\n          version: item.version,\n          status: 'taken',\n          occurredAtUtc: DateTime.now().toUtc(),\n        );\n        pendingSync = result['pendingSync'] == true;\n      } else {\n''',
+              'header pending result',
+          )
+          once(
+              root,
+              '''          content: Text(\n            item.type == 'medicine'\n                ? LifeMateRuntimeLocale.select(\n''',
+              '''          content: Text(\n            pendingSync\n                ? LifeMateRuntimeLocale.select(\n                    fa: '${item.title} روی گوشی ذخیره شد و بعد از اتصال اینترنت همگام می‌شود.',\n                    en: '${item.title} was saved on this device and will sync when you reconnect.',\n                  )\n                : item.type == 'medicine'\n                ? LifeMateRuntimeLocale.select(\n''',
+              'header pending snackbar',
+          )
+
+          # Background home-widget action uses the exact same encrypted queue.
+          widget = Path('wellmate/lib/core/widgets/medication_home_widget_service.dart')
+          once(
+              widget,
+              '  LifeMateApiClient? api;\n',
+              '  DurableLifeMateApiClient? api;\n',
+              'widget api type',
+          )
+          once(
+              widget,
+              '''    if (accessToken == null || accessToken.isEmpty) {\n''',
+              '''    final accountId = LifeMateAuth.currentAccountId;\n    if (accessToken == null || accessToken.isEmpty || accountId == null) {\n''',
+              'widget account scope',
+          )
+          once(
+              widget,
+              '''    LifeMateApiClient buildApi(String token) => LifeMateApiClient(\n      baseUri: config.apiBaseUri,\n      // Capture the token returned by the validated/refresh path instead of\n      // reading the session singleton again from a cold background isolate.\n      accessToken: () => token,\n    );\n\n    api = buildApi(accessToken);\n    final clientRequestId = LifeMateApiClient.createClientRequestId();\n\n    try {\n      await api.reportDose(\n''',
+              '''    DurableLifeMateApiClient buildApi(String token) =>\n        DurableLifeMateApiClient(\n          baseUri: config.apiBaseUri,\n          accessToken: () => token,\n          accountId: () => LifeMateAuth.currentAccountId,\n        );\n\n    api = buildApi(accessToken);\n    final clientRequestId = LifeMateApiClient.createClientRequestId();\n    Map<String, dynamic> result;\n\n    try {\n      result = await api.reportDose(\n''',
+              'widget durable build',
+          )
+          once(
+              widget,
+              '      await api.reportDose(\n        occurrenceId: occurrenceId,\n        clientRequestId: clientRequestId,\n        version: version,\n        status: \'taken\',\n        occurredAtUtc: DateTime.now().toUtc(),\n      );\n    }\n\n    await HomeWidget.saveWidgetData<String>(\n',
+              '      result = await api.reportDose(\n        occurrenceId: occurrenceId,\n        clientRequestId: clientRequestId,\n        version: version,\n        status: \'taken\',\n        occurredAtUtc: DateTime.now().toUtc(),\n      );\n    }\n\n    await HomeWidget.saveWidgetData<String>(\n',
+              'widget retry result',
+          )
+          once(
+              widget,
+              '''    await _setWidgetActionMessage(\n      LifeMateRuntimeLocale.select(\n        fa: LifeMateRuntimeLocale.select(fa: 'ثبت شد ✓', en: "Saved ✓"),\n        en: "Saved ✓",\n      ),\n    );\n\n    // Keep success visible very briefly, then sync the next real occurrence.\n''',
+              '''    final pendingSync = result['pendingSync'] == true;\n    if (pendingSync) {\n      await _setWidgetActionMessage(\n        LifeMateRuntimeLocale.select(\n          fa: 'روی گوشی ذخیره شد؛ منتظر همگام‌سازی',\n          en: 'Saved on device; waiting to sync',\n        ),\n      );\n      return;\n    }\n\n    await _setWidgetActionMessage(\n      LifeMateRuntimeLocale.select(\n        fa: LifeMateRuntimeLocale.select(fa: 'ثبت شد ✓', en: "Saved ✓"),\n        en: "Saved ✓",\n      ),\n    );\n\n    // Keep success visible very briefly, then sync the next real occurrence.\n''',
+              'widget pending message',
+          )
+
+      - name: Update dependency lock and format
+        shell: bash
+        run: |
+          set -euo pipefail
+          (cd packages/lifemate_client && flutter pub get)
+          dart format \
+            packages/lifemate_client/lib/lifemate_client.dart \
+            packages/lifemate_client/lib/src/durable_http_client.dart \
+            packages/lifemate_client/lib/src/durable_lifemate_api_client.dart \
+            packages/lifemate_client/lib/src/lifemate_auth.dart \
+            packages/lifemate_client/lib/src/lifemate_experience_gate.dart \
+            packages/lifemate_client/lib/src/offline_mutation_queue.dart \
+            packages/lifemate_client/test/offline_mutation_queue_test.dart \
+            wellmate/lib/core/widgets/medication_home_widget_service.dart \
+            wellmate/lib/models/schedule_item_model.dart \
+            wellmate/lib/screens/home/home_screen.dart \
+            wellmate/lib/screens/home/home_screen_content.dart
+      - name: Commit wired implementation
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add \
+            packages/lifemate_client \
+            wellmate/lib/core/widgets/medication_home_widget_service.dart \
+            wellmate/lib/models/schedule_item_model.dart \
+            wellmate/lib/screens/home/home_screen.dart \
+            wellmate/lib/screens/home/home_screen_content.dart
+          git commit -m 'feat(reliability): wire durable offline dose queue'
+          git push origin HEAD:reliability/p0-durable-offline-dose-queue
