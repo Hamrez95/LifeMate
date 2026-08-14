@@ -1,0 +1,41 @@
+name: android-artifact-metadata-policy
+
+on:
+  pull_request:
+    paths:
+      - 'tools/release/extract-android-apk-metadata.sh'
+      - 'tools/release/test-extract-android-apk-metadata.sh'
+      - '.github/workflows/main-final-android-release.yml'
+      - '.github/workflows/android-artifact-metadata-policy.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'tools/release/extract-android-apk-metadata.sh'
+      - 'tools/release/test-extract-android-apk-metadata.sh'
+      - '.github/workflows/main-final-android-release.yml'
+      - '.github/workflows/android-artifact-metadata-policy.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  policy:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
+        with:
+          persist-credentials: false
+          show-progress: false
+      - name: Verify APK metadata extractor and stable manifest wiring
+        shell: bash
+        run: |
+          set -euo pipefail
+          bash -n tools/release/extract-android-apk-metadata.sh
+          bash -n tools/release/test-extract-android-apk-metadata.sh
+          bash tools/release/test-extract-android-apk-metadata.sh
+          grep -Fq 'extract-android-apk-metadata.sh' .github/workflows/main-final-android-release.yml
+          grep -Fq -- '--argjson wellmateAndroid "$wellmate_android"' .github/workflows/main-final-android-release.yml
+          grep -Fq -- '--argjson caremateAndroid "$caremate_android"' .github/workflows/main-final-android-release.yml
+          grep -Fq 'android:$wellmateAndroid' .github/workflows/main-final-android-release.yml
+          grep -Fq 'android:$caremateAndroid' .github/workflows/main-final-android-release.yml
