@@ -31,11 +31,13 @@ Deno.test("commerce dashboard accepts canonical filters", () => {
 });
 
 Deno.test("commerce dashboard rejects unbounded or unsafe filters", () => {
-  for (const url of [
-    "https://admin.example/api/v1/commerce/dashboard?pageSize=1000",
-    "https://admin.example/api/v1/commerce/dashboard?status=Unknown",
-    "https://admin.example/api/v1/commerce/dashboard?product=wellmate%2F..",
-  ]) {
+  for (
+    const url of [
+      "https://admin.example/api/v1/commerce/dashboard?pageSize=1000",
+      "https://admin.example/api/v1/commerce/dashboard?status=Unknown",
+      "https://admin.example/api/v1/commerce/dashboard?product=wellmate%2F..",
+    ]
+  ) {
     let rejected = false;
     try {
       parseCommerceDashboardQuery(new URL(url));
@@ -54,8 +56,14 @@ Deno.test("commerce source never exposes provider reference hashes or payment se
     !source.includes("provider_reference_hash"),
     "dashboard must not select provider reference hashes",
   );
-  assert(!source.includes("card_number"), "dashboard must not select card numbers");
-  assert(!source.includes("payment_secret"), "dashboard must not select payment secrets");
+  assert(
+    !source.includes("card_number"),
+    "dashboard must not select card numbers",
+  );
+  assert(
+    !source.includes("payment_secret"),
+    "dashboard must not select payment secrets",
+  );
   assert(
     source.includes("coalesce(s.owner_account_id, s.payer_account_id)"),
     "dashboard should expose only the minimum account identifier needed for navigation",
@@ -63,7 +71,9 @@ Deno.test("commerce source never exposes provider reference hashes or payment se
 });
 
 Deno.test("commerce endpoint remains permission gated and server-side", async () => {
-  const source = await Deno.readTextFile(new URL("./index.ts", import.meta.url));
+  const source = await Deno.readTextFile(
+    new URL("./index.ts", import.meta.url),
+  );
   assert(
     source.includes('path === "/api/v1/commerce/dashboard"'),
     "commerce dashboard route must be registered",
