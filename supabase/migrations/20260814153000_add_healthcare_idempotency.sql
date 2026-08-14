@@ -3,9 +3,9 @@
 -- This is deliberately separate from domain tables so retry safety can be
 -- standardized across treatment, adherence, care, health-observation and
 -- account-lifecycle mutations without coupling every aggregate to transport
--- metadata. The ledger stores only short-lived request hashes and response
--- envelopes. Direct mobile roles remain denied; only the reviewed Edge runtime
--- may use it.
+-- metadata. The ledger stores only short-lived request hashes and encrypted
+-- response envelopes. Direct mobile roles remain denied; only the reviewed Edge
+-- runtime may use it.
 
 create table if not exists lifemate.idempotency_keys (
     actor_auth_subject uuid not null,
@@ -18,7 +18,9 @@ create table if not exists lifemate.idempotency_keys (
     response_status integer
         check (response_status is null or response_status between 200 and 299),
     response_body text
-        check (response_body is null or octet_length(response_body) <= 65536),
+        -- AES-GCM envelope is base64url encoded and therefore larger than the
+        -- 64 KiB plaintext replay ceiling enforced by the Edge runtime.
+        check (response_body is null or octet_length(response_body) <= 131072),
     created_at_utc timestamp with time zone not null default now(),
     updated_at_utc timestamp with time zone not null default now(),
     expires_at_utc timestamp with time zone not null
