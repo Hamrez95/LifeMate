@@ -36,13 +36,18 @@ function shiftDate(value: string, days: number): string {
 function validDate(value: string): boolean {
   if (!DATE_PATTERN.test(value)) return false;
   const parsed = new Date(`${value}T00:00:00.000Z`);
-  return !Number.isNaN(parsed.getTime()) && parsed.toISOString().slice(0, 10) === value;
+  return !Number.isNaN(parsed.getTime()) &&
+    parsed.toISOString().slice(0, 10) === value;
 }
 
 function readDate(value: string | null, fallback: string): string {
   if (value == null || value === "") return fallback;
   if (!validDate(value)) {
-    throw new ApiError(400, "invalid_request", "Analytics date filter is invalid.");
+    throw new ApiError(
+      400,
+      "invalid_request",
+      "Analytics date filter is invalid.",
+    );
   }
   return value;
 }
@@ -51,7 +56,11 @@ function readProduct(value: string | null): AnalyticsProduct | null {
   if (value == null || value === "") return null;
   const normalized = value.toLowerCase() as AnalyticsProduct;
   if (!PRODUCTS.has(normalized)) {
-    throw new ApiError(400, "invalid_request", "Analytics product filter is invalid.");
+    throw new ApiError(
+      400,
+      "invalid_request",
+      "Analytics product filter is invalid.",
+    );
   }
   return normalized;
 }
