@@ -1,4 +1,4 @@
-import { getAdminSql, type AdminSql } from "./database_client.ts";
+import { type AdminSql, getAdminSql } from "./database_client.ts";
 import {
   assertSupportTicketActionResult,
   type SupportTicketAction,
