@@ -32,6 +32,20 @@ jobs:
   build-test:
     runs-on: ubuntu-latest
     timeout-minutes: 20
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_DB: lifemate_tests
+          POSTGRES_USER: lifemate
+          POSTGRES_PASSWORD: lifemate_test_password
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U lifemate -d lifemate_tests"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
     steps:
       - uses: actions/checkout@v4
         with:
@@ -117,7 +131,7 @@ jobs:
         id: integration
         shell: bash
         env:
-          ConnectionStrings__LifeMateDb: Host=localhost;Port=54329;Database=lifemate_tests;Username=lifemate;Password=lifemate_test_password
+          LIFEMATE_INTEGRATION_DB_CONNECTION: Host=localhost;Port=5432;Database=lifemate_tests;Username=lifemate;Password=lifemate_test_password
         run: |
           set -o pipefail
           dotnet test backend-dotnet/tests/LifeMate.IntegrationTests/LifeMate.IntegrationTests.csproj --configuration Release --no-build --logger trx 2>&1 | tee /tmp/lifemate-integration.log
