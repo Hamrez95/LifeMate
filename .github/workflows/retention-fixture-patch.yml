@@ -16,49 +16,18 @@ jobs:
       - uses: denoland/setup-deno@22d081ff2d3a40755e97629de92e3bcbfa7cf2ed
         with:
           deno-version: v2.9.4
-      - name: Patch decoupled identity fixture
+      - name: Re-home compatibility bootstrap rows for the deletion fixture
         shell: python
         run: |
           from pathlib import Path
-          p=Path('supabase/functions/lifemate-worker/account_deletion_integration_test.ts')
-          t=p.read_text()
-          old="""      await sql`\n        insert into identity.accounts(id,status,home_region,legacy_app_user_id)\n"""
-          new="""      // The legacy bootstrap trigger intentionally creates same-ID ecosystem rows.\n      // Remove that compatibility projection so this test can prove that all\n      // later updates follow an explicitly remapped Account/Self-Person bridge.\n      await sql`\n        delete from commerce.entitlements\n        where grantee_account_id in (${appUserId}::uuid,${survivorUserId}::uuid)\n           or beneficiary_person_id in (${appUserId}::uuid,${survivorUserId}::uuid)\n      `;\n      await sql`\n        delete from ecosystem.app_enrollments\n        where account_id in (${appUserId}::uuid,${survivorUserId}::uuid)\n      `;\n      await sql`\n        delete from identity.external_identities\n        where account_id in (${appUserId}::uuid,${survivorUserId}::uuid)\n      `;\n      await sql`\n        delete from core.account_person_links\n        where account_id in (${appUserId}::uuid,${survivorUserId}::uuid)\n      `;\n      await sql`\n        delete from identity.accounts\n        where id in (${appUserId}::uuid,${survivorUserId}::uuid)\n      `;\n      await sql`\n        delete from core.persons\n        where id in (${appUserId}::uuid,${survivorUserId}::uuid)\n      `;\n\n      await sql`\n        insert into identity.accounts(id,status,home_region,legacy_app_user_id)\n"""
-          if t.count(old)!=1: raise SystemExit('account anchor changed')
-          t=t.replace(old,new,1)
 
-          # Let current compatibility triggers derive Person from the explicit\n          # Account -> Self Person mapping rather than feeding Person IDs manually.\n          replacements={
-          """          id,owner_user_id,owner_person_id,name,version,created_at_utc,updated_at_utc\n        ) values (\n          ${medicationId}::uuid,${appUserId}::uuid,${personId}::uuid,\n""":"""          id,owner_user_id,name,version,created_at_utc,updated_at_utc\n        ) values (\n          ${medicationId}::uuid,${appUserId}::uuid,\n""",
-          """          id,patient_user_id,patient_person_id,medication_id,dose_text,start_date,\n""":"""          id,patient_user_id,medication_id,dose_text,start_date,\n""",
-          """          ${planId}::uuid,${appUserId}::uuid,${personId}::uuid,\n          ${medicationId}::uuid,'1 tablet'\n""":"""          ${planId}::uuid,${appUserId}::uuid,\n          ${medicationId}::uuid,'1 tablet'\n""",
-          """          id,patient_user_id,patient_person_id,treatment_plan_id,treatment_schedule_id,\n""":"""          id,patient_user_id,treatment_plan_id,treatment_schedule_id,\n""",
-          """          ${occurrenceId}::uuid,${appUserId}::uuid,${personId}::uuid,\n          ${planId}::uuid\n""":"""          ${occurrenceId}::uuid,${appUserId}::uuid,\n          ${planId}::uuid\n""",
-          """          id,patient_user_id,patient_person_id,created_by_user_id,client_request_id,\n""":"""          id,patient_user_id,created_by_user_id,client_request_id,\n""",
-          """          ${crypto.randomUUID()}::uuid,${appUserId}::uuid,${personId}::uuid,\n          ${appUserId}::uuid\n""":"""          ${crypto.randomUUID()}::uuid,${appUserId}::uuid,\n          ${appUserId}::uuid\n""",
-          """          ${survivorCareEventId}::uuid,${survivorUserId}::uuid,${survivorPersonId}::uuid,\n          ${appUserId}::uuid\n""":"""          ${survivorCareEventId}::uuid,${survivorUserId}::uuid,\n          ${appUserId}::uuid\n""",
-          """          owner_user_id,owner_person_id,enabled,created_at_utc,updated_at_utc\n        ) values (${appUserId}::uuid,${personId}::uuid,true\n""":"""          owner_user_id,enabled,created_at_utc,updated_at_utc\n        ) values (${appUserId}::uuid,true\n""",
-          """          id,owner_user_id,owner_person_id,started_on,created_at_utc,updated_at_utc\n        ) values (\n          ${crypto.randomUUID()}::uuid,${appUserId}::uuid,${personId}::uuid,\n""":"""          id,owner_user_id,started_on,created_at_utc,updated_at_utc\n        ) values (\n          ${crypto.randomUUID()}::uuid,${appUserId}::uuid,\n""",
-          """          id,owner_user_id,owner_person_id,logged_on,mood,energy_level,pain_level,\n""":"""          id,owner_user_id,logged_on,mood,energy_level,pain_level,\n""",
-          """          ${crypto.randomUUID()}::uuid,${appUserId}::uuid,${personId}::uuid,\n          current_date,'calm'\n""":"""          ${crypto.randomUUID()}::uuid,${appUserId}::uuid,\n          current_date,'calm'\n""",
-          """          id,patient_user_id,patient_person_id,caregiver_user_id,relationship_id,\n""":"""          id,patient_user_id,caregiver_user_id,relationship_id,\n""",
-          """          ${crypto.randomUUID()}::uuid,${appUserId}::uuid,${personId}::uuid,\n          ${survivorUserId}::uuid\n""":"""          ${crypto.randomUUID()}::uuid,${appUserId}::uuid,\n          ${survivorUserId}::uuid\n""",
-          }
-          for old,new in replacements.items():
-              if t.count(old)!=1:
-                  raise SystemExit('fixture mapping anchor changed: '+old[:50])
-              t=t.replace(old,new,1)
-
-          marker="""      const requested = await sql`\n        select identity.request_account_deletion(${accountId}::uuid) as id\n      `;\n"""
-          proof="""      const bridgeProof = await sql`\n        select\n          identity.account_id_for_legacy_app_user(${appUserId}::uuid) as account_id,\n          core.self_person_id_for_legacy_app_user(${appUserId}::uuid) as person_id,\n          (select owner_person_id from lifemate.medications where id=${medicationId}::uuid) as medication_person_id,\n          (select patient_person_id from lifemate.care_events where id=${survivorCareEventId}::uuid) as survivor_person_id,\n          (select subject_person_id from security.access_grants where context_id=${survivorRelationshipId}::uuid limit 1) as grant_person_id,\n          (select grantee_account_id from security.access_grants where context_id=${survivorRelationshipId}::uuid limit 1) as grant_account_id\n      `;\n      assertEquals(String(bridgeProof[0].account_id), accountId);\n      assertEquals(String(bridgeProof[0].person_id), personId);\n      assertEquals(String(bridgeProof[0].medication_person_id), personId);\n      assertEquals(String(bridgeProof[0].survivor_person_id), survivorPersonId);\n      assertEquals(String(bridgeProof[0].grant_person_id), survivorPersonId);\n      assertEquals(String(bridgeProof[0].grant_account_id), accountId);\n\n"""+marker
-          if t.count(marker)!=1: raise SystemExit('proof marker changed')
-          t=t.replace(marker,proof,1)
-
-          # Cleanup both the explicit remapped accounts and any legacy bootstrap\n          # rows so failed assertions never pollute another integration test.
-          t=t.replace(
-              "where id in (${accountId}::uuid,${survivorAccountId}::uuid)`;",
-              "where id in (${accountId}::uuid,${survivorAccountId}::uuid,${appUserId}::uuid,${survivorUserId}::uuid)`;",
-          )
-          p.write_text(t)
+          path = Path('supabase/functions/lifemate-worker/account_deletion_integration_test.ts')
+          text = path.read_text()
+          anchor = """      await sql`\n        insert into identity.accounts(id,status,home_region,legacy_app_user_id)\n"""
+          replacement = """      // Bootstrap initially creates same-ID legacy ecosystem rows. Remove that\n      // projection so the test can remap AppUser -> a different Account/Person.\n      await sql`\n        delete from commerce.entitlements\n        where grantee_account_id in (\n          ${appUserId}::uuid, ${survivorUserId}::uuid\n        ) or beneficiary_person_id in (\n          ${appUserId}::uuid, ${survivorUserId}::uuid\n        )\n      `;\n      await sql`\n        delete from ecosystem.app_enrollments\n        where account_id in (${appUserId}::uuid, ${survivorUserId}::uuid)\n      `;\n      await sql`\n        delete from identity.external_identities\n        where account_id in (${appUserId}::uuid, ${survivorUserId}::uuid)\n      `;\n      await sql`\n        delete from core.account_person_links\n        where account_id in (${appUserId}::uuid, ${survivorUserId}::uuid)\n      `;\n      await sql`\n        delete from identity.accounts\n        where id in (${appUserId}::uuid, ${survivorUserId}::uuid)\n      `;\n      await sql`\n        delete from core.persons\n        where id in (${appUserId}::uuid, ${survivorUserId}::uuid)\n      `;\n\n      await sql`\n        insert into identity.accounts(id,status,home_region,legacy_app_user_id)\n"""
+          if text.count(anchor) != 1:
+              raise SystemExit(f'account fixture anchor count={text.count(anchor)}')
+          path.write_text(text.replace(anchor, replacement, 1))
       - name: Format and commit
         shell: bash
         run: |
@@ -67,5 +36,5 @@ jobs:
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
           git add supabase/functions/lifemate-worker/account_deletion_integration_test.ts
-          git commit -m 'test(privacy): exercise decoupled account-person deletion bridge'
+          git commit -m 'test(privacy): decouple account and app-user deletion fixture'
           git push origin HEAD:privacy/p0-retention-v2-account-deletion
