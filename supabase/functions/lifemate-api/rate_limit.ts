@@ -62,6 +62,7 @@ export class RequestRateLimiter {
     const policy = policies[rateClass];
     const key = await buildRateLimitKey(subject, rateClass);
     let result: CounterResult;
+    let effectiveLimit = policy.limit;
 
     try {
       result = await this.primary.consume(key, policy);
@@ -72,6 +73,7 @@ export class RequestRateLimiter {
         limit: Math.max(1, Math.ceil(policy.limit / 4)),
         windowMs: policy.windowMs,
       };
+      effectiveLimit = degradedPolicy.limit;
       result = await this.fallback.consume(key, degradedPolicy);
       const now = Date.now();
       if (now - this.lastDegradedWarningAt >= 30_000) {
@@ -84,7 +86,7 @@ export class RequestRateLimiter {
       }
     }
 
-    if (result.count > policy.limit) {
+    if (result.count > effectiveLimit) {
       throw new ApiError(
         429,
         "rate_limit_exceeded",
