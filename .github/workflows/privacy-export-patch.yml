@@ -1,0 +1,151 @@
+name: privacy-export-patch
+
+on:
+  push:
+    branches: ['privacy/p0-self-service-data-export']
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
+        with:
+          ref: privacy/p0-self-service-data-export
+          fetch-depth: 0
+
+      - name: Wire export API, client and UI
+        shell: python
+        run: |
+          import json
+          from pathlib import Path
+
+          def once(path: Path, old: str, new: str, label: str) -> None:
+              text = path.read_text()
+              if new in text and old not in text:
+                  return
+              count = text.count(old)
+              if count != 1:
+                  raise SystemExit(f'{label}: expected one match, got {count}')
+              path.write_text(text.replace(old, new, 1))
+
+          export = Path('supabase/functions/lifemate-api/data_export.ts')
+          text = export.read_text()
+          text = text.replace(
+              'import { getLifeMateSql, type LifeMateSql } from "./database_client.ts";\n',
+              'import { getLifeMateSql } from "./database_client.ts";\n',
+          ).replace('type Sql = LifeMateSql;\n', '')
+          text = text.replace(
+              '               metadata_json, version, created_at_utc, updated_at_utc,\n               provenance_source, provenance_restricted,\n               case\n',
+              '               metadata_json, version, created_at_utc, updated_at_utc,\n               case\n',
+          )
+          text = text.replace(
+              'async function bounded(label: string, rowsPromise: Promise<Row[]>): Promise<Row[]> {',
+              'async function bounded(label: string, rowsPromise: PromiseLike<Row[]>): Promise<Row[]> {',
+          )
+          export.write_text(text)
+
+          unit = Path('supabase/functions/lifemate-api/data_export_test.ts')
+          text = unit.read_text().replace(
+              '  const error = assertThrows(\n',
+              '  const error = assertThrows(\n',
+          ).replace(
+              '    ApiError,\n  );\n  assertEquals(error.status, 413);',
+              '    ApiError,\n  ) as ApiError;\n  assertEquals(error.status, 413);',
+          )
+          unit.write_text(text)
+
+          index = Path('supabase/functions/lifemate-api/index.ts')
+          once(
+              index,
+              'import { createAccountLifecycleStore } from "./account_lifecycle.ts";\n',
+              'import { createAccountLifecycleStore } from "./account_lifecycle.ts";\nimport {\n  createDataExportStore,\n  portableExportSchemaVersion,\n} from "./data_export.ts";\n',
+              'index import',
+          )
+          once(
+              index,
+              'const accountLifecycle = createAccountLifecycleStore(databaseUrl);\n',
+              'const accountLifecycle = createAccountLifecycleStore(databaseUrl);\nconst dataExport = createDataExportStore(databaseUrl);\n',
+              'index store',
+          )
+          once(
+              index,
+              '''  if (\n    request.method === "GET" &&\n    path === "/api/v1/account/deletion-requests/latest"\n  ) {\n''',
+              '''  if (request.method === "GET" && path === "/api/v1/account/data-export") {\n    enforceRateLimit(`account-export:${identity.appUserId}`, 3, 60 * 60_000);\n    const exported = await dataExport.exportAccountData(identity.appUserId);\n    const date = new Date().toISOString().slice(0, 10);\n    return json(exported, 200, {\n      "Content-Disposition":\n        `attachment; filename="lifemate-data-export-${date}.json"`,\n      "X-LifeMate-Export-Schema": portableExportSchemaVersion,\n    });\n  }\n\n  if (\n    request.method === "GET" &&\n    path === "/api/v1/account/deletion-requests/latest"\n  ) {\n''',
+              'index export route',
+          )
+
+          rate = Path('supabase/functions/lifemate-api/rate_limit.ts')
+          once(
+              rate,
+              '  if (path === "/api/v1/me/profile/photo") return "upload";\n',
+              '  if (path === "/api/v1/me/profile/photo") return "upload";\n  if (path === "/api/v1/account/data-export") return "sensitive";\n',
+              'rate class',
+          )
+
+          http = Path('supabase/functions/lifemate-api/http.ts')
+          once(
+              http,
+              '    "Retry-After, X-Idempotency-Replayed, X-Correlation-Id",\n',
+              '    "Retry-After, X-Idempotency-Replayed, X-Correlation-Id, X-LifeMate-Export-Schema",\n',
+              'cors export header',
+          )
+
+          deno = Path('supabase/functions/lifemate-api/deno.json')
+          data = json.loads(deno.read_text())
+          additions = {
+              'check': ['data_export_test.ts', 'data_export_integration_test.ts'],
+              'test': ['data_export_test.ts'],
+              'test:integration': ['data_export_integration_test.ts'],
+          }
+          for task, names in additions.items():
+              current = data['tasks'][task]
+              for name in names:
+                  if name not in current:
+                      current += f' {name}'
+              data['tasks'][task] = current
+          deno.write_text(json.dumps(data, indent=2) + '\n')
+
+          client = Path('packages/lifemate_client/lib/src/lifemate_api_client.dart')
+          once(
+              client,
+              '''  Future<LifeMateAccountDeletionStatus> requestAccountDeletion() async =>\n      LifeMateAccountDeletionStatus.fromJson(\n        _asObject(await _send('POST', '/api/v1/account/deletion-requests')),\n      );\n\n''',
+              '''  Future<Map<String, dynamic>> exportAccountData() async => _asObject(\n    await _send('GET', '/api/v1/account/data-export'),\n  );\n\n  Future<LifeMateAccountDeletionStatus> requestAccountDeletion() async =>\n      LifeMateAccountDeletionStatus.fromJson(\n        _asObject(await _send('POST', '/api/v1/account/deletion-requests')),\n      );\n\n''',
+              'client export method',
+          )
+
+          profile = Path('packages/lifemate_ui/lib/src/shared_profile_screen.dart')
+          once(
+              profile,
+              "import 'package:flutter/material.dart';\n",
+              "import 'dart:convert';\n\nimport 'package:flutter/material.dart';\nimport 'package:flutter/services.dart';\n",
+              'profile imports',
+          )
+          deletion_block = '''              Padding(\n                padding: EdgeInsets.symmetric(horizontal: 24, vertical: 8),\n                child: OutlinedButton.icon(\n                  key: ValueKey('${appName.toLowerCase()}-account-deletion'),\n'''
+          export_block = '''              Padding(\n                padding: EdgeInsets.symmetric(horizontal: 24, vertical: 8),\n                child: OutlinedButton.icon(\n                  key: ValueKey('${appName.toLowerCase()}-data-export'),\n                  style: OutlinedButton.styleFrom(\n                    minimumSize: Size.fromHeight(52),\n                    foregroundColor: theme.accent,\n                    side: BorderSide(\n                      color: theme.accent.withValues(alpha: 0.24),\n                    ),\n                    shape: RoundedRectangleBorder(\n                      borderRadius: BorderRadius.circular(18),\n                    ),\n                  ),\n                  icon: Icon(Icons.download_for_offline_outlined),\n                  label: Text(\n                    LifeMateRuntimeLocale.select(\n                      fa: 'دریافت نسخه‌ای از داده‌های من',\n                      en: 'Export my data',\n                    ),\n                    style: TextStyle(\n                      fontFamily: fontFamily,\n                      fontWeight: FontWeight.w800,\n                    ),\n                  ),\n                  onPressed: () => _exportPersonalData(context),\n                ),\n              ),\n''' + deletion_block
+          once(profile, deletion_block, export_block, 'profile export button')
+
+          helper_anchor = '  Future<void> _confirmSignOut(BuildContext context) async {\n'
+          helper = '''  Future<void> _exportPersonalData(BuildContext context) async {\n    showDialog<void>(\n      context: context,\n      barrierDismissible: false,\n      builder: (_) => const Center(child: CircularProgressIndicator()),\n    );\n    try {\n      final exported = await apiClient.exportAccountData();\n      final encoded = const JsonEncoder.withIndent('  ').convert(exported);\n      if (context.mounted) Navigator.of(context, rootNavigator: true).pop();\n      if (!context.mounted) return;\n      await showDialog<void>(\n        context: context,\n        builder: (dialogContext) => AlertDialog(\n          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),\n          title: Text(\n            LifeMateRuntimeLocale.select(\n              fa: 'خروجی داده‌ها آماده است',\n              en: 'Your data export is ready',\n            ),\n            style: TextStyle(fontFamily: fontFamily, fontWeight: FontWeight.w900),\n          ),\n          content: Text(\n            LifeMateRuntimeLocale.select(\n              fa: 'این فایل متنی شامل اطلاعات شخصی و سلامت شماست. فقط در محل امن نگهش دارید. با انتخاب «کپی JSON»، کل خروجی در کلیپ‌بورد دستگاه قرار می‌گیرد.',\n              en: 'This JSON contains your personal and health information. Keep it only in a safe place. Choosing Copy JSON places the complete export on this device clipboard.',\n            ),\n            style: TextStyle(fontFamily: fontFamily, height: 1.6),\n          ),\n          actions: [\n            TextButton(\n              onPressed: () => Navigator.pop(dialogContext),\n              child: Text(LifeMateRuntimeLocale.select(fa: 'بستن', en: 'Close')),\n            ),\n            FilledButton.icon(\n              onPressed: () async {\n                await Clipboard.setData(ClipboardData(text: encoded));\n                if (dialogContext.mounted) Navigator.pop(dialogContext);\n                if (context.mounted) {\n                  ScaffoldMessenger.of(context).showSnackBar(\n                    SnackBar(\n                      content: Text(\n                        LifeMateRuntimeLocale.select(\n                          fa: 'خروجی JSON در کلیپ‌بورد کپی شد.',\n                          en: 'The JSON export was copied to the clipboard.',\n                        ),\n                      ),\n                    ),\n                  );\n                }\n              },\n              icon: const Icon(Icons.copy_all_outlined),\n              label: Text(LifeMateRuntimeLocale.select(fa: 'کپی JSON', en: 'Copy JSON')),\n            ),\n          ],\n        ),\n      );\n    } on LifeMateApiException catch (error) {\n      if (context.mounted) Navigator.of(context, rootNavigator: true).pop();\n      if (!context.mounted) return;\n      ScaffoldMessenger.of(context).showSnackBar(\n        SnackBar(content: Text(error.message)),\n      );\n    } catch (_) {\n      if (context.mounted) Navigator.of(context, rootNavigator: true).pop();\n      if (!context.mounted) return;\n      ScaffoldMessenger.of(context).showSnackBar(\n        SnackBar(\n          content: Text(\n            LifeMateRuntimeLocale.select(\n              fa: 'دریافت خروجی انجام نشد؛ اتصال را بررسی و دوباره تلاش کنید.',\n              en: 'Data export failed. Check your connection and try again.',\n            ),\n          ),\n        ),\n      );\n    }\n  }\n\n''' + helper_anchor
+          once(profile, helper_anchor, helper, 'profile export action')
+
+      - name: Commit wired implementation
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add \
+            supabase/functions/lifemate-api/data_export.ts \
+            supabase/functions/lifemate-api/data_export_test.ts \
+            supabase/functions/lifemate-api/index.ts \
+            supabase/functions/lifemate-api/rate_limit.ts \
+            supabase/functions/lifemate-api/http.ts \
+            supabase/functions/lifemate-api/deno.json \
+            packages/lifemate_client/lib/src/lifemate_api_client.dart \
+            packages/lifemate_ui/lib/src/shared_profile_screen.dart
+          git commit -m 'feat(privacy): expose self-service portable data export'
+          git push origin HEAD:privacy/p0-self-service-data-export
