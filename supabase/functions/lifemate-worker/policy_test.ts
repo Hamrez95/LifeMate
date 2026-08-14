@@ -31,8 +31,16 @@ Deno.test("retry delay is exponential, jittered and capped", () => {
   assertEquals(second, 60);
   assertEquals(capped, 3600);
 
-  const lowJitter = retryDelaySeconds("care.adherence_projection_refresh_requested", 3, 0);
-  const highJitter = retryDelaySeconds("care.adherence_projection_refresh_requested", 3, 1);
+  const lowJitter = retryDelaySeconds(
+    "care.adherence_projection_refresh_requested",
+    3,
+    0,
+  );
+  const highJitter = retryDelaySeconds(
+    "care.adherence_projection_refresh_requested",
+    3,
+    1,
+  );
   assertNotEquals(lowJitter, highJitter);
 });
 

@@ -1,10 +1,15 @@
-import { assertEquals, assertGreaterOrEqual } from "https://deno.land/std@0.224.0/assert/mod.ts";
+import {
+  assertEquals,
+  assertGreaterOrEqual,
+} from "https://deno.land/std@0.224.0/assert/mod.ts";
 import postgres from "postgres";
 
 const databaseUrl = Deno.env.get("TEST_DATABASE_URL");
 
 if (!databaseUrl) {
-  throw new Error("TEST_DATABASE_URL is required for outbox integration tests.");
+  throw new Error(
+    "TEST_DATABASE_URL is required for outbox integration tests.",
+  );
 }
 
 const sql = postgres(databaseUrl, {
@@ -79,13 +84,16 @@ Deno.test({
           ${workerId}::character varying,
           1,
           ${[
-            "care.adherence_projection_refresh_requested",
-            "identity.session_revoke_requested",
-          ]}::character varying[]
+        "care.adherence_projection_refresh_requested",
+        "identity.session_revoke_requested",
+      ]}::character varying[]
         )
       `;
       assertEquals(firstClaim.length, 1);
-      assertEquals(firstClaim[0].event_type, "identity.session_revoke_requested");
+      assertEquals(
+        firstClaim[0].event_type,
+        "identity.session_revoke_requested",
+      );
       assertEquals(Number(firstClaim[0].priority), 5);
 
       const completed = await sql`
@@ -100,7 +108,9 @@ Deno.test({
         select * from integration.claim_outbox_messages_for_events(
           ${workerId}::character varying,
           1,
-          ${["care.adherence_projection_refresh_requested"]}::character varying[]
+          ${[
+        "care.adherence_projection_refresh_requested",
+      ]}::character varying[]
         )
       `;
       assertEquals(projectionClaim.length, 1);
@@ -128,9 +138,9 @@ Deno.test({
       const metrics = await sql`
         select * from integration.outbox_queue_metrics(
           ${[
-            "care.adherence_projection_refresh_requested",
-            "identity.session_revoke_requested",
-          ]}::character varying[]
+        "care.adherence_projection_refresh_requested",
+        "identity.session_revoke_requested",
+      ]}::character varying[]
         )
       `;
       assertGreaterOrEqual(Number(metrics[0].dead_letter_count), 1);

@@ -160,6 +160,13 @@ begin
 end
 $$;
 
+-- PostgreSQL cannot CREATE OR REPLACE a function when its OUT/RETURNS TABLE
+-- row shape changes. Drop the previous signature inside this migration and
+-- recreate it immediately below; worker EXECUTE grants are restored later.
+drop function if exists integration.claim_outbox_messages_for_events(
+  character varying, integer, character varying[]
+);
+
 create or replace function integration.claim_outbox_messages_for_events(
     p_worker_id character varying,
     p_batch_size integer,

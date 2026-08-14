@@ -40,7 +40,9 @@ export function isPermanentWorkerError(errorCode: string): boolean {
     /^auth_(?:session_revoke|delete):4(?!08|09)\d$/.test(errorCode);
 }
 
-export function queueLagLevel(oldestReadyAgeSeconds: number): "ok" | "warn" | "critical" {
+export function queueLagLevel(
+  oldestReadyAgeSeconds: number,
+): "ok" | "warn" | "critical" {
   if (oldestReadyAgeSeconds >= 900) return "critical";
   if (oldestReadyAgeSeconds >= 120) return "warn";
   return "ok";
