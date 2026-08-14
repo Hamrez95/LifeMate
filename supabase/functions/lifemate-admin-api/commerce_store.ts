@@ -88,9 +88,17 @@ export async function getCommerceDashboard(
   sql: AdminSql,
   query: CommerceDashboardQuery,
 ): Promise<CommerceDashboardData> {
-  const [summaryRows, productsRows, plansRows, distributionRows, entitlementRows, renewalRows, countRows, subscriptionRows] =
-    await Promise.all([
-      sql`
+  const [
+    summaryRows,
+    productsRows,
+    plansRows,
+    distributionRows,
+    entitlementRows,
+    renewalRows,
+    countRows,
+    subscriptionRows,
+  ] = await Promise.all([
+    sql`
         select s.status, count(*)::integer as count
         from commerce.subscriptions s
         join commerce.products p on p.id=s.product_id
@@ -99,14 +107,14 @@ export async function getCommerceDashboard(
           and (${query.plan}::text is null or lower(pl.code)=${query.plan}::text)
         group by s.status
       `,
-      sql`
+    sql`
         select code, display_name
         from commerce.products
         where status='Active'
         order by display_name, code
         limit 100
       `,
-      sql`
+    sql`
         select p.code as product_code, pl.code, pl.display_name
         from commerce.plans pl
         join commerce.products p on p.id=pl.product_id
@@ -115,7 +123,7 @@ export async function getCommerceDashboard(
         order by p.code, pl.display_name, pl.code
         limit 250
       `,
-      sql`
+    sql`
         select p.code as product_code, pl.code as plan_code, pl.display_name as plan_name,
                count(s.id)::integer as subscription_count
         from commerce.plans pl
@@ -128,7 +136,7 @@ export async function getCommerceDashboard(
         order by subscription_count desc, p.code, pl.code
         limit 100
       `,
-      sql`
+    sql`
         select f.code as feature_code,
                count(*) filter (where e.status='Active' and (e.expires_at_utc is null or e.expires_at_utc > now()))::integer as active_count,
                count(*) filter (
@@ -145,7 +153,7 @@ export async function getCommerceDashboard(
         order by active_count desc, f.code
         limit 100
       `,
-      sql`
+    sql`
         select s.id as subscription_id,
                coalesce(s.owner_account_id, s.payer_account_id) as customer_account_id,
                p.code as product_code,
@@ -165,7 +173,7 @@ export async function getCommerceDashboard(
         order by s.current_period_end_utc asc, s.id asc
         limit 20
       `,
-      sql`
+    sql`
         select count(*)::integer as total
         from commerce.subscriptions s
         join commerce.products p on p.id=s.product_id
@@ -174,7 +182,7 @@ export async function getCommerceDashboard(
           and (${query.plan}::text is null or lower(pl.code)=${query.plan}::text)
           and (${query.status}::text is null or s.status=${query.status}::varchar)
       `,
-      sql`
+    sql`
         select s.id as subscription_id,
                coalesce(s.owner_account_id, s.payer_account_id) as customer_account_id,
                s.beneficiary_person_id,
@@ -196,7 +204,7 @@ export async function getCommerceDashboard(
         order by s.created_at_utc desc, s.id desc
         limit ${query.pageSize} offset ${query.offset}
       `,
-    ]);
+  ]);
 
   const summary = baseSummary();
   for (const raw of summaryRows as unknown as Row[]) {
