@@ -101,9 +101,15 @@ Deno.test("support ticket mutation hash is stable and action-specific", async ()
   const replay = await hashSupportTicketActionRequest(TICKET_ID, "set_status", {
     status: "Pending",
   });
-  const changed = await hashSupportTicketActionRequest(TICKET_ID, "set_status", {
-    status: "Resolved",
-  });
+  const changed = await hashSupportTicketActionRequest(
+    TICKET_ID,
+    "set_status",
+    {
+      status: "Resolved",
+    },
+  );
   assertEquals(first, replay);
-  if (first === changed) throw new Error("mutation hash must change with payload");
+  if (first === changed) {
+    throw new Error("mutation hash must change with payload");
+  }
 });
