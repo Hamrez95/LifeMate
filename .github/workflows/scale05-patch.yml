@@ -16,79 +16,521 @@ jobs:
         with:
           ref: perf/scale-05-idempotency-retry
           fetch-depth: 0
-      - name: Wire healthcare idempotency coordinator
+      - name: Standardize bounded mobile mutation retries
         shell: python
         run: |
           from pathlib import Path
 
-          path = Path('supabase/functions/lifemate-api/index.ts')
-          text = path.read_text()
-
-          def replace_once(old: str, new: str) -> None:
-              global text
+          def replace_once(text: str, old: str, new: str, label: str) -> str:
               count = text.count(old)
               if count == 0 and new in text:
-                  return
+                  return text
               if count != 1:
-                  raise SystemExit(f'expected one match, found {count}: {old[:80]!r}')
-              text = text.replace(old, new, 1)
+                  raise SystemExit(f'{label}: expected one match, found {count}')
+              return text.replace(old, new, 1)
 
-          replace_once(
-              'import { createRequestConcurrencyGateFromEnvironment } from "./concurrency.ts";\n',
-              'import { createRequestConcurrencyGateFromEnvironment } from "./concurrency.ts";\n'
-              'import {\n'
-              '  createMutationIdempotencyStore,\n'
-              '  requireMutationIdempotencyKey,\n'
-              '  shouldProtectMutation,\n'
-              '} from "./idempotency.ts";\n',
+          client_path = Path('packages/lifemate_client/lib/src/lifemate_api_client.dart')
+          client = client_path.read_text()
+          client = replace_once(
+              client,
+              "  final http.Client _http;\n  static const _requestTimeout = Duration(seconds: 20);\n  static const _retryDelay = Duration(milliseconds: 350);\n  static const _transientStatusCodes = <int>{502, 503, 504};\n",
+              "  final http.Client _http;\n  final Map<String, String> _pendingMutationKeys = <String, String>{};\n  static const _requestTimeout = Duration(seconds: 20);\n  static const _retryBudget = Duration(seconds: 30);\n  static const _retryBaseDelay = Duration(milliseconds: 250);\n  static const _retryMaxDelay = Duration(seconds: 2);\n  static const _transientStatusCodes = <int>{502, 503, 504};\n  static final Random _retryRandom = Random.secure();\n",
+              'client retry constants',
           )
-          replace_once(
-              'const requestConcurrency = createRequestConcurrencyGateFromEnvironment();\n',
-              'const requestConcurrency = createRequestConcurrencyGateFromEnvironment();\n'
-              'const mutationIdempotency = createMutationIdempotencyStore(databaseUrl);\n',
+          client = replace_once(
+              client,
+              "        'caregiverReminderMinutesBefore': caregiverReminderMinutesBefore,\n      },\n      retryable: true,\n    ),\n",
+              "        'caregiverReminderMinutesBefore': caregiverReminderMinutesBefore,\n      },\n      retryable: true,\n      idempotencyKey: clientRequestId,\n    ),\n",
+              'care event explicit key',
           )
-          replace_once(
-              '    return await route(request, path, auth);\n',
-              '    return await routeWithIdempotency(request, path, auth);\n',
+          client = replace_once(
+              client,
+              "        'occurredAtUtc': occurredAtUtc.toUtc().toIso8601String(),\n      },\n      retryable: true,\n    );\n",
+              "        'occurredAtUtc': occurredAtUtc.toUtc().toIso8601String(),\n      },\n      retryable: true,\n      idempotencyKey: clientRequestId,\n    );\n",
+              'dose report explicit key',
           )
-          marker = 'async function route(\n'
-          helper = '''async function routeWithIdempotency(
-            request: Request,
-            path: string,
-            auth: AuthenticatedUser,
-          ): Promise<Response> {
-            if (!shouldProtectMutation(request.method, path)) {
-              return await route(request, path, auth);
+
+          send_start = client.index('  Future<dynamic> _send(\n')
+          send_end = client.index('  Future<http.Response> _sendOnce(', send_start)
+          new_send = r'''  Future<dynamic> _send(
+            String method,
+            String path, {
+            Map<String, String>? query,
+            Object? body,
+            bool retryable = false,
+            String? idempotencyKey,
+          }) async {
+            final token = _accessToken();
+            if (token == null || token.isEmpty) {
+              throw const LifeMateApiException(
+                statusCode: 401,
+                code: 'session_missing',
+                message: 'Authentication session is missing.',
+              );
             }
 
-            const idempotencyKey = requireMutationIdempotencyKey(request);
-            const body = await request.text();
-            const replayableRequest = new Request(request.url, {
-              method: request.method,
-              headers: request.headers,
-              body: body.length === 0 ? undefined : body,
-            });
+            var uri = _resolve(path);
+            if (query != null) uri = uri.replace(queryParameters: query);
+            final encodedBody = body == null ? null : jsonEncode(body);
+            final isMutation =
+                method == 'POST' || method == 'PATCH' || method == 'DELETE';
+            final mutationFingerprint = isMutation
+                ? '$method ${uri.toString()}\n${encodedBody ?? ''}'
+                : null;
+            final generatedMutationKey = isMutation && idempotencyKey == null;
+            final mutationKey = !isMutation
+                ? null
+                : idempotencyKey ??
+                      _pendingMutationKeys.putIfAbsent(
+                        mutationFingerprint!,
+                        LifeMateApiClient.createClientRequestId,
+                      );
+            final headers = <String, String>{
+              'Accept': 'application/json',
+              'Authorization': 'Bearer $token',
+              if (body != null) 'Content-Type': 'application/json',
+              if (mutationKey != null) 'Idempotency-Key': mutationKey,
+            };
+            final maxAttempts = retryable || isMutation ? 3 : 1;
+            final budget = Stopwatch()..start();
 
-            return await mutationIdempotency.execute(
-              auth.id,
-              `${request.method} ${path}`,
-              idempotencyKey,
-              body,
-              () => route(replayableRequest, path, auth),
+            for (var attempt = 1; attempt <= maxAttempts; attempt += 1) {
+              final remainingMilliseconds =
+                  _retryBudget.inMilliseconds - budget.elapsedMilliseconds;
+              if (remainingMilliseconds <= 0) {
+                throw const LifeMateApiException(
+                  statusCode: 0,
+                  code: 'retry_budget_exhausted',
+                  message: 'LifeMate retry budget was exhausted.',
+                );
+              }
+              final attemptTimeout = Duration(
+                milliseconds: min(
+                  _requestTimeout.inMilliseconds,
+                  remainingMilliseconds,
+                ),
+              );
+
+              late final http.Response response;
+              try {
+                response = await _sendOnce(
+                  method: method,
+                  uri: uri,
+                  headers: headers,
+                  encodedBody: encodedBody,
+                ).timeout(attemptTimeout);
+              } on TimeoutException {
+                if (attempt < maxAttempts &&
+                    await _waitBeforeRetry(attempt, budget)) {
+                  continue;
+                }
+                throw const LifeMateApiException(
+                  statusCode: 0,
+                  code: 'network_timeout',
+                  message: 'LifeMate request timed out.',
+                );
+              } on http.ClientException {
+                if (attempt < maxAttempts &&
+                    await _waitBeforeRetry(attempt, budget)) {
+                  continue;
+                }
+                throw const LifeMateApiException(
+                  statusCode: 0,
+                  code: 'network_unavailable',
+                  message: 'LifeMate service is unavailable.',
+                );
+              }
+
+              final retryResponse = _shouldRetryResponse(response);
+              if (attempt < maxAttempts &&
+                  retryResponse &&
+                  await _waitBeforeRetry(attempt, budget, response: response)) {
+                continue;
+              }
+
+              try {
+                final decoded = _decodeResponse(response);
+                if (generatedMutationKey) {
+                  _pendingMutationKeys.remove(mutationFingerprint);
+                }
+                return decoded;
+              } on LifeMateApiException {
+                if (generatedMutationKey && !retryResponse) {
+                  _pendingMutationKeys.remove(mutationFingerprint);
+                }
+                rethrow;
+              }
+            }
+
+            throw StateError('LifeMate retry loop exited unexpectedly.');
+          }
+
+          Future<bool> _waitBeforeRetry(
+            int attempt,
+            Stopwatch budget, {
+            http.Response? response,
+          }) async {
+            var delay = _retryDelayForAttempt(attempt);
+            final retryAfter = response == null
+                ? null
+                : int.tryParse(response.headers['retry-after'] ?? '');
+            if (retryAfter != null && retryAfter > 0) {
+              final serverDelay = Duration(seconds: retryAfter);
+              if (serverDelay > delay) delay = serverDelay;
+            }
+            if (budget.elapsedMilliseconds + delay.inMilliseconds >=
+                _retryBudget.inMilliseconds) {
+              return false;
+            }
+            await Future<void>.delayed(delay);
+            return true;
+          }
+
+          Duration _retryDelayForAttempt(int attempt) {
+            final exponent = 1 << (attempt - 1);
+            final exponential = _retryBaseDelay.inMilliseconds * exponent;
+            final jitter = _retryRandom.nextInt(
+              _retryBaseDelay.inMilliseconds + 1,
+            );
+            return Duration(
+              milliseconds: min(
+                _retryMaxDelay.inMilliseconds,
+                exponential + jitter,
+              ),
+            );
+          }
+
+          bool _shouldRetryResponse(http.Response response) {
+            if (_transientStatusCodes.contains(response.statusCode)) return true;
+            if (response.statusCode != 409 || response.body.isEmpty) return false;
+            try {
+              final decoded = jsonDecode(response.body);
+              return decoded is Map<String, dynamic> &&
+                  decoded['code']?.toString() == 'idempotency_in_progress';
+            } on FormatException {
+              return false;
+            }
+          }
+
+          '''
+          client = client[:send_start] + new_send + client[send_end:]
+          client = replace_once(
+              client,
+              '  void close() => _http.close();\n',
+              '  void close() {\n    _pendingMutationKeys.clear();\n    _http.close();\n  }\n',
+              'client close',
+          )
+          client_path.write_text(client)
+
+          client_test_path = Path('packages/lifemate_client/test/lifemate_api_client_test.dart')
+          client_test = client_test_path.read_text()
+          old_start = client_test.index(
+              "  test(\n    'non-idempotent creation is never retried on transport failure',"
+          )
+          old_end = client_test.index("  test('semantic conflict is not retried'", old_start)
+          replacement = r'''  test(
+            'critical creation retries with one stable generated idempotency key',
+            () async {
+              var requestCount = 0;
+              final idempotencyKeys = <String?>[];
+              final api = LifeMateApiClient(
+                baseUri: Uri.parse('https://api.example.test'),
+                accessToken: () => 'access-token',
+                httpClient: MockClient((request) async {
+                  requestCount += 1;
+                  idempotencyKeys.add(request.headers['idempotency-key']);
+                  if (requestCount == 1) {
+                    throw http.ClientException('response lost', request.url);
+                  }
+                  return http.Response(
+                    jsonEncode({'id': 'medication-1', 'name': 'Metformin'}),
+                    201,
+                    headers: {'content-type': 'application/json'},
+                  );
+                }),
+              );
+
+              final result = await api.createMedication(name: 'Metformin');
+
+              expect(requestCount, 2);
+              expect(idempotencyKeys.first, isNotNull);
+              expect(idempotencyKeys[1], idempotencyKeys.first);
+              expect(result['id'], 'medication-1');
+            },
+          );
+
+          '''
+          client_test = client_test[:old_start] + replacement + client_test[old_end:]
+          client_test_path.write_text(client_test)
+
+          health_path = Path('packages/lifemate_client/lib/src/health_observations_api.dart')
+          health = health_path.read_text()
+          health = replace_once(
+              health,
+              "import 'dart:convert';\n",
+              "import 'dart:convert';\nimport 'dart:math';\n",
+              'health math import',
+          )
+          health = replace_once(
+              health,
+              "  static const _timeout = Duration(seconds: 20);\n  static bool _timeZonesInitialized = false;\n",
+              "  static const _timeout = Duration(seconds: 20);\n  static const _retryBudget = Duration(seconds: 30);\n  static const _retryBaseDelay = Duration(milliseconds: 250);\n  static const _retryMaxDelay = Duration(seconds: 2);\n  static const _transientStatusCodes = <int>{502, 503, 504};\n  static final Random _retryRandom = Random.secure();\n  static bool _timeZonesInitialized = false;\n",
+              'health retry constants',
+          )
+          health = replace_once(
+              health,
+              "      query: {'fromDate': _date(fromDate), 'toDate': _date(toDate)},\n    );\n",
+              "      query: {'fromDate': _date(fromDate), 'toDate': _date(toDate)},\n      retryable: true,\n    );\n",
+              'health safe GET retry',
+          )
+          health = replace_once(
+              health,
+              "          'timeZone': timeZone.trim(),\n        },\n      );\n",
+              "          'timeZone': timeZone.trim(),\n        },\n        idempotencyKey: requestId,\n        retryable: true,\n      );\n",
+              'health create retry',
+          )
+          health = replace_once(
+              health,
+              "  Future<void> deleteObservation({required String observationId}) async {\n    await _request('DELETE', '/api/v1/health/observations/$observationId');\n  }\n",
+              "  Future<void> deleteObservation({required String observationId}) async {\n    await _request(\n      'DELETE',\n      '/api/v1/health/observations/$observationId',\n      idempotencyKey: LifeMateApiClient.createClientRequestId(),\n      retryable: true,\n    );\n  }\n",
+              'health delete key',
+          )
+          request_start = health.index('  Future<dynamic> _request(\n')
+          request_end = health.index('  DateTime _wallClockToUtc(', request_start)
+          new_request = r'''  Future<dynamic> _request(
+            String method,
+            String path, {
+            Map<String, String>? query,
+            Map<String, dynamic>? body,
+            String? idempotencyKey,
+            bool retryable = false,
+          }) async {
+            final token = _accessToken();
+            if (token == null || token.isEmpty) {
+              throw const LifeMateApiException(
+                statusCode: 401,
+                code: 'session_missing',
+                message: 'Authentication session is missing.',
+              );
+            }
+
+            var uri = _resolve(path);
+            if (query != null) uri = uri.replace(queryParameters: query);
+            final headers = <String, String>{
+              'Accept': 'application/json',
+              'Authorization': 'Bearer $token',
+              if (body != null) 'Content-Type': 'application/json',
+              if (idempotencyKey != null) 'Idempotency-Key': idempotencyKey,
+            };
+            final encodedBody = body == null ? null : jsonEncode(body);
+            final maxAttempts = retryable ? 3 : 1;
+            final budget = Stopwatch()..start();
+
+            for (var attempt = 1; attempt <= maxAttempts; attempt += 1) {
+              final remainingMilliseconds =
+                  _retryBudget.inMilliseconds - budget.elapsedMilliseconds;
+              if (remainingMilliseconds <= 0) {
+                throw const LifeMateApiException(
+                  statusCode: 0,
+                  code: 'retry_budget_exhausted',
+                  message: 'LifeMate retry budget was exhausted.',
+                );
+              }
+              final attemptTimeout = Duration(
+                milliseconds: min(_timeout.inMilliseconds, remainingMilliseconds),
+              );
+
+              late final http.Response response;
+              try {
+                response = switch (method) {
+                  'GET' => await _http.get(uri, headers: headers).timeout(attemptTimeout),
+                  'POST' => await _http
+                      .post(uri, headers: headers, body: encodedBody)
+                      .timeout(attemptTimeout),
+                  'DELETE' => await _http
+                      .delete(uri, headers: headers)
+                      .timeout(attemptTimeout),
+                  _ => throw ArgumentError.value(method, 'method'),
+                };
+              } on TimeoutException {
+                if (attempt < maxAttempts &&
+                    await _waitBeforeRetry(attempt, budget)) {
+                  continue;
+                }
+                throw const LifeMateApiException(
+                  statusCode: 0,
+                  code: 'network_timeout',
+                  message: 'LifeMate request timed out.',
+                );
+              } on http.ClientException {
+                if (attempt < maxAttempts &&
+                    await _waitBeforeRetry(attempt, budget)) {
+                  continue;
+                }
+                throw const LifeMateApiException(
+                  statusCode: 0,
+                  code: 'network_unavailable',
+                  message: 'LifeMate service is unavailable.',
+                );
+              }
+
+              final retryResponse = _shouldRetryResponse(response);
+              if (attempt < maxAttempts &&
+                  retryResponse &&
+                  await _waitBeforeRetry(attempt, budget, response: response)) {
+                continue;
+              }
+              return _decodeHealthResponse(response);
+            }
+
+            throw StateError('LifeMate health retry loop exited unexpectedly.');
+          }
+
+          Future<bool> _waitBeforeRetry(
+            int attempt,
+            Stopwatch budget, {
+            http.Response? response,
+          }) async {
+            var delay = _retryDelayForAttempt(attempt);
+            final retryAfter = response == null
+                ? null
+                : int.tryParse(response.headers['retry-after'] ?? '');
+            if (retryAfter != null && retryAfter > 0) {
+              final serverDelay = Duration(seconds: retryAfter);
+              if (serverDelay > delay) delay = serverDelay;
+            }
+            if (budget.elapsedMilliseconds + delay.inMilliseconds >=
+                _retryBudget.inMilliseconds) {
+              return false;
+            }
+            await Future<void>.delayed(delay);
+            return true;
+          }
+
+          Duration _retryDelayForAttempt(int attempt) {
+            final exponential =
+                _retryBaseDelay.inMilliseconds * (1 << (attempt - 1));
+            final jitter = _retryRandom.nextInt(_retryBaseDelay.inMilliseconds + 1);
+            return Duration(
+              milliseconds: min(
+                _retryMaxDelay.inMilliseconds,
+                exponential + jitter,
+              ),
+            );
+          }
+
+          bool _shouldRetryResponse(http.Response response) {
+            if (_transientStatusCodes.contains(response.statusCode)) return true;
+            if (response.statusCode != 409 || response.body.isEmpty) return false;
+            try {
+              final decoded = jsonDecode(response.body);
+              return decoded is Map<String, dynamic> &&
+                  decoded['code']?.toString() == 'idempotency_in_progress';
+            } on FormatException {
+              return false;
+            }
+          }
+
+          dynamic _decodeHealthResponse(http.Response response) {
+            if (response.statusCode >= 200 && response.statusCode < 300) {
+              if (response.body.isEmpty) return null;
+              return jsonDecode(response.body);
+            }
+            dynamic decoded;
+            try {
+              decoded = response.body.isEmpty ? null : jsonDecode(response.body);
+            } on FormatException {
+              decoded = null;
+            }
+            final problem = decoded is Map<String, dynamic> ? decoded : const {};
+            throw LifeMateApiException(
+              statusCode: response.statusCode,
+              code: (problem['code'] ?? problem['title'] ?? 'request_failed')
+                  .toString(),
+              message: (problem['detail'] ?? 'LifeMate request failed.').toString(),
             );
           }
 
           '''
-          if helper not in text:
-              if text.count(marker) != 1:
-                  raise SystemExit('route marker is not unique')
-              text = text.replace(marker, helper + marker, 1)
+          health = health[:request_start] + new_request + health[request_end:]
+          health_path.write_text(health)
 
-          path.write_text(text)
+          health_test_path = Path('packages/lifemate_client/test/health_observations_api_test.dart')
+          health_test = health_test_path.read_text()
+          health_test = replace_once(
+              health_test,
+              "    expect(body['clientRequestId'], '123e4567-e89b-42d3-a456-426614174000');\n",
+              "    expect(body['clientRequestId'], '123e4567-e89b-42d3-a456-426614174000');\n    expect(\n      observed.headers['idempotency-key'],\n      '123e4567-e89b-42d3-a456-426614174000',\n    );\n",
+              'health creation header test',
+          )
+          retry_start = health_test.index(
+              "  test('automatic client request id survives a retry of the same draft'"
+          )
+          retry_end = health_test.index(
+              "  test('health observation delete remains behind the API boundary'",
+              retry_start,
+          )
+          retry_test = r'''  test('automatic client request id survives a lost-response retry', () async {
+            final requestIds = <String>[];
+            final idempotencyKeys = <String?>[];
+            var attempts = 0;
+            final api = LifeMateHealthApi(
+              baseUri: Uri.parse('https://api.example.test'),
+              accessToken: () => 'access-token',
+              httpClient: MockClient((request) async {
+                final body = jsonDecode(request.body) as Map<String, dynamic>;
+                requestIds.add(body['clientRequestId'].toString());
+                idempotencyKeys.add(request.headers['idempotency-key']);
+                attempts++;
+                if (attempts == 1) {
+                  throw http.ClientException('response lost');
+                }
+                return http.Response(
+                  jsonEncode({
+                    'id': 'obs-retry',
+                    'personId': 'person-1',
+                    'observationType': body['observationType'],
+                    'valuePrimary': body['valuePrimary'],
+                    'valueSecondary': null,
+                    'unitPrimary': 'kg',
+                    'unitSecondary': null,
+                    'note': null,
+                    'observedAtUtc': body['observedAtUtc'],
+                    'observedLocalDate': body['observedLocalDate'],
+                    'timeZone': body['timeZone'],
+                    'sourceCategory': 'FirstPartyUserInput',
+                    'sourceProvider': 'wellmate',
+                    'sourceApplicationCode': 'wellmate',
+                    'version': 1,
+                  }),
+                  201,
+                );
+              }),
+            );
 
-          test_path = Path('supabase/functions/lifemate-api/idempotency_test.ts')
-          test_text = test_path.read_text().replace('  assertRejects,\n', '')
-          test_path.write_text(test_text)
+            await api.createObservation(
+              observationType: 'weight',
+              valuePrimary: 78,
+              observedAtUtc: DateTime.utc(2026, 8, 10, 8),
+              observedLocalDate: DateTime(2026, 8, 10, 11, 30),
+              timeZone: 'Asia/Tehran',
+            );
+
+            expect(requestIds, hasLength(2));
+            expect(requestIds[1], requestIds[0]);
+            expect(idempotencyKeys[0], requestIds[0]);
+            expect(idempotencyKeys[1], requestIds[0]);
+          });
+
+          '''
+          health_test = health_test[:retry_start] + retry_test + health_test[retry_end:]
+          health_test = replace_once(
+              health_test,
+              "    expect(observed.headers['authorization'], 'Bearer access-token');\n  });\n}\n",
+              "    expect(observed.headers['authorization'], 'Bearer access-token');\n    expect(observed.headers['idempotency-key'], isNotEmpty);\n  });\n}\n",
+              'health delete header test',
+          )
+          health_test_path.write_text(health_test)
       - name: Commit patch
         shell: bash
         run: |
@@ -99,6 +541,9 @@ jobs:
           fi
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git add supabase/functions/lifemate-api/index.ts supabase/functions/lifemate-api/idempotency_test.ts
-          git commit -m 'feat(scale): enforce mutation idempotency at API boundary'
+          git add packages/lifemate_client/lib/src/lifemate_api_client.dart \
+                  packages/lifemate_client/lib/src/health_observations_api.dart \
+                  packages/lifemate_client/test/lifemate_api_client_test.dart \
+                  packages/lifemate_client/test/health_observations_api_test.dart
+          git commit -m 'feat(scale): add bounded idempotent mobile retries'
           git push origin HEAD:perf/scale-05-idempotency-retry
