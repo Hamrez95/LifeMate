@@ -14,6 +14,8 @@ import {
   problem,
   safeError,
 } from "./http.ts";
+import { createRelationshipOverviewStore } from "./relationship_overview_service.ts";
+import { parseRelationshipOverviewQuery } from "./relationships.ts";
 import { loadRuntimeConfig } from "./runtime_config.ts";
 import { createAdminStore } from "./store.ts";
 import { matchUserDetailPath } from "./user_detail.ts";
@@ -30,6 +32,9 @@ const config = await loadRuntimeConfig();
 const store = createAdminStore(config.databaseUrl);
 const userDetailStore = createUserDetailStore(config.databaseUrl);
 const analyticsKpiStore = createAnalyticsKpiStore(config.databaseUrl);
+const relationshipOverviewStore = createRelationshipOverviewStore(
+  config.databaseUrl,
+);
 
 async function optionalSection<T>(
   allowed: boolean,
@@ -142,6 +147,32 @@ Deno.serve(async (request: Request) => {
           query,
           values: await analyticsKpiStore.getValues(query),
           generatedAtUtc: new Date().toISOString(),
+        },
+        200,
+        origin,
+      );
+    }
+
+    if (
+      request.method === "GET" &&
+      path === "/api/v1/relationships/overview"
+    ) {
+      requirePermission(admin, "relationships.read");
+      const query = parseRelationshipOverviewQuery(new URL(request.url));
+      const result = await relationshipOverviewStore.getOverview(query);
+      return json(
+        {
+          ...result,
+          page: query.page,
+          pageSize: query.pageSize,
+          filters: {
+            kind: query.kind,
+            status: query.status,
+          },
+          freshness: {
+            status: "fresh",
+            asOfUtc: new Date().toISOString(),
+          },
         },
         200,
         origin,
