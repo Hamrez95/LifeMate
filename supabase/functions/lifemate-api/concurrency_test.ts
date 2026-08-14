@@ -1,11 +1,5 @@
-import {
-  assertEquals,
-  assertThrows,
-} from "jsr:@std/assert@1.0.14";
-import {
-  classifyConcurrency,
-  RequestConcurrencyGate,
-} from "./concurrency.ts";
+import { assertEquals, assertThrows } from "jsr:@std/assert@1.0.14";
+import { classifyConcurrency, RequestConcurrencyGate } from "./concurrency.ts";
 import { ApiError } from "./validation.ts";
 
 Deno.test("concurrency classification reserves critical adherence writes", () => {
