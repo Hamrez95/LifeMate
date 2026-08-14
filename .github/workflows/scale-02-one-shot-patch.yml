@@ -1,0 +1,38 @@
+name: scale-02-one-shot-patch
+
+on:
+  push:
+    branches: [perf/scale-02-distributed-rate-limit]
+    paths:
+      - 'tools/hotfix/apply_scale02_rate_limit_entrypoint.py'
+      - '.github/workflows/scale-02-one-shot-patch.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  apply:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
+        with:
+          show-progress: false
+      - name: Apply deterministic patch
+        run: python3 tools/hotfix/apply_scale02_rate_limit_entrypoint.py
+      - name: Verify only the intended entrypoint changed
+        shell: bash
+        run: |
+          set -euo pipefail
+          git diff --check
+          git diff --exit-code -- tools/hotfix/apply_scale02_rate_limit_entrypoint.py .github/workflows/scale-02-one-shot-patch.yml
+          test "$(git diff --name-only | tr '\n' ' ')" = "supabase/functions/lifemate-api/index.ts "
+      - name: Commit generated entrypoint patch
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add supabase/functions/lifemate-api/index.ts
+          git commit -m 'feat(scale): enforce shared admission before API routing'
+          git push
