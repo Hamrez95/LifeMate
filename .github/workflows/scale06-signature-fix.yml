@@ -1,0 +1,125 @@
+name: scale06-signature-fix
+
+on:
+  push:
+    branches: ['perf/scale-06-outbox-safety']
+
+permissions:
+  contents: write
+
+jobs:
+  fix:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
+        with:
+          ref: perf/scale-06-outbox-safety
+          fetch-depth: 0
+      - uses: denoland/setup-deno@22d081ff2d3a40755e97629de92e3bcbfa7cf2ed
+        with:
+          deno-version: v2.9.4
+      - name: Keep claim function ABI stable and enrich in worker query
+        shell: python
+        run: |
+          from pathlib import Path
+
+          migration = Path('supabase/migrations/20260814170000_harden_outbox_queue_safety.sql')
+          text = migration.read_text()
+          drop_block = '''-- PostgreSQL cannot CREATE OR REPLACE a function when its OUT/RETURNS TABLE
+          -- row shape changes. Drop the previous signature inside this migration and
+          -- recreate it immediately below; worker EXECUTE grants are restored later.
+          drop function if exists integration.claim_outbox_messages_for_events(
+            character varying, integer, character varying[]
+          );
+
+          '''
+          text = text.replace(drop_block, '', 1)
+          old_returns = '''    payload_json jsonb,
+              attempt_count integer,
+              priority smallint,
+              max_attempts smallint,
+              max_age_seconds integer,
+              created_at_utc timestamp with time zone
+          )
+          '''
+          new_returns = '''    payload_json jsonb,
+              attempt_count integer
+          )
+          '''
+          if old_returns not in text:
+            raise SystemExit('extended claim return shape not found')
+          text = text.replace(old_returns, new_returns, 1)
+          old_returning = '''  returning m.id,m.aggregate_type,m.aggregate_id,m.event_type,m.payload_json,
+                    m.attempt_count,m.priority,m.max_attempts,m.max_age_seconds,m.created_at_utc;
+          '''
+          new_returning = '''  returning m.id,m.aggregate_type,m.aggregate_id,m.event_type,m.payload_json,
+                    m.attempt_count;
+          '''
+          if old_returning not in text:
+            raise SystemExit('extended claim returning list not found')
+          text = text.replace(old_returning, new_returning, 1)
+          migration.write_text(text)
+
+          index = Path('supabase/functions/lifemate-worker/index.ts')
+          text = index.read_text()
+          old_claim = '''  const claimed = await sql<OutboxMessage[]>`
+              select *
+              from integration.claim_outbox_messages_for_events(
+                ${workerId}::character varying,
+                ${workerBatchSize},
+                ${supportedEvents}::character varying[]
+              )
+            `;
+          '''
+          new_claim = '''  const claimed = await sql<OutboxMessage[]>`
+              with claimed as (
+                select *
+                from integration.claim_outbox_messages_for_events(
+                  ${workerId}::character varying,
+                  ${workerBatchSize},
+                  ${supportedEvents}::character varying[]
+                )
+              )
+              select c.id,c.aggregate_type,c.aggregate_id,c.event_type,c.payload_json,
+                     c.attempt_count,m.priority,m.max_attempts,m.max_age_seconds,m.created_at_utc
+              from claimed c
+              join integration.outbox_messages m on m.id=c.id
+              order by m.priority,m.created_at_utc,m.id
+            `;
+          '''
+          if old_claim not in text:
+            raise SystemExit('worker claim query not found')
+          index.write_text(text.replace(old_claim, new_claim, 1))
+
+          test = Path('supabase/functions/lifemate-worker/queue_integration_test.ts')
+          text = test.read_text()
+          old_assert = '''      assertEquals(Number(firstClaim[0].priority), 5);
+          '''
+          new_assert = '''      const firstClaimPolicy = await sql`
+                select priority
+                from integration.outbox_messages
+                where id=${firstClaim[0].id}::uuid
+              `;
+              assertEquals(Number(firstClaimPolicy[0].priority), 5);
+          '''
+          if old_assert not in text:
+            raise SystemExit('priority assertion not found')
+          test.write_text(text.replace(old_assert, new_assert, 1))
+      - name: Format modified Deno files
+        run: |
+          deno fmt \
+            supabase/functions/lifemate-worker/index.ts \
+            supabase/functions/lifemate-worker/queue_integration_test.ts
+      - name: Commit compatibility fix
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add \
+            supabase/migrations/20260814170000_harden_outbox_queue_safety.sql \
+            supabase/functions/lifemate-worker/index.ts \
+            supabase/functions/lifemate-worker/queue_integration_test.ts
+          git commit -m 'fix(scale): preserve outbox claim function contract'
+          git push origin HEAD:perf/scale-06-outbox-safety
