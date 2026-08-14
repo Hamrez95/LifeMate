@@ -31,7 +31,9 @@ export function problem(
   // Retry-After is deliberately conservative and coarse here. Distributed
   // admission control can use multiple window sizes, while clients only need a
   // safe minimum delay before attempting another bounded retry.
-  const retryHeaders = status === 429 ? { "Retry-After": "60" } : {};
+  const retryHeaders: Record<string, string> = status === 429
+    ? { "Retry-After": "60" }
+    : {};
   return json(
     {
       type: "about:blank",
