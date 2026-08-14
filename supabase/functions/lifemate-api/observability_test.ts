@@ -30,7 +30,12 @@ Deno.test("telemetry route labels remove high-cardinality identifiers", () => {
 
 Deno.test("telemetry windows classify overload and expose bounded latency histograms", () => {
   const start = Date.parse("2026-08-14T17:00:00.000Z");
-  const telemetry = new ApiObservability("lifemate-api", "test-release", 1000, start);
+  const telemetry = new ApiObservability(
+    "lifemate-api",
+    "test-release",
+    1000,
+    start,
+  );
   const healthy = {
     source: "redis" as const,
     state: "healthy" as const,
@@ -73,10 +78,19 @@ Deno.test("telemetry windows classify overload and expose bounded latency histog
 });
 
 Deno.test("telemetry subsystem inference distinguishes capacity failures", () => {
-  assertEquals(inferTelemetrySubsystem(429, "rate_limit_exceeded"), "rate_limit");
-  assertEquals(inferTelemetrySubsystem(503, "server_overloaded"), "concurrency");
+  assertEquals(
+    inferTelemetrySubsystem(429, "rate_limit_exceeded"),
+    "rate_limit",
+  );
+  assertEquals(
+    inferTelemetrySubsystem(503, "server_overloaded"),
+    "concurrency",
+  );
   assertEquals(inferTelemetrySubsystem(503, "database_busy"), "database");
-  assertEquals(inferTelemetrySubsystem(409, "idempotency_in_progress"), "idempotency");
+  assertEquals(
+    inferTelemetrySubsystem(409, "idempotency_in_progress"),
+    "idempotency",
+  );
   assertEquals(inferTelemetrySubsystem(500, "internal_error"), "application");
 });
 

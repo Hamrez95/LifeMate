@@ -104,7 +104,10 @@ export class ApiObservability {
     this.resetSubsystems();
   }
 
-  record(input: RequestTelemetryInput, nowMs = Date.now()): TelemetryWindow | null {
+  record(
+    input: RequestTelemetryInput,
+    nowMs = Date.now(),
+  ): TelemetryWindow | null {
     this.requests += 1;
     const category = statusCategory(input.status);
     this[category] += 1;
@@ -115,7 +118,10 @@ export class ApiObservability {
       );
     }
 
-    const duration = Math.max(0, Math.min(60_000, Math.round(input.durationMs)));
+    const duration = Math.max(
+      0,
+      Math.min(60_000, Math.round(input.durationMs)),
+    );
     this.maxLatencyMs = Math.max(this.maxLatencyMs, duration);
     this.latencyBuckets.set(
       latencyBucket(duration),
@@ -135,10 +141,13 @@ export class ApiObservability {
     };
     this.rateLimiter = { ...input.rateLimiter };
 
-    const route = `${input.method.toUpperCase()} ${normalizeTelemetryRoute(input.path)}`;
-    const routeKey = this.routes.has(route) || this.routes.size < maximumRouteDimensions
-      ? route
-      : "OTHER";
+    const route = `${input.method.toUpperCase()} ${
+      normalizeTelemetryRoute(input.path)
+    }`;
+    const routeKey =
+      this.routes.has(route) || this.routes.size < maximumRouteDimensions
+        ? route
+        : "OTHER";
     const stats = this.routes.get(routeKey) ?? {
       count: 0,
       success: 0,
@@ -209,7 +218,9 @@ export class ApiObservability {
 
   private resetBuckets(): void {
     this.latencyBuckets.clear();
-    for (const bound of latencyBoundsMs) this.latencyBuckets.set(`<=${bound}`, 0);
+    for (const bound of latencyBoundsMs) {
+      this.latencyBuckets.set(`<=${bound}`, 0);
+    }
     this.latencyBuckets.set(">10000", 0);
   }
 
@@ -262,7 +273,10 @@ export function inferTelemetrySubsystem(
   return "application";
 }
 
-export function withCorrelationId(response: Response, correlationId: string): Response {
+export function withCorrelationId(
+  response: Response,
+  correlationId: string,
+): Response {
   const headers = new Headers(response.headers);
   headers.set("X-Correlation-Id", correlationId);
   return new Response(response.body, {

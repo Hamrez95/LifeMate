@@ -12,6 +12,12 @@ import { isPostgresUnavailable } from "./database_client.ts";
 import { createEditStore } from "./edit_store.ts";
 import { createHealthObservationStore } from "./health_observations.ts";
 import { corsHeaders, json, problem, safeError } from "./http.ts";
+import {
+  ApiObservability,
+  inferTelemetrySubsystem,
+  type TelemetrySubsystem,
+  withCorrelationId,
+} from "./observability.ts";
 import { createProfileStore } from "./profile.ts";
 import {
   createProfilePhotoStorage,
@@ -70,34 +76,49 @@ const mutationIdempotency = createMutationIdempotencyStore(
   databaseUrl,
   contactHashingSecret,
 );
+const apiObservability = new ApiObservability("lifemate-api", releaseVersion);
 
 Deno.serve(async (request: Request) => {
   const correlationId = crypto.randomUUID();
   const path = normalizePath(new URL(request.url).pathname);
+  const startedAt = performance.now();
+  let responseStatus = 500;
+  let telemetrySubsystem: TelemetrySubsystem = "application";
+  const finish = (
+    response: Response,
+    subsystem: TelemetrySubsystem = telemetrySubsystem,
+  ): Response => {
+    responseStatus = response.status;
+    telemetrySubsystem = subsystem;
+    return withCorrelationId(response, correlationId);
+  };
 
   if (request.method === "OPTIONS") {
-    return new Response("ok", { headers: corsHeaders });
+    return finish(new Response("ok", { headers: corsHeaders }));
   }
 
   if (request.method === "GET" && path === "/health") {
     try {
       await db.health();
-      return json({
+      return finish(json({
         status: "ok",
         database: "ready",
         service: "lifemate-api",
         version: releaseVersion,
-      });
+      }));
     } catch (error) {
       console.error("LifeMate health check failed", {
         correlationId,
         ...safeError(error),
       });
-      return problem(
-        503,
-        "database_unavailable",
-        "Database is not ready.",
-        correlationId,
+      return finish(
+        problem(
+          503,
+          "database_unavailable",
+          "Database is not ready.",
+          correlationId,
+        ),
+        "database",
       );
     }
   }
@@ -107,10 +128,13 @@ Deno.serve(async (request: Request) => {
     concurrencyLease = requestConcurrency.acquire(request.method, path);
     const auth = await authenticate(request);
     await requestRateLimiter.enforce(request.method, path, auth.id);
-    return await routeWithIdempotency(request, path, auth);
+    return finish(await routeWithIdempotency(request, path, auth));
   } catch (error) {
     if (error instanceof ApiError) {
-      return problem(error.status, error.code, error.message, correlationId);
+      return finish(
+        problem(error.status, error.code, error.message, correlationId),
+        inferTelemetrySubsystem(error.status, error.code),
+      );
     }
     if (isPostgresUnavailable(error)) {
       console.warn("LifeMate database temporarily unavailable", {
@@ -119,19 +143,25 @@ Deno.serve(async (request: Request) => {
         path,
         ...safeError(error),
       });
-      return problem(
-        503,
-        "database_busy",
-        "Database is temporarily busy. Please retry.",
-        correlationId,
+      return finish(
+        problem(
+          503,
+          "database_busy",
+          "Database is temporarily busy. Please retry.",
+          correlationId,
+        ),
+        "database",
       );
     }
     if (isPostgresConflict(error)) {
-      return problem(
-        409,
-        "database_conflict",
-        "The request conflicts with the current state.",
-        correlationId,
+      return finish(
+        problem(
+          409,
+          "database_conflict",
+          "The request conflicts with the current state.",
+          correlationId,
+        ),
+        "database",
       );
     }
     console.error("Unhandled LifeMate API error", {
@@ -140,14 +170,27 @@ Deno.serve(async (request: Request) => {
       path,
       ...safeError(error),
     });
-    return problem(
+    return finish(problem(
       500,
       "internal_error",
       "The request could not be completed.",
       correlationId,
-    );
+    ));
   } finally {
+    const concurrencySnapshot = requestConcurrency.snapshot();
     concurrencyLease?.release();
+    const telemetryWindow = apiObservability.record({
+      method: request.method,
+      path,
+      status: responseStatus,
+      durationMs: performance.now() - startedAt,
+      subsystem: telemetrySubsystem,
+      concurrency: concurrencySnapshot,
+      rateLimiter: requestRateLimiter.snapshot(),
+    });
+    if (telemetryWindow) {
+      console.info("LifeMate telemetry window", telemetryWindow);
+    }
   }
 });
 
