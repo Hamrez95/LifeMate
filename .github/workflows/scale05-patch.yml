@@ -1,0 +1,104 @@
+name: scale05-patch
+
+on:
+  push:
+    branches: ['perf/scale-05-idempotency-retry']
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
+        with:
+          ref: perf/scale-05-idempotency-retry
+          fetch-depth: 0
+      - name: Wire healthcare idempotency coordinator
+        shell: python
+        run: |
+          from pathlib import Path
+
+          path = Path('supabase/functions/lifemate-api/index.ts')
+          text = path.read_text()
+
+          def replace_once(old: str, new: str) -> None:
+              global text
+              count = text.count(old)
+              if count == 0 and new in text:
+                  return
+              if count != 1:
+                  raise SystemExit(f'expected one match, found {count}: {old[:80]!r}')
+              text = text.replace(old, new, 1)
+
+          replace_once(
+              'import { createRequestConcurrencyGateFromEnvironment } from "./concurrency.ts";\n',
+              'import { createRequestConcurrencyGateFromEnvironment } from "./concurrency.ts";\n'
+              'import {\n'
+              '  createMutationIdempotencyStore,\n'
+              '  requireMutationIdempotencyKey,\n'
+              '  shouldProtectMutation,\n'
+              '} from "./idempotency.ts";\n',
+          )
+          replace_once(
+              'const requestConcurrency = createRequestConcurrencyGateFromEnvironment();\n',
+              'const requestConcurrency = createRequestConcurrencyGateFromEnvironment();\n'
+              'const mutationIdempotency = createMutationIdempotencyStore(databaseUrl);\n',
+          )
+          replace_once(
+              '    return await route(request, path, auth);\n',
+              '    return await routeWithIdempotency(request, path, auth);\n',
+          )
+          marker = 'async function route(\n'
+          helper = '''async function routeWithIdempotency(
+            request: Request,
+            path: string,
+            auth: AuthenticatedUser,
+          ): Promise<Response> {
+            if (!shouldProtectMutation(request.method, path)) {
+              return await route(request, path, auth);
+            }
+
+            const idempotencyKey = requireMutationIdempotencyKey(request);
+            const body = await request.text();
+            const replayableRequest = new Request(request.url, {
+              method: request.method,
+              headers: request.headers,
+              body: body.length === 0 ? undefined : body,
+            });
+
+            return await mutationIdempotency.execute(
+              auth.id,
+              `${request.method} ${path}`,
+              idempotencyKey,
+              body,
+              () => route(replayableRequest, path, auth),
+            );
+          }
+
+          '''
+          if helper not in text:
+              if text.count(marker) != 1:
+                  raise SystemExit('route marker is not unique')
+              text = text.replace(marker, helper + marker, 1)
+
+          path.write_text(text)
+
+          test_path = Path('supabase/functions/lifemate-api/idempotency_test.ts')
+          test_text = test_path.read_text().replace('  assertRejects,\n', '')
+          test_path.write_text(test_text)
+      - name: Commit patch
+        shell: bash
+        run: |
+          set -euo pipefail
+          if git diff --quiet; then
+            echo 'Patch already applied.'
+            exit 0
+          fi
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add supabase/functions/lifemate-api/index.ts supabase/functions/lifemate-api/idempotency_test.ts
+          git commit -m 'feat(scale): enforce mutation idempotency at API boundary'
+          git push origin HEAD:perf/scale-05-idempotency-retry
