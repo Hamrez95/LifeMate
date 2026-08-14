@@ -1,6 +1,9 @@
 import { ApiError, boundedInteger } from "./validation.ts";
 
-export type RelationshipOverviewKind = "relationship" | "consent" | "access_grant";
+export type RelationshipOverviewKind =
+  | "relationship"
+  | "consent"
+  | "access_grant";
 
 export type RelationshipOverviewQuery = {
   page: number;
@@ -21,7 +24,11 @@ function readKind(value: string | null): RelationshipOverviewKind | null {
   if (value == null || value === "") return null;
   const normalized = value.toLowerCase() as RelationshipOverviewKind;
   if (!KINDS.has(normalized)) {
-    throw new ApiError(400, "invalid_request", "Relationship overview kind is invalid.");
+    throw new ApiError(
+      400,
+      "invalid_request",
+      "Relationship overview kind is invalid.",
+    );
   }
   return normalized;
 }
@@ -29,12 +36,18 @@ function readKind(value: string | null): RelationshipOverviewKind | null {
 function readStatus(value: string | null): string | null {
   if (value == null || value === "") return null;
   if (!STATUS_PATTERN.test(value)) {
-    throw new ApiError(400, "invalid_request", "Relationship overview status is invalid.");
+    throw new ApiError(
+      400,
+      "invalid_request",
+      "Relationship overview status is invalid.",
+    );
   }
   return value;
 }
 
-export function parseRelationshipOverviewQuery(url: URL): RelationshipOverviewQuery {
+export function parseRelationshipOverviewQuery(
+  url: URL,
+): RelationshipOverviewQuery {
   return {
     page: boundedInteger(url.searchParams.get("page"), 1, 1, 100_000),
     pageSize: boundedInteger(url.searchParams.get("pageSize"), 25, 5, 100),
