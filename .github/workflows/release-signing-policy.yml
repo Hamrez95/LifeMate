@@ -1,0 +1,65 @@
+name: release-signing-policy
+
+on:
+  pull_request:
+    paths:
+      - 'wellmate/android/app/build.gradle'
+      - 'caremate/android/app/build.gradle'
+      - 'tools/release/prepare-android-signing.sh'
+      - 'tools/release/verify-android-signing.sh'
+      - '.github/workflows/main-final-android-release.yml'
+      - '.github/workflows/release-signing-policy.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'wellmate/android/app/build.gradle'
+      - 'caremate/android/app/build.gradle'
+      - 'tools/release/prepare-android-signing.sh'
+      - 'tools/release/verify-android-signing.sh'
+      - '.github/workflows/main-final-android-release.yml'
+      - '.github/workflows/release-signing-policy.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  policy:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
+        with:
+          persist-credentials: false
+          show-progress: false
+      - name: Enforce fail-closed stable signing contract
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          test ! -e wellmate/android/key.properties
+          test ! -e caremate/android/key.properties
+
+          for gradle in wellmate/android/app/build.gradle caremate/android/app/build.gradle; do
+            grep -Fq 'LIFEMATE_REQUIRE_RELEASE_SIGNING' "$gradle"
+            grep -Fq 'release signing is required but key.properties is missing' "$gradle"
+            grep -Fq 'release signing configuration is incomplete' "$gradle"
+            grep -Fq 'release keystore file is missing' "$gradle"
+          done
+
+          grep -Fq "LIFEMATE_REQUIRE_RELEASE_SIGNING: 'true'" \
+            .github/workflows/main-final-android-release.yml
+          grep -Fq 'bash tools/release/prepare-android-signing.sh' \
+            .github/workflows/main-final-android-release.yml
+          grep -Fq 'bash tools/release/verify-android-signing.sh' \
+            .github/workflows/main-final-android-release.yml
+
+          for name in \
+            WELLMATE_KEYSTORE_BASE64 WELLMATE_STORE_PASSWORD WELLMATE_KEY_PASSWORD WELLMATE_KEY_ALIAS \
+            CAREMATE_KEYSTORE_BASE64 CAREMATE_STORE_PASSWORD CAREMATE_KEY_PASSWORD CAREMATE_KEY_ALIAS; do
+            grep -Fq "$name" tools/release/prepare-android-signing.sh
+          done
+
+          if git ls-files | grep -Eq '(^|/)(key\.properties|.*\.jks|.*\.keystore)$'; then
+            echo '::error::Android signing material must not be committed to the repository.'
+            exit 1
+          fi

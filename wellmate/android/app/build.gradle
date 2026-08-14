@@ -7,8 +7,27 @@ plugins {
 
 def keystoreProperties = new Properties()
 def keystorePropertiesFile = rootProject.file("key.properties")
+def lifemateRequireReleaseSigning = System.getenv("LIFEMATE_REQUIRE_RELEASE_SIGNING") == "true"
 if (keystorePropertiesFile.exists()) {
     keystoreProperties.load(new FileInputStream(keystorePropertiesFile))
+}
+
+if (lifemateRequireReleaseSigning) {
+    if (!keystorePropertiesFile.exists()) {
+        throw new GradleException("Stable WellMate release signing is required but key.properties is missing.")
+    }
+    def requiredSigningProperties = ["keyAlias", "keyPassword", "storeFile", "storePassword"]
+    def missingSigningProperties = requiredSigningProperties.findAll { name ->
+        def value = keystoreProperties[name]
+        value == null || value.toString().trim().isEmpty()
+    }
+    if (!missingSigningProperties.isEmpty()) {
+        throw new GradleException("Stable WellMate release signing configuration is incomplete.")
+    }
+    def configuredStore = file(keystoreProperties["storeFile"])
+    if (!configuredStore.isFile()) {
+        throw new GradleException("Stable WellMate release keystore file is missing.")
+    }
 }
 
 // GitHub's GITHUB_RUN_NUMBER is scoped per workflow, so two valid LifeMate
@@ -65,8 +84,9 @@ android {
             if (keystorePropertiesFile.exists()) {
                 signingConfig = signingConfigs.release
             } else {
-                // Installable beta artifact only. Store releases must provide
-                // the founder-owned keystore through key.properties.
+                // Internal installable checkpoints may still use debug signing,
+                // but stable/release workflows set LIFEMATE_REQUIRE_RELEASE_SIGNING=true
+                // and fail during configuration before this fallback is reachable.
                 signingConfig = signingConfigs.debug
             }
         }
