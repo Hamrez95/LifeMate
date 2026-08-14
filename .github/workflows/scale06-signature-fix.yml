@@ -23,42 +23,47 @@ jobs:
         shell: python
         run: |
           from pathlib import Path
+          import re
 
           migration = Path('supabase/migrations/20260814170000_harden_outbox_queue_safety.sql')
           text = migration.read_text()
-          drop_block = '''-- PostgreSQL cannot CREATE OR REPLACE a function when its OUT/RETURNS TABLE
-          -- row shape changes. Drop the previous signature inside this migration and
-          -- recreate it immediately below; worker EXECUTE grants are restored later.
-          drop function if exists integration.claim_outbox_messages_for_events(
-            character varying, integer, character varying[]
-          );
 
-          '''
-          text = text.replace(drop_block, '', 1)
-          old_returns = '''    payload_json jsonb,
-              attempt_count integer,
-              priority smallint,
-              max_attempts smallint,
-              max_age_seconds integer,
-              created_at_utc timestamp with time zone
+          text, removed = re.subn(
+              r'-- PostgreSQL cannot CREATE OR REPLACE a function when its OUT/RETURNS TABLE\n'
+              r'-- row shape changes\. Drop the previous signature inside this migration and\n'
+              r'-- recreate it immediately below; worker EXECUTE grants are restored later\.\n'
+              r'drop function if exists integration\.claim_outbox_messages_for_events\(\n'
+              r'\s*character varying, integer, character varying\[\]\n'
+              r'\);\n\n',
+              '',
+              text,
+              count=1,
           )
-          '''
-          new_returns = '''    payload_json jsonb,
-              attempt_count integer
+          if removed != 1:
+              raise SystemExit(f'claim drop block: expected 1, got {removed}')
+
+          text, returns_changed = re.subn(
+              r'(\s+payload_json jsonb,\n\s+attempt_count integer),\n'
+              r'\s+priority smallint,\n'
+              r'\s+max_attempts smallint,\n'
+              r'\s+max_age_seconds integer,\n'
+              r'\s+created_at_utc timestamp with time zone\n',
+              r'\1\n',
+              text,
+              count=1,
           )
-          '''
-          if old_returns not in text:
-            raise SystemExit('extended claim return shape not found')
-          text = text.replace(old_returns, new_returns, 1)
-          old_returning = '''  returning m.id,m.aggregate_type,m.aggregate_id,m.event_type,m.payload_json,
-                    m.attempt_count,m.priority,m.max_attempts,m.max_age_seconds,m.created_at_utc;
-          '''
-          new_returning = '''  returning m.id,m.aggregate_type,m.aggregate_id,m.event_type,m.payload_json,
-                    m.attempt_count;
-          '''
-          if old_returning not in text:
-            raise SystemExit('extended claim returning list not found')
-          text = text.replace(old_returning, new_returning, 1)
+          if returns_changed != 1:
+              raise SystemExit(f'claim return shape: expected 1, got {returns_changed}')
+
+          text, returning_changed = re.subn(
+              r'(returning\s+m\.id,m\.aggregate_type,m\.aggregate_id,m\.event_type,m\.payload_json,\s*\n\s*m\.attempt_count)'
+              r',m\.priority,m\.max_attempts,m\.max_age_seconds,m\.created_at_utc;',
+              r'\1;',
+              text,
+              count=1,
+          )
+          if returning_changed != 1:
+              raise SystemExit(f'claim returning list: expected 1, got {returning_changed}')
           migration.write_text(text)
 
           index = Path('supabase/functions/lifemate-worker/index.ts')
@@ -89,13 +94,12 @@ jobs:
             `;
           '''
           if old_claim not in text:
-            raise SystemExit('worker claim query not found')
+              raise SystemExit('worker claim query not found')
           index.write_text(text.replace(old_claim, new_claim, 1))
 
           test = Path('supabase/functions/lifemate-worker/queue_integration_test.ts')
           text = test.read_text()
-          old_assert = '''      assertEquals(Number(firstClaim[0].priority), 5);
-          '''
+          old_assert = '      assertEquals(Number(firstClaim[0].priority), 5);\n'
           new_assert = '''      const firstClaimPolicy = await sql`
                 select priority
                 from integration.outbox_messages
@@ -104,7 +108,7 @@ jobs:
               assertEquals(Number(firstClaimPolicy[0].priority), 5);
           '''
           if old_assert not in text:
-            raise SystemExit('priority assertion not found')
+              raise SystemExit('priority assertion not found')
           test.write_text(text.replace(old_assert, new_assert, 1))
       - name: Format modified Deno files
         run: |
