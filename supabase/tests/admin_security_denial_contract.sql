@@ -69,6 +69,26 @@ begin
     raise exception 'Admin runtime cannot read approved user directory view';
   end if;
 
+  if not has_schema_privilege('lifemate_admin_runtime','support','USAGE') then
+    raise exception 'Admin runtime cannot resolve the support metadata schema';
+  end if;
+
+  if not has_table_privilege('lifemate_admin_runtime','support.tickets','SELECT')
+     or not has_table_privilege('lifemate_admin_runtime','admin.support_ticket_queue_v1','SELECT') then
+    raise exception 'Admin runtime cannot read the approved support queue boundary';
+  end if;
+
+  if has_table_privilege('lifemate_admin_runtime','support.tickets','INSERT')
+     or has_table_privilege('lifemate_admin_runtime','support.tickets','UPDATE')
+     or has_table_privilege('lifemate_admin_runtime','support.tickets','DELETE')
+     or has_table_privilege('lifemate_admin_runtime','support.tickets','TRUNCATE') then
+    raise exception 'Admin runtime can mutate support queue metadata directly';
+  end if;
+
+  if exists (select 1 from pg_roles where rolname='authenticated') and has_table_privilege(
+    'authenticated','admin.support_ticket_queue_v1','SELECT'
+  ) then raise exception 'Browser authenticated role can read the support queue'; end if;
+
   if has_table_privilege('lifemate_admin_runtime','identity.accounts','UPDATE') then
     raise exception 'Admin runtime gained direct identity account UPDATE privilege';
   end if;
@@ -92,6 +112,13 @@ begin
       and 'lifemate_admin_runtime'=any(roles)
   ) then raise exception 'Admin runtime lacks identity account RLS read path'; end if;
 
+  if not exists (
+    select 1 from pg_policies
+    where schemaname='support' and tablename='tickets'
+      and policyname='lifemate_admin_runtime_select'
+      and 'lifemate_admin_runtime'=any(roles)
+  ) then raise exception 'Admin runtime lacks support ticket RLS read path'; end if;
+
   if exists (
     select 1 from pg_policies
     where schemaname='identity' and tablename='contact_points'
@@ -102,6 +129,12 @@ begin
           from pg_class c join pg_namespace n on n.oid=c.relnamespace
           where n.nspname='admin' and c.relname='audit_events') then
     raise exception 'Admin audit table is not FORCE RLS protected';
+  end if;
+
+  if not (select relrowsecurity and relforcerowsecurity
+          from pg_class c join pg_namespace n on n.oid=c.relnamespace
+          where n.nspname='support' and c.relname='tickets') then
+    raise exception 'Support ticket metadata is not FORCE RLS protected';
   end if;
 end $$;
 
