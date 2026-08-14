@@ -5,6 +5,8 @@
     "supabase": "npm:@supabase/supabase-js@2.55.0"
   },
   "tasks": {
-    "check": "deno check index.ts"
+    "check": "deno check index.ts policy_test.ts queue_integration_test.ts",
+    "test": "deno test --no-check policy_test.ts",
+    "test:integration": "deno test --no-check --allow-env --allow-net=localhost:5432,127.0.0.1:5432 queue_integration_test.ts"
   }
 }
