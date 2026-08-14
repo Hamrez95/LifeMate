@@ -42,11 +42,19 @@ export async function parseUserAccountActionRequest(
   try {
     body = await request.json();
   } catch {
-    throw new ApiError(400, "invalid_request", "Request body must be valid JSON.");
+    throw new ApiError(
+      400,
+      "invalid_request",
+      "Request body must be valid JSON.",
+    );
   }
 
   if (!body || typeof body !== "object" || Array.isArray(body)) {
-    throw new ApiError(400, "invalid_request", "Request body must be an object.");
+    throw new ApiError(
+      400,
+      "invalid_request",
+      "Request body must be an object.",
+    );
   }
 
   const reason = (body as Record<string, unknown>).reason;
