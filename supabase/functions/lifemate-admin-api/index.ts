@@ -20,6 +20,8 @@ import { createRelationshipOverviewStore } from "./relationship_overview_service
 import { parseRelationshipOverviewQuery } from "./relationships.ts";
 import { loadRuntimeConfig } from "./runtime_config.ts";
 import { createAdminStore } from "./store.ts";
+import { parseSupportQueueQuery } from "./support.ts";
+import { createSupportQueueStore } from "./support_service.ts";
 import { createUserAccountActionStore } from "./user_action_store.ts";
 import {
   hashUserAccountActionRequest,
@@ -51,6 +53,7 @@ const relationshipOverviewStore = createRelationshipOverviewStore(
 const relationshipLedgerStore = createRelationshipLedgerStore(
   config.databaseUrl,
 );
+const supportQueueStore = createSupportQueueStore(config.databaseUrl);
 
 async function optionalSection<T>(
   allowed: boolean,
@@ -233,6 +236,35 @@ Deno.serve(async (request: Request) => {
           page: query.page,
           pageSize: query.pageSize,
           total: result.total,
+          freshness: {
+            status: "fresh",
+            asOfUtc: new Date().toISOString(),
+          },
+        },
+        200,
+        origin,
+      );
+    }
+
+    if (request.method === "GET" && path === "/api/v1/support/tickets") {
+      requirePermission(admin, "support.read");
+      const query = parseSupportQueueQuery(new URL(request.url));
+      const result = await supportQueueStore.list(query);
+      return json(
+        {
+          ...result,
+          page: query.page,
+          pageSize: query.pageSize,
+          filters: {
+            q: query.search,
+            status: query.status,
+            priority: query.priority,
+            product: query.product,
+            sla: query.sla,
+            assignee: query.unassignedOnly
+              ? "unassigned"
+              : query.assigneeAccountId,
+          },
           freshness: {
             status: "fresh",
             asOfUtc: new Date().toISOString(),
