@@ -1,8 +1,7 @@
-import { getLifeMateSql, type LifeMateSql } from "./database_client.ts";
+import { getLifeMateSql } from "./database_client.ts";
 import { ApiError } from "./validation.ts";
 
 type Row = Record<string, unknown>;
-type Sql = LifeMateSql;
 
 export const portableExportSchemaVersion = "lifemate-portable-export-v1";
 export const portableExportRowLimit = 20_000;
@@ -203,7 +202,6 @@ export function createDataExportStore(databaseUrl: string) {
                observed_at_utc, observed_local_date, time_zone,
                source_category, source_provider, source_external_id,
                metadata_json, version, created_at_utc, updated_at_utc,
-               provenance_source, provenance_restricted,
                case
                  when recorded_by_account_id is null then null
                  when ${accountId}::uuid is null then null
@@ -368,7 +366,7 @@ export function createDataExportStore(databaseUrl: string) {
   return { exportAccountData };
 }
 
-async function bounded(label: string, rowsPromise: Promise<Row[]>): Promise<Row[]> {
+async function bounded(label: string, rowsPromise: PromiseLike<Row[]>): Promise<Row[]> {
   const rows = await rowsPromise;
   if (rows.length > portableExportRowLimit) {
     throw new ApiError(

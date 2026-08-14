@@ -249,6 +249,7 @@ export function classifyRequest(method: string, path: string): RateLimitClass {
     return "bootstrap";
   }
   if (path === "/api/v1/me/profile/photo") return "upload";
+  if (path === "/api/v1/account/data-export") return "sensitive";
   if (
     path === "/api/v1/home-snapshot" ||
     path === "/api/v1/women-calendar/dashboard"

@@ -30,7 +30,7 @@ Deno.test("portable export fails closed instead of silently truncating oversized
         oversized: "x".repeat(portableExportMaximumBytes),
       }),
     ApiError,
-  );
+  ) as ApiError;
   assertEquals(error.status, 413);
   assertEquals(error.code, "data_export_too_large");
 });
