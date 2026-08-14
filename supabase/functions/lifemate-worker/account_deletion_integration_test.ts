@@ -79,6 +79,37 @@ Deno.test({
         where id in (${appUserId}::uuid, ${survivorUserId}::uuid)
       `;
 
+      // Bootstrap initially creates same-ID legacy ecosystem rows. Remove that
+      // projection so the test can remap AppUser -> a different Account/Person.
+      await sql`
+        delete from commerce.entitlements
+        where grantee_account_id in (
+          ${appUserId}::uuid, ${survivorUserId}::uuid
+        ) or beneficiary_person_id in (
+          ${appUserId}::uuid, ${survivorUserId}::uuid
+        )
+      `;
+      await sql`
+        delete from ecosystem.app_enrollments
+        where account_id in (${appUserId}::uuid, ${survivorUserId}::uuid)
+      `;
+      await sql`
+        delete from identity.external_identities
+        where account_id in (${appUserId}::uuid, ${survivorUserId}::uuid)
+      `;
+      await sql`
+        delete from core.account_person_links
+        where account_id in (${appUserId}::uuid, ${survivorUserId}::uuid)
+      `;
+      await sql`
+        delete from identity.accounts
+        where id in (${appUserId}::uuid, ${survivorUserId}::uuid)
+      `;
+      await sql`
+        delete from core.persons
+        where id in (${appUserId}::uuid, ${survivorUserId}::uuid)
+      `;
+
       await sql`
         insert into identity.accounts(id,status,home_region,legacy_app_user_id)
         values
