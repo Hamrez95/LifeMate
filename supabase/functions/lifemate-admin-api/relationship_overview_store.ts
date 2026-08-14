@@ -27,7 +27,9 @@ function mapItem(row: Row): RelationshipOverviewItem {
     id: String(row.id),
     kind: String(row.kind) as RelationshipOverviewItem["kind"],
     status: String(row.status),
-    subjectPersonId: typeof row.subject_person_id === "string" ? row.subject_person_id : null,
+    subjectPersonId: typeof row.subject_person_id === "string"
+      ? row.subject_person_id
+      : null,
     type: typeof row.item_type === "string" ? row.item_type : null,
     purpose: typeof row.purpose === "string" ? row.purpose : null,
     context: typeof row.context === "string" ? row.context : null,
