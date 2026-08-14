@@ -1,6 +1,15 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import postgres from "postgres";
 import { createClient } from "supabase";
+import {
+  boundedMessageTimeoutMs,
+  boundedWorkerBatchSize,
+  isPermanentWorkerError,
+  queueLagLevel,
+  retryDelaySeconds,
+  supportedEvents,
+  workerConsumerName,
+} from "./policy.ts";
 import { loadWorkerDatabaseUrl } from "./runtime_database.ts";
 
 const databaseUrl = await loadWorkerDatabaseUrl();
@@ -9,6 +18,12 @@ const serviceRoleKey = Deno.env.get(
   ["SUPABASE", "SERVICE", "ROLE", "KEY"].join("_"),
 );
 const workerToken = Deno.env.get("LIFEMATE_WORKER_TOKEN");
+const workerBatchSize = boundedWorkerBatchSize(
+  Deno.env.get("LIFEMATE_WORKER_BATCH_SIZE"),
+);
+const messageTimeoutMs = boundedMessageTimeoutMs(
+  Deno.env.get("LIFEMATE_WORKER_MESSAGE_TIMEOUT_MS"),
+);
 
 if (!supabaseUrl || !serviceRoleKey) {
   throw new Error("Required worker runtime configuration is missing.");
@@ -19,16 +34,17 @@ const sql = postgres(databaseUrl, {
   idle_timeout: 10,
   connect_timeout: 10,
   prepare: false,
+  connection: {
+    application_name: "lifemate-worker",
+    statement_timeout: messageTimeoutMs,
+    lock_timeout: 2000,
+    idle_in_transaction_session_timeout: 5000,
+  },
 });
 const admin = createClient(supabaseUrl, serviceRoleKey, {
   auth: { autoRefreshToken: false, persistSession: false },
+  global: { fetch: timedFetch },
 });
-
-const supportedEvents = [
-  "care.adherence_projection_refresh_requested",
-  "identity.session_revoke_requested",
-  "identity.account_deletion_requested",
-];
 
 type OutboxMessage = {
   id: string;
@@ -37,6 +53,18 @@ type OutboxMessage = {
   event_type: string;
   payload_json: Record<string, unknown>;
   attempt_count: number;
+  priority: number;
+  max_attempts: number;
+  max_age_seconds: number;
+  created_at_utc: Date | string;
+};
+
+type QueueMetrics = {
+  ready_count: number | string;
+  processing_count: number | string;
+  dead_letter_count: number | string;
+  oldest_ready_age_seconds: number | string;
+  highest_attempt_count: number | string;
 };
 
 Deno.serve(async (request: Request) => {
@@ -52,49 +80,126 @@ Deno.serve(async (request: Request) => {
   }
 
   const workerId = `edge:${crypto.randomUUID()}`;
+  const before = await queueMetrics();
   const claimed = await sql<OutboxMessage[]>`
     select *
     from integration.claim_outbox_messages_for_events(
       ${workerId}::character varying,
-      25,
+      ${workerBatchSize},
       ${supportedEvents}::character varying[]
     )
   `;
 
   let processed = 0;
   let failed = 0;
+  let replayed = 0;
+  let deadLettered = 0;
+
   for (const message of claimed) {
     try {
-      await processMessage(message);
-      await sql`
-        select integration.complete_outbox_message(
-          ${message.id}::uuid,${workerId}::character varying)
+      const receipt = await sql`
+        select integration.outbox_consumer_receipt_exists(
+          ${message.id}::uuid,${workerConsumerName}::character varying
+        ) as exists
       `;
+      if (receipt[0]?.exists === true) {
+        replayed++;
+      } else {
+        await processMessage(message);
+        const recorded = await sql`
+          select integration.record_outbox_consumer_receipt(
+            ${message.id}::uuid,
+            ${workerConsumerName}::character varying,
+            ${message.event_type}::character varying
+          ) as ok
+        `;
+        if (recorded[0]?.ok !== true) {
+          throw new Error("consumer_receipt_failed");
+        }
+      }
+
+      const completed = await sql`
+        select integration.complete_outbox_message(
+          ${message.id}::uuid,${workerId}::character varying
+        ) as ok
+      `;
+      if (completed[0]?.ok !== true) {
+        throw new Error("outbox_complete_failed");
+      }
       processed++;
     } catch (error) {
       failed++;
       const code = safeErrorCode(error);
-      const retrySeconds = Math.min(
-        3600,
-        30 * Math.max(1, message.attempt_count),
+      const permanent = isPermanentWorkerError(code);
+      const retrySeconds = retryDelaySeconds(
+        message.event_type,
+        message.attempt_count,
       );
-      await sql`
-        select integration.fail_outbox_message(
+      const ageSeconds = Math.max(
+        0,
+        Math.floor(
+          (Date.now() - new Date(message.created_at_utc).getTime()) / 1000,
+        ),
+      );
+      const expectedDeadLetter = permanent ||
+        message.attempt_count >= message.max_attempts ||
+        ageSeconds >= message.max_age_seconds;
+      const failedRows = await sql`
+        select integration.fail_outbox_message_safely(
           ${message.id}::uuid,
           ${workerId}::character varying,
           ${code}::character varying,
-          ${retrySeconds}
-        )
+          ${retrySeconds},
+          ${permanent}
+        ) as ok
       `;
+      if (failedRows[0]?.ok !== true) {
+        console.warn("LifeMate worker could not transition failed item", {
+          eventType: message.event_type,
+          attempt: message.attempt_count,
+          errorCode: code,
+        });
+      }
+      if (expectedDeadLetter) deadLettered++;
       console.warn("LifeMate worker item failed", {
         eventType: message.event_type,
         attempt: message.attempt_count,
+        priority: message.priority,
+        permanent,
+        retrySeconds,
         errorCode: code,
       });
     }
   }
 
-  return response(200, { claimed: claimed.length, processed, failed });
+  const prunedRows = await sql`
+    select integration.prune_outbox_history(7,30,250) as deleted
+  `;
+  const pruned = Number(prunedRows[0]?.deleted ?? 0);
+  const after = await queueMetrics();
+  const lagLevel = queueLagLevel(after.oldestReadyAgeSeconds);
+  if (lagLevel !== "ok") {
+    console.warn("LifeMate worker queue lag threshold exceeded", {
+      lagLevel,
+      readyCount: after.readyCount,
+      oldestReadyAgeSeconds: after.oldestReadyAgeSeconds,
+      deadLetterCount: after.deadLetterCount,
+    });
+  }
+
+  return response(200, {
+    claimed: claimed.length,
+    processed,
+    failed,
+    replayed,
+    deadLettered,
+    pruned,
+    queue: {
+      before,
+      after,
+      lagLevel,
+    },
+  });
 });
 
 async function processMessage(message: OutboxMessage): Promise<void> {
@@ -155,6 +260,41 @@ async function processMessage(message: OutboxMessage): Promise<void> {
   }
 }
 
+async function queueMetrics(): Promise<{
+  readyCount: number;
+  processingCount: number;
+  deadLetterCount: number;
+  oldestReadyAgeSeconds: number;
+  highestAttemptCount: number;
+}> {
+  const rows = await sql<QueueMetrics[]>`
+    select * from integration.outbox_queue_metrics(
+      ${supportedEvents}::character varying[]
+    )
+  `;
+  const row = rows[0];
+  return {
+    readyCount: Number(row?.ready_count ?? 0),
+    processingCount: Number(row?.processing_count ?? 0),
+    deadLetterCount: Number(row?.dead_letter_count ?? 0),
+    oldestReadyAgeSeconds: Number(row?.oldest_ready_age_seconds ?? 0),
+    highestAttemptCount: Number(row?.highest_attempt_count ?? 0),
+  };
+}
+
+async function timedFetch(
+  input: RequestInfo | URL,
+  init?: RequestInit,
+): Promise<Response> {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), messageTimeoutMs);
+  try {
+    return await fetch(input, { ...init, signal: controller.signal });
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
 async function authSubjectFor(accountId: string): Promise<string | null> {
   const rows = await sql`
     select auth_subject
@@ -183,6 +323,9 @@ function stringField(value: Record<string, unknown>, field: string): string {
 
 function safeErrorCode(error: unknown): string {
   const raw = error instanceof Error ? error.message : "worker_error";
+  if (error instanceof DOMException && error.name === "AbortError") {
+    return "downstream_timeout";
+  }
   return raw.replace(/[^a-zA-Z0-9:_-]/g, "_").slice(0, 80) || "worker_error";
 }
 
@@ -202,6 +345,9 @@ function constantTimeEqual(expected: string, actual: string): boolean {
 function response(status: number, body: Record<string, unknown>): Response {
   return new Response(JSON.stringify(body), {
     status,
-    headers: { "content-type": "application/json; charset=utf-8" },
+    headers: {
+      "content-type": "application/json; charset=utf-8",
+      "cache-control": "no-store",
+    },
   });
 }
