@@ -181,7 +181,14 @@ export async function getRelationshipLedger(
        and ($4::text is null or lower(status) = lower($4))
      order by occurred_at_utc desc, kind asc, ledger_id desc
      limit $5 offset $6`,
-    [startUtc, endExclusiveUtc, query.kind, query.status, query.pageSize, offset],
+    [
+      startUtc,
+      endExclusiveUtc,
+      query.kind,
+      query.status,
+      query.pageSize,
+      offset,
+    ],
   );
 
   return {
