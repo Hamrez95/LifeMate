@@ -1,8 +1,4 @@
-import {
-  assert,
-  assertEquals,
-  assertRejects,
-} from "jsr:@std/assert@1.0.14";
+import { assert, assertEquals, assertRejects } from "jsr:@std/assert@1.0.14";
 import {
   buildRateLimitKey,
   classifyRequest,
@@ -13,7 +9,10 @@ import {
 import { ApiError } from "./validation.ts";
 
 Deno.test("request classes distinguish expensive reads and critical writes", () => {
-  assertEquals(classifyRequest("GET", "/api/v1/home-snapshot"), "expensive-read");
+  assertEquals(
+    classifyRequest("GET", "/api/v1/home-snapshot"),
+    "expensive-read",
+  );
   assertEquals(classifyRequest("GET", "/api/v1/me"), "read");
   assertEquals(
     classifyRequest(
@@ -22,7 +21,10 @@ Deno.test("request classes distinguish expensive reads and critical writes", () 
     ),
     "critical-write",
   );
-  assertEquals(classifyRequest("POST", "/api/v1/care/invitations"), "sensitive");
+  assertEquals(
+    classifyRequest("POST", "/api/v1/care/invitations"),
+    "sensitive",
+  );
   assertEquals(classifyRequest("PUT", "/api/v1/me/profile/photo"), "upload");
 });
 
@@ -51,7 +53,10 @@ Deno.test("local request limiter rejects excess requests", async () => {
 
 Deno.test("two Redis-backed limiter instances consume one shared quota", async () => {
   const counters = new Map<string, number>();
-  const fakeFetch = async (_input: string | URL | Request, init?: RequestInit) => {
+  const fakeFetch = async (
+    _input: string | URL | Request,
+    init?: RequestInit,
+  ) => {
     const command = JSON.parse(String(init?.body ?? "[]"));
     const key = String(command[3]);
     const count = (counters.get(key) ?? 0) + 1;
@@ -60,11 +65,19 @@ Deno.test("two Redis-backed limiter instances consume one shared quota", async (
   };
 
   const first = new RequestRateLimiter(
-    new UpstashRestCounterStore("https://redis.example", "token-token-token-token", fakeFetch),
+    new UpstashRestCounterStore(
+      "https://redis.example",
+      "token-token-token-token",
+      fakeFetch,
+    ),
     "redis",
   );
   const second = new RequestRateLimiter(
-    new UpstashRestCounterStore("https://redis.example", "token-token-token-token", fakeFetch),
+    new UpstashRestCounterStore(
+      "https://redis.example",
+      "token-token-token-token",
+      fakeFetch,
+    ),
     "redis",
   );
   const subject = crypto.randomUUID();
