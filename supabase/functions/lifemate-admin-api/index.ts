@@ -309,7 +309,11 @@ Deno.serve(async (request: Request) => {
         supportTicketDetailId,
       );
       if (!ticket) {
-        throw new ApiError(404, "support_ticket_not_found", "Support ticket was not found.");
+        throw new ApiError(
+          404,
+          "support_ticket_not_found",
+          "Support ticket was not found.",
+        );
       }
       return json(
         {
@@ -331,7 +335,11 @@ Deno.serve(async (request: Request) => {
         supportTicketEventsId,
       );
       if (!ticket) {
-        throw new ApiError(404, "support_ticket_not_found", "Support ticket was not found.");
+        throw new ApiError(
+          404,
+          "support_ticket_not_found",
+          "Support ticket was not found.",
+        );
       }
       const query = parseSupportTicketEventsQuery(new URL(request.url));
       const result = await supportTicketDetailStore.listEvents(
