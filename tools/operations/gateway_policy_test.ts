@@ -1,8 +1,4 @@
-import {
-  assert,
-  assertEquals,
-  assertRejects,
-} from "jsr:@std/assert@1.0.14";
+import { assert, assertEquals, assertRejects } from "jsr:@std/assert@1.0.14";
 import {
   cloudProviderPolicySummary,
   evaluateGatewayRequest,
@@ -24,6 +20,9 @@ Deno.test("canonical gateway policy validates and begins in log mode", async () 
   validateGatewayPolicy(policy);
   assertEquals(policy.rollout.initialMode, "log");
   assertEquals(policy.rollout.stages, ["log", "simulate", "block"]);
+  for (const value of Object.values(policy.classes)) {
+    assertEquals(value.outerRateLimit.counterScope, "source_ip");
+  }
 });
 
 Deno.test("log and simulate stages observe without rejecting traffic", async () => {
@@ -57,7 +56,9 @@ Deno.test("block mode enforces application-aligned JSON and media bounds", async
     "block",
   );
   assertEquals(oversizedJson.action, "reject");
-  if (oversizedJson.action === "reject") assertEquals(oversizedJson.status, 413);
+  if (oversizedJson.action === "reject") {
+    assertEquals(oversizedJson.status, 413);
+  }
 
   const validPhoto = evaluateGatewayRequest(
     policy,
@@ -82,7 +83,9 @@ Deno.test("block mode enforces application-aligned JSON and media bounds", async
     "block",
   );
   assertEquals(oversizedPhoto.action, "reject");
-  if (oversizedPhoto.action === "reject") assertEquals(oversizedPhoto.status, 413);
+  if (oversizedPhoto.action === "reject") {
+    assertEquals(oversizedPhoto.status, 413);
+  }
 
   const wrongPhotoType = evaluateGatewayRequest(
     policy,
@@ -95,7 +98,25 @@ Deno.test("block mode enforces application-aligned JSON and media bounds", async
     "block",
   );
   assertEquals(wrongPhotoType.action, "reject");
-  if (wrongPhotoType.action === "reject") assertEquals(wrongPhotoType.status, 415);
+  if (wrongPhotoType.action === "reject") {
+    assertEquals(wrongPhotoType.status, 415);
+  }
+});
+
+Deno.test("GET account export receives the sensitive outer class", async () => {
+  const policy = await loadPolicy();
+  const decision = evaluateGatewayRequest(
+    policy,
+    {
+      method: "GET",
+      path: "/api/v1/account/data-export",
+      contentLength: 0,
+    },
+    "block",
+  );
+  assertEquals(decision.action, "allow");
+  assertEquals(decision.routeId, "sensitive-account-data-export");
+  assertEquals(decision.className, "sensitive-write");
 });
 
 Deno.test("protect-core mode preserves critical medication reports", async () => {
@@ -120,10 +141,12 @@ Deno.test("protect-core mode preserves critical medication reports", async () =>
 
 Deno.test("protect-core mode sheds expensive and ordinary work with 429", async () => {
   const policy = await loadPolicy();
-  for (const path of [
-    "/api/v1/home-snapshot",
-    "/api/v1/care/relationships",
-  ]) {
+  for (
+    const path of [
+      "/api/v1/home-snapshot",
+      "/api/v1/care/relationships",
+    ]
+  ) {
     const decision = evaluateGatewayRequest(
       policy,
       { method: "GET", path, contentLength: 0 },
@@ -153,7 +176,9 @@ Deno.test("unsafe HTTP methods are rejected only after staged enforcement", asyn
     "block",
   );
   assertEquals(blocked.action, "reject");
-  if (blocked.action === "reject") assertEquals(blocked.status, 405);
+  if (blocked.action === "reject") {
+    assertEquals(blocked.status, 405);
+  }
 });
 
 Deno.test("generic API fallback never shadows critical route", async () => {
@@ -187,15 +212,29 @@ Deno.test("generic API fallback never shadows critical route", async () => {
 Deno.test("provider handoff summary contains policy only, not runtime secrets", async () => {
   const policy = await loadPolicy();
   const serialized = JSON.stringify(cloudProviderPolicySummary(policy));
-  for (const forbidden of [
-    "Authorization",
-    "Bearer ",
-    "SUPABASE_SERVICE_ROLE_KEY",
-    "UPSTASH_REDIS_REST_TOKEN",
-    "postgresql://",
-  ]) {
+  for (
+    const forbidden of [
+      "Authorization",
+      "Bearer ",
+      "SUPABASE_SERVICE_ROLE_KEY",
+      "UPSTASH_REDIS_REST_TOKEN",
+      "postgresql://",
+    ]
+  ) {
     assert(!serialized.includes(forbidden));
   }
+  assert(serialized.includes("source_ip"));
+});
+
+Deno.test("policy validator rejects ambiguous gateway counter scope", async () => {
+  const policy = await loadPolicy();
+  const unsafe = structuredClone(policy);
+  unsafe.classes.read.outerRateLimit.counterScope = "global" as "source_ip";
+  await assertRejects(
+    async () => validateGatewayPolicy(unsafe),
+    Error,
+    "invalid_gateway_counter_scope",
+  );
 });
 
 Deno.test("policy validator fails if critical healthcare is shed in emergency", async () => {
