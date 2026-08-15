@@ -5,10 +5,7 @@ import {
 } from "https://deno.land/std@0.224.0/assert/mod.ts";
 import { getLifeMateSql } from "./database_client.ts";
 import { json } from "./http.ts";
-import {
-  createMutationIdempotencyStore,
-  requestHash,
-} from "./idempotency.ts";
+import { createMutationIdempotencyStore, requestHash } from "./idempotency.ts";
 import { ApiError } from "./validation.ts";
 
 const databaseUrl = Deno.env.get("TEST_DATABASE_URL");
