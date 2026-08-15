@@ -6,19 +6,29 @@ on:
     paths:
       - '.github/workflows/postgres-restore-drill.yml'
       - '.github/workflows/provider-recovery-policy.yml'
+      - '.github/workflows/workstation-backup-policy.yml'
+      - 'config/recovery/**'
       - 'docs/operations/BACKUP_RESTORE_MONITORING.md'
       - 'docs/operations/PROVIDER_RECOVERY_GATE.md'
+      - 'docs/operations/WORKSTATION_BACKUP.md'
       - 'docs/security/IDENTITY_MEDICAL_LINKAGE_THREAT_MODEL.md'
       - 'tools/operations/verify-provider-recovery-contract.mjs'
+      - 'tools/operations/verify-workstation-backup-contract.mjs'
+      - 'tools/recovery/**'
   push:
     branches: [main]
     paths:
       - '.github/workflows/postgres-restore-drill.yml'
       - '.github/workflows/provider-recovery-policy.yml'
+      - '.github/workflows/workstation-backup-policy.yml'
+      - 'config/recovery/**'
       - 'docs/operations/BACKUP_RESTORE_MONITORING.md'
       - 'docs/operations/PROVIDER_RECOVERY_GATE.md'
+      - 'docs/operations/WORKSTATION_BACKUP.md'
       - 'docs/security/IDENTITY_MEDICAL_LINKAGE_THREAT_MODEL.md'
       - 'tools/operations/verify-provider-recovery-contract.mjs'
+      - 'tools/operations/verify-workstation-backup-contract.mjs'
+      - 'tools/recovery/**'
 
 permissions:
   contents: read
@@ -39,3 +49,6 @@ jobs:
 
       - name: Verify provider recovery evidence contract
         run: node tools/operations/verify-provider-recovery-contract.mjs
+
+      - name: Verify workstation compensating recovery contract
+        run: node tools/operations/verify-workstation-backup-contract.mjs
