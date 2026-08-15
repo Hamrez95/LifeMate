@@ -200,13 +200,11 @@ async function listPromotions(sql: AdminSql, query: CommercePromotionsQuery) {
     promotionId: String(row.id),
     name: String(row.name),
     description: nullableString(row.description),
-    product: row.product_id == null
-      ? null
-      : {
-          id: String(row.product_id),
-          code: String(row.product_code),
-          name: String(row.product_name),
-        },
+    product: row.product_id == null ? null : {
+      id: String(row.product_id),
+      code: String(row.product_code),
+      name: String(row.product_name),
+    },
     discount: {
       type: String(row.discount_type),
       percentageBasisPoints: nullableNumber(row.percentage_basis_points),
@@ -225,7 +223,8 @@ async function listPromotions(sql: AdminSql, query: CommercePromotionsQuery) {
     redemptionSummary: {
       state: "unavailable" as const,
       count: null,
-      reason: "Redemption source is not instrumented in the canonical Commerce ledger yet.",
+      reason:
+        "Redemption source is not instrumented in the canonical Commerce ledger yet.",
     },
     createdAtUtc: iso(row.created_at_utc),
     updatedAtUtc: iso(row.updated_at_utc),
@@ -266,13 +265,11 @@ async function getPromotion(sql: AdminSql, promotionId: string) {
     promotionId: String(row.id),
     name: String(row.name),
     description: nullableString(row.description),
-    product: row.product_id == null
-      ? null
-      : {
-          id: String(row.product_id),
-          code: String(row.product_code),
-          name: String(row.product_name),
-        },
+    product: row.product_id == null ? null : {
+      id: String(row.product_id),
+      code: String(row.product_code),
+      name: String(row.product_name),
+    },
     discount: {
       type: String(row.discount_type),
       percentageBasisPoints: nullableNumber(row.percentage_basis_points),
@@ -287,7 +284,8 @@ async function getPromotion(sql: AdminSql, promotionId: string) {
     redemptionSummary: {
       state: "unavailable" as const,
       count: null,
-      reason: "Redemption source is not instrumented in the canonical Commerce ledger yet.",
+      reason:
+        "Redemption source is not instrumented in the canonical Commerce ledger yet.",
     },
     createdAtUtc: iso(row.created_at_utc),
     updatedAtUtc: iso(row.updated_at_utc),
@@ -310,7 +308,8 @@ async function listCodes(sql: AdminSql, promotionId: string) {
     redemptionSummary: {
       state: "unavailable" as const,
       count: null,
-      reason: "Redemption source is not instrumented in the canonical Commerce ledger yet.",
+      reason:
+        "Redemption source is not instrumented in the canonical Commerce ledger yet.",
     },
     createdAtUtc: iso(row.created_at_utc),
     updatedAtUtc: iso(row.updated_at_utc),
@@ -368,7 +367,9 @@ export function createCommercePromotionsStore(databaseUrl: string) {
       if (!promotion) return null;
       const [codes, auditEvents] = await Promise.all([
         listCodes(sql, promotionId),
-        includeAudit ? listAuditEvents(sql, promotionId) : Promise.resolve(null),
+        includeAudit
+          ? listAuditEvents(sql, promotionId)
+          : Promise.resolve(null),
       ]);
       return {
         promotion,

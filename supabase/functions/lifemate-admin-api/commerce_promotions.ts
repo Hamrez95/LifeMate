@@ -1,10 +1,11 @@
-import {
-  ApiError,
-  boundedInteger,
-  requireUuid,
-} from "./validation.ts";
+import { ApiError, boundedInteger, requireUuid } from "./validation.ts";
 
-export const promotionStatuses = ["Draft", "Active", "Paused", "Expired"] as const;
+export const promotionStatuses = [
+  "Draft",
+  "Active",
+  "Paused",
+  "Expired",
+] as const;
 export type PromotionStatus = (typeof promotionStatuses)[number];
 export const promotionDiscountTypes = ["Percentage", "FixedAmount"] as const;
 export type PromotionDiscountType = (typeof promotionDiscountTypes)[number];
@@ -125,7 +126,9 @@ function parseFixedAmount(value: unknown): string {
   return parsed.toString();
 }
 
-async function requestObject(request: Request): Promise<Record<string, unknown>> {
+async function requestObject(
+  request: Request,
+): Promise<Record<string, unknown>> {
   try {
     const value = await request.json();
     if (!value || typeof value !== "object" || Array.isArray(value)) {
@@ -141,7 +144,9 @@ async function requestObject(request: Request): Promise<Record<string, unknown>>
   }
 }
 
-function parseSharedPayload(body: Record<string, unknown>): CreatePromotionPayload {
+function parseSharedPayload(
+  body: Record<string, unknown>,
+): CreatePromotionPayload {
   const discountType = body.discountType;
   if (!promotionDiscountTypes.includes(discountType as PromotionDiscountType)) {
     throw new ApiError(

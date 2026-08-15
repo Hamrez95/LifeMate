@@ -88,7 +88,9 @@ const userAccountActionStore = createUserAccountActionStore(config.databaseUrl);
 const analyticsKpiStore = createAnalyticsKpiStore(config.databaseUrl);
 const commerceOverviewStore = createCommerceOverviewStore(config.databaseUrl);
 const commerceDetailStore = createCommerceDetailStore(config.databaseUrl);
-const commercePromotionsStore = createCommercePromotionsStore(config.databaseUrl);
+const commercePromotionsStore = createCommercePromotionsStore(
+  config.databaseUrl,
+);
 const commerceTransactionsStore = createCommerceTransactionsStore(
   config.databaseUrl,
 );
@@ -349,7 +351,10 @@ Deno.serve(async (request: Request) => {
         throw new ApiError(
           status,
           String(result.code),
-          mutationErrorMessage(result, "Promotion status change was not completed."),
+          mutationErrorMessage(
+            result,
+            "Promotion status change was not completed.",
+          ),
         );
       }
       return json(
