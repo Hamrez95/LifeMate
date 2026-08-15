@@ -1,0 +1,35 @@
+name: stable-release-environment-policy
+
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - '.github/workflows/main-final-android-release.yml'
+      - '.github/workflows/stable-release-environment-policy.yml'
+      - 'tools/release/verify-stable-workflow-policy.mjs'
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/main-final-android-release.yml'
+      - '.github/workflows/stable-release-environment-policy.yml'
+      - 'tools/release/verify-stable-workflow-policy.mjs'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: stable-release-environment-policy-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  policy:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
+        with:
+          show-progress: false
+          persist-credentials: false
+
+      - name: Verify stable release Environment and fail-closed source gates
+        run: node tools/release/verify-stable-workflow-policy.mjs
