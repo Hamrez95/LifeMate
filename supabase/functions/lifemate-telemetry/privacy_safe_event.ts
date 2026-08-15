@@ -50,7 +50,9 @@ export function parseClientErrorTelemetry(
   if (
     !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
       .test(eventId)
-  ) invalid("event_id_invalid");
+  ) {
+    invalid("event_id_invalid");
+  }
   if (application !== "wellmate" && application !== "caremate") {
     invalid("application_invalid");
   }
@@ -67,12 +69,18 @@ export function parseClientErrorTelemetry(
       "linux",
       "unknown",
     ].includes(platform)
-  ) invalid("platform_invalid");
-  if (![
-    "flutter_framework",
-    "platform_dispatcher",
-    "zone",
-  ].includes(source)) invalid("source_invalid");
+  ) {
+    invalid("platform_invalid");
+  }
+  if (
+    ![
+      "flutter_framework",
+      "platform_dispatcher",
+      "zone",
+    ].includes(source)
+  ) {
+    invalid("source_invalid");
+  }
   if (!/^[A-Za-z_][A-Za-z0-9_.]{0,79}$/.test(errorType)) {
     invalid("error_type_invalid");
   }
@@ -97,6 +105,7 @@ function stringValue(value: unknown, code: string): string {
   if (typeof value !== "string") invalid(code);
   return value;
 }
+
 function invalid(code: string): never {
   throw new Error(code);
 }
