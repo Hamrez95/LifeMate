@@ -39,7 +39,9 @@ export type BackfillSummary = {
 
 function requireKeyVersion(value: number): number {
   if (!Number.isSafeInteger(value) || value < 1 || value > 65535) {
-    throw new Error("Identity-link key version must be an integer from 1 to 65535.");
+    throw new Error(
+      "Identity-link key version must be an integer from 1 to 65535.",
+    );
   }
   return value;
 }
@@ -260,8 +262,9 @@ if (import.meta.main) {
       .toLowerCase(),
   );
   if (mode === "apply") {
-    const confirmation = Deno.env.get("LIFEMATE_IDENTITY_LINK_BACKFILL_CONFIRM") ??
-      "";
+    const confirmation =
+      Deno.env.get("LIFEMATE_IDENTITY_LINK_BACKFILL_CONFIRM") ??
+        "";
     if (confirmation !== "BACKFILL-IDENTITY-TOKENS") {
       throw new Error(
         "Apply mode requires LIFEMATE_IDENTITY_LINK_BACKFILL_CONFIRM=BACKFILL-IDENTITY-TOKENS.",
@@ -272,7 +275,9 @@ if (import.meta.main) {
   const summary = await backfillIdentityLinkTokens({
     databaseUrl: Deno.env.get("LIFEMATE_IDENTITY_BACKFILL_DATABASE_URL") ?? "",
     externalKey: Deno.env.get("LIFEMATE_IDENTITY_LINK_KEY") ?? "",
-    keyVersion: Number(Deno.env.get("LIFEMATE_IDENTITY_LINK_KEY_VERSION") ?? ""),
+    keyVersion: Number(
+      Deno.env.get("LIFEMATE_IDENTITY_LINK_KEY_VERSION") ?? "",
+    ),
     mode,
   });
   // Counts only. Never print raw subjects, tokens, DB URLs or key material.
