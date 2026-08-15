@@ -18,7 +18,9 @@ export type ResolvableAuthUser = {
   userMetadata: Record<string, unknown>;
 };
 
-export type ResolvedAppIdentity<TAuth extends ResolvableAuthUser = ResolvableAuthUser> = {
+export type ResolvedAppIdentity<
+  TAuth extends ResolvableAuthUser = ResolvableAuthUser,
+> = {
   auth: TAuth;
   appUserId: string;
 };
@@ -35,9 +37,10 @@ type LegacyLookupRow = { app_user_id: string };
 export function readIdentityLookupMode(
   readEnvironment: EnvironmentReader = (name) => Deno.env.get(name),
 ): IdentityLookupMode {
-  const raw = (readEnvironment("LIFEMATE_IDENTITY_LINK_LOOKUP_MODE") ?? "legacy")
-    .trim()
-    .toLowerCase();
+  const raw =
+    (readEnvironment("LIFEMATE_IDENTITY_LINK_LOOKUP_MODE") ?? "legacy")
+      .trim()
+      .toLowerCase();
   if (raw === "legacy" || raw === "prefer-token" || raw === "token-only") {
     return raw;
   }
@@ -56,7 +59,8 @@ export function createIdentityResolver(
   } = {},
 ) {
   const sql = getLifeMateSql(databaseUrl);
-  const readEnvironment = options.readEnvironment ?? ((name) => Deno.env.get(name));
+  const readEnvironment = options.readEnvironment ??
+    ((name) => Deno.env.get(name));
   const lookupMode = options.mode ?? readIdentityLookupMode(readEnvironment);
 
   let identityLinkKey: IdentityLinkKey | null = null;
