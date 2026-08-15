@@ -16,7 +16,8 @@ const adminSql = postgres(databaseUrl, {
 });
 
 Deno.test({
-  name: "account deletion API store resolves AppUser to provider-agnostic Account",
+  name:
+    "account deletion API store resolves AppUser to provider-agnostic Account",
   sanitizeOps: false,
   sanitizeResources: false,
   fn: async () => {
