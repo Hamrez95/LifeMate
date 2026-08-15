@@ -5,12 +5,16 @@ on:
   pull_request:
     paths:
       - '.github/workflows/main-edge-deploy.yml'
+      - '.github/workflows/internal-beta-release.yml'
+      - '.github/workflows/flutter.yml'
       - '.github/workflows/release-control-plane-policy.yml'
       - 'tools/release/verify-production-deploy-control-plane.mjs'
   push:
     branches: [main]
     paths:
       - '.github/workflows/main-edge-deploy.yml'
+      - '.github/workflows/internal-beta-release.yml'
+      - '.github/workflows/flutter.yml'
       - '.github/workflows/release-control-plane-policy.yml'
       - 'tools/release/verify-production-deploy-control-plane.mjs'
 
