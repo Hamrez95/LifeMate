@@ -31,6 +31,7 @@ const relative = (file) => path.relative(repoRoot, file).replaceAll('\\', '/');
 const authSubjectAllowlist = new Set([
   'supabase/functions/lifemate-api/database_legacy.ts',
   'supabase/functions/lifemate-api/identity_resolver.ts',
+  'supabase/functions/lifemate-api/idempotency_legacy.ts',
 ]);
 const providerSubjectAllowlist = new Set([
   'supabase/functions/lifemate-api/identity_bridge.ts',
@@ -70,6 +71,33 @@ if (!indexSource.includes('from "./database.ts"')) {
 }
 if (indexSource.includes('database_legacy.ts')) {
   fail('production API must never import the legacy database implementation directly.');
+}
+
+const idempotencySource = fs.readFileSync(path.join(apiRoot, 'idempotency.ts'), 'utf8');
+for (const marker of [
+  'lifemate:idempotency-actor:v1:',
+  'actor_subject_token',
+  'findLegacyIdempotencyReplay',
+]) {
+  if (!idempotencySource.includes(marker)) {
+    fail(`idempotency runtime lost tokenized actor boundary: ${marker}`);
+  }
+}
+if (idempotencySource.includes('actor_auth_subject')) {
+  fail('new idempotency runtime must not persist/query raw Auth subjects.');
+}
+
+const legacyIdempotency = fs.readFileSync(
+  path.join(apiRoot, 'idempotency_legacy.ts'),
+  'utf8',
+);
+if (!legacyIdempotency.includes('expires_at_utc > now()')) {
+  fail('legacy idempotency bridge must be bounded to unexpired migration rows.');
+}
+for (const mutation of ['insert into ', 'update ', 'delete from ', 'truncate ']) {
+  if (legacyIdempotency.toLowerCase().includes(mutation)) {
+    fail(`legacy idempotency bridge must remain read-only: ${mutation.trim()}`);
+  }
 }
 
 const migrations = filesUnder(migrationRoot, (file) => file.endsWith('.sql'));
