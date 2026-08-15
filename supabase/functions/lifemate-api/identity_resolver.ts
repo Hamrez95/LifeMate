@@ -10,6 +10,7 @@ export type IdentityLookupMode = "legacy" | "prefer-token" | "token-only";
 
 type EnvironmentReader = (name: string) => string | null | undefined;
 type IdentityLinkKey = { secret: string; keyVersion: number };
+type IdentitySql = ReturnType<typeof getLifeMateSql>;
 
 export type ResolvableAuthUser = {
   id: string;
@@ -58,7 +59,6 @@ export function createIdentityResolver(
     readEnvironment?: EnvironmentReader;
   } = {},
 ) {
-  const sql = getLifeMateSql(databaseUrl);
   const readEnvironment = options.readEnvironment ??
     ((name) => Deno.env.get(name));
   const lookupMode = options.mode ?? readIdentityLookupMode(readEnvironment);
@@ -74,6 +74,15 @@ export function createIdentityResolver(
     }
     identityLinkKey = options.identityLinkKey ??
       readIdentityLinkKeyFromEnvironment(readEnvironment);
+  }
+
+  // Keep configuration validation independent from the PostgreSQL client so
+  // malformed token modes fail deterministically before any connection/env
+  // handling. The same bounded client is then reused for all lookups.
+  let sqlClient: IdentitySql | null = null;
+  function sql(): IdentitySql {
+    sqlClient ??= getLifeMateSql(databaseUrl);
+    return sqlClient;
   }
 
   async function requireIdentity<TAuth extends ResolvableAuthUser>(
@@ -94,7 +103,8 @@ export function createIdentityResolver(
       keyVersion: key.keyVersion,
     });
 
-    const tokenRows = await sql<TokenLookupRow[]>`
+    const database = sql();
+    const tokenRows = await database<TokenLookupRow[]>`
       select
         t.account_id::text as account_id,
         a.status as account_status,
@@ -147,7 +157,8 @@ export function createIdentityResolver(
   async function requireLegacyIdentity<TAuth extends ResolvableAuthUser>(
     auth: TAuth,
   ): Promise<ResolvedAppIdentity<TAuth>> {
-    const rows = await sql<LegacyLookupRow[]>`
+    const database = sql();
+    const rows = await database<LegacyLookupRow[]>`
       select id::text as app_user_id
       from lifemate.app_users
       where auth_subject=${auth.id} and status='Active'
