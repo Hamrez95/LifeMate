@@ -7,6 +7,7 @@ on:
       - 'supabase/config.toml'
       - 'supabase/functions/lifemate-api/**'
       - 'supabase/functions/lifemate-telemetry/**'
+      - 'supabase/functions/lifemate-readiness/**'
   push:
     branches: [main]
     paths:
@@ -14,6 +15,7 @@ on:
       - 'supabase/config.toml'
       - 'supabase/functions/lifemate-api/**'
       - 'supabase/functions/lifemate-telemetry/**'
+      - 'supabase/functions/lifemate-readiness/**'
 
 permissions:
   contents: read
@@ -27,6 +29,7 @@ env:
   SUPABASE_URL: https://bwdvmniywyyijjauipnh.supabase.co
   LIFEMATE_API_BASE_URL: https://bwdvmniywyyijjauipnh.supabase.co/functions/v1/lifemate-api
   LIFEMATE_TELEMETRY_URL: https://bwdvmniywyyijjauipnh.supabase.co/functions/v1/lifemate-telemetry
+  LIFEMATE_READINESS_URL: https://bwdvmniywyyijjauipnh.supabase.co/functions/v1/lifemate-readiness
   SUPABASE_PUBLISHABLE_KEY: ${{ vars.SUPABASE_PUBLISHABLE_KEY || 'sb_publishable_6YpBDD0gAPcenbYGukOeWg_fZXxUb27' }}
 
 jobs:
@@ -57,6 +60,15 @@ jobs:
         run: |
           set -euo pipefail
           cd supabase/functions/lifemate-telemetry
+          deno fmt --check
+          deno task check
+          deno task test
+
+      - name: Verify readiness source
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd supabase/functions/lifemate-readiness
           deno fmt --check
           deno task check
           deno task test
@@ -116,7 +128,7 @@ jobs:
             --project-ref "$SUPABASE_PROJECT_REF" \
             --env-file "$secret_file"
 
-      - name: Deploy exact-main API and telemetry
+      - name: Deploy exact-main API telemetry and readiness
         shell: bash
         run: |
           set -euo pipefail
@@ -126,6 +138,10 @@ jobs:
             --use-api
           supabase functions deploy lifemate-telemetry \
             --project-ref "$SUPABASE_PROJECT_REF" \
+            --use-api
+          supabase functions deploy lifemate-readiness \
+            --project-ref "$SUPABASE_PROJECT_REF" \
+            --no-verify-jwt \
             --use-api
 
       - name: Verify exact production API source and auth boundary
@@ -144,6 +160,25 @@ jobs:
             --output /dev/null --write-out '%{http_code}' \
             "$LIFEMATE_API_BASE_URL/api/v1/me")"
           test "$unauthorized_status" = '401'
+
+      - name: Verify restricted production readiness identity and transport evidence
+        shell: bash
+        run: |
+          set -euo pipefail
+          readiness_response="$(curl --fail --silent --show-error \
+            --retry 8 --retry-delay 3 --retry-all-errors \
+            "$LIFEMATE_READINESS_URL")"
+          echo "$readiness_response" | jq -e \
+            --arg version "$GITHUB_SHA" \
+            '.status == "ok" and .database == "application_ready" and .role == "lifemate_edge_runtime" and .service == "lifemate-readiness" and .version == $version and (.databaseTransport == "transaction_pooler" or .databaseTransport == "direct_or_other") and (.transactionPoolerRequired | type == "boolean")' \
+            >/dev/null
+          transport="$(echo "$readiness_response" | jq -r '.databaseTransport')"
+          required="$(echo "$readiness_response" | jq -r '.transactionPoolerRequired')"
+          echo "Database transport: $transport" >> "$GITHUB_STEP_SUMMARY"
+          echo "Transaction pooler required: $required" >> "$GITHUB_STEP_SUMMARY"
+          if [ "$transport" != 'transaction_pooler' ] || [ "$required" != 'true' ]; then
+            echo '::warning::Production Edge database transport is not yet enforced as Supabase transaction pooling. Scale-04 remains open.'
+          fi
 
       - name: Verify telemetry rejects unauthenticated requests
         shell: bash

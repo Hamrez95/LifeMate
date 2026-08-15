@@ -1,11 +1,15 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import postgres from "postgres";
-import { loadReadinessDatabaseUrl } from "./runtime_database.ts";
+import { loadReadinessDatabaseConfig } from "./runtime_database.ts";
 
 const releaseVersion = (
   Deno.env.get("LIFEMATE_RELEASE_VERSION") ?? "unversioned"
 ).slice(0, 128);
-const databaseUrl = await loadReadinessDatabaseUrl();
+const {
+  databaseUrl,
+  databaseTransport,
+  transactionPoolerRequired,
+} = await loadReadinessDatabaseConfig();
 const sql = postgres(databaseUrl, {
   max: 1,
   idle_timeout: 3,
@@ -43,6 +47,8 @@ Deno.serve(async (request: Request) => {
       status: "ok",
       database: "application_ready",
       role: "lifemate_edge_runtime",
+      databaseTransport,
+      transactionPoolerRequired,
       service: "lifemate-readiness",
       mode: "lightweight",
       version: releaseVersion,
@@ -50,19 +56,35 @@ Deno.serve(async (request: Request) => {
     });
   } catch (error) {
     console.warn("LifeMate readiness failed", {
-      code: error instanceof Error
-        ? error.message.slice(0, 80)
-        : "probe_failed",
+      code: safeReadinessFailureCode(error),
     });
     return response(503, {
       status: "error",
       database: "application_unavailable",
+      databaseTransport,
+      transactionPoolerRequired,
       service: "lifemate-readiness",
       mode: "lightweight",
       version: releaseVersion,
     });
   }
 });
+
+function safeReadinessFailureCode(error: unknown): string {
+  if (error instanceof Error) {
+    if (error.message === "runtime_identity_not_restricted") {
+      return error.message;
+    }
+    const candidate = error as Error & { code?: unknown };
+    if (
+      typeof candidate.code === "string" &&
+      /^[A-Z0-9]{5}$/.test(candidate.code)
+    ) {
+      return `postgres_${candidate.code}`;
+    }
+  }
+  return "probe_failed";
+}
 
 function response(status: number, body: Record<string, unknown>): Response {
   return new Response(JSON.stringify(body), {

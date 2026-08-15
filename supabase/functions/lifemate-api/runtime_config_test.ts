@@ -1,7 +1,9 @@
 import { assertEquals, assertThrows } from "jsr:@std/assert@1.0.14";
 import {
   buildRestrictedDatabaseUrl,
+  classifyDatabaseTransport,
   isSupabaseTransactionPoolerUrl,
+  parseStrictBoolean,
   selectContactHashingSecret,
   validateEdgeDatabaseUrl,
 } from "./runtime_config.ts";
@@ -119,24 +121,18 @@ Deno.test("restricted database URL rejects weak credentials", () => {
 });
 
 Deno.test("transaction pooler detector accepts Supavisor port 6543 only", () => {
-  assertEquals(
-    isSupabaseTransactionPoolerUrl(
-      "postgresql://lifemate_edge_runtime.projectref:secret@aws-0-eu-west-1.pooler.supabase.com:6543/postgres",
-    ),
-    true,
-  );
-  assertEquals(
-    isSupabaseTransactionPoolerUrl(
-      "postgresql://lifemate_edge_runtime.projectref:secret@aws-0-eu-west-1.pooler.supabase.com:5432/postgres",
-    ),
-    false,
-  );
-  assertEquals(
-    isSupabaseTransactionPoolerUrl(
-      "postgresql://lifemate_edge_runtime:secret@db.projectref.supabase.co:5432/postgres",
-    ),
-    false,
-  );
+  const pooler =
+    "postgresql://lifemate_edge_runtime.projectref:secret@aws-0-eu-west-1.pooler.supabase.com:6543/postgres";
+  const sessionPooler =
+    "postgresql://lifemate_edge_runtime.projectref:secret@aws-0-eu-west-1.pooler.supabase.com:5432/postgres";
+  const direct =
+    "postgresql://lifemate_edge_runtime:secret@db.projectref.supabase.co:5432/postgres";
+
+  assertEquals(isSupabaseTransactionPoolerUrl(pooler), true);
+  assertEquals(isSupabaseTransactionPoolerUrl(sessionPooler), false);
+  assertEquals(isSupabaseTransactionPoolerUrl(direct), false);
+  assertEquals(classifyDatabaseTransport(pooler), "transaction_pooler");
+  assertEquals(classifyDatabaseTransport(direct), "direct_or_other");
 });
 
 Deno.test("serverless pooler requirement rejects direct database URLs", () => {
@@ -152,5 +148,30 @@ Deno.test("serverless pooler requirement rejects direct database URLs", () => {
   validateEdgeDatabaseUrl(
     "postgresql://lifemate_edge_runtime.projectref:secret@aws-0-eu-west-1.pooler.supabase.com:6543/postgres",
     true,
+  );
+});
+
+Deno.test("pooler requirement boolean is strict and cannot fail open on typos", () => {
+  assertEquals(
+    parseStrictBoolean("LIFEMATE_REQUIRE_TRANSACTION_POOLER", null, false),
+    false,
+  );
+  assertEquals(
+    parseStrictBoolean("LIFEMATE_REQUIRE_TRANSACTION_POOLER", " true ", false),
+    true,
+  );
+  assertEquals(
+    parseStrictBoolean("LIFEMATE_REQUIRE_TRANSACTION_POOLER", "FALSE", true),
+    false,
+  );
+  assertThrows(
+    () =>
+      parseStrictBoolean(
+        "LIFEMATE_REQUIRE_TRANSACTION_POOLER",
+        "tru",
+        false,
+      ),
+    Error,
+    "must be true or false",
   );
 });

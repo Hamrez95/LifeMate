@@ -1,7 +1,11 @@
 import postgres from "postgres";
 
+export type DatabaseTransport = "transaction_pooler" | "direct_or_other";
+
 export type RuntimeConfig = {
   databaseUrl: string;
+  databaseTransport: DatabaseTransport;
+  transactionPoolerRequired: boolean;
   supabaseUrl: string;
   publishableKey: string;
   storageServiceKey: string;
@@ -82,6 +86,26 @@ export function isSupabaseTransactionPoolerUrl(value: string): boolean {
   } catch {
     return false;
   }
+}
+
+export function classifyDatabaseTransport(value: string): DatabaseTransport {
+  return isSupabaseTransactionPoolerUrl(value)
+    ? "transaction_pooler"
+    : "direct_or_other";
+}
+
+export function parseStrictBoolean(
+  name: string,
+  value: string | null | undefined,
+  fallback: boolean,
+): boolean {
+  if (value === null || value === undefined || value.trim() === "") {
+    return fallback;
+  }
+  const normalized = value.trim().toLowerCase();
+  if (normalized === "true") return true;
+  if (normalized === "false") return false;
+  throw new Error(`${name} must be true or false.`);
 }
 
 export function validateEdgeDatabaseUrl(
@@ -222,11 +246,13 @@ export async function loadRuntimeConfig(): Promise<RuntimeConfig> {
     );
   }
 
-  const requireTransactionPooler =
-    (Deno.env.get("LIFEMATE_REQUIRE_TRANSACTION_POOLER") ?? "false")
-      .trim()
-      .toLowerCase() === "true";
-  validateEdgeDatabaseUrl(databaseUrl, requireTransactionPooler);
+  const transactionPoolerRequired = parseStrictBoolean(
+    "LIFEMATE_REQUIRE_TRANSACTION_POOLER",
+    Deno.env.get("LIFEMATE_REQUIRE_TRANSACTION_POOLER"),
+    false,
+  );
+  validateEdgeDatabaseUrl(databaseUrl, transactionPoolerRequired);
+  const databaseTransport = classifyDatabaseTransport(databaseUrl);
 
   const globalRelease = (globalThis as ReleaseGlobal)
     .__LIFEMATE_RELEASE_VERSION__;
@@ -238,6 +264,8 @@ export async function loadRuntimeConfig(): Promise<RuntimeConfig> {
 
   return {
     databaseUrl,
+    databaseTransport,
+    transactionPoolerRequired,
     supabaseUrl,
     publishableKey,
     storageServiceKey: serviceRole,
