@@ -77,6 +77,20 @@ requireScopedText(
   '      TELEMETRY_SMOKE_PASSWORD: ${{ secrets.BETA_PATIENT_PASSWORD }}',
   'verify-and-build must require the beta patient smoke password',
 );
+for (const [name, secret] of [
+  ['ROLE_PATIENT_EMAIL', 'BETA_PATIENT_EMAIL'],
+  ['ROLE_PATIENT_PASSWORD', 'BETA_PATIENT_PASSWORD'],
+  ['ROLE_CAREGIVER_EMAIL', 'BETA_CAREGIVER_EMAIL'],
+  ['ROLE_CAREGIVER_PASSWORD', 'BETA_CAREGIVER_PASSWORD'],
+  ['ROLE_UNRELATED_EMAIL', 'BETA_UNRELATED_EMAIL'],
+  ['ROLE_UNRELATED_PASSWORD', 'BETA_UNRELATED_PASSWORD'],
+]) {
+  requireScopedText(
+    releaseJob,
+    `      ${name}: ${{ secrets.${secret} }}`,
+    `verify-and-build must receive ${secret} for the final live role smoke`,
+  );
+}
 
 if (releaseJob.includes("github.event_name == 'push'")) {
   fail('verify-and-build must never run from a push event');
@@ -116,6 +130,16 @@ requireScopedText(
   '          if [ -z "$TELEMETRY_SMOKE_EMAIL" ] || [ -z "$TELEMETRY_SMOKE_PASSWORD" ]; then',
   'stable build must fail closed when the authenticated beta smoke identity is absent',
 );
+requireScopedText(
+  credentialStep,
+  '            ROLE_CAREGIVER_EMAIL ROLE_CAREGIVER_PASSWORD \\',
+  'stable build must fail closed when caregiver role credentials are absent',
+);
+requireScopedText(
+  credentialStep,
+  '            ROLE_UNRELATED_EMAIL ROLE_UNRELATED_PASSWORD; do',
+  'stable build must fail closed when unrelated role credentials are absent',
+);
 
 const deploymentStep = extractNamedStep(releaseJob, 'Deploy exact main Edge source');
 requireScopedText(
@@ -134,6 +158,39 @@ requireScopedText(
   'stable build must keep the transaction-pooler readiness gate in the readiness step',
 );
 
+const liveRoleStep = extractNamedStep(
+  releaseJob,
+  'Require live three-role healthcare smoke',
+);
+for (const value of [
+  '          EXPECTED_RELEASE_VERSION: ${{ github.sha }}',
+  '          PATIENT_EMAIL: ${{ env.ROLE_PATIENT_EMAIL }}',
+  '          CAREGIVER_EMAIL: ${{ env.ROLE_CAREGIVER_EMAIL }}',
+  '          UNRELATED_EMAIL: ${{ env.ROLE_UNRELATED_EMAIL }}',
+  '          bash tools/release/live-beta-smoke.sh > "$smoke_evidence"',
+  '.status == "passed" and .release == $release',
+]) {
+  requireScopedText(
+    liveRoleStep,
+    value,
+    'stable build must require the exact-main patient/caregiver/unrelated-user live smoke before signing',
+  );
+}
+
+const signingStep = extractNamedStep(
+  releaseJob,
+  'Prepare founder-owned Android signing',
+);
+if (releaseJob.indexOf('      - name: Require live three-role healthcare smoke') >
+  releaseJob.indexOf('      - name: Prepare founder-owned Android signing')) {
+  fail('live three-role smoke must complete before founder-owned signing material is prepared');
+}
+requireScopedText(
+  signingStep,
+  '          WELLMATE_KEYSTORE_BASE64: ${{ secrets.WELLMATE_KEYSTORE_BASE64 }}',
+  'stable release must keep founder-owned WellMate signing material protected',
+);
+
 const buildStep = extractNamedStep(releaseJob, 'Build exact-main release APKs');
 requireScopedText(
   buildStep,
@@ -142,5 +199,5 @@ requireScopedText(
 );
 
 console.log(
-  'Stable release workflow policy is scoped to executable release steps, synchronizes the worker, and is bound to Environment beta.',
+  'Stable release workflow policy is scoped to executable release steps, synchronizes the worker, requires a live three-role healthcare smoke, and is bound to Environment beta.',
 );
