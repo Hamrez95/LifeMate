@@ -1,0 +1,37 @@
+name: production-health-alert-policy
+
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - '.github/workflows/production-health-monitor.yml'
+      - '.github/workflows/production-health-alert-policy.yml'
+      - 'tools/operations/verify-production-health-alert-policy.mjs'
+      - 'docs/operations/reliability-slos.md'
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/production-health-monitor.yml'
+      - '.github/workflows/production-health-alert-policy.yml'
+      - 'tools/operations/verify-production-health-alert-policy.mjs'
+      - 'docs/operations/reliability-slos.md'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: production-health-alert-policy-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  policy:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
+        with:
+          show-progress: false
+          persist-credentials: false
+
+      - name: Verify production readiness alert policy
+        run: node tools/operations/verify-production-health-alert-policy.mjs
