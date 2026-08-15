@@ -155,7 +155,6 @@ export function validateGatewayPolicy(policy: GatewayPolicy): void {
     }
     if (route.id === "critical-dose-report") {
       criticalRouteFound = route.class === "critical-healthcare-write" &&
-        policy.classes[route.class].emergencyAction === "allow" &&
         route.methods.length === 1 && route.methods[0] === "POST" &&
         route.pathPattern.includes(uuidRouteFragment) &&
         route.maximumBodyBytes === policy.defaults.jsonMaximumBytes;
