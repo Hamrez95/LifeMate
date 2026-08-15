@@ -15,7 +15,7 @@ const sql = postgres(databaseUrl, {
 
 Deno.test({
   name:
-    "legacy profile health ownership and care grants follow Account-to-Self-Person mapping",
+    "legacy profile health ownership care grants and consent follow Account-to-Self-Person mapping",
   sanitizeOps: false,
   sanitizeResources: false,
   fn: async () => {
@@ -127,7 +127,11 @@ Deno.test({
               and context_id=${relationshipId}::uuid limit 1) as grant_person,
           (select grantee_account_id from security.access_grants
             where context_type='care_relationship'
-              and context_id=${relationshipId}::uuid limit 1) as grant_account
+              and context_id=${relationshipId}::uuid limit 1) as grant_account,
+          (select subject_person_id from consent.consent_records
+            where scope_key=${`care_relationship:${relationshipId}`} limit 1) as consent_person,
+          (select actor_account_id from consent.consent_records
+            where scope_key=${`care_relationship:${relationshipId}`} limit 1) as consent_actor
       `;
 
       assertEquals(String(proof[0].patient_account), patientAccountId);
@@ -136,7 +140,58 @@ Deno.test({
       assertEquals(String(proof[0].medication_person), patientPersonId);
       assertEquals(String(proof[0].grant_person), patientPersonId);
       assertEquals(String(proof[0].grant_account), caregiverAccountId);
+      assertEquals(String(proof[0].consent_person), patientPersonId);
+      assertEquals(String(proof[0].consent_actor), patientAccountId);
+
+      // Revoke as the caregiver AppUser. Both the access projection and consent
+      // event must resolve the provider-agnostic identities instead of copying
+      // the legacy AppUser UUID into Account/Person foreign keys.
+      await sql`
+        update lifemate.care_relationships
+           set status='Revoked',
+               revoked_by_user_id=${caregiverUserId}::uuid,
+               revoked_at_utc=now(),
+               updated_at_utc=now()
+         where id=${relationshipId}::uuid
+      `;
+
+      const revokedProof = await sql`
+        select
+          (select status from security.access_grants
+            where context_type='care_relationship'
+              and context_id=${relationshipId}::uuid limit 1) as grant_status,
+          (select count(*)::int from security.access_grant_scopes s
+            join security.access_grants g on g.id=s.grant_id
+            where g.context_type='care_relationship'
+              and g.context_id=${relationshipId}::uuid) as remaining_scopes,
+          (select status from consent.consent_records
+            where scope_key=${`care_relationship:${relationshipId}`} limit 1) as consent_status,
+          (select subject_person_id from consent.consent_records
+            where scope_key=${`care_relationship:${relationshipId}`} limit 1) as consent_person,
+          (select actor_account_id from consent.consent_events e
+            join consent.consent_records c on c.id=e.consent_record_id
+            where c.scope_key=${`care_relationship:${relationshipId}`}
+              and e.event_type='Revoked'
+            order by e.occurred_at_utc desc,e.id desc limit 1) as revoke_actor
+      `;
+
+      assertEquals(revokedProof[0].grant_status, "Revoked");
+      assertEquals(Number(revokedProof[0].remaining_scopes), 0);
+      assertEquals(revokedProof[0].consent_status, "Revoked");
+      assertEquals(String(revokedProof[0].consent_person), patientPersonId);
+      assertEquals(String(revokedProof[0].revoke_actor), caregiverAccountId);
     } finally {
+      await sql`
+        delete from consent.consent_events
+        where consent_record_id in (
+          select id from consent.consent_records
+          where scope_key=${`care_relationship:${relationshipId}`}
+        )
+      `.catch(() => undefined);
+      await sql`
+        delete from consent.consent_records
+        where scope_key=${`care_relationship:${relationshipId}`}
+      `.catch(() => undefined);
       await sql`
         delete from lifemate.care_relationships where id=${relationshipId}::uuid
       `.catch(() => undefined);
