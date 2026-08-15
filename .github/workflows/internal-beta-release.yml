@@ -264,6 +264,7 @@ jobs:
       }}
     needs: [deploy-edge, live-role-smoke]
     runs-on: ubuntu-24.04
+    environment: beta
     timeout-minutes: 35
     env:
       RELEASE_NAME: ${{ inputs.release_name }}
