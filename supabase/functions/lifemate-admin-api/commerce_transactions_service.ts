@@ -177,7 +177,10 @@ async function listTransactions(
   );
 }
 
-async function listRecentOrders(sql: AdminSql, query: CommerceTransactionsQuery) {
+async function listRecentOrders(
+  sql: AdminSql,
+  query: CommerceTransactionsQuery,
+) {
   const countRows = await sql`
     select count(*)::integer as total
     from commerce.orders o
