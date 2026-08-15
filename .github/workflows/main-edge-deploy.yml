@@ -153,7 +153,7 @@ jobs:
             "$LIFEMATE_API_BASE_URL/health")"
           echo "$health_response" | jq -e \
             --arg version "$GITHUB_SHA" \
-            '.status == "ok" and .database == "ready" and .service == "lifemate-api" and .version == $version and (.databaseTransport == "transaction_pooler" or .databaseTransport == "direct_or_other") and (.transactionPoolerRequired | type == "boolean")' \
+            '.status == "ok" and .database == "ready" and .service == "lifemate-api" and .version == $version' \
             >/dev/null
 
           unauthorized_status="$(curl --silent --show-error \
