@@ -49,13 +49,15 @@ export type NotificationReadStateResult = {
 };
 
 const ALERT_KEY_PATTERN = /^[a-z][a-z0-9._:-]{2,179}$/;
-const SUPPORT_DEEP_LINK = /^\/support\/[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
-const ROOT_DEEP_LINKS: Record<Exclude<NotificationSource, "support">, RegExp> = {
-  security: /^\/security(?:[/?#].*)?$/,
-  operations: /^\/operations(?:[/?#].*)?$/,
-  finance: /^\/finance(?:[/?#].*)?$/,
-  product: /^\/analytics(?:[/?#].*)?$/,
-};
+const SUPPORT_DEEP_LINK =
+  /^\/support\/[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+const ROOT_DEEP_LINKS: Record<Exclude<NotificationSource, "support">, RegExp> =
+  {
+    security: /^\/security(?:[/?#].*)?$/,
+    operations: /^\/operations(?:[/?#].*)?$/,
+    finance: /^\/finance(?:[/?#].*)?$/,
+    product: /^\/analytics(?:[/?#].*)?$/,
+  };
 
 function parseSources(raw: string | null): NotificationSource[] {
   if (raw == null || raw.trim() === "") return [...notificationSources];
@@ -70,7 +72,9 @@ function parseSources(raw: string | null): NotificationSource[] {
   const unique = [...new Set(values)];
   if (
     unique.length !== values.length ||
-    unique.some((value) => !notificationSources.includes(value as NotificationSource))
+    unique.some((value) =>
+      !notificationSources.includes(value as NotificationSource)
+    )
   ) {
     throw new ApiError(
       400,
@@ -124,7 +128,9 @@ export function authorizedNotificationSources(
   permissions: readonly string[],
 ): NotificationSource[] {
   const allowed = new Set(permissions);
-  return requested.filter((source) => allowed.has(notificationPermission[source]));
+  return requested.filter((source) =>
+    allowed.has(notificationPermission[source])
+  );
 }
 
 export function assertSafeNotificationDeepLink(
@@ -159,7 +165,11 @@ export async function parseNotificationReadStateRequest(
     );
   }
   if (!body || typeof body !== "object" || Array.isArray(body)) {
-    throw new ApiError(400, "invalid_request", "Request body must be an object.");
+    throw new ApiError(
+      400,
+      "invalid_request",
+      "Request body must be an object.",
+    );
   }
 
   const row = body as Record<string, unknown>;
@@ -198,7 +208,9 @@ export async function parseNotificationReadStateRequest(
 export async function hashNotificationReadStateRequest(
   payload: NotificationReadStateRequest,
 ): Promise<string> {
-  const canonical = `v1\n${payload.source}\n${payload.alertKey}\n${payload.read ? "read" : "unread"}`;
+  const canonical = `v1\n${payload.source}\n${payload.alertKey}\n${
+    payload.read ? "read" : "unread"
+  }`;
   const digest = await crypto.subtle.digest(
     "SHA-256",
     new TextEncoder().encode(canonical),
@@ -230,7 +242,10 @@ export function assertNotificationReadStateResult(
       "Notification state result was invalid.",
     );
   }
-  if (row.source != null && !notificationSources.includes(row.source as NotificationSource)) {
+  if (
+    row.source != null &&
+    !notificationSources.includes(row.source as NotificationSource)
+  ) {
     throw new ApiError(
       503,
       "notification_state_unavailable",

@@ -12,7 +12,8 @@ import {
 function assertEquals(actual: unknown, expected: unknown, message?: string) {
   if (JSON.stringify(actual) !== JSON.stringify(expected)) {
     throw new Error(
-      message ?? `Expected ${JSON.stringify(expected)}, got ${JSON.stringify(actual)}`,
+      message ??
+        `Expected ${JSON.stringify(expected)}, got ${JSON.stringify(actual)}`,
     );
   }
 }
@@ -55,7 +56,9 @@ Deno.test("notification queries are allow-listed and bounded", async () => {
   await assertRejects(
     () =>
       parseNotificationQuery(
-        new URL("https://admin.test/api/v1/notifications?sources=support,health"),
+        new URL(
+          "https://admin.test/api/v1/notifications?sources=support,health",
+        ),
       ),
     "notification_sources_invalid",
   );
@@ -118,7 +121,8 @@ Deno.test("notification deep links stay internal and source-scoped", async () =>
   assertEquals(assertSafeNotificationDeepLink("security", null), null);
 
   await assertRejects(
-    () => assertSafeNotificationDeepLink("support", "https://evil.test/support/1"),
+    () =>
+      assertSafeNotificationDeepLink("support", "https://evil.test/support/1"),
     "notification_deep_link_invalid",
   );
   await assertRejects(
@@ -184,10 +188,21 @@ Deno.test("notification read-state idempotency hash changes with state", async (
     alertKey: "operations:outbox:dead-letter",
     source: "operations" as const,
   };
-  const readHash = await hashNotificationReadStateRequest({ ...base, read: true });
-  const replayHash = await hashNotificationReadStateRequest({ ...base, read: true });
-  const unreadHash = await hashNotificationReadStateRequest({ ...base, read: false });
+  const readHash = await hashNotificationReadStateRequest({
+    ...base,
+    read: true,
+  });
+  const replayHash = await hashNotificationReadStateRequest({
+    ...base,
+    read: true,
+  });
+  const unreadHash = await hashNotificationReadStateRequest({
+    ...base,
+    read: false,
+  });
   assertEquals(readHash.length, 64);
   assertEquals(readHash, replayHash);
-  if (readHash === unreadHash) throw new Error("Read and unread hashes must differ");
+  if (readHash === unreadHash) {
+    throw new Error("Read and unread hashes must differ");
+  }
 });

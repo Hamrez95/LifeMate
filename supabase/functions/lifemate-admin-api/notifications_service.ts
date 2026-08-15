@@ -193,7 +193,9 @@ async function loadSupport(
   const items = (rows as unknown as Row[]).map((row): NotificationAlert => {
     const breached = String(row.sla_state) === "Breached";
     const urgent = String(row.priority) === "Urgent";
-    const severity: NotificationSeverity = breached || urgent ? "critical" : "warning";
+    const severity: NotificationSeverity = breached || urgent
+      ? "critical"
+      : "warning";
     const ticketNumber = String(row.ticket_number);
     const title = breached
       ? `SLA تیکت #${ticketNumber} نقض شده است`
@@ -224,7 +226,12 @@ async function loadSupport(
   return {
     items,
     filteredTotal: unreadOnly ? unreadCount : activeTotal,
-    state: sourceState("support", activeTotal, unreadCount, new Date().toISOString()),
+    state: sourceState(
+      "support",
+      activeTotal,
+      unreadCount,
+      new Date().toISOString(),
+    ),
   };
 }
 
@@ -287,7 +294,9 @@ async function loadSecurity(
       alertKey: String(row.alert_key),
       source: "security",
       severity: elevated ? "critical" : "warning",
-      title: elevated ? "دسترسی حساس ناموفق یا رد شده است" : "یک عملیات مدیریتی ناموفق بوده است",
+      title: elevated
+        ? "دسترسی حساس ناموفق یا رد شده است"
+        : "یک عملیات مدیریتی ناموفق بوده است",
       summary: `${String(row.action)} · ${String(row.resource_type)}`,
       occurredAtUtc: iso(row.occurred_at_utc),
       freshnessAtUtc: iso(row.occurred_at_utc),
@@ -302,7 +311,12 @@ async function loadSecurity(
   return {
     items,
     filteredTotal: unreadOnly ? unreadCount : activeTotal,
-    state: sourceState("security", activeTotal, unreadCount, new Date().toISOString()),
+    state: sourceState(
+      "security",
+      activeTotal,
+      unreadCount,
+      new Date().toISOString(),
+    ),
   };
 }
 
@@ -380,7 +394,9 @@ async function loadOperations(
     const critical = oldestAge >= 900;
     const eventAt = shiftedIso(measuredAt, -oldestAge);
     push(
-      critical ? "operations:outbox:lag-critical" : "operations:outbox:lag-warning",
+      critical
+        ? "operations:outbox:lag-critical"
+        : "operations:outbox:lag-warning",
       critical ? "critical" : "warning",
       critical ? "تاخیر Outbox بحرانی است" : "تاخیر Outbox نیاز به توجه دارد",
       `قدیمی‌ترین پیام آماده حدود ${oldestAge} ثانیه در صف مانده است.`,
@@ -417,10 +433,16 @@ async function loadSource(
   unreadOnly: boolean,
   correlationId: string,
 ): Promise<LoadedSource> {
-  if (source === "finance" || source === "product") return notInstrumented(source);
+  if (source === "finance" || source === "product") {
+    return notInstrumented(source);
+  }
   try {
-    if (source === "support") return await loadSupport(sql, accountId, limit, unreadOnly);
-    if (source === "security") return await loadSecurity(sql, accountId, limit, unreadOnly);
+    if (source === "support") {
+      return await loadSupport(sql, accountId, limit, unreadOnly);
+    }
+    if (source === "security") {
+      return await loadSecurity(sql, accountId, limit, unreadOnly);
+    }
     return await loadOperations(sql, accountId, unreadOnly);
   } catch (error) {
     console.warn("LifeMate Admin notification source unavailable", {
@@ -447,13 +469,22 @@ async function listNotifications(
   const perSourceLimit = Math.min(offset + query.pageSize, 250);
   const loaded = await Promise.all(
     authorizedSources.map((source) =>
-      loadSource(sql, accountId, source, perSourceLimit, query.unreadOnly, correlationId)
+      loadSource(
+        sql,
+        accountId,
+        source,
+        perSourceLimit,
+        query.unreadOnly,
+        correlationId,
+      )
     ),
   );
 
   const merged = loaded.flatMap((source) => source.items).sort((a, b) => {
     const time = b.occurredAtUtc.localeCompare(a.occurredAtUtc);
-    return time !== 0 ? time : severityRank(b.severity) - severityRank(a.severity);
+    return time !== 0
+      ? time
+      : severityRank(b.severity) - severityRank(a.severity);
   });
 
   const knownTotal = loaded.reduce(
@@ -465,7 +496,8 @@ async function listNotifications(
     0,
   );
   const complete = loaded.every(
-    (source) => source.state.state === "ready" || source.state.state === "empty",
+    (source) =>
+      source.state.state === "ready" || source.state.state === "empty",
   );
 
   return {
@@ -515,7 +547,8 @@ async function activeAlertExists(
   }
   if (source !== "operations") return false;
 
-  const rows = await sql`select * from admin.notification_operations_queue_snapshot()`;
+  const rows =
+    await sql`select * from admin.notification_operations_queue_snapshot()`;
   const row = (rows[0] ?? {}) as Row;
   if (alertKey === "operations:outbox:dead-letter") {
     return numberValue(row.dead_letter_count) > 0;
@@ -524,7 +557,9 @@ async function activeAlertExists(
     return numberValue(row.stale_processing_count) > 0;
   }
   const age = numberValue(row.oldest_ready_age_seconds);
-  if (alertKey === "operations:outbox:lag-warning") return age >= 120 && age < 900;
+  if (alertKey === "operations:outbox:lag-warning") {
+    return age >= 120 && age < 900;
+  }
   if (alertKey === "operations:outbox:lag-critical") return age >= 900;
   return false;
 }
@@ -537,7 +572,14 @@ export function createNotificationCenterStore(databaseUrl: string) {
       query: NotificationQuery,
       authorizedSources: NotificationSource[],
       correlationId: string,
-    ) => listNotifications(sql, accountId, query, authorizedSources, correlationId),
+    ) =>
+      listNotifications(
+        sql,
+        accountId,
+        query,
+        authorizedSources,
+        correlationId,
+      ),
 
     async count(
       accountId: string,
