@@ -19,7 +19,8 @@ const sql = postgres(databaseUrl, {
 });
 
 Deno.test({
-  name: "token lookup resolves canonical Account to remapped AppUser and fails closed",
+  name:
+    "token lookup resolves canonical Account to remapped AppUser and fails closed",
   sanitizeOps: false,
   sanitizeResources: false,
   fn: async () => {
