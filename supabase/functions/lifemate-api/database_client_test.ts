@@ -7,7 +7,7 @@ import {
   lifeMateDatabaseClientOptions,
 } from "./database_client.ts";
 
-Deno.test("connection exhaustion is returned as retryable unavailability", () => {
+Deno.test("connection exhaustion and query pressure are retryable unavailability", () => {
   assert(isPostgresUnavailable({ code: "53300", message: "too many clients" }));
   assert(
     isPostgresUnavailable({
@@ -17,6 +17,12 @@ Deno.test("connection exhaustion is returned as retryable unavailability", () =>
   );
   assert(
     isPostgresUnavailable({ code: "57014", message: "statement timeout" }),
+  );
+  assert(
+    isPostgresUnavailable({
+      code: "55P03",
+      message: "canceling statement due to lock timeout",
+    }),
   );
   assert(!isPostgresUnavailable({ code: "23505", message: "duplicate key" }));
 });
