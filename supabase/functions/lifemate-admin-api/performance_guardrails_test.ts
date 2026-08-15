@@ -27,15 +27,35 @@ Deno.test("all current admin list surfaces reject deep pagination", () => {
   const tooDeep = ADMIN_MAX_PAGE + 1;
   const cases: Array<() => unknown> = [
     () => parseUserDirectoryQuery(url(`/api/v1/users?page=${tooDeep}`)),
-    () => parseUserActivityQuery(url(`/api/v1/users/id/activity?page=${tooDeep}`)),
-    () => parseRelationshipOverviewQuery(url(`/api/v1/relationships?page=${tooDeep}`)),
-    () => parseRelationshipLedgerQuery(url(`/api/v1/relationships/ledger?page=${tooDeep}`)),
-    () => parseSupportQueueQuery(url(`/api/v1/support/tickets?page=${tooDeep}`)),
-    () => parseSupportTicketEventsQuery(url(`/api/v1/support/tickets/id/events?page=${tooDeep}`)),
+    () =>
+      parseUserActivityQuery(url(`/api/v1/users/id/activity?page=${tooDeep}`)),
+    () =>
+      parseRelationshipOverviewQuery(
+        url(`/api/v1/relationships?page=${tooDeep}`),
+      ),
+    () =>
+      parseRelationshipLedgerQuery(
+        url(`/api/v1/relationships/ledger?page=${tooDeep}`),
+      ),
+    () =>
+      parseSupportQueueQuery(url(`/api/v1/support/tickets?page=${tooDeep}`)),
+    () =>
+      parseSupportTicketEventsQuery(
+        url(`/api/v1/support/tickets/id/events?page=${tooDeep}`),
+      ),
     () => parseCommerceOverviewQuery(url(`/api/v1/commerce?page=${tooDeep}`)),
-    () => parseCommerceDetailQuery(url(`/api/v1/commerce/plans/id?page=${tooDeep}`)),
-    () => parseCommerceTransactionsQuery(url(`/api/v1/commerce/transactions?page=${tooDeep}`)),
-    () => parseCommercePromotionsQuery(url(`/api/v1/commerce/promotions?page=${tooDeep}`)),
+    () =>
+      parseCommerceDetailQuery(
+        url(`/api/v1/commerce/plans/id?page=${tooDeep}`),
+      ),
+    () =>
+      parseCommerceTransactionsQuery(
+        url(`/api/v1/commerce/transactions?page=${tooDeep}`),
+      ),
+    () =>
+      parseCommercePromotionsQuery(
+        url(`/api/v1/commerce/promotions?page=${tooDeep}`),
+      ),
     () => parseGlobalSearchQuery(url(`/api/v1/search?q=ali&page=${tooDeep}`)),
   ];
 
@@ -51,18 +71,28 @@ Deno.test("admin list page size is globally capped", () => {
     ApiError,
   );
   assertThrows(
-    () => parseCommercePromotionsQuery(url(`/api/v1/commerce/promotions?pageSize=${tooLarge}`)),
+    () =>
+      parseCommercePromotionsQuery(
+        url(`/api/v1/commerce/promotions?pageSize=${tooLarge}`),
+      ),
     ApiError,
   );
 });
 
 Deno.test("large synthetic list response stays bounded and no-store", async () => {
   const item = { id: "x".repeat(64), summary: "y".repeat(3500) };
-  const response = json({ items: Array.from({ length: 100 }, () => item) }, 200, null);
+  const response = json(
+    { items: Array.from({ length: 100 }, () => item) },
+    200,
+    null,
+  );
   assertEquals(response.status, 200);
   assertEquals(response.headers.get("cache-control"), "no-store");
   const body = await response.text();
-  assertEquals(new TextEncoder().encode(body).byteLength < ADMIN_MAX_JSON_RESPONSE_BYTES, true);
+  assertEquals(
+    new TextEncoder().encode(body).byteLength < ADMIN_MAX_JSON_RESPONSE_BYTES,
+    true,
+  );
 });
 
 Deno.test("oversized admin response fails closed before browser delivery", () => {
