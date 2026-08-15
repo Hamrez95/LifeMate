@@ -279,7 +279,8 @@ begin
   delete from identity.external_identities where account_id = v_account_id;
 
   update core.account_person_links
-     set status = 'Revoked', updated_at_utc = now()
+     set status = 'Revoked',
+         revoked_at_utc = coalesce(revoked_at_utc,now())
    where account_id = v_account_id;
 
   if v_person_id is not null then
