@@ -68,7 +68,9 @@ Deno.test("refund workflow requires a meaningful reason", async () => {
   const request = new Request("https://admin.test", {
     method: "POST",
     headers: { "content-type": "application/json" },
-    body: JSON.stringify({ reason: "  Refund requested after verified duplicate charge.  " }),
+    body: JSON.stringify({
+      reason: "  Refund requested after verified duplicate charge.  ",
+    }),
   });
   assertEquals(await parseCommerceRefundRequest(request), {
     reason: "Refund requested after verified duplicate charge.",
@@ -176,8 +178,14 @@ Deno.test("transaction detail mapper is privacy-minimized and bigint-safe", () =
   const serialized = JSON.stringify(mapped);
   assert(!serialized.includes("account_id"), "raw account id must not map");
   assert(!serialized.includes("44444444-4444"), "account id must stay hidden");
-  assert(!serialized.includes("provider_reference"), "provider hash key must stay hidden");
-  assert(!serialized.includes("secret-hash"), "provider hash value must stay hidden");
+  assert(
+    !serialized.includes("provider_reference"),
+    "provider hash key must stay hidden",
+  );
+  assert(
+    !serialized.includes("secret-hash"),
+    "provider hash value must stay hidden",
+  );
 });
 
 Deno.test("refund result assertion preserves string-backed amount", () => {
