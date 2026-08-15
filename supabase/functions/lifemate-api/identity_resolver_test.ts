@@ -21,7 +21,9 @@ Deno.test("identity lookup mode defaults to legacy and is strict", () => {
   assertThrows(
     () =>
       readIdentityLookupMode((name) =>
-        name === "LIFEMATE_IDENTITY_LINK_LOOKUP_MODE" ? "token_if_available" : null
+        name === "LIFEMATE_IDENTITY_LINK_LOOKUP_MODE"
+          ? "token_if_available"
+          : null
       ),
     Error,
     "must be legacy, prefer-token, or token-only",
