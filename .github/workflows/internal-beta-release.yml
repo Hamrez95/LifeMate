@@ -32,7 +32,7 @@ permissions:
   contents: read
 
 concurrency:
-  group: internal-beta-release-${{ github.ref }}
+  group: ${{ github.event_name == 'workflow_dispatch' && 'production-edge-deploy' || format('internal-beta-release-{0}', github.ref) }}
   cancel-in-progress: false
 
 env:
@@ -369,7 +369,7 @@ jobs:
             --arg caremateSha256 "$caremate_sha" \
             --arg wellmateSigningCertSha256 "$wellmate_cert_sha256" \
             --arg caremateSigningCertSha256 "$caremate_cert_sha256" \
-            '{releaseName:$releaseName,commit:$commit,apiVersion:$apiVersion,builtAtUtc:$builtAt,channel:"internal/unstable",signing:"founder-owned stable release keystores",apps:{wellmate:{packageId:"com.lifemate.wellmate",sha256:$wellmateSha256,signingCertSha256:$wellmateSigningCertSha256},caremate:{packageId:"com.lifemate.caremate",sha256:$caremateSha256,signingCertSha256:$caremateSigningCertSha256}},knownLimitations:["Not a stable beta or store release","Human device/accessibility/privacy review remains required"]}' \
+            '{releaseName:$releaseName,commit:$commit,apiVersion:$apiVersion,builtAtUtc:$builtAt,channel:"internal/unstable",signing:"founder-owned stable release keystores",apps:{wellmate:{packageId:"com.lifemate.wellmate",sha256:$wellmateSha256,signingCertSha256:$wellmateSigningCertSha256},caremate:{packageId:"com.lifemate.caremate",sha256:$caremateSha256,signingCertSha256:$caremateCertSha256}},knownLimitations:["Not a stable beta or store release","Human device/accessibility/privacy review remains required"]}' \
             > dist/release-manifest.json
 
       - name: Upload versioned internal release bundle
