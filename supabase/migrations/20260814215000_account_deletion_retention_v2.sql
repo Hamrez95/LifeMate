@@ -288,7 +288,7 @@ begin
        set display_name = 'Deleted user',
            locale = 'en',
            time_zone = 'UTC',
-           avatar_key = null,
+           avatar_key = 'person_blue',
            profile_photo_path = null,
            updated_at_utc = now()
      where person_id = v_person_id;
@@ -309,7 +309,7 @@ begin
            email = null,
            locale = 'en',
            time_zone = 'UTC',
-           avatar_key = null,
+           avatar_key = 'person_blue',
            profile_photo_path = null,
            version = version + 1,
            updated_at_utc = now()
