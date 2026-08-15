@@ -13,6 +13,8 @@ import {
 } from "./commerce_detail.ts";
 import { createCommerceDetailStore } from "./commerce_detail_service.ts";
 import { createCommerceOverviewStore } from "./commerce_service.ts";
+import { parseCommerceTransactionsQuery } from "./commerce_transactions.ts";
+import { createCommerceTransactionsStore } from "./commerce_transactions_service.ts";
 import { isPostgresUnavailable } from "./database_client.ts";
 import { parseUserDirectoryQuery } from "./directory.ts";
 import {
@@ -66,6 +68,9 @@ const userAccountActionStore = createUserAccountActionStore(config.databaseUrl);
 const analyticsKpiStore = createAnalyticsKpiStore(config.databaseUrl);
 const commerceOverviewStore = createCommerceOverviewStore(config.databaseUrl);
 const commerceDetailStore = createCommerceDetailStore(config.databaseUrl);
+const commerceTransactionsStore = createCommerceTransactionsStore(
+  config.databaseUrl,
+);
 const relationshipOverviewStore = createRelationshipOverviewStore(
   config.databaseUrl,
 );
@@ -206,6 +211,40 @@ Deno.serve(async (request: Request) => {
           filters: {
             product: query.product,
             status: query.status,
+          },
+          freshness: {
+            status: "fresh",
+            asOfUtc: new Date().toISOString(),
+          },
+        },
+        200,
+        origin,
+      );
+    }
+
+    if (
+      request.method === "GET" &&
+      path === "/api/v1/commerce/transactions"
+    ) {
+      requirePermission(admin, "commerce.read");
+      const query = parseCommerceTransactionsQuery(new URL(request.url));
+      const result = await commerceTransactionsStore.list(query);
+      return json(
+        {
+          ...result,
+          page: query.page,
+          pageSize: query.pageSize,
+          filters: {
+            product: query.product,
+            provider: query.provider,
+            status: query.status,
+            from: query.fromUtc,
+            to: query.toUtc,
+            q: query.referenceId,
+          },
+          source: {
+            kind: "canonical",
+            label: "LifeMate Commerce normalized ledger",
           },
           freshness: {
             status: "fresh",
