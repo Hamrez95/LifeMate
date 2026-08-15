@@ -1,4 +1,9 @@
-import { ApiError, boundedInteger, requireUuid } from "./validation.ts";
+import {
+  ApiError,
+  boundedAdminPage,
+  boundedAdminPageSize,
+  requireUuid,
+} from "./validation.ts";
 
 export type SupportTicketStatus =
   | "Open"
@@ -97,8 +102,12 @@ function assigneeFilter(value: string | null): {
 }
 
 export function parseSupportQueueQuery(url: URL): SupportQueueQuery {
-  const page = boundedInteger(url.searchParams.get("page"), 1, 1, 100_000);
-  const pageSize = boundedInteger(url.searchParams.get("pageSize"), 25, 5, 100);
+  const page = boundedAdminPage(url.searchParams.get("page"));
+  const pageSize = boundedAdminPageSize(
+    url.searchParams.get("pageSize"),
+    25,
+    5,
+  );
   const assignee = assigneeFilter(url.searchParams.get("assignee"));
 
   return {

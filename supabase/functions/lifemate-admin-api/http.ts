@@ -1,4 +1,4 @@
-import { ApiError } from "./validation.ts";
+import { ADMIN_MAX_JSON_RESPONSE_BYTES, ApiError } from "./validation.ts";
 
 const baseHeaders = {
   "content-type": "application/json; charset=utf-8",
@@ -50,7 +50,16 @@ export function json(
   status: number,
   origin: string | null,
 ): Response {
-  return new Response(JSON.stringify(value), {
+  const serialized = JSON.stringify(value);
+  const payloadBytes = new TextEncoder().encode(serialized).byteLength;
+  if (payloadBytes > ADMIN_MAX_JSON_RESPONSE_BYTES) {
+    throw new ApiError(
+      503,
+      "response_payload_budget_exceeded",
+      "Admin API response exceeded the bounded payload budget.",
+    );
+  }
+  return new Response(serialized, {
     status,
     headers: responseHeaders(origin),
   });

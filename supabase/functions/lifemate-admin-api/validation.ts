@@ -9,6 +9,10 @@ export class ApiError extends Error {
   }
 }
 
+export const ADMIN_MAX_PAGE = 100;
+export const ADMIN_MAX_PAGE_SIZE = 100;
+export const ADMIN_MAX_JSON_RESPONSE_BYTES = 512 * 1024;
+
 export function normalizePath(pathname: string): string {
   const marker = "/lifemate-admin-api";
   const index = pathname.indexOf(marker);
@@ -53,6 +57,27 @@ export function boundedInteger(
     );
   }
   return parsed;
+}
+
+export function boundedAdminPage(
+  value: string | null,
+  fallback = 1,
+): number {
+  return boundedInteger(value, fallback, 1, ADMIN_MAX_PAGE);
+}
+
+export function boundedAdminPageSize(
+  value: string | null,
+  fallback: number,
+  minimum = 1,
+  maximum = ADMIN_MAX_PAGE_SIZE,
+): number {
+  return boundedInteger(
+    value,
+    fallback,
+    minimum,
+    Math.min(maximum, ADMIN_MAX_PAGE_SIZE),
+  );
 }
 
 export function requireIdempotencyKey(request: Request): string {

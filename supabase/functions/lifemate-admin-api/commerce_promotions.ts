@@ -1,4 +1,9 @@
-import { ApiError, boundedInteger, requireUuid } from "./validation.ts";
+import {
+  ApiError,
+  boundedAdminPage,
+  boundedAdminPageSize,
+  requireUuid,
+} from "./validation.ts";
 
 export const promotionStatuses = [
   "Draft",
@@ -319,8 +324,8 @@ export function parseCommercePromotionsQuery(
     );
   }
   return {
-    page: boundedInteger(url.searchParams.get("page"), 1, 1, 100_000),
-    pageSize: boundedInteger(url.searchParams.get("pageSize"), 25, 1, 100),
+    page: boundedAdminPage(url.searchParams.get("page")),
+    pageSize: boundedAdminPageSize(url.searchParams.get("pageSize"), 25),
     product: productRaw || null,
     status: statusRaw ? (statusRaw as PromotionStatus) : null,
     q: qRaw || null,

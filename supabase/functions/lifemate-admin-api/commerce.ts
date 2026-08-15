@@ -1,4 +1,8 @@
-import { ApiError, boundedInteger } from "./validation.ts";
+import {
+  ApiError,
+  boundedAdminPage,
+  boundedAdminPageSize,
+} from "./validation.ts";
 
 export const SUBSCRIPTION_STATUSES = [
   "Trial",
@@ -23,8 +27,12 @@ const PRODUCT_CODE = /^[a-z0-9][a-z0-9_-]{0,63}$/i;
 const STATUS_SET = new Set<string>(SUBSCRIPTION_STATUSES);
 
 export function parseCommerceOverviewQuery(url: URL): CommerceOverviewQuery {
-  const page = boundedInteger(url.searchParams.get("page"), 1, 1, 100_000);
-  const pageSize = boundedInteger(url.searchParams.get("pageSize"), 25, 5, 100);
+  const page = boundedAdminPage(url.searchParams.get("page"));
+  const pageSize = boundedAdminPageSize(
+    url.searchParams.get("pageSize"),
+    25,
+    5,
+  );
 
   const rawProduct = url.searchParams.get("product")?.trim() ?? "";
   if (rawProduct && !PRODUCT_CODE.test(rawProduct)) {
