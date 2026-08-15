@@ -17,6 +17,16 @@ export type CommerceRefundRequestResult = {
   replayed: boolean;
 };
 
+export type CommerceRefundCapability = {
+  available: boolean;
+  permissionRequired: "commerce.refund";
+  reason:
+    | "Available"
+    | "MissingPermission"
+    | "TransactionNotEligible"
+    | "WorkflowAlreadyActive";
+};
+
 const DETAIL_PATH = /^\/api\/v1\/commerce\/transactions\/([^/]+)$/i;
 const REFUND_REQUEST_PATH =
   /^\/api\/v1\/commerce\/transactions\/([^/]+)\/actions\/refund-request$/i;
@@ -29,6 +39,39 @@ export function matchCommerceTransactionDetailPath(path: string): string | null 
 export function matchCommerceRefundRequestPath(path: string): string | null {
   const match = REFUND_REQUEST_PATH.exec(path);
   return match ? requireUuid(match[1], "transactionId") : null;
+}
+
+export function getCommerceRefundCapability(input: {
+  normalizedStatus: string;
+  hasActiveWorkflow: boolean;
+  hasPermission: boolean;
+}): CommerceRefundCapability {
+  if (!input.hasPermission) {
+    return {
+      available: false,
+      permissionRequired: "commerce.refund",
+      reason: "MissingPermission",
+    };
+  }
+  if (input.normalizedStatus !== "Succeeded") {
+    return {
+      available: false,
+      permissionRequired: "commerce.refund",
+      reason: "TransactionNotEligible",
+    };
+  }
+  if (input.hasActiveWorkflow) {
+    return {
+      available: false,
+      permissionRequired: "commerce.refund",
+      reason: "WorkflowAlreadyActive",
+    };
+  }
+  return {
+    available: true,
+    permissionRequired: "commerce.refund",
+    reason: "Available",
+  };
 }
 
 export async function parseCommerceRefundRequest(
