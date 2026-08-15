@@ -1,0 +1,82 @@
+name: gateway-policy
+
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - 'config/lifemate-edge-gateway-policy.json'
+      - 'tools/operations/gateway_policy.ts'
+      - 'tools/operations/gateway_policy_test.ts'
+      - 'docs/operations/edge-gateway.md'
+      - 'supabase/functions/lifemate-api/validation.ts'
+      - 'supabase/functions/lifemate-api/profile_photo.ts'
+      - '.github/workflows/gateway-policy.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'config/lifemate-edge-gateway-policy.json'
+      - 'tools/operations/gateway_policy.ts'
+      - 'tools/operations/gateway_policy_test.ts'
+      - 'docs/operations/edge-gateway.md'
+      - 'supabase/functions/lifemate-api/validation.ts'
+      - 'supabase/functions/lifemate-api/profile_photo.ts'
+      - '.github/workflows/gateway-policy.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  contract:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
+        with:
+          show-progress: false
+          persist-credentials: false
+
+      - uses: denoland/setup-deno@22d081ff2d3a40755e97629de92e3bcbfa7cf2ed
+        with:
+          deno-version: v2.9.4
+
+      - name: Format gateway tooling
+        run: deno fmt --check tools/operations/gateway_policy.ts tools/operations/gateway_policy_test.ts config/lifemate-edge-gateway-policy.json
+
+      - name: Type check gateway tooling
+        run: deno check tools/operations/gateway_policy.ts tools/operations/gateway_policy_test.ts
+
+      - name: Run gateway regression contract
+        run: deno test --allow-read=config/lifemate-edge-gateway-policy.json tools/operations/gateway_policy_test.ts
+
+      - name: Prove gateway body limits match the application
+        shell: bash
+        run: |
+          set -euo pipefail
+          grep -Fq 'maxBytes = 32 * 1024' supabase/functions/lifemate-api/validation.ts
+          grep -Fq 'profilePhotoMaximumBytes = 3 * 1024 * 1024' supabase/functions/lifemate-api/profile_photo.ts
+          jq -e '.defaults.jsonMaximumBytes == 32768 and .defaults.binaryMaximumBytes == 3145728' config/lifemate-edge-gateway-policy.json >/dev/null
+
+      - name: Generate provider handoff summary
+        run: deno run --allow-read=config/lifemate-edge-gateway-policy.json --allow-write=gateway-policy-summary.json tools/operations/gateway_policy.ts config/lifemate-edge-gateway-policy.json gateway-policy-summary.json
+
+      - name: Verify no runtime secrets or production origin are embedded
+        shell: bash
+        run: |
+          set -euo pipefail
+          if grep -R -n -E 'SUPABASE_SERVICE_ROLE_KEY|UPSTASH_REDIS_REST_TOKEN|postgresql://|Bearer [A-Za-z0-9._-]+' \
+            config/lifemate-edge-gateway-policy.json tools/operations/gateway_policy.ts docs/operations/edge-gateway.md; then
+            echo 'Gateway policy/runbook contains a forbidden runtime credential pattern.' >&2
+            exit 1
+          fi
+          if grep -R -n 'bwdvmniywyyijjauipnh' config/lifemate-edge-gateway-policy.json docs/operations/edge-gateway.md; then
+            echo 'Vendor-neutral gateway policy/runbook must not hard-code the production Supabase origin.' >&2
+            exit 1
+          fi
+
+      - name: Upload provider-neutral gateway policy evidence
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: lifemate-edge-gateway-policy-${{ github.sha }}
+          path: gateway-policy-summary.json
+          if-no-files-found: error
+          retention-days: 14
