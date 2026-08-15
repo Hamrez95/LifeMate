@@ -1,5 +1,8 @@
 import { assertEquals, assertThrows } from "jsr:@std/assert@1.0.14";
-import { parseClientErrorTelemetry } from "./privacy_safe_event.ts";
+import {
+  parseClientErrorTelemetry,
+  SubjectTelemetryRateLimiter,
+} from "./privacy_safe_event.ts";
 
 const valid = {
   eventId: "123e4567-e89b-42d3-a456-426614174888",
@@ -47,4 +50,20 @@ Deno.test("rejects unbounded or free-form error fields", () => {
     Error,
     "stack_fingerprint_invalid",
   );
+});
+
+Deno.test("rate limiter bounds events per authenticated subject", () => {
+  const limiter = new SubjectTelemetryRateLimiter(2, 60_000, 10);
+  assertEquals(limiter.allow("subject-a", 1_000), true);
+  assertEquals(limiter.allow("subject-a", 2_000), true);
+  assertEquals(limiter.allow("subject-a", 3_000), false);
+  assertEquals(limiter.allow("subject-b", 3_000), true);
+  assertEquals(limiter.allow("subject-a", 61_001), true);
+});
+
+Deno.test("rate limiter fails closed when subject memory cap is reached", () => {
+  const limiter = new SubjectTelemetryRateLimiter(2, 60_000, 1);
+  assertEquals(limiter.allow("subject-a", 1_000), true);
+  assertEquals(limiter.allow("subject-b", 2_000), false);
+  assertEquals(limiter.allow("subject-b", 61_001), true);
 });
