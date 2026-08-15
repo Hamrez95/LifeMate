@@ -3,6 +3,7 @@ import {
   type ClientErrorTelemetry,
   parseClientErrorTelemetry,
   safeValidationCode,
+  SubjectTelemetryRateLimiter,
 } from "./privacy_safe_event.ts";
 
 const corsHeaders = {
@@ -17,6 +18,7 @@ const corsHeaders = {
 const supabaseUrl = Deno.env.get("SUPABASE_URL")?.trim() ?? "";
 const publishableKey = Deno.env.get("SUPABASE_PUBLISHABLE_KEY")?.trim() ??
   Deno.env.get("SUPABASE_ANON_KEY")?.trim() ?? "";
+const admission = new SubjectTelemetryRateLimiter();
 
 if (!/^https:\/\//.test(supabaseUrl) || publishableKey.length < 20) {
   throw new Error("LifeMate telemetry runtime configuration is incomplete.");
@@ -35,12 +37,14 @@ Deno.serve(async (request: Request) => {
     return json({ code: "unauthorized" }, 401);
   }
 
-  const authenticated = await fetch(`${supabaseUrl}/auth/v1/user`, {
-    headers: { Authorization: authorization, apikey: publishableKey },
-    signal: AbortSignal.timeout(5_000),
-  }).then((response) => response.ok).catch(() => false);
-  if (!authenticated) {
+  const subject = await authenticatedSubject(authorization);
+  if (subject === null) {
     return json({ code: "unauthorized" }, 401);
+  }
+  if (!admission.allow(subject)) {
+    return json({ code: "telemetry_rate_limited" }, 429, {
+      "Retry-After": "60",
+    });
   }
 
   let body: unknown;
@@ -66,8 +70,33 @@ Deno.serve(async (request: Request) => {
   return json({ accepted: true, eventId: event.eventId }, 202);
 });
 
-function json(value: unknown, status: number): Response {
-  return new Response(JSON.stringify(value), { status, headers: corsHeaders });
+async function authenticatedSubject(authorization: string): Promise<string | null> {
+  try {
+    const response = await fetch(`${supabaseUrl}/auth/v1/user`, {
+      headers: { Authorization: authorization, apikey: publishableKey },
+      signal: AbortSignal.timeout(5_000),
+    });
+    if (!response.ok) return null;
+    const body: unknown = await response.json();
+    if (!isRecord(body) || typeof body.id !== "string") return null;
+    return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
+        .test(body.id)
+      ? body.id.toLowerCase()
+      : null;
+  } catch (_) {
+    return null;
+  }
+}
+
+function json(
+  value: unknown,
+  status: number,
+  extraHeaders: Record<string, string> = {},
+): Response {
+  return new Response(JSON.stringify(value), {
+    status,
+    headers: { ...corsHeaders, ...extraHeaders },
+  });
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
