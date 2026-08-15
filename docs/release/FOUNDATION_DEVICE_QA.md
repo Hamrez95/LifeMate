@@ -7,7 +7,7 @@ Applies to both:
 - WellMate — `com.lifemate.wellmate`
 - CareMate — `com.lifemate.caremate`
 
-Canonical release gate: GitHub issue #170 and the manual `main-final-android-release` workflow.
+**Controlling stable-beta release gate: GitHub issue #14.** Foundation Closure #170 is a required subordinate engineering checkpoint, and the manual `main-final-android-release` workflow is the artifact mechanism. Passing #170 or the workflow never overrides unresolved P0 requirements in #14.
 
 ## Candidate identity
 
@@ -30,11 +30,12 @@ If any artifact is rebuilt or the deployed Edge SHA changes, the affected eviden
 
 ## Representative device matrix
 
-At minimum use installed release-signed APKs on representative physical Android devices. Record for each device:
+At minimum use installed release-signed APKs on **multiple representative physical Android devices**, including **at least one lower- or mid-range device** rather than testing only recent flagship hardware. Record for each device:
 
 | Field | Evidence |
 |---|---|
 | Manufacturer / model | pending |
+| Device tier | lower/mid-range or flagship; at least one lower/mid-range required |
 | Android version / API level | pending |
 | Screen size / resolution | pending |
 | Locale | `fa` and `en` coverage required |
@@ -43,7 +44,7 @@ At minimum use installed release-signed APKs on representative physical Android 
 | WellMate install / version | pending |
 | CareMate install / version | pending |
 
-The final supported Android range is recorded from the actual release APK metadata plus the physical devices exercised. Do not infer support from a developer machine alone.
+The final supported Android range is recorded from the actual release APK metadata plus the physical devices exercised. Do not infer support from a developer machine alone. Device selection should cover materially different Android/API/OEM constraints where available, not two near-identical flagship devices.
 
 ## P0 install, identity and authentication
 
@@ -162,6 +163,7 @@ CareMate minSdk / targetSdk:
 
 Device 1:
 - model:
+- device tier (lower/mid-range or flagship):
 - Android/API:
 - locale/text scale:
 - battery restriction state:
@@ -171,12 +173,15 @@ Device 1:
 
 Device 2:
 - model:
+- device tier (lower/mid-range or flagship):
 - Android/API:
 - locale/text scale:
 - battery restriction state:
 - checks passed:
 - checks failed:
 - notes:
+
+At least one recorded device is lower/mid-range: yes/no
 
 Open P0 findings:
 Tester:
@@ -189,10 +194,11 @@ Do not place account passwords, JWTs, phone/email values, medication names or re
 
 A stable invite-only beta is not approved until:
 
-1. exact-main Edge/version and live role smoke gates pass;
-2. release-signed WellMate/CareMate artifacts and hashes/certificates are recorded;
-3. every applicable P0 physical check above has evidence on representative devices;
-4. unresolved failures are either fixed and retested or explicitly removed from release scope by a safety-preserving product decision;
-5. jurisdiction-specific privacy/legal review and other external Foundation blockers are resolved separately.
+1. **issue #14, the controlling stable-beta gate, is fully satisfied**; Foundation Closure #170 must be complete as one of its engineering prerequisites but does not replace #14;
+2. exact-main Edge/version and live role smoke gates pass;
+3. release-signed WellMate/CareMate artifacts and hashes/certificates are recorded;
+4. every applicable P0 physical check above has evidence on multiple representative devices, including at least one lower/mid-range physical Android device;
+5. unresolved failures are either fixed and retested or explicitly removed from release scope by a safety-preserving product decision;
+6. jurisdiction-specific privacy/legal review and other external Foundation blockers are resolved separately.
 
-CI success, emulator tests, local PostgreSQL smoke, or this checklist alone can never be used as a substitute for the physical-device evidence.
+CI success, emulator tests, local PostgreSQL smoke, Foundation #170 alone, or this checklist alone can never be used as a substitute for the controlling issue #14 release gate and the physical-device evidence.
