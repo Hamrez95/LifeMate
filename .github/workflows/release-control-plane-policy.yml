@@ -1,0 +1,39 @@
+name: release-control-plane-policy
+
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - '.github/workflows/main-edge-deploy.yml'
+      - '.github/workflows/internal-beta-release.yml'
+      - '.github/workflows/flutter.yml'
+      - '.github/workflows/release-control-plane-policy.yml'
+      - 'tools/release/verify-production-deploy-control-plane.mjs'
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/main-edge-deploy.yml'
+      - '.github/workflows/internal-beta-release.yml'
+      - '.github/workflows/flutter.yml'
+      - '.github/workflows/release-control-plane-policy.yml'
+      - 'tools/release/verify-production-deploy-control-plane.mjs'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-control-plane-policy-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  policy:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
+        with:
+          show-progress: false
+          persist-credentials: false
+
+      - name: Verify production deployment control plane
+        run: node tools/release/verify-production-deploy-control-plane.mjs
