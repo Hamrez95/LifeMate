@@ -42,10 +42,15 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          grep -Fq 'loadReadinessDatabaseUrl' index.ts
+          grep -Fq 'loadReadinessDatabaseConfig' index.ts
           grep -Fq 'current_user as role_name' index.ts
           grep -Fq 'mode: "lightweight"' index.ts
-          grep -Fq 'statement_timeout: 1500' index.ts
+          grep -Fq 'databaseTransport' index.ts
+          grep -Fq 'transactionPoolerRequired' index.ts
+          grep -Fq 'statement_timeout: 1500' runtime_database.ts
+          grep -Fq 'max: 1' runtime_database.ts
+          grep -Fq 'parseReadinessBoolean' runtime_database.ts
+          grep -Fq 'safeReadinessFailureCode' index.ts
           if grep -Eq 'runtime_readiness_probe|health_observations|dose_occurrences|pg_roles|sql\.begin|insert into|update .* set|delete from' index.ts; then
             echo 'Frequent readiness must remain one small read-only dependency query.' >&2
             exit 1
