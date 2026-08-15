@@ -16,6 +16,36 @@ export type ClientErrorTelemetry = {
   fatal: boolean;
 };
 
+export class SubjectTelemetryRateLimiter {
+  #windows = new Map<string, { startedAt: number; count: number }>();
+
+  constructor(
+    private readonly permitLimit = 20,
+    private readonly windowMs = 60_000,
+    private readonly maximumSubjects = 5_000,
+  ) {}
+
+  allow(subject: string, now = Date.now()): boolean {
+    this.#prune(now);
+    const current = this.#windows.get(subject);
+    if (!current || now - current.startedAt >= this.windowMs) {
+      if (!current && this.#windows.size >= this.maximumSubjects) return false;
+      this.#windows.set(subject, { startedAt: now, count: 1 });
+      return true;
+    }
+    if (current.count >= this.permitLimit) return false;
+    current.count += 1;
+    return true;
+  }
+
+  #prune(now: number): void {
+    if (this.#windows.size < this.maximumSubjects) return;
+    for (const [subject, window] of this.#windows) {
+      if (now - window.startedAt >= this.windowMs) this.#windows.delete(subject);
+    }
+  }
+}
+
 export function parseClientErrorTelemetry(
   input: Record<string, unknown>,
 ): ClientErrorTelemetry {
