@@ -36,33 +36,27 @@ export function mapCommerceTransactionDetailRow(row: Record<string, unknown>) {
     receivedAtUtc: iso(row.received_at_utc),
     createdAtUtc: iso(row.created_at_utc),
     updatedAtUtc: iso(row.updated_at_utc),
-    order: row.order_id == null
-      ? null
-      : {
-        orderId: String(row.order_id),
-        status: String(row.order_status),
-        amountMinor: String(row.order_amount_minor),
-        currency: String(row.order_currency),
-        occurredAtUtc: iso(row.order_occurred_at_utc),
-        createdAtUtc: iso(row.order_created_at_utc),
-        updatedAtUtc: iso(row.order_updated_at_utc),
+    order: row.order_id == null ? null : {
+      orderId: String(row.order_id),
+      status: String(row.order_status),
+      amountMinor: String(row.order_amount_minor),
+      currency: String(row.order_currency),
+      occurredAtUtc: iso(row.order_occurred_at_utc),
+      createdAtUtc: iso(row.order_created_at_utc),
+      updatedAtUtc: iso(row.order_updated_at_utc),
+    },
+    subscription: row.subscription_id == null ? null : {
+      subscriptionId: String(row.subscription_id),
+      status: String(row.subscription_status),
+      startsAtUtc: iso(row.subscription_starts_at_utc),
+      currentPeriodEndUtc: nullableIso(row.subscription_period_end_utc),
+      cancelledAtUtc: nullableIso(row.subscription_cancelled_at_utc),
+      plan: row.plan_id == null ? null : {
+        planId: String(row.plan_id),
+        code: String(row.plan_code),
+        name: String(row.plan_name),
       },
-    subscription: row.subscription_id == null
-      ? null
-      : {
-        subscriptionId: String(row.subscription_id),
-        status: String(row.subscription_status),
-        startsAtUtc: iso(row.subscription_starts_at_utc),
-        currentPeriodEndUtc: nullableIso(row.subscription_period_end_utc),
-        cancelledAtUtc: nullableIso(row.subscription_cancelled_at_utc),
-        plan: row.plan_id == null
-          ? null
-          : {
-            planId: String(row.plan_id),
-            code: String(row.plan_code),
-            name: String(row.plan_name),
-          },
-      },
+    },
   };
 }
 
@@ -207,7 +201,9 @@ export function createCommerceTransactionDetailStore(databaseUrl: string) {
       const [providerEvents, refundRequests, auditEvents] = await Promise.all([
         listProviderEvents(sql, transactionId),
         listRefundRequests(sql, transactionId),
-        includeAudit ? listAuditEvents(sql, transactionId) : Promise.resolve(null),
+        includeAudit
+          ? listAuditEvents(sql, transactionId)
+          : Promise.resolve(null),
       ]);
 
       return {
