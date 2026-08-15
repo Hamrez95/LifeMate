@@ -1,4 +1,9 @@
-import { ApiError, boundedInteger, requireUuid } from "./validation.ts";
+import {
+  ApiError,
+  boundedAdminPage,
+  boundedAdminPageSize,
+  requireUuid,
+} from "./validation.ts";
 
 export type SupportTicketAction =
   | "add_note"
@@ -87,8 +92,8 @@ export function matchSupportTicketActionPath(
 export function parseSupportTicketEventsQuery(
   url: URL,
 ): SupportTicketEventsQuery {
-  const page = boundedInteger(url.searchParams.get("page"), 1, 1, 100_000);
-  const pageSize = boundedInteger(url.searchParams.get("pageSize"), 20, 5, 50);
+  const page = boundedAdminPage(url.searchParams.get("page"));
+  const pageSize = boundedAdminPageSize(url.searchParams.get("pageSize"), 20, 5, 50);
   return { page, pageSize, offset: (page - 1) * pageSize };
 }
 
