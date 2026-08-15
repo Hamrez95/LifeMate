@@ -78,7 +78,9 @@ export function validateReadinessDatabaseTransport(
   }
 }
 
-export async function loadReadinessDatabaseConfig(): Promise<ReadinessDatabaseConfig> {
+export async function loadReadinessDatabaseConfig(): Promise<
+  ReadinessDatabaseConfig
+> {
   const explicitRuntimeDatabaseUrl = Deno.env.get("LIFEMATE_DB_URL");
   const transactionPoolerRequired = parseReadinessBoolean(
     "LIFEMATE_REQUIRE_TRANSACTION_POOLER",
