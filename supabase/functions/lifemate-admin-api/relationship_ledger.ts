@@ -1,4 +1,8 @@
-import { ApiError, boundedInteger } from "./validation.ts";
+import {
+  ApiError,
+  boundedAdminPage,
+  boundedAdminPageSize,
+} from "./validation.ts";
 import type { RelationshipOverviewKind } from "./relationships.ts";
 
 export type RelationshipLedgerQuery = {
@@ -99,8 +103,8 @@ export function parseRelationshipLedgerQuery(
   }
 
   return {
-    page: boundedInteger(url.searchParams.get("page"), 1, 1, 100_000),
-    pageSize: boundedInteger(url.searchParams.get("pageSize"), 25, 5, 100),
+    page: boundedAdminPage(url.searchParams.get("page")),
+    pageSize: boundedAdminPageSize(url.searchParams.get("pageSize"), 25, 5),
     kind: readKind(url.searchParams.get("kind")),
     status: readStatus(url.searchParams.get("status")),
     from,
