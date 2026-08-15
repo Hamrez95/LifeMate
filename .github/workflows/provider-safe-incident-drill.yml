@@ -30,6 +30,7 @@ jobs:
           --health-retries 10
     env:
       DRILL_DATABASE_URL: postgres://postgres:postgres@localhost:5432/lifemate_ops_drill
+      READINESS_PROBE_ID: 123e4567-e89b-42d3-a456-426614174888
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
         with:
@@ -44,6 +45,7 @@ jobs:
           set -euo pipefail
           test "$GITHUB_EVENT_NAME" = 'workflow_dispatch'
           test "$DRILL_DATABASE_URL" = 'postgres://postgres:postgres@localhost:5432/lifemate_ops_drill'
+          test "$READINESS_PROBE_ID" = '123e4567-e89b-42d3-a456-426614174888'
           test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
           printf 'drill_started_at=%s\n' "$(date -u +%Y-%m-%dT%H:%M:%SZ)" >> "$GITHUB_ENV"
           printf 'drill_started_epoch=%s\n' "$(date -u +%s)" >> "$GITHUB_ENV"
@@ -62,11 +64,16 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          psql "$DRILL_DATABASE_URL" --set=ON_ERROR_STOP=1 <<'SQL'
+          baseline="$(psql "$DRILL_DATABASE_URL" --set=ON_ERROR_STOP=1 --tuples-only --no-align \
+            --set=probe_id="$READINESS_PROBE_ID" <<'SQL'
           set role lifemate_edge_runtime;
-          select id from security.runtime_readiness_probe where id=1;
+          select marker
+          from security.runtime_readiness_probe
+          where id=:'probe_id'::uuid;
           reset role;
           SQL
+          )"
+          grep -qx 'lifemate-readiness-seed' <<<"$baseline"
 
       - name: Induce provider-safe readiness failure
         shell: bash
@@ -81,9 +88,12 @@ jobs:
         run: |
           set -euo pipefail
           probe_log="$RUNNER_TEMP/provider-safe-probe.log"
-          if psql "$DRILL_DATABASE_URL" --set=ON_ERROR_STOP=1 >"$probe_log" 2>&1 <<'SQL'
+          if psql "$DRILL_DATABASE_URL" --set=ON_ERROR_STOP=1 \
+            --set=probe_id="$READINESS_PROBE_ID" >"$probe_log" 2>&1 <<'SQL'
           set role lifemate_edge_runtime;
-          select id from security.runtime_readiness_probe where id=1;
+          select marker
+          from security.runtime_readiness_probe
+          where id=:'probe_id'::uuid;
           SQL
           then
             echo '::error::Synthetic readiness failure was not detected.'
@@ -100,11 +110,16 @@ jobs:
           set -euo pipefail
           psql "$DRILL_DATABASE_URL" --set=ON_ERROR_STOP=1 \
             -c 'grant select on security.runtime_readiness_probe to lifemate_edge_runtime;'
-          psql "$DRILL_DATABASE_URL" --set=ON_ERROR_STOP=1 <<'SQL'
+          recovered="$(psql "$DRILL_DATABASE_URL" --set=ON_ERROR_STOP=1 --tuples-only --no-align \
+            --set=probe_id="$READINESS_PROBE_ID" <<'SQL'
           set role lifemate_edge_runtime;
-          select id from security.runtime_readiness_probe where id=1;
+          select marker
+          from security.runtime_readiness_probe
+          where id=:'probe_id'::uuid;
           reset role;
           SQL
+          )"
+          grep -qx 'lifemate-readiness-seed' <<<"$recovered"
           printf 'rollback_recovered_at=%s\n' "$(date -u +%Y-%m-%dT%H:%M:%SZ)" >> "$GITHUB_ENV"
 
       - name: Exercise forward-fix path
