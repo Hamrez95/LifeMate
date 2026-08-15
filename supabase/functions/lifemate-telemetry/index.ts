@@ -70,7 +70,9 @@ Deno.serve(async (request: Request) => {
   return json({ accepted: true, eventId: event.eventId }, 202);
 });
 
-async function authenticatedSubject(authorization: string): Promise<string | null> {
+async function authenticatedSubject(
+  authorization: string,
+): Promise<string | null> {
   try {
     const response = await fetch(`${supabaseUrl}/auth/v1/user`, {
       headers: { Authorization: authorization, apikey: publishableKey },
