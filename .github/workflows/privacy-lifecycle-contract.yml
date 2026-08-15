@@ -8,7 +8,9 @@ on:
       - 'packages/lifemate_client/lib/src/account_deletion_action.dart'
       - 'packages/lifemate_ui/lib/src/shared_profile_screen.dart'
       - 'supabase/functions/lifemate-api/account_lifecycle.ts'
+      - 'supabase/functions/lifemate-api/account_lifecycle_integration_test.ts'
       - 'supabase/functions/lifemate-api/data_export.ts'
+      - 'supabase/functions/lifemate-api/data_export_integration_test.ts'
       - 'supabase/functions/lifemate-worker/**'
       - 'supabase/migrations/**account_deletion**'
       - 'tools/operations/privacy_lifecycle_contract_test.ts'
@@ -20,7 +22,9 @@ on:
       - 'packages/lifemate_client/lib/src/account_deletion_action.dart'
       - 'packages/lifemate_ui/lib/src/shared_profile_screen.dart'
       - 'supabase/functions/lifemate-api/account_lifecycle.ts'
+      - 'supabase/functions/lifemate-api/account_lifecycle_integration_test.ts'
       - 'supabase/functions/lifemate-api/data_export.ts'
+      - 'supabase/functions/lifemate-api/data_export_integration_test.ts'
       - 'supabase/functions/lifemate-worker/**'
       - 'supabase/migrations/**account_deletion**'
       - 'tools/operations/privacy_lifecycle_contract_test.ts'
@@ -48,6 +52,56 @@ jobs:
           deno-version: v2.9.4
 
       - name: Verify privacy lifecycle runtime and product wording stay aligned
+        shell: bash
         run: |
+          set -euo pipefail
           deno fmt --check tools/operations/privacy_lifecycle_contract_test.ts
           deno test --allow-read tools/operations/privacy_lifecycle_contract_test.ts
+
+  postgres-contract:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    services:
+      postgres:
+        image: postgres:17.6-alpine
+        env:
+          POSTGRES_DB: lifemate_privacy_contract
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d lifemate_privacy_contract"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      TEST_DATABASE_URL: postgres://postgres:postgres@localhost:5432/lifemate_privacy_contract
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
+        with:
+          show-progress: false
+          persist-credentials: false
+
+      - uses: denoland/setup-deno@22d081ff2d3a40755e97629de92e3bcbfa7cf2ed
+        with:
+          deno-version: v2.9.4
+
+      - name: Apply canonical PostgreSQL schema
+        shell: bash
+        run: |
+          set -euo pipefail
+          psql "$TEST_DATABASE_URL" --set=ON_ERROR_STOP=1 --file=supabase/bootstrap/legacy_lifemate_baseline.sql
+          while IFS= read -r migration; do
+            psql "$TEST_DATABASE_URL" --set=ON_ERROR_STOP=1 --file="$migration"
+          done < <(find supabase/migrations -maxdepth 1 -type f -name '*.sql' | sort)
+
+      - name: Prove mapped deletion request and portable export exclusions
+        working-directory: supabase/functions/lifemate-api
+        shell: bash
+        run: |
+          set -euo pipefail
+          deno fmt --check account_lifecycle_integration_test.ts data_export_integration_test.ts
+          deno test --no-check --allow-env --allow-net=localhost:5432,127.0.0.1:5432 \
+            account_lifecycle_integration_test.ts \
+            data_export_integration_test.ts

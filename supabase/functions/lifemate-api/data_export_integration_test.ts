@@ -14,7 +14,7 @@ const contactSecret = "integration-only-contact-secret-with-32-plus-characters";
 
 Deno.test({
   name:
-    "self-service export includes owned data but excludes linked-user ids and invitation hashes",
+    "self-service export includes owned data but excludes linked-user and identity secrets",
   sanitizeOps: false,
   sanitizeResources: false,
   fn: async () => {
@@ -32,6 +32,12 @@ Deno.test({
     );
     let patientId: string | null = null;
     let linkedId: string | null = null;
+    let patientAccountId: string | null = null;
+    const providerSubject = `provider-subject-must-not-export-${suffix}`;
+    const identityContactHash =
+      `identity-contact-hash-must-not-export-${suffix}`;
+    const encryptedContactSentinel =
+      `encrypted-contact-must-not-export-${suffix}`;
 
     try {
       await db.bootstrapUser(patientAuth, {
@@ -48,6 +54,30 @@ Deno.test({
       const linked = await db.requireIdentity(linkedAuth);
       patientId = patient.appUserId;
       linkedId = linked.appUserId;
+
+      const accountRows = await sql`
+        select identity.account_id_for_legacy_app_user(${patientId}::uuid) as account_id
+      `;
+      patientAccountId = String(accountRows[0]?.account_id ?? "");
+      assert(patientAccountId.length > 0);
+
+      await sql`
+        insert into identity.external_identities
+          (account_id, provider, issuer, provider_subject, status,
+           created_at_utc, last_authenticated_at_utc)
+        values
+          (${patientAccountId}::uuid, 'privacy-test', 'integration.test',
+           ${providerSubject}, 'Active', now(), now())
+      `;
+      await sql`
+        insert into identity.contact_points
+          (account_id, kind, normalized_value_hash, encrypted_value, status,
+           verified_at_utc, created_at_utc, updated_at_utc)
+        values
+          (${patientAccountId}::uuid, 'Email', ${identityContactHash},
+           convert_to(${encryptedContactSentinel}, 'UTF8'), 'Verified',
+           now(), now(), now())
+      `;
 
       await db.createMedication(patientId, {
         name: `private-medication-${suffix}`,
@@ -99,6 +129,29 @@ Deno.test({
       assert(!encoded.includes(linkedId));
       assert(!encoded.includes(invitationContactHash));
       assert(!encoded.includes(invitationTokenHash));
+      assert(!encoded.includes(providerSubject));
+      assert(!encoded.includes(identityContactHash));
+      assert(!encoded.includes(encryptedContactSentinel));
+
+      const identity = exported.identity as Record<string, unknown>;
+      const externalIdentities = identity.externalIdentities as Array<
+        Record<string, unknown>
+      >;
+      const privacyIdentity = externalIdentities.find((row) =>
+        row.provider === "privacy-test"
+      );
+      assert(privacyIdentity);
+      assertEquals(privacyIdentity.issuer, "integration.test");
+      assert(!("providerSubject" in privacyIdentity));
+
+      const contactPoints = identity.contactPoints as Array<
+        Record<string, unknown>
+      >;
+      assert(contactPoints.length >= 1);
+      for (const contactPoint of contactPoints) {
+        assert(!("normalizedValueHash" in contactPoint));
+        assert(!("encryptedValue" in contactPoint));
+      }
 
       const careAndConsent = exported.careAndConsent as Record<string, unknown>;
       const relationships = careAndConsent.relationships as Array<
@@ -109,6 +162,19 @@ Deno.test({
       assert(!("caregiverUserId" in relationships[0]));
       assert(!("patientUserId" in relationships[0]));
     } finally {
+      if (patientAccountId) {
+        await sql`
+          delete from identity.contact_points
+          where account_id=${patientAccountId}::uuid
+            and normalized_value_hash=${identityContactHash}
+        `.catch(() => undefined);
+        await sql`
+          delete from identity.external_identities
+          where account_id=${patientAccountId}::uuid
+            and provider='privacy-test'
+            and provider_subject=${providerSubject}
+        `.catch(() => undefined);
+      }
       const ids = [patientId, linkedId].filter(
         (value): value is string =>
           value != null && value !== "undefined" && value.length > 0,
