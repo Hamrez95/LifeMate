@@ -12,12 +12,13 @@ on:
   workflow_dispatch:
     inputs:
       confirm_foundation_release:
-        description: Type RELEASE-FOUNDATION-CLOSED after all executable foundation gates are complete
+        description: Type RELEASE-FOUNDATION-CLOSED only after canonical GitHub #170 is closed with all human/provider evidence
         required: true
         type: string
 
 permissions:
   contents: read
+  issues: read
 
 concurrency:
   group: ${{ github.event_name == 'workflow_dispatch' && 'production-edge-deploy' || format('main-final-android-release-{0}', github.sha) }}
@@ -95,6 +96,18 @@ jobs:
           test "$GITHUB_REF" = 'refs/heads/main'
           test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
           test "$CONFIRM_FOUNDATION_RELEASE" = 'RELEASE-FOUNDATION-CLOSED'
+
+      - name: Require canonical Foundation Closure issue closed
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          issue_state="$(gh api "repos/$GITHUB_REPOSITORY/issues/170" --jq '.state')"
+          if [ "$issue_state" != 'closed' ]; then
+            echo '::error::Canonical Foundation Closure issue #170 must be closed before a stable build.'
+            exit 1
+          fi
 
       - uses: denoland/setup-deno@22d081ff2d3a40755e97629de92e3bcbfa7cf2ed
         with:
