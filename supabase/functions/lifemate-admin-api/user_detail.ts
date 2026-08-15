@@ -1,4 +1,8 @@
-import { ApiError, boundedInteger } from "./validation.ts";
+import {
+  ApiError,
+  boundedAdminPage,
+  boundedAdminPageSize,
+} from "./validation.ts";
 
 const DETAIL_PATH = /^\/api\/v1\/users\/([0-9a-f-]{36})$/i;
 const ACTIVITY_PATH = /^\/api\/v1\/users\/([0-9a-f-]{36})\/activity$/i;
@@ -33,7 +37,7 @@ export function matchUserActivityPath(path: string): string | null {
 
 export function parseUserActivityQuery(url: URL): UserActivityQuery {
   return {
-    page: boundedInteger(url.searchParams.get("page"), 1, 1, 100_000),
-    pageSize: boundedInteger(url.searchParams.get("pageSize"), 20, 5, 50),
+    page: boundedAdminPage(url.searchParams.get("page")),
+    pageSize: boundedAdminPageSize(url.searchParams.get("pageSize"), 20, 5, 50),
   };
 }
