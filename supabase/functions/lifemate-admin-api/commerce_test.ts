@@ -1,4 +1,8 @@
-import { assertEquals, assertThrows } from "jsr:@std/assert";
+import {
+  assertEquals,
+  assertStringIncludes,
+  assertThrows,
+} from "jsr:@std/assert";
 
 import {
   parseCommerceOverviewQuery,
@@ -47,4 +51,18 @@ Deno.test("commerce overview rejects unsafe or unbounded filters", () => {
   ) {
     assertThrows(() => parseCommerceOverviewQuery(new URL(url)), ApiError);
   }
+});
+
+Deno.test("commerce entitlement summaries honor effective time bounds", async () => {
+  const source = await Deno.readTextFile(
+    new URL("./commerce_service.ts", import.meta.url),
+  );
+
+  assertStringIncludes(source, "e.starts_at_utc <= now()");
+  assertStringIncludes(
+    source,
+    "(e.expires_at_utc is null or e.expires_at_utc > now())",
+  );
+  assertStringIncludes(source, "e.expires_at_utc <= now()");
+  assertStringIncludes(source, "e.expires_at_utc > now()");
 });
