@@ -2,12 +2,6 @@ name: flutter
 
 on:
   workflow_dispatch:
-    inputs:
-      build_android:
-        description: Build Android beta APK artifacts
-        required: false
-        default: false
-        type: boolean
   pull_request:
     paths:
       - 'wellmate/**'
@@ -67,7 +61,7 @@ jobs:
           # Source artwork and web branding remain locked to the approved
           # bb287 reference. Generated Android launcher mipmaps are excluded
           # because they were intentionally regenerated from the approved app
-          # logos and are verified again when an APK checkpoint is requested.
+          # logos and are verified again by protected release workflows.
           git diff --exit-code "$reference" -- \
             caremate/assets \
             caremate/web/favicon.png \
@@ -163,130 +157,12 @@ jobs:
           test "${{ steps.wellmate.outcome }}" = "success"
           test "${{ steps.caremate.outcome }}" = "success"
 
-      - name: Decide Android checkpoint build
-        id: android-checkpoint
-        if: ${{ success() }}
+      - name: Explain protected Android release path
+        if: ${{ github.event_name == 'workflow_dispatch' }}
         shell: bash
         run: |
-          should_build=false
-          if [[ "${{ github.event_name }}" == "workflow_dispatch" && "${{ inputs.build_android }}" == "true" ]]; then
-            should_build=true
-          fi
-          echo "should_build=$should_build" >> "$GITHUB_OUTPUT"
-
-      - name: Prepare founder-owned Android signing
-        if: ${{ success() && steps.android-checkpoint.outputs.should_build == 'true' }}
-        shell: bash
-        env:
-          WELLMATE_KEYSTORE_BASE64: ${{ secrets.WELLMATE_KEYSTORE_BASE64 }}
-          WELLMATE_STORE_PASSWORD: ${{ secrets.WELLMATE_STORE_PASSWORD }}
-          WELLMATE_KEY_PASSWORD: ${{ secrets.WELLMATE_KEY_PASSWORD }}
-          WELLMATE_KEY_ALIAS: ${{ secrets.WELLMATE_KEY_ALIAS }}
-          CAREMATE_KEYSTORE_BASE64: ${{ secrets.CAREMATE_KEYSTORE_BASE64 }}
-          CAREMATE_STORE_PASSWORD: ${{ secrets.CAREMATE_STORE_PASSWORD }}
-          CAREMATE_KEY_PASSWORD: ${{ secrets.CAREMATE_KEY_PASSWORD }}
-          CAREMATE_KEY_ALIAS: ${{ secrets.CAREMATE_KEY_ALIAS }}
-        run: bash tools/release/prepare-android-signing.sh
-
-      - name: Build Android beta APKs
-        if: ${{ success() && steps.android-checkpoint.outputs.should_build == 'true' }}
-        shell: bash
-        env:
-          SUPABASE_URL: ${{ vars.SUPABASE_URL || 'https://bwdvmniywyyijjauipnh.supabase.co' }}
-          SUPABASE_PUBLISHABLE_KEY: ${{ vars.SUPABASE_PUBLISHABLE_KEY || 'sb_publishable_6YpBDD0gAPcenbYGukOeWg_fZXxUb27' }}
-          LIFEMATE_API_BASE_URL: ${{ vars.LIFEMATE_CANDIDATE_API_BASE_URL || 'https://bwdvmniywyyijjauipnh.supabase.co/functions/v1/lifemate-api-candidate' }}
-          ENABLE_GOOGLE_AUTH: 'false'
-        run: |
-          set -euo pipefail
-          test -n "$SUPABASE_URL"
-          test -n "$SUPABASE_PUBLISHABLE_KEY"
-          test -n "$LIFEMATE_API_BASE_URL"
-          case "$LIFEMATE_API_BASE_URL" in
-            */lifemate-api-candidate) ;;
-            *) echo 'Android checkpoint must use lifemate-api-candidate.' >&2; exit 1 ;;
-          esac
-          health_response="$(curl --fail --silent --show-error --retry 3 --retry-all-errors "$LIFEMATE_API_BASE_URL/health")"
-          echo "$health_response" | grep -q '"status":"ok"'
-          echo "$health_response" | grep -q '"database":"ready"'
-          unauthorized_status="$(curl --silent --output /dev/null --write-out '%{http_code}' "$LIFEMATE_API_BASE_URL/api/v1/me")"
-          test "$unauthorized_status" = "401"
-          build_args=(
-            --release
-            --dart-define="SUPABASE_URL=$SUPABASE_URL"
-            --dart-define="SUPABASE_PUBLISHABLE_KEY=$SUPABASE_PUBLISHABLE_KEY"
-            --dart-define="LIFEMATE_API_BASE_URL=$LIFEMATE_API_BASE_URL"
-            --dart-define="ENABLE_GOOGLE_AUTH=$ENABLE_GOOGLE_AUTH"
-          )
-          (cd wellmate && flutter build apk "${build_args[@]}")
-          (cd caremate && flutter build apk "${build_args[@]}")
-
-      - name: Verify stable Android signatures
-        if: ${{ success() && steps.android-checkpoint.outputs.should_build == 'true' }}
-        shell: bash
-        run: >-
-          bash tools/release/verify-android-signing.sh
-          wellmate/build/app/outputs/flutter-apk/app-release.apk
-          caremate/build/app/outputs/flutter-apk/app-release.apk
-
-      - name: Inspect Android APKs
-        id: apk-inspection
-        if: ${{ success() && steps.android-checkpoint.outputs.should_build == 'true' }}
-        continue-on-error: true
-        shell: bash
-        run: |
-          set -euo pipefail
-          report_dir=/tmp/lifemate-apk-inspection
-          mkdir -p "$report_dir"
-          aapt_bin="$(find "$ANDROID_HOME/build-tools" -type f -name aapt | sort -V | tail -n 1)"
-          apksigner_bin="$(find "$ANDROID_HOME/build-tools" -type f -name apksigner | sort -V | tail -n 1)"
-          test -x "$aapt_bin"
-          test -x "$apksigner_bin"
-          : > "$report_dir/apk-sha256.txt"
-
-          for app in wellmate caremate; do
-            apk="$app/build/app/outputs/flutter-apk/app-release.apk"
-            test -s "$apk"
-            "$aapt_bin" dump badging "$apk" > "$report_dir/$app.txt"
-            "$aapt_bin" dump permissions "$apk" >> "$report_dir/$app.txt"
-            grep -Fq 'android.permission.INTERNET' "$report_dir/$app.txt"
-            grep -Eq '^application-icon-[0-9]+:' "$report_dir/$app.txt"
-            "$apksigner_bin" verify --verbose --print-certs "$apk" >> "$report_dir/$app.txt"
-            unzip -Z1 "$apk" > "$report_dir/$app-zip-listing.txt"
-            grep -Eq '^assets/flutter_assets/AssetManifest\.(bin|json)$' "$report_dir/$app-zip-listing.txt"
-            grep -Fq 'assets/flutter_assets/assets/fonts/Vazir.ttf' "$report_dir/$app-zip-listing.txt"
-            sha256sum "$apk" >> "$report_dir/apk-sha256.txt"
-          done
-
-          grep -Fq 'assets/flutter_assets/assets/images/WellMateWithoutBack.png' \
-            "$report_dir/wellmate-zip-listing.txt"
-          grep -Fq 'assets/flutter_assets/assets/images/CareMateWithoutBack.png' \
-            "$report_dir/caremate-zip-listing.txt"
-
-          cp "$LIFEMATE_ANDROID_SIGNING_DIR/wellmate-cert-sha256.txt" "$report_dir/wellmate-signing-cert-sha256.txt"
-          cp "$LIFEMATE_ANDROID_SIGNING_DIR/caremate-cert-sha256.txt" "$report_dir/caremate-signing-cert-sha256.txt"
-
-      - name: Upload Android beta APKs and inspection evidence
-        if: ${{ always() && steps.android-checkpoint.outputs.should_build == 'true' }}
-        uses: actions/upload-artifact@v4
-        with:
-          name: lifemate-android-beta-apks
-          path: |
-            wellmate/build/app/outputs/flutter-apk/app-release*.apk
-            caremate/build/app/outputs/flutter-apk/app-release*.apk
-            /tmp/lifemate-apk-inspection/**
-          if-no-files-found: error
-          retention-days: 14
-
-      - name: Enforce Android inspection result
-        if: ${{ always() && steps.android-checkpoint.outputs.should_build == 'true' }}
-        shell: bash
-        run: test "${{ steps.apk-inspection.outcome }}" = "success"
-
-      - name: Remove ephemeral signing material
-        if: ${{ always() && steps.android-checkpoint.outputs.should_build == 'true' }}
-        shell: bash
-        run: |
-          rm -f wellmate/android/key.properties caremate/android/key.properties
-          if [[ -n "${LIFEMATE_ANDROID_SIGNING_DIR:-}" ]]; then
-            rm -rf "$LIFEMATE_ANDROID_SIGNING_DIR"
-          fi
+          cat <<'EOF' >> "$GITHUB_STEP_SUMMARY"
+          Android signing and APK release artifacts are intentionally not produced by generic Flutter CI.
+          Use the protected `internal-beta-release` workflow for internal/candidate artifacts and
+          `main-final-android-release` only after the Foundation release gates are complete.
+          EOF
