@@ -1,0 +1,71 @@
+name: tmp-adm-plat-003-wire
+
+on:
+  pull_request:
+    paths:
+      - 'supabase/functions/lifemate-admin-api/**'
+      - 'supabase/migrations/20260815170000_admin_notification_center.sql'
+      - '.github/workflows/tmp-adm-plat-003-wire.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  wire-and-verify:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
+        with:
+          ref: ${{ github.event.pull_request.head.ref }}
+          persist-credentials: true
+          show-progress: false
+      - uses: denoland/setup-deno@22d081ff2d3a40755e97629de92e3bcbfa7cf2ed
+        with:
+          deno-version: v2.9.4
+      - name: Wire notification routes, verify, and remove helper
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+
+          path = Path('supabase/functions/lifemate-admin-api/index.ts')
+          text = path.read_text()
+
+          import_anchor = 'import { createGlobalSearchStore } from "./global_search_service.ts";\n'
+          notification_imports = '''import {\n  authorizedNotificationSources,\n  hashNotificationReadStateRequest,\n  notificationPermission,\n  parseNotificationCountQuery,\n  parseNotificationQuery,\n  parseNotificationReadStateRequest,\n} from "./notifications.ts";\nimport { createNotificationCenterStore } from "./notifications_service.ts";\n'''
+          if notification_imports not in text:
+              if import_anchor not in text:
+                  raise SystemExit('global search import anchor missing')
+              text = text.replace(import_anchor, import_anchor + notification_imports, 1)
+
+          store_anchor = 'const globalSearchStore = createGlobalSearchStore(config.databaseUrl);\n'
+          store_line = 'const notificationCenterStore = createNotificationCenterStore(config.databaseUrl);\n'
+          if store_line not in text:
+              if store_anchor not in text:
+                  raise SystemExit('global search store anchor missing')
+              text = text.replace(store_anchor, store_anchor + store_line, 1)
+
+          route_anchor = '    if (request.method === "GET" && path === "/api/v1/analytics/catalog") {\n'
+          routes = '''    if (request.method === "GET" && path === "/api/v1/notifications") {\n      const query = parseNotificationQuery(new URL(request.url));\n      const authorizedSources = authorizedNotificationSources(\n        query.sources,\n        admin.permissions,\n      );\n      if (authorizedSources.length === 0) {\n        throw new ApiError(\n          403,\n          "notifications_forbidden",\n          "No requested notification source is authorized for this admin.",\n        );\n      }\n      return json(\n        await notificationCenterStore.list(\n          accountId,\n          query,\n          authorizedSources,\n          correlationId,\n        ),\n        200,\n        origin,\n      );\n    }\n\n    if (request.method === "GET" && path === "/api/v1/notifications/count") {\n      const query = parseNotificationCountQuery(new URL(request.url));\n      const authorizedSources = authorizedNotificationSources(\n        query.sources,\n        admin.permissions,\n      );\n      if (authorizedSources.length === 0) {\n        throw new ApiError(\n          403,\n          "notifications_forbidden",\n          "No requested notification source is authorized for this admin.",\n        );\n      }\n      return json(\n        await notificationCenterStore.count(\n          accountId,\n          authorizedSources,\n          correlationId,\n        ),\n        200,\n        origin,\n      );\n    }\n\n    if (request.method === "POST" && path === "/api/v1/notifications/actions/read-state") {\n      const payload = await parseNotificationReadStateRequest(request);\n      requirePermission(admin, notificationPermission[payload.source]);\n      if (!(await notificationCenterStore.hasActiveAlert(payload.source, payload.alertKey))) {\n        throw new ApiError(\n          404,\n          "notification_not_found",\n          "Notification was not found.",\n        );\n      }\n      const idempotencyKey = requireIdempotencyKey(request);\n      const requestHash = await hashNotificationReadStateRequest(payload);\n      const result = await notificationCenterStore.setReadState(\n        accountId,\n        payload,\n        correlationId,\n        idempotencyKey,\n        requestHash,\n      );\n      return json(result, result.httpStatus, origin);\n    }\n\n'''
+          if 'path === "/api/v1/notifications"' not in text:
+              if route_anchor not in text:
+                  raise SystemExit('analytics route anchor missing')
+              text = text.replace(route_anchor, routes + route_anchor, 1)
+
+          path.write_text(text)
+          PY
+
+          cd supabase/functions/lifemate-admin-api
+          deno fmt index.ts notifications.ts notifications_service.ts notifications_test.ts deno.json
+          deno task check
+          deno task test
+          cd ../../..
+
+          git rm -f .github/workflows/tmp-adm-plat-003-wire.yml
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add supabase/functions/lifemate-admin-api supabase/migrations/20260815170000_admin_notification_center.sql
+          git commit -m 'feat(admin): wire notification center API'
+          git push origin HEAD:${{ github.event.pull_request.head.ref }}
