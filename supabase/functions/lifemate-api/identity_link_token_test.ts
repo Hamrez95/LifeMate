@@ -72,31 +72,21 @@ Deno.test("identity link token rejects weak or malformed inputs", async () => {
   );
 });
 
-Deno.test("identity link key loader fails closed and never reads database state", () => {
-  const previousKey = Deno.env.get("LIFEMATE_IDENTITY_LINK_KEY");
-  const previousVersion = Deno.env.get("LIFEMATE_IDENTITY_LINK_KEY_VERSION");
-  try {
-    Deno.env.delete("LIFEMATE_IDENTITY_LINK_KEY");
-    Deno.env.delete("LIFEMATE_IDENTITY_LINK_KEY_VERSION");
-    assertThrows(
-      () => readIdentityLinkKeyFromEnvironment(),
-      Error,
-      "external runtime secret",
-    );
+Deno.test("identity link key loader fails closed without a database fallback", () => {
+  const missingEnvironment = (_name: string) => undefined;
+  assertThrows(
+    () => readIdentityLinkKeyFromEnvironment(missingEnvironment),
+    Error,
+    "external runtime secret",
+  );
 
-    Deno.env.set("LIFEMATE_IDENTITY_LINK_KEY", secret);
-    Deno.env.set("LIFEMATE_IDENTITY_LINK_KEY_VERSION", "7");
-    assertEquals(readIdentityLinkKeyFromEnvironment(), {
-      secret,
-      keyVersion: 7,
-    });
-  } finally {
-    if (previousKey == null) Deno.env.delete("LIFEMATE_IDENTITY_LINK_KEY");
-    else Deno.env.set("LIFEMATE_IDENTITY_LINK_KEY", previousKey);
-    if (previousVersion == null) {
-      Deno.env.delete("LIFEMATE_IDENTITY_LINK_KEY_VERSION");
-    } else {
-      Deno.env.set("LIFEMATE_IDENTITY_LINK_KEY_VERSION", previousVersion);
-    }
-  }
+  const configuredEnvironment = (name: string) => {
+    if (name === "LIFEMATE_IDENTITY_LINK_KEY") return secret;
+    if (name === "LIFEMATE_IDENTITY_LINK_KEY_VERSION") return "7";
+    return undefined;
+  };
+  assertEquals(readIdentityLinkKeyFromEnvironment(configuredEnvironment), {
+    secret,
+    keyVersion: 7,
+  });
 });
