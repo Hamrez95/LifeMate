@@ -37,12 +37,27 @@ export type RateLimiterSnapshot = {
   state: "healthy" | "degraded";
   lastFailureCode: string | null;
   lastFailureAgeMs: number | null;
+  lastPrimaryLatencyMs: number | null;
+};
+
+export type RateLimitRuntimeConfig = {
+  mode: "local" | "redis";
+  requireDistributed: boolean;
+  redisUrl: string | null;
+  redisToken: string | null;
+};
+
+export type RateLimitRuntimeSources = {
+  mode?: string | null;
+  requireDistributed?: string | null;
+  redisUrl?: string | null;
+  redisToken?: string | null;
 };
 
 const policies: Record<RateLimitClass, RateLimitPolicy> = {
-  // These are project-wide admission ceilings. Existing route-specific local
-  // limits in security.ts remain in place as a second layer and are often
-  // intentionally stricter for sensitive mutations.
+  // These are project-wide admission ceilings when Redis mode is active.
+  // Existing route-specific local limits in security.ts remain in place as a
+  // second layer and are often intentionally stricter for sensitive mutations.
   bootstrap: { limit: 30, windowMs: 60_000 },
   "expensive-read": { limit: 90, windowMs: 60_000 },
   read: { limit: 240, windowMs: 60_000 },
@@ -54,10 +69,12 @@ const policies: Record<RateLimitClass, RateLimitPolicy> = {
 
 export class RequestRateLimiter {
   private readonly fallback: InMemoryCounterStore;
+  private readonly denyCache = new Map<string, number>();
   private lastDegradedWarningAt = 0;
   private primaryHealthy = true;
   private lastPrimaryFailureAt = 0;
   private lastPrimaryFailureCode: string | null = null;
+  private lastPrimaryLatencyMs: number | null = null;
 
   constructor(
     private readonly primary: CounterStore,
@@ -71,16 +88,29 @@ export class RequestRateLimiter {
     const rateClass = classifyRequest(method, path);
     const policy = policies[rateClass];
     const key = await buildRateLimitKey(subject, rateClass);
+    const now = Date.now();
+
+    if (this.source === "redis" && this.isLocallyDenied(key, now)) {
+      throw rateLimited();
+    }
+
     let result: CounterResult;
     let effectiveLimit = policy.limit;
+    const primaryStartedAt = performance.now();
 
     try {
       result = await this.primary.consume(key, policy);
+      this.lastPrimaryLatencyMs = boundedLatencyMs(
+        performance.now() - primaryStartedAt,
+      );
       this.primaryHealthy = true;
     } catch (error) {
+      this.lastPrimaryLatencyMs = boundedLatencyMs(
+        performance.now() - primaryStartedAt,
+      );
       this.primaryHealthy = false;
-      this.lastPrimaryFailureAt = Date.now();
-      this.lastPrimaryFailureCode = safeRateLimitError(error);
+      this.lastPrimaryFailureAt = now;
+      this.lastPrimaryFailureCode = classifyRateLimitFailure(error);
       // Shared rate limiting must never silently become unlimited. If Redis is
       // unavailable, use a deliberately conservative isolate-local fallback.
       const degradedPolicy = {
@@ -88,24 +118,23 @@ export class RequestRateLimiter {
         windowMs: policy.windowMs,
       };
       effectiveLimit = degradedPolicy.limit;
-      result = await this.fallback.consume(key, degradedPolicy);
-      const now = Date.now();
+      result = await this.fallback.consume(key, degradedPolicy, now);
       if (now - this.lastDegradedWarningAt >= 30_000) {
         this.lastDegradedWarningAt = now;
         console.warn("LifeMate distributed rate limiter degraded", {
           source: this.source,
           rateClass,
           code: this.lastPrimaryFailureCode,
+          latencyMs: this.lastPrimaryLatencyMs,
         });
       }
     }
 
     if (result.count > effectiveLimit) {
-      throw new ApiError(
-        429,
-        "rate_limit_exceeded",
-        "Too many requests. Try again later.",
-      );
+      if (this.source === "redis" && this.primaryHealthy) {
+        this.rememberSharedDenial(key, result.ttlMs, now);
+      }
+      throw rateLimited();
     }
   }
 
@@ -117,7 +146,32 @@ export class RequestRateLimiter {
       lastFailureAgeMs: this.lastPrimaryFailureAt > 0
         ? Math.max(0, now - this.lastPrimaryFailureAt)
         : null,
+      lastPrimaryLatencyMs: this.lastPrimaryLatencyMs,
     };
+  }
+
+  private isLocallyDenied(key: string, now: number): boolean {
+    const deniedUntil = this.denyCache.get(key);
+    if (deniedUntil === undefined) return false;
+    if (deniedUntil <= now) {
+      this.denyCache.delete(key);
+      return false;
+    }
+    return true;
+  }
+
+  private rememberSharedDenial(key: string, ttlMs: number, now: number): void {
+    if (this.denyCache.size >= 4_000) {
+      for (const [entryKey, deniedUntil] of this.denyCache) {
+        if (deniedUntil <= now) this.denyCache.delete(entryKey);
+      }
+      if (this.denyCache.size >= 4_000) {
+        const oldestKey = this.denyCache.keys().next().value;
+        if (typeof oldestKey === "string") this.denyCache.delete(oldestKey);
+      }
+    }
+    const boundedTtl = Math.max(1, Math.min(ttlMs, 60 * 60_000));
+    this.denyCache.set(key, now + boundedTtl);
   }
 }
 
@@ -209,27 +263,30 @@ export class UpstashRestCounterStore implements CounterStore {
   }
 }
 
-export function createRequestRateLimiterFromEnvironment(): RequestRateLimiter {
-  const mode = (Deno.env.get("LIFEMATE_RATE_LIMIT_MODE") ?? "local")
-    .trim()
-    .toLowerCase();
-  const requireDistributed =
-    (Deno.env.get("LIFEMATE_REQUIRE_DISTRIBUTED_RATE_LIMIT") ?? "false")
-      .trim()
-      .toLowerCase() === "true";
+export function resolveRateLimitRuntimeConfig(
+  sources: RateLimitRuntimeSources,
+): RateLimitRuntimeConfig {
+  const mode = (sources.mode ?? "local").trim().toLowerCase();
+  const requireDistributed = parseBooleanSetting(
+    "LIFEMATE_REQUIRE_DISTRIBUTED_RATE_LIMIT",
+    sources.requireDistributed,
+    false,
+  );
 
   if (mode === "redis") {
-    const url = Deno.env.get("UPSTASH_REDIS_REST_URL")?.trim() ?? "";
-    const token = Deno.env.get("UPSTASH_REDIS_REST_TOKEN")?.trim() ?? "";
-    if (!/^https:\/\//i.test(url) || token.length < 20) {
+    const redisUrl = sources.redisUrl?.trim() ?? "";
+    const redisToken = sources.redisToken?.trim() ?? "";
+    if (!/^https:\/\//i.test(redisUrl) || redisToken.length < 20) {
       throw new Error(
         "Redis rate-limit mode requires UPSTASH_REDIS_REST_URL over HTTPS and a valid REST token.",
       );
     }
-    return new RequestRateLimiter(
-      new UpstashRestCounterStore(url, token),
-      "redis",
-    );
+    return {
+      mode: "redis",
+      requireDistributed,
+      redisUrl,
+      redisToken,
+    };
   }
 
   if (mode !== "local") {
@@ -238,6 +295,28 @@ export function createRequestRateLimiterFromEnvironment(): RequestRateLimiter {
   if (requireDistributed) {
     throw new Error(
       "Distributed rate limiting is required but Redis mode is not configured.",
+    );
+  }
+  return {
+    mode: "local",
+    requireDistributed,
+    redisUrl: null,
+    redisToken: null,
+  };
+}
+
+export function createRequestRateLimiterFromEnvironment(): RequestRateLimiter {
+  const config = resolveRateLimitRuntimeConfig({
+    mode: Deno.env.get("LIFEMATE_RATE_LIMIT_MODE"),
+    requireDistributed: Deno.env.get("LIFEMATE_REQUIRE_DISTRIBUTED_RATE_LIMIT"),
+    redisUrl: Deno.env.get("UPSTASH_REDIS_REST_URL"),
+    redisToken: Deno.env.get("UPSTASH_REDIS_REST_TOKEN"),
+  });
+
+  if (config.mode === "redis") {
+    return new RequestRateLimiter(
+      new UpstashRestCounterStore(config.redisUrl!, config.redisToken!),
+      "redis",
     );
   }
   return new RequestRateLimiter(new InMemoryCounterStore(), "local");
@@ -288,13 +367,48 @@ export async function buildRateLimitKey(
   return `lm:rl:v1:${rateClass}:${suffix}`;
 }
 
-function safeRateLimitError(error: unknown): string {
-  if (error instanceof DOMException && error.name === "TimeoutError") {
+export function classifyRateLimitFailure(error: unknown): string {
+  if (
+    error instanceof DOMException &&
+    (error.name === "TimeoutError" || error.name === "AbortError")
+  ) {
     return "timeout";
   }
   if (error instanceof Error) {
-    return error.message.replace(/[^a-zA-Z0-9:_-]/g, "_").slice(0, 64) ||
-      "error";
+    if (/^redis_http_[1-5][0-9]{2}$/.test(error.message)) {
+      return error.message;
+    }
+    if (
+      error.message === "redis_invalid_response" ||
+      error.message === "redis_invalid_counter"
+    ) {
+      return error.message;
+    }
   }
   return "error";
+}
+
+function parseBooleanSetting(
+  name: string,
+  raw: string | null | undefined,
+  fallback: boolean,
+): boolean {
+  if (raw === null || raw === undefined || raw.trim() === "") return fallback;
+  const normalized = raw.trim().toLowerCase();
+  if (normalized === "true") return true;
+  if (normalized === "false") return false;
+  throw new Error(`${name} must be true or false.`);
+}
+
+function boundedLatencyMs(value: number): number {
+  if (!Number.isFinite(value)) return 60_000;
+  return Math.max(0, Math.min(60_000, Math.round(value)));
+}
+
+function rateLimited(): ApiError {
+  return new ApiError(
+    429,
+    "rate_limit_exceeded",
+    "Too many requests. Try again later.",
+  );
 }
