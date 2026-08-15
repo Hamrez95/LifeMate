@@ -48,8 +48,12 @@ config/lifemate-edge-gateway-policy.json
 - profile photos are capped at the same 3 MiB application limit and only JPEG/PNG/WebP are admitted;
 - unsupported HTTP methods are rejected once enforcement is enabled;
 - outer rate classes exist for probes, critical healthcare writes, sensitive writes, uploads, expensive reads, ordinary reads and ordinary writes;
+- every outer rate counter is scoped to the **provider-observed source IP** (`counterScope: source_ip`), so the reviewed request/window value is never interpreted as one global counter for all LifeMate traffic;
+- `GET /api/v1/account/data-export` is explicitly classified by the sensitive outer class before the generic read fallback;
 - `429` is the canonical gateway rate-limit response and includes retry guidance;
 - emergency protection sheds lower-priority work while the critical medication report route remains admitted to the application’s own auth/idempotency/concurrency safety layers.
+
+`source_ip` means the source address determined by the managed provider itself after its trusted proxy chain. A rule implementation must not key from a client-supplied `X-Forwarded-For` value unless the provider has replaced/sanitized that header. This WAF counter is intentionally different from LifeMate’s shared application limiter, which remains keyed by authenticated subject. The two layers protect different abuse boundaries and both remain enabled.
 
 The numeric outer limits in the policy are **candidate WAF ceilings**, not measured LifeMate capacity. They begin in log-only mode and must be tuned from protected staging/load evidence before block mode.
 
@@ -95,6 +99,8 @@ At minimum, retain only fields needed for abuse/capacity diagnosis, for example:
 - request size bucket;
 - coarse bot/ASN/country signal if operationally required;
 - provider request/ray identifier.
+
+The provider may process source IP internally to enforce `counterScope: source_ip`, but LifeMate application logs and exported gateway summaries must not copy the raw source IP unless a separately reviewed security need and retention policy exists.
 
 Do not place JWTs, cookies, raw query strings, email/phone, Person/Account IDs, medication names, health observations or menstrual data in gateway rule labels/log payloads.
 
@@ -180,6 +186,7 @@ Repository/source evidence alone is insufficient. Closure requires provider-side
 
 - chosen custom API domain and DNS/proxy architecture;
 - provider-managed rules corresponding to the reviewed policy SHA;
+- deterministic `source_ip` counter semantics implemented from provider-trusted client addressing;
 - log -> simulate -> block rollout evidence;
 - tested gateway 429 and request-size behavior;
 - critical medication route survival under emergency mode;
