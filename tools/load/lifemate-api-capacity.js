@@ -210,6 +210,9 @@ export const options = {
   discardResponseBodies: false,
   scenarios: profileDefinition.scenarios,
   thresholds,
+  // handleSummary consumes p50/p95/p99/max. k6 only exposes configured Trend
+  // summary statistics, so make every artifact produce the same complete set.
+  summaryTrendStats: ['avg', 'min', 'med', 'max', 'p(50)', 'p(90)', 'p(95)', 'p(99)'],
 };
 
 let writeState = null;
@@ -595,10 +598,10 @@ export function handleSummary(data) {
     achievedRps: metricValue(data, 'http_reqs', 'rate'),
     droppedIterations: metricValue(data, 'dropped_iterations', 'count'),
     latencyMs: {
-      p50: metricValue(data, 'lifemate_api_latency_ms', 'p(50)'),
-      p95: metricValue(data, 'lifemate_api_latency_ms', 'p(95)'),
-      p99: metricValue(data, 'lifemate_api_latency_ms', 'p(99)'),
-      max: metricValue(data, 'lifemate_api_latency_ms', 'max'),
+      p50: requiredMetricValue(data, 'lifemate_api_latency_ms', 'p(50)'),
+      p95: requiredMetricValue(data, 'lifemate_api_latency_ms', 'p(95)'),
+      p99: requiredMetricValue(data, 'lifemate_api_latency_ms', 'p(99)'),
+      max: requiredMetricValue(data, 'lifemate_api_latency_ms', 'max'),
     },
     responses: {
       success2xx: metricValue(data, 'response_2xx', 'count'),
@@ -653,6 +656,14 @@ export function handleSummary(data) {
 function metricValue(data, metric, key) {
   const value = data.metrics?.[metric]?.values?.[key];
   return Number.isFinite(value) ? value : 0;
+}
+
+function requiredMetricValue(data, metric, key) {
+  const value = data.metrics?.[metric]?.values?.[key];
+  if (!Number.isFinite(value)) {
+    throw new Error(`Required k6 summary metric is missing: ${metric}.${key}`);
+  }
+  return value;
 }
 
 function allThresholdsPassed(data) {
