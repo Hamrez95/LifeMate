@@ -45,8 +45,9 @@ export function isPostgresUnavailable(error: unknown): boolean {
   return code === "53300" ||
     code === "57P03" ||
     code === "57014" ||
+    code === "55P03" ||
     code.startsWith("08") ||
-    /too many clients|remaining connection slots|connection (?:refused|terminated|closed)|database system is starting up|statement timeout|canceling statement due to statement timeout/i
+    /too many clients|remaining connection slots|connection (?:refused|terminated|closed)|database system is starting up|statement timeout|lock timeout|canceling statement due to (?:statement|lock) timeout/i
       .test(message);
 }
 

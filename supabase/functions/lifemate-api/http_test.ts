@@ -1,5 +1,5 @@
 import { assertEquals } from "jsr:@std/assert@1.0.14";
-import { safeError } from "./http.ts";
+import { problem, safeError } from "./http.ts";
 import { ApiError } from "./validation.ts";
 
 Deno.test("safeError never copies generic exception messages into logs", () => {
@@ -20,4 +20,23 @@ Deno.test("safeError keeps bounded API status/code without detail", () => {
     status: 409,
   });
   assertEquals("message" in safe, false);
+});
+
+Deno.test("database pressure response is controlled and carries Retry-After", async () => {
+  const response = problem(
+    503,
+    "database_busy",
+    "The healthcare database is temporarily unavailable. Retry shortly.",
+    "123e4567-e89b-42d3-a456-426614174888",
+  );
+  assertEquals(response.status, 503);
+  assertEquals(response.headers.get("Retry-After"), "2");
+  assertEquals(response.headers.get("Cache-Control"), "no-store");
+  const body = await response.json();
+  assertEquals(body.code, "database_busy");
+  assertEquals(body.status, 503);
+  assertEquals(
+    body.correlationId,
+    "123e4567-e89b-42d3-a456-426614174888",
+  );
 });
