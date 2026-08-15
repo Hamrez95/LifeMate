@@ -20,7 +20,9 @@ Deno.test("commerce transaction status vocabulary is explicit", () => {
 
 Deno.test("commerce transaction query is bounded", () => {
   assertEquals(
-    parseCommerceTransactionsQuery(new URL("https://admin.example/transactions")),
+    parseCommerceTransactionsQuery(
+      new URL("https://admin.example/transactions"),
+    ),
     {
       page: 1,
       pageSize: 25,
