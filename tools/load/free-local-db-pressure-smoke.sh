@@ -7,9 +7,16 @@ set -euo pipefail
 LOCAL_AUTH_TOKEN="${LOCAL_AUTH_TOKEN:-lifemate-local-pressure-token-001}"
 LOCAL_AUTH_USER_ID="${LOCAL_AUTH_USER_ID:-33333333-3333-4333-8333-333333333333}"
 AUTH_PORT="${AUTH_PORT:-19001}"
-API_PORT="${API_PORT:-18001}"
+# lifemate-api currently uses Deno.serve() without a custom listen option,
+# therefore the real runtime binds port 8000. Keep the fault harness aligned
+# with the production entrypoint instead of pretending the app is configurable.
+API_PORT="${API_PORT:-8000}"
 OUTPUT_FILE="${OUTPUT_FILE:-db-pressure-fault-result.json}"
 
+if [[ "$API_PORT" != "8000" ]]; then
+  echo "API_PORT must remain 8000 because lifemate-api Deno.serve binds the default port." >&2
+  exit 2
+fi
 if [[ "$TEST_DATABASE_URL" != *"127.0.0.1"* && "$TEST_DATABASE_URL" != *"localhost"* ]]; then
   echo "TEST_DATABASE_URL must be local for the free DB-pressure smoke." >&2
   exit 2
@@ -111,7 +118,7 @@ fi
   LIFEMATE_RATE_LIMIT_MODE='local' \
   LIFEMATE_REQUIRE_DISTRIBUTED_RATE_LIMIT='false' \
   deno run --allow-env \
-    --allow-net="127.0.0.1:5432,127.0.0.1:$AUTH_PORT,0.0.0.0:$API_PORT" \
+    --allow-net="127.0.0.1:5432,127.0.0.1:$AUTH_PORT,0.0.0.0:8000" \
     index.ts
 ) >/tmp/lifemate-pressure-api.log 2>&1 &
 api_pid=$!
