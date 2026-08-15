@@ -90,12 +90,8 @@ builder.Services.AddRateLimiter(options =>
 
 var app = builder.Build();
 
-if (!app.Environment.IsEnvironment("Testing"))
-{
-    app.UseExceptionHandler();
-}
-
 app.UseMiddleware<CorrelationIdMiddleware>();
+app.UseMiddleware<PrivacySafeExceptionMiddleware>();
 app.UseCors("restricted");
 
 if (app.Environment.IsDevelopment() || builder.Configuration.GetValue("OpenApi:Enabled", false))

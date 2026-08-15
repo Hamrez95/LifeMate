@@ -22,6 +22,7 @@ on:
       - '.github/workflows/internal-beta-release.yml'
       - 'tools/release/**'
       - 'supabase/functions/lifemate-api/**'
+      - 'supabase/functions/lifemate-telemetry/**'
       - 'packages/lifemate_client/**'
       - 'wellmate/**'
       - 'caremate/**'
@@ -38,6 +39,7 @@ env:
   SUPABASE_PROJECT_REF: bwdvmniywyyijjauipnh
   SUPABASE_URL: https://bwdvmniywyyijjauipnh.supabase.co
   LIFEMATE_API_BASE_URL: https://bwdvmniywyyijjauipnh.supabase.co/functions/v1/lifemate-api
+  LIFEMATE_TELEMETRY_URL: https://bwdvmniywyyijjauipnh.supabase.co/functions/v1/lifemate-telemetry
   SUPABASE_PUBLISHABLE_KEY: ${{ vars.SUPABASE_PUBLISHABLE_KEY || 'sb_publishable_6YpBDD0gAPcenbYGukOeWg_fZXxUb27' }}
 
 jobs:
@@ -63,14 +65,16 @@ jobs:
           bash -n tools/release/prepare-android-signing.sh
           bash -n tools/release/verify-android-signing.sh
           ! grep -R --line-number 'SUPABASE_SERVICE_ROLE_KEY' \
-            supabase/functions/lifemate-api tools/release
+            supabase/functions/lifemate-api \
+            supabase/functions/lifemate-telemetry \
+            tools/release
 
       - name: Verify Edge source
-        working-directory: supabase/functions/lifemate-api
+        shell: bash
         run: |
-          deno fmt --check
-          deno task check
-          deno task test
+          set -euo pipefail
+          (cd supabase/functions/lifemate-api && deno fmt --check && deno task check && deno task test)
+          (cd supabase/functions/lifemate-telemetry && deno fmt --check && deno task check && deno task test)
 
       - name: Validate dispatch inputs
         if: ${{ github.event_name == 'workflow_dispatch' }}
@@ -93,6 +97,8 @@ jobs:
     env:
       SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
       CONTACT_HASHING_SECRET: ${{ secrets.LIFEMATE_CONTACT_HASHING_SECRET }}
+      TELEMETRY_SMOKE_EMAIL: ${{ secrets.BETA_PATIENT_EMAIL }}
+      TELEMETRY_SMOKE_PASSWORD: ${{ secrets.BETA_PATIENT_PASSWORD }}
     outputs:
       release_version: ${{ steps.release-meta.outputs.release_version }}
       short_sha: ${{ steps.release-meta.outputs.short_sha }}
@@ -113,6 +119,8 @@ jobs:
           test -n "$SUPABASE_ACCESS_TOKEN"
           test "${#CONTACT_HASHING_SECRET}" -ge 32
           test -n "$SUPABASE_PUBLISHABLE_KEY"
+          test -n "$TELEMETRY_SMOKE_EMAIL"
+          test -n "$TELEMETRY_SMOKE_PASSWORD"
 
       - name: Compute immutable release metadata
         id: release-meta
@@ -150,8 +158,11 @@ jobs:
             --project-ref "$SUPABASE_PROJECT_REF" \
             --no-verify-jwt \
             --use-api
+          supabase functions deploy lifemate-telemetry \
+            --project-ref "$SUPABASE_PROJECT_REF" \
+            --use-api
 
-      - name: Verify deployed version and auth boundary
+      - name: Verify deployed API version and auth boundary
         shell: bash
         run: |
           set -euo pipefail
@@ -165,6 +176,46 @@ jobs:
           unauthorized_status="$(curl --silent --show-error \
             --output /dev/null --write-out '%{http_code}' \
             "$LIFEMATE_API_BASE_URL/api/v1/me")"
+          test "$unauthorized_status" = '401'
+
+      - name: Verify authenticated telemetry ingress
+        shell: bash
+        run: |
+          set -euo pipefail
+          auth_payload="$(jq -cn \
+            --arg email "$TELEMETRY_SMOKE_EMAIL" \
+            --arg password "$TELEMETRY_SMOKE_PASSWORD" \
+            '{email:$email,password:$password}')"
+          access_token="$(curl --fail --silent --show-error \
+            --request POST \
+            --header "apikey: $SUPABASE_PUBLISHABLE_KEY" \
+            --header 'Content-Type: application/json' \
+            --data "$auth_payload" \
+            "$SUPABASE_URL/auth/v1/token?grant_type=password" | jq -er '.access_token')"
+          test -n "$access_token"
+
+          event_id="$(python3 -c 'import uuid; print(uuid.uuid4())')"
+          event_payload="$(jq -cn \
+            --arg eventId "$event_id" \
+            --arg releaseVersion "$GITHUB_SHA" \
+            '{eventId:$eventId,application:"wellmate",releaseVersion:$releaseVersion,platform:"android",source:"zone",errorType:"ReleaseSmokeError",stackFingerprint:"0123456789abcdef",fatal:false}')"
+          telemetry_status="$(curl --silent --show-error \
+            --output /dev/null --write-out '%{http_code}' \
+            --request POST \
+            --header "apikey: $SUPABASE_PUBLISHABLE_KEY" \
+            --header "Authorization: Bearer $access_token" \
+            --header 'Content-Type: application/json' \
+            --data "$event_payload" \
+            "$LIFEMATE_TELEMETRY_URL")"
+          test "$telemetry_status" = '202'
+
+          unauthorized_status="$(curl --silent --show-error \
+            --output /dev/null --write-out '%{http_code}' \
+            --request POST \
+            --header "apikey: $SUPABASE_PUBLISHABLE_KEY" \
+            --header 'Content-Type: application/json' \
+            --data "$event_payload" \
+            "$LIFEMATE_TELEMETRY_URL")"
           test "$unauthorized_status" = '401'
 
   live-role-smoke:

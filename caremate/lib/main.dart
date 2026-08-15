@@ -1,41 +1,86 @@
+import 'dart:async';
+
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:lifemate_client/lifemate_client.dart';
 import 'package:provider/provider.dart';
 
 import 'core/constants/app_colors.dart';
+import 'core/constants/app_version.dart';
 import 'core/localization/app_localizations.dart';
 import 'core/localization/locale_provider.dart';
 import 'providers/care_notification_provider.dart';
 import 'screens/caremate_root_shell.dart';
 
-Future<void> main() async {
-  WidgetsFlutterBinding.ensureInitialized();
+void main() {
   final config = AppConfig.fromEnvironment();
-  var authInitialized = false;
-  if (config.isConfigured) {
-    try {
-      authInitialized = await LifeMateBootstrap.initialize(config);
-    } catch (_) {
-      debugPrint('Supabase initialization failed.');
-    }
-  }
+  final crashReporter = LifeMateCrashReporter(
+    config: config,
+    application: 'caremate',
+    releaseVersion: careMateAppVersion,
+  );
 
-  final notificationProvider = CareNotificationProvider();
-  try {
-    await notificationProvider.initialize();
-  } catch (_) {
-    debugPrint('CareMate notification initialization failed.');
-  }
+  runZonedGuarded(
+    () async {
+      WidgetsFlutterBinding.ensureInitialized();
+      crashReporter.installGlobalHandlers();
 
-  runApp(
-    MultiProvider(
-      providers: [
-        ChangeNotifierProvider(create: (_) => LocaleProvider()),
-        ChangeNotifierProvider.value(value: notificationProvider),
-      ],
-      child: CareMateApp(config: config, authInitialized: authInitialized),
-    ),
+      var authInitialized = false;
+      if (config.isConfigured) {
+        try {
+          authInitialized = await LifeMateBootstrap.initialize(config);
+        } catch (error, stackTrace) {
+          FlutterError.reportError(
+            FlutterErrorDetails(
+              exception: error,
+              stack: stackTrace,
+              library: 'caremate.bootstrap',
+              silent: true,
+            ),
+          );
+          debugPrint('Supabase initialization failed.');
+        }
+      }
+
+      final notificationProvider = CareNotificationProvider();
+      try {
+        await notificationProvider.initialize();
+      } catch (error, stackTrace) {
+        FlutterError.reportError(
+          FlutterErrorDetails(
+            exception: error,
+            stack: stackTrace,
+            library: 'caremate.notifications',
+            silent: true,
+          ),
+        );
+        debugPrint('CareMate notification initialization failed.');
+      }
+
+      runApp(
+        MultiProvider(
+          providers: [
+            ChangeNotifierProvider(create: (_) => LocaleProvider()),
+            ChangeNotifierProvider.value(value: notificationProvider),
+          ],
+          child: CareMateApp(config: config, authInitialized: authInitialized),
+        ),
+      );
+    },
+    (error, stackTrace) {
+      unawaited(
+        crashReporter.report(
+          error,
+          stackTrace,
+          source: LifeMateCrashSource.zone,
+          fatal: true,
+        ),
+      );
+      if (kDebugMode) {
+        debugPrint('Uncaught CareMate zone error (${error.runtimeType}).');
+      }
+    },
   );
 }
 

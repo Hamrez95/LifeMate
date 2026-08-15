@@ -55,7 +55,19 @@ export function safeError(error: unknown): Record<string, unknown> {
     return { name: error.name, code: error.code, status: error.status };
   }
   if (error instanceof Error) {
-    return { name: error.name, message: error.message.slice(0, 160) };
+    const candidate = error as Error & { code?: unknown };
+    const code = typeof candidate.code === "string" &&
+        /^[A-Za-z0-9_.-]{1,48}$/.test(candidate.code)
+      ? candidate.code
+      : null;
+    return {
+      name: sanitizeErrorName(error.name),
+      ...(code ? { code } : {}),
+    };
   }
   return { name: "UnknownError" };
+}
+
+function sanitizeErrorName(value: string): string {
+  return /^[A-Za-z_][A-Za-z0-9_.-]{0,63}$/.test(value) ? value : "Error";
 }
