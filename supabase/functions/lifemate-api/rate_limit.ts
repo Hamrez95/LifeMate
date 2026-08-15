@@ -96,10 +96,12 @@ export class RequestRateLimiter {
 
     let result: CounterResult;
     let effectiveLimit = policy.limit;
+    let usedPrimary = false;
     const primaryStartedAt = performance.now();
 
     try {
       result = await this.primary.consume(key, policy);
+      usedPrimary = true;
       this.lastPrimaryLatencyMs = boundedLatencyMs(
         performance.now() - primaryStartedAt,
       );
@@ -131,7 +133,7 @@ export class RequestRateLimiter {
     }
 
     if (result.count > effectiveLimit) {
-      if (this.source === "redis" && this.primaryHealthy) {
+      if (this.source === "redis" && usedPrimary) {
         this.rememberSharedDenial(key, result.ttlMs, now);
       }
       throw rateLimited();
