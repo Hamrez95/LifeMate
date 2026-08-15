@@ -82,13 +82,13 @@ try {
 
   $age.WaitForExit()
   $restore.WaitForExit()
-  $ageError = $ageErrorTask.GetAwaiter().GetResult()
-  $restoreError = $restoreErrorTask.GetAwaiter().GetResult()
+  [void]$ageErrorTask.GetAwaiter().GetResult()
+  [void]$restoreErrorTask.GetAwaiter().GetResult()
   if ($age.ExitCode -ne 0) {
-    throw "age decryption failed with exit code $($age.ExitCode). $($ageError.Trim())"
+    throw "age decryption failed with exit code $($age.ExitCode); private key and path diagnostics are intentionally redacted."
   }
   if ($restore.ExitCode -ne 0) {
-    throw "pg_restore failed with exit code $($restore.ExitCode). $($restoreError.Trim())"
+    throw "pg_restore failed with exit code $($restore.ExitCode); connection and archive diagnostics are intentionally redacted."
   }
 } finally {
   if ($age -and -not $age.HasExited) { try { $age.Kill($true) } catch {} }
