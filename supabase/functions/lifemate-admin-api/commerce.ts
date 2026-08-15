@@ -28,7 +28,11 @@ const STATUS_SET = new Set<string>(SUBSCRIPTION_STATUSES);
 
 export function parseCommerceOverviewQuery(url: URL): CommerceOverviewQuery {
   const page = boundedAdminPage(url.searchParams.get("page"));
-  const pageSize = boundedAdminPageSize(url.searchParams.get("pageSize"), 25, 5);
+  const pageSize = boundedAdminPageSize(
+    url.searchParams.get("pageSize"),
+    25,
+    5,
+  );
 
   const rawProduct = url.searchParams.get("product")?.trim() ?? "";
   if (rawProduct && !PRODUCT_CODE.test(rawProduct)) {
