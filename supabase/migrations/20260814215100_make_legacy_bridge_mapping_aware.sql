@@ -10,6 +10,7 @@ declare
   v_account_id uuid;
   v_self_person_id uuid;
   feature_row record;
+  care_feature_id uuid;
 begin
   select id
     into v_account_id
@@ -121,9 +122,10 @@ begin
   on conflict(account_id,application_id) do update set
     status='Active',last_active_at_utc=excluded.last_active_at_utc;
 
+  -- Self-health capabilities remain Person-beneficiary entitlements.
   for feature_row in
     select id,code from commerce.features
-    where code in ('treatment.basic','care.basic','women_health.basic_tracking')
+    where code in ('treatment.basic','women_health.basic_tracking')
   loop
     insert into commerce.entitlements(
       grantee_account_id,beneficiary_person_id,feature_id,
@@ -137,6 +139,40 @@ begin
       grantee_account_id,beneficiary_person_id,feature_id,source,source_key
     ) do update set status='Active';
   end loop;
+
+  -- care.basic is intentionally account-level. The acting Account owns the
+  -- capability; access grant + relationship-scoped consent decides which
+  -- Person it may read. Do not regress it to a self-beneficiary entitlement.
+  select id into care_feature_id
+  from commerce.features
+  where code='care.basic';
+
+  if care_feature_id is not null and not exists(
+    select 1
+    from commerce.entitlements e
+    where e.grantee_account_id=v_account_id
+      and e.beneficiary_person_id is null
+      and e.feature_id=care_feature_id
+      and e.source='FREE'
+      and e.source_key='free:v1:care.basic'
+  ) then
+    insert into commerce.entitlements(
+      grantee_account_id,beneficiary_person_id,feature_id,
+      source,source_key,status,starts_at_utc
+    )
+    values(
+      v_account_id,null,care_feature_id,
+      'FREE','free:v1:care.basic','Active',new.created_at_utc
+    );
+  else
+    update commerce.entitlements
+       set status='Active',updated_at_utc=new.updated_at_utc
+     where grantee_account_id=v_account_id
+       and beneficiary_person_id is null
+       and feature_id=care_feature_id
+       and source='FREE'
+       and source_key='free:v1:care.basic';
+  end if;
 
   return new;
 end
