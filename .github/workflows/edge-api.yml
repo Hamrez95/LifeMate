@@ -127,6 +127,9 @@ jobs:
           while IFS= read -r migration; do
             psql "$TEST_DATABASE_URL" --set=ON_ERROR_STOP=1 --file="$migration"
           done < <(find supabase/migrations -maxdepth 1 -type f -name '*.sql' | sort)
+      - name: Prove account lifecycle maps AppUser to Account
+        working-directory: supabase/functions/lifemate-api
+        run: deno task test:account-lifecycle-integration
       - name: Run patient caregiver privacy and cleanup journeys
         working-directory: supabase/functions/lifemate-api
         run: deno task test:integration
