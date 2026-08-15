@@ -169,8 +169,6 @@ Deno.test({
         )
       `;
 
-      // Use values from the database contracts rather than weakening their
-      // constraints for a test fixture.
       await sql`
         insert into lifemate.care_events(
           id,patient_user_id,patient_person_id,created_by_user_id,client_request_id,
@@ -351,111 +349,53 @@ Deno.test({
         await sql.unsafe("reset role");
       }
 
-      assertEquals(
-        Number((await sql`
-          select count(*)::int as count from lifemate.medications
-          where owner_user_id=${appUserId}::uuid
-        `)[0].count),
-        0,
-      );
-      assertEquals(
-        Number((await sql`
-          select count(*)::int as count from lifemate.treatment_plans
-          where patient_user_id=${appUserId}::uuid
-        `)[0].count),
-        0,
-      );
-      assertEquals(
-        Number((await sql`
-          select count(*)::int as count from lifemate.dose_occurrences
-          where patient_user_id=${appUserId}::uuid
-        `)[0].count),
-        0,
-      );
-      assertEquals(
-        Number((await sql`
-          select count(*)::int as count
-          from lifemate.dose_adherence_events
-          where occurrence_id=${occurrenceId}::uuid
-        `)[0].count),
-        0,
-      );
-      assertEquals(
-        Number((await sql`
-          select count(*)::int as count from lifemate.health_observations
-          where owner_user_id=${appUserId}::uuid
-        `)[0].count),
-        0,
-      );
-      assertEquals(
-        Number((await sql`
-          select count(*)::int as count from lifemate.care_events
-          where patient_user_id=${appUserId}::uuid
-        `)[0].count),
-        0,
-      );
-      assertEquals(
-        Number((await sql`
-          select count(*)::int as count from lifemate.women_calendar_profiles
-          where owner_user_id=${appUserId}::uuid
-        `)[0].count),
-        0,
-      );
-      assertEquals(
-        Number((await sql`
-          select count(*)::int as count from lifemate.women_calendar_episodes
-          where owner_user_id=${appUserId}::uuid
-        `)[0].count),
-        0,
-      );
-      assertEquals(
-        Number((await sql`
-          select count(*)::int as count from lifemate.women_calendar_daily_logs
-          where owner_user_id=${appUserId}::uuid
-        `)[0].count),
-        0,
-      );
-      assertEquals(
-        Number((await sql`
-          select count(*)::int as count
-          from lifemate.women_calendar_support_actions
-          where patient_user_id=${appUserId}::uuid
-        `)[0].count),
-        0,
-      );
-      assertEquals(
-        Number((await sql`
-          select count(*)::int as count from care.daily_adherence_summary
-          where person_id=${personId}::uuid
-        `)[0].count),
-        0,
-      );
+      const deletionProof = await sql`
+        select
+          (select count(*)::int from lifemate.medications
+            where owner_user_id=${appUserId}::uuid) as medications,
+          (select count(*)::int from lifemate.treatment_plans
+            where patient_user_id=${appUserId}::uuid) as plans,
+          (select count(*)::int from lifemate.dose_occurrences
+            where patient_user_id=${appUserId}::uuid) as occurrences,
+          (select count(*)::int from lifemate.dose_adherence_events
+            where occurrence_id=${occurrenceId}::uuid) as adherence_events,
+          (select count(*)::int from lifemate.health_observations
+            where owner_user_id=${appUserId}::uuid) as health_observations,
+          (select count(*)::int from lifemate.care_events
+            where patient_user_id=${appUserId}::uuid) as own_care_events,
+          (select count(*)::int from lifemate.women_calendar_profiles
+            where owner_user_id=${appUserId}::uuid) as women_profiles,
+          (select count(*)::int from lifemate.women_calendar_episodes
+            where owner_user_id=${appUserId}::uuid) as women_episodes,
+          (select count(*)::int from lifemate.women_calendar_daily_logs
+            where owner_user_id=${appUserId}::uuid) as women_logs,
+          (select count(*)::int from lifemate.women_calendar_support_actions
+            where patient_user_id=${appUserId}::uuid) as women_support_actions,
+          (select count(*)::int from care.daily_adherence_summary
+            where person_id=${personId}::uuid) as adherence_summaries,
+          (select count(*)::int from lifemate.care_events
+            where id=${survivorCareEventId}::uuid
+              and patient_user_id=${survivorUserId}::uuid) as survivor_care_events,
+          (select count(*)::int from lifemate.idempotency_keys
+            where actor_auth_subject=${authSubject}::uuid) as idempotency_keys,
+          (select count(*)::int from lifemate.care_invitations
+            where inviter_user_id=${appUserId}::uuid) as own_invitations
+      `;
 
-      // The deleting account created this row only as another patient's
-      // caregiver. It must survive because the healthcare subject is different.
-      assertEquals(
-        Number((await sql`
-          select count(*)::int as count from lifemate.care_events
-          where id=${survivorCareEventId}::uuid
-            and patient_user_id=${survivorUserId}::uuid
-        `)[0].count),
-        1,
-      );
-
-      assertEquals(
-        Number((await sql`
-          select count(*)::int as count from lifemate.idempotency_keys
-          where actor_auth_subject=${authSubject}::uuid
-        `)[0].count),
-        0,
-      );
-      assertEquals(
-        Number((await sql`
-          select count(*)::int as count from lifemate.care_invitations
-          where inviter_user_id=${appUserId}::uuid
-        `)[0].count),
-        0,
-      );
+      assertEquals(Number(deletionProof[0].medications), 0);
+      assertEquals(Number(deletionProof[0].plans), 0);
+      assertEquals(Number(deletionProof[0].occurrences), 0);
+      assertEquals(Number(deletionProof[0].adherence_events), 0);
+      assertEquals(Number(deletionProof[0].health_observations), 0);
+      assertEquals(Number(deletionProof[0].own_care_events), 0);
+      assertEquals(Number(deletionProof[0].women_profiles), 0);
+      assertEquals(Number(deletionProof[0].women_episodes), 0);
+      assertEquals(Number(deletionProof[0].women_logs), 0);
+      assertEquals(Number(deletionProof[0].women_support_actions), 0);
+      assertEquals(Number(deletionProof[0].adherence_summaries), 0);
+      assertEquals(Number(deletionProof[0].survivor_care_events), 1);
+      assertEquals(Number(deletionProof[0].idempotency_keys), 0);
+      assertEquals(Number(deletionProof[0].own_invitations), 0);
 
       const tombstone = await sql`
         select a.status as account_status,
@@ -519,8 +459,6 @@ Deno.test({
     } finally {
       await sql.unsafe("reset role").catch(() => undefined);
 
-      // Cleanup must also work when a fixture assertion fails before the
-      // finalizer executes, so remove healthcare dependents before identities.
       await sql`
         delete from lifemate.women_calendar_support_actions
         where patient_user_id in (${appUserId}::uuid,${survivorUserId}::uuid)
