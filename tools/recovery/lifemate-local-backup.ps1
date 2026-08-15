@@ -118,6 +118,7 @@ $pgArgs.Add('--format=custom')
 $pgArgs.Add('--no-owner')
 $pgArgs.Add('--no-acl')
 $pgArgs.Add('--verbose')
+$pgArgs.Add('--role=lifemate_backup_reader')
 $pgArgs.Add("--dbname=service=$DatabaseService")
 foreach ($schema in $schemas) {
   $pgArgs.Add("--schema=$schema")
@@ -145,14 +146,14 @@ try {
 
   $pg.WaitForExit()
   $age.WaitForExit()
-  $pgError = $pgErrorTask.GetAwaiter().GetResult()
-  $ageError = $ageErrorTask.GetAwaiter().GetResult()
+  [void]$pgErrorTask.GetAwaiter().GetResult()
+  [void]$ageErrorTask.GetAwaiter().GetResult()
 
   if ($pg.ExitCode -ne 0) {
-    throw "pg_dump failed with exit code $($pg.ExitCode). $($pgError.Trim())"
+    throw "pg_dump failed with exit code $($pg.ExitCode); connection details are intentionally redacted."
   }
   if ($age.ExitCode -ne 0) {
-    throw "age encryption failed with exit code $($age.ExitCode). $($ageError.Trim())"
+    throw "age encryption failed with exit code $($age.ExitCode); diagnostic paths are intentionally redacted."
   }
   if (-not (Test-Path -LiteralPath $temporaryArtifactPath -PathType Leaf)) {
     throw 'Encrypted backup artifact was not created.'
