@@ -1,0 +1,41 @@
+name: auth-security-policy
+
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - 'supabase/config.toml'
+      - 'packages/lifemate_client/lib/src/feature_flags.dart'
+      - 'packages/lifemate_client/lib/src/experience_auth.dart'
+      - 'tools/security/verify-auth-security-contract.mjs'
+      - '.github/workflows/auth-security-policy.yml'
+      - 'docs/security/AUTH_PROVIDER_BASELINE.md'
+  push:
+    branches: [main]
+    paths:
+      - 'supabase/config.toml'
+      - 'packages/lifemate_client/lib/src/feature_flags.dart'
+      - 'packages/lifemate_client/lib/src/experience_auth.dart'
+      - 'tools/security/verify-auth-security-contract.mjs'
+      - '.github/workflows/auth-security-policy.yml'
+      - 'docs/security/AUTH_PROVIDER_BASELINE.md'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: auth-security-policy-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  policy:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
+        with:
+          show-progress: false
+          persist-credentials: false
+
+      - name: Verify Auth security source contract
+        run: node tools/security/verify-auth-security-contract.mjs
