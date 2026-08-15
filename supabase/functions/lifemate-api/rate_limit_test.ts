@@ -4,6 +4,7 @@ import {
   classifyRateLimitFailure,
   classifyRequest,
   InMemoryCounterStore,
+  type RateLimitPolicy,
   RequestRateLimiter,
   resolveRateLimitRuntimeConfig,
   UpstashRestCounterStore,
@@ -176,6 +177,76 @@ Deno.test("shared denial is cached locally without repeatedly hitting Redis", as
     ApiError,
   );
   assertEquals(fetchCount, 1);
+});
+
+Deno.test("fallback denial is not cached after concurrent Redis recovery", async () => {
+  let fetchCount = 0;
+  const fakeFetch = async () => {
+    fetchCount += 1;
+    if (fetchCount <= 61) {
+      throw new Error("redis_http_503");
+    }
+    return Response.json({ result: [1, 60_000] });
+  };
+
+  let signalFallbackBlocked: () => void = () => {};
+  let releaseFallback: () => void = () => {};
+  const fallbackBlocked = new Promise<void>((resolve) => {
+    signalFallbackBlocked = resolve;
+  });
+  const fallbackRelease = new Promise<void>((resolve) => {
+    releaseFallback = resolve;
+  });
+
+  class BlockingFallbackStore extends InMemoryCounterStore {
+    private calls = 0;
+
+    override async consume(
+      key: string,
+      policy: RateLimitPolicy,
+      now?: number,
+    ) {
+      const result = await super.consume(key, policy, now);
+      this.calls += 1;
+      if (this.calls === 61) {
+        signalFallbackBlocked();
+        await fallbackRelease;
+      }
+      return result;
+    }
+  }
+
+  const limiter = new RequestRateLimiter(
+    new UpstashRestCounterStore(
+      "https://redis.example",
+      "token-token-token-token",
+      fakeFetch,
+    ),
+    "redis",
+    new BlockingFallbackStore(),
+  );
+  const subject = crypto.randomUUID();
+
+  // Degraded read quota is 60/minute. Fill it while Redis is unavailable.
+  for (let index = 0; index < 60; index++) {
+    await limiter.enforce("GET", "/api/v1/me", subject);
+  }
+
+  // The 61st request is denied by fallback, but pause it after the fallback
+  // counter is consumed. A concurrent request then observes recovered Redis.
+  const fallbackDenial = limiter.enforce("GET", "/api/v1/me", subject);
+  await fallbackBlocked;
+  await limiter.enforce("GET", "/api/v1/me", subject);
+  releaseFallback();
+
+  const error = await assertRejects(() => fallbackDenial, ApiError);
+  assertEquals(error.status, 429);
+
+  // The fallback denial must not be mistaken for a shared Redis denial. A new
+  // request therefore reaches recovered Redis instead of the local deny cache.
+  await limiter.enforce("GET", "/api/v1/me", subject);
+  assertEquals(fetchCount, 63);
+  assertEquals(limiter.snapshot().state, "healthy");
 });
 
 Deno.test("Redis failure falls back to a conservative local quota", async () => {
