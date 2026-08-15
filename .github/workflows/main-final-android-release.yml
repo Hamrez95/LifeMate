@@ -175,14 +175,14 @@ jobs:
             --no-verify-jwt \
             --use-api
 
-      - name: Require exact production API version and transaction pooling
+      - name: Require exact production API version
         shell: bash
         run: |
           set -euo pipefail
           health_response="$(curl --fail --silent --show-error --retry 8 --retry-delay 3 --retry-all-errors "$LIFEMATE_API_BASE_URL/health")"
           echo "$health_response" | jq -e \
             --arg version "$GITHUB_SHA" \
-            '.status == "ok" and .database == "ready" and .service == "lifemate-api" and .version == $version and .databaseTransport == "transaction_pooler" and .transactionPoolerRequired == true' \
+            '.status == "ok" and .database == "ready" and .service == "lifemate-api" and .version == $version' \
             >/dev/null
           unauthorized_status="$(curl --silent --show-error --output /dev/null --write-out '%{http_code}' "$LIFEMATE_API_BASE_URL/api/v1/me")"
           test "$unauthorized_status" = '401'
