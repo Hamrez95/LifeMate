@@ -66,13 +66,38 @@ begin
 end
 $$;
 
+-- Finalized accounts retain a minimal tombstone under retention-v2 instead of
+-- deleting the account row. Purge opaque auth-link tokens at the same boundary
+-- so a deleted account cannot continue to authenticate through this future path.
+create or replace function identity.purge_external_identity_tokens_on_account_deleted()
+returns trigger
+language plpgsql
+set search_path = pg_catalog, identity, pg_temp
+as $$
+begin
+  if new.status = 'Deleted' and old.status is distinct from 'Deleted' then
+    delete from identity.external_identity_tokens
+    where account_id = new.id;
+  end if;
+  return new;
+end
+$$;
+
+revoke all on function identity.purge_external_identity_tokens_on_account_deleted()
+  from public;
+
+drop trigger if exists trg_purge_external_identity_tokens_on_account_deleted
+  on identity.accounts;
+create trigger trg_purge_external_identity_tokens_on_account_deleted
+after update of status on identity.accounts
+for each row execute function identity.purge_external_identity_tokens_on_account_deleted();
+
 -- Explicitly preserve direct-client denial if these Supabase roles exist.
 do $$
 declare v_role text;
 begin
   foreach v_role in array array['anon','authenticated','service_role'] loop
     if exists (select 1 from pg_roles where rolname = v_role) then
-      revoke all on identity.external_identity_tokens from public;
       execute format(
         'revoke all on identity.external_identity_tokens from %I',
         v_role
