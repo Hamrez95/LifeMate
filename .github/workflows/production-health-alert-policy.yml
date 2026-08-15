@@ -8,6 +8,7 @@ on:
       - '.github/workflows/production-health-alert-policy.yml'
       - 'tools/operations/verify-production-health-alert-policy.mjs'
       - 'docs/operations/reliability-slos.md'
+      - 'docs/operations/production-health-alerting.md'
   push:
     branches: [main]
     paths:
@@ -15,6 +16,7 @@ on:
       - '.github/workflows/production-health-alert-policy.yml'
       - 'tools/operations/verify-production-health-alert-policy.mjs'
       - 'docs/operations/reliability-slos.md'
+      - 'docs/operations/production-health-alerting.md'
 
 permissions:
   contents: read
