@@ -259,8 +259,15 @@ async function listFeatureEntitlements(
 ) {
   const rows = await sql`
     select id,
+           status as stored_status,
+           case
+             when status = 'Active' and starts_at_utc > now() then 'Scheduled'
+             when status = 'Active'
+               and expires_at_utc is not null
+               and expires_at_utc <= now() then 'Expired'
+             else status
+           end as effective_status,
            source,
-           status,
            starts_at_utc,
            expires_at_utc,
            created_at_utc,
@@ -279,7 +286,8 @@ async function listFeatureEntitlements(
   return (rows as unknown as Record<string, unknown>[]).map((value) => ({
     entitlementId: String(value.id),
     source: String(value.source),
-    status: String(value.status),
+    storedStatus: String(value.stored_status),
+    effectiveStatus: String(value.effective_status),
     targetKind: String(value.target_kind),
     startsAtUtc: iso(value.starts_at_utc),
     expiresAtUtc: nullableIso(value.expires_at_utc),
