@@ -16,7 +16,9 @@ export function matchCommercePlanDetailPath(path: string): string | null {
   return requireUuid(match[1], "planId");
 }
 
-export function matchCommerceEntitlementDetailPath(path: string): string | null {
+export function matchCommerceEntitlementDetailPath(
+  path: string,
+): string | null {
   const match = ENTITLEMENT_PATH.exec(path);
   if (!match) return null;
 
