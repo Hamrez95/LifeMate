@@ -52,6 +52,56 @@ Deno.test("product export wording describes portable JSON and clipboard handling
   assert(!ui.includes("خروجی کامل دیتابیس"));
 });
 
+Deno.test("privacy product actions stay wired to no-store lifecycle routes", async () => {
+  const api = await read("supabase/functions/lifemate-api/index.ts");
+  const http = await read("supabase/functions/lifemate-api/http.ts");
+  const client = await read(
+    "packages/lifemate_client/lib/src/lifemate_api_client.dart",
+  );
+
+  assert(
+    api.includes(
+      'request.method === "GET" && path === "/api/v1/account/data-export"',
+    ),
+    "portable export route must remain registered",
+  );
+  assert(
+    api.includes(
+      'path === "/api/v1/account/deletion-requests/latest"',
+    ),
+    "deletion-status route must remain registered",
+  );
+  assert(
+    api.includes('path === "/api/v1/account/deletion-requests"'),
+    "deletion-request route must remain registered",
+  );
+  assert(
+    api.includes("return json(exported, 200, {"),
+    "portable export must continue through the shared JSON response helper",
+  );
+  assert(
+    http.includes('"Cache-Control": "no-store"'),
+    "privacy responses must retain the shared no-store response header",
+  );
+
+  assert(
+    client.includes(
+      "_asObject(await _send('GET', '/api/v1/account/data-export'))",
+    ),
+    "client export action must call the canonical portable-export route",
+  );
+  assert(
+    client.includes(
+      "_asObject(await _send('POST', '/api/v1/account/deletion-requests'))",
+    ),
+    "client deletion action must call the canonical deletion route",
+  );
+  assert(
+    client.includes("'/api/v1/account/deletion-requests/latest'"),
+    "client deletion status must call the canonical latest-request route",
+  );
+});
+
 Deno.test("account deletion UI is bound to the runtime retention-v2 lifecycle", async () => {
   const ui = await read(
     "packages/lifemate_client/lib/src/account_deletion_action.dart",
