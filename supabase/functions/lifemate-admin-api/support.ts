@@ -103,7 +103,11 @@ function assigneeFilter(value: string | null): {
 
 export function parseSupportQueueQuery(url: URL): SupportQueueQuery {
   const page = boundedAdminPage(url.searchParams.get("page"));
-  const pageSize = boundedAdminPageSize(url.searchParams.get("pageSize"), 25, 5);
+  const pageSize = boundedAdminPageSize(
+    url.searchParams.get("pageSize"),
+    25,
+    5,
+  );
   const assignee = assigneeFilter(url.searchParams.get("assignee"));
 
   return {
