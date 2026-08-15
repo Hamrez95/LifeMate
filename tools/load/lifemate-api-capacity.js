@@ -11,7 +11,7 @@ const profile = (__ENV.LOAD_PROFILE || 'smoke').trim().toLowerCase();
 const targetMode = (__ENV.LIFEMATE_LOAD_TARGET || 'local').trim().toLowerCase();
 const baseUrl = (__ENV.BASE_URL || 'http://127.0.0.1:18080').replace(/\/+$/, '');
 const targetProjectRef = (__ENV.TARGET_PROJECT_REF || '').trim();
-const accessToken = (__ENV.ACCESS_TOKEN || '').trim();
+const legacyAccessToken = (__ENV.ACCESS_TOKEN || '').trim();
 const runId = sanitizeRunId(__ENV.RUN_ID || `${Date.now()}`);
 const mutationConfirmation = (__ENV.CONFIRM_SYNTHETIC_MUTATIONS || '').trim();
 const writeFixtureMinimum = 25;
@@ -32,15 +32,37 @@ const response503 = new Counter('response_503');
 
 const profileDefinitions = {
   smoke: {
+    identityPoolMinimum: 1,
+    maxControlledOverloadRate: 0.01,
     scenarios: {
       api: {
-        executor: 'constant-vus',
-        vus: 2,
+        executor: 'constant-arrival-rate',
+        rate: 2,
+        timeUnit: '1s',
         duration: '30s',
+        preAllocatedVUs: 2,
+        maxVUs: 8,
+      },
+    },
+  },
+  'single-user-throttle': {
+    identityPoolMinimum: 1,
+    minControlledOverloadRate: 0.02,
+    singleIdentityOnly: true,
+    scenarios: {
+      api: {
+        executor: 'constant-arrival-rate',
+        rate: 10,
+        timeUnit: '1s',
+        duration: '60s',
+        preAllocatedVUs: 8,
+        maxVUs: 24,
       },
     },
   },
   'read-heavy': {
+    identityPoolMinimum: 20,
+    maxControlledOverloadRate: 0.01,
     scenarios: {
       api: {
         executor: 'constant-arrival-rate',
@@ -53,6 +75,8 @@ const profileDefinitions = {
     },
   },
   ramp: {
+    identityPoolMinimum: 100,
+    maxControlledOverloadRate: 0.05,
     scenarios: {
       api: {
         executor: 'ramping-arrival-rate',
@@ -72,6 +96,7 @@ const profileDefinitions = {
     },
   },
   spike: {
+    identityPoolMinimum: 350,
     scenarios: {
       api: {
         executor: 'ramping-arrival-rate',
@@ -97,18 +122,25 @@ const profileDefinitions = {
     },
   },
   soak: {
+    // Hosted access tokens have a 60-minute lifetime. Keep one invocation
+    // safely below that boundary; a certified 60+ minute soak must rotate
+    // sessions between bounded segments rather than running on expired JWTs.
+    identityPoolMinimum: 50,
+    maxControlledOverloadRate: 0.01,
     scenarios: {
       api: {
         executor: 'constant-arrival-rate',
         rate: 250,
         timeUnit: '1s',
-        duration: '60m',
+        duration: '50m',
         preAllocatedVUs: 200,
         maxVUs: 700,
       },
     },
   },
   'care-mix': {
+    identityPoolMinimum: 25,
+    maxControlledOverloadRate: 0.01,
     scenarios: {
       api: {
         executor: 'constant-arrival-rate',
@@ -121,6 +153,8 @@ const profileDefinitions = {
     },
   },
   'write-heavy': {
+    identityPoolMinimum: writeFixtureMinimum,
+    maxControlledOverloadRate: 0.05,
     scenarios: {
       api: {
         executor: 'constant-vus',
@@ -130,6 +164,7 @@ const profileDefinitions = {
     },
   },
   'retry-storm': {
+    identityPoolMinimum: writeFixtureMinimum,
     scenarios: {
       api: {
         executor: 'constant-vus',
@@ -144,20 +179,37 @@ if (!Object.prototype.hasOwnProperty.call(profileDefinitions, profile)) {
   throw new Error(`Unsupported LOAD_PROFILE: ${profile}`);
 }
 
+const profileDefinition = profileDefinitions[profile];
+const authSessions = loadAuthSessions();
+const authSessionBySubject = Object.fromEntries(
+  authSessions.map((session) => [session.subject, session]),
+);
 validateTarget();
 const fixtures = loadDoseFixtures();
 
+const thresholds = {
+  unexpected_response_rate: ['rate<0.01'],
+  server_error_rate: ['rate<0.005'],
+  missing_correlation_id_rate: ['rate<0.001'],
+  lifemate_api_latency_ms: ['p(95)<1500', 'p(99)<3000'],
+  critical_write_failure_rate: ['rate<0.01'],
+  idempotency_replay_missing_rate: ['rate<0.01'],
+};
+if (Number.isFinite(profileDefinition.maxControlledOverloadRate)) {
+  thresholds.controlled_overload_rate = [
+    `rate<${profileDefinition.maxControlledOverloadRate}`,
+  ];
+}
+if (Number.isFinite(profileDefinition.minControlledOverloadRate)) {
+  thresholds.controlled_overload_rate = [
+    `rate>${profileDefinition.minControlledOverloadRate}`,
+  ];
+}
+
 export const options = {
   discardResponseBodies: false,
-  scenarios: profileDefinitions[profile].scenarios,
-  thresholds: {
-    unexpected_response_rate: ['rate<0.01'],
-    server_error_rate: ['rate<0.005'],
-    missing_correlation_id_rate: ['rate<0.001'],
-    lifemate_api_latency_ms: ['p(95)<1500', 'p(99)<3000'],
-    critical_write_failure_rate: ['rate<0.01'],
-    idempotency_replay_missing_rate: ['rate<0.01'],
-  },
+  scenarios: profileDefinition.scenarios,
+  thresholds,
 };
 
 let writeState = null;
@@ -165,6 +217,12 @@ let writeState = null;
 export default function () {
   if (profile === 'write-heavy' || profile === 'retry-storm') {
     runCriticalWriteIteration();
+    if (profile === 'write-heavy') {
+      // One logical mutation generates an original request plus an exact replay.
+      // Pace the normal write profile so one subject does not exceed the
+      // 120-request/min critical-write admission ceiling by construction.
+      sleep(1);
+    }
     return;
   }
   if (profile === 'care-mix') {
@@ -212,10 +270,20 @@ function runCareReadMix() {
 function runCriticalWriteIteration() {
   if (writeState === null) {
     const fixture = fixtures[(__VU - 1) % fixtures.length];
+    const session = targetMode === 'staging'
+      ? authSessionBySubject[fixture.subject]
+      : null;
+    if (targetMode === 'staging' && !session) {
+      throw new Error(
+        `Dose fixture subject has no matching authenticated session: ${fixture.subject}`,
+      );
+    }
     writeState = {
       id: fixture.id,
       version: Number(fixture.version),
       nextStatus: fixture.status === 'taken' ? 'skipped' : 'taken',
+      subject: fixture.subject,
+      accessToken: session?.accessToken || '',
     };
   }
 
@@ -230,6 +298,7 @@ function runCriticalWriteIteration() {
   const first = requestWithBackoff('POST', path, body, {
     idempotencyKey: logicalRequestId,
     criticalWrite: true,
+    accessToken: writeState.accessToken,
   });
 
   if (first.status >= 200 && first.status < 300) {
@@ -246,12 +315,10 @@ function runCriticalWriteIteration() {
       return;
     }
 
-    // This is the exact retry of one logical mutation: same request body and
-    // same idempotency key. It must replay rather than insert a second
-    // adherence event or mutate the dose twice.
     const replay = request('POST', path, body, {
       idempotencyKey: logicalRequestId,
       criticalWrite: true,
+      accessToken: writeState.accessToken,
     });
     const replayHeader = headerValue(replay, 'X-Idempotency-Replayed');
     const replayOk = replay.status >= 200 && replay.status < 300 &&
@@ -266,8 +333,8 @@ function runCriticalWriteIteration() {
   }
 }
 
-function requestWithBackoff(method, path, body = null, options = {}) {
-  const first = request(method, path, body, options);
+function requestWithBackoff(method, path, body = null, requestOptions = {}) {
+  const first = request(method, path, body, requestOptions);
   if (!isControlledOverload(first.status)) return first;
 
   const retryAfter = Number.parseFloat(headerValue(first, 'Retry-After'));
@@ -275,23 +342,24 @@ function requestWithBackoff(method, path, body = null, options = {}) {
     ? Math.max(0.05, Math.min(2, retryAfter))
     : 0.25;
   sleep(delaySeconds);
-  const second = request(method, path, body, options);
+  const second = request(method, path, body, requestOptions);
   retryRecovered.add(second.status >= 200 && second.status < 300);
   return second;
 }
 
-function request(method, path, body = null, options = {}) {
+function request(method, path, body = null, requestOptions = {}) {
   const headers = {
     Accept: 'application/json',
   };
-  if (options.auth !== false && accessToken) {
-    headers.Authorization = `Bearer ${accessToken}`;
+  if (requestOptions.auth !== false) {
+    const token = requestOptions.accessToken || selectAccessToken();
+    if (token) headers.Authorization = `Bearer ${token}`;
   }
   if (body !== null) {
     headers['Content-Type'] = 'application/json';
   }
-  if (options.idempotencyKey) {
-    headers['Idempotency-Key'] = options.idempotencyKey;
+  if (requestOptions.idempotencyKey) {
+    headers['Idempotency-Key'] = requestOptions.idempotencyKey;
   }
 
   const response = http.request(method, `${baseUrl}${path}`, body, {
@@ -316,12 +384,22 @@ function request(method, path, body = null, options = {}) {
   unexpectedResponses.add(!accepted && !overloaded);
 
   check(response, {
-    'response is useful or controlled overload': (r) =>
-      (r.status >= 200 && r.status < 300) || isControlledOverload(r.status),
+    'response is useful or controlled overload': (value) =>
+      (value.status >= 200 && value.status < 300) ||
+      isControlledOverload(value.status),
     'correlation id is present': () => correlationId.length > 0,
   });
 
   return response;
+}
+
+function selectAccessToken() {
+  if (authSessions.length === 0) return '';
+  if (profileDefinition.singleIdentityOnly) {
+    return authSessions[0].accessToken;
+  }
+  const index = Math.abs((__VU - 1) + __ITER) % authSessions.length;
+  return authSessions[index].accessToken;
 }
 
 function recordStatus(status) {
@@ -344,9 +422,45 @@ function headerValue(response, name) {
   return '';
 }
 
+function loadAuthSessions() {
+  const raw = (__ENV.AUTH_SESSIONS_JSON || '').trim();
+  let values = [];
+  if (raw) {
+    try {
+      values = JSON.parse(raw);
+    } catch (_) {
+      throw new Error('AUTH_SESSIONS_JSON must be a JSON array.');
+    }
+  } else if (legacyAccessToken) {
+    values = [{ accessToken: legacyAccessToken, subject: 'legacy-single-user' }];
+  }
+
+  if (!Array.isArray(values)) {
+    throw new Error('AUTH_SESSIONS_JSON must be a JSON array.');
+  }
+  const normalized = values.map((value, index) => {
+    if (!value || typeof value !== 'object') {
+      throw new Error(`Auth session ${index} must be an object.`);
+    }
+    const accessToken = String(value.accessToken || '').trim();
+    const subject = String(value.subject || '').trim();
+    if (!accessToken || !subject || subject.length > 128) {
+      throw new Error(`Auth session ${index} is invalid.`);
+    }
+    return { accessToken, subject };
+  });
+  if (new Set(normalized.map((value) => value.subject)).size !== normalized.length) {
+    throw new Error('AUTH_SESSIONS_JSON subjects must be unique.');
+  }
+  return normalized;
+}
+
 function loadDoseFixtures() {
   if (profile !== 'write-heavy' && profile !== 'retry-storm') return [];
-  if (targetMode === 'staging' && mutationConfirmation !== 'STAGING-SYNTHETIC-MUTATIONS') {
+  if (
+    targetMode === 'staging' &&
+    mutationConfirmation !== 'STAGING-SYNTHETIC-MUTATIONS'
+  ) {
     throw new Error(
       'Mutation profiles require CONFIRM_SYNTHETIC_MUTATIONS=STAGING-SYNTHETIC-MUTATIONS.',
     );
@@ -359,6 +473,7 @@ function loadDoseFixtures() {
       id: deterministicFixtureUuid(index + 1),
       version: 1,
       status: 'scheduled',
+      subject: `local-subject-${String(index + 1).padStart(3, '0')}`,
     }));
   } else {
     try {
@@ -380,10 +495,16 @@ function loadDoseFixtures() {
     const id = String(value.id || '').trim();
     const version = Number(value.version);
     const status = String(value.status || 'scheduled').trim().toLowerCase();
+    const subject = String(value.subject || value.authUserId || '').trim();
     if (!isUuid(id) || !Number.isInteger(version) || version < 1) {
       throw new Error(`Dose fixture ${index} is invalid.`);
     }
-    return { id, version, status };
+    if (targetMode === 'staging' && (!subject || !authSessionBySubject[subject])) {
+      throw new Error(
+        `Dose fixture ${index} must name a subject present in AUTH_SESSIONS_JSON.`,
+      );
+    }
+    return { id, version, status, subject };
   });
 }
 
@@ -396,10 +517,14 @@ function validateTarget() {
   }
 
   if (targetMode !== 'staging') {
-    throw new Error('LIFEMATE_LOAD_TARGET must be local or staging. Production is unsupported.');
+    throw new Error(
+      'LIFEMATE_LOAD_TARGET must be local or staging. Production is unsupported.',
+    );
   }
   if ((__ENV.CONFIRM_STAGING_LOAD || '').trim() !== 'LIFEMATE-STAGING-ONLY') {
-    throw new Error('Remote load requires CONFIRM_STAGING_LOAD=LIFEMATE-STAGING-ONLY.');
+    throw new Error(
+      'Remote load requires CONFIRM_STAGING_LOAD=LIFEMATE-STAGING-ONLY.',
+    );
   }
   if (!/^[a-z0-9]{12,40}$/i.test(targetProjectRef)) {
     throw new Error('TARGET_PROJECT_REF is required for staging load.');
@@ -416,8 +541,13 @@ function validateTarget() {
   if (baseUrl.includes(PRODUCTION_PROJECT_REF)) {
     throw new Error('Production API URL is explicitly blocked from load tests.');
   }
-  if (!accessToken) {
-    throw new Error('ACCESS_TOKEN for a synthetic staging identity is required.');
+  if (authSessions.length < profileDefinition.identityPoolMinimum) {
+    throw new Error(
+      `Profile ${profile} requires at least ${profileDefinition.identityPoolMinimum} unique synthetic auth sessions; received ${authSessions.length}.`,
+    );
+  }
+  if (profileDefinition.singleIdentityOnly && authSessions.length !== 1) {
+    throw new Error('single-user-throttle requires exactly one synthetic identity.');
   }
 }
 
@@ -456,6 +586,10 @@ export function handleSummary(data) {
     target: targetMode,
     targetProjectRef: targetMode === 'staging' ? targetProjectRef : 'local',
     profile,
+    identityPoolSize: authSessions.length,
+    identityPoolMinimum: targetMode === 'staging'
+      ? profileDefinition.identityPoolMinimum
+      : 0,
     thresholdsPassed: allThresholdsPassed(data),
     requests: metricValue(data, 'http_reqs', 'count'),
     achievedRps: metricValue(data, 'http_reqs', 'rate'),
@@ -477,9 +611,21 @@ export function handleSummary(data) {
       unexpected: metricValue(data, 'unexpected_response_rate', 'rate'),
       controlledOverload: metricValue(data, 'controlled_overload_rate', 'rate'),
       serverError: metricValue(data, 'server_error_rate', 'rate'),
-      missingCorrelationId: metricValue(data, 'missing_correlation_id_rate', 'rate'),
-      criticalWriteFailure: metricValue(data, 'critical_write_failure_rate', 'rate'),
-      idempotencyReplayMissing: metricValue(data, 'idempotency_replay_missing_rate', 'rate'),
+      missingCorrelationId: metricValue(
+        data,
+        'missing_correlation_id_rate',
+        'rate',
+      ),
+      criticalWriteFailure: metricValue(
+        data,
+        'critical_write_failure_rate',
+        'rate',
+      ),
+      idempotencyReplayMissing: metricValue(
+        data,
+        'idempotency_replay_missing_rate',
+        'rate',
+      ),
       retryRecovered: metricValue(data, 'retry_recovered_rate', 'rate'),
     },
   };
@@ -488,6 +634,7 @@ export function handleSummary(data) {
     '',
     'LifeMate capacity summary',
     `  target/profile: ${compact.target}/${compact.profile}`,
+    `  identities: ${compact.identityPoolSize} (minimum ${compact.identityPoolMinimum})`,
     `  thresholds: ${compact.thresholdsPassed ? 'PASS' : 'FAIL'}`,
     `  requests: ${fmt(compact.requests)}  achieved RPS: ${fmt(compact.achievedRps)}`,
     `  latency ms p50/p95/p99/max: ${fmt(compact.latencyMs.p50)} / ${fmt(compact.latencyMs.p95)} / ${fmt(compact.latencyMs.p99)} / ${fmt(compact.latencyMs.max)}`,

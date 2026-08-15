@@ -10,6 +10,7 @@ on:
         default: smoke
         options:
           - smoke
+          - single-user-throttle
           - read-heavy
           - ramp
           - spike
@@ -39,7 +40,8 @@ jobs:
       TARGET_PROJECT_REF: ${{ secrets.STAGING_SUPABASE_PROJECT_REF }}
       STAGING_SUPABASE_URL: ${{ secrets.STAGING_SUPABASE_URL }}
       STAGING_PUBLISHABLE_KEY: ${{ secrets.STAGING_SUPABASE_PUBLISHABLE_KEY }}
-      STAGING_LOAD_EMAIL: ${{ secrets.STAGING_LOAD_EMAIL }}
+      STAGING_LOAD_EMAIL_PREFIX: ${{ secrets.STAGING_LOAD_EMAIL_PREFIX }}
+      STAGING_LOAD_EMAIL_DOMAIN: ${{ secrets.STAGING_LOAD_EMAIL_DOMAIN }}
       STAGING_LOAD_PASSWORD: ${{ secrets.STAGING_LOAD_PASSWORD }}
       DATABASE_URL: ${{ secrets.STAGING_DATABASE_URL }}
       DOSE_FIXTURES_JSON: ${{ secrets.STAGING_DOSE_FIXTURES_JSON }}
@@ -60,9 +62,12 @@ jobs:
           test "$TARGET_PROJECT_REF" != "$PRODUCTION_PROJECT_REF"
           test -n "$STAGING_SUPABASE_URL"
           test -n "$STAGING_PUBLISHABLE_KEY"
-          test -n "$STAGING_LOAD_EMAIL"
+          test -n "$STAGING_LOAD_EMAIL_PREFIX"
+          test -n "$STAGING_LOAD_EMAIL_DOMAIN"
           test -n "$STAGING_LOAD_PASSWORD"
           test -n "$DATABASE_URL"
+          [[ "$STAGING_LOAD_EMAIL_PREFIX" =~ ^[A-Za-z0-9._-]{3,80}$ ]]
+          [[ "$STAGING_LOAD_EMAIL_DOMAIN" =~ ^[A-Za-z0-9.-]+\.[A-Za-z]{2,}$ ]]
           case "$STAGING_SUPABASE_URL" in
             https://*"$TARGET_PROJECT_REF"*.supabase.co) ;;
             *) echo '::error::STAGING_SUPABASE_URL does not match the protected staging project ref.'; exit 1 ;;
@@ -77,12 +82,14 @@ jobs:
             exit 1
           fi
           case '${{ inputs.profile }}' in
-            smoke|read-heavy|ramp|spike|soak|care-mix|write-heavy|retry-storm) ;;
+            smoke|single-user-throttle|read-heavy|ramp|spike|soak|care-mix|write-heavy|retry-storm) ;;
             *) echo '::error::Unsupported capacity profile.'; exit 1 ;;
           esac
           if [[ '${{ inputs.profile }}' == 'write-heavy' || '${{ inputs.profile }}' == 'retry-storm' ]]; then
             test -n "$DOSE_FIXTURES_JSON"
-            echo "$DOSE_FIXTURES_JSON" | jq -e 'type == "array" and length >= 25' >/dev/null
+            echo "$DOSE_FIXTURES_JSON" | jq -e \
+              'type == "array" and length >= 25 and all(.[]; (.subject // .authUserId // "") | length > 0)' \
+              >/dev/null
           fi
 
       - name: Install pinned k6
@@ -90,96 +97,167 @@ jobs:
         with:
           k6-version: '2.1.0'
 
-      - name: Acquire short-lived synthetic staging session
-        shell: bash
-        run: |
-          set -euo pipefail
-          auth_payload="$(jq -cn \
-            --arg email "$STAGING_LOAD_EMAIL" \
-            --arg password "$STAGING_LOAD_PASSWORD" \
-            '{email:$email,password:$password}')"
-          access_token="$(curl --fail --silent --show-error \
-            --request POST \
-            --header "apikey: $STAGING_PUBLISHABLE_KEY" \
-            --header 'Content-Type: application/json' \
-            --data "$auth_payload" \
-            "$STAGING_SUPABASE_URL/auth/v1/token?grant_type=password" | jq -er '.access_token')"
-          test -n "$access_token"
-          echo "ACCESS_TOKEN=$access_token" >> "$GITHUB_ENV"
-
-      - name: Start PostgreSQL and outbox pressure sampling
-        id: pressure
-        shell: bash
-        run: |
-          set -euo pipefail
-          case '${{ inputs.profile }}' in
-            smoke) duration=90 ;;
-            read-heavy|care-mix) duration=240 ;;
-            ramp) duration=720 ;;
-            spike) duration=180 ;;
-            soak) duration=3700 ;;
-            write-heavy) duration=360 ;;
-            retry-storm) duration=240 ;;
-          esac
-          LIFEMATE_OBSERVABILITY_TARGET=staging \
-          TARGET_PROJECT_REF="$TARGET_PROJECT_REF" \
-          DATABASE_URL="$DATABASE_URL" \
-          DURATION_SECONDS="$duration" \
-          INTERVAL_SECONDS=5 \
-          OUTPUT_FILE=runtime-pressure.ndjson \
-          bash tools/load/collect-runtime-pressure.sh &
-          echo "pid=$!" >> "$GITHUB_OUTPUT"
-
-      - name: Run bounded k6 staging profile
-        id: k6
+      - name: Run bounded profile with complete pressure evidence
+        id: load
         shell: bash
         run: |
           set -uo pipefail
+
+          profile='${{ inputs.profile }}'
+          case "$profile" in
+            smoke) identity_count=1; load_seconds=30 ;;
+            single-user-throttle) identity_count=1; load_seconds=60 ;;
+            read-heavy) identity_count=20; load_seconds=120 ;;
+            ramp) identity_count=100; load_seconds=600 ;;
+            spike) identity_count=350; load_seconds=130 ;;
+            soak) identity_count=50; load_seconds=3000 ;;
+            care-mix) identity_count=25; load_seconds=180 ;;
+            write-heavy) identity_count=25; load_seconds=300 ;;
+            retry-storm) identity_count=25; load_seconds=180 ;;
+            *) echo '::error::Unsupported capacity profile.'; exit 2 ;;
+          esac
+
+          rm -f .auth-sessions.json runtime-pressure.ndjson \
+            runtime-pressure-status.json load-summary.json capacity-result.json
+          printf '[]' > .auth-sessions.json
+          chmod 600 .auth-sessions.json
+
+          auth_failed=0
+          for ((index=1; index<=identity_count; index++)); do
+            suffix="$(printf '%04d' "$index")"
+            email="${STAGING_LOAD_EMAIL_PREFIX}+${suffix}@${STAGING_LOAD_EMAIL_DOMAIN}"
+            auth_payload="$(jq -cn \
+              --arg email "$email" \
+              --arg password "$STAGING_LOAD_PASSWORD" \
+              '{email:$email,password:$password}')"
+            auth_response="$(curl --fail --silent --show-error \
+              --request POST \
+              --header "apikey: $STAGING_PUBLISHABLE_KEY" \
+              --header 'Content-Type: application/json' \
+              --data "$auth_payload" \
+              "$STAGING_SUPABASE_URL/auth/v1/token?grant_type=password")" || {
+                auth_failed=1
+                break
+              }
+            access_token="$(jq -er '.access_token' <<<"$auth_response")" || {
+              auth_failed=1
+              break
+            }
+            subject="$(jq -er '.user.id' <<<"$auth_response")" || {
+              auth_failed=1
+              break
+            }
+            echo "::add-mask::$access_token"
+            next="$(jq -c \
+              --arg accessToken "$access_token" \
+              --arg subject "$subject" \
+              '. + [{accessToken:$accessToken,subject:$subject}]' \
+              .auth-sessions.json)"
+            printf '%s' "$next" > .auth-sessions.json
+          done
+
+          if [[ "$auth_failed" != '0' ]]; then
+            echo '::error::Could not acquire the required synthetic staging identity pool.'
+            rm -f .auth-sessions.json
+            exit 1
+          fi
+          session_count="$(jq 'length' .auth-sessions.json)"
+          unique_subjects="$(jq '[.[].subject] | unique | length' .auth-sessions.json)"
+          if [[ "$session_count" != "$identity_count" || "$unique_subjects" != "$identity_count" ]]; then
+            echo '::error::Synthetic staging sessions are not unique or complete.'
+            rm -f .auth-sessions.json
+            exit 1
+          fi
+
+          if [[ "$profile" == 'write-heavy' || "$profile" == 'retry-storm' ]]; then
+            missing_fixture_subjects="$(jq -n \
+              --argjson sessions "$(cat .auth-sessions.json)" \
+              --argjson fixtures "$DOSE_FIXTURES_JSON" \
+              '[($fixtures[] | (.subject // .authUserId)) as $subject | select(($sessions | map(.subject) | index($subject)) == null)] | length')"
+            if [[ "$missing_fixture_subjects" != '0' ]]; then
+              echo '::error::Every mutation fixture must belong to one authenticated synthetic subject.'
+              rm -f .auth-sessions.json
+              exit 1
+            fi
+          fi
+
+          collector_duration=$((load_seconds + 60))
+          LIFEMATE_OBSERVABILITY_TARGET=staging \
+          TARGET_PROJECT_REF="$TARGET_PROJECT_REF" \
+          DATABASE_URL="$DATABASE_URL" \
+          DURATION_SECONDS="$collector_duration" \
+          INTERVAL_SECONDS=5 \
+          OUTPUT_FILE=runtime-pressure.ndjson \
+          STATUS_FILE=runtime-pressure-status.json \
+          bash tools/load/collect-runtime-pressure.sh &
+          collector_pid=$!
+
           mutation_confirmation=''
-          if [[ '${{ inputs.profile }}' == 'write-heavy' || '${{ inputs.profile }}' == 'retry-storm' ]]; then
+          if [[ "$profile" == 'write-heavy' || "$profile" == 'retry-storm' ]]; then
             mutation_confirmation='STAGING-SYNTHETIC-MUTATIONS'
           fi
+
+          auth_sessions_json="$(cat .auth-sessions.json)"
           K6_NO_USAGE_REPORT=true \
           LIFEMATE_LOAD_TARGET=staging \
           CONFIRM_STAGING_LOAD=LIFEMATE-STAGING-ONLY \
           CONFIRM_SYNTHETIC_MUTATIONS="$mutation_confirmation" \
           TARGET_PROJECT_REF="$TARGET_PROJECT_REF" \
           BASE_URL="$STAGING_SUPABASE_URL/functions/v1/lifemate-api" \
-          ACCESS_TOKEN="$ACCESS_TOKEN" \
+          AUTH_SESSIONS_JSON="$auth_sessions_json" \
           DOSE_FIXTURES_JSON="$DOSE_FIXTURES_JSON" \
-          LOAD_PROFILE='${{ inputs.profile }}' \
+          LOAD_PROFILE="$profile" \
           RUN_ID="$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT" \
           k6 run tools/load/lifemate-api-capacity.js
-          exit_code=$?
-          echo "exit_code=$exit_code" >> "$GITHUB_OUTPUT"
+          k6_exit=$?
+
+          kill -TERM "$collector_pid" 2>/dev/null || true
+          wait "$collector_pid"
+          collector_exit=$?
+          rm -f .auth-sessions.json
+
+          coverage_ok=0
+          minimum_coverage=$((load_seconds - 15))
+          if [[ -s runtime-pressure-status.json ]] && \
+             jq -e \
+               --argjson minimum "$minimum_coverage" \
+               '.schemaVersion == "lifemate.runtime-pressure-collector.v1" and .exitCode == 0 and .samples > 0 and .coverageSeconds >= $minimum' \
+               runtime-pressure-status.json >/dev/null; then
+            coverage_ok=1
+          fi
+
+          echo "k6_exit=$k6_exit" >> "$GITHUB_OUTPUT"
+          echo "collector_exit=$collector_exit" >> "$GITHUB_OUTPUT"
+          echo "coverage_ok=$coverage_ok" >> "$GITHUB_OUTPUT"
+          echo "identity_count=$identity_count" >> "$GITHUB_OUTPUT"
           exit 0
 
-      - name: Stop pressure collector and summarize evidence
+      - name: Summarize evidence
         if: always()
         shell: bash
-        env:
-          COLLECTOR_PID: ${{ steps.pressure.outputs.pid }}
         run: |
           set -euo pipefail
-          if [[ -n "${COLLECTOR_PID:-}" ]]; then
-            kill "$COLLECTOR_PID" 2>/dev/null || true
-            wait "$COLLECTOR_PID" 2>/dev/null || true
-          fi
           test -s load-summary.json
           test -s capacity-result.json
           test -s runtime-pressure.ndjson
+          test -s runtime-pressure-status.json
           node tools/load/summarize-runtime-pressure.mjs \
             runtime-pressure.ndjson runtime-pressure-summary.json
           jq -e '.schemaVersion == "lifemate.capacity.v1"' capacity-result.json >/dev/null
           jq -e '.schemaVersion == "lifemate.runtime-pressure.v1"' runtime-pressure-summary.json >/dev/null
+          jq -e '.schemaVersion == "lifemate.runtime-pressure-collector.v1"' runtime-pressure-status.json >/dev/null
           {
             echo '## Capacity result'
             echo '```json'
-            jq '{profile,target,thresholdsPassed,requests,achievedRps,droppedIterations,latencyMs,responses,rates}' capacity-result.json
+            jq '{profile,target,identityPoolSize,identityPoolMinimum,thresholdsPassed,requests,achievedRps,droppedIterations,latencyMs,responses,rates}' capacity-result.json
             echo '```'
             echo '## Runtime pressure'
             echo '```json'
             cat runtime-pressure-summary.json
+            echo '```'
+            echo '## Collector coverage'
+            echo '```json'
+            cat runtime-pressure-status.json
             echo '```'
           } >> "$GITHUB_STEP_SUMMARY"
 
@@ -192,16 +270,24 @@ jobs:
             load-summary.json
             capacity-result.json
             runtime-pressure.ndjson
+            runtime-pressure-status.json
             runtime-pressure-summary.json
           if-no-files-found: error
           retention-days: 30
 
-      - name: Enforce load thresholds after evidence upload
+      - name: Enforce load and collector thresholds after evidence upload
         if: always()
         shell: bash
         env:
-          K6_EXIT_CODE: ${{ steps.k6.outputs.exit_code }}
+          K6_EXIT_CODE: ${{ steps.load.outputs.k6_exit }}
+          COLLECTOR_EXIT_CODE: ${{ steps.load.outputs.collector_exit }}
+          COVERAGE_OK: ${{ steps.load.outputs.coverage_ok }}
+          EXPECTED_IDENTITIES: ${{ steps.load.outputs.identity_count }}
         run: |
           set -euo pipefail
           test "${K6_EXIT_CODE:-1}" = '0'
+          test "${COLLECTOR_EXIT_CODE:-1}" = '0'
+          test "${COVERAGE_OK:-0}" = '1'
           jq -e '.thresholdsPassed == true' capacity-result.json >/dev/null
+          jq -e --argjson expected "${EXPECTED_IDENTITIES:-0}" \
+            '.identityPoolSize == $expected' capacity-result.json >/dev/null
