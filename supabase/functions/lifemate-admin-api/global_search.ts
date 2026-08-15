@@ -1,4 +1,8 @@
-import { ApiError, boundedInteger } from "./validation.ts";
+import {
+  ApiError,
+  boundedAdminPage,
+  boundedAdminPageSize,
+} from "./validation.ts";
 
 export const globalSearchDomains = [
   "users",
@@ -80,8 +84,8 @@ export function parseGlobalSearchQuery(url: URL): GlobalSearchQuery {
   return {
     q,
     domains: unique as GlobalSearchDomain[],
-    page: boundedInteger(url.searchParams.get("page"), 1, 1, 1000),
-    pageSize: boundedInteger(url.searchParams.get("pageSize"), 5, 1, 10),
+    page: boundedAdminPage(url.searchParams.get("page")),
+    pageSize: boundedAdminPageSize(url.searchParams.get("pageSize"), 5, 1, 10),
   };
 }
 
