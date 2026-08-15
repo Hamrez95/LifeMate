@@ -99,6 +99,23 @@ requireMatch(
   'phone OTP button must remain behind the compile-time feature flag',
 );
 
+// Signup must not disclose whether an email already belongs to an account.
+requireMatch(
+  authUi,
+  /response\.session\s*==\s*null[\s\S]{0,500}_genericSignupMessage\(\)/,
+  'non-session signup must use existence-neutral confirmation copy',
+);
+requireMatch(
+  authUi,
+  /_mode\s*==\s*_AuthMode\.signUp[\s\S]{0,240}user already registered[\s\S]{0,500}_genericSignupMessage\(\)/,
+  'provider duplicate-signup response must be converted to the same generic confirmation',
+);
+rejectMatch(
+  authUi,
+  /این ایمیل قبلاً ثبت شده|email has already been registered/i,
+  'signup UI must not reveal that an account already exists',
+);
+
 // Raw provider messages must not become a generic last-resort UI error.
 rejectMatch(
   authUi,
