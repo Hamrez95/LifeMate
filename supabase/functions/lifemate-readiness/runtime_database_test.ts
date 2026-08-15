@@ -15,7 +15,10 @@ Deno.test("readiness recognizes transaction pooler transport only on 6543", () =
 
   assertEquals(isReadinessTransactionPoolerUrl(pooler), true);
   assertEquals(isReadinessTransactionPoolerUrl(direct), false);
-  assertEquals(classifyReadinessDatabaseTransport(pooler), "transaction_pooler");
+  assertEquals(
+    classifyReadinessDatabaseTransport(pooler),
+    "transaction_pooler",
+  );
   assertEquals(classifyReadinessDatabaseTransport(direct), "direct_or_other");
 });
 
