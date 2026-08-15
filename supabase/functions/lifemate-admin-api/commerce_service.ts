@@ -76,8 +76,19 @@ async function getSummary(sql: AdminSql, product: string | null) {
 
   const entitlementRows = await sql`
     select
-      count(*) filter (where e.status = 'Active')::integer as active,
-      count(*) filter (where e.status = 'Expired')::integer as expired,
+      count(*) filter (
+        where e.status = 'Active'
+          and e.starts_at_utc <= now()
+          and (e.expires_at_utc is null or e.expires_at_utc > now())
+      )::integer as active,
+      count(*) filter (
+        where e.status = 'Expired'
+           or (
+             e.status = 'Active'
+             and e.expires_at_utc is not null
+             and e.expires_at_utc <= now()
+           )
+      )::integer as expired,
       count(*) filter (where e.status = 'Revoked')::integer as revoked
     from commerce.entitlements e
     where ${product}::text is null
@@ -164,8 +175,19 @@ async function getPlanDistribution(sql: AdminSql, product: string | null) {
 async function getEntitlementCoverage(sql: AdminSql, product: string | null) {
   const rows = await sql`
     select f.code as feature_code,
-           count(distinct e.id) filter (where e.status = 'Active')::integer as active,
-           count(distinct e.id) filter (where e.status = 'Expired')::integer as expired,
+           count(distinct e.id) filter (
+             where e.status = 'Active'
+               and e.starts_at_utc <= now()
+               and (e.expires_at_utc is null or e.expires_at_utc > now())
+           )::integer as active,
+           count(distinct e.id) filter (
+             where e.status = 'Expired'
+                or (
+                  e.status = 'Active'
+                  and e.expires_at_utc is not null
+                  and e.expires_at_utc <= now()
+                )
+           )::integer as expired,
            count(distinct e.id) filter (where e.status = 'Revoked')::integer as revoked
     from commerce.features f
     left join commerce.entitlements e on e.feature_id = f.id
@@ -232,7 +254,9 @@ async function getEntitlementExpiryHighlights(
     from commerce.entitlements e
     join commerce.features f on f.id = e.feature_id
     where e.status = 'Active'
+      and e.starts_at_utc <= now()
       and e.expires_at_utc is not null
+      and e.expires_at_utc > now()
       and (
         ${product}::text is null
         or exists (

@@ -6,6 +6,12 @@ import { parseAnalyticsKpiQuery } from "./analytics_kpis.ts";
 import { authenticate, requireAal2 } from "./auth.ts";
 import { requirePermission } from "./authorization.ts";
 import { parseCommerceOverviewQuery } from "./commerce.ts";
+import {
+  matchCommerceEntitlementDetailPath,
+  matchCommercePlanDetailPath,
+  parseCommerceDetailQuery,
+} from "./commerce_detail.ts";
+import { createCommerceDetailStore } from "./commerce_detail_service.ts";
 import { createCommerceOverviewStore } from "./commerce_service.ts";
 import { isPostgresUnavailable } from "./database_client.ts";
 import { parseUserDirectoryQuery } from "./directory.ts";
@@ -59,6 +65,7 @@ const userDetailStore = createUserDetailStore(config.databaseUrl);
 const userAccountActionStore = createUserAccountActionStore(config.databaseUrl);
 const analyticsKpiStore = createAnalyticsKpiStore(config.databaseUrl);
 const commerceOverviewStore = createCommerceOverviewStore(config.databaseUrl);
+const commerceDetailStore = createCommerceDetailStore(config.databaseUrl);
 const relationshipOverviewStore = createRelationshipOverviewStore(
   config.databaseUrl,
 );
@@ -200,6 +207,63 @@ Deno.serve(async (request: Request) => {
             product: query.product,
             status: query.status,
           },
+          freshness: {
+            status: "fresh",
+            asOfUtc: new Date().toISOString(),
+          },
+        },
+        200,
+        origin,
+      );
+    }
+
+    const commercePlanId = matchCommercePlanDetailPath(path);
+    if (request.method === "GET" && commercePlanId) {
+      requirePermission(admin, "commerce.read");
+      const query = parseCommerceDetailQuery(new URL(request.url));
+      const result = await commerceDetailStore.getPlan(commercePlanId, query);
+      if (!result) {
+        throw new ApiError(
+          404,
+          "commerce_plan_not_found",
+          "Commerce plan was not found.",
+        );
+      }
+      return json(
+        {
+          ...result,
+          page: query.page,
+          pageSize: query.pageSize,
+          freshness: {
+            status: "fresh",
+            asOfUtc: new Date().toISOString(),
+          },
+        },
+        200,
+        origin,
+      );
+    }
+
+    const commerceFeatureCode = matchCommerceEntitlementDetailPath(path);
+    if (request.method === "GET" && commerceFeatureCode) {
+      requirePermission(admin, "commerce.read");
+      const query = parseCommerceDetailQuery(new URL(request.url));
+      const result = await commerceDetailStore.getEntitlementFeature(
+        commerceFeatureCode,
+        query,
+      );
+      if (!result) {
+        throw new ApiError(
+          404,
+          "commerce_feature_not_found",
+          "Commerce feature was not found.",
+        );
+      }
+      return json(
+        {
+          ...result,
+          page: query.page,
+          pageSize: query.pageSize,
           freshness: {
             status: "fresh",
             asOfUtc: new Date().toISOString(),
