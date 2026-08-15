@@ -9,6 +9,31 @@ function nullableString(value: unknown): string | null {
   return value == null ? null : String(value);
 }
 
+export function mapCommerceTransactionRow(row: Record<string, unknown>) {
+  return {
+    transactionId: String(row.transaction_id),
+    orderId: nullableString(row.order_id),
+    subscriptionId: nullableString(row.subscription_id),
+    accountLinked: Boolean(row.account_linked),
+    productCode: String(row.product_code),
+    productName: String(row.product_name),
+    provider: String(row.provider),
+    providerStatus: String(row.provider_status),
+    normalizedStatus: String(row.normalized_status),
+    amountMinor: String(row.amount_minor),
+    currency: String(row.currency),
+    occurredAtUtc: iso(row.occurred_at_utc),
+    receivedAtUtc: iso(row.received_at_utc),
+    observationState: nullableString(row.observation_state) ?? "NoEvent",
+    latestEventOccurredAtUtc: row.latest_event_occurred_at_utc == null
+      ? null
+      : iso(row.latest_event_occurred_at_utc),
+    latestEventReceivedAtUtc: row.latest_event_received_at_utc == null
+      ? null
+      : iso(row.latest_event_received_at_utc),
+  };
+}
+
 async function listProducts(sql: AdminSql) {
   const rows = await sql`
     select id, code, display_name
@@ -147,28 +172,9 @@ async function listTransactions(
     limit ${query.pageSize} offset ${query.offset}
   `;
 
-  return (rows as unknown as Record<string, unknown>[]).map((row) => ({
-    transactionId: String(row.transaction_id),
-    orderId: nullableString(row.order_id),
-    subscriptionId: nullableString(row.subscription_id),
-    accountLinked: Boolean(row.account_linked),
-    productCode: String(row.product_code),
-    productName: String(row.product_name),
-    provider: String(row.provider),
-    providerStatus: String(row.provider_status),
-    normalizedStatus: String(row.normalized_status),
-    amountMinor: String(row.amount_minor),
-    currency: String(row.currency),
-    occurredAtUtc: iso(row.occurred_at_utc),
-    receivedAtUtc: iso(row.received_at_utc),
-    observationState: nullableString(row.observation_state) ?? "NoEvent",
-    latestEventOccurredAtUtc: row.latest_event_occurred_at_utc == null
-      ? null
-      : iso(row.latest_event_occurred_at_utc),
-    latestEventReceivedAtUtc: row.latest_event_received_at_utc == null
-      ? null
-      : iso(row.latest_event_received_at_utc),
-  }));
+  return (rows as unknown as Record<string, unknown>[]).map(
+    mapCommerceTransactionRow,
+  );
 }
 
 async function listRecentOrders(sql: AdminSql, query: CommerceTransactionsQuery) {
