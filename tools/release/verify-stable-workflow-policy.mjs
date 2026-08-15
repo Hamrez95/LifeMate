@@ -53,12 +53,12 @@ function requireScopedText(block, value, message) {
 requireScopedText(
   workflow,
   '  issues: read',
-  'stable release workflow must be able to verify canonical Foundation Closure issue state',
+  'stable release workflow must be able to verify canonical release issue state',
 );
 requireScopedText(
   workflow,
-  'description: Type RELEASE-FOUNDATION-CLOSED only after canonical GitHub #170 is closed with all human/provider evidence',
-  'manual stable confirmation must refer to canonical #170 and human/provider evidence',
+  'description: Type RELEASE-FOUNDATION-CLOSED only after the Foundation readiness marker is YES and stable-beta gate 14 is satisfied',
+  'manual stable confirmation must refer to the explicit Foundation readiness marker and stable-beta gate',
 );
 
 const releaseJob = extractJob(workflow, 'verify-and-build');
@@ -117,30 +117,47 @@ requireScopedText(
   'manual stable build must require explicit foundation closure confirmation in its release step',
 );
 
-const canonicalClosureStep = extractNamedStep(
+const canonicalGateStep = extractNamedStep(
   releaseJob,
-  'Require canonical Foundation Closure issue closed',
+  'Require canonical Foundation and stable beta gates',
 );
-requireScopedText(
-  canonicalClosureStep,
-  '          GH_TOKEN: ${{ github.token }}',
-  'stable build must use the scoped GitHub token to read canonical closure state',
-);
-requireScopedText(
-  canonicalClosureStep,
-  '          issue_state="$(gh api "repos/$GITHUB_REPOSITORY/issues/170" --jq \'.state\')"',
-  'stable build must read canonical GitHub issue #170 state',
-);
-requireScopedText(
-  canonicalClosureStep,
-  "          if [ \"$issue_state\" != 'closed' ]; then",
-  'stable build must fail closed while canonical GitHub issue #170 is open',
-);
+for (const [value, message] of [
+  [
+    '          GH_TOKEN: ${{ github.token }}',
+    'stable build must use the scoped GitHub token to read canonical release state',
+  ],
+  [
+    '          foundation_json="$(gh api "repos/$GITHUB_REPOSITORY/issues/170")"',
+    'stable build must read the canonical Foundation issue',
+  ],
+  [
+    "readiness_marker=\"$(printf '%s\\n' \"$foundation_body\" | sed -n 's/^> \\*\\*Machine-readable stable-release gate:\\*\\* `\\(FOUNDATION_RELEASE_READY=[A-Z]*\\)`$/\\1/p' | head -n 1)\"",
+    'stable build must parse only the dedicated machine-readable Foundation readiness line',
+  ],
+  [
+    '          stable_beta_state="$(gh api "repos/$GITHUB_REPOSITORY/issues/14" --jq \'.state\')"',
+    'stable build must read the broader stable-beta release gate',
+  ],
+  [
+    "          if [ \"$foundation_state\" != 'closed' ]; then",
+    'stable build must reject non-final Foundation issue state',
+  ],
+  [
+    "          if [ \"$readiness_marker\" != 'FOUNDATION_RELEASE_READY=YES' ]; then",
+    'stable build must require explicit Foundation readiness YES',
+  ],
+  [
+    "          if [ \"$stable_beta_state\" != 'closed' ]; then",
+    'stable build must reject an unsatisfied broader stable-beta release gate',
+  ],
+]) {
+  requireScopedText(canonicalGateStep, value, message);
+}
 if (
-  releaseJob.indexOf('      - name: Require canonical Foundation Closure issue closed') >
+  releaseJob.indexOf('      - name: Require canonical Foundation and stable beta gates') >
     releaseJob.indexOf('      - name: Deploy exact main Edge source')
 ) {
-  fail('canonical Foundation Closure issue must be checked before any stable deployment');
+  fail('canonical release gates must be checked before any stable deployment');
 }
 
 const edgeVerificationStep = extractNamedStep(
@@ -236,5 +253,5 @@ requireScopedText(
 );
 
 console.log(
-  'Stable release workflow policy is scoped to executable release steps, binds stable artifacts to closed canonical #170, synchronizes the worker, requires a live three-role healthcare smoke, and is bound to Environment beta.',
+  'Stable release workflow policy requires explicit Foundation readiness, broader stable-beta approval, exact-main worker sync, live three-role healthcare smoke, and Environment beta.',
 );
