@@ -66,6 +66,7 @@ jobs:
   verify-and-build:
     if: ${{ github.event_name == 'workflow_dispatch' }}
     runs-on: ubuntu-24.04
+    environment: beta
     timeout-minutes: 50
     env:
       SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
