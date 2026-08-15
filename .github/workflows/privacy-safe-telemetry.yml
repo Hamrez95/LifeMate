@@ -102,7 +102,6 @@ jobs:
           dotnet test backend-dotnet/tests/LifeMate.IntegrationTests/LifeMate.IntegrationTests.csproj
           --configuration Release
           --filter FullyQualifiedName~PrivacySafeObservabilityTests
-          --no-restore
         env:
           DOTNET_NOLOGO: 'true'
       - name: Enforce no exception object logging in privacy boundary
