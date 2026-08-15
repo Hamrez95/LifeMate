@@ -1,7 +1,4 @@
-import {
-  ADMIN_MAX_JSON_RESPONSE_BYTES,
-  ApiError,
-} from "./validation.ts";
+import { ADMIN_MAX_JSON_RESPONSE_BYTES, ApiError } from "./validation.ts";
 
 const baseHeaders = {
   "content-type": "application/json; charset=utf-8",
