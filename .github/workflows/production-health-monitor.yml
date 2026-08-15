@@ -128,9 +128,10 @@ jobs:
             --jq '.[0].number // empty')"
           if [[ -n "$issue_number" ]]; then
             run_url="${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}"
-            gh issue close "$issue_number" \
+            gh issue comment "$issue_number" \
               --repo "$GITHUB_REPOSITORY" \
-              --comment "Production readiness recovered. Verified by ${run_url}."
+              --body "Production readiness recovered. Verified by ${run_url}."
+            gh issue close "$issue_number" --repo "$GITHUB_REPOSITORY"
           fi
 
   alert-routing-drill:
@@ -161,13 +162,13 @@ jobs:
           This drill does not call the production readiness endpoint and contains no production/user payload.
           EOF
 
-          issue_number="$(gh issue create \
+          issue_url="$(gh issue create \
             --repo "$GITHUB_REPOSITORY" \
             --title "$alert_title" \
             --body-file "$body_file" \
-            --assignee "$GITHUB_REPOSITORY_OWNER" \
-            --json number \
-            --jq '.number')"
+            --assignee "$GITHUB_REPOSITORY_OWNER")"
+          issue_number="${issue_url##*/}"
+          [[ "$issue_number" =~ ^[0-9]+$ ]]
           echo "issue_number=$issue_number" >> "$GITHUB_OUTPUT"
 
       - name: Auto-close successful synthetic alert drill
@@ -178,6 +179,7 @@ jobs:
           set -euo pipefail
           test -n "$ISSUE_NUMBER"
           run_url="${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}"
-          gh issue close "$ISSUE_NUMBER" \
+          gh issue comment "$ISSUE_NUMBER" \
             --repo "$GITHUB_REPOSITORY" \
-            --comment "Synthetic alert-routing drill completed successfully. Production readiness was not probed. Evidence run: ${run_url}."
+            --body "Synthetic alert-routing drill completed successfully. Production readiness was not probed. Evidence run: ${run_url}."
+          gh issue close "$ISSUE_NUMBER" --repo "$GITHUB_REPOSITORY"
