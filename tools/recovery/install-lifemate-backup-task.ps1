@@ -35,7 +35,10 @@ foreach ($command in @('pg_dump', 'age')) {
 }
 
 function Quote-TaskValue([string]$Value) {
-  return '"' + $Value.Replace('"', '\"') + '"'
+  if ($Value.Contains('"') -or $Value.Contains("`r") -or $Value.Contains("`n")) {
+    throw 'Scheduled task values may not contain quotes or line breaks.'
+  }
+  return '"' + $Value + '"'
 }
 
 $backupArguments = @(
