@@ -1,29 +1,13 @@
-# LifeMate 0.9.0-internal.5+16 Device-QA
+# LifeMate Android Device QA
 
-This build is for internal physical-device testing only. It is not Stable, RC, or approved for public distribution.
+The old version-specific WellMate candidate checklist has been retired.
 
-## Candidate scope
+The canonical physical-device gate for **both WellMate and CareMate** is now:
 
-- WellMate women-calendar pilot enabled only by the internal build flag.
-- Per-relationship caregiver permission and immediate revoke behavior.
-- CareMate women-calendar summary with owner-only private notes excluded.
-- Persisted allow-listed profile avatars in WellMate and CareMate.
-- Scoped medication notification synchronization and lock-screen privacy.
+`docs/release/FOUNDATION_DEVICE_QA.md`
 
-Arbitrary gallery/camera uploads are intentionally outside this candidate. They require a reviewed private-storage bucket, object ownership policy, image validation, deletion lifecycle, signed delivery, and privacy QA. The current avatar catalog gives users a persistent profile identity without introducing an unreviewed personal-photo data path.
+Use that checklist only against the exact release-signed artifacts produced from the exact `main` commit under review. Record APK SHA-256, signing certificate SHA-256, APK-derived Android SDK metadata, deployed API SHA and representative physical-device evidence.
 
-## Required physical checks
+No checkbox in the canonical checklist is considered passed merely because CI, emulator tests, local PostgreSQL smoke or a previous internal candidate succeeded.
 
-1. Notification permission UX on supported Android versions.
-2. Exact-alarm fallback and scheduling behavior.
-3. Lock-screen content minimization for both apps.
-4. Notification resynchronization after reboot.
-5. Notification resynchronization after timezone change.
-6. Notification resynchronization after app update.
-7. Women-calendar navigation on a small screen and large text scale.
-8. Relationship and women-calendar permission revoke on two real accounts.
-9. Avatar selection persistence after sign-out, sign-in, and app restart.
-
-The self-reporting `lifemate-device-qa-artifact` workflow posts the verified run ID and artifact name to Draft PR #58 after all Flutter, Edge, isolated database, access, privacy, and cleanup gates pass.
-
-The APKs must target the non-production candidate API. No Production migration or Edge deployment is authorized by this checklist.
+GitHub issue #170 remains the canonical Foundation Closure/release gate.
