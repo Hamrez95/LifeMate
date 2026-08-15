@@ -4,7 +4,9 @@ import { backfillIdentityLinkTokens } from "./identity-link-token-backfill.ts";
 
 const databaseUrl = Deno.env.get("TEST_DATABASE_URL");
 if (!databaseUrl) {
-  throw new Error("TEST_DATABASE_URL is required for identity-token backfill tests.");
+  throw new Error(
+    "TEST_DATABASE_URL is required for identity-token backfill tests.",
+  );
 }
 
 const sql = postgres(databaseUrl, {
