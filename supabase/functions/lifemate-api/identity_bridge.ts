@@ -61,61 +61,86 @@ export function createIdentityBridge(databaseUrl: string) {
     : null;
 
   async function syncExternalIdentities(
-    accountId: string,
+    legacyAppUserId: string,
     auth: AuthIdentitySnapshot,
   ): Promise<string[]> {
     const providers = new Set<string>();
 
-    for (const identity of auth.identities ?? []) {
-      const provider = typeof identity.provider === "string"
-        ? identity.provider.trim().toLowerCase()
-        : "";
-      const subject = providerSubject(identity);
-      if (!provider || provider.length > 80 || !subject) continue;
+    return await sql.begin(async (transaction) => {
+      const accountRows = await transaction`
+        select identity.account_id_for_legacy_app_user(
+          ${legacyAppUserId}::uuid
+        ) as account_id
+      `;
+      const accountId = accountRows[0]?.account_id;
+      if (typeof accountId !== "string" || accountId.length === 0) {
+        throw new ApiError(
+          409,
+          "identity_account_mapping_missing",
+          "The LifeMate account mapping is unavailable.",
+        );
+      }
 
-      const issuer = providerIssuer(provider);
-      const lastAuthenticatedAt = typeof identity.last_sign_in_at === "string"
-        ? new Date(identity.last_sign_in_at)
-        : new Date();
-      const createdAt = typeof identity.created_at === "string"
-        ? new Date(identity.created_at)
-        : new Date();
-      const subjectToken = identityLinkKey
-        ? await deriveIdentityLinkToken(identityLinkKey.secret, {
-          provider,
-          issuer,
-          subject,
-          keyVersion: identityLinkKey.keyVersion,
-        })
-        : null;
+      if (identityLinkKey) {
+        // Canonical runtime authentication lookup. Provider-specific tokens
+        // below are useful for explicit account-linking, but JWT/API identity
+        // resolution must not depend on a Google/email provider subject.
+        const canonicalSubjectToken = await deriveIdentityLinkToken(
+          identityLinkKey.secret,
+          {
+            provider: "supabase_auth",
+            issuer: "supabase",
+            subject: auth.id,
+            keyVersion: identityLinkKey.keyVersion,
+          },
+        );
+        await upsertIdentityToken(
+          transaction,
+          accountId,
+          "supabase_auth",
+          "supabase",
+          canonicalSubjectToken,
+          identityLinkKey.keyVersion,
+          new Date(),
+          new Date(),
+        );
+      }
 
-      await sql.begin(async (transaction) => {
-        if (subjectToken && identityLinkKey) {
-          const tokenRows = await transaction`
-            insert into identity.external_identity_tokens(
-              account_id,provider,issuer,subject_token,key_version,
-              created_at_utc,last_authenticated_at_utc,status
-            ) values(
-              ${accountId}::uuid,${provider},${issuer},${subjectToken},
-              ${identityLinkKey.keyVersion},${createdAt},
-              ${lastAuthenticatedAt},'Active'
-            )
-            on conflict(provider,issuer,key_version,subject_token) do update set
-              last_authenticated_at_utc=greatest(
-                identity.external_identity_tokens.last_authenticated_at_utc,
-                excluded.last_authenticated_at_utc
-              ),
-              status='Active'
-            where identity.external_identity_tokens.account_id=excluded.account_id
-            returning account_id
-          `;
-          if (tokenRows[0]?.account_id !== accountId) {
-            throw new ApiError(
-              409,
-              "external_identity_token_account_conflict",
-              "This external identity is already linked to another LifeMate account.",
-            );
-          }
+      for (const identity of auth.identities ?? []) {
+        const provider = typeof identity.provider === "string"
+          ? identity.provider.trim().toLowerCase()
+          : "";
+        const subject = providerSubject(identity);
+        if (!provider || provider.length > 80 || !subject) continue;
+
+        const issuer = providerIssuer(provider);
+        const lastAuthenticatedAt = typeof identity.last_sign_in_at === "string"
+          ? new Date(identity.last_sign_in_at)
+          : new Date();
+        const createdAt = typeof identity.created_at === "string"
+          ? new Date(identity.created_at)
+          : new Date();
+
+        if (identityLinkKey) {
+          const subjectToken = await deriveIdentityLinkToken(
+            identityLinkKey.secret,
+            {
+              provider,
+              issuer,
+              subject,
+              keyVersion: identityLinkKey.keyVersion,
+            },
+          );
+          await upsertIdentityToken(
+            transaction,
+            accountId,
+            provider,
+            issuer,
+            subjectToken,
+            identityLinkKey.keyVersion,
+            createdAt,
+            lastAuthenticatedAt,
+          );
         }
 
         const rows = await transaction`
@@ -142,11 +167,47 @@ export function createIdentityBridge(databaseUrl: string) {
             "This external identity is already linked to another LifeMate account.",
           );
         }
-      });
-      providers.add(provider);
-    }
+        providers.add(provider);
+      }
 
-    return [...providers].sort();
+      return [...providers].sort();
+    });
+  }
+
+  async function upsertIdentityToken(
+    transaction: any,
+    accountId: string,
+    provider: string,
+    issuer: string,
+    subjectToken: string,
+    keyVersion: number,
+    createdAt: Date,
+    lastAuthenticatedAt: Date,
+  ): Promise<void> {
+    const rows = await transaction`
+      insert into identity.external_identity_tokens(
+        account_id,provider,issuer,subject_token,key_version,
+        created_at_utc,last_authenticated_at_utc,status
+      ) values(
+        ${accountId}::uuid,${provider},${issuer},${subjectToken},
+        ${keyVersion},${createdAt},${lastAuthenticatedAt},'Active'
+      )
+      on conflict(provider,issuer,key_version,subject_token) do update set
+        last_authenticated_at_utc=greatest(
+          identity.external_identity_tokens.last_authenticated_at_utc,
+          excluded.last_authenticated_at_utc
+        ),
+        status='Active'
+      where identity.external_identity_tokens.account_id=excluded.account_id
+      returning account_id
+    `;
+    if (rows[0]?.account_id !== accountId) {
+      throw new ApiError(
+        409,
+        "external_identity_token_account_conflict",
+        "This external identity is already linked to another LifeMate account.",
+      );
+    }
   }
 
   return { syncExternalIdentities };
