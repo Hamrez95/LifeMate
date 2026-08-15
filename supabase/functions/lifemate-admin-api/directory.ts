@@ -1,4 +1,8 @@
-import { ApiError, boundedInteger } from "./validation.ts";
+import {
+  ApiError,
+  boundedAdminPage,
+  boundedAdminPageSize,
+} from "./validation.ts";
 
 export type UserDirectorySort = "createdAt" | "displayName" | "lastActiveAt";
 export type SortDirection = "asc" | "desc";
@@ -59,8 +63,8 @@ function optionalApplication(value: string | null): string | null {
 }
 
 export function parseUserDirectoryQuery(url: URL): UserDirectoryQuery {
-  const page = boundedInteger(url.searchParams.get("page"), 1, 1, 10_000);
-  const pageSize = boundedInteger(url.searchParams.get("pageSize"), 25, 1, 100);
+  const page = boundedAdminPage(url.searchParams.get("page"));
+  const pageSize = boundedAdminPageSize(url.searchParams.get("pageSize"), 25);
   const search = optionalSearch(url.searchParams.get("q"));
   const status = optionalStatus(url.searchParams.get("status"));
   const application = optionalApplication(url.searchParams.get("application"));
