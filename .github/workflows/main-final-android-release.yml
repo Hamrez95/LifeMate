@@ -12,12 +12,13 @@ on:
   workflow_dispatch:
     inputs:
       confirm_foundation_release:
-        description: Type RELEASE-FOUNDATION-CLOSED after all executable foundation gates are complete
+        description: Type RELEASE-FOUNDATION-CLOSED only after canonical GitHub #170 is closed with all human/provider evidence
         required: true
         type: string
 
 permissions:
   contents: read
+  issues: read
 
 concurrency:
   group: ${{ github.event_name == 'workflow_dispatch' && 'production-edge-deploy' || format('main-final-android-release-{0}', github.sha) }}
@@ -73,6 +74,12 @@ jobs:
       SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
       TELEMETRY_SMOKE_EMAIL: ${{ secrets.BETA_PATIENT_EMAIL }}
       TELEMETRY_SMOKE_PASSWORD: ${{ secrets.BETA_PATIENT_PASSWORD }}
+      ROLE_PATIENT_EMAIL: ${{ secrets.BETA_PATIENT_EMAIL }}
+      ROLE_PATIENT_PASSWORD: ${{ secrets.BETA_PATIENT_PASSWORD }}
+      ROLE_CAREGIVER_EMAIL: ${{ secrets.BETA_CAREGIVER_EMAIL }}
+      ROLE_CAREGIVER_PASSWORD: ${{ secrets.BETA_CAREGIVER_PASSWORD }}
+      ROLE_UNRELATED_EMAIL: ${{ secrets.BETA_UNRELATED_EMAIL }}
+      ROLE_UNRELATED_PASSWORD: ${{ secrets.BETA_UNRELATED_PASSWORD }}
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
         with:
@@ -89,6 +96,18 @@ jobs:
           test "$GITHUB_REF" = 'refs/heads/main'
           test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
           test "$CONFIRM_FOUNDATION_RELEASE" = 'RELEASE-FOUNDATION-CLOSED'
+
+      - name: Require canonical Foundation Closure issue closed
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          issue_state="$(gh api "repos/$GITHUB_REPOSITORY/issues/170" --jq '.state')"
+          if [ "$issue_state" != 'closed' ]; then
+            echo '::error::Canonical Foundation Closure issue #170 must be closed before a stable build.'
+            exit 1
+          fi
 
       - uses: denoland/setup-deno@22d081ff2d3a40755e97629de92e3bcbfa7cf2ed
         with:
@@ -142,6 +161,15 @@ jobs:
             echo '::error::Authenticated telemetry smoke credentials are required before final Android artifacts.'
             exit 1
           fi
+          for name in \
+            ROLE_PATIENT_EMAIL ROLE_PATIENT_PASSWORD \
+            ROLE_CAREGIVER_EMAIL ROLE_CAREGIVER_PASSWORD \
+            ROLE_UNRELATED_EMAIL ROLE_UNRELATED_PASSWORD; do
+            if [ -z "${!name:-}" ]; then
+              echo "::error::$name is required for the final live three-role healthcare smoke."
+              exit 1
+            fi
+          done
 
       - uses: supabase/setup-cli@3c2f5e2ae34c34e428e8e206e2c4d21fa2d20fbf
         with:
@@ -242,6 +270,28 @@ jobs:
             --data "$event_payload" \
             "$LIFEMATE_TELEMETRY_URL")"
           test "$unauthorized_status" = '401'
+
+      - name: Require live three-role healthcare smoke
+        shell: bash
+        env:
+          EXPECTED_RELEASE_VERSION: ${{ github.sha }}
+          PATIENT_EMAIL: ${{ env.ROLE_PATIENT_EMAIL }}
+          PATIENT_PASSWORD: ${{ env.ROLE_PATIENT_PASSWORD }}
+          CAREGIVER_EMAIL: ${{ env.ROLE_CAREGIVER_EMAIL }}
+          CAREGIVER_PASSWORD: ${{ env.ROLE_CAREGIVER_PASSWORD }}
+          UNRELATED_EMAIL: ${{ env.ROLE_UNRELATED_EMAIL }}
+          UNRELATED_PASSWORD: ${{ env.ROLE_UNRELATED_PASSWORD }}
+        run: |
+          set -euo pipefail
+          smoke_evidence="$(mktemp)"
+          cleanup_smoke_evidence() {
+            rm -f "$smoke_evidence"
+          }
+          trap cleanup_smoke_evidence EXIT
+          bash tools/release/live-beta-smoke.sh > "$smoke_evidence"
+          jq -e --arg release "$GITHUB_SHA" \
+            '.status == "passed" and .release == $release and (.roles.patient | length > 0) and (.roles.caregiver | length > 0) and (.roles.unrelated | length > 0)' \
+            "$smoke_evidence" >/dev/null
 
       - name: Prepare founder-owned Android signing
         shell: bash

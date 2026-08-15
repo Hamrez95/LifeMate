@@ -50,6 +50,17 @@ function requireScopedText(block, value, message) {
   }
 }
 
+requireScopedText(
+  workflow,
+  '  issues: read',
+  'stable release workflow must be able to verify canonical Foundation Closure issue state',
+);
+requireScopedText(
+  workflow,
+  'description: Type RELEASE-FOUNDATION-CLOSED only after canonical GitHub #170 is closed with all human/provider evidence',
+  'manual stable confirmation must refer to canonical #170 and human/provider evidence',
+);
+
 const releaseJob = extractJob(workflow, 'verify-and-build');
 
 requireScopedText(
@@ -77,6 +88,20 @@ requireScopedText(
   '      TELEMETRY_SMOKE_PASSWORD: ${{ secrets.BETA_PATIENT_PASSWORD }}',
   'verify-and-build must require the beta patient smoke password',
 );
+for (const [name, secret] of [
+  ['ROLE_PATIENT_EMAIL', 'BETA_PATIENT_EMAIL'],
+  ['ROLE_PATIENT_PASSWORD', 'BETA_PATIENT_PASSWORD'],
+  ['ROLE_CAREGIVER_EMAIL', 'BETA_CAREGIVER_EMAIL'],
+  ['ROLE_CAREGIVER_PASSWORD', 'BETA_CAREGIVER_PASSWORD'],
+  ['ROLE_UNRELATED_EMAIL', 'BETA_UNRELATED_EMAIL'],
+  ['ROLE_UNRELATED_PASSWORD', 'BETA_UNRELATED_PASSWORD'],
+]) {
+  requireScopedText(
+    releaseJob,
+    '      ' + name + ': ${{ secrets.' + secret + ' }}',
+    `verify-and-build must receive ${secret} for the final live role smoke`,
+  );
+}
 
 if (releaseJob.includes("github.event_name == 'push'")) {
   fail('verify-and-build must never run from a push event');
@@ -91,6 +116,32 @@ requireScopedText(
   "          test \"$CONFIRM_FOUNDATION_RELEASE\" = 'RELEASE-FOUNDATION-CLOSED'",
   'manual stable build must require explicit foundation closure confirmation in its release step',
 );
+
+const canonicalClosureStep = extractNamedStep(
+  releaseJob,
+  'Require canonical Foundation Closure issue closed',
+);
+requireScopedText(
+  canonicalClosureStep,
+  '          GH_TOKEN: ${{ github.token }}',
+  'stable build must use the scoped GitHub token to read canonical closure state',
+);
+requireScopedText(
+  canonicalClosureStep,
+  '          issue_state="$(gh api "repos/$GITHUB_REPOSITORY/issues/170" --jq \'.state\')"',
+  'stable build must read canonical GitHub issue #170 state',
+);
+requireScopedText(
+  canonicalClosureStep,
+  "          if [ \"$issue_state\" != 'closed' ]; then",
+  'stable build must fail closed while canonical GitHub issue #170 is open',
+);
+if (
+  releaseJob.indexOf('      - name: Require canonical Foundation Closure issue closed') >
+    releaseJob.indexOf('      - name: Deploy exact main Edge source')
+) {
+  fail('canonical Foundation Closure issue must be checked before any stable deployment');
+}
 
 const edgeVerificationStep = extractNamedStep(
   releaseJob,
@@ -116,6 +167,16 @@ requireScopedText(
   '          if [ -z "$TELEMETRY_SMOKE_EMAIL" ] || [ -z "$TELEMETRY_SMOKE_PASSWORD" ]; then',
   'stable build must fail closed when the authenticated beta smoke identity is absent',
 );
+requireScopedText(
+  credentialStep,
+  '            ROLE_CAREGIVER_EMAIL ROLE_CAREGIVER_PASSWORD \\',
+  'stable build must fail closed when caregiver role credentials are absent',
+);
+requireScopedText(
+  credentialStep,
+  '            ROLE_UNRELATED_EMAIL ROLE_UNRELATED_PASSWORD; do',
+  'stable build must fail closed when unrelated role credentials are absent',
+);
 
 const deploymentStep = extractNamedStep(releaseJob, 'Deploy exact main Edge source');
 requireScopedText(
@@ -134,6 +195,39 @@ requireScopedText(
   'stable build must keep the transaction-pooler readiness gate in the readiness step',
 );
 
+const liveRoleStep = extractNamedStep(
+  releaseJob,
+  'Require live three-role healthcare smoke',
+);
+for (const value of [
+  '          EXPECTED_RELEASE_VERSION: ${{ github.sha }}',
+  '          PATIENT_EMAIL: ${{ env.ROLE_PATIENT_EMAIL }}',
+  '          CAREGIVER_EMAIL: ${{ env.ROLE_CAREGIVER_EMAIL }}',
+  '          UNRELATED_EMAIL: ${{ env.ROLE_UNRELATED_EMAIL }}',
+  '          bash tools/release/live-beta-smoke.sh > "$smoke_evidence"',
+  '.status == "passed" and .release == $release',
+]) {
+  requireScopedText(
+    liveRoleStep,
+    value,
+    'stable build must require the exact-main patient/caregiver/unrelated-user live smoke before signing',
+  );
+}
+
+const signingStep = extractNamedStep(
+  releaseJob,
+  'Prepare founder-owned Android signing',
+);
+if (releaseJob.indexOf('      - name: Require live three-role healthcare smoke') >
+  releaseJob.indexOf('      - name: Prepare founder-owned Android signing')) {
+  fail('live three-role smoke must complete before founder-owned signing material is prepared');
+}
+requireScopedText(
+  signingStep,
+  '          WELLMATE_KEYSTORE_BASE64: ${{ secrets.WELLMATE_KEYSTORE_BASE64 }}',
+  'stable release must keep founder-owned WellMate signing material protected',
+);
+
 const buildStep = extractNamedStep(releaseJob, 'Build exact-main release APKs');
 requireScopedText(
   buildStep,
@@ -142,5 +236,5 @@ requireScopedText(
 );
 
 console.log(
-  'Stable release workflow policy is scoped to executable release steps, synchronizes the worker, and is bound to Environment beta.',
+  'Stable release workflow policy is scoped to executable release steps, binds stable artifacts to closed canonical #170, synchronizes the worker, requires a live three-role healthcare smoke, and is bound to Environment beta.',
 );
