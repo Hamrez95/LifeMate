@@ -21,7 +21,7 @@ permissions:
   contents: read
 
 concurrency:
-  group: main-edge-deploy-${{ github.ref }}
+  group: ${{ github.event_name == 'push' && 'production-edge-deploy' || format('main-edge-deploy-{0}', github.ref) }}
   cancel-in-progress: false
 
 env:

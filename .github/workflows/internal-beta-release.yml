@@ -32,7 +32,7 @@ permissions:
   contents: read
 
 concurrency:
-  group: internal-beta-release-${{ github.ref }}
+  group: ${{ github.event_name == 'workflow_dispatch' && 'production-edge-deploy' || format('internal-beta-release-{0}', github.ref) }}
   cancel-in-progress: false
 
 env:
