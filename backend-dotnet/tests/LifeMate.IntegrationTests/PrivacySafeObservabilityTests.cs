@@ -19,9 +19,20 @@ public sealed class PrivacySafeObservabilityTests
     }
 
     [Fact]
-    public void CorrelationId_PreservesBoundedSafeClientId()
+    public void CorrelationId_RejectsReadableClientLabels()
     {
-        const string safe = "mobile-01.abc_DEF-1234";
+        const string readable = "metformin-patient-01";
+
+        var normalized = CorrelationIdMiddleware.NormalizeCorrelationId(readable);
+
+        Assert.NotEqual(readable, normalized);
+        Assert.Matches(new Regex("^[0-9a-f]{32}$"), normalized);
+    }
+
+    [Fact]
+    public void CorrelationId_PreservesOpaqueTraceId()
+    {
+        const string safe = "0123456789abcdef0123456789abcdef";
 
         Assert.Equal(safe, CorrelationIdMiddleware.NormalizeCorrelationId(safe));
     }
@@ -31,8 +42,9 @@ public sealed class PrivacySafeObservabilityTests
     {
         const string privateMessage =
             "patient@example.test medication=private Bearer secret-token";
+        const string correlationId = "0123456789abcdef0123456789abcdef";
         var context = new DefaultHttpContext();
-        context.TraceIdentifier = "safe-correlation-1234";
+        context.TraceIdentifier = correlationId;
         context.Response.Body = new MemoryStream();
 
         var middleware = new PrivacySafeExceptionMiddleware(
@@ -44,9 +56,9 @@ public sealed class PrivacySafeObservabilityTests
         var body = await new StreamReader(context.Response.Body).ReadToEndAsync();
 
         Assert.Equal(StatusCodes.Status500InternalServerError, context.Response.StatusCode);
-        Assert.Equal("safe-correlation-1234", context.Response.Headers[CorrelationIdMiddleware.HeaderName]);
+        Assert.Equal(correlationId, context.Response.Headers[CorrelationIdMiddleware.HeaderName]);
         Assert.Contains("internal_error", body, StringComparison.Ordinal);
-        Assert.Contains("safe-correlation-1234", body, StringComparison.Ordinal);
+        Assert.Contains(correlationId, body, StringComparison.Ordinal);
         Assert.DoesNotContain("patient@example.test", body, StringComparison.Ordinal);
         Assert.DoesNotContain("medication=private", body, StringComparison.Ordinal);
         Assert.DoesNotContain("secret-token", body, StringComparison.Ordinal);
