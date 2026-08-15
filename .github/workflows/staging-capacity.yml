@@ -1,0 +1,207 @@
+name: staging-capacity
+
+on:
+  workflow_dispatch:
+    inputs:
+      profile:
+        description: Bounded staging load profile
+        required: true
+        type: choice
+        default: smoke
+        options:
+          - smoke
+          - read-heavy
+          - ramp
+          - spike
+          - soak
+          - care-mix
+          - write-heavy
+          - retry-storm
+      confirm_staging_only:
+        description: Type LIFEMATE-STAGING-ONLY. Production is hard-blocked in the runner.
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: staging-capacity-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  capacity:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 80
+    environment: capacity-staging
+    env:
+      PRODUCTION_PROJECT_REF: bwdvmniywyyijjauipnh
+      TARGET_PROJECT_REF: ${{ secrets.STAGING_SUPABASE_PROJECT_REF }}
+      STAGING_SUPABASE_URL: ${{ secrets.STAGING_SUPABASE_URL }}
+      STAGING_PUBLISHABLE_KEY: ${{ secrets.STAGING_SUPABASE_PUBLISHABLE_KEY }}
+      STAGING_LOAD_EMAIL: ${{ secrets.STAGING_LOAD_EMAIL }}
+      STAGING_LOAD_PASSWORD: ${{ secrets.STAGING_LOAD_PASSWORD }}
+      DATABASE_URL: ${{ secrets.STAGING_DATABASE_URL }}
+      DOSE_FIXTURES_JSON: ${{ secrets.STAGING_DOSE_FIXTURES_JSON }}
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
+        with:
+          show-progress: false
+          persist-credentials: false
+
+      - name: Validate protected non-production target
+        shell: bash
+        env:
+          CONFIRM_STAGING_ONLY: ${{ inputs.confirm_staging_only }}
+        run: |
+          set -euo pipefail
+          test "$CONFIRM_STAGING_ONLY" = 'LIFEMATE-STAGING-ONLY'
+          test -n "$TARGET_PROJECT_REF"
+          test "$TARGET_PROJECT_REF" != "$PRODUCTION_PROJECT_REF"
+          test -n "$STAGING_SUPABASE_URL"
+          test -n "$STAGING_PUBLISHABLE_KEY"
+          test -n "$STAGING_LOAD_EMAIL"
+          test -n "$STAGING_LOAD_PASSWORD"
+          test -n "$DATABASE_URL"
+          case "$STAGING_SUPABASE_URL" in
+            https://*"$TARGET_PROJECT_REF"*.supabase.co) ;;
+            *) echo '::error::STAGING_SUPABASE_URL does not match the protected staging project ref.'; exit 1 ;;
+          esac
+          if [[ "$STAGING_SUPABASE_URL" == *"$PRODUCTION_PROJECT_REF"* ]] || \
+             [[ "$DATABASE_URL" == *"$PRODUCTION_PROJECT_REF"* ]]; then
+            echo '::error::Production LifeMate is explicitly blocked from capacity workflows.'
+            exit 1
+          fi
+          if [[ "$DATABASE_URL" != *"$TARGET_PROJECT_REF"* ]]; then
+            echo '::error::STAGING_DATABASE_URL does not match the protected staging project ref.'
+            exit 1
+          fi
+          case '${{ inputs.profile }}' in
+            smoke|read-heavy|ramp|spike|soak|care-mix|write-heavy|retry-storm) ;;
+            *) echo '::error::Unsupported capacity profile.'; exit 1 ;;
+          esac
+          if [[ '${{ inputs.profile }}' == 'write-heavy' || '${{ inputs.profile }}' == 'retry-storm' ]]; then
+            test -n "$DOSE_FIXTURES_JSON"
+            echo "$DOSE_FIXTURES_JSON" | jq -e 'type == "array" and length >= 25' >/dev/null
+          fi
+
+      - name: Install pinned k6
+        uses: grafana/setup-k6-action@db07bd9765aac508ef18982e52ab937fe633a065
+        with:
+          k6-version: '2.1.0'
+
+      - name: Acquire short-lived synthetic staging session
+        shell: bash
+        run: |
+          set -euo pipefail
+          auth_payload="$(jq -cn \
+            --arg email "$STAGING_LOAD_EMAIL" \
+            --arg password "$STAGING_LOAD_PASSWORD" \
+            '{email:$email,password:$password}')"
+          access_token="$(curl --fail --silent --show-error \
+            --request POST \
+            --header "apikey: $STAGING_PUBLISHABLE_KEY" \
+            --header 'Content-Type: application/json' \
+            --data "$auth_payload" \
+            "$STAGING_SUPABASE_URL/auth/v1/token?grant_type=password" | jq -er '.access_token')"
+          test -n "$access_token"
+          echo "ACCESS_TOKEN=$access_token" >> "$GITHUB_ENV"
+
+      - name: Start PostgreSQL and outbox pressure sampling
+        id: pressure
+        shell: bash
+        run: |
+          set -euo pipefail
+          case '${{ inputs.profile }}' in
+            smoke) duration=90 ;;
+            read-heavy|care-mix) duration=240 ;;
+            ramp) duration=720 ;;
+            spike) duration=180 ;;
+            soak) duration=3700 ;;
+            write-heavy) duration=360 ;;
+            retry-storm) duration=240 ;;
+          esac
+          LIFEMATE_OBSERVABILITY_TARGET=staging \
+          TARGET_PROJECT_REF="$TARGET_PROJECT_REF" \
+          DATABASE_URL="$DATABASE_URL" \
+          DURATION_SECONDS="$duration" \
+          INTERVAL_SECONDS=5 \
+          OUTPUT_FILE=runtime-pressure.ndjson \
+          bash tools/load/collect-runtime-pressure.sh &
+          echo "pid=$!" >> "$GITHUB_OUTPUT"
+
+      - name: Run bounded k6 staging profile
+        id: k6
+        shell: bash
+        run: |
+          set -uo pipefail
+          mutation_confirmation=''
+          if [[ '${{ inputs.profile }}' == 'write-heavy' || '${{ inputs.profile }}' == 'retry-storm' ]]; then
+            mutation_confirmation='STAGING-SYNTHETIC-MUTATIONS'
+          fi
+          K6_NO_USAGE_REPORT=true \
+          LIFEMATE_LOAD_TARGET=staging \
+          CONFIRM_STAGING_LOAD=LIFEMATE-STAGING-ONLY \
+          CONFIRM_SYNTHETIC_MUTATIONS="$mutation_confirmation" \
+          TARGET_PROJECT_REF="$TARGET_PROJECT_REF" \
+          BASE_URL="$STAGING_SUPABASE_URL/functions/v1/lifemate-api" \
+          ACCESS_TOKEN="$ACCESS_TOKEN" \
+          DOSE_FIXTURES_JSON="$DOSE_FIXTURES_JSON" \
+          LOAD_PROFILE='${{ inputs.profile }}' \
+          RUN_ID="$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT" \
+          k6 run tools/load/lifemate-api-capacity.js
+          exit_code=$?
+          echo "exit_code=$exit_code" >> "$GITHUB_OUTPUT"
+          exit 0
+
+      - name: Stop pressure collector and summarize evidence
+        if: always()
+        shell: bash
+        env:
+          COLLECTOR_PID: ${{ steps.pressure.outputs.pid }}
+        run: |
+          set -euo pipefail
+          if [[ -n "${COLLECTOR_PID:-}" ]]; then
+            kill "$COLLECTOR_PID" 2>/dev/null || true
+            wait "$COLLECTOR_PID" 2>/dev/null || true
+          fi
+          test -s load-summary.json
+          test -s capacity-result.json
+          test -s runtime-pressure.ndjson
+          node tools/load/summarize-runtime-pressure.mjs \
+            runtime-pressure.ndjson runtime-pressure-summary.json
+          jq -e '.schemaVersion == "lifemate.capacity.v1"' capacity-result.json >/dev/null
+          jq -e '.schemaVersion == "lifemate.runtime-pressure.v1"' runtime-pressure-summary.json >/dev/null
+          {
+            echo '## Capacity result'
+            echo '```json'
+            jq '{profile,target,thresholdsPassed,requests,achievedRps,droppedIterations,latencyMs,responses,rates}' capacity-result.json
+            echo '```'
+            echo '## Runtime pressure'
+            echo '```json'
+            cat runtime-pressure-summary.json
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload machine-readable capacity evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: lifemate-capacity-${{ inputs.profile }}-${{ github.sha }}-${{ github.run_id }}
+          path: |
+            load-summary.json
+            capacity-result.json
+            runtime-pressure.ndjson
+            runtime-pressure-summary.json
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Enforce load thresholds after evidence upload
+        if: always()
+        shell: bash
+        env:
+          K6_EXIT_CODE: ${{ steps.k6.outputs.exit_code }}
+        run: |
+          set -euo pipefail
+          test "${K6_EXIT_CODE:-1}" = '0'
+          jq -e '.thresholdsPassed == true' capacity-result.json >/dev/null

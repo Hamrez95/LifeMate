@@ -1,109 +1,108 @@
-# LifeMate load and capacity testing
+# LifeMate load and capacity harness
 
-This directory contains the repeatable capacity harness for the current closed-beta runtime:
+Issue: #133 / Epic #132.
 
-```text
-WellMate / CareMate
-        -> Supabase Auth
-        -> Supabase Edge Function: lifemate-api
-        -> PostgreSQL
-```
+This directory contains the repeatable capacity tooling for the LifeMate foundation. It is intentionally split into a safe local/CI smoke path and a protected non-production staging path. **Production load testing is hard-blocked in code and workflow validation.**
 
-The k6 runner is deliberately **local-only**. It establishes a baseline and catches obvious regressions without creating load against a shared or production service. Remote staging execution must use a separate protected runner with explicit duration/RPS caps and synthetic identities.
+## What exists
 
-## Requirements
+- `lifemate-api-local.js` — original localhost-only smoke harness retained for compatibility.
+- `lifemate-api-capacity.js` — canonical multi-profile k6 runner with machine JSON + human summary.
+- `collect-runtime-pressure.sh` + `runtime-pressure.sql` — PostgreSQL connection/wait/slow-query and outbox pressure sampling.
+- `summarize-runtime-pressure.mjs` — compact machine-readable runtime pressure summary.
+- `.github/workflows/performance-harness.yml` — credential-free local CI smoke and fail-closed guard tests.
+- `.github/workflows/staging-capacity.yml` — protected manual staging execution and evidence upload.
 
-- k6 installed locally
-- PostgreSQL `psql` when database-pressure telemetry is collected
-- a local Supabase/Edge Function target
-- optional non-production access token for authenticated read-mix testing
+## Local one-command smoke
 
-## Smoke
+Start any disposable localhost stub/API and run:
 
 ```bash
-k6 run tools/load/lifemate-api-local.js
+K6_NO_USAGE_REPORT=true \
+LIFEMATE_LOAD_TARGET=local \
+LOAD_PROFILE=smoke \
+BASE_URL=http://127.0.0.1:18080 \
+k6 run tools/load/lifemate-api-capacity.js
 ```
 
-Without `ACCESS_TOKEN`, the harness exercises only `/health`.
+The runner writes:
 
-## Authenticated read mix
+- `load-summary.json` — full k6 machine result;
+- `capacity-result.json` — compact LifeMate capacity schema containing profile, achieved RPS, dropped iterations, p50/p95/p99/max, 2xx/4xx/5xx/429/503 and reliability rates;
+- a short human summary to stdout.
 
-```bash
-BASE_URL=http://127.0.0.1:54321/functions/v1/lifemate-api \
-ACCESS_TOKEN='<non-production-token>' \
-k6 run tools/load/lifemate-api-local.js
+CI runs this smoke without any production/staging credential.
+
+## Protected staging profiles
+
+The staging workflow exposes only these bounded profiles:
+
+| Profile | Workload | Bounded shape |
+|---|---|---|
+| `smoke` | health + authenticated basic read | 2 VU / 30s |
+| `read-heavy` | home/dose/basic read mix | 100 arrival RPS / 2m |
+| `ramp` | read mix | steps through 100 → 250 → 500 RPS over 10m |
+| `spike` | read mix + recovery period | up to 2,000 RPS for 40s, then low-rate recovery |
+| `soak` | read mix | 250 RPS / 60m |
+| `care-mix` | relationship/invitation/dose reads | 100 RPS / 3m |
+| `write-heavy` | critical dose adherence | 25 isolated VUs / 5m |
+| `retry-storm` | critical adherence + controlled retry/replay | 25 isolated VUs / 3m |
+
+The high numbers are test profiles, **not current capacity claims**.
+
+### Required protected staging secrets
+
+The GitHub `capacity-staging` environment must point to an isolated Supabase branch/project, never production:
+
+- `STAGING_SUPABASE_PROJECT_REF`
+- `STAGING_SUPABASE_URL`
+- `STAGING_SUPABASE_PUBLISHABLE_KEY`
+- `STAGING_LOAD_EMAIL`
+- `STAGING_LOAD_PASSWORD`
+- `STAGING_DATABASE_URL`
+- `STAGING_DOSE_FIXTURES_JSON` for `write-heavy` / `retry-storm`
+
+The workflow obtains a short-lived auth session at runtime. It does not store a long-lived user JWT.
+
+For mutation profiles, `STAGING_DOSE_FIXTURES_JSON` must contain at least 25 synthetic dose occurrences, one per VU, for example:
+
+```json
+[
+  {"id":"00000000-0000-4000-8000-000000000001","version":1,"status":"scheduled"}
+]
 ```
 
-The mix favors the read-heavy paths that currently fan into PostgreSQL:
+Use only disposable synthetic staging data. Each VU owns one fixture so concurrent VUs do not race the same dose. Every logical adherence mutation uses a new `clientRequestId`/`Idempotency-Key`, then immediately retries the exact same logical mutation with the same key. The second attempt must return the idempotency replay header; missing replay evidence is a thresholded failure.
 
-- `GET /api/v1/home-snapshot`
-- `GET /api/v1/dose-occurrences`
-- `GET /api/v1/care/relationships`
+## Safety gates
 
-## Local ramp
+`lifemate-api-capacity.js` refuses a remote target unless all of these hold:
 
-```bash
-LOAD_PROFILE=ramp \
-ACCESS_TOKEN='<non-production-token>' \
-k6 run tools/load/lifemate-api-local.js
-```
+1. `LIFEMATE_LOAD_TARGET=staging`;
+2. `CONFIRM_STAGING_LOAD=LIFEMATE-STAGING-ONLY`;
+3. the project ref is present and is **not** the LifeMate production ref;
+4. the HTTPS API URL contains the staging project ref and does not contain the production ref;
+5. a synthetic staging access token exists.
 
-The initial ramp is intentionally capped at 100 arrivals/second. Larger remote/staging tests belong behind a protected, explicitly approved runner with a dedicated target, test identities, duration caps and an emergency stop. Do not repurpose this script to generate production traffic.
+Mutation profiles additionally require `CONFIRM_SYNTHETIC_MUTATIONS=STAGING-SYNTHETIC-MUTATIONS` and at least 25 valid dose fixtures.
 
-## Capture database and worker pressure at the same time
+The database pressure collector applies the same production-ref block and requires the staging database URL to contain the same staging ref. Passing a production connection URL or production project ref fails before `psql` executes.
 
-Local example:
+## Runtime pressure evidence
 
-```bash
-DATABASE_URL='postgres://postgres:postgres@127.0.0.1:54322/postgres' \
-INTERVAL_SECONDS=5 \
-DURATION_SECONDS=120 \
-bash tools/load/collect-runtime-pressure.sh
-```
+During a protected staging run, the workflow samples every five seconds and records:
 
-A remote read-only staging collector is allowed only with an explicit marker:
+- configured PostgreSQL max connections;
+- total DB sessions;
+- LifeMate Edge/worker runtime sessions;
+- waiting runtime sessions;
+- runtime queries active for more than one second;
+- outbox queue metrics.
 
-```bash
-LIFEMATE_OBSERVABILITY_TARGET=staging \
-DATABASE_URL='<protected-staging-database-url>' \
-bash tools/load/collect-runtime-pressure.sh
-```
+`runtime-pressure-summary.json` records the peak connection/wait/slow-query values and numeric outbox maxima. Raw NDJSON is retained with the k6 evidence artifact.
 
-The collector writes `runtime-pressure.ndjson`. It reads aggregate PostgreSQL connection/wait/query-age metadata plus outbox count/age metrics; it does **not** select healthcare rows or outbox payloads. The script intentionally has no `production` mode.
+## Result interpretation
 
-## Output and SLO evidence
+A threshold failure is useful evidence; it must not be hidden. The staging workflow uploads artifacts **before** enforcing the k6 exit code and `thresholdsPassed` flag, so a failed capacity run still preserves the bottleneck data.
 
-Each k6 run writes `load-summary.json` and prints the selected profile. Key metrics are:
-
-- `lifemate_api_latency`: client-observed API latency trend;
-- `unexpected_response_rate`: responses other than success or explicit controlled overload;
-- `controlled_overload_rate`: 429/503 responses;
-- `server_error_rate`: uncontrolled 5xx (503 overload is tracked separately);
-- `missing_correlation_id_rate`: responses missing the server correlation identifier.
-
-The API also emits bounded structured `lifemate.telemetry.window` records from each active Edge isolate. Aggregate those windows by release/time interval to diagnose route/status/subsystem/concurrency/rate-limiter behavior. See `docs/operations/reliability-slos.md`.
-
-The current provisional load thresholds are:
-
-- checks > 99%;
-- unexpected response rate < 1%;
-- uncontrolled server error rate < 0.5%;
-- missing correlation ID rate < 0.1%;
-- p95 < 1500 ms;
-- p99 < 3000 ms.
-
-These thresholds are a starting engineering contract, not a claim that current production capacity meets them.
-
-## Safety rules
-
-1. Never use real patient/caregiver accounts for capacity testing.
-2. Never run destructive mutation scenarios against production.
-3. Keep load-test data synthetic and disposable.
-4. Record the exact commit, Edge release version, database migration state, limiter mode and test profile with every result.
-5. A performance test is incomplete if only RPS is captured. Record latency percentiles, status mix, Edge telemetry, PostgreSQL connection pressure and worker backlog together.
-6. A system that returns bounded 429/503 above capacity is healthier than one that accepts everything and collapses into timeouts.
-7. Do not raise API concurrency or rate limits while DB pressure is already the limiting subsystem.
-
-## Related scale work
-
-Epic #132 owns viral-launch resilience. The capacity harness (#133), shared admission control (#134), concurrency budgets (#135), DB protection (#136), idempotency (#137), queue safety (#138) and observability/SLOs (#140) are designed to produce one evidence chain rather than independent optimizations.
+Do not claim a supported user/RPS number from local CI, tiny production data, or a single successful spike. Scale-01 closes only after a protected staging run records the tested envelope, first bottleneck, overload behavior, recovery, DB pressure and critical-write idempotency evidence on the architecture being released.

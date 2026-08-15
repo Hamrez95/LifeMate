@@ -7,6 +7,8 @@ INTERVAL_SECONDS="${INTERVAL_SECONDS:-5}"
 DURATION_SECONDS="${DURATION_SECONDS:-120}"
 OUTPUT_FILE="${OUTPUT_FILE:-runtime-pressure.ndjson}"
 TARGET="${LIFEMATE_OBSERVABILITY_TARGET:-local}"
+TARGET_PROJECT_REF="${TARGET_PROJECT_REF:-}"
+PRODUCTION_PROJECT_REF="bwdvmniywyyijjauipnh"
 
 if ! [[ "$INTERVAL_SECONDS" =~ ^[0-9]+$ ]] || (( INTERVAL_SECONDS < 1 || INTERVAL_SECONDS > 60 )); then
   echo "INTERVAL_SECONDS must be an integer between 1 and 60." >&2
@@ -25,6 +27,22 @@ case "$TARGET" in
     fi
     ;;
   staging)
+    if [[ -z "$TARGET_PROJECT_REF" ]]; then
+      echo "TARGET_PROJECT_REF is required for staging runtime sampling." >&2
+      exit 2
+    fi
+    if [[ "$TARGET_PROJECT_REF" == "$PRODUCTION_PROJECT_REF" ]]; then
+      echo "Production project ref is explicitly blocked from load-test sampling." >&2
+      exit 2
+    fi
+    if [[ "$DATABASE_URL" == *"$PRODUCTION_PROJECT_REF"* ]]; then
+      echo "Production database URL is explicitly blocked from load-test sampling." >&2
+      exit 2
+    fi
+    if [[ "$DATABASE_URL" != *"$TARGET_PROJECT_REF"* ]]; then
+      echo "DATABASE_URL does not belong to TARGET_PROJECT_REF." >&2
+      exit 2
+    fi
     ;;
   *)
     echo "LIFEMATE_OBSERVABILITY_TARGET must be local or staging. Production is intentionally unsupported." >&2
