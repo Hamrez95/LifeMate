@@ -57,32 +57,19 @@ $parts = $DailyAt.Split(':')
 $backupTime = Get-Date -Year $today.Year -Month $today.Month -Day $today.Day -Hour ([int]$parts[0]) -Minute ([int]$parts[1]) -Second 0
 $checkTime = $backupTime.AddHours(3)
 
-$principal = New-ScheduledTaskPrincipal \
-  -UserId ([System.Security.Principal.WindowsIdentity]::GetCurrent().Name) \
-  -LogonType Interactive \
-  -RunLevel Limited
-$settings = New-ScheduledTaskSettingsSet \
-  -StartWhenAvailable \
-  -AllowStartIfOnBatteries \
-  -DontStopIfGoingOnBatteries \
-  -ExecutionTimeLimit (New-TimeSpan -Hours 2)
+$principal = New-ScheduledTaskPrincipal -UserId ([System.Security.Principal.WindowsIdentity]::GetCurrent().Name) -LogonType Interactive -RunLevel Limited
+$settings = New-ScheduledTaskSettingsSet -StartWhenAvailable -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries -ExecutionTimeLimit (New-TimeSpan -Hours 2)
 
 $backupTaskName = "$TaskPrefix Encrypted PostgreSQL Backup"
-$backupTask = New-ScheduledTask \
-  -Action (New-ScheduledTaskAction -Execute $pwsh -Argument $backupArguments) \
-  -Trigger (New-ScheduledTaskTrigger -Daily -At $backupTime) \
-  -Principal $principal \
-  -Settings $settings \
-  -Description 'Creates a provider-independent encrypted LifeMate PostgreSQL backup on this workstation. Database credentials remain in PostgreSQL client configuration, not task arguments.'
+$backupAction = New-ScheduledTaskAction -Execute $pwsh -Argument $backupArguments
+$backupTrigger = New-ScheduledTaskTrigger -Daily -At $backupTime
+$backupTask = New-ScheduledTask -Action $backupAction -Trigger $backupTrigger -Principal $principal -Settings $settings -Description 'Creates a provider-independent encrypted LifeMate PostgreSQL backup on this workstation. Database credentials remain in PostgreSQL client configuration, not task arguments.'
 Register-ScheduledTask -TaskName $backupTaskName -InputObject $backupTask -Force | Out-Null
 
 $checkTaskName = "$TaskPrefix Backup Freshness Check"
-$checkTask = New-ScheduledTask \
-  -Action (New-ScheduledTaskAction -Execute $pwsh -Argument $checkArguments) \
-  -Trigger (New-ScheduledTaskTrigger -Daily -At $checkTime) \
-  -Principal $principal \
-  -Settings $settings \
-  -Description 'Fails when the latest LifeMate encrypted PostgreSQL backup is stale, missing, or fails ciphertext integrity verification.'
+$checkAction = New-ScheduledTaskAction -Execute $pwsh -Argument $checkArguments
+$checkTrigger = New-ScheduledTaskTrigger -Daily -At $checkTime
+$checkTask = New-ScheduledTask -Action $checkAction -Trigger $checkTrigger -Principal $principal -Settings $settings -Description 'Fails when the latest LifeMate encrypted PostgreSQL backup is stale, missing, or fails ciphertext integrity verification.'
 Register-ScheduledTask -TaskName $checkTaskName -InputObject $checkTask -Force | Out-Null
 
 $result = [ordered]@{
