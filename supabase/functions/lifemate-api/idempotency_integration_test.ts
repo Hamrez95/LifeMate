@@ -5,28 +5,29 @@ import {
 } from "https://deno.land/std@0.224.0/assert/mod.ts";
 import { getLifeMateSql } from "./database_client.ts";
 import { json } from "./http.ts";
-import { createMutationIdempotencyStore } from "./idempotency.ts";
+import {
+  createMutationIdempotencyStore,
+  requestHash,
+} from "./idempotency.ts";
 import { ApiError } from "./validation.ts";
 
 const databaseUrl = Deno.env.get("TEST_DATABASE_URL");
 
 if (databaseUrl) {
-  Deno.test("durable idempotency replays, rejects conflicts and serializes duplicates", async () => {
+  Deno.test("durable idempotency tokenizes actors, replays and serializes duplicates", async () => {
     const sql = getLifeMateSql(databaseUrl);
-    const store = createMutationIdempotencyStore(
-      databaseUrl,
-      "test-idempotency-response-secret-0000000000000001",
-    );
+    const secret = "test-idempotency-response-secret-0000000000000001";
+    const store = createMutationIdempotencyStore(databaseUrl, secret);
     const actor = "10000000-0000-4000-8000-000000000137";
     const operation = "POST /api/v1/test-idempotency";
     const replayKey = "scale05-replay-0001";
     const concurrentKey = "scale05-concurrent-0001";
+    const legacyKey = "scale05-legacy-0001";
 
     await sql`
       delete from lifemate.idempotency_keys
-      where actor_auth_subject = ${actor}::uuid
-        and operation = ${operation}
-        and idempotency_key in (${replayKey}, ${concurrentKey})
+      where operation=${operation}
+        and idempotency_key in (${replayKey}, ${concurrentKey}, ${legacyKey})
     `;
 
     try {
@@ -45,13 +46,18 @@ if (databaseUrl) {
       assertEquals(sideEffects, 1);
 
       const storedEnvelopeRows = await sql`
-        select response_body
+        select actor_auth_subject, actor_subject_token, response_body
         from lifemate.idempotency_keys
-        where actor_auth_subject = ${actor}::uuid
-          and operation = ${operation}
-          and idempotency_key = ${replayKey}
+        where operation=${operation}
+          and idempotency_key=${replayKey}
         limit 1
       `;
+      assertEquals(storedEnvelopeRows[0]?.actor_auth_subject, null);
+      const storedActorToken = String(
+        storedEnvelopeRows[0]?.actor_subject_token ?? "",
+      );
+      assert(/^[0-9a-f]{64}$/.test(storedActorToken));
+      assert(storedActorToken !== actor);
       const storedEnvelope = String(storedEnvelopeRows[0]?.response_body ?? "");
       assert(storedEnvelope.startsWith("v1."));
       assert(!storedEnvelope.includes("resource-1"));
@@ -86,10 +92,9 @@ if (databaseUrl) {
 
       await sql`
         update lifemate.idempotency_keys
-        set expires_at_utc = now() - interval '1 second'
-        where actor_auth_subject = ${actor}::uuid
-          and operation = ${operation}
-          and idempotency_key = ${replayKey}
+        set expires_at_utc=now() - interval '1 second'
+        where operation=${operation}
+          and idempotency_key=${replayKey}
       `;
       const afterExpiry = await store.execute(
         actor,
@@ -103,6 +108,30 @@ if (databaseUrl) {
       );
       assertEquals(await afterExpiry.json(), { id: "resource-2", version: 1 });
       assertEquals(sideEffects, 2);
+
+      const legacyHash = await requestHash('{"legacy":true}');
+      await sql`
+        insert into lifemate.idempotency_keys(
+          actor_auth_subject,actor_subject_token,operation,idempotency_key,
+          request_hash,status,response_status,response_body,
+          created_at_utc,updated_at_utc,expires_at_utc
+        ) values(
+          ${actor}::uuid,null,${operation},${legacyKey},${legacyHash},
+          'Processing',null,null,now(),now(),now()+interval '24 hours'
+        )
+      `;
+      const legacyInProgress = await assertRejects(
+        () =>
+          store.execute(
+            actor,
+            operation,
+            legacyKey,
+            '{"legacy":true}',
+            async () => json({ id: "must-not-run" }, 201),
+          ),
+        ApiError,
+      );
+      assertEquals(legacyInProgress.code, "idempotency_in_progress");
 
       let signalStarted!: () => void;
       const started = new Promise<void>((resolve) => signalStarted = resolve);
@@ -160,9 +189,8 @@ if (databaseUrl) {
     } finally {
       await sql`
         delete from lifemate.idempotency_keys
-        where actor_auth_subject = ${actor}::uuid
-          and operation = ${operation}
-          and idempotency_key in (${replayKey}, ${concurrentKey})
+        where operation=${operation}
+          and idempotency_key in (${replayKey}, ${concurrentKey}, ${legacyKey})
       `;
     }
   });
