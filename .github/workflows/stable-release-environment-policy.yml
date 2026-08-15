@@ -6,12 +6,14 @@ on:
     paths:
       - '.github/workflows/main-final-android-release.yml'
       - '.github/workflows/stable-release-environment-policy.yml'
+      - 'tools/release/live-beta-smoke.sh'
       - 'tools/release/verify-stable-workflow-policy.mjs'
   push:
     branches: [main]
     paths:
       - '.github/workflows/main-final-android-release.yml'
       - '.github/workflows/stable-release-environment-policy.yml'
+      - 'tools/release/live-beta-smoke.sh'
       - 'tools/release/verify-stable-workflow-policy.mjs'
 
 permissions:
