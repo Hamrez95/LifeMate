@@ -35,6 +35,12 @@ import {
 import { createCommerceTransactionDetailStore } from "./commerce_transaction_detail_service.ts";
 import { parseCommerceTransactionsQuery } from "./commerce_transactions.ts";
 import { createCommerceTransactionsStore } from "./commerce_transactions_service.ts";
+import {
+  authorizedSearchDomains,
+  parseGlobalSearchQuery,
+  safeSearchLogFields,
+} from "./global_search.ts";
+import { createGlobalSearchStore } from "./global_search_service.ts";
 import { isPostgresUnavailable } from "./database_client.ts";
 import { parseUserDirectoryQuery } from "./directory.ts";
 import {
@@ -42,6 +48,7 @@ import {
   json,
   preflight,
   problem,
+  responseHeaders,
   safeError,
 } from "./http.ts";
 import { parseRelationshipLedgerQuery } from "./relationship_ledger.ts";
@@ -84,6 +91,7 @@ import {
 const config = await loadRuntimeConfig();
 const store = createAdminStore(config.databaseUrl);
 const userDetailStore = createUserDetailStore(config.databaseUrl);
+const globalSearchStore = createGlobalSearchStore(config.databaseUrl);
 const userAccountActionStore = createUserAccountActionStore(config.databaseUrl);
 const analyticsKpiStore = createAnalyticsKpiStore(config.databaseUrl);
 const commerceOverviewStore = createCommerceOverviewStore(config.databaseUrl);
@@ -223,6 +231,58 @@ Deno.serve(async (request: Request) => {
 
     if (request.method === "GET" && path === "/api/v1/me") {
       return json({ admin }, 200, origin);
+    }
+
+    if (request.method === "GET" && path === "/api/v1/search") {
+      const query = parseGlobalSearchQuery(new URL(request.url));
+      const authorizedDomains = authorizedSearchDomains(
+        query.domains,
+        admin.permissions,
+      );
+      if (authorizedDomains.length === 0) {
+        throw new ApiError(
+          403,
+          "search_forbidden",
+          "No requested search domain is authorized for this admin.",
+        );
+      }
+
+      const rateLimit = await globalSearchStore.consumeRateLimit(accountId);
+      if (!rateLimit.allowed) {
+        return new Response(
+          JSON.stringify({
+            type: "https://lifemate.app/problems/search_rate_limited",
+            title: "Search request rate limit exceeded.",
+            status: 429,
+            code: "search_rate_limited",
+            correlationId,
+          }),
+          {
+            status: 429,
+            headers: {
+              ...responseHeaders(origin),
+              "retry-after": String(rateLimit.retryAfterSeconds),
+            },
+          },
+        );
+      }
+
+      console.info("LifeMate Admin global search", {
+        correlationId,
+        ...safeSearchLogFields(query, authorizedDomains),
+        remaining: rateLimit.remaining,
+      });
+      const groups = await globalSearchStore.search(query, authorizedDomains);
+      return json(
+        {
+          groups,
+          page: query.page,
+          pageSize: query.pageSize,
+          freshness: { status: "fresh", asOfUtc: new Date().toISOString() },
+        },
+        200,
+        origin,
+      );
     }
 
     if (request.method === "GET" && path === "/api/v1/analytics/catalog") {
