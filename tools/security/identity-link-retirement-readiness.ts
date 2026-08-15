@@ -25,7 +25,9 @@ export type IdentityRetirementReadiness = {
 
 function requireKeyVersion(value: number): number {
   if (!Number.isSafeInteger(value) || value < 1 || value > 65535) {
-    throw new Error("Identity-link key version must be an integer from 1 to 65535.");
+    throw new Error(
+      "Identity-link key version must be an integer from 1 to 65535.",
+    );
   }
   return value;
 }
@@ -101,7 +103,8 @@ export async function assessIdentityRetirementReadiness(options: {
       } else {
         tokenOwners.set(row.subject_token, row.account_id);
       }
-      const accountTokens = tokensByAccount.get(row.account_id) ?? new Set<string>();
+      const accountTokens = tokensByAccount.get(row.account_id) ??
+        new Set<string>();
       accountTokens.add(row.subject_token);
       tokensByAccount.set(row.account_id, accountTokens);
     }
@@ -138,8 +141,7 @@ export async function assessIdentityRetirementReadiness(options: {
         aggregates.active_raw_provider_identities,
       ),
       unmappedActiveAccounts,
-      readyForTokenOnly:
-        missingCanonicalTokens === 0 &&
+      readyForTokenOnly: missingCanonicalTokens === 0 &&
         conflictingCanonicalTokens === 0 &&
         unmappedActiveAccounts === 0 &&
         tokenizedAccounts === activeAccounts.length,
@@ -152,9 +154,12 @@ export async function assessIdentityRetirementReadiness(options: {
 
 if (import.meta.main) {
   const result = await assessIdentityRetirementReadiness({
-    databaseUrl: Deno.env.get("LIFEMATE_IDENTITY_RETIREMENT_DATABASE_URL") ?? "",
+    databaseUrl: Deno.env.get("LIFEMATE_IDENTITY_RETIREMENT_DATABASE_URL") ??
+      "",
     externalKey: Deno.env.get("LIFEMATE_IDENTITY_LINK_KEY") ?? "",
-    keyVersion: Number(Deno.env.get("LIFEMATE_IDENTITY_LINK_KEY_VERSION") ?? ""),
+    keyVersion: Number(
+      Deno.env.get("LIFEMATE_IDENTITY_LINK_KEY_VERSION") ?? "",
+    ),
   });
   // Counts only. Raw subjects, tokens, database URLs and key material are never emitted.
   console.log(JSON.stringify(result));
