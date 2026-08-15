@@ -18,6 +18,7 @@ export type AuthIdentitySnapshot = {
 };
 
 type EnvironmentReader = (name: string) => string | null | undefined;
+type AccountIdRow = { account_id: string };
 
 export function identityLinkDualWriteEnabled(
   readEnvironment: EnvironmentReader = (name) => Deno.env.get(name),
@@ -67,7 +68,7 @@ export function createIdentityBridge(databaseUrl: string) {
     const providers = new Set<string>();
 
     return await sql.begin(async (transaction) => {
-      const accountRows = await transaction`
+      const accountRows: AccountIdRow[] = await transaction`
         select identity.account_id_for_legacy_app_user(
           ${legacyAppUserId}::uuid
         ) as account_id
@@ -143,7 +144,7 @@ export function createIdentityBridge(databaseUrl: string) {
           );
         }
 
-        const rows = await transaction`
+        const rows: AccountIdRow[] = await transaction`
           insert into identity.external_identities(
             account_id,provider,provider_subject,issuer,created_at_utc,
             last_authenticated_at_utc,status
@@ -184,7 +185,7 @@ export function createIdentityBridge(databaseUrl: string) {
     createdAt: Date,
     lastAuthenticatedAt: Date,
   ): Promise<void> {
-    const rows = await transaction`
+    const rows: AccountIdRow[] = await transaction`
       insert into identity.external_identity_tokens(
         account_id,provider,issuer,subject_token,key_version,
         created_at_utc,last_authenticated_at_utc,status
