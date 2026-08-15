@@ -2,6 +2,7 @@ using System.Text.RegularExpressions;
 using LifeMate.Api.Middleware;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Logging.Abstractions;
+using Xunit;
 
 namespace LifeMate.IntegrationTests;
 
@@ -56,7 +57,9 @@ public sealed class PrivacySafeObservabilityTests
         var body = await new StreamReader(context.Response.Body).ReadToEndAsync();
 
         Assert.Equal(StatusCodes.Status500InternalServerError, context.Response.StatusCode);
-        Assert.Equal(correlationId, context.Response.Headers[CorrelationIdMiddleware.HeaderName]);
+        Assert.Equal(
+            correlationId,
+            context.Response.Headers[CorrelationIdMiddleware.HeaderName].ToString());
         Assert.Contains("internal_error", body, StringComparison.Ordinal);
         Assert.Contains(correlationId, body, StringComparison.Ordinal);
         Assert.DoesNotContain("patient@example.test", body, StringComparison.Ordinal);
