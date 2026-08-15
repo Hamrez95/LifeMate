@@ -53,6 +53,15 @@ Deno.test("global search parser enforces minimum query and bounded pagination", 
       ),
     "search_types_invalid",
   );
+  await assertRejects(
+    () =>
+      parseGlobalSearchQuery(
+        new URL(
+          "https://admin.test/api/v1/search?q=valid&types=users,women_health",
+        ),
+      ),
+    "search_types_invalid",
+  );
 });
 
 Deno.test("global search authorization is domain scoped and fail closed", () => {
