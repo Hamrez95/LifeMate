@@ -200,21 +200,23 @@ export function createCommerceTransactionDetailStore(databaseUrl: string) {
   const sql = getAdminSql(databaseUrl);
 
   return {
-    async getDetail(transactionId: string) {
+    async getDetail(transactionId: string, includeAudit: boolean) {
       const transaction = await getTransaction(sql, transactionId);
       if (!transaction) return null;
 
       const [providerEvents, refundRequests, auditEvents] = await Promise.all([
         listProviderEvents(sql, transactionId),
         listRefundRequests(sql, transactionId),
-        listAuditEvents(sql, transactionId),
+        includeAudit ? listAuditEvents(sql, transactionId) : Promise.resolve(null),
       ]);
 
       return {
         transaction,
         providerEvents,
         refundRequests,
-        auditEvents,
+        auditEvidence: includeAudit
+          ? { state: "ready" as const, items: auditEvents ?? [] }
+          : { state: "forbidden" as const },
       };
     },
 
