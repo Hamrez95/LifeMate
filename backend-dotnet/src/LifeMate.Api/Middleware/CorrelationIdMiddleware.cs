@@ -39,6 +39,8 @@ public sealed partial class CorrelationIdMiddleware
         return Guid.NewGuid().ToString("N");
     }
 
-    [GeneratedRegex("^[A-Za-z0-9][A-Za-z0-9._-]{7,63}$", RegexOptions.CultureInvariant)]
+    [GeneratedRegex(
+        "^(?:[0-9A-Fa-f]{32}|[0-9A-Fa-f]{8}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{12})$",
+        RegexOptions.CultureInvariant)]
     private static partial Regex SafeCorrelationId();
 }
