@@ -259,8 +259,10 @@ Deno.test({
           actor_auth_subject,operation,idempotency_key,request_hash,status,
           response_status,response_body,created_at_utc,updated_at_utc,expires_at_utc
         ) values (
-          ${authSubject}::uuid,'dose-report','delete-me-request','hash','Completed',
-          200,'{"private":"health-response"}',now(),now(),now()+interval '1 day'
+          ${authSubject}::uuid,'dose-report','delete-me-request',
+          '0000000000000000000000000000000000000000000000000000000000000000',
+          'Completed',200,'{"private":"health-response"}',now(),now(),
+          now()+interval '1 day'
         )
       `;
       await sql`
@@ -517,6 +519,23 @@ Deno.test({
         delete from lifemate.care_relationships
         where patient_user_id in (${appUserId}::uuid,${survivorUserId}::uuid)
            or caregiver_user_id in (${appUserId}::uuid,${survivorUserId}::uuid)
+      `.catch(() => undefined);
+      await sql`
+        delete from consent.consent_events
+        where consent_record_id in (
+          select id from consent.consent_records
+          where scope_key in (
+            ${`care_relationship:${ownRelationshipId}`},
+            ${`care_relationship:${survivorRelationshipId}`}
+          )
+        )
+      `.catch(() => undefined);
+      await sql`
+        delete from consent.consent_records
+        where scope_key in (
+          ${`care_relationship:${ownRelationshipId}`},
+          ${`care_relationship:${survivorRelationshipId}`}
+        )
       `.catch(() => undefined);
       await sql`
         delete from security.access_grants
