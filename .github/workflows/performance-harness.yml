@@ -28,7 +28,7 @@ concurrency:
 jobs:
   validate-k6:
     runs-on: ubuntu-24.04
-    timeout-minutes: 10
+    timeout-minutes: 12
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
         with:
@@ -89,6 +89,39 @@ jobs:
           fi
           grep -q 'Production project ref is explicitly blocked' /tmp/db-production-guard.log
 
+      - name: Prove capacity profiles cannot masquerade as one-user throttle tests
+        shell: bash
+        run: |
+          set -euo pipefail
+          if LIFEMATE_LOAD_TARGET=staging \
+            CONFIRM_STAGING_LOAD=LIFEMATE-STAGING-ONLY \
+            TARGET_PROJECT_REF=abcdefghijkl \
+            BASE_URL='https://abcdefghijkl.supabase.co/functions/v1/lifemate-api' \
+            ACCESS_TOKEN='single-synthetic-token' \
+            LOAD_PROFILE=read-heavy \
+            K6_NO_USAGE_REPORT=true \
+            k6 run tools/load/lifemate-api-capacity.js >/tmp/identity-pool-guard.log 2>&1; then
+            echo '::error::Read-heavy capacity profile accepted a single synthetic subject.'
+            cat /tmp/identity-pool-guard.log
+            exit 1
+          fi
+          grep -q 'requires at least 20 unique synthetic auth sessions' /tmp/identity-pool-guard.log
+
+          sessions='[{"accessToken":"a","subject":"one"},{"accessToken":"b","subject":"two"}]'
+          if LIFEMATE_LOAD_TARGET=staging \
+            CONFIRM_STAGING_LOAD=LIFEMATE-STAGING-ONLY \
+            TARGET_PROJECT_REF=abcdefghijkl \
+            BASE_URL='https://abcdefghijkl.supabase.co/functions/v1/lifemate-api' \
+            AUTH_SESSIONS_JSON="$sessions" \
+            LOAD_PROFILE=single-user-throttle \
+            K6_NO_USAGE_REPORT=true \
+            k6 run tools/load/lifemate-api-capacity.js >/tmp/single-user-guard.log 2>&1; then
+            echo '::error::Single-user throttle profile accepted multiple identities.'
+            cat /tmp/single-user-guard.log
+            exit 1
+          fi
+          grep -q 'single-user-throttle requires exactly one synthetic identity' /tmp/single-user-guard.log
+
       - name: Run local smoke against disposable stub
         shell: bash
         run: |
@@ -123,6 +156,45 @@ jobs:
           test -s load-summary.json
           test -s capacity-result.json
           jq -e '.schemaVersion == "lifemate.capacity.v1" and .target == "local" and .profile == "smoke" and .thresholdsPassed == true' capacity-result.json >/dev/null
+
+      - name: Prove pressure collector records complete and failed runs
+        shell: bash
+        run: |
+          set -euo pipefail
+          mock_dir="$(mktemp -d)"
+          cat > "$mock_dir/psql" <<'EOF'
+          #!/usr/bin/env bash
+          printf '%s\n' '{"sampledAtUtc":"2026-08-15T00:00:00Z","database":{"maxConnections":60,"databaseConnections":1,"lifeMateRuntimeConnections":0,"waitingRuntimeConnections":0,"runtimeQueriesOverOneSecond":0},"outbox":{"pendingCount":0,"oldestPendingAgeSeconds":0}}'
+          EOF
+          chmod +x "$mock_dir/psql"
+          PATH="$mock_dir:$PATH" \
+            DATABASE_URL='postgres://user:pass@127.0.0.1:5432/local' \
+            LIFEMATE_OBSERVABILITY_TARGET=local \
+            DURATION_SECONDS=5 \
+            INTERVAL_SECONDS=1 \
+            OUTPUT_FILE=/tmp/pressure-success.ndjson \
+            STATUS_FILE=/tmp/pressure-success-status.json \
+            bash tools/load/collect-runtime-pressure.sh
+          jq -e '.exitCode == 0 and .coverageSeconds >= 5 and .samples >= 4' \
+            /tmp/pressure-success-status.json >/dev/null
+
+          cat > "$mock_dir/psql" <<'EOF'
+          #!/usr/bin/env bash
+          exit 7
+          EOF
+          chmod +x "$mock_dir/psql"
+          if PATH="$mock_dir:$PATH" \
+            DATABASE_URL='postgres://user:pass@127.0.0.1:5432/local' \
+            LIFEMATE_OBSERVABILITY_TARGET=local \
+            DURATION_SECONDS=5 \
+            INTERVAL_SECONDS=1 \
+            OUTPUT_FILE=/tmp/pressure-failed.ndjson \
+            STATUS_FILE=/tmp/pressure-failed-status.json \
+            bash tools/load/collect-runtime-pressure.sh; then
+            echo '::error::Pressure collector hid a psql failure.'
+            exit 1
+          fi
+          jq -e '.exitCode != 0 and .samples == 0' /tmp/pressure-failed-status.json >/dev/null
 
       - name: Validate runtime-pressure summarizer
         shell: bash
