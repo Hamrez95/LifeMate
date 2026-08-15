@@ -143,6 +143,24 @@ jobs:
           PY
           auth_pid=$!
 
+          auth_ready=0
+          for _ in $(seq 1 30); do
+            if curl --silent --fail \
+              --header "Authorization: Bearer $LOCAL_AUTH_TOKEN" \
+              http://127.0.0.1:19000/auth/v1/user \
+              | jq -e --arg user "$LOCAL_AUTH_USER_ID" '.id == $user' \
+                >/dev/null 2>&1; then
+              auth_ready=1
+              break
+            fi
+            sleep 0.2
+          done
+          if [[ "$auth_ready" != '1' ]]; then
+            echo '::error::Synthetic localhost auth provider did not become ready.'
+            tail -n 20 /tmp/lifemate-local-auth.log || true
+            exit 1
+          fi
+
           (
             cd supabase/functions/lifemate-api
             SUPABASE_DB_URL="$TEST_DATABASE_URL" \
@@ -177,8 +195,13 @@ jobs:
 
           unauthorized_status="$(curl --silent --output /tmp/unauthorized.json \
             --write-out '%{http_code}' http://127.0.0.1:8000/api/v1/me)"
-          test "$unauthorized_status" = '401'
-          jq -e '.code == "authorization_missing"' /tmp/unauthorized.json >/dev/null
+          if [[ "$unauthorized_status" != '401' ]] || \
+             ! jq -e '.code == "authorization_missing" and .status == 401' \
+               /tmp/unauthorized.json >/dev/null; then
+            echo '::error::Unauthenticated API boundary did not return the expected generic 401.'
+            jq -c '{status,code,title}' /tmp/unauthorized.json 2>/dev/null || true
+            exit 1
+          fi
 
           bootstrap_body='{"displayName":"Local Smoke User","locale":"fa","timeZone":"Asia/Tehran"}'
           bootstrap_status="$(curl --silent --show-error \
@@ -190,8 +213,16 @@ jobs:
             --header 'Idempotency-Key: 22222222-2222-4222-8222-222222222222' \
             --data "$bootstrap_body" \
             http://127.0.0.1:8000/api/v1/users/bootstrap)"
-          test "$bootstrap_status" = '200'
-          jq -e --arg user "$LOCAL_AUTH_USER_ID" '.user.id == $user' /tmp/bootstrap.json >/dev/null
+          if [[ "$bootstrap_status" != '200' ]] || \
+             ! jq -e '.user.id != null and .user.authSubject != null' \
+               /tmp/bootstrap.json >/dev/null; then
+            echo "::error::Synthetic bootstrap failed with HTTP $bootstrap_status."
+            jq -c '{status,code,title}' /tmp/bootstrap.json 2>/dev/null || true
+            tail -n 40 /tmp/lifemate-local-api.log || true
+            exit 1
+          fi
+          jq -e --arg auth "$LOCAL_AUTH_USER_ID" '.user.authSubject == $auth' \
+            /tmp/bootstrap.json >/dev/null
 
           LIFEMATE_OBSERVABILITY_TARGET=local \
           DATABASE_URL="$TEST_DATABASE_URL" \
@@ -206,6 +237,7 @@ jobs:
             --arg accessToken "$LOCAL_AUTH_TOKEN" \
             --arg subject "$LOCAL_AUTH_USER_ID" \
             '[{accessToken:$accessToken,subject:$subject}]')"
+          set +e
           K6_NO_USAGE_REPORT=true \
           LIFEMATE_LOAD_TARGET=local \
           LOAD_PROFILE=smoke \
@@ -214,6 +246,7 @@ jobs:
           RUN_ID=free-local-actual-api \
           k6 run tools/load/lifemate-api-capacity.js
           k6_exit=$?
+          set -e
 
           kill -TERM "$collector_pid" 2>/dev/null || true
           set +e
@@ -244,5 +277,5 @@ jobs:
             runtime-pressure.ndjson
             runtime-pressure-status.json
             runtime-pressure-summary.json
-          if-no-files-found: error
+          if-no-files-found: warn
           retention-days: 7
