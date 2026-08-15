@@ -1,0 +1,111 @@
+import fs from 'node:fs';
+
+const config = fs.readFileSync('supabase/config.toml', 'utf8');
+const featureFlags = fs.readFileSync(
+  'packages/lifemate_client/lib/src/feature_flags.dart',
+  'utf8',
+);
+const authUi = fs.readFileSync(
+  'packages/lifemate_client/lib/src/experience_auth.dart',
+  'utf8',
+);
+
+function fail(message) {
+  console.error(`Auth security contract failure: ${message}`);
+  process.exit(1);
+}
+
+function requireMatch(source, pattern, message) {
+  if (!pattern.test(source)) fail(message);
+}
+
+function rejectMatch(source, pattern, message) {
+  if (pattern.test(source)) fail(message);
+}
+
+// Local/self-hosted defaults must not be materially weaker than the mobile
+// contract. Hosted production settings are a separate provider evidence gate.
+requireMatch(
+  config,
+  /^minimum_password_length\s*=\s*(?:[89]|[1-9][0-9]+)\s*$/m,
+  'local Auth minimum password length must be at least 8',
+);
+requireMatch(
+  config,
+  /^enable_refresh_token_rotation\s*=\s*true\s*$/m,
+  'refresh-token rotation must stay enabled locally',
+);
+requireMatch(
+  config,
+  /^refresh_token_reuse_interval\s*=\s*10\s*$/m,
+  'refresh-token reuse interval must remain explicitly bounded',
+);
+requireMatch(
+  config,
+  /^enable_anonymous_sign_ins\s*=\s*false\s*$/m,
+  'anonymous Auth users must remain disabled',
+);
+requireMatch(
+  config,
+  /^jwt_expiry\s*=\s*3600\s*$/m,
+  'local session JWT lifetime must stay explicit and bounded',
+);
+requireMatch(
+  config,
+  /Hosted production Auth settings are[\s\S]*separate live evidence under Foundation #215/,
+  'local config must not be presented as hosted production Auth evidence',
+);
+
+for (const [flag, message] of [
+  [
+    'ENABLE_GOOGLE_AUTH',
+    'Google Auth must remain compile-time fail-closed by default',
+  ],
+  [
+    'ENABLE_PHONE_OTP',
+    'phone OTP must remain compile-time fail-closed by default',
+  ],
+]) {
+  requireMatch(
+    featureFlags,
+    new RegExp(`${flag.replaceAll('_', '\\_')}[\\s\\S]{0,120}defaultValue:\\s*false`),
+    message,
+  );
+}
+
+requireMatch(
+  authUi,
+  /validator:\s*\(value\)\s*=>\s*\(value\?\.length\s*\?\?\s*0\)\s*>=\s*8/,
+  'signup/password UI must enforce at least 8 characters',
+);
+requireMatch(
+  authUi,
+  /key:\s*ValueKey\('auth-confirm-password'\)[\s\S]{0,2400}value\s*==\s*_password\.text/,
+  'signup must retain password confirmation',
+);
+requireMatch(
+  authUi,
+  /onPressed:\s*_busy\s*\?\s*null\s*:\s*_sendPasswordReset/,
+  'password recovery entry point must remain wired',
+);
+requireMatch(
+  authUi,
+  /LifeMateFeatureFlags\.googleAuthEnabled[\s\S]{0,4200}key:\s*ValueKey\('auth-google'\)/,
+  'Google button must remain behind the compile-time feature flag',
+);
+requireMatch(
+  authUi,
+  /LifeMateFeatureFlags\.phoneOtpEnabled[\s\S]{0,1200}_PhoneOtpButton/,
+  'phone OTP button must remain behind the compile-time feature flag',
+);
+
+// Raw provider messages must not become a generic last-resort UI error.
+rejectMatch(
+  authUi,
+  /return\s+error\.message\s*;/,
+  'raw Supabase Auth exception messages must not be returned to users',
+);
+
+console.log(
+  'Local Auth baseline and mobile fail-closed provider/password/recovery contract are aligned. Hosted Supabase Auth configuration still requires separate live evidence.',
+);
