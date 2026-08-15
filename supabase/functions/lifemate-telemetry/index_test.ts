@@ -36,12 +36,14 @@ Deno.test("rejects raw message, stack, token, and user identifiers", () => {
 
 Deno.test("rejects unbounded or free-form error fields", () => {
   assertThrows(
-    () => parseClientErrorTelemetry({ ...valid, errorType: "Error: email=x@y.z" }),
+    () =>
+      parseClientErrorTelemetry({ ...valid, errorType: "Error: email=x@y.z" }),
     Error,
     "error_type_invalid",
   );
   assertThrows(
-    () => parseClientErrorTelemetry({ ...valid, stackFingerprint: "raw stack" }),
+    () =>
+      parseClientErrorTelemetry({ ...valid, stackFingerprint: "raw stack" }),
     Error,
     "stack_fingerprint_invalid",
   );
