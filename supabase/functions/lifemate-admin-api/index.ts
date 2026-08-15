@@ -13,6 +13,14 @@ import {
 } from "./commerce_detail.ts";
 import { createCommerceDetailStore } from "./commerce_detail_service.ts";
 import { createCommerceOverviewStore } from "./commerce_service.ts";
+import {
+  getCommerceRefundCapability,
+  hashCommerceRefundRequest,
+  matchCommerceRefundRequestPath,
+  matchCommerceTransactionDetailPath,
+  parseCommerceRefundRequest,
+} from "./commerce_transaction_detail.ts";
+import { createCommerceTransactionDetailStore } from "./commerce_transaction_detail_service.ts";
 import { parseCommerceTransactionsQuery } from "./commerce_transactions.ts";
 import { createCommerceTransactionsStore } from "./commerce_transactions_service.ts";
 import { isPostgresUnavailable } from "./database_client.ts";
@@ -69,6 +77,9 @@ const analyticsKpiStore = createAnalyticsKpiStore(config.databaseUrl);
 const commerceOverviewStore = createCommerceOverviewStore(config.databaseUrl);
 const commerceDetailStore = createCommerceDetailStore(config.databaseUrl);
 const commerceTransactionsStore = createCommerceTransactionsStore(
+  config.databaseUrl,
+);
+const commerceTransactionDetailStore = createCommerceTransactionDetailStore(
   config.databaseUrl,
 );
 const relationshipOverviewStore = createRelationshipOverviewStore(
@@ -245,6 +256,87 @@ Deno.serve(async (request: Request) => {
           source: {
             kind: "canonical",
             label: "LifeMate Commerce normalized ledger",
+          },
+          freshness: {
+            status: "fresh",
+            asOfUtc: new Date().toISOString(),
+          },
+        },
+        200,
+        origin,
+      );
+    }
+
+    const commerceRefundTransactionId = matchCommerceRefundRequestPath(path);
+    if (request.method === "POST" && commerceRefundTransactionId) {
+      requirePermission(admin, "commerce.refund");
+      const idempotencyKey = requireIdempotencyKey(request);
+      const payload = await parseCommerceRefundRequest(request);
+      const requestHash = await hashCommerceRefundRequest(
+        commerceRefundTransactionId,
+        payload.reason,
+      );
+      const result = await commerceTransactionDetailStore.requestRefund({
+        actorAccountId: accountId,
+        transactionId: commerceRefundTransactionId,
+        reason: payload.reason,
+        correlationId,
+        idempotencyKey,
+        requestHash,
+      });
+      if (result.httpStatus >= 400) {
+        throw new ApiError(
+          result.httpStatus,
+          result.code,
+          result.message ?? "Refund workflow request was not completed.",
+        );
+      }
+      return json(
+        {
+          transactionId: result.transactionId,
+          refundRequestId: result.refundRequestId,
+          status: result.status,
+          amountMinor: result.amountMinor,
+          currency: result.currency,
+          transactionStatus: result.transactionStatus,
+          replayed: result.replayed,
+          workflow: "HumanReview",
+          providerActionExecuted: false,
+        },
+        result.httpStatus,
+        origin,
+      );
+    }
+
+    const commerceTransactionId = matchCommerceTransactionDetailPath(path);
+    if (request.method === "GET" && commerceTransactionId) {
+      requirePermission(admin, "commerce.read");
+      const includeAudit = admin.permissions.includes("security.audit.read");
+      const result = await commerceTransactionDetailStore.getDetail(
+        commerceTransactionId,
+        includeAudit,
+      );
+      if (!result) {
+        throw new ApiError(
+          404,
+          "commerce_transaction_not_found",
+          "Commerce transaction was not found.",
+        );
+      }
+      const hasActiveWorkflow = result.refundRequests.some((item) =>
+        ["PendingReview", "Approved", "Submitted"].includes(item.status)
+      );
+      return json(
+        {
+          ...result,
+          refundCapability: getCommerceRefundCapability({
+            normalizedStatus: result.transaction.normalizedStatus,
+            hasActiveWorkflow,
+            hasPermission: admin.permissions.includes("commerce.refund"),
+          }),
+          source: {
+            kind: "canonical",
+            label: "LifeMate Commerce normalized transaction detail",
           },
           freshness: {
             status: "fresh",
