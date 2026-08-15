@@ -1,9 +1,11 @@
 import 'dart:async';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:lifemate_client/lifemate_client.dart';
 import 'package:provider/provider.dart';
+import 'package:wellmate/core/constants/app_version.dart';
 import 'package:wellmate/core/state/wellmate_refresh.dart';
 import 'package:wellmate/core/theme/app_style.dart';
 import 'package:wellmate/core/widgets/medication_home_widget_service.dart';
@@ -15,39 +17,88 @@ import 'package:wellmate/screens/home/home_screen.dart';
 import 'localization/app_localizations.dart';
 import 'localization/locale_provider.dart';
 
-Future<void> main() async {
-  WidgetsFlutterBinding.ensureInitialized();
+void main() {
   final config = AppConfig.fromEnvironment();
-  var authInitialized = false;
-  if (config.isConfigured) {
-    try {
-      authInitialized = await LifeMateBootstrap.initialize(config);
-    } catch (_) {
-      debugPrint('Supabase initialization failed.');
-    }
-  }
-  final notificationProvider = NotificationProvider();
-  try {
-    await notificationProvider.initialize();
-  } catch (_) {
-    debugPrint('Notification initialization failed.');
-  }
-  try {
-    await MedicationHomeWidgetService.initializeInteractivity();
-  } catch (error) {
-    debugPrint('Medication widget interaction initialization failed: $error');
-  }
+  final crashReporter = LifeMateCrashReporter(
+    config: config,
+    application: 'wellmate',
+    releaseVersion: wellMateAppVersion,
+  );
 
-  runApp(
-    MultiProvider(
-      providers: [
-        ChangeNotifierProvider.value(value: notificationProvider),
-        ChangeNotifierProvider(create: (_) => LocaleProvider()),
-        ChangeNotifierProvider(create: (_) => SettingsProvider()),
-        ChangeNotifierProvider(create: (_) => MedicationProvider()),
-      ],
-      child: WellMateApp(config: config, authInitialized: authInitialized),
-    ),
+  runZonedGuarded(
+    () async {
+      WidgetsFlutterBinding.ensureInitialized();
+      crashReporter.installGlobalHandlers();
+
+      var authInitialized = false;
+      if (config.isConfigured) {
+        try {
+          authInitialized = await LifeMateBootstrap.initialize(config);
+        } catch (error, stackTrace) {
+          FlutterError.reportError(
+            FlutterErrorDetails(
+              exception: error,
+              stack: stackTrace,
+              library: 'wellmate.bootstrap',
+              silent: true,
+            ),
+          );
+          debugPrint('Supabase initialization failed.');
+        }
+      }
+      final notificationProvider = NotificationProvider();
+      try {
+        await notificationProvider.initialize();
+      } catch (error, stackTrace) {
+        FlutterError.reportError(
+          FlutterErrorDetails(
+            exception: error,
+            stack: stackTrace,
+            library: 'wellmate.notifications',
+            silent: true,
+          ),
+        );
+        debugPrint('Notification initialization failed.');
+      }
+      try {
+        await MedicationHomeWidgetService.initializeInteractivity();
+      } catch (error, stackTrace) {
+        FlutterError.reportError(
+          FlutterErrorDetails(
+            exception: error,
+            stack: stackTrace,
+            library: 'wellmate.widget',
+            silent: true,
+          ),
+        );
+        debugPrint('Medication widget interaction initialization failed.');
+      }
+
+      runApp(
+        MultiProvider(
+          providers: [
+            ChangeNotifierProvider.value(value: notificationProvider),
+            ChangeNotifierProvider(create: (_) => LocaleProvider()),
+            ChangeNotifierProvider(create: (_) => SettingsProvider()),
+            ChangeNotifierProvider(create: (_) => MedicationProvider()),
+          ],
+          child: WellMateApp(config: config, authInitialized: authInitialized),
+        ),
+      );
+    },
+    (error, stackTrace) {
+      unawaited(
+        crashReporter.report(
+          error,
+          stackTrace,
+          source: LifeMateCrashSource.zone,
+          fatal: true,
+        ),
+      );
+      if (kDebugMode) {
+        debugPrint('Uncaught WellMate zone error (${error.runtimeType}).');
+      }
+    },
   );
 }
 
@@ -225,8 +276,15 @@ class _AuthenticatedWellMateShellState
     try {
       if (!await MedicationHomeWidgetService.hasInstalledWidget()) return;
       await MedicationHomeWidgetService.refreshFromApi(widget.apiClient);
-    } catch (error) {
-      debugPrint('Medication widget sync failed: $error');
+    } catch (error, stackTrace) {
+      FlutterError.reportError(
+        FlutterErrorDetails(
+          exception: error,
+          stack: stackTrace,
+          library: 'wellmate.widget.sync',
+          silent: true,
+        ),
+      );
     } finally {
       _widgetSyncInFlight = false;
     }
