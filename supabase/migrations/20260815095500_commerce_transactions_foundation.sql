@@ -72,8 +72,7 @@ create table if not exists commerce.transaction_events (
   )),
   occurred_at_utc timestamptz not null,
   received_at_utc timestamptz not null,
-  recorded_at_utc timestamptz not null default now(),
-  unique (provider, provider_event_reference_hash)
+  recorded_at_utc timestamptz not null default now()
 );
 
 create index if not exists idx_commerce_transaction_events_transaction_time
@@ -81,13 +80,15 @@ create index if not exists idx_commerce_transaction_events_transaction_time
   where transaction_id is not null;
 create index if not exists idx_commerce_transaction_events_observation_received
   on commerce.transaction_events (observation_state, received_at_utc desc, id desc);
+create index if not exists idx_commerce_transaction_events_provider_reference
+  on commerce.transaction_events (provider, provider_event_reference_hash, received_at_utc desc, id desc);
 
 comment on table commerce.orders is
   'Canonical commercial order intent. It is not a provider payment payload and does not store card/payment secrets.';
 comment on table commerce.transactions is
   'Canonical normalized financial transaction state. Provider references are stored only as hashes.';
 comment on table commerce.transaction_events is
-  'Privacy-minimized provider event facts used for deduplication/order diagnostics. Raw webhook payloads are not stored here.';
+  'Append-only, privacy-minimized provider delivery facts. Repeated provider event hashes are retained so Duplicate observations and ordering diagnostics remain auditable; raw webhook payloads are not stored here.';
 
 revoke all on commerce.orders from public;
 revoke all on commerce.transactions from public;
