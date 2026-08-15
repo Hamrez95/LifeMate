@@ -1,0 +1,39 @@
+name: provider-safe-incident-drill-policy
+
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - '.github/workflows/provider-safe-incident-drill.yml'
+      - '.github/workflows/provider-safe-incident-drill-policy.yml'
+      - 'tools/operations/verify-provider-safe-incident-drill.mjs'
+      - 'supabase/bootstrap/**'
+      - 'supabase/migrations/**'
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/provider-safe-incident-drill.yml'
+      - '.github/workflows/provider-safe-incident-drill-policy.yml'
+      - 'tools/operations/verify-provider-safe-incident-drill.mjs'
+      - 'supabase/bootstrap/**'
+      - 'supabase/migrations/**'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: provider-safe-incident-drill-policy-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  policy:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
+        with:
+          show-progress: false
+          persist-credentials: false
+
+      - name: Verify manual isolated drill contract
+        run: node tools/operations/verify-provider-safe-incident-drill.mjs

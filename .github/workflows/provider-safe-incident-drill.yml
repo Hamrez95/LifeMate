@@ -1,0 +1,180 @@
+name: provider-safe-incident-drill
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: provider-safe-incident-drill
+  cancel-in-progress: false
+
+jobs:
+  detection-rollback-forward-fix:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    services:
+      postgres:
+        image: postgres:17.6-alpine
+        env:
+          POSTGRES_DB: lifemate_ops_drill
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d lifemate_ops_drill"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      DRILL_DATABASE_URL: postgres://postgres:postgres@localhost:5432/lifemate_ops_drill
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
+        with:
+          ref: ${{ github.sha }}
+          show-progress: false
+          persist-credentials: false
+          fetch-depth: 1
+
+      - name: Require manual isolated execution
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$GITHUB_EVENT_NAME" = 'workflow_dispatch'
+          test "$DRILL_DATABASE_URL" = 'postgres://postgres:postgres@localhost:5432/lifemate_ops_drill'
+          test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
+          printf 'drill_started_at=%s\n' "$(date -u +%Y-%m-%dT%H:%M:%SZ)" >> "$GITHUB_ENV"
+          printf 'drill_started_epoch=%s\n' "$(date -u +%s)" >> "$GITHUB_ENV"
+
+      - name: Build canonical isolated target
+        shell: bash
+        run: |
+          set -euo pipefail
+          psql "$DRILL_DATABASE_URL" --set=ON_ERROR_STOP=1 \
+            --file=supabase/bootstrap/legacy_lifemate_baseline.sql
+          while IFS= read -r migration; do
+            psql "$DRILL_DATABASE_URL" --set=ON_ERROR_STOP=1 --file="$migration"
+          done < <(find supabase/migrations -maxdepth 1 -type f -name '*.sql' | sort)
+
+      - name: Verify healthy restricted readiness baseline
+        shell: bash
+        run: |
+          set -euo pipefail
+          psql "$DRILL_DATABASE_URL" --set=ON_ERROR_STOP=1 <<'SQL'
+          set role lifemate_edge_runtime;
+          select id from security.runtime_readiness_probe where id=1;
+          reset role;
+          SQL
+
+      - name: Induce provider-safe readiness failure
+        shell: bash
+        run: |
+          set -euo pipefail
+          psql "$DRILL_DATABASE_URL" --set=ON_ERROR_STOP=1 \
+            -c 'revoke select on security.runtime_readiness_probe from lifemate_edge_runtime;'
+          printf 'failure_induced_at=%s\n' "$(date -u +%Y-%m-%dT%H:%M:%SZ)" >> "$GITHUB_ENV"
+
+      - name: Detect and triage isolated failure
+        shell: bash
+        run: |
+          set -euo pipefail
+          probe_log="$RUNNER_TEMP/provider-safe-probe.log"
+          if psql "$DRILL_DATABASE_URL" --set=ON_ERROR_STOP=1 >"$probe_log" 2>&1 <<'SQL'
+          set role lifemate_edge_runtime;
+          select id from security.runtime_readiness_probe where id=1;
+          SQL
+          then
+            echo '::error::Synthetic readiness failure was not detected.'
+            exit 1
+          fi
+          grep -Eqi 'permission denied|insufficient privilege' "$probe_log"
+          rm -f "$probe_log"
+          printf 'failure_detected_at=%s\n' "$(date -u +%Y-%m-%dT%H:%M:%SZ)" >> "$GITHUB_ENV"
+          printf 'affected_subsystem=restricted_database_readiness_acl\n' >> "$GITHUB_ENV"
+
+      - name: Exercise rollback mitigation
+        shell: bash
+        run: |
+          set -euo pipefail
+          psql "$DRILL_DATABASE_URL" --set=ON_ERROR_STOP=1 \
+            -c 'grant select on security.runtime_readiness_probe to lifemate_edge_runtime;'
+          psql "$DRILL_DATABASE_URL" --set=ON_ERROR_STOP=1 <<'SQL'
+          set role lifemate_edge_runtime;
+          select id from security.runtime_readiness_probe where id=1;
+          reset role;
+          SQL
+          printf 'rollback_recovered_at=%s\n' "$(date -u +%Y-%m-%dT%H:%M:%SZ)" >> "$GITHUB_ENV"
+
+      - name: Exercise forward-fix path
+        shell: bash
+        run: |
+          set -euo pipefail
+          psql "$DRILL_DATABASE_URL" --set=ON_ERROR_STOP=1 <<'SQL'
+          create table public.ops_drill_release_state(
+            singleton boolean primary key default true check(singleton),
+            state text not null check(state in ('broken','healthy'))
+          );
+          insert into public.ops_drill_release_state(singleton,state) values(true,'broken');
+          SQL
+
+          if psql "$DRILL_DATABASE_URL" --set=ON_ERROR_STOP=1 --tuples-only --no-align \
+            -c "select 1 from public.ops_drill_release_state where singleton and state='healthy';" \
+            | grep -qx '1'; then
+            echo '::error::Synthetic release regression was not detected.'
+            exit 1
+          fi
+
+          psql "$DRILL_DATABASE_URL" --set=ON_ERROR_STOP=1 \
+            -c "update public.ops_drill_release_state set state='healthy' where singleton;"
+          test "$(psql "$DRILL_DATABASE_URL" --set=ON_ERROR_STOP=1 --tuples-only --no-align \
+            -c "select state from public.ops_drill_release_state where singleton;")" = 'healthy'
+          printf 'forward_fix_recovered_at=%s\n' "$(date -u +%Y-%m-%dT%H:%M:%SZ)" >> "$GITHUB_ENV"
+
+      - name: Verify post-recovery security invariants
+        shell: bash
+        run: |
+          set -euo pipefail
+          psql "$DRILL_DATABASE_URL" --set=ON_ERROR_STOP=1 <<'SQL'
+          do $$
+          declare unsafe_count integer;
+          begin
+            select count(*) into unsafe_count
+            from pg_roles
+            where rolname in (
+              'lifemate_edge_runtime',
+              'lifemate_worker_runtime',
+              'lifemate_admin_runtime'
+            ) and (rolsuper or rolbypassrls or rolcreaterole or rolcreatedb);
+            if unsafe_count <> 0 then
+              raise exception 'runtime role security invariant regressed during drill';
+            end if;
+          end $$;
+          SQL
+
+      - name: Record redacted operational evidence
+        shell: bash
+        run: |
+          set -euo pipefail
+          completed_at="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+          completed_epoch="$(date -u +%s)"
+          recovery_seconds="$((completed_epoch - drill_started_epoch))"
+          {
+            echo '## Provider-safe incident drill'
+            echo ''
+            echo "- source SHA: \`$GITHUB_SHA\`"
+            echo '- target: isolated PostgreSQL 17.6 service container; no production endpoint/database contacted'
+            echo '- affected subsystem: restricted_database_readiness_acl'
+            echo "- drill started: $drill_started_at"
+            echo "- failure induced: $failure_induced_at"
+            echo "- failure detected: $failure_detected_at"
+            echo "- rollback recovered: $rollback_recovered_at"
+            echo "- forward-fix recovered: $forward_fix_recovered_at"
+            echo "- drill completed: $completed_at"
+            echo "- total recovery exercise duration: ${recovery_seconds}s"
+            echo '- rollback path: restored the reviewed restricted readiness grant'
+            echo '- forward-fix path: repaired a synthetic broken release state without reverting security controls'
+            echo '- post-recovery runtime role security invariants: passed'
+            echo '- PHI/PII/tokens/account/person identifiers in evidence: none'
+          } >> "$GITHUB_STEP_SUMMARY"
