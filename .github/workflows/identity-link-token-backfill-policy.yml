@@ -1,0 +1,83 @@
+name: identity-link-token-backfill-policy
+
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - 'tools/security/identity-link-token-backfill.ts'
+      - 'tools/security/identity-link-token-backfill_test.ts'
+      - '.github/workflows/identity-link-token-backfill-policy.yml'
+      - '.github/workflows/identity-link-token-backfill.yml'
+      - 'supabase/functions/lifemate-api/identity_link_token.ts'
+      - 'supabase/migrations/**'
+  push:
+    branches: [main]
+    paths:
+      - 'tools/security/identity-link-token-backfill.ts'
+      - 'tools/security/identity-link-token-backfill_test.ts'
+      - '.github/workflows/identity-link-token-backfill-policy.yml'
+      - '.github/workflows/identity-link-token-backfill.yml'
+      - 'supabase/functions/lifemate-api/identity_link_token.ts'
+      - 'supabase/migrations/**'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: identity-link-token-backfill-policy-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  postgres-backfill-contract:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    services:
+      postgres:
+        image: postgres:17.6-alpine
+        env:
+          POSTGRES_DB: lifemate_identity_backfill
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d lifemate_identity_backfill"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      TEST_DATABASE_URL: postgres://postgres:postgres@localhost:5432/lifemate_identity_backfill
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
+        with:
+          show-progress: false
+          persist-credentials: false
+
+      - uses: denoland/setup-deno@22d081ff2d3a40755e97629de92e3bcbfa7cf2ed
+        with:
+          deno-version: v2.9.4
+
+      - name: Format and type-check backfill tool
+        shell: bash
+        run: |
+          set -euo pipefail
+          deno fmt --check \
+            tools/security/identity-link-token-backfill.ts \
+            tools/security/identity-link-token-backfill_test.ts
+          deno check tools/security/identity-link-token-backfill_test.ts
+
+      - name: Apply canonical portable schema
+        shell: bash
+        run: |
+          set -euo pipefail
+          psql "$TEST_DATABASE_URL" --set=ON_ERROR_STOP=1 \
+            --file=supabase/bootstrap/legacy_lifemate_baseline.sql
+          while IFS= read -r migration; do
+            psql "$TEST_DATABASE_URL" --set=ON_ERROR_STOP=1 --file="$migration"
+          done < <(find supabase/migrations -maxdepth 1 -type f -name '*.sql' | sort)
+
+      - name: Prove dry-run and idempotent apply with synthetic identities
+        run: >-
+          deno test --no-check --allow-env
+          --allow-net=localhost:5432,127.0.0.1:5432
+          tools/security/identity-link-token-backfill_test.ts
