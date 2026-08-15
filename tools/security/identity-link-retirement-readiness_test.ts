@@ -18,7 +18,8 @@ const sql = postgres(databaseUrl, {
 });
 
 Deno.test({
-  name: "retirement readiness requires the exact canonical token for every active Account",
+  name:
+    "retirement readiness requires the exact canonical token for every active Account",
   sanitizeOps: false,
   sanitizeResources: false,
   fn: async () => {
