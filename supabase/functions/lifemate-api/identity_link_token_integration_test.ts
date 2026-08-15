@@ -108,7 +108,8 @@ Deno.test({
 });
 
 Deno.test({
-  name: "identity bridge dual-writes token and legacy subject atomically during migration",
+  name:
+    "identity bridge dual-writes token and legacy subject atomically during migration",
   sanitizeOps: false,
   sanitizeResources: false,
   fn: async () => {
@@ -119,7 +120,9 @@ Deno.test({
     const keyVersion = 3;
     const previousDualWrite = Deno.env.get("LIFEMATE_IDENTITY_LINK_DUAL_WRITE");
     const previousKey = Deno.env.get("LIFEMATE_IDENTITY_LINK_KEY");
-    const previousKeyVersion = Deno.env.get("LIFEMATE_IDENTITY_LINK_KEY_VERSION");
+    const previousKeyVersion = Deno.env.get(
+      "LIFEMATE_IDENTITY_LINK_KEY_VERSION",
+    );
 
     try {
       Deno.env.set("LIFEMATE_IDENTITY_LINK_DUAL_WRITE", "true");
