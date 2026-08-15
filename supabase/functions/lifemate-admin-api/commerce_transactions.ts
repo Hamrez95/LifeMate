@@ -63,7 +63,11 @@ export function parseCommerceTransactionsQuery(
   url: URL,
 ): CommerceTransactionsQuery {
   const page = boundedAdminPage(url.searchParams.get("page"));
-  const pageSize = boundedAdminPageSize(url.searchParams.get("pageSize"), 25, 5);
+  const pageSize = boundedAdminPageSize(
+    url.searchParams.get("pageSize"),
+    25,
+    5,
+  );
   const product = optionalCode(url.searchParams.get("product"), "product");
   const provider = optionalCode(url.searchParams.get("provider"), "provider");
 
