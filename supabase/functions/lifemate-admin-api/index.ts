@@ -41,6 +41,15 @@ import {
   safeSearchLogFields,
 } from "./global_search.ts";
 import { createGlobalSearchStore } from "./global_search_service.ts";
+import {
+  authorizedNotificationSources,
+  hashNotificationReadStateRequest,
+  notificationPermission,
+  parseNotificationCountQuery,
+  parseNotificationQuery,
+  parseNotificationReadStateRequest,
+} from "./notifications.ts";
+import { createNotificationCenterStore } from "./notifications_service.ts";
 import { isPostgresUnavailable } from "./database_client.ts";
 import { parseUserDirectoryQuery } from "./directory.ts";
 import {
@@ -92,6 +101,9 @@ const config = await loadRuntimeConfig();
 const store = createAdminStore(config.databaseUrl);
 const userDetailStore = createUserDetailStore(config.databaseUrl);
 const globalSearchStore = createGlobalSearchStore(config.databaseUrl);
+const notificationCenterStore = createNotificationCenterStore(
+  config.databaseUrl,
+);
 const userAccountActionStore = createUserAccountActionStore(config.databaseUrl);
 const analyticsKpiStore = createAnalyticsKpiStore(config.databaseUrl);
 const commerceOverviewStore = createCommerceOverviewStore(config.databaseUrl);
@@ -283,6 +295,85 @@ Deno.serve(async (request: Request) => {
         200,
         origin,
       );
+    }
+
+    if (request.method === "GET" && path === "/api/v1/notifications") {
+      const query = parseNotificationQuery(new URL(request.url));
+      const authorizedSources = authorizedNotificationSources(
+        query.sources,
+        admin.permissions,
+      );
+      if (authorizedSources.length === 0) {
+        throw new ApiError(
+          403,
+          "notifications_forbidden",
+          "No requested notification source is authorized for this admin.",
+        );
+      }
+      return json(
+        await notificationCenterStore.list(
+          accountId,
+          query,
+          authorizedSources,
+          correlationId,
+        ),
+        200,
+        origin,
+      );
+    }
+
+    if (request.method === "GET" && path === "/api/v1/notifications/count") {
+      const query = parseNotificationCountQuery(new URL(request.url));
+      const authorizedSources = authorizedNotificationSources(
+        query.sources,
+        admin.permissions,
+      );
+      if (authorizedSources.length === 0) {
+        throw new ApiError(
+          403,
+          "notifications_forbidden",
+          "No requested notification source is authorized for this admin.",
+        );
+      }
+      return json(
+        await notificationCenterStore.count(
+          accountId,
+          authorizedSources,
+          correlationId,
+        ),
+        200,
+        origin,
+      );
+    }
+
+    if (
+      request.method === "POST" &&
+      path === "/api/v1/notifications/actions/read-state"
+    ) {
+      const payload = await parseNotificationReadStateRequest(request);
+      requirePermission(admin, notificationPermission[payload.source]);
+      if (
+        !(await notificationCenterStore.hasActiveAlert(
+          payload.source,
+          payload.alertKey,
+        ))
+      ) {
+        throw new ApiError(
+          404,
+          "notification_not_found",
+          "Notification was not found.",
+        );
+      }
+      const idempotencyKey = requireIdempotencyKey(request);
+      const requestHash = await hashNotificationReadStateRequest(payload);
+      const result = await notificationCenterStore.setReadState(
+        accountId,
+        payload,
+        correlationId,
+        idempotencyKey,
+        requestHash,
+      );
+      return json(result, result.httpStatus, origin);
     }
 
     if (request.method === "GET" && path === "/api/v1/analytics/catalog") {
