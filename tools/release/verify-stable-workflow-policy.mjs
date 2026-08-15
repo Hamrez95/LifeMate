@@ -50,6 +50,17 @@ function requireScopedText(block, value, message) {
   }
 }
 
+requireScopedText(
+  workflow,
+  '  issues: read',
+  'stable release workflow must be able to verify canonical Foundation Closure issue state',
+);
+requireScopedText(
+  workflow,
+  'description: Type RELEASE-FOUNDATION-CLOSED only after canonical GitHub #170 is closed with all human/provider evidence',
+  'manual stable confirmation must refer to canonical #170 and human/provider evidence',
+);
+
 const releaseJob = extractJob(workflow, 'verify-and-build');
 
 requireScopedText(
@@ -105,6 +116,32 @@ requireScopedText(
   "          test \"$CONFIRM_FOUNDATION_RELEASE\" = 'RELEASE-FOUNDATION-CLOSED'",
   'manual stable build must require explicit foundation closure confirmation in its release step',
 );
+
+const canonicalClosureStep = extractNamedStep(
+  releaseJob,
+  'Require canonical Foundation Closure issue closed',
+);
+requireScopedText(
+  canonicalClosureStep,
+  '          GH_TOKEN: ${{ github.token }}',
+  'stable build must use the scoped GitHub token to read canonical closure state',
+);
+requireScopedText(
+  canonicalClosureStep,
+  '          issue_state="$(gh api "repos/$GITHUB_REPOSITORY/issues/170" --jq \'.state\')"',
+  'stable build must read canonical GitHub issue #170 state',
+);
+requireScopedText(
+  canonicalClosureStep,
+  "          if [ \"$issue_state\" != 'closed' ]; then",
+  'stable build must fail closed while canonical GitHub issue #170 is open',
+);
+if (
+  releaseJob.indexOf('      - name: Require canonical Foundation Closure issue closed') >
+    releaseJob.indexOf('      - name: Deploy exact main Edge source')
+) {
+  fail('canonical Foundation Closure issue must be checked before any stable deployment');
+}
 
 const edgeVerificationStep = extractNamedStep(
   releaseJob,
@@ -199,5 +236,5 @@ requireScopedText(
 );
 
 console.log(
-  'Stable release workflow policy is scoped to executable release steps, synchronizes the worker, requires a live three-role healthcare smoke, and is bound to Environment beta.',
+  'Stable release workflow policy is scoped to executable release steps, binds stable artifacts to closed canonical #170, synchronizes the worker, requires a live three-role healthcare smoke, and is bound to Environment beta.',
 );
