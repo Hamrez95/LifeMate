@@ -15,8 +15,7 @@ const corsHeaders = {
 };
 
 const supabaseUrl = Deno.env.get("SUPABASE_URL")?.trim() ?? "";
-const publishableKey =
-  Deno.env.get("SUPABASE_PUBLISHABLE_KEY")?.trim() ??
+const publishableKey = Deno.env.get("SUPABASE_PUBLISHABLE_KEY")?.trim() ??
   Deno.env.get("SUPABASE_ANON_KEY")?.trim() ?? "";
 
 if (!/^https:\/\//.test(supabaseUrl) || publishableKey.length < 20) {
