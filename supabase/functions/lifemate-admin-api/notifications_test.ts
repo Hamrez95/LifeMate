@@ -72,6 +72,22 @@ Deno.test("notification queries are allow-listed and bounded", async () => {
   await assertRejects(
     () =>
       parseNotificationQuery(
+        new URL(
+          "https://admin.test/api/v1/notifications?sources=support,support",
+        ),
+      ),
+    "notification_sources_invalid",
+  );
+  await assertRejects(
+    () =>
+      parseNotificationQuery(
+        new URL("https://admin.test/api/v1/notifications?unreadOnly=1"),
+      ),
+    "notification_unread_filter_invalid",
+  );
+  await assertRejects(
+    () =>
+      parseNotificationQuery(
         new URL("https://admin.test/api/v1/notifications?page=11"),
       ),
     "invalid_request",
