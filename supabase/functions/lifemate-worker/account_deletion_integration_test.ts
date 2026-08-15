@@ -280,7 +280,7 @@ Deno.test({
       await sql`
         insert into network.person_relationships(
           source_person_id,target_person_id,relationship_type,status
-        ) values (${personId}::uuid,${survivorPersonId}::uuid,'Family','Active')
+        ) values (${personId}::uuid,${survivorPersonId}::uuid,'Parent','Active')
       `;
 
       const requested = await sql`
