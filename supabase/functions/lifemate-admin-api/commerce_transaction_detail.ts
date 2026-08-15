@@ -31,7 +31,9 @@ const DETAIL_PATH = /^\/api\/v1\/commerce\/transactions\/([^/]+)$/i;
 const REFUND_REQUEST_PATH =
   /^\/api\/v1\/commerce\/transactions\/([^/]+)\/actions\/refund-request$/i;
 
-export function matchCommerceTransactionDetailPath(path: string): string | null {
+export function matchCommerceTransactionDetailPath(
+  path: string,
+): string | null {
   const match = DETAIL_PATH.exec(path);
   return match ? requireUuid(match[1], "transactionId") : null;
 }
