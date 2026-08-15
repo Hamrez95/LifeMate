@@ -88,7 +88,7 @@ jobs:
           if [[ '${{ inputs.profile }}' == 'write-heavy' || '${{ inputs.profile }}' == 'retry-storm' ]]; then
             test -n "$DOSE_FIXTURES_JSON"
             echo "$DOSE_FIXTURES_JSON" | jq -e \
-              'type == "array" and length >= 25 and all(.[]; (.subject // .authUserId // "") | length > 0)' \
+              'type == "array" and length >= 25 and ([.[0:25][] | (.subject // .authUserId // "")] | all(length > 0) and (unique | length == 25))' \
               >/dev/null
           fi
 
@@ -117,10 +117,11 @@ jobs:
             *) echo '::error::Unsupported capacity profile.'; exit 2 ;;
           esac
 
-          rm -f .auth-sessions.json runtime-pressure.ndjson \
+          auth_sessions_file="$GITHUB_WORKSPACE/.auth-sessions.json"
+          rm -f "$auth_sessions_file" runtime-pressure.ndjson \
             runtime-pressure-status.json load-summary.json capacity-result.json
-          printf '[]' > .auth-sessions.json
-          chmod 600 .auth-sessions.json
+          printf '[]' > "$auth_sessions_file"
+          chmod 600 "$auth_sessions_file"
 
           auth_failed=0
           for ((index=1; index<=identity_count; index++)); do
@@ -152,41 +153,42 @@ jobs:
               --arg accessToken "$access_token" \
               --arg subject "$subject" \
               '. + [{accessToken:$accessToken,subject:$subject}]' \
-              .auth-sessions.json)"
-            printf '%s' "$next" > .auth-sessions.json
+              "$auth_sessions_file")"
+            printf '%s' "$next" > "$auth_sessions_file"
           done
 
           if [[ "$auth_failed" != '0' ]]; then
             echo '::error::Could not acquire the required synthetic staging identity pool.'
-            rm -f .auth-sessions.json
+            rm -f "$auth_sessions_file"
             exit 1
           fi
-          session_count="$(jq 'length' .auth-sessions.json)"
-          unique_subjects="$(jq '[.[].subject] | unique | length' .auth-sessions.json)"
+          session_count="$(jq 'length' "$auth_sessions_file")"
+          unique_subjects="$(jq '[.[].subject] | unique | length' "$auth_sessions_file")"
           if [[ "$session_count" != "$identity_count" || "$unique_subjects" != "$identity_count" ]]; then
             echo '::error::Synthetic staging sessions are not unique or complete.'
-            rm -f .auth-sessions.json
+            rm -f "$auth_sessions_file"
             exit 1
           fi
 
           if [[ "$profile" == 'write-heavy' || "$profile" == 'retry-storm' ]]; then
             missing_fixture_subjects="$(jq -n \
-              --argjson sessions "$(cat .auth-sessions.json)" \
+              --slurpfile sessions "$auth_sessions_file" \
               --argjson fixtures "$DOSE_FIXTURES_JSON" \
-              '[($fixtures[] | (.subject // .authUserId)) as $subject | select(($sessions | map(.subject) | index($subject)) == null)] | length')"
+              '[($fixtures[] | (.subject // .authUserId)) as $subject | select(($sessions[0] | map(.subject) | index($subject)) == null)] | length')"
             if [[ "$missing_fixture_subjects" != '0' ]]; then
               echo '::error::Every mutation fixture must belong to one authenticated synthetic subject.'
-              rm -f .auth-sessions.json
+              rm -f "$auth_sessions_file"
               exit 1
             fi
           fi
 
+          collector_interval=5
           collector_duration=$((load_seconds + 60))
           LIFEMATE_OBSERVABILITY_TARGET=staging \
           TARGET_PROJECT_REF="$TARGET_PROJECT_REF" \
           DATABASE_URL="$DATABASE_URL" \
           DURATION_SECONDS="$collector_duration" \
-          INTERVAL_SECONDS=5 \
+          INTERVAL_SECONDS="$collector_interval" \
           OUTPUT_FILE=runtime-pressure.ndjson \
           STATUS_FILE=runtime-pressure-status.json \
           bash tools/load/collect-runtime-pressure.sh &
@@ -197,14 +199,13 @@ jobs:
             mutation_confirmation='STAGING-SYNTHETIC-MUTATIONS'
           fi
 
-          auth_sessions_json="$(cat .auth-sessions.json)"
           K6_NO_USAGE_REPORT=true \
           LIFEMATE_LOAD_TARGET=staging \
           CONFIRM_STAGING_LOAD=LIFEMATE-STAGING-ONLY \
           CONFIRM_SYNTHETIC_MUTATIONS="$mutation_confirmation" \
           TARGET_PROJECT_REF="$TARGET_PROJECT_REF" \
           BASE_URL="$STAGING_SUPABASE_URL/functions/v1/lifemate-api" \
-          AUTH_SESSIONS_JSON="$auth_sessions_json" \
+          AUTH_SESSIONS_FILE="$auth_sessions_file" \
           DOSE_FIXTURES_JSON="$DOSE_FIXTURES_JSON" \
           LOAD_PROFILE="$profile" \
           RUN_ID="$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT" \
@@ -214,14 +215,19 @@ jobs:
           kill -TERM "$collector_pid" 2>/dev/null || true
           wait "$collector_pid"
           collector_exit=$?
-          rm -f .auth-sessions.json
+          rm -f "$auth_sessions_file"
 
           coverage_ok=0
           minimum_coverage=$((load_seconds - 15))
+          maximum_sample_spacing=$((collector_interval * 2))
+          minimum_samples=$(((minimum_coverage + maximum_sample_spacing - 1) / maximum_sample_spacing))
+          if (( minimum_samples < 1 )); then minimum_samples=1; fi
           if [[ -s runtime-pressure-status.json ]] && \
              jq -e \
                --argjson minimum "$minimum_coverage" \
-               '.schemaVersion == "lifemate.runtime-pressure-collector.v1" and .exitCode == 0 and .samples > 0 and .coverageSeconds >= $minimum' \
+               --argjson minimumSamples "$minimum_samples" \
+               --argjson interval "$collector_interval" \
+               '.schemaVersion == "lifemate.runtime-pressure-collector.v1" and .exitCode == 0 and .intervalSeconds == $interval and .samples >= $minimumSamples and .coverageSeconds >= $minimum' \
                runtime-pressure-status.json >/dev/null; then
             coverage_ok=1
           fi
