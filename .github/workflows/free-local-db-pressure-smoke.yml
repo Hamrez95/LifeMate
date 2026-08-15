@@ -1,0 +1,108 @@
+name: free-local-db-pressure-smoke
+
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - 'supabase/functions/lifemate-api/**'
+      - 'supabase/bootstrap/**'
+      - 'supabase/migrations/**'
+      - 'tools/load/**'
+      - '.github/workflows/free-local-db-pressure-smoke.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'supabase/functions/lifemate-api/**'
+      - 'supabase/bootstrap/**'
+      - 'supabase/migrations/**'
+      - 'tools/load/**'
+      - '.github/workflows/free-local-db-pressure-smoke.yml'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: free-local-db-pressure-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  db-pressure:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    services:
+      postgres:
+        image: postgres:17.6-alpine
+        env:
+          POSTGRES_DB: lifemate_local_pressure
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d lifemate_local_pressure"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      TEST_DATABASE_URL: postgres://postgres:postgres@127.0.0.1:5432/lifemate_local_pressure
+      RUNTIME_DATABASE_URL: postgres://lifemate_edge_runtime:ci-local-runtime-password-0123456789abcdef@127.0.0.1:5432/lifemate_local_pressure
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
+        with:
+          show-progress: false
+          persist-credentials: false
+
+      - uses: denoland/setup-deno@22d081ff2d3a40755e97629de92e3bcbfa7cf2ed
+        with:
+          deno-version: v2.9.4
+
+      - name: Apply canonical PostgreSQL 17 schema
+        shell: bash
+        run: |
+          set -euo pipefail
+          psql "$TEST_DATABASE_URL" --set=ON_ERROR_STOP=1 \
+            --file=supabase/bootstrap/legacy_lifemate_baseline.sql
+          while IFS= read -r migration; do
+            psql "$TEST_DATABASE_URL" --set=ON_ERROR_STOP=1 --file="$migration"
+          done < <(find supabase/migrations -maxdepth 1 -type f -name '*.sql' | sort)
+
+          runtime_password='ci-local-runtime-password-0123456789abcdef'
+          psql "$TEST_DATABASE_URL" --set=ON_ERROR_STOP=1 \
+            --set=runtime_password="$runtime_password" <<'SQL'
+          alter role lifemate_edge_runtime password :'runtime_password';
+          do $$
+          begin
+            if (select rolsuper or rolbypassrls or rolcreaterole or rolcreatedb
+                  from pg_roles where rolname='lifemate_edge_runtime') then
+              raise exception 'local pressure runtime role regained elevated privileges';
+            end if;
+          end $$;
+          SQL
+
+      - name: Run real API lock-pressure and recovery smoke
+        shell: bash
+        run: |
+          set -euo pipefail
+          bash tools/load/free-local-db-pressure-smoke.sh
+          jq -e '
+            .schemaVersion == "lifemate.db-pressure-fault.v1" and
+            .target == "local-disposable" and
+            .faultStatus == 503 and
+            .retryAfterSeconds == 2 and
+            .recoveryStatus == 200 and
+            .peakRuntimeConnections >= 1 and
+            .peakWaitingRuntimeConnections >= 1
+          ' db-pressure-fault-result.json >/dev/null
+
+      - name: Upload DB-pressure evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: free-local-db-pressure-${{ github.sha }}
+          path: |
+            db-pressure-fault-result.json
+            runtime-pressure.ndjson
+            runtime-pressure-status.json
+            runtime-pressure-summary.json
+          if-no-files-found: warn
+          retention-days: 7
