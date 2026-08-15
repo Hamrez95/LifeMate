@@ -1,0 +1,141 @@
+name: workstation-backup-policy
+
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - 'config/recovery/**'
+      - 'tools/recovery/**'
+      - 'tools/operations/verify-workstation-backup-contract.mjs'
+      - 'docs/operations/WORKSTATION_BACKUP.md'
+      - 'supabase/migrations/**'
+      - '.github/workflows/workstation-backup-policy.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'config/recovery/**'
+      - 'tools/recovery/**'
+      - 'tools/operations/verify-workstation-backup-contract.mjs'
+      - 'docs/operations/WORKSTATION_BACKUP.md'
+      - 'supabase/migrations/**'
+      - '.github/workflows/workstation-backup-policy.yml'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: workstation-backup-policy-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  portable-recovery-contract:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    services:
+      postgres:
+        image: postgres:17.6-alpine
+        env:
+          POSTGRES_DB: lifemate_backup_contract
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d lifemate_backup_contract"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      TEST_DATABASE_URL: postgres://postgres:postgres@localhost:5432/lifemate_backup_contract
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
+        with:
+          show-progress: false
+          persist-credentials: false
+
+      - name: Verify provider-independent backup source policy
+        run: node tools/operations/verify-workstation-backup-contract.mjs
+
+      - name: Parse PowerShell recovery scripts
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $files = @(
+            'tools/recovery/lifemate-local-backup.ps1',
+            'tools/recovery/check-lifemate-local-backup.ps1',
+            'tools/recovery/restore-lifemate-local-backup.ps1',
+            'tools/recovery/install-lifemate-backup-task.ps1'
+          )
+          foreach ($file in $files) {
+            $tokens = $null
+            $errors = $null
+            [void][System.Management.Automation.Language.Parser]::ParseFile(
+              (Resolve-Path $file),
+              [ref]$tokens,
+              [ref]$errors
+            )
+            if ($errors.Count -ne 0) {
+              $errors | ForEach-Object { Write-Error "$file: $($_.Message)" }
+              throw "PowerShell parser rejected $file"
+            }
+          }
+
+      - name: Apply canonical portable PostgreSQL schema
+        shell: bash
+        run: |
+          set -euo pipefail
+          psql "$TEST_DATABASE_URL" --set=ON_ERROR_STOP=1 \
+            --file=supabase/bootstrap/legacy_lifemate_baseline.sql
+          while IFS= read -r migration; do
+            psql "$TEST_DATABASE_URL" --set=ON_ERROR_STOP=1 --file="$migration"
+          done < <(find supabase/migrations -maxdepth 1 -type f -name '*.sql' | sort)
+
+      - name: Prove narrow backup reader can see RLS rows but cannot mutate
+        shell: bash
+        run: |
+          set -euo pipefail
+          psql "$TEST_DATABASE_URL" --set=ON_ERROR_STOP=1 <<'SQL'
+          do $$
+          declare
+            v_super boolean;
+            v_login boolean;
+            v_bypass boolean;
+            v_create_db boolean;
+            v_create_role boolean;
+            v_replication boolean;
+          begin
+            select rolsuper, rolcanlogin, rolbypassrls, rolcreatedb, rolcreaterole, rolreplication
+              into v_super, v_login, v_bypass, v_create_db, v_create_role, v_replication
+            from pg_roles where rolname='lifemate_backup_reader';
+            if not found then raise exception 'lifemate_backup_reader missing'; end if;
+            if v_super or v_login or not v_bypass or v_create_db or v_create_role or v_replication then
+              raise exception 'lifemate_backup_reader attributes are unsafe or incomplete';
+            end if;
+            if has_schema_privilege('lifemate_backup_reader', 'public', 'CREATE') then
+              raise exception 'backup reader must not create objects in public';
+            end if;
+          end $$;
+
+          create table public.backup_role_probe(id integer primary key, secret text not null);
+          alter table public.backup_role_probe enable row level security;
+          alter table public.backup_role_probe force row level security;
+          create policy backup_role_probe_deny_all on public.backup_role_probe using (false);
+          insert into public.backup_role_probe values (1, 'synthetic-only');
+
+          set role lifemate_backup_reader;
+          do $$
+          declare v_count integer;
+          begin
+            select count(*) into v_count from public.backup_role_probe;
+            if v_count <> 1 then
+              raise exception 'backup reader did not bypass RLS for complete logical backup';
+            end if;
+            if has_table_privilege(current_user, 'public.backup_role_probe', 'INSERT')
+               or has_table_privilege(current_user, 'public.backup_role_probe', 'UPDATE')
+               or has_table_privilege(current_user, 'public.backup_role_probe', 'DELETE')
+               or has_table_privilege(current_user, 'public.backup_role_probe', 'TRUNCATE') then
+              raise exception 'backup reader received mutation privilege';
+            end if;
+          end $$;
+          reset role;
+          SQL
