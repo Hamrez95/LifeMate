@@ -1,0 +1,77 @@
+name: tmp-adm-plat-002-wire
+
+on:
+  pull_request:
+    paths:
+      - 'supabase/functions/lifemate-admin-api/**'
+      - '.github/workflows/tmp-adm-plat-002-wire.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  wire:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
+        with:
+          ref: ${{ github.event.pull_request.head.ref }}
+          show-progress: false
+          persist-credentials: true
+      - uses: denoland/setup-deno@22d081ff2d3a40755e97629de92e3bcbfa7cf2ed
+        with:
+          deno-version: v2.9.4
+      - name: Wire search route and format
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+
+          path = Path('supabase/functions/lifemate-admin-api/index.ts')
+          text = path.read_text()
+
+          import_anchor = 'import { isPostgresUnavailable } from "./database_client.ts";\n'
+          search_imports = '''import {\n  authorizedSearchDomains,\n  parseGlobalSearchQuery,\n  safeSearchLogFields,\n} from "./global_search.ts";\nimport { createGlobalSearchStore } from "./global_search_service.ts";\n'''
+          if search_imports not in text:
+              if import_anchor not in text:
+                  raise SystemExit('database import anchor missing')
+              text = text.replace(import_anchor, search_imports + import_anchor, 1)
+
+          http_old = '''  preflight,\n  problem,\n  safeError,\n} from "./http.ts";'''
+          http_new = '''  preflight,\n  problem,\n  responseHeaders,\n  safeError,\n} from "./http.ts";'''
+          if 'responseHeaders,' not in text:
+              if http_old not in text:
+                  raise SystemExit('http import anchor missing')
+              text = text.replace(http_old, http_new, 1)
+
+          store_anchor = 'const userDetailStore = createUserDetailStore(config.databaseUrl);\n'
+          store_line = 'const globalSearchStore = createGlobalSearchStore(config.databaseUrl);\n'
+          if store_line not in text:
+              if store_anchor not in text:
+                  raise SystemExit('store anchor missing')
+              text = text.replace(store_anchor, store_anchor + store_line, 1)
+
+          route_anchor = '    if (request.method === "GET" && path === "/api/v1/analytics/catalog") {\n'
+          route = '''    if (request.method === "GET" && path === "/api/v1/search") {\n      const query = parseGlobalSearchQuery(new URL(request.url));\n      const authorizedDomains = authorizedSearchDomains(query.domains, admin.permissions);\n      if (authorizedDomains.length === 0) {\n        throw new ApiError(\n          403,\n          "search_forbidden",\n          "No requested search domain is authorized for this admin.",\n        );\n      }\n\n      const rateLimit = await globalSearchStore.consumeRateLimit(accountId);\n      if (!rateLimit.allowed) {\n        return new Response(\n          JSON.stringify({\n            type: "https://lifemate.app/problems/search_rate_limited",\n            title: "Search request rate limit exceeded.",\n            status: 429,\n            code: "search_rate_limited",\n            correlationId,\n          }),\n          {\n            status: 429,\n            headers: {\n              ...responseHeaders(origin),\n              "retry-after": String(rateLimit.retryAfterSeconds),\n            },\n          },\n        );\n      }\n\n      console.info("LifeMate Admin global search", {\n        correlationId,\n        ...safeSearchLogFields(query, authorizedDomains),\n        remaining: rateLimit.remaining,\n      });\n      const groups = await globalSearchStore.search(query, authorizedDomains);\n      return json(\n        {\n          groups,\n          page: query.page,\n          pageSize: query.pageSize,\n          freshness: { status: "fresh", asOfUtc: new Date().toISOString() },\n        },\n        200,\n        origin,\n      );\n    }\n\n'''
+          if 'path === "/api/v1/search"' not in text:
+              if route_anchor not in text:
+                  raise SystemExit('route anchor missing')
+              text = text.replace(route_anchor, route + route_anchor, 1)
+
+          path.write_text(text)
+          PY
+          deno fmt supabase/functions/lifemate-admin-api/global_search.ts \
+            supabase/functions/lifemate-admin-api/global_search_service.ts \
+            supabase/functions/lifemate-admin-api/global_search_test.ts \
+            supabase/functions/lifemate-admin-api/index.ts
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add supabase/functions/lifemate-admin-api
+          if git diff --cached --quiet; then
+            echo 'No wiring changes.'
+            exit 0
+          fi
+          git commit -m 'feat(admin): wire secure global search endpoint'
+          git push origin HEAD:${{ github.event.pull_request.head.ref }}
