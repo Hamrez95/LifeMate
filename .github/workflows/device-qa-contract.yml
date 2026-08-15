@@ -1,0 +1,32 @@
+name: device-qa-contract
+
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - 'docs/release/FOUNDATION_DEVICE_QA.md'
+      - 'wellmate/DEVICE_QA.md'
+      - 'tools/release/verify-device-qa-contract.mjs'
+      - '.github/workflows/device-qa-contract.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'docs/release/FOUNDATION_DEVICE_QA.md'
+      - 'wellmate/DEVICE_QA.md'
+      - 'tools/release/verify-device-qa-contract.mjs'
+      - '.github/workflows/device-qa-contract.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  contract:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
+        with:
+          show-progress: false
+          persist-credentials: false
+      - name: Verify physical-device QA evidence contract
+        run: node tools/release/verify-device-qa-contract.mjs
