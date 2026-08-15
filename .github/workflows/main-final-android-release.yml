@@ -8,6 +8,7 @@ on:
       - 'supabase/functions/lifemate-api/**'
       - 'supabase/functions/lifemate-telemetry/**'
       - 'supabase/functions/lifemate-readiness/**'
+      - 'supabase/functions/lifemate-worker/**'
   workflow_dispatch:
     inputs:
       confirm_foundation_release:
@@ -100,7 +101,7 @@ jobs:
           (cd supabase/functions/lifemate-api && deno fmt --check && deno task check && deno task test)
           (cd supabase/functions/lifemate-telemetry && deno fmt --check && deno task check && deno task test)
           (cd supabase/functions/lifemate-readiness && deno fmt --check && deno task check && deno task test)
-          (cd supabase/functions/lifemate-worker && deno fmt --check && deno task check)
+          (cd supabase/functions/lifemate-worker && deno fmt --check && deno task check && deno task test)
           (cd supabase/functions/lifemate-kavenegar-sms-hook && deno fmt --check && deno task check)
 
       - uses: actions/setup-dotnet@d4c94342e560b34958eacfc5d055d21461ed1c5d
@@ -172,6 +173,10 @@ jobs:
             --project-ref "$SUPABASE_PROJECT_REF" \
             --use-api
           supabase functions deploy lifemate-readiness \
+            --project-ref "$SUPABASE_PROJECT_REF" \
+            --no-verify-jwt \
+            --use-api
+          supabase functions deploy lifemate-worker \
             --project-ref "$SUPABASE_PROJECT_REF" \
             --no-verify-jwt \
             --use-api

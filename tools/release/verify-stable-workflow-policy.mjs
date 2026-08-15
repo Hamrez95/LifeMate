@@ -92,6 +92,16 @@ requireScopedText(
   'manual stable build must require explicit foundation closure confirmation in its release step',
 );
 
+const edgeVerificationStep = extractNamedStep(
+  releaseJob,
+  'Verify Edge API telemetry readiness and workers',
+);
+requireScopedText(
+  edgeVerificationStep,
+  '(cd supabase/functions/lifemate-worker && deno fmt --check && deno task check && deno task test)',
+  'stable release must run the worker policy tests before deployment',
+);
+
 const credentialStep = extractNamedStep(
   releaseJob,
   'Require exact-main deployment credentials',
@@ -105,6 +115,13 @@ requireScopedText(
   credentialStep,
   '          if [ -z "$TELEMETRY_SMOKE_EMAIL" ] || [ -z "$TELEMETRY_SMOKE_PASSWORD" ]; then',
   'stable build must fail closed when the authenticated beta smoke identity is absent',
+);
+
+const deploymentStep = extractNamedStep(releaseJob, 'Deploy exact main Edge source');
+requireScopedText(
+  deploymentStep,
+  '          supabase functions deploy lifemate-worker \\\n            --project-ref "$SUPABASE_PROJECT_REF" \\\n            --no-verify-jwt \\\n            --use-api',
+  'stable release must deploy the exact-main worker with its custom-auth boundary',
 );
 
 const readinessStep = extractNamedStep(
@@ -125,5 +142,5 @@ requireScopedText(
 );
 
 console.log(
-  'Stable release workflow policy is scoped to executable release steps and bound to Environment beta.',
+  'Stable release workflow policy is scoped to executable release steps, synchronizes the worker, and is bound to Environment beta.',
 );
