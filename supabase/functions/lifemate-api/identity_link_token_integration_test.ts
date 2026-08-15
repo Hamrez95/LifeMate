@@ -1,12 +1,11 @@
-import {
-  assertEquals,
-  assertRejects,
-} from "jsr:@std/assert@1.0.14";
+import { assertEquals, assertRejects } from "jsr:@std/assert@1.0.14";
 import postgres from "postgres";
 
 const databaseUrl = Deno.env.get("TEST_DATABASE_URL");
 if (!databaseUrl) {
-  throw new Error("TEST_DATABASE_URL is required for identity-link integration tests.");
+  throw new Error(
+    "TEST_DATABASE_URL is required for identity-link integration tests.",
+  );
 }
 
 const sql = postgres(databaseUrl, {
@@ -60,7 +59,8 @@ Deno.test({
       assertEquals(stored[0].status, "Active");
 
       await assertRejects(
-        () => sql`
+        () =>
+          sql`
           insert into identity.external_identity_tokens(
             account_id,provider,issuer,subject_token,key_version,status
           ) values(
@@ -71,7 +71,8 @@ Deno.test({
       );
 
       await assertRejects(
-        () => sql`
+        () =>
+          sql`
           insert into identity.external_identity_tokens(
             account_id,provider,issuer,subject_token,key_version,status
           ) values(
