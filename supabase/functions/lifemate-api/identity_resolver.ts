@@ -1,5 +1,4 @@
 import { getLifeMateSql } from "./database_client.ts";
-import type { AppIdentity, AuthUser } from "./database.ts";
 import { identityLinkDualWriteEnabled } from "./identity_bridge.ts";
 import {
   deriveIdentityLinkToken,
@@ -11,6 +10,18 @@ export type IdentityLookupMode = "legacy" | "prefer-token" | "token-only";
 
 type EnvironmentReader = (name: string) => string | null | undefined;
 type IdentityLinkKey = { secret: string; keyVersion: number };
+
+export type ResolvableAuthUser = {
+  id: string;
+  email: string | null;
+  phone: string | null;
+  userMetadata: Record<string, unknown>;
+};
+
+export type ResolvedAppIdentity<TAuth extends ResolvableAuthUser = ResolvableAuthUser> = {
+  auth: TAuth;
+  appUserId: string;
+};
 
 type TokenLookupRow = {
   account_id: string;
@@ -61,7 +72,9 @@ export function createIdentityResolver(
       readIdentityLinkKeyFromEnvironment(readEnvironment);
   }
 
-  async function requireIdentity(auth: AuthUser): Promise<AppIdentity> {
+  async function requireIdentity<TAuth extends ResolvableAuthUser>(
+    auth: TAuth,
+  ): Promise<ResolvedAppIdentity<TAuth>> {
     if (lookupMode === "legacy") {
       return await requireLegacyIdentity(auth);
     }
@@ -127,7 +140,9 @@ export function createIdentityResolver(
     return await requireLegacyIdentity(auth);
   }
 
-  async function requireLegacyIdentity(auth: AuthUser): Promise<AppIdentity> {
+  async function requireLegacyIdentity<TAuth extends ResolvableAuthUser>(
+    auth: TAuth,
+  ): Promise<ResolvedAppIdentity<TAuth>> {
     const rows = await sql<LegacyLookupRow[]>`
       select id::text as app_user_id
       from lifemate.app_users
