@@ -12,6 +12,7 @@ const targetMode = (__ENV.LIFEMATE_LOAD_TARGET || 'local').trim().toLowerCase();
 const baseUrl = (__ENV.BASE_URL || 'http://127.0.0.1:18080').replace(/\/+$/, '');
 const targetProjectRef = (__ENV.TARGET_PROJECT_REF || '').trim();
 const legacyAccessToken = (__ENV.ACCESS_TOKEN || '').trim();
+const authSessionsFile = (__ENV.AUTH_SESSIONS_FILE || '').trim();
 const runId = sanitizeRunId(__ENV.RUN_ID || `${Date.now()}`);
 const mutationConfirmation = (__ENV.CONFIRM_SYNTHETIC_MUTATIONS || '').trim();
 const writeFixtureMinimum = 25;
@@ -97,6 +98,7 @@ const profileDefinitions = {
   },
   spike: {
     identityPoolMinimum: 350,
+    maxControlledOverloadRate: 0.25,
     scenarios: {
       api: {
         executor: 'ramping-arrival-rate',
@@ -165,6 +167,7 @@ const profileDefinitions = {
   },
   'retry-storm': {
     identityPoolMinimum: writeFixtureMinimum,
+    maxControlledOverloadRate: 0.25,
     scenarios: {
       api: {
         executor: 'constant-vus',
@@ -426,20 +429,33 @@ function headerValue(response, name) {
 }
 
 function loadAuthSessions() {
-  const raw = (__ENV.AUTH_SESSIONS_JSON || '').trim();
+  const inlineRaw = (__ENV.AUTH_SESSIONS_JSON || '').trim();
+  if (authSessionsFile && inlineRaw) {
+    throw new Error('Use either AUTH_SESSIONS_FILE or AUTH_SESSIONS_JSON, not both.');
+  }
+
+  let raw = inlineRaw;
+  if (authSessionsFile) {
+    try {
+      raw = String(open(authSessionsFile)).trim();
+    } catch (_) {
+      throw new Error('AUTH_SESSIONS_FILE could not be read.');
+    }
+  }
+
   let values = [];
   if (raw) {
     try {
       values = JSON.parse(raw);
     } catch (_) {
-      throw new Error('AUTH_SESSIONS_JSON must be a JSON array.');
+      throw new Error('Auth session source must contain a JSON array.');
     }
   } else if (legacyAccessToken) {
     values = [{ accessToken: legacyAccessToken, subject: 'legacy-single-user' }];
   }
 
   if (!Array.isArray(values)) {
-    throw new Error('AUTH_SESSIONS_JSON must be a JSON array.');
+    throw new Error('Auth session source must contain a JSON array.');
   }
   const normalized = values.map((value, index) => {
     if (!value || typeof value !== 'object') {
@@ -453,7 +469,7 @@ function loadAuthSessions() {
     return { accessToken, subject };
   });
   if (new Set(normalized.map((value) => value.subject)).size !== normalized.length) {
-    throw new Error('AUTH_SESSIONS_JSON subjects must be unique.');
+    throw new Error('Auth session subjects must be unique.');
   }
   return normalized;
 }
@@ -491,7 +507,7 @@ function loadDoseFixtures() {
       `Mutation profiles require at least ${writeFixtureMinimum} synthetic dose fixtures.`,
     );
   }
-  return values.map((value, index) => {
+  const normalized = values.map((value, index) => {
     if (!value || typeof value !== 'object') {
       throw new Error(`Dose fixture ${index} must be an object.`);
     }
@@ -504,11 +520,24 @@ function loadDoseFixtures() {
     }
     if (targetMode === 'staging' && (!subject || !authSessionBySubject[subject])) {
       throw new Error(
-        `Dose fixture ${index} must name a subject present in AUTH_SESSIONS_JSON.`,
+        `Dose fixture ${index} must name a subject present in the authenticated session pool.`,
       );
     }
     return { id, version, status, subject };
   });
+
+  if (targetMode === 'staging') {
+    const selectedSubjects = normalized
+      .slice(0, writeFixtureMinimum)
+      .map((value) => value.subject);
+    if (new Set(selectedSubjects).size !== writeFixtureMinimum) {
+      throw new Error(
+        `The first ${writeFixtureMinimum} mutation fixtures must cover ${writeFixtureMinimum} distinct authenticated subjects.`,
+      );
+    }
+  }
+
+  return normalized;
 }
 
 function validateTarget() {
