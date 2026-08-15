@@ -59,7 +59,9 @@ async function searchUsers(
   query: GlobalSearchQuery,
 ): Promise<GlobalSearchGroup> {
   const offset = (query.page - 1) * query.pageSize;
-  const exactAccountId = UUID_PATTERN.test(query.q) ? query.q.toLowerCase() : null;
+  const exactAccountId = UUID_PATTERN.test(query.q)
+    ? query.q.toLowerCase()
+    : null;
   const countRows = await sql`
     select count(*)::integer as total
     from admin.user_directory_v1
@@ -149,7 +151,9 @@ async function searchCommerce(
 ): Promise<GlobalSearchGroup> {
   const offset = (query.page - 1) * query.pageSize;
   const exactUuid = UUID_PATTERN.test(query.q) ? query.q.toLowerCase() : null;
-  const exactCode = CODE_PATTERN.test(query.q.toUpperCase()) ? query.q.toUpperCase() : null;
+  const exactCode = CODE_PATTERN.test(query.q.toUpperCase())
+    ? query.q.toUpperCase()
+    : null;
 
   const countRows = await sql`
     with results as (
@@ -310,9 +314,11 @@ export function createGlobalSearchStore(databaseUrl: string) {
       const groups: GlobalSearchGroup[] = [];
       for (const domain of domains) {
         if (domain === "users") groups.push(await searchUsers(sql, query));
-        else if (domain === "support") groups.push(await searchSupport(sql, query));
-        else if (domain === "commerce") groups.push(await searchCommerce(sql, query));
-        else if (domain === "campaigns") {
+        else if (domain === "support") {
+          groups.push(await searchSupport(sql, query));
+        } else if (domain === "commerce") {
+          groups.push(await searchCommerce(sql, query));
+        } else if (domain === "campaigns") {
           groups.push({
             domain: "campaigns",
             availability: "unavailable",

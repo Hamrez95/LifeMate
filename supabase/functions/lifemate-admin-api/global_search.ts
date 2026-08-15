@@ -1,6 +1,11 @@
 import { ApiError, boundedInteger } from "./validation.ts";
 
-export const globalSearchDomains = ["users", "support", "commerce", "campaigns"] as const;
+export const globalSearchDomains = [
+  "users",
+  "support",
+  "commerce",
+  "campaigns",
+] as const;
 export type GlobalSearchDomain = (typeof globalSearchDomains)[number];
 
 export type GlobalSearchQuery = {
@@ -51,16 +56,25 @@ export function parseGlobalSearchQuery(url: URL): GlobalSearchQuery {
     );
   }
 
-  const rawTypes = (url.searchParams.get("types") ?? globalSearchDomains.join(","))
-    .split(",")
-    .map((item) => item.trim().toLowerCase())
-    .filter(Boolean);
+  const rawTypes =
+    (url.searchParams.get("types") ?? globalSearchDomains.join(","))
+      .split(",")
+      .map((item) => item.trim().toLowerCase())
+      .filter(Boolean);
   if (rawTypes.length < 1 || rawTypes.length > globalSearchDomains.length) {
-    throw new ApiError(400, "search_types_invalid", "Search domain selection is invalid.");
+    throw new ApiError(
+      400,
+      "search_types_invalid",
+      "Search domain selection is invalid.",
+    );
   }
   const unique = [...new Set(rawTypes)];
   if (unique.some((item) => !DOMAIN_SET.has(item))) {
-    throw new ApiError(400, "search_types_invalid", "Search domain selection is invalid.");
+    throw new ApiError(
+      400,
+      "search_types_invalid",
+      "Search domain selection is invalid.",
+    );
   }
 
   return {
@@ -76,10 +90,15 @@ export function authorizedSearchDomains(
   permissions: readonly string[],
 ): GlobalSearchDomain[] {
   const granted = new Set(permissions);
-  return requested.filter((domain) => granted.has(globalSearchPermission[domain]));
+  return requested.filter((domain) =>
+    granted.has(globalSearchPermission[domain])
+  );
 }
 
-export function safeSearchLogFields(query: GlobalSearchQuery, authorized: GlobalSearchDomain[]) {
+export function safeSearchLogFields(
+  query: GlobalSearchQuery,
+  authorized: GlobalSearchDomain[],
+) {
   return {
     queryLength: [...query.q].length,
     requestedDomains: query.domains,
