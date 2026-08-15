@@ -193,6 +193,16 @@ async function listRecentOrders(
         or o.id = ${query.referenceId}::uuid
         or o.subscription_id = ${query.referenceId}::uuid
       )
+      and (
+        (${query.provider}::text is null and ${query.status}::text is null)
+        or exists (
+          select 1
+          from commerce.transactions tx
+          where tx.order_id = o.id
+            and (${query.provider}::text is null or tx.provider = ${query.provider})
+            and (${query.status}::text is null or tx.normalized_status = ${query.status})
+        )
+      )
   `;
   const rows = await sql`
     select
@@ -217,6 +227,16 @@ async function listRecentOrders(
         ${query.referenceId}::uuid is null
         or o.id = ${query.referenceId}::uuid
         or o.subscription_id = ${query.referenceId}::uuid
+      )
+      and (
+        (${query.provider}::text is null and ${query.status}::text is null)
+        or exists (
+          select 1
+          from commerce.transactions tx
+          where tx.order_id = o.id
+            and (${query.provider}::text is null or tx.provider = ${query.provider})
+            and (${query.status}::text is null or tx.normalized_status = ${query.status})
+        )
       )
     order by o.updated_at_utc desc, o.id desc
     limit 12
