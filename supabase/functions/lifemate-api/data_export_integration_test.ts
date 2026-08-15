@@ -34,8 +34,10 @@ Deno.test({
     let linkedId: string | null = null;
     let patientAccountId: string | null = null;
     const providerSubject = `provider-subject-must-not-export-${suffix}`;
-    const identityContactHash = `identity-contact-hash-must-not-export-${suffix}`;
-    const encryptedContactSentinel = `encrypted-contact-must-not-export-${suffix}`;
+    const identityContactHash =
+      `identity-contact-hash-must-not-export-${suffix}`;
+    const encryptedContactSentinel =
+      `encrypted-contact-must-not-export-${suffix}`;
 
     try {
       await db.bootstrapUser(patientAuth, {
