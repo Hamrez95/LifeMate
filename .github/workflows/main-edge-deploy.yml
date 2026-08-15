@@ -8,6 +8,7 @@ on:
       - 'supabase/functions/lifemate-api/**'
       - 'supabase/functions/lifemate-telemetry/**'
       - 'supabase/functions/lifemate-readiness/**'
+      - 'supabase/functions/lifemate-worker/**'
   push:
     branches: [main]
     paths:
@@ -16,6 +17,7 @@ on:
       - 'supabase/functions/lifemate-api/**'
       - 'supabase/functions/lifemate-telemetry/**'
       - 'supabase/functions/lifemate-readiness/**'
+      - 'supabase/functions/lifemate-worker/**'
 
 permissions:
   contents: read
@@ -95,6 +97,15 @@ jobs:
           deno task check
           deno task test
 
+      - name: Verify worker source
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd supabase/functions/lifemate-worker
+          deno fmt --check
+          deno task check
+          deno task test
+
   postgres-role-journey:
     runs-on: ubuntu-24.04
     timeout-minutes: 25
@@ -160,6 +171,10 @@ jobs:
           restricted_url="postgres://lifemate_edge_runtime:${runtime_password}@localhost:5432/lifemate_edge_deploy_tests"
           (cd supabase/functions/lifemate-api && TEST_DATABASE_URL="$restricted_url" deno task test:integration)
 
+      - name: Exercise outbox worker safety and recovery
+        working-directory: supabase/functions/lifemate-worker
+        run: deno task test:integration
+
   deploy-exact-main:
     if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
     needs: [verify-edge-source, postgres-role-journey]
@@ -215,7 +230,7 @@ jobs:
             --project-ref "$SUPABASE_PROJECT_REF" \
             --env-file "$secret_file"
 
-      - name: Deploy exact-main API telemetry and readiness
+      - name: Deploy exact-main API telemetry readiness and worker
         shell: bash
         run: |
           set -euo pipefail
@@ -227,6 +242,10 @@ jobs:
             --project-ref "$SUPABASE_PROJECT_REF" \
             --use-api
           supabase functions deploy lifemate-readiness \
+            --project-ref "$SUPABASE_PROJECT_REF" \
+            --no-verify-jwt \
+            --use-api
+          supabase functions deploy lifemate-worker \
             --project-ref "$SUPABASE_PROJECT_REF" \
             --no-verify-jwt \
             --use-api
