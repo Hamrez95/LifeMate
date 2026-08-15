@@ -1,10 +1,8 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:math';
-import 'dart:ui';
 
 import 'package:flutter/foundation.dart';
-import 'package:flutter/widgets.dart';
 import 'package:http/http.dart' as http;
 
 import 'app_config.dart';
@@ -213,12 +211,14 @@ String _platformName() {
 
 String _stackFingerprint(StackTrace stackTrace) {
   // The raw stack never leaves the process. FNV-1a is used only as a compact
-  // grouping fingerprint, not as a security primitive.
-  var hash = 14695981039346656037;
-  const prime = 1099511628211;
-  const mask64 = 0xFFFFFFFFFFFFFFFF;
+  // grouping fingerprint, not as a security primitive. BigInt keeps the
+  // unsigned 64-bit arithmetic deterministic across Dart native and web while
+  // avoiding integer literals outside Dart's signed 64-bit source range.
+  var hash = BigInt.parse('14695981039346656037');
+  final prime = BigInt.from(1099511628211);
+  final mask64 = BigInt.parse('ffffffffffffffff', radix: 16);
   for (final codeUnit in stackTrace.toString().codeUnits) {
-    hash ^= codeUnit;
+    hash ^= BigInt.from(codeUnit);
     hash = (hash * prime) & mask64;
   }
   return hash.toRadixString(16).padLeft(16, '0');
