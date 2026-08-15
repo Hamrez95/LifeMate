@@ -95,13 +95,7 @@ class _LifeMateAuthExperienceState extends State<_LifeMateAuthExperience>
         if (!mounted) return;
         if (response.session == null) {
           setState(() {
-            _success = LifeMateRuntimeLocale.select(
-              fa: LifeMateRuntimeLocale.select(
-                fa: 'حساب ساخته شد. اکنون می‌توانید وارد شوید.',
-                en: "Account created. You can now login.",
-              ),
-              en: "Account created. You can now login.",
-            );
+            _success = _genericSignupMessage();
             _mode = _AuthMode.signIn;
             _password.clear();
             _confirmPassword.clear();
@@ -121,7 +115,21 @@ class _LifeMateAuthExperienceState extends State<_LifeMateAuthExperience>
         );
       }
     } on AuthException catch (error) {
-      if (mounted) setState(() => _error = _friendlyAuthError(error));
+      if (!mounted) return;
+      if (
+        _mode == _AuthMode.signUp &&
+        error.message.toLowerCase().contains('user already registered')
+      ) {
+        setState(() {
+          _error = null;
+          _success = _genericSignupMessage();
+          _mode = _AuthMode.signIn;
+          _password.clear();
+          _confirmPassword.clear();
+        });
+      } else {
+        setState(() => _error = _friendlyAuthError(error));
+      }
     } catch (_) {
       if (mounted) {
         setState(
@@ -714,6 +722,16 @@ class _LifeMateAuthExperienceState extends State<_LifeMateAuthExperience>
     );
   }
 
+  static String _genericSignupMessage() {
+    return LifeMateRuntimeLocale.select(
+      fa: LifeMateRuntimeLocale.select(
+        fa: 'اگر ثبت‌نام این ایمیل قابل انجام باشد، راهنمای ادامه برایتان ارسال می‌شود.',
+        en: "If registration can proceed for this email, we'll send the next steps.",
+      ),
+      en: "If registration can proceed for this email, we'll send the next steps.",
+    );
+  }
+
   static bool _looksLikeEmail(String value) {
     final at = value.indexOf('@');
     final dot = value.lastIndexOf('.');
@@ -738,15 +756,6 @@ class _LifeMateAuthExperienceState extends State<_LifeMateAuthExperience>
           en: "First, verify your email.",
         ),
         en: "First, verify your email.",
-      );
-    }
-    if (message.contains('user already registered')) {
-      return LifeMateRuntimeLocale.select(
-        fa: LifeMateRuntimeLocale.select(
-          fa: 'این ایمیل قبلاً ثبت شده است؛ وارد حساب شوید.',
-          en: "This email has already been registered; Log in to the account.",
-        ),
-        en: "This email has already been registered; Log in to the account.",
       );
     }
     if (message.contains('password')) {
