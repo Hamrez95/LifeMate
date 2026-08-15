@@ -1,7 +1,14 @@
 import fs from 'node:fs';
 
-const workflowPath = '.github/workflows/main-edge-deploy.yml';
-const workflow = fs.readFileSync(workflowPath, 'utf8');
+const mainDeployWorkflow = fs.readFileSync(
+  '.github/workflows/main-edge-deploy.yml',
+  'utf8',
+);
+const internalBetaWorkflow = fs.readFileSync(
+  '.github/workflows/internal-beta-release.yml',
+  'utf8',
+);
+const flutterWorkflow = fs.readFileSync('.github/workflows/flutter.yml', 'utf8');
 
 function fail(message) {
   console.error(`Production deploy control-plane policy failure: ${message}`);
@@ -38,7 +45,7 @@ function extractNamedStep(job, stepName) {
   return lines.slice(start, end).join('\n');
 }
 
-const deployJob = extractJob(workflow, 'deploy-exact-main');
+const deployJob = extractJob(mainDeployWorkflow, 'deploy-exact-main');
 
 for (const [value, message] of [
   ['    environment: beta', 'production Edge deploy must be bound to the beta Environment'],
@@ -66,6 +73,28 @@ if (deployJob.indexOf('      - name: Require exact main and protected deployment
   fail('control-plane guard must execute before production deployment');
 }
 
+for (const jobName of ['deploy-edge', 'live-role-smoke', 'build-android-internal']) {
+  const job = extractJob(internalBetaWorkflow, jobName);
+  if (!job.includes('    environment: beta')) {
+    fail(`${jobName} must be bound to the beta Environment`);
+  }
+}
+
+for (const forbidden of [
+  'WELLMATE_KEYSTORE_BASE64',
+  'CAREMATE_KEYSTORE_BASE64',
+  'flutter build apk',
+  'prepare-android-signing.sh',
+]) {
+  if (flutterWorkflow.includes(forbidden)) {
+    fail(`generic Flutter CI must not expose a signing/build release path: ${forbidden}`);
+  }
+}
+
+if (!flutterWorkflow.includes('Use the protected `internal-beta-release` workflow')) {
+  fail('generic Flutter workflow must direct Android artifacts to the protected release workflow');
+}
+
 console.log(
-  'Production Edge deployment is source-bound to private protected main and GitHub Environment beta.',
+  'Production deploy/signing paths are source-bound to private protected main and GitHub Environment beta; generic Flutter CI cannot mint release-signed APKs.',
 );
