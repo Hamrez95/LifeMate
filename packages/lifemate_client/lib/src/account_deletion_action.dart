@@ -27,10 +27,10 @@ Future<bool> showLifeMateAccountDeletionDialog(
       content: Text(
         LifeMateRuntimeLocale.select(
           fa: LifeMateRuntimeLocale.select(
-            fa: 'با ادامه، دسترسی حساب بلافاصله غیرفعال می‌شود، ارتباط‌های اشتراک‌گذاری و دسترسی‌های فعال لغو می‌شوند و پردازش حذف/ناشناس‌سازی طبق سیاست نگهداری داده آغاز می‌شود. اطلاعاتی که نگهداری آن‌ها الزام قانونی یا ایمنی دارد فوراً پاک نمی‌شوند.',
-            en: "Upon proceeding, account access will be immediately disabled, sharing connections and active accesses will be revoked, and deletion/anonymization processing will begin in accordance with the data retention policy. Information whose retention is required by law or safety is not immediately deleted.",
+            fa: 'با ادامه، حساب بلافاصله غیرفعال و دسترسی‌ها لغو می‌شوند. پردازش حذف، داده‌های سلامت و تقویم بانوان متعلق به شما، شناسه‌های ورود و فایل‌های پروفایل را پاک می‌کند و اطلاعات هویتی باقیمانده را ناشناس می‌کند. فقط حداقل سوابق ناشناس لازم برای امنیت، رضایت، یکپارچگی داده مشترک یا الزامات قانونی نگه داشته می‌شود.',
+            en: "Continuing immediately disables the account and revokes access. Deletion processing removes your owned health and women-calendar data, sign-in identifiers and profile files, then anonymizes the remaining identity record. Only the minimum pseudonymous records required for security, consent, shared-data integrity or legal retention are kept.",
           ),
-          en: "Upon proceeding, account access will be immediately disabled, sharing connections and active accesses will be revoked, and deletion/anonymization processing will begin in accordance with the data retention policy. Information whose retention is required by law or safety is not immediately deleted.",
+          en: "Continuing immediately disables the account and revokes access. Deletion processing removes your owned health and women-calendar data, sign-in identifiers and profile files, then anonymizes the remaining identity record. Only the minimum pseudonymous records required for security, consent, shared-data integrity or legal retention are kept.",
         ),
         style: TextStyle(fontFamily: fontFamily, height: 1.7),
       ),
