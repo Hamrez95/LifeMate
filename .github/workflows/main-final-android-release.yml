@@ -1,9 +1,12 @@
 name: main-final-android-release
 
 on:
-  push:
-    branches: [main]
   workflow_dispatch:
+    inputs:
+      confirm_foundation_release:
+        description: Type RELEASE-FOUNDATION-CLOSED after all executable foundation gates are complete
+        required: true
+        type: string
 
 permissions:
   contents: read
@@ -16,6 +19,7 @@ env:
   SUPABASE_PROJECT_REF: bwdvmniywyyijjauipnh
   SUPABASE_URL: https://bwdvmniywyyijjauipnh.supabase.co
   LIFEMATE_API_BASE_URL: https://bwdvmniywyyijjauipnh.supabase.co/functions/v1/lifemate-api
+  LIFEMATE_TELEMETRY_URL: https://bwdvmniywyyijjauipnh.supabase.co/functions/v1/lifemate-telemetry
   SUPABASE_PUBLISHABLE_KEY: ${{ vars.SUPABASE_PUBLISHABLE_KEY || 'sb_publishable_6YpBDD0gAPcenbYGukOeWg_fZXxUb27' }}
   ENABLE_GOOGLE_AUTH: 'false'
   ENABLE_PHONE_OTP: 'false'
@@ -30,6 +34,8 @@ jobs:
     timeout-minutes: 50
     env:
       SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+      TELEMETRY_SMOKE_EMAIL: ${{ secrets.BETA_PATIENT_EMAIL }}
+      TELEMETRY_SMOKE_PASSWORD: ${{ secrets.BETA_PATIENT_PASSWORD }}
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
         with:
@@ -37,22 +43,26 @@ jobs:
           persist-credentials: false
           fetch-depth: 2
 
-      - name: Require main source
+      - name: Require main source and explicit foundation closure
         shell: bash
+        env:
+          CONFIRM_FOUNDATION_RELEASE: ${{ inputs.confirm_foundation_release }}
         run: |
           set -euo pipefail
           test "$GITHUB_REF" = 'refs/heads/main'
           test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
+          test "$CONFIRM_FOUNDATION_RELEASE" = 'RELEASE-FOUNDATION-CLOSED'
 
       - uses: denoland/setup-deno@22d081ff2d3a40755e97629de92e3bcbfa7cf2ed
         with:
           deno-version: v2.9.4
 
-      - name: Verify Edge API and workers
+      - name: Verify Edge API, telemetry and workers
         shell: bash
         run: |
           set -euo pipefail
           (cd supabase/functions/lifemate-api && deno fmt --check && deno task check && deno task test)
+          (cd supabase/functions/lifemate-telemetry && deno fmt --check && deno task check && deno task test)
           (cd supabase/functions/lifemate-worker && deno fmt --check && deno task check)
           (cd supabase/functions/lifemate-kavenegar-sms-hook && deno fmt --check && deno task check)
 
@@ -90,6 +100,10 @@ jobs:
             echo '::error::SUPABASE_ACCESS_TOKEN is required for every exact-main release deployment.'
             exit 1
           fi
+          if [ -z "$TELEMETRY_SMOKE_EMAIL" ] || [ -z "$TELEMETRY_SMOKE_PASSWORD" ]; then
+            echo '::error::Authenticated telemetry smoke credentials are required before final Android artifacts.'
+            exit 1
+          fi
 
       - uses: supabase/setup-cli@3c2f5e2ae34c34e428e8e206e2c4d21fa2d20fbf
         with:
@@ -117,6 +131,9 @@ jobs:
             --project-ref "$SUPABASE_PROJECT_REF" \
             --no-verify-jwt \
             --use-api
+          supabase functions deploy lifemate-telemetry \
+            --project-ref "$SUPABASE_PROJECT_REF" \
+            --use-api
 
       - name: Require exact production API version
         shell: bash
@@ -128,6 +145,46 @@ jobs:
             '.status == "ok" and .database == "ready" and .service == "lifemate-api" and .version == $version' \
             >/dev/null
           unauthorized_status="$(curl --silent --show-error --output /dev/null --write-out '%{http_code}' "$LIFEMATE_API_BASE_URL/api/v1/me")"
+          test "$unauthorized_status" = '401'
+
+      - name: Require authenticated production telemetry
+        shell: bash
+        run: |
+          set -euo pipefail
+          auth_payload="$(jq -cn \
+            --arg email "$TELEMETRY_SMOKE_EMAIL" \
+            --arg password "$TELEMETRY_SMOKE_PASSWORD" \
+            '{email:$email,password:$password}')"
+          access_token="$(curl --fail --silent --show-error \
+            --request POST \
+            --header "apikey: $SUPABASE_PUBLISHABLE_KEY" \
+            --header 'Content-Type: application/json' \
+            --data "$auth_payload" \
+            "$SUPABASE_URL/auth/v1/token?grant_type=password" | jq -er '.access_token')"
+          test -n "$access_token"
+
+          event_id="$(python3 -c 'import uuid; print(uuid.uuid4())')"
+          event_payload="$(jq -cn \
+            --arg eventId "$event_id" \
+            --arg releaseVersion "$GITHUB_SHA" \
+            '{eventId:$eventId,application:"wellmate",releaseVersion:$releaseVersion,platform:"android",source:"zone",errorType:"FinalReleaseSmokeError",stackFingerprint:"0123456789abcdef",fatal:false}')"
+          telemetry_status="$(curl --silent --show-error \
+            --output /dev/null --write-out '%{http_code}' \
+            --request POST \
+            --header "apikey: $SUPABASE_PUBLISHABLE_KEY" \
+            --header "Authorization: Bearer $access_token" \
+            --header 'Content-Type: application/json' \
+            --data "$event_payload" \
+            "$LIFEMATE_TELEMETRY_URL")"
+          test "$telemetry_status" = '202'
+
+          unauthorized_status="$(curl --silent --show-error \
+            --output /dev/null --write-out '%{http_code}' \
+            --request POST \
+            --header "apikey: $SUPABASE_PUBLISHABLE_KEY" \
+            --header 'Content-Type: application/json' \
+            --data "$event_payload" \
+            "$LIFEMATE_TELEMETRY_URL")"
           test "$unauthorized_status" = '401'
 
       - name: Prepare founder-owned Android signing
@@ -204,7 +261,7 @@ jobs:
             --argjson googleAuth false \
             --argjson phoneOtp false \
             --argjson womenCalendarPilot true \
-            '{mainCommit:$mainCommit,version:$version,buildNumber:$buildNumber,builtAtUtc:$builtAt,apiEnvironment:$apiEnvironment,apiBaseUrl:$apiBaseUrl,featureFlags:{googleAuth:$googleAuth,phoneOtp:$phoneOtp,womenCalendarPilot:$womenCalendarPilot},apps:{wellmate:{packageId:"com.lifemate.wellmate",sha256:$wellmateSha256,signingCertSha256:$wellmateSigningCertSha256,android:$wellmateAndroid},caremate:{packageId:"com.lifemate.caremate",sha256:$caremateSha256,signingCertSha256:$caremateSigningCertSha256,android:$caremateAndroid}},releasePurpose:"physical-test-round-2",storeSigningConfigured:true}' \
+            '{mainCommit:$mainCommit,version:$version,buildNumber:$buildNumber,builtAtUtc:$builtAt,apiEnvironment:$apiEnvironment,apiBaseUrl:$apiBaseUrl,featureFlags:{googleAuth:$googleAuth,phoneOtp:$phoneOtp,womenCalendarPilot:$womenCalendarPilot},apps:{wellmate:{packageId:"com.lifemate.wellmate",sha256:$wellmateSha256,signingCertSha256:$wellmateSigningCertSha256,android:$wellmateAndroid},caremate:{packageId:"com.lifemate.caremate",sha256:$caremateSha256,signingCertSha256:$caremateSigningCertSha256,android:$caremateAndroid}},releasePurpose:"foundation-closed-stable",storeSigningConfigured:true}' \
             > dist/manifest.json
 
       - name: Upload final exact-main Android bundle
