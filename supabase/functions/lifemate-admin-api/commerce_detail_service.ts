@@ -103,7 +103,9 @@ async function listPlanPrices(sql: AdminSql, planId: string) {
     total: Number(countRows[0]?.total ?? 0),
     items: (rows as unknown as Record<string, unknown>[]).map((value) => ({
       priceId: String(value.id),
-      countryCode: value.country_code == null ? null : String(value.country_code),
+      countryCode: value.country_code == null
+        ? null
+        : String(value.country_code),
       currency: String(value.currency),
       storeProvider: String(value.store_provider),
       billingPeriodMonths: Number(value.billing_period_months),
