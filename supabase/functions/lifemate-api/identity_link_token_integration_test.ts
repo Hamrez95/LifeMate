@@ -109,13 +109,15 @@ Deno.test({
 
 Deno.test({
   name:
-    "identity bridge dual-writes token and legacy subject atomically during migration",
+    "identity bridge resolves remapped Account and writes canonical auth token atomically",
   sanitizeOps: false,
   sanitizeResources: false,
   fn: async () => {
-    const accountA = crypto.randomUUID();
-    const accountB = crypto.randomUUID();
+    const appUserA = crypto.randomUUID();
+    const remappedAccountA = crypto.randomUUID();
+    const appUserB = crypto.randomUUID();
     const authSubject = crypto.randomUUID();
+    const authSubjectB = crypto.randomUUID();
     const key = "0123456789abcdef0123456789abcdef";
     const keyVersion = 3;
     const previousDualWrite = Deno.env.get("LIFEMATE_IDENTITY_LINK_DUAL_WRITE");
@@ -129,9 +131,27 @@ Deno.test({
       Deno.env.set("LIFEMATE_IDENTITY_LINK_KEY", key);
       Deno.env.set("LIFEMATE_IDENTITY_LINK_KEY_VERSION", String(keyVersion));
 
+      // The legacy compatibility trigger initially creates Account.id ==
+      // AppUser.id. Remap A to a provider-agnostic Account UUID to prove the
+      // bridge follows legacy_app_user_id instead of assuming UUID equality.
       await sql`
-        insert into identity.accounts(id,status)
-        values (${accountA}::uuid,'Active'),(${accountB}::uuid,'Active')
+        insert into lifemate.app_users(
+          id,auth_subject,status,created_at_utc,updated_at_utc
+        ) values
+          (${appUserA}::uuid,${authSubject},'Active',now(),now()),
+          (${appUserB}::uuid,${authSubjectB},'Active',now(),now())
+      `;
+      await sql`
+        update identity.accounts
+        set legacy_app_user_id=null,updated_at_utc=now()
+        where id=${appUserA}::uuid
+      `;
+      await sql`
+        insert into identity.accounts(
+          id,legacy_app_user_id,status,created_at_utc,updated_at_utc
+        ) values(
+          ${remappedAccountA}::uuid,${appUserA}::uuid,'Active',now(),now()
+        )
       `;
 
       const identity = {
@@ -141,13 +161,19 @@ Deno.test({
         last_sign_in_at: "2026-08-15T00:01:00.000Z",
       };
       const bridge = createIdentityBridge(databaseUrl);
-      const providers = await bridge.syncExternalIdentities(accountA, {
+      const providers = await bridge.syncExternalIdentities(appUserA, {
         id: authSubject,
         identities: [identity],
       });
       assertEquals(providers, ["email"]);
 
-      const expectedToken = await deriveIdentityLinkToken(key, {
+      const expectedCanonicalToken = await deriveIdentityLinkToken(key, {
+        provider: "supabase_auth",
+        issuer: "supabase",
+        subject: authSubject,
+        keyVersion,
+      });
+      const expectedProviderToken = await deriveIdentityLinkToken(key, {
         provider: "email",
         issuer: "supabase",
         subject: authSubject,
@@ -156,29 +182,55 @@ Deno.test({
       const tokenRows = await sql`
         select account_id,provider,issuer,subject_token,key_version,status
         from identity.external_identity_tokens
-        where account_id=${accountA}::uuid
+        where account_id=${remappedAccountA}::uuid
+        order by provider
       `;
-      assertEquals(tokenRows.length, 1);
-      assertEquals(String(tokenRows[0].account_id), accountA);
-      assertEquals(tokenRows[0].provider, "email");
-      assertEquals(tokenRows[0].issuer, "supabase");
-      assertEquals(tokenRows[0].subject_token, expectedToken);
-      assertEquals(Number(tokenRows[0].key_version), keyVersion);
-      assertEquals(tokenRows[0].status, "Active");
+      assertEquals(tokenRows.length, 2);
+      assertEquals(
+        tokenRows.map((row) => ({
+          accountId: String(row.account_id),
+          provider: row.provider,
+          issuer: row.issuer,
+          subjectToken: row.subject_token,
+          keyVersion: Number(row.key_version),
+          status: row.status,
+        })),
+        [
+          {
+            accountId: remappedAccountA,
+            provider: "email",
+            issuer: "supabase",
+            subjectToken: expectedProviderToken,
+            keyVersion,
+            status: "Active",
+          },
+          {
+            accountId: remappedAccountA,
+            provider: "supabase_auth",
+            issuer: "supabase",
+            subjectToken: expectedCanonicalToken,
+            keyVersion,
+            status: "Active",
+          },
+        ],
+      );
 
       const legacyRows = await sql`
         select account_id,provider,issuer,provider_subject,status
         from identity.external_identities
-        where account_id=${accountA}::uuid
+        where account_id=${remappedAccountA}::uuid
+          and provider='email'
       `;
       assertEquals(legacyRows.length, 1);
-      assertEquals(String(legacyRows[0].account_id), accountA);
+      assertEquals(String(legacyRows[0].account_id), remappedAccountA);
       assertEquals(legacyRows[0].provider_subject, authSubject);
 
+      // Reuse A's authenticated subject through B. The canonical token conflict
+      // must roll back before B acquires either a token or provider identity.
       const conflictingBridge = createIdentityBridge(databaseUrl);
       await assertRejects(
         () =>
-          conflictingBridge.syncExternalIdentities(accountB, {
+          conflictingBridge.syncExternalIdentities(appUserB, {
             id: authSubject,
             identities: [identity],
           }),
@@ -189,27 +241,41 @@ Deno.test({
       const accountBTokenCount = await sql`
         select count(*)::int as count
         from identity.external_identity_tokens
-        where account_id=${accountB}::uuid
+        where account_id=${appUserB}::uuid
       `;
-      const accountBLegacyCount = await sql`
+      const accountBEmailIdentityCount = await sql`
         select count(*)::int as count
         from identity.external_identities
-        where account_id=${accountB}::uuid
+        where account_id=${appUserB}::uuid and provider='email'
       `;
       assertEquals(Number(accountBTokenCount[0].count), 0);
-      assertEquals(Number(accountBLegacyCount[0].count), 0);
+      assertEquals(Number(accountBEmailIdentityCount[0].count), 0);
     } finally {
       await sql`
         delete from identity.external_identity_tokens
-        where account_id in (${accountA}::uuid,${accountB}::uuid)
+        where account_id in (
+          ${appUserA}::uuid,${remappedAccountA}::uuid,${appUserB}::uuid
+        )
       `.catch(() => undefined);
       await sql`
         delete from identity.external_identities
-        where account_id in (${accountA}::uuid,${accountB}::uuid)
+        where account_id in (
+          ${appUserA}::uuid,${remappedAccountA}::uuid,${appUserB}::uuid
+        )
       `.catch(() => undefined);
       await sql`
         delete from identity.accounts
-        where id in (${accountA}::uuid,${accountB}::uuid)
+        where id in (
+          ${remappedAccountA}::uuid,${appUserA}::uuid,${appUserB}::uuid
+        )
+      `.catch(() => undefined);
+      await sql`
+        delete from lifemate.app_users
+        where id in (${appUserA}::uuid,${appUserB}::uuid)
+      `.catch(() => undefined);
+      await sql`
+        delete from core.persons
+        where id in (${appUserA}::uuid,${appUserB}::uuid)
       `.catch(() => undefined);
 
       if (previousDualWrite == null) {
