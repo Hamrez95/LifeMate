@@ -41,6 +41,7 @@ Deno.test("telemetry windows classify overload and expose bounded latency histog
     state: "healthy" as const,
     lastFailureCode: null,
     lastFailureAgeMs: null,
+    lastPrimaryLatencyMs: 7,
   };
 
   assertEquals(
@@ -77,6 +78,7 @@ Deno.test("telemetry windows classify overload and expose bounded latency histog
   assertEquals(window.latency.bucketsMs["<=50"], 1);
   assertEquals(window.latency.bucketsMs["<=250"], 1);
   assertEquals(window.routes["GET /api/v1/home-snapshot"].count, 2);
+  assertEquals(window.rateLimiter.lastPrimaryLatencyMs, 7);
 });
 
 Deno.test("telemetry subsystem inference distinguishes capacity failures", () => {

@@ -17,6 +17,7 @@ export type RateLimiterTelemetrySnapshot = {
   state: "healthy" | "degraded";
   lastFailureCode: string | null;
   lastFailureAgeMs: number | null;
+  lastPrimaryLatencyMs: number | null;
 };
 
 export type RequestTelemetryInput = {
@@ -89,6 +90,7 @@ export class ApiObservability {
     state: "healthy",
     lastFailureCode: null,
     lastFailureAgeMs: null,
+    lastPrimaryLatencyMs: null,
   };
 
   constructor(
