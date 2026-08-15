@@ -87,7 +87,7 @@ for (const [name, secret] of [
 ]) {
   requireScopedText(
     releaseJob,
-    `      ${name}: ${{ secrets.${secret} }}`,
+    '      ' + name + ': ${{ secrets.' + secret + ' }}',
     `verify-and-build must receive ${secret} for the final live role smoke`,
   );
 }
