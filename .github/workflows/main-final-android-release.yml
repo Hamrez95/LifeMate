@@ -12,7 +12,7 @@ on:
   workflow_dispatch:
     inputs:
       confirm_foundation_release:
-        description: Type RELEASE-FOUNDATION-CLOSED only after canonical GitHub #170 is closed with all human/provider evidence
+        description: Type RELEASE-FOUNDATION-CLOSED only after the Foundation readiness marker is YES and stable-beta gate 14 is satisfied
         required: true
         type: string
 
@@ -97,15 +97,28 @@ jobs:
           test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
           test "$CONFIRM_FOUNDATION_RELEASE" = 'RELEASE-FOUNDATION-CLOSED'
 
-      - name: Require canonical Foundation Closure issue closed
+      - name: Require canonical Foundation and stable beta gates
         shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
-          issue_state="$(gh api "repos/$GITHUB_REPOSITORY/issues/170" --jq '.state')"
-          if [ "$issue_state" != 'closed' ]; then
-            echo '::error::Canonical Foundation Closure issue #170 must be closed before a stable build.'
+          foundation_json="$(gh api "repos/$GITHUB_REPOSITORY/issues/170")"
+          foundation_state="$(jq -r '.state' <<<"$foundation_json")"
+          foundation_body="$(jq -r '.body // ""' <<<"$foundation_json")"
+          readiness_marker="$(printf '%s\n' "$foundation_body" | sed -n 's/^> \*\*Machine-readable stable-release gate:\*\* `\(FOUNDATION_RELEASE_READY=[A-Z]*\)`$/\1/p' | head -n 1)"
+          stable_beta_state="$(gh api "repos/$GITHUB_REPOSITORY/issues/14" --jq '.state')"
+
+          if [ "$foundation_state" != 'closed' ]; then
+            echo '::error::Canonical Foundation Closure issue must be in its final completed state before a stable build.'
+            exit 1
+          fi
+          if [ "$readiness_marker" != 'FOUNDATION_RELEASE_READY=YES' ]; then
+            echo '::error::Canonical Foundation readiness marker is not YES.'
+            exit 1
+          fi
+          if [ "$stable_beta_state" != 'closed' ]; then
+            echo '::error::Broader stable-beta release gate is not satisfied.'
             exit 1
           fi
 
