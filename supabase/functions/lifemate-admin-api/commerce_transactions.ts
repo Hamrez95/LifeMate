@@ -24,7 +24,8 @@ export type CommerceTransactionsQuery = {
 };
 
 const CODE = /^[A-Za-z0-9][A-Za-z0-9._:-]{0,63}$/;
-const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+const UUID =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const STATUS_SET = new Set<string>(TRANSACTION_STATUSES);
 
 function optionalCode(value: string | null, field: string): string | null {
