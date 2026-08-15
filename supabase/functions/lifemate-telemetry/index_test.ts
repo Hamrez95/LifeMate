@@ -17,13 +17,15 @@ Deno.test("accepts only bounded privacy-safe crash dimensions", () => {
 });
 
 Deno.test("rejects raw message, stack, token, and user identifiers", () => {
-  for (const [key, value] of Object.entries({
-    message: "patient@example.test took medication X",
-    stack: "Bearer secret-token",
-    accessToken: "secret",
-    userId: "123e4567-e89b-42d3-a456-426614174000",
-    requestBody: "health-data",
-  })) {
+  for (
+    const [key, value] of Object.entries({
+      message: "patient@example.test took medication X",
+      stack: "Bearer secret-token",
+      accessToken: "secret",
+      userId: "123e4567-e89b-42d3-a456-426614174000",
+      requestBody: "health-data",
+    })
+  ) {
     assertThrows(
       () => parseClientErrorTelemetry({ ...valid, [key]: value }),
       Error,
