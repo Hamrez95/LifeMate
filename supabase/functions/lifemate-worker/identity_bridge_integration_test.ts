@@ -168,7 +168,7 @@ Deno.test({
             where scope_key=${`care_relationship:${relationshipId}`} limit 1) as consent_status,
           (select subject_person_id from consent.consent_records
             where scope_key=${`care_relationship:${relationshipId}`} limit 1) as consent_person,
-          (select actor_account_id from consent.consent_events e
+          (select e.actor_account_id from consent.consent_events e
             join consent.consent_records c on c.id=e.consent_record_id
             where c.scope_key=${`care_relationship:${relationshipId}`}
               and e.event_type='Revoked'
