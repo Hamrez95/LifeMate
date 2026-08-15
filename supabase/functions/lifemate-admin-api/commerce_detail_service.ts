@@ -49,6 +49,11 @@ async function getPlanRecord(sql: AdminSql, planId: string) {
 }
 
 async function listPlanFeatureRules(sql: AdminSql, productId: string) {
+  const countRows = await sql`
+    select count(*)::integer as total
+    from commerce.product_features
+    where product_id = ${productId}::uuid
+  `;
   const rows = await sql`
     select f.id as feature_id,
            f.code as feature_code,
@@ -60,16 +65,25 @@ async function listPlanFeatureRules(sql: AdminSql, productId: string) {
     order by f.code asc
     limit 250
   `;
-  return (rows as unknown as Record<string, unknown>[]).map((value) => ({
-    featureId: String(value.feature_id),
-    featureCode: String(value.feature_code),
-    description: String(value.description),
-    minimumPlanCode:
-      value.minimum_plan_code == null ? null : String(value.minimum_plan_code),
-  }));
+  return {
+    total: Number(countRows[0]?.total ?? 0),
+    items: (rows as unknown as Record<string, unknown>[]).map((value) => ({
+      featureId: String(value.feature_id),
+      featureCode: String(value.feature_code),
+      description: String(value.description),
+      minimumPlanCode: value.minimum_plan_code == null
+        ? null
+        : String(value.minimum_plan_code),
+    })),
+  };
 }
 
 async function listPlanPrices(sql: AdminSql, planId: string) {
+  const countRows = await sql`
+    select count(*)::integer as total
+    from commerce.prices
+    where plan_id = ${planId}::uuid
+  `;
   const rows = await sql`
     select id,
            country_code,
@@ -85,17 +99,20 @@ async function listPlanPrices(sql: AdminSql, planId: string) {
     order by effective_from_utc desc, id desc
     limit 100
   `;
-  return (rows as unknown as Record<string, unknown>[]).map((value) => ({
-    priceId: String(value.id),
-    countryCode: value.country_code == null ? null : String(value.country_code),
-    currency: String(value.currency),
-    storeProvider: String(value.store_provider),
-    billingPeriodMonths: Number(value.billing_period_months),
-    amountMinor: Number(value.amount_minor),
-    status: String(value.status),
-    effectiveFromUtc: iso(value.effective_from_utc),
-    effectiveToUtc: nullableIso(value.effective_to_utc),
-  }));
+  return {
+    total: Number(countRows[0]?.total ?? 0),
+    items: (rows as unknown as Record<string, unknown>[]).map((value) => ({
+      priceId: String(value.id),
+      countryCode: value.country_code == null ? null : String(value.country_code),
+      currency: String(value.currency),
+      storeProvider: String(value.store_provider),
+      billingPeriodMonths: Number(value.billing_period_months),
+      amountMinor: String(value.amount_minor),
+      status: String(value.status),
+      effectiveFromUtc: iso(value.effective_from_utc),
+      effectiveToUtc: nullableIso(value.effective_to_utc),
+    })),
+  };
 }
 
 async function getPlanSubscriptionSummary(sql: AdminSql, planId: string) {
@@ -169,6 +186,11 @@ async function getFeatureRecord(sql: AdminSql, featureCode: string) {
 }
 
 async function listFeatureProductRules(sql: AdminSql, featureId: string) {
+  const countRows = await sql`
+    select count(*)::integer as total
+    from commerce.product_features
+    where feature_id = ${featureId}::uuid
+  `;
   const rows = await sql`
     select p.id as product_id,
            p.code as product_code,
@@ -181,14 +203,18 @@ async function listFeatureProductRules(sql: AdminSql, featureId: string) {
     order by p.display_name asc, p.code asc
     limit 100
   `;
-  return (rows as unknown as Record<string, unknown>[]).map((value) => ({
-    productId: String(value.product_id),
-    productCode: String(value.product_code),
-    productName: String(value.product_name),
-    productStatus: String(value.product_status),
-    minimumPlanCode:
-      value.minimum_plan_code == null ? null : String(value.minimum_plan_code),
-  }));
+  return {
+    total: Number(countRows[0]?.total ?? 0),
+    items: (rows as unknown as Record<string, unknown>[]).map((value) => ({
+      productId: String(value.product_id),
+      productCode: String(value.product_code),
+      productName: String(value.product_name),
+      productStatus: String(value.product_status),
+      minimumPlanCode: value.minimum_plan_code == null
+        ? null
+        : String(value.minimum_plan_code),
+    })),
+  };
 }
 
 async function getFeatureEntitlementSummary(sql: AdminSql, featureId: string) {
@@ -315,7 +341,13 @@ export function createCommerceDetailStore(databaseUrl: string) {
         },
         changeHistory: {
           instrumented: false,
-          reason: "Plan lifecycle changes are not yet stored as a dedicated event stream.",
+          reason:
+            "Plan lifecycle changes are not yet stored as a dedicated event stream.",
+        },
+        transactionLinkage: {
+          instrumented: false,
+          reason:
+            "Orders and transactions are intentionally deferred to the ADM-COM-003 canonical transaction surface.",
         },
       };
     },
@@ -326,8 +358,8 @@ export function createCommerceDetailStore(databaseUrl: string) {
     ) {
       const feature = await getFeatureRecord(sql, featureCode);
       if (!feature) return null;
-      const [productRules, summary, entitlements, eventHistory] =
-        await Promise.all([
+      const [productRules, summary, entitlements, eventHistory] = await Promise
+        .all([
           listFeatureProductRules(sql, feature.id),
           getFeatureEntitlementSummary(sql, feature.id),
           listFeatureEntitlements(sql, feature.id, query),
