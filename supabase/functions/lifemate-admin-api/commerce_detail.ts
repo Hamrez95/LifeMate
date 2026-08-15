@@ -50,6 +50,10 @@ export function matchCommerceEntitlementDetailPath(
 
 export function parseCommerceDetailQuery(url: URL): CommerceDetailQuery {
   const page = boundedAdminPage(url.searchParams.get("page"));
-  const pageSize = boundedAdminPageSize(url.searchParams.get("pageSize"), 25, 5);
+  const pageSize = boundedAdminPageSize(
+    url.searchParams.get("pageSize"),
+    25,
+    5,
+  );
   return { page, pageSize, offset: (page - 1) * pageSize };
 }
