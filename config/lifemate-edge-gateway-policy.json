@@ -19,31 +19,59 @@
   },
   "classes": {
     "public-probe": {
-      "outerRateLimit": { "requests": 120, "windowSeconds": 60 },
+      "outerRateLimit": {
+        "requests": 120,
+        "windowSeconds": 60,
+        "counterScope": "source_ip"
+      },
       "emergencyAction": "allow"
     },
     "critical-healthcare-write": {
-      "outerRateLimit": { "requests": 1200, "windowSeconds": 60 },
+      "outerRateLimit": {
+        "requests": 1200,
+        "windowSeconds": 60,
+        "counterScope": "source_ip"
+      },
       "emergencyAction": "allow"
     },
     "sensitive-write": {
-      "outerRateLimit": { "requests": 300, "windowSeconds": 3600 },
+      "outerRateLimit": {
+        "requests": 300,
+        "windowSeconds": 3600,
+        "counterScope": "source_ip"
+      },
       "emergencyAction": "rate_limit"
     },
     "upload": {
-      "outerRateLimit": { "requests": 60, "windowSeconds": 3600 },
+      "outerRateLimit": {
+        "requests": 60,
+        "windowSeconds": 3600,
+        "counterScope": "source_ip"
+      },
       "emergencyAction": "rate_limit"
     },
     "expensive-read": {
-      "outerRateLimit": { "requests": 600, "windowSeconds": 60 },
+      "outerRateLimit": {
+        "requests": 600,
+        "windowSeconds": 60,
+        "counterScope": "source_ip"
+      },
       "emergencyAction": "rate_limit"
     },
     "read": {
-      "outerRateLimit": { "requests": 1200, "windowSeconds": 60 },
+      "outerRateLimit": {
+        "requests": 1200,
+        "windowSeconds": 60,
+        "counterScope": "source_ip"
+      },
       "emergencyAction": "rate_limit"
     },
     "write": {
-      "outerRateLimit": { "requests": 600, "windowSeconds": 60 },
+      "outerRateLimit": {
+        "requests": 600,
+        "windowSeconds": 60,
+        "counterScope": "source_ip"
+      },
       "emergencyAction": "rate_limit"
     }
   },
@@ -73,10 +101,18 @@
       "contentTypes": ["image/jpeg", "image/png", "image/webp"]
     },
     {
+      "id": "sensitive-account-data-export",
+      "class": "sensitive-write",
+      "methods": ["GET"],
+      "pathPattern": "^/api/v1/account/data-export$",
+      "maximumBodyBytes": 0,
+      "contentTypes": []
+    },
+    {
       "id": "sensitive-account-and-care-writes",
       "class": "sensitive-write",
       "methods": ["POST", "PUT", "PATCH", "DELETE"],
-      "pathPattern": "^/api/v1/(account/deletion-requests|account/data-export|care/(invitations|requests)|me/identities/sync)(?:/.*)?$",
+      "pathPattern": "^/api/v1/(account/deletion-requests|care/(invitations|requests)|me/identities/sync)(?:/.*)?$",
       "maximumBodyBytes": 32768,
       "contentTypes": ["application/json"]
     },
