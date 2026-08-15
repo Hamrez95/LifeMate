@@ -1,0 +1,32 @@
+{
+  "formatVersion": 1,
+  "databaseEngine": "postgresql",
+  "schemas": [
+    "analytics",
+    "care",
+    "commerce",
+    "consent",
+    "core",
+    "ecosystem",
+    "identity",
+    "integration",
+    "lifemate",
+    "public",
+    "security"
+  ],
+  "providerOwnedSchemasExcludedByDefault": [
+    "auth",
+    "extensions",
+    "graphql",
+    "graphql_public",
+    "network",
+    "realtime",
+    "storage",
+    "supabase_migrations",
+    "vault"
+  ],
+  "defaultRetentionDays": 14,
+  "maximumBackupAgeHours": 26,
+  "archiveFormat": "pg_dump_custom",
+  "encryption": "age_recipient"
+}
