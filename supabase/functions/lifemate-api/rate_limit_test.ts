@@ -129,12 +129,14 @@ Deno.test("concurrent Redis-backed instances enforce one atomic write boundary",
   const subject = crypto.randomUUID();
 
   const results = await Promise.allSettled(
-    Array.from({ length: 121 }, (_, index) =>
-      (index % 2 === 0 ? first : second).enforce(
-        "POST",
-        "/api/v1/treatment-plans",
-        subject,
-      )
+    Array.from(
+      { length: 121 },
+      (_, index) =>
+        (index % 2 === 0 ? first : second).enforce(
+          "POST",
+          "/api/v1/treatment-plans",
+          subject,
+        ),
     ),
   );
   const fulfilled = results.filter((result) => result.status === "fulfilled");
