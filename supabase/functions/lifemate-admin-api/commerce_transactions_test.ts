@@ -4,6 +4,7 @@ import {
   parseCommerceTransactionsQuery,
   TRANSACTION_STATUSES,
 } from "./commerce_transactions.ts";
+import { mapCommerceTransactionRow } from "./commerce_transactions_service.ts";
 import { ApiError } from "./validation.ts";
 
 Deno.test("commerce transaction status vocabulary is explicit", () => {
@@ -76,11 +77,35 @@ Deno.test("commerce transaction query rejects invalid range and status", () => {
   );
 });
 
-Deno.test("transaction read model never selects raw provider references or account identifiers", async () => {
-  const source = await Deno.readTextFile(new URL("./commerce_transactions_service.ts", import.meta.url));
-  assertEquals(source.includes("provider_reference_hash"), false);
-  assertEquals(source.includes("provider_event_reference_hash"), false);
-  assertEquals(source.includes("select t.account_id"), false);
-  assertEquals(source.includes("accountLinked"), true);
-  assertEquals(source.includes("observation_state"), true);
+Deno.test("transaction response mapper excludes account and provider reference secrets", () => {
+  const mapped = mapCommerceTransactionRow({
+    transaction_id: "550e8400-e29b-41d4-a716-446655440000",
+    order_id: "550e8400-e29b-41d4-a716-446655440001",
+    subscription_id: null,
+    account_id: "550e8400-e29b-41d4-a716-446655440099",
+    account_linked: true,
+    product_code: "wellmate",
+    product_name: "WellMate",
+    provider: "zarinpal",
+    provider_reference_hash: "secret-provider-hash",
+    provider_event_reference_hash: "secret-event-hash",
+    provider_status: "VERIFIED",
+    normalized_status: "Succeeded",
+    amount_minor: "1250000",
+    currency: "IRR",
+    occurred_at_utc: "2026-08-15T07:00:00.000Z",
+    received_at_utc: "2026-08-15T07:00:01.000Z",
+    observation_state: "InOrder",
+    latest_event_occurred_at_utc: "2026-08-15T07:00:00.000Z",
+    latest_event_received_at_utc: "2026-08-15T07:00:01.000Z",
+  });
+
+  assertEquals(mapped.accountLinked, true);
+  assertEquals(mapped.observationState, "InOrder");
+  assertEquals(Object.hasOwn(mapped, "accountId"), false);
+  assertEquals(Object.hasOwn(mapped, "account_id"), false);
+  assertEquals(Object.hasOwn(mapped, "providerReferenceHash"), false);
+  assertEquals(Object.hasOwn(mapped, "provider_reference_hash"), false);
+  assertEquals(Object.hasOwn(mapped, "providerEventReferenceHash"), false);
+  assertEquals(Object.hasOwn(mapped, "provider_event_reference_hash"), false);
 });
