@@ -33,6 +33,8 @@ export function problem(
     ? { "Retry-After": "60" }
     : status === 503 && code === "server_overloaded"
     ? { "Retry-After": "5" }
+    : status === 503 && code === "database_busy"
+    ? { "Retry-After": "2" }
     : status === 409 && code === "idempotency_in_progress"
     ? { "Retry-After": "1" }
     : {};
