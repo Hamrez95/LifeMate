@@ -22,8 +22,10 @@ jobs:
           fetch-depth: 1
 
       - name: Apply exact account-enumeration hardening edits
-        shell: python
+        shell: bash
         run: |
+          set -euo pipefail
+          python - <<'PY'
           from pathlib import Path
 
           auth_path = Path('packages/lifemate_client/lib/src/experience_auth.dart')
@@ -101,35 +103,35 @@ jobs:
           policy_anchor = '''// Raw provider messages must not become a generic last-resort UI error.
 '''
           policy_addition = r'''// Signup must not disclose whether an email already belongs to an account.
-requireMatch(
-  authUi,
-  /response\.session\s*==\s*null[\s\S]{0,500}_genericSignupMessage\(\)/,
-  'non-session signup must use existence-neutral confirmation copy',
-);
-requireMatch(
-  authUi,
-  /_mode\s*==\s*_AuthMode\.signUp[\s\S]{0,240}user already registered[\s\S]{0,500}_genericSignupMessage\(\)/,
-  'provider duplicate-signup response must be converted to the same generic confirmation',
-);
-rejectMatch(
-  authUi,
-  /این ایمیل قبلاً ثبت شده|email has already been registered/i,
-  'signup UI must not reveal that an account already exists',
-);
+          requireMatch(
+            authUi,
+            /response\.session\s*==\s*null[\s\S]{0,500}_genericSignupMessage\(\)/,
+            'non-session signup must use existence-neutral confirmation copy',
+          );
+          requireMatch(
+            authUi,
+            /_mode\s*==\s*_AuthMode\.signUp[\s\S]{0,240}user already registered[\s\S]{0,500}_genericSignupMessage\(\)/,
+            'provider duplicate-signup response must be converted to the same generic confirmation',
+          );
+          rejectMatch(
+            authUi,
+            /این ایمیل قبلاً ثبت شده|email has already been registered/i,
+            'signup UI must not reveal that an account already exists',
+          );
 
-'''
+          '''
           if source.count('_genericSignupMessage()') < 3:
               raise SystemExit('generic signup message is not wired to both neutral outcomes')
           if policy.count(policy_anchor) != 1:
               raise SystemExit('auth policy insertion anchor not found exactly once')
           policy = policy.replace(policy_anchor, policy_addition + policy_anchor, 1)
           policy_path.write_text(policy)
+          PY
 
-      - name: Format and verify exact source policy
+      - name: Verify exact source policy
         shell: bash
         run: |
           set -euo pipefail
-          dart format packages/lifemate_client/lib/src/experience_auth.dart
           node tools/security/verify-auth-security-contract.mjs
           git diff --check
           git diff --exit-code -- .github/workflows/_temporary-auth-enumeration-codemod.yml
