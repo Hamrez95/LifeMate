@@ -6,9 +6,21 @@ type Row = Record<string, unknown>;
 export function createAccountLifecycleStore(databaseUrl: string) {
   const sql = getLifeMateSql(databaseUrl);
 
+  async function accountIdForAppUser(appUserId: string): Promise<string> {
+    const rows = await sql`
+      select identity.account_id_for_legacy_app_user(${appUserId}::uuid) as account_id
+    `;
+    const accountId = rows[0]?.account_id;
+    if (typeof accountId !== "string") {
+      throw new ApiError(404, "account_not_found", "Account was not found.");
+    }
+    return accountId;
+  }
+
   async function requestDeletion(
-    accountId: string,
+    appUserId: string,
   ): Promise<Record<string, unknown>> {
+    const accountId = await accountIdForAppUser(appUserId);
     let rows;
     try {
       rows = await sql`
@@ -40,8 +52,9 @@ export function createAccountLifecycleStore(databaseUrl: string) {
   }
 
   async function latestDeletionRequest(
-    accountId: string,
+    appUserId: string,
   ): Promise<Record<string, unknown> | null> {
+    const accountId = await accountIdForAppUser(appUserId);
     const rows = await sql`
       select * from identity.latest_account_deletion_request(${accountId}::uuid)
     `;
