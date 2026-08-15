@@ -48,70 +48,9 @@ Deno.test({
           (${appUserId}::uuid,${authSubject},'Active',now(),now()),
           (${survivorUserId}::uuid,${survivorAuthSubject},'Active',now(),now())
       `;
-      // Bootstrap initially creates same-ID legacy ecosystem rows. Remove that
-      // projection so the test can remap AppUser -> a different Account/Person.
-      await sql`
-        delete from commerce.entitlements
-        where grantee_account_id in (
-          ${appUserId}::uuid, ${survivorUserId}::uuid
-        ) or beneficiary_person_id in (
-          ${appUserId}::uuid, ${survivorUserId}::uuid
-        )
-      `;
-      await sql`
-        delete from ecosystem.app_enrollments
-        where account_id in (${appUserId}::uuid, ${survivorUserId}::uuid)
-      `;
-      await sql`
-        delete from identity.external_identities
-        where account_id in (${appUserId}::uuid, ${survivorUserId}::uuid)
-      `;
-      await sql`
-        delete from core.account_person_links
-        where account_id in (${appUserId}::uuid, ${survivorUserId}::uuid)
-      `;
-      await sql`
-        delete from identity.accounts
-        where id in (${appUserId}::uuid, ${survivorUserId}::uuid)
-      `;
-      await sql`
-        delete from core.persons
-        where id in (${appUserId}::uuid, ${survivorUserId}::uuid)
-      `;
 
-      // Bootstrap initially creates same-ID legacy ecosystem rows. Remove that
-      // projection so the test can remap AppUser -> a different Account/Person.
-      await sql`
-        delete from commerce.entitlements
-        where grantee_account_id in (
-          ${appUserId}::uuid, ${survivorUserId}::uuid
-        ) or beneficiary_person_id in (
-          ${appUserId}::uuid, ${survivorUserId}::uuid
-        )
-      `;
-      await sql`
-        delete from ecosystem.app_enrollments
-        where account_id in (${appUserId}::uuid, ${survivorUserId}::uuid)
-      `;
-      await sql`
-        delete from identity.external_identities
-        where account_id in (${appUserId}::uuid, ${survivorUserId}::uuid)
-      `;
-      await sql`
-        delete from core.account_person_links
-        where account_id in (${appUserId}::uuid, ${survivorUserId}::uuid)
-      `;
-      await sql`
-        delete from identity.accounts
-        where id in (${appUserId}::uuid, ${survivorUserId}::uuid)
-      `;
-      await sql`
-        delete from core.persons
-        where id in (${appUserId}::uuid, ${survivorUserId}::uuid)
-      `;
-
-      // Bootstrap initially creates same-ID legacy ecosystem rows. Remove that
-      // projection so the test can remap AppUser -> a different Account/Person.
+      // Bootstrap creates same-ID compatibility rows. Remove that projection so
+      // the test proves deletion works with Account != AppUser != Person.
       await sql`
         delete from commerce.entitlements
         where grantee_account_id in (
@@ -221,7 +160,7 @@ Deno.test({
         ) values (
           ${crypto.randomUUID()}::uuid,${appUserId}::uuid,${personId}::uuid,
           ${crypto.randomUUID()}::uuid,'weight',81.5,'kg',now(),current_date,
-          'Asia/Tehran','manual','wellmate',${sourceApplicationId}::uuid
+          'Asia/Tehran','FirstPartyUserInput','wellmate',${sourceApplicationId}::uuid
         )
       `;
       await sql`
