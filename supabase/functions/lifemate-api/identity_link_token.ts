@@ -1,0 +1,105 @@
+const encoder = new TextEncoder();
+
+export type IdentityLinkTokenInput = {
+  provider: string;
+  issuer: string;
+  subject: string;
+  keyVersion: number;
+};
+
+type EnvironmentReader = (name: string) => string | null | undefined;
+
+function requiredSegment(
+  name: string,
+  value: string,
+  maximumLength: number,
+): string {
+  const normalized = value.trim();
+  if (!normalized || normalized.length > maximumLength) {
+    throw new Error(`${name} is invalid.`);
+  }
+  return normalized;
+}
+
+function requiredKeyVersion(value: number): number {
+  if (!Number.isSafeInteger(value) || value < 1 || value > 65535) {
+    throw new Error("Identity-link key version is invalid.");
+  }
+  return value;
+}
+
+function toHex(bytes: ArrayBuffer): string {
+  return [...new Uint8Array(bytes)]
+    .map((value) => value.toString(16).padStart(2, "0"))
+    .join("");
+}
+
+/**
+ * Derives a deterministic opaque lookup token for an external authentication
+ * subject. The HMAC key must live outside PostgreSQL/database backups.
+ *
+ * The raw provider subject is never returned and must not be persisted by new
+ * identity-link storage. Key version is part of the authenticated message so a
+ * rotation can run old/new versions side-by-side during a bounded migration.
+ */
+export async function deriveIdentityLinkToken(
+  secret: string,
+  input: IdentityLinkTokenInput,
+): Promise<string> {
+  const keyBytes = encoder.encode(secret);
+  if (keyBytes.byteLength < 32) {
+    throw new Error(
+      "Identity-link key must contain at least 32 UTF-8 bytes and must be stored outside PostgreSQL.",
+    );
+  }
+
+  const provider = requiredSegment("provider", input.provider, 80);
+  const issuer = requiredSegment("issuer", input.issuer, 255);
+  const subject = requiredSegment("subject", input.subject, 512);
+  const keyVersion = requiredKeyVersion(input.keyVersion);
+
+  // JSON with fixed key order avoids delimiter ambiguity while keeping the
+  // canonical message portable across runtimes.
+  const canonical = JSON.stringify({
+    version: keyVersion,
+    provider,
+    issuer,
+    subject,
+  });
+  const key = await crypto.subtle.importKey(
+    "raw",
+    keyBytes,
+    { name: "HMAC", hash: "SHA-256" },
+    false,
+    ["sign"],
+  );
+  const digest = await crypto.subtle.sign(
+    "HMAC",
+    key,
+    encoder.encode(canonical),
+  );
+  return toHex(digest);
+}
+
+export function readIdentityLinkKeyFromEnvironment(
+  readEnvironment: EnvironmentReader = (name) => Deno.env.get(name),
+): {
+  secret: string;
+  keyVersion: number;
+} {
+  const secret = readEnvironment("LIFEMATE_IDENTITY_LINK_KEY") ?? "";
+  const keyVersionRaw = readEnvironment("LIFEMATE_IDENTITY_LINK_KEY_VERSION") ??
+    "";
+  if (encoder.encode(secret).byteLength < 32) {
+    throw new Error(
+      "LIFEMATE_IDENTITY_LINK_KEY must be configured as an external runtime secret with at least 32 UTF-8 bytes.",
+    );
+  }
+  if (!/^\d+$/.test(keyVersionRaw)) {
+    throw new Error("LIFEMATE_IDENTITY_LINK_KEY_VERSION must be configured.");
+  }
+  return {
+    secret,
+    keyVersion: requiredKeyVersion(Number(keyVersionRaw)),
+  };
+}
