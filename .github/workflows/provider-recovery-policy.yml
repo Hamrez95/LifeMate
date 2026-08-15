@@ -1,0 +1,41 @@
+name: provider-recovery-policy
+
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - '.github/workflows/postgres-restore-drill.yml'
+      - '.github/workflows/provider-recovery-policy.yml'
+      - 'docs/operations/BACKUP_RESTORE_MONITORING.md'
+      - 'docs/operations/PROVIDER_RECOVERY_GATE.md'
+      - 'docs/security/IDENTITY_MEDICAL_LINKAGE_THREAT_MODEL.md'
+      - 'tools/operations/verify-provider-recovery-contract.mjs'
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/postgres-restore-drill.yml'
+      - '.github/workflows/provider-recovery-policy.yml'
+      - 'docs/operations/BACKUP_RESTORE_MONITORING.md'
+      - 'docs/operations/PROVIDER_RECOVERY_GATE.md'
+      - 'docs/security/IDENTITY_MEDICAL_LINKAGE_THREAT_MODEL.md'
+      - 'tools/operations/verify-provider-recovery-contract.mjs'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: provider-recovery-policy-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  policy:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
+        with:
+          show-progress: false
+          persist-credentials: false
+
+      - name: Verify provider recovery evidence contract
+        run: node tools/operations/verify-provider-recovery-contract.mjs
