@@ -12,6 +12,18 @@ import {
   parseCommerceDetailQuery,
 } from "./commerce_detail.ts";
 import { createCommerceDetailStore } from "./commerce_detail_service.ts";
+import {
+  hashCreatePromotionRequest,
+  hashPromotionStatusRequest,
+  hashUpdatePromotionRequest,
+  matchCommercePromotionDetailPath,
+  matchCommercePromotionStatusPath,
+  parseCommercePromotionsQuery,
+  parseCreatePromotionPayload,
+  parsePromotionStatusPayload,
+  parseUpdatePromotionPayload,
+} from "./commerce_promotions.ts";
+import { createCommercePromotionsStore } from "./commerce_promotions_service.ts";
 import { createCommerceOverviewStore } from "./commerce_service.ts";
 import {
   getCommerceRefundCapability,
@@ -76,6 +88,9 @@ const userAccountActionStore = createUserAccountActionStore(config.databaseUrl);
 const analyticsKpiStore = createAnalyticsKpiStore(config.databaseUrl);
 const commerceOverviewStore = createCommerceOverviewStore(config.databaseUrl);
 const commerceDetailStore = createCommerceDetailStore(config.databaseUrl);
+const commercePromotionsStore = createCommercePromotionsStore(
+  config.databaseUrl,
+);
 const commerceTransactionsStore = createCommerceTransactionsStore(
   config.databaseUrl,
 );
@@ -115,6 +130,25 @@ async function optionalSection<T>(
     });
     return { state: "unavailable" as const };
   }
+}
+
+function mutationStatus(result: Record<string, unknown>): number {
+  const status = Number(result.httpStatus);
+  if (!Number.isInteger(status) || status < 100 || status > 599) {
+    throw new ApiError(
+      503,
+      "promotion_workflow_unavailable",
+      "Promotion workflow returned an invalid status.",
+    );
+  }
+  return status;
+}
+
+function mutationErrorMessage(
+  result: Record<string, unknown>,
+  fallback: string,
+): string {
+  return typeof result.message === "string" ? result.message : fallback;
 }
 
 Deno.serve(async (request: Request) => {
@@ -229,6 +263,177 @@ Deno.serve(async (request: Request) => {
           },
         },
         200,
+        origin,
+      );
+    }
+
+    if (request.method === "GET" && path === "/api/v1/commerce/promotions") {
+      requirePermission(admin, "commerce.read");
+      const query = parseCommercePromotionsQuery(new URL(request.url));
+      const result = await commercePromotionsStore.list(query);
+      return json(
+        {
+          ...result,
+          page: query.page,
+          pageSize: query.pageSize,
+          filters: {
+            product: query.product,
+            status: query.status,
+            q: query.q,
+            code: query.exactCode,
+          },
+          source: {
+            kind: "canonical",
+            label: "LifeMate Commerce promotion ledger",
+          },
+          freshness: {
+            status: "fresh",
+            asOfUtc: new Date().toISOString(),
+          },
+        },
+        200,
+        origin,
+      );
+    }
+
+    if (request.method === "POST" && path === "/api/v1/commerce/promotions") {
+      requirePermission(admin, "commerce.promo.write");
+      const idempotencyKey = requireIdempotencyKey(request);
+      const payload = await parseCreatePromotionPayload(request);
+      const requestHash = await hashCreatePromotionRequest(payload);
+      const result = await commercePromotionsStore.create({
+        actorAccountId: accountId,
+        payload,
+        correlationId,
+        idempotencyKey,
+        requestHash,
+      });
+      const status = mutationStatus(result);
+      if (status >= 400) {
+        throw new ApiError(
+          status,
+          String(result.code),
+          mutationErrorMessage(result, "Promotion creation was not completed."),
+        );
+      }
+      return json(
+        {
+          promotionId: String(result.promotionId),
+          discountCodeId: String(result.discountCodeId),
+          promotionStatus: String(result.promotionStatus),
+          codeStatus: String(result.codeStatus),
+          replayed: Boolean(result.replayed),
+        },
+        status,
+        origin,
+      );
+    }
+
+    const promotionStatusId = matchCommercePromotionStatusPath(path);
+    if (request.method === "POST" && promotionStatusId) {
+      requirePermission(admin, "commerce.promo.write");
+      const idempotencyKey = requireIdempotencyKey(request);
+      const payload = await parsePromotionStatusPayload(request);
+      const requestHash = await hashPromotionStatusRequest(
+        promotionStatusId,
+        payload,
+      );
+      const result = await commercePromotionsStore.setStatus({
+        actorAccountId: accountId,
+        promotionId: promotionStatusId,
+        payload,
+        correlationId,
+        idempotencyKey,
+        requestHash,
+      });
+      const status = mutationStatus(result);
+      if (status >= 400) {
+        throw new ApiError(
+          status,
+          String(result.code),
+          mutationErrorMessage(
+            result,
+            "Promotion status change was not completed.",
+          ),
+        );
+      }
+      return json(
+        {
+          promotionId: String(result.promotionId),
+          previousStatus: String(result.previousStatus),
+          status: String(result.status),
+          noop: Boolean(result.noop),
+          replayed: Boolean(result.replayed),
+        },
+        status,
+        origin,
+      );
+    }
+
+    const promotionDetailId = matchCommercePromotionDetailPath(path);
+    if (request.method === "GET" && promotionDetailId) {
+      requirePermission(admin, "commerce.read");
+      const result = await commercePromotionsStore.getDetail(
+        promotionDetailId,
+        admin.permissions.includes("security.audit.read"),
+      );
+      if (!result) {
+        throw new ApiError(
+          404,
+          "commerce_promotion_not_found",
+          "Commerce promotion was not found.",
+        );
+      }
+      return json(
+        {
+          ...result,
+          source: {
+            kind: "canonical",
+            label: "LifeMate Commerce promotion detail",
+          },
+          freshness: {
+            status: "fresh",
+            asOfUtc: new Date().toISOString(),
+          },
+        },
+        200,
+        origin,
+      );
+    }
+
+    if (request.method === "PUT" && promotionDetailId) {
+      requirePermission(admin, "commerce.promo.write");
+      const idempotencyKey = requireIdempotencyKey(request);
+      const payload = await parseUpdatePromotionPayload(request);
+      const requestHash = await hashUpdatePromotionRequest(
+        promotionDetailId,
+        payload,
+      );
+      const result = await commercePromotionsStore.update({
+        actorAccountId: accountId,
+        promotionId: promotionDetailId,
+        payload,
+        correlationId,
+        idempotencyKey,
+        requestHash,
+      });
+      const status = mutationStatus(result);
+      if (status >= 400) {
+        throw new ApiError(
+          status,
+          String(result.code),
+          mutationErrorMessage(result, "Promotion update was not completed."),
+        );
+      }
+      return json(
+        {
+          promotionId: String(result.promotionId),
+          status: String(result.status),
+          discountCodeId: String(result.discountCodeId),
+          codeStatus: String(result.codeStatus),
+          replayed: Boolean(result.replayed),
+        },
+        status,
         origin,
       );
     }
