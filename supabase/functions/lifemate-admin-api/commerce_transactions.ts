@@ -1,4 +1,8 @@
-import { ApiError, boundedInteger } from "./validation.ts";
+import {
+  ApiError,
+  boundedAdminPage,
+  boundedAdminPageSize,
+} from "./validation.ts";
 
 export const TRANSACTION_STATUSES = [
   "Pending",
@@ -58,8 +62,8 @@ function optionalDate(value: string | null, field: string): string | null {
 export function parseCommerceTransactionsQuery(
   url: URL,
 ): CommerceTransactionsQuery {
-  const page = boundedInteger(url.searchParams.get("page"), 1, 1, 100_000);
-  const pageSize = boundedInteger(url.searchParams.get("pageSize"), 25, 5, 100);
+  const page = boundedAdminPage(url.searchParams.get("page"));
+  const pageSize = boundedAdminPageSize(url.searchParams.get("pageSize"), 25, 5);
   const product = optionalCode(url.searchParams.get("product"), "product");
   const provider = optionalCode(url.searchParams.get("provider"), "provider");
 
