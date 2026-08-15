@@ -17,12 +17,12 @@ permissions:
 
 jobs:
   lifemate-application-readiness:
+    if: ${{ github.event_name != 'workflow_dispatch' || !inputs.exercise_alert }}
     runs-on: ubuntu-24.04
     timeout-minutes: 3
     env:
       DEFAULT_READINESS_URL: https://bwdvmniywyyijjauipnh.supabase.co/functions/v1/lifemate-readiness
       CONFIGURED_READINESS_URL: ${{ vars.LIFEMATE_READINESS_URL }}
-      EXERCISE_ALERT: ${{ github.event_name == 'workflow_dispatch' && inputs.exercise_alert }}
       GH_TOKEN: ${{ github.token }}
     steps:
       - name: Check production Edge and restricted database dependency
@@ -30,12 +30,6 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-
-          if [[ "$EXERCISE_ALERT" == "true" ]]; then
-            echo 'Synthetic alert drill requested; production readiness endpoint was not called.' >&2
-            exit 1
-          fi
-
           READINESS_URL="${CONFIGURED_READINESS_URL:-$DEFAULT_READINESS_URL}"
           response_file="$RUNNER_TEMP/lifemate-readiness.json"
           status="$(curl \
@@ -81,20 +75,13 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          if [[ "$EXERCISE_ALERT" == "true" ]]; then
-            alert_title='OPS DRILL — Production readiness alert routing'
-            alert_kind='synthetic/provider-safe alert drill'
-          else
-            alert_title='OPS ALERT — Production readiness failed'
-            alert_kind='production readiness failure'
-          fi
-
+          alert_title='OPS ALERT — Production readiness failed'
           run_url="${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}"
           body_file="$RUNNER_TEMP/lifemate-readiness-alert.md"
           cat > "$body_file" <<EOF
           ## LifeMate operational alert
 
-          - Kind: ${alert_kind}
+          - Kind: production readiness failure
           - Workflow: production-health-monitor
           - Run: ${run_url}
           - Source SHA: \`${GITHUB_SHA}\`
@@ -146,22 +133,51 @@ jobs:
               --comment "Production readiness recovered. Verified by ${run_url}."
           fi
 
-      - name: Close synthetic alert drill issue
-        if: ${{ failure() && github.event_name == 'workflow_dispatch' && inputs.exercise_alert }}
+  alert-routing-drill:
+    if: ${{ github.event_name == 'workflow_dispatch' && inputs.exercise_alert }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 2
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - name: Create a provider-safe synthetic alert
+        id: create-alert
         shell: bash
         run: |
           set -euo pipefail
           alert_title='OPS DRILL — Production readiness alert routing'
-          issue_number="$(gh issue list \
+          run_url="${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}"
+          body_file="$RUNNER_TEMP/lifemate-readiness-alert-drill.md"
+          cat > "$body_file" <<EOF
+          ## LifeMate operational alert drill
+
+          - Kind: synthetic/provider-safe alert-routing drill
+          - Workflow: production-health-monitor
+          - Run: ${run_url}
+          - Source SHA: \`${GITHUB_SHA}\`
+          - Exercised at UTC: $(date -u +%Y-%m-%dT%H:%M:%SZ)
+          - Owner: @${GITHUB_REPOSITORY_OWNER}
+
+          This drill does not call the production readiness endpoint and contains no production/user payload.
+          EOF
+
+          issue_number="$(gh issue create \
             --repo "$GITHUB_REPOSITORY" \
-            --state open \
-            --search "${alert_title} in:title" \
-            --limit 1 \
+            --title "$alert_title" \
+            --body-file "$body_file" \
+            --assignee "$GITHUB_REPOSITORY_OWNER" \
             --json number \
-            --jq '.[0].number // empty')"
-          if [[ -n "$issue_number" ]]; then
-            run_url="${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}"
-            gh issue close "$issue_number" \
-              --repo "$GITHUB_REPOSITORY" \
-              --comment "Synthetic alert-routing drill completed. Production readiness was not probed. Evidence run: ${run_url}."
-          fi
+            --jq '.number')"
+          echo "issue_number=$issue_number" >> "$GITHUB_OUTPUT"
+
+      - name: Auto-close successful synthetic alert drill
+        shell: bash
+        env:
+          ISSUE_NUMBER: ${{ steps.create-alert.outputs.issue_number }}
+        run: |
+          set -euo pipefail
+          test -n "$ISSUE_NUMBER"
+          run_url="${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}"
+          gh issue close "$ISSUE_NUMBER" \
+            --repo "$GITHUB_REPOSITORY" \
+            --comment "Synthetic alert-routing drill completed successfully. Production readiness was not probed. Evidence run: ${run_url}."
