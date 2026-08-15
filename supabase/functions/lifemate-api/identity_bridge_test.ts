@@ -1,7 +1,4 @@
-import {
-  assertEquals,
-  assertThrows,
-} from "jsr:@std/assert@1.0.14";
+import { assertEquals, assertThrows } from "jsr:@std/assert@1.0.14";
 import { identityLinkDualWriteEnabled } from "./identity_bridge.ts";
 
 Deno.test("identity token dual-write is fail-closed by default", () => {
