@@ -41,7 +41,9 @@ export class SubjectTelemetryRateLimiter {
   #prune(now: number): void {
     if (this.#windows.size < this.maximumSubjects) return;
     for (const [subject, window] of this.#windows) {
-      if (now - window.startedAt >= this.windowMs) this.#windows.delete(subject);
+      if (now - window.startedAt >= this.windowMs) {
+        this.#windows.delete(subject);
+      }
     }
   }
 }
