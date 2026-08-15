@@ -1,5 +1,7 @@
 import { getLifeMateSql } from "./database_client.ts";
 import { corsHeaders } from "./http.ts";
+import { findLegacyIdempotencyReplay } from "./idempotency_legacy.ts";
+import { createHmac } from "./security.ts";
 import { ApiError } from "./validation.ts";
 
 type Row = Record<string, unknown>;
@@ -49,20 +51,23 @@ export function createMutationIdempotencyStore(
   }
 
   const sql = getLifeMateSql(databaseUrl);
-  // The deployment already carries a protected high-entropy healthcare secret.
-  // Derive a purpose-separated AES key so replay envelopes (which may contain
-  // medical data or one-time invitation tokens) are never duplicated in
-  // plaintext inside the ledger.
+  // Purpose-separate both database actor linkage and response encryption from
+  // the same externally protected deployment secret. A database-only breach
+  // cannot recover the Auth subject from the persisted actor token.
+  const actorTokenHmac = createHmac(
+    `lifemate:idempotency-actor:v1:${responseEncryptionSecret}`,
+  );
   const responseKey = deriveResponseEncryptionKey(responseEncryptionSecret);
 
   async function execute(
-    actorAuthSubject: string,
+    actorCredential: string,
     operation: string,
     idempotencyKey: string,
     requestBody: string,
     action: () => Promise<Response>,
   ): Promise<Response> {
     const hash = await requestHash(requestBody);
+    const actorToken = await actorTokenHmac(actorCredential);
 
     // Reclaim expired rows in small sampled batches so retention stays bounded
     // without adding a cleanup query to every healthcare mutation. Exact-key
@@ -80,15 +85,55 @@ export function createMutationIdempotencyStore(
       `;
     }
 
+    // New tokenized rows win. During the bounded <=24h migration window, a
+    // pre-tokenization row is checked only when no current tokenized row exists.
+    const existingTokenRows = await sql`
+      select request_hash, status, response_status, response_body
+      from lifemate.idempotency_keys
+      where actor_subject_token=${actorToken}
+        and operation=${operation}
+        and idempotency_key=${idempotencyKey}
+        and expires_at_utc > now()
+      limit 1
+    `;
+    if (existingTokenRows[0]) {
+      return await replayExisting(
+        existingTokenRows[0] as Row,
+        actorToken,
+        operation,
+        idempotencyKey,
+        hash,
+        responseKey,
+      );
+    }
+
+    const legacyReplay = await findLegacyIdempotencyReplay(
+      sql,
+      actorCredential,
+      operation,
+      idempotencyKey,
+    );
+    if (legacyReplay) {
+      return await replayExisting(
+        legacyReplay as Row,
+        actorCredential,
+        operation,
+        idempotencyKey,
+        hash,
+        responseKey,
+      );
+    }
+
     const claimed = await sql`
       insert into lifemate.idempotency_keys
-        (actor_auth_subject, operation, idempotency_key, request_hash,
+        (actor_subject_token, operation, idempotency_key, request_hash,
          status, response_status, response_body, created_at_utc,
          updated_at_utc, expires_at_utc)
       values
-        (${actorAuthSubject}::uuid, ${operation}, ${idempotencyKey}, ${hash},
+        (${actorToken}, ${operation}, ${idempotencyKey}, ${hash},
          'Processing', null, null, now(), now(), now() + interval '24 hours')
-      on conflict (actor_auth_subject, operation, idempotency_key)
+      on conflict (actor_subject_token, operation, idempotency_key)
+        where actor_subject_token is not null
       do update set
         request_hash = excluded.request_hash,
         status = 'Processing',
@@ -98,17 +143,16 @@ export function createMutationIdempotencyStore(
         updated_at_utc = excluded.updated_at_utc,
         expires_at_utc = excluded.expires_at_utc
       where lifemate.idempotency_keys.expires_at_utc <= now()
-      returning actor_auth_subject
+      returning actor_subject_token
     `;
 
     if (!claimed[0]) {
       const existingRows = await sql`
-        select request_hash, status, response_status, response_body,
-               expires_at_utc
+        select request_hash, status, response_status, response_body
         from lifemate.idempotency_keys
-        where actor_auth_subject = ${actorAuthSubject}::uuid
-          and operation = ${operation}
-          and idempotency_key = ${idempotencyKey}
+        where actor_subject_token=${actorToken}
+          and operation=${operation}
+          and idempotency_key=${idempotencyKey}
         limit 1
       `;
       const existing = existingRows[0] as Row | undefined;
@@ -119,45 +163,14 @@ export function createMutationIdempotencyStore(
           "Mutation retry state is temporarily unavailable.",
         );
       }
-      if (String(existing.request_hash) !== hash) {
-        throw new ApiError(
-          409,
-          "idempotency_key_reused",
-          "Idempotency-Key was already used with a different request payload.",
-        );
-      }
-      if (String(existing.status) !== "Completed") {
-        throw new ApiError(
-          409,
-          "idempotency_in_progress",
-          "A matching mutation is already being processed. Retry shortly.",
-        );
-      }
-      const responseStatus = Number(existing.response_status);
-      if (
-        !Number.isInteger(responseStatus) || responseStatus < 200 ||
-        responseStatus > 299
-      ) {
-        throw new ApiError(
-          503,
-          "idempotency_state_unavailable",
-          "Stored mutation response is unavailable.",
-        );
-      }
-      const replayBody = existing.response_body == null
-        ? null
-        : await decryptResponseBody(
-          String(existing.response_body),
-          responseKey,
-          replayContext(actorAuthSubject, operation, idempotencyKey, hash),
-        );
-      return new Response(replayBody, {
-        status: responseStatus,
-        headers: {
-          ...corsHeaders,
-          "X-Idempotency-Replayed": "true",
-        },
-      });
+      return await replayExisting(
+        existing,
+        actorToken,
+        operation,
+        idempotencyKey,
+        hash,
+        responseKey,
+      );
     }
 
     let response: Response;
@@ -171,10 +184,10 @@ export function createMutationIdempotencyStore(
       // rather than blindly duplicating a critical write.
       await sql`
         delete from lifemate.idempotency_keys
-        where actor_auth_subject = ${actorAuthSubject}::uuid
-          and operation = ${operation}
-          and idempotency_key = ${idempotencyKey}
-          and status = 'Processing'
+        where actor_subject_token=${actorToken}
+          and operation=${operation}
+          and idempotency_key=${idempotencyKey}
+          and status='Processing'
       `.catch(() => undefined);
       throw error;
     }
@@ -185,10 +198,10 @@ export function createMutationIdempotencyStore(
     ) {
       await sql`
         delete from lifemate.idempotency_keys
-        where actor_auth_subject = ${actorAuthSubject}::uuid
-          and operation = ${operation}
-          and idempotency_key = ${idempotencyKey}
-          and status = 'Processing'
+        where actor_subject_token=${actorToken}
+          and operation=${operation}
+          and idempotency_key=${idempotencyKey}
+          and status='Processing'
       `.catch(() => undefined);
       throw new ApiError(
         500,
@@ -202,7 +215,7 @@ export function createMutationIdempotencyStore(
       : await encryptResponseBody(
         storedBody,
         responseKey,
-        replayContext(actorAuthSubject, operation, idempotencyKey, hash),
+        replayContext(actorToken, operation, idempotencyKey, hash),
       );
 
     // Do not convert this completion failure into a reusable key. A successful
@@ -211,13 +224,13 @@ export function createMutationIdempotencyStore(
     // producing a duplicate side effect.
     const completed = await sql`
       update lifemate.idempotency_keys
-      set status = 'Completed', response_status = ${response.status},
-          response_body = ${encryptedBody}, updated_at_utc = now()
-      where actor_auth_subject = ${actorAuthSubject}::uuid
-        and operation = ${operation}
-        and idempotency_key = ${idempotencyKey}
-        and request_hash = ${hash}
-        and status = 'Processing'
+      set status='Completed', response_status=${response.status},
+          response_body=${encryptedBody}, updated_at_utc=now()
+      where actor_subject_token=${actorToken}
+        and operation=${operation}
+        and idempotency_key=${idempotencyKey}
+        and request_hash=${hash}
+        and status='Processing'
       returning idempotency_key
     `;
     if (!completed[0]) {
@@ -231,6 +244,55 @@ export function createMutationIdempotencyStore(
   }
 
   return { execute };
+}
+
+async function replayExisting(
+  existing: Row,
+  replayActorKey: string,
+  operation: string,
+  idempotencyKey: string,
+  hash: string,
+  responseKey: Promise<CryptoKey>,
+): Promise<Response> {
+  if (String(existing.request_hash) !== hash) {
+    throw new ApiError(
+      409,
+      "idempotency_key_reused",
+      "Idempotency-Key was already used with a different request payload.",
+    );
+  }
+  if (String(existing.status) !== "Completed") {
+    throw new ApiError(
+      409,
+      "idempotency_in_progress",
+      "A matching mutation is already being processed. Retry shortly.",
+    );
+  }
+  const responseStatus = Number(existing.response_status);
+  if (
+    !Number.isInteger(responseStatus) || responseStatus < 200 ||
+    responseStatus > 299
+  ) {
+    throw new ApiError(
+      503,
+      "idempotency_state_unavailable",
+      "Stored mutation response is unavailable.",
+    );
+  }
+  const replayBody = existing.response_body == null
+    ? null
+    : await decryptResponseBody(
+      String(existing.response_body),
+      responseKey,
+      replayContext(replayActorKey, operation, idempotencyKey, hash),
+    );
+  return new Response(replayBody, {
+    status: responseStatus,
+    headers: {
+      ...corsHeaders,
+      "X-Idempotency-Replayed": "true",
+    },
+  });
 }
 
 async function deriveResponseEncryptionKey(secret: string): Promise<CryptoKey> {
@@ -248,12 +310,12 @@ async function deriveResponseEncryptionKey(secret: string): Promise<CryptoKey> {
 }
 
 function replayContext(
-  actorAuthSubject: string,
+  actorKey: string,
   operation: string,
   idempotencyKey: string,
   hash: string,
 ): string {
-  return `${actorAuthSubject}\n${operation}\n${idempotencyKey}\n${hash}`;
+  return `${actorKey}\n${operation}\n${idempotencyKey}\n${hash}`;
 }
 
 async function encryptResponseBody(

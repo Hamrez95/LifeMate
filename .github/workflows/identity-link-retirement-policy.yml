@@ -1,0 +1,152 @@
+name: identity-link-retirement-policy
+
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - 'supabase/functions/lifemate-api/**'
+      - 'supabase/migrations/**'
+      - 'tools/security/identity-link-retirement-readiness.ts'
+      - 'tools/security/identity-link-retirement-readiness_test.ts'
+      - 'tools/security/verify-identity-raw-link-boundary.mjs'
+      - '.github/workflows/identity-link-retirement-readiness.yml'
+      - '.github/workflows/identity-link-retirement-policy.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'supabase/functions/lifemate-api/**'
+      - 'supabase/migrations/**'
+      - 'tools/security/identity-link-retirement-readiness.ts'
+      - 'tools/security/identity-link-retirement-readiness_test.ts'
+      - 'tools/security/verify-identity-raw-link-boundary.mjs'
+      - '.github/workflows/identity-link-retirement-readiness.yml'
+      - '.github/workflows/identity-link-retirement-policy.yml'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: identity-link-retirement-policy-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  source-and-data-contract:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    services:
+      postgres:
+        image: postgres:17.6-alpine
+        env:
+          POSTGRES_DB: lifemate_identity_retirement
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d lifemate_identity_retirement"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      TEST_DATABASE_URL: postgres://postgres:postgres@localhost:5432/lifemate_identity_retirement
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
+        with:
+          show-progress: false
+          persist-credentials: false
+
+      - uses: denoland/setup-deno@22d081ff2d3a40755e97629de92e3bcbfa7cf2ed
+        with:
+          deno-version: v2.9.4
+
+      - name: Freeze raw runtime identity boundary
+        run: node tools/security/verify-identity-raw-link-boundary.mjs
+
+      - name: Format and type-check read-only audit
+        shell: bash
+        run: |
+          set -euo pipefail
+          deno fmt --check \
+            tools/security/identity-link-retirement-readiness.ts \
+            tools/security/identity-link-retirement-readiness_test.ts
+          deno check tools/security/identity-link-retirement-readiness_test.ts
+
+      - name: Apply canonical portable schema
+        shell: bash
+        run: |
+          set -euo pipefail
+          psql "$TEST_DATABASE_URL" --set=ON_ERROR_STOP=1 \
+            --file=supabase/bootstrap/legacy_lifemate_baseline.sql
+          while IFS= read -r migration; do
+            psql "$TEST_DATABASE_URL" --set=ON_ERROR_STOP=1 --file="$migration"
+          done < <(find supabase/migrations -maxdepth 1 -type f -name '*.sql' | sort)
+
+      - name: Prove legacy idempotency runtime remains schema-compatible
+        shell: bash
+        run: |
+          set -euo pipefail
+          psql "$TEST_DATABASE_URL" --set=ON_ERROR_STOP=1 <<'SQL'
+          insert into lifemate.idempotency_keys(
+            actor_auth_subject,operation,idempotency_key,request_hash,status,
+            response_status,response_body,created_at_utc,updated_at_utc,expires_at_utc
+          ) values(
+            '11111111-1111-4111-8111-111111111111'::uuid,
+            'POST /compatibility-probe','legacy-conflict-target-probe',
+            repeat('a',64),'Processing',null,null,now(),now(),now()+interval '1 hour'
+          )
+          on conflict(actor_auth_subject,operation,idempotency_key) do update set
+            request_hash=excluded.request_hash,
+            updated_at_utc=excluded.updated_at_utc,
+            expires_at_utc=excluded.expires_at_utc;
+
+          insert into lifemate.idempotency_keys(
+            actor_auth_subject,operation,idempotency_key,request_hash,status,
+            response_status,response_body,created_at_utc,updated_at_utc,expires_at_utc
+          ) values(
+            '11111111-1111-4111-8111-111111111111'::uuid,
+            'POST /compatibility-probe','legacy-conflict-target-probe',
+            repeat('b',64),'Processing',null,null,now(),now(),now()+interval '1 hour'
+          )
+          on conflict(actor_auth_subject,operation,idempotency_key) do update set
+            request_hash=excluded.request_hash,
+            updated_at_utc=excluded.updated_at_utc,
+            expires_at_utc=excluded.expires_at_utc;
+
+          do $$
+          declare v_count integer; v_hash text;
+          begin
+            select count(*), max(request_hash) into v_count,v_hash
+            from lifemate.idempotency_keys
+            where operation='POST /compatibility-probe'
+              and idempotency_key='legacy-conflict-target-probe';
+            if v_count <> 1 or v_hash <> repeat('b',64) then
+              raise exception 'legacy idempotency ON CONFLICT target was not preserved';
+            end if;
+          end $$;
+
+          delete from lifemate.idempotency_keys
+          where operation='POST /compatibility-probe'
+            and idempotency_key='legacy-conflict-target-probe';
+          SQL
+
+      - name: Prove canonical-token coverage gate
+        run: >-
+          deno test --no-check --allow-env
+          --allow-net=localhost:5432,127.0.0.1:5432
+          tools/security/identity-link-retirement-readiness_test.ts
+
+      - name: Verify protected manual readiness workflow policy
+        shell: bash
+        run: |
+          set -euo pipefail
+          workflow='.github/workflows/identity-link-retirement-readiness.yml'
+          grep -Fq 'workflow_dispatch:' "$workflow"
+          ! grep -Eq '^[[:space:]]+(pull_request|push|schedule):' "$workflow"
+          grep -Fq 'environment: beta' "$workflow"
+          grep -Fq "test \"\$GITHUB_REF\" = 'refs/heads/main'" "$workflow"
+          grep -Fq "github.event.repository.private }}\" = 'true'" "$workflow"
+          grep -Fq "github.ref_protected }}\" = 'true'" "$workflow"
+          grep -Fq 'verify-identity-raw-link-boundary.mjs' "$workflow"
+          grep -Fq 'identity-link-retirement-readiness.ts' "$workflow"
+          grep -Fq 'readyForTokenOnly' "$workflow"
+          ! grep -Fq 'upload-artifact' "$workflow"
