@@ -93,7 +93,12 @@ export function parseSupportTicketEventsQuery(
   url: URL,
 ): SupportTicketEventsQuery {
   const page = boundedAdminPage(url.searchParams.get("page"));
-  const pageSize = boundedAdminPageSize(url.searchParams.get("pageSize"), 20, 5, 50);
+  const pageSize = boundedAdminPageSize(
+    url.searchParams.get("pageSize"),
+    20,
+    5,
+    50,
+  );
   return { page, pageSize, offset: (page - 1) * pageSize };
 }
 
