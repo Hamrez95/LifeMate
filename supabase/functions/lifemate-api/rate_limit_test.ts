@@ -1,9 +1,11 @@
 import { assert, assertEquals, assertRejects } from "jsr:@std/assert@1.0.14";
 import {
   buildRateLimitKey,
+  classifyRateLimitFailure,
   classifyRequest,
   InMemoryCounterStore,
   RequestRateLimiter,
+  resolveRateLimitRuntimeConfig,
   UpstashRestCounterStore,
 } from "./rate_limit.ts";
 import { ApiError } from "./validation.ts";
@@ -95,9 +97,88 @@ Deno.test("two Redis-backed limiter instances consume one shared quota", async (
   assertEquals(error.status, 429);
 });
 
+Deno.test("concurrent Redis-backed instances enforce one atomic write boundary", async () => {
+  const counters = new Map<string, number>();
+  const fakeFetch = async (
+    _input: string | URL | Request,
+    init?: RequestInit,
+  ) => {
+    const command = JSON.parse(String(init?.body ?? "[]"));
+    const key = String(command[3]);
+    const count = (counters.get(key) ?? 0) + 1;
+    counters.set(key, count);
+    await Promise.resolve();
+    return Response.json({ result: [count, 60_000] });
+  };
+  const first = new RequestRateLimiter(
+    new UpstashRestCounterStore(
+      "https://redis.example",
+      "token-token-token-token",
+      fakeFetch,
+    ),
+    "redis",
+  );
+  const second = new RequestRateLimiter(
+    new UpstashRestCounterStore(
+      "https://redis.example",
+      "token-token-token-token",
+      fakeFetch,
+    ),
+    "redis",
+  );
+  const subject = crypto.randomUUID();
+
+  const results = await Promise.allSettled(
+    Array.from({ length: 121 }, (_, index) =>
+      (index % 2 === 0 ? first : second).enforce(
+        "POST",
+        "/api/v1/treatment-plans",
+        subject,
+      )
+    ),
+  );
+  const fulfilled = results.filter((result) => result.status === "fulfilled");
+  const rejected = results.filter((result) => result.status === "rejected");
+
+  assertEquals(fulfilled.length, 120);
+  assertEquals(rejected.length, 1);
+  const reason = (rejected[0] as PromiseRejectedResult).reason;
+  assert(reason instanceof ApiError);
+  assertEquals(reason.status, 429);
+  assertEquals(counters.size, 1);
+  assertEquals([...counters.values()][0], 121);
+});
+
+Deno.test("shared denial is cached locally without repeatedly hitting Redis", async () => {
+  let fetchCount = 0;
+  const fakeFetch = async () => {
+    fetchCount += 1;
+    return Response.json({ result: [121, 30_000] });
+  };
+  const limiter = new RequestRateLimiter(
+    new UpstashRestCounterStore(
+      "https://redis.example",
+      "token-token-token-token",
+      fakeFetch,
+    ),
+    "redis",
+  );
+  const subject = crypto.randomUUID();
+
+  await assertRejects(
+    () => limiter.enforce("POST", "/api/v1/treatment-plans", subject),
+    ApiError,
+  );
+  await assertRejects(
+    () => limiter.enforce("POST", "/api/v1/treatment-plans", subject),
+    ApiError,
+  );
+  assertEquals(fetchCount, 1);
+});
+
 Deno.test("Redis failure falls back to a conservative local quota", async () => {
   const failingFetch = async () => {
-    throw new Error("redis_down");
+    throw new Error("redis_down_with_sensitive_detail_patient@example.test");
   };
   const limiter = new RequestRateLimiter(
     new UpstashRestCounterStore(
@@ -117,4 +198,89 @@ Deno.test("Redis failure falls back to a conservative local quota", async () => 
     ApiError,
   );
   assertEquals(error.status, 429);
+  const snapshot = limiter.snapshot();
+  assertEquals(snapshot.source, "redis");
+  assertEquals(snapshot.state, "degraded");
+  assertEquals(snapshot.lastFailureCode, "error");
+  assert(snapshot.lastPrimaryLatencyMs !== null);
+  assert(snapshot.lastPrimaryLatencyMs >= 0);
 });
+
+Deno.test("rate limiter failure codes never copy arbitrary network error text", () => {
+  assertEquals(
+    classifyRateLimitFailure(new Error("redis_http_503")),
+    "redis_http_503",
+  );
+  assertEquals(
+    classifyRateLimitFailure(new Error("redis_invalid_response")),
+    "redis_invalid_response",
+  );
+  assertEquals(
+    classifyRateLimitFailure(
+      new Error("Bearer secret-token patient@example.test redis exploded"),
+    ),
+    "error",
+  );
+});
+
+Deno.test("runtime config refuses unsafe shared/local configuration", () => {
+  assertEquals(resolveRateLimitRuntimeConfig({}), {
+    mode: "local",
+    requireDistributed: false,
+    redisUrl: null,
+    redisToken: null,
+  });
+
+  assertThrowsConfig(
+    () =>
+      resolveRateLimitRuntimeConfig({
+        mode: "local",
+        requireDistributed: "true",
+      }),
+    "Distributed rate limiting is required",
+  );
+  assertThrowsConfig(
+    () =>
+      resolveRateLimitRuntimeConfig({
+        mode: "redis",
+        redisUrl: "http://redis.example",
+        redisToken: "token-token-token-token",
+      }),
+    "Redis rate-limit mode requires",
+  );
+  assertThrowsConfig(
+    () =>
+      resolveRateLimitRuntimeConfig({
+        mode: "local",
+        requireDistributed: "tru",
+      }),
+    "must be true or false",
+  );
+});
+
+Deno.test("runtime config accepts explicit distributed Redis mode", () => {
+  assertEquals(
+    resolveRateLimitRuntimeConfig({
+      mode: "redis",
+      requireDistributed: "true",
+      redisUrl: "https://redis.example",
+      redisToken: "token-token-token-token",
+    }),
+    {
+      mode: "redis",
+      requireDistributed: true,
+      redisUrl: "https://redis.example",
+      redisToken: "token-token-token-token",
+    },
+  );
+});
+
+function assertThrowsConfig(fn: () => unknown, expected: string): void {
+  try {
+    fn();
+    throw new Error("expected configuration failure");
+  } catch (error) {
+    assert(error instanceof Error);
+    assert(error.message.includes(expected));
+  }
+}
