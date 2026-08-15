@@ -1,0 +1,108 @@
+{
+  "schemaVersion": 1,
+  "rollout": {
+    "initialMode": "log",
+    "stages": ["log", "simulate", "block"],
+    "minimumObservationMinutes": 30
+  },
+  "responses": {
+    "rateLimitedStatus": 429,
+    "retryAfterSeconds": 30,
+    "tooLargeStatus": 413,
+    "unsupportedMediaStatus": 415,
+    "methodNotAllowedStatus": 405
+  },
+  "defaults": {
+    "jsonMaximumBytes": 32768,
+    "binaryMaximumBytes": 3145728,
+    "allowedMethods": ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"]
+  },
+  "classes": {
+    "public-probe": {
+      "outerRateLimit": {"requests": 120, "windowSeconds": 60},
+      "emergencyAction": "allow"
+    },
+    "critical-healthcare-write": {
+      "outerRateLimit": {"requests": 1200, "windowSeconds": 60},
+      "emergencyAction": "allow"
+    },
+    "sensitive-write": {
+      "outerRateLimit": {"requests": 300, "windowSeconds": 3600},
+      "emergencyAction": "rate_limit"
+    },
+    "upload": {
+      "outerRateLimit": {"requests": 60, "windowSeconds": 3600},
+      "emergencyAction": "rate_limit"
+    },
+    "expensive-read": {
+      "outerRateLimit": {"requests": 600, "windowSeconds": 60},
+      "emergencyAction": "rate_limit"
+    },
+    "read": {
+      "outerRateLimit": {"requests": 1200, "windowSeconds": 60},
+      "emergencyAction": "rate_limit"
+    },
+    "write": {
+      "outerRateLimit": {"requests": 600, "windowSeconds": 60},
+      "emergencyAction": "rate_limit"
+    }
+  },
+  "routes": [
+    {
+      "id": "health",
+      "class": "public-probe",
+      "methods": ["GET"],
+      "pathPattern": "^/health$",
+      "maximumBodyBytes": 0,
+      "contentTypes": []
+    },
+    {
+      "id": "critical-dose-report",
+      "class": "critical-healthcare-write",
+      "methods": ["POST"],
+      "pathPattern": "^/api/v1/dose-occurrences/[0-9a-fA-F-]{36}/report$",
+      "maximumBodyBytes": 32768,
+      "contentTypes": ["application/json"]
+    },
+    {
+      "id": "profile-photo-upload",
+      "class": "upload",
+      "methods": ["PUT"],
+      "pathPattern": "^/api/v1/me/profile/photo$",
+      "maximumBodyBytes": 3145728,
+      "contentTypes": ["image/jpeg", "image/png", "image/webp"]
+    },
+    {
+      "id": "sensitive-account-and-care-writes",
+      "class": "sensitive-write",
+      "methods": ["POST", "PUT", "PATCH", "DELETE"],
+      "pathPattern": "^/api/v1/(account/deletion-requests|account/data-export|care/(invitations|requests)|me/identities/sync)(?:/.*)?$",
+      "maximumBodyBytes": 32768,
+      "contentTypes": ["application/json"]
+    },
+    {
+      "id": "expensive-aggregate-reads",
+      "class": "expensive-read",
+      "methods": ["GET"],
+      "pathPattern": "^/api/v1/(home-snapshot|women-calendar/dashboard)$",
+      "maximumBodyBytes": 0,
+      "contentTypes": []
+    },
+    {
+      "id": "api-reads",
+      "class": "read",
+      "methods": ["GET"],
+      "pathPattern": "^/api/v1(?:/.*)?$",
+      "maximumBodyBytes": 0,
+      "contentTypes": []
+    },
+    {
+      "id": "api-writes",
+      "class": "write",
+      "methods": ["POST", "PUT", "PATCH", "DELETE"],
+      "pathPattern": "^/api/v1(?:/.*)?$",
+      "maximumBodyBytes": 32768,
+      "contentTypes": ["application/json"]
+    }
+  ]
+}
