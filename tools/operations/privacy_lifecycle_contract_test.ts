@@ -52,9 +52,16 @@ Deno.test("product export wording describes portable JSON and clipboard handling
   assert(!ui.includes("خروجی کامل دیتابیس"));
 });
 
-Deno.test("account deletion UI matches retention-v2 owned-data deletion and pseudonymous-retention contract", async () => {
+Deno.test("account deletion UI is bound to the runtime retention-v2 lifecycle", async () => {
   const ui = await read(
     "packages/lifemate_client/lib/src/account_deletion_action.dart",
+  );
+  const accountLifecycle = await read(
+    "supabase/functions/lifemate-api/account_lifecycle.ts",
+  );
+  const worker = await read("supabase/functions/lifemate-worker/index.ts");
+  const retentionMigration = await read(
+    "supabase/migrations/20260814215000_account_deletion_retention_v2.sql",
   );
   const retention = await read("docs/privacy/ACCOUNT_DELETION_RETENTION.md");
   const contract = await read("docs/privacy/SELF_SERVICE_DATA_LIFECYCLE.md");
@@ -71,6 +78,51 @@ Deno.test("account deletion UI matches retention-v2 owned-data deletion and pseu
       "minimum pseudonymous records required for security, consent, shared-data integrity or legal retention",
     ),
   );
+
+  assert(
+    accountLifecycle.includes("identity.account_id_for_legacy_app_user"),
+    "account lifecycle must resolve AppUser to Account before deletion",
+  );
+  assert(
+    accountLifecycle.includes("identity.request_account_deletion"),
+    "account lifecycle must use the canonical deletion request function",
+  );
+  assert(
+    worker.includes('case "identity.account_deletion_requested"'),
+    "worker must process the canonical account-deletion event",
+  );
+  assert(
+    worker.includes("admin.auth.admin.deleteUser(authSubject, true)"),
+    "worker must remove the provider auth identity before finalization",
+  );
+  assert(
+    worker.includes("purgeProfilePhotoFolder"),
+    "worker must purge server-owned profile storage before finalization",
+  );
+  assert(
+    worker.includes("identity.finalize_account_deletion"),
+    "worker must invoke the retention finalizer",
+  );
+
+  for (
+    const marker of [
+      "retention_policy_version = 'retention-v2'",
+      "delete from lifemate.women_calendar_daily_logs",
+      "delete from lifemate.health_observations",
+      "delete from lifemate.treatment_plans",
+      "delete from identity.contact_points",
+      "delete from identity.external_identities",
+      "metadata_json = jsonb_build_object('redacted','account_deleted')",
+      "auth_subject = 'deleted:' || v_app_user_id::text",
+      "grant execute on function identity.finalize_account_deletion(uuid) to lifemate_worker_runtime",
+    ]
+  ) {
+    assert(
+      retentionMigration.includes(marker),
+      `retention-v2 runtime is missing: ${marker}`,
+    );
+  }
+
   assert(retention.includes("retention-v2"));
   assert(
     retention.includes("account IDs are **not** assumed to equal app-user IDs"),
