@@ -2,11 +2,18 @@ name: production-health-monitor
 
 on:
   workflow_dispatch:
+    inputs:
+      exercise_alert:
+        description: Create and auto-close a synthetic readiness alert without probing production
+        required: false
+        default: false
+        type: boolean
   schedule:
     - cron: '*/15 * * * *'
 
 permissions:
   contents: read
+  issues: write
 
 jobs:
   lifemate-application-readiness:
@@ -15,11 +22,20 @@ jobs:
     env:
       DEFAULT_READINESS_URL: https://bwdvmniywyyijjauipnh.supabase.co/functions/v1/lifemate-readiness
       CONFIGURED_READINESS_URL: ${{ vars.LIFEMATE_READINESS_URL }}
+      EXERCISE_ALERT: ${{ github.event_name == 'workflow_dispatch' && inputs.exercise_alert }}
+      GH_TOKEN: ${{ github.token }}
     steps:
       - name: Check production Edge and restricted database dependency
+        id: readiness
         shell: bash
         run: |
           set -euo pipefail
+
+          if [[ "$EXERCISE_ALERT" == "true" ]]; then
+            echo 'Synthetic alert drill requested; production readiness endpoint was not called.' >&2
+            exit 1
+          fi
+
           READINESS_URL="${CONFIGURED_READINESS_URL:-$DEFAULT_READINESS_URL}"
           response_file="$RUNNER_TEMP/lifemate-readiness.json"
           status="$(curl \
@@ -59,3 +75,93 @@ jobs:
             echo "- deployed version: \`$version\`"
             echo '- deep grant/RLS/DML verification is intentionally kept in deployment CI, not the recurring production monitor'
           } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Route readiness failure to the repository owner
+        if: ${{ failure() }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ "$EXERCISE_ALERT" == "true" ]]; then
+            alert_title='OPS DRILL — Production readiness alert routing'
+            alert_kind='synthetic/provider-safe alert drill'
+          else
+            alert_title='OPS ALERT — Production readiness failed'
+            alert_kind='production readiness failure'
+          fi
+
+          run_url="${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}"
+          body_file="$RUNNER_TEMP/lifemate-readiness-alert.md"
+          cat > "$body_file" <<EOF
+          ## LifeMate operational alert
+
+          - Kind: ${alert_kind}
+          - Workflow: production-health-monitor
+          - Run: ${run_url}
+          - Source SHA: \`${GITHUB_SHA}\`
+          - Detected at UTC: $(date -u +%Y-%m-%dT%H:%M:%SZ)
+          - Owner: @${GITHUB_REPOSITORY_OWNER}
+
+          No response body, token, email, phone, account/person identifier, or healthcare payload is copied into this alert.
+
+          Follow \`docs/operations/reliability-slos.md\` and the deployment rollback/forward-fix runbook. Pause onboarding for unresolved security, privacy, data-loss, systemic reminder, or uncontrolled availability incidents.
+          EOF
+
+          issue_number="$(gh issue list \
+            --repo "$GITHUB_REPOSITORY" \
+            --state open \
+            --search "${alert_title} in:title" \
+            --limit 1 \
+            --json number \
+            --jq '.[0].number // empty')"
+
+          if [[ -n "$issue_number" ]]; then
+            gh issue comment "$issue_number" \
+              --repo "$GITHUB_REPOSITORY" \
+              --body-file "$body_file"
+          else
+            gh issue create \
+              --repo "$GITHUB_REPOSITORY" \
+              --title "$alert_title" \
+              --body-file "$body_file" \
+              --assignee "$GITHUB_REPOSITORY_OWNER"
+          fi
+
+      - name: Close recovered production readiness alert
+        if: ${{ success() }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          alert_title='OPS ALERT — Production readiness failed'
+          issue_number="$(gh issue list \
+            --repo "$GITHUB_REPOSITORY" \
+            --state open \
+            --search "${alert_title} in:title" \
+            --limit 1 \
+            --json number \
+            --jq '.[0].number // empty')"
+          if [[ -n "$issue_number" ]]; then
+            run_url="${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}"
+            gh issue close "$issue_number" \
+              --repo "$GITHUB_REPOSITORY" \
+              --comment "Production readiness recovered. Verified by ${run_url}."
+          fi
+
+      - name: Close synthetic alert drill issue
+        if: ${{ failure() && github.event_name == 'workflow_dispatch' && inputs.exercise_alert }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          alert_title='OPS DRILL — Production readiness alert routing'
+          issue_number="$(gh issue list \
+            --repo "$GITHUB_REPOSITORY" \
+            --state open \
+            --search "${alert_title} in:title" \
+            --limit 1 \
+            --json number \
+            --jq '.[0].number // empty')"
+          if [[ -n "$issue_number" ]]; then
+            run_url="${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}"
+            gh issue close "$issue_number" \
+              --repo "$GITHUB_REPOSITORY" \
+              --comment "Synthetic alert-routing drill completed. Production readiness was not probed. Evidence run: ${run_url}."
+          fi
