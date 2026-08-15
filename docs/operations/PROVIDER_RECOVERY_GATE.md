@@ -2,7 +2,7 @@
 
 Parent: Foundation #211.
 
-This gate is deliberately separate from the repository logical restore drill. A green `postgres-restore-drill` proves that the canonical schema, data, grants and restricted roles can be reconstructed from a logical archive in clean PostgreSQL. It does **not** prove that the active Supabase project has a current provider backup, Point-in-Time Recovery (PITR), a particular retention window, or a tested provider restore path.
+This gate is deliberately separate from the repository logical restore drill. A green `postgres-restore-drill` proves that the canonical schema, data, grants and restricted roles can be reconstructed from a logical archive in clean PostgreSQL. It does **not** prove that the active hosted project has a current provider backup, Point-in-Time Recovery (PITR), a particular retention window, or a tested provider restore path.
 
 ## Closed-beta recovery objectives
 
@@ -13,13 +13,29 @@ For the initial controlled beta:
 - **Recovery owner:** repository/project owner until an explicit operations owner is assigned.
 - **Safety:** never run a destructive restore/failover experiment against the live production database or real patient data.
 
-These are launch objectives, not claims about the current Supabase plan. If the selected provider plan cannot meet them, the limitation and compensating procedure require an explicit release decision before real-family onboarding.
+These are launch objectives, not claims about any selected provider plan. If the selected provider plan cannot meet them, the limitation and compensating procedure require an explicit release decision before real-family onboarding.
 
-## Evidence required from the provider
+## Current compensating path
 
-Record non-secret evidence in #211 for the active project `bwdvmniywyyijjauipnh`:
+The current hosted database plan does not provide the managed-backup/PITR acceptance path required by this gate. For the current Foundation/beta phase, the founder has explicitly selected a **provider-independent encrypted workstation logical backup** as the compensating path under #226.
 
-1. selected Supabase plan/tier relevant to backup capability;
+The source contract is implemented under #227/#228/#229/#230 and documented in `docs/operations/WORKSTATION_BACKUP.md`:
+
+- standard PostgreSQL `pg_dump`/`pg_restore`, not a provider CLI or provider backup format;
+- explicit LifeMate-owned schema allowlist;
+- a read-only, non-superuser backup role with narrowly scoped RLS bypass for complete dumps;
+- direct streaming from `pg_dump` into `age` ciphertext with no normal plaintext backup artifact;
+- daily Windows workstation scheduling, retention and ciphertext freshness/integrity checks;
+- private recovery key and database credential kept outside Git, PostgreSQL and task arguments;
+- isolated/non-production restore verification before recovery evidence can pass.
+
+This source implementation does not itself prove that a real workstation backup exists. #226 remains OPEN until the founder workstation is configured, a fresh encrypted backup is produced, and an isolated restore/security exercise is measured against the RPO/RTO targets.
+
+## Evidence required from the active provider
+
+Record non-secret evidence in #211 for whichever provider is active at release time:
+
+1. selected provider/plan or tier relevant to backup capability;
 2. whether managed backups/snapshots are enabled;
 3. actual backup schedule/frequency;
 4. actual retention window;
@@ -28,7 +44,9 @@ Record non-secret evidence in #211 for the active project `bwdvmniywyyijjauipnh`
 7. provider limitations that can extend RTO or lose data beyond the RPO target;
 8. evidence date and owner who verified the configuration.
 
-Do not put database passwords, service-role keys, Supabase access tokens, user identifiers or health data into the evidence.
+If the approved workstation compensating path is the actual beta recovery mechanism, record the provider limitation plus the workstation evidence instead of inventing provider backup/PITR claims.
+
+Do not put database passwords, service-role keys, provider access tokens, user identifiers or health data into the evidence.
 
 ## Provider-safe recovery exercise
 
@@ -45,7 +63,7 @@ The restored target must be verified with synthetic fixtures only:
 - retention/account-deletion state is internally consistent;
 - the current identity-link token schema/key-version references required by #217 are recoverable **without** placing the external protective key in the database backup.
 
-If a provider clone/restore is unavailable on the selected plan, document that limitation and prove the compensating logical-backup path on a provider-safe target. Do not rename that evidence PITR.
+If a provider clone/restore is unavailable on the selected plan, document that limitation and prove the compensating logical-backup path on an isolated provider-safe target. Do not rename that evidence PITR.
 
 ## Configuration and key recovery
 
@@ -81,6 +99,7 @@ Verified by:
 Provider/project:
 Plan/tier:
 Managed backup enabled: yes/no
+Approved compensating path (if any):
 Backup frequency:
 Retention window:
 PITR available/enabled: yes/no
@@ -88,6 +107,7 @@ PITR window/granularity:
 Recovery/clone target:
 Exercise used synthetic data only: yes/no
 Logical restore workflow run:
+Workstation encrypted backup evidence (if selected):
 Restricted-role/security checks: pass/fail
 Identity-link external key remained outside DB backup: yes/no
 Measured recovery duration:

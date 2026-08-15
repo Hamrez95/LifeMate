@@ -116,11 +116,15 @@ jobs:
           where rolname in (
             'lifemate_edge_runtime',
             'lifemate_worker_runtime',
-            'lifemate_admin_runtime'
+            'lifemate_admin_runtime',
+            'lifemate_backup_reader'
           )
           order by rolname;
           SQL
           test "$(grep -c '^create role lifemate_.*_runtime' "$RUNNER_TEMP/lifemate.runtime-roles.sql")" -eq 3
+          test "$(grep -c '^create role lifemate_backup_reader ' "$RUNNER_TEMP/lifemate.runtime-roles.sql")" -eq 1
+          grep -q '^create role lifemate_backup_reader NOLOGIN NOSUPERUSER INHERIT NOCREATEROLE NOCREATEDB NOREPLICATION BYPASSRLS ' \
+            "$RUNNER_TEMP/lifemate.runtime-roles.sql"
 
       - name: Restore into an independent clean PostgreSQL cluster
         shell: bash
@@ -290,6 +294,18 @@ jobs:
             ) then
               raise exception 'Admin runtime security attributes/connection limit not restored';
             end if;
+            if not exists (
+              select 1 from pg_roles
+              where rolname='lifemate_backup_reader'
+                and rolcanlogin=false
+                and rolbypassrls=true
+                and rolsuper=false
+                and rolcreaterole=false
+                and rolcreatedb=false
+                and rolreplication=false
+            ) then
+              raise exception 'portable backup reader attributes not restored';
+            end if;
           end
           $$;
           SQL
@@ -345,8 +361,9 @@ jobs:
             echo '- source and restore: independent PostgreSQL 17.6 clusters'
             echo '- canonical baseline + every forward migration: source applied'
             echo '- PostgreSQL 17.6 pg_dump/pg_restore tools: used'
-            echo '- database ACLs + password-free runtime role manifest: restored'
+            echo '- database ACLs + password-free runtime/backup role manifest: restored'
             echo '- Edge/worker/admin role security attributes + connection limits: verified'
+            echo '- read-only backup reader NOLOGIN/NOSUPERUSER/BYPASSRLS contract: verified'
             echo '- synthetic data sentinel: restored'
             echo '- synthetic health row: visible to restricted Edge role through restored RLS'
             echo '- Admin runtime health-table read: denied'
