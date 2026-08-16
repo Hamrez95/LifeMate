@@ -1,7 +1,4 @@
-import {
-  type AdminSql,
-  getAdminSql,
-} from "./database_client.ts";
+import { type AdminSql, getAdminSql } from "./database_client.ts";
 import type {
   MarketingCampaignItem,
   MarketingCampaignQuery,
