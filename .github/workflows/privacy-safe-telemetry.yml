@@ -11,6 +11,7 @@ on:
       - 'packages/lifemate_client/**'
       - 'wellmate/lib/main.dart'
       - 'caremate/lib/main.dart'
+      - 'docs/privacy/PRODUCT_TELEMETRY.md'
       - 'backend-dotnet/src/LifeMate.Api/Middleware/**'
       - 'backend-dotnet/src/LifeMate.Api/Program.cs'
       - 'backend-dotnet/tests/LifeMate.IntegrationTests/PrivacySafeObservabilityTests.cs'
@@ -25,6 +26,7 @@ on:
       - 'packages/lifemate_client/**'
       - 'wellmate/lib/main.dart'
       - 'caremate/lib/main.dart'
+      - 'docs/privacy/PRODUCT_TELEMETRY.md'
       - 'backend-dotnet/src/LifeMate.Api/Middleware/**'
       - 'backend-dotnet/src/LifeMate.Api/Program.cs'
       - 'backend-dotnet/tests/LifeMate.IntegrationTests/PrivacySafeObservabilityTests.cs'
@@ -63,6 +65,7 @@ jobs:
         run: |
           set -euo pipefail
           grep -Fq 'client_telemetry_field_forbidden' privacy_safe_event.ts
+          grep -Fq 'product_telemetry_field_forbidden' privacy_safe_event.ts
           grep -Fq 'Never log the authenticated subject' index.ts
           if grep -R -n -E 'console\.(log|error|warn).*authorization|console\.(log|error|warn).*request\.body|console\.(log|error|warn).*auth_subject' .; then
             echo 'Telemetry source may log sensitive authentication/request data.' >&2
