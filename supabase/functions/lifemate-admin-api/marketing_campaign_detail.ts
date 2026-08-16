@@ -2,11 +2,13 @@ import { ApiError, requireUuid } from "./validation.ts";
 
 export type CampaignApprovalState = "Pending" | "Approved" | "Revoked";
 export type CampaignPublishStatus =
+  | "Scheduled"
   | "Queued"
   | "Processing"
   | "Published"
   | "Failed"
-  | "OutcomeUnknown";
+  | "OutcomeUnknown"
+  | "Cancelled";
 
 export type CampaignContentPayload = {
   brief: string | null;
