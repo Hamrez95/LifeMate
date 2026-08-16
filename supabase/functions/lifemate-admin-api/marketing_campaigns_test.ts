@@ -19,10 +19,10 @@ import {
 const CAMPAIGN_ID = "123e4567-e89b-42d3-a456-426614174888";
 const OWNER_ID = "123e4567-e89b-42d3-a456-426614174889";
 
-Deno.test("ADM-MKT-002 campaign query uses bounded pagination and channel filters", () => {
+Deno.test("ADM-MKT-002 campaign query uses bounded pagination and safe filters", () => {
   const query = parseMarketingCampaignQuery(
     new URL(
-      "https://admin.test/api/v1/marketing/campaigns?page=100&pageSize=100&status=Active&product=wellmate&channel=instagram",
+      "https://admin.test/api/v1/marketing/campaigns?page=100&pageSize=100&status=Active&product=wellmate&channel=instagram&from=2026-08-20T00:00:00%2B03:30&to=2026-08-25T23:59:59%2B03:30",
     ),
   );
 
@@ -32,9 +32,11 @@ Deno.test("ADM-MKT-002 campaign query uses bounded pagination and channel filter
   assertEquals(query.status, "Active");
   assertEquals(query.product, "wellmate");
   assertEquals(query.channel, "instagram");
+  assertEquals(query.startsFromUtc, "2026-08-19T20:30:00.000Z");
+  assertEquals(query.startsToUtc, "2026-08-25T20:29:59.000Z");
 });
 
-Deno.test("ADM-MKT-002 campaign query rejects deep pages and provider publishing states", () => {
+Deno.test("ADM-MKT-002 campaign query rejects deep pages, invalid ranges and provider publishing states", () => {
   assertThrows(() =>
     parseMarketingCampaignQuery(
       new URL(
@@ -46,6 +48,13 @@ Deno.test("ADM-MKT-002 campaign query rejects deep pages and provider publishing
     parseMarketingCampaignQuery(
       new URL(
         "https://admin.test/api/v1/marketing/campaigns?status=Published",
+      ),
+    )
+  );
+  assertThrows(() =>
+    parseMarketingCampaignQuery(
+      new URL(
+        "https://admin.test/api/v1/marketing/campaigns?from=2026-08-26T00:00:00Z&to=2026-08-25T00:00:00Z",
       ),
     )
   );
