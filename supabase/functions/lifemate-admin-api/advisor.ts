@@ -1,5 +1,9 @@
 import type { AdminCapabilitySnapshot } from "./authorization.ts";
-import type { AnalyticsKpiQuery, KpiValue } from "./analytics_kpis.ts";
+import {
+  type AnalyticsKpiQuery,
+  type KpiValue,
+  parseAnalyticsKpiQuery,
+} from "./analytics_kpis.ts";
 import { ApiError } from "./validation.ts";
 
 export const advisorTopics = [
@@ -113,15 +117,10 @@ export function advisorKpiNames(topic: AdvisorTopic): readonly string[] {
 }
 
 export function advisorKpiQuery(now = new Date()): AnalyticsKpiQuery {
-  const to = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
-  const from = new Date(to);
-  from.setUTCDate(from.getUTCDate() - 29);
-  return {
-    from: from.toISOString().slice(0, 10),
-    to: to.toISOString().slice(0, 10),
-    product: null,
-    includeSeries: false,
-  };
+  return parseAnalyticsKpiQuery(
+    new URL("https://advisor.internal/api/v1/analytics/kpis"),
+    now,
+  );
 }
 
 function evidence(value: KpiValue): AdvisorEvidence {
