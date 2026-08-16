@@ -109,7 +109,10 @@ export function createMarketingAiContentRouteHandler(databaseUrl: string) {
         },
         payload,
       );
-      const requestHash = await hashMarketingAiContentRequest(campaignId, payload);
+      const requestHash = await hashMarketingAiContentRequest(
+        campaignId,
+        payload,
+      );
       const stored = await store.record({
         actorAccountId: accountId,
         campaignId,
@@ -164,7 +167,10 @@ export function createMarketingAiContentRouteHandler(databaseUrl: string) {
     if (detail && request.method === "GET") {
       requirePermission(admin, "ai.marketing.use");
       requirePermission(admin, "marketing.read");
-      const generation = await store.get(detail.campaignId, detail.generationId);
+      const generation = await store.get(
+        detail.campaignId,
+        detail.generationId,
+      );
       if (!generation) {
         throw new ApiError(
           404,
