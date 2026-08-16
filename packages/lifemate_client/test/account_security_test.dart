@@ -37,6 +37,9 @@ Future<void> _scrollToKey(WidgetTester tester, String key) async {
 Future<void> _scrollToNotice(WidgetTester tester) =>
     _scrollToKey(tester, 'account-security-notice');
 
+String? _textAtKey(WidgetTester tester, String key) =>
+    tester.widget<Text>(find.byKey(ValueKey(key))).data;
+
 void main() {
   tearDown(() => LifeMateRuntimeLocale.setLanguageCode('fa'));
 
@@ -89,7 +92,10 @@ void main() {
       find.byKey(const ValueKey('account-security-change-phone')),
     );
     expect(phoneButton.onPressed, isNull);
-    expect(find.textContaining('not enabled for this release'), findsOneWidget);
+    expect(
+      find.text('Mobile-number changes are not enabled for this release yet.'),
+      findsOneWidget,
+    );
     expect(requests, 0);
     expect(verifications, 0);
   });
@@ -123,8 +129,9 @@ void main() {
     expect(requests, ['+989351234999']);
     expect(find.byKey(const ValueKey('account-security-pending-phone')),
         findsOneWidget);
-    expect(find.textContaining('4567'), findsOneWidget);
-    expect(find.textContaining('4999'), findsOneWidget);
+    expect(_textAtKey(tester, 'account-security-current-phone'), contains('4567'));
+    expect(find.textContaining('Pending verification: +98 ••• •• 4999'),
+        findsOneWidget);
 
     await tester.enterText(
       find.byKey(const ValueKey('account-security-phone-otp')),
@@ -138,8 +145,8 @@ void main() {
     expect(verifications, ['+989351234999:123456']);
     expect(find.byKey(const ValueKey('account-security-pending-phone')),
         findsNothing);
-    expect(find.textContaining('4999'), findsOneWidget);
-    expect(find.textContaining('4567'), findsNothing);
+    expect(_textAtKey(tester, 'account-security-current-phone'), contains('4999'));
+    expect(_textAtKey(tester, 'account-security-current-phone'), isNot(contains('4567')));
 
     await _scrollToNotice(tester);
     expect(find.textContaining('No new LifeMate health identity or Person'),
@@ -203,7 +210,8 @@ void main() {
     expect(find.textContaining('Phone change could not be started'),
         findsOneWidget);
     expect(find.textContaining('+989351234999'), findsNothing);
-    expect(find.textContaining('123456'), findsNothing);
+    expect(find.text('123456'), findsNothing);
+    expect(find.textContaining('raw provider'), findsNothing);
     expect(find.textContaining('SECRET'), findsNothing);
   });
 
@@ -223,7 +231,10 @@ void main() {
       find.byKey(const ValueKey('account-security-link-google')),
     );
     expect(linkButton.onPressed, isNull);
-    expect(find.textContaining('not enabled for this release'), findsOneWidget);
+    expect(
+      find.text('Google linking is not enabled for this release configuration yet.'),
+      findsOneWidget,
+    );
     expect(linkCalls, 0);
   });
 
