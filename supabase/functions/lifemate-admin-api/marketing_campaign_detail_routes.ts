@@ -47,7 +47,9 @@ function mutationErrorMessage(
 
 export function createMarketingCampaignDetailRouteHandler(databaseUrl: string) {
   const store = createMarketingCampaignDetailStore(databaseUrl);
-  const aiContentRouteHandler = createMarketingAiContentRouteHandler(databaseUrl);
+  const aiContentRouteHandler = createMarketingAiContentRouteHandler(
+    databaseUrl,
+  );
 
   return async function handle(
     context: MarketingCampaignDetailRouteContext,
