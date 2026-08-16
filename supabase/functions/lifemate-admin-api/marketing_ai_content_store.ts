@@ -21,7 +21,9 @@ type GenerationRow = {
 };
 
 function iso(value: Date | string): string {
-  return value instanceof Date ? value.toISOString() : new Date(value).toISOString();
+  return value instanceof Date
+    ? value.toISOString()
+    : new Date(value).toISOString();
 }
 
 function variants(value: unknown): MarketingAiContentVariant[] {
