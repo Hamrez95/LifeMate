@@ -64,36 +64,63 @@ const TOPIC_KPIS: Record<AdvisorTopic, readonly string[]> = {
 
 function objectBody(value: unknown): Record<string, unknown> {
   if (!value || typeof value !== "object" || Array.isArray(value)) {
-    throw new ApiError(400, "advisor_request_invalid", "Advisor request must be a JSON object.");
+    throw new ApiError(
+      400,
+      "advisor_request_invalid",
+      "Advisor request must be a JSON object.",
+    );
   }
   return value as Record<string, unknown>;
 }
 
-export async function parseAdvisorRequest(request: Request): Promise<AdvisorRequest> {
+export async function parseAdvisorRequest(
+  request: Request,
+): Promise<AdvisorRequest> {
   let body: unknown;
   try {
     body = await request.json();
   } catch {
-    throw new ApiError(400, "advisor_request_invalid", "Advisor request must be valid JSON.");
+    throw new ApiError(
+      400,
+      "advisor_request_invalid",
+      "Advisor request must be valid JSON.",
+    );
   }
   const value = objectBody(body);
   if (!advisorTopics.includes(value.topic as AdvisorTopic)) {
-    throw new ApiError(400, "advisor_topic_invalid", "Advisor topic is not allowlisted.");
+    throw new ApiError(
+      400,
+      "advisor_topic_invalid",
+      "Advisor topic is not allowlisted.",
+    );
   }
   let question: string | null = null;
-  if (value.question !== undefined && value.question !== null && value.question !== "") {
+  if (
+    value.question !== undefined && value.question !== null &&
+    value.question !== ""
+  ) {
     if (typeof value.question !== "string") {
-      throw new ApiError(400, "advisor_question_invalid", "Advisor question is invalid.");
+      throw new ApiError(
+        400,
+        "advisor_question_invalid",
+        "Advisor question is invalid.",
+      );
     }
     question = value.question.trim();
     if (question.length < 2 || question.length > 500) {
-      throw new ApiError(400, "advisor_question_invalid", "Advisor question must be between 2 and 500 characters.");
+      throw new ApiError(
+        400,
+        "advisor_question_invalid",
+        "Advisor question must be between 2 and 500 characters.",
+      );
     }
   }
   return { topic: value.topic as AdvisorTopic, question };
 }
 
-export function advisorSourcePermissions(topic: AdvisorTopic): readonly string[] {
+export function advisorSourcePermissions(
+  topic: AdvisorTopic,
+): readonly string[] {
   return TOPIC_PERMISSIONS[topic];
 }
 
@@ -102,7 +129,9 @@ export function assertAdvisorSourcePermissions(
   topic: AdvisorTopic,
 ): void {
   const current = new Set(admin.permissions);
-  const missing = TOPIC_PERMISSIONS[topic].filter((permission) => !current.has(permission));
+  const missing = TOPIC_PERMISSIONS[topic].filter((permission) =>
+    !current.has(permission)
+  );
   if (missing.length > 0) {
     throw new ApiError(
       403,
@@ -153,7 +182,8 @@ function findingFor(value: AdvisorEvidence): AdvisorFinding {
     return {
       severity: "attention",
       title: `${readableKpi(value.label)} قابل ارزیابی نیست`,
-      detail: "Read model این شاخص مقدار قابل اتکایی برنگردانده است؛ نتیجه به‌جای حدس یا صفر ساختگی، unavailable نگه داشته شد.",
+      detail:
+        "Read model این شاخص مقدار قابل اتکایی برنگردانده است؛ نتیجه به‌جای حدس یا صفر ساختگی، unavailable نگه داشته شد.",
       evidenceIds: [value.sourceId],
     };
   }
@@ -161,14 +191,16 @@ function findingFor(value: AdvisorEvidence): AdvisorFinding {
     return {
       severity: "attention",
       title: `${readableKpi(value.label)} نیازمند توجه به تازگی داده است`,
-      detail: `مقدار ثبت‌شده ${value.value} است، اما وضعیت داده ${value.freshness.status} است و باید با احتیاط تفسیر شود.`,
+      detail:
+        `مقدار ثبت‌شده ${value.value} است، اما وضعیت داده ${value.freshness.status} است و باید با احتیاط تفسیر شود.`,
       evidenceIds: [value.sourceId],
     };
   }
   return {
     severity: "info",
     title: `${readableKpi(value.label)} از read model معتبر خوانده شد`,
-    detail: `مقدار فعلی در بازه ۳۰روزه ${value.value} است. این عدد مستقیماً از منبع allowlisted آمده و توسط Advisor ساخته نشده است.`,
+    detail:
+      `مقدار فعلی در بازه ۳۰روزه ${value.value} است. این عدد مستقیماً از منبع allowlisted آمده و توسط Advisor ساخته نشده است.`,
     evidenceIds: [value.sourceId],
   };
 }
@@ -179,7 +211,9 @@ export function buildAdvisorInsight(
   generatedAtUtc: string,
 ): AdvisorInsight {
   const allowlisted = new Set(advisorKpiNames(topic));
-  const selected = values.filter((value) => allowlisted.has(value.name)).map(evidence);
+  const selected = values.filter((value) => allowlisted.has(value.name)).map(
+    evidence,
+  );
   const byName = new Set(selected.map((item) => item.label));
   for (const name of advisorKpiNames(topic)) {
     if (!byName.has(name)) {
@@ -197,7 +231,10 @@ export function buildAdvisorInsight(
     }
   }
   const findings = selected.map(findingFor);
-  const availableCount = selected.filter((item) => item.value !== null && item.state !== "unavailable").length;
+  const availableCount =
+    selected.filter((item) =>
+      item.value !== null && item.state !== "unavailable"
+    ).length;
   const summary = availableCount === 0
     ? "برای این موضوع هنوز داده کافی از read modelهای مجاز وجود ندارد؛ Advisor عمداً نتیجه‌ای را حدس نمی‌زند."
     : `Advisor برای این موضوع ${availableCount} شاخص قابل استناد را از read modelهای مجاز بررسی کرد. نتیجه فقط بر پایه همین شواهد است.`;
@@ -216,7 +253,9 @@ export function buildAdvisorInsight(
   };
 }
 
-export function safeAdvisorLogFields(request: AdvisorRequest): Record<string, unknown> {
+export function safeAdvisorLogFields(
+  request: AdvisorRequest,
+): Record<string, unknown> {
   return {
     topic: request.topic,
     hasQuestion: request.question !== null,
