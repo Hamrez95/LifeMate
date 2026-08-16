@@ -26,22 +26,17 @@ final class LifeMateIranPhone {
   }
 
   static String _asciiDigits(String value) {
-    const persian = '۰۱۲۳۴۵۶۷۸۹';
-    const arabic = '٠١٢٣٤٥٦٧٨٩';
     final buffer = StringBuffer();
     for (final rune in value.runes) {
-      final char = String.fromCharCode(rune);
-      final persianIndex = persian.indexOf(char);
-      if (persianIndex >= 0) {
-        buffer.write(persianIndex);
+      if (rune >= 0x06F0 && rune <= 0x06F9) {
+        buffer.write(rune - 0x06F0);
         continue;
       }
-      final arabicIndex = arabic.indexOf(char);
-      if (arabicIndex >= 0) {
-        buffer.write(arabicIndex);
+      if (rune >= 0x0660 && rune <= 0x0669) {
+        buffer.write(rune - 0x0660);
         continue;
       }
-      buffer.write(char);
+      buffer.writeCharCode(rune);
     }
     return buffer.toString();
   }
