@@ -11,17 +11,58 @@ class EditableProfileScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final isPersian = Localizations.localeOf(context).languageCode == 'fa';
-    return LifeMateSharedEditableProfileScreen(
-      apiClient: context.read<LifeMateApiClient>(),
-      theme: const LifeMateProfileThemeData(
-        background: AppColors.background,
-        accent: AppColors.primary,
-        titleColor: AppColors.darkBlue,
-        secondaryText: AppColors.textSecondary,
-        cardBackground: AppColors.cardBackground,
+    return ColoredBox(
+      color: AppColors.background,
+      child: Column(
+        children: [
+          SafeArea(
+            bottom: false,
+            minimum: const EdgeInsets.fromLTRB(20, 10, 20, 6),
+            child: Align(
+              alignment: AlignmentDirectional.centerEnd,
+              child: OutlinedButton.icon(
+                key: const ValueKey('wellmate-account-security'),
+                icon: const Icon(Icons.shield_outlined, size: 19),
+                label: Text(
+                  LifeMateRuntimeLocale.select(
+                    fa: 'امنیت حساب',
+                    en: 'Account security',
+                  ),
+                ),
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: AppColors.darkBlue,
+                ),
+                onPressed: () => Navigator.of(context).push(
+                  MaterialPageRoute<void>(
+                    builder: (_) => LifeMateAccountSecurityScreen(
+                      controller: lifeMateAccountSecurityControllerForApp(
+                        'WellMate',
+                      ),
+                      accent: AppColors.primary,
+                      background: AppColors.background,
+                      ink: AppColors.darkBlue,
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+          Expanded(
+            child: LifeMateSharedEditableProfileScreen(
+              apiClient: context.read<LifeMateApiClient>(),
+              theme: const LifeMateProfileThemeData(
+                background: AppColors.background,
+                accent: AppColors.primary,
+                titleColor: AppColors.darkBlue,
+                secondaryText: AppColors.textSecondary,
+                cardBackground: AppColors.cardBackground,
+              ),
+              fontFamily: isPersian ? 'Vazir' : 'Poppins',
+              keyPrefix: 'profile',
+            ),
+          ),
+        ],
       ),
-      fontFamily: isPersian ? 'Vazir' : 'Poppins',
-      keyPrefix: 'profile',
     );
   }
 }
