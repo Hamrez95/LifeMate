@@ -11,7 +11,9 @@ import {
   parseMarketingExecutionActionPayload,
   parseMarketingSchedulePayload,
 } from "./marketing_content_calendar.ts";
-import { createMarketingContentCalendarStore } from "./marketing_content_calendar_store.ts";
+import {
+  createMarketingContentCalendarStore,
+} from "./marketing_content_calendar_store.ts";
 import { ApiError, requireIdempotencyKey } from "./validation.ts";
 
 export type MarketingContentCalendarRouteContext = {
@@ -42,7 +44,9 @@ function mutationErrorMessage(
   return typeof result.message === "string" ? result.message : fallback;
 }
 
-export function createMarketingContentCalendarRouteHandler(databaseUrl: string) {
+export function createMarketingContentCalendarRouteHandler(
+  databaseUrl: string,
+) {
   const store = createMarketingContentCalendarStore(databaseUrl);
 
   return async function handleMarketingContentCalendarRoute(
@@ -50,7 +54,10 @@ export function createMarketingContentCalendarRouteHandler(databaseUrl: string) 
   ): Promise<Response | null> {
     const { request, path, accountId, admin, correlationId, origin } = context;
 
-    if (request.method === "GET" && path === "/api/v1/marketing/content-calendar") {
+    if (
+      request.method === "GET" &&
+      path === "/api/v1/marketing/content-calendar"
+    ) {
       requirePermission(admin, "marketing.read");
       const query = parseMarketingContentCalendarQuery(new URL(request.url));
       return json(await store.list(query), 200, origin);
@@ -62,7 +69,10 @@ export function createMarketingContentCalendarRouteHandler(databaseUrl: string) 
       requirePermission(admin, "marketing.social.publish");
       const idempotencyKey = requireIdempotencyKey(request);
       const payload = await parseMarketingSchedulePayload(request);
-      const requestHash = await hashMarketingScheduleRequest(campaignId, payload);
+      const requestHash = await hashMarketingScheduleRequest(
+        campaignId,
+        payload,
+      );
       const result = await store.schedule({
         actorAccountId: accountId,
         campaignId,
@@ -76,7 +86,10 @@ export function createMarketingContentCalendarRouteHandler(databaseUrl: string) 
         throw new ApiError(
           status,
           String(result.code),
-          mutationErrorMessage(result, "Campaign scheduling was not completed."),
+          mutationErrorMessage(
+            result,
+            "Campaign scheduling was not completed.",
+          ),
         );
       }
       return json(
@@ -117,7 +130,10 @@ export function createMarketingContentCalendarRouteHandler(databaseUrl: string) 
         throw new ApiError(
           status,
           String(result.code),
-          mutationErrorMessage(result, "Scheduled publish cancellation was not completed."),
+          mutationErrorMessage(
+            result,
+            "Scheduled publish cancellation was not completed.",
+          ),
         );
       }
       return json(
