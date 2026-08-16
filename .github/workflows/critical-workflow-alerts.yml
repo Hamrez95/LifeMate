@@ -31,6 +31,8 @@ jobs:
             'internal-beta-release:workflow_dispatch'
             'main-final-android-release:workflow_dispatch'
             'main-final-android-release:push'
+            'foundation-candidate-qualify:workflow_dispatch'
+            'foundation-candidate-policy:push'
             'postgres-schema:push'
             'edge-api:push'
             'ecosystem-workers:push'
