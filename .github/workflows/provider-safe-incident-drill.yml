@@ -5,6 +5,7 @@ on:
 
 permissions:
   contents: read
+  issues: write
 
 concurrency:
   group: provider-safe-incident-drill
@@ -31,6 +32,7 @@ jobs:
     env:
       DRILL_DATABASE_URL: postgres://postgres:postgres@localhost:5432/lifemate_ops_drill
       READINESS_PROBE_ID: 123e4567-e89b-42d3-a456-426614174888
+      GH_TOKEN: ${{ github.token }}
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
         with:
@@ -83,7 +85,7 @@ jobs:
             -c 'revoke select on security.runtime_readiness_probe from lifemate_edge_runtime;'
           printf 'failure_induced_at=%s\n' "$(date -u +%Y-%m-%dT%H:%M:%SZ)" >> "$GITHUB_ENV"
 
-      - name: Detect and triage isolated failure
+      - name: Detect, triage and route isolated failure
         shell: bash
         run: |
           set -euo pipefail
@@ -101,8 +103,35 @@ jobs:
           fi
           grep -Eqi 'permission denied|insufficient privilege' "$probe_log"
           rm -f "$probe_log"
-          printf 'failure_detected_at=%s\n' "$(date -u +%Y-%m-%dT%H:%M:%SZ)" >> "$GITHUB_ENV"
+
+          detected_at="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+          printf 'failure_detected_at=%s\n' "$detected_at" >> "$GITHUB_ENV"
           printf 'affected_subsystem=restricted_database_readiness_acl\n' >> "$GITHUB_ENV"
+
+          run_url="${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}"
+          body_file="$RUNNER_TEMP/provider-safe-incident.md"
+          cat > "$body_file" <<EOF
+          ## LifeMate provider-safe incident drill
+
+          - Kind: deliberately induced isolated readiness failure
+          - Workflow: provider-safe-incident-drill
+          - Run: ${run_url}
+          - Source SHA: \`${GITHUB_SHA}\`
+          - Affected subsystem: restricted_database_readiness_acl
+          - Detected at UTC: ${detected_at}
+          - Owner: @${GITHUB_REPOSITORY_OWNER}
+
+          Target is an isolated PostgreSQL 17.6 service container. No production endpoint/database or user payload is involved. No token, email, phone, Account/AppUser/Person identifier or healthcare data is copied into this alert.
+          EOF
+
+          issue_url="$(gh issue create \
+            --repo "$GITHUB_REPOSITORY" \
+            --title 'OPS DRILL — Provider-safe incident detected' \
+            --body-file "$body_file" \
+            --assignee "$GITHUB_REPOSITORY_OWNER")"
+          issue_number="${issue_url##*/}"
+          [[ "$issue_number" =~ ^[0-9]+$ ]]
+          printf 'incident_issue_number=%s\n' "$issue_number" >> "$GITHUB_ENV"
 
       - name: Exercise rollback mitigation
         shell: bash
@@ -168,6 +197,17 @@ jobs:
           end $$;
           SQL
 
+      - name: Close provider-safe incident after recovery
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -n "${incident_issue_number:-}"
+          run_url="${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}"
+          gh issue comment "$incident_issue_number" \
+            --repo "$GITHUB_REPOSITORY" \
+            --body "Synthetic isolated incident recovered. Rollback and forward-fix both passed, and restricted runtime-role invariants were re-verified. Evidence run: ${run_url}."
+          gh issue close "$incident_issue_number" --repo "$GITHUB_REPOSITORY"
+
       - name: Record redacted operational evidence
         shell: bash
         run: |
@@ -186,6 +226,7 @@ jobs:
             echo "- failure detected: $failure_detected_at"
             echo "- rollback recovered: $rollback_recovered_at"
             echo "- forward-fix recovered: $forward_fix_recovered_at"
+            echo "- owner-routed drill issue: #$incident_issue_number"
             echo "- drill completed: $completed_at"
             echo "- total recovery exercise duration: ${recovery_seconds}s"
             echo '- rollback path: restored the reviewed restricted readiness grant'
