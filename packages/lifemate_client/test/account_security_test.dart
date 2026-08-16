@@ -128,7 +128,7 @@ void main() {
 
     await tester.enterText(
       find.byKey(const ValueKey('account-security-phone-otp')),
-      '123456',
+      '۱۲۳۴۵۶',
     );
     await tester.tap(
       find.byKey(const ValueKey('account-security-verify-phone')),
