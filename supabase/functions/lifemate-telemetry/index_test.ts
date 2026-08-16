@@ -1,6 +1,7 @@
 import { assertEquals, assertThrows } from "jsr:@std/assert@1.0.14";
 import {
   parseClientErrorTelemetry,
+  parseProductTelemetry,
   SubjectTelemetryRateLimiter,
 } from "./privacy_safe_event.ts";
 
@@ -13,6 +14,18 @@ const valid = {
   errorType: "StateError",
   stackFingerprint: "0123456789abcdef",
   fatal: true,
+};
+
+const validProduct = {
+  kind: "product",
+  eventId: "123e4567-e89b-42d3-a456-426614174889",
+  application: "caremate",
+  releaseVersion: "0.9.0-internal.9+20",
+  platform: "android",
+  eventName: "care_pairing_completed",
+  localeFamily: "fa",
+  connectivity: "online",
+  outcome: "success",
 };
 
 Deno.test("accepts only bounded privacy-safe crash dimensions", () => {
@@ -49,6 +62,56 @@ Deno.test("rejects unbounded or free-form error fields", () => {
       parseClientErrorTelemetry({ ...valid, stackFingerprint: "raw stack" }),
     Error,
     "stack_fingerprint_invalid",
+  );
+});
+
+Deno.test("accepts only allow-listed low-cardinality product funnel dimensions", () => {
+  assertEquals(parseProductTelemetry(validProduct), validProduct);
+});
+
+Deno.test("product telemetry rejects health, identity and free-form fields", () => {
+  for (
+    const [key, value] of Object.entries({
+      userId: "123e4567-e89b-42d3-a456-426614174000",
+      personId: "123e4567-e89b-42d3-a456-426614174001",
+      email: "patient@example.test",
+      phone: "+989121234567",
+      medication: "private-drug",
+      symptom: "private-symptom",
+      cycleDate: "2026-08-16",
+      note: "private-note",
+      route: "/api/v1/health/observations/secret",
+      metadata: { arbitrary: "free-form" },
+    })
+  ) {
+    assertThrows(
+      () => parseProductTelemetry({ ...validProduct, [key]: value }),
+      Error,
+      "product_telemetry_field_forbidden",
+    );
+  }
+});
+
+Deno.test("product telemetry rejects unknown events and dimensions", () => {
+  assertThrows(
+    () => parseProductTelemetry({ ...validProduct, eventName: "dose_aspirin_taken" }),
+    Error,
+    "product_event_invalid",
+  );
+  assertThrows(
+    () => parseProductTelemetry({ ...validProduct, localeFamily: "fa-IR-private" }),
+    Error,
+    "locale_family_invalid",
+  );
+  assertThrows(
+    () => parseProductTelemetry({ ...validProduct, connectivity: "wifi-home" }),
+    Error,
+    "connectivity_invalid",
+  );
+  assertThrows(
+    () => parseProductTelemetry({ ...validProduct, outcome: "patient-specific" }),
+    Error,
+    "outcome_invalid",
   );
 });
 
