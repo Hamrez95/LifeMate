@@ -5,12 +5,14 @@ import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'app_config.dart';
+import 'app_notice.dart';
 import 'durable_lifemate_api_client.dart';
 import 'feature_flags.dart';
 import 'health_facts.dart';
 import 'lifemate_api_client.dart';
 import 'lifemate_auth.dart';
 import 'locale_digit_input_formatter.dart';
+import 'offline_sync_feedback.dart';
 import 'profile_avatar.dart';
 import 'runtime_locale.dart';
 
@@ -65,6 +67,7 @@ class _LifeMateExperienceGateState extends State<LifeMateExperienceGate>
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
+    lifeMateOfflineSyncResult.addListener(_onOfflineSyncResult);
     _supabase = Supabase.instance.client;
     _api = DurableLifeMateApiClient(
       baseUri: widget.config.apiBaseUri,
@@ -76,6 +79,31 @@ class _LifeMateExperienceGateState extends State<LifeMateExperienceGate>
       _bootstrap = _bootstrapUser(_session!);
     }
     _listenToAuth();
+  }
+
+  void _onOfflineSyncResult() {
+    final result = lifeMateOfflineSyncResult.value;
+    if (result == null || !mounted) return;
+    lifeMateOfflineSyncResult.value = null;
+    final feedback = LifeMateOfflineSyncFeedback.fromResult(result);
+    if (!feedback.shouldNotify) return;
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      final isPersian = Localizations.localeOf(context).languageCode == 'fa';
+      final type = switch (feedback.kind) {
+        LifeMateOfflineFeedbackKind.replayed => LifeMateNoticeType.success,
+        LifeMateOfflineFeedbackKind.refreshRequired => LifeMateNoticeType.warning,
+        LifeMateOfflineFeedbackKind.retryPending => LifeMateNoticeType.info,
+        LifeMateOfflineFeedbackKind.noChange => LifeMateNoticeType.info,
+      };
+      LifeMateNotice.show(
+        context,
+        title: isPersian ? feedback.titleFa : feedback.titleEn,
+        message: isPersian ? feedback.messageFa : feedback.messageEn,
+        type: type,
+      );
+    });
   }
 
   void _listenToAuth() {
@@ -148,6 +176,7 @@ class _LifeMateExperienceGateState extends State<LifeMateExperienceGate>
 
   @override
   void dispose() {
+    lifeMateOfflineSyncResult.removeListener(_onOfflineSyncResult);
     WidgetsBinding.instance.removeObserver(this);
     _authSubscription?.cancel();
     _api.close();

@@ -19,6 +19,8 @@ export 'src/lifemate_experience_gate.dart';
 export 'src/locale_digit_input_formatter.dart';
 export 'src/nullable_women_calendar_estimate.dart';
 export 'src/offline_mutation_queue.dart';
+export 'src/offline_sync_feedback.dart';
+export 'src/offline_sync_result.dart';
 export 'src/privacy_safe_crash_reporter.dart';
 export 'src/privacy_safe_product_analytics.dart';
 export 'src/profile_avatar.dart';
