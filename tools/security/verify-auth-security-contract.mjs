@@ -13,6 +13,10 @@ const authClient = fs.readFileSync(
   'packages/lifemate_client/lib/src/lifemate_auth.dart',
   'utf8',
 );
+const accountSecurity = fs.readFileSync(
+  'packages/lifemate_client/lib/src/account_security.dart',
+  'utf8',
+);
 
 function fail(message) {
   console.error(`Auth security contract failure: ${message}`);
@@ -112,6 +116,21 @@ requireMatch(
   /shouldCreatePhoneUser\(LifeMatePhoneOtpIntent intent\)[\s\S]{0,120}intent\s*==\s*LifeMatePhoneOtpIntent\.signUp/,
   'returning-user phone sign-in must remain non-creating',
 );
+requireMatch(
+  accountSecurity,
+  /phoneLinkingEnabled\s*=\s*LifeMateFeatureFlags\.phoneOtpEnabled/,
+  'account phone linking must remain behind the fail-closed phone OTP flag',
+);
+requireMatch(
+  accountSecurity,
+  /updateUser\(UserAttributes\(phone:\s*phoneE164\)\)/,
+  'phone linking must update the current authenticated user instead of starting a new signup',
+);
+requireMatch(
+  accountSecurity,
+  /verifyOTP\([\s\S]{0,180}type:\s*OtpType\.phoneChange/,
+  'phone linking must verify with the dedicated phone-change OTP type',
+);
 
 // Signup must not disclose whether an email already belongs to an account.
 requireMatch(
@@ -138,5 +157,5 @@ rejectMatch(
 );
 
 console.log(
-  'Local Auth baseline and mobile fail-closed provider/password/recovery contract are aligned. Hosted Supabase Auth configuration still requires separate live evidence.',
+  'Local Auth baseline and mobile fail-closed provider/password/recovery/phone-linking contract are aligned. Hosted Supabase Auth configuration still requires separate live evidence.',
 );
