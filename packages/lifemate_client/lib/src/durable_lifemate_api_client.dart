@@ -6,6 +6,7 @@ import 'package:http/http.dart' as http;
 import 'durable_http_client.dart';
 import 'lifemate_api_client.dart';
 import 'offline_mutation_queue.dart';
+import 'offline_sync_result.dart';
 
 class LifeMatePendingSyncEvent {
   const LifeMatePendingSyncEvent({
@@ -19,6 +20,11 @@ class LifeMatePendingSyncEvent {
 
 final ValueNotifier<LifeMatePendingSyncEvent?> lifeMatePendingSyncEvent =
     ValueNotifier<LifeMatePendingSyncEvent?>(null);
+
+/// Low-cardinality offline recovery feedback for UI notices. This intentionally
+/// contains no account/person/occurrence IDs, health values or server messages.
+final ValueNotifier<LifeMateOfflineSyncResult?> lifeMateOfflineSyncResult =
+    ValueNotifier<LifeMateOfflineSyncResult?>(null);
 
 class DurableLifeMateApiClient extends LifeMateApiClient {
   DurableLifeMateApiClient._({
@@ -87,9 +93,6 @@ class DurableLifeMateApiClient extends LifeMateApiClient {
     }
   }
 
-  /// Snapshot pending actions before the read. Replay can finish while the GET
-  /// itself is in flight, so retaining this snapshot prevents a stale response
-  /// from making an already-journaled dose actionable again.
   @override
   Future<Map<String, dynamic>> getHomeSnapshot({
     required DateTime fromDate,
@@ -172,7 +175,14 @@ class DurableLifeMateApiClient extends LifeMateApiClient {
     }).toList(growable: false);
   }
 
-  Future<int> flushPendingMutations() => _durableHttp.flushPending();
+  Future<int> flushPendingMutations() async =>
+      (await flushPendingMutationsDetailed()).synced;
+
+  Future<LifeMateOfflineSyncResult> flushPendingMutationsDetailed() async {
+    final result = await _durableHttp.flushPendingDetailed();
+    lifeMateOfflineSyncResult.value = result;
+    return result;
+  }
 
   Future<int> pendingMutationCount() => _durableHttp.pendingCount();
 }

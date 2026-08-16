@@ -5,6 +5,7 @@ import 'package:http/http.dart' as http;
 
 import 'lifemate_api_client.dart' show AccessTokenProvider;
 import 'offline_mutation_queue.dart';
+import 'offline_sync_result.dart';
 
 typedef LifeMateAccountIdProvider = String? Function();
 
@@ -58,8 +59,6 @@ class LifeMateDurableHttpClient extends http.BaseClient {
         clientRequestId: durable.clientRequestId,
       );
     } catch (_) {
-      // If secure storage cannot durably accept the action, never tell the UI
-      // it was queued. The network attempt may still succeed normally.
       queued = null;
     }
 
@@ -98,19 +97,30 @@ class LifeMateDurableHttpClient extends http.BaseClient {
     }
   }
 
-  Future<int> flushPending() async {
-    if (_flushing || _closed) return 0;
+  Future<int> flushPending() async => (await flushPendingDetailed()).synced;
+
+  /// Replays only the allow-listed durable writes and returns a low-cardinality
+  /// summary suitable for user feedback. It intentionally contains no mutation
+  /// IDs, URLs, request bodies, health values, account IDs or server messages.
+  Future<LifeMateOfflineSyncResult> flushPendingDetailed() async {
+    if (_flushing || _closed) return const LifeMateOfflineSyncResult();
     final startingAccountId = _accountId()?.trim();
-    if (startingAccountId == null || startingAccountId.isEmpty) return 0;
+    if (startingAccountId == null || startingAccountId.isEmpty) {
+      return const LifeMateOfflineSyncResult();
+    }
 
     _flushing = true;
-    var synced = 0;
+    var replayed = 0;
+    var conflicts = 0;
+    var terminalRejected = 0;
+    var retainedForRetry = 0;
+    var removedUnsafe = 0;
     try {
       List<LifeMateQueuedMutation> pending;
       try {
         pending = await _queue.pendingForAccount(startingAccountId);
       } catch (_) {
-        return 0;
+        return const LifeMateOfflineSyncResult();
       }
 
       for (final mutation in pending) {
@@ -119,6 +129,7 @@ class LifeMateDurableHttpClient extends http.BaseClient {
         if (currentAccountId != startingAccountId ||
             token == null ||
             token.isEmpty) {
+          retainedForRetry += 1;
           break;
         }
 
@@ -127,6 +138,7 @@ class LifeMateDurableHttpClient extends http.BaseClient {
             !_isAllowedPath(uri.path) ||
             !_isCurrentApiUri(uri)) {
           await _bestEffort(() => _queue.remove(mutation.id));
+          removedUnsafe += 1;
           continue;
         }
 
@@ -141,34 +153,54 @@ class LifeMateDurableHttpClient extends http.BaseClient {
         try {
           final response = await _inner.send(replay).timeout(_transportTimeout);
           await response.stream.drain<void>();
-          if (_accountId()?.trim() != startingAccountId) break;
+          if (_accountId()?.trim() != startingAccountId) {
+            retainedForRetry += 1;
+            break;
+          }
 
           if (_isSuccess(response.statusCode)) {
             await _bestEffort(() => _queue.remove(mutation.id));
-            synced++;
+            replayed += 1;
+            continue;
+          }
+          if (response.statusCode == 409) {
+            await _bestEffort(() => _queue.remove(mutation.id));
+            conflicts += 1;
             continue;
           }
           if (_isTerminalClientFailure(response.statusCode)) {
-            // The server has definitively rejected this historical mutation
-            // (for example a stale version after another device changed it).
-            // Remove it so it cannot loop forever; the next normal read shows
-            // the authoritative server state instead of fabricating success.
             await _bestEffort(() => _queue.remove(mutation.id));
+            terminalRejected += 1;
             continue;
           }
-          // 401, 408, 429 and 5xx retain FIFO position for a later session or
-          // reconnect. In particular, expired credentials never delete data.
+          retainedForRetry += 1;
           break;
         } on TimeoutException {
+          retainedForRetry += 1;
           break;
         } on http.ClientException {
+          retainedForRetry += 1;
           break;
         }
       }
     } finally {
       _flushing = false;
     }
-    return synced;
+
+    var remaining = 0;
+    try {
+      remaining = await _queue.pendingCount(startingAccountId);
+    } catch (_) {
+      remaining = retainedForRetry > 0 ? 1 : 0;
+    }
+    return LifeMateOfflineSyncResult(
+      replayed: replayed,
+      conflicts: conflicts,
+      terminalRejected: terminalRejected,
+      retainedForRetry: retainedForRetry,
+      removedUnsafe: removedUnsafe,
+      pendingRemaining: remaining,
+    );
   }
 
   Future<List<LifeMateQueuedMutation>> pendingMutations() async {
@@ -245,7 +277,9 @@ class LifeMateDurableHttpClient extends http.BaseClient {
   }
 
   static http.Request _copyRequest(
-      http.BaseRequest source, List<int> bodyBytes) {
+    http.BaseRequest source,
+    List<int> bodyBytes,
+  ) {
     final copy = http.Request(source.method, source.url)
       ..headers.addAll(source.headers)
       ..bodyBytes = bodyBytes
