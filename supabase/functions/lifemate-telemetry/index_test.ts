@@ -94,12 +94,17 @@ Deno.test("product telemetry rejects health, identity and free-form fields", () 
 
 Deno.test("product telemetry rejects unknown events and dimensions", () => {
   assertThrows(
-    () => parseProductTelemetry({ ...validProduct, eventName: "dose_aspirin_taken" }),
+    () =>
+      parseProductTelemetry({
+        ...validProduct,
+        eventName: "dose_aspirin_taken",
+      }),
     Error,
     "product_event_invalid",
   );
   assertThrows(
-    () => parseProductTelemetry({ ...validProduct, localeFamily: "fa-IR-private" }),
+    () =>
+      parseProductTelemetry({ ...validProduct, localeFamily: "fa-IR-private" }),
     Error,
     "locale_family_invalid",
   );
@@ -109,7 +114,8 @@ Deno.test("product telemetry rejects unknown events and dimensions", () => {
     "connectivity_invalid",
   );
   assertThrows(
-    () => parseProductTelemetry({ ...validProduct, outcome: "patient-specific" }),
+    () =>
+      parseProductTelemetry({ ...validProduct, outcome: "patient-specific" }),
     Error,
     "outcome_invalid",
   );
