@@ -60,6 +60,7 @@ import {
   responseHeaders,
   safeError,
 } from "./http.ts";
+import { createMarketingCampaignRouteHandler } from "./marketing_campaigns_routes.ts";
 import { parseRelationshipLedgerQuery } from "./relationship_ledger.ts";
 import { createRelationshipLedgerStore } from "./relationship_ledger_service.ts";
 import { createRelationshipOverviewStore } from "./relationship_overview_service.ts";
@@ -125,6 +126,9 @@ const relationshipLedgerStore = createRelationshipLedgerStore(
 );
 const supportQueueStore = createSupportQueueStore(config.databaseUrl);
 const supportTicketDetailStore = createSupportTicketDetailStore(
+  config.databaseUrl,
+);
+const marketingCampaignRouteHandler = createMarketingCampaignRouteHandler(
   config.databaseUrl,
 );
 
@@ -244,6 +248,16 @@ Deno.serve(async (request: Request) => {
     if (request.method === "GET" && path === "/api/v1/me") {
       return json({ admin }, 200, origin);
     }
+
+    const marketingCampaignResponse = await marketingCampaignRouteHandler({
+      request,
+      path,
+      accountId,
+      admin,
+      correlationId,
+      origin,
+    });
+    if (marketingCampaignResponse) return marketingCampaignResponse;
 
     if (request.method === "GET" && path === "/api/v1/search") {
       const query = parseGlobalSearchQuery(new URL(request.url));
