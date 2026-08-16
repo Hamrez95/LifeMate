@@ -1,9 +1,9 @@
 import type { AdminCapabilitySnapshot } from "./authorization.ts";
 import {
   type AnalyticsKpiQuery,
-  type KpiValue,
   parseAnalyticsKpiQuery,
 } from "./analytics_kpis.ts";
+import type { KpiValue } from "./analytics_kpi_store.ts";
 import { ApiError } from "./validation.ts";
 
 export const advisorTopics = [
