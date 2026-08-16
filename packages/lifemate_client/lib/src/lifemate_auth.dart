@@ -2,6 +2,9 @@ import 'package:flutter/foundation.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'feature_flags.dart';
+import 'iran_phone.dart';
+
+enum LifeMatePhoneOtpIntent { signIn, signUp }
 
 class LifeMateAuth {
   const LifeMateAuth._();
@@ -58,13 +61,26 @@ class LifeMateAuth {
 
   /// Requests a Supabase phone OTP. Delivery is performed server-side by the
   /// configured Send SMS hook (Kavenegar in the Iran deployment).
-  static Future<void> sendPhoneOtp({required String phoneE164}) async {
+  ///
+  /// Returning-user sign-in is explicitly non-creating so an existing email
+  /// account cannot silently become a second Auth/LifeMate identity. New-user
+  /// creation is allowed only when the caller explicitly selects [signUp].
+  static Future<void> sendPhoneOtp({
+    required String phoneE164,
+    required LifeMatePhoneOtpIntent intent,
+  }) async {
     if (!LifeMateFeatureFlags.phoneOtpEnabled) {
       throw const AuthException('Phone OTP is not enabled for this release.');
     }
-    final phone = _normalizeE164(phoneE164);
-    await Supabase.instance.client.auth.signInWithOtp(phone: phone);
+    final phone = _normalizeIranPhone(phoneE164);
+    await Supabase.instance.client.auth.signInWithOtp(
+      phone: phone,
+      shouldCreateUser: shouldCreatePhoneUser(intent),
+    );
   }
+
+  static bool shouldCreatePhoneUser(LifeMatePhoneOtpIntent intent) =>
+      intent == LifeMatePhoneOtpIntent.signUp;
 
   static Future<AuthResponse> verifyPhoneOtp({
     required String phoneE164,
@@ -73,7 +89,7 @@ class LifeMateAuth {
     if (!LifeMateFeatureFlags.phoneOtpEnabled) {
       throw const AuthException('Phone OTP is not enabled for this release.');
     }
-    final phone = _normalizeE164(phoneE164);
+    final phone = _normalizeIranPhone(phoneE164);
     final normalizedToken = token.trim();
     if (!RegExp(r'^\d{6,10}$').hasMatch(normalizedToken)) {
       throw const AuthException('OTP format is invalid.');
@@ -91,11 +107,11 @@ class LifeMateAuth {
   static Future<void> requestReauthentication() =>
       Supabase.instance.client.auth.reauthenticate();
 
-  static String _normalizeE164(String value) {
-    final normalized = value.trim().replaceAll(RegExp(r'[\s()-]'), '');
-    if (!RegExp(r'^\+[1-9]\d{7,14}$').hasMatch(normalized)) {
-      throw const AuthException('Phone number must use E.164 format.');
+  static String _normalizeIranPhone(String value) {
+    try {
+      return LifeMateIranPhone.normalizeE164(value);
+    } on FormatException {
+      throw const AuthException('Iranian mobile number is invalid.');
     }
-    return normalized;
   }
 }
