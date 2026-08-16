@@ -41,7 +41,8 @@ export function createLifeMateDatabase(
       phoneInvitations.acceptInvitationOrDelegate(
         identity,
         body,
-        database.acceptInvitation,
+        (_phoneIdentity, legacyBody) =>
+          database.acceptInvitation(identity, legacyBody),
       ),
   };
 }
