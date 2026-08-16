@@ -50,6 +50,10 @@ void main() {
     expect(find.text('current@example.test'), findsOneWidget);
     expect(find.textContaining('Pending confirmation: next@example.test'),
         findsOneWidget);
+
+    final notice = find.byKey(const ValueKey('account-security-notice'));
+    await tester.ensureVisible(notice);
+    await tester.pumpAndSettle();
     expect(find.textContaining('remains authoritative'), findsOneWidget);
   });
 
@@ -83,12 +87,10 @@ void main() {
     );
     await _pump(tester, controller, googleEnabled: true);
 
-    await tester.scrollUntilVisible(
-      find.byKey(const ValueKey('account-security-link-google')),
-      300,
-      scrollable: find.byType(Scrollable).first,
-    );
-    await tester.tap(find.byKey(const ValueKey('account-security-link-google')));
+    final linkButton = find.byKey(const ValueKey('account-security-link-google'));
+    await tester.ensureVisible(linkButton);
+    await tester.pumpAndSettle();
+    await tester.tap(linkButton);
     await tester.pumpAndSettle();
 
     expect(linkCalls, 1);
