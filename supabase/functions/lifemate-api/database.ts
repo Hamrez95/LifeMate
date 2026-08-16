@@ -34,7 +34,10 @@ export function createLifeMateDatabase(
     requireIdentity: identityResolver.requireIdentity,
     identityLookupMode: identityResolver.lookupMode,
     createPhoneInvitation: phoneInvitations.createPhoneInvitation,
-    acceptInvitation: (identity: Parameters<typeof database.acceptInvitation>[0], body: Parameters<typeof database.acceptInvitation>[1]) =>
+    acceptInvitation: (
+      identity: Parameters<typeof database.acceptInvitation>[0],
+      body: Parameters<typeof database.acceptInvitation>[1],
+    ) =>
       phoneInvitations.acceptInvitationOrDelegate(
         identity,
         body,
