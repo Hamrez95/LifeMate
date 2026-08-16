@@ -9,6 +9,10 @@ const authUi = fs.readFileSync(
   'packages/lifemate_client/lib/src/experience_auth.dart',
   'utf8',
 );
+const phoneAuthUi = fs.readFileSync(
+  'packages/lifemate_client/lib/src/experience_phone_auth.dart',
+  'utf8',
+);
 const authClient = fs.readFileSync(
   'packages/lifemate_client/lib/src/lifemate_auth.dart',
   'utf8',
@@ -107,6 +111,21 @@ requireMatch(
   'phone OTP button must remain behind the compile-time feature flag',
 );
 requireMatch(
+  phoneAuthUi,
+  /ValueKey\('auth-phone-intent-signin'\)[\s\S]{0,400}LifeMatePhoneOtpIntent\.signIn/,
+  'phone OTP UI must expose an explicit non-creating returning-user sign-in intent',
+);
+requireMatch(
+  phoneAuthUi,
+  /ValueKey\('auth-phone-intent-signup'\)[\s\S]{0,400}LifeMatePhoneOtpIntent\.signUp/,
+  'phone OTP UI must expose account creation only as an explicit signup intent',
+);
+requireMatch(
+  phoneAuthUi,
+  /New signup never auto-merges an existing account/,
+  'phone signup UI must explicitly warn existing users that signup does not auto-merge accounts',
+);
+requireMatch(
   authClient,
   /signInWithOtp\([\s\S]{0,220}shouldCreateUser:\s*shouldCreatePhoneUser\(intent\)/,
   'phone OTP requests must pass explicit account-creation intent to Supabase Auth',
@@ -167,5 +186,5 @@ rejectMatch(
 );
 
 console.log(
-  'Local Auth baseline and mobile fail-closed provider/password/recovery/phone-linking contract are aligned. Hosted Supabase Auth configuration still requires separate live evidence.',
+  'Local Auth baseline and mobile fail-closed provider/password/recovery/explicit-phone-intent/phone-linking contract are aligned. Hosted Supabase Auth configuration still requires separate live evidence.',
 );
