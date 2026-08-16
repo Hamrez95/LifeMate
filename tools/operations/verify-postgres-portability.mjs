@@ -47,6 +47,10 @@ for (const file of sqlFiles) {
 
 const backup = fs.readFileSync('tools/recovery/lifemate-local-backup.ps1', 'utf8');
 const restore = fs.readFileSync('tools/recovery/restore-lifemate-local-backup.ps1', 'utf8');
+const backupRole = fs.readFileSync(
+  'supabase/migrations/20260815210500_add_portable_backup_reader_role.sql',
+  'utf8',
+);
 const architecture = fs.readFileSync('docs/architecture/POSTGRES_PORTABILITY.md', 'utf8');
 
 if (!backup.includes('pg_dump')) fail('workstation backup must use standard pg_dump');
@@ -58,6 +62,24 @@ for (const source of [backup, restore]) {
 }
 
 for (const phrase of [
+  'CREATE ROLE lifemate_backup_reader',
+  'NOLOGIN',
+  'NOSUPERUSER',
+  'NOCREATEDB',
+  'NOCREATEROLE',
+  'NOREPLICATION',
+  'BYPASSRLS',
+  'REVOKE CREATE ON SCHEMA public FROM lifemate_backup_reader',
+]) {
+  if (!backupRole.includes(phrase)) {
+    fail(`backup-reader migration is missing reviewed extraction constraint: ${phrase}`);
+  }
+}
+if (/GRANT\s+(INSERT|UPDATE|DELETE|TRUNCATE|CREATE|ALL)\b[^;]*lifemate_backup_reader/i.test(backupRole)) {
+  fail('backup reader must not receive mutation privileges');
+}
+
+for (const phrase of [
   'canonical LifeMate database is **LifeMate-owned PostgreSQL**',
   'auth.users',
   'storage.objects',
@@ -65,10 +87,13 @@ for (const phrase of [
   'opaque data values',
   'standard PostgreSQL connection strings',
   'pg_dump` / `pg_restore',
+  'Backup-reader security exception',
+  '`NOLOGIN`, read-only, `BYPASSRLS` role',
+  'must never be generalized to Edge, worker or admin application runtimes',
   'provider-specific today',
   'does not prove that provider-specific Auth, Edge, Storage, Redis, WAF or DNS have already been abstracted',
 ]) {
   if (!architecture.includes(phrase)) fail(`portability document is missing: ${phrase}`);
 }
 
-console.log(`PostgreSQL portability source policy passed across ${sqlFiles.length} canonical SQL files.`);
+console.log(`PostgreSQL portability source policy passed across ${sqlFiles.length} canonical SQL files with the reviewed narrow backup-reader RLS exception.`);
