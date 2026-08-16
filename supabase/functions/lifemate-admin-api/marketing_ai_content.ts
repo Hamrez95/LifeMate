@@ -18,7 +18,8 @@ export const marketingContentTones = [
 export type MarketingContentTone = (typeof marketingContentTones)[number];
 
 export const marketingContentLanguages = ["fa", "en"] as const;
-export type MarketingContentLanguage = (typeof marketingContentLanguages)[number];
+export type MarketingContentLanguage =
+  (typeof marketingContentLanguages)[number];
 
 export type MarketingAiContentPayload = {
   goal: MarketingContentGoal;
@@ -105,7 +106,11 @@ export async function parseMarketingAiContentPayload(
       "Content tone is not allowlisted.",
     );
   }
-  if (!marketingContentLanguages.includes(body.language as MarketingContentLanguage)) {
+  if (
+    !marketingContentLanguages.includes(
+      body.language as MarketingContentLanguage,
+    )
+  ) {
     throw new ApiError(
       400,
       "marketing_ai_content_language_invalid",
@@ -148,7 +153,11 @@ export function hashMarketingAiContentRequest(
   );
 }
 
-function trimSentence(value: string | null, fallback: string, max = 180): string {
+function trimSentence(
+  value: string | null,
+  fallback: string,
+  max = 180,
+): string {
   const normalized = (value ?? "").trim().replace(/\s+/g, " ");
   if (!normalized) return fallback;
   return normalized.length <= max
@@ -198,14 +207,17 @@ function toneLead(
       warm: "سلامت وقتی ساده‌تر می‌شود که احساس کنیم تنها نیستیم.",
       clear: "یک تجربه ساده برای مدیریت بهتر سلامت و مراقبت روزمره.",
       energetic: "یک قدم کوچک امروز، یک تجربه سلامت منظم‌تر از همین حالا.",
-      professional: "LifeMate برای ساده‌سازی تجربه سلامت و مراقبت خانوادگی طراحی شده است.",
+      professional:
+        "LifeMate برای ساده‌سازی تجربه سلامت و مراقبت خانوادگی طراحی شده است.",
     }[tone];
   }
   return {
     warm: "Health feels easier when care stays connected and human.",
     clear: "A simpler way to organize everyday health and care.",
-    energetic: "One small step today can make everyday care feel more organized.",
-    professional: "LifeMate is designed to simplify everyday health and family-care workflows.",
+    energetic:
+      "One small step today can make everyday care feel more organized.",
+    professional:
+      "LifeMate is designed to simplify everyday health and family-care workflows.",
   }[tone];
 }
 
@@ -233,16 +245,24 @@ function channelHint(
 ): string {
   const channel = (channelCode ?? "general").toLowerCase();
   if (language === "fa") {
-    if (channel === "linkedin") return "مناسب لحن حرفه‌ای و اسکن سریع در LinkedIn";
+    if (channel === "linkedin") {
+      return "مناسب لحن حرفه‌ای و اسکن سریع در LinkedIn";
+    }
     if (channel === "telegram") return "مناسب متن کوتاه و مستقیم در Telegram";
     if (channel === "instagram") return "مناسب کپشن خوانا و کوتاه در Instagram";
     if (channel === "facebook") return "مناسب متن اجتماعی و توضیحی در Facebook";
     return "نسخه عمومی برای کانال برنامه‌ریزی‌شده کمپین";
   }
-  if (channel === "linkedin") return "Optimized for a professional LinkedIn scan";
+  if (channel === "linkedin") {
+    return "Optimized for a professional LinkedIn scan";
+  }
   if (channel === "telegram") return "Optimized for concise Telegram reading";
-  if (channel === "instagram") return "Optimized for a readable Instagram caption";
-  if (channel === "facebook") return "Optimized for a conversational Facebook post";
+  if (channel === "instagram") {
+    return "Optimized for a readable Instagram caption";
+  }
+  if (channel === "facebook") {
+    return "Optimized for a conversational Facebook post";
+  }
   return "General draft for the campaign’s planned channel";
 }
 
@@ -250,15 +270,22 @@ function hashtags(
   context: MarketingAiCampaignContext,
   language: MarketingContentLanguage,
 ): string[] {
-  const product = productLabel(context.productCode).replace(/[^A-Za-z0-9]/g, "");
-  if (language === "fa") {
-    return ["#LifeMate", `#${product}`, "#سلامت_دیجیتال"].filter((value, index, all) =>
-      all.indexOf(value) === index
-    );
-  }
-  return ["#LifeMate", `#${product}`, "#DigitalHealth"].filter((value, index, all) =>
-    all.indexOf(value) === index
+  const product = productLabel(context.productCode).replace(
+    /[^A-Za-z0-9]/g,
+    "",
   );
+  if (language === "fa") {
+    return ["#LifeMate", `#${product}`, "#سلامت_دیجیتال"].filter((
+      value,
+      index,
+      all,
+    ) => all.indexOf(value) === index);
+  }
+  return ["#LifeMate", `#${product}`, "#DigitalHealth"].filter((
+    value,
+    index,
+    all,
+  ) => all.indexOf(value) === index);
 }
 
 export function generateDeterministicMarketingVariants(
@@ -270,7 +297,8 @@ export function generateDeterministicMarketingVariants(
     payload.keyMessage,
     context.objective ?? context.brief ?? context.campaignName,
   );
-  const cta = payload.callToAction ?? defaultCta(payload.goal, payload.language);
+  const cta = payload.callToAction ??
+    defaultCta(payload.goal, payload.language);
   const tags = hashtags(context, payload.language);
   const lead = toneLead(payload.tone, payload.language);
   const hint = channelHint(context.channelCode, payload.language);
@@ -283,7 +311,8 @@ export function generateDeterministicMarketingVariants(
         body: `${lead}\n\n${message}\n\n${cta}`,
         callToAction: cta,
         hashtags: tags,
-        rationale: `${hint}؛ پیام اصلی بدون ادعای پزشکی یا داده شخصی نگه داشته شده است.`,
+        rationale:
+          `${hint}؛ پیام اصلی بدون ادعای پزشکی یا داده شخصی نگه داشته شده است.`,
       },
       {
         id: "v2",
@@ -291,7 +320,8 @@ export function generateDeterministicMarketingVariants(
         body: `${message}\n\n${lead}\n\n${cta}`,
         callToAction: cta,
         hashtags: tags,
-        rationale: "نسخه دوم ترتیب پیام را عوض می‌کند تا ارزش پیشنهادی زودتر دیده شود و همچنان نیازمند بازبینی انسان است.",
+        rationale:
+          "نسخه دوم ترتیب پیام را عوض می‌کند تا ارزش پیشنهادی زودتر دیده شود و همچنان نیازمند بازبینی انسان است.",
       },
       {
         id: "v3",
@@ -299,7 +329,8 @@ export function generateDeterministicMarketingVariants(
         body: `${lead}\n\n${message}\n\n${cta}`,
         callToAction: cta,
         hashtags: tags,
-        rationale: "نسخه سوم برای تعامل طراحی شده است؛ خروجی Draft است و هیچ انتشار خودکاری انجام نمی‌دهد.",
+        rationale:
+          "نسخه سوم برای تعامل طراحی شده است؛ خروجی Draft است و هیچ انتشار خودکاری انجام نمی‌دهد.",
       },
     ];
   }
@@ -319,7 +350,8 @@ export function generateDeterministicMarketingVariants(
       body: `${message}\n\n${lead}\n\n${cta}`,
       callToAction: cta,
       hashtags: tags,
-      rationale: "This variant leads with the campaign message and remains a human-review-only draft.",
+      rationale:
+        "This variant leads with the campaign message and remains a human-review-only draft.",
     },
     {
       id: "v3",
@@ -327,7 +359,8 @@ export function generateDeterministicMarketingVariants(
       body: `${lead}\n\n${message}\n\n${cta}`,
       callToAction: cta,
       hashtags: tags,
-      rationale: "This variant is structured for engagement and cannot publish itself.",
+      rationale:
+        "This variant is structured for engagement and cannot publish itself.",
     },
   ];
 }
