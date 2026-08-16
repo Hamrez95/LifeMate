@@ -4,11 +4,13 @@ import type { MarketingCampaignStore } from "./marketing_campaigns_store.ts";
 export type MarketingCampaignListResponse = {
   items: Awaited<ReturnType<MarketingCampaignStore["list"]>>["items"];
   total: number;
+  summary: Awaited<ReturnType<MarketingCampaignStore["list"]>>["summary"];
   page: number;
   pageSize: number;
   filters: {
     q: string | null;
     product: string | null;
+    channel: string | null;
     status: string | null;
     owner: string | null;
   };
@@ -27,11 +29,13 @@ export async function listMarketingCampaigns(
   return {
     items: result.items,
     total: result.total,
+    summary: result.summary,
     page: query.page,
     pageSize: query.pageSize,
     filters: {
       q: query.search,
       product: query.product,
+      channel: query.channel,
       status: query.status,
       owner: query.ownerAdminAccountId,
     },
