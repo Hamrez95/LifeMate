@@ -1,6 +1,7 @@
 import type { AdminCapabilitySnapshot } from "./authorization.ts";
 import { requirePermission } from "./authorization.ts";
 import { json } from "./http.ts";
+import { createMarketingAiContentRouteHandler } from "./marketing_ai_content_routes.ts";
 import {
   hashCampaignApprovalRequest,
   hashCampaignContentRequest,
@@ -46,10 +47,17 @@ function mutationErrorMessage(
 
 export function createMarketingCampaignDetailRouteHandler(databaseUrl: string) {
   const store = createMarketingCampaignDetailStore(databaseUrl);
+  const aiContentRouteHandler = createMarketingAiContentRouteHandler(
+    databaseUrl,
+  );
+
   return async function handle(
     context: MarketingCampaignDetailRouteContext,
   ): Promise<Response | null> {
     const { request, path, accountId, admin, correlationId, origin } = context;
+
+    const aiContentResponse = await aiContentRouteHandler(context);
+    if (aiContentResponse) return aiContentResponse;
 
     const readId = matchMarketingCampaignReadPath(path);
     if (request.method === "GET" && readId) {
