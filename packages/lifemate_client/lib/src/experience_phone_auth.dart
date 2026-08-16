@@ -4,7 +4,7 @@ class _PhoneOtpButton extends StatelessWidget {
   const _PhoneOtpButton({
     required this.brand,
     required this.enabled,
-    required this.intent,
+    this.intent = LifeMatePhoneOtpIntent.signIn,
   });
 
   final _BrandPalette brand;
