@@ -3,6 +3,7 @@ library lifemate_client;
 export 'src/account_deletion_action.dart';
 export 'src/app_config.dart';
 export 'src/capabilities.dart';
+export 'src/care_access_inventory.dart';
 export 'src/care_item.dart';
 export 'src/app_notice.dart';
 export 'src/care_pairing_qr.dart';

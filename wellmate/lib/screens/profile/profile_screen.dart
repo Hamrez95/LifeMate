@@ -120,7 +120,16 @@ class ProfileScreen extends StatelessWidget {
       onNotifications: () => open(NotificationCenterScreen()),
       onEditProfile: () => open(EditableProfileScreen()),
       onHealthProfile: () => open(HealthRecordScreen()),
-      onCareManagement: () => open(CareAccessScreen()),
+      onCareManagement: () => open(
+        LifeMateCareAccessInventoryScreen(
+          apiClient: api,
+          role: LifeMateCareAccessRole.patient,
+          accent: AppColors.primary,
+          background: AppColors.background,
+          ink: AppColors.darkBlue,
+          onManage: () => open(CareAccessScreen()),
+        ),
+      ),
       onAppSettings: () => showDialog<void>(
         context: context,
         builder: (_) => _SettingsDialog(mainFont: mainFont),
