@@ -1,3 +1,4 @@
+import { createAdvisorRouteHandler } from "./advisor_routes.ts";
 import {
   type AdminCapabilitySnapshot,
   requirePermission,
@@ -58,6 +59,10 @@ export function createMarketingCampaignRouteHandler(databaseUrl: string) {
   const detailRouteHandler = createMarketingCampaignDetailRouteHandler(
     databaseUrl,
   );
+  // index.ts already uses this bounded dispatcher immediately after the admin
+  // snapshot is loaded. Keep the read-only advisor behind the same authenticated
+  // extension point rather than widening the top-level handler in this task.
+  const advisorRouteHandler = createAdvisorRouteHandler(databaseUrl);
 
   return async function handleMarketingCampaignRoute(
     context: MarketingCampaignRouteContext,
@@ -70,6 +75,9 @@ export function createMarketingCampaignRouteHandler(databaseUrl: string) {
       correlationId,
       origin,
     } = context;
+
+    const advisorResponse = await advisorRouteHandler(context);
+    if (advisorResponse) return advisorResponse;
 
     const detailResponse = await detailRouteHandler(context);
     if (detailResponse) return detailResponse;
