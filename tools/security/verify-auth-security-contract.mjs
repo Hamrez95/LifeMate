@@ -9,6 +9,10 @@ const authUi = fs.readFileSync(
   'packages/lifemate_client/lib/src/experience_auth.dart',
   'utf8',
 );
+const authClient = fs.readFileSync(
+  'packages/lifemate_client/lib/src/lifemate_auth.dart',
+  'utf8',
+);
 
 function fail(message) {
   console.error(`Auth security contract failure: ${message}`);
@@ -97,6 +101,16 @@ requireMatch(
   authUi,
   /LifeMateFeatureFlags\.phoneOtpEnabled[\s\S]{0,1200}_PhoneOtpButton/,
   'phone OTP button must remain behind the compile-time feature flag',
+);
+requireMatch(
+  authClient,
+  /signInWithOtp\([\s\S]{0,220}shouldCreateUser:\s*shouldCreatePhoneUser\(intent\)/,
+  'phone OTP requests must pass explicit account-creation intent to Supabase Auth',
+);
+requireMatch(
+  authClient,
+  /shouldCreatePhoneUser\(LifeMatePhoneOtpIntent intent\)[\s\S]{0,120}intent\s*==\s*LifeMatePhoneOtpIntent\.signUp/,
+  'returning-user phone sign-in must remain non-creating',
 );
 
 // Signup must not disclose whether an email already belongs to an account.

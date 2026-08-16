@@ -196,7 +196,7 @@ function mapProviderFailure(status: number): KavenegarProviderError {
       );
     case 607:
       return new KavenegarProviderError(
-        "kavenegar_ip_restriction",
+        "kavenegar_tag_invalid",
         false,
         status,
       );

@@ -11,7 +11,7 @@ template exist.
 ```text
 WellMate / CareMate
         |
-        | Supabase Auth phone OTP request (future UI)
+        | Supabase Auth phone OTP request (feature-gated UI)
         v
 Supabase Auth
         |
@@ -31,9 +31,9 @@ Supabase Auth remains responsible for generating and verifying the OTP. The
 Kavenegar adapter is **delivery-only**: it never generates, stores or validates
 an OTP and it never creates a LifeMate session.
 
-The current application sign-in UI is not changed by this infrastructure PR.
 `ENABLE_PHONE_OTP` must stay `false` until the activation checklist below is
-complete.
+complete. Returning-user OTP requests use non-creating Auth semantics; any
+future phone-only registration flow must opt into account creation explicitly.
 
 ## Kavenegar contract used by LifeMate
 
@@ -64,10 +64,10 @@ no spaces or underscore.
 Kavenegar documents the following relevant failures and the adapter maps them
 to privacy-safe internal codes: inactive/invalid account (`401`/`403`),
 insufficient credit (`418`), invalid token data (`422`/`431`), missing or
-unapproved template (`424`), advanced service required (`426`), missing token in
-template (`432`), IP registration/restriction problems (`607`) and temporary
-provider unavailability (`409`). Provider bodies and messages are not returned
-to the mobile app.
+unapproved template (`424`), advanced service required (`426`), invalid voice
+call token shape (`428`), missing token in template (`432`), invalid tag (`607`)
+and temporary provider unavailability (`409`). Provider bodies and messages are
+not returned to the mobile app.
 
 ## Secrets
 
@@ -108,23 +108,27 @@ or repository files.
 9. Check Kavenegar credit/template status and Supabase Auth rate-limit/OTP expiry
    settings before any user beta.
 10. Only after the above passes, explicitly enable the phone-auth product flow in
-    a separate reviewed PR. Do not silently turn `ENABLE_PHONE_OTP` on here.
+    a separate reviewed release change. Do not silently turn `ENABLE_PHONE_OTP`
+    on in infrastructure/source preparation.
 
-## Future product decision already recorded
+## Product/auth identity rules
 
-LifeMate authentication is intended to become **phone-first** rather than
-email-first. The planned first-registration flow is:
+LifeMate phone authentication is intended to become phone-first without making
+a phone number a healthcare identity.
 
-1. user enters phone number;
-2. phone ownership is verified by SMS OTP;
-3. after successful verification, the user is required to set an account
-   password;
-4. onboarding/profile creation continues.
+- A returning-user phone login must not create a user when the phone is unknown.
+- Phone-only account creation must be an explicit signup intent.
+- An already authenticated email user must add/change a phone on the current
+  Supabase Auth user and verify the phone-change challenge; do not start an
+  unauthenticated signup to attach a phone.
+- Never merge Auth users, LifeMate Accounts or Persons only because email, name,
+  phone-looking data or profile fields appear to match.
+- `Account -> AccountPersonLink -> Person` remains the healthcare identity
+  boundary.
 
-That product/authentication flow is deliberately **not implemented by this
-infrastructure change**. Password policy, recovery, phone-change/reverification,
-session migration and the exact returning-user login UX need their own threat
-model and reviewed implementation.
+Password policy, recovery, phone-change/reverification, session migration and
+the exact returning-user login UX remain reviewed product/auth work and must be
+completed before provider activation.
 
 ## Security invariants
 

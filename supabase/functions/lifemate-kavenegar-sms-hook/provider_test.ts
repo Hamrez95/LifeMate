@@ -100,16 +100,15 @@ Deno.test("Kavenegar OTP maps temporary provider outage as retryable", async () 
   assertEquals(error.retryable, true);
 });
 
-Deno.test("Kavenegar OTP maps 607 to the documented IP restriction", async () => {
+Deno.test("Kavenegar OTP maps 607 to documented invalid tag failure", async () => {
   const provider = new KavenegarOtpProvider(
     "testApiKey123",
     "lifemate-login",
     {
-      // Kavenegar's logical status is carried in the JSON envelope. Standard
-      // Fetch Response objects cannot represent a non-standard HTTP status 607.
+      // Kavenegar carries logical provider statuses in the JSON envelope.
       fetcher: async () =>
         new Response(
-          JSON.stringify({ return: { status: 607, message: "ip" } }),
+          JSON.stringify({ return: { status: 607, message: "tag" } }),
           { status: 200, headers: { "content-type": "application/json" } },
         ),
     },
@@ -119,7 +118,7 @@ Deno.test("Kavenegar OTP maps 607 to the documented IP restriction", async () =>
     () => provider.sendOtp("+989121234567", "852596"),
     KavenegarProviderError,
   );
-  assertEquals(error.code, "kavenegar_ip_restriction");
+  assertEquals(error.code, "kavenegar_tag_invalid");
   assertEquals(error.retryable, false);
   assertEquals(error.providerStatus, 607);
 });
