@@ -13,6 +13,8 @@ export type MarketingCampaignListResponse = {
     channel: string | null;
     status: string | null;
     owner: string | null;
+    from: string | null;
+    to: string | null;
   };
   freshness: {
     status: "fresh";
@@ -38,6 +40,8 @@ export async function listMarketingCampaigns(
       channel: query.channel,
       status: query.status,
       owner: query.ownerAdminAccountId,
+      from: query.startsFromUtc,
+      to: query.startsToUtc,
     },
     freshness: {
       status: "fresh",
