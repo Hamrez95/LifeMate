@@ -1,0 +1,41 @@
+name: foundation-candidate-policy
+
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - '.github/workflows/foundation-candidate-qualify.yml'
+      - '.github/workflows/foundation-candidate-policy.yml'
+      - 'tools/release/verify-foundation-candidate-policy.mjs'
+      - 'tools/release/extract-android-apk-metadata.sh'
+      - '.github/workflows/internal-beta-release.yml'
+      - '.github/workflows/main-edge-deploy.yml'
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/foundation-candidate-qualify.yml'
+      - '.github/workflows/foundation-candidate-policy.yml'
+      - 'tools/release/verify-foundation-candidate-policy.mjs'
+      - 'tools/release/extract-android-apk-metadata.sh'
+      - '.github/workflows/internal-beta-release.yml'
+      - '.github/workflows/main-edge-deploy.yml'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: foundation-candidate-policy-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  policy:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
+        with:
+          show-progress: false
+          persist-credentials: false
+
+      - name: Verify exact-byte Foundation candidate qualification policy
+        run: node tools/release/verify-foundation-candidate-policy.mjs
