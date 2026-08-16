@@ -21,13 +21,14 @@ class ProfileScreen extends StatelessWidget {
     final localeProvider = context.watch<LocaleProvider>();
     final isPersian = localeProvider.locale.languageCode == 'fa';
     final mainFont = isPersian ? 'Vazir' : 'Poppins';
+    final api = context.read<LifeMateApiClient>();
 
     void open(Widget page) {
       Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => page));
     }
 
     return LifeMateSharedProfileScreen(
-      apiClient: context.read<LifeMateApiClient>(),
+      apiClient: api,
       theme: LifeMateProfileThemeData(
         background: AppColors.background,
         accent: AppColors.primaryBlue,
@@ -113,8 +114,16 @@ class ProfileScreen extends StatelessWidget {
       onEditProfile: () => open(CareMateEditableProfileScreen()),
       onHealthProfile: () =>
           open(CareMateFeaturePreviewScreen(initialIndex: 2)),
-      onCareManagement: () =>
-          open(CareMateFeaturePreviewScreen(initialIndex: 3)),
+      onCareManagement: () => open(
+        LifeMateCareAccessInventoryScreen(
+          apiClient: api,
+          role: LifeMateCareAccessRole.caregiver,
+          accent: AppColors.primaryBlue,
+          background: AppColors.background,
+          ink: AppColors.darkBlue,
+          onManage: () => open(CareMateFeaturePreviewScreen(initialIndex: 3)),
+        ),
+      ),
       onAppSettings: () => showDialog<void>(
         context: context,
         builder: (_) => _LanguageDialog(mainFont: mainFont),
