@@ -15,10 +15,7 @@ import {
 } from "./marketing_campaigns.ts";
 import { listMarketingCampaigns } from "./marketing_campaigns_service.ts";
 import { createMarketingCampaignStore } from "./marketing_campaigns_store.ts";
-import {
-  ApiError,
-  requireIdempotencyKey,
-} from "./validation.ts";
+import { ApiError, requireIdempotencyKey } from "./validation.ts";
 
 export type MarketingCampaignRouteContext = {
   request: Request;
