@@ -46,7 +46,73 @@ begin
 end
 $$;
 
+create or replace function security.touch_runtime_control_updated_at()
+returns trigger
+language plpgsql
+set search_path = pg_catalog, security
+as $$
+begin
+  new.updated_at_utc := now();
+  return new;
+end;
+$$;
+
+revoke all on function security.touch_runtime_control_updated_at() from public;
+
+drop trigger if exists trg_touch_runtime_control_updated_at
+  on security.runtime_controls;
+create trigger trg_touch_runtime_control_updated_at
+before update on security.runtime_controls
+for each row execute function security.touch_runtime_control_updated_at();
+
+-- The application bootstrap already uses INSERT ... ON CONFLICT(auth_subject).
+-- This trigger blocks only a genuinely new AppUser while permitting an existing
+-- subject to take the idempotent conflict/update path during an onboarding pause.
+-- SQLSTATE 55P03 is deliberately reused because the API already maps it to a
+-- controlled temporary-unavailable 503 rather than leaking database details.
+create or replace function security.enforce_new_user_onboarding_control()
+returns trigger
+language plpgsql
+security definer
+set search_path = pg_catalog, security, lifemate
+as $$
+declare
+  onboarding_enabled boolean;
+begin
+  if exists (
+    select 1
+    from lifemate.app_users
+    where auth_subject = new.auth_subject
+  ) then
+    return new;
+  end if;
+
+  select enabled
+  into onboarding_enabled
+  from security.runtime_controls
+  where control_key = 'new_user_onboarding';
+
+  if onboarding_enabled is distinct from true then
+    raise exception 'new user onboarding is temporarily paused'
+      using errcode = '55P03';
+  end if;
+
+  return new;
+end;
+$$;
+
+revoke all on function security.enforce_new_user_onboarding_control()
+  from public;
+
+drop trigger if exists trg_enforce_new_user_onboarding_control
+  on lifemate.app_users;
+create trigger trg_enforce_new_user_onboarding_control
+before insert on lifemate.app_users
+for each row execute function security.enforce_new_user_onboarding_control();
+
 comment on table security.runtime_controls is
   'LifeMate-owned provider-independent operational controls. Application runtime is read-only; operator/admin identity owns mutations.';
 comment on column security.runtime_controls.enabled is
   'Current operational state. new_user_onboarding=false blocks new application bootstrap without affecting existing identities.';
+comment on function security.enforce_new_user_onboarding_control() is
+  'Fail-closed database boundary for new AppUser bootstrap; existing auth subjects retain the idempotent bootstrap path while onboarding is paused.';
