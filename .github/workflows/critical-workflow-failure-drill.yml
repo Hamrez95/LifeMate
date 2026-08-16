@@ -1,0 +1,44 @@
+name: critical-workflow-failure-drill
+
+on:
+  workflow_dispatch:
+    inputs:
+      outcome:
+        description: Synthetic workflow outcome used only to exercise owner alert/recovery routing.
+        required: true
+        type: choice
+        options:
+          - failure
+          - success
+
+permissions:
+  contents: read
+
+concurrency:
+  group: critical-workflow-failure-drill
+  cancel-in-progress: false
+
+jobs:
+  synthetic-outcome:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - name: Require explicit provider-safe manual drill
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$GITHUB_EVENT_NAME" = 'workflow_dispatch'
+          case '${{ inputs.outcome }}' in
+            failure|success) ;;
+            *) exit 2 ;;
+          esac
+
+      - name: Produce selected synthetic result
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [ '${{ inputs.outcome }}' = 'failure' ]; then
+            echo '::error::Expected synthetic failure for critical workflow alert routing drill.'
+            exit 1
+          fi
+          echo 'Synthetic recovery result completed successfully.'

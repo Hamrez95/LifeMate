@@ -1,0 +1,37 @@
+name: critical-workflow-alerts-policy
+
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - '.github/workflows/critical-workflow-alerts.yml'
+      - '.github/workflows/critical-workflow-failure-drill.yml'
+      - '.github/workflows/critical-workflow-alerts-policy.yml'
+      - 'tools/operations/verify-critical-workflow-alerts.mjs'
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/critical-workflow-alerts.yml'
+      - '.github/workflows/critical-workflow-failure-drill.yml'
+      - '.github/workflows/critical-workflow-alerts-policy.yml'
+      - 'tools/operations/verify-critical-workflow-alerts.mjs'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: critical-workflow-alerts-policy-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  policy:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
+        with:
+          show-progress: false
+          persist-credentials: false
+
+      - name: Verify critical workflow owner alert policy
+        run: node tools/operations/verify-critical-workflow-alerts.mjs

@@ -1,0 +1,125 @@
+name: critical-workflow-alerts
+
+on:
+  workflow_run:
+    workflows:
+      - main-edge-deploy
+      - internal-beta-release
+      - main-final-android-release
+      - postgres-schema
+      - edge-api
+      - ecosystem-workers
+      - privacy-lifecycle-contract
+      - identity-link-retirement-policy
+      - workstation-backup-policy
+      - runtime-onboarding-control-policy
+      - critical-workflow-failure-drill
+    branches: [main]
+    types: [completed]
+
+permissions:
+  contents: read
+  issues: write
+
+concurrency:
+  group: critical-workflow-alert-${{ github.event.workflow_run.name }}
+  cancel-in-progress: false
+
+jobs:
+  route-failure:
+    if: >-
+      ${{ github.event.workflow_run.event != 'pull_request' &&
+          contains(fromJSON('["failure","timed_out","startup_failure","action_required"]'), github.event.workflow_run.conclusion) }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - name: Create or update privacy-minimized owner incident
+        shell: bash
+        env:
+          WORKFLOW_NAME: ${{ github.event.workflow_run.name }}
+          WORKFLOW_CONCLUSION: ${{ github.event.workflow_run.conclusion }}
+          WORKFLOW_EVENT: ${{ github.event.workflow_run.event }}
+          WORKFLOW_RUN_URL: ${{ github.event.workflow_run.html_url }}
+          WORKFLOW_HEAD_SHA: ${{ github.event.workflow_run.head_sha }}
+          WORKFLOW_UPDATED_AT: ${{ github.event.workflow_run.updated_at }}
+        run: |
+          set -euo pipefail
+          if [ "$WORKFLOW_NAME" = 'critical-workflow-failure-drill' ]; then
+            alert_title='OPS DRILL — Critical workflow alert routing'
+          else
+            alert_title="OPS ALERT — Critical workflow failed: ${WORKFLOW_NAME}"
+          fi
+
+          existing="$(gh issue list \
+            --repo "$GITHUB_REPOSITORY" \
+            --state open \
+            --search "${alert_title} in:title" \
+            --json number,title \
+            --jq ".[] | select(.title == \"${alert_title}\") | .number" \
+            | head -n1)"
+
+          body_file="$RUNNER_TEMP/critical-workflow-alert.md"
+          cat > "$body_file" <<EOF
+          ## LifeMate critical workflow incident
+
+          - Workflow: ${WORKFLOW_NAME}
+          - Conclusion: ${WORKFLOW_CONCLUSION}
+          - Event: ${WORKFLOW_EVENT}
+          - Run: ${WORKFLOW_RUN_URL}
+          - Source SHA: \`${WORKFLOW_HEAD_SHA}\`
+          - Observed at UTC: ${WORKFLOW_UPDATED_AT}
+          - Owner: @${GITHUB_REPOSITORY_OWNER}
+
+          This alert contains workflow metadata only. No response body, token, secret, email, phone, Account/AppUser/Person identifier, healthcare payload or database content is copied into the incident.
+          EOF
+
+          if [ -n "$existing" ]; then
+            gh issue comment "$existing" --repo "$GITHUB_REPOSITORY" --body-file "$body_file"
+          else
+            gh issue create \
+              --repo "$GITHUB_REPOSITORY" \
+              --title "$alert_title" \
+              --body-file "$body_file" \
+              --assignee "$GITHUB_REPOSITORY_OWNER"
+          fi
+
+  close-recovered:
+    if: >-
+      ${{ github.event.workflow_run.event != 'pull_request' &&
+          github.event.workflow_run.conclusion == 'success' }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - name: Close recovered workflow incident
+        shell: bash
+        env:
+          WORKFLOW_NAME: ${{ github.event.workflow_run.name }}
+          WORKFLOW_RUN_URL: ${{ github.event.workflow_run.html_url }}
+          WORKFLOW_HEAD_SHA: ${{ github.event.workflow_run.head_sha }}
+        run: |
+          set -euo pipefail
+          if [ "$WORKFLOW_NAME" = 'critical-workflow-failure-drill' ]; then
+            alert_title='OPS DRILL — Critical workflow alert routing'
+          else
+            alert_title="OPS ALERT — Critical workflow failed: ${WORKFLOW_NAME}"
+          fi
+
+          issue_number="$(gh issue list \
+            --repo "$GITHUB_REPOSITORY" \
+            --state open \
+            --search "${alert_title} in:title" \
+            --json number,title \
+            --jq ".[] | select(.title == \"${alert_title}\") | .number" \
+            | head -n1)"
+          if [ -z "$issue_number" ]; then
+            exit 0
+          fi
+
+          gh issue comment "$issue_number" \
+            --repo "$GITHUB_REPOSITORY" \
+            --body "Recovery observed for \`${WORKFLOW_NAME}\` on source \`${WORKFLOW_HEAD_SHA}\`. Successful run: ${WORKFLOW_RUN_URL}."
+          gh issue close "$issue_number" --repo "$GITHUB_REPOSITORY"
