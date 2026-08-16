@@ -26,7 +26,8 @@ export type MarketingChannelStatusPayload = {
 };
 
 const PROVIDER_PATTERN = /^[a-z0-9][a-z0-9_.:-]{0,63}$/;
-const STATUS_PATH = /^\/api\/v1\/marketing\/channels\/([^/]+)\/actions\/status$/i;
+const STATUS_PATH =
+  /^\/api\/v1\/marketing\/channels\/([^/]+)\/actions\/status$/i;
 
 function requiredReason(value: unknown): string {
   if (typeof value !== "string") {
