@@ -2,6 +2,7 @@ import {
   assertEquals,
   assertRejects,
   assertStringIncludes,
+  assertThrows,
 } from "jsr:@std/assert@1";
 import {
   advisorKpiNames,
@@ -17,10 +18,13 @@ const admin = (permissions: string[]): AdminCapabilitySnapshot => ({
   accountId: "123e4567-e89b-42d3-a456-426614174000",
   roles: ["founder"],
   permissions,
-  isActive: true,
 });
 
-const kpi = (name: string, value: number | null, state: KpiValue["state"] = "ready"): KpiValue => ({
+const kpi = (
+  name: string,
+  value: number | null,
+  state: KpiValue["state"] = "ready",
+): KpiValue => ({
   name,
   definitionVersion: 1,
   state,
@@ -28,7 +32,7 @@ const kpi = (name: string, value: number | null, state: KpiValue["state"] = "rea
   numerator: value,
   denominator: null,
   source: "analytics.approved_v1",
-  reason: value === null ? "not_instrumented" : null,
+  ...(value === null ? { reason: "not_instrumented" } : {}),
   freshness: {
     status: value === null ? "unavailable" : "fresh",
     asOfUtc: "2026-08-16T08:00:00.000Z",
@@ -73,8 +77,11 @@ Deno.test("ADM-AI-001 treats prompt text as untrusted data and never expands the
 });
 
 Deno.test("ADM-AI-001 requires advisor permission plus underlying source permission", () => {
-  assertRejects(
-    () => Promise.resolve(assertAdvisorSourcePermissions(admin(["ai.advisor.read"]), "product_overview")),
+  assertThrows(() =>
+    assertAdvisorSourcePermissions(
+      admin(["ai.advisor.read"]),
+      "product_overview",
+    )
   );
   assertAdvisorSourcePermissions(
     admin(["ai.advisor.read", "analytics.read"]),
