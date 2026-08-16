@@ -23,6 +23,15 @@ Future<void> _pump(
   await tester.pumpAndSettle();
 }
 
+Future<void> _scrollToNotice(WidgetTester tester) async {
+  await tester.scrollUntilVisible(
+    find.byKey(const ValueKey('account-security-notice')),
+    260,
+    scrollable: find.byType(Scrollable).first,
+  );
+  await tester.pumpAndSettle();
+}
+
 void main() {
   tearDown(() => LifeMateRuntimeLocale.setLanguageCode('fa'));
 
@@ -51,9 +60,7 @@ void main() {
     expect(find.textContaining('Pending confirmation: next@example.test'),
         findsOneWidget);
 
-    final notice = find.byKey(const ValueKey('account-security-notice'));
-    await tester.ensureVisible(notice);
-    await tester.pumpAndSettle();
+    await _scrollToNotice(tester);
     expect(find.textContaining('remains authoritative'), findsOneWidget);
   });
 
@@ -144,6 +151,7 @@ void main() {
     );
     await tester.pumpAndSettle();
 
+    await _scrollToNotice(tester);
     expect(find.textContaining('Email change could not be started'),
         findsOneWidget);
     expect(find.textContaining('victim@example.test'), findsNothing);
