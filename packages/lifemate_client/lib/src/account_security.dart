@@ -6,6 +6,7 @@ import 'feature_flags.dart';
 import 'iran_phone.dart';
 import 'lifemate_auth.dart';
 import 'locale_digit_input_formatter.dart';
+import 'presentation_numbers.dart';
 import 'runtime_locale.dart';
 
 typedef LifeMateEmailChangeRequest = Future<void> Function(String email);
@@ -256,7 +257,7 @@ class _LifeMateAccountSecurityScreenState
 
   Future<void> _verifyPhoneChange() async {
     if (_phoneBusy || !_phoneActionsAvailable || _pendingPhone == null) return;
-    final token = _phoneOtpController.text.trim();
+    final token = LifeMateNumbers.toLatin(_phoneOtpController.text).trim();
     if (!RegExp(r'^\d{6,10}$').hasMatch(token)) {
       setState(() {
         _notice = _SecurityNotice.error(
@@ -538,7 +539,9 @@ class _LifeMateAccountSecurityScreenState
                   child: TextFormField(
                     key: const ValueKey('account-security-new-phone'),
                     controller: _phoneController,
-                    enabled: _phoneActionsAvailable && !_phoneBusy && _pendingPhone == null,
+                    enabled: _phoneActionsAvailable &&
+                        !_phoneBusy &&
+                        _pendingPhone == null,
                     keyboardType: TextInputType.phone,
                     textDirection: TextDirection.ltr,
                     inputFormatters: const [LifeMateLocaleDigitInputFormatter()],
@@ -560,7 +563,9 @@ class _LifeMateAccountSecurityScreenState
                   width: double.infinity,
                   child: FilledButton.icon(
                     key: const ValueKey('account-security-change-phone'),
-                    onPressed: _phoneActionsAvailable && !_phoneBusy && _pendingPhone == null
+                    onPressed: _phoneActionsAvailable &&
+                            !_phoneBusy &&
+                            _pendingPhone == null
                         ? _requestPhoneChange
                         : null,
                     style: FilledButton.styleFrom(backgroundColor: widget.accent),
