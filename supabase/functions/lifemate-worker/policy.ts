@@ -4,6 +4,7 @@ export const supportedEvents = [
   "care.adherence_projection_refresh_requested",
   "identity.session_revoke_requested",
   "identity.account_deletion_requested",
+  "marketing.campaign_publish_requested",
 ] as const;
 
 export function boundedWorkerBatchSize(value: string | undefined): number {
