@@ -1,5 +1,8 @@
 import { getLifeMateSql, type LifeMateSql } from "./database_client.ts";
-import { normalizeIranianMobileE164, maskIranianMobileE164 } from "./iran_phone.ts";
+import {
+  maskIranianMobileE164,
+  normalizeIranianMobileE164,
+} from "./iran_phone.ts";
 import { createHmac, createToken, timingSafeEqual } from "./security.ts";
 import { ApiError, requiredText } from "./validation.ts";
 
@@ -295,10 +298,12 @@ export function createPhoneCareInvitationStore(
     const names = await connection`
       select user_id, display_name
       from lifemate.user_profiles
-      where user_id in ${sql([
+      where user_id in ${
+      sql([
         relationship.patient_user_id,
         relationship.caregiver_user_id,
-      ])}
+      ])
+    }
     `;
     const byId = new Map(
       names.map((row: Row) => [row.user_id, row.display_name]),
