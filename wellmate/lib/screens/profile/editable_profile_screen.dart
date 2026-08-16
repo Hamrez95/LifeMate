@@ -31,7 +31,6 @@ class EditableProfileScreen extends StatelessWidget {
                 ),
                 style: OutlinedButton.styleFrom(
                   foregroundColor: AppColors.darkBlue,
-                  side: BorderSide(color: AppColors.primary.withValues(alpha: 0.4)),
                 ),
                 onPressed: () => Navigator.of(context).push(
                   MaterialPageRoute<void>(
