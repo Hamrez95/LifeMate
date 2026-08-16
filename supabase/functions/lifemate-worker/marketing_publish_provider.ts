@@ -10,15 +10,22 @@ export type MarketingPublishResult =
   | { kind: "rejected"; code: string }
   | { kind: "unknown"; code: string };
 
-type FetchLike = (input: RequestInfo | URL, init?: RequestInit) => Promise<Response>;
+type FetchLike = (
+  input: RequestInfo | URL,
+  init?: RequestInit,
+) => Promise<Response>;
 
 type TelegramCredential = { botToken: string; chatId: string };
 
 function parseTelegramCredential(value: string): TelegramCredential | null {
   try {
     const parsed = JSON.parse(value) as Record<string, unknown>;
-    const botToken = typeof parsed.botToken === "string" ? parsed.botToken.trim() : "";
-    const chatId = typeof parsed.chatId === "string" ? parsed.chatId.trim() : "";
+    const botToken = typeof parsed.botToken === "string"
+      ? parsed.botToken.trim()
+      : "";
+    const chatId = typeof parsed.chatId === "string"
+      ? parsed.chatId.trim()
+      : "";
     if (!/^\d{5,12}:[A-Za-z0-9_-]{20,128}$/.test(botToken)) return null;
     if (!/^(@[A-Za-z0-9_]{5,32}|-?\d{1,20})$/.test(chatId)) return null;
     return { botToken, chatId };
@@ -42,7 +49,9 @@ export async function publishMarketingContent(
   }
 
   const credential = parseTelegramCredential(input.credentialSecret);
-  if (!credential) return { kind: "rejected", code: "provider_configuration_invalid" };
+  if (!credential) {
+    return { kind: "rejected", code: "provider_configuration_invalid" };
+  }
 
   try {
     const response = await fetchImpl(
@@ -74,7 +83,10 @@ export async function publishMarketingContent(
       return { kind: "unknown", code: "provider_response_invalid" };
     }
     const payload = body as Record<string, unknown>;
-    if (payload.ok !== true || !payload.result || typeof payload.result !== "object" || Array.isArray(payload.result)) {
+    if (
+      payload.ok !== true || !payload.result ||
+      typeof payload.result !== "object" || Array.isArray(payload.result)
+    ) {
       return { kind: "rejected", code: "provider_rejected" };
     }
     const messageId = (payload.result as Record<string, unknown>).message_id;
