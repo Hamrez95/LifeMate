@@ -19,6 +19,8 @@ for (const spec of [
   'internal-beta-release:workflow_dispatch',
   'main-final-android-release:workflow_dispatch',
   'main-final-android-release:push',
+  'foundation-candidate-qualify:workflow_dispatch',
+  'foundation-candidate-policy:push',
   'postgres-schema:push',
   'edge-api:push',
   'ecosystem-workers:push',
@@ -81,4 +83,4 @@ for (const forbidden of ['secrets.', 'supabase.co', 'curl ', 'wget ', 'DATABASE_
   forbidText(drill, forbidden, `synthetic drill must remain provider-safe and secret-free: ${forbidden}`);
 }
 
-console.log('Critical main deployment/release workflow failures are polled, owner-routed, deduplicated, privacy-minimized and recovery-closed; drill remains manual/provider-safe.');
+console.log('Critical main deployment/release workflow failures, including Foundation candidate qualification/policy, are polled, owner-routed, deduplicated, privacy-minimized and recovery-closed; drill remains manual/provider-safe.');
