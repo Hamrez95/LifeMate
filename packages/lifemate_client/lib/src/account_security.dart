@@ -3,12 +3,20 @@ import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'feature_flags.dart';
+import 'iran_phone.dart';
 import 'lifemate_auth.dart';
+import 'locale_digit_input_formatter.dart';
+import 'presentation_numbers.dart';
 import 'runtime_locale.dart';
 
 typedef LifeMateEmailChangeRequest = Future<void> Function(String email);
 typedef LifeMateRecoveryRequest = Future<void> Function(String email);
 typedef LifeMateIdentityLinkRequest = Future<void> Function();
+typedef LifeMatePhoneChangeRequest = Future<void> Function(String phoneE164);
+typedef LifeMatePhoneChangeVerification = Future<void> Function(
+  String phoneE164,
+  String token,
+);
 
 class LifeMateAccountSecurityController {
   const LifeMateAccountSecurityController({
@@ -16,6 +24,9 @@ class LifeMateAccountSecurityController {
     required this.requestEmailChange,
     required this.requestPasswordRecovery,
     required this.linkGoogleIdentity,
+    this.currentPhone,
+    this.requestPhoneChange,
+    this.verifyPhoneChange,
   });
 
   factory LifeMateAccountSecurityController.supabase({
@@ -25,6 +36,7 @@ class LifeMateAccountSecurityController {
     final callback = kIsWeb ? null : LifeMateAuth.callbackUrlForApp(appName);
     return LifeMateAccountSecurityController(
       currentEmail: client.auth.currentUser?.email?.trim(),
+      currentPhone: client.auth.currentUser?.phone?.trim(),
       requestEmailChange: (email) async {
         await client.auth.updateUser(
           UserAttributes(email: email),
@@ -41,13 +53,26 @@ class LifeMateAccountSecurityController {
           redirectTo: callback,
         );
       },
+      requestPhoneChange: (phoneE164) async {
+        await client.auth.updateUser(UserAttributes(phone: phoneE164));
+      },
+      verifyPhoneChange: (phoneE164, token) async {
+        await client.auth.verifyOTP(
+          phone: phoneE164,
+          token: token,
+          type: OtpType.phoneChange,
+        );
+      },
     );
   }
 
   final String? currentEmail;
+  final String? currentPhone;
   final LifeMateEmailChangeRequest requestEmailChange;
   final LifeMateRecoveryRequest requestPasswordRecovery;
   final LifeMateIdentityLinkRequest linkGoogleIdentity;
+  final LifeMatePhoneChangeRequest? requestPhoneChange;
+  final LifeMatePhoneChangeVerification? verifyPhoneChange;
 }
 
 class LifeMateAccountSecurityScreen extends StatefulWidget {
@@ -57,6 +82,7 @@ class LifeMateAccountSecurityScreen extends StatefulWidget {
     required this.background,
     required this.ink,
     this.googleLinkingEnabled = LifeMateFeatureFlags.googleAuthEnabled,
+    this.phoneLinkingEnabled = LifeMateFeatureFlags.phoneOtpEnabled,
     super.key,
   });
 
@@ -65,6 +91,7 @@ class LifeMateAccountSecurityScreen extends StatefulWidget {
   final Color background;
   final Color ink;
   final bool googleLinkingEnabled;
+  final bool phoneLinkingEnabled;
 
   @override
   State<LifeMateAccountSecurityScreen> createState() =>
@@ -75,15 +102,34 @@ class _LifeMateAccountSecurityScreenState
     extends State<LifeMateAccountSecurityScreen> {
   final _emailController = TextEditingController();
   final _emailFormKey = GlobalKey<FormState>();
+  final _phoneController = TextEditingController(text: '09');
+  final _phoneFormKey = GlobalKey<FormState>();
+  final _phoneOtpController = TextEditingController();
   bool _emailBusy = false;
   bool _recoveryBusy = false;
   bool _linkBusy = false;
+  bool _phoneBusy = false;
   String? _pendingEmail;
+  String? _pendingPhone;
+  String? _verifiedPhone;
   _SecurityNotice? _notice;
+
+  bool get _phoneActionsAvailable =>
+      widget.phoneLinkingEnabled &&
+      widget.controller.requestPhoneChange != null &&
+      widget.controller.verifyPhoneChange != null;
+
+  @override
+  void initState() {
+    super.initState();
+    _verifiedPhone = _normalizedPhoneOrNull(widget.controller.currentPhone);
+  }
 
   @override
   void dispose() {
     _emailController.dispose();
+    _phoneController.dispose();
+    _phoneOtpController.dispose();
     super.dispose();
   }
 
@@ -107,6 +153,30 @@ class _LifeMateAccountSecurityScreenState
       return LifeMateRuntimeLocale.select(
         fa: 'این همان ایمیل فعلی است.',
         en: 'This is already your current email.',
+      );
+    }
+    return null;
+  }
+
+  String? _validatePhone(String? raw) {
+    final value = raw?.trim() ?? '';
+    if (value.isEmpty) {
+      return LifeMateRuntimeLocale.select(
+        fa: 'شماره موبایل جدید را وارد کنید.',
+        en: 'Enter the new mobile number.',
+      );
+    }
+    final normalized = _normalizedPhoneOrNull(value);
+    if (normalized == null) {
+      return LifeMateRuntimeLocale.select(
+        fa: 'شماره موبایل ایران معتبر وارد کنید.',
+        en: 'Enter a valid Iranian mobile number.',
+      );
+    }
+    if (normalized == _verifiedPhone) {
+      return LifeMateRuntimeLocale.select(
+        fa: 'این همان شماره موبایل تأییدشده فعلی است.',
+        en: 'This is already your current verified mobile number.',
       );
     }
     return null;
@@ -144,6 +214,94 @@ class _LifeMateAccountSecurityScreenState
       });
     } finally {
       if (mounted) setState(() => _emailBusy = false);
+    }
+  }
+
+  Future<void> _requestPhoneChange() async {
+    if (_phoneBusy || !_phoneActionsAvailable) return;
+    if (!(_phoneFormKey.currentState?.validate() ?? false)) return;
+    final phone = _normalizedPhoneOrNull(_phoneController.text);
+    if (phone == null) return;
+
+    setState(() {
+      _phoneBusy = true;
+      _notice = null;
+    });
+    try {
+      await widget.controller.requestPhoneChange!(phone);
+      if (!mounted) return;
+      setState(() {
+        _pendingPhone = phone;
+        _phoneOtpController.clear();
+        _notice = _SecurityNotice.success(
+          LifeMateRuntimeLocale.select(
+            fa: 'درخواست تغییر شماره ثبت شد. تا پیش از تأیید کد، شماره فعلی حساب تغییر‌یافته در نظر گرفته نمی‌شود.',
+            en: 'Phone change requested. The current verified number remains authoritative until the code is confirmed.',
+          ),
+        );
+      });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() {
+        _notice = _SecurityNotice.error(
+          LifeMateRuntimeLocale.select(
+            fa: 'شروع تغییر شماره موبایل ممکن نشد. کمی بعد دوباره تلاش کنید.',
+            en: 'Phone change could not be started. Try again later.',
+          ),
+        );
+      });
+    } finally {
+      if (mounted) setState(() => _phoneBusy = false);
+    }
+  }
+
+  Future<void> _verifyPhoneChange() async {
+    if (_phoneBusy || !_phoneActionsAvailable || _pendingPhone == null) return;
+    final token = LifeMateNumbers.toLatin(_phoneOtpController.text).trim();
+    if (!RegExp(r'^\d{6,10}$').hasMatch(token)) {
+      setState(() {
+        _notice = _SecurityNotice.error(
+          LifeMateRuntimeLocale.select(
+            fa: 'کد تأیید معتبر وارد کنید.',
+            en: 'Enter a valid verification code.',
+          ),
+        );
+      });
+      return;
+    }
+
+    final pendingPhone = _pendingPhone!;
+    setState(() {
+      _phoneBusy = true;
+      _notice = null;
+    });
+    try {
+      await widget.controller.verifyPhoneChange!(pendingPhone, token);
+      if (!mounted) return;
+      setState(() {
+        _verifiedPhone = pendingPhone;
+        _pendingPhone = null;
+        _phoneController.text = '09';
+        _phoneOtpController.clear();
+        _notice = _SecurityNotice.success(
+          LifeMateRuntimeLocale.select(
+            fa: 'شماره موبایل این حساب تأیید و به‌روزرسانی شد. هویت سلامت یا Person جدیدی ساخته نشد.',
+            en: 'This account mobile number was verified and updated. No new LifeMate health identity or Person was created.',
+          ),
+        );
+      });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() {
+        _notice = _SecurityNotice.error(
+          LifeMateRuntimeLocale.select(
+            fa: 'کد تأیید پذیرفته نشد یا منقضی شده است. دوباره تلاش کنید.',
+            en: 'The verification code was not accepted or has expired. Try again.',
+          ),
+        );
+      });
+    } finally {
+      if (mounted) setState(() => _phoneBusy = false);
     }
   }
 
@@ -341,6 +499,163 @@ class _LifeMateAccountSecurityScreenState
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 _SectionTitle(
+                  icon: Icons.phone_android_rounded,
+                  color: widget.accent,
+                  title: LifeMateRuntimeLocale.select(
+                    fa: 'شماره موبایل ورود',
+                    en: 'Sign-in mobile number',
+                  ),
+                ),
+                const SizedBox(height: 12),
+                Text(
+                  _verifiedPhone == null
+                      ? LifeMateRuntimeLocale.select(
+                          fa: 'شماره موبایل تأییدشده‌ای برای این حساب ثبت نشده است.',
+                          en: 'No verified mobile number is attached to this account.',
+                        )
+                      : _maskedPhone(_verifiedPhone!),
+                  key: const ValueKey('account-security-current-phone'),
+                  style: TextStyle(
+                    color: widget.ink,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+                const SizedBox(height: 10),
+                Text(
+                  _phoneActionsAvailable
+                      ? LifeMateRuntimeLocale.select(
+                          fa: 'شماره جدید فقط به همین حساب واردشده متصل می‌شود و پس از تأیید کد معتبر می‌گردد.',
+                          en: 'A new number is attached only to this signed-in account and becomes authoritative only after code verification.',
+                        )
+                      : LifeMateRuntimeLocale.select(
+                          fa: 'تغییر شماره موبایل برای این نسخه هنوز فعال نشده است.',
+                          en: 'Mobile-number changes are not enabled for this release yet.',
+                        ),
+                  style: const TextStyle(color: Color(0xFF687386), height: 1.45),
+                ),
+                const SizedBox(height: 14),
+                Form(
+                  key: _phoneFormKey,
+                  child: TextFormField(
+                    key: const ValueKey('account-security-new-phone'),
+                    controller: _phoneController,
+                    enabled: _phoneActionsAvailable &&
+                        !_phoneBusy &&
+                        _pendingPhone == null,
+                    keyboardType: TextInputType.phone,
+                    textDirection: TextDirection.ltr,
+                    inputFormatters: const [LifeMateLocaleDigitInputFormatter()],
+                    validator: _validatePhone,
+                    decoration: InputDecoration(
+                      labelText: LifeMateRuntimeLocale.select(
+                        fa: 'شماره موبایل جدید',
+                        en: 'New mobile number',
+                      ),
+                      hintText: '09121234567',
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(16),
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 12),
+                SizedBox(
+                  width: double.infinity,
+                  child: FilledButton.icon(
+                    key: const ValueKey('account-security-change-phone'),
+                    onPressed: _phoneActionsAvailable &&
+                            !_phoneBusy &&
+                            _pendingPhone == null
+                        ? _requestPhoneChange
+                        : null,
+                    style: FilledButton.styleFrom(backgroundColor: widget.accent),
+                    icon: _phoneBusy && _pendingPhone == null
+                        ? const SizedBox(
+                            width: 18,
+                            height: 18,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              color: Colors.white,
+                            ),
+                          )
+                        : const Icon(Icons.sms_outlined),
+                    label: Text(
+                      LifeMateRuntimeLocale.select(
+                        fa: 'ارسال کد تأیید شماره',
+                        en: 'Send phone-change code',
+                      ),
+                    ),
+                  ),
+                ),
+                if (_pendingPhone != null) ...[
+                  const SizedBox(height: 14),
+                  Container(
+                    key: const ValueKey('account-security-pending-phone'),
+                    width: double.infinity,
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: widget.accent.withValues(alpha: .09),
+                      borderRadius: BorderRadius.circular(14),
+                    ),
+                    child: Text(
+                      LifeMateRuntimeLocale.select(
+                        fa: 'در انتظار تأیید: ${_maskedPhone(_pendingPhone!)}',
+                        en: 'Pending verification: ${_maskedPhone(_pendingPhone!)}',
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  TextField(
+                    key: const ValueKey('account-security-phone-otp'),
+                    controller: _phoneOtpController,
+                    enabled: !_phoneBusy,
+                    keyboardType: TextInputType.number,
+                    textDirection: TextDirection.ltr,
+                    inputFormatters: const [LifeMateLocaleDigitInputFormatter()],
+                    maxLength: 10,
+                    decoration: InputDecoration(
+                      labelText: LifeMateRuntimeLocale.select(
+                        fa: 'کد تأیید',
+                        en: 'Verification code',
+                      ),
+                      counterText: '',
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(16),
+                      ),
+                    ),
+                    onSubmitted: (_) => _verifyPhoneChange(),
+                  ),
+                  const SizedBox(height: 10),
+                  SizedBox(
+                    width: double.infinity,
+                    child: OutlinedButton.icon(
+                      key: const ValueKey('account-security-verify-phone'),
+                      onPressed: _phoneBusy ? null : _verifyPhoneChange,
+                      icon: _phoneBusy
+                          ? const SizedBox(
+                              width: 18,
+                              height: 18,
+                              child: CircularProgressIndicator(strokeWidth: 2),
+                            )
+                          : const Icon(Icons.verified_user_outlined),
+                      label: Text(
+                        LifeMateRuntimeLocale.select(
+                          fa: 'تأیید شماره جدید',
+                          en: 'Verify new number',
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ],
+            ),
+          ),
+          const SizedBox(height: 14),
+          _SecurityCard(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                _SectionTitle(
                   icon: Icons.password_rounded,
                   color: widget.accent,
                   title: LifeMateRuntimeLocale.select(
@@ -437,6 +752,21 @@ class _LifeMateAccountSecurityScreenState
         ],
       ),
     );
+  }
+
+  static String? _normalizedPhoneOrNull(String? value) {
+    if (value == null || value.trim().isEmpty) return null;
+    try {
+      return LifeMateIranPhone.normalizeE164(value);
+    } on FormatException {
+      return null;
+    }
+  }
+
+  static String _maskedPhone(String phoneE164) {
+    final normalized = _normalizedPhoneOrNull(phoneE164);
+    if (normalized == null) return '••••';
+    return '+98 ••• •• ${normalized.substring(normalized.length - 4)}';
   }
 }
 

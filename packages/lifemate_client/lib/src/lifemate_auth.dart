@@ -3,6 +3,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'feature_flags.dart';
 import 'iran_phone.dart';
+import 'presentation_numbers.dart';
 
 enum LifeMatePhoneOtpIntent { signIn, signUp }
 
@@ -90,7 +91,7 @@ class LifeMateAuth {
       throw const AuthException('Phone OTP is not enabled for this release.');
     }
     final phone = _normalizeIranPhone(phoneE164);
-    final normalizedToken = token.trim();
+    final normalizedToken = LifeMateNumbers.toLatin(token).trim();
     if (!RegExp(r'^\d{6,10}$').hasMatch(normalizedToken)) {
       throw const AuthException('OTP format is invalid.');
     }
