@@ -15,7 +15,9 @@ type ChannelRow = {
 };
 
 function iso(value: Date | string): string {
-  return value instanceof Date ? value.toISOString() : new Date(value).toISOString();
+  return value instanceof Date
+    ? value.toISOString()
+    : new Date(value).toISOString();
 }
 
 function mapChannel(row: ChannelRow): MarketingChannelItem {
@@ -97,4 +99,6 @@ export function createMarketingChannelStore(databaseUrl: string) {
   };
 }
 
-export type MarketingChannelStore = ReturnType<typeof createMarketingChannelStore>;
+export type MarketingChannelStore = ReturnType<
+  typeof createMarketingChannelStore
+>;
