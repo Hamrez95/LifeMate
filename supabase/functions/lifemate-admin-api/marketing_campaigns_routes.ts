@@ -15,6 +15,12 @@ import {
 } from "./marketing_campaigns.ts";
 import { listMarketingCampaigns } from "./marketing_campaigns_service.ts";
 import { createMarketingCampaignStore } from "./marketing_campaigns_store.ts";
+import {
+  hashMarketingChannelStatusRequest,
+  matchMarketingChannelStatusPath,
+  parseMarketingChannelStatusPayload,
+} from "./marketing_channels.ts";
+import { createMarketingChannelStore } from "./marketing_channels_store.ts";
 import { ApiError, requireIdempotencyKey } from "./validation.ts";
 
 export type MarketingCampaignRouteContext = {
@@ -31,8 +37,8 @@ function mutationStatus(result: Record<string, unknown>): number {
   if (!Number.isInteger(status) || status < 100 || status > 599) {
     throw new ApiError(
       503,
-      "marketing_campaign_workflow_unavailable",
-      "Campaign workflow returned an invalid status.",
+      "marketing_workflow_unavailable",
+      "Marketing workflow returned an invalid status.",
     );
   }
   return status;
@@ -47,6 +53,7 @@ function mutationErrorMessage(
 
 export function createMarketingCampaignRouteHandler(databaseUrl: string) {
   const campaignStore = createMarketingCampaignStore(databaseUrl);
+  const channelStore = createMarketingChannelStore(databaseUrl);
 
   return async function handleMarketingCampaignRoute(
     context: MarketingCampaignRouteContext,
@@ -59,6 +66,63 @@ export function createMarketingCampaignRouteHandler(databaseUrl: string) {
       correlationId,
       origin,
     } = context;
+
+    if (request.method === "GET" && path === "/api/v1/marketing/channels") {
+      requirePermission(admin, "marketing.read");
+      return json(
+        {
+          items: await channelStore.list(),
+          freshness: {
+            status: "fresh",
+            asOfUtc: new Date().toISOString(),
+            source: "admin.marketing_channel_connections_v1",
+          },
+        },
+        200,
+        origin,
+      );
+    }
+
+    const channelProvider = matchMarketingChannelStatusPath(path);
+    if (request.method === "POST" && channelProvider) {
+      requirePermission(admin, "marketing.social.publish");
+      const idempotencyKey = requireIdempotencyKey(request);
+      const payload = await parseMarketingChannelStatusPayload(request);
+      const requestHash = await hashMarketingChannelStatusRequest(
+        channelProvider,
+        payload,
+      );
+      const result = await channelStore.setStatus({
+        actorAccountId: accountId,
+        providerCode: channelProvider,
+        payload,
+        correlationId,
+        idempotencyKey,
+        requestHash,
+      });
+      const status = mutationStatus(result);
+      if (status >= 400) {
+        throw new ApiError(
+          status,
+          String(result.code),
+          mutationErrorMessage(
+            result,
+            "Channel operator status change was not completed.",
+          ),
+        );
+      }
+      return json(
+        {
+          providerCode: String(result.providerCode),
+          operatorStatus: String(result.operatorStatus),
+          setupStatus: String(result.setupStatus),
+          replayed: Boolean(result.replayed),
+          providerConnectivity: "NotVerified",
+        },
+        status,
+        origin,
+      );
+    }
 
     if (request.method === "GET" && path === "/api/v1/marketing/campaigns") {
       requirePermission(admin, "marketing.read");
