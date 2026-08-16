@@ -1,7 +1,8 @@
 import { ApiError, requireUuid } from "./validation.ts";
 
 export const marketingCalendarTimezones = ["Asia/Tehran", "UTC"] as const;
-export type MarketingCalendarTimezone = (typeof marketingCalendarTimezones)[number];
+export type MarketingCalendarTimezone =
+  (typeof marketingCalendarTimezones)[number];
 
 export const marketingCalendarPublishStatuses = [
   "Scheduled",
@@ -37,22 +38,37 @@ const CANCEL_PATH =
 const RETRY_PATH =
   /^\/api\/v1\/marketing\/publish-executions\/([^/]+)\/actions\/retry$/i;
 const DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
-const LOCAL_DATE_TIME_PATTERN = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(?::\d{2})?$/;
+const LOCAL_DATE_TIME_PATTERN =
+  /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(?::\d{2})?$/;
 
 function dateOnly(value: string, field: string): string {
   if (!DATE_PATTERN.test(value)) {
-    throw new ApiError(400, "marketing_calendar_date_invalid", `${field} date is invalid.`);
+    throw new ApiError(
+      400,
+      "marketing_calendar_date_invalid",
+      `${field} date is invalid.`,
+    );
   }
   const date = new Date(`${value}T00:00:00Z`);
-  if (Number.isNaN(date.getTime()) || date.toISOString().slice(0, 10) !== value) {
-    throw new ApiError(400, "marketing_calendar_date_invalid", `${field} date is invalid.`);
+  if (
+    Number.isNaN(date.getTime()) || date.toISOString().slice(0, 10) !== value
+  ) {
+    throw new ApiError(
+      400,
+      "marketing_calendar_date_invalid",
+      `${field} date is invalid.`,
+    );
   }
   return value;
 }
 
 function timezone(value: string | null): MarketingCalendarTimezone {
   const normalized = value?.trim() || "Asia/Tehran";
-  if (!marketingCalendarTimezones.includes(normalized as MarketingCalendarTimezone)) {
+  if (
+    !marketingCalendarTimezones.includes(
+      normalized as MarketingCalendarTimezone,
+    )
+  ) {
     throw new ApiError(
       400,
       "marketing_calendar_timezone_invalid",
@@ -64,7 +80,11 @@ function timezone(value: string | null): MarketingCalendarTimezone {
 
 function reason(value: unknown): string {
   if (typeof value !== "string") {
-    throw new ApiError(400, "marketing_campaign_reason_invalid", "Reason is invalid.");
+    throw new ApiError(
+      400,
+      "marketing_campaign_reason_invalid",
+      "Reason is invalid.",
+    );
   }
   const normalized = value.trim();
   if (normalized.length < 10 || normalized.length > 1000) {
@@ -77,13 +97,21 @@ function reason(value: unknown): string {
   return normalized;
 }
 
-async function objectBody(request: Request): Promise<Record<string, unknown>> {
+async function objectBody(
+  request: Request,
+): Promise<Record<string, unknown>> {
   try {
     const body = await request.json();
-    if (!body || typeof body !== "object" || Array.isArray(body)) throw new Error("invalid");
+    if (!body || typeof body !== "object" || Array.isArray(body)) {
+      throw new Error("invalid");
+    }
     return body as Record<string, unknown>;
   } catch {
-    throw new ApiError(400, "invalid_request", "Request body must be a valid JSON object.");
+    throw new ApiError(
+      400,
+      "invalid_request",
+      "Request body must be a valid JSON object.",
+    );
   }
 }
 
@@ -91,10 +119,20 @@ export function parseMarketingContentCalendarQuery(
   url: URL,
   now = new Date(),
 ): MarketingContentCalendarQuery {
-  const defaultFrom = new Date(now.getTime() - 7 * 86_400_000).toISOString().slice(0, 10);
-  const defaultTo = new Date(now.getTime() + 30 * 86_400_000).toISOString().slice(0, 10);
-  const from = dateOnly(url.searchParams.get("from")?.trim() || defaultFrom, "from");
-  const to = dateOnly(url.searchParams.get("to")?.trim() || defaultTo, "to");
+  const defaultFrom = new Date(now.getTime() - 7 * 86_400_000)
+    .toISOString()
+    .slice(0, 10);
+  const defaultTo = new Date(now.getTime() + 30 * 86_400_000)
+    .toISOString()
+    .slice(0, 10);
+  const from = dateOnly(
+    url.searchParams.get("from")?.trim() || defaultFrom,
+    "from",
+  );
+  const to = dateOnly(
+    url.searchParams.get("to")?.trim() || defaultTo,
+    "to",
+  );
   const fromMs = Date.parse(`${from}T00:00:00Z`);
   const toMs = Date.parse(`${to}T00:00:00Z`);
   if (toMs < fromMs || toMs - fromMs > 180 * 86_400_000) {
@@ -107,7 +145,9 @@ export function parseMarketingContentCalendarQuery(
   const rawStatus = url.searchParams.get("status")?.trim() || "";
   if (
     rawStatus &&
-    !marketingCalendarPublishStatuses.includes(rawStatus as MarketingCalendarPublishStatus)
+    !marketingCalendarPublishStatuses.includes(
+      rawStatus as MarketingCalendarPublishStatus,
+    )
   ) {
     throw new ApiError(
       400,
@@ -119,21 +159,29 @@ export function parseMarketingContentCalendarQuery(
     from,
     to,
     timezone: timezone(url.searchParams.get("timezone")),
-    status: rawStatus ? (rawStatus as MarketingCalendarPublishStatus) : null,
+    status: rawStatus
+      ? (rawStatus as MarketingCalendarPublishStatus)
+      : null,
   };
 }
 
-export function matchMarketingSchedulePublishPath(path: string): string | null {
+export function matchMarketingSchedulePublishPath(
+  path: string,
+): string | null {
   const value = SCHEDULE_PATH.exec(path)?.[1];
   return value ? requireUuid(value, "campaignId") : null;
 }
 
-export function matchMarketingCancelExecutionPath(path: string): string | null {
+export function matchMarketingCancelExecutionPath(
+  path: string,
+): string | null {
   const value = CANCEL_PATH.exec(path)?.[1];
   return value ? requireUuid(value, "executionId") : null;
 }
 
-export function matchMarketingRetryExecutionPath(path: string): string | null {
+export function matchMarketingRetryExecutionPath(
+  path: string,
+): string | null {
   const value = RETRY_PATH.exec(path)?.[1];
   return value ? requireUuid(value, "executionId") : null;
 }
@@ -142,7 +190,10 @@ export async function parseMarketingSchedulePayload(
   request: Request,
 ): Promise<MarketingSchedulePayload> {
   const body = await objectBody(request);
-  if (typeof body.scheduledLocal !== "string" || !LOCAL_DATE_TIME_PATTERN.test(body.scheduledLocal)) {
+  if (
+    typeof body.scheduledLocal !== "string" ||
+    !LOCAL_DATE_TIME_PATTERN.test(body.scheduledLocal)
+  ) {
     throw new ApiError(
       400,
       "marketing_schedule_time_invalid",
@@ -151,7 +202,9 @@ export async function parseMarketingSchedulePayload(
   }
   return {
     scheduledLocal: body.scheduledLocal,
-    timezone: timezone(typeof body.timezone === "string" ? body.timezone : null),
+    timezone: timezone(
+      typeof body.timezone === "string" ? body.timezone : null,
+    ),
     reason: reason(body.reason),
   };
 }
@@ -164,7 +217,10 @@ export async function parseMarketingExecutionActionPayload(
 }
 
 async function sha256(value: string): Promise<string> {
-  const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(value));
+  const digest = await crypto.subtle.digest(
+    "SHA-256",
+    new TextEncoder().encode(value),
+  );
   return [...new Uint8Array(digest)]
     .map((byte) => byte.toString(16).padStart(2, "0"))
     .join("");
@@ -174,7 +230,9 @@ export function hashMarketingScheduleRequest(
   campaignId: string,
   payload: MarketingSchedulePayload,
 ): Promise<string> {
-  return sha256(`v1\nschedule-publish\n${campaignId}\n${JSON.stringify(payload)}`);
+  return sha256(
+    `v1\nschedule-publish\n${campaignId}\n${JSON.stringify(payload)}`,
+  );
 }
 
 export function hashMarketingExecutionActionRequest(
