@@ -3,6 +3,7 @@ import {
   requirePermission,
 } from "./authorization.ts";
 import { json } from "./http.ts";
+import { createMarketingCampaignDetailRouteHandler } from "./marketing_campaign_detail_routes.ts";
 import {
   hashCreateMarketingCampaignRequest,
   hashMarketingCampaignStatusRequest,
@@ -54,6 +55,9 @@ function mutationErrorMessage(
 export function createMarketingCampaignRouteHandler(databaseUrl: string) {
   const campaignStore = createMarketingCampaignStore(databaseUrl);
   const channelStore = createMarketingChannelStore(databaseUrl);
+  const detailRouteHandler = createMarketingCampaignDetailRouteHandler(
+    databaseUrl,
+  );
 
   return async function handleMarketingCampaignRoute(
     context: MarketingCampaignRouteContext,
@@ -66,6 +70,9 @@ export function createMarketingCampaignRouteHandler(databaseUrl: string) {
       correlationId,
       origin,
     } = context;
+
+    const detailResponse = await detailRouteHandler(context);
+    if (detailResponse) return detailResponse;
 
     if (request.method === "GET" && path === "/api/v1/marketing/channels") {
       requirePermission(admin, "marketing.read");
