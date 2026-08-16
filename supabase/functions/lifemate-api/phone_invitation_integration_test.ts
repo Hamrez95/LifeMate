@@ -176,7 +176,9 @@ Deno.test({
             'care_relationship.created'
           )
       `;
-      assert(audits.some((row) => row.action === "care_invitation.phone_created"));
+      assert(
+        audits.some((row) => row.action === "care_invitation.phone_created"),
+      );
       assert(audits.some((row) => row.action === "care_invitation.accepted"));
       assert(audits.some((row) => row.action === "care_relationship.created"));
       for (const row of audits) {
