@@ -17,7 +17,7 @@ class EditableProfileScreen extends StatelessWidget {
         children: [
           SafeArea(
             bottom: false,
-            minimum: const EdgeInsetsDirectional.fromSTEB(20, 10, 20, 6),
+            minimum: const EdgeInsets.fromLTRB(20, 10, 20, 6),
             child: Align(
               alignment: AlignmentDirectional.centerEnd,
               child: OutlinedButton.icon(
