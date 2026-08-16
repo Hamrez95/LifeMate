@@ -117,6 +117,11 @@ requireMatch(
   'returning-user phone sign-in must remain non-creating',
 );
 requireMatch(
+  authClient,
+  /LifeMateNumbers\.toLatin\(token\)\.trim\(\)/,
+  'phone OTP verification must canonicalize localized digits before validation',
+);
+requireMatch(
   accountSecurity,
   /phoneLinkingEnabled\s*=\s*LifeMateFeatureFlags\.phoneOtpEnabled/,
   'account phone linking must remain behind the fail-closed phone OTP flag',
@@ -130,6 +135,11 @@ requireMatch(
   accountSecurity,
   /verifyOTP\([\s\S]{0,180}type:\s*OtpType\.phoneChange/,
   'phone linking must verify with the dedicated phone-change OTP type',
+);
+requireMatch(
+  accountSecurity,
+  /LifeMateNumbers\.toLatin\(_phoneOtpController\.text\)\.trim\(\)/,
+  'phone-change verification must canonicalize localized OTP digits',
 );
 
 // Signup must not disclose whether an email already belongs to an account.
