@@ -2,6 +2,7 @@ import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import postgres from "postgres";
 import { createClient } from "supabase";
 import { purgeProfilePhotoFolder } from "./account_deletion_storage.ts";
+import { publishMarketingContent } from "./marketing_publish_provider.ts";
 import {
   boundedMessageTimeoutMs,
   boundedWorkerBatchSize,
@@ -66,6 +67,15 @@ type QueueMetrics = {
   dead_letter_count: number | string;
   oldest_ready_age_seconds: number | string;
   highest_attempt_count: number | string;
+};
+
+type CampaignPublishClaim = {
+  execution_id: string;
+  campaign_id: string;
+  provider_code: string;
+  publish_text: string;
+  asset_refs: unknown;
+  credential_secret_name: string;
 };
 
 Deno.serve(async (request: Request) => {
@@ -274,9 +284,77 @@ async function processMessage(message: OutboxMessage): Promise<void> {
       }
       return;
     }
+    case "marketing.campaign_publish_requested": {
+      const executionId = stringField(message.payload_json, "executionId");
+      if (!uuidPattern.test(executionId)) throw new Error("invalid_executionId");
+
+      const rows = await sql<CampaignPublishClaim[]>`
+        select * from marketing.claim_campaign_publish_execution(${executionId}::uuid)
+      `;
+      const claim = rows[0];
+      // A missing claim means the execution is already terminal or was failed
+      // closed by the database preflight. The outbox item itself can complete.
+      if (!claim) return;
+
+      const secretRows = await sql`
+        select marketing.resolve_marketing_secret_for_worker(
+          ${claim.credential_secret_name}::varchar
+        ) as secret
+      `;
+      const secret = secretRows[0]?.secret;
+      if (typeof secret !== "string" || secret.length === 0) {
+        const failed = await failCampaignPublish(executionId, "provider_configuration_missing", false);
+        if (!failed) throw new Error("publish_fail_transition_failed");
+        return;
+      }
+
+      const result = await publishMarketingContent(
+        {
+          providerCode: claim.provider_code,
+          publishText: claim.publish_text,
+          assetRefs: stringArray(claim.asset_refs),
+          credentialSecret: secret,
+        },
+        timedFetch,
+      );
+
+      if (result.kind === "published") {
+        const completed = await sql`
+          select marketing.complete_campaign_publish_execution(
+            ${executionId}::uuid,${result.providerPostRef}::varchar
+          ) as ok
+        `;
+        if (completed[0]?.ok !== true) {
+          // The external side effect may already exist. Never retry it blindly.
+          await failCampaignPublish(executionId, "publish_completion_outcome_unknown", true);
+        }
+        return;
+      }
+
+      const failed = await failCampaignPublish(
+        executionId,
+        result.code,
+        result.kind === "unknown",
+      );
+      if (!failed) throw new Error("publish_fail_transition_failed");
+      return;
+    }
     default:
       throw new Error("unsupported_event");
   }
+}
+
+async function failCampaignPublish(
+  executionId: string,
+  code: string,
+  outcomeUnknown: boolean,
+): Promise<boolean> {
+  const rows = await sql`
+    select marketing.fail_campaign_publish_execution(
+      ${executionId}::uuid,${code}::varchar,${outcomeUnknown}
+    ) as ok
+  `;
+  return rows[0]?.ok === true;
 }
 
 async function queueMetrics(): Promise<{
@@ -356,6 +434,11 @@ function stringField(value: Record<string, unknown>, field: string): string {
     throw new Error(`invalid_${field}`);
   }
   return result;
+}
+
+function stringArray(value: unknown): string[] {
+  if (!Array.isArray(value)) return [];
+  return value.filter((item): item is string => typeof item === "string");
 }
 
 function safeErrorCode(error: unknown): string {
