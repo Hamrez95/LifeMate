@@ -1,0 +1,218 @@
+name: foundation-candidate-qualify
+
+on:
+  workflow_dispatch:
+    inputs:
+      internal_beta_run_id:
+        description: Successful internal-beta-release run ID whose exact APK bytes and live-role evidence will be qualified.
+        required: true
+        type: string
+      confirm_qualification:
+        description: Type QUALIFY-FOUNDATION-CANDIDATE to confirm exact-main candidate qualification.
+        required: true
+        type: string
+
+permissions:
+  actions: read
+  contents: read
+  issues: read
+
+concurrency:
+  group: foundation-candidate-qualify
+  cancel-in-progress: false
+
+env:
+  LIFEMATE_READINESS_URL: https://bwdvmniywyyijjauipnh.supabase.co/functions/v1/lifemate-readiness
+
+jobs:
+  qualify-exact-main-candidate:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    environment: beta
+    env:
+      GH_TOKEN: ${{ github.token }}
+      INTERNAL_BETA_RUN_ID: ${{ inputs.internal_beta_run_id }}
+      CONFIRM_QUALIFICATION: ${{ inputs.confirm_qualification }}
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
+        with:
+          ref: ${{ github.sha }}
+          show-progress: false
+          persist-credentials: false
+          fetch-depth: 1
+
+      - name: Require exact protected main and Foundation prerequisites
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$GITHUB_EVENT_NAME" = 'workflow_dispatch'
+          test "$GITHUB_REF" = 'refs/heads/main'
+          test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
+          test "${{ github.event.repository.private }}" = 'true'
+          test "${{ github.ref_protected }}" = 'true'
+          test "$CONFIRM_QUALIFICATION" = 'QUALIFY-FOUNDATION-CANDIDATE'
+          [[ "$INTERNAL_BETA_RUN_ID" =~ ^[0-9]+$ ]]
+          test "$(gh issue view 210 --repo "$GITHUB_REPOSITORY" --json state --jq '.state')" = 'CLOSED'
+
+      - name: Require successful exact-main production Edge synchronization
+        id: main-edge
+        shell: bash
+        run: |
+          set -euo pipefail
+          run_id="$(gh run list \
+            --repo "$GITHUB_REPOSITORY" \
+            --workflow main-edge-deploy.yml \
+            --branch main \
+            --event push \
+            --limit 100 \
+            --json databaseId,headSha,conclusion \
+            --jq ".[] | select(.headSha == \"$GITHUB_SHA\" and .conclusion == \"success\") | .databaseId" \
+            | head -n1)"
+          test -n "$run_id"
+          echo "run_id=$run_id" >> "$GITHUB_OUTPUT"
+
+      - name: Require transaction-pooler readiness on exact main
+        shell: bash
+        run: |
+          set -euo pipefail
+          readiness="$(curl --fail --silent --show-error \
+            --retry 5 --retry-delay 3 --retry-all-errors \
+            "$LIFEMATE_READINESS_URL")"
+          echo "$readiness" | jq -e \
+            --arg version "$GITHUB_SHA" \
+            '.status == "ok" and .database == "application_ready" and .role == "lifemate_edge_runtime" and .service == "lifemate-readiness" and .version == $version and .databaseTransport == "transaction_pooler" and .transactionPoolerRequired == true' \
+            >/dev/null
+
+      - name: Verify internal beta run belongs to exact main
+        shell: bash
+        run: |
+          set -euo pipefail
+          run_json="$(gh run view "$INTERNAL_BETA_RUN_ID" \
+            --repo "$GITHUB_REPOSITORY" \
+            --json name,event,headBranch,headSha,conclusion,url)"
+          echo "$run_json" | jq -e \
+            --arg sha "$GITHUB_SHA" \
+            '.name == "internal-beta-release" and .event == "workflow_dispatch" and .headBranch == "main" and .headSha == $sha and .conclusion == "success"' \
+            >/dev/null
+
+      - name: Require live-role smoke and Android bundle artifacts
+        id: artifacts
+        shell: bash
+        run: |
+          set -euo pipefail
+          short_sha="${GITHUB_SHA:0:8}"
+          artifacts="$(gh api \
+            "repos/$GITHUB_REPOSITORY/actions/runs/$INTERNAL_BETA_RUN_ID/artifacts?per_page=100")"
+          smoke_name="$(echo "$artifacts" | jq -r \
+            --arg name "live-role-smoke-$short_sha" \
+            '.artifacts[] | select(.expired == false and .name == $name) | .name' | head -n1)"
+          bundle_name="$(echo "$artifacts" | jq -r \
+            --arg suffix "-$short_sha-android-internal" \
+            '.artifacts[] | select(.expired == false and (.name | startswith("lifemate-") and endswith($suffix))) | .name' | head -n1)"
+          test "$smoke_name" = "live-role-smoke-$short_sha"
+          test -n "$bundle_name"
+          echo "smoke_name=$smoke_name" >> "$GITHUB_OUTPUT"
+          echo "bundle_name=$bundle_name" >> "$GITHUB_OUTPUT"
+
+      - name: Download exact evidence without rebuilding
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p evidence/smoke evidence/bundle
+          gh run download "$INTERNAL_BETA_RUN_ID" \
+            --repo "$GITHUB_REPOSITORY" \
+            --name '${{ steps.artifacts.outputs.smoke_name }}' \
+            --dir evidence/smoke
+          gh run download "$INTERNAL_BETA_RUN_ID" \
+            --repo "$GITHUB_REPOSITORY" \
+            --name '${{ steps.artifacts.outputs.bundle_name }}' \
+            --dir evidence/bundle
+
+      - name: Verify live patient caregiver unrelated evidence
+        id: smoke
+        shell: bash
+        run: |
+          set -euo pipefail
+          smoke_file="$(find evidence/smoke -type f -name 'lifemate-live-role-smoke.json' -print -quit)"
+          test -f "$smoke_file"
+          jq -e --arg release "$GITHUB_SHA" \
+            '.status == "passed" and .release == $release and (.roles.patient | length > 0) and (.roles.caregiver | length > 0) and (.roles.unrelated | length > 0)' \
+            "$smoke_file" >/dev/null
+          echo "sha256=$(sha256sum "$smoke_file" | awk '{print $1}')" >> "$GITHUB_OUTPUT"
+
+      - name: Verify founder-signed bundle and artifact hashes
+        id: bundle
+        shell: bash
+        run: |
+          set -euo pipefail
+          manifest="$(find evidence/bundle -type f -name 'release-manifest.json' -print -quit)"
+          wellmate_apk="$(find evidence/bundle -type f -name 'wellmate-*-internal.apk' -print -quit)"
+          caremate_apk="$(find evidence/bundle -type f -name 'caremate-*-internal.apk' -print -quit)"
+          test -f "$manifest"
+          test -f "$wellmate_apk"
+          test -f "$caremate_apk"
+
+          jq -e --arg sha "$GITHUB_SHA" \
+            '.commit == $sha and .apiVersion == $sha and .channel == "internal/unstable" and .signing == "founder-owned stable release keystores" and .apps.wellmate.packageId == "com.lifemate.wellmate" and .apps.caremate.packageId == "com.lifemate.caremate" and (.apps.wellmate.sha256 | test("^[0-9a-f]{64}$")) and (.apps.caremate.sha256 | test("^[0-9a-f]{64}$")) and (.apps.wellmate.signingCertSha256 | test("^[0-9A-Fa-f:]{32,}$")) and (.apps.caremate.signingCertSha256 | test("^[0-9A-Fa-f:]{32,}$"))' \
+            "$manifest" >/dev/null
+
+          expected_wellmate="$(jq -r '.apps.wellmate.sha256' "$manifest")"
+          expected_caremate="$(jq -r '.apps.caremate.sha256' "$manifest")"
+          test "$(sha256sum "$wellmate_apk" | awk '{print $1}')" = "$expected_wellmate"
+          test "$(sha256sum "$caremate_apk" | awk '{print $1}')" = "$expected_caremate"
+
+          aapt_bin="$(find "$ANDROID_HOME/build-tools" -type f -name aapt | sort -V | tail -n 1)"
+          test -x "$aapt_bin"
+          wellmate_android="$(bash tools/release/extract-android-apk-metadata.sh \
+            "$wellmate_apk" "$aapt_bin" com.lifemate.wellmate)"
+          caremate_android="$(bash tools/release/extract-android-apk-metadata.sh \
+            "$caremate_apk" "$aapt_bin" com.lifemate.caremate)"
+          echo "$wellmate_android" | jq -e \
+            '.packageId == "com.lifemate.wellmate" and (.minSdk | type == "number") and (.targetSdk | type == "number")' >/dev/null
+          echo "$caremate_android" | jq -e \
+            '.packageId == "com.lifemate.caremate" and (.minSdk | type == "number") and (.targetSdk | type == "number")' >/dev/null
+
+          printf '%s\n' "$wellmate_android" > "$RUNNER_TEMP/wellmate-android.json"
+          printf '%s\n' "$caremate_android" > "$RUNNER_TEMP/caremate-android.json"
+          echo "manifest=$manifest" >> "$GITHUB_OUTPUT"
+          echo "wellmate_apk=$wellmate_apk" >> "$GITHUB_OUTPUT"
+          echo "caremate_apk=$caremate_apk" >> "$GITHUB_OUTPUT"
+
+      - name: Package exact qualified candidate for physical QA
+        shell: bash
+        env:
+          MAIN_EDGE_RUN_ID: ${{ steps.main-edge.outputs.run_id }}
+          SMOKE_SHA256: ${{ steps.smoke.outputs.sha256 }}
+          SOURCE_MANIFEST: ${{ steps.bundle.outputs.manifest }}
+          WELLMATE_APK: ${{ steps.bundle.outputs.wellmate_apk }}
+          CAREMATE_APK: ${{ steps.bundle.outputs.caremate_apk }}
+        run: |
+          set -euo pipefail
+          mkdir -p dist
+          cp "$WELLMATE_APK" dist/
+          cp "$CAREMATE_APK" dist/
+          cp evidence/smoke/lifemate-live-role-smoke.json dist/live-role-smoke.json
+
+          jq -n \
+            --slurpfile source "$SOURCE_MANIFEST" \
+            --slurpfile wellmateAndroid "$RUNNER_TEMP/wellmate-android.json" \
+            --slurpfile caremateAndroid "$RUNNER_TEMP/caremate-android.json" \
+            --arg mainCommit "$GITHUB_SHA" \
+            --arg mainEdgeRunId "$MAIN_EDGE_RUN_ID" \
+            --arg internalBetaRunId "$INTERNAL_BETA_RUN_ID" \
+            --arg smokeSha256 "$SMOKE_SHA256" \
+            --arg qualifiedAt "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+            '$source[0] + {foundationQualification:{purpose:"physical-device-qa",mainCommit:$mainCommit,mainEdgeRunId:$mainEdgeRunId,internalBetaRunId:$internalBetaRunId,liveRoleSmokeSha256:$smokeSha256,qualifiedAtUtc:$qualifiedAt,rebuildPerformed:false,databaseTransport:"transaction_pooler",transactionPoolerRequired:true},apps:{wellmate:($source[0].apps.wellmate + {android:$wellmateAndroid[0]}),caremate:($source[0].apps.caremate + {android:$caremateAndroid[0]})}}' \
+            > dist/foundation-candidate-manifest.json
+
+          jq -e --arg sha "$GITHUB_SHA" \
+            '.foundationQualification.mainCommit == $sha and .foundationQualification.rebuildPerformed == false and .foundationQualification.databaseTransport == "transaction_pooler" and .foundationQualification.transactionPoolerRequired == true and (.apps.wellmate.android.minSdk | type == "number") and (.apps.wellmate.android.targetSdk | type == "number") and (.apps.caremate.android.minSdk | type == "number") and (.apps.caremate.android.targetSdk | type == "number")' \
+            dist/foundation-candidate-manifest.json >/dev/null
+
+      - name: Upload qualified exact-byte Foundation candidate
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: lifemate-foundation-candidate-${{ github.sha }}
+          path: dist
+          if-no-files-found: error
+          retention-days: 30
