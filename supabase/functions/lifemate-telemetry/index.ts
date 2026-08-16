@@ -2,6 +2,8 @@ import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import {
   type ClientErrorTelemetry,
   parseClientErrorTelemetry,
+  parseProductTelemetry,
+  type ProductTelemetry,
   safeValidationCode,
   SubjectTelemetryRateLimiter,
 } from "./privacy_safe_event.ts";
@@ -57,17 +59,23 @@ Deno.serve(async (request: Request) => {
     return json({ code: "invalid_payload" }, 400);
   }
 
-  let event: ClientErrorTelemetry;
   try {
-    event = parseClientErrorTelemetry(body);
+    if (body.kind === "product") {
+      const event: ProductTelemetry = parseProductTelemetry(body);
+      // Never log the authenticated subject or any arbitrary metadata. Product
+      // telemetry is a fixed, low-cardinality funnel envelope only.
+      console.info("LifeMate product funnel", event);
+      return json({ accepted: true, eventId: event.eventId }, 202);
+    }
+
+    const event: ClientErrorTelemetry = parseClientErrorTelemetry(body);
+    // Never log the authenticated subject, Authorization header, raw exception
+    // message, stack trace, request body, health data, or account/person IDs.
+    console.error("LifeMate client crash", event);
+    return json({ accepted: true, eventId: event.eventId }, 202);
   } catch (error) {
     return json({ code: safeValidationCode(error) }, 400);
   }
-
-  // Never log the authenticated subject, Authorization header, raw exception
-  // message, stack trace, request body, health data, or account/person IDs.
-  console.error("LifeMate client crash", event);
-  return json({ accepted: true, eventId: event.eventId }, 202);
 });
 
 async function authenticatedSubject(
