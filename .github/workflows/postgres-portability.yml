@@ -1,0 +1,164 @@
+name: postgres-portability
+
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - '.github/workflows/postgres-portability.yml'
+      - 'docs/architecture/POSTGRES_PORTABILITY.md'
+      - 'supabase/bootstrap/**'
+      - 'supabase/migrations/**'
+      - 'tools/operations/verify-postgres-portability.mjs'
+      - 'tools/recovery/lifemate-local-backup.ps1'
+      - 'tools/recovery/restore-lifemate-local-backup.ps1'
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/postgres-portability.yml'
+      - 'docs/architecture/POSTGRES_PORTABILITY.md'
+      - 'supabase/bootstrap/**'
+      - 'supabase/migrations/**'
+      - 'tools/operations/verify-postgres-portability.mjs'
+      - 'tools/recovery/lifemate-local-backup.ps1'
+      - 'tools/recovery/restore-lifemate-local-backup.ps1'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: postgres-portability-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  vanilla-postgres:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    services:
+      postgres:
+        image: postgres:17.6-alpine
+        env:
+          POSTGRES_DB: lifemate_portability
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d lifemate_portability"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      TEST_DATABASE_URL: postgres://postgres:postgres@localhost:5432/lifemate_portability
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
+        with:
+          show-progress: false
+          persist-credentials: false
+
+      - name: Reject provider-owned database dependencies
+        run: node tools/operations/verify-postgres-portability.mjs
+
+      - name: Apply canonical schema to vanilla PostgreSQL 17.6
+        shell: bash
+        run: |
+          set -euo pipefail
+          psql "$TEST_DATABASE_URL" --set=ON_ERROR_STOP=1 \
+            --file=supabase/bootstrap/legacy_lifemate_baseline.sql
+          while IFS= read -r migration; do
+            psql "$TEST_DATABASE_URL" --set=ON_ERROR_STOP=1 --file="$migration"
+          done < <(find supabase/migrations -maxdepth 1 -type f -name '*.sql' | sort)
+
+      - name: Verify LifeMate-owned schemas roles and portability boundaries
+        shell: bash
+        run: |
+          set -euo pipefail
+          psql "$TEST_DATABASE_URL" --set=ON_ERROR_STOP=1 <<'SQL'
+          do $$
+          declare
+            expected_schemas text[] := array[
+              'lifemate','identity','core','network','security','consent',
+              'ecosystem','integration','care','commerce','analytics','admin','support'
+            ];
+            schema_name text;
+            role_name text;
+            provider_schema_count integer;
+          begin
+            foreach schema_name in array expected_schemas loop
+              if not exists (
+                select 1 from pg_namespace where nspname = schema_name
+              ) then
+                raise exception 'missing LifeMate-owned schema: %', schema_name;
+              end if;
+            end loop;
+
+            foreach role_name in array array[
+              'lifemate_edge_runtime',
+              'lifemate_worker_runtime',
+              'lifemate_admin_runtime',
+              'lifemate_backup_reader'
+            ] loop
+              if not exists (select 1 from pg_roles where rolname = role_name) then
+                raise exception 'missing restricted LifeMate role: %', role_name;
+              end if;
+            end loop;
+
+            select count(*) into provider_schema_count
+            from pg_namespace
+            where nspname in ('auth','storage','realtime');
+            if provider_schema_count <> 0 then
+              raise exception 'canonical migrations unexpectedly created provider-owned schemas';
+            end if;
+
+            if not exists (
+              select 1 from pg_extension where extname='pgcrypto'
+            ) then
+              raise exception 'required standard pgcrypto extension is missing';
+            end if;
+
+            if to_regclass('identity.accounts') is null
+              or to_regclass('core.persons') is null
+              or to_regclass('core.account_person_links') is null
+              or to_regclass('security.access_grants') is null
+              or to_regclass('consent.consent_records') is null
+              or to_regclass('lifemate.medications') is null
+              or to_regclass('lifemate.health_observations') is null
+              or to_regclass('integration.outbox_messages') is null
+              or to_regclass('security.runtime_controls') is null
+              or to_regclass('identity.external_identity_tokens') is null
+            then
+              raise exception 'canonical LifeMate domain/control tables are incomplete';
+            end if;
+
+            if exists (
+              select 1
+              from pg_roles
+              where rolname in (
+                'lifemate_edge_runtime',
+                'lifemate_worker_runtime',
+                'lifemate_admin_runtime',
+                'lifemate_backup_reader'
+              )
+              and (rolsuper or rolbypassrls or rolcreatedb or rolcreaterole)
+            ) then
+              raise exception 'portable runtime/backup role regained elevated privilege';
+            end if;
+          end
+          $$;
+          SQL
+
+      - name: Record portability evidence
+        shell: bash
+        run: |
+          set -euo pipefail
+          {
+            echo '## PostgreSQL portability'
+            echo ''
+            echo '- engine: vanilla PostgreSQL 17.6 Alpine'
+            echo "- source SHA: \`$GITHUB_SHA\`"
+            echo '- canonical baseline + every ordered migration: passed'
+            echo '- LifeMate-owned schemas/control tables: passed'
+            echo '- provider-owned auth/storage/realtime schemas: absent'
+            echo '- restricted runtime/backup roles: present and non-elevated'
+            echo '- backup format guard: standard pg_dump/pg_restore'
+            echo '- scope: database/recovery portability only; Auth/Edge/Storage/infrastructure adapters remain provider-specific'
+          } >> "$GITHUB_STEP_SUMMARY"
