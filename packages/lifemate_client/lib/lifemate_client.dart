@@ -1,6 +1,7 @@
 library lifemate_client;
 
 export 'src/account_deletion_action.dart';
+export 'src/account_security.dart';
 export 'src/app_config.dart';
 export 'src/capabilities.dart';
 export 'src/care_access_inventory.dart';
