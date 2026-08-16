@@ -286,7 +286,9 @@ async function processMessage(message: OutboxMessage): Promise<void> {
     }
     case "marketing.campaign_publish_requested": {
       const executionId = stringField(message.payload_json, "executionId");
-      if (!uuidPattern.test(executionId)) throw new Error("invalid_executionId");
+      if (!uuidPattern.test(executionId)) {
+        throw new Error("invalid_executionId");
+      }
 
       const rows = await sql<CampaignPublishClaim[]>`
         select * from marketing.claim_campaign_publish_execution(${executionId}::uuid)
@@ -303,7 +305,11 @@ async function processMessage(message: OutboxMessage): Promise<void> {
       `;
       const secret = secretRows[0]?.secret;
       if (typeof secret !== "string" || secret.length === 0) {
-        const failed = await failCampaignPublish(executionId, "provider_configuration_missing", false);
+        const failed = await failCampaignPublish(
+          executionId,
+          "provider_configuration_missing",
+          false,
+        );
         if (!failed) throw new Error("publish_fail_transition_failed");
         return;
       }
@@ -326,7 +332,11 @@ async function processMessage(message: OutboxMessage): Promise<void> {
         `;
         if (completed[0]?.ok !== true) {
           // The external side effect may already exist. Never retry it blindly.
-          await failCampaignPublish(executionId, "publish_completion_outcome_unknown", true);
+          await failCampaignPublish(
+            executionId,
+            "publish_completion_outcome_unknown",
+            true,
+          );
         }
         return;
       }
