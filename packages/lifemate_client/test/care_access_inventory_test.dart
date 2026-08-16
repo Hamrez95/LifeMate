@@ -162,9 +162,17 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(api.revokeCalls, 1);
-    expect(find.text('Caregiver One'), findsOneWidget);
+    expect(api.active, false);
     expect(find.text('Active caregivers'), findsOneWidget);
     expect(find.text('0'), findsWidgets);
-    expect(find.text('Revoked'), findsWidgets);
+
+    await tester.scrollUntilVisible(
+      find.text('Caregiver One'),
+      280,
+      scrollable: find.byType(Scrollable).first,
+    );
+    await tester.pumpAndSettle();
+    expect(find.text('Caregiver One'), findsOneWidget);
+    expect(find.textContaining('Revoked'), findsWidgets);
   });
 }
