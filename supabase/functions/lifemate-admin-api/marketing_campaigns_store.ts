@@ -102,10 +102,25 @@ function assertMutationResult(value: unknown): Record<string, unknown> {
   return result;
 }
 
+function campaignFilterSql(sql: AdminSql, query: MarketingCampaignQuery) {
+  return sql`
+    (${query.search}::text is null
+      or c.name ilike '%' || ${query.search} || '%'
+      or coalesce(c.objective, '') ilike '%' || ${query.search} || '%')
+    and (${query.product}::text is null or c.product_code = ${query.product})
+    and (${query.channel}::text is null or c.channel_code = ${query.channel})
+    and (${query.status}::text is null or c.status = ${query.status})
+    and (${query.ownerAdminAccountId}::uuid is null or c.owner_admin_account_id = ${query.ownerAdminAccountId}::uuid)
+    and (${query.startsFromUtc}::timestamptz is null or c.starts_at_utc >= ${query.startsFromUtc}::timestamptz)
+    and (${query.startsToUtc}::timestamptz is null or c.starts_at_utc <= ${query.startsToUtc}::timestamptz)
+  `;
+}
+
 async function listCampaigns(
   sql: AdminSql,
   query: MarketingCampaignQuery,
 ): Promise<MarketingCampaignItem[]> {
+  const filter = campaignFilterSql(sql, query);
   const rows = await sql<CampaignRow[]>`
     select
       c.campaign_id,
@@ -120,18 +135,7 @@ async function listCampaigns(
       c.created_at_utc,
       c.updated_at_utc
     from admin.marketing_campaigns_v1 c
-    where (
-        ${query.search}::text is null
-        or c.name ilike '%' || ${query.search} || '%'
-        or coalesce(c.objective, '') ilike '%' || ${query.search} || '%'
-      )
-      and (${query.product}::text is null or c.product_code = ${query.product})
-      and (${query.channel}::text is null or c.channel_code = ${query.channel})
-      and (${query.status}::text is null or c.status = ${query.status})
-      and (
-        ${query.ownerAdminAccountId}::uuid is null
-        or c.owner_admin_account_id = ${query.ownerAdminAccountId}::uuid
-      )
+    where ${filter}
     order by c.updated_at_utc desc, c.campaign_id desc
     limit ${query.pageSize}
     offset ${query.offset}
@@ -143,6 +147,7 @@ async function summarizeCampaigns(
   sql: AdminSql,
   query: MarketingCampaignQuery,
 ): Promise<MarketingCampaignSummary> {
+  const filter = campaignFilterSql(sql, query);
   const rows = await sql<SummaryRow[]>`
     select
       count(*)::integer as total,
@@ -153,18 +158,7 @@ async function summarizeCampaigns(
       count(*) filter (where c.status = 'Completed')::integer as completed,
       count(*) filter (where c.status = 'Cancelled')::integer as cancelled
     from admin.marketing_campaigns_v1 c
-    where (
-        ${query.search}::text is null
-        or c.name ilike '%' || ${query.search} || '%'
-        or coalesce(c.objective, '') ilike '%' || ${query.search} || '%'
-      )
-      and (${query.product}::text is null or c.product_code = ${query.product})
-      and (${query.channel}::text is null or c.channel_code = ${query.channel})
-      and (${query.status}::text is null or c.status = ${query.status})
-      and (
-        ${query.ownerAdminAccountId}::uuid is null
-        or c.owner_admin_account_id = ${query.ownerAdminAccountId}::uuid
-      )
+    where ${filter}
   `;
   return mapSummary(rows[0]);
 }
