@@ -1,4 +1,7 @@
-import { requirePermission } from "./authorization.ts";
+import {
+  type AdminCapabilitySnapshot,
+  requirePermission,
+} from "./authorization.ts";
 import { json } from "./http.ts";
 import {
   hashCreateMarketingCampaignRequest,
@@ -21,7 +24,7 @@ export type MarketingCampaignRouteContext = {
   request: Request;
   path: string;
   accountId: string;
-  permissions: string[];
+  admin: AdminCapabilitySnapshot;
   correlationId: string;
   origin: string | null;
 };
@@ -55,11 +58,10 @@ export function createMarketingCampaignRouteHandler(databaseUrl: string) {
       request,
       path,
       accountId,
-      permissions,
+      admin,
       correlationId,
       origin,
     } = context;
-    const admin = { permissions };
 
     if (request.method === "GET" && path === "/api/v1/marketing/campaigns") {
       requirePermission(admin, "marketing.read");
