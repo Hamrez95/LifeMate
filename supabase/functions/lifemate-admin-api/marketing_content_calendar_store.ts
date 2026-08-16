@@ -43,7 +43,9 @@ type ApprovalRow = {
 
 function iso(value: Date | string | null): string | null {
   if (value == null) return null;
-  return value instanceof Date ? value.toISOString() : new Date(value).toISOString();
+  return value instanceof Date
+    ? value.toISOString()
+    : new Date(value).toISOString();
 }
 
 function mutation(value: unknown): Record<string, unknown> {
@@ -142,7 +144,8 @@ export function createMarketingContentCalendarStore(databaseUrl: string) {
         freshness: {
           status: "fresh" as const,
           asOfUtc: new Date().toISOString(),
-          source: "admin.marketing_content_calendar_v1 + admin.marketing_content_approval_queue_v1",
+          source:
+            "admin.marketing_content_calendar_v1 + admin.marketing_content_approval_queue_v1",
         },
       };
     },
