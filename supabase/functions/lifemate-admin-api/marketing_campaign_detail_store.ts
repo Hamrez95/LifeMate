@@ -68,16 +68,29 @@ type ChannelRow = {
 
 function iso(value: Date | string | null): string | null {
   if (value == null) return null;
-  return value instanceof Date ? value.toISOString() : new Date(value).toISOString();
+  return value instanceof Date
+    ? value.toISOString()
+    : new Date(value).toISOString();
 }
 
 function mutation(value: unknown): Record<string, unknown> {
   if (!value || typeof value !== "object" || Array.isArray(value)) {
-    throw new ApiError(503, "marketing_campaign_workflow_unavailable", "Campaign workflow result was unavailable.");
+    throw new ApiError(
+      503,
+      "marketing_campaign_workflow_unavailable",
+      "Campaign workflow result was unavailable.",
+    );
   }
   const result = value as Record<string, unknown>;
-  if (!Number.isInteger(result.httpStatus) || typeof result.code !== "string" || typeof result.replayed !== "boolean") {
-    throw new ApiError(503, "marketing_campaign_workflow_unavailable", "Campaign workflow result was invalid.");
+  if (
+    !Number.isInteger(result.httpStatus) || typeof result.code !== "string" ||
+    typeof result.replayed !== "boolean"
+  ) {
+    throw new ApiError(
+      503,
+      "marketing_campaign_workflow_unavailable",
+      "Campaign workflow result was invalid.",
+    );
   }
   return result;
 }
@@ -95,18 +108,26 @@ export function createMarketingCampaignDetailStore(databaseUrl: string) {
       if (!campaign) return null;
 
       const [contents, funnels, history, channels] = await Promise.all([
-        sql<ContentRow[]>`select brief,audience_summary,publish_text,asset_refs,content_revision,approval_state,
+        sql<
+          ContentRow[]
+        >`select brief,audience_summary,publish_text,asset_refs,content_revision,approval_state,
           approved_revision,approved_by_admin_account_id,approved_at_utc,updated_at_utc
           from marketing.campaign_content where campaign_id=${campaignId}::uuid limit 1`,
-        sql<FunnelRow[]>`select source,impressions,clicks,landing_views,conversions,captured_at_utc
+        sql<
+          FunnelRow[]
+        >`select source,impressions,clicks,landing_views,conversions,captured_at_utc
           from marketing.campaign_funnel_snapshots where campaign_id=${campaignId}::uuid
           order by captured_at_utc desc,id desc limit 1`,
-        sql<PublishRow[]>`select id,provider_code,content_revision,status,requested_by_admin_account_id,requested_at_utc,
+        sql<
+          PublishRow[]
+        >`select id,provider_code,content_revision,status,requested_by_admin_account_id,requested_at_utc,
           started_at_utc,completed_at_utc,provider_post_ref,failure_code
           from marketing.campaign_publish_executions where campaign_id=${campaignId}::uuid
           order by requested_at_utc desc,id desc limit 50`,
         campaign.channel_code
-          ? sql<ChannelRow[]>`select provider_code,display_name,operator_status,setup_status,credential_available,updated_at_utc
+          ? sql<
+            ChannelRow[]
+          >`select provider_code,display_name,operator_status,setup_status,credential_available,updated_at_utc
               from admin.marketing_channel_connections_v1 where provider_code=${campaign.channel_code} limit 1`
           : Promise.resolve([] as ChannelRow[]),
       ]);
@@ -114,7 +135,9 @@ export function createMarketingCampaignDetailStore(databaseUrl: string) {
       const funnel = funnels[0];
       const channel = channels[0];
       const assetRefs = Array.isArray(content?.asset_refs)
-        ? content.asset_refs.filter((value): value is string => typeof value === "string")
+        ? content.asset_refs.filter((value): value is string =>
+          typeof value === "string"
+        )
         : [];
 
       return {
@@ -133,57 +156,70 @@ export function createMarketingCampaignDetailStore(databaseUrl: string) {
         },
         content: content
           ? {
-              brief: content.brief,
-              audienceSummary: content.audience_summary,
-              publishText: content.publish_text,
-              assetRefs,
-              contentRevision: Number(content.content_revision),
-              approvalState: content.approval_state,
-              approvedRevision: content.approved_revision == null ? null : Number(content.approved_revision),
-              approvedByAdminAccountId: content.approved_by_admin_account_id,
-              approvedAtUtc: iso(content.approved_at_utc),
-              updatedAtUtc: iso(content.updated_at_utc)!,
-            }
+            brief: content.brief,
+            audienceSummary: content.audience_summary,
+            publishText: content.publish_text,
+            assetRefs,
+            contentRevision: Number(content.content_revision),
+            approvalState: content.approval_state,
+            approvedRevision: content.approved_revision == null
+              ? null
+              : Number(content.approved_revision),
+            approvedByAdminAccountId: content.approved_by_admin_account_id,
+            approvedAtUtc: iso(content.approved_at_utc),
+            updatedAtUtc: iso(content.updated_at_utc)!,
+          }
           : {
-              brief: null,
-              audienceSummary: null,
-              publishText: null,
-              assetRefs: [],
-              contentRevision: 0,
-              approvalState: "Pending" as const,
-              approvedRevision: null,
-              approvedByAdminAccountId: null,
-              approvedAtUtc: null,
-              updatedAtUtc: null,
-            },
+            brief: null,
+            audienceSummary: null,
+            publishText: null,
+            assetRefs: [],
+            contentRevision: 0,
+            approvalState: "Pending" as const,
+            approvedRevision: null,
+            approvedByAdminAccountId: null,
+            approvedAtUtc: null,
+            updatedAtUtc: null,
+          },
         funnel: funnel
           ? {
-              availability: "Available" as const,
-              source: funnel.source,
-              asOfUtc: iso(funnel.captured_at_utc),
-              metrics: {
-                impressions: funnel.impressions == null ? null : Number(funnel.impressions),
-                clicks: funnel.clicks == null ? null : Number(funnel.clicks),
-                landingViews: funnel.landing_views == null ? null : Number(funnel.landing_views),
-                conversions: funnel.conversions == null ? null : Number(funnel.conversions),
-              },
-            }
-          : {
-              availability: "Unavailable" as const,
-              source: "not_instrumented",
-              asOfUtc: null,
-              metrics: { impressions: null, clicks: null, landingViews: null, conversions: null },
+            availability: "Available" as const,
+            source: funnel.source,
+            asOfUtc: iso(funnel.captured_at_utc),
+            metrics: {
+              impressions: funnel.impressions == null
+                ? null
+                : Number(funnel.impressions),
+              clicks: funnel.clicks == null ? null : Number(funnel.clicks),
+              landingViews: funnel.landing_views == null
+                ? null
+                : Number(funnel.landing_views),
+              conversions: funnel.conversions == null
+                ? null
+                : Number(funnel.conversions),
             },
+          }
+          : {
+            availability: "Unavailable" as const,
+            source: "not_instrumented",
+            asOfUtc: null,
+            metrics: {
+              impressions: null,
+              clicks: null,
+              landingViews: null,
+              conversions: null,
+            },
+          },
         channel: channel
           ? {
-              providerCode: channel.provider_code,
-              displayName: channel.display_name,
-              operatorStatus: channel.operator_status,
-              setupStatus: channel.setup_status,
-              credentialAvailable: channel.credential_available,
-              providerConnectivity: "NotVerified" as const,
-              updatedAtUtc: iso(channel.updated_at_utc)!,
-            }
+            providerCode: channel.provider_code,
+            displayName: channel.display_name,
+            operatorStatus: channel.operator_status,
+            setupStatus: channel.setup_status,
+            credentialAvailable: channel.credential_available,
+            providerConnectivity: "NotVerified" as const,
+            updatedAtUtc: iso(channel.updated_at_utc)!,
+          }
           : null,
         publishHistory: history.map((row) => ({
           id: row.id,
@@ -197,27 +233,60 @@ export function createMarketingCampaignDetailStore(databaseUrl: string) {
           providerPostRef: row.provider_post_ref,
           failureCode: row.failure_code,
         })),
-        freshness: { status: "fresh" as const, asOfUtc: new Date().toISOString(), source: "marketing campaign aggregate" },
+        freshness: {
+          status: "fresh" as const,
+          asOfUtc: new Date().toISOString(),
+          source: "marketing campaign aggregate",
+        },
       };
     },
 
-    async updateContent(input: { actorAccountId: string; campaignId: string; payload: CampaignContentPayload; correlationId: string; idempotencyKey: string; requestHash: string }) {
+    async updateContent(
+      input: {
+        actorAccountId: string;
+        campaignId: string;
+        payload: CampaignContentPayload;
+        correlationId: string;
+        idempotencyKey: string;
+        requestHash: string;
+      },
+    ) {
       const p = input.payload;
       const rows = await sql`select admin.update_marketing_campaign_content(
         ${input.actorAccountId}::uuid,${input.campaignId}::uuid,${p.brief}::varchar,${p.audienceSummary}::varchar,
-        ${p.publishText}::varchar,${JSON.stringify(p.assetRefs)}::jsonb,${p.reason}::varchar,${input.correlationId}::uuid,
+        ${p.publishText}::varchar,${
+        JSON.stringify(p.assetRefs)
+      }::jsonb,${p.reason}::varchar,${input.correlationId}::uuid,
         ${input.idempotencyKey}::varchar,${input.requestHash}::varchar) as result`;
       return mutation(rows[0]?.result);
     },
 
-    async setApproval(input: { actorAccountId: string; campaignId: string; payload: CampaignApprovalPayload; correlationId: string; idempotencyKey: string; requestHash: string }) {
+    async setApproval(
+      input: {
+        actorAccountId: string;
+        campaignId: string;
+        payload: CampaignApprovalPayload;
+        correlationId: string;
+        idempotencyKey: string;
+        requestHash: string;
+      },
+    ) {
       const rows = await sql`select admin.set_marketing_campaign_approval(
         ${input.actorAccountId}::uuid,${input.campaignId}::uuid,${input.payload.approved},${input.payload.reason}::varchar,
         ${input.correlationId}::uuid,${input.idempotencyKey}::varchar,${input.requestHash}::varchar) as result`;
       return mutation(rows[0]?.result);
     },
 
-    async requestPublish(input: { actorAccountId: string; campaignId: string; payload: CampaignPublishPayload; correlationId: string; idempotencyKey: string; requestHash: string }) {
+    async requestPublish(
+      input: {
+        actorAccountId: string;
+        campaignId: string;
+        payload: CampaignPublishPayload;
+        correlationId: string;
+        idempotencyKey: string;
+        requestHash: string;
+      },
+    ) {
       const rows = await sql`select admin.request_marketing_campaign_publish(
         ${input.actorAccountId}::uuid,${input.campaignId}::uuid,${input.payload.reason}::varchar,${input.correlationId}::uuid,
         ${input.idempotencyKey}::varchar,${input.requestHash}::varchar) as result`;
@@ -226,4 +295,6 @@ export function createMarketingCampaignDetailStore(databaseUrl: string) {
   };
 }
 
-export type MarketingCampaignDetailStore = ReturnType<typeof createMarketingCampaignDetailStore>;
+export type MarketingCampaignDetailStore = ReturnType<
+  typeof createMarketingCampaignDetailStore
+>;
