@@ -592,16 +592,18 @@ async function insertAudit(
   action: string,
   resourceType: string,
   resourceId: string,
-  metadata: Record<string, unknown> | null,
+  metadata: Record<string, unknown>,
 ): Promise<void> {
+  // Preserve the existing audit JSON-string value contract. Ownership
+  // migration must not silently change persisted audit payload semantics.
+  const metadataJson = JSON.stringify(metadata);
   await connection`
     insert into lifemate.audit_logs
       (id, actor_user_id, action, resource_type, resource_id,
        metadata_json, created_at_utc)
     values
       (${crypto.randomUUID()}::uuid, ${actorAppUserId}::uuid, ${action},
-       ${resourceType}, ${resourceId}::uuid, ${JSON.stringify(metadata)}::jsonb,
-       now())
+       ${resourceType}, ${resourceId}::uuid, ${metadataJson}, now())
   `;
 }
 
