@@ -1,5 +1,6 @@
 import { type AdminSql, getAdminSql } from "./database_client.ts";
 import {
+  currencyMinorUnitExponent,
   type FinanceActualEntry,
   type FinanceProfitLossQuery,
   summarizeActualEntries,
@@ -97,6 +98,9 @@ export function createFinanceProfitLossStore(databaseUrl: string) {
           state: "unavailable" as const,
           query,
           currency: query.currency,
+          minorUnitExponent: query.currency
+            ? currencyMinorUnitExponent(query.currency)
+            : null,
           availableCurrencies: [],
           actual: null,
           forecast: {
@@ -120,6 +124,7 @@ export function createFinanceProfitLossStore(databaseUrl: string) {
           state: "currency_required" as const,
           query,
           currency: null,
+          minorUnitExponent: null,
           availableCurrencies: currencies,
           actual: null,
           forecast: {
@@ -139,11 +144,13 @@ export function createFinanceProfitLossStore(databaseUrl: string) {
       }
 
       const currency = query.currency ?? currencies[0];
+      const minorUnitExponent = currencyMinorUnitExponent(currency);
       if (!currencies.includes(currency)) {
         return {
           state: "unavailable" as const,
           query,
           currency,
+          minorUnitExponent,
           availableCurrencies: currencies,
           actual: null,
           forecast: {
@@ -168,6 +175,7 @@ export function createFinanceProfitLossStore(databaseUrl: string) {
         state: "ready" as const,
         query,
         currency,
+        minorUnitExponent,
         availableCurrencies: currencies,
         actual: serializeSummary(summary),
         forecast: {
