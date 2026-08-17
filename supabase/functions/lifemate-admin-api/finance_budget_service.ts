@@ -336,9 +336,7 @@ export function createFinanceBudgetStore(databaseUrl: string) {
           definitionVersion: 1,
         },
         freshness: {
-          status: freshnessAsOf
-            ? ("fresh" as const)
-            : ("unavailable" as const),
+          status: freshnessAsOf ? ("fresh" as const) : ("unavailable" as const),
           asOfUtc: freshnessAsOf,
         },
         reason: null,
