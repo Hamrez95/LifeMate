@@ -1,7 +1,4 @@
-import {
-  assertEquals,
-  assertNotEquals,
-} from "jsr:@std/assert@1.0.14";
+import { assertEquals, assertNotEquals } from "jsr:@std/assert@1.0.14";
 import postgres from "postgres";
 import { closeLifeMateSqlClientsForTest } from "./database_client.ts";
 import { createDataExportStore } from "./data_export.ts";
