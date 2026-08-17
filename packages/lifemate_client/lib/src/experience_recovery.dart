@@ -54,7 +54,14 @@ class _PasswordRecoveryExperienceState
           ),
         );
     } on AuthException catch (error) {
-      if (mounted) setState(() => _error = error.message);
+      if (mounted) {
+        setState(
+          () => _error = safeRecoveryAuthMessage(
+            error.message,
+            isPersian: LifeMateRuntimeLocale.isPersian,
+          ),
+        );
+      }
     } catch (_) {
       if (mounted)
         setState(
@@ -181,15 +188,11 @@ class _PasswordRecoveryExperienceState
                                       : Icons.visibility_outlined,
                                 ),
                               ),
-                              validator: (value) => (value?.length ?? 0) >= 8
-                                  ? null
-                                  : LifeMateRuntimeLocale.select(
-                                      fa: LifeMateRuntimeLocale.select(
-                                        fa: 'رمز باید حداقل ۸ کاراکتر باشد.',
-                                        en: "Password must be at least 8 characters long.",
-                                      ),
-                                      en: "Password must be at least 8 characters long.",
-                                    ),
+                              validator: (value) =>
+                                  LifeMatePasswordPolicy.validationMessage(
+                                    value,
+                                    isPersian: LifeMateRuntimeLocale.isPersian,
+                                  ),
                             ),
                             SizedBox(height: 13),
                             _ExperienceTextField(

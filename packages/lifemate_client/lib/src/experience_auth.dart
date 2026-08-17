@@ -517,7 +517,12 @@ class _LifeMateAuthExperienceState extends State<_LifeMateAuthExperience>
                             : Icons.visibility_outlined,
                       ),
                     ),
-                    validator: (value) => (value?.length ?? 0) >= 8
+                    validator: (value) => isSignUp
+                        ? LifeMatePasswordPolicy.validationMessage(
+                            value,
+                            isPersian: LifeMateRuntimeLocale.isPersian,
+                          )
+                        : (value?.length ?? 0) >= 8
                         ? null
                         : LifeMateRuntimeLocale.select(
                             fa: LifeMateRuntimeLocale.select(
