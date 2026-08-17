@@ -120,6 +120,12 @@ Deno.test({
       assertEquals(replay.id, relationship.id);
       assertEquals(replay.status, "active");
 
+      await assertApiError(
+        () => db.revokeInvitation(patient.appUserId, invitation.id),
+        409,
+        "invitation_not_pending",
+      );
+
       const expired = await db.createPhoneInvitation(patient, {
         contact: "+989361234888",
         consentVersion: "care-patient-consent-v1",
