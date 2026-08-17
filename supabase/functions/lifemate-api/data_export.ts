@@ -283,7 +283,7 @@ export function createDataExportStore(databaseUrl: string) {
                daily_support_need, daily_private_note, share_daily_summary,
                created_at_utc, updated_at_utc
         from lifemate.women_calendar_profiles
-        where owner_user_id = ${appUserId}
+        where owner_person_id = ${personId}::uuid
         order by created_at_utc
         limit ${portableExportRowLimit + 1}
       `,
@@ -296,7 +296,7 @@ export function createDataExportStore(databaseUrl: string) {
                provenance_source, provenance_restricted,
                created_at_utc, updated_at_utc
         from lifemate.women_calendar_episodes
-        where owner_user_id = ${appUserId}
+        where owner_person_id = ${personId}::uuid
         order by started_on, id
         limit ${portableExportRowLimit + 1}
       `,
@@ -310,7 +310,7 @@ export function createDataExportStore(databaseUrl: string) {
                provenance_source, provenance_restricted,
                created_at_utc, updated_at_utc
         from lifemate.women_calendar_daily_logs
-        where owner_user_id = ${appUserId}
+        where owner_person_id = ${personId}::uuid
         order by logged_on, id
         limit ${portableExportRowLimit + 1}
       `,
@@ -323,7 +323,7 @@ export function createDataExportStore(databaseUrl: string) {
       sql`
         select id, action_type, performed_at_utc, created_at_utc
         from lifemate.women_calendar_support_actions
-        where patient_user_id = ${appUserId}
+        where patient_person_id = ${personId}::uuid
         order by performed_at_utc, id
         limit ${portableExportRowLimit + 1}
       `,
