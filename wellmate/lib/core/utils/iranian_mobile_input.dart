@@ -24,22 +24,15 @@ String? normalizeIranianMobileInput(String value) {
 }
 
 String _toAsciiDigits(String value) {
-  const persian = '۰۱۲۳۴۵۶۷۸۹';
-  const arabicIndic = '٠١٢٣٤٥٦٧٨٩';
   final buffer = StringBuffer();
   for (final rune in value.runes) {
-    final char = String.fromCharCode(rune);
-    final persianIndex = persian.indexOf(char);
-    if (persianIndex >= 0) {
-      buffer.write(persianIndex);
-      continue;
+    if (rune >= 0x06F0 && rune <= 0x06F9) {
+      buffer.writeCharCode(0x30 + rune - 0x06F0);
+    } else if (rune >= 0x0660 && rune <= 0x0669) {
+      buffer.writeCharCode(0x30 + rune - 0x0660);
+    } else {
+      buffer.writeCharCode(rune);
     }
-    final arabicIndex = arabicIndic.indexOf(char);
-    if (arabicIndex >= 0) {
-      buffer.write(arabicIndex);
-      continue;
-    }
-    buffer.write(char);
   }
   return buffer.toString();
 }
