@@ -10,7 +10,7 @@ import '../../core/widgets/medication_home_widget_service.dart';
 import '../../localization/app_localizations.dart';
 import '../../localization/locale_provider.dart';
 import '../../providers/settings_provider.dart';
-import 'care_access_screen.dart';
+import 'care_access_phone_screen.dart';
 import 'editable_profile_screen.dart';
 import 'profile_destination_screens.dart';
 
@@ -127,7 +127,7 @@ class ProfileScreen extends StatelessWidget {
           accent: AppColors.primary,
           background: AppColors.background,
           ink: AppColors.darkBlue,
-          onManage: () => open(CareAccessScreen()),
+          onManage: () => open(CareAccessPhoneScreen()),
         ),
       ),
       onAppSettings: () => showDialog<void>(
