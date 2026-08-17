@@ -51,7 +51,10 @@ function role(row: Row): AdminRoleMatrixRow {
 }
 
 function permission(row: Row): AdminPermissionMatrixRow {
-  const riskLevel = requiredString(row.riskLevel, "admin permission risk level");
+  const riskLevel = requiredString(
+    row.riskLevel,
+    "admin permission risk level",
+  );
   if (
     riskLevel !== "STANDARD" &&
     riskLevel !== "SENSITIVE" &&
@@ -68,7 +71,10 @@ function permission(row: Row): AdminPermissionMatrixRow {
     domain: requiredString(row.domain, "admin permission domain"),
     riskLevel,
     roleAssignable: row.roleAssignable,
-    description: requiredString(row.description, "admin permission description"),
+    description: requiredString(
+      row.description,
+      "admin permission description",
+    ),
   };
 }
 
@@ -138,7 +144,10 @@ export function createSecurityRbacStore(databaseUrl: string) {
           ) as assignments
       `;
 
-      const row = record((rows as unknown as Row[])[0], "RBAC matrix database row");
+      const row = record(
+        (rows as unknown as Row[])[0],
+        "RBAC matrix database row",
+      );
       return buildAdminRbacMatrix(
         records(row.roles, "RBAC roles").map(role),
         records(row.permissions, "RBAC permissions").map(permission),
