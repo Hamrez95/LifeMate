@@ -35,6 +35,13 @@ function validDate(value: string): boolean {
     parsed.toISOString().slice(0, 10) === value;
 }
 
+export function currencyMinorUnitExponent(currency: string): number {
+  return new Intl.NumberFormat("en-US", {
+    style: "currency",
+    currency,
+  }).resolvedOptions().maximumFractionDigits;
+}
+
 export function parseFinanceProfitLossQuery(
   url: URL,
   now = new Date(),
