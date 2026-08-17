@@ -3,6 +3,7 @@ import {
   type AdminCapabilitySnapshot,
   requirePermission,
 } from "./authorization.ts";
+import { createFinanceRouteHandler } from "./finance_routes.ts";
 import { json } from "./http.ts";
 import { createMarketingCampaignDetailRouteHandler } from "./marketing_campaign_detail_routes.ts";
 import { createMarketingContentCalendarRouteHandler } from "./marketing_content_calendar_routes.ts";
@@ -65,9 +66,10 @@ export function createMarketingCampaignRouteHandler(databaseUrl: string) {
       databaseUrl,
     );
   // index.ts already uses this bounded dispatcher immediately after the admin
-  // snapshot is loaded. Keep the read-only advisor behind the same authenticated
-  // extension point rather than widening the top-level handler in this task.
+  // snapshot is loaded. Keep independent, authenticated feature handlers behind the
+  // same extension point rather than widening the top-level handler per vertical slice.
   const advisorRouteHandler = createAdvisorRouteHandler(databaseUrl);
+  const financeRouteHandler = createFinanceRouteHandler(databaseUrl);
 
   return async function handleMarketingCampaignRoute(
     context: MarketingCampaignRouteContext,
@@ -80,6 +82,9 @@ export function createMarketingCampaignRouteHandler(databaseUrl: string) {
       correlationId,
       origin,
     } = context;
+
+    const financeResponse = await financeRouteHandler(context);
+    if (financeResponse) return financeResponse;
 
     const advisorResponse = await advisorRouteHandler(context);
     if (advisorResponse) return advisorResponse;
