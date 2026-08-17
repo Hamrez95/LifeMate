@@ -2,7 +2,7 @@ import { getLifeMateSql } from "./database_client.ts";
 import {
   type CareEventRecurrence,
   generateCareEventOccurrenceDates,
-} from "./care_events.ts";
+} from "./care_events_legacy.ts";
 import {
   ApiError,
   limitedOptional,
