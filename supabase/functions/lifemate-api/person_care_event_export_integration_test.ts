@@ -151,7 +151,9 @@ Deno.test({
       const exported = await exporter.exportAccountData(ownerAppUserId);
       assertEquals(exported.schemaVersion, "lifemate-portable-export-v1");
       const healthcare = exported.healthcare as Record<string, unknown>;
-      const careEvents = healthcare.careEvents as Array<Record<string, unknown>>;
+      const careEvents = healthcare.careEvents as Array<
+        Record<string, unknown>
+      >;
 
       assertEquals(careEvents.length, 1);
       assertEquals(careEvents[0].id, ownerEventId);
