@@ -332,6 +332,21 @@ class LifeMateApiClient {
     ),
   );
 
+  Future<Map<String, dynamic>> createPhoneCareInvitation({
+    required String phone,
+  }) async => _asObject(
+    await _send(
+      'POST',
+      '/api/v1/care/invitations',
+      body: {
+        'contactType': 'phone',
+        'contact': phone.trim(),
+        'consentVersion': 'care-patient-consent-v1',
+        'confirmConsent': true,
+      },
+    ),
+  );
+
   Future<Map<String, dynamic>> createQrCareInvitation() async => _asObject(
     await _send(
       'POST',
