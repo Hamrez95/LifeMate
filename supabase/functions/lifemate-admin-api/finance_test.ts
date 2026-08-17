@@ -38,9 +38,13 @@ Deno.test("finance P&L rejects invalid ranges and currencies", async () => {
 });
 
 Deno.test("finance P&L route denies admins without finance.read before querying data", async () => {
-  const handler = createFinanceRouteHandler(
-    "postgres://lifemate_admin_runtime:unused@127.0.0.1:5432/lifemate",
-  );
+  let queried = false;
+  const handler = createFinanceRouteHandler("unused", {
+    async getProfitLoss() {
+      queried = true;
+      throw new Error("finance store must not be queried");
+    },
+  });
   await assertRejects(
     async () =>
       await handler({
@@ -52,6 +56,7 @@ Deno.test("finance P&L route denies admins without finance.read before querying 
     Error,
     "Administrative permission is required",
   );
+  assertEquals(queried, false);
 });
 
 Deno.test("finance actual math keeps revenue and expense separate and supports negative net result", () => {
