@@ -1,6 +1,7 @@
 import { assertEquals, assertRejects } from "jsr:@std/assert";
 
 import {
+  currencyMinorUnitExponent,
   parseFinanceProfitLossQuery,
   summarizeActualEntries,
 } from "./finance.ts";
@@ -12,6 +13,11 @@ Deno.test("finance P&L defaults to a bounded Tehran 30-day period", () => {
     new Date("2026-08-16T21:30:00.000Z"),
   );
   assertEquals(query, { from: "2026-07-19", to: "2026-08-17", currency: null });
+});
+
+Deno.test("finance P&L exposes currency minor unit semantics", () => {
+  assertEquals(currencyMinorUnitExponent("IRR"), 0);
+  assertEquals(currencyMinorUnitExponent("USD"), 2);
 });
 
 Deno.test("finance P&L rejects invalid ranges and currencies", async () => {
