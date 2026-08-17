@@ -48,6 +48,9 @@ void main() {
   });
 
   group('recovery auth error redaction', () {
+    setUp(() => LifeMateRuntimeLocale.setLanguageCode('en'));
+    tearDown(() => LifeMateRuntimeLocale.setLanguageCode('fa'));
+
     test('keeps provider-specific details out of generic user copy', () {
       const providerMessage =
           'Auth provider database detail: user id 123 failed policy xyz';
