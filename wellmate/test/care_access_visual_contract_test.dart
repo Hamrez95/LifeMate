@@ -47,7 +47,8 @@ void main() {
     expect(phoneShell, isNot(contains('Clipboard.setData')));
 
     expect(phoneDialog, contains('TextInputType.phone'));
-    expect(phoneDialog, contains('normalizeIranianMobileInput'));
+    expect(phoneDialog, contains('LifeMateLocaleDigitInputFormatter'));
+    expect(phoneDialog, contains('LifeMateIranPhone.normalizeE164'));
     expect(phoneDialog, contains('confirmed'));
     expect(phoneDialog, contains('در این برنامه نمایش داده نمی‌شود'));
   });
