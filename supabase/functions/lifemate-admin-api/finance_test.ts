@@ -4,6 +4,7 @@ import {
   parseFinanceProfitLossQuery,
   summarizeActualEntries,
 } from "./finance.ts";
+import { createFinanceRouteHandler } from "./finance_routes.ts";
 
 Deno.test("finance P&L defaults to a bounded Tehran 30-day period", () => {
   const query = parseFinanceProfitLossQuery(
@@ -15,14 +16,35 @@ Deno.test("finance P&L defaults to a bounded Tehran 30-day period", () => {
 
 Deno.test("finance P&L rejects invalid ranges and currencies", async () => {
   await assertRejects(
-    async () => parseFinanceProfitLossQuery(
-      new URL("https://admin.test/api/v1/finance/profit-loss?from=2025-01-01&to=2026-08-17"),
-    ),
+    async () =>
+      parseFinanceProfitLossQuery(
+        new URL(
+          "https://admin.test/api/v1/finance/profit-loss?from=2025-01-01&to=2026-08-17",
+        ),
+      ),
   );
   await assertRejects(
-    async () => parseFinanceProfitLossQuery(
-      new URL("https://admin.test/api/v1/finance/profit-loss?currency=toman"),
-    ),
+    async () =>
+      parseFinanceProfitLossQuery(
+        new URL("https://admin.test/api/v1/finance/profit-loss?currency=toman"),
+      ),
+  );
+});
+
+Deno.test("finance P&L route denies admins without finance.read before querying data", async () => {
+  const handler = createFinanceRouteHandler(
+    "postgres://lifemate_admin_runtime:unused@127.0.0.1:5432/lifemate",
+  );
+  await assertRejects(
+    async () =>
+      await handler({
+        request: new Request("https://admin.test/api/v1/finance/profit-loss"),
+        path: "/api/v1/finance/profit-loss",
+        admin: { accountId: crypto.randomUUID(), roles: [], permissions: [] },
+        origin: null,
+      }),
+    Error,
+    "Administrative permission is required",
   );
 });
 
