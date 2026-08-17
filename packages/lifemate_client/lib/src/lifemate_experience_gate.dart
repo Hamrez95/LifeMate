@@ -6,6 +6,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'app_config.dart';
 import 'app_notice.dart';
+import 'auth_security_policy.dart';
 import 'durable_lifemate_api_client.dart';
 import 'feature_flags.dart';
 import 'health_facts.dart';

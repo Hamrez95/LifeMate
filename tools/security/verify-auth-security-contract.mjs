@@ -5,8 +5,16 @@ const featureFlags = fs.readFileSync(
   'packages/lifemate_client/lib/src/feature_flags.dart',
   'utf8',
 );
+const authPolicy = fs.readFileSync(
+  'packages/lifemate_client/lib/src/auth_security_policy.dart',
+  'utf8',
+);
 const authUi = fs.readFileSync(
   'packages/lifemate_client/lib/src/experience_auth.dart',
+  'utf8',
+);
+const recoveryUi = fs.readFileSync(
+  'packages/lifemate_client/lib/src/experience_recovery.dart',
   'utf8',
 );
 const phoneAuthUi = fs.readFileSync(
@@ -39,8 +47,8 @@ function rejectMatch(source, pattern, message) {
 // contract. Hosted production settings are a separate provider evidence gate.
 requireMatch(
   config,
-  /^minimum_password_length\s*=\s*(?:[89]|[1-9][0-9]+)\s*$/m,
-  'local Auth minimum password length must be at least 8',
+  /^minimum_password_length\s*=\s*12\s*$/m,
+  'local Auth minimum password length must match the 12-character beta policy',
 );
 requireMatch(
   config,
@@ -86,9 +94,54 @@ for (const [flag, message] of [
 }
 
 requireMatch(
+  authPolicy,
+  /static const minimumLength\s*=\s*12\s*;/,
+  'shared password policy must require at least 12 characters',
+);
+requireMatch(
+  authPolicy,
+  /RegExp\(r'\[a-z\]'\)\.hasMatch\(value\)/,
+  'shared password policy must require lowercase letters',
+);
+requireMatch(
+  authPolicy,
+  /RegExp\(r'\[A-Z\]'\)\.hasMatch\(value\)/,
+  'shared password policy must require uppercase letters',
+);
+requireMatch(
+  authPolicy,
+  /RegExp\(r'\[0-9\]'\)\.hasMatch\(value\)/,
+  'shared password policy must require a digit',
+);
+requireMatch(
+  authPolicy,
+  /_symbols\.contains/,
+  'shared password policy must require an approved symbol',
+);
+requireMatch(
   authUi,
-  /validator:\s*\(value\)\s*=>\s*\(value\?\.length\s*\?\?\s*0\)\s*>=\s*8/,
-  'signup/password UI must enforce at least 8 characters',
+  /isSignUp[\s\S]{0,260}LifeMatePasswordPolicy\.validationMessage\(/,
+  'signup must use the centralized password creation policy',
+);
+requireMatch(
+  authUi,
+  /:\s*\(value\?\.length\s*\?\?\s*0\)\s*>=\s*8/,
+  'existing password sign-in validation must remain backward compatible',
+);
+requireMatch(
+  recoveryUi,
+  /LifeMatePasswordPolicy\.validationMessage\(/,
+  'password recovery must use the centralized password creation policy',
+);
+requireMatch(
+  recoveryUi,
+  /safeRecoveryAuthMessage\([\s\S]{0,120}error\.message/,
+  'password recovery must collapse provider failures into safe user copy',
+);
+rejectMatch(
+  recoveryUi,
+  /_error\s*=\s*error\.message|setState\([\s\S]{0,120}_error\s*=\s*error\.message/,
+  'password recovery must never render raw Supabase Auth provider messages',
 );
 requireMatch(
   authUi,
@@ -186,5 +239,5 @@ rejectMatch(
 );
 
 console.log(
-  'Local Auth baseline and mobile fail-closed provider/password/recovery/explicit-phone-intent/phone-linking contract are aligned. Hosted Supabase Auth configuration still requires separate live evidence.',
+  'Local Auth baseline and mobile fail-closed 12-character password/recovery/provider/explicit-phone-intent/phone-linking contract are aligned. Hosted Supabase Auth configuration still requires separate live evidence.',
 );
