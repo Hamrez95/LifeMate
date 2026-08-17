@@ -7,4 +7,4 @@ export {
 export {
   createPersonWomenCalendarStore,
   createPersonWomenCalendarStore as createWomenCalendarStore,
-} from "./person_women_calendar.ts";
+} from "./person_women_calendar_caregiver.ts";
