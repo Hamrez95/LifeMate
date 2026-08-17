@@ -4,6 +4,7 @@ import {
   createLifeMateDatabase as createLegacyLifeMateDatabase,
 } from "./database_legacy.ts";
 import { createIdentityResolver } from "./identity_resolver.ts";
+import { createInvitationRevocationStore } from "./invitation_revoke.ts";
 import { createPhoneCareInvitationStore } from "./phone_care_invitation.ts";
 import {
   createPhoneInvitationDeliveryFromEnvironment,
@@ -34,6 +35,7 @@ export function createLifeMateDatabase(
     contactHashingSecret,
   );
   const identityResolver = createIdentityResolver(databaseUrl);
+  const invitationRevocation = createInvitationRevocationStore(databaseUrl);
   const phoneInvitations = createPhoneCareInvitationStore(
     databaseUrl,
     contactHashingSecret,
@@ -76,6 +78,7 @@ export function createLifeMateDatabase(
       };
     },
     createPhoneInvitation: phoneInvitations.createPhoneInvitation,
+    revokeInvitation: invitationRevocation.revokePendingInvitation,
     acceptInvitation: (
       identity: Parameters<typeof database.acceptInvitation>[0],
       body: Parameters<typeof database.acceptInvitation>[1],
