@@ -146,11 +146,43 @@ Deno.test({
         consentVersion: "care-patient-consent-v1",
         confirmConsent: true,
       });
-      await admin`
-        update lifemate.care_invitations
-        set status = 'Revoked', revoked_at_utc = now()
+      await assertApiError(
+        () => db.revokeInvitation(unrelated.appUserId, revoked.id),
+        404,
+        "invitation_not_found",
+      );
+
+      const stillPending = await admin`
+        select status
+        from lifemate.care_invitations
         where id = ${String(revoked.id)}
       `;
+      assertEquals(stillPending[0].status, "Pending");
+
+      await db.revokeInvitation(patient.appUserId, revoked.id);
+      // A retry with a fresh HTTP idempotency key must remain harmless and must
+      // not duplicate the revoke audit effect.
+      await db.revokeInvitation(patient.appUserId, revoked.id);
+
+      const revokedStored = await admin`
+        select status, revoked_at_utc
+        from lifemate.care_invitations
+        where id = ${String(revoked.id)}
+      `;
+      assertEquals(revokedStored[0].status, "Revoked");
+      assert(revokedStored[0].revoked_at_utc instanceof Date);
+
+      const revokeAudits = await admin`
+        select metadata_json
+        from lifemate.audit_logs
+        where actor_user_id = ${patient.appUserId}
+          and action = 'care_invitation.revoked'
+          and resource_type = 'care_invitation'
+          and resource_id = ${String(revoked.id)}
+      `;
+      assertEquals(revokeAudits.length, 1);
+      assertEquals(revokeAudits[0].metadata_json, null);
+
       await assertApiError(
         () =>
           db.acceptInvitation(revokedRecipient, {
@@ -173,6 +205,7 @@ Deno.test({
           and action in (
             'care_invitation.phone_created',
             'care_invitation.accepted',
+            'care_invitation.revoked',
             'care_relationship.created'
           )
       `;
@@ -180,6 +213,7 @@ Deno.test({
         audits.some((row) => row.action === "care_invitation.phone_created"),
       );
       assert(audits.some((row) => row.action === "care_invitation.accepted"));
+      assert(audits.some((row) => row.action === "care_invitation.revoked"));
       assert(audits.some((row) => row.action === "care_relationship.created"));
       for (const row of audits) {
         assertEquals(row.metadata_json, null);
