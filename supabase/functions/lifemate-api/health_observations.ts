@@ -317,7 +317,7 @@ export function createHealthObservationStore(databaseUrl: string) {
       const id = crypto.randomUUID();
       const inserted = await tx`
         insert into lifemate.health_observations
-          (id, owner_user_id, person_id, recorded_by_account_id,
+          (id, person_id, recorded_by_account_id,
            source_application_id, client_request_id,
            observation_type, value_primary, value_secondary,
            unit_primary, unit_secondary, note, observed_at_utc,
@@ -325,8 +325,8 @@ export function createHealthObservationStore(databaseUrl: string) {
            source_provider, source_external_id, metadata_json,
            version, created_at_utc, updated_at_utc)
         values
-          (${id}::uuid, ${appUserId}::uuid, ${personId}::uuid,
-           ${accountId}::uuid, ${sourceApplication.id}::uuid,
+          (${id}::uuid, ${personId}::uuid, ${accountId}::uuid,
+           ${sourceApplication.id}::uuid,
            ${input.clientRequestId}::uuid, ${input.observationType},
            ${input.valuePrimary}, ${input.valueSecondary},
            ${input.unitPrimary}, ${input.unitSecondary}, ${input.note},
