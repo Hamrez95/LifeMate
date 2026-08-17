@@ -6,7 +6,6 @@ import {
 } from "./validation.ts";
 
 type Row = Record<string, unknown>;
-type SqlConnection = ReturnType<typeof getLifeMateSql>;
 
 function iso(value: unknown): string {
   if (value instanceof Date) return value.toISOString();
@@ -27,7 +26,7 @@ function mapMedication(row: Row): Record<string, unknown> {
 }
 
 async function requireSelfPerson(
-  connection: SqlConnection | any,
+  connection: any,
   appUserId: string,
 ): Promise<string> {
   const rows = await connection`
@@ -46,7 +45,7 @@ async function requireSelfPerson(
 }
 
 async function insertAudit(
-  connection: SqlConnection | any,
+  connection: any,
   actorAppUserId: string,
   action: string,
   resourceType: string,
