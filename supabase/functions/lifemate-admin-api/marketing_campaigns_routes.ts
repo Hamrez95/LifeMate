@@ -60,9 +60,10 @@ export function createMarketingCampaignRouteHandler(databaseUrl: string) {
   const detailRouteHandler = createMarketingCampaignDetailRouteHandler(
     databaseUrl,
   );
-  const contentCalendarRouteHandler = createMarketingContentCalendarRouteHandler(
-    databaseUrl,
-  );
+  const contentCalendarRouteHandler =
+    createMarketingContentCalendarRouteHandler(
+      databaseUrl,
+    );
   // index.ts already uses this bounded dispatcher immediately after the admin
   // snapshot is loaded. Keep the read-only advisor behind the same authenticated
   // extension point rather than widening the top-level handler in this task.
