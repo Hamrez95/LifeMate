@@ -26,7 +26,7 @@ function isCalendarMonthEnd(value: string): boolean {
   return date.getUTCDate() === 1;
 }
 
-function currentTehranMonth(now: Date): { from: string; to: string } {
+function tehranYearMonth(now: Date): { year: number; month: number } {
   const parts = new Intl.DateTimeFormat("en-US", {
     timeZone: "Asia/Tehran",
     year: "numeric",
@@ -41,12 +41,33 @@ function currentTehranMonth(now: Date): { from: string; to: string } {
       "Finance reporting calendar is unavailable.",
     );
   }
-  const monthText = String(month).padStart(2, "0");
-  const lastDay = new Date(Date.UTC(year, month, 0)).getUTCDate();
+  return { year, month };
+}
+
+function calendarMonth(
+  year: number,
+  month: number,
+): { from: string; to: string } {
+  const normalized = new Date(Date.UTC(year, month - 1, 1));
+  const normalizedYear = normalized.getUTCFullYear();
+  const normalizedMonth = normalized.getUTCMonth() + 1;
+  const monthText = String(normalizedMonth).padStart(2, "0");
+  const lastDay = new Date(Date.UTC(normalizedYear, normalizedMonth, 0))
+    .getUTCDate();
   return {
-    from: `${year}-${monthText}-01`,
-    to: `${year}-${monthText}-${String(lastDay).padStart(2, "0")}`,
+    from: `${normalizedYear}-${monthText}-01`,
+    to: `${normalizedYear}-${monthText}-${String(lastDay).padStart(2, "0")}`,
   };
+}
+
+function lastCompletedTehranMonth(now: Date): { from: string; to: string } {
+  const current = tehranYearMonth(now);
+  return calendarMonth(current.year, current.month - 1);
+}
+
+function currentTehranMonthStart(now: Date): string {
+  const current = tehranYearMonth(now);
+  return calendarMonth(current.year, current.month).from;
 }
 
 export function parseFinanceBudgetQuery(
@@ -57,7 +78,7 @@ export function parseFinanceBudgetQuery(
   if (
     !requestUrl.searchParams.has("from") && !requestUrl.searchParams.has("to")
   ) {
-    const month = currentTehranMonth(now);
+    const month = lastCompletedTehranMonth(now);
     requestUrl.searchParams.set("from", month.from);
     requestUrl.searchParams.set("to", month.to);
   }
@@ -67,6 +88,13 @@ export function parseFinanceBudgetQuery(
       400,
       "finance_budget_period_alignment_required",
       "Budget comparison requires complete calendar months; partial-month budget prorating is not inferred.",
+    );
+  }
+  if (query.to >= currentTehranMonthStart(now)) {
+    throw new ApiError(
+      400,
+      "finance_budget_completed_period_required",
+      "Budget comparison requires completed calendar months; current or future months are not compared against partial actuals.",
     );
   }
   return query;
