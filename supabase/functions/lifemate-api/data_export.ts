@@ -34,6 +34,26 @@ export function createDataExportStore(databaseUrl: string) {
       ? accountRows[0].id
       : null;
 
+    // Healthcare ownership has crossed the canonical Account -> Self Person
+    // boundary. Do not silently fall back to legacy owner-user columns when the
+    // mapping is unavailable: an incomplete or mis-scoped privacy export is a
+    // fail-closed condition. The canonical Person identifier is authorization
+    // context only and is not added to the portable export payload.
+    const personRows = await sql`
+      select core.self_person_id_for_legacy_app_user(${appUserId}::uuid)::text
+        as person_id
+    `;
+    const personId = typeof personRows[0]?.person_id === "string"
+      ? personRows[0].person_id
+      : null;
+    if (!personId) {
+      throw new ApiError(
+        409,
+        "identity_person_mapping_missing",
+        "The LifeMate person mapping is unavailable.",
+      );
+    }
+
     const profiles = await bounded(
       "profile",
       sql`
@@ -102,7 +122,7 @@ export function createDataExportStore(databaseUrl: string) {
                provenance_source, provenance_restricted,
                created_at_utc, updated_at_utc
         from lifemate.medications
-        where owner_user_id = ${appUserId}
+        where owner_person_id = ${personId}::uuid
         order by created_at_utc, id
         limit ${portableExportRowLimit + 1}
       `,
@@ -117,7 +137,7 @@ export function createDataExportStore(databaseUrl: string) {
                provenance_source, provenance_restricted,
                created_at_utc, updated_at_utc
         from lifemate.treatment_plans
-        where patient_user_id = ${appUserId}
+        where patient_person_id = ${personId}::uuid
         order by created_at_utc, id
         limit ${portableExportRowLimit + 1}
       `,
@@ -130,7 +150,7 @@ export function createDataExportStore(databaseUrl: string) {
                s.created_at_utc
         from lifemate.treatment_schedules s
         join lifemate.treatment_plans p on p.id = s.treatment_plan_id
-        where p.patient_user_id = ${appUserId}
+        where p.patient_person_id = ${personId}::uuid
         order by s.created_at_utc, s.id
         limit ${portableExportRowLimit + 1}
       `,
@@ -144,7 +164,7 @@ export function createDataExportStore(databaseUrl: string) {
                responded_at_utc, version, provenance_source,
                provenance_restricted, created_at_utc, updated_at_utc
         from lifemate.dose_occurrences
-        where patient_user_id = ${appUserId}
+        where patient_person_id = ${personId}::uuid
         order by scheduled_at_utc, id
         limit ${portableExportRowLimit + 1}
       `,
@@ -160,7 +180,7 @@ export function createDataExportStore(databaseUrl: string) {
                e.provenance_source, e.provenance_restricted
         from lifemate.dose_adherence_events e
         join lifemate.dose_occurrences o on o.id = e.occurrence_id
-        where o.patient_user_id = ${appUserId}
+        where o.patient_person_id = ${personId}::uuid
         order by e.recorded_at_utc, e.id
         limit ${portableExportRowLimit + 1}
       `,
