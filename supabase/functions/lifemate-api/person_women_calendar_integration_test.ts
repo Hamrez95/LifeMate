@@ -5,6 +5,7 @@ import {
 } from "jsr:@std/assert@1.0.14";
 import postgres from "postgres";
 import { closeLifeMateSqlClientsForTest } from "./database_client.ts";
+import { createDataExportStore } from "./data_export.ts";
 import { createWomenCalendarStore } from "./women_calendar.ts";
 import { ApiError } from "./validation.ts";
 
@@ -81,7 +82,7 @@ async function cleanupIdentity(
 
 Deno.test({
   name:
-    "Women Calendar self runtime authorizes by Person while legacy owner remains compatibility-only",
+    "Women Calendar self runtime and export authorize by Person while legacy owner remains compatibility-only",
   sanitizeOps: false,
   sanitizeResources: false,
   fn: async () => {
@@ -106,8 +107,11 @@ Deno.test({
     }
 
     const women = createWomenCalendarStore(databaseUrl);
+    const exporter = createDataExportStore(databaseUrl);
     let episodeId: string | null = null;
     let dailyLogId: string | null = null;
+    let relationshipId: string | null = null;
+    let supportActionId: string | null = null;
 
     try {
       await replaceBootstrapIdentity(
@@ -177,7 +181,7 @@ Deno.test({
       assertEquals(persisted[0].daily_person_id, ownerPersonId);
 
       // Simulate a stale/misleading compatibility link. The canonical Person
-      // must remain the sole self-authorization boundary.
+      // must remain the sole self-authorization and export boundary.
       await fixtureSql`
         update lifemate.women_calendar_profiles
         set owner_user_id=${otherAppUserId}::uuid
@@ -230,6 +234,58 @@ Deno.test({
         ).length,
         0,
       );
+
+      relationshipId = crypto.randomUUID();
+      supportActionId = crypto.randomUUID();
+      await fixtureSql`
+        insert into lifemate.care_relationships
+          (id, patient_user_id, caregiver_user_id, status,
+           patient_consent_version, patient_consented_at_utc,
+           caregiver_consent_version, caregiver_consented_at_utc,
+           can_view_women_calendar, can_manage_health_record,
+           created_at_utc, updated_at_utc)
+        values
+          (${relationshipId}::uuid, ${otherAppUserId}::uuid,
+           ${ownerAppUserId}::uuid, 'Active', 'test-patient-v1', now(),
+           'test-caregiver-v1', now(), true, false, now(), now())
+      `;
+      await fixtureSql`
+        insert into lifemate.women_calendar_support_actions
+          (id, patient_user_id, caregiver_user_id, relationship_id,
+           action_type, performed_at_utc, created_at_utc, patient_person_id)
+        values
+          (${supportActionId}::uuid, ${otherAppUserId}::uuid,
+           ${ownerAppUserId}::uuid, ${relationshipId}::uuid,
+           'CheckIn', now(), now(), ${ownerPersonId}::uuid)
+      `;
+
+      const exported = await exporter.exportAccountData(ownerAppUserId);
+      assertEquals(exported.schemaVersion, "lifemate-portable-export-v1");
+      const womenExport = exported.womenCalendar as Record<string, unknown>;
+      const profiles = womenExport.profiles as Array<Record<string, unknown>>;
+      const episodes = womenExport.episodes as Array<Record<string, unknown>>;
+      const dailyLogs = womenExport.dailyLogs as Array<Record<string, unknown>>;
+      const supportActions = womenExport.supportActionsReceived as Array<
+        Record<string, unknown>
+      >;
+      assertEquals(profiles.length, 1);
+      assertEquals(profiles[0].enabled, true);
+      assertEquals(episodes.length, 1);
+      assertEquals(episodes[0].id, episodeId);
+      assertEquals(episodes[0].privateNotes, "owner-person-only episode");
+      assertEquals(dailyLogs.length, 1);
+      assertEquals(dailyLogs[0].id, dailyLogId);
+      assertEquals(dailyLogs[0].privateNotes, "owner-person-only daily note");
+      assertEquals(supportActions.length, 1);
+      assertEquals(supportActions[0].id, supportActionId);
+      assertEquals(supportActions[0].actionType, "CheckIn");
+      const encodedWomenExport = JSON.stringify(womenExport);
+      assertEquals(encodedWomenExport.includes(ownerPersonId), false);
+      assertEquals(encodedWomenExport.includes(otherPersonId), false);
+      assertEquals(encodedWomenExport.includes(ownerAccountId), false);
+      assertEquals(encodedWomenExport.includes(otherAccountId), false);
+      assertEquals(encodedWomenExport.includes(ownerAppUserId), false);
+      assertEquals(encodedWomenExport.includes(otherAppUserId), false);
 
       await assertApiError(
         () =>
@@ -301,6 +357,18 @@ Deno.test({
       );
     } finally {
       await closeLifeMateSqlClientsForTest().catch(() => undefined);
+      if (supportActionId) {
+        await fixtureSql`
+          delete from lifemate.women_calendar_support_actions
+          where id=${supportActionId}::uuid
+        `.catch(() => undefined);
+      }
+      if (relationshipId) {
+        await fixtureSql`
+          delete from lifemate.care_relationships
+          where id=${relationshipId}::uuid
+        `.catch(() => undefined);
+      }
       await fixtureSql`
         delete from lifemate.women_calendar_daily_logs
         where owner_person_id in (${ownerPersonId}::uuid,${otherPersonId}::uuid)
