@@ -1,8 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:lifemate_client/lifemate_client.dart';
 
-import '../../core/utils/iranian_mobile_input.dart';
-
 Future<String?> showCarePhoneInviteDialog(BuildContext context) async {
   final phoneController = TextEditingController();
   var confirmed = false;
@@ -11,7 +9,7 @@ Future<String?> showCarePhoneInviteDialog(BuildContext context) async {
       context: context,
       builder: (dialogContext) => StatefulBuilder(
         builder: (context, setDialogState) {
-          final normalized = normalizeIranianMobileInput(phoneController.text);
+          final normalized = _normalizePhoneOrNull(phoneController.text);
           return AlertDialog(
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(24),
@@ -113,5 +111,13 @@ Future<String?> showCarePhoneInviteDialog(BuildContext context) async {
     );
   } finally {
     phoneController.dispose();
+  }
+}
+
+String? _normalizePhoneOrNull(String value) {
+  try {
+    return LifeMateIranPhone.normalizeE164(value);
+  } on FormatException {
+    return null;
   }
 }
