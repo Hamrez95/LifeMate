@@ -212,7 +212,11 @@ function mapProviderFailure(status: number): KavenegarCareInviteError {
     case 424:
       return providerError("kavenegar_template_missing", false, status);
     case 426:
-      return providerError("kavenegar_advanced_service_required", false, status);
+      return providerError(
+        "kavenegar_advanced_service_required",
+        false,
+        status,
+      );
     case 428:
       return providerError("kavenegar_call_token_invalid", false, status);
     case 431:
