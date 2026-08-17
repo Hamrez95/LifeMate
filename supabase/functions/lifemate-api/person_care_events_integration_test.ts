@@ -178,7 +178,7 @@ Deno.test({
         where id=${ownerEventId}::uuid
       `;
       assertEquals(persisted.length, 1);
-      assertEquals(persisted[0].patient_user_id, ownerAppUserId);
+      assertEquals(persisted[0].patient_user_id, null);
       assertEquals(persisted[0].patient_person_id, ownerPersonId);
       assertEquals(persisted[0].created_by_user_id, ownerAppUserId);
       assertNotEquals(persisted[0].created_by_user_id, ownerPersonId);
@@ -248,15 +248,9 @@ Deno.test({
       assertEquals(caregiverRows[0].id, ownerEventId);
       assertEquals(caregiverRows[0].patientUserId, ownerAppUserId);
 
-      // Simulate the eventual compatibility-column freeze. Owner and caregiver
-      // reads, including the public patientUserId field, must not read legacy
-      // patient_user_id from the Care Event row.
-      await fixtureSql`
-        update lifemate.care_events
-        set patient_user_id=null
-        where id=${ownerEventId}::uuid
-      `;
-
+      // The row was created legacy-null. Owner and caregiver reads, including
+      // the public patientUserId field, must stay independent of the nullable
+      // patient_user_id compatibility column.
       const ownerAfterFreeze = await store.listCareEvents(
         ownerAppUserId,
         targetDate,
