@@ -20,7 +20,9 @@ export function createFinanceRouteHandler(databaseUrl: string) {
     context: FinanceRouteContext,
   ): Promise<Response | null> {
     const { request, path, admin, origin } = context;
-    if (request.method !== "GET" || path !== "/api/v1/finance/profit-loss") return null;
+    if (request.method !== "GET" || path !== "/api/v1/finance/profit-loss") {
+      return null;
+    }
 
     requirePermission(admin, "finance.read");
     const query = parseFinanceProfitLossQuery(new URL(request.url));
