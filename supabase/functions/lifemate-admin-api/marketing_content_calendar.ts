@@ -38,8 +38,7 @@ const CANCEL_PATH =
 const RETRY_PATH =
   /^\/api\/v1\/marketing\/publish-executions\/([^/]+)\/actions\/retry$/i;
 const DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
-const LOCAL_DATE_TIME_PATTERN =
-  /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(?::\d{2})?$/;
+const LOCAL_DATE_TIME_PATTERN = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(?::\d{2})?$/;
 
 function dateOnly(value: string, field: string): string {
   if (!DATE_PATTERN.test(value)) {
@@ -159,9 +158,7 @@ export function parseMarketingContentCalendarQuery(
     from,
     to,
     timezone: timezone(url.searchParams.get("timezone")),
-    status: rawStatus
-      ? (rawStatus as MarketingCalendarPublishStatus)
-      : null,
+    status: rawStatus ? (rawStatus as MarketingCalendarPublishStatus) : null,
   };
 }
 
