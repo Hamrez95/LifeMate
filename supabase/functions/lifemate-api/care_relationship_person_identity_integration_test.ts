@@ -127,7 +127,8 @@ Deno.test({
           and indexname='IX_care_relationships_patient_person_id_caregiver_person_id'
       `;
       assertEquals(canonicalPairIndex.length, 1);
-      const indexDefinition = String(canonicalPairIndex[0].indexdef).toLowerCase();
+      const indexDefinition = String(canonicalPairIndex[0].indexdef)
+        .toLowerCase();
       assertEquals(indexDefinition.includes("unique index"), true);
       assertEquals(indexDefinition.includes("patient_person_id"), true);
       assertEquals(indexDefinition.includes("caregiver_person_id"), true);
