@@ -73,6 +73,17 @@ begin
     raise exception 'care_relationship_legacy_participant_missing';
   end if;
 
+  -- A relationship identifies one fixed patient/caregiver pair. Reassigning a
+  -- participant in place can leave downstream consent/access-grant state tied
+  -- to the previous pair, so participant replacement must create a new domain
+  -- relationship instead of mutating this row.
+  if tg_op = 'UPDATE' and (
+    new.patient_user_id is distinct from old.patient_user_id
+    or new.caregiver_user_id is distinct from old.caregiver_user_id
+  ) then
+    raise exception 'care_relationship_participant_immutable';
+  end if;
+
   v_patient_person_id := core.self_person_id_for_legacy_app_user(
     new.patient_user_id
   );
@@ -87,25 +98,13 @@ begin
     raise exception 'care_relationship_caregiver_person_missing';
   end if;
 
-  -- A legacy participant update may omit the compatibility Person column. If
-  -- the Person value was merely carried forward unchanged, resynchronise it to
-  -- the newly selected legacy participant. If a caller explicitly supplies a
-  -- Person value, it must match the canonical bridge exactly.
-  if tg_op = 'UPDATE'
-     and new.patient_user_id is distinct from old.patient_user_id
-     and new.patient_person_id is not distinct from old.patient_person_id then
-    new.patient_person_id := v_patient_person_id;
-  elsif new.patient_person_id is null then
+  if new.patient_person_id is null then
     new.patient_person_id := v_patient_person_id;
   elsif new.patient_person_id <> v_patient_person_id then
     raise exception 'care_relationship_patient_person_mismatch';
   end if;
 
-  if tg_op = 'UPDATE'
-     and new.caregiver_user_id is distinct from old.caregiver_user_id
-     and new.caregiver_person_id is not distinct from old.caregiver_person_id then
-    new.caregiver_person_id := v_caregiver_person_id;
-  elsif new.caregiver_person_id is null then
+  if new.caregiver_person_id is null then
     new.caregiver_person_id := v_caregiver_person_id;
   elsif new.caregiver_person_id <> v_caregiver_person_id then
     raise exception 'care_relationship_caregiver_person_mismatch';
