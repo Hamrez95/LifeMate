@@ -1,4 +1,8 @@
-import { assertEquals, assertNotEquals, assertRejects } from "jsr:@std/assert@1";
+import {
+  assertEquals,
+  assertNotEquals,
+  assertRejects,
+} from "jsr:@std/assert@1";
 import {
   hashMarketingExecutionActionRequest,
   hashMarketingScheduleRequest,
@@ -80,7 +84,8 @@ Deno.test("ADM-MKT-006 schedule payload requires local time, visible timezone an
       body: JSON.stringify({
         scheduledLocal: "2026-08-20T18:30",
         timezone: "Asia/Tehran",
-        reason: "Schedule the human-approved revision for the planned launch window.",
+        reason:
+          "Schedule the human-approved revision for the planned launch window.",
       }),
     }),
   );
@@ -106,7 +111,8 @@ Deno.test("ADM-MKT-006 cancel and retry reasons are bounded and action hashes ca
     new Request("https://admin.test", {
       method: "POST",
       body: JSON.stringify({
-        reason: "Cancel this scheduled publish because the launch window changed.",
+        reason:
+          "Cancel this scheduled publish because the launch window changed.",
       }),
     }),
   );
