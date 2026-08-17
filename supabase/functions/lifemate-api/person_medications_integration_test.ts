@@ -1,4 +1,8 @@
-import { assertEquals, assertRejects } from "jsr:@std/assert@1.0.14";
+import {
+  assertEquals,
+  assertNotEquals,
+  assertRejects,
+} from "jsr:@std/assert@1.0.14";
 import postgres from "postgres";
 import { closeLifeMateSqlClientsForTest } from "./database_client.ts";
 import { createPersonMedicationStore } from "./person_medications.ts";
@@ -26,27 +30,16 @@ async function replaceBootstrapIdentity(
     values (${appUserId}::uuid,${authSubject},'Active',now(),now())
   `;
 
+  // Preserve the bootstrap Account/Person rows instead of deleting dependent
+  // commerce/ecosystem data. Only detach the legacy AppUser mapping, then add
+  // the intentionally different canonical Account -> Self Person mapping. This
+  // keeps the fixture runnable by the restricted Edge role without granting it
+  // unrelated delete privileges merely for test setup.
   await adminSql`
-    delete from commerce.entitlements
-    where grantee_account_id=${appUserId}::uuid
-       or beneficiary_person_id=${appUserId}::uuid
+    update identity.accounts
+    set legacy_app_user_id=null,updated_at_utc=now()
+    where id=${appUserId}::uuid
   `;
-  await adminSql`
-    delete from ecosystem.app_enrollments where account_id=${appUserId}::uuid
-  `;
-  await adminSql`
-    delete from identity.external_identities where account_id=${appUserId}::uuid
-  `;
-  await adminSql`
-    delete from core.account_person_links where account_id=${appUserId}::uuid
-  `;
-  await adminSql`
-    delete from identity.accounts where id=${appUserId}::uuid
-  `;
-  await adminSql`
-    delete from core.persons where id=${appUserId}::uuid
-  `;
-
   await adminSql`
     insert into identity.accounts(id,legacy_app_user_id,status)
     values (${accountId}::uuid,${appUserId}::uuid,'Active')
@@ -67,27 +60,25 @@ async function cleanupIdentity(
   personId: string,
 ): Promise<void> {
   await adminSql`
-    delete from commerce.entitlements
-    where grantee_account_id=${accountId}::uuid
-       or beneficiary_person_id=${personId}::uuid
+    delete from core.account_person_links
+    where account_id in (${appUserId}::uuid,${accountId}::uuid)
+       or person_id in (${appUserId}::uuid,${personId}::uuid)
   `.catch(() => undefined);
   await adminSql`
-    delete from ecosystem.app_enrollments where account_id=${accountId}::uuid
+    update identity.accounts
+    set legacy_app_user_id=null,updated_at_utc=now()
+    where id in (${appUserId}::uuid,${accountId}::uuid)
   `.catch(() => undefined);
   await adminSql`
-    delete from identity.external_identities where account_id=${accountId}::uuid
-  `.catch(() => undefined);
-  await adminSql`
-    delete from core.account_person_links where account_id=${accountId}::uuid
-  `.catch(() => undefined);
-  await adminSql`
-    delete from identity.accounts where id=${accountId}::uuid
-  `.catch(() => undefined);
-  await adminSql`
-    delete from core.persons where id=${personId}::uuid
+    delete from identity.accounts
+    where id in (${appUserId}::uuid,${accountId}::uuid)
   `.catch(() => undefined);
   await adminSql`
     delete from lifemate.app_users where id=${appUserId}::uuid
+  `.catch(() => undefined);
+  await adminSql`
+    delete from core.persons
+    where id in (${appUserId}::uuid,${personId}::uuid)
   `.catch(() => undefined);
 }
 
@@ -107,6 +98,13 @@ Deno.test({
     const otherAuthSubject = crypto.randomUUID();
     const store = createPersonMedicationStore(databaseUrl);
     let medicationId: string | null = null;
+
+    assertNotEquals(ownerAppUserId, ownerAccountId);
+    assertNotEquals(ownerAppUserId, ownerPersonId);
+    assertNotEquals(ownerAccountId, ownerPersonId);
+    assertNotEquals(otherAppUserId, otherAccountId);
+    assertNotEquals(otherAppUserId, otherPersonId);
+    assertNotEquals(otherAccountId, otherPersonId);
 
     try {
       await replaceBootstrapIdentity(
