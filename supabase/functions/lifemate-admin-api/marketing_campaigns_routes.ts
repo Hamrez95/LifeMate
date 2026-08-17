@@ -244,7 +244,10 @@ export function createMarketingCampaignRouteHandler(databaseUrl: string) {
       requirePermission(admin, "marketing.campaign.write");
       const idempotencyKey = requireIdempotencyKey(request);
       const payload = await parseMarketingCampaignWritePayload(request);
-      const requestHash = await hashUpdatePromotionRequest(campaignId, payload);
+      const requestHash = await hashUpdateMarketingCampaignRequest(
+        campaignId,
+        payload,
+      );
       const result = await campaignStore.update({
         actorAccountId: accountId,
         campaignId,
