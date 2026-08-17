@@ -25,6 +25,7 @@ import {
   parseMarketingChannelStatusPayload,
 } from "./marketing_channels.ts";
 import { createMarketingChannelStore } from "./marketing_channels_store.ts";
+import { createSecurityRbacRouteHandler } from "./security_rbac_routes.ts";
 import { ApiError, requireIdempotencyKey } from "./validation.ts";
 
 export type MarketingCampaignRouteContext = {
@@ -70,6 +71,7 @@ export function createMarketingCampaignRouteHandler(databaseUrl: string) {
   // same extension point rather than widening the top-level handler per vertical slice.
   const advisorRouteHandler = createAdvisorRouteHandler(databaseUrl);
   const financeRouteHandler = createFinanceRouteHandler(databaseUrl);
+  const securityRbacRouteHandler = createSecurityRbacRouteHandler(databaseUrl);
 
   return async function handleMarketingCampaignRoute(
     context: MarketingCampaignRouteContext,
@@ -82,6 +84,9 @@ export function createMarketingCampaignRouteHandler(databaseUrl: string) {
       correlationId,
       origin,
     } = context;
+
+    const securityRbacResponse = await securityRbacRouteHandler(context);
+    if (securityRbacResponse) return securityRbacResponse;
 
     const financeResponse = await financeRouteHandler(context);
     if (financeResponse) return financeResponse;
@@ -239,10 +244,7 @@ export function createMarketingCampaignRouteHandler(databaseUrl: string) {
       requirePermission(admin, "marketing.campaign.write");
       const idempotencyKey = requireIdempotencyKey(request);
       const payload = await parseMarketingCampaignWritePayload(request);
-      const requestHash = await hashUpdateMarketingCampaignRequest(
-        campaignId,
-        payload,
-      );
+      const requestHash = await hashUpdatePromotionRequest(campaignId, payload);
       const result = await campaignStore.update({
         actorAccountId: accountId,
         campaignId,
