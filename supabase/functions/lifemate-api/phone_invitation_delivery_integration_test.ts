@@ -1,4 +1,9 @@
-import { assert, assertEquals, assertMatch, assertRejects } from "jsr:@std/assert@1.0.14";
+import {
+  assert,
+  assertEquals,
+  assertMatch,
+  assertRejects,
+} from "jsr:@std/assert@1.0.14";
 import postgres from "postgres";
 import {
   type AppIdentity,
@@ -100,7 +105,8 @@ Deno.test({
 });
 
 Deno.test({
-  name: "delivery failure rolls back invitation and audit so retry does not duplicate domain state",
+  name:
+    "delivery failure rolls back invitation and audit so retry does not duplicate domain state",
   sanitizeOps: false,
   sanitizeResources: false,
   fn: async () => {
