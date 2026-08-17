@@ -17,7 +17,7 @@ jobs:
         with:
           show-progress: false
           persist-credentials: false
-      - name: Emit patched main-edge workflow as base64 annotations
+      - name: Build exact patched main-edge workflow
         shell: bash
         run: |
           set -euo pipefail
@@ -31,9 +31,9 @@ jobs:
               raise SystemExit('expected exactly one legacy guard reference')
           path.write_text(text.replace(old, new))
           PY
-          index=0
-          while IFS= read -r chunk; do
-            printf '::error title=MAINEDGE_%03d::%s\n' "$index" "$chunk"
-            index=$((index + 1))
-          done < <(base64 -w0 .github/workflows/main-edge-deploy.yml | fold -w 6000)
-          exit 1
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: main-edge-invariant-patched
+          path: .github/workflows/main-edge-deploy.yml
+          if-no-files-found: error
+          retention-days: 1
