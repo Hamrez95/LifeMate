@@ -13,6 +13,7 @@ create table if not exists finance.approved_budget_sets (
   source_reference_hash text check (
     source_reference_hash is null or length(source_reference_hash) between 32 and 256
   ),
+  creation_txid bigint not null default txid_current(),
   recorded_at_utc timestamptz not null default now(),
   check (period_start <= period_end),
   check (period_start = date_trunc('month', period_start::timestamp)::date),
@@ -50,9 +51,10 @@ as $$
 declare
   budget_period_start date;
   budget_period_end date;
+  budget_creation_txid bigint;
 begin
-  select period_start, period_end
-    into budget_period_start, budget_period_end
+  select period_start, period_end, creation_txid
+    into budget_period_start, budget_period_end, budget_creation_txid
   from finance.approved_budget_sets
   where id = new.budget_set_id;
 
@@ -60,6 +62,10 @@ begin
      or new.month_start < budget_period_start
      or new.month_start > budget_period_end then
     raise exception 'finance budget allocation month must be covered by its approved budget set';
+  end if;
+
+  if budget_creation_txid <> txid_current() then
+    raise exception 'approved finance budget allocations must be published atomically with their budget set';
   end if;
 
   return new;
@@ -72,7 +78,7 @@ language plpgsql
 set search_path = finance, pg_temp
 as $$
 begin
-  raise exception 'approved finance budgets are append-only; publish a new version instead';
+  raise exception 'approved finance budgets are immutable; publish a new version instead';
 end
 $$;
 
@@ -94,9 +100,11 @@ before update or delete on finance.approved_budget_allocations
 for each row execute function finance.reject_budget_mutation();
 
 comment on table finance.approved_budget_sets is
-  'Canonical approved management-budget versions. Budget assumptions remain separate from posted actuals and forecast data.';
+  'Canonical approved management-budget versions. A set and all allocations are published in one transaction; later correction requires a new version. Budget assumptions remain separate from posted actuals and forecast data.';
 comment on table finance.approved_budget_allocations is
-  'Monthly approved budget allocations by finance category. A missing allocation is not interpreted as a zero budget.';
+  'Monthly approved budget allocations by finance category. A missing allocation or missing month is not interpreted as a zero budget.';
+comment on column finance.approved_budget_sets.creation_txid is
+  'Internal PostgreSQL transaction marker used only to prove allocations were created atomically with the immutable approved budget version.';
 
 revoke all on finance.approved_budget_sets from public;
 revoke all on finance.approved_budget_allocations from public;
