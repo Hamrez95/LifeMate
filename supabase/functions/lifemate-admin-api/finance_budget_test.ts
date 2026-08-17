@@ -9,24 +9,25 @@ import {
 } from "./finance_budget.ts";
 import { createFinanceRouteHandler } from "./finance_routes.ts";
 
-Deno.test("finance budget comparison defaults to the complete Tehran calendar month", () => {
+Deno.test("finance budget comparison defaults to the last completed Tehran calendar month", () => {
   const query = parseFinanceBudgetQuery(
     new URL("https://admin.test/api/v1/finance/budget-vs-actual"),
     new Date("2026-08-16T21:30:00.000Z"),
   );
-  assertEquals(query, { from: "2026-08-01", to: "2026-08-31", currency: null });
+  assertEquals(query, { from: "2026-07-01", to: "2026-07-31", currency: null });
   assertEquals(financeBudgetMonthCount(query), 1);
 });
 
-Deno.test("finance budget comparison requires complete calendar months", async () => {
+Deno.test("finance budget comparison requires complete completed calendar months", async () => {
   const query = parseFinanceBudgetQuery(
     new URL(
-      "https://admin.test/api/v1/finance/budget-vs-actual?from=2026-07-01&to=2026-08-31&currency=IRR",
+      "https://admin.test/api/v1/finance/budget-vs-actual?from=2026-06-01&to=2026-07-31&currency=IRR",
     ),
+    new Date("2026-08-17T09:00:00.000Z"),
   );
   assertEquals(query, {
-    from: "2026-07-01",
-    to: "2026-08-31",
+    from: "2026-06-01",
+    to: "2026-07-31",
     currency: "IRR",
   });
   assertEquals(financeBudgetMonthCount(query), 2);
@@ -35,12 +36,33 @@ Deno.test("finance budget comparison requires complete calendar months", async (
     async () =>
       parseFinanceBudgetQuery(
         new URL(
-          "https://admin.test/api/v1/finance/budget-vs-actual?from=2026-08-02&to=2026-08-31",
+          "https://admin.test/api/v1/finance/budget-vs-actual?from=2026-07-02&to=2026-07-31",
         ),
+        new Date("2026-08-17T09:00:00.000Z"),
       ),
     Error,
     "complete calendar months",
   );
+
+  await assertRejects(
+    async () =>
+      parseFinanceBudgetQuery(
+        new URL(
+          "https://admin.test/api/v1/finance/budget-vs-actual?from=2026-08-01&to=2026-08-31",
+        ),
+        new Date("2026-08-17T09:00:00.000Z"),
+      ),
+    Error,
+    "completed calendar months",
+  );
+});
+
+Deno.test("finance budget comparison rolls the default completed month across year boundary", () => {
+  const query = parseFinanceBudgetQuery(
+    new URL("https://admin.test/api/v1/finance/budget-vs-actual"),
+    new Date("2027-01-15T09:00:00.000Z"),
+  );
+  assertEquals(query, { from: "2026-12-01", to: "2026-12-31", currency: null });
 });
 
 Deno.test("finance budget variance keeps expense favorability direction explicit", () => {
