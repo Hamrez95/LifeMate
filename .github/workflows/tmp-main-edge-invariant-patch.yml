@@ -1,0 +1,39 @@
+name: tmp-main-edge-invariant-patch
+
+on:
+  push:
+    branches:
+      - 'foundation/p0-person-owned-women-calendar'
+
+permissions:
+  contents: write
+
+jobs:
+  patch-guard:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
+        with:
+          show-progress: false
+          persist-credentials: true
+      - name: Point duplicate security invariant at caregiver implementation
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          path = Path('.github/workflows/main-edge-deploy.yml')
+          text = path.read_text()
+          old = "check 'Daily companion sharing is explicit per entry.' grep -Fq 'share_summary_with_companion = true' women_calendar.ts"
+          new = "check 'Daily companion sharing is explicit per entry.' grep -Fq 'share_summary_with_companion = true' women_calendar_legacy.ts"
+          if text.count(old) != 1:
+              raise SystemExit('expected exactly one legacy guard reference')
+          path.write_text(text.replace(old, new))
+          PY
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add .github/workflows/main-edge-deploy.yml
+          git diff --cached --quiet && exit 0
+          git commit -m 'ci(security): follow Women Calendar caregiver implementation move'
+          git push origin HEAD:foundation/p0-person-owned-women-calendar
