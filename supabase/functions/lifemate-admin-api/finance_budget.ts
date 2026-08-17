@@ -26,8 +26,40 @@ function isCalendarMonthEnd(value: string): boolean {
   return date.getUTCDate() === 1;
 }
 
-export function parseFinanceBudgetQuery(url: URL, now = new Date()): FinanceBudgetQuery {
-  const query = parseFinanceProfitLossQuery(url, now);
+function currentTehranMonth(now: Date): { from: string; to: string } {
+  const parts = new Intl.DateTimeFormat("en-US", {
+    timeZone: "Asia/Tehran",
+    year: "numeric",
+    month: "2-digit",
+  }).formatToParts(now);
+  const year = Number(parts.find((item) => item.type === "year")?.value);
+  const month = Number(parts.find((item) => item.type === "month")?.value);
+  if (!Number.isInteger(year) || !Number.isInteger(month)) {
+    throw new ApiError(
+      503,
+      "finance_calendar_unavailable",
+      "Finance reporting calendar is unavailable.",
+    );
+  }
+  const monthText = String(month).padStart(2, "0");
+  const lastDay = new Date(Date.UTC(year, month, 0)).getUTCDate();
+  return {
+    from: `${year}-${monthText}-01`,
+    to: `${year}-${monthText}-${String(lastDay).padStart(2, "0")}`,
+  };
+}
+
+export function parseFinanceBudgetQuery(
+  url: URL,
+  now = new Date(),
+): FinanceBudgetQuery {
+  const requestUrl = new URL(url.toString());
+  if (!requestUrl.searchParams.has("from") && !requestUrl.searchParams.has("to")) {
+    const month = currentTehranMonth(now);
+    requestUrl.searchParams.set("from", month.from);
+    requestUrl.searchParams.set("to", month.to);
+  }
+  const query = parseFinanceProfitLossQuery(requestUrl, now);
   if (!isCalendarMonthStart(query.from) || !isCalendarMonthEnd(query.to)) {
     throw new ApiError(
       400,
@@ -38,7 +70,16 @@ export function parseFinanceBudgetQuery(url: URL, now = new Date()): FinanceBudg
   return query;
 }
 
-export function varianceBasisPoints(actualMinor: bigint, budgetMinor: bigint): string | null {
+export function financeBudgetMonthCount(query: FinanceBudgetQuery): number {
+  const [fromYear, fromMonth] = query.from.split("-").map(Number);
+  const [toYear, toMonth] = query.to.split("-").map(Number);
+  return (toYear - fromYear) * 12 + toMonth - fromMonth + 1;
+}
+
+export function varianceBasisPoints(
+  actualMinor: bigint,
+  budgetMinor: bigint,
+): string | null {
   if (budgetMinor === 0n) return null;
   return (((actualMinor - budgetMinor) * 10_000n) / budgetMinor).toString();
 }
@@ -49,11 +90,15 @@ export function varianceFavorability(
   budgetMinor: bigint,
 ): "favorable" | "unfavorable" | "on_budget" {
   if (actualMinor === budgetMinor) return "on_budget";
-  if (kind === "Expense") return actualMinor < budgetMinor ? "favorable" : "unfavorable";
+  if (kind === "Expense") {
+    return actualMinor < budgetMinor ? "favorable" : "unfavorable";
+  }
   return actualMinor > budgetMinor ? "favorable" : "unfavorable";
 }
 
-export function summarizeBudgetVsActual(entries: readonly FinanceBudgetCategoryInput[]) {
+export function summarizeBudgetVsActual(
+  entries: readonly FinanceBudgetCategoryInput[],
+) {
   let budgetRevenue = 0n;
   let budgetExpense = 0n;
   let actualRevenue = 0n;
@@ -80,7 +125,11 @@ export function summarizeBudgetVsActual(entries: readonly FinanceBudgetCategoryI
         : varianceBasisPoints(entry.actualMinor, entry.budgetMinor),
       favorability: entry.budgetMinor === null
         ? null
-        : varianceFavorability(entry.kind, entry.actualMinor, entry.budgetMinor),
+        : varianceFavorability(
+          entry.kind,
+          entry.actualMinor,
+          entry.budgetMinor,
+        ),
     };
   });
 
@@ -94,14 +143,22 @@ export function summarizeBudgetVsActual(entries: readonly FinanceBudgetCategoryI
         actualMinor: actualRevenue,
         varianceMinor: actualRevenue - budgetRevenue,
         varianceBasisPoints: varianceBasisPoints(actualRevenue, budgetRevenue),
-        favorability: varianceFavorability("Revenue", actualRevenue, budgetRevenue),
+        favorability: varianceFavorability(
+          "Revenue",
+          actualRevenue,
+          budgetRevenue,
+        ),
       },
       expense: {
         budgetMinor: budgetExpense,
         actualMinor: actualExpense,
         varianceMinor: actualExpense - budgetExpense,
         varianceBasisPoints: varianceBasisPoints(actualExpense, budgetExpense),
-        favorability: varianceFavorability("Expense", actualExpense, budgetExpense),
+        favorability: varianceFavorability(
+          "Expense",
+          actualExpense,
+          budgetExpense,
+        ),
       },
       net: {
         budgetMinor: budgetNet,
