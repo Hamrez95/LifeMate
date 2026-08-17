@@ -1,9 +1,5 @@
 import { getLifeMateSql } from "./database_client.ts";
-import {
-  ApiError,
-  limitedOptional,
-  requiredText,
-} from "./validation.ts";
+import { ApiError, limitedOptional, requiredText } from "./validation.ts";
 
 type Row = Record<string, unknown>;
 
@@ -64,12 +60,12 @@ async function insertAudit(
 /**
  * Medication ownership is authoritative on Person, not the legacy AppUser.
  *
- * The public API still passes an AppUser id during the reversible identity
- * migration window. This store resolves it through the canonical Account ->
- * Self Person bridge, leaves owner_user_id NULL for new rows, and performs all
- * ownership reads against owner_person_id. The legacy column remains in schema
- * only for rollback/old-writer compatibility until #217 retirement evidence is
- * complete.
+ * During this reversible migration phase the public API still passes an AppUser
+ * id and new rows continue to dual-write owner_user_id so the not-yet-migrated
+ * Treatment/Data Export paths remain compatible. All medication reads already
+ * resolve AppUser -> Account -> Self Person and authorize by owner_person_id.
+ * Once dependent healthcare paths are person-owned, a follow-up slice will
+ * freeze the legacy owner_user_id write without changing this read contract.
  */
 export function createPersonMedicationStore(databaseUrl: string) {
   const sql = getLifeMateSql(databaseUrl);
@@ -91,8 +87,9 @@ export function createPersonMedicationStore(databaseUrl: string) {
           (id, owner_user_id, owner_person_id, name, strength_text, form,
            notes, version, created_at_utc, updated_at_utc)
         values
-          (${crypto.randomUUID()}::uuid, null, ${personId}::uuid, ${name},
-           ${strength}, ${form}, ${notes}, 1, ${now}, ${now})
+          (${crypto.randomUUID()}::uuid, ${appUserId}::uuid,
+           ${personId}::uuid, ${name}, ${strength}, ${form}, ${notes}, 1,
+           ${now}, ${now})
         returning *
       `;
       await insertAudit(
