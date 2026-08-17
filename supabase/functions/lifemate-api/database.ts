@@ -38,8 +38,6 @@ export function createLifeMateDatabase(
     databaseUrl,
     contactHashingSecret,
   );
-  const phoneInvitationDelivery = options.phoneInvitationDelivery ??
-    createPhoneInvitationDeliveryFromEnvironment();
 
   return {
     ...database,
@@ -56,6 +54,10 @@ export function createLifeMateDatabase(
         return await database.createInvitation(identity, body);
       }
 
+      // Resolve provider configuration only for the phone path. Existing DB
+      // callers and tests must not gain a new environment-permission dependency.
+      const phoneInvitationDelivery = options.phoneInvitationDelivery ??
+        createPhoneInvitationDeliveryFromEnvironment();
       phoneInvitationDelivery.requireEnabled();
       const created = await phoneInvitations.createPhoneInvitation(
         identity,
