@@ -1,7 +1,4 @@
-import {
-  assertEquals,
-  assertNotEquals,
-} from "jsr:@std/assert@1.0.14";
+import { assertEquals, assertNotEquals } from "jsr:@std/assert@1.0.14";
 import postgres from "postgres";
 import { closeLifeMateSqlClientsForTest } from "./database_client.ts";
 import { createPersonCareEventStore } from "./person_care_events.ts";
@@ -77,8 +74,7 @@ async function cleanupIdentity(
 }
 
 Deno.test({
-  name:
-    "Care Event runtime scopes idempotency and reads to canonical Person",
+  name: "Care Event runtime scopes idempotency and reads to canonical Person",
   sanitizeOps: false,
   sanitizeResources: false,
   fn: async () => {
@@ -165,9 +161,9 @@ Deno.test({
         "idempotency_key_reused",
       );
 
-      // The same clientRequestId is valid for a different canonical Person.
-      // This proves the runtime idempotency partition no longer uses AppUser
-      // identity as the authoritative ownership boundary.
+      // Exercise an independent canonical Person idempotency scope: an
+      // unrelated Person may use the same client request id without colliding
+      // with the owner's Person-scoped key.
       const otherCreated = await store.createCareEvent(otherAppUserId, {
         ...ownerBody,
         title: "Unrelated Person appointment",
