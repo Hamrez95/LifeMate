@@ -4,6 +4,7 @@ export 'src/account_deletion_action.dart';
 export 'src/account_security.dart';
 export 'src/account_security_factory.dart';
 export 'src/app_config.dart';
+export 'src/auth_security_policy.dart';
 export 'src/capabilities.dart';
 export 'src/care_access_inventory.dart';
 export 'src/care_item.dart';
