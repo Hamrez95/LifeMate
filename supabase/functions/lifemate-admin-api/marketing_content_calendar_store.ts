@@ -134,11 +134,11 @@ export function createMarketingContentCalendarStore(databaseUrl: string) {
           publishTextPreview: row.publish_text_preview,
           channel: row.provider_code
             ? {
-                operatorStatus: row.operator_status ?? "Disabled",
-                setupStatus: row.setup_status ?? "SetupRequired",
-                credentialAvailable: row.credential_available === true,
-                providerConnectivity: "NotVerified" as const,
-              }
+              operatorStatus: row.operator_status ?? "Disabled",
+              setupStatus: row.setup_status ?? "SetupRequired",
+              credentialAvailable: row.credential_available === true,
+              providerConnectivity: "NotVerified" as const,
+            }
             : null,
         })),
         freshness: {
