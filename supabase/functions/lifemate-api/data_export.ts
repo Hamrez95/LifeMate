@@ -200,7 +200,7 @@ export function createDataExportStore(databaseUrl: string) {
                (created_by_user_id = ${appUserId}) as created_by_self,
                created_at_utc, updated_at_utc
         from lifemate.care_events
-        where patient_user_id = ${appUserId}
+        where patient_person_id = ${personId}::uuid
         order by created_at_utc, id
         limit ${portableExportRowLimit + 1}
       `,
