@@ -6,18 +6,18 @@ on:
       - 'foundation/p0-person-owned-women-calendar'
 
 permissions:
-  contents: write
+  contents: read
 
 jobs:
-  patch-guard:
+  emit-patched-file:
     runs-on: ubuntu-24.04
     timeout-minutes: 5
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
         with:
           show-progress: false
-          persist-credentials: true
-      - name: Point duplicate security invariant at caregiver implementation
+          persist-credentials: false
+      - name: Emit patched main-edge workflow as base64 annotations
         shell: bash
         run: |
           set -euo pipefail
@@ -31,9 +31,9 @@ jobs:
               raise SystemExit('expected exactly one legacy guard reference')
           path.write_text(text.replace(old, new))
           PY
-          git config user.name 'github-actions[bot]'
-          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git add .github/workflows/main-edge-deploy.yml
-          git diff --cached --quiet && exit 0
-          git commit -m 'ci(security): follow Women Calendar caregiver implementation move'
-          git push origin HEAD:foundation/p0-person-owned-women-calendar
+          index=0
+          while IFS= read -r chunk; do
+            printf '::error title=MAINEDGE_%03d::%s\n' "$index" "$chunk"
+            index=$((index + 1))
+          done < <(base64 -w0 .github/workflows/main-edge-deploy.yml | fold -w 6000)
+          exit 1
