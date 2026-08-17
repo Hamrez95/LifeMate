@@ -47,9 +47,10 @@ export function createLifeMateDatabase(
     ...database,
     requireIdentity: identityResolver.requireIdentity,
     identityLookupMode: identityResolver.lookupMode,
-    // Medication is the first healthcare aggregate retired from legacy AppUser
-    // ownership. Keep the public method signatures stable while the store
-    // resolves AppUser -> Account -> Self Person and writes no owner_user_id.
+    // Medication is the first healthcare aggregate whose runtime ownership read
+    // is canonical Person-based. Writes remain dual-written to owner_user_id
+    // only until dependent Treatment/Data Export paths are migrated, after
+    // which the legacy write can be frozen without changing this API contract.
     createMedication: personMedications.createMedication,
     listMedications: personMedications.listMedications,
     createInvitation: async (
