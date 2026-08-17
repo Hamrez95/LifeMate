@@ -140,13 +140,16 @@ Deno.test({
       });
       otherEventId = String(otherEvent.id);
 
-      // Simulate the follow-up compatibility write freeze before exporting.
-      // The portable export must already be independent of this legacy column.
-      await fixtureSql`
-        update lifemate.care_events
-        set patient_user_id=null
+      const persisted = await fixtureSql`
+        select patient_user_id::text,patient_person_id::text,
+               created_by_user_id::text
+        from lifemate.care_events
         where id=${ownerEventId}::uuid
       `;
+      assertEquals(persisted.length, 1);
+      assertEquals(persisted[0].patient_user_id, null);
+      assertEquals(persisted[0].patient_person_id, ownerPersonId);
+      assertEquals(persisted[0].created_by_user_id, ownerAppUserId);
 
       const exported = await exporter.exportAccountData(ownerAppUserId);
       assertEquals(exported.schemaVersion, "lifemate-portable-export-v1");
