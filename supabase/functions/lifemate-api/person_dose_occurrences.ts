@@ -83,7 +83,6 @@ export function createPersonDoseOccurrenceStore(databaseUrl: string) {
   const sql = getLifeMateSql(databaseUrl);
 
   async function materializeOccurrences(
-    patientAppUserId: string,
     patientPersonId: string,
     fromDate: string,
     toDate: string,
@@ -96,7 +95,7 @@ export function createPersonDoseOccurrenceStore(databaseUrl: string) {
            scheduled_local_time, time_zone, status, responded_at_utc, version,
            created_at_utc, updated_at_utc)
         select
-          gen_random_uuid(), ${patientAppUserId}::uuid, p.patient_person_id,
+          gen_random_uuid(), p.patient_user_id, p.patient_person_id,
           p.id, s.id,
           ((day_value::date + s.local_time) at time zone p.time_zone),
           day_value::date, s.local_time, p.time_zone, 'Scheduled', null, 1,
@@ -145,12 +144,7 @@ export function createPersonDoseOccurrenceStore(databaseUrl: string) {
     const toDate = requiredDate(toValue, "toDate");
     validateRange(fromDate, toDate);
     const patientPersonId = await requireSelfPerson(sql, patientAppUserId);
-    await materializeOccurrences(
-      patientAppUserId,
-      patientPersonId,
-      fromDate,
-      toDate,
-    );
+    await materializeOccurrences(patientPersonId, fromDate, toDate);
 
     const rows = await sql`
       select o.*, p.patient_reminder_minutes_before,
@@ -293,12 +287,7 @@ export function createPersonDoseOccurrenceStore(databaseUrl: string) {
     }
 
     const patientPersonId = await requireSelfPerson(sql, patientAppUserId);
-    await materializeOccurrences(
-      patientAppUserId,
-      patientPersonId,
-      fromDate,
-      toDate,
-    );
+    await materializeOccurrences(patientPersonId, fromDate, toDate);
     const rows = await sql`
       select o.*, m.name as medication_name, p.dose_text,
              p.patient_reminder_minutes_before,
