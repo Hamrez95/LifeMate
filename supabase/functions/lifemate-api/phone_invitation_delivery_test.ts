@@ -18,6 +18,7 @@ Deno.test("phone invite delivery stays fail-closed when disabled", async () => {
     () => delivery.deliver("+989121234567", "1234567890"),
     ApiError,
   );
+  assertEquals(error.status, 424);
   assertEquals(error.code, "phone_invitation_delivery_unavailable");
   assertEquals(calls, 0);
 });
@@ -81,6 +82,7 @@ Deno.test("phone invite delivery redacts provider response and request secrets",
     () => delivery.deliver("+989121234567", "1234567890"),
     ApiError,
   );
+  assertEquals(error.status, 424);
   assertEquals(error.code, "phone_invitation_delivery_unavailable");
   assert(!error.message.includes("09121234567"));
   assert(!error.message.includes("1234567890"));
@@ -100,7 +102,7 @@ Deno.test("phone invite transport uncertainty is generic and privacy-safe", asyn
     () => delivery.deliver("+989121234567", "1234567890"),
     ApiError,
   );
-  assertEquals(error.status, 503);
+  assertEquals(error.status, 424);
   assertEquals(error.code, "phone_invitation_delivery_unavailable");
   assert(!error.message.includes("09121234567"));
   assert(!error.message.includes("1234567890"));

@@ -250,8 +250,12 @@ function providerError(
 }
 
 function unavailable(): ApiError {
+  // Failed Dependency deliberately stays outside the generic client's
+  // transient 502/503/504 retry set. A Kavenegar timeout can have an unknown
+  // delivery outcome, so an automatic application retry must not blindly send
+  // another SMS. The invitation transaction still rolls back on this error.
   return new ApiError(
-    503,
+    424,
     "phone_invitation_delivery_unavailable",
     "Phone invitation delivery is temporarily unavailable.",
   );
