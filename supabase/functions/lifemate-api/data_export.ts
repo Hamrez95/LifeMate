@@ -242,7 +242,7 @@ export function createDataExportStore(databaseUrl: string) {
       "care_relationships",
       sql`
         select id,
-               case when patient_user_id = ${appUserId}
+               case when patient_person_id = ${personId}::uuid
                     then 'patient' else 'caregiver' end as self_role,
                status, patient_consent_version, patient_consented_at_utc,
                caregiver_consent_version, caregiver_consented_at_utc,
@@ -254,8 +254,8 @@ export function createDataExportStore(databaseUrl: string) {
                     else revoked_by_user_id = ${appUserId} end as revoked_by_self,
                revoked_at_utc, created_at_utc, updated_at_utc
         from lifemate.care_relationships
-        where patient_user_id = ${appUserId}
-           or caregiver_user_id = ${appUserId}
+        where patient_person_id = ${personId}::uuid
+           or caregiver_person_id = ${personId}::uuid
         order by created_at_utc, id
         limit ${portableExportRowLimit + 1}
       `,
