@@ -5,6 +5,7 @@ import {
 } from "./database_legacy.ts";
 import { createIdentityResolver } from "./identity_resolver.ts";
 import { createInvitationRevocationStore } from "./invitation_revoke.ts";
+import { createPersonMedicationStore } from "./person_medications.ts";
 import { createPhoneCareInvitationStore } from "./phone_care_invitation.ts";
 import {
   createPhoneInvitationDeliveryFromEnvironment,
@@ -36,6 +37,7 @@ export function createLifeMateDatabase(
   );
   const identityResolver = createIdentityResolver(databaseUrl);
   const invitationRevocation = createInvitationRevocationStore(databaseUrl);
+  const personMedications = createPersonMedicationStore(databaseUrl);
   const phoneInvitations = createPhoneCareInvitationStore(
     databaseUrl,
     contactHashingSecret,
@@ -45,6 +47,12 @@ export function createLifeMateDatabase(
     ...database,
     requireIdentity: identityResolver.requireIdentity,
     identityLookupMode: identityResolver.lookupMode,
+    // Medication is the first healthcare aggregate whose runtime ownership read
+    // is canonical Person-based. Writes remain dual-written to owner_user_id
+    // only until dependent Treatment/Data Export paths are migrated, after
+    // which the legacy write can be frozen without changing this API contract.
+    createMedication: personMedications.createMedication,
+    listMedications: personMedications.listMedications,
     createInvitation: async (
       identity: Parameters<typeof database.createInvitation>[0],
       body: Parameters<typeof database.createInvitation>[1],
