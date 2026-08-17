@@ -17,7 +17,9 @@ function iso(value: unknown): string {
 }
 
 function date(value: unknown): string {
-  return value instanceof Date ? value.toISOString().slice(0, 10) : String(value);
+  return value instanceof Date
+    ? value.toISOString().slice(0, 10)
+    : String(value);
 }
 
 function minor(value: bigint | null): string | null {
@@ -264,7 +266,9 @@ export function createFinanceCashPlanningStore(databaseUrl: string) {
             definitionVersion: 1,
           },
           freshness: {
-            status: actualAsOfUtc ? ("fresh" as const) : ("unavailable" as const),
+            status: actualAsOfUtc
+              ? ("fresh" as const)
+              : ("unavailable" as const),
             asOfUtc: actualAsOfUtc,
           },
           reason: null,
@@ -368,7 +372,10 @@ export function createFinanceCashPlanningStore(databaseUrl: string) {
           planAssumptions(sql, planId),
           planScenarioMonths(sql, planId, query),
         ]);
-        const assumptionsByScenario = new Map<Scenario, Record<string, unknown>[]>();
+        const assumptionsByScenario = new Map<
+          Scenario,
+          Record<string, unknown>[]
+        >();
         const monthsByScenario = new Map<Scenario, FinanceBurnMonthInput[]>();
         for (const scenario of SCENARIOS) {
           assumptionsByScenario.set(scenario, []);
@@ -452,7 +459,9 @@ export function createFinanceCashPlanningStore(databaseUrl: string) {
                     : "beyond_horizon",
                   series: projection.series.map((row) => ({
                     month: row.month,
-                    projectedEndingCashMinor: minor(row.projectedEndingCashMinor),
+                    projectedEndingCashMinor: minor(
+                      row.projectedEndingCashMinor,
+                    ),
                   })),
                 }
                 : {
@@ -485,9 +494,10 @@ export function createFinanceCashPlanningStore(databaseUrl: string) {
         }
       }
 
-      const readyCount = [actual.state, cash.state, forecast.state].filter((state) =>
-        state === "ready"
-      ).length;
+      const readyCount =
+        [actual.state, cash.state, forecast.state].filter((state) =>
+          state === "ready"
+        ).length;
       const state = readyCount === 3
         ? ("ready" as const)
         : readyCount > 0
