@@ -61,9 +61,10 @@ async function requireSelfPerson(
 /**
  * Care Event ownership and idempotency are authoritative on canonical Person.
  *
- * patient_user_id remains a temporary compatibility dual-write for downstream
- * export/care paths that have not yet migrated. created_by_user_id remains
- * creator/audit provenance and is deliberately not treated as ownership.
+ * New runtime writes deliberately leave nullable patient_user_id unset.
+ * created_by_user_id remains creator/audit provenance and is deliberately not
+ * treated as ownership; public patientUserId compatibility derives from the
+ * authenticated/request context rather than the Care Event row.
  */
 export function createPersonCareEventStore(databaseUrl: string) {
   const sql = getLifeMateSql(databaseUrl);
@@ -96,7 +97,7 @@ export function createPersonCareEventStore(databaseUrl: string) {
       const id = crypto.randomUUID();
       const rows = await tx`
         insert into lifemate.care_events
-          (id, patient_user_id, patient_person_id, created_by_user_id,
+          (id, patient_person_id, created_by_user_id,
            client_request_id, event_type, title, provider_name, specialty,
            medication_name, dose_text, administration_route, reason,
            instructions, center_name, address_line, phone_number,
@@ -106,16 +107,16 @@ export function createPersonCareEventStore(databaseUrl: string) {
            caregiver_reminder_minutes_before, status, version,
            created_at_utc, updated_at_utc)
         values
-          (${id}::uuid, ${patientAppUserId}::uuid, ${patientPersonId}::uuid,
-           ${patientAppUserId}::uuid, ${input.clientRequestId}::uuid,
-           ${input.eventType}, ${input.title}, ${input.providerName},
-           ${input.specialty}, ${input.medicationName}, ${input.doseText},
-           ${input.administrationRoute}, ${input.reason}, ${input.instructions},
-           ${input.centerName}, ${input.addressLine}, ${input.phoneNumber},
-           ${input.scheduledLocalDate}, ${input.scheduledLocalTime},
-           ${input.timeZone}, ${input.recurrence.unit},
-           ${input.recurrence.interval}, ${input.recurrence.weekdays},
-           ${input.recurrence.endDate}, ${input.patientReminderMinutesBefore},
+          (${id}::uuid, ${patientPersonId}::uuid, ${patientAppUserId}::uuid,
+           ${input.clientRequestId}::uuid, ${input.eventType}, ${input.title},
+           ${input.providerName}, ${input.specialty}, ${input.medicationName},
+           ${input.doseText}, ${input.administrationRoute}, ${input.reason},
+           ${input.instructions}, ${input.centerName}, ${input.addressLine},
+           ${input.phoneNumber}, ${input.scheduledLocalDate},
+           ${input.scheduledLocalTime}, ${input.timeZone},
+           ${input.recurrence.unit}, ${input.recurrence.interval},
+           ${input.recurrence.weekdays}, ${input.recurrence.endDate},
+           ${input.patientReminderMinutesBefore},
            ${input.caregiverReminderMinutesBefore}, 'Scheduled', 1,
            ${now}, ${now})
         returning *
