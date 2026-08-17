@@ -1,8 +1,8 @@
 import { ApiError } from "./validation.ts";
 import {
   currencyMinorUnitExponent,
-  parseFinanceProfitLossQuery,
   type FinanceProfitLossQuery,
+  parseFinanceProfitLossQuery,
 } from "./finance.ts";
 
 export type FinanceBudgetQuery = FinanceProfitLossQuery;
@@ -54,7 +54,9 @@ export function parseFinanceBudgetQuery(
   now = new Date(),
 ): FinanceBudgetQuery {
   const requestUrl = new URL(url.toString());
-  if (!requestUrl.searchParams.has("from") && !requestUrl.searchParams.has("to")) {
+  if (
+    !requestUrl.searchParams.has("from") && !requestUrl.searchParams.has("to")
+  ) {
     const month = currentTehranMonth(now);
     requestUrl.searchParams.set("from", month.from);
     requestUrl.searchParams.set("to", month.to);
@@ -123,13 +125,11 @@ export function summarizeBudgetVsActual(
       varianceBasisPoints: entry.budgetMinor === null
         ? null
         : varianceBasisPoints(entry.actualMinor, entry.budgetMinor),
-      favorability: entry.budgetMinor === null
-        ? null
-        : varianceFavorability(
-          entry.kind,
-          entry.actualMinor,
-          entry.budgetMinor,
-        ),
+      favorability: entry.budgetMinor === null ? null : varianceFavorability(
+        entry.kind,
+        entry.actualMinor,
+        entry.budgetMinor,
+      ),
     };
   });
 
