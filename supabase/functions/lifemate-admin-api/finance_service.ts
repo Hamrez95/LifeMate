@@ -31,7 +31,10 @@ function serializeSummary(summary: ReturnType<typeof summarizeActualEntries>) {
   };
 }
 
-async function availableCurrencies(sql: AdminSql, query: FinanceProfitLossQuery) {
+async function availableCurrencies(
+  sql: AdminSql,
+  query: FinanceProfitLossQuery,
+) {
   const rows = await sql`
     select distinct currency
     from finance.actual_ledger_entries
@@ -39,7 +42,9 @@ async function availableCurrencies(sql: AdminSql, query: FinanceProfitLossQuery)
       and occurred_on <= ${query.to}::date
     order by currency asc
   `;
-  return (rows as unknown as Record<string, unknown>[]).map((row) => String(row.currency));
+  return (rows as unknown as Record<string, unknown>[]).map((row) =>
+    String(row.currency)
+  );
 }
 
 async function aggregateEntries(
@@ -96,7 +101,8 @@ export function createFinanceProfitLossStore(databaseUrl: string) {
           actual: null,
           forecast: {
             state: "unavailable" as const,
-            reason: "No canonical forecast source is configured. Forecast is never inferred from actuals.",
+            reason:
+              "No canonical forecast source is configured. Forecast is never inferred from actuals.",
           },
           source: {
             kind: "canonical" as const,
@@ -104,7 +110,8 @@ export function createFinanceProfitLossStore(databaseUrl: string) {
             definitionVersion: 1,
           },
           freshness: { status: "unavailable" as const, asOfUtc: null },
-          reason: "No posted actual ledger entries exist for the selected period.",
+          reason:
+            "No posted actual ledger entries exist for the selected period.",
         };
       }
 
@@ -117,7 +124,8 @@ export function createFinanceProfitLossStore(databaseUrl: string) {
           actual: null,
           forecast: {
             state: "unavailable" as const,
-            reason: "No canonical forecast source is configured. Forecast is never inferred from actuals.",
+            reason:
+              "No canonical forecast source is configured. Forecast is never inferred from actuals.",
           },
           source: {
             kind: "canonical" as const,
@@ -125,7 +133,8 @@ export function createFinanceProfitLossStore(databaseUrl: string) {
             definitionVersion: 1,
           },
           freshness: { status: "unavailable" as const, asOfUtc: null },
-          reason: "Multiple currencies exist in this period. Select one currency; silent FX conversion is forbidden.",
+          reason:
+            "Multiple currencies exist in this period. Select one currency; silent FX conversion is forbidden.",
         };
       }
 
@@ -139,7 +148,8 @@ export function createFinanceProfitLossStore(databaseUrl: string) {
           actual: null,
           forecast: {
             state: "unavailable" as const,
-            reason: "No canonical forecast source is configured. Forecast is never inferred from actuals.",
+            reason:
+              "No canonical forecast source is configured. Forecast is never inferred from actuals.",
           },
           source: {
             kind: "canonical" as const,
@@ -147,7 +157,8 @@ export function createFinanceProfitLossStore(databaseUrl: string) {
             definitionVersion: 1,
           },
           freshness: { status: "unavailable" as const, asOfUtc: null },
-          reason: "No posted actual ledger entries exist for the selected currency and period.",
+          reason:
+            "No posted actual ledger entries exist for the selected currency and period.",
         };
       }
 
@@ -161,7 +172,8 @@ export function createFinanceProfitLossStore(databaseUrl: string) {
         actual: serializeSummary(summary),
         forecast: {
           state: "unavailable" as const,
-          reason: "No canonical forecast source is configured. Forecast is never inferred from actuals.",
+          reason:
+            "No canonical forecast source is configured. Forecast is never inferred from actuals.",
         },
         source: {
           kind: "canonical" as const,
@@ -169,7 +181,9 @@ export function createFinanceProfitLossStore(databaseUrl: string) {
           definitionVersion: 1,
         },
         freshness: {
-          status: aggregate.asOfUtc ? ("fresh" as const) : ("unavailable" as const),
+          status: aggregate.asOfUtc
+            ? ("fresh" as const)
+            : ("unavailable" as const),
           asOfUtc: aggregate.asOfUtc,
         },
         reason: null,
