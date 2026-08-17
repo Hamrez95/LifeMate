@@ -3,7 +3,7 @@ import {
   maskIranianMobileE164,
   normalizeIranianMobileE164,
 } from "./iran_phone.ts";
-import { createHmac, createToken, timingSafeEqual } from "./security.ts";
+import { createHmac, timingSafeEqual } from "./security.ts";
 import { ApiError, requiredText } from "./validation.ts";
 
 type Sql = LifeMateSql;
@@ -15,6 +15,11 @@ export type PhoneInvitationIdentity = {
   };
   appUserId: string;
 };
+
+export type PhoneInvitationDeliveryCallback = (input: {
+  phoneE164: string;
+  token: string;
+}) => Promise<void>;
 
 type LegacyAccept = (
   identity: PhoneInvitationIdentity,
@@ -31,6 +36,7 @@ export function createPhoneCareInvitationStore(
   async function createPhoneInvitation(
     identity: PhoneInvitationIdentity,
     body: Record<string, unknown>,
+    deliver?: PhoneInvitationDeliveryCallback,
   ): Promise<Record<string, unknown>> {
     requirePatientConsent(body);
     const rawContact = requiredText(body.contact, "contact", 64);
@@ -57,7 +63,7 @@ export function createPhoneCareInvitationStore(
     const contactHash = await hmac(`contact:${phone}`);
     const now = new Date();
     const expires = new Date(now.getTime() + 30 * 60 * 1000);
-    const token = createToken();
+    const token = createPhoneInvitationToken();
     const tokenHash = await hmac(`token:${token}`);
     const hint = maskIranianMobileE164(phone);
 
@@ -99,6 +105,15 @@ export function createPhoneCareInvitationStore(
            ${tokenHash}, 'care-patient-consent-v1', 'Pending', ${expires},
            null, null, null, ${now})
       `;
+
+      // The raw invitation token and phone only exist at this trusted boundary.
+      // Delivery runs before commit so a provider failure rolls back the pending
+      // invitation and its audit record rather than persisting a secret for an
+      // asynchronous blind retry.
+      if (deliver) {
+        await deliver({ phoneE164: phone, token });
+      }
+
       await insertAudit(
         tx,
         identity.appUserId,
@@ -110,9 +125,7 @@ export function createPhoneCareInvitationStore(
         id,
         contactType: "phone",
         contactHint: hint,
-        // This secret exists only at the trusted server boundary. The public
-        // HTTP route is intentionally not wired in this slice; the delivery
-        // slice must send it to Kavenegar and redact it from the client response.
+        // Internal trusted-server value. Public facades must redact this field.
         token,
         expiresAtUtc: expires.toISOString(),
       };
@@ -377,6 +390,21 @@ async function insertAudit(
       (${crypto.randomUUID()}, ${actorUserId}, ${action}, ${resourceType},
        ${resourceId}, null, now())
   `;
+}
+
+function createPhoneInvitationToken(): string {
+  let token = "";
+  const buffer = new Uint8Array(16);
+  while (token.length < 10) {
+    crypto.getRandomValues(buffer);
+    for (const value of buffer) {
+      // Reject 250..255 so modulo-10 mapping is unbiased.
+      if (value >= 250) continue;
+      token += String(value % 10);
+      if (token.length === 10) break;
+    }
+  }
+  return token;
 }
 
 function iso(value: unknown): string {
