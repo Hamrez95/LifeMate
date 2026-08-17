@@ -2,6 +2,7 @@ import {
   assertEquals,
   assertNotEquals,
   assertRejects,
+  assertThrows,
 } from "jsr:@std/assert@1";
 import {
   hashMarketingExecutionActionRequest,
@@ -30,21 +31,17 @@ Deno.test("ADM-MKT-006 calendar query keeps date range, status and timezone boun
     status: "Scheduled",
   });
 
-  assertRejects(() =>
-    Promise.resolve(
-      parseMarketingContentCalendarQuery(
-        new URL(
-          "https://admin.test/api/v1/marketing/content-calendar?from=2026-01-01&to=2026-12-31",
-        ),
+  assertThrows(() =>
+    parseMarketingContentCalendarQuery(
+      new URL(
+        "https://admin.test/api/v1/marketing/content-calendar?from=2026-01-01&to=2026-12-31",
       ),
     )
   );
-  assertRejects(() =>
-    Promise.resolve(
-      parseMarketingContentCalendarQuery(
-        new URL(
-          "https://admin.test/api/v1/marketing/content-calendar?timezone=../../unsafe",
-        ),
+  assertThrows(() =>
+    parseMarketingContentCalendarQuery(
+      new URL(
+        "https://admin.test/api/v1/marketing/content-calendar?timezone=../../unsafe",
       ),
     )
   );
