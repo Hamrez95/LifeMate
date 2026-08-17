@@ -1,8 +1,4 @@
-import {
-  assert,
-  assertEquals,
-  assertNotEquals,
-} from "jsr:@std/assert@1.0.14";
+import { assert, assertEquals, assertNotEquals } from "jsr:@std/assert@1.0.14";
 import postgres from "postgres";
 import { closeLifeMateSqlClientsForTest } from "./database_client.ts";
 import { createDataExportStore } from "./data_export.ts";
@@ -263,6 +259,9 @@ Deno.test({
       assertEquals(exportedAdherence[0].occurrenceId, ownerOccurrenceId);
       assertEquals(exportedAdherence[0].actorWasSelf, true);
 
+      assert(otherMedicationId);
+      assert(otherPlanId);
+      assert(otherOccurrenceId);
       const encoded = JSON.stringify(exported);
       assert(encoded.includes(ownerSentinel));
       assert(!encoded.includes(otherSentinel));
