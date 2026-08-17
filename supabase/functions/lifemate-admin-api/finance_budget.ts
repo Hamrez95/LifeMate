@@ -44,12 +44,16 @@ function tehranYearMonth(now: Date): { year: number; month: number } {
   return { year, month };
 }
 
-function calendarMonth(year: number, month: number): { from: string; to: string } {
+function calendarMonth(
+  year: number,
+  month: number,
+): { from: string; to: string } {
   const normalized = new Date(Date.UTC(year, month - 1, 1));
   const normalizedYear = normalized.getUTCFullYear();
   const normalizedMonth = normalized.getUTCMonth() + 1;
   const monthText = String(normalizedMonth).padStart(2, "0");
-  const lastDay = new Date(Date.UTC(normalizedYear, normalizedMonth, 0)).getUTCDate();
+  const lastDay = new Date(Date.UTC(normalizedYear, normalizedMonth, 0))
+    .getUTCDate();
   return {
     from: `${normalizedYear}-${monthText}-01`,
     to: `${normalizedYear}-${monthText}-${String(lastDay).padStart(2, "0")}`,
