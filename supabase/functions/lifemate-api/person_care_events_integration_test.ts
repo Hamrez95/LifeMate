@@ -191,7 +191,10 @@ Deno.test({
       assertEquals(auditRows.length, 1);
       assertEquals(auditRows[0].actor_user_id, ownerAppUserId);
       assertEquals(auditRows[0].action, "care_event.created");
-      assertEquals(auditRows[0].metadata_json?.eventType, "Appointment");
+      assertEquals(
+        auditRows[0].metadata_json,
+        JSON.stringify({ eventType: "Appointment" }),
+      );
 
       const ownerRows = await store.listCareEvents(
         ownerAppUserId,
