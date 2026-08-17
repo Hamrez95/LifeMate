@@ -749,6 +749,18 @@ async function route(
       201,
     );
   }
+  const careInvitationMatch = path.match(
+    /^\/api\/v1\/care\/invitations\/([0-9a-f-]{36})$/i,
+  );
+  if (request.method === "DELETE" && careInvitationMatch) {
+    enforceRateLimit(
+      `care-invitation-revoke:${identity.appUserId}`,
+      20,
+      60 * 60_000,
+    );
+    await db.revokeInvitation(identity.appUserId, careInvitationMatch[1]);
+    return new Response(null, { status: 204, headers: corsHeaders });
+  }
   if (
     request.method === "POST" &&
     path === "/api/v1/care/invitations/accept"
