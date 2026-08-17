@@ -146,6 +146,44 @@ void main() {
     expect(body['confirmConsent'], isTrue);
   });
 
+  test('phone care invitation sends explicit patient consent without token assumptions', () async {
+    late http.Request observed;
+    late Map<String, dynamic> body;
+    final api = LifeMateApiClient(
+      baseUri: Uri.parse('https://api.example.test'),
+      accessToken: () => 'access-token',
+      httpClient: MockClient((request) async {
+        observed = request;
+        body = jsonDecode(request.body) as Map<String, dynamic>;
+        return http.Response(
+          jsonEncode({
+            'id': 'phone-invite-1',
+            'contactType': 'phone',
+            'contactHint': '+98 ••• •• 5678',
+            'expiresAtUtc': '2026-08-17T08:00:00.000Z',
+          }),
+          201,
+          headers: {'content-type': 'application/json'},
+        );
+      }),
+    );
+
+    final result = await api.createPhoneCareInvitation(
+      phone: ' ۰۹۳۵ ۱۲۳ ۵۶۷۸ ',
+    );
+
+    expect(observed.method, 'POST');
+    expect(observed.url.path, '/api/v1/care/invitations');
+    expect(observed.headers['authorization'], 'Bearer access-token');
+    expect(observed.headers['idempotency-key'], isNotEmpty);
+    expect(body['contactType'], 'phone');
+    expect(body['contact'], '۰۹۳۵ ۱۲۳ ۵۶۷۸');
+    expect(body['consentVersion'], 'care-patient-consent-v1');
+    expect(body['confirmConsent'], isTrue);
+    expect(result['contactHint'], '+98 ••• •• 5678');
+    expect(result.containsKey('token'), isFalse);
+  });
+
   test('outgoing care invitation can be revoked by id', () async {
     late http.Request observed;
     final api = LifeMateApiClient(
