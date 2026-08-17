@@ -211,9 +211,14 @@ Deno.test({
       >;
       assertEquals(sharedSummary.date, dateOffset(0));
       const encodedSummary = JSON.stringify(summary);
-      assertEquals(encodedSummary.includes("unshared private daily note"), false);
       assertEquals(
-        encodedSummary.includes("shared-row private note must still stay private"),
+        encodedSummary.includes("unshared private daily note"),
+        false,
+      );
+      assertEquals(
+        encodedSummary.includes(
+          "shared-row private note must still stay private",
+        ),
         false,
       );
       assertEquals(
