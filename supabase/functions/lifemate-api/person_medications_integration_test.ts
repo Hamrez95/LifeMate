@@ -1,7 +1,4 @@
-import {
-  assertEquals,
-  assertRejects,
-} from "jsr:@std/assert@1.0.14";
+import { assertEquals, assertRejects } from "jsr:@std/assert@1.0.14";
 import postgres from "postgres";
 import { closeLifeMateSqlClientsForTest } from "./database_client.ts";
 import { createPersonMedicationStore } from "./person_medications.ts";
@@ -95,7 +92,8 @@ async function cleanupIdentity(
 }
 
 Deno.test({
-  name: "medication runtime stores canonical Person ownership without legacy user id",
+  name:
+    "medication runtime authorizes by canonical Person during legacy dual-write",
   sanitizeOps: false,
   sanitizeResources: false,
   fn: async () => {
@@ -138,8 +136,16 @@ Deno.test({
         where id=${medicationId}::uuid
       `;
       assertEquals(persisted.length, 1);
-      assertEquals(persisted[0].owner_user_id, null);
+      assertEquals(persisted[0].owner_user_id, ownerAppUserId);
       assertEquals(persisted[0].owner_person_id, ownerPersonId);
+
+      // Simulate the final legacy-column freeze. The Person-authoritative read
+      // must keep working even after owner_user_id is retired.
+      await adminSql`
+        update lifemate.medications
+        set owner_user_id=null
+        where id=${medicationId}::uuid
+      `;
 
       const ownerRows = await store.listMedications(ownerAppUserId);
       assertEquals(ownerRows.length, 1);
