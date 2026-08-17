@@ -91,7 +91,10 @@ Deno.test("RBAC matrix visibly blocks elevated permissions from ordinary roles",
     [{ roleCode: "founder", permissionCode: "health.read.elevated" }],
   );
 
-  assertEquals(matrix.permissionGroups[0]?.permissions[0]?.roleAssignable, false);
+  assertEquals(
+    matrix.permissionGroups[0]?.permissions[0]?.roleAssignable,
+    false,
+  );
   assertEquals(matrix.assignments[0], {
     roleCode: "founder",
     permissionCode: "health.read.elevated",
