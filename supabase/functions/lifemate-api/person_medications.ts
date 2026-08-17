@@ -58,14 +58,13 @@ async function insertAudit(
 }
 
 /**
- * Medication ownership is authoritative on Person, not the legacy AppUser.
+ * Medication ownership is authoritative on canonical Person.
  *
- * During this reversible migration phase the public API still passes an AppUser
- * id and new rows continue to dual-write owner_user_id so the not-yet-migrated
- * Treatment/Data Export paths remain compatible. All medication reads already
- * resolve AppUser -> Account -> Self Person and authorize by owner_person_id.
- * Once dependent healthcare paths are person-owned, a follow-up slice will
- * freeze the legacy owner_user_id write without changing this read contract.
+ * The public API still receives an AppUser id so the existing Account -> Self
+ * Person compatibility boundary can resolve the canonical owner and preserve
+ * audit actor provenance. New Medication rows intentionally do not write the
+ * nullable legacy owner_user_id column. Existing legacy rows, compatibility
+ * schema and trigger remain untouched for reversible migration safety.
  */
 export function createPersonMedicationStore(databaseUrl: string) {
   const sql = getLifeMateSql(databaseUrl);
@@ -84,12 +83,11 @@ export function createPersonMedicationStore(databaseUrl: string) {
       const personId = await requireSelfPerson(tx, appUserId);
       const rows = await tx`
         insert into lifemate.medications
-          (id, owner_user_id, owner_person_id, name, strength_text, form,
-           notes, version, created_at_utc, updated_at_utc)
+          (id, owner_person_id, name, strength_text, form, notes, version,
+           created_at_utc, updated_at_utc)
         values
-          (${crypto.randomUUID()}::uuid, ${appUserId}::uuid,
-           ${personId}::uuid, ${name}, ${strength}, ${form}, ${notes}, 1,
-           ${now}, ${now})
+          (${crypto.randomUUID()}::uuid, ${personId}::uuid, ${name},
+           ${strength}, ${form}, ${notes}, 1, ${now}, ${now})
         returning *
       `;
       await insertAudit(
