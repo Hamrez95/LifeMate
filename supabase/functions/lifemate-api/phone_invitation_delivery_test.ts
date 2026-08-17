@@ -1,7 +1,5 @@
 import { assert, assertEquals, assertRejects } from "jsr:@std/assert@1.0.14";
-import {
-  createPhoneInvitationDelivery,
-} from "./phone_invitation_delivery.ts";
+import { createPhoneInvitationDelivery } from "./phone_invitation_delivery.ts";
 import { ApiError } from "./validation.ts";
 
 Deno.test("phone invite delivery stays fail-closed when disabled", async () => {
