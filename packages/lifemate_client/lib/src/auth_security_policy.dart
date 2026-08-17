@@ -1,3 +1,5 @@
+import 'runtime_locale.dart';
+
 enum LifeMatePasswordViolation {
   tooShort,
   missingLowercase,
@@ -47,24 +49,30 @@ abstract final class LifeMatePasswordPolicy {
     String? password, {
     required bool isPersian,
   }) {
+    assert(isPersian == LifeMateRuntimeLocale.isPersian);
     final violation = firstViolation(password);
     if (violation == null) return null;
     return switch (violation) {
-      LifeMatePasswordViolation.tooShort => isPersian
-          ? 'رمز عبور باید حداقل ۱۲ کاراکتر باشد.'
-          : 'Password must be at least 12 characters long.',
-      LifeMatePasswordViolation.missingLowercase => isPersian
-          ? 'رمز عبور باید حداقل یک حرف کوچک انگلیسی داشته باشد.'
-          : 'Password must contain at least one lowercase letter.',
-      LifeMatePasswordViolation.missingUppercase => isPersian
-          ? 'رمز عبور باید حداقل یک حرف بزرگ انگلیسی داشته باشد.'
-          : 'Password must contain at least one uppercase letter.',
-      LifeMatePasswordViolation.missingDigit => isPersian
-          ? 'رمز عبور باید حداقل یک عدد داشته باشد.'
-          : 'Password must contain at least one number.',
-      LifeMatePasswordViolation.missingSymbol => isPersian
-          ? 'رمز عبور باید حداقل یک نماد مانند ! یا @ داشته باشد.'
-          : 'Password must contain at least one symbol such as ! or @.',
+      LifeMatePasswordViolation.tooShort => LifeMateRuntimeLocale.select(
+          fa: 'رمز عبور باید حداقل ۱۲ کاراکتر باشد.',
+          en: 'Password must be at least 12 characters long.',
+        ),
+      LifeMatePasswordViolation.missingLowercase => LifeMateRuntimeLocale.select(
+          fa: 'رمز عبور باید حداقل یک حرف کوچک انگلیسی داشته باشد.',
+          en: 'Password must contain at least one lowercase letter.',
+        ),
+      LifeMatePasswordViolation.missingUppercase => LifeMateRuntimeLocale.select(
+          fa: 'رمز عبور باید حداقل یک حرف بزرگ انگلیسی داشته باشد.',
+          en: 'Password must contain at least one uppercase letter.',
+        ),
+      LifeMatePasswordViolation.missingDigit => LifeMateRuntimeLocale.select(
+          fa: 'رمز عبور باید حداقل یک عدد داشته باشد.',
+          en: 'Password must contain at least one number.',
+        ),
+      LifeMatePasswordViolation.missingSymbol => LifeMateRuntimeLocale.select(
+          fa: 'رمز عبور باید حداقل یک نماد مانند ! یا @ داشته باشد.',
+          en: 'Password must contain at least one symbol such as ! or @.',
+        ),
     };
   }
 }
@@ -88,12 +96,15 @@ String safeRecoveryAuthMessage(
   String providerMessage, {
   required bool isPersian,
 }) {
+  assert(isPersian == LifeMateRuntimeLocale.isPersian);
   return switch (classifyRecoveryAuthFailure(providerMessage)) {
-    LifeMateRecoveryAuthFailure.rateLimited => isPersian
-        ? 'تعداد درخواست‌ها زیاد بوده است؛ کمی بعد دوباره تلاش کنید.'
-        : 'Too many requests were made. Try again later.',
-    LifeMateRecoveryAuthFailure.unavailable => isPersian
-        ? 'تغییر رمز عبور انجام نشد. کمی بعد دوباره تلاش کنید.'
-        : 'Password change could not be completed. Try again later.',
+    LifeMateRecoveryAuthFailure.rateLimited => LifeMateRuntimeLocale.select(
+        fa: 'تعداد درخواست‌ها زیاد بوده است؛ کمی بعد دوباره تلاش کنید.',
+        en: 'Too many requests were made. Try again later.',
+      ),
+    LifeMateRecoveryAuthFailure.unavailable => LifeMateRuntimeLocale.select(
+        fa: 'تغییر رمز عبور انجام نشد. کمی بعد دوباره تلاش کنید.',
+        en: 'Password change could not be completed. Try again later.',
+      ),
   };
 }
