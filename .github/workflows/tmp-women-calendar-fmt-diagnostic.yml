@@ -1,0 +1,50 @@
+name: tmp-women-calendar-fmt-diagnostic
+
+on:
+  push:
+    branches:
+      - 'foundation/p0-person-owned-women-calendar'
+
+permissions:
+  contents: read
+
+jobs:
+  capture-format:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
+        with:
+          show-progress: false
+          persist-credentials: false
+      - uses: denoland/setup-deno@22d081ff2d3a40755e97629de92e3bcbfa7cf2ed
+        with:
+          deno-version: v2.9.4
+      - name: Capture exact formatter output
+        shell: bash
+        working-directory: supabase/functions/lifemate-api
+        run: |
+          set -uo pipefail
+          files=(
+            person_women_calendar.ts
+            person_women_calendar_integration_test.ts
+            women_calendar.ts
+          )
+          if deno fmt --check "${files[@]}"; then
+            echo 'All target files are already formatted.'
+            exit 0
+          fi
+          deno fmt "${files[@]}"
+          emit_file() {
+            local key="$1"
+            local file="$2"
+            local index=0
+            while IFS= read -r chunk; do
+              printf '::error title=FMT_%s_%03d::%s\n' "$key" "$index" "$chunk"
+              index=$((index + 1))
+            done < <(base64 -w0 "$file" | fold -w 6000)
+          }
+          emit_file PERSON person_women_calendar.ts
+          emit_file TEST person_women_calendar_integration_test.ts
+          emit_file SHIM women_calendar.ts
+          exit 1
