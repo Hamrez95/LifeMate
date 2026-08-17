@@ -84,7 +84,7 @@ async function cleanupIdentity(
 
 Deno.test({
   name:
-    "medication runtime authorizes by canonical Person during legacy dual-write",
+    "medication runtime writes canonical Person without legacy owner-user linkage",
   sanitizeOps: false,
   sanitizeResources: false,
   fn: async () => {
@@ -134,16 +134,18 @@ Deno.test({
         where id=${medicationId}::uuid
       `;
       assertEquals(persisted.length, 1);
-      assertEquals(persisted[0].owner_user_id, ownerAppUserId);
+      assertEquals(persisted[0].owner_user_id, null);
       assertEquals(persisted[0].owner_person_id, ownerPersonId);
 
-      // Simulate the final legacy-column freeze. The Person-authoritative read
-      // must keep working even after owner_user_id is retired.
-      await adminSql`
-        update lifemate.medications
-        set owner_user_id=null
-        where id=${medicationId}::uuid
+      const auditRows = await adminSql`
+        select actor_user_id::text,action,metadata_json
+        from lifemate.audit_logs
+        where resource_type='medication' and resource_id=${medicationId}::uuid
       `;
+      assertEquals(auditRows.length, 1);
+      assertEquals(auditRows[0].actor_user_id, ownerAppUserId);
+      assertEquals(auditRows[0].action, "medication.created");
+      assertEquals(auditRows[0].metadata_json, null);
 
       const ownerRows = await store.listMedications(ownerAppUserId);
       assertEquals(ownerRows.length, 1);

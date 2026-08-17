@@ -51,8 +51,9 @@ export function createLifeMateDatabase(
     ...database,
     requireIdentity: identityResolver.requireIdentity,
     identityLookupMode: identityResolver.lookupMode,
-    // Medication ownership is canonical Person-based. owner_user_id remains a
-    // temporary compatibility write until Data Export is migrated.
+    // Medication ownership is canonical Person-based and new runtime writes no
+    // longer create the legacy owner_user_id linkage. Existing legacy rows and
+    // compatibility schema remain intact until destructive retirement is safe.
     createMedication: personMedications.createMedication,
     listMedications: personMedications.listMedications,
     // Treatment Plan ownership is canonical Person-based. patient_user_id
