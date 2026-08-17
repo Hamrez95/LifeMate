@@ -11,6 +11,11 @@ import {
 
 type Row = Record<string, any>;
 
+type OwnerIdentity = {
+  accountId: string;
+  personId: string;
+};
+
 export type NormalizedHealthObservation = {
   clientRequestId: string;
   observationType:
@@ -195,34 +200,42 @@ function requiredMetricNumber(
 export function createHealthObservationStore(databaseUrl: string) {
   const sql = getLifeMateSql(databaseUrl);
 
-  async function resolveSelfPersonId(userId: string): Promise<string> {
-    const rows = await sql`
-      select person_id
-      from core.account_person_links
-      where account_id = ${userId}::uuid
-        and link_type = 'Self'
-        and status = 'Active'
-      order by created_at_utc, person_id
-      limit 1
+  async function resolveOwnerIdentity(
+    connection: any,
+    appUserId: string,
+  ): Promise<OwnerIdentity> {
+    const rows = await connection`
+      select
+        identity.account_id_for_legacy_app_user(${appUserId}::uuid)::text
+          as account_id,
+        core.self_person_id_for_legacy_app_user(${appUserId}::uuid)::text
+          as person_id
     `;
+    const accountId = rows[0]?.account_id;
     const personId = rows[0]?.person_id;
-    if (typeof personId !== "string") {
+    if (
+      typeof accountId !== "string" || accountId.length === 0 ||
+      typeof personId !== "string" || personId.length === 0
+    ) {
+      // Preserve the existing public Health API error contract while resolving
+      // through the canonical Account -> Self Person identity boundary.
       throw new ApiError(
         409,
         "self_person_missing",
         "A self health profile is required before recording health data.",
       );
     }
-    return personId;
+    return { accountId, personId };
   }
 
   async function resolveSourceApplication(
+    connection: any,
     trustedApplicationCode: string,
   ): Promise<{ id: string; code: string }> {
     const applicationCode = normalizeTrustedApplicationCode(
       trustedApplicationCode,
     );
-    const rows = await sql`
+    const rows = await connection`
       select id, code
       from ecosystem.applications
       where code = ${applicationCode}
@@ -240,14 +253,14 @@ export function createHealthObservationStore(databaseUrl: string) {
   }
 
   async function listOwnerObservations(
-    userId: string,
+    appUserId: string,
     fromDateValue: unknown,
     toDateValue: unknown,
   ): Promise<Record<string, unknown>[]> {
     const fromDate = requiredDate(fromDateValue, "fromDate");
     const toDate = requiredDate(toDateValue, "toDate");
     validateRange(fromDate, toDate, 3660);
-    const personId = await resolveSelfPersonId(userId);
+    const { personId } = await resolveOwnerIdentity(sql, appUserId);
 
     const windowRows = await sql`
       select h.*, app.code as source_application_code
@@ -286,17 +299,21 @@ export function createHealthObservationStore(databaseUrl: string) {
   }
 
   async function createOwnerObservation(
-    userId: string,
+    appUserId: string,
     body: Record<string, unknown>,
     trustedApplicationCode = "wellmate",
   ): Promise<Record<string, unknown>> {
     const input = normalizeHealthObservationInput(body);
-    const personId = await resolveSelfPersonId(userId);
-    const sourceApplication = await resolveSourceApplication(
-      trustedApplicationCode,
-    );
 
     return await sql.begin(async (tx: any) => {
+      const { accountId, personId } = await resolveOwnerIdentity(
+        tx,
+        appUserId,
+      );
+      const sourceApplication = await resolveSourceApplication(
+        tx,
+        trustedApplicationCode,
+      );
       const id = crypto.randomUUID();
       const inserted = await tx`
         insert into lifemate.health_observations
@@ -308,14 +325,14 @@ export function createHealthObservationStore(databaseUrl: string) {
            source_provider, source_external_id, metadata_json,
            version, created_at_utc, updated_at_utc)
         values
-          (${id}, ${userId}::uuid, ${personId}::uuid, ${userId}::uuid,
-           ${sourceApplication.id}::uuid, ${input.clientRequestId}::uuid,
-           ${input.observationType}, ${input.valuePrimary},
-           ${input.valueSecondary}, ${input.unitPrimary},
-           ${input.unitSecondary}, ${input.note}, ${input.observedAtUtc},
-           ${input.observedLocalDate}::date, ${input.timeZone},
-           'FirstPartyUserInput', ${sourceApplication.code}, null,
-           '{}'::jsonb, 1, now(), now())
+          (${id}::uuid, ${appUserId}::uuid, ${personId}::uuid,
+           ${accountId}::uuid, ${sourceApplication.id}::uuid,
+           ${input.clientRequestId}::uuid, ${input.observationType},
+           ${input.valuePrimary}, ${input.valueSecondary},
+           ${input.unitPrimary}, ${input.unitSecondary}, ${input.note},
+           ${input.observedAtUtc}, ${input.observedLocalDate}::date,
+           ${input.timeZone}, 'FirstPartyUserInput', ${sourceApplication.code},
+           null, '{}'::jsonb, 1, now(), now())
         on conflict (person_id, source_application_id, client_request_id)
         do nothing
         returning *
@@ -327,7 +344,7 @@ export function createHealthObservationStore(databaseUrl: string) {
             (id, actor_user_id, action, resource_type, resource_id,
              metadata_json, created_at_utc)
           values
-            (${crypto.randomUUID()}, ${userId}::uuid,
+            (${crypto.randomUUID()}::uuid, ${appUserId}::uuid,
              'health.observation_created', 'health_observation', ${id}::uuid,
              ${
           JSON.stringify({
@@ -364,17 +381,17 @@ export function createHealthObservationStore(databaseUrl: string) {
   }
 
   async function deleteOwnerObservation(
-    userId: string,
+    appUserId: string,
     observationIdValue: unknown,
   ): Promise<void> {
     const observationId = requiredUuid(observationIdValue, "observationId");
-    const personId = await resolveSelfPersonId(userId);
     await sql.begin(async (tx: any) => {
+      const { accountId, personId } = await resolveOwnerIdentity(tx, appUserId);
       const deleted = await tx`
         delete from lifemate.health_observations
         where id = ${observationId}::uuid
           and person_id = ${personId}::uuid
-          and recorded_by_account_id = ${userId}::uuid
+          and recorded_by_account_id = ${accountId}::uuid
         returning id, observation_type
       `;
       if (!deleted[0]) {
@@ -389,7 +406,7 @@ export function createHealthObservationStore(databaseUrl: string) {
           (id, actor_user_id, action, resource_type, resource_id,
            metadata_json, created_at_utc)
         values
-          (${crypto.randomUUID()}, ${userId}::uuid,
+          (${crypto.randomUUID()}::uuid, ${appUserId}::uuid,
            'health.observation_deleted', 'health_observation',
            ${observationId}::uuid,
            ${
