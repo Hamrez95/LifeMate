@@ -1,7 +1,4 @@
-import {
-  assertEquals,
-  assertNotEquals,
-} from "jsr:@std/assert@1.0.14";
+import { assertEquals, assertNotEquals } from "jsr:@std/assert@1.0.14";
 import postgres from "postgres";
 import { closeLifeMateSqlClientsForTest } from "./database_client.ts";
 import { createPersonDoseOccurrenceStore } from "./person_dose_occurrences.ts";
@@ -107,11 +104,13 @@ Deno.test({
     let planId: string | null = null;
     let occurrenceId: string | null = null;
 
-    for (const [appUserId, accountId, personId] of [
-      [ownerAppUserId, ownerAccountId, ownerPersonId],
-      [otherAppUserId, otherAccountId, otherPersonId],
-      [caregiverAppUserId, caregiverAccountId, caregiverPersonId],
-    ]) {
+    for (
+      const [appUserId, accountId, personId] of [
+        [ownerAppUserId, ownerAccountId, ownerPersonId],
+        [otherAppUserId, otherAccountId, otherPersonId],
+        [caregiverAppUserId, caregiverAccountId, caregiverPersonId],
+      ]
+    ) {
       assertNotEquals(appUserId, accountId);
       assertNotEquals(appUserId, personId);
       assertNotEquals(accountId, personId);
