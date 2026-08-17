@@ -1,0 +1,126 @@
+name: kavenegar-sms-hook-deploy
+
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/kavenegar-sms-hook-deploy.yml'
+      - 'supabase/functions/lifemate-kavenegar-sms-hook/**'
+      - 'docs/security/kavenegar-sms-hook-deploy.md'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.event_name == 'workflow_dispatch' && 'kavenegar-sms-hook-production-deploy' || format('kavenegar-sms-hook-verify-{0}', github.ref) }}
+  cancel-in-progress: false
+
+env:
+  SUPABASE_PROJECT_REF: bwdvmniywyyijjauipnh
+  KAVENEGAR_HOOK_URL: https://bwdvmniywyyijjauipnh.supabase.co/functions/v1/lifemate-kavenegar-sms-hook
+
+jobs:
+  verify-hook-source:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
+        with:
+          show-progress: false
+          persist-credentials: false
+
+      - uses: denoland/setup-deno@22d081ff2d3a40755e97629de92e3bcbfa7cf2ed
+        with:
+          deno-version: v2.9.4
+
+      - name: Format type-check and test hook source
+        working-directory: supabase/functions/lifemate-kavenegar-sms-hook
+        shell: bash
+        run: |
+          set -euo pipefail
+          deno fmt --check
+          deno task check
+          deno task test
+
+      - name: Verify privacy and signature boundary
+        shell: bash
+        run: |
+          set -euo pipefail
+          hook='supabase/functions/lifemate-kavenegar-sms-hook/index.ts'
+          provider='supabase/functions/lifemate-kavenegar-sms-hook/provider.ts'
+          grep -Fq 'Invalid hook signature.' "$hook"
+          grep -Fq 'new Webhook(base64Secret)' "$hook"
+          grep -Fq 'Never log the hook body, phone or OTP.' "$hook"
+          grep -Fq 'application/x-www-form-urlencoded' "$provider"
+          if grep -R --line-number -E 'console\.(log|info|debug).*\b(phone|otp|payload|apiKey|hookSecrets)\b' \
+            supabase/functions/lifemate-kavenegar-sms-hook; then
+            echo '::error::Kavenegar hook must not log sensitive hook/provider data.'
+            exit 1
+          fi
+
+  deploy-exact-main:
+    if: ${{ github.event_name == 'workflow_dispatch' }}
+    needs: verify-hook-source
+    runs-on: ubuntu-24.04
+    environment: beta
+    timeout-minutes: 12
+    env:
+      SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
+        with:
+          ref: ${{ github.sha }}
+          show-progress: false
+          persist-credentials: false
+          fetch-depth: 1
+
+      - name: Require private protected exact main
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$GITHUB_REF" = 'refs/heads/main'
+          test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
+          test "${{ github.event.repository.private }}" = 'true'
+          test "${{ github.ref_protected }}" = 'true'
+          test -n "$SUPABASE_ACCESS_TOKEN"
+          git fetch --no-tags --depth=1 origin main
+          test "$(git rev-parse origin/main)" = "$GITHUB_SHA"
+
+      - uses: supabase/setup-cli@3c2f5e2ae34c34e428e8e206e2c4d21fa2d20fbf
+        with:
+          version: 2.101.0
+
+      - name: Verify management credential
+        shell: bash
+        run: |
+          set -euo pipefail
+          supabase projects list >/dev/null
+
+      - name: Deploy exact-main Kavenegar hook only
+        shell: bash
+        run: |
+          set -euo pipefail
+          supabase functions deploy lifemate-kavenegar-sms-hook \
+            --project-ref "$SUPABASE_PROJECT_REF" \
+            --no-verify-jwt \
+            --use-api
+
+      - name: Prove invalid signature is rejected without SMS delivery
+        shell: bash
+        run: |
+          set -euo pipefail
+          response_file="$(mktemp)"
+          trap 'rm -f "$response_file"' EXIT
+          status="$(curl --silent --show-error \
+            --output "$response_file" \
+            --write-out '%{http_code}' \
+            --request POST \
+            --header 'Content-Type: application/json' \
+            --header 'webhook-id: lifemate-deploy-smoke' \
+            --header 'webhook-timestamp: 0' \
+            --header 'webhook-signature: v1,invalid' \
+            --data '{"user":{},"sms":{}}' \
+            "$KAVENEGAR_HOOK_URL")"
+          test "$status" = '401'
+          jq -e '.error.http_code == 401 and .error.message == "Invalid hook signature."' "$response_file" >/dev/null
+          echo 'Invalid-signature smoke passed; provider delivery path was not reached.' >> "$GITHUB_STEP_SUMMARY"
