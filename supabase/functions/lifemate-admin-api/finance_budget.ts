@@ -80,7 +80,7 @@ export function varianceBasisPoints(
   actualMinor: bigint,
   budgetMinor: bigint,
 ): string | null {
-  if (budgetMinor === 0n) return null;
+  if (budgetMinor <= 0n) return null;
   return (((actualMinor - budgetMinor) * 10_000n) / budgetMinor).toString();
 }
 
