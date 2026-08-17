@@ -6,7 +6,7 @@ import {
 import postgres from "postgres";
 import { closeLifeMateSqlClientsForTest } from "./database_client.ts";
 import { createPersonCareEventStore } from "./person_care_events.ts";
-import { createPersonEditStore } from "./person_edit_store.ts";
+import { createPersonEditStore } from "./edit_store.ts";
 import { createPersonMedicationStore } from "./person_medications.ts";
 import { createPersonTreatmentPlanStore } from "./person_treatment_plans.ts";
 import { ApiError } from "./validation.ts";
