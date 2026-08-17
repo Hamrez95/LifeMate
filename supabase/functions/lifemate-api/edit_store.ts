@@ -51,11 +51,37 @@ type CareEventInput = {
   status: "Scheduled" | "Completed" | "Cancelled";
 };
 
-export function createEditStore(databaseUrl: string) {
+async function requireSelfPerson(
+  connection: any,
+  appUserId: string,
+): Promise<string> {
+  const rows = await connection`
+    select core.self_person_id_for_legacy_app_user(${appUserId}::uuid)::text
+      as person_id
+  `;
+  const personId = rows[0]?.person_id;
+  if (typeof personId !== "string" || personId.length === 0) {
+    throw new ApiError(
+      409,
+      "identity_person_mapping_missing",
+      "The LifeMate person mapping is unavailable.",
+    );
+  }
+  return personId;
+}
+
+/**
+ * Healthcare edit ownership is authoritative on canonical Person.
+ *
+ * AppUser remains the public compatibility/actor context only. Ownership
+ * predicates never depend on legacy *_user_id columns, which may be NULL for
+ * newly created records after the staged identity-link retirement.
+ */
+export function createPersonEditStore(databaseUrl: string) {
   const sql = getLifeMateSql(databaseUrl);
 
   async function updateTreatmentPlan(
-    userId: string,
+    appUserId: string,
     treatmentPlanIdValue: unknown,
     body: Record<string, unknown>,
   ): Promise<Record<string, unknown>> {
@@ -66,13 +92,16 @@ export function createEditStore(databaseUrl: string) {
     const input = normalizeTreatment(body);
 
     return await sql.begin(async (tx: any) => {
+      const personId = await requireSelfPerson(tx, appUserId);
       const existingRows = await tx`
         select p.*, m.name, m.strength_text, m.form,
                m.version as medication_version
         from lifemate.treatment_plans p
-        join lifemate.medications m on m.id = p.medication_id
-        where p.id = ${treatmentPlanId}
-          and p.patient_user_id = ${userId}
+        join lifemate.medications m
+          on m.id = p.medication_id
+         and m.owner_person_id = p.patient_person_id
+        where p.id = ${treatmentPlanId}::uuid
+          and p.patient_person_id = ${personId}::uuid
         for update of p, m
       `;
       const existing = existingRows[0];
@@ -105,10 +134,18 @@ export function createEditStore(databaseUrl: string) {
             form = ${input.form},
             version = version + 1,
             updated_at_utc = now()
-        where id = ${existing.medication_id}
-          and owner_user_id = ${userId}
+        where id = ${existing.medication_id}::uuid
+          and owner_person_id = ${personId}::uuid
         returning *
       `;
+      if (!medicationRows[0]) {
+        throw new ApiError(
+          404,
+          "treatment_plan_not_found",
+          "Treatment plan was not found.",
+        );
+      }
+
       const planRows = await tx`
         update lifemate.treatment_plans
         set dose_text = ${input.doseText},
@@ -121,19 +158,28 @@ export function createEditStore(databaseUrl: string) {
             status = ${input.status},
             version = version + 1,
             updated_at_utc = now()
-        where id = ${treatmentPlanId}
+        where id = ${treatmentPlanId}::uuid
+          and patient_person_id = ${personId}::uuid
         returning *
       `;
+      if (!planRows[0]) {
+        throw new ApiError(
+          404,
+          "treatment_plan_not_found",
+          "Treatment plan was not found.",
+        );
+      }
 
       await tx`
         delete from lifemate.dose_occurrences
-        where treatment_plan_id = ${treatmentPlanId}
+        where treatment_plan_id = ${treatmentPlanId}::uuid
+          and patient_person_id = ${personId}::uuid
           and status in ('Scheduled', 'Missed')
           and scheduled_at_utc >= now()
       `;
       await tx`
         delete from lifemate.treatment_schedules
-        where treatment_plan_id = ${treatmentPlanId}
+        where treatment_plan_id = ${treatmentPlanId}::uuid
       `;
 
       const schedules: Row[] = [];
@@ -142,7 +188,7 @@ export function createEditStore(databaseUrl: string) {
           insert into lifemate.treatment_schedules
             (id, treatment_plan_id, day_of_week, local_time, created_at_utc)
           values
-            (${crypto.randomUUID()}, ${treatmentPlanId},
+            (${crypto.randomUUID()}::uuid, ${treatmentPlanId}::uuid,
              ${schedule.dayOfWeek}, ${schedule.localTime}, now())
           returning *
         `;
@@ -151,20 +197,26 @@ export function createEditStore(databaseUrl: string) {
 
       await insertAudit(
         tx,
-        userId,
+        appUserId,
         "treatment_plan.updated",
         "treatment_plan",
         treatmentPlanId,
       );
-      return mapTreatmentPlan(planRows[0], medicationRows[0], schedules);
+      return mapTreatmentPlan(
+        planRows[0],
+        medicationRows[0],
+        schedules,
+        appUserId,
+      );
     });
   }
 
   async function getCareEvent(
-    userId: string,
+    appUserId: string,
     careEventIdValue: unknown,
   ): Promise<Record<string, unknown>> {
     const careEventId = requiredUuid(careEventIdValue, "careEventId");
+    const personId = await requireSelfPerson(sql, appUserId);
     const rows = await sql`
       select *,
         case
@@ -176,8 +228,8 @@ export function createEditStore(databaseUrl: string) {
         ((scheduled_local_date + scheduled_local_time) at time zone time_zone)
           as scheduled_at_utc
       from lifemate.care_events
-      where id = ${careEventId}
-        and patient_user_id = ${userId}
+      where id = ${careEventId}::uuid
+        and patient_person_id = ${personId}::uuid
       limit 1
     `;
     if (!rows[0]) {
@@ -187,11 +239,11 @@ export function createEditStore(databaseUrl: string) {
         "Care event was not found.",
       );
     }
-    return mapCareEvent(rows[0]);
+    return mapCareEvent(rows[0], appUserId);
   }
 
   async function updateCareEvent(
-    userId: string,
+    appUserId: string,
     careEventIdValue: unknown,
     body: Record<string, unknown>,
   ): Promise<Record<string, unknown>> {
@@ -199,11 +251,12 @@ export function createEditStore(databaseUrl: string) {
     const input = normalizeCareEvent(body);
 
     return await sql.begin(async (tx: any) => {
+      const personId = await requireSelfPerson(tx, appUserId);
       const existingRows = await tx`
         select *
         from lifemate.care_events
-        where id = ${careEventId}
-          and patient_user_id = ${userId}
+        where id = ${careEventId}::uuid
+          and patient_person_id = ${personId}::uuid
         for update
       `;
       const existing = existingRows[0];
@@ -248,7 +301,8 @@ export function createEditStore(databaseUrl: string) {
             end,
             version = version + 1,
             updated_at_utc = now()
-        where id = ${careEventId}
+        where id = ${careEventId}::uuid
+          and patient_person_id = ${personId}::uuid
         returning *,
           case
             when status = 'Scheduled'
@@ -259,14 +313,21 @@ export function createEditStore(databaseUrl: string) {
           ((scheduled_local_date + scheduled_local_time) at time zone time_zone)
             as scheduled_at_utc
       `;
+      if (!rows[0]) {
+        throw new ApiError(
+          404,
+          "care_event_not_found",
+          "Care event was not found.",
+        );
+      }
       await insertAudit(
         tx,
-        userId,
+        appUserId,
         "care_event.updated",
         "care_event",
         careEventId,
       );
-      return mapCareEvent(rows[0]);
+      return mapCareEvent(rows[0], appUserId);
     });
   }
 
@@ -449,8 +510,8 @@ async function insertAudit(
       (id, actor_user_id, action, resource_type, resource_id,
        metadata_json, created_at_utc)
     values
-      (${crypto.randomUUID()}, ${actorUserId}, ${action}, ${resourceType},
-       ${resourceId}, null, now())
+      (${crypto.randomUUID()}, ${actorUserId}::uuid, ${action}, ${resourceType},
+       ${resourceId}::uuid, null, now())
   `;
 }
 
@@ -458,10 +519,11 @@ function mapTreatmentPlan(
   row: Row,
   medication: Row,
   schedules: Row[],
+  callerAppUserId: string,
 ): Record<string, unknown> {
   return {
     id: row.id,
-    patientUserId: row.patient_user_id,
+    patientUserId: callerAppUserId,
     medication: {
       id: medication.id,
       name: medication.name,
@@ -495,10 +557,13 @@ function mapTreatmentPlan(
   };
 }
 
-function mapCareEvent(row: Row): Record<string, unknown> {
+function mapCareEvent(
+  row: Row,
+  callerAppUserId: string,
+): Record<string, unknown> {
   return {
     id: row.id,
-    patientUserId: row.patient_user_id,
+    patientUserId: callerAppUserId,
     createdByUserId: row.created_by_user_id,
     clientRequestId: row.client_request_id,
     eventType: String(row.event_type).toLowerCase(),
@@ -549,3 +614,5 @@ function dateString(value: unknown): string {
 function timeString(value: unknown): string {
   return String(value).slice(0, 5);
 }
+
+export { createPersonEditStore as createEditStore };
