@@ -216,7 +216,11 @@ export function createPersonWomenCalendarStore(databaseUrl: string) {
         "endedOn cannot precede startedOn.",
       );
     }
-    const privateNotes = limitedOptional(body.privateNotes, "privateNotes", 500);
+    const privateNotes = limitedOptional(
+      body.privateNotes,
+      "privateNotes",
+      500,
+    );
     const endBoundary = endedOn ?? startedOn;
     const now = new Date();
 
@@ -287,7 +291,11 @@ export function createPersonWomenCalendarStore(databaseUrl: string) {
         "endedOn cannot precede startedOn.",
       );
     }
-    const privateNotes = limitedOptional(body.privateNotes, "privateNotes", 500);
+    const privateNotes = limitedOptional(
+      body.privateNotes,
+      "privateNotes",
+      500,
+    );
     const endBoundary = endedOn ?? startedOn;
 
     return await sql.begin(async (tx: any) => {
@@ -436,7 +444,11 @@ export function createPersonWomenCalendarStore(databaseUrl: string) {
     const energyLevel = boundedInt(body.energyLevel, "energyLevel", 1, 5);
     const painLevel = boundedInt(body.painLevel, "painLevel", 0, 5);
     const symptoms = normalizeSymptoms(body.symptoms);
-    const privateNotes = limitedOptional(body.privateNotes, "privateNotes", 500);
+    const privateNotes = limitedOptional(
+      body.privateNotes,
+      "privateNotes",
+      500,
+    );
     const shareSummaryWithCompanion = requiredBoolean(
       body.shareSummaryWithCompanion,
       "shareSummaryWithCompanion",

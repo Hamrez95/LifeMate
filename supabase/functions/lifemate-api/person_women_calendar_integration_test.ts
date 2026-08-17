@@ -10,7 +10,9 @@ import { ApiError } from "./validation.ts";
 
 const databaseUrl = Deno.env.get("TEST_DATABASE_URL");
 if (!databaseUrl) {
-  throw new Error("TEST_DATABASE_URL is required for Person Women Calendar tests.");
+  throw new Error(
+    "TEST_DATABASE_URL is required for Person Women Calendar tests.",
+  );
 }
 
 const fixtureSql = postgres(databaseUrl, {
