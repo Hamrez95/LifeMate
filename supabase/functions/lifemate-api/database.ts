@@ -5,6 +5,7 @@ import {
 } from "./database_legacy.ts";
 import { createIdentityResolver } from "./identity_resolver.ts";
 import { createInvitationRevocationStore } from "./invitation_revoke.ts";
+import { createPersonDoseOccurrenceStore } from "./person_dose_occurrences.ts";
 import { createPersonMedicationStore } from "./person_medications.ts";
 import { createPersonTreatmentPlanStore } from "./person_treatment_plans.ts";
 import { createPhoneCareInvitationStore } from "./phone_care_invitation.ts";
@@ -38,6 +39,7 @@ export function createLifeMateDatabase(
   );
   const identityResolver = createIdentityResolver(databaseUrl);
   const invitationRevocation = createInvitationRevocationStore(databaseUrl);
+  const personDoseOccurrences = createPersonDoseOccurrenceStore(databaseUrl);
   const personMedications = createPersonMedicationStore(databaseUrl);
   const personTreatmentPlans = createPersonTreatmentPlanStore(databaseUrl);
   const phoneInvitations = createPhoneCareInvitationStore(
@@ -49,16 +51,20 @@ export function createLifeMateDatabase(
     ...database,
     requireIdentity: identityResolver.requireIdentity,
     identityLookupMode: identityResolver.lookupMode,
-    // Medication is the first healthcare aggregate whose runtime ownership read
-    // is canonical Person-based. Writes remain dual-written to owner_user_id
-    // only until dependent Treatment/Data Export paths are migrated, after
-    // which the legacy write can be frozen without changing this API contract.
+    // Medication ownership is canonical Person-based. owner_user_id remains a
+    // temporary compatibility write until Data Export is migrated.
     createMedication: personMedications.createMedication,
     listMedications: personMedications.listMedications,
-    // Treatment Plan is now Person-authoritative as well. patient_user_id stays
-    // compatibility-only until Dose Occurrence/materialization is migrated.
+    // Treatment Plan ownership is canonical Person-based. patient_user_id
+    // remains temporary compatibility data for downstream legacy consumers.
     createTreatmentPlan: personTreatmentPlans.createTreatmentPlan,
     listTreatmentPlans: personTreatmentPlans.listTreatmentPlans,
+    // Dose materialization/read/report is canonical Person-based. Caregiver
+    // relationship authorization remains on its current contract, but Dose
+    // rows are selected and materialized only through patient_person_id.
+    listDoseOccurrences: personDoseOccurrences.listDoseOccurrences,
+    reportDose: personDoseOccurrences.reportDose,
+    listCareDoseOccurrences: personDoseOccurrences.listCareDoseOccurrences,
     createInvitation: async (
       identity: Parameters<typeof database.createInvitation>[0],
       body: Parameters<typeof database.createInvitation>[1],
