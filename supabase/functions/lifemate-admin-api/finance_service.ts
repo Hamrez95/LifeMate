@@ -59,13 +59,14 @@ async function aggregateEntries(
       category_code,
       category_label,
       to_char(date_trunc('month', occurred_on::timestamp), 'YYYY-MM') as month,
-      sum(amount_minor * effect)::bigint as amount_minor,
+      sum(amount_minor * effect) as amount_minor,
       max(posted_at_utc) as as_of_utc
     from finance.actual_ledger_entries
     where occurred_on >= ${query.from}::date
       and occurred_on <= ${query.to}::date
       and currency = ${currency}
     group by entry_kind, category_code, category_label, date_trunc('month', occurred_on::timestamp)
+    having sum(amount_minor * effect) <> 0
     order by month asc, entry_kind asc, category_code asc
   `;
 
