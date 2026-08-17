@@ -6,6 +6,7 @@ import {
 import { createIdentityResolver } from "./identity_resolver.ts";
 import { createInvitationRevocationStore } from "./invitation_revoke.ts";
 import { createPersonMedicationStore } from "./person_medications.ts";
+import { createPersonTreatmentPlanStore } from "./person_treatment_plans.ts";
 import { createPhoneCareInvitationStore } from "./phone_care_invitation.ts";
 import {
   createPhoneInvitationDeliveryFromEnvironment,
@@ -38,6 +39,7 @@ export function createLifeMateDatabase(
   const identityResolver = createIdentityResolver(databaseUrl);
   const invitationRevocation = createInvitationRevocationStore(databaseUrl);
   const personMedications = createPersonMedicationStore(databaseUrl);
+  const personTreatmentPlans = createPersonTreatmentPlanStore(databaseUrl);
   const phoneInvitations = createPhoneCareInvitationStore(
     databaseUrl,
     contactHashingSecret,
@@ -53,6 +55,10 @@ export function createLifeMateDatabase(
     // which the legacy write can be frozen without changing this API contract.
     createMedication: personMedications.createMedication,
     listMedications: personMedications.listMedications,
+    // Treatment Plan is now Person-authoritative as well. patient_user_id stays
+    // compatibility-only until Dose Occurrence/materialization is migrated.
+    createTreatmentPlan: personTreatmentPlans.createTreatmentPlan,
+    listTreatmentPlans: personTreatmentPlans.listTreatmentPlans,
     createInvitation: async (
       identity: Parameters<typeof database.createInvitation>[0],
       body: Parameters<typeof database.createInvitation>[1],
