@@ -36,10 +36,18 @@ function validDate(value: string): boolean {
 }
 
 export function currencyMinorUnitExponent(currency: string): number {
-  return new Intl.NumberFormat("en-US", {
+  const exponent = new Intl.NumberFormat("en-US", {
     style: "currency",
     currency,
   }).resolvedOptions().maximumFractionDigits;
+  if (exponent === undefined) {
+    throw new ApiError(
+      400,
+      "finance_currency_unsupported",
+      "Finance currency minor-unit metadata is unavailable.",
+    );
+  }
+  return exponent;
 }
 
 export function parseFinanceProfitLossQuery(
