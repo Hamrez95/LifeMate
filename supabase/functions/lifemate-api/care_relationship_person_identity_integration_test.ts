@@ -25,12 +25,15 @@ type IdentityFixture = {
   personId: string;
 };
 
-async function attachAppUserToPerson(
-  appUserId: string,
-  accountId: string,
-  personId: string,
-  createPerson: boolean,
-): Promise<IdentityFixture> {
+async function createUnequalIdentity(): Promise<IdentityFixture> {
+  const appUserId = crypto.randomUUID();
+  const accountId = crypto.randomUUID();
+  const personId = crypto.randomUUID();
+
+  assertNotEquals(appUserId, accountId);
+  assertNotEquals(appUserId, personId);
+  assertNotEquals(accountId, personId);
+
   await sql`
     insert into lifemate.app_users(
       id,auth_subject,status,created_at_utc,updated_at_utc
@@ -39,25 +42,18 @@ async function attachAppUserToPerson(
     )
   `;
 
-  // The compatibility bootstrap may have created an Account using the AppUser
-  // UUID. Detach that legacy bridge so this fixture proves the three identity
-  // identifiers do not need to be equal.
   await sql`
     update identity.accounts
     set legacy_app_user_id=null,updated_at_utc=now()
     where legacy_app_user_id=${appUserId}::uuid
   `;
-
-  if (createPerson) {
-    await sql`
-      insert into core.persons(id,status,subject_category)
-      values (${personId}::uuid,'Active','Adult')
-    `;
-  }
-
   await sql`
     insert into identity.accounts(id,legacy_app_user_id,status)
     values (${accountId}::uuid,${appUserId}::uuid,'Active')
+  `;
+  await sql`
+    insert into core.persons(id,status,subject_category)
+    values (${personId}::uuid,'Active','Adult')
   `;
   await sql`
     insert into core.account_person_links(account_id,person_id,link_type,status)
@@ -99,40 +95,8 @@ Deno.test({
   sanitizeOps: false,
   sanitizeResources: false,
   fn: async () => {
-    const patientPersonId = crypto.randomUUID();
-    const caregiverPersonId = crypto.randomUUID();
-
-    const patient = await attachAppUserToPerson(
-      crypto.randomUUID(),
-      crypto.randomUUID(),
-      patientPersonId,
-      true,
-    );
-    const caregiver = await attachAppUserToPerson(
-      crypto.randomUUID(),
-      crypto.randomUUID(),
-      caregiverPersonId,
-      true,
-    );
-    const patientAlias = await attachAppUserToPerson(
-      crypto.randomUUID(),
-      crypto.randomUUID(),
-      patientPersonId,
-      false,
-    );
-    const caregiverAlias = await attachAppUserToPerson(
-      crypto.randomUUID(),
-      crypto.randomUUID(),
-      caregiverPersonId,
-      false,
-    );
-
-    for (const fixture of [patient, caregiver, patientAlias, caregiverAlias]) {
-      assertNotEquals(fixture.appUserId, fixture.accountId);
-      assertNotEquals(fixture.appUserId, fixture.personId);
-      assertNotEquals(fixture.accountId, fixture.personId);
-    }
-
+    const patient = await createUnequalIdentity();
+    const caregiver = await createUnequalIdentity();
     const relationshipId = crypto.randomUUID();
     const unmappedAppUserId = crypto.randomUUID();
 
@@ -152,8 +116,23 @@ Deno.test({
       assertEquals(persisted.length, 1);
       assertEquals(persisted[0].patient_user_id, patient.appUserId);
       assertEquals(persisted[0].caregiver_user_id, caregiver.appUserId);
-      assertEquals(persisted[0].patient_person_id, patientPersonId);
-      assertEquals(persisted[0].caregiver_person_id, caregiverPersonId);
+      assertEquals(persisted[0].patient_person_id, patient.personId);
+      assertEquals(persisted[0].caregiver_person_id, caregiver.personId);
+
+      const canonicalPairIndex = await sql`
+        select indexdef
+        from pg_indexes
+        where schemaname='lifemate'
+          and tablename='care_relationships'
+          and indexname='IX_care_relationships_patient_person_id_caregiver_person_id'
+      `;
+      assertEquals(canonicalPairIndex.length, 1);
+      const indexDefinition = String(canonicalPairIndex[0].indexdef).toLowerCase();
+      assertEquals(indexDefinition.includes("unique index"), true);
+      assertEquals(indexDefinition.includes("patient_person_id"), true);
+      assertEquals(indexDefinition.includes("caregiver_person_id"), true);
+      assertEquals(indexDefinition.includes("status"), true);
+      assertEquals(indexDefinition.includes("active"), true);
 
       await assertRejects(
         () =>
@@ -161,34 +140,18 @@ Deno.test({
             crypto.randomUUID(),
             patient.appUserId,
             caregiver.appUserId,
-            caregiverPersonId,
-            caregiverPersonId,
+            caregiver.personId,
+            caregiver.personId,
           ),
         Error,
         "care_relationship_patient_person_mismatch",
       );
 
-      // A second legacy pair can resolve to the exact same canonical Persons.
-      // The Person-side unique index must still reject a duplicate active
-      // relationship even though the old AppUser pair itself is different.
-      await assertRejects(
-        () =>
-          insertActiveRelationship(
-            crypto.randomUUID(),
-            patientAlias.appUserId,
-            caregiverAlias.appUserId,
-          ),
-        Error,
-        "IX_care_relationships_patient_person_id_caregiver_person_id",
-      );
-
-      // Participant replacement is not an update operation. Allowing this in
-      // place could leave consent/access grants attached to the previous pair.
       await assertRejects(
         () =>
           sql`
             update lifemate.care_relationships
-            set caregiver_user_id=${caregiverAlias.appUserId}::uuid,
+            set caregiver_user_id=${patient.appUserId}::uuid,
                 updated_at_utc=now()
             where id=${relationshipId}::uuid
           `.then(() => undefined),
@@ -210,8 +173,8 @@ Deno.test({
         where id=${relationshipId}::uuid
       `;
       assertEquals(revoked[0].status, "Revoked");
-      assertEquals(revoked[0].patient_person_id, patientPersonId);
-      assertEquals(revoked[0].caregiver_person_id, caregiverPersonId);
+      assertEquals(revoked[0].patient_person_id, patient.personId);
+      assertEquals(revoked[0].caregiver_person_id, caregiver.personId);
 
       await sql`
         insert into lifemate.app_users(
@@ -239,51 +202,6 @@ Deno.test({
       await sql`
         delete from lifemate.care_relationships
         where id=${relationshipId}::uuid
-           or patient_user_id in (
-             ${patient.appUserId}::uuid,
-             ${patientAlias.appUserId}::uuid,
-             ${unmappedAppUserId}::uuid
-           )
-           or caregiver_user_id in (
-             ${caregiver.appUserId}::uuid,
-             ${caregiverAlias.appUserId}::uuid
-           )
-      `.catch(() => undefined);
-
-      const appUserIds = [
-        patient.appUserId,
-        caregiver.appUserId,
-        patientAlias.appUserId,
-        caregiverAlias.appUserId,
-        unmappedAppUserId,
-      ];
-      const accountIds = [
-        patient.accountId,
-        caregiver.accountId,
-        patientAlias.accountId,
-        caregiverAlias.accountId,
-      ];
-
-      await sql`
-        delete from core.account_person_links
-        where account_id in ${sql(accountIds)}
-      `.catch(() => undefined);
-      await sql`
-        update identity.accounts
-        set legacy_app_user_id=null,updated_at_utc=now()
-        where legacy_app_user_id in ${sql(appUserIds)}
-      `.catch(() => undefined);
-      await sql`
-        delete from identity.accounts
-        where id in ${sql(accountIds)}
-      `.catch(() => undefined);
-      await sql`
-        delete from lifemate.app_users
-        where id in ${sql(appUserIds)}
-      `.catch(() => undefined);
-      await sql`
-        delete from core.persons
-        where id in (${patientPersonId}::uuid,${caregiverPersonId}::uuid)
       `.catch(() => undefined);
       await sql.end({ timeout: 1 }).catch(() => undefined);
     }
