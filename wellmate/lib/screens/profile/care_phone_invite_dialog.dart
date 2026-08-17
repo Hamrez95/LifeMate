@@ -31,6 +31,7 @@ Future<String?> showCarePhoneInviteDialog(BuildContext context) async {
                   textDirection: TextDirection.ltr,
                   autocorrect: false,
                   autofillHints: const [AutofillHints.telephoneNumber],
+                  inputFormatters: const [LifeMateLocaleDigitInputFormatter()],
                   onChanged: (_) => setDialogState(() {}),
                   decoration: InputDecoration(
                     labelText: LifeMateRuntimeLocale.select(
