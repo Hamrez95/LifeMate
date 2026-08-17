@@ -220,7 +220,7 @@ export function createDataExportStore(databaseUrl: string) {
                  else recorded_by_account_id = ${accountId}::uuid
                end as recorded_by_self
         from lifemate.health_observations
-        where owner_user_id = ${appUserId}
+        where person_id = ${personId}::uuid
         order by observed_at_utc, id
         limit ${portableExportRowLimit + 1}
       `,

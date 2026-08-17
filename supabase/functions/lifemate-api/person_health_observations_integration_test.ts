@@ -5,6 +5,7 @@ import {
 } from "jsr:@std/assert@1.0.14";
 import postgres from "postgres";
 import { closeLifeMateSqlClientsForTest } from "./database_client.ts";
+import { createDataExportStore } from "./data_export.ts";
 import { createHealthObservationStore } from "./health_observations.ts";
 import { ApiError } from "./validation.ts";
 
@@ -81,7 +82,7 @@ async function cleanupIdentity(
 
 Deno.test({
   name:
-    "Health Observation runtime resolves unequal AppUser Account and Person identities",
+    "Health Observation runtime and export remain Person-authoritative after legacy owner freeze",
   sanitizeOps: false,
   sanitizeResources: false,
   fn: async () => {
@@ -94,8 +95,11 @@ Deno.test({
     const otherPersonId = crypto.randomUUID();
     const otherAuthSubject = crypto.randomUUID();
     const clientRequestId = crypto.randomUUID();
+    const otherSentinel = `unrelated-health-${crypto.randomUUID()}`;
     const store = createHealthObservationStore(databaseUrl);
+    const exporter = createDataExportStore(databaseUrl);
     let observationId: string | null = null;
+    let otherObservationId: string | null = null;
 
     for (
       const [appUserId, accountId, personId] of [
@@ -149,8 +153,7 @@ Deno.test({
         where id=${observationId}::uuid
       `;
       assertEquals(persisted.length, 1);
-      // Compatibility ownership remains staged until the export follow-up.
-      assertEquals(persisted[0].owner_user_id, ownerAppUserId);
+      assertEquals(persisted[0].owner_user_id, null);
       assertEquals(persisted[0].person_id, ownerPersonId);
       assertEquals(persisted[0].recorded_by_account_id, ownerAccountId);
       assertNotEquals(persisted[0].recorded_by_account_id, ownerAppUserId);
@@ -176,6 +179,33 @@ Deno.test({
         404,
         "health_observation_not_found",
       );
+
+      const otherCreated = await store.createOwnerObservation(otherAppUserId, {
+        clientRequestId: crypto.randomUUID(),
+        observationType: "note",
+        note: otherSentinel,
+        observedAtUtc,
+        observedLocalDate,
+        timeZone: "Asia/Tehran",
+      });
+      otherObservationId = String(otherCreated.id);
+
+      const exported = await exporter.exportAccountData(ownerAppUserId);
+      assertEquals(exported.schemaVersion, "lifemate-portable-export-v1");
+      const healthcare = exported.healthcare as Record<string, unknown>;
+      const exportedObservations = healthcare.healthObservations as Array<
+        Record<string, unknown>
+      >;
+      assertEquals(exportedObservations.length, 1);
+      assertEquals(exportedObservations[0].id, observationId);
+      assertEquals(exportedObservations[0].recordedBySelf, true);
+      const encodedHealthcare = JSON.stringify(exportedObservations);
+      assertEquals(encodedHealthcare.includes(otherSentinel), false);
+      assertEquals(encodedHealthcare.includes(otherObservationId), false);
+      assertEquals(encodedHealthcare.includes(ownerPersonId), false);
+      assertEquals(encodedHealthcare.includes(otherPersonId), false);
+      assertEquals(encodedHealthcare.includes(otherAccountId), false);
+      assertEquals(encodedHealthcare.includes(otherAppUserId), false);
 
       await assertApiError(
         () =>
@@ -207,14 +237,14 @@ Deno.test({
       assertEquals(auditRows[1].actor_user_id, ownerAppUserId);
     } finally {
       await closeLifeMateSqlClientsForTest().catch(() => undefined);
-      if (observationId) {
+      for (const id of [observationId, otherObservationId]) {
+        if (!id) continue;
         await fixtureSql`
           delete from lifemate.audit_logs
-          where resource_type='health_observation'
-            and resource_id=${observationId}::uuid
+          where resource_type='health_observation' and resource_id=${id}::uuid
         `.catch(() => undefined);
         await fixtureSql`
-          delete from lifemate.health_observations where id=${observationId}::uuid
+          delete from lifemate.health_observations where id=${id}::uuid
         `.catch(() => undefined);
       }
       await cleanupIdentity(ownerAppUserId, ownerAccountId, ownerPersonId);
