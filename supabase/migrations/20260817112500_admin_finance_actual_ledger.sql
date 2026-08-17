@@ -53,12 +53,13 @@ begin
     raise exception 'finance reversal target is invalid';
   end if;
 
-  if new.entry_kind <> original.entry_kind
+  if new.occurred_on <> original.occurred_on
+     or new.entry_kind <> original.entry_kind
      or new.category_code <> original.category_code
      or new.category_label <> original.category_label
      or new.amount_minor <> original.amount_minor
      or new.currency <> original.currency then
-    raise exception 'finance reversal must exactly negate its original entry';
+    raise exception 'finance reversal must exactly negate its original entry in the original reporting period';
   end if;
 
   return new;
@@ -86,7 +87,7 @@ before update or delete on finance.actual_ledger_entries
 for each row execute function finance.reject_actual_ledger_mutation();
 
 comment on table finance.actual_ledger_entries is
-  'Canonical posted management-finance actuals. Entries are append-only; corrections are exact reversal plus replacement. Forecast/budget assumptions never belong in this table.';
+  'Canonical posted management-finance actuals. Entries are append-only; corrections are exact same-period reversal plus replacement. Forecast/budget assumptions never belong in this table.';
 comment on column finance.actual_ledger_entries.source_reference_hash is
   'Optional privacy-minimized external/source reference hash. Raw banking credentials, card data and provider secrets are forbidden.';
 
