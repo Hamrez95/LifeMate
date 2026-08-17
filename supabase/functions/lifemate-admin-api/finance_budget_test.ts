@@ -1,6 +1,7 @@
 import { assertEquals, assertRejects } from "jsr:@std/assert";
 
 import {
+  financeBudgetMonthCount,
   parseFinanceBudgetQuery,
   summarizeBudgetVsActual,
   varianceBasisPoints,
@@ -8,15 +9,27 @@ import {
 } from "./finance_budget.ts";
 import { createFinanceRouteHandler } from "./finance_routes.ts";
 
-Deno.test("finance budget comparison requires complete calendar months", async () => {
-  assertEquals(
-    parseFinanceBudgetQuery(
-      new URL(
-        "https://admin.test/api/v1/finance/budget-vs-actual?from=2026-08-01&to=2026-08-31&currency=IRR",
-      ),
-    ),
-    { from: "2026-08-01", to: "2026-08-31", currency: "IRR" },
+Deno.test("finance budget comparison defaults to the complete Tehran calendar month", () => {
+  const query = parseFinanceBudgetQuery(
+    new URL("https://admin.test/api/v1/finance/budget-vs-actual"),
+    new Date("2026-08-16T21:30:00.000Z"),
   );
+  assertEquals(query, { from: "2026-08-01", to: "2026-08-31", currency: null });
+  assertEquals(financeBudgetMonthCount(query), 1);
+});
+
+Deno.test("finance budget comparison requires complete calendar months", async () => {
+  const query = parseFinanceBudgetQuery(
+    new URL(
+      "https://admin.test/api/v1/finance/budget-vs-actual?from=2026-07-01&to=2026-08-31&currency=IRR",
+    ),
+  );
+  assertEquals(query, {
+    from: "2026-07-01",
+    to: "2026-08-31",
+    currency: "IRR",
+  });
+  assertEquals(financeBudgetMonthCount(query), 2);
 
   await assertRejects(
     async () =>
@@ -37,6 +50,7 @@ Deno.test("finance budget variance keeps expense favorability direction explicit
   assertEquals(varianceFavorability("Net", 120n, 100n), "favorable");
   assertEquals(varianceBasisPoints(125n, 100n), "2500");
   assertEquals(varianceBasisPoints(25n, 0n), null);
+  assertEquals(varianceBasisPoints(-50n, -100n), null);
 });
 
 Deno.test("finance budget comparison preserves missing budget as unavailable rather than fake zero", () => {
@@ -57,7 +71,7 @@ Deno.test("finance budget comparison preserves missing budget as unavailable rat
     },
     {
       kind: "Expense",
-      code: "incident",
+      code: "incident:response",
       label: "Incident response",
       budgetMinor: null,
       actualMinor: 50n,
@@ -68,6 +82,7 @@ Deno.test("finance budget comparison preserves missing budget as unavailable rat
   assertEquals(result.totals.revenue.favorability, "favorable");
   assertEquals(result.totals.expense.varianceMinor, 0n);
   assertEquals(result.categories[1].favorability, "favorable");
+  assertEquals(result.categories[2].code, "incident:response");
   assertEquals(result.categories[2].budgetMinor, null);
   assertEquals(result.categories[2].varianceMinor, null);
   assertEquals(result.categories[2].varianceBasisPoints, null);
