@@ -13,9 +13,12 @@ export type FinanceRouteContext = {
   origin: string | null;
 };
 
-export function createFinanceRouteHandler(databaseUrl: string) {
-  const store = createFinanceProfitLossStore(databaseUrl);
+type FinanceProfitLossStore = ReturnType<typeof createFinanceProfitLossStore>;
 
+export function createFinanceRouteHandler(
+  databaseUrl: string,
+  store: FinanceProfitLossStore = createFinanceProfitLossStore(databaseUrl),
+) {
   return async function handleFinanceRoute(
     context: FinanceRouteContext,
   ): Promise<Response | null> {
