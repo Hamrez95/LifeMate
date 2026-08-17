@@ -421,7 +421,7 @@ function requiredLocalTime(value: unknown, field: string): string {
     throw new ApiError(
       400,
       `invalid_${field}`,
-      `${field} must be a valid local time.`,
+      `${field} must be a valid HH:mm value.`,
     );
   }
   return `${match[1]}:${match[2]}`;
@@ -433,15 +433,15 @@ function normalizeReminderLeadTime(
   fallback: number,
 ): number {
   if (value == null || value === "") return fallback;
-  const minutes = Number(value);
-  if (!Number.isInteger(minutes) || minutes < 0 || minutes > 10080) {
+  const parsed = Number(value);
+  if (!Number.isInteger(parsed) || parsed < 0 || parsed > 10080) {
     throw new ApiError(
       400,
       `invalid_${field}`,
-      `${field} must be an integer between 0 and 10080.`,
+      `${field} must be an integer between 0 and 10080 minutes.`,
     );
   }
-  return minutes;
+  return parsed;
 }
 
 function recurrenceFromRow(row: Row): CareEventRecurrence {
@@ -463,7 +463,7 @@ function recurrenceFromRow(row: Row): CareEventRecurrence {
 function sameCareEvent(row: Row, input: CareEventInput): boolean {
   const recurrence = recurrenceFromRow(row);
   return String(row.event_type) === input.eventType &&
-    row.title === input.title &&
+    String(row.title) === input.title &&
     nullable(row.provider_name) === input.providerName &&
     nullable(row.specialty) === input.specialty &&
     nullable(row.medication_name) === input.medicationName &&
@@ -579,7 +579,9 @@ function localDateTimeToUtc(
       Number(parts.hour),
       Number(parts.minute),
     );
-    guess += targetAsUtc - represented;
+    const delta = targetAsUtc - represented;
+    guess += delta;
+    if (Math.abs(delta) < 60_000) break;
   }
   return new Date(guess).toISOString();
 }
