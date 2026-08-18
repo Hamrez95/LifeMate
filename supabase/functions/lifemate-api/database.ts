@@ -1,5 +1,6 @@
 export * from "./database_legacy.ts";
 
+import { rawContactRetirementEnabled } from "./contact_points.ts";
 import {
   createLifeMateDatabase as createLegacyLifeMateDatabase,
 } from "./database_legacy.ts";
@@ -16,6 +17,7 @@ import {
   type PhoneInvitationDelivery,
 } from "./phone_invitation_delivery.ts";
 import { createProfileStore } from "./profile.ts";
+import { createRawContactRetirementBootstrapStore } from "./raw_contact_retirement_bootstrap.ts";
 import { ApiError } from "./validation.ts";
 
 export type LifeMateDatabaseOptions = {
@@ -58,6 +60,13 @@ export function createLifeMateDatabase(
     contactHashingSecret,
   );
   const profiles = createProfileStore(databaseUrl, contactHashingSecret);
+  const rawContactRetirement = rawContactRetirementEnabled();
+  const retirementBootstrap = rawContactRetirement
+    ? createRawContactRetirementBootstrapStore(
+      databaseUrl,
+      contactHashingSecret,
+    )
+    : null;
 
   async function currentUser(
     identity: Parameters<typeof database.currentUser>[0],
@@ -96,6 +105,13 @@ export function createLifeMateDatabase(
           throw error;
         }
       }
+    }
+    if (rawContactRetirement) {
+      if (!retirementBootstrap) {
+        throw new Error("raw_contact_retirement_bootstrap_unavailable");
+      }
+      const appUserId = await retirementBootstrap.bootstrapUser(auth, body);
+      return await currentUser({ auth, appUserId });
     }
     return await database.bootstrapUser(auth, body);
   }
