@@ -116,6 +116,41 @@ Deno.test("token-only reads the previous Core key during bounded rotation", asyn
   assertEquals(legacyCalls, 0);
 });
 
+Deno.test("production rotation path reads active and previous candidates together", async () => {
+  let rotationCalls = 0;
+  let legacyCalls = 0;
+  const resolver = createAdminIdentityResolver("postgres://unused", {
+    mode: "token-only",
+    dualWriteEnabled: true,
+    identityLinkKey: { secret, keyVersion: 8 },
+    previousIdentityLinkKey: { secret: previousSecret, keyVersion: 7 },
+    lookupRotationTokens: async (
+      activeToken,
+      activeVersion,
+      previousToken,
+      previousVersion,
+    ) => {
+      rotationCalls += 1;
+      assertEquals(activeVersion, 8);
+      assertEquals(previousVersion, 7);
+      assertEquals(activeToken.length, 64);
+      assertEquals(previousToken.length, 64);
+      return [{
+        account_id: accountId,
+        account_status: "Active",
+        key_version: previousVersion,
+      }];
+    },
+    lookupLegacy: async () => {
+      legacyCalls += 1;
+      return [{ account_id: otherAccountId }];
+    },
+  });
+  assertEquals(await resolver.resolveAccountId("auth-subject-1"), accountId);
+  assertEquals(rotationCalls, 1);
+  assertEquals(legacyCalls, 0);
+});
+
 Deno.test("Admin rotation conflict fails closed without raw fallback", async () => {
   let legacyCalls = 0;
   const resolver = createAdminIdentityResolver("postgres://unused", {
