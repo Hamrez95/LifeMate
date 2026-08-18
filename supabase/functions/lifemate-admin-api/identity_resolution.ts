@@ -290,7 +290,10 @@ export function createAdminIdentityResolver(
       let active: TokenLookupRow | null;
       let previous: TokenLookupRow | null = null;
       if (keys.previous && options.lookupToken == null) {
-        const activeToken = await deriveTokenForKey(providerSubject, keys.active);
+        const activeToken = await deriveTokenForKey(
+          providerSubject,
+          keys.active,
+        );
         const previousToken = await deriveTokenForKey(
           providerSubject,
           keys.previous,
@@ -302,7 +305,9 @@ export function createAdminIdentityResolver(
           keys.previous.keyVersion,
         );
         active = requireUsableTokenRow(
-          rows.filter((row) => Number(row.key_version) === keys.active.keyVersion),
+          rows.filter((row) =>
+            Number(row.key_version) === keys.active.keyVersion
+          ),
         );
         previous = requireUsableTokenRow(
           rows.filter((row) =>
