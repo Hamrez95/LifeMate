@@ -1,6 +1,8 @@
 import { assertEquals, assertRejects } from "jsr:@std/assert@1.0.14";
 import postgres from "npm:postgres@3.4.7";
-import { createContactPointWriter } from "../../supabase/functions/lifemate-api/contact_points.ts";
+import {
+  createContactPointWriter,
+} from "../../supabase/functions/lifemate-api/contact_points.ts";
 import { ApiError } from "../../supabase/functions/lifemate-api/validation.ts";
 import { rotateContactPointEncryptionKeys } from "./contact-point-key-rotation.ts";
 
