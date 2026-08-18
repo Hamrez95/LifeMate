@@ -91,8 +91,10 @@ jobs:
             supabase/functions/lifemate-api/contact_point_read_mode_test.ts \
             supabase/functions/lifemate-api/contact_point_read_mode_integration_test.ts \
             supabase/functions/lifemate-api/profile.ts
-          deno check tools/security/contact-point-readiness_test.ts
-          deno check tools/security/contact-point-backfill_test.ts
+          deno check --config supabase/functions/lifemate-api/deno.json \
+            tools/security/contact-point-readiness_test.ts
+          deno check --config supabase/functions/lifemate-api/deno.json \
+            tools/security/contact-point-backfill_test.ts
           cd supabase/functions/lifemate-api
           deno check contact_point_read_mode_test.ts contact_point_read_mode_integration_test.ts
 
