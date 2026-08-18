@@ -132,4 +132,74 @@ begin
   then raise exception 'child data entered commercial export'; end if;
 end $$;
 
+-- Encrypted provider handles are a narrow server-side recovery boundary. The
+-- Edge API may refresh an envelope; the Worker may only read it; browsers and
+-- Supabase client/service roles must not get direct table access.
+do $$
+begin
+  if not has_table_privilege(
+    'lifemate_edge_runtime','identity.provider_identity_handles','SELECT'
+  ) or not has_table_privilege(
+    'lifemate_edge_runtime','identity.provider_identity_handles','INSERT'
+  ) or not has_table_privilege(
+    'lifemate_edge_runtime','identity.provider_identity_handles','UPDATE'
+  ) then raise exception 'Edge runtime lacks provider handle refresh boundary'; end if;
+
+  if has_table_privilege(
+    'lifemate_edge_runtime','identity.provider_identity_handles','DELETE'
+  ) or has_table_privilege(
+    'lifemate_edge_runtime','identity.provider_identity_handles','TRUNCATE'
+  ) then raise exception 'Edge runtime can erase provider handle history'; end if;
+
+  if not has_table_privilege(
+    'lifemate_worker_runtime','identity.provider_identity_handles','SELECT'
+  ) then raise exception 'Worker cannot read encrypted provider handle'; end if;
+
+  if has_table_privilege(
+    'lifemate_worker_runtime','identity.provider_identity_handles','INSERT'
+  ) or has_table_privilege(
+    'lifemate_worker_runtime','identity.provider_identity_handles','UPDATE'
+  ) or has_table_privilege(
+    'lifemate_worker_runtime','identity.provider_identity_handles','DELETE'
+  ) or has_table_privilege(
+    'lifemate_worker_runtime','identity.provider_identity_handles','TRUNCATE'
+  ) then raise exception 'Worker can mutate encrypted provider handles'; end if;
+
+  if not (select c.relrowsecurity and c.relforcerowsecurity
+          from pg_class c join pg_namespace n on n.oid=c.relnamespace
+          where n.nspname='identity'
+            and c.relname='provider_identity_handles') then
+    raise exception 'Provider handle table is not FORCE RLS protected';
+  end if;
+
+  if not exists(
+    select 1 from pg_policies
+    where schemaname='identity'
+      and tablename='provider_identity_handles'
+      and policyname='lifemate_edge_runtime_provider_handle_select'
+      and 'lifemate_edge_runtime'=any(roles)
+  ) then raise exception 'Edge provider handle RLS read path missing'; end if;
+
+  if not exists(
+    select 1 from pg_policies
+    where schemaname='identity'
+      and tablename='provider_identity_handles'
+      and policyname='lifemate_worker_runtime_provider_handle_select'
+      and 'lifemate_worker_runtime'=any(roles)
+  ) then raise exception 'Worker provider handle RLS read path missing'; end if;
+
+  if exists(select 1 from pg_roles where rolname='authenticated') and
+     has_table_privilege(
+       'authenticated','identity.provider_identity_handles','SELECT'
+     ) then raise exception 'Authenticated browser can read provider handles'; end if;
+  if exists(select 1 from pg_roles where rolname='anon') and
+     has_table_privilege(
+       'anon','identity.provider_identity_handles','SELECT'
+     ) then raise exception 'Anon browser can read provider handles'; end if;
+  if exists(select 1 from pg_roles where rolname='service_role') and
+     has_table_privilege(
+       'service_role','identity.provider_identity_handles','SELECT'
+     ) then raise exception 'Supabase service_role can directly read provider handles'; end if;
+end $$;
+
 rollback;
