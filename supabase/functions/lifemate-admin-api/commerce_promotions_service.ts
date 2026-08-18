@@ -60,7 +60,7 @@ async function listProducts(sql: AdminSql) {
   const rows = await sql`
     select id, code, display_name
     from commerce.products
-    where is_active = true
+    where status = 'Active'
     order by display_name asc, code asc
     limit 100
   `;
