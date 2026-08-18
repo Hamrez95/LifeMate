@@ -6,12 +6,17 @@ const encoder = new TextEncoder();
 export type AdminIdentityLookupMode = "legacy" | "prefer-token" | "token-only";
 type EnvironmentReader = (name: string) => string | null | undefined;
 type IdentityLinkKey = { secret: string; keyVersion: number };
+type IdentityLinkKeySet = {
+  active: IdentityLinkKey;
+  previous: IdentityLinkKey | null;
+};
 type TokenLookupRow = { account_id: string; account_status: string };
 type LegacyLookupRow = { account_id: string };
 
 type ResolverOptions = {
   mode?: AdminIdentityLookupMode;
   identityLinkKey?: IdentityLinkKey;
+  previousIdentityLinkKey?: IdentityLinkKey | null;
   dualWriteEnabled?: boolean;
   readEnvironment?: EnvironmentReader;
   lookupToken?: (
@@ -63,21 +68,62 @@ export function adminIdentityDualWriteEnabled(
   );
 }
 
-export function readAdminIdentityLinkKey(
-  readEnvironment: EnvironmentReader = (name) => Deno.env.get(name),
+function readConfiguredKey(
+  readEnvironment: EnvironmentReader,
+  secretName: string,
+  versionName: string,
 ): IdentityLinkKey {
-  const secret = readEnvironment("LIFEMATE_IDENTITY_LINK_KEY") ?? "";
-  const keyVersionRaw = readEnvironment("LIFEMATE_IDENTITY_LINK_KEY_VERSION") ??
-    "";
+  const secret = readEnvironment(secretName) ?? "";
+  const keyVersionRaw = readEnvironment(versionName) ?? "";
   if (encoder.encode(secret).byteLength < 32) {
     throw new Error(
-      "LIFEMATE_IDENTITY_LINK_KEY must be configured as an external runtime secret with at least 32 UTF-8 bytes.",
+      `${secretName} must be configured as an external runtime secret with at least 32 UTF-8 bytes.`,
     );
   }
   if (!/^\d+$/.test(keyVersionRaw)) {
-    throw new Error("LIFEMATE_IDENTITY_LINK_KEY_VERSION must be configured.");
+    throw new Error(`${versionName} must be configured.`);
   }
   return { secret, keyVersion: requiredKeyVersion(Number(keyVersionRaw)) };
+}
+
+export function readAdminIdentityLinkKey(
+  readEnvironment: EnvironmentReader = (name) => Deno.env.get(name),
+): IdentityLinkKey {
+  return readConfiguredKey(
+    readEnvironment,
+    "LIFEMATE_IDENTITY_LINK_KEY",
+    "LIFEMATE_IDENTITY_LINK_KEY_VERSION",
+  );
+}
+
+export function readAdminIdentityLinkKeySet(
+  readEnvironment: EnvironmentReader = (name) => Deno.env.get(name),
+): IdentityLinkKeySet {
+  const active = readAdminIdentityLinkKey(readEnvironment);
+  const previousSecret =
+    readEnvironment("LIFEMATE_IDENTITY_LINK_PREVIOUS_KEY") ?? "";
+  const previousVersion =
+    readEnvironment("LIFEMATE_IDENTITY_LINK_PREVIOUS_KEY_VERSION") ?? "";
+  const hasPreviousSecret = previousSecret.length > 0;
+  const hasPreviousVersion = previousVersion.trim().length > 0;
+  if (hasPreviousSecret !== hasPreviousVersion) {
+    throw new Error(
+      "LIFEMATE_IDENTITY_LINK_PREVIOUS_KEY and LIFEMATE_IDENTITY_LINK_PREVIOUS_KEY_VERSION must be configured together.",
+    );
+  }
+  if (!hasPreviousSecret) return { active, previous: null };
+
+  const previous = readConfiguredKey(
+    readEnvironment,
+    "LIFEMATE_IDENTITY_LINK_PREVIOUS_KEY",
+    "LIFEMATE_IDENTITY_LINK_PREVIOUS_KEY_VERSION",
+  );
+  if (previous.keyVersion === active.keyVersion) {
+    throw new Error(
+      "Previous identity-link key version must differ from the active key version.",
+    );
+  }
+  return { active, previous };
 }
 
 export async function deriveAdminIdentityLinkToken(
@@ -152,7 +198,7 @@ export function createAdminIdentityResolver(
   const readEnvironment = options.readEnvironment ??
     ((name: string) => Deno.env.get(name));
   const mode = options.mode ?? readAdminIdentityLookupMode(readEnvironment);
-  let identityLinkKey: IdentityLinkKey | null = null;
+  let identityLinkKeys: IdentityLinkKeySet | null = null;
 
   if (mode !== "legacy") {
     const dualWrite = options.dualWriteEnabled ??
@@ -162,8 +208,25 @@ export function createAdminIdentityResolver(
         "Token-based Admin identity lookup requires LIFEMATE_IDENTITY_LINK_DUAL_WRITE=true until protected raw-link retirement is complete.",
       );
     }
-    identityLinkKey = options.identityLinkKey ??
-      readAdminIdentityLinkKey(readEnvironment);
+    if (options.identityLinkKey) {
+      identityLinkKeys = {
+        active: options.identityLinkKey,
+        previous: options.previousIdentityLinkKey ?? null,
+      };
+    } else {
+      identityLinkKeys = readAdminIdentityLinkKeySet(readEnvironment);
+      if (options.previousIdentityLinkKey !== undefined) {
+        identityLinkKeys.previous = options.previousIdentityLinkKey;
+      }
+    }
+    if (
+      identityLinkKeys.previous &&
+      identityLinkKeys.previous.keyVersion === identityLinkKeys.active.keyVersion
+    ) {
+      throw new Error(
+        "Previous identity-link key version must differ from the active key version.",
+      );
+    }
   }
 
   let sql: AdminSql | null = null;
@@ -175,32 +238,26 @@ export function createAdminIdentityResolver(
 
   async function resolveAccountId(providerSubject: string): Promise<string> {
     if (mode !== "legacy") {
-      const key = identityLinkKey;
-      if (!key) throw new Error("Admin identity-link key is unavailable.");
-      const subjectToken = await deriveAdminIdentityLinkToken(
-        key.secret,
-        providerSubject,
-        key.keyVersion,
-      );
-      const tokenRows = await lookupToken(subjectToken, key.keyVersion);
-      if (tokenRows.length > 1) {
+      const keys = identityLinkKeys;
+      if (!keys) throw new Error("Admin identity-link key is unavailable.");
+      const activeRows = await lookupForKey(providerSubject, keys.active);
+      const active = requireUsableTokenRow(activeRows);
+      const previous = keys.previous
+        ? requireUsableTokenRow(
+          await lookupForKey(providerSubject, keys.previous),
+        )
+        : null;
+
+      if (active && previous && active.account_id !== previous.account_id) {
         throw new ApiError(
           409,
-          "identity_token_ambiguous",
-          "The LifeMate identity mapping is ambiguous.",
+          "identity_token_rotation_conflict",
+          "The LifeMate identity mapping is inconsistent during key rotation.",
         );
       }
-      const tokenRow = tokenRows[0];
-      if (tokenRow) {
-        if (tokenRow.account_status !== "Active") {
-          throw new ApiError(
-            403,
-            "lifemate_account_required",
-            "An active LifeMate account is required for Command Center access.",
-          );
-        }
-        return tokenRow.account_id;
-      }
+      const selected = active ?? previous;
+      if (selected) return selected.account_id;
+
       if (mode === "token-only") {
         throw new ApiError(
           403,
@@ -223,6 +280,38 @@ export function createAdminIdentityResolver(
       );
     }
     return legacyRows[0].account_id;
+  }
+
+  async function lookupForKey(
+    providerSubject: string,
+    key: IdentityLinkKey,
+  ): Promise<TokenLookupRow[]> {
+    const subjectToken = await deriveAdminIdentityLinkToken(
+      key.secret,
+      providerSubject,
+      key.keyVersion,
+    );
+    return await lookupToken(subjectToken, key.keyVersion);
+  }
+
+  function requireUsableTokenRow(rows: TokenLookupRow[]): TokenLookupRow | null {
+    if (rows.length > 1) {
+      throw new ApiError(
+        409,
+        "identity_token_ambiguous",
+        "The LifeMate identity mapping is ambiguous.",
+      );
+    }
+    const row = rows[0];
+    if (!row) return null;
+    if (row.account_status !== "Active") {
+      throw new ApiError(
+        403,
+        "lifemate_account_required",
+        "An active LifeMate account is required for Command Center access.",
+      );
+    }
+    return row;
   }
 
   return { mode, resolveAccountId };
