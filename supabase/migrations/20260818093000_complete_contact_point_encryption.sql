@@ -63,12 +63,12 @@ begin
     revoke delete,truncate on identity.contact_points from lifemate_edge_runtime;
   end if;
 
-  -- Account-deletion finalization already owns the only Worker mutation path.
-  -- Keep the historical DELETE privilege but do not expand it to contact reads.
+  -- Account deletion is performed inside identity.finalize_account_deletion(),
+  -- which is SECURITY DEFINER and is the only Worker-owned cleanup surface.
+  -- Preserve that function-scoped boundary; the Worker must not gain direct
+  -- ContactPoint table access merely because encrypted contacts now exist.
   if exists(select 1 from pg_roles where rolname='lifemate_worker_runtime') then
-    revoke select,insert,update,truncate on identity.contact_points
-      from lifemate_worker_runtime;
-    grant delete on identity.contact_points to lifemate_worker_runtime;
+    revoke all on identity.contact_points from lifemate_worker_runtime;
   end if;
 end
 $$;
