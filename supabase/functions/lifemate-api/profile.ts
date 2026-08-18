@@ -238,31 +238,22 @@ export function createProfileStore(databaseUrl: string) {
     const usesVersionColumn = await hasVersionColumn();
 
     return await sql.begin(async (tx: any) => {
-      await requireSelfPerson(tx, userId);
-      const rows = await (usesVersionColumn
+      const personId = await requireSelfPerson(tx, userId);
+      const compatibilityRows = await (usesVersionColumn
         ? tx`
             update lifemate.user_profiles
-            set display_name = ${patch.displayName},
-                phone_number = ${patch.phoneNumber},
+            set phone_number = ${patch.phoneNumber},
                 email = ${auth.email},
-                locale = ${patch.locale},
-                time_zone = ${patch.timeZone},
-                avatar_key = coalesce(${patch.avatarKey}, avatar_key),
                 version = version + 1,
                 updated_at_utc = now()
             where user_id = ${userId} and version = ${patch.expectedVersion}
-            returning id, user_id, display_name, phone_number, email, locale,
-                      time_zone, avatar_key, version, created_at_utc,
-                      updated_at_utc
+            returning id, user_id, phone_number, email, version,
+                      created_at_utc, updated_at_utc
           `
         : tx`
             update lifemate.user_profiles
-            set display_name = ${patch.displayName},
-                phone_number = ${patch.phoneNumber},
+            set phone_number = ${patch.phoneNumber},
                 email = ${auth.email},
-                locale = ${patch.locale},
-                time_zone = ${patch.timeZone},
-                avatar_key = coalesce(${patch.avatarKey}, avatar_key),
                 updated_at_utc = greatest(
                   now(),
                   updated_at_utc + interval '1 millisecond'
@@ -270,13 +261,12 @@ export function createProfileStore(databaseUrl: string) {
             where user_id = ${userId}
               and floor(extract(epoch from updated_at_utc) * 1000)::bigint =
                   ${patch.expectedVersion}
-            returning id, user_id, display_name, phone_number, email, locale,
-                      time_zone, avatar_key,
+            returning id, user_id, phone_number, email,
                       floor(extract(epoch from updated_at_utc) * 1000)::bigint
                         as version,
                       created_at_utc, updated_at_utc
           `);
-      if (!rows[0]) {
+      if (!compatibilityRows[0]) {
         const current = await (usesVersionColumn
           ? tx`
               select version
@@ -305,6 +295,24 @@ export function createProfileStore(databaseUrl: string) {
         );
       }
 
+      const personRows = await tx`
+        update core.person_profiles
+        set display_name = ${patch.displayName},
+            locale = ${patch.locale},
+            time_zone = ${patch.timeZone},
+            avatar_key = coalesce(${patch.avatarKey}, avatar_key),
+            updated_at_utc = now()
+        where person_id = ${personId}::uuid
+        returning display_name, locale, time_zone, avatar_key
+      `;
+      if (!personRows[0]) {
+        throw new ApiError(
+          404,
+          "profile_missing",
+          "User profile was not found.",
+        );
+      }
+
       // Privacy invariant: metadata_json, null; no profile or avatar values.
       await tx`
         insert into lifemate.audit_logs
@@ -312,9 +320,12 @@ export function createProfileStore(databaseUrl: string) {
            metadata_json, created_at_utc)
         values
           (${crypto.randomUUID()}, ${userId}, 'profile.updated',
-           'user_profile', ${rows[0].id}, null, now())
+           'user_profile', ${compatibilityRows[0].id}, null, now())
       `;
-      return mapProfile(rows[0]);
+      return mapProfile({
+        ...compatibilityRows[0],
+        ...personRows[0],
+      });
     });
   }
 
