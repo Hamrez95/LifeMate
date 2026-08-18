@@ -102,10 +102,11 @@ export function createProfileStore(databaseUrl: string) {
 
   async function getProfilePhotoPath(userId: string): Promise<string | null> {
     if (!(await hasPhotoColumn())) return null;
+    const personId = await requireSelfPerson(sql, userId);
     const rows = await sql`
       select profile_photo_path
-      from lifemate.user_profiles
-      where user_id = ${userId}
+      from core.person_profiles
+      where person_id = ${personId}::uuid
       limit 1
     `;
     if (!rows[0]) {
@@ -135,21 +136,28 @@ export function createProfileStore(databaseUrl: string) {
     }
     const usesVersionColumn = await hasVersionColumn();
     return await sql.begin(async (tx: any) => {
+      const personId = await requireSelfPerson(tx, userId);
       const current = await tx`
-        select id, profile_photo_path
+        select id
         from lifemate.user_profiles
         where user_id = ${userId}
         for update
       `;
-      if (!current[0]) {
+      const canonical = await tx`
+        select profile_photo_path
+        from core.person_profiles
+        where person_id = ${personId}::uuid
+        for update
+      `;
+      if (!current[0] || !canonical[0]) {
         throw new ApiError(
           404,
           "profile_missing",
           "User profile was not found.",
         );
       }
-      const previous = typeof current[0].profile_photo_path === "string"
-        ? current[0].profile_photo_path
+      const previous = typeof canonical[0].profile_photo_path === "string"
+        ? canonical[0].profile_photo_path
         : null;
       if (usesVersionColumn) {
         await tx`
