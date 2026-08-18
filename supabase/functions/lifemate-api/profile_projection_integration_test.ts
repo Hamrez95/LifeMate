@@ -1,8 +1,8 @@
 import { assertEquals } from "jsr:@std/assert@1.0.14";
 import postgres from "postgres";
 import {
-  decryptContactPoint,
   type ContactPointEnvelope,
+  decryptContactPoint,
 } from "../_shared/contact_point_crypto.ts";
 import { type AuthUser, createLifeMateDatabase } from "./database.ts";
 import { createIdentityBridge } from "./identity_bridge.ts";
