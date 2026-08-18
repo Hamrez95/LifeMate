@@ -1,7 +1,4 @@
-import {
-  assertEquals,
-  assertRejects,
-} from "jsr:@std/assert@1.0.14";
+import { assertEquals, assertRejects } from "jsr:@std/assert@1.0.14";
 import postgres from "postgres";
 import { createDataExportStore } from "./data_export.ts";
 import { type AuthUser, createLifeMateDatabase } from "./database.ts";
@@ -34,7 +31,8 @@ Deno.test({
     const previous = new Map<string, string | undefined>();
     for (const name of envNames) previous.set(name, Deno.env.get(name));
 
-    const hashingSecret = "raw-contact-retirement-integration-hash-secret-32-bytes";
+    const hashingSecret =
+      "raw-contact-retirement-integration-hash-secret-32-bytes";
     const encryptionKey = {
       secret: "raw-contact-retirement-integration-envelope-key-32-bytes",
       keyVersion: 43,
@@ -162,7 +160,9 @@ async function accountFor(connection: any, appUserId: string): Promise<string> {
   `;
   const accountId = rows[0]?.account_id;
   if (typeof accountId !== "string" || accountId.length === 0) {
-    throw new Error("Expected Account mapping for raw contact retirement test.");
+    throw new Error(
+      "Expected Account mapping for raw contact retirement test.",
+    );
   }
   return accountId;
 }
