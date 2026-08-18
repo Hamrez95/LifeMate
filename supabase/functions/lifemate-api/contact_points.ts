@@ -117,6 +117,11 @@ export function createContactPointWriter(
     rawValue: string | null,
     mode: ContactPointWriteMode,
   ): Promise<void> {
+    const configuredEncryptionKey = encryptionKey;
+    if (!configuredEncryptionKey) {
+      throw new Error("ContactPoint dual-write configuration is unavailable.");
+    }
+
     const currentRows = await transaction`
       select id::text as id,account_id::text as account_id,
              normalized_value_hash,status
@@ -182,7 +187,7 @@ export function createContactPointWriter(
     }
 
     const envelope = await encryptContactPoint(
-      encryptionKey,
+      configuredEncryptionKey,
       { accountId, kind, normalizedValueHash: normalizedHash },
       normalized,
     );
