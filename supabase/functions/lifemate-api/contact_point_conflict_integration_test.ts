@@ -17,7 +17,8 @@ Deno.test({
   sanitizeResources: false,
   fn: async () => {
     const admin = postgres(databaseUrl, { max: 1, prepare: false });
-    const hashingSecret = "integration-only-contact-conflict-hash-secret-32-bytes";
+    const hashingSecret =
+      "integration-only-contact-conflict-hash-secret-32-bytes";
     const encryptionSecret =
       "integration-only-contact-conflict-envelope-key-32-bytes";
     const previousDualWrite = Deno.env.get(
