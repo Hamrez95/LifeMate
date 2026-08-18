@@ -4,6 +4,15 @@ import {
   readIdentityLookupMode,
 } from "./identity_resolver.ts";
 
+const activeKey = {
+  secret: "0123456789abcdef0123456789abcdef",
+  keyVersion: 8,
+};
+const previousKey = {
+  secret: "abcdef0123456789abcdef0123456789",
+  keyVersion: 7,
+};
+
 Deno.test("identity lookup mode defaults to legacy and is strict", () => {
   assertEquals(readIdentityLookupMode(() => undefined), "legacy");
   assertEquals(
@@ -36,10 +45,7 @@ Deno.test("token lookup cannot start while dual-write is disabled", () => {
       createIdentityResolver("postgres://unused:unused@localhost:5432/unused", {
         mode: "prefer-token",
         dualWriteEnabled: false,
-        identityLinkKey: {
-          secret: "0123456789abcdef0123456789abcdef",
-          keyVersion: 1,
-        },
+        identityLinkKey: activeKey,
       }),
     Error,
     "requires LIFEMATE_IDENTITY_LINK_DUAL_WRITE=true",
@@ -49,17 +55,14 @@ Deno.test("token lookup cannot start while dual-write is disabled", () => {
       createIdentityResolver("postgres://unused:unused@localhost:5432/unused", {
         mode: "token-only",
         dualWriteEnabled: false,
-        identityLinkKey: {
-          secret: "0123456789abcdef0123456789abcdef",
-          keyVersion: 1,
-        },
+        identityLinkKey: activeKey,
       }),
     Error,
     "requires LIFEMATE_IDENTITY_LINK_DUAL_WRITE=true",
   );
 });
 
-Deno.test("legacy mode does not require the external identity-link key", () => {
+Deno.test("legacy mode does not require active or previous identity-link keys", () => {
   const resolver = createIdentityResolver(
     "postgres://unused:unused@localhost:5432/unused",
     {
@@ -68,4 +71,55 @@ Deno.test("legacy mode does not require the external identity-link key", () => {
     },
   );
   assertEquals(resolver.lookupMode, "legacy");
+});
+
+Deno.test("token lookup accepts one previous key with a distinct version", () => {
+  const resolver = createIdentityResolver(
+    "postgres://unused:unused@localhost:5432/unused",
+    {
+      mode: "token-only",
+      dualWriteEnabled: true,
+      identityLinkKey: activeKey,
+      previousIdentityLinkKey: previousKey,
+    },
+  );
+  assertEquals(resolver.lookupMode, "token-only");
+});
+
+Deno.test("token lookup rejects equal active and previous key versions", () => {
+  assertThrows(
+    () =>
+      createIdentityResolver("postgres://unused:unused@localhost:5432/unused", {
+        mode: "token-only",
+        dualWriteEnabled: true,
+        identityLinkKey: activeKey,
+        previousIdentityLinkKey: {
+          secret: previousKey.secret,
+          keyVersion: activeKey.keyVersion,
+        },
+      }),
+    Error,
+    "must differ from the active key version",
+  );
+});
+
+Deno.test("partial previous-key environment fails before database access", () => {
+  const readEnvironment = (name: string) => {
+    if (name === "LIFEMATE_IDENTITY_LINK_KEY") return activeKey.secret;
+    if (name === "LIFEMATE_IDENTITY_LINK_KEY_VERSION") return "8";
+    if (name === "LIFEMATE_IDENTITY_LINK_PREVIOUS_KEY") {
+      return previousKey.secret;
+    }
+    return undefined;
+  };
+  assertThrows(
+    () =>
+      createIdentityResolver("postgres://unused:unused@localhost:5432/unused", {
+        mode: "token-only",
+        dualWriteEnabled: true,
+        readEnvironment,
+      }),
+    Error,
+    "must be configured together",
+  );
 });
