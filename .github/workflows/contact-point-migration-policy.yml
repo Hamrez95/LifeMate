@@ -110,13 +110,15 @@ jobs:
 
       - name: Prove count-only readiness behavior
         run: >-
-          deno test --no-check --allow-env
+          deno test --config supabase/functions/lifemate-api/deno.json
+          --no-check --allow-env
           --allow-net=localhost:5432,127.0.0.1:5432
           tools/security/contact-point-readiness_test.ts
 
       - name: Prove bounded dry-run and idempotent backfill
         run: >-
-          deno test --no-check --allow-env
+          deno test --config supabase/functions/lifemate-api/deno.json
+          --no-check --allow-env
           --allow-net=localhost:5432,127.0.0.1:5432
           tools/security/contact-point-backfill_test.ts
 
