@@ -63,8 +63,18 @@ export function createLifeMateDatabase(
     identity: Parameters<typeof database.currentUser>[0],
   ): Promise<Record<string, unknown>> {
     const current = await database.currentUser(identity);
+    const legacyUser = current.user && typeof current.user === "object"
+      ? current.user as Record<string, unknown>
+      : {};
     return {
       ...current,
+      // `authSubject` remains part of the public compatibility response, but
+      // after protected retirement it must come from the authenticated JWT
+      // snapshot instead of LifeMate-owned database storage.
+      user: {
+        ...legacyUser,
+        authSubject: identity.auth.id,
+      },
       profile: await profiles.getProfile(identity.appUserId),
     };
   }
