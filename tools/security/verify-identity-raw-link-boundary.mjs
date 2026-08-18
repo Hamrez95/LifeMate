@@ -60,6 +60,7 @@ const relative = (file) => path.relative(repoRoot, file).replaceAll('\\', '/');
 
 const authSubjectAllowlist = new Set([
   'supabase/functions/lifemate-api/database_legacy.ts',
+  'supabase/functions/lifemate-api/identity_bridge.ts',
   'supabase/functions/lifemate-api/identity_resolver.ts',
   'supabase/functions/lifemate-api/idempotency_legacy.ts',
 ]);
@@ -79,6 +80,36 @@ for (const file of runtimeFiles) {
   if (name !== 'supabase/functions/lifemate-api/database.ts' && source.includes('database_legacy.ts')) {
     fail(`legacy database implementation may only be imported by the compatibility facade: ${name}`);
   }
+}
+
+const identityBridge = fs.readFileSync(
+  path.join(apiRoot, 'identity_bridge.ts'),
+  'utf8',
+);
+requireMarkers(
+  identityBridge,
+  [
+    'rawIdentityRetirementEnabled',
+    'LIFEMATE_IDENTITY_LINK_LOOKUP_MODE=token-only',
+    'raw_identity_retirement_prerequisite_missing',
+    'set auth_subject=null',
+    'delete from identity.external_identities',
+  ],
+  'raw identity retirement bridge',
+);
+if (
+  /insert\s+into\s+lifemate\.app_users\s*\([^)]*\bauth_subject\b/is.test(
+    identityBridge,
+  )
+) {
+  fail('identity retirement bridge must never insert a raw AppUser auth_subject.');
+}
+if (
+  /update\s+lifemate\.app_users\s+set\s+(?:(?!\bwhere\b)[\s\S])*?\bauth_subject\s*=\s*(?!null\b)/i.test(
+    identityBridge,
+  )
+) {
+  fail('identity retirement bridge may only mutate AppUser auth_subject to NULL.');
 }
 
 const databaseFacade = fs.readFileSync(
@@ -194,5 +225,5 @@ for (const mutation of [
 }
 
 console.log(
-  'Raw identity runtime dependencies and Person-authoritative healthcare writes are frozen; destructive retirement remains blocked.',
+  'Raw identity dependencies are frozen; protected retirement is null-only and destructive column/table drops remain blocked.',
 );
