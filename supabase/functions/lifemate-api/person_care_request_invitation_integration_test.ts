@@ -126,15 +126,19 @@ Deno.test({
           confirmConsent: true,
         },
       );
-      const phoneRelationship = await phoneInvitations.acceptInvitationOrDelegate(
-        phoneCaregiver,
-        {
-          token: phoneInvitation.token,
-          consentVersion: "care-caregiver-consent-v1",
-          confirmConsent: true,
-        },
-        () => Promise.reject(new Error("phone invitation delegated unexpectedly")),
-      );
+      const phoneRelationship = await phoneInvitations
+        .acceptInvitationOrDelegate(
+          phoneCaregiver,
+          {
+            token: phoneInvitation.token,
+            consentVersion: "care-caregiver-consent-v1",
+            confirmConsent: true,
+          },
+          () =>
+            Promise.reject(
+              new Error("phone invitation delegated unexpectedly"),
+            ),
+        );
       assertEquals(phoneRelationship.status, "active");
       assertEquals(phoneRelationship.patientUserId, phonePatient.appUserId);
       assertEquals(phoneRelationship.caregiverUserId, phoneCaregiver.appUserId);
