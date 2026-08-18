@@ -6,6 +6,7 @@ import { parseAnalyticsKpiQuery } from "./analytics_kpis.ts";
 import { authenticate, requireAal2 } from "./auth.ts";
 import { requirePermission } from "./authorization.ts";
 import { parseCommerceOverviewQuery } from "./commerce.ts";
+import { createCommerceCatalogRouteHandler } from "./commerce_catalog_routes.ts";
 import {
   matchCommerceEntitlementDetailPath,
   matchCommercePlanDetailPath,
@@ -109,6 +110,9 @@ const userAccountActionStore = createUserAccountActionStore(config.databaseUrl);
 const analyticsKpiStore = createAnalyticsKpiStore(config.databaseUrl);
 const commerceOverviewStore = createCommerceOverviewStore(config.databaseUrl);
 const commerceDetailStore = createCommerceDetailStore(config.databaseUrl);
+const commerceCatalogRouteHandler = createCommerceCatalogRouteHandler(
+  config.databaseUrl,
+);
 const commercePromotionsStore = createCommercePromotionsStore(
   config.databaseUrl,
 );
@@ -258,6 +262,16 @@ Deno.serve(async (request: Request) => {
       origin,
     });
     if (marketingCampaignResponse) return marketingCampaignResponse;
+
+    const commerceCatalogResponse = await commerceCatalogRouteHandler({
+      request,
+      path,
+      accountId,
+      admin,
+      correlationId,
+      origin,
+    });
+    if (commerceCatalogResponse) return commerceCatalogResponse;
 
     if (request.method === "GET" && path === "/api/v1/search") {
       const query = parseGlobalSearchQuery(new URL(request.url));
