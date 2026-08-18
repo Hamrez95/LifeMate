@@ -33,7 +33,10 @@ export type ContactPointPatch = {
 };
 
 export type ContactPointWriteMode = "replace" | "if-missing";
-export type ContactPointLookupMode = "legacy" | "prefer-contact" | "contact-only";
+export type ContactPointLookupMode =
+  | "legacy"
+  | "prefer-contact"
+  | "contact-only";
 
 function strictBoolean(
   name: string,
@@ -50,10 +53,13 @@ function strictBoolean(
 export function contactPointLookupMode(
   readEnvironment: EnvironmentReader = (name) => Deno.env.get(name),
 ): ContactPointLookupMode {
-  const mode = (readEnvironment("LIFEMATE_PROFILE_CONTACT_LOOKUP_MODE") ?? "legacy")
-    .trim()
-    .toLowerCase();
-  if (mode === "legacy" || mode === "prefer-contact" || mode === "contact-only") {
+  const mode =
+    (readEnvironment("LIFEMATE_PROFILE_CONTACT_LOOKUP_MODE") ?? "legacy")
+      .trim()
+      .toLowerCase();
+  if (
+    mode === "legacy" || mode === "prefer-contact" || mode === "contact-only"
+  ) {
     return mode;
   }
   throw new Error(
@@ -106,7 +112,8 @@ export function createContactPointReader(
 ) {
   const readEnvironment = options.readEnvironment ??
     ((name: string) => Deno.env.get(name));
-  const lookupMode = options.lookupMode ?? contactPointLookupMode(readEnvironment);
+  const lookupMode = options.lookupMode ??
+    contactPointLookupMode(readEnvironment);
   const rawRetirement = options.rawRetirementEnabled ??
     rawContactRetirementEnabled(readEnvironment);
   const readinessApproved = options.readinessApproved ??
