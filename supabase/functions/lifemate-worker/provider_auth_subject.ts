@@ -42,7 +42,7 @@ export function createProviderAuthSubjectResolver(
 
   const lookupHandle = options.lookupHandle ??
     (async (accountId: string): Promise<HandleRow[]> => {
-      return await sql<HandleRow[]>`
+      const rows = await sql`
         select ciphertext_b64,nonce_b64,key_version
         from identity.provider_identity_handles
         where account_id=${accountId}::uuid
@@ -51,10 +51,11 @@ export function createProviderAuthSubjectResolver(
           and status='Active'
         limit 2
       `;
+      return rows as HandleRow[];
     });
   const lookupLegacy = options.lookupLegacy ??
     (async (accountId: string): Promise<LegacyRow[]> => {
-      return await sql<LegacyRow[]>`
+      const rows = await sql`
         select u.auth_subject
         from identity.accounts a
         join lifemate.app_users u
@@ -63,6 +64,7 @@ export function createProviderAuthSubjectResolver(
           and u.status <> 'Deleted'
         limit 1
       `;
+      return rows as LegacyRow[];
     });
 
   async function resolve(accountId: string): Promise<string | null> {
