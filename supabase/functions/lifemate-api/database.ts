@@ -57,7 +57,7 @@ export function createLifeMateDatabase(
     databaseUrl,
     contactHashingSecret,
   );
-  const profiles = createProfileStore(databaseUrl);
+  const profiles = createProfileStore(databaseUrl, contactHashingSecret);
 
   async function currentUser(
     identity: Parameters<typeof database.currentUser>[0],
