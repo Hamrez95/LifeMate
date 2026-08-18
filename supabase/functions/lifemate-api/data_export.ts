@@ -1,3 +1,4 @@
+import { createContactPointReader } from "./contact_points.ts";
 import { getLifeMateSql } from "./database_client.ts";
 import { ApiError } from "./validation.ts";
 
@@ -9,6 +10,7 @@ export const portableExportMaximumBytes = 8 * 1024 * 1024;
 
 export function createDataExportStore(databaseUrl: string) {
   const sql = getLifeMateSql(databaseUrl);
+  const contactReader = createContactPointReader();
 
   async function exportAccountData(appUserId: string): Promise<Row> {
     const users = await sql`
@@ -66,6 +68,25 @@ export function createDataExportStore(databaseUrl: string) {
         limit ${portableExportRowLimit + 1}
       `,
     );
+    if (profiles[0]) {
+      const legacyPhone = stringOrNull(profiles[0].phone_number);
+      const legacyEmail = stringOrNull(profiles[0].email);
+      // Keep these reads sequential for the same single-connection invariant as
+      // the rest of the portable export. `legacy` remains dependency-free;
+      // protected prefer/contact-only modes reuse the exact Profile reader.
+      profiles[0].phone_number = await contactReader.readForProfile(
+        sql,
+        appUserId,
+        "Phone",
+        legacyPhone,
+      );
+      profiles[0].email = await contactReader.readForProfile(
+        sql,
+        appUserId,
+        "Email",
+        legacyEmail,
+      );
+    }
 
     const contactPoints = accountId == null ? [] : await bounded(
       "contact_points",
@@ -414,6 +435,10 @@ export function portableRow(row: Row): Row {
   return Object.fromEntries(
     Object.entries(row).map(([key, value]) => [camelCase(key), value]),
   );
+}
+
+function stringOrNull(value: unknown): string | null {
+  return typeof value === "string" && value.length > 0 ? value : null;
 }
 
 function camelCase(value: string): string {
