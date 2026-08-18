@@ -1,0 +1,122 @@
+name: contact-point-readiness
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: production-contact-point-readiness
+  cancel-in-progress: false
+
+jobs:
+  audit:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    environment: beta
+    env:
+      LIFEMATE_CONTACT_MIGRATION_DATABASE_URL: ${{ secrets.LIFEMATE_IDENTITY_BACKFILL_DATABASE_URL }}
+      LIFEMATE_CONTACT_HASHING_SECRET: ${{ secrets.LIFEMATE_CONTACT_HASHING_SECRET }}
+      LIFEMATE_IDENTITY_CONTACT_ENCRYPTION_KEY: ${{ secrets.LIFEMATE_IDENTITY_CONTACT_ENCRYPTION_KEY }}
+      LIFEMATE_IDENTITY_CONTACT_ENCRYPTION_KEY_VERSION: ${{ secrets.LIFEMATE_IDENTITY_CONTACT_ENCRYPTION_KEY_VERSION }}
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
+        with:
+          ref: ${{ github.sha }}
+          show-progress: false
+          persist-credentials: false
+          fetch-depth: 1
+
+      - name: Require protected exact-main read-only execution
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$GITHUB_REF" = 'refs/heads/main'
+          test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
+          test "${{ github.event.repository.private }}" = 'true'
+          test "${{ github.ref_protected }}" = 'true'
+          test -n "$LIFEMATE_CONTACT_MIGRATION_DATABASE_URL"
+          test "${#LIFEMATE_CONTACT_HASHING_SECRET}" -ge 32
+          test "${#LIFEMATE_IDENTITY_CONTACT_ENCRYPTION_KEY}" -ge 32
+          [[ "$LIFEMATE_IDENTITY_CONTACT_ENCRYPTION_KEY_VERSION" =~ ^[0-9]+$ ]]
+          test "$LIFEMATE_IDENTITY_CONTACT_ENCRYPTION_KEY_VERSION" -ge 1
+          test "$LIFEMATE_IDENTITY_CONTACT_ENCRYPTION_KEY_VERSION" -le 32767
+
+      - uses: denoland/setup-deno@22d081ff2d3a40755e97629de92e3bcbfa7cf2ed
+        with:
+          deno-version: v2.9.4
+
+      - name: Check read-only readiness source
+        shell: bash
+        run: |
+          set -euo pipefail
+          deno fmt --check tools/security/contact-point-readiness.ts
+          deno check tools/security/contact-point-readiness.ts
+
+      - name: Audit encrypted ContactPoint coverage
+        shell: bash
+        run: |
+          set -euo pipefail
+          summary_file="$RUNNER_TEMP/contact-point-readiness.json"
+          error_file="$RUNNER_TEMP/contact-point-readiness.err"
+          set +e
+          deno run \
+            --allow-env=LIFEMATE_CONTACT_MIGRATION_DATABASE_URL,LIFEMATE_CONTACT_HASHING_SECRET,LIFEMATE_IDENTITY_CONTACT_ENCRYPTION_KEY,LIFEMATE_IDENTITY_CONTACT_ENCRYPTION_KEY_VERSION \
+            --allow-net \
+            tools/security/contact-point-readiness.ts \
+            > "$summary_file" 2> "$error_file"
+          audit_status=$?
+          set -e
+
+          if ! jq -e '
+            (.keyVersion | type == "number") and
+            (.activeAccounts | type == "number") and
+            (.unmappedActiveAccounts | type == "number") and
+            (.email | type == "object") and
+            (.phone | type == "object") and
+            ([.email,.phone] | all(
+              (.legacyPresent | type == "number") and
+              (.canonicalPresent | type == "number") and
+              (.missingCanonical | type == "number") and
+              (.mismatchedCanonical | type == "number") and
+              (.conflictingOwner | type == "number") and
+              (.invalidEnvelope | type == "number") and
+              (.invalidLegacy | type == "number") and
+              (.unexpectedCanonical | type == "number") and
+              (.duplicateCurrent | type == "number")
+            )) and
+            (.readyForContactOnly | type == "boolean")
+          ' "$summary_file" >/dev/null 2>&1; then
+            rm -f "$summary_file" "$error_file"
+            echo '::error::ContactPoint readiness audit failed without a valid count-only summary.'
+            exit 1
+          fi
+
+          {
+            echo '## ContactPoint readiness'
+            echo ''
+            echo "- key version: $(jq -r '.keyVersion' "$summary_file")"
+            echo "- active mapped Accounts: $(jq -r '.activeAccounts' "$summary_file")"
+            echo "- unmapped active Accounts: $(jq -r '.unmappedActiveAccounts' "$summary_file")"
+            for kind in email phone; do
+              echo "- ${kind} legacy present: $(jq -r ".${kind}.legacyPresent" "$summary_file")"
+              echo "- ${kind} canonical present: $(jq -r ".${kind}.canonicalPresent" "$summary_file")"
+              echo "- ${kind} missing canonical: $(jq -r ".${kind}.missingCanonical" "$summary_file")"
+              echo "- ${kind} mismatched canonical: $(jq -r ".${kind}.mismatchedCanonical" "$summary_file")"
+              echo "- ${kind} conflicting owner: $(jq -r ".${kind}.conflictingOwner" "$summary_file")"
+              echo "- ${kind} invalid envelope: $(jq -r ".${kind}.invalidEnvelope" "$summary_file")"
+              echo "- ${kind} invalid legacy: $(jq -r ".${kind}.invalidLegacy" "$summary_file")"
+              echo "- ${kind} unexpected canonical: $(jq -r ".${kind}.unexpectedCanonical" "$summary_file")"
+              echo "- ${kind} duplicate current: $(jq -r ".${kind}.duplicateCurrent" "$summary_file")"
+            done
+            echo "- ready for contact-only: $(jq -r '.readyForContactOnly' "$summary_file")"
+            echo '- plaintext contacts, hashes, ciphertext, DB URLs and key material are intentionally omitted'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+          ready="$(jq -r '.readyForContactOnly' "$summary_file")"
+          rm -f "$summary_file" "$error_file"
+          if [ "$audit_status" -ne 0 ] || [ "$ready" != 'true' ]; then
+            echo '::error::Canonical encrypted ContactPoint coverage is not ready for contact-only activation.'
+            exit 1
+          fi
