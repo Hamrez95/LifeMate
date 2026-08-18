@@ -36,7 +36,8 @@ Deno.test({
       previousEnvironment.set(name, Deno.env.get(name));
     }
 
-    const hashingSecret = "contact-key-rotation-integration-hash-secret-32-bytes";
+    const hashingSecret =
+      "contact-key-rotation-integration-hash-secret-32-bytes";
     const previousKey = {
       secret: "contact-key-rotation-previous-envelope-key-32-bytes",
       keyVersion: 51,
@@ -206,7 +207,8 @@ Deno.test({
           delete from lifemate.user_profiles where user_id=${appUserId}::uuid
         `.catch(() => undefined);
         await admin`
-          delete from identity.external_identity_tokens where account_id=${accountId}::uuid
+          delete from identity.external_identity_tokens
+          where account_id=${accountId}::uuid
         `.catch(() => undefined);
         await admin`
           delete from identity.external_identities where account_id=${accountId}::uuid
