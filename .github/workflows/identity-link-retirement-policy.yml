@@ -8,8 +8,13 @@ on:
       - 'supabase/migrations/**'
       - 'tools/security/identity-link-retirement-readiness.ts'
       - 'tools/security/identity-link-retirement-readiness_test.ts'
+      - 'tools/security/identity-link-key-rotation-readiness.ts'
+      - 'tools/security/identity-link-key-rotation-readiness_test.ts'
       - 'tools/security/verify-identity-raw-link-boundary.mjs'
+      - 'tools/security/verify-identity-link-rotation-policy.mjs'
+      - 'docs/security/IDENTITY_LINK_KEY_ROTATION.md'
       - '.github/workflows/identity-link-retirement-readiness.yml'
+      - '.github/workflows/identity-link-key-rotation-readiness.yml'
       - '.github/workflows/identity-link-retirement-policy.yml'
   push:
     branches: [main]
@@ -18,8 +23,13 @@ on:
       - 'supabase/migrations/**'
       - 'tools/security/identity-link-retirement-readiness.ts'
       - 'tools/security/identity-link-retirement-readiness_test.ts'
+      - 'tools/security/identity-link-key-rotation-readiness.ts'
+      - 'tools/security/identity-link-key-rotation-readiness_test.ts'
       - 'tools/security/verify-identity-raw-link-boundary.mjs'
+      - 'tools/security/verify-identity-link-rotation-policy.mjs'
+      - 'docs/security/IDENTITY_LINK_KEY_ROTATION.md'
       - '.github/workflows/identity-link-retirement-readiness.yml'
+      - '.github/workflows/identity-link-key-rotation-readiness.yml'
       - '.github/workflows/identity-link-retirement-policy.yml'
 
 permissions:
@@ -59,17 +69,35 @@ jobs:
         with:
           deno-version: v2.9.4
 
-      - name: Freeze raw runtime identity boundary
-        run: node tools/security/verify-identity-raw-link-boundary.mjs
+      - name: Freeze raw runtime identity and rotation boundaries
+        shell: bash
+        run: |
+          set -euo pipefail
+          node tools/security/verify-identity-raw-link-boundary.mjs
+          node tools/security/verify-identity-link-rotation-policy.mjs
 
-      - name: Format and type-check read-only audit
+      - name: Format and type-check identity security source
         shell: bash
         run: |
           set -euo pipefail
           deno fmt --check \
             tools/security/identity-link-retirement-readiness.ts \
-            tools/security/identity-link-retirement-readiness_test.ts
-          deno check tools/security/identity-link-retirement-readiness_test.ts
+            tools/security/identity-link-retirement-readiness_test.ts \
+            tools/security/identity-link-key-rotation-readiness.ts \
+            tools/security/identity-link-key-rotation-readiness_test.ts \
+            supabase/functions/lifemate-api/identity_link_token.ts \
+            supabase/functions/lifemate-api/identity_link_token_test.ts \
+            supabase/functions/lifemate-api/identity_resolver.ts \
+            supabase/functions/lifemate-api/identity_resolver_test.ts \
+            supabase/functions/lifemate-api/identity_link_rotation_integration_test.ts
+          deno check --config supabase/functions/lifemate-api/deno.json \
+            tools/security/identity-link-retirement-readiness_test.ts \
+            tools/security/identity-link-key-rotation-readiness_test.ts
+          cd supabase/functions/lifemate-api
+          deno check \
+            identity_link_token_test.ts \
+            identity_resolver_test.ts \
+            identity_link_rotation_integration_test.ts
 
       - name: Apply canonical portable schema
         shell: bash
@@ -131,9 +159,27 @@ jobs:
 
       - name: Prove canonical-token coverage gate
         run: >-
-          deno test --no-check --allow-env
+          deno test --config supabase/functions/lifemate-api/deno.json
+          --no-check --allow-env
           --allow-net=localhost:5432,127.0.0.1:5432
           tools/security/identity-link-retirement-readiness_test.ts
+
+      - name: Prove active-version rotation readiness gate
+        run: >-
+          deno test --config supabase/functions/lifemate-api/deno.json
+          --no-check --allow-env
+          --allow-net=localhost:5432,127.0.0.1:5432
+          tools/security/identity-link-key-rotation-readiness_test.ts
+
+      - name: Prove token rotation runtime behavior
+        working-directory: supabase/functions/lifemate-api
+        shell: bash
+        run: |
+          set -euo pipefail
+          deno test --no-check identity_link_token_test.ts identity_resolver_test.ts
+          deno test --no-check --allow-env \
+            --allow-net=localhost:5432,127.0.0.1:5432 \
+            identity_link_rotation_integration_test.ts
 
       - name: Verify protected manual readiness workflow policy
         shell: bash
@@ -150,3 +196,16 @@ jobs:
           grep -Fq 'identity-link-retirement-readiness.ts' "$workflow"
           grep -Fq 'readyForTokenOnly' "$workflow"
           ! grep -Fq 'upload-artifact' "$workflow"
+
+          rotation='.github/workflows/identity-link-key-rotation-readiness.yml'
+          grep -Fq 'workflow_dispatch:' "$rotation"
+          ! grep -Eq '^[[:space:]]+(pull_request|push|schedule):' "$rotation"
+          grep -Fq 'environment: beta' "$rotation"
+          grep -Fq "test \"\$GITHUB_REF\" = 'refs/heads/main'" "$rotation"
+          grep -Fq "github.event.repository.private }}\" = 'true'" "$rotation"
+          grep -Fq "github.ref_protected }}\" = 'true'" "$rotation"
+          grep -Fq 'identity-link-key-rotation-readiness.ts' "$rotation"
+          grep -Fq 'readyForPreviousKeyRemoval' "$rotation"
+          ! grep -Fq 'upload-artifact' "$rotation"
+          ! grep -Fq '${{ secrets.LIFEMATE_IDENTITY_LINK_KEY }}' "$rotation"
+          ! grep -Fq '${{ secrets.LIFEMATE_IDENTITY_LINK_PREVIOUS_KEY }}' "$rotation"
