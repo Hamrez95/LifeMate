@@ -32,6 +32,7 @@ type TokenLookupRow = {
   account_status: string;
   app_user_id: string | null;
   app_user_status: string | null;
+  token_key_version: number;
 };
 
 type TokenCandidate = {
@@ -149,14 +150,25 @@ export function createIdentityResolver(
 
     const previous = await tokenCandidate(keys.previous, authSubject);
     return await sql().begin(async (transaction: any) => {
-      // Read both candidates inside one snapshot. A valid active token does not
-      // mask a conflicting previous token during overlap; cross-key ambiguity is
-      // a security error and must fail closed rather than selecting one mapping.
+      // PostgreSQL READ COMMITTED gives each statement its own snapshot, so both
+      // rotation candidates are deliberately fetched by one SELECT. A valid
+      // active token therefore cannot mask a concurrently inconsistent previous
+      // mapping between two reads. The subsequent upsert still detects a token
+      // ownership race through the canonical uniqueness constraint.
+      const candidateRows = await lookupRotationCandidates(
+        transaction,
+        active,
+        previous,
+      );
       const activeRow = requireUsableTokenRow(
-        await lookupToken(transaction, active),
+        candidateRows.filter((row) =>
+          Number(row.token_key_version) === active.keyVersion
+        ),
       );
       const previousRow = requireUsableTokenRow(
-        await lookupToken(transaction, previous),
+        candidateRows.filter((row) =>
+          Number(row.token_key_version) === previous.keyVersion
+        ),
       );
 
       if (
@@ -212,7 +224,8 @@ export function createIdentityResolver(
         t.account_id::text as account_id,
         a.status as account_status,
         a.legacy_app_user_id::text as app_user_id,
-        u.status as app_user_status
+        u.status as app_user_status,
+        t.key_version as token_key_version
       from identity.external_identity_tokens t
       join identity.accounts a on a.id=t.account_id
       left join lifemate.app_users u on u.id=a.legacy_app_user_id
@@ -222,6 +235,39 @@ export function createIdentityResolver(
         and t.key_version=${candidate.keyVersion}
         and t.status='Active'
       limit 2
+    `;
+    return rows;
+  }
+
+  async function lookupRotationCandidates(
+    connection: any,
+    active: TokenCandidate,
+    previous: TokenCandidate,
+  ): Promise<TokenLookupRow[]> {
+    const rows: TokenLookupRow[] = await connection`
+      select
+        t.account_id::text as account_id,
+        a.status as account_status,
+        a.legacy_app_user_id::text as app_user_id,
+        u.status as app_user_status,
+        t.key_version as token_key_version
+      from identity.external_identity_tokens t
+      join identity.accounts a on a.id=t.account_id
+      left join lifemate.app_users u on u.id=a.legacy_app_user_id
+      where t.provider='supabase_auth'
+        and t.issuer='supabase'
+        and t.status='Active'
+        and (
+          (
+            t.key_version=${active.keyVersion}
+            and t.subject_token=${active.subjectToken}
+          )
+          or (
+            t.key_version=${previous.keyVersion}
+            and t.subject_token=${previous.subjectToken}
+          )
+        )
+      limit 4
     `;
     return rows;
   }
