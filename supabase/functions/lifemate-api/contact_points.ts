@@ -1,5 +1,6 @@
 import {
   type ContactEncryptionKey,
+  type ContactEncryptionKeySet,
   contactPointDualWriteEnabled,
   type ContactPointKind,
   decryptContactPoint,
@@ -7,6 +8,7 @@ import {
   hashContactPoint,
   normalizeContactPoint,
   readContactEncryptionKey,
+  readContactEncryptionKeySet,
 } from "../_shared/contact_point_crypto.ts";
 import { ApiError } from "./validation.ts";
 
@@ -22,6 +24,7 @@ type ContactPointWriterOptions = {
 type ContactPointReaderOptions = {
   lookupMode?: ContactPointLookupMode;
   encryptionKey?: ContactEncryptionKey;
+  previousEncryptionKey?: ContactEncryptionKey | null;
   rawRetirementEnabled?: boolean;
   readinessApproved?: boolean;
   dualWriteEnabled?: boolean;
@@ -108,6 +111,18 @@ async function requireAccountId(
   return accountId;
 }
 
+function injectedKeySet(
+  active: ContactEncryptionKey,
+  previous: ContactEncryptionKey | null,
+): ContactEncryptionKeySet {
+  if (previous && previous.keyVersion === active.keyVersion) {
+    throw new Error(
+      "Previous ContactPoint encryption key version must differ from the active key version.",
+    );
+  }
+  return { active, previous };
+}
+
 export function createContactPointReader(
   options: ContactPointReaderOptions = {},
 ) {
@@ -138,16 +153,21 @@ export function createContactPointReader(
     );
   }
 
-  const encryptionKey = lookupMode === "legacy"
+  const encryptionKeys = lookupMode === "legacy"
     ? null
-    : options.encryptionKey ?? readContactEncryptionKey(readEnvironment);
+    : options.encryptionKey
+    ? injectedKeySet(
+      options.encryptionKey,
+      options.previousEncryptionKey ?? null,
+    )
+    : readContactEncryptionKeySet(readEnvironment);
 
   async function readCanonical(
     connection: any,
     legacyAppUserId: string,
     kind: ContactPointKind,
   ): Promise<string | null> {
-    if (!encryptionKey) {
+    if (!encryptionKeys) {
       throw new Error("Canonical ContactPoint reads are not configured.");
     }
     const accountId = await requireAccountId(connection, legacyAppUserId);
@@ -171,11 +191,19 @@ export function createContactPointReader(
     }
     const row = rows[0];
     if (!row) return null;
+    const rowKeyVersion = Number(row.encryption_key_version);
+    const decryptionKey = rowKeyVersion === encryptionKeys.active.keyVersion
+      ? encryptionKeys.active
+      : encryptionKeys.previous &&
+          rowKeyVersion === encryptionKeys.previous.keyVersion
+      ? encryptionKeys.previous
+      : null;
     if (
       typeof row.normalized_value_hash !== "string" ||
       typeof row.ciphertext_b64 !== "string" ||
       typeof row.encryption_nonce_b64 !== "string" ||
-      Number(row.encryption_key_version) !== encryptionKey.keyVersion
+      !Number.isSafeInteger(rowKeyVersion) ||
+      !decryptionKey
     ) {
       throw new ApiError(
         503,
@@ -185,7 +213,7 @@ export function createContactPointReader(
     }
     try {
       return await decryptContactPoint(
-        encryptionKey,
+        decryptionKey,
         {
           accountId,
           kind,
@@ -194,7 +222,7 @@ export function createContactPointReader(
         {
           ciphertextB64: row.ciphertext_b64,
           nonceB64: row.encryption_nonce_b64,
-          keyVersion: Number(row.encryption_key_version),
+          keyVersion: rowKeyVersion,
         },
       );
     } catch {
@@ -267,8 +295,11 @@ export function createContactPointWriter(
         "Encrypted ContactPoint dual-write requires the dedicated LifeMate contact hashing secret.",
       );
     }
+    // Production configuration validates the complete active/previous pair,
+    // but writers always consume only the active key. Explicit key injection is
+    // used by tests/migration tooling and is likewise treated as the active key.
     encryptionKey = options.encryptionKey ??
-      readContactEncryptionKey(readEnvironment);
+      readContactEncryptionKeySet(readEnvironment).active;
   }
 
   async function syncForLegacyAppUser(
