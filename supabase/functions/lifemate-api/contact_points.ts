@@ -23,6 +23,7 @@ type ContactPointReaderOptions = {
   encryptionKey?: ContactEncryptionKey;
   rawRetirementEnabled?: boolean;
   readinessApproved?: boolean;
+  dualWriteEnabled?: boolean;
   readEnvironment?: EnvironmentReader;
 };
 
@@ -110,6 +111,8 @@ export function createContactPointReader(
     rawContactRetirementEnabled(readEnvironment);
   const readinessApproved = options.readinessApproved ??
     contactOnlyReadinessApproved(readEnvironment);
+  const dualWriteEnabled = options.dualWriteEnabled ??
+    contactPointDualWriteEnabled(readEnvironment);
   const encryptionKey = lookupMode === "legacy"
     ? null
     : options.encryptionKey ?? readContactEncryptionKey(readEnvironment);
@@ -117,6 +120,11 @@ export function createContactPointReader(
   if (lookupMode === "contact-only" && !readinessApproved) {
     throw new Error(
       "contact-only Profile reads require LIFEMATE_IDENTITY_CONTACT_READINESS_APPROVED=true from a protected readiness process.",
+    );
+  }
+  if (lookupMode === "contact-only" && !dualWriteEnabled) {
+    throw new Error(
+      "contact-only Profile reads require LIFEMATE_IDENTITY_CONTACT_DUAL_WRITE=true so Profile updates keep canonical contacts current.",
     );
   }
 
@@ -211,6 +219,7 @@ export function createContactPointReader(
     lookupMode,
     rawRetirementEnabled: rawRetirement,
     readinessApproved,
+    dualWriteEnabled,
     readCanonical,
     readForProfile,
   };
