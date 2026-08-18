@@ -27,6 +27,11 @@ const readinessTool = read('tools/security/contact-point-readiness.ts');
 const backfillTool = read('tools/security/contact-point-backfill.ts');
 const contactRuntime = read('supabase/functions/lifemate-api/contact_points.ts');
 const profileRuntime = read('supabase/functions/lifemate-api/profile.ts');
+const databaseRuntime = read('supabase/functions/lifemate-api/database.ts');
+const bootstrapRuntime = read(
+  'supabase/functions/lifemate-api/raw_contact_retirement_bootstrap.ts',
+);
+const dataExportRuntime = read('supabase/functions/lifemate-api/data_export.ts');
 const denoConfig = read('supabase/functions/lifemate-api/deno.json');
 
 for (const [name, workflow] of [
@@ -140,6 +145,8 @@ requireMarkers(
     'LIFEMATE_IDENTITY_CONTACT_READINESS_APPROVED',
     'LIFEMATE_IDENTITY_CONTACT_RAW_RETIREMENT',
     'LIFEMATE_IDENTITY_CONTACT_DUAL_WRITE',
+    'Raw Profile contact retirement requires LIFEMATE_PROFILE_CONTACT_LOOKUP_MODE=contact-only.',
+    'Raw Profile contact retirement requires LIFEMATE_IDENTITY_CONTACT_DUAL_WRITE=true.',
     'contact-only Profile reads require LIFEMATE_IDENTITY_CONTACT_READINESS_APPROVED=true',
     'contact-only Profile reads require LIFEMATE_IDENTITY_CONTACT_DUAL_WRITE=true',
     'contact_point_unavailable',
@@ -151,20 +158,57 @@ requireMarkers(
   profileRuntime,
   [
     'createContactPointReader',
-    'contactReader.readForProfile',
     'createContactPointWriter',
+    'const rawPhone = contactReader.rawRetirementEnabled',
+    'const rawEmail = contactReader.rawRetirementEnabled ? null : auth.email;',
+    'compatibilityRows[0].phone_number = await contactReader.readForProfile',
+    'compatibilityRows[0].email = await contactReader.readForProfile',
   ],
   'Profile runtime',
+);
+requireMarkers(
+  databaseRuntime,
+  [
+    'rawContactRetirementEnabled',
+    'createRawContactRetirementBootstrapStore',
+    'if (rawContactRetirement)',
+    'retirementBootstrap.bootstrapUser',
+  ],
+  'database facade',
+);
+requireMarkers(
+  bootstrapRuntime,
+  [
+    'createContactPointWriter',
+    'phone_number = null',
+    'email = null',
+    'null, null',
+    'contactPoints.syncForLegacyAppUser',
+    '"if-missing"',
+    "'user.bootstrap'",
+  ],
+  'raw-contact retirement bootstrap',
+);
+requireMarkers(
+  dataExportRuntime,
+  [
+    'createContactPointReader',
+    'contactReader.readForProfile',
+    'encrypted contact values and contact hashes',
+  ],
+  'self-service data export',
 );
 requireMarkers(
   denoConfig,
   [
     'contact_point_read_mode_test.ts',
     'contact_point_read_mode_integration_test.ts',
+    'contact_point_data_export_integration_test.ts',
+    'raw_contact_retirement_integration_test.ts',
   ],
   'LifeMate API Deno tasks',
 );
 
 console.log(
-  'ContactPoint readiness, bounded backfill and Profile read cutover remain protected, fail-closed and CI-enforced.',
+  'ContactPoint readiness, bounded backfill, read cutover and raw write retirement remain protected, fail-closed and CI-enforced.',
 );
