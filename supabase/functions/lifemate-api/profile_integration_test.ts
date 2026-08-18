@@ -30,6 +30,9 @@ Deno.test({
       phone: null,
       userMetadata: {},
     };
+    const remappedAccountId = crypto.randomUUID();
+    const remappedPersonId = crypto.randomUUID();
+    let appUserId: string | null = null;
 
     try {
       await db.bootstrapUser(auth, {
@@ -38,11 +41,72 @@ Deno.test({
         timeZone: "Asia/Tehran",
       });
       const identity = await db.requireIdentity(auth);
+      appUserId = identity.appUserId;
+
+      // The bootstrap compatibility fixture initially uses equal UUIDs. Detach
+      // only its legacy AppUser bridge and create a deliberately unequal
+      // Account -> Self Person mapping, preserving the original bootstrap rows.
+      await admin`
+        update identity.accounts
+        set legacy_app_user_id = null, updated_at_utc = now()
+        where id = ${identity.appUserId}::uuid
+      `;
+      await admin`
+        insert into identity.accounts(id, legacy_app_user_id, status)
+        values (${remappedAccountId}::uuid, ${identity.appUserId}::uuid, 'Active')
+      `;
+      await admin`
+        insert into core.persons(id, status, subject_category)
+        values (${remappedPersonId}::uuid, 'Active', 'Adult')
+      `;
+      await admin`
+        insert into core.account_person_links(account_id, person_id, link_type, status)
+        values (${remappedAccountId}::uuid, ${remappedPersonId}::uuid, 'Self', 'Active')
+      `;
+      await admin`
+        insert into core.person_profiles(
+          person_id, display_name, locale, time_zone, avatar_key,
+          profile_photo_path, created_at_utc, updated_at_utc
+        )
+        select ${remappedPersonId}::uuid, display_name, locale, time_zone,
+               avatar_key, profile_photo_path, created_at_utc, updated_at_utc
+        from lifemate.user_profiles
+        where user_id = ${identity.appUserId}::uuid
+      `;
+
+      const mapping = await admin`
+        select core.self_person_id_for_legacy_app_user(
+          ${identity.appUserId}::uuid
+        )::text as person_id
+      `;
+      const personId = String(mapping[0]?.person_id ?? "");
+      assertEquals(personId, remappedPersonId);
+      assertEquals(personId === identity.appUserId, false);
+      assertEquals(remappedAccountId === identity.appUserId, false);
+      assertEquals(remappedAccountId === remappedPersonId, false);
 
       const initial = await profiles.getProfile(identity.appUserId);
       assertEquals(initial.version, 1);
       assertEquals(initial.displayName, "نام اولیه");
       assertEquals(initial.avatarKey, "person_blue");
+
+      // Canonical Person-facing fields win even if the legacy compatibility
+      // projection is stale. Contact/version fields remain legacy in this slice.
+      await admin`
+        update core.person_profiles
+        set display_name = 'نام canonical',
+            locale = 'en',
+            time_zone = 'Europe/Berlin',
+            avatar_key = 'person_green'
+        where person_id = ${personId}::uuid
+      `;
+      const canonicalRead = await profiles.getProfile(identity.appUserId);
+      assertEquals(canonicalRead.displayName, "نام canonical");
+      assertEquals(canonicalRead.locale, "en");
+      assertEquals(canonicalRead.timeZone, "Europe/Berlin");
+      assertEquals(canonicalRead.avatarKey, "person_green");
+      assertEquals(canonicalRead.version, 1);
+      assertEquals(canonicalRead.email, auth.email);
 
       const updated = await profiles.updateProfile(identity.appUserId, auth, {
         version: 1,
@@ -94,6 +158,34 @@ Deno.test({
       assertEquals(audits[0].resource_type, "user_profile");
       assertEquals(audits[0].metadata_json, null);
     } finally {
+      if (appUserId) {
+        await admin`
+          delete from core.account_person_links
+          where account_id = ${remappedAccountId}::uuid
+             or person_id = ${remappedPersonId}::uuid
+        `.catch(() => undefined);
+        await admin`
+          delete from core.person_profiles
+          where person_id = ${remappedPersonId}::uuid
+        `.catch(() => undefined);
+        await admin`
+          update identity.accounts
+          set legacy_app_user_id = null, updated_at_utc = now()
+          where id = ${remappedAccountId}::uuid
+        `.catch(() => undefined);
+        await admin`
+          delete from identity.accounts where id = ${remappedAccountId}::uuid
+        `.catch(() => undefined);
+        await admin`
+          delete from core.persons where id = ${remappedPersonId}::uuid
+        `.catch(() => undefined);
+        await admin`
+          update identity.accounts
+          set legacy_app_user_id = ${appUserId}::uuid, updated_at_utc = now()
+          where id = ${appUserId}::uuid
+        `.catch(() => undefined);
+      }
+
       const users = await admin`
         select id from lifemate.app_users where auth_subject = ${auth.id}
       `;

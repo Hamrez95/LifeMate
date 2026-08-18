@@ -44,6 +44,25 @@ export function normalizeProfilePatch(
   };
 }
 
+async function requireSelfPerson(
+  connection: any,
+  appUserId: string,
+): Promise<string> {
+  const rows = await connection`
+    select core.self_person_id_for_legacy_app_user(${appUserId}::uuid)::text
+      as person_id
+  `;
+  const personId = rows[0]?.person_id;
+  if (typeof personId !== "string" || personId.length === 0) {
+    throw new ApiError(
+      409,
+      "identity_person_mapping_missing",
+      "The LifeMate person mapping is unavailable.",
+    );
+  }
+  return personId;
+}
+
 /// Profile persistence deliberately supports both the current live schema and
 /// the reviewed additive `version` migration. This lets the candidate function
 /// be smoke-tested without applying DDL to the production database. Once the
@@ -167,22 +186,33 @@ export function createProfileStore(databaseUrl: string) {
   }
 
   async function getProfile(userId: string): Promise<Record<string, unknown>> {
+    const personId = await requireSelfPerson(sql, userId);
     const rows = await (await hasVersionColumn()
       ? sql`
-          select id, user_id, display_name, phone_number, email, locale,
-                 time_zone, avatar_key, version, created_at_utc, updated_at_utc
-          from lifemate.user_profiles
-          where user_id = ${userId}
+          select legacy.id, legacy.user_id,
+                 person.display_name,
+                 legacy.phone_number, legacy.email,
+                 person.locale, person.time_zone, person.avatar_key,
+                 legacy.version,
+                 legacy.created_at_utc, legacy.updated_at_utc
+          from lifemate.user_profiles legacy
+          join core.person_profiles person
+            on person.person_id = ${personId}::uuid
+          where legacy.user_id = ${userId}::uuid
           limit 1
         `
       : sql`
-          select id, user_id, display_name, phone_number, email, locale,
-                 time_zone, avatar_key,
-                 floor(extract(epoch from updated_at_utc) * 1000)::bigint
+          select legacy.id, legacy.user_id,
+                 person.display_name,
+                 legacy.phone_number, legacy.email,
+                 person.locale, person.time_zone, person.avatar_key,
+                 floor(extract(epoch from legacy.updated_at_utc) * 1000)::bigint
                    as version,
-                 created_at_utc, updated_at_utc
-          from lifemate.user_profiles
-          where user_id = ${userId}
+                 legacy.created_at_utc, legacy.updated_at_utc
+          from lifemate.user_profiles legacy
+          join core.person_profiles person
+            on person.person_id = ${personId}::uuid
+          where legacy.user_id = ${userId}::uuid
           limit 1
         `);
     if (!rows[0]) {
@@ -200,6 +230,7 @@ export function createProfileStore(databaseUrl: string) {
     const usesVersionColumn = await hasVersionColumn();
 
     return await sql.begin(async (tx: any) => {
+      await requireSelfPerson(tx, userId);
       const rows = await (usesVersionColumn
         ? tx`
             update lifemate.user_profiles
