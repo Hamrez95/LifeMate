@@ -1,7 +1,9 @@
 import { assertEquals } from "jsr:@std/assert@1.0.14";
 import postgres from "npm:postgres@3.4.7";
 import { createContactPointWriter } from "../../supabase/functions/lifemate-api/contact_points.ts";
-import { assessContactPointKeyRotationReadiness } from "./contact-point-key-rotation-readiness.ts";
+import {
+  assessContactPointKeyRotationReadiness,
+} from "./contact-point-key-rotation-readiness.ts";
 
 const databaseUrl = Deno.env.get("TEST_DATABASE_URL");
 if (!databaseUrl) {
@@ -156,13 +158,16 @@ Deno.test({
         `.catch(() => undefined);
       }
       await sql`
-        delete from lifemate.app_users where id in (${appUserA}::uuid,${appUserB}::uuid)
+        delete from lifemate.app_users
+        where id in (${appUserA}::uuid,${appUserB}::uuid)
       `.catch(() => undefined);
       await sql`
-        delete from core.person_profiles where person_id in (${appUserA}::uuid,${appUserB}::uuid)
+        delete from core.person_profiles
+        where person_id in (${appUserA}::uuid,${appUserB}::uuid)
       `.catch(() => undefined);
       await sql`
-        delete from core.persons where id in (${appUserA}::uuid,${appUserB}::uuid)
+        delete from core.persons
+        where id in (${appUserA}::uuid,${appUserB}::uuid)
       `.catch(() => undefined);
       await sql.end({ timeout: 5 });
     }
