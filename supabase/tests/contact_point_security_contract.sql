@@ -43,10 +43,6 @@ begin
     'lifemate_edge_runtime','identity.contact_points','TRUNCATE'
   ) then raise exception 'Edge runtime can destructively erase ContactPoints'; end if;
 
-  if not has_table_privilege(
-    'lifemate_worker_runtime','identity.contact_points','DELETE'
-  ) then raise exception 'Worker lost account-deletion ContactPoint cleanup'; end if;
-
   if has_table_privilege(
     'lifemate_worker_runtime','identity.contact_points','SELECT'
   ) or has_table_privilege(
@@ -54,8 +50,14 @@ begin
   ) or has_table_privilege(
     'lifemate_worker_runtime','identity.contact_points','UPDATE'
   ) or has_table_privilege(
+    'lifemate_worker_runtime','identity.contact_points','DELETE'
+  ) or has_table_privilege(
     'lifemate_worker_runtime','identity.contact_points','TRUNCATE'
-  ) then raise exception 'Worker gained ContactPoint read/write privileges'; end if;
+  ) then raise exception 'Worker gained direct ContactPoint table access'; end if;
+
+  if not has_function_privilege(
+    'lifemate_worker_runtime','identity.finalize_account_deletion(uuid)','EXECUTE'
+  ) then raise exception 'Worker lost SECURITY DEFINER account-deletion cleanup'; end if;
 
   if exists(select 1 from pg_roles where rolname='authenticated') and
      has_table_privilege('authenticated','identity.contact_points','SELECT') then
@@ -76,7 +78,15 @@ begin
       and tablename='contact_points'
       and indexname='uq_contact_points_current_kind_hash'
       and indexdef ilike '%where%status%Revoked%'
-  ) then raise exception 'Current-contact partial uniqueness index missing'; end if;
+  ) then raise exception 'Current-contact global partial uniqueness index missing'; end if;
+
+  if not exists(
+    select 1 from pg_indexes
+    where schemaname='identity'
+      and tablename='contact_points'
+      and indexname='uq_contact_points_current_account_kind'
+      and indexdef ilike '%where%status%Revoked%'
+  ) then raise exception 'Single current ContactPoint per Account/kind index missing'; end if;
 end $$;
 
 -- A revoked historical hash must not permanently lock a legitimately moved
@@ -113,7 +123,7 @@ begin
   if (select count(*) from identity.contact_points
       where kind='Phone' and normalized_value_hash=repeat('a',64)
         and status <> 'Revoked') <> 1 then
-    raise exception 'Current ContactPoint uniqueness is not enforced';
+    raise exception 'Current ContactPoint global uniqueness is not enforced';
   end if;
 end $$;
 
