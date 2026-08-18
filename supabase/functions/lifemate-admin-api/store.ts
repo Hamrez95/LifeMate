@@ -33,29 +33,6 @@ export function createAdminStore(databaseUrl: string) {
     await sql`select 1 as ready`;
   }
 
-  async function resolveAccountId(providerSubject: string): Promise<string> {
-    const rows = await sql`
-      select a.id
-      from identity.external_identities e
-      join identity.accounts a on a.id=e.account_id
-      where e.provider='supabase_auth'
-        and e.issuer='supabase'
-        and e.provider_subject=${providerSubject}
-        and e.status='Active'
-        and a.status='Active'
-      limit 1
-    `;
-    const id = rows[0]?.id;
-    if (typeof id !== "string") {
-      throw new ApiError(
-        403,
-        "lifemate_account_required",
-        "An active LifeMate account is required for Command Center access.",
-      );
-    }
-    return id;
-  }
-
   async function getSnapshot(
     accountId: string,
   ): Promise<AdminCapabilitySnapshot> {
@@ -207,7 +184,6 @@ export function createAdminStore(databaseUrl: string) {
 
   return {
     health,
-    resolveAccountId,
     getSnapshot,
     bootstrapFounder,
     listAudit,
