@@ -2,6 +2,7 @@ import type { AdminCapabilitySnapshot } from "./authorization.ts";
 import { type AdminSql, getAdminSql } from "./database_client.ts";
 import type { UserDirectoryQuery } from "./directory.ts";
 import { listUserDirectory } from "./directory_store.ts";
+import { createAdminIdentityResolver } from "./identity_resolution.ts";
 import { ApiError } from "./validation.ts";
 
 type Row = Record<string, unknown>;
@@ -28,6 +29,7 @@ function asStringArray(rows: readonly Row[], key: string): string[] {
 
 export function createAdminStore(databaseUrl: string) {
   const sql: AdminSql = getAdminSql(databaseUrl);
+  const identityResolver = createAdminIdentityResolver(databaseUrl);
 
   async function health(): Promise<void> {
     await sql`select 1 as ready`;
@@ -184,6 +186,7 @@ export function createAdminStore(databaseUrl: string) {
 
   return {
     health,
+    resolveAccountId: identityResolver.resolveAccountId,
     getSnapshot,
     bootstrapFounder,
     listAudit,
