@@ -5,6 +5,7 @@ import {
 } from "./database_legacy.ts";
 import { createIdentityResolver } from "./identity_resolver.ts";
 import { createInvitationRevocationStore } from "./invitation_revoke.ts";
+import { createPersonCareRelationshipManagementStore } from "./person_care_relationship_management.ts";
 import { createPersonDoseOccurrenceStore } from "./person_dose_occurrences.ts";
 import { createPersonInvitationAcceptanceStore } from "./person_invitation_acceptance.ts";
 import { createPersonMedicationStore } from "./person_medications.ts";
@@ -40,6 +41,9 @@ export function createLifeMateDatabase(
   );
   const identityResolver = createIdentityResolver(databaseUrl);
   const invitationRevocation = createInvitationRevocationStore(databaseUrl);
+  const personCareRelationships = createPersonCareRelationshipManagementStore(
+    databaseUrl,
+  );
   const personDoseOccurrences = createPersonDoseOccurrenceStore(databaseUrl);
   const personInvitationAcceptance = createPersonInvitationAcceptanceStore(
     databaseUrl,
@@ -114,5 +118,9 @@ export function createLifeMateDatabase(
         (_phoneIdentity, nonPhoneBody) =>
           personInvitationAcceptance.acceptInvitation(identity, nonPhoneBody),
       ),
+    listRelationships: personCareRelationships.listRelationships,
+    updateRelationshipPermissions:
+      personCareRelationships.updateRelationshipPermissions,
+    revokeRelationship: personCareRelationships.revokeRelationship,
   };
 }
