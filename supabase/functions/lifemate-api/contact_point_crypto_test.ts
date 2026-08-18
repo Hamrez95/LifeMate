@@ -22,8 +22,14 @@ const encryptionKey = {
 };
 
 Deno.test("ContactPoint normalization and HMAC are stable and domain-separated", async () => {
-  assertEquals(normalizeContactPoint("Email", " User@Example.COM "), "user@example.com");
-  assertEquals(normalizeContactPoint("Phone", "+98 (912) 123-4567"), "+989121234567");
+  assertEquals(
+    normalizeContactPoint("Email", " User@Example.COM "),
+    "user@example.com",
+  );
+  assertEquals(
+    normalizeContactPoint("Phone", "+98 (912) 123-4567"),
+    "+989121234567",
+  );
 
   const emailHash = await hashContactPoint(
     hashSecret,
