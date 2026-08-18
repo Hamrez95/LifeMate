@@ -180,15 +180,22 @@ requireMarkers(
   bootstrapRuntime,
   [
     'createContactPointWriter',
-    'phone_number = null',
-    'email = null',
+    'identityLinkDualWriteEnabled',
+    'LIFEMATE_IDENTITY_LINK_LOOKUP_MODE=token-only',
+    'deriveIdentityLinkToken',
+    'insert into identity.external_identity_tokens',
+    'subject_token',
+    'insert into lifemate.user_profiles',
     'null, null',
-    'contactPoints.syncForLegacyAppUser',
+    'contactPoints.syncForAccount',
     '"if-missing"',
     "'user.bootstrap'",
   ],
   'raw-contact retirement bootstrap',
 );
+if (bootstrapRuntime.includes('database_legacy.ts')) {
+  fail('raw-contact retirement bootstrap must not import the legacy database implementation.');
+}
 requireMarkers(
   dataExportRuntime,
   [
