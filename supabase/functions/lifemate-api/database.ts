@@ -15,6 +15,7 @@ import {
   createPhoneInvitationDeliveryFromEnvironment,
   type PhoneInvitationDelivery,
 } from "./phone_invitation_delivery.ts";
+import { createProfileStore } from "./profile.ts";
 
 export type LifeMateDatabaseOptions = {
   phoneInvitationDelivery?: PhoneInvitationDelivery;
@@ -55,11 +56,23 @@ export function createLifeMateDatabase(
     databaseUrl,
     contactHashingSecret,
   );
+  const profiles = createProfileStore(databaseUrl);
 
   return {
     ...database,
     requireIdentity: identityResolver.requireIdentity,
     identityLookupMode: identityResolver.lookupMode,
+    // The outer current-user contract remains legacy-compatible, while its
+    // Person-facing profile payload is read from the mapped canonical Person.
+    currentUser: async (
+      identity: Parameters<typeof database.currentUser>[0],
+    ) => {
+      const current = await database.currentUser(identity);
+      return {
+        ...current,
+        profile: await profiles.getProfile(identity.appUserId),
+      };
+    },
     // Medication ownership is canonical Person-based and new runtime writes no
     // longer create the legacy owner_user_id linkage. Existing legacy rows and
     // compatibility schema remain intact until destructive retirement is safe.
