@@ -1,3 +1,4 @@
+import { createContactPointWriter } from "./contact_points.ts";
 import { getLifeMateSql } from "./database_client.ts";
 import {
   ApiError,
@@ -69,8 +70,12 @@ async function requireSelfPerson(
 /// migration is promoted, the exact same API automatically switches to the
 /// integer version column. Before that, the millisecond `updated_at_utc` value
 /// acts as a deterministic optimistic-concurrency token.
-export function createProfileStore(databaseUrl: string) {
+export function createProfileStore(
+  databaseUrl: string,
+  contactHashingSecret?: string,
+) {
   const sql = getLifeMateSql(databaseUrl);
+  const contactPoints = createContactPointWriter(contactHashingSecret);
   let versionColumnPromise: Promise<boolean> | null = null;
   let photoColumnPromise: Promise<boolean> | null = null;
 
@@ -294,6 +299,16 @@ export function createProfileStore(databaseUrl: string) {
           "Profile has changed. Refresh and try again.",
         );
       }
+
+      // ContactPoint encryption runs inside the exact same transaction as the
+      // compatibility Profile/version write. A global contact conflict or crypto
+      // failure therefore rolls the legacy Profile mutation back as well.
+      await contactPoints.syncForLegacyAppUser(
+        tx,
+        userId,
+        { phone: patch.phoneNumber, email: auth.email },
+        "replace",
+      );
 
       const personRows = await tx`
         update core.person_profiles

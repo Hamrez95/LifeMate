@@ -1,6 +1,11 @@
 import { assertEquals } from "jsr:@std/assert@1.0.14";
 import postgres from "postgres";
+import {
+  type ContactPointEnvelope,
+  decryptContactPoint,
+} from "../_shared/contact_point_crypto.ts";
 import { type AuthUser, createLifeMateDatabase } from "./database.ts";
+import { createIdentityBridge } from "./identity_bridge.ts";
 import { createProfileStore } from "./profile.ts";
 
 const databaseUrl = Deno.env.get("TEST_DATABASE_URL");
@@ -16,16 +21,25 @@ Deno.test({
   sanitizeResources: false,
   fn: async () => {
     const admin = postgres(databaseUrl, { max: 1, prepare: false });
-    const db = createLifeMateDatabase(
-      databaseUrl,
-      "integration-only-profile-projection-secret-32-bytes-minimum",
+    const hashingSecret =
+      "integration-only-profile-projection-secret-32-bytes-minimum";
+    const encryptionSecret =
+      "integration-only-contact-envelope-secret-32-bytes-minimum";
+    const encryptionKeyVersion = 7;
+    const previousDualWrite = Deno.env.get(
+      "LIFEMATE_IDENTITY_CONTACT_DUAL_WRITE",
     );
-    const profiles = createProfileStore(databaseUrl);
+    const previousEncryptionKey = Deno.env.get(
+      "LIFEMATE_IDENTITY_CONTACT_ENCRYPTION_KEY",
+    );
+    const previousEncryptionKeyVersion = Deno.env.get(
+      "LIFEMATE_IDENTITY_CONTACT_ENCRYPTION_KEY_VERSION",
+    );
     const suffix = crypto.randomUUID();
     const auth: AuthUser = {
       id: `profile-projection-${suffix}`,
-      email: `profile-projection-${suffix}@example.test`,
-      phone: null,
+      email: `Profile-Projection-${suffix}@Example.Test`,
+      phone: "+98 (912) 000-0000",
       userMetadata: {},
     };
     const remappedAccountId = crypto.randomUUID();
@@ -33,6 +47,20 @@ Deno.test({
     let appUserId: string | null = null;
 
     try {
+      Deno.env.set("LIFEMATE_IDENTITY_CONTACT_DUAL_WRITE", "true");
+      Deno.env.set(
+        "LIFEMATE_IDENTITY_CONTACT_ENCRYPTION_KEY",
+        encryptionSecret,
+      );
+      Deno.env.set(
+        "LIFEMATE_IDENTITY_CONTACT_ENCRYPTION_KEY_VERSION",
+        String(encryptionKeyVersion),
+      );
+
+      const db = createLifeMateDatabase(databaseUrl, hashingSecret);
+      const profiles = createProfileStore(databaseUrl, hashingSecret);
+      const identityBridge = createIdentityBridge(databaseUrl, hashingSecret);
+
       await db.bootstrapUser(auth, {
         displayName: "legacy initial",
         locale: "fa",
@@ -68,6 +96,58 @@ Deno.test({
         from lifemate.user_profiles
         where user_id = ${identity.appUserId}::uuid
       `;
+
+      await identityBridge.syncExternalIdentities(identity.appUserId, {
+        id: auth.id,
+        email: auth.email,
+        phone: auth.phone,
+        identities: [],
+      });
+      const seededContacts = await admin`
+        select kind,normalized_value_hash,encode(encrypted_value,'base64') as ciphertext_b64,
+               encryption_nonce_b64,encryption_key_version,status
+        from identity.contact_points
+        where account_id=${remappedAccountId}::uuid
+          and status <> 'Revoked'
+        order by kind
+      `;
+      assertEquals(seededContacts.length, 2);
+      assertEquals(seededContacts[0]?.kind, "Email");
+      assertEquals(seededContacts[1]?.kind, "Phone");
+      assertEquals(seededContacts[0]?.status, "Pending");
+      assertEquals(seededContacts[1]?.status, "Pending");
+      assertEquals(String(seededContacts[0]?.normalized_value_hash).length, 64);
+      assertEquals(String(seededContacts[1]?.normalized_value_hash).length, 64);
+      assertEquals(
+        String(seededContacts[0]?.ciphertext_b64).includes(
+          String(auth.email).toLowerCase(),
+        ),
+        false,
+      );
+      assertEquals(
+        String(seededContacts[1]?.ciphertext_b64).includes("+989120000000"),
+        false,
+      );
+
+      const emailEnvelope: ContactPointEnvelope = {
+        ciphertextB64: String(seededContacts[0]?.ciphertext_b64),
+        nonceB64: String(seededContacts[0]?.encryption_nonce_b64),
+        keyVersion: Number(seededContacts[0]?.encryption_key_version),
+      };
+      assertEquals(
+        await decryptContactPoint(
+          { secret: encryptionSecret, keyVersion: encryptionKeyVersion },
+          {
+            accountId: remappedAccountId,
+            kind: "Email",
+            normalizedValueHash: String(
+              seededContacts[0]?.normalized_value_hash,
+            ),
+          },
+          emailEnvelope,
+        ),
+        String(auth.email).toLowerCase(),
+      );
 
       await admin`
         update core.person_profiles
@@ -132,6 +212,83 @@ Deno.test({
       assertEquals(runtimeUpdated.avatarKey, "person_purple");
       assertEquals(runtimeUpdated.version, Number(beforeRuntime.version) + 1);
 
+      const currentPhoneRows = await admin`
+        select normalized_value_hash,encode(encrypted_value,'base64') as ciphertext_b64,
+               encryption_nonce_b64,encryption_key_version,status
+        from identity.contact_points
+        where account_id=${remappedAccountId}::uuid
+          and kind='Phone'
+          and status <> 'Revoked'
+      `;
+      assertEquals(currentPhoneRows.length, 1);
+      const currentPhoneEnvelope: ContactPointEnvelope = {
+        ciphertextB64: String(currentPhoneRows[0]?.ciphertext_b64),
+        nonceB64: String(currentPhoneRows[0]?.encryption_nonce_b64),
+        keyVersion: Number(currentPhoneRows[0]?.encryption_key_version),
+      };
+      assertEquals(
+        await decryptContactPoint(
+          { secret: encryptionSecret, keyVersion: encryptionKeyVersion },
+          {
+            accountId: remappedAccountId,
+            kind: "Phone",
+            normalizedValueHash: String(
+              currentPhoneRows[0]?.normalized_value_hash,
+            ),
+          },
+          currentPhoneEnvelope,
+        ),
+        "+989125550101",
+      );
+      const revokedPhones = await admin`
+        select encrypted_value,encryption_nonce_b64,encryption_key_version
+        from identity.contact_points
+        where account_id=${remappedAccountId}::uuid
+          and kind='Phone'
+          and status='Revoked'
+      `;
+      assertEquals(revokedPhones.length, 1);
+      assertEquals(revokedPhones[0]?.encrypted_value, null);
+      assertEquals(revokedPhones[0]?.encryption_nonce_b64, null);
+      assertEquals(revokedPhones[0]?.encryption_key_version, null);
+
+      // Auth synchronization is bootstrap-only for a contact kind once an
+      // explicit Profile replacement exists, so it cannot roll the Profile
+      // phone back to the older Auth snapshot value.
+      await identityBridge.syncExternalIdentities(identity.appUserId, {
+        id: auth.id,
+        email: auth.email,
+        phone: auth.phone,
+        identities: [],
+      });
+      const afterAuthResync = await admin`
+        select normalized_value_hash,encode(encrypted_value,'base64') as ciphertext_b64,
+               encryption_nonce_b64,encryption_key_version
+        from identity.contact_points
+        where account_id=${remappedAccountId}::uuid
+          and kind='Phone'
+          and status <> 'Revoked'
+      `;
+      const afterAuthEnvelope: ContactPointEnvelope = {
+        ciphertextB64: String(afterAuthResync[0]?.ciphertext_b64),
+        nonceB64: String(afterAuthResync[0]?.encryption_nonce_b64),
+        keyVersion: Number(afterAuthResync[0]?.encryption_key_version),
+      };
+      assertEquals(
+        await decryptContactPoint(
+          { secret: encryptionSecret, keyVersion: encryptionKeyVersion },
+          {
+            accountId: remappedAccountId,
+            kind: "Phone",
+            normalizedValueHash: String(
+              afterAuthResync[0]?.normalized_value_hash,
+            ),
+          },
+          afterAuthEnvelope,
+        ),
+        "+989125550101",
+      );
+
       const authority = await admin`
         select legacy.display_name as legacy_display_name,
                legacy.locale as legacy_locale,
@@ -158,6 +315,10 @@ Deno.test({
       assertEquals(authority[0]?.person_avatar_key, "person_purple");
     } finally {
       if (appUserId) {
+        await admin`
+          delete from identity.contact_points
+          where account_id=${remappedAccountId}::uuid
+        `.catch(() => undefined);
         await admin`
           delete from core.account_person_links
           where account_id = ${remappedAccountId}::uuid
@@ -200,6 +361,27 @@ Deno.test({
         await admin`
           delete from lifemate.app_users where id = ${users[0].id}
         `;
+      }
+      if (previousDualWrite == null) {
+        Deno.env.delete("LIFEMATE_IDENTITY_CONTACT_DUAL_WRITE");
+      } else {
+        Deno.env.set("LIFEMATE_IDENTITY_CONTACT_DUAL_WRITE", previousDualWrite);
+      }
+      if (previousEncryptionKey == null) {
+        Deno.env.delete("LIFEMATE_IDENTITY_CONTACT_ENCRYPTION_KEY");
+      } else {
+        Deno.env.set(
+          "LIFEMATE_IDENTITY_CONTACT_ENCRYPTION_KEY",
+          previousEncryptionKey,
+        );
+      }
+      if (previousEncryptionKeyVersion == null) {
+        Deno.env.delete("LIFEMATE_IDENTITY_CONTACT_ENCRYPTION_KEY_VERSION");
+      } else {
+        Deno.env.set(
+          "LIFEMATE_IDENTITY_CONTACT_ENCRYPTION_KEY_VERSION",
+          previousEncryptionKeyVersion,
+        );
       }
       await admin.end({ timeout: 5 });
     }

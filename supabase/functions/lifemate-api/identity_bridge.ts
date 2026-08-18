@@ -4,6 +4,7 @@ import {
   rawIdentityRetirementEnabled,
   readProviderIdentityHandleKey,
 } from "../_shared/provider_identity_handle_crypto.ts";
+import { createContactPointWriter } from "./contact_points.ts";
 import { getLifeMateSql } from "./database_client.ts";
 import {
   deriveIdentityLinkToken,
@@ -20,6 +21,8 @@ export type ProviderIdentity = {
 
 export type AuthIdentitySnapshot = {
   id: string;
+  email?: string | null;
+  phone?: string | null;
   identities: ProviderIdentity[];
 };
 
@@ -66,8 +69,12 @@ function providerSubject(identity: ProviderIdentity): string | null {
   return normalized.length > 0 && normalized.length <= 512 ? normalized : null;
 }
 
-export function createIdentityBridge(databaseUrl: string) {
+export function createIdentityBridge(
+  databaseUrl: string,
+  contactHashingSecret?: string,
+) {
   const sql = getLifeMateSql(databaseUrl);
+  const contactPoints = createContactPointWriter(contactHashingSecret);
   const dualWrite = identityLinkDualWriteEnabled();
   const identityLinkKey = dualWrite
     ? readIdentityLinkKeyFromEnvironment()
@@ -122,6 +129,25 @@ export function createIdentityBridge(databaseUrl: string) {
           409,
           "identity_account_mapping_missing",
           "The LifeMate account mapping is unavailable.",
+        );
+      }
+
+      const authContacts: { email?: string; phone?: string } = {};
+      if (typeof auth.email === "string" && auth.email.trim().length > 0) {
+        authContacts.email = auth.email;
+      }
+      if (typeof auth.phone === "string" && auth.phone.trim().length > 0) {
+        authContacts.phone = auth.phone;
+      }
+      if (Object.keys(authContacts).length > 0) {
+        // Bootstrap/auth synchronization seeds an empty canonical contact kind,
+        // but never overwrites a later explicit Profile contact with a different
+        // value. Profile updates own replacement semantics in this staged slice.
+        await contactPoints.syncForAccount(
+          transaction,
+          accountId,
+          authContacts,
+          "if-missing",
         );
       }
 
