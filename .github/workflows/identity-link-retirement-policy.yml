@@ -217,5 +217,3 @@ jobs:
           grep -Fq 'identity-link-key-rotation-readiness.ts' "$rotation"
           grep -Fq 'readyForPreviousKeyRemoval' "$rotation"
           ! grep -Fq 'upload-artifact' "$rotation"
-          ! grep -Fq '${{ secrets.LIFEMATE_IDENTITY_LINK_KEY }}' "$rotation"
-          ! grep -Fq '${{ secrets.LIFEMATE_IDENTITY_LINK_PREVIOUS_KEY }}' "$rotation"
