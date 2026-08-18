@@ -49,7 +49,11 @@ Deno.test({
       );
       for (
         const [appUserId, accountId, personId] of [
-          [patient.appUserId, patientCanonical.accountId, patientCanonical.personId],
+          [
+            patient.appUserId,
+            patientCanonical.accountId,
+            patientCanonical.personId,
+          ],
           [
             caregiver.appUserId,
             caregiverCanonical.accountId,
