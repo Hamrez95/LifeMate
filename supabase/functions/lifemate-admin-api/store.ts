@@ -2,6 +2,7 @@ import type { AdminCapabilitySnapshot } from "./authorization.ts";
 import { type AdminSql, getAdminSql } from "./database_client.ts";
 import type { UserDirectoryQuery } from "./directory.ts";
 import { listUserDirectory } from "./directory_store.ts";
+import { createAdminIdentityResolver } from "./identity_resolution.ts";
 import { ApiError } from "./validation.ts";
 
 type Row = Record<string, unknown>;
@@ -28,32 +29,10 @@ function asStringArray(rows: readonly Row[], key: string): string[] {
 
 export function createAdminStore(databaseUrl: string) {
   const sql: AdminSql = getAdminSql(databaseUrl);
+  const identityResolver = createAdminIdentityResolver(databaseUrl);
 
   async function health(): Promise<void> {
     await sql`select 1 as ready`;
-  }
-
-  async function resolveAccountId(providerSubject: string): Promise<string> {
-    const rows = await sql`
-      select a.id
-      from identity.external_identities e
-      join identity.accounts a on a.id=e.account_id
-      where e.provider='supabase_auth'
-        and e.issuer='supabase'
-        and e.provider_subject=${providerSubject}
-        and e.status='Active'
-        and a.status='Active'
-      limit 1
-    `;
-    const id = rows[0]?.id;
-    if (typeof id !== "string") {
-      throw new ApiError(
-        403,
-        "lifemate_account_required",
-        "An active LifeMate account is required for Command Center access.",
-      );
-    }
-    return id;
   }
 
   async function getSnapshot(
@@ -207,7 +186,7 @@ export function createAdminStore(databaseUrl: string) {
 
   return {
     health,
-    resolveAccountId,
+    resolveAccountId: identityResolver.resolveAccountId,
     getSnapshot,
     bootstrapFounder,
     listAudit,

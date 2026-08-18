@@ -93,6 +93,29 @@ begin
     raise exception 'Admin runtime gained direct identity account UPDATE privilege';
   end if;
 
+  if not has_table_privilege(
+    'lifemate_admin_runtime','identity.external_identity_tokens','SELECT'
+  ) then raise exception 'Admin runtime cannot read canonical identity tokens'; end if;
+
+  if has_table_privilege('lifemate_admin_runtime','identity.external_identity_tokens','INSERT')
+     or has_table_privilege('lifemate_admin_runtime','identity.external_identity_tokens','UPDATE')
+     or has_table_privilege('lifemate_admin_runtime','identity.external_identity_tokens','DELETE')
+     or has_table_privilege('lifemate_admin_runtime','identity.external_identity_tokens','TRUNCATE') then
+    raise exception 'Admin runtime can mutate canonical identity tokens';
+  end if;
+
+  if not exists (
+    select 1 from pg_policies
+    where schemaname='identity' and tablename='external_identity_tokens'
+      and policyname='lifemate_admin_runtime_select'
+      and 'lifemate_admin_runtime'=any(roles)
+  ) then raise exception 'Admin runtime lacks token RLS read path'; end if;
+
+  if exists (select 1 from pg_roles where rolname='authenticated')
+     and has_table_privilege(
+       'authenticated','identity.external_identity_tokens','SELECT'
+     ) then raise exception 'Browser authenticated role can read identity tokens'; end if;
+
   if not has_function_privilege(
     'lifemate_admin_runtime',
     'admin.execute_user_account_action(uuid,uuid,character varying,character varying,uuid,character varying,character varying)',
