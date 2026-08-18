@@ -15,6 +15,7 @@ type EnvironmentReader = (name: string) => string | null | undefined;
 type ContactPointWriterOptions = {
   enabled?: boolean;
   encryptionKey?: ContactEncryptionKey;
+  rawRetirementEnabled?: boolean;
   readEnvironment?: EnvironmentReader;
 };
 
@@ -120,10 +121,12 @@ export function createContactPointReader(
     contactOnlyReadinessApproved(readEnvironment);
   const dualWriteEnabled = options.dualWriteEnabled ??
     contactPointDualWriteEnabled(readEnvironment);
-  const encryptionKey = lookupMode === "legacy"
-    ? null
-    : options.encryptionKey ?? readContactEncryptionKey(readEnvironment);
 
+  if (rawRetirement && lookupMode !== "contact-only") {
+    throw new Error(
+      "Raw Profile contact retirement requires LIFEMATE_PROFILE_CONTACT_LOOKUP_MODE=contact-only.",
+    );
+  }
   if (lookupMode === "contact-only" && !readinessApproved) {
     throw new Error(
       "contact-only Profile reads require LIFEMATE_IDENTITY_CONTACT_READINESS_APPROVED=true from a protected readiness process.",
@@ -134,6 +137,10 @@ export function createContactPointReader(
       "contact-only Profile reads require LIFEMATE_IDENTITY_CONTACT_DUAL_WRITE=true so Profile updates keep canonical contacts current.",
     );
   }
+
+  const encryptionKey = lookupMode === "legacy"
+    ? null
+    : options.encryptionKey ?? readContactEncryptionKey(readEnvironment);
 
   async function readCanonical(
     connection: any,
@@ -240,6 +247,14 @@ export function createContactPointWriter(
     ((name: string) => Deno.env.get(name));
   const enabled = options.enabled ??
     contactPointDualWriteEnabled(readEnvironment);
+  const rawRetirement = options.rawRetirementEnabled ??
+    rawContactRetirementEnabled(readEnvironment);
+  if (rawRetirement && !enabled) {
+    throw new Error(
+      "Raw Profile contact retirement requires LIFEMATE_IDENTITY_CONTACT_DUAL_WRITE=true.",
+    );
+  }
+
   const effectiveHashingSecret = hashingSecret ??
     readEnvironment("LIFEMATE_CONTACT_HASHING_SECRET") ?? "";
   let encryptionKey: ContactEncryptionKey | null = null;
@@ -437,6 +452,7 @@ export function createContactPointWriter(
 
   return {
     enabled,
+    rawRetirementEnabled: rawRetirement,
     syncForAccount,
     syncForLegacyAppUser,
   };
