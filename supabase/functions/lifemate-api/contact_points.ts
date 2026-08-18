@@ -31,10 +31,14 @@ export function createContactPointWriter(
   const readEnvironment = options.readEnvironment ??
     ((name: string) => Deno.env.get(name));
   const enabled = options.enabled ?? contactPointDualWriteEnabled(readEnvironment);
+  const effectiveHashingSecret = hashingSecret ??
+    readEnvironment("LIFEMATE_CONTACT_HASHING_SECRET") ?? "";
   let encryptionKey: ContactEncryptionKey | null = null;
 
   if (enabled) {
-    if (!hashingSecret || new TextEncoder().encode(hashingSecret).byteLength < 32) {
+    if (
+      new TextEncoder().encode(effectiveHashingSecret).byteLength < 32
+    ) {
       throw new Error(
         "Encrypted ContactPoint dual-write requires the dedicated LifeMate contact hashing secret.",
       );
@@ -81,7 +85,7 @@ export function createContactPointWriter(
     mode: ContactPointWriteMode = "replace",
   ): Promise<void> {
     if (!enabled) return;
-    if (!encryptionKey || !hashingSecret) {
+    if (!encryptionKey || effectiveHashingSecret.length === 0) {
       throw new Error("ContactPoint dual-write configuration is unavailable.");
     }
 
@@ -142,7 +146,7 @@ export function createContactPointWriter(
 
     const normalized = normalizeContactPoint(kind, rawValue);
     const normalizedHash = await hashContactPoint(
-      hashingSecret,
+      effectiveHashingSecret,
       kind,
       normalized,
     );
