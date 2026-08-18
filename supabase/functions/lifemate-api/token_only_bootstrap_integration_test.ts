@@ -1,6 +1,6 @@
 import { assertEquals, assertRejects } from "jsr:@std/assert@1.0.14";
 import postgres from "postgres";
-import { createLifeMateDatabase, type AuthUser } from "./database.ts";
+import { type AuthUser, createLifeMateDatabase } from "./database.ts";
 import { createIdentityBridge } from "./identity_bridge.ts";
 import { ApiError } from "./validation.ts";
 
@@ -12,7 +12,8 @@ if (!databaseUrl) {
 }
 
 Deno.test({
-  name: "token-only bootstrap reuses canonical identity without legacy rebootstrap",
+  name:
+    "token-only bootstrap reuses canonical identity without legacy rebootstrap",
   sanitizeOps: false,
   sanitizeResources: false,
   fn: async () => {
