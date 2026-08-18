@@ -38,6 +38,13 @@ The previous pair is optional. Partial configuration, a weak secret, malformed
 version or a previous version equal to the active version fails closed before
 database access. Key versions are integers from 1 through 65535.
 
+The Command Center API consumes the same active/previous identity contract so a
+Core key rotation does not strand administrator Account resolution during the
+overlap. Its resolver is read-only with respect to identity tokens: Core runtime
+traffic or the separately reviewed token backfill path performs convergence to
+the active version, and the shared readiness gate prevents previous-key removal
+until that convergence is complete.
+
 ## Safe rotation sequence
 
 Do not skip or reorder these stages.
@@ -57,16 +64,17 @@ Do not skip or reorder these stages.
    If only the previous token resolves, the resolver validates that
    Account/AppUser mapping and atomically upserts the active-version token for
    the same Account. The previous token remains intact for rolling-deploy
-   compatibility.
+   compatibility. Command Center accepts either consistent candidate but does
+   not mutate the shared token table.
 5. **Treat any cross-key mismatch as an incident.** If active and previous
    candidates resolve to different Accounts, or either candidate has an
    ambiguous/broken Account mapping, authentication fails closed with a
    privacy-safe conflict. Do not repair this by enabling raw-ID fallback or
    manually relinking healthcare rows.
-6. **Drive convergence.** Normal authenticated traffic lazily migrates active
-   Accounts. If some Accounts do not naturally authenticate during the window,
-   use a separately reviewed protected token backfill path rather than extending
-   raw identity storage.
+6. **Drive convergence.** Normal authenticated Core traffic lazily migrates
+   active Accounts. If some Accounts do not naturally authenticate during the
+   window, use a separately reviewed protected token backfill path rather than
+   extending raw identity storage.
 7. **Run the protected rotation-readiness audit.** Dispatch
    `identity-link-key-rotation-readiness` only from private/protected exact
    `main` through Environment `beta`. It reads only the database URL and active
@@ -77,9 +85,10 @@ Do not skip or reorder these stages.
    may be missing that token, no Account may have multiple active-version
    canonical tokens, and there must be no unmapped Active Account.
 9. **Remove previous runtime configuration.** Only after the readiness gate is
-   GREEN may the previous pair be removed from the deployed runtime. Re-run
-   token-only authentication and patient/caregiver/unrelated authorization
-   evidence after the change.
+   GREEN may the previous pair be removed from Core and Command Center runtime
+   configuration. Re-run token-only authentication, Command Center Account
+   resolution and patient/caregiver/unrelated authorization evidence after the
+   change.
 10. **Retire old database token rows separately.** This runbook does not delete
     historical token rows. Destructive old-version cleanup requires a separate
     reviewed, bounded and reversible/evidence-gated operation after the rollback
