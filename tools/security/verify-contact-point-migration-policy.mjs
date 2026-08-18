@@ -108,7 +108,7 @@ requireMarkers(
   [
     'createContactPointWriter',
     'maxAccounts',
-    'maxAccounts > 1000',
+    'value > 1000',
     'afterAccountId',
     'dry-run',
     'apply',
