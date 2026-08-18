@@ -1,9 +1,9 @@
 import postgres from "npm:postgres@3.4.7";
 import {
-  hashContactPoint,
-  normalizeContactPoint,
   type ContactEncryptionKey,
   type ContactPointKind,
+  hashContactPoint,
+  normalizeContactPoint,
 } from "../../supabase/functions/_shared/contact_point_crypto.ts";
 import { createContactPointWriter } from "../../supabase/functions/lifemate-api/contact_points.ts";
 
@@ -40,7 +40,9 @@ function requireSecret(name: string, value: string): string {
 
 function requireKeyVersion(value: number): number {
   if (!Number.isSafeInteger(value) || value < 1 || value > 32767) {
-    throw new Error("Contact encryption key version must be an integer from 1 to 32767.");
+    throw new Error(
+      "Contact encryption key version must be an integer from 1 to 32767.",
+    );
   }
   return value;
 }
@@ -52,7 +54,9 @@ function requireMode(value: string): BackfillMode {
 
 function requireMaxAccounts(value: number): number {
   if (!Number.isSafeInteger(value) || value < 1 || value > 1000) {
-    throw new Error("ContactPoint backfill maxAccounts must be an integer from 1 to 1000.");
+    throw new Error(
+      "ContactPoint backfill maxAccounts must be an integer from 1 to 1000.",
+    );
   }
   return value;
 }
@@ -60,7 +64,10 @@ function requireMaxAccounts(value: number): number {
 function optionalCursor(value: string | null | undefined): string | null {
   const cursor = value?.trim() ?? "";
   if (!cursor) return null;
-  if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(cursor)) {
+  if (
+    !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
+      .test(cursor)
+  ) {
     throw new Error("ContactPoint backfill cursor must be a UUID.");
   }
   return cursor.toLowerCase();
@@ -81,7 +88,10 @@ export async function backfillContactPoints(options: {
 }): Promise<ContactPointBackfillSummary> {
   const databaseUrl = options.databaseUrl.trim();
   if (!databaseUrl) throw new Error("Database URL is required.");
-  const hashingSecret = requireSecret("Contact hashing secret", options.hashingSecret);
+  const hashingSecret = requireSecret(
+    "Contact hashing secret",
+    options.hashingSecret,
+  );
   const encryptionKey: ContactEncryptionKey = {
     secret: requireSecret("Contact encryption key", options.encryptionKey),
     keyVersion: requireKeyVersion(options.keyVersion),
@@ -102,7 +112,9 @@ export async function backfillContactPoints(options: {
       select to_regclass('identity.contact_points') is not null as exists
     `;
     if (!tableRows[0]?.exists) {
-      throw new Error("identity.contact_points is missing; apply reviewed migrations first.");
+      throw new Error(
+        "identity.contact_points is missing; apply reviewed migrations first.",
+      );
     }
 
     const rows = await sql<LegacyContactRow[]>`
@@ -119,15 +131,13 @@ export async function backfillContactPoints(options: {
     const hasMore = rows.length > maxAccounts;
     const batch = rows.slice(0, maxAccounts);
 
-    const current = batch.length === 0
-      ? []
-      : await sql<CurrentContactRow[]>`
-          select account_id::text as account_id,kind,normalized_value_hash
-          from identity.contact_points
-          where status <> 'Revoked'
-            and account_id in ${sql(batch.map((row) => row.account_id))}
-          order by account_id,kind
-        `;
+    const current = batch.length === 0 ? [] : await sql<CurrentContactRow[]>`
+      select account_id::text as account_id,kind,normalized_value_hash
+      from identity.contact_points
+      where status <> 'Revoked'
+        and account_id in ${sql(batch.map((row) => row.account_id))}
+      order by account_id,kind
+    `;
     const currentByAccount = new Map<string, Map<string, CurrentContactRow>>();
     const globalOwners = await sql<CurrentContactRow[]>`
       select account_id::text as account_id,kind,normalized_value_hash
@@ -140,14 +150,19 @@ export async function backfillContactPoints(options: {
       const key = currentKey(row.kind, row.normalized_value_hash);
       const owner = ownerByContact.get(key);
       if (owner && owner !== row.account_id) {
-        throw new Error("ContactPoint backfill found one current contact owned by multiple Accounts.");
+        throw new Error(
+          "ContactPoint backfill found one current contact owned by multiple Accounts.",
+        );
       }
       ownerByContact.set(key, row.account_id);
     }
     for (const row of current) {
-      const byKind = currentByAccount.get(row.account_id) ?? new Map<string, CurrentContactRow>();
+      const byKind = currentByAccount.get(row.account_id) ??
+        new Map<string, CurrentContactRow>();
       if (byKind.has(row.kind)) {
-        throw new Error("ContactPoint backfill found duplicate current contacts for one Account/kind.");
+        throw new Error(
+          "ContactPoint backfill found duplicate current contacts for one Account/kind.",
+        );
       }
       byKind.set(row.kind, row);
       currentByAccount.set(row.account_id, byKind);
@@ -155,7 +170,10 @@ export async function backfillContactPoints(options: {
 
     let plannedContacts = 0;
     let alreadyCurrentContacts = 0;
-    const patches = new Map<string, { email?: string | null; phone?: string | null }>();
+    const patches = new Map<
+      string,
+      { email?: string | null; phone?: string | null }
+    >();
     for (const row of batch) {
       const patch: { email?: string | null; phone?: string | null } = {};
       for (const kind of ["Email", "Phone"] as const) {
@@ -165,12 +183,20 @@ export async function backfillContactPoints(options: {
         try {
           normalized = normalizeContactPoint(kind, raw);
         } catch {
-          throw new Error("ContactPoint backfill encountered invalid legacy contact data.");
+          throw new Error(
+            "ContactPoint backfill encountered invalid legacy contact data.",
+          );
         }
-        const expectedHash = await hashContactPoint(hashingSecret, kind, normalized);
+        const expectedHash = await hashContactPoint(
+          hashingSecret,
+          kind,
+          normalized,
+        );
         const owner = ownerByContact.get(currentKey(kind, expectedHash));
         if (owner && owner !== row.account_id) {
-          throw new Error("ContactPoint backfill conflicts with a contact owned by another Account.");
+          throw new Error(
+            "ContactPoint backfill conflicts with a contact owned by another Account.",
+          );
         }
         const existing = currentByAccount.get(row.account_id)?.get(kind);
         if (existing?.normalized_value_hash === expectedHash) {
@@ -207,7 +233,12 @@ export async function backfillContactPoints(options: {
       for (const row of batch) {
         const patch = patches.get(row.account_id);
         if (!patch) continue;
-        await writer.syncForAccount(transaction, row.account_id, patch, "replace");
+        await writer.syncForAccount(
+          transaction,
+          row.account_id,
+          patch,
+          "replace",
+        );
         insertedOrRefreshed += Object.keys(patch).length;
       }
     });
@@ -233,7 +264,8 @@ if (import.meta.main) {
       .toLowerCase(),
   );
   if (mode === "apply") {
-    const confirmation = Deno.env.get("LIFEMATE_CONTACT_BACKFILL_CONFIRM") ?? "";
+    const confirmation = Deno.env.get("LIFEMATE_CONTACT_BACKFILL_CONFIRM") ??
+      "";
     if (confirmation !== "BACKFILL-ENCRYPTED-CONTACTS") {
       throw new Error(
         "Apply mode requires LIFEMATE_CONTACT_BACKFILL_CONFIRM=BACKFILL-ENCRYPTED-CONTACTS.",
@@ -244,12 +276,15 @@ if (import.meta.main) {
   const summary = await backfillContactPoints({
     databaseUrl: Deno.env.get("LIFEMATE_CONTACT_MIGRATION_DATABASE_URL") ?? "",
     hashingSecret: Deno.env.get("LIFEMATE_CONTACT_HASHING_SECRET") ?? "",
-    encryptionKey: Deno.env.get("LIFEMATE_IDENTITY_CONTACT_ENCRYPTION_KEY") ?? "",
+    encryptionKey: Deno.env.get("LIFEMATE_IDENTITY_CONTACT_ENCRYPTION_KEY") ??
+      "",
     keyVersion: Number(
       Deno.env.get("LIFEMATE_IDENTITY_CONTACT_ENCRYPTION_KEY_VERSION") ?? "",
     ),
     mode,
-    maxAccounts: Number(Deno.env.get("LIFEMATE_CONTACT_BACKFILL_MAX_ACCOUNTS") ?? "100"),
+    maxAccounts: Number(
+      Deno.env.get("LIFEMATE_CONTACT_BACKFILL_MAX_ACCOUNTS") ?? "100",
+    ),
     afterAccountId: Deno.env.get("LIFEMATE_CONTACT_BACKFILL_AFTER_ACCOUNT_ID"),
   });
   // Counts plus an opaque pagination cursor only. Never print contact plaintext, hashes, ciphertext, DB URLs or key material.
