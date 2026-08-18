@@ -5,6 +5,8 @@ on:
   pull_request:
     paths:
       - 'supabase/functions/lifemate-api/**'
+      - 'supabase/functions/lifemate-admin-api/identity_resolution.ts'
+      - 'supabase/functions/lifemate-admin-api/identity_resolution_test.ts'
       - 'supabase/migrations/**'
       - 'tools/security/identity-link-retirement-readiness.ts'
       - 'tools/security/identity-link-retirement-readiness_test.ts'
@@ -20,6 +22,8 @@ on:
     branches: [main]
     paths:
       - 'supabase/functions/lifemate-api/**'
+      - 'supabase/functions/lifemate-admin-api/identity_resolution.ts'
+      - 'supabase/functions/lifemate-admin-api/identity_resolution_test.ts'
       - 'supabase/migrations/**'
       - 'tools/security/identity-link-retirement-readiness.ts'
       - 'tools/security/identity-link-retirement-readiness_test.ts'
@@ -89,7 +93,9 @@ jobs:
             supabase/functions/lifemate-api/identity_link_token_test.ts \
             supabase/functions/lifemate-api/identity_resolver.ts \
             supabase/functions/lifemate-api/identity_resolver_test.ts \
-            supabase/functions/lifemate-api/identity_link_rotation_integration_test.ts
+            supabase/functions/lifemate-api/identity_link_rotation_integration_test.ts \
+            supabase/functions/lifemate-admin-api/identity_resolution.ts \
+            supabase/functions/lifemate-admin-api/identity_resolution_test.ts
           deno check --config supabase/functions/lifemate-api/deno.json \
             tools/security/identity-link-retirement-readiness_test.ts \
             tools/security/identity-link-key-rotation-readiness_test.ts
@@ -98,6 +104,8 @@ jobs:
             identity_link_token_test.ts \
             identity_resolver_test.ts \
             identity_link_rotation_integration_test.ts
+          cd ../lifemate-admin-api
+          deno check identity_resolution_test.ts
 
       - name: Apply canonical portable schema
         shell: bash
@@ -172,14 +180,16 @@ jobs:
           tools/security/identity-link-key-rotation-readiness_test.ts
 
       - name: Prove token rotation runtime behavior
-        working-directory: supabase/functions/lifemate-api
         shell: bash
         run: |
           set -euo pipefail
+          cd supabase/functions/lifemate-api
           deno test --no-check identity_link_token_test.ts identity_resolver_test.ts
           deno test --no-check --allow-env \
             --allow-net=localhost:5432,127.0.0.1:5432 \
             identity_link_rotation_integration_test.ts
+          cd ../lifemate-admin-api
+          deno test --no-check identity_resolution_test.ts
 
       - name: Verify protected manual readiness workflow policy
         shell: bash
