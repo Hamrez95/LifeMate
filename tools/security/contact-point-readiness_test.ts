@@ -1,13 +1,18 @@
 import { assertEquals, assertStringIncludes } from "jsr:@std/assert@1.0.14";
 import postgres from "npm:postgres@3.4.7";
 import { createContactPointWriter } from "../../supabase/functions/lifemate-api/contact_points.ts";
-import { type AuthUser, createLifeMateDatabase } from "../../supabase/functions/lifemate-api/database.ts";
+import {
+  type AuthUser,
+  createLifeMateDatabase,
+} from "../../supabase/functions/lifemate-api/database.ts";
 import { createProfileStore } from "../../supabase/functions/lifemate-api/profile.ts";
 import { assessContactPointReadiness } from "./contact-point-readiness.ts";
 
 const databaseUrl = Deno.env.get("TEST_DATABASE_URL");
 if (!databaseUrl) {
-  throw new Error("TEST_DATABASE_URL is required for ContactPoint readiness tests.");
+  throw new Error(
+    "TEST_DATABASE_URL is required for ContactPoint readiness tests.",
+  );
 }
 
 const sql = postgres(databaseUrl, {
@@ -18,7 +23,8 @@ const sql = postgres(databaseUrl, {
 });
 
 Deno.test({
-  name: "ContactPoint readiness requires exact encrypted Email and Phone coverage",
+  name:
+    "ContactPoint readiness requires exact encrypted Email and Phone coverage",
   sanitizeOps: false,
   sanitizeResources: false,
   fn: async () => {
