@@ -1,8 +1,15 @@
 import postgres from "npm:postgres@3.4.7";
-import type { ContactPointKind } from "../../supabase/functions/_shared/contact_point_crypto.ts";
-import { createContactPointEnvelopeRotator } from "../../supabase/functions/lifemate-api/contact_point_envelope_rotation.ts";
+import type {
+  ContactPointKind,
+} from "../../supabase/functions/_shared/contact_point_crypto.ts";
+import {
+  createContactPointEnvelopeRotator,
+} from "../../supabase/functions/lifemate-api/contact_point_envelope_rotation.ts";
 
 type RotationMode = "dry-run" | "apply";
+
+const uuidPattern =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
 type RotationRow = {
   id: string;
@@ -55,16 +62,15 @@ function requireMaxContacts(value: number): number {
 function optionalCursor(value: string | null | undefined): string | null {
   const cursor = value?.trim() ?? "";
   if (!cursor) return null;
-  if (
-    !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
-      .test(cursor)
-  ) {
+  if (!uuidPattern.test(cursor)) {
     throw new Error("ContactPoint key rotation cursor must be a UUID.");
   }
   return cursor.toLowerCase();
 }
 
-function assertRotationRow(row: RotationRow): RotationRow {
+function assertRotationRow(
+  row: RotationRow,
+): RotationRow {
   if (
     typeof row.id !== "string" ||
     typeof row.account_id !== "string" ||
