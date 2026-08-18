@@ -31,6 +31,9 @@ const tokenRuntime = read(
 const resolverRuntime = read(
   'supabase/functions/lifemate-api/identity_resolver.ts',
 );
+const adminResolverRuntime = read(
+  'supabase/functions/lifemate-admin-api/identity_resolution.ts',
+);
 const readinessTool = read(
   'tools/security/identity-link-key-rotation-readiness.ts',
 );
@@ -66,6 +69,28 @@ requireMarkers(
     'throw new ApiError(404, "not_onboarded", "Bootstrap is required.");',
   ],
   'identity resolver rotation boundary',
+);
+
+requireMarkers(
+  adminResolverRuntime,
+  [
+    'readAdminIdentityLinkKeySet',
+    'previousIdentityLinkKey',
+    'LIFEMATE_IDENTITY_LINK_PREVIOUS_KEY',
+    'LIFEMATE_IDENTITY_LINK_PREVIOUS_KEY_VERSION',
+    'identity_token_rotation_conflict',
+    'active.account_id !== previous.account_id',
+  ],
+  'Command Center identity resolver dependency',
+);
+forbidMarkers(
+  adminResolverRuntime.toLowerCase(),
+  [
+    'insert into identity.external_identity_tokens',
+    'update identity.external_identity_tokens',
+    'delete from identity.external_identity_tokens',
+  ],
+  'Command Center identity resolver dependency',
 );
 
 requireMarkers(
@@ -144,6 +169,7 @@ requireMarkers(
     'Require GREEN evidence before previous-key removal.',
     'Both active and previous keys unavailable',
     'do not re-enable raw-subject lookup',
+    'Command Center',
     '#210',
     '#211',
   ],
