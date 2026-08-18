@@ -79,7 +79,7 @@ async function cleanupIdentity(
 
 Deno.test({
   name:
-    "dose occurrence runtime materializes and authorizes by canonical Person",
+    "dose occurrence runtime writes materializes and authorizes canonical Person only",
   sanitizeOps: false,
   sanitizeResources: false,
   fn: async () => {
@@ -158,6 +158,14 @@ Deno.test({
       });
       planId = String(plan.id);
 
+      const planOwnership = await fixtureSql`
+        select patient_user_id::text,patient_person_id::text
+        from lifemate.treatment_plans
+        where id=${planId}::uuid
+      `;
+      assertEquals(planOwnership[0].patient_user_id, null);
+      assertEquals(planOwnership[0].patient_person_id, ownerPersonId);
+
       const ownerRows = await doses.listDoseOccurrences(
         ownerAppUserId,
         target.date,
@@ -172,7 +180,7 @@ Deno.test({
         where id=${occurrenceId}::uuid
       `;
       assertEquals(persisted.length, 1);
-      assertEquals(persisted[0].patient_user_id, ownerAppUserId);
+      assertEquals(persisted[0].patient_user_id, null);
       assertEquals(persisted[0].patient_person_id, ownerPersonId);
 
       const unrelatedRows = await doses.listDoseOccurrences(
@@ -206,44 +214,37 @@ Deno.test({
            'test-caregiver-consent',now(),now(),now())
       `;
 
-      const caregiverBeforeFreeze = await doses.listCareDoseOccurrences(
+      const caregiverRows = await doses.listCareDoseOccurrences(
         caregiverAppUserId,
         ownerAppUserId,
         target.date,
         target.date,
       );
-      assertEquals(caregiverBeforeFreeze.length, 1);
-      assertEquals(caregiverBeforeFreeze[0].id, occurrenceId);
+      assertEquals(caregiverRows.length, 1);
+      assertEquals(caregiverRows[0].id, occurrenceId);
 
-      // Simulate the eventual legacy compatibility freeze. Re-materialization
-      // must hit the existing schedule/time row, and all ownership filtering
-      // must remain Person-based for both patient and caregiver paths.
-      await fixtureSql`
-        update lifemate.dose_occurrences
-        set patient_user_id=null
-        where id=${occurrenceId}::uuid
-      `;
-
-      const ownerAfterFreeze = await doses.listDoseOccurrences(
+      // Re-materialization must hit the existing schedule/time row while all
+      // ownership filtering remains Person-based for patient and caregiver.
+      const ownerAfterRematerialize = await doses.listDoseOccurrences(
         ownerAppUserId,
         target.date,
         target.date,
       );
-      assertEquals(ownerAfterFreeze.length, 1);
-      assertEquals(ownerAfterFreeze[0].id, occurrenceId);
+      assertEquals(ownerAfterRematerialize.length, 1);
+      assertEquals(ownerAfterRematerialize[0].id, occurrenceId);
 
-      const caregiverAfterFreeze = await doses.listCareDoseOccurrences(
+      const caregiverAfterRematerialize = await doses.listCareDoseOccurrences(
         caregiverAppUserId,
         ownerAppUserId,
         target.date,
         target.date,
       );
-      assertEquals(caregiverAfterFreeze.length, 1);
-      assertEquals(caregiverAfterFreeze[0].id, occurrenceId);
+      assertEquals(caregiverAfterRematerialize.length, 1);
+      assertEquals(caregiverAfterRematerialize[0].id, occurrenceId);
 
       const reported = await doses.reportDose(ownerAppUserId, occurrenceId, {
         clientRequestId: crypto.randomUUID(),
-        version: ownerAfterFreeze[0].version,
+        version: ownerAfterRematerialize[0].version,
         status: "taken",
         occurredAtUtc: new Date().toISOString(),
       });
