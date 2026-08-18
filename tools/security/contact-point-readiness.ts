@@ -1,10 +1,10 @@
 import postgres from "npm:postgres@3.4.7";
 import {
+  type ContactEncryptionKey,
+  type ContactPointKind,
   decryptContactPoint,
   hashContactPoint,
   normalizeContactPoint,
-  type ContactEncryptionKey,
-  type ContactPointKind,
 } from "../../supabase/functions/_shared/contact_point_crypto.ts";
 
 type ActiveAccountRow = {
@@ -66,7 +66,9 @@ function requireSecret(name: string, value: string): string {
 
 function requireKeyVersion(value: number): number {
   if (!Number.isSafeInteger(value) || value < 1 || value > 32767) {
-    throw new Error("Contact encryption key version must be an integer from 1 to 32767.");
+    throw new Error(
+      "Contact encryption key version must be an integer from 1 to 32767.",
+    );
   }
   return value;
 }
@@ -79,7 +81,10 @@ function hashKey(kind: ContactPointKind, hash: string): string {
   return `${kind}\u0000${hash}`;
 }
 
-function legacyValue(row: ActiveAccountRow, kind: ContactPointKind): string | null {
+function legacyValue(
+  row: ActiveAccountRow,
+  kind: ContactPointKind,
+): string | null {
   return kind === "Email" ? row.email : row.phone_number;
 }
 
@@ -98,7 +103,10 @@ export async function assessContactPointReadiness(options: {
 }): Promise<ContactPointReadiness> {
   const databaseUrl = options.databaseUrl.trim();
   if (!databaseUrl) throw new Error("Database URL is required.");
-  const hashingSecret = requireSecret("Contact hashing secret", options.hashingSecret);
+  const hashingSecret = requireSecret(
+    "Contact hashing secret",
+    options.hashingSecret,
+  );
   const key: ContactEncryptionKey = {
     secret: requireSecret("Contact encryption key", options.encryptionKey),
     keyVersion: requireKeyVersion(options.keyVersion),
@@ -165,12 +173,15 @@ export async function assessContactPointReadiness(options: {
     for (const account of mappedAccounts) {
       for (const kind of ["Email", "Phone"] as const) {
         const counters = countersFor(result, kind);
-        const ownRows = rowsByAccountKind.get(contactKey(account.account_id, kind)) ?? [];
+        const ownRows =
+          rowsByAccountKind.get(contactKey(account.account_id, kind)) ?? [];
         if (ownRows.length > 1) counters.duplicateCurrent += ownRows.length - 1;
 
         const rawLegacy = legacyValue(account, kind);
         if (rawLegacy == null || rawLegacy.trim().length === 0) {
-          if (ownRows.length > 0) counters.unexpectedCanonical += ownRows.length;
+          if (ownRows.length > 0) {
+            counters.unexpectedCanonical += ownRows.length;
+          }
           continue;
         }
         counters.legacyPresent += 1;
@@ -179,14 +190,23 @@ export async function assessContactPointReadiness(options: {
         let expectedHash: string;
         try {
           normalized = normalizeContactPoint(kind, rawLegacy);
-          expectedHash = await hashContactPoint(hashingSecret, kind, normalized);
+          expectedHash = await hashContactPoint(
+            hashingSecret,
+            kind,
+            normalized,
+          );
         } catch {
           counters.invalidLegacy += 1;
           continue;
         }
 
-        const expectedOwners = ownersByKindHash.get(hashKey(kind, expectedHash));
-        if (expectedOwners && [...expectedOwners].some((owner) => owner !== account.account_id)) {
+        const expectedOwners = ownersByKindHash.get(
+          hashKey(kind, expectedHash),
+        );
+        if (
+          expectedOwners &&
+          [...expectedOwners].some((owner) => owner !== account.account_id)
+        ) {
           counters.conflictingOwner += 1;
         }
 
@@ -195,7 +215,9 @@ export async function assessContactPointReadiness(options: {
           continue;
         }
 
-        const matching = ownRows.find((row) => row.normalized_value_hash === expectedHash);
+        const matching = ownRows.find((row) =>
+          row.normalized_value_hash === expectedHash
+        );
         if (!matching) {
           counters.mismatchedCanonical += 1;
           continue;
@@ -240,7 +262,8 @@ export async function assessContactPointReadiness(options: {
       counters.unexpectedCanonical !== 0 ||
       counters.duplicateCurrent !== 0
     );
-    result.readyForContactOnly = !blocking && result.unmappedActiveAccounts === 0;
+    result.readyForContactOnly = !blocking &&
+      result.unmappedActiveAccounts === 0;
     return result;
   } finally {
     await sql.end({ timeout: 2 });
@@ -251,7 +274,8 @@ if (import.meta.main) {
   const result = await assessContactPointReadiness({
     databaseUrl: Deno.env.get("LIFEMATE_CONTACT_MIGRATION_DATABASE_URL") ?? "",
     hashingSecret: Deno.env.get("LIFEMATE_CONTACT_HASHING_SECRET") ?? "",
-    encryptionKey: Deno.env.get("LIFEMATE_IDENTITY_CONTACT_ENCRYPTION_KEY") ?? "",
+    encryptionKey: Deno.env.get("LIFEMATE_IDENTITY_CONTACT_ENCRYPTION_KEY") ??
+      "",
     keyVersion: Number(
       Deno.env.get("LIFEMATE_IDENTITY_CONTACT_ENCRYPTION_KEY_VERSION") ?? "",
     ),
