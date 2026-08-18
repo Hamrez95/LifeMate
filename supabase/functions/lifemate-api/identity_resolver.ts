@@ -2,14 +2,15 @@ import { getLifeMateSql } from "./database_client.ts";
 import { identityLinkDualWriteEnabled } from "./identity_bridge.ts";
 import {
   deriveIdentityLinkToken,
-  readIdentityLinkKeyFromEnvironment,
+  type IdentityLinkKey,
+  type IdentityLinkKeySet,
+  readIdentityLinkKeySetFromEnvironment,
 } from "./identity_link_token.ts";
 import { ApiError } from "./validation.ts";
 
 export type IdentityLookupMode = "legacy" | "prefer-token" | "token-only";
 
 type EnvironmentReader = (name: string) => string | null | undefined;
-type IdentityLinkKey = { secret: string; keyVersion: number };
 type IdentitySql = ReturnType<typeof getLifeMateSql>;
 
 export type ResolvableAuthUser = {
@@ -31,6 +32,12 @@ type TokenLookupRow = {
   account_status: string;
   app_user_id: string | null;
   app_user_status: string | null;
+  token_key_version: number;
+};
+
+type TokenCandidate = {
+  subjectToken: string;
+  keyVersion: number;
 };
 
 type LegacyLookupRow = { app_user_id: string };
@@ -55,6 +62,7 @@ export function createIdentityResolver(
   options: {
     mode?: IdentityLookupMode;
     identityLinkKey?: IdentityLinkKey;
+    previousIdentityLinkKey?: IdentityLinkKey | null;
     dualWriteEnabled?: boolean;
     readEnvironment?: EnvironmentReader;
   } = {},
@@ -63,7 +71,7 @@ export function createIdentityResolver(
     ((name) => Deno.env.get(name));
   const lookupMode = options.mode ?? readIdentityLookupMode(readEnvironment);
 
-  let identityLinkKey: IdentityLinkKey | null = null;
+  let identityLinkKeys: IdentityLinkKeySet | null = null;
   if (lookupMode !== "legacy") {
     const dualWrite = options.dualWriteEnabled ??
       identityLinkDualWriteEnabled(readEnvironment);
@@ -72,8 +80,26 @@ export function createIdentityResolver(
         "Token-based identity lookup requires LIFEMATE_IDENTITY_LINK_DUAL_WRITE=true so newly bootstrapped identities cannot be stranded without a canonical token.",
       );
     }
-    identityLinkKey = options.identityLinkKey ??
-      readIdentityLinkKeyFromEnvironment(readEnvironment);
+    if (options.identityLinkKey) {
+      identityLinkKeys = {
+        active: options.identityLinkKey,
+        previous: options.previousIdentityLinkKey ?? null,
+      };
+    } else {
+      identityLinkKeys = readIdentityLinkKeySetFromEnvironment(readEnvironment);
+      if (options.previousIdentityLinkKey !== undefined) {
+        identityLinkKeys.previous = options.previousIdentityLinkKey;
+      }
+    }
+    if (
+      identityLinkKeys.previous &&
+      identityLinkKeys.previous.keyVersion ===
+        identityLinkKeys.active.keyVersion
+    ) {
+      throw new Error(
+        "Previous identity-link key version must differ from the active key version.",
+      );
+    }
   }
 
   // Keep configuration validation independent from the PostgreSQL client so
@@ -92,57 +118,13 @@ export function createIdentityResolver(
       return await requireLegacyIdentity(auth);
     }
 
-    const key = identityLinkKey;
-    if (!key) {
+    const keys = identityLinkKeys;
+    if (!keys) {
       throw new Error("Token-based identity lookup key is unavailable.");
     }
-    const subjectToken = await deriveIdentityLinkToken(key.secret, {
-      provider: "supabase_auth",
-      issuer: "supabase",
-      subject: auth.id,
-      keyVersion: key.keyVersion,
-    });
 
-    const database = sql();
-    const tokenRows = await database<TokenLookupRow[]>`
-      select
-        t.account_id::text as account_id,
-        a.status as account_status,
-        a.legacy_app_user_id::text as app_user_id,
-        u.status as app_user_status
-      from identity.external_identity_tokens t
-      join identity.accounts a on a.id=t.account_id
-      left join lifemate.app_users u on u.id=a.legacy_app_user_id
-      where t.provider='supabase_auth'
-        and t.issuer='supabase'
-        and t.subject_token=${subjectToken}
-        and t.key_version=${key.keyVersion}
-        and t.status='Active'
-      limit 2
-    `;
-
-    if (tokenRows.length > 1) {
-      throw new ApiError(
-        409,
-        "identity_token_ambiguous",
-        "The LifeMate identity mapping is ambiguous.",
-      );
-    }
-    const tokenRow = tokenRows[0];
-    if (tokenRow) {
-      if (
-        tokenRow.account_status !== "Active" ||
-        !tokenRow.app_user_id ||
-        tokenRow.app_user_status !== "Active"
-      ) {
-        throw new ApiError(
-          409,
-          "identity_account_mapping_missing",
-          "The LifeMate account mapping is unavailable.",
-        );
-      }
-      return { auth, appUserId: tokenRow.app_user_id };
-    }
+    const appUserId = await resolveTokenAppUserId(auth.id, keys);
+    if (appUserId) return { auth, appUserId };
 
     if (lookupMode === "token-only") {
       throw new ApiError(404, "not_onboarded", "Bootstrap is required.");
@@ -152,6 +134,199 @@ export function createIdentityResolver(
     // live token lookup evidence are complete, production advances to
     // token-only and this raw-subject fallback can be retired separately.
     return await requireLegacyIdentity(auth);
+  }
+
+  async function resolveTokenAppUserId(
+    authSubject: string,
+    keys: IdentityLinkKeySet,
+  ): Promise<string | null> {
+    const active = await tokenCandidate(keys.active, authSubject);
+    if (!keys.previous) {
+      const activeRow = requireUsableTokenRow(
+        await lookupToken(sql(), active),
+      );
+      return activeRow?.app_user_id ?? null;
+    }
+
+    const previous = await tokenCandidate(keys.previous, authSubject);
+    return await sql().begin(async (transaction: any) => {
+      // PostgreSQL READ COMMITTED gives each statement its own snapshot, so both
+      // rotation candidates are deliberately fetched by one SELECT. A valid
+      // active token therefore cannot mask a concurrently inconsistent previous
+      // mapping between two reads. The subsequent upsert still detects a token
+      // ownership race through the canonical uniqueness constraint.
+      const candidateRows = await lookupRotationCandidates(
+        transaction,
+        active,
+        previous,
+      );
+      const activeRow = requireUsableTokenRow(
+        candidateRows.filter((row) =>
+          Number(row.token_key_version) === active.keyVersion
+        ),
+      );
+      const previousRow = requireUsableTokenRow(
+        candidateRows.filter((row) =>
+          Number(row.token_key_version) === previous.keyVersion
+        ),
+      );
+
+      if (
+        activeRow &&
+        previousRow &&
+        activeRow.account_id !== previousRow.account_id
+      ) {
+        throw new ApiError(
+          409,
+          "identity_token_rotation_conflict",
+          "The LifeMate identity mapping is inconsistent during key rotation.",
+        );
+      }
+
+      const selected = activeRow ?? previousRow;
+      if (!selected?.app_user_id) return null;
+
+      if (!activeRow) {
+        // Lazy convergence is atomic with validation of the previous mapping.
+        // Keep the previous token active for rolling-deploy overlap; removing it
+        // is a separate evidence-gated operation after readiness reaches zero.
+        await upsertActiveToken(
+          transaction,
+          selected.account_id,
+          active,
+        );
+      }
+      return selected.app_user_id;
+    });
+  }
+
+  async function tokenCandidate(
+    key: IdentityLinkKey,
+    authSubject: string,
+  ): Promise<TokenCandidate> {
+    return {
+      subjectToken: await deriveIdentityLinkToken(key.secret, {
+        provider: "supabase_auth",
+        issuer: "supabase",
+        subject: authSubject,
+        keyVersion: key.keyVersion,
+      }),
+      keyVersion: key.keyVersion,
+    };
+  }
+
+  async function lookupToken(
+    connection: any,
+    candidate: TokenCandidate,
+  ): Promise<TokenLookupRow[]> {
+    const rows: TokenLookupRow[] = await connection`
+      select
+        t.account_id::text as account_id,
+        a.status as account_status,
+        a.legacy_app_user_id::text as app_user_id,
+        u.status as app_user_status,
+        t.key_version as token_key_version
+      from identity.external_identity_tokens t
+      join identity.accounts a on a.id=t.account_id
+      left join lifemate.app_users u on u.id=a.legacy_app_user_id
+      where t.provider='supabase_auth'
+        and t.issuer='supabase'
+        and t.subject_token=${candidate.subjectToken}
+        and t.key_version=${candidate.keyVersion}
+        and t.status='Active'
+      limit 2
+    `;
+    return rows;
+  }
+
+  async function lookupRotationCandidates(
+    connection: any,
+    active: TokenCandidate,
+    previous: TokenCandidate,
+  ): Promise<TokenLookupRow[]> {
+    const rows: TokenLookupRow[] = await connection`
+      select
+        t.account_id::text as account_id,
+        a.status as account_status,
+        a.legacy_app_user_id::text as app_user_id,
+        u.status as app_user_status,
+        t.key_version as token_key_version
+      from identity.external_identity_tokens t
+      join identity.accounts a on a.id=t.account_id
+      left join lifemate.app_users u on u.id=a.legacy_app_user_id
+      where t.provider='supabase_auth'
+        and t.issuer='supabase'
+        and t.status='Active'
+        and (
+          (
+            t.key_version=${active.keyVersion}
+            and t.subject_token=${active.subjectToken}
+          )
+          or (
+            t.key_version=${previous.keyVersion}
+            and t.subject_token=${previous.subjectToken}
+          )
+        )
+      limit 4
+    `;
+    return rows;
+  }
+
+  function requireUsableTokenRow(
+    tokenRows: TokenLookupRow[],
+  ): TokenLookupRow | null {
+    if (tokenRows.length > 1) {
+      throw new ApiError(
+        409,
+        "identity_token_ambiguous",
+        "The LifeMate identity mapping is ambiguous.",
+      );
+    }
+    const tokenRow = tokenRows[0];
+    if (!tokenRow) return null;
+    if (
+      tokenRow.account_status !== "Active" ||
+      !tokenRow.app_user_id ||
+      tokenRow.app_user_status !== "Active"
+    ) {
+      throw new ApiError(
+        409,
+        "identity_account_mapping_missing",
+        "The LifeMate account mapping is unavailable.",
+      );
+    }
+    return tokenRow;
+  }
+
+  async function upsertActiveToken(
+    transaction: any,
+    accountId: string,
+    candidate: TokenCandidate,
+  ): Promise<void> {
+    const rows: { account_id: string }[] = await transaction`
+      insert into identity.external_identity_tokens(
+        account_id,provider,issuer,subject_token,key_version,
+        created_at_utc,last_authenticated_at_utc,status
+      ) values(
+        ${accountId}::uuid,'supabase_auth','supabase',
+        ${candidate.subjectToken},${candidate.keyVersion},now(),now(),'Active'
+      )
+      on conflict(provider,issuer,key_version,subject_token) do update set
+        last_authenticated_at_utc=greatest(
+          identity.external_identity_tokens.last_authenticated_at_utc,
+          excluded.last_authenticated_at_utc
+        ),
+        status='Active'
+      where identity.external_identity_tokens.account_id=excluded.account_id
+      returning account_id::text as account_id
+    `;
+    if (rows[0]?.account_id !== accountId) {
+      throw new ApiError(
+        409,
+        "identity_token_rotation_conflict",
+        "The LifeMate identity mapping is inconsistent during key rotation.",
+      );
+    }
   }
 
   async function requireLegacyIdentity<TAuth extends ResolvableAuthUser>(

@@ -8,6 +8,7 @@ import {
 import {
   deriveIdentityLinkToken,
   readIdentityLinkKeyFromEnvironment,
+  readIdentityLinkKeySetFromEnvironment,
 } from "./identity_link_token.ts";
 
 const secret = "0123456789abcdef0123456789abcdef";
@@ -89,4 +90,79 @@ Deno.test("identity link key loader fails closed without a database fallback", (
     secret,
     keyVersion: 7,
   });
+});
+
+Deno.test("identity link keyset supports one bounded previous external key", () => {
+  const previousSecret = "abcdef0123456789abcdef0123456789";
+  const configuredEnvironment = (name: string) => {
+    if (name === "LIFEMATE_IDENTITY_LINK_KEY") return secret;
+    if (name === "LIFEMATE_IDENTITY_LINK_KEY_VERSION") return "8";
+    if (name === "LIFEMATE_IDENTITY_LINK_PREVIOUS_KEY") {
+      return previousSecret;
+    }
+    if (name === "LIFEMATE_IDENTITY_LINK_PREVIOUS_KEY_VERSION") return "7";
+    return undefined;
+  };
+  assertEquals(readIdentityLinkKeySetFromEnvironment(configuredEnvironment), {
+    active: { secret, keyVersion: 8 },
+    previous: { secret: previousSecret, keyVersion: 7 },
+  });
+
+  const activeOnly = (name: string) => {
+    if (name === "LIFEMATE_IDENTITY_LINK_KEY") return secret;
+    if (name === "LIFEMATE_IDENTITY_LINK_KEY_VERSION") return "8";
+    return undefined;
+  };
+  assertEquals(readIdentityLinkKeySetFromEnvironment(activeOnly), {
+    active: { secret, keyVersion: 8 },
+    previous: null,
+  });
+});
+
+Deno.test("identity link keyset rejects unsafe partial or equal-version overlap", () => {
+  const read = (values: Record<string, string>) => (name: string) =>
+    values[name];
+  const active = {
+    LIFEMATE_IDENTITY_LINK_KEY: secret,
+    LIFEMATE_IDENTITY_LINK_KEY_VERSION: "8",
+  };
+
+  assertThrows(
+    () =>
+      readIdentityLinkKeySetFromEnvironment(read({
+        ...active,
+        LIFEMATE_IDENTITY_LINK_PREVIOUS_KEY: "abcdef0123456789abcdef0123456789",
+      })),
+    Error,
+    "must be configured together",
+  );
+  assertThrows(
+    () =>
+      readIdentityLinkKeySetFromEnvironment(read({
+        ...active,
+        LIFEMATE_IDENTITY_LINK_PREVIOUS_KEY_VERSION: "7",
+      })),
+    Error,
+    "must be configured together",
+  );
+  assertThrows(
+    () =>
+      readIdentityLinkKeySetFromEnvironment(read({
+        ...active,
+        LIFEMATE_IDENTITY_LINK_PREVIOUS_KEY: "too-short",
+        LIFEMATE_IDENTITY_LINK_PREVIOUS_KEY_VERSION: "7",
+      })),
+    Error,
+    "at least 32 UTF-8 bytes",
+  );
+  assertThrows(
+    () =>
+      readIdentityLinkKeySetFromEnvironment(read({
+        ...active,
+        LIFEMATE_IDENTITY_LINK_PREVIOUS_KEY: "abcdef0123456789abcdef0123456789",
+        LIFEMATE_IDENTITY_LINK_PREVIOUS_KEY_VERSION: "8",
+      })),
+    Error,
+    "must differ from the active key version",
+  );
 });
