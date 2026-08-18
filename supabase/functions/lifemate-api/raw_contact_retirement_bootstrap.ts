@@ -1,12 +1,18 @@
 import { createContactPointWriter } from "./contact_points.ts";
 import { getLifeMateSql } from "./database_client.ts";
-import type { AuthUser } from "./database_legacy.ts";
 import { identityLinkDualWriteEnabled } from "./identity_bridge.ts";
 import {
   deriveIdentityLinkToken,
   readIdentityLinkKeyFromEnvironment,
 } from "./identity_link_token.ts";
 import { ApiError, normalizeOptional, requiredTimeZone } from "./validation.ts";
+
+type RetirementAuthUser = {
+  id: string;
+  email: string | null;
+  phone: string | null;
+  userMetadata: Record<string, unknown>;
+};
 
 export function createRawContactRetirementBootstrapStore(
   databaseUrl: string,
@@ -37,7 +43,7 @@ export function createRawContactRetirementBootstrapStore(
   const identityLinkKey = readIdentityLinkKeyFromEnvironment();
 
   async function bootstrapUser(
-    auth: AuthUser,
+    auth: RetirementAuthUser,
     body: Record<string, unknown>,
   ): Promise<string> {
     const now = new Date();
