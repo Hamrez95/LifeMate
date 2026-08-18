@@ -19,12 +19,19 @@ import { ApiError, requireIdempotencyKey } from "./validation.ts";
 function status(result: Record<string, unknown>): number {
   const value = Number(result.httpStatus);
   if (!Number.isInteger(value) || value < 100 || value > 599) {
-    throw new ApiError(503, "commerce_catalog_workflow_unavailable", "Commerce catalog workflow returned an invalid status.");
+    throw new ApiError(
+      503,
+      "commerce_catalog_workflow_unavailable",
+      "Commerce catalog workflow returned an invalid status.",
+    );
   }
   return value;
 }
 
-function failureMessage(result: Record<string, unknown>, fallback: string): string {
+function failureMessage(
+  result: Record<string, unknown>,
+  fallback: string,
+): string {
   return typeof result.message === "string" ? result.message : fallback;
 }
 
@@ -77,7 +84,10 @@ export function createCommerceCatalogRouteHandler(databaseUrl: string) {
       requirePermission(admin, "commerce.price.write");
       const idempotencyKey = requireIdempotencyKey(request);
       const payload = await parseScheduleCommercePricePayload(request);
-      const requestHash = await hashScheduleCommercePriceRequest(pricePlanId, payload);
+      const requestHash = await hashScheduleCommercePriceRequest(
+        pricePlanId,
+        payload,
+      );
       const result = await store.schedulePrice({
         actorAccountId: accountId,
         planId: pricePlanId,
