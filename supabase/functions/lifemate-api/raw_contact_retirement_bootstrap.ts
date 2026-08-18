@@ -1,6 +1,11 @@
 import { createContactPointWriter } from "./contact_points.ts";
 import { getLifeMateSql } from "./database_client.ts";
 import type { AuthUser } from "./database_legacy.ts";
+import { identityLinkDualWriteEnabled } from "./identity_bridge.ts";
+import {
+  deriveIdentityLinkToken,
+  readIdentityLinkKeyFromEnvironment,
+} from "./identity_link_token.ts";
 import { ApiError, normalizeOptional, requiredTimeZone } from "./validation.ts";
 
 export function createRawContactRetirementBootstrapStore(
@@ -14,6 +19,22 @@ export function createRawContactRetirementBootstrapStore(
       "Raw-contact retirement bootstrap must only run when LIFEMATE_IDENTITY_CONTACT_RAW_RETIREMENT=true.",
     );
   }
+
+  const identityLookupMode =
+    (Deno.env.get("LIFEMATE_IDENTITY_LINK_LOOKUP_MODE") ?? "legacy")
+      .trim()
+      .toLowerCase();
+  if (identityLookupMode !== "token-only") {
+    throw new Error(
+      "Raw Profile contact retirement bootstrap requires LIFEMATE_IDENTITY_LINK_LOOKUP_MODE=token-only so new accounts never need a raw authentication lookup value.",
+    );
+  }
+  if (!identityLinkDualWriteEnabled()) {
+    throw new Error(
+      "Raw Profile contact retirement bootstrap requires LIFEMATE_IDENTITY_LINK_DUAL_WRITE=true.",
+    );
+  }
+  const identityLinkKey = readIdentityLinkKeyFromEnvironment();
 
   async function bootstrapUser(
     auth: AuthUser,
@@ -34,21 +55,32 @@ export function createRawContactRetirementBootstrapStore(
       throw new ApiError(400, "invalid_locale", "locale is invalid.");
     }
     const timeZone = requiredTimeZone(body.timeZone ?? "Asia/Tehran");
+    const appUserId = crypto.randomUUID();
+    const subjectToken = await deriveIdentityLinkToken(identityLinkKey.secret, {
+      provider: "supabase_auth",
+      issuer: "supabase",
+      subject: auth.id,
+      keyVersion: identityLinkKey.keyVersion,
+    });
 
     return await sql.begin(async (tx: any) => {
-      // The existing AppUser foundation trigger creates/refreshes Account + Self
-      // Person inside this exact transaction before ContactPoint synchronization.
-      const users = await tx`
+      // New retirement-mode AppUsers start without a raw authentication lookup
+      // value. The existing foundation trigger still creates Account + Self
+      // Person from the AppUser id/status inside this same transaction.
+      await tx`
         insert into lifemate.app_users
-          (id, auth_subject, status, created_at_utc, updated_at_utc)
+          (id, status, created_at_utc, updated_at_utc)
         values
-          (${crypto.randomUUID()}, ${auth.id}, 'Active', ${now}, ${now})
-        on conflict (auth_subject) do update
-          set updated_at_utc = excluded.updated_at_utc
-        returning id
+          (${appUserId}::uuid, 'Active', ${now}, ${now})
       `;
-      const appUserId = users[0]?.id;
-      if (typeof appUserId !== "string" || appUserId.length === 0) {
+
+      const accountRows = await tx`
+        select identity.account_id_for_legacy_app_user(
+          ${appUserId}::uuid
+        )::text as account_id
+      `;
+      const accountId = accountRows[0]?.account_id;
+      if (typeof accountId !== "string" || accountId.length === 0) {
         throw new ApiError(
           409,
           "identity_account_mapping_missing",
@@ -56,35 +88,54 @@ export function createRawContactRetirementBootstrapStore(
         );
       }
 
+      // Canonical authentication lookup is committed atomically with the new
+      // compatibility AppUser. Concurrent first-bootstrap attempts converge on
+      // the unique token; a token already owned by another Account rolls this
+      // entire transaction back instead of creating a duplicate account.
+      const tokenRows = await tx`
+        insert into identity.external_identity_tokens(
+          account_id,provider,issuer,subject_token,key_version,
+          created_at_utc,last_authenticated_at_utc,status
+        ) values(
+          ${accountId}::uuid,'supabase_auth','supabase',${subjectToken},
+          ${identityLinkKey.keyVersion},${now},${now},'Active'
+        )
+        on conflict(provider,issuer,key_version,subject_token) do update set
+          last_authenticated_at_utc=greatest(
+            identity.external_identity_tokens.last_authenticated_at_utc,
+            excluded.last_authenticated_at_utc
+          ),
+          status='Active'
+        where identity.external_identity_tokens.account_id=excluded.account_id
+        returning account_id::text as account_id
+      `;
+      if (tokenRows[0]?.account_id !== accountId) {
+        throw new ApiError(
+          409,
+          "external_identity_token_account_conflict",
+          "This external identity is already linked to another LifeMate account.",
+        );
+      }
+
       // Raw email/phone compatibility storage is deliberately never populated
-      // in retirement mode. Re-bootstrap also clears a pre-existing legacy
-      // value in the same transaction that verifies canonical ContactPoints.
+      // in retirement mode. Re-bootstrap is resolved by the canonical identity
+      // token before this store is called, so there is no plaintext re-seeding.
       await tx`
         insert into lifemate.user_profiles
           (id, user_id, display_name, phone_number, email, locale, time_zone,
            created_at_utc, updated_at_utc)
         values
-          (${crypto.randomUUID()}, ${appUserId}, ${displayName}, null, null,
+          (${crypto.randomUUID()}, ${appUserId}::uuid, ${displayName}, null, null,
            ${locale}, ${timeZone}, ${now}, ${now})
-        on conflict (user_id) do update set
-          display_name = coalesce(
-            nullif(lifemate.user_profiles.display_name, ''),
-            excluded.display_name
-          ),
-          phone_number = null,
-          email = null,
-          locale = excluded.locale,
-          time_zone = excluded.time_zone,
-          updated_at_utc = excluded.updated_at_utc
       `;
 
       // Bootstrap/auth synchronization may seed an empty canonical kind, but it
       // must never overwrite a later explicit Profile contact with a different
       // auth snapshot. This is the same `if-missing` invariant used by the
       // identity bridge, now inside the bootstrap transaction.
-      await contactPoints.syncForLegacyAppUser(
+      await contactPoints.syncForAccount(
         tx,
-        appUserId,
+        accountId,
         { email: auth.email, phone: auth.phone },
         "if-missing",
       );
@@ -94,8 +145,8 @@ export function createRawContactRetirementBootstrapStore(
           (id, actor_user_id, action, resource_type, resource_id,
            metadata_json, created_at_utc)
         values
-          (${crypto.randomUUID()}, ${appUserId}, 'user.bootstrap',
-           'app_user', ${appUserId}, null, now())
+          (${crypto.randomUUID()}, ${appUserId}::uuid, 'user.bootstrap',
+           'app_user', ${appUserId}::uuid, null, now())
       `;
       return appUserId;
     });
