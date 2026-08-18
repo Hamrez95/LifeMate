@@ -120,7 +120,8 @@ Deno.test("identity link keyset supports one bounded previous external key", () 
 });
 
 Deno.test("identity link keyset rejects unsafe partial or equal-version overlap", () => {
-  const read = (values: Record<string, string>) => (name: string) => values[name];
+  const read = (values: Record<string, string>) => (name: string) =>
+    values[name];
   const active = {
     LIFEMATE_IDENTITY_LINK_KEY: secret,
     LIFEMATE_IDENTITY_LINK_KEY_VERSION: "8",
@@ -130,8 +131,7 @@ Deno.test("identity link keyset rejects unsafe partial or equal-version overlap"
     () =>
       readIdentityLinkKeySetFromEnvironment(read({
         ...active,
-        LIFEMATE_IDENTITY_LINK_PREVIOUS_KEY:
-          "abcdef0123456789abcdef0123456789",
+        LIFEMATE_IDENTITY_LINK_PREVIOUS_KEY: "abcdef0123456789abcdef0123456789",
       })),
     Error,
     "must be configured together",
@@ -159,8 +159,7 @@ Deno.test("identity link keyset rejects unsafe partial or equal-version overlap"
     () =>
       readIdentityLinkKeySetFromEnvironment(read({
         ...active,
-        LIFEMATE_IDENTITY_LINK_PREVIOUS_KEY:
-          "abcdef0123456789abcdef0123456789",
+        LIFEMATE_IDENTITY_LINK_PREVIOUS_KEY: "abcdef0123456789abcdef0123456789",
         LIFEMATE_IDENTITY_LINK_PREVIOUS_KEY_VERSION: "8",
       })),
     Error,
