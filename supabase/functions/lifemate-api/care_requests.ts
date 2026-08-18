@@ -9,6 +9,11 @@ type CareRequestIdentity = {
   auth: { email: string | null };
 };
 
+type RelationshipParticipants = {
+  patientPersonId: string;
+  caregiverPersonId: string;
+};
+
 const requestContactType = "CareRequestEmail";
 const caregiverConsentVersion = "care-caregiver-request-v1";
 const patientConsentVersion = "care-patient-consent-v1";
@@ -63,11 +68,18 @@ export function createCareRequestStore(
       );
     }
 
+    const participants = await requireRelationshipParticipants(
+      sql,
+      target.id,
+      identity.appUserId,
+      "self_care_request_not_allowed",
+      "You cannot request care access to your own person.",
+    );
     const active = await sql`
       select id
       from lifemate.care_relationships
-      where patient_user_id = ${target.id}
-        and caregiver_user_id = ${identity.appUserId}
+      where patient_person_id = ${participants.patientPersonId}::uuid
+        and caregiver_person_id = ${participants.caregiverPersonId}::uuid
         and status = 'Active'
       limit 1
     `;
@@ -274,11 +286,18 @@ export function createCareRequestStore(
         return { id: request.id, status: "rejected" };
       }
 
+      const participants = await requireRelationshipParticipants(
+        tx,
+        identity.appUserId,
+        request.inviter_user_id,
+        "self_care_request_not_allowed",
+        "Self care is not allowed.",
+      );
       const active = await tx`
         select *
         from lifemate.care_relationships
-        where patient_user_id = ${identity.appUserId}
-          and caregiver_user_id = ${request.inviter_user_id}
+        where patient_person_id = ${participants.patientPersonId}::uuid
+          and caregiver_person_id = ${participants.caregiverPersonId}::uuid
           and status = 'Active'
         limit 1
       `;
@@ -392,4 +411,36 @@ export function createCareRequestStore(
   }
 
   return { create, listOutgoing, listIncoming, respond, cancel };
+}
+
+async function requireRelationshipParticipants(
+  connection: any,
+  patientUserId: string,
+  caregiverUserId: string,
+  selfErrorCode: string,
+  selfErrorMessage: string,
+): Promise<RelationshipParticipants> {
+  const rows = await connection`
+    select
+      core.self_person_id_for_legacy_app_user(${patientUserId}::uuid)::text
+        as patient_person_id,
+      core.self_person_id_for_legacy_app_user(${caregiverUserId}::uuid)::text
+        as caregiver_person_id
+  `;
+  const patientPersonId = rows[0]?.patient_person_id;
+  const caregiverPersonId = rows[0]?.caregiver_person_id;
+  if (
+    typeof patientPersonId !== "string" || patientPersonId.length === 0 ||
+    typeof caregiverPersonId !== "string" || caregiverPersonId.length === 0
+  ) {
+    throw new ApiError(
+      409,
+      "identity_person_mapping_missing",
+      "The LifeMate person mapping is unavailable.",
+    );
+  }
+  if (patientPersonId === caregiverPersonId) {
+    throw new ApiError(400, selfErrorCode, selfErrorMessage);
+  }
+  return { patientPersonId, caregiverPersonId };
 }

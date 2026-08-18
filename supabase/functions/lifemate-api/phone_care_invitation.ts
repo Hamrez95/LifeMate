@@ -9,6 +9,11 @@ import { ApiError, requiredText } from "./validation.ts";
 type Sql = LifeMateSql;
 type Row = Record<string, any>;
 
+type RelationshipParticipants = {
+  patientPersonId: string;
+  caregiverPersonId: string;
+};
+
 export type PhoneInvitationIdentity = {
   auth: {
     phone: string | null;
@@ -293,11 +298,16 @@ export function createPhoneCareInvitationStore(
     patientUserId: string,
     caregiverUserId: string,
   ): Promise<Row | null> {
+    const participants = await requireRelationshipParticipants(
+      connection,
+      patientUserId,
+      caregiverUserId,
+    );
     const rows = await connection`
       select *
       from lifemate.care_relationships
-      where patient_user_id = ${patientUserId}
-        and caregiver_user_id = ${caregiverUserId}
+      where patient_person_id = ${participants.patientPersonId}::uuid
+        and caregiver_person_id = ${participants.caregiverPersonId}::uuid
         and status = 'Active'
       limit 1
     `;
@@ -373,6 +383,40 @@ function contactMismatch(): ApiError {
     "invitation_contact_mismatch",
     "Invitation belongs to another account.",
   );
+}
+
+async function requireRelationshipParticipants(
+  connection: any,
+  patientUserId: string,
+  caregiverUserId: string,
+): Promise<RelationshipParticipants> {
+  const rows = await connection`
+    select
+      core.self_person_id_for_legacy_app_user(${patientUserId}::uuid)::text
+        as patient_person_id,
+      core.self_person_id_for_legacy_app_user(${caregiverUserId}::uuid)::text
+        as caregiver_person_id
+  `;
+  const patientPersonId = rows[0]?.patient_person_id;
+  const caregiverPersonId = rows[0]?.caregiver_person_id;
+  if (
+    typeof patientPersonId !== "string" || patientPersonId.length === 0 ||
+    typeof caregiverPersonId !== "string" || caregiverPersonId.length === 0
+  ) {
+    throw new ApiError(
+      409,
+      "identity_person_mapping_missing",
+      "The LifeMate person mapping is unavailable.",
+    );
+  }
+  if (patientPersonId === caregiverPersonId) {
+    throw new ApiError(
+      400,
+      "self_invitation_not_allowed",
+      "You cannot create a care relationship with your own person.",
+    );
+  }
+  return { patientPersonId, caregiverPersonId };
 }
 
 async function insertAudit(
