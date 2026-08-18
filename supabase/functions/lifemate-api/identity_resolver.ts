@@ -92,7 +92,8 @@ export function createIdentityResolver(
     }
     if (
       identityLinkKeys.previous &&
-      identityLinkKeys.previous.keyVersion === identityLinkKeys.active.keyVersion
+      identityLinkKeys.previous.keyVersion ===
+        identityLinkKeys.active.keyVersion
     ) {
       throw new Error(
         "Previous identity-link key version must differ from the active key version.",
