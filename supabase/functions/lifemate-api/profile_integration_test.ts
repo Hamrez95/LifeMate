@@ -39,10 +39,37 @@ Deno.test({
       });
       const identity = await db.requireIdentity(auth);
 
+      const mapping = await admin`
+        select core.self_person_id_for_legacy_app_user(
+          ${identity.appUserId}::uuid
+        )::text as person_id
+      `;
+      const personId = String(mapping[0]?.person_id ?? "");
+      assertEquals(personId.length > 0, true);
+      assertEquals(personId === identity.appUserId, false);
+
       const initial = await profiles.getProfile(identity.appUserId);
       assertEquals(initial.version, 1);
       assertEquals(initial.displayName, "نام اولیه");
       assertEquals(initial.avatarKey, "person_blue");
+
+      // Canonical Person-facing fields win even if the legacy compatibility
+      // projection is stale. Contact/version fields remain legacy in this slice.
+      await admin`
+        update core.person_profiles
+        set display_name = 'نام canonical',
+            locale = 'en',
+            time_zone = 'Europe/Berlin',
+            avatar_key = 'person_green'
+        where person_id = ${personId}::uuid
+      `;
+      const canonicalRead = await profiles.getProfile(identity.appUserId);
+      assertEquals(canonicalRead.displayName, "نام canonical");
+      assertEquals(canonicalRead.locale, "en");
+      assertEquals(canonicalRead.timeZone, "Europe/Berlin");
+      assertEquals(canonicalRead.avatarKey, "person_green");
+      assertEquals(canonicalRead.version, 1);
+      assertEquals(canonicalRead.email, auth.email);
 
       const updated = await profiles.updateProfile(identity.appUserId, auth, {
         version: 1,
