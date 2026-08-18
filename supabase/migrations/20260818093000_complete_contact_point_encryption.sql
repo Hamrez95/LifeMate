@@ -25,6 +25,16 @@ alter table identity.contact_points
     encryption_key_version between 1 and 32767
   );
 
+-- The original unconditional UNIQUE(kind,hash) prevented a legitimately
+-- transferred phone/email from ever being attached to a new Account after the
+-- old ContactPoint had been revoked. Keep global uniqueness only for current
+-- (Pending/Verified) contacts; historical revoked hashes remain audit-safe.
+alter table identity.contact_points
+  drop constraint if exists contact_points_kind_normalized_value_hash_key;
+create unique index if not exists uq_contact_points_current_kind_hash
+  on identity.contact_points(kind,normalized_value_hash)
+  where status <> 'Revoked';
+
 comment on column identity.contact_points.normalized_value_hash is
   'Domain-separated HMAC-SHA256 lookup hash of normalized contact data using a dedicated external LifeMate hashing secret.';
 comment on column identity.contact_points.encrypted_value is
