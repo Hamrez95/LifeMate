@@ -16,6 +16,7 @@ import {
   type PhoneInvitationDelivery,
 } from "./phone_invitation_delivery.ts";
 import { createProfileStore } from "./profile.ts";
+import { ApiError } from "./validation.ts";
 
 export type LifeMateDatabaseOptions = {
   phoneInvitationDelivery?: PhoneInvitationDelivery;
@@ -58,21 +59,45 @@ export function createLifeMateDatabase(
   );
   const profiles = createProfileStore(databaseUrl);
 
+  async function currentUser(
+    identity: Parameters<typeof database.currentUser>[0],
+  ): Promise<Record<string, unknown>> {
+    const current = await database.currentUser(identity);
+    return {
+      ...current,
+      profile: await profiles.getProfile(identity.appUserId),
+    };
+  }
+
+  async function bootstrapUser(
+    auth: Parameters<typeof database.bootstrapUser>[0],
+    body: Parameters<typeof database.bootstrapUser>[1],
+  ): Promise<Record<string, unknown>> {
+    if (identityResolver.lookupMode === "token-only") {
+      try {
+        const identity = await identityResolver.requireIdentity(auth);
+        return await currentUser(identity);
+      } catch (error) {
+        if (
+          !(error instanceof ApiError) ||
+          error.status !== 404 ||
+          error.code !== "not_onboarded"
+        ) {
+          throw error;
+        }
+      }
+    }
+    return await database.bootstrapUser(auth, body);
+  }
+
   return {
     ...database,
+    bootstrapUser,
     requireIdentity: identityResolver.requireIdentity,
     identityLookupMode: identityResolver.lookupMode,
     // The outer current-user contract remains legacy-compatible, while its
     // Person-facing profile payload is read from the mapped canonical Person.
-    currentUser: async (
-      identity: Parameters<typeof database.currentUser>[0],
-    ) => {
-      const current = await database.currentUser(identity);
-      return {
-        ...current,
-        profile: await profiles.getProfile(identity.appUserId),
-      };
-    },
+    currentUser,
     // Medication ownership is canonical Person-based and new runtime writes no
     // longer create the legacy owner_user_id linkage. Existing legacy rows and
     // compatibility schema remain intact until destructive retirement is safe.
