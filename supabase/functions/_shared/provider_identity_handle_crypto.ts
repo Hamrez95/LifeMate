@@ -34,7 +34,7 @@ function readBoolean(
 }
 
 function requiredKeyVersion(value: number): number {
-  if (!Number.isSafeInteger(value) || value < 1 || value > 65535) {
+  if (!Number.isSafeInteger(value) || value < 1 || value > 32767) {
     throw new Error("Provider identity-handle key version is invalid.");
   }
   return value;
