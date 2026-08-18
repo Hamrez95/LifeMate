@@ -19,6 +19,10 @@ const envNames = [
   "LIFEMATE_IDENTITY_CONTACT_READINESS_APPROVED",
   "LIFEMATE_IDENTITY_CONTACT_RAW_RETIREMENT",
   "LIFEMATE_IDENTITY_CONTACT_DUAL_WRITE",
+  "LIFEMATE_IDENTITY_LINK_LOOKUP_MODE",
+  "LIFEMATE_IDENTITY_LINK_DUAL_WRITE",
+  "LIFEMATE_IDENTITY_LINK_KEY",
+  "LIFEMATE_IDENTITY_LINK_KEY_VERSION",
 ] as const;
 
 Deno.test({
@@ -37,6 +41,9 @@ Deno.test({
       secret: "raw-contact-retirement-integration-envelope-key-32-bytes",
       keyVersion: 43,
     };
+    const identityLinkKey =
+      "raw-contact-retirement-integration-identity-link-key-32-bytes";
+    const identityLinkKeyVersion = 47;
     const suffix = crypto.randomUUID();
     const auth: AuthUser = {
       id: `raw-contact-retirement-${suffix}`,
@@ -67,6 +74,13 @@ Deno.test({
       Deno.env.set(
         "LIFEMATE_IDENTITY_CONTACT_ENCRYPTION_KEY_VERSION",
         String(encryptionKey.keyVersion),
+      );
+      Deno.env.set("LIFEMATE_IDENTITY_LINK_LOOKUP_MODE", "token-only");
+      Deno.env.set("LIFEMATE_IDENTITY_LINK_DUAL_WRITE", "true");
+      Deno.env.set("LIFEMATE_IDENTITY_LINK_KEY", identityLinkKey);
+      Deno.env.set(
+        "LIFEMATE_IDENTITY_LINK_KEY_VERSION",
+        String(identityLinkKeyVersion),
       );
 
       const db = createLifeMateDatabase(databaseUrl, hashingSecret);
