@@ -236,7 +236,9 @@ export function createProfileStore(
       throw new ApiError(404, "profile_missing", "User profile was not found.");
     }
     const row = rows[0];
-    const legacyPhone = row.phone_number == null ? null : String(row.phone_number);
+    const legacyPhone = row.phone_number == null
+      ? null
+      : String(row.phone_number);
     const legacyEmail = row.email == null ? null : String(row.email);
     const phoneNumber = await contactReader.readForProfile(
       sql,
