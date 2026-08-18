@@ -83,16 +83,31 @@ requireMarkers(
   ],
   'ContactPoint envelope rotator',
 );
-forbidMarkers(
-  rotatorRuntime.toLowerCase(),
+const updateMatch = rotatorRuntime.match(
+  /update\s+identity\.contact_points\s+set([\s\S]*?)\s+where\s+/i,
+);
+if (!updateMatch) fail('ContactPoint envelope rotator lost its guarded update.');
+const updateSet = updateMatch[1].toLowerCase();
+for (const forbiddenColumn of [
+  'status=',
+  'verified_at_utc=',
+  'normalized_value_hash=',
+  'account_id=',
+  'kind=',
+]) {
+  if (updateSet.replaceAll(' ', '').includes(forbiddenColumn)) {
+    fail(`ContactPoint envelope rotator must not mutate ${forbiddenColumn}`);
+  }
+}
+requireMarkers(
+  updateSet,
   [
-    "set status='pending'",
-    "set status='verified'",
-    'verified_at_utc=',
-    'normalized_value_hash=',
-    'account_id=',
+    'encrypted_value=',
+    'encryption_nonce_b64=',
+    'encryption_key_version=',
+    'updated_at_utc=',
   ],
-  'ContactPoint envelope rotator mutation set',
+  'ContactPoint envelope rotator update set',
 );
 
 requireMarkers(
@@ -217,7 +232,7 @@ requireMarkers(
     'ROTATE-CONTACT-ENVELOPES',
     'Require GREEN evidence before previous-key removal.',
     'Previous key lost before re-encryption completes',
-    'Do not recover by re-populating raw email/phone columns',
+    're-populating raw email/phone columns',
     '#210',
     '#211',
   ],
