@@ -62,18 +62,24 @@ function normalizedContext(
   return { accountId, provider, issuer };
 }
 
+function ownedArrayBuffer(bytes: Uint8Array): ArrayBuffer {
+  const copy = new Uint8Array(bytes.byteLength);
+  copy.set(bytes);
+  return copy.buffer as ArrayBuffer;
+}
+
 function canonicalAad(
   context: ProviderIdentityHandleContext,
   keyVersion: number,
-): Uint8Array {
+): ArrayBuffer {
   const normalized = normalizedContext(context);
-  return encoder.encode(JSON.stringify({
+  return ownedArrayBuffer(encoder.encode(JSON.stringify({
     envelopeVersion,
     accountId: normalized.accountId,
     provider: normalized.provider,
     issuer: normalized.issuer,
     keyVersion: requiredKeyVersion(keyVersion),
-  }));
+  })));
 }
 
 function bytesToBase64(bytes: Uint8Array): string {
@@ -179,7 +185,7 @@ export async function encryptProviderIdentitySubject(
   const encrypted = await crypto.subtle.encrypt(
     {
       name: "AES-GCM",
-      iv: nonce,
+      iv: ownedArrayBuffer(nonce),
       additionalData: canonicalAad(context, key.keyVersion),
       tagLength: 128,
     },
@@ -218,12 +224,12 @@ export async function decryptProviderIdentitySubject(
     plaintext = await crypto.subtle.decrypt(
       {
         name: "AES-GCM",
-        iv: nonce,
+        iv: ownedArrayBuffer(nonce),
         additionalData: canonicalAad(context, key.keyVersion),
         tagLength: 128,
       },
       aesKey,
-      ciphertext,
+      ownedArrayBuffer(ciphertext),
     );
   } catch {
     throw new Error("Provider identity-handle authentication failed.");
