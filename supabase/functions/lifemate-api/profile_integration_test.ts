@@ -148,10 +148,12 @@ Deno.test({
       const currentProfile = current.profile as Record<string, unknown>;
       assertEquals(currentProfile.avatarKey, "person_purple");
 
-      const legacyPhotoPath = `${identity.appUserId}/legacy-profile.jpg`;
-      const canonicalPhotoPath = `${identity.appUserId}/canonical-profile.jpg`;
+      const legacyPhotoPath =
+        `${identity.appUserId}/${crypto.randomUUID()}.jpg`;
+      const canonicalPhotoPath =
+        `${identity.appUserId}/${crypto.randomUUID()}.jpg`;
       const replacementPhotoPath =
-        `${identity.appUserId}/replacement-profile.jpg`;
+        `${identity.appUserId}/${crypto.randomUUID()}.jpg`;
       await admin`
         update lifemate.user_profiles
         set profile_photo_path = ${legacyPhotoPath}
