@@ -10,7 +10,8 @@ if (!databaseUrl) {
 }
 
 Deno.test({
-  name: "rotation readiness stays count-only and fails closed until every active Account has exactly one active-version token",
+  name:
+    "rotation readiness stays count-only and fails closed until every active Account has exactly one active-version token",
   sanitizeOps: false,
   sanitizeResources: false,
   fn: async () => {
@@ -19,13 +20,19 @@ Deno.test({
     const appUserB = crypto.randomUUID();
     const appUserC = crypto.randomUUID();
     const activeVersion = 8;
+    const tokenA = "a".repeat(64);
+    const tokenBPrevious = "b".repeat(64);
+    const tokenC = "c".repeat(64);
+    const tokenCExtra = "d".repeat(64);
+    const tokenBActive = "e".repeat(64);
+    const fixtures = [
+      [appUserA, `rotation-ready-a-${crypto.randomUUID()}`],
+      [appUserB, `rotation-ready-b-${crypto.randomUUID()}`],
+      [appUserC, `rotation-ready-c-${crypto.randomUUID()}`],
+    ];
 
     try {
-      for (const [id, subject] of [
-        [appUserA, `rotation-ready-a-${crypto.randomUUID()}`],
-        [appUserB, `rotation-ready-b-${crypto.randomUUID()}`],
-        [appUserC, `rotation-ready-c-${crypto.randomUUID()}`],
-      ]) {
+      for (const [id, subject] of fixtures) {
         await sql`
           insert into lifemate.app_users(
             id,auth_subject,status,created_at_utc,updated_at_utc
@@ -38,10 +45,22 @@ Deno.test({
           account_id,provider,issuer,subject_token,key_version,status,
           created_at_utc,last_authenticated_at_utc
         ) values
-          (${appUserA}::uuid,'supabase_auth','supabase',${"a".repeat(64)},${activeVersion},'Active',now(),now()),
-          (${appUserB}::uuid,'supabase_auth','supabase',${"b".repeat(64)},${activeVersion - 1},'Active',now(),now()),
-          (${appUserC}::uuid,'supabase_auth','supabase',${"c".repeat(64)},${activeVersion},'Active',now(),now()),
-          (${appUserC}::uuid,'supabase_auth','supabase',${"d".repeat(64)},${activeVersion},'Active',now(),now())
+          (
+            ${appUserA}::uuid,'supabase_auth','supabase',${tokenA},
+            ${activeVersion},'Active',now(),now()
+          ),
+          (
+            ${appUserB}::uuid,'supabase_auth','supabase',${tokenBPrevious},
+            ${activeVersion - 1},'Active',now(),now()
+          ),
+          (
+            ${appUserC}::uuid,'supabase_auth','supabase',${tokenC},
+            ${activeVersion},'Active',now(),now()
+          ),
+          (
+            ${appUserC}::uuid,'supabase_auth','supabase',${tokenCExtra},
+            ${activeVersion},'Active',now(),now()
+          )
       `;
 
       const blocked = await assessIdentityLinkRotationReadiness({
@@ -62,14 +81,14 @@ Deno.test({
           and provider='supabase_auth'
           and issuer='supabase'
           and key_version=${activeVersion}
-          and subject_token=${"d".repeat(64)}
+          and subject_token=${tokenCExtra}
       `;
       await sql`
         insert into identity.external_identity_tokens(
           account_id,provider,issuer,subject_token,key_version,status,
           created_at_utc,last_authenticated_at_utc
         ) values(
-          ${appUserB}::uuid,'supabase_auth','supabase',${"e".repeat(64)},
+          ${appUserB}::uuid,'supabase_auth','supabase',${tokenBActive},
           ${activeVersion},'Active',now(),now()
         )
       `;
