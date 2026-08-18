@@ -1,4 +1,7 @@
-import { createContactPointWriter } from "./contact_points.ts";
+import {
+  createContactPointReader,
+  createContactPointWriter,
+} from "./contact_points.ts";
 import { getLifeMateSql } from "./database_client.ts";
 import {
   ApiError,
@@ -76,6 +79,7 @@ export function createProfileStore(
 ) {
   const sql = getLifeMateSql(databaseUrl);
   const contactPoints = createContactPointWriter(contactHashingSecret);
+  const contactReader = createContactPointReader();
   let versionColumnPromise: Promise<boolean> | null = null;
   let photoColumnPromise: Promise<boolean> | null = null;
 
@@ -231,7 +235,24 @@ export function createProfileStore(
     if (!rows[0]) {
       throw new ApiError(404, "profile_missing", "User profile was not found.");
     }
-    return mapProfile(rows[0]);
+    const row = rows[0];
+    const legacyPhone = row.phone_number == null
+      ? null
+      : String(row.phone_number);
+    const legacyEmail = row.email == null ? null : String(row.email);
+    const phoneNumber = await contactReader.readForProfile(
+      sql,
+      userId,
+      "Phone",
+      legacyPhone,
+    );
+    const email = await contactReader.readForProfile(
+      sql,
+      userId,
+      "Email",
+      legacyEmail,
+    );
+    return mapProfile({ ...row, phone_number: phoneNumber, email });
   }
 
   async function updateProfile(

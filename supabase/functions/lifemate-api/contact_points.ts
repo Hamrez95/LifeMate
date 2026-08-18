@@ -2,6 +2,7 @@ import {
   type ContactEncryptionKey,
   contactPointDualWriteEnabled,
   type ContactPointKind,
+  decryptContactPoint,
   encryptContactPoint,
   hashContactPoint,
   normalizeContactPoint,
@@ -17,12 +18,219 @@ type ContactPointWriterOptions = {
   readEnvironment?: EnvironmentReader;
 };
 
+type ContactPointReaderOptions = {
+  lookupMode?: ContactPointLookupMode;
+  encryptionKey?: ContactEncryptionKey;
+  rawRetirementEnabled?: boolean;
+  readinessApproved?: boolean;
+  dualWriteEnabled?: boolean;
+  readEnvironment?: EnvironmentReader;
+};
+
 export type ContactPointPatch = {
   email?: string | null;
   phone?: string | null;
 };
 
 export type ContactPointWriteMode = "replace" | "if-missing";
+export type ContactPointLookupMode =
+  | "legacy"
+  | "prefer-contact"
+  | "contact-only";
+
+function strictBoolean(
+  name: string,
+  value: string | null | undefined,
+  fallback: boolean,
+): boolean {
+  const raw = value?.trim().toLowerCase() ?? "";
+  if (!raw) return fallback;
+  if (raw === "true") return true;
+  if (raw === "false") return false;
+  throw new Error(`${name} must be either true or false.`);
+}
+
+export function contactPointLookupMode(
+  readEnvironment: EnvironmentReader = (name) => Deno.env.get(name),
+): ContactPointLookupMode {
+  const mode =
+    (readEnvironment("LIFEMATE_PROFILE_CONTACT_LOOKUP_MODE") ?? "legacy")
+      .trim()
+      .toLowerCase();
+  if (
+    mode === "legacy" || mode === "prefer-contact" || mode === "contact-only"
+  ) {
+    return mode;
+  }
+  throw new Error(
+    "LIFEMATE_PROFILE_CONTACT_LOOKUP_MODE must be legacy, prefer-contact, or contact-only.",
+  );
+}
+
+export function rawContactRetirementEnabled(
+  readEnvironment: EnvironmentReader = (name) => Deno.env.get(name),
+): boolean {
+  return strictBoolean(
+    "LIFEMATE_IDENTITY_CONTACT_RAW_RETIREMENT",
+    readEnvironment("LIFEMATE_IDENTITY_CONTACT_RAW_RETIREMENT"),
+    false,
+  );
+}
+
+export function contactOnlyReadinessApproved(
+  readEnvironment: EnvironmentReader = (name) => Deno.env.get(name),
+): boolean {
+  return strictBoolean(
+    "LIFEMATE_IDENTITY_CONTACT_READINESS_APPROVED",
+    readEnvironment("LIFEMATE_IDENTITY_CONTACT_READINESS_APPROVED"),
+    false,
+  );
+}
+
+async function requireAccountId(
+  connection: any,
+  legacyAppUserId: string,
+): Promise<string> {
+  const rows = await connection`
+    select identity.account_id_for_legacy_app_user(
+      ${legacyAppUserId}::uuid
+    )::text as account_id
+  `;
+  const accountId = rows[0]?.account_id;
+  if (typeof accountId !== "string" || accountId.length === 0) {
+    throw new ApiError(
+      409,
+      "identity_account_mapping_missing",
+      "The LifeMate account mapping is unavailable.",
+    );
+  }
+  return accountId;
+}
+
+export function createContactPointReader(
+  options: ContactPointReaderOptions = {},
+) {
+  const readEnvironment = options.readEnvironment ??
+    ((name: string) => Deno.env.get(name));
+  const lookupMode = options.lookupMode ??
+    contactPointLookupMode(readEnvironment);
+  const rawRetirement = options.rawRetirementEnabled ??
+    rawContactRetirementEnabled(readEnvironment);
+  const readinessApproved = options.readinessApproved ??
+    contactOnlyReadinessApproved(readEnvironment);
+  const dualWriteEnabled = options.dualWriteEnabled ??
+    contactPointDualWriteEnabled(readEnvironment);
+  const encryptionKey = lookupMode === "legacy"
+    ? null
+    : options.encryptionKey ?? readContactEncryptionKey(readEnvironment);
+
+  if (lookupMode === "contact-only" && !readinessApproved) {
+    throw new Error(
+      "contact-only Profile reads require LIFEMATE_IDENTITY_CONTACT_READINESS_APPROVED=true from a protected readiness process.",
+    );
+  }
+  if (lookupMode === "contact-only" && !dualWriteEnabled) {
+    throw new Error(
+      "contact-only Profile reads require LIFEMATE_IDENTITY_CONTACT_DUAL_WRITE=true so Profile updates keep canonical contacts current.",
+    );
+  }
+
+  async function readCanonical(
+    connection: any,
+    legacyAppUserId: string,
+    kind: ContactPointKind,
+  ): Promise<string | null> {
+    if (!encryptionKey) {
+      throw new Error("Canonical ContactPoint reads are not configured.");
+    }
+    const accountId = await requireAccountId(connection, legacyAppUserId);
+    const rows = await connection`
+      select normalized_value_hash,
+             encode(encrypted_value,'base64') as ciphertext_b64,
+             encryption_nonce_b64,encryption_key_version
+      from identity.contact_points
+      where account_id=${accountId}::uuid
+        and kind=${kind}
+        and status <> 'Revoked'
+      order by updated_at_utc desc,id
+      limit 2
+    `;
+    if (rows.length > 1) {
+      throw new ApiError(
+        503,
+        "contact_point_ambiguous",
+        "Canonical contact data is ambiguous.",
+      );
+    }
+    const row = rows[0];
+    if (!row) return null;
+    if (
+      typeof row.normalized_value_hash !== "string" ||
+      typeof row.ciphertext_b64 !== "string" ||
+      typeof row.encryption_nonce_b64 !== "string" ||
+      Number(row.encryption_key_version) !== encryptionKey.keyVersion
+    ) {
+      throw new ApiError(
+        503,
+        "contact_point_unavailable",
+        "Canonical contact data is unavailable.",
+      );
+    }
+    try {
+      return await decryptContactPoint(
+        encryptionKey,
+        {
+          accountId,
+          kind,
+          normalizedValueHash: row.normalized_value_hash,
+        },
+        {
+          ciphertextB64: row.ciphertext_b64,
+          nonceB64: row.encryption_nonce_b64,
+          keyVersion: Number(row.encryption_key_version),
+        },
+      );
+    } catch {
+      throw new ApiError(
+        503,
+        "contact_point_unavailable",
+        "Canonical contact data is unavailable.",
+      );
+    }
+  }
+
+  async function readForProfile(
+    connection: any,
+    legacyAppUserId: string,
+    kind: ContactPointKind,
+    legacyValue: string | null,
+  ): Promise<string | null> {
+    if (lookupMode === "legacy") return legacyValue;
+    try {
+      const canonical = await readCanonical(connection, legacyAppUserId, kind);
+      if (canonical != null || lookupMode === "contact-only") return canonical;
+    } catch (error) {
+      if (lookupMode === "contact-only" || rawRetirement) throw error;
+    }
+    if (rawRetirement) {
+      throw new ApiError(
+        503,
+        "contact_point_unavailable",
+        "Canonical contact data is unavailable.",
+      );
+    }
+    return legacyValue;
+  }
+
+  return {
+    lookupMode,
+    rawRetirementEnabled: rawRetirement,
+    readinessApproved,
+    dualWriteEnabled,
+    readCanonical,
+    readForProfile,
+  };
+}
 
 export function createContactPointWriter(
   hashingSecret: string | undefined,
@@ -48,26 +256,6 @@ export function createContactPointWriter(
       readContactEncryptionKey(readEnvironment);
   }
 
-  async function resolveAccountId(
-    transaction: any,
-    legacyAppUserId: string,
-  ): Promise<string> {
-    const rows = await transaction`
-      select identity.account_id_for_legacy_app_user(
-        ${legacyAppUserId}::uuid
-      )::text as account_id
-    `;
-    const accountId = rows[0]?.account_id;
-    if (typeof accountId !== "string" || accountId.length === 0) {
-      throw new ApiError(
-        409,
-        "identity_account_mapping_missing",
-        "The LifeMate account mapping is unavailable.",
-      );
-    }
-    return accountId;
-  }
-
   async function syncForLegacyAppUser(
     transaction: any,
     legacyAppUserId: string,
@@ -75,7 +263,7 @@ export function createContactPointWriter(
     mode: ContactPointWriteMode = "replace",
   ): Promise<void> {
     if (!enabled) return;
-    const accountId = await resolveAccountId(transaction, legacyAppUserId);
+    const accountId = await requireAccountId(transaction, legacyAppUserId);
     await syncForAccount(transaction, accountId, patch, mode);
   }
 

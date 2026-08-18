@@ -1,0 +1,136 @@
+name: contact-point-backfill
+
+on:
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: 'Backfill mode'
+        required: true
+        default: 'dry-run'
+        type: choice
+        options:
+          - dry-run
+          - apply
+      max_accounts:
+        description: 'Maximum Accounts in this bounded batch (1-1000)'
+        required: true
+        default: '100'
+        type: string
+      after_account_id:
+        description: 'Optional opaque Account UUID cursor from the previous batch'
+        required: false
+        default: ''
+        type: string
+      confirm_apply:
+        description: 'For apply mode type BACKFILL-ENCRYPTED-CONTACTS'
+        required: false
+        default: ''
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: production-contact-point-backfill
+  cancel-in-progress: false
+
+jobs:
+  backfill:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    environment: beta
+    env:
+      LIFEMATE_CONTACT_MIGRATION_DATABASE_URL: ${{ secrets.LIFEMATE_IDENTITY_BACKFILL_DATABASE_URL }}
+      LIFEMATE_CONTACT_HASHING_SECRET: ${{ secrets.LIFEMATE_CONTACT_HASHING_SECRET }}
+      LIFEMATE_IDENTITY_CONTACT_ENCRYPTION_KEY: ${{ secrets.LIFEMATE_IDENTITY_CONTACT_ENCRYPTION_KEY }}
+      LIFEMATE_IDENTITY_CONTACT_ENCRYPTION_KEY_VERSION: ${{ secrets.LIFEMATE_IDENTITY_CONTACT_ENCRYPTION_KEY_VERSION }}
+      LIFEMATE_CONTACT_BACKFILL_MODE: ${{ inputs.mode }}
+      LIFEMATE_CONTACT_BACKFILL_MAX_ACCOUNTS: ${{ inputs.max_accounts }}
+      LIFEMATE_CONTACT_BACKFILL_AFTER_ACCOUNT_ID: ${{ inputs.after_account_id }}
+      LIFEMATE_CONTACT_BACKFILL_CONFIRM: ${{ inputs.confirm_apply }}
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
+        with:
+          ref: ${{ github.sha }}
+          show-progress: false
+          persist-credentials: false
+          fetch-depth: 1
+
+      - name: Require protected exact-main bounded execution
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$GITHUB_REF" = 'refs/heads/main'
+          test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
+          test "${{ github.event.repository.private }}" = 'true'
+          test "${{ github.ref_protected }}" = 'true'
+          test -n "$LIFEMATE_CONTACT_MIGRATION_DATABASE_URL"
+          test "${#LIFEMATE_CONTACT_HASHING_SECRET}" -ge 32
+          test "${#LIFEMATE_IDENTITY_CONTACT_ENCRYPTION_KEY}" -ge 32
+          [[ "$LIFEMATE_IDENTITY_CONTACT_ENCRYPTION_KEY_VERSION" =~ ^[0-9]+$ ]]
+          test "$LIFEMATE_IDENTITY_CONTACT_ENCRYPTION_KEY_VERSION" -ge 1
+          test "$LIFEMATE_IDENTITY_CONTACT_ENCRYPTION_KEY_VERSION" -le 32767
+          [[ "$LIFEMATE_CONTACT_BACKFILL_MAX_ACCOUNTS" =~ ^[0-9]+$ ]]
+          test "$LIFEMATE_CONTACT_BACKFILL_MAX_ACCOUNTS" -ge 1
+          test "$LIFEMATE_CONTACT_BACKFILL_MAX_ACCOUNTS" -le 1000
+          if [ -n "$LIFEMATE_CONTACT_BACKFILL_AFTER_ACCOUNT_ID" ]; then
+            [[ "$LIFEMATE_CONTACT_BACKFILL_AFTER_ACCOUNT_ID" =~ ^[0-9a-fA-F-]{36}$ ]]
+          fi
+          if [ "$LIFEMATE_CONTACT_BACKFILL_MODE" = 'apply' ]; then
+            test "$LIFEMATE_CONTACT_BACKFILL_CONFIRM" = 'BACKFILL-ENCRYPTED-CONTACTS'
+          else
+            test "$LIFEMATE_CONTACT_BACKFILL_MODE" = 'dry-run'
+          fi
+
+      - uses: denoland/setup-deno@22d081ff2d3a40755e97629de92e3bcbfa7cf2ed
+        with:
+          deno-version: v2.9.4
+
+      - name: Check bounded backfill source
+        shell: bash
+        run: |
+          set -euo pipefail
+          deno fmt --check tools/security/contact-point-backfill.ts
+          deno check tools/security/contact-point-backfill.ts
+
+      - name: Execute bounded ContactPoint backfill
+        shell: bash
+        run: |
+          set -euo pipefail
+          summary_file="$RUNNER_TEMP/contact-point-backfill.json"
+          error_file="$RUNNER_TEMP/contact-point-backfill.err"
+          deno run \
+            --allow-env=LIFEMATE_CONTACT_MIGRATION_DATABASE_URL,LIFEMATE_CONTACT_HASHING_SECRET,LIFEMATE_IDENTITY_CONTACT_ENCRYPTION_KEY,LIFEMATE_IDENTITY_CONTACT_ENCRYPTION_KEY_VERSION,LIFEMATE_CONTACT_BACKFILL_MODE,LIFEMATE_CONTACT_BACKFILL_MAX_ACCOUNTS,LIFEMATE_CONTACT_BACKFILL_AFTER_ACCOUNT_ID,LIFEMATE_CONTACT_BACKFILL_CONFIRM \
+            --allow-net \
+            tools/security/contact-point-backfill.ts \
+            > "$summary_file" 2> "$error_file"
+
+          if ! jq -e '
+            (.mode == "dry-run" or .mode == "apply") and
+            (.scannedAccounts | type == "number") and
+            (.plannedContacts | type == "number") and
+            (.alreadyCurrentContacts | type == "number") and
+            (.insertedOrRefreshed | type == "number") and
+            (.hasMore | type == "boolean") and
+            ((.nextAfterAccountId == null) or (.nextAfterAccountId | type == "string"))
+          ' "$summary_file" >/dev/null 2>&1; then
+            rm -f "$summary_file" "$error_file"
+            echo '::error::ContactPoint backfill failed without a valid count-only summary.'
+            exit 1
+          fi
+
+          {
+            echo '## ContactPoint bounded backfill'
+            echo ''
+            echo "- mode: $(jq -r '.mode' "$summary_file")"
+            echo "- scanned Accounts: $(jq -r '.scannedAccounts' "$summary_file")"
+            echo "- planned contacts: $(jq -r '.plannedContacts' "$summary_file")"
+            echo "- already-current contacts: $(jq -r '.alreadyCurrentContacts' "$summary_file")"
+            echo "- inserted/refreshed: $(jq -r '.insertedOrRefreshed' "$summary_file")"
+            echo "- more batches remain: $(jq -r '.hasMore' "$summary_file")"
+            echo "- next opaque Account cursor: $(jq -r '.nextAfterAccountId // "none"' "$summary_file")"
+            echo '- plaintext contacts, hashes, ciphertext, DB URLs and key material are intentionally omitted'
+            echo '- run contact-point-readiness after the final apply batch before enabling contact-only reads'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+          rm -f "$summary_file" "$error_file"
