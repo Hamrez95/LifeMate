@@ -11,7 +11,10 @@ import {
 
 function assertEquals(actual: unknown, expected: unknown, message?: string) {
   if (JSON.stringify(actual) !== JSON.stringify(expected)) {
-    throw new Error(message ?? `Expected ${JSON.stringify(expected)}, got ${JSON.stringify(actual)}`);
+    throw new Error(
+      message ??
+        `Expected ${JSON.stringify(expected)}, got ${JSON.stringify(actual)}`,
+    );
   }
 }
 
@@ -23,7 +26,10 @@ async function assertRejects(fn: () => Promise<unknown>, expectedCode: string) {
   try {
     await fn();
   } catch (error) {
-    if (error && typeof error === "object" && "code" in error && error.code === expectedCode) return;
+    if (
+      error && typeof error === "object" && "code" in error &&
+      error.code === expectedCode
+    ) return;
     throw error;
   }
   throw new Error(`Expected rejection with ${expectedCode}`);
@@ -41,9 +47,18 @@ function request(body: Record<string, unknown>, method = "POST") {
 }
 
 Deno.test("catalog route matchers keep plan detail and price collection distinct", () => {
-  assertEquals(matchCommerceCatalogPlanPath(`/api/v1/commerce/plans/${planId}`), planId);
-  assertEquals(matchCommercePlanPricesPath(`/api/v1/commerce/plans/${planId}/prices`), planId);
-  assertEquals(matchCommerceCatalogPlanPath(`/api/v1/commerce/plans/${planId}/prices`), null);
+  assertEquals(
+    matchCommerceCatalogPlanPath(`/api/v1/commerce/plans/${planId}`),
+    planId,
+  );
+  assertEquals(
+    matchCommercePlanPricesPath(`/api/v1/commerce/plans/${planId}/prices`),
+    planId,
+  );
+  assertEquals(
+    matchCommerceCatalogPlanPath(`/api/v1/commerce/plans/${planId}/prices`),
+    null,
+  );
 });
 
 Deno.test("plan creation normalizes immutable code and requires meaningful reason", async () => {
@@ -57,12 +72,13 @@ Deno.test("plan creation normalizes immutable code and requires meaningful reaso
   assertEquals(payload.productId, productId);
 
   await assertRejects(
-    () => parseCreateCommercePlanPayload(request({
-      productId,
-      code: "bad code",
-      name: "Premium",
-      reason: "Approved catalog addition for yearly billing.",
-    })),
+    () =>
+      parseCreateCommercePlanPayload(request({
+        productId,
+        code: "bad code",
+        name: "Premium",
+        reason: "Approved catalog addition for yearly billing.",
+      })),
     "plan_code_invalid",
   );
 });
@@ -76,11 +92,12 @@ Deno.test("plan update restricts lifecycle to Active or Retired", async () => {
   assertEquals(payload.status, "Retired");
 
   await assertRejects(
-    () => parseUpdateCommercePlanPayload(request({
-      name: "Premium Yearly",
-      status: "Deleted",
-      reason: "Attempt unsupported destructive plan lifecycle state.",
-    }, "PUT")),
+    () =>
+      parseUpdateCommercePlanPayload(request({
+        name: "Premium Yearly",
+        status: "Deleted",
+        reason: "Attempt unsupported destructive plan lifecycle state.",
+      }, "PUT")),
     "plan_status_invalid",
   );
 });
@@ -102,15 +119,16 @@ Deno.test("price parser uses minor-unit integer strings and canonical dimensions
   assertEquals(payload.effectiveFromUtc, "2026-08-31T20:30:00.000Z");
 
   await assertRejects(
-    () => parseScheduleCommercePricePayload(request({
-      countryCode: "IR",
-      currency: "IRR",
-      storeProvider: "google_play",
-      billingPeriodMonths: 12,
-      amountMinor: "9223372036854775808",
-      effectiveFromUtc: "2026-09-01T00:00:00Z",
-      reason: "Reject amount outside the PostgreSQL bigint boundary.",
-    })),
+    () =>
+      parseScheduleCommercePricePayload(request({
+        countryCode: "IR",
+        currency: "IRR",
+        storeProvider: "google_play",
+        billingPeriodMonths: 12,
+        amountMinor: "9223372036854775808",
+        effectiveFromUtc: "2026-09-01T00:00:00Z",
+        reason: "Reject amount outside the PostgreSQL bigint boundary.",
+      })),
     "price_amount_invalid",
   );
 });
@@ -148,6 +166,12 @@ Deno.test("catalog mutation hashes are deterministic and resource scoped", async
   );
   assert(updateHash !== otherUpdateHash, "plan update hash must bind plan id");
 
-  const priceHash = await hashScheduleCommercePriceRequest(planId, pricePayload);
-  assert(priceHash !== updateHash, "price and plan mutations need separate operation hashes");
+  const priceHash = await hashScheduleCommercePriceRequest(
+    planId,
+    pricePayload,
+  );
+  assert(
+    priceHash !== updateHash,
+    "price and plan mutations need separate operation hashes",
+  );
 });
