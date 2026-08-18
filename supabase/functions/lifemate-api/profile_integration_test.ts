@@ -148,15 +148,51 @@ Deno.test({
       const currentProfile = current.profile as Record<string, unknown>;
       assertEquals(currentProfile.avatarKey, "person_purple");
 
+      const legacyPhotoPath = `${identity.appUserId}/legacy-profile.jpg`;
+      const canonicalPhotoPath = `${identity.appUserId}/canonical-profile.jpg`;
+      const replacementPhotoPath = `${identity.appUserId}/replacement-profile.jpg`;
+      await admin`
+        update lifemate.user_profiles
+        set profile_photo_path = ${legacyPhotoPath}
+        where user_id = ${identity.appUserId}::uuid
+      `;
+      await admin`
+        update core.person_profiles
+        set profile_photo_path = ${canonicalPhotoPath}
+        where person_id = ${personId}::uuid
+      `;
+      assertEquals(
+        await profiles.getProfilePhotoPath(identity.appUserId),
+        canonicalPhotoPath,
+      );
+      assertEquals(
+        await profiles.replaceProfilePhotoPath(
+          identity.appUserId,
+          replacementPhotoPath,
+        ),
+        canonicalPhotoPath,
+      );
+      const photoRows = await admin`
+        select legacy.profile_photo_path as legacy_path,
+               person.profile_photo_path as canonical_path
+        from lifemate.user_profiles legacy
+        join core.person_profiles person
+          on person.person_id = ${personId}::uuid
+        where legacy.user_id = ${identity.appUserId}::uuid
+      `;
+      assertEquals(photoRows[0]?.legacy_path, replacementPhotoPath);
+      assertEquals(photoRows[0]?.canonical_path, replacementPhotoPath);
+
       const audits = await admin`
         select action, resource_type, metadata_json
         from lifemate.audit_logs
         where actor_user_id = ${identity.appUserId}
-          and action = 'profile.updated'
+          and action in ('profile.updated', 'profile.photo_updated')
+        order by action
       `;
-      assertEquals(audits.length, 1);
-      assertEquals(audits[0].resource_type, "user_profile");
+      assertEquals(audits.length, 2);
       assertEquals(audits[0].metadata_json, null);
+      assertEquals(audits[1].metadata_json, null);
     } finally {
       if (appUserId) {
         await admin`
