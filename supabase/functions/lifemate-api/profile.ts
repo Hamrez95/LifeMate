@@ -262,14 +262,18 @@ export function createProfileStore(
   ): Promise<Record<string, unknown>> {
     const patch = normalizeProfilePatch(body);
     const usesVersionColumn = await hasVersionColumn();
+    const rawPhone = contactReader.rawRetirementEnabled
+      ? null
+      : patch.phoneNumber;
+    const rawEmail = contactReader.rawRetirementEnabled ? null : auth.email;
 
     return await sql.begin(async (tx: any) => {
       const personId = await requireSelfPerson(tx, userId);
       const compatibilityRows = await (usesVersionColumn
         ? tx`
             update lifemate.user_profiles
-            set phone_number = ${patch.phoneNumber},
-                email = ${auth.email},
+            set phone_number = ${rawPhone},
+                email = ${rawEmail},
                 version = version + 1,
                 updated_at_utc = now()
             where user_id = ${userId} and version = ${patch.expectedVersion}
@@ -278,8 +282,8 @@ export function createProfileStore(
           `
         : tx`
             update lifemate.user_profiles
-            set phone_number = ${patch.phoneNumber},
-                email = ${auth.email},
+            set phone_number = ${rawPhone},
+                email = ${rawEmail},
                 updated_at_utc = greatest(
                   now(),
                   updated_at_utc + interval '1 millisecond'
@@ -323,13 +327,31 @@ export function createProfileStore(
 
       // ContactPoint encryption runs inside the exact same transaction as the
       // compatibility Profile/version write. A global contact conflict or crypto
-      // failure therefore rolls the legacy Profile mutation back as well.
+      // failure therefore rolls the Profile/version mutation back as well.
       await contactPoints.syncForLegacyAppUser(
         tx,
         userId,
         { phone: patch.phoneNumber, email: auth.email },
         "replace",
       );
+
+      if (contactReader.rawRetirementEnabled) {
+        // Preserve the public Profile response while proving that plaintext is
+        // read back from the authenticated canonical envelope, not from a raw
+        // compatibility column that retirement has deliberately left NULL.
+        compatibilityRows[0].phone_number = await contactReader.readForProfile(
+          tx,
+          userId,
+          "Phone",
+          null,
+        );
+        compatibilityRows[0].email = await contactReader.readForProfile(
+          tx,
+          userId,
+          "Email",
+          null,
+        );
+      }
 
       const personRows = await tx`
         update core.person_profiles

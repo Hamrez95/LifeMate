@@ -16,7 +16,12 @@ on:
       - 'supabase/functions/lifemate-api/contact_points.ts'
       - 'supabase/functions/lifemate-api/contact_point_read_mode_test.ts'
       - 'supabase/functions/lifemate-api/contact_point_read_mode_integration_test.ts'
+      - 'supabase/functions/lifemate-api/contact_point_data_export_integration_test.ts'
+      - 'supabase/functions/lifemate-api/raw_contact_retirement_bootstrap.ts'
+      - 'supabase/functions/lifemate-api/raw_contact_retirement_integration_test.ts'
+      - 'supabase/functions/lifemate-api/database.ts'
       - 'supabase/functions/lifemate-api/profile.ts'
+      - 'supabase/functions/lifemate-api/data_export.ts'
       - 'supabase/functions/lifemate-api/deno.json'
       - 'supabase/migrations/**'
   push:
@@ -34,7 +39,12 @@ on:
       - 'supabase/functions/lifemate-api/contact_points.ts'
       - 'supabase/functions/lifemate-api/contact_point_read_mode_test.ts'
       - 'supabase/functions/lifemate-api/contact_point_read_mode_integration_test.ts'
+      - 'supabase/functions/lifemate-api/contact_point_data_export_integration_test.ts'
+      - 'supabase/functions/lifemate-api/raw_contact_retirement_bootstrap.ts'
+      - 'supabase/functions/lifemate-api/raw_contact_retirement_integration_test.ts'
+      - 'supabase/functions/lifemate-api/database.ts'
       - 'supabase/functions/lifemate-api/profile.ts'
+      - 'supabase/functions/lifemate-api/data_export.ts'
       - 'supabase/functions/lifemate-api/deno.json'
       - 'supabase/migrations/**'
 
@@ -90,13 +100,22 @@ jobs:
             supabase/functions/lifemate-api/contact_points.ts \
             supabase/functions/lifemate-api/contact_point_read_mode_test.ts \
             supabase/functions/lifemate-api/contact_point_read_mode_integration_test.ts \
-            supabase/functions/lifemate-api/profile.ts
+            supabase/functions/lifemate-api/contact_point_data_export_integration_test.ts \
+            supabase/functions/lifemate-api/raw_contact_retirement_bootstrap.ts \
+            supabase/functions/lifemate-api/raw_contact_retirement_integration_test.ts \
+            supabase/functions/lifemate-api/database.ts \
+            supabase/functions/lifemate-api/profile.ts \
+            supabase/functions/lifemate-api/data_export.ts
           deno check --config supabase/functions/lifemate-api/deno.json \
             tools/security/contact-point-readiness_test.ts
           deno check --config supabase/functions/lifemate-api/deno.json \
             tools/security/contact-point-backfill_test.ts
           cd supabase/functions/lifemate-api
-          deno check contact_point_read_mode_test.ts contact_point_read_mode_integration_test.ts
+          deno check \
+            contact_point_read_mode_test.ts \
+            contact_point_read_mode_integration_test.ts \
+            contact_point_data_export_integration_test.ts \
+            raw_contact_retirement_integration_test.ts
 
       - name: Apply canonical portable schema
         shell: bash
@@ -122,10 +141,12 @@ jobs:
           --allow-net=localhost:5432,127.0.0.1:5432
           tools/security/contact-point-backfill_test.ts
 
-      - name: Prove Profile legacy/prefer/contact-only read modes
+      - name: Prove Profile contact read and write retirement modes
         working-directory: supabase/functions/lifemate-api
         run: >-
           deno test --no-check --allow-env
           --allow-net=localhost:5432,127.0.0.1:5432
           contact_point_read_mode_test.ts
           contact_point_read_mode_integration_test.ts
+          contact_point_data_export_integration_test.ts
+          raw_contact_retirement_integration_test.ts

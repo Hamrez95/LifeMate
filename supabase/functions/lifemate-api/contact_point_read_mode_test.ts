@@ -3,6 +3,7 @@ import {
   contactOnlyReadinessApproved,
   contactPointLookupMode,
   createContactPointReader,
+  createContactPointWriter,
   rawContactRetirementEnabled,
 } from "./contact_points.ts";
 
@@ -75,4 +76,32 @@ Deno.test("contact-only requires readiness approval and continuous dual-write", 
   assertEquals(reader.readinessApproved, true);
   assertEquals(reader.dualWriteEnabled, true);
   assertEquals(reader.rawRetirementEnabled, true);
+});
+
+Deno.test("raw Profile contact retirement requires contact-only plus dual-write", () => {
+  assertThrows(
+    () =>
+      createContactPointReader({
+        lookupMode: "prefer-contact",
+        rawRetirementEnabled: true,
+        readinessApproved: true,
+        dualWriteEnabled: true,
+        readEnvironment: () => undefined,
+      }),
+    Error,
+    "LOOKUP_MODE=contact-only",
+  );
+  assertThrows(
+    () =>
+      createContactPointWriter(
+        "raw-contact-retirement-unit-hashing-secret-32-bytes",
+        {
+          enabled: false,
+          rawRetirementEnabled: true,
+          readEnvironment: () => undefined,
+        },
+      ),
+    Error,
+    "DUAL_WRITE=true",
+  );
 });
