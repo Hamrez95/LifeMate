@@ -150,7 +150,8 @@ Deno.test({
 
       const legacyPhotoPath = `${identity.appUserId}/legacy-profile.jpg`;
       const canonicalPhotoPath = `${identity.appUserId}/canonical-profile.jpg`;
-      const replacementPhotoPath = `${identity.appUserId}/replacement-profile.jpg`;
+      const replacementPhotoPath =
+        `${identity.appUserId}/replacement-profile.jpg`;
       await admin`
         update lifemate.user_profiles
         set profile_photo_path = ${legacyPhotoPath}
