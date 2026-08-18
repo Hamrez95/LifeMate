@@ -8,15 +8,26 @@ on:
       - 'tools/security/contact-point-readiness_test.ts'
       - 'tools/security/contact-point-backfill.ts'
       - 'tools/security/contact-point-backfill_test.ts'
+      - 'tools/security/contact-point-key-rotation.ts'
+      - 'tools/security/contact-point-key-rotation_test.ts'
+      - 'tools/security/contact-point-key-rotation-readiness.ts'
+      - 'tools/security/contact-point-key-rotation-readiness_test.ts'
       - 'tools/security/verify-contact-point-migration-policy.mjs'
+      - 'tools/security/verify-contact-point-key-rotation-policy.mjs'
+      - 'docs/security/CONTACT_POINT_KEY_ROTATION.md'
       - '.github/workflows/contact-point-readiness.yml'
       - '.github/workflows/contact-point-backfill.yml'
+      - '.github/workflows/contact-point-key-rotation.yml'
+      - '.github/workflows/contact-point-key-rotation-readiness.yml'
       - '.github/workflows/contact-point-migration-policy.yml'
       - 'supabase/functions/_shared/contact_point_crypto.ts'
       - 'supabase/functions/lifemate-api/contact_points.ts'
+      - 'supabase/functions/lifemate-api/contact_point_envelope_rotation.ts'
+      - 'supabase/functions/lifemate-api/contact_point_crypto_test.ts'
       - 'supabase/functions/lifemate-api/contact_point_read_mode_test.ts'
       - 'supabase/functions/lifemate-api/contact_point_read_mode_integration_test.ts'
       - 'supabase/functions/lifemate-api/contact_point_data_export_integration_test.ts'
+      - 'supabase/functions/lifemate-api/contact_point_key_rotation_integration_test.ts'
       - 'supabase/functions/lifemate-api/raw_contact_retirement_bootstrap.ts'
       - 'supabase/functions/lifemate-api/raw_contact_retirement_integration_test.ts'
       - 'supabase/functions/lifemate-api/database.ts'
@@ -31,15 +42,26 @@ on:
       - 'tools/security/contact-point-readiness_test.ts'
       - 'tools/security/contact-point-backfill.ts'
       - 'tools/security/contact-point-backfill_test.ts'
+      - 'tools/security/contact-point-key-rotation.ts'
+      - 'tools/security/contact-point-key-rotation_test.ts'
+      - 'tools/security/contact-point-key-rotation-readiness.ts'
+      - 'tools/security/contact-point-key-rotation-readiness_test.ts'
       - 'tools/security/verify-contact-point-migration-policy.mjs'
+      - 'tools/security/verify-contact-point-key-rotation-policy.mjs'
+      - 'docs/security/CONTACT_POINT_KEY_ROTATION.md'
       - '.github/workflows/contact-point-readiness.yml'
       - '.github/workflows/contact-point-backfill.yml'
+      - '.github/workflows/contact-point-key-rotation.yml'
+      - '.github/workflows/contact-point-key-rotation-readiness.yml'
       - '.github/workflows/contact-point-migration-policy.yml'
       - 'supabase/functions/_shared/contact_point_crypto.ts'
       - 'supabase/functions/lifemate-api/contact_points.ts'
+      - 'supabase/functions/lifemate-api/contact_point_envelope_rotation.ts'
+      - 'supabase/functions/lifemate-api/contact_point_crypto_test.ts'
       - 'supabase/functions/lifemate-api/contact_point_read_mode_test.ts'
       - 'supabase/functions/lifemate-api/contact_point_read_mode_integration_test.ts'
       - 'supabase/functions/lifemate-api/contact_point_data_export_integration_test.ts'
+      - 'supabase/functions/lifemate-api/contact_point_key_rotation_integration_test.ts'
       - 'supabase/functions/lifemate-api/raw_contact_retirement_bootstrap.ts'
       - 'supabase/functions/lifemate-api/raw_contact_retirement_integration_test.ts'
       - 'supabase/functions/lifemate-api/database.ts'
@@ -58,7 +80,7 @@ concurrency:
 jobs:
   migration-contract:
     runs-on: ubuntu-24.04
-    timeout-minutes: 20
+    timeout-minutes: 25
     services:
       postgres:
         image: postgres:17.6-alpine
@@ -85,10 +107,14 @@ jobs:
         with:
           deno-version: v2.9.4
 
-      - name: Freeze protected migration policy
-        run: node tools/security/verify-contact-point-migration-policy.mjs
+      - name: Freeze protected ContactPoint migration and key-rotation policy
+        shell: bash
+        run: |
+          set -euo pipefail
+          node tools/security/verify-contact-point-migration-policy.mjs
+          node tools/security/verify-contact-point-key-rotation-policy.mjs
 
-      - name: Format and type-check ContactPoint migration source
+      - name: Format and type-check ContactPoint security source
         shell: bash
         run: |
           set -euo pipefail
@@ -97,24 +123,35 @@ jobs:
             tools/security/contact-point-readiness_test.ts \
             tools/security/contact-point-backfill.ts \
             tools/security/contact-point-backfill_test.ts \
+            tools/security/contact-point-key-rotation.ts \
+            tools/security/contact-point-key-rotation_test.ts \
+            tools/security/contact-point-key-rotation-readiness.ts \
+            tools/security/contact-point-key-rotation-readiness_test.ts \
+            supabase/functions/_shared/contact_point_crypto.ts \
             supabase/functions/lifemate-api/contact_points.ts \
+            supabase/functions/lifemate-api/contact_point_envelope_rotation.ts \
+            supabase/functions/lifemate-api/contact_point_crypto_test.ts \
             supabase/functions/lifemate-api/contact_point_read_mode_test.ts \
             supabase/functions/lifemate-api/contact_point_read_mode_integration_test.ts \
             supabase/functions/lifemate-api/contact_point_data_export_integration_test.ts \
+            supabase/functions/lifemate-api/contact_point_key_rotation_integration_test.ts \
             supabase/functions/lifemate-api/raw_contact_retirement_bootstrap.ts \
             supabase/functions/lifemate-api/raw_contact_retirement_integration_test.ts \
             supabase/functions/lifemate-api/database.ts \
             supabase/functions/lifemate-api/profile.ts \
             supabase/functions/lifemate-api/data_export.ts
           deno check --config supabase/functions/lifemate-api/deno.json \
-            tools/security/contact-point-readiness_test.ts
-          deno check --config supabase/functions/lifemate-api/deno.json \
-            tools/security/contact-point-backfill_test.ts
+            tools/security/contact-point-readiness_test.ts \
+            tools/security/contact-point-backfill_test.ts \
+            tools/security/contact-point-key-rotation_test.ts \
+            tools/security/contact-point-key-rotation-readiness_test.ts
           cd supabase/functions/lifemate-api
           deno check \
+            contact_point_crypto_test.ts \
             contact_point_read_mode_test.ts \
             contact_point_read_mode_integration_test.ts \
             contact_point_data_export_integration_test.ts \
+            contact_point_key_rotation_integration_test.ts \
             raw_contact_retirement_integration_test.ts
 
       - name: Apply canonical portable schema
@@ -127,26 +164,41 @@ jobs:
             psql "$TEST_DATABASE_URL" --set=ON_ERROR_STOP=1 --file="$migration"
           done < <(find supabase/migrations -maxdepth 1 -type f -name '*.sql' | sort)
 
-      - name: Prove count-only readiness behavior
+      - name: Prove count-only ContactPoint migration readiness
         run: >-
           deno test --config supabase/functions/lifemate-api/deno.json
           --no-check --allow-env
           --allow-net=localhost:5432,127.0.0.1:5432
           tools/security/contact-point-readiness_test.ts
 
-      - name: Prove bounded dry-run and idempotent backfill
+      - name: Prove bounded dry-run and idempotent initial backfill
         run: >-
           deno test --config supabase/functions/lifemate-api/deno.json
           --no-check --allow-env
           --allow-net=localhost:5432,127.0.0.1:5432
           tools/security/contact-point-backfill_test.ts
 
-      - name: Prove Profile contact read and write retirement modes
+      - name: Prove ContactPoint envelope-key rotation and readiness
+        shell: bash
+        run: |
+          set -euo pipefail
+          deno test --config supabase/functions/lifemate-api/deno.json \
+            --no-check --allow-env \
+            --allow-net=localhost:5432,127.0.0.1:5432 \
+            tools/security/contact-point-key-rotation_test.ts
+          deno test --config supabase/functions/lifemate-api/deno.json \
+            --no-check --allow-env \
+            --allow-net=localhost:5432,127.0.0.1:5432 \
+            tools/security/contact-point-key-rotation-readiness_test.ts
+
+      - name: Prove Profile contact read/write/export retirement and key overlap
         working-directory: supabase/functions/lifemate-api
         run: >-
           deno test --no-check --allow-env
           --allow-net=localhost:5432,127.0.0.1:5432
+          contact_point_crypto_test.ts
           contact_point_read_mode_test.ts
           contact_point_read_mode_integration_test.ts
           contact_point_data_export_integration_test.ts
+          contact_point_key_rotation_integration_test.ts
           raw_contact_retirement_integration_test.ts
