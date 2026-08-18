@@ -141,7 +141,10 @@ Deno.test({
       assertEquals(tokenRows.some((row) => row.provider === "google"), true);
       for (const row of tokenRows) {
         assertEquals(String(row.subject_token).includes(authSubject), false);
-        assertEquals(String(row.subject_token).includes(providerSubject), false);
+        assertEquals(
+          String(row.subject_token).includes(providerSubject),
+          false,
+        );
       }
       const handleRows = await admin`
         select ciphertext_b64,nonce_b64,key_version
