@@ -1,9 +1,9 @@
 import {
   decryptProviderIdentitySubject,
   providerIdentityHandleDualWriteEnabled,
+  type ProviderIdentityHandleEnvelope,
   rawIdentityRetirementEnabled,
   readProviderIdentityHandleKey,
-  type ProviderIdentityHandleEnvelope,
 } from "../_shared/provider_identity_handle_crypto.ts";
 
 type EnvironmentReader = (name: string) => string | null | undefined;
