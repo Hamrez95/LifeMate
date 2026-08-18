@@ -67,8 +67,8 @@ export function readAdminIdentityLinkKey(
   readEnvironment: EnvironmentReader = (name) => Deno.env.get(name),
 ): IdentityLinkKey {
   const secret = readEnvironment("LIFEMATE_IDENTITY_LINK_KEY") ?? "";
-  const keyVersionRaw =
-    readEnvironment("LIFEMATE_IDENTITY_LINK_KEY_VERSION") ?? "";
+  const keyVersionRaw = readEnvironment("LIFEMATE_IDENTITY_LINK_KEY_VERSION") ??
+    "";
   if (encoder.encode(secret).byteLength < 32) {
     throw new Error(
       "LIFEMATE_IDENTITY_LINK_KEY must be configured as an external runtime secret with at least 32 UTF-8 bytes.",
