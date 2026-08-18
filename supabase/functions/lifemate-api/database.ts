@@ -6,6 +6,7 @@ import {
 import { createIdentityResolver } from "./identity_resolver.ts";
 import { createInvitationRevocationStore } from "./invitation_revoke.ts";
 import { createPersonDoseOccurrenceStore } from "./person_dose_occurrences.ts";
+import { createPersonInvitationAcceptanceStore } from "./person_invitation_acceptance.ts";
 import { createPersonMedicationStore } from "./person_medications.ts";
 import { createPersonTreatmentPlanStore } from "./person_treatment_plans.ts";
 import { createPhoneCareInvitationStore } from "./phone_care_invitation.ts";
@@ -40,6 +41,10 @@ export function createLifeMateDatabase(
   const identityResolver = createIdentityResolver(databaseUrl);
   const invitationRevocation = createInvitationRevocationStore(databaseUrl);
   const personDoseOccurrences = createPersonDoseOccurrenceStore(databaseUrl);
+  const personInvitationAcceptance = createPersonInvitationAcceptanceStore(
+    databaseUrl,
+    contactHashingSecret,
+  );
   const personMedications = createPersonMedicationStore(databaseUrl);
   const personTreatmentPlans = createPersonTreatmentPlanStore(databaseUrl);
   const phoneInvitations = createPhoneCareInvitationStore(
@@ -56,13 +61,12 @@ export function createLifeMateDatabase(
     // compatibility schema remain intact until destructive retirement is safe.
     createMedication: personMedications.createMedication,
     listMedications: personMedications.listMedications,
-    // Treatment Plan ownership is canonical Person-based. patient_user_id
-    // remains temporary compatibility data for downstream legacy consumers.
+    // Treatment Plan ownership is canonical Person-based and new writes leave
+    // the legacy patient_user_id compatibility column unset.
     createTreatmentPlan: personTreatmentPlans.createTreatmentPlan,
     listTreatmentPlans: personTreatmentPlans.listTreatmentPlans,
-    // Dose materialization/read/report is canonical Person-based. Caregiver
-    // relationship authorization remains on its current contract, but Dose
-    // rows are selected and materialized only through patient_person_id.
+    // Dose materialization/read/report and caregiver authorization are
+    // canonical Person-based; actor AppUser IDs remain audit provenance only.
     listDoseOccurrences: personDoseOccurrences.listDoseOccurrences,
     reportDose: personDoseOccurrences.reportDose,
     listCareDoseOccurrences: personDoseOccurrences.listCareDoseOccurrences,
@@ -107,8 +111,8 @@ export function createLifeMateDatabase(
       phoneInvitations.acceptInvitationOrDelegate(
         identity,
         body,
-        (_phoneIdentity, legacyBody) =>
-          database.acceptInvitation(identity, legacyBody),
+        (_phoneIdentity, nonPhoneBody) =>
+          personInvitationAcceptance.acceptInvitation(identity, nonPhoneBody),
       ),
   };
 }
