@@ -24,6 +24,17 @@ values (
   'fa', 'Asia/Tehran', 'person_blue', 1, now(), now()
 );
 
+-- The envelope content is deliberately opaque fixture data. Cryptographic
+-- recovery is tested in Deno; this contract proves lifecycle/role behavior.
+insert into identity.provider_identity_handles(
+  account_id,provider,issuer,ciphertext_b64,nonce_b64,key_version,status
+) values (
+  '5b2500d0-2209-4b6f-9e41-1f9ff3a84c01'::uuid,
+  'supabase_auth','supabase',
+  'YWJjZGVmZ2hpamtsbW5vcHFyc3R1dnd4eXo=',
+  'MTIzNDU2Nzg5MDEy',1,'Active'
+);
+
 set local role lifemate_edge_runtime;
 select identity.request_account_deletion(
   '5b2500d0-2209-4b6f-9e41-1f9ff3a84c01'::uuid
@@ -55,6 +66,14 @@ do $$
 declare
   v_request_id uuid;
 begin
+  if not exists (
+    select 1 from identity.provider_identity_handles
+    where account_id='5b2500d0-2209-4b6f-9e41-1f9ff3a84c01'::uuid
+      and status='Active'
+  ) then
+    raise exception 'restricted worker cannot read provider handle before finalization';
+  end if;
+
   select id into v_request_id
   from identity.account_deletion_requests
   where account_id='5b2500d0-2209-4b6f-9e41-1f9ff3a84c01'::uuid
@@ -85,6 +104,12 @@ begin
       and status='Completed'
   ) then
     raise exception 'deletion request was not completed';
+  end if;
+  if exists (
+    select 1 from identity.provider_identity_handles
+    where account_id='5b2500d0-2209-4b6f-9e41-1f9ff3a84c01'::uuid
+  ) then
+    raise exception 'provider identity handle survived completed deletion';
   end if;
 end
 $$;

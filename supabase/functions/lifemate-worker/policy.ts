@@ -38,6 +38,7 @@ export function isPermanentWorkerError(errorCode: string): boolean {
   return errorCode === "unsupported_event" ||
     errorCode === "aggregate_id_missing" ||
     errorCode.startsWith("invalid_") ||
+    errorCode.startsWith("provider_handle_") ||
     /^auth_(?:session_revoke|delete):4(?!08|09|29)\d{2}$/.test(errorCode);
 }
 

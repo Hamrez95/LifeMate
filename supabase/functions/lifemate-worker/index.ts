@@ -12,6 +12,7 @@ import {
   supportedEvents,
   workerConsumerName,
 } from "./policy.ts";
+import { createProviderAuthSubjectResolver } from "./provider_auth_subject.ts";
 import { loadWorkerDatabaseUrl } from "./runtime_database.ts";
 
 const databaseUrl = await loadWorkerDatabaseUrl();
@@ -43,6 +44,7 @@ const sql = postgres(databaseUrl, {
     idle_in_transaction_session_timeout: 5000,
   },
 });
+const providerAuthSubjects = createProviderAuthSubjectResolver(sql);
 const admin = createClient(supabaseUrl, serviceRoleKey, {
   auth: { autoRefreshToken: false, persistSession: false },
   global: { fetch: timedFetch },
@@ -233,7 +235,7 @@ async function processMessage(message: OutboxMessage): Promise<void> {
     }
     case "identity.session_revoke_requested": {
       const accountId = requiredAggregateId(message);
-      const authSubject = await authSubjectFor(accountId);
+      const authSubject = await providerAuthSubjects.resolve(accountId);
       if (!authSubject) return;
       const { error } = await admin.auth.admin.updateUserById(authSubject, {
         ban_duration: "876000h",
@@ -257,7 +259,7 @@ async function processMessage(message: OutboxMessage): Promise<void> {
       `;
       if (pendingSession[0]) throw new Error("session_revoke_pending");
 
-      const authSubject = await authSubjectFor(accountId);
+      const authSubject = await providerAuthSubjects.resolve(accountId);
       if (authSubject) {
         const { error } = await admin.auth.admin.deleteUser(authSubject, true);
         if (error && error.status !== 404) {
@@ -411,20 +413,6 @@ async function appUserIdForAccount(accountId: string): Promise<string | null> {
     limit 1
   `;
   const value = rows[0]?.app_user_id;
-  return typeof value === "string" && uuidPattern.test(value) ? value : null;
-}
-
-async function authSubjectFor(accountId: string): Promise<string | null> {
-  const rows = await sql`
-    select u.auth_subject
-    from identity.accounts a
-    join lifemate.app_users u
-      on u.id = coalesce(a.legacy_app_user_id,a.id)
-    where a.id=${accountId}::uuid
-      and u.status <> 'Deleted'
-    limit 1
-  `;
-  const value = rows[0]?.auth_subject;
   return typeof value === "string" && uuidPattern.test(value) ? value : null;
 }
 
