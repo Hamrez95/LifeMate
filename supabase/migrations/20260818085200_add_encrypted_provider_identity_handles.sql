@@ -95,3 +95,31 @@ begin
   end if;
 end
 $$;
+
+-- The Worker resolves/deletes the external Auth user before it finalizes the
+-- SQL deletion request. Once finalization reaches Completed the recoverable
+-- envelope has served its purpose and must not survive as reversible identity
+-- data, even though PostgreSQL itself never possessed the decryption key.
+create or replace function identity.purge_provider_handles_after_account_deletion()
+returns trigger
+language plpgsql
+security definer
+set search_path = pg_catalog, identity, pg_temp
+as $$
+begin
+  if new.status='Completed' and old.status is distinct from new.status then
+    delete from identity.provider_identity_handles
+    where account_id=new.account_id;
+  end if;
+  return new;
+end
+$$;
+
+revoke all on function identity.purge_provider_handles_after_account_deletion()
+  from public;
+
+drop trigger if exists trg_purge_provider_handles_after_account_deletion
+  on identity.account_deletion_requests;
+create trigger trg_purge_provider_handles_after_account_deletion
+after update of status on identity.account_deletion_requests
+for each row execute function identity.purge_provider_handles_after_account_deletion();
