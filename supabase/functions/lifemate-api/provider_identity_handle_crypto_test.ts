@@ -1,4 +1,8 @@
-import { assertEquals, assertRejects, assertThrows } from "jsr:@std/assert@1.0.14";
+import {
+  assertEquals,
+  assertRejects,
+  assertThrows,
+} from "jsr:@std/assert@1.0.14";
 import {
   decryptProviderIdentitySubject,
   encryptProviderIdentitySubject,
@@ -40,7 +44,10 @@ Deno.test("provider identity handle encrypts and authenticates Account context",
   await assertRejects(
     () =>
       decryptProviderIdentitySubject(
-        { secret: "different-provider-handle-test-secret-32-bytes-minimum", keyVersion: 3 },
+        {
+          secret: "different-provider-handle-test-secret-32-bytes-minimum",
+          keyVersion: 3,
+        },
         context,
         envelope,
       ),
