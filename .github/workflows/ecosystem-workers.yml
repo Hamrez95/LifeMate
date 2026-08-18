@@ -57,7 +57,8 @@ jobs:
           ! grep -R -n -E 'KAVENEGAR_API_KEY\s*=|SERVICE_ROLE_KEY\s*=' \
             supabase/functions/lifemate-worker \
             supabase/functions/lifemate-kavenegar-sms-hook
-          grep -Fq 'Webhook' supabase/functions/lifemate-kavenegar-sms-hook/index.ts
+          grep -Fq 'createSendSmsHookHandler' supabase/functions/lifemate-kavenegar-sms-hook/index.ts
+          grep -Fq 'new Webhook(base64Secret)' supabase/functions/lifemate-kavenegar-sms-hook/handler.ts
           grep -Fq 'method: "POST"' supabase/functions/lifemate-kavenegar-sms-hook/provider.ts
           grep -Fq 'LIFEMATE_WORKER_TOKEN' supabase/functions/lifemate-worker/index.ts
           grep -Fq 'claim_outbox_messages_for_events' supabase/functions/lifemate-worker/index.ts

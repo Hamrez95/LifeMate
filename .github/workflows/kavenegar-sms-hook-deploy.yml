@@ -46,11 +46,14 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          hook='supabase/functions/lifemate-kavenegar-sms-hook/index.ts'
+          entrypoint='supabase/functions/lifemate-kavenegar-sms-hook/index.ts'
+          handler='supabase/functions/lifemate-kavenegar-sms-hook/handler.ts'
           provider='supabase/functions/lifemate-kavenegar-sms-hook/provider.ts'
-          grep -Fq 'Invalid hook signature.' "$hook"
-          grep -Fq 'new Webhook(base64Secret)' "$hook"
-          grep -Fq 'Never log the hook body, phone or OTP.' "$hook"
+          grep -Fq 'Deno.serve(handler)' "$entrypoint"
+          grep -Fq 'createSendSmsHookHandler' "$entrypoint"
+          grep -Fq 'Invalid hook signature.' "$handler"
+          grep -Fq 'new Webhook(base64Secret)' "$handler"
+          grep -Fq 'Never log the hook body, phone or OTP.' "$handler"
           grep -Fq 'application/x-www-form-urlencoded' "$provider"
           if grep -R --line-number -E 'console\.(log|info|debug).*\b(phone|otp|payload|apiKey|hookSecrets)\b' \
             supabase/functions/lifemate-kavenegar-sms-hook; then
