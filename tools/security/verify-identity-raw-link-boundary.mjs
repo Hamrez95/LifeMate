@@ -20,6 +20,36 @@ function filesUnder(root, predicate) {
   return output;
 }
 
+function requireMarkers(source, markers, context) {
+  for (const marker of markers) {
+    if (!source.includes(marker)) {
+      fail(`${context} lost required marker: ${marker}`);
+    }
+  }
+}
+
+function forbidSqlOwnershipWrites(fileName, columnName) {
+  const source = fs.readFileSync(path.join(apiRoot, fileName), 'utf8');
+  const escapedColumn = columnName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const patterns = [
+    new RegExp(
+      `insert\\s+into\\s+lifemate\\.[a-z_]+\\s*\\([^)]*\\b${escapedColumn}\\b`,
+      'is',
+    ),
+    new RegExp(
+      `update\\s+lifemate\\.[a-z_]+[\\s\\S]{0,1200}?\\b${escapedColumn}\\s*=`,
+      'i',
+    ),
+  ];
+  for (const pattern of patterns) {
+    if (pattern.test(source)) {
+      fail(
+        `${fileName} must not write legacy healthcare ownership column ${columnName}`,
+      );
+    }
+  }
+}
+
 const runtimeFiles = filesUnder(
   apiRoot,
   (file) => file.endsWith('.ts') &&
@@ -55,15 +85,32 @@ const databaseFacade = fs.readFileSync(
   path.join(apiRoot, 'database.ts'),
   'utf8',
 );
-for (const marker of [
-  'createIdentityResolver',
-  'createLegacyLifeMateDatabase',
-  'requireIdentity: identityResolver.requireIdentity',
-]) {
-  if (!databaseFacade.includes(marker)) {
-    fail(`database compatibility facade lost required token resolver marker: ${marker}`);
-  }
-}
+requireMarkers(
+  databaseFacade,
+  [
+    'createIdentityResolver',
+    'createLegacyLifeMateDatabase',
+    'requireIdentity: identityResolver.requireIdentity',
+  ],
+  'database compatibility facade',
+);
+requireMarkers(
+  databaseFacade,
+  [
+    'createMedication: personMedications.createMedication',
+    'listMedications: personMedications.listMedications',
+    'createTreatmentPlan: personTreatmentPlans.createTreatmentPlan',
+    'listTreatmentPlans: personTreatmentPlans.listTreatmentPlans',
+    'listDoseOccurrences: personDoseOccurrences.listDoseOccurrences',
+    'reportDose: personDoseOccurrences.reportDose',
+    'listCareDoseOccurrences: personDoseOccurrences.listCareDoseOccurrences',
+  ],
+  'Person-authoritative healthcare facade',
+);
+
+forbidSqlOwnershipWrites('person_medications.ts', 'owner_user_id');
+forbidSqlOwnershipWrites('person_treatment_plans.ts', 'patient_user_id');
+forbidSqlOwnershipWrites('person_dose_occurrences.ts', 'patient_user_id');
 
 const indexSource = fs.readFileSync(path.join(apiRoot, 'index.ts'), 'utf8');
 if (!indexSource.includes('from "./database.ts"')) {
@@ -74,15 +121,15 @@ if (indexSource.includes('database_legacy.ts')) {
 }
 
 const idempotencySource = fs.readFileSync(path.join(apiRoot, 'idempotency.ts'), 'utf8');
-for (const marker of [
-  'lifemate:idempotency-actor:v1:',
-  'actor_subject_token',
-  'findLegacyIdempotencyReplay',
-]) {
-  if (!idempotencySource.includes(marker)) {
-    fail(`idempotency runtime lost tokenized actor boundary: ${marker}`);
-  }
-}
+requireMarkers(
+  idempotencySource,
+  [
+    'lifemate:idempotency-actor:v1:',
+    'actor_subject_token',
+    'findLegacyIdempotencyReplay',
+  ],
+  'idempotency runtime',
+);
 if (idempotencySource.includes('actor_auth_subject')) {
   fail('new idempotency runtime must not persist/query raw Auth subjects.');
 }
@@ -121,17 +168,17 @@ const readinessTool = fs.readFileSync(
   path.join(repoRoot, 'tools/security/identity-link-retirement-readiness.ts'),
   'utf8',
 );
-for (const marker of [
-  'readyForTokenOnly',
-  'missingCanonicalTokens',
-  'conflictingCanonicalTokens',
-  'unmappedActiveAccounts',
-  'deriveIdentityLinkToken',
-]) {
-  if (!readinessTool.includes(marker)) {
-    fail(`retirement readiness tool lost required fail-closed marker: ${marker}`);
-  }
-}
+requireMarkers(
+  readinessTool,
+  [
+    'readyForTokenOnly',
+    'missingCanonicalTokens',
+    'conflictingCanonicalTokens',
+    'unmappedActiveAccounts',
+    'deriveIdentityLinkToken',
+  ],
+  'retirement readiness tool',
+);
 for (const mutation of [
   'insert into ',
   'update identity.',
@@ -147,5 +194,5 @@ for (const mutation of [
 }
 
 console.log(
-  'Raw identity runtime dependencies are frozen to migration compatibility modules; destructive retirement remains blocked.',
+  'Raw identity runtime dependencies and Person-authoritative healthcare writes are frozen; destructive retirement remains blocked.',
 );
