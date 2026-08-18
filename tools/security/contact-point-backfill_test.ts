@@ -1,12 +1,17 @@
 import { assertEquals } from "jsr:@std/assert@1.0.14";
 import postgres from "npm:postgres@3.4.7";
-import { type AuthUser, createLifeMateDatabase } from "../../supabase/functions/lifemate-api/database.ts";
+import {
+  type AuthUser,
+  createLifeMateDatabase,
+} from "../../supabase/functions/lifemate-api/database.ts";
 import { createProfileStore } from "../../supabase/functions/lifemate-api/profile.ts";
 import { backfillContactPoints } from "./contact-point-backfill.ts";
 
 const databaseUrl = Deno.env.get("TEST_DATABASE_URL");
 if (!databaseUrl) {
-  throw new Error("TEST_DATABASE_URL is required for ContactPoint backfill tests.");
+  throw new Error(
+    "TEST_DATABASE_URL is required for ContactPoint backfill tests.",
+  );
 }
 
 const sql = postgres(databaseUrl, {
