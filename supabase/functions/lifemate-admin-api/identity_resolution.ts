@@ -221,7 +221,8 @@ export function createAdminIdentityResolver(
     }
     if (
       identityLinkKeys.previous &&
-      identityLinkKeys.previous.keyVersion === identityLinkKeys.active.keyVersion
+      identityLinkKeys.previous.keyVersion ===
+        identityLinkKeys.active.keyVersion
     ) {
       throw new Error(
         "Previous identity-link key version must differ from the active key version.",
@@ -294,7 +295,9 @@ export function createAdminIdentityResolver(
     return await lookupToken(subjectToken, key.keyVersion);
   }
 
-  function requireUsableTokenRow(rows: TokenLookupRow[]): TokenLookupRow | null {
+  function requireUsableTokenRow(
+    rows: TokenLookupRow[],
+  ): TokenLookupRow | null {
     if (rows.length > 1) {
       throw new ApiError(
         409,
