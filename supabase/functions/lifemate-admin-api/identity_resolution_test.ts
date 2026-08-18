@@ -1,4 +1,8 @@
-import { assertEquals, assertRejects, assertThrows } from "jsr:@std/assert@1.0.14";
+import {
+  assertEquals,
+  assertRejects,
+  assertThrows,
+} from "jsr:@std/assert@1.0.14";
 import {
   createAdminIdentityResolver,
   deriveAdminIdentityLinkToken,
@@ -26,8 +30,7 @@ Deno.test("Admin identity lookup mode defaults and validates", () => {
     "token-only",
   );
   assertThrows(
-    () =>
-      readAdminIdentityLookupMode(() => "unsafe"),
+    () => readAdminIdentityLookupMode(() => "unsafe"),
     Error,
     "legacy, prefer-token, or token-only",
   );
@@ -49,7 +52,8 @@ Deno.test("token-only never calls raw provider-subject lookup", async () => {
     mode: "token-only",
     dualWriteEnabled: true,
     identityLinkKey: { secret, keyVersion: 1 },
-    lookupToken: async () => [{ account_id: accountId, account_status: "Active" }],
+    lookupToken:
+      async () => [{ account_id: accountId, account_status: "Active" }],
     lookupLegacy: async () => {
       legacyCalls += 1;
       return [];
@@ -102,7 +106,8 @@ Deno.test("broken token mapping never falls back to raw identity", async () => {
     mode: "prefer-token",
     dualWriteEnabled: true,
     identityLinkKey: { secret, keyVersion: 1 },
-    lookupToken: async () => [{ account_id: accountId, account_status: "Disabled" }],
+    lookupToken:
+      async () => [{ account_id: accountId, account_status: "Disabled" }],
     lookupLegacy: async () => {
       legacyCalls += 1;
       return [{ account_id: accountId }];
