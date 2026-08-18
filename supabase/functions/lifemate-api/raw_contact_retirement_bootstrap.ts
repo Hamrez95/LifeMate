@@ -1,11 +1,7 @@
 import { createContactPointWriter } from "./contact_points.ts";
 import { getLifeMateSql } from "./database_client.ts";
 import type { AuthUser } from "./database_legacy.ts";
-import {
-  ApiError,
-  normalizeOptional,
-  requiredTimeZone,
-} from "./validation.ts";
+import { ApiError, normalizeOptional, requiredTimeZone } from "./validation.ts";
 
 export function createRawContactRetirementBootstrapStore(
   databaseUrl: string,
