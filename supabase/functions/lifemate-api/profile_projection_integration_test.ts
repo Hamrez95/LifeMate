@@ -1,6 +1,7 @@
 import { assertEquals } from "jsr:@std/assert@1.0.14";
 import postgres from "postgres";
 import { type AuthUser, createLifeMateDatabase } from "./database.ts";
+import { createProfileStore } from "./profile.ts";
 
 const databaseUrl = Deno.env.get("TEST_DATABASE_URL");
 if (!databaseUrl) {
@@ -19,6 +20,7 @@ Deno.test({
       databaseUrl,
       "integration-only-profile-projection-secret-32-bytes-minimum",
     );
+    const profiles = createProfileStore(databaseUrl);
     const suffix = crypto.randomUUID();
     const auth: AuthUser = {
       id: `profile-projection-${suffix}`,
@@ -109,6 +111,51 @@ Deno.test({
       assertEquals(afterDisplay[0]?.time_zone, "Europe/Berlin");
       assertEquals(afterDisplay[0]?.avatar_key, "person_green");
       assertEquals(afterDisplay[0]?.profile_photo_path, photoPath);
+
+      const beforeRuntime = await profiles.getProfile(identity.appUserId);
+      const runtimeUpdated = await profiles.updateProfile(
+        identity.appUserId,
+        auth,
+        {
+          version: beforeRuntime.version,
+          displayName: "runtime canonical",
+          phoneNumber: "+98 (912) 555-0101",
+          locale: "de",
+          timeZone: "Europe/Paris",
+          avatarKey: "person_purple",
+        },
+      );
+      assertEquals(runtimeUpdated.displayName, "runtime canonical");
+      assertEquals(runtimeUpdated.phoneNumber, "+989125550101");
+      assertEquals(runtimeUpdated.locale, "de");
+      assertEquals(runtimeUpdated.timeZone, "Europe/Paris");
+      assertEquals(runtimeUpdated.avatarKey, "person_purple");
+      assertEquals(runtimeUpdated.version, Number(beforeRuntime.version) + 1);
+
+      const authority = await admin`
+        select legacy.display_name as legacy_display_name,
+               legacy.locale as legacy_locale,
+               legacy.time_zone as legacy_time_zone,
+               legacy.avatar_key as legacy_avatar_key,
+               legacy.phone_number,
+               person.display_name as person_display_name,
+               person.locale as person_locale,
+               person.time_zone as person_time_zone,
+               person.avatar_key as person_avatar_key
+        from lifemate.user_profiles legacy
+        join core.person_profiles person
+          on person.person_id = ${remappedPersonId}::uuid
+        where legacy.user_id = ${identity.appUserId}::uuid
+      `;
+      assertEquals(authority[0]?.legacy_display_name, "legacy changed");
+      assertEquals(authority[0]?.legacy_locale, "fa");
+      assertEquals(authority[0]?.legacy_time_zone, "Asia/Tehran");
+      assertEquals(authority[0]?.legacy_avatar_key, "person_blue");
+      assertEquals(authority[0]?.phone_number, "+989125550101");
+      assertEquals(authority[0]?.person_display_name, "runtime canonical");
+      assertEquals(authority[0]?.person_locale, "de");
+      assertEquals(authority[0]?.person_time_zone, "Europe/Paris");
+      assertEquals(authority[0]?.person_avatar_key, "person_purple");
     } finally {
       if (appUserId) {
         await admin`
