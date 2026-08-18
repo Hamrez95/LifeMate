@@ -7,6 +7,16 @@ export type IdentityLinkTokenInput = {
   keyVersion: number;
 };
 
+export type IdentityLinkKey = {
+  secret: string;
+  keyVersion: number;
+};
+
+export type IdentityLinkKeySet = {
+  active: IdentityLinkKey;
+  previous: IdentityLinkKey | null;
+};
+
 type EnvironmentReader = (name: string) => string | null | undefined;
 
 function requiredSegment(
@@ -83,10 +93,7 @@ export async function deriveIdentityLinkToken(
 
 export function readIdentityLinkKeyFromEnvironment(
   readEnvironment: EnvironmentReader = (name) => Deno.env.get(name),
-): {
-  secret: string;
-  keyVersion: number;
-} {
+): IdentityLinkKey {
   const secret = readEnvironment("LIFEMATE_IDENTITY_LINK_KEY") ?? "";
   const keyVersionRaw = readEnvironment("LIFEMATE_IDENTITY_LINK_KEY_VERSION") ??
     "";
@@ -102,4 +109,51 @@ export function readIdentityLinkKeyFromEnvironment(
     secret,
     keyVersion: requiredKeyVersion(Number(keyVersionRaw)),
   };
+}
+
+/**
+ * Loads one bounded previous identity-link key for a rolling rotation window.
+ * The previous key is optional, but its secret/version must be configured as a
+ * pair and its version must differ from the active version. Both secrets remain
+ * external runtime configuration; PostgreSQL stores only keyed token digests.
+ */
+export function readIdentityLinkKeySetFromEnvironment(
+  readEnvironment: EnvironmentReader = (name) => Deno.env.get(name),
+): IdentityLinkKeySet {
+  const active = readIdentityLinkKeyFromEnvironment(readEnvironment);
+  const previousSecret =
+    readEnvironment("LIFEMATE_IDENTITY_LINK_PREVIOUS_KEY") ?? "";
+  const previousVersionRaw =
+    readEnvironment("LIFEMATE_IDENTITY_LINK_PREVIOUS_KEY_VERSION") ?? "";
+  const hasPreviousSecret = previousSecret.length > 0;
+  const hasPreviousVersion = previousVersionRaw.trim().length > 0;
+
+  if (hasPreviousSecret !== hasPreviousVersion) {
+    throw new Error(
+      "LIFEMATE_IDENTITY_LINK_PREVIOUS_KEY and LIFEMATE_IDENTITY_LINK_PREVIOUS_KEY_VERSION must be configured together.",
+    );
+  }
+  if (!hasPreviousSecret) {
+    return { active, previous: null };
+  }
+  if (encoder.encode(previousSecret).byteLength < 32) {
+    throw new Error(
+      "LIFEMATE_IDENTITY_LINK_PREVIOUS_KEY must contain at least 32 UTF-8 bytes and must be stored outside PostgreSQL.",
+    );
+  }
+  if (!/^\d+$/.test(previousVersionRaw)) {
+    throw new Error(
+      "LIFEMATE_IDENTITY_LINK_PREVIOUS_KEY_VERSION must be configured as an integer.",
+    );
+  }
+  const previous = {
+    secret: previousSecret,
+    keyVersion: requiredKeyVersion(Number(previousVersionRaw)),
+  };
+  if (previous.keyVersion === active.keyVersion) {
+    throw new Error(
+      "Previous identity-link key version must differ from the active key version.",
+    );
+  }
+  return { active, previous };
 }
