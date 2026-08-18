@@ -267,14 +267,13 @@ export function createPersonDoseOccurrenceStore(databaseUrl: string) {
     const toDate = requiredDate(toValue, "toDate");
     validateRange(fromDate, toDate);
 
-    // Care relationship identity remains a separate later migration. This slice
-    // preserves its existing authorization contract, then performs all Dose
-    // ownership/materialization work on the canonical patient Person.
+    const patientPersonId = await requireSelfPerson(sql, patientAppUserId);
+    const caregiverPersonId = await requireSelfPerson(sql, caregiverAppUserId);
     const relationships = await sql`
       select id
       from lifemate.care_relationships
-      where patient_user_id = ${patientAppUserId}::uuid
-        and caregiver_user_id = ${caregiverAppUserId}::uuid
+      where patient_person_id = ${patientPersonId}::uuid
+        and caregiver_person_id = ${caregiverPersonId}::uuid
         and status = 'Active'
       limit 1
     `;
@@ -286,7 +285,6 @@ export function createPersonDoseOccurrenceStore(databaseUrl: string) {
       );
     }
 
-    const patientPersonId = await requireSelfPerson(sql, patientAppUserId);
     await materializeOccurrences(patientPersonId, fromDate, toDate);
     const rows = await sql`
       select o.*, m.name as medication_name, p.dose_text,
