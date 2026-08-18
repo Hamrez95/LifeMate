@@ -1,4 +1,4 @@
-import { assert, assertEquals } from "jsr:@std/assert@1.0.14";
+import { assert, assertEquals, assertNotEquals } from "jsr:@std/assert@1.0.14";
 import postgres from "postgres";
 import {
   type AppIdentity,
@@ -38,6 +38,29 @@ Deno.test({
         auth(`qr-second-${suffix}`, `qr-second-${suffix}@example.test`),
         "مراقب دوم",
       );
+
+      const patientCanonical = await remapSelfIdentity(
+        admin,
+        patient.appUserId,
+      );
+      const caregiverCanonical = await remapSelfIdentity(
+        admin,
+        caregiver.appUserId,
+      );
+      for (
+        const [appUserId, accountId, personId] of [
+          [patient.appUserId, patientCanonical.accountId, patientCanonical.personId],
+          [
+            caregiver.appUserId,
+            caregiverCanonical.accountId,
+            caregiverCanonical.personId,
+          ],
+        ]
+      ) {
+        assertNotEquals(appUserId, accountId);
+        assertNotEquals(appUserId, personId);
+        assertNotEquals(accountId, personId);
+      }
 
       await assertApiError(
         () =>
@@ -92,6 +115,25 @@ Deno.test({
       assertEquals(relationship.status, "active");
       assertEquals(relationship.patientUserId, patient.appUserId);
       assertEquals(relationship.caregiverUserId, caregiver.appUserId);
+
+      const persisted = await admin`
+        select patient_person_id::text,caregiver_person_id::text
+        from lifemate.care_relationships
+        where id=${String(relationship.id)}::uuid
+      `;
+      assertEquals(persisted.length, 1);
+      assertEquals(persisted[0].patient_person_id, patientCanonical.personId);
+      assertEquals(
+        persisted[0].caregiver_person_id,
+        caregiverCanonical.personId,
+      );
+
+      const replayed = await db.acceptInvitation(caregiver, {
+        token: second.token,
+        consentVersion: "care-caregiver-consent-v1",
+        confirmConsent: true,
+      });
+      assertEquals(replayed.id, relationship.id);
 
       await assertApiError(
         () =>
@@ -158,6 +200,34 @@ async function bootstrap(
     timeZone: "Asia/Tehran",
   });
   return await db.requireIdentity(authUser);
+}
+
+async function remapSelfIdentity(
+  admin: ReturnType<typeof postgres>,
+  appUserId: string,
+): Promise<{ accountId: string; personId: string }> {
+  const accountId = crypto.randomUUID();
+  const personId = crypto.randomUUID();
+  await admin.begin(async (tx) => {
+    await tx`
+      update identity.accounts
+      set legacy_app_user_id=null,updated_at_utc=now()
+      where legacy_app_user_id=${appUserId}::uuid
+    `;
+    await tx`
+      insert into identity.accounts(id,legacy_app_user_id,status)
+      values (${accountId}::uuid,${appUserId}::uuid,'Active')
+    `;
+    await tx`
+      insert into core.persons(id,status,subject_category)
+      values (${personId}::uuid,'Active','Adult')
+    `;
+    await tx`
+      insert into core.account_person_links(account_id,person_id,link_type,status)
+      values (${accountId}::uuid,${personId}::uuid,'Self','Active')
+    `;
+  });
+  return { accountId, personId };
 }
 
 async function assertApiError(
