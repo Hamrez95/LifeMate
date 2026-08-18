@@ -26,7 +26,8 @@ const envNames = [
 ] as const;
 
 Deno.test({
-  name: "Profile contact read modes preserve legacy fallback and fail closed in contact-only",
+  name:
+    "Profile contact read modes preserve legacy fallback and fail closed in contact-only",
   sanitizeOps: false,
   sanitizeResources: false,
   fn: async () => {
