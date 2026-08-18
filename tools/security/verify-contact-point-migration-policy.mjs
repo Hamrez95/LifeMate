@@ -132,7 +132,10 @@ for (const directMutation of [
 requireMarkers(
   contactRuntime,
   [
-    '"legacy" | "prefer-contact" | "contact-only"',
+    'export type ContactPointLookupMode =',
+    '| "legacy"',
+    '| "prefer-contact"',
+    '| "contact-only"',
     'LIFEMATE_PROFILE_CONTACT_LOOKUP_MODE',
     'LIFEMATE_IDENTITY_CONTACT_READINESS_APPROVED',
     'LIFEMATE_IDENTITY_CONTACT_RAW_RETIREMENT',
