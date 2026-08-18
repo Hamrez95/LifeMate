@@ -10,7 +10,11 @@ type IdentityLinkKeySet = {
   active: IdentityLinkKey;
   previous: IdentityLinkKey | null;
 };
-type TokenLookupRow = { account_id: string; account_status: string };
+type TokenLookupRow = {
+  account_id: string;
+  account_status: string;
+  key_version?: number;
+};
 type LegacyLookupRow = { account_id: string };
 
 type ResolverOptions = {
@@ -22,6 +26,12 @@ type ResolverOptions = {
   lookupToken?: (
     subjectToken: string,
     keyVersion: number,
+  ) => Promise<TokenLookupRow[]>;
+  lookupRotationTokens?: (
+    activeToken: string,
+    activeVersion: number,
+    previousToken: string,
+    previousVersion: number,
   ) => Promise<TokenLookupRow[]>;
   lookupLegacy?: (providerSubject: string) => Promise<LegacyLookupRow[]>;
 };
@@ -162,7 +172,8 @@ function defaultTokenLookup(sql: AdminSql) {
   return async (subjectToken: string, keyVersion: number) => {
     return await sql<TokenLookupRow[]>`
       select t.account_id::text as account_id,
-             a.status as account_status
+             a.status as account_status,
+             t.key_version as key_version
       from identity.external_identity_tokens t
       join identity.accounts a on a.id=t.account_id
       where t.provider='supabase_auth'
@@ -171,6 +182,32 @@ function defaultTokenLookup(sql: AdminSql) {
         and t.key_version=${keyVersion}
         and t.status='Active'
       limit 2
+    `;
+  };
+}
+
+function defaultRotationTokenLookup(sql: AdminSql) {
+  return async (
+    activeToken: string,
+    activeVersion: number,
+    previousToken: string,
+    previousVersion: number,
+  ) => {
+    return await sql<TokenLookupRow[]>`
+      select t.account_id::text as account_id,
+             a.status as account_status,
+             t.key_version as key_version
+      from identity.external_identity_tokens t
+      join identity.accounts a on a.id=t.account_id
+      where t.provider='supabase_auth'
+        and t.issuer='supabase'
+        and t.status='Active'
+        and (
+          (t.subject_token=${activeToken} and t.key_version=${activeVersion})
+          or
+          (t.subject_token=${previousToken} and t.key_version=${previousVersion})
+        )
+      limit 4
     `;
   };
 }
@@ -234,6 +271,14 @@ export function createAdminIdentityResolver(
   const getSql = () => sql ??= getAdminSql(databaseUrl);
   const lookupToken = options.lookupToken ??
     ((token, version) => defaultTokenLookup(getSql())(token, version));
+  const lookupRotationTokens = options.lookupRotationTokens ??
+    ((activeToken, activeVersion, previousToken, previousVersion) =>
+      defaultRotationTokenLookup(getSql())(
+        activeToken,
+        activeVersion,
+        previousToken,
+        previousVersion,
+      ));
   const lookupLegacy = options.lookupLegacy ??
     ((subject) => defaultLegacyLookup(getSql())(subject));
 
@@ -241,13 +286,39 @@ export function createAdminIdentityResolver(
     if (mode !== "legacy") {
       const keys = identityLinkKeys;
       if (!keys) throw new Error("Admin identity-link key is unavailable.");
-      const activeRows = await lookupForKey(providerSubject, keys.active);
-      const active = requireUsableTokenRow(activeRows);
-      const previous = keys.previous
-        ? requireUsableTokenRow(
-          await lookupForKey(providerSubject, keys.previous),
-        )
-        : null;
+
+      let active: TokenLookupRow | null;
+      let previous: TokenLookupRow | null = null;
+      if (keys.previous && options.lookupToken == null) {
+        const activeToken = await deriveTokenForKey(providerSubject, keys.active);
+        const previousToken = await deriveTokenForKey(
+          providerSubject,
+          keys.previous,
+        );
+        const rows = await lookupRotationTokens(
+          activeToken,
+          keys.active.keyVersion,
+          previousToken,
+          keys.previous.keyVersion,
+        );
+        active = requireUsableTokenRow(
+          rows.filter((row) => Number(row.key_version) === keys.active.keyVersion),
+        );
+        previous = requireUsableTokenRow(
+          rows.filter((row) =>
+            Number(row.key_version) === keys.previous!.keyVersion
+          ),
+        );
+      } else {
+        active = requireUsableTokenRow(
+          await lookupForKey(providerSubject, keys.active),
+        );
+        previous = keys.previous
+          ? requireUsableTokenRow(
+            await lookupForKey(providerSubject, keys.previous),
+          )
+          : null;
+      }
 
       if (active && previous && active.account_id !== previous.account_id) {
         throw new ApiError(
@@ -283,16 +354,25 @@ export function createAdminIdentityResolver(
     return legacyRows[0].account_id;
   }
 
-  async function lookupForKey(
+  async function deriveTokenForKey(
     providerSubject: string,
     key: IdentityLinkKey,
-  ): Promise<TokenLookupRow[]> {
-    const subjectToken = await deriveAdminIdentityLinkToken(
+  ): Promise<string> {
+    return await deriveAdminIdentityLinkToken(
       key.secret,
       providerSubject,
       key.keyVersion,
     );
-    return await lookupToken(subjectToken, key.keyVersion);
+  }
+
+  async function lookupForKey(
+    providerSubject: string,
+    key: IdentityLinkKey,
+  ): Promise<TokenLookupRow[]> {
+    return await lookupToken(
+      await deriveTokenForKey(providerSubject, key),
+      key.keyVersion,
+    );
   }
 
   function requireUsableTokenRow(
