@@ -1,3 +1,8 @@
+import {
+  encryptProviderIdentitySubject,
+  providerIdentityHandleDualWriteEnabled,
+  readProviderIdentityHandleKey,
+} from "../_shared/provider_identity_handle_crypto.ts";
 import { getLifeMateSql } from "./database_client.ts";
 import {
   deriveIdentityLinkToken,
@@ -60,6 +65,15 @@ export function createIdentityBridge(databaseUrl: string) {
   const identityLinkKey = dualWrite
     ? readIdentityLinkKeyFromEnvironment()
     : null;
+  const providerHandleDualWrite = providerIdentityHandleDualWriteEnabled();
+  if (providerHandleDualWrite && !dualWrite) {
+    throw new Error(
+      "Encrypted provider-handle dual-write requires LIFEMATE_IDENTITY_LINK_DUAL_WRITE=true so the canonical token and recovery handle advance together.",
+    );
+  }
+  const providerHandleKey = providerHandleDualWrite
+    ? readProviderIdentityHandleKey()
+    : null;
 
   async function syncExternalIdentities(
     legacyAppUserId: string,
@@ -105,6 +119,34 @@ export function createIdentityBridge(databaseUrl: string) {
           new Date(),
           new Date(),
         );
+      }
+
+      if (providerHandleKey) {
+        const envelope = await encryptProviderIdentitySubject(
+          providerHandleKey,
+          {
+            accountId,
+            provider: "supabase_auth",
+            issuer: "supabase",
+          },
+          auth.id,
+        );
+        await transaction`
+          insert into identity.provider_identity_handles(
+            account_id,provider,issuer,ciphertext_b64,nonce_b64,key_version,
+            status,created_at_utc,updated_at_utc
+          ) values(
+            ${accountId}::uuid,'supabase_auth','supabase',
+            ${envelope.ciphertextB64},${envelope.nonceB64},
+            ${envelope.keyVersion},'Active',now(),now()
+          )
+          on conflict(account_id,provider,issuer) do update set
+            ciphertext_b64=excluded.ciphertext_b64,
+            nonce_b64=excluded.nonce_b64,
+            key_version=excluded.key_version,
+            status='Active',
+            updated_at_utc=excluded.updated_at_utc
+        `;
       }
 
       for (const identity of auth.identities ?? []) {
