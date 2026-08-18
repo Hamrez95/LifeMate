@@ -48,6 +48,8 @@ Deno.test("poison errors are dead-lettered immediately", () => {
   assertEquals(isPermanentWorkerError("unsupported_event"), true);
   assertEquals(isPermanentWorkerError("aggregate_id_missing"), true);
   assertEquals(isPermanentWorkerError("invalid_personId"), true);
+  assertEquals(isPermanentWorkerError("provider_handle_missing"), true);
+  assertEquals(isPermanentWorkerError("provider_handle_decrypt_failed"), true);
   assertEquals(isPermanentWorkerError("auth_delete:400"), true);
   assertEquals(isPermanentWorkerError("auth_delete:429"), false);
   assertEquals(isPermanentWorkerError("auth_session_revoke:503"), false);
