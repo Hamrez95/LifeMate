@@ -17,6 +17,10 @@ export type RotatableContactPointEnvelope = {
   keyVersion: number;
 };
 
+export type ContactPointEnvelopeValidationResult =
+  | { status: "already-active" }
+  | { status: "previous-valid"; plaintext: string };
+
 export type ContactPointEnvelopeRotationResult =
   | { status: "already-active" }
   | { status: "rotated" };
@@ -40,10 +44,9 @@ export function createContactPointEnvelopeRotator(options: {
     );
   }
 
-  async function rotate(
-    transaction: any,
+  async function validate(
     row: RotatableContactPointEnvelope,
-  ): Promise<ContactPointEnvelopeRotationResult> {
+  ): Promise<ContactPointEnvelopeValidationResult> {
     if (row.keyVersion === activeKey.keyVersion) {
       return { status: "already-active" };
     }
@@ -83,6 +86,17 @@ export function createContactPointEnvelopeRotator(options: {
     if (expectedHash !== row.normalizedValueHash) {
       throw unavailable();
     }
+    return { status: "previous-valid", plaintext };
+  }
+
+  async function rotate(
+    transaction: any,
+    row: RotatableContactPointEnvelope,
+  ): Promise<ContactPointEnvelopeRotationResult> {
+    const validated = await validate(row);
+    if (validated.status === "already-active") {
+      return validated;
+    }
 
     const next = await encryptContactPoint(
       activeKey,
@@ -91,7 +105,7 @@ export function createContactPointEnvelopeRotator(options: {
         kind: row.kind,
         normalizedValueHash: row.normalizedValueHash,
       },
-      plaintext,
+      validated.plaintext,
     );
 
     // Only envelope metadata changes. Status and verified_at_utc are deliberately
@@ -124,7 +138,7 @@ export function createContactPointEnvelopeRotator(options: {
     return { status: "rotated" };
   }
 
-  return { rotate };
+  return { validate, rotate };
 }
 
 function unavailable(): ApiError {
