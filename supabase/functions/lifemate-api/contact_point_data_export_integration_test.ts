@@ -1,7 +1,4 @@
-import {
-  assertEquals,
-  assertRejects,
-} from "jsr:@std/assert@1.0.14";
+import { assertEquals, assertRejects } from "jsr:@std/assert@1.0.14";
 import postgres from "postgres";
 import { createContactPointWriter } from "./contact_points.ts";
 import { createDataExportStore } from "./data_export.ts";
@@ -129,7 +126,10 @@ Deno.test({
         where account_id=${accountId}::uuid and status <> 'Revoked'
       `;
       for (const row of contactRows) {
-        assertEquals(encoded.includes(String(row.normalized_value_hash)), false);
+        assertEquals(
+          encoded.includes(String(row.normalized_value_hash)),
+          false,
+        );
         assertEquals(encoded.includes(String(row.ciphertext_b64)), false);
         assertEquals(encoded.includes(String(row.encryption_nonce_b64)), false);
       }
