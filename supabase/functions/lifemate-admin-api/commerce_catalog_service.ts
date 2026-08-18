@@ -8,11 +8,22 @@ import { ApiError } from "./validation.ts";
 
 function mutationResult(value: unknown): Record<string, unknown> {
   if (!value || typeof value !== "object" || Array.isArray(value)) {
-    throw new ApiError(503, "commerce_catalog_workflow_unavailable", "Commerce catalog workflow result was unavailable.");
+    throw new ApiError(
+      503,
+      "commerce_catalog_workflow_unavailable",
+      "Commerce catalog workflow result was unavailable.",
+    );
   }
   const row = value as Record<string, unknown>;
-  if (!Number.isInteger(row.httpStatus) || typeof row.code !== "string" || typeof row.replayed !== "boolean") {
-    throw new ApiError(503, "commerce_catalog_workflow_unavailable", "Commerce catalog workflow result was invalid.");
+  if (
+    !Number.isInteger(row.httpStatus) || typeof row.code !== "string" ||
+    typeof row.replayed !== "boolean"
+  ) {
+    throw new ApiError(
+      503,
+      "commerce_catalog_workflow_unavailable",
+      "Commerce catalog workflow result was invalid.",
+    );
   }
   return row;
 }
