@@ -1,9 +1,9 @@
 import {
+  type ContactEncryptionKey,
   contactPointDualWriteEnabled,
+  type ContactPointKind,
   encryptContactPoint,
   hashContactPoint,
-  type ContactEncryptionKey,
-  type ContactPointKind,
   normalizeContactPoint,
   readContactEncryptionKey,
 } from "../_shared/contact_point_crypto.ts";
@@ -30,7 +30,8 @@ export function createContactPointWriter(
 ) {
   const readEnvironment = options.readEnvironment ??
     ((name: string) => Deno.env.get(name));
-  const enabled = options.enabled ?? contactPointDualWriteEnabled(readEnvironment);
+  const enabled = options.enabled ??
+    contactPointDualWriteEnabled(readEnvironment);
   const effectiveHashingSecret = hashingSecret ??
     readEnvironment("LIFEMATE_CONTACT_HASHING_SECRET") ?? "";
   let encryptionKey: ContactEncryptionKey | null = null;
