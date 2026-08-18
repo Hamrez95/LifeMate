@@ -1,0 +1,127 @@
+name: contact-point-migration-policy
+
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - 'tools/security/contact-point-readiness.ts'
+      - 'tools/security/contact-point-readiness_test.ts'
+      - 'tools/security/contact-point-backfill.ts'
+      - 'tools/security/contact-point-backfill_test.ts'
+      - 'tools/security/verify-contact-point-migration-policy.mjs'
+      - '.github/workflows/contact-point-readiness.yml'
+      - '.github/workflows/contact-point-backfill.yml'
+      - '.github/workflows/contact-point-migration-policy.yml'
+      - 'supabase/functions/_shared/contact_point_crypto.ts'
+      - 'supabase/functions/lifemate-api/contact_points.ts'
+      - 'supabase/functions/lifemate-api/contact_point_read_mode_test.ts'
+      - 'supabase/functions/lifemate-api/contact_point_read_mode_integration_test.ts'
+      - 'supabase/functions/lifemate-api/profile.ts'
+      - 'supabase/functions/lifemate-api/deno.json'
+      - 'supabase/migrations/**'
+  push:
+    branches: [main]
+    paths:
+      - 'tools/security/contact-point-readiness.ts'
+      - 'tools/security/contact-point-readiness_test.ts'
+      - 'tools/security/contact-point-backfill.ts'
+      - 'tools/security/contact-point-backfill_test.ts'
+      - 'tools/security/verify-contact-point-migration-policy.mjs'
+      - '.github/workflows/contact-point-readiness.yml'
+      - '.github/workflows/contact-point-backfill.yml'
+      - '.github/workflows/contact-point-migration-policy.yml'
+      - 'supabase/functions/_shared/contact_point_crypto.ts'
+      - 'supabase/functions/lifemate-api/contact_points.ts'
+      - 'supabase/functions/lifemate-api/contact_point_read_mode_test.ts'
+      - 'supabase/functions/lifemate-api/contact_point_read_mode_integration_test.ts'
+      - 'supabase/functions/lifemate-api/profile.ts'
+      - 'supabase/functions/lifemate-api/deno.json'
+      - 'supabase/migrations/**'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: contact-point-migration-policy-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  migration-contract:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    services:
+      postgres:
+        image: postgres:17.6-alpine
+        env:
+          POSTGRES_DB: lifemate_contact_migration
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d lifemate_contact_migration"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      TEST_DATABASE_URL: postgres://postgres:postgres@localhost:5432/lifemate_contact_migration
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
+        with:
+          show-progress: false
+          persist-credentials: false
+
+      - uses: denoland/setup-deno@22d081ff2d3a40755e97629de92e3bcbfa7cf2ed
+        with:
+          deno-version: v2.9.4
+
+      - name: Freeze protected migration policy
+        run: node tools/security/verify-contact-point-migration-policy.mjs
+
+      - name: Format and type-check ContactPoint migration source
+        shell: bash
+        run: |
+          set -euo pipefail
+          deno fmt --check \
+            tools/security/contact-point-readiness.ts \
+            tools/security/contact-point-readiness_test.ts \
+            tools/security/contact-point-backfill.ts \
+            tools/security/contact-point-backfill_test.ts \
+            supabase/functions/lifemate-api/contact_points.ts \
+            supabase/functions/lifemate-api/contact_point_read_mode_test.ts \
+            supabase/functions/lifemate-api/contact_point_read_mode_integration_test.ts \
+            supabase/functions/lifemate-api/profile.ts
+          deno check tools/security/contact-point-readiness_test.ts
+          deno check tools/security/contact-point-backfill_test.ts
+          cd supabase/functions/lifemate-api
+          deno check contact_point_read_mode_test.ts contact_point_read_mode_integration_test.ts
+
+      - name: Apply canonical portable schema
+        shell: bash
+        run: |
+          set -euo pipefail
+          psql "$TEST_DATABASE_URL" --set=ON_ERROR_STOP=1 \
+            --file=supabase/bootstrap/legacy_lifemate_baseline.sql
+          while IFS= read -r migration; do
+            psql "$TEST_DATABASE_URL" --set=ON_ERROR_STOP=1 --file="$migration"
+          done < <(find supabase/migrations -maxdepth 1 -type f -name '*.sql' | sort)
+
+      - name: Prove count-only readiness behavior
+        run: >-
+          deno test --no-check --allow-env
+          --allow-net=localhost:5432,127.0.0.1:5432
+          tools/security/contact-point-readiness_test.ts
+
+      - name: Prove bounded dry-run and idempotent backfill
+        run: >-
+          deno test --no-check --allow-env
+          --allow-net=localhost:5432,127.0.0.1:5432
+          tools/security/contact-point-backfill_test.ts
+
+      - name: Prove Profile legacy/prefer/contact-only read modes
+        working-directory: supabase/functions/lifemate-api
+        run: >-
+          deno test --no-check --allow-env
+          --allow-net=localhost:5432,127.0.0.1:5432
+          contact_point_read_mode_test.ts
+          contact_point_read_mode_integration_test.ts
