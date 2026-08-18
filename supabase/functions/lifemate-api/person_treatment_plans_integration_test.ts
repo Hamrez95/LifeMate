@@ -81,8 +81,7 @@ async function cleanupIdentity(
 }
 
 Deno.test({
-  name:
-    "treatment plan runtime authorizes canonical Person during legacy dual-write",
+  name: "treatment plan runtime writes and authorizes canonical Person only",
   sanitizeOps: false,
   sanitizeResources: false,
   fn: async () => {
@@ -163,7 +162,7 @@ Deno.test({
         where id=${planId}::uuid
       `;
       assertEquals(persisted.length, 1);
-      assertEquals(persisted[0].patient_user_id, ownerAppUserId);
+      assertEquals(persisted[0].patient_user_id, null);
       assertEquals(persisted[0].patient_person_id, ownerPersonId);
 
       const auditRows = await fixtureSql`
@@ -175,14 +174,8 @@ Deno.test({
       assertEquals(auditRows[0].action, "treatment_plan.created");
       assertEquals(auditRows[0].metadata_json, null);
 
-      // Simulate the eventual compatibility-column freeze. Authorization and
-      // the existing patientUserId response contract must not read this column.
-      await fixtureSql`
-        update lifemate.treatment_plans
-        set patient_user_id=null
-        where id=${planId}::uuid
-      `;
-
+      // The public compatibility response is derived from authenticated request
+      // context; authorization and reads do not depend on legacy ownership.
       const ownerRows = await treatmentPlans.listTreatmentPlans(ownerAppUserId);
       assertEquals(ownerRows.length, 1);
       assertEquals(ownerRows[0].id, planId);

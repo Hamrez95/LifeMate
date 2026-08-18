@@ -74,10 +74,10 @@ async function requireSelfPerson(
 /**
  * Dose occurrence ownership is authoritative on canonical Person.
  *
- * AppUser ids remain only where they still have a distinct compatibility or
- * actor-provenance purpose. Materialization and all Dose ownership predicates
- * use patient_person_id. The legacy patient_user_id write is temporary until
- * Data Export and remaining care contracts are migrated.
+ * AppUser ids remain only where they have a distinct actor/audit provenance
+ * purpose. Materialization and all Dose ownership predicates use
+ * patient_person_id. The nullable legacy patient_user_id column is retained for
+ * historical compatibility only and is no longer written by this runtime.
  */
 export function createPersonDoseOccurrenceStore(databaseUrl: string) {
   const sql = getLifeMateSql(databaseUrl);
@@ -90,12 +90,12 @@ export function createPersonDoseOccurrenceStore(databaseUrl: string) {
     await sql.begin(async (tx: any) => {
       await tx`
         insert into lifemate.dose_occurrences
-          (id, patient_user_id, patient_person_id, treatment_plan_id,
+          (id, patient_person_id, treatment_plan_id,
            treatment_schedule_id, scheduled_at_utc, scheduled_local_date,
            scheduled_local_time, time_zone, status, responded_at_utc, version,
            created_at_utc, updated_at_utc)
         select
-          gen_random_uuid(), p.patient_user_id, p.patient_person_id,
+          gen_random_uuid(), p.patient_person_id,
           p.id, s.id,
           ((day_value::date + s.local_time) at time zone p.time_zone),
           day_value::date, s.local_time, p.time_zone, 'Scheduled', null, 1,
@@ -194,7 +194,7 @@ export function createPersonDoseOccurrenceStore(databaseUrl: string) {
       }
 
       // actor_user_id is actor/audit provenance, not Dose ownership. Keep the
-      // existing idempotency boundary intact while ownership moves to Person.
+      // existing idempotency boundary intact while ownership is Person-based.
       const existingEvents = await tx`
         select occurrence_id
         from lifemate.dose_adherence_events
@@ -268,8 +268,8 @@ export function createPersonDoseOccurrenceStore(databaseUrl: string) {
     validateRange(fromDate, toDate);
 
     // Care relationship identity remains a separate later migration. This slice
-    // preserves its existing authorization contract, then switches all Dose
-    // ownership/materialization work to the canonical patient Person.
+    // preserves its existing authorization contract, then performs all Dose
+    // ownership/materialization work on the canonical patient Person.
     const relationships = await sql`
       select id
       from lifemate.care_relationships

@@ -133,8 +133,8 @@ async function insertAudit(
  * The public runtime still supplies an AppUser id. We resolve it through the
  * existing Account -> Self Person boundary, authorize the referenced
  * Medication by owner_person_id, and write/read Treatment Plans by
- * patient_person_id. patient_user_id remains a temporary compatibility
- * dual-write only because Dose Occurrence/materialization has not yet migrated.
+ * patient_person_id. The nullable legacy patient_user_id column is retained for
+ * historical compatibility only and is no longer written by this runtime.
  */
 export function createPersonTreatmentPlanStore(databaseUrl: string) {
   const sql = getLifeMateSql(databaseUrl);
@@ -195,13 +195,13 @@ export function createPersonTreatmentPlanStore(databaseUrl: string) {
       const planId = crypto.randomUUID();
       const planRows = await tx`
         insert into lifemate.treatment_plans
-          (id, patient_user_id, patient_person_id, medication_id, dose_text,
+          (id, patient_person_id, medication_id, dose_text,
            instructions, start_date, end_date, time_zone,
            patient_reminder_minutes_before,
            caregiver_reminder_minutes_before,
            status, version, created_at_utc, updated_at_utc)
         values
-          (${planId}::uuid, ${appUserId}::uuid, ${personId}::uuid,
+          (${planId}::uuid, ${personId}::uuid,
            ${medicationId}::uuid, ${doseText}, ${instructions}, ${startDate},
            ${endDate}, ${timeZone}, ${patientReminderMinutesBefore},
            ${caregiverReminderMinutesBefore}, 'Active', 1, ${now}, ${now})
