@@ -32,7 +32,9 @@ const PROVIDER_PATTERN = /^[a-z0-9][a-z0-9._:-]{1,39}$/;
 const AMOUNT_PATTERN = /^\d+$/;
 const POSTGRES_BIGINT_MAX = 9_223_372_036_854_775_807n;
 
-async function requestObject(request: Request): Promise<Record<string, unknown>> {
+async function requestObject(
+  request: Request,
+): Promise<Record<string, unknown>> {
   try {
     const value = await request.json();
     if (!value || typeof value !== "object" || Array.isArray(value)) {
@@ -40,7 +42,11 @@ async function requestObject(request: Request): Promise<Record<string, unknown>>
     }
     return value as Record<string, unknown>;
   } catch {
-    throw new ApiError(400, "invalid_request", "Request body must be a valid JSON object.");
+    throw new ApiError(
+      400,
+      "invalid_request",
+      "Request body must be a valid JSON object.",
+    );
   }
 }
 
@@ -62,22 +68,38 @@ function requiredText(
 
 function instant(value: unknown): string {
   if (typeof value !== "string") {
-    throw new ApiError(400, "price_effective_time_invalid", "Price effective time is invalid.");
+    throw new ApiError(
+      400,
+      "price_effective_time_invalid",
+      "Price effective time is invalid.",
+    );
   }
   const parsed = new Date(value);
   if (Number.isNaN(parsed.getTime())) {
-    throw new ApiError(400, "price_effective_time_invalid", "Price effective time is invalid.");
+    throw new ApiError(
+      400,
+      "price_effective_time_invalid",
+      "Price effective time is invalid.",
+    );
   }
   return parsed.toISOString();
 }
 
 function amountMinor(value: unknown): string {
   if (typeof value !== "string" || !AMOUNT_PATTERN.test(value)) {
-    throw new ApiError(400, "price_amount_invalid", "Price amount must be a non-negative minor-unit integer string.");
+    throw new ApiError(
+      400,
+      "price_amount_invalid",
+      "Price amount must be a non-negative minor-unit integer string.",
+    );
   }
   const parsed = BigInt(value);
   if (parsed < 0n || parsed > POSTGRES_BIGINT_MAX) {
-    throw new ApiError(400, "price_amount_invalid", "Price amount is outside the supported range.");
+    throw new ApiError(
+      400,
+      "price_amount_invalid",
+      "Price amount is outside the supported range.",
+    );
   }
   return parsed.toString();
 }
@@ -96,7 +118,8 @@ export async function parseCreateCommercePlanPayload(
   request: Request,
 ): Promise<CreateCommercePlanPayload> {
   const body = await requestObject(request);
-  const code = requiredText(body.code, 2, 64, "plan_code_invalid").toLowerCase();
+  const code = requiredText(body.code, 2, 64, "plan_code_invalid")
+    .toLowerCase();
   if (!PLAN_CODE_PATTERN.test(code)) {
     throw new ApiError(400, "plan_code_invalid", "Plan code is invalid.");
   }
@@ -130,22 +153,40 @@ export async function parseScheduleCommercePricePayload(
   let countryCode: string | null = null;
   if (body.countryCode != null && body.countryCode !== "") {
     if (typeof body.countryCode !== "string") {
-      throw new ApiError(400, "price_country_invalid", "Country code is invalid.");
+      throw new ApiError(
+        400,
+        "price_country_invalid",
+        "Country code is invalid.",
+      );
     }
     countryCode = body.countryCode.trim().toUpperCase();
     if (!COUNTRY_PATTERN.test(countryCode)) {
-      throw new ApiError(400, "price_country_invalid", "Country code is invalid.");
+      throw new ApiError(
+        400,
+        "price_country_invalid",
+        "Country code is invalid.",
+      );
     }
   }
 
-  const currency = requiredText(body.currency, 3, 3, "price_currency_invalid").toUpperCase();
+  const currency = requiredText(body.currency, 3, 3, "price_currency_invalid")
+    .toUpperCase();
   if (!CURRENCY_PATTERN.test(currency)) {
     throw new ApiError(400, "price_currency_invalid", "Currency is invalid.");
   }
 
-  const storeProvider = requiredText(body.storeProvider, 2, 40, "price_provider_invalid").toLowerCase();
+  const storeProvider = requiredText(
+    body.storeProvider,
+    2,
+    40,
+    "price_provider_invalid",
+  ).toLowerCase();
   if (!PROVIDER_PATTERN.test(storeProvider)) {
-    throw new ApiError(400, "price_provider_invalid", "Store provider is invalid.");
+    throw new ApiError(
+      400,
+      "price_provider_invalid",
+      "Store provider is invalid.",
+    );
   }
 
   if (
@@ -153,7 +194,11 @@ export async function parseScheduleCommercePricePayload(
     Number(body.billingPeriodMonths) < 1 ||
     Number(body.billingPeriodMonths) > 120
   ) {
-    throw new ApiError(400, "price_period_invalid", "Billing period is invalid.");
+    throw new ApiError(
+      400,
+      "price_period_invalid",
+      "Billing period is invalid.",
+    );
   }
 
   return {
@@ -168,7 +213,10 @@ export async function parseScheduleCommercePricePayload(
 }
 
 async function sha256(value: string): Promise<string> {
-  const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(value));
+  const digest = await crypto.subtle.digest(
+    "SHA-256",
+    new TextEncoder().encode(value),
+  );
   return [...new Uint8Array(digest)]
     .map((part) => part.toString(16).padStart(2, "0"))
     .join("");
@@ -184,12 +232,16 @@ export async function hashUpdateCommercePlanRequest(
   planId: string,
   payload: UpdateCommercePlanPayload,
 ): Promise<string> {
-  return sha256(`v1\ncommerce.plan.update\n${planId}\n${JSON.stringify(payload)}`);
+  return sha256(
+    `v1\ncommerce.plan.update\n${planId}\n${JSON.stringify(payload)}`,
+  );
 }
 
 export async function hashScheduleCommercePriceRequest(
   planId: string,
   payload: ScheduleCommercePricePayload,
 ): Promise<string> {
-  return sha256(`v1\ncommerce.price.schedule\n${planId}\n${JSON.stringify(payload)}`);
+  return sha256(
+    `v1\ncommerce.price.schedule\n${planId}\n${JSON.stringify(payload)}`,
+  );
 }
