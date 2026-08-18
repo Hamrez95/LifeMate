@@ -125,11 +125,12 @@ export function createIdentityBridge(databaseUrl: string) {
         );
       }
 
+      let canonicalSubjectToken: string | null = null;
       if (identityLinkKey) {
         // Canonical runtime authentication lookup. Provider-specific tokens
         // below are useful for explicit account-linking, but JWT/API identity
         // resolution must not depend on a Google/email provider subject.
-        const canonicalSubjectToken = await deriveIdentityLinkToken(
+        canonicalSubjectToken = await deriveIdentityLinkToken(
           identityLinkKey.secret,
           {
             provider: "supabase_auth",
@@ -238,7 +239,11 @@ export function createIdentityBridge(databaseUrl: string) {
         // These checks intentionally happen inside the same transaction as the
         // scrub. A missing/conflicting token or recovery handle rolls back all
         // changes and leaves the raw compatibility subject untouched.
-        if (!identityLinkKey || !providerEnvelope) {
+        if (
+          !identityLinkKey ||
+          !canonicalSubjectToken ||
+          !providerEnvelope
+        ) {
           throw new Error("raw_identity_retirement_prerequisite_missing");
         }
         const readiness = await transaction`
@@ -248,6 +253,7 @@ export function createIdentityBridge(databaseUrl: string) {
               where t.account_id=${accountId}::uuid
                 and t.provider='supabase_auth'
                 and t.issuer='supabase'
+                and t.subject_token=${canonicalSubjectToken}
                 and t.key_version=${identityLinkKey.keyVersion}
                 and t.status='Active'
             ) as token_ready,
@@ -283,7 +289,7 @@ export function createIdentityBridge(databaseUrl: string) {
           );
         }
 
-        deleteRawExternalIdentities: await transaction`
+        await transaction`
           delete from identity.external_identities
           where account_id=${accountId}::uuid
         `;
