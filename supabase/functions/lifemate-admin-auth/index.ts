@@ -68,11 +68,11 @@ function allowedOrigin(request: Request): string | null {
 
 function clientAddress(request: Request): string {
   return (
-      request.headers.get("cf-connecting-ip") ??
-        request.headers.get("x-real-ip") ??
-        request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ??
-        "unknown"
-    ).slice(0, 128);
+    request.headers.get("cf-connecting-ip") ??
+      request.headers.get("x-real-ip") ??
+      request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ??
+      "unknown"
+  ).slice(0, 128);
 }
 
 async function sha256(value: string): Promise<string> {
