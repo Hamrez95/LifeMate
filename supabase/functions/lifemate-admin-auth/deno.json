@@ -1,0 +1,13 @@
+{
+  "compilerOptions": {
+    "strict": true
+  },
+  "imports": {
+    "postgres": "npm:postgres@3.4.7",
+    "supabase": "npm:@supabase/supabase-js@2.55.0"
+  },
+  "tasks": {
+    "check": "deno check index.ts runtime_config.ts auth_contract_test.ts",
+    "test": "deno test --no-check --allow-read auth_contract_test.ts"
+  }
+}

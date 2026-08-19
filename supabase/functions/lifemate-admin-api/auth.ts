@@ -127,12 +127,28 @@ export async function authenticate(
   };
 }
 
-export function requireAal2(principal: AdminPrincipal): void {
-  if (principal.aal !== "aal2") {
-    throw new ApiError(
-      403,
-      "mfa_required",
-      "Multi-factor authentication is required for Command Center access.",
-    );
+function temporaryFounderSubject(): string | null {
+  try {
+    return Deno.env.get("LIFEMATE_ADMIN_BOOTSTRAP_AUTH_SUBJECT")?.trim() ||
+      null;
+  } catch {
+    // Unit tests run without --allow-env; production Edge runtime has env access.
+    return null;
   }
+}
+
+export function requireAal2(principal: AdminPrincipal): void {
+  if (principal.aal === "aal2") return;
+
+  // TEMPORARY founder-only compatibility so the owner can enter Command Center with
+  // username/password before Google/TOTP activation. This is bound to the exact
+  // configured bootstrap Auth subject and must be removed when #115 is completed.
+  const founderSubject = temporaryFounderSubject();
+  if (founderSubject && principal.providerSubject === founderSubject) return;
+
+  throw new ApiError(
+    403,
+    "mfa_required",
+    "Multi-factor authentication is required for Command Center access.",
+  );
 }
