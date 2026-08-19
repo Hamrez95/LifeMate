@@ -112,7 +112,7 @@ Deno.test({
       `;
       assertEquals(String(resolvedAccount[0]?.account_id), accountId);
 
-      const bridge = createIdentityBridge(databaseUrl);
+      const bridge = createIdentityBridge(databaseUrl, contactHashSecret);
       assertEquals(
         await bridge.syncExternalIdentities(appUserId, {
           id: authSubject,
