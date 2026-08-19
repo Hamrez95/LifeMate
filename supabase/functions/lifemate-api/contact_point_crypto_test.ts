@@ -121,8 +121,7 @@ Deno.test("ContactPoint dual-write config is disabled by default and fail-closed
 
 Deno.test("ContactPoint encryption keyset supports one bounded previous key", () => {
   const activeSecret = "contact-active-envelope-key-32-bytes-minimum";
-  const previousSecret =
-    "contact-previous-envelope-key-32-bytes-minimum";
+  const previousSecret = "contact-previous-envelope-key-32-bytes-minimum";
   const readEnvironment = (name: string) => {
     if (name === "LIFEMATE_IDENTITY_CONTACT_ENCRYPTION_KEY") {
       return activeSecret;
@@ -148,9 +147,9 @@ Deno.test("ContactPoint encryption keyset supports one bounded previous key", ()
 
 Deno.test("ContactPoint encryption keyset rejects unsafe previous-key overlap", () => {
   const activeSecret = "contact-active-envelope-key-32-bytes-minimum";
-  const previousSecret =
-    "contact-previous-envelope-key-32-bytes-minimum";
-  const read = (values: Record<string, string>) => (name: string) => values[name];
+  const previousSecret = "contact-previous-envelope-key-32-bytes-minimum";
+  const read = (values: Record<string, string>) => (name: string) =>
+    values[name];
   const active = {
     LIFEMATE_IDENTITY_CONTACT_ENCRYPTION_KEY: activeSecret,
     LIFEMATE_IDENTITY_CONTACT_ENCRYPTION_KEY_VERSION: "12",
