@@ -1,0 +1,145 @@
+name: provider-handle-key-rotation-policy
+
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - 'supabase/functions/_shared/provider_identity_handle_crypto.ts'
+      - 'supabase/functions/lifemate-api/identity_bridge.ts'
+      - 'supabase/functions/lifemate-api/provider_identity_handle_crypto_test.ts'
+      - 'supabase/functions/lifemate-api/provider_identity_handle_key_rotation_integration_test.ts'
+      - 'supabase/functions/lifemate-worker/provider_auth_subject.ts'
+      - 'supabase/functions/lifemate-worker/provider_auth_subject_test.ts'
+      - 'supabase/migrations/**'
+      - 'tools/security/provider-handle-key-rotation.ts'
+      - 'tools/security/provider-handle-key-rotation_test.ts'
+      - 'tools/security/provider-handle-key-rotation-readiness.ts'
+      - 'tools/security/provider-handle-key-rotation-readiness_test.ts'
+      - 'tools/security/verify-provider-handle-key-rotation-policy.mjs'
+      - 'docs/security/PROVIDER_HANDLE_KEY_ROTATION.md'
+      - '.github/workflows/provider-handle-key-rotation.yml'
+      - '.github/workflows/provider-handle-key-rotation-readiness.yml'
+      - '.github/workflows/provider-handle-key-rotation-policy.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'supabase/functions/_shared/provider_identity_handle_crypto.ts'
+      - 'supabase/functions/lifemate-api/identity_bridge.ts'
+      - 'supabase/functions/lifemate-api/provider_identity_handle_crypto_test.ts'
+      - 'supabase/functions/lifemate-api/provider_identity_handle_key_rotation_integration_test.ts'
+      - 'supabase/functions/lifemate-worker/provider_auth_subject.ts'
+      - 'supabase/functions/lifemate-worker/provider_auth_subject_test.ts'
+      - 'supabase/migrations/**'
+      - 'tools/security/provider-handle-key-rotation.ts'
+      - 'tools/security/provider-handle-key-rotation_test.ts'
+      - 'tools/security/provider-handle-key-rotation-readiness.ts'
+      - 'tools/security/provider-handle-key-rotation-readiness_test.ts'
+      - 'tools/security/verify-provider-handle-key-rotation-policy.mjs'
+      - 'docs/security/PROVIDER_HANDLE_KEY_ROTATION.md'
+      - '.github/workflows/provider-handle-key-rotation.yml'
+      - '.github/workflows/provider-handle-key-rotation-readiness.yml'
+      - '.github/workflows/provider-handle-key-rotation-policy.yml'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: provider-handle-key-rotation-policy-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  source-and-data-contract:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    services:
+      postgres:
+        image: postgres:17.6-alpine
+        env:
+          POSTGRES_DB: lifemate_provider_handle_rotation
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d lifemate_provider_handle_rotation"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      TEST_DATABASE_URL: postgres://postgres:postgres@localhost:5432/lifemate_provider_handle_rotation
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
+        with:
+          show-progress: false
+          persist-credentials: false
+
+      - uses: denoland/setup-deno@22d081ff2d3a40755e97629de92e3bcbfa7cf2ed
+        with:
+          deno-version: v2.9.4
+
+      - name: Freeze provider-handle rotation boundaries
+        run: node tools/security/verify-provider-handle-key-rotation-policy.mjs
+
+      - name: Format and type-check provider-handle rotation source
+        shell: bash
+        run: |
+          set -euo pipefail
+          deno fmt --check \
+            supabase/functions/_shared/provider_identity_handle_crypto.ts \
+            supabase/functions/lifemate-api/provider_identity_handle_crypto_test.ts \
+            supabase/functions/lifemate-api/provider_identity_handle_key_rotation_integration_test.ts \
+            supabase/functions/lifemate-worker/provider_auth_subject.ts \
+            supabase/functions/lifemate-worker/provider_auth_subject_test.ts \
+            tools/security/provider-handle-key-rotation.ts \
+            tools/security/provider-handle-key-rotation_test.ts \
+            tools/security/provider-handle-key-rotation-readiness.ts \
+            tools/security/provider-handle-key-rotation-readiness_test.ts
+          cd supabase/functions/lifemate-api
+          deno check provider_identity_handle_crypto_test.ts \
+            provider_identity_handle_key_rotation_integration_test.ts
+          cd ../lifemate-worker
+          deno check provider_auth_subject_test.ts
+          cd ../../../
+          deno check --config supabase/functions/lifemate-api/deno.json \
+            tools/security/provider-handle-key-rotation_test.ts \
+            tools/security/provider-handle-key-rotation-readiness_test.ts
+
+      - name: Apply canonical portable schema
+        shell: bash
+        run: |
+          set -euo pipefail
+          psql "$TEST_DATABASE_URL" --set=ON_ERROR_STOP=1 \
+            --file=supabase/bootstrap/legacy_lifemate_baseline.sql
+          while IFS= read -r migration; do
+            psql "$TEST_DATABASE_URL" --set=ON_ERROR_STOP=1 --file="$migration"
+          done < <(find supabase/migrations -maxdepth 1 -type f -name '*.sql' | sort)
+
+      - name: Prove provider-handle keyset and Worker overlap behavior
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd supabase/functions/lifemate-api
+          deno test --no-check provider_identity_handle_crypto_test.ts
+          cd ../lifemate-worker
+          deno test --no-check provider_auth_subject_test.ts
+
+      - name: Prove bounded provider-handle re-encryption
+        run: >-
+          deno test --config supabase/functions/lifemate-api/deno.json
+          --no-check --allow-env
+          --allow-net=localhost:5432,127.0.0.1:5432
+          tools/security/provider-handle-key-rotation_test.ts
+
+      - name: Prove provider-handle rotation readiness
+        run: >-
+          deno test --config supabase/functions/lifemate-api/deno.json
+          --no-check --allow-env
+          --allow-net=localhost:5432,127.0.0.1:5432
+          tools/security/provider-handle-key-rotation-readiness_test.ts
+
+      - name: Prove active-only API writes and previous-key Worker recovery
+        working-directory: supabase/functions/lifemate-api
+        run: >-
+          deno test --no-check --allow-env
+          --allow-net=localhost:5432,127.0.0.1:5432
+          provider_identity_handle_key_rotation_integration_test.ts

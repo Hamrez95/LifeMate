@@ -3,7 +3,7 @@ import {
   providerIdentityHandleDualWriteEnabled,
   type ProviderIdentityHandleEnvelope,
   rawIdentityRetirementEnabled,
-  readProviderIdentityHandleKey,
+  readProviderIdentityHandleKeySet,
 } from "../_shared/provider_identity_handle_crypto.ts";
 
 type EnvironmentReader = (name: string) => string | null | undefined;
@@ -36,8 +36,8 @@ export function createProviderAuthSubjectResolver(
       "Raw identity retirement requires LIFEMATE_IDENTITY_PROVIDER_HANDLE_DUAL_WRITE=true so provider-control operations cannot lose their recovery handle.",
     );
   }
-  const providerHandleKey = handleEnabled
-    ? readProviderIdentityHandleKey(readEnvironment)
+  const providerHandleKeys = handleEnabled
+    ? readProviderIdentityHandleKeySet(readEnvironment)
     : null;
 
   const lookupHandle = options.lookupHandle ??
@@ -72,20 +72,31 @@ export function createProviderAuthSubjectResolver(
       throw new Error("provider_handle_account_invalid");
     }
 
-    if (providerHandleKey) {
+    if (providerHandleKeys) {
       const rows = await lookupHandle(accountId);
       if (rows.length > 1) throw new Error("provider_handle_ambiguous");
       const row = rows[0];
       if (row) {
+        const rowKeyVersion = Number(row.key_version);
+        const decryptionKey = rowKeyVersion ===
+            providerHandleKeys.active.keyVersion
+          ? providerHandleKeys.active
+          : providerHandleKeys.previous &&
+              rowKeyVersion === providerHandleKeys.previous.keyVersion
+          ? providerHandleKeys.previous
+          : null;
+        if (!Number.isSafeInteger(rowKeyVersion) || !decryptionKey) {
+          throw new Error("provider_handle_decrypt_failed");
+        }
         const envelope: ProviderIdentityHandleEnvelope = {
           ciphertextB64: row.ciphertext_b64,
           nonceB64: row.nonce_b64,
-          keyVersion: Number(row.key_version),
+          keyVersion: rowKeyVersion,
         };
         let subject: string;
         try {
           subject = await decryptProviderIdentitySubject(
-            providerHandleKey,
+            decryptionKey,
             {
               accountId,
               provider: "supabase_auth",

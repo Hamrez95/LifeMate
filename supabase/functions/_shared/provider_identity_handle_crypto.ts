@@ -11,6 +11,11 @@ export type ProviderIdentityHandleKey = {
   keyVersion: number;
 };
 
+export type ProviderIdentityHandleKeySet = {
+  active: ProviderIdentityHandleKey;
+  previous: ProviderIdentityHandleKey | null;
+};
+
 export type ProviderIdentityHandleEnvelope = {
   ciphertextB64: string;
   nonceB64: string;
@@ -47,9 +52,8 @@ function normalizedContext(
   const provider = context.provider.trim().toLowerCase();
   const issuer = context.issuer.trim();
   if (
-    !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/.test(
-      accountId,
-    )
+    !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/
+      .test(accountId)
   ) {
     throw new Error("Provider identity-handle accountId is invalid.");
   }
@@ -148,23 +152,63 @@ export function rawIdentityRetirementEnabled(
   return readBoolean("LIFEMATE_IDENTITY_LINK_RAW_RETIREMENT", readEnvironment);
 }
 
-export function readProviderIdentityHandleKey(
-  readEnvironment: EnvironmentReader = (name) => Deno.env.get(name),
+function readConfiguredProviderIdentityHandleKey(
+  readEnvironment: EnvironmentReader,
+  secretName: string,
+  versionName: string,
 ): ProviderIdentityHandleKey {
-  const secret = readEnvironment("LIFEMATE_IDENTITY_PROVIDER_HANDLE_KEY") ?? "";
-  const versionRaw =
-    readEnvironment("LIFEMATE_IDENTITY_PROVIDER_HANDLE_KEY_VERSION") ?? "";
+  const secret = readEnvironment(secretName) ?? "";
+  const versionRaw = readEnvironment(versionName) ?? "";
   if (encoder.encode(secret).byteLength < 32) {
     throw new Error(
-      "LIFEMATE_IDENTITY_PROVIDER_HANDLE_KEY must be configured as an external runtime secret with at least 32 UTF-8 bytes.",
+      `${secretName} must be configured as an external runtime secret with at least 32 UTF-8 bytes.`,
     );
   }
   if (!/^\d+$/.test(versionRaw)) {
-    throw new Error(
-      "LIFEMATE_IDENTITY_PROVIDER_HANDLE_KEY_VERSION must be configured.",
-    );
+    throw new Error(`${versionName} must be configured.`);
   }
   return { secret, keyVersion: requiredKeyVersion(Number(versionRaw)) };
+}
+
+export function readProviderIdentityHandleKey(
+  readEnvironment: EnvironmentReader = (name) => Deno.env.get(name),
+): ProviderIdentityHandleKey {
+  return readConfiguredProviderIdentityHandleKey(
+    readEnvironment,
+    "LIFEMATE_IDENTITY_PROVIDER_HANDLE_KEY",
+    "LIFEMATE_IDENTITY_PROVIDER_HANDLE_KEY_VERSION",
+  );
+}
+
+export function readProviderIdentityHandleKeySet(
+  readEnvironment: EnvironmentReader = (name) => Deno.env.get(name),
+): ProviderIdentityHandleKeySet {
+  const active = readProviderIdentityHandleKey(readEnvironment);
+  const previousSecret =
+    readEnvironment("LIFEMATE_IDENTITY_PROVIDER_HANDLE_PREVIOUS_KEY") ?? "";
+  const previousVersion = readEnvironment(
+    "LIFEMATE_IDENTITY_PROVIDER_HANDLE_PREVIOUS_KEY_VERSION",
+  ) ?? "";
+  const hasPreviousSecret = previousSecret.length > 0;
+  const hasPreviousVersion = previousVersion.trim().length > 0;
+  if (hasPreviousSecret !== hasPreviousVersion) {
+    throw new Error(
+      "LIFEMATE_IDENTITY_PROVIDER_HANDLE_PREVIOUS_KEY and LIFEMATE_IDENTITY_PROVIDER_HANDLE_PREVIOUS_KEY_VERSION must be configured together.",
+    );
+  }
+  if (!hasPreviousSecret) return { active, previous: null };
+
+  const previous = readConfiguredProviderIdentityHandleKey(
+    readEnvironment,
+    "LIFEMATE_IDENTITY_PROVIDER_HANDLE_PREVIOUS_KEY",
+    "LIFEMATE_IDENTITY_PROVIDER_HANDLE_PREVIOUS_KEY_VERSION",
+  );
+  if (previous.keyVersion === active.keyVersion) {
+    throw new Error(
+      "Previous provider identity-handle key version must differ from the active key version.",
+    );
+  }
+  return { active, previous };
 }
 
 export async function encryptProviderIdentitySubject(
@@ -177,7 +221,8 @@ export async function encryptProviderIdentitySubject(
   if (!normalizedSubject || normalizedSubject.length > 512) {
     throw new Error("Provider identity subject is invalid.");
   }
-  const nonce = nonceOverride ?? crypto.getRandomValues(new Uint8Array(nonceLength));
+  const nonce = nonceOverride ??
+    crypto.getRandomValues(new Uint8Array(nonceLength));
   if (nonce.byteLength !== nonceLength) {
     throw new Error("Provider identity-handle nonce must be 12 bytes.");
   }

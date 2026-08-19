@@ -14,6 +14,8 @@ const otherAccountId = "91000000-0000-4000-8000-000000000002";
 const subject = "92000000-0000-4000-8000-000000000001";
 const key = "worker-provider-handle-test-key-32-bytes-minimum";
 const keyVersion = 4;
+const previousKey = "worker-provider-handle-previous-key-32-bytes-minimum";
+const previousKeyVersion = 3;
 
 function environment(overrides: Record<string, string> = {}) {
   const values: Record<string, string> = {
@@ -28,6 +30,8 @@ function environment(overrides: Record<string, string> = {}) {
 
 async function encryptedRow(
   boundAccountId = accountId,
+  encryptionKey = key,
+  encryptionKeyVersion = keyVersion,
 ): Promise<{
   ciphertext_b64: string;
   nonce_b64: string;
@@ -35,7 +39,7 @@ async function encryptedRow(
 }> {
   const envelope: ProviderIdentityHandleEnvelope =
     await encryptProviderIdentitySubject(
-      { secret: key, keyVersion },
+      { secret: encryptionKey, keyVersion: encryptionKeyVersion },
       {
         accountId: boundAccountId,
         provider: "supabase_auth",
@@ -63,6 +67,53 @@ Deno.test("Worker recovers Supabase Auth UUID from encrypted handle", async () =
     },
   });
   assertEquals(await resolver.resolve(accountId), subject);
+  assertEquals(legacyCalls, 0);
+});
+
+Deno.test("Worker recovers a previous-version handle during bounded overlap", async () => {
+  let legacyCalls = 0;
+  const row = await encryptedRow(accountId, previousKey, previousKeyVersion);
+  const resolver = createProviderAuthSubjectResolver(null, {
+    readEnvironment: environment({
+      LIFEMATE_IDENTITY_PROVIDER_HANDLE_PREVIOUS_KEY: previousKey,
+      LIFEMATE_IDENTITY_PROVIDER_HANDLE_PREVIOUS_KEY_VERSION: String(
+        previousKeyVersion,
+      ),
+      LIFEMATE_IDENTITY_LINK_RAW_RETIREMENT: "true",
+    }),
+    lookupHandle: async () => [row],
+    lookupLegacy: async () => {
+      legacyCalls += 1;
+      return [{ auth_subject: subject }];
+    },
+  });
+  assertEquals(await resolver.resolve(accountId), subject);
+  assertEquals(legacyCalls, 0);
+});
+
+Deno.test("unknown handle key version fails closed during overlap", async () => {
+  let legacyCalls = 0;
+  const row = await encryptedRow();
+  row.key_version = keyVersion + 1;
+  const resolver = createProviderAuthSubjectResolver(null, {
+    readEnvironment: environment({
+      LIFEMATE_IDENTITY_PROVIDER_HANDLE_PREVIOUS_KEY: previousKey,
+      LIFEMATE_IDENTITY_PROVIDER_HANDLE_PREVIOUS_KEY_VERSION: String(
+        previousKeyVersion,
+      ),
+      LIFEMATE_IDENTITY_LINK_RAW_RETIREMENT: "true",
+    }),
+    lookupHandle: async () => [row],
+    lookupLegacy: async () => {
+      legacyCalls += 1;
+      return [{ auth_subject: subject }];
+    },
+  });
+  await assertRejects(
+    () => resolver.resolve(accountId),
+    Error,
+    "provider_handle_decrypt_failed",
+  );
   assertEquals(legacyCalls, 0);
 });
 
