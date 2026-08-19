@@ -163,7 +163,10 @@ async function sessionResponse(
   email: string,
   password: string,
 ): Promise<Response> {
-  const { data, error } = await publicAuth.auth.signInWithPassword({ email, password });
+  const { data, error } = await publicAuth.auth.signInWithPassword({
+    email,
+    password,
+  });
   if (error || !data.session) {
     await genericAuthDelay();
     return json(origin, 401, { ok: false, code: "invalid_credentials" });
@@ -258,9 +261,12 @@ async function activateFounder(
     return json(origin, 503, { ok: false, code: "activation_unavailable" });
   }
 
-  const { error: updateError } = await adminAuth.auth.admin.updateUserById(authUserId, {
-    password,
-  });
+  const { error: updateError } = await adminAuth.auth.admin.updateUserById(
+    authUserId,
+    {
+      password,
+    },
+  );
   if (updateError) {
     return json(origin, 503, { ok: false, code: "activation_unavailable" });
   }
