@@ -98,15 +98,16 @@ for (const marker of [
   }
 }
 
+const normalizedRunbook = runbook.toLowerCase();
 for (const marker of [
-  "deploy the Person-only runtime first",
+  "deploy the person-only runtime first",
   "readiness",
   "scrub",
   "rehydrate",
   "before deploying an older backend",
   "#210",
 ]) {
-  if (!runbook.includes(marker)) {
+  if (!normalizedRunbook.includes(marker)) {
     throw new Error(`Women profile retirement runbook missing: ${marker}`);
   }
 }
