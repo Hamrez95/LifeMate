@@ -13,10 +13,18 @@ const sql = postgres(config.databaseUrl, {
   prepare: false,
 });
 const publicAuth = createClient(config.supabaseUrl, config.anonKey, {
-  auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false },
+  auth: {
+    persistSession: false,
+    autoRefreshToken: false,
+    detectSessionInUrl: false,
+  },
 });
 const adminAuth = createClient(config.supabaseUrl, config.serviceRoleKey, {
-  auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false },
+  auth: {
+    persistSession: false,
+    autoRefreshToken: false,
+    detectSessionInUrl: false,
+  },
 });
 
 const usernamePattern = /^[a-z0-9][a-z0-9._-]{2,31}$/;
@@ -32,7 +40,8 @@ function normalizeUsername(value: unknown): string | null {
 function headers(origin: string): HeadersInit {
   return {
     "Access-Control-Allow-Origin": origin,
-    "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+    "Access-Control-Allow-Headers":
+      "authorization, x-client-info, apikey, content-type",
     "Access-Control-Allow-Methods": "POST, OPTIONS",
     "Cache-Control": "private, no-store",
     "Content-Type": "application/json; charset=utf-8",
@@ -41,8 +50,15 @@ function headers(origin: string): HeadersInit {
   };
 }
 
-function json(origin: string, status: number, payload: Record<string, unknown>): Response {
-  return new Response(JSON.stringify(payload), { status, headers: headers(origin) });
+function json(
+  origin: string,
+  status: number,
+  payload: Record<string, unknown>,
+): Response {
+  return new Response(JSON.stringify(payload), {
+    status,
+    headers: headers(origin),
+  });
 }
 
 function allowedOrigin(request: Request): string | null {
@@ -52,21 +68,31 @@ function allowedOrigin(request: Request): string | null {
 
 function clientAddress(request: Request): string {
   return (
-    request.headers.get("cf-connecting-ip") ??
-    request.headers.get("x-real-ip") ??
-    request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ??
-    "unknown"
-  ).slice(0, 128);
+      request.headers.get("cf-connecting-ip") ??
+        request.headers.get("x-real-ip") ??
+        request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ??
+        "unknown"
+    ).slice(0, 128);
 }
 
 async function sha256(value: string): Promise<string> {
   const bytes = new TextEncoder().encode(value);
   const digest = await crypto.subtle.digest("SHA-256", bytes);
-  return Array.from(new Uint8Array(digest), (byte) => byte.toString(16).padStart(2, "0")).join("");
+  return Array.from(
+    new Uint8Array(digest),
+    (byte) => byte.toString(16).padStart(2, "0"),
+  ).join("");
 }
 
-async function consumeAttempt(request: Request, kind: string, username: string, limit: number) {
-  const fingerprint = await sha256(`${kind}|${clientAddress(request)}|${username}`);
+async function consumeAttempt(
+  request: Request,
+  kind: string,
+  username: string,
+  limit: number,
+) {
+  const fingerprint = await sha256(
+    `${kind}|${clientAddress(request)}|${username}`,
+  );
   const rows = await sql`
     select admin.consume_workforce_auth_attempt(${fingerprint}, ${limit}, 600) as allowed
   `;
@@ -87,10 +113,14 @@ async function body(request: Request): Promise<Payload | null> {
 }
 
 async function genericAuthDelay() {
-  await new Promise((resolve) => setTimeout(resolve, 180 + Math.floor(Math.random() * 90)));
+  await new Promise((resolve) =>
+    setTimeout(resolve, 180 + Math.floor(Math.random() * 90))
+  );
 }
 
-async function accessState(username: string): Promise<"founder_compat" | "mfa_required" | "pending_role"> {
+async function accessState(
+  username: string,
+): Promise<"founder_compat" | "mfa_required" | "pending_role"> {
   const rows = await sql`
     select
       m.status,
@@ -121,11 +151,17 @@ async function accessState(username: string): Promise<"founder_compat" | "mfa_re
     limit 1
   `;
   const row = rows[0];
-  if (row?.status !== "Active" || row?.has_role !== true) return "pending_role";
+  if (row?.status !== "Active" || row?.has_role !== true) {
+    return "pending_role";
+  }
   return row?.is_founder === true ? "founder_compat" : "mfa_required";
 }
 
-async function login(request: Request, origin: string, payload: Payload): Promise<Response> {
+async function login(
+  request: Request,
+  origin: string,
+  payload: Payload,
+): Promise<Response> {
   const username = normalizeUsername(payload.username);
   const password = typeof payload.password === "string" ? payload.password : "";
   if (!username || password.length < 1 || password.length > 256) {
@@ -146,14 +182,18 @@ async function login(request: Request, origin: string, payload: Payload): Promis
     return json(origin, 401, { ok: false, code: "invalid_credentials" });
   }
 
-  const { data: userData, error: userError } = await adminAuth.auth.admin.getUserById(authUserId);
+  const { data: userData, error: userError } = await adminAuth.auth.admin
+    .getUserById(authUserId);
   const email = userData.user?.email;
   if (userError || !email) {
     await genericAuthDelay();
     return json(origin, 401, { ok: false, code: "invalid_credentials" });
   }
 
-  const { data, error } = await publicAuth.auth.signInWithPassword({ email, password });
+  const { data, error } = await publicAuth.auth.signInWithPassword({
+    email,
+    password,
+  });
   if (error || !data.session) {
     await genericAuthDelay();
     return json(origin, 401, { ok: false, code: "invalid_credentials" });
@@ -172,14 +212,21 @@ async function login(request: Request, origin: string, payload: Payload): Promis
   });
 }
 
-async function signup(request: Request, origin: string, payload: Payload): Promise<Response> {
+async function signup(
+  request: Request,
+  origin: string,
+  payload: Payload,
+): Promise<Response> {
   const username = normalizeUsername(payload.username);
   const displayName = typeof payload.displayName === "string"
     ? payload.displayName.trim().slice(0, 120)
     : username ?? "";
   const password = typeof payload.password === "string" ? payload.password : "";
 
-  if (!username || displayName.length < 2 || password.length < 8 || password.length > 128) {
+  if (
+    !username || displayName.length < 2 || password.length < 8 ||
+    password.length > 128
+  ) {
     return json(origin, 400, { ok: false, code: "invalid_registration" });
   }
 
@@ -195,12 +242,13 @@ async function signup(request: Request, origin: string, payload: Payload): Promi
   }
 
   const internalEmail = `w-${crypto.randomUUID()}@auth.invalid`;
-  const { data: created, error: createError } = await adminAuth.auth.admin.createUser({
-    email: internalEmail,
-    password,
-    email_confirm: true,
-    user_metadata: { workforce: true },
-  });
+  const { data: created, error: createError } = await adminAuth.auth.admin
+    .createUser({
+      email: internalEmail,
+      password,
+      email_confirm: true,
+      user_metadata: { workforce: true },
+    });
   if (createError || !created.user) {
     return json(origin, 400, { ok: false, code: "registration_unavailable" });
   }
@@ -215,7 +263,9 @@ async function signup(request: Request, origin: string, payload: Payload): Promi
         ${correlationId}::uuid
       ) as account_id
     `;
-    if (typeof rows[0]?.account_id !== "string") throw new Error("registration_failed");
+    if (typeof rows[0]?.account_id !== "string") {
+      throw new Error("registration_failed");
+    }
   } catch {
     await adminAuth.auth.admin.deleteUser(created.user.id);
     return json(origin, 409, { ok: false, code: "registration_unavailable" });
@@ -232,7 +282,10 @@ Deno.serve(async (request: Request) => {
   if (!origin) {
     return new Response(JSON.stringify({ ok: false, code: "origin_denied" }), {
       status: 403,
-      headers: { "Content-Type": "application/json; charset=utf-8", "Cache-Control": "no-store" },
+      headers: {
+        "Content-Type": "application/json; charset=utf-8",
+        "Cache-Control": "no-store",
+      },
     });
   }
 
@@ -245,9 +298,15 @@ Deno.serve(async (request: Request) => {
 
   try {
     const payload = await body(request);
-    if (!payload) return json(origin, 400, { ok: false, code: "invalid_request" });
-    if (payload.action === "login") return await login(request, origin, payload);
-    if (payload.action === "signup") return await signup(request, origin, payload);
+    if (!payload) {
+      return json(origin, 400, { ok: false, code: "invalid_request" });
+    }
+    if (payload.action === "login") {
+      return await login(request, origin, payload);
+    }
+    if (payload.action === "signup") {
+      return await signup(request, origin, payload);
+    }
     return json(origin, 400, { ok: false, code: "invalid_action" });
   } catch {
     return json(origin, 503, { ok: false, code: "auth_service_unavailable" });
