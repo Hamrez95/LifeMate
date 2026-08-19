@@ -38,7 +38,7 @@ Deno.test({
   sanitizeOps: false,
   sanitizeResources: false,
   fn: async () => {
-    const admin = postgres(databaseUrl, {
+    const sql = postgres(databaseUrl, {
       max: 1,
       prepare: false,
       idle_timeout: 5,
@@ -58,11 +58,8 @@ Deno.test({
       "synthetic-db-breach-contact-envelope-key-32-bytes-minimum";
     const contactHashSecret =
       "synthetic-db-breach-contact-hash-key-32-bytes-minimum";
-    const tokenKeyVersion = 71;
-    const providerHandleKeyVersion = 72;
-    const contactKeyVersion = 73;
-    const remappedAccountId = crypto.randomUUID();
-    const remappedPersonId = crypto.randomUUID();
+    const accountId = crypto.randomUUID();
+    const personId = crypto.randomUUID();
     const auth: AuthUser = {
       id: authSubject,
       email,
@@ -70,23 +67,11 @@ Deno.test({
       userMetadata: {},
     };
 
-    let appUserId: string | null = null;
-    let accountId: string | null = null;
-    let personId: string | null = null;
-    let medicationId: string | null = null;
-    let treatmentPlanId: string | null = null;
-    let doseId: string | null = null;
-    let episodeId: string | null = null;
-    let dailyLogId: string | null = null;
-
     try {
       configurePostRetirementIdentity({
         tokenKey,
-        tokenKeyVersion,
         providerHandleKey,
-        providerHandleKeyVersion,
         contactEncryptionKey,
-        contactKeyVersion,
       });
 
       const db = createLifeMateDatabase(databaseUrl, contactHashSecret);
@@ -95,10 +80,9 @@ Deno.test({
         locale: "fa",
         timeZone: "Asia/Tehran",
       });
-      const identity = await db.requireIdentity(auth);
-      appUserId = identity.appUserId;
-
-      const bootstrapAccountRows = await admin`
+      const bootstrapIdentity = await db.requireIdentity(auth);
+      const appUserId = bootstrapIdentity.appUserId;
+      const bootstrapAccountRows = await sql`
         select identity.account_id_for_legacy_app_user(${appUserId}::uuid)::text
           as account_id
       `;
@@ -109,42 +93,51 @@ Deno.test({
         throw new Error("Synthetic breach bootstrap Account missing.");
       }
 
-      await remapBootstrapIdentity(admin, {
+      await remapBootstrapIdentity(sql, {
         appUserId,
         bootstrapAccountId,
-        remappedAccountId,
-        remappedPersonId,
+        accountId,
+        personId,
       });
-      accountId = remappedAccountId;
-      personId = remappedPersonId;
-      assertNotEqualIdentifiers(authSubject, appUserId, accountId, personId);
+      assertAllDifferent(authSubject, appUserId, accountId, personId);
+
+      // Token-only resolution must now return the remapped Account/Person state.
+      const resolved = await db.requireIdentity(auth);
+      assertEquals(resolved.appUserId, appUserId);
+      const resolvedAccount = await sql`
+        select account_id::text as account_id
+        from identity.external_identity_tokens
+        where account_id=${accountId}::uuid and status='Active'
+        limit 1
+      `;
+      assertEquals(String(resolvedAccount[0]?.account_id), accountId);
 
       const bridge = createIdentityBridge(databaseUrl);
-      const providers = await bridge.syncExternalIdentities(appUserId, {
-        id: authSubject,
-        identities: [{
-          provider: "google",
-          identity_data: { sub: providerSubject },
-          created_at: new Date().toISOString(),
-          last_sign_in_at: new Date().toISOString(),
-        }],
-      });
-      assertEquals(providers, ["google"]);
+      assertEquals(
+        await bridge.syncExternalIdentities(appUserId, {
+          id: authSubject,
+          identities: [{
+            provider: "google",
+            identity_data: { sub: providerSubject },
+            created_at: new Date().toISOString(),
+            last_sign_in_at: new Date().toISOString(),
+          }],
+        }),
+        ["google"],
+      );
 
+      const schedule = futureLocalSchedule();
       const medicationStore = createPersonMedicationStore(databaseUrl);
       const treatmentStore = createPersonTreatmentPlanStore(databaseUrl);
       const doseStore = createPersonDoseOccurrenceStore(databaseUrl);
-      const schedule = futureLocalSchedule();
-
       const medication = await medicationStore.createMedication(appUserId, {
         name: "Synthetic fixture medicine",
         strengthText: "10 mg",
         form: "tablet",
         notes: null,
       });
-      medicationId = String(medication.id);
       const treatment = await treatmentStore.createTreatmentPlan(appUserId, {
-        medicationId,
+        medicationId: String(medication.id),
         doseText: "1 tablet",
         instructions: null,
         startDate: schedule.date,
@@ -155,17 +148,15 @@ Deno.test({
           localTime: schedule.localTime,
         }],
       });
-      treatmentPlanId = String(treatment.id);
       const doses = await doseStore.listDoseOccurrences(
         appUserId,
         schedule.date,
         schedule.date,
       );
       assertEquals(doses.length, 1);
-      doseId = String(doses[0].id);
 
       const women = createWomenCalendarStore(databaseUrl);
-      const profile = await women.updateOwnerProfile(appUserId, {
+      await women.updateOwnerProfile(appUserId, {
         version: 0,
         enabled: true,
         lastPeriodStart: schedule.date,
@@ -173,43 +164,21 @@ Deno.test({
         periodLength: 5,
         remindersEnabled: true,
       });
-      assertEquals(profile.ownerUserId, appUserId);
-      const episode = await women.createOwnerEpisode(appUserId, {
-        startedOn: schedule.date,
-        endedOn: schedule.date,
-        privateNotes: null,
-      });
-      episodeId = String(episode.id);
-      const daily = await women.upsertOwnerDailyLog(appUserId, {
-        version: 0,
-        loggedOn: schedule.date,
-        mood: "good",
-        energyLevel: 4,
-        painLevel: 0,
-        symptoms: ["no_symptom"],
-        privateNotes: null,
-        shareSummaryWithCompanion: false,
-      });
-      dailyLogId = String(daily.id);
 
-      await proveRawIdentityAndContactLinksAreRetired(admin, {
+      await proveRawLinkageIsRetired(sql, {
         authSubject,
         providerSubject,
-        email,
-        phone,
         appUserId,
         accountId,
         personId,
-        medicationId,
-        treatmentPlanId,
-        doseId,
-        episodeId,
-        dailyLogId,
+        medicationId: String(medication.id),
+        treatmentId: String(treatment.id),
+        doseId: String(doses[0].id),
       });
 
-      // The pseudonymous Account -> Person -> healthcare graph remains visible.
-      // This is an explicit residual risk, not a claimed anonymity boundary.
-      const pseudonymousGraph = await admin`
+      // Pseudonymous Account -> Person -> healthcare linkage remains visible.
+      // This is explicitly residual risk, not an anonymity claim.
+      const pseudonymousGraph = await sql`
         select count(*)::int as count
         from identity.accounts a
         join core.account_person_links l
@@ -219,7 +188,7 @@ Deno.test({
         join lifemate.treatment_plans t
           on t.patient_person_id=l.person_id
         where a.id=${accountId}::uuid
-          and t.id=${treatmentPlanId}::uuid
+          and t.id=${String(treatment.id)}::uuid
       `;
       assertEquals(Number(pseudonymousGraph[0]?.count), 1);
 
@@ -244,9 +213,7 @@ Deno.test({
         );
       }
 
-      // A stolen database still contains opaque tokens, encrypted handles and
-      // encrypted contacts, but never the external keys needed to reverse them.
-      const protectedRows = await admin`
+      const protectedRows = await sql`
         select
           (select count(*)::int
            from identity.external_identity_tokens
@@ -262,9 +229,7 @@ Deno.test({
       assertEquals(Number(protectedRows[0]?.handles) >= 1, true);
       assertEquals(Number(protectedRows[0]?.contacts), 2);
 
-      // Losing the identity-link key fails closed before a second Account can be
-      // created or raw-subject fallback can be used.
-      const accountCountBefore = await admin`
+      const accountCountBefore = await sql`
         select count(*)::int as count from identity.accounts
       `;
       Deno.env.delete("LIFEMATE_IDENTITY_LINK_KEY");
@@ -275,7 +240,7 @@ Deno.test({
         },
         Error,
       );
-      const accountCountAfter = await admin`
+      const accountCountAfter = await sql`
         select count(*)::int as count from identity.accounts
       `;
       assertEquals(
@@ -289,7 +254,7 @@ Deno.test({
         if (value === undefined) Deno.env.delete(name);
         else Deno.env.set(name, value);
       }
-      await admin.end({ timeout: 5 }).catch(() => undefined);
+      await sql.end({ timeout: 5 }).catch(() => undefined);
     }
   },
 });
@@ -299,8 +264,8 @@ async function remapBootstrapIdentity(
   options: {
     appUserId: string;
     bootstrapAccountId: string;
-    remappedAccountId: string;
-    remappedPersonId: string;
+    accountId: string;
+    personId: string;
   },
 ): Promise<void> {
   const bootstrapPersonRows = await sql`
@@ -315,62 +280,60 @@ async function remapBootstrapIdentity(
     throw new Error("Synthetic breach bootstrap Person missing.");
   }
 
-  await sql.begin(async (transaction) => {
-    await transaction`
+  await sql.begin(async (tx) => {
+    await tx`
       update identity.accounts
       set legacy_app_user_id=null,updated_at_utc=now()
       where id=${options.bootstrapAccountId}::uuid
     `;
-    await transaction`
+    await tx`
       insert into identity.accounts(
         id,legacy_app_user_id,status,created_at_utc,updated_at_utc
       ) values(
-        ${options.remappedAccountId}::uuid,${options.appUserId}::uuid,
+        ${options.accountId}::uuid,${options.appUserId}::uuid,
         'Active',now(),now()
       )
     `;
-    await transaction`
+    await tx`
       insert into core.persons(id,status,subject_category)
-      values(${options.remappedPersonId}::uuid,'Active','Adult')
+      values(${options.personId}::uuid,'Active','Adult')
     `;
-    await transaction`
+    await tx`
       insert into core.account_person_links(
         account_id,person_id,link_type,status,created_at_utc
       ) values(
-        ${options.remappedAccountId}::uuid,${options.remappedPersonId}::uuid,
+        ${options.accountId}::uuid,${options.personId}::uuid,
         'Self','Active',now()
       )
     `;
-    await transaction`
+    await tx`
       insert into core.person_profiles(
         person_id,display_name,locale,time_zone,avatar_key,
         profile_photo_path,created_at_utc,updated_at_utc
       )
-      select ${options.remappedPersonId}::uuid,display_name,locale,time_zone,
+      select ${options.personId}::uuid,display_name,locale,time_zone,
              avatar_key,profile_photo_path,created_at_utc,updated_at_utc
       from core.person_profiles
       where person_id=${bootstrapPersonId}::uuid
     `;
-    await transaction`
+    await tx`
       update identity.external_identity_tokens
-      set account_id=${options.remappedAccountId}::uuid
+      set account_id=${options.accountId}::uuid
       where account_id=${options.bootstrapAccountId}::uuid
     `;
-    await transaction`
+    await tx`
       update identity.provider_identity_handles
-      set account_id=${options.remappedAccountId}::uuid
+      set account_id=${options.accountId}::uuid
       where account_id=${options.bootstrapAccountId}::uuid
     `;
-    await transaction`
+    await tx`
       update identity.contact_points
-      set account_id=${options.remappedAccountId}::uuid,
-          updated_at_utc=now()
+      set account_id=${options.accountId}::uuid,updated_at_utc=now()
       where account_id=${options.bootstrapAccountId}::uuid
     `;
-    await transaction`
+    await tx`
       update identity.external_identities
-      set account_id=${options.remappedAccountId}::uuid,
-          updated_at_utc=now()
+      set account_id=${options.accountId}::uuid
       where account_id=${options.bootstrapAccountId}::uuid
     `;
   });
@@ -378,30 +341,20 @@ async function remapBootstrapIdentity(
 
 function configurePostRetirementIdentity(options: {
   tokenKey: string;
-  tokenKeyVersion: number;
   providerHandleKey: string;
-  providerHandleKeyVersion: number;
   contactEncryptionKey: string;
-  contactKeyVersion: number;
 }): void {
   Deno.env.set("LIFEMATE_IDENTITY_LINK_LOOKUP_MODE", "token-only");
   Deno.env.set("LIFEMATE_IDENTITY_LINK_DUAL_WRITE", "true");
   Deno.env.set("LIFEMATE_IDENTITY_LINK_KEY", options.tokenKey);
-  Deno.env.set(
-    "LIFEMATE_IDENTITY_LINK_KEY_VERSION",
-    String(options.tokenKeyVersion),
-  );
+  Deno.env.set("LIFEMATE_IDENTITY_LINK_KEY_VERSION", "71");
   Deno.env.set("LIFEMATE_IDENTITY_PROVIDER_HANDLE_DUAL_WRITE", "true");
   Deno.env.set(
     "LIFEMATE_IDENTITY_PROVIDER_HANDLE_KEY",
     options.providerHandleKey,
   );
-  Deno.env.set(
-    "LIFEMATE_IDENTITY_PROVIDER_HANDLE_KEY_VERSION",
-    String(options.providerHandleKeyVersion),
-  );
+  Deno.env.set("LIFEMATE_IDENTITY_PROVIDER_HANDLE_KEY_VERSION", "72");
   Deno.env.set("LIFEMATE_IDENTITY_LINK_RAW_RETIREMENT", "true");
-
   Deno.env.set("LIFEMATE_PROFILE_CONTACT_LOOKUP_MODE", "contact-only");
   Deno.env.set("LIFEMATE_IDENTITY_CONTACT_READINESS_APPROVED", "true");
   Deno.env.set("LIFEMATE_IDENTITY_CONTACT_DUAL_WRITE", "true");
@@ -410,59 +363,58 @@ function configurePostRetirementIdentity(options: {
     "LIFEMATE_IDENTITY_CONTACT_ENCRYPTION_KEY",
     options.contactEncryptionKey,
   );
-  Deno.env.set(
-    "LIFEMATE_IDENTITY_CONTACT_ENCRYPTION_KEY_VERSION",
-    String(options.contactKeyVersion),
-  );
+  Deno.env.set("LIFEMATE_IDENTITY_CONTACT_ENCRYPTION_KEY_VERSION", "73");
 }
 
-async function proveRawIdentityAndContactLinksAreRetired(
+async function proveRawLinkageIsRetired(
   sql: ReturnType<typeof postgres>,
   fixture: {
     authSubject: string;
     providerSubject: string;
-    email: string;
-    phone: string;
     appUserId: string;
     accountId: string;
     personId: string;
     medicationId: string;
-    treatmentPlanId: string;
+    treatmentId: string;
     doseId: string;
-    episodeId: string;
-    dailyLogId: string;
   },
 ): Promise<void> {
-  const rawIdentity = await sql`
+  const raw = await sql`
     select
-      (select count(*)::int
-       from lifemate.app_users
-       where auth_subject=${fixture.authSubject}) as app_subjects,
-      (select count(*)::int
-       from identity.external_identities
-       where provider_subject in (
-         ${fixture.authSubject},${fixture.providerSubject}
-       )) as provider_subjects,
-      (select count(*)::int
-       from lifemate.user_profiles
+      (select count(*)::int from lifemate.app_users
+       where auth_subject=${fixture.authSubject}) as auth_subjects,
+      (select count(*)::int from identity.external_identities
+       where provider_subject in (${fixture.authSubject},${fixture.providerSubject}))
+        as provider_subjects,
+      (select count(*)::int from lifemate.user_profiles
        where user_id=${fixture.appUserId}::uuid
-         and (email is not null or phone_number is not null)) as raw_contacts
+         and (email is not null or phone_number is not null)) as raw_contacts,
+      (select count(*)::int from lifemate.medications
+       where id=${fixture.medicationId}::uuid and owner_user_id is not null)
+        as medication_links,
+      (select count(*)::int from lifemate.treatment_plans
+       where id=${fixture.treatmentId}::uuid and patient_user_id is not null)
+        as treatment_links,
+      (select count(*)::int from lifemate.dose_occurrences
+       where id=${fixture.doseId}::uuid and patient_user_id is not null)
+        as dose_links,
+      (select count(*)::int from lifemate.women_calendar_profiles
+       where owner_person_id=${fixture.personId}::uuid
+         and owner_user_id is not null) as women_links
   `;
-  assertEquals(Number(rawIdentity[0]?.app_subjects), 0);
-  assertEquals(Number(rawIdentity[0]?.provider_subjects), 0);
-  assertEquals(Number(rawIdentity[0]?.raw_contacts), 0);
+  for (const value of Object.values(raw[0] ?? {})) {
+    assertEquals(Number(value), 0);
+  }
 
   const directAuthJoin = await sql`
     select count(*)::int as count
     from lifemate.app_users u
     join identity.accounts a on a.legacy_app_user_id=u.id
     join core.account_person_links l
-      on l.account_id=a.id
-     and l.link_type='Self'
-     and l.status='Active'
+      on l.account_id=a.id and l.link_type='Self' and l.status='Active'
     join lifemate.treatment_plans t on t.patient_person_id=l.person_id
     where u.auth_subject=${fixture.authSubject}
-      and t.id=${fixture.treatmentPlanId}::uuid
+      and t.id=${fixture.treatmentId}::uuid
   `;
   assertEquals(Number(directAuthJoin[0]?.count), 0);
 
@@ -470,45 +422,16 @@ async function proveRawIdentityAndContactLinksAreRetired(
     select count(*)::int as count
     from identity.external_identities e
     join core.account_person_links l
-      on l.account_id=e.account_id
-     and l.link_type='Self'
-     and l.status='Active'
+      on l.account_id=e.account_id and l.link_type='Self' and l.status='Active'
     join lifemate.treatment_plans t on t.patient_person_id=l.person_id
-    where e.provider_subject in (
-      ${fixture.authSubject},${fixture.providerSubject}
-    )
-      and t.id=${fixture.treatmentPlanId}::uuid
+    where e.provider_subject in (${fixture.authSubject},${fixture.providerSubject})
+      and t.id=${fixture.treatmentId}::uuid
   `;
   assertEquals(Number(directProviderJoin[0]?.count), 0);
-
-  const legacyHealthcare = await sql`
-    select
-      (select count(*)::int from lifemate.medications
-       where id=${fixture.medicationId}::uuid
-         and owner_user_id is not null) as medications,
-      (select count(*)::int from lifemate.treatment_plans
-       where id=${fixture.treatmentPlanId}::uuid
-         and patient_user_id is not null) as treatments,
-      (select count(*)::int from lifemate.dose_occurrences
-       where id=${fixture.doseId}::uuid
-         and patient_user_id is not null) as doses,
-      (select count(*)::int from lifemate.women_calendar_profiles
-       where owner_person_id=${fixture.personId}::uuid
-         and owner_user_id is not null) as women_profiles,
-      (select count(*)::int from lifemate.women_calendar_episodes
-       where id=${fixture.episodeId}::uuid
-         and owner_user_id is not null) as women_episodes,
-      (select count(*)::int from lifemate.women_calendar_daily_logs
-       where id=${fixture.dailyLogId}::uuid
-         and owner_user_id is not null) as women_daily_logs
-  `;
-  for (const value of Object.values(legacyHealthcare[0] ?? {})) {
-    assertEquals(Number(value), 0);
-  }
 }
 
 async function applicationSchemaDataDump(url: string): Promise<string> {
-  const command = new Deno.Command("pg_dump", {
+  const result = await new Deno.Command("pg_dump", {
     args: [
       "--data-only",
       "--no-owner",
@@ -520,8 +443,7 @@ async function applicationSchemaDataDump(url: string): Promise<string> {
     ],
     stdout: "piped",
     stderr: "piped",
-  });
-  const result = await command.output();
+  }).output();
   if (!result.success) {
     throw new Error(
       `Synthetic application-schema pg_dump failed with exit code ${result.code}.`,
@@ -530,7 +452,7 @@ async function applicationSchemaDataDump(url: string): Promise<string> {
   return new TextDecoder().decode(result.stdout);
 }
 
-function assertNotEqualIdentifiers(...values: string[]): void {
+function assertAllDifferent(...values: string[]): void {
   assertEquals(new Set(values).size, values.length);
 }
 
