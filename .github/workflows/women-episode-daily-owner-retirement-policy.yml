@@ -4,6 +4,7 @@ on:
   pull_request:
     paths:
       - 'supabase/functions/lifemate-api/person_women_calendar.ts'
+      - 'supabase/functions/lifemate-api/person_women_calendar_integration_test.ts'
       - 'supabase/functions/lifemate-api/women_calendar_episode_daily_owner_retirement_integration_test.ts'
       - 'supabase/migrations/**'
       - 'tools/security/verify-women-episode-daily-owner-retirement.mjs'
@@ -12,6 +13,7 @@ on:
     branches: [main]
     paths:
       - 'supabase/functions/lifemate-api/person_women_calendar.ts'
+      - 'supabase/functions/lifemate-api/person_women_calendar_integration_test.ts'
       - 'supabase/functions/lifemate-api/women_calendar_episode_daily_owner_retirement_integration_test.ts'
       - 'supabase/migrations/**'
       - 'tools/security/verify-women-episode-daily-owner-retirement.mjs'
@@ -62,9 +64,12 @@ jobs:
         run: |
           set -euo pipefail
           deno fmt --check \
+            supabase/functions/lifemate-api/person_women_calendar_integration_test.ts \
             supabase/functions/lifemate-api/women_calendar_episode_daily_owner_retirement_integration_test.ts
           cd supabase/functions/lifemate-api
-          deno check women_calendar_episode_daily_owner_retirement_integration_test.ts
+          deno check \
+            person_women_calendar_integration_test.ts \
+            women_calendar_episode_daily_owner_retirement_integration_test.ts
 
       - name: Apply canonical portable schema
         shell: bash
@@ -83,4 +88,5 @@ jobs:
           cd supabase/functions/lifemate-api
           deno test --no-check --allow-env \
             --allow-net=localhost:5432,127.0.0.1:5432 \
+            person_women_calendar_integration_test.ts \
             women_calendar_episode_daily_owner_retirement_integration_test.ts
