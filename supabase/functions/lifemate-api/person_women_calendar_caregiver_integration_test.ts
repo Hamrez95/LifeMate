@@ -190,6 +190,25 @@ Deno.test({
       assertEquals(relationship[0].patient_person_id, patient.personId);
       assertEquals(relationship[0].caregiver_person_id, caregiver.personId);
 
+      const supportSchema = await fixtureSql`
+        select column_name,is_nullable
+        from information_schema.columns
+        where table_schema='lifemate'
+          and table_name='women_calendar_support_actions'
+          and column_name in ('patient_user_id','patient_person_id')
+        order by column_name
+      `;
+      assertEquals(
+        supportSchema.map((row) => ({
+          column_name: String(row.column_name),
+          is_nullable: String(row.is_nullable),
+        })),
+        [
+          { column_name: "patient_person_id", is_nullable: "NO" },
+          { column_name: "patient_user_id", is_nullable: "YES" },
+        ],
+      );
+
       const summary = await women.getCareSummary(
         caregiver.appUserId,
         patient.appUserId,
@@ -266,7 +285,7 @@ Deno.test({
         from lifemate.women_calendar_support_actions
         where id=${supportActionId}::uuid
       `;
-      assertEquals(persistedAction[0].patient_user_id, patient.appUserId);
+      assertEquals(persistedAction[0].patient_user_id, null);
       assertEquals(persistedAction[0].caregiver_user_id, caregiver.appUserId);
       assertEquals(persistedAction[0].patient_person_id, patient.personId);
       assertEquals(persistedAction[0].relationship_id, relationshipId);
