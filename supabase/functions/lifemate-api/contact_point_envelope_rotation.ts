@@ -1,9 +1,9 @@
 import {
   type ContactEncryptionKey,
+  type ContactPointKind,
   decryptContactPoint,
   encryptContactPoint,
   hashContactPoint,
-  type ContactPointKind,
 } from "../_shared/contact_point_crypto.ts";
 import { ApiError } from "./validation.ts";
 
