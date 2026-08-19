@@ -1,6 +1,5 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import postgres from "postgres";
-import { normalizeCareManagementPath } from "./path_utils.ts";
 import {
   type CareManagementIdentity,
   createCareManagementIdempotencyStore,
@@ -8,6 +7,8 @@ import {
   resolveCareManagementIdempotencySecret,
   shouldProtectCareManagementMutation,
 } from "./idempotency.ts";
+import { normalizeCareManagementPath } from "./path_utils.ts";
+import { createPersonTreatmentManagementStore } from "./person_treatment_management.ts";
 
 const databaseUrl = Deno.env.get("SUPABASE_DB_URL");
 const supabaseUrl = Deno.env.get("SUPABASE_URL");
@@ -51,6 +52,12 @@ class ApiError extends Error {
 }
 
 type Row = Record<string, any>;
+
+const personTreatmentManagement = createPersonTreatmentManagementStore({
+  sql,
+  normalizeTreatment,
+  apiError: (status, code, message) => new ApiError(status, code, message),
+});
 
 Deno.serve(async (request: Request) => {
   if (request.method === "OPTIONS") {
@@ -178,12 +185,14 @@ async function route(
   );
   if (plansMatch && request.method === "GET") {
     await requireManagementAccess(appUserId, plansMatch[1]);
-    return json(await listTreatmentPlans(plansMatch[1]));
+    return json(
+      await personTreatmentManagement.listTreatmentPlans(plansMatch[1]),
+    );
   }
   if (plansMatch && request.method === "POST") {
     await requireManagementAccess(appUserId, plansMatch[1]);
     return json(
-      await createTreatmentPlan(
+      await personTreatmentManagement.createTreatmentPlan(
         appUserId,
         plansMatch[1],
         await readObject(request),
@@ -198,7 +207,7 @@ async function route(
   if (planMatch && request.method === "PATCH") {
     await requireManagementAccess(appUserId, planMatch[1]);
     return json(
-      await updateTreatmentPlan(
+      await personTreatmentManagement.updateTreatmentPlan(
         appUserId,
         planMatch[1],
         planMatch[2],
@@ -208,11 +217,12 @@ async function route(
   }
   if (planMatch && request.method === "DELETE") {
     await requireManagementAccess(appUserId, planMatch[1]);
-    await archiveTreatmentPlan(
+    const body = await readObject(request);
+    await personTreatmentManagement.archiveTreatmentPlan(
       appUserId,
       planMatch[1],
       planMatch[2],
-      await readObject(request),
+      requiredPositiveInt(body.version, "version"),
     );
     return new Response(null, { status: 204, headers: corsHeaders });
   }
@@ -456,6 +466,8 @@ async function requireManagementAccess(
   return rows[0];
 }
 
+// Legacy Treatment helpers remain temporarily for rollback/source comparison.
+// Active routes above delegate exclusively to personTreatmentManagement.
 async function listTreatmentPlans(
   patientUserId: string,
 ): Promise<Record<string, unknown>[]> {
