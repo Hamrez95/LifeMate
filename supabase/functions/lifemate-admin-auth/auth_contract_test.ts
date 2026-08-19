@@ -9,6 +9,7 @@ Deno.test("username auth keeps password handling in Supabase Auth", () => {
   assert(index.includes("signInWithPassword"));
   assert(index.includes("adminAuth.auth.admin"));
   assert(index.includes(".createUser({"));
+  assert(index.includes("updateUserById"));
   assert(index.includes("email_confirm: true"));
   assert(!index.includes("encrypted_" + "password"));
   assert(!index.includes("insert into auth." + "users"));
@@ -18,6 +19,14 @@ Deno.test("self signup remains pending and grants no role in edge code", () => {
   assert(index.includes('status: "pending_role_assignment"'));
   assert(index.includes("register_pending_workforce_account"));
   assert(!index.includes("insert into admin." + "member_roles"));
+});
+
+Deno.test("Founder activation requires a one-time hashed token", () => {
+  assert(index.includes('payload.action === "activate_founder"'));
+  assert(index.includes("resolve_founder_password_activation"));
+  assert(index.includes("consume_founder_password_activation"));
+  assert(index.includes("const tokenHash = await sha256(activationCode)"));
+  assert(!index.includes("workforce_founder_activations"));
 });
 
 Deno.test("public auth boundary is origin allow-listed and rate limited", () => {
