@@ -1,0 +1,109 @@
+name: treatment-dose-owner-retirement-policy
+
+on:
+  pull_request:
+    paths:
+      - 'supabase/functions/lifemate-api/person_treatment_plans.ts'
+      - 'supabase/functions/lifemate-api/person_dose_occurrences.ts'
+      - 'supabase/functions/lifemate-api/person_healthcare_export_integration_test.ts'
+      - 'supabase/functions/lifemate-api/treatment_dose_owner_retirement_integration_test.ts'
+      - 'supabase/functions/lifemate-api/deno.json'
+      - 'supabase/migrations/**'
+      - 'tools/security/treatment-dose-owner-retirement.ts'
+      - 'tools/security/verify-treatment-dose-owner-retirement.mjs'
+      - '.github/workflows/treatment-dose-owner-retirement.yml'
+      - '.github/workflows/treatment-dose-owner-retirement-policy.yml'
+      - 'docs/security/TREATMENT_DOSE_OWNER_RETIREMENT_RUNBOOK.md'
+  push:
+    branches: [main]
+    paths:
+      - 'supabase/functions/lifemate-api/person_treatment_plans.ts'
+      - 'supabase/functions/lifemate-api/person_dose_occurrences.ts'
+      - 'supabase/functions/lifemate-api/person_healthcare_export_integration_test.ts'
+      - 'supabase/functions/lifemate-api/treatment_dose_owner_retirement_integration_test.ts'
+      - 'supabase/functions/lifemate-api/deno.json'
+      - 'supabase/migrations/**'
+      - 'tools/security/treatment-dose-owner-retirement.ts'
+      - 'tools/security/verify-treatment-dose-owner-retirement.mjs'
+      - '.github/workflows/treatment-dose-owner-retirement.yml'
+      - '.github/workflows/treatment-dose-owner-retirement-policy.yml'
+      - 'docs/security/TREATMENT_DOSE_OWNER_RETIREMENT_RUNBOOK.md'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: treatment-dose-owner-retirement-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  source-and-data-contract:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    services:
+      postgres:
+        image: postgres:17.6-alpine
+        env:
+          POSTGRES_DB: lifemate_treatment_dose_retirement
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d lifemate_treatment_dose_retirement"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      TEST_DATABASE_URL: postgres://postgres:postgres@localhost:5432/lifemate_treatment_dose_retirement
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
+        with:
+          show-progress: false
+          persist-credentials: false
+
+      - uses: denoland/setup-deno@22d081ff2d3a40755e97629de92e3bcbfa7cf2ed
+        with:
+          deno-version: v2.9.4
+
+      - name: Freeze Treatment/Dose owner retirement boundary
+        run: node tools/security/verify-treatment-dose-owner-retirement.mjs
+
+      - name: Format and type-check retirement evidence
+        shell: bash
+        run: |
+          set -euo pipefail
+          deno fmt --check \
+            tools/security/treatment-dose-owner-retirement.ts \
+            supabase/functions/lifemate-api/treatment_dose_owner_retirement_integration_test.ts
+          deno check tools/security/treatment-dose-owner-retirement.ts
+          cd supabase/functions/lifemate-api
+          deno check treatment_dose_owner_retirement_integration_test.ts
+
+      - name: Apply canonical portable schema
+        shell: bash
+        run: |
+          set -euo pipefail
+          psql "$TEST_DATABASE_URL" --set=ON_ERROR_STOP=1 \
+            --file=supabase/bootstrap/legacy_lifemate_baseline.sql
+          while IFS= read -r migration; do
+            psql "$TEST_DATABASE_URL" --set=ON_ERROR_STOP=1 --file="$migration"
+          done < <(find supabase/migrations -maxdepth 1 -type f -name '*.sql' | sort)
+
+      - name: Prove bounded retirement and rollback in isolated DB state
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd supabase/functions/lifemate-api
+          deno test --no-check --allow-env \
+            --allow-net=localhost:5432,127.0.0.1:5432 \
+            treatment_dose_owner_retirement_integration_test.ts
+
+      - name: Re-prove Person-authoritative healthcare export
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd supabase/functions/lifemate-api
+          deno test --no-check --allow-env \
+            --allow-net=localhost:5432,127.0.0.1:5432 \
+            person_healthcare_export_integration_test.ts
