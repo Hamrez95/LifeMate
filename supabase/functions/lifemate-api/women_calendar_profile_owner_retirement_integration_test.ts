@@ -173,7 +173,10 @@ Deno.test({
         where owner_person_id=${canonical.personId}::uuid
       `;
       assertEquals(canonicalAfterUpdate[0]?.owner_user_id, null);
-      assertEquals(canonicalAfterUpdate[0]?.owner_person_id, canonical.personId);
+      assertEquals(
+        canonicalAfterUpdate[0]?.owner_person_id,
+        canonical.personId,
+      );
 
       // Explicit rollback-compatible legacy writer: AppUser-only insert is left
       // intact by the retirement trigger, then mapped to Person by the existing
@@ -338,7 +341,6 @@ Deno.test({
       await closeLifeMateSqlClientsForTest().catch(() => undefined);
       await cleanupIdentity(canonical);
       await cleanupIdentity(legacy);
-      await sql.end({ timeout: 1 }).catch(() => undefined);
     }
   },
 });
