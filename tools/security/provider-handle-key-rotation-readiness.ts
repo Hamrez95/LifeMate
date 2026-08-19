@@ -25,7 +25,10 @@ export async function assessProviderHandleKeyRotationReadiness(options: {
 }): Promise<ProviderHandleKeyRotationReadiness> {
   const databaseUrl = options.databaseUrl.trim();
   if (!databaseUrl) throw new Error("Database URL is required.");
-  const activeVersion = requireVersion("Active key version", options.activeVersion);
+  const activeVersion = requireVersion(
+    "Active key version",
+    options.activeVersion,
+  );
   const previousVersion = requireVersion(
     "Previous key version",
     options.previousVersion,
