@@ -157,6 +157,31 @@ async function accessState(
   return row?.is_founder === true ? "founder_compat" : "mfa_required";
 }
 
+async function sessionResponse(
+  origin: string,
+  username: string,
+  email: string,
+  password: string,
+): Promise<Response> {
+  const { data, error } = await publicAuth.auth.signInWithPassword({ email, password });
+  if (error || !data.session) {
+    await genericAuthDelay();
+    return json(origin, 401, { ok: false, code: "invalid_credentials" });
+  }
+
+  return json(origin, 200, {
+    ok: true,
+    access_state: await accessState(username),
+    session: {
+      access_token: data.session.access_token,
+      refresh_token: data.session.refresh_token,
+      expires_at: data.session.expires_at ?? null,
+      expires_in: data.session.expires_in,
+      token_type: data.session.token_type,
+    },
+  });
+}
+
 async function login(
   request: Request,
   origin: string,
@@ -190,26 +215,64 @@ async function login(
     return json(origin, 401, { ok: false, code: "invalid_credentials" });
   }
 
-  const { data, error } = await publicAuth.auth.signInWithPassword({
-    email,
-    password,
-  });
-  if (error || !data.session) {
+  return await sessionResponse(origin, username, email, password);
+}
+
+async function activateFounder(
+  request: Request,
+  origin: string,
+  payload: Payload,
+): Promise<Response> {
+  const username = normalizeUsername(payload.username);
+  const password = typeof payload.password === "string" ? payload.password : "";
+  const activationCode = typeof payload.activationCode === "string"
+    ? payload.activationCode.trim()
+    : "";
+
+  if (
+    !username || password.length < 6 || password.length > 128 ||
+    activationCode.length < 8 || activationCode.length > 128
+  ) {
     await genericAuthDelay();
-    return json(origin, 401, { ok: false, code: "invalid_credentials" });
+    return json(origin, 400, { ok: false, code: "invalid_activation" });
   }
 
-  return json(origin, 200, {
-    ok: true,
-    access_state: await accessState(username),
-    session: {
-      access_token: data.session.access_token,
-      refresh_token: data.session.refresh_token,
-      expires_at: data.session.expires_at ?? null,
-      expires_in: data.session.expires_in,
-      token_type: data.session.token_type,
-    },
+  if (!(await consumeAttempt(request, "founder_activation", username, 5))) {
+    return json(origin, 429, { ok: false, code: "try_again_later" });
+  }
+
+  const tokenHash = await sha256(activationCode);
+  const rows = await sql`
+    select admin.resolve_founder_password_activation(${username}, ${tokenHash}) as auth_user_id
+  `;
+  const authUserId = rows[0]?.auth_user_id;
+  if (typeof authUserId !== "string") {
+    await genericAuthDelay();
+    return json(origin, 401, { ok: false, code: "invalid_activation" });
+  }
+
+  const { data: userData, error: userError } = await adminAuth.auth.admin
+    .getUserById(authUserId);
+  const email = userData.user?.email;
+  if (userError || !email) {
+    return json(origin, 503, { ok: false, code: "activation_unavailable" });
+  }
+
+  const { error: updateError } = await adminAuth.auth.admin.updateUserById(authUserId, {
+    password,
   });
+  if (updateError) {
+    return json(origin, 503, { ok: false, code: "activation_unavailable" });
+  }
+
+  const consumeRows = await sql`
+    select admin.consume_founder_password_activation(${username}, ${tokenHash}) as consumed
+  `;
+  if (consumeRows[0]?.consumed !== true) {
+    return json(origin, 409, { ok: false, code: "activation_already_used" });
+  }
+
+  return await sessionResponse(origin, username, email, password);
 }
 
 async function signup(
@@ -303,6 +366,9 @@ Deno.serve(async (request: Request) => {
     }
     if (payload.action === "login") {
       return await login(request, origin, payload);
+    }
+    if (payload.action === "activate_founder") {
+      return await activateFounder(request, origin, payload);
     }
     if (payload.action === "signup") {
       return await signup(request, origin, payload);
