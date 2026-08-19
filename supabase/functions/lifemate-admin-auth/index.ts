@@ -21,6 +21,8 @@ const adminAuth = createClient(config.supabaseUrl, config.serviceRoleKey, {
 
 const usernamePattern = /^[a-z0-9][a-z0-9._-]{2,31}$/;
 
+type Payload = Record<string, unknown>;
+
 function normalizeUsername(value: unknown): string | null {
   if (typeof value !== "string") return null;
   const normalized = value.trim().toLowerCase();
@@ -71,13 +73,13 @@ async function consumeAttempt(request: Request, kind: string, username: string, 
   return rows[0]?.allowed === true;
 }
 
-async function body(request: Request): Promise<Record<string, unknown> | null> {
+async function body(request: Request): Promise<Payload | null> {
   const contentLength = Number(request.headers.get("content-length") ?? "0");
   if (Number.isFinite(contentLength) && contentLength > 16_384) return null;
   try {
     const parsed: unknown = await request.json();
     return parsed && typeof parsed === "object" && !Array.isArray(parsed)
-      ? parsed as Record<string, unknown>
+      ? parsed as Payload
       : null;
   } catch {
     return null;
@@ -88,10 +90,44 @@ async function genericAuthDelay() {
   await new Promise((resolve) => setTimeout(resolve, 180 + Math.floor(Math.random() * 90)));
 }
 
-async function login(request: Request, origin: string): Promise<Response> {
-  const payload = await body(request);
-  const username = normalizeUsername(payload?.username);
-  const password = typeof payload?.password === "string" ? payload.password : "";
+async function accessState(username: string): Promise<"founder_compat" | "mfa_required" | "pending_role"> {
+  const rows = await sql`
+    select
+      m.status,
+      exists (
+        select 1
+        from admin.member_roles mr
+        join admin.roles r on r.id=mr.role_id
+        where mr.account_id=m.account_id
+          and r.code='founder'
+          and r.status='Active'
+          and mr.revoked_at_utc is null
+          and mr.starts_at_utc <= now()
+          and (mr.expires_at_utc is null or mr.expires_at_utc > now())
+      ) as is_founder,
+      exists (
+        select 1
+        from admin.member_roles mr
+        join admin.roles r on r.id=mr.role_id
+        where mr.account_id=m.account_id
+          and r.status='Active'
+          and mr.revoked_at_utc is null
+          and mr.starts_at_utc <= now()
+          and (mr.expires_at_utc is null or mr.expires_at_utc > now())
+      ) as has_role
+    from admin.staff_profiles sp
+    join admin.members m on m.account_id=sp.account_id
+    where lower(sp.username)=${username}
+    limit 1
+  `;
+  const row = rows[0];
+  if (row?.status !== "Active" || row?.has_role !== true) return "pending_role";
+  return row?.is_founder === true ? "founder_compat" : "mfa_required";
+}
+
+async function login(request: Request, origin: string, payload: Payload): Promise<Response> {
+  const username = normalizeUsername(payload.username);
+  const password = typeof payload.password === "string" ? payload.password : "";
   if (!username || password.length < 1 || password.length > 256) {
     await genericAuthDelay();
     return json(origin, 401, { ok: false, code: "invalid_credentials" });
@@ -125,6 +161,7 @@ async function login(request: Request, origin: string): Promise<Response> {
 
   return json(origin, 200, {
     ok: true,
+    access_state: await accessState(username),
     session: {
       access_token: data.session.access_token,
       refresh_token: data.session.refresh_token,
@@ -135,13 +172,12 @@ async function login(request: Request, origin: string): Promise<Response> {
   });
 }
 
-async function signup(request: Request, origin: string): Promise<Response> {
-  const payload = await body(request);
-  const username = normalizeUsername(payload?.username);
-  const displayName = typeof payload?.displayName === "string"
+async function signup(request: Request, origin: string, payload: Payload): Promise<Response> {
+  const username = normalizeUsername(payload.username);
+  const displayName = typeof payload.displayName === "string"
     ? payload.displayName.trim().slice(0, 120)
     : username ?? "";
-  const password = typeof payload?.password === "string" ? payload.password : "";
+  const password = typeof payload.password === "string" ? payload.password : "";
 
   if (!username || displayName.length < 2 || password.length < 8 || password.length > 128) {
     return json(origin, 400, { ok: false, code: "invalid_registration" });
@@ -207,11 +243,12 @@ Deno.serve(async (request: Request) => {
     return json(origin, 405, { ok: false, code: "method_not_allowed" });
   }
 
-  const path = new URL(request.url).pathname.replace(/\/+$/, "");
   try {
-    if (path.endsWith("/login")) return await login(request, origin);
-    if (path.endsWith("/signup")) return await signup(request, origin);
-    return json(origin, 404, { ok: false, code: "not_found" });
+    const payload = await body(request);
+    if (!payload) return json(origin, 400, { ok: false, code: "invalid_request" });
+    if (payload.action === "login") return await login(request, origin, payload);
+    if (payload.action === "signup") return await signup(request, origin, payload);
+    return json(origin, 400, { ok: false, code: "invalid_action" });
   } catch {
     return json(origin, 503, { ok: false, code: "auth_service_unavailable" });
   }
