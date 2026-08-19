@@ -1,7 +1,9 @@
 import { assert, assertEquals } from "jsr:@std/assert@1";
 
 const index = await Deno.readTextFile(new URL("./index.ts", import.meta.url));
-const runtime = await Deno.readTextFile(new URL("./runtime_config.ts", import.meta.url));
+const runtime = await Deno.readTextFile(
+  new URL("./runtime_config.ts", import.meta.url),
+);
 
 Deno.test("username auth keeps password handling in Supabase Auth", () => {
   assert(index.includes("signInWithPassword"));
