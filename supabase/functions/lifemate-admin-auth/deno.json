@@ -8,6 +8,6 @@
   },
   "tasks": {
     "check": "deno check index.ts runtime_config.ts auth_contract_test.ts",
-    "test": "deno test --no-check auth_contract_test.ts"
+    "test": "deno test --no-check --allow-read auth_contract_test.ts"
   }
 }
