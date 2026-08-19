@@ -58,10 +58,11 @@ async function resolveCarePeople(
 /**
  * Compose the Person-authoritative self store with canonical caregiver access.
  *
- * AppUser identifiers remain API/audit compatibility values in this stage.
- * Relationship authorization and all patient-owned Women Calendar reads use
- * canonical Person IDs, so caregiver access does not depend on identifier
- * equality across AppUser, Account and Person domains.
+ * AppUser identifiers remain API/audit compatibility values where they carry
+ * an independent actor meaning. Relationship authorization and all
+ * patient-owned Women Calendar reads/writes use canonical Person IDs. In
+ * particular, new support actions no longer persist the patient's AppUser id;
+ * caregiver_user_id remains deliberate caregiver actor/audit provenance.
  */
 export function createPersonWomenCalendarCaregiverStore(databaseUrl: string) {
   const sql = getLifeMateSql(databaseUrl);
@@ -235,10 +236,10 @@ export function createPersonWomenCalendarCaregiverStore(databaseUrl: string) {
     const now = new Date();
     const rows = await sql`
       insert into lifemate.women_calendar_support_actions
-        (id,patient_user_id,caregiver_user_id,relationship_id,
-         action_type,performed_at_utc,created_at_utc,patient_person_id)
+        (id,caregiver_user_id,relationship_id,action_type,
+         performed_at_utc,created_at_utc,patient_person_id)
       values
-        (${id}::uuid,${patientAppUserId}::uuid,${caregiverAppUserId}::uuid,
+        (${id}::uuid,${caregiverAppUserId}::uuid,
          ${relationshipRows[0].id}::uuid,${actionType},${now},${now},
          ${patientPersonId}::uuid)
       returning action_type,performed_at_utc
