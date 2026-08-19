@@ -55,7 +55,9 @@ function normalizeTreatment(
     startDate: String(body.startDate),
     endDate: body.endDate == null ? null : String(body.endDate),
     timeZone: String(body.timeZone),
-    schedules: body.schedules as Array<{ dayOfWeek: string; localTime: string }>,
+    schedules: body.schedules as Array<
+      { dayOfWeek: string; localTime: string }
+    >,
     patientReminderMinutesBefore: Number(
       body.patientReminderMinutesBefore ?? 30,
     ),
@@ -110,44 +112,47 @@ async function cleanup(identity: IdentityFixture): Promise<void> {
   `.catch(() => undefined);
   await sql`
     delete from lifemate.dose_occurrences
-    where patient_person_id=${identity.personId}::uuid
+    where patient_person_id in (${identity.appUserId}::uuid,${identity.personId}::uuid)
   `.catch(() => undefined);
   await sql`
     delete from lifemate.treatment_schedules
     where treatment_plan_id in (
       select id from lifemate.treatment_plans
-      where patient_person_id=${identity.personId}::uuid
+      where patient_person_id in (${identity.appUserId}::uuid,${identity.personId}::uuid)
     )
   `.catch(() => undefined);
   await sql`
     delete from lifemate.treatment_plans
-    where patient_person_id=${identity.personId}::uuid
+    where patient_person_id in (${identity.appUserId}::uuid,${identity.personId}::uuid)
   `.catch(() => undefined);
   await sql`
     delete from lifemate.medications
-    where owner_person_id=${identity.personId}::uuid
+    where owner_person_id in (${identity.appUserId}::uuid,${identity.personId}::uuid)
   `.catch(() => undefined);
   await sql`
     delete from core.account_person_links
-    where account_id=${identity.accountId}::uuid
-       or person_id=${identity.personId}::uuid
+    where account_id in (${identity.appUserId}::uuid,${identity.accountId}::uuid)
+       or person_id in (${identity.appUserId}::uuid,${identity.personId}::uuid)
   `.catch(() => undefined);
   await sql`
     update identity.accounts
     set legacy_app_user_id=null,updated_at_utc=now()
-    where id=${identity.accountId}::uuid
+    where id in (${identity.appUserId}::uuid,${identity.accountId}::uuid)
   `.catch(() => undefined);
   await sql`
-    delete from identity.accounts where id=${identity.accountId}::uuid
+    delete from identity.accounts
+    where id in (${identity.appUserId}::uuid,${identity.accountId}::uuid)
   `.catch(() => undefined);
   await sql`
     delete from lifemate.app_users where id=${identity.appUserId}::uuid
   `.catch(() => undefined);
   await sql`
-    delete from core.person_profiles where person_id=${identity.personId}::uuid
+    delete from core.person_profiles
+    where person_id in (${identity.appUserId}::uuid,${identity.personId}::uuid)
   `.catch(() => undefined);
   await sql`
-    delete from core.persons where id=${identity.personId}::uuid
+    delete from core.persons
+    where id in (${identity.appUserId}::uuid,${identity.personId}::uuid)
   `.catch(() => undefined);
 }
 
