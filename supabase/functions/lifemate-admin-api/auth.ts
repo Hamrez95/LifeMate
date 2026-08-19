@@ -129,7 +129,8 @@ export async function authenticate(
 
 function temporaryFounderSubject(): string | null {
   try {
-    return Deno.env.get("LIFEMATE_ADMIN_BOOTSTRAP_AUTH_SUBJECT")?.trim() || null;
+    return Deno.env.get("LIFEMATE_ADMIN_BOOTSTRAP_AUTH_SUBJECT")?.trim() ||
+      null;
   } catch {
     // Unit tests run without --allow-env; production Edge runtime has env access.
     return null;
