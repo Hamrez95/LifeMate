@@ -61,6 +61,8 @@ Deno.test({
     const tokenKeyVersion = 71;
     const providerHandleKeyVersion = 72;
     const contactKeyVersion = 73;
+    const remappedAccountId = crypto.randomUUID();
+    const remappedPersonId = crypto.randomUUID();
     const auth: AuthUser = {
       id: authSubject,
       email,
@@ -96,22 +98,25 @@ Deno.test({
       const identity = await db.requireIdentity(auth);
       appUserId = identity.appUserId;
 
-      const accountRows = await admin`
+      const bootstrapAccountRows = await admin`
         select identity.account_id_for_legacy_app_user(${appUserId}::uuid)::text
           as account_id
       `;
-      accountId = String(accountRows[0]?.account_id ?? "");
-      if (!accountId) throw new Error("Synthetic breach Account missing.");
+      const bootstrapAccountId = String(
+        bootstrapAccountRows[0]?.account_id ?? "",
+      );
+      if (!bootstrapAccountId) {
+        throw new Error("Synthetic breach bootstrap Account missing.");
+      }
 
-      const personRows = await admin`
-        select person_id::text as person_id
-        from core.account_person_links
-        where account_id=${accountId}::uuid
-          and link_type='Self'
-          and status='Active'
-      `;
-      personId = String(personRows[0]?.person_id ?? "");
-      if (!personId) throw new Error("Synthetic breach Person missing.");
+      await remapBootstrapIdentity(admin, {
+        appUserId,
+        bootstrapAccountId,
+        remappedAccountId,
+        remappedPersonId,
+      });
+      accountId = remappedAccountId;
+      personId = remappedPersonId;
       assertNotEqualIdentifiers(authSubject, appUserId, accountId, personId);
 
       const bridge = createIdentityBridge(databaseUrl);
@@ -288,6 +293,88 @@ Deno.test({
     }
   },
 });
+
+async function remapBootstrapIdentity(
+  sql: ReturnType<typeof postgres>,
+  options: {
+    appUserId: string;
+    bootstrapAccountId: string;
+    remappedAccountId: string;
+    remappedPersonId: string;
+  },
+): Promise<void> {
+  const bootstrapPersonRows = await sql`
+    select person_id::text as person_id
+    from core.account_person_links
+    where account_id=${options.bootstrapAccountId}::uuid
+      and link_type='Self'
+      and status='Active'
+  `;
+  const bootstrapPersonId = String(bootstrapPersonRows[0]?.person_id ?? "");
+  if (!bootstrapPersonId) {
+    throw new Error("Synthetic breach bootstrap Person missing.");
+  }
+
+  await sql.begin(async (transaction) => {
+    await transaction`
+      update identity.accounts
+      set legacy_app_user_id=null,updated_at_utc=now()
+      where id=${options.bootstrapAccountId}::uuid
+    `;
+    await transaction`
+      insert into identity.accounts(
+        id,legacy_app_user_id,status,created_at_utc,updated_at_utc
+      ) values(
+        ${options.remappedAccountId}::uuid,${options.appUserId}::uuid,
+        'Active',now(),now()
+      )
+    `;
+    await transaction`
+      insert into core.persons(id,status,subject_category)
+      values(${options.remappedPersonId}::uuid,'Active','Adult')
+    `;
+    await transaction`
+      insert into core.account_person_links(
+        account_id,person_id,link_type,status,created_at_utc
+      ) values(
+        ${options.remappedAccountId}::uuid,${options.remappedPersonId}::uuid,
+        'Self','Active',now()
+      )
+    `;
+    await transaction`
+      insert into core.person_profiles(
+        person_id,display_name,locale,time_zone,avatar_key,
+        profile_photo_path,created_at_utc,updated_at_utc
+      )
+      select ${options.remappedPersonId}::uuid,display_name,locale,time_zone,
+             avatar_key,profile_photo_path,created_at_utc,updated_at_utc
+      from core.person_profiles
+      where person_id=${bootstrapPersonId}::uuid
+    `;
+    await transaction`
+      update identity.external_identity_tokens
+      set account_id=${options.remappedAccountId}::uuid
+      where account_id=${options.bootstrapAccountId}::uuid
+    `;
+    await transaction`
+      update identity.provider_identity_handles
+      set account_id=${options.remappedAccountId}::uuid
+      where account_id=${options.bootstrapAccountId}::uuid
+    `;
+    await transaction`
+      update identity.contact_points
+      set account_id=${options.remappedAccountId}::uuid,
+          updated_at_utc=now()
+      where account_id=${options.bootstrapAccountId}::uuid
+    `;
+    await transaction`
+      update identity.external_identities
+      set account_id=${options.remappedAccountId}::uuid,
+          updated_at_utc=now()
+      where account_id=${options.bootstrapAccountId}::uuid
+    `;
+  });
+}
 
 function configurePostRetirementIdentity(options: {
   tokenKey: string;
