@@ -21,8 +21,7 @@ Deno.test({
   fn: async () => {
     const sql = postgres(databaseUrl, { max: 1, prepare: false });
     const appUserId = crypto.randomUUID();
-    const hashingSecret =
-      "contact-key-rotation-tool-hash-secret-32-bytes";
+    const hashingSecret = "contact-key-rotation-tool-hash-secret-32-bytes";
     const previousKey = {
       secret: "contact-key-rotation-tool-previous-key-32-bytes",
       keyVersion: 61,
@@ -119,7 +118,10 @@ Deno.test({
         new Date(rotated.verified_at_utc).toISOString(),
         verifiedAt.toISOString(),
       );
-      assertEquals(Number(rotated.encryption_key_version), activeKey.keyVersion);
+      assertEquals(
+        Number(rotated.encryption_key_version),
+        activeKey.keyVersion,
+      );
       assertEquals(rotated.ciphertext_b64 === before.ciphertext_b64, false);
       assertEquals(
         rotated.encryption_nonce_b64 === before.encryption_nonce_b64,
