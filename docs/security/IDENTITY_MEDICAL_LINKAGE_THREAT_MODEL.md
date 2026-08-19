@@ -198,13 +198,14 @@ Identity-link, provider-handle and ContactPoint keys require:
 
 - at least 256 bits of unpredictable secret material in real environments;
 - explicit integer key versions;
-- provider/runtime secret storage outside PostgreSQL;
+- provider runtime secret storage outside PostgreSQL;
 - no fallback to a database/Vault secret for the breach-separation claim;
 - encrypted founder/operations recovery material outside the application
   database;
 - documented bounded active/previous rotation windows;
-- recovery ownership tied to #211/#226 without copying protective keys into
-  database backup artifacts.
+- recovery ownership tied to #211 without copying the key into database backup;
+- #226 may provide separate workstation continuity evidence, but protective key
+  recovery must not be co-located with database backup artifacts.
 
 If a required key is unavailable, protected operations fail closed. The system
 must not silently fall back to raw Auth IDs or create a second Account for the
