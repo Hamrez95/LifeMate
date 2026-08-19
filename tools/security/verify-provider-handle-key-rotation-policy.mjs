@@ -78,11 +78,31 @@ for (const marker of [
     `Provider-handle rotation safety contract is missing ${marker}.`,
   );
 }
+const updateSetMatch = source.rotation.match(
+  /update identity\.provider_identity_handles\s+set([\s\S]*?)\s+where\s/i,
+);
+if (!updateSetMatch) {
+  throw new Error(
+    "Provider-handle rotation must contain the reviewed canonical envelope update.",
+  );
+}
 forbid(
-  source.rotation,
-  /set[\s\S]{0,400}\b(account_id|provider|issuer|status)\s*=/i,
+  updateSetMatch[1],
+  /\b(account_id|provider|issuer|status)\s*=/i,
   "Provider-handle rotation must not rewrite ownership/provider/issuer/status.",
 );
+for (const marker of [
+  "ciphertext_b64=",
+  "nonce_b64=",
+  "key_version=",
+  "updated_at_utc=",
+]) {
+  requireText(
+    updateSetMatch[1],
+    marker,
+    `Provider-handle rotation SET clause is missing ${marker}.`,
+  );
+}
 
 for (const marker of [
   "currentHandles > 0",
