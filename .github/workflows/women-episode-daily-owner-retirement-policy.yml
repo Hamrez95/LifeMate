@@ -1,0 +1,86 @@
+name: women-episode-daily-owner-retirement-policy
+
+on:
+  pull_request:
+    paths:
+      - 'supabase/functions/lifemate-api/person_women_calendar.ts'
+      - 'supabase/functions/lifemate-api/women_calendar_episode_daily_owner_retirement_integration_test.ts'
+      - 'supabase/migrations/**'
+      - 'tools/security/verify-women-episode-daily-owner-retirement.mjs'
+      - '.github/workflows/women-episode-daily-owner-retirement-policy.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'supabase/functions/lifemate-api/person_women_calendar.ts'
+      - 'supabase/functions/lifemate-api/women_calendar_episode_daily_owner_retirement_integration_test.ts'
+      - 'supabase/migrations/**'
+      - 'tools/security/verify-women-episode-daily-owner-retirement.mjs'
+      - '.github/workflows/women-episode-daily-owner-retirement-policy.yml'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: women-episode-daily-owner-retirement-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  source-and-data-contract:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    services:
+      postgres:
+        image: postgres:17.6-alpine
+        env:
+          POSTGRES_DB: lifemate_women_owner_retirement
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d lifemate_women_owner_retirement"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      TEST_DATABASE_URL: postgres://postgres:postgres@localhost:5432/lifemate_women_owner_retirement
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
+        with:
+          show-progress: false
+          persist-credentials: false
+
+      - uses: denoland/setup-deno@22d081ff2d3a40755e97629de92e3bcbfa7cf2ed
+        with:
+          deno-version: v2.9.4
+
+      - name: Freeze Women Calendar episode/daily identity boundary
+        run: node tools/security/verify-women-episode-daily-owner-retirement.mjs
+
+      - name: Format and type-check retirement evidence
+        shell: bash
+        run: |
+          set -euo pipefail
+          deno fmt --check \
+            supabase/functions/lifemate-api/women_calendar_episode_daily_owner_retirement_integration_test.ts
+          cd supabase/functions/lifemate-api
+          deno check women_calendar_episode_daily_owner_retirement_integration_test.ts
+
+      - name: Apply canonical portable schema
+        shell: bash
+        run: |
+          set -euo pipefail
+          psql "$TEST_DATABASE_URL" --set=ON_ERROR_STOP=1 \
+            --file=supabase/bootstrap/legacy_lifemate_baseline.sql
+          while IFS= read -r migration; do
+            psql "$TEST_DATABASE_URL" --set=ON_ERROR_STOP=1 --file="$migration"
+          done < <(find supabase/migrations -maxdepth 1 -type f -name '*.sql' | sort)
+
+      - name: Prove canonical storage retirement and legacy compatibility
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd supabase/functions/lifemate-api
+          deno test --no-check --allow-env \
+            --allow-net=localhost:5432,127.0.0.1:5432 \
+            women_calendar_episode_daily_owner_retirement_integration_test.ts
