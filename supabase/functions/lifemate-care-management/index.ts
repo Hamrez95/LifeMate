@@ -8,6 +8,7 @@ import {
   shouldProtectCareManagementMutation,
 } from "./idempotency.ts";
 import { normalizeCareManagementPath } from "./path_utils.ts";
+import { createPersonCareEventManagementStore } from "./person_care_event_management.ts";
 import { createPersonTreatmentManagementStore } from "./person_treatment_management.ts";
 
 const databaseUrl = Deno.env.get("SUPABASE_DB_URL");
@@ -53,10 +54,18 @@ class ApiError extends Error {
 
 type Row = Record<string, any>;
 
-const personTreatmentManagement = createPersonTreatmentManagementStore({
+const storeDependencies = {
   sql,
+  apiError: (status: number, code: string, message: string) =>
+    new ApiError(status, code, message),
+};
+const personTreatmentManagement = createPersonTreatmentManagementStore({
+  ...storeDependencies,
   normalizeTreatment,
-  apiError: (status, code, message) => new ApiError(status, code, message),
+});
+const personCareEventManagement = createPersonCareEventManagementStore({
+  ...storeDependencies,
+  normalizeCareEvent,
 });
 
 Deno.serve(async (request: Request) => {
@@ -232,12 +241,14 @@ async function route(
   );
   if (eventsMatch && request.method === "GET") {
     await requireManagementAccess(appUserId, eventsMatch[1]);
-    return json(await listCareEvents(eventsMatch[1]));
+    return json(
+      await personCareEventManagement.listCareEvents(eventsMatch[1]),
+    );
   }
   if (eventsMatch && request.method === "POST") {
     await requireManagementAccess(appUserId, eventsMatch[1]);
     return json(
-      await createCareEvent(
+      await personCareEventManagement.createCareEvent(
         appUserId,
         eventsMatch[1],
         await readObject(request),
@@ -252,7 +263,7 @@ async function route(
   if (eventMatch && request.method === "PATCH") {
     await requireManagementAccess(appUserId, eventMatch[1]);
     return json(
-      await updateCareEvent(
+      await personCareEventManagement.updateCareEvent(
         appUserId,
         eventMatch[1],
         eventMatch[2],
@@ -262,11 +273,12 @@ async function route(
   }
   if (eventMatch && request.method === "DELETE") {
     await requireManagementAccess(appUserId, eventMatch[1]);
-    await cancelCareEvent(
+    const body = await readObject(request);
+    await personCareEventManagement.cancelCareEvent(
       appUserId,
       eventMatch[1],
       eventMatch[2],
-      await readObject(request),
+      requiredPositiveInt(body.version, "version"),
     );
     return new Response(null, { status: 204, headers: corsHeaders });
   }
@@ -466,473 +478,6 @@ async function requireManagementAccess(
   return rows[0];
 }
 
-// Legacy Treatment helpers remain temporarily for rollback/source comparison.
-// Active routes above delegate exclusively to personTreatmentManagement.
-async function listTreatmentPlans(
-  patientUserId: string,
-): Promise<Record<string, unknown>[]> {
-  const plans = await sql`
-    select p.*, m.name as medication_name, m.strength_text, m.form,
-           m.notes as medication_notes, m.version as medication_version
-    from lifemate.treatment_plans p
-    join lifemate.medications m on m.id = p.medication_id
-    where p.patient_user_id = ${patientUserId}::uuid
-      and p.status <> 'Archived'
-    order by p.updated_at_utc desc, p.id
-    limit 100
-  `;
-  if (plans.length === 0) return [];
-  const ids = plans.map((row) => row.id);
-  const schedules = await sql`
-    select *
-    from lifemate.treatment_schedules
-    where treatment_plan_id in ${sql(ids)}
-    order by day_of_week, local_time
-  `;
-  return plans.map((plan) =>
-    mapTreatmentPlan(
-      plan,
-      schedules.filter((schedule) => schedule.treatment_plan_id === plan.id),
-    )
-  );
-}
-
-async function createTreatmentPlan(
-  caregiverUserId: string,
-  patientUserId: string,
-  body: Record<string, unknown>,
-): Promise<Record<string, unknown>> {
-  const input = normalizeTreatment(body, false);
-  return await sql.begin(async (tx) => {
-    const medicationId = crypto.randomUUID();
-    const planId = crypto.randomUUID();
-    const now = new Date();
-
-    const medicationRows = await tx`
-      insert into lifemate.medications
-        (id, owner_user_id, name, strength_text, form, notes, version,
-         provenance_source, provenance_restricted,
-         created_at_utc, updated_at_utc)
-      values
-        (${medicationId}::uuid, ${patientUserId}::uuid, ${input.medicationName},
-         ${input.strengthText}, ${input.form}, null, 1,
-         'CaregiverInput', false, ${now}, ${now})
-      returning *
-    `;
-
-    const planRows = await tx`
-      insert into lifemate.treatment_plans
-        (id, patient_user_id, medication_id, dose_text, instructions,
-         start_date, end_date, time_zone,
-         patient_reminder_minutes_before, caregiver_reminder_minutes_before,
-         status, version, provenance_source, provenance_restricted,
-         created_at_utc, updated_at_utc)
-      values
-        (${planId}::uuid, ${patientUserId}::uuid, ${medicationId}::uuid,
-         ${input.doseText}, ${input.instructions}, ${input.startDate}::date,
-         ${input.endDate}::date, ${input.timeZone},
-         ${input.patientReminderMinutesBefore},
-         ${input.caregiverReminderMinutesBefore},
-         'Active', 1, 'CaregiverInput', false, ${now}, ${now})
-      returning *
-    `;
-
-    const schedules = [];
-    for (const schedule of input.schedules) {
-      const rows = await tx`
-        insert into lifemate.treatment_schedules
-          (id, treatment_plan_id, day_of_week, local_time, created_at_utc)
-        values
-          (${crypto.randomUUID()}::uuid, ${planId}::uuid,
-           ${schedule.dayOfWeek}, ${schedule.localTime}::time, ${now})
-        returning *
-      `;
-      schedules.push(rows[0]);
-    }
-
-    await insertAudit(
-      tx,
-      caregiverUserId,
-      "caregiver.treatment_plan.created",
-      "treatment_plan",
-      planId,
-      { patientUserId },
-    );
-    return mapTreatmentPlan(
-      {
-        ...planRows[0],
-        medication_name: medicationRows[0].name,
-        strength_text: medicationRows[0].strength_text,
-        form: medicationRows[0].form,
-        medication_notes: medicationRows[0].notes,
-        medication_version: medicationRows[0].version,
-      },
-      schedules,
-    );
-  });
-}
-
-async function updateTreatmentPlan(
-  caregiverUserId: string,
-  patientUserId: string,
-  treatmentPlanId: string,
-  body: Record<string, unknown>,
-): Promise<Record<string, unknown>> {
-  const input = normalizeTreatment(body, true);
-  return await sql.begin(async (tx) => {
-    const existingRows = await tx`
-      select p.*, m.name as medication_name, m.strength_text, m.form,
-             m.version as medication_version
-      from lifemate.treatment_plans p
-      join lifemate.medications m on m.id = p.medication_id
-      where p.id = ${treatmentPlanId}::uuid
-        and p.patient_user_id = ${patientUserId}::uuid
-      for update of p, m
-    `;
-    const existing = existingRows[0];
-    if (!existing) {
-      throw new ApiError(
-        404,
-        "treatment_plan_not_found",
-        "Treatment plan was not found.",
-      );
-    }
-    if (Number(existing.version) !== input.version) {
-      throw new ApiError(
-        409,
-        "stale_treatment_plan",
-        "Treatment plan has changed. Refresh and try again.",
-      );
-    }
-    if (Number(existing.medication_version) !== input.medicationVersion) {
-      throw new ApiError(
-        409,
-        "stale_medication",
-        "Medication has changed. Refresh and try again.",
-      );
-    }
-
-    const medicationRows = await tx`
-      update lifemate.medications
-      set name = ${input.medicationName},
-          strength_text = ${input.strengthText},
-          form = ${input.form},
-          provenance_source = 'CaregiverInput',
-          version = version + 1,
-          updated_at_utc = now()
-      where id = ${existing.medication_id}::uuid
-        and owner_user_id = ${patientUserId}::uuid
-      returning *
-    `;
-    const planRows = await tx`
-      update lifemate.treatment_plans
-      set dose_text = ${input.doseText},
-          instructions = ${input.instructions},
-          start_date = ${input.startDate}::date,
-          end_date = ${input.endDate}::date,
-          time_zone = ${input.timeZone},
-          patient_reminder_minutes_before = ${input.patientReminderMinutesBefore},
-          caregiver_reminder_minutes_before = ${input.caregiverReminderMinutesBefore},
-          status = ${input.status},
-          provenance_source = 'CaregiverInput',
-          version = version + 1,
-          updated_at_utc = now()
-      where id = ${treatmentPlanId}::uuid
-      returning *
-    `;
-
-    await tx`
-      delete from lifemate.dose_occurrences
-      where treatment_plan_id = ${treatmentPlanId}::uuid
-        and status in ('Scheduled', 'Missed')
-        and scheduled_at_utc >= now()
-    `;
-    await tx`
-      delete from lifemate.treatment_schedules
-      where treatment_plan_id = ${treatmentPlanId}::uuid
-    `;
-
-    const schedules = [];
-    for (const schedule of input.schedules) {
-      const rows = await tx`
-        insert into lifemate.treatment_schedules
-          (id, treatment_plan_id, day_of_week, local_time, created_at_utc)
-        values
-          (${crypto.randomUUID()}::uuid, ${treatmentPlanId}::uuid,
-           ${schedule.dayOfWeek}, ${schedule.localTime}::time, now())
-        returning *
-      `;
-      schedules.push(rows[0]);
-    }
-
-    await insertAudit(
-      tx,
-      caregiverUserId,
-      "caregiver.treatment_plan.updated",
-      "treatment_plan",
-      treatmentPlanId,
-      { patientUserId },
-    );
-    return mapTreatmentPlan(
-      {
-        ...planRows[0],
-        medication_name: medicationRows[0].name,
-        strength_text: medicationRows[0].strength_text,
-        form: medicationRows[0].form,
-        medication_notes: medicationRows[0].notes,
-        medication_version: medicationRows[0].version,
-      },
-      schedules,
-    );
-  });
-}
-
-async function archiveTreatmentPlan(
-  caregiverUserId: string,
-  patientUserId: string,
-  treatmentPlanId: string,
-  body: Record<string, unknown>,
-): Promise<void> {
-  const expectedVersion = requiredPositiveInt(body.version, "version");
-  await sql.begin(async (tx) => {
-    const rows = await tx`
-      select *
-      from lifemate.treatment_plans
-      where id = ${treatmentPlanId}::uuid
-        and patient_user_id = ${patientUserId}::uuid
-      for update
-    `;
-    const plan = rows[0];
-    if (!plan) {
-      throw new ApiError(
-        404,
-        "treatment_plan_not_found",
-        "Treatment plan was not found.",
-      );
-    }
-    if (Number(plan.version) !== expectedVersion) {
-      throw new ApiError(
-        409,
-        "stale_treatment_plan",
-        "Treatment plan has changed. Refresh and try again.",
-      );
-    }
-    await tx`
-      update lifemate.treatment_plans
-      set status = 'Archived', version = version + 1,
-          provenance_source = 'CaregiverInput', updated_at_utc = now()
-      where id = ${treatmentPlanId}::uuid
-    `;
-    await tx`
-      delete from lifemate.dose_occurrences
-      where treatment_plan_id = ${treatmentPlanId}::uuid
-        and status in ('Scheduled', 'Missed')
-        and scheduled_at_utc >= now()
-    `;
-    await insertAudit(
-      tx,
-      caregiverUserId,
-      "caregiver.treatment_plan.archived",
-      "treatment_plan",
-      treatmentPlanId,
-      { patientUserId },
-    );
-  });
-}
-
-async function listCareEvents(
-  patientUserId: string,
-): Promise<Record<string, unknown>[]> {
-  const rows = await sql`
-    select *
-    from lifemate.care_events
-    where patient_user_id = ${patientUserId}::uuid
-      and status <> 'Cancelled'
-    order by scheduled_local_date, scheduled_local_time, id
-    limit 200
-  `;
-  return rows.map((row) => mapCareEvent(row));
-}
-
-async function createCareEvent(
-  caregiverUserId: string,
-  patientUserId: string,
-  body: Record<string, unknown>,
-): Promise<Record<string, unknown>> {
-  const input = normalizeCareEvent(body, false);
-  return await sql.begin(async (tx) => {
-    const existing = await tx`
-      select *
-      from lifemate.care_events
-      where patient_user_id = ${patientUserId}::uuid
-        and client_request_id = ${input.clientRequestId}::uuid
-      limit 1
-    `;
-    if (existing[0]) return mapCareEvent(existing[0]);
-
-    const id = crypto.randomUUID();
-    const rows = await tx`
-      insert into lifemate.care_events
-        (id, patient_user_id, created_by_user_id, client_request_id,
-         event_type, title, provider_name, specialty, medication_name,
-         dose_text, administration_route, reason, instructions, center_name,
-         address_line, phone_number, scheduled_local_date, scheduled_local_time,
-         time_zone, recurrence_unit, recurrence_interval, recurrence_weekdays,
-         recurrence_end_date, patient_reminder_minutes_before,
-         caregiver_reminder_minutes_before, status, version,
-         provenance_source, provenance_restricted,
-         created_at_utc, updated_at_utc)
-      values
-        (${id}::uuid, ${patientUserId}::uuid, ${caregiverUserId}::uuid,
-         ${input.clientRequestId}::uuid, ${input.eventType}, ${input.title},
-         ${input.providerName}, ${input.specialty}, ${input.medicationName},
-         ${input.doseText}, ${input.administrationRoute}, ${input.reason},
-         ${input.instructions}, ${input.centerName}, ${input.addressLine},
-         ${input.phoneNumber}, ${input.scheduledLocalDate}::date,
-         ${input.scheduledLocalTime}::time, ${input.timeZone},
-         'none', 1, array[]::smallint[], null,
-         ${input.patientReminderMinutesBefore},
-         ${input.caregiverReminderMinutesBefore},
-         'Scheduled', 1, 'CaregiverInput', false, now(), now())
-      returning *
-    `;
-    await insertAudit(
-      tx,
-      caregiverUserId,
-      "caregiver.care_event.created",
-      "care_event",
-      id,
-      { patientUserId, eventType: input.eventType },
-    );
-    return mapCareEvent(rows[0]);
-  });
-}
-
-async function updateCareEvent(
-  caregiverUserId: string,
-  patientUserId: string,
-  eventId: string,
-  body: Record<string, unknown>,
-): Promise<Record<string, unknown>> {
-  const input = normalizeCareEvent(body, true);
-  return await sql.begin(async (tx) => {
-    const existingRows = await tx`
-      select *
-      from lifemate.care_events
-      where id = ${eventId}::uuid
-        and patient_user_id = ${patientUserId}::uuid
-      for update
-    `;
-    const existing = existingRows[0];
-    if (!existing) {
-      throw new ApiError(
-        404,
-        "care_event_not_found",
-        "Care event was not found.",
-      );
-    }
-    if (Number(existing.version) !== input.version) {
-      throw new ApiError(
-        409,
-        "stale_care_event",
-        "Care event has changed. Refresh and try again.",
-      );
-    }
-    if (String(existing.status) === "Cancelled") {
-      throw new ApiError(
-        409,
-        "care_event_cancelled",
-        "Cancelled event cannot be edited.",
-      );
-    }
-
-    const rows = await tx`
-      update lifemate.care_events
-      set event_type = ${input.eventType},
-          title = ${input.title},
-          provider_name = ${input.providerName},
-          specialty = ${input.specialty},
-          medication_name = ${input.medicationName},
-          dose_text = ${input.doseText},
-          administration_route = ${input.administrationRoute},
-          reason = ${input.reason},
-          instructions = ${input.instructions},
-          center_name = ${input.centerName},
-          address_line = ${input.addressLine},
-          phone_number = ${input.phoneNumber},
-          scheduled_local_date = ${input.scheduledLocalDate}::date,
-          scheduled_local_time = ${input.scheduledLocalTime}::time,
-          time_zone = ${input.timeZone},
-          patient_reminder_minutes_before = ${input.patientReminderMinutesBefore},
-          caregiver_reminder_minutes_before = ${input.caregiverReminderMinutesBefore},
-          provenance_source = 'CaregiverInput',
-          version = version + 1,
-          updated_at_utc = now()
-      where id = ${eventId}::uuid
-      returning *
-    `;
-    await insertAudit(
-      tx,
-      caregiverUserId,
-      "caregiver.care_event.updated",
-      "care_event",
-      eventId,
-      { patientUserId, eventType: input.eventType },
-    );
-    return mapCareEvent(rows[0]);
-  });
-}
-
-async function cancelCareEvent(
-  caregiverUserId: string,
-  patientUserId: string,
-  eventId: string,
-  body: Record<string, unknown>,
-): Promise<void> {
-  const expectedVersion = requiredPositiveInt(body.version, "version");
-  await sql.begin(async (tx) => {
-    const rows = await tx`
-      select *
-      from lifemate.care_events
-      where id = ${eventId}::uuid
-        and patient_user_id = ${patientUserId}::uuid
-      for update
-    `;
-    const event = rows[0];
-    if (!event) {
-      throw new ApiError(
-        404,
-        "care_event_not_found",
-        "Care event was not found.",
-      );
-    }
-    if (Number(event.version) !== expectedVersion) {
-      throw new ApiError(
-        409,
-        "stale_care_event",
-        "Care event has changed. Refresh and try again.",
-      );
-    }
-    if (String(event.status) !== "Cancelled") {
-      await tx`
-        update lifemate.care_events
-        set status = 'Cancelled', completed_at_utc = null,
-            provenance_source = 'CaregiverInput',
-            version = version + 1, updated_at_utc = now()
-        where id = ${eventId}::uuid
-      `;
-    }
-    await insertAudit(
-      tx,
-      caregiverUserId,
-      "caregiver.care_event.cancelled",
-      "care_event",
-      eventId,
-      { patientUserId },
-    );
-  });
-}
-
 type TreatmentInput = {
   version: number;
   medicationVersion: number;
@@ -1079,79 +624,6 @@ function mapPermission(row: Row): Record<string, unknown> {
     revokedAtUtc: row.health_record_management_revoked_at_utc == null
       ? null
       : iso(row.health_record_management_revoked_at_utc),
-  };
-}
-
-function mapTreatmentPlan(
-  row: Row,
-  schedules: Row[],
-): Record<string, unknown> {
-  return {
-    id: row.id,
-    patientUserId: row.patient_user_id,
-    medication: {
-      id: row.medication_id,
-      name: row.medication_name,
-      strengthText: row.strength_text,
-      form: row.form,
-      notes: row.medication_notes,
-      version: Number(row.medication_version ?? 1),
-    },
-    doseText: row.dose_text,
-    instructions: row.instructions,
-    startDate: dateValue(row.start_date),
-    endDate: row.end_date == null ? null : dateValue(row.end_date),
-    timeZone: row.time_zone,
-    schedules: schedules.map((schedule) => ({
-      id: schedule.id,
-      dayOfWeek: schedule.day_of_week,
-      localTime: timeValue(schedule.local_time),
-    })),
-    patientReminderMinutesBefore: Number(
-      row.patient_reminder_minutes_before ?? 30,
-    ),
-    caregiverReminderMinutesBefore: Number(
-      row.caregiver_reminder_minutes_before ?? 60,
-    ),
-    status: String(row.status).toLowerCase(),
-    version: Number(row.version),
-    createdAtUtc: iso(row.created_at_utc),
-    updatedAtUtc: iso(row.updated_at_utc),
-  };
-}
-
-function mapCareEvent(row: Row): Record<string, unknown> {
-  return {
-    id: row.id,
-    seriesId: row.id,
-    patientUserId: row.patient_user_id,
-    eventType: String(row.event_type).toLowerCase(),
-    title: row.title,
-    providerName: row.provider_name,
-    specialty: row.specialty,
-    medicationName: row.medication_name,
-    doseText: row.dose_text,
-    administrationRoute: row.administration_route == null
-      ? null
-      : String(row.administration_route).toLowerCase(),
-    reason: row.reason,
-    instructions: row.instructions,
-    centerName: row.center_name,
-    addressLine: row.address_line,
-    phoneNumber: row.phone_number,
-    scheduledLocalDate: dateValue(row.scheduled_local_date),
-    scheduledLocalTime: timeValue(row.scheduled_local_time),
-    timeZone: row.time_zone,
-    patientReminderMinutesBefore: Number(
-      row.patient_reminder_minutes_before ?? 30,
-    ),
-    caregiverReminderMinutesBefore: Number(
-      row.caregiver_reminder_minutes_before ?? 60,
-    ),
-    status: String(row.status).toLowerCase(),
-    version: Number(row.version),
-    createdAtUtc: iso(row.created_at_utc),
-    updatedAtUtc: iso(row.updated_at_utc),
   };
 }
 
@@ -1361,15 +833,6 @@ function iso(value: unknown): string {
   return value instanceof Date
     ? value.toISOString()
     : new Date(String(value)).toISOString();
-}
-
-function dateValue(value: unknown): string {
-  if (value instanceof Date) return value.toISOString().slice(0, 10);
-  return String(value).slice(0, 10);
-}
-
-function timeValue(value: unknown): string {
-  return String(value).slice(0, 5);
 }
 
 function resolvePublishableKey(): string | null {
