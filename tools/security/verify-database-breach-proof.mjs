@@ -71,7 +71,7 @@ for (const marker of [
   "Live production evidence — 2026-08-19",
   "Source migrations/runtime have advanced substantially beyond this live schema",
   "Phase 5 — synthetic database-only breach proof",
-  "source/synthetic evidence",
+  "reviewed source target state",
   "does not prove anonymity",
   "#217 remains OPEN",
 ]) {
