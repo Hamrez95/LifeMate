@@ -90,12 +90,20 @@ jobs:
             psql "$TEST_DATABASE_URL" --set=ON_ERROR_STOP=1 --file="$migration"
           done < <(find supabase/migrations -maxdepth 1 -type f -name '*.sql' | sort)
 
-      - name: Prove bounded retirement, Person runtime and export
+      - name: Prove bounded retirement and rollback in isolated DB state
         shell: bash
         run: |
           set -euo pipefail
           cd supabase/functions/lifemate-api
           deno test --no-check --allow-env \
             --allow-net=localhost:5432,127.0.0.1:5432 \
-            treatment_dose_owner_retirement_integration_test.ts \
+            treatment_dose_owner_retirement_integration_test.ts
+
+      - name: Re-prove Person-authoritative healthcare export
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd supabase/functions/lifemate-api
+          deno test --no-check --allow-env \
+            --allow-net=localhost:5432,127.0.0.1:5432 \
             person_healthcare_export_integration_test.ts
