@@ -13,6 +13,11 @@ export type ContactEncryptionKey = {
   keyVersion: number;
 };
 
+export type ContactEncryptionKeySet = {
+  active: ContactEncryptionKey;
+  previous: ContactEncryptionKey | null;
+};
+
 export type ContactPointEnvelope = {
   ciphertextB64: string;
   nonceB64: string;
@@ -41,9 +46,10 @@ function requiredKeyVersion(value: number): number {
 function normalizedAccountId(value: string): string {
   const accountId = value.trim().toLowerCase();
   if (
-    !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/.test(
-      accountId,
-    )
+    !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/
+      .test(
+        accountId,
+      )
   ) {
     throw new Error("ContactPoint accountId is invalid.");
   }
@@ -85,24 +91,64 @@ export function contactPointDualWriteEnabled(
   return readBoolean("LIFEMATE_IDENTITY_CONTACT_DUAL_WRITE", readEnvironment);
 }
 
-export function readContactEncryptionKey(
-  readEnvironment: EnvironmentReader = (name) => Deno.env.get(name),
+function readConfiguredContactEncryptionKey(
+  readEnvironment: EnvironmentReader,
+  secretName: string,
+  versionName: string,
 ): ContactEncryptionKey {
-  const secret = readEnvironment("LIFEMATE_IDENTITY_CONTACT_ENCRYPTION_KEY") ??
-    "";
-  const versionRaw =
-    readEnvironment("LIFEMATE_IDENTITY_CONTACT_ENCRYPTION_KEY_VERSION") ?? "";
+  const secret = readEnvironment(secretName) ?? "";
+  const versionRaw = readEnvironment(versionName) ?? "";
   if (encoder.encode(secret).byteLength < 32) {
     throw new Error(
-      "LIFEMATE_IDENTITY_CONTACT_ENCRYPTION_KEY must be an external secret with at least 32 UTF-8 bytes.",
+      `${secretName} must be an external secret with at least 32 UTF-8 bytes.`,
     );
   }
   if (!/^\d+$/.test(versionRaw)) {
-    throw new Error(
-      "LIFEMATE_IDENTITY_CONTACT_ENCRYPTION_KEY_VERSION must be configured.",
-    );
+    throw new Error(`${versionName} must be configured.`);
   }
   return { secret, keyVersion: requiredKeyVersion(Number(versionRaw)) };
+}
+
+export function readContactEncryptionKey(
+  readEnvironment: EnvironmentReader = (name) => Deno.env.get(name),
+): ContactEncryptionKey {
+  return readConfiguredContactEncryptionKey(
+    readEnvironment,
+    "LIFEMATE_IDENTITY_CONTACT_ENCRYPTION_KEY",
+    "LIFEMATE_IDENTITY_CONTACT_ENCRYPTION_KEY_VERSION",
+  );
+}
+
+export function readContactEncryptionKeySet(
+  readEnvironment: EnvironmentReader = (name) => Deno.env.get(name),
+): ContactEncryptionKeySet {
+  const active = readContactEncryptionKey(readEnvironment);
+  const previousSecret =
+    readEnvironment("LIFEMATE_IDENTITY_CONTACT_PREVIOUS_ENCRYPTION_KEY") ?? "";
+  const previousVersion = readEnvironment(
+    "LIFEMATE_IDENTITY_CONTACT_PREVIOUS_ENCRYPTION_KEY_VERSION",
+  ) ?? "";
+  const hasPreviousSecret = previousSecret.length > 0;
+  const hasPreviousVersion = previousVersion.trim().length > 0;
+
+  if (hasPreviousSecret !== hasPreviousVersion) {
+    throw new Error(
+      "LIFEMATE_IDENTITY_CONTACT_PREVIOUS_ENCRYPTION_KEY and LIFEMATE_IDENTITY_CONTACT_PREVIOUS_ENCRYPTION_KEY_VERSION must be configured together.",
+    );
+  }
+  if (!hasPreviousSecret) return { active, previous: null };
+
+  const previous = readConfiguredContactEncryptionKey(
+    readEnvironment,
+    "LIFEMATE_IDENTITY_CONTACT_PREVIOUS_ENCRYPTION_KEY",
+    "LIFEMATE_IDENTITY_CONTACT_PREVIOUS_ENCRYPTION_KEY_VERSION",
+  );
+  if (previous.keyVersion === active.keyVersion) {
+    throw new Error(
+      "Previous ContactPoint encryption key version must differ from the active key version.",
+    );
+  }
+  return { active, previous };
 }
 
 export function normalizeContactPoint(
@@ -136,7 +182,9 @@ export async function hashContactPoint(
 ): Promise<string> {
   const secretBytes = encoder.encode(hashingSecret);
   if (secretBytes.byteLength < 32) {
-    throw new Error("Contact hashing secret must contain at least 32 UTF-8 bytes.");
+    throw new Error(
+      "Contact hashing secret must contain at least 32 UTF-8 bytes.",
+    );
   }
   const normalized = normalizeContactPoint(kind, normalizedValue);
   const key = await crypto.subtle.importKey(
@@ -181,7 +229,9 @@ async function deriveAesKey(
 ): Promise<CryptoKey> {
   const secretBytes = encoder.encode(key.secret);
   if (secretBytes.byteLength < 32) {
-    throw new Error("Contact encryption key must contain at least 32 UTF-8 bytes.");
+    throw new Error(
+      "Contact encryption key must contain at least 32 UTF-8 bytes.",
+    );
   }
   const version = requiredKeyVersion(key.keyVersion);
   const root = await crypto.subtle.importKey(
@@ -214,7 +264,8 @@ export async function encryptContactPoint(
   nonceOverride?: Uint8Array,
 ): Promise<ContactPointEnvelope> {
   const normalized = normalizeContactPoint(context.kind, normalizedValue);
-  const nonce = nonceOverride ?? crypto.getRandomValues(new Uint8Array(nonceLength));
+  const nonce = nonceOverride ??
+    crypto.getRandomValues(new Uint8Array(nonceLength));
   if (nonce.byteLength !== nonceLength) {
     throw new Error("ContactPoint nonce must be 12 bytes.");
   }

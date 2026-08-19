@@ -11,6 +11,7 @@ import {
   hashContactPoint,
   normalizeContactPoint,
   readContactEncryptionKey,
+  readContactEncryptionKeySet,
 } from "../_shared/contact_point_crypto.ts";
 
 const accountId = "91000000-0000-4000-8000-000000000001";
@@ -115,5 +116,81 @@ Deno.test("ContactPoint dual-write config is disabled by default and fail-closed
       ),
     Error,
     "at least 32",
+  );
+});
+
+Deno.test("ContactPoint encryption keyset supports one bounded previous key", () => {
+  const activeSecret = "contact-active-envelope-key-32-bytes-minimum";
+  const previousSecret = "contact-previous-envelope-key-32-bytes-minimum";
+  const readEnvironment = (name: string) => {
+    if (name === "LIFEMATE_IDENTITY_CONTACT_ENCRYPTION_KEY") {
+      return activeSecret;
+    }
+    if (name === "LIFEMATE_IDENTITY_CONTACT_ENCRYPTION_KEY_VERSION") {
+      return "12";
+    }
+    if (name === "LIFEMATE_IDENTITY_CONTACT_PREVIOUS_ENCRYPTION_KEY") {
+      return previousSecret;
+    }
+    if (
+      name === "LIFEMATE_IDENTITY_CONTACT_PREVIOUS_ENCRYPTION_KEY_VERSION"
+    ) {
+      return "11";
+    }
+    return undefined;
+  };
+  assertEquals(readContactEncryptionKeySet(readEnvironment), {
+    active: { secret: activeSecret, keyVersion: 12 },
+    previous: { secret: previousSecret, keyVersion: 11 },
+  });
+});
+
+Deno.test("ContactPoint encryption keyset rejects unsafe previous-key overlap", () => {
+  const activeSecret = "contact-active-envelope-key-32-bytes-minimum";
+  const previousSecret = "contact-previous-envelope-key-32-bytes-minimum";
+  const read = (values: Record<string, string>) => (name: string) =>
+    values[name];
+  const active = {
+    LIFEMATE_IDENTITY_CONTACT_ENCRYPTION_KEY: activeSecret,
+    LIFEMATE_IDENTITY_CONTACT_ENCRYPTION_KEY_VERSION: "12",
+  };
+
+  assertThrows(
+    () =>
+      readContactEncryptionKeySet(read({
+        ...active,
+        LIFEMATE_IDENTITY_CONTACT_PREVIOUS_ENCRYPTION_KEY: previousSecret,
+      })),
+    Error,
+    "must be configured together",
+  );
+  assertThrows(
+    () =>
+      readContactEncryptionKeySet(read({
+        ...active,
+        LIFEMATE_IDENTITY_CONTACT_PREVIOUS_ENCRYPTION_KEY_VERSION: "11",
+      })),
+    Error,
+    "must be configured together",
+  );
+  assertThrows(
+    () =>
+      readContactEncryptionKeySet(read({
+        ...active,
+        LIFEMATE_IDENTITY_CONTACT_PREVIOUS_ENCRYPTION_KEY: "short",
+        LIFEMATE_IDENTITY_CONTACT_PREVIOUS_ENCRYPTION_KEY_VERSION: "11",
+      })),
+    Error,
+    "at least 32",
+  );
+  assertThrows(
+    () =>
+      readContactEncryptionKeySet(read({
+        ...active,
+        LIFEMATE_IDENTITY_CONTACT_PREVIOUS_ENCRYPTION_KEY: previousSecret,
+        LIFEMATE_IDENTITY_CONTACT_PREVIOUS_ENCRYPTION_KEY_VERSION: "12",
+      })),
+    Error,
+    "must differ from the active key version",
   );
 });
