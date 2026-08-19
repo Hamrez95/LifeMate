@@ -173,7 +173,7 @@ Deno.test({
         where p.owner_person_id=${ownerPersonId}::uuid
       `;
       assertEquals(persisted.length, 1);
-      assertEquals(persisted[0].profile_user_id, ownerAppUserId);
+      assertEquals(persisted[0].profile_user_id, null);
       assertEquals(persisted[0].profile_person_id, ownerPersonId);
       assertEquals(persisted[0].episode_user_id, null);
       assertEquals(persisted[0].episode_person_id, ownerPersonId);
