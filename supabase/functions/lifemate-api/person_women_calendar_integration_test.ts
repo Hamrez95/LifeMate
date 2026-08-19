@@ -82,7 +82,7 @@ async function cleanupIdentity(
 
 Deno.test({
   name:
-    "Women Calendar self runtime and export authorize by Person while legacy owner remains compatibility-only",
+    "Women Calendar self runtime and export authorize by Person while legacy columns cannot override ownership",
   sanitizeOps: false,
   sanitizeResources: false,
   fn: async () => {
@@ -175,9 +175,9 @@ Deno.test({
       assertEquals(persisted.length, 1);
       assertEquals(persisted[0].profile_user_id, ownerAppUserId);
       assertEquals(persisted[0].profile_person_id, ownerPersonId);
-      assertEquals(persisted[0].episode_user_id, ownerAppUserId);
+      assertEquals(persisted[0].episode_user_id, null);
       assertEquals(persisted[0].episode_person_id, ownerPersonId);
-      assertEquals(persisted[0].daily_user_id, ownerAppUserId);
+      assertEquals(persisted[0].daily_user_id, null);
       assertEquals(persisted[0].daily_person_id, ownerPersonId);
 
       // Simulate a stale/misleading compatibility link. The canonical Person
