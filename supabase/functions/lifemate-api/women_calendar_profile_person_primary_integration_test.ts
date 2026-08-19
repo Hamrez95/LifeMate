@@ -182,9 +182,9 @@ Deno.test({
         from lifemate.women_calendar_profiles
         where owner_person_id=${canonical.personId}::uuid
       `;
-      // Identity-34 retires the redundant AppUser storage for canonical writes;
-      // Person remains the physical primary/canonical ownership key.
-      assertEquals(canonicalRow[0]?.owner_user_id, null);
+      // Phase 1 deliberately retains the compatibility value for safe rollback;
+      // Person is nevertheless the physical primary/canonical ownership key.
+      assertEquals(canonicalRow[0]?.owner_user_id, canonical.appUserId);
       assertEquals(canonicalRow[0]?.owner_person_id, canonical.personId);
 
       const canonicalAudit = await sql`
