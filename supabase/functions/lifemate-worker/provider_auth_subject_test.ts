@@ -14,8 +14,7 @@ const otherAccountId = "91000000-0000-4000-8000-000000000002";
 const subject = "92000000-0000-4000-8000-000000000001";
 const key = "worker-provider-handle-test-key-32-bytes-minimum";
 const keyVersion = 4;
-const previousKey =
-  "worker-provider-handle-previous-key-32-bytes-minimum";
+const previousKey = "worker-provider-handle-previous-key-32-bytes-minimum";
 const previousKeyVersion = 3;
 
 function environment(overrides: Record<string, string> = {}) {
