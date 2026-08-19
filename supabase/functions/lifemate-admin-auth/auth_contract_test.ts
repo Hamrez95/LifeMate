@@ -7,7 +7,8 @@ const runtime = await Deno.readTextFile(
 
 Deno.test("username auth keeps password handling in Supabase Auth", () => {
   assert(index.includes("signInWithPassword"));
-  assert(index.includes("auth.admin.createUser"));
+  assert(index.includes("adminAuth.auth.admin"));
+  assert(index.includes(".createUser({"));
   assert(index.includes("email_confirm: true"));
   assert(!index.includes("encrypted_password"));
   assert(!index.includes("insert into auth.users"));
