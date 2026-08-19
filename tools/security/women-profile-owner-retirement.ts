@@ -141,8 +141,7 @@ async function inspectReadiness(
     rehydrateConflicts: integer(row.rehydrate_conflicts ?? 0),
     ready: false,
   };
-  readiness.ready =
-    readiness.totalProfiles > 0 &&
+  readiness.ready = readiness.totalProfiles > 0 &&
     readiness.mappedProfiles === readiness.totalProfiles &&
     readiness.missingMappings === 0 &&
     readiness.ambiguousMappings === 0 &&
