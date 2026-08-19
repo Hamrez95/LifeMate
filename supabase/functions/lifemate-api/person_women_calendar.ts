@@ -58,9 +58,9 @@ async function requireSelfPerson(
 /**
  * Self-owned Women Calendar data is authorized by canonical Person.
  *
- * Legacy owner_user_id remains a schema-required compatibility dual-write in
- * this stage. Caregiver/share paths remain on the legacy implementation until
- * their relationship and patient ownership migration is completed separately.
+ * Person-authoritative profile writes no longer persist owner_user_id. The
+ * legacy store remains available only as staged rollback compatibility while
+ * the operational retirement/rehydration path is evidence-gated separately.
  */
 export function createPersonWomenCalendarStore(databaseUrl: string) {
   const sql = getLifeMateSql(databaseUrl);
@@ -139,13 +139,13 @@ export function createPersonWomenCalendarStore(databaseUrl: string) {
         }
         const rows = await tx`
           insert into lifemate.women_calendar_profiles
-            (owner_user_id, owner_person_id, enabled, last_period_start,
+            (owner_person_id, enabled, last_period_start,
              cycle_length, period_length, reminders_enabled,
              algorithm_version, version, created_at_utc, updated_at_utc)
           values
-            (${appUserId}::uuid, ${personId}::uuid, ${enabled},
-             ${lastPeriodStart}, ${cycleLength}, ${periodLength},
-             ${remindersEnabled}, 'calendar-estimate-v1', 1, ${now}, ${now})
+            (${personId}::uuid, ${enabled}, ${lastPeriodStart}, ${cycleLength},
+             ${periodLength}, ${remindersEnabled}, 'calendar-estimate-v1', 1,
+             ${now}, ${now})
           returning *
         `;
         row = rows[0];
@@ -154,7 +154,7 @@ export function createPersonWomenCalendarStore(databaseUrl: string) {
           appUserId,
           "women_calendar.profile_created",
           "women_calendar_profile",
-          String(row.owner_user_id),
+          personId,
         );
       } else {
         if (Number(existing.version) !== expectedVersion) throw staleProfile();
@@ -175,7 +175,7 @@ export function createPersonWomenCalendarStore(databaseUrl: string) {
             ? "women_calendar.profile_enabled_or_updated"
             : "women_calendar.profile_disabled",
           "women_calendar_profile",
-          String(row.owner_user_id),
+          personId,
         );
       }
       const episodes = await tx`
