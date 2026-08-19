@@ -13,7 +13,9 @@ function readDictionary(name: string): Record<string, string> {
   if (!raw) return {};
   try {
     const parsed = JSON.parse(raw);
-    if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) return {};
+    if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
+      return {};
+    }
     return Object.fromEntries(
       Object.entries(parsed).filter((entry): entry is [string, string] =>
         typeof entry[1] === "string"
@@ -24,7 +26,9 @@ function readDictionary(name: string): Record<string, string> {
   }
 }
 
-async function restrictedDatabaseUrl(bootstrapDatabaseUrl: string): Promise<string> {
+async function restrictedDatabaseUrl(
+  bootstrapDatabaseUrl: string,
+): Promise<string> {
   const sql = postgres(bootstrapDatabaseUrl, {
     max: 1,
     idle_timeout: 5,
@@ -62,7 +66,9 @@ export async function loadWorkforceAuthConfig(): Promise<WorkforceAuthConfig> {
   const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
 
   if (!bootstrapDatabaseUrl || !supabaseUrl || !anonKey || !serviceRoleKey) {
-    throw new Error("Required workforce auth runtime configuration is missing.");
+    throw new Error(
+      "Required workforce auth runtime configuration is missing.",
+    );
   }
 
   const allowedOrigins = new Set(
