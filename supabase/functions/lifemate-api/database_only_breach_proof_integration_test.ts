@@ -1,7 +1,4 @@
-import {
-  assertEquals,
-  assertRejects,
-} from "jsr:@std/assert@1.0.14";
+import { assertEquals, assertRejects } from "jsr:@std/assert@1.0.14";
 import postgres from "postgres";
 import { closeLifeMateSqlClientsForTest } from "./database_client.ts";
 import { type AuthUser, createLifeMateDatabase } from "./database.ts";
@@ -54,8 +51,7 @@ Deno.test({
     const providerSubject = `google-${crypto.randomUUID()}`;
     const email = `db-breach-${crypto.randomUUID()}@example.test`;
     const phone = "+989121234567";
-    const tokenKey =
-      "synthetic-db-breach-identity-hmac-key-32-bytes-minimum";
+    const tokenKey = "synthetic-db-breach-identity-hmac-key-32-bytes-minimum";
     const providerHandleKey =
       "synthetic-db-breach-provider-handle-key-32-bytes-minimum";
     const contactEncryptionKey =
@@ -223,17 +219,19 @@ Deno.test({
       assertEquals(Number(pseudonymousGraph[0]?.count), 1);
 
       const dump = await applicationSchemaDataDump(databaseUrl);
-      for (const forbidden of [
-        authSubject,
-        providerSubject,
-        email,
-        email.toLowerCase(),
-        phone,
-        tokenKey,
-        providerHandleKey,
-        contactEncryptionKey,
-        contactHashSecret,
-      ]) {
+      for (
+        const forbidden of [
+          authSubject,
+          providerSubject,
+          email,
+          email.toLowerCase(),
+          phone,
+          tokenKey,
+          providerHandleKey,
+          contactEncryptionKey,
+          contactHashSecret,
+        ]
+      ) {
         assertEquals(
           dump.includes(forbidden),
           false,
