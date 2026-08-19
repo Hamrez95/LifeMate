@@ -45,10 +45,12 @@ Deno.test({
       assertEquals(empty.currentHandles, 0);
       assertEquals(empty.readyForPreviousKeyRemoval, false);
 
-      for (const [id, subject] of [
-        [appUserA, subjectA],
-        [appUserB, subjectB],
-      ]) {
+      for (
+        const [id, subject] of [
+          [appUserA, subjectA],
+          [appUserB, subjectB],
+        ]
+      ) {
         await sql`
           insert into lifemate.app_users(
             id,auth_subject,status,created_at_utc,updated_at_utc
@@ -142,7 +144,9 @@ async function accountFor(connection: any, appUserId: string): Promise<string> {
   `;
   const accountId = rows[0]?.account_id;
   if (typeof accountId !== "string" || accountId.length === 0) {
-    throw new Error("Expected Account mapping for provider-handle readiness test.");
+    throw new Error(
+      "Expected Account mapping for provider-handle readiness test.",
+    );
   }
   return accountId;
 }
