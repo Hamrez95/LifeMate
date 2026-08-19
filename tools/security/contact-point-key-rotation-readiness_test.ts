@@ -183,7 +183,9 @@ async function accountFor(connection: any, appUserId: string): Promise<string> {
   `;
   const accountId = rows[0]?.account_id;
   if (typeof accountId !== "string" || accountId.length === 0) {
-    throw new Error("Expected Account mapping for ContactPoint readiness test.");
+    throw new Error(
+      "Expected Account mapping for ContactPoint readiness test.",
+    );
   }
   return accountId;
 }
