@@ -46,9 +46,10 @@ function requiredKeyVersion(value: number): number {
 function normalizedAccountId(value: string): string {
   const accountId = value.trim().toLowerCase();
   if (
-    !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/.test(
-      accountId,
-    )
+    !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/
+      .test(
+        accountId,
+      )
   ) {
     throw new Error("ContactPoint accountId is invalid.");
   }
@@ -181,7 +182,9 @@ export async function hashContactPoint(
 ): Promise<string> {
   const secretBytes = encoder.encode(hashingSecret);
   if (secretBytes.byteLength < 32) {
-    throw new Error("Contact hashing secret must contain at least 32 UTF-8 bytes.");
+    throw new Error(
+      "Contact hashing secret must contain at least 32 UTF-8 bytes.",
+    );
   }
   const normalized = normalizeContactPoint(kind, normalizedValue);
   const key = await crypto.subtle.importKey(
@@ -226,7 +229,9 @@ async function deriveAesKey(
 ): Promise<CryptoKey> {
   const secretBytes = encoder.encode(key.secret);
   if (secretBytes.byteLength < 32) {
-    throw new Error("Contact encryption key must contain at least 32 UTF-8 bytes.");
+    throw new Error(
+      "Contact encryption key must contain at least 32 UTF-8 bytes.",
+    );
   }
   const version = requiredKeyVersion(key.keyVersion);
   const root = await crypto.subtle.importKey(
@@ -259,7 +264,8 @@ export async function encryptContactPoint(
   nonceOverride?: Uint8Array,
 ): Promise<ContactPointEnvelope> {
   const normalized = normalizeContactPoint(context.kind, normalizedValue);
-  const nonce = nonceOverride ?? crypto.getRandomValues(new Uint8Array(nonceLength));
+  const nonce = nonceOverride ??
+    crypto.getRandomValues(new Uint8Array(nonceLength));
   if (nonce.byteLength !== nonceLength) {
     throw new Error("ContactPoint nonce must be 12 bytes.");
   }
