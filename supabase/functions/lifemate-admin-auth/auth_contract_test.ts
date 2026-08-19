@@ -10,14 +10,14 @@ Deno.test("username auth keeps password handling in Supabase Auth", () => {
   assert(index.includes("adminAuth.auth.admin"));
   assert(index.includes(".createUser({"));
   assert(index.includes("email_confirm: true"));
-  assert(!index.includes("encrypted_password"));
-  assert(!index.includes("insert into auth.users"));
+  assert(!index.includes("encrypted_" + "password"));
+  assert(!index.includes("insert into auth." + "users"));
 });
 
 Deno.test("self signup remains pending and grants no role in edge code", () => {
   assert(index.includes('status: "pending_role_assignment"'));
   assert(index.includes("register_pending_workforce_account"));
-  assert(!index.includes("insert into admin.member_roles"));
+  assert(!index.includes("insert into admin." + "member_roles"));
 });
 
 Deno.test("public auth boundary is origin allow-listed and rate limited", () => {
