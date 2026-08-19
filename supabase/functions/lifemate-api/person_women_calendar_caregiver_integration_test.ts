@@ -198,10 +198,16 @@ Deno.test({
           and column_name in ('patient_user_id','patient_person_id')
         order by column_name
       `;
-      assertEquals(supportSchema, [
-        { column_name: "patient_person_id", is_nullable: "NO" },
-        { column_name: "patient_user_id", is_nullable: "YES" },
-      ]);
+      assertEquals(
+        supportSchema.map((row) => ({
+          column_name: String(row.column_name),
+          is_nullable: String(row.is_nullable),
+        })),
+        [
+          { column_name: "patient_person_id", is_nullable: "NO" },
+          { column_name: "patient_user_id", is_nullable: "YES" },
+        ],
+      );
 
       const summary = await women.getCareSummary(
         caregiver.appUserId,
