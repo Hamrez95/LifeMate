@@ -44,7 +44,9 @@ function requireKeyVersion(name: string, value: number): number {
 
 function requireMode(value: string): RotationMode {
   if (value === "dry-run" || value === "apply") return value;
-  throw new Error("Provider-handle key rotation mode must be dry-run or apply.");
+  throw new Error(
+    "Provider-handle key rotation mode must be dry-run or apply.",
+  );
 }
 
 function requireMaxHandles(value: number): number {
@@ -60,7 +62,9 @@ function optionalCursor(value: string | null | undefined): string | null {
   const cursor = value?.trim() ?? "";
   if (!cursor) return null;
   if (!uuidPattern.test(cursor)) {
-    throw new Error("Provider-handle key rotation cursor must be an Account UUID.");
+    throw new Error(
+      "Provider-handle key rotation cursor must be an Account UUID.",
+    );
   }
   return cursor.toLowerCase();
 }
@@ -283,7 +287,8 @@ if (import.meta.main) {
     ),
     mode,
     maxHandles: Number(
-      Deno.env.get("LIFEMATE_PROVIDER_HANDLE_KEY_ROTATION_MAX_HANDLES") ?? "100",
+      Deno.env.get("LIFEMATE_PROVIDER_HANDLE_KEY_ROTATION_MAX_HANDLES") ??
+        "100",
     ),
     afterAccountId: Deno.env.get(
       "LIFEMATE_PROVIDER_HANDLE_KEY_ROTATION_AFTER_ACCOUNT_ID",
