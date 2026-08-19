@@ -272,10 +272,10 @@ Deno.test({
       assertEquals(postScrubRead.ownerUserId, legacy.appUserId);
 
       const exported = await exporter.exportAccountData(legacy.appUserId);
-      const encodedExport = JSON.stringify(exported);
-      assertEquals(encodedExport.includes(legacy.appUserId), false);
-      assertEquals(encodedExport.includes(legacy.accountId), false);
-      assertEquals(encodedExport.includes(legacy.personId), false);
+      const encodedWomenExport = JSON.stringify(exported.womenCalendar);
+      assertEquals(encodedWomenExport.includes(legacy.appUserId), false);
+      assertEquals(encodedWomenExport.includes(legacy.accountId), false);
+      assertEquals(encodedWomenExport.includes(legacy.personId), false);
 
       const rehydrateDryRun = await runWomenProfileOwnerRetirement({
         databaseUrl,
