@@ -41,7 +41,8 @@ Deno.test({
 });
 
 Deno.test({
-  name: "unknown ContactPoint envelope version fails closed after raw retirement",
+  name:
+    "unknown ContactPoint envelope version fails closed after raw retirement",
   sanitizeOps: false,
   sanitizeResources: false,
   fn: () => runScenario("unknown"),
@@ -50,7 +51,9 @@ Deno.test({
 async function runScenario(phase: ScenarioPhase): Promise<void> {
   const admin = postgres(databaseUrl!, { max: 1, prepare: false });
   const previousEnvironment = new Map<string, string | undefined>();
-  for (const name of envNames) previousEnvironment.set(name, Deno.env.get(name));
+  for (const name of envNames) {
+    previousEnvironment.set(name, Deno.env.get(name));
+  }
 
   const hashingSecret =
     "contact-key-rotation-runtime-hash-secret-32-bytes-minimum";
@@ -186,12 +189,14 @@ function configureLegacyBootstrap(): void {
   Deno.env.set("LIFEMATE_IDENTITY_CONTACT_DUAL_WRITE", "false");
   Deno.env.set("LIFEMATE_IDENTITY_CONTACT_RAW_RETIREMENT", "false");
   Deno.env.set("LIFEMATE_IDENTITY_CONTACT_READINESS_APPROVED", "false");
-  for (const name of [
-    "LIFEMATE_IDENTITY_CONTACT_ENCRYPTION_KEY",
-    "LIFEMATE_IDENTITY_CONTACT_ENCRYPTION_KEY_VERSION",
-    "LIFEMATE_IDENTITY_CONTACT_PREVIOUS_ENCRYPTION_KEY",
-    "LIFEMATE_IDENTITY_CONTACT_PREVIOUS_ENCRYPTION_KEY_VERSION",
-  ]) {
+  for (
+    const name of [
+      "LIFEMATE_IDENTITY_CONTACT_ENCRYPTION_KEY",
+      "LIFEMATE_IDENTITY_CONTACT_ENCRYPTION_KEY_VERSION",
+      "LIFEMATE_IDENTITY_CONTACT_PREVIOUS_ENCRYPTION_KEY",
+      "LIFEMATE_IDENTITY_CONTACT_PREVIOUS_ENCRYPTION_KEY_VERSION",
+    ]
+  ) {
     Deno.env.delete(name);
   }
 }
@@ -226,7 +231,9 @@ async function accountFor(connection: any, appUserId: string): Promise<string> {
   `;
   const accountId = rows[0]?.account_id;
   if (typeof accountId !== "string" || accountId.length === 0) {
-    throw new Error("Expected Account mapping for ContactPoint rotation runtime test.");
+    throw new Error(
+      "Expected Account mapping for ContactPoint rotation runtime test.",
+    );
   }
   return accountId;
 }
