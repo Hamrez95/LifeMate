@@ -120,7 +120,9 @@ async function insertAudit(
        metadata_json, created_at_utc)
     values
       (${crypto.randomUUID()}::uuid, ${caregiverAppUserId}::uuid, ${action},
-       'care_event', ${eventId}::uuid, ${metadata == null ? null : JSON.stringify(metadata)}::jsonb,
+       'care_event', ${eventId}::uuid, ${
+    metadata == null ? null : JSON.stringify(metadata)
+  }::jsonb,
        now())
   `;
 }
