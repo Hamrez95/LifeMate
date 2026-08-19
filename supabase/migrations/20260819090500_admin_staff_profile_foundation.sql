@@ -50,7 +50,9 @@ begin
 end
 $$;
 
-grant select, insert, update on admin.staff_profiles to lifemate_admin_runtime;
+grant select, insert on admin.staff_profiles to lifemate_admin_runtime;
+grant update(username, display_name, updated_at_utc, username_changed_at_utc)
+  on admin.staff_profiles to lifemate_admin_runtime;
 
 comment on table admin.staff_profiles is
   'Internal Command Center workforce aliases/display names. Contains no passwords, auth tokens, consumer profile or health data.';
