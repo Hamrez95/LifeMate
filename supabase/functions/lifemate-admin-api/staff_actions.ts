@@ -93,11 +93,11 @@ export async function parseStaffActionRequest(
       "A valid roleCode is required.",
     );
   }
-  if (roleCode === "founder") {
+  if (roleCode === "founder" || roleCode === "super_admin") {
     throw new ApiError(
       403,
-      "founder_role_immutable",
-      "Founder role cannot be changed through the ordinary staff workflow.",
+      "privileged_role_immutable",
+      "Privileged roles cannot be changed through the ordinary staff workflow.",
     );
   }
 

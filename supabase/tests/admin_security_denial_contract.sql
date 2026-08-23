@@ -3,7 +3,8 @@ begin;
 
 insert into identity.accounts(id,status,created_at_utc,updated_at_utc) values
 ('91000000-0000-4000-8000-000000000001','Active',now(),now()),
-('91000000-0000-4000-8000-000000000002','Active',now(),now());
+('91000000-0000-4000-8000-000000000002','Active',now(),now()),
+('91000000-0000-4000-8000-000000000003','Active',now(),now());
 
 insert into admin.members(account_id,status,created_by_account_id) values
 ('91000000-0000-4000-8000-000000000001','Active','91000000-0000-4000-8000-000000000001'),
@@ -159,6 +160,63 @@ begin
           where n.nspname='support' and c.relname='tickets') then
     raise exception 'Support ticket metadata is not FORCE RLS protected';
   end if;
+
+  if not has_function_privilege(
+    'lifemate_admin_runtime',
+    'admin.mutate_staff_membership(uuid,uuid,character varying,character varying,uuid,character varying,character varying)',
+    'EXECUTE'
+  ) or not has_function_privilege(
+    'lifemate_admin_runtime',
+    'admin.mutate_staff_role(uuid,uuid,character varying,character varying,character varying,uuid,character varying,character varying)',
+    'EXECUTE'
+  ) then raise exception 'Admin runtime cannot use the narrow staff mutation boundary'; end if;
+
+  if exists (select 1 from pg_roles where rolname='authenticated') and (
+    has_function_privilege(
+      'authenticated',
+      'admin.mutate_staff_membership(uuid,uuid,character varying,character varying,uuid,character varying,character varying)',
+      'EXECUTE'
+    ) or has_function_privilege(
+      'authenticated',
+      'admin.mutate_staff_role(uuid,uuid,character varying,character varying,character varying,uuid,character varying,character varying)',
+      'EXECUTE'
+    )
+  ) then raise exception 'Browser authenticated role can execute staff mutations'; end if;
+
+  if (admin.mutate_staff_membership(
+    '91000000-0000-4000-8000-000000000002',
+    '91000000-0000-4000-8000-000000000003',
+    'activate','Founder approved staff onboarding.','91000000-0000-4000-8000-000000000003',
+    'staff-contract-activation-001','aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa'
+  )->>'httpStatus')::integer <> 201 then raise exception 'Founder cannot activate staff through canonical mutation'; end if;
+
+  if (admin.mutate_staff_role(
+    '91000000-0000-4000-8000-000000000002',
+    '91000000-0000-4000-8000-000000000003','support','assign',
+    'Founder approved role assignment.','91000000-0000-4000-8000-000000000003',
+    'staff-contract-role-001','bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb'
+  )->>'httpStatus')::integer <> 200 then raise exception 'Founder cannot assign ordinary role through canonical mutation'; end if;
+
+  if (admin.mutate_staff_role(
+    '91000000-0000-4000-8000-000000000002',
+    '91000000-0000-4000-8000-000000000003','founder','assign',
+    'Attempt to mutate protected Founder role.','91000000-0000-4000-8000-000000000003',
+    'staff-contract-founder-001','cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc'
+  )->>'code') <> 'privileged_role_immutable' then raise exception 'Founder role mutation did not fail closed'; end if;
+
+  if (admin.mutate_staff_role(
+    '91000000-0000-4000-8000-000000000002',
+    '91000000-0000-4000-8000-000000000003','support','assign',
+    'Founder approved role assignment.','91000000-0000-4000-8000-000000000003',
+    'staff-contract-role-001','bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb'
+  )->>'replayed')::boolean is not true then raise exception 'Staff mutation replay was not deterministic'; end if;
+
+  if (admin.mutate_staff_role(
+    '91000000-0000-4000-8000-000000000002',
+    '91000000-0000-4000-8000-000000000003','support','assign',
+    'A different reason must conflict.','91000000-0000-4000-8000-000000000003',
+    'staff-contract-role-001','dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd'
+  )->>'code') <> 'idempotency_conflict' then raise exception 'Staff mutation idempotency mismatch did not conflict'; end if;
 end $$;
 
 rollback;

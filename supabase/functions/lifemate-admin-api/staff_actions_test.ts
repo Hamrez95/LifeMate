@@ -68,7 +68,7 @@ Deno.test("membership actions require a meaningful reason and reject role input"
   if (!rejected) throw new Error("membership roleCode must be rejected");
 });
 
-Deno.test("ordinary staff workflow cannot assign or revoke founder role", async () => {
+Deno.test("ordinary staff workflow cannot assign privileged roles", async () => {
   const route = matchStaffActionPath(
     "/api/v1/staff/11111111-1111-4111-8111-111111111111/roles/assign",
   );
@@ -87,9 +87,28 @@ Deno.test("ordinary staff workflow cannot assign or revoke founder role", async 
       route,
     );
   } catch (error) {
-    rejected = error instanceof Error && error.message.includes("Founder role");
+    rejected = error instanceof Error && error.message.includes("Privileged");
   }
   if (!rejected) throw new Error("founder role mutation must be rejected");
+
+  rejected = false;
+  try {
+    await parseStaffActionRequest(
+      new Request("https://example.test", {
+        method: "POST",
+        body: JSON.stringify({
+          reason: "Approved workforce role change.",
+          roleCode: "super_admin",
+        }),
+      }),
+      route,
+    );
+  } catch (error) {
+    rejected = error instanceof Error && error.message.includes("Privileged");
+  }
+  if (!rejected) {
+    throw new Error("super admin role mutation must be rejected");
+  }
 });
 
 Deno.test("staff request hash binds target, action, role and reason", async () => {
@@ -112,5 +131,18 @@ Deno.test("staff request hash binds target, action, role and reason", async () =
     secondHash.length !== 64
   ) {
     throw new Error("hash must bind target and remain SHA-256 hex");
+  }
+});
+
+Deno.test("staff routes do not accept arbitrary collection mutations", () => {
+  if (matchStaffActionPath("/api/v1/staff") !== null) {
+    throw new Error("staff collection route must remain unavailable");
+  }
+  if (
+    matchStaffActionPath(
+      "/api/v1/staff/11111111-1111-4111-8111-111111111111/roles/founder",
+    ) !== null
+  ) {
+    throw new Error("role route must remain purpose-specific");
   }
 });
