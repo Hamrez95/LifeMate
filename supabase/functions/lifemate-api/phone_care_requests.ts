@@ -111,7 +111,19 @@ export function createPhoneCareRequestStore(
           and expires_at_utc <= now()
       `;
 
-      const targetAccountId = target?.account_id ?? null;
+      let targetAccountId = target?.account_id ?? null;
+      if (target) {
+        const active = await tx`
+          select 1
+          from lifemate.care_relationships
+          where patient_person_id=${target.person_id}::uuid
+            and caregiver_person_id=${caller.personId}::uuid
+            and status='Active'
+          limit 1
+        `;
+        if (active[0]) targetAccountId = null;
+      }
+
       const inserted = await tx`
         insert into lifemate.care_invitations(
           id,inviter_user_id,contact_type,contact_hash,contact_hint,
