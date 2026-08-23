@@ -110,21 +110,9 @@ export function createPhoneCareRequestStore(
           and status='Pending'
           and expires_at_utc <= now()
       `;
-      const pending = await tx`
-        select *
-        from lifemate.care_invitations
-        where inviter_user_id=${identity.appUserId}::uuid
-          and contact_type=${requestContactType}
-          and contact_hash=${contactHash}
-          and status='Pending'
-        order by created_at_utc desc
-        limit 1
-        for update
-      `;
-      if (pending[0]) return mapRequest(pending[0]);
 
       const targetAccountId = target?.account_id ?? null;
-      await tx`
+      const inserted = await tx`
         insert into lifemate.care_invitations(
           id,inviter_user_id,contact_type,contact_hash,contact_hint,
           token_hash,patient_consent_version,status,expires_at_utc,
@@ -135,22 +123,40 @@ export function createPhoneCareRequestStore(
           ${contactHash},${contactHint},${tokenHash},${caregiverConsentVersion},
           'Pending',${expires},null,null,null,${now},${targetAccountId}::uuid
         )
+        on conflict (inviter_user_id,contact_type,contact_hash)
+          where contact_type='CareRequestPhone' and status='Pending'
+        do nothing
+        returning *
       `;
+      if (!inserted[0]) {
+        const pending = await tx`
+          select *
+          from lifemate.care_invitations
+          where inviter_user_id=${identity.appUserId}::uuid
+            and contact_type=${requestContactType}
+            and contact_hash=${contactHash}
+            and status='Pending'
+          order by created_at_utc desc
+          limit 1
+        `;
+        if (!pending[0]) {
+          throw new ApiError(
+            409,
+            "care_request_retry_conflict",
+            "The care request could not be resolved safely.",
+          );
+        }
+        return mapRequest(pending[0]);
+      }
+
       await insertAudit(
         tx,
         identity.appUserId,
         "care_request.created",
         "care_invitation",
-        id,
+        inserted[0].id,
       );
-      return {
-        id,
-        contactType: "phone",
-        contactHint,
-        status: "pending",
-        expiresAtUtc: expires.toISOString(),
-        createdAtUtc: now.toISOString(),
-      };
+      return mapRequest(inserted[0]);
     });
   }
 
