@@ -2,6 +2,7 @@ import {
   createCareRequestStore as createEmailCareRequestStore,
 } from "./care_requests_email.ts";
 import { createPhoneCareRequestStore } from "./phone_care_requests.ts";
+import { ApiError } from "./validation.ts";
 
 type CareRequestIdentity = {
   appUserId: string;
@@ -23,7 +24,11 @@ export function createCareRequestStore(
       .toLowerCase();
     if (contactType === "phone") return await phone.create(identity, body);
     if (contactType !== "email") {
-      throw new Error("Unsupported care request contact type.");
+      throw new ApiError(
+        400,
+        "invalid_care_request_contact_type",
+        "Care request contact type is invalid.",
+      );
     }
     return await email.create(identity, body);
   }
