@@ -12,17 +12,9 @@ import { createPersonInvitationAcceptanceStore } from "./person_invitation_accep
 import { createPersonMedicationStore } from "./person_medications.ts";
 import { createPersonTreatmentPlanStore } from "./person_treatment_plans.ts";
 import { createPhoneCareInvitationStore } from "./phone_care_invitation.ts";
-import {
-  createPhoneInvitationDeliveryFromEnvironment,
-  type PhoneInvitationDelivery,
-} from "./phone_invitation_delivery.ts";
 import { createProfileStore } from "./profile.ts";
 import { createRawContactRetirementBootstrapStore } from "./raw_contact_retirement_bootstrap.ts";
 import { ApiError } from "./validation.ts";
-
-export type LifeMateDatabaseOptions = {
-  phoneInvitationDelivery?: PhoneInvitationDelivery;
-};
 
 /**
  * Compatibility facade around the existing application-data store.
@@ -37,7 +29,6 @@ export type LifeMateDatabaseOptions = {
 export function createLifeMateDatabase(
   databaseUrl: string,
   contactHashingSecret: string,
-  options: LifeMateDatabaseOptions = {},
 ) {
   const database = createLegacyLifeMateDatabase(
     databaseUrl,
@@ -55,6 +46,8 @@ export function createLifeMateDatabase(
   );
   const personMedications = createPersonMedicationStore(databaseUrl);
   const personTreatmentPlans = createPersonTreatmentPlanStore(databaseUrl);
+  // Kept only for backwards-compatible acceptance of any historical phone
+  // invitation token. New phone invitation creation is retired below.
   const phoneInvitations = createPhoneCareInvitationStore(
     databaseUrl,
     contactHashingSecret,
@@ -77,9 +70,6 @@ export function createLifeMateDatabase(
       : {};
     return {
       ...current,
-      // `authSubject` remains part of the public compatibility response, but
-      // after protected retirement it must come from the authenticated JWT
-      // snapshot instead of LifeMate-owned database storage.
       user: {
         ...legacyUser,
         authSubject: identity.auth.id,
@@ -121,20 +111,11 @@ export function createLifeMateDatabase(
     bootstrapUser,
     requireIdentity: identityResolver.requireIdentity,
     identityLookupMode: identityResolver.lookupMode,
-    // The outer current-user contract remains legacy-compatible, while its
-    // Person-facing profile payload is read from the mapped canonical Person.
     currentUser,
-    // Medication ownership is canonical Person-based and new runtime writes no
-    // longer create the legacy owner_user_id linkage. Existing legacy rows and
-    // compatibility schema remain intact until destructive retirement is safe.
     createMedication: personMedications.createMedication,
     listMedications: personMedications.listMedications,
-    // Treatment Plan ownership is canonical Person-based and new writes leave
-    // the legacy patient_user_id compatibility column unset.
     createTreatmentPlan: personTreatmentPlans.createTreatmentPlan,
     listTreatmentPlans: personTreatmentPlans.listTreatmentPlans,
-    // Dose materialization/read/report and caregiver authorization are
-    // canonical Person-based; actor AppUser IDs remain audit provenance only.
     listDoseOccurrences: personDoseOccurrences.listDoseOccurrences,
     reportDose: personDoseOccurrences.reportDose,
     listCareDoseOccurrences: personDoseOccurrences.listCareDoseOccurrences,
@@ -149,28 +130,14 @@ export function createLifeMateDatabase(
         return await database.createInvitation(identity, body);
       }
 
-      // Resolve provider configuration only for the phone path. Existing DB
-      // callers and tests must not gain a new environment-permission dependency.
-      const phoneInvitationDelivery = options.phoneInvitationDelivery ??
-        createPhoneInvitationDeliveryFromEnvironment();
-      phoneInvitationDelivery.requireEnabled();
-      const created = await phoneInvitations.createPhoneInvitation(
-        identity,
-        body,
-        ({ phoneE164, token }) =>
-          phoneInvitationDelivery.deliver(phoneE164, token),
+      // Product direction changed: phone pairing is now caregiver -> WellMate
+      // in-app care request. Fail closed instead of invoking any SMS provider.
+      throw new ApiError(
+        410,
+        "phone_care_invitation_retired",
+        "Phone care invitations are retired. Use the care request flow.",
       );
-
-      // The raw one-time token never crosses the public API boundary. It exists
-      // only long enough to be delivered to Kavenegar inside the transaction.
-      return {
-        id: created.id,
-        contactType: created.contactType,
-        contactHint: created.contactHint,
-        expiresAtUtc: created.expiresAtUtc,
-      };
     },
-    createPhoneInvitation: phoneInvitations.createPhoneInvitation,
     revokeInvitation: invitationRevocation.revokePendingInvitation,
     acceptInvitation: (
       identity: Parameters<typeof database.acceptInvitation>[0],
