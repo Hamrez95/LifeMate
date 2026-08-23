@@ -119,6 +119,34 @@ Deno.test({
         0,
       );
 
+      const concurrentPhone = "+989121238888";
+      const concurrentPayload = {
+        contactType: "phone",
+        contact: concurrentPhone,
+        consentVersion: "care-caregiver-request-v1",
+        confirmConsent: true,
+      };
+      const [concurrentA, concurrentB] = await Promise.all([
+        requests.create(caregiver, concurrentPayload),
+        requests.create(caregiver, concurrentPayload),
+      ]);
+      assertEquals(concurrentA.id, concurrentB.id);
+      const concurrentHash = await hashContactPoint(
+        contactSecret,
+        "Phone",
+        concurrentPhone,
+      );
+      const concurrentRows = await admin`
+        select count(*)::int as count
+        from lifemate.care_invitations
+        where inviter_user_id=${caregiver.appUserId}::uuid
+          and contact_type='CareRequestPhone'
+          and contact_hash=${concurrentHash}
+          and status='Pending'
+      `;
+      assertEquals(Number(concurrentRows[0]?.count), 1);
+      await requests.cancel(caregiver.appUserId, String(concurrentA.id));
+
       const persisted = await admin`
         select contact_type,target_account_id::text,status,contact_hint,
                token_hash,contact_hash
