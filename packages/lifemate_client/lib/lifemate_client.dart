@@ -26,6 +26,7 @@ export 'src/nullable_women_calendar_estimate.dart';
 export 'src/offline_mutation_queue.dart';
 export 'src/offline_sync_feedback.dart';
 export 'src/offline_sync_result.dart';
+export 'src/phone_care_request_api.dart';
 export 'src/privacy_safe_crash_reporter.dart';
 export 'src/privacy_safe_product_analytics.dart';
 export 'src/profile_avatar.dart';
