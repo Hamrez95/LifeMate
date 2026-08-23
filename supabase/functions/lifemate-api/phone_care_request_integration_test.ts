@@ -230,6 +230,26 @@ Deno.test({
       assertEquals(relationship[0].caregiver_person_id, caregiverMap.personId);
       assertEquals(relationship[0].status, "Active");
 
+      const activeTarget = await requests.create(caregiver, {
+        contactType: "phone",
+        contact: patient.auth.phone,
+        consentVersion: "care-caregiver-request-v1",
+        confirmConsent: true,
+      });
+      assertEquals(activeTarget.status, "pending");
+      const activeTargetPersisted = await admin`
+        select target_account_id
+        from lifemate.care_invitations
+        where id=${String(activeTarget.id)}::uuid
+      `;
+      assertEquals(activeTargetPersisted[0]?.target_account_id, null);
+      const incomingAfterActive = await requests.listIncoming(patient);
+      assertEquals(
+        incomingAfterActive.some((item) => item.id === activeTarget.id),
+        false,
+      );
+      await requests.cancel(caregiver.appUserId, String(activeTarget.id));
+
       const unmatched = await requests.create(caregiver, {
         contactType: "phone",
         contact: "+989121239999",
