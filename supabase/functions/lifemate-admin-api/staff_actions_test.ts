@@ -6,13 +6,21 @@ import {
 
 Deno.test("staff action paths are purpose-specific and UUID-bound", () => {
   const id = "11111111-1111-4111-8111-111111111111";
-  const membership = matchStaffActionPath(`/api/v1/staff/${id}/actions/disable`);
-  if (!membership || membership.kind !== "membership") throw new Error("membership route missing");
-  if (membership.accountId !== id || membership.action !== "disable") throw new Error("membership route mismatch");
+  const membership = matchStaffActionPath(
+    `/api/v1/staff/${id}/actions/disable`,
+  );
+  if (!membership || membership.kind !== "membership") {
+    throw new Error("membership route missing");
+  }
+  if (membership.accountId !== id || membership.action !== "disable") {
+    throw new Error("membership route mismatch");
+  }
 
   const role = matchStaffActionPath(`/api/v1/staff/${id}/roles/assign`);
   if (!role || role.kind !== "role") throw new Error("role route missing");
-  if (role.accountId !== id || role.action !== "assign") throw new Error("role route mismatch");
+  if (role.accountId !== id || role.action !== "assign") {
+    throw new Error("role route mismatch");
+  }
 
   let rejected = false;
   try {
@@ -36,7 +44,9 @@ Deno.test("membership actions require a meaningful reason and reject role input"
     }),
     route,
   );
-  if (parsed.roleCode !== null || parsed.reason !== "Employee access has ended.") {
+  if (
+    parsed.roleCode !== null || parsed.reason !== "Employee access has ended."
+  ) {
     throw new Error("membership request mismatch");
   }
 
@@ -45,7 +55,10 @@ Deno.test("membership actions require a meaningful reason and reject role input"
     await parseStaffActionRequest(
       new Request("https://example.test", {
         method: "POST",
-        body: JSON.stringify({ reason: "Employee access has ended.", roleCode: "support" }),
+        body: JSON.stringify({
+          reason: "Employee access has ended.",
+          roleCode: "support",
+        }),
       }),
       route,
     );
@@ -66,7 +79,10 @@ Deno.test("ordinary staff workflow cannot assign or revoke founder role", async 
     await parseStaffActionRequest(
       new Request("https://example.test", {
         method: "POST",
-        body: JSON.stringify({ reason: "Approved workforce role change.", roleCode: "founder" }),
+        body: JSON.stringify({
+          reason: "Approved workforce role change.",
+          roleCode: "founder",
+        }),
       }),
       route,
     );
@@ -85,10 +101,16 @@ Deno.test("staff request hash binds target, action, role and reason", async () =
   );
   if (!first || !second) throw new Error("routes missing");
 
-  const request = { reason: "Approved workforce role change.", roleCode: "support" };
+  const request = {
+    reason: "Approved workforce role change.",
+    roleCode: "support",
+  };
   const firstHash = await hashStaffActionRequest(first, request);
   const secondHash = await hashStaffActionRequest(second, request);
-  if (firstHash === secondHash || firstHash.length !== 64 || secondHash.length !== 64) {
+  if (
+    firstHash === secondHash || firstHash.length !== 64 ||
+    secondHash.length !== 64
+  ) {
     throw new Error("hash must bind target and remain SHA-256 hex");
   }
 });
