@@ -8,6 +8,7 @@ import { authenticate, requireAal2 } from "./auth.ts";
 import { requirePermission } from "./authorization.ts";
 import { parseCommerceOverviewQuery } from "./commerce.ts";
 import { createCommerceCatalogRouteHandler } from "./commerce_catalog_routes.ts";
+import { createCommerceTrialRouteHandler } from "./commerce_trial_routes.ts";
 import {
   matchCommerceEntitlementDetailPath,
   matchCommercePlanDetailPath,
@@ -117,6 +118,9 @@ const analyticsKpiStore = createAnalyticsKpiStore(config.databaseUrl);
 const commerceOverviewStore = createCommerceOverviewStore(config.databaseUrl);
 const commerceDetailStore = createCommerceDetailStore(config.databaseUrl);
 const commerceCatalogRouteHandler = createCommerceCatalogRouteHandler(
+  config.databaseUrl,
+);
+const commerceTrialRouteHandler = createCommerceTrialRouteHandler(
   config.databaseUrl,
 );
 const commercePromotionsStore = createCommercePromotionsStore(
@@ -328,6 +332,16 @@ Deno.serve(async (request: Request) => {
       origin,
     });
     if (commerceCatalogResponse) return commerceCatalogResponse;
+
+    const commerceTrialResponse = await commerceTrialRouteHandler({
+      request,
+      path,
+      accountId,
+      admin,
+      correlationId,
+      origin,
+    });
+    if (commerceTrialResponse) return commerceTrialResponse;
 
     if (request.method === "GET" && path === "/api/v1/search") {
       const query = parseGlobalSearchQuery(new URL(request.url));

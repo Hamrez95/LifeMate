@@ -183,6 +183,24 @@ begin
     )
   ) then raise exception 'Browser authenticated role can execute staff mutations'; end if;
 
+  if has_table_privilege('lifemate_admin_runtime','commerce.trial_policies','SELECT')
+     or has_table_privilege('lifemate_admin_runtime','commerce.trial_policies','INSERT')
+     or has_table_privilege('lifemate_admin_runtime','commerce.trial_policies','UPDATE') then
+    raise exception 'Admin runtime can directly access trial policy storage';
+  end if;
+
+  if not has_function_privilege(
+    'lifemate_admin_runtime',
+    'admin.configure_commerce_trial_policy(uuid,uuid,smallint,character varying,character varying,integer,character varying,uuid,character varying,character varying)',
+    'EXECUTE'
+  ) then raise exception 'Admin runtime cannot execute the narrow trial policy boundary'; end if;
+
+  if exists (select 1 from pg_roles where rolname='authenticated') and has_function_privilege(
+    'authenticated',
+    'admin.configure_commerce_trial_policy(uuid,uuid,smallint,character varying,character varying,integer,character varying,uuid,character varying,character varying)',
+    'EXECUTE'
+  ) then raise exception 'Browser authenticated role can execute trial policy mutation'; end if;
+
   if (admin.mutate_staff_membership(
     '91000000-0000-4000-8000-000000000002',
     '91000000-0000-4000-8000-000000000003',
