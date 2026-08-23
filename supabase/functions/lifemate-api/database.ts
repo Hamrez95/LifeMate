@@ -16,16 +16,7 @@ import { createProfileStore } from "./profile.ts";
 import { createRawContactRetirementBootstrapStore } from "./raw_contact_retirement_bootstrap.ts";
 import { ApiError } from "./validation.ts";
 
-/**
- * Compatibility facade around the existing application-data store.
- *
- * During the identity-link migration, all runtime callers keep the same
- * database API while authenticated-subject resolution is independently
- * switched from the legacy raw AppUser subject to the external-key token
- * boundary. The legacy implementation remains preserved in
- * database_legacy.ts so identity and invitation migrations stay reviewable and
- * reversible.
- */
+/** Compatibility facade around the existing application-data store. */
 export function createLifeMateDatabase(
   databaseUrl: string,
   contactHashingSecret: string,
@@ -46,8 +37,6 @@ export function createLifeMateDatabase(
   );
   const personMedications = createPersonMedicationStore(databaseUrl);
   const personTreatmentPlans = createPersonTreatmentPlanStore(databaseUrl);
-  // Kept only for backwards-compatible acceptance of any historical phone
-  // invitation token. New phone invitation creation is retired below.
   const phoneInvitations = createPhoneCareInvitationStore(
     databaseUrl,
     contactHashingSecret,
@@ -130,14 +119,17 @@ export function createLifeMateDatabase(
         return await database.createInvitation(identity, body);
       }
 
-      // Product direction changed: phone pairing is now caregiver -> WellMate
-      // in-app care request. Fail closed instead of invoking any SMS provider.
+      // Public phone invitation creation is retired. Phone pairing is now a
+      // caregiver -> WellMate in-app care request and must never invoke SMS.
       throw new ApiError(
         410,
         "phone_care_invitation_retired",
         "Phone care invitations are retired. Use the care request flow.",
       );
     },
+    // Compatibility-only fixture/legacy acceptance surface. It is not routed by
+    // the public HTTP create-invitation endpoint and has no delivery provider.
+    createPhoneInvitation: phoneInvitations.createPhoneInvitation,
     revokeInvitation: invitationRevocation.revokePendingInvitation,
     acceptInvitation: (
       identity: Parameters<typeof database.acceptInvitation>[0],
