@@ -1,6 +1,9 @@
 import { hashContactPoint } from "../_shared/contact_point_crypto.ts";
 import { getLifeMateSql } from "./database_client.ts";
-import { maskIranianMobileE164, normalizeIranianMobileE164 } from "./iran_phone.ts";
+import {
+  maskIranianMobileE164,
+  normalizeIranianMobileE164,
+} from "./iran_phone.ts";
 import { createHmac } from "./security.ts";
 import { ApiError, requiredText } from "./validation.ts";
 
@@ -81,7 +84,8 @@ export function createPhoneCareRequestStore(
     const target = targetRows.length === 1 ? targetRows[0] : null;
     if (
       target &&
-      (target.account_id === caller.accountId || target.person_id === caller.personId)
+      (target.account_id === caller.accountId ||
+        target.person_id === caller.personId)
     ) {
       throw new ApiError(
         400,
@@ -201,7 +205,11 @@ export function createPhoneCareRequestStore(
 
     const action = requiredText(body.action, "action", 16).toLowerCase();
     if (action !== "accept" && action !== "reject") {
-      throw new ApiError(400, "invalid_care_request_action", "Action is invalid.");
+      throw new ApiError(
+        400,
+        "invalid_care_request_action",
+        "Action is invalid.",
+      );
     }
     if (
       action === "accept" &&
@@ -243,7 +251,11 @@ export function createPhoneCareRequestStore(
           update lifemate.care_invitations set status='Expired'
           where id=${request.id}::uuid
         `;
-        throw new ApiError(410, "care_request_expired", "Care request has expired.");
+        throw new ApiError(
+          410,
+          "care_request_expired",
+          "Care request has expired.",
+        );
       }
       if (request.inviter_user_id === identity.appUserId) {
         throw new ApiError(
@@ -427,7 +439,9 @@ async function requireRelationshipParticipants(
   `;
   const patientPersonId = rows[0]?.patient_person_id;
   const caregiverPersonId = rows[0]?.caregiver_person_id;
-  if (typeof patientPersonId !== "string" || typeof caregiverPersonId !== "string") {
+  if (
+    typeof patientPersonId !== "string" || typeof caregiverPersonId !== "string"
+  ) {
     throw new ApiError(
       409,
       "identity_person_mapping_missing",
