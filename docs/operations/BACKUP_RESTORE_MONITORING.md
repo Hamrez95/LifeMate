@@ -7,6 +7,8 @@ This runbook separates four guarantees that must not be confused:
 3. **Frequent production readiness** — a small public probe that checks Edge execution plus connectivity through the exact restricted application database role with one read-only query.
 4. **Deep deployment verification** — comprehensive role/grant/RLS/capability tests executed in isolated CI, never on every monitoring interval.
 
+For Command Center-specific incidents involving Admin identities, authorization, audit evidence, Vercel, or `lifemate-admin-api`, use `docs/operations/COMMAND_CENTER_INCIDENT_RESPONSE.md` together with this recovery runbook.
+
 ## Automated restore drill
 
 `.github/workflows/postgres-restore-drill.yml` runs weekly, manually, and whenever the canonical PostgreSQL schema changes.
@@ -97,6 +99,8 @@ When the lightweight readiness monitor fails:
 5. if database integrity is in doubt, stop writes before attempting repair;
 6. use provider backup/restore only in an isolated target first;
 7. document start time, impact, root cause, recovery time and follow-up task without including patient data.
+
+For Command Center-specific containment, compromised Admin accounts, audit-evidence preservation, and post-incident exit criteria, continue with `docs/operations/COMMAND_CENTER_INCIDENT_RESPONSE.md`. Neither document authorizes an unreviewed production restore, migration, role change, or session mutation.
 
 ## Mobile crash visibility
 
