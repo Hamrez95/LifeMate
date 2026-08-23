@@ -55,7 +55,9 @@ Deno.test("audit query rejects inverted date ranges", () => {
 Deno.test("audit query rejects malformed cursor", () => {
   let thrown: unknown;
   try {
-    parseAuditQuery(new URL("https://admin.test/api/v1/audit?cursor=not-a-valid-cursor"));
+    parseAuditQuery(
+      new URL("https://admin.test/api/v1/audit?cursor=not-a-valid-cursor"),
+    );
   } catch (error) {
     thrown = error;
   }
