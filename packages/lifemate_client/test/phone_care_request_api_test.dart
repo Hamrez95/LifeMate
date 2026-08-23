@@ -14,11 +14,7 @@ void main() {
       httpClient: MockClient((request) async {
         observed = request;
         return http.Response(
-          jsonEncode({
-            'id': 'request-1',
-            'status': 'pending',
-            'contactHint': '+98 ••• •• 5678',
-          }),
+          jsonEncode({'id': 'request-1', 'status': 'pending', 'contactHint': '+98 ••• •• 5678'}),
           201,
           headers: {'content-type': 'application/json'},
         );
@@ -38,6 +34,33 @@ void main() {
     expect(body['confirmConsent'], isTrue);
     expect(body.containsKey('token'), isFalse);
     expect(result['status'], 'pending');
+  });
+
+  test('transport retry reuses identical body and idempotency key', () async {
+    var count = 0;
+    final keys = <String?>[];
+    final bodies = <String>[];
+    final api = PhoneCareRequestApi(
+      baseUri: Uri.parse('https://api.example.test'),
+      accessToken: () => 'access-token',
+      httpClient: MockClient((request) async {
+        count += 1;
+        keys.add(request.headers['idempotency-key']);
+        bodies.add(request.body);
+        if (count == 1) throw http.ClientException('response lost', request.url);
+        return http.Response(
+          jsonEncode({'id': 'request-1', 'status': 'pending'}),
+          201,
+          headers: {'content-type': 'application/json'},
+        );
+      }),
+    );
+
+    await api.create(phone: '09121234567');
+    expect(count, 2);
+    expect(keys.first, isNotEmpty);
+    expect(keys[1], keys.first);
+    expect(bodies[1], bodies.first);
   });
 
   test('missing session fails before phone leaves the device', () async {
