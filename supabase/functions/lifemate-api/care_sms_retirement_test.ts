@@ -1,34 +1,35 @@
-import { assert, assertEquals } from "jsr:@std/assert@1.0.14";
+import { assertEquals, assertRejects } from "jsr:@std/assert@1.0.14";
+import { createLifeMateDatabase } from "./database.ts";
+import { ApiError } from "./validation.ts";
 
-Deno.test("public care invitation facade cannot invoke an SMS provider", async () => {
-  const databaseSource = await Deno.readTextFile(
-    new URL("./database.ts", import.meta.url),
+Deno.test("public phone care invitation fails closed before provider or database work", async () => {
+  const db = createLifeMateDatabase(
+    "postgres://unused:unused@127.0.0.1:1/unused",
+    "unit-only-contact-secret-with-32-plus-characters",
   );
-  assert(databaseSource.includes("phone_care_invitation_retired"));
-  assert(
-    !databaseSource.includes("createPhoneInvitationDeliveryFromEnvironment"),
-  );
-  assert(!databaseSource.includes("phoneInvitationDelivery.deliver"));
-});
 
-Deno.test("care SMS delivery adapter is removed while auth hook stays separate", async () => {
-  const deliveryPath = new URL(
-    "./phone_invitation_delivery.ts",
-    import.meta.url,
+  const error = await assertRejects(
+    () =>
+      db.createInvitation(
+        {
+          auth: {
+            id: "retired-phone-invite-subject",
+            email: "retired@example.test",
+            phone: "+989121234567",
+            userMetadata: {},
+          },
+          appUserId: "11111111-1111-4111-8111-111111111111",
+        },
+        {
+          contactType: "phone",
+          contact: "+989351234567",
+          consentVersion: "care-patient-consent-v1",
+          confirmConsent: true,
+        },
+      ),
+    ApiError,
   );
-  let deliveryExists = true;
-  try {
-    await Deno.stat(deliveryPath);
-  } catch (error) {
-    if (error instanceof Deno.errors.NotFound) deliveryExists = false;
-    else throw error;
-  }
-  assertEquals(deliveryExists, false);
 
-  const hookPath = new URL(
-    "../lifemate-kavenegar-sms-hook/index.ts",
-    import.meta.url,
-  );
-  const hook = await Deno.readTextFile(hookPath);
-  assert(hook.length > 0, "Auth OTP Kavenegar hook must remain present");
+  assertEquals(error.status, 410);
+  assertEquals(error.code, "phone_care_invitation_retired");
 });
