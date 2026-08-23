@@ -84,7 +84,7 @@ class _CareRequestCardState extends State<CareRequestCard> {
                       textDirection: TextDirection.ltr,
                       autocorrect: false,
                       enableSuggestions: false,
-                      inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'[0-9۰-۹٠-٩+\s-]'))],
+                      inputFormatters: const [LifeMateLocaleDigitInputFormatter()],
                       onChanged: (_) => setSheetState(() {}),
                       decoration: InputDecoration(
                         labelText: LifeMateRuntimeLocale.select(fa: 'شماره موبایل', en: 'Mobile number'),
@@ -178,21 +178,12 @@ class _CareRequestCardState extends State<CareRequestCard> {
   }
 
   static bool _looksLikeIranMobile(String input) {
-    final normalized = _asciiDigits(input).replaceAll(RegExp(r'[\s-]'), '');
-    return RegExp(r'^(?:\+98|0098|98|0)?9\d{9}$').hasMatch(normalized);
-  }
-
-  static String _asciiDigits(String value) {
-    const fa = '۰۱۲۳۴۵۶۷۸۹';
-    const ar = '٠١٢٣٤٥٦٧٨٩';
-    final buffer = StringBuffer();
-    for (final rune in value.runes) {
-      final char = String.fromCharCode(rune);
-      final faIndex = fa.indexOf(char);
-      final arIndex = ar.indexOf(char);
-      buffer.write(faIndex >= 0 ? faIndex : arIndex >= 0 ? arIndex : char);
+    try {
+      LifeMateIranPhone.normalizeE164(input);
+      return true;
+    } on FormatException {
+      return false;
     }
-    return buffer.toString();
   }
 
   @override
