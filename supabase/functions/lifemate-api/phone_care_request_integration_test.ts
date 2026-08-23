@@ -1,7 +1,4 @@
-import {
-  assertEquals,
-  assertNotEquals,
-} from "jsr:@std/assert@1.0.14";
+import { assertEquals, assertNotEquals } from "jsr:@std/assert@1.0.14";
 import postgres from "postgres";
 import { hashContactPoint } from "../_shared/contact_point_crypto.ts";
 import { createCareRequestStore } from "./care_requests.ts";
@@ -65,11 +62,13 @@ Deno.test({
       const patientMap = await remapSelfIdentity(admin, patient.appUserId);
       const caregiverMap = await remapSelfIdentity(admin, caregiver.appUserId);
       const unrelatedMap = await remapSelfIdentity(admin, unrelated.appUserId);
-      for (const [appUserId, accountId, personId] of [
-        [patient.appUserId, patientMap.accountId, patientMap.personId],
-        [caregiver.appUserId, caregiverMap.accountId, caregiverMap.personId],
-        [unrelated.appUserId, unrelatedMap.accountId, unrelatedMap.personId],
-      ]) {
+      for (
+        const [appUserId, accountId, personId] of [
+          [patient.appUserId, patientMap.accountId, patientMap.personId],
+          [caregiver.appUserId, caregiverMap.accountId, caregiverMap.personId],
+          [unrelated.appUserId, unrelatedMap.accountId, unrelatedMap.personId],
+        ]
+      ) {
         assertNotEquals(appUserId, accountId);
         assertNotEquals(appUserId, personId);
         assertNotEquals(accountId, personId);
@@ -112,7 +111,11 @@ Deno.test({
       });
       assertEquals(retry.id, created.id);
       assertEquals(
-        await relationshipCount(admin, patientMap.personId, caregiverMap.personId),
+        await relationshipCount(
+          admin,
+          patientMap.personId,
+          caregiverMap.personId,
+        ),
         0,
       );
 
@@ -126,7 +129,10 @@ Deno.test({
       assertEquals(persisted[0].contact_type, "CareRequestPhone");
       assertEquals(persisted[0].target_account_id, patientMap.accountId);
       assertEquals(persisted[0].status, "Pending");
-      assertEquals(String(persisted[0].contact_hint).includes("9121230101"), false);
+      assertEquals(
+        String(persisted[0].contact_hint).includes("9121230101"),
+        false,
+      );
       assertEquals(String(persisted[0].contact_hash).includes("+989"), false);
       assertEquals(String(persisted[0].token_hash).includes("+989"), false);
 
@@ -162,7 +168,11 @@ Deno.test({
         "patient_consent_required",
       );
       assertEquals(
-        await relationshipCount(admin, patientMap.personId, caregiverMap.personId),
+        await relationshipCount(
+          admin,
+          patientMap.personId,
+          caregiverMap.personId,
+        ),
         0,
       );
 
