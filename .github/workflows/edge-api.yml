@@ -68,6 +68,8 @@ jobs:
           check 'Profile-photo size is bounded.' grep -Fq 'profilePhotoMaximumBytes' profile_photo.ts
           check 'Caregiver calendar responses exclude private notes.' grep -Fq 'privateNotes' women_calendar_integration_test.ts
           check 'Daily companion sharing is explicit per entry.' grep -Fq 'share_summary_with_companion = true' women_calendar_legacy.ts
+          check_absent 'Phone care requests must not call Kavenegar.' grep -Ein 'kavenegar' phone_care_requests.ts
+          check_absent 'Phone care requests must not send SMS.' grep -Ein 'send.*sms|sms.*send' phone_care_requests.ts
           check_absent 'Profile photos must never use a public bucket.' grep -R --line-number -E 'profile-photo.*public.*true' . ../../migrations
           check_absent 'Profile-photo paths must not enter audit metadata.' grep -R --line-number -E 'profilePhotoPath.*metadata' .
 
