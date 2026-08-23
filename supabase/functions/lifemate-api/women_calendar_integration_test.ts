@@ -24,6 +24,9 @@ Deno.test({
     const db = createLifeMateDatabase(databaseUrl, contactSecret);
     const women = createWomenCalendarStore(databaseUrl);
     const suffix = crypto.randomUUID();
+    const recentDailyLogDate = new Date(Date.now() - 24 * 60 * 60 * 1000)
+      .toISOString()
+      .slice(0, 10);
     const patientAuth = auth(
       `women-patient-${suffix}`,
       `wp-${suffix}@example.test`,
@@ -133,7 +136,7 @@ Deno.test({
         patient.appUserId,
         {
           version: 0,
-          loggedOn: "2026-08-05",
+          loggedOn: recentDailyLogDate,
           mood: "low",
           energyLevel: 2,
           painLevel: 3,
@@ -151,8 +154,8 @@ Deno.test({
 
       const ownerDailyLogs = await women.listOwnerDailyLogs(
         patient.appUserId,
-        "2026-08-01",
-        "2026-08-06",
+        recentDailyLogDate,
+        recentDailyLogDate,
       );
       assertEquals(ownerDailyLogs.length, 1);
       assertEquals(
@@ -164,7 +167,7 @@ Deno.test({
         () =>
           women.upsertOwnerDailyLog(patient.appUserId, {
             version: 0,
-            loggedOn: "2026-08-05",
+            loggedOn: recentDailyLogDate,
             mood: "good",
             energyLevel: 3,
             painLevel: 1,
@@ -186,7 +189,7 @@ Deno.test({
         patient.appUserId,
         {
           version: privateDailyLog.version,
-          loggedOn: "2026-08-05",
+          loggedOn: recentDailyLogDate,
           mood: "good",
           energyLevel: 4,
           painLevel: 1,
