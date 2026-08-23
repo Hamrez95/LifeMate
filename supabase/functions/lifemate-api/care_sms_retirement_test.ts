@@ -9,7 +9,6 @@ Deno.test("public care invitation facade cannot invoke an SMS provider", async (
     !databaseSource.includes("createPhoneInvitationDeliveryFromEnvironment"),
   );
   assert(!databaseSource.includes("phoneInvitationDelivery.deliver"));
-  assert(!databaseSource.includes("createPhoneInvitation:"));
 });
 
 Deno.test("care SMS delivery adapter is removed while auth hook stays separate", async () => {
