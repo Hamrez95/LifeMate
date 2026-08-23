@@ -19,7 +19,8 @@ export function createCareRequestStore(
     identity: CareRequestIdentity,
     body: Record<string, unknown>,
   ): Promise<Record<string, unknown>> {
-    const contactType = String(body.contactType ?? "email").trim().toLowerCase();
+    const contactType = String(body.contactType ?? "email").trim()
+      .toLowerCase();
     if (contactType === "phone") return await phone.create(identity, body);
     if (contactType !== "email") {
       throw new Error("Unsupported care request contact type.");
