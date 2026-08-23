@@ -15,7 +15,10 @@ export type AuditQuery = {
 const UUID =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
-function optionalDate(value: string | null, field: "from" | "to"): string | null {
+function optionalDate(
+  value: string | null,
+  field: "from" | "to",
+): string | null {
   const normalized = value?.trim() ?? "";
   if (!normalized) return null;
   const date = new Date(normalized);
@@ -30,7 +33,10 @@ function optionalDate(value: string | null, field: "from" | "to"): string | null
 }
 
 function base64UrlEncode(value: string): string {
-  return btoa(value).replaceAll("+", "-").replaceAll("/", "_").replace(/=+$/u, "");
+  return btoa(value).replaceAll("+", "-").replaceAll("/", "_").replace(
+    /=+$/u,
+    "",
+  );
 }
 
 function base64UrlDecode(value: string): string {
@@ -38,7 +44,9 @@ function base64UrlDecode(value: string): string {
     throw new ApiError(400, "audit_cursor_invalid", "Audit cursor is invalid.");
   }
   const standard = value.replaceAll("-", "+").replaceAll("_", "/");
-  const padding = standard.length % 4 === 0 ? "" : "=".repeat(4 - (standard.length % 4));
+  const padding = standard.length % 4 === 0
+    ? ""
+    : "=".repeat(4 - (standard.length % 4));
   try {
     return atob(`${standard}${padding}`);
   } catch {
