@@ -29,6 +29,12 @@ create index if not exists "IX_care_invitations_target_account_pending"
   on lifemate.care_invitations(target_account_id, expires_at_utc, created_at_utc desc)
   where contact_type = 'CareRequestPhone' and status = 'Pending';
 
+-- Concurrent mobile/offline retries must converge on one domain request even if
+-- both transactions observe no Pending row before insert.
+create unique index if not exists "UX_care_invitations_phone_pending_contact"
+  on lifemate.care_invitations(inviter_user_id, contact_type, contact_hash)
+  where contact_type = 'CareRequestPhone' and status = 'Pending';
+
 -- Account deletion keeps the Account tombstone for compliance/audit purposes, so
 -- ON DELETE SET NULL is not enough. Sever this newly introduced identity link as
 -- soon as deletion begins. This preserves the retention-v2 promise that an
