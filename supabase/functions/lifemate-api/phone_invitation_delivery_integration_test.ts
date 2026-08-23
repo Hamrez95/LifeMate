@@ -9,13 +9,16 @@ import { ApiError } from "./validation.ts";
 
 const databaseUrl = Deno.env.get("TEST_DATABASE_URL");
 if (!databaseUrl) {
-  throw new Error("TEST_DATABASE_URL is required for phone invitation retirement tests.");
+  throw new Error(
+    "TEST_DATABASE_URL is required for phone invitation retirement tests.",
+  );
 }
 
 const contactSecret = "integration-only-contact-secret-with-32-plus-characters";
 
 Deno.test({
-  name: "legacy public phone invitation fails closed without creating domain state",
+  name:
+    "legacy public phone invitation fails closed without creating domain state",
   sanitizeOps: false,
   sanitizeResources: false,
   fn: async () => {
@@ -34,12 +37,13 @@ Deno.test({
       );
 
       const error = await assertRejects(
-        () => db.createInvitation(patient, {
-          contactType: "phone",
-          contact: "۰۹۳۵ ۱۲۳ ۵۶۷۸",
-          consentVersion: "care-patient-consent-v1",
-          confirmConsent: true,
-        }),
+        () =>
+          db.createInvitation(patient, {
+            contactType: "phone",
+            contact: "۰۹۳۵ ۱۲۳ ۵۶۷۸",
+            consentVersion: "care-patient-consent-v1",
+            confirmConsent: true,
+          }),
         ApiError,
       );
       assertEquals(error.status, 410);
