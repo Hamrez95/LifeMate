@@ -80,6 +80,12 @@ import {
 } from "./support_detail.ts";
 import { createSupportTicketDetailStore } from "./support_detail_store.ts";
 import { createSupportQueueStore } from "./support_service.ts";
+import {
+  hashStaffActionRequest,
+  matchStaffActionPath,
+  parseStaffActionRequest,
+} from "./staff_actions.ts";
+import { createStaffActionStore } from "./staff_actions_service.ts";
 import { createUserAccountActionStore } from "./user_action_store.ts";
 import {
   hashUserAccountActionRequest,
@@ -135,6 +141,7 @@ const supportTicketDetailStore = createSupportTicketDetailStore(
 const marketingCampaignRouteHandler = createMarketingCampaignRouteHandler(
   config.databaseUrl,
 );
+const staffActionStore = createStaffActionStore(config.databaseUrl);
 
 async function optionalSection<T>(
   allowed: boolean,
@@ -251,6 +258,55 @@ Deno.serve(async (request: Request) => {
 
     if (request.method === "GET" && path === "/api/v1/me") {
       return json({ admin }, 200, origin);
+    }
+
+    const staffActionRoute = matchStaffActionPath(path);
+    if (request.method === "POST" && staffActionRoute) {
+      requirePermission(admin, "security.staff.manage");
+      const idempotencyKey = requireIdempotencyKey(request);
+      const staffRequest = await parseStaffActionRequest(
+        request,
+        staffActionRoute,
+      );
+      const requestHash = await hashStaffActionRequest(
+        staffActionRoute,
+        staffRequest,
+      );
+      const result = await staffActionStore.mutate({
+        actorAccountId: accountId,
+        route: staffActionRoute,
+        request: staffRequest,
+        correlationId,
+        idempotencyKey,
+        requestHash,
+      });
+      const status = mutationStatus(result);
+      if (status >= 400) {
+        throw new ApiError(
+          status,
+          String(result.code),
+          mutationErrorMessage(result, "Staff mutation was not completed."),
+        );
+      }
+      return json(
+        {
+          accountId: String(result.accountId),
+          roleCode: typeof result.roleCode === "string"
+            ? result.roleCode
+            : null,
+          status: typeof result.status === "string" ? result.status : null,
+          previousStatus: typeof result.previousStatus === "string"
+            ? result.previousStatus
+            : null,
+          action: typeof result.action === "string"
+            ? result.action
+            : staffActionRoute.action,
+          noop: Boolean(result.noop),
+          replayed: Boolean(result.replayed),
+        },
+        status,
+        origin,
+      );
     }
 
     const marketingCampaignResponse = await marketingCampaignRouteHandler({
