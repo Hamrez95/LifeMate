@@ -12,7 +12,8 @@ export type StaffActionRequest = {
   roleCode: string | null;
 };
 
-const MEMBERSHIP_PATH = /^\/api\/v1\/staff\/([^/]+)\/actions\/(activate|disable|reenable)$/i;
+const MEMBERSHIP_PATH =
+  /^\/api\/v1\/staff\/([^/]+)\/actions\/(activate|disable|reenable)$/i;
 const ROLE_PATH = /^\/api\/v1\/staff\/([^/]+)\/roles\/(assign|revoke)$/i;
 const ROLE_CODE = /^[a-z][a-z0-9_]{1,63}$/;
 
@@ -46,11 +47,19 @@ export async function parseStaffActionRequest(
   try {
     body = await request.json();
   } catch {
-    throw new ApiError(400, "invalid_request", "Request body must be valid JSON.");
+    throw new ApiError(
+      400,
+      "invalid_request",
+      "Request body must be valid JSON.",
+    );
   }
 
   if (!body || typeof body !== "object" || Array.isArray(body)) {
-    throw new ApiError(400, "invalid_request", "Request body must be an object.");
+    throw new ApiError(
+      400,
+      "invalid_request",
+      "Request body must be an object.",
+    );
   }
 
   const record = body as Record<string, unknown>;
@@ -78,7 +87,11 @@ export async function parseStaffActionRequest(
     ? record.roleCode.trim().toLowerCase()
     : "";
   if (!ROLE_CODE.test(roleCode)) {
-    throw new ApiError(400, "staff_role_invalid", "A valid roleCode is required.");
+    throw new ApiError(
+      400,
+      "staff_role_invalid",
+      "A valid roleCode is required.",
+    );
   }
   if (roleCode === "founder") {
     throw new ApiError(
