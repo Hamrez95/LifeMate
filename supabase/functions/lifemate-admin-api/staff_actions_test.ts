@@ -14,9 +14,13 @@ Deno.test("staff action paths are purpose-specific and UUID-bound", () => {
   if (!role || role.kind !== "role") throw new Error("role route missing");
   if (role.accountId !== id || role.action !== "assign") throw new Error("role route mismatch");
 
-  if (matchStaffActionPath("/api/v1/staff/not-a-uuid/actions/disable") !== null) {
-    throw new Error("invalid UUID route should not match");
+  let rejected = false;
+  try {
+    matchStaffActionPath("/api/v1/staff/not-a-uuid/actions/disable");
+  } catch {
+    rejected = true;
   }
+  if (!rejected) throw new Error("invalid UUID route must fail closed");
 });
 
 Deno.test("membership actions require a meaningful reason and reject role input", async () => {
