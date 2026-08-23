@@ -3,6 +3,7 @@ import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { getAnalyticsCatalog } from "./analytics_catalog.ts";
 import { createAnalyticsKpiStore } from "./analytics_kpi_service.ts";
 import { parseAnalyticsKpiQuery } from "./analytics_kpis.ts";
+import { parseAuditQuery } from "./audit.ts";
 import { authenticate, requireAal2 } from "./auth.ts";
 import { requirePermission } from "./authorization.ts";
 import { parseCommerceOverviewQuery } from "./commerce.ts";
@@ -94,7 +95,6 @@ import { getUserDetailSectionPermissions } from "./user_detail_permissions.ts";
 import { createUserDetailStore } from "./user_detail_store.ts";
 import {
   ApiError,
-  boundedInteger,
   normalizePath,
   requireIdempotencyKey,
 } from "./validation.ts";
@@ -1152,9 +1152,20 @@ Deno.serve(async (request: Request) => {
 
     if (request.method === "GET" && path === "/api/v1/audit") {
       requirePermission(admin, "security.audit.read");
-      const url = new URL(request.url);
-      const limit = boundedInteger(url.searchParams.get("limit"), 50, 1, 200);
-      return json({ events: await store.listAudit(limit) }, 200, origin);
+      const query = parseAuditQuery(new URL(request.url));
+      const result = await store.listAudit(query);
+      return json(
+        {
+          ...result,
+          filters: { from: query.fromUtc, to: query.toUtc },
+          freshness: {
+            status: "fresh",
+            asOfUtc: new Date().toISOString(),
+          },
+        },
+        200,
+        origin,
+      );
     }
 
     throw new ApiError(
