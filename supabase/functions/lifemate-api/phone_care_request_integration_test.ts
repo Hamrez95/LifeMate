@@ -29,6 +29,7 @@ Deno.test({
     const db = createLifeMateDatabase(databaseUrl, contactSecret);
     const requests = createCareRequestStore(databaseUrl, contactSecret);
     const suffix = crypto.randomUUID();
+    const cleanupAppUserIds: string[] = [];
 
     try {
       const patient = await bootstrap(
@@ -57,6 +58,11 @@ Deno.test({
           "+989121230103",
         ),
         "Phone Request Unrelated",
+      );
+      cleanupAppUserIds.push(
+        patient.appUserId,
+        caregiver.appUserId,
+        unrelated.appUserId,
       );
 
       const patientMap = await remapSelfIdentity(admin, patient.appUserId);
@@ -256,6 +262,16 @@ Deno.test({
       `;
       assertEquals(severed[0]?.target_account_id, null);
     } finally {
+      if (cleanupAppUserIds.length > 0) {
+        await admin`
+          delete from identity.contact_points
+          where account_id in (
+            select id
+            from identity.accounts
+            where legacy_app_user_id in ${admin(cleanupAppUserIds)}
+          )
+        `.catch(() => undefined);
+      }
       await closeLifeMateSqlClientsForTest().catch(() => undefined);
       await admin.end({ timeout: 5 }).catch(() => undefined);
     }
