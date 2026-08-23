@@ -4,14 +4,9 @@ import 'package:flutter_test/flutter_test.dart';
 
 void main() {
   test('care access screen keeps the redesigned management contract', () {
-    final source = File(
-      'lib/screens/profile/care_access_screen.dart',
-    ).readAsStringSync();
-    final phoneShell = File(
+    final source = File('lib/screens/profile/care_access_screen.dart').readAsStringSync();
+    final compatibilityRoute = File(
       'lib/screens/profile/care_access_phone_screen.dart',
-    ).readAsStringSync();
-    final phoneDialog = File(
-      'lib/screens/profile/care_phone_invite_dialog.dart',
     ).readAsStringSync();
 
     expect(source, contains('افزودن مراقب جدید'));
@@ -20,10 +15,7 @@ void main() {
     expect(source, contains('دعوت‌های ارسال‌شده'));
     expect(source, contains('Icons.settings_rounded'));
     expect(source, contains('showModalBottomSheet<void>'));
-    expect(
-      source,
-      contains('CareAccessSettingsScreen(relationship: relationship)'),
-    );
+    expect(source, contains('CareAccessSettingsScreen(relationship: relationship)'));
     expect(source, contains('revokeCareInvitation('));
     expect(source, contains("relationship['caregiverProfilePhotoUrl']"));
     expect(source, contains("relationship['caregiverAvatarKey']"));
@@ -36,20 +28,14 @@ void main() {
     expect(emptyState, isNot(contains('Icons.check_rounded')));
     expect(emptyState, isNot(contains('Icons.close_rounded')));
 
-    expect(phoneShell, contains("createPhoneCareInvitation(phone: phone)"));
-    expect(phoneShell, contains("ValueKey('care-phone-invite-action')"));
-    expect(phoneShell, contains('دعوت مراقب با شماره موبایل'));
+    expect(compatibilityRoute, contains('body: CareAccessScreen()'));
+    expect(compatibilityRoute, isNot(contains('createPhoneCareInvitation')));
+    expect(compatibilityRoute.toLowerCase(), isNot(contains('kavenegar')));
+    expect(compatibilityRoute.toLowerCase(), isNot(contains('icons.sms')));
+    expect(compatibilityRoute, isNot(contains('phone_invitation_delivery')));
     expect(
-      phoneShell,
-      contains('کد محرمانه در این برنامه نمایش داده نمی‌شود'),
+      File('lib/screens/profile/care_phone_invite_dialog.dart').existsSync(),
+      isFalse,
     );
-    expect(phoneShell, isNot(contains("invitation['token']")));
-    expect(phoneShell, isNot(contains('Clipboard.setData')));
-
-    expect(phoneDialog, contains('TextInputType.phone'));
-    expect(phoneDialog, contains('LifeMateLocaleDigitInputFormatter'));
-    expect(phoneDialog, contains('LifeMateIranPhone.normalizeE164'));
-    expect(phoneDialog, contains('confirmed'));
-    expect(phoneDialog, contains('در این برنامه نمایش داده نمی‌شود'));
   });
 }
