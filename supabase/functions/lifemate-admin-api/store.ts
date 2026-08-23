@@ -1,3 +1,5 @@
+import type { AuditQuery } from "./audit.ts";
+import { encodeAuditCursor } from "./audit.ts";
 import type { AdminCapabilitySnapshot } from "./authorization.ts";
 import { type AdminSql, getAdminSql } from "./database_client.ts";
 import type { UserDirectoryQuery } from "./directory.ts";
@@ -21,10 +23,35 @@ export type AuditEventView = {
   occurredAtUtc: string;
 };
 
+export type AuditPage = {
+  events: AuditEventView[];
+  nextCursor: string | null;
+};
+
 function asStringArray(rows: readonly Row[], key: string): string[] {
   return rows
     .map((row) => row[key])
     .filter((value): value is string => typeof value === "string");
+}
+
+function mapAuditEvent(row: Row): AuditEventView {
+  return {
+    id: String(row.id),
+    actorAccountId: typeof row.actor_account_id === "string"
+      ? row.actor_account_id
+      : null,
+    action: String(row.action),
+    resourceType: String(row.resource_type),
+    resourceId: typeof row.resource_id === "string" ? row.resource_id : null,
+    result: String(row.result),
+    reason: typeof row.reason === "string" ? row.reason : null,
+    correlationId: String(row.correlation_id),
+    requestId: typeof row.request_id === "string" ? row.request_id : null,
+    elevatedAccess: row.elevated_access === true,
+    occurredAtUtc: row.occurred_at_utc instanceof Date
+      ? row.occurred_at_utc.toISOString()
+      : String(row.occurred_at_utc),
+  };
 }
 
 export function createAdminStore(databaseUrl: string) {
@@ -153,31 +180,33 @@ export function createAdminStore(databaseUrl: string) {
     });
   }
 
-  async function listAudit(limit: number): Promise<AuditEventView[]> {
+  async function listAudit(query: AuditQuery): Promise<AuditPage> {
+    const cursorOccurredAtUtc = query.cursor?.occurredAtUtc ?? null;
+    const cursorId = query.cursor?.id ?? null;
     const rows = await sql`
       select id,actor_account_id,action,resource_type,resource_id,result,reason,
              correlation_id,request_id,elevated_access,occurred_at_utc
       from admin.audit_events
+      where (${query.fromUtc}::timestamptz is null or occurred_at_utc >= ${query.fromUtc}::timestamptz)
+        and (${query.toUtc}::timestamptz is null or occurred_at_utc <= ${query.toUtc}::timestamptz)
+        and (
+          ${cursorOccurredAtUtc}::timestamptz is null
+          or (occurred_at_utc, id) < (${cursorOccurredAtUtc}::timestamptz, ${cursorId}::uuid)
+        )
       order by occurred_at_utc desc, id desc
-      limit ${limit}
+      limit ${query.limit + 1}
     `;
-    return rows.map((row) => ({
-      id: String(row.id),
-      actorAccountId: typeof row.actor_account_id === "string"
-        ? row.actor_account_id
+
+    const mapped = (rows as unknown as Row[]).map(mapAuditEvent);
+    const hasMore = mapped.length > query.limit;
+    const events = hasMore ? mapped.slice(0, query.limit) : mapped;
+    const last = events.at(-1);
+    return {
+      events,
+      nextCursor: hasMore && last
+        ? encodeAuditCursor({ occurredAtUtc: last.occurredAtUtc, id: last.id })
         : null,
-      action: String(row.action),
-      resourceType: String(row.resource_type),
-      resourceId: typeof row.resource_id === "string" ? row.resource_id : null,
-      result: String(row.result),
-      reason: typeof row.reason === "string" ? row.reason : null,
-      correlationId: String(row.correlation_id),
-      requestId: typeof row.request_id === "string" ? row.request_id : null,
-      elevatedAccess: row.elevated_access === true,
-      occurredAtUtc: row.occurred_at_utc instanceof Date
-        ? row.occurred_at_utc.toISOString()
-        : String(row.occurred_at_utc),
-    }));
+    };
   }
 
   async function listUsers(query: UserDirectoryQuery) {
