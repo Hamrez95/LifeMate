@@ -215,6 +215,18 @@ Deno.test({
         where id=${String(unmatched.id)}::uuid
       `;
       assertEquals(cancelled[0]?.status, "Revoked");
+
+      await admin`
+        update identity.accounts
+        set status='DeletionPending',updated_at_utc=now()
+        where id=${patientMap.accountId}::uuid
+      `;
+      const severed = await admin`
+        select target_account_id
+        from lifemate.care_invitations
+        where id=${String(created.id)}::uuid
+      `;
+      assertEquals(severed[0]?.target_account_id, null);
     } finally {
       await closeLifeMateSqlClientsForTest().catch(() => undefined);
       await admin.end({ timeout: 5 }).catch(() => undefined);
