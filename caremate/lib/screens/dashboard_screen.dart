@@ -119,11 +119,14 @@ class _DashboardScreenState extends State<DashboardScreen> {
     final horizon = now.add(const Duration(days: 7));
     final reminders = <CareRecipientReminder>[];
     final alerts = <CareRecipientAlert>[];
-
     for (final item in snapshot.queueItems) {
       final scheduledUtc = item.scheduledAt.toUtc();
       if (!scheduledUtc.isAfter(now) || scheduledUtc.isAfter(horizon)) continue;
-      final kind = _notificationKind(item.type);
+      final kind = switch (item.type) {
+        CareItemType.injection => 'injection',
+        CareItemType.visit => 'appointment',
+        CareItemType.medication => 'medication',
+      };
       reminders.add(
         CareRecipientReminder(
           patientUserId: item.patientUserId,
@@ -140,8 +143,12 @@ class _DashboardScreenState extends State<DashboardScreen> {
         ),
       );
     }
-
     for (final item in snapshot.todayItems.where((item) => item.isAlert)) {
+      final kind = switch (item.type) {
+        CareItemType.injection => 'injection',
+        CareItemType.visit => 'appointment',
+        CareItemType.medication => 'medication',
+      };
       alerts.add(
         CareRecipientAlert(
           patientUserId: item.patientUserId,
@@ -150,12 +157,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
           title: item.title,
           subtitle: item.subtitle,
           scheduledAtUtc: item.scheduledAt.toUtc(),
-          kind: _notificationKind(item.type),
+          kind: kind,
           status: item.status,
         ),
       );
     }
-
     if (!mounted) return;
     final profile = snapshot.currentUser['profile'] is Map<String, dynamic>
         ? snapshot.currentUser['profile'] as Map<String, dynamic>
@@ -177,12 +183,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
       debugPrint('CareMate home notification sync failed: $error');
     }
   }
-
-  static String _notificationKind(CareItemType type) => switch (type) {
-    CareItemType.injection => 'injection',
-    CareItemType.visit => 'appointment',
-    CareItemType.medication => 'medication',
-  };
 
   void _showAlerts() {
     final snapshot = _snapshot;
@@ -285,119 +285,266 @@ class _DashboardScreenState extends State<DashboardScreen> {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Container(
-                width: 42,
-                height: 4,
-                margin: const EdgeInsets.only(bottom: 20),
-                decoration: BoxDecoration(
-                  color: const Color(0xFFE3E7EA),
-                  borderRadius: BorderRadius.circular(999),
+              Text(
+                LifeMateRuntimeLocale.select(
+                  fa: LifeMateRuntimeLocale.select(
+                    fa: 'اتصال به WellMate',
+                    en: "Connect to WellMate",
+                  ),
+                  en: "Connect to WellMate",
                 ),
+                style: TextStyle(fontSize: 19, fontWeight: FontWeight.w900),
               ),
+              SizedBox(height: 8),
+              Text(
+                LifeMateRuntimeLocale.select(
+                  fa: LifeMateRuntimeLocale.select(
+                    fa: 'ساده‌ترین روش، اسکن QR روی گوشی فرد تحت مراقبت است.',
+                    en: "The easiest way is to scan the QR on the phone of the person under care.",
+                  ),
+                  en: "The easiest way is to scan the QR on the phone of the person under care.",
+                ),
+                textAlign: TextAlign.center,
+                style: TextStyle(color: AppColors.secondaryText),
+              ),
+              SizedBox(height: 18),
               ListTile(
-                leading: const Icon(Icons.qr_code_scanner_rounded),
+                leading: CircleAvatar(
+                  child: Icon(Icons.qr_code_scanner_rounded),
+                ),
                 title: Text(
                   LifeMateRuntimeLocale.select(
                     fa: LifeMateRuntimeLocale.select(
-                      fa: 'اسکن دعوت مراقبت',
-                      en: 'Scan care invitation',
+                      fa: 'اسکن QR',
+                      en: "QR scan",
                     ),
-                    en: 'Scan care invitation',
+                    en: "QR scan",
                   ),
                 ),
-                onTap: () => Navigator.pop(context, 'scan'),
+                subtitle: Text(
+                  LifeMateRuntimeLocale.select(
+                    fa: LifeMateRuntimeLocale.select(
+                      fa: 'اتصال کوتاه‌مدت و یک‌بارمصرف',
+                      en: "Short-term and disposable connection",
+                    ),
+                    en: "Short-term and disposable connection",
+                  ),
+                ),
+                onTap: () => Navigator.pop(context, 'qr'),
               ),
               ListTile(
-                leading: const Icon(Icons.keyboard_alt_outlined),
+                leading: CircleAvatar(child: Icon(Icons.keyboard_rounded)),
                 title: Text(
                   LifeMateRuntimeLocale.select(
                     fa: LifeMateRuntimeLocale.select(
                       fa: 'ورود کد دعوت',
-                      en: 'Enter invitation code',
+                      en: "Enter the invitation code",
                     ),
-                    en: 'Enter invitation code',
+                    en: "Enter the invitation code",
                   ),
                 ),
-                onTap: () => Navigator.pop(context, 'code'),
+                subtitle: Text(
+                  LifeMateRuntimeLocale.select(
+                    fa: LifeMateRuntimeLocale.select(
+                      fa: 'روش پشتیبان برای کد کپی‌شده',
+                      en: "Backup method for copied code",
+                    ),
+                    en: "Backup method for copied code",
+                  ),
+                ),
+                onTap: () => Navigator.pop(context, 'manual'),
               ),
             ],
           ),
         ),
       ),
     );
-    if (!mounted || action == null) return;
-    if (action == 'scan') {
-      await Navigator.of(context).push<void>(
-        MaterialPageRoute<void>(
-          builder: (_) => const CareInvitationScannerScreen(),
-        ),
-      );
-      if (mounted) unawaited(_refresh());
-      return;
+    if (!mounted) return;
+    if (action == 'qr') {
+      await _showQrScanner();
+    } else if (action == 'manual') {
+      await _showAcceptInvitation();
     }
-    await _showInvitationCodeDialog();
   }
 
-  Future<void> _showInvitationCodeDialog() async {
-    final controller = TextEditingController();
-    final code = await showDialog<String>(
+  Future<void> _showQrScanner() async {
+    final token = await Navigator.of(context).push<String>(
+      MaterialPageRoute<String>(
+        builder: (_) => const CareInvitationScannerScreen(),
+      ),
+    );
+    if (token == null || !mounted) return;
+    final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
         title: Text(
           LifeMateRuntimeLocale.select(
             fa: LifeMateRuntimeLocale.select(
-              fa: 'کد دعوت را وارد کنید',
-              en: 'Enter invitation code',
+              fa: 'پذیرش مراقبت؟',
+              en: "Acceptance of care?",
             ),
-            en: 'Enter invitation code',
+            en: "Acceptance of care?",
           ),
         ),
-        content: TextField(
-          controller: controller,
-          autofocus: true,
-          textCapitalization: TextCapitalization.characters,
+        content: Text(
+          LifeMateRuntimeLocale.select(
+            fa: LifeMateRuntimeLocale.select(
+              fa: 'با تأیید، اطلاعات فقط در محدوده رضایت صاحب حساب در CareMate نمایش داده می‌شود.',
+              en: "Upon approval, information will only be displayed on CareMate to the extent of the account holder's consent.",
+            ),
+            en: "Upon approval, information will only be displayed on CareMate to the extent of the account holder's consent.",
+          ),
         ),
         actions: [
           TextButton(
-            onPressed: () => Navigator.pop(context),
+            onPressed: () => Navigator.pop(context, false),
             child: Text(
               LifeMateRuntimeLocale.select(
-                fa: LifeMateRuntimeLocale.select(fa: 'انصراف', en: 'Cancel'),
-                en: 'Cancel',
+                fa: LifeMateRuntimeLocale.select(fa: 'انصراف', en: "opt out"),
+                en: "opt out",
               ),
             ),
           ),
           FilledButton(
-            onPressed: () => Navigator.pop(context, controller.text.trim()),
+            onPressed: () => Navigator.pop(context, true),
             child: Text(
               LifeMateRuntimeLocale.select(
-                fa: LifeMateRuntimeLocale.select(fa: 'ادامه', en: 'Continue'),
-                en: 'Continue',
+                fa: LifeMateRuntimeLocale.select(
+                  fa: 'تأیید و اتصال',
+                  en: "Confirm and connect",
+                ),
+                en: "Confirm and connect",
               ),
             ),
           ),
         ],
       ),
     );
-    controller.dispose();
-    if (!mounted || code == null || code.isEmpty) return;
-    await _acceptInvitation(code);
+    if (confirmed == true && mounted) await _acceptInvitationToken(token);
   }
 
-  Future<void> _acceptInvitation(String code) async {
+  Future<void> _showAcceptInvitation() async {
+    final controller = TextEditingController();
+    var consent = false;
+    final token = await showDialog<String>(
+      context: context,
+      builder: (dialogContext) => StatefulBuilder(
+        builder: (context, setDialogState) => AlertDialog(
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(24),
+          ),
+          title: Text(
+            LifeMateRuntimeLocale.select(
+              fa: LifeMateRuntimeLocale.select(
+                fa: 'پذیرش دعوت مراقبت',
+                en: "Accept the invitation to care",
+              ),
+              en: "Accept the invitation to care",
+            ),
+          ),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                LifeMateRuntimeLocale.select(
+                  fa: LifeMateRuntimeLocale.select(
+                    fa: 'کدی را وارد کنید که صاحب WellMate مستقیماً برای شما ارسال کرده است.',
+                    en: "Enter the code sent directly to you by the owner of WellMate.",
+                  ),
+                  en: "Enter the code sent directly to you by the owner of WellMate.",
+                ),
+                style: TextStyle(height: 1.55),
+              ),
+              SizedBox(height: 14),
+              TextField(
+                controller: controller,
+                textDirection: TextDirection.ltr,
+                autocorrect: false,
+                onChanged: (_) => setDialogState(() {}),
+                decoration: InputDecoration(
+                  labelText: LifeMateRuntimeLocale.select(
+                    fa: LifeMateRuntimeLocale.select(
+                      fa: 'کد دعوت',
+                      en: "invitation code",
+                    ),
+                    en: "invitation code",
+                  ),
+                  prefixIcon: Icon(Icons.vpn_key_rounded),
+                  filled: true,
+                  fillColor: Color(0xFFF6F9FD),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(16),
+                    borderSide: BorderSide.none,
+                  ),
+                ),
+              ),
+              CheckboxListTile(
+                contentPadding: EdgeInsets.zero,
+                value: consent,
+                controlAffinity: ListTileControlAffinity.leading,
+                onChanged: (value) =>
+                    setDialogState(() => consent = value ?? false),
+                title: Text(
+                  LifeMateRuntimeLocale.select(
+                    fa: LifeMateRuntimeLocale.select(
+                      fa: 'محدوده دسترسی مراقبتی و حریم خصوصی فرد را می‌پذیرم.',
+                      en: "I accept the scope of care access and individual privacy.",
+                    ),
+                    en: "I accept the scope of care access and individual privacy.",
+                  ),
+                ),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(dialogContext),
+              child: Text(
+                LifeMateRuntimeLocale.select(
+                  fa: LifeMateRuntimeLocale.select(fa: 'انصراف', en: "opt out"),
+                  en: "opt out",
+                ),
+              ),
+            ),
+            FilledButton(
+              onPressed: consent && controller.text.trim().isNotEmpty
+                  ? () => Navigator.pop(dialogContext, controller.text.trim())
+                  : null,
+              child: Text(
+                LifeMateRuntimeLocale.select(
+                  fa: LifeMateRuntimeLocale.select(
+                    fa: 'پذیرش امن',
+                    en: "Safe reception",
+                  ),
+                  en: "Safe reception",
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+    controller.dispose();
+    if (token == null || !mounted) return;
+    await _acceptInvitationToken(token);
+  }
+
+  Future<void> _acceptInvitationToken(String token) async {
     if (_accepting) return;
     setState(() => _accepting = true);
     try {
-      await context.read<LifeMateApiClient>().acceptCareInvitation(code);
+      await context.read<LifeMateApiClient>().acceptCareInvitation(
+        token: token,
+      );
       if (!mounted) return;
       LifeMateNotice.show(
         context,
         message: LifeMateRuntimeLocale.select(
           fa: LifeMateRuntimeLocale.select(
-            fa: 'دعوت مراقبت با موفقیت پذیرفته شد.',
-            en: 'Care invitation accepted successfully.',
+            fa: 'ارتباط مراقبتی با موفقیت فعال شد.',
+            en: "Care connection successfully activated.",
           ),
-          en: 'Care invitation accepted successfully.',
+          en: "Care connection successfully activated.",
         ),
         type: LifeMateNoticeType.success,
       );
@@ -409,157 +556,345 @@ class _DashboardScreenState extends State<DashboardScreen> {
         message: _friendlyApiError(error),
         type: LifeMateNoticeType.error,
       );
-    } catch (error) {
-      debugPrint('CareMate invitation accept failed: $error');
-      if (!mounted) return;
-      LifeMateNotice.show(
-        context,
-        message: LifeMateRuntimeLocale.select(
-          fa: LifeMateRuntimeLocale.select(
-            fa: 'پذیرش دعوت انجام نشد. دوباره تلاش کنید.',
-            en: 'Invitation could not be accepted. Try again.',
-          ),
-          en: 'Invitation could not be accepted. Try again.',
-        ),
-        type: LifeMateNoticeType.error,
-      );
     } finally {
       if (mounted) setState(() => _accepting = false);
     }
   }
 
+  void _onNavigationTap(int index) {
+    final shellNavigation = widget.onNavigationTap;
+    if (shellNavigation != null) {
+      shellNavigation(index);
+      return;
+    }
+    if (index == 4) return;
+    final Widget destination = index == 0
+        ? const CalendarScreen()
+        : CareMateFeaturePreviewScreen(initialIndex: index);
+    Navigator.of(context).push(
+      PageRouteBuilder<void>(
+        pageBuilder: (_, __, ___) => destination,
+        transitionDuration: Duration.zero,
+        reverseTransitionDuration: Duration.zero,
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
+    final localeProvider = context.watch<LocaleProvider>();
+    final isPersian = localeProvider.locale.languageCode == 'fa';
+    final font = TextStyle(
+      fontFamily: isPersian ? 'Vazir' : 'Poppins',
+      color: AppColors.primaryText,
+    );
     final snapshot = _snapshot;
-    final isPersian =
-        context.watch<LocaleProvider>().locale.languageCode == 'fa';
+
     return Scaffold(
       backgroundColor: AppColors.background,
       body: SafeArea(
         child: RefreshIndicator(
           onRefresh: _refresh,
           child: ListView(
+            key: const ValueKey('care-home-global-dashboard'),
             physics: const AlwaysScrollableScrollPhysics(),
-            padding: const EdgeInsets.fromLTRB(16, 10, 16, 112),
+            padding: const EdgeInsets.only(bottom: 18),
             children: [
               CustomAppHeader(
-                notificationCount: snapshot?.alertsToday ?? 0,
                 onNotificationTap: _showAlerts,
+                showNotificationDot: (snapshot?.alertsToday ?? 0) > 0,
               ),
-              const SizedBox(height: 18),
-              if (_loading && snapshot == null)
-                const _CareHomeLoadingState()
-              else if (_error != null && snapshot == null)
-                _CareHomeErrorState(message: _error!, onRetry: _refresh)
-              else if (snapshot != null) ...[
-                CareHomeHeroCard(snapshot: snapshot, isPersian: isPersian),
-                const SizedBox(height: 14),
-                CareHomeProgressCard(snapshot: snapshot, isPersian: isPersian),
-                const SizedBox(height: 14),
-                CareHomeCompanionCard(
-                  summary: snapshot.companion,
-                  isPersian: isPersian,
-                  onTap: _openCompanion,
+              Padding(
+                padding: const EdgeInsets.fromLTRB(20, 8, 20, 4),
+                child: Column(
+                  children: [
+                    if (snapshot == null && _loading)
+                      _LoadingQueueShell(font: font)
+                    else
+                      CareHomeTreatmentQueueCard(
+                        current: snapshot?.currentTreatment,
+                        next: snapshot?.nextTreatment,
+                        isPersian: isPersian,
+                        font: font,
+                      ),
+                    if (_loading && snapshot != null) ...[
+                      const SizedBox(height: 8),
+                      const LinearProgressIndicator(minHeight: 2),
+                    ],
+                    if (_error != null) ...[
+                      const SizedBox(height: 12),
+                      _InlineRetry(
+                        message: _error!,
+                        onRetry: _refresh,
+                        font: font,
+                      ),
+                    ],
+                    if (snapshot != null && snapshot.relationships.isEmpty) ...[
+                      const SizedBox(height: 18),
+                      _ConnectCareCard(
+                        accepting: _accepting,
+                        onTap: _showPairingOptions,
+                        font: font,
+                      ),
+                    ] else if (snapshot != null) ...[
+                      const SizedBox(height: 18),
+                      Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Expanded(
+                            child: CareHomeCompanionCard(
+                              summary: snapshot.companion,
+                              isPersian: isPersian,
+                              font: font,
+                              onTap: snapshot.companion.hasPermission
+                                  ? _openCompanion
+                                  : null,
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(child: CareHomeChildPreviewCard(font: font)),
+                        ],
+                      ),
+                      const SizedBox(height: 18),
+                      CareHomeWomenCalendarCard(
+                        summary: snapshot.companion,
+                        font: font,
+                        onTap: snapshot.companion.hasPermission
+                            ? _openCompanion
+                            : null,
+                      ),
+                      const SizedBox(height: 18),
+                      CareHomeSummaryCard(
+                        snapshot: snapshot,
+                        isPersian: isPersian,
+                        font: font,
+                      ),
+                      const SizedBox(height: 18),
+                      CareHomeTodayPlanCard(
+                        items: snapshot.todayItems,
+                        isPersian: isPersian,
+                        font: font,
+                      ),
+                    ],
+                  ],
                 ),
-                const SizedBox(height: 14),
-                CareHomeTodayCard(snapshot: snapshot, isPersian: isPersian),
-                const SizedBox(height: 14),
-                CareHomePairingCard(onTap: _showPairingOptions),
-              ],
+              ),
             ],
           ),
         ),
       ),
-      bottomNavigationBar: widget.onNavigationTap == null
-          ? const CareMateBottomNav(currentIndex: 0)
-          : null,
+      bottomNavigationBar: CareMateBottomNav(
+        currentIndex: 4,
+        onTap: _onNavigationTap,
+        routeTreatmentScreen: widget.onNavigationTap == null,
+        onTreatmentManagementReturned: () => unawaited(_refresh()),
+      ),
+    );
+  }
+
+  static String _friendlyApiError(LifeMateApiException error) {
+    switch (error.code) {
+      case 'care_access_denied':
+        return LifeMateRuntimeLocale.select(
+          fa: LifeMateRuntimeLocale.select(
+            fa: 'یکی از دسترسی‌های مراقبتی تغییر کرده است. صفحه را تازه‌سازی کنید.',
+            en: "One of the care accesses has changed. Refresh the page.",
+          ),
+          en: "One of the care accesses has changed. Refresh the page.",
+        );
+      case 'invitation_contact_mismatch':
+        return LifeMateRuntimeLocale.select(
+          fa: LifeMateRuntimeLocale.select(
+            fa: 'این دعوت برای حساب دیگری صادر شده است.',
+            en: "This invitation has been issued for another account.",
+          ),
+          en: "This invitation has been issued for another account.",
+        );
+      case 'invitation_expired':
+        return LifeMateRuntimeLocale.select(
+          fa: LifeMateRuntimeLocale.select(
+            fa: 'مهلت این دعوت تمام شده است؛ دعوت جدید بخواهید.',
+            en: "The deadline for this invitation has expired; Ask for a new invitation.",
+          ),
+          en: "The deadline for this invitation has expired; Ask for a new invitation.",
+        );
+      case 'invitation_not_found':
+        return LifeMateRuntimeLocale.select(
+          fa: LifeMateRuntimeLocale.select(
+            fa: 'کد دعوت معتبر نیست.',
+            en: "The invitation code is not valid.",
+          ),
+          en: "The invitation code is not valid.",
+        );
+      default:
+        return error.isUnauthorized
+            ? LifeMateRuntimeLocale.select(
+                fa: LifeMateRuntimeLocale.select(
+                  fa: 'نشست شما منقضی شده است. دوباره وارد شوید.',
+                  en: "Your session has expired. Sign in again.",
+                ),
+                en: "Your session has expired. Sign in again.",
+              )
+            : LifeMateRuntimeLocale.select(
+                fa: LifeMateRuntimeLocale.select(
+                  fa: 'درخواست انجام نشد. دوباره تلاش کنید.',
+                  en: "Request failed. Try again.",
+                ),
+                en: "Request failed. Try again.",
+              );
+    }
+  }
+}
+
+class _LoadingQueueShell extends StatelessWidget {
+  const _LoadingQueueShell({required this.font});
+
+  final TextStyle font;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      height: 286,
+      width: double.infinity,
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: 0.94),
+        borderRadius: BorderRadius.circular(30),
+      ),
+      child: Center(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            CircularProgressIndicator(),
+            SizedBox(height: 12),
+            Text(
+              LifeMateRuntimeLocale.select(
+                fa: LifeMateRuntimeLocale.select(
+                  fa: 'در حال آماده‌سازی صف مراقبت…',
+                  en: "Preparing care queue…",
+                ),
+                en: "Preparing care queue…",
+              ),
+              style: font.copyWith(
+                fontSize: 12,
+                color: AppColors.secondaryText,
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }
 
-String _friendlyApiError(LifeMateApiException error) => switch (error.code) {
-  'offline' => LifeMateRuntimeLocale.select(
-    fa: LifeMateRuntimeLocale.select(
-      fa: 'به اینترنت متصل نیستید. اتصال را بررسی کنید و دوباره تلاش کنید.',
-      en: 'You are offline. Check your connection and try again.',
-    ),
-    en: 'You are offline. Check your connection and try again.',
-  ),
-  'timeout' => LifeMateRuntimeLocale.select(
-    fa: LifeMateRuntimeLocale.select(
-      fa: 'پاسخ سرویس طول کشید. دوباره تلاش کنید.',
-      en: 'The service took too long to respond. Try again.',
-    ),
-    en: 'The service took too long to respond. Try again.',
-  ),
-  'care_invitation_invalid',
-  'care_invitation_expired',
-  'care_invitation_used',
-  'care_invitation_revoked' => LifeMateRuntimeLocale.select(
-    fa: LifeMateRuntimeLocale.select(
-      fa: 'این دعوت معتبر یا قابل استفاده نیست.',
-      en: 'This invitation is not valid or usable.',
-    ),
-    en: 'This invitation is not valid or usable.',
-  ),
-  'care_invitation_self' => LifeMateRuntimeLocale.select(
-    fa: LifeMateRuntimeLocale.select(
-      fa: 'نمی‌توانید دعوت مراقبت متعلق به خودتان را بپذیرید.',
-      en: 'You cannot accept your own care invitation.',
-    ),
-    en: 'You cannot accept your own care invitation.',
-  ),
-  'unauthorized' => LifeMateRuntimeLocale.select(
-    fa: LifeMateRuntimeLocale.select(
-      fa: 'نشست شما منقضی شده است. دوباره وارد شوید.',
-      en: 'Your session has expired. Sign in again.',
-    ),
-    en: 'Your session has expired. Sign in again.',
-  ),
-  _ => LifeMateRuntimeLocale.select(
-    fa: LifeMateRuntimeLocale.select(
-      fa: 'درخواست انجام نشد. دوباره تلاش کنید.',
-      en: 'The request could not be completed. Try again.',
-    ),
-    en: 'The request could not be completed. Try again.',
-  ),
-};
-
-class _CareHomeLoadingState extends StatelessWidget {
-  const _CareHomeLoadingState();
-
-  @override
-  Widget build(BuildContext context) => const Padding(
-    padding: EdgeInsets.symmetric(vertical: 72),
-    child: Center(child: CircularProgressIndicator()),
-  );
-}
-
-class _CareHomeErrorState extends StatelessWidget {
-  const _CareHomeErrorState({required this.message, required this.onRetry});
+class _InlineRetry extends StatelessWidget {
+  const _InlineRetry({
+    required this.message,
+    required this.onRetry,
+    required this.font,
+  });
 
   final String message;
   final Future<void> Function() onRetry;
+  final TextStyle font;
 
   @override
-  Widget build(BuildContext context) => Padding(
-    padding: const EdgeInsets.symmetric(vertical: 48),
-    child: Column(
+  Widget build(BuildContext context) {
+    return Row(
       children: [
-        const Icon(Icons.cloud_off_rounded, size: 42),
-        const SizedBox(height: 12),
-        Text(message, textAlign: TextAlign.center),
-        const SizedBox(height: 14),
-        FilledButton(
+        Expanded(
+          child: Text(
+            message,
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+            style: font.copyWith(fontSize: 11.5, color: Color(0xFFB14955)),
+          ),
+        ),
+        TextButton(
           onPressed: onRetry,
           child: Text(
             LifeMateRuntimeLocale.select(
-              fa: LifeMateRuntimeLocale.select(fa: 'تلاش دوباره', en: 'Retry'),
-              en: 'Retry',
+              fa: LifeMateRuntimeLocale.select(
+                fa: 'تلاش دوباره',
+                en: "Try again",
+              ),
+              en: "Try again",
             ),
           ),
         ),
       ],
-    ),
-  );
+    );
+  }
+}
+
+class _ConnectCareCard extends StatelessWidget {
+  const _ConnectCareCard({
+    required this.accepting,
+    required this.onTap,
+    required this.font,
+  });
+
+  final bool accepting;
+  final VoidCallback onTap;
+  final TextStyle font;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: EdgeInsets.all(20),
+      decoration: AppColors.softDecoration(),
+      child: Column(
+        children: [
+          Icon(
+            Icons.family_restroom_rounded,
+            color: AppColors.primaryBlue,
+            size: 42,
+          ),
+          SizedBox(height: 10),
+          Text(
+            LifeMateRuntimeLocale.select(
+              fa: LifeMateRuntimeLocale.select(
+                fa: 'هنوز فردی به مراقبت شما متصل نیست',
+                en: "No one is connected to your care yet",
+              ),
+              en: "No one is connected to your care yet",
+            ),
+            textAlign: TextAlign.center,
+            style: font.copyWith(fontSize: 15, fontWeight: FontWeight.w900),
+          ),
+          SizedBox(height: 7),
+          Text(
+            LifeMateRuntimeLocale.select(
+              fa: LifeMateRuntimeLocale.select(
+                fa: 'با دعوت WellMate ارتباط مراقبتی امن را فعال کنید.',
+                en: "Enable secure care communication by inviting WellMate.",
+              ),
+              en: "Enable secure care communication by inviting WellMate.",
+            ),
+            textAlign: TextAlign.center,
+            style: font.copyWith(fontSize: 11.5, color: Color(0xFF7D8B9D)),
+          ),
+          SizedBox(height: 14),
+          FilledButton.icon(
+            onPressed: accepting ? null : onTap,
+            icon: accepting
+                ? SizedBox.square(
+                    dimension: 17,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  )
+                : Icon(Icons.person_add_alt_1_rounded),
+            label: Text(
+              LifeMateRuntimeLocale.select(
+                fa: LifeMateRuntimeLocale.select(
+                  fa: 'افزودن فرد تحت مراقبت',
+                  en: "Add a person under care",
+                ),
+                en: "Add a person under care",
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
 }
