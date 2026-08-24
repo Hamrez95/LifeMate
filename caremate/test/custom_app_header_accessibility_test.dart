@@ -32,12 +32,14 @@ void main() {
       );
       await tester.pump();
 
-      final alerts = find.bySemanticsLabel(
-        'هشدارهای مراقبتی، مورد جدید دارید',
-      );
-      final profile = find.bySemanticsLabel('بازکردن پروفایل');
+      final alerts = find.byKey(const Key('caremate-header-alerts'));
+      final profile = find.byKey(const Key('caremate-header-profile'));
       expect(alerts, findsOneWidget);
       expect(profile, findsOneWidget);
+      expect(
+        find.bySemanticsLabel('هشدارهای مراقبتی، مورد جدید دارید'),
+        findsOneWidget,
+      );
       expect(tester.getSize(alerts).width, greaterThanOrEqualTo(48));
       expect(tester.getSize(alerts).height, greaterThanOrEqualTo(48));
       expect(tester.getSize(profile).width, greaterThanOrEqualTo(48));
