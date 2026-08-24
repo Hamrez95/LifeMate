@@ -572,6 +572,21 @@ class LifeMateApiClient {
     ),
   );
 
+  Future<List<Map<String, dynamic>>> claimCareCompletionNotifications({
+    required String relationshipId,
+  }) async {
+    final value = _asObject(
+      await _send(
+        'PATCH',
+        '/api/v1/care/relationships/$relationshipId/permissions',
+        body: {'claimCompletionNotifications': true},
+      ),
+    );
+    final items = value['completionNotifications'];
+    if (items is! List) return const <Map<String, dynamic>>[];
+    return items.map(_asObject).toList(growable: false);
+  }
+
   Future<Map<String, dynamic>> getCareRecipientWomenCalendar({
     required String patientUserId,
   }) async => _asObject(
