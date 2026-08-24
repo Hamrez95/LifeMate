@@ -8,6 +8,7 @@ class CareHomeRelationship {
     required this.canViewWomenCalendar,
     this.patientProfilePhotoUrl,
     this.patientAvatarKey,
+    this.patientPhoneNumber,
   });
 
   final String relationshipId;
@@ -15,6 +16,7 @@ class CareHomeRelationship {
   final String patientDisplayName;
   final String? patientProfilePhotoUrl;
   final String? patientAvatarKey;
+  final String? patientPhoneNumber;
   final bool canViewWomenCalendar;
 
   factory CareHomeRelationship.fromJson(Map<String, dynamic> value) {
@@ -33,6 +35,7 @@ class CareHomeRelationship {
           : name,
       patientProfilePhotoUrl: _nullableText(value['patientProfilePhotoUrl']),
       patientAvatarKey: _nullableText(value['patientAvatarKey']),
+      patientPhoneNumber: _nullableText(value['patientPhoneNumber']),
       canViewWomenCalendar: value['canViewWomenCalendar'] == true,
     );
   }

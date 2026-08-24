@@ -210,7 +210,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
       context: context,
       backgroundColor: Colors.transparent,
       isScrollControlled: true,
-      builder: (context) => Container(
+      builder: (sheetContext) => Container(
         padding: EdgeInsets.fromLTRB(20, 18, 20, 26),
         decoration: BoxDecoration(
           color: Colors.white,
@@ -235,16 +235,67 @@ class _DashboardScreenState extends State<DashboardScreen> {
               SizedBox(height: 12),
               ConstrainedBox(
                 constraints: BoxConstraints(
-                  maxHeight: MediaQuery.sizeOf(context).height * 0.55,
+                  maxHeight: MediaQuery.sizeOf(sheetContext).height * 0.55,
                 ),
                 child: ListView.builder(
                   shrinkWrap: true,
                   itemCount: alerts.length,
-                  itemBuilder: (_, index) => CareHomeTreatmentListTile(
-                    item: alerts[index],
-                    isPersian: isPersian,
-                    compact: true,
-                  ),
+                  itemBuilder: (_, index) {
+                    final item = alerts[index];
+                    CareHomeRelationship? relationship;
+                    for (final candidate in snapshot.relationships) {
+                      if (candidate.patientUserId == item.patientUserId) {
+                        relationship = candidate;
+                        break;
+                      }
+                    }
+                    final canCall = relationship?.patientPhoneNumber != null;
+                    return Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        CareHomeTreatmentListTile(
+                          item: item,
+                          isPersian: isPersian,
+                          compact: true,
+                        ),
+                        if (canCall)
+                          Align(
+                            alignment: AlignmentDirectional.centerEnd,
+                            child: Semantics(
+                              button: true,
+                              label: LifeMateRuntimeLocale.select(
+                                fa: 'تماس با ${item.patientDisplayName}',
+                                en: 'Call ${item.patientDisplayName}',
+                              ),
+                              child: TextButton.icon(
+                                onPressed: () async {
+                                  final opened = await context
+                                      .read<CareNotificationProvider>()
+                                      .openPatientDialer(item.patientUserId);
+                                  if (!opened && mounted) {
+                                    LifeMateNotice.show(
+                                      context,
+                                      message: LifeMateRuntimeLocale.select(
+                                        fa: 'شماره تماس معتبر دیگر در دسترس نیست.',
+                                        en: 'A valid phone number is no longer available.',
+                                      ),
+                                      type: LifeMateNoticeType.info,
+                                    );
+                                  }
+                                },
+                                icon: const Icon(Icons.call_outlined, size: 18),
+                                label: Text(
+                                  LifeMateRuntimeLocale.select(
+                                    fa: 'تماس',
+                                    en: 'Call',
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ),
+                      ],
+                    );
+                  },
                 ),
               ),
             ],
@@ -740,7 +791,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   fa: 'درخواست انجام نشد. دوباره تلاش کنید.',
                   en: "Request failed. Try again.",
                 ),
-                en: "Request failed. Try again.",
+                en: "Request failed. Try again",
               );
     }
   }

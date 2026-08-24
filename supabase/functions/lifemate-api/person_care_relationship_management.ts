@@ -1,3 +1,4 @@
+import { createContactPointReader } from "./contact_points.ts";
 import { getLifeMateSql } from "./database_client.ts";
 import { ApiError, requiredUuid } from "./validation.ts";
 
@@ -12,6 +13,7 @@ export function createPersonCareRelationshipManagementStore(
   databaseUrl: string,
 ) {
   const sql = getLifeMateSql(databaseUrl);
+  const contactReader = createContactPointReader();
 
   async function listRelationships(
     appUserId: string,
@@ -31,7 +33,18 @@ export function createPersonCareRelationshipManagementStore(
       order by r.created_at_utc desc
       limit 100
     `;
-    return rows.map(mapRelationshipRow);
+    const mapped: Record<string, unknown>[] = [];
+    for (const row of rows) {
+      const relationship = mapRelationshipRow(row);
+      relationship.patientPhoneNumber = await readPatientPhoneForCaregiver(
+        sql,
+        contactReader,
+        row,
+        personId,
+      );
+      mapped.push(relationship);
+    }
+    return mapped;
   }
 
   async function updateRelationshipPermissions(
@@ -133,6 +146,38 @@ export function createPersonCareRelationshipManagementStore(
     updateRelationshipPermissions,
     revokeRelationship,
   };
+}
+
+async function readPatientPhoneForCaregiver(
+  connection: any,
+  contactReader: ReturnType<typeof createContactPointReader>,
+  row: Row,
+  callerPersonId: string,
+): Promise<string | null> {
+  if (
+    String(row.status).toLowerCase() !== "active" ||
+    String(row.caregiver_person_id) !== callerPersonId ||
+    row.patient_consented_at_utc == null ||
+    row.caregiver_consented_at_utc == null ||
+    typeof row.patient_user_id !== "string"
+  ) {
+    return null;
+  }
+  const legacyRows = await connection`
+    select phone_number
+    from lifemate.user_profiles
+    where user_id = ${row.patient_user_id}::uuid
+    limit 1
+  `;
+  const legacyPhone = legacyRows[0]?.phone_number == null
+    ? null
+    : String(legacyRows[0].phone_number);
+  return await contactReader.readForProfile(
+    connection,
+    String(row.patient_user_id),
+    "Phone",
+    legacyPhone,
+  );
 }
 
 async function requireSelfPerson(

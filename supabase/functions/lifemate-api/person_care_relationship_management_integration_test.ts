@@ -19,7 +19,7 @@ const contactSecret = "integration-only-contact-secret-with-32-plus-characters";
 
 Deno.test({
   name:
-    "relationship list permission ownership and revocation use canonical Person membership",
+    "relationship list permission ownership revocation and caregiver phone use canonical Person membership",
   sanitizeOps: false,
   sanitizeResources: false,
   fn: async () => {
@@ -27,6 +27,7 @@ Deno.test({
     const db = createLifeMateDatabase(databaseUrl, contactSecret);
     const suffix = crypto.randomUUID();
     const relationshipId = crypto.randomUUID();
+    const patientPhone = "+989121234567";
 
     try {
       const patient = await bootstrap(
@@ -74,6 +75,11 @@ Deno.test({
       }
 
       await admin`
+        update lifemate.user_profiles
+        set phone_number=${patientPhone},updated_at_utc=now()
+        where user_id=${patient.appUserId}::uuid
+      `;
+      await admin`
         insert into lifemate.care_relationships(
           id,patient_user_id,caregiver_user_id,status,
           patient_consent_version,patient_consented_at_utc,
@@ -97,10 +103,12 @@ Deno.test({
         patientRows[0].caregiverDisplayName,
         "Canonical Caregiver",
       );
+      assertEquals(patientRows[0].patientPhoneNumber, null);
 
       const caregiverRows = await db.listRelationships(caregiver.appUserId);
       assertEquals(caregiverRows.length, 1);
       assertEquals(caregiverRows[0].id, relationshipId);
+      assertEquals(caregiverRows[0].patientPhoneNumber, patientPhone);
 
       const unrelatedRows = await db.listRelationships(unrelated.appUserId);
       assertEquals(unrelatedRows.length, 0);
@@ -144,9 +152,10 @@ Deno.test({
       assertEquals(revoked[0].patient_person_id, patientCanonical.personId);
       assertEquals(revoked[0].caregiver_person_id, caregiverCanonical.personId);
 
-      const afterRevoke = await db.listRelationships(patient.appUserId);
+      const afterRevoke = await db.listRelationships(caregiver.appUserId);
       assertEquals(afterRevoke.length, 1);
       assertEquals(afterRevoke[0].status, "revoked");
+      assertEquals(afterRevoke[0].patientPhoneNumber, null);
     } finally {
       await closeLifeMateSqlClientsForTest().catch(() => undefined);
       await admin.end({ timeout: 5 }).catch(() => undefined);

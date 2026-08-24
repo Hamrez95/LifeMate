@@ -213,6 +213,12 @@ class _AuthenticatedCareMateShellState
   final GlobalKey<NavigatorState> _navigatorKey = GlobalKey<NavigatorState>();
 
   @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    context.read<CareNotificationProvider>().attachApiClient(widget.apiClient);
+  }
+
+  @override
   Widget build(BuildContext context) {
     return Provider<LifeMateApiClient>.value(
       value: widget.apiClient,
