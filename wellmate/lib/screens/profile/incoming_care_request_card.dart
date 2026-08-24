@@ -104,46 +104,61 @@ class IncomingCareRequestCard extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 14),
-          Row(
-            children: [
-              Expanded(
-                child: OutlinedButton.icon(
-                  key: const Key('incoming-care-request-reject'),
-                  onPressed: loading ? null : onReject,
-                  style: OutlinedButton.styleFrom(
-                    minimumSize: const Size.fromHeight(48),
-                    foregroundColor: const Color(0xFFE6535B),
-                    side: const BorderSide(color: Color(0xFFFFD7D9)),
-                    backgroundColor: const Color(0xFFFFF7F7),
-                  ),
-                  icon: const Icon(Icons.close_rounded),
-                  label: Text(
-                    LifeMateRuntimeLocale.select(fa: 'رد درخواست', en: 'Reject'),
-                  ),
-                ),
-              ),
-              const SizedBox(width: 8),
-              Expanded(
-                child: FilledButton.icon(
-                  key: const Key('incoming-care-request-accept'),
-                  onPressed: loading ? null : onAccept,
-                  style: FilledButton.styleFrom(
-                    minimumSize: const Size.fromHeight(48),
-                    backgroundColor: AppColors.primary,
-                  ),
-                  icon: const Icon(Icons.check_rounded),
-                  label: Text(
-                    LifeMateRuntimeLocale.select(
-                      fa: 'تأیید درخواست',
-                      en: 'Accept',
-                    ),
-                  ),
-                ),
-              ),
-            ],
+          LayoutBuilder(
+            builder: (context, constraints) {
+              final textScale = MediaQuery.textScalerOf(context).scale(1);
+              final stackActions = constraints.maxWidth < 320 || textScale > 1.3;
+              final reject = _rejectButton();
+              final accept = _acceptButton();
+              if (stackActions) {
+                return Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    accept,
+                    const SizedBox(height: 8),
+                    reject,
+                  ],
+                );
+              }
+              return Row(
+                children: [
+                  Expanded(child: reject),
+                  const SizedBox(width: 8),
+                  Expanded(child: accept),
+                ],
+              );
+            },
           ),
         ],
       ),
     );
   }
+
+  Widget _rejectButton() => OutlinedButton.icon(
+    key: const Key('incoming-care-request-reject'),
+    onPressed: loading ? null : onReject,
+    style: OutlinedButton.styleFrom(
+      minimumSize: const Size.fromHeight(48),
+      foregroundColor: const Color(0xFFE6535B),
+      side: const BorderSide(color: Color(0xFFFFD7D9)),
+      backgroundColor: const Color(0xFFFFF7F7),
+    ),
+    icon: const Icon(Icons.close_rounded),
+    label: Text(
+      LifeMateRuntimeLocale.select(fa: 'رد درخواست', en: 'Reject'),
+    ),
+  );
+
+  Widget _acceptButton() => FilledButton.icon(
+    key: const Key('incoming-care-request-accept'),
+    onPressed: loading ? null : onAccept,
+    style: FilledButton.styleFrom(
+      minimumSize: const Size.fromHeight(48),
+      backgroundColor: AppColors.primary,
+    ),
+    icon: const Icon(Icons.check_rounded),
+    label: Text(
+      LifeMateRuntimeLocale.select(fa: 'تأیید درخواست', en: 'Accept'),
+    ),
+  );
 }
