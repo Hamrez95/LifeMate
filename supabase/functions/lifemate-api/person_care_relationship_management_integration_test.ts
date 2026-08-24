@@ -19,7 +19,7 @@ const contactSecret = "integration-only-contact-secret-with-32-plus-characters";
 
 Deno.test({
   name:
-    "relationship list permission ownership revocation and caregiver phone use canonical Person membership",
+    "relationship inventory phone preferences permission ownership and revocation use canonical Person membership",
   sanitizeOps: false,
   sanitizeResources: false,
   fn: async () => {
@@ -99,19 +99,69 @@ Deno.test({
       assertEquals(patientRows[0].patientUserId, patient.appUserId);
       assertEquals(patientRows[0].caregiverUserId, caregiver.appUserId);
       assertEquals(patientRows[0].patientDisplayName, "Canonical Patient");
-      assertEquals(
-        patientRows[0].caregiverDisplayName,
-        "Canonical Caregiver",
-      );
+      assertEquals(patientRows[0].caregiverDisplayName, "Canonical Caregiver");
       assertEquals(patientRows[0].patientPhoneNumber, null);
+      assertEquals(patientRows[0].notificationPreferences, null);
 
       const caregiverRows = await db.listRelationships(caregiver.appUserId);
       assertEquals(caregiverRows.length, 1);
       assertEquals(caregiverRows[0].id, relationshipId);
       assertEquals(caregiverRows[0].patientPhoneNumber, patientPhone);
+      assertEquals(caregiverRows[0].notificationPreferences, {
+        enabled: true,
+        missedAlertsEnabled: true,
+        completionMode: "off",
+        careEventsEnabled: true,
+        dailySummaryEnabled: false,
+        dailySummaryLocalTime: "20:00",
+        lockScreenDetail: "limited",
+      });
 
       const unrelatedRows = await db.listRelationships(unrelated.appUserId);
       assertEquals(unrelatedRows.length, 0);
+
+      await assertApiError(
+        () =>
+          db.updateNotificationPreferences(patient.appUserId, relationshipId, {
+            enabled: false,
+            missedAlertsEnabled: false,
+            completionMode: "off",
+            careEventsEnabled: false,
+            dailySummaryEnabled: false,
+            dailySummaryLocalTime: "20:00",
+            lockScreenDetail: "hidden",
+          }),
+        404,
+        "relationship_not_found",
+      );
+
+      const preferences = await db.updateRelationshipPermissions(
+        caregiver.appUserId,
+        relationshipId,
+        {
+          notificationPreferences: {
+            enabled: true,
+            missedAlertsEnabled: false,
+            completionMode: "after_missed",
+            careEventsEnabled: false,
+            dailySummaryEnabled: true,
+            dailySummaryLocalTime: "21:15",
+            lockScreenDetail: "hidden",
+          },
+        },
+      );
+      assertEquals(preferences, {
+        enabled: true,
+        missedAlertsEnabled: false,
+        completionMode: "after_missed",
+        careEventsEnabled: false,
+        dailySummaryEnabled: true,
+        dailySummaryLocalTime: "21:15",
+        lockScreenDetail: "hidden",
+      });
+
+      const caregiverReload = await db.listRelationships(caregiver.appUserId);
+      assertEquals(caregiverReload[0].notificationPreferences, preferences);
 
       await assertApiError(
         () =>
@@ -156,6 +206,7 @@ Deno.test({
       assertEquals(afterRevoke.length, 1);
       assertEquals(afterRevoke[0].status, "revoked");
       assertEquals(afterRevoke[0].patientPhoneNumber, null);
+      assertEquals(afterRevoke[0].notificationPreferences, null);
     } finally {
       await closeLifeMateSqlClientsForTest().catch(() => undefined);
       await admin.end({ timeout: 5 }).catch(() => undefined);
