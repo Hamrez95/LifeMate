@@ -53,6 +53,7 @@ class CustomAppHeader extends StatelessWidget {
             clipBehavior: Clip.none,
             children: [
               _SoftHeaderButton(
+                key: const Key('caremate-header-alerts'),
                 tooltip: notificationLabel,
                 semanticLabel: notificationLabel,
                 icon: Icons.notifications_none_rounded,
@@ -91,6 +92,7 @@ class CustomAppHeader extends StatelessWidget {
             ),
           ),
           Semantics(
+            key: const Key('caremate-header-profile'),
             button: true,
             label: LifeMateRuntimeLocale.select(
               fa: 'بازکردن پروفایل',
@@ -147,6 +149,7 @@ class CustomAppHeader extends StatelessWidget {
 
 class _SoftHeaderButton extends StatelessWidget {
   const _SoftHeaderButton({
+    super.key,
     required this.tooltip,
     required this.semanticLabel,
     required this.icon,
