@@ -11,6 +11,7 @@ import 'package:lifemate_client/lifemate_client.dart';
 class CareNotificationProvider extends ChangeNotifier {
   final FlutterLocalNotificationsPlugin _notifications =
       FlutterLocalNotificationsPlugin();
+  final Map<String, String> _lastMissedOccurrenceByPatient = {};
   bool _initialized = false;
   bool _permissionRequested = false;
 
@@ -103,20 +104,31 @@ class CareNotificationProvider extends ChangeNotifier {
     await initialize();
     await _requestPermissionsIfNeeded();
 
-    final pending = await _notifications.pendingNotificationRequests();
-    for (final request in pending) {
-      if (request.payload?.startsWith('care-missed:') == true) {
-        await _notifications.cancel(request.id);
-      }
+    final nowUtc = DateTime.now().toUtc();
+    final alerts = selectLatestMissedAlertPerPatient(
+      candidates,
+      nowUtc: nowUtc,
+    );
+    final activePatients = alerts.map((alert) => alert.patientUserId).toSet();
+    final stalePatients = _lastMissedOccurrenceByPatient.keys
+        .where((patientUserId) => !activePatients.contains(patientUserId))
+        .toList(growable: false);
+    for (final patientUserId in stalePatients) {
+      await _notifications.cancel(_notificationId('missed:$patientUserId'));
+      _lastMissedOccurrenceByPatient.remove(patientUserId);
     }
 
-    final alerts = selectLatestMissedAlertPerPatient(candidates);
     for (final alert in alerts) {
+      if (_lastMissedOccurrenceByPatient[alert.patientUserId] ==
+          alert.occurrenceId) {
+        continue;
+      }
       final scheduled = alert.scheduledAtUtc.toLocal();
       final timeText =
           '${scheduled.hour.toString().padLeft(2, '0')}:'
                   '${scheduled.minute.toString().padLeft(2, '0')}'
               .toPersianDigit(isPersian);
+      final lateText = _lateText(alert, nowUtc, isPersian: isPersian);
       final title = isPersian
           ? '${alert.patientName.toPersianDigit(true)} هنوز ${_missedVerb(alert.kind)}'
           : '${alert.patientName} has an unfinished ${_kindLabel(alert.kind)}';
@@ -124,6 +136,7 @@ class CareNotificationProvider extends ChangeNotifier {
         alert.title,
         if (alert.subtitle.trim().isNotEmpty) alert.subtitle.trim(),
         isPersian ? 'زمان برنامه: $timeText' : 'Scheduled: $timeText',
+        lateText,
       ].join(' • ').toPersianDigit(isPersian);
 
       await _notifications.show(
@@ -151,11 +164,13 @@ class CareNotificationProvider extends ChangeNotifier {
             priority: Priority.high,
             category: AndroidNotificationCategory.reminder,
             visibility: NotificationVisibility.private,
+            onlyAlertOnce: true,
           ),
         ),
         payload:
             'care-missed:${alert.patientUserId}:${alert.kind}:${alert.occurrenceId}',
       );
+      _lastMissedOccurrenceByPatient[alert.patientUserId] = alert.occurrenceId;
     }
   }
 
@@ -196,6 +211,25 @@ class CareNotificationProvider extends ChangeNotifier {
     'injection' => 'injection',
     _ => 'medication',
   };
+
+  static String _lateText(
+    CareRecipientAlert alert,
+    DateTime nowUtc, {
+    required bool isPersian,
+  }) {
+    final minutes = nowUtc.toUtc().difference(alert.scheduledAtUtc.toUtc()).inMinutes;
+    if (minutes < 60) {
+      return isPersian ? '$minutes دقیقه گذشته' : '$minutes min late';
+    }
+    final hours = minutes ~/ 60;
+    final remainder = minutes % 60;
+    if (remainder == 0) {
+      return isPersian ? '$hours ساعت گذشته' : '$hours h late';
+    }
+    return isPersian
+        ? '$hours ساعت و $remainder دقیقه گذشته'
+        : '$hours h $remainder min late';
+  }
 
   static int _notificationId(String value) {
     var hash = 0x811c9dc5;
