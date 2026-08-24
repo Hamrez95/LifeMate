@@ -12,9 +12,19 @@ export function createCareCompletionNotificationStore(databaseUrl: string) {
   ): Promise<Record<string, unknown>[]> {
     const caregiverPersonId = await requireSelfPerson(sql, caregiverAppUserId);
     const relationshipId = requiredUuid(relationshipIdValue, "relationshipId");
-    const medicationRows = await claimMedication(sql, caregiverPersonId, relationshipId);
-    const careEventRows = await claimCareEvents(sql, caregiverPersonId, relationshipId);
-    return [...medicationRows, ...careEventRows].map(mapNotification).sort(compareRecordedAt);
+    const medicationRows = await claimMedication(
+      sql,
+      caregiverPersonId,
+      relationshipId,
+    );
+    const careEventRows = await claimCareEvents(
+      sql,
+      caregiverPersonId,
+      relationshipId,
+    );
+    return [...medicationRows, ...careEventRows].map(mapNotification).sort(
+      compareRecordedAt,
+    );
   }
 
   async function history(
@@ -23,8 +33,16 @@ export function createCareCompletionNotificationStore(databaseUrl: string) {
   ): Promise<Record<string, unknown>[]> {
     const caregiverPersonId = await requireSelfPerson(sql, caregiverAppUserId);
     const relationshipId = requiredUuid(relationshipIdValue, "relationshipId");
-    const medicationRows = await medicationHistory(sql, caregiverPersonId, relationshipId);
-    const careEventRows = await careEventHistory(sql, caregiverPersonId, relationshipId);
+    const medicationRows = await medicationHistory(
+      sql,
+      caregiverPersonId,
+      relationshipId,
+    );
+    const careEventRows = await careEventHistory(
+      sql,
+      caregiverPersonId,
+      relationshipId,
+    );
     return [...medicationRows, ...careEventRows]
       .map(mapNotification)
       .sort(compareRecordedAt)
@@ -269,7 +287,9 @@ function mapNotification(row: Row): Record<string, unknown> {
     previousStatus: String(row.previous_status ?? "").toLowerCase(),
     resultingStatus: String(row.resulting_status ?? "").toLowerCase(),
     eventType: String(row.event_type ?? "").toLowerCase(),
-    evidenceClass: kind === "medication" ? "self_reported" : "reported_completion",
+    evidenceClass: kind === "medication"
+      ? "self_reported"
+      : "reported_completion",
     occurredAtUtc: iso(row.occurred_at_utc),
     recordedAtUtc: iso(row.recorded_at_utc),
     lockScreenDetail: String(row.caregiver_lock_screen_detail ?? "limited"),
@@ -283,7 +303,10 @@ function compareRecordedAt(
   return String(left.recordedAtUtc).localeCompare(String(right.recordedAtUtc));
 }
 
-async function requireSelfPerson(connection: any, appUserId: string): Promise<string> {
+async function requireSelfPerson(
+  connection: any,
+  appUserId: string,
+): Promise<string> {
   const rows = await connection`
     select core.self_person_id_for_legacy_app_user(${appUserId}::uuid)::text as person_id
   `;
@@ -299,5 +322,7 @@ async function requireSelfPerson(connection: any, appUserId: string): Promise<st
 }
 
 function iso(value: unknown): string {
-  return value instanceof Date ? value.toISOString() : new Date(String(value)).toISOString();
+  return value instanceof Date
+    ? value.toISOString()
+    : new Date(String(value)).toISOString();
 }
