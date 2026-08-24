@@ -9,7 +9,8 @@ if (!databaseUrl) {
 }
 
 Deno.test({
-  name: "completion claims are preference aware idempotent current-state and revoked safe",
+  name:
+    "completion claims are preference aware idempotent current-state and revoked safe",
   sanitizeOps: false,
   sanitizeResources: false,
   fn: async () => {
@@ -26,8 +27,10 @@ Deno.test({
     const planId = crypto.randomUUID();
     const scheduleId = crypto.randomUUID();
     const occurrenceId = crypto.randomUUID();
-    const eventId = crypto.randomUUID();
-    const requestId = crypto.randomUUID();
+    const adherenceEventId = crypto.randomUUID();
+    const adherenceRequestId = crypto.randomUUID();
+    const careEventId = crypto.randomUUID();
+    const careEventRequestId = crypto.randomUUID();
 
     try {
       await admin.begin(async (tx) => {
@@ -77,7 +80,10 @@ Deno.test({
         await tx`
           insert into lifemate.medications(
             id,owner_person_id,name,strength_text,form,notes,version,created_at_utc,updated_at_utc
-          ) values (${medicationId}::uuid,${patientPersonId}::uuid,'Metformin','500 mg','tablet',null,1,now(),now())
+          ) values (
+            ${medicationId}::uuid,${patientPersonId}::uuid,'Metformin','500 mg',
+            'tablet',null,1,now(),now()
+          )
         `;
         await tx`
           insert into lifemate.treatment_plans(
@@ -89,8 +95,9 @@ Deno.test({
           )
         `;
         await tx`
-          insert into lifemate.treatment_schedules(id,treatment_plan_id,day_of_week,local_time,created_at_utc)
-          values (${scheduleId}::uuid,${planId}::uuid,'monday','08:00',now())
+          insert into lifemate.treatment_schedules(
+            id,treatment_plan_id,day_of_week,local_time,created_at_utc
+          ) values (${scheduleId}::uuid,${planId}::uuid,'monday','08:00',now())
         `;
         await tx`
           insert into lifemate.dose_occurrences(
@@ -107,8 +114,9 @@ Deno.test({
             id,occurrence_id,actor_user_id,client_request_id,event_type,previous_status,
             resulting_status,occurred_at_utc,recorded_at_utc
           ) values (
-            ${eventId}::uuid,${occurrenceId}::uuid,${patientUserId}::uuid,${requestId}::uuid,
-            'Taken','Scheduled','Taken',now()-interval '1 minute',now()
+            ${adherenceEventId}::uuid,${occurrenceId}::uuid,${patientUserId}::uuid,
+            ${adherenceRequestId}::uuid,'Taken','Scheduled','Taken',
+            now()-interval '1 minute',now()
           )
         `;
       });
@@ -117,13 +125,11 @@ Deno.test({
       assertEquals(first.length, 1);
       assertEquals(first[0].patientDisplayName, "مامان جون");
       assertEquals(first[0].medicationName, "Metformin");
+      assertEquals(first[0].kind, "medication");
       assertEquals(first[0].evidenceClass, "self_reported");
 
-      final duplicate = await store.claim(caregiverUserId, relationshipId);
-      assertEquals(duplicate.length, 0);
-
-      final history = await store.history(caregiverUserId, relationshipId);
-      assertEquals(history.length, 1);
+      assertEquals((await store.claim(caregiverUserId, relationshipId)).length, 0);
+      assertEquals((await store.history(caregiverUserId, relationshipId)).length, 1);
 
       await admin`
         update lifemate.dose_occurrences
@@ -132,12 +138,50 @@ Deno.test({
       `;
       assertEquals((await store.history(caregiverUserId, relationshipId)).length, 0);
 
+      await admin.begin(async (tx) => {
+        await tx`
+          update lifemate.care_relationships
+          set caregiver_completion_mode='important',updated_at_utc=now()
+          where id=${relationshipId}::uuid
+        `;
+        await tx`
+          insert into lifemate.care_events(
+            id,patient_user_id,patient_person_id,created_by_user_id,client_request_id,
+            event_type,title,medication_name,dose_text,scheduled_local_date,
+            scheduled_local_time,time_zone,recurrence_unit,recurrence_interval,
+            recurrence_weekdays,status,completed_at_utc,version,
+            provenance_source,provenance_restricted,created_at_utc,updated_at_utc
+          ) values (
+            ${careEventId}::uuid,${patientUserId}::uuid,${patientPersonId}::uuid,
+            ${patientUserId}::uuid,${careEventRequestId}::uuid,'Injection',
+            'Vitamin injection','Vitamin B12','1 dose',current_date,
+            (localtime - interval '30 minutes')::time,'Asia/Tehran','none',1,
+            array[]::smallint[],'Completed',now(),2,'PatientInput',false,now(),now()
+          )
+        `;
+      });
+
+      final careEventClaim = await store.claim(caregiverUserId, relationshipId);
+      assertEquals(careEventClaim.length, 1);
+      assertEquals(careEventClaim[0].kind, "injection");
+      assertEquals(careEventClaim[0].medicationName, "Vitamin B12");
+      assertEquals(careEventClaim[0].evidenceClass, "reported_completion");
+      assertEquals((await store.claim(caregiverUserId, relationshipId)).length, 0);
+
+      final combinedHistory = await store.history(caregiverUserId, relationshipId);
+      assertEquals(combinedHistory.length, 1);
+      assertEquals(combinedHistory[0].kind, "injection");
+
       await admin`
-        update lifemate.dose_occurrences set status='Taken',updated_at_utc=now()
-        where id=${occurrenceId}::uuid
+        update lifemate.care_events
+        set status='Cancelled',completed_at_utc=null,version=version+1,updated_at_utc=now()
+        where id=${careEventId}::uuid
       `;
+      assertEquals((await store.history(caregiverUserId, relationshipId)).length, 0);
+
       await admin`
-        update lifemate.care_relationships set status='Revoked',revoked_at_utc=now(),updated_at_utc=now()
+        update lifemate.care_relationships
+        set status='Revoked',revoked_at_utc=now(),updated_at_utc=now()
         where id=${relationshipId}::uuid
       `;
       assertEquals((await store.history(caregiverUserId, relationshipId)).length, 0);
@@ -146,6 +190,7 @@ Deno.test({
       await closeLifeMateSqlClientsForTest().catch(() => undefined);
       await admin.begin(async (tx) => {
         await tx`delete from lifemate.caregiver_completion_notification_receipts where relationship_id=${relationshipId}::uuid`;
+        await tx`delete from lifemate.care_events where id=${careEventId}::uuid`;
         await tx`delete from lifemate.dose_adherence_events where occurrence_id=${occurrenceId}::uuid`;
         await tx`delete from lifemate.dose_occurrences where id=${occurrenceId}::uuid`;
         await tx`delete from lifemate.treatment_schedules where id=${scheduleId}::uuid`;
