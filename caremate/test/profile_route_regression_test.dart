@@ -16,33 +16,7 @@ void main() {
   ) async {
     final api = _FakeCareMateApiClient();
 
-    await tester.pumpWidget(
-      ChangeNotifierProvider(
-        create: (_) => LocaleProvider(),
-        child: CareMateApp(
-          home: Provider<LifeMateApiClient>.value(
-            value: api,
-            child: Navigator(
-              onGenerateRoute: (_) => MaterialPageRoute<void>(
-                builder: (context) => Scaffold(
-                  body: Center(
-                    child: FilledButton(
-                      key: const Key('open-caremate-profile'),
-                      onPressed: () => Navigator.of(context).push(
-                        MaterialPageRoute<void>(
-                          builder: (_) => const ProfileScreen(),
-                        ),
-                      ),
-                      child: const Text('پروفایل'),
-                    ),
-                  ),
-                ),
-              ),
-            ),
-          ),
-        ),
-      ),
-    );
+    await tester.pumpWidget(_profileHarness(api: api));
     await tester.pumpAndSettle();
 
     await tester.tap(find.byKey(const Key('open-caremate-profile')));
@@ -75,6 +49,26 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
+  testWidgets('English profile uses product copy instead of literal translations', (
+    WidgetTester tester,
+  ) async {
+    final api = _FakeCareMateApiClient();
+    final locale = LocaleProvider()..setLocale(const Locale('en'));
+
+    await tester.pumpWidget(_profileHarness(api: api, locale: locale));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('open-caremate-profile')));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Health profile'), findsOneWidget);
+    expect(find.text('People under care'), findsOneWidget);
+    expect(find.text('App settings'), findsOneWidget);
+    expect(find.text('Referral code'), findsOneWidget);
+    expect(find.text('Identification code'), findsNothing);
+    expect(find.text('Program settings'), findsNothing);
+    expect(tester.takeException(), isNull);
+  });
+
   test('displayed app version matches caremate pubspec', () {
     final versionLine = File(
       'pubspec.yaml',
@@ -83,6 +77,37 @@ void main() {
 
     expect(careMateAppVersion, pubspecVersion);
   });
+}
+
+Widget _profileHarness({
+  required LifeMateApiClient api,
+  LocaleProvider? locale,
+}) {
+  return ChangeNotifierProvider<LocaleProvider>.value(
+    value: locale ?? LocaleProvider(),
+    child: CareMateApp(
+      home: Provider<LifeMateApiClient>.value(
+        value: api,
+        child: Navigator(
+          onGenerateRoute: (_) => MaterialPageRoute<void>(
+            builder: (context) => Scaffold(
+              body: Center(
+                child: FilledButton(
+                  key: const Key('open-caremate-profile'),
+                  onPressed: () => Navigator.of(context).push(
+                    MaterialPageRoute<void>(
+                      builder: (_) => const ProfileScreen(),
+                    ),
+                  ),
+                  child: const Text('پروفایل'),
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    ),
+  );
 }
 
 class _FakeCareMateApiClient extends LifeMateApiClient {
