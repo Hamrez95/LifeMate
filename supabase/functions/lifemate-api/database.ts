@@ -119,16 +119,12 @@ export function createLifeMateDatabase(
         return await database.createInvitation(identity, body);
       }
 
-      // Public phone invitation creation is retired. Phone pairing is now a
-      // caregiver -> WellMate in-app care request and must never invoke SMS.
       throw new ApiError(
         410,
         "phone_care_invitation_retired",
         "Phone care invitations are retired. Use the care request flow.",
       );
     },
-    // Compatibility-only fixture/legacy acceptance surface. It is not routed by
-    // the public HTTP create-invitation endpoint and has no delivery provider.
     createPhoneInvitation: phoneInvitations.createPhoneInvitation,
     revokeInvitation: invitationRevocation.revokePendingInvitation,
     acceptInvitation: (
@@ -142,6 +138,10 @@ export function createLifeMateDatabase(
           personInvitationAcceptance.acceptInvitation(identity, nonPhoneBody),
       ),
     listRelationships: personCareRelationships.listRelationships,
+    getNotificationPreferences:
+      personCareRelationships.getNotificationPreferences,
+    updateNotificationPreferences:
+      personCareRelationships.updateNotificationPreferences,
     updateRelationshipPermissions:
       personCareRelationships.updateRelationshipPermissions,
     revokeRelationship: personCareRelationships.revokeRelationship,
