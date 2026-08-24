@@ -1,19 +1,33 @@
+import 'dart:async';
+
 import 'package:flutter/foundation.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
+import 'package:lifemate_client/lifemate_client.dart';
 import 'package:timezone/data/latest.dart' as tz_data;
 import 'package:timezone/timezone.dart' as tz;
+import 'package:url_launcher/url_launcher.dart';
 
 import '../core/utils/string_extensions.dart';
 import '../models/care_recipient_alert.dart';
 import '../models/care_recipient_reminder.dart';
-import 'package:lifemate_client/lifemate_client.dart';
 
 class CareNotificationProvider extends ChangeNotifier {
   final FlutterLocalNotificationsPlugin _notifications =
       FlutterLocalNotificationsPlugin();
   final Map<String, String> _lastMissedOccurrenceByPatient = {};
+  LifeMateApiClient? _apiClient;
+  NotificationResponse? _pendingResponse;
   bool _initialized = false;
   bool _permissionRequested = false;
+
+  void attachApiClient(LifeMateApiClient apiClient) {
+    _apiClient = apiClient;
+    final pending = _pendingResponse;
+    if (pending != null) {
+      _pendingResponse = null;
+      unawaited(_handleNotificationResponse(pending));
+    }
+  }
 
   Future<void> initialize() async {
     if (_initialized) return;
@@ -21,8 +35,40 @@ class CareNotificationProvider extends ChangeNotifier {
     const settings = InitializationSettings(
       android: AndroidInitializationSettings('@mipmap/ic_launcher'),
     );
-    await _notifications.initialize(settings);
+    await _notifications.initialize(
+      settings,
+      onDidReceiveNotificationResponse: _onNotificationResponse,
+    );
     _initialized = true;
+  }
+
+  void _onNotificationResponse(NotificationResponse response) {
+    if (_apiClient == null) {
+      _pendingResponse = response;
+      return;
+    }
+    unawaited(_handleNotificationResponse(response));
+  }
+
+  Future<void> _handleNotificationResponse(NotificationResponse response) async {
+    if (response.actionId != 'care-call') return;
+    final patientUserId = _patientIdFromPayload(response.payload);
+    final apiClient = _apiClient;
+    if (patientUserId == null || apiClient == null) return;
+    try {
+      final relationships = await apiClient.getCareRelationships();
+      final phone = resolveAuthorizedPatientPhone(
+        relationships,
+        patientUserId: patientUserId,
+      );
+      if (phone == null) return;
+      await launchUrl(
+        Uri(scheme: 'tel', path: phone),
+        mode: LaunchMode.externalApplication,
+      );
+    } catch (error) {
+      debugPrint('CareMate call action failed safely: $error');
+    }
   }
 
   Future<void> syncEarliestPerRecipient(
@@ -118,6 +164,7 @@ class CareNotificationProvider extends ChangeNotifier {
       _lastMissedOccurrenceByPatient.remove(patientUserId);
     }
 
+    final relationships = await _safeRelationships();
     for (final alert in alerts) {
       if (_lastMissedOccurrenceByPatient[alert.patientUserId] ==
           alert.occurrenceId) {
@@ -142,6 +189,20 @@ class CareNotificationProvider extends ChangeNotifier {
         ),
         lateText,
       ].join(' • ').toPersianDigit(isPersian);
+      final phone = resolveAuthorizedPatientPhone(
+        relationships,
+        patientUserId: alert.patientUserId,
+      );
+      final actions = phone == null
+          ? const <AndroidNotificationAction>[]
+          : <AndroidNotificationAction>[
+              AndroidNotificationAction(
+                'care-call',
+                LifeMateRuntimeLocale.select(fa: 'تماس', en: 'Call'),
+                showsUserInterface: true,
+                cancelNotification: false,
+              ),
+            ];
 
       await _notifications.show(
         _notificationId('missed:${alert.patientUserId}'),
@@ -169,12 +230,23 @@ class CareNotificationProvider extends ChangeNotifier {
             category: AndroidNotificationCategory.reminder,
             visibility: NotificationVisibility.private,
             onlyAlertOnce: true,
+            actions: actions,
           ),
         ),
         payload:
             'care-missed:${alert.patientUserId}:${alert.kind}:${alert.occurrenceId}',
       );
       _lastMissedOccurrenceByPatient[alert.patientUserId] = alert.occurrenceId;
+    }
+  }
+
+  Future<List<Map<String, dynamic>>> _safeRelationships() async {
+    final apiClient = _apiClient;
+    if (apiClient == null) return const [];
+    try {
+      return await apiClient.getCareRelationships();
+    } catch (_) {
+      return const [];
     }
   }
 
@@ -187,6 +259,29 @@ class CareNotificationProvider extends ChangeNotifier {
     await android?.requestNotificationsPermission();
     await android?.requestExactAlarmsPermission();
     _permissionRequested = true;
+  }
+
+  static String? resolveAuthorizedPatientPhone(
+    Iterable<Map<String, dynamic>> relationships, {
+    required String patientUserId,
+  }) {
+    for (final relationship in relationships) {
+      if (relationship['patientUserId']?.toString() != patientUserId ||
+          relationship['status']?.toString().toLowerCase() != 'active') {
+        continue;
+      }
+      final value = relationship['patientPhoneNumber']?.toString().trim();
+      if (value != null && value.isNotEmpty) return value;
+    }
+    return null;
+  }
+
+  static String? _patientIdFromPayload(String? payload) {
+    if (payload == null || !payload.startsWith('care-missed:')) return null;
+    final parts = payload.split(':');
+    if (parts.length < 4) return null;
+    final patientUserId = parts[1].trim();
+    return patientUserId.isEmpty ? null : patientUserId;
   }
 
   static String _kindTitle(String kind) => switch (kind) {
