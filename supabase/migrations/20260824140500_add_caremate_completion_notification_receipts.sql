@@ -12,3 +12,22 @@ create index if not exists ix_caregiver_completion_receipts_relationship
 
 create index if not exists ix_caregiver_completion_receipts_source
     on lifemate.caregiver_completion_notification_receipts(source_adherence_event_id);
+
+alter table lifemate.caregiver_completion_notification_receipts enable row level security;
+alter table lifemate.caregiver_completion_notification_receipts force row level security;
+
+do $$
+begin
+  if exists (select 1 from pg_roles where rolname = 'lifemate_edge_runtime') then
+    grant select, insert, update, delete
+      on lifemate.caregiver_completion_notification_receipts
+      to lifemate_edge_runtime;
+    drop policy if exists lifemate_edge_runtime_access
+      on lifemate.caregiver_completion_notification_receipts;
+    create policy lifemate_edge_runtime_access
+      on lifemate.caregiver_completion_notification_receipts
+      for all to lifemate_edge_runtime
+      using (true) with check (true);
+  end if;
+end
+$$;
