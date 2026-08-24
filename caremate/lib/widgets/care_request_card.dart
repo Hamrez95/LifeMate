@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:lifemate_client/lifemate_client.dart';
 
 import '../core/constants/app_colors.dart';
@@ -32,7 +31,7 @@ class _CareRequestCardState extends State<CareRequestCard> {
 
   Future<void> _showPhoneRequest() async {
     if (_phoneSubmitting) return;
-    final controller = TextEditingController();
+    var phoneInput = '';
     var consent = false;
     final phone = await showModalBottomSheet<String>(
       context: context,
@@ -40,121 +39,137 @@ class _CareRequestCardState extends State<CareRequestCard> {
       backgroundColor: Colors.transparent,
       builder: (sheetContext) => StatefulBuilder(
         builder: (context, setSheetState) {
-          final valid = _looksLikeIranMobile(controller.text);
+          final valid = _looksLikeIranMobile(phoneInput);
           return Padding(
             padding: EdgeInsets.only(
               bottom: MediaQuery.viewInsetsOf(context).bottom,
             ),
             child: Container(
-              padding: const EdgeInsets.fromLTRB(22, 14, 22, 24),
+              constraints: BoxConstraints(
+                maxHeight: MediaQuery.sizeOf(context).height * 0.92,
+              ),
               decoration: const BoxDecoration(
                 color: Colors.white,
                 borderRadius: BorderRadius.vertical(top: Radius.circular(30)),
               ),
               child: SafeArea(
                 top: false,
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Center(
-                      child: Container(
-                        width: 42,
-                        height: 4,
-                        decoration: BoxDecoration(
-                          color: Colors.black12,
-                          borderRadius: BorderRadius.circular(20),
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 18),
-                    Text(
-                      LifeMateRuntimeLocale.select(
-                        fa: 'درخواست مراقبت با شماره تلفن',
-                        en: 'Request care by phone number',
-                      ),
-                      style: const TextStyle(
-                        fontSize: 20,
-                        fontWeight: FontWeight.w900,
-                      ),
-                    ),
-                    const SizedBox(height: 6),
-                    Text(
-                      LifeMateRuntimeLocale.select(
-                        fa: 'شماره موبایل فرد را وارد کنید. برای حفظ حریم خصوصی، نتیجه مشخص نمی‌کند این شماره عضو LifeMate هست یا نه. دسترسی فقط بعد از تأیید خود فرد فعال می‌شود.',
-                        en: 'Enter the person’s mobile number. For privacy, the result never confirms whether the number belongs to a LifeMate account. Access starts only after their approval.',
-                      ),
-                      style: const TextStyle(
-                        height: 1.6,
-                        color: AppColors.secondaryText,
-                      ),
-                    ),
-                    const SizedBox(height: 16),
-                    TextField(
-                      key: const Key('phone-care-request-input'),
-                      controller: controller,
-                      keyboardType: TextInputType.phone,
-                      textDirection: TextDirection.ltr,
-                      autocorrect: false,
-                      enableSuggestions: false,
-                      inputFormatters: const [LifeMateLocaleDigitInputFormatter()],
-                      onChanged: (_) => setSheetState(() {}),
-                      decoration: InputDecoration(
-                        labelText: LifeMateRuntimeLocale.select(
-                          fa: 'شماره موبایل',
-                          en: 'Mobile number',
-                        ),
-                        hintText: '0912 123 4567',
-                        prefixIcon: const Icon(Icons.phone_iphone_rounded),
-                        filled: true,
-                        fillColor: const Color(0xFFF3F7FC),
-                        errorText: controller.text.isNotEmpty && !valid
-                            ? LifeMateRuntimeLocale.select(
-                                fa: 'شماره موبایل ایران را درست وارد کنید.',
-                                en: 'Enter a valid Iranian mobile number.',
-                              )
-                            : null,
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(18),
-                          borderSide: BorderSide.none,
-                        ),
-                      ),
-                    ),
-                    CheckboxListTile(
-                      value: consent,
-                      contentPadding: EdgeInsets.zero,
-                      controlAffinity: ListTileControlAffinity.leading,
-                      onChanged: (value) =>
-                          setSheetState(() => consent = value ?? false),
-                      title: Text(
-                        LifeMateRuntimeLocale.select(
-                          fa: 'می‌دانم درخواست فقط برای تأیید به خود فرد نمایش داده می‌شود و تا قبل از رضایت او هیچ اطلاعات سلامتی در دسترس من نیست.',
-                          en: 'I understand the request is shown only for the person’s approval and gives me no health access before consent.',
-                        ),
-                        style: const TextStyle(fontSize: 12.5, height: 1.55),
-                      ),
-                    ),
-                    const SizedBox(height: 4),
-                    SizedBox(
-                      width: double.infinity,
-                      child: FilledButton.icon(
-                        key: const Key('phone-care-request-submit'),
-                        onPressed: consent && valid
-                            ? () => Navigator.pop(
-                                sheetContext,
-                                controller.text.trim(),
-                              )
-                            : null,
-                        icon: const Icon(Icons.send_rounded),
-                        label: Text(
-                          LifeMateRuntimeLocale.select(
-                            fa: 'ارسال درخواست',
-                            en: 'Submit request',
+                child: SingleChildScrollView(
+                  padding: const EdgeInsets.fromLTRB(22, 14, 22, 24),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Center(
+                        child: Container(
+                          width: 42,
+                          height: 4,
+                          decoration: BoxDecoration(
+                            color: Colors.black12,
+                            borderRadius: BorderRadius.circular(20),
                           ),
                         ),
                       ),
-                    ),
-                  ],
+                      const SizedBox(height: 18),
+                      Text(
+                        LifeMateRuntimeLocale.select(
+                          fa: 'درخواست مراقبت با شماره تلفن',
+                          en: 'Request care by phone number',
+                        ),
+                        style: const TextStyle(
+                          fontSize: 20,
+                          fontWeight: FontWeight.w900,
+                        ),
+                      ),
+                      const SizedBox(height: 6),
+                      Text(
+                        LifeMateRuntimeLocale.select(
+                          fa: 'شماره موبایل فرد را وارد کنید. برای حفظ حریم خصوصی، نتیجه مشخص نمی‌کند این شماره عضو LifeMate هست یا نه. دسترسی فقط بعد از تأیید خود فرد فعال می‌شود.',
+                          en: 'Enter the person’s mobile number. For privacy, the result never confirms whether the number belongs to a LifeMate account. Access starts only after their approval.',
+                        ),
+                        style: const TextStyle(
+                          height: 1.6,
+                          color: AppColors.secondaryText,
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+                      TextFormField(
+                        key: const Key('phone-care-request-input'),
+                        initialValue: phoneInput,
+                        keyboardType: TextInputType.phone,
+                        textDirection: TextDirection.ltr,
+                        autocorrect: false,
+                        enableSuggestions: false,
+                        inputFormatters: const [
+                          LifeMateLocaleDigitInputFormatter(),
+                        ],
+                        onChanged: (value) => setSheetState(
+                          () => phoneInput = value,
+                        ),
+                        decoration: InputDecoration(
+                          labelText: LifeMateRuntimeLocale.select(
+                            fa: 'شماره موبایل',
+                            en: 'Mobile number',
+                          ),
+                          hintText: '0912 123 4567',
+                          prefixIcon: const Icon(Icons.phone_iphone_rounded),
+                          filled: true,
+                          fillColor: const Color(0xFFF3F7FC),
+                          errorText: phoneInput.isNotEmpty && !valid
+                              ? LifeMateRuntimeLocale.select(
+                                  fa: 'شماره موبایل ایران را درست وارد کنید.',
+                                  en: 'Enter a valid Iranian mobile number.',
+                                )
+                              : null,
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(18),
+                            borderSide: BorderSide.none,
+                          ),
+                        ),
+                      ),
+                      Material(
+                        color: Colors.transparent,
+                        child: CheckboxListTile(
+                          value: consent,
+                          contentPadding: EdgeInsets.zero,
+                          controlAffinity: ListTileControlAffinity.leading,
+                          onChanged: (value) => setSheetState(
+                            () => consent = value ?? false,
+                          ),
+                          title: Text(
+                            LifeMateRuntimeLocale.select(
+                              fa: 'می‌دانم درخواست فقط برای تأیید به خود فرد نمایش داده می‌شود و تا قبل از رضایت او هیچ اطلاعات سلامتی در دسترس من نیست.',
+                              en: 'I understand the request is shown only for the person’s approval and gives me no health access before consent.',
+                            ),
+                            style: const TextStyle(
+                              fontSize: 12.5,
+                              height: 1.55,
+                            ),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      SizedBox(
+                        width: double.infinity,
+                        child: FilledButton.icon(
+                          key: const Key('phone-care-request-submit'),
+                          onPressed: consent && valid
+                              ? () => Navigator.pop(
+                                  sheetContext,
+                                  phoneInput.trim(),
+                                )
+                              : null,
+                          icon: const Icon(Icons.send_rounded),
+                          label: Text(
+                            LifeMateRuntimeLocale.select(
+                              fa: 'ارسال درخواست',
+                              en: 'Submit request',
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
               ),
             ),
@@ -162,7 +177,6 @@ class _CareRequestCardState extends State<CareRequestCard> {
         },
       ),
     );
-    controller.dispose();
     if (phone == null || !mounted) return;
 
     setState(() {
