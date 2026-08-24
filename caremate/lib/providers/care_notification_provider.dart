@@ -289,13 +289,28 @@ class CareNotificationProvider extends ChangeNotifier {
     Iterable<Map<String, dynamic>> relationships, {
     required bool isPersian,
   }) async {
+    final apiClient = _apiClient;
+    if (apiClient == null) return;
     for (final relationship in relationships) {
-      final rawItems = relationship['newCompletionNotifications'];
-      if (rawItems is! List) continue;
-      for (final rawItem in rawItems) {
-        if (rawItem is! Map) continue;
-        final item = Map<String, dynamic>.from(rawItem);
+      final relationshipId = relationship['id']?.toString().trim();
+      if (relationshipId == null ||
+          relationshipId.isEmpty ||
+          relationship['status']?.toString().toLowerCase() != 'active' ||
+          relationship['notificationPreferences'] is! Map) {
+        continue;
+      }
+      List<Map<String, dynamic>> items;
+      try {
+        items = await apiClient.claimCareCompletionNotifications(
+          relationshipId: relationshipId,
+        );
+      } catch (error) {
+        debugPrint('CareMate completion claim failed safely: $error');
+        continue;
+      }
+      for (final item in items) {
         final sourceEventId = item['sourceEventId']?.toString().trim();
+        final sourceKey = item['sourceKey']?.toString().trim();
         final patientUserId = item['patientUserId']?.toString().trim();
         if (sourceEventId == null ||
             sourceEventId.isEmpty ||
@@ -303,9 +318,12 @@ class CareNotificationProvider extends ChangeNotifier {
             patientUserId.isEmpty) {
           continue;
         }
+        final stableKey = sourceKey == null || sourceKey.isEmpty
+            ? sourceEventId
+            : sourceKey;
         final copy = completionCopy(item, isPersian: isPersian);
         await _notifications.show(
-          _notificationId('completion:$sourceEventId'),
+          _notificationId('completion:$stableKey'),
           copy.title,
           copy.body,
           NotificationDetails(
@@ -360,28 +378,28 @@ class CareNotificationProvider extends ChangeNotifier {
     required bool isPersian,
   }) {
     final patient = item['patientDisplayName']?.toString().trim();
-    final medication = item['medicationName']?.toString().trim();
+    final treatment = item['medicationName']?.toString().trim();
     final safePatient = patient == null || patient.isEmpty
         ? (isPersian ? 'فرد تحت مراقبت' : 'Your loved one')
         : patient;
-    final safeMedication = medication == null || medication.isEmpty
-        ? (isPersian ? 'دارو' : 'medication')
-        : medication;
+    final safeTreatment = treatment == null || treatment.isEmpty
+        ? (isPersian ? 'درمان' : 'treatment')
+        : treatment;
     final evidence = item['evidenceClass']?.toString().toLowerCase();
 
     if (isPersian) {
       return CareCompletionCopy(
         title: '💚 یک خبر خوب از $safePatient',
         body: evidence == 'self_reported'
-            ? '$safePatient ثبت کرد که $safeMedication را مصرف کرده.'
-            : 'برای $safePatient انجام $safeMedication ثبت شد.',
+            ? '$safePatient ثبت کرد که $safeTreatment را مصرف کرده.'
+            : 'برای $safePatient انجام $safeTreatment ثبت شد.',
       );
     }
     return CareCompletionCopy(
       title: '💚 A reassuring update from $safePatient',
       body: evidence == 'self_reported'
-          ? '$safePatient recorded $safeMedication as taken.'
-          : 'A completion was recorded for $safePatient: $safeMedication.',
+          ? '$safePatient recorded $safeTreatment as taken.'
+          : 'A completion was recorded for $safePatient: $safeTreatment.',
     );
   }
 
