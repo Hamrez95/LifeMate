@@ -4,10 +4,19 @@ import { ApiError, requiredUuid } from "./validation.ts";
 
 type Row = Record<string, any>;
 
+const completionModes = new Set([
+  "all",
+  "important",
+  "after_missed",
+  "daily_summary",
+  "off",
+]);
+const lockScreenDetails = new Set(["full", "limited", "hidden"]);
+
 /**
- * Canonical Person membership boundary for relationship inventory, permission
- * ownership and revocation. Legacy AppUser participant IDs remain only for the
- * public compatibility contract and actor/audit provenance during migration.
+ * Canonical Person membership boundary for relationship inventory, caregiver
+ * preferences, permission ownership and revocation. Legacy AppUser participant
+ * IDs remain only for public compatibility and actor/audit provenance.
  */
 export function createPersonCareRelationshipManagementStore(
   databaseUrl: string,
@@ -36,15 +45,92 @@ export function createPersonCareRelationshipManagementStore(
     const mapped: Record<string, unknown>[] = [];
     for (const row of rows) {
       const relationship = mapRelationshipRow(row);
+      const isActiveCaregiver = String(row.status).toLowerCase() === "active" &&
+        String(row.caregiver_person_id) === personId &&
+        row.patient_consented_at_utc != null &&
+        row.caregiver_consented_at_utc != null;
       relationship.patientPhoneNumber = await readPatientPhoneForCaregiver(
         sql,
         contactReader,
         row,
         personId,
       );
+      relationship.notificationPreferences = isActiveCaregiver
+        ? mapNotificationPreferences(row)
+        : null;
       mapped.push(relationship);
     }
     return mapped;
+  }
+
+  async function getNotificationPreferences(
+    caregiverAppUserId: string,
+    relationshipIdValue: unknown,
+  ): Promise<Record<string, unknown>> {
+    const relationshipId = requiredUuid(relationshipIdValue, "relationshipId");
+    const caregiverPersonId = await requireSelfPerson(sql, caregiverAppUserId);
+    const rows = await sql`
+      select *
+      from lifemate.care_relationships
+      where id = ${relationshipId}::uuid
+        and caregiver_person_id = ${caregiverPersonId}::uuid
+        and status = 'Active'
+        and patient_consented_at_utc is not null
+        and caregiver_consented_at_utc is not null
+      limit 1
+    `;
+    if (!rows[0]) {
+      throw new ApiError(
+        404,
+        "relationship_not_found",
+        "Active caregiver relationship was not found.",
+      );
+    }
+    return mapNotificationPreferences(rows[0]);
+  }
+
+  async function updateNotificationPreferences(
+    caregiverAppUserId: string,
+    relationshipIdValue: unknown,
+    body: Record<string, unknown>,
+  ): Promise<Record<string, unknown>> {
+    const relationshipId = requiredUuid(relationshipIdValue, "relationshipId");
+    const patch = normalizeNotificationPreferences(body);
+    return await sql.begin(async (tx: any) => {
+      const caregiverPersonId = await requireSelfPerson(tx, caregiverAppUserId);
+      const rows = await tx`
+        update lifemate.care_relationships
+        set caregiver_notifications_enabled = ${patch.enabled},
+            caregiver_missed_alerts_enabled = ${patch.missedAlertsEnabled},
+            caregiver_completion_mode = ${patch.completionMode},
+            caregiver_care_events_enabled = ${patch.careEventsEnabled},
+            caregiver_daily_summary_enabled = ${patch.dailySummaryEnabled},
+            caregiver_daily_summary_local_time = ${patch.dailySummaryLocalTime}::time,
+            caregiver_lock_screen_detail = ${patch.lockScreenDetail},
+            updated_at_utc = now()
+        where id = ${relationshipId}::uuid
+          and caregiver_person_id = ${caregiverPersonId}::uuid
+          and status = 'Active'
+          and patient_consented_at_utc is not null
+          and caregiver_consented_at_utc is not null
+        returning *
+      `;
+      if (!rows[0]) {
+        throw new ApiError(
+          404,
+          "relationship_not_found",
+          "Active caregiver relationship was not found.",
+        );
+      }
+      await insertAudit(
+        tx,
+        caregiverAppUserId,
+        "care_relationship.notification_preferences_updated",
+        "care_relationship",
+        relationshipId,
+      );
+      return mapNotificationPreferences(rows[0]);
+    });
   }
 
   async function updateRelationshipPermissions(
@@ -143,8 +229,112 @@ export function createPersonCareRelationshipManagementStore(
 
   return {
     listRelationships,
+    getNotificationPreferences,
+    updateNotificationPreferences,
     updateRelationshipPermissions,
     revokeRelationship,
+  };
+}
+
+type NotificationPreferences = {
+  enabled: boolean;
+  missedAlertsEnabled: boolean;
+  completionMode: string;
+  careEventsEnabled: boolean;
+  dailySummaryEnabled: boolean;
+  dailySummaryLocalTime: string;
+  lockScreenDetail: string;
+};
+
+function normalizeNotificationPreferences(
+  body: Record<string, unknown>,
+): NotificationPreferences {
+  const enabled = requiredBoolean(body.enabled, "enabled");
+  const missedAlertsEnabled = requiredBoolean(
+    body.missedAlertsEnabled,
+    "missedAlertsEnabled",
+  );
+  const careEventsEnabled = requiredBoolean(
+    body.careEventsEnabled,
+    "careEventsEnabled",
+  );
+  const dailySummaryEnabled = requiredBoolean(
+    body.dailySummaryEnabled,
+    "dailySummaryEnabled",
+  );
+  const completionMode = requiredChoice(
+    body.completionMode,
+    "completionMode",
+    completionModes,
+  );
+  const lockScreenDetail = requiredChoice(
+    body.lockScreenDetail,
+    "lockScreenDetail",
+    lockScreenDetails,
+  );
+  const dailySummaryLocalTime = String(body.dailySummaryLocalTime ?? "").trim();
+  if (!/^([01]\d|2[0-3]):[0-5]\d$/.test(dailySummaryLocalTime)) {
+    throw new ApiError(
+      400,
+      "invalid_notification_preference",
+      "dailySummaryLocalTime must use HH:mm.",
+    );
+  }
+  return {
+    enabled,
+    missedAlertsEnabled,
+    completionMode,
+    careEventsEnabled,
+    dailySummaryEnabled,
+    dailySummaryLocalTime,
+    lockScreenDetail,
+  };
+}
+
+function requiredBoolean(value: unknown, field: string): boolean {
+  if (typeof value !== "boolean") {
+    throw new ApiError(
+      400,
+      "invalid_notification_preference",
+      `${field} must be a boolean.`,
+    );
+  }
+  return value;
+}
+
+function requiredChoice(
+  value: unknown,
+  field: string,
+  allowed: Set<string>,
+): string {
+  const normalized = String(value ?? "").trim().toLowerCase();
+  if (!allowed.has(normalized)) {
+    throw new ApiError(
+      400,
+      "invalid_notification_preference",
+      `${field} has an unsupported value.`,
+    );
+  }
+  return normalized;
+}
+
+function mapNotificationPreferences(row: Row): Record<string, unknown> {
+  const rawTime = row.caregiver_daily_summary_local_time;
+  const localTime = typeof rawTime === "string"
+    ? rawTime.slice(0, 5)
+    : rawTime instanceof Date
+    ? `${rawTime.getHours().toString().padStart(2, "0")}:${
+      rawTime.getMinutes().toString().padStart(2, "0")
+    }`
+    : "20:00";
+  return {
+    enabled: row.caregiver_notifications_enabled !== false,
+    missedAlertsEnabled: row.caregiver_missed_alerts_enabled !== false,
+    completionMode: String(row.caregiver_completion_mode ?? "off"),
+    careEventsEnabled: row.caregiver_care_events_enabled !== false,
+    dailySummaryEnabled: row.caregiver_daily_summary_enabled === true,
+    dailySummaryLocalTime: localTime,
+    lockScreenDetail: String(row.caregiver_lock_screen_detail ?? "limited"),
   };
 }
 

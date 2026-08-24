@@ -545,6 +545,33 @@ class LifeMateApiClient {
     ),
   );
 
+  Future<Map<String, dynamic>> updateCareNotificationPreferences({
+    required String relationshipId,
+    required bool enabled,
+    required bool missedAlertsEnabled,
+    required String completionMode,
+    required bool careEventsEnabled,
+    required bool dailySummaryEnabled,
+    required String dailySummaryLocalTime,
+    required String lockScreenDetail,
+  }) async => _asObject(
+    await _send(
+      'PATCH',
+      '/api/v1/care/relationships/$relationshipId/permissions',
+      body: {
+        'notificationPreferences': {
+          'enabled': enabled,
+          'missedAlertsEnabled': missedAlertsEnabled,
+          'completionMode': completionMode.trim().toLowerCase(),
+          'careEventsEnabled': careEventsEnabled,
+          'dailySummaryEnabled': dailySummaryEnabled,
+          'dailySummaryLocalTime': dailySummaryLocalTime.trim(),
+          'lockScreenDetail': lockScreenDetail.trim().toLowerCase(),
+        },
+      },
+    ),
+  );
+
   Future<Map<String, dynamic>> getCareRecipientWomenCalendar({
     required String patientUserId,
   }) async => _asObject(

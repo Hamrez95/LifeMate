@@ -10,6 +10,7 @@ import '../core/localization/locale_provider.dart';
 import '../core/utils/string_extensions.dart';
 import 'editable_profile_screen.dart';
 import 'feature_preview_screen.dart';
+import 'notification_preferences_screen.dart';
 import 'profile_destination_screens.dart';
 
 class ProfileScreen extends StatelessWidget {
@@ -99,7 +100,7 @@ class ProfileScreen extends StatelessWidget {
         en: 'LifeMate user',
       ),
       isPersian: isPersian,
-      onNotifications: () => open(CareMateNotificationsScreen()),
+      onNotifications: () => open(const CareMateNotificationHubScreen()),
       onEditProfile: () => open(CareMateEditableProfileScreen()),
       onHealthProfile: () =>
           open(CareMateFeaturePreviewScreen(initialIndex: 2)),
@@ -132,7 +133,6 @@ class _LanguageDialog extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final localeProvider = context.watch<LocaleProvider>();
-    final isPersian = localeProvider.locale.languageCode == 'fa';
     return AlertDialog(
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
       title: Text(

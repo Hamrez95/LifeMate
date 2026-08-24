@@ -29,6 +29,15 @@ class CareNotificationProvider extends ChangeNotifier {
     }
   }
 
+  Future<bool?> notificationPermissionEnabled() async {
+    await initialize();
+    final android = _notifications
+        .resolvePlatformSpecificImplementation<
+          AndroidFlutterLocalNotificationsPlugin
+        >();
+    return android?.areNotificationsEnabled();
+  }
+
   Future<bool> openPatientDialer(String patientUserId) async {
     final apiClient = _apiClient;
     if (apiClient == null) return false;
@@ -97,8 +106,20 @@ class CareNotificationProvider extends ChangeNotifier {
         await _notifications.cancel(request.id);
       }
     }
-    final reminders = selectEarliestReminderPerPatient(candidates);
+    final relationships = await _safeRelationships();
+    final allowedCandidates = candidates.where(
+      (reminder) => allowsReminderForRelationships(
+        relationships,
+        patientUserId: reminder.patientUserId,
+        kind: reminder.kind,
+      ),
+    );
+    final reminders = selectEarliestReminderPerPatient(allowedCandidates);
     for (final reminder in reminders) {
+      final relationship = _relationshipForPatient(
+        relationships,
+        reminder.patientUserId,
+      );
       final localTime = tz.TZDateTime.from(reminder.scheduledAtUtc, tz.local);
       final triggerTime = tz.TZDateTime.from(reminder.triggerAtUtc, tz.local);
       final timeText =
@@ -125,9 +146,9 @@ class CareNotificationProvider extends ChangeNotifier {
             LifeMateRuntimeLocale.select(
               fa: LifeMateRuntimeLocale.select(
                 fa: 'برنامه بعدی افراد تحت مراقبت',
-                en: "Next program of people in care",
+                en: 'Next program of people in care',
               ),
-              en: "Next program of people in care",
+              en: 'Next program of people in care',
             ),
             channelDescription: LifeMateRuntimeLocale.select(
               fa: LifeMateRuntimeLocale.select(
@@ -139,7 +160,7 @@ class CareNotificationProvider extends ChangeNotifier {
             importance: Importance.high,
             priority: Priority.high,
             category: AndroidNotificationCategory.reminder,
-            visibility: NotificationVisibility.private,
+            visibility: _visibilityForRelationship(relationship),
           ),
         ),
         androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
@@ -156,9 +177,16 @@ class CareNotificationProvider extends ChangeNotifier {
     await initialize();
     await _requestPermissionsIfNeeded();
 
+    final relationships = await _safeRelationships();
+    final allowedCandidates = candidates.where(
+      (alert) => allowsMissedForRelationships(
+        relationships,
+        patientUserId: alert.patientUserId,
+      ),
+    );
     final nowUtc = DateTime.now().toUtc();
     final alerts = selectLatestMissedAlertPerPatient(
-      candidates,
+      allowedCandidates,
       nowUtc: nowUtc,
     );
     final activePatients = alerts.map((alert) => alert.patientUserId).toSet();
@@ -170,12 +198,15 @@ class CareNotificationProvider extends ChangeNotifier {
       _lastMissedOccurrenceByPatient.remove(patientUserId);
     }
 
-    final relationships = await _safeRelationships();
     for (final alert in alerts) {
       if (_lastMissedOccurrenceByPatient[alert.patientUserId] ==
           alert.occurrenceId) {
         continue;
       }
+      final relationship = _relationshipForPatient(
+        relationships,
+        alert.patientUserId,
+      );
       final scheduled = alert.scheduledAtUtc.toLocal();
       final timeText =
           '${scheduled.hour.toString().padLeft(2, '0')}:'
@@ -234,7 +265,7 @@ class CareNotificationProvider extends ChangeNotifier {
             importance: Importance.high,
             priority: Priority.high,
             category: AndroidNotificationCategory.reminder,
-            visibility: NotificationVisibility.private,
+            visibility: _visibilityForRelationship(relationship),
             onlyAlertOnce: true,
             actions: actions,
           ),
@@ -267,19 +298,71 @@ class CareNotificationProvider extends ChangeNotifier {
     _permissionRequested = true;
   }
 
+  static bool allowsMissedForRelationships(
+    Iterable<Map<String, dynamic>> relationships, {
+    required String patientUserId,
+  }) {
+    final relationship = _relationshipForPatient(relationships, patientUserId);
+    final preferences = _preferences(relationship);
+    return relationship != null &&
+        preferences['enabled'] != false &&
+        preferences['missedAlertsEnabled'] != false;
+  }
+
+  static bool allowsReminderForRelationships(
+    Iterable<Map<String, dynamic>> relationships, {
+    required String patientUserId,
+    required String kind,
+  }) {
+    final relationship = _relationshipForPatient(relationships, patientUserId);
+    final preferences = _preferences(relationship);
+    if (relationship == null || preferences['enabled'] == false) return false;
+    if (kind == 'appointment' || kind == 'injection') {
+      return preferences['careEventsEnabled'] != false;
+    }
+    return true;
+  }
+
   static String? resolveAuthorizedPatientPhone(
     Iterable<Map<String, dynamic>> relationships, {
     required String patientUserId,
   }) {
+    final relationship = _relationshipForPatient(relationships, patientUserId);
+    if (relationship == null) return null;
+    final value = relationship['patientPhoneNumber']?.toString().trim();
+    if (value != null && value.isNotEmpty) return value;
+    return null;
+  }
+
+  static Map<String, dynamic>? _relationshipForPatient(
+    Iterable<Map<String, dynamic>> relationships,
+    String patientUserId,
+  ) {
     for (final relationship in relationships) {
-      if (relationship['patientUserId']?.toString() != patientUserId ||
-          relationship['status']?.toString().toLowerCase() != 'active') {
-        continue;
+      if (relationship['patientUserId']?.toString() == patientUserId &&
+          relationship['status']?.toString().toLowerCase() == 'active') {
+        return relationship;
       }
-      final value = relationship['patientPhoneNumber']?.toString().trim();
-      if (value != null && value.isNotEmpty) return value;
     }
     return null;
+  }
+
+  static Map<String, dynamic> _preferences(Map<String, dynamic>? relationship) {
+    final value = relationship?['notificationPreferences'];
+    return value is Map<String, dynamic> ? value : const <String, dynamic>{};
+  }
+
+  static NotificationVisibility _visibilityForRelationship(
+    Map<String, dynamic>? relationship,
+  ) {
+    final detail = _preferences(
+      relationship,
+    )['lockScreenDetail']?.toString().toLowerCase();
+    return switch (detail) {
+      'full' => NotificationVisibility.public,
+      'hidden' => NotificationVisibility.secret,
+      _ => NotificationVisibility.private,
+    };
   }
 
   static String? _patientIdFromPayload(String? payload) {
@@ -292,16 +375,16 @@ class CareNotificationProvider extends ChangeNotifier {
 
   static String _kindTitle(String kind) => switch (kind) {
     'appointment' => LifeMateRuntimeLocale.select(
-      fa: LifeMateRuntimeLocale.select(fa: 'ویزیت بعدی', en: "Next visit"),
-      en: "Next visit",
+      fa: LifeMateRuntimeLocale.select(fa: 'ویزیت بعدی', en: 'Next visit'),
+      en: 'Next visit',
     ),
     'injection' => LifeMateRuntimeLocale.select(
-      fa: LifeMateRuntimeLocale.select(fa: 'تزریق بعدی', en: "Next injection"),
-      en: "Next injection",
+      fa: LifeMateRuntimeLocale.select(fa: 'تزریق بعدی', en: 'Next injection'),
+      en: 'Next injection',
     ),
     _ => LifeMateRuntimeLocale.select(
-      fa: LifeMateRuntimeLocale.select(fa: 'داروی بعدی', en: "Next medication"),
-      en: "Next medication",
+      fa: LifeMateRuntimeLocale.select(fa: 'داروی بعدی', en: 'Next medication'),
+      en: 'Next medication',
     ),
   };
 
