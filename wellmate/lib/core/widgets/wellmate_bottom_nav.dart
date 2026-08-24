@@ -27,8 +27,8 @@ class WellMateBottomNav extends StatelessWidget {
 
     return SafeArea(
       child: Container(
-        margin: EdgeInsets.symmetric(horizontal: 18, vertical: 14),
-        padding: EdgeInsets.symmetric(vertical: 7),
+        margin: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
+        padding: const EdgeInsets.symmetric(vertical: 7),
         decoration: BoxDecoration(
           color: Colors.white,
           borderRadius: BorderRadius.circular(35),
@@ -36,7 +36,7 @@ class WellMateBottomNav extends StatelessWidget {
             BoxShadow(
               color: AppColors.primary.withOpacity(0.08),
               blurRadius: 20,
-              offset: Offset(0, 10),
+              offset: const Offset(0, 10),
             ),
           ],
         ),
@@ -58,14 +58,6 @@ class WellMateBottomNav extends StatelessWidget {
               icon: Icons.add_circle_outline_rounded,
               label: loc['nav_add_treatment'],
               index: 2,
-              fontFamily: fontFamily,
-            ),
-            _buildNavItem(
-              icon: Icons.monitor_heart_rounded,
-              label: isPersian
-                  ? LifeMateRuntimeLocale.select(fa: 'سلامت', en: "Health")
-                  : 'Health',
-              index: 3,
               fontFamily: fontFamily,
             ),
             if (womenCalendarEnabled)
