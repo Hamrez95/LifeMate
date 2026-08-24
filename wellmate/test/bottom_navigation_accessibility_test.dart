@@ -37,14 +37,16 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      for (var index = 0; index < 5; index += 1) {
+      for (final index in <int>[0, 1, 2, 4, 5]) {
         final item = find.byKey(ValueKey<String>('wellmate-nav-$index'));
         expect(item, findsOneWidget);
         expect(tester.getSize(item).height, greaterThanOrEqualTo(48));
       }
+      expect(find.byKey(const ValueKey<String>('wellmate-nav-3')), findsNothing);
       expect(find.bySemanticsLabel('تقویم'), findsOneWidget);
       expect(find.bySemanticsLabel('افزودن درمان'), findsOneWidget);
       expect(find.bySemanticsLabel('تقویم بانوان'), findsOneWidget);
+      expect(find.bySemanticsLabel('سلامت'), findsNothing);
 
       await tester.tap(find.byKey(const ValueKey<String>('wellmate-nav-0')));
       await tester.pump();

@@ -19,11 +19,13 @@ class HomeScreenContent extends StatefulWidget {
     super.key,
     required this.onOpenTreatments,
     required this.onAddTreatment,
+    required this.onOpenHealth,
     this.refreshToken = 0,
   });
 
   final VoidCallback onOpenTreatments;
   final VoidCallback onAddTreatment;
+  final VoidCallback onOpenHealth;
   final int refreshToken;
 
   @override
@@ -722,7 +724,12 @@ class _HomeScreenContentState extends State<HomeScreenContent> {
                       isPersian: isPersian,
                     ),
             ),
-            SizedBox(height: 24),
+            SizedBox(height: 14),
+            Padding(
+              padding: EdgeInsets.symmetric(horizontal: 20),
+              child: _HomeHealthCard(onTap: widget.onOpenHealth),
+            ),
+            SizedBox(height: 14),
             Expanded(
               child: Container(
                 width: double.infinity,
@@ -868,6 +875,102 @@ class _HomeScreenContentState extends State<HomeScreenContent> {
       left.year == right.year &&
       left.month == right.month &&
       left.day == right.day;
+}
+
+class _HomeHealthCard extends StatelessWidget {
+  const _HomeHealthCard({required this.onTap});
+
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final isPersian = Localizations.localeOf(context).languageCode == 'fa';
+    final title = LifeMateRuntimeLocale.select(
+      fa: LifeMateRuntimeLocale.select(fa: 'سلامت من', en: "My Health"),
+      en: "My Health",
+    );
+    final subtitle = LifeMateRuntimeLocale.select(
+      fa: LifeMateRuntimeLocale.select(
+        fa: 'ثبت سریع و مرور تاریخچه سلامت',
+        en: "Quick log and health history",
+      ),
+      en: "Quick log and health history",
+    );
+    return Semantics(
+      button: true,
+      label: LifeMateRuntimeLocale.select(
+        fa: 'باز کردن $title',
+        en: 'Open $title',
+      ),
+      child: Material(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(24),
+        child: InkWell(
+          key: const ValueKey('home-health-card'),
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(24),
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(minHeight: 88),
+            child: Padding(
+              padding: EdgeInsetsDirectional.fromSTEB(16, 14, 14, 14),
+              child: Row(
+                children: [
+                  Container(
+                    width: 52,
+                    height: 52,
+                    decoration: BoxDecoration(
+                      color: AppColors.primary.withValues(alpha: 0.10),
+                      shape: BoxShape.circle,
+                    ),
+                    child: Icon(
+                      Icons.monitor_heart_rounded,
+                      color: AppColors.primary,
+                      size: 28,
+                    ),
+                  ),
+                  SizedBox(width: 14),
+                  Expanded(
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          title,
+                          style: TextStyle(
+                            fontWeight: FontWeight.w800,
+                            fontSize: 16,
+                            color: AppColors.textPrimary,
+                          ),
+                        ),
+                        SizedBox(height: 4),
+                        Text(
+                          subtitle,
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            fontSize: 12,
+                            height: 1.35,
+                            color: AppColors.textPrimary.withValues(alpha: 0.62),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  SizedBox(width: 8),
+                  Icon(
+                    isPersian
+                        ? Icons.chevron_left_rounded
+                        : Icons.chevron_right_rounded,
+                    color: AppColors.primary,
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
 }
 
 @visibleForTesting
