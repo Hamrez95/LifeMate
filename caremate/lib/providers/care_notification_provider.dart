@@ -4,6 +4,7 @@ import 'package:timezone/data/latest.dart' as tz_data;
 import 'package:timezone/timezone.dart' as tz;
 
 import '../core/utils/string_extensions.dart';
+import '../models/care_recipient_alert.dart';
 import '../models/care_recipient_reminder.dart';
 import 'package:lifemate_client/lifemate_client.dart';
 
@@ -35,16 +36,7 @@ class CareNotificationProvider extends ChangeNotifier {
       tz.setLocalLocation(tz.getLocation('Asia/Tehran'));
     }
 
-    if (!_permissionRequested) {
-      final android = _notifications
-          .resolvePlatformSpecificImplementation<
-            AndroidFlutterLocalNotificationsPlugin
-          >();
-      await android?.requestNotificationsPermission();
-      await android?.requestExactAlarmsPermission();
-      _permissionRequested = true;
-    }
-
+    await _requestPermissionsIfNeeded();
     final pending = await _notifications.pendingNotificationRequests();
     for (final request in pending) {
       if (request.payload?.startsWith('care-reminder:') == true ||
@@ -70,7 +62,7 @@ class CareNotificationProvider extends ChangeNotifier {
       ].join(' • ').toPersianDigit(isPersian);
 
       await _notifications.zonedSchedule(
-        _notificationId(reminder.patientUserId),
+        _notificationId('reminder:${reminder.patientUserId}'),
         title,
         detail,
         triggerTime,
@@ -104,6 +96,80 @@ class CareNotificationProvider extends ChangeNotifier {
     }
   }
 
+  Future<void> syncMissedAlerts(
+    Iterable<CareRecipientAlert> candidates, {
+    required bool isPersian,
+  }) async {
+    await initialize();
+    await _requestPermissionsIfNeeded();
+
+    final pending = await _notifications.pendingNotificationRequests();
+    for (final request in pending) {
+      if (request.payload?.startsWith('care-missed:') == true) {
+        await _notifications.cancel(request.id);
+      }
+    }
+
+    final alerts = selectLatestMissedAlertPerPatient(candidates);
+    for (final alert in alerts) {
+      final scheduled = alert.scheduledAtUtc.toLocal();
+      final timeText =
+          '${scheduled.hour.toString().padLeft(2, '0')}:'
+                  '${scheduled.minute.toString().padLeft(2, '0')}'
+              .toPersianDigit(isPersian);
+      final title = isPersian
+          ? '${alert.patientName.toPersianDigit(true)} هنوز ${_missedVerb(alert.kind)}'
+          : '${alert.patientName} has an unfinished ${_kindLabel(alert.kind)}';
+      final detail = [
+        alert.title,
+        if (alert.subtitle.trim().isNotEmpty) alert.subtitle.trim(),
+        isPersian ? 'زمان برنامه: $timeText' : 'Scheduled: $timeText',
+      ].join(' • ').toPersianDigit(isPersian);
+
+      await _notifications.show(
+        _notificationId('missed:${alert.patientUserId}'),
+        title,
+        detail,
+        NotificationDetails(
+          android: AndroidNotificationDetails(
+            'caremate_missed_treatment',
+            LifeMateRuntimeLocale.select(
+              fa: LifeMateRuntimeLocale.select(
+                fa: 'هشدار درمان پیگیری‌نشده',
+                en: 'Unfinished treatment alerts',
+              ),
+              en: 'Unfinished treatment alerts',
+            ),
+            channelDescription: LifeMateRuntimeLocale.select(
+              fa: LifeMateRuntimeLocale.select(
+                fa: 'هشدارهای شخص‌محور برای درمان‌های فراموش‌شده یا انجام‌نشده',
+                en: 'Person-aware alerts for missed or unfinished treatment items',
+              ),
+              en: 'Person-aware alerts for missed or unfinished treatment items',
+            ),
+            importance: Importance.high,
+            priority: Priority.high,
+            category: AndroidNotificationCategory.reminder,
+            visibility: NotificationVisibility.private,
+          ),
+        ),
+        payload:
+            'care-missed:${alert.patientUserId}:${alert.kind}:${alert.occurrenceId}',
+      );
+    }
+  }
+
+  Future<void> _requestPermissionsIfNeeded() async {
+    if (_permissionRequested) return;
+    final android = _notifications
+        .resolvePlatformSpecificImplementation<
+          AndroidFlutterLocalNotificationsPlugin
+        >();
+    await android?.requestNotificationsPermission();
+    await android?.requestExactAlarmsPermission();
+    _permissionRequested = true;
+  }
+
   static String _kindTitle(String kind) => switch (kind) {
     'appointment' => LifeMateRuntimeLocale.select(
       fa: LifeMateRuntimeLocale.select(fa: 'ویزیت بعدی', en: "Next visit"),
@@ -117,6 +183,18 @@ class CareNotificationProvider extends ChangeNotifier {
       fa: LifeMateRuntimeLocale.select(fa: 'داروی بعدی', en: "Next medication"),
       en: "Next medication",
     ),
+  };
+
+  static String _missedVerb(String kind) => switch (kind) {
+    'appointment' => 'ویزیتش را انجام نداده',
+    'injection' => 'تزریقش را انجام نداده',
+    _ => 'دارویش را مصرف نکرده',
+  };
+
+  static String _kindLabel(String kind) => switch (kind) {
+    'appointment' => 'visit',
+    'injection' => 'injection',
+    _ => 'medication',
   };
 
   static int _notificationId(String value) {
