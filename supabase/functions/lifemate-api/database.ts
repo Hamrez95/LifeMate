@@ -106,6 +106,7 @@ export function createLifeMateDatabase(
       appUserId,
     );
     for (const relationship of relationships) {
+      relationship.newCompletionNotifications = [];
       relationship.recentCompletionNotifications = [];
       if (
         relationship.notificationPreferences == null ||
@@ -113,6 +114,8 @@ export function createLifeMateDatabase(
       ) {
         continue;
       }
+      relationship.newCompletionNotifications =
+        await careCompletionNotifications.claim(appUserId, relationship.id);
       relationship.recentCompletionNotifications =
         await careCompletionNotifications.history(appUserId, relationship.id);
     }
@@ -171,14 +174,6 @@ export function createLifeMateDatabase(
       relationshipId: unknown,
       body: Record<string, unknown>,
     ) => {
-      if (body.claimCompletionNotifications === true) {
-        return {
-          completionNotifications: await careCompletionNotifications.claim(
-            actorAppUserId,
-            relationshipId,
-          ),
-        };
-      }
       const nested = body.notificationPreferences;
       if (
         nested != null && typeof nested === "object" && !Array.isArray(nested)
