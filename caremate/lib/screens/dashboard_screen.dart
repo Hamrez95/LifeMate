@@ -7,6 +7,7 @@ import 'package:provider/provider.dart';
 import '../core/constants/app_colors.dart';
 import '../core/localization/locale_provider.dart';
 import '../models/care_home_snapshot.dart';
+import '../models/care_recipient_alert.dart';
 import '../models/care_recipient_reminder.dart';
 import '../providers/care_notification_provider.dart';
 import '../services/care_home_aggregator.dart';
@@ -116,7 +117,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
   ) async {
     final now = DateTime.now().toUtc();
     final horizon = now.add(const Duration(days: 7));
-    final candidates = <CareRecipientReminder>[];
+    final reminders = <CareRecipientReminder>[];
+    final alerts = <CareRecipientAlert>[];
     for (final item in snapshot.queueItems) {
       final scheduledUtc = item.scheduledAt.toUtc();
       if (!scheduledUtc.isAfter(now) || scheduledUtc.isAfter(horizon)) continue;
@@ -125,7 +127,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
         CareItemType.visit => 'appointment',
         CareItemType.medication => 'medication',
       };
-      candidates.add(
+      reminders.add(
         CareRecipientReminder(
           patientUserId: item.patientUserId,
           patientName: item.patientDisplayName,
@@ -141,6 +143,25 @@ class _DashboardScreenState extends State<DashboardScreen> {
         ),
       );
     }
+    for (final item in snapshot.todayItems.where((item) => item.isAlert)) {
+      final kind = switch (item.type) {
+        CareItemType.injection => 'injection',
+        CareItemType.visit => 'appointment',
+        CareItemType.medication => 'medication',
+      };
+      alerts.add(
+        CareRecipientAlert(
+          patientUserId: item.patientUserId,
+          patientName: item.patientDisplayName,
+          occurrenceId: item.occurrenceId,
+          title: item.title,
+          subtitle: item.subtitle,
+          scheduledAtUtc: item.scheduledAt.toUtc(),
+          kind: kind,
+          status: item.status,
+        ),
+      );
+    }
     if (!mounted) return;
     final profile = snapshot.currentUser['profile'] is Map<String, dynamic>
         ? snapshot.currentUser['profile'] as Map<String, dynamic>
@@ -148,9 +169,14 @@ class _DashboardScreenState extends State<DashboardScreen> {
     final isPersian =
         context.read<LocaleProvider>().locale.languageCode == 'fa';
     try {
-      await context.read<CareNotificationProvider>().syncEarliestPerRecipient(
-        candidates,
+      final notificationProvider = context.read<CareNotificationProvider>();
+      await notificationProvider.syncEarliestPerRecipient(
+        reminders,
         timeZone: profile['timeZone']?.toString() ?? 'Asia/Tehran',
+        isPersian: isPersian,
+      );
+      await notificationProvider.syncMissedAlerts(
+        alerts,
         isPersian: isPersian,
       );
     } catch (error) {
