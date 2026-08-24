@@ -59,7 +59,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     );
     _prewarmTimer = Timer(_prewarmDelay, () {
       if (!mounted) return;
-      setState(() => _visitedTabs.addAll(const <int>{0, 1, 2, 3, 4, 5}));
+      setState(() => _visitedTabs.addAll(const <int>{0, 1, 2, 4, 5}));
     });
   }
 
@@ -131,7 +131,6 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
         if (!enabled && _currentIndex == 4) _currentIndex = 5;
       });
     } catch (_) {
-      // Preserve the last known feature state on transient failures.
       debugPrint('Women calendar navigation state failed.');
     } finally {
       _womenCalendarLoading = false;
@@ -145,6 +144,19 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
       _healthRevision++;
       _homeRevision++;
       _currentIndex = 5;
+    });
+  }
+
+  Future<void> _openHealth() async {
+    await Navigator.of(context).push<void>(
+      MaterialPageRoute<void>(
+        builder: (_) => HealthScreen(refreshToken: _healthRevision),
+      ),
+    );
+    if (!mounted) return;
+    setState(() {
+      _healthRevision++;
+      _homeRevision++;
     });
   }
 
@@ -290,9 +302,6 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
         case 1:
           _treatmentsRevision++;
           break;
-        case 3:
-          _healthRevision++;
-          break;
         case 4:
           _womenRevision++;
           break;
@@ -309,7 +318,6 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
       0 => CalendarScreen(refreshToken: _calendarRevision),
       1 => TreatmentsScreen(refreshToken: _treatmentsRevision),
       2 => CarePlanHubScreen(onCreated: _treatmentCreated),
-      3 => HealthScreen(refreshToken: _healthRevision),
       4 => WomenCompanionScreen(
         refreshToken: _womenRevision,
         onProfileChanged: () => _loadWomenCalendarState(force: true),
@@ -318,6 +326,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
         refreshToken: _homeRevision,
         onOpenTreatments: () => _onItemTapped(1),
         onAddTreatment: () => _onItemTapped(2),
+        onOpenHealth: _openHealth,
       ),
     };
   }
