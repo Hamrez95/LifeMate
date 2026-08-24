@@ -5,7 +5,9 @@ import { closeLifeMateSqlClientsForTest } from "./database_client.ts";
 
 const databaseUrl = Deno.env.get("TEST_DATABASE_URL");
 if (!databaseUrl) {
-  throw new Error("TEST_DATABASE_URL is required for completion notification tests.");
+  throw new Error(
+    "TEST_DATABASE_URL is required for completion notification tests.",
+  );
 }
 
 Deno.test({
@@ -121,22 +123,31 @@ Deno.test({
         `;
       });
 
-      final first = await store.claim(caregiverUserId, relationshipId);
+      const first = await store.claim(caregiverUserId, relationshipId);
       assertEquals(first.length, 1);
       assertEquals(first[0].patientDisplayName, "مامان جون");
       assertEquals(first[0].medicationName, "Metformin");
       assertEquals(first[0].kind, "medication");
       assertEquals(first[0].evidenceClass, "self_reported");
 
-      assertEquals((await store.claim(caregiverUserId, relationshipId)).length, 0);
-      assertEquals((await store.history(caregiverUserId, relationshipId)).length, 1);
+      assertEquals(
+        (await store.claim(caregiverUserId, relationshipId)).length,
+        0,
+      );
+      assertEquals(
+        (await store.history(caregiverUserId, relationshipId)).length,
+        1,
+      );
 
       await admin`
         update lifemate.dose_occurrences
         set status='Skipped',version=version+1,updated_at_utc=now()
         where id=${occurrenceId}::uuid
       `;
-      assertEquals((await store.history(caregiverUserId, relationshipId)).length, 0);
+      assertEquals(
+        (await store.history(caregiverUserId, relationshipId)).length,
+        0,
+      );
 
       await admin.begin(async (tx) => {
         await tx`
@@ -161,14 +172,23 @@ Deno.test({
         `;
       });
 
-      final careEventClaim = await store.claim(caregiverUserId, relationshipId);
+      const careEventClaim = await store.claim(
+        caregiverUserId,
+        relationshipId,
+      );
       assertEquals(careEventClaim.length, 1);
       assertEquals(careEventClaim[0].kind, "injection");
       assertEquals(careEventClaim[0].medicationName, "Vitamin B12");
       assertEquals(careEventClaim[0].evidenceClass, "reported_completion");
-      assertEquals((await store.claim(caregiverUserId, relationshipId)).length, 0);
+      assertEquals(
+        (await store.claim(caregiverUserId, relationshipId)).length,
+        0,
+      );
 
-      final combinedHistory = await store.history(caregiverUserId, relationshipId);
+      const combinedHistory = await store.history(
+        caregiverUserId,
+        relationshipId,
+      );
       assertEquals(combinedHistory.length, 1);
       assertEquals(combinedHistory[0].kind, "injection");
 
@@ -177,15 +197,24 @@ Deno.test({
         set status='Cancelled',completed_at_utc=null,version=version+1,updated_at_utc=now()
         where id=${careEventId}::uuid
       `;
-      assertEquals((await store.history(caregiverUserId, relationshipId)).length, 0);
+      assertEquals(
+        (await store.history(caregiverUserId, relationshipId)).length,
+        0,
+      );
 
       await admin`
         update lifemate.care_relationships
         set status='Revoked',revoked_at_utc=now(),updated_at_utc=now()
         where id=${relationshipId}::uuid
       `;
-      assertEquals((await store.history(caregiverUserId, relationshipId)).length, 0);
-      assertEquals((await store.claim(caregiverUserId, relationshipId)).length, 0);
+      assertEquals(
+        (await store.history(caregiverUserId, relationshipId)).length,
+        0,
+      );
+      assertEquals(
+        (await store.claim(caregiverUserId, relationshipId)).length,
+        0,
+      );
     } finally {
       await closeLifeMateSqlClientsForTest().catch(() => undefined);
       await admin.begin(async (tx) => {
