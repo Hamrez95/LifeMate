@@ -19,11 +19,13 @@ class HomeScreenContent extends StatefulWidget {
     super.key,
     required this.onOpenTreatments,
     required this.onAddTreatment,
+    required this.onOpenHealth,
     this.refreshToken = 0,
   });
 
   final VoidCallback onOpenTreatments;
   final VoidCallback onAddTreatment;
+  final VoidCallback onOpenHealth;
   final int refreshToken;
 
   @override
@@ -406,8 +408,6 @@ class _HomeScreenContentState extends State<HomeScreenContent> {
     final eventId = item.seriesId ?? item.id;
     if (eventId.isEmpty) return;
 
-    // The current recurrence contract stores status on the series row. Never
-    // silently complete/cancel an entire recurring series from one occurrence.
     if (item.seriesId != null && item.id != item.seriesId) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -557,17 +557,12 @@ class _HomeScreenContentState extends State<HomeScreenContent> {
         onEdit: widget.onOpenTreatments,
         isSubmitting: _submitting.contains(item.id),
         supportingText: overdue
-            ? (isPersian
-                  ? LifeMateRuntimeLocale.select(
-                      fa: 'مصرف‌نشده • ${item.time}',
-                      en: "Unused • ${item.time}",
-                    )
-                  : 'Missed • ${item.time}')
+            ? (isPersian ? 'مصرف‌نشده • ${item.time}' : 'Missed • ${item.time}')
             : null,
         countdownLabel: overdue ? (isPersian ? 'گذشته' : 'Missed') : null,
         accentColor: overdue ? missedColor : null,
         progressColor: overdue ? missedColor : null,
-        progressBackgroundColor: overdue ? Color(0xFFFFEEEE) : null,
+        progressBackgroundColor: overdue ? const Color(0xFFFFEEEE) : null,
         font: font,
       );
     }
@@ -575,21 +570,9 @@ class _HomeScreenContentState extends State<HomeScreenContent> {
     final isAppointment = item.type == 'appointment';
     final isMissed = item.status == 'missed';
     final eventLabel = isAppointment
-        ? LifeMateRuntimeLocale.select(
-            fa: LifeMateRuntimeLocale.select(
-              fa: 'وقت ویزیت',
-              en: "Visiting time",
-            ),
-            en: "Visiting time",
-          )
-        : LifeMateRuntimeLocale.select(
-            fa: LifeMateRuntimeLocale.select(
-              fa: 'زمان تزریق',
-              en: "injection time",
-            ),
-            en: "injection time",
-          );
-    final missedColor = const Color(0xFFE06464);
+        ? LifeMateRuntimeLocale.select(fa: 'وقت ویزیت', en: 'Visiting time')
+        : LifeMateRuntimeLocale.select(fa: 'زمان تزریق', en: 'Injection time');
+    const missedColor = Color(0xFFE06464);
     final eventAccent = isAppointment
         ? AppColors.careVisit
         : AppColors.careInjection;
@@ -609,30 +592,17 @@ class _HomeScreenContentState extends State<HomeScreenContent> {
           : () => _reportCareEventStatus(item, 'cancelled'),
       onEdit: _submitting.contains(item.id) ? null : () => _editCareEvent(item),
       isSubmitting: _submitting.contains(item.id),
-      primaryActionLabel: isPersian
-          ? LifeMateRuntimeLocale.select(fa: 'انجام شد', en: "Done")
-          : 'Done',
-      editActionLabel: isPersian
-          ? LifeMateRuntimeLocale.select(fa: 'ویرایش', en: "Edit")
-          : 'Edit',
-      secondaryActionLabel: isPersian
-          ? LifeMateRuntimeLocale.select(fa: 'انجام نشد', en: "not done")
-          : 'Not done',
+      primaryActionLabel: isPersian ? 'انجام شد' : 'Done',
+      editActionLabel: isPersian ? 'ویرایش' : 'Edit',
+      secondaryActionLabel: isPersian ? 'انجام نشد' : 'Not done',
       supportingText: isMissed
-          ? LifeMateRuntimeLocale.select(
-              fa: '$eventLabel انجام‌نشده • ${item.time}',
-              en: "$eventLabel not done • ${item.time}",
-            )
+          ? '$eventLabel ${isPersian ? 'انجام‌نشده' : 'not done'} • ${item.time}'
           : '$eventLabel • ${item.time}',
-      countdownLabel: isMissed
-          ? (isPersian
-                ? LifeMateRuntimeLocale.select(fa: 'گذشته', en: "the past")
-                : 'Missed')
-          : null,
+      countdownLabel: isMissed ? (isPersian ? 'گذشته' : 'Missed') : null,
       accentColor: isMissed ? missedColor : eventAccent,
       progressColor: isMissed ? missedColor : eventAccent,
       progressBackgroundColor: isMissed
-          ? Color(0xFFFFEEEE)
+          ? const Color(0xFFFFEEEE)
           : AppColors.background,
       fallbackIcon: isAppointment
           ? Icons.medical_services_rounded
@@ -657,18 +627,10 @@ class _HomeScreenContentState extends State<HomeScreenContent> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Padding(
-            padding: EdgeInsetsDirectional.fromSTEB(24, 20, 24, 16),
+            padding: const EdgeInsetsDirectional.fromSTEB(24, 20, 24, 16),
             child: Text(
               isPersian
-                  ? (_displayName.isEmpty
-                        ? LifeMateRuntimeLocale.select(
-                            fa: 'سلام،',
-                            en: "Hello,",
-                          )
-                        : LifeMateRuntimeLocale.select(
-                            fa: 'سلام $_displayName جان،',
-                            en: "Hi $_displayName John,",
-                          ))
+                  ? (_displayName.isEmpty ? 'سلام،' : 'سلام $_displayName جان،')
                   : (_displayName.isEmpty ? 'Hello,' : 'Hi $_displayName,'),
               style: font.copyWith(
                 fontSize: 20,
@@ -678,28 +640,20 @@ class _HomeScreenContentState extends State<HomeScreenContent> {
             ),
           ),
           if (isLoading)
-            Expanded(child: Center(child: CircularProgressIndicator()))
+            const Expanded(child: Center(child: CircularProgressIndicator()))
           else if (loadError != null)
             Expanded(
               child: Center(
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    Icon(Icons.cloud_off_rounded, size: 52),
-                    SizedBox(height: 12),
+                    const Icon(Icons.cloud_off_rounded, size: 52),
+                    const SizedBox(height: 12),
                     Text(loadError!, textAlign: TextAlign.center),
-                    SizedBox(height: 14),
+                    const SizedBox(height: 14),
                     FilledButton(
                       onPressed: _retryManually,
-                      child: Text(
-                        LifeMateRuntimeLocale.select(
-                          fa: LifeMateRuntimeLocale.select(
-                            fa: 'تلاش دوباره',
-                            en: "Try again",
-                          ),
-                          en: "Try again",
-                        ),
-                      ),
+                      child: Text(isPersian ? 'تلاش دوباره' : 'Try again'),
                     ),
                   ],
                 ),
@@ -707,7 +661,7 @@ class _HomeScreenContentState extends State<HomeScreenContent> {
             )
           else ...[
             Padding(
-              padding: EdgeInsets.symmetric(horizontal: 20),
+              padding: const EdgeInsets.symmetric(horizontal: 20),
               child: countdownItems.isEmpty
                   ? _TreatmentTimerPlaceholder(
                       hasTreatmentPlans: _hasTreatmentPlans,
@@ -722,11 +676,19 @@ class _HomeScreenContentState extends State<HomeScreenContent> {
                       isPersian: isPersian,
                     ),
             ),
-            SizedBox(height: 24),
+            const SizedBox(height: 14),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 20),
+              child: _HomeHealthCard(
+                onTap: widget.onOpenHealth,
+                isPersian: isPersian,
+              ),
+            ),
+            const SizedBox(height: 14),
             Expanded(
               child: Container(
                 width: double.infinity,
-                decoration: BoxDecoration(
+                decoration: const BoxDecoration(
                   color: Colors.white,
                   borderRadius: BorderRadius.vertical(top: Radius.circular(30)),
                 ),
@@ -734,16 +696,10 @@ class _HomeScreenContentState extends State<HomeScreenContent> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Padding(
-                      padding: EdgeInsetsDirectional.fromSTEB(24, 24, 24, 16),
+                      padding: const EdgeInsetsDirectional.fromSTEB(24, 24, 24, 16),
                       child: Text(
                         loc['today_schedule'] ??
-                            LifeMateRuntimeLocale.select(
-                              fa: LifeMateRuntimeLocale.select(
-                                fa: 'برنامه امروز',
-                                en: "Today's program",
-                              ),
-                              en: "Today's program",
-                            ),
+                            (isPersian ? 'برنامه امروز' : "Today's schedule"),
                         style: font.copyWith(
                           fontSize: 18,
                           fontWeight: FontWeight.bold,
@@ -760,21 +716,12 @@ class _HomeScreenContentState extends State<HomeScreenContent> {
                           : RefreshIndicator(
                               onRefresh: _fetchScheduleFromBackend,
                               child: ListView.separated(
-                                padding: EdgeInsetsDirectional.fromSTEB(
-                                  24,
-                                  0,
-                                  24,
-                                  16,
-                                ),
+                                padding: const EdgeInsetsDirectional.fromSTEB(24, 0, 24, 16),
                                 itemCount: visibleToday.length,
-                                separatorBuilder: (_, __) =>
-                                    SizedBox(height: 12),
+                                separatorBuilder: (_, __) => const SizedBox(height: 12),
                                 itemBuilder: (context, index) {
                                   final item = visibleToday[index];
-                                  final missed = isHomeScheduleOverdue(
-                                    item,
-                                    now,
-                                  );
+                                  final missed = isHomeScheduleOverdue(item, now);
                                   return SoftScheduleCard(
                                     item: item,
                                     index: index,
@@ -791,19 +738,13 @@ class _HomeScreenContentState extends State<HomeScreenContent> {
                                         item.type != 'medicine' &&
                                             missed &&
                                             !_submitting.contains(item.id)
-                                        ? () => _reportCareEventStatus(
-                                            item,
-                                            'completed',
-                                          )
+                                        ? () => _reportCareEventStatus(item, 'completed')
                                         : null,
                                     onNotCompleted:
                                         item.type != 'medicine' &&
                                             missed &&
                                             !_submitting.contains(item.id)
-                                        ? () => _reportCareEventStatus(
-                                            item,
-                                            'cancelled',
-                                          )
+                                        ? () => _reportCareEventStatus(item, 'cancelled')
                                         : null,
                                   );
                                 },
@@ -826,22 +767,14 @@ class _HomeScreenContentState extends State<HomeScreenContent> {
   }
 
   static bool _isPastCareEvent(Map<String, dynamic> event) {
-    final date = DateTime.tryParse(
-      event['scheduledLocalDate']?.toString() ?? '',
-    );
-    final parts =
-        event['scheduledLocalTime']?.toString().split(':') ?? const [];
+    final date = DateTime.tryParse(event['scheduledLocalDate']?.toString() ?? '');
+    final parts = event['scheduledLocalTime']?.toString().split(':') ?? const [];
     if (date == null || parts.length < 2) return false;
     final hour = int.tryParse(parts[0]);
     final minute = int.tryParse(parts[1]);
     if (hour == null || minute == null) return false;
-    return DateTime(
-      date.year,
-      date.month,
-      date.day,
-      hour,
-      minute,
-    ).isBefore(DateTime.now());
+    return DateTime(date.year, date.month, date.day, hour, minute)
+        .isBefore(DateTime.now());
   }
 
   static DateTime? _scheduledDateTime(ScheduleItemModel item) {
@@ -855,19 +788,98 @@ class _HomeScreenContentState extends State<HomeScreenContent> {
     return DateTime(date.year, date.month, date.day, hour, minute);
   }
 
-  static int _compareOccurrence(
-    ScheduleItemModel left,
-    ScheduleItemModel right,
-  ) {
+  static int _compareOccurrence(ScheduleItemModel left, ScheduleItemModel right) {
     final leftDate = _scheduledDateTime(left) ?? DateTime(2100);
     final rightDate = _scheduledDateTime(right) ?? DateTime(2100);
     return leftDate.compareTo(rightDate);
   }
 
   static bool _sameDay(DateTime left, DateTime right) =>
-      left.year == right.year &&
-      left.month == right.month &&
-      left.day == right.day;
+      left.year == right.year && left.month == right.month && left.day == right.day;
+}
+
+class _HomeHealthCard extends StatelessWidget {
+  const _HomeHealthCard({required this.onTap, required this.isPersian});
+
+  final VoidCallback onTap;
+  final bool isPersian;
+
+  @override
+  Widget build(BuildContext context) {
+    return Semantics(
+      button: true,
+      label: isPersian ? 'باز کردن سلامت من' : 'Open My Health',
+      child: Material(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(24),
+        child: InkWell(
+          key: const ValueKey('home-health-card'),
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(24),
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(minHeight: 88),
+            child: Padding(
+              padding: const EdgeInsetsDirectional.fromSTEB(16, 14, 14, 14),
+              child: Row(
+                children: [
+                  Container(
+                    width: 52,
+                    height: 52,
+                    decoration: BoxDecoration(
+                      color: AppColors.primary.withValues(alpha: 0.10),
+                      shape: BoxShape.circle,
+                    ),
+                    child: const Icon(
+                      Icons.monitor_heart_rounded,
+                      color: AppColors.primary,
+                      size: 28,
+                    ),
+                  ),
+                  const SizedBox(width: 14),
+                  Expanded(
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          isPersian ? 'سلامت من' : 'My Health',
+                          style: const TextStyle(
+                            fontWeight: FontWeight.w800,
+                            fontSize: 16,
+                            color: AppColors.textPrimary,
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          isPersian
+                              ? 'ثبت و مرور فشار، وزن، علائم و تاریخچه سلامت'
+                              : 'Log and review vitals, symptoms and health history',
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            fontSize: 12,
+                            height: 1.35,
+                            color: AppColors.textPrimary.withValues(alpha: 0.62),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Icon(
+                    Directionality.of(context) == TextDirection.rtl
+                        ? Icons.chevron_left_rounded
+                        : Icons.chevron_right_rounded,
+                    color: AppColors.primary,
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
 }
 
 @visibleForTesting
@@ -885,15 +897,15 @@ List<ScheduleItemModel> selectHomeCountdownItems(
       })
       .toList(growable: false);
 
-  final future =
-      actionable.where((item) {
-        final scheduled = _homeCountdownScheduledDateTime(item);
-        return scheduled != null && !scheduled.isBefore(now);
-      }).toList()..sort((left, right) {
-        final l = _homeCountdownScheduledDateTime(left) ?? DateTime(2100);
-        final r = _homeCountdownScheduledDateTime(right) ?? DateTime(2100);
-        return l.compareTo(r);
-      });
+  final future = actionable.where((item) {
+    final scheduled = _homeCountdownScheduledDateTime(item);
+    return scheduled != null && !scheduled.isBefore(now);
+  }).toList()
+    ..sort((left, right) {
+      final l = _homeCountdownScheduledDateTime(left) ?? DateTime(2100);
+      final r = _homeCountdownScheduledDateTime(right) ?? DateTime(2100);
+      return l.compareTo(r);
+    });
 
   if (future.isNotEmpty) return future.take(limit).toList(growable: false);
 
@@ -954,178 +966,40 @@ class _TreatmentTimerPlaceholder extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isPersian = Localizations.localeOf(context).languageCode == 'fa';
     final title = hasTreatmentPlans
-        ? LifeMateRuntimeLocale.select(
-            fa: LifeMateRuntimeLocale.select(
-              fa: 'برنامه بعدی در راه است',
-              en: "The next program is coming",
-            ),
-            en: "The next program is coming",
-          )
-        : LifeMateRuntimeLocale.select(
-            fa: LifeMateRuntimeLocale.select(
-              fa: 'شروع مراقبت از خودت',
-              en: "Start taking care of yourself",
-            ),
-            en: "Start taking care of yourself",
-          );
+        ? (isPersian ? 'برنامه بعدی در راه است' : 'The next schedule is coming')
+        : (isPersian ? 'شروع مراقبت از خودت' : 'Start taking care of yourself');
     final description = hasTreatmentPlans
-        ? LifeMateRuntimeLocale.select(
-            fa: LifeMateRuntimeLocale.select(
-              fa: 'وقتی زمان بعدی برسد، شمارش معکوس همین‌جا نمایش داده می‌شود.',
-              en: "When the next time arrives, the countdown will be displayed here.",
-            ),
-            en: "When the next time arrives, the countdown will be displayed here.",
-          )
-        : LifeMateRuntimeLocale.select(
-            fa: LifeMateRuntimeLocale.select(
-              fa: 'اولین برنامه را ثبت کن؛ بعد از آن برنامه امروز و شمارش معکوس خودکار می‌شوند.',
-              en: "Record the first program; After that, today's schedule and countdown will be automatic.",
-            ),
-            en: "Record the first program; After that, today's schedule and countdown will be automatic.",
-          );
+        ? (isPersian
+              ? 'وقتی زمان بعدی برسد، شمارش معکوس همین‌جا نمایش داده می‌شود.'
+              : 'Your next countdown will appear here when it is scheduled.')
+        : (isPersian
+              ? 'اولین درمان یا برنامه‌ات را اضافه کن تا زمان‌بندی اینجا نمایش داده شود.'
+              : 'Add your first treatment to see its schedule here.');
 
-    return TweenAnimationBuilder<double>(
-      tween: Tween<double>(begin: 0.96, end: 1),
-      duration: const Duration(milliseconds: 420),
-      curve: Curves.easeOutBack,
-      builder: (context, value, child) => Transform.scale(
-        scale: value,
-        alignment: Alignment.center,
-        child: child,
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(18),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(24),
       ),
-      child: Container(
-        padding: const EdgeInsets.all(17),
-        decoration: BoxDecoration(
-          gradient: const LinearGradient(
-            begin: Alignment.topRight,
-            end: Alignment.bottomLeft,
-            colors: [Color(0xFFFFFFFF), Color(0xFFF0FAF5)],
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(title, style: font.copyWith(fontWeight: FontWeight.w800, fontSize: 16)),
+          const SizedBox(height: 6),
+          Text(description, style: font.copyWith(fontSize: 12, color: Colors.grey.shade600)),
+          const SizedBox(height: 12),
+          TextButton.icon(
+            onPressed: onAction,
+            icon: Icon(hasTreatmentPlans ? Icons.medication_rounded : Icons.add_rounded),
+            label: Text(hasTreatmentPlans
+                ? (isPersian ? 'درمان‌ها' : 'Treatments')
+                : (isPersian ? 'افزودن درمان' : 'Add treatment')),
           ),
-          borderRadius: BorderRadius.circular(26),
-          border: Border.all(color: const Color(0xFFE5F1EA)),
-          boxShadow: const [
-            BoxShadow(
-              color: Color(0x0C1D5B43),
-              blurRadius: 20,
-              offset: Offset(0, 8),
-            ),
-          ],
-        ),
-        child: Row(
-          children: [
-            Container(
-              width: 70,
-              height: 70,
-              decoration: BoxDecoration(
-                color: const Color(0xFFE8F8F1),
-                borderRadius: BorderRadius.circular(22),
-              ),
-              child: Stack(
-                alignment: Alignment.center,
-                children: [
-                  Icon(
-                    hasTreatmentPlans
-                        ? Icons.schedule_rounded
-                        : Icons.auto_awesome_rounded,
-                    size: 34,
-                    color: AppColors.primary,
-                  ),
-                  if (!hasTreatmentPlans)
-                    Positioned(
-                      left: 9,
-                      bottom: 9,
-                      child: Icon(
-                        Icons.add_circle_rounded,
-                        size: 17,
-                        color: AppColors.primary,
-                      ),
-                    ),
-                ],
-              ),
-            ),
-            SizedBox(width: 14),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  if (!hasTreatmentPlans) ...[
-                    Container(
-                      padding: EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                      decoration: BoxDecoration(
-                        color: AppColors.primary.withValues(alpha: 0.09),
-                        borderRadius: BorderRadius.circular(20),
-                      ),
-                      child: Text(
-                        LifeMateRuntimeLocale.select(
-                          fa: LifeMateRuntimeLocale.select(
-                            fa: 'اولین قدم',
-                            en: "The first step",
-                          ),
-                          en: "The first step",
-                        ),
-                        style: TextStyle(
-                          fontSize: 10.5,
-                          fontWeight: FontWeight.w800,
-                          color: AppColors.primary,
-                        ),
-                      ),
-                    ),
-                    SizedBox(height: 7),
-                  ],
-                  Text(
-                    title,
-                    style: font.copyWith(
-                      fontSize: 16.5,
-                      fontWeight: FontWeight.w900,
-                      color: AppColors.darkBlue,
-                    ),
-                  ),
-                  SizedBox(height: 6),
-                  Text(
-                    description,
-                    style: font.copyWith(
-                      fontSize: 12.5,
-                      height: 1.55,
-                      color: AppColors.textSecondary,
-                    ),
-                  ),
-                  SizedBox(height: 7),
-                  TextButton.icon(
-                    onPressed: onAction,
-                    style: TextButton.styleFrom(
-                      padding: EdgeInsets.zero,
-                      visualDensity: VisualDensity.compact,
-                    ),
-                    icon: Icon(
-                      hasTreatmentPlans
-                          ? Icons.arrow_back_rounded
-                          : Icons.add_rounded,
-                      size: 18,
-                    ),
-                    label: Text(
-                      hasTreatmentPlans
-                          ? LifeMateRuntimeLocale.select(
-                              fa: LifeMateRuntimeLocale.select(
-                                fa: 'مشاهده درمان‌ها',
-                                en: "View treatments",
-                              ),
-                              en: "View treatments",
-                            )
-                          : LifeMateRuntimeLocale.select(
-                              fa: LifeMateRuntimeLocale.select(
-                                fa: 'ثبت اولین برنامه',
-                                en: "Registration of the first program",
-                              ),
-                              en: "Registration of the first program",
-                            ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
+        ],
       ),
     );
   }
@@ -1144,179 +1018,31 @@ class _HomeEmptyState extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final title = hasTreatmentPlans
-        ? LifeMateRuntimeLocale.select(
-            fa: LifeMateRuntimeLocale.select(
-              fa: 'امروز برنامه‌ای باقی نمانده',
-              en: "There are no programs left today",
-            ),
-            en: "There are no programs left today",
-          )
-        : LifeMateRuntimeLocale.select(
-            fa: LifeMateRuntimeLocale.select(
-              fa: 'امروز را از یک برنامه ساده شروع کن',
-              en: "Start today with a simple plan",
-            ),
-            en: "Start today with a simple plan",
-          );
-    final description = hasTreatmentPlans
-        ? LifeMateRuntimeLocale.select(
-            fa: LifeMateRuntimeLocale.select(
-              fa: 'برنامه بعدی به‌صورت خودکار در خانه و تقویم نمایش داده می‌شود.',
-              en: "The next program is automatically displayed in the home and calendar.",
-            ),
-            en: "The next program is automatically displayed in the home and calendar.",
-          )
-        : LifeMateRuntimeLocale.select(
-            fa: LifeMateRuntimeLocale.select(
-              fa: 'دارو، ویزیت یا تزریق را ثبت کن تا LifeMate زمان‌بندی و یادآوری‌ها را برایت مرتب کند.',
-              en: "Record a medication, visit, or injection and LifeMate will organize the schedule and reminders for you.",
-            ),
-            en: "Record a medication, visit, or injection and LifeMate will organize the schedule and reminders for you.",
-          );
-
-    return Center(
-      child: SingleChildScrollView(
-        padding: const EdgeInsets.fromLTRB(24, 10, 24, 18),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            TweenAnimationBuilder<double>(
-              tween: Tween<double>(begin: 0.86, end: 1),
-              duration: const Duration(milliseconds: 480),
-              curve: Curves.easeOutBack,
-              builder: (context, value, child) =>
-                  Transform.scale(scale: value, child: child),
-              child: Container(
-                width: 74,
-                height: 74,
-                decoration: const BoxDecoration(
-                  color: Color(0xFFE7F8F1),
-                  shape: BoxShape.circle,
-                ),
-                child: Icon(
-                  hasTreatmentPlans
-                      ? Icons.task_alt_rounded
-                      : Icons.health_and_safety_rounded,
-                  size: 37,
-                  color: AppColors.primary,
-                ),
-              ),
-            ),
-            SizedBox(height: 14),
-            Text(
-              title,
-              textAlign: TextAlign.center,
-              style: font.copyWith(
-                fontSize: 16.5,
-                fontWeight: FontWeight.w900,
-                color: AppColors.darkBlue,
-              ),
-            ),
-            SizedBox(height: 7),
-            Text(
-              description,
-              textAlign: TextAlign.center,
-              style: font.copyWith(
-                fontSize: 12.5,
-                height: 1.6,
-                color: AppColors.textSecondary,
-              ),
-            ),
-            if (!hasTreatmentPlans) ...[
-              SizedBox(height: 16),
-              Row(
-                children: [
-                  Expanded(
-                    child: _EmptyCareTypeChip(
-                      icon: Icons.medication_rounded,
-                      label: LifeMateRuntimeLocale.select(
-                        fa: LifeMateRuntimeLocale.select(
-                          fa: 'دارو',
-                          en: "Medication",
-                        ),
-                        en: "medicine",
-                      ),
-                    ),
-                  ),
-                  SizedBox(width: 8),
-                  Expanded(
-                    child: _EmptyCareTypeChip(
-                      icon: Icons.medical_services_rounded,
-                      label: LifeMateRuntimeLocale.select(
-                        fa: LifeMateRuntimeLocale.select(
-                          fa: 'ویزیت',
-                          en: "Appointment",
-                        ),
-                        en: "visit",
-                      ),
-                    ),
-                  ),
-                  SizedBox(width: 8),
-                  Expanded(
-                    child: _EmptyCareTypeChip(
-                      icon: Icons.vaccines_rounded,
-                      label: LifeMateRuntimeLocale.select(
-                        fa: LifeMateRuntimeLocale.select(
-                          fa: 'تزریق',
-                          en: "Injection",
-                        ),
-                        en: "Injection",
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-              SizedBox(height: 16),
-              FilledButton.icon(
-                onPressed: onAddTreatment,
-                icon: Icon(Icons.add_rounded),
-                label: Text(
-                  LifeMateRuntimeLocale.select(
-                    fa: LifeMateRuntimeLocale.select(
-                      fa: 'ثبت اولین برنامه',
-                      en: "Registration of the first program",
-                    ),
-                    en: "Registration of the first program",
-                  ),
-                ),
-              ),
-            ],
-          ],
+    final isPersian = Localizations.localeOf(context).languageCode == 'fa';
+    return ListView(
+      physics: const AlwaysScrollableScrollPhysics(),
+      padding: const EdgeInsets.fromLTRB(24, 18, 24, 24),
+      children: [
+        const Icon(Icons.event_available_rounded, size: 46, color: AppColors.primary),
+        const SizedBox(height: 12),
+        Text(
+          hasTreatmentPlans
+              ? (isPersian ? 'برای امروز برنامه بازی نمانده.' : 'Nothing pending for today.')
+              : (isPersian ? 'هنوز درمانی ثبت نکرده‌ای.' : 'No treatment has been added yet.'),
+          textAlign: TextAlign.center,
+          style: font.copyWith(fontWeight: FontWeight.w700),
         ),
-      ),
+        if (!hasTreatmentPlans) ...[
+          const SizedBox(height: 14),
+          Center(
+            child: FilledButton.icon(
+              onPressed: onAddTreatment,
+              icon: const Icon(Icons.add_rounded),
+              label: Text(isPersian ? 'افزودن درمان' : 'Add treatment'),
+            ),
+          ),
+        ],
+      ],
     );
   }
-}
-
-class _EmptyCareTypeChip extends StatelessWidget {
-  const _EmptyCareTypeChip({required this.icon, required this.label});
-
-  final IconData icon;
-  final String label;
-
-  @override
-  Widget build(BuildContext context) => Container(
-    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 10),
-    decoration: BoxDecoration(
-      color: const Color(0xFFF5FAF7),
-      borderRadius: BorderRadius.circular(15),
-      border: Border.all(color: const Color(0xFFE5F1EA)),
-    ),
-    child: Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Icon(icon, size: 20, color: AppColors.primary),
-        const SizedBox(height: 5),
-        Text(
-          label,
-          style: const TextStyle(
-            fontSize: 11.5,
-            fontWeight: FontWeight.w800,
-            color: AppColors.textSecondary,
-          ),
-        ),
-      ],
-    ),
-  );
 }
