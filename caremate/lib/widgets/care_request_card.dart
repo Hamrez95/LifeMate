@@ -4,12 +4,15 @@ import 'package:lifemate_client/lifemate_client.dart';
 
 import '../core/constants/app_colors.dart';
 
+typedef PhoneCareRequestSubmit = Future<void> Function(String phone);
+
 class CareRequestCard extends StatefulWidget {
   const CareRequestCard({
     required this.loading,
     required this.pendingRequests,
     required this.onRequest,
     required this.onCancel,
+    this.phoneRequestSubmit,
     super.key,
   });
 
@@ -17,6 +20,7 @@ class CareRequestCard extends StatefulWidget {
   final List<Map<String, dynamic>> pendingRequests;
   final VoidCallback? onRequest;
   final ValueChanged<Map<String, dynamic>> onCancel;
+  final PhoneCareRequestSubmit? phoneRequestSubmit;
 
   @override
   State<CareRequestCard> createState() => _CareRequestCardState();
@@ -24,6 +28,7 @@ class CareRequestCard extends StatefulWidget {
 
 class _CareRequestCardState extends State<CareRequestCard> {
   bool _phoneSubmitting = false;
+  bool _phoneRequestSubmitted = false;
 
   Future<void> _showPhoneRequest() async {
     if (_phoneSubmitting) return;
@@ -37,7 +42,9 @@ class _CareRequestCardState extends State<CareRequestCard> {
         builder: (context, setSheetState) {
           final valid = _looksLikeIranMobile(controller.text);
           return Padding(
-            padding: EdgeInsets.only(bottom: MediaQuery.viewInsetsOf(context).bottom),
+            padding: EdgeInsets.only(
+              bottom: MediaQuery.viewInsetsOf(context).bottom,
+            ),
             child: Container(
               padding: const EdgeInsets.fromLTRB(22, 14, 22, 24),
               decoration: const BoxDecoration(
@@ -66,7 +73,10 @@ class _CareRequestCardState extends State<CareRequestCard> {
                         fa: 'درخواست مراقبت با شماره تلفن',
                         en: 'Request care by phone number',
                       ),
-                      style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w900),
+                      style: const TextStyle(
+                        fontSize: 20,
+                        fontWeight: FontWeight.w900,
+                      ),
                     ),
                     const SizedBox(height: 6),
                     Text(
@@ -74,7 +84,10 @@ class _CareRequestCardState extends State<CareRequestCard> {
                         fa: 'شماره موبایل فرد را وارد کنید. برای حفظ حریم خصوصی، نتیجه مشخص نمی‌کند این شماره عضو LifeMate هست یا نه. دسترسی فقط بعد از تأیید خود فرد فعال می‌شود.',
                         en: 'Enter the person’s mobile number. For privacy, the result never confirms whether the number belongs to a LifeMate account. Access starts only after their approval.',
                       ),
-                      style: const TextStyle(height: 1.6, color: AppColors.secondaryText),
+                      style: const TextStyle(
+                        height: 1.6,
+                        color: AppColors.secondaryText,
+                      ),
                     ),
                     const SizedBox(height: 16),
                     TextField(
@@ -87,13 +100,19 @@ class _CareRequestCardState extends State<CareRequestCard> {
                       inputFormatters: const [LifeMateLocaleDigitInputFormatter()],
                       onChanged: (_) => setSheetState(() {}),
                       decoration: InputDecoration(
-                        labelText: LifeMateRuntimeLocale.select(fa: 'شماره موبایل', en: 'Mobile number'),
+                        labelText: LifeMateRuntimeLocale.select(
+                          fa: 'شماره موبایل',
+                          en: 'Mobile number',
+                        ),
                         hintText: '0912 123 4567',
                         prefixIcon: const Icon(Icons.phone_iphone_rounded),
                         filled: true,
                         fillColor: const Color(0xFFF3F7FC),
                         errorText: controller.text.isNotEmpty && !valid
-                            ? LifeMateRuntimeLocale.select(fa: 'شماره موبایل ایران را درست وارد کنید.', en: 'Enter a valid Iranian mobile number.')
+                            ? LifeMateRuntimeLocale.select(
+                                fa: 'شماره موبایل ایران را درست وارد کنید.',
+                                en: 'Enter a valid Iranian mobile number.',
+                              )
                             : null,
                         border: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(18),
@@ -105,7 +124,8 @@ class _CareRequestCardState extends State<CareRequestCard> {
                       value: consent,
                       contentPadding: EdgeInsets.zero,
                       controlAffinity: ListTileControlAffinity.leading,
-                      onChanged: (value) => setSheetState(() => consent = value ?? false),
+                      onChanged: (value) =>
+                          setSheetState(() => consent = value ?? false),
                       title: Text(
                         LifeMateRuntimeLocale.select(
                           fa: 'می‌دانم درخواست فقط برای تأیید به خود فرد نمایش داده می‌شود و تا قبل از رضایت او هیچ اطلاعات سلامتی در دسترس من نیست.',
@@ -120,10 +140,18 @@ class _CareRequestCardState extends State<CareRequestCard> {
                       child: FilledButton.icon(
                         key: const Key('phone-care-request-submit'),
                         onPressed: consent && valid
-                            ? () => Navigator.pop(sheetContext, controller.text.trim())
+                            ? () => Navigator.pop(
+                                sheetContext,
+                                controller.text.trim(),
+                              )
                             : null,
                         icon: const Icon(Icons.send_rounded),
-                        label: Text(LifeMateRuntimeLocale.select(fa: 'ارسال درخواست', en: 'Submit request')),
+                        label: Text(
+                          LifeMateRuntimeLocale.select(
+                            fa: 'ارسال درخواست',
+                            en: 'Submit request',
+                          ),
+                        ),
                       ),
                     ),
                   ],
@@ -137,10 +165,19 @@ class _CareRequestCardState extends State<CareRequestCard> {
     controller.dispose();
     if (phone == null || !mounted) return;
 
-    setState(() => _phoneSubmitting = true);
+    setState(() {
+      _phoneSubmitting = true;
+      _phoneRequestSubmitted = false;
+    });
     try {
-      await PhoneCareRequestApi.fromEnvironment().create(phone: phone);
+      final submit = widget.phoneRequestSubmit;
+      if (submit != null) {
+        await submit(phone);
+      } else {
+        await PhoneCareRequestApi.fromEnvironment().create(phone: phone);
+      }
       if (!mounted) return;
+      setState(() => _phoneRequestSubmitted = true);
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
@@ -171,7 +208,9 @@ class _CareRequestCardState extends State<CareRequestCard> {
             en: 'The request could not be submitted. Please try again shortly.',
           ),
       };
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(message)),
+      );
     } finally {
       if (mounted) setState(() => _phoneSubmitting = false);
     }
@@ -199,7 +238,13 @@ class _CareRequestCardState extends State<CareRequestCard> {
         ),
         borderRadius: BorderRadius.circular(28),
         border: Border.all(color: Colors.white),
-        boxShadow: const [BoxShadow(color: Color(0x115A78A8), blurRadius: 24, offset: Offset(0, 10))],
+        boxShadow: const [
+          BoxShadow(
+            color: Color(0x115A78A8),
+            blurRadius: 24,
+            offset: Offset(0, 10),
+          ),
+        ],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -209,8 +254,15 @@ class _CareRequestCardState extends State<CareRequestCard> {
               Container(
                 width: 52,
                 height: 52,
-                decoration: const BoxDecoration(color: Colors.white, shape: BoxShape.circle),
-                child: const Icon(Icons.volunteer_activism_rounded, color: AppColors.primaryBlue, size: 28),
+                decoration: const BoxDecoration(
+                  color: Colors.white,
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(
+                  Icons.volunteer_activism_rounded,
+                  color: AppColors.primaryBlue,
+                  size: 28,
+                ),
               ),
               const SizedBox(width: 14),
               Expanded(
@@ -218,8 +270,15 @@ class _CareRequestCardState extends State<CareRequestCard> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      LifeMateRuntimeLocale.select(fa: 'می‌خواهی مراقب کسی باشی؟', en: 'Do you want to take care of someone?'),
-                      style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w900, color: AppColors.primaryText),
+                      LifeMateRuntimeLocale.select(
+                        fa: 'می‌خواهی مراقب کسی باشی؟',
+                        en: 'Do you want to take care of someone?',
+                      ),
+                      style: const TextStyle(
+                        fontSize: 17,
+                        fontWeight: FontWeight.w900,
+                        color: AppColors.primaryText,
+                      ),
                     ),
                     const SizedBox(height: 5),
                     Text(
@@ -227,7 +286,11 @@ class _CareRequestCardState extends State<CareRequestCard> {
                         fa: 'با شماره موبایل یا ایمیل درخواست بفرست. دسترسی فقط بعد از تأیید خود فرد فعال می‌شود.',
                         en: 'Request by mobile number or email. Access starts only after the person approves.',
                       ),
-                      style: const TextStyle(height: 1.55, fontSize: 12.5, color: AppColors.secondaryText),
+                      style: const TextStyle(
+                        height: 1.55,
+                        fontSize: 12.5,
+                        color: AppColors.secondaryText,
+                      ),
                     ),
                   ],
                 ),
@@ -241,9 +304,17 @@ class _CareRequestCardState extends State<CareRequestCard> {
               key: const Key('request-care-by-phone'),
               onPressed: busy ? null : _showPhoneRequest,
               icon: _phoneSubmitting
-                  ? const SizedBox.square(dimension: 18, child: CircularProgressIndicator(strokeWidth: 2))
+                  ? const SizedBox.square(
+                      dimension: 18,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
                   : const Icon(Icons.phone_iphone_rounded),
-              label: Text(LifeMateRuntimeLocale.select(fa: 'درخواست با شماره تلفن', en: 'Request by phone')),
+              label: Text(
+                LifeMateRuntimeLocale.select(
+                  fa: 'درخواست با شماره تلفن',
+                  en: 'Request by phone',
+                ),
+              ),
             ),
           ),
           const SizedBox(height: 8),
@@ -253,31 +324,103 @@ class _CareRequestCardState extends State<CareRequestCard> {
               key: const Key('request-care-by-email'),
               onPressed: busy ? null : widget.onRequest,
               icon: const Icon(Icons.alternate_email_rounded),
-              label: Text(LifeMateRuntimeLocale.select(fa: 'درخواست با ایمیل', en: 'Request by email')),
+              label: Text(
+                LifeMateRuntimeLocale.select(
+                  fa: 'درخواست با ایمیل',
+                  en: 'Request by email',
+                ),
+              ),
             ),
           ),
+          if (_phoneRequestSubmitted) ...[
+            const SizedBox(height: 12),
+            Semantics(
+              liveRegion: true,
+              label: LifeMateRuntimeLocale.select(
+                fa: 'درخواست تلفنی ثبت شد و منتظر تأیید است.',
+                en: 'Phone care request submitted and awaiting approval.',
+              ),
+              child: Container(
+                key: const Key('phone-care-request-success'),
+                width: double.infinity,
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 10,
+                ),
+                decoration: BoxDecoration(
+                  color: Colors.white.withValues(alpha: 0.82),
+                  borderRadius: BorderRadius.circular(18),
+                  border: Border.all(
+                    color: AppColors.primaryBlue.withValues(alpha: 0.12),
+                  ),
+                ),
+                child: Row(
+                  children: [
+                    const Icon(
+                      Icons.schedule_send_rounded,
+                      color: AppColors.primaryBlue,
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Text(
+                        LifeMateRuntimeLocale.select(
+                          fa: 'درخواست تلفنی ثبت شد و منتظر تأیید است. دسترسی هنوز فعال نشده.',
+                          en: 'Phone care request submitted and awaiting approval. Access is not active yet.',
+                        ),
+                        style: const TextStyle(
+                          fontSize: 12,
+                          height: 1.45,
+                          color: AppColors.secondaryText,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ],
           if (widget.pendingRequests.isNotEmpty) ...[
             const SizedBox(height: 16),
             const Divider(height: 1),
             const SizedBox(height: 12),
             Text(
-              LifeMateRuntimeLocale.select(fa: 'درخواست‌های در انتظار', en: 'Pending requests'),
-              style: const TextStyle(fontWeight: FontWeight.w800, color: AppColors.primaryText),
+              LifeMateRuntimeLocale.select(
+                fa: 'درخواست‌های در انتظار',
+                en: 'Pending requests',
+              ),
+              style: const TextStyle(
+                fontWeight: FontWeight.w800,
+                color: AppColors.primaryText,
+              ),
             ),
             const SizedBox(height: 8),
             ...widget.pendingRequests.map((request) {
-              final isPhone = request['contactType']?.toString().toLowerCase() == 'phone';
+              final isPhone =
+                  request['contactType']?.toString().toLowerCase() == 'phone';
               return Padding(
                 padding: const EdgeInsets.only(top: 7),
                 child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                  decoration: BoxDecoration(color: Colors.white.withValues(alpha: 0.82), borderRadius: BorderRadius.circular(18)),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 10,
+                  ),
+                  decoration: BoxDecoration(
+                    color: Colors.white.withValues(alpha: 0.82),
+                    borderRadius: BorderRadius.circular(18),
+                  ),
                   child: Row(
                     children: [
                       CircleAvatar(
                         radius: 18,
                         backgroundColor: const Color(0xFFEAF4FF),
-                        child: Icon(isPhone ? Icons.phone_iphone_rounded : Icons.alternate_email_rounded, size: 18, color: AppColors.primaryBlue),
+                        child: Icon(
+                          isPhone
+                              ? Icons.phone_iphone_rounded
+                              : Icons.alternate_email_rounded,
+                          size: 18,
+                          color: AppColors.primaryBlue,
+                        ),
                       ),
                       const SizedBox(width: 10),
                       Expanded(
@@ -285,22 +428,36 @@ class _CareRequestCardState extends State<CareRequestCard> {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Text(
-                              LifeMateRuntimeLocale.select(fa: 'در انتظار تأیید', en: 'Awaiting confirmation'),
-                              style: const TextStyle(fontWeight: FontWeight.w800),
+                              LifeMateRuntimeLocale.select(
+                                fa: 'در انتظار تأیید',
+                                en: 'Awaiting confirmation',
+                              ),
+                              style: const TextStyle(
+                                fontWeight: FontWeight.w800,
+                              ),
                             ),
                             const SizedBox(height: 2),
                             Text(
                               request['contactHint']?.toString() ?? '',
                               textDirection: TextDirection.ltr,
-                              style: const TextStyle(fontSize: 11.5, color: AppColors.secondaryText),
+                              style: const TextStyle(
+                                fontSize: 11.5,
+                                color: AppColors.secondaryText,
+                              ),
                             ),
                           ],
                         ),
                       ),
                       IconButton(
-                        tooltip: LifeMateRuntimeLocale.select(fa: 'لغو درخواست', en: 'Cancel request'),
+                        tooltip: LifeMateRuntimeLocale.select(
+                          fa: 'لغو درخواست',
+                          en: 'Cancel request',
+                        ),
                         onPressed: () => widget.onCancel(request),
-                        icon: const Icon(Icons.close_rounded, color: Colors.redAccent),
+                        icon: const Icon(
+                          Icons.close_rounded,
+                          color: Colors.redAccent,
+                        ),
                       ),
                     ],
                   ),
