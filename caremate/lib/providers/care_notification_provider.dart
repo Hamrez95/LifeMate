@@ -29,6 +29,26 @@ class CareNotificationProvider extends ChangeNotifier {
     }
   }
 
+  Future<bool> openPatientDialer(String patientUserId) async {
+    final apiClient = _apiClient;
+    if (apiClient == null) return false;
+    try {
+      final relationships = await apiClient.getCareRelationships();
+      final phone = resolveAuthorizedPatientPhone(
+        relationships,
+        patientUserId: patientUserId,
+      );
+      if (phone == null) return false;
+      return await launchUrl(
+        Uri(scheme: 'tel', path: phone),
+        mode: LaunchMode.externalApplication,
+      );
+    } catch (error) {
+      debugPrint('CareMate call action failed safely: $error');
+      return false;
+    }
+  }
+
   Future<void> initialize() async {
     if (_initialized) return;
     tz_data.initializeTimeZones();
@@ -53,22 +73,8 @@ class CareNotificationProvider extends ChangeNotifier {
   Future<void> _handleNotificationResponse(NotificationResponse response) async {
     if (response.actionId != 'care-call') return;
     final patientUserId = _patientIdFromPayload(response.payload);
-    final apiClient = _apiClient;
-    if (patientUserId == null || apiClient == null) return;
-    try {
-      final relationships = await apiClient.getCareRelationships();
-      final phone = resolveAuthorizedPatientPhone(
-        relationships,
-        patientUserId: patientUserId,
-      );
-      if (phone == null) return;
-      await launchUrl(
-        Uri(scheme: 'tel', path: phone),
-        mode: LaunchMode.externalApplication,
-      );
-    } catch (error) {
-      debugPrint('CareMate call action failed safely: $error');
-    }
+    if (patientUserId == null) return;
+    await openPatientDialer(patientUserId);
   }
 
   Future<void> syncEarliestPerRecipient(
