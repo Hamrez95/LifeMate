@@ -1082,35 +1082,153 @@ class _TreatmentTimerPlaceholder extends StatelessWidget {
           )
         : LifeMateRuntimeLocale.select(
             fa: LifeMateRuntimeLocale.select(
-              fa: 'اولین درمانت را اضافه کن تا برنامه روزانه اینجا شکل بگیرد.',
-              en: "Add your first treatment to create your daily schedule here.",
+              fa: 'اولین برنامه را ثبت کن؛ بعد از آن برنامه امروز و شمارش معکوس خودکار می‌شوند.',
+              en: "Record the first program; After that, today's schedule and countdown will be automatic.",
             ),
-            en: "Add your first treatment to create your daily schedule here.",
+            en: "Record the first program; After that, today's schedule and countdown will be automatic.",
           );
-    return Container(
-      width: double.infinity,
-      padding: EdgeInsets.all(18),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(24),
+
+    return TweenAnimationBuilder<double>(
+      tween: Tween<double>(begin: 0.96, end: 1),
+      duration: const Duration(milliseconds: 420),
+      curve: Curves.easeOutBack,
+      builder: (context, value, child) => Transform.scale(
+        scale: value,
+        alignment: Alignment.center,
+        child: child,
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(title, style: font.copyWith(fontWeight: FontWeight.w800, fontSize: 16)),
-          SizedBox(height: 6),
-          Text(description, style: font.copyWith(fontSize: 12, color: Colors.grey.shade600)),
-          SizedBox(height: 12),
-          TextButton.icon(
-            onPressed: onAction,
-            icon: Icon(hasTreatmentPlans ? Icons.medication_rounded : Icons.add_rounded),
-            label: Text(
-              hasTreatmentPlans
-                  ? LifeMateRuntimeLocale.select(fa: 'درمان‌ها', en: 'Treatments')
-                  : LifeMateRuntimeLocale.select(fa: 'افزودن درمان', en: 'Add treatment'),
-            ),
+      child: Container(
+        padding: const EdgeInsets.all(17),
+        decoration: BoxDecoration(
+          gradient: const LinearGradient(
+            begin: Alignment.topRight,
+            end: Alignment.bottomLeft,
+            colors: [Color(0xFFFFFFFF), Color(0xFFF0FAF5)],
           ),
-        ],
+          borderRadius: BorderRadius.circular(26),
+          border: Border.all(color: const Color(0xFFE5F1EA)),
+          boxShadow: const [
+            BoxShadow(
+              color: Color(0x0C1D5B43),
+              blurRadius: 20,
+              offset: Offset(0, 8),
+            ),
+          ],
+        ),
+        child: Row(
+          children: [
+            Container(
+              width: 70,
+              height: 70,
+              decoration: BoxDecoration(
+                color: const Color(0xFFE8F8F1),
+                borderRadius: BorderRadius.circular(22),
+              ),
+              child: Stack(
+                alignment: Alignment.center,
+                children: [
+                  Icon(
+                    hasTreatmentPlans
+                        ? Icons.schedule_rounded
+                        : Icons.auto_awesome_rounded,
+                    size: 34,
+                    color: AppColors.primary,
+                  ),
+                  if (!hasTreatmentPlans)
+                    Positioned(
+                      left: 9,
+                      bottom: 9,
+                      child: Icon(
+                        Icons.add_circle_rounded,
+                        size: 17,
+                        color: AppColors.primary,
+                      ),
+                    ),
+                ],
+              ),
+            ),
+            SizedBox(width: 14),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  if (!hasTreatmentPlans) ...[
+                    Container(
+                      padding: EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                      decoration: BoxDecoration(
+                        color: AppColors.primary.withValues(alpha: 0.09),
+                        borderRadius: BorderRadius.circular(20),
+                      ),
+                      child: Text(
+                        LifeMateRuntimeLocale.select(
+                          fa: LifeMateRuntimeLocale.select(
+                            fa: 'اولین قدم',
+                            en: "The first step",
+                          ),
+                          en: "The first step",
+                        ),
+                        style: TextStyle(
+                          fontSize: 10.5,
+                          fontWeight: FontWeight.w800,
+                          color: AppColors.primary,
+                        ),
+                      ),
+                    ),
+                    SizedBox(height: 7),
+                  ],
+                  Text(
+                    title,
+                    style: font.copyWith(
+                      fontSize: 16.5,
+                      fontWeight: FontWeight.w900,
+                      color: AppColors.darkBlue,
+                    ),
+                  ),
+                  SizedBox(height: 6),
+                  Text(
+                    description,
+                    style: font.copyWith(
+                      fontSize: 12.5,
+                      height: 1.55,
+                      color: AppColors.textSecondary,
+                    ),
+                  ),
+                  SizedBox(height: 7),
+                  TextButton.icon(
+                    onPressed: onAction,
+                    style: TextButton.styleFrom(
+                      padding: EdgeInsets.zero,
+                      visualDensity: VisualDensity.compact,
+                    ),
+                    icon: Icon(
+                      hasTreatmentPlans
+                          ? Icons.arrow_back_rounded
+                          : Icons.add_rounded,
+                      size: 18,
+                    ),
+                    label: Text(
+                      hasTreatmentPlans
+                          ? LifeMateRuntimeLocale.select(
+                              fa: LifeMateRuntimeLocale.select(
+                                fa: 'مشاهده درمان‌ها',
+                                en: "View treatments",
+                              ),
+                              en: "View treatments",
+                            )
+                          : LifeMateRuntimeLocale.select(
+                              fa: LifeMateRuntimeLocale.select(
+                                fa: 'ثبت اولین برنامه',
+                                en: "Registration of the first program",
+                              ),
+                              en: "Registration of the first program",
+                            ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -1129,41 +1247,179 @@ class _HomeEmptyState extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return ListView(
-      physics: const AlwaysScrollableScrollPhysics(),
-      padding: EdgeInsets.fromLTRB(24, 18, 24, 24),
-      children: [
-        Icon(Icons.event_available_rounded, size: 46, color: AppColors.primary),
-        SizedBox(height: 12),
-        Text(
-          hasTreatmentPlans
-              ? LifeMateRuntimeLocale.select(
-                  fa: 'برای امروز برنامه بازی نمانده.',
-                  en: 'Nothing pending for today.',
-                )
-              : LifeMateRuntimeLocale.select(
-                  fa: 'هنوز درمانی ثبت نکرده‌ای.',
-                  en: 'No treatment has been added yet.',
+    final title = hasTreatmentPlans
+        ? LifeMateRuntimeLocale.select(
+            fa: LifeMateRuntimeLocale.select(
+              fa: 'امروز برنامه‌ای باقی نمانده',
+              en: "There are no programs left today",
+            ),
+            en: "There are no programs left today",
+          )
+        : LifeMateRuntimeLocale.select(
+            fa: LifeMateRuntimeLocale.select(
+              fa: 'امروز را از یک برنامه ساده شروع کن',
+              en: "Start today with a simple plan",
+            ),
+            en: "Start today with a simple plan",
+          );
+    final description = hasTreatmentPlans
+        ? LifeMateRuntimeLocale.select(
+            fa: LifeMateRuntimeLocale.select(
+              fa: 'برنامه بعدی به‌صورت خودکار در خانه و تقویم نمایش داده می‌شود.',
+              en: "The next program is automatically displayed in the home and calendar.",
+            ),
+            en: "The next program is automatically displayed in the home and calendar.",
+          )
+        : LifeMateRuntimeLocale.select(
+            fa: LifeMateRuntimeLocale.select(
+              fa: 'دارو، ویزیت یا تزریق را ثبت کن تا LifeMate زمان‌بندی و یادآوری‌ها را برایت مرتب کند.',
+              en: "Record a medication, visit, or injection and LifeMate will organize the schedule and reminders for you.",
+            ),
+            en: "Record a medication, visit, or injection and LifeMate will organize the schedule and reminders for you.",
+          );
+
+    return Center(
+      child: SingleChildScrollView(
+        padding: const EdgeInsets.fromLTRB(24, 10, 24, 18),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            TweenAnimationBuilder<double>(
+              tween: Tween<double>(begin: 0.86, end: 1),
+              duration: const Duration(milliseconds: 480),
+              curve: Curves.easeOutBack,
+              builder: (context, value, child) =>
+                  Transform.scale(scale: value, child: child),
+              child: Container(
+                width: 74,
+                height: 74,
+                decoration: const BoxDecoration(
+                  color: Color(0xFFE7F8F1),
+                  shape: BoxShape.circle,
                 ),
-          textAlign: TextAlign.center,
-          style: font.copyWith(fontWeight: FontWeight.w700),
-        ),
-        if (!hasTreatmentPlans) ...[
-          SizedBox(height: 14),
-          Center(
-            child: FilledButton.icon(
-              onPressed: onAddTreatment,
-              icon: Icon(Icons.add_rounded),
-              label: Text(
-                LifeMateRuntimeLocale.select(
-                  fa: 'افزودن درمان',
-                  en: 'Add treatment',
+                child: Icon(
+                  hasTreatmentPlans
+                      ? Icons.task_alt_rounded
+                      : Icons.health_and_safety_rounded,
+                  size: 37,
+                  color: AppColors.primary,
                 ),
               ),
             ),
-          ),
-        ],
-      ],
+            SizedBox(height: 14),
+            Text(
+              title,
+              textAlign: TextAlign.center,
+              style: font.copyWith(
+                fontSize: 16.5,
+                fontWeight: FontWeight.w900,
+                color: AppColors.darkBlue,
+              ),
+            ),
+            SizedBox(height: 7),
+            Text(
+              description,
+              textAlign: TextAlign.center,
+              style: font.copyWith(
+                fontSize: 12.5,
+                height: 1.6,
+                color: AppColors.textSecondary,
+              ),
+            ),
+            if (!hasTreatmentPlans) ...[
+              SizedBox(height: 16),
+              Row(
+                children: [
+                  Expanded(
+                    child: _EmptyCareTypeChip(
+                      icon: Icons.medication_rounded,
+                      label: LifeMateRuntimeLocale.select(
+                        fa: LifeMateRuntimeLocale.select(
+                          fa: 'دارو',
+                          en: "Medication",
+                        ),
+                        en: "medicine",
+                      ),
+                    ),
+                  ),
+                  SizedBox(width: 8),
+                  Expanded(
+                    child: _EmptyCareTypeChip(
+                      icon: Icons.medical_services_rounded,
+                      label: LifeMateRuntimeLocale.select(
+                        fa: LifeMateRuntimeLocale.select(
+                          fa: 'ویزیت',
+                          en: "Appointment",
+                        ),
+                        en: "visit",
+                      ),
+                    ),
+                  ),
+                  SizedBox(width: 8),
+                  Expanded(
+                    child: _EmptyCareTypeChip(
+                      icon: Icons.vaccines_rounded,
+                      label: LifeMateRuntimeLocale.select(
+                        fa: LifeMateRuntimeLocale.select(
+                          fa: 'تزریق',
+                          en: "Injection",
+                        ),
+                        en: "Injection",
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              SizedBox(height: 16),
+              FilledButton.icon(
+                onPressed: onAddTreatment,
+                icon: Icon(Icons.add_rounded),
+                label: Text(
+                  LifeMateRuntimeLocale.select(
+                    fa: LifeMateRuntimeLocale.select(
+                      fa: 'ثبت اولین برنامه',
+                      en: "Registration of the first program",
+                    ),
+                    en: "Registration of the first program",
+                  ),
+                ),
+              ),
+            ],
+          ],
+        ),
+      ),
     );
   }
+}
+
+class _EmptyCareTypeChip extends StatelessWidget {
+  const _EmptyCareTypeChip({required this.icon, required this.label});
+
+  final IconData icon;
+  final String label;
+
+  @override
+  Widget build(BuildContext context) => Container(
+    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 10),
+    decoration: BoxDecoration(
+      color: const Color(0xFFF5FAF7),
+      borderRadius: BorderRadius.circular(15),
+      border: Border.all(color: const Color(0xFFE5F1EA)),
+    ),
+    child: Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Icon(icon, size: 20, color: AppColors.primary),
+        const SizedBox(height: 5),
+        Text(
+          label,
+          style: const TextStyle(
+            fontSize: 11.5,
+            fontWeight: FontWeight.w800,
+            color: AppColors.textSecondary,
+          ),
+        ),
+      ],
+    ),
+  );
 }
