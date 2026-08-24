@@ -148,7 +148,9 @@ export function createLifeMateDatabase(
       body: Record<string, unknown>,
     ) => {
       const nested = body.notificationPreferences;
-      if (nested != null && typeof nested === "object" && !Array.isArray(nested)) {
+      if (
+        nested != null && typeof nested === "object" && !Array.isArray(nested)
+      ) {
         return await personCareRelationships.updateNotificationPreferences(
           actorAppUserId,
           relationshipId,
