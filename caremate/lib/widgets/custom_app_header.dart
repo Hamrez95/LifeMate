@@ -36,8 +36,16 @@ class CustomAppHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final notificationLabel = LifeMateRuntimeLocale.select(
+      fa: showNotificationDot
+          ? 'هشدارهای مراقبتی، مورد جدید دارید'
+          : 'هشدارهای مراقبتی',
+      en: showNotificationDot
+          ? 'Care alerts, new alert available'
+          : 'Care alerts',
+    );
     return Padding(
-      padding: EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
@@ -45,13 +53,8 @@ class CustomAppHeader extends StatelessWidget {
             clipBehavior: Clip.none,
             children: [
               _SoftHeaderButton(
-                tooltip: LifeMateRuntimeLocale.select(
-                  fa: LifeMateRuntimeLocale.select(
-                    fa: 'هشدارهای مراقبتی',
-                    en: "Careful warnings",
-                  ),
-                  en: "Careful warnings",
-                ),
+                tooltip: notificationLabel,
+                semanticLabel: notificationLabel,
                 icon: Icons.notifications_none_rounded,
                 onTap: onNotificationTap,
               ),
@@ -59,13 +62,15 @@ class CustomAppHeader extends StatelessWidget {
                 Positioned(
                   top: 2,
                   right: 2,
-                  child: Container(
-                    width: 10,
-                    height: 10,
-                    decoration: BoxDecoration(
-                      color: Colors.red.shade600,
-                      shape: BoxShape.circle,
-                      border: Border.all(color: Colors.white, width: 2),
+                  child: ExcludeSemantics(
+                    child: Container(
+                      width: 10,
+                      height: 10,
+                      decoration: BoxDecoration(
+                        color: Colors.red.shade600,
+                        shape: BoxShape.circle,
+                        border: Border.all(color: Colors.white, width: 2),
+                      ),
                     ),
                   ),
                 ),
@@ -78,7 +83,7 @@ class CustomAppHeader extends StatelessWidget {
               'assets/images/CareMateWithoutBack.png',
               height: 55,
               fit: BoxFit.contain,
-              errorBuilder: (_, __, ___) => Icon(
+              errorBuilder: (_, __, ___) => const Icon(
                 Icons.health_and_safety_rounded,
                 size: 44,
                 color: AppColors.primaryBlue,
@@ -88,43 +93,46 @@ class CustomAppHeader extends StatelessWidget {
           Semantics(
             button: true,
             label: LifeMateRuntimeLocale.select(
-              fa: LifeMateRuntimeLocale.select(
-                fa: 'بازکردن پروفایل',
-                en: "Open profile",
-              ),
-              en: "Open profile",
+              fa: 'بازکردن پروفایل',
+              en: 'Open profile',
             ),
             child: Tooltip(
               message: LifeMateRuntimeLocale.select(
-                fa: LifeMateRuntimeLocale.select(fa: 'پروفایل', en: "Profile"),
-                en: "Profile",
+                fa: 'پروفایل',
+                en: 'Profile',
               ),
               child: Material(
                 color: Colors.transparent,
-                shape: CircleBorder(),
+                shape: const CircleBorder(),
                 child: InkWell(
                   onTap: () => _openProfile(context),
-                  customBorder: CircleBorder(),
-                  child: Container(
-                    padding: EdgeInsets.all(3),
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      color: Colors.white.withValues(alpha: 0.78),
-                      border: Border.all(
-                        color: AppColors.primaryBlue.withValues(alpha: 0.16),
-                        width: 2,
-                      ),
-                      boxShadow: [
-                        BoxShadow(
-                          color: AppColors.primaryBlue.withValues(alpha: 0.10),
-                          blurRadius: 14,
-                          offset: Offset(0, 5),
-                        ),
-                      ],
+                  customBorder: const CircleBorder(),
+                  child: ConstrainedBox(
+                    constraints: const BoxConstraints(
+                      minWidth: 48,
+                      minHeight: 48,
                     ),
-                    child: LifeMateCurrentUserAvatar(
-                      apiClient: context.read<LifeMateApiClient>(),
-                      radius: 22,
+                    child: Container(
+                      padding: const EdgeInsets.all(3),
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        color: Colors.white.withValues(alpha: 0.78),
+                        border: Border.all(
+                          color: AppColors.primaryBlue.withValues(alpha: 0.16),
+                          width: 2,
+                        ),
+                        boxShadow: [
+                          BoxShadow(
+                            color: AppColors.primaryBlue.withValues(alpha: 0.10),
+                            blurRadius: 14,
+                            offset: const Offset(0, 5),
+                          ),
+                        ],
+                      ),
+                      child: LifeMateCurrentUserAvatar(
+                        apiClient: context.read<LifeMateApiClient>(),
+                        radius: 22,
+                      ),
                     ),
                   ),
                 ),
@@ -140,37 +148,48 @@ class CustomAppHeader extends StatelessWidget {
 class _SoftHeaderButton extends StatelessWidget {
   const _SoftHeaderButton({
     required this.tooltip,
+    required this.semanticLabel,
     required this.icon,
     this.onTap,
   });
 
   final String tooltip;
+  final String semanticLabel;
   final IconData icon;
   final VoidCallback? onTap;
 
   @override
   Widget build(BuildContext context) {
-    return Tooltip(
-      message: tooltip,
-      child: Material(
-        color: Colors.transparent,
-        child: InkWell(
-          onTap: onTap,
-          customBorder: const CircleBorder(),
-          child: Container(
-            padding: const EdgeInsets.all(10),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              shape: BoxShape.circle,
-              boxShadow: [
-                BoxShadow(
-                  color: AppColors.primaryBlue.withValues(alpha: 0.08),
-                  offset: const Offset(0, 4),
-                  blurRadius: 12,
+    return Semantics(
+      button: true,
+      enabled: onTap != null,
+      label: semanticLabel,
+      child: Tooltip(
+        message: tooltip,
+        child: Material(
+          color: Colors.transparent,
+          child: InkWell(
+            onTap: onTap,
+            customBorder: const CircleBorder(),
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(minWidth: 48, minHeight: 48),
+              child: DecoratedBox(
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  shape: BoxShape.circle,
+                  boxShadow: [
+                    BoxShadow(
+                      color: AppColors.primaryBlue.withValues(alpha: 0.08),
+                      offset: const Offset(0, 4),
+                      blurRadius: 12,
+                    ),
+                  ],
                 ),
-              ],
+                child: Center(
+                  child: Icon(icon, color: Colors.black87, size: 24),
+                ),
+              ),
             ),
-            child: Icon(icon, color: Colors.black87, size: 24),
           ),
         ),
       ),
