@@ -142,8 +142,25 @@ export function createLifeMateDatabase(
       personCareRelationships.getNotificationPreferences,
     updateNotificationPreferences:
       personCareRelationships.updateNotificationPreferences,
-    updateRelationshipPermissions:
-      personCareRelationships.updateRelationshipPermissions,
+    updateRelationshipPermissions: async (
+      actorAppUserId: string,
+      relationshipId: unknown,
+      body: Record<string, unknown>,
+    ) => {
+      const nested = body.notificationPreferences;
+      if (nested != null && typeof nested === "object" && !Array.isArray(nested)) {
+        return await personCareRelationships.updateNotificationPreferences(
+          actorAppUserId,
+          relationshipId,
+          nested as Record<string, unknown>,
+        );
+      }
+      return await personCareRelationships.updateRelationshipPermissions(
+        actorAppUserId,
+        relationshipId,
+        body,
+      );
+    },
     revokeRelationship: personCareRelationships.revokeRelationship,
   };
 }
