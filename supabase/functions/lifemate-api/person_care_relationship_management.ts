@@ -45,8 +45,7 @@ export function createPersonCareRelationshipManagementStore(
     const mapped: Record<string, unknown>[] = [];
     for (const row of rows) {
       const relationship = mapRelationshipRow(row);
-      const isActiveCaregiver =
-        String(row.status).toLowerCase() === "active" &&
+      const isActiveCaregiver = String(row.status).toLowerCase() === "active" &&
         String(row.caregiver_person_id) === personId &&
         row.patient_consented_at_utc != null &&
         row.caregiver_consented_at_utc != null;
@@ -324,7 +323,9 @@ function mapNotificationPreferences(row: Row): Record<string, unknown> {
   const localTime = typeof rawTime === "string"
     ? rawTime.slice(0, 5)
     : rawTime instanceof Date
-    ? `${rawTime.getHours().toString().padStart(2, "0")}:${rawTime.getMinutes().toString().padStart(2, "0")}`
+    ? `${rawTime.getHours().toString().padStart(2, "0")}:${
+      rawTime.getMinutes().toString().padStart(2, "0")
+    }`
     : "20:00";
   return {
     enabled: row.caregiver_notifications_enabled !== false,
