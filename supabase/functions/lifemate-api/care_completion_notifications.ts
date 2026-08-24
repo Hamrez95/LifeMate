@@ -1,5 +1,5 @@
 import { getLifeMateSql } from "./database_client.ts";
-import { ApiError } from "./validation.ts";
+import { ApiError, requiredUuid } from "./validation.ts";
 
 type Row = Record<string, any>;
 
@@ -8,8 +8,10 @@ export function createCareCompletionNotificationStore(databaseUrl: string) {
 
   async function claim(
     caregiverAppUserId: string,
+    relationshipIdValue: unknown,
   ): Promise<Record<string, unknown>[]> {
     const caregiverPersonId = await requireSelfPerson(sql, caregiverAppUserId);
+    const relationshipId = requiredUuid(relationshipIdValue, "relationshipId");
     const rows = await sql`
       with candidates as materialized (
         select
@@ -35,7 +37,8 @@ export function createCareCompletionNotificationStore(databaseUrl: string) {
           on m.id = p.medication_id
          and m.owner_person_id = o.patient_person_id
         join lifemate.care_relationships r
-          on r.patient_person_id = o.patient_person_id
+          on r.id = ${relationshipId}::uuid
+         and r.patient_person_id = o.patient_person_id
          and r.caregiver_person_id = ${caregiverPersonId}::uuid
          and r.status = 'Active'
          and r.patient_consented_at_utc is not null
@@ -86,8 +89,10 @@ export function createCareCompletionNotificationStore(databaseUrl: string) {
 
   async function history(
     caregiverAppUserId: string,
+    relationshipIdValue: unknown,
   ): Promise<Record<string, unknown>[]> {
     const caregiverPersonId = await requireSelfPerson(sql, caregiverAppUserId);
+    const relationshipId = requiredUuid(relationshipIdValue, "relationshipId");
     const rows = await sql`
       select
         e.id::text as source_event_id,
@@ -114,7 +119,8 @@ export function createCareCompletionNotificationStore(databaseUrl: string) {
         on m.id = p.medication_id
        and m.owner_person_id = o.patient_person_id
       join lifemate.care_relationships r
-        on r.id = receipt.relationship_id
+        on r.id = ${relationshipId}::uuid
+       and r.id = receipt.relationship_id
        and r.patient_person_id = o.patient_person_id
        and r.caregiver_person_id = ${caregiverPersonId}::uuid
        and r.status = 'Active'
