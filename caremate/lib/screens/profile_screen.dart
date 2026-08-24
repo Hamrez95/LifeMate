@@ -40,75 +40,64 @@ class ProfileScreen extends StatelessWidget {
         personalInfo:
             loc['profile_personal_info'] ??
             LifeMateRuntimeLocale.select(
-              fa: LifeMateRuntimeLocale.select(
-                fa: 'اطلاعات شخصی',
-                en: "Personal information",
-              ),
-              en: "Personal information",
+              fa: 'اطلاعات شخصی',
+              en: 'Personal information',
             ),
         healthProfile:
             loc['profile_health_profile'] ??
             LifeMateRuntimeLocale.select(
-              fa: LifeMateRuntimeLocale.select(
-                fa: 'پرونده سلامت',
-                en: "health file",
-              ),
-              en: "health file",
+              fa: 'پرونده سلامت',
+              en: 'Health profile',
             ),
         careManagement:
             loc['profile_caregivers'] ??
             LifeMateRuntimeLocale.select(
-              fa: LifeMateRuntimeLocale.select(
-                fa: 'مدیریت افراد تحت مراقبت',
-                en: "Management of people under care",
-              ),
-              en: "Management of people under care",
+              fa: 'مدیریت افراد تحت مراقبت',
+              en: 'People under care',
             ),
         appSettings:
             loc['profile_app_settings'] ??
             LifeMateRuntimeLocale.select(
-              fa: LifeMateRuntimeLocale.select(
-                fa: 'تنظیمات برنامه',
-                en: "Program settings",
-              ),
-              en: "Program settings",
+              fa: 'تنظیمات برنامه',
+              en: 'App settings',
             ),
         referral:
             loc['profile_referral_code'] ??
             LifeMateRuntimeLocale.select(
               fa: 'کد معرف',
-              en: "Identification code",
+              en: 'Referral code',
             ),
-        support: loc['profile_support'] ?? 'پشتیبانی',
-        logout: loc['profile_logout'] ?? 'خروج از حساب',
+        support:
+            loc['profile_support'] ??
+            LifeMateRuntimeLocale.select(fa: 'پشتیبانی', en: 'Support'),
+        logout:
+            loc['profile_logout'] ??
+            LifeMateRuntimeLocale.select(fa: 'خروج از حساب', en: 'Sign out'),
         subscriptionTitle:
             loc['profile_no_subscription'] ??
-            (isPersian ? 'اشتراک' : 'Subscription'),
+            LifeMateRuntimeLocale.select(fa: 'اشتراک', en: 'Subscription'),
         manageSubscriptions:
             loc['profile_buy_plan'] ??
-            (isPersian ? 'مدیریت اشتراک‌ها' : 'Manage subscriptions'),
-        referralSubtitle: isPersian
-            ? LifeMateRuntimeLocale.select(
-                fa: 'در دست توسعه',
-                en: "Under development",
-              )
-            : 'Coming soon',
-        supportSubtitle: isPersian
-            ? LifeMateRuntimeLocale.select(
-                fa: 'راهنما فعال؛ ارسال تیکت در دست توسعه',
-                en: "active guide; Submit ticket under development",
-              )
-            : 'Help is available; ticketing is coming soon',
+            LifeMateRuntimeLocale.select(
+              fa: 'مدیریت اشتراک‌ها',
+              en: 'Manage subscriptions',
+            ),
+        referralSubtitle: LifeMateRuntimeLocale.select(
+          fa: 'در دست توسعه',
+          en: 'Coming soon',
+        ),
+        supportSubtitle: LifeMateRuntimeLocale.select(
+          fa: 'راهنما فعال؛ ارسال تیکت در دست توسعه',
+          en: 'Help is available; ticketing is coming soon',
+        ),
       ),
       fontFamily: mainFont,
       appName: 'CareMate',
       versionLabel: 'CareMate $careMateAppVersion'.toPersianDigit(isPersian),
-      fallbackUserName: isPersian
-          ? LifeMateRuntimeLocale.select(
-              fa: 'کاربر LifeMate',
-              en: "LifeMate user",
-            )
-          : 'LifeMate user',
+      fallbackUserName: LifeMateRuntimeLocale.select(
+        fa: 'کاربر LifeMate',
+        en: 'LifeMate user',
+      ),
       isPersian: isPersian,
       onNotifications: () => open(CareMateNotificationsScreen()),
       onEditProfile: () => open(CareMateEditableProfileScreen()),
@@ -147,7 +136,7 @@ class _LanguageDialog extends StatelessWidget {
     return AlertDialog(
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
       title: Text(
-        isPersian ? 'زبان' : 'Language',
+        LifeMateRuntimeLocale.select(fa: 'زبان', en: 'Language'),
         style: TextStyle(fontFamily: mainFont, fontWeight: FontWeight.bold),
       ),
       content: SegmentedButton<String>(
@@ -155,13 +144,10 @@ class _LanguageDialog extends StatelessWidget {
           ButtonSegment(
             value: 'fa',
             label: Text(
-              LifeMateRuntimeLocale.select(
-                fa: LifeMateRuntimeLocale.select(fa: 'فارسی', en: "Farsi"),
-                en: "Farsi",
-              ),
+              LifeMateRuntimeLocale.select(fa: 'فارسی', en: 'Persian'),
             ),
           ),
-          ButtonSegment(value: 'en', label: Text('English')),
+          const ButtonSegment(value: 'en', label: Text('English')),
         ],
         selected: {localeProvider.locale.languageCode},
         onSelectionChanged: (values) {
@@ -170,11 +156,10 @@ class _LanguageDialog extends StatelessWidget {
       ),
       actions: [
         FilledButton(
+          key: const Key('caremate-language-done'),
           onPressed: () => Navigator.of(context).pop(),
           child: Text(
-            isPersian
-                ? LifeMateRuntimeLocale.select(fa: 'تمام', en: "all")
-                : 'Done',
+            LifeMateRuntimeLocale.select(fa: 'تمام', en: 'Done'),
           ),
         ),
       ],
