@@ -13,8 +13,8 @@ void main() {
     await tester.pumpWidget(_navHarness(womenCalendarEnabled: false));
     await tester.pumpAndSettle();
 
-    expect(find.byKey(const ValueKey('wellmate-nav-3')), findsOneWidget);
-    expect(find.bySemanticsLabel('سلامت'), findsOneWidget);
+    expect(find.byKey(const ValueKey('wellmate-nav-3')), findsNothing);
+    expect(find.bySemanticsLabel('سلامت'), findsNothing);
     expect(find.bySemanticsLabel('تقویم بانوان'), findsNothing);
     expect(find.byKey(const ValueKey('wellmate-nav-4')), findsNothing);
     expect(find.byKey(const ValueKey('wellmate-nav-5')), findsOneWidget);
@@ -25,8 +25,8 @@ void main() {
     await tester.pumpWidget(_navHarness(womenCalendarEnabled: true));
     await tester.pumpAndSettle();
 
-    expect(find.byKey(const ValueKey('wellmate-nav-3')), findsOneWidget);
-    expect(find.bySemanticsLabel('سلامت'), findsOneWidget);
+    expect(find.byKey(const ValueKey('wellmate-nav-3')), findsNothing);
+    expect(find.bySemanticsLabel('سلامت'), findsNothing);
     expect(find.bySemanticsLabel('تقویم بانوان'), findsOneWidget);
     expect(find.byKey(const ValueKey('wellmate-nav-4')), findsOneWidget);
     expect(find.byKey(const ValueKey('wellmate-nav-5')), findsOneWidget);
