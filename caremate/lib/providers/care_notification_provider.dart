@@ -129,13 +129,17 @@ class CareNotificationProvider extends ChangeNotifier {
                   '${scheduled.minute.toString().padLeft(2, '0')}'
               .toPersianDigit(isPersian);
       final lateText = _lateText(alert, nowUtc, isPersian: isPersian);
-      final title = isPersian
-          ? '${alert.patientName.toPersianDigit(true)} هنوز ${_missedVerb(alert.kind)}'
-          : '${alert.patientName} has an unfinished ${_kindLabel(alert.kind)}';
+      final title = LifeMateRuntimeLocale.select(
+        fa: '${alert.patientName.toPersianDigit(true)} هنوز ${_missedVerb(alert.kind)}',
+        en: '${alert.patientName} has an unfinished ${_kindLabel(alert.kind)}',
+      );
       final detail = [
         alert.title,
         if (alert.subtitle.trim().isNotEmpty) alert.subtitle.trim(),
-        isPersian ? 'زمان برنامه: $timeText' : 'Scheduled: $timeText',
+        LifeMateRuntimeLocale.select(
+          fa: 'زمان برنامه: $timeText',
+          en: 'Scheduled: $timeText',
+        ),
         lateText,
       ].join(' • ').toPersianDigit(isPersian);
 
@@ -201,9 +205,18 @@ class CareNotificationProvider extends ChangeNotifier {
   };
 
   static String _missedVerb(String kind) => switch (kind) {
-    'appointment' => 'ویزیتش را انجام نداده',
-    'injection' => 'تزریقش را انجام نداده',
-    _ => 'دارویش را مصرف نکرده',
+    'appointment' => LifeMateRuntimeLocale.select(
+      fa: 'ویزیتش را انجام نداده',
+      en: "hasn't completed the visit",
+    ),
+    'injection' => LifeMateRuntimeLocale.select(
+      fa: 'تزریقش را انجام نداده',
+      en: "hasn't completed the injection",
+    ),
+    _ => LifeMateRuntimeLocale.select(
+      fa: 'دارویش را مصرف نکرده',
+      en: "hasn't taken the medication",
+    ),
   };
 
   static String _kindLabel(String kind) => switch (kind) {
@@ -219,16 +232,23 @@ class CareNotificationProvider extends ChangeNotifier {
   }) {
     final minutes = nowUtc.toUtc().difference(alert.scheduledAtUtc.toUtc()).inMinutes;
     if (minutes < 60) {
-      return isPersian ? '$minutes دقیقه گذشته' : '$minutes min late';
+      return LifeMateRuntimeLocale.select(
+        fa: '$minutes دقیقه گذشته',
+        en: '$minutes min late',
+      );
     }
     final hours = minutes ~/ 60;
     final remainder = minutes % 60;
     if (remainder == 0) {
-      return isPersian ? '$hours ساعت گذشته' : '$hours h late';
+      return LifeMateRuntimeLocale.select(
+        fa: '$hours ساعت گذشته',
+        en: '$hours h late',
+      );
     }
-    return isPersian
-        ? '$hours ساعت و $remainder دقیقه گذشته'
-        : '$hours h $remainder min late';
+    return LifeMateRuntimeLocale.select(
+      fa: '$hours ساعت و $remainder دقیقه گذشته',
+      en: '$hours h $remainder min late',
+    );
   }
 
   static int _notificationId(String value) {
