@@ -149,7 +149,7 @@ Deno.test({
             ${patientUserId}::uuid,${careEventRequestId}::uuid,'Injection',
             'Vitamin injection','Vitamin B12','1 dose',current_date,
             (localtime - interval '30 minutes')::time,'Asia/Tehran','none',1,
-            array[]::smallint[],'Completed',now(),2,'PatientInput',false,now(),now()
+            array[]::smallint[],'Completed',now(),2,'FirstPartyUserInput',false,now(),now()
           )
         `;
       });
