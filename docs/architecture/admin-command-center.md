@@ -57,6 +57,24 @@ The Command Center uses the separate `admin` trust domain:
 
 Administrative permissions are capability based. Navigation visibility in `lifemate-admin` is only UX; the Admin API must enforce the permission on every restricted operation.
 
+## Canonical Admin data-source map
+
+The Command Center must have one explicit server-side source contract per surface. A schema migration may not silently switch a page to an empty replacement table, and the browser must never compensate with direct database access or a legacy fallback.
+
+| Surface | Canonical server-side source | Migration/empty-state rule |
+| --- | --- | --- |
+| Users / User 360 identity | `admin.user_directory_v2` plus purpose-specific user-detail contracts | Missing read model is an unavailable/deployment condition, never a browser fallback to `lifemate.user_profiles` or `lifemate.app_users`. |
+| Relationships | natural relations from `network.person_relationships`; care compatibility from `admin.care_relationship_directory_v1`; consent from `consent.consent_records`; technical access from `security.access_grants` | Natural relationship, Care relationship, Consent and Access Grant remain distinct. Existing care rows must not disappear during migration. |
+| Support | privacy-minimized `admin.support_ticket_queue_v1` and purpose-specific support detail/audit contracts | No direct `lifemate.*` queue fallback. |
+| Analytics | canonical identity/ecosystem analytics inputs and versioned analytics contracts | Legacy user-table fallback is forbidden; unavailable instrumentation stays explicit. |
+| Commerce | `commerce.products`, `commerce.plans`, `commerce.subscriptions`, `commerce.entitlements`, `commerce.features`, pricing/promotion/trial contracts | Zero subscriptions/promotions can be a truthful business state; it must not be treated as migration loss without parity evidence. |
+| Marketing | bounded `admin.marketing_campaigns_v1`, channel/content-calendar models and audited Admin mutation functions | Attribution/performance remains unavailable until a canonical analytics contract exists; no inferred ROAS/CAC. |
+| Finance | `finance.actual_ledger_entries` and purpose-specific budget/read contracts | Actual, Budget and Forecast remain separate. Missing forecast/scenario sources are explicit unavailable, not inferred from actuals. |
+| Security / Staff | `admin.members`, `admin.staff_profiles`, `admin.roles`, `admin.permissions`, `admin.member_roles`, `admin.role_permissions`, `admin.audit_events` | Workforce identity is separate from consumer identity; ordinary admin roles never inherit health access. |
+| Operations | no canonical operational snapshot is currently defined | The Operations page must stay explicit `Unavailable` until the dedicated operational read model exists; direct browser health probing is forbidden. |
+
+`supabase/functions/lifemate-admin-api/admin_data_model_parity_test.ts` is the source-level regression gate for these boundaries. Production schema deployment parity is separate evidence: a green source test does not prove that the corresponding migration/view is already present in the live Supabase project.
+
 ## Sensitive health information
 
 Ordinary Admin API database credentials have no access to the compatibility health schema or care health read models.
