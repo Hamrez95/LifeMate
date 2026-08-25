@@ -1,0 +1,57 @@
+name: tmp-patch-93
+on:
+  push:
+    branches: [feat/93-advanced-recurrence]
+    paths: [.github/workflows/tmp-patch-93.yml]
+permissions:
+  contents: write
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: feat/93-advanced-recurrence
+      - name: Apply recurrence count UX
+        shell: python
+        run: |
+          from pathlib import Path
+
+          p = Path('packages/lifemate_client/lib/src/recurrence.dart')
+          s = p.read_text()
+          old = '''  final int? maxOccurrences;\n\n  Map<String, dynamic> toJson() => {'''
+          new = '''  final int? maxOccurrences;\n\n  /// Resolves the product count-bound into the existing server-compatible\n  /// end-date contract. If both an explicit end date and a count are present,\n  /// the earlier boundary wins.\n  DateTime? persistenceEndDate(DateTime startDate) {\n    final explicit = endDate == null ? null : _onlyDate(endDate!);\n    final count = maxOccurrences;\n    if (!enabled || count == null) return explicit;\n    final counted = _occurrenceAt(_onlyDate(startDate), count);\n    if (explicit == null || counted.isBefore(explicit)) return counted;\n    return explicit;\n  }\n\n  DateTime _occurrenceAt(DateTime start, int ordinal) {\n    final offset = ordinal - 1;\n    switch (unit) {\n      case RecurrenceUnit.day:\n        return start.add(Duration(days: interval * offset));\n      case RecurrenceUnit.month:\n        return _addMonthsClamped(start, interval * offset);\n      case RecurrenceUnit.year:\n        return _addMonthsClamped(start, interval * offset * 12);\n      case RecurrenceUnit.week:\n        final allowed = weekdays.isEmpty ? <int>{start.weekday} : weekdays;\n        var emitted = 0;\n        var cursor = start;\n        final guardLimit = (ordinal * interval * 7) + 14;\n        for (var guard = 0; guard <= guardLimit; guard += 1) {\n          final daysFromStart = cursor.difference(start).inDays;\n          final weekIndex = daysFromStart ~/ 7;\n          if (weekIndex % interval == 0 && allowed.contains(cursor.weekday)) {\n            emitted += 1;\n            if (emitted == ordinal) return cursor;\n          }\n          cursor = cursor.add(const Duration(days: 1));\n        }\n        throw StateError('Could not resolve recurrence count boundary.');\n    }\n  }\n\n  Map<String, dynamic> toJson() => {'''
+          assert old in s
+          p.write_text(s.replace(old, new))
+
+          p = Path('wellmate/lib/screens/treatments/care_event_form.dart')
+          s = p.read_text()
+          replacements = [
+            ("  final _repeatInterval = TextEditingController(text: '1');\n", "  final _repeatInterval = TextEditingController(text: '1');\n  final _repeatCount = TextEditingController();\n"),
+            ("    _repeatInterval.dispose();\n", "    _repeatInterval.dispose();\n    _repeatCount.dispose();\n"),
+            ("    final weekdays = _repeatUnit == RecurrenceUnit.week\n        ? (_repeatWeekdays.isEmpty ? <int>{_date.weekday} : _repeatWeekdays)\n        : const <int>{};\n    return RecurrenceRule(\n      enabled: true,\n      unit: _repeatUnit,\n      interval: interval,\n      weekdays: weekdays,\n      endDate: _repeatEndDate,\n    );\n", "    final weekdays = _repeatUnit == RecurrenceUnit.week\n        ? (_repeatWeekdays.isEmpty ? <int>{_date.weekday} : _repeatWeekdays)\n        : const <int>{};\n    final countText = _repeatCount.text.trim();\n    final maxOccurrences = countText.isEmpty\n        ? null\n        : LifeMateNumbers.tryParseInt(countText);\n    if (maxOccurrences != null &&\n        (maxOccurrences < 1 || maxOccurrences > 1000)) {\n      setState(\n        () => _error = LifeMateRuntimeLocale.select(\n          fa: 'تعداد تکرار باید بین ۱ تا ۱۰۰۰ باشد.',\n          en: 'Repeat count must be between 1 and 1000.',\n        ),\n      );\n      return null;\n    }\n    if (countText.isNotEmpty && maxOccurrences == null) {\n      setState(\n        () => _error = LifeMateRuntimeLocale.select(\n          fa: 'تعداد تکرار معتبر وارد کنید.',\n          en: 'Enter a valid repeat count.',\n        ),\n      );\n      return null;\n    }\n    final draft = RecurrenceRule(\n      enabled: true,\n      unit: _repeatUnit,\n      interval: interval,\n      weekdays: weekdays,\n      endDate: _repeatEndDate,\n      maxOccurrences: maxOccurrences,\n    );\n    return RecurrenceRule(\n      enabled: true,\n      unit: _repeatUnit,\n      interval: interval,\n      weekdays: weekdays,\n      endDate: draft.persistenceEndDate(_date),\n      maxOccurrences: maxOccurrences,\n    );\n"),
+            ("      _repeatInterval.text = '1';\n      _repeatEndDate = null;\n", "      _repeatInterval.text = '1';\n      _repeatCount.clear();\n      _repeatEndDate = null;\n"),
+          ]
+          for old, new in replacements:
+            assert old in s, old[:80]
+            s = s.replace(old, new, 1)
+
+          marker = '''                if (_repeatEndDate != null)\n                  Align(\n                    alignment: AlignmentDirectional.centerStart,\n                    child: TextButton.icon(\n                      onPressed: _busy\n                          ? null\n                          : () => setState(() => _repeatEndDate = null),\n                      icon: Icon(Icons.close_rounded, size: 18),\n                      label: Text(\n                        LifeMateRuntimeLocale.select(\n                          fa: LifeMateRuntimeLocale.select(\n                            fa: 'بدون تاریخ پایان',\n                            en: \"No end date\",\n                          ),\n                          en: \"No end date\",\n                        ),\n                      ),\n                    ),\n                  ),\n'''
+          addition = marker + '''                SizedBox(height: 8),\n                TextFormField(\n                  key: ValueKey('care-event-repeat-count'),\n                  controller: _repeatCount,\n                  enabled: !_busy,\n                  keyboardType: TextInputType.number,\n                  inputFormatters: const [LifeMateLocaleDigitInputFormatter()],\n                  textDirection: TextDirection.ltr,\n                  decoration: wellMateFieldDecoration(\n                    label: LifeMateRuntimeLocale.select(\n                      fa: 'پایان بعد از تعداد دفعات',\n                      en: 'End after occurrences',\n                    ),\n                    hint: LifeMateRuntimeLocale.select(\n                      fa: 'مثلاً ۵',\n                      en: 'For example, 5',\n                    ),\n                  ),\n                  validator: (value) {\n                    final text = value?.trim() ?? '';\n                    if (text.isEmpty) return null;\n                    final parsed = LifeMateNumbers.tryParseInt(text);\n                    return parsed != null && parsed >= 1 && parsed <= 1000\n                        ? null\n                        : LifeMateRuntimeLocale.select(\n                            fa: '۱ تا ۱۰۰۰',\n                            en: '1 to 1000',\n                          );\n                  },\n                ),\n                Text(\n                  LifeMateRuntimeLocale.select(\n                    fa: 'اگر هم تاریخ پایان و هم تعداد را وارد کنید، هرکدام زودتر برسد اعمال می‌شود.',\n                    en: 'If both are set, the earlier end boundary is used.',\n                  ),\n                  style: TextStyle(\n                    color: AppColors.textSecondary,\n                    fontSize: 12,\n                    height: 1.5,\n                  ),\n                ),\n'''
+          assert marker in s
+          p.write_text(s.replace(marker, addition, 1))
+
+          p = Path('packages/lifemate_client/test/recurrence_test.dart')
+          s = p.read_text()
+          insert = '''\n  test('count bound resolves to server-compatible end date', () {\n    const rule = RecurrenceRule(\n      enabled: true,\n      unit: RecurrenceUnit.day,\n      interval: 3,\n      maxOccurrences: 5,\n    );\n    expect(rule.persistenceEndDate(DateTime(2026, 8, 1)), DateTime(2026, 8, 13));\n  });\n\n  test('earlier explicit recurrence end wins over count boundary', () {\n    final rule = RecurrenceRule(\n      enabled: true,\n      unit: RecurrenceUnit.month,\n      interval: 1,\n      maxOccurrences: 6,\n      endDate: DateTime(2026, 10, 15),\n    );\n    expect(rule.persistenceEndDate(DateTime(2026, 8, 31)), DateTime(2026, 10, 15));\n  });\n'''
+          assert s.rstrip().endswith('}')
+          p.write_text(s.rstrip()[:-1] + insert + '}\n')
+      - name: Remove temporary workflow
+        run: rm .github/workflows/tmp-patch-93.yml
+      - name: Commit patch
+        run: |
+          git config user.name "chatgpt-codex-connector"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -m "feat(recurrence): complete count-bounded recurrence UX (#93)"
+          git push origin HEAD:feat/93-advanced-recurrence
