@@ -75,7 +75,10 @@ def check_persian_literals_are_guarded() -> None:
                     re.search(r'isPersian\s*\?', context) is not None
                     and re.search(r"\:\s*['\"]", context) is not None
                 )
-                if not guarded_select and not guarded_ternary:
+                guarded_branch = (
+                    re.search(r'if\s*\(\s*!persian\s*\)', context) is not None
+                )
+                if not guarded_select and not guarded_ternary and not guarded_branch:
                     fail(
                         f'{rel}:{literal.line}: Persian runtime literal has no nearby English locale branch: '
                         f'{literal.body[:80]!r}'
