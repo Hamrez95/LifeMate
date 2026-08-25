@@ -243,10 +243,13 @@ class _AuthenticatedWellMateShellState
       WellMateNavigationRefreshObserver();
   Timer? _widgetSyncTimer;
   bool _widgetSyncInFlight = false;
+  NotificationProvider? _notificationProvider;
 
   @override
   void initState() {
     super.initState();
+    _notificationProvider = context.read<NotificationProvider>()
+      ..attachApiClient(widget.apiClient);
     WidgetsBinding.instance.addObserver(this);
     WellMateRefreshSignal.revision.addListener(_scheduleMedicationWidgetSync);
     scheduleMicrotask(_scheduleMedicationWidgetSync);
@@ -254,6 +257,15 @@ class _AuthenticatedWellMateShellState
       const Duration(minutes: 1),
       (_) => _scheduleMedicationWidgetSync(),
     );
+  }
+
+  @override
+  void didUpdateWidget(covariant _AuthenticatedWellMateShell oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (!identical(oldWidget.apiClient, widget.apiClient)) {
+      _notificationProvider?.detachApiClient(oldWidget.apiClient);
+      _notificationProvider?.attachApiClient(widget.apiClient);
+    }
   }
 
   @override
@@ -292,6 +304,8 @@ class _AuthenticatedWellMateShellState
 
   @override
   void dispose() {
+    _notificationProvider?.detachApiClient(widget.apiClient);
+    _notificationProvider = null;
     _widgetSyncTimer?.cancel();
     WellMateRefreshSignal.revision.removeListener(
       _scheduleMedicationWidgetSync,
