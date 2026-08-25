@@ -1,4 +1,10 @@
 import {
+  hashConfigureCommercePlanFeatureRequest,
+  matchCommercePlanFeaturesPath,
+  parseConfigureCommercePlanFeaturePayload,
+} from "./commerce_plan_features.ts";
+import { createCommercePlanFeatureStore } from "./commerce_plan_features_service.ts";
+import {
   hashConfigureCommerceTrialRequest,
   matchCommerceTrialPolicyPath,
   parseConfigureCommerceTrialPayload,
@@ -11,8 +17,22 @@ import {
 import { json } from "./http.ts";
 import { ApiError, requireIdempotencyKey } from "./validation.ts";
 
+function checkedStatus(result: Record<string, unknown>, workflow: string): number {
+  const httpStatus = Number(result.httpStatus);
+  if (!Number.isInteger(httpStatus) || httpStatus < 100 || httpStatus > 599) {
+    throw new ApiError(
+      503,
+      `${workflow}_workflow_unavailable`,
+      "Commerce workflow returned an invalid status.",
+    );
+  }
+  return httpStatus;
+}
+
 export function createCommerceTrialRouteHandler(databaseUrl: string) {
-  const store = createCommerceTrialStore(databaseUrl);
+  const trialStore = createCommerceTrialStore(databaseUrl);
+  const planFeatureStore = createCommercePlanFeatureStore(databaseUrl);
+
   return async function commerceTrialRouteHandler(input: {
     request: Request;
     path: string;
@@ -22,31 +42,61 @@ export function createCommerceTrialRouteHandler(databaseUrl: string) {
     origin: string | null;
   }): Promise<Response | null> {
     const { request, path, accountId, admin, correlationId, origin } = input;
-    const planId = matchCommerceTrialPolicyPath(path);
-    if (!planId) return null;
 
-    if (request.method === "GET") {
-      requirePermission(admin, "commerce.read");
-      const policy = await store.get(planId);
-      return json(
-        {
-          policy,
-          freshness: {
-            status: "fresh",
-            asOfUtc: new Date().toISOString(),
-          },
-        },
-        200,
-        origin,
-      );
+    const planFeaturePlanId = matchCommercePlanFeaturesPath(path);
+    if (planFeaturePlanId) {
+      if (request.method === "GET") {
+        requirePermission(admin, "commerce.read");
+        return json({
+          planId: planFeaturePlanId,
+          items: await planFeatureStore.list(planFeaturePlanId),
+          freshness: { status: "fresh", asOfUtc: new Date().toISOString() },
+        }, 200, origin);
+      }
+      if (request.method !== "PUT") return null;
+      requirePermission(admin, "commerce.plan_feature.write");
+      const idempotencyKey = requireIdempotencyKey(request);
+      const payload = await parseConfigureCommercePlanFeaturePayload(request);
+      const result = await planFeatureStore.configure({
+        actorAccountId: accountId,
+        planId: planFeaturePlanId,
+        payload,
+        correlationId,
+        idempotencyKey,
+        requestHash: await hashConfigureCommercePlanFeatureRequest(planFeaturePlanId, payload),
+      });
+      const httpStatus = checkedStatus(result, "commerce_plan_feature");
+      if (httpStatus >= 400) {
+        throw new ApiError(
+          httpStatus,
+          String(result.code),
+          typeof result.message === "string" ? result.message : "Plan feature update was not completed.",
+        );
+      }
+      return json({
+        planId: String(result.planId),
+        featureId: String(result.featureId),
+        assigned: Boolean(result.assigned),
+        version: Number(result.version),
+        replayed: Boolean(result.replayed),
+      }, httpStatus, origin);
     }
 
+    const planId = matchCommerceTrialPolicyPath(path);
+    if (!planId) return null;
+    if (request.method === "GET") {
+      requirePermission(admin, "commerce.read");
+      const policy = await trialStore.get(planId);
+      return json({
+        policy,
+        freshness: { status: "fresh", asOfUtc: new Date().toISOString() },
+      }, 200, origin);
+    }
     if (request.method !== "PUT") return null;
-
     requirePermission(admin, "commerce.trial.write");
     const idempotencyKey = requireIdempotencyKey(request);
     const payload = await parseConfigureCommerceTrialPayload(request);
-    const result = await store.configure({
+    const result = await trialStore.configure({
       actorAccountId: accountId,
       planId,
       payload,
@@ -54,34 +104,21 @@ export function createCommerceTrialRouteHandler(databaseUrl: string) {
       idempotencyKey,
       requestHash: await hashConfigureCommerceTrialRequest(planId, payload),
     });
-    const httpStatus = Number(result.httpStatus);
-    if (!Number.isInteger(httpStatus) || httpStatus < 100 || httpStatus > 599) {
-      throw new ApiError(
-        503,
-        "commerce_trial_workflow_unavailable",
-        "Trial workflow returned an invalid status.",
-      );
-    }
+    const httpStatus = checkedStatus(result, "commerce_trial");
     if (httpStatus >= 400) {
       throw new ApiError(
         httpStatus,
         String(result.code),
-        typeof result.message === "string"
-          ? result.message
-          : "Trial policy update was not completed.",
+        typeof result.message === "string" ? result.message : "Trial policy update was not completed.",
       );
     }
-    return json(
-      {
-        planId: String(result.planId),
-        durationDays: Number(result.durationDays),
-        eligibilityRule: String(result.eligibilityRule),
-        status: String(result.status),
-        version: Number(result.version),
-        replayed: Boolean(result.replayed),
-      },
-      httpStatus,
-      origin,
-    );
+    return json({
+      planId: String(result.planId),
+      durationDays: Number(result.durationDays),
+      eligibilityRule: String(result.eligibilityRule),
+      status: String(result.status),
+      version: Number(result.version),
+      replayed: Boolean(result.replayed),
+    }, httpStatus, origin);
   };
 }
