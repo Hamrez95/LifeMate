@@ -18,6 +18,18 @@ export async function getUserRelationshipSummary(
       select 'Incoming'::text as direction, relationship_type, status
       from network.person_relationships
       where target_person_id = ${personId}::uuid
+
+      union all
+
+      select 'Outgoing'::text as direction, 'Caregiver'::text as relationship_type, status
+      from admin.care_relationship_directory_v1
+      where patient_person_id = ${personId}::uuid
+
+      union all
+
+      select 'Incoming'::text as direction, 'CareRecipient'::text as relationship_type, status
+      from admin.care_relationship_directory_v1
+      where caregiver_person_id = ${personId}::uuid
     ) relationship_summary
     group by direction, relationship_type, status
     order by direction asc, relationship_type asc, status asc
