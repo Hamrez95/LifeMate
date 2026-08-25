@@ -2,6 +2,7 @@ import 'package:caremate/models/care_daily_summary.dart';
 import 'package:caremate/models/care_home_snapshot.dart';
 import 'package:caremate/providers/care_notification_provider.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:lifemate_client/lifemate_client.dart';
 
 void main() {
   CareHomeTreatmentItem item({
