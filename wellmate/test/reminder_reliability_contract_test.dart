@@ -49,7 +49,8 @@ void main() {
       contains('AndroidScheduleMode.exactAllowWhileIdle'),
       reason: 'Reminder scheduling must not silently regress to an inexact mode.',
     );
-    expect(provider, contains("payload: 'lifemate-reminder:"));
+    expect(provider, contains("_reminderPrefix = 'lifemate-reminder:'"));
+    expect(provider, contains('payload: encodeActionPayload(target)'));
   });
 
   test('foreground recovery re-fetches schedule after app resume', () {
