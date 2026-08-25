@@ -81,6 +81,39 @@ const LEDGER_CTE = `
 
     union all
 
+    select concat(c.id::text, ':created') as ledger_id,
+           c.id::text as entity_id,
+           'relationship'::text as kind,
+           'care_relationship_created'::text as event_type,
+           'Active'::text as status,
+           c.patient_person_id as subject_person_id,
+           'Caregiver'::text as item_type,
+           null::text as purpose,
+           null::text as context,
+           null::integer as scope_count,
+           c.created_at_utc as occurred_at_utc,
+           'lifecycle_timestamp'::text as evidence
+    from admin.care_relationship_directory_v1 c
+
+    union all
+
+    select concat(c.id::text, ':revoked') as ledger_id,
+           c.id::text as entity_id,
+           'relationship'::text as kind,
+           'care_relationship_revoked'::text as event_type,
+           c.status::text as status,
+           c.patient_person_id as subject_person_id,
+           'Caregiver'::text as item_type,
+           null::text as purpose,
+           null::text as context,
+           null::integer as scope_count,
+           c.revoked_at_utc as occurred_at_utc,
+           'lifecycle_timestamp'::text as evidence
+    from admin.care_relationship_directory_v1 c
+    where c.revoked_at_utc is not null
+
+    union all
+
     select e.id::text as ledger_id,
            c.id::text as entity_id,
            'consent'::text as kind,
