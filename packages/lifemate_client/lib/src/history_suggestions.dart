@@ -37,14 +37,14 @@ class LifeMateHistorySuggestion {
 }
 
 String normalizeLifeMateHistoryText(String input) {
-  const persianDigits = '۰۱۲۳۴۵۶۷۸۹';
-  const arabicDigits = '٠١٢٣٤٥٦٧٨٩';
+  const persianDigits = '\u06f0\u06f1\u06f2\u06f3\u06f4\u06f5\u06f6\u06f7\u06f8\u06f9';
+  const arabicDigits = '\u0660\u0661\u0662\u0663\u0664\u0665\u0666\u0667\u0668\u0669';
   var value = input
       .trim()
       .toLowerCase()
-      .replaceAll('ي', 'ی')
-      .replaceAll('ى', 'ی')
-      .replaceAll('ك', 'ک')
+      .replaceAll('\u064a', '\u06cc')
+      .replaceAll('\u0649', '\u06cc')
+      .replaceAll('\u0643', '\u06a9')
       .replaceAll('\u200c', ' ')
       .replaceAll('\u200f', '')
       .replaceAll('\u200e', '');
@@ -78,7 +78,8 @@ List<LifeMateHistorySuggestion> rankLifeMateHistorySuggestions({
   }
 
   final ranked = groups.entries.map((entry) {
-    final values = entry.value..sort((left, right) => right.usedAt.compareTo(left.usedAt));
+    final values = entry.value
+      ..sort((left, right) => right.usedAt.compareTo(left.usedAt));
     final latest = values.first;
     return (
       normalized: entry.key,
@@ -88,16 +89,22 @@ List<LifeMateHistorySuggestion> rankLifeMateHistorySuggestions({
         value: latest.value.trim(),
         usageCount: values.length,
         lastUsedAt: latest.usedAt,
-        context: latest.context?.trim().isEmpty == true ? null : latest.context?.trim(),
+        context: latest.context?.trim().isEmpty == true
+            ? null
+            : latest.context?.trim(),
       ),
     );
   }).toList(growable: false);
 
   ranked.sort((left, right) {
     if (left.prefix != right.prefix) return left.prefix ? -1 : 1;
-    final recent = right.suggestion.lastUsedAt.compareTo(left.suggestion.lastUsedAt);
+    final recent = right.suggestion.lastUsedAt.compareTo(
+      left.suggestion.lastUsedAt,
+    );
     if (recent != 0) return recent;
-    final frequent = right.suggestion.usageCount.compareTo(left.suggestion.usageCount);
+    final frequent = right.suggestion.usageCount.compareTo(
+      left.suggestion.usageCount,
+    );
     if (frequent != 0) return frequent;
     return left.normalized.compareTo(right.normalized);
   });
