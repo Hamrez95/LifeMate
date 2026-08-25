@@ -1,33 +1,51 @@
 enum RecurrenceUnit { day, week, month, year }
 
+/// Versioned, product-facing recurrence rule shared by WellMate/CareMate.
+///
+/// The rule is intentionally bounded: callers always ask for a finite date
+/// window and [maxOccurrences] caps the generated series when the user chooses
+/// "after N occurrences". No cron expression is persisted or evaluated here.
 class RecurrenceRule {
   const RecurrenceRule({
+    this.version = 1,
     this.enabled = false,
     this.unit = RecurrenceUnit.month,
     this.interval = 1,
     this.weekdays = const <int>{},
     this.endDate,
-  }) : assert(interval > 0);
+    this.maxOccurrences,
+  }) : assert(version > 0),
+       assert(interval > 0),
+       assert(maxOccurrences == null || maxOccurrences > 0);
 
   const RecurrenceRule.none()
-    : enabled = false,
+    : version = 1,
+      enabled = false,
       unit = RecurrenceUnit.month,
       interval = 1,
       weekdays = const <int>{},
-      endDate = null;
+      endDate = null,
+      maxOccurrences = null;
 
+  final int version;
   final bool enabled;
   final RecurrenceUnit unit;
   final int interval;
   final Set<int> weekdays;
   final DateTime? endDate;
 
+  /// Maximum number of occurrences in the whole series, counted from
+  /// [startDate], not merely inside the queried window.
+  final int? maxOccurrences;
+
   Map<String, dynamic> toJson() => {
+    'version': version,
     'enabled': enabled,
     if (enabled) 'unit': unit.name,
     if (enabled) 'interval': interval,
     if (enabled && weekdays.isNotEmpty) 'weekdays': weekdays.toList()..sort(),
     if (enabled && endDate != null) 'endDate': _date(endDate!),
+    if (enabled && maxOccurrences != null) 'maxOccurrences': maxOccurrences,
   };
 
   factory RecurrenceRule.fromJson(dynamic value) {
@@ -40,6 +58,8 @@ class RecurrenceRule {
       orElse: () => RecurrenceUnit.month,
     );
     final interval = int.tryParse(record['interval']?.toString() ?? '') ?? 1;
+    final version = int.tryParse(record['version']?.toString() ?? '') ?? 1;
+    final rawMax = int.tryParse(record['maxOccurrences']?.toString() ?? '');
     final weekdays =
         (record['weekdays'] is List
                 ? record['weekdays'] as List
@@ -49,11 +69,13 @@ class RecurrenceRule {
             .where((day) => day >= DateTime.monday && day <= DateTime.sunday)
             .toSet();
     return RecurrenceRule(
+      version: version.clamp(1, 1000),
       enabled: true,
       unit: unit,
       interval: interval.clamp(1, 365),
       weekdays: weekdays,
       endDate: DateTime.tryParse(record['endDate']?.toString() ?? ''),
+      maxOccurrences: rawMax == null ? null : rawMax.clamp(1, 10000),
     );
   }
 
@@ -77,6 +99,18 @@ class RecurrenceRule {
     }
 
     final values = <DateTime>{};
+    final limit = maxOccurrences;
+    var emitted = 0;
+
+    bool accept(DateTime cursor) {
+      if (limit != null && emitted >= limit) return false;
+      emitted += 1;
+      if (!cursor.isBefore(from) && !cursor.isAfter(upper)) {
+        values.add(cursor);
+      }
+      return limit == null || emitted < limit;
+    }
+
     switch (unit) {
       case RecurrenceUnit.day:
         for (
@@ -84,33 +118,34 @@ class RecurrenceRule {
           !cursor.isAfter(upper);
           cursor = cursor.add(Duration(days: interval))
         ) {
-          if (!cursor.isBefore(from)) values.add(cursor);
+          if (!accept(cursor)) break;
         }
       case RecurrenceUnit.week:
         final allowed = weekdays.isEmpty ? <int>{start.weekday} : weekdays;
-        final first = from.isAfter(start) ? from : start;
+        // Count from the series start, even when the requested window begins
+        // later, so maxOccurrences means the same thing for every page/query.
         for (
-          var cursor = first;
+          var cursor = start;
           !cursor.isAfter(upper);
           cursor = cursor.add(const Duration(days: 1))
         ) {
           final daysFromStart = cursor.difference(start).inDays;
           final weekIndex = daysFromStart ~/ 7;
           if (weekIndex % interval == 0 && allowed.contains(cursor.weekday)) {
-            values.add(cursor);
+            if (!accept(cursor)) break;
           }
         }
       case RecurrenceUnit.month:
         for (var occurrence = 0; occurrence < 2400; occurrence++) {
           final cursor = _addMonthsClamped(start, occurrence * interval);
           if (cursor.isAfter(upper)) break;
-          if (!cursor.isBefore(from)) values.add(cursor);
+          if (!accept(cursor)) break;
         }
       case RecurrenceUnit.year:
         for (var occurrence = 0; occurrence < 400; occurrence++) {
           final cursor = _addMonthsClamped(start, occurrence * interval * 12);
           if (cursor.isAfter(upper)) break;
-          if (!cursor.isBefore(from)) values.add(cursor);
+          if (!accept(cursor)) break;
         }
     }
     final sorted = values.toList()..sort();
