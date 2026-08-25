@@ -6,6 +6,11 @@ enum LifeMateHistorySuggestionKind {
   careAction,
 }
 
+extension LifeMateNullableHistorySuggestionKindName
+    on LifeMateHistorySuggestionKind? {
+  String get safeName => this?.name ?? 'unknown';
+}
+
 class LifeMateHistoryUsage {
   const LifeMateHistoryUsage({
     required this.kind,
