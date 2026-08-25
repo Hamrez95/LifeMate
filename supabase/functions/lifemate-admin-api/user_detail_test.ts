@@ -5,6 +5,7 @@ import {
   matchUserActivityPath,
   matchUserDetailPath,
   parseUserActivityQuery,
+  userDetailAccountData,
 } from "./user_detail.ts";
 
 const ACCOUNT_ID = "91000000-0000-4000-8000-000000000001";
@@ -20,6 +21,35 @@ Deno.test("matches the paginated user activity path without colliding with detai
   );
   assertEquals(
     matchUserDetailPath(`/api/v1/users/${ACCOUNT_ID}/activity`),
+    null,
+  );
+});
+
+Deno.test("keeps canonical consumer username in User 360 account data", () => {
+  assertEquals(
+    userDetailAccountData({
+      accountId: ACCOUNT_ID,
+      username: "sample.user",
+      status: "Active",
+      createdAtUtc: "2026-08-25T00:00:00.000Z",
+    }),
+    {
+      id: ACCOUNT_ID,
+      username: "sample.user",
+      status: "Active",
+      createdAtUtc: "2026-08-25T00:00:00.000Z",
+    },
+  );
+});
+
+Deno.test("preserves truthful null when consumer username is not assigned", () => {
+  assertEquals(
+    userDetailAccountData({
+      accountId: ACCOUNT_ID,
+      username: null,
+      status: "Active",
+      createdAtUtc: "2026-08-25T00:00:00.000Z",
+    }).username,
     null,
   );
 });
