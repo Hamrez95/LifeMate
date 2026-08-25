@@ -19,8 +19,11 @@ class LifeMateRuntimeLocale {
     _languageCode = languageCode.toLowerCase() == 'en' ? 'en' : 'fa';
   }
 
-  static String select({required String fa, required String en}) =>
-      isPersian ? fa : en;
+  static String select({
+    required String fa,
+    required String en,
+    bool? isPersian,
+  }) => (isPersian ?? LifeMateRuntimeLocale.isPersian) ? fa : en;
 
   /// Presentation-only digit normalization. English UI must never inherit
   /// Persian/Arabic digits from stored values or user input.
