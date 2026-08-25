@@ -30,6 +30,7 @@ class _CareEventFormState extends State<CareEventForm> {
   final _phone = TextEditingController();
   final _instructions = TextEditingController();
   final _repeatInterval = TextEditingController(text: '1');
+  final _repeatCount = TextEditingController();
 
   DateTime _date = DateTime.now();
   TimeOfDay _time = TimeOfDay.now();
@@ -68,6 +69,7 @@ class _CareEventFormState extends State<CareEventForm> {
     _phone.dispose();
     _instructions.dispose();
     _repeatInterval.dispose();
+    _repeatCount.dispose();
     super.dispose();
   }
 
@@ -142,12 +144,44 @@ class _CareEventFormState extends State<CareEventForm> {
     final weekdays = _repeatUnit == RecurrenceUnit.week
         ? (_repeatWeekdays.isEmpty ? <int>{_date.weekday} : _repeatWeekdays)
         : const <int>{};
-    return RecurrenceRule(
+    final countText = _repeatCount.text.trim();
+    final maxOccurrences = countText.isEmpty
+        ? null
+        : LifeMateNumbers.tryParseInt(countText);
+    if (maxOccurrences != null &&
+        (maxOccurrences < 1 || maxOccurrences > 1000)) {
+      setState(
+        () => _error = LifeMateRuntimeLocale.select(
+          fa: 'تعداد تکرار باید بین ۱ تا ۱۰۰۰ باشد.',
+          en: 'Repeat count must be between 1 and 1000.',
+        ),
+      );
+      return null;
+    }
+    if (countText.isNotEmpty && maxOccurrences == null) {
+      setState(
+        () => _error = LifeMateRuntimeLocale.select(
+          fa: 'تعداد تکرار معتبر وارد کنید.',
+          en: 'Enter a valid repeat count.',
+        ),
+      );
+      return null;
+    }
+    final draft = RecurrenceRule(
       enabled: true,
       unit: _repeatUnit,
       interval: interval,
       weekdays: weekdays,
       endDate: _repeatEndDate,
+      maxOccurrences: maxOccurrences,
+    );
+    return RecurrenceRule(
+      enabled: true,
+      unit: _repeatUnit,
+      interval: interval,
+      weekdays: weekdays,
+      endDate: draft.persistenceEndDate(_date),
+      maxOccurrences: maxOccurrences,
     );
   }
 
@@ -278,6 +312,7 @@ class _CareEventFormState extends State<CareEventForm> {
       _repeatEnabled = false;
       _repeatUnit = RecurrenceUnit.month;
       _repeatInterval.text = '1';
+      _repeatCount.clear();
       _repeatEndDate = null;
       _repeatWeekdays.clear();
       _patientReminderMinutesBefore =
@@ -1020,6 +1055,43 @@ class _CareEventFormState extends State<CareEventForm> {
                       ),
                     ),
                   ),
+                SizedBox(height: 8),
+                WellMateLabeledField(
+                  label: LifeMateRuntimeLocale.select(
+                    fa: 'پایان بعد از تعداد دفعات',
+                    en: 'End after occurrences',
+                  ),
+                  icon: Icons.pin_rounded,
+                  helperText: LifeMateRuntimeLocale.select(
+                    fa: 'اگر هم تاریخ پایان و هم تعداد را وارد کنید، هرکدام زودتر برسد اعمال می‌شود.',
+                    en: 'If both are set, the earlier end boundary is used.',
+                  ),
+                  child: TextFormField(
+                    key: ValueKey('care-event-repeat-count'),
+                    controller: _repeatCount,
+                    enabled: !_busy,
+                    keyboardType: TextInputType.number,
+                    inputFormatters: const [LifeMateLocaleDigitInputFormatter()],
+                    textDirection: TextDirection.ltr,
+                    decoration: wellMateFieldDecoration(
+                      hint: LifeMateRuntimeLocale.select(
+                        fa: 'مثلاً ۵',
+                        en: 'For example, 5',
+                      ),
+                    ),
+                    validator: (value) {
+                      final text = value?.trim() ?? '';
+                      if (text.isEmpty) return null;
+                      final parsed = LifeMateNumbers.tryParseInt(text);
+                      return parsed != null && parsed >= 1 && parsed <= 1000
+                          ? null
+                          : LifeMateRuntimeLocale.select(
+                              fa: '۱ تا ۱۰۰۰',
+                              en: '1 to 1000',
+                            );
+                    },
+                  ),
+                ),
               ],
               SizedBox(height: 16),
               WellMateLabeledField(
