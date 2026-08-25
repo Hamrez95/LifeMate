@@ -59,7 +59,7 @@ export function createFinanceScenarioStore(databaseUrl: string) {
           ${input.scenarioId}::uuid,
           ${p.scenarioKind}::character varying,
           ${p.name}::character varying,
-          ${p.currency}::character,
+          ${p.currency}::character varying,
           ${p.validFrom}::date,
           ${p.validTo}::date,
           ${JSON.stringify(p.assumptions)}::jsonb,
