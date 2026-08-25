@@ -55,6 +55,8 @@ class _TabbedAddTreatmentScreenState extends State<TabbedAddTreatmentScreen> {
   bool _busy = false;
   bool _profileTimeZoneRequested = false;
   String? _error;
+  List<LifeMateHistoryUsage> _medicationHistory = const [];
+  bool _historyLoading = false;
 
   static final _forms = <String, String>{
     'tablet': LifeMateRuntimeLocale.select(
@@ -121,6 +123,45 @@ class _TabbedAddTreatmentScreenState extends State<TabbedAddTreatmentScreen> {
   };
 
   @override
+  void initState() {
+    super.initState();
+    _name.addListener(_onMedicationQueryChanged);
+    _loadMedicationHistory();
+  }
+
+  void _onMedicationQueryChanged() {
+    if (mounted) setState(() {});
+  }
+
+  Future<void> _loadMedicationHistory() async {
+    if (_historyLoading) return;
+    setState(() => _historyLoading = true);
+    try {
+      final plans = await context.read<LifeMateApiClient>().getTreatmentPlans();
+      final values = <LifeMateHistoryUsage>[];
+      for (final plan in plans) {
+        final medication = plan['medication'];
+        if (medication is! Map) continue;
+        final name = medication['name']?.toString().trim() ?? '';
+        if (name.isEmpty) continue;
+        values.add(LifeMateHistoryUsage(
+          kind: LifeMateHistorySuggestionKind.medication,
+          value: name,
+          usedAt: DateTime.tryParse(plan['updatedAtUtc']?.toString() ?? '') ??
+              DateTime.tryParse(plan['startDate']?.toString() ?? '') ??
+              DateTime.fromMillisecondsSinceEpoch(0),
+          context: plan['doseText']?.toString(),
+        ));
+      }
+      if (mounted) setState(() => _medicationHistory = List.unmodifiable(values));
+    } catch (error) {
+      debugPrint('WellMate medication history unavailable: $error');
+    } finally {
+      if (mounted) setState(() => _historyLoading = false);
+    }
+  }
+
+  @override
   void didChangeDependencies() {
     super.didChangeDependencies();
     if (!_profileTimeZoneRequested) {
@@ -131,6 +172,7 @@ class _TabbedAddTreatmentScreenState extends State<TabbedAddTreatmentScreen> {
 
   @override
   void dispose() {
+    _name.removeListener(_onMedicationQueryChanged);
     _name.dispose();
     _strength.dispose();
     _dose.dispose();
@@ -429,6 +471,45 @@ class _TabbedAddTreatmentScreenState extends State<TabbedAddTreatmentScreen> {
                 icon: Icons.medication_rounded,
                 required: true,
               ),
+              if (_historyLoading) ...[
+                LinearProgressIndicator(minHeight: 2),
+                SizedBox(height: 8),
+              ] else ...[
+                Builder(
+                  builder: (context) {
+                    final suggestions = rankLifeMateHistorySuggestions(
+                      history: _medicationHistory,
+                      query: _name.text,
+                      kind: LifeMateHistorySuggestionKind.medication,
+                    );
+                    if (suggestions.isEmpty) return const SizedBox.shrink();
+                    return Padding(
+                      padding: const EdgeInsets.only(bottom: 10),
+                      child: Wrap(
+                        spacing: 6,
+                        runSpacing: 6,
+                        children: [
+                          for (final suggestion in suggestions)
+                            ActionChip(
+                              key: ValueKey('medication-history-${suggestion.value}'),
+                              label: Text('${suggestion.value} · ${suggestion.usageCount}×'),
+                              onPressed: _busy
+                                  ? null
+                                  : () {
+                                      _name.value = TextEditingValue(
+                                        text: suggestion.value,
+                                        selection: TextSelection.collapsed(
+                                          offset: suggestion.value.length,
+                                        ),
+                                      );
+                                    },
+                            ),
+                        ],
+                      ),
+                    );
+                  },
+                ),
+              ],
               _textField(
                 controller: _strength,
                 label: LifeMateRuntimeLocale.select(
