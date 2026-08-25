@@ -1,0 +1,54 @@
+name: tmp-fix-94-field-kinds
+on:
+  push:
+    branches: ["feat/94-smart-history-autofill"]
+permissions:
+  contents: write
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: feat/94-smart-history-autofill
+      - shell: python
+        run: |
+          from pathlib import Path
+          p = Path('wellmate/lib/screens/treatments/care_event_form.dart')
+          s = p.read_text()
+          title = '''                icon: _isAppointment
+                    ? Icons.event_note_rounded
+                    : Icons.medication_liquid_rounded,
+                required: true,
+              ),
+'''
+          title_new = '''                icon: _isAppointment
+                    ? Icons.event_note_rounded
+                    : Icons.medication_liquid_rounded,
+                required: true,
+                historyKind: _isAppointment
+                    ? LifeMateHistorySuggestionKind.careAction
+                    : LifeMateHistorySuggestionKind.injection,
+              ),
+'''
+          assert title in s
+          s = s.replace(title, title_new, 1)
+          doctor = '''                  icon: Icons.person_rounded,
+                  required: true,
+                ),
+'''
+          doctor_new = '''                  icon: Icons.person_rounded,
+                  required: true,
+                  historyKind: LifeMateHistorySuggestionKind.doctor,
+                ),
+'''
+          assert doctor in s
+          s = s.replace(doctor, doctor_new, 1)
+          p.write_text(s)
+      - run: rm .github/workflows/tmp-fix-94-field-kinds.yml
+      - run: |
+          git config user.name "chatgpt-codex-connector"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -m "fix(autofill): connect doctor and care-event suggestions (#94)"
+          git push origin HEAD:feat/94-smart-history-autofill
