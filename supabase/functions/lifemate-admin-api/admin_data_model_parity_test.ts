@@ -15,6 +15,10 @@ function captureSql() {
   return { sql, queries };
 }
 
+async function source(name: string): Promise<string> {
+  return await Deno.readTextFile(new URL(name, import.meta.url));
+}
+
 Deno.test("user directory stays on the canonical Admin read model", async () => {
   const { sql, queries } = captureSql();
   await listUserDirectory(sql, {
@@ -95,4 +99,40 @@ Deno.test("analytics KPI fallback reads canonical identity and ecosystem snapsho
     assert(!query.includes("lifemate.app_users"));
     assert(!query.includes("lifemate.user_profiles"));
   }
+});
+
+Deno.test("commerce overview remains on the canonical commerce schema", async () => {
+  const text = await source("./commerce_service.ts");
+  assertStringIncludes(text, "commerce.subscriptions");
+  assertStringIncludes(text, "commerce.entitlements");
+  assertStringIncludes(text, "commerce.products");
+  assert(!text.includes("lifemate."));
+});
+
+Deno.test("marketing campaigns stay on bounded Admin read/write models", async () => {
+  const text = await source("./marketing_campaigns_store.ts");
+  assertStringIncludes(text, "admin.marketing_campaigns_v1");
+  assertStringIncludes(text, "admin.create_marketing_campaign");
+  assertStringIncludes(text, "admin.update_marketing_campaign");
+  assert(!text.includes("lifemate."));
+});
+
+Deno.test("finance actuals and budget remain on the canonical finance schema", async () => {
+  const actual = await source("./finance_service.ts");
+  const budget = await source("./finance_budget_service.ts");
+  assertStringIncludes(actual, "finance.actual_ledger_entries");
+  assertStringIncludes(budget, "finance.");
+  assert(!actual.includes("lifemate."));
+  assert(!budget.includes("lifemate."));
+});
+
+Deno.test("security RBAC remains isolated to the Admin authorization domain", async () => {
+  const matrix = await source("./security_rbac_service.ts");
+  const detail = await source("./security_role_detail_service.ts");
+  assertStringIncludes(matrix, "admin.roles");
+  assertStringIncludes(matrix, "admin.permissions");
+  assertStringIncludes(matrix, "admin.role_permissions");
+  assertStringIncludes(detail, "admin.");
+  assert(!matrix.includes("lifemate."));
+  assert(!detail.includes("lifemate."));
 });
