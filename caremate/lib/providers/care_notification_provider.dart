@@ -8,6 +8,7 @@ import 'package:timezone/timezone.dart' as tz;
 import 'package:url_launcher/url_launcher.dart';
 
 import '../core/utils/string_extensions.dart';
+import '../models/care_daily_summary.dart';
 import '../models/care_recipient_alert.dart';
 import '../models/care_recipient_reminder.dart';
 
@@ -18,10 +19,18 @@ class CareCompletionCopy {
   final String body;
 }
 
+class CareDailySummaryCopy {
+  const CareDailySummaryCopy({required this.title, required this.body});
+
+  final String title;
+  final String body;
+}
+
 class CareNotificationProvider extends ChangeNotifier {
   final FlutterLocalNotificationsPlugin _notifications =
       FlutterLocalNotificationsPlugin();
   final Map<String, String> _lastMissedOccurrenceByPatient = {};
+  final Set<String> _dailySummaryShownKeys = <String>{};
   LifeMateApiClient? _apiClient;
   NotificationResponse? _pendingResponse;
   bool _initialized = false;
@@ -186,6 +195,7 @@ class CareNotificationProvider extends ChangeNotifier {
 
     final relationships = await _safeRelationships();
     await _syncCompletionNotifications(relationships, isPersian: isPersian);
+    await _syncDailySummaries(relationships, isPersian: isPersian);
     final allowedCandidates = candidates.where(
       (alert) => allowsMissedForRelationships(
         relationships,
@@ -352,6 +362,138 @@ class CareNotificationProvider extends ChangeNotifier {
     }
   }
 
+  Future<void> _syncDailySummaries(
+    Iterable<Map<String, dynamic>> relationships, {
+    required bool isPersian,
+  }) async {
+    final apiClient = _apiClient;
+    if (apiClient == null) return;
+
+    Map<String, dynamic> currentUser;
+    try {
+      currentUser = await apiClient.getCurrentUser();
+    } catch (error) {
+      debugPrint('CareMate daily summary profile read failed safely: $error');
+      return;
+    }
+    final profile = currentUser['profile'] is Map<String, dynamic>
+        ? currentUser['profile'] as Map<String, dynamic>
+        : const <String, dynamic>{};
+    final timeZone = profile['timeZone']?.toString().trim();
+    try {
+      tz.setLocalLocation(
+        tz.getLocation(timeZone == null || timeZone.isEmpty ? 'Asia/Tehran' : timeZone),
+      );
+    } catch (_) {
+      tz.setLocalLocation(tz.getLocation('Asia/Tehran'));
+    }
+    final now = tz.TZDateTime.now(tz.local);
+    final localDate = DateTime(now.year, now.month, now.day);
+    final dateKey =
+        '${now.year.toString().padLeft(4, '0')}'
+        '${now.month.toString().padLeft(2, '0')}'
+        '${now.day.toString().padLeft(2, '0')}';
+
+    for (final relationship in relationships) {
+      final patientUserId = relationship['patientUserId']?.toString().trim();
+      final patientDisplayName = relationship['patientDisplayName']?.toString().trim();
+      final preferences = _preferences(relationship);
+      if (patientUserId == null ||
+          patientUserId.isEmpty ||
+          relationship['status']?.toString().toLowerCase() != 'active' ||
+          preferences['enabled'] == false ||
+          preferences['dailySummaryEnabled'] != true ||
+          !isDailySummaryDue(
+            now,
+            preferences['dailySummaryLocalTime']?.toString(),
+          )) {
+        continue;
+      }
+
+      final shownKey = '$patientUserId:$dateKey';
+      if (_dailySummaryShownKeys.contains(shownKey)) continue;
+
+      try {
+        final values = await Future.wait<dynamic>([
+          apiClient.getCareRecipientDoseOccurrences(
+            patientUserId: patientUserId,
+            fromDate: localDate,
+            toDate: localDate,
+          ),
+          apiClient.getCareRecipientCareEvents(
+            patientUserId: patientUserId,
+            fromDate: localDate,
+            toDate: localDate,
+          ),
+        ]);
+        final doses = values[0] as List<Map<String, dynamic>>;
+        final events = values[1] as List<Map<String, dynamic>>;
+        final statuses = <String>[
+          ...doses.map((value) => value['status']?.toString().toLowerCase() ?? ''),
+          ...events.map((value) => value['status']?.toString().toLowerCase() ?? ''),
+        ].where((status) => !const <String>{
+          'cancelled',
+          'archived',
+          'inactive',
+          'stopped',
+        }.contains(status)).toList(growable: false);
+        if (statuses.isEmpty) continue;
+
+        final completed = statuses
+            .where((status) => status == 'taken' || status == 'completed')
+            .length;
+        final alerts = statuses
+            .where((status) => status == 'missed' || status == 'skipped')
+            .length;
+        final pending = statuses.length - completed - alerts;
+        final summary = CareDailySummary(
+          patientUserId: patientUserId,
+          patientDisplayName:
+              patientDisplayName == null || patientDisplayName.isEmpty
+              ? LifeMateRuntimeLocale.select(
+                  fa: 'فرد تحت مراقبت',
+                  en: 'Person under care',
+                )
+              : patientDisplayName,
+          total: statuses.length,
+          completed: completed,
+          pending: pending < 0 ? 0 : pending,
+          alerts: alerts,
+        );
+        final copy = dailySummaryCopy(summary, isPersian: isPersian);
+        await _notifications.show(
+          _notificationId('daily-summary:$shownKey'),
+          copy.title,
+          copy.body,
+          NotificationDetails(
+            android: AndroidNotificationDetails(
+              'caremate_daily_summary',
+              LifeMateRuntimeLocale.select(
+                fa: 'خلاصه روزانه مراقبت',
+                en: 'Daily care summary',
+              ),
+              channelDescription: LifeMateRuntimeLocale.select(
+                fa: 'خلاصه ثبت‌های درمانی امروز برای هر فرد، مطابق تنظیمات شما',
+                en: 'A per-person summary of today’s recorded care activity, according to your preferences',
+              ),
+              importance: Importance.defaultImportance,
+              priority: Priority.defaultPriority,
+              category: AndroidNotificationCategory.status,
+              visibility: _visibilityForDetail(
+                preferences['lockScreenDetail']?.toString(),
+              ),
+              onlyAlertOnce: true,
+            ),
+          ),
+          payload: 'care-daily-summary:$patientUserId:$dateKey',
+        );
+        _dailySummaryShownKeys.add(shownKey);
+      } catch (error) {
+        debugPrint('CareMate daily summary read failed safely: $error');
+      }
+    }
+  }
+
   Future<List<Map<String, dynamic>>> _safeRelationships() async {
     final apiClient = _apiClient;
     if (apiClient == null) return const [];
@@ -399,6 +541,43 @@ class CareNotificationProvider extends ChangeNotifier {
                 ? 'برای $safePatient انجام $safeTreatment ثبت شد.'
                 : 'A completion was recorded for $safePatient: $safeTreatment.'),
     );
+  }
+
+  static CareDailySummaryCopy dailySummaryCopy(
+    CareDailySummary summary, {
+    required bool isPersian,
+  }) {
+    final title = isPersian
+        ? '☀️ وضعیت امروز ${summary.patientDisplayName}'
+        : '☀️ Today for ${summary.patientDisplayName}';
+    final progress = isPersian
+        ? '${summary.completed} از ${summary.total} درمان ثبت‌شده انجام شد.'
+        : '${summary.completed} of ${summary.total} recorded treatments were completed.';
+    final status = summary.unresolved == 0
+        ? (isPersian
+              ? 'مورد درمانی پیگیری‌نشده‌ای در برنامه امروز باقی نمانده.'
+              : 'No recorded treatment item remains unresolved in today’s plan.')
+        : summary.alerts > 0
+        ? (isPersian
+              ? '${summary.alerts} مورد missed/skipped و ${summary.pending} مورد در انتظار پیگیری است.'
+              : '${summary.alerts} item(s) are missed/skipped and ${summary.pending} remain pending.')
+        : (isPersian
+              ? '${summary.pending} مورد هنوز در انتظار پیگیری است.'
+              : '${summary.pending} item(s) remain pending.');
+    return CareDailySummaryCopy(title: title, body: '$progress $status');
+  }
+
+  static bool isDailySummaryDue(DateTime now, String? preferredTime) {
+    final match = RegExp(r'^(\d{2}):(\d{2})').firstMatch(
+      preferredTime?.trim() ?? '',
+    );
+    if (match == null) return false;
+    final hour = int.tryParse(match.group(1) ?? '');
+    final minute = int.tryParse(match.group(2) ?? '');
+    if (hour == null || minute == null || hour > 23 || minute > 59) {
+      return false;
+    }
+    return now.hour * 60 + now.minute >= hour * 60 + minute;
   }
 
   static bool allowsMissedForRelationships(
