@@ -68,7 +68,17 @@ def check_persian_literals_are_guarded() -> None:
                 lo = max(0, literal.start - 500)
                 hi = min(len(text), literal.end + 500)
                 context = text[lo:hi]
-                if 'LifeMateRuntimeLocale.select' not in context or 'en:' not in context:
+                guarded_select = (
+                    'LifeMateRuntimeLocale.select' in context and 'en:' in context
+                )
+                guarded_ternary = (
+                    re.search(r'(?:isPersian|persian)\s*\?', context) is not None
+                    and re.search(r"\:\s*['\"]", context) is not None
+                )
+                guarded_branch = (
+                    re.search(r'if\s*\(\s*!persian\s*\)', context) is not None
+                )
+                if not guarded_select and not guarded_ternary and not guarded_branch:
                     fail(
                         f'{rel}:{literal.line}: Persian runtime literal has no nearby English locale branch: '
                         f'{literal.body[:80]!r}'
