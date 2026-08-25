@@ -47,7 +47,9 @@ export function createCommerceDiscountCodeStore(databaseUrl: string) {
         codeId: String(row.id),
         code: String(row.code),
         status: String(row.status),
-        maxRedemptions: row.max_redemptions == null ? null : Number(row.max_redemptions),
+        maxRedemptions: row.max_redemptions == null
+          ? null
+          : Number(row.max_redemptions),
         version: Number(row.version),
         createdAtUtc: iso(row.created_at_utc),
         updatedAtUtc: iso(row.updated_at_utc),
