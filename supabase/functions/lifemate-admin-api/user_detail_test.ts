@@ -2,6 +2,7 @@ import { assertEquals, assertThrows } from "jsr:@std/assert";
 
 import { ApiError } from "./validation.ts";
 import {
+  buildUserDetailAccountSection,
   matchUserActivityPath,
   matchUserDetailPath,
   parseUserActivityQuery,
@@ -20,6 +21,38 @@ Deno.test("matches the paginated user activity path without colliding with detai
   );
   assertEquals(
     matchUserDetailPath(`/api/v1/users/${ACCOUNT_ID}/activity`),
+    null,
+  );
+});
+
+Deno.test("keeps canonical consumer username in User 360 account data", () => {
+  assertEquals(
+    buildUserDetailAccountSection({
+      accountId: ACCOUNT_ID,
+      username: "sample.user",
+      status: "Active",
+      createdAtUtc: "2026-08-25T00:00:00.000Z",
+    }),
+    {
+      state: "ready",
+      data: {
+        id: ACCOUNT_ID,
+        username: "sample.user",
+        status: "Active",
+        createdAtUtc: "2026-08-25T00:00:00.000Z",
+      },
+    },
+  );
+});
+
+Deno.test("preserves truthful null when consumer username is not assigned", () => {
+  assertEquals(
+    buildUserDetailAccountSection({
+      accountId: ACCOUNT_ID,
+      username: null,
+      status: "Active",
+      createdAtUtc: "2026-08-25T00:00:00.000Z",
+    }).data.username,
     null,
   );
 });
