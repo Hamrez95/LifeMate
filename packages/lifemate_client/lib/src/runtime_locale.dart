@@ -19,8 +19,14 @@ class LifeMateRuntimeLocale {
     _languageCode = languageCode.toLowerCase() == 'en' ? 'en' : 'fa';
   }
 
-  static String select({required String fa, required String en}) =>
-      isPersian ? fa : en;
+  /// Selects localized copy. [isPersianOverride] is for persisted/background
+  /// work whose locale was captured earlier (for example a scheduled
+  /// notification); normal foreground UI should keep using runtime state.
+  static String select({
+    required String fa,
+    required String en,
+    bool? isPersianOverride,
+  }) => (isPersianOverride ?? isPersian) ? fa : en;
 
   /// Presentation-only digit normalization. English UI must never inherit
   /// Persian/Arabic digits from stored values or user input.
