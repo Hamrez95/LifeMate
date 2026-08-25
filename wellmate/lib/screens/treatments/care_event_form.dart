@@ -9,10 +9,16 @@ import '../../core/widgets/labeled_form_field.dart';
 enum CarePlanKind { appointment, injection }
 
 class CareEventForm extends StatefulWidget {
-  const CareEventForm({super.key, required this.kind, required this.onCreated});
+  const CareEventForm({
+    super.key,
+    required this.kind,
+    required this.onCreated,
+    this.initialDraft,
+  });
 
   final CarePlanKind kind;
   final VoidCallback onCreated;
+  final CareEventReuseDraft? initialDraft;
 
   @override
   State<CareEventForm> createState() => _CareEventFormState();
@@ -57,6 +63,7 @@ class _CareEventFormState extends State<CareEventForm> {
   @override
   void initState() {
     super.initState();
+    _applyInitialDraft(widget.initialDraft);
     _title.addListener(_onHistoryQueryChanged);
     _provider.addListener(_onHistoryQueryChanged);
     _center.addListener(_onHistoryQueryChanged);
@@ -81,6 +88,36 @@ class _CareEventFormState extends State<CareEventForm> {
     _repeatInterval.dispose();
     _repeatCount.dispose();
     super.dispose();
+  }
+
+  void _applyInitialDraft(CareEventReuseDraft? draft) {
+    if (draft == null) return;
+    _title.text = draft.title;
+    _provider.text = draft.providerName ?? '';
+    _specialty.text = draft.specialty ?? '';
+    _dose.text = draft.doseText ?? '';
+    _reason.text = draft.reason ?? '';
+    _center.text = draft.centerName ?? '';
+    _address.text = draft.addressLine ?? '';
+    _phone.text = draft.phoneNumber ?? '';
+    _instructions.text = draft.instructions ?? '';
+    _administrationRoute = draft.administrationRoute ?? 'intramuscular';
+    _timeZone = draft.timeZone;
+    _patientReminderMinutesBefore = draft.patientReminderMinutesBefore;
+    _caregiverReminderMinutesBefore = draft.caregiverReminderMinutesBefore;
+    final recurrence = draft.recurrence;
+    _repeatEnabled = recurrence.enabled;
+    if (recurrence.enabled) {
+      _repeatUnit = recurrence.unit;
+      _repeatInterval.text = recurrence.interval.toString();
+      _repeatEndDate = recurrence.endDate;
+      _repeatWeekdays
+        ..clear()
+        ..addAll(recurrence.weekdays);
+      if (recurrence.maxOccurrences != null) {
+        _repeatCount.text = recurrence.maxOccurrences.toString();
+      }
+    }
   }
 
   void _onHistoryQueryChanged() {
@@ -180,7 +217,7 @@ class _CareEventFormState extends State<CareEventForm> {
       final value = await context.read<LifeMateApiClient>().getCurrentUser();
       final profile = value['profile'] as Map<String, dynamic>?;
       final timeZone = profile?['timeZone']?.toString().trim();
-      if (mounted && timeZone != null && timeZone.isNotEmpty) {
+      if (mounted && timeZone != null && timeZone.isNotEmpty && widget.initialDraft == null) {
         setState(() => _timeZone = timeZone);
       }
     } catch (error) {

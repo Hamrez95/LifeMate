@@ -4,6 +4,7 @@ import 'package:lifemate_client/lifemate_client.dart';
 import '../../core/theme/app_style.dart';
 import '../../core/utils/persian_date_utils.dart';
 import '../../core/widgets/labeled_form_field.dart';
+import 'care_event_form.dart';
 
 class EditCareEventScreen extends StatefulWidget {
   const EditCareEventScreen({super.key, required this.eventId, this.editApi});
@@ -42,6 +43,7 @@ class _EditCareEventScreenState extends State<EditCareEventScreen> {
       LifeMateReminderLeadTimes.defaultCaregiverMinutes;
   int _version = 1;
   bool _wasMissed = false;
+  Map<String, dynamic>? _loadedEvent;
 
   LifeMateEditApi get _api =>
       widget.editApi ?? LifeMateEditApi.fromEnvironment();
@@ -102,6 +104,7 @@ class _EditCareEventScreenState extends State<EditCareEventScreen> {
   }
 
   void _hydrate(Map<String, dynamic> event) {
+    _loadedEvent = Map<String, dynamic>.from(event);
     _eventType = event['eventType']?.toString().toLowerCase() == 'injection'
         ? 'injection'
         : 'appointment';
@@ -147,6 +150,38 @@ class _EditCareEventScreenState extends State<EditCareEventScreen> {
       fallback: LifeMateReminderLeadTimes.defaultCaregiverMinutes,
     );
     _version = int.tryParse(event['version']?.toString() ?? '') ?? 1;
+  }
+
+  Future<void> _reuseFromHistory() async {
+    final source = _loadedEvent;
+    if (source == null || _busy) return;
+    final draft = CareEventReuseDraft.fromHistory(source);
+    final kind = draft.eventType == 'injection'
+        ? CarePlanKind.injection
+        : CarePlanKind.appointment;
+    await Navigator.of(context).push<void>(
+      MaterialPageRoute<void>(
+        builder: (routeContext) => Scaffold(
+          backgroundColor: AppColors.background,
+          appBar: AppBar(
+            backgroundColor: AppColors.background,
+            title: Text(
+              LifeMateRuntimeLocale.select(
+                fa: 'ثبت دوباره',
+                en: 'Register again',
+              ),
+            ),
+          ),
+          body: SafeArea(
+            child: CareEventForm(
+              kind: kind,
+              initialDraft: draft,
+              onCreated: () => Navigator.of(routeContext).pop(),
+            ),
+          ),
+        ),
+      ),
+    );
   }
 
   Future<void> _pickDate() async {
@@ -339,6 +374,16 @@ class _EditCareEventScreenState extends State<EditCareEventScreen> {
             fontWeight: FontWeight.w900,
           ),
         ),
+        actions: [
+          TextButton.icon(
+            key: const ValueKey('reuse-care-event-action'),
+            onPressed: _loading || _loadedEvent == null ? null : _reuseFromHistory,
+            icon: const Icon(Icons.replay_rounded),
+            label: Text(
+              LifeMateRuntimeLocale.select(fa: 'ثبت دوباره', en: 'Reuse'),
+            ),
+          ),
+        ],
       ),
       body: SafeArea(
         top: false,
