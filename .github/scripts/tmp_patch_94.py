@@ -124,11 +124,11 @@ s = s.replace(
     "                            icon: Icons.person_rounded,\n                            required: true,\n                            historyKind: LifeMateHistorySuggestionKind.doctor,\n",
     1,
 )
-target = "                          icon: Icons.local_hospital_rounded,\n                        ),\n"
+target = "                icon: Icons.local_hospital_rounded,\n              ),\n"
 assert target in s
 s = s.replace(
     target,
-    "                          icon: Icons.local_hospital_rounded,\n                          historyKind: LifeMateHistorySuggestionKind.center,\n                        ),\n",
+    "                icon: Icons.local_hospital_rounded,\n                historyKind: LifeMateHistorySuggestionKind.center,\n              ),\n",
     1,
 )
 
