@@ -1,3 +1,5 @@
+import 'package:lifemate_client/lifemate_client.dart';
+
 class CareRecipientAlert {
   const CareRecipientAlert({
     required this.patientUserId,
@@ -20,6 +22,28 @@ class CareRecipientAlert {
   final String status;
 
   bool get isMissed => const {'missed', 'skipped'}.contains(status.toLowerCase());
+
+  String get deduplicationKey =>
+      LifeMateNotificationIntelligence.deduplicationKey(
+        personId: patientUserId,
+        sourceId: occurrenceId,
+        stage: LifeMateNotificationStage.caregiverEscalation,
+      );
+
+  LifeMateNotificationDecision decision(
+    DateTime nowUtc, {
+    bool relationshipAuthorized = true,
+    bool preferenceEnabled = true,
+  }) => LifeMateNotificationIntelligence.evaluate(
+    personId: patientUserId,
+    sourceId: occurrenceId,
+    status: status,
+    scheduledAtUtc: scheduledAtUtc,
+    nowUtc: nowUtc,
+    stage: LifeMateNotificationStage.caregiverEscalation,
+    relationshipAuthorized: relationshipAuthorized,
+    preferenceEnabled: preferenceEnabled,
+  );
 }
 
 List<CareRecipientAlert> selectLatestMissedAlertPerPatient(
@@ -29,8 +53,7 @@ List<CareRecipientAlert> selectLatestMissedAlertPerPatient(
   final now = (nowUtc ?? DateTime.now().toUtc()).toUtc();
   final selected = <String, CareRecipientAlert>{};
   for (final alert in alerts) {
-    final scheduled = alert.scheduledAtUtc.toUtc();
-    if (!alert.isMissed || scheduled.isAfter(now)) continue;
+    if (!alert.decision(now).shouldNotify) continue;
     final existing = selected[alert.patientUserId];
     if (existing == null || _compareAlert(alert, existing) < 0) {
       selected[alert.patientUserId] = alert;
