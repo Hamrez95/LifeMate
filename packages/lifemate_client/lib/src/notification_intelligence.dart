@@ -85,10 +85,12 @@ abstract final class LifeMateNotificationIntelligence {
 
     final scheduled = scheduledAtUtc.toUtc();
     final now = nowUtc.toUtc();
+    final scheduledReached = !now.isBefore(scheduled);
     final afterGrace = !now.isBefore(scheduled.add(gracePeriod));
-    final missedState = normalizedStatus == 'missed' ||
-        normalizedStatus == 'skipped' ||
-        (normalizedStatus == 'scheduled' && afterGrace);
+    final missedState = scheduledReached &&
+        (normalizedStatus == 'missed' ||
+            normalizedStatus == 'skipped' ||
+            (normalizedStatus == 'scheduled' && afterGrace));
 
     final shouldNotify = switch (stage) {
       LifeMateNotificationStage.reminder =>
@@ -125,8 +127,10 @@ abstract final class LifeMateNotificationIntelligence {
       }
     }
     final result = byKey.values.toList(growable: false)
-      ..sort((left, right) =>
-          left.deduplicationKey.compareTo(right.deduplicationKey));
+      ..sort(
+        (left, right) =>
+            left.deduplicationKey.compareTo(right.deduplicationKey),
+      );
     return result;
   }
 
