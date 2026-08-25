@@ -38,6 +38,45 @@ class RecurrenceRule {
   /// [startDate], not merely inside the queried window.
   final int? maxOccurrences;
 
+  /// Resolves the product count-bound into the existing server-compatible
+  /// end-date contract. If both an explicit end date and a count are present,
+  /// the earlier boundary wins.
+  DateTime? persistenceEndDate(DateTime startDate) {
+    final explicit = endDate == null ? null : _onlyDate(endDate!);
+    final count = maxOccurrences;
+    if (!enabled || count == null) return explicit;
+    final counted = _occurrenceAt(_onlyDate(startDate), count);
+    if (explicit == null || counted.isBefore(explicit)) return counted;
+    return explicit;
+  }
+
+  DateTime _occurrenceAt(DateTime start, int ordinal) {
+    final offset = ordinal - 1;
+    switch (unit) {
+      case RecurrenceUnit.day:
+        return start.add(Duration(days: interval * offset));
+      case RecurrenceUnit.month:
+        return _addMonthsClamped(start, interval * offset);
+      case RecurrenceUnit.year:
+        return _addMonthsClamped(start, interval * offset * 12);
+      case RecurrenceUnit.week:
+        final allowed = weekdays.isEmpty ? <int>{start.weekday} : weekdays;
+        var emitted = 0;
+        var cursor = start;
+        final guardLimit = (ordinal * interval * 7) + 14;
+        for (var guard = 0; guard <= guardLimit; guard += 1) {
+          final daysFromStart = cursor.difference(start).inDays;
+          final weekIndex = daysFromStart ~/ 7;
+          if (weekIndex % interval == 0 && allowed.contains(cursor.weekday)) {
+            emitted += 1;
+            if (emitted == ordinal) return cursor;
+          }
+          cursor = cursor.add(const Duration(days: 1));
+        }
+        throw StateError('Could not resolve recurrence count boundary.');
+    }
+  }
+
   Map<String, dynamic> toJson() => {
     'version': version,
     'enabled': enabled,

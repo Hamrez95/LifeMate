@@ -159,4 +159,25 @@ void main() {
       'maxOccurrences': 8,
     });
   });
+
+  test('count bound resolves to server-compatible end date', () {
+    const rule = RecurrenceRule(
+      enabled: true,
+      unit: RecurrenceUnit.day,
+      interval: 3,
+      maxOccurrences: 5,
+    );
+    expect(rule.persistenceEndDate(DateTime(2026, 8, 1)), DateTime(2026, 8, 13));
+  });
+
+  test('earlier explicit recurrence end wins over count boundary', () {
+    final rule = RecurrenceRule(
+      enabled: true,
+      unit: RecurrenceUnit.month,
+      interval: 1,
+      maxOccurrences: 6,
+      endDate: DateTime(2026, 10, 15),
+    );
+    expect(rule.persistenceEndDate(DateTime(2026, 8, 31)), DateTime(2026, 10, 15));
+  });
 }
