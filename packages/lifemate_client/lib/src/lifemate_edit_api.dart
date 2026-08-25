@@ -52,8 +52,17 @@ class LifeMateEditApi {
   Future<Map<String, dynamic>> updateCareEventStatus({
     required String eventId,
     required String status,
+    int? expectedVersion,
   }) async {
     final event = await getCareEvent(eventId: eventId);
+    final currentVersion = int.tryParse(event['version']?.toString() ?? '') ?? 1;
+    if (expectedVersion != null && currentVersion != expectedVersion) {
+      throw const LifeMateApiException(
+        statusCode: 409,
+        code: 'stale_care_event',
+        message: 'The care event changed before this action was applied.',
+      );
+    }
     final eventType =
         event['eventType']?.toString().trim().toLowerCase() == 'injection'
         ? 'injection'
@@ -68,7 +77,7 @@ class LifeMateEditApi {
 
     return updateCareEvent(
       eventId: eventId,
-      version: int.tryParse(event['version']?.toString() ?? '') ?? 1,
+      version: currentVersion,
       eventType: eventType,
       title: title,
       providerName: _emptyToNull(event['providerName']?.toString()),
