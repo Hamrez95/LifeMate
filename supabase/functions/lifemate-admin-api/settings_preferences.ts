@@ -41,6 +41,11 @@ function timeZone(value: unknown): string {
   if (normalized.length < 1 || normalized.length > 64 || !/^[A-Za-z_+\-/]+$/.test(normalized)) {
     throw new ApiError(400, "settings_timezone_invalid", "Time zone is invalid.");
   }
+  try {
+    new Intl.DateTimeFormat("en-US", { timeZone: normalized }).format(0);
+  } catch {
+    throw new ApiError(400, "settings_timezone_invalid", "Time zone must be a supported IANA time zone.");
+  }
   return normalized;
 }
 
