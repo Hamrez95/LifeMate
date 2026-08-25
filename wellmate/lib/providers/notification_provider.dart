@@ -31,7 +31,12 @@ class WellMateNotificationTarget {
   bool get isMedicine => type == 'medicine';
   bool get isRecurringCareInstance =>
       !isMedicine && seriesId != null && seriesId!.isNotEmpty && seriesId != id;
-  String get key => '$type:$id';
+  String get sourceId => '$type:$id';
+  String get key => LifeMateNotificationIntelligence.deduplicationKey(
+    personId: 'self',
+    sourceId: sourceId,
+    stage: LifeMateNotificationStage.reminder,
+  );
 
   Map<String, dynamic> toJson() => <String, dynamic>{
     'type': type,
@@ -212,7 +217,7 @@ class NotificationProvider extends ChangeNotifier {
 
     final activeScheduledItems = <String, ScheduleItemModel>{
       for (final item in items)
-        if (item.status == 'scheduled') '${item.type}:${item.id}': item,
+        if (item.status == 'scheduled') _policyKeyForItem(item): item,
     };
     final preservedSnoozeKeys = <String>{};
     final pending = await _notifications.pendingNotificationRequests();
@@ -235,12 +240,20 @@ class NotificationProvider extends ChangeNotifier {
 
     final nowUtc = DateTime.now().toUtc();
     for (final item in items) {
-      final itemKey = '${item.type}:${item.id}';
+      final itemKey = _policyKeyForItem(item);
       if (preservedSnoozeKeys.contains(itemKey)) continue;
       final scheduledUtc = _scheduledUtc(item);
-      if (scheduledUtc == null ||
-          !scheduledUtc.isAfter(nowUtc) ||
-          item.status != 'scheduled') {
+      if (scheduledUtc == null) continue;
+      final decision = LifeMateNotificationIntelligence.evaluate(
+        personId: 'self',
+        sourceId: '${item.type}:${item.id}',
+        status: item.status,
+        scheduledAtUtc: scheduledUtc,
+        nowUtc: nowUtc,
+        stage: LifeMateNotificationStage.reminder,
+      );
+      if (!decision.shouldNotify) {
+        await _notifications.cancel(notificationIdFor(decision.deduplicationKey));
         continue;
       }
       final triggerUtc = scheduledUtc.subtract(
@@ -256,7 +269,7 @@ class NotificationProvider extends ChangeNotifier {
         clientRequestId: LifeMateApiClient.createClientRequestId(),
         isPersian: isPersian,
       );
-      final notificationId = notificationIdFor(target.key);
+      final notificationId = notificationIdFor(decision.deduplicationKey);
       await _notifications.cancel(notificationId);
       final title = _title(item, isPersian);
       final detail = _detail(item, isPersian);
@@ -265,9 +278,7 @@ class NotificationProvider extends ChangeNotifier {
         title.toPersianDigit(isPersian),
         detail.toPersianDigit(isPersian),
         tz.TZDateTime.from(triggerUtc, tz.local),
-        NotificationDetails(
-          android: _androidDetails(target),
-        ),
+        NotificationDetails(android: _androidDetails(target)),
         androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
         payload: encodeActionPayload(target),
       );
@@ -302,8 +313,8 @@ class NotificationProvider extends ChangeNotifier {
     channelDescription: target.isPersian
         ? 'یادآورهای دارو، ویزیت و تزریق WellMate'
         : 'WellMate medication, visit and injection reminders',
-    importance: Importance.high,
-    priority: Priority.high,
+    importance: Importance.defaultImportance,
+    priority: Priority.defaultPriority,
     category: AndroidNotificationCategory.reminder,
     visibility: NotificationVisibility.private,
     actions: actionButtonsForTarget(target),
@@ -421,6 +432,13 @@ class NotificationProvider extends ChangeNotifier {
     if (detail.isEmpty) return leadText;
     return '$detail — $leadText';
   }
+
+  static String _policyKeyForItem(ScheduleItemModel item) =>
+      LifeMateNotificationIntelligence.deduplicationKey(
+        personId: 'self',
+        sourceId: '${item.type}:${item.id}',
+        stage: LifeMateNotificationStage.reminder,
+      );
 
   static int notificationIdFor(String value) {
     var hash = 0x811c9dc5;

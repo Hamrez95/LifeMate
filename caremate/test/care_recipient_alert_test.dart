@@ -40,7 +40,7 @@ void main() {
     expect(result[1].occurrenceId, 'visit');
   });
 
-  test('ignores future, completed, and scheduled items', () {
+  test('ignores future, completed, and scheduled items inside grace', () {
     final now = DateTime.utc(2026, 8, 24, 9);
     final result = selectLatestMissedAlertPerPatient([
       CareRecipientAlert(
@@ -66,7 +66,7 @@ void main() {
         patientName: 'مامان',
         occurrenceId: 'scheduled',
         title: 'دارو',
-        scheduledAtUtc: DateTime.utc(2026, 8, 24, 8),
+        scheduledAtUtc: DateTime.utc(2026, 8, 24, 8, 50),
         kind: 'medication',
         status: 'scheduled',
       ),

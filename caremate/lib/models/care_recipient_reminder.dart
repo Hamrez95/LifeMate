@@ -1,3 +1,5 @@
+import 'package:lifemate_client/lifemate_client.dart';
+
 class CareRecipientReminder {
   const CareRecipientReminder({
     required this.patientUserId,
@@ -21,6 +23,23 @@ class CareRecipientReminder {
 
   DateTime get triggerAtUtc =>
       scheduledAtUtc.toUtc().subtract(Duration(minutes: reminderMinutesBefore));
+
+  String get deduplicationKey =>
+      LifeMateNotificationIntelligence.deduplicationKey(
+        personId: patientUserId,
+        sourceId: doseId,
+        stage: LifeMateNotificationStage.reminder,
+      );
+
+  LifeMateNotificationDecision decision(DateTime nowUtc) =>
+      LifeMateNotificationIntelligence.evaluate(
+        personId: patientUserId,
+        sourceId: doseId,
+        status: 'scheduled',
+        scheduledAtUtc: scheduledAtUtc,
+        nowUtc: nowUtc,
+        stage: LifeMateNotificationStage.reminder,
+      );
 }
 
 List<CareRecipientReminder> selectEarliestReminderPerPatient(
@@ -30,8 +49,7 @@ List<CareRecipientReminder> selectEarliestReminderPerPatient(
   final now = (nowUtc ?? DateTime.now().toUtc()).toUtc();
   final selected = <String, CareRecipientReminder>{};
   for (final reminder in reminders) {
-    if (!reminder.scheduledAtUtc.toUtc().isAfter(now) ||
-        reminder.triggerAtUtc.isBefore(now)) {
+    if (!reminder.decision(now).shouldNotify || reminder.triggerAtUtc.isBefore(now)) {
       continue;
     }
     final existing = selected[reminder.patientUserId];
