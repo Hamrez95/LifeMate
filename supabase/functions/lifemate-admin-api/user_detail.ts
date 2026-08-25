@@ -14,6 +14,25 @@ export type UserActivityQuery = {
   pageSize: number;
 };
 
+export type UserDetailAccountBase = {
+  accountId: string;
+  username: string | null;
+  status: string;
+  createdAtUtc: string;
+};
+
+export function buildUserDetailAccountSection(base: UserDetailAccountBase) {
+  return {
+    state: "ready" as const,
+    data: {
+      id: base.accountId,
+      username: base.username,
+      status: base.status,
+      createdAtUtc: base.createdAtUtc,
+    },
+  };
+}
+
 function readAccountId(match: RegExpExecArray | null): string | null {
   if (!match) return null;
   const accountId = match[1];
