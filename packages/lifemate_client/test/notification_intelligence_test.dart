@@ -13,7 +13,6 @@ void main() {
       nowUtc: scheduled.add(const Duration(hours: 1)),
       stage: LifeMateNotificationStage.caregiverEscalation,
     );
-
     expect(decision.shouldNotify, isFalse);
     expect(decision.shouldCancel, isTrue);
   });
@@ -35,7 +34,6 @@ void main() {
       nowUtc: scheduled.add(const Duration(minutes: 15)),
       stage: LifeMateNotificationStage.alert,
     );
-
     expect(beforeGrace.shouldNotify, isFalse);
     expect(afterGrace.shouldNotify, isTrue);
   });
@@ -60,7 +58,6 @@ void main() {
       relationshipAuthorized: true,
       preferenceEnabled: true,
     );
-
     expect(denied.shouldNotify, isFalse);
     expect(allowed.shouldNotify, isTrue);
   });
@@ -83,7 +80,6 @@ void main() {
       stage: LifeMateNotificationStage.alert,
       explicitHighPriority: true,
     );
-
     expect(normal.priority, LifeMateNotificationPriority.normal);
     expect(explicit.priority, LifeMateNotificationPriority.high);
   });
@@ -99,7 +95,6 @@ void main() {
       sourceId: 'dose-1',
       stage: LifeMateNotificationStage.reminder,
     );
-
     expect(first, second);
     expect(first, 'reminder:person-a:dose-1');
   });
@@ -119,13 +114,40 @@ void main() {
       shouldNotify: false,
       shouldCancel: true,
     );
-
     final result = LifeMateNotificationIntelligence.deduplicate([
       active,
       cancelled,
     ]);
-
     expect(result, hasLength(1));
     expect(result.single.shouldCancel, isTrue);
+  });
+
+  test('bounded batch deduplicates thousands of deterministic decisions', () {
+    final decisions = <LifeMateNotificationDecision>[];
+    for (var index = 0; index < 1000; index++) {
+      final key = 'alert:person-${index % 20}:dose-$index';
+      decisions
+        ..add(
+          LifeMateNotificationDecision(
+            stage: LifeMateNotificationStage.alert,
+            priority: LifeMateNotificationPriority.normal,
+            deduplicationKey: key,
+            shouldNotify: true,
+            shouldCancel: false,
+          ),
+        )
+        ..add(
+          LifeMateNotificationDecision(
+            stage: LifeMateNotificationStage.alert,
+            priority: LifeMateNotificationPriority.normal,
+            deduplicationKey: key,
+            shouldNotify: false,
+            shouldCancel: true,
+          ),
+        );
+    }
+    final result = LifeMateNotificationIntelligence.deduplicate(decisions);
+    expect(result, hasLength(1000));
+    expect(result.every((decision) => decision.shouldCancel), isTrue);
   });
 }
