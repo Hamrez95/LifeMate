@@ -32,7 +32,9 @@ const request = (body: Record<string, unknown>) =>
 
 Deno.test("plan feature route is exactly plan scoped", () => {
   assert(
-    matchCommercePlanFeaturesPath(`/api/v1/commerce/plans/${planId}/features`) ===
+    matchCommercePlanFeaturesPath(
+      `/api/v1/commerce/plans/${planId}/features`,
+    ) ===
       planId,
     "feature route must resolve",
   );
@@ -81,7 +83,10 @@ Deno.test("plan feature request hash binds plan feature and version", async () =
     expectedVersion: 2,
     reason: "Enable the reviewed feature for this sellable plan.",
   }));
-  const original = await hashConfigureCommercePlanFeatureRequest(planId, payload);
+  const original = await hashConfigureCommercePlanFeatureRequest(
+    planId,
+    payload,
+  );
   const changedPlan = await hashConfigureCommercePlanFeatureRequest(
     "33333333-3333-4333-8333-333333333333",
     payload,
@@ -91,7 +96,8 @@ Deno.test("plan feature request hash binds plan feature and version", async () =
     assigned: false,
   });
   assert(
-    original.length === 64 && original !== changedPlan && original !== changedState,
+    original.length === 64 && original !== changedPlan &&
+      original !== changedState,
     "hash must bind plan and assignment state",
   );
 });
