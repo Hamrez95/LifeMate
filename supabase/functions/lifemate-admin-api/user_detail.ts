@@ -14,6 +14,13 @@ export type UserActivityQuery = {
   pageSize: number;
 };
 
+export type UserDetailAccountBase = {
+  accountId: string;
+  username: string | null;
+  status: string;
+  createdAtUtc: string;
+};
+
 function readAccountId(match: RegExpExecArray | null): string | null {
   if (!match) return null;
   const accountId = match[1];
@@ -33,6 +40,15 @@ export function matchUserDetailPath(path: string): string | null {
 
 export function matchUserActivityPath(path: string): string | null {
   return readAccountId(ACTIVITY_PATH.exec(path));
+}
+
+export function userDetailAccountData(base: UserDetailAccountBase) {
+  return {
+    id: base.accountId,
+    username: base.username,
+    status: base.status,
+    createdAtUtc: base.createdAtUtc,
+  };
 }
 
 export function parseUserActivityQuery(url: URL): UserActivityQuery {
