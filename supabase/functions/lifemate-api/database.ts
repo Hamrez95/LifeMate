@@ -1,5 +1,6 @@
 export * from "./database_legacy.ts";
 
+import { createCareCompletionNotificationStore } from "./care_completion_notifications.ts";
 import { rawContactRetirementEnabled } from "./contact_points.ts";
 import {
   createLifeMateDatabase as createLegacyLifeMateDatabase,
@@ -28,6 +29,9 @@ export function createLifeMateDatabase(
   const identityResolver = createIdentityResolver(databaseUrl);
   const invitationRevocation = createInvitationRevocationStore(databaseUrl);
   const personCareRelationships = createPersonCareRelationshipManagementStore(
+    databaseUrl,
+  );
+  const careCompletionNotifications = createCareCompletionNotificationStore(
     databaseUrl,
   );
   const personDoseOccurrences = createPersonDoseOccurrenceStore(databaseUrl);
@@ -95,6 +99,26 @@ export function createLifeMateDatabase(
     return await database.bootstrapUser(auth, body);
   }
 
+  async function listRelationships(
+    appUserId: string,
+  ): Promise<Record<string, unknown>[]> {
+    const relationships = await personCareRelationships.listRelationships(
+      appUserId,
+    );
+    for (const relationship of relationships) {
+      relationship.recentCompletionNotifications = [];
+      if (
+        relationship.notificationPreferences == null ||
+        typeof relationship.id !== "string"
+      ) {
+        continue;
+      }
+      relationship.recentCompletionNotifications =
+        await careCompletionNotifications.history(appUserId, relationship.id);
+    }
+    return relationships;
+  }
+
   return {
     ...database,
     bootstrapUser,
@@ -118,7 +142,6 @@ export function createLifeMateDatabase(
       if (contactType !== "phone") {
         return await database.createInvitation(identity, body);
       }
-
       throw new ApiError(
         410,
         "phone_care_invitation_retired",
@@ -137,7 +160,7 @@ export function createLifeMateDatabase(
         (_phoneIdentity, nonPhoneBody) =>
           personInvitationAcceptance.acceptInvitation(identity, nonPhoneBody),
       ),
-    listRelationships: personCareRelationships.listRelationships,
+    listRelationships,
     getNotificationPreferences:
       personCareRelationships.getNotificationPreferences,
     updateNotificationPreferences:
@@ -147,6 +170,14 @@ export function createLifeMateDatabase(
       relationshipId: unknown,
       body: Record<string, unknown>,
     ) => {
+      if (body.claimCompletionNotifications === true) {
+        return {
+          completionNotifications: await careCompletionNotifications.claim(
+            actorAppUserId,
+            relationshipId,
+          ),
+        };
+      }
       const nested = body.notificationPreferences;
       if (
         nested != null && typeof nested === "object" && !Array.isArray(nested)

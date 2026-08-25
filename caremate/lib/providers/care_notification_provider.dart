@@ -11,6 +11,13 @@ import '../core/utils/string_extensions.dart';
 import '../models/care_recipient_alert.dart';
 import '../models/care_recipient_reminder.dart';
 
+class CareCompletionCopy {
+  const CareCompletionCopy({required this.title, required this.body});
+
+  final String title;
+  final String body;
+}
+
 class CareNotificationProvider extends ChangeNotifier {
   final FlutterLocalNotificationsPlugin _notifications =
       FlutterLocalNotificationsPlugin();
@@ -178,6 +185,7 @@ class CareNotificationProvider extends ChangeNotifier {
     await _requestPermissionsIfNeeded();
 
     final relationships = await _safeRelationships();
+    await _syncCompletionNotifications(relationships, isPersian: isPersian);
     final allowedCandidates = candidates.where(
       (alert) => allowsMissedForRelationships(
         relationships,
@@ -277,6 +285,73 @@ class CareNotificationProvider extends ChangeNotifier {
     }
   }
 
+  Future<void> _syncCompletionNotifications(
+    Iterable<Map<String, dynamic>> relationships, {
+    required bool isPersian,
+  }) async {
+    final apiClient = _apiClient;
+    if (apiClient == null) return;
+    for (final relationship in relationships) {
+      final relationshipId = relationship['id']?.toString().trim();
+      if (relationshipId == null ||
+          relationshipId.isEmpty ||
+          relationship['status']?.toString().toLowerCase() != 'active' ||
+          relationship['notificationPreferences'] is! Map) {
+        continue;
+      }
+      List<Map<String, dynamic>> items;
+      try {
+        items = await apiClient.claimCareCompletionNotifications(
+          relationshipId: relationshipId,
+        );
+      } catch (error) {
+        debugPrint('CareMate completion claim failed safely: $error');
+        continue;
+      }
+      for (final item in items) {
+        final sourceEventId = item['sourceEventId']?.toString().trim();
+        final sourceKey = item['sourceKey']?.toString().trim();
+        final patientUserId = item['patientUserId']?.toString().trim();
+        if (sourceEventId == null ||
+            sourceEventId.isEmpty ||
+            patientUserId == null ||
+            patientUserId.isEmpty) {
+          continue;
+        }
+        final stableKey = sourceKey == null || sourceKey.isEmpty
+            ? sourceEventId
+            : sourceKey;
+        final copy = completionCopy(item, isPersian: isPersian);
+        await _notifications.show(
+          _notificationId('completion:$stableKey'),
+          copy.title,
+          copy.body,
+          NotificationDetails(
+            android: AndroidNotificationDetails(
+              'caremate_treatment_completion',
+              LifeMateRuntimeLocale.select(
+                fa: 'خبر خوب مراقبت',
+                en: 'Care reassurance',
+              ),
+              channelDescription: LifeMateRuntimeLocale.select(
+                fa: 'ثبت انجام درمان توسط فرد تحت مراقبت، مطابق تنظیمات شما',
+                en: 'Recorded treatment completion, according to your preferences',
+              ),
+              importance: Importance.defaultImportance,
+              priority: Priority.defaultPriority,
+              category: AndroidNotificationCategory.status,
+              visibility: _visibilityForDetail(
+                item['lockScreenDetail']?.toString(),
+              ),
+              onlyAlertOnce: true,
+            ),
+          ),
+          payload: 'care-completion:$patientUserId:$sourceEventId',
+        );
+      }
+    }
+  }
+
   Future<List<Map<String, dynamic>>> _safeRelationships() async {
     final apiClient = _apiClient;
     if (apiClient == null) return const [];
@@ -296,6 +371,34 @@ class CareNotificationProvider extends ChangeNotifier {
     await android?.requestNotificationsPermission();
     await android?.requestExactAlarmsPermission();
     _permissionRequested = true;
+  }
+
+  static CareCompletionCopy completionCopy(
+    Map<String, dynamic> item, {
+    required bool isPersian,
+  }) {
+    final patient = item['patientDisplayName']?.toString().trim();
+    final treatment = item['medicationName']?.toString().trim();
+    final safePatient = patient == null || patient.isEmpty
+        ? (isPersian ? 'فرد تحت مراقبت' : 'Your loved one')
+        : patient;
+    final safeTreatment = treatment == null || treatment.isEmpty
+        ? (isPersian ? 'درمان' : 'treatment')
+        : treatment;
+    final evidence = item['evidenceClass']?.toString().toLowerCase();
+
+    return CareCompletionCopy(
+      title: isPersian
+          ? '💚 یک خبر خوب از $safePatient'
+          : '💚 A reassuring update from $safePatient',
+      body: evidence == 'self_reported'
+          ? (isPersian
+                ? '$safePatient ثبت کرد که $safeTreatment را مصرف کرده.'
+                : '$safePatient recorded $safeTreatment as taken.')
+          : (isPersian
+                ? 'برای $safePatient انجام $safeTreatment ثبت شد.'
+                : 'A completion was recorded for $safePatient: $safeTreatment.'),
+    );
   }
 
   static bool allowsMissedForRelationships(
@@ -354,11 +457,12 @@ class CareNotificationProvider extends ChangeNotifier {
 
   static NotificationVisibility _visibilityForRelationship(
     Map<String, dynamic>? relationship,
-  ) {
-    final detail = _preferences(
-      relationship,
-    )['lockScreenDetail']?.toString().toLowerCase();
-    return switch (detail) {
+  ) => _visibilityForDetail(
+    _preferences(relationship)['lockScreenDetail']?.toString(),
+  );
+
+  static NotificationVisibility _visibilityForDetail(String? detail) {
+    return switch (detail?.toLowerCase()) {
       'full' => NotificationVisibility.public,
       'hidden' => NotificationVisibility.secret,
       _ => NotificationVisibility.private,
