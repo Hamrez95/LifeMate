@@ -72,7 +72,7 @@ def check_persian_literals_are_guarded() -> None:
                     'LifeMateRuntimeLocale.select' in context and 'en:' in context
                 )
                 guarded_ternary = (
-                    re.search(r'isPersian\s*\?', context) is not None
+                    re.search(r'(?:isPersian|persian)\s*\?', context) is not None
                     and re.search(r"\:\s*['\"]", context) is not None
                 )
                 guarded_branch = (
