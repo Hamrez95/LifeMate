@@ -23,7 +23,25 @@ export function createCommerceTrialRouteHandler(databaseUrl: string) {
   }): Promise<Response | null> {
     const { request, path, accountId, admin, correlationId, origin } = input;
     const planId = matchCommerceTrialPolicyPath(path);
-    if (request.method !== "PUT" || !planId) return null;
+    if (!planId) return null;
+
+    if (request.method === "GET") {
+      requirePermission(admin, "commerce.read");
+      const policy = await store.get(planId);
+      return json(
+        {
+          policy,
+          freshness: {
+            status: "fresh",
+            asOfUtc: new Date().toISOString(),
+          },
+        },
+        200,
+        origin,
+      );
+    }
+
+    if (request.method !== "PUT") return null;
 
     requirePermission(admin, "commerce.trial.write");
     const idempotencyKey = requireIdempotencyKey(request);
