@@ -576,6 +576,9 @@ class _CareEventFormState extends State<CareEventForm> {
                     ? Icons.event_note_rounded
                     : Icons.medication_liquid_rounded,
                 required: true,
+                historyKind: _isAppointment
+                    ? LifeMateHistorySuggestionKind.careAction
+                    : LifeMateHistorySuggestionKind.injection,
               ),
               if (_isAppointment) ...[
                 _textField(
@@ -596,6 +599,7 @@ class _CareEventFormState extends State<CareEventForm> {
                   ),
                   icon: Icons.person_rounded,
                   required: true,
+                  historyKind: LifeMateHistorySuggestionKind.doctor,
                 ),
                 _textField(
                   controller: _specialty,
@@ -1433,7 +1437,7 @@ class _CareEventFormState extends State<CareEventForm> {
                     for (final suggestion in suggestions)
                       ActionChip(
                         key: ValueKey(
-                          'history-suggestion-${historyKind.name}-${suggestion.value}',
+                          'history-suggestion-${historyKind!.name}-${suggestion.value}',
                         ),
                         label: Text(
                           '${suggestion.value} · ${suggestion.usageCount}×',
