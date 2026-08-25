@@ -87,6 +87,7 @@ import {
   parseStaffActionRequest,
 } from "./staff_actions.ts";
 import { createStaffActionStore } from "./staff_actions_service.ts";
+import { createStaffDirectoryRouteHandler } from "./staff_directory_routes.ts";
 import { createUserAccountActionStore } from "./user_action_store.ts";
 import {
   hashUserAccountActionRequest,
@@ -147,6 +148,9 @@ const marketingCampaignRouteHandler = createMarketingCampaignRouteHandler(
   config.databaseUrl,
 );
 const staffActionStore = createStaffActionStore(config.databaseUrl);
+const staffDirectoryRouteHandler = createStaffDirectoryRouteHandler(
+  config.databaseUrl,
+);
 
 async function optionalSection<T>(
   allowed: boolean,
@@ -264,6 +268,16 @@ Deno.serve(async (request: Request) => {
     if (request.method === "GET" && path === "/api/v1/me") {
       return json({ admin }, 200, origin);
     }
+
+    const staffDirectoryResponse = await staffDirectoryRouteHandler({
+      request,
+      path,
+      accountId,
+      admin,
+      correlationId,
+      origin,
+    });
+    if (staffDirectoryResponse) return staffDirectoryResponse;
 
     const staffActionRoute = matchStaffActionPath(path);
     if (request.method === "POST" && staffActionRoute) {
