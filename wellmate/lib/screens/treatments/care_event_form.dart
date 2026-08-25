@@ -1056,44 +1056,40 @@ class _CareEventFormState extends State<CareEventForm> {
                     ),
                   ),
                 SizedBox(height: 8),
-                TextFormField(
-                  key: ValueKey('care-event-repeat-count'),
-                  controller: _repeatCount,
-                  enabled: !_busy,
-                  keyboardType: TextInputType.number,
-                  inputFormatters: const [LifeMateLocaleDigitInputFormatter()],
-                  textDirection: TextDirection.ltr,
-                  decoration: wellMateFieldDecoration(
-                    label: LifeMateRuntimeLocale.select(
-                      fa: 'پایان بعد از تعداد دفعات',
-                      en: 'End after occurrences',
-                    ),
-                    hint: LifeMateRuntimeLocale.select(
-                      fa: 'مثلاً ۵',
-                      en: 'For example, 5',
-                    ),
+                WellMateLabeledField(
+                  label: LifeMateRuntimeLocale.select(
+                    fa: 'پایان بعد از تعداد دفعات',
+                    en: 'End after occurrences',
                   ),
-                  validator: (value) {
-                    final text = value?.trim() ?? '';
-                    if (text.isEmpty) return null;
-                    final parsed = LifeMateNumbers.tryParseInt(text);
-                    return parsed != null && parsed >= 1 && parsed <= 1000
-                        ? null
-                        : LifeMateRuntimeLocale.select(
-                            fa: '۱ تا ۱۰۰۰',
-                            en: '1 to 1000',
-                          );
-                  },
-                ),
-                Text(
-                  LifeMateRuntimeLocale.select(
+                  icon: Icons.pin_rounded,
+                  helperText: LifeMateRuntimeLocale.select(
                     fa: 'اگر هم تاریخ پایان و هم تعداد را وارد کنید، هرکدام زودتر برسد اعمال می‌شود.',
                     en: 'If both are set, the earlier end boundary is used.',
                   ),
-                  style: TextStyle(
-                    color: AppColors.textSecondary,
-                    fontSize: 12,
-                    height: 1.5,
+                  child: TextFormField(
+                    key: ValueKey('care-event-repeat-count'),
+                    controller: _repeatCount,
+                    enabled: !_busy,
+                    keyboardType: TextInputType.number,
+                    inputFormatters: const [LifeMateLocaleDigitInputFormatter()],
+                    textDirection: TextDirection.ltr,
+                    decoration: wellMateFieldDecoration(
+                      hint: LifeMateRuntimeLocale.select(
+                        fa: 'مثلاً ۵',
+                        en: 'For example, 5',
+                      ),
+                    ),
+                    validator: (value) {
+                      final text = value?.trim() ?? '';
+                      if (text.isEmpty) return null;
+                      final parsed = LifeMateNumbers.tryParseInt(text);
+                      return parsed != null && parsed >= 1 && parsed <= 1000
+                          ? null
+                          : LifeMateRuntimeLocale.select(
+                              fa: '۱ تا ۱۰۰۰',
+                              en: '1 to 1000',
+                            );
+                    },
                   ),
                 ),
               ],
