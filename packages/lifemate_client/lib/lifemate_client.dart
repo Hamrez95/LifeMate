@@ -22,6 +22,7 @@ export 'src/lifemate_care_management_api.dart';
 export 'src/lifemate_edit_api.dart';
 export 'src/lifemate_experience_gate.dart';
 export 'src/locale_digit_input_formatter.dart';
+export 'src/notification_intelligence.dart';
 export 'src/nullable_women_calendar_estimate.dart';
 export 'src/offline_mutation_queue.dart';
 export 'src/offline_sync_feedback.dart';
