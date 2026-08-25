@@ -7,8 +7,7 @@ export type ConfigureCommercePlanFeaturePayload = {
   reason: string;
 };
 
-const PLAN_FEATURES_PATH =
-  /^\/api\/v1\/commerce\/plans\/([^/]+)\/features$/i;
+const PLAN_FEATURES_PATH = /^\/api\/v1\/commerce\/plans\/([^/]+)\/features$/i;
 
 async function requestObject(
   request: Request,
