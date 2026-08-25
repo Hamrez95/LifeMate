@@ -51,10 +51,29 @@ export type PromotionStatusPayload = {
   reason: string;
 };
 
+export type IssueDiscountCodesPayload = {
+  explicitCodes: string[] | null;
+  generateCount: number | null;
+  prefix: string | null;
+  maxRedemptions: number | null;
+  reason: string;
+};
+
+export type DiscountCodeStatusPayload = {
+  status: DiscountCodeStatus;
+  expectedVersion: number;
+  reason: string;
+};
+
 const PROMOTION_DETAIL_PATH = /^\/api\/v1\/commerce\/promotions\/([^/]+)$/i;
 const PROMOTION_STATUS_PATH =
   /^\/api\/v1\/commerce\/promotions\/([^/]+)\/actions\/status$/i;
+const PROMOTION_CODES_PATH =
+  /^\/api\/v1\/commerce\/promotions\/([^/]+)\/discount-codes$/i;
+const PROMOTION_CODE_STATUS_PATH =
+  /^\/api\/v1\/commerce\/promotions\/([^/]+)\/discount-codes\/([^/]+)\/actions\/status$/i;
 const CODE_PATTERN = /^[A-Z0-9][A-Z0-9._-]{2,63}$/;
+const PREFIX_PATTERN = /^[A-Z0-9][A-Z0-9._-]{0,19}$/;
 const PRODUCT_CODE_PATTERN = /^[A-Za-z0-9][A-Za-z0-9._:-]{0,63}$/;
 const CURRENCY_PATTERN = /^[A-Z]{3}$/;
 const AMOUNT_PATTERN = /^\d+$/;
@@ -87,9 +106,7 @@ function requiredText(
 function optionalPositiveInteger(value: unknown, code: string): number | null {
   if (value == null || value === "") return null;
   if (
-    !Number.isInteger(value) ||
-    Number(value) <= 0 ||
-    Number(value) > 10_000_000
+    !Number.isInteger(value) || Number(value) <= 0 || Number(value) > 10_000_000
   ) {
     throw new ApiError(400, code, "Positive integer field is invalid.");
   }
@@ -182,10 +199,7 @@ function parseSharedPayload(
     body.startsAtUtc,
     "promotion_window_invalid",
   );
-  const endsAtUtc = optionalInstant(
-    body.endsAtUtc,
-    "promotion_window_invalid",
-  );
+  const endsAtUtc = optionalInstant(body.endsAtUtc, "promotion_window_invalid");
   if (
     endsAtUtc &&
     new Date(endsAtUtc).getTime() <= new Date(startsAtUtc).getTime()
@@ -203,10 +217,8 @@ function parseSharedPayload(
   if (type === "Percentage") {
     const percent = body.percentageBasisPoints;
     if (
-      !Number.isInteger(percent) ||
-      Number(percent) < 1 ||
-      Number(percent) > 10_000 ||
-      body.fixedAmountMinor != null ||
+      !Number.isInteger(percent) || Number(percent) < 1 ||
+      Number(percent) > 10_000 || body.fixedAmountMinor != null ||
       body.currency != null
     ) {
       throw new ApiError(
@@ -219,8 +231,7 @@ function parseSharedPayload(
   } else {
     fixedAmountMinor = parseFixedAmount(body.fixedAmountMinor);
     if (
-      typeof body.currency !== "string" ||
-      !CURRENCY_PATTERN.test(body.currency)
+      typeof body.currency !== "string" || !CURRENCY_PATTERN.test(body.currency)
     ) {
       throw new ApiError(
         400,
@@ -247,8 +258,7 @@ function parseSharedPayload(
     "promotion_limit_invalid",
   );
   if (
-    maxRedemptions != null &&
-    codeMaxRedemptions != null &&
+    maxRedemptions != null && codeMaxRedemptions != null &&
     codeMaxRedemptions > maxRedemptions
   ) {
     throw new ApiError(
@@ -260,12 +270,7 @@ function parseSharedPayload(
 
   return {
     productId,
-    name: requiredText(
-      body.name,
-      2,
-      160,
-      "promotion_name_invalid",
-    ),
+    name: requiredText(body.name, 2, 160, "promotion_name_invalid"),
     description: optionalText(body.description, 1000),
     discountType: type,
     percentageBasisPoints,
@@ -276,12 +281,7 @@ function parseSharedPayload(
     maxRedemptions,
     primaryCode,
     codeMaxRedemptions,
-    reason: requiredText(
-      body.reason,
-      10,
-      1000,
-      "promotion_reason_invalid",
-    ),
+    reason: requiredText(body.reason, 10, 1000, "promotion_reason_invalid"),
   };
 }
 
@@ -292,10 +292,7 @@ export function parseCommercePromotionsQuery(
   const productRaw = url.searchParams.get("product")?.trim() ?? "";
   const qRaw = url.searchParams.get("q")?.trim() ?? "";
   const codeRaw = url.searchParams.get("code")?.trim().toUpperCase() ?? "";
-  if (
-    statusRaw &&
-    !promotionStatuses.includes(statusRaw as PromotionStatus)
-  ) {
+  if (statusRaw && !promotionStatuses.includes(statusRaw as PromotionStatus)) {
     throw new ApiError(
       400,
       "invalid_promotion_status",
@@ -343,6 +340,23 @@ export function matchCommercePromotionStatusPath(path: string): string | null {
   return match ? requireUuid(match[1], "promotionId") : null;
 }
 
+export function matchCommercePromotionCodesPath(path: string): string | null {
+  const match = PROMOTION_CODES_PATH.exec(path);
+  return match ? requireUuid(match[1], "promotionId") : null;
+}
+
+export function matchCommerceDiscountCodeStatusPath(
+  path: string,
+): { promotionId: string; codeId: string } | null {
+  const match = PROMOTION_CODE_STATUS_PATH.exec(path);
+  return match
+    ? {
+      promotionId: requireUuid(match[1], "promotionId"),
+      codeId: requireUuid(match[2], "codeId"),
+    }
+    : null;
+}
+
 export async function parseCreatePromotionPayload(
   request: Request,
 ): Promise<CreatePromotionPayload> {
@@ -361,10 +375,7 @@ export async function parseUpdatePromotionPayload(
       "Discount-code status is invalid.",
     );
   }
-  return {
-    ...shared,
-    codeStatus: body.codeStatus as DiscountCodeStatus,
-  };
+  return { ...shared, codeStatus: body.codeStatus as DiscountCodeStatus };
 }
 
 export async function parsePromotionStatusPayload(
@@ -380,12 +391,122 @@ export async function parsePromotionStatusPayload(
   }
   return {
     status: body.status,
-    reason: requiredText(
-      body.reason,
-      10,
-      1000,
-      "promotion_reason_invalid",
+    reason: requiredText(body.reason, 10, 1000, "promotion_reason_invalid"),
+  };
+}
+
+export async function parseIssueDiscountCodesPayload(
+  request: Request,
+): Promise<IssueDiscountCodesPayload> {
+  const body = await requestObject(request);
+  const rawCodes = body.codes;
+  const hasExplicit = Array.isArray(rawCodes) && rawCodes.length > 0;
+  const hasGenerated = body.generateCount != null;
+  if (hasExplicit === hasGenerated) {
+    throw new ApiError(
+      400,
+      "discount_code_mode_invalid",
+      "Choose explicit codes or generated codes.",
+    );
+  }
+
+  let explicitCodes: string[] | null = null;
+  let generateCount: number | null = null;
+  let prefix: string | null = null;
+  if (hasExplicit) {
+    if (!Array.isArray(rawCodes) || rawCodes.length > 50) {
+      throw new ApiError(
+        400,
+        "discount_code_batch_too_large",
+        "At most 50 discount codes may be issued per request.",
+      );
+    }
+    explicitCodes = rawCodes.map((value) => {
+      if (typeof value !== "string") {
+        throw new ApiError(
+          400,
+          "discount_code_invalid",
+          "Discount code is invalid.",
+        );
+      }
+      const code = value.trim().toUpperCase();
+      if (!CODE_PATTERN.test(code)) {
+        throw new ApiError(
+          400,
+          "discount_code_invalid",
+          "Discount code is invalid.",
+        );
+      }
+      return code;
+    });
+    if (new Set(explicitCodes).size !== explicitCodes.length) {
+      throw new ApiError(
+        400,
+        "discount_code_duplicate",
+        "The request contains a duplicate discount code.",
+      );
+    }
+  } else {
+    if (
+      !Number.isInteger(body.generateCount) || Number(body.generateCount) < 1 ||
+      Number(body.generateCount) > 50
+    ) {
+      throw new ApiError(
+        400,
+        "discount_code_batch_invalid",
+        "Generated discount-code count must be between 1 and 50.",
+      );
+    }
+    generateCount = Number(body.generateCount);
+    const rawPrefix = body.prefix == null || body.prefix === ""
+      ? null
+      : String(body.prefix).trim().toUpperCase();
+    if (rawPrefix && !PREFIX_PATTERN.test(rawPrefix)) {
+      throw new ApiError(
+        400,
+        "discount_code_prefix_invalid",
+        "Discount-code prefix is invalid.",
+      );
+    }
+    prefix = rawPrefix;
+  }
+
+  return {
+    explicitCodes,
+    generateCount,
+    prefix,
+    maxRedemptions: optionalPositiveInteger(
+      body.maxRedemptions,
+      "discount_code_limit_invalid",
     ),
+    reason: requiredText(body.reason, 10, 1000, "discount_code_reason_invalid"),
+  };
+}
+
+export async function parseDiscountCodeStatusPayload(
+  request: Request,
+): Promise<DiscountCodeStatusPayload> {
+  const body = await requestObject(request);
+  if (!discountCodeStatuses.includes(body.status as DiscountCodeStatus)) {
+    throw new ApiError(
+      400,
+      "discount_code_status_invalid",
+      "Discount-code status is invalid.",
+    );
+  }
+  if (
+    !Number.isInteger(body.expectedVersion) || Number(body.expectedVersion) < 1
+  ) {
+    throw new ApiError(
+      400,
+      "discount_code_version_invalid",
+      "Expected discount-code version is invalid.",
+    );
+  }
+  return {
+    status: body.status as DiscountCodeStatus,
+    expectedVersion: Number(body.expectedVersion),
+    reason: requiredText(body.reason, 10, 1000, "discount_code_reason_invalid"),
   };
 }
 
@@ -394,9 +515,9 @@ async function sha256(canonical: string): Promise<string> {
     "SHA-256",
     new TextEncoder().encode(canonical),
   );
-  return [...new Uint8Array(digest)]
-    .map((value) => value.toString(16).padStart(2, "0"))
-    .join("");
+  return [...new Uint8Array(digest)].map((value) =>
+    value.toString(16).padStart(2, "0")
+  ).join("");
 }
 
 export async function hashCreatePromotionRequest(
@@ -418,5 +539,26 @@ export async function hashPromotionStatusRequest(
 ): Promise<string> {
   return sha256(
     `v1\nstatus\n${promotionId}\n${payload.status}\n${payload.reason}`,
+  );
+}
+
+export async function hashIssueDiscountCodesRequest(
+  promotionId: string,
+  payload: IssueDiscountCodesPayload,
+): Promise<string> {
+  return sha256(
+    `v1\ndiscount-code-issue\n${promotionId}\n${JSON.stringify(payload)}`,
+  );
+}
+
+export async function hashDiscountCodeStatusRequest(
+  promotionId: string,
+  codeId: string,
+  payload: DiscountCodeStatusPayload,
+): Promise<string> {
+  return sha256(
+    `v1\ndiscount-code-status\n${promotionId}\n${codeId}\n${
+      JSON.stringify(payload)
+    }`,
   );
 }
