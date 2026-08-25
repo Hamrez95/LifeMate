@@ -8,6 +8,7 @@ import {
   safeAdvisorLogFields,
 } from "./advisor.ts";
 import { createAnalyticsKpiStore } from "./analytics_kpi_service.ts";
+import { buildDailyBrief } from "./daily_brief.ts";
 import { json } from "./http.ts";
 
 export type AdvisorRouteContext = {
@@ -26,6 +27,35 @@ export function createAdvisorRouteHandler(databaseUrl: string) {
     context: AdvisorRouteContext,
   ): Promise<Response | null> {
     const { request, path, admin, correlationId, origin } = context;
+
+    if (request.method === "GET" && path === "/api/v1/ai/daily-brief") {
+      requirePermission(admin, "ai.business.read");
+      requirePermission(admin, "analytics.read");
+      const values = await analytics.getValues(advisorKpiQuery());
+      const brief = buildDailyBrief(values, new Date().toISOString());
+      console.info("LifeMate read-only Daily Brief generated", {
+        correlationId,
+        state: brief.state,
+        evidenceCount: brief.evidence.length,
+        changesCount: brief.changes.length,
+        attentionCount: brief.attention.length,
+      });
+      return json(
+        {
+          ...brief,
+          sourcePolicy: {
+            mode: "deterministic",
+            approvedReadModelsOnly: true,
+            rawHealthData: false,
+            medicalAdvice: false,
+            mutations: false,
+          },
+        },
+        200,
+        origin,
+      );
+    }
+
     if (
       request.method !== "POST" ||
       path !== "/api/v1/ai/advisor/insights"
