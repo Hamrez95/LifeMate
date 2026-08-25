@@ -7,7 +7,7 @@ function iso(value: unknown): string {
 export async function getUserDetailBase(sql: AdminSql, accountId: string) {
   const rows = await sql`
     select a.id as account_id, a.status as account_status, a.created_at_utc,
-           link.person_id, profile.display_name, profile.locale, profile.time_zone
+           a.username, link.person_id, profile.display_name, profile.locale, profile.time_zone
     from identity.accounts a
     left join core.account_person_links link
       on link.account_id = a.id and link.link_type = 'Self' and link.status = 'Active'
@@ -20,6 +20,7 @@ export async function getUserDetailBase(sql: AdminSql, accountId: string) {
   if (!row) return null;
   return {
     accountId: String(row.account_id),
+    username: typeof row.username === "string" ? row.username : null,
     status: String(row.account_status),
     createdAtUtc: iso(row.created_at_utc),
     person: typeof row.person_id === "string"

@@ -7,6 +7,7 @@ export type UserDirectoryItem = {
   accountId: string;
   personId: string | null;
   displayName: string | null;
+  username: string | null;
   status: string;
   applicationCodes: string[];
   createdAtUtc: string;
@@ -45,25 +46,27 @@ export async function listUserDirectory(
 
   const countRows = await sql`
     select count(*)::integer as total
-    from admin.user_directory_v1
+    from admin.user_directory_v2
     where (${query.status}::text is null or account_status = ${query.status}::varchar)
       and (${query.application}::text is null or ${query.application}::varchar = any(application_codes))
       and (
         ${query.search}::text is null
         or strpos(lower(coalesce(display_name, '')), lower(${query.search}::text)) > 0
+        or strpos(lower(coalesce(username, '')), lower(${query.search}::text)) > 0
         or (${searchUuid}::uuid is not null and account_id = ${searchUuid}::uuid)
       )
   `;
 
   const rows = await sql`
-    select account_id, person_id, display_name, account_status, application_codes,
+    select account_id, person_id, display_name, username, account_status, application_codes,
            created_at_utc, last_active_at_utc
-    from admin.user_directory_v1
+    from admin.user_directory_v2
     where (${query.status}::text is null or account_status = ${query.status}::varchar)
       and (${query.application}::text is null or ${query.application}::varchar = any(application_codes))
       and (
         ${query.search}::text is null
         or strpos(lower(coalesce(display_name, '')), lower(${query.search}::text)) > 0
+        or strpos(lower(coalesce(username, '')), lower(${query.search}::text)) > 0
         or (${searchUuid}::uuid is not null and account_id = ${searchUuid}::uuid)
       )
     order by
@@ -90,6 +93,7 @@ export async function listUserDirectory(
       accountId: String(row.account_id),
       personId: typeof row.person_id === "string" ? row.person_id : null,
       displayName: typeof row.display_name === "string" ? row.display_name : null,
+      username: typeof row.username === "string" ? row.username : null,
       status: String(row.account_status),
       applicationCodes: asStringArray(row.application_codes),
       createdAtUtc: asIso(row.created_at_utc),
