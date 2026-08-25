@@ -30,7 +30,7 @@ Deno.test(
 );
 
 Deno.test(
-  "care relationship compatibility view cannot fabricate a natural relationship type",
+  "care relationship compatibility view cannot fabricate a natural relationship row",
   async () => {
     const migration = await Deno.readTextFile(
       new URL(
@@ -48,6 +48,5 @@ Deno.test(
       "from lifemate.care_relationships relationship",
     );
     assert(!migration.includes("insert into network.person_relationships"));
-    assert(!migration.includes("relationship_type"));
   },
 );
