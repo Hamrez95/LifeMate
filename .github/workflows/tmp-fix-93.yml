@@ -1,0 +1,30 @@
+name: tmp-fix-93
+on:
+  push:
+    branches: [feat/93-advanced-recurrence]
+    paths: [.github/workflows/tmp-fix-93.yml]
+permissions:
+  contents: write
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: feat/93-advanced-recurrence
+      - shell: python
+        run: |
+          from pathlib import Path
+          p = Path('wellmate/lib/screens/treatments/care_event_form.dart')
+          s = p.read_text()
+          old = '''                SizedBox(height: 8),\n                TextFormField(\n                  key: ValueKey('care-event-repeat-count'),\n                  controller: _repeatCount,\n                  enabled: !_busy,\n                  keyboardType: TextInputType.number,\n                  inputFormatters: const [LifeMateLocaleDigitInputFormatter()],\n                  textDirection: TextDirection.ltr,\n                  decoration: wellMateFieldDecoration(\n                    label: LifeMateRuntimeLocale.select(\n                      fa: 'پایان بعد از تعداد دفعات',\n                      en: 'End after occurrences',\n                    ),\n                    hint: LifeMateRuntimeLocale.select(\n                      fa: 'مثلاً ۵',\n                      en: 'For example, 5',\n                    ),\n                  ),\n                  validator: (value) {\n                    final text = value?.trim() ?? '';\n                    if (text.isEmpty) return null;\n                    final parsed = LifeMateNumbers.tryParseInt(text);\n                    return parsed != null && parsed >= 1 && parsed <= 1000\n                        ? null\n                        : LifeMateRuntimeLocale.select(\n                            fa: '۱ تا ۱۰۰۰',\n                            en: '1 to 1000',\n                          );\n                  },\n                ),\n                Text(\n                  LifeMateRuntimeLocale.select(\n                    fa: 'اگر هم تاریخ پایان و هم تعداد را وارد کنید، هرکدام زودتر برسد اعمال می‌شود.',\n                    en: 'If both are set, the earlier end boundary is used.',\n                  ),\n                  style: TextStyle(\n                    color: AppColors.textSecondary,\n                    fontSize: 12,\n                    height: 1.5,\n                  ),\n                ),\n'''
+          new = '''                SizedBox(height: 8),\n                WellMateLabeledField(\n                  label: LifeMateRuntimeLocale.select(\n                    fa: 'پایان بعد از تعداد دفعات',\n                    en: 'End after occurrences',\n                  ),\n                  icon: Icons.pin_rounded,\n                  helperText: LifeMateRuntimeLocale.select(\n                    fa: 'اگر هم تاریخ پایان و هم تعداد را وارد کنید، هرکدام زودتر برسد اعمال می‌شود.',\n                    en: 'If both are set, the earlier end boundary is used.',\n                  ),\n                  child: TextFormField(\n                    key: ValueKey('care-event-repeat-count'),\n                    controller: _repeatCount,\n                    enabled: !_busy,\n                    keyboardType: TextInputType.number,\n                    inputFormatters: const [LifeMateLocaleDigitInputFormatter()],\n                    textDirection: TextDirection.ltr,\n                    decoration: wellMateFieldDecoration(\n                      hint: LifeMateRuntimeLocale.select(\n                        fa: 'مثلاً ۵',\n                        en: 'For example, 5',\n                      ),\n                    ),\n                    validator: (value) {\n                      final text = value?.trim() ?? '';\n                      if (text.isEmpty) return null;\n                      final parsed = LifeMateNumbers.tryParseInt(text);\n                      return parsed != null && parsed >= 1 && parsed <= 1000\n                          ? null\n                          : LifeMateRuntimeLocale.select(\n                              fa: '۱ تا ۱۰۰۰',\n                              en: '1 to 1000',\n                            );\n                    },\n                  ),\n                ),\n'''
+          assert old in s
+          p.write_text(s.replace(old, new, 1))
+      - run: rm .github/workflows/tmp-fix-93.yml
+      - run: |
+          git config user.name "chatgpt-codex-connector"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -m "fix(recurrence): compose count field with design system (#93)"
+          git push origin HEAD:feat/93-advanced-recurrence
