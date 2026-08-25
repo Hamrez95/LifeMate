@@ -46,7 +46,7 @@ Deno.test("Command Center preferences parse only allow-listed mutable fields", a
   })), "settings_field_unsupported");
 });
 
-Deno.test("Command Center preferences validate locale, version and reason", async () => {
+Deno.test("Command Center preferences validate locale, timezone, version and reason", async () => {
   await rejects(() => parseConfigureCommandCenterPreferencesPayload(request({
     locale: "xx-YY",
     timeZone: "UTC",
@@ -54,6 +54,14 @@ Deno.test("Command Center preferences validate locale, version and reason", asyn
     expectedVersion: 1,
     reason: "Reject an unsupported locale safely and explicitly.",
   })), "settings_locale_invalid");
+
+  await rejects(() => parseConfigureCommandCenterPreferencesPayload(request({
+    locale: "en-US",
+    timeZone: "Mars/Olympus_Mons",
+    displayName: "LifeMate",
+    expectedVersion: 1,
+    reason: "Reject a timezone that looks structured but is not IANA-backed.",
+  })), "settings_timezone_invalid");
 
   await rejects(() => parseConfigureCommandCenterPreferencesPayload(request({
     locale: "en-US",
