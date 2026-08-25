@@ -98,6 +98,21 @@ export function createCommerceCatalogRouteHandler(databaseUrl: string) {
     }
 
     const promotionCodesId = matchCommercePromotionCodesPath(path);
+    if (request.method === "GET" && promotionCodesId) {
+      requirePermission(admin, "commerce.read");
+      const items = await discountCodeStore.list(promotionCodesId);
+      return json(
+        {
+          promotionId: promotionCodesId,
+          items,
+          total: items.length,
+          freshness: { status: "fresh", asOfUtc: new Date().toISOString() },
+        },
+        200,
+        origin,
+      );
+    }
+
     if (request.method === "POST" && promotionCodesId) {
       requirePermission(admin, "commerce.discount_code.write");
       const idempotencyKey = requireIdempotencyKey(request);
