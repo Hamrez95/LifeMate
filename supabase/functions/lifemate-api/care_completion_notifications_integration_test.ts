@@ -20,10 +20,10 @@ Deno.test({
     const store = createCareCompletionNotificationStore(databaseUrl);
     const patientUserId = crypto.randomUUID();
     const caregiverUserId = crypto.randomUUID();
-    const patientAccountId = crypto.randomUUID();
-    const caregiverAccountId = crypto.randomUUID();
-    const patientPersonId = crypto.randomUUID();
-    const caregiverPersonId = crypto.randomUUID();
+    const patientAccountId = patientUserId;
+    const caregiverAccountId = caregiverUserId;
+    const patientPersonId = patientUserId;
+    const caregiverPersonId = caregiverUserId;
     const relationshipId = crypto.randomUUID();
     const medicationId = crypto.randomUUID();
     const planId = crypto.randomUUID();
@@ -43,28 +43,10 @@ Deno.test({
             (${caregiverUserId}::uuid,${crypto.randomUUID()},'Active',now(),now())
         `;
         await tx`
-          insert into identity.accounts(id,legacy_app_user_id,status)
-          values
-            (${patientAccountId}::uuid,${patientUserId}::uuid,'Active'),
-            (${caregiverAccountId}::uuid,${caregiverUserId}::uuid,'Active')
-        `;
-        await tx`
-          insert into core.persons(id,status,subject_category)
-          values
-            (${patientPersonId}::uuid,'Active','Adult'),
-            (${caregiverPersonId}::uuid,'Active','Adult')
-        `;
-        await tx`
           insert into core.person_profiles(person_id,display_name,locale,time_zone)
           values
             (${patientPersonId}::uuid,'مامان جون','fa','Asia/Tehran'),
             (${caregiverPersonId}::uuid,'Caregiver','fa','Asia/Tehran')
-        `;
-        await tx`
-          insert into core.account_person_links(account_id,person_id,link_type,status)
-          values
-            (${patientAccountId}::uuid,${patientPersonId}::uuid,'Self','Active'),
-            (${caregiverAccountId}::uuid,${caregiverPersonId}::uuid,'Self','Active')
         `;
         await tx`
           insert into lifemate.care_relationships(
@@ -226,8 +208,8 @@ Deno.test({
         await tx`delete from lifemate.treatment_plans where id=${planId}::uuid`;
         await tx`delete from lifemate.medications where id=${medicationId}::uuid`;
         await tx`delete from lifemate.care_relationships where id=${relationshipId}::uuid`;
-        await tx`delete from core.account_person_links where account_id in (${patientAccountId}::uuid,${caregiverAccountId}::uuid)`;
         await tx`delete from core.person_profiles where person_id in (${patientPersonId}::uuid,${caregiverPersonId}::uuid)`;
+        await tx`delete from core.account_person_links where account_id in (${patientAccountId}::uuid,${caregiverAccountId}::uuid)`;
         await tx`delete from core.persons where id in (${patientPersonId}::uuid,${caregiverPersonId}::uuid)`;
         await tx`delete from identity.accounts where id in (${patientAccountId}::uuid,${caregiverAccountId}::uuid)`;
         await tx`delete from lifemate.app_users where id in (${patientUserId}::uuid,${caregiverUserId}::uuid)`;
