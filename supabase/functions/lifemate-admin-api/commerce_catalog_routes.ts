@@ -9,6 +9,15 @@ import {
   parseUpdateCommercePlanPayload,
 } from "./commerce_catalog.ts";
 import { createCommerceCatalogStore } from "./commerce_catalog_service.ts";
+import { createCommerceDiscountCodeStore } from "./commerce_discount_codes_service.ts";
+import {
+  hashDiscountCodeStatusRequest,
+  hashIssueDiscountCodesRequest,
+  matchCommerceDiscountCodeStatusPath,
+  matchCommercePromotionCodesPath,
+  parseDiscountCodeStatusPayload,
+  parseIssueDiscountCodesPayload,
+} from "./commerce_promotions.ts";
 import {
   type AdminCapabilitySnapshot,
   requirePermission,
@@ -28,15 +37,13 @@ function status(result: Record<string, unknown>): number {
   return value;
 }
 
-function failureMessage(
-  result: Record<string, unknown>,
-  fallback: string,
-): string {
+function failureMessage(result: Record<string, unknown>, fallback: string): string {
   return typeof result.message === "string" ? result.message : fallback;
 }
 
 export function createCommerceCatalogRouteHandler(databaseUrl: string) {
   const store = createCommerceCatalogStore(databaseUrl);
+  const discountCodeStore = createCommerceDiscountCodeStore(databaseUrl);
 
   return async function commerceCatalogRouteHandler(input: {
     request: Request;
@@ -47,6 +54,82 @@ export function createCommerceCatalogRouteHandler(databaseUrl: string) {
     origin: string | null;
   }): Promise<Response | null> {
     const { request, path, accountId, admin, correlationId, origin } = input;
+
+    const discountCodeStatusPath = matchCommerceDiscountCodeStatusPath(path);
+    if (request.method === "POST" && discountCodeStatusPath) {
+      requirePermission(admin, "commerce.discount_code.write");
+      const idempotencyKey = requireIdempotencyKey(request);
+      const payload = await parseDiscountCodeStatusPayload(request);
+      const requestHash = await hashDiscountCodeStatusRequest(
+        discountCodeStatusPath.promotionId,
+        discountCodeStatusPath.codeId,
+        payload,
+      );
+      const result = await discountCodeStore.setStatus({
+        actorAccountId: accountId,
+        promotionId: discountCodeStatusPath.promotionId,
+        codeId: discountCodeStatusPath.codeId,
+        payload,
+        correlationId,
+        idempotencyKey,
+        requestHash,
+      });
+      const httpStatus = status(result);
+      if (httpStatus >= 400) {
+        throw new ApiError(
+          httpStatus,
+          String(result.code),
+          failureMessage(result, "Discount-code status change was not completed."),
+        );
+      }
+      return json(
+        {
+          promotionId: String(result.promotionId),
+          codeId: String(result.codeId),
+          previousStatus: String(result.previousStatus),
+          status: String(result.status),
+          version: Number(result.version),
+          noop: Boolean(result.noop),
+          replayed: Boolean(result.replayed),
+        },
+        httpStatus,
+        origin,
+      );
+    }
+
+    const promotionCodesId = matchCommercePromotionCodesPath(path);
+    if (request.method === "POST" && promotionCodesId) {
+      requirePermission(admin, "commerce.discount_code.write");
+      const idempotencyKey = requireIdempotencyKey(request);
+      const payload = await parseIssueDiscountCodesPayload(request);
+      const requestHash = await hashIssueDiscountCodesRequest(promotionCodesId, payload);
+      const result = await discountCodeStore.issue({
+        actorAccountId: accountId,
+        promotionId: promotionCodesId,
+        payload,
+        correlationId,
+        idempotencyKey,
+        requestHash,
+      });
+      const httpStatus = status(result);
+      if (httpStatus >= 400) {
+        throw new ApiError(
+          httpStatus,
+          String(result.code),
+          failureMessage(result, "Discount-code issuance was not completed."),
+        );
+      }
+      return json(
+        {
+          promotionId: String(result.promotionId),
+          issuedCount: Number(result.issuedCount),
+          items: Array.isArray(result.items) ? result.items : [],
+          replayed: Boolean(result.replayed),
+        },
+        httpStatus,
+        origin,
+      );
+    }
 
     if (request.method === "POST" && path === "/api/v1/commerce/plans") {
       requirePermission(admin, "commerce.plan.write");
@@ -62,21 +145,9 @@ export function createCommerceCatalogRouteHandler(databaseUrl: string) {
       });
       const httpStatus = status(result);
       if (httpStatus >= 400) {
-        throw new ApiError(
-          httpStatus,
-          String(result.code),
-          failureMessage(result, "Plan creation was not completed."),
-        );
+        throw new ApiError(httpStatus, String(result.code), failureMessage(result, "Plan creation was not completed."));
       }
-      return json(
-        {
-          planId: String(result.planId),
-          status: String(result.status),
-          replayed: Boolean(result.replayed),
-        },
-        httpStatus,
-        origin,
-      );
+      return json({ planId: String(result.planId), status: String(result.status), replayed: Boolean(result.replayed) }, httpStatus, origin);
     }
 
     const pricePlanId = matchCommercePlanPricesPath(path);
@@ -84,10 +155,7 @@ export function createCommerceCatalogRouteHandler(databaseUrl: string) {
       requirePermission(admin, "commerce.price.write");
       const idempotencyKey = requireIdempotencyKey(request);
       const payload = await parseScheduleCommercePricePayload(request);
-      const requestHash = await hashScheduleCommercePriceRequest(
-        pricePlanId,
-        payload,
-      );
+      const requestHash = await hashScheduleCommercePriceRequest(pricePlanId, payload);
       const result = await store.schedulePrice({
         actorAccountId: accountId,
         planId: pricePlanId,
@@ -98,11 +166,7 @@ export function createCommerceCatalogRouteHandler(databaseUrl: string) {
       });
       const httpStatus = status(result);
       if (httpStatus >= 400) {
-        throw new ApiError(
-          httpStatus,
-          String(result.code),
-          failureMessage(result, "Price scheduling was not completed."),
-        );
+        throw new ApiError(httpStatus, String(result.code), failureMessage(result, "Price scheduling was not completed."));
       }
       return json(
         {
@@ -132,11 +196,7 @@ export function createCommerceCatalogRouteHandler(databaseUrl: string) {
       });
       const httpStatus = status(result);
       if (httpStatus >= 400) {
-        throw new ApiError(
-          httpStatus,
-          String(result.code),
-          failureMessage(result, "Plan update was not completed."),
-        );
+        throw new ApiError(httpStatus, String(result.code), failureMessage(result, "Plan update was not completed."));
       }
       return json(
         {
