@@ -25,8 +25,11 @@ create unique index if not exists uq_identity_accounts_username_ci
 comment on column identity.accounts.username is
   'Optional canonical consumer username. Distinct from admin.staff_profiles.username; never inferred from email, phone or display name.';
 
-create or replace view admin.user_directory_v1
-with (security_barrier = true)
+-- Keep v1 shape stable: older canonical migrations are rerun as an idempotency gate.
+-- Extending v1 would make the earlier CREATE OR REPLACE VIEW attempt to drop the
+-- appended column on rerun, which PostgreSQL correctly rejects. v2 is the additive contract.
+create or replace view admin.user_directory_v2
+with (security_invoker = true)
 as
 select
     a.id as account_id,
@@ -59,5 +62,8 @@ left join lateral (
 ) enrollments on true
 where a.status <> 'Deleted';
 
-revoke all on admin.user_directory_v1 from public;
-grant select on admin.user_directory_v1 to lifemate_admin_runtime;
+revoke all on admin.user_directory_v2 from public;
+grant select on admin.user_directory_v2 to lifemate_admin_runtime;
+
+comment on view admin.user_directory_v2 is
+  'Additive Admin consumer directory contract including nullable canonical username; v1 remains compatibility-stable.';
