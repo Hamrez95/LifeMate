@@ -4,6 +4,7 @@ import 'package:lifemate_client/lifemate_client.dart';
 import '../../core/theme/app_style.dart';
 import '../../core/utils/persian_date_utils.dart';
 import '../../core/widgets/labeled_form_field.dart';
+import 'add_treatment_screen.dart';
 import 'treatment_schedule_payload.dart';
 
 class EditTreatmentScreen extends StatefulWidget {
@@ -387,6 +388,31 @@ class _EditTreatmentScreenState extends State<EditTreatmentScreen> {
     }
   }
 
+  Future<void> _reuseFromHistory() async {
+    if (_busy) return;
+    final draft = TreatmentReuseDraft.fromHistory(widget.plan);
+    await Navigator.of(context).push<void>(
+      MaterialPageRoute<void>(
+        builder: (routeContext) => Scaffold(
+          backgroundColor: AppColors.background,
+          appBar: AppBar(
+            backgroundColor: AppColors.background,
+            title: Text(
+              LifeMateRuntimeLocale.select(
+                fa: 'ثبت دوباره درمان',
+                en: 'Register treatment again',
+              ),
+            ),
+          ),
+          body: TabbedAddTreatmentScreen(
+            initialDraft: draft,
+            onCreated: () => Navigator.of(routeContext).pop(),
+          ),
+        ),
+      ),
+    );
+  }
+
   String _friendlyError(LifeMateApiException error) {
     return switch (error.code) {
       'stale_treatment_plan' ||
@@ -449,6 +475,16 @@ class _EditTreatmentScreenState extends State<EditTreatmentScreen> {
             fontWeight: FontWeight.w900,
           ),
         ),
+        actions: [
+          TextButton.icon(
+            key: const ValueKey('reuse-treatment-action'),
+            onPressed: _busy ? null : _reuseFromHistory,
+            icon: const Icon(Icons.replay_rounded),
+            label: Text(
+              LifeMateRuntimeLocale.select(fa: 'ثبت دوباره', en: 'Reuse'),
+            ),
+          ),
+        ],
       ),
       body: SafeArea(
         top: false,

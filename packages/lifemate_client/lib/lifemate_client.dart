@@ -14,6 +14,7 @@ export 'src/durable_lifemate_api_client.dart';
 export 'src/feature_flags.dart';
 export 'src/health_facts.dart';
 export 'src/health_observations_api.dart';
+export 'src/history_reuse.dart';
 export 'src/history_suggestions.dart';
 export 'src/iran_phone.dart';
 export 'src/lifemate_api_client.dart';

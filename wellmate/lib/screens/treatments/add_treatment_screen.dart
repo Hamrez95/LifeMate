@@ -11,9 +11,14 @@ import 'treatment_schedule_payload.dart';
 /// The form is intentionally a single scrollable page; there is no internal
 /// timeline or three-step navigation anymore.
 class TabbedAddTreatmentScreen extends StatefulWidget {
-  const TabbedAddTreatmentScreen({required this.onCreated, super.key});
+  const TabbedAddTreatmentScreen({
+    required this.onCreated,
+    super.key,
+    this.initialDraft,
+  });
 
   final VoidCallback onCreated;
+  final TreatmentReuseDraft? initialDraft;
 
   @override
   State<TabbedAddTreatmentScreen> createState() =>
@@ -125,8 +130,54 @@ class _TabbedAddTreatmentScreenState extends State<TabbedAddTreatmentScreen> {
   @override
   void initState() {
     super.initState();
+    _applyInitialDraft(widget.initialDraft);
+    if (widget.initialDraft != null) _profileTimeZoneRequested = true;
     _name.addListener(_onMedicationQueryChanged);
     _loadMedicationHistory();
+  }
+
+  void _applyInitialDraft(TreatmentReuseDraft? draft) {
+    if (draft == null) return;
+    _name.text = draft.medicationName;
+    _strength.text = draft.strengthText ?? '';
+    _dose.text = draft.doseText;
+    _instructions.text = draft.instructions ?? '';
+    if (_forms.containsKey(draft.form)) _form = draft.form;
+    _timeZone = draft.timeZone;
+    _availableTimeZones.add(draft.timeZone);
+    _patientReminderMinutesBefore = draft.patientReminderMinutesBefore;
+    _caregiverReminderMinutesBefore = draft.caregiverReminderMinutesBefore;
+    final byName = <String, int>{
+      for (final entry in _backendWeekdays.entries) entry.value: entry.key,
+    };
+    final days = <int>{};
+    final times = <TimeOfDay>[];
+    for (final schedule in draft.schedules) {
+      final day = byName[schedule['dayOfWeek']];
+      if (day != null) days.add(day);
+      final parts = (schedule['localTime'] ?? '').split(':');
+      if (parts.length < 2) continue;
+      final hour = int.tryParse(parts[0]);
+      final minute = int.tryParse(parts[1]);
+      if (hour == null || minute == null || hour > 23 || minute > 59) continue;
+      final value = TimeOfDay(hour: hour, minute: minute);
+      if (!times.any(
+        (item) => item.hour == value.hour && item.minute == value.minute,
+      )) {
+        times.add(value);
+      }
+    }
+    if (days.isNotEmpty) {
+      _selectedWeekdays
+        ..clear()
+        ..addAll(days);
+      _frequency = days.length == 7 ? 'daily' : 'weekly';
+    }
+    if (times.isNotEmpty) {
+      _times
+        ..clear()
+        ..addAll(times);
+    }
   }
 
   void _onMedicationQueryChanged() {
