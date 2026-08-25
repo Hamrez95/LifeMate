@@ -8,7 +8,9 @@ enum LifeMateHistorySuggestionKind {
 
 extension LifeMateNullableHistorySuggestionKindName
     on LifeMateHistorySuggestionKind? {
-  String get safeName => this?.name ?? 'unknown';
+  String get name => this == null
+      ? 'unknown'
+      : (this as LifeMateHistorySuggestionKind).name;
 }
 
 class LifeMateHistoryUsage {
