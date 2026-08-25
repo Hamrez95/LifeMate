@@ -9,10 +9,12 @@ import {
   parseStaffDirectoryQuery,
 } from "./staff_directory.ts";
 import { createStaffDirectoryStore } from "./staff_directory_service.ts";
+import { createCommandCenterPreferencesRouteHandler } from "./settings_preferences_routes.ts";
 import { ApiError } from "./validation.ts";
 
 export function createStaffDirectoryRouteHandler(databaseUrl: string) {
   const store = createStaffDirectoryStore(databaseUrl);
+  const preferencesRouteHandler = createCommandCenterPreferencesRouteHandler(databaseUrl);
 
   return async function staffDirectoryRouteHandler(input: {
     request: Request;
@@ -23,6 +25,12 @@ export function createStaffDirectoryRouteHandler(databaseUrl: string) {
     origin: string | null;
   }): Promise<Response | null> {
     const { request, path, accountId, admin, correlationId, origin } = input;
+
+    // Keep the settings contract in the authenticated Admin API routing layer without
+    // exposing it to browser/direct-database access. This route handler is invoked
+    // immediately after the canonical admin snapshot is resolved in index.ts.
+    const preferencesResponse = await preferencesRouteHandler(input);
+    if (preferencesResponse) return preferencesResponse;
 
     if (request.method === "GET" && path === "/api/v1/staff") {
       requirePermission(admin, "security.staff.manage");
