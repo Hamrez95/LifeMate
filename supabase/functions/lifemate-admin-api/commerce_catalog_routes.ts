@@ -37,7 +37,10 @@ function status(result: Record<string, unknown>): number {
   return value;
 }
 
-function failureMessage(result: Record<string, unknown>, fallback: string): string {
+function failureMessage(
+  result: Record<string, unknown>,
+  fallback: string,
+): string {
   return typeof result.message === "string" ? result.message : fallback;
 }
 
@@ -79,7 +82,10 @@ export function createCommerceCatalogRouteHandler(databaseUrl: string) {
         throw new ApiError(
           httpStatus,
           String(result.code),
-          failureMessage(result, "Discount-code status change was not completed."),
+          failureMessage(
+            result,
+            "Discount-code status change was not completed.",
+          ),
         );
       }
       return json(
@@ -117,7 +123,10 @@ export function createCommerceCatalogRouteHandler(databaseUrl: string) {
       requirePermission(admin, "commerce.discount_code.write");
       const idempotencyKey = requireIdempotencyKey(request);
       const payload = await parseIssueDiscountCodesPayload(request);
-      const requestHash = await hashIssueDiscountCodesRequest(promotionCodesId, payload);
+      const requestHash = await hashIssueDiscountCodesRequest(
+        promotionCodesId,
+        payload,
+      );
       const result = await discountCodeStore.issue({
         actorAccountId: accountId,
         promotionId: promotionCodesId,
@@ -160,9 +169,21 @@ export function createCommerceCatalogRouteHandler(databaseUrl: string) {
       });
       const httpStatus = status(result);
       if (httpStatus >= 400) {
-        throw new ApiError(httpStatus, String(result.code), failureMessage(result, "Plan creation was not completed."));
+        throw new ApiError(
+          httpStatus,
+          String(result.code),
+          failureMessage(result, "Plan creation was not completed."),
+        );
       }
-      return json({ planId: String(result.planId), status: String(result.status), replayed: Boolean(result.replayed) }, httpStatus, origin);
+      return json(
+        {
+          planId: String(result.planId),
+          status: String(result.status),
+          replayed: Boolean(result.replayed),
+        },
+        httpStatus,
+        origin,
+      );
     }
 
     const pricePlanId = matchCommercePlanPricesPath(path);
@@ -170,7 +191,10 @@ export function createCommerceCatalogRouteHandler(databaseUrl: string) {
       requirePermission(admin, "commerce.price.write");
       const idempotencyKey = requireIdempotencyKey(request);
       const payload = await parseScheduleCommercePricePayload(request);
-      const requestHash = await hashScheduleCommercePriceRequest(pricePlanId, payload);
+      const requestHash = await hashScheduleCommercePriceRequest(
+        pricePlanId,
+        payload,
+      );
       const result = await store.schedulePrice({
         actorAccountId: accountId,
         planId: pricePlanId,
@@ -181,7 +205,11 @@ export function createCommerceCatalogRouteHandler(databaseUrl: string) {
       });
       const httpStatus = status(result);
       if (httpStatus >= 400) {
-        throw new ApiError(httpStatus, String(result.code), failureMessage(result, "Price scheduling was not completed."));
+        throw new ApiError(
+          httpStatus,
+          String(result.code),
+          failureMessage(result, "Price scheduling was not completed."),
+        );
       }
       return json(
         {
@@ -211,7 +239,11 @@ export function createCommerceCatalogRouteHandler(databaseUrl: string) {
       });
       const httpStatus = status(result);
       if (httpStatus >= 400) {
-        throw new ApiError(httpStatus, String(result.code), failureMessage(result, "Plan update was not completed."));
+        throw new ApiError(
+          httpStatus,
+          String(result.code),
+          failureMessage(result, "Plan update was not completed."),
+        );
       }
       return json(
         {
