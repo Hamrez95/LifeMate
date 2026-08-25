@@ -48,17 +48,27 @@ class _CareEventFormState extends State<CareEventForm> {
   bool _loadingTimeZone = false;
   bool _busy = false;
   String? _error;
+  List<LifeMateHistoryUsage> _historyUsages = const [];
+  bool _historyLoading = false;
+  bool _historyUnavailable = false;
 
   bool get _isAppointment => widget.kind == CarePlanKind.appointment;
 
   @override
   void initState() {
     super.initState();
+    _title.addListener(_onHistoryQueryChanged);
+    _provider.addListener(_onHistoryQueryChanged);
+    _center.addListener(_onHistoryQueryChanged);
     _loadProfileTimeZone();
+    _loadPersonalHistory();
   }
 
   @override
   void dispose() {
+    _title.removeListener(_onHistoryQueryChanged);
+    _provider.removeListener(_onHistoryQueryChanged);
+    _center.removeListener(_onHistoryQueryChanged);
     _title.dispose();
     _provider.dispose();
     _specialty.dispose();
@@ -72,6 +82,96 @@ class _CareEventFormState extends State<CareEventForm> {
     _repeatCount.dispose();
     super.dispose();
   }
+
+  void _onHistoryQueryChanged() {
+    if (mounted) setState(() {});
+  }
+
+  Future<void> _loadPersonalHistory() async {
+    if (_historyLoading) return;
+    setState(() {
+      _historyLoading = true;
+      _historyUnavailable = false;
+    });
+    final usages = <LifeMateHistoryUsage>[];
+    try {
+      final api = context.read<LifeMateApiClient>();
+      final now = DateTime.now();
+      final eventsById = <String, Map<String, dynamic>>{};
+      for (var window = 0; window < 6; window += 1) {
+        final to = now.subtract(Duration(days: window * 30));
+        final from = to.subtract(const Duration(days: 30));
+        final events = await api.getCareEvents(fromDate: from, toDate: to);
+        for (final event in events) {
+          final id = event['id']?.toString() ?? event.toString();
+          eventsById[id] = event;
+        }
+      }
+      for (final event in eventsById.values) {
+        final usedAt = DateTime.tryParse(event['updatedAtUtc']?.toString() ?? '') ??
+            DateTime.tryParse(event['scheduledAtUtc']?.toString() ?? '') ??
+            DateTime.tryParse(event['scheduledLocalDate']?.toString() ?? '') ??
+            DateTime.fromMillisecondsSinceEpoch(0);
+        final eventType = event['eventType']?.toString().toLowerCase();
+        void add(LifeMateHistorySuggestionKind kind, dynamic raw, {String? context}) {
+          final value = raw?.toString().trim() ?? '';
+          if (value.isEmpty) return;
+          usages.add(LifeMateHistoryUsage(
+            kind: kind,
+            value: value,
+            usedAt: usedAt,
+            context: context,
+          ));
+        }
+        add(LifeMateHistorySuggestionKind.center, event['centerName']);
+        if (eventType == 'appointment') {
+          add(
+            LifeMateHistorySuggestionKind.doctor,
+            event['providerName'],
+            context: event['specialty']?.toString(),
+          );
+          add(LifeMateHistorySuggestionKind.careAction, event['title']);
+        } else if (eventType == 'injection') {
+          add(
+            LifeMateHistorySuggestionKind.injection,
+            event['medicationName'] ?? event['title'],
+            context: event['doseText']?.toString(),
+          );
+        }
+      }
+      final plans = await api.getTreatmentPlans();
+      for (final plan in plans) {
+        final medication = plan['medication'];
+        if (medication is! Map) continue;
+        final name = medication['name']?.toString().trim() ?? '';
+        if (name.isEmpty) continue;
+        usages.add(LifeMateHistoryUsage(
+          kind: LifeMateHistorySuggestionKind.medication,
+          value: name,
+          usedAt: DateTime.tryParse(plan['updatedAtUtc']?.toString() ?? '') ??
+              DateTime.tryParse(plan['startDate']?.toString() ?? '') ??
+              DateTime.fromMillisecondsSinceEpoch(0),
+          context: plan['doseText']?.toString(),
+        ));
+      }
+      if (!mounted) return;
+      setState(() => _historyUsages = List.unmodifiable(usages));
+    } catch (error) {
+      debugPrint('WellMate personal history suggestions unavailable: $error');
+      if (mounted) setState(() => _historyUnavailable = true);
+    } finally {
+      if (mounted) setState(() => _historyLoading = false);
+    }
+  }
+
+  List<LifeMateHistorySuggestion> _historySuggestions(
+    TextEditingController controller,
+    LifeMateHistorySuggestionKind kind,
+  ) => rankLifeMateHistorySuggestions(
+    history: _historyUsages,
+    query: controller.text,
+    kind: kind,
+  );
 
   Future<void> _loadProfileTimeZone() async {
     if (_loadingTimeZone) return;
@@ -476,6 +576,9 @@ class _CareEventFormState extends State<CareEventForm> {
                     ? Icons.event_note_rounded
                     : Icons.medication_liquid_rounded,
                 required: true,
+                historyKind: _isAppointment
+                    ? LifeMateHistorySuggestionKind.careAction
+                    : LifeMateHistorySuggestionKind.injection,
               ),
               if (_isAppointment) ...[
                 _textField(
@@ -496,6 +599,7 @@ class _CareEventFormState extends State<CareEventForm> {
                   ),
                   icon: Icons.person_rounded,
                   required: true,
+                  historyKind: LifeMateHistorySuggestionKind.doctor,
                 ),
                 _textField(
                   controller: _specialty,
@@ -690,6 +794,7 @@ class _CareEventFormState extends State<CareEventForm> {
                   en: "For example, Elvand Medical Center",
                 ),
                 icon: Icons.local_hospital_rounded,
+                historyKind: LifeMateHistorySuggestionKind.center,
               ),
               _textField(
                 controller: _address,
@@ -1289,30 +1394,86 @@ class _CareEventFormState extends State<CareEventForm> {
     int maxLines = 1,
     TextInputType? keyboardType,
     TextDirection? textDirection,
+    LifeMateHistorySuggestionKind? historyKind,
   }) {
     return WellMateLabeledField(
       label: label,
       icon: icon,
       required: required,
-      child: TextFormField(
-        controller: controller,
-        enabled: !_busy,
-        maxLines: maxLines,
-        keyboardType: keyboardType,
-        inputFormatters: const [LifeMateLocaleDigitInputFormatter()],
-        textDirection: textDirection,
-        decoration: wellMateFieldDecoration(hint: hint),
-        validator: required
-            ? (value) => value == null || value.trim().isEmpty
-                  ? LifeMateRuntimeLocale.select(
-                      fa: LifeMateRuntimeLocale.select(
-                        fa: '$label را وارد کنید.',
-                        en: "Enter $label.",
+      child: Builder(
+        builder: (context) {
+          final suggestions = historyKind == null
+              ? const <LifeMateHistorySuggestion>[]
+              : _historySuggestions(controller, historyKind);
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              TextFormField(
+                controller: controller,
+                enabled: !_busy,
+                maxLines: maxLines,
+                keyboardType: keyboardType,
+                inputFormatters: const [LifeMateLocaleDigitInputFormatter()],
+                textDirection: textDirection,
+                decoration: wellMateFieldDecoration(hint: hint),
+                validator: required
+                    ? (value) => value == null || value.trim().isEmpty
+                          ? LifeMateRuntimeLocale.select(
+                              fa: '$label را وارد کنید.',
+                              en: 'Enter $label.',
+                            )
+                          : null
+                    : null,
+              ),
+              if (historyKind != null && _historyLoading) ...[
+                SizedBox(height: 6),
+                LinearProgressIndicator(minHeight: 2),
+              ] else if (suggestions.isNotEmpty) ...[
+                SizedBox(height: 8),
+                Wrap(
+                  spacing: 6,
+                  runSpacing: 6,
+                  children: [
+                    for (final suggestion in suggestions)
+                      ActionChip(
+                        key: ValueKey(
+                          'history-suggestion-${historyKind!.name}-${suggestion.value}',
+                        ),
+                        label: Text(
+                          '${suggestion.value} · ${suggestion.usageCount}×',
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                        onPressed: _busy
+                            ? null
+                            : () {
+                                controller.value = TextEditingValue(
+                                  text: suggestion.value,
+                                  selection: TextSelection.collapsed(
+                                    offset: suggestion.value.length,
+                                  ),
+                                );
+                              },
                       ),
-                      en: "Enter $label.",
-                    )
-                  : null
-            : null,
+                  ],
+                ),
+              ] else if (historyKind != null &&
+                  _historyUnavailable &&
+                  normalizeLifeMateHistoryText(controller.text).length >= 2) ...[
+                SizedBox(height: 6),
+                Text(
+                  LifeMateRuntimeLocale.select(
+                    fa: 'پیشنهادهای سوابق فعلاً در دسترس نیست؛ می‌توانید آزادانه تایپ کنید.',
+                    en: 'History suggestions are unavailable; you can keep typing freely.',
+                  ),
+                  style: TextStyle(
+                    color: AppColors.textSecondary,
+                    fontSize: 11,
+                  ),
+                ),
+              ],
+            ],
+          );
+        },
       ),
     );
   }
