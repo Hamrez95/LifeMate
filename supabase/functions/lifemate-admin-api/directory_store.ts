@@ -46,7 +46,7 @@ export async function listUserDirectory(
 
   const countRows = await sql`
     select count(*)::integer as total
-    from admin.user_directory_v1
+    from admin.user_directory_v2
     where (${query.status}::text is null or account_status = ${query.status}::varchar)
       and (${query.application}::text is null or ${query.application}::varchar = any(application_codes))
       and (
@@ -60,7 +60,7 @@ export async function listUserDirectory(
   const rows = await sql`
     select account_id, person_id, display_name, username, account_status, application_codes,
            created_at_utc, last_active_at_utc
-    from admin.user_directory_v1
+    from admin.user_directory_v2
     where (${query.status}::text is null or account_status = ${query.status}::varchar)
       and (${query.application}::text is null or ${query.application}::varchar = any(application_codes))
       and (
