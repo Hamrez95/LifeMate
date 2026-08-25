@@ -3,8 +3,6 @@ on:
   push:
     branches:
       - "feat/94-smart-history-autofill"
-    paths:
-      - ".github/workflows/tmp-patch-94.yml"
 permissions:
   contents: write
 jobs:
