@@ -17,7 +17,10 @@ import {
 import { json } from "./http.ts";
 import { ApiError, requireIdempotencyKey } from "./validation.ts";
 
-function checkedStatus(result: Record<string, unknown>, workflow: string): number {
+function checkedStatus(
+  result: Record<string, unknown>,
+  workflow: string,
+): number {
   const httpStatus = Number(result.httpStatus);
   if (!Number.isInteger(httpStatus) || httpStatus < 100 || httpStatus > 599) {
     throw new ApiError(
