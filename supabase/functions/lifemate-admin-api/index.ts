@@ -97,6 +97,7 @@ import {
   matchUserActivityPath,
   matchUserDetailPath,
   parseUserActivityQuery,
+  userDetailAccountData,
 } from "./user_detail.ts";
 import { getUserDetailSectionPermissions } from "./user_detail_permissions.ts";
 import { createUserDetailStore } from "./user_detail_store.ts";
@@ -1197,11 +1198,7 @@ Deno.serve(async (request: Request) => {
         {
           account: {
             state: "ready",
-            data: {
-              id: base.accountId,
-              status: base.status,
-              createdAtUtc: base.createdAtUtc,
-            },
+            data: userDetailAccountData(base),
           },
           person: base.person
             ? { state: "ready", data: base.person }
