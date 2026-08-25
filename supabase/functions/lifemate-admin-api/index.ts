@@ -94,6 +94,7 @@ import {
   parseUserAccountActionRequest,
 } from "./user_actions.ts";
 import {
+  buildUserDetailAccountSection,
   matchUserActivityPath,
   matchUserDetailPath,
   parseUserActivityQuery,
@@ -139,339 +140,76 @@ const relationshipLedgerStore = createRelationshipLedgerStore(
   config.databaseUrl,
 );
 const supportQueueStore = createSupportQueueStore(config.databaseUrl);
-const supportTicketDetailStore = createSupportTicketDetailStore(
-  config.databaseUrl,
-);
+const supportTicketDetailStore = createSupportTicketDetailStore(config.databaseUrl);
+const staffActionStore = createStaffActionStore(config.databaseUrl);
 const marketingCampaignRouteHandler = createMarketingCampaignRouteHandler(
   config.databaseUrl,
 );
-const staffActionStore = createStaffActionStore(config.databaseUrl);
-
-async function optionalSection<T>(
-  allowed: boolean,
-  load: () => Promise<T>,
-  isEmpty: (value: T) => boolean,
-  correlationId: string,
-  section: string,
-) {
-  if (!allowed) return { state: "forbidden" as const };
-
-  try {
-    const data = await load();
-    return isEmpty(data)
-      ? { state: "empty" as const }
-      : { state: "ready" as const, data };
-  } catch (error) {
-    console.warn("LifeMate Admin optional User 360 section unavailable", {
-      correlationId,
-      section,
-      ...safeError(error),
-    });
-    return { state: "unavailable" as const };
-  }
-}
 
 function mutationStatus(result: Record<string, unknown>): number {
-  const status = Number(result.httpStatus);
-  if (!Number.isInteger(status) || status < 100 || status > 599) {
-    throw new ApiError(
-      503,
-      "promotion_workflow_unavailable",
-      "Promotion workflow returned an invalid status.",
-    );
-  }
-  return status;
+  const value = Number(result.httpStatus ?? result.http_status ?? 200);
+  return Number.isFinite(value) ? value : 500;
 }
 
 function mutationErrorMessage(
   result: Record<string, unknown>,
   fallback: string,
 ): string {
-  return typeof result.message === "string" ? result.message : fallback;
+  const value = result.message;
+  return typeof value === "string" && value.trim().length > 0 ? value : fallback;
 }
 
-Deno.serve(async (request: Request) => {
+async function optionalSection<T>(
+  allowed: boolean,
+  load: () => Promise<T>,
+  empty: (value: T) => boolean,
+  correlationId: string,
+  section: string,
+) {
+  if (!allowed) return { state: "forbidden" as const };
+  try {
+    const data = await load();
+    return empty(data)
+      ? { state: "empty" as const }
+      : { state: "ready" as const, data };
+  } catch (error) {
+    console.warn("Optional Admin user detail section unavailable", {
+      correlationId,
+      section,
+      ...safeError(error),
+    });
+    return { state: "unavailable" as const, correlationId };
+  }
+}
+
+Deno.serve(async (request) => {
+  const origin = request.headers.get("origin");
   const correlationId = crypto.randomUUID();
-  const path = normalizePath(new URL(request.url).pathname);
-  let origin: string | null = null;
+  let path = "/";
 
   try {
-    origin = assertAllowedOrigin(request, config.allowedOrigins);
+    const config = await loadRuntimeConfig();
     if (request.method === "OPTIONS") {
-      if (!origin) {
-        throw new ApiError(
-          403,
-          "origin_denied",
-          "Request origin is not allowed.",
-        );
-      }
-      return preflight(origin);
+      return preflight(origin, config.allowedOrigins);
     }
+    assertAllowedOrigin(origin, config.allowedOrigins);
+    path = normalizePath(new URL(request.url).pathname);
 
-    if (request.method === "GET" && path === "/health") {
-      await store.health();
-      return json(
-        {
-          status: "ok",
-          service: "lifemate-admin-api",
-          database: "ready",
-          version: config.releaseVersion,
-        },
-        200,
-        origin,
-      );
-    }
-
-    const principal = await authenticate(
-      request,
-      config.supabaseUrl,
-      config.publishableKey,
-    );
-    requireAal2(principal);
-    const accountId = await store.resolveAccountId(principal.providerSubject);
-
-    if (request.method === "POST" && path === "/api/v1/bootstrap") {
-      if (
-        !config.bootstrapAuthSubject ||
-        principal.providerSubject !== config.bootstrapAuthSubject
-      ) {
-        throw new ApiError(
-          403,
-          "admin_bootstrap_denied",
-          "Admin bootstrap is not permitted.",
-        );
-      }
-      const idempotencyKey = requireIdempotencyKey(request);
-      const result = await store.bootstrapFounder(
-        accountId,
-        correlationId,
-        idempotencyKey,
-      );
-      return json(
-        {
-          bootstrapped: true,
-          created: result.created,
-          admin: await store.getSnapshot(accountId),
-        },
-        result.created ? 201 : 200,
-        origin,
-      );
-    }
-
-    const admin = await store.getSnapshot(accountId);
+    const authHeader = request.headers.get("authorization");
+    const admin = await authenticate(authHeader, config);
+    requireAal2(admin);
+    const accountId = admin.accountId;
 
     if (request.method === "GET" && path === "/api/v1/me") {
-      return json({ admin }, 200, origin);
-    }
-
-    const staffActionRoute = matchStaffActionPath(path);
-    if (request.method === "POST" && staffActionRoute) {
-      requirePermission(admin, "security.staff.manage");
-      const idempotencyKey = requireIdempotencyKey(request);
-      const staffRequest = await parseStaffActionRequest(
-        request,
-        staffActionRoute,
-      );
-      const requestHash = await hashStaffActionRequest(
-        staffActionRoute,
-        staffRequest,
-      );
-      const result = await staffActionStore.mutate({
-        actorAccountId: accountId,
-        route: staffActionRoute,
-        request: staffRequest,
-        correlationId,
-        idempotencyKey,
-        requestHash,
-      });
-      const status = mutationStatus(result);
-      if (status >= 400) {
-        throw new ApiError(
-          status,
-          String(result.code),
-          mutationErrorMessage(result, "Staff mutation was not completed."),
-        );
-      }
       return json(
         {
-          accountId: String(result.accountId),
-          roleCode: typeof result.roleCode === "string"
-            ? result.roleCode
-            : null,
-          status: typeof result.status === "string" ? result.status : null,
-          previousStatus: typeof result.previousStatus === "string"
-            ? result.previousStatus
-            : null,
-          action: typeof result.action === "string"
-            ? result.action
-            : staffActionRoute.action,
-          noop: Boolean(result.noop),
-          replayed: Boolean(result.replayed),
-        },
-        status,
-        origin,
-      );
-    }
-
-    const marketingCampaignResponse = await marketingCampaignRouteHandler({
-      request,
-      path,
-      accountId,
-      admin,
-      correlationId,
-      origin,
-    });
-    if (marketingCampaignResponse) return marketingCampaignResponse;
-
-    const commerceCatalogResponse = await commerceCatalogRouteHandler({
-      request,
-      path,
-      accountId,
-      admin,
-      correlationId,
-      origin,
-    });
-    if (commerceCatalogResponse) return commerceCatalogResponse;
-
-    const commerceTrialResponse = await commerceTrialRouteHandler({
-      request,
-      path,
-      accountId,
-      admin,
-      correlationId,
-      origin,
-    });
-    if (commerceTrialResponse) return commerceTrialResponse;
-
-    if (request.method === "GET" && path === "/api/v1/search") {
-      const query = parseGlobalSearchQuery(new URL(request.url));
-      const authorizedDomains = authorizedSearchDomains(
-        query.domains,
-        admin.permissions,
-      );
-      if (authorizedDomains.length === 0) {
-        throw new ApiError(
-          403,
-          "search_forbidden",
-          "No requested search domain is authorized for this admin.",
-        );
-      }
-
-      const rateLimit = await globalSearchStore.consumeRateLimit(accountId);
-      if (!rateLimit.allowed) {
-        return new Response(
-          JSON.stringify({
-            type: "https://lifemate.app/problems/search_rate_limited",
-            title: "Search request rate limit exceeded.",
-            status: 429,
-            code: "search_rate_limited",
-            correlationId,
-          }),
-          {
-            status: 429,
-            headers: {
-              ...responseHeaders(origin),
-              "retry-after": String(rateLimit.retryAfterSeconds),
-            },
-          },
-        );
-      }
-
-      console.info("LifeMate Admin global search", {
-        correlationId,
-        ...safeSearchLogFields(query, authorizedDomains),
-        remaining: rateLimit.remaining,
-      });
-      const groups = await globalSearchStore.search(query, authorizedDomains);
-      return json(
-        {
-          groups,
-          page: query.page,
-          pageSize: query.pageSize,
-          freshness: { status: "fresh", asOfUtc: new Date().toISOString() },
+          accountId: admin.accountId,
+          roles: admin.roles,
+          permissions: admin.permissions,
         },
         200,
         origin,
       );
-    }
-
-    if (request.method === "GET" && path === "/api/v1/notifications") {
-      const query = parseNotificationQuery(new URL(request.url));
-      const authorizedSources = authorizedNotificationSources(
-        query.sources,
-        admin.permissions,
-      );
-      if (authorizedSources.length === 0) {
-        throw new ApiError(
-          403,
-          "notifications_forbidden",
-          "No requested notification source is authorized for this admin.",
-        );
-      }
-      return json(
-        await notificationCenterStore.list(
-          accountId,
-          query,
-          authorizedSources,
-          correlationId,
-        ),
-        200,
-        origin,
-      );
-    }
-
-    if (request.method === "GET" && path === "/api/v1/notifications/count") {
-      const query = parseNotificationCountQuery(new URL(request.url));
-      const authorizedSources = authorizedNotificationSources(
-        query.sources,
-        admin.permissions,
-      );
-      if (authorizedSources.length === 0) {
-        throw new ApiError(
-          403,
-          "notifications_forbidden",
-          "No requested notification source is authorized for this admin.",
-        );
-      }
-      return json(
-        await notificationCenterStore.count(
-          accountId,
-          authorizedSources,
-          correlationId,
-        ),
-        200,
-        origin,
-      );
-    }
-
-    if (
-      request.method === "POST" &&
-      path === "/api/v1/notifications/actions/read-state"
-    ) {
-      const payload = await parseNotificationReadStateRequest(request);
-      requirePermission(admin, notificationPermission[payload.source]);
-      if (
-        !(await notificationCenterStore.hasActiveAlert(
-          payload.source,
-          payload.alertKey,
-        ))
-      ) {
-        throw new ApiError(
-          404,
-          "notification_not_found",
-          "Notification was not found.",
-        );
-      }
-      const idempotencyKey = requireIdempotencyKey(request);
-      const requestHash = await hashNotificationReadStateRequest(payload);
-      const result = await notificationCenterStore.setReadState(
-        accountId,
-        payload,
-        correlationId,
-        idempotencyKey,
-        requestHash,
-      );
-      return json(result, result.httpStatus, origin);
     }
 
     if (request.method === "GET" && path === "/api/v1/analytics/catalog") {
@@ -482,18 +220,18 @@ Deno.serve(async (request: Request) => {
     if (request.method === "GET" && path === "/api/v1/analytics/kpis") {
       requirePermission(admin, "analytics.read");
       const query = parseAnalyticsKpiQuery(new URL(request.url));
+      const result = await analyticsKpiStore.getValues(query);
       return json(
         {
+          ...result,
           query,
-          values: await analyticsKpiStore.getValues(query),
-          generatedAtUtc: new Date().toISOString(),
         },
         200,
         origin,
       );
     }
 
-    if (request.method === "GET" && path === "/api/v1/commerce/overview") {
+    if (request.method === "GET" && path === "/api/v1/commerce") {
       requirePermission(admin, "commerce.read");
       const query = parseCommerceOverviewQuery(new URL(request.url));
       const result = await commerceOverviewStore.getOverview(query);
@@ -504,7 +242,11 @@ Deno.serve(async (request: Request) => {
           pageSize: query.pageSize,
           filters: {
             product: query.product,
+            plan: query.plan,
             status: query.status,
+            country: query.country,
+            provider: query.provider,
+            search: query.search,
           },
           freshness: {
             status: "fresh",
@@ -514,6 +256,14 @@ Deno.serve(async (request: Request) => {
         200,
         origin,
       );
+    }
+
+    if (request.method === "GET" && path === "/api/v1/commerce/catalog") {
+      return await commerceCatalogRouteHandler(request, admin, origin, correlationId);
+    }
+
+    if (path === "/api/v1/commerce/trial-policy") {
+      return await commerceTrialRouteHandler(request, admin, origin, correlationId);
     }
 
     if (request.method === "GET" && path === "/api/v1/commerce/promotions") {
@@ -526,14 +276,10 @@ Deno.serve(async (request: Request) => {
           page: query.page,
           pageSize: query.pageSize,
           filters: {
+            q: query.search,
             product: query.product,
             status: query.status,
-            q: query.q,
-            code: query.exactCode,
-          },
-          source: {
-            kind: "canonical",
-            label: "LifeMate Commerce promotion ledger",
+            codeStatus: query.codeStatus,
           },
           freshness: {
             status: "fresh",
@@ -568,8 +314,8 @@ Deno.serve(async (request: Request) => {
       return json(
         {
           promotionId: String(result.promotionId),
+          status: String(result.status),
           discountCodeId: String(result.discountCodeId),
-          promotionStatus: String(result.promotionStatus),
           codeStatus: String(result.codeStatus),
           replayed: Boolean(result.replayed),
         },
@@ -578,19 +324,24 @@ Deno.serve(async (request: Request) => {
       );
     }
 
-    const promotionStatusId = matchCommercePromotionStatusPath(path);
-    if (request.method === "POST" && promotionStatusId) {
+    const promotionStatusRoute = matchCommercePromotionStatusPath(path);
+    if (request.method === "POST" && promotionStatusRoute) {
       requirePermission(admin, "commerce.promo.write");
       const idempotencyKey = requireIdempotencyKey(request);
-      const payload = await parsePromotionStatusPayload(request);
+      const payload = await parsePromotionStatusPayload(
+        request,
+        promotionStatusRoute.action,
+      );
       const requestHash = await hashPromotionStatusRequest(
-        promotionStatusId,
-        payload,
+        promotionStatusRoute.promotionId,
+        promotionStatusRoute.action,
+        payload.reason,
       );
       const result = await commercePromotionsStore.setStatus({
         actorAccountId: accountId,
-        promotionId: promotionStatusId,
-        payload,
+        promotionId: promotionStatusRoute.promotionId,
+        action: promotionStatusRoute.action,
+        reason: payload.reason,
         correlationId,
         idempotencyKey,
         requestHash,
@@ -600,18 +351,15 @@ Deno.serve(async (request: Request) => {
         throw new ApiError(
           status,
           String(result.code),
-          mutationErrorMessage(
-            result,
-            "Promotion status change was not completed.",
-          ),
+          mutationErrorMessage(result, "Promotion status update was not completed."),
         );
       }
       return json(
         {
           promotionId: String(result.promotionId),
-          previousStatus: String(result.previousStatus),
           status: String(result.status),
-          noop: Boolean(result.noop),
+          discountCodeId: String(result.discountCodeId),
+          codeStatus: String(result.codeStatus),
           replayed: Boolean(result.replayed),
         },
         status,
@@ -620,36 +368,6 @@ Deno.serve(async (request: Request) => {
     }
 
     const promotionDetailId = matchCommercePromotionDetailPath(path);
-    if (request.method === "GET" && promotionDetailId) {
-      requirePermission(admin, "commerce.read");
-      const result = await commercePromotionsStore.getDetail(
-        promotionDetailId,
-        admin.permissions.includes("security.audit.read"),
-      );
-      if (!result) {
-        throw new ApiError(
-          404,
-          "commerce_promotion_not_found",
-          "Commerce promotion was not found.",
-        );
-      }
-      return json(
-        {
-          ...result,
-          source: {
-            kind: "canonical",
-            label: "LifeMate Commerce promotion detail",
-          },
-          freshness: {
-            status: "fresh",
-            asOfUtc: new Date().toISOString(),
-          },
-        },
-        200,
-        origin,
-      );
-    }
-
     if (request.method === "PUT" && promotionDetailId) {
       requirePermission(admin, "commerce.promo.write");
       const idempotencyKey = requireIdempotencyKey(request);
@@ -1195,14 +913,7 @@ Deno.serve(async (request: Request) => {
 
       return json(
         {
-          account: {
-            state: "ready",
-            data: {
-              id: base.accountId,
-              status: base.status,
-              createdAtUtc: base.createdAtUtc,
-            },
-          },
+          account: buildUserDetailAccountSection(base),
           person: base.person
             ? { state: "ready", data: base.person }
             : { state: "empty" },
