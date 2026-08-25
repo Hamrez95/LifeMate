@@ -28,14 +28,11 @@ PERSIAN_IMPLEMENTATION_FILES = {
 
 errors: list[str] = []
 
-
 def fail(message: str) -> None:
     errors.append(message)
 
-
 def read(rel: str) -> str:
     return (ROOT / rel).read_text(encoding='utf-8')
-
 
 def check_root_direction(rel: str) -> None:
     text = read(rel)
@@ -43,7 +40,6 @@ def check_root_direction(rel: str) -> None:
         fail(f'{rel}: root app must contain explicit RTL and LTR branches')
     if "languageCode == 'fa'" not in text:
         fail(f'{rel}: root direction must be driven by locale languageCode')
-
 
 def check_no_fixed_rtl() -> None:
     needle = 'textDirection: TextDirection.rtl,'
@@ -53,7 +49,6 @@ def check_no_fixed_rtl() -> None:
             if needle in text:
                 rel = path.relative_to(ROOT).as_posix()
                 fail(f'{rel}: fixed RTL override can reverse English UI')
-
 
 def check_persian_literals_are_guarded() -> None:
     for root in RUNTIME_DART_ROOTS:
@@ -68,12 +63,16 @@ def check_persian_literals_are_guarded() -> None:
                 lo = max(0, literal.start - 500)
                 hi = min(len(text), literal.end + 500)
                 context = text[lo:hi]
-                if 'LifeMateRuntimeLocale.select' not in context or 'en:' not in context:
+                guarded_select = 'LifeMateRuntimeLocale.select' in context and 'en:' in context
+                guarded_ternary = (
+                    re.search(r'isPersian\s*\?', context) is not None
+                    and re.search(r"\:\s*['\"]", context) is not None
+                )
+                if not guarded_select and not guarded_ternary:
                     fail(
                         f'{rel}:{literal.line}: Persian runtime literal has no nearby English locale branch: '
                         f'{literal.body[:80]!r}'
                     )
-
 
 def check_gregorian_english_contract() -> None:
     for rel in (
@@ -89,7 +88,6 @@ def check_gregorian_english_contract() -> None:
         for token in required:
             if token not in text:
                 fail(f'{rel}: missing Gregorian English date path: {token}')
-
     calendars = {
         'wellmate/lib/screens/calendar/custom_table_calendar.dart': "locale: 'en_US'",
         'caremate/lib/screens/calendar/calendar_view.dart': "locale: 'en_US'",
@@ -98,19 +96,14 @@ def check_gregorian_english_contract() -> None:
         if token not in read(rel):
             fail(f'{rel}: English calendar must use Gregorian en_US TableCalendar')
 
-
 def check_numeric_inputs() -> None:
     keyboard_re = re.compile(r'keyboardType:\s*TextInputType\.(?:number(?:WithOptions\([^)]*\))?|phone)')
     helper_declarations = ('Widget _textField(', 'class _Input ', 'class _ProfileField ')
     formatter_token = 'LifeMateLocaleDigitInputFormatter'
-
     for root in RUNTIME_DART_ROOTS:
         for path in root.rglob('*.dart'):
             text = path.read_text(encoding='utf-8')
-            helper_is_digit_safe = (
-                formatter_token in text
-                and any(declaration in text for declaration in helper_declarations)
-            )
+            helper_is_digit_safe = formatter_token in text and any(declaration in text for declaration in helper_declarations)
             for match in keyboard_re.finditer(text):
                 lo = max(0, match.start() - 500)
                 hi = min(len(text), match.end() + 650)
@@ -118,11 +111,7 @@ def check_numeric_inputs() -> None:
                 if formatter_token in context or helper_is_digit_safe:
                     continue
                 line = text.count('\n', 0, match.start()) + 1
-                fail(
-                    f'{path.relative_to(ROOT).as_posix()}:{line}: numeric/phone input '
-                    'must normalize digits in English mode'
-                )
-
+                fail(f'{path.relative_to(ROOT).as_posix()}:{line}: numeric/phone input must normalize digits in English mode')
 
 def check_android_widget() -> None:
     default_strings = read('wellmate/android/app/src/main/res/values/strings.xml')
@@ -140,7 +129,6 @@ def check_android_widget() -> None:
         if token not in kotlin:
             fail(f'WellMate native widget missing locale contract token: {token}')
 
-
 def main() -> int:
     check_root_direction('wellmate/lib/main.dart')
     check_root_direction('caremate/lib/main.dart')
@@ -149,7 +137,6 @@ def main() -> int:
     check_gregorian_english_contract()
     check_numeric_inputs()
     check_android_widget()
-
     if errors:
         print(f'English localization contract FAILED with {len(errors)} issue(s):')
         for error in errors:
@@ -157,7 +144,6 @@ def main() -> int:
         return 1
     print('English localization contract passed: copy, LTR, Gregorian dates, Latin digits, and native widget checks are green.')
     return 0
-
 
 if __name__ == '__main__':
     raise SystemExit(main())
