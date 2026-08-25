@@ -50,6 +50,9 @@ export async function getRelationshipOverview(
       select 'relationship'::text as kind, status::text as status
       from network.person_relationships
       union all
+      select 'relationship'::text as kind, status::text as status
+      from admin.care_relationship_directory_v1
+      union all
       select 'consent'::text as kind, status::text as status
       from consent.consent_records
       union all
@@ -78,6 +81,17 @@ export async function getRelationshipOverview(
              r.ended_at_utc,
              r.created_at_utc as occurred_at_utc
       from network.person_relationships r
+      union all
+      select c.id, 'relationship'::text as kind, c.status::text as status,
+             c.patient_person_id as subject_person_id,
+             'Caregiver'::text as item_type,
+             null::text as purpose,
+             null::text as context,
+             null::integer as scope_count,
+             c.created_at_utc as started_at_utc,
+             c.revoked_at_utc as ended_at_utc,
+             c.created_at_utc as occurred_at_utc
+      from admin.care_relationship_directory_v1 c
       union all
       select c.id, 'consent'::text as kind, c.status::text as status,
              c.subject_person_id,
@@ -124,6 +138,17 @@ export async function getRelationshipOverview(
              r.ended_at_utc,
              r.created_at_utc as occurred_at_utc
       from network.person_relationships r
+      union all
+      select c.id, 'relationship'::text as kind, c.status::text as status,
+             c.patient_person_id as subject_person_id,
+             'Caregiver'::text as item_type,
+             null::text as purpose,
+             null::text as context,
+             null::integer as scope_count,
+             c.created_at_utc as started_at_utc,
+             c.revoked_at_utc as ended_at_utc,
+             c.created_at_utc as occurred_at_utc
+      from admin.care_relationship_directory_v1 c
       union all
       select c.id, 'consent'::text as kind, c.status::text as status,
              c.subject_person_id,
