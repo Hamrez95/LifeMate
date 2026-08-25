@@ -380,30 +380,24 @@ class CareNotificationProvider extends ChangeNotifier {
     final patient = item['patientDisplayName']?.toString().trim();
     final treatment = item['medicationName']?.toString().trim();
     final safePatient = patient == null || patient.isEmpty
-        ? LifeMateRuntimeLocale.select(
-            fa: 'فرد تحت مراقبت',
-            en: 'Your loved one',
-          )
+        ? (isPersian ? 'فرد تحت مراقبت' : 'Your loved one')
         : patient;
     final safeTreatment = treatment == null || treatment.isEmpty
-        ? LifeMateRuntimeLocale.select(fa: 'درمان', en: 'treatment')
+        ? (isPersian ? 'درمان' : 'treatment')
         : treatment;
     final evidence = item['evidenceClass']?.toString().toLowerCase();
 
     return CareCompletionCopy(
-      title: LifeMateRuntimeLocale.select(
-        fa: '💚 یک خبر خوب از $safePatient',
-        en: '💚 A reassuring update from $safePatient',
-      ),
+      title: isPersian
+          ? '💚 یک خبر خوب از $safePatient'
+          : '💚 A reassuring update from $safePatient',
       body: evidence == 'self_reported'
-          ? LifeMateRuntimeLocale.select(
-              fa: '$safePatient ثبت کرد که $safeTreatment را مصرف کرده.',
-              en: '$safePatient recorded $safeTreatment as taken.',
-            )
-          : LifeMateRuntimeLocale.select(
-              fa: 'برای $safePatient انجام $safeTreatment ثبت شد.',
-              en: 'A completion was recorded for $safePatient: $safeTreatment.',
-            ),
+          ? (isPersian
+                ? '$safePatient ثبت کرد که $safeTreatment را مصرف کرده.'
+                : '$safePatient recorded $safeTreatment as taken.')
+          : (isPersian
+                ? 'برای $safePatient انجام $safeTreatment ثبت شد.'
+                : 'A completion was recorded for $safePatient: $safeTreatment.'),
     );
   }
 
