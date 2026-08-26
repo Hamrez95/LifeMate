@@ -17,17 +17,6 @@ alter table identity.accounts
   add column if not exists registration_completed_at_utc timestamptz,
   add column if not exists registration_policy_version varchar(120);
 
--- Existing accounts predate the explicit gate and must remain usable. New accounts
--- created after this migration start incomplete until the canonical finalize function
--- confirms every currently-required legal document.
-update identity.accounts
-set registration_completed_at_utc = coalesce(registration_completed_at_utc, created_at_utc),
-    registration_policy_version = coalesce(registration_policy_version, 'legacy-pre-legal-gate')
-where registration_completed_at_utc is null;
-
-alter table identity.accounts
-  alter column registration_completed_at_utc drop default;
-
 create table if not exists consent.legal_acceptances (
   account_id uuid not null references identity.accounts(id) on delete restrict,
   actor_account_id uuid not null references identity.accounts(id) on delete restrict,
@@ -197,7 +186,7 @@ begin
   end loop;
 
   update identity.accounts
-  set registration_completed_at_utc=coalesce(registration_completed_at_utc, now()),
+  set registration_completed_at_utc=now(),
       registration_policy_version=case
         when v_count=0 then 'no-active-legal-documents'
         else array_to_string(v_policy_parts, '|')
@@ -231,11 +220,30 @@ as $$
     where a.id=identity.account_id_for_legacy_app_user(p_app_user_id)
   ), required_docs as (
     select * from consent.current_registration_legal_documents(p_jurisdiction)
+  ), evidence as (
+    select
+      count(*)::integer as required_count,
+      count(*) filter (
+        where exists (
+          select 1
+          from consent.legal_acceptances la, account_row ar
+          where la.account_id=ar.id
+            and la.document_id=d.id
+            and la.document_hash=d.document_hash
+        )
+      )::integer as accepted_count
+    from required_docs d
   )
   select jsonb_build_object(
-    'completed', ar.registration_completed_at_utc is not null,
-    'completedAtUtc', ar.registration_completed_at_utc,
+    'completed', e.required_count=0 or e.accepted_count=e.required_count,
+    'completedAtUtc', case
+      when e.required_count=0 or e.accepted_count=e.required_count
+        then ar.registration_completed_at_utc
+      else null
+    end,
     'registrationPolicyVersion', ar.registration_policy_version,
+    'requiredDocumentCount', e.required_count,
+    'acceptedDocumentCount', e.accepted_count,
     'requiredDocuments', coalesce((
       select jsonb_agg(jsonb_build_object(
         'id', d.id,
@@ -245,12 +253,18 @@ as $$
         'title', d.title,
         'documentHash', d.document_hash,
         'contentUri', d.content_uri,
-        'effectiveAtUtc', d.effective_at_utc
+        'effectiveAtUtc', d.effective_at_utc,
+        'accepted', exists (
+          select 1 from consent.legal_acceptances la
+          where la.account_id=ar.id
+            and la.document_id=d.id
+            and la.document_hash=d.document_hash
+        )
       ) order by d.purpose)
       from required_docs d
     ), '[]'::jsonb)
   )
-  from account_row ar
+  from account_row ar cross join evidence e
 $$;
 
 create or replace function consent.account_privacy_preferences(
