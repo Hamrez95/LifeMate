@@ -12,8 +12,8 @@ create table if not exists audience.segments (
   rule_hash char(64) not null,
   status varchar(16) not null default 'Active' check (status in ('Active','Archived')),
   version bigint not null default 1 check (version >= 1),
-  created_by_account_id uuid not null references identity.accounts(id),
-  updated_by_account_id uuid not null references identity.accounts(id),
+  created_by_account_id uuid not null,
+  updated_by_account_id uuid not null,
   created_at_utc timestamptz not null default now(),
   updated_at_utc timestamptz not null default now(),
   check (segment_key ~ '^[a-z][a-z0-9._-]{2,95}$'),
@@ -36,7 +36,7 @@ create table if not exists audience.segment_snapshots (
   rule_hash char(64) not null,
   source_as_of_utc timestamptz not null,
   member_count integer not null check (member_count >= 0),
-  created_by_account_id uuid not null references identity.accounts(id),
+  created_by_account_id uuid not null,
   created_at_utc timestamptz not null default now(),
   check (rule_hash ~ '^[0-9a-f]{64}$')
 );
@@ -131,7 +131,8 @@ where r.code in ('product','analyst')
 on conflict do nothing;
 
 comment on schema audience is 'Reusable non-clinical audience segmentation definitions and immutable execution snapshots.';
-comment on table audience.segments is 'Versioned reusable segment rules. Raw health/medication/treatment/women-health attributes are forbidden by the API rule DSL.';
+comment on table audience.segments is 'Versioned reusable segment rules. Actor UUID provenance is retained without identity foreign keys so later account deletion is not blocked. Raw health/medication/treatment/women-health attributes are forbidden by the API rule DSL.';
+comment on table audience.segment_snapshots is 'Immutable execution snapshot metadata. Creator UUID is provenance only and deliberately not an identity foreign key.';
 comment on table audience.segment_snapshot_members is 'Internal immutable execution membership. Account/person UUIDs are retained as opaque execution evidence without foreign keys so account deletion is never blocked. Not exposed to browser roles or general-purpose export APIs.';
 
 commit;
