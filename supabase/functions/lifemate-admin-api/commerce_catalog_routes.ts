@@ -9,6 +9,8 @@ import {
   parseUpdateCommercePlanPayload,
 } from "./commerce_catalog.ts";
 import { createCommerceCatalogStore } from "./commerce_catalog_service.ts";
+import { parseCommerceCatalogV2Query } from "./commerce_catalog_v2.ts";
+import { createCommerceCatalogV2Store } from "./commerce_catalog_v2_service.ts";
 import { createCommerceDiscountCodeStore } from "./commerce_discount_codes_service.ts";
 import {
   hashDiscountCodeStatusRequest,
@@ -46,6 +48,7 @@ function failureMessage(
 
 export function createCommerceCatalogRouteHandler(databaseUrl: string) {
   const store = createCommerceCatalogStore(databaseUrl);
+  const catalogV2Store = createCommerceCatalogV2Store(databaseUrl);
   const discountCodeStore = createCommerceDiscountCodeStore(databaseUrl);
 
   return async function commerceCatalogRouteHandler(input: {
@@ -57,6 +60,19 @@ export function createCommerceCatalogRouteHandler(databaseUrl: string) {
     origin: string | null;
   }): Promise<Response | null> {
     const { request, path, accountId, admin, correlationId, origin } = input;
+
+    if (request.method === "GET" && path === "/api/v1/commerce/catalog-v2") {
+      requirePermission(admin, "commerce.read");
+      const query = parseCommerceCatalogV2Query(new URL(request.url));
+      return json(
+        {
+          ...(await catalogV2Store.get(query)),
+          freshness: { status: "fresh", asOfUtc: new Date().toISOString() },
+        },
+        200,
+        origin,
+      );
+    }
 
     const discountCodeStatusPath = matchCommerceDiscountCodeStatusPath(path);
     if (request.method === "POST" && discountCodeStatusPath) {
