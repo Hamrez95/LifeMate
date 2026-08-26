@@ -53,6 +53,12 @@ function stringArray(value: unknown): string[] {
     : [];
 }
 
+function normalizedArray(value: unknown): string[] {
+  return stringArray(value)
+    .map((item) => item.trim().toLowerCase())
+    .filter(Boolean);
+}
+
 function mapSegment(row: Record<string, unknown>): SegmentRecord {
   return {
     id: String(row.id),
@@ -80,15 +86,15 @@ function lifecycle(lastActiveAtUtc: unknown): { days: number; label: string } {
 
 function toSubject(row: SubjectRow): SegmentSubject {
   const products = Array.from(new Set([
-    ...stringArray(row.application_codes),
-    ...stringArray(row.product_codes),
-  ].map((value) => value.trim().toLowerCase()).filter(Boolean)));
+    ...normalizedArray(row.application_codes),
+    ...normalizedArray(row.product_codes),
+  ]));
   const activity = lifecycle(row.last_active_at_utc);
   const subject: SegmentSubject = {
     "product.code": products,
     "product.enrolled": products.length > 0,
-    "subscription.status": stringArray(row.subscription_statuses),
-    "entitlement.code": stringArray(row.entitlement_codes),
+    "subscription.status": normalizedArray(row.subscription_statuses),
+    "entitlement.code": normalizedArray(row.entitlement_codes),
     "engagement.lifecycle": activity.label,
     "engagement.last_active_days": activity.days,
   };
@@ -114,18 +120,18 @@ async function loadSubjects(sql: AdminSql): Promise<SubjectRow[]> {
       d.application_codes,
       d.last_active_at_utc,
       coalesce((
-        select array_agg(distinct p.code order by p.code)
+        select array_agg(distinct lower(p.code) order by lower(p.code))
         from commerce.subscriptions s
         join commerce.products p on p.id=s.product_id
         where (s.owner_account_id=d.account_id or s.beneficiary_person_id=d.person_id)
       ),array[]::varchar[]) as product_codes,
       coalesce((
-        select array_agg(distinct s.status order by s.status)
+        select array_agg(distinct lower(s.status) order by lower(s.status))
         from commerce.subscriptions s
         where (s.owner_account_id=d.account_id or s.beneficiary_person_id=d.person_id)
       ),array[]::varchar[]) as subscription_statuses,
       coalesce((
-        select array_agg(distinct f.code order by f.code)
+        select array_agg(distinct lower(f.code) order by lower(f.code))
         from commerce.entitlements e
         join commerce.features f on f.id=e.feature_id
         where (e.grantee_account_id=d.account_id or e.beneficiary_person_id=d.person_id)
@@ -261,8 +267,13 @@ export function createAudienceSegmentStore(databaseUrl: string) {
             ) values (
               ${input.key},${input.name},${input.description},${tx.json(input.ruleSet)},${input.ruleHash},
               ${input.actorAccountId}::uuid,${input.actorAccountId}::uuid
-            ) returning id,segment_key,name,description,rule_json,rule_hash,status,version,created_at_utc,updated_at_utc
+            )
+            on conflict (segment_key) do nothing
+            returning id,segment_key,name,description,rule_json,rule_hash,status,version,created_at_utc,updated_at_utc
           `;
+          if (rows.length === 0) {
+            throw new ApiError(409,"segment_key_conflict","Audience segment key already exists.");
+          }
           const segment = mapSegment(rows[0]);
           await tx`
             insert into admin.audit_events(
