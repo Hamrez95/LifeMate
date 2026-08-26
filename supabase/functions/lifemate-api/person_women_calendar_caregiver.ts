@@ -157,8 +157,6 @@ export function createPersonWomenCalendarCaregiverStore(databaseUrl: string) {
       date: canonicalSharedLog.loggedOn,
       mood: canonicalSharedLog.mood,
       energy: canonicalSharedLog.energyLevel,
-      pain: canonicalSharedLog.painLevel,
-      symptoms: canonicalSharedLog.symptoms,
     };
     const patientProfile = patientProfiles[0];
 
@@ -318,22 +316,16 @@ function mapEpisodeCaregiver(row: Row): Record<string, unknown> {
 }
 
 function mapDailyLogCompanion(row: Row): Record<string, unknown> {
+  // The query intentionally selects only shareable wellbeing fields. Keep this
+  // projection narrow so private notes, pain and symptom details cannot leak
+  // through a future mapper change.
   return {
     loggedOn: dateString(row.logged_on),
     mood: String(row.mood).toLowerCase(),
     energyLevel: row.energy_level,
-    painLevel: row.pain_level,
-    symptoms: normalizeStoredSymptoms(row.symptoms),
     version: row.version,
     updatedAtUtc: iso(row.updated_at_utc),
   };
-}
-
-function normalizeStoredSymptoms(value: unknown): string[] {
-  if (!Array.isArray(value)) return [];
-  return value
-    .map((item) => storedSymptoms[String(item)])
-    .filter((item): item is string => item != null);
 }
 
 async function insertAudit(
