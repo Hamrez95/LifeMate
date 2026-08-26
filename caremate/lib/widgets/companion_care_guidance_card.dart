@@ -14,6 +14,7 @@ class CompanionCareGuidanceCard extends StatefulWidget {
     required this.font,
     required this.onRevoked,
     required this.onSupportRequested,
+    this.recordImpression,
   });
 
   final CareCompanionHomeSummary summary;
@@ -21,6 +22,7 @@ class CompanionCareGuidanceCard extends StatefulWidget {
   final TextStyle font;
   final VoidCallback onRevoked;
   final VoidCallback onSupportRequested;
+  final Future<void> Function(CompanionCareGuidance guidance)? recordImpression;
 
   @override
   State<CompanionCareGuidanceCard> createState() =>
@@ -80,30 +82,19 @@ class _CompanionCareGuidanceCardState
       nowUtc: DateTime.now().toUtc(),
     );
     _guidance = selected;
-    if (selected != null) {
+    if (selected != null && widget.recordImpression != null) {
       final key =
           '${summary.relationship!.patientUserId}:${selected.contentVersion}:${selected.id}';
       if (_recordedKey != key) {
         _recordedKey = key;
-        unawaited(
-          _recordImpression(selected, summary.relationship!.patientUserId),
-        );
+        unawaited(_recordImpression(selected));
       }
     }
   }
 
-  Future<void> _recordImpression(
-    CompanionCareGuidance guidance,
-    String patientUserId,
-  ) async {
-    final api = WomenCompanionApi.fromEnvironment();
+  Future<void> _recordImpression(CompanionCareGuidance guidance) async {
     try {
-      await api.recordGuidanceImpression(
-        patientUserId: patientUserId,
-        guidanceId: guidance.id,
-        contentVersion: guidance.contentVersion,
-        category: guidance.category,
-      );
+      await widget.recordImpression!(guidance);
     } on LifeMateApiException catch (error) {
       if (!mounted) return;
       if (error.code == 'women_calendar_access_denied' ||
