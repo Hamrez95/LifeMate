@@ -292,7 +292,7 @@ function companionPrivacy(row: Row): CompanionPrivacy {
     viewCalendarDetail: row.view_calendar_detail === true,
   };
 }
-function presentEstimate(estimate: Record<string, unknown>, privacy: CompanionPrivacy): Record<string, unknown> | null {
+function presentEstimate(estimate: any, privacy: CompanionPrivacy): Record<string, unknown> | null {
   if (privacy.viewFertilityEstimate) return estimate;
   if (!privacy.viewPhaseSummary) return null;
   return Object.fromEntries(Object.entries(estimate).filter(([key]) =>
