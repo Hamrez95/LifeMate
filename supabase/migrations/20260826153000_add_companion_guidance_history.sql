@@ -34,13 +34,13 @@ create index if not exists ix_women_companion_guidance_patient_time
 do $$
 begin
   if exists (select 1 from pg_roles where rolname = 'anon') then
-    revoke all privileges on lifemate.women_companion_guidance_history from anon;
+    execute 'revoke all privileges on lifemate.women_companion_guidance_history from anon';
   end if;
   if exists (select 1 from pg_roles where rolname = 'authenticated') then
-    revoke all privileges on lifemate.women_companion_guidance_history from authenticated;
+    execute 'revoke all privileges on lifemate.women_companion_guidance_history from authenticated';
   end if;
   if exists (select 1 from pg_roles where rolname = 'service_role') then
-    revoke all privileges on lifemate.women_companion_guidance_history from service_role;
+    execute 'revoke all privileges on lifemate.women_companion_guidance_history from service_role';
   end if;
 end $$;
 
