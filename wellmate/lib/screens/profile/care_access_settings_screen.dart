@@ -3,6 +3,7 @@ import 'package:lifemate_client/lifemate_client.dart';
 import 'package:provider/provider.dart';
 
 import '../../core/theme/app_style.dart';
+import 'women_companion_privacy_screen.dart';
 
 class CareAccessSettingsScreen extends StatefulWidget {
   const CareAccessSettingsScreen({
@@ -396,6 +397,31 @@ class _CareAccessSettingsScreenState extends State<CareAccessSettingsScreen> {
               onChanged: _setWomenCalendarAccess,
               loading: _savingWomenCalendar,
             ),
+            if (womenAvailable) ...[
+              const SizedBox(height: 8),
+              OutlinedButton.icon(
+                key: const ValueKey('open-companion-privacy-center'),
+                onPressed: _loading
+                    ? null
+                    : () async {
+                        await Navigator.of(context).push(
+                          MaterialPageRoute(
+                            builder: (_) => WomenCompanionPrivacyScreen(
+                              relationship: widget.relationship,
+                            ),
+                          ),
+                        );
+                        if (mounted) await _load();
+                      },
+                icon: const Icon(Icons.tune_rounded),
+                label: Text(
+                  LifeMateRuntimeLocale.select(
+                    fa: 'جزئیات حریم خصوصی همدم',
+                    en: 'Companion privacy details',
+                  ),
+                ),
+              ),
+            ],
             SizedBox(height: 12),
             _PermissionCard(
               key: ValueKey('care-permission-health-record'),
