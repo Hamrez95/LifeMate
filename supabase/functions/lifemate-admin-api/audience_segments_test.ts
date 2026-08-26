@@ -1,5 +1,6 @@
 import {
   canonicalSegmentRuleSet,
+  evaluateSegmentRuleSet,
   hashSegmentRuleSet,
   parseSegmentRuleSet,
 } from "./audience_segments.ts";
@@ -22,6 +23,38 @@ Deno.test("audience segments accept only the approved non-health rule DSL", () =
 
   assert(parsed.rules.length === 3, "expected three parsed rules");
   assert(parsed.match === "all", "expected all-match semantics");
+});
+
+Deno.test("audience segments evaluate deterministic projected subjects", () => {
+  const parsed = parseSegmentRuleSet({
+    version: 1,
+    match: "all",
+    rules: [
+      { attribute: "product.code", operator: "in", value: ["wellmate_caremate", "fitmate"] },
+      { attribute: "subscription.status", operator: "eq", value: "active" },
+      { attribute: "engagement.last_active_days", operator: "lte", value: 14 },
+      { attribute: "entitlement.code", operator: "exists" },
+    ],
+  });
+
+  assert(
+    evaluateSegmentRuleSet(parsed, {
+      "product.code": ["wellmate_caremate", "period_calendar"],
+      "subscription.status": "active",
+      "engagement.last_active_days": 8,
+      "entitlement.code": ["care_core", "medications_plus"],
+    }),
+    "expected projected subject to match",
+  );
+  assert(
+    !evaluateSegmentRuleSet(parsed, {
+      "product.code": "wellmate_caremate",
+      "subscription.status": "expired",
+      "engagement.last_active_days": 8,
+      "entitlement.code": "care_core",
+    }),
+    "expired subject must not match",
+  );
 });
 
 Deno.test("audience segments reject health and treatment attributes", () => {
