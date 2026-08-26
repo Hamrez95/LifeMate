@@ -8,11 +8,11 @@ import { ApiError } from "./validation.ts";
 Deno.test("legal acceptance parser accepts bounded document evidence", () => {
   assertEquals(
     parseLegalAcceptances([{
-      documentId: "018f5e6a-7e91-7c26-8e18-a83c5531d111",
+      documentId: "018f5e6a-7e91-4c26-8e18-a83c5531d111",
       documentHash: "sha256:0123456789abcdef0123456789abcdef",
     }]),
     [{
-      documentId: "018f5e6a-7e91-7c26-8e18-a83c5531d111",
+      documentId: "018f5e6a-7e91-4c26-8e18-a83c5531d111",
       documentHash: "sha256:0123456789abcdef0123456789abcdef",
     }],
   );
@@ -22,11 +22,11 @@ Deno.test("legal acceptance parser rejects duplicate documents", () => {
   const error = assertThrows(() =>
     parseLegalAcceptances([
       {
-        documentId: "018f5e6a-7e91-7c26-8e18-a83c5531d111",
+        documentId: "018f5e6a-7e91-4c26-8e18-a83c5531d111",
         documentHash: "sha256:0123456789abcdef0123456789abcdef",
       },
       {
-        documentId: "018f5e6a-7e91-7c26-8e18-a83c5531d111",
+        documentId: "018f5e6a-7e91-4c26-8e18-a83c5531d111",
         documentHash: "sha256:0123456789abcdef0123456789abcdef",
       },
     ])
