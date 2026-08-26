@@ -35,15 +35,75 @@ create table if not exists platform.control_rules (
   check (ends_at_utc is null or starts_at_utc is null or ends_at_utc > starts_at_utc)
 );
 
+create table if not exists platform.control_history (
+  control_key varchar(96) not null,
+  version bigint not null,
+  snapshot_json jsonb not null,
+  archived_at_utc timestamptz not null default now(),
+  primary key (control_key, version)
+);
+
+create table if not exists platform.control_rule_history (
+  rule_id uuid not null,
+  version bigint not null,
+  control_key varchar(96) not null,
+  snapshot_json jsonb not null,
+  archived_at_utc timestamptz not null default now(),
+  primary key (rule_id, version)
+);
+
+create or replace function platform.archive_control_version()
+returns trigger
+language plpgsql
+security invoker
+set search_path = pg_catalog, platform
+as $$
+begin
+  insert into platform.control_history(control_key, version, snapshot_json)
+  values (old.control_key, old.version, to_jsonb(old))
+  on conflict (control_key, version) do nothing;
+  return new;
+end;
+$$;
+
+create or replace function platform.archive_control_rule_version()
+returns trigger
+language plpgsql
+security invoker
+set search_path = pg_catalog, platform
+as $$
+begin
+  insert into platform.control_rule_history(rule_id, version, control_key, snapshot_json)
+  values (old.id, old.version, old.control_key, to_jsonb(old))
+  on conflict (rule_id, version) do nothing;
+  return new;
+end;
+$$;
+
+drop trigger if exists trg_platform_controls_archive on platform.controls;
+create trigger trg_platform_controls_archive
+before update on platform.controls
+for each row execute function platform.archive_control_version();
+
+drop trigger if exists trg_platform_control_rules_archive on platform.control_rules;
+create trigger trg_platform_control_rules_archive
+before update on platform.control_rules
+for each row execute function platform.archive_control_rule_version();
+
 create index if not exists ix_platform_control_rules_lookup
   on platform.control_rules(control_key,status,priority,id);
 
 alter table platform.controls enable row level security;
 alter table platform.control_rules enable row level security;
+alter table platform.control_history enable row level security;
+alter table platform.control_rule_history enable row level security;
 alter table platform.controls force row level security;
 alter table platform.control_rules force row level security;
+alter table platform.control_history force row level security;
+alter table platform.control_rule_history force row level security;
 revoke all on schema platform from public, anon, authenticated;
 revoke all on all tables in schema platform from public, anon, authenticated;
+revoke all on all functions in schema platform from public, anon, authenticated;
 
 insert into admin.permissions(code,domain,risk_level,role_assignable,description) values
 ('platform.config.read','platform','STANDARD',true,'Read canonical Remote Config and Feature Flag definitions and evaluation metadata'),
@@ -76,5 +136,7 @@ on conflict do nothing;
 
 comment on table platform.controls is 'Canonical typed Remote Config / Feature Flag definitions. No PII or health data is stored here.';
 comment on table platform.control_rules is 'Versioned targeting rules for platform controls. target_key must be an opaque product/segment/account identifier, never raw PII.';
+comment on table platform.control_history is 'Immutable prior control snapshots used for review and explicit rollback workflows.';
+comment on table platform.control_rule_history is 'Immutable prior rule snapshots used for review and explicit rollback workflows.';
 
 commit;
