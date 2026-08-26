@@ -10,10 +10,14 @@ alter table consent.consent_documents
   check (
     purpose not in ('legal_terms','privacy_notice')
     or status <> 'Active'
-    or content_uri is not null
+    or (
+      content_uri is not null
+      and document_hash is not null
+      and document_hash ~ '^[A-Za-z0-9:_-]{16,128}$'
+    )
   );
 
 comment on column consent.consent_documents.content_uri is
-  'HTTPS location of the exact user-readable document. Active mandatory legal documents require this value.';
+  'HTTPS location of the exact user-readable document. Active mandatory legal documents require this value and a bounded content hash.';
 
 commit;
