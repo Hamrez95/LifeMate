@@ -21,10 +21,12 @@ export type SegmentAttribute =
   | "campaign.channel"
   | "campaign.last_outcome";
 
+export type SegmentScalar = string | number | boolean;
+
 export type SegmentRule = {
   attribute: SegmentAttribute;
   operator: SegmentOperator;
-  value?: string | number | boolean | Array<string | number | boolean>;
+  value?: SegmentScalar | SegmentScalar[];
 };
 
 export type SegmentRuleSet = {
@@ -32,6 +34,8 @@ export type SegmentRuleSet = {
   match: "all" | "any";
   rules: SegmentRule[];
 };
+
+export type SegmentSubject = Partial<Record<SegmentAttribute, SegmentScalar | SegmentScalar[]>>;
 
 const ALLOWED_ATTRIBUTES = new Set<SegmentAttribute>([
   "demographic.age_bucket",
@@ -69,7 +73,7 @@ function invalid(message: string): never {
   throw new ApiError(400, "segment_rule_invalid", message);
 }
 
-function isScalar(value: unknown): value is string | number | boolean {
+function isScalar(value: unknown): value is SegmentScalar {
   return typeof value === "string" || typeof value === "number" ||
     typeof value === "boolean";
 }
@@ -139,6 +143,43 @@ export function parseSegmentRuleSet(input: unknown): SegmentRuleSet {
   });
 
   return { version: 1, match: raw.match, rules };
+}
+
+function scalarEquals(left: SegmentScalar, right: SegmentScalar): boolean {
+  return typeof left === typeof right && left === right;
+}
+
+function includesScalar(haystack: SegmentScalar[], needle: SegmentScalar): boolean {
+  return haystack.some((value) => scalarEquals(value, needle));
+}
+
+export function evaluateSegmentRule(rule: SegmentRule, subject: SegmentSubject): boolean {
+  const actual = subject[rule.attribute];
+  if (rule.operator === "exists") return actual !== undefined;
+  if (actual === undefined || rule.value === undefined) return false;
+
+  const actualValues = Array.isArray(actual) ? actual : [actual];
+  if (rule.operator === "eq" || rule.operator === "neq") {
+    if (Array.isArray(rule.value)) return false;
+    const matched = actualValues.some((value) => scalarEquals(value, rule.value as SegmentScalar));
+    return rule.operator === "eq" ? matched : !matched;
+  }
+
+  if (rule.operator === "in" || rule.operator === "not_in") {
+    if (!Array.isArray(rule.value)) return false;
+    const matched = actualValues.some((value) => includesScalar(rule.value as SegmentScalar[], value));
+    return rule.operator === "in" ? matched : !matched;
+  }
+
+  if (Array.isArray(rule.value) || actualValues.length !== 1) return false;
+  const [single] = actualValues;
+  if (typeof single !== "number" || typeof rule.value !== "number") return false;
+  return rule.operator === "gte" ? single >= rule.value : single <= rule.value;
+}
+
+export function evaluateSegmentRuleSet(ruleSet: SegmentRuleSet, subject: SegmentSubject): boolean {
+  const results = ruleSet.rules.map((rule) => evaluateSegmentRule(rule, subject));
+  return ruleSet.match === "all" ? results.every(Boolean) : results.some(Boolean);
 }
 
 export function canonicalSegmentRuleSet(ruleSet: SegmentRuleSet): string {
