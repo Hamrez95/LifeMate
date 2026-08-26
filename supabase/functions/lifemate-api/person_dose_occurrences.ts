@@ -1,5 +1,9 @@
 import { getLifeMateSql } from "./database_client.ts";
 import {
+  expandLocalRecurrence,
+  normalizeRecurrenceRule,
+} from "./recurrence_schedule.ts";
+import {
   ApiError,
   normalizeDoseStatus,
   requiredDate,
@@ -72,68 +76,121 @@ async function requireSelfPerson(
 }
 
 /**
- * Dose occurrence ownership is authoritative on canonical Person.
- *
- * AppUser ids remain only where they have a distinct actor/audit provenance
- * purpose. Materialization and all Dose ownership predicates use
- * patient_person_id. The nullable legacy patient_user_id column is retained for
- * historical compatibility only and is no longer written by this runtime.
+ * Materialize only the requested bounded local-date window. Legacy weekly
+ * schedules retain their existing SQL path; versioned recurrence plans use the
+ * canonical wall-clock expander and PostgreSQL performs IANA-zone conversion.
  */
+async function materializeOccurrencesForPerson(
+  sql: any,
+  patientPersonId: string,
+  fromDate: string,
+  toDate: string,
+): Promise<void> {
+  await sql.begin(async (tx: any) => {
+    // Backward-compatible path for all pre-#474 plans.
+    await tx`
+      insert into lifemate.dose_occurrences
+        (id, patient_person_id, treatment_plan_id,
+         treatment_schedule_id, scheduled_at_utc, scheduled_local_date,
+         scheduled_local_time, time_zone, status, responded_at_utc, version,
+         created_at_utc, updated_at_utc)
+      select
+        gen_random_uuid(), p.patient_person_id,
+        p.id, s.id,
+        ((day_value::date + s.local_time) at time zone p.time_zone),
+        day_value::date, s.local_time, p.time_zone, 'Scheduled', null, 1,
+        now(), now()
+      from lifemate.treatment_plans p
+      join lifemate.treatment_schedules s on s.treatment_plan_id = p.id
+      cross join generate_series(
+        ${fromDate}::date,
+        ${toDate}::date,
+        interval '1 day'
+      ) as day_value
+      where p.patient_person_id = ${patientPersonId}::uuid
+        and p.status = 'Active'
+        and p.recurrence_rule is null
+        and day_value::date >= p.start_date
+        and (p.end_date is null or day_value::date <= p.end_date)
+        and extract(dow from day_value)::integer = case lower(s.day_of_week)
+          when 'sunday' then 0
+          when 'monday' then 1
+          when 'tuesday' then 2
+          when 'wednesday' then 3
+          when 'thursday' then 4
+          when 'friday' then 5
+          when 'saturday' then 6
+          else -1
+        end
+      on conflict (treatment_schedule_id, scheduled_at_utc) do nothing
+    `;
+
+    const recurringPlans = await tx`
+      select p.id, p.start_date, p.end_date, p.time_zone,
+             p.recurrence_rule, p.recurrence_start_local_time,
+             s.id as anchor_schedule_id
+      from lifemate.treatment_plans p
+      join lifemate.treatment_schedules s
+        on s.treatment_plan_id = p.id
+       and lower(s.day_of_week) = 'recurrence'
+      where p.patient_person_id = ${patientPersonId}::uuid
+        and p.status = 'Active'
+        and p.recurrence_rule is not null
+        and p.start_date <= ${toDate}::date
+        and (p.end_date is null or p.end_date >= ${fromDate}::date)
+      order by p.id
+      limit 100
+    `;
+
+    for (const plan of recurringPlans) {
+      const rawRule = typeof plan.recurrence_rule === "string"
+        ? JSON.parse(plan.recurrence_rule)
+        : plan.recurrence_rule;
+      const rule = normalizeRecurrenceRule(rawRule);
+      if (rule == null) continue;
+      const startDate = dateString(plan.start_date);
+      const startTime = timeString(plan.recurrence_start_local_time);
+      const startLocal = `${startDate}T${startTime}:00`;
+      const localValues = expandLocalRecurrence(
+        startLocal,
+        rule,
+        `${fromDate}T00:00:00`,
+        `${toDate}T23:59:59`,
+        1000,
+      );
+      for (const localValue of localValues) {
+        const localDate = localValue.slice(0, 10);
+        const localTime = localValue.slice(11, 19);
+        await tx`
+          insert into lifemate.dose_occurrences
+            (id, patient_person_id, treatment_plan_id,
+             treatment_schedule_id, scheduled_at_utc, scheduled_local_date,
+             scheduled_local_time, time_zone, status, responded_at_utc, version,
+             created_at_utc, updated_at_utc)
+          values
+            (gen_random_uuid(), ${patientPersonId}::uuid,
+             ${plan.id}::uuid, ${plan.anchor_schedule_id}::uuid,
+             (${localValue}::timestamp at time zone ${plan.time_zone}),
+             ${localDate}::date, ${localTime}::time, ${plan.time_zone},
+             'Scheduled', null, 1, now(), now())
+          on conflict (treatment_schedule_id, scheduled_at_utc) do nothing
+        `;
+      }
+    }
+
+    await tx`
+      update lifemate.dose_occurrences
+      set status = 'Missed', version = version + 1, updated_at_utc = now()
+      where patient_person_id = ${patientPersonId}::uuid
+        and scheduled_local_date between ${fromDate}::date and ${toDate}::date
+        and status = 'Scheduled'
+        and scheduled_at_utc + interval '60 minutes' < now()
+    `;
+  });
+}
+
 export function createPersonDoseOccurrenceStore(databaseUrl: string) {
   const sql = getLifeMateSql(databaseUrl);
-
-  async function materializeOccurrences(
-    patientPersonId: string,
-    fromDate: string,
-    toDate: string,
-  ): Promise<void> {
-    await sql.begin(async (tx: any) => {
-      await tx`
-        insert into lifemate.dose_occurrences
-          (id, patient_person_id, treatment_plan_id,
-           treatment_schedule_id, scheduled_at_utc, scheduled_local_date,
-           scheduled_local_time, time_zone, status, responded_at_utc, version,
-           created_at_utc, updated_at_utc)
-        select
-          gen_random_uuid(), p.patient_person_id,
-          p.id, s.id,
-          ((day_value::date + s.local_time) at time zone p.time_zone),
-          day_value::date, s.local_time, p.time_zone, 'Scheduled', null, 1,
-          now(), now()
-        from lifemate.treatment_plans p
-        join lifemate.treatment_schedules s on s.treatment_plan_id = p.id
-        cross join generate_series(
-          ${fromDate}::date,
-          ${toDate}::date,
-          interval '1 day'
-        ) as day_value
-        where p.patient_person_id = ${patientPersonId}::uuid
-          and p.status = 'Active'
-          and day_value::date >= p.start_date
-          and (p.end_date is null or day_value::date <= p.end_date)
-          and extract(dow from day_value)::integer = case lower(s.day_of_week)
-            when 'sunday' then 0
-            when 'monday' then 1
-            when 'tuesday' then 2
-            when 'wednesday' then 3
-            when 'thursday' then 4
-            when 'friday' then 5
-            when 'saturday' then 6
-            else -1
-          end
-        on conflict (treatment_schedule_id, scheduled_at_utc) do nothing
-      `;
-
-      await tx`
-        update lifemate.dose_occurrences
-        set status = 'Missed', version = version + 1, updated_at_utc = now()
-        where patient_person_id = ${patientPersonId}::uuid
-          and scheduled_local_date between ${fromDate}::date and ${toDate}::date
-          and status = 'Scheduled'
-          and scheduled_at_utc + interval '60 minutes' < now()
-      `;
-    });
-  }
 
   async function listDoseOccurrences(
     patientAppUserId: string,
@@ -144,7 +201,7 @@ export function createPersonDoseOccurrenceStore(databaseUrl: string) {
     const toDate = requiredDate(toValue, "toDate");
     validateRange(fromDate, toDate);
     const patientPersonId = await requireSelfPerson(sql, patientAppUserId);
-    await materializeOccurrences(patientPersonId, fromDate, toDate);
+    await materializeOccurrencesForPerson(sql, patientPersonId, fromDate, toDate);
 
     const rows = await sql`
       select o.*, p.patient_reminder_minutes_before,
@@ -193,8 +250,6 @@ export function createPersonDoseOccurrenceStore(databaseUrl: string) {
         );
       }
 
-      // actor_user_id is actor/audit provenance, not Dose ownership. Keep the
-      // existing idempotency boundary intact while ownership is Person-based.
       const existingEvents = await tx`
         select occurrence_id
         from lifemate.dose_adherence_events
@@ -285,7 +340,7 @@ export function createPersonDoseOccurrenceStore(databaseUrl: string) {
       );
     }
 
-    await materializeOccurrences(patientPersonId, fromDate, toDate);
+    await materializeOccurrencesForPerson(sql, patientPersonId, fromDate, toDate);
     const rows = await sql`
       select o.*, m.name as medication_name, p.dose_text,
              p.patient_reminder_minutes_before,

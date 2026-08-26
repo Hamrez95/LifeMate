@@ -1,5 +1,10 @@
 import { getLifeMateSql } from "./database_client.ts";
 import {
+  normalizeRecurrenceRule,
+  normalizeRecurrenceStartLocalTime,
+  type RecurrenceRule,
+} from "./recurrence_schedule.ts";
+import {
   ApiError,
   limitedOptional,
   normalizeSchedules,
@@ -39,12 +44,25 @@ function mapMedication(row: Row): Record<string, unknown> {
   };
 }
 
+function recurrenceFromRow(row: Row): RecurrenceRule | null {
+  if (row.recurrence_rule == null) return null;
+  if (typeof row.recurrence_rule === "string") {
+    try {
+      return JSON.parse(row.recurrence_rule) as RecurrenceRule;
+    } catch {
+      return null;
+    }
+  }
+  return row.recurrence_rule as RecurrenceRule;
+}
+
 function mapTreatmentPlan(
   row: Row,
   medication: Row,
   schedules: Row[],
   callerAppUserId: string,
 ): Record<string, unknown> {
+  const recurrence = recurrenceFromRow(row);
   return {
     id: row.id,
     // Preserve the public compatibility contract without authorizing from or
@@ -63,12 +81,20 @@ function mapTreatmentPlan(
     caregiverReminderMinutesBefore: Number(
       row.caregiver_reminder_minutes_before ?? 60,
     ),
+    recurrence,
+    recurrenceStartLocalTime: recurrence == null || row.recurrence_start_local_time == null
+      ? null
+      : timeString(row.recurrence_start_local_time),
     version: row.version,
-    schedules: schedules.map((schedule) => ({
-      id: schedule.id,
-      dayOfWeek: String(schedule.day_of_week).toLowerCase(),
-      localTime: timeString(schedule.local_time),
-    })),
+    // The internal recurrence anchor is not exposed as a user-editable weekly
+    // schedule. Legacy explicit schedules remain unchanged.
+    schedules: schedules
+      .filter((schedule) => String(schedule.day_of_week).toLowerCase() !== "recurrence")
+      .map((schedule) => ({
+        id: schedule.id,
+        dayOfWeek: String(schedule.day_of_week).toLowerCase(),
+        localTime: timeString(schedule.local_time),
+      })),
     createdAtUtc: iso(row.created_at_utc),
     updatedAtUtc: iso(row.updated_at_utc),
   };
@@ -127,15 +153,7 @@ async function insertAudit(
   `;
 }
 
-/**
- * Treatment Plan ownership is authoritative on canonical Person.
- *
- * The public runtime still supplies an AppUser id. We resolve it through the
- * existing Account -> Self Person boundary, authorize the referenced
- * Medication by owner_person_id, and write/read Treatment Plans by
- * patient_person_id. The nullable legacy patient_user_id column is retained for
- * historical compatibility only and is no longer written by this runtime.
- */
+/** Treatment Plan ownership is authoritative on canonical Person. */
 export function createPersonTreatmentPlanStore(databaseUrl: string) {
   const sql = getLifeMateSql(databaseUrl);
 
@@ -162,7 +180,18 @@ export function createPersonTreatmentPlanStore(databaseUrl: string) {
       );
     }
     const timeZone = requiredTimeZone(body.timeZone);
-    const schedules = normalizeSchedules(body.schedules);
+    const recurrence = normalizeRecurrenceRule(body.recurrence);
+    const recurrenceStartLocalTime = recurrence == null
+      ? null
+      : normalizeRecurrenceStartLocalTime(body.recurrenceStartLocalTime);
+    const schedules = recurrence == null ? normalizeSchedules(body.schedules) : [];
+    if (recurrence?.endAt != null && recurrence.endAt.slice(0, 10) < startDate) {
+      throw new ApiError(
+        400,
+        "invalid_recurrence_end",
+        "Recurrence end cannot precede the treatment start.",
+      );
+    }
     const patientReminderMinutesBefore = reminderMinutes(
       body.patientReminderMinutesBefore,
       "patientReminderMinutesBefore",
@@ -193,32 +222,48 @@ export function createPersonTreatmentPlanStore(databaseUrl: string) {
       }
 
       const planId = crypto.randomUUID();
+      const recurrenceJson = recurrence == null ? null : JSON.stringify(recurrence);
       const planRows = await tx`
         insert into lifemate.treatment_plans
           (id, patient_person_id, medication_id, dose_text,
            instructions, start_date, end_date, time_zone,
            patient_reminder_minutes_before,
            caregiver_reminder_minutes_before,
+           recurrence_rule, recurrence_start_local_time,
            status, version, created_at_utc, updated_at_utc)
         values
           (${planId}::uuid, ${personId}::uuid,
            ${medicationId}::uuid, ${doseText}, ${instructions}, ${startDate},
            ${endDate}, ${timeZone}, ${patientReminderMinutesBefore},
-           ${caregiverReminderMinutesBefore}, 'Active', 1, ${now}, ${now})
+           ${caregiverReminderMinutesBefore},
+           ${recurrenceJson}::jsonb, ${recurrenceStartLocalTime}::time,
+           'Active', 1, ${now}, ${now})
         returning *
       `;
 
       const createdSchedules: Row[] = [];
-      for (const schedule of schedules) {
+      if (recurrence != null) {
         const rows = await tx`
           insert into lifemate.treatment_schedules
             (id, treatment_plan_id, day_of_week, local_time, created_at_utc)
           values
             (${crypto.randomUUID()}::uuid, ${planId}::uuid,
-             ${schedule.dayOfWeek}, ${schedule.localTime}, ${now})
+             'recurrence', ${recurrenceStartLocalTime}::time, ${now})
           returning *
         `;
         createdSchedules.push(rows[0]);
+      } else {
+        for (const schedule of schedules) {
+          const rows = await tx`
+            insert into lifemate.treatment_schedules
+              (id, treatment_plan_id, day_of_week, local_time, created_at_utc)
+            values
+              (${crypto.randomUUID()}::uuid, ${planId}::uuid,
+               ${schedule.dayOfWeek}, ${schedule.localTime}, ${now})
+            returning *
+          `;
+          createdSchedules.push(rows[0]);
+        }
       }
 
       await insertAudit(

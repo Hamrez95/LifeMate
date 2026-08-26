@@ -2,27 +2,65 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:lifemate_client/lifemate_client.dart';
 
 void main() {
-  test(
-    'visit recurrence every N months is deterministic and clamps month end',
-    () {
-      const rule = RecurrenceRule(
-        enabled: true,
-        unit: RecurrenceUnit.month,
-        interval: 1,
-      );
-      final dates = rule.occurrencesBetween(
-        startDate: DateTime(2026, 1, 31),
-        fromDate: DateTime(2026, 1, 1),
-        toDate: DateTime(2026, 4, 30),
-      );
-      expect(dates, [
-        DateTime(2026, 1, 31),
-        DateTime(2026, 2, 28),
-        DateTime(2026, 3, 31),
-        DateTime(2026, 4, 30),
-      ]);
-    },
-  );
+  test('every six hours creates four occurrences in a full day', () {
+    const rule = RecurrenceRule(
+      enabled: true,
+      unit: RecurrenceUnit.hour,
+      interval: 6,
+    );
+    final values = rule.occurrencesBetween(
+      startDate: DateTime(2026, 8, 26, 8),
+      fromDate: DateTime(2026, 8, 26, 0),
+      toDate: DateTime(2026, 8, 27, 7, 59),
+    );
+    expect(values, [
+      DateTime(2026, 8, 26, 8),
+      DateTime(2026, 8, 26, 14),
+      DateTime(2026, 8, 26, 20),
+      DateTime(2026, 8, 27, 2),
+    ]);
+  });
+
+  test('hourly cadence remains anchored across midnight', () {
+    const rule = RecurrenceRule(
+      enabled: true,
+      unit: RecurrenceUnit.hour,
+      interval: 5,
+      maxOccurrences: 6,
+    );
+    final values = rule.occurrencesBetween(
+      startDate: DateTime(2026, 8, 26, 23),
+      fromDate: DateTime(2026, 8, 26),
+      toDate: DateTime(2026, 8, 28),
+    );
+    expect(values, [
+      DateTime(2026, 8, 26, 23),
+      DateTime(2026, 8, 27, 4),
+      DateTime(2026, 8, 27, 9),
+      DateTime(2026, 8, 27, 14),
+      DateTime(2026, 8, 27, 19),
+      DateTime(2026, 8, 28, 0),
+    ]);
+  });
+
+  test('visit recurrence every N months is deterministic and clamps month end', () {
+    const rule = RecurrenceRule(
+      enabled: true,
+      unit: RecurrenceUnit.month,
+      interval: 1,
+    );
+    final dates = rule.occurrencesBetween(
+      startDate: DateTime(2026, 1, 31, 14, 30),
+      fromDate: DateTime(2026, 1, 1),
+      toDate: DateTime(2026, 4, 30, 23, 59),
+    );
+    expect(dates, [
+      DateTime(2026, 1, 31, 14, 30),
+      DateTime(2026, 2, 28, 14, 30),
+      DateTime(2026, 3, 31, 14, 30),
+      DateTime(2026, 4, 30, 14, 30),
+    ]);
+  });
 
   test('injection recurrence supports every N months', () {
     const rule = RecurrenceRule(
@@ -56,10 +94,7 @@ void main() {
     );
     expect(dates.toSet().length, dates.length);
     expect(dates.where((date) => date.weekday == DateTime.monday), isNotEmpty);
-    expect(
-      dates.where((date) => date.weekday == DateTime.wednesday),
-      isNotEmpty,
-    );
+    expect(dates.where((date) => date.weekday == DateTime.wednesday), isNotEmpty);
   });
 
   test('every three days stops after exactly five occurrences', () {
@@ -98,7 +133,7 @@ void main() {
     expect(dates, [DateTime(2026, 8, 10), DateTime(2026, 8, 13)]);
   });
 
-  test('end date wins before the requested range upper bound', () {
+  test('end boundary wins before the requested range upper bound', () {
     final rule = RecurrenceRule(
       enabled: true,
       unit: RecurrenceUnit.day,
@@ -160,6 +195,18 @@ void main() {
     });
   });
 
+  test('hourly timestamp end boundary round-trips without losing time', () {
+    final rule = RecurrenceRule.fromJson({
+      'version': 2,
+      'enabled': true,
+      'unit': 'hour',
+      'interval': 6,
+      'endDate': '2026-08-27T02:00:00.000',
+    });
+    expect(rule.endDate, DateTime(2026, 8, 27, 2));
+    expect(rule.toJson()['endDate'], '2026-08-27T02:00:00.000');
+  });
+
   test('count bound resolves to server-compatible end date', () {
     const rule = RecurrenceRule(
       enabled: true,
@@ -168,6 +215,19 @@ void main() {
       maxOccurrences: 5,
     );
     expect(rule.persistenceEndDate(DateTime(2026, 8, 1)), DateTime(2026, 8, 13));
+  });
+
+  test('hourly count bound resolves to exact timestamp', () {
+    const rule = RecurrenceRule(
+      enabled: true,
+      unit: RecurrenceUnit.hour,
+      interval: 6,
+      maxOccurrences: 4,
+    );
+    expect(
+      rule.persistenceEndDate(DateTime(2026, 8, 26, 8)),
+      DateTime(2026, 8, 27, 2),
+    );
   });
 
   test('earlier explicit recurrence end wins over count boundary', () {
