@@ -87,6 +87,26 @@ class WomenCompanionApi {
     return Map<String, dynamic>.from(value as Map);
   }
 
+  Future<Map<String, dynamic>> recordGuidanceImpression({
+    required String patientUserId,
+    required String guidanceId,
+    required String contentVersion,
+    required String category,
+  }) async {
+    final value = await _send(
+      'POST',
+      '/api/v1/care/patients/$patientUserId/women-calendar/guidance-impressions',
+      body: {
+        'guidanceId': guidanceId.trim(),
+        'contentVersion': contentVersion.trim(),
+        'category': category.trim().toLowerCase(),
+      },
+      idempotencyKey: LifeMateApiClient.createClientRequestId(),
+      retryable: true,
+    );
+    return Map<String, dynamic>.from(value as Map);
+  }
+
   Future<dynamic> _send(
     String method,
     String path, {
@@ -137,6 +157,9 @@ class WomenCompanionApi {
           'GET' => await _http.get(uri, headers: headers).timeout(attemptTimeout),
           'PUT' => await _http
               .put(uri, headers: headers, body: encodedBody)
+              .timeout(attemptTimeout),
+          'POST' => await _http
+              .post(uri, headers: headers, body: encodedBody)
               .timeout(attemptTimeout),
           _ => throw ArgumentError.value(method, 'method'),
         };
