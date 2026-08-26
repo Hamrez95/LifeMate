@@ -81,39 +81,35 @@ class CareHomeAggregator {
   Future<CareCompanionHomeSummary> _loadCompanion(
     List<CareHomeRelationship> relationships,
   ) async {
-    CareHomeRelationship? relationship;
-    for (final candidate in relationships) {
-      if (candidate.canViewWomenCalendar) {
-        relationship = candidate;
-        break;
+    // #109 scopes are relationship-bound and default-off. Do not infer access
+    // from the legacy broad flag or the relationship type: ask the server for
+    // each exact relationship and fail closed when it declines the request.
+    CareHomeRelationship? unavailableRelationship;
+    String? unavailableError;
+    for (final relationship in relationships) {
+      try {
+        final value = await _api.getCareRecipientWomenCalendar(
+          patientUserId: relationship.patientUserId,
+        );
+        return CareCompanionHomeSummary.fromApi(
+          relationship: relationship,
+          value: value,
+        );
+      } on LifeMateApiException catch (error) {
+        if (error.code == 'women_calendar_access_denied') continue;
+        unavailableRelationship ??= relationship;
+        unavailableError ??= error.code;
+      } catch (_) {
+        unavailableRelationship ??= relationship;
+        unavailableError ??= 'companion_summary_unavailable';
       }
     }
-    if (relationship == null) return CareCompanionHomeSummary.locked();
-
-    try {
-      final value = await _api.getCareRecipientWomenCalendar(
-        patientUserId: relationship.patientUserId,
-      );
-      return CareCompanionHomeSummary.fromApi(
-        relationship: relationship,
-        value: value,
-      );
-    } on LifeMateApiException catch (error) {
-      if (error.code == 'women_calendar_access_denied') {
-        // Permission may have been revoked between relationship and summary
-        // reads. Fail closed and discard every previously assumed field.
-        return CareCompanionHomeSummary.locked();
-      }
-      return CareCompanionHomeSummary.unavailable(
-        relationship: relationship,
-        errorCode: error.code,
-      );
-    } catch (_) {
-      return CareCompanionHomeSummary.unavailable(
-        relationship: relationship,
-        errorCode: 'companion_summary_unavailable',
-      );
-    }
+    return unavailableRelationship == null
+        ? CareCompanionHomeSummary.locked()
+        : CareCompanionHomeSummary.unavailable(
+            relationship: unavailableRelationship,
+            errorCode: unavailableError,
+          );
   }
 
   static CareHomeSnapshot buildSnapshot({
