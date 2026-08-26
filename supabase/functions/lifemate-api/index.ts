@@ -15,6 +15,7 @@ import { type AuthUser, createLifeMateDatabase } from "./database.ts";
 import { isPostgresUnavailable } from "./database_client.ts";
 import { createEditStore } from "./edit_store.ts";
 import { createHealthObservationStore } from "./health_observations.ts";
+import { createWomenCompanionPrivacyStore } from "./women_companion_privacy.ts";
 import { corsHeaders, json, problem, safeError } from "./http.ts";
 import {
   ApiObservability,
@@ -72,6 +73,7 @@ const dataExport = createDataExportStore(databaseUrl);
 const edits = createEditStore(databaseUrl);
 const healthObservations = createHealthObservationStore(databaseUrl);
 const womenCalendar = createWomenCalendarStore(databaseUrl);
+const womenCompanionPrivacy = createWomenCompanionPrivacyStore(databaseUrl);
 const womenCalendarPilotEnabled =
   (Deno.env.get("ENABLE_WOMEN_CALENDAR_PILOT") ?? "true").toLowerCase() !==
     "false";
@@ -466,6 +468,21 @@ async function route(
       healthObservationMatch[1],
     );
     return new Response(null, { status: 204, headers: corsHeaders });
+  }
+
+  if (request.method === "GET" && path === "/api/v1/women-calendar/companion-privacy") {
+    requireWomenCalendarPilot();
+    return json(await womenCompanionPrivacy.listOwnerScopes(identity.appUserId));
+  }
+  const womenCompanionPrivacyMatch = path.match(
+    /^\/api\/v1\/women-calendar\/companion-privacy\/([0-9a-f-]{36})$/i,
+  );
+  if (request.method === "PUT" && womenCompanionPrivacyMatch) {
+    requireWomenCalendarPilot();
+    enforceRateLimit(`women-calendar-companion-privacy:${identity.appUserId}`, 20, 60 * 60_000);
+    return json(await womenCompanionPrivacy.updateOwnerScopes(
+      identity.appUserId, womenCompanionPrivacyMatch[1], await readJsonObject(request),
+    ));
   }
 
   if (request.method === "GET" && path === "/api/v1/women-calendar/profile") {
