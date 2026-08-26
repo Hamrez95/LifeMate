@@ -14,18 +14,6 @@ const supportActions: Record<string, string> = {
   check_in: "CheckIn",
 };
 
-const storedSymptoms: Record<string, string> = {
-  Cramps: "cramps",
-  Headache: "headache",
-  Bloating: "bloating",
-  Fatigue: "fatigue",
-  BreastTenderness: "breast_tenderness",
-  BackPain: "back_pain",
-  SleepChange: "sleep_change",
-  AppetiteChange: "appetite_change",
-  NoSymptom: "no_symptom",
-};
-
 async function resolveCarePeople(
   connection: any,
   caregiverAppUserId: string,
