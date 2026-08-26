@@ -16,7 +16,6 @@ import { isPostgresUnavailable } from "./database_client.ts";
 import { createEditStore } from "./edit_store.ts";
 import { createHealthObservationStore } from "./health_observations.ts";
 import { createWomenCompanionPrivacyStore } from "./women_companion_privacy.ts";
-import { createCommerceCatalogStore, parseCommerceCatalogQuery } from "./commerce_catalog.ts";
 import { corsHeaders, json, problem, safeError } from "./http.ts";
 import {
   ApiObservability,
@@ -75,7 +74,6 @@ const edits = createEditStore(databaseUrl);
 const healthObservations = createHealthObservationStore(databaseUrl);
 const womenCalendar = createWomenCalendarStore(databaseUrl);
 const womenCompanionPrivacy = createWomenCompanionPrivacyStore(databaseUrl);
-const commerceCatalog = createCommerceCatalogStore(databaseUrl);
 const womenCalendarPilotEnabled =
   (Deno.env.get("ENABLE_WOMEN_CALENDAR_PILOT") ?? "true").toLowerCase() !==
     "false";
@@ -246,10 +244,6 @@ async function route(
 
   const identity = await db.requireIdentity(auth);
 
-  if (request.method === "GET" && path === "/api/v1/commerce/catalog") {
-    return json(await commerceCatalog.published(parseCommerceCatalogQuery(new URL(request.url))));
-  }
-
   if (request.method === "GET" && path === "/api/v1/capabilities") {
     return json(
       await authorizationStore.capabilitySnapshot(identity.appUserId),
@@ -300,6 +294,10 @@ async function route(
     );
     const deletion = await accountLifecycle.requestDeletion(identity.appUserId);
 
+    // The database account is disabled synchronously, so subsequent API calls
+    // are denied even if a short-lived JWT still exists. Global logout is an
+    // additional best-effort session invalidation; the outbox worker is the
+    // durable path. Never log the Authorization header.
     const authorizationHeader = request.headers.get("authorization");
     if (authorizationHeader) {
       await fetch(`${supabaseUrl}/auth/v1/logout?scope=global`, {
@@ -318,6 +316,8 @@ async function route(
     const url = new URL(request.url);
     const fromDate = url.searchParams.get("fromDate");
     const toDate = url.searchParams.get("toDate");
+    // Keep these reads sequential. Every store shares one bounded SQL client,
+    // so one app screen consumes one database connection rather than a fan-out.
     const currentUser = await db.currentUser(identity);
     const treatmentPlans = await db.listTreatmentPlans(identity.appUserId);
     const doseOccurrences = await db.listDoseOccurrences(
@@ -522,61 +522,501 @@ async function route(
       201,
     );
   }
-
-  return await routeLegacyTail(request, path, auth, identity);
-}
-
-// Existing route body below this point is intentionally retained by repository history.
-// This helper is a compile-time marker replaced by the existing downstream routes in the
-// next focused edit if additional handlers are added.
-async function routeLegacyTail(
-  _request: Request,
-  _path: string,
-  _auth: AuthenticatedUser,
-  _identity: Awaited<ReturnType<typeof db.requireIdentity>>,
-): Promise<Response> {
-  throw new ApiError(404, "not_found", "The requested API route was not found.");
-}
-
-function requireWomenCalendarPilot() {
-  if (!womenCalendarPilotEnabled) {
-    throw new ApiError(404, "not_found", "The requested API route was not found.");
+  const womenEpisodeMatch = path.match(
+    /^\/api\/v1\/women-calendar\/episodes\/([0-9a-f-]{36})$/i,
+  );
+  if (request.method === "PATCH" && womenEpisodeMatch) {
+    requireWomenCalendarPilot();
+    return json(
+      await womenCalendar.updateOwnerEpisode(
+        identity.appUserId,
+        womenEpisodeMatch[1],
+        await readJsonObject(request),
+      ),
+    );
   }
+  if (request.method === "DELETE" && womenEpisodeMatch) {
+    requireWomenCalendarPilot();
+    await womenCalendar.deleteOwnerEpisode(
+      identity.appUserId,
+      womenEpisodeMatch[1],
+    );
+    return new Response(null, { status: 204, headers: corsHeaders });
+  }
+  if (
+    request.method === "GET" && path === "/api/v1/women-calendar/daily-logs"
+  ) {
+    requireWomenCalendarPilot();
+    const url = new URL(request.url);
+    return json(
+      await womenCalendar.listOwnerDailyLogs(
+        identity.appUserId,
+        url.searchParams.get("fromDate"),
+        url.searchParams.get("toDate"),
+      ),
+    );
+  }
+  if (
+    request.method === "PUT" && path === "/api/v1/women-calendar/daily-logs"
+  ) {
+    requireWomenCalendarPilot();
+    enforceRateLimit(
+      `women-calendar-daily-log:${identity.appUserId}`,
+      40,
+      60 * 60_000,
+    );
+    return json(
+      await womenCalendar.upsertOwnerDailyLog(
+        identity.appUserId,
+        await readJsonObject(request),
+      ),
+    );
+  }
+
+  if (request.method === "GET" && path === "/api/v1/medications") {
+    return json(await db.listMedications(identity.appUserId));
+  }
+  if (request.method === "POST" && path === "/api/v1/medications") {
+    enforceRateLimit(`write:${identity.appUserId}`, 30, 60_000);
+    return json(
+      await db.createMedication(
+        identity.appUserId,
+        await readJsonObject(request),
+      ),
+      201,
+    );
+  }
+  if (request.method === "GET" && path === "/api/v1/treatment-plans") {
+    return json(await db.listTreatmentPlans(identity.appUserId));
+  }
+  if (request.method === "POST" && path === "/api/v1/treatment-plans") {
+    enforceRateLimit(`write:${identity.appUserId}`, 30, 60_000);
+    return json(
+      await db.createTreatmentPlan(
+        identity.appUserId,
+        await readJsonObject(request),
+      ),
+      201,
+    );
+  }
+  const treatmentPlanMatch = path.match(
+    /^\/api\/v1\/treatment-plans\/([0-9a-f-]{36})$/i,
+  );
+  if (request.method === "PATCH" && treatmentPlanMatch) {
+    enforceRateLimit(`edit-treatment:${identity.appUserId}`, 30, 60_000);
+    return json(
+      await edits.updateTreatmentPlan(
+        identity.appUserId,
+        treatmentPlanMatch[1],
+        await readJsonObject(request),
+      ),
+    );
+  }
+  if (request.method === "GET" && path === "/api/v1/dose-occurrences") {
+    const url = new URL(request.url);
+    return json(
+      await db.listDoseOccurrences(
+        identity.appUserId,
+        url.searchParams.get("fromDate"),
+        url.searchParams.get("toDate"),
+      ),
+    );
+  }
+
+  const reportMatch = path.match(
+    /^\/api\/v1\/dose-occurrences\/([0-9a-f-]{36})\/report$/i,
+  );
+  if (request.method === "POST" && reportMatch) {
+    enforceRateLimit(`adherence:${identity.appUserId}`, 60, 60_000);
+    return json(
+      await db.reportDose(
+        identity.appUserId,
+        reportMatch[1],
+        await readJsonObject(request),
+      ),
+    );
+  }
+
+  if (request.method === "GET" && path === "/api/v1/care-events") {
+    const url = new URL(request.url);
+    return json(
+      await careEvents.listCareEvents(
+        identity.appUserId,
+        url.searchParams.get("fromDate"),
+        url.searchParams.get("toDate"),
+      ),
+    );
+  }
+  if (request.method === "POST" && path === "/api/v1/care-events") {
+    enforceRateLimit(`care-event:${identity.appUserId}`, 30, 60_000);
+    return json(
+      await careEvents.createCareEvent(
+        identity.appUserId,
+        await readJsonObject(request),
+      ),
+      201,
+    );
+  }
+  const ownedCareEventMatch = path.match(
+    /^\/api\/v1\/care-events\/([0-9a-f-]{36})$/i,
+  );
+  if (request.method === "GET" && ownedCareEventMatch) {
+    return json(
+      await edits.getCareEvent(identity.appUserId, ownedCareEventMatch[1]),
+    );
+  }
+  if (request.method === "PATCH" && ownedCareEventMatch) {
+    enforceRateLimit(`edit-care-event:${identity.appUserId}`, 30, 60_000);
+    return json(
+      await edits.updateCareEvent(
+        identity.appUserId,
+        ownedCareEventMatch[1],
+        await readJsonObject(request),
+      ),
+    );
+  }
+
+  if (request.method === "POST" && path === "/api/v1/care/requests") {
+    enforceRateLimit(`care-request:${identity.appUserId}`, 8, 60 * 60_000);
+    return json(
+      await careRequests.create(identity, await readJsonObject(request)),
+      201,
+    );
+  }
+  if (
+    request.method === "GET" &&
+    path === "/api/v1/care/requests/outgoing"
+  ) {
+    return json(await careRequests.listOutgoing(identity.appUserId));
+  }
+  if (
+    request.method === "GET" &&
+    path === "/api/v1/care/requests/incoming"
+  ) {
+    const incoming = await careRequests.listIncoming(identity);
+    const presented = [];
+    for (const item of incoming) {
+      const requesterUserId = String(item.requesterUserId ?? "");
+      let requesterProfile: Record<string, unknown> = {};
+      if (requesterUserId) {
+        try {
+          requesterProfile = await presentProfile(requesterUserId);
+        } catch {
+          requesterProfile = {};
+        }
+      }
+      presented.push({
+        ...item,
+        requesterDisplayName: requesterProfile.displayName ??
+          item.requesterDisplayName,
+        requesterAvatarKey: requesterProfile.avatarKey ??
+          item.requesterAvatarKey ?? null,
+        requesterProfilePhotoUrl: requesterProfile.profilePhotoUrl ?? null,
+      });
+    }
+    return json(presented);
+  }
+  const careRequestMatch = path.match(
+    /^\/api\/v1\/care\/requests\/([0-9a-f-]{36})$/i,
+  );
+  if (request.method === "DELETE" && careRequestMatch) {
+    enforceRateLimit(
+      `care-request-cancel:${identity.appUserId}`,
+      20,
+      60 * 60_000,
+    );
+    await careRequests.cancel(identity.appUserId, careRequestMatch[1]);
+    return new Response(null, { status: 204, headers: corsHeaders });
+  }
+  const careRequestResponseMatch = path.match(
+    /^\/api\/v1\/care\/requests\/([0-9a-f-]{36})\/respond$/i,
+  );
+  if (request.method === "POST" && careRequestResponseMatch) {
+    enforceRateLimit(
+      `care-request-respond:${identity.appUserId}`,
+      20,
+      60 * 60_000,
+    );
+    return json(
+      await careRequests.respond(
+        identity,
+        careRequestResponseMatch[1],
+        await readJsonObject(request),
+      ),
+    );
+  }
+
+  if (
+    request.method === "POST" &&
+    path === "/api/v1/care/invitations/qr"
+  ) {
+    enforceRateLimit(`qr-invite:${identity.appUserId}`, 10, 60 * 60_000);
+    return json(
+      await db.createQrInvitation(identity, await readJsonObject(request)),
+      201,
+    );
+  }
+  if (request.method === "GET" && path === "/api/v1/care/invitations") {
+    return json(await db.listInvitations(identity.appUserId));
+  }
+  if (request.method === "POST" && path === "/api/v1/care/invitations") {
+    enforceRateLimit(`invite:${identity.appUserId}`, 5, 60 * 60_000);
+    return json(
+      await db.createInvitation(identity, await readJsonObject(request)),
+      201,
+    );
+  }
+  const careInvitationMatch = path.match(
+    /^\/api\/v1\/care\/invitations\/([0-9a-f-]{36})$/i,
+  );
+  if (request.method === "DELETE" && careInvitationMatch) {
+    enforceRateLimit(
+      `care-invitation-revoke:${identity.appUserId}`,
+      20,
+      60 * 60_000,
+    );
+    await db.revokeInvitation(identity.appUserId, careInvitationMatch[1]);
+    return new Response(null, { status: 204, headers: corsHeaders });
+  }
+  if (
+    request.method === "POST" &&
+    path === "/api/v1/care/invitations/accept"
+  ) {
+    enforceRateLimit(`accept:${identity.appUserId}`, 10, 60 * 60_000);
+    return json(
+      await db.acceptInvitation(identity, await readJsonObject(request)),
+    );
+  }
+  if (request.method === "GET" && path === "/api/v1/care/relationships") {
+    return json(
+      await presentRelationships(
+        await db.listRelationships(identity.appUserId),
+      ),
+    );
+  }
+
+  const relationshipPermissionMatch = path.match(
+    /^\/api\/v1\/care\/relationships\/([0-9a-f-]{36})\/permissions$/i,
+  );
+  if (request.method === "PATCH" && relationshipPermissionMatch) {
+    requireWomenCalendarPilot();
+    enforceRateLimit(`care-permissions:${identity.appUserId}`, 30, 60 * 60_000);
+    return json(
+      await db.updateRelationshipPermissions(
+        identity.appUserId,
+        relationshipPermissionMatch[1],
+        await readJsonObject(request),
+      ),
+    );
+  }
+
+  const relationshipMatch = path.match(
+    /^\/api\/v1\/care\/relationships\/([0-9a-f-]{36})$/i,
+  );
+  if (request.method === "DELETE" && relationshipMatch) {
+    enforceRateLimit(`revoke:${identity.appUserId}`, 20, 60 * 60_000);
+    await db.revokeRelationship(identity.appUserId, relationshipMatch[1]);
+    return new Response(null, { status: 204, headers: corsHeaders });
+  }
+
+  const careDoseMatch = path.match(
+    /^\/api\/v1\/care\/patients\/([0-9a-f-]{36})\/dose-occurrences$/i,
+  );
+  if (request.method === "GET" && careDoseMatch) {
+    await authorizationStore.requirePersonFeature(
+      identity.appUserId,
+      careDoseMatch[1],
+      "treatment.adherence.read",
+      "care.basic",
+    );
+    const url = new URL(request.url);
+    return json(
+      await db.listCareDoseOccurrences(
+        identity.appUserId,
+        careDoseMatch[1],
+        url.searchParams.get("fromDate"),
+        url.searchParams.get("toDate"),
+      ),
+    );
+  }
+
+  const careEventMatch = path.match(
+    /^\/api\/v1\/care\/patients\/([0-9a-f-]{36})\/care-events$/i,
+  );
+  if (request.method === "GET" && careEventMatch) {
+    await authorizationStore.requirePersonFeature(
+      identity.appUserId,
+      careEventMatch[1],
+      "care.events.read",
+      "care.basic",
+    );
+    const url = new URL(request.url);
+    return json(
+      await careEvents.listCareRecipientEvents(
+        identity.appUserId,
+        careEventMatch[1],
+        url.searchParams.get("fromDate"),
+        url.searchParams.get("toDate"),
+      ),
+    );
+  }
+
+  const careWomenCalendarMatch = path.match(
+    /^\/api\/v1\/care\/patients\/([0-9a-f-]{36})\/women-calendar$/i,
+  );
+  if (request.method === "GET" && careWomenCalendarMatch) {
+    requireWomenCalendarPilot();
+    await authorizationStore.requirePersonFeature(
+      identity.appUserId,
+      careWomenCalendarMatch[1],
+      "women_health.summary.read",
+      "care.basic",
+    );
+    return json(
+      await womenCalendar.getCareSummary(
+        identity.appUserId,
+        careWomenCalendarMatch[1],
+      ),
+    );
+  }
+  const careWomenSupportMatch = path.match(
+    /^\/api\/v1\/care\/patients\/([0-9a-f-]{36})\/women-calendar\/support-actions$/i,
+  );
+  if (request.method === "POST" && careWomenSupportMatch) {
+    requireWomenCalendarPilot();
+    await authorizationStore.requirePersonFeature(
+      identity.appUserId,
+      careWomenSupportMatch[1],
+      "women_health.support.write",
+      "care.basic",
+    );
+    enforceRateLimit(
+      `women-calendar-support:${identity.appUserId}`,
+      30,
+      60 * 60_000,
+    );
+    return json(
+      await womenCalendar.recordCareSupportAction(
+        identity.appUserId,
+        careWomenSupportMatch[1],
+        await readJsonObject(request),
+      ),
+      201,
+    );
+  }
+
+  throw new ApiError(404, "route_not_found", "API route was not found.");
 }
 
 async function authenticate(request: Request): Promise<AuthenticatedUser> {
   const authorization = request.headers.get("authorization") ?? "";
-  const token = authorization.replace(/^Bearer\s+/i, "").trim();
-  if (!token) throw new ApiError(401, "authentication_required", "Authentication is required.");
-  const response = await fetch(`${supabaseUrl}/auth/v1/user`, {
-    headers: { Authorization: `Bearer ${token}`, apikey: publishableKey },
-  });
-  if (!response.ok) throw new ApiError(401, "authentication_required", "Authentication is required.");
-  const user = await response.json();
+  if (!authorization.startsWith("Bearer ") || authorization.length > 4_096) {
+    throw new ApiError(
+      401,
+      "authorization_missing",
+      "Authentication is required.",
+    );
+  }
+
+  let response: Response;
+  try {
+    response = await fetch(`${supabaseUrl}/auth/v1/user`, {
+      headers: {
+        Authorization: authorization,
+        apikey: publishableKey,
+      },
+      signal: AbortSignal.timeout(10_000),
+    });
+  } catch {
+    throw new ApiError(
+      503,
+      "identity_provider_unavailable",
+      "Authentication service is temporarily unavailable.",
+    );
+  }
+  if (!response.ok) {
+    throw new ApiError(
+      401,
+      "invalid_session",
+      "Authentication session is invalid.",
+    );
+  }
+
+  const value = await response.json();
+  if (!value?.id) {
+    throw new ApiError(
+      401,
+      "invalid_session",
+      "Authentication session is invalid.",
+    );
+  }
   return {
-    id: String(user.id),
-    email: typeof user.email === "string" ? user.email : null,
-    phone: typeof user.phone === "string" ? user.phone : null,
-    identities: Array.isArray(user.identities)
-      ? user.identities.map((identity: Record<string, unknown>) => ({
-          provider: String(identity.provider ?? ""),
-          id: String(identity.id ?? ""),
-          identityData: identity.identity_data as Record<string, unknown> | undefined,
-        }))
+    id: value.id,
+    email: normalizeOptional(value.email)?.toLowerCase() ?? null,
+    phone: normalizeOptional(value.phone),
+    userMetadata: value.user_metadata && typeof value.user_metadata === "object"
+      ? value.user_metadata
+      : {},
+    identities: Array.isArray(value.identities)
+      ? value.identities as ProviderIdentity[]
       : [],
   };
 }
 
+async function presentProfile(
+  userId: string,
+): Promise<Record<string, unknown>> {
+  const profile = await profiles.getProfile(userId);
+  const objectPath = await profiles.getProfilePhotoPath(userId);
+  let profilePhotoUrl: string | null = null;
+  if (objectPath != null) {
+    try {
+      profilePhotoUrl = await profilePhotos.createSignedUrl(objectPath);
+    } catch {
+      console.warn("Profile photo URL signing failed.");
+    }
+  }
+  return {
+    ...profile,
+    profilePhotoUrl,
+  };
+}
+
+async function presentRelationships(
+  relationships: Array<Record<string, unknown>>,
+): Promise<Array<Record<string, unknown>>> {
+  const result: Array<Record<string, unknown>> = [];
+  for (const relationship of relationships) {
+    const personId = String(relationship.personId ?? "");
+    let personProfile: Record<string, unknown> = {};
+    if (personId) {
+      try {
+        personProfile = await presentProfile(personId);
+      } catch {
+        personProfile = {};
+      }
+    }
+    result.push({
+      ...relationship,
+      displayName: personProfile.displayName ?? relationship.displayName,
+      avatarKey: personProfile.avatarKey ?? relationship.avatarKey ?? null,
+      profilePhotoUrl: personProfile.profilePhotoUrl ?? null,
+    });
+  }
+  return result;
+}
+
+function requireWomenCalendarPilot() {
+  if (!womenCalendarPilotEnabled) {
+    throw new ApiError(
+      404,
+      "women_calendar_not_available",
+      "Women Calendar is not available in this environment.",
+    );
+  }
+}
+
 function isPostgresConflict(error: unknown): boolean {
-  if (!error || typeof error !== "object") return false;
-  const code = String((error as Record<string, unknown>).code ?? "");
+  const code = (error as { code?: string })?.code;
   return code === "23505" || code === "23503" || code === "23514";
-}
-
-async function presentProfile(_userId: string) {
-  return null;
-}
-
-async function presentRelationships(value: unknown) {
-  return value;
 }
