@@ -160,6 +160,9 @@ export function createPersonWomenCalendarCaregiverStore(databaseUrl: string) {
       energy: canonicalSharedLog.energyLevel,
     };
     const patientProfile = patientProfiles[0];
+    const visibleGuidanceHistory = guidanceHistory.filter((row: Row) =>
+      guidanceCategoryAllowed(String(row.category), privacy)
+    );
 
     return {
       patient: {
@@ -184,7 +187,7 @@ export function createPersonWomenCalendarCaregiverStore(databaseUrl: string) {
             performedAtUtc: iso(row.performed_at_utc),
           }))
         : [],
-      guidanceHistory: guidanceHistory.map((row: Row) => ({
+      guidanceHistory: visibleGuidanceHistory.map((row: Row) => ({
         guidanceId: String(row.guidance_id),
         contentVersion: String(row.content_version),
         category: String(row.category),
@@ -301,12 +304,7 @@ export function createPersonWomenCalendarCaregiverStore(databaseUrl: string) {
     `;
     if (!relationshipRows[0]) throw accessDenied();
     const privacy = companionPrivacy(relationshipRows[0]);
-    const categoryAllowed = category === "phase"
-      ? privacy.viewPhaseSummary
-      : category === "mood" || category === "energy"
-      ? privacy.viewSharedWellbeing
-      : privacy.viewPhaseSummary || privacy.viewSharedWellbeing;
-    if (!categoryAllowed) throw accessDenied();
+    if (!guidanceCategoryAllowed(category, privacy)) throw accessDenied();
 
     const now = new Date();
     const id = crypto.randomUUID();
@@ -364,6 +362,12 @@ function companionPrivacy(row: Row): CompanionPrivacy {
     receiveFertilityNotifications: row.receive_fertility_notifications === true,
     viewCalendarDetail: row.view_calendar_detail === true,
   };
+}
+function guidanceCategoryAllowed(category: string, privacy: CompanionPrivacy): boolean {
+  if (category === "phase") return privacy.viewPhaseSummary;
+  if (category === "mood" || category === "energy") return privacy.viewSharedWellbeing;
+  if (category === "general") return privacy.viewPhaseSummary || privacy.viewSharedWellbeing;
+  return false;
 }
 function presentEstimate(estimate: any, privacy: CompanionPrivacy): Record<string, unknown> | null {
   if (privacy.viewFertilityEstimate) return estimate;
