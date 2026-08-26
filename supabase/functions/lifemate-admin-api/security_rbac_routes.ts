@@ -2,6 +2,7 @@ import {
   type AdminCapabilitySnapshot,
   requirePermission,
 } from "./authorization.ts";
+import { createBreakGlassRouteHandler } from "./break_glass_routes.ts";
 import { json } from "./http.ts";
 import { createSecurityRbacStore } from "./security_rbac_service.ts";
 import { matchAdminRoleDetailPath } from "./security_role_detail.ts";
@@ -13,6 +14,8 @@ export type SecurityRbacRouteContext = {
   path: string;
   admin: AdminCapabilitySnapshot;
   origin: string | null;
+  accountId?: string;
+  correlationId?: string;
 };
 
 type SecurityRbacStore = ReturnType<typeof createSecurityRbacStore>;
@@ -24,11 +27,25 @@ export function createSecurityRbacRouteHandler(
   roleDetailStore?: SecurityRoleDetailStore,
 ) {
   let resolvedRoleDetailStore = roleDetailStore;
+  const breakGlassRouteHandler = createBreakGlassRouteHandler(databaseUrl);
 
   return async function handleSecurityRbacRoute(
     context: SecurityRbacRouteContext,
   ): Promise<Response | null> {
     const { request, path, admin, origin } = context;
+
+    if (path.startsWith("/api/v1/security/break-glass/")) {
+      const response = await breakGlassRouteHandler({
+        request,
+        path,
+        accountId: context.accountId ?? admin.accountId,
+        admin,
+        correlationId: context.correlationId ?? crypto.randomUUID(),
+        origin,
+      });
+      if (response) return response;
+    }
+
     if (request.method !== "GET") return null;
 
     if (path === "/api/v1/security/role-permission-matrix") {
