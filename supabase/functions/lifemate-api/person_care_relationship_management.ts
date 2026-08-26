@@ -139,33 +139,11 @@ export function createPersonCareRelationshipManagementStore(
     body: Record<string, unknown>,
   ): Promise<Record<string, unknown>> {
     const relationshipId = requiredUuid(relationshipIdValue, "relationshipId");
-    const hasWomenPermission = typeof body.canViewWomenCalendar === "boolean";
-    const hasSchedulePermission = typeof body.canManageCareSchedule === "boolean";
-    if (!hasWomenPermission && !hasSchedulePermission) {
-      throw new ApiError(
-        400,
-        "invalid_care_permission",
-        "At least one supported care permission must be provided.",
-      );
-    }
-    if (
-      body.canViewWomenCalendar != null &&
-      typeof body.canViewWomenCalendar !== "boolean"
-    ) {
+    if (typeof body.canViewWomenCalendar !== "boolean") {
       throw new ApiError(
         400,
         "invalid_care_permission",
         "canViewWomenCalendar must be a boolean.",
-      );
-    }
-    if (
-      body.canManageCareSchedule != null &&
-      typeof body.canManageCareSchedule !== "boolean"
-    ) {
-      throw new ApiError(
-        400,
-        "invalid_care_permission",
-        "canManageCareSchedule must be a boolean.",
       );
     }
 
@@ -188,29 +166,13 @@ export function createPersonCareRelationshipManagementStore(
         );
       }
 
-      const canViewWomenCalendar = hasWomenPermission
-        ? body.canViewWomenCalendar as boolean
-        : existing.can_view_women_calendar === true;
-      const canManageCareSchedule = hasSchedulePermission
-        ? body.canManageCareSchedule as boolean
-        : existing.can_manage_care_schedule === true;
-
       const rows = await tx`
         update lifemate.care_relationships
-        set can_view_women_calendar = ${canViewWomenCalendar},
-            can_manage_care_schedule = ${canManageCareSchedule},
+        set can_view_women_calendar = ${body.canViewWomenCalendar},
             updated_at_utc = now()
         where id = ${relationshipId}::uuid
         returning *
       `;
-      if (hasSchedulePermission) {
-        await tx`
-          select security.sync_care_schedule_write_scopes(
-            ${relationshipId}::uuid,
-            ${canManageCareSchedule}
-          )
-        `;
-      }
       await insertAudit(
         tx,
         patientAppUserId,
@@ -458,7 +420,6 @@ function mapRelationshipRow(row: Row): Record<string, unknown> {
     caregiverDisplayName: row.caregiver_display_name ?? "LifeMate User",
     status: String(row.status).toLowerCase(),
     canViewWomenCalendar: row.can_view_women_calendar === true,
-    canManageCareSchedule: row.can_manage_care_schedule === true,
     patientConsentedAtUtc: iso(row.patient_consented_at_utc),
     caregiverConsentedAtUtc: iso(row.caregiver_consented_at_utc),
     revokedAtUtc: row.revoked_at_utc == null ? null : iso(row.revoked_at_utc),
