@@ -23,7 +23,7 @@ const columns: Record<ScopeKey, string> = {
   receiveFertilityNotifications: "receive_fertility_notifications",
   viewCalendarDetail: "view_calendar_detail",
 };
-const off = (): ScopeRecord => ({
+export const defaultCompanionPrivacyScopes = (): ScopeRecord => ({
   viewPeriodTiming: false, viewPhaseSummary: false, viewSharedWellbeing: false,
   receiveMoodSupportNotifications: false, receivePhaseNotifications: false,
   viewFertilityEstimate: false, receiveFertilityNotifications: false,
@@ -114,7 +114,7 @@ async function selfPersonId(connection: any, appUserId: string): Promise<string>
 }
 function normalize(value: unknown): ScopeRecord {
   if (!value || typeof value !== "object" || Array.isArray(value)) throw new ApiError(400, "invalid_companion_privacy_scopes", "scopes must be an object.");
-  const record = value as Record<string, unknown>, result = off();
+  const record = value as Record<string, unknown>, result = defaultCompanionPrivacyScopes();
   for (const key of companionPrivacyScopeKeys) {
     if (typeof record[key] !== "boolean") throw new ApiError(400, "invalid_companion_privacy_scopes", `${key} must be boolean.`);
     result[key] = record[key] as boolean;
@@ -122,7 +122,7 @@ function normalize(value: unknown): ScopeRecord {
   return result;
 }
 function present(row: Record<string, unknown>) {
-  const scopes = off();
+  const scopes = defaultCompanionPrivacyScopes();
   for (const key of companionPrivacyScopeKeys) scopes[key] = row[columns[key]] === true;
   return { relationshipId: String(row.relationship_id), caregiverUserId: row.caregiver_user_id ?? null,
     caregiverDisplayName: row.caregiver_display_name ?? null, version: Number(row.version ?? 0), scopes };
