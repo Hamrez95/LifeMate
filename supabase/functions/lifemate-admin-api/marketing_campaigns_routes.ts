@@ -1,4 +1,5 @@
 import { createAdvisorRouteHandler } from "./advisor_routes.ts";
+import { createAudienceSegmentRouteHandler } from "./audience_segments_routes.ts";
 import {
   type AdminCapabilitySnapshot,
   requirePermission,
@@ -82,6 +83,7 @@ export function createMarketingCampaignRouteHandler(databaseUrl: string) {
   const advisorRouteHandler = createAdvisorRouteHandler(databaseUrl);
   const financeRouteHandler = createFinanceRouteHandler(databaseUrl);
   const securityRbacRouteHandler = createSecurityRbacRouteHandler(databaseUrl);
+  const audienceSegmentRouteHandler = createAudienceSegmentRouteHandler(databaseUrl);
 
   return async function handleMarketingCampaignRoute(
     context: MarketingCampaignRouteContext,
@@ -97,6 +99,9 @@ export function createMarketingCampaignRouteHandler(databaseUrl: string) {
 
     const securityRbacResponse = await securityRbacRouteHandler(context);
     if (securityRbacResponse) return securityRbacResponse;
+
+    const audienceSegmentResponse = await audienceSegmentRouteHandler(context);
+    if (audienceSegmentResponse) return audienceSegmentResponse;
 
     const financeResponse = await financeRouteHandler(context);
     if (financeResponse) return financeResponse;
