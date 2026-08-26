@@ -2,6 +2,8 @@ begin;
 
 -- #486 Ecosystem Commerce Catalog v2.
 -- Additive extension of the existing canonical commerce foundation.
+-- Legacy WellMate/CareMate product rows remain for compatibility; new catalog
+-- publication uses the combined wellmate-caremate Product.
 
 alter table commerce.products
   add column if not exists updated_at_utc timestamptz not null default now(),
@@ -34,7 +36,7 @@ create table if not exists commerce.offers (
   plan_id uuid references commerce.plans(id) on delete restrict,
   code varchar(64) not null,
   display_name varchar(120) not null,
-  duration_months smallint not null check (duration_months in (1,3,12)),
+  duration_months smallint not null check (duration_months between 1 and 120),
   status text not null default 'Hidden' check (status in ('Hidden','Published','Retired')),
   gift_eligible boolean not null default true,
   created_at_utc timestamptz not null default now(),
@@ -44,6 +46,14 @@ create table if not exists commerce.offers (
 );
 create index if not exists ix_commerce_offers_product_status
   on commerce.offers(product_id,status,duration_months,id);
+
+-- Existing prices remain compatible with plan_id while offer_id establishes the
+-- canonical Product -> Offer -> Versioned Price chain for v2 consumers.
+alter table commerce.prices
+  add column if not exists offer_id uuid references commerce.offers(id) on delete restrict;
+create index if not exists ix_commerce_prices_offer_effective
+  on commerce.prices(offer_id,status,effective_from_utc desc,id desc)
+  where offer_id is not null;
 
 create table if not exists commerce.offer_entitlements (
   offer_id uuid not null references commerce.offers(id) on delete cascade,
@@ -68,20 +78,21 @@ create table if not exists commerce.bundles (
 create table if not exists commerce.bundle_items (
   bundle_id uuid not null references commerce.bundles(id) on delete cascade,
   offer_id uuid not null references commerce.offers(id) on delete restrict,
-  quantity smallint not null default 1 check (quantity >= 1 and quantity <= 32),
+  quantity smallint not null default 1 check (quantity between 1 and 32),
   created_at_utc timestamptz not null default now(),
   primary key(bundle_id, offer_id)
 );
 
 create table if not exists commerce.catalog_policies (
-  policy_key varchar(128) primary key,
-  product_id uuid references commerce.products(id) on delete cascade,
+  product_id uuid not null references commerce.products(id) on delete cascade,
+  policy_key varchar(128) not null,
   value_json jsonb not null,
   value_type text not null check (value_type in ('integer','boolean','string','json')),
   status text not null default 'Active' check (status in ('Active','Retired')),
   version bigint not null default 1 check (version >= 1),
   created_at_utc timestamptz not null default now(),
   updated_at_utc timestamptz not null default now(),
+  primary key(product_id, policy_key),
   check (jsonb_typeof(value_json) is not null)
 );
 create index if not exists ix_commerce_catalog_policies_product_status
@@ -93,7 +104,7 @@ create table if not exists commerce.bundle_prices (
   country_code varchar(2),
   currency varchar(3) not null check (currency ~ '^[A-Z]{3}$'),
   store_provider varchar(40) not null,
-  billing_period_months smallint not null check (billing_period_months in (1,3,12)),
+  billing_period_months smallint not null check (billing_period_months between 1 and 120),
   amount_minor bigint not null check (amount_minor >= 0),
   status text not null default 'Active' check (status in ('Active','Retired')),
   effective_from_utc timestamptz not null default now(),
@@ -126,6 +137,8 @@ create table if not exists commerce.discount_rules (
   )
 );
 
+-- Defense in depth for private Commerce tables. Explicit role policies preserve
+-- the existing least-privilege server runtimes after RLS is enabled.
 alter table commerce.offers enable row level security;
 alter table commerce.offer_entitlements enable row level security;
 alter table commerce.bundles enable row level security;
@@ -154,6 +167,54 @@ grant select on commerce.offers, commerce.offer_entitlements, commerce.bundles,
   commerce.bundle_items, commerce.catalog_policies, commerce.bundle_prices,
   commerce.discount_rules to lifemate_admin_runtime;
 
+do $$
+declare
+  v_table text;
+begin
+  foreach v_table in array array[
+    'offers','offer_entitlements','bundles','bundle_items','catalog_policies',
+    'bundle_prices','discount_rules','promotions','discount_codes'
+  ] loop
+    if not exists (
+      select 1 from pg_policies
+      where schemaname='commerce' and tablename=v_table
+        and policyname='lifemate_admin_runtime_read'
+    ) then
+      execute format(
+        'create policy lifemate_admin_runtime_read on commerce.%I for select to lifemate_admin_runtime using (true)',
+        v_table
+      );
+    end if;
+  end loop;
+end $$;
+
+-- The mobile API needs read access to published catalog state only. It cannot mutate
+-- catalog rows directly; writes stay behind audited Admin functions.
+grant select on commerce.offers, commerce.offer_entitlements, commerce.bundles,
+  commerce.bundle_items, commerce.catalog_policies, commerce.bundle_prices,
+  commerce.discount_rules to lifemate_edge_runtime;
+
+do $$
+declare
+  v_table text;
+begin
+  foreach v_table in array array[
+    'offers','offer_entitlements','bundles','bundle_items','catalog_policies',
+    'bundle_prices','discount_rules'
+  ] loop
+    if not exists (
+      select 1 from pg_policies
+      where schemaname='commerce' and tablename=v_table
+        and policyname='lifemate_edge_runtime_read'
+    ) then
+      execute format(
+        'create policy lifemate_edge_runtime_read on commerce.%I for select to lifemate_edge_runtime using (true)',
+        v_table
+      );
+    end if;
+  end loop;
+end $$;
+
 insert into admin.permissions(code,domain,risk_level,role_assignable,description) values
 ('commerce.catalog.write','commerce','HIGH_RISK',true,'Manage ecosystem products, offers, bundles and configurable free-tier catalog policy through audited server workflows')
 on conflict (code) do update set description=excluded.description, updated_at_utc=now();
@@ -175,15 +236,21 @@ on conflict (code) do update set
   lifecycle_status=case when commerce.products.lifecycle_status='Retired' then commerce.products.lifecycle_status else excluded.lifecycle_status end,
   updated_at_utc=now();
 
+-- Legacy product rows remain addressable for existing subscriptions/features but are
+-- hidden from the v2 sellable catalog. They are not deleted or rewritten.
+update commerce.products
+set lifecycle_status='Hidden', updated_at_utc=now()
+where code in ('wellmate','caremate','women_health') and lifecycle_status <> 'Retired';
+
 -- Configurable free-tier limits. Enforcement consumers must resolve these policy keys,
 -- never hardcode the numeric limits in clients or APIs.
-insert into commerce.catalog_policies(policy_key,product_id,value_json,value_type,status,version)
-select 'free.medications.max',p.id,'3'::jsonb,'integer','Active',1
+insert into commerce.catalog_policies(product_id,policy_key,value_json,value_type,status,version)
+select p.id,'free.medications.max','3'::jsonb,'integer','Active',1
 from commerce.products p where p.code='wellmate-caremate'
-on conflict (policy_key) do nothing;
-insert into commerce.catalog_policies(policy_key,product_id,value_json,value_type,status,version)
-select 'free.visits.max',p.id,'1'::jsonb,'integer','Active',1
+on conflict (product_id,policy_key) do nothing;
+insert into commerce.catalog_policies(product_id,policy_key,value_json,value_type,status,version)
+select p.id,'free.visits.max','1'::jsonb,'integer','Active',1
 from commerce.products p where p.code='wellmate-caremate'
-on conflict (policy_key) do nothing;
+on conflict (product_id,policy_key) do nothing;
 
 commit;
