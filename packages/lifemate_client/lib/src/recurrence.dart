@@ -1,13 +1,14 @@
-enum RecurrenceUnit { day, week, month, year }
+enum RecurrenceUnit { hour, day, week, month, year }
 
 /// Versioned, product-facing recurrence rule shared by WellMate/CareMate.
 ///
-/// The rule is intentionally bounded: callers always ask for a finite date
-/// window and [maxOccurrences] caps the generated series when the user chooses
-/// "after N occurrences". No cron expression is persisted or evaluated here.
+/// Callers always request a finite window. [maxOccurrences] bounds a series
+/// when the user chooses "after N occurrences"; raw cron expressions are not
+/// persisted. Hourly rules are timestamp-based while day/week/month/year rules
+/// preserve the anchor's local clock time.
 class RecurrenceRule {
   const RecurrenceRule({
-    this.version = 1,
+    this.version = 2,
     this.enabled = false,
     this.unit = RecurrenceUnit.month,
     this.interval = 1,
@@ -19,7 +20,7 @@ class RecurrenceRule {
        assert(maxOccurrences == null || maxOccurrences > 0);
 
   const RecurrenceRule.none()
-    : version = 1,
+    : version = 2,
       enabled = false,
       unit = RecurrenceUnit.month,
       interval = 1,
@@ -32,20 +33,24 @@ class RecurrenceRule {
   final RecurrenceUnit unit;
   final int interval;
   final Set<int> weekdays;
+
+  /// Inclusive local end boundary. Date-only values remain compatible with
+  /// older persisted rules; timestamp values are supported for hourly series.
   final DateTime? endDate;
 
-  /// Maximum number of occurrences in the whole series, counted from
-  /// [startDate], not merely inside the queried window.
+  /// Maximum number of occurrences in the whole series, counted from the
+  /// series anchor rather than merely inside a queried window.
   final int? maxOccurrences;
 
-  /// Resolves the product count-bound into the existing server-compatible
-  /// end-date contract. If both an explicit end date and a count are present,
-  /// the earlier boundary wins.
+  bool get isSubDaily => enabled && unit == RecurrenceUnit.hour;
+
+  /// Resolves a count bound into an inclusive local timestamp/date boundary.
+  /// If both explicit end and count are present, the earlier boundary wins.
   DateTime? persistenceEndDate(DateTime startDate) {
-    final explicit = endDate == null ? null : _onlyDate(endDate!);
+    final explicit = endDate;
     final count = maxOccurrences;
     if (!enabled || count == null) return explicit;
-    final counted = _occurrenceAt(_onlyDate(startDate), count);
+    final counted = _occurrenceAt(startDate, count);
     if (explicit == null || counted.isBefore(explicit)) return counted;
     return explicit;
   }
@@ -53,6 +58,8 @@ class RecurrenceRule {
   DateTime _occurrenceAt(DateTime start, int ordinal) {
     final offset = ordinal - 1;
     switch (unit) {
+      case RecurrenceUnit.hour:
+        return start.add(Duration(hours: interval * offset));
       case RecurrenceUnit.day:
         return start.add(Duration(days: interval * offset));
       case RecurrenceUnit.month:
@@ -65,7 +72,7 @@ class RecurrenceRule {
         var cursor = start;
         final guardLimit = (ordinal * interval * 7) + 14;
         for (var guard = 0; guard <= guardLimit; guard += 1) {
-          final daysFromStart = cursor.difference(start).inDays;
+          final daysFromStart = _dayDistance(start, cursor);
           final weekIndex = daysFromStart ~/ 7;
           if (weekIndex % interval == 0 && allowed.contains(cursor.weekday)) {
             emitted += 1;
@@ -83,7 +90,8 @@ class RecurrenceRule {
     if (enabled) 'unit': unit.name,
     if (enabled) 'interval': interval,
     if (enabled && weekdays.isNotEmpty) 'weekdays': weekdays.toList()..sort(),
-    if (enabled && endDate != null) 'endDate': _date(endDate!),
+    if (enabled && endDate != null)
+      'endDate': isSubDaily ? endDate!.toIso8601String() : _date(endDate!),
     if (enabled && maxOccurrences != null) 'maxOccurrences': maxOccurrences,
   };
 
@@ -111,7 +119,7 @@ class RecurrenceRule {
       version: version.clamp(1, 1000),
       enabled: true,
       unit: unit,
-      interval: interval.clamp(1, 365),
+      interval: interval.clamp(1, unit == RecurrenceUnit.hour ? 8760 : 365),
       weekdays: weekdays,
       endDate: DateTime.tryParse(record['endDate']?.toString() ?? ''),
       maxOccurrences: rawMax == null ? null : rawMax.clamp(1, 10000),
@@ -123,13 +131,14 @@ class RecurrenceRule {
     required DateTime fromDate,
     required DateTime toDate,
   }) {
-    final start = _onlyDate(startDate);
-    final from = _onlyDate(fromDate);
-    final to = _onlyDate(toDate);
+    final start = startDate;
+    final from = fromDate;
+    final to = toDate;
     if (to.isBefore(from) || to.isBefore(start)) return const [];
-    final upper = endDate == null || _onlyDate(endDate!).isAfter(to)
+    final explicitEnd = endDate;
+    final upper = explicitEnd == null || explicitEnd.isAfter(to)
         ? to
-        : _onlyDate(endDate!);
+        : explicitEnd;
     if (upper.isBefore(start)) return const [];
     if (!enabled) {
       return !start.isBefore(from) && !start.isAfter(upper)
@@ -151,6 +160,14 @@ class RecurrenceRule {
     }
 
     switch (unit) {
+      case RecurrenceUnit.hour:
+        for (
+          var cursor = start;
+          !cursor.isAfter(upper);
+          cursor = cursor.add(Duration(hours: interval))
+        ) {
+          if (!accept(cursor)) break;
+        }
       case RecurrenceUnit.day:
         for (
           var cursor = start;
@@ -161,14 +178,12 @@ class RecurrenceRule {
         }
       case RecurrenceUnit.week:
         final allowed = weekdays.isEmpty ? <int>{start.weekday} : weekdays;
-        // Count from the series start, even when the requested window begins
-        // later, so maxOccurrences means the same thing for every page/query.
         for (
           var cursor = start;
           !cursor.isAfter(upper);
           cursor = cursor.add(const Duration(days: 1))
         ) {
-          final daysFromStart = cursor.difference(start).inDays;
+          final daysFromStart = _dayDistance(start, cursor);
           final weekIndex = daysFromStart ~/ 7;
           if (weekIndex % interval == 0 && allowed.contains(cursor.weekday)) {
             if (!accept(cursor)) break;
@@ -191,14 +206,25 @@ class RecurrenceRule {
     return List<DateTime>.unmodifiable(sorted);
   }
 
+  static int _dayDistance(DateTime start, DateTime cursor) =>
+      DateTime(cursor.year, cursor.month, cursor.day)
+          .difference(DateTime(start.year, start.month, start.day))
+          .inDays;
+
   static DateTime _addMonthsClamped(DateTime start, int months) {
     final first = DateTime(start.year, start.month + months, 1);
     final lastDay = DateTime(first.year, first.month + 1, 0).day;
-    return DateTime(first.year, first.month, start.day.clamp(1, lastDay));
+    return DateTime(
+      first.year,
+      first.month,
+      start.day.clamp(1, lastDay),
+      start.hour,
+      start.minute,
+      start.second,
+      start.millisecond,
+      start.microsecond,
+    );
   }
-
-  static DateTime _onlyDate(DateTime value) =>
-      DateTime(value.year, value.month, value.day);
 
   static String _date(DateTime value) =>
       '${value.year.toString().padLeft(4, '0')}-'

@@ -201,28 +201,45 @@ class LifeMateApiClient {
     DateTime? endDate,
     required String timeZone,
     required List<Map<String, String>> schedules,
+    RecurrenceRule recurrence = const RecurrenceRule.none(),
+    String? recurrenceStartLocalTime,
     String? instructions,
     int patientReminderMinutesBefore =
         LifeMateReminderLeadTimes.defaultPatientMinutes,
     int caregiverReminderMinutesBefore =
         LifeMateReminderLeadTimes.defaultCaregiverMinutes,
-  }) async => _asObject(
-    await _send(
-      'POST',
-      '/api/v1/treatment-plans',
-      body: {
-        'medicationId': medicationId,
-        'doseText': doseText.trim(),
-        'instructions': _emptyToNull(instructions),
-        'startDate': _date(startDate),
-        'endDate': endDate == null ? null : _date(endDate),
-        'timeZone': timeZone,
-        'schedules': schedules,
-        'patientReminderMinutesBefore': patientReminderMinutesBefore,
-        'caregiverReminderMinutesBefore': caregiverReminderMinutesBefore,
-      },
-    ),
-  );
+  }) async {
+    if (recurrence.enabled &&
+        (recurrenceStartLocalTime == null ||
+            recurrenceStartLocalTime.trim().isEmpty)) {
+      throw ArgumentError.value(
+        recurrenceStartLocalTime,
+        'recurrenceStartLocalTime',
+        'Recurring treatment plans require a local anchor time.',
+      );
+    }
+    return _asObject(
+      await _send(
+        'POST',
+        '/api/v1/treatment-plans',
+        body: {
+          'medicationId': medicationId,
+          'doseText': doseText.trim(),
+          'instructions': _emptyToNull(instructions),
+          'startDate': _date(startDate),
+          'endDate': endDate == null ? null : _date(endDate),
+          'timeZone': timeZone,
+          'schedules': recurrence.enabled ? const [] : schedules,
+          'recurrence': recurrence.toJson(),
+          'recurrenceStartLocalTime': recurrence.enabled
+              ? recurrenceStartLocalTime!.trim()
+              : null,
+          'patientReminderMinutesBefore': patientReminderMinutesBefore,
+          'caregiverReminderMinutesBefore': caregiverReminderMinutesBefore,
+        },
+      ),
+    );
+  }
 
   Future<List<Map<String, dynamic>>> getCareEvents({
     required DateTime fromDate,
