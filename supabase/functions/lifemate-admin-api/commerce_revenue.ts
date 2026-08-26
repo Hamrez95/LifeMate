@@ -31,6 +31,15 @@ export type RevenueCurrencyActual = {
   payingAccounts: number;
 };
 
+export type RevenueSeriesPoint = {
+  date: string;
+  currency: string;
+  succeededAmountMinor: string;
+  refundedAmountMinor: string | null;
+};
+
+type RefundAggregate = { amountMinor: string; transactions: number };
+
 function optionalDate(value: string | null, field: string): string | null {
   const normalized = value?.trim() ?? "";
   if (!normalized) return null;
@@ -149,7 +158,7 @@ async function actuals(sql: AdminSql, query: CommerceRevenueQuery): Promise<Reve
   }));
 }
 
-async function refundActuals(sql: AdminSql, query: CommerceRevenueQuery) {
+async function refundActuals(sql: AdminSql, query: CommerceRevenueQuery): Promise<Map<string, RefundAggregate>> {
   const rows = await sql`
     select
       request.currency,
@@ -179,6 +188,61 @@ async function refundActuals(sql: AdminSql, query: CommerceRevenueQuery) {
   );
 }
 
+async function transactionSeries(sql: AdminSql, query: CommerceRevenueQuery): Promise<RevenueSeriesPoint[]> {
+  const rows = await sql`
+    select
+      (t.occurred_at_utc at time zone 'Asia/Tehran')::date::text as day,
+      t.currency,
+      coalesce(sum(t.amount_minor) filter (where t.normalized_status = 'Succeeded'), 0)::text as succeeded_amount_minor
+    from commerce.transactions t
+    join commerce.products product on product.id = t.product_id
+    left join commerce.subscriptions subscription on subscription.id = t.subscription_id
+    left join commerce.plans plan on plan.id = subscription.plan_id
+    where (${query.from}::date is null or t.occurred_at_utc >= (${query.from}::date::timestamp at time zone 'Asia/Tehran'))
+      and (${query.to}::date is null or t.occurred_at_utc < ((${query.to}::date + 1)::timestamp at time zone 'Asia/Tehran'))
+      and (${query.currency}::text is null or t.currency = ${query.currency})
+      and (${query.product}::text is null or lower(product.code) = ${query.product})
+      and (${query.plan}::text is null or lower(plan.code) = ${query.plan})
+    group by 1, t.currency
+    order by 1 asc, t.currency asc
+    limit 4000
+  `;
+  return rows.map((row) => ({
+    date: String(row.day),
+    currency: String(row.currency),
+    succeededAmountMinor: String(row.succeeded_amount_minor ?? "0"),
+    refundedAmountMinor: null,
+  }));
+}
+
+async function refundSeries(sql: AdminSql, query: CommerceRevenueQuery): Promise<Map<string, string>> {
+  const rows = await sql`
+    select
+      (request.requested_at_utc at time zone 'Asia/Tehran')::date::text as day,
+      request.currency,
+      coalesce(sum(request.amount_minor) filter (where request.status = 'Succeeded'), 0)::text as refunded_amount_minor
+    from commerce.refund_requests request
+    join commerce.transactions t on t.id = request.transaction_id
+    join commerce.products product on product.id = t.product_id
+    left join commerce.subscriptions subscription on subscription.id = t.subscription_id
+    left join commerce.plans plan on plan.id = subscription.plan_id
+    where (${query.from}::date is null or request.requested_at_utc >= (${query.from}::date::timestamp at time zone 'Asia/Tehran'))
+      and (${query.to}::date is null or request.requested_at_utc < ((${query.to}::date + 1)::timestamp at time zone 'Asia/Tehran'))
+      and (${query.currency}::text is null or request.currency = ${query.currency})
+      and (${query.product}::text is null or lower(product.code) = ${query.product})
+      and (${query.plan}::text is null or lower(plan.code) = ${query.plan})
+    group by 1, request.currency
+    order by 1 asc, request.currency asc
+    limit 4000
+  `;
+  return new Map(
+    rows.map((row) => [
+      `${String(row.day)}:${String(row.currency)}`,
+      String(row.refunded_amount_minor ?? "0"),
+    ]),
+  );
+}
+
 export function createCommerceRevenueStore(databaseUrl: string) {
   const sql = getAdminSql(databaseUrl);
   return {
@@ -197,6 +261,7 @@ export function createCommerceRevenueStore(databaseUrl: string) {
             ),
           ],
           actualByCurrency: [] as RevenueCurrencyActual[],
+          series: [] as RevenueSeriesPoint[],
           source: {
             state: "unavailable" as const,
             ledger: "commerce.transactions",
@@ -207,8 +272,11 @@ export function createCommerceRevenueStore(databaseUrl: string) {
         };
       }
 
-      const values = await actuals(sql, query);
-      const refundByCurrency = availability.refunds ? await refundActuals(sql, query) : new Map();
+      const [values, baseSeries] = await Promise.all([actuals(sql, query), transactionSeries(sql, query)]);
+      const refundByCurrency: Map<string, RefundAggregate> = availability.refunds
+        ? await refundActuals(sql, query)
+        : new Map();
+      const refundByDay = availability.refunds ? await refundSeries(sql, query) : new Map<string, string>();
       const actualByCurrency = values.map((item) => {
         const refund = refundByCurrency.get(item.currency);
         return {
@@ -217,6 +285,12 @@ export function createCommerceRevenueStore(databaseUrl: string) {
           refundedTransactions: availability.refunds ? (refund?.transactions ?? 0) : null,
         };
       });
+      const series = baseSeries.map((point) => ({
+        ...point,
+        refundedAmountMinor: availability.refunds
+          ? (refundByDay.get(`${point.date}:${point.currency}`) ?? "0")
+          : null,
+      }));
 
       const selectedRefund = query.currency
         ? actualByCurrency.find((item) => item.currency === query.currency)?.refundedAmountMinor ?? "0"
@@ -247,6 +321,7 @@ export function createCommerceRevenueStore(databaseUrl: string) {
         query,
         kpis: [...recurring, refundMetric],
         actualByCurrency,
+        series,
         source: {
           state: "partial" as const,
           ledger: "commerce.transactions",
