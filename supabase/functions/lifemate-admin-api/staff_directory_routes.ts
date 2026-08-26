@@ -3,6 +3,7 @@ import {
   requirePermission,
 } from "./authorization.ts";
 import { json } from "./http.ts";
+import { createOperationsSnapshotRouteHandler } from "./operations_snapshot_routes.ts";
 import {
   encodeStaffDirectoryCursor,
   matchStaffDetailPath,
@@ -15,6 +16,7 @@ import { ApiError } from "./validation.ts";
 export function createStaffDirectoryRouteHandler(databaseUrl: string) {
   const store = createStaffDirectoryStore(databaseUrl);
   const preferencesRouteHandler = createCommandCenterPreferencesRouteHandler(databaseUrl);
+  const operationsSnapshotRouteHandler = createOperationsSnapshotRouteHandler(databaseUrl);
 
   return async function staffDirectoryRouteHandler(input: {
     request: Request;
@@ -26,11 +28,13 @@ export function createStaffDirectoryRouteHandler(databaseUrl: string) {
   }): Promise<Response | null> {
     const { request, path, accountId, admin, correlationId, origin } = input;
 
-    // Keep the settings contract in the authenticated Admin API routing layer without
-    // exposing it to browser/direct-database access. This route handler is invoked
-    // immediately after the canonical admin snapshot is resolved in index.ts.
+    // Keep auxiliary authenticated Admin API contracts in the canonical routing layer
+    // without exposing browser/direct-database access. This handler is invoked only
+    // after the canonical admin snapshot is resolved in index.ts.
     const preferencesResponse = await preferencesRouteHandler(input);
     if (preferencesResponse) return preferencesResponse;
+    const operationsResponse = await operationsSnapshotRouteHandler(input);
+    if (operationsResponse) return operationsResponse;
 
     if (request.method === "GET" && path === "/api/v1/staff") {
       requirePermission(admin, "security.staff.manage");
