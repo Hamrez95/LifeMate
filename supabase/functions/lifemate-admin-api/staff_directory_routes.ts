@@ -4,6 +4,7 @@ import {
 } from "./authorization.ts";
 import { json } from "./http.ts";
 import { createOperationsSnapshotRouteHandler } from "./operations_snapshot_routes.ts";
+import { createRelationshipAccessGrantRouteHandler } from "./relationship_access_grant_routes.ts";
 import {
   encodeStaffDirectoryCursor,
   matchStaffDetailPath,
@@ -17,6 +18,7 @@ export function createStaffDirectoryRouteHandler(databaseUrl: string) {
   const store = createStaffDirectoryStore(databaseUrl);
   const preferencesRouteHandler = createCommandCenterPreferencesRouteHandler(databaseUrl);
   const operationsSnapshotRouteHandler = createOperationsSnapshotRouteHandler(databaseUrl);
+  const relationshipAccessGrantRouteHandler = createRelationshipAccessGrantRouteHandler(databaseUrl);
 
   return async function staffDirectoryRouteHandler(input: {
     request: Request;
@@ -35,6 +37,8 @@ export function createStaffDirectoryRouteHandler(databaseUrl: string) {
     if (preferencesResponse) return preferencesResponse;
     const operationsResponse = await operationsSnapshotRouteHandler(input);
     if (operationsResponse) return operationsResponse;
+    const accessGrantResponse = await relationshipAccessGrantRouteHandler(input);
+    if (accessGrantResponse) return accessGrantResponse;
 
     if (request.method === "GET" && path === "/api/v1/staff") {
       requirePermission(admin, "security.staff.manage");
