@@ -5,7 +5,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:lifemate_client/lifemate_client.dart';
 import 'package:provider/provider.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'core/constants/app_colors.dart';
 import 'core/constants/app_version.dart';
@@ -194,15 +193,19 @@ class CareMateApp extends StatelessWidget {
       appName: 'CareMate',
       logoAssetPath: 'assets/images/CareMateWithoutBack.png',
       authenticatedBuilder: (context, apiClient) =>
-          _AuthenticatedCareMateShell(apiClient: apiClient),
+          _AuthenticatedCareMateShell(apiClient: apiClient, config: config),
     );
   }
 }
 
 class _AuthenticatedCareMateShell extends StatefulWidget {
-  const _AuthenticatedCareMateShell({required this.apiClient});
+  const _AuthenticatedCareMateShell({
+    required this.apiClient,
+    required this.config,
+  });
 
   final LifeMateApiClient apiClient;
+  final AppConfig config;
 
   @override
   State<_AuthenticatedCareMateShell> createState() =>
@@ -221,17 +224,8 @@ class _AuthenticatedCareMateShellState
 
   @override
   Widget build(BuildContext context) {
-    final config = AppConfig.fromEnvironment();
-    final companionApi = WomenCompanionApi(
-      baseUri: config.apiBaseUri,
-      accessToken: () =>
-          Supabase.instance.client.auth.currentSession?.accessToken,
-    );
-    return MultiProvider(
-      providers: [
-        Provider<LifeMateApiClient>.value(value: widget.apiClient),
-        Provider<WomenCompanionApi>.value(value: companionApi),
-      ],
+    return Provider<LifeMateApiClient>.value(
+      value: widget.apiClient,
       child: NavigatorPopHandler<void>(
         onPop: () => _navigatorKey.currentState?.pop<void>(),
         child: Navigator(
