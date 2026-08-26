@@ -74,21 +74,34 @@ class CareHomeTreatmentItem {
   final String status;
   final Map<String, dynamic> raw;
 
-  bool get isQueueEligible =>
-      const <String>{'scheduled', 'pending'}.contains(status.toLowerCase());
+  bool get isQueueEligible => const <String>{'scheduled', 'pending'}.contains(status.toLowerCase());
+  bool get isIrrelevant => const <String>{'cancelled', 'archived', 'inactive', 'stopped'}.contains(status.toLowerCase());
+  bool get isCompleted => const <String>{'taken', 'completed'}.contains(status.toLowerCase());
+  bool get isAlert => const <String>{'missed', 'skipped'}.contains(status.toLowerCase());
+}
 
-  bool get isIrrelevant => const <String>{
-    'cancelled',
-    'archived',
-    'inactive',
-    'stopped',
-  }.contains(status.toLowerCase());
+class CareCompanionGuidanceHistory {
+  const CareCompanionGuidanceHistory({
+    required this.guidanceId,
+    required this.contentVersion,
+    required this.category,
+    required this.shownAtUtc,
+  });
 
-  bool get isCompleted =>
-      const <String>{'taken', 'completed'}.contains(status.toLowerCase());
+  final String guidanceId;
+  final String contentVersion;
+  final String category;
+  final DateTime shownAtUtc;
+}
 
-  bool get isAlert =>
-      const <String>{'missed', 'skipped'}.contains(status.toLowerCase());
+class CareCompanionSupportAction {
+  const CareCompanionSupportAction({
+    required this.actionType,
+    required this.performedAtUtc,
+  });
+
+  final String actionType;
+  final DateTime performedAtUtc;
 }
 
 class CareCompanionHomeSummary {
@@ -96,24 +109,34 @@ class CareCompanionHomeSummary {
     required this.hasPermission,
     required this.available,
     this.relationship,
+    this.phaseAllowed = false,
+    this.wellbeingAllowed = false,
     this.cycleDay,
     this.cycleLength,
     this.mood,
     this.energyLevel,
+    this.supportActions = const [],
+    this.guidanceHistory = const [],
     this.errorCode,
   });
 
   final bool hasPermission;
   final bool available;
   final CareHomeRelationship? relationship;
+  final bool phaseAllowed;
+  final bool wellbeingAllowed;
   final int? cycleDay;
   final int? cycleLength;
   final String? mood;
   final int? energyLevel;
+  final List<CareCompanionSupportAction> supportActions;
+  final List<CareCompanionGuidanceHistory> guidanceHistory;
   final String? errorCode;
 
-  factory CareCompanionHomeSummary.locked() =>
-      const CareCompanionHomeSummary(hasPermission: false, available: false);
+  factory CareCompanionHomeSummary.locked() => const CareCompanionHomeSummary(
+    hasPermission: false,
+    available: false,
+  );
 
   factory CareCompanionHomeSummary.unavailable({
     required CareHomeRelationship relationship,
@@ -131,14 +154,35 @@ class CareCompanionHomeSummary {
   }) {
     final estimate = _object(value['estimate']);
     final shared = _object(value['latestSharedDailyLog']);
+    final scopes = _object(value['privacyScopes']);
     return CareCompanionHomeSummary(
       hasPermission: true,
       available: true,
       relationship: relationship,
+      phaseAllowed: scopes['viewPhaseSummary'] == true,
+      wellbeingAllowed: scopes['viewSharedWellbeing'] == true,
       cycleDay: _intValue(estimate['cycleDay']),
       cycleLength: _intValue(estimate['cycleLength']),
       mood: _nullableText(shared['mood']),
       energyLevel: _intValue(shared['energyLevel']),
+      supportActions: _objectList(value['supportActions'])
+          .map((item) => CareCompanionSupportAction(
+                actionType: item['actionType']?.toString() ?? '',
+                performedAtUtc: DateTime.tryParse(item['performedAtUtc']?.toString() ?? '') ??
+                    DateTime.fromMillisecondsSinceEpoch(0, isUtc: true),
+              ))
+          .where((item) => item.actionType.isNotEmpty)
+          .toList(growable: false),
+      guidanceHistory: _objectList(value['guidanceHistory'])
+          .map((item) => CareCompanionGuidanceHistory(
+                guidanceId: item['guidanceId']?.toString() ?? '',
+                contentVersion: item['contentVersion']?.toString() ?? '',
+                category: item['category']?.toString() ?? '',
+                shownAtUtc: DateTime.tryParse(item['shownAtUtc']?.toString() ?? '') ??
+                    DateTime.fromMillisecondsSinceEpoch(0, isUtc: true),
+              ))
+          .where((item) => item.guidanceId.isNotEmpty)
+          .toList(growable: false),
     );
   }
 }
@@ -158,18 +202,11 @@ class CareHomeSnapshot {
   final List<CareHomeTreatmentItem> todayItems;
   final CareCompanionHomeSummary companion;
 
-  CareHomeTreatmentItem? get currentTreatment =>
-      queueItems.isEmpty ? null : queueItems.first;
-
-  CareHomeTreatmentItem? get nextTreatment =>
-      queueItems.length < 2 ? null : queueItems[1];
-
+  CareHomeTreatmentItem? get currentTreatment => queueItems.isEmpty ? null : queueItems.first;
+  CareHomeTreatmentItem? get nextTreatment => queueItems.length < 2 ? null : queueItems[1];
   int get completedToday => todayItems.where((item) => item.isCompleted).length;
-
   int get alertsToday => todayItems.where((item) => item.isAlert).length;
-
-  int get pendingToday =>
-      todayItems.where((item) => item.isQueueEligible).length;
+  int get pendingToday => todayItems.where((item) => item.isQueueEligible).length;
 }
 
 String? _nullableText(dynamic value) {
@@ -179,6 +216,10 @@ String? _nullableText(dynamic value) {
 
 Map<String, dynamic> _object(dynamic value) =>
     value is Map<String, dynamic> ? value : const <String, dynamic>{};
+
+List<Map<String, dynamic>> _objectList(dynamic value) => value is List
+    ? value.whereType<Map<String, dynamic>>().toList(growable: false)
+    : const <Map<String, dynamic>>[];
 
 int? _intValue(dynamic value) {
   if (value is int) return value;
