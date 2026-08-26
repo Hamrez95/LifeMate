@@ -1,4 +1,4 @@
-import { type EdgeSql, getEdgeSql } from "./database_client.ts";
+import { type LifeMateSql, getLifeMateSql } from "./database_client.ts";
 import { ApiError } from "./validation.ts";
 
 export type CommerceCatalogQuery = { product: string | null };
@@ -13,7 +13,7 @@ export function parseCommerceCatalogQuery(url: URL): CommerceCatalogQuery {
 }
 
 export function createCommerceCatalogStore(databaseUrl: string) {
-  const sql: EdgeSql = getEdgeSql(databaseUrl);
+  const sql: LifeMateSql = getLifeMateSql(databaseUrl);
   return {
     async published(query: CommerceCatalogQuery) {
       const products = await sql`
