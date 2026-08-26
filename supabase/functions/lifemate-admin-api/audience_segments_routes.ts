@@ -32,6 +32,7 @@ type SegmentWritePayload = {
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const KEY = /^[a-z][a-z0-9._-]{2,95}$/;
+const MIN_PREVIEW_COHORT = 10;
 
 function segmentIdFromPath(path: string): string | null {
   const match = path.match(/^\/api\/v1\/marketing\/segments\/([^/]+)$/);
@@ -159,13 +160,21 @@ export function createAudienceSegmentRouteHandler(databaseUrl: string) {
     if (request.method === "POST" && snapshotId) {
       requirePermission(admin,"marketing.segment.write");
       const idempotencyKey = requireIdempotencyKey(request);
-      return json(await store.snapshot({
+      const snapshot = await store.snapshot({
         actorAccountId:accountId,
         id:snapshotId,
         idempotencyKey,
         requestHash:await hashSnapshotRequest(snapshotId,idempotencyKey),
         correlationId,
-      }),201,origin);
+      });
+      const exactCount = Number(snapshot.memberCount);
+      const suppressed = exactCount > 0 && exactCount < MIN_PREVIEW_COHORT;
+      return json({
+        ...snapshot,
+        memberCount:suppressed ? null : exactCount,
+        suppressed,
+        minimumCohortSize:MIN_PREVIEW_COHORT,
+      },201,origin);
     }
 
     const id = segmentIdFromPath(path);
