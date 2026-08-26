@@ -452,4 +452,44 @@ void main() {
     expect(observed.url.queryParameters['toDate'], '2026-08-13');
     expect(result['doseOccurrences'], isEmpty);
   });
+  test('companion privacy client sends exact relationship-scoped contract', () async {
+    late http.Request observed;
+    final api = LifeMateApiClient(
+      baseUri: Uri.parse('https://api.example.test'),
+      accessToken: () => 'access-token',
+      httpClient: MockClient((request) async {
+        observed = request;
+        return http.Response(
+          jsonEncode({'relationshipId': 'relationship-1', 'version': 1, 'scopes': {}}),
+          200,
+          headers: {'content-type': 'application/json'},
+        );
+      }),
+    );
+
+    await api.updateWomenCompanionPrivacyScopes(
+      relationshipId: 'relationship-1',
+      version: 0,
+      scopes: const {
+        'viewPeriodTiming': false,
+        'viewPhaseSummary': true,
+        'viewSharedWellbeing': false,
+        'receiveMoodSupportNotifications': false,
+        'receivePhaseNotifications': false,
+        'viewFertilityEstimate': false,
+        'receiveFertilityNotifications': false,
+        'viewCalendarDetail': false,
+      },
+    );
+
+    expect(observed.method, 'PUT');
+    expect(
+      observed.url.path,
+      '/api/v1/women-calendar/companion-privacy/relationship-1',
+    );
+    final body = jsonDecode(observed.body) as Map<String, dynamic>;
+    expect(body['version'], 0);
+    expect((body['scopes'] as Map<String, dynamic>)['viewPhaseSummary'], isTrue);
+  });
+
 }

@@ -469,6 +469,19 @@ class LifeMateApiClient {
     query: {'fromDate': _date(fromDate), 'toDate': _date(toDate)},
   );
 
+  Future<List<Map<String, dynamic>>> getWomenCompanionPrivacyScopes() =>
+      _getList('/api/v1/women-calendar/companion-privacy');
+
+  Future<Map<String, dynamic>> updateWomenCompanionPrivacyScopes({
+    required String relationshipId,
+    required int version,
+    required Map<String, bool> scopes,
+  }) async => _asObject(await _send(
+    'PUT',
+    '/api/v1/women-calendar/companion-privacy/$relationshipId',
+    body: {'version': version, 'scopes': scopes},
+  ));
+
   Future<Map<String, dynamic>> getWomenCalendarProfile() async => _asObject(
     await _send('GET', '/api/v1/women-calendar/profile', retryable: true),
   );
