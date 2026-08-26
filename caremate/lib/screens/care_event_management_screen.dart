@@ -490,6 +490,7 @@ class _CareEventManagementScreenState extends State<CareEventManagementScreen> {
             scheduledLocalDate: draft.date,
             scheduledLocalTime: draft.time,
             timeZone: 'Asia/Tehran',
+            recurrence: draft.recurrence,
           );
         },
         successTitle: eventType == 'injection'
@@ -544,6 +545,7 @@ class _CareEventManagementScreenState extends State<CareEventManagementScreen> {
           scheduledLocalDate: draft.date,
           scheduledLocalTime: draft.time,
           timeZone: event['timeZone']?.toString() ?? 'Asia/Tehran',
+          recurrence: draft.recurrence,
           patientReminderMinutesBefore: _asInt(
             event['patientReminderMinutesBefore'],
             LifeMateReminderLeadTimes.defaultPatientMinutes,
