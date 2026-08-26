@@ -101,9 +101,22 @@ alter table platform.controls force row level security;
 alter table platform.control_rules force row level security;
 alter table platform.control_history force row level security;
 alter table platform.control_rule_history force row level security;
+
+drop policy if exists lifemate_admin_runtime_select on platform.controls;
+create policy lifemate_admin_runtime_select
+on platform.controls for select to lifemate_admin_runtime
+using (true);
+
+drop policy if exists lifemate_admin_runtime_select on platform.control_rules;
+create policy lifemate_admin_runtime_select
+on platform.control_rules for select to lifemate_admin_runtime
+using (true);
+
 revoke all on schema platform from public, anon, authenticated;
 revoke all on all tables in schema platform from public, anon, authenticated;
 revoke all on all functions in schema platform from public, anon, authenticated;
+grant usage on schema platform to lifemate_admin_runtime;
+grant select on platform.controls, platform.control_rules to lifemate_admin_runtime;
 
 insert into admin.permissions(code,domain,risk_level,role_assignable,description) values
 ('platform.config.read','platform','STANDARD',true,'Read canonical Remote Config and Feature Flag definitions and evaluation metadata'),
