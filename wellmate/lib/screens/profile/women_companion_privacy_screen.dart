@@ -60,6 +60,17 @@ class _WomenCompanionPrivacyScreenState extends State<WomenCompanionPrivacyScree
           value: _scopes[entry.key] ?? false, onChanged: _saving ? null : (value) => setState(() => _scopes[entry.key] = value)),
         if (_error != null) Padding(padding: const EdgeInsets.only(top: 10), child: Text(_error!, style: const TextStyle(color: Colors.red))),
         const SizedBox(height: 12),
+        OutlinedButton.icon(
+          key: const ValueKey('disable-all-companion-privacy'),
+          onPressed: _saving
+              ? null
+              : () => setState(() {
+                    _scopes = {for (final key in _keys) key: false};
+                  }),
+          icon: const Icon(Icons.visibility_off_rounded),
+          label: const Text('قطع همه دسترسی‌های این بخش'),
+        ),
+        const SizedBox(height: 8),
         FilledButton.icon(key: const ValueKey('save-companion-privacy'), onPressed: _saving ? null : _save, icon: const Icon(Icons.save_rounded), label: Text(_saving ? 'در حال ذخیره…' : 'ذخیره')),
       ]),
   );
