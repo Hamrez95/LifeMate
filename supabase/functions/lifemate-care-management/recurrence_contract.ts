@@ -10,10 +10,7 @@ export type CareRecurrenceRule = {
 
 type ErrorFactory = (status: number, code: string, message: string) => Error;
 
-export function normalizeCareRecurrence(
-  value: unknown,
-  error: ErrorFactory,
-): CareRecurrenceRule | null {
+export function normalizeCareRecurrence(value: unknown, error: ErrorFactory): CareRecurrenceRule | null {
   if (value == null) return null;
   if (typeof value !== "object" || Array.isArray(value)) {
     throw error(400, "invalid_recurrence", "recurrence must be an object.");
@@ -24,18 +21,12 @@ export function normalizeCareRecurrence(
   if (!["hour", "day", "week", "month", "year"].includes(unit)) {
     throw error(400, "invalid_recurrence_unit", "Unsupported recurrence unit.");
   }
-  const maxInterval = unit === "hour" ? 8760 : 365;
-  const interval = integer(record.interval ?? 1, 1, maxInterval, "recurrence_interval", error);
+  const interval = integer(record.interval ?? 1, 1, unit === "hour" ? 8760 : 365, "recurrence_interval", error);
   const rawWeekdays = record.weekdays ?? [];
-  if (!Array.isArray(rawWeekdays)) {
-    throw error(400, "invalid_recurrence_weekdays", "weekdays must be an array.");
-  }
-  const weekdays = [...new Set(rawWeekdays.map((day) =>
-    integer(day, 1, 7, "recurrence_weekday", error)
-  ))].sort((a, b) => a - b);
-  if (unit !== "week" && weekdays.length > 0) {
-    throw error(400, "invalid_recurrence_weekdays", "Weekdays are only valid for weekly recurrence.");
-  }
+  if (!Array.isArray(rawWeekdays)) throw error(400, "invalid_recurrence_weekdays", "weekdays must be an array.");
+  const weekdays = [...new Set(rawWeekdays.map((day) => integer(day, 1, 7, "recurrence_weekday", error)))].sort((a, b) => a - b);
+  if (unit !== "week" && weekdays.length > 0) throw error(400, "invalid_recurrence_weekdays", "Weekdays are only valid for weekly recurrence.");
+
   const rawEnd = record.endAt ?? record.endDate;
   let endAt: string | null = null;
   if (rawEnd != null && String(rawEnd).trim() !== "") {
@@ -55,16 +46,11 @@ export function normalizeCareRecurrence(
     interval,
     weekdays,
     endAt,
-    maxOccurrences: record.maxOccurrences == null
-      ? null
-      : integer(record.maxOccurrences, 1, 10000, "recurrence_max_occurrences", error),
+    maxOccurrences: record.maxOccurrences == null ? null : integer(record.maxOccurrences, 1, 10000, "recurrence_max_occurrences", error),
   };
 }
 
-export function normalizeCareRecurrenceStartTime(
-  value: unknown,
-  error: ErrorFactory,
-): string {
+export function normalizeCareRecurrenceStartTime(value: unknown, error: ErrorFactory): string {
   const match = /^(\d{2}):(\d{2})(?::(\d{2}))?$/.exec(String(value ?? "").trim());
   if (!match || Number(match[1]) > 23 || Number(match[2]) > 59 || Number(match[3] ?? 0) > 59) {
     throw error(400, "invalid_recurrenceStartLocalTime", "recurrenceStartLocalTime must use HH:mm.");
@@ -87,17 +73,22 @@ export function recurrencePublicValue(rule: CareRecurrenceRule | null): Record<s
 
 function integer(value: unknown, min: number, max: number, field: string, error: ErrorFactory): number {
   const parsed = Number(value);
-  if (!Number.isInteger(parsed) || parsed < min || parsed > max) {
-    throw error(400, `invalid_${field}`, `${field} is outside the supported range.`);
-  }
+  if (!Number.isInteger(parsed) || parsed < min || parsed > max) throw error(400, `invalid_${field}`, `${field} is outside the supported range.`);
   return parsed;
 }
 
 function validateLocalTimestamp(value: string, error: ErrorFactory): void {
   const match = /^(\d{4})-(\d{2})-(\d{2})(?:[T ](\d{2}):(\d{2})(?::(\d{2}))?)?$/.exec(value);
   if (!match) throw error(400, "invalid_recurrence_end", "Invalid recurrence end date/time.");
-  const date = new Date(Date.UTC(Number(match[1]), Number(match[2]) - 1, Number(match[3]), Number(match[4] ?? 0), Number(match[5] ?? 0), Number(match[6] ?? 0)));
-  if (date.getUTCFullYear() !== Number(match[1]) || date.getUTCMonth() !== Number(match[2]) - 1 || date.getUTCDate() !== Number(match[3])) {
+  const year = Number(match[1]);
+  const month = Number(match[2]);
+  const day = Number(match[3]);
+  const hour = Number(match[4] ?? 0);
+  const minute = Number(match[5] ?? 0);
+  const second = Number(match[6] ?? 0);
+  if (hour > 23 || minute > 59 || second > 59) throw error(400, "invalid_recurrence_end", "Invalid recurrence end date/time.");
+  const date = new Date(Date.UTC(year, month - 1, day, hour, minute, second));
+  if (date.getUTCFullYear() !== year || date.getUTCMonth() !== month - 1 || date.getUTCDate() !== day || date.getUTCHours() !== hour || date.getUTCMinutes() !== minute || date.getUTCSeconds() !== second) {
     throw error(400, "invalid_recurrence_end", "Invalid recurrence end date/time.");
   }
 }
