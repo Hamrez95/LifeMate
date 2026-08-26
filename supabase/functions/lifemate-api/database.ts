@@ -14,6 +14,10 @@ import { createPersonMedicationStore } from "./person_medications.ts";
 import { createPersonTreatmentPlanStore } from "./person_treatment_plans.ts";
 import { createPhoneCareInvitationStore } from "./phone_care_invitation.ts";
 import { createProfileStore } from "./profile.ts";
+import {
+  createPrivacyPreferenceStore,
+  parseLegalAcceptances,
+} from "./privacy_preferences.ts";
 import { createRawContactRetirementBootstrapStore } from "./raw_contact_retirement_bootstrap.ts";
 import { ApiError } from "./validation.ts";
 
@@ -46,6 +50,7 @@ export function createLifeMateDatabase(
     contactHashingSecret,
   );
   const profiles = createProfileStore(databaseUrl, contactHashingSecret);
+  const privacyPreferences = createPrivacyPreferenceStore(databaseUrl);
   const rawContactRetirement = rawContactRetirementEnabled();
   const retirementBootstrap = rawContactRetirement
     ? createRawContactRetirementBootstrapStore(
@@ -71,14 +76,44 @@ export function createLifeMateDatabase(
     };
   }
 
+  function bootstrappedAppUserId(
+    value: Record<string, unknown>,
+  ): string | null {
+    if (typeof value.id === "string") return value.id;
+    if (value.user && typeof value.user === "object") {
+      const id = (value.user as Record<string, unknown>).id;
+      if (typeof id === "string") return id;
+    }
+    return null;
+  }
+
   async function bootstrapUser(
     auth: Parameters<typeof database.bootstrapUser>[0],
     body: Parameters<typeof database.bootstrapUser>[1],
   ): Promise<Record<string, unknown>> {
+    if (body.registrationPreflight === true) {
+      return {
+        registration: {
+          completed: false,
+          requiredDocuments: await privacyPreferences.legalRequirements(),
+        },
+      };
+    }
+
+    const acceptances = parseLegalAcceptances(body.legalAcceptances);
+    await privacyPreferences.assertAcceptancesCurrent(acceptances);
+    const bootstrapBody = { ...body };
+    delete bootstrapBody.legalAcceptances;
+    delete bootstrapBody.registrationPreflight;
+
     if (identityResolver.lookupMode === "token-only") {
       try {
         const identity = await identityResolver.requireIdentity(auth);
-        return await currentUser(identity);
+        const registration = await privacyPreferences.finalizeRegistration(
+          identity.appUserId,
+          acceptances,
+        );
+        return { ...(await currentUser(identity)), registration };
       } catch (error) {
         if (
           !(error instanceof ApiError) ||
@@ -89,14 +124,39 @@ export function createLifeMateDatabase(
         }
       }
     }
+
+    let bootstrapped: Record<string, unknown>;
     if (rawContactRetirement) {
       if (!retirementBootstrap) {
         throw new Error("raw_contact_retirement_bootstrap_unavailable");
       }
-      const appUserId = await retirementBootstrap.bootstrapUser(auth, body);
-      return await currentUser({ auth, appUserId });
+      const appUserId = await retirementBootstrap.bootstrapUser(auth, bootstrapBody);
+      bootstrapped = await currentUser({ auth, appUserId });
+    } else {
+      bootstrapped = await database.bootstrapUser(auth, bootstrapBody);
     }
-    return await database.bootstrapUser(auth, body);
+
+    const appUserId = bootstrappedAppUserId(bootstrapped);
+    if (!appUserId) {
+      throw new ApiError(
+        503,
+        "registration_identity_unavailable",
+        "Registration identity is unavailable.",
+      );
+    }
+    const registration = await privacyPreferences.finalizeRegistration(
+      appUserId,
+      acceptances,
+    );
+    return { ...bootstrapped, registration };
+  }
+
+  async function requireIdentity(
+    auth: Parameters<typeof identityResolver.requireIdentity>[0],
+  ) {
+    const identity = await identityResolver.requireIdentity(auth);
+    await privacyPreferences.requireRegistrationComplete(identity.appUserId);
+    return identity;
   }
 
   async function listRelationships(
@@ -122,7 +182,7 @@ export function createLifeMateDatabase(
   return {
     ...database,
     bootstrapUser,
-    requireIdentity: identityResolver.requireIdentity,
+    requireIdentity,
     identityLookupMode: identityResolver.lookupMode,
     currentUser,
     createMedication: personMedications.createMedication,
