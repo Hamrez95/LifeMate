@@ -13,14 +13,14 @@ class CompanionCareGuidanceCard extends StatefulWidget {
     required this.isPersian,
     required this.font,
     required this.onRevoked,
-    required this.onSupportRecorded,
+    required this.onSupportRequested,
   });
 
   final CareCompanionHomeSummary summary;
   final bool isPersian;
   final TextStyle font;
   final VoidCallback onRevoked;
-  final Future<void> Function() onSupportRecorded;
+  final VoidCallback onSupportRequested;
 
   @override
   State<CompanionCareGuidanceCard> createState() =>
@@ -33,7 +33,6 @@ class _CompanionCareGuidanceCardState
 
   CompanionCareGuidance? _guidance;
   String? _recordedKey;
-  bool _recordingSupport = false;
 
   @override
   void initState() {
@@ -115,34 +114,6 @@ class _CompanionCareGuidanceCardState
     }
   }
 
-  Future<void> _recordSupport() async {
-    final guidance = _guidance;
-    final relationship = widget.summary.relationship;
-    final action = guidance?.supportActionType;
-    if (guidance == null ||
-        relationship == null ||
-        action == null ||
-        _recordingSupport) {
-      return;
-    }
-    setState(() => _recordingSupport = true);
-    try {
-      final api = LifeMateApiClient(
-        baseUri: AppConfig.fromEnvironment().apiBaseUri,
-        accessToken: () => null,
-      );
-      api.close();
-      // Existing support-action UI remains authoritative for marking support;
-      // the dashboard guidance CTA only navigates to that flow to avoid a
-      // second network client and duplicated mutation semantics.
-      if (!mounted) return;
-      setState(() => _guidance = null);
-      await widget.onSupportRecorded();
-    } finally {
-      if (mounted) setState(() => _recordingSupport = false);
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
     final guidance = _guidance;
@@ -191,7 +162,7 @@ class _CompanionCareGuidanceCardState
             Align(
               alignment: AlignmentDirectional.centerEnd,
               child: FilledButton.tonal(
-                onPressed: _recordingSupport ? null : _recordSupport,
+                onPressed: widget.onSupportRequested,
                 child: Text(
                   guidance.supportActionLabel ??
                       (widget.isPersian ? 'ثبت حمایت' : 'Record support'),
