@@ -4,10 +4,24 @@
 -- 'recurrence'; the existing occurrence uniqueness key therefore remains valid.
 
 alter table lifemate.treatment_plans
-  add column if not exists recurrence_rule jsonb null;
+  add column if not exists recurrence_rule jsonb null,
+  add column if not exists recurrence_start_local_time time without time zone null;
 
 do $$
 begin
+  if not exists (
+    select 1 from pg_constraint
+    where conname = 'treatment_plans_recurrence_pair_check'
+      and conrelid = 'lifemate.treatment_plans'::regclass
+  ) then
+    alter table lifemate.treatment_plans
+      add constraint treatment_plans_recurrence_pair_check
+      check (
+        (recurrence_rule is null and recurrence_start_local_time is null)
+        or (recurrence_rule is not null and recurrence_start_local_time is not null)
+      );
+  end if;
+
   if not exists (
     select 1 from pg_constraint
     where conname = 'treatment_plans_recurrence_rule_check'
