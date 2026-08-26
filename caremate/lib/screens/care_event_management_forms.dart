@@ -19,6 +19,8 @@ class _MedicationFormSheetState extends State<_MedicationFormSheet> {
   DateTime? _endDate;
   late TimeOfDay _time;
   late Set<String> _weekdays;
+  bool _recurrenceEnabled = false;
+  int _recurrenceHours = 6;
 
   static final _days = <(String, String)>[
     (
@@ -107,6 +109,11 @@ class _MedicationFormSheetState extends State<_MedicationFormSheet> {
       hour: int.tryParse(parts.first) ?? 8,
       minute: parts.length > 1 ? int.tryParse(parts[1]) ?? 0 : 0,
     );
+    final recurrence = plan?['recurrence'];
+    if (recurrence is Map && recurrence['enabled'] == true && recurrence['unit']?.toString() == 'hour') {
+      _recurrenceEnabled = true;
+      _recurrenceHours = int.tryParse('${recurrence['interval']}') ?? 6;
+    }
   }
 
   @override
@@ -299,7 +306,23 @@ class _MedicationFormSheetState extends State<_MedicationFormSheet> {
                       icon: Icon(Icons.close_rounded),
                     ),
             ),
-            SizedBox(height: 18),
+            SwitchListTile.adaptive(
+              key: const ValueKey('caremate-medication-recurrence-enabled'),
+              contentPadding: EdgeInsets.zero,
+              title: Text(LifeMateRuntimeLocale.select(fa: 'تکرار دوره‌ای دارو', en: 'Recurring medication')),
+              subtitle: Text(LifeMateRuntimeLocale.select(fa: 'مثال: هر ۶ ساعت از زمان شروع', en: 'Example: every 6 hours from the start time')),
+              value: _recurrenceEnabled,
+              onChanged: (value) => setState(() => _recurrenceEnabled = value),
+            ),
+            if (_recurrenceEnabled)
+              TextFormField(
+                key: const ValueKey('caremate-medication-recurrence-hours'),
+                initialValue: _recurrenceHours.toString(),
+                keyboardType: TextInputType.number,
+                decoration: InputDecoration(labelText: LifeMateRuntimeLocale.select(fa: 'هر چند ساعت', en: 'Every how many hours')),
+                onChanged: (value) { final parsed = int.tryParse(value.trim()); if (parsed != null && parsed > 0) _recurrenceHours = parsed; },
+              ),
+                        SizedBox(height: 18),
             SizedBox(
               width: double.infinity,
               child: FilledButton.icon(
@@ -383,9 +406,13 @@ class _MedicationFormSheetState extends State<_MedicationFormSheet> {
         instructions: _empty(_instructions.text),
         startDate: _startDate,
         endDate: _endDate,
-        schedules: _weekdays
+        schedules: _recurrenceEnabled ? const [] : _weekdays
             .map((day) => {'dayOfWeek': day, 'localTime': time})
             .toList(growable: false),
+        recurrence: _recurrenceEnabled
+            ? RecurrenceRule(enabled: true, unit: RecurrenceUnit.hour, interval: _recurrenceHours)
+            : const RecurrenceRule.none(),
+        recurrenceStartLocalTime: time,
       ),
     );
   }
@@ -979,6 +1006,8 @@ class _MedicationDraft {
     required this.startDate,
     required this.endDate,
     required this.schedules,
+    required this.recurrence,
+    required this.recurrenceStartLocalTime,
   });
 
   final String medicationName;
@@ -989,6 +1018,8 @@ class _MedicationDraft {
   final DateTime startDate;
   final DateTime? endDate;
   final List<Map<String, String>> schedules;
+  final RecurrenceRule recurrence;
+  final String recurrenceStartLocalTime;
 }
 
 class _CareEventDraft {
