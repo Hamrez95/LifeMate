@@ -43,7 +43,7 @@ create table if not exists audience.segment_snapshots (
 
 create table if not exists audience.segment_snapshot_members (
   snapshot_id uuid not null references audience.segment_snapshots(id) on delete cascade,
-  account_id uuid not null references identity.accounts(id),
+  account_id uuid not null,
   person_id uuid,
   primary key (snapshot_id, account_id)
 );
@@ -132,6 +132,6 @@ on conflict do nothing;
 
 comment on schema audience is 'Reusable non-clinical audience segmentation definitions and immutable execution snapshots.';
 comment on table audience.segments is 'Versioned reusable segment rules. Raw health/medication/treatment/women-health attributes are forbidden by the API rule DSL.';
-comment on table audience.segment_snapshot_members is 'Internal immutable execution membership. Not exposed to browser roles or general-purpose export APIs.';
+comment on table audience.segment_snapshot_members is 'Internal immutable execution membership. Account/person UUIDs are retained as opaque execution evidence without foreign keys so account deletion is never blocked. Not exposed to browser roles or general-purpose export APIs.';
 
 commit;
