@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:lifemate_client/lifemate_client.dart';
 import 'package:provider/provider.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'core/constants/app_colors.dart';
 import 'core/constants/app_version.dart';
@@ -220,8 +221,17 @@ class _AuthenticatedCareMateShellState
 
   @override
   Widget build(BuildContext context) {
-    return Provider<LifeMateApiClient>.value(
-      value: widget.apiClient,
+    final config = AppConfig.fromEnvironment();
+    final companionApi = WomenCompanionApi(
+      baseUri: config.apiBaseUri,
+      accessToken: () =>
+          Supabase.instance.client.auth.currentSession?.accessToken,
+    );
+    return MultiProvider(
+      providers: [
+        Provider<LifeMateApiClient>.value(value: widget.apiClient),
+        Provider<WomenCompanionApi>.value(value: companionApi),
+      ],
       child: NavigatorPopHandler<void>(
         onPop: () => _navigatorKey.currentState?.pop<void>(),
         child: Navigator(
