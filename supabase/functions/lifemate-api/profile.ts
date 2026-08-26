@@ -4,6 +4,10 @@ import {
 } from "./contact_points.ts";
 import { getLifeMateSql } from "./database_client.ts";
 import {
+  createPrivacyPreferenceStore,
+  parsePrivacyPreferencePayload,
+} from "./privacy_preferences.ts";
+import {
   ApiError,
   normalizeOptional,
   requiredPositiveInt,
@@ -80,6 +84,7 @@ export function createProfileStore(
   const sql = getLifeMateSql(databaseUrl);
   const contactPoints = createContactPointWriter(contactHashingSecret);
   const contactReader = createContactPointReader();
+  const privacyPreferences = createPrivacyPreferenceStore(databaseUrl);
   let versionColumnPromise: Promise<boolean> | null = null;
   let photoColumnPromise: Promise<boolean> | null = null;
 
@@ -252,7 +257,10 @@ export function createProfileStore(
       "Email",
       legacyEmail,
     );
-    return mapProfile({ ...row, phone_number: phoneNumber, email });
+    return {
+      ...mapProfile({ ...row, phone_number: phoneNumber, email }),
+      privacyPreferences: await privacyPreferences.preferences(userId),
+    };
   }
 
   async function updateProfile(
@@ -260,6 +268,23 @@ export function createProfileStore(
     auth: ProfileAuthSnapshot,
     body: Record<string, unknown>,
   ): Promise<Record<string, unknown>> {
+    if (Object.hasOwn(body, "privacyPreference")) {
+      if (Object.keys(body).length !== 1) {
+        throw new ApiError(
+          400,
+          "profile_patch_mixed_contracts",
+          "Profile fields and privacy preferences must be updated separately.",
+        );
+      }
+      const preference = parsePrivacyPreferencePayload(body.privacyPreference);
+      await privacyPreferences.setPreference(
+        userId,
+        preference.purpose,
+        preference.enabled,
+      );
+      return await getProfile(userId);
+    }
+
     const patch = normalizeProfilePatch(body);
     const usesVersionColumn = await hasVersionColumn();
     const rawPhone = contactReader.rawRetirementEnabled
@@ -380,10 +405,13 @@ export function createProfileStore(
           (${crypto.randomUUID()}, ${userId}, 'profile.updated',
            'user_profile', ${compatibilityRows[0].id}, null, now())
       `;
-      return mapProfile({
-        ...compatibilityRows[0],
-        ...personRows[0],
-      });
+      return {
+        ...mapProfile({
+          ...compatibilityRows[0],
+          ...personRows[0],
+        }),
+        privacyPreferences: await privacyPreferences.preferences(userId),
+      };
     });
   }
 
