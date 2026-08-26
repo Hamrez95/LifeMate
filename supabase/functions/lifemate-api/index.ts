@@ -294,6 +294,10 @@ async function route(
     );
     const deletion = await accountLifecycle.requestDeletion(identity.appUserId);
 
+    // The database account is disabled synchronously, so subsequent API calls
+    // are denied even if a short-lived JWT still exists. Global logout is an
+    // additional best-effort session invalidation; the outbox worker is the
+    // durable path. Never log the Authorization header.
     const authorizationHeader = request.headers.get("authorization");
     if (authorizationHeader) {
       await fetch(`${supabaseUrl}/auth/v1/logout?scope=global`, {
@@ -312,6 +316,8 @@ async function route(
     const url = new URL(request.url);
     const fromDate = url.searchParams.get("fromDate");
     const toDate = url.searchParams.get("toDate");
+    // Keep these reads sequential. Every store shares one bounded SQL client,
+    // so one app screen consumes one database connection rather than a fan-out.
     const currentUser = await db.currentUser(identity);
     const treatmentPlans = await db.listTreatmentPlans(identity.appUserId);
     const doseOccurrences = await db.listDoseOccurrences(
@@ -432,7 +438,6 @@ async function route(
     }
     return json(await presentProfile(identity.appUserId));
   }
-
   if (request.method === "GET" && path === "/api/v1/health/observations") {
     const url = new URL(request.url);
     return json(
@@ -740,31 +745,6 @@ async function route(
       await womenCalendar.recordCareSupportAction(
         identity.appUserId,
         careWomenSupportMatch[1],
-        await readJsonObject(request),
-      ),
-      201,
-    );
-  }
-  const careWomenGuidanceMatch = path.match(
-    /^\/api\/v1\/care\/patients\/([0-9a-f-]{36})\/women-calendar\/guidance-impressions$/i,
-  );
-  if (request.method === "POST" && careWomenGuidanceMatch) {
-    requireWomenCalendarPilot();
-    await authorizationStore.requirePersonFeature(
-      identity.appUserId,
-      careWomenGuidanceMatch[1],
-      "women_health.summary.read",
-      "care.basic",
-    );
-    enforceRateLimit(
-      `women-calendar-guidance:${identity.appUserId}`,
-      20,
-      60 * 60_000,
-    );
-    return json(
-      await womenCalendar.recordCareGuidanceImpression(
-        identity.appUserId,
-        careWomenGuidanceMatch[1],
         await readJsonObject(request),
       ),
       201,
