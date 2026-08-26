@@ -33,14 +33,7 @@ class CareHomeAggregator {
         )
         .toList(growable: false);
 
-    final startOfToday = DateTime(
-      reference.year,
-      reference.month,
-      reference.day,
-    );
-    // Keep a short look-back so a still-scheduled overdue dose cannot silently
-    // disappear from the caregiver queue. The complete request window remains
-    // bounded to 31 days for the existing care-event contract.
+    final startOfToday = DateTime(reference.year, reference.month, reference.day);
     final fromDate = startOfToday.subtract(const Duration(days: 7));
     final toDate = startOfToday.add(const Duration(days: 23));
     final dosesByPatient = <String, List<Map<String, dynamic>>>{};
@@ -60,10 +53,8 @@ class CareHomeAggregator {
             toDate: toDate,
           ),
         ]);
-        dosesByPatient[relationship.patientUserId] =
-            values[0] as List<Map<String, dynamic>>;
-        eventsByPatient[relationship.patientUserId] =
-            values[1] as List<Map<String, dynamic>>;
+        dosesByPatient[relationship.patientUserId] = values[0] as List<Map<String, dynamic>>;
+        eventsByPatient[relationship.patientUserId] = values[1] as List<Map<String, dynamic>>;
       }),
     );
 
@@ -81,39 +72,32 @@ class CareHomeAggregator {
   Future<CareCompanionHomeSummary> _loadCompanion(
     List<CareHomeRelationship> relationships,
   ) async {
-    CareHomeRelationship? relationship;
-    for (final candidate in relationships) {
-      if (candidate.canViewWomenCalendar) {
-        relationship = candidate;
-        break;
+    CareCompanionHomeSummary? unavailable;
+    for (final relationship in relationships) {
+      try {
+        final value = await _api.getCareRecipientWomenCalendar(
+          patientUserId: relationship.patientUserId,
+        );
+        return CareCompanionHomeSummary.fromApi(
+          relationship: relationship,
+          value: value,
+        );
+      } on LifeMateApiException catch (error) {
+        if (error.code == 'women_calendar_access_denied') {
+          continue;
+        }
+        unavailable ??= CareCompanionHomeSummary.unavailable(
+          relationship: relationship,
+          errorCode: error.code,
+        );
+      } catch (_) {
+        unavailable ??= CareCompanionHomeSummary.unavailable(
+          relationship: relationship,
+          errorCode: 'companion_summary_unavailable',
+        );
       }
     }
-    if (relationship == null) return CareCompanionHomeSummary.locked();
-
-    try {
-      final value = await _api.getCareRecipientWomenCalendar(
-        patientUserId: relationship.patientUserId,
-      );
-      return CareCompanionHomeSummary.fromApi(
-        relationship: relationship,
-        value: value,
-      );
-    } on LifeMateApiException catch (error) {
-      if (error.code == 'women_calendar_access_denied') {
-        // Permission may have been revoked between relationship and summary
-        // reads. Fail closed and discard every previously assumed field.
-        return CareCompanionHomeSummary.locked();
-      }
-      return CareCompanionHomeSummary.unavailable(
-        relationship: relationship,
-        errorCode: error.code,
-      );
-    } catch (_) {
-      return CareCompanionHomeSummary.unavailable(
-        relationship: relationship,
-        errorCode: 'companion_summary_unavailable',
-      );
-    }
+    return unavailable ?? CareCompanionHomeSummary.locked();
   }
 
   static CareHomeSnapshot buildSnapshot({
@@ -142,9 +126,7 @@ class CareHomeAggregator {
         .where((item) => item.isQueueEligible && !item.isIrrelevant)
         .toList(growable: false);
     final today = allItems
-        .where(
-          (item) => !item.isIrrelevant && _isSameDay(item.scheduledAt, now),
-        )
+        .where((item) => !item.isIrrelevant && _isSameDay(item.scheduledAt, now))
         .toList(growable: false);
     _sortBySchedule(queue);
     _sortBySchedule(today);
@@ -164,12 +146,10 @@ class CareHomeAggregator {
   ) {
     final scheduledAt = _scheduledAt(dose);
     if (scheduledAt == null) return null;
-    final title =
-        _text(dose['medicationName']) ??
-        LifeMateRuntimeLocale.select(
-          fa: LifeMateRuntimeLocale.select(fa: 'دارو', en: "Medication"),
-          en: "medicine",
-        );
+    final title = _text(dose['medicationName']) ?? LifeMateRuntimeLocale.select(
+      fa: LifeMateRuntimeLocale.select(fa: 'دارو', en: "Medication"),
+      en: "medicine",
+    );
     return CareHomeTreatmentItem(
       relationshipId: relationship.relationshipId,
       patientUserId: relationship.patientUserId,
@@ -196,20 +176,10 @@ class CareHomeAggregator {
     if (scheduledAt == null) return null;
     final careItem = CareItem.fromCareEvent(event);
     final isInjection = careItem.type == CareItemType.injection;
-    final title = isInjection
-        ? _text(event['medicationName']) ?? careItem.title
-        : careItem.title;
+    final title = isInjection ? _text(event['medicationName']) ?? careItem.title : careItem.title;
     final subtitleValues = isInjection
-        ? <dynamic>[
-            event['doseText'],
-            event['administrationRoute'],
-            event['centerName'],
-          ]
-        : <dynamic>[
-            event['providerName'],
-            event['specialty'],
-            event['centerName'],
-          ];
+        ? <dynamic>[event['doseText'], event['administrationRoute'], event['centerName']]
+        : <dynamic>[event['providerName'], event['specialty'], event['centerName']];
     return CareHomeTreatmentItem(
       relationshipId: relationship.relationshipId,
       patientUserId: relationship.patientUserId,
@@ -217,16 +187,10 @@ class CareHomeAggregator {
       patientProfilePhotoUrl: relationship.patientProfilePhotoUrl,
       patientAvatarKey: relationship.patientAvatarKey,
       type: careItem.type,
-      treatmentId:
-          _text(event['seriesId']) ?? _text(event['id']) ?? careItem.id,
-      occurrenceId:
-          _text(event['occurrenceId']) ?? _text(event['id']) ?? careItem.id,
+      treatmentId: _text(event['seriesId']) ?? _text(event['id']) ?? careItem.id,
+      occurrenceId: _text(event['occurrenceId']) ?? _text(event['id']) ?? careItem.id,
       title: title,
-      subtitle: subtitleValues
-          .map(_text)
-          .whereType<String>()
-          .where((value) => value.isNotEmpty)
-          .join(' • '),
+      subtitle: subtitleValues.map(_text).whereType<String>().where((value) => value.isNotEmpty).join(' • '),
       scheduledAt: scheduledAt,
       scheduledLocalTime: _timeText(event['scheduledLocalTime'], scheduledAt),
       status: (_text(event['status']) ?? 'scheduled').toLowerCase(),
@@ -250,8 +214,7 @@ class CareHomeAggregator {
   static String _timeText(dynamic value, DateTime fallback) {
     final text = _text(value);
     if (text != null && text.length >= 5) return text.substring(0, 5);
-    return '${fallback.hour.toString().padLeft(2, '0')}:'
-        '${fallback.minute.toString().padLeft(2, '0')}';
+    return '${fallback.hour.toString().padLeft(2, '0')}:${fallback.minute.toString().padLeft(2, '0')}';
   }
 
   static void _sortBySchedule(List<CareHomeTreatmentItem> items) {
@@ -265,9 +228,7 @@ class CareHomeAggregator {
   }
 
   static bool _isSameDay(DateTime left, DateTime right) =>
-      left.year == right.year &&
-      left.month == right.month &&
-      left.day == right.day;
+      left.year == right.year && left.month == right.month && left.day == right.day;
 
   static String? _text(dynamic value) {
     final text = value?.toString().trim();
