@@ -104,6 +104,51 @@ void main() {
     },
   );
 
+  test('guidance impression sends identifiers only', () async {
+    late http.Request observed;
+    final api = WomenCompanionApi(
+      baseUri: Uri.parse('https://api.example.test'),
+      accessToken: () => 'access-token',
+      httpClient: MockClient((request) async {
+        observed = request;
+        return http.Response(
+          jsonEncode({
+            'id': 'history-1',
+            'guidanceId': 'energy.give_space',
+            'contentVersion': 'companion-care-v1',
+            'category': 'energy',
+            'shownAtUtc': '2026-08-26T16:00:00.000Z',
+          }),
+          201,
+          headers: {'content-type': 'application/json'},
+        );
+      }),
+    );
+
+    await api.recordGuidanceImpression(
+      patientUserId: 'patient-id',
+      guidanceId: ' energy.give_space ',
+      contentVersion: ' companion-care-v1 ',
+      category: ' ENERGY ',
+    );
+
+    expect(observed.method, 'POST');
+    expect(
+      observed.url.path,
+      '/api/v1/care/patients/patient-id/women-calendar/guidance-impressions',
+    );
+    expect(observed.headers['authorization'], 'Bearer access-token');
+    expect(observed.headers['idempotency-key'], isNotEmpty);
+    expect(jsonDecode(observed.body), {
+      'guidanceId': 'energy.give_space',
+      'contentVersion': 'companion-care-v1',
+      'category': 'energy',
+    });
+    expect(observed.body, isNot(contains('mood')));
+    expect(observed.body, isNot(contains('privateNotes')));
+    expect(observed.body, isNot(contains('symptoms')));
+  });
+
   test('daily log lost-response retry reuses one idempotency key', () async {
     var attempts = 0;
     final idempotencyKeys = <String?>[];
