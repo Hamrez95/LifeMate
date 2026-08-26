@@ -343,6 +343,8 @@ class _CareEventManagementScreenState extends State<CareEventManagementScreen> {
             endDate: draft.endDate,
             timeZone: 'Asia/Tehran',
             schedules: draft.schedules,
+            recurrence: draft.recurrence,
+            recurrenceStartLocalTime: draft.recurrenceStartLocalTime,
           );
         },
         successTitle: LifeMateRuntimeLocale.select(
@@ -382,6 +384,8 @@ class _CareEventManagementScreenState extends State<CareEventManagementScreen> {
           endDate: draft.endDate,
           timeZone: plan['timeZone']?.toString() ?? 'Asia/Tehran',
           schedules: draft.schedules,
+          recurrence: draft.recurrence,
+          recurrenceStartLocalTime: draft.recurrenceStartLocalTime,
           patientReminderMinutesBefore: _asInt(
             plan['patientReminderMinutesBefore'],
             LifeMateReminderLeadTimes.defaultPatientMinutes,
