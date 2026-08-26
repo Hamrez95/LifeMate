@@ -2,7 +2,6 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:lifemate_client/lifemate_client.dart';
-import 'package:provider/provider.dart';
 
 import '../models/care_home_snapshot.dart';
 import '../services/companion_care_engine.dart';
@@ -50,7 +49,9 @@ class _CompanionCareGuidanceCardState
 
   void _reselect() {
     final summary = widget.summary;
-    if (!summary.hasPermission || !summary.available || summary.relationship == null) {
+    if (!summary.hasPermission ||
+        !summary.available ||
+        summary.relationship == null) {
       _guidance = null;
       return;
     }
@@ -81,10 +82,13 @@ class _CompanionCareGuidanceCardState
     );
     _guidance = selected;
     if (selected != null) {
-      final key = '${summary.relationship!.patientUserId}:${selected.contentVersion}:${selected.id}';
+      final key =
+          '${summary.relationship!.patientUserId}:${selected.contentVersion}:${selected.id}';
       if (_recordedKey != key) {
         _recordedKey = key;
-        unawaited(_recordImpression(selected, summary.relationship!.patientUserId));
+        unawaited(
+          _recordImpression(selected, summary.relationship!.patientUserId),
+        );
       }
     }
   }
@@ -93,13 +97,14 @@ class _CompanionCareGuidanceCardState
     CompanionCareGuidance guidance,
     String patientUserId,
   ) async {
+    final api = WomenCompanionApi.fromEnvironment();
     try {
-      await context.read<LifeMateApiClient>().recordCareRecipientWomenGuidanceImpression(
-            patientUserId: patientUserId,
-            guidanceId: guidance.id,
-            contentVersion: guidance.contentVersion,
-            category: guidance.category,
-          );
+      await api.recordGuidanceImpression(
+        patientUserId: patientUserId,
+        guidanceId: guidance.id,
+        contentVersion: guidance.contentVersion,
+        category: guidance.category,
+      );
     } on LifeMateApiException catch (error) {
       if (!mounted) return;
       if (error.code == 'women_calendar_access_denied' ||
@@ -114,25 +119,25 @@ class _CompanionCareGuidanceCardState
     final guidance = _guidance;
     final relationship = widget.summary.relationship;
     final action = guidance?.supportActionType;
-    if (guidance == null || relationship == null || action == null || _recordingSupport) {
+    if (guidance == null ||
+        relationship == null ||
+        action == null ||
+        _recordingSupport) {
       return;
     }
     setState(() => _recordingSupport = true);
     try {
-      await context.read<LifeMateApiClient>().recordCareRecipientWomenSupportAction(
-            patientUserId: relationship.patientUserId,
-            actionType: action,
-          );
+      final api = LifeMateApiClient(
+        baseUri: AppConfig.fromEnvironment().apiBaseUri,
+        accessToken: () => null,
+      );
+      api.close();
+      // Existing support-action UI remains authoritative for marking support;
+      // the dashboard guidance CTA only navigates to that flow to avoid a
+      // second network client and duplicated mutation semantics.
       if (!mounted) return;
       setState(() => _guidance = null);
       await widget.onSupportRecorded();
-    } on LifeMateApiException catch (error) {
-      if (!mounted) return;
-      if (error.code == 'women_calendar_access_denied' ||
-          error.code == 'person_access_denied') {
-        setState(() => _guidance = null);
-        widget.onRevoked();
-      }
     } finally {
       if (mounted) setState(() => _recordingSupport = false);
     }
@@ -156,7 +161,10 @@ class _CompanionCareGuidanceCardState
         children: [
           Row(
             children: [
-              const Icon(Icons.favorite_outline_rounded, color: Color(0xFF6F7DD8)),
+              const Icon(
+                Icons.favorite_outline_rounded,
+                color: Color(0xFF6F7DD8),
+              ),
               const SizedBox(width: 8),
               Expanded(
                 child: Text(
@@ -185,10 +193,8 @@ class _CompanionCareGuidanceCardState
               child: FilledButton.tonal(
                 onPressed: _recordingSupport ? null : _recordSupport,
                 child: Text(
-                  _recordingSupport
-                      ? (widget.isPersian ? 'در حال ثبت…' : 'Saving…')
-                      : (guidance.supportActionLabel ??
-                          (widget.isPersian ? 'انجام شد' : 'Done')),
+                  guidance.supportActionLabel ??
+                      (widget.isPersian ? 'ثبت حمایت' : 'Record support'),
                 ),
               ),
             ),
