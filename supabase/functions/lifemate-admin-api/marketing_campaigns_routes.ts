@@ -5,6 +5,10 @@ import {
 } from "./authorization.ts";
 import { createFinanceRouteHandler } from "./finance_routes.ts";
 import { json } from "./http.ts";
+import {
+  createMarketingAttributionStore,
+  parseMarketingAttributionQuery,
+} from "./marketing_attribution.ts";
 import { createMarketingCampaignDetailRouteHandler } from "./marketing_campaign_detail_routes.ts";
 import { createMarketingContentCalendarRouteHandler } from "./marketing_content_calendar_routes.ts";
 import {
@@ -58,6 +62,7 @@ function mutationErrorMessage(
 
 export function createMarketingCampaignRouteHandler(databaseUrl: string) {
   const campaignStore = createMarketingCampaignStore(databaseUrl);
+  const attributionStore = createMarketingAttributionStore(databaseUrl);
   const channelStore = createMarketingChannelStore(databaseUrl);
   const detailRouteHandler = createMarketingCampaignDetailRouteHandler(
     databaseUrl,
@@ -111,6 +116,17 @@ export function createMarketingCampaignRouteHandler(databaseUrl: string) {
             source: "admin.marketing_channel_connections_v1",
           },
         },
+        200,
+        origin,
+      );
+    }
+
+    if (request.method === "GET" && path === "/api/v1/marketing/attribution") {
+      requirePermission(admin, "marketing.read");
+      return json(
+        await attributionStore.read(
+          parseMarketingAttributionQuery(new URL(request.url)),
+        ),
         200,
         origin,
       );
