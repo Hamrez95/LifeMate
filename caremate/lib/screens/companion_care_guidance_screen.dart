@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:lifemate_client/lifemate_client.dart';
-import 'package:provider/provider.dart';
 
 import '../models/care_home_snapshot.dart';
 import '../services/companion_care_engine.dart';
@@ -36,10 +35,7 @@ class _CompanionCareGuidanceScreenState
   Future<void> _recordImpression(CompanionCareGuidance guidance) async {
     final relationship = _summary.relationship;
     if (relationship == null) return;
-    final config = AppConfig.fromEnvironment();
-    final api = WomenCompanionApi.fromEnvironment();
-    if (!config.isConfigured) return;
-    await api.recordGuidanceImpression(
+    await WomenCompanionApi.fromEnvironment().recordGuidanceImpression(
       patientUserId: relationship.patientUserId,
       guidanceId: guidance.id,
       contentVersion: guidance.contentVersion,
