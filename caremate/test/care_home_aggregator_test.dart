@@ -65,9 +65,7 @@ void main() {
     final snapshot = CareHomeAggregator.buildSnapshot(
       currentUser: const {},
       relationships: [relationship],
-      dosesByPatient: {
-        'reihana': [_dose('dose', hour: 9)],
-      },
+      dosesByPatient: {'reihana': [_dose('dose', hour: 9)]},
       eventsByPatient: {
         'reihana': [
           _event('visit', hour: 10, type: 'appointment', title: 'ویزیت قلب'),
@@ -109,9 +107,7 @@ void main() {
     final one = CareHomeAggregator.buildSnapshot(
       currentUser: const {},
       relationships: [relationship],
-      dosesByPatient: {
-        'reihana': [_dose('only', hour: 10)],
-      },
+      dosesByPatient: {'reihana': [_dose('only', hour: 10)]},
       eventsByPatient: const {},
       companion: CareCompanionHomeSummary.locked(),
       now: now,
@@ -143,9 +139,7 @@ void main() {
     final snapshot = CareHomeAggregator.buildSnapshot(
       currentUser: const {},
       relationships: const [relationship],
-      dosesByPatient: {
-        'reihana': [_dose('dose', hour: 9)],
-      },
+      dosesByPatient: {'reihana': [_dose('dose', hour: 9)]},
       eventsByPatient: const {},
       companion: CareCompanionHomeSummary.locked(),
       now: now,
@@ -155,25 +149,46 @@ void main() {
     expect(snapshot.currentTreatment?.patientAvatarKey, 'person_purple');
   });
 
-  test('women calendar permission loads only explicitly shared summary', () async {
-    final api = _PermissionAwareApi(canViewWomenCalendar: true);
+  test('server exact scope can authorize even when legacy flag is false', () async {
+    final api = _PermissionAwareApi(
+      legacyCanViewWomenCalendar: false,
+      serverAllowsCompanion: true,
+    );
     final snapshot = await CareHomeAggregator(api).load(now: now);
 
     expect(api.companionCalls, 1);
     expect(snapshot.companion.hasPermission, isTrue);
+    expect(snapshot.companion.phaseAllowed, isTrue);
+    expect(snapshot.companion.wellbeingAllowed, isTrue);
     expect(snapshot.companion.cycleDay, 12);
     expect(snapshot.companion.mood, 'good');
     expect(snapshot.companion.energyLevel, 4);
   });
 
-  test('women calendar permission off never requests or exposes sensitive summary', () async {
-    final api = _PermissionAwareApi(canViewWomenCalendar: false);
+  test('server revoke is fail-closed regardless of stale legacy flag', () async {
+    final api = _PermissionAwareApi(
+      legacyCanViewWomenCalendar: true,
+      serverAllowsCompanion: false,
+    );
     final snapshot = await CareHomeAggregator(api).load(now: now);
 
-    expect(api.companionCalls, 0);
+    expect(api.companionCalls, 1);
     expect(snapshot.companion.hasPermission, isFalse);
+    expect(snapshot.companion.available, isFalse);
     expect(snapshot.companion.cycleDay, isNull);
     expect(snapshot.companion.mood, isNull);
+  });
+
+  test('private fields from an unexpected payload never enter companion model', () async {
+    final api = _PermissionAwareApi(
+      legacyCanViewWomenCalendar: false,
+      serverAllowsCompanion: true,
+    );
+    final snapshot = await CareHomeAggregator(api).load(now: now);
+
+    expect(snapshot.companion.mood, 'good');
+    expect(snapshot.companion.energyLevel, 4);
+    expect(snapshot.companion.guidanceHistory.single.guidanceId, 'general.ask_first');
   });
 
   test('today plan aggregates multiple recipients and all treatment types', () {
@@ -182,9 +197,7 @@ void main() {
     final snapshot = CareHomeAggregator.buildSnapshot(
       currentUser: const {},
       relationships: [reihana, mother],
-      dosesByPatient: {
-        'reihana': [_dose('med', hour: 9, status: 'taken')],
-      },
+      dosesByPatient: {'reihana': [_dose('med', hour: 9, status: 'taken')]},
       eventsByPatient: {
         'mother': [
           _event('visit', hour: 10, type: 'appointment', title: 'ویزیت'),
@@ -247,13 +260,16 @@ Map<String, dynamic> _event(
 };
 
 class _PermissionAwareApi extends LifeMateApiClient {
-  _PermissionAwareApi({required this.canViewWomenCalendar})
-    : super(
-        baseUri: Uri.parse('https://example.invalid'),
-        accessToken: () => 'token',
-      );
+  _PermissionAwareApi({
+    required this.legacyCanViewWomenCalendar,
+    required this.serverAllowsCompanion,
+  }) : super(
+         baseUri: Uri.parse('https://example.invalid'),
+         accessToken: () => 'token',
+       );
 
-  final bool canViewWomenCalendar;
+  final bool legacyCanViewWomenCalendar;
+  final bool serverAllowsCompanion;
   int companionCalls = 0;
 
   @override
@@ -271,7 +287,7 @@ class _PermissionAwareApi extends LifeMateApiClient {
       'patientAvatarKey': 'person_purple',
       'caregiverUserId': 'caregiver',
       'status': 'active',
-      'canViewWomenCalendar': canViewWomenCalendar,
+      'canViewWomenCalendar': legacyCanViewWomenCalendar,
     },
   ];
 
@@ -294,13 +310,35 @@ class _PermissionAwareApi extends LifeMateApiClient {
     required String patientUserId,
   }) async {
     companionCalls += 1;
-    return const {
+    if (!serverAllowsCompanion) {
+      throw const LifeMateApiException(
+        statusCode: 403,
+        code: 'women_calendar_access_denied',
+        message: 'revoked',
+      );
+    }
+    return {
+      'privacyScopes': {
+        'viewPhaseSummary': true,
+        'viewSharedWellbeing': true,
+      },
       'estimate': {'cycleDay': 12, 'cycleLength': 28},
       'latestSharedDailyLog': {
         'mood': 'good',
         'energyLevel': 4,
         'privateNotes': 'MUST-NOT-BE-USED',
+        'painLevel': 5,
+        'symptoms': ['MUST-NOT-BE-USED'],
       },
+      'supportActions': const [],
+      'guidanceHistory': [
+        {
+          'guidanceId': 'general.ask_first',
+          'contentVersion': 'companion-care-v1',
+          'category': 'general',
+          'shownAtUtc': DateTime.utc(2026, 8, 1).toIso8601String(),
+        },
+      ],
     };
   }
 }
