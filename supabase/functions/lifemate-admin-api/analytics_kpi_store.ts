@@ -71,7 +71,7 @@ function suppressSmallCount(value: number): {
 
 function safeRate(numerator: number, denominator: number): number | null {
   if (denominator <= 0) return null;
-  return Math.round((numerator / denominator) * 10_000) / 100;
+  return Math.round((numerator / denominator) * 10_000) / 10_000;
 }
 
 async function activationFunnel(
@@ -157,7 +157,7 @@ async function activationFunnel(
   const conversion = aggregatesSuppressed
     ? null
     : safeRate(activatedRaw, enrolledRaw);
-  const dropOff = conversion == null ? null : Math.round((100 - conversion) * 100) / 100;
+  const dropOff = conversion == null ? null : Math.round((1 - conversion) * 10_000) / 10_000;
   const generatedAtUtc = new Date().toISOString();
   const source =
     "ecosystem.app_enrollments enrollment cohort + last_active_at_utc snapshot; aggregate-only";
