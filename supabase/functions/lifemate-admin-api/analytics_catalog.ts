@@ -14,6 +14,13 @@ export type AnalyticsEventDefinition = {
   privacyPolicy: string;
 };
 
+export type AnalyticsFunnelMetadata = {
+  id: "activation";
+  stageOrder: number;
+  previousStage: string | null;
+  privacyThreshold: number;
+};
+
 export type AnalyticsKpiDefinition = {
   name: string;
   displayNameFa: string;
@@ -28,10 +35,12 @@ export type AnalyticsKpiDefinition = {
   eventSources: string[];
   freshnessRule: string;
   availability: AnalyticsKpiAvailability;
+  funnel?: AnalyticsFunnelMetadata;
 };
 
 export const EVENT_TAXONOMY_VERSION = 1;
-export const KPI_DICTIONARY_VERSION = 1;
+export const KPI_DICTIONARY_VERSION = 2;
+export const ACTIVATION_FUNNEL_PRIVACY_THRESHOLD = 5;
 
 export const ANALYTICS_EVENTS: readonly AnalyticsEventDefinition[] = [
   {
@@ -43,6 +52,27 @@ export const ANALYTICS_EVENTS: readonly AnalyticsEventDefinition[] = [
     source: "identity.accounts lifecycle",
     privacyPolicy:
       "Account lifecycle only; no contact values or health payload.",
+  },
+  {
+    name: "app_enrolled",
+    definitionVersion: 1,
+    domain: "product",
+    instrumentationState: "partial",
+    descriptionFa: "عضویت حساب در یک محصول LifeMate در سطح lifecycle.",
+    source: "ecosystem.app_enrollments.enrolled_at_utc",
+    privacyPolicy:
+      "Account/product lifecycle only; no contact, profile or health payload.",
+  },
+  {
+    name: "app_activation_observed",
+    definitionVersion: 1,
+    domain: "product",
+    instrumentationState: "partial",
+    descriptionFa:
+      "مشاهده فعالیت برای همان عضویت محصول بر اساس snapshot آخرین فعالیت.",
+    source: "ecosystem.app_enrollments.last_active_at_utc current snapshot",
+    privacyPolicy:
+      "Aggregate activation state only; no session content or health payload.",
   },
   {
     name: "profile_completed",
@@ -183,6 +213,67 @@ export const KPI_DEFINITIONS: readonly AnalyticsKpiDefinition[] = [
     eventSources: ["account_created"],
     freshnessRule:
       "Unavailable until canonical history or an explicitly marked partial snapshot is supplied.",
+    availability: "partial",
+  },
+  {
+    name: "activation_enrolled_accounts",
+    displayNameFa: "ورودی قیف فعال‌سازی",
+    definitionVersion: 1,
+    unit: "count",
+    formula: "count(distinct account with app_enrolled in selected cohort)",
+    numerator: "distinct accounts enrolled in the selected date/product cohort",
+    denominator: null,
+    timeWindow: "app-enrollment cohort within selected date range",
+    timezone: "Asia/Tehran",
+    exclusions: ["Deleted accounts", "Disabled applications"],
+    eventSources: ["app_enrolled"],
+    freshnessRule:
+      "Relational lifecycle fact; aggregate values below the privacy threshold are suppressed.",
+    availability: "partial",
+    funnel: {
+      id: "activation",
+      stageOrder: 1,
+      previousStage: null,
+      privacyThreshold: ACTIVATION_FUNNEL_PRIVACY_THRESHOLD,
+    },
+  },
+  {
+    name: "activation_observed_accounts",
+    displayNameFa: "فعال‌سازی مشاهده‌شده",
+    definitionVersion: 1,
+    unit: "count",
+    formula:
+      "count(distinct cohort account whose same enrollment has last_active_at_utc >= enrolled_at_utc and <= cohort end)",
+    numerator: "distinct activated accounts in the enrollment cohort",
+    denominator: "activation_enrolled_accounts",
+    timeWindow: "app-enrollment cohort within selected date range, observed through selected end date",
+    timezone: "Asia/Tehran",
+    exclusions: ["Deleted accounts", "Disabled applications", "Activity after selected end date"],
+    eventSources: ["app_enrolled", "app_activation_observed"],
+    freshnessRule:
+      "Partial because last_active_at_utc is a current snapshot rather than canonical app-open history; small aggregates are suppressed.",
+    availability: "partial",
+    funnel: {
+      id: "activation",
+      stageOrder: 2,
+      previousStage: "activation_enrolled_accounts",
+      privacyThreshold: ACTIVATION_FUNNEL_PRIVACY_THRESHOLD,
+    },
+  },
+  {
+    name: "activation_observed_rate",
+    displayNameFa: "نرخ فعال‌سازی مشاهده‌شده",
+    definitionVersion: 1,
+    unit: "rate",
+    formula: "activation_observed_accounts / activation_enrolled_accounts",
+    numerator: "activation_observed_accounts",
+    denominator: "activation_enrolled_accounts",
+    timeWindow: "same enrollment cohort and observation window as activation funnel",
+    timezone: "Asia/Tehran",
+    exclusions: ["Suppressed small cohorts", "Deleted accounts", "Disabled applications"],
+    eventSources: ["app_enrolled", "app_activation_observed"],
+    freshnessRule:
+      "Computed only by Core from the canonical funnel cohort; unavailable when either aggregate is suppressed.",
     availability: "partial",
   },
   {

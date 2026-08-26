@@ -1,4 +1,7 @@
-import { KPI_DEFINITIONS } from "./analytics_catalog.ts";
+import {
+  ACTIVATION_FUNNEL_PRIVACY_THRESHOLD,
+  KPI_DEFINITIONS,
+} from "./analytics_catalog.ts";
 import type { AdminSql } from "./database_client.ts";
 import { type AnalyticsKpiQuery, tehranToday } from "./analytics_kpis.ts";
 
@@ -6,7 +9,8 @@ export type KpiValueState = "ready" | "partial" | "unavailable";
 
 export type KpiSeriesPoint = {
   date: string;
-  value: number;
+  value: number | null;
+  suppressed?: boolean;
 };
 
 export type KpiValue = {
@@ -23,6 +27,14 @@ export type KpiValue = {
   };
   series?: KpiSeriesPoint[];
   reason?: string;
+  suppressed?: boolean;
+  funnel?: {
+    id: "activation";
+    stageOrder: number;
+    previousStage: string | null;
+    conversionFromPrevious: number | null;
+    dropOffFromPrevious: number | null;
+  };
 };
 
 function definitionVersion(name: string): number {
@@ -45,6 +57,180 @@ function unavailable(name: string, reason: string): KpiValue {
     },
     reason,
   };
+}
+
+function suppressSmallCount(value: number): {
+  value: number | null;
+  suppressed: boolean;
+} {
+  if (value > 0 && value < ACTIVATION_FUNNEL_PRIVACY_THRESHOLD) {
+    return { value: null, suppressed: true };
+  }
+  return { value, suppressed: false };
+}
+
+function safeRate(numerator: number, denominator: number): number | null {
+  if (denominator <= 0) return null;
+  return Math.round((numerator / denominator) * 10_000) / 10_000;
+}
+
+async function activationFunnel(
+  sql: AdminSql,
+  query: AnalyticsKpiQuery,
+): Promise<KpiValue[]> {
+  const countRows = await sql`
+    with cohort as (
+      select distinct
+        enrollment.account_id,
+        enrollment.application_id,
+        enrollment.enrolled_at_utc,
+        enrollment.last_active_at_utc
+      from ecosystem.app_enrollments enrollment
+      join ecosystem.applications application
+        on application.id = enrollment.application_id
+      join identity.accounts account
+        on account.id = enrollment.account_id
+      where account.status <> 'Deleted'
+        and application.status = 'Active'
+        and enrollment.enrolled_at_utc >= (${query.from}::date::timestamp at time zone 'Asia/Tehran')
+        and enrollment.enrolled_at_utc < ((${query.to}::date + 1)::timestamp at time zone 'Asia/Tehran')
+        and (${query.product}::text is null or lower(application.code) = ${query.product})
+    )
+    select
+      count(distinct account_id)::integer as enrolled,
+      count(distinct account_id) filter (
+        where last_active_at_utc is not null
+          and last_active_at_utc >= enrolled_at_utc
+          and last_active_at_utc < ((${query.to}::date + 1)::timestamp at time zone 'Asia/Tehran')
+      )::integer as activated
+    from cohort
+  `;
+  const seriesRows = await sql`
+    with days as (
+      select generate_series(
+        ${query.from}::date,
+        ${query.to}::date,
+        interval '1 day'
+      )::date as day
+    ), cohort as (
+      select
+        enrollment.account_id,
+        (enrollment.enrolled_at_utc at time zone 'Asia/Tehran')::date as day,
+        enrollment.enrolled_at_utc,
+        enrollment.last_active_at_utc
+      from ecosystem.app_enrollments enrollment
+      join ecosystem.applications application
+        on application.id = enrollment.application_id
+      join identity.accounts account
+        on account.id = enrollment.account_id
+      where account.status <> 'Deleted'
+        and application.status = 'Active'
+        and enrollment.enrolled_at_utc >= (${query.from}::date::timestamp at time zone 'Asia/Tehran')
+        and enrollment.enrolled_at_utc < ((${query.to}::date + 1)::timestamp at time zone 'Asia/Tehran')
+        and (${query.product}::text is null or lower(application.code) = ${query.product})
+    ), aggregates as (
+      select
+        day,
+        count(distinct account_id)::integer as enrolled,
+        count(distinct account_id) filter (
+          where last_active_at_utc is not null
+            and last_active_at_utc >= enrolled_at_utc
+            and last_active_at_utc < ((${query.to}::date + 1)::timestamp at time zone 'Asia/Tehran')
+        )::integer as activated
+      from cohort
+      group by day
+    )
+    select
+      days.day::text as day,
+      coalesce(aggregates.enrolled, 0)::integer as enrolled,
+      coalesce(aggregates.activated, 0)::integer as activated
+    from days
+    left join aggregates using (day)
+    order by days.day asc
+  `;
+
+  const enrolledRaw = Number(countRows[0]?.enrolled ?? 0);
+  const activatedRaw = Number(countRows[0]?.activated ?? 0);
+  const enrolled = suppressSmallCount(enrolledRaw);
+  const activated = suppressSmallCount(activatedRaw);
+  const aggregatesSuppressed = enrolled.suppressed || activated.suppressed;
+  const conversion = aggregatesSuppressed
+    ? null
+    : safeRate(activatedRaw, enrolledRaw);
+  const dropOff = conversion == null ? null : Math.round((1 - conversion) * 10_000) / 10_000;
+  const generatedAtUtc = new Date().toISOString();
+  const source =
+    "ecosystem.app_enrollments enrollment cohort + last_active_at_utc snapshot; aggregate-only";
+  const partialReason =
+    "Activation is truthful but partial because last_active_at_utc is a current snapshot, not canonical app-open event history.";
+  const suppressionReason = `Aggregate values from 1 to ${ACTIVATION_FUNNEL_PRIVACY_THRESHOLD - 1} accounts are suppressed.`;
+
+  const enrolledSeries = seriesRows.map((row) => {
+    const safe = suppressSmallCount(Number(row.enrolled ?? 0));
+    return { date: String(row.day), value: safe.value, suppressed: safe.suppressed };
+  });
+  const activatedSeries = seriesRows.map((row) => {
+    const safe = suppressSmallCount(Number(row.activated ?? 0));
+    return { date: String(row.day), value: safe.value, suppressed: safe.suppressed };
+  });
+
+  return [
+    {
+      name: "activation_enrolled_accounts",
+      definitionVersion: definitionVersion("activation_enrolled_accounts"),
+      state: "partial",
+      value: enrolled.value,
+      numerator: enrolled.value,
+      denominator: null,
+      source,
+      freshness: { status: "partial", asOfUtc: generatedAtUtc },
+      series: enrolledSeries,
+      suppressed: enrolled.suppressed,
+      reason: enrolled.suppressed ? suppressionReason : partialReason,
+      funnel: {
+        id: "activation",
+        stageOrder: 1,
+        previousStage: null,
+        conversionFromPrevious: null,
+        dropOffFromPrevious: null,
+      },
+    },
+    {
+      name: "activation_observed_accounts",
+      definitionVersion: definitionVersion("activation_observed_accounts"),
+      state: "partial",
+      value: activated.value,
+      numerator: activated.value,
+      denominator: enrolled.value,
+      source,
+      freshness: { status: "partial", asOfUtc: generatedAtUtc },
+      series: activatedSeries,
+      suppressed: activated.suppressed,
+      reason: aggregatesSuppressed ? suppressionReason : partialReason,
+      funnel: {
+        id: "activation",
+        stageOrder: 2,
+        previousStage: "activation_enrolled_accounts",
+        conversionFromPrevious: conversion,
+        dropOffFromPrevious: dropOff,
+      },
+    },
+    {
+      name: "activation_observed_rate",
+      definitionVersion: definitionVersion("activation_observed_rate"),
+      state: aggregatesSuppressed ? "unavailable" : "partial",
+      value: conversion,
+      numerator: aggregatesSuppressed ? null : activatedRaw,
+      denominator: aggregatesSuppressed ? null : enrolledRaw,
+      source,
+      freshness: {
+        status: aggregatesSuppressed ? "unavailable" : "partial",
+        asOfUtc: generatedAtUtc,
+      },
+      suppressed: aggregatesSuppressed,
+      reason: aggregatesSuppressed ? suppressionReason : partialReason,
+    },
+  ];
 }
 
 async function accountsCreated(
@@ -168,6 +354,9 @@ export async function getKpiValues(
     "monthly_active_accounts",
     await monthlyActiveAccounts(sql, query),
   );
+  for (const value of await activationFunnel(sql, query)) {
+    values.set(value.name, value);
+  }
 
   return KPI_DEFINITIONS.map(
     (definition) =>
