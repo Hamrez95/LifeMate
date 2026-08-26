@@ -193,19 +193,15 @@ class CareMateApp extends StatelessWidget {
       appName: 'CareMate',
       logoAssetPath: 'assets/images/CareMateWithoutBack.png',
       authenticatedBuilder: (context, apiClient) =>
-          _AuthenticatedCareMateShell(apiClient: apiClient, config: config),
+          _AuthenticatedCareMateShell(apiClient: apiClient),
     );
   }
 }
 
 class _AuthenticatedCareMateShell extends StatefulWidget {
-  const _AuthenticatedCareMateShell({
-    required this.apiClient,
-    required this.config,
-  });
+  const _AuthenticatedCareMateShell({required this.apiClient});
 
   final LifeMateApiClient apiClient;
-  final AppConfig config;
 
   @override
   State<_AuthenticatedCareMateShell> createState() =>
