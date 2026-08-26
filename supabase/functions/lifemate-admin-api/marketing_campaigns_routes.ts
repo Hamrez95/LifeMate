@@ -3,6 +3,10 @@ import {
   type AdminCapabilitySnapshot,
   requirePermission,
 } from "./authorization.ts";
+import {
+  createCommerceRevenueStore,
+  parseCommerceRevenueQuery,
+} from "./commerce_revenue.ts";
 import { createFinanceRouteHandler } from "./finance_routes.ts";
 import { json } from "./http.ts";
 import {
@@ -63,6 +67,7 @@ function mutationErrorMessage(
 export function createMarketingCampaignRouteHandler(databaseUrl: string) {
   const campaignStore = createMarketingCampaignStore(databaseUrl);
   const attributionStore = createMarketingAttributionStore(databaseUrl);
+  const revenueStore = createCommerceRevenueStore(databaseUrl);
   const channelStore = createMarketingChannelStore(databaseUrl);
   const detailRouteHandler = createMarketingCampaignDetailRouteHandler(
     databaseUrl,
@@ -104,6 +109,17 @@ export function createMarketingCampaignRouteHandler(databaseUrl: string) {
 
     const detailResponse = await detailRouteHandler(context);
     if (detailResponse) return detailResponse;
+
+    if (request.method === "GET" && path === "/api/v1/commerce/revenue") {
+      requirePermission(admin, "commerce.read");
+      return json(
+        await revenueStore.read(
+          parseCommerceRevenueQuery(new URL(request.url)),
+        ),
+        200,
+        origin,
+      );
+    }
 
     if (request.method === "GET" && path === "/api/v1/marketing/channels") {
       requirePermission(admin, "marketing.read");
