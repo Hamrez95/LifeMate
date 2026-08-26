@@ -20,6 +20,20 @@ function integer(value: unknown, field: string, min: number, max: number): numbe
   return parsed;
 }
 
+export function normalizeRecurrenceStartLocalTime(value: unknown): string {
+  const match = /^(\d{2}):(\d{2})(?::(\d{2}))?$/.exec(String(value ?? "").trim());
+  if (!match) {
+    throw new ApiError(400, "invalid_recurrenceStartLocalTime", "recurrenceStartLocalTime must be a local time.");
+  }
+  const hour = Number(match[1]);
+  const minute = Number(match[2]);
+  const second = Number(match[3] ?? "0");
+  if (hour > 23 || minute > 59 || second > 59) {
+    throw new ApiError(400, "invalid_recurrenceStartLocalTime", "recurrenceStartLocalTime must be a valid local time.");
+  }
+  return `${match[1]}:${match[2]}`;
+}
+
 export function normalizeRecurrenceRule(value: unknown): RecurrenceRule | null {
   if (value == null) return null;
   if (typeof value !== "object" || Array.isArray(value)) {
