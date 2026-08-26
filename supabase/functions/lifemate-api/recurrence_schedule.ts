@@ -54,7 +54,14 @@ export function normalizeRecurrenceRule(value: unknown): RecurrenceRule | null {
   const rawEnd = record.endAt ?? record.endDate;
   let endAt: string | null = null;
   if (rawEnd != null && String(rawEnd).trim() !== "") {
-    const parsed = parseLocalTimestamp(String(rawEnd));
+    const normalizedEnd = String(rawEnd).trim();
+    const dateOnly = /^\d{4}-\d{2}-\d{2}$/.test(normalizedEnd);
+    if (unit === "hour" && dateOnly) {
+      throw new ApiError(400, "invalid_recurrence_end", "Hourly recurrence requires an exact local end time.");
+    }
+    const parsed = parseLocalTimestamp(
+      dateOnly ? `${normalizedEnd}T23:59:59` : normalizedEnd,
+    );
     endAt = formatLocalTimestamp(parsed);
   }
   return {
