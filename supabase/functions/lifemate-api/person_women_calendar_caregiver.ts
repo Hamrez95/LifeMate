@@ -77,7 +77,6 @@ export function createPersonWomenCalendarCaregiverStore(databaseUrl: string) {
       where r.patient_person_id=${patientPersonId}::uuid
         and r.caregiver_person_id=${caregiverPersonId}::uuid
         and r.status='Active'
-        and r.can_view_women_calendar=true
       limit 1
     `;
     if (!relationshipRows[0]) throw accessDenied();
@@ -167,10 +166,12 @@ export function createPersonWomenCalendarCaregiverStore(databaseUrl: string) {
         ? episodes.map(mapEpisodeCaregiver)
         : [],
       latestSharedDailyLog: privacy.viewSharedWellbeing ? canonicalSharedLog : null,
-      supportActions: actions.map((row: Row) => ({
-        actionType: String(row.action_type).toLowerCase(),
-        performedAtUtc: iso(row.performed_at_utc),
-      })),
+      supportActions: privacy.viewSharedWellbeing
+        ? actions.map((row: Row) => ({
+            actionType: String(row.action_type).toLowerCase(),
+            performedAtUtc: iso(row.performed_at_utc),
+          }))
+        : [],
     };
   }
 
@@ -204,7 +205,7 @@ export function createPersonWomenCalendarCaregiverStore(databaseUrl: string) {
       left join lifemate.women_companion_privacy_scopes s on s.relationship_id = r.id
       where r.patient_person_id=${patientPersonId}::uuid
         and r.caregiver_person_id=${caregiverPersonId}::uuid
-        and r.status='Active' and r.can_view_women_calendar=true
+        and r.status='Active'
       limit 1
     `;
     if (!relationshipRows[0] || !companionPrivacy(relationshipRows[0]).viewSharedWellbeing) throw accessDenied();
