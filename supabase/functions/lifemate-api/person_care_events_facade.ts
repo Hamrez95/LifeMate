@@ -1,18 +1,17 @@
 import { getLifeMateSql } from "./database_client.ts";
-import { createPersonCareEventStore } from "./person_care_events.ts";
+import { createPersonCareEventStoreV2 } from "./person_care_events_v2.ts";
 import { ApiError, requiredUuid } from "./validation.ts";
 
 /**
  * Public Care Event runtime facade.
  *
- * Self Care Event ownership already lives on canonical Person. This facade
- * moves the remaining caregiver relationship authorization to canonical
- * patient/caregiver Person IDs while keeping the legacy implementation intact
- * behind the compatibility boundary for reversible migration.
+ * Self Care Event ownership lives on canonical Person. Caregiver reads resolve
+ * the exact patient/caregiver Person relationship before delegating to the same
+ * recurrence-aware store used by WellMate.
  */
 export function createPersonAuthorizedCareEventStore(databaseUrl: string) {
   const sql = getLifeMateSql(databaseUrl);
-  const store = createPersonCareEventStore(databaseUrl);
+  const store = createPersonCareEventStoreV2(databaseUrl);
 
   return {
     ...store,
