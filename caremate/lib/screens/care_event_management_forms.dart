@@ -415,6 +415,9 @@ class _CareEventFormSheetState extends State<_CareEventFormSheet> {
   late DateTime _date;
   late TimeOfDay _time;
   String _route = 'intramuscular';
+  bool _recurrenceEnabled = false;
+  RecurrenceUnit _recurrenceUnit = RecurrenceUnit.month;
+  int _recurrenceInterval = 1;
 
   bool get _injection => widget.eventType == 'injection';
 
@@ -459,6 +462,18 @@ class _CareEventFormSheetState extends State<_CareEventFormSheet> {
       minute: parts.length > 1 ? int.tryParse(parts[1]) ?? 0 : 0,
     );
     final route = event?['administrationRoute']?.toString().toLowerCase();
+    final recurrence = event?['recurrence'];
+    if (recurrence is Map && recurrence['enabled'] == true) {
+      _recurrenceEnabled = true;
+      _recurrenceInterval = int.tryParse('${recurrence['interval']}') ?? 1;
+      _recurrenceUnit = switch (recurrence['unit']?.toString()) {
+        'hour' => RecurrenceUnit.hour,
+        'day' => RecurrenceUnit.day,
+        'week' => RecurrenceUnit.week,
+        'year' => RecurrenceUnit.year,
+        _ => RecurrenceUnit.month,
+      };
+    }
     if (const {
       'intramuscular',
       'subcutaneous',
@@ -724,6 +739,40 @@ class _CareEventFormSheetState extends State<_CareEventFormSheet> {
                 ),
               ],
             ),
+            const SizedBox(height: 12),
+            SwitchListTile.adaptive(
+              key: const ValueKey('caremate-recurrence-enabled'),
+              contentPadding: EdgeInsets.zero,
+              title: Text(LifeMateRuntimeLocale.select(fa: 'تکرار زمان‌بندی', en: 'Repeat schedule')),
+              subtitle: Text(LifeMateRuntimeLocale.select(fa: 'فقط نوبت‌های آینده ساخته می‌شوند؛ سابقه قبلی تغییر نمی‌کند.', en: 'Only future occurrences are created; history is preserved.')),
+              value: _recurrenceEnabled,
+              onChanged: (value) => setState(() => _recurrenceEnabled = value),
+            ),
+            if (_recurrenceEnabled) ...[
+              Row(children: [
+                Expanded(child: TextFormField(
+                  key: const ValueKey('caremate-recurrence-interval'),
+                  initialValue: _recurrenceInterval.toString(),
+                  keyboardType: TextInputType.number,
+                  decoration: InputDecoration(labelText: LifeMateRuntimeLocale.select(fa: 'هر چند بار', en: 'Every')),
+                  onChanged: (value) { final parsed = int.tryParse(value.trim()); if (parsed != null && parsed > 0) _recurrenceInterval = parsed; },
+                )),
+                const SizedBox(width: 10),
+                Expanded(child: DropdownButtonFormField<RecurrenceUnit>(
+                  key: const ValueKey('caremate-recurrence-unit'),
+                  value: _recurrenceUnit,
+                  decoration: InputDecoration(labelText: LifeMateRuntimeLocale.select(fa: 'واحد', en: 'Unit')),
+                  items: const [
+                    DropdownMenuItem(value: RecurrenceUnit.hour, child: Text('hour')),
+                    DropdownMenuItem(value: RecurrenceUnit.day, child: Text('day')),
+                    DropdownMenuItem(value: RecurrenceUnit.week, child: Text('week')),
+                    DropdownMenuItem(value: RecurrenceUnit.month, child: Text('month')),
+                    DropdownMenuItem(value: RecurrenceUnit.year, child: Text('year')),
+                  ],
+                  onChanged: (value) { if (value != null) setState(() => _recurrenceUnit = value); },
+                )),
+              ]),
+            ],
             SizedBox(height: 18),
             SizedBox(
               width: double.infinity,
@@ -812,6 +861,9 @@ class _CareEventFormSheetState extends State<_CareEventFormSheet> {
         phoneNumber: _empty(_phone.text),
         date: _date,
         time: time,
+        recurrence: _recurrenceEnabled
+            ? RecurrenceRule(enabled: true, unit: _recurrenceUnit, interval: _recurrenceInterval)
+            : const RecurrenceRule.none(),
       ),
     );
   }
@@ -954,6 +1006,7 @@ class _CareEventDraft {
     required this.phoneNumber,
     required this.date,
     required this.time,
+    required this.recurrence,
   });
 
   final String title;
@@ -969,6 +1022,7 @@ class _CareEventDraft {
   final String? phoneNumber;
   final DateTime date;
   final String time;
+  final RecurrenceRule recurrence;
 }
 
 int _asInt(dynamic value, int fallback) => int.tryParse('$value') ?? fallback;
