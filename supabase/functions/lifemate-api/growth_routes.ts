@@ -2,6 +2,8 @@ import { createGrowthStore } from "./growth.ts";
 import { requireMutationIdempotencyKey } from "./idempotency.ts";
 import { json } from "./http.ts";
 import { enforceRateLimit } from "./security.ts";
+import { createSupportConversationStore } from "./support_conversations.ts";
+import { createSupportConversationRouteHandler } from "./support_conversations_routes.ts";
 import { readJsonObject } from "./validation.ts";
 
 export function createGrowthRouteHandler(
@@ -9,6 +11,9 @@ export function createGrowthRouteHandler(
   contactHashingSecret: string,
 ) {
   const store = createGrowthStore(databaseUrl, contactHashingSecret);
+  const supportRoutes = createSupportConversationRouteHandler(
+    createSupportConversationStore(databaseUrl),
+  );
 
   return async function growthRouteHandler(input: {
     request: Request;
@@ -16,6 +21,12 @@ export function createGrowthRouteHandler(
     appUserId: string;
   }): Promise<Response | null> {
     const { request, path, appUserId } = input;
+
+    // This authenticated consumer-extension dispatcher is already invoked only
+    // after db.requireIdentity() in index.ts. Keep Support on the same boundary
+    // rather than creating a second HTTP entry point or browser database path.
+    const supportResponse = await supportRoutes(input);
+    if (supportResponse) return supportResponse;
 
     if (request.method === "POST" && path === "/api/v1/growth/gifts") {
       enforceRateLimit(`growth-gift:${appUserId}`, 10, 60 * 60_000);
