@@ -47,3 +47,16 @@ Deno.test("small audience snapshots are suppressed in API responses", async () =
   assertStringIncludes(text, "memberCount:suppressed ? null : exactCount");
   assertStringIncludes(text, "minimumCohortSize:MIN_PREVIEW_COHORT");
 });
+
+Deno.test("execution snapshots require the expected active segment version under a row lock", async () => {
+  const routes = await source("./audience_segments_routes.ts");
+  const guard = await source("./audience_segment_snapshot_guard.ts");
+  assertStringIncludes(routes, "parseSnapshotExpectedVersion");
+  assertStringIncludes(routes, "withActiveSegmentVersionLock");
+  assertStringIncludes(routes, "hashSnapshotRequest(snapshotId,expectedVersion,idempotencyKey)");
+  assertStringIncludes(guard, "for share");
+  assertStringIncludes(guard, 'String(rows[0].status) !== "Active"');
+  assertStringIncludes(guard, "Number(rows[0].version) !== expectedVersion");
+  assertStringIncludes(guard, '"segment_version_conflict"');
+  assertStringIncludes(guard, '"segment_not_active"');
+});
