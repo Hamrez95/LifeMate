@@ -5,6 +5,7 @@ import {
 import { json } from "./http.ts";
 import { createOperationsSnapshotRouteHandler } from "./operations_snapshot_routes.ts";
 import { createPlatformControlRouteHandler } from "./platform_controls_routes.ts";
+import { createProductVersionAnalyticsRouteHandler } from "./product_version_analytics_routes.ts";
 import { createRelationshipAccessGrantRouteHandler } from "./relationship_access_grant_routes.ts";
 import {
   encodeStaffDirectoryCursor,
@@ -20,6 +21,8 @@ export function createStaffDirectoryRouteHandler(databaseUrl: string) {
   const preferencesRouteHandler = createCommandCenterPreferencesRouteHandler(databaseUrl);
   const operationsSnapshotRouteHandler = createOperationsSnapshotRouteHandler(databaseUrl);
   const platformControlRouteHandler = createPlatformControlRouteHandler(databaseUrl);
+  const productVersionAnalyticsRouteHandler =
+    createProductVersionAnalyticsRouteHandler(databaseUrl);
   const relationshipAccessGrantRouteHandler = createRelationshipAccessGrantRouteHandler(databaseUrl);
 
   return async function staffDirectoryRouteHandler(input: {
@@ -41,6 +44,9 @@ export function createStaffDirectoryRouteHandler(databaseUrl: string) {
     if (operationsResponse) return operationsResponse;
     const platformControlResponse = await platformControlRouteHandler(input);
     if (platformControlResponse) return platformControlResponse;
+    const productVersionAnalyticsResponse =
+      await productVersionAnalyticsRouteHandler(input);
+    if (productVersionAnalyticsResponse) return productVersionAnalyticsResponse;
     const accessGrantResponse = await relationshipAccessGrantRouteHandler(input);
     if (accessGrantResponse) return accessGrantResponse;
 
