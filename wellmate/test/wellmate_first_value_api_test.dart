@@ -76,8 +76,8 @@ void main() {
       }),
     );
 
-    expect(
-      () => api.setState(
+    await expectLater(
+      api.setState(
         current: WellMateFirstValueProfile.fromJson(profile),
         state: 'Authorized',
       ),
