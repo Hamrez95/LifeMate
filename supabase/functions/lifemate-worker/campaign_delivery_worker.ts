@@ -8,7 +8,9 @@ import {
 } from "../_shared/messaging_token_crypto.ts";
 import type {
   CampaignProviderResult,
+  PushCampaignDelivery,
   PushCampaignProvider,
+  SmsCampaignDelivery,
   SmsCampaignProvider,
 } from "./campaign_delivery_provider.ts";
 
@@ -63,6 +65,10 @@ type EngineOptions = {
   now?: () => Date;
 };
 
+type PreparedDelivery =
+  | { kind: "sms"; provider: SmsCampaignProvider; input: SmsCampaignDelivery }
+  | { kind: "push"; provider: PushCampaignProvider; input: PushCampaignDelivery };
+
 export async function processCampaignDeliveryBatch(
   options: EngineOptions,
   limit: number,
@@ -84,40 +90,19 @@ export async function processCampaignDeliveryBatch(
 
   for (const claim of claims) {
     const occurredAtUtc = (options.now ?? (() => new Date()))().toISOString();
+    let payload: CampaignDeliveryPayload;
+    let prepared: PreparedDelivery;
+
     try {
-      const payload = await options.store.resolve(claim.jobId);
-      if (!payload) {
-        await options.store.record({
-          jobId: claim.jobId,
-          result: "Failed",
-          provider: "unavailable",
-          providerReferenceHash: null,
-          reasonCode: "campaign_delivery_payload_unavailable",
-          occurredAtUtc,
-        });
-        failed++;
-        continue;
-      }
-      if (payload.channel !== claim.channel) {
+      const resolved = await options.store.resolve(claim.jobId);
+      if (!resolved) throw new Error("campaign_delivery_payload_unavailable");
+      if (resolved.channel !== claim.channel) {
         throw new Error("campaign_delivery_channel_mismatch");
       }
-
-      const providerResult = await deliver(payload, options);
-      const recorded = await toRecordedResult(
-        payload.jobId,
-        payload.provider,
-        providerResult,
-        occurredAtUtc,
-      );
-      await options.store.record(recorded);
-      if (recorded.result === "Delivered") delivered++;
-      else if (recorded.result === "OutcomeUnknown") outcomeUnknown++;
-      else if (recorded.result === "PermanentFailed") permanentFailed++;
-      else failed++;
+      payload = resolved;
+      prepared = await prepareDelivery(payload, options);
     } catch (error) {
-      // Only failures known to have occurred before an external provider call
-      // are safe to mark retryable. Transport ambiguity is represented by the
-      // provider as OutcomeUnknown and never reaches this catch path.
+      // No provider call has occurred yet, so bounded retry is safe.
       await options.store.record({
         jobId: claim.jobId,
         result: "Failed",
@@ -127,7 +112,39 @@ export async function processCampaignDeliveryBatch(
         occurredAtUtc,
       });
       failed++;
+      continue;
     }
+
+    let providerResult: CampaignProviderResult;
+    try {
+      providerResult = prepared.kind === "sms"
+        ? await prepared.provider.send(prepared.input)
+        : await prepared.provider.send(prepared.input);
+    } catch {
+      // An unexpected provider exception may occur after the external endpoint
+      // accepted the request. Treat it as outcome-unknown rather than retrying.
+      providerResult = {
+        kind: "outcome_unknown",
+        code: "campaign_provider_unexpected_outcome_unknown",
+      };
+    }
+
+    const recorded = await toRecordedResult(
+      payload.jobId,
+      payload.provider,
+      providerResult,
+      occurredAtUtc,
+    );
+
+    // Do not wrap this write in the pre-provider catch above. If persistence
+    // fails after an external side effect, the job intentionally remains
+    // InFlight and is not automatically reclaimed/sent again.
+    await options.store.record(recorded);
+
+    if (recorded.result === "Delivered") delivered++;
+    else if (recorded.result === "OutcomeUnknown") outcomeUnknown++;
+    else if (recorded.result === "PermanentFailed") permanentFailed++;
+    else failed++;
   }
 
   return {
@@ -139,10 +156,10 @@ export async function processCampaignDeliveryBatch(
   };
 }
 
-async function deliver(
+async function prepareDelivery(
   payload: CampaignDeliveryPayload,
   options: EngineOptions,
-): Promise<CampaignProviderResult> {
+): Promise<PreparedDelivery> {
   if (payload.channel === "SMS") {
     const provider = options.providers.sms.get(payload.provider);
     if (!provider) throw new Error("campaign_sms_provider_not_configured");
@@ -161,7 +178,11 @@ async function deliver(
         keyVersion: payload.endpointKeyVersion,
       },
     );
-    return await provider.send({ phoneE164, message: payload.messageBody });
+    return {
+      kind: "sms",
+      provider,
+      input: { phoneE164, message: payload.messageBody },
+    };
   }
 
   const provider = options.providers.push.get(payload.provider);
@@ -182,11 +203,15 @@ async function deliver(
       keyVersion: payload.endpointKeyVersion,
     },
   );
-  return await provider.send({
-    token,
-    title: payload.messageTitle,
-    body: payload.messageBody,
-  });
+  return {
+    kind: "push",
+    provider,
+    input: {
+      token,
+      title: payload.messageTitle,
+      body: payload.messageBody,
+    },
+  };
 }
 
 function keyForVersion<T extends { keyVersion: number }>(
