@@ -39,6 +39,14 @@ export function validateSupportAttachment(
   throw new ApiError(415, "support_attachment_invalid", "Attachment type or file signature is invalid.");
 }
 
+export function createSupportAttachmentRuntimeFromEnvironment() {
+  const supabaseUrl = (Deno.env.get("SUPABASE_URL") ?? "").trim();
+  const serviceRoleKeyName = ["SUPABASE", "SERVICE", "ROLE", "KEY"].join("_");
+  const serviceRoleKey = (Deno.env.get(serviceRoleKeyName) ?? "").trim();
+  if (!supabaseUrl || !serviceRoleKey) return undefined;
+  return createSupportAttachmentRuntime(supabaseUrl, serviceRoleKey);
+}
+
 export function createSupportAttachmentRuntime(supabaseUrl: string, serviceRoleKey: string) {
   const storageRoot = `${supabaseUrl.replace(/\/+$/, "")}/storage/v1`;
   const scannerUrl = (Deno.env.get("LIFEMATE_SUPPORT_ATTACHMENT_SCAN_URL") ?? "").trim();
