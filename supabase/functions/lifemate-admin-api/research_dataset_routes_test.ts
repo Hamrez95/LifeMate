@@ -34,6 +34,7 @@ Deno.test("research route rejects direct identifiers before persistence", async 
     },
     body: JSON.stringify({
       name: "Age cohort",
+      datasetKind: "HealthObservationAggregate",
       purpose: "research_deidentified_dataset",
       sourceCategory: "FirstPartyUserInput",
       filters: { email: "person@example.test" },
@@ -54,5 +55,37 @@ Deno.test("research route rejects direct identifiers before persistence", async 
   } catch (error) {
     assertEquals(error instanceof ApiError, true);
     assertEquals((error as ApiError).code, "research_direct_identifier_forbidden");
+  }
+});
+
+Deno.test("research route rejects unknown dataset kind before persistence", async () => {
+  const request = new Request("https://example.test/api/v1/research/datasets", {
+    method: "POST",
+    headers: {
+      "content-type": "application/json",
+      "idempotency-key": "research-dataset-kind-test",
+    },
+    body: JSON.stringify({
+      name: "Unsafe generic export",
+      datasetKind: "RawSql",
+      purpose: "research_deidentified_dataset",
+      sourceCategory: "FirstPartyUserInput",
+      filters: {},
+      minimumCohortSize: 20,
+      smallCellThreshold: 5,
+      quasiIdentifierRules: {},
+      rowMode: "Aggregate",
+    }),
+  });
+  try {
+    await handler({
+      ...base,
+      request,
+      admin: { accountId: base.accountId, roles: ["founder"], permissions: ["analytics.read"] },
+    });
+    throw new Error("expected rejection");
+  } catch (error) {
+    assertEquals(error instanceof ApiError, true);
+    assertEquals((error as ApiError).code, "research_dataset_kind_invalid");
   }
 });
