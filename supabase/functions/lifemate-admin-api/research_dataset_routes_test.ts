@@ -28,7 +28,10 @@ Deno.test("research route rejects non-founder before database access", async () 
 Deno.test("research route rejects direct identifiers before persistence", async () => {
   const request = new Request("https://example.test/api/v1/research/datasets", {
     method: "POST",
-    headers: { "content-type": "application/json" },
+    headers: {
+      "content-type": "application/json",
+      "idempotency-key": "research-dataset-direct-identifier-test",
+    },
     body: JSON.stringify({
       name: "Age cohort",
       purpose: "research_deidentified_dataset",
