@@ -1,7 +1,7 @@
 import { createExperimentAssignmentStore, parseExperimentAssignmentProduct } from "./experiment_assignments.ts";
 import { json } from "./http.ts";
 import { enforceRateLimit } from "./security.ts";
-import { readJsonObject } from "./validation.ts";
+import { ApiError, readJsonObject } from "./validation.ts";
 
 export function createExperimentAssignmentRouteHandler(
   databaseUrl: string,
@@ -21,6 +21,13 @@ export function createExperimentAssignmentRouteHandler(
     }
     enforceRateLimit(`experiment-assignment:${input.appUserId}`, 30, 60 * 60_000);
     const body = await readJsonObject(input.request);
+    if (Object.keys(body).some((key) => key !== "product")) {
+      throw new ApiError(
+        400,
+        "experiment_assignment_field_forbidden",
+        "Experiment assignment payload contains an unsupported field.",
+      );
+    }
     const product = parseExperimentAssignmentProduct(body.product);
     return json(await store.assignAndRecord(input.appUserId, product));
   };
