@@ -2,7 +2,7 @@ import { createFeedbackStore, parseFeedbackSubmission } from "./feedback.ts";
 import { requireMutationIdempotencyKey } from "./idempotency.ts";
 import { json } from "./http.ts";
 import { enforceRateLimit } from "./security.ts";
-import { readJsonObject } from "./validation.ts";
+import { ApiError, readJsonObject } from "./validation.ts";
 
 export function createFeedbackRouteHandler(databaseUrl: string) {
   const store = createFeedbackStore(databaseUrl);
@@ -18,9 +18,11 @@ export function createFeedbackRouteHandler(databaseUrl: string) {
     enforceRateLimit(`feedback:${appUserId}`, 12, 60 * 60_000);
     const body = await readJsonObject(request);
     if ("attachment" in body || "attachmentUrl" in body || "file" in body) {
-      // Attachments must use the reviewed support attachment path; feedback must
-      // never create an ad-hoc public/storage upload surface.
-      return json({ code: "feedback_attachment_path_required" }, 400);
+      throw new ApiError(
+        400,
+        "feedback_attachment_path_required",
+        "Feedback attachments must use the reviewed secure attachment flow.",
+      );
     }
 
     const submitted = await store.submit(
