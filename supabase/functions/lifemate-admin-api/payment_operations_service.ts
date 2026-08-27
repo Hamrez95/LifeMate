@@ -112,7 +112,7 @@ export function createPaymentOperationsStore(databaseUrl: string) {
       requestHash: string;
     }) {
       const rows = await sql`
-        select admin.apply_approved_transaction_correction_idempotent(
+        select admin.apply_approved_transaction_correction_v2(
           ${input.actorAccountId}::uuid,
           ${input.caseId}::uuid,
           ${input.correctionType}::character varying,
