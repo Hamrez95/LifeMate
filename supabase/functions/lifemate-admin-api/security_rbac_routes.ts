@@ -1,4 +1,5 @@
 import { createApprovalRequestRouteHandler } from "./approval_requests_routes.ts";
+import { createAbuseRuleRouteHandler } from "./abuse_rules_routes.ts";
 import {
   type AdminCapabilitySnapshot,
   requirePermission,
@@ -36,6 +37,7 @@ export function createSecurityRbacRouteHandler(
   const customRoleRouteHandler = createCustomRoleRouteHandler(databaseUrl);
   const approvalRequestRouteHandler = createApprovalRequestRouteHandler(databaseUrl);
   const retentionRouteHandler = createRetentionRouteHandler(databaseUrl);
+  const abuseRuleRouteHandler = createAbuseRuleRouteHandler(databaseUrl);
 
   return async function handleSecurityRbacRoute(
     context: SecurityRbacRouteContext,
@@ -58,6 +60,18 @@ export function createSecurityRbacRouteHandler(
 
     if (path.startsWith("/api/v1/security/retention/")) {
       const response = await retentionRouteHandler({
+        request,
+        path,
+        accountId,
+        admin,
+        correlationId,
+        origin,
+      });
+      if (response) return response;
+    }
+
+    if (path.startsWith("/api/v1/security/abuse/")) {
+      const response = await abuseRuleRouteHandler({
         request,
         path,
         accountId,
