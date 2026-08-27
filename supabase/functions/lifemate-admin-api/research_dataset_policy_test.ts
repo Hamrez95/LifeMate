@@ -31,6 +31,16 @@ Deno.test("research privacy thresholds fail closed", () => {
   }));
 });
 
+Deno.test("research pseudonymous row export remains explicitly unavailable", () => {
+  const error = assertThrows(() => validateResearchPrivacyPolicy({
+    ageBucketYears: 2,
+    minimumCohortSize: 20,
+    smallCellThreshold: 5,
+    rowMode: "Pseudonymous",
+  }));
+  assertEquals(error.message, "Pseudonymous row-level research export is not available yet.");
+});
+
 Deno.test("research small cells are marked for suppression", () => {
   assertEquals(suppressSmallCells([
     { label: "20–22", count: 4 },
