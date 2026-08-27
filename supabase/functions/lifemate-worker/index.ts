@@ -14,6 +14,8 @@ import {
   workerConsumerName,
 } from "./policy.ts";
 import { createProviderAuthSubjectResolver } from "./provider_auth_subject.ts";
+import { createResearchExportRuntime } from "./research_export_runtime.ts";
+import { createResearchExportSignerRoute } from "./research_export_signer_route.ts";
 import { loadWorkerDatabaseUrl } from "./runtime_database.ts";
 
 const databaseUrl = await loadWorkerDatabaseUrl();
@@ -22,6 +24,7 @@ const serviceRoleKey = Deno.env.get(
   ["SUPABASE", "SERVICE", "ROLE", "KEY"].join("_"),
 );
 const workerToken = Deno.env.get("LIFEMATE_WORKER_TOKEN");
+const researchSignerToken = Deno.env.get("LIFEMATE_RESEARCH_SIGNER_TOKEN");
 const workerBatchSize = boundedWorkerBatchSize(
   Deno.env.get("LIFEMATE_WORKER_BATCH_SIZE"),
 );
@@ -49,6 +52,19 @@ const providerAuthSubjects = createProviderAuthSubjectResolver(sql);
 const admin = createClient(supabaseUrl, serviceRoleKey, {
   auth: { autoRefreshToken: false, persistSession: false },
   global: { fetch: timedFetch },
+});
+const researchExportRuntime = createResearchExportRuntime(
+  sql,
+  supabaseUrl,
+  serviceRoleKey,
+  timedFetch,
+);
+const researchExportSignerRoute = createResearchExportSignerRoute({
+  sql,
+  supabaseUrl,
+  serviceRoleKey,
+  signerToken: researchSignerToken,
+  fetcher: timedFetch,
 });
 
 let campaignDeliveryRuntime: ReturnType<typeof createCampaignDeliveryRuntime> = null;
@@ -95,6 +111,9 @@ type CampaignPublishClaim = {
 };
 
 Deno.serve(async (request: Request) => {
+  const researchSignerResponse = await researchExportSignerRoute(request);
+  if (researchSignerResponse) return researchSignerResponse;
+
   if (request.method !== "POST") {
     return response(405, { error: "method_not_allowed" });
   }
@@ -392,6 +411,14 @@ async function processMessage(message: OutboxMessage): Promise<void> {
         result.kind === "unknown",
       );
       if (!failed) throw new Error("publish_fail_transition_failed");
+      return;
+    }
+    case "analytics.research_export_requested": {
+      const jobId = stringField(message.payload_json, "jobId");
+      if (!uuidPattern.test(jobId)) {
+        throw new Error("invalid_jobId");
+      }
+      await researchExportRuntime.process(jobId);
       return;
     }
     default:
