@@ -20,6 +20,7 @@ import {
   parseDiscountCodeStatusPayload,
   parseIssueDiscountCodesPayload,
 } from "./commerce_promotions.ts";
+import { createManualEntitlementAdjustmentRouteHandler } from "./manual_entitlement_adjustments_routes.ts";
 import {
   type AdminCapabilitySnapshot,
   requirePermission,
@@ -50,6 +51,8 @@ export function createCommerceCatalogRouteHandler(databaseUrl: string) {
   const store = createCommerceCatalogStore(databaseUrl);
   const catalogV2Store = createCommerceCatalogV2Store(databaseUrl);
   const discountCodeStore = createCommerceDiscountCodeStore(databaseUrl);
+  const manualEntitlementRouteHandler =
+    createManualEntitlementAdjustmentRouteHandler(databaseUrl);
 
   return async function commerceCatalogRouteHandler(input: {
     request: Request;
@@ -60,6 +63,14 @@ export function createCommerceCatalogRouteHandler(databaseUrl: string) {
     origin: string | null;
   }): Promise<Response | null> {
     const { request, path, accountId, admin, correlationId, origin } = input;
+
+    if (
+      path.startsWith("/api/v1/commerce/entitlement-adjustments") ||
+      /^\/api\/v1\/commerce\/accounts\/[^/]+\/entitlement-adjustments$/i.test(path)
+    ) {
+      const response = await manualEntitlementRouteHandler(input);
+      if (response) return response;
+    }
 
     if (request.method === "GET" && path === "/api/v1/commerce/catalog-v2") {
       requirePermission(admin, "commerce.read");
@@ -162,7 +173,7 @@ export function createCommerceCatalogRouteHandler(databaseUrl: string) {
       }
       return json(
         {
-          promotionId: String(result.promotionId),
+          promotionId: promotionCodesId,
           issuedCount: Number(result.issuedCount),
           items: Array.isArray(result.items) ? result.items : [],
           replayed: Boolean(result.replayed),
