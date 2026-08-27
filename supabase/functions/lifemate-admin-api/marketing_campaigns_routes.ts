@@ -4,6 +4,7 @@ import {
   type AdminCapabilitySnapshot,
   requirePermission,
 } from "./authorization.ts";
+import { createCampaignOrchestratorRouteHandler } from "./campaign_orchestrator_routes.ts";
 import {
   createCommerceRevenueStore,
   parseCommerceRevenueQuery,
@@ -84,6 +85,8 @@ export function createMarketingCampaignRouteHandler(databaseUrl: string) {
   const financeRouteHandler = createFinanceRouteHandler(databaseUrl);
   const securityRbacRouteHandler = createSecurityRbacRouteHandler(databaseUrl);
   const audienceSegmentRouteHandler = createAudienceSegmentRouteHandler(databaseUrl);
+  const campaignOrchestratorRouteHandler =
+    createCampaignOrchestratorRouteHandler(databaseUrl);
 
   return async function handleMarketingCampaignRoute(
     context: MarketingCampaignRouteContext,
@@ -108,6 +111,11 @@ export function createMarketingCampaignRouteHandler(databaseUrl: string) {
 
     const advisorResponse = await advisorRouteHandler(context);
     if (advisorResponse) return advisorResponse;
+
+    const campaignOrchestratorResponse = await campaignOrchestratorRouteHandler(
+      context,
+    );
+    if (campaignOrchestratorResponse) return campaignOrchestratorResponse;
 
     const contentCalendarResponse = await contentCalendarRouteHandler(context);
     if (contentCalendarResponse) return contentCalendarResponse;
@@ -304,6 +312,7 @@ export function createMarketingCampaignRouteHandler(databaseUrl: string) {
       return json(
         {
           campaignId: String(result.campaignId),
+          previousStatus: String(result.previousStatus),
           status: String(result.status),
           replayed: Boolean(result.replayed),
         },
