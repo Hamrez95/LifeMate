@@ -28,10 +28,22 @@ export function createSupportConversationAdminRouteHandler(databaseUrl: string) 
       requirePermission(admin, "support.read");
       const url = new URL(request.url);
       const beforeAt = optionalTimestamp(url.searchParams.get("beforeAt"));
+      const afterAt = optionalTimestamp(url.searchParams.get("afterAt"));
+      if (beforeAt && afterAt) {
+        throw new ApiError(
+          400,
+          "support_cursor_conflict",
+          "Use either beforeAt or afterAt, not both.",
+        );
+      }
       const limit = boundedLimit(url.searchParams.get("limit"));
+      const items = await store.list(ticketId, beforeAt, afterAt, limit);
       return json({
-        items: await store.list(ticketId, beforeAt, limit),
+        items,
         pageSize: limit,
+        polling: {
+          afterAt: items.length === 0 ? afterAt : items[0].createdAtUtc,
+        },
         freshness: { status: "fresh", asOfUtc: new Date().toISOString() },
       }, 200, origin);
     }
