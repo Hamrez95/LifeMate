@@ -13,14 +13,24 @@ import {
 } from "./staff_directory.ts";
 import { createStaffDirectoryStore } from "./staff_directory_service.ts";
 import { createCommandCenterPreferencesRouteHandler } from "./settings_preferences_routes.ts";
+import { createSupportConversationAdminRouteHandler } from "./support_conversation_routes.ts";
 import { ApiError } from "./validation.ts";
 
 export function createStaffDirectoryRouteHandler(databaseUrl: string) {
   const store = createStaffDirectoryStore(databaseUrl);
-  const preferencesRouteHandler = createCommandCenterPreferencesRouteHandler(databaseUrl);
-  const operationsSnapshotRouteHandler = createOperationsSnapshotRouteHandler(databaseUrl);
-  const platformControlRouteHandler = createPlatformControlRouteHandler(databaseUrl);
-  const relationshipAccessGrantRouteHandler = createRelationshipAccessGrantRouteHandler(databaseUrl);
+  const preferencesRouteHandler = createCommandCenterPreferencesRouteHandler(
+    databaseUrl,
+  );
+  const operationsSnapshotRouteHandler = createOperationsSnapshotRouteHandler(
+    databaseUrl,
+  );
+  const platformControlRouteHandler = createPlatformControlRouteHandler(
+    databaseUrl,
+  );
+  const relationshipAccessGrantRouteHandler =
+    createRelationshipAccessGrantRouteHandler(databaseUrl);
+  const supportConversationRouteHandler =
+    createSupportConversationAdminRouteHandler(databaseUrl);
 
   return async function staffDirectoryRouteHandler(input: {
     request: Request;
@@ -43,6 +53,8 @@ export function createStaffDirectoryRouteHandler(databaseUrl: string) {
     if (platformControlResponse) return platformControlResponse;
     const accessGrantResponse = await relationshipAccessGrantRouteHandler(input);
     if (accessGrantResponse) return accessGrantResponse;
+    const supportConversationResponse = await supportConversationRouteHandler(input);
+    if (supportConversationResponse) return supportConversationResponse;
 
     if (request.method === "GET" && path === "/api/v1/staff") {
       requirePermission(admin, "security.staff.manage");
@@ -81,7 +93,11 @@ export function createStaffDirectoryRouteHandler(databaseUrl: string) {
       requirePermission(admin, "security.staff.audit.read");
       const detail = await store.getDetail(targetAccountId);
       if (!detail) {
-        throw new ApiError(404, "staff_not_found", "Staff member was not found.");
+        throw new ApiError(
+          404,
+          "staff_not_found",
+          "Staff member was not found.",
+        );
       }
       await store.auditDetailRead(accountId, targetAccountId, correlationId);
       return json(
