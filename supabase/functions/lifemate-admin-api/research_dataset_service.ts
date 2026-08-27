@@ -96,6 +96,50 @@ export function createResearchDatasetStore(databaseUrl: string) {
       return value as Record<string, unknown>;
     },
 
+    async listExportJobs(actorAccountId: string, datasetId: string | null) {
+      const rows = await sql`
+        select * from analytics.list_research_export_jobs(
+          ${actorAccountId}::uuid,
+          ${datasetId}::uuid
+        )
+      `;
+      return rows.map((row) => ({
+        jobId: String(row.job_id),
+        datasetId: String(row.dataset_id),
+        datasetVersion: Number(row.dataset_version),
+        privacyPolicyVersion: Number(row.privacy_policy_version),
+        format: String(row.export_format),
+        status: String(row.status),
+        cohortSize: row.cohort_size == null ? null : Number(row.cohort_size),
+        reasonCode: row.reason_code == null ? null : String(row.reason_code),
+        artifactSha256: row.artifact_sha256 == null ? null : String(row.artifact_sha256),
+        artifactExpiresAtUtc: row.artifact_expires_at_utc == null
+          ? null
+          : new Date(String(row.artifact_expires_at_utc)).toISOString(),
+        createdAtUtc: new Date(String(row.created_at_utc)).toISOString(),
+        updatedAtUtc: new Date(String(row.updated_at_utc)).toISOString(),
+      }));
+    },
+
+    async getExportDownloadMetadata(actorAccountId: string, jobId: string) {
+      const rows = await sql`
+        select * from analytics.get_research_export_download(
+          ${actorAccountId}::uuid,
+          ${jobId}::uuid
+        )
+      `;
+      const row = rows[0];
+      if (!row) {
+        throw new ApiError(404, "research_export_download_unavailable", "Research export is unavailable or expired.");
+      }
+      return {
+        objectPath: String(row.storage_object_path),
+        artifactSha256: String(row.artifact_sha256),
+        format: String(row.export_format),
+        artifactExpiresAtUtc: new Date(String(row.artifact_expires_at_utc)).toISOString(),
+      };
+    },
+
     async create(input: {
       actorAccountId: string;
       name: string;
