@@ -93,7 +93,10 @@ begin
             else ceil(extract(year from age(h.observed_local_date,p.birth_date))::numeric / v_policy.age_bucket_years) * v_policy.age_bucket_years
           end)::integer::text
         ) end as age_bucket,
-      p.home_region
+      case coalesce(v_policy.quasi_identifier_rules->>'homeRegionMode','omit')
+        when 'country' then nullif(split_part(coalesce(p.home_region,''),'-',1),'')
+        else null
+      end as home_region
     from lifemate.health_observations h
     join core.persons p on p.id=h.person_id and p.status='Active'
     join core.account_person_links l
