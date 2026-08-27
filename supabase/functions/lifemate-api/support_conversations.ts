@@ -29,6 +29,8 @@ export function createSupportConversationStore(databaseUrl: string) {
   }
 
   return {
+    accountIdForAppUser,
+
     async open(appUserId: string, input: {
       productCode: string | null;
       category: string;
@@ -101,6 +103,65 @@ export function createSupportConversationStore(databaseUrl: string) {
         );
       }
       return { ok: true };
+    },
+
+    async registerAttachment(appUserId: string, input: {
+      ticketId: string;
+      messageId: string;
+      fileName: string;
+      contentType: string;
+      sizeBytes: number;
+      objectPath: string;
+      sha256: string;
+    }) {
+      const accountId = await accountIdForAppUser(appUserId);
+      const rows = await sql`
+        select support.register_user_support_attachment(
+          ${accountId}::uuid,
+          ${input.ticketId}::uuid,
+          ${input.messageId}::uuid,
+          ${input.fileName}::varchar,
+          ${input.contentType}::varchar,
+          ${input.sizeBytes}::bigint,
+          ${input.objectPath}::varchar,
+          ${input.sha256}::char(64)
+        ) as result
+      `;
+      return { accountId, ...requiredResult(rows[0]?.result) };
+    },
+
+    async finalizeAttachmentScan(appUserId: string, attachmentId: string, status: "Available" | "Rejected" | "ScanError", reasonCode: string | null) {
+      const accountId = await accountIdForAppUser(appUserId);
+      const rows = await sql`
+        select support.finalize_user_support_attachment_scan(
+          ${accountId}::uuid,
+          ${attachmentId}::uuid,
+          ${status}::varchar,
+          ${reasonCode}::varchar
+        ) as result
+      `;
+      return requiredResult(rows[0]?.result);
+    },
+
+    async getAttachmentDownload(appUserId: string, attachmentId: string) {
+      const accountId = await accountIdForAppUser(appUserId);
+      const rows = await sql`
+        select * from support.get_user_support_attachment_download(
+          ${accountId}::uuid,
+          ${attachmentId}::uuid
+        )
+      `;
+      const row = rows[0] as Row | undefined;
+      if (!row) {
+        throw new ApiError(404, "support_attachment_unavailable", "Attachment is unavailable.");
+      }
+      return {
+        attachmentId: String(row.attachment_id),
+        objectPath: String(row.storage_object_path),
+        fileName: String(row.original_file_name),
+        contentType: String(row.content_type),
+        sizeBytes: Number(row.size_bytes),
+      };
     },
   };
 }
