@@ -26,3 +26,13 @@ Deno.test("abuse admin routes share the bounded Admin database client", async ()
   assertStringIncludes(routes, "getAdminSql(databaseUrl)");
   assert(!routes.includes('import postgres from "postgres"'));
 });
+
+Deno.test("abuse rule mutations persist deterministic error outcomes for idempotent replay", async () => {
+  const idempotency = await Deno.readTextFile(
+    new URL("../../migrations/20260827023600_abuse_idempotency_outcome_hardening.sql", import.meta.url),
+  );
+  assertStringIncludes(idempotency, "status='Completed'");
+  assertStringIncludes(idempotency, "response_status=v_status");
+  assertStringIncludes(idempotency, "response_json=v_result");
+  assert(!idempotency.includes("delete from admin.idempotency_keys"));
+});
