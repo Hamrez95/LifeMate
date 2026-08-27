@@ -30,9 +30,11 @@ export function ageBucketLabel(age: number, width: number): string {
   if (!Number.isInteger(width) || width < 1 || width > 20) {
     throw new ApiError(400, "research_age_bucket_invalid", "Age bucket size is invalid.");
   }
-  const start = Math.floor(age / width) * width;
-  const endExclusive = start + width;
-  return `${start}–${endExclusive}`;
+  // Product policy expresses age bands with an inclusive upper boundary. For
+  // width=2, age 22 is intentionally rendered as 20–22 (not 22–24).
+  const endInclusive = age === 0 ? width : Math.ceil(age / width) * width;
+  const startExclusive = Math.max(0, endInclusive - width);
+  return `${startExclusive}–${endInclusive}`;
 }
 
 export function suppressSmallCells<T extends { count: number }>(
