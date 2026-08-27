@@ -20,6 +20,7 @@ import {
   parseDiscountCodeStatusPayload,
   parseIssueDiscountCodesPayload,
 } from "./commerce_promotions.ts";
+import { createGrowthRewardAdminRouteHandler } from "./growth_rewards_routes.ts";
 import { createManualEntitlementAdjustmentRouteHandler } from "./manual_entitlement_adjustments_routes.ts";
 import {
   type AdminCapabilitySnapshot,
@@ -51,6 +52,7 @@ export function createCommerceCatalogRouteHandler(databaseUrl: string) {
   const store = createCommerceCatalogStore(databaseUrl);
   const catalogV2Store = createCommerceCatalogV2Store(databaseUrl);
   const discountCodeStore = createCommerceDiscountCodeStore(databaseUrl);
+  const growthRewardAdminRouteHandler = createGrowthRewardAdminRouteHandler(databaseUrl);
   const manualEntitlementRouteHandler =
     createManualEntitlementAdjustmentRouteHandler(databaseUrl);
 
@@ -63,6 +65,11 @@ export function createCommerceCatalogRouteHandler(databaseUrl: string) {
     origin: string | null;
   }): Promise<Response | null> {
     const { request, path, accountId, admin, correlationId, origin } = input;
+
+    if (path.startsWith("/api/v1/commerce/rewards/")) {
+      const response = await growthRewardAdminRouteHandler(input);
+      if (response) return response;
+    }
 
     if (
       path.startsWith("/api/v1/commerce/entitlement-adjustments") ||
