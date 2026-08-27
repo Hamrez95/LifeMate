@@ -97,13 +97,9 @@ alter table analytics.dataset_privacy_policies force row level security;
 alter table analytics.dataset_export_jobs enable row level security;
 alter table analytics.dataset_export_jobs force row level security;
 
-drop policy if exists lifemate_admin_runtime_research_select on analytics.dataset_definitions;
-create policy lifemate_admin_runtime_research_select on analytics.dataset_definitions for select to lifemate_admin_runtime using (admin.account_is_active_founder(current_setting('app.account_id',true)::uuid));
-drop policy if exists lifemate_admin_runtime_research_select on analytics.dataset_privacy_policies;
-create policy lifemate_admin_runtime_research_select on analytics.dataset_privacy_policies for select to lifemate_admin_runtime using (admin.account_is_active_founder(current_setting('app.account_id',true)::uuid));
-drop policy if exists lifemate_admin_runtime_research_select on analytics.dataset_export_jobs;
-create policy lifemate_admin_runtime_research_select on analytics.dataset_export_jobs for select to lifemate_admin_runtime using (admin.account_is_active_founder(current_setting('app.account_id',true)::uuid));
-
+-- No table policy/grant is created for the Admin runtime. Founder identity is an
+-- application fact, so all access stays behind purpose-specific SECURITY DEFINER
+-- functions that receive and verify the exact authenticated actor account.
 revoke all on analytics.dataset_definitions,analytics.dataset_privacy_policies,analytics.dataset_export_jobs from public;
 revoke all on function analytics.create_research_dataset(uuid,varchar,varchar,varchar,jsonb,smallint,integer,integer,jsonb,varchar) from public;
 do $$ begin
@@ -111,7 +107,7 @@ do $$ begin
   if exists(select 1 from pg_roles where rolname='authenticated') then revoke all on analytics.dataset_definitions,analytics.dataset_privacy_policies,analytics.dataset_export_jobs from authenticated; end if;
   if exists(select 1 from pg_roles where rolname='lifemate_admin_runtime') then
     grant usage on schema analytics to lifemate_admin_runtime;
-    grant select on analytics.dataset_definitions,analytics.dataset_privacy_policies,analytics.dataset_export_jobs to lifemate_admin_runtime;
+    revoke all on analytics.dataset_definitions,analytics.dataset_privacy_policies,analytics.dataset_export_jobs from lifemate_admin_runtime;
     grant execute on function analytics.create_research_dataset(uuid,varchar,varchar,varchar,jsonb,smallint,integer,integer,jsonb,varchar) to lifemate_admin_runtime;
   end if;
 end $$;
