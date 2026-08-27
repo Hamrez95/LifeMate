@@ -171,7 +171,7 @@ async function consumeIdempotency<T>(input: {
       insert into admin.idempotency_keys(
         actor_account_id,operation,idempotency_key,request_hash,status,expires_at_utc
       ) values (
-        ${input.actorAccountId}::uuid,${input.operation},${input.idempotencyKey},${input.requestHash},'Pending',now()+interval '24 hours'
+        ${input.actorAccountId}::uuid,${input.operation},${input.idempotencyKey},${input.requestHash},'Processing',now()+interval '24 hours'
       )
       on conflict (actor_account_id,operation,idempotency_key) do nothing
       returning idempotency_key
@@ -283,7 +283,7 @@ export function createAudienceSegmentStore(databaseUrl: string) {
             insert into admin.audit_events(
               actor_account_id,action,resource_type,resource_id,result,reason,correlation_id,request_id,elevated_access,metadata_json
             ) values (
-              ${input.actorAccountId}::uuid,'audience.segment.create','audience_segment',${segment.id},'success',
+              ${input.actorAccountId}::uuid,'audience.segment.create','audience_segment',${segment.id},'Succeeded',
               'Create reusable audience segment',${input.correlationId}::uuid,${input.idempotencyKey},false,
               ${tx.json({segmentKey:segment.key,ruleHash:segment.ruleHash,version:segment.version})}
             )
@@ -331,7 +331,7 @@ export function createAudienceSegmentStore(databaseUrl: string) {
             insert into admin.audit_events(
               actor_account_id,action,resource_type,resource_id,result,reason,correlation_id,request_id,elevated_access,metadata_json
             ) values (
-              ${input.actorAccountId}::uuid,'audience.segment.update','audience_segment',${segment.id},'success',
+              ${input.actorAccountId}::uuid,'audience.segment.update','audience_segment',${segment.id},'Succeeded',
               'Update reusable audience segment',${input.correlationId}::uuid,${input.idempotencyKey},false,
               ${tx.json({segmentKey:segment.key,ruleHash:segment.ruleHash,version:segment.version,status:segment.status})}
             )
@@ -392,7 +392,7 @@ export function createAudienceSegmentStore(databaseUrl: string) {
             insert into admin.audit_events(
               actor_account_id,action,resource_type,resource_id,result,reason,correlation_id,request_id,elevated_access,metadata_json
             ) values (
-              ${input.actorAccountId}::uuid,'audience.segment.snapshot','audience_segment_snapshot',${snapshotId},'success',
+              ${input.actorAccountId}::uuid,'audience.segment.snapshot','audience_segment_snapshot',${snapshotId},'Succeeded',
               'Create immutable audience execution snapshot',${input.correlationId}::uuid,${input.idempotencyKey},false,
               ${tx.json({segmentId:segment.id,segmentVersion:segment.version,ruleHash:segment.ruleHash,memberCount:members.length})}
             )
