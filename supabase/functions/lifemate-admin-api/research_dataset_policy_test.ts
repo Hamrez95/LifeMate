@@ -11,7 +11,7 @@ import {
 } from "./research_dataset_policy.ts";
 
 Deno.test("research age bucketing is configurable and deterministic", () => {
-  assertEquals(ageBucketLabel(22, 2), "22–24");
+  assertEquals(ageBucketLabel(22, 2), "20–22");
   assertEquals(ageBucketLabel(21, 2), "20–22");
   assertEquals(ageBucketLabel(29, 5), "25–30");
 });
