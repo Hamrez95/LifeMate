@@ -7,4 +7,5 @@ export 'src/profile_theme.dart';
 export 'src/shared_account_onboarding.dart';
 export 'src/shared_auth_experience.dart';
 export 'src/shared_editable_profile_screen.dart';
+export 'src/shared_legal_privacy.dart';
 export 'src/shared_profile_screen.dart';
