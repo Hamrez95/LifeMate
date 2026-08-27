@@ -96,7 +96,6 @@ class LifeMateSharedProfileScreen extends StatelessWidget {
                     api: legalPrivacyApi,
                     accent: theme.accent,
                     background: theme.background,
-                    fontFamily: fontFamily,
                   ),
                 ),
               ),
