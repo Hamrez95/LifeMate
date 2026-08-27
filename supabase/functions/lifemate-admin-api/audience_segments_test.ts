@@ -96,6 +96,23 @@ Deno.test("audience segment set operators are bounded", () => {
   assert(error.code === "segment_rule_invalid", "unexpected validation code");
 });
 
+Deno.test("audience segment range operators require finite numeric values", () => {
+  for (const value of ["30", true, Number.NaN, Number.POSITIVE_INFINITY]) {
+    let error: unknown;
+    try {
+      parseSegmentRuleSet({
+        version: 1,
+        match: "all",
+        rules: [{ attribute: "engagement.last_active_days", operator: "lte", value }],
+      });
+    } catch (caught) {
+      error = caught;
+    }
+    assert(error instanceof ApiError, `expected invalid range value ${String(value)} to fail`);
+    assert(error.code === "segment_rule_invalid", "unexpected range validation code");
+  }
+});
+
 Deno.test("audience segment canonicalization and hash are deterministic", async () => {
   const parsed = parseSegmentRuleSet({
     version: 1,
