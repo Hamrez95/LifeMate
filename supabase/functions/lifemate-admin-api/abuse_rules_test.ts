@@ -135,6 +135,22 @@ Deno.test("abuse engine is explainable, idempotent and non-punitive", async () =
   assert(!migration.toLowerCase().includes("suspend account"));
 });
 
+Deno.test("abuse administration is HIGH_RISK and uses narrow server entrypoints", async () => {
+  const securityHardening = await Deno.readTextFile(
+    new URL("../../migrations/20260827023500_abuse_security_hardening.sql", import.meta.url),
+  );
+  const routes = await Deno.readTextFile(new URL("./abuse_rules_routes.ts", import.meta.url));
+  assertStringIncludes(securityHardening, "risk_level='HIGH_RISK'");
+  assertStringIncludes(securityHardening, "role_assignable=true");
+  assertStringIncludes(securityHardening, "security definer");
+  assertStringIncludes(securityHardening, "revoke insert,update on security.abuse_rules from lifemate_admin_runtime");
+  assertStringIncludes(securityHardening, "revoke execute on function security.evaluate_abuse_rules");
+  assertStringIncludes(securityHardening, "from lifemate_edge_runtime");
+  assertStringIncludes(routes, 'import { getAdminSql } from "./database_client.ts"');
+  assertStringIncludes(routes, "const sql = getAdminSql(databaseUrl)");
+  assert(!routes.includes('import postgres from "postgres"'));
+});
+
 Deno.test("abuse tables have no browser grants and edge uses functions only", async () => {
   const migration = await Deno.readTextFile(
     new URL("../../migrations/20260827023000_explainable_abuse_rules.sql", import.meta.url),
