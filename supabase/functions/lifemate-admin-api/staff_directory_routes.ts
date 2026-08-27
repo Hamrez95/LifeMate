@@ -14,6 +14,7 @@ import {
 } from "./staff_directory.ts";
 import { createStaffDirectoryStore } from "./staff_directory_service.ts";
 import { createCommandCenterPreferencesRouteHandler } from "./settings_preferences_routes.ts";
+import { createSupportConversationAdminRouteHandler } from "./support_conversation_routes.ts";
 import { ApiError } from "./validation.ts";
 
 export function createStaffDirectoryRouteHandler(databaseUrl: string) {
@@ -24,6 +25,8 @@ export function createStaffDirectoryRouteHandler(databaseUrl: string) {
   const productVersionAnalyticsRouteHandler =
     createProductVersionAnalyticsRouteHandler(databaseUrl);
   const relationshipAccessGrantRouteHandler = createRelationshipAccessGrantRouteHandler(databaseUrl);
+  const supportConversationRouteHandler =
+    createSupportConversationAdminRouteHandler(databaseUrl);
 
   return async function staffDirectoryRouteHandler(input: {
     request: Request;
@@ -49,6 +52,8 @@ export function createStaffDirectoryRouteHandler(databaseUrl: string) {
     if (productVersionAnalyticsResponse) return productVersionAnalyticsResponse;
     const accessGrantResponse = await relationshipAccessGrantRouteHandler(input);
     if (accessGrantResponse) return accessGrantResponse;
+    const supportConversationResponse = await supportConversationRouteHandler(input);
+    if (supportConversationResponse) return supportConversationResponse;
 
     if (request.method === "GET" && path === "/api/v1/staff") {
       requirePermission(admin, "security.staff.manage");
