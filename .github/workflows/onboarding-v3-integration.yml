@@ -12,6 +12,7 @@ on:
       - 'supabase/functions/lifemate-api/**'
       - 'supabase/migrations/**'
       - 'tools/operations/verify-onboarding-v3-integration.mjs'
+      - 'tools/operations/verify-legal-privacy-client.mjs'
   push:
     branches: [main]
     paths:
@@ -23,6 +24,7 @@ on:
       - 'supabase/functions/lifemate-api/**'
       - 'supabase/migrations/**'
       - 'tools/operations/verify-onboarding-v3-integration.mjs'
+      - 'tools/operations/verify-legal-privacy-client.mjs'
 
 permissions:
   contents: read
@@ -42,13 +44,24 @@ jobs:
           persist-credentials: false
 
       - name: Verify cross-product canonical integration
-        run: node tools/operations/verify-onboarding-v3-integration.mjs
+        run: |
+          node tools/operations/verify-onboarding-v3-integration.mjs
+          node tools/operations/verify-legal-privacy-client.mjs
 
       - uses: subosito/flutter-action@4cab68ce0f1c7c924f688bff4792e044f1aeb30c
         with:
           flutter-version: '3.44.0'
           channel: stable
           cache: true
+
+      - name: Verify shared client registration and privacy contracts
+        working-directory: packages/lifemate_client
+        shell: bash
+        run: |
+          set -euo pipefail
+          flutter pub get
+          flutter analyze --no-fatal-warnings --no-fatal-infos
+          flutter test test/account_onboarding_api_test.dart test/legal_privacy_api_test.dart
 
       - name: Verify shared onboarding component system
         working-directory: packages/lifemate_ui
@@ -57,7 +70,11 @@ jobs:
           set -euo pipefail
           flutter pub get
           flutter analyze --no-fatal-warnings --no-fatal-infos
-          flutter test test/onboarding_components_test.dart test/onboarding_v3_matrix_test.dart test/shared_account_onboarding_test.dart
+          flutter test \
+            test/onboarding_components_test.dart \
+            test/onboarding_v3_matrix_test.dart \
+            test/shared_account_onboarding_test.dart \
+            test/shared_legal_privacy_test.dart
 
       - name: Prove product-specific V3 contracts
         shell: bash

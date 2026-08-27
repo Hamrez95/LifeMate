@@ -41,6 +41,44 @@ class _FakeOnboardingApi extends LifeMateAccountOnboardingApi {
   }
 }
 
+class _FakeLegalApi extends LifeMateLegalPrivacyApi {
+  _FakeLegalApi({this.completed = true})
+      : super(
+          baseUri: Uri.parse('https://example.test'),
+          accessToken: () => 'test-token',
+        );
+
+  bool completed;
+  int acceptanceCalls = 0;
+
+  LifeMateLegalDocument get document => const LifeMateLegalDocument(
+        id: '11111111-1111-4111-8111-111111111111',
+        purpose: 'legal_terms',
+        version: 'v1',
+        title: 'شرایط استفاده',
+        documentHash: 'sha256:test-document-hash-0001',
+        contentUri: 'https://example.test/terms',
+        accepted: false,
+      );
+
+  @override
+  Future<LifeMateRegistrationStatus> registrationStatus() async =>
+      LifeMateRegistrationStatus(
+        completed: completed,
+        registrationPolicyVersion: completed ? 'legal_terms:v1' : null,
+        requiredDocuments: completed ? const [] : [document],
+      );
+
+  @override
+  Future<LifeMateRegistrationStatus> acceptCurrentLegalDocuments(
+    List<LifeMateLegalDocument> documents,
+  ) async {
+    acceptanceCalls += 1;
+    completed = true;
+    return registrationStatus();
+  }
+}
+
 LifeMateAccountOnboardingSnapshot _snapshot({required bool completed}) =>
     LifeMateAccountOnboardingSnapshot(
       version: 2,
@@ -71,6 +109,7 @@ void main() {
   Future<void> pumpGate(
     WidgetTester tester,
     _FakeOnboardingApi api, {
+    _FakeLegalApi? legalApi,
     Size size = const Size(390, 844),
   }) async {
     await configureView(tester, size: size);
@@ -78,6 +117,7 @@ void main() {
       MaterialApp(
         home: LifeMateAccountOnboardingGate(
           api: api,
+          legalPrivacyApi: legalApi ?? _FakeLegalApi(),
           child: const Scaffold(body: Text('PRODUCT_HOME')),
         ),
       ),
@@ -85,7 +125,7 @@ void main() {
     await tester.pumpAndSettle();
   }
 
-  testWidgets('completed existing user bypasses onboarding from server truth', (
+  testWidgets('completed existing user bypasses account onboarding when legal is current', (
     tester,
   ) async {
     final api = _FakeOnboardingApi(_snapshot(completed: true));
@@ -94,6 +134,27 @@ void main() {
     expect(find.text('PRODUCT_HOME'), findsOneWidget);
     expect(find.text('نام نمایشی'), findsNothing);
     expect(api.completeCalls, 0);
+  });
+
+  testWidgets('completed account cannot enter product until current legal version is accepted', (
+    tester,
+  ) async {
+    final api = _FakeOnboardingApi(_snapshot(completed: true));
+    final legal = _FakeLegalApi(completed: false);
+    await pumpGate(tester, api, legalApi: legal);
+
+    expect(find.text('PRODUCT_HOME'), findsNothing);
+    expect(find.text('شرایط استفاده'), findsOneWidget);
+    expect(find.byType(Checkbox), findsOneWidget);
+    expect(tester.widget<Checkbox>(find.byType(Checkbox)).value, isFalse);
+
+    await tester.tap(find.byType(Checkbox));
+    await tester.pump();
+    await tester.tap(find.text('تأیید و ادامه'));
+    await tester.pumpAndSettle();
+
+    expect(legal.acceptanceCalls, 1);
+    expect(find.text('PRODUCT_HOME'), findsOneWidget);
   });
 
   testWidgets('incomplete account uses two-step no-scroll flow with no birth year', (
@@ -118,7 +179,7 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets('Both completes canonical account then enters product', (
+  testWidgets('Both completes canonical account then enters product after legal gate', (
     tester,
   ) async {
     final api = _FakeOnboardingApi(_snapshot(completed: false));
