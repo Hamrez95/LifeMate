@@ -6,6 +6,38 @@ const appUserId = "11111111-1111-4111-8111-111111111111";
 const ticketId = "22222222-2222-4222-8222-222222222222";
 const messageId = "33333333-3333-4333-8333-333333333333";
 
+Deno.test("support current conversation is owner and product scoped", async () => {
+  const calls: unknown[] = [];
+  const handler = createSupportConversationRouteHandler({
+    async current(owner: string, productCode: string | null) {
+      calls.push({ owner, productCode });
+      return {
+        ticketId,
+        status: "Resolved",
+        productCode: "wellmate",
+        lastActivityAtUtc: "2026-08-27T12:00:00.000Z",
+      };
+    },
+  } as any);
+  const response = await handler({
+    request: new Request(
+      "https://example.test/api/v1/support/conversations/current?productCode=WellMate",
+    ),
+    path: "/api/v1/support/conversations/current",
+    appUserId,
+  });
+  assertEquals(response?.status, 200);
+  assertEquals(calls, [{ owner: appUserId, productCode: "wellmate" }]);
+  assertEquals(await response?.json(), {
+    conversation: {
+      ticketId,
+      status: "Resolved",
+      productCode: "wellmate",
+      lastActivityAtUtc: "2026-08-27T12:00:00.000Z",
+    },
+  });
+});
+
 Deno.test("support route never accepts requester account identity from client", async () => {
   const calls: unknown[] = [];
   const handler = createSupportConversationRouteHandler({
