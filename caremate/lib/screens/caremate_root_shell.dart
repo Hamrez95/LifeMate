@@ -171,11 +171,14 @@ class _CareMateRemotePairingOffGateState
       final user = current['user'] as Map<String, dynamic>? ?? const {};
       final currentUserId = user['id']?.toString();
       final active = relationships.any((relationship) {
+        if (currentUserId == null || currentUserId.isEmpty) return false;
         final caregiverId = relationship['caregiverUserId']?.toString();
-        final status = relationship['status']?.toString().toLowerCase();
-        return currentUserId != null &&
-            caregiverId == currentUserId &&
-            status == 'active';
+        if (caregiverId != null &&
+            caregiverId.isNotEmpty &&
+            caregiverId != currentUserId) {
+          return false;
+        }
+        return relationship['status']?.toString().toLowerCase() == 'active';
       });
       if (!mounted) return;
       setState(() {
