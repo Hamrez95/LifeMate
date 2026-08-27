@@ -10,6 +10,11 @@ export type MessagingTokenKey = {
   keyVersion: number;
 };
 
+export type MessagingTokenKeySet = {
+  active: MessagingTokenKey;
+  previous: MessagingTokenKey | null;
+};
+
 export type MessagingTokenEnvelope = {
   ciphertextB64: string;
   nonceB64: string;
@@ -88,15 +93,50 @@ async function aes(key: MessagingTokenKey, usage: "encrypt" | "decrypt"): Promis
   }, root, { name: "AES-GCM", length: 256 }, false, [usage]);
 }
 
-export function readMessagingTokenKey(
-  readEnvironment: EnvironmentReader = (name) => Deno.env.get(name),
+function readConfiguredMessagingTokenKey(
+  readEnvironment: EnvironmentReader,
+  secretName: string,
+  versionName: string,
 ): MessagingTokenKey {
-  const secret = readEnvironment("LIFEMATE_MESSAGING_TOKEN_ENCRYPTION_KEY") ?? "";
-  const rawVersion = readEnvironment("LIFEMATE_MESSAGING_TOKEN_ENCRYPTION_KEY_VERSION") ?? "";
+  const secret = readEnvironment(secretName) ?? "";
+  const rawVersion = readEnvironment(versionName) ?? "";
   if (encoder.encode(secret).byteLength < 32 || !/^\d+$/.test(rawVersion)) {
     throw new Error("Messaging token encryption configuration is unavailable.");
   }
   return { secret, keyVersion: keyVersion(Number(rawVersion)) };
+}
+
+export function readMessagingTokenKey(
+  readEnvironment: EnvironmentReader = (name) => Deno.env.get(name),
+): MessagingTokenKey {
+  return readConfiguredMessagingTokenKey(
+    readEnvironment,
+    "LIFEMATE_MESSAGING_TOKEN_ENCRYPTION_KEY",
+    "LIFEMATE_MESSAGING_TOKEN_ENCRYPTION_KEY_VERSION",
+  );
+}
+
+export function readMessagingTokenKeySet(
+  readEnvironment: EnvironmentReader = (name) => Deno.env.get(name),
+): MessagingTokenKeySet {
+  const active = readMessagingTokenKey(readEnvironment);
+  const previousSecret = readEnvironment("LIFEMATE_MESSAGING_TOKEN_PREVIOUS_ENCRYPTION_KEY") ?? "";
+  const previousVersion = readEnvironment("LIFEMATE_MESSAGING_TOKEN_PREVIOUS_ENCRYPTION_KEY_VERSION") ?? "";
+  const hasSecret = previousSecret.length > 0;
+  const hasVersion = previousVersion.trim().length > 0;
+  if (hasSecret !== hasVersion) {
+    throw new Error("Previous messaging token encryption key and version must be configured together.");
+  }
+  if (!hasSecret) return { active, previous: null };
+  const previous = readConfiguredMessagingTokenKey(
+    readEnvironment,
+    "LIFEMATE_MESSAGING_TOKEN_PREVIOUS_ENCRYPTION_KEY",
+    "LIFEMATE_MESSAGING_TOKEN_PREVIOUS_ENCRYPTION_KEY_VERSION",
+  );
+  if (previous.keyVersion === active.keyVersion) {
+    throw new Error("Previous messaging token key version must differ from the active version.");
+  }
+  return { active, previous };
 }
 
 export async function hashMessagingToken(secret: string, token: string): Promise<string> {
