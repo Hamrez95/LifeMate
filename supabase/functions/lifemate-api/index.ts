@@ -14,6 +14,7 @@ import {
 import { type AuthUser, createLifeMateDatabase } from "./database.ts";
 import { isPostgresUnavailable } from "./database_client.ts";
 import { createEditStore } from "./edit_store.ts";
+import { createGrowthRouteHandler } from "./growth_routes.ts";
 import { createHealthObservationStore } from "./health_observations.ts";
 import { createWomenCompanionPrivacyStore } from "./women_companion_privacy.ts";
 import { corsHeaders, json, problem, safeError } from "./http.ts";
@@ -71,6 +72,7 @@ const identityBridge = createIdentityBridge(databaseUrl);
 const accountLifecycle = createAccountLifecycleStore(databaseUrl);
 const dataExport = createDataExportStore(databaseUrl);
 const edits = createEditStore(databaseUrl);
+const growthRoutes = createGrowthRouteHandler(databaseUrl, contactHashingSecret);
 const healthObservations = createHealthObservationStore(databaseUrl);
 const womenCalendar = createWomenCalendarStore(databaseUrl);
 const womenCompanionPrivacy = createWomenCompanionPrivacyStore(databaseUrl);
@@ -243,6 +245,15 @@ async function route(
   }
 
   const identity = await db.requireIdentity(auth);
+
+  if (path.startsWith("/api/v1/growth/")) {
+    const growthResponse = await growthRoutes({
+      request,
+      path,
+      appUserId: identity.appUserId,
+    });
+    if (growthResponse) return growthResponse;
+  }
 
   if (request.method === "GET" && path === "/api/v1/capabilities") {
     return json(
