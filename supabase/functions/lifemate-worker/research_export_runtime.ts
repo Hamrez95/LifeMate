@@ -1,4 +1,3 @@
-import type postgres from "postgres";
 import { createResearchExportStorage } from "./research_export_storage.ts";
 import {
   processResearchExport,
@@ -6,10 +5,10 @@ import {
   type ResearchExportStore,
 } from "./research_export_worker.ts";
 
-type Sql = ReturnType<typeof postgres>;
+type SqlLike = any;
 
 export function createResearchExportRuntime(
-  sql: Sql,
+  sql: SqlLike,
   supabaseUrl: string,
   serviceRoleKey: string,
   fetcher: typeof fetch = fetch,
