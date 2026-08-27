@@ -15,7 +15,12 @@ alter table analytics.dataset_definitions
     'WomenCycleAggregate'
   ));
 
-create or replace function analytics.create_research_dataset(
+-- The pre-kind mutation signature must not survive as a callable overload.
+drop function if exists analytics.create_research_dataset(
+  uuid,varchar,varchar,varchar,jsonb,smallint,integer,integer,jsonb,varchar,uuid
+);
+
+create function analytics.create_research_dataset(
   p_actor uuid,p_name varchar,p_dataset_kind varchar,p_purpose varchar,p_source_category varchar,p_filter jsonb,
   p_age_bucket_years smallint,p_minimum_cohort_size integer,p_small_cell_threshold integer,
   p_quasi_identifier_rules jsonb,p_row_mode varchar,p_correlation_id uuid
@@ -54,7 +59,9 @@ do $$ begin
   end if;
 end $$;
 
-create or replace function analytics.list_research_datasets(p_actor uuid)
+-- RETURNS TABLE changes require drop/recreate; CREATE OR REPLACE would fail.
+drop function if exists analytics.list_research_datasets(uuid);
+create function analytics.list_research_datasets(p_actor uuid)
 returns table(
   dataset_id uuid,
   name varchar,
@@ -88,4 +95,11 @@ begin
   from analytics.dataset_definitions d
   join analytics.dataset_privacy_policies p on p.dataset_id=d.id
   order by d.updated_at_utc desc,d.id;
+end $$;
+
+revoke all on function analytics.list_research_datasets(uuid) from public;
+do $$ begin
+  if exists(select 1 from pg_roles where rolname='lifemate_admin_runtime') then
+    grant execute on function analytics.list_research_datasets(uuid) to lifemate_admin_runtime;
+  end if;
 end $$;
