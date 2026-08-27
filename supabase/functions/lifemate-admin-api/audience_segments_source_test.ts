@@ -32,13 +32,16 @@ Deno.test("audience segment routes require purpose-specific permissions", async 
   assert(!text.includes("supabase.from"));
 });
 
-Deno.test("audience migration is browser-denied and deletion-compatible", async () => {
+Deno.test("audience migration is browser-denied, deletion-compatible and history append-only", async () => {
   const migration = await Deno.readTextFile(
     new URL("../../migrations/20260826231500_audience_segment_engine.sql", import.meta.url),
   );
   assertStringIncludes(migration, "force row level security");
   assertStringIncludes(migration, "revoke all on schema audience from public, anon, authenticated");
   assertStringIncludes(migration, "account_id uuid not null,");
+  assertStringIncludes(migration, "security definer");
+  assertStringIncludes(migration, "grant select on audience.segment_history to lifemate_admin_runtime");
+  assert(!migration.includes("grant select,insert on audience.segment_history"));
   assert(!migration.includes("account_id uuid not null references identity.accounts(id)"));
 });
 
