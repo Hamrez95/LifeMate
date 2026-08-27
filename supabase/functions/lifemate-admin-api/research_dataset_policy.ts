@@ -20,6 +20,13 @@ export function validateResearchPrivacyPolicy(input: ResearchPrivacyPolicy) {
   if (input.rowMode !== "Aggregate" && input.rowMode !== "Pseudonymous") {
     throw new ApiError(400, "research_row_mode_invalid", "Research row mode is invalid.");
   }
+  if (input.rowMode === "Pseudonymous") {
+    throw new ApiError(
+      409,
+      "research_pseudonymous_export_unavailable",
+      "Pseudonymous row-level research export is not available yet.",
+    );
+  }
   return input;
 }
 
