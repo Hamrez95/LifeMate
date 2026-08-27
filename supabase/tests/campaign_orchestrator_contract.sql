@@ -11,12 +11,12 @@ declare
   v_schedule regprocedure := to_regprocedure('messaging.schedule_campaign_execution(uuid,uuid,bigint,timestamptz,uuid)');
   v_claim regprocedure := to_regprocedure('messaging.claim_campaign_delivery_jobs(integer)');
   v_resolve regprocedure := to_regprocedure('messaging.resolve_campaign_delivery_job(uuid)');
-  v_result regprocedure := to_regprocedure('messaging.record_campaign_delivery_result(uuid,character varying,character varying,character varying,character varying,timestamptz)');
+  v_result_v2 regprocedure := to_regprocedure('messaging.record_campaign_delivery_result_v2(uuid,character varying,character varying,character varying,character varying,timestamptz)');
   v_definition text;
   v_unknown_account uuid := gen_random_uuid();
 begin
   if v_prepare is null or v_prepare_v2 is null or v_confirm is null or v_schedule is null
-     or v_claim is null or v_resolve is null or v_result is null then
+     or v_claim is null or v_resolve is null or v_result_v2 is null then
     raise exception 'campaign orchestrator canonical functions missing';
   end if;
 
@@ -37,12 +37,12 @@ begin
   end if;
   if has_function_privilege('lifemate_admin_runtime', v_claim, 'EXECUTE')
      or has_function_privilege('lifemate_admin_runtime', v_resolve, 'EXECUTE')
-     or has_function_privilege('lifemate_admin_runtime', v_result, 'EXECUTE') then
+     or has_function_privilege('lifemate_admin_runtime', v_result_v2, 'EXECUTE') then
     raise exception 'admin runtime unexpectedly owns provider worker authority';
   end if;
   if not has_function_privilege('lifemate_worker_runtime', v_claim, 'EXECUTE')
      or not has_function_privilege('lifemate_worker_runtime', v_resolve, 'EXECUTE')
-     or not has_function_privilege('lifemate_worker_runtime', v_result, 'EXECUTE') then
+     or not has_function_privilege('lifemate_worker_runtime', v_result_v2, 'EXECUTE') then
     raise exception 'worker runtime lacks bounded delivery authority';
   end if;
   if has_function_privilege('lifemate_worker_runtime', v_prepare_v2, 'EXECUTE')
@@ -50,8 +50,6 @@ begin
     raise exception 'worker runtime unexpectedly owns campaign approval authority';
   end if;
 
-  -- Promotional preferences default disabled. An account with no explicit
-  -- consent/person evidence must therefore remain ineligible.
   if consent.account_allows_optional_purpose(v_unknown_account,'promotional_sms','GLOBAL') then
     raise exception 'promotional SMS must fail closed without explicit opt-in';
   end if;
@@ -89,12 +87,13 @@ begin
     raise exception 'worker delivery projection must resolve encrypted endpoint envelopes';
   end if;
 
-  v_definition := lower(pg_get_functiondef(v_result));
+  v_definition := lower(pg_get_functiondef(v_result_v2));
   if position('for update' in v_definition)=0 then
     raise exception 'delivery result recording must lock the delivery job';
   end if;
   if position('outcomeunknown' in replace(v_definition,' ',''))=0
-     or position('neverretryautomatically' in replace(v_definition,' ',''))=0 then
-    raise exception 'unknown provider outcomes must fail closed without automatic retry';
+     or position('permanentfailed' in replace(v_definition,' ',''))=0
+     or position('neitherisautomaticallyretried' in replace(v_definition,' ',''))=0 then
+    raise exception 'unknown and permanent provider outcomes must be terminal without automatic retry';
   end if;
 end $$;
