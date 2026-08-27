@@ -1,3 +1,8 @@
+import {
+  selectWeightedExperimentVariant,
+  stableExperimentBucket,
+  type WeightedExperimentVariant,
+} from "../_shared/experiment_assignment.ts";
 import { KPI_DEFINITIONS } from "./analytics_catalog.ts";
 import { ApiError } from "./validation.ts";
 
@@ -17,12 +22,7 @@ export type ExperimentSurface =
   | "offer"
   | "nonclinical_feature";
 
-export type ExperimentVariant = {
-  key: string;
-  weightBasisPoints: number;
-  controlValue: unknown;
-  version: number;
-};
+export type ExperimentVariant = WeightedExperimentVariant;
 
 export type ExperimentDefinition = {
   key: string;
@@ -205,22 +205,6 @@ function withinWindow(experiment: ExperimentDefinition, now: Date): boolean {
   return (!start || start <= now) && (!end || now < end);
 }
 
-async function bucket(experimentKey: string, subjectKey: string): Promise<number> {
-  if (!SUBJECT_KEY.test(subjectKey)) {
-    throw new ApiError(
-      400,
-      "experiment_subject_invalid",
-      "Experiment subject key is invalid.",
-    );
-  }
-  const bytes = new TextEncoder().encode(`experiment:${experimentKey}:${subjectKey}`);
-  const digest = new Uint8Array(await crypto.subtle.digest("SHA-256", bytes));
-  const value =
-    (((digest[0] << 24) | (digest[1] << 16) | (digest[2] << 8) | digest[3]) >>> 0) %
-    10_000;
-  return value;
-}
-
 export async function assignExperimentVariant(
   experiment: ExperimentDefinition,
   context: ExperimentAssignmentContext,
@@ -275,27 +259,36 @@ export async function assignExperimentVariant(
       reason: "segment_mismatch",
     };
   }
-
-  const bucketBasisPoints = await bucket(experiment.key, context.subjectKey);
-  let ceiling = 0;
-  for (const variant of experiment.variants) {
-    ceiling += variant.weightBasisPoints;
-    if (bucketBasisPoints < ceiling) {
-      return {
-        eligible: true,
-        variantKey: variant.key,
-        variantVersion: variant.version,
-        controlValue: variant.controlValue,
-        experimentVersion: experiment.version,
-        bucketBasisPoints,
-        reason: "assigned",
-      };
-    }
+  if (!SUBJECT_KEY.test(context.subjectKey)) {
+    throw new ApiError(
+      400,
+      "experiment_subject_invalid",
+      "Experiment subject key is invalid.",
+    );
   }
 
-  throw new ApiError(
-    503,
-    "experiment_assignment_invalid",
-    "Experiment assignment could not resolve a variant.",
+  const bucketBasisPoints = await stableExperimentBucket(
+    experiment.key,
+    context.subjectKey,
   );
+  const variant = selectWeightedExperimentVariant(
+    experiment.variants,
+    bucketBasisPoints,
+  );
+  if (!variant) {
+    throw new ApiError(
+      503,
+      "experiment_assignment_invalid",
+      "Experiment assignment could not resolve a variant.",
+    );
+  }
+  return {
+    eligible: true,
+    variantKey: variant.key,
+    variantVersion: variant.version,
+    controlValue: variant.controlValue,
+    experimentVersion: experiment.version,
+    bucketBasisPoints,
+    reason: "assigned",
+  };
 }
