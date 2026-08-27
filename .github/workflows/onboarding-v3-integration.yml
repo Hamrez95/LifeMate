@@ -12,6 +12,7 @@ on:
       - 'supabase/functions/lifemate-api/**'
       - 'supabase/migrations/**'
       - 'tools/operations/verify-onboarding-v3-integration.mjs'
+      - 'tools/operations/verify-legal-privacy-client.mjs'
   push:
     branches: [main]
     paths:
@@ -23,6 +24,7 @@ on:
       - 'supabase/functions/lifemate-api/**'
       - 'supabase/migrations/**'
       - 'tools/operations/verify-onboarding-v3-integration.mjs'
+      - 'tools/operations/verify-legal-privacy-client.mjs'
 
 permissions:
   contents: read
@@ -42,7 +44,9 @@ jobs:
           persist-credentials: false
 
       - name: Verify cross-product canonical integration
-        run: node tools/operations/verify-onboarding-v3-integration.mjs
+        run: |
+          node tools/operations/verify-onboarding-v3-integration.mjs
+          node tools/operations/verify-legal-privacy-client.mjs
 
       - uses: subosito/flutter-action@4cab68ce0f1c7c924f688bff4792e044f1aeb30c
         with:
