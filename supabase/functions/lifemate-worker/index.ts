@@ -13,6 +13,7 @@ import {
   workerConsumerName,
 } from "./policy.ts";
 import { createProviderAuthSubjectResolver } from "./provider_auth_subject.ts";
+import { createResearchExportRuntime } from "./research_export_runtime.ts";
 import { loadWorkerDatabaseUrl } from "./runtime_database.ts";
 
 const databaseUrl = await loadWorkerDatabaseUrl();
@@ -49,6 +50,12 @@ const admin = createClient(supabaseUrl, serviceRoleKey, {
   auth: { autoRefreshToken: false, persistSession: false },
   global: { fetch: timedFetch },
 });
+const researchExports = createResearchExportRuntime(
+  sql,
+  supabaseUrl,
+  serviceRoleKey,
+  timedFetch,
+);
 
 type OutboxMessage = {
   id: string;
@@ -267,9 +274,6 @@ async function processMessage(message: OutboxMessage): Promise<void> {
         }
       }
 
-      // Storage must be removed before SQL finalization clears the profile path.
-      // Purging the whole server-owned user folder also removes orphaned previous
-      // avatars left by an earlier best-effort replacement cleanup.
       const appUserId = await appUserIdForAccount(accountId);
       if (appUserId) {
         await purgeProfilePhotoFolder(
@@ -296,8 +300,6 @@ async function processMessage(message: OutboxMessage): Promise<void> {
         select * from marketing.claim_campaign_publish_execution(${executionId}::uuid)
       `;
       const claim = rows[0];
-      // A missing claim means the execution is already terminal or was failed
-      // closed by the database preflight. The outbox item itself can complete.
       if (!claim) return;
 
       const secretRows = await sql`
@@ -333,7 +335,6 @@ async function processMessage(message: OutboxMessage): Promise<void> {
           ) as ok
         `;
         if (completed[0]?.ok !== true) {
-          // The external side effect may already exist. Never retry it blindly.
           await failCampaignPublish(
             executionId,
             "publish_completion_outcome_unknown",
@@ -349,6 +350,12 @@ async function processMessage(message: OutboxMessage): Promise<void> {
         result.kind === "unknown",
       );
       if (!failed) throw new Error("publish_fail_transition_failed");
+      return;
+    }
+    case "analytics.research_export_requested": {
+      const jobId = stringField(message.payload_json, "jobId");
+      if (!uuidPattern.test(jobId)) throw new Error("invalid_jobId");
+      await researchExports.process(jobId);
       return;
     }
     default:
