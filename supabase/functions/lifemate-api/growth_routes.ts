@@ -5,7 +5,15 @@ import { createLegalPrivacyRouteHandler } from "./legal_privacy_routes.ts";
 import { createProductTelemetryV2RouteHandler } from "./product_telemetry_v2_routes.ts";
 import { createPushRegistrationRouteHandler } from "./push_registrations_routes.ts";
 import { enforceRateLimit } from "./security.ts";
+import {
+  type createSupportAttachmentRuntime,
+  createSupportAttachmentRuntimeFromEnvironment,
+} from "./support_attachment_storage.ts";
+import { createSupportConversationStore } from "./support_conversations.ts";
+import { createSupportConversationRouteHandler } from "./support_conversations_routes.ts";
 import { readJsonObject } from "./validation.ts";
+
+type AttachmentRuntime = ReturnType<typeof createSupportAttachmentRuntime>;
 
 /// Compatibility entrypoint for delegated authenticated consumer API modules
 /// intentionally kept out of the large root router. Delegates remain independent
@@ -13,11 +21,16 @@ import { readJsonObject } from "./validation.ts";
 export function createGrowthRouteHandler(
   databaseUrl: string,
   contactHashingSecret: string,
+  supportAttachments?: AttachmentRuntime,
 ) {
   const store = createGrowthStore(databaseUrl, contactHashingSecret);
   const legalPrivacyRoutes = createLegalPrivacyRouteHandler(databaseUrl);
   const productTelemetryRoutes = createProductTelemetryV2RouteHandler(databaseUrl);
   const pushRegistrationRoutes = createPushRegistrationRouteHandler(databaseUrl);
+  const supportRoutes = createSupportConversationRouteHandler(
+    createSupportConversationStore(databaseUrl),
+    supportAttachments ?? createSupportAttachmentRuntimeFromEnvironment(),
+  );
 
   return async function growthRouteHandler(input: {
     request: Request;
@@ -32,6 +45,9 @@ export function createGrowthRouteHandler(
 
     const pushRegistrationResponse = await pushRegistrationRoutes(input);
     if (pushRegistrationResponse) return pushRegistrationResponse;
+
+    const supportResponse = await supportRoutes(input);
+    if (supportResponse) return supportResponse;
 
     const { request, path, appUserId } = input;
 
