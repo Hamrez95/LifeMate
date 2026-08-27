@@ -37,10 +37,17 @@ Deno.test("NPS accepts only integer scores from zero through ten", () => {
   }
 });
 
-Deno.test("non-NPS feedback rejects score-shaped payloads", () => {
-  const error = assertThrows(() => parseFeedbackSubmission({
+Deno.test("non-NPS feedback requires meaningful text and rejects scores", () => {
+  let error = assertThrows(() => parseFeedbackSubmission({
     kind: "Feedback",
     productCode: "wellmate",
+  }), ApiError);
+  assertEquals(error.code, "feedback_message_required");
+
+  error = assertThrows(() => parseFeedbackSubmission({
+    kind: "Feedback",
+    productCode: "wellmate",
+    message: "Useful feedback",
     npsScore: 7,
   }), ApiError);
   assertEquals(error.code, "feedback_nps_score_forbidden");
@@ -57,6 +64,7 @@ Deno.test("advocacy is explicit opt-in and rejects hidden evidence fields", () =
   error = assertThrows(() => parseFeedbackSubmission({
     kind: "Advocacy",
     productCode: "wellmate",
+    message: "I mentioned LifeMate in my story.",
     advocacyOptIn: true,
     socialProfile: "private-profile",
   }), ApiError);
@@ -74,6 +82,7 @@ Deno.test("feedback rejects oversized text and unsupported product metadata", ()
   error = assertThrows(() => parseFeedbackSubmission({
     kind: "Feedback",
     productCode: "../unsafe",
+    message: "Unsafe product",
   }), ApiError);
   assertEquals(error.code, "feedback_product_invalid");
 });
