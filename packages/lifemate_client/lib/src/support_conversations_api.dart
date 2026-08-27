@@ -116,11 +116,15 @@ class LifeMateSupportApi {
         queryParameters: query,
       );
 
-  Future<LifeMateSupportConversation?> current({String? productCode}) async {
+  Future<LifeMateSupportConversation?> current({
+    String? productCode,
+    String category = 'general',
+  }) async {
     final data = _json(
       await _client.get(
         _uri('/api/v1/support/conversations/current', {
           if (productCode != null && productCode.isNotEmpty) 'productCode': productCode,
+          'category': category,
         }),
         headers: await _headers(),
       ),
@@ -139,7 +143,7 @@ class LifeMateSupportApi {
     required String body,
     required String clientMessageId,
   }) async {
-    final existing = await current(productCode: productCode);
+    final existing = await current(productCode: productCode, category: category);
     if (existing != null) {
       return send(
         existing.id,
