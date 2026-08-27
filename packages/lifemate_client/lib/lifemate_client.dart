@@ -2,6 +2,7 @@ library lifemate_client;
 
 export 'package:supabase_flutter/supabase_flutter.dart' show AuthException;
 export 'src/account_deletion_action.dart';
+export 'src/account_onboarding_api.dart';
 export 'src/account_security.dart';
 export 'src/account_security_factory.dart';
 export 'src/app_config.dart';
