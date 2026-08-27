@@ -24,6 +24,39 @@ function result(value: unknown): Record<string, unknown> {
   return parsed;
 }
 
+async function requireCustomRoleDelegable(
+  sql: AdminSql,
+  actorAccountId: string,
+  roleCode: string,
+): Promise<void> {
+  const rows = await sql`
+    select
+      r.is_system,
+      coalesce(
+        bool_and(
+          p.role_assignable
+          and p.risk_level<>'ELEVATED'
+          and admin.account_has_permission(${actorAccountId}::uuid,p.code)
+        ) filter (where p.code is not null),
+        true
+      ) as delegable
+    from admin.roles r
+    left join admin.role_permissions rp on rp.role_id=r.id
+    left join admin.permissions p on p.code=rp.permission_code
+    where r.code=${roleCode}
+    group by r.id
+    limit 1
+  `;
+  if (rows.length === 0 || Boolean(rows[0].is_system)) return;
+  if (!Boolean(rows[0].delegable)) {
+    throw new ApiError(
+      403,
+      "permission_delegation_denied",
+      "The selected custom role contains permissions outside the actor authority.",
+    );
+  }
+}
+
 export function createStaffActionStore(databaseUrl: string) {
   const sql: AdminSql = getAdminSql(databaseUrl);
   return {
@@ -43,6 +76,12 @@ export function createStaffActionStore(databaseUrl: string) {
         idempotencyKey,
         requestHash,
       } = input;
+      if (
+        route.kind === "role" && route.action === "assign" &&
+        request.roleCode !== null
+      ) {
+        await requireCustomRoleDelegable(sql, actorAccountId, request.roleCode);
+      }
       const rows = route.kind === "membership"
         ? await sql`
           select admin.mutate_staff_membership(
