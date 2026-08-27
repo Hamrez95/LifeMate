@@ -4,6 +4,7 @@ import 'package:lifemate_ui/lifemate_ui.dart';
 import 'package:provider/provider.dart';
 
 import '../../providers/contextual_notification_provider.dart';
+import '../../providers/notification_provider.dart';
 import '../treatments/add_treatment_screen.dart';
 import 'wellmate_first_value_api.dart';
 
@@ -22,8 +23,8 @@ class WellMateFirstValueGate extends StatefulWidget {
 }
 
 class _WellMateFirstValueGateState extends State<WellMateFirstValueGate> {
-  late WellMateFirstValueApi _api;
-  late bool _ownsApi;
+  late final WellMateFirstValueApi _api =
+      widget.api ?? WellMateFirstValueApi.fromEnvironment();
   WellMateFirstValueProfile? _profile;
   Object? _loadError;
   String? _actionError;
@@ -38,23 +39,23 @@ class _WellMateFirstValueGateState extends State<WellMateFirstValueGate> {
   @override
   void initState() {
     super.initState();
-    _ownsApi = widget.api == null;
-    _api = widget.api ?? WellMateFirstValueApi.fromEnvironment();
     _load();
   }
 
   @override
   void dispose() {
-    if (_ownsApi) _api.close();
+    if (widget.api == null) _api.close();
     super.dispose();
   }
 
   Future<void> _load() async {
-    setState(() {
-      _loading = true;
-      _loadError = null;
-      _actionError = null;
-    });
+    if (mounted) {
+      setState(() {
+        _loading = true;
+        _loadError = null;
+        _actionError = null;
+      });
+    }
     try {
       var profile = await _api.getProfile();
       if (!profile.isResolved) {
@@ -77,7 +78,7 @@ class _WellMateFirstValueGateState extends State<WellMateFirstValueGate> {
       });
       await context
           .read<NotificationProvider>()
-          .letContextual()
+          .asContextual()
           ?.refreshExistingPermission();
     } catch (error) {
       if (!mounted) return;
@@ -154,19 +155,30 @@ class _WellMateFirstValueGateState extends State<WellMateFirstValueGate> {
     );
     if (!mounted || !created) return;
 
-    final latest = await _api.getProfile();
-    final updated = await _api.setState(current: latest, state: 'Completed');
-    if (!mounted) return;
-    setState(() {
-      _profile = updated;
-      _permissionStep = true;
-      _permissionResult = null;
-      _actionError = null;
-    });
+    try {
+      final latest = await _api.getProfile();
+      final updated = await _api.setState(current: latest, state: 'Completed');
+      if (!mounted) return;
+      setState(() {
+        _profile = updated;
+        _permissionStep = true;
+        _permissionResult = null;
+        _actionError = null;
+      });
+    } catch (_) {
+      // The treatment itself is already canonical. Do not create it again on a
+      // state-write failure; reload detects the existing plan and completes the
+      // presentation state idempotently.
+      if (!mounted) return;
+      setState(() {
+        _loadError = const FormatException('first-value state pending');
+        _loading = false;
+      });
+    }
   }
 
   Future<void> _requestNotifications() async {
-    final contextual = context.read<NotificationProvider>().letContextual();
+    final contextual = context.read<NotificationProvider>().asContextual();
     if (contextual == null || _busy) return;
     setState(() => _busy = true);
     final result = await contextual.requestAfterExplanation();
@@ -188,8 +200,11 @@ class _WellMateFirstValueGateState extends State<WellMateFirstValueGate> {
   }
 
   Widget _loadingScreen() => _scaffold(
-        title: LifeMateRuntimeLocale.select(fa: 'WellMate', en: 'WellMate'),
-        primaryLabel: LifeMateRuntimeLocale.select(fa: 'در حال آماده‌سازی', en: 'Preparing'),
+        title: 'WellMate',
+        primaryLabel: LifeMateRuntimeLocale.select(
+          fa: 'در حال آماده‌سازی',
+          en: 'Preparing',
+        ),
         primaryBusy: true,
         body: _question(
           icon: Icons.favorite_outline_rounded,
@@ -206,7 +221,10 @@ class _WellMateFirstValueGateState extends State<WellMateFirstValueGate> {
 
   Widget _errorScreen() => _scaffold(
         title: 'WellMate',
-        primaryLabel: LifeMateRuntimeLocale.select(fa: 'تلاش دوباره', en: 'Try again'),
+        primaryLabel: LifeMateRuntimeLocale.select(
+          fa: 'تلاش دوباره',
+          en: 'Try again',
+        ),
         onPrimary: _load,
         body: _question(
           icon: Icons.cloud_off_outlined,
@@ -215,8 +233,8 @@ class _WellMateFirstValueGateState extends State<WellMateFirstValueGate> {
             en: 'WellMate setup is temporarily unavailable',
           ),
           description: LifeMateRuntimeLocale.select(
-            fa: 'اتصال را بررسی کن. هیچ درمان یا یادآوری جدیدی ساخته نشده است.',
-            en: 'Check your connection. No treatment or reminder was created.',
+            fa: 'اتصال را بررسی کن. اگر درمانی ثبت شده باشد، دوباره ساخته نمی‌شود.',
+            en: 'Check your connection. An already-saved treatment will never be recreated.',
           ),
         ),
       );
@@ -230,7 +248,10 @@ class _WellMateFirstValueGateState extends State<WellMateFirstValueGate> {
           en: 'Add my first medication',
         ),
         onPrimary: _busy ? null : _addTreatment,
-        secondaryLabel: LifeMateRuntimeLocale.select(fa: 'فعلاً رد شو', en: 'Skip for now'),
+        secondaryLabel: LifeMateRuntimeLocale.select(
+          fa: 'فعلاً رد شو',
+          en: 'Skip for now',
+        ),
         onSecondary: _busy ? null : _skip,
         primaryBusy: _busy,
         body: Column(
@@ -275,22 +296,30 @@ class _WellMateFirstValueGateState extends State<WellMateFirstValueGate> {
   Widget _permissionScreen() {
     final denied = _permissionResult == WellMateNotificationPermissionResult.denied;
     final granted = _permissionResult == WellMateNotificationPermissionResult.granted;
+    final resolved = denied || granted ||
+        _permissionResult == WellMateNotificationPermissionResult.unsupported;
     return _scaffold(
-      title: LifeMateRuntimeLocale.select(fa: 'یادآوری WellMate', en: 'WellMate reminders'),
+      title: LifeMateRuntimeLocale.select(
+        fa: 'یادآوری WellMate',
+        en: 'WellMate reminders',
+      ),
       progress: 1,
       progressLabel: LifeMateRuntimeLocale.select(fa: 'آماده', en: 'Ready'),
-      primaryLabel: denied || granted
+      primaryLabel: resolved
           ? LifeMateRuntimeLocale.select(fa: 'ورود به WellMate', en: 'Enter WellMate')
-          : LifeMateRuntimeLocale.select(fa: 'فعال‌کردن اعلان‌ها', en: 'Enable notifications'),
+          : LifeMateRuntimeLocale.select(
+              fa: 'فعال‌کردن اعلان‌ها',
+              en: 'Enable notifications',
+            ),
       onPrimary: _busy
           ? null
-          : denied || granted
+          : resolved
           ? () => setState(() => _permissionStep = false)
           : _requestNotifications,
-      secondaryLabel: denied || granted
+      secondaryLabel: resolved
           ? null
           : LifeMateRuntimeLocale.select(fa: 'فعلاً نه', en: 'Not now'),
-      onSecondary: denied || granted
+      onSecondary: resolved
           ? null
           : () => setState(() => _permissionStep = false),
       primaryBusy: _busy,
@@ -302,7 +331,7 @@ class _WellMateFirstValueGateState extends State<WellMateFirstValueGate> {
                 ? Icons.notifications_off_outlined
                 : granted
                 ? Icons.notifications_active_outlined
-                : Icons.notifications_none_rounded,
+                : Icons.check_circle_outline_rounded,
             title: denied
                 ? LifeMateRuntimeLocale.select(
                     fa: 'اعلان‌ها فعال نشدند',
@@ -314,17 +343,22 @@ class _WellMateFirstValueGateState extends State<WellMateFirstValueGate> {
                     en: 'Reminders are ready',
                   )
                 : LifeMateRuntimeLocale.select(
-                    fa: 'زمان دارو را به تو یادآوری کنیم؟',
-                    en: 'Remind you when it is medication time?',
+                    fa: 'برنامه دارویی ذخیره شد',
+                    en: 'Your medication plan is saved',
                   ),
             description: denied
                 ? LifeMateRuntimeLocale.select(
-                    fa: 'برنامه درمان ذخیره شده است. هر زمان خواستی می‌توانی اعلان WellMate را از تنظیمات سیستم فعال کنی.',
-                    en: 'Your treatment is saved. You can enable WellMate notifications later from system settings.',
+                    fa: 'درمان محفوظ است. هر زمان خواستی می‌توانی اعلان WellMate را از تنظیمات سیستم فعال کنی.',
+                    en: 'Your treatment is safe. You can enable WellMate notifications later from system settings.',
+                  )
+                : granted
+                ? LifeMateRuntimeLocale.select(
+                    fa: 'WellMate می‌تواند یادآوری‌های همین دستگاه را زمان‌بندی کند.',
+                    en: 'WellMate can now schedule reminders on this device.',
                   )
                 : LifeMateRuntimeLocale.select(
-                    fa: 'اجازه سیستم فقط برای اعلان روی همین دستگاه است و تنظیمات سرور یا دسترسی مراقب را تغییر نمی‌دهد.',
-                    en: 'The OS permission only controls notifications on this device. It does not change server preferences or caregiver access.',
+                    fa: 'اگر اعلان را فعال کنی، زمان مصرف روی همین دستگاه یادآوری می‌شود. این اجازه، تنظیمات سرور یا دسترسی مراقب را تغییر نمی‌دهد.',
+                    en: 'If you enable notifications, medication times can be shown on this device. This never changes server preferences or caregiver access.',
                   ),
           ),
           const Spacer(flex: 2),
@@ -388,18 +422,22 @@ class _WellMateFirstValueGateState extends State<WellMateFirstValueGate> {
           title: title,
           primaryLabel: primaryLabel,
           onPrimary: onPrimary,
-          secondaryLabel: secondaryLabel,
-          onSecondary: onSecondary,
           primaryBusy: primaryBusy,
           progress: progress,
           progressLabel: progressLabel,
+          secondary: secondaryLabel == null
+              ? null
+              : TextButton(
+                  onPressed: onSecondary,
+                  child: Text(secondaryLabel),
+                ),
           body: body,
         ),
       );
 }
 
 extension on NotificationProvider {
-  ContextualNotificationProvider? letContextual() =>
+  ContextualNotificationProvider? asContextual() =>
       this is ContextualNotificationProvider
       ? this as ContextualNotificationProvider
       : null;
