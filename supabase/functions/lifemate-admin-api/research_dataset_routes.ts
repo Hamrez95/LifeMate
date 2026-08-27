@@ -1,6 +1,7 @@
 import type { AdminCapabilitySnapshot } from "./authorization.ts";
 import { parseResearchDatasetFilters } from "./research_dataset_filters.ts";
 import { json } from "./http.ts";
+import { createResearchExportSignerFromEnvironment } from "./research_export_signer.ts";
 import {
   rejectDirectIdentifierFields,
   validateResearchPrivacyPolicy,
@@ -29,15 +30,42 @@ const DATASET_KINDS = new Set<ResearchDatasetKind>([
   "TreatmentAggregate",
   "WomenCycleAggregate",
 ]);
+const UUID = "[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}";
 
 export function createResearchDatasetRouteHandler(databaseUrl: string) {
   const store = createResearchDatasetStore(databaseUrl);
+  const signer = createResearchExportSignerFromEnvironment();
   return async function researchDatasetRoute(context: Context): Promise<Response | null> {
     const { request, path, accountId, admin, correlationId, origin } = context;
 
-    const exportMatch = path.match(
-      /^\/api\/v1\/research\/datasets\/([0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12})\/exports$/i,
-    );
+    const downloadMatch = path.match(new RegExp(`^/api/v1/research/exports/(${UUID})/download$`, "i"));
+    if (downloadMatch && request.method === "GET") {
+      requireFounder(admin);
+      const jobId = downloadMatch[1].toLowerCase();
+      const metadata = await store.getExportDownloadMetadata(accountId, jobId);
+      if (!signer) {
+        throw new ApiError(503, "research_export_signer_unavailable", "Research export download is not configured.");
+      }
+      const signed = await signer.sign(accountId, jobId);
+      return json({
+        jobId,
+        format: metadata.format,
+        artifactSha256: metadata.artifactSha256,
+        artifactExpiresAtUtc: metadata.artifactExpiresAtUtc,
+        ...signed,
+      }, 200, origin);
+    }
+
+    const exportMatch = path.match(new RegExp(`^/api/v1/research/datasets/(${UUID})/exports$`, "i"));
+    if (exportMatch && request.method === "GET") {
+      requireFounder(admin);
+      const datasetId = exportMatch[1].toLowerCase();
+      return json({
+        items: await store.listExportJobs(accountId, datasetId),
+        access: "founder_only",
+        freshness: { status: "fresh", asOfUtc: new Date().toISOString() },
+      }, 200, origin);
+    }
     if (exportMatch && request.method === "POST") {
       requireFounder(admin);
       const idempotencyKey = requireIdempotencyKey(request);
@@ -65,9 +93,7 @@ export function createResearchDatasetRouteHandler(databaseUrl: string) {
       }), 202, origin);
     }
 
-    const previewMatch = path.match(
-      /^\/api\/v1\/research\/datasets\/([0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12})\/preview$/i,
-    );
+    const previewMatch = path.match(new RegExp(`^/api/v1/research/datasets/(${UUID})/preview$`, "i"));
     if (previewMatch && request.method === "GET") {
       requireFounder(admin);
       return json({
@@ -101,11 +127,6 @@ export function createResearchDatasetRouteHandler(databaseUrl: string) {
       const sourceCategory = sourceCategoryCode(raw.sourceCategory);
       const rawFilters = boundedObject(raw.filters, "filters");
       const quasiIdentifierRules = boundedObject(raw.quasiIdentifierRules, "quasiIdentifierRules");
-
-      // Reject explicit/linkable identifier intent before the allow-listed filter
-      // parser turns an unsafe key into a generic "unsupported field" error. This
-      // makes the privacy boundary deterministic and avoids accidental future
-      // allow-list expansion changing the security meaning of the same payload.
       rejectDirectIdentifierFields([
         ...objectPaths(rawFilters),
         ...objectPaths(quasiIdentifierRules),
