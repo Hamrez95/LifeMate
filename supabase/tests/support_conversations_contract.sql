@@ -73,9 +73,11 @@ begin
 end
 $$;
 
--- Security-definer functions must not be executable by PUBLIC.
+-- Security-definer functions must not be executable by PUBLIC (ACL grantee oid 0).
 do $$
-declare sig regprocedure;
+declare
+  sig regprocedure;
+  public_has_execute boolean;
 begin
   foreach sig in array array[
     'support.open_support_conversation(uuid,character varying,character varying,text,uuid)'::regprocedure,
@@ -83,7 +85,15 @@ begin
     'support.list_user_support_messages(uuid,uuid,timestamp with time zone,integer)'::regprocedure,
     'support.mark_user_support_read(uuid,uuid,uuid)'::regprocedure
   ] loop
-    if has_function_privilege('public',sig,'EXECUTE') then
+    select exists (
+      select 1
+      from pg_proc p,
+           lateral aclexplode(coalesce(p.proacl,acldefault('f',p.proowner))) acl
+      where p.oid=sig::oid
+        and acl.grantee=0
+        and acl.privilege_type='EXECUTE'
+    ) into public_has_execute;
+    if public_has_execute then
       raise exception 'PUBLIC execute must be revoked from %',sig;
     end if;
   end loop;
