@@ -34,6 +34,18 @@ export function createResearchDatasetRouteHandler(databaseUrl: string) {
   const store = createResearchDatasetStore(databaseUrl);
   return async function researchDatasetRoute(context: Context): Promise<Response | null> {
     const { request, path, accountId, admin, correlationId, origin } = context;
+    const previewMatch = path.match(
+      /^\/api\/v1\/research\/datasets\/([0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12})\/preview$/i,
+    );
+    if (previewMatch && request.method === "GET") {
+      requireFounder(admin);
+      return json({
+        preview: await store.preview(accountId, previewMatch[1].toLowerCase()),
+        access: "founder_only",
+        freshness: { status: "fresh", asOfUtc: new Date().toISOString() },
+      }, 200, origin);
+    }
+
     if (path !== "/api/v1/research/datasets") return null;
     requireFounder(admin);
 
@@ -154,10 +166,10 @@ function boundedObject(value: unknown, field: string): Record<string, unknown> {
 function objectPaths(value: Record<string, unknown>, prefix = ""): string[] {
   const result: string[] = [];
   for (const [key, child] of Object.entries(value)) {
-    const path = prefix ? `${prefix}.${key}` : key;
-    result.push(path);
+    const itemPath = prefix ? `${prefix}.${key}` : key;
+    result.push(itemPath);
     if (child && typeof child === "object" && !Array.isArray(child)) {
-      result.push(...objectPaths(child as Record<string, unknown>, path));
+      result.push(...objectPaths(child as Record<string, unknown>, itemPath));
     }
   }
   return result;
