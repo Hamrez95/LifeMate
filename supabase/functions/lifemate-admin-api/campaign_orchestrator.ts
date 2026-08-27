@@ -4,13 +4,14 @@ const uuidPattern =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const providerPattern = /^[a-z0-9][a-z0-9_.-]{1,39}$/;
 const currencyPattern = /^[A-Z]{3}$/;
+const encoder = new TextEncoder();
 
 function text(value: unknown, field: string, max: number): string {
   if (typeof value !== "string") {
     throw new ApiError(400, "campaign_execution_invalid", `${field} is invalid.`);
   }
   const next = value.trim();
-  if (!next || new TextEncoder().encode(next).byteLength > max) {
+  if (!next || encoder.encode(next).byteLength > max) {
     throw new ApiError(400, "campaign_execution_invalid", `${field} is invalid.`);
   }
   return next;
@@ -33,6 +34,13 @@ function positiveVersion(value: unknown): number {
     );
   }
   return Number(value);
+}
+
+async function sha256(value: string): Promise<string> {
+  const digest = await crypto.subtle.digest("SHA-256", encoder.encode(value));
+  return [...new Uint8Array(digest)]
+    .map((byte) => byte.toString(16).padStart(2, "0"))
+    .join("");
 }
 
 export function parsePrepareCampaignExecution(body: Record<string, unknown>) {
@@ -62,23 +70,23 @@ export function parsePrepareCampaignExecution(body: Record<string, unknown>) {
 
   let smsProvider: string | null = null;
   let smsCurrency: string | null = null;
-  if (body.smsProvider != null || body.smsCurrency != null) {
+  if (channels.includes("SMS")) {
     smsProvider = text(body.smsProvider, "smsProvider", 40).toLowerCase();
-    smsCurrency = text(body.smsCurrency, "smsCurrency", 3).toUpperCase();
-    if (!providerPattern.test(smsProvider) || !currencyPattern.test(smsCurrency)) {
-      throw new ApiError(
-        400,
-        "campaign_sms_pricing_invalid",
-        "SMS pricing selection is invalid.",
-      );
+    if (!providerPattern.test(smsProvider)) {
+      throw new ApiError(400, "campaign_sms_provider_invalid", "SMS provider is invalid.");
     }
-    if (!channels.includes("SMS")) {
-      throw new ApiError(
-        400,
-        "campaign_sms_pricing_invalid",
-        "SMS pricing cannot be selected without the SMS channel.",
-      );
+    if (body.smsCurrency != null) {
+      smsCurrency = text(body.smsCurrency, "smsCurrency", 3).toUpperCase();
+      if (!currencyPattern.test(smsCurrency)) {
+        throw new ApiError(400, "campaign_sms_pricing_invalid", "SMS pricing currency is invalid.");
+      }
     }
+  } else if (body.smsProvider != null || body.smsCurrency != null) {
+    throw new ApiError(
+      400,
+      "campaign_sms_pricing_invalid",
+      "SMS provider/pricing cannot be selected without the SMS channel.",
+    );
   }
 
   return {
@@ -89,6 +97,19 @@ export function parsePrepareCampaignExecution(body: Record<string, unknown>) {
     smsProvider,
     smsCurrency,
   };
+}
+
+export async function hashPrepareCampaignExecution(
+  payload: ReturnType<typeof parsePrepareCampaignExecution>,
+): Promise<string> {
+  return await sha256(JSON.stringify({
+    campaignId: payload.campaignId,
+    audienceSnapshotId: payload.audienceSnapshotId,
+    campaignUpdatedAtUtc: payload.campaignUpdatedAtUtc,
+    channels: [...payload.channels].sort(),
+    smsProvider: payload.smsProvider,
+    smsCurrency: payload.smsCurrency,
+  }));
 }
 
 export function parseExecutionTransition(
