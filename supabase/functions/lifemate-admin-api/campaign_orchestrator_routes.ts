@@ -7,6 +7,7 @@ import {
   parseScheduleExecution,
 } from "./campaign_orchestrator.ts";
 import { createCampaignOrchestratorStore } from "./campaign_orchestrator_service.ts";
+import { createExperimentRouteHandler } from "./experiments_routes.ts";
 import { json } from "./http.ts";
 import { ApiError } from "./validation.ts";
 
@@ -30,6 +31,8 @@ function httpStatus(result: Record<string, unknown>): number {
 
 export function createCampaignOrchestratorRouteHandler(databaseUrl: string) {
   const store = createCampaignOrchestratorStore(databaseUrl);
+  const experimentRouteHandler = createExperimentRouteHandler(databaseUrl);
+
   return async function campaignOrchestratorRouteHandler(input: {
     request: Request;
     path: string;
@@ -39,6 +42,9 @@ export function createCampaignOrchestratorRouteHandler(databaseUrl: string) {
     origin: string | null;
   }): Promise<Response | null> {
     const { request, path, accountId, admin, correlationId, origin } = input;
+
+    const experimentResponse = await experimentRouteHandler(input);
+    if (experimentResponse) return experimentResponse;
 
     if (
       request.method === "POST" &&
