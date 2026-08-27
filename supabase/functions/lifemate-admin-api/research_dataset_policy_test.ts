@@ -54,15 +54,40 @@ Deno.test("research fields reject direct and linkable identifiers", () => {
   assertThrows(() => rejectDirectIdentifierFields(["authUserId"]));
 });
 
-Deno.test("research migration keeps founder-only function boundary", async () => {
-  const migration = await Deno.readTextFile(
+Deno.test("research migrations enforce DB privacy and reviewed quasi transforms", async () => {
+  const foundation = await Deno.readTextFile(
     new URL(
       "../../migrations/20260827120000_research_dataset_builder_foundation.sql",
       import.meta.url,
     ),
   );
-  assertEquals(migration.includes("admin.account_is_active_founder"), true);
-  assertEquals(migration.includes("revoke all on analytics.dataset_definitions"), true);
-  assertEquals(migration.includes("direct_identifiers_removed=true"), true);
-  assertEquals(migration.includes("research_source_not_allowed"), true);
+  const kind = await Deno.readTextFile(
+    new URL(
+      "../../migrations/20260827120300_research_dataset_kind.sql",
+      import.meta.url,
+    ),
+  );
+  const quasi = await Deno.readTextFile(
+    new URL(
+      "../../migrations/20260827120350_research_quasi_identifier_rules.sql",
+      import.meta.url,
+    ),
+  );
+  const preview = await Deno.readTextFile(
+    new URL(
+      "../../migrations/20260827120400_research_health_observation_preview.sql",
+      import.meta.url,
+    ),
+  );
+
+  assertEquals(foundation.includes("admin.account_is_active_founder"), true);
+  assertEquals(foundation.includes("revoke all on analytics.dataset_definitions"), true);
+  assertEquals(foundation.includes("direct_identifiers_removed=true"), true);
+  assertEquals(foundation.includes("research_source_not_allowed"), true);
+  assertEquals(foundation.includes("research_json_contains_direct_identifier"), true);
+  assertEquals(kind.includes("research_json_contains_direct_identifier"), true);
+  assertEquals(quasi.includes("homeRegionMode"), true);
+  assertEquals(quasi.includes("not in ('omit','country')"), true);
+  assertEquals(preview.includes("homeRegionMode','omit"), true);
+  assertEquals(preview.includes("split_part"), true);
 });
