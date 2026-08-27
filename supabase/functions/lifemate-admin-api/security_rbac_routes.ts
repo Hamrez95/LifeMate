@@ -3,6 +3,7 @@ import {
   requirePermission,
 } from "./authorization.ts";
 import { createBreakGlassRouteHandler } from "./break_glass_routes.ts";
+import { createCustomRoleRouteHandler } from "./custom_roles_routes.ts";
 import { createElevatedHealthRouteHandler } from "./elevated_health_routes.ts";
 import { json } from "./http.ts";
 import { createSecurityRbacStore } from "./security_rbac_service.ts";
@@ -30,6 +31,7 @@ export function createSecurityRbacRouteHandler(
   let resolvedRoleDetailStore = roleDetailStore;
   const breakGlassRouteHandler = createBreakGlassRouteHandler(databaseUrl);
   const elevatedHealthRouteHandler = createElevatedHealthRouteHandler(databaseUrl);
+  const customRoleRouteHandler = createCustomRoleRouteHandler(databaseUrl);
 
   return async function handleSecurityRbacRoute(
     context: SecurityRbacRouteContext,
@@ -52,6 +54,18 @@ export function createSecurityRbacRouteHandler(
 
     if (path.startsWith("/api/v1/security/elevated-health/")) {
       const response = await elevatedHealthRouteHandler({
+        request,
+        path,
+        accountId,
+        admin,
+        correlationId,
+        origin,
+      });
+      if (response) return response;
+    }
+
+    if (path.startsWith("/api/v1/security/custom-roles")) {
+      const response = await customRoleRouteHandler({
         request,
         path,
         accountId,
