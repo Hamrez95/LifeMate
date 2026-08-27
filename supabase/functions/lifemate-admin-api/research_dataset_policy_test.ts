@@ -41,10 +41,13 @@ Deno.test("research small cells are marked for suppression", () => {
   ]);
 });
 
-Deno.test("research fields reject direct identifiers", () => {
+Deno.test("research fields reject direct and linkable identifiers", () => {
   rejectDirectIdentifierFields(["age_bucket", "product_code", "cohort"]);
   assertThrows(() => rejectDirectIdentifierFields(["age_bucket", "email"]));
   assertThrows(() => rejectDirectIdentifierFields(["contact.phone_hash"]));
+  assertThrows(() => rejectDirectIdentifierFields(["person_id"]));
+  assertThrows(() => rejectDirectIdentifierFields(["account-id"]));
+  assertThrows(() => rejectDirectIdentifierFields(["app_user_id"]));
 });
 
 Deno.test("research migration keeps founder-only function boundary", async () => {
