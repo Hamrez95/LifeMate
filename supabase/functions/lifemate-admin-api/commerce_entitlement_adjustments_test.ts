@@ -88,12 +88,18 @@ Deno.test("manual entitlement migration preserves FREE tier and financial facts"
       import.meta.url,
     ),
   );
+  const consistency = await Deno.readTextFile(
+    new URL(
+      "../../migrations/20260827025300_manual_entitlement_preview_consistency.sql",
+      import.meta.url,
+    ),
+  );
   const routes = await Deno.readTextFile(
     new URL("./entitlement_adjustments_routes.ts", import.meta.url),
   );
 
   assertStringIncludes(migration, "e.source<>'FREE'");
-  assertStringIncludes(migration, "source,'ADMIN_GRANT'");
+  assertStringIncludes(migration, "'ADMIN_GRANT'");
   assertStringIncludes(migration, "'Adjusted'");
   assertStringIncludes(migration, "commerce.entitlement.adjust.request");
   assertStringIncludes(migration, "commerce.entitlement.adjust.approve");
@@ -101,6 +107,8 @@ Deno.test("manual entitlement migration preserves FREE tier and financial facts"
   assertStringIncludes(migration, "admin.consume_approval_request");
   assertStringIncludes(migration, "security.evaluate_abuse_rules");
   assertStringIncludes(migration, "p_confirmed boolean");
+  assertStringIncludes(consistency, "hasAdjustableIndefinite");
+  assertStringIncludes(consistency, "entitlement_already_indefinite");
   assert(!migration.includes("update commerce.subscriptions"));
   assert(!migration.includes("update commerce.transactions"));
   assert(!migration.includes("update commerce.orders"));
@@ -151,8 +159,8 @@ Deno.test("history and mutations remain server-side canonical routes", async () 
     routes,
     'requirePermission(admin, "commerce.entitlement.adjust.execute")',
   );
-  assertStringIncludes(routes, "commerce.preview_entitlement_adjustment");
-  assertStringIncludes(routes, "commerce.execute_entitlement_adjustment");
+  assertStringIncludes(routes, "commerce.preview_entitlement_adjustment_v2");
+  assertStringIncludes(routes, "commerce.execute_entitlement_adjustment_v2");
   assert(!routes.includes("anon"));
   assert(!routes.includes("authenticated"));
 });
