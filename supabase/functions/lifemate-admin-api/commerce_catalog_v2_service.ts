@@ -13,7 +13,7 @@ export function createCommerceCatalogV2Store(databaseUrl: string) {
   return {
     async get(query: CommerceCatalogV2Query) {
       const products = await sql`
-        select p.id, p.code, p.display_name, p.lifecycle_status, p.updated_at_utc
+        select p.id, p.code, p.display_name, p.lifecycle_status, p.version, p.updated_at_utc
         from commerce.products p
         where (${query.product}::text is null or p.code=${query.product})
           and (${query.includeHidden}::boolean or p.lifecycle_status='Published')
@@ -62,6 +62,7 @@ export function createCommerceCatalogV2Store(databaseUrl: string) {
           code: String(row.code),
           name: String(row.display_name),
           status: String(row.lifecycle_status),
+          version: Number(row.version),
           updatedAtUtc: iso(row.updated_at_utc),
           offers: offers
             .filter((offer) => String(offer.product_id) === String(row.id))
