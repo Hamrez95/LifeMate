@@ -30,6 +30,12 @@ const allowedAvatarKeys = new Set([
   "caregiver_teal",
 ]);
 
+const allowedPresentationIntents = new Set([
+  "Self",
+  "Caregiving",
+  "Both",
+]);
+
 export type ProfilePatch = {
   expectedVersion: number;
   displayName: string;
@@ -37,11 +43,22 @@ export type ProfilePatch = {
   locale: string;
   timeZone: string;
   avatarKey: string | null;
+  presentationIntent: string | null;
+  completeOnboarding: boolean;
 };
 
 export function normalizeProfilePatch(
   body: Record<string, unknown>,
 ): ProfilePatch {
+  const presentationIntent = optionalPresentationIntent(body.presentationIntent);
+  const completeOnboarding = body.completeOnboarding === true;
+  if (completeOnboarding && presentationIntent == null) {
+    throw new ApiError(
+      400,
+      "onboarding_intent_required",
+      "presentationIntent is required when onboarding is completed.",
+    );
+  }
   return {
     expectedVersion: requiredPositiveInt(body.version, "version"),
     displayName: requiredText(body.displayName, "displayName", 120),
@@ -49,6 +66,8 @@ export function normalizeProfilePatch(
     locale: requiredLocale(body.locale),
     timeZone: requiredTimeZone(body.timeZone),
     avatarKey: optionalAvatarKey(body.avatarKey),
+    presentationIntent,
+    completeOnboarding,
   };
 }
 
@@ -198,9 +217,7 @@ export function createProfileStore(
            metadata_json, created_at_utc)
         values
           (${crypto.randomUUID()}, ${userId},
-           ${
-        nextPath == null ? "profile.photo_deleted" : "profile.photo_updated"
-      },
+           ${nextPath == null ? "profile.photo_deleted" : "profile.photo_updated"},
            'user_profile', ${current[0].id}, null, now())
       `;
       return previous;
@@ -215,6 +232,8 @@ export function createProfileStore(
                  person.display_name,
                  legacy.phone_number, legacy.email,
                  person.locale, person.time_zone, person.avatar_key,
+                 legacy.presentation_intent,
+                 legacy.onboarding_completed_at_utc,
                  legacy.version,
                  legacy.created_at_utc, legacy.updated_at_utc
           from lifemate.user_profiles legacy
@@ -228,6 +247,8 @@ export function createProfileStore(
                  person.display_name,
                  legacy.phone_number, legacy.email,
                  person.locale, person.time_zone, person.avatar_key,
+                 legacy.presentation_intent,
+                 legacy.onboarding_completed_at_utc,
                  floor(extract(epoch from legacy.updated_at_utc) * 1000)::bigint
                    as version,
                  legacy.created_at_utc, legacy.updated_at_utc
@@ -299,16 +320,35 @@ export function createProfileStore(
             update lifemate.user_profiles
             set phone_number = ${rawPhone},
                 email = ${rawEmail},
+                presentation_intent = coalesce(
+                  ${patch.presentationIntent},
+                  presentation_intent
+                ),
+                onboarding_completed_at_utc = case
+                  when ${patch.completeOnboarding}
+                    then coalesce(onboarding_completed_at_utc, now())
+                  else onboarding_completed_at_utc
+                end,
                 version = version + 1,
                 updated_at_utc = now()
             where user_id = ${userId} and version = ${patch.expectedVersion}
-            returning id, user_id, phone_number, email, version,
-                      created_at_utc, updated_at_utc
+            returning id, user_id, phone_number, email,
+                      presentation_intent, onboarding_completed_at_utc,
+                      version, created_at_utc, updated_at_utc
           `
         : tx`
             update lifemate.user_profiles
             set phone_number = ${rawPhone},
                 email = ${rawEmail},
+                presentation_intent = coalesce(
+                  ${patch.presentationIntent},
+                  presentation_intent
+                ),
+                onboarding_completed_at_utc = case
+                  when ${patch.completeOnboarding}
+                    then coalesce(onboarding_completed_at_utc, now())
+                  else onboarding_completed_at_utc
+                end,
                 updated_at_utc = greatest(
                   now(),
                   updated_at_utc + interval '1 millisecond'
@@ -317,6 +357,7 @@ export function createProfileStore(
               and floor(extract(epoch from updated_at_utc) * 1000)::bigint =
                   ${patch.expectedVersion}
             returning id, user_id, phone_number, email,
+                      presentation_intent, onboarding_completed_at_utc,
                       floor(extract(epoch from updated_at_utc) * 1000)::bigint
                         as version,
                       created_at_utc, updated_at_utc
@@ -396,13 +437,16 @@ export function createProfileStore(
         );
       }
 
-      // Privacy invariant: metadata_json, null; no profile or avatar values.
+      // Privacy invariant: metadata_json stays null. Intent is deliberately not
+      // copied into the audit log because it is presentation metadata and not a
+      // healthcare authorization or operational decision.
       await tx`
         insert into lifemate.audit_logs
           (id, actor_user_id, action, resource_type, resource_id,
            metadata_json, created_at_utc)
         values
-          (${crypto.randomUUID()}, ${userId}, 'profile.updated',
+          (${crypto.randomUUID()}, ${userId},
+           ${patch.completeOnboarding ? "profile.onboarding_completed" : "profile.updated"},
            'user_profile', ${compatibilityRows[0].id}, null, now())
       `;
       return {
@@ -431,6 +475,19 @@ function optionalAvatarKey(value: unknown): string | null {
       400,
       "invalid_avatar_key",
       "avatarKey is not supported.",
+    );
+  }
+  return normalized;
+}
+
+function optionalPresentationIntent(value: unknown): string | null {
+  const normalized = normalizeOptional(value);
+  if (normalized == null) return null;
+  if (!allowedPresentationIntents.has(normalized)) {
+    throw new ApiError(
+      400,
+      "invalid_presentation_intent",
+      "presentationIntent is not supported.",
     );
   }
   return normalized;
@@ -472,6 +529,11 @@ function mapProfile(row: Row): Record<string, unknown> {
     locale: row.locale,
     timeZone: row.time_zone,
     avatarKey: row.avatar_key ?? "person_blue",
+    presentationIntent: row.presentation_intent ?? null,
+    onboardingCompleted: row.onboarding_completed_at_utc != null,
+    onboardingCompletedAtUtc: row.onboarding_completed_at_utc == null
+      ? null
+      : iso(row.onboarding_completed_at_utc),
     version: Number(row.version),
     createdAtUtc: iso(row.created_at_utc),
     updatedAtUtc: iso(row.updated_at_utc),
