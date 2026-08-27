@@ -68,6 +68,11 @@ Deno.test("support attachment routes and migration require clean scan before sig
   );
   assertEquals(routes.includes("signedDownload"), true);
   assertEquals(routes.includes("scan.status === \"Available\""), true);
+  assertEquals(
+    routes.includes('if (scan.status !== "Available")'),
+    true,
+    "scanner errors and malware rejection must both remove the untrusted Storage object",
+  );
   assertEquals(migration.includes("and a.scan_status='Available'"), true);
   assertEquals(migration.includes("support.get_user_support_attachment_download"), true);
   assertEquals(migration.includes("support.register_user_support_attachment"), true);
