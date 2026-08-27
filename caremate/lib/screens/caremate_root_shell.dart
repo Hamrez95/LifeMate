@@ -61,13 +61,17 @@ class _CareMateRootShellState extends State<CareMateRootShell>
 
   void _selectTab(int index) {
     if (index < 0 || index > 4) return;
-    if (_currentIndex != index) {
+    final changed = _currentIndex != index;
+    if (changed) {
       setState(() {
         _visitedTabs.add(index);
         _currentIndex = index;
       });
     }
-    _refreshTab(index);
+    // A relationship may have been revoked from another CareMate surface.
+    // Force a fresh server read whenever the user switches destinations so a
+    // previously rendered patient snapshot cannot reappear from an IndexedStack.
+    _refreshTab(index, force: changed);
   }
 
   void _refreshActiveIfStale() => _refreshTab(_currentIndex);
