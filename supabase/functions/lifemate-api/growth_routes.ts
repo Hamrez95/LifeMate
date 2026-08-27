@@ -2,17 +2,22 @@ import { createGrowthStore } from "./growth.ts";
 import { requireMutationIdempotencyKey } from "./idempotency.ts";
 import { json } from "./http.ts";
 import { enforceRateLimit } from "./security.ts";
+import type { createSupportAttachmentRuntime } from "./support_attachment_storage.ts";
 import { createSupportConversationStore } from "./support_conversations.ts";
 import { createSupportConversationRouteHandler } from "./support_conversations_routes.ts";
 import { readJsonObject } from "./validation.ts";
 
+type AttachmentRuntime = ReturnType<typeof createSupportAttachmentRuntime>;
+
 export function createGrowthRouteHandler(
   databaseUrl: string,
   contactHashingSecret: string,
+  supportAttachments?: AttachmentRuntime,
 ) {
   const store = createGrowthStore(databaseUrl, contactHashingSecret);
   const supportRoutes = createSupportConversationRouteHandler(
     createSupportConversationStore(databaseUrl),
+    supportAttachments,
   );
 
   return async function growthRouteHandler(input: {
