@@ -60,7 +60,6 @@ export function createDataExportStore(databaseUrl: string) {
       "profile",
       sql`
         select display_name, phone_number, email, locale, time_zone, avatar_key,
-               presentation_intent, onboarding_completed_at_utc,
                (profile_photo_path is not null) as has_profile_photo,
                version, created_at_utc, updated_at_utc
         from lifemate.user_profiles
@@ -181,12 +180,29 @@ export function createDataExportStore(databaseUrl: string) {
     const doseOccurrences = await bounded(
       "dose_occurrences",
       sql`
-        select o.id, o.treatment_plan_id, o.scheduled_at_utc, o.status,
-               o.occurred_at_utc, o.version, o.created_at_utc, o.updated_at_utc
-        from lifemate.dose_occurrences o
-        join lifemate.treatment_plans p on p.id = o.treatment_plan_id
-        where p.patient_person_id = ${personId}::uuid
-        order by o.scheduled_at_utc, o.id
+        select id, treatment_plan_id, treatment_schedule_id, scheduled_at_utc,
+               scheduled_local_date, scheduled_local_time, time_zone, status,
+               responded_at_utc, version, provenance_source,
+               provenance_restricted, created_at_utc, updated_at_utc
+        from lifemate.dose_occurrences
+        where patient_person_id = ${personId}::uuid
+        order by scheduled_at_utc, id
+        limit ${portableExportRowLimit + 1}
+      `,
+    );
+
+    const adherenceEvents = await bounded(
+      "dose_adherence_events",
+      sql`
+        select e.id, e.occurrence_id,
+               (e.actor_user_id = ${appUserId}) as actor_was_self,
+               e.event_type, e.previous_status, e.resulting_status,
+               e.occurred_at_utc, e.recorded_at_utc,
+               e.provenance_source, e.provenance_restricted
+        from lifemate.dose_adherence_events e
+        join lifemate.dose_occurrences o on o.id = e.occurrence_id
+        where o.patient_person_id = ${personId}::uuid
+        order by e.recorded_at_utc, e.id
         limit ${portableExportRowLimit + 1}
       `,
     );
@@ -194,17 +210,51 @@ export function createDataExportStore(databaseUrl: string) {
     const careEvents = await bounded(
       "care_events",
       sql`
-        select id, event_type, title, provider_name, specialty,
-               medication_name, dose_text, administration_route, reason,
-               instructions, center_name, address_line, phone_number,
+        select id, client_request_id, event_type, title, provider_name,
+               specialty, medication_name, dose_text, administration_route,
+               reason, instructions, center_name, address_line, phone_number,
                scheduled_local_date, scheduled_local_time, time_zone, status,
-               patient_reminder_minutes_before,
-               caregiver_reminder_minutes_before, version,
+               completed_at_utc, version, patient_reminder_minutes_before,
+               caregiver_reminder_minutes_before, recurrence_unit,
+               recurrence_interval, recurrence_weekdays, recurrence_end_date,
                provenance_source, provenance_restricted,
+               (created_by_user_id = ${appUserId}) as created_by_self,
                created_at_utc, updated_at_utc
         from lifemate.care_events
-        where owner_person_id = ${personId}::uuid
-        order by scheduled_local_date, scheduled_local_time, id
+        where patient_person_id = ${personId}::uuid
+        order by created_at_utc, id
+        limit ${portableExportRowLimit + 1}
+      `,
+    );
+
+    const healthObservations = await bounded(
+      "health_observations",
+      sql`
+        select id, client_request_id, observation_type, value_primary,
+               value_secondary, unit_primary, unit_secondary, note,
+               observed_at_utc, observed_local_date, time_zone,
+               source_category, source_provider, source_external_id,
+               metadata_json, version, created_at_utc, updated_at_utc,
+               case
+                 when recorded_by_account_id is null then null
+                 when ${accountId}::uuid is null then null
+                 else recorded_by_account_id = ${accountId}::uuid
+               end as recorded_by_self
+        from lifemate.health_observations
+        where person_id = ${personId}::uuid
+        order by observed_at_utc, id
+        limit ${portableExportRowLimit + 1}
+      `,
+    );
+
+    const privacyConsents = await bounded(
+      "privacy_consents",
+      sql`
+        select id, document_type, document_version, granted_at_utc,
+               revoked_at_utc, created_at_utc
+        from lifemate.privacy_consents
+        where user_id = ${appUserId}
+        order by created_at_utc, id
         limit ${portableExportRowLimit + 1}
       `,
     );
@@ -212,8 +262,18 @@ export function createDataExportStore(databaseUrl: string) {
     const careRelationships = await bounded(
       "care_relationships",
       sql`
-        select relationship_type, status, consent_version, created_at_utc,
-               updated_at_utc, revoked_at_utc
+        select id,
+               case when patient_person_id = ${personId}::uuid
+                    then 'patient' else 'caregiver' end as self_role,
+               status, patient_consent_version, patient_consented_at_utc,
+               caregiver_consent_version, caregiver_consented_at_utc,
+               can_view_women_calendar, can_manage_health_record,
+               health_record_management_consent_version,
+               health_record_management_consented_at_utc,
+               health_record_management_revoked_at_utc,
+               case when revoked_by_user_id is null then null
+                    else revoked_by_user_id = ${appUserId} end as revoked_by_self,
+               revoked_at_utc, created_at_utc, updated_at_utc
         from lifemate.care_relationships
         where patient_person_id = ${personId}::uuid
            or caregiver_person_id = ${personId}::uuid
@@ -222,58 +282,120 @@ export function createDataExportStore(databaseUrl: string) {
       `,
     );
 
-    const womenCycles = await bounded(
-      "women_cycles",
+    const careInvitations = await bounded(
+      "care_invitations",
       sql`
-        select id, cycle_start_date, cycle_length_days, period_length_days,
+        select id, contact_type, contact_hint, patient_consent_version,
+               status, expires_at_utc, responded_at_utc, revoked_at_utc,
+               created_at_utc
+        from lifemate.care_invitations
+        where inviter_user_id = ${appUserId}
+        order by created_at_utc, id
+        limit ${portableExportRowLimit + 1}
+      `,
+    );
+
+    const womenCalendarProfiles = await bounded(
+      "women_calendar_profiles",
+      sql`
+        select enabled, last_period_start, cycle_length, period_length,
+               reminders_enabled, algorithm_version, version,
+               daily_check_in_date, daily_mood, daily_energy, daily_symptoms,
+               daily_support_need, daily_private_note, share_daily_summary,
                created_at_utc, updated_at_utc
-        from lifemate.women_cycles
+        from lifemate.women_calendar_profiles
         where owner_person_id = ${personId}::uuid
-        order by cycle_start_date, id
+        order by created_at_utc
         limit ${portableExportRowLimit + 1}
       `,
     );
 
-    const womenDailyLogs = await bounded(
-      "women_daily_logs",
+    const womenCalendarEpisodes = await bounded(
+      "women_calendar_episodes",
       sql`
-        select id, local_date, flow_level, symptoms, mood, notes,
-               share_summary_with_companion, created_at_utc, updated_at_utc
-        from lifemate.women_daily_logs
+        select id, started_on, ended_on, private_notes, version,
+               provenance_source, provenance_restricted,
+               created_at_utc, updated_at_utc
+        from lifemate.women_calendar_episodes
         where owner_person_id = ${personId}::uuid
-        order by local_date, id
+        order by started_on, id
         limit ${portableExportRowLimit + 1}
       `,
     );
 
-    const exportData: Row = {
-      schemaVersion: portableExportSchemaVersion,
-      exportedAtUtc: new Date().toISOString(),
-      account: users[0],
-      profile: profiles[0] ?? null,
-      contactPoints,
-      externalIdentities,
-      appEnrollments: enrollments,
-      accountDeletionRequests: deletionRequests,
-      medications,
-      treatmentPlans,
-      treatmentSchedules,
-      doseOccurrences,
-      careEvents,
-      careRelationships,
-      womenCycles,
-      womenDailyLogs,
-    };
+    const womenCalendarDailyLogs = await bounded(
+      "women_calendar_daily_logs",
+      sql`
+        select id, logged_on, mood, energy_level, pain_level, symptoms,
+               private_notes, share_summary_with_companion, version,
+               provenance_source, provenance_restricted,
+               created_at_utc, updated_at_utc
+        from lifemate.women_calendar_daily_logs
+        where owner_person_id = ${personId}::uuid
+        order by logged_on, id
+        limit ${portableExportRowLimit + 1}
+      `,
+    );
 
-    const encoded = new TextEncoder().encode(JSON.stringify(exportData));
-    if (encoded.byteLength > portableExportMaximumBytes) {
-      throw new ApiError(
-        413,
-        "data_export_too_large",
-        "Account data export exceeds the portable export size limit.",
-      );
-    }
-    return exportData;
+    // A support action is meaningful to the patient, but the caregiver's raw
+    // user/relationship identifiers belong to another person and are omitted.
+    const womenCalendarSupportActionsReceived = await bounded(
+      "women_calendar_support_actions_received",
+      sql`
+        select id, action_type, performed_at_utc, created_at_utc
+        from lifemate.women_calendar_support_actions
+        where patient_person_id = ${personId}::uuid
+        order by performed_at_utc, id
+        limit ${portableExportRowLimit + 1}
+      `,
+    );
+
+    const payload: Row = {
+      schemaVersion: portableExportSchemaVersion,
+      generatedAtUtc: new Date().toISOString(),
+      scope: "authenticated-self-service",
+      account: portableRows(users)[0],
+      identity: {
+        account: accountRows[0] ? portableRow(accountRows[0]) : null,
+        contactPoints: portableRows(contactPoints),
+        externalIdentities: portableRows(externalIdentities),
+        appEnrollments: portableRows(enrollments),
+        deletionRequests: portableRows(deletionRequests),
+      },
+      profile: portableRows(profiles)[0] ?? null,
+      healthcare: {
+        medications: portableRows(medications),
+        treatmentPlans: portableRows(treatmentPlans),
+        treatmentSchedules: portableRows(treatmentSchedules),
+        doseOccurrences: portableRows(doseOccurrences),
+        doseAdherenceEvents: portableRows(adherenceEvents),
+        careEvents: portableRows(careEvents),
+        healthObservations: portableRows(healthObservations),
+      },
+      careAndConsent: {
+        privacyConsents: portableRows(privacyConsents),
+        relationships: portableRows(careRelationships),
+        invitationsCreatedBySelf: portableRows(careInvitations),
+      },
+      womenCalendar: {
+        profiles: portableRows(womenCalendarProfiles),
+        episodes: portableRows(womenCalendarEpisodes),
+        dailyLogs: portableRows(womenCalendarDailyLogs),
+        supportActionsReceived: portableRows(
+          womenCalendarSupportActionsReceived,
+        ),
+      },
+      exclusions: [
+        "raw authentication/provider subjects",
+        "encrypted contact values and contact hashes",
+        "invitation token/contact hashes",
+        "raw identifiers belonging to linked people",
+        "internal audit/security logs",
+        "idempotency keys and outbox transport records",
+      ],
+    };
+    assertPortableExportSize(payload);
+    return payload;
   }
 
   return { exportAccountData };
@@ -281,19 +403,47 @@ export function createDataExportStore(databaseUrl: string) {
 
 async function bounded(
   label: string,
-  promise: Promise<Row[]>,
+  rowsPromise: PromiseLike<Row[]>,
 ): Promise<Row[]> {
-  const rows = await promise;
+  const rows = await rowsPromise;
   if (rows.length > portableExportRowLimit) {
     throw new ApiError(
       413,
       "data_export_too_large",
-      `${label} exceeds the portable export row limit.`,
+      `The ${label} dataset is too large for the self-service export path.`,
     );
   }
   return rows;
 }
 
+export function assertPortableExportSize(payload: unknown): void {
+  const size = new TextEncoder().encode(JSON.stringify(payload)).byteLength;
+  if (size > portableExportMaximumBytes) {
+    throw new ApiError(
+      413,
+      "data_export_too_large",
+      "The account export is too large for the self-service export path.",
+    );
+  }
+}
+
+export function portableRows(rows: Row[]): Row[] {
+  return rows.map(portableRow);
+}
+
+export function portableRow(row: Row): Row {
+  return Object.fromEntries(
+    Object.entries(row).map(([key, value]) => [camelCase(key), value]),
+  );
+}
+
 function stringOrNull(value: unknown): string | null {
   return typeof value === "string" && value.length > 0 ? value : null;
+}
+
+function camelCase(value: string): string {
+  return value.replace(
+    /_([a-z])/g,
+    (_, letter: string) => letter.toUpperCase(),
+  );
 }
