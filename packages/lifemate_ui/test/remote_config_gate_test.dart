@@ -73,6 +73,8 @@ Widget _app(LifeMateRemoteConfigClient client, {Widget? child}) => MaterialApp(
 );
 
 void main() {
+  setUp(() => LifeMateRuntimeLocale.setLanguageCode('en'));
+
   testWidgets('force update blocks core only for a trusted fresh policy', (
     tester,
   ) async {
