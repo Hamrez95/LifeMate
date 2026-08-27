@@ -48,10 +48,13 @@ create table if not exists audience.segment_snapshot_members (
   primary key (snapshot_id, account_id)
 );
 
+-- History remains append-only for the runtime. The trigger runs with the migration
+-- owner's privileges so segment UPDATE can archive the previous version without
+-- granting direct INSERT on audience.segment_history to lifemate_admin_runtime.
 create or replace function audience.archive_segment_version()
 returns trigger
 language plpgsql
-security invoker
+security definer
 set search_path = pg_catalog, audience
 as $$
 begin
