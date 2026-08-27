@@ -18,6 +18,7 @@ type Context = {
 
 const PURPOSE_CODE = /^[a-z][a-z0-9._-]{2,79}$/;
 const SOURCE_CATEGORY = /^[A-Za-z][A-Za-z0-9_-]{2,79}$/;
+const FIELD_SELECTOR_KEYS = new Set(["field", "attribute", "column", "key"]);
 
 export function createResearchDatasetRouteHandler(databaseUrl: string) {
   const store = createResearchDatasetStore(databaseUrl);
@@ -46,7 +47,12 @@ export function createResearchDatasetRouteHandler(databaseUrl: string) {
       const sourceCategory = sourceCategoryCode(raw.sourceCategory);
       const filters = boundedObject(raw.filters, "filters");
       const quasiIdentifierRules = boundedObject(raw.quasiIdentifierRules, "quasiIdentifierRules");
-      rejectDirectIdentifierFields([...objectPaths(filters), ...objectPaths(quasiIdentifierRules)]);
+      rejectDirectIdentifierFields([
+        ...objectPaths(filters),
+        ...objectPaths(quasiIdentifierRules),
+        ...fieldReferences(filters),
+        ...fieldReferences(quasiIdentifierRules),
+      ]);
       const privacy = validateResearchPrivacyPolicy({
         ageBucketYears: optionalInteger(raw.ageBucketYears),
         minimumCohortSize: requiredInteger(raw.minimumCohortSize),
@@ -132,6 +138,19 @@ function objectPaths(value: Record<string, unknown>, prefix = ""): string[] {
     if (child && typeof child === "object" && !Array.isArray(child)) {
       result.push(...objectPaths(child as Record<string, unknown>, path));
     }
+  }
+  return result;
+}
+
+function fieldReferences(value: unknown): string[] {
+  if (Array.isArray(value)) return value.flatMap(fieldReferences);
+  if (!value || typeof value !== "object") return [];
+  const result: string[] = [];
+  for (const [key, child] of Object.entries(value as Record<string, unknown>)) {
+    if (FIELD_SELECTOR_KEYS.has(key.toLowerCase()) && typeof child === "string") {
+      result.push(child.trim());
+    }
+    result.push(...fieldReferences(child));
   }
   return result;
 }
