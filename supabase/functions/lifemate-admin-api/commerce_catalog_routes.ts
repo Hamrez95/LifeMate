@@ -68,7 +68,9 @@ export function createCommerceCatalogRouteHandler(databaseUrl: string) {
     const { request, path, accountId, admin, correlationId, origin } = input;
 
     if (
+      path === "/api/v1/commerce/refunds" ||
       path.startsWith("/api/v1/commerce/refunds/") ||
+      path === "/api/v1/commerce/churn" ||
       path.startsWith("/api/v1/commerce/reconciliation/") ||
       path === "/api/v1/commerce/subscriptions/renewal-intent"
     ) {
