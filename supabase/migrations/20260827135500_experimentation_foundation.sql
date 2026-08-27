@@ -1,5 +1,32 @@
 begin;
 
+create table if not exists analytics.experiment_metric_registry (
+  metric_code varchar(96) primary key,
+  measurement_state varchar(16) not null check (measurement_state in ('Available','Partial','Unavailable')),
+  definition_version integer not null check (definition_version >= 1),
+  updated_at_utc timestamptz not null default now(),
+  check (metric_code ~ '^[a-z][a-z0-9._-]{2,95}$')
+);
+
+insert into analytics.experiment_metric_registry(metric_code,measurement_state,definition_version) values
+('accounts_created','Partial',1),
+('activation_enrolled_accounts','Partial',1),
+('activation_observed_accounts','Partial',1),
+('activation_observed_rate','Partial',1),
+('profile_completion_rate','Unavailable',1),
+('monthly_active_accounts','Unavailable',1),
+('care_relationship_activation_rate','Unavailable',1),
+('treatment_creators','Unavailable',1),
+('trial_to_subscription_conversion_rate','Unavailable',1),
+('subscription_renewal_rate','Unavailable',1),
+('support_tickets_created','Unavailable',1),
+('social_posts_published','Unavailable',1),
+('incidents_created','Unavailable',1)
+on conflict (metric_code) do update set
+  measurement_state=excluded.measurement_state,
+  definition_version=excluded.definition_version,
+  updated_at_utc=now();
+
 create table if not exists analytics.experiments (
   experiment_key varchar(96) primary key,
   name varchar(160) not null check (length(trim(name)) between 3 and 160),
@@ -7,7 +34,7 @@ create table if not exists analytics.experiments (
   surface_code varchar(32) not null check (surface_code in ('onboarding','pricing','paywall','cta','offer','nonclinical_feature')),
   product_code varchar(64),
   segment_key varchar(96),
-  primary_metric_code varchar(96) not null,
+  primary_metric_code varchar(96) not null references analytics.experiment_metric_registry(metric_code) on delete restrict,
   guardrail_metric_codes varchar(96)[] not null default '{}',
   status varchar(16) not null default 'Draft' check (status in ('Draft','Scheduled','Running','Paused','Stopped','Completed')),
   starts_at_utc timestamptz,
@@ -23,7 +50,6 @@ create table if not exists analytics.experiments (
   check (primary_metric_code ~ '^[a-z][a-z0-9._-]{2,95}$'),
   check (cardinality(guardrail_metric_codes) <= 8),
   check (not primary_metric_code = any(guardrail_metric_codes)),
-  check (cardinality(guardrail_metric_codes) = cardinality(array(select distinct x from unnest(guardrail_metric_codes) x))),
   check (ends_at_utc is null or starts_at_utc is null or ends_at_utc > starts_at_utc)
 );
 
@@ -46,27 +72,32 @@ create table if not exists analytics.experiment_exposures (
   experiment_version bigint not null check (experiment_version >= 1),
   variant_key varchar(96) not null,
   variant_version bigint not null check (variant_version >= 1),
-  idempotency_hash char(64) not null check (idempotency_hash ~ '^[0-9a-f]{64}$'),
+  idempotency_hash varchar(64) not null check (idempotency_hash ~ '^[0-9a-f]{64}$'),
   occurred_at_utc timestamptz not null,
   recorded_at_utc timestamptz not null default now(),
   metadata_json jsonb not null default '{}'::jsonb,
   unique(experiment_key,idempotency_hash),
+  check (jsonb_typeof(metadata_json)='object'),
   check (octet_length(metadata_json::text) <= 2048),
   foreign key (experiment_key,variant_key) references analytics.experiment_variants(experiment_key,variant_key) on delete restrict
 );
 
 create index if not exists ix_analytics_experiments_status_window
   on analytics.experiments(status,starts_at_utc,ends_at_utc,experiment_key);
-create index if not exists ix_analytics_experiment_exposures_status
+create index if not exists ix_analytics_experiment_exposures_time
   on analytics.experiment_exposures(experiment_key,occurred_at_utc,variant_key);
 
+alter table analytics.experiment_metric_registry enable row level security;
 alter table analytics.experiments enable row level security;
 alter table analytics.experiment_variants enable row level security;
 alter table analytics.experiment_exposures enable row level security;
+alter table analytics.experiment_metric_registry force row level security;
 alter table analytics.experiments force row level security;
 alter table analytics.experiment_variants force row level security;
 alter table analytics.experiment_exposures force row level security;
 
+drop policy if exists experiment_metric_registry_admin_read on analytics.experiment_metric_registry;
+create policy experiment_metric_registry_admin_read on analytics.experiment_metric_registry for select to lifemate_admin_runtime using(true);
 drop policy if exists experiments_admin_read on analytics.experiments;
 create policy experiments_admin_read on analytics.experiments for select to lifemate_admin_runtime using(true);
 drop policy if exists experiment_variants_admin_read on analytics.experiment_variants;
@@ -74,13 +105,13 @@ create policy experiment_variants_admin_read on analytics.experiment_variants fo
 drop policy if exists experiment_exposures_admin_read on analytics.experiment_exposures;
 create policy experiment_exposures_admin_read on analytics.experiment_exposures for select to lifemate_admin_runtime using(true);
 
-revoke all on analytics.experiments,analytics.experiment_variants,analytics.experiment_exposures from public;
+revoke all on analytics.experiment_metric_registry,analytics.experiments,analytics.experiment_variants,analytics.experiment_exposures from public;
 do $$ begin
-  if to_regrole('anon') is not null then execute 'revoke all on analytics.experiments,analytics.experiment_variants,analytics.experiment_exposures from anon'; end if;
-  if to_regrole('authenticated') is not null then execute 'revoke all on analytics.experiments,analytics.experiment_variants,analytics.experiment_exposures from authenticated'; end if;
-  if to_regrole('lifemate_edge_runtime') is not null then execute 'revoke all on analytics.experiments,analytics.experiment_variants,analytics.experiment_exposures from lifemate_edge_runtime'; end if;
+  if to_regrole('anon') is not null then execute 'revoke all on analytics.experiment_metric_registry,analytics.experiments,analytics.experiment_variants,analytics.experiment_exposures from anon'; end if;
+  if to_regrole('authenticated') is not null then execute 'revoke all on analytics.experiment_metric_registry,analytics.experiments,analytics.experiment_variants,analytics.experiment_exposures from authenticated'; end if;
+  if to_regrole('lifemate_edge_runtime') is not null then execute 'revoke all on analytics.experiment_metric_registry,analytics.experiments,analytics.experiment_variants,analytics.experiment_exposures from lifemate_edge_runtime'; end if;
 end $$;
-grant select on analytics.experiments,analytics.experiment_variants,analytics.experiment_exposures to lifemate_admin_runtime;
+grant select on analytics.experiment_metric_registry,analytics.experiments,analytics.experiment_variants,analytics.experiment_exposures to lifemate_admin_runtime;
 
 insert into admin.permissions(code,domain,risk_level,role_assignable,description) values
 ('experiments.read','experiments','STANDARD',true,'Read canonical experiment definitions, rollout state and aggregate exposure metadata'),
@@ -131,6 +162,7 @@ declare
   v_variant jsonb;
   v_weight_total integer:=0;
   v_variant_count integer:=0;
+  v_guardrail_count integer:=0;
   v_operation varchar(160):='experiments.create';
 begin
   if not admin.account_has_permission(p_actor_account_id,'experiments.write') then
@@ -155,13 +187,28 @@ begin
   if not exists(select 1 from platform.controls where control_key=p_control_key and status='Active') then
     return jsonb_build_object('httpStatus',409,'code','experiment_control_unavailable','message','Experiment control must reference an active platform control.','replayed',false);
   end if;
+  if not exists(select 1 from analytics.experiment_metric_registry where metric_code=p_primary_metric_code) then
+    return jsonb_build_object('httpStatus',400,'code','experiment_metric_unknown','message','Primary metric is not canonical.','replayed',false);
+  end if;
+  if cardinality(coalesce(p_guardrail_metric_codes,'{}'))>8
+     or p_primary_metric_code=any(coalesce(p_guardrail_metric_codes,'{}'))
+     or exists(select 1 from unnest(coalesce(p_guardrail_metric_codes,'{}')) g where g !~ '^[a-z][a-z0-9._-]{2,95}$')
+     or exists(select 1 from unnest(coalesce(p_guardrail_metric_codes,'{}')) g where not exists(select 1 from analytics.experiment_metric_registry r where r.metric_code=g)) then
+    return jsonb_build_object('httpStatus',400,'code','experiment_guardrails_invalid','message','Experiment guardrails are invalid.','replayed',false);
+  end if;
+  select count(*) into v_guardrail_count from (select distinct g from unnest(coalesce(p_guardrail_metric_codes,'{}')) g) q;
+  if v_guardrail_count<>cardinality(coalesce(p_guardrail_metric_codes,'{}')) then
+    return jsonb_build_object('httpStatus',400,'code','experiment_guardrails_invalid','message','Experiment guardrails must be unique.','replayed',false);
+  end if;
   if jsonb_typeof(p_variants)<>'array' or jsonb_array_length(p_variants) not between 2 and 10 then
     return jsonb_build_object('httpStatus',400,'code','experiment_variants_invalid','message','Experiment variants are invalid.','replayed',false);
   end if;
   for v_variant in select value from jsonb_array_elements(p_variants) loop
     if coalesce(v_variant->>'key','') !~ '^[a-z][a-z0-9._-]{2,95}$'
-       or coalesce((v_variant->>'weightBasisPoints')::integer,0) not between 1 and 10000
-       or not (v_variant ? 'controlValue') then
+       or coalesce(v_variant->>'weightBasisPoints','') !~ '^[0-9]{1,5}$'
+       or (v_variant->>'weightBasisPoints')::integer not between 1 and 10000
+       or not (v_variant ? 'controlValue')
+       or octet_length((v_variant->'controlValue')::text)>4096 then
       return jsonb_build_object('httpStatus',400,'code','experiment_variant_invalid','message','Experiment variant is invalid.','replayed',false);
     end if;
     v_weight_total:=v_weight_total+(v_variant->>'weightBasisPoints')::integer;
@@ -263,8 +310,21 @@ begin
     v_response:=jsonb_build_object('httpStatus',409,'code','experiment_version_conflict','message','Experiment changed; refresh before updating.','currentVersion',v_experiment.version,'replayed',false);
   elsif v_experiment.status in ('Stopped','Completed') then
     v_response:=jsonb_build_object('httpStatus',409,'code','experiment_terminal','message','Terminal experiments cannot be restarted.','replayed',false);
-  elsif p_status='Running' and not exists(select 1 from platform.controls where control_key=v_experiment.control_key and status='Active') then
+  elsif not (
+    (v_experiment.status='Draft' and p_status in ('Scheduled','Stopped')) or
+    (v_experiment.status='Scheduled' and p_status in ('Running','Stopped')) or
+    (v_experiment.status='Running' and p_status in ('Paused','Stopped','Completed')) or
+    (v_experiment.status='Paused' and p_status in ('Running','Stopped','Completed'))
+  ) then
+    v_response:=jsonb_build_object('httpStatus',409,'code','experiment_transition_invalid','message','Experiment status transition is not allowed.','replayed',false);
+  elsif p_status in ('Scheduled','Running') and not exists(select 1 from platform.controls where control_key=v_experiment.control_key and status='Active') then
     v_response:=jsonb_build_object('httpStatus',409,'code','experiment_control_unavailable','message','Experiment control is not active.','replayed',false);
+  elsif p_status in ('Scheduled','Running') and exists(
+    select 1 from analytics.experiment_metric_registry r
+    where (r.metric_code=v_experiment.primary_metric_code or r.metric_code=any(v_experiment.guardrail_metric_codes))
+      and r.measurement_state='Unavailable'
+  ) then
+    v_response:=jsonb_build_object('httpStatus',409,'code','experiment_metric_unavailable','message','Every experiment metric must have canonical measurement support before launch.','replayed',false);
   else
     select coalesce(sum(weight_basis_points),0) into v_total from analytics.experiment_variants where experiment_key=p_experiment_key;
     if p_status in ('Scheduled','Running') and v_total<>10000 then
@@ -293,7 +353,7 @@ create or replace function analytics.record_experiment_exposure(
   p_experiment_version bigint,
   p_variant_key varchar,
   p_variant_version bigint,
-  p_idempotency_hash char(64),
+  p_idempotency_hash varchar,
   p_occurred_at_utc timestamptz,
   p_metadata_json jsonb default '{}'::jsonb
 ) returns boolean
@@ -303,10 +363,14 @@ set search_path=pg_catalog,analytics,pg_temp
 as $$
 declare
   v_experiment analytics.experiments%rowtype;
+  v_metadata_text text;
 begin
+  v_metadata_text:=lower(coalesce(p_metadata_json,'{}'::jsonb)::text);
   if p_idempotency_hash is null or p_idempotency_hash !~ '^[0-9a-f]{64}$'
      or p_occurred_at_utc is null
-     or p_metadata_json is null or octet_length(p_metadata_json::text)>2048 then
+     or p_metadata_json is null or jsonb_typeof(p_metadata_json)<>'object'
+     or octet_length(p_metadata_json::text)>2048
+     or v_metadata_text ~ '"(phone|email|name|account[_-]?id|person[_-]?id|health|medication|diagnosis|treatment|cycle|note|symptom)"\s*:' then
     return false;
   end if;
   select * into v_experiment from analytics.experiments where experiment_key=p_experiment_key;
@@ -324,22 +388,22 @@ end $$;
 
 revoke all on function admin.create_experiment(uuid,varchar,varchar,varchar,varchar,varchar,varchar,varchar,varchar[],jsonb,timestamptz,timestamptz,varchar,uuid,varchar,varchar) from public;
 revoke all on function admin.set_experiment_status(uuid,varchar,varchar,bigint,varchar,uuid,varchar,varchar) from public;
-revoke all on function analytics.record_experiment_exposure(varchar,bigint,varchar,bigint,char,timestamptz,jsonb) from public;
+revoke all on function analytics.record_experiment_exposure(varchar,bigint,varchar,bigint,varchar,timestamptz,jsonb) from public;
 do $$ begin
   if to_regrole('anon') is not null then
     execute 'revoke all on function admin.create_experiment(uuid,varchar,varchar,varchar,varchar,varchar,varchar,varchar,varchar[],jsonb,timestamptz,timestamptz,varchar,uuid,varchar,varchar) from anon';
     execute 'revoke all on function admin.set_experiment_status(uuid,varchar,varchar,bigint,varchar,uuid,varchar,varchar) from anon';
-    execute 'revoke all on function analytics.record_experiment_exposure(varchar,bigint,varchar,bigint,char,timestamptz,jsonb) from anon';
+    execute 'revoke all on function analytics.record_experiment_exposure(varchar,bigint,varchar,bigint,varchar,timestamptz,jsonb) from anon';
   end if;
   if to_regrole('authenticated') is not null then
     execute 'revoke all on function admin.create_experiment(uuid,varchar,varchar,varchar,varchar,varchar,varchar,varchar,varchar[],jsonb,timestamptz,timestamptz,varchar,uuid,varchar,varchar) from authenticated';
     execute 'revoke all on function admin.set_experiment_status(uuid,varchar,varchar,bigint,varchar,uuid,varchar,varchar) from authenticated';
-    execute 'revoke all on function analytics.record_experiment_exposure(varchar,bigint,varchar,bigint,char,timestamptz,jsonb) from authenticated';
+    execute 'revoke all on function analytics.record_experiment_exposure(varchar,bigint,varchar,bigint,varchar,timestamptz,jsonb) from authenticated';
   end if;
 end $$;
 grant execute on function admin.create_experiment(uuid,varchar,varchar,varchar,varchar,varchar,varchar,varchar,varchar[],jsonb,timestamptz,timestamptz,varchar,uuid,varchar,varchar) to lifemate_admin_runtime;
 grant execute on function admin.set_experiment_status(uuid,varchar,varchar,bigint,varchar,uuid,varchar,varchar) to lifemate_admin_runtime;
-grant execute on function analytics.record_experiment_exposure(varchar,bigint,varchar,bigint,char,timestamptz,jsonb) to lifemate_admin_runtime,lifemate_edge_runtime;
+grant execute on function analytics.record_experiment_exposure(varchar,bigint,varchar,bigint,varchar,timestamptz,jsonb) to lifemate_admin_runtime,lifemate_edge_runtime;
 
 comment on table analytics.experiments is 'Non-clinical A/B experiment definitions delivered through canonical platform controls. No PII or health payload is stored.';
 comment on table analytics.experiment_exposures is 'Privacy-minimized exposure facts. Idempotency hashes are event deduplication keys, not user identifiers.';
