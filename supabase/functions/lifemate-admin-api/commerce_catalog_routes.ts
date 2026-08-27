@@ -21,6 +21,7 @@ import {
   parseIssueDiscountCodesPayload,
 } from "./commerce_promotions.ts";
 import { createManualEntitlementAdjustmentRouteHandler } from "./manual_entitlement_adjustments_routes.ts";
+import { createPaymentOperationsRouteHandler } from "./payment_operations_routes.ts";
 import {
   type AdminCapabilitySnapshot,
   requirePermission,
@@ -53,6 +54,8 @@ export function createCommerceCatalogRouteHandler(databaseUrl: string) {
   const discountCodeStore = createCommerceDiscountCodeStore(databaseUrl);
   const manualEntitlementRouteHandler =
     createManualEntitlementAdjustmentRouteHandler(databaseUrl);
+  const paymentOperationsRouteHandler =
+    createPaymentOperationsRouteHandler(databaseUrl);
 
   return async function commerceCatalogRouteHandler(input: {
     request: Request;
@@ -63,6 +66,15 @@ export function createCommerceCatalogRouteHandler(databaseUrl: string) {
     origin: string | null;
   }): Promise<Response | null> {
     const { request, path, accountId, admin, correlationId, origin } = input;
+
+    if (
+      path.startsWith("/api/v1/commerce/refunds/") ||
+      path.startsWith("/api/v1/commerce/reconciliation/") ||
+      path === "/api/v1/commerce/subscriptions/renewal-intent"
+    ) {
+      const response = await paymentOperationsRouteHandler(input);
+      if (response) return response;
+    }
 
     if (
       path.startsWith("/api/v1/commerce/entitlement-adjustments") ||
