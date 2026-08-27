@@ -177,9 +177,9 @@ class LifeMateOnboardingHeader extends StatelessWidget {
               borderRadius: BorderRadius.circular(99),
               child: LinearProgressIndicator(
                 minHeight: LifeMateOnboardingMetrics.progressHeight,
-                value: progress!.clamp(0, 1),
+                value: progress!.clamp(0.0, 1.0).toDouble(),
                 backgroundColor: theme.border,
-                valueColor: AlwaysStoppedAnimation(theme.primary),
+                valueColor: AlwaysStoppedAnimation<Color>(theme.primary),
               ),
             ),
           ],
@@ -335,7 +335,10 @@ class LifeMateOnboardingOptionCard extends StatelessWidget {
                   decoration: BoxDecoration(
                     shape: BoxShape.circle,
                     color: selected ? theme.primary : Colors.transparent,
-                    border: Border.all(color: selected ? theme.primary : theme.border, width: 1.5),
+                    border: Border.all(
+                      color: selected ? theme.primary : theme.border,
+                      width: 1.5,
+                    ),
                   ),
                   child: selected
                       ? const Icon(Icons.check_rounded, color: Colors.white, size: 16)
@@ -346,6 +349,113 @@ class LifeMateOnboardingOptionCard extends StatelessWidget {
           ),
         ),
       ),
+    );
+  }
+}
+
+class LifeMateOnboardingTextField extends StatelessWidget {
+  const LifeMateOnboardingTextField({
+    super.key,
+    required this.theme,
+    required this.controller,
+    required this.label,
+    this.hintText,
+    this.errorText,
+    this.keyboardType,
+    this.textInputAction,
+    this.textDirection,
+    this.onSubmitted,
+    this.autofillHints,
+    this.enabled = true,
+    this.obscureText = false,
+    this.prefixIcon,
+    this.suffix,
+  });
+
+  final LifeMateOnboardingTheme theme;
+  final TextEditingController controller;
+  final String label;
+  final String? hintText;
+  final String? errorText;
+  final TextInputType? keyboardType;
+  final TextInputAction? textInputAction;
+  final TextDirection? textDirection;
+  final ValueChanged<String>? onSubmitted;
+  final Iterable<String>? autofillHints;
+  final bool enabled;
+  final bool obscureText;
+  final IconData? prefixIcon;
+  final Widget? suffix;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Text(
+          label,
+          style: TextStyle(
+            color: theme.ink,
+            fontSize: 13,
+            fontWeight: FontWeight.w800,
+          ),
+        ),
+        const SizedBox(height: 8),
+        SizedBox(
+          height: LifeMateOnboardingMetrics.inputHeight,
+          child: TextField(
+            controller: controller,
+            enabled: enabled,
+            keyboardType: keyboardType,
+            textInputAction: textInputAction,
+            textDirection: textDirection,
+            onSubmitted: onSubmitted,
+            autofillHints: autofillHints,
+            obscureText: obscureText,
+            decoration: InputDecoration(
+              hintText: hintText,
+              filled: true,
+              fillColor: theme.surface,
+              prefixIcon: prefixIcon == null ? null : Icon(prefixIcon, color: theme.muted),
+              suffixIcon: suffix,
+              contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+              enabledBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(LifeMateOnboardingMetrics.controlRadius),
+                borderSide: BorderSide(color: errorText == null ? theme.border : theme.error),
+              ),
+              focusedBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(LifeMateOnboardingMetrics.controlRadius),
+                borderSide: BorderSide(color: errorText == null ? theme.primary : theme.error, width: 1.6),
+              ),
+              disabledBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(LifeMateOnboardingMetrics.controlRadius),
+                borderSide: BorderSide(color: theme.border),
+              ),
+            ),
+          ),
+        ),
+        if (errorText != null) ...[
+          const SizedBox(height: 6),
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Icon(Icons.error_outline_rounded, color: theme.error, size: 17),
+              const SizedBox(width: 6),
+              Expanded(
+                child: Text(
+                  errorText!,
+                  style: TextStyle(
+                    color: theme.error,
+                    fontSize: 12.5,
+                    height: 1.4,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ],
+      ],
     );
   }
 }
