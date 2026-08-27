@@ -102,10 +102,10 @@ class ProfileScreen extends StatelessWidget {
             : 'Coming soon',
         supportSubtitle: isPersian
             ? LifeMateRuntimeLocale.select(
-                fa: 'راهنما فعال؛ ارسال تیکت در دست توسعه',
-                en: "active guide; Submit ticket under development",
+                fa: 'گفت‌وگوی مستقیم و امن با تیم پشتیبانی',
+                en: "Secure direct chat with support",
               )
-            : 'Help is available; ticketing is coming soon',
+            : 'Secure direct chat with support',
       ),
       fontFamily: mainFont,
       appName: 'WellMate',
@@ -135,7 +135,15 @@ class ProfileScreen extends StatelessWidget {
         builder: (_) => _SettingsDialog(mainFont: mainFont),
       ),
       onReferral: () => open(ReferralScreen()),
-      onSupport: () => open(SupportScreen()),
+      onSupport: () => open(
+        LifeMateSupportChatScreen(
+          productCode: 'wellmate',
+          accent: AppColors.primary,
+          background: AppColors.background,
+          isPersian: isPersian,
+          fontFamily: mainFont,
+        ),
+      ),
       onManageSubscriptions: () => open(SubscriptionScreen()),
     );
 
