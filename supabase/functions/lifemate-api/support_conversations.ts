@@ -31,12 +31,17 @@ export function createSupportConversationStore(databaseUrl: string) {
   return {
     accountIdForAppUser,
 
-    async current(appUserId: string, productCode: string | null) {
+    async current(
+      appUserId: string,
+      productCode: string | null,
+      category: string,
+    ) {
       const accountId = await accountIdForAppUser(appUserId);
       const rows = await sql`
         select * from support.get_latest_user_support_conversation(
           ${accountId}::uuid,
-          ${productCode}::varchar
+          ${productCode}::varchar,
+          ${category}::varchar
         )
       `;
       const row = rows[0] as Row | undefined;
