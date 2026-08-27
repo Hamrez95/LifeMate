@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:lifemate_client/lifemate_client.dart';
+import 'package:lifemate_ui/lifemate_ui.dart';
 import 'package:provider/provider.dart';
 
 import 'core/constants/app_colors.dart';
@@ -192,6 +193,11 @@ class CareMateApp extends StatelessWidget {
       config: config,
       appName: 'CareMate',
       logoAssetPath: 'assets/images/CareMateWithoutBack.png',
+      unauthenticatedBuilder: (context, _, appName, logoAssetPath) =>
+          LifeMateSharedAuthExperience(
+            appName: appName,
+            logoAssetPath: logoAssetPath,
+          ),
       authenticatedBuilder: (context, apiClient) =>
           _AuthenticatedCareMateShell(apiClient: apiClient),
     );

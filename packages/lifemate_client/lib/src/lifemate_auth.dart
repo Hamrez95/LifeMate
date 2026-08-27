@@ -20,6 +20,41 @@ class LifeMateAuth {
   static String? get currentAccountId =>
       Supabase.instance.client.auth.currentUser?.id;
 
+  static Future<AuthResponse> signInWithEmail({
+    required String email,
+    required String password,
+  }) {
+    return Supabase.instance.client.auth.signInWithPassword(
+      email: email.trim(),
+      password: password,
+    );
+  }
+
+  /// Creates only the authentication identity. Display name and product intent
+  /// belong to the canonical post-auth onboarding flow rather than auth
+  /// provider metadata, so existing/new-account routing remains deterministic.
+  static Future<AuthResponse> signUpWithEmail({
+    required String email,
+    required String password,
+    required String appName,
+  }) {
+    return Supabase.instance.client.auth.signUp(
+      email: email.trim(),
+      password: password,
+      emailRedirectTo: callbackUrlForApp(appName),
+    );
+  }
+
+  static Future<void> requestPasswordReset({
+    required String email,
+    required String appName,
+  }) {
+    return Supabase.instance.client.auth.resetPasswordForEmail(
+      email.trim(),
+      redirectTo: callbackUrlForApp(appName),
+    );
+  }
+
   /// Returns an access token that is valid for an immediate authenticated API
   /// call. Supabase Flutter restores a persisted session before an automatic
   /// refresh is guaranteed, which matters for Android widget background
