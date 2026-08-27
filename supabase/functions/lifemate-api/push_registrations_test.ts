@@ -30,3 +30,10 @@ Deno.test("push store never persists plaintext token", async () => {
     throw new Error("Edge code must use the narrow database function instead of direct token table writes.");
   }
 });
+
+Deno.test("authenticated consumer dispatcher wires push registration routes", async () => {
+  const source = await Deno.readTextFile(new URL("./growth_routes.ts", import.meta.url));
+  assertStringIncludes(source, 'createPushRegistrationRouteHandler');
+  assertStringIncludes(source, 'await pushRegistrationRoutes(input)');
+  assertStringIncludes(source, 'if (pushRegistrationResponse) return pushRegistrationResponse');
+});
