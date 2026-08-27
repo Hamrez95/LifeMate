@@ -14,7 +14,7 @@ import '../health/health_screen.dart';
 import '../profile/profile_screen.dart';
 import '../treatments/care_plan_hub_screen.dart';
 import '../treatments/treatments_screen.dart';
-import '../women_calendar/women_companion_screen.dart';
+import '../women_calendar/women_health_entry_screen.dart';
 import 'home_screen_content.dart';
 
 class HomeScreen extends StatefulWidget {
@@ -38,7 +38,6 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   int _womenRevision = 0;
   int _homeRevision = 0;
   bool _womenCalendarEnabled = LifeMateFeatureFlags.womenCalendarPilotEnabled;
-  bool _womenCalendarLoading = false;
   DateTime? _womenCalendarLoadedAt;
   Timer? _refreshDebounce;
   Timer? _backgroundRefreshTimer;
@@ -100,7 +99,8 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   }
 
   Future<void> _loadWomenCalendarState({bool force = false}) async {
-    if (!LifeMateFeatureFlags.womenCalendarPilotEnabled) {
+    final available = LifeMateFeatureFlags.womenCalendarPilotEnabled;
+    if (!available) {
       if (mounted) {
         setState(() {
           _womenCalendarEnabled = false;
@@ -116,24 +116,16 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
         DateTime.now().difference(loadedAt) < _womenStateTtl) {
       return;
     }
-    if (_womenCalendarLoading) return;
-    _womenCalendarLoading = true;
 
-    try {
-      final profile = await context
-          .read<LifeMateApiClient>()
-          .getWomenCalendarProfile();
-      if (!mounted) return;
-      final enabled = profile['enabled'] == true;
+    // Navigation availability is a feature capability, not profile activation.
+    // An inactive profile must still be able to open the Women tab so the V3
+    // activation flow is reachable. The entry screen reads canonical profile
+    // state and decides activation vs Period Calendar Home.
+    if (mounted) {
       setState(() {
-        _womenCalendarEnabled = enabled;
+        _womenCalendarEnabled = true;
         _womenCalendarLoadedAt = DateTime.now();
-        if (!enabled && _currentIndex == 4) _currentIndex = 5;
       });
-    } catch (_) {
-      debugPrint('Women calendar navigation state failed.');
-    } finally {
-      _womenCalendarLoading = false;
     }
   }
 
@@ -318,7 +310,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
       0 => CalendarScreen(refreshToken: _calendarRevision),
       1 => TreatmentsScreen(refreshToken: _treatmentsRevision),
       2 => CarePlanHubScreen(onCreated: _treatmentCreated),
-      4 => WomenCompanionScreen(
+      4 => WomenHealthEntryScreen(
         refreshToken: _womenRevision,
         onProfileChanged: () => _loadWomenCalendarState(force: true),
       ),
