@@ -43,7 +43,7 @@ export function createCampaignOrchestratorStore(databaseUrl: string) {
     correlationId: string;
   }) {
     const rows = await sql`
-      select messaging.prepare_campaign_execution(
+      select messaging.prepare_campaign_execution_v2(
         ${input.actorAccountId}::uuid,
         ${input.campaignId}::uuid,
         ${input.audienceSnapshotId}::uuid,
