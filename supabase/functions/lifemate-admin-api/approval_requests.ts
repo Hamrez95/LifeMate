@@ -20,6 +20,7 @@ export type DecideApprovalRequest = {
 
 const REQUEST_TYPE = /^[a-z][a-z0-9._-]{2,79}$/;
 const TARGET_TYPE = /^[a-z][a-z0-9._-]{1,79}$/;
+const TARGET_ID = /^(?:[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}|(?=[A-Za-z0-9._:-]{1,180}$)(?=.*[A-Za-z])[A-Za-z0-9][A-Za-z0-9._:-]{0,179})$/i;
 const STATE_KEY = /^[a-zA-Z][a-zA-Z0-9_]{0,63}$/;
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const MAX_STATE_BYTES = 16 * 1024;
@@ -111,8 +112,8 @@ export async function parseCreateApprovalRequest(request: Request): Promise<Crea
   if (!REQUEST_TYPE.test(requestType)) {
     throw new ApiError(400,"approval_request_type_invalid","requestType is invalid.");
   }
-  if (!TARGET_TYPE.test(targetType) || targetId.length < 1 || targetId.length > 180) {
-    throw new ApiError(400,"approval_target_invalid","Approval target is invalid.");
+  if (!TARGET_TYPE.test(targetType) || !TARGET_ID.test(targetId)) {
+    throw new ApiError(400,"approval_target_invalid","Approval target must use an opaque internal identifier.");
   }
   return {
     requestType,
