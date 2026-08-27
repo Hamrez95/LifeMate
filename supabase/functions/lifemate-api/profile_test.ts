@@ -21,6 +21,7 @@ Deno.test("profile patch normalizes phone and persists an allow-listed avatar", 
       avatarKey: "person_purple",
       presentationIntent: null,
       completeOnboarding: false,
+      wellMateFirstValueState: null,
     },
   );
 });
@@ -37,6 +38,40 @@ Deno.test("profile patch permits legacy clients and clearing the optional phone"
   assertEquals(patch.avatarKey, null);
   assertEquals(patch.presentationIntent, null);
   assertEquals(patch.completeOnboarding, false);
+  assertEquals(patch.wellMateFirstValueState, null);
+});
+
+Deno.test("WellMate first-value state is presentation-only and allow-listed", () => {
+  assertEquals(
+    normalizeProfilePatch({
+      version: 2,
+      displayName: "Owner",
+      locale: "fa",
+      timeZone: "Asia/Tehran",
+      wellMateFirstValueState: "Completed",
+    }).wellMateFirstValueState,
+    "Completed",
+  );
+  assertEquals(
+    normalizeProfilePatch({
+      version: 2,
+      displayName: "Owner",
+      locale: "fa",
+      timeZone: "Asia/Tehran",
+      wellMateFirstValueState: "Skipped",
+    }).wellMateFirstValueState,
+    "Skipped",
+  );
+  assertThrows(
+    () => normalizeProfilePatch({
+      version: 2,
+      displayName: "Owner",
+      locale: "fa",
+      timeZone: "Asia/Tehran",
+      wellMateFirstValueState: "CaregiverAuthorized",
+    }),
+    ApiError,
+  );
 });
 
 Deno.test("profile patch rejects stale-shape and invalid identity fields", () => {
