@@ -134,7 +134,7 @@ class LifeMateRuntimeConfigSnapshot {
       fetchedAtUtc:
           DateTime.tryParse(json['fetchedAtUtc']?.toString() ?? '')?.toUtc() ??
           DateTime.fromMillisecondsSinceEpoch(0, isUtc: true),
-      cacheTtlSeconds: rawTtl.clamp(15, 300),
+      cacheTtlSeconds: rawTtl.clamp(15, 300).toInt(),
       fromCache: fromCache,
     );
   }
