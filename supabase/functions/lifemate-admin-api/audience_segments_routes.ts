@@ -8,6 +8,7 @@ import {
   parseSegmentRuleSet,
   type SegmentRuleSet,
 } from "./audience_segments.ts";
+import { withActiveSegmentVersionLock } from "./audience_segment_snapshot_guard.ts";
 import { createAudienceSegmentStore } from "./audience_segments_service.ts";
 import { json } from "./http.ts";
 import { ApiError, requireIdempotencyKey } from "./validation.ts";
@@ -96,6 +97,18 @@ async function parseWritePayload(request: Request, creating: boolean): Promise<S
   };
 }
 
+async function parseSnapshotExpectedVersion(request: Request): Promise<number> {
+  const body = await request.json().catch(() => null);
+  if (!body || typeof body !== "object" || Array.isArray(body)) {
+    throw new ApiError(400,"segment_snapshot_payload_invalid","Snapshot payload must be an object.");
+  }
+  const expectedVersion = (body as Record<string, unknown>).expectedVersion;
+  if (!Number.isInteger(expectedVersion) || Number(expectedVersion) < 1) {
+    throw new ApiError(400,"segment_version_invalid","expectedVersion must be a positive integer.");
+  }
+  return Number(expectedVersion);
+}
+
 async function hashWritePayload(payload: SegmentWritePayload): Promise<string> {
   const canonical = JSON.stringify({
     key: payload.key ?? null,
@@ -109,8 +122,8 @@ async function hashWritePayload(payload: SegmentWritePayload): Promise<string> {
   return Array.from(new Uint8Array(digest)).map((value) => value.toString(16).padStart(2,"0")).join("");
 }
 
-async function hashSnapshotRequest(id: string, key: string): Promise<string> {
-  const digest = await crypto.subtle.digest("SHA-256",new TextEncoder().encode(`${id}:${key}`));
+async function hashSnapshotRequest(id: string, expectedVersion: number, key: string): Promise<string> {
+  const digest = await crypto.subtle.digest("SHA-256",new TextEncoder().encode(`${id}:${expectedVersion}:${key}`));
   return Array.from(new Uint8Array(digest)).map((value) => value.toString(16).padStart(2,"0")).join("");
 }
 
@@ -160,13 +173,19 @@ export function createAudienceSegmentRouteHandler(databaseUrl: string) {
     if (request.method === "POST" && snapshotId) {
       requirePermission(admin,"marketing.segment.write");
       const idempotencyKey = requireIdempotencyKey(request);
-      const snapshot = await store.snapshot({
-        actorAccountId:accountId,
-        id:snapshotId,
-        idempotencyKey,
-        requestHash:await hashSnapshotRequest(snapshotId,idempotencyKey),
-        correlationId,
-      });
+      const expectedVersion = await parseSnapshotExpectedVersion(request);
+      const snapshot = await withActiveSegmentVersionLock(
+        databaseUrl,
+        snapshotId,
+        expectedVersion,
+        async () => await store.snapshot({
+          actorAccountId:accountId,
+          id:snapshotId,
+          idempotencyKey,
+          requestHash:await hashSnapshotRequest(snapshotId,expectedVersion,idempotencyKey),
+          correlationId,
+        }),
+      );
       const exactCount = Number(snapshot.memberCount);
       const suppressed = exactCount > 0 && exactCount < MIN_PREVIEW_COHORT;
       return json({
