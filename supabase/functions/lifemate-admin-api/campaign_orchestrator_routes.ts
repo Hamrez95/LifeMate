@@ -1,5 +1,6 @@
 import { type AdminCapabilitySnapshot, requirePermission } from "./authorization.ts";
 import {
+  hashPrepareCampaignExecution,
   matchCampaignExecutionAction,
   parseCancelExecution,
   parseExecutionTransition,
@@ -8,7 +9,7 @@ import {
 } from "./campaign_orchestrator.ts";
 import { createCampaignOrchestratorStore } from "./campaign_orchestrator_service.ts";
 import { json } from "./http.ts";
-import { ApiError } from "./validation.ts";
+import { ApiError, requireIdempotencyKey } from "./validation.ts";
 
 async function readBody(request: Request): Promise<Record<string, unknown>> {
   let parsed: unknown;
@@ -45,11 +46,14 @@ export function createCampaignOrchestratorRouteHandler(databaseUrl: string) {
       path === "/api/v1/marketing/campaign-executions/prepare"
     ) {
       requirePermission(admin, "marketing.campaign.send");
+      const idempotencyKey = requireIdempotencyKey(request);
       const payload = parsePrepareCampaignExecution(await readBody(request));
       const result = await store.prepare({
         actorAccountId: accountId,
         ...payload,
         correlationId,
+        idempotencyKey,
+        requestHash: await hashPrepareCampaignExecution(payload),
       });
       return json(result, httpStatus(result), origin);
     }
