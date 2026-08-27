@@ -26,7 +26,7 @@ export function createCustomRoleStore(databaseUrl: string) {
     async list(actorAccountId: string) {
       const roles = await sql`
         select r.code,r.display_name,r.rank,r.status,r.version,r.created_at_utc,r.updated_at_utc,
-          coalesce(array_agg(rp.permission_code order by rp.permission_code) filter (where rp.permission_code is not null),array[]::varchar[]) as permissions,
+          coalesce(array_agg(distinct rp.permission_code order by rp.permission_code) filter (where rp.permission_code is not null),array[]::varchar[]) as permissions,
           count(distinct mr.account_id) filter (where mr.revoked_at_utc is null and mr.starts_at_utc<=now() and (mr.expires_at_utc is null or mr.expires_at_utc>now()))::integer as active_member_count
         from admin.roles r
         left join admin.role_permissions rp on rp.role_id=r.id
