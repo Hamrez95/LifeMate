@@ -4,7 +4,10 @@ import {
   rejectDirectIdentifierFields,
   validateResearchPrivacyPolicy,
 } from "./research_dataset_policy.ts";
-import { createResearchDatasetStore } from "./research_dataset_service.ts";
+import {
+  createResearchDatasetStore,
+  type ResearchDatasetKind,
+} from "./research_dataset_service.ts";
 import { ApiError, requireIdempotencyKey } from "./validation.ts";
 
 type Context = {
@@ -19,6 +22,12 @@ type Context = {
 const PURPOSE_CODE = /^[a-z][a-z0-9._-]{2,79}$/;
 const SOURCE_CATEGORY = /^[A-Za-z][A-Za-z0-9_-]{2,79}$/;
 const FIELD_SELECTOR_KEYS = new Set(["field", "attribute", "column", "key"]);
+const DATASET_KINDS = new Set<ResearchDatasetKind>([
+  "HealthObservationAggregate",
+  "DoseAdherenceAggregate",
+  "TreatmentAggregate",
+  "WomenCycleAggregate",
+]);
 
 export function createResearchDatasetRouteHandler(databaseUrl: string) {
   const store = createResearchDatasetStore(databaseUrl);
@@ -43,6 +52,7 @@ export function createResearchDatasetRouteHandler(databaseUrl: string) {
       }
       const raw = body as Record<string, unknown>;
       const name = boundedText(raw.name, "name", 160);
+      const datasetKind = datasetKindCode(raw.datasetKind);
       const purpose = purposeCode(raw.purpose);
       const sourceCategory = sourceCategoryCode(raw.sourceCategory);
       const filters = boundedObject(raw.filters, "filters");
@@ -61,6 +71,7 @@ export function createResearchDatasetRouteHandler(databaseUrl: string) {
       });
       const canonical = JSON.stringify({
         name,
+        datasetKind,
         purpose,
         sourceCategory,
         filters,
@@ -73,6 +84,7 @@ export function createResearchDatasetRouteHandler(databaseUrl: string) {
       const result = await store.create({
         actorAccountId: accountId,
         name,
+        datasetKind,
         purpose,
         sourceCategory,
         filters,
@@ -102,6 +114,13 @@ function boundedText(value: unknown, field: string, max: number): string {
   const text = value.trim();
   if (text.length < 3 || text.length > max) throw new ApiError(400, "research_dataset_payload_invalid", `${field} is invalid.`);
   return text;
+}
+
+function datasetKindCode(value: unknown): ResearchDatasetKind {
+  if (typeof value !== "string" || !DATASET_KINDS.has(value as ResearchDatasetKind)) {
+    throw new ApiError(400, "research_dataset_kind_invalid", "datasetKind is invalid.");
+  }
+  return value as ResearchDatasetKind;
 }
 
 function purposeCode(value: unknown): string {
