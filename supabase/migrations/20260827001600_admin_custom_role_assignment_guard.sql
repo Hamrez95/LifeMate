@@ -9,6 +9,10 @@ as $$
 declare
   v_role admin.roles%rowtype;
 begin
+  if new.revoked_at_utc is not null then
+    return new;
+  end if;
+
   select * into v_role from admin.roles where id=new.role_id;
   if v_role.id is null or v_role.is_system then
     return new;
@@ -43,12 +47,12 @@ $$;
 
 drop trigger if exists trg_admin_member_roles_custom_authority on admin.member_roles;
 create trigger trg_admin_member_roles_custom_authority
-before insert on admin.member_roles
+before insert or update of account_id,role_id,granted_by_account_id,revoked_at_utc on admin.member_roles
 for each row execute function admin.enforce_custom_role_assignment_authority();
 
 revoke all on function admin.enforce_custom_role_assignment_authority() from public,anon,authenticated;
 
 comment on function admin.enforce_custom_role_assignment_authority() is
-'Blocks custom-role self-assignment and delegation of permissions the granting actor does not hold. System-role assignment keeps the existing ranked workflow.';
+'Blocks custom-role self-assignment and delegation/reactivation of permissions the granting actor does not hold. Revocation remains allowed. System-role assignment keeps the existing ranked workflow.';
 
 commit;
