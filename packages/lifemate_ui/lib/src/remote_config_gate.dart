@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:lifemate_client/lifemate_client.dart';
 
@@ -98,6 +100,7 @@ class _LifeMateRuntimeConfigGateState extends State<LifeMateRuntimeConfigGate> {
     }
     if (_ownsClient) _client.close();
     _bindClient();
+    _snapshot = null;
     _load(forceRefresh: true);
   }
 
@@ -127,7 +130,7 @@ class _LifeMateRuntimeConfigGateState extends State<LifeMateRuntimeConfigGate> {
         _error = null;
         _softDismissed = false;
       });
-      // Presence is operational telemetry and must never block product startup.
+      // Operational version presence is non-critical and must never block care.
       unawaited(_client.recordVersionPresence().catchError((_) {}));
     } catch (error) {
       if (!mounted) return;
@@ -150,24 +153,27 @@ class _LifeMateRuntimeConfigGateState extends State<LifeMateRuntimeConfigGate> {
     if (_loading && snapshot == null) {
       return const Scaffold(body: Center(child: CircularProgressIndicator()));
     }
-    if (snapshot == null) {
-      return _Unavailable(onRetry: () => _load(forceRefresh: true));
-    }
-    if (snapshot.updatePolicy.state == LifeMateUpdateState.force) {
+
+    // A config outage must not block medication/care core flows. With no usable
+    // cache, only protected remotely controlled surfaces fail closed.
+    final effective = snapshot ?? _safeFallback();
+    if (effective.updatePolicy.state == LifeMateUpdateState.force) {
       return _ForceUpdate(
-        reasonCode: snapshot.updatePolicy.reasonCode,
+        reasonCode: effective.updatePolicy.reasonCode,
         onUpdateRequested: widget.onUpdateRequested,
         onRetry: () => _load(forceRefresh: true),
       );
     }
 
     final content = LifeMateRuntimeConfigScope(
-      snapshot: snapshot,
+      snapshot: effective,
       child: widget.child,
     );
-    if (snapshot.updatePolicy.state != LifeMateUpdateState.soft || _softDismissed) {
-      return content;
-    }
+    final showOfflineNotice = snapshot == null && _error != null;
+    final showSoft = effective.updatePolicy.state == LifeMateUpdateState.soft &&
+        !_softDismissed;
+    if (!showOfflineNotice && !showSoft) return content;
+
     return Stack(
       children: [
         content,
@@ -184,24 +190,46 @@ class _LifeMateRuntimeConfigGateState extends State<LifeMateRuntimeConfigGate> {
                 padding: const EdgeInsets.fromLTRB(16, 10, 8, 10),
                 child: Row(
                   children: [
-                    const Icon(Icons.system_update_alt_rounded),
+                    Icon(showOfflineNotice
+                        ? Icons.cloud_off_outlined
+                        : Icons.system_update_alt_rounded),
                     const SizedBox(width: 10),
-                    const Expanded(
+                    Expanded(
                       child: Text(
-                        'A newer LifeMate version is available.',
-                        style: TextStyle(fontWeight: FontWeight.w700),
+                        showOfflineNotice
+                            ? LifeMateRuntimeLocale.select(
+                                fa: 'تنظیمات آنلاین در دسترس نیست؛ قابلیت‌های حساس موقتاً غیرفعال‌اند.',
+                                en: 'Online config is unavailable; protected features are temporarily disabled.',
+                              )
+                            : LifeMateRuntimeLocale.select(
+                                fa: 'نسخه جدیدتری از LifeMate در دسترس است.',
+                                en: 'A newer LifeMate version is available.',
+                              ),
+                        style: const TextStyle(fontWeight: FontWeight.w700),
                       ),
                     ),
-                    if (widget.onUpdateRequested != null)
+                    if (showOfflineNotice)
+                      TextButton(
+                        onPressed: () => _load(forceRefresh: true),
+                        child: Text(LifeMateRuntimeLocale.select(
+                          fa: 'تلاش دوباره',
+                          en: 'Retry',
+                        )),
+                      )
+                    else if (widget.onUpdateRequested != null)
                       TextButton(
                         onPressed: widget.onUpdateRequested,
-                        child: const Text('Update'),
+                        child: Text(LifeMateRuntimeLocale.select(
+                          fa: 'به‌روزرسانی',
+                          en: 'Update',
+                        )),
                       ),
-                    IconButton(
-                      tooltip: 'Later',
-                      onPressed: () => setState(() => _softDismissed = true),
-                      icon: const Icon(Icons.close_rounded),
-                    ),
+                    if (!showOfflineNotice)
+                      IconButton(
+                        tooltip: LifeMateRuntimeLocale.select(fa: 'بعداً', en: 'Later'),
+                        onPressed: () => setState(() => _softDismissed = true),
+                        icon: const Icon(Icons.close_rounded),
+                      ),
                   ],
                 ),
               ),
@@ -211,35 +239,40 @@ class _LifeMateRuntimeConfigGateState extends State<LifeMateRuntimeConfigGate> {
       ],
     );
   }
-}
 
-class _Unavailable extends StatelessWidget {
-  const _Unavailable({required this.onRetry});
-  final VoidCallback onRetry;
-
-  @override
-  Widget build(BuildContext context) => Scaffold(
-        body: SafeArea(
-          child: Center(
-            child: Padding(
-              padding: const EdgeInsets.all(28),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  const Icon(Icons.cloud_off_outlined, size: 48),
-                  const SizedBox(height: 16),
-                  const Text(
-                    'LifeMate could not load its current configuration.',
-                    textAlign: TextAlign.center,
-                  ),
-                  const SizedBox(height: 18),
-                  FilledButton(onPressed: onRetry, child: const Text('Try again')),
-                ],
-              ),
-            ),
-          ),
-        ),
-      );
+  LifeMateRuntimeConfigSnapshot _safeFallback() {
+    final now = DateTime.now().toUtc();
+    LifeMateRemoteControl disabled(String key) => LifeMateRemoteControl(
+          key: key,
+          kind: 'FeatureFlag',
+          valueType: 'Boolean',
+          value: false,
+          definitionVersion: 0,
+          source: 'offline_fail_closed',
+          ruleVersion: null,
+          failClosed: true,
+        );
+    return LifeMateRuntimeConfigSnapshot(
+      product: widget.product,
+      platform: 'unknown',
+      controls: {
+        'client.women_calendar.enabled': disabled('client.women_calendar.enabled'),
+        'client.care_pairing.enabled': disabled('client.care_pairing.enabled'),
+      },
+      updatePolicy: const LifeMateUpdatePolicy(
+        state: LifeMateUpdateState.current,
+        minimumSupportedVersion: null,
+        recommendedVersion: null,
+        reasonCode: 'Unavailable',
+        messageKey: null,
+        policyVersion: 0,
+      ),
+      snapshotVersion: 'offline-fail-closed',
+      fetchedAtUtc: now.subtract(const Duration(days: 2)),
+      cacheTtlSeconds: 0,
+      fromCache: true,
+    );
+  }
 }
 
 class _ForceUpdate extends StatelessWidget {
@@ -266,15 +299,24 @@ class _ForceUpdate extends StatelessWidget {
                   children: [
                     const Icon(Icons.security_update_warning_rounded, size: 56),
                     const SizedBox(height: 18),
-                    const Text(
-                      'Update required',
-                      style: TextStyle(fontSize: 24, fontWeight: FontWeight.w900),
+                    Text(
+                      LifeMateRuntimeLocale.select(
+                        fa: 'به‌روزرسانی الزامی است',
+                        en: 'Update required',
+                      ),
+                      style: const TextStyle(fontSize: 24, fontWeight: FontWeight.w900),
                     ),
                     const SizedBox(height: 10),
                     Text(
                       reasonCode == 'Security'
-                          ? 'This version needs a security update before it can continue.'
-                          : 'This version is no longer compatible with the current LifeMate service.',
+                          ? LifeMateRuntimeLocale.select(
+                              fa: 'برای ادامه، این نسخه به یک به‌روزرسانی امنیتی نیاز دارد.',
+                              en: 'This version needs a security update before it can continue.',
+                            )
+                          : LifeMateRuntimeLocale.select(
+                              fa: 'این نسخه دیگر با سرویس فعلی LifeMate سازگار نیست.',
+                              en: 'This version is no longer compatible with the current LifeMate service.',
+                            ),
                       textAlign: TextAlign.center,
                     ),
                     const SizedBox(height: 22),
@@ -282,9 +324,18 @@ class _ForceUpdate extends StatelessWidget {
                       FilledButton.icon(
                         onPressed: onUpdateRequested,
                         icon: const Icon(Icons.system_update_alt_rounded),
-                        label: const Text('Update LifeMate'),
+                        label: Text(LifeMateRuntimeLocale.select(
+                          fa: 'به‌روزرسانی LifeMate',
+                          en: 'Update LifeMate',
+                        )),
                       ),
-                    TextButton(onPressed: onRetry, child: const Text('Check again')),
+                    TextButton(
+                      onPressed: onRetry,
+                      child: Text(LifeMateRuntimeLocale.select(
+                        fa: 'بررسی دوباره',
+                        en: 'Check again',
+                      )),
+                    ),
                   ],
                 ),
               ),
