@@ -210,9 +210,9 @@ begin
     v_response:=jsonb_build_object('httpStatus',409,'code','custom_role_version_conflict','message','Custom role changed; refresh before updating.','currentVersion',v_role.version,'replayed',false);
   elsif v_permission.code is null then
     v_response:=jsonb_build_object('httpStatus',404,'code','permission_not_found','message','Permission was not found.','replayed',false);
-  elsif not v_permission.role_assignable or v_permission.risk_level='ELEVATED' then
+  elsif v_action='assign' and (not v_permission.role_assignable or v_permission.risk_level='ELEVATED') then
     v_response:=jsonb_build_object('httpStatus',403,'code','permission_not_role_assignable','message','This permission cannot be assigned through roles.','replayed',false);
-  elsif not admin.account_has_permission(p_actor_account_id,v_permission.code) then
+  elsif v_action='assign' and not admin.account_has_permission(p_actor_account_id,v_permission.code) then
     v_response:=jsonb_build_object('httpStatus',403,'code','permission_delegation_denied','message','Actor cannot delegate a permission they do not hold.','replayed',false);
   else
     if v_action='assign' then
