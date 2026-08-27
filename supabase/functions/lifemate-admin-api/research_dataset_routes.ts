@@ -5,7 +5,7 @@ import {
   validateResearchPrivacyPolicy,
 } from "./research_dataset_policy.ts";
 import { createResearchDatasetStore } from "./research_dataset_service.ts";
-import { ApiError } from "./validation.ts";
+import { ApiError, requireIdempotencyKey } from "./validation.ts";
 
 type Context = {
   request: Request;
@@ -22,7 +22,7 @@ const SOURCE_CATEGORY = /^[A-Za-z][A-Za-z0-9_-]{2,79}$/;
 export function createResearchDatasetRouteHandler(databaseUrl: string) {
   const store = createResearchDatasetStore(databaseUrl);
   return async function researchDatasetRoute(context: Context): Promise<Response | null> {
-    const { request, path, accountId, admin, origin } = context;
+    const { request, path, accountId, admin, correlationId, origin } = context;
     if (path !== "/api/v1/research/datasets") return null;
     requireFounder(admin);
 
@@ -35,6 +35,7 @@ export function createResearchDatasetRouteHandler(databaseUrl: string) {
     }
 
     if (request.method === "POST") {
+      const idempotencyKey = requireIdempotencyKey(request);
       const body = await request.json().catch(() => null);
       if (!body || typeof body !== "object" || Array.isArray(body)) {
         throw new ApiError(400, "research_dataset_payload_invalid", "Research dataset payload must be an object.");
@@ -52,6 +53,17 @@ export function createResearchDatasetRouteHandler(databaseUrl: string) {
         smallCellThreshold: requiredInteger(raw.smallCellThreshold),
         rowMode: rowMode(raw.rowMode),
       });
+      const canonical = JSON.stringify({
+        name,
+        purpose,
+        sourceCategory,
+        filters,
+        ageBucketYears: privacy.ageBucketYears,
+        minimumCohortSize: privacy.minimumCohortSize,
+        smallCellThreshold: privacy.smallCellThreshold,
+        quasiIdentifierRules,
+        rowMode: privacy.rowMode,
+      });
       const result = await store.create({
         actorAccountId: accountId,
         name,
@@ -63,6 +75,9 @@ export function createResearchDatasetRouteHandler(databaseUrl: string) {
         smallCellThreshold: privacy.smallCellThreshold,
         quasiIdentifierRules,
         rowMode: privacy.rowMode,
+        correlationId,
+        idempotencyKey,
+        requestHash: await sha256Hex(canonical),
       });
       return json(result, 201, origin);
     }
@@ -137,4 +152,9 @@ function rowMode(value: unknown): "Aggregate" | "Pseudonymous" {
     throw new ApiError(400, "research_dataset_payload_invalid", "rowMode is invalid.");
   }
   return value;
+}
+
+async function sha256Hex(value: string): Promise<string> {
+  const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(value));
+  return Array.from(new Uint8Array(digest)).map((byte) => byte.toString(16).padStart(2, "0")).join("");
 }
