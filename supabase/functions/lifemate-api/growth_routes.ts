@@ -2,18 +2,20 @@ import { createGrowthStore } from "./growth.ts";
 import { requireMutationIdempotencyKey } from "./idempotency.ts";
 import { json } from "./http.ts";
 import { createLegalPrivacyRouteHandler } from "./legal_privacy_routes.ts";
+import { createProductTelemetryV2RouteHandler } from "./product_telemetry_v2_routes.ts";
 import { enforceRateLimit } from "./security.ts";
 import { readJsonObject } from "./validation.ts";
 
-/// Compatibility entrypoint for delegated API modules that are intentionally
-/// kept out of the large root router. Growth remains one delegate; account
-/// legal/privacy routes are another independent canonical delegate.
+/// Compatibility entrypoint for delegated API modules intentionally kept out of
+/// the large root router. Delegates remain independent and return null when a
+/// route is not theirs; this entrypoint is not a shared authorization bypass.
 export function createGrowthRouteHandler(
   databaseUrl: string,
   contactHashingSecret: string,
 ) {
   const store = createGrowthStore(databaseUrl, contactHashingSecret);
   const legalPrivacyRoutes = createLegalPrivacyRouteHandler(databaseUrl);
+  const productTelemetryRoutes = createProductTelemetryV2RouteHandler(databaseUrl);
 
   return async function growthRouteHandler(input: {
     request: Request;
@@ -22,6 +24,8 @@ export function createGrowthRouteHandler(
   }): Promise<Response | null> {
     const legalPrivacyResponse = await legalPrivacyRoutes(input);
     if (legalPrivacyResponse) return legalPrivacyResponse;
+    const productTelemetryResponse = await productTelemetryRoutes(input);
+    if (productTelemetryResponse) return productTelemetryResponse;
 
     const { request, path, appUserId } = input;
 

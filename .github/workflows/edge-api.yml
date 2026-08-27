@@ -6,9 +6,11 @@ on:
     paths:
       - 'supabase/functions/lifemate-api/**'
       - 'supabase/functions/lifemate-care-management/**'
+      - 'supabase/functions/lifemate-admin-api/**'
       - 'supabase/bootstrap/**'
       - 'supabase/migrations/**'
       - 'supabase/tests/**'
+      - 'tools/operations/verify-product-telemetry-v2.mjs'
       - '.github/workflows/edge-api.yml'
       - 'AGENTS.md'
   push:
@@ -16,9 +18,11 @@ on:
     paths:
       - 'supabase/functions/lifemate-api/**'
       - 'supabase/functions/lifemate-care-management/**'
+      - 'supabase/functions/lifemate-admin-api/**'
       - 'supabase/bootstrap/**'
       - 'supabase/migrations/**'
       - 'supabase/tests/**'
+      - 'tools/operations/verify-product-telemetry-v2.mjs'
       - '.github/workflows/edge-api.yml'
       - 'AGENTS.md'
 
@@ -50,6 +54,9 @@ jobs:
         run: deno task check
       - name: Unit tests
         run: deno task test
+      - name: Verify product telemetry v2 source contract
+        working-directory: .
+        run: node tools/operations/verify-product-telemetry-v2.mjs
       - name: Security and privacy invariants
         shell: bash
         run: |
