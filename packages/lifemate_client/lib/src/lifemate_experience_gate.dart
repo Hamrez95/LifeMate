@@ -26,20 +26,29 @@ part 'experience_ambient.dart';
 part 'experience_brand.dart';
 
 typedef LifeMateExperienceAuthenticatedBuilder = Widget Function(
-    BuildContext context, LifeMateApiClient apiClient);
+  BuildContext context,
+  LifeMateApiClient apiClient,
+);
 
-/// The polished authentication and account-bootstrap boundary shared by
-/// WellMate and CareMate.
+typedef LifeMateExperienceUnauthenticatedBuilder = Widget Function(
+  BuildContext context,
+  SupabaseClient supabase,
+  String appName,
+  String logoAssetPath,
+);
+
+/// Authentication/session/bootstrap boundary shared by WellMate and CareMate.
 ///
-/// The UI is rendered with native Flutter widgets rather than screenshot
-/// backgrounds, so form semantics, text scaling, RTL, validation and error
-/// states remain accessible and testable.
+/// Session/API ownership remains in `lifemate_client`. Presentation can be
+/// supplied by the app/UI layer through [unauthenticatedBuilder], avoiding a
+/// dependency cycle from the client package back into `lifemate_ui`.
 class LifeMateExperienceGate extends StatefulWidget {
   const LifeMateExperienceGate({
     required this.config,
     required this.appName,
     required this.logoAssetPath,
     required this.authenticatedBuilder,
+    this.unauthenticatedBuilder,
     super.key,
   });
 
@@ -47,6 +56,7 @@ class LifeMateExperienceGate extends StatefulWidget {
   final String appName;
   final String logoAssetPath;
   final LifeMateExperienceAuthenticatedBuilder authenticatedBuilder;
+  final LifeMateExperienceUnauthenticatedBuilder? unauthenticatedBuilder;
 
   @override
   State<LifeMateExperienceGate> createState() => _LifeMateExperienceGateState();
@@ -116,17 +126,13 @@ class _LifeMateExperienceGateState extends State<LifeMateExperienceGate>
         final previousUserId = _session?.user.id;
         final nextUserId = session?.user.id;
         if (previousUserId != nextUserId) {
-          // The API client instance lives for the lifetime of the auth gate.
-          // Profile-photo cache entries are therefore explicitly scoped to
-          // the authenticated user so account B can never inherit account A's
-          // signed photo URL or avatar fallback.
           LifeMateProfileRefresh.clearForApiClient(_api);
         }
         setState(() {
           _authStreamError = null;
           _session = session;
-          _passwordRecovery = state.event == AuthChangeEvent.passwordRecovery &&
-              session != null;
+          _passwordRecovery =
+              state.event == AuthChangeEvent.passwordRecovery && session != null;
           _bootstrap = session == null ? null : _bootstrapUser(session);
         });
       },
@@ -192,28 +198,31 @@ class _LifeMateExperienceGateState extends State<LifeMateExperienceGate>
         logoAssetPath: widget.logoAssetPath,
         icon: Icons.cloud_off_rounded,
         title: LifeMateRuntimeLocale.select(
-          fa: LifeMateRuntimeLocale.select(
-            fa: 'ارتباط امن با حساب قطع شد',
-            en: "The secure connection to the account was terminated",
-          ),
-          en: "The secure connection to the account was terminated",
+          fa: 'ارتباط امن با حساب قطع شد',
+          en: 'The secure connection to the account was interrupted',
         ),
         message: LifeMateRuntimeLocale.select(
-          fa: LifeMateRuntimeLocale.select(
-            fa: 'اتصال اینترنت را بررسی کنید و دوباره تلاش کنید.',
-            en: "Check your internet connection and try again.",
-          ),
-          en: "Check your internet connection and try again.",
+          fa: 'اتصال اینترنت را بررسی کنید و دوباره تلاش کنید.',
+          en: 'Check your internet connection and try again.',
         ),
         primaryLabel: LifeMateRuntimeLocale.select(
-          fa: LifeMateRuntimeLocale.select(fa: 'تلاش دوباره', en: "Try again"),
-          en: "Try again",
+          fa: 'تلاش دوباره',
+          en: 'Try again',
         ),
         onPrimary: _retryAuthStream,
       );
     }
 
     if (_session == null) {
+      final customAuth = widget.unauthenticatedBuilder;
+      if (customAuth != null) {
+        return customAuth(
+          context,
+          _supabase,
+          widget.appName,
+          widget.logoAssetPath,
+        );
+      }
       return _LifeMateAuthExperience(
         appName: widget.appName,
         logoAssetPath: widget.logoAssetPath,
@@ -251,59 +260,38 @@ class _LifeMateExperienceGateState extends State<LifeMateExperienceGate>
             icon: Icons.sync_problem_rounded,
             title: expired
                 ? LifeMateRuntimeLocale.select(
-                    fa: LifeMateRuntimeLocale.select(
-                      fa: 'نشست شما منقضی شده است',
-                      en: "Your session has expired",
-                    ),
-                    en: "Your session has expired",
+                    fa: 'نشست شما منقضی شده است',
+                    en: 'Your session has expired',
                   )
                 : LifeMateRuntimeLocale.select(
-                    fa: LifeMateRuntimeLocale.select(
-                      fa: 'همگام‌سازی انجام نشد',
-                      en: "Synchronization failed",
-                    ),
-                    en: "Synchronization failed",
+                    fa: 'همگام‌سازی انجام نشد',
+                    en: 'Synchronization failed',
                   ),
             message: expired
                 ? LifeMateRuntimeLocale.select(
-                    fa: LifeMateRuntimeLocale.select(
-                      fa: 'برای ادامه دوباره وارد حساب شوید.',
-                      en: "Log in again to continue.",
-                    ),
-                    en: "Log in again to continue.",
+                    fa: 'برای ادامه دوباره وارد حساب شوید.',
+                    en: 'Sign in again to continue.',
                   )
                 : LifeMateRuntimeLocale.select(
-                    fa: LifeMateRuntimeLocale.select(
-                      fa: 'داده‌ای تغییر نکرده است. اتصال را بررسی و دوباره تلاش کنید.',
-                      en: "No data has changed. Check the connection and try again.",
-                    ),
-                    en: "No data has changed. Check the connection and try again.",
+                    fa: 'داده‌ای تغییر نکرده است. اتصال را بررسی و دوباره تلاش کنید.',
+                    en: 'No data changed. Check the connection and try again.',
                   ),
             primaryLabel: expired
                 ? LifeMateRuntimeLocale.select(
-                    fa: LifeMateRuntimeLocale.select(
-                      fa: 'ورود دوباره',
-                      en: "Login again",
-                    ),
-                    en: "Login again",
+                    fa: 'ورود دوباره',
+                    en: 'Sign in again',
                   )
                 : LifeMateRuntimeLocale.select(
-                    fa: LifeMateRuntimeLocale.select(
-                      fa: 'تلاش دوباره',
-                      en: "Try again",
-                    ),
-                    en: "Try again",
+                    fa: 'تلاش دوباره',
+                    en: 'Try again',
                   ),
             onPrimary:
                 expired ? () => _supabase.auth.signOut() : _retryBootstrap,
             secondaryLabel: expired
                 ? null
                 : LifeMateRuntimeLocale.select(
-                    fa: LifeMateRuntimeLocale.select(
-                      fa: 'خروج از حساب',
-                      en: "Sign out of the account",
-                    ),
-                    en: "Sign out of the account",
+                    fa: 'خروج از حساب',
+                    en: 'Sign out',
                   ),
             onSecondary: expired ? null : () => _supabase.auth.signOut(),
           );

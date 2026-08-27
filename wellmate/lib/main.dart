@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:lifemate_client/lifemate_client.dart';
+import 'package:lifemate_ui/lifemate_ui.dart';
 import 'package:provider/provider.dart';
 import 'package:wellmate/core/constants/app_version.dart';
 import 'package:wellmate/core/state/wellmate_refresh.dart';
@@ -219,6 +220,11 @@ class WellMateApp extends StatelessWidget {
       config: config,
       appName: 'WellMate',
       logoAssetPath: 'assets/images/WellMateWithoutBack.png',
+      unauthenticatedBuilder: (context, _, appName, logoAssetPath) =>
+          LifeMateSharedAuthExperience(
+            appName: appName,
+            logoAssetPath: logoAssetPath,
+          ),
       authenticatedBuilder: (context, apiClient) =>
           _AuthenticatedWellMateShell(apiClient: apiClient),
     );
