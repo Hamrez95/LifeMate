@@ -71,15 +71,6 @@ begin
   from messaging.campaign_policies where policy_key='second_confirmation.enabled' and status='Active';
   v_second:=coalesce(v_second,false);
 
-  insert into messaging.campaign_executions(
-    campaign_id,audience_snapshot_id,campaign_updated_at_utc,status,audience_count,
-    eligible_sms_count,eligible_push_count,opted_out_sms_count,opted_out_push_count,
-    requires_second_confirmation,created_by_account_id
-  ) values(
-    p_campaign_id,p_snapshot_id,p_campaign_updated_at_utc,
-    case when v_second then 'ApprovalPending' else 'Prepared' end,v_audience,0,0,0,0,v_second,p_actor_account_id
-  ) returning id into v_execution;
-
   create temporary table tmp_campaign_eligibility(
     account_id uuid primary key,
     sms_allowed boolean not null,
@@ -98,30 +89,21 @@ begin
     ) else false end,
     case when 'Push'=any(p_channels) then consent.account_allows_optional_purpose(m.account_id,'promotional_push','GLOBAL') else false end,
     case when 'Push'=any(p_channels) then exists(
-      select 1 from messaging.push_registrations pr where pr.account_id=m.account_id and pr.status='Active'
+      select 1 from messaging.push_registrations pr
+      where pr.account_id=m.account_id
+        and pr.product_code=v_campaign.product_code
+        and pr.status='Active'
     ) else false end
   from audience.segment_snapshot_members m
   where m.snapshot_id=p_snapshot_id;
 
   if 'SMS'=any(p_channels) then
-    insert into messaging.delivery_jobs(execution_id,account_id,channel,message_id,status,suppression_reason)
-    select v_execution,e.account_id,'SMS',v_message_sms,
-      case when e.sms_allowed and e.sms_reachable then 'Pending' else 'Suppressed' end,
-      case when e.sms_allowed and e.sms_reachable then null
-           when not e.sms_allowed then 'OptedOut' else 'NoReachableAddress' end
-    from tmp_campaign_eligibility e;
     select count(*) filter(where sms_allowed and sms_reachable),
            count(*) filter(where not sms_allowed)
     into v_eligible_sms,v_opt_sms from tmp_campaign_eligibility;
   end if;
 
   if 'Push'=any(p_channels) then
-    insert into messaging.delivery_jobs(execution_id,account_id,channel,message_id,status,suppression_reason)
-    select v_execution,e.account_id,'Push',v_message_push,
-      case when e.push_allowed and e.push_reachable then 'Pending' else 'Suppressed' end,
-      case when e.push_allowed and e.push_reachable then null
-           when not e.push_allowed then 'OptedOut' else 'NoReachableAddress' end
-    from tmp_campaign_eligibility e;
     select count(*) filter(where push_allowed and push_reachable),
            count(*) filter(where not push_allowed)
     into v_eligible_push,v_opt_push from tmp_campaign_eligibility;
@@ -141,11 +123,37 @@ begin
     end if;
   end if;
 
-  update messaging.campaign_executions set
-    eligible_sms_count=v_eligible_sms,eligible_push_count=v_eligible_push,
-    opted_out_sms_count=v_opt_sms,opted_out_push_count=v_opt_push,
-    estimated_sms_cost_minor=v_cost,estimated_sms_cost_currency=v_currency,updated_at_utc=now()
-  where id=v_execution;
+  -- Persist the execution only after all bounded eligibility/cost validation has
+  -- succeeded. Controlled 4xx exits above therefore cannot leave partial jobs.
+  insert into messaging.campaign_executions(
+    campaign_id,audience_snapshot_id,campaign_updated_at_utc,status,audience_count,
+    eligible_sms_count,eligible_push_count,opted_out_sms_count,opted_out_push_count,
+    estimated_sms_cost_minor,estimated_sms_cost_currency,
+    requires_second_confirmation,created_by_account_id
+  ) values(
+    p_campaign_id,p_snapshot_id,p_campaign_updated_at_utc,
+    case when v_second then 'ApprovalPending' else 'Prepared' end,v_audience,
+    v_eligible_sms,v_eligible_push,v_opt_sms,v_opt_push,v_cost,v_currency,
+    v_second,p_actor_account_id
+  ) returning id into v_execution;
+
+  if 'SMS'=any(p_channels) then
+    insert into messaging.delivery_jobs(execution_id,account_id,channel,message_id,status,suppression_reason)
+    select v_execution,e.account_id,'SMS',v_message_sms,
+      case when e.sms_allowed and e.sms_reachable then 'Pending' else 'Suppressed' end,
+      case when e.sms_allowed and e.sms_reachable then null
+           when not e.sms_allowed then 'OptedOut' else 'NoReachableAddress' end
+    from tmp_campaign_eligibility e;
+  end if;
+
+  if 'Push'=any(p_channels) then
+    insert into messaging.delivery_jobs(execution_id,account_id,channel,message_id,status,suppression_reason)
+    select v_execution,e.account_id,'Push',v_message_push,
+      case when e.push_allowed and e.push_reachable then 'Pending' else 'Suppressed' end,
+      case when e.push_allowed and e.push_reachable then null
+           when not e.push_allowed then 'OptedOut' else 'NoReachableAddress' end
+    from tmp_campaign_eligibility e;
+  end if;
 
   insert into admin.audit_events(actor_account_id,action,resource_type,resource_id,result,correlation_id,elevated_access,metadata_json)
   values(p_actor_account_id,'marketing.campaign.prepare','campaign_execution',v_execution::text,'Succeeded',p_correlation_id,false,
@@ -160,8 +168,8 @@ begin
     'requiresSecondConfirmation',v_second
   );
 exception when others then
-  -- Temporary eligibility state is transaction-local. The caller receives a
-  -- controlled error through the API; no partial execution may be scheduled.
+  -- Temporary eligibility state is transaction-local. Any database failure rolls
+  -- the preparation transaction back rather than leaving a partial execution.
   raise;
 end $$;
 
