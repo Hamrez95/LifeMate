@@ -1,6 +1,7 @@
--- #496 privacy hardening: user free-text belongs only to the conversation body.
--- Never project it into support.tickets.queue_summary_redacted without an explicit
--- privacy-minimizing summarizer/review step.
+-- #496 privacy/idempotency hardening.
+-- User free-text belongs only to the conversation body and is never projected
+-- into queue_summary_redacted without an explicit privacy-minimizing step.
+-- Reusing a clientMessageId with different content is a conflict, not a replay.
 
 create or replace function support.open_support_conversation(
     p_requester_account_id uuid,
@@ -49,6 +50,9 @@ begin
     order by created_at_utc desc
     limit 1;
     if found then
+      if v_existing.body <> v_body then
+        raise exception using errcode='23505', message='support_client_message_conflict';
+      end if;
       return jsonb_build_object(
         'ticketId', v_existing.ticket_id,
         'messageId', v_existing.id,
@@ -81,11 +85,79 @@ begin
 end
 $$;
 
+create or replace function support.send_user_support_message(
+    p_requester_account_id uuid,
+    p_ticket_id uuid,
+    p_body text,
+    p_client_message_id uuid
+) returns jsonb
+language plpgsql
+security definer
+set search_path = support, pg_temp
+as $$
+declare
+    v_ticket support.tickets%rowtype;
+    v_message support.conversation_messages%rowtype;
+    v_body text := trim(coalesce(p_body, ''));
+begin
+    if p_requester_account_id is null or p_ticket_id is null or p_client_message_id is null then
+      raise exception using errcode='22023', message='support_identity_or_message_id_invalid';
+    end if;
+    if length(v_body) < 1 or length(v_body) > 4000 or octet_length(v_body) > 12000 then
+      raise exception using errcode='22023', message='support_message_invalid';
+    end if;
+
+    select * into v_message
+    from support.conversation_messages
+    where ticket_id=p_ticket_id and sender_kind='User'
+      and sender_account_id=p_requester_account_id
+      and client_message_id=p_client_message_id;
+    if found then
+      if v_message.body <> v_body then
+        raise exception using errcode='23505', message='support_client_message_conflict';
+      end if;
+      return jsonb_build_object('ticketId',p_ticket_id,'messageId',v_message.id,'replayed',true);
+    end if;
+
+    select * into v_ticket from support.tickets
+    where id=p_ticket_id and requester_account_id=p_requester_account_id
+    for update;
+    if not found then
+      raise exception using errcode='42501', message='support_ticket_not_accessible';
+    end if;
+    if v_ticket.status='Closed' then
+      raise exception using errcode='55000', message='support_ticket_closed';
+    end if;
+
+    if v_ticket.status='Resolved' then
+      update support.tickets set status='Open', updated_at_utc=now() where id=p_ticket_id;
+      insert into support.ticket_events(ticket_id,event_type,actor_account_id,from_value,to_value)
+      values (p_ticket_id,'StatusChanged',p_requester_account_id,'Resolved','Open');
+    end if;
+
+    insert into support.conversation_messages(
+      ticket_id,sender_kind,sender_account_id,client_message_id,body
+    ) values (
+      p_ticket_id,'User',p_requester_account_id,p_client_message_id,v_body
+    ) returning * into v_message;
+
+    update support.tickets
+    set status=case when status='WaitingOnUser' then 'Open' else status end,
+        last_activity_at_utc=now(), updated_at_utc=now()
+    where id=p_ticket_id;
+
+    return jsonb_build_object('ticketId',p_ticket_id,'messageId',v_message.id,'replayed',false);
+end
+$$;
+
 revoke all on function support.open_support_conversation(uuid,character varying,character varying,text,uuid) from public;
+revoke all on function support.send_user_support_message(uuid,uuid,text,uuid) from public;
 do $$
 begin
   if exists(select 1 from pg_roles where rolname='lifemate_edge_runtime') then
     grant execute on function support.open_support_conversation(uuid,character varying,character varying,text,uuid)
+      to lifemate_edge_runtime;
+    grant execute on function support.send_user_support_message(uuid,uuid,text,uuid)
       to lifemate_edge_runtime;
   end if;
 end
