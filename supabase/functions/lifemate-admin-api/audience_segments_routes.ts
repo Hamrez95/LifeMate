@@ -8,7 +8,6 @@ import {
   parseSegmentRuleSet,
   type SegmentRuleSet,
 } from "./audience_segments.ts";
-import { withActiveSegmentVersionLock } from "./audience_segment_snapshot_guard.ts";
 import { createAudienceSegmentStore } from "./audience_segments_service.ts";
 import { json } from "./http.ts";
 import { ApiError, requireIdempotencyKey } from "./validation.ts";
@@ -174,18 +173,14 @@ export function createAudienceSegmentRouteHandler(databaseUrl: string) {
       requirePermission(admin,"marketing.segment.write");
       const idempotencyKey = requireIdempotencyKey(request);
       const expectedVersion = await parseSnapshotExpectedVersion(request);
-      const snapshot = await withActiveSegmentVersionLock(
-        databaseUrl,
-        snapshotId,
+      const snapshot = await store.snapshot({
+        actorAccountId:accountId,
+        id:snapshotId,
         expectedVersion,
-        async () => await store.snapshot({
-          actorAccountId:accountId,
-          id:snapshotId,
-          idempotencyKey,
-          requestHash:await hashSnapshotRequest(snapshotId,expectedVersion,idempotencyKey),
-          correlationId,
-        }),
-      );
+        idempotencyKey,
+        requestHash:await hashSnapshotRequest(snapshotId,expectedVersion,idempotencyKey),
+        correlationId,
+      });
       const exactCount = Number(snapshot.memberCount);
       const suppressed = exactCount > 0 && exactCount < MIN_PREVIEW_COHORT;
       return json({
