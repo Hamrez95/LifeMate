@@ -1,6 +1,12 @@
 import { type AdminSql, getAdminSql } from "./database_client.ts";
 import { ApiError } from "./validation.ts";
 
+export type ResearchDatasetKind =
+  | "HealthObservationAggregate"
+  | "DoseAdherenceAggregate"
+  | "TreatmentAggregate"
+  | "WomenCycleAggregate";
+
 async function consumeIdempotency<T>(input: {
   sql: AdminSql;
   actorAccountId: string;
@@ -59,6 +65,7 @@ export function createResearchDatasetStore(databaseUrl: string) {
       return rows.map((row) => ({
         datasetId: String(row.dataset_id),
         name: String(row.name),
+        datasetKind: String(row.dataset_kind) as ResearchDatasetKind,
         purpose: String(row.purpose),
         sourceCategory: String(row.source_category),
         filters: row.filter_json,
@@ -77,6 +84,7 @@ export function createResearchDatasetStore(databaseUrl: string) {
     async create(input: {
       actorAccountId: string;
       name: string;
+      datasetKind: ResearchDatasetKind;
       purpose: string;
       sourceCategory: string;
       filters: Record<string, unknown>;
@@ -100,6 +108,7 @@ export function createResearchDatasetStore(databaseUrl: string) {
             select analytics.create_research_dataset(
               ${input.actorAccountId}::uuid,
               ${input.name}::varchar,
+              ${input.datasetKind}::varchar,
               ${input.purpose}::varchar,
               ${input.sourceCategory}::varchar,
               ${tx.json(input.filters)},
