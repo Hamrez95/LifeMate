@@ -15,8 +15,12 @@ export type AdminSupportConversationMessage = {
 export function createSupportConversationAdminStore(databaseUrl: string) {
   const sql = getAdminSql(databaseUrl);
   return {
-    list: (ticketId: string, beforeAt: string | null, limit: number) =>
-      listMessages(sql, ticketId, beforeAt, limit),
+    list: (
+      ticketId: string,
+      beforeAt: string | null,
+      afterAt: string | null,
+      limit: number,
+    ) => listMessages(sql, ticketId, beforeAt, afterAt, limit),
     async send(input: {
       actorAccountId: string;
       ticketId: string;
@@ -50,6 +54,7 @@ async function listMessages(
   sql: AdminSql,
   ticketId: string,
   beforeAt: string | null,
+  afterAt: string | null,
   limit: number,
 ): Promise<AdminSupportConversationMessage[]> {
   const rows = await sql`
@@ -58,6 +63,7 @@ async function listMessages(
     from admin.support_conversation_messages_v1
     where ticket_id=${ticketId}::uuid
       and (${beforeAt}::timestamptz is null or created_at_utc < ${beforeAt}::timestamptz)
+      and (${afterAt}::timestamptz is null or created_at_utc > ${afterAt}::timestamptz)
     order by created_at_utc desc,message_id desc
     limit ${limit}
   `;
