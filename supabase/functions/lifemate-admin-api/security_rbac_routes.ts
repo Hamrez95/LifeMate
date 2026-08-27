@@ -1,3 +1,4 @@
+import { createApprovalRequestRouteHandler } from "./approval_requests_routes.ts";
 import {
   type AdminCapabilitySnapshot,
   requirePermission,
@@ -32,6 +33,7 @@ export function createSecurityRbacRouteHandler(
   const breakGlassRouteHandler = createBreakGlassRouteHandler(databaseUrl);
   const elevatedHealthRouteHandler = createElevatedHealthRouteHandler(databaseUrl);
   const customRoleRouteHandler = createCustomRoleRouteHandler(databaseUrl);
+  const approvalRequestRouteHandler = createApprovalRequestRouteHandler(databaseUrl);
 
   return async function handleSecurityRbacRoute(
     context: SecurityRbacRouteContext,
@@ -39,6 +41,18 @@ export function createSecurityRbacRouteHandler(
     const { request, path, admin, origin } = context;
     const accountId = context.accountId ?? admin.accountId;
     const correlationId = context.correlationId ?? crypto.randomUUID();
+
+    if (path.startsWith("/api/v1/operations/approval-requests")) {
+      const response = await approvalRequestRouteHandler({
+        request,
+        path,
+        accountId,
+        admin,
+        correlationId,
+        origin,
+      });
+      if (response) return response;
+    }
 
     if (path.startsWith("/api/v1/security/break-glass/")) {
       const response = await breakGlassRouteHandler({
