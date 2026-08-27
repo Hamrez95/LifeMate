@@ -1,4 +1,3 @@
-import postgres from "postgres";
 import {
   type AdminCapabilitySnapshot,
   requirePermission,
@@ -11,6 +10,7 @@ import {
   parseAbuseRuleMutation,
   parseAbuseRuleRetire,
 } from "./abuse_rules.ts";
+import { getAdminSql } from "./database_client.ts";
 import { json } from "./http.ts";
 import { ApiError, requireIdempotencyKey } from "./validation.ts";
 
@@ -57,7 +57,7 @@ function optionalContext(url: URL): string | null {
 }
 
 export function createAbuseRuleRouteHandler(databaseUrl: string) {
-  const sql = postgres(databaseUrl, { max: 1, prepare: false });
+  const sql = getAdminSql(databaseUrl);
 
   return async function handleAbuseRuleRoute(context: Context): Promise<Response | null> {
     const { request, path, accountId, admin, correlationId, origin } = context;
