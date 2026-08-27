@@ -53,7 +53,21 @@ alter table admin.approval_requests drop constraint if exists ck_admin_approval_
 alter table admin.approval_requests add constraint ck_admin_approval_after_safe_keys
   check (not admin.approval_state_has_forbidden_keys(after_json));
 
+-- Generic ledger targets are internal identifiers, never free-form PII/contact values.
+-- Allow canonical UUIDs or bounded opaque tokens that contain at least one letter;
+-- all-digit phone-like values and strings containing spaces/@/+ are rejected.
+alter table admin.approval_requests drop constraint if exists ck_admin_approval_target_opaque;
+alter table admin.approval_requests add constraint ck_admin_approval_target_opaque check (
+  target_id ~* '^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$'
+  or (
+    target_id ~ '^[A-Za-z0-9][A-Za-z0-9._:-]{0,179}$'
+    and target_id ~ '[A-Za-z]'
+  )
+);
+
 comment on function admin.approval_state_has_forbidden_keys(jsonb) is
 'Database-level defense in depth for the generic approval ledger. Rejects sensitive/free-text/contact/secret-style state keys recursively even when a child-domain server path bypasses the HTTP parser.';
+comment on constraint ck_admin_approval_target_opaque on admin.approval_requests is
+'Approval target identifiers must be opaque internal IDs; contact values and free-form PII are not valid ledger targets.';
 
 commit;
