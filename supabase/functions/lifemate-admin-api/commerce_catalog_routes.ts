@@ -12,7 +12,7 @@ import { createCommerceCatalogStore } from "./commerce_catalog_service.ts";
 import { parseCommerceCatalogV2Query } from "./commerce_catalog_v2.ts";
 import { createCommerceCatalogV2Store } from "./commerce_catalog_v2_service.ts";
 import { createCommerceDiscountCodeStore } from "./commerce_discount_codes_service.ts";
-import { createCommerceEntitlementAdjustmentRouteHandler } from "./commerce_entitlement_adjustments_routes.ts";
+import { createEntitlementAdjustmentRouteHandler } from "./entitlement_adjustments_routes.ts";
 import {
   hashDiscountCodeStatusRequest,
   hashIssueDiscountCodesRequest,
@@ -52,7 +52,7 @@ export function createCommerceCatalogRouteHandler(databaseUrl: string) {
   const catalogV2Store = createCommerceCatalogV2Store(databaseUrl);
   const discountCodeStore = createCommerceDiscountCodeStore(databaseUrl);
   const entitlementAdjustmentRouteHandler =
-    createCommerceEntitlementAdjustmentRouteHandler(databaseUrl);
+    createEntitlementAdjustmentRouteHandler(databaseUrl);
 
   return async function commerceCatalogRouteHandler(input: {
     request: Request;
@@ -64,7 +64,12 @@ export function createCommerceCatalogRouteHandler(databaseUrl: string) {
   }): Promise<Response | null> {
     const { request, path, accountId, admin, correlationId, origin } = input;
 
-    if (path.startsWith("/api/v1/commerce/entitlement-adjustments")) {
+    if (
+      path.startsWith("/api/v1/commerce/entitlement-adjustments") ||
+      /^\/api\/v1\/commerce\/accounts\/[^/]+\/entitlement-adjustments$/i.test(
+        path,
+      )
+    ) {
       const adjustmentResponse = await entitlementAdjustmentRouteHandler(input);
       if (adjustmentResponse) return adjustmentResponse;
     }
@@ -170,7 +175,7 @@ export function createCommerceCatalogRouteHandler(databaseUrl: string) {
       }
       return json(
         {
-          promotionId: String(result.promotionId),
+          promotionId: promotionCodesId,
           issuedCount: Number(result.issuedCount),
           items: Array.isArray(result.items) ? result.items : [],
           replayed: Boolean(result.replayed),
