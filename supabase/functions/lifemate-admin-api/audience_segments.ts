@@ -96,6 +96,13 @@ function validateValue(operator: SegmentOperator, value: unknown): SegmentRule["
     return [...value];
   }
 
+  if (operator === "gte" || operator === "lte") {
+    if (typeof value !== "number" || !Number.isFinite(value)) {
+      invalid("Range operators require a finite numeric value.");
+    }
+    return value;
+  }
+
   if (!isScalar(value)) invalid("Segment rule value must be scalar.");
   return value;
 }
