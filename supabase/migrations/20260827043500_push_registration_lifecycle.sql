@@ -1,5 +1,7 @@
 begin;
 
+grant usage on schema messaging to lifemate_edge_runtime;
+
 create or replace function messaging.upsert_push_registration(
   p_app_user_id uuid,
   p_product_code varchar,
