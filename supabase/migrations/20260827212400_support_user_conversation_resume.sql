@@ -4,7 +4,8 @@ begin;
 -- non-closed support conversation without exposing queue/staff metadata.
 create or replace function support.get_latest_user_support_conversation(
   p_requester_account_id uuid,
-  p_product_code character varying default null
+  p_product_code character varying default null,
+  p_category character varying default 'general'
 ) returns table(
   ticket_id uuid,
   status character varying,
@@ -17,6 +18,7 @@ set search_path = support, pg_temp
 as $$
 declare
   v_product character varying(64) := nullif(lower(trim(coalesce(p_product_code,''))), '');
+  v_category character varying(64) := lower(trim(coalesce(p_category,'general')));
 begin
   if p_requester_account_id is null then
     raise exception using errcode='22023', message='support_requester_invalid';
@@ -24,21 +26,25 @@ begin
   if v_product is not null and v_product !~ '^[a-z0-9][a-z0-9_.:-]{0,63}$' then
     raise exception using errcode='22023', message='support_product_invalid';
   end if;
+  if v_category !~ '^[a-z0-9_-]{1,64}$' then
+    raise exception using errcode='22023', message='support_category_invalid';
+  end if;
 
   return query
   select t.id,t.status,t.product_code,t.last_activity_at_utc
   from support.tickets t
   where t.requester_account_id=p_requester_account_id
     and t.status<>'Closed'
+    and t.category=v_category
     and (v_product is null or t.product_code=v_product)
   order by t.last_activity_at_utc desc,t.id desc
   limit 1;
 end
 $$;
 
-revoke all on function support.get_latest_user_support_conversation(uuid,character varying)
+revoke all on function support.get_latest_user_support_conversation(uuid,character varying,character varying)
   from public,anon,authenticated;
-grant execute on function support.get_latest_user_support_conversation(uuid,character varying)
+grant execute on function support.get_latest_user_support_conversation(uuid,character varying,character varying)
   to lifemate_edge_runtime;
 
 commit;
