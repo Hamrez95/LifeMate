@@ -21,6 +21,11 @@ export function createSupportConversationRouteHandler(
   }): Promise<Response | null> => {
     const { request, path, appUserId } = input;
 
+    if (request.method === "GET" && path === "/api/v1/support/conversations/current") {
+      const productCode = optionalProductCode(new URL(request.url).searchParams.get("productCode"));
+      return json({ conversation: await store.current(appUserId, productCode) });
+    }
+
     if (request.method === "POST" && path === "/api/v1/support/conversations") {
       enforceRateLimit(`support-open:${appUserId}`, 5, 24 * 60 * 60_000);
       const body = await readJsonObject(request);
@@ -73,11 +78,6 @@ export function createSupportConversationRouteHandler(
         scan.status,
         scan.reasonCode,
       );
-      // There is no durable rescan queue in this source slice. Retaining an
-      // untrusted object after malware rejection *or* scanner failure would keep
-      // user content without a usable lifecycle. Preserve the database status for
-      // audit/UX, but remove the Storage object unless the scanner explicitly
-      // marked it clean. A retry uploads a fresh object and runs a fresh scan.
       if (scan.status !== "Available") {
         await attachments.remove(uploaded.objectPath).catch(() => undefined);
       }
