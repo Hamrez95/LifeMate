@@ -138,19 +138,28 @@ class LifeMateSupportApi {
     String category = 'general',
     required String body,
     required String clientMessageId,
-  }) async =>
-      _json(
-        await _client.post(
-          _uri('/api/v1/support/conversations'),
-          headers: await _headers(),
-          body: jsonEncode({
-            'productCode': productCode,
-            'category': category,
-            'body': body,
-            'clientMessageId': clientMessageId,
-          }),
-        ),
+  }) async {
+    final existing = await current(productCode: productCode);
+    if (existing != null) {
+      return send(
+        existing.id,
+        body: body,
+        clientMessageId: clientMessageId,
       );
+    }
+    return _json(
+      await _client.post(
+        _uri('/api/v1/support/conversations'),
+        headers: await _headers(),
+        body: jsonEncode({
+          'productCode': productCode,
+          'category': category,
+          'body': body,
+          'clientMessageId': clientMessageId,
+        }),
+      ),
+    );
+  }
 
   Future<List<LifeMateSupportMessage>> messages(
     String conversationId, {
