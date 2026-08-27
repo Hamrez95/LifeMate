@@ -81,6 +81,21 @@ export function createResearchDatasetStore(databaseUrl: string) {
       }));
     },
 
+    async preview(actorAccountId: string, datasetId: string, jurisdiction = "GLOBAL") {
+      const rows = await sql`
+        select analytics.preview_research_dataset(
+          ${actorAccountId}::uuid,
+          ${datasetId}::uuid,
+          ${jurisdiction}::varchar
+        ) as preview
+      `;
+      const value = rows[0]?.preview;
+      if (!value || typeof value !== "object") {
+        throw new Error("research_preview_result_invalid");
+      }
+      return value as Record<string, unknown>;
+    },
+
     async create(input: {
       actorAccountId: string;
       name: string;
