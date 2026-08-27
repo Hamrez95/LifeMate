@@ -133,3 +133,44 @@ Deno.test("campaign worker stores only a SHA-256 provider reference hash", async
     false,
   );
 });
+
+Deno.test("send-time suppression never calls provider or records a retry", async () => {
+  let providerCalls = 0;
+  let recordCalls = 0;
+  const store: CampaignDeliveryStore = {
+    claim: async () => [{ jobId, channel: "Push" }],
+    // Null means the database already terminally suppressed/cancelled the job
+    // after its final consent/account/endpoint check.
+    resolve: async () => null,
+    record: async () => {
+      recordCalls++;
+    },
+  };
+
+  const result = await processCampaignDeliveryBatch(
+    {
+      store,
+      providers: {
+        sms: new Map(),
+        push: new Map([["fcm", {
+          send: async () => {
+            providerCalls++;
+            return {
+              kind: "delivered" as const,
+              providerReference: "must-not-be-used",
+            };
+          },
+        }]]),
+      },
+      contactKeys: { active: contactKey, previous: null },
+      messagingTokenKeys: { active: messagingKey, previous: null },
+    },
+    10,
+  );
+
+  assertEquals(result.claimed, 1);
+  assertEquals(result.delivered, 0);
+  assertEquals(result.failed, 0);
+  assertEquals(providerCalls, 0);
+  assertEquals(recordCalls, 0);
+});
