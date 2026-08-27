@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:lifemate_client/lifemate_client.dart';
+import 'package:lifemate_ui/lifemate_ui.dart';
 import 'package:provider/provider.dart';
 
 import 'calendar/calendar_screen.dart';
@@ -68,9 +69,6 @@ class _CareMateRootShellState extends State<CareMateRootShell>
         _currentIndex = index;
       });
     }
-    // A relationship may have been revoked from another CareMate surface.
-    // Force a fresh server read whenever the user switches destinations so a
-    // previously rendered patient snapshot cannot reappear from an IndexedStack.
     _refreshTab(index, force: changed);
   }
 
@@ -117,11 +115,131 @@ class _CareMateRootShellState extends State<CareMateRootShell>
   @override
   Widget build(BuildContext context) {
     final apiClient = context.read<LifeMateApiClient>();
-    return CareMateRelationshipV3Gate(
-      apiClient: apiClient,
-      child: IndexedStack(
-        index: _currentIndex,
-        children: List<Widget>.generate(5, _tab),
+    final child = IndexedStack(
+      index: _currentIndex,
+      children: List<Widget>.generate(5, _tab),
+    );
+    final pairingEnabled = LifeMateRuntimeConfigScope.maybeOf(context)?.boolFlag(
+          'client.care_pairing.enabled',
+          defaultValue: false,
+        ) ??
+        false;
+    if (!pairingEnabled) {
+      return _CareMateRemotePairingOffGate(
+        apiClient: apiClient,
+        child: child,
+      );
+    }
+    return CareMateRelationshipV3Gate(apiClient: apiClient, child: child);
+  }
+}
+
+class _CareMateRemotePairingOffGate extends StatefulWidget {
+  const _CareMateRemotePairingOffGate({
+    required this.apiClient,
+    required this.child,
+  });
+
+  final LifeMateApiClient apiClient;
+  final Widget child;
+
+  @override
+  State<_CareMateRemotePairingOffGate> createState() =>
+      _CareMateRemotePairingOffGateState();
+}
+
+class _CareMateRemotePairingOffGateState
+    extends State<_CareMateRemotePairingOffGate> {
+  bool _loading = true;
+  bool _hasActiveRelationship = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  Future<void> _load() async {
+    if (mounted) setState(() => _loading = true);
+    try {
+      final values = await Future.wait<dynamic>([
+        widget.apiClient.getCurrentUser(),
+        widget.apiClient.getCareRelationships(),
+      ]);
+      final current = values[0] as Map<String, dynamic>;
+      final relationships = values[1] as List<Map<String, dynamic>>;
+      final user = current['user'] as Map<String, dynamic>? ?? const {};
+      final currentUserId = user['id']?.toString();
+      final active = relationships.any((relationship) {
+        final caregiverId = relationship['caregiverUserId']?.toString();
+        final status = relationship['status']?.toString().toLowerCase();
+        return currentUserId != null &&
+            caregiverId == currentUserId &&
+            status == 'active';
+      });
+      if (!mounted) return;
+      setState(() {
+        _hasActiveRelationship = active;
+        _loading = false;
+      });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() {
+        _hasActiveRelationship = false;
+        _loading = false;
+      });
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (_loading) {
+      return const Scaffold(body: Center(child: CircularProgressIndicator()));
+    }
+    if (_hasActiveRelationship) return widget.child;
+    return Scaffold(
+      body: SafeArea(
+        child: Center(
+          child: Padding(
+            padding: const EdgeInsets.all(28),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Icon(Icons.link_off_rounded, size: 52),
+                const SizedBox(height: 16),
+                Text(
+                  LifeMateRuntimeLocale.select(
+                    fa: 'اتصال CareMate فعلاً در دسترس نیست.',
+                    en: 'CareMate pairing is temporarily unavailable.',
+                  ),
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(
+                    fontSize: 20,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+                const SizedBox(height: 10),
+                Text(
+                  LifeMateRuntimeLocale.select(
+                    fa: 'هیچ رابطه یا دسترسی جدیدی تا فعال‌شدن دوباره این قابلیت ساخته نمی‌شود.',
+                    en: 'No new relationship or access is created while this feature is disabled.',
+                  ),
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: 18),
+                OutlinedButton(
+                  onPressed: _load,
+                  child: Text(
+                    LifeMateRuntimeLocale.select(
+                      fa: 'بررسی دوباره',
+                      en: 'Check again',
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
       ),
     );
   }
