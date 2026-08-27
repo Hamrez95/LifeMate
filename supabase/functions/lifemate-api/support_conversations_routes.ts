@@ -1,4 +1,5 @@
 import { json } from "./http.ts";
+import { enforceRateLimit } from "./security.ts";
 import { ApiError, readJsonObject } from "./validation.ts";
 import type { createSupportConversationStore } from "./support_conversations.ts";
 
@@ -13,6 +14,7 @@ export function createSupportConversationRouteHandler(store: Store) {
     const { request, path, appUserId } = input;
 
     if (request.method === "POST" && path === "/api/v1/support/conversations") {
+      enforceRateLimit(`support-open:${appUserId}`, 5, 24 * 60 * 60_000);
       const body = await readJsonObject(request);
       return json(await store.open(appUserId, {
         productCode: optionalProductCode(body.productCode),
@@ -39,6 +41,7 @@ export function createSupportConversationRouteHandler(store: Store) {
     }
 
     if (request.method === "POST" && suffix === "messages") {
+      enforceRateLimit(`support-send:${appUserId}`, 60, 60 * 60_000);
       const body = await readJsonObject(request);
       return json(await store.send(appUserId, ticketId, {
         body: requiredMessage(body.body),
