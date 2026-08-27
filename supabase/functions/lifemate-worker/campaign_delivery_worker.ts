@@ -31,12 +31,18 @@ export type CampaignDeliveryPayload = {
   endpointKeyVersion: number;
 };
 
+export type CampaignDeliveryRecordedResult =
+  | "Delivered"
+  | "Failed"
+  | "PermanentFailed"
+  | "OutcomeUnknown";
+
 export interface CampaignDeliveryStore {
   claim(limit: number): Promise<CampaignDeliveryClaim[]>;
   resolve(jobId: string): Promise<CampaignDeliveryPayload | null>;
   record(input: {
     jobId: string;
-    result: "Delivered" | "Failed" | "OutcomeUnknown";
+    result: CampaignDeliveryRecordedResult;
     provider: string;
     providerReferenceHash: string | null;
     reasonCode: string | null;
@@ -60,13 +66,20 @@ type EngineOptions = {
 export async function processCampaignDeliveryBatch(
   options: EngineOptions,
   limit: number,
-): Promise<{ claimed: number; delivered: number; failed: number; outcomeUnknown: number }> {
+): Promise<{
+  claimed: number;
+  delivered: number;
+  failed: number;
+  permanentFailed: number;
+  outcomeUnknown: number;
+}> {
   if (!Number.isInteger(limit) || limit < 1 || limit > 200) {
     throw new Error("campaign_delivery_batch_limit_invalid");
   }
   const claims = await options.store.claim(limit);
   let delivered = 0;
   let failed = 0;
+  let permanentFailed = 0;
   let outcomeUnknown = 0;
 
   for (const claim of claims) {
@@ -90,10 +103,16 @@ export async function processCampaignDeliveryBatch(
       }
 
       const providerResult = await deliver(payload, options);
-      const recorded = await toRecordedResult(payload.jobId, payload.provider, providerResult, occurredAtUtc);
+      const recorded = await toRecordedResult(
+        payload.jobId,
+        payload.provider,
+        providerResult,
+        occurredAtUtc,
+      );
       await options.store.record(recorded);
       if (recorded.result === "Delivered") delivered++;
       else if (recorded.result === "OutcomeUnknown") outcomeUnknown++;
+      else if (recorded.result === "PermanentFailed") permanentFailed++;
       else failed++;
     } catch (error) {
       // Only failures known to have occurred before an external provider call
@@ -111,7 +130,13 @@ export async function processCampaignDeliveryBatch(
     }
   }
 
-  return { claimed: claims.length, delivered, failed, outcomeUnknown };
+  return {
+    claimed: claims.length,
+    delivered,
+    failed,
+    permanentFailed,
+    outcomeUnknown,
+  };
 }
 
 async function deliver(
@@ -201,7 +226,7 @@ async function toRecordedResult(
   }
   return {
     jobId,
-    result: "Failed" as const,
+    result: result.retryable ? "Failed" as const : "PermanentFailed" as const,
     provider,
     providerReferenceHash: null,
     reasonCode: boundedReason(result.code),
@@ -214,8 +239,13 @@ async function sha256Hex(value: string): Promise<string> {
   if (!normalized || normalized.length > 512) {
     throw new Error("campaign_provider_reference_invalid");
   }
-  const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(normalized));
-  return [...new Uint8Array(digest)].map((value) => value.toString(16).padStart(2, "0")).join("");
+  const digest = await crypto.subtle.digest(
+    "SHA-256",
+    new TextEncoder().encode(normalized),
+  );
+  return [...new Uint8Array(digest)]
+    .map((value) => value.toString(16).padStart(2, "0"))
+    .join("");
 }
 
 function safeReason(error: unknown): string {
