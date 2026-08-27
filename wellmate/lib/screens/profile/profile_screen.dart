@@ -137,6 +137,17 @@ class ProfileScreen extends StatelessWidget {
       onReferral: () => open(ReferralScreen()),
       onSupport: () => open(SupportScreen()),
       onManageSubscriptions: () => open(SubscriptionScreen()),
+      feedbackBuilder: (_) => LifeMateFeedbackScreen(
+        productCode: 'wellmate',
+        appVersion: wellMateAppVersion,
+        buildNumber: wellMateAppVersion.contains('+')
+            ? wellMateAppVersion.split('+').last
+            : null,
+        accent: AppColors.primary,
+        background: AppColors.background,
+        isPersian: isPersian,
+        fontFamily: mainFont,
+      ),
     );
 
     if (!MedicationHomeWidgetService.isSupportedPlatform) {
