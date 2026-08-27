@@ -1,7 +1,6 @@
 import { getLifeMateSql } from "./database_client.ts";
 import { ApiError } from "./validation.ts";
 
-type Sql = ReturnType<typeof getLifeMateSql>;
 type Row = Record<string, unknown>;
 
 export type SupportConversationMessage = {
@@ -20,7 +19,11 @@ export function createSupportConversationStore(databaseUrl: string) {
     `;
     const accountId = rows[0]?.account_id;
     if (typeof accountId !== "string") {
-      throw new ApiError(404, "support_account_unavailable", "Support account mapping is unavailable.");
+      throw new ApiError(
+        404,
+        "support_account_unavailable",
+        "Support account mapping is unavailable.",
+      );
     }
     return accountId;
   }
@@ -61,13 +64,20 @@ export function createSupportConversationStore(databaseUrl: string) {
       return requiredResult(rows[0]?.result);
     },
 
-    async list(appUserId: string, ticketId: string, beforeAt: string | null, limit: number) {
+    async list(
+      appUserId: string,
+      ticketId: string,
+      beforeAt: string | null,
+      afterAt: string | null,
+      limit: number,
+    ) {
       const accountId = await accountIdForAppUser(appUserId);
       const rows = await sql`
-        select * from support.list_user_support_messages(
+        select * from support.list_user_support_messages_v2(
           ${accountId}::uuid,
           ${ticketId}::uuid,
           ${beforeAt}::timestamptz,
+          ${afterAt}::timestamptz,
           ${limit}::integer
         )
       `;
@@ -84,7 +94,11 @@ export function createSupportConversationStore(databaseUrl: string) {
         ) as ok
       `;
       if (rows[0]?.ok !== true) {
-        throw new ApiError(404, "support_message_not_found", "Support message was not found.");
+        throw new ApiError(
+          404,
+          "support_message_not_found",
+          "Support message was not found.",
+        );
       }
       return { ok: true };
     },
