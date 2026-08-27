@@ -2,19 +2,21 @@ import { createGrowthStore } from "./growth.ts";
 import { requireMutationIdempotencyKey } from "./idempotency.ts";
 import { json } from "./http.ts";
 import { createLegalPrivacyRouteHandler } from "./legal_privacy_routes.ts";
+import { createProductTelemetryV2RouteHandler } from "./product_telemetry_v2_routes.ts";
 import { createPushRegistrationRouteHandler } from "./push_registrations_routes.ts";
 import { enforceRateLimit } from "./security.ts";
 import { readJsonObject } from "./validation.ts";
 
 /// Compatibility entrypoint for delegated authenticated consumer API modules
-/// intentionally kept out of the large root router. Each domain retains its
-/// own store/route module while sharing the already-wired canonical dispatcher.
+/// intentionally kept out of the large root router. Delegates remain independent
+/// and return null when a route is not theirs; this is not an authorization bypass.
 export function createGrowthRouteHandler(
   databaseUrl: string,
   contactHashingSecret: string,
 ) {
   const store = createGrowthStore(databaseUrl, contactHashingSecret);
   const legalPrivacyRoutes = createLegalPrivacyRouteHandler(databaseUrl);
+  const productTelemetryRoutes = createProductTelemetryV2RouteHandler(databaseUrl);
   const pushRegistrationRoutes = createPushRegistrationRouteHandler(databaseUrl);
 
   return async function growthRouteHandler(input: {
@@ -24,6 +26,9 @@ export function createGrowthRouteHandler(
   }): Promise<Response | null> {
     const legalPrivacyResponse = await legalPrivacyRoutes(input);
     if (legalPrivacyResponse) return legalPrivacyResponse;
+
+    const productTelemetryResponse = await productTelemetryRoutes(input);
+    if (productTelemetryResponse) return productTelemetryResponse;
 
     const pushRegistrationResponse = await pushRegistrationRoutes(input);
     if (pushRegistrationResponse) return pushRegistrationResponse;
