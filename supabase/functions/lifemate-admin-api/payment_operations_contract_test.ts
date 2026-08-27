@@ -13,6 +13,16 @@ Deno.test("payment operations preserve provider facts and expose truthful read m
   assert(!foundation.includes("update commerce.transactions set normalized_status"));
 });
 
+Deno.test("commerce dispatcher reaches refund and churn collection routes", async () => {
+  const dispatcher = await Deno.readTextFile(
+    new URL("./commerce_catalog_routes.ts", import.meta.url),
+  );
+  assertStringIncludes(dispatcher, 'path === "/api/v1/commerce/refunds"');
+  assertStringIncludes(dispatcher, 'path.startsWith("/api/v1/commerce/refunds/")');
+  assertStringIncludes(dispatcher, 'path === "/api/v1/commerce/churn"');
+  assertStringIncludes(dispatcher, "paymentOperationsRouteHandler(input)");
+});
+
 Deno.test("refund execution never lets Admin fabricate provider success", async () => {
   const refund = await Deno.readTextFile(
     new URL("../../migrations/20260827032100_refund_execution_contract.sql", import.meta.url),
