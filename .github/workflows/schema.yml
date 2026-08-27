@@ -9,8 +9,7 @@ on:
       - 'supabase/infrastructure/**'
       - 'supabase/tests/admin_security_denial_contract.sql'
       - 'supabase/tests/contact_point_security_contract.sql'
-      - 'supabase/tests/growth_reward_engine_contract.sql'
-      - 'supabase/tests/growth_reward_fulfillment_contract.sql'
+      - 'supabase/tests/campaign_orchestrator_contract.sql'
       - '.github/workflows/schema.yml'
       - 'docs/architecture/**'
       - 'docs/migrations/**'
@@ -22,8 +21,7 @@ on:
       - 'supabase/infrastructure/**'
       - 'supabase/tests/admin_security_denial_contract.sql'
       - 'supabase/tests/contact_point_security_contract.sql'
-      - 'supabase/tests/growth_reward_engine_contract.sql'
-      - 'supabase/tests/growth_reward_fulfillment_contract.sql'
+      - 'supabase/tests/campaign_orchestrator_contract.sql'
       - '.github/workflows/schema.yml'
 
 permissions:
@@ -162,11 +160,8 @@ jobs:
       - name: Prove ContactPoint encryption and least-privilege boundaries
         run: psql "$TEST_DATABASE_URL" --set=ON_ERROR_STOP=1 --file=supabase/tests/contact_point_security_contract.sql
 
-      - name: Prove growth reward engine boundaries
-        run: psql "$TEST_DATABASE_URL" --set=ON_ERROR_STOP=1 --file=supabase/tests/growth_reward_engine_contract.sql
-
-      - name: Prove reviewed reward fulfillment boundaries
-        run: psql "$TEST_DATABASE_URL" --set=ON_ERROR_STOP=1 --file=supabase/tests/growth_reward_fulfillment_contract.sql
+      - name: Prove campaign orchestration role, consent and concurrency boundaries
+        run: psql "$TEST_DATABASE_URL" --set=ON_ERROR_STOP=1 --file=supabase/tests/campaign_orchestrator_contract.sql
 
       - name: Verify migration rerun is idempotent
         shell: bash
