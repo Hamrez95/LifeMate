@@ -7,6 +7,7 @@ import { createOperationsSnapshotRouteHandler } from "./operations_snapshot_rout
 import { createPlatformControlRouteHandler } from "./platform_controls_routes.ts";
 import { createProductVersionAnalyticsRouteHandler } from "./product_version_analytics_routes.ts";
 import { createRelationshipAccessGrantRouteHandler } from "./relationship_access_grant_routes.ts";
+import { createResearchDatasetRouteHandler } from "./research_dataset_routes.ts";
 import {
   encodeStaffDirectoryCursor,
   matchStaffDetailPath,
@@ -27,6 +28,7 @@ export function createStaffDirectoryRouteHandler(databaseUrl: string) {
   const relationshipAccessGrantRouteHandler = createRelationshipAccessGrantRouteHandler(databaseUrl);
   const supportConversationRouteHandler =
     createSupportConversationAdminRouteHandler(databaseUrl);
+  const researchDatasetRouteHandler = createResearchDatasetRouteHandler(databaseUrl);
 
   return async function staffDirectoryRouteHandler(input: {
     request: Request;
@@ -54,6 +56,8 @@ export function createStaffDirectoryRouteHandler(databaseUrl: string) {
     if (accessGrantResponse) return accessGrantResponse;
     const supportConversationResponse = await supportConversationRouteHandler(input);
     if (supportConversationResponse) return supportConversationResponse;
+    const researchDatasetResponse = await researchDatasetRouteHandler(input);
+    if (researchDatasetResponse) return researchDatasetResponse;
 
     if (request.method === "GET" && path === "/api/v1/staff") {
       requirePermission(admin, "security.staff.manage");

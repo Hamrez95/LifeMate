@@ -5,6 +5,7 @@ export const supportedEvents = [
   "identity.session_revoke_requested",
   "identity.account_deletion_requested",
   "marketing.campaign_publish_requested",
+  "analytics.research_export_requested",
 ] as const;
 
 export function boundedWorkerBatchSize(value: string | undefined): number {
@@ -39,6 +40,8 @@ export function isPermanentWorkerError(errorCode: string): boolean {
     errorCode === "aggregate_id_missing" ||
     errorCode.startsWith("invalid_") ||
     errorCode.startsWith("provider_handle_") ||
+    errorCode.startsWith("research_preview_") ||
+    errorCode.startsWith("research_export_format_") ||
     /^auth_(?:session_revoke|delete):4(?!08|09|29)\d{2}$/.test(errorCode);
 }
 
