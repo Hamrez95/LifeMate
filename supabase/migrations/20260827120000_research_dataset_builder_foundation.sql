@@ -65,11 +65,12 @@ $$;
 create or replace function analytics.create_research_dataset(
   p_actor uuid,p_name varchar,p_purpose varchar,p_source_category varchar,p_filter jsonb,
   p_age_bucket_years smallint,p_minimum_cohort_size integer,p_small_cell_threshold integer,
-  p_quasi_identifier_rules jsonb,p_row_mode varchar
+  p_quasi_identifier_rules jsonb,p_row_mode varchar,p_correlation_id uuid
 ) returns uuid
 language plpgsql security definer set search_path=analytics,admin,pg_temp as $$
 declare v_id uuid; v_policy_min integer; v_research_allowed boolean;
 begin
+  if p_correlation_id is null then raise exception using errcode='22023',message='research_correlation_required'; end if;
   if not admin.account_is_active_founder(p_actor) then raise exception using errcode='42501',message='research_founder_required'; end if;
   select minimum_cohort_size into v_policy_min from analytics.export_policies where purpose=p_purpose and enabled=true;
   if v_policy_min is null then raise exception using errcode='42501',message='research_export_policy_unavailable'; end if;
@@ -86,7 +87,7 @@ begin
   insert into analytics.dataset_privacy_policies(dataset_id,age_bucket_years,minimum_cohort_size,small_cell_threshold,quasi_identifier_rules,row_mode,updated_by_account_id)
   values(v_id,p_age_bucket_years,p_minimum_cohort_size,p_small_cell_threshold,coalesce(p_quasi_identifier_rules,'{}'::jsonb),p_row_mode,p_actor);
   insert into admin.audit_events(actor_account_id,action,resource_type,resource_id,result,correlation_id,metadata_json)
-  values(p_actor,'research.dataset.created','research_dataset',v_id::text,'Succeeded',gen_random_uuid(),jsonb_build_object('purpose',p_purpose,'sourceCategory',p_source_category,'rowMode',p_row_mode,'minimumCohortSize',p_minimum_cohort_size,'smallCellThreshold',p_small_cell_threshold));
+  values(p_actor,'research.dataset.created','research_dataset',v_id::text,'Succeeded',p_correlation_id,jsonb_build_object('purpose',p_purpose,'sourceCategory',p_source_category,'rowMode',p_row_mode,'minimumCohortSize',p_minimum_cohort_size,'smallCellThreshold',p_small_cell_threshold));
   return v_id;
 end $$;
 
@@ -101,13 +102,13 @@ alter table analytics.dataset_export_jobs force row level security;
 -- application fact, so all access stays behind purpose-specific SECURITY DEFINER
 -- functions that receive and verify the exact authenticated actor account.
 revoke all on analytics.dataset_definitions,analytics.dataset_privacy_policies,analytics.dataset_export_jobs from public;
-revoke all on function analytics.create_research_dataset(uuid,varchar,varchar,varchar,jsonb,smallint,integer,integer,jsonb,varchar) from public;
+revoke all on function analytics.create_research_dataset(uuid,varchar,varchar,varchar,jsonb,smallint,integer,integer,jsonb,varchar,uuid) from public;
 do $$ begin
   if exists(select 1 from pg_roles where rolname='anon') then revoke all on analytics.dataset_definitions,analytics.dataset_privacy_policies,analytics.dataset_export_jobs from anon; end if;
   if exists(select 1 from pg_roles where rolname='authenticated') then revoke all on analytics.dataset_definitions,analytics.dataset_privacy_policies,analytics.dataset_export_jobs from authenticated; end if;
   if exists(select 1 from pg_roles where rolname='lifemate_admin_runtime') then
     grant usage on schema analytics to lifemate_admin_runtime;
     revoke all on analytics.dataset_definitions,analytics.dataset_privacy_policies,analytics.dataset_export_jobs from lifemate_admin_runtime;
-    grant execute on function analytics.create_research_dataset(uuid,varchar,varchar,varchar,jsonb,smallint,integer,integer,jsonb,varchar) to lifemate_admin_runtime;
+    grant execute on function analytics.create_research_dataset(uuid,varchar,varchar,varchar,jsonb,smallint,integer,integer,jsonb,varchar,uuid) to lifemate_admin_runtime;
   end if;
 end $$;
