@@ -1,0 +1,232 @@
+import {
+  decryptContactPoint,
+  type ContactEncryptionKeySet,
+} from "../_shared/contact_point_crypto.ts";
+import {
+  decryptMessagingToken,
+  type MessagingTokenKeySet,
+} from "../_shared/messaging_token_crypto.ts";
+import type {
+  CampaignProviderResult,
+  PushCampaignProvider,
+  SmsCampaignProvider,
+} from "./campaign_delivery_provider.ts";
+
+export type CampaignDeliveryClaim = {
+  jobId: string;
+  channel: "SMS" | "Push";
+};
+
+export type CampaignDeliveryPayload = {
+  jobId: string;
+  accountId: string;
+  channel: "SMS" | "Push";
+  provider: string;
+  productCode: string;
+  messageTitle: string | null;
+  messageBody: string;
+  endpointHash: string;
+  endpointCiphertextB64: string;
+  endpointNonceB64: string;
+  endpointKeyVersion: number;
+};
+
+export interface CampaignDeliveryStore {
+  claim(limit: number): Promise<CampaignDeliveryClaim[]>;
+  resolve(jobId: string): Promise<CampaignDeliveryPayload | null>;
+  record(input: {
+    jobId: string;
+    result: "Delivered" | "Failed" | "OutcomeUnknown";
+    provider: string;
+    providerReferenceHash: string | null;
+    reasonCode: string | null;
+    occurredAtUtc: string;
+  }): Promise<void>;
+}
+
+export type CampaignDeliveryProviders = {
+  sms: ReadonlyMap<string, SmsCampaignProvider>;
+  push: ReadonlyMap<string, PushCampaignProvider>;
+};
+
+type EngineOptions = {
+  store: CampaignDeliveryStore;
+  providers: CampaignDeliveryProviders;
+  contactKeys: ContactEncryptionKeySet;
+  messagingTokenKeys: MessagingTokenKeySet;
+  now?: () => Date;
+};
+
+export async function processCampaignDeliveryBatch(
+  options: EngineOptions,
+  limit: number,
+): Promise<{ claimed: number; delivered: number; failed: number; outcomeUnknown: number }> {
+  if (!Number.isInteger(limit) || limit < 1 || limit > 200) {
+    throw new Error("campaign_delivery_batch_limit_invalid");
+  }
+  const claims = await options.store.claim(limit);
+  let delivered = 0;
+  let failed = 0;
+  let outcomeUnknown = 0;
+
+  for (const claim of claims) {
+    const occurredAtUtc = (options.now ?? (() => new Date()))().toISOString();
+    try {
+      const payload = await options.store.resolve(claim.jobId);
+      if (!payload) {
+        await options.store.record({
+          jobId: claim.jobId,
+          result: "Failed",
+          provider: "unavailable",
+          providerReferenceHash: null,
+          reasonCode: "campaign_delivery_payload_unavailable",
+          occurredAtUtc,
+        });
+        failed++;
+        continue;
+      }
+      if (payload.channel !== claim.channel) {
+        throw new Error("campaign_delivery_channel_mismatch");
+      }
+
+      const providerResult = await deliver(payload, options);
+      const recorded = await toRecordedResult(payload.jobId, payload.provider, providerResult, occurredAtUtc);
+      await options.store.record(recorded);
+      if (recorded.result === "Delivered") delivered++;
+      else if (recorded.result === "OutcomeUnknown") outcomeUnknown++;
+      else failed++;
+    } catch (error) {
+      // Only failures known to have occurred before an external provider call
+      // are safe to mark retryable. Transport ambiguity is represented by the
+      // provider as OutcomeUnknown and never reaches this catch path.
+      await options.store.record({
+        jobId: claim.jobId,
+        result: "Failed",
+        provider: "unavailable",
+        providerReferenceHash: null,
+        reasonCode: safeReason(error),
+        occurredAtUtc,
+      });
+      failed++;
+    }
+  }
+
+  return { claimed: claims.length, delivered, failed, outcomeUnknown };
+}
+
+async function deliver(
+  payload: CampaignDeliveryPayload,
+  options: EngineOptions,
+): Promise<CampaignProviderResult> {
+  if (payload.channel === "SMS") {
+    const provider = options.providers.sms.get(payload.provider);
+    if (!provider) throw new Error("campaign_sms_provider_not_configured");
+    const key = keyForVersion(options.contactKeys, payload.endpointKeyVersion);
+    if (!key) throw new Error("campaign_contact_key_unavailable");
+    const phoneE164 = await decryptContactPoint(
+      key,
+      {
+        accountId: payload.accountId,
+        kind: "Phone",
+        normalizedValueHash: payload.endpointHash,
+      },
+      {
+        ciphertextB64: payload.endpointCiphertextB64,
+        nonceB64: payload.endpointNonceB64,
+        keyVersion: payload.endpointKeyVersion,
+      },
+    );
+    return await provider.send({ phoneE164, message: payload.messageBody });
+  }
+
+  const provider = options.providers.push.get(payload.provider);
+  if (!provider) throw new Error("campaign_push_provider_not_configured");
+  const key = keyForVersion(options.messagingTokenKeys, payload.endpointKeyVersion);
+  if (!key) throw new Error("campaign_messaging_token_key_unavailable");
+  const token = await decryptMessagingToken(
+    key,
+    {
+      accountId: payload.accountId,
+      productCode: payload.productCode,
+      provider: payload.provider,
+      tokenHash: payload.endpointHash,
+    },
+    {
+      ciphertextB64: payload.endpointCiphertextB64,
+      nonceB64: payload.endpointNonceB64,
+      keyVersion: payload.endpointKeyVersion,
+    },
+  );
+  return await provider.send({
+    token,
+    title: payload.messageTitle,
+    body: payload.messageBody,
+  });
+}
+
+function keyForVersion<T extends { keyVersion: number }>(
+  keys: { active: T; previous: T | null },
+  version: number,
+): T | null {
+  if (keys.active.keyVersion === version) return keys.active;
+  if (keys.previous?.keyVersion === version) return keys.previous;
+  return null;
+}
+
+async function toRecordedResult(
+  jobId: string,
+  provider: string,
+  result: CampaignProviderResult,
+  occurredAtUtc: string,
+) {
+  if (result.kind === "delivered") {
+    return {
+      jobId,
+      result: "Delivered" as const,
+      provider,
+      providerReferenceHash: await sha256Hex(result.providerReference),
+      reasonCode: null,
+      occurredAtUtc,
+    };
+  }
+  if (result.kind === "outcome_unknown") {
+    return {
+      jobId,
+      result: "OutcomeUnknown" as const,
+      provider,
+      providerReferenceHash: null,
+      reasonCode: boundedReason(result.code),
+      occurredAtUtc,
+    };
+  }
+  return {
+    jobId,
+    result: "Failed" as const,
+    provider,
+    providerReferenceHash: null,
+    reasonCode: boundedReason(result.code),
+    occurredAtUtc,
+  };
+}
+
+async function sha256Hex(value: string): Promise<string> {
+  const normalized = value.trim();
+  if (!normalized || normalized.length > 512) {
+    throw new Error("campaign_provider_reference_invalid");
+  }
+  const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(normalized));
+  return [...new Uint8Array(digest)].map((value) => value.toString(16).padStart(2, "0")).join("");
+}
+
+function safeReason(error: unknown): string {
+  const raw = error instanceof Error ? error.message : "campaign_delivery_failed";
+  return boundedReason(raw.replace(/[^a-zA-Z0-9_.-]/g, "_").toLowerCase());
+}
+
+function boundedReason(value: string): string {
+  const normalized = value.trim().toLowerCase();
+  if (!/^[a-z0-9][a-z0-9_.-]{1,79}$/.test(normalized)) {
+    return "campaign_delivery_failed";
+  }
+  return normalized;
+}
