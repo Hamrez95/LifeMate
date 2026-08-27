@@ -1,7 +1,7 @@
 import { type AdminCapabilitySnapshot, requirePermission } from "./authorization.ts";
 import { getAdminSql } from "./database_client.ts";
 import { json } from "./http.ts";
-import { ApiError } from "./validation.ts";
+import { ApiError, requireIdempotencyKey } from "./validation.ts";
 
 type Context = {
   request: Request;
@@ -49,6 +49,26 @@ function integer(value: unknown, field: string, min: number, max: number, nullab
     throw new ApiError(400, `${field}_invalid`, `${field} is outside the allowed range.`);
   }
   return Number(value);
+}
+
+function canonical(value: unknown): unknown {
+  if (Array.isArray(value)) return value.map(canonical);
+  if (value && typeof value === "object") {
+    return Object.fromEntries(
+      Object.entries(value as Record<string, unknown>)
+        .sort(([left],[right]) => left.localeCompare(right))
+        .map(([key,entry]) => [key,canonical(entry)]),
+    );
+  }
+  return value;
+}
+
+async function requestHash(operation: string, payload: unknown): Promise<string> {
+  const digest = await crypto.subtle.digest(
+    "SHA-256",
+    new TextEncoder().encode(JSON.stringify(["retention-v3",operation,canonical(payload)])),
+  );
+  return Array.from(new Uint8Array(digest)).map((value) => value.toString(16).padStart(2,"0")).join("");
 }
 
 function mutationStatus(result: Record<string, unknown>): number {
@@ -134,6 +154,7 @@ export function createRetentionRouteHandler(databaseUrl: string) {
 
     if (request.method === "POST" && path === "/api/v1/security/retention/policies") {
       requirePermission(admin, "security.retention.write");
+      const idempotencyKey = requireIdempotencyKey(request);
       const body = await bodyObject(request);
       const category = optionalKey(body.dataCategory, "data_category");
       const purpose = optionalKey(body.purposeCode ?? "default", "purpose_code") ?? "default";
@@ -144,10 +165,12 @@ export function createRetentionRouteHandler(databaseUrl: string) {
       if (!dispositions.has(disposition)) throw new ApiError(400, "disposition_invalid", "disposition is invalid.");
       const legalBasis = body.legalBasis === null || body.legalBasis === undefined ? null : boundedString(body.legalBasis, "legal_basis", 1, 500);
       const reason = boundedString(body.reason, "reason", 10, 1000);
+      const payload = {category,purpose,retentionDays,graceDays,disposition,legalBasis,reason};
       const rows = await sql`
-        select security.activate_retention_policy(
+        select security.activate_retention_policy_idempotent(
           ${accountId}::uuid,${category}::varchar,${purpose}::varchar,${retentionDays}::integer,
-          ${graceDays}::integer,${disposition}::varchar,${legalBasis}::varchar,${reason}::varchar,${correlationId}::uuid
+          ${graceDays}::integer,${disposition}::varchar,${legalBasis}::varchar,${reason}::varchar,
+          ${correlationId}::uuid,${idempotencyKey}::varchar,${await requestHash("policy.activate",payload)}::varchar
         ) as result
       `;
       const result = (rows[0]?.result ?? {}) as Record<string, unknown>;
@@ -156,6 +179,7 @@ export function createRetentionRouteHandler(databaseUrl: string) {
 
     if (request.method === "POST" && path === "/api/v1/security/retention/holds") {
       requirePermission(admin, "security.retention.write");
+      const idempotencyKey = requireIdempotencyKey(request);
       const body = await bodyObject(request);
       const targetAccountId = boundedString(body.accountId, "account_id", 36, 36);
       if (!uuidPattern.test(targetAccountId)) throw new ApiError(400, "account_id_invalid", "accountId is invalid.");
@@ -166,10 +190,12 @@ export function createRetentionRouteHandler(databaseUrl: string) {
       const reason = boundedString(body.reason, "reason", 10, 1000);
       const expiresAt = body.expiresAtUtc === null || body.expiresAtUtc === undefined ? null : boundedString(body.expiresAtUtc, "expires_at_utc", 20, 40);
       if (expiresAt && Number.isNaN(Date.parse(expiresAt))) throw new ApiError(400, "expires_at_utc_invalid", "expiresAtUtc is invalid.");
+      const payload = {targetAccountId,category,purpose,reasonCode,reason,expiresAt};
       const rows = await sql`
-        select security.create_retention_hold(
+        select security.create_retention_hold_idempotent(
           ${accountId}::uuid,${targetAccountId}::uuid,${category}::varchar,${purpose}::varchar,
-          ${reasonCode}::varchar,${reason}::varchar,${expiresAt}::timestamptz,${correlationId}::uuid
+          ${reasonCode}::varchar,${reason}::varchar,${expiresAt}::timestamptz,${correlationId}::uuid,
+          ${idempotencyKey}::varchar,${await requestHash("hold.create",payload)}::varchar
         ) as result
       `;
       const result = (rows[0]?.result ?? {}) as Record<string, unknown>;
@@ -179,12 +205,17 @@ export function createRetentionRouteHandler(databaseUrl: string) {
     const release = path.match(/^\/api\/v1\/security\/retention\/holds\/([0-9a-f-]{36})\/release$/i);
     if (request.method === "POST" && release) {
       requirePermission(admin, "security.retention.write");
+      const idempotencyKey = requireIdempotencyKey(request);
       const holdId = release[1];
       if (!uuidPattern.test(holdId)) throw new ApiError(400, "hold_id_invalid", "Hold id is invalid.");
       const body = await bodyObject(request);
       const reason = boundedString(body.reason, "reason", 10, 1000);
+      const payload = {holdId,reason};
       const rows = await sql`
-        select security.release_retention_hold(${accountId}::uuid,${holdId}::uuid,${reason}::varchar,${correlationId}::uuid) as result
+        select security.release_retention_hold_idempotent(
+          ${accountId}::uuid,${holdId}::uuid,${reason}::varchar,${correlationId}::uuid,
+          ${idempotencyKey}::varchar,${await requestHash("hold.release",payload)}::varchar
+        ) as result
       `;
       const result = (rows[0]?.result ?? {}) as Record<string, unknown>;
       return json(result, mutationStatus(result), origin);
