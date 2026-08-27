@@ -7,6 +7,7 @@ import {
   hashAbuseRuleMutation,
   hashAbuseRuleRetire,
   matchAbuseRuleRetirePath,
+  matchAbuseRuleVersionsPath,
   parseAbuseRuleMutation,
   parseAbuseRuleRetire,
 } from "./abuse_rules.ts";
@@ -28,20 +29,10 @@ const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}
 function mutationStatus(result: Record<string, unknown>): number {
   const status = Number(result.httpStatus);
   if (!Number.isInteger(status) || status < 100 || status > 599) {
-    throw new ApiError(
-      503,
-      "abuse_rule_workflow_unavailable",
-      "Abuse rule workflow returned an invalid status.",
-    );
+    throw new ApiError(503, "abuse_rule_workflow_unavailable", "Abuse rule workflow returned an invalid status.");
   }
   if (status >= 400) {
-    throw new ApiError(
-      status,
-      String(result.code),
-      typeof result.message === "string"
-        ? result.message
-        : "Abuse rule operation failed.",
-    );
+    throw new ApiError(status, String(result.code), typeof result.message === "string" ? result.message : "Abuse rule operation failed.");
   }
   return status;
 }
@@ -68,9 +59,7 @@ function optionalContext(url: URL): string | null {
 export function createAbuseRuleRouteHandler(databaseUrl: string) {
   const sql = postgres(databaseUrl, { max: 1, prepare: false });
 
-  return async function handleAbuseRuleRoute(
-    context: Context,
-  ): Promise<Response | null> {
+  return async function handleAbuseRuleRoute(context: Context): Promise<Response | null> {
     const { request, path, accountId, admin, correlationId, origin } = context;
 
     if (request.method === "GET" && path === "/api/v1/security/abuse/rules") {
@@ -98,21 +87,25 @@ export function createAbuseRuleRouteHandler(databaseUrl: string) {
           order by r.context_code,r.priority,r.code
           limit ${limit}
         `;
-      return json(
-        {
-          items: rows,
-          limit,
-          freshness: { status: "fresh", asOfUtc: new Date().toISOString() },
-        },
-        200,
-        origin,
-      );
+      return json({ items: rows, limit, freshness: { status: "fresh", asOfUtc: new Date().toISOString() } }, 200, origin);
     }
 
-    if (
-      request.method === "GET" &&
-      path === "/api/v1/security/abuse/decisions"
-    ) {
+    const versionsRuleId = matchAbuseRuleVersionsPath(path);
+    if (request.method === "GET" && versionsRuleId) {
+      requirePermission(admin, "security.abuse.read");
+      if (!uuidPattern.test(versionsRuleId)) throw new ApiError(400, "abuse_rule_id_invalid", "Rule id is invalid.");
+      const limit = boundedLimit(new URL(request.url));
+      const rows = await sql`
+        select rule_version,snapshot_json,changed_by_account_id,change_reason,created_at_utc
+        from security.abuse_rule_versions
+        where rule_id=${versionsRuleId}::uuid
+        order by rule_version desc
+        limit ${limit}
+      `;
+      return json({ items: rows, limit, freshness: { status: "fresh", asOfUtc: new Date().toISOString() } }, 200, origin);
+    }
+
+    if (request.method === "GET" && path === "/api/v1/security/abuse/decisions") {
       requirePermission(admin, "security.abuse.read");
       const url = new URL(request.url);
       const contextCode = optionalContext(url);
@@ -133,19 +126,12 @@ export function createAbuseRuleRouteHandler(databaseUrl: string) {
           order by evaluated_at_utc desc,id desc
           limit ${limit}
         `;
-      return json(
-        {
-          items: rows,
-          limit,
-          privacy: {
-            subjectIdentifiersExposed: false,
-            rawContactValuesExposed: false,
-          },
-          freshness: { status: "fresh", asOfUtc: new Date().toISOString() },
-        },
-        200,
-        origin,
-      );
+      return json({
+        items: rows,
+        limit,
+        privacy: { subjectIdentifiersExposed: false, rawContactValuesExposed: false },
+        freshness: { status: "fresh", asOfUtc: new Date().toISOString() },
+      }, 200, origin);
     }
 
     if (request.method === "POST" && path === "/api/v1/security/abuse/rules") {
@@ -155,24 +141,12 @@ export function createAbuseRuleRouteHandler(databaseUrl: string) {
       const requestHash = await hashAbuseRuleMutation(payload);
       const rows = await sql`
         select security.upsert_abuse_rule_idempotent(
-          ${accountId}::uuid,
-          ${payload.code}::varchar,
-          ${payload.contextCode}::varchar,
-          ${payload.displayName}::varchar,
-          ${payload.ruleKind}::varchar,
-          ${payload.subjectScope}::varchar,
-          ${payload.enforcementAction}::varchar,
-          ${payload.windowSeconds}::integer,
-          ${payload.maxCount}::integer,
-          ${payload.cooldownSeconds}::integer,
-          ${payload.evidenceCode}::varchar,
-          ${payload.approvalRequestType}::varchar,
-          ${payload.priority}::integer,
-          ${payload.expectedVersion}::bigint,
-          ${payload.reason}::varchar,
-          ${correlationId}::uuid,
-          ${idempotencyKey}::varchar,
-          ${requestHash}::varchar
+          ${accountId}::uuid,${payload.code}::varchar,${payload.contextCode}::varchar,
+          ${payload.displayName}::varchar,${payload.ruleKind}::varchar,${payload.subjectScope}::varchar,
+          ${payload.enforcementAction}::varchar,${payload.windowSeconds}::integer,${payload.maxCount}::integer,
+          ${payload.cooldownSeconds}::integer,${payload.evidenceCode}::varchar,${payload.approvalRequestType}::varchar,
+          ${payload.priority}::integer,${payload.expectedVersion}::bigint,${payload.reason}::varchar,
+          ${correlationId}::uuid,${idempotencyKey}::varchar,${requestHash}::varchar
         ) as result
       `;
       const result = (rows[0]?.result ?? {}) as Record<string, unknown>;
@@ -182,21 +156,14 @@ export function createAbuseRuleRouteHandler(databaseUrl: string) {
     const retireId = matchAbuseRuleRetirePath(path);
     if (request.method === "POST" && retireId) {
       requirePermission(admin, "security.abuse.write");
-      if (!uuidPattern.test(retireId)) {
-        throw new ApiError(400, "abuse_rule_id_invalid", "Rule id is invalid.");
-      }
+      if (!uuidPattern.test(retireId)) throw new ApiError(400, "abuse_rule_id_invalid", "Rule id is invalid.");
       const idempotencyKey = requireIdempotencyKey(request);
       const payload = await parseAbuseRuleRetire(request);
       const requestHash = await hashAbuseRuleRetire(retireId, payload);
       const rows = await sql`
         select security.retire_abuse_rule_idempotent(
-          ${accountId}::uuid,
-          ${retireId}::uuid,
-          ${payload.expectedVersion}::bigint,
-          ${payload.reason}::varchar,
-          ${correlationId}::uuid,
-          ${idempotencyKey}::varchar,
-          ${requestHash}::varchar
+          ${accountId}::uuid,${retireId}::uuid,${payload.expectedVersion}::bigint,
+          ${payload.reason}::varchar,${correlationId}::uuid,${idempotencyKey}::varchar,${requestHash}::varchar
         ) as result
       `;
       const result = (rows[0]?.result ?? {}) as Record<string, unknown>;
