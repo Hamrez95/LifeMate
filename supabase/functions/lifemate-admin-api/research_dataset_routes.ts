@@ -34,6 +34,37 @@ export function createResearchDatasetRouteHandler(databaseUrl: string) {
   const store = createResearchDatasetStore(databaseUrl);
   return async function researchDatasetRoute(context: Context): Promise<Response | null> {
     const { request, path, accountId, admin, correlationId, origin } = context;
+
+    const exportMatch = path.match(
+      /^\/api\/v1\/research\/datasets\/([0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12})\/exports$/i,
+    );
+    if (exportMatch && request.method === "POST") {
+      requireFounder(admin);
+      const idempotencyKey = requireIdempotencyKey(request);
+      const body = await request.json().catch(() => null);
+      if (!body || typeof body !== "object" || Array.isArray(body)) {
+        throw new ApiError(400, "research_export_payload_invalid", "Research export payload must be an object.");
+      }
+      const raw = body as Record<string, unknown>;
+      const allowed = new Set(["format"]);
+      if (Object.keys(raw).some((key) => !allowed.has(key))) {
+        throw new ApiError(400, "research_export_payload_invalid", "Research export payload contains unsupported fields.");
+      }
+      const format = exportFormat(raw.format);
+      const datasetId = exportMatch[1].toLowerCase();
+      const jurisdiction = "GLOBAL";
+      const canonical = JSON.stringify({ datasetId, format, jurisdiction });
+      return json(await store.requestExport({
+        actorAccountId: accountId,
+        datasetId,
+        format,
+        jurisdiction,
+        correlationId,
+        idempotencyKey,
+        requestHash: await sha256Hex(canonical),
+      }), 202, origin);
+    }
+
     const previewMatch = path.match(
       /^\/api\/v1\/research\/datasets\/([0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12})\/preview$/i,
     );
@@ -69,8 +100,19 @@ export function createResearchDatasetRouteHandler(databaseUrl: string) {
       const purpose = purposeCode(raw.purpose);
       const sourceCategory = sourceCategoryCode(raw.sourceCategory);
       const rawFilters = boundedObject(raw.filters, "filters");
-      const filters = parseResearchDatasetFilters(datasetKind, rawFilters);
       const quasiIdentifierRules = boundedObject(raw.quasiIdentifierRules, "quasiIdentifierRules");
+
+      // Reject explicit/linkable identifier intent before the allow-listed filter
+      // parser turns an unsafe key into a generic "unsupported field" error. This
+      // makes the privacy boundary deterministic and avoids accidental future
+      // allow-list expansion changing the security meaning of the same payload.
+      rejectDirectIdentifierFields([
+        ...objectPaths(rawFilters),
+        ...objectPaths(quasiIdentifierRules),
+        ...fieldReferences(rawFilters),
+        ...fieldReferences(quasiIdentifierRules),
+      ]);
+      const filters = parseResearchDatasetFilters(datasetKind, rawFilters);
       rejectDirectIdentifierFields([
         ...objectPaths(filters),
         ...objectPaths(quasiIdentifierRules),
@@ -202,6 +244,13 @@ function requiredInteger(value: unknown): number {
 function rowMode(value: unknown): "Aggregate" | "Pseudonymous" {
   if (value !== "Aggregate" && value !== "Pseudonymous") {
     throw new ApiError(400, "research_dataset_payload_invalid", "rowMode is invalid.");
+  }
+  return value;
+}
+
+function exportFormat(value: unknown): "CSV" | "XLSX" {
+  if (value !== "CSV" && value !== "XLSX") {
+    throw new ApiError(400, "research_export_format_invalid", "format must be CSV or XLSX.");
   }
   return value;
 }
