@@ -31,6 +31,26 @@ export function createSupportConversationStore(databaseUrl: string) {
   return {
     accountIdForAppUser,
 
+    async current(appUserId: string, productCode: string | null) {
+      const accountId = await accountIdForAppUser(appUserId);
+      const rows = await sql`
+        select * from support.get_latest_user_support_conversation(
+          ${accountId}::uuid,
+          ${productCode}::varchar
+        )
+      `;
+      const row = rows[0] as Row | undefined;
+      if (!row) return null;
+      return {
+        ticketId: String(row.ticket_id),
+        status: String(row.status),
+        productCode: row.product_code == null ? null : String(row.product_code),
+        lastActivityAtUtc: row.last_activity_at_utc instanceof Date
+          ? row.last_activity_at_utc.toISOString()
+          : String(row.last_activity_at_utc),
+      };
+    },
+
     async open(appUserId: string, input: {
       productCode: string | null;
       category: string;
