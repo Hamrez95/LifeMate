@@ -89,3 +89,42 @@ Deno.test("research route rejects unknown dataset kind before persistence", asyn
     assertEquals((error as ApiError).code, "research_dataset_kind_invalid");
   }
 });
+
+Deno.test("research export route validates founder and bounded format before database access", async () => {
+  const datasetId = "00000000-0000-4000-8000-000000000010";
+  const path = `/api/v1/research/datasets/${datasetId}/exports`;
+
+  try {
+    await handler({
+      ...base,
+      path,
+      request: new Request(`https://example.test${path}`, {
+        method: "POST",
+        headers: { "content-type": "application/json", "idempotency-key": "research-export-non-founder" },
+        body: JSON.stringify({ format: "CSV" }),
+      }),
+      admin: { accountId: base.accountId, roles: ["product"], permissions: ["analytics.read"] },
+    });
+    throw new Error("expected rejection");
+  } catch (error) {
+    assertEquals(error instanceof ApiError, true);
+    assertEquals((error as ApiError).code, "research_founder_required");
+  }
+
+  try {
+    await handler({
+      ...base,
+      path,
+      request: new Request(`https://example.test${path}`, {
+        method: "POST",
+        headers: { "content-type": "application/json", "idempotency-key": "research-export-format" },
+        body: JSON.stringify({ format: "PDF" }),
+      }),
+      admin: { accountId: base.accountId, roles: ["founder"], permissions: ["analytics.read"] },
+    });
+    throw new Error("expected rejection");
+  } catch (error) {
+    assertEquals(error instanceof ApiError, true);
+    assertEquals((error as ApiError).code, "research_export_format_invalid");
+  }
+});
