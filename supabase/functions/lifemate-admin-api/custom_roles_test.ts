@@ -61,12 +61,17 @@ Deno.test("custom role route matching is explicit", () => {
 Deno.test("custom role source enforces non-delegable and self-escalation boundaries", async () => {
   const mutation=await Deno.readTextFile(new URL("../../migrations/20260827001500_admin_custom_roles.sql",import.meta.url));
   const guard=await Deno.readTextFile(new URL("../../migrations/20260827001600_admin_custom_role_assignment_guard.sql",import.meta.url));
+  const hardening=await Deno.readTextFile(new URL("../../migrations/20260827001700_admin_custom_roles_security_hardening.sql",import.meta.url));
   const staffStore=await Deno.readTextFile(new URL("./staff_actions_service.ts",import.meta.url));
   assertStringIncludes(mutation,"v_action='assign' and (not v_permission.role_assignable or v_permission.risk_level='ELEVATED')");
   assertStringIncludes(mutation,"v_action='assign' and not admin.account_has_permission(p_actor_account_id,v_permission.code)");
   assertStringIncludes(mutation,"v_role.is_system");
   assertStringIncludes(guard,"new.account_id=new.granted_by_account_id");
   assertStringIncludes(guard,"not admin.account_has_permission(new.granted_by_account_id,p.code)");
+  assertStringIncludes(hardening,"alter function admin.mutate_custom_role(");
+  assertStringIncludes(hardening,"security definer");
+  assertStringIncludes(hardening,"v_role.rank<=v_actor_rank");
+  assertStringIncludes(hardening,"Target staff membership must be active");
   assertStringIncludes(staffStore,"permission_delegation_denied");
   assertStringIncludes(staffStore,"requireCustomRoleDelegable");
 });
