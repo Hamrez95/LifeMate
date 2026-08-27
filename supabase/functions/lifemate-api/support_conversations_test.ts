@@ -6,11 +6,11 @@ const appUserId = "11111111-1111-4111-8111-111111111111";
 const ticketId = "22222222-2222-4222-8222-222222222222";
 const messageId = "33333333-3333-4333-8333-333333333333";
 
-Deno.test("support current conversation is owner and product scoped", async () => {
+Deno.test("support current conversation is owner product and category scoped", async () => {
   const calls: unknown[] = [];
   const handler = createSupportConversationRouteHandler({
-    async current(owner: string, productCode: string | null) {
-      calls.push({ owner, productCode });
+    async current(owner: string, productCode: string | null, category: string) {
+      calls.push({ owner, productCode, category });
       return {
         ticketId,
         status: "Resolved",
@@ -21,13 +21,13 @@ Deno.test("support current conversation is owner and product scoped", async () =
   } as any);
   const response = await handler({
     request: new Request(
-      "https://example.test/api/v1/support/conversations/current?productCode=WellMate",
+      "https://example.test/api/v1/support/conversations/current?productCode=WellMate&category=general",
     ),
     path: "/api/v1/support/conversations/current",
     appUserId,
   });
   assertEquals(response?.status, 200);
-  assertEquals(calls, [{ owner: appUserId, productCode: "wellmate" }]);
+  assertEquals(calls, [{ owner: appUserId, productCode: "wellmate", category: "general" }]);
   assertEquals(await response?.json(), {
     conversation: {
       ticketId,
@@ -45,17 +45,10 @@ Deno.test("support route never accepts requester account identity from client", 
       calls.push({ owner, input });
       return { ticketId, messageId, replayed: false };
     },
-    async send() {
-      throw new Error("unexpected");
-    },
-    async list() {
-      return [];
-    },
-    async markRead() {
-      return { ok: true };
-    },
+    async send() { throw new Error("unexpected"); },
+    async list() { return []; },
+    async markRead() { return { ok: true }; },
   } as any);
-
   const response = await handler({
     request: new Request("https://example.test/api/v1/support/conversations", {
       method: "POST",
@@ -71,53 +64,23 @@ Deno.test("support route never accepts requester account identity from client", 
     path: "/api/v1/support/conversations",
     appUserId,
   });
-
   assertEquals(response?.status, 201);
-  assertEquals(calls, [{
-    owner: appUserId,
-    input: {
-      productCode: "wellmate",
-      category: "billing_issue",
-      body: "لطفاً در مورد اشتراک من راهنمایی کنید.",
-      clientMessageId: messageId,
-    },
-  }]);
+  assertEquals(calls, [{ owner: appUserId, input: {
+    productCode: "wellmate", category: "billing_issue",
+    body: "لطفاً در مورد اشتراک من راهنمایی کنید.", clientMessageId: messageId,
+  } }]);
 });
 
 Deno.test("support category validation matches canonical ticket schema", async () => {
-  const handler = createSupportConversationRouteHandler({
-    async open() {
-      throw new Error("should_not_reach_store");
-    },
-    async send() {
-      throw new Error("unexpected");
-    },
-    async list() {
-      return [];
-    },
-    async markRead() {
-      return { ok: true };
-    },
-  } as any);
-
+  const handler = createSupportConversationRouteHandler({ async open() { throw new Error("should_not_reach_store"); } } as any);
   await assertRejects(
-    () =>
-      handler({
-        request: new Request(
-          "https://example.test/api/v1/support/conversations",
-          {
-            method: "POST",
-            headers: { "content-type": "application/json" },
-            body: JSON.stringify({
-              category: "billing.issue",
-              body: "hello",
-              clientMessageId: messageId,
-            }),
-          },
-        ),
-        path: "/api/v1/support/conversations",
-        appUserId,
+    () => handler({
+      request: new Request("https://example.test/api/v1/support/conversations", {
+        method: "POST", headers: { "content-type": "application/json" },
+        body: JSON.stringify({ category: "billing.issue", body: "hello", clientMessageId: messageId }),
       }),
+      path: "/api/v1/support/conversations", appUserId,
+    }),
     ApiError,
     "Support category is invalid.",
   );
@@ -126,75 +89,27 @@ Deno.test("support category validation matches canonical ticket schema", async (
 Deno.test("support list is bounded and owner-scoped through store input", async () => {
   const calls: unknown[] = [];
   const handler = createSupportConversationRouteHandler({
-    async open() {
-      throw new Error("unexpected");
-    },
-    async send() {
-      throw new Error("unexpected");
-    },
-    async list(
-      owner: string,
-      ticket: string,
-      beforeAt: string | null,
-      afterAt: string | null,
-      limit: number,
-    ) {
+    async list(owner: string, ticket: string, beforeAt: string | null, afterAt: string | null, limit: number) {
       calls.push({ owner, ticket, beforeAt, afterAt, limit });
-      return [{
-        messageId,
-        senderKind: "Staff",
-        body: "سلام",
-        createdAtUtc: "2026-08-27T10:00:00.000Z",
-      }];
-    },
-    async markRead() {
-      return { ok: true };
+      return [{ messageId, senderKind: "Staff", body: "سلام", createdAtUtc: "2026-08-27T10:00:00.000Z" }];
     },
   } as any);
-
   const response = await handler({
-    request: new Request(
-      `https://example.test/api/v1/support/conversations/${ticketId}?limit=25&beforeAt=2026-08-27T10:01:00Z`,
-    ),
-    path: `/api/v1/support/conversations/${ticketId}`,
-    appUserId,
+    request: new Request(`https://example.test/api/v1/support/conversations/${ticketId}?limit=25&beforeAt=2026-08-27T10:01:00Z`),
+    path: `/api/v1/support/conversations/${ticketId}`, appUserId,
   });
   assertEquals(response?.status, 200);
-  assertEquals(calls, [{
-    owner: appUserId,
-    ticket: ticketId,
-    beforeAt: "2026-08-27T10:01:00.000Z",
-    afterAt: null,
-    limit: 25,
-  }]);
+  assertEquals(calls, [{ owner: appUserId, ticket: ticketId, beforeAt: "2026-08-27T10:01:00.000Z", afterAt: null, limit: 25 }]);
   assertEquals((await response?.json()).polling.afterAt, "2026-08-27T10:00:00.000Z");
 });
 
 Deno.test("support polling rejects simultaneous history and new-message cursors", async () => {
-  const handler = createSupportConversationRouteHandler({
-    async open() {
-      throw new Error("unexpected");
-    },
-    async send() {
-      throw new Error("unexpected");
-    },
-    async list() {
-      throw new Error("should_not_reach_store");
-    },
-    async markRead() {
-      return { ok: true };
-    },
-  } as any);
-
+  const handler = createSupportConversationRouteHandler({ async list() { throw new Error("should_not_reach_store"); } } as any);
   await assertRejects(
-    () =>
-      handler({
-        request: new Request(
-          `https://example.test/api/v1/support/conversations/${ticketId}?beforeAt=2026-08-27T10:01:00Z&afterAt=2026-08-27T09:59:00Z`,
-        ),
-        path: `/api/v1/support/conversations/${ticketId}`,
-        appUserId,
-      }),
+    () => handler({
+      request: new Request(`https://example.test/api/v1/support/conversations/${ticketId}?beforeAt=2026-08-27T10:01:00Z&afterAt=2026-08-27T09:59:00Z`),
+      path: `/api/v1/support/conversations/${ticketId}`, appUserId,
+    }),
     ApiError,
     "Use either beforeAt or afterAt, not both.",
   );
