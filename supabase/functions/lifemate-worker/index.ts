@@ -14,6 +14,7 @@ import {
 } from "./policy.ts";
 import { createProviderAuthSubjectResolver } from "./provider_auth_subject.ts";
 import { createResearchExportRuntime } from "./research_export_runtime.ts";
+import { createResearchExportSignerRoute } from "./research_export_signer_route.ts";
 import { loadWorkerDatabaseUrl } from "./runtime_database.ts";
 
 const databaseUrl = await loadWorkerDatabaseUrl();
@@ -22,6 +23,7 @@ const serviceRoleKey = Deno.env.get(
   ["SUPABASE", "SERVICE", "ROLE", "KEY"].join("_"),
 );
 const workerToken = Deno.env.get("LIFEMATE_WORKER_TOKEN");
+const researchSignerToken = Deno.env.get("LIFEMATE_RESEARCH_EXPORT_SIGNER_TOKEN");
 const workerBatchSize = boundedWorkerBatchSize(
   Deno.env.get("LIFEMATE_WORKER_BATCH_SIZE"),
 );
@@ -56,6 +58,13 @@ const researchExports = createResearchExportRuntime(
   serviceRoleKey,
   timedFetch,
 );
+const researchExportSignerRoute = createResearchExportSignerRoute({
+  sql,
+  supabaseUrl,
+  serviceRoleKey,
+  signerToken: researchSignerToken,
+  fetcher: timedFetch,
+});
 
 type OutboxMessage = {
   id: string;
@@ -88,6 +97,9 @@ type CampaignPublishClaim = {
 };
 
 Deno.serve(async (request: Request) => {
+  const signerResponse = await researchExportSignerRoute(request);
+  if (signerResponse) return signerResponse;
+
   if (request.method !== "POST") {
     return response(405, { error: "method_not_allowed" });
   }
