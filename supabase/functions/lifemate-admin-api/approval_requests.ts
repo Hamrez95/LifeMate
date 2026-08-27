@@ -20,8 +20,12 @@ export type DecideApprovalRequest = {
 
 const REQUEST_TYPE = /^[a-z][a-z0-9._-]{2,79}$/;
 const TARGET_TYPE = /^[a-z][a-z0-9._-]{1,79}$/;
+const STATE_KEY = /^[a-zA-Z][a-zA-Z0-9_]{0,63}$/;
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const MAX_STATE_BYTES = 16 * 1024;
+const MAX_STATE_DEPTH = 5;
+const MAX_STATE_STRING = 240;
+const FORBIDDEN_STATE_KEY = /(health|medical|medication|treatment|diagnosis|symptom|journal|note|message|content|body|phone|email|address|password|secret|token)/i;
 
 function objectBody(value: unknown): Record<string, unknown> {
   if (!value || typeof value !== "object" || Array.isArray(value)) {
@@ -30,10 +34,42 @@ function objectBody(value: unknown): Record<string, unknown> {
   return value as Record<string, unknown>;
 }
 
+function validateBusinessState(value: unknown, field: string, depth=0): void {
+  if (depth>MAX_STATE_DEPTH) {
+    throw new ApiError(400,"approval_state_invalid",`${field} is too deeply nested.`);
+  }
+  if (value===null || typeof value==="boolean") return;
+  if (typeof value==="number") {
+    if (!Number.isFinite(value)) throw new ApiError(400,"approval_state_invalid",`${field} contains a non-finite number.`);
+    return;
+  }
+  if (typeof value==="string") {
+    if (value.length>MAX_STATE_STRING) throw new ApiError(400,"approval_state_invalid",`${field} contains an oversized string.`);
+    return;
+  }
+  if (Array.isArray(value)) {
+    if (value.length>100) throw new ApiError(400,"approval_state_invalid",`${field} contains too many array entries.`);
+    value.forEach((entry,index) => validateBusinessState(entry,`${field}[${index}]`,depth+1));
+    return;
+  }
+  if (!value || typeof value!=="object") {
+    throw new ApiError(400,"approval_state_invalid",`${field} contains an unsupported value.`);
+  }
+  const entries=Object.entries(value as Record<string,unknown>);
+  if (entries.length>100) throw new ApiError(400,"approval_state_invalid",`${field} contains too many fields.`);
+  for (const [key,entry] of entries) {
+    if (!STATE_KEY.test(key) || FORBIDDEN_STATE_KEY.test(key)) {
+      throw new ApiError(400,"approval_state_sensitive",`${field} contains a forbidden or invalid field.`);
+    }
+    validateBusinessState(entry,`${field}.${key}`,depth+1);
+  }
+}
+
 function boundedObject(value: unknown, field: string): Record<string, unknown> {
   if (!value || typeof value !== "object" || Array.isArray(value)) {
     throw new ApiError(400,"approval_state_invalid",`${field} must be a JSON object.`);
   }
+  validateBusinessState(value,field);
   const encoded = JSON.stringify(value);
   if (new TextEncoder().encode(encoded).byteLength > MAX_STATE_BYTES) {
     throw new ApiError(413,"approval_state_too_large",`${field} is too large.`);
