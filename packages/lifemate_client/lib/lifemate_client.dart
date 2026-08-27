@@ -14,6 +14,7 @@ export 'src/app_notice.dart';
 export 'src/care_pairing_qr.dart';
 export 'src/durable_lifemate_api_client.dart';
 export 'src/feature_flags.dart';
+export 'src/feedback_api.dart';
 export 'src/health_facts.dart';
 export 'src/health_observations_api.dart';
 export 'src/history_reuse.dart';

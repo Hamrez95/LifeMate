@@ -129,6 +129,17 @@ class ProfileScreen extends StatelessWidget {
         ),
       ),
       onManageSubscriptions: () => open(CareMateSubscriptionScreen()),
+      feedbackBuilder: (_) => LifeMateFeedbackScreen(
+        productCode: 'caremate',
+        appVersion: careMateAppVersion,
+        buildNumber: careMateAppVersion.contains('+')
+            ? careMateAppVersion.split('+').last
+            : null,
+        accent: AppColors.primaryBlue,
+        background: AppColors.background,
+        isPersian: isPersian,
+        fontFamily: mainFont,
+      ),
     );
   }
 }
