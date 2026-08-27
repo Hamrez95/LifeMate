@@ -45,10 +45,13 @@ function integer(
   nullable = false,
 ): number | null {
   if (nullable && (value === null || value === undefined)) return null;
-  if (!Number.isSafeInteger(value) || Number(value) < min || Number(value) > max) {
+  if (
+    typeof value !== "number" || !Number.isSafeInteger(value) || value < min ||
+    value > max
+  ) {
     throw new ApiError(400, `${field}_invalid`, `${field} is outside the allowed range.`);
   }
-  return Number(value);
+  return value;
 }
 
 function boundedReason(value: unknown): string {
