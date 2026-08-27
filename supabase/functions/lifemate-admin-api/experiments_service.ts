@@ -14,6 +14,7 @@ type ExperimentRow = {
   surface_code: string;
   product_code: string | null;
   segment_key: string | null;
+  segment_snapshot_id: string | null;
   primary_metric_code: string;
   guardrail_metric_codes: string[];
   status: ExperimentDefinition["status"];
@@ -114,6 +115,7 @@ function mapExperiment(row: ExperimentRow, variants: ExperimentVariant[]) {
     surface: row.surface_code,
     productCode: row.product_code,
     segmentKey: row.segment_key,
+    segmentSnapshotId: row.segment_snapshot_id,
     primaryMetricCode: row.primary_metric_code,
     guardrailMetricCodes: row.guardrail_metric_codes ?? [],
     status: row.status,
@@ -138,7 +140,7 @@ export function createExperimentStore(databaseUrl: string) {
   return {
     async list() {
       const rows = await sql<ExperimentRow[]>`
-        select experiment_key,name,control_key,surface_code,product_code,segment_key,
+        select experiment_key,name,control_key,surface_code,product_code,segment_key,segment_snapshot_id,
           primary_metric_code,guardrail_metric_codes,status,starts_at_utc,ends_at_utc,
           version,created_at_utc,updated_at_utc
         from analytics.experiments
@@ -151,7 +153,7 @@ export function createExperimentStore(databaseUrl: string) {
 
     async get(key: string) {
       const rows = await sql<ExperimentRow[]>`
-        select experiment_key,name,control_key,surface_code,product_code,segment_key,
+        select experiment_key,name,control_key,surface_code,product_code,segment_key,segment_snapshot_id,
           primary_metric_code,guardrail_metric_codes,status,starts_at_utc,ends_at_utc,
           version,created_at_utc,updated_at_utc
         from analytics.experiments where experiment_key=${key} limit 1
@@ -188,7 +190,7 @@ export function createExperimentStore(databaseUrl: string) {
         select admin.create_experiment(
           ${input.actorAccountId}::uuid,${p.experimentKey}::varchar,${p.name}::varchar,
           ${p.controlKey}::varchar,${p.surface}::varchar,${p.productCode}::varchar,
-          ${p.segmentKey}::varchar,${p.primaryMetricCode}::varchar,
+          ${p.segmentKey}::varchar,${p.segmentSnapshotId}::uuid,${p.primaryMetricCode}::varchar,
           ${p.guardrailMetricCodes}::varchar[],${JSON.stringify(p.variants)}::jsonb,
           ${p.startsAtUtc}::timestamptz,${p.endsAtUtc}::timestamptz,${p.reason}::varchar,
           ${input.correlationId}::uuid,${input.idempotencyKey}::varchar,${input.requestHash}::varchar
