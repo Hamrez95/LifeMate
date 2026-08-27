@@ -17,6 +17,13 @@ Deno.test("audience segment projection stays on canonical non-health sources", a
   assert(!text.includes("medication."));
 });
 
+Deno.test("missing engagement age stays unknown instead of becoming fabricated inactivity", async () => {
+  const text = await source("./audience_segments_service.ts");
+  assertStringIncludes(text, 'return { days: null, label: "never_active" }');
+  assertStringIncludes(text, 'if (activity.days !== null)');
+  assert(!text.includes("36500"));
+});
+
 Deno.test("audience segment routes require purpose-specific permissions", async () => {
   const text = await source("./audience_segments_routes.ts");
   assertStringIncludes(text, 'requirePermission(admin,"marketing.segment.read")');
