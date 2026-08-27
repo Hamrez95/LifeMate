@@ -19,6 +19,7 @@ export 'src/health_observations_api.dart';
 export 'src/history_reuse.dart';
 export 'src/history_suggestions.dart';
 export 'src/iran_phone.dart';
+export 'src/legal_privacy_api.dart';
 export 'src/lifemate_api_client.dart';
 export 'src/lifemate_auth.dart';
 export 'src/lifemate_bootstrap.dart';
