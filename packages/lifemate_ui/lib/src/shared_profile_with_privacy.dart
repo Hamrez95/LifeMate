@@ -1,12 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:lifemate_client/lifemate_client.dart';
 
+import 'companion_care_guidance.dart';
 import 'profile_theme.dart';
 import 'shared_legal_privacy.dart';
 import 'shared_profile_screen.dart' as legacy;
 
 /// Backward-compatible shared profile surface with canonical privacy and
-/// optional feedback entry points for LifeMate products.
+/// optional product capabilities exposed through shared, themed entry points.
 class LifeMateSharedProfileScreen extends StatelessWidget {
   const LifeMateSharedProfileScreen({
     super.key,
@@ -49,6 +50,8 @@ class LifeMateSharedProfileScreen extends StatelessWidget {
   final LifeMateLegalPrivacyApi? legalPrivacyApi;
   final WidgetBuilder? feedbackBuilder;
 
+  bool get _isCareMate => appName.trim().toLowerCase() == 'caremate';
+
   @override
   Widget build(BuildContext context) {
     return Column(
@@ -78,79 +81,71 @@ class LifeMateSharedProfileScreen extends StatelessWidget {
           minimum: const EdgeInsets.fromLTRB(24, 8, 24, 12),
           child: Column(
             children: [
-              if (feedbackBuilder != null) ...[
-                Semantics(
-                  button: true,
+              if (_isCareMate) ...[
+                _ProfileActionButton(
+                  key: const ValueKey('profile-companion-guidance'),
+                  theme: theme,
+                  fontFamily: fontFamily,
+                  icon: Icons.volunteer_activism_outlined,
                   label: LifeMateRuntimeLocale.select(
-                    fa: 'ارسال نظر و پیشنهاد',
-                    en: 'Send feedback',
+                    fa: 'همراهی پیشنهادی',
+                    en: 'Support guidance',
                   ),
-                  child: OutlinedButton.icon(
-                    key: const ValueKey('profile-feedback'),
-                    style: OutlinedButton.styleFrom(
-                      minimumSize: const Size.fromHeight(52),
-                      foregroundColor: theme.accent,
-                      side: BorderSide(
-                        color: theme.accent.withValues(alpha: 0.25),
-                      ),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(18),
-                      ),
-                    ),
-                    onPressed: () => Navigator.of(context).push(
-                      MaterialPageRoute<void>(builder: feedbackBuilder!),
-                    ),
-                    icon: const Icon(Icons.rate_review_outlined),
-                    label: Text(
-                      LifeMateRuntimeLocale.select(
-                        fa: 'نظر، پیشنهاد و گزارش مشکل',
-                        en: 'Feedback & suggestions',
-                      ),
-                      style: TextStyle(
-                        fontFamily: fontFamily,
-                        fontWeight: FontWeight.w800,
+                  semanticsLabel: LifeMateRuntimeLocale.select(
+                    fa: 'پیشنهادهای همراهی CareMate',
+                    en: 'CareMate support guidance',
+                  ),
+                  onPressed: () => Navigator.of(context).push(
+                    MaterialPageRoute<void>(
+                      builder: (_) => LifeMateCompanionCareScreen(
+                        apiClient: apiClient,
+                        accent: theme.accent,
+                        background: theme.background,
                       ),
                     ),
                   ),
                 ),
                 const SizedBox(height: 8),
               ],
-              Semantics(
-                button: true,
+              if (feedbackBuilder != null) ...[
+                _ProfileActionButton(
+                  key: const ValueKey('profile-feedback'),
+                  theme: theme,
+                  fontFamily: fontFamily,
+                  icon: Icons.rate_review_outlined,
+                  label: LifeMateRuntimeLocale.select(
+                    fa: 'نظر، پیشنهاد و گزارش مشکل',
+                    en: 'Feedback & suggestions',
+                  ),
+                  semanticsLabel: LifeMateRuntimeLocale.select(
+                    fa: 'ارسال نظر و پیشنهاد',
+                    en: 'Send feedback',
+                  ),
+                  onPressed: () => Navigator.of(context).push(
+                    MaterialPageRoute<void>(builder: feedbackBuilder!),
+                  ),
+                ),
+                const SizedBox(height: 8),
+              ],
+              _ProfileActionButton(
+                key: const ValueKey('profile-privacy-preferences'),
+                theme: theme,
+                fontFamily: fontFamily,
+                icon: Icons.privacy_tip_outlined,
                 label: LifeMateRuntimeLocale.select(
+                  fa: 'حریم خصوصی و ترجیحات',
+                  en: 'Privacy & preferences',
+                ),
+                semanticsLabel: LifeMateRuntimeLocale.select(
                   fa: 'حریم خصوصی و ترجیحات ارتباطی',
                   en: 'Privacy and communication preferences',
                 ),
-                child: OutlinedButton.icon(
-                  key: const ValueKey('profile-privacy-preferences'),
-                  style: OutlinedButton.styleFrom(
-                    minimumSize: const Size.fromHeight(52),
-                    foregroundColor: theme.accent,
-                    side: BorderSide(
-                      color: theme.accent.withValues(alpha: 0.25),
-                    ),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(18),
-                    ),
-                  ),
-                  onPressed: () => Navigator.of(context).push(
-                    MaterialPageRoute<void>(
-                      builder: (_) => LifeMatePrivacyPreferencesScreen(
-                        api: legalPrivacyApi,
-                        accent: theme.accent,
-                        background: theme.background,
-                      ),
-                    ),
-                  ),
-                  icon: const Icon(Icons.privacy_tip_outlined),
-                  label: Text(
-                    LifeMateRuntimeLocale.select(
-                      fa: 'حریم خصوصی و ترجیحات',
-                      en: 'Privacy & preferences',
-                    ),
-                    style: TextStyle(
-                      fontFamily: fontFamily,
-                      fontWeight: FontWeight.w800,
+                onPressed: () => Navigator.of(context).push(
+                  MaterialPageRoute<void>(
+                    builder: (_) => LifeMatePrivacyPreferencesScreen(
+                      api: legalPrivacyApi,
+                      accent: theme.accent,
+                      background: theme.background,
                     ),
                   ),
                 ),
@@ -161,4 +156,43 @@ class LifeMateSharedProfileScreen extends StatelessWidget {
       ],
     );
   }
+}
+
+class _ProfileActionButton extends StatelessWidget {
+  const _ProfileActionButton({
+    super.key,
+    required this.theme,
+    required this.fontFamily,
+    required this.icon,
+    required this.label,
+    required this.semanticsLabel,
+    required this.onPressed,
+  });
+
+  final LifeMateProfileThemeData theme;
+  final String fontFamily;
+  final IconData icon;
+  final String label;
+  final String semanticsLabel;
+  final VoidCallback onPressed;
+
+  @override
+  Widget build(BuildContext context) => Semantics(
+    button: true,
+    label: semanticsLabel,
+    child: OutlinedButton.icon(
+      style: OutlinedButton.styleFrom(
+        minimumSize: const Size.fromHeight(52),
+        foregroundColor: theme.accent,
+        side: BorderSide(color: theme.accent.withValues(alpha: 0.25)),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+      ),
+      onPressed: onPressed,
+      icon: Icon(icon),
+      label: Text(
+        label,
+        style: TextStyle(fontFamily: fontFamily, fontWeight: FontWeight.w800),
+      ),
+    ),
+  );
 }
