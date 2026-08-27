@@ -226,7 +226,9 @@ class WellMateApp extends StatelessWidget {
             logoAssetPath: logoAssetPath,
           ),
       authenticatedBuilder: (context, apiClient) =>
-          _AuthenticatedWellMateShell(apiClient: apiClient),
+          LifeMateAccountOnboardingGate(
+            child: _AuthenticatedWellMateShell(apiClient: apiClient),
+          ),
     );
   }
 }
