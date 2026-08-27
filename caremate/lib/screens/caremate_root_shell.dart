@@ -1,11 +1,14 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:lifemate_client/lifemate_client.dart';
+import 'package:provider/provider.dart';
 
 import 'calendar/calendar_screen.dart';
 import 'care_event_management_screen.dart';
 import 'dashboard_screen.dart';
 import 'feature_preview_screen.dart';
+import 'onboarding/caremate_relationship_v3_gate.dart';
 
 class CareMateRootShell extends StatefulWidget {
   const CareMateRootShell({super.key});
@@ -109,9 +112,13 @@ class _CareMateRootShellState extends State<CareMateRootShell>
 
   @override
   Widget build(BuildContext context) {
-    return IndexedStack(
-      index: _currentIndex,
-      children: List<Widget>.generate(5, _tab),
+    final apiClient = context.read<LifeMateApiClient>();
+    return CareMateRelationshipV3Gate(
+      apiClient: apiClient,
+      child: IndexedStack(
+        index: _currentIndex,
+        children: List<Widget>.generate(5, _tab),
+      ),
     );
   }
 }
