@@ -2,7 +2,7 @@
 
 -- #496 contract: conversation storage extends canonical support.tickets and remains
 -- unavailable to browser roles. Runtime access is function-scoped for users and
--- read-only for Admin until purpose-specific mutations are added.
+-- Admin writes go through the existing support.write authority.
 
 do $$
 begin
@@ -69,6 +69,13 @@ begin
     if has_table_privilege('lifemate_admin_runtime','support.conversation_messages','INSERT,UPDATE,DELETE') then
       raise exception 'admin runtime must not directly mutate visible messages';
     end if;
+    if not has_function_privilege(
+      'lifemate_admin_runtime',
+      'admin.send_support_conversation_message(uuid,uuid,text,uuid,uuid,character varying,character varying)',
+      'EXECUTE'
+    ) then
+      raise exception 'admin runtime requires purpose-specific visible reply function';
+    end if;
   end if;
 end
 $$;
@@ -83,7 +90,8 @@ begin
     'support.open_support_conversation(uuid,character varying,character varying,text,uuid)'::regprocedure,
     'support.send_user_support_message(uuid,uuid,text,uuid)'::regprocedure,
     'support.list_user_support_messages(uuid,uuid,timestamp with time zone,integer)'::regprocedure,
-    'support.mark_user_support_read(uuid,uuid,uuid)'::regprocedure
+    'support.mark_user_support_read(uuid,uuid,uuid)'::regprocedure,
+    'admin.send_support_conversation_message(uuid,uuid,text,uuid,uuid,character varying,character varying)'::regprocedure
   ] loop
     select exists (
       select 1
