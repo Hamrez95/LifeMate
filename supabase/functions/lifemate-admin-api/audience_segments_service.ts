@@ -212,18 +212,30 @@ async function consumeIdempotency<T>(input: {
 export function createAudienceSegmentStore(databaseUrl: string) {
   const sql = getAdminSql(databaseUrl);
 
-  async function requireSegment(id: string): Promise<SegmentRecord> {
-    const rows = await sql`
-      select id,segment_key,name,description,rule_json,rule_hash,status,version,created_at_utc,updated_at_utc
-      from audience.segments where id=${id}::uuid limit 1
-    `;
+  async function requireSegment(
+    id: string,
+    executor: AdminSql = sql,
+    lockForSnapshot = false,
+  ): Promise<SegmentRecord> {
+    const rows = lockForSnapshot
+      ? await executor`
+          select id,segment_key,name,description,rule_json,rule_hash,status,version,created_at_utc,updated_at_utc
+          from audience.segments where id=${id}::uuid limit 1 for share
+        `
+      : await executor`
+          select id,segment_key,name,description,rule_json,rule_hash,status,version,created_at_utc,updated_at_utc
+          from audience.segments where id=${id}::uuid limit 1
+        `;
     if (rows.length === 0) {
       throw new ApiError(404,"segment_not_found","Audience segment was not found.");
     }
     return mapSegment(rows[0]);
   }
 
-  async function matchingMembers(ruleSet: SegmentRuleSet) {
+  async function matchingMembers(
+    ruleSet: SegmentRuleSet,
+    executor: AdminSql = sql,
+  ) {
     const unsupported = unsupportedAttributes(ruleSet);
     if (unsupported.length > 0) {
       throw new ApiError(
@@ -232,7 +244,7 @@ export function createAudienceSegmentStore(databaseUrl: string) {
         `Canonical source is not available for: ${unsupported.join(", ")}.`,
       );
     }
-    const rows = await loadSubjects(sql);
+    const rows = await loadSubjects(executor);
     return rows.filter((row) => evaluateSegmentRuleSet(ruleSet,toSubject(row)));
   }
 
@@ -245,7 +257,7 @@ export function createAudienceSegmentStore(databaseUrl: string) {
       return rows.map(mapSegment);
     },
 
-    get: requireSegment,
+    get: (id: string) => requireSegment(id),
 
     async create(input: {
       actorAccountId: string;
@@ -360,20 +372,38 @@ export function createAudienceSegmentStore(databaseUrl: string) {
     async snapshot(input: {
       actorAccountId: string;
       id: string;
+      expectedVersion: number;
       idempotencyKey: string;
       requestHash: string;
       correlationId: string;
     }) {
-      const segment = await requireSegment(input.id);
-      const members = await matchingMembers(segment.ruleSet);
-      const sourceAsOfUtc = new Date().toISOString();
       return await consumeIdempotency({
         sql,
         actorAccountId: input.actorAccountId,
-        operation: `audience.segment.snapshot:${input.id}:${segment.version}`,
+        operation: `audience.segment.snapshot:${input.id}:${input.expectedVersion}`,
         idempotencyKey: input.idempotencyKey,
         requestHash: input.requestHash,
         work: async (tx) => {
+          const segment = await requireSegment(input.id, tx, true);
+          if (segment.status !== "Active") {
+            throw new ApiError(
+              409,
+              "segment_not_active",
+              "Audience segment must be active before creating an execution snapshot.",
+            );
+          }
+          if (segment.version !== input.expectedVersion) {
+            throw new ApiError(
+              409,
+              "segment_version_conflict",
+              "Audience segment changed; refresh before creating an execution snapshot.",
+            );
+          }
+
+          // Evaluation and persistence use the same transaction/connection as the
+          // SHARE lock. This is required because the Admin pool is intentionally max=1.
+          const members = await matchingMembers(segment.ruleSet, tx);
+          const sourceAsOfUtc = new Date().toISOString();
           const snapshots = await tx`
             insert into audience.segment_snapshots(
               segment_id,segment_version,rule_hash,source_as_of_utc,member_count,created_by_account_id
