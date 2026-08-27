@@ -50,6 +50,15 @@ jobs:
           channel: stable
           cache: true
 
+      - name: Verify shared client registration and privacy contracts
+        working-directory: packages/lifemate_client
+        shell: bash
+        run: |
+          set -euo pipefail
+          flutter pub get
+          flutter analyze --no-fatal-warnings --no-fatal-infos
+          flutter test test/account_onboarding_api_test.dart test/legal_privacy_api_test.dart
+
       - name: Verify shared onboarding component system
         working-directory: packages/lifemate_ui
         shell: bash
@@ -57,7 +66,11 @@ jobs:
           set -euo pipefail
           flutter pub get
           flutter analyze --no-fatal-warnings --no-fatal-infos
-          flutter test test/onboarding_components_test.dart test/onboarding_v3_matrix_test.dart test/shared_account_onboarding_test.dart
+          flutter test \
+            test/onboarding_components_test.dart \
+            test/onboarding_v3_matrix_test.dart \
+            test/shared_account_onboarding_test.dart \
+            test/shared_legal_privacy_test.dart
 
       - name: Prove product-specific V3 contracts
         shell: bash
