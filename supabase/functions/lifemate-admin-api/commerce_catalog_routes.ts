@@ -10,6 +10,7 @@ import {
 } from "./commerce_catalog.ts";
 import { createCommerceCatalogStore } from "./commerce_catalog_service.ts";
 import { parseCommerceCatalogV2Query } from "./commerce_catalog_v2.ts";
+import { createCommerceCatalogV2MutationRouteHandler } from "./commerce_catalog_v2_mutation_routes.ts";
 import { createCommerceCatalogV2Store } from "./commerce_catalog_v2_service.ts";
 import { createCommerceDiscountCodeStore } from "./commerce_discount_codes_service.ts";
 import {
@@ -52,6 +53,8 @@ function failureMessage(
 export function createCommerceCatalogRouteHandler(databaseUrl: string) {
   const store = createCommerceCatalogStore(databaseUrl);
   const catalogV2Store = createCommerceCatalogV2Store(databaseUrl);
+  const catalogV2MutationRouteHandler =
+    createCommerceCatalogV2MutationRouteHandler(databaseUrl);
   const discountCodeStore = createCommerceDiscountCodeStore(databaseUrl);
   const growthRewardAdminRouteHandler = createGrowthRewardAdminRouteHandler(databaseUrl);
   const manualEntitlementRouteHandler =
@@ -68,6 +71,9 @@ export function createCommerceCatalogRouteHandler(databaseUrl: string) {
     origin: string | null;
   }): Promise<Response | null> {
     const { request, path, accountId, admin, correlationId, origin } = input;
+
+    const catalogV2MutationResponse = await catalogV2MutationRouteHandler(input);
+    if (catalogV2MutationResponse) return catalogV2MutationResponse;
 
     if (path.startsWith("/api/v1/commerce/rewards/")) {
       const response = await growthRewardAdminRouteHandler(input);
