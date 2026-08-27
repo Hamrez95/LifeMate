@@ -39,7 +39,7 @@ function iranianReceptor(phoneE164: string): string {
 
 function providerReference(value: unknown): string | null {
   if (typeof value === "number" && Number.isSafeInteger(value) && value > 0) return String(value);
-  if (typeof value === "string" && /^[A-Za-z0-9._:-]{1,256}$/.test(value)) return value;
+  if (typeof value === "string" && /^[A-Za-z0-9._:/-]{1,256}$/.test(value)) return value;
   return null;
 }
 
@@ -78,7 +78,6 @@ export class KavenegarCampaignSmsProvider implements SmsCampaignProvider {
         body: body.toString(),
       });
     } catch {
-      // A transport timeout may occur after the provider accepted the side effect.
       return { kind: "outcome_unknown", code: "kavenegar_transport_outcome_unknown" };
     }
 
