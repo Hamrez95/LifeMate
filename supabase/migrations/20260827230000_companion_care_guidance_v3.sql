@@ -35,16 +35,19 @@ begin
   end loop;
 end $$;
 
--- `can_view_women_calendar` is retained only as a backwards-compatible UI hint.
--- Exact #109 relationship scopes are the authority. Legacy writes can never
--- manufacture permission: the hint is recomputed from the exact scope row.
+-- `can_view_women_calendar` remains a backwards-compatible presentation hint.
+-- Exact #109 relationship scopes are the sole authorization source.
 create or replace function lifemate.sync_relationship_women_calendar_hint()
 returns trigger language plpgsql security definer
 set search_path = lifemate, pg_temp
 as $$
 declare v_relationship_id uuid;
 begin
-  v_relationship_id := coalesce(new.relationship_id, old.relationship_id);
+  if tg_op = 'DELETE' then
+    v_relationship_id := old.relationship_id;
+  else
+    v_relationship_id := new.relationship_id;
+  end if;
   update lifemate.care_relationships r
      set can_view_women_calendar = exists (
        select 1 from lifemate.women_companion_privacy_scopes s
@@ -57,7 +60,8 @@ begin
          )
      ), updated_at_utc = now()
    where r.id = v_relationship_id;
-  return coalesce(new, old);
+  if tg_op = 'DELETE' then return old; end if;
+  return new;
 end $$;
 
 drop trigger if exists trg_women_companion_scope_sync_hint on lifemate.women_companion_privacy_scopes;
@@ -83,10 +87,38 @@ begin
   return new;
 end $$;
 
+drop trigger if exists trg_relationship_women_calendar_hint_insert_guard on lifemate.care_relationships;
+create trigger trg_relationship_women_calendar_hint_insert_guard
+before insert on lifemate.care_relationships
+for each row execute function lifemate.enforce_relationship_women_calendar_hint();
+
 drop trigger if exists trg_relationship_women_calendar_hint_guard on lifemate.care_relationships;
 create trigger trg_relationship_women_calendar_hint_guard
 before update of can_view_women_calendar on lifemate.care_relationships
 for each row execute function lifemate.enforce_relationship_women_calendar_hint();
+
+-- Reconcile pre-existing rows without creating any new scope or permission.
+update lifemate.care_relationships r
+set can_view_women_calendar = exists (
+  select 1 from lifemate.women_companion_privacy_scopes s
+  where s.relationship_id = r.id
+    and (
+      s.view_period_timing or s.view_phase_summary or s.view_shared_wellbeing or
+      s.receive_mood_support_notifications or s.receive_phase_notifications or
+      s.view_fertility_estimate or s.receive_fertility_notifications or
+      s.view_calendar_detail
+    )
+)
+where r.can_view_women_calendar is distinct from exists (
+  select 1 from lifemate.women_companion_privacy_scopes s
+  where s.relationship_id = r.id
+    and (
+      s.view_period_timing or s.view_phase_summary or s.view_shared_wellbeing or
+      s.receive_mood_support_notifications or s.receive_phase_notifications or
+      s.view_fertility_estimate or s.receive_fertility_notifications or
+      s.view_calendar_detail
+    )
+);
 
 comment on table lifemate.women_companion_guidance_history is
   'Privacy-safe relationship/person-scoped Companion Care impression history; never stores health payload or rendered guidance copy.';
