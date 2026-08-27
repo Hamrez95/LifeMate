@@ -2,6 +2,7 @@ import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import postgres from "postgres";
 import { createClient } from "supabase";
 import { purgeProfilePhotoFolder } from "./account_deletion_storage.ts";
+import { createCampaignDeliveryRuntime } from "./campaign_delivery_runtime.ts";
 import { publishMarketingContent } from "./marketing_publish_provider.ts";
 import {
   boundedMessageTimeoutMs,
@@ -49,6 +50,19 @@ const admin = createClient(supabaseUrl, serviceRoleKey, {
   auth: { autoRefreshToken: false, persistSession: false },
   global: { fetch: timedFetch },
 });
+
+let campaignDeliveryRuntime: ReturnType<typeof createCampaignDeliveryRuntime> = null;
+let campaignDeliveryConfigurationError: string | null = null;
+try {
+  campaignDeliveryRuntime = createCampaignDeliveryRuntime(sql, {
+    fetcher: timedFetch,
+  });
+} catch (error) {
+  campaignDeliveryConfigurationError = safeErrorCode(error);
+  console.warn("Campaign delivery runtime configuration is unavailable", {
+    errorCode: campaignDeliveryConfigurationError,
+  });
+}
 
 type OutboxMessage = {
   id: string;
@@ -192,6 +206,34 @@ Deno.serve(async (request: Request) => {
     }
   }
 
+  let campaignDelivery = {
+    enabled: campaignDeliveryRuntime !== null,
+    claimed: 0,
+    delivered: 0,
+    failed: 0,
+    permanentFailed: 0,
+    outcomeUnknown: 0,
+    runtimeFailed: campaignDeliveryConfigurationError !== null,
+  };
+  if (campaignDeliveryRuntime) {
+    try {
+      const result = await campaignDeliveryRuntime.run(workerBatchSize);
+      campaignDelivery = {
+        enabled: true,
+        ...result,
+        runtimeFailed: false,
+      };
+    } catch (error) {
+      const errorCode = safeErrorCode(error);
+      console.warn("LifeMate campaign delivery batch failed", { errorCode });
+      campaignDelivery = {
+        ...campaignDelivery,
+        enabled: true,
+        runtimeFailed: true,
+      };
+    }
+  }
+
   const prunedRows = await sql`
     select integration.prune_outbox_history(7,30,250) as deleted
   `;
@@ -214,6 +256,7 @@ Deno.serve(async (request: Request) => {
     replayed,
     deadLettered,
     pruned,
+    campaignDelivery,
     queue: {
       before,
       after,
