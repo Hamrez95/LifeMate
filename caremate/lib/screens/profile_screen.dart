@@ -88,8 +88,8 @@ class ProfileScreen extends StatelessWidget {
           en: 'Coming soon',
         ),
         supportSubtitle: LifeMateRuntimeLocale.select(
-          fa: 'راهنما فعال؛ ارسال تیکت در دست توسعه',
-          en: 'Help is available; ticketing is coming soon',
+          fa: 'گفت‌وگوی مستقیم و امن با تیم پشتیبانی',
+          en: 'Secure direct chat with support',
         ),
       ),
       fontFamily: mainFont,
@@ -119,7 +119,15 @@ class ProfileScreen extends StatelessWidget {
         builder: (_) => _LanguageDialog(mainFont: mainFont),
       ),
       onReferral: () => open(CareMateReferralScreen()),
-      onSupport: () => open(CareMateSupportScreen()),
+      onSupport: () => open(
+        LifeMateSupportChatScreen(
+          productCode: 'caremate',
+          accent: AppColors.primaryBlue,
+          background: AppColors.background,
+          isPersian: isPersian,
+          fontFamily: mainFont,
+        ),
+      ),
       onManageSubscriptions: () => open(CareMateSubscriptionScreen()),
     );
   }

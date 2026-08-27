@@ -46,3 +46,4 @@ export 'src/session_gate_secure.dart';
 export 'src/support_conversations_api.dart';
 export 'src/women_calendar.dart';
 export 'src/women_companion_api.dart';
+export 'src/women_cycle_ring.dart';
