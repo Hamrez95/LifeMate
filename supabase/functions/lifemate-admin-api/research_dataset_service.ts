@@ -1,4 +1,53 @@
-import { getAdminSql } from "./database_client.ts";
+import { type AdminSql, getAdminSql } from "./database_client.ts";
+import { ApiError } from "./validation.ts";
+
+async function consumeIdempotency<T>(input: {
+  sql: AdminSql;
+  actorAccountId: string;
+  operation: string;
+  idempotencyKey: string;
+  requestHash: string;
+  work: (tx: AdminSql) => Promise<T>;
+}): Promise<T> {
+  return await input.sql.begin(async (tx) => {
+    const inserted = await tx`
+      insert into admin.idempotency_keys(
+        actor_account_id,operation,idempotency_key,request_hash,status,expires_at_utc
+      ) values (
+        ${input.actorAccountId}::uuid,${input.operation},${input.idempotencyKey},${input.requestHash},'Processing',now()+interval '24 hours'
+      )
+      on conflict (actor_account_id,operation,idempotency_key) do nothing
+      returning idempotency_key
+    `;
+    if (inserted.length === 0) {
+      const existing = await tx`
+        select request_hash,status,response_json
+        from admin.idempotency_keys
+        where actor_account_id=${input.actorAccountId}::uuid
+          and operation=${input.operation}
+          and idempotency_key=${input.idempotencyKey}
+        for update
+      `;
+      if (existing.length === 0) {
+        throw new ApiError(409,"idempotency_conflict","Idempotency state changed; retry safely.");
+      }
+      if (String(existing[0].request_hash) !== input.requestHash) {
+        throw new ApiError(409,"idempotency_key_reused","Idempotency key was already used with a different request.");
+      }
+      if (String(existing[0].status) === "Completed") return existing[0].response_json as T;
+      throw new ApiError(409,"request_in_progress","An equivalent research operation is already in progress.");
+    }
+    const response = await input.work(tx as AdminSql);
+    await tx`
+      update admin.idempotency_keys
+      set status='Completed',response_status=201,response_json=${tx.json(response as object)},updated_at_utc=now()
+      where actor_account_id=${input.actorAccountId}::uuid
+        and operation=${input.operation}
+        and idempotency_key=${input.idempotencyKey}
+    `;
+    return response;
+  }) as T;
+}
 
 export function createResearchDatasetStore(databaseUrl: string) {
   const sql = getAdminSql(databaseUrl);
@@ -36,22 +85,35 @@ export function createResearchDatasetStore(databaseUrl: string) {
       smallCellThreshold: number;
       quasiIdentifierRules: Record<string, unknown>;
       rowMode: "Aggregate" | "Pseudonymous";
+      correlationId: string;
+      idempotencyKey: string;
+      requestHash: string;
     }) {
-      const rows = await sql`
-        select analytics.create_research_dataset(
-          ${input.actorAccountId}::uuid,
-          ${input.name}::varchar,
-          ${input.purpose}::varchar,
-          ${input.sourceCategory}::varchar,
-          ${sql.json(input.filters)},
-          ${input.ageBucketYears}::smallint,
-          ${input.minimumCohortSize}::integer,
-          ${input.smallCellThreshold}::integer,
-          ${sql.json(input.quasiIdentifierRules)},
-          ${input.rowMode}::varchar
-        ) as dataset_id
-      `;
-      return { datasetId: String(rows[0]?.dataset_id) };
+      return await consumeIdempotency({
+        sql,
+        actorAccountId: input.actorAccountId,
+        operation: "research.dataset.create",
+        idempotencyKey: input.idempotencyKey,
+        requestHash: input.requestHash,
+        work: async (tx) => {
+          const rows = await tx`
+            select analytics.create_research_dataset(
+              ${input.actorAccountId}::uuid,
+              ${input.name}::varchar,
+              ${input.purpose}::varchar,
+              ${input.sourceCategory}::varchar,
+              ${tx.json(input.filters)},
+              ${input.ageBucketYears}::smallint,
+              ${input.minimumCohortSize}::integer,
+              ${input.smallCellThreshold}::integer,
+              ${tx.json(input.quasiIdentifierRules)},
+              ${input.rowMode}::varchar,
+              ${input.correlationId}::uuid
+            ) as dataset_id
+          `;
+          return { datasetId: String(rows[0]?.dataset_id) };
+        },
+      });
     },
   };
 }
