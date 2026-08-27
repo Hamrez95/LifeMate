@@ -51,6 +51,16 @@ function status(result: Record<string, unknown>): number {
   return value;
 }
 
+function limit(url: URL): number {
+  const raw = url.searchParams.get("limit");
+  if (raw == null) return 100;
+  const value = Number(raw);
+  if (!Number.isInteger(value) || value < 1 || value > 200) {
+    throw new ApiError(400, "limit_invalid", "limit must be between 1 and 200.");
+  }
+  return value;
+}
+
 export function createPaymentOperationsRouteHandler(databaseUrl: string) {
   const store = createPaymentOperationsStore(databaseUrl);
 
@@ -59,11 +69,29 @@ export function createPaymentOperationsRouteHandler(databaseUrl: string) {
   ): Promise<Response | null> {
     const { request, path, accountId, admin, correlationId, origin } = context;
 
+    if (request.method === "GET" && path === "/api/v1/commerce/refunds") {
+      requirePermission(admin, "commerce.refund.read");
+      const pageLimit = limit(new URL(request.url));
+      return json(
+        {
+          items: await store.listRefunds(pageLimit),
+          limit: pageLimit,
+          providerResultIsFactOnly: true,
+          freshness: { status: "fresh", asOfUtc: new Date().toISOString() },
+        },
+        200,
+        origin,
+      );
+    }
+
     if (request.method === "POST" && path === "/api/v1/commerce/refunds/requests") {
       requirePermission(admin, "commerce.refund.request");
       const idempotencyKey = requireIdempotencyKey(request);
       const payload = await parseRefundRequestV2(request);
-      const requestHash = await hashPaymentOperation({ action: "refund.request", ...payload });
+      const requestHash = await hashPaymentOperation({
+        action: "refund.request",
+        ...payload,
+      });
       const result = await store.requestRefund({
         actorAccountId: accountId,
         ...payload,
@@ -96,6 +124,24 @@ export function createPaymentOperationsRouteHandler(databaseUrl: string) {
     }
 
     if (
+      request.method === "GET" &&
+      path === "/api/v1/commerce/reconciliation/cases"
+    ) {
+      requirePermission(admin, "commerce.reconciliation.read");
+      const pageLimit = limit(new URL(request.url));
+      return json(
+        {
+          items: await store.listReconciliationCases(pageLimit),
+          limit: pageLimit,
+          providerFactsPreserved: true,
+          freshness: { status: "fresh", asOfUtc: new Date().toISOString() },
+        },
+        200,
+        origin,
+      );
+    }
+
+    if (
       request.method === "POST" &&
       path === "/api/v1/commerce/reconciliation/cases"
     ) {
@@ -123,7 +169,22 @@ export function createPaymentOperationsRouteHandler(databaseUrl: string) {
       requirePermission(admin, "commerce.reconciliation.write");
       const payload = await parseCorrectionPreview(request);
       const result = await store.previewCorrection(payload);
-      return json(result, status(result), origin);
+      return json(
+        {
+          ...result,
+          approvalRequestTemplate: {
+            requestType: "commerce_transaction_correction",
+            targetType: "reconciliation_case",
+            targetId: payload.caseId,
+            before: result.before,
+            delta: result.delta,
+            after: result.after,
+            reason: payload.reason,
+          },
+        },
+        status(result),
+        origin,
+      );
     }
 
     if (
@@ -145,6 +206,21 @@ export function createPaymentOperationsRouteHandler(databaseUrl: string) {
         requestHash,
       });
       return json(result, status(result), origin);
+    }
+
+    if (request.method === "GET" && path === "/api/v1/commerce/churn") {
+      requirePermission(admin, "commerce.churn.read");
+      const pageLimit = limit(new URL(request.url));
+      return json(
+        {
+          items: await store.listChurn(pageLimit),
+          limit: pageLimit,
+          entitlementEndsAtPeriodEnd: true,
+          freshness: { status: "fresh", asOfUtc: new Date().toISOString() },
+        },
+        200,
+        origin,
+      );
     }
 
     if (
