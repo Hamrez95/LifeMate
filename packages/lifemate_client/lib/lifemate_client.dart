@@ -38,6 +38,7 @@ export 'src/privacy_safe_product_analytics.dart';
 export 'src/profile_avatar.dart';
 export 'src/presentation_numbers.dart';
 export 'src/reminder_lead_time.dart';
+export 'src/remote_config.dart';
 export 'src/recurrence.dart';
 export 'src/runtime_locale.dart';
 export 'src/session_gate.dart' hide LifeMateSessionGate;
