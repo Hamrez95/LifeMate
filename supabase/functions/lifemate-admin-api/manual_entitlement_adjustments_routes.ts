@@ -81,7 +81,9 @@ export function createManualEntitlementAdjustmentRouteHandler(databaseUrl: strin
     if (request.method === "POST" && path === "/api/v1/commerce/entitlement-adjustments/requests") {
       requirePermission(admin, "commerce.entitlement.adjust.request");
       const idempotencyKey = requireIdempotencyKey(request);
-      const payload = await parseManualEntitlementPayload(request);
+      const payload = await parseManualEntitlementPayload(request, {
+        requireReference: true,
+      });
       const requestHash = await hashManualEntitlementPayload(payload);
       const result = await store.request({
         actorAccountId: accountId,
