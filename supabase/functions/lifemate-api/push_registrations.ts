@@ -48,7 +48,6 @@ export function createPushRegistrationStore(
   hashingSecret = Deno.env.get("LIFEMATE_MESSAGING_TOKEN_HASHING_SECRET") ?? "",
 ) {
   const sql = getLifeMateSql(databaseUrl);
-  const key = readMessagingTokenKey();
 
   return {
     async upsert(appUserId: string, body: Record<string, unknown>) {
@@ -60,21 +59,27 @@ export function createPushRegistrationStore(
       if (!uuidPattern.test(accountId)) {
         throw new ApiError(409, "identity_account_mapping_missing", "Account mapping is unavailable.");
       }
-      const tokenHash = await hashMessagingToken(hashingSecret, payload.token);
-      const envelope = await encryptMessagingToken(key, {
-        accountId,
-        productCode: payload.productCode,
-        provider: payload.provider,
-        tokenHash,
-      }, payload.token);
-      const rows = await sql`
-        select messaging.upsert_push_registration(
-          ${appUserId}::uuid,${payload.productCode}::varchar,${payload.platform}::varchar,
-          ${payload.provider}::varchar,${tokenHash}::varchar,${envelope.ciphertextB64}::text,
-          ${envelope.nonceB64}::varchar,${envelope.keyVersion}::smallint
-        ) as result
-      `;
-      return result(rows[0]?.result ?? {});
+      try {
+        const key = readMessagingTokenKey();
+        const tokenHash = await hashMessagingToken(hashingSecret, payload.token);
+        const envelope = await encryptMessagingToken(key, {
+          accountId,
+          productCode: payload.productCode,
+          provider: payload.provider,
+          tokenHash,
+        }, payload.token);
+        const rows = await sql`
+          select messaging.upsert_push_registration(
+            ${appUserId}::uuid,${payload.productCode}::varchar,${payload.platform}::varchar,
+            ${payload.provider}::varchar,${tokenHash}::varchar,${envelope.ciphertextB64}::text,
+            ${envelope.nonceB64}::varchar,${envelope.keyVersion}::smallint
+          ) as result
+        `;
+        return result(rows[0]?.result ?? {});
+      } catch (error) {
+        if (error instanceof ApiError) throw error;
+        throw new ApiError(503, "push_registration_unavailable", "Push registration security configuration is unavailable.");
+      }
     },
 
     async revoke(appUserId: string, registrationId: string) {
