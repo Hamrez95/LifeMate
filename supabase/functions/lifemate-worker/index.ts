@@ -2,6 +2,7 @@ import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import postgres from "postgres";
 import { createClient } from "supabase";
 import { purgeProfilePhotoFolder } from "./account_deletion_storage.ts";
+import { processCampaignDeliveryBatch } from "./campaign_delivery.ts";
 import { publishMarketingContent } from "./marketing_publish_provider.ts";
 import {
   boundedMessageTimeoutMs,
@@ -192,6 +193,11 @@ Deno.serve(async (request: Request) => {
     }
   }
 
+  // Campaign delivery is intentionally part of this canonical worker rather than
+  // a second privileged worker service. The batch is independently bounded and
+  // resolves recipient plaintext only in memory immediately before provider I/O.
+  const campaignDelivery = await processCampaignDeliveryBatch(sql, timedFetch);
+
   const prunedRows = await sql`
     select integration.prune_outbox_history(7,30,250) as deleted
   `;
@@ -214,11 +220,8 @@ Deno.serve(async (request: Request) => {
     replayed,
     deadLettered,
     pruned,
-    queue: {
-      before,
-      after,
-      lagLevel,
-    },
+    campaignDelivery,
+    queue: { before, after, lagLevel },
   });
 });
 
@@ -248,7 +251,6 @@ async function processMessage(message: OutboxMessage): Promise<void> {
     case "identity.account_deletion_requested": {
       const accountId = requiredAggregateId(message);
       const requestId = stringField(message.payload_json, "requestId");
-
       const pendingSession = await sql`
         select 1
         from integration.outbox_messages
@@ -266,10 +268,6 @@ async function processMessage(message: OutboxMessage): Promise<void> {
           throw new Error(`auth_delete:${error.status ?? "error"}`);
         }
       }
-
-      // Storage must be removed before SQL finalization clears the profile path.
-      // Purging the whole server-owned user folder also removes orphaned previous
-      // avatars left by an earlier best-effort replacement cleanup.
       const appUserId = await appUserIdForAccount(accountId);
       if (appUserId) {
         await purgeProfilePhotoFolder(
@@ -277,7 +275,6 @@ async function processMessage(message: OutboxMessage): Promise<void> {
           appUserId,
         );
       }
-
       const finalized = await sql`
         select identity.finalize_account_deletion(${requestId}::uuid) as ok
       `;
@@ -291,13 +288,10 @@ async function processMessage(message: OutboxMessage): Promise<void> {
       if (!uuidPattern.test(executionId)) {
         throw new Error("invalid_executionId");
       }
-
       const rows = await sql<CampaignPublishClaim[]>`
         select * from marketing.claim_campaign_publish_execution(${executionId}::uuid)
       `;
       const claim = rows[0];
-      // A missing claim means the execution is already terminal or was failed
-      // closed by the database preflight. The outbox item itself can complete.
       if (!claim) return;
 
       const secretRows = await sql`
@@ -333,7 +327,6 @@ async function processMessage(message: OutboxMessage): Promise<void> {
           ) as ok
         `;
         if (completed[0]?.ok !== true) {
-          // The external side effect may already exist. Never retry it blindly.
           await failCampaignPublish(
             executionId,
             "publish_completion_outcome_unknown",
