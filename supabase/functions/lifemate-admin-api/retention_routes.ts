@@ -1,5 +1,5 @@
-import postgres from "postgres";
 import { type AdminCapabilitySnapshot, requirePermission } from "./authorization.ts";
+import { getAdminSql } from "./database_client.ts";
 import { json } from "./http.ts";
 import { ApiError } from "./validation.ts";
 
@@ -61,7 +61,7 @@ function mutationStatus(result: Record<string, unknown>): number {
 }
 
 export function createRetentionRouteHandler(databaseUrl: string) {
-  const sql = postgres(databaseUrl, { max: 1, prepare: false });
+  const sql = getAdminSql(databaseUrl);
 
   return async function handleRetentionRoute(context: Context): Promise<Response | null> {
     const { request, path, accountId, admin, correlationId, origin } = context;
