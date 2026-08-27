@@ -1,4 +1,5 @@
 import type { AdminCapabilitySnapshot } from "./authorization.ts";
+import { parseResearchDatasetFilters } from "./research_dataset_filters.ts";
 import { json } from "./http.ts";
 import {
   rejectDirectIdentifierFields,
@@ -55,7 +56,8 @@ export function createResearchDatasetRouteHandler(databaseUrl: string) {
       const datasetKind = datasetKindCode(raw.datasetKind);
       const purpose = purposeCode(raw.purpose);
       const sourceCategory = sourceCategoryCode(raw.sourceCategory);
-      const filters = boundedObject(raw.filters, "filters");
+      const rawFilters = boundedObject(raw.filters, "filters");
+      const filters = parseResearchDatasetFilters(datasetKind, rawFilters);
       const quasiIdentifierRules = boundedObject(raw.quasiIdentifierRules, "quasiIdentifierRules");
       rejectDirectIdentifierFields([
         ...objectPaths(filters),
