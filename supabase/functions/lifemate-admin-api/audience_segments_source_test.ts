@@ -48,17 +48,20 @@ Deno.test("small audience snapshots are suppressed in API responses", async () =
   assertStringIncludes(text, "minimumCohortSize:MIN_PREVIEW_COHORT");
 });
 
-Deno.test("execution snapshots require the expected active segment version under a row lock", async () => {
+Deno.test("execution snapshots validate and persist under one database transaction", async () => {
   const routes = await source("./audience_segments_routes.ts");
-  const guard = await source("./audience_segment_snapshot_guard.ts");
+  const service = await source("./audience_segments_service.ts");
   assertStringIncludes(routes, "parseSnapshotExpectedVersion");
-  assertStringIncludes(routes, "withActiveSegmentVersionLock");
+  assertStringIncludes(routes, "expectedVersion,");
   assertStringIncludes(routes, "hashSnapshotRequest(snapshotId,expectedVersion,idempotencyKey)");
-  assertStringIncludes(guard, "for share");
-  assertStringIncludes(guard, 'String(rows[0].status) !== "Active"');
-  assertStringIncludes(guard, "Number(rows[0].version) !== expectedVersion");
-  assertStringIncludes(guard, '"segment_version_conflict"');
-  assertStringIncludes(guard, '"segment_not_active"');
+  assert(!routes.includes("withActiveSegmentVersionLock"));
+  assertStringIncludes(service, "for share");
+  assertStringIncludes(service, 'segment.status !== "Active"');
+  assertStringIncludes(service, "segment.version !== input.expectedVersion");
+  assertStringIncludes(service, '"segment_version_conflict"');
+  assertStringIncludes(service, '"segment_not_active"');
+  assertStringIncludes(service, "matchingMembers(segment.ruleSet, tx)");
+  assertStringIncludes(service, "Admin pool is intentionally max=1");
 });
 
 Deno.test("audience segment workflow uses canonical idempotency and audit enum values", async () => {
