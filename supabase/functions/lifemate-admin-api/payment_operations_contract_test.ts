@@ -23,6 +23,20 @@ Deno.test("refund execution never lets Admin fabricate provider success", async 
   assert(!refund.includes("grant execute on function commerce.record_refund_provider_result(uuid,character varying,character varying,character varying) to lifemate_admin_runtime"));
 });
 
+Deno.test("provider refund evidence is nonblank and terminal callbacks are conflict-safe", async () => {
+  const hardening = await Deno.readTextFile(
+    new URL("../../migrations/20260827032600_refund_provider_result_idempotency.sql", import.meta.url),
+  );
+  assertStringIncludes(hardening, "provider_reference_required");
+  assertStringIncludes(hardening, "provider_error_code_required");
+  assertStringIncludes(hardening, "provider_result_conflict");
+  assertStringIncludes(hardening, "provider_evidence_conflict");
+  assertStringIncludes(hardening, "v_op.provider_reference_hash is distinct from v_reference_hash");
+  assertStringIncludes(hardening, "v_op.provider_error_code is distinct from v_error");
+  assertStringIncludes(hardening, "to lifemate_worker_runtime");
+  assert(!hardening.includes("to lifemate_admin_runtime"));
+});
+
 Deno.test("partial refund is bounded by remaining succeeded-refund ledger", async () => {
   const refund = await Deno.readTextFile(
     new URL("../../migrations/20260827032100_refund_execution_contract.sql", import.meta.url),
