@@ -31,6 +31,7 @@ create table if not exists feedback.items (
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now(),
   constraint feedback_nps_shape check ((kind = 'Nps') = (nps_score is not null)),
+  constraint feedback_message_shape check (kind = 'Nps' or message is not null),
   constraint feedback_advocacy_shape check (kind <> 'Advocacy' or advocacy_opt_in),
   constraint feedback_idempotency_unique unique (app_user_id, idempotency_key)
 );
@@ -71,6 +72,9 @@ begin
   end if;
   if p_message is not null and char_length(btrim(p_message)) not between 1 and 2000 then
     raise exception 'message_invalid' using errcode = '22023';
+  end if;
+  if p_kind <> 'Nps' and nullif(btrim(p_message), '') is null then
+    raise exception 'message_required' using errcode = '22023';
   end if;
   if p_kind = 'Nps' and (p_nps_score is null or p_nps_score not between 0 and 10) then
     raise exception 'nps_score_invalid' using errcode = '22023';
