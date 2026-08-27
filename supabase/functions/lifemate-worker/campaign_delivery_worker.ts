@@ -95,7 +95,11 @@ export async function processCampaignDeliveryBatch(
 
     try {
       const resolved = await options.store.resolve(claim.jobId);
-      if (!resolved) throw new Error("campaign_delivery_payload_unavailable");
+      // The database send-time boundary may terminally suppress/cancel a claimed
+      // job after a late marketing opt-out, inactive account or endpoint loss.
+      // Null therefore means "do not contact this recipient" and must never be
+      // converted back into a retryable failure or provider call.
+      if (!resolved) continue;
       if (resolved.channel !== claim.channel) {
         throw new Error("campaign_delivery_channel_mismatch");
       }
