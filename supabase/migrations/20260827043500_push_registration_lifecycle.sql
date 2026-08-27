@@ -19,6 +19,7 @@ declare
   v_existing messaging.push_registrations%rowtype;
   v_row messaging.push_registrations%rowtype;
   v_cipher bytea;
+  v_was_existing boolean:=false;
 begin
   v_account_id:=identity.account_id_for_legacy_app_user(p_app_user_id);
   if v_account_id is null then
@@ -45,11 +46,12 @@ begin
   perform pg_advisory_xact_lock(hashtextextended('messaging.push:'||p_provider||':'||p_token_hash,0));
   select * into v_existing from messaging.push_registrations
   where provider=p_provider and token_hash=p_token_hash for update;
-  if found and v_existing.account_id<>v_account_id then
+  v_was_existing:=found;
+  if v_was_existing and v_existing.account_id<>v_account_id then
     return jsonb_build_object('httpStatus',409,'code','push_token_account_conflict','message','This push token is already bound to another account.');
   end if;
 
-  if found then
+  if v_was_existing then
     update messaging.push_registrations set
       product_code=p_product_code,platform=p_platform,token_ciphertext=v_cipher,
       token_nonce_b64=p_nonce_b64,encryption_key_version=p_key_version,status='Active',
@@ -66,7 +68,7 @@ begin
   end if;
 
   return jsonb_build_object(
-    'httpStatus',case when found then 200 else 201 end,
+    'httpStatus',case when v_was_existing then 200 else 201 end,
     'code','ok','registrationId',v_row.id,'productCode',v_row.product_code,
     'platform',v_row.platform,'provider',v_row.provider,'status',v_row.status,
     'lastSeenAtUtc',v_row.last_seen_at_utc
