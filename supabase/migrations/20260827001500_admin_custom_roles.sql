@@ -164,6 +164,7 @@ declare
   v_permission admin.permissions%rowtype;
   v_actor_rank smallint;
   v_changed boolean:=false;
+  v_row_count integer:=0;
   v_response jsonb;
 begin
   v_operation:='security.custom_role.permission.' || v_action;
@@ -216,11 +217,12 @@ begin
   else
     if v_action='assign' then
       insert into admin.role_permissions(role_id,permission_code) values(v_role.id,v_permission.code) on conflict do nothing;
-      get diagnostics v_changed = row_count;
+      get diagnostics v_row_count = row_count;
     else
       delete from admin.role_permissions where role_id=v_role.id and permission_code=v_permission.code;
-      get diagnostics v_changed = row_count;
+      get diagnostics v_row_count = row_count;
     end if;
+    v_changed:=v_row_count>0;
     if v_changed then
       update admin.roles set version=version+1,updated_by_account_id=p_actor_account_id,updated_at_utc=now() where id=v_role.id returning * into v_role;
     end if;
