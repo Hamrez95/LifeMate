@@ -14,7 +14,6 @@ void main() {
       'senderKind': 'Staff',
       'internalNote': 'must not be modeled',
     });
-
     expect(message.id, 'm1');
     expect(message.body, 'پاسخ پشتیبانی');
     expect(message.fromUser, isFalse);
@@ -36,6 +35,7 @@ void main() {
       expect(request.method, 'GET');
       expect(request.url.path, '/api/v1/support/conversations/current');
       expect(request.url.queryParameters['productCode'], 'wellmate');
+      expect(request.url.queryParameters['category'], 'general');
       return http.Response(
         jsonEncode({
           'conversation': {
@@ -62,13 +62,15 @@ void main() {
     expect(conversation?.productCode, 'wellmate');
   });
 
-  test('open reuses current non-closed conversation instead of duplicating ticket', () async {
+  test('open reuses only current product/category conversation', () async {
     final methods = <String>[];
     final paths = <String>[];
     final client = MockClient((request) async {
       methods.add(request.method);
       paths.add(request.url.path);
       if (request.method == 'GET') {
+        expect(request.url.queryParameters['productCode'], 'caremate');
+        expect(request.url.queryParameters['category'], 'billing_issue');
         return http.Response(
           jsonEncode({
             'conversation': {
@@ -103,6 +105,7 @@ void main() {
     );
     final result = await api.open(
       productCode: 'caremate',
+      category: 'billing_issue',
       body: 'resume this support thread',
       clientMessageId: '22222222-2222-4222-8222-222222222222',
     );
