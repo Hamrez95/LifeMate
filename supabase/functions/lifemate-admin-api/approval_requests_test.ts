@@ -62,6 +62,22 @@ Deno.test("generic approval state rejects sensitive payload fields", async () =>
   }
 });
 
+Deno.test("generic approval targets must be opaque internal identifiers", async () => {
+  for (const targetId of ["+989121234567","09121234567","person@example.com","free form target"]) {
+    const error=await assertRejects(
+      () => parseCreateApprovalRequest(request({
+        requestType:"commerce.entitlement.adjust",
+        targetType:"account",
+        targetId,
+        before:{},delta:{days:1},after:{},
+        reason:"Reject contact or free-form identifiers from ledger targets.",
+      })),
+      ApiError,
+    );
+    assertEquals(error.code,"approval_target_invalid");
+  }
+});
+
 Deno.test("approval decisions require optimistic version and explicit reason", async () => {
   const parsed=await parseDecideApprovalRequest(request({
     expectedVersion:3,
@@ -88,6 +104,7 @@ Deno.test("approval ledger is server-only, purpose-scoped and self-approval defa
   const migration=await Deno.readTextFile(new URL("../../migrations/20260827013000_admin_approval_adjustment_ledger.sql",import.meta.url));
   const rls=await Deno.readTextFile(new URL("../../migrations/20260827013100_admin_approval_runtime_rls.sql",import.meta.url));
   const bounds=await Deno.readTextFile(new URL("../../migrations/20260827013200_admin_approval_payload_bounds.sql",import.meta.url));
+  const privacy=await Deno.readTextFile(new URL("../../migrations/20260827013300_admin_approval_privacy_hardening.sql",import.meta.url));
   const routes=await Deno.readTextFile(new URL("./approval_requests_routes.ts",import.meta.url));
   const service=await Deno.readTextFile(new URL("./approval_requests_service.ts",import.meta.url));
 
@@ -101,6 +118,8 @@ Deno.test("approval ledger is server-only, purpose-scoped and self-approval defa
   assertStringIncludes(rls,"lifemate_admin_runtime_rw");
   assertStringIncludes(bounds,"octet_length(before_json::text) <= 16384");
   assertStringIncludes(bounds,"raw health/contact/secret payloads are prohibited");
+  assertStringIncludes(privacy,"approval_state_has_forbidden_keys");
+  assertStringIncludes(privacy,"ck_admin_approval_target_opaque");
   assertStringIncludes(migration,"revoke all on table admin.approval_requests from public,anon,authenticated");
   assertStringIncludes(routes,'requirePermission(admin,"operations.approval.read")');
   assert(!routes.includes("service_role"));
