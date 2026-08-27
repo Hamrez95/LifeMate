@@ -1,18 +1,20 @@
 import { createGrowthStore } from "./growth.ts";
 import { requireMutationIdempotencyKey } from "./idempotency.ts";
 import { json } from "./http.ts";
+import { createLegalPrivacyRouteHandler } from "./legal_privacy_routes.ts";
 import { createPushRegistrationRouteHandler } from "./push_registrations_routes.ts";
 import { enforceRateLimit } from "./security.ts";
 import { readJsonObject } from "./validation.ts";
 
+/// Compatibility entrypoint for delegated authenticated consumer API modules
+/// intentionally kept out of the large root router. Each domain retains its
+/// own store/route module while sharing the already-wired canonical dispatcher.
 export function createGrowthRouteHandler(
   databaseUrl: string,
   contactHashingSecret: string,
 ) {
   const store = createGrowthStore(databaseUrl, contactHashingSecret);
-  // Growth and messaging registration are both authenticated consumer-extension
-  // routes. Keeping them behind this already-wired dispatcher avoids a second
-  // HTTP entry point while each domain retains its own store/route module.
+  const legalPrivacyRoutes = createLegalPrivacyRouteHandler(databaseUrl);
   const pushRegistrationRoutes = createPushRegistrationRouteHandler(databaseUrl);
 
   return async function growthRouteHandler(input: {
@@ -20,10 +22,13 @@ export function createGrowthRouteHandler(
     path: string;
     appUserId: string;
   }): Promise<Response | null> {
-    const { request, path, appUserId } = input;
+    const legalPrivacyResponse = await legalPrivacyRoutes(input);
+    if (legalPrivacyResponse) return legalPrivacyResponse;
 
     const pushRegistrationResponse = await pushRegistrationRoutes(input);
     if (pushRegistrationResponse) return pushRegistrationResponse;
+
+    const { request, path, appUserId } = input;
 
     if (request.method === "POST" && path === "/api/v1/growth/gifts") {
       enforceRateLimit(`growth-gift:${appUserId}`, 10, 60 * 60_000);
