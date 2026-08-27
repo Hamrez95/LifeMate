@@ -41,6 +41,28 @@ Deno.test("campaign orchestrator is wired through canonical marketing dispatcher
   );
 });
 
+Deno.test("campaign preparation is product-scoped and persists only after validation", async () => {
+  const migration = await Deno.readTextFile(
+    new URL(
+      "../../migrations/20260827043100_campaign_orchestrator_bounded_prepare.sql",
+      import.meta.url,
+    ),
+  );
+  assert(
+    migration.includes("pr.product_code=v_campaign.product_code"),
+    "push reachability must use the campaign product",
+  );
+  const costCheck = migration.indexOf("campaign_cost_overflow");
+  const executionInsert = migration.indexOf(
+    "insert into messaging.campaign_executions",
+  );
+  assert(costCheck >= 0, "bounded cost check must exist");
+  assert(
+    executionInsert > costCheck,
+    "execution/jobs must not persist before controlled cost validation",
+  );
+});
+
 Deno.test("campaign prepare normalizes channels and optional SMS pricing", () => {
   const payload = parsePrepareCampaignExecution({
     campaignId,
