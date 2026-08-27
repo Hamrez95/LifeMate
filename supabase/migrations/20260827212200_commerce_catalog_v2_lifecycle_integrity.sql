@@ -1,7 +1,7 @@
 begin;
 
--- Retiring a Product or Offer must not leave a Published bundle selling a
--- retired dependency. Bundles are retired, never deleted, preserving history.
+-- Retiring Product / Offer / Bundle is terminal. Dependent published Bundles are
+-- retired rather than deleted so historical subscription/payment facts stay intact.
 create or replace function admin.update_commerce_catalog_product(
  p_actor uuid,p_product uuid,p_name varchar,p_status varchar,p_expected_version bigint,p_reason varchar,p_correlation uuid,p_key varchar,p_hash varchar
 ) returns jsonb language plpgsql security definer set search_path=admin,commerce,pg_temp as $$
@@ -14,6 +14,7 @@ begin
  select * into v from commerce.products where id=p_product for update;
  if not found then r:=jsonb_build_object('httpStatus',404,'code','catalog_product_not_found','message','Product was not found.','replayed',false);
  elsif p_expected_version is null or v.version<>p_expected_version then r:=jsonb_build_object('httpStatus',409,'code','catalog_version_conflict','message','Product changed; refresh before updating.','currentVersion',v.version,'replayed',false);
+ elsif v.lifecycle_status='Retired' and p_status<>'Retired' then r:=jsonb_build_object('httpStatus',409,'code','catalog_retirement_terminal','message','Retired products cannot be republished.','replayed',false);
  else
    before:=jsonb_build_object('name',v.display_name,'status',v.lifecycle_status,'version',v.version);
    update commerce.products set display_name=trim(p_name),lifecycle_status=p_status,status=case when p_status='Retired' then 'Retired' else 'Active' end,version=version+1,updated_at_utc=now() where id=p_product returning * into v;
@@ -39,6 +40,7 @@ begin
  select * into v from commerce.offers where id=p_offer for update;
  if not found then r:=jsonb_build_object('httpStatus',404,'code','catalog_offer_not_found','message','Offer was not found.','replayed',false);
  elsif v.version<>p_expected_version then r:=jsonb_build_object('httpStatus',409,'code','catalog_version_conflict','message','Offer changed; refresh before updating.','currentVersion',v.version,'replayed',false);
+ elsif v.status='Retired' and p_status<>'Retired' then r:=jsonb_build_object('httpStatus',409,'code','catalog_retirement_terminal','message','Retired offers cannot be republished.','replayed',false);
  else
    select lifecycle_status into ps from commerce.products where id=v.product_id;
    if p_status='Published' and ps<>'Published' then r:=jsonb_build_object('httpStatus',409,'code','catalog_product_state_conflict','message','Offer cannot be published for this product state.','replayed',false);
@@ -54,6 +56,34 @@ begin
    end if;
  end if;
  return admin.commerce_catalog_v2_finish(p_actor,op,p_key,r,'commerce.catalog.offer.update','commerce_offer',p_offer::text,p_reason,p_correlation,jsonb_build_object('before',before));
+end $$;
+
+create or replace function admin.update_commerce_catalog_bundle(
+ p_actor uuid,p_bundle uuid,p_name varchar,p_status varchar,p_gift boolean,p_offers uuid[],p_expected_version bigint,p_reason varchar,p_correlation uuid,p_key varchar,p_hash varchar
+) returns jsonb language plpgsql security definer set search_path=admin,commerce,pg_temp as $$
+declare op constant varchar:='commerce.catalog.bundle.update'; r jsonb; v commerce.bundles%rowtype; expected_count int:=coalesce(array_length(p_offers,1),0); valid_count int; before jsonb;
+begin
+ if not admin.account_has_permission(p_actor,'commerce.catalog.write') then return jsonb_build_object('httpStatus',403,'code','permission_denied','message','The required permission is not granted.','replayed',false); end if;
+ if p_reason is null or length(trim(p_reason)) not between 10 and 1000 or p_name is null or length(trim(p_name)) not between 2 and 120 or p_status not in ('Hidden','Published','Retired') or p_gift is null or expected_count not between 1 and 32 then return jsonb_build_object('httpStatus',400,'code','catalog_bundle_invalid','message','Bundle mutation is invalid.','replayed',false); end if;
+ if coalesce(array_length(array(select distinct x from unnest(p_offers) as t(x)),1),0)<>expected_count then return jsonb_build_object('httpStatus',400,'code','catalog_bundle_items_duplicate','message','Bundle offers must be unique.','replayed',false); end if;
+ r:=admin.commerce_catalog_v2_replay(p_actor,op,p_key,p_hash); if r is not null then return r; end if;
+ perform pg_advisory_xact_lock(hashtextextended('commerce.catalog.bundle:'||p_bundle::text,0));
+ select * into v from commerce.bundles where id=p_bundle for update;
+ if not found then r:=jsonb_build_object('httpStatus',404,'code','catalog_bundle_not_found','message','Bundle was not found.','replayed',false);
+ elsif v.version<>p_expected_version then r:=jsonb_build_object('httpStatus',409,'code','catalog_version_conflict','message','Bundle changed; refresh before updating.','currentVersion',v.version,'replayed',false);
+ elsif v.status='Retired' and p_status<>'Retired' then r:=jsonb_build_object('httpStatus',409,'code','catalog_retirement_terminal','message','Retired bundles cannot be republished.','replayed',false);
+ else
+   select count(*) into valid_count from commerce.offers o where o.id=any(p_offers) and o.status<>'Retired' and (p_status<>'Published' or o.status='Published');
+   if valid_count<>expected_count then r:=jsonb_build_object('httpStatus',409,'code','catalog_bundle_items_invalid','message','Bundle contains missing, retired, or unpublished offers.','replayed',false);
+   else
+     before:=jsonb_build_object('name',v.display_name,'status',v.status,'giftEligible',v.gift_eligible,'version',v.version);
+     update commerce.bundles set display_name=trim(p_name),status=p_status,gift_eligible=p_gift,version=version+1,updated_at_utc=now() where id=p_bundle returning * into v;
+     delete from commerce.bundle_items where bundle_id=p_bundle;
+     insert into commerce.bundle_items(bundle_id,offer_id,quantity) select p_bundle,x,1 from unnest(p_offers) x;
+     r:=jsonb_build_object('httpStatus',200,'code','ok','bundleId',v.id,'status',v.status,'version',v.version,'itemCount',expected_count,'replayed',false);
+   end if;
+ end if;
+ return admin.commerce_catalog_v2_finish(p_actor,op,p_key,r,'commerce.catalog.bundle.update','commerce_bundle',p_bundle::text,p_reason,p_correlation,jsonb_build_object('before',before,'offerIds',p_offers));
 end $$;
 
 commit;
