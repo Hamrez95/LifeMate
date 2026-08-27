@@ -139,5 +139,44 @@ export function createResearchDatasetStore(databaseUrl: string) {
         },
       });
     },
+
+    async requestExport(input: {
+      actorAccountId: string;
+      datasetId: string;
+      format: "CSV" | "XLSX";
+      jurisdiction: string;
+      correlationId: string;
+      idempotencyKey: string;
+      requestHash: string;
+    }) {
+      return await consumeIdempotency({
+        sql,
+        actorAccountId: input.actorAccountId,
+        operation: "research.dataset.export.request",
+        idempotencyKey: input.idempotencyKey,
+        requestHash: input.requestHash,
+        work: async (tx) => {
+          const rows = await tx`
+            select analytics.request_research_export(
+              ${input.actorAccountId}::uuid,
+              ${input.datasetId}::uuid,
+              ${input.format}::varchar,
+              ${input.correlationId}::uuid,
+              ${input.jurisdiction}::varchar
+            ) as job_id
+          `;
+          const jobId = rows[0]?.job_id;
+          if (typeof jobId !== "string") {
+            throw new Error("research_export_request_result_invalid");
+          }
+          return {
+            jobId,
+            datasetId: input.datasetId,
+            format: input.format,
+            status: "Pending",
+          };
+        },
+      });
+    },
   };
 }
