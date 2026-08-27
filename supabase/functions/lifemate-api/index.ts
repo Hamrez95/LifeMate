@@ -29,6 +29,7 @@ import {
   profilePhotoMaximumBytes,
 } from "./profile_photo.ts";
 import { createWomenCalendarStore } from "./women_calendar.ts";
+import { createGrowthRouteHandler } from "./growth_routes.ts";
 import { loadRuntimeConfig } from "./runtime_config.ts";
 import { createRequestRateLimiterFromEnvironment } from "./rate_limit.ts";
 import { createRequestConcurrencyGateFromEnvironment } from "./concurrency.ts";
@@ -74,6 +75,7 @@ const edits = createEditStore(databaseUrl);
 const healthObservations = createHealthObservationStore(databaseUrl);
 const womenCalendar = createWomenCalendarStore(databaseUrl);
 const womenCompanionPrivacy = createWomenCompanionPrivacyStore(databaseUrl);
+const growthRoutes = createGrowthRouteHandler(databaseUrl, contactHashingSecret);
 const womenCalendarPilotEnabled =
   (Deno.env.get("ENABLE_WOMEN_CALENDAR_PILOT") ?? "true").toLowerCase() !==
     "false";
@@ -243,6 +245,12 @@ async function route(
   }
 
   const identity = await db.requireIdentity(auth);
+  const growthResponse = await growthRoutes({
+    request,
+    path,
+    appUserId: identity.appUserId,
+  });
+  if (growthResponse) return growthResponse;
 
   if (request.method === "GET" && path === "/api/v1/capabilities") {
     return json(
