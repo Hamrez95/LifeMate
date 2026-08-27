@@ -60,3 +60,12 @@ Deno.test("execution snapshots require the expected active segment version under
   assertStringIncludes(guard, '"segment_version_conflict"');
   assertStringIncludes(guard, '"segment_not_active"');
 });
+
+Deno.test("audience segment workflow uses canonical idempotency and audit enum values", async () => {
+  const text = await source("./audience_segments_service.ts");
+  assertStringIncludes(text, "'Processing'");
+  assertStringIncludes(text, "'Completed'");
+  assertStringIncludes(text, "'Succeeded'");
+  assert(!text.includes("'Pending'"));
+  assert(!text.includes("'success'"));
+});
