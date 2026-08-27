@@ -98,7 +98,7 @@ export function createEntitlementAdjustmentRouteHandler(databaseUrl: string) {
       requirePermission(admin, "commerce.entitlement.adjust.request");
       const payload = await parseEntitlementAdjustmentPayload(request);
       const rows = await sql`
-        select commerce.preview_entitlement_adjustment(
+        select commerce.preview_entitlement_adjustment_v2(
           ${payload.accountId}::uuid,
           ${payload.targetType}::character varying,
           ${payload.targetId}::uuid,
@@ -137,7 +137,7 @@ export function createEntitlementAdjustmentRouteHandler(databaseUrl: string) {
       const payload = await parseEntitlementAdjustmentPayload(request);
       const requestHash = await hashEntitlementAdjustmentPayload(payload);
       const rows = await sql`
-        select commerce.execute_entitlement_adjustment(
+        select commerce.execute_entitlement_adjustment_v2(
           ${accountId}::uuid,
           ${payload.accountId}::uuid,
           ${payload.targetType}::character varying,
