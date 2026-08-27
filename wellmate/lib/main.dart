@@ -10,10 +10,12 @@ import 'package:wellmate/core/constants/app_version.dart';
 import 'package:wellmate/core/state/wellmate_refresh.dart';
 import 'package:wellmate/core/theme/app_style.dart';
 import 'package:wellmate/core/widgets/medication_home_widget_service.dart';
+import 'package:wellmate/providers/contextual_notification_provider.dart';
 import 'package:wellmate/providers/medication_provider.dart';
 import 'package:wellmate/providers/notification_provider.dart';
 import 'package:wellmate/providers/settings_provider.dart';
 import 'package:wellmate/screens/home/home_screen.dart';
+import 'package:wellmate/screens/onboarding/wellmate_first_value_gate.dart';
 
 import 'localization/app_localizations.dart';
 import 'localization/locale_provider.dart';
@@ -47,7 +49,8 @@ void main() {
           debugPrint('Supabase initialization failed.');
         }
       }
-      final notificationProvider = NotificationProvider();
+      final NotificationProvider notificationProvider =
+          ContextualNotificationProvider();
       try {
         await notificationProvider.initialize();
       } catch (error, stackTrace) {
@@ -78,7 +81,9 @@ void main() {
       runApp(
         MultiProvider(
           providers: [
-            ChangeNotifierProvider.value(value: notificationProvider),
+            ChangeNotifierProvider<NotificationProvider>.value(
+              value: notificationProvider,
+            ),
             ChangeNotifierProvider(create: (_) => LocaleProvider()),
             ChangeNotifierProvider(create: (_) => SettingsProvider()),
             ChangeNotifierProvider(create: (_) => MedicationProvider()),
@@ -226,8 +231,13 @@ class WellMateApp extends StatelessWidget {
             logoAssetPath: logoAssetPath,
           ),
       authenticatedBuilder: (context, apiClient) =>
-          LifeMateAccountOnboardingGate(
-            child: _AuthenticatedWellMateShell(apiClient: apiClient),
+          Provider<LifeMateApiClient>.value(
+            value: apiClient,
+            child: LifeMateAccountOnboardingGate(
+              child: WellMateFirstValueGate(
+                child: _AuthenticatedWellMateShell(apiClient: apiClient),
+              ),
+            ),
           ),
     );
   }

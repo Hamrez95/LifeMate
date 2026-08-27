@@ -36,6 +36,11 @@ const allowedPresentationIntents = new Set([
   "Both",
 ]);
 
+const allowedWellMateFirstValueStates = new Set([
+  "Skipped",
+  "Completed",
+]);
+
 export type ProfilePatch = {
   expectedVersion: number;
   displayName: string;
@@ -45,6 +50,7 @@ export type ProfilePatch = {
   avatarKey: string | null;
   presentationIntent: string | null;
   completeOnboarding: boolean;
+  wellMateFirstValueState: string | null;
 };
 
 export function normalizeProfilePatch(
@@ -68,6 +74,9 @@ export function normalizeProfilePatch(
     avatarKey: optionalAvatarKey(body.avatarKey),
     presentationIntent,
     completeOnboarding,
+    wellMateFirstValueState: optionalWellMateFirstValueState(
+      body.wellMateFirstValueState,
+    ),
   };
 }
 
@@ -234,6 +243,7 @@ export function createProfileStore(
                  person.locale, person.time_zone, person.avatar_key,
                  legacy.presentation_intent,
                  legacy.onboarding_completed_at_utc,
+                 legacy.wellmate_first_value_state,
                  legacy.version,
                  legacy.created_at_utc, legacy.updated_at_utc
           from lifemate.user_profiles legacy
@@ -249,6 +259,7 @@ export function createProfileStore(
                  person.locale, person.time_zone, person.avatar_key,
                  legacy.presentation_intent,
                  legacy.onboarding_completed_at_utc,
+                 legacy.wellmate_first_value_state,
                  floor(extract(epoch from legacy.updated_at_utc) * 1000)::bigint
                    as version,
                  legacy.created_at_utc, legacy.updated_at_utc
@@ -329,11 +340,16 @@ export function createProfileStore(
                     then coalesce(onboarding_completed_at_utc, now())
                   else onboarding_completed_at_utc
                 end,
+                wellmate_first_value_state = coalesce(
+                  ${patch.wellMateFirstValueState},
+                  wellmate_first_value_state
+                ),
                 version = version + 1,
                 updated_at_utc = now()
             where user_id = ${userId} and version = ${patch.expectedVersion}
             returning id, user_id, phone_number, email,
                       presentation_intent, onboarding_completed_at_utc,
+                      wellmate_first_value_state,
                       version, created_at_utc, updated_at_utc
           `
         : tx`
@@ -349,6 +365,10 @@ export function createProfileStore(
                     then coalesce(onboarding_completed_at_utc, now())
                   else onboarding_completed_at_utc
                 end,
+                wellmate_first_value_state = coalesce(
+                  ${patch.wellMateFirstValueState},
+                  wellmate_first_value_state
+                ),
                 updated_at_utc = greatest(
                   now(),
                   updated_at_utc + interval '1 millisecond'
@@ -358,6 +378,7 @@ export function createProfileStore(
                   ${patch.expectedVersion}
             returning id, user_id, phone_number, email,
                       presentation_intent, onboarding_completed_at_utc,
+                      wellmate_first_value_state,
                       floor(extract(epoch from updated_at_utc) * 1000)::bigint
                         as version,
                       created_at_utc, updated_at_utc
@@ -437,9 +458,8 @@ export function createProfileStore(
         );
       }
 
-      // Privacy invariant: metadata_json stays null. Intent is deliberately not
-      // copied into the audit log because it is presentation metadata and not a
-      // healthcare authorization or operational decision.
+      // Privacy invariant: metadata_json stays null. Intent and first-value state
+      // are presentation metadata and never become healthcare authorization.
       await tx`
         insert into lifemate.audit_logs
           (id, actor_user_id, action, resource_type, resource_id,
@@ -493,6 +513,19 @@ function optionalPresentationIntent(value: unknown): string | null {
   return normalized;
 }
 
+function optionalWellMateFirstValueState(value: unknown): string | null {
+  const normalized = normalizeOptional(value);
+  if (normalized == null) return null;
+  if (!allowedWellMateFirstValueStates.has(normalized)) {
+    throw new ApiError(
+      400,
+      "invalid_wellmate_first_value_state",
+      "wellMateFirstValueState is not supported.",
+    );
+  }
+  return normalized;
+}
+
 function requiredLocale(value: unknown): string {
   const locale = normalizeOptional(value);
   if (
@@ -534,6 +567,7 @@ function mapProfile(row: Row): Record<string, unknown> {
     onboardingCompletedAtUtc: row.onboarding_completed_at_utc == null
       ? null
       : iso(row.onboarding_completed_at_utc),
+    wellMateFirstValueState: row.wellmate_first_value_state ?? null,
     version: Number(row.version),
     createdAtUtc: iso(row.created_at_utc),
     updatedAtUtc: iso(row.updated_at_utc),
