@@ -1,0 +1,72 @@
+name: onboarding-v3-integration
+
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - '.github/workflows/onboarding-v3-integration.yml'
+      - 'packages/lifemate_ui/**'
+      - 'packages/lifemate_client/**'
+      - 'wellmate/**'
+      - 'caremate/**'
+      - 'supabase/functions/lifemate-api/**'
+      - 'supabase/migrations/**'
+      - 'tools/operations/verify-onboarding-v3-integration.mjs'
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/onboarding-v3-integration.yml'
+      - 'packages/lifemate_ui/**'
+      - 'packages/lifemate_client/**'
+      - 'wellmate/**'
+      - 'caremate/**'
+      - 'supabase/functions/lifemate-api/**'
+      - 'supabase/migrations/**'
+      - 'tools/operations/verify-onboarding-v3-integration.mjs'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: onboarding-v3-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  integration-contract:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
+        with:
+          show-progress: false
+          persist-credentials: false
+
+      - name: Verify cross-product canonical integration
+        run: node tools/operations/verify-onboarding-v3-integration.mjs
+
+      - uses: subosito/flutter-action@4cab68ce0f1c7c924f688bff4792e044f1aeb30c
+        with:
+          flutter-version: '3.44.0'
+          channel: stable
+          cache: true
+
+      - name: Verify shared onboarding component system
+        working-directory: packages/lifemate_ui
+        shell: bash
+        run: |
+          set -euo pipefail
+          flutter pub get
+          flutter analyze --no-fatal-warnings --no-fatal-infos
+          flutter test test/onboarding_components_test.dart test/onboarding_v3_matrix_test.dart test/shared_account_onboarding_test.dart
+
+      - name: Prove product-specific V3 contracts
+        shell: bash
+        run: |
+          set -euo pipefail
+          (cd wellmate && flutter pub get && flutter test \
+            test/contextual_notification_permission_contract_test.dart \
+            test/wellmate_first_value_api_test.dart \
+            test/women_health_activation_api_test.dart \
+            test/women_health_activation_v3_contract_test.dart)
+          (cd caremate && flutter pub get && flutter test \
+            test/caremate_relationship_v3_contract_test.dart)
