@@ -1,4 +1,5 @@
 import { createClientRemoteConfigRouteHandler } from "./client_remote_config_routes.ts";
+import { createFeedbackRouteHandler } from "./feedback_routes.ts";
 import { createGrowthStore } from "./growth.ts";
 import { requireMutationIdempotencyKey } from "./idempotency.ts";
 import { json } from "./http.ts";
@@ -29,6 +30,7 @@ export function createGrowthRouteHandler(
   const productTelemetryRoutes = createProductTelemetryV2RouteHandler(databaseUrl);
   const clientRemoteConfigRoutes = createClientRemoteConfigRouteHandler(databaseUrl);
   const pushRegistrationRoutes = createPushRegistrationRouteHandler(databaseUrl);
+  const feedbackRoutes = createFeedbackRouteHandler(databaseUrl);
   const supportRoutes = createSupportConversationRouteHandler(
     createSupportConversationStore(databaseUrl),
     supportAttachments ?? createSupportAttachmentRuntimeFromEnvironment(),
@@ -50,6 +52,9 @@ export function createGrowthRouteHandler(
 
     const pushRegistrationResponse = await pushRegistrationRoutes(input);
     if (pushRegistrationResponse) return pushRegistrationResponse;
+
+    const feedbackResponse = await feedbackRoutes(input);
+    if (feedbackResponse) return feedbackResponse;
 
     const supportResponse = await supportRoutes(input);
     if (supportResponse) return supportResponse;
