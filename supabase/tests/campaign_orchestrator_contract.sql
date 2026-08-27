@@ -1,8 +1,8 @@
 \set ON_ERROR_STOP on
 
 -- Campaign execution must stay behind the Admin/worker runtime boundaries,
--- preserve promotional opt-out by default, and serialize mutable lifecycle
--- operations before this feature is considered ready.
+-- preserve promotional opt-out through the final send-time boundary, and
+-- serialize mutable lifecycle operations before this feature is ready.
 do $$
 declare
   v_prepare regprocedure := to_regprocedure('messaging.prepare_campaign_execution(uuid,uuid,uuid,timestamptz,character varying[],character varying,character varying,uuid)');
@@ -12,11 +12,12 @@ declare
   v_claim regprocedure := to_regprocedure('messaging.claim_campaign_delivery_jobs(integer)');
   v_resolve regprocedure := to_regprocedure('messaging.resolve_campaign_delivery_job(uuid)');
   v_result_v2 regprocedure := to_regprocedure('messaging.record_campaign_delivery_result_v2(uuid,character varying,character varying,character varying,character varying,timestamptz)');
+  v_terminal regprocedure := to_regprocedure('messaging.refresh_campaign_execution_terminal_state(uuid)');
   v_definition text;
   v_unknown_account uuid := gen_random_uuid();
 begin
   if v_prepare is null or v_prepare_v2 is null or v_confirm is null or v_schedule is null
-     or v_claim is null or v_resolve is null or v_result_v2 is null then
+     or v_claim is null or v_resolve is null or v_result_v2 is null or v_terminal is null then
     raise exception 'campaign orchestrator canonical functions missing';
   end if;
 
@@ -72,8 +73,9 @@ begin
   end if;
 
   v_definition := lower(pg_get_functiondef(v_schedule));
-  if position('for update' in v_definition)=0 then
-    raise exception 'campaign scheduling must lock the execution row';
+  if position('for update' in v_definition)=0
+     or position('campaign_no_eligible_recipients' in v_definition)=0 then
+    raise exception 'campaign scheduling must lock state and reject an empty audience';
   end if;
 
   v_definition := lower(pg_get_functiondef(v_claim));
@@ -85,6 +87,20 @@ begin
   if position('encrypted_value' in v_definition)=0
      or position('token_ciphertext' in v_definition)=0 then
     raise exception 'worker delivery projection must resolve encrypted endpoint envelopes';
+  end if;
+  if position('account_allows_optional_purpose' in v_definition)=0
+     or position('late_opt_out' in v_definition)=0 then
+    raise exception 'worker delivery projection must re-check promotional consent immediately before send';
+  end if;
+  if position("status='suppressed'" in replace(v_definition,' ',''))=0 then
+    raise exception 'late opt-out must terminally suppress delivery rather than retry it';
+  end if;
+
+  v_definition := lower(pg_get_functiondef(v_terminal));
+  if position("status='sending'" in replace(v_definition,' ',''))=0
+     or position("'completed'" in v_definition)=0
+     or position("'failed'" in v_definition)=0 then
+    raise exception 'terminal delivery changes must close the campaign execution';
   end if;
 
   v_definition := lower(pg_get_functiondef(v_result_v2));
