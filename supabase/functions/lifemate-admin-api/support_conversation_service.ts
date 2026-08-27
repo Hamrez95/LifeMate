@@ -47,6 +47,61 @@ export function createSupportConversationAdminStore(databaseUrl: string) {
       }
       return value as Record<string, unknown>;
     },
+    async escalate(input: {
+      actorAccountId: string;
+      ticketId: string;
+      targetRoleCode: string;
+      safeReason: string;
+      correlationId: string;
+    }) {
+      const rows = await sql`
+        select admin.create_support_escalation(
+          ${input.actorAccountId}::uuid,
+          ${input.ticketId}::uuid,
+          ${input.targetRoleCode}::varchar,
+          ${input.safeReason}::varchar,
+          ${input.correlationId}::uuid
+        ) as escalation_id
+      `;
+      return { escalationId: String(rows[0]?.escalation_id) };
+    },
+    async linkReference(input: {
+      actorAccountId: string;
+      ticketId: string;
+      linkKind: string;
+      referenceCode: string;
+      correlationId: string;
+    }) {
+      const rows = await sql`
+        select admin.link_support_ticket_reference(
+          ${input.actorAccountId}::uuid,
+          ${input.ticketId}::uuid,
+          ${input.linkKind}::varchar,
+          ${input.referenceCode}::varchar,
+          ${input.correlationId}::uuid
+        ) as link_id
+      `;
+      return { linkId: String(rows[0]?.link_id) };
+    },
+    async listOperations(ticketId: string) {
+      const escalations = await sql`
+        select e.id as escalation_id,e.status,e.safe_reason,e.created_at_utc,
+               r.code as target_role_code,r.display_name as target_role_name
+        from support.ticket_escalations e
+        join admin.roles r on r.id=e.target_role_id
+        where e.ticket_id=${ticketId}::uuid
+        order by e.created_at_utc desc,e.id desc
+        limit 100
+      `;
+      const links = await sql`
+        select id as link_id,link_kind,reference_code,created_at_utc
+        from support.ticket_links
+        where ticket_id=${ticketId}::uuid
+        order by created_at_utc desc,id desc
+        limit 100
+      `;
+      return { escalations, links };
+    },
   };
 }
 
