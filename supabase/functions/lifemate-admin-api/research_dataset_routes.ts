@@ -16,7 +16,8 @@ type Context = {
   origin: string | null;
 };
 
-const CODE = /^[a-z][a-z0-9._-]{2,79}$/;
+const PURPOSE_CODE = /^[a-z][a-z0-9._-]{2,79}$/;
+const SOURCE_CATEGORY = /^[A-Za-z][A-Za-z0-9_-]{2,79}$/;
 
 export function createResearchDatasetRouteHandler(databaseUrl: string) {
   const store = createResearchDatasetStore(databaseUrl);
@@ -40,8 +41,8 @@ export function createResearchDatasetRouteHandler(databaseUrl: string) {
       }
       const raw = body as Record<string, unknown>;
       const name = boundedText(raw.name, "name", 160);
-      const purpose = code(raw.purpose, "purpose");
-      const sourceCategory = code(raw.sourceCategory, "sourceCategory");
+      const purpose = purposeCode(raw.purpose);
+      const sourceCategory = sourceCategoryCode(raw.sourceCategory);
       const filters = boundedObject(raw.filters, "filters");
       const quasiIdentifierRules = boundedObject(raw.quasiIdentifierRules, "quasiIdentifierRules");
       rejectDirectIdentifierFields([...objectPaths(filters), ...objectPaths(quasiIdentifierRules)]);
@@ -82,9 +83,16 @@ function boundedText(value: unknown, field: string, max: number): string {
   return text;
 }
 
-function code(value: unknown, field: string): string {
-  if (typeof value !== "string" || !CODE.test(value.trim())) {
-    throw new ApiError(400, "research_dataset_payload_invalid", `${field} is invalid.`);
+function purposeCode(value: unknown): string {
+  if (typeof value !== "string" || !PURPOSE_CODE.test(value.trim())) {
+    throw new ApiError(400, "research_dataset_payload_invalid", "purpose is invalid.");
+  }
+  return value.trim();
+}
+
+function sourceCategoryCode(value: unknown): string {
+  if (typeof value !== "string" || !SOURCE_CATEGORY.test(value.trim())) {
+    throw new ApiError(400, "research_dataset_payload_invalid", "sourceCategory is invalid.");
   }
   return value.trim();
 }
