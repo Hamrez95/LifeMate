@@ -20,12 +20,15 @@ Deno.test("retention v3 extends existing lifecycle model without browser grants"
   assert(!migration.includes("grant select on security.retention_holds to authenticated"));
 });
 
-Deno.test("account deletion gate runs before destructive database finalization", async () => {
+Deno.test("account deletion gate runs before destructive database finalization and preserves policy evidence", async () => {
   const gate = await Deno.readTextFile(
     new URL("../../migrations/20260827021100_data_lifecycle_deletion_gate.sql", import.meta.url),
   );
   const holdRace = await Deno.readTextFile(
     new URL("../../migrations/20260827021200_retention_hold_claim_race.sql", import.meta.url),
+  );
+  const versionPreservation = await Deno.readTextFile(
+    new URL("../../migrations/20260827021600_retention_policy_version_preservation.sql", import.meta.url),
   );
   assertStringIncludes(gate, "identity.account_deletion_block_until");
   assertStringIncludes(gate, "integration.gate_account_deletion_outbox");
@@ -34,6 +37,9 @@ Deno.test("account deletion gate runs before destructive database finalization",
   assertStringIncludes(holdRace, "retention_deletion_in_progress");
   assertStringIncludes(holdRace, "status in ('Pending','Failed','Processing')");
   assertStringIncludes(holdRace, "for update");
+  assertStringIncludes(versionPreservation, "preserve_account_deletion_retention_policy_version");
+  assertStringIncludes(versionPreservation, "old.retention_policy_version like 'retention-v3.%'");
+  assertStringIncludes(versionPreservation, "new.retention_policy_version in ('retention-v1','retention-v2')");
 });
 
 Deno.test("retention admin API is permissioned, bounded and idempotent", async () => {
