@@ -85,13 +85,18 @@ export function createSupportConversationRouteHandler(
     }
 
     const attachmentDownload = path.match(
-      /^\/api\/v1\/support\/conversations\/[0-9a-f-]{36}\/attachments\/([0-9a-f-]{36})\/download$/i,
+      /^\/api\/v1\/support\/conversations\/([0-9a-f-]{36})\/attachments\/([0-9a-f-]{36})\/download$/i,
     );
     if (request.method === "GET" && attachmentDownload) {
       if (!attachments) throw attachmentRuntimeUnavailable();
       enforceRateLimit(`support-attachment-download:${appUserId}`, 60, 60 * 60_000);
-      const attachmentId = requiredUuid(attachmentDownload[1]);
-      const available = await store.getAttachmentDownload(appUserId, attachmentId);
+      const ticketId = requiredUuid(attachmentDownload[1]);
+      const attachmentId = requiredUuid(attachmentDownload[2]);
+      const available = await store.getAttachmentDownload(
+        appUserId,
+        ticketId,
+        attachmentId,
+      );
       return json({
         attachmentId: available.attachmentId,
         fileName: available.fileName,
@@ -187,11 +192,11 @@ function requiredMessage(value: unknown): string {
 }
 
 function requiredFileName(value: string | null): string {
-  const decoded = value == null ? "" : decodeURIComponent(value).trim();
-  if (!decoded || decoded.length > 180 || /[\\/\u0000-\u001f]/.test(decoded)) {
+  const fileName = value?.trim() ?? "";
+  if (!fileName || fileName.length > 180 || /[\\/\u0000-\u001f]/.test(fileName)) {
     throw new ApiError(400, "support_attachment_name_invalid", "Attachment file name is invalid.");
   }
-  return decoded;
+  return fileName;
 }
 
 function optionalProductCode(value: unknown): string | null {
