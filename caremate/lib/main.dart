@@ -199,7 +199,9 @@ class CareMateApp extends StatelessWidget {
             logoAssetPath: logoAssetPath,
           ),
       authenticatedBuilder: (context, apiClient) =>
-          _AuthenticatedCareMateShell(apiClient: apiClient),
+          LifeMateAccountOnboardingGate(
+            child: _AuthenticatedCareMateShell(apiClient: apiClient),
+          ),
     );
   }
 }

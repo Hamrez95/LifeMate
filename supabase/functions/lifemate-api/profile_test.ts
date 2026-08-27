@@ -19,6 +19,8 @@ Deno.test("profile patch normalizes phone and persists an allow-listed avatar", 
       locale: "fa",
       timeZone: "Asia/Tehran",
       avatarKey: "person_purple",
+      presentationIntent: null,
+      completeOnboarding: false,
     },
   );
 });
@@ -33,6 +35,8 @@ Deno.test("profile patch permits legacy clients and clearing the optional phone"
   });
   assertEquals(patch.phoneNumber, null);
   assertEquals(patch.avatarKey, null);
+  assertEquals(patch.presentationIntent, null);
+  assertEquals(patch.completeOnboarding, false);
 });
 
 Deno.test("profile patch rejects stale-shape and invalid identity fields", () => {
