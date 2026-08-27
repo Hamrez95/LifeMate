@@ -1,6 +1,7 @@
 import { createGrowthStore } from "./growth.ts";
 import { requireMutationIdempotencyKey } from "./idempotency.ts";
 import { json } from "./http.ts";
+import { createPushRegistrationRouteHandler } from "./push_registrations_routes.ts";
 import { enforceRateLimit } from "./security.ts";
 import { readJsonObject } from "./validation.ts";
 
@@ -9,6 +10,10 @@ export function createGrowthRouteHandler(
   contactHashingSecret: string,
 ) {
   const store = createGrowthStore(databaseUrl, contactHashingSecret);
+  // Growth and messaging registration are both authenticated consumer-extension
+  // routes. Keeping them behind this already-wired dispatcher avoids a second
+  // HTTP entry point while each domain retains its own store/route module.
+  const pushRegistrationRoutes = createPushRegistrationRouteHandler(databaseUrl);
 
   return async function growthRouteHandler(input: {
     request: Request;
@@ -16,6 +21,9 @@ export function createGrowthRouteHandler(
     appUserId: string;
   }): Promise<Response | null> {
     const { request, path, appUserId } = input;
+
+    const pushRegistrationResponse = await pushRegistrationRoutes(input);
+    if (pushRegistrationResponse) return pushRegistrationResponse;
 
     if (request.method === "POST" && path === "/api/v1/growth/gifts") {
       enforceRateLimit(`growth-gift:${appUserId}`, 10, 60 * 60_000);
