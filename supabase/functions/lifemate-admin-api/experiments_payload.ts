@@ -15,6 +15,7 @@ export type CreateExperimentPayload = {
   surface: ReturnType<typeof parseExperimentSurface>;
   productCode: string | null;
   segmentKey: string | null;
+  segmentSnapshotId: string | null;
   primaryMetricCode: string;
   guardrailMetricCodes: string[];
   variants: ExperimentVariant[];
@@ -31,6 +32,7 @@ export type ExperimentStatusPayload = {
 
 const TARGET_KEY = /^[a-z0-9][a-z0-9._:-]{0,95}$/;
 const METRIC_KEY = /^[a-z][a-z0-9._-]{2,95}$/;
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
 function objectBody(input: unknown): Record<string, unknown> {
   if (!input || typeof input !== "object" || Array.isArray(input)) {
@@ -69,6 +71,14 @@ function optionalTarget(value: unknown, field: string): string | null {
     throw new ApiError(400, "experiment_payload_invalid", `${field} is invalid.`);
   }
   return normalized;
+}
+
+function optionalUuid(value: unknown, field: string): string | null {
+  if (value == null || value === "") return null;
+  if (typeof value !== "string" || !UUID.test(value.trim())) {
+    throw new ApiError(400, "experiment_payload_invalid", `${field} is invalid.`);
+  }
+  return value.trim().toLowerCase();
 }
 
 function metricCode(value: unknown, field: string): string {
@@ -116,7 +126,7 @@ function parseVariants(value: unknown): ExperimentVariant[] {
         "Variant version must be a positive integer.",
       );
     }
-    if (!("controlValue" in item)) {
+    if (!("controlValue" in item) || item.controlValue === undefined) {
       throw new ApiError(
         400,
         "experiment_variant_value_missing",
@@ -124,11 +134,12 @@ function parseVariants(value: unknown): ExperimentVariant[] {
       );
     }
     const controlValue = item.controlValue;
-    if (new TextEncoder().encode(JSON.stringify(controlValue)).byteLength > 4096) {
+    const serialized = JSON.stringify(controlValue);
+    if (serialized === undefined || new TextEncoder().encode(serialized).byteLength > 4096) {
       throw new ApiError(
         400,
         "experiment_variant_value_too_large",
-        "Variant control value is too large.",
+        "Variant control value is invalid or too large.",
       );
     }
     return {
@@ -158,13 +169,24 @@ export async function parseCreateExperimentPayload(
     throw new ApiError(400, "experiment_window_invalid", "Experiment end must be after start.");
   }
 
+  const segmentKey = optionalTarget(body.segmentKey, "segmentKey");
+  const segmentSnapshotId = optionalUuid(body.segmentSnapshotId, "segmentSnapshotId");
+  if ((segmentKey == null) !== (segmentSnapshotId == null)) {
+    throw new ApiError(
+      400,
+      "experiment_segment_snapshot_required",
+      "Segment-targeted experiments require both segmentKey and segmentSnapshotId.",
+    );
+  }
+
   return {
     experimentKey: parseExperimentKey(requiredText(body.experimentKey, "experimentKey", 3, 96)),
     name: requiredText(body.name, "name", 3, 160),
     controlKey: parseExperimentKey(requiredText(body.controlKey, "controlKey", 3, 96)),
     surface: parseExperimentSurface(body.surface),
     productCode: optionalTarget(body.productCode, "productCode"),
-    segmentKey: optionalTarget(body.segmentKey, "segmentKey"),
+    segmentKey,
+    segmentSnapshotId,
     primaryMetricCode,
     guardrailMetricCodes,
     variants: parseVariants(body.variants),
