@@ -73,7 +73,12 @@ export function createSupportConversationRouteHandler(
         scan.status,
         scan.reasonCode,
       );
-      if (scan.status === "Rejected") {
+      // There is no durable rescan queue in this source slice. Retaining an
+      // untrusted object after malware rejection *or* scanner failure would keep
+      // user content without a usable lifecycle. Preserve the database status for
+      // audit/UX, but remove the Storage object unless the scanner explicitly
+      // marked it clean. A retry uploads a fresh object and runs a fresh scan.
+      if (scan.status !== "Available") {
         await attachments.remove(uploaded.objectPath).catch(() => undefined);
       }
       return json({
