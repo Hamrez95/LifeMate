@@ -143,11 +143,12 @@ export function createSupportConversationStore(databaseUrl: string) {
       return requiredResult(rows[0]?.result);
     },
 
-    async getAttachmentDownload(appUserId: string, attachmentId: string) {
+    async getAttachmentDownload(appUserId: string, ticketId: string, attachmentId: string) {
       const accountId = await accountIdForAppUser(appUserId);
       const rows = await sql`
         select * from support.get_user_support_attachment_download(
           ${accountId}::uuid,
+          ${ticketId}::uuid,
           ${attachmentId}::uuid
         )
       `;
