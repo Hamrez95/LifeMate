@@ -2,6 +2,9 @@ import 'dart:convert';
 import 'dart:typed_data';
 
 import 'package:http/http.dart' as http;
+import 'package:supabase_flutter/supabase_flutter.dart';
+
+import 'app_config.dart';
 
 class LifeMateSupportMessage {
   const LifeMateSupportMessage({
@@ -33,24 +36,56 @@ class LifeMateSupportMessage {
   final bool fromUser;
 }
 
+typedef LifeMateSupportTokenProvider = String? Function();
+
 class LifeMateSupportApi {
   LifeMateSupportApi({
     required this.baseUri,
-    required this.accessToken,
+    required Future<String> Function() accessToken,
     http.Client? client,
-  }) : _client = client ?? http.Client();
+  })  : _asyncAccessToken = accessToken,
+        _accessToken = null,
+        _client = client ?? http.Client();
+
+  LifeMateSupportApi._sync({
+    required this.baseUri,
+    required LifeMateSupportTokenProvider accessToken,
+    http.Client? client,
+  })  : _accessToken = accessToken,
+        _asyncAccessToken = null,
+        _client = client ?? http.Client();
+
+  factory LifeMateSupportApi.fromEnvironment({http.Client? client}) {
+    final config = AppConfig.fromEnvironment();
+    return LifeMateSupportApi._sync(
+      baseUri: config.apiBaseUri,
+      accessToken: () => Supabase.instance.client.auth.currentSession?.accessToken,
+      client: client,
+    );
+  }
 
   final Uri baseUri;
-  final Future<String> Function() accessToken;
+  final Future<String> Function()? _asyncAccessToken;
+  final LifeMateSupportTokenProvider? _accessToken;
   final http.Client _client;
 
+  Future<String> _token() async {
+    final token = _asyncAccessToken != null ? await _asyncAccessToken!() : _accessToken?.call();
+    if (token == null || token.isEmpty) {
+      throw const LifeMateSupportException(401, 'session_missing');
+    }
+    return token;
+  }
+
   Future<Map<String, String>> _headers() async => {
-        'authorization': 'Bearer ${await accessToken()}',
+        'authorization': 'Bearer ${await _token()}',
         'content-type': 'application/json',
       };
 
-  Uri _uri(String path, [Map<String, String>? query]) =>
-      baseUri.replace(path: path, queryParameters: query);
+  Uri _uri(String path, [Map<String, String>? query]) => baseUri.replace(
+        path: '${baseUri.path.replaceFirst(RegExp(r'/$'), '')}$path',
+        queryParameters: query,
+      );
 
   Future<Map<String, dynamic>> open({
     String? productCode,
@@ -175,6 +210,8 @@ class LifeMateSupportApi {
     }
     return body;
   }
+
+  void close() => _client.close();
 }
 
 class LifeMateSupportException implements Exception {
