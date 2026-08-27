@@ -48,6 +48,10 @@ Deno.test("research fields reject direct and linkable identifiers", () => {
   assertThrows(() => rejectDirectIdentifierFields(["person_id"]));
   assertThrows(() => rejectDirectIdentifierFields(["account-id"]));
   assertThrows(() => rejectDirectIdentifierFields(["app_user_id"]));
+  assertThrows(() => rejectDirectIdentifierFields(["emailAddress"]));
+  assertThrows(() => rejectDirectIdentifierFields(["phoneNumber"]));
+  assertThrows(() => rejectDirectIdentifierFields(["accountId"]));
+  assertThrows(() => rejectDirectIdentifierFields(["authUserId"]));
 });
 
 Deno.test("research migration keeps founder-only function boundary", async () => {
