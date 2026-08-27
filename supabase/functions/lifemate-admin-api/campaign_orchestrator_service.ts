@@ -41,9 +41,11 @@ export function createCampaignOrchestratorStore(databaseUrl: string) {
     smsProvider: string | null;
     smsCurrency: string | null;
     correlationId: string;
+    idempotencyKey: string;
+    requestHash: string;
   }) {
     const rows = await sql`
-      select messaging.prepare_campaign_execution(
+      select messaging.prepare_campaign_execution_idempotent(
         ${input.actorAccountId}::uuid,
         ${input.campaignId}::uuid,
         ${input.audienceSnapshotId}::uuid,
@@ -51,7 +53,9 @@ export function createCampaignOrchestratorStore(databaseUrl: string) {
         ${input.channels}::varchar[],
         ${input.smsProvider}::varchar,
         ${input.smsCurrency}::varchar,
-        ${input.correlationId}::uuid
+        ${input.correlationId}::uuid,
+        ${input.idempotencyKey}::varchar,
+        ${input.requestHash}::varchar
       ) as result
     `;
     return resultOrThrow(rows[0]?.result ?? {});
