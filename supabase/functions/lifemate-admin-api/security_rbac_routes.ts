@@ -7,6 +7,7 @@ import { createBreakGlassRouteHandler } from "./break_glass_routes.ts";
 import { createCustomRoleRouteHandler } from "./custom_roles_routes.ts";
 import { createElevatedHealthRouteHandler } from "./elevated_health_routes.ts";
 import { json } from "./http.ts";
+import { createRetentionRouteHandler } from "./retention_routes.ts";
 import { createSecurityRbacStore } from "./security_rbac_service.ts";
 import { matchAdminRoleDetailPath } from "./security_role_detail.ts";
 import { createSecurityRoleDetailStore } from "./security_role_detail_service.ts";
@@ -34,6 +35,7 @@ export function createSecurityRbacRouteHandler(
   const elevatedHealthRouteHandler = createElevatedHealthRouteHandler(databaseUrl);
   const customRoleRouteHandler = createCustomRoleRouteHandler(databaseUrl);
   const approvalRequestRouteHandler = createApprovalRequestRouteHandler(databaseUrl);
+  const retentionRouteHandler = createRetentionRouteHandler(databaseUrl);
 
   return async function handleSecurityRbacRoute(
     context: SecurityRbacRouteContext,
@@ -44,6 +46,18 @@ export function createSecurityRbacRouteHandler(
 
     if (path.startsWith("/api/v1/operations/approval-requests")) {
       const response = await approvalRequestRouteHandler({
+        request,
+        path,
+        accountId,
+        admin,
+        correlationId,
+        origin,
+      });
+      if (response) return response;
+    }
+
+    if (path.startsWith("/api/v1/security/retention/")) {
+      const response = await retentionRouteHandler({
         request,
         path,
         accountId,
