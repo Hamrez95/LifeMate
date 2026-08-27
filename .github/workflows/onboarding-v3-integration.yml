@@ -54,16 +54,19 @@ jobs:
           channel: stable
           cache: true
 
-      - name: Verify shared client registration and privacy contracts
+      - name: Verify shared client registration privacy and runtime config contracts
         working-directory: packages/lifemate_client
         shell: bash
         run: |
           set -euo pipefail
           flutter pub get
           flutter analyze --no-fatal-warnings --no-fatal-infos
-          flutter test test/account_onboarding_api_test.dart test/legal_privacy_api_test.dart
+          flutter test \
+            test/account_onboarding_api_test.dart \
+            test/legal_privacy_api_test.dart \
+            test/remote_config_test.dart
 
-      - name: Verify shared onboarding component system
+      - name: Verify shared onboarding component and runtime config system
         working-directory: packages/lifemate_ui
         shell: bash
         run: |
@@ -74,7 +77,8 @@ jobs:
             test/onboarding_components_test.dart \
             test/onboarding_v3_matrix_test.dart \
             test/shared_account_onboarding_test.dart \
-            test/shared_legal_privacy_test.dart
+            test/shared_legal_privacy_test.dart \
+            test/remote_config_gate_test.dart
 
       - name: Prove product-specific V3 contracts
         shell: bash
@@ -84,6 +88,8 @@ jobs:
             test/contextual_notification_permission_contract_test.dart \
             test/wellmate_first_value_api_test.dart \
             test/women_health_activation_api_test.dart \
-            test/women_health_activation_v3_contract_test.dart)
+            test/women_health_activation_v3_contract_test.dart \
+            test/remote_config_v3_contract_test.dart)
           (cd caremate && flutter pub get && flutter test \
-            test/caremate_relationship_v3_contract_test.dart)
+            test/caremate_relationship_v3_contract_test.dart \
+            test/remote_config_v3_contract_test.dart)
