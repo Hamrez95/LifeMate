@@ -31,7 +31,7 @@ begin
   end if;
 
   v_definition:=lower(pg_get_functiondef(v_create));
-  if position("'pending'" in v_definition)=0 then
+  if position('''pending''' in v_definition)=0 then
     raise exception 'reward engine must create Pending evidence, not fabricate external issuance';
   end if;
   if position('for update' in v_definition)=0 then
