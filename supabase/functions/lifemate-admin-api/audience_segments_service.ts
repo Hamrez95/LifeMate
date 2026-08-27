@@ -74,9 +74,11 @@ function mapSegment(row: Record<string, unknown>): SegmentRecord {
   };
 }
 
-function lifecycle(lastActiveAtUtc: unknown): { days: number; label: string } {
-  if (lastActiveAtUtc == null) return { days: 36500, label: "never_active" };
-  const millis = Date.now() - new Date(String(lastActiveAtUtc)).getTime();
+function lifecycle(lastActiveAtUtc: unknown): { days: number | null; label: string } {
+  if (lastActiveAtUtc == null) return { days: null, label: "never_active" };
+  const timestamp = new Date(String(lastActiveAtUtc)).getTime();
+  if (!Number.isFinite(timestamp)) return { days: null, label: "never_active" };
+  const millis = Date.now() - timestamp;
   const days = Math.max(0, Math.floor(millis / 86_400_000));
   if (days <= 7) return { days, label: "active_7d" };
   if (days <= 30) return { days, label: "active_30d" };
@@ -96,8 +98,10 @@ function toSubject(row: SubjectRow): SegmentSubject {
     "subscription.status": normalizedArray(row.subscription_statuses),
     "entitlement.code": normalizedArray(row.entitlement_codes),
     "engagement.lifecycle": activity.label,
-    "engagement.last_active_days": activity.days,
   };
+  if (activity.days !== null) {
+    subject["engagement.last_active_days"] = activity.days;
+  }
   const locale = typeof row.locale === "string" ? row.locale.trim() : "";
   if (locale) subject["demographic.locale"] = locale;
   return subject;
