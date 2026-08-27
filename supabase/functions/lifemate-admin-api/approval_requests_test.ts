@@ -38,6 +38,30 @@ Deno.test("approval request payload is bounded and hashes canonically", async ()
   assertEquals(await hashCreateApprovalRequest(left),await hashCreateApprovalRequest(right));
 });
 
+Deno.test("generic approval state rejects sensitive payload fields", async () => {
+  for (const unsafe of [
+    {healthStatus:"private"},
+    {medicationName:"private"},
+    {patientNote:"private"},
+    {phone:"+000000000"},
+    {secretToken:"private"},
+  ]) {
+    const error=await assertRejects(
+      () => parseCreateApprovalRequest(request({
+        requestType:"commerce.entitlement.adjust",
+        targetType:"account",
+        targetId:"opaque-account-id",
+        before:{},
+        delta:unsafe,
+        after:{},
+        reason:"Request a reviewed business-state adjustment.",
+      })),
+      ApiError,
+    );
+    assertEquals(error.code,"approval_state_sensitive");
+  }
+});
+
 Deno.test("approval decisions require optimistic version and explicit reason", async () => {
   const parsed=await parseDecideApprovalRequest(request({
     expectedVersion:3,
@@ -63,6 +87,7 @@ Deno.test("approval route matching is explicit", () => {
 Deno.test("approval ledger is server-only, purpose-scoped and self-approval defaults denied", async () => {
   const migration=await Deno.readTextFile(new URL("../../migrations/20260827013000_admin_approval_adjustment_ledger.sql",import.meta.url));
   const rls=await Deno.readTextFile(new URL("../../migrations/20260827013100_admin_approval_runtime_rls.sql",import.meta.url));
+  const bounds=await Deno.readTextFile(new URL("../../migrations/20260827013200_admin_approval_payload_bounds.sql",import.meta.url));
   const routes=await Deno.readTextFile(new URL("./approval_requests_routes.ts",import.meta.url));
   const service=await Deno.readTextFile(new URL("./approval_requests_service.ts",import.meta.url));
 
@@ -74,6 +99,8 @@ Deno.test("approval ledger is server-only, purpose-scoped and self-approval defa
   assertStringIncludes(migration,"consume_approval_request");
   assertStringIncludes(migration,"Must be called inside the same database transaction as the purpose-specific mutation");
   assertStringIncludes(rls,"lifemate_admin_runtime_rw");
+  assertStringIncludes(bounds,"octet_length(before_json::text) <= 16384");
+  assertStringIncludes(bounds,"raw health/contact/secret payloads are prohibited");
   assertStringIncludes(migration,"revoke all on table admin.approval_requests from public,anon,authenticated");
   assertStringIncludes(routes,'requirePermission(admin,"operations.approval.read")');
   assert(!routes.includes("service_role"));
