@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:lifemate_client/lifemate_client.dart';
+import 'package:lifemate_ui/lifemate_ui.dart';
 import 'package:provider/provider.dart';
 
 import 'women_companion_screen.dart';
@@ -86,6 +87,32 @@ class _WomenHealthEntryScreenState extends State<WomenHealthEntryScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final remoteEnabled = LifeMateRuntimeConfigScope.maybeOf(context)?.boolFlag(
+          'client.women_calendar.enabled',
+          defaultValue: false,
+        ) ??
+        false;
+    if (!LifeMateFeatureFlags.womenCalendarPilotEnabled || !remoteEnabled) {
+      return Center(
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Icon(Icons.visibility_off_outlined, size: 40),
+              const SizedBox(height: 12),
+              Text(
+                LifeMateRuntimeLocale.select(
+                  fa: 'Women Health فعلاً در دسترس نیست.',
+                  en: 'Women Health is temporarily unavailable.',
+                ),
+                textAlign: TextAlign.center,
+              ),
+            ],
+          ),
+        ),
+      );
+    }
     if (_loading) return const Center(child: CircularProgressIndicator());
     if (_error != null) {
       return Center(
