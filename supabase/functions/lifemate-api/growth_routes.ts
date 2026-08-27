@@ -1,3 +1,4 @@
+import { createExperimentAssignmentRouteHandler } from "./experiment_assignments_routes.ts";
 import { createGrowthStore } from "./growth.ts";
 import { requireMutationIdempotencyKey } from "./idempotency.ts";
 import { json } from "./http.ts";
@@ -24,6 +25,10 @@ export function createGrowthRouteHandler(
   supportAttachments?: AttachmentRuntime,
 ) {
   const store = createGrowthStore(databaseUrl, contactHashingSecret);
+  const experimentAssignmentRoutes = createExperimentAssignmentRouteHandler(
+    databaseUrl,
+    contactHashingSecret,
+  );
   const legalPrivacyRoutes = createLegalPrivacyRouteHandler(databaseUrl);
   const productTelemetryRoutes = createProductTelemetryV2RouteHandler(databaseUrl);
   const pushRegistrationRoutes = createPushRegistrationRouteHandler(databaseUrl);
@@ -37,6 +42,9 @@ export function createGrowthRouteHandler(
     path: string;
     appUserId: string;
   }): Promise<Response | null> {
+    const experimentAssignmentResponse = await experimentAssignmentRoutes(input);
+    if (experimentAssignmentResponse) return experimentAssignmentResponse;
+
     const legalPrivacyResponse = await legalPrivacyRoutes(input);
     if (legalPrivacyResponse) return legalPrivacyResponse;
 
