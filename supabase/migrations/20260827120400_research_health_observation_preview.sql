@@ -17,6 +17,7 @@ declare
   v_export_policy analytics.export_policies%rowtype;
   v_cohort integer;
   v_cells jsonb;
+  v_suppressed_cells integer;
 begin
   if not admin.account_is_active_founder(p_actor) then
     raise exception using errcode='42501',message='research_founder_required';
@@ -69,6 +70,7 @@ begin
       'eligible',false,
       'reason','minimum_cohort_not_met',
       'cohortSize',null,
+      'suppressedCellCount',null,
       'cells','[]'::jsonb
     );
   end if;
@@ -81,9 +83,17 @@ begin
       h.value_primary,
       case when v_policy.age_bucket_years is null or p.birth_date is null then null
         else (
-          greatest(0,(ceil(extract(year from age(h.observed_local_date,p.birth_date))::numeric / v_policy.age_bucket_years) * v_policy.age_bucket_years - v_policy.age_bucket_years)::integer)::text
+          greatest(0,(
+            case when extract(year from age(h.observed_local_date,p.birth_date))::integer=0
+              then v_policy.age_bucket_years
+              else ceil(extract(year from age(h.observed_local_date,p.birth_date))::numeric / v_policy.age_bucket_years) * v_policy.age_bucket_years
+            end - v_policy.age_bucket_years
+          )::integer)::text
           || '–' ||
-          (ceil(extract(year from age(h.observed_local_date,p.birth_date))::numeric / v_policy.age_bucket_years) * v_policy.age_bucket_years)::integer::text
+          (case when extract(year from age(h.observed_local_date,p.birth_date))::integer=0
+            then v_policy.age_bucket_years
+            else ceil(extract(year from age(h.observed_local_date,p.birth_date))::numeric / v_policy.age_bucket_years) * v_policy.age_bucket_years
+          end)::integer::text
         ) end as age_bucket,
       p.home_region
     from lifemate.health_observations h
@@ -107,32 +117,21 @@ begin
     from source_rows
     group by observation_type,unit_primary,age_bucket,home_region
   )
-  select coalesce(jsonb_agg(
-    case when subject_count < v_policy.small_cell_threshold then
+  select
+    coalesce(jsonb_agg(
       jsonb_build_object(
         'observationType',observation_type,
         'unit',unit_primary,
         'ageBucket',age_bucket,
         'homeRegion',home_region,
-        'suppressed',true,
-        'subjectCount',null,
-        'observationCount',null,
-        'averageValue',null
-      )
-    else
-      jsonb_build_object(
-        'observationType',observation_type,
-        'unit',unit_primary,
-        'ageBucket',age_bucket,
-        'homeRegion',home_region,
-        'suppressed',false,
         'subjectCount',subject_count,
         'observationCount',observation_count,
         'averageValue',average_value
-      )
-    end
-    order by observation_type,unit_primary,age_bucket,home_region
-  ),'[]'::jsonb) into v_cells from grouped;
+      ) order by observation_type,unit_primary,age_bucket,home_region
+    ) filter (where subject_count >= v_policy.small_cell_threshold),'[]'::jsonb),
+    count(*) filter (where subject_count < v_policy.small_cell_threshold)::integer
+  into v_cells,v_suppressed_cells
+  from grouped;
 
   return jsonb_build_object(
     'datasetId',p_dataset_id,
@@ -141,6 +140,7 @@ begin
     'eligible',true,
     'reason',null,
     'cohortSize',v_cohort,
+    'suppressedCellCount',v_suppressed_cells,
     'cells',v_cells
   );
 end $$;
