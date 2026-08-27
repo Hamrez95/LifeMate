@@ -31,6 +31,18 @@ Deno.test("research filter vocabulary rejects raw/private fields", () => {
   }));
 });
 
+Deno.test("research filter dates require real calendar dates", () => {
+  assertThrows(() => parseResearchDatasetFilters("HealthObservationAggregate", {
+    observedFrom: "2026-02-30",
+  }));
+  assertThrows(() => parseResearchDatasetFilters("WomenCycleAggregate", {
+    loggedFrom: "2025-02-29",
+  }));
+  assertEquals(parseResearchDatasetFilters("WomenCycleAggregate", {
+    loggedFrom: "2024-02-29",
+  }), { loggedFrom: "2024-02-29" });
+});
+
 Deno.test("research filter ranges fail closed", () => {
   assertThrows(() => parseResearchDatasetFilters("DoseAdherenceAggregate", {
     ageMin: 50,
