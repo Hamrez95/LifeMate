@@ -58,9 +58,9 @@ export function assertCohortExportable(cohortSize: number, policy: ResearchPriva
 }
 
 export function rejectDirectIdentifierFields(fields: string[]) {
-  const forbidden = /(^|[._-])(email|phone|mobile|name|address|national[_-]?id|contact|token|external[_-]?id)([._-]|$)/i;
+  const forbidden = /(^|[._-])(email|phone|mobile|name|address|national[_-]?id|contact|token|external[_-]?id|person[_-]?id|account[_-]?id|app[_-]?user[_-]?id|auth[_-]?user[_-]?id|user[_-]?id)([._-]|$)/i;
   const match = fields.find((field) => forbidden.test(field));
   if (match) {
-    throw new ApiError(400, "research_direct_identifier_forbidden", "Direct identifiers cannot be exported in a research dataset.");
+    throw new ApiError(400, "research_direct_identifier_forbidden", "Direct or linkable identifiers cannot be exported in a research dataset.");
   }
 }
