@@ -1,3 +1,4 @@
+import { createClientRemoteConfigRouteHandler } from "./client_remote_config_routes.ts";
 import { createGrowthStore } from "./growth.ts";
 import { requireMutationIdempotencyKey } from "./idempotency.ts";
 import { json } from "./http.ts";
@@ -16,6 +17,7 @@ export function createGrowthRouteHandler(
   const store = createGrowthStore(databaseUrl, contactHashingSecret);
   const legalPrivacyRoutes = createLegalPrivacyRouteHandler(databaseUrl);
   const productTelemetryRoutes = createProductTelemetryV2RouteHandler(databaseUrl);
+  const clientRemoteConfigRoutes = createClientRemoteConfigRouteHandler(databaseUrl);
 
   return async function growthRouteHandler(input: {
     request: Request;
@@ -26,6 +28,8 @@ export function createGrowthRouteHandler(
     if (legalPrivacyResponse) return legalPrivacyResponse;
     const productTelemetryResponse = await productTelemetryRoutes(input);
     if (productTelemetryResponse) return productTelemetryResponse;
+    const clientRemoteConfigResponse = await clientRemoteConfigRoutes(input);
+    if (clientRemoteConfigResponse) return clientRemoteConfigResponse;
 
     const { request, path, appUserId } = input;
 
