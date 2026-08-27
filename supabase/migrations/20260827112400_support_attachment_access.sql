@@ -29,9 +29,12 @@ begin
   end if;
   if not exists (
     select 1 from support.conversation_messages m
-    where m.id=p_message_id and m.ticket_id=p_ticket_id
+    where m.id=p_message_id
+      and m.ticket_id=p_ticket_id
+      and m.sender_kind='User'
+      and m.sender_account_id=p_requester_account_id
   ) then
-    raise exception using errcode='23503', message='support_message_not_found';
+    raise exception using errcode='23503', message='support_message_not_owned';
   end if;
   if p_storage_object_path not like p_requester_account_id::text || '/' || p_ticket_id::text || '/' || p_message_id::text || '/%' then
     raise exception using errcode='22023', message='support_attachment_path_invalid';
@@ -96,6 +99,7 @@ $$;
 
 create or replace function support.get_user_support_attachment_download(
     p_requester_account_id uuid,
+    p_ticket_id uuid,
     p_attachment_id uuid
 ) returns table(
     attachment_id uuid,
@@ -115,6 +119,7 @@ begin
   join support.conversation_messages m on m.id=a.message_id
   join support.tickets t on t.id=m.ticket_id
   where a.id=p_attachment_id
+    and t.id=p_ticket_id
     and t.requester_account_id=p_requester_account_id
     and a.scan_status='Available';
 end
@@ -122,14 +127,14 @@ $$;
 
 revoke all on function support.register_user_support_attachment(uuid,uuid,uuid,character varying,character varying,bigint,character varying,character) from public;
 revoke all on function support.finalize_user_support_attachment_scan(uuid,uuid,character varying,character varying) from public;
-revoke all on function support.get_user_support_attachment_download(uuid,uuid) from public;
+revoke all on function support.get_user_support_attachment_download(uuid,uuid,uuid) from public;
 
 do $$
 begin
   if exists(select 1 from pg_roles where rolname='lifemate_edge_runtime') then
     grant execute on function support.register_user_support_attachment(uuid,uuid,uuid,character varying,character varying,bigint,character varying,character) to lifemate_edge_runtime;
     grant execute on function support.finalize_user_support_attachment_scan(uuid,uuid,character varying,character varying) to lifemate_edge_runtime;
-    grant execute on function support.get_user_support_attachment_download(uuid,uuid) to lifemate_edge_runtime;
+    grant execute on function support.get_user_support_attachment_download(uuid,uuid,uuid) to lifemate_edge_runtime;
   end if;
 end
 $$;
