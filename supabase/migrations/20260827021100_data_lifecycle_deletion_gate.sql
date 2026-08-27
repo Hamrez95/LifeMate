@@ -117,7 +117,7 @@ end $$;
 
 drop trigger if exists trg_retention_hold_refresh_outbox on security.retention_holds;
 create trigger trg_retention_hold_refresh_outbox
-after insert or update of status,expires_at_utc or delete on security.retention_holds
+after insert or update or delete on security.retention_holds
 for each row execute function security.retention_hold_refresh_outbox();
 
 create or replace function identity.enforce_account_deletion_gate()
@@ -129,7 +129,7 @@ as $$
 declare
   v_eligible record;
 begin
-  if new.status='Processing' and old.status is distinct from 'Processing' then
+  if new.status='Processing' then
     select * into v_eligible from identity.account_deletion_execution_eligibility(new.id);
     if v_eligible.eligible is distinct from true then
       raise exception '%',coalesce(v_eligible.code,'deletion_not_eligible');
@@ -143,8 +143,7 @@ create trigger trg_enforce_account_deletion_gate
 before update of status on identity.account_deletion_requests
 for each row execute function identity.enforce_account_deletion_gate();
 
--- Recompute currently pending request eligibility from the newly seeded policy,
--- but never make an existing request later than a previously promised date.
+-- Preserve existing promised execution dates while upgrading version evidence.
 update identity.account_deletion_requests r
 set eligible_at_utc=coalesce(r.eligible_at_utc,r.requested_at_utc),
     retention_policy_version=case
