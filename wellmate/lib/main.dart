@@ -233,9 +233,13 @@ class WellMateApp extends StatelessWidget {
       authenticatedBuilder: (context, apiClient) =>
           Provider<LifeMateApiClient>.value(
             value: apiClient,
-            child: LifeMateAccountOnboardingGate(
-              child: WellMateFirstValueGate(
-                child: _AuthenticatedWellMateShell(apiClient: apiClient),
+            child: LifeMateRuntimeConfigGate(
+              product: 'wellmate',
+              currentVersion: wellMateAppVersion,
+              child: LifeMateAccountOnboardingGate(
+                child: WellMateFirstValueGate(
+                  child: _AuthenticatedWellMateShell(apiClient: apiClient),
+                ),
               ),
             ),
           ),
