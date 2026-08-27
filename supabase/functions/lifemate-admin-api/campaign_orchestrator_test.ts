@@ -27,6 +27,20 @@ const executionId = "123e4567-e89b-42d3-a456-426614174000";
 const campaignId = "123e4567-e89b-42d3-a456-426614174001";
 const snapshotId = "123e4567-e89b-42d3-a456-426614174002";
 
+Deno.test("campaign orchestrator is wired through canonical marketing dispatcher", async () => {
+  const routes = await Deno.readTextFile(
+    new URL("./marketing_campaigns_routes.ts", import.meta.url),
+  );
+  assert(
+    routes.includes("createCampaignOrchestratorRouteHandler"),
+    "canonical marketing dispatcher must construct campaign orchestrator",
+  );
+  assert(
+    routes.includes("campaignOrchestratorRouteHandler(context)"),
+    "canonical marketing dispatcher must forward authenticated context",
+  );
+});
+
 Deno.test("campaign prepare normalizes channels and optional SMS pricing", () => {
   const payload = parsePrepareCampaignExecution({
     campaignId,
