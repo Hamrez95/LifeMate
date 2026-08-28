@@ -28,6 +28,15 @@ Deno.test("privacy directory query is bounded and typed", () => {
     ).status,
     "Revoked",
   );
+  assertEquals(
+    parseDirectoryQuery(
+      new URL(
+        "https://example.test/api/v1/privacy/preference-purposes?status=Retired",
+      ),
+      "preference-policy",
+    ).status,
+    "Retired",
+  );
   assertThrows(
     () =>
       parseDirectoryQuery(
@@ -45,6 +54,16 @@ Deno.test("privacy directory query is bounded and typed", () => {
           "https://example.test/api/v1/privacy/preferences?pageSize=1000",
         ),
         "preference",
+      ),
+    ApiError,
+  );
+  assertThrows(
+    () =>
+      parseDirectoryQuery(
+        new URL(
+          "https://example.test/api/v1/privacy/preference-purposes?status=Enabled",
+        ),
+        "preference-policy",
       ),
     ApiError,
   );
@@ -68,6 +87,31 @@ Deno.test("privacy routes fail before database access without permission", async
   };
   await assertRejects(
     () => handler(context),
+    ApiError,
+    "Administrative permission is required",
+  );
+});
+
+Deno.test("preference-purpose policy directory requires privacy read before database access", async () => {
+  const handler = createPrivacyConsentRouteHandler(
+    "postgres://127.0.0.1:1/unused",
+  );
+  await assertRejects(
+    () =>
+      handler({
+        request: new Request(
+          "https://example.test/api/v1/privacy/preference-purposes",
+        ),
+        path: "/api/v1/privacy/preference-purposes",
+        accountId: "11111111-1111-4111-8111-111111111111",
+        admin: {
+          accountId: "11111111-1111-4111-8111-111111111111",
+          roles: ["support"],
+          permissions: ["support.read"],
+        },
+        correlationId: "22222222-2222-4222-8222-222222222222",
+        origin: null,
+      }),
     ApiError,
     "Administrative permission is required",
   );

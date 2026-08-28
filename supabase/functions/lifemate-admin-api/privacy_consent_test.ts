@@ -50,3 +50,14 @@ Deno.test("privacy contract exposes no admin acceptance or user opt-in mutation"
   assertEquals(source.includes("preferences/opt-in"), false);
   assertEquals(source.includes("accountPreferenceMutableFromAdmin:false"), true);
 });
+
+Deno.test("preference-purpose policy directory is admin-runtime only and uses policy timestamps", async () => {
+  const migration = await Deno.readTextFile(
+    new URL("../../migrations/20260828094000_admin_preference_purpose_policy_directory.sql", import.meta.url),
+  );
+  assertEquals(migration.includes("from consent.preference_purposes p"), true);
+  assertEquals(migration.includes("p.updated_at_utc"), true);
+  assertEquals(migration.includes("consent.data_use_consents"), false);
+  assertEquals(migration.includes("grant select on consent.admin_preference_purpose_policy_directory_v1 to lifemate_admin_runtime"), true);
+  assertEquals(migration.includes("array['anon','authenticated','lifemate_edge_runtime']"), true);
+});
