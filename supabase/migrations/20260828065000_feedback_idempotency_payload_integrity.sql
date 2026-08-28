@@ -2,7 +2,23 @@ begin;
 
 -- #507: an idempotency key represents one immutable logical submission.
 -- Reusing it with any user-visible/context field changed must fail closed rather
--- than silently returning the first row.
+-- than silently returning the first row. Advocacy consent is exclusive to the
+-- Advocacy surface and must never be inferred from ordinary feedback.
+do $$
+begin
+  if not exists (
+    select 1 from pg_constraint
+    where conrelid='feedback.items'::regclass
+      and conname='feedback_advocacy_exclusive_shape'
+  ) then
+    alter table feedback.items
+      add constraint feedback_advocacy_exclusive_shape
+      check (kind='Advocacy' or not advocacy_opt_in) not valid;
+  end if;
+end
+$$;
+alter table feedback.items validate constraint feedback_advocacy_exclusive_shape;
+
 create or replace function feedback.submit_item(
   p_app_user_id uuid,
   p_kind feedback.item_kind,
@@ -47,6 +63,9 @@ begin
   end if;
   if p_kind='Advocacy' and not v_advocacy_opt_in then
     raise exception 'advocacy_opt_in_required' using errcode='22023';
+  end if;
+  if p_kind<>'Advocacy' and v_advocacy_opt_in then
+    raise exception 'advocacy_opt_in_forbidden' using errcode='22023';
   end if;
 
   insert into feedback.items(
