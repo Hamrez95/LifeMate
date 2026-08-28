@@ -23,25 +23,15 @@ async function resolveCarePeople(
 ): Promise<{ caregiverPersonId: string; patientPersonId: string }> {
   const rows = await connection`
     select
-      core.self_person_id_for_legacy_app_user(
-        ${caregiverAppUserId}::uuid
-      )::text as caregiver_person_id,
-      core.self_person_id_for_legacy_app_user(
-        ${patientAppUserId}::uuid
-      )::text as patient_person_id
+      core.self_person_id_for_legacy_app_user(${caregiverAppUserId}::uuid)::text as caregiver_person_id,
+      core.self_person_id_for_legacy_app_user(${patientAppUserId}::uuid)::text as patient_person_id
   `;
   const caregiverPersonId = rows[0]?.caregiver_person_id;
   if (typeof caregiverPersonId !== "string" || caregiverPersonId.length === 0) {
-    throw new ApiError(
-      409,
-      "identity_person_mapping_missing",
-      "The LifeMate person mapping is unavailable.",
-    );
+    throw new ApiError(409, "identity_person_mapping_missing", "The LifeMate person mapping is unavailable.");
   }
   const patientPersonId = rows[0]?.patient_person_id;
-  if (typeof patientPersonId !== "string" || patientPersonId.length === 0) {
-    throw accessDenied();
-  }
+  if (typeof patientPersonId !== "string" || patientPersonId.length === 0) throw accessDenied();
   return { caregiverPersonId, patientPersonId };
 }
 
@@ -49,10 +39,7 @@ export function createPersonWomenCalendarCaregiverStore(databaseUrl: string) {
   const sql = getLifeMateSql(databaseUrl);
   const base = createBasePersonWomenCalendarStore(databaseUrl);
 
-  async function resolveActiveRelationship(
-    caregiverPersonId: string,
-    patientPersonId: string,
-  ): Promise<Row> {
+  async function resolveActiveRelationship(caregiverPersonId: string, patientPersonId: string): Promise<Row> {
     const rows = await sql`
       select r.id, s.*
       from lifemate.care_relationships r
@@ -66,20 +53,10 @@ export function createPersonWomenCalendarCaregiverStore(databaseUrl: string) {
     return rows[0];
   }
 
-  async function getCareSummary(
-    caregiverAppUserId: string,
-    patientAppUserIdValue: unknown,
-  ): Promise<Record<string, unknown>> {
+  async function getCareSummary(caregiverAppUserId: string, patientAppUserIdValue: unknown): Promise<Record<string, unknown>> {
     const patientAppUserId = requiredUuid(patientAppUserIdValue, "patientUserId");
-    const { caregiverPersonId, patientPersonId } = await resolveCarePeople(
-      sql,
-      caregiverAppUserId,
-      patientAppUserId,
-    );
-    const relationship = await resolveActiveRelationship(
-      caregiverPersonId,
-      patientPersonId,
-    );
+    const { caregiverPersonId, patientPersonId } = await resolveCarePeople(sql, caregiverAppUserId, patientAppUserId);
+    const relationship = await resolveActiveRelationship(caregiverPersonId, patientPersonId);
     const privacy = companionPrivacy(relationship);
     if (!Object.values(privacy).some(Boolean)) throw accessDenied();
 
@@ -88,13 +65,7 @@ export function createPersonWomenCalendarCaregiverStore(databaseUrl: string) {
       where owner_person_id=${patientPersonId}::uuid and enabled=true
       limit 1
     `;
-    if (!profiles[0]) {
-      throw new ApiError(
-        404,
-        "women_calendar_not_active",
-        "Women calendar is not active for this patient.",
-      );
-    }
+    if (!profiles[0]) throw new ApiError(404, "women_calendar_not_active", "Women calendar is not active for this patient.");
 
     const patientProfiles = await sql`
       select display_name,avatar_key from core.person_profiles
@@ -106,8 +77,7 @@ export function createPersonWomenCalendarCaregiverStore(databaseUrl: string) {
         from lifemate.women_calendar_episodes
         where owner_person_id=${patientPersonId}::uuid
         order by started_on desc,id limit 12
-      `
-      : [];
+      ` : [];
     const actions = privacy.viewSharedWellbeing
       ? await sql`
         select action_type,performed_at_utc
@@ -115,8 +85,7 @@ export function createPersonWomenCalendarCaregiverStore(databaseUrl: string) {
         where relationship_id=${relationship.id}::uuid
           and patient_person_id=${patientPersonId}::uuid
         order by performed_at_utc desc,id limit 20
-      `
-      : [];
+      ` : [];
     const guidanceHistory = await sql`
       select guidance_id,shown_at_utc
       from lifemate.women_companion_guidance_history
@@ -133,8 +102,7 @@ export function createPersonWomenCalendarCaregiverStore(databaseUrl: string) {
           and share_summary_with_companion=true
           and logged_on >= current_date - interval '14 days'
         order by logged_on desc,id limit 1
-      `
-      : [];
+      ` : [];
 
     const profile = profiles[0];
     const lastPeriodStart = dateString(profile.last_period_start);
@@ -145,9 +113,7 @@ export function createPersonWomenCalendarCaregiverStore(databaseUrl: string) {
       episodes.map((episode: Row) => dateString(episode.started_on)),
     );
     const estimate = presentEstimate(rawEstimate, privacy);
-    const canonicalSharedLog = sharedLogs[0]
-      ? mapDailyLogCompanion(sharedLogs[0])
-      : null;
+    const canonicalSharedLog = sharedLogs[0] ? mapDailyLogCompanion(sharedLogs[0]) : null;
     const sharedDailySummary = canonicalSharedLog == null ? null : {
       date: canonicalSharedLog.loggedOn,
       mood: canonicalSharedLog.mood,
@@ -173,10 +139,7 @@ export function createPersonWomenCalendarCaregiverStore(databaseUrl: string) {
       episodes: privacy.viewCalendarDetail ? episodes.map(mapEpisodeCaregiver) : [],
       latestSharedDailyLog: privacy.viewSharedWellbeing ? canonicalSharedLog : null,
       supportActions: privacy.viewSharedWellbeing
-        ? actions.map((row: Row) => ({
-            actionType: String(row.action_type).toLowerCase(),
-            performedAtUtc: iso(row.performed_at_utc),
-          }))
+        ? actions.map((row: Row) => ({ actionType: String(row.action_type).toLowerCase(), performedAtUtc: iso(row.performed_at_utc) }))
         : [],
       guidanceHistory: guidanceHistory.map((row: Row) => ({
         guidanceId: String(row.guidance_id),
@@ -194,29 +157,14 @@ export function createPersonWomenCalendarCaregiverStore(databaseUrl: string) {
     const guidanceId = String(body.guidanceId ?? "").trim();
     const contentVersion = String(body.contentVersion ?? "").trim();
     const category = String(body.category ?? "").trim().toLowerCase();
-    if (guidanceId.length < 1 || guidanceId.length > 80) {
-      throw new ApiError(400, "invalid_companion_guidance_id", "Invalid guidance id.");
-    }
-    if (contentVersion.length < 1 || contentVersion.length > 40) {
-      throw new ApiError(400, "invalid_companion_content_version", "Invalid content version.");
-    }
-    if (!guidanceCategories.has(category)) {
-      throw new ApiError(400, "invalid_companion_guidance_category", "Invalid guidance category.");
-    }
+    if (guidanceId.length < 1 || guidanceId.length > 80) throw new ApiError(400, "invalid_companion_guidance_id", "Invalid guidance id.");
+    if (contentVersion.length < 1 || contentVersion.length > 40) throw new ApiError(400, "invalid_companion_content_version", "Invalid content version.");
+    if (!guidanceCategories.has(category)) throw new ApiError(400, "invalid_companion_guidance_category", "Invalid guidance category.");
 
-    const { caregiverPersonId, patientPersonId } = await resolveCarePeople(
-      sql,
-      caregiverAppUserId,
-      patientAppUserId,
-    );
+    const { caregiverPersonId, patientPersonId } = await resolveCarePeople(sql, caregiverAppUserId, patientAppUserId);
     const relationship = await resolveActiveRelationship(caregiverPersonId, patientPersonId);
     const privacy = companionPrivacy(relationship);
-    const allowed = category === "phase"
-      ? privacy.viewPhaseSummary
-      : category === "mood" || category === "energy"
-      ? privacy.viewSharedWellbeing
-      : privacy.viewPhaseSummary || privacy.viewSharedWellbeing;
-    if (!allowed) throw accessDenied();
+    if (!guidanceAllowed(guidanceId, category, privacy)) throw accessDenied();
 
     const rows = await sql`
       insert into lifemate.women_companion_guidance_history
@@ -226,11 +174,7 @@ export function createPersonWomenCalendarCaregiverStore(databaseUrl: string) {
          ${guidanceId},${contentVersion},${category})
       returning id,guidance_id,shown_at_utc
     `;
-    return {
-      id: rows[0].id,
-      guidanceId: rows[0].guidance_id,
-      shownAtUtc: iso(rows[0].shown_at_utc),
-    };
+    return { id: rows[0].id, guidanceId: rows[0].guidance_id, shownAtUtc: iso(rows[0].shown_at_utc) };
   }
 
   async function recordCareSupportAction(
@@ -241,15 +185,9 @@ export function createPersonWomenCalendarCaregiverStore(databaseUrl: string) {
     const patientAppUserId = requiredUuid(patientAppUserIdValue, "patientUserId");
     const normalized = String(body.actionType ?? "").trim().toLowerCase();
     const actionType = supportActions[normalized];
-    if (!actionType) {
-      throw new ApiError(400, "invalid_women_calendar_support_action", "Unsupported support action.");
-    }
+    if (!actionType) throw new ApiError(400, "invalid_women_calendar_support_action", "Unsupported support action.");
 
-    const { caregiverPersonId, patientPersonId } = await resolveCarePeople(
-      sql,
-      caregiverAppUserId,
-      patientAppUserId,
-    );
+    const { caregiverPersonId, patientPersonId } = await resolveCarePeople(sql, caregiverAppUserId, patientAppUserId);
     const relationship = await resolveActiveRelationship(caregiverPersonId, patientPersonId);
     if (!companionPrivacy(relationship).viewSharedWellbeing) throw accessDenied();
 
@@ -257,9 +195,7 @@ export function createPersonWomenCalendarCaregiverStore(databaseUrl: string) {
       select owner_person_id from lifemate.women_calendar_profiles
       where owner_person_id=${patientPersonId}::uuid and enabled=true limit 1
     `;
-    if (!profiles[0]) {
-      throw new ApiError(404, "women_calendar_not_active", "Women calendar is not active for this patient.");
-    }
+    if (!profiles[0]) throw new ApiError(404, "women_calendar_not_active", "Women calendar is not active for this patient.");
 
     const id = crypto.randomUUID();
     const now = new Date();
@@ -271,26 +207,11 @@ export function createPersonWomenCalendarCaregiverStore(databaseUrl: string) {
          ${actionType},${now},${now},${patientPersonId}::uuid)
       returning action_type,performed_at_utc
     `;
-    await insertAudit(
-      sql,
-      caregiverAppUserId,
-      "women_calendar.support_action_recorded",
-      "women_calendar_support_action",
-      id,
-    );
-    return {
-      id,
-      actionType: String(rows[0].action_type).toLowerCase(),
-      performedAtUtc: iso(rows[0].performed_at_utc),
-    };
+    await insertAudit(sql, caregiverAppUserId, "women_calendar.support_action_recorded", "women_calendar_support_action", id);
+    return { id, actionType: String(rows[0].action_type).toLowerCase(), performedAtUtc: iso(rows[0].performed_at_utc) };
   }
 
-  return {
-    ...base,
-    getCareSummary,
-    recordGuidanceImpression,
-    recordCareSupportAction,
-  };
+  return { ...base, getCareSummary, recordGuidanceImpression, recordCareSupportAction };
 }
 
 export { createPersonWomenCalendarCaregiverStore as createPersonWomenCalendarStore };
@@ -319,12 +240,26 @@ function companionPrivacy(row: Row): CompanionPrivacy {
   };
 }
 
+export function guidanceAllowed(
+  guidanceId: string,
+  category: string,
+  privacy: CompanionPrivacy,
+): boolean {
+  if (guidanceId.startsWith("notify.phase.period_start.")) {
+    return privacy.receivePhaseNotifications && privacy.viewPhaseSummary && privacy.viewPeriodTiming;
+  }
+  if (guidanceId.startsWith("notify.phase.")) {
+    return privacy.receivePhaseNotifications && privacy.viewPhaseSummary;
+  }
+  if (category === "phase") return privacy.viewPhaseSummary;
+  if (category === "mood" || category === "energy") return privacy.viewSharedWellbeing;
+  return privacy.viewPhaseSummary || privacy.viewSharedWellbeing;
+}
+
 function presentEstimate(estimate: any, privacy: CompanionPrivacy): Record<string, unknown> | null {
   if (privacy.viewFertilityEstimate) return estimate;
   if (!privacy.viewPhaseSummary) return null;
-  return Object.fromEntries(
-    Object.entries(estimate).filter(([key]) => !/fertil|ovulat/i.test(key)),
-  );
+  return Object.fromEntries(Object.entries(estimate).filter(([key]) => !/fertil|ovulat/i.test(key)));
 }
 
 function accessDenied(): ApiError {
@@ -332,12 +267,7 @@ function accessDenied(): ApiError {
 }
 
 function mapEpisodeCaregiver(row: Row): Record<string, unknown> {
-  return {
-    id: row.id,
-    startedOn: dateString(row.started_on),
-    endedOn: row.ended_on == null ? null : dateString(row.ended_on),
-    version: row.version,
-  };
+  return { id: row.id, startedOn: dateString(row.started_on), endedOn: row.ended_on == null ? null : dateString(row.ended_on), version: row.version };
 }
 
 function mapDailyLogCompanion(row: Row): Record<string, unknown> {
@@ -350,19 +280,12 @@ function mapDailyLogCompanion(row: Row): Record<string, unknown> {
   };
 }
 
-async function insertAudit(
-  connection: any,
-  actorAppUserId: string,
-  action: string,
-  resourceType: string,
-  resourceId: string,
-): Promise<void> {
+async function insertAudit(connection: any, actorAppUserId: string, action: string, resourceType: string, resourceId: string): Promise<void> {
   await connection`
     insert into lifemate.audit_logs
       (id,actor_user_id,action,resource_type,resource_id,metadata_json,created_at_utc)
     values
-      (${crypto.randomUUID()}::uuid,${actorAppUserId}::uuid,${action},
-       ${resourceType},${resourceId}::uuid,null,now())
+      (${crypto.randomUUID()}::uuid,${actorAppUserId}::uuid,${action},${resourceType},${resourceId}::uuid,null,now())
   `;
 }
 
