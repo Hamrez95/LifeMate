@@ -6,6 +6,35 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'app_config.dart';
 
+class LifeMateSupportConversation {
+  const LifeMateSupportConversation({
+    required this.id,
+    required this.status,
+    required this.productCode,
+    required this.lastActivityAtUtc,
+  });
+
+  factory LifeMateSupportConversation.fromJson(Map<String, dynamic> json) {
+    final id = json['ticketId']?.toString() ?? '';
+    final status = json['status']?.toString() ?? '';
+    final activityRaw = json['lastActivityAtUtc']?.toString();
+    if (id.isEmpty || status.isEmpty || activityRaw == null) {
+      throw const FormatException('support_conversation_invalid');
+    }
+    return LifeMateSupportConversation(
+      id: id,
+      status: status,
+      productCode: json['productCode']?.toString(),
+      lastActivityAtUtc: DateTime.parse(activityRaw),
+    );
+  }
+
+  final String id;
+  final String status;
+  final String? productCode;
+  final DateTime lastActivityAtUtc;
+}
+
 class LifeMateSupportMessage {
   const LifeMateSupportMessage({
     required this.id,
@@ -87,24 +116,54 @@ class LifeMateSupportApi {
         queryParameters: query,
       );
 
+  Future<LifeMateSupportConversation?> current({
+    String? productCode,
+    String category = 'general',
+  }) async {
+    final data = _json(
+      await _client.get(
+        _uri('/api/v1/support/conversations/current', {
+          if (productCode != null && productCode.isNotEmpty) 'productCode': productCode,
+          'category': category,
+        }),
+        headers: await _headers(),
+      ),
+    );
+    final value = data['conversation'];
+    if (value == null) return null;
+    if (value is! Map) {
+      throw const FormatException('support_conversation_invalid');
+    }
+    return LifeMateSupportConversation.fromJson(Map<String, dynamic>.from(value));
+  }
+
   Future<Map<String, dynamic>> open({
     String? productCode,
     String category = 'general',
     required String body,
     required String clientMessageId,
-  }) async =>
-      _json(
-        await _client.post(
-          _uri('/api/v1/support/conversations'),
-          headers: await _headers(),
-          body: jsonEncode({
-            'productCode': productCode,
-            'category': category,
-            'body': body,
-            'clientMessageId': clientMessageId,
-          }),
-        ),
+  }) async {
+    final existing = await current(productCode: productCode, category: category);
+    if (existing != null) {
+      return send(
+        existing.id,
+        body: body,
+        clientMessageId: clientMessageId,
       );
+    }
+    return _json(
+      await _client.post(
+        _uri('/api/v1/support/conversations'),
+        headers: await _headers(),
+        body: jsonEncode({
+          'productCode': productCode,
+          'category': category,
+          'body': body,
+          'clientMessageId': clientMessageId,
+        }),
+      ),
+    );
+  }
 
   Future<List<LifeMateSupportMessage>> messages(
     String conversationId, {

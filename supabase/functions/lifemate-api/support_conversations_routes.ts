@@ -21,6 +21,21 @@ export function createSupportConversationRouteHandler(
   }): Promise<Response | null> => {
     const { request, path, appUserId } = input;
 
+    if (
+      request.method === "GET" &&
+      path === "/api/v1/support/conversations/current"
+    ) {
+      const url = new URL(request.url);
+      const productCode = optionalProductCode(
+        url.searchParams.get("productCode"),
+      );
+      const category = optionalCategory(url.searchParams.get("category")) ??
+        "general";
+      return json({
+        conversation: await store.current(appUserId, productCode, category),
+      });
+    }
+
     if (request.method === "POST" && path === "/api/v1/support/conversations") {
       enforceRateLimit(`support-open:${appUserId}`, 5, 24 * 60 * 60_000);
       const body = await readJsonObject(request);
@@ -42,13 +57,26 @@ export function createSupportConversationRouteHandler(
       const messageId = requiredUuid(attachmentUpload[2]);
       const fileName = requiredFileName(request.headers.get("x-file-name"));
       const declaredLength = Number(request.headers.get("content-length") ?? 0);
-      if (Number.isFinite(declaredLength) && declaredLength > supportAttachmentMaximumBytes) {
-        throw new ApiError(413, "support_attachment_too_large", "Attachment must be no larger than 10 MB.");
+      if (
+        Number.isFinite(declaredLength) &&
+        declaredLength > supportAttachmentMaximumBytes
+      ) {
+        throw new ApiError(
+          413,
+          "support_attachment_too_large",
+          "Attachment must be no larger than 10 MB.",
+        );
       }
       const bytes = new Uint8Array(await request.arrayBuffer());
       const contentType = request.headers.get("content-type") ?? "";
       const accountId = await store.accountIdForAppUser(appUserId);
-      const uploaded = await attachments.upload(accountId, ticketId, messageId, bytes, contentType);
+      const uploaded = await attachments.upload(
+        accountId,
+        ticketId,
+        messageId,
+        bytes,
+        contentType,
+      );
       const sha256 = await sha256Hex(bytes);
       let registered: Record<string, unknown>;
       try {
@@ -66,7 +94,11 @@ export function createSupportConversationRouteHandler(
         throw error;
       }
       const attachmentId = requiredResultUuid(registered.attachmentId);
-      const scan = await attachments.scan(bytes, uploaded.contentType, fileName);
+      const scan = await attachments.scan(
+        bytes,
+        uploaded.contentType,
+        fileName,
+      );
       const finalized = await store.finalizeAttachmentScan(
         appUserId,
         attachmentId,
@@ -94,7 +126,11 @@ export function createSupportConversationRouteHandler(
     );
     if (request.method === "GET" && attachmentDownload) {
       if (!attachments) throw attachmentRuntimeUnavailable();
-      enforceRateLimit(`support-attachment-download:${appUserId}`, 60, 60 * 60_000);
+      enforceRateLimit(
+        `support-attachment-download:${appUserId}`,
+        60,
+        60 * 60_000,
+      );
       const ticketId = requiredUuid(attachmentDownload[1]);
       const attachmentId = requiredUuid(attachmentDownload[2]);
       const available = await store.getAttachmentDownload(
@@ -173,7 +209,9 @@ export function createSupportConversationRouteHandler(
 function requiredUuid(value: unknown): string {
   if (
     typeof value !== "string" ||
-    !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value)
+    !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(
+      value,
+    )
   ) {
     throw new ApiError(400, "invalid_uuid", "Identifier is invalid.");
   }
@@ -181,7 +219,9 @@ function requiredUuid(value: unknown): string {
 }
 
 function requiredResultUuid(value: unknown): string {
-  if (typeof value !== "string") throw new Error("support_attachment_result_invalid");
+  if (typeof value !== "string") {
+    throw new Error("support_attachment_result_invalid");
+  }
   return requiredUuid(value);
 }
 
@@ -190,7 +230,11 @@ function requiredMessage(value: unknown): string {
     throw new ApiError(400, "support_message_invalid", "Message is invalid.");
   }
   const text = value.trim();
-  if (!text || text.length > 4000 || new TextEncoder().encode(text).byteLength > 12000) {
+  if (
+    !text ||
+    text.length > 4000 ||
+    new TextEncoder().encode(text).byteLength > 12000
+  ) {
     throw new ApiError(400, "support_message_invalid", "Message is invalid.");
   }
   return text;
@@ -198,8 +242,16 @@ function requiredMessage(value: unknown): string {
 
 function requiredFileName(value: string | null): string {
   const fileName = value?.trim() ?? "";
-  if (!fileName || fileName.length > 180 || /[\\/\u0000-\u001f]/.test(fileName)) {
-    throw new ApiError(400, "support_attachment_name_invalid", "Attachment file name is invalid.");
+  if (
+    !fileName ||
+    fileName.length > 180 ||
+    /[\\/\u0000-\u001f]/.test(fileName)
+  ) {
+    throw new ApiError(
+      400,
+      "support_attachment_name_invalid",
+      "Attachment file name is invalid.",
+    );
   }
   return fileName;
 }
@@ -207,11 +259,23 @@ function requiredFileName(value: string | null): string {
 function optionalProductCode(value: unknown): string | null {
   if (value == null || value === "") return null;
   if (typeof value !== "string") {
-    throw new ApiError(400, "support_product_invalid", "Support product is invalid.");
+    throw new ApiError(
+      400,
+      "support_product_invalid",
+      "Support product is invalid.",
+    );
   }
   const result = value.trim().toLowerCase();
-  if (!result || result.length > 64 || !/^[a-z0-9][a-z0-9_.:-]*$/.test(result)) {
-    throw new ApiError(400, "support_product_invalid", "Support product is invalid.");
+  if (
+    !result ||
+    result.length > 64 ||
+    !/^[a-z0-9][a-z0-9_.:-]*$/.test(result)
+  ) {
+    throw new ApiError(
+      400,
+      "support_product_invalid",
+      "Support product is invalid.",
+    );
   }
   return result;
 }
@@ -219,11 +283,19 @@ function optionalProductCode(value: unknown): string | null {
 function optionalCategory(value: unknown): string | null {
   if (value == null || value === "") return null;
   if (typeof value !== "string") {
-    throw new ApiError(400, "support_category_invalid", "Support category is invalid.");
+    throw new ApiError(
+      400,
+      "support_category_invalid",
+      "Support category is invalid.",
+    );
   }
   const result = value.trim().toLowerCase();
   if (!/^[a-z0-9_-]{1,64}$/.test(result)) {
-    throw new ApiError(400, "support_category_invalid", "Support category is invalid.");
+    throw new ApiError(
+      400,
+      "support_category_invalid",
+      "Support category is invalid.",
+    );
   }
   return result;
 }
@@ -251,9 +323,15 @@ function boundedLimit(value: string | null): number {
 
 async function sha256Hex(bytes: Uint8Array): Promise<string> {
   const digest = await crypto.subtle.digest("SHA-256", bytes);
-  return Array.from(new Uint8Array(digest)).map((value) => value.toString(16).padStart(2, "0")).join("");
+  return Array.from(new Uint8Array(digest)).map((value) =>
+    value.toString(16).padStart(2, "0")
+  ).join("");
 }
 
 function attachmentRuntimeUnavailable(): ApiError {
-  return new ApiError(503, "support_attachment_runtime_unavailable", "Attachment service is temporarily unavailable.");
+  return new ApiError(
+    503,
+    "support_attachment_runtime_unavailable",
+    "Attachment service is temporarily unavailable.",
+  );
 }

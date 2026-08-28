@@ -41,6 +41,7 @@ class _LifeMateSupportChatScreenState extends State<LifeMateSupportChatScreen> {
   String? _pendingAttachmentMessageId;
   String? _retryBody;
   String? _retryClientMessageId;
+  bool _resuming = true;
   bool _loading = false;
   bool _sending = false;
   bool _uploading = false;
@@ -51,6 +52,7 @@ class _LifeMateSupportChatScreenState extends State<LifeMateSupportChatScreen> {
     super.initState();
     _ownsApi = widget.api == null;
     _api = widget.api ?? LifeMateSupportApi.fromEnvironment();
+    unawaited(_resumeConversation());
     _poller = Timer.periodic(const Duration(seconds: 20), (_) {
       if (_conversationId != null && !_loading && !_sending) {
         unawaited(_loadMessages(silent: true));
@@ -68,6 +70,40 @@ class _LifeMateSupportChatScreenState extends State<LifeMateSupportChatScreen> {
   }
 
   String _t(String fa, String en) => widget.isPersian ? fa : en;
+
+  Future<void> _resumeConversation() async {
+    try {
+      final conversation = await _api.current(
+        productCode: widget.productCode,
+        category: 'general',
+      );
+      if (!mounted) return;
+      if (conversation == null) {
+        setState(() => _resuming = false);
+        return;
+      }
+      setState(() {
+        _conversationId = conversation.id;
+        _resuming = false;
+      });
+      await _loadMessages();
+    } on LifeMateSupportException catch (error) {
+      if (!mounted) return;
+      setState(() {
+        _resuming = false;
+        _error = _supportError(error.code);
+      });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() {
+        _resuming = false;
+        _error = _t(
+          'گفت‌وگوی قبلی دریافت نشد. می‌توانید دوباره تلاش کنید یا پیام جدید بفرستید.',
+          'Your previous conversation could not be loaded. Retry or send a new message.',
+        );
+      });
+    }
+  }
 
   Future<void> _pickImage() async {
     if (_uploading || _sending) return;
@@ -286,25 +322,27 @@ class _LifeMateSupportChatScreenState extends State<LifeMateSupportChatScreen> {
         child: Column(
           children: [
             Expanded(
-              child: _conversationId == null
-                  ? _EmptySupportState(
-                      accent: widget.accent,
-                      isPersian: widget.isPersian,
-                      fontFamily: widget.fontFamily,
-                    )
-                  : _loading && _messages.isEmpty
-                      ? const Center(child: CircularProgressIndicator())
-                      : ListView.builder(
-                          controller: _scrollController,
-                          padding: const EdgeInsets.fromLTRB(16, 12, 16, 20),
-                          itemCount: _messages.length,
-                          itemBuilder: (context, index) => _MessageBubble(
-                            message: _messages[index],
-                            accent: widget.accent,
-                            fontFamily: widget.fontFamily,
-                            isPersian: widget.isPersian,
-                          ),
-                        ),
+              child: _resuming
+                  ? const Center(child: CircularProgressIndicator())
+                  : _conversationId == null
+                      ? _EmptySupportState(
+                          accent: widget.accent,
+                          isPersian: widget.isPersian,
+                          fontFamily: widget.fontFamily,
+                        )
+                      : _loading && _messages.isEmpty
+                          ? const Center(child: CircularProgressIndicator())
+                          : ListView.builder(
+                              controller: _scrollController,
+                              padding: const EdgeInsets.fromLTRB(16, 12, 16, 20),
+                              itemCount: _messages.length,
+                              itemBuilder: (context, index) => _MessageBubble(
+                                message: _messages[index],
+                                accent: widget.accent,
+                                fontFamily: widget.fontFamily,
+                                isPersian: widget.isPersian,
+                              ),
+                            ),
             ),
             if (_error != null)
               Semantics(
