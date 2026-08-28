@@ -1,27 +1,59 @@
-import { assertEquals, assertRejects, assertThrows } from "jsr:@std/assert@1.0.14";
-import { createPrivacyConsentRouteHandler, parseDirectoryQuery } from "./privacy_consent_routes.ts";
+import {
+  assertEquals,
+  assertRejects,
+  assertThrows,
+} from "jsr:@std/assert@1.0.14";
+import {
+  createPrivacyConsentRouteHandler,
+  parseDirectoryQuery,
+} from "./privacy_consent_routes.ts";
 import { ApiError } from "./validation.ts";
 
 Deno.test("privacy directory query is bounded and typed", () => {
   assertEquals(
     parseDirectoryQuery(
-      new URL("https://example.test/api/v1/privacy/documents?page=2&pageSize=25&q=privacy&status=Published"),
+      new URL(
+        "https://example.test/api/v1/privacy/documents?page=2&pageSize=25&q=privacy&status=Active",
+      ),
       "document",
     ),
-    { q: "privacy", status: "Published", page: 2, pageSize: 25 },
+    { q: "privacy", status: "Active", page: 2, pageSize: 25 },
+  );
+  assertEquals(
+    parseDirectoryQuery(
+      new URL(
+        "https://example.test/api/v1/privacy/consents?status=Revoked",
+      ),
+      "consent",
+    ).status,
+    "Revoked",
   );
   assertThrows(
-    () => parseDirectoryQuery(new URL("https://example.test/api/v1/privacy/documents?status=Deleted"), "document"),
+    () =>
+      parseDirectoryQuery(
+        new URL(
+          "https://example.test/api/v1/privacy/documents?status=Deleted",
+        ),
+        "document",
+      ),
     ApiError,
   );
   assertThrows(
-    () => parseDirectoryQuery(new URL("https://example.test/api/v1/privacy/preferences?pageSize=1000"), "preference"),
+    () =>
+      parseDirectoryQuery(
+        new URL(
+          "https://example.test/api/v1/privacy/preferences?pageSize=1000",
+        ),
+        "preference",
+      ),
     ApiError,
   );
 });
 
 Deno.test("privacy routes fail before database access without permission", async () => {
-  const handler = createPrivacyConsentRouteHandler("postgres://127.0.0.1:1/unused");
+  const handler = createPrivacyConsentRouteHandler(
+    "postgres://127.0.0.1:1/unused",
+  );
   const context = {
     request: new Request("https://example.test/api/v1/privacy/acceptances"),
     path: "/api/v1/privacy/acceptances",
@@ -42,23 +74,27 @@ Deno.test("privacy routes fail before database access without permission", async
 });
 
 Deno.test("privacy retirement requires manage permission before payload/database work", async () => {
-  const handler = createPrivacyConsentRouteHandler("postgres://127.0.0.1:1/unused");
+  const handler = createPrivacyConsentRouteHandler(
+    "postgres://127.0.0.1:1/unused",
+  );
   await assertRejects(
-    () => handler({
-      request: new Request(
-        "https://example.test/api/v1/privacy/documents/33333333-3333-4333-8333-333333333333/retire",
-        { method: "POST", body: "not-json" },
-      ),
-      path: "/api/v1/privacy/documents/33333333-3333-4333-8333-333333333333/retire",
-      accountId: "11111111-1111-4111-8111-111111111111",
-      admin: {
+    () =>
+      handler({
+        request: new Request(
+          "https://example.test/api/v1/privacy/documents/33333333-3333-4333-8333-333333333333/retire",
+          { method: "POST", body: "not-json" },
+        ),
+        path:
+          "/api/v1/privacy/documents/33333333-3333-4333-8333-333333333333/retire",
         accountId: "11111111-1111-4111-8111-111111111111",
-        roles: ["founder"],
-        permissions: ["privacy.consent.read"],
-      },
-      correlationId: "22222222-2222-4222-8222-222222222222",
-      origin: null,
-    }),
+        admin: {
+          accountId: "11111111-1111-4111-8111-111111111111",
+          roles: ["founder"],
+          permissions: ["privacy.consent.read"],
+        },
+        correlationId: "22222222-2222-4222-8222-222222222222",
+        origin: null,
+      }),
     ApiError,
     "Administrative permission is required",
   );
