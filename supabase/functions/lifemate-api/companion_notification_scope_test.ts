@@ -82,6 +82,56 @@ Deno.test("ordinary in-app mood guidance does not borrow notification consent", 
   );
 });
 
+Deno.test("fertility notification requires both independent fertility scopes", () => {
+  const id = "notify.fertility.window.2026-08-15";
+  assertEquals(
+    guidanceAllowed(
+      id,
+      "fertility",
+      scopes({
+        viewFertilityEstimate: false,
+        receiveFertilityNotifications: true,
+      }),
+    ),
+    false,
+  );
+  assertEquals(
+    guidanceAllowed(
+      id,
+      "fertility",
+      scopes({
+        viewFertilityEstimate: true,
+        receiveFertilityNotifications: false,
+      }),
+    ),
+    false,
+  );
+  assertEquals(
+    guidanceAllowed(
+      id,
+      "fertility",
+      scopes({
+        viewFertilityEstimate: true,
+        receiveFertilityNotifications: true,
+        viewPhaseSummary: false,
+        receivePhaseNotifications: false,
+      }),
+    ),
+    true,
+  );
+});
+
+Deno.test("fertility view category does not borrow ordinary phase scope", () => {
+  assertEquals(
+    guidanceAllowed(
+      "fertility.explanation",
+      "fertility",
+      scopes({ viewFertilityEstimate: false, viewPhaseSummary: true }),
+    ),
+    false,
+  );
+});
+
 Deno.test("mood notification metadata cannot masquerade as another category", () => {
   assertThrows(() =>
     assertNotificationMetadata(
@@ -107,5 +157,30 @@ Deno.test("canonical mood notification metadata is accepted", () => {
     "notify.mood.check_in.2026-08-28",
     "companion-mood-notifications-v1",
     "mood",
+  );
+});
+
+Deno.test("fertility notification metadata is isolated from phase metadata", () => {
+  assertThrows(() =>
+    assertNotificationMetadata(
+      "notify.fertility.window.2026-08-15",
+      "companion-phase-notifications-v1",
+      "phase",
+    )
+  );
+  assertNotificationMetadata(
+    "notify.fertility.window.2026-08-15",
+    "companion-fertility-notifications-v1",
+    "fertility",
+  );
+});
+
+Deno.test("unknown notification namespaces fail closed", () => {
+  assertThrows(() =>
+    assertNotificationMetadata(
+      "notify.unknown.sensitive.2026-08-28",
+      "unknown-v1",
+      "general",
+    )
   );
 });
