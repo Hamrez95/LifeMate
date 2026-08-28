@@ -18,13 +18,14 @@ export function createPrivacyConsentStore(databaseUrl: string) {
       const rows = await sql`
         select *, count(*) over() as total_count
         from consent.admin_document_directory_v1 d
-        where (${query.status}::text is null or d.status::text=${query.status})
+        where (${query.status}::text is null or d.status=${query.status})
           and (
             ${query.q}::text is null
-            or d.document_key ilike '%' || ${query.q} || '%'
+            or d.purpose ilike '%' || ${query.q} || '%'
             or d.title ilike '%' || ${query.q} || '%'
+            or d.version ilike '%' || ${query.q} || '%'
           )
-        order by d.updated_at desc,d.document_id desc
+        order by d.updated_at_utc desc,d.document_id desc
         limit ${query.pageSize} offset ${offset}
       `;
       return page(rows as unknown as Row[], query);
@@ -34,15 +35,34 @@ export function createPrivacyConsentStore(databaseUrl: string) {
       const offset = (query.page - 1) * query.pageSize;
       const rows = await sql`
         select *, count(*) over() as total_count
-        from consent.admin_acceptance_directory_v1 a
-        where (${query.status}::text is null or a.acceptance_status=${query.status})
+        from consent.admin_legal_acceptance_directory_v1 a
+        where (
+          ${query.q}::text is null
+          or a.account_id::text=${query.q}
+          or a.purpose ilike '%' || ${query.q} || '%'
+          or a.document_title ilike '%' || ${query.q} || '%'
+          or a.version ilike '%' || ${query.q} || '%'
+        )
+        order by a.accepted_at_utc desc,a.account_id desc,a.document_id desc
+        limit ${query.pageSize} offset ${offset}
+      `;
+      return page(rows as unknown as Row[], query);
+    },
+
+    async listConsents(query: PrivacyDirectoryQuery) {
+      const offset = (query.page - 1) * query.pageSize;
+      const rows = await sql`
+        select *, count(*) over() as total_count
+        from consent.admin_user_consent_directory_v1 c
+        where (${query.status}::text is null or c.status=${query.status})
           and (
             ${query.q}::text is null
-            or a.account_id::text=${query.q}
-            or a.document_key ilike '%' || ${query.q} || '%'
-            or a.document_title ilike '%' || ${query.q} || '%'
+            or c.subject_person_id::text=${query.q}
+            or c.actor_account_id::text=${query.q}
+            or c.purpose ilike '%' || ${query.q} || '%'
+            or c.scope_key ilike '%' || ${query.q} || '%'
           )
-        order by a.accepted_at desc,a.account_id desc,a.document_id desc
+        order by c.updated_at_utc desc,c.consent_record_id desc
         limit ${query.pageSize} offset ${offset}
       `;
       return page(rows as unknown as Row[], query);
@@ -57,9 +77,10 @@ export function createPrivacyConsentStore(databaseUrl: string) {
           and (
             ${query.q}::text is null
             or p.account_id::text=${query.q}
-            or p.preference_key ilike '%' || ${query.q} || '%'
+            or p.subject_person_id::text=${query.q}
+            or p.purpose ilike '%' || ${query.q} || '%'
           )
-        order by p.updated_at desc,p.account_id desc,p.preference_key
+        order by p.updated_at_utc desc nulls last,p.account_id desc,p.purpose
         limit ${query.pageSize} offset ${offset}
       `;
       return page(rows as unknown as Row[], query);
