@@ -39,7 +39,14 @@ export function createPlatformControlStore(databaseUrl: string) {
     cache.set(key, { value, expiresAt: Date.now() + CACHE_TTL_MS });
   }
 
+  function invalidate(key?: string): void {
+    if (key) cache.delete(key);
+    else cache.clear();
+  }
+
   return {
+    invalidate,
+
     async list() {
       const controls = await sql`
         select control_key,control_kind,value_type,default_value,description,fail_closed,status,version,updated_at_utc
