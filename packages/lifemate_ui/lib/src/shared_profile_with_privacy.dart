@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:lifemate_client/lifemate_client.dart';
 
+import 'companion_care_guidance.dart';
 import 'profile_theme.dart';
 import 'shared_legal_privacy.dart';
 import 'shared_profile_screen.dart' as legacy;
@@ -49,6 +50,8 @@ class LifeMateSharedProfileScreen extends StatelessWidget {
   final LifeMateLegalPrivacyApi? legalPrivacyApi;
   final WidgetBuilder? feedbackBuilder;
 
+  bool get _isCareMate => appName.trim().toLowerCase() == 'caremate';
+
   @override
   Widget build(BuildContext context) {
     return Column(
@@ -78,6 +81,49 @@ class LifeMateSharedProfileScreen extends StatelessWidget {
           minimum: const EdgeInsets.fromLTRB(24, 8, 24, 12),
           child: Column(
             children: [
+              if (_isCareMate) ...[
+                Semantics(
+                  button: true,
+                  label: LifeMateRuntimeLocale.select(
+                    fa: 'پیشنهادهای همراهی CareMate',
+                    en: 'CareMate support guidance',
+                  ),
+                  child: OutlinedButton.icon(
+                    key: const ValueKey('profile-companion-guidance'),
+                    style: OutlinedButton.styleFrom(
+                      minimumSize: const Size.fromHeight(52),
+                      foregroundColor: theme.accent,
+                      side: BorderSide(
+                        color: theme.accent.withValues(alpha: 0.25),
+                      ),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(18),
+                      ),
+                    ),
+                    onPressed: () => Navigator.of(context).push(
+                      MaterialPageRoute<void>(
+                        builder: (_) => LifeMateCompanionCareScreen(
+                          apiClient: apiClient,
+                          accent: theme.accent,
+                          background: theme.background,
+                        ),
+                      ),
+                    ),
+                    icon: const Icon(Icons.volunteer_activism_outlined),
+                    label: Text(
+                      LifeMateRuntimeLocale.select(
+                        fa: 'همراهی پیشنهادی',
+                        en: 'Support guidance',
+                      ),
+                      style: TextStyle(
+                        fontFamily: fontFamily,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 8),
+              ],
               if (feedbackBuilder != null) ...[
                 Semantics(
                   button: true,

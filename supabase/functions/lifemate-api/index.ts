@@ -301,11 +301,6 @@ async function route(
       24 * 60 * 60_000,
     );
     const deletion = await accountLifecycle.requestDeletion(identity.appUserId);
-
-    // The database account is disabled synchronously, so subsequent API calls
-    // are denied even if a short-lived JWT still exists. Global logout is an
-    // additional best-effort session invalidation; the outbox worker is the
-    // durable path. Never log the Authorization header.
     const authorizationHeader = request.headers.get("authorization");
     if (authorizationHeader) {
       await fetch(`${supabaseUrl}/auth/v1/logout?scope=global`, {
@@ -324,8 +319,6 @@ async function route(
     const url = new URL(request.url);
     const fromDate = url.searchParams.get("fromDate");
     const toDate = url.searchParams.get("toDate");
-    // Keep these reads sequential. Every store shares one bounded SQL client,
-    // so one app screen consumes one database connection rather than a fan-out.
     const currentUser = await db.currentUser(identity);
     const treatmentPlans = await db.listTreatmentPlans(identity.appUserId);
     const doseOccurrences = await db.listDoseOccurrences(
@@ -887,6 +880,33 @@ async function route(
       ),
     );
   }
+
+  const careWomenGuidanceImpressionMatch = path.match(
+    /^\/api\/v1\/care\/patients\/([0-9a-f-]{36})\/women-calendar\/guidance-impressions$/i,
+  );
+  if (request.method === "POST" && careWomenGuidanceImpressionMatch) {
+    requireWomenCalendarPilot();
+    await authorizationStore.requirePersonFeature(
+      identity.appUserId,
+      careWomenGuidanceImpressionMatch[1],
+      "women_health.summary.read",
+      "care.basic",
+    );
+    enforceRateLimit(
+      `women-calendar-guidance:${identity.appUserId}`,
+      30,
+      60 * 60_000,
+    );
+    return json(
+      await womenCalendar.recordGuidanceImpression(
+        identity.appUserId,
+        careWomenGuidanceImpressionMatch[1],
+        await readJsonObject(request),
+      ),
+      201,
+    );
+  }
+
   const careWomenSupportMatch = path.match(
     /^\/api\/v1\/care\/patients\/([0-9a-f-]{36})\/women-calendar\/support-actions$/i,
   );
