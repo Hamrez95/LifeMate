@@ -211,12 +211,7 @@ export function createPersonWomenCalendarCaregiverStore(databaseUrl: string) {
     );
     const relationship = await resolveActiveRelationship(caregiverPersonId, patientPersonId);
     const privacy = companionPrivacy(relationship);
-    const allowed = category === "phase"
-      ? privacy.viewPhaseSummary
-      : category === "mood" || category === "energy"
-      ? privacy.viewSharedWellbeing
-      : privacy.viewPhaseSummary || privacy.viewSharedWellbeing;
-    if (!allowed) throw accessDenied();
+    if (!guidanceAllowed(guidanceId, category, privacy)) throw accessDenied();
 
     const rows = await sql`
       insert into lifemate.women_companion_guidance_history
@@ -317,6 +312,26 @@ function companionPrivacy(row: Row): CompanionPrivacy {
     receiveFertilityNotifications: row.receive_fertility_notifications === true,
     viewCalendarDetail: row.view_calendar_detail === true,
   };
+}
+
+export function guidanceAllowed(
+  guidanceId: string,
+  category: string,
+  privacy: CompanionPrivacy,
+): boolean {
+  if (guidanceId.startsWith("notify.phase.period_start.")) {
+    return privacy.receivePhaseNotifications &&
+      privacy.viewPhaseSummary &&
+      privacy.viewPeriodTiming;
+  }
+  if (guidanceId.startsWith("notify.phase.")) {
+    return privacy.receivePhaseNotifications && privacy.viewPhaseSummary;
+  }
+  if (category === "phase") return privacy.viewPhaseSummary;
+  if (category === "mood" || category === "energy") {
+    return privacy.viewSharedWellbeing;
+  }
+  return privacy.viewPhaseSummary || privacy.viewSharedWellbeing;
 }
 
 function presentEstimate(estimate: any, privacy: CompanionPrivacy): Record<string, unknown> | null {

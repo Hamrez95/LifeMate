@@ -12,6 +12,7 @@ import 'core/constants/app_version.dart';
 import 'core/localization/app_localizations.dart';
 import 'core/localization/locale_provider.dart';
 import 'providers/care_notification_provider.dart';
+import 'providers/companion_phase_notification_provider.dart';
 import 'screens/caremate_root_shell.dart';
 
 void main() {
@@ -45,6 +46,7 @@ void main() {
       }
 
       final notificationProvider = CareNotificationProvider();
+      final phaseNotificationProvider = CompanionPhaseNotificationProvider();
       try {
         await notificationProvider.initialize();
       } catch (error, stackTrace) {
@@ -64,6 +66,7 @@ void main() {
           providers: [
             ChangeNotifierProvider(create: (_) => LocaleProvider()),
             ChangeNotifierProvider.value(value: notificationProvider),
+            ChangeNotifierProvider.value(value: phaseNotificationProvider),
           ],
           child: CareMateApp(config: config, authInitialized: authInitialized),
         ),
@@ -228,6 +231,9 @@ class _AuthenticatedCareMateShellState
   void didChangeDependencies() {
     super.didChangeDependencies();
     context.read<CareNotificationProvider>().attachApiClient(widget.apiClient);
+    context
+        .read<CompanionPhaseNotificationProvider>()
+        .attachApiClient(widget.apiClient);
   }
 
   @override
