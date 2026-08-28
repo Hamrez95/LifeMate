@@ -80,3 +80,25 @@ Deno.test("read-model mapping exposes definition-safe version metadata only", ()
   assertEquals(Object.hasOwn(user, "deviceId"), false);
   assertEquals(Object.hasOwn(user, "healthData"), false);
 });
+
+Deno.test("update policy history stays read-only, permission-scoped, and bounded", async () => {
+  const routes = await Deno.readTextFile(
+    new URL("./product_version_analytics_routes.ts", import.meta.url),
+  );
+  const service = await Deno.readTextFile(
+    new URL("./product_version_analytics_service.ts", import.meta.url),
+  );
+
+  assertEquals(
+    routes.includes('path === "/api/v1/platform/product-update-policies/history"'),
+    true,
+  );
+  assertEquals(
+    routes.includes('requirePermission(admin, "analytics.product_versions.read")'),
+    true,
+  );
+  assertEquals(routes.includes('source: "platform.product_update_policy_history"'), true);
+  assertEquals(service.includes("from platform.product_update_policy_history"), true);
+  assertEquals(service.includes("limit 250"), true);
+  assertEquals(service.includes("updated_by_account_id"), false);
+});
