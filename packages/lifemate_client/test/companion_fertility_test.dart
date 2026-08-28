@@ -11,18 +11,15 @@ void main() {
     bool reliable = true,
     String confidence = 'high',
     String pattern = 'regular',
-    int day = 14,
-    int start = 11,
-    int end = 16,
+    String state = 'inside_estimated_window',
+    String windowStart = '2026-08-25',
     List<LifeMateCompanionFertilityHistoryItem> history = const [],
   }) => engine.notification(
     viewFertilityEstimate: view,
     receiveFertilityNotifications: receive,
     caregiverNotificationsEnabled: caregiver,
-    cycleStart: '2026-08-15',
-    cycleDay: day,
-    fertileWindowStartDay: start,
-    fertileWindowEndDay: end,
+    state: state,
+    estimatedWindowStartOn: windowStart,
     fertilityEstimateReliable: reliable,
     confidence: confidence,
     cyclePattern: pattern,
@@ -45,9 +42,9 @@ void main() {
     expect(notification(reliable: false), isNull);
   });
 
-  test('notification only occurs while inside the estimated window', () {
-    expect(notification(day: 9), isNull);
-    expect(notification(day: 14), isNotNull);
+  test('notification only occurs while server projection says inside window', () {
+    expect(notification(state: 'outside_estimated_window'), isNull);
+    expect(notification(state: 'inside_estimated_window'), isNotNull);
   });
 
   test('one estimated window creates at most one stable notification', () {
@@ -55,7 +52,7 @@ void main() {
       notification(
         history: [
           LifeMateCompanionFertilityHistoryItem(
-            guidanceId: 'notify.fertility.window.2026-08-15',
+            guidanceId: 'notify.fertility.window.2026-08-25',
             shownAtUtc: DateTime.utc(2026, 8, 28),
           ),
         ],
@@ -76,9 +73,7 @@ void main() {
   test('independent view scope can show a safe unavailable state', () {
     final insight = engine.insight(
       viewFertilityEstimate: true,
-      cycleDay: 12,
-      fertileWindowStartDay: null,
-      fertileWindowEndDay: null,
+      state: 'unavailable',
       fertilityEstimateReliable: false,
       confidence: 'low',
       cyclePattern: 'insufficient_data',
@@ -92,15 +87,20 @@ void main() {
     expect(
       engine.insight(
         viewFertilityEstimate: false,
-        cycleDay: 14,
-        fertileWindowStartDay: 11,
-        fertileWindowEndDay: 16,
+        state: 'inside_estimated_window',
         fertilityEstimateReliable: true,
         confidence: 'high',
         cyclePattern: 'regular',
         locale: 'en',
       ),
       isNull,
+    );
+  });
+
+  test('guidance id uses estimated fertility window date not cycle start', () {
+    expect(
+      notification()?.guidanceId,
+      'notify.fertility.window.2026-08-25',
     );
   });
 }
