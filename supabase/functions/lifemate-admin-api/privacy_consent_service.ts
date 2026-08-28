@@ -9,6 +9,13 @@ export type PrivacyDirectoryQuery = {
   pageSize: number;
 };
 
+export type PrivacyMutationContext = {
+  actorAccountId: string;
+  correlationId: string;
+  idempotencyKey: string;
+  requestHash: string;
+};
+
 export function createPrivacyConsentStore(databaseUrl: string) {
   const sql = getLifeMateSql(databaseUrl);
 
@@ -86,27 +93,101 @@ export function createPrivacyConsentStore(databaseUrl: string) {
       return page(rows as unknown as Row[], query);
     },
 
-    async retireDocument(input: {
-      actorAccountId: string;
+    async getCoverage(actorAccountId: string, jurisdiction: string) {
+      const rows = await sql`
+        select consent.admin_acceptance_coverage(
+          ${actorAccountId}::uuid,${jurisdiction}::varchar
+        ) as result
+      `;
+      return resultObject(rows[0]?.result, "privacy_coverage_result_invalid");
+    },
+
+    async listPurposeCatalog(actorAccountId: string) {
+      const rows = await sql`
+        select consent.admin_preference_purpose_catalog(${actorAccountId}::uuid) as result
+      `;
+      return resultObject(rows[0]?.result, "privacy_purpose_catalog_result_invalid");
+    },
+
+    async getAccountSummary(actorAccountId: string, accountId: string, jurisdiction: string) {
+      const rows = await sql`
+        select consent.admin_account_privacy_summary(
+          ${actorAccountId}::uuid,${accountId}::uuid,${jurisdiction}::varchar
+        ) as result
+      `;
+      return resultObject(rows[0]?.result, "privacy_account_summary_result_invalid");
+    },
+
+    async createDocument(input: PrivacyMutationContext & {
+      purpose: string;
+      version: string;
+      jurisdiction: string;
+      title: string;
+      documentHash: string;
+      contentUri: string;
+      effectiveAtUtc: string | null;
+      reasonCode: string;
+    }) {
+      const rows = await sql`
+        select consent.admin_create_document_idempotent(
+          ${input.actorAccountId}::uuid,${input.purpose}::varchar,${input.version}::varchar,
+          ${input.jurisdiction}::varchar,${input.title}::varchar,${input.documentHash}::varchar,
+          ${input.contentUri}::text,${input.effectiveAtUtc}::timestamptz,${input.reasonCode}::varchar,
+          ${input.correlationId}::uuid,${input.idempotencyKey}::varchar,${input.requestHash}::varchar
+        ) as result
+      `;
+      return resultObject(rows[0]?.result, "privacy_document_create_result_invalid");
+    },
+
+    async publishDocument(input: PrivacyMutationContext & {
+      documentId: string;
+      expectedUpdatedAt: string;
+      effectiveAtUtc: string;
+      reasonCode: string;
+    }) {
+      const rows = await sql`
+        select consent.admin_publish_document_idempotent(
+          ${input.actorAccountId}::uuid,${input.documentId}::uuid,
+          ${input.expectedUpdatedAt}::timestamptz,${input.effectiveAtUtc}::timestamptz,
+          ${input.reasonCode}::varchar,${input.correlationId}::uuid,
+          ${input.idempotencyKey}::varchar,${input.requestHash}::varchar
+        ) as result
+      `;
+      return resultObject(rows[0]?.result, "privacy_document_publish_result_invalid");
+    },
+
+    async retireDocument(input: PrivacyMutationContext & {
       documentId: string;
       expectedUpdatedAt: string;
       reasonCode: string;
-      correlationId: string;
     }) {
       const rows = await sql`
-        select consent.admin_retire_document(
-          ${input.actorAccountId}::uuid,
-          ${input.documentId}::uuid,
-          ${input.expectedUpdatedAt}::timestamptz,
-          ${input.reasonCode}::varchar,
-          ${input.correlationId}::uuid
+        select consent.admin_retire_document_idempotent(
+          ${input.actorAccountId}::uuid,${input.documentId}::uuid,
+          ${input.expectedUpdatedAt}::timestamptz,${input.reasonCode}::varchar,
+          ${input.correlationId}::uuid,${input.idempotencyKey}::varchar,${input.requestHash}::varchar
         ) as result
       `;
-      const result = rows[0]?.result;
-      if (!result || typeof result !== "object" || Array.isArray(result)) {
-        throw new Error("privacy_retire_result_invalid");
-      }
-      return result as Row;
+      return resultObject(rows[0]?.result, "privacy_retire_result_invalid");
+    },
+
+    async updatePurpose(input: PrivacyMutationContext & {
+      purpose: string;
+      expectedUpdatedAt: string;
+      description: string;
+      policyVersion: string;
+      status: string;
+      reasonCode: string;
+    }) {
+      const rows = await sql`
+        select consent.admin_update_preference_purpose_idempotent(
+          ${input.actorAccountId}::uuid,${input.purpose}::varchar,
+          ${input.expectedUpdatedAt}::timestamptz,${input.description}::varchar,
+          ${input.policyVersion}::varchar,${input.status}::varchar,${input.reasonCode}::varchar,
+          ${input.correlationId}::uuid,${input.idempotencyKey}::varchar,${input.requestHash}::varchar
+        ) as result
+      `;
+      return resultObject(rows[0]?.result, "privacy_purpose_update_result_invalid");
     },
   };
 }
@@ -119,6 +200,13 @@ function page(rows: Row[], query: PrivacyDirectoryQuery) {
     pageSize: query.pageSize,
     total,
   };
+}
+
+function resultObject(value: unknown, code: string): Row {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    throw new Error(code);
+  }
+  return value as Row;
 }
 
 function mapRow(row: Row): Row {
