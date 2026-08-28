@@ -146,8 +146,8 @@ begin
   v_result:=consent.admin_acceptance_coverage(
     '96500000-0000-4000-8000-000000000001','GLOBAL'
   );
-  if jsonb_typeof(v_result->'items')<>'array' or (v_result->>'eligibleAccountCount')::integer<>2 then
-    raise exception 'Aggregate acceptance coverage contract invalid';
+  if jsonb_typeof(v_result->'items')<>'array' or (v_result->>'eligibleAccountCount')::integer<>1 then
+    raise exception 'Aggregate acceptance coverage must exclude workforce-only Admin accounts';
   end if;
   if v_result::text like '%96500000-0000-4000-8000-000000000002%' then
     raise exception 'Aggregate coverage leaked account identity';
