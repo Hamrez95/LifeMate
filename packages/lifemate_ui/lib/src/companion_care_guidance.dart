@@ -74,7 +74,7 @@ class _LifeMateCompanionCareScreenState
           patientName = relationship['patientDisplayName']?.toString();
           break;
         } on LifeMateApiException catch (error) {
-          if (error.code == 'women_calendar_access_denied' ||
+          if (_isAccessRevoked(error.code) ||
               error.code == 'women_calendar_not_active') {
             continue;
           }
@@ -152,7 +152,7 @@ class _LifeMateCompanionCareScreenState
             category: selected.category,
           );
         } on LifeMateApiException catch (error) {
-          if (error.code == 'women_calendar_access_denied' && mounted) {
+          if (_isAccessRevoked(error.code) && mounted) {
             setState(() {
               _guidance = null;
               _error = 'locked';
@@ -195,7 +195,7 @@ class _LifeMateCompanionCareScreenState
       await _load();
     } on LifeMateApiException catch (error) {
       if (!mounted) return;
-      if (error.code == 'women_calendar_access_denied') {
+      if (_isAccessRevoked(error.code)) {
         setState(() {
           _guidance = null;
           _error = 'locked';
@@ -365,6 +365,9 @@ class _LifeMateCompanionCareScreenState
           ),
         ),
       );
+
+  static bool _isAccessRevoked(String code) =>
+      code == 'women_calendar_access_denied' || code == 'person_access_denied';
 
   static Map<String, dynamic> _map(dynamic value) =>
       value is Map ? Map<String, dynamic>.from(value) : const {};
