@@ -11,6 +11,8 @@ import { json } from "./http.ts";
 import { createProductLearningRouteHandler } from "./product_learning_routes.ts";
 import { ApiError } from "./validation.ts";
 
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
 async function readBody(request: Request): Promise<Record<string, unknown>> {
   let parsed: unknown;
   try {
@@ -29,6 +31,14 @@ function httpStatus(result: Record<string, unknown>): number {
   return Number.isInteger(status) && status >= 100 && status <= 599 ? status : 200;
 }
 
+function idFromPath(path: string, pattern: RegExp, code: string): string | null {
+  const match = path.match(pattern);
+  if (!match) return null;
+  const id = match[1].toLowerCase();
+  if (!UUID.test(id)) throw new ApiError(400, code, "Identifier is invalid.");
+  return id;
+}
+
 export function createCampaignOrchestratorRouteHandler(databaseUrl: string) {
   const store = createCampaignOrchestratorStore(databaseUrl);
   const productLearningRouteHandler = createProductLearningRouteHandler(databaseUrl);
@@ -45,6 +55,58 @@ export function createCampaignOrchestratorRouteHandler(databaseUrl: string) {
 
     const productLearningResponse = await productLearningRouteHandler(input);
     if (productLearningResponse) return productLearningResponse;
+
+    const campaignId = idFromPath(
+      path,
+      /^\/api\/v1\/marketing\/campaigns\/([^/]+)\/executions$/,
+      "campaign_id_invalid",
+    );
+    if (request.method === "GET" && campaignId) {
+      requirePermission(admin, "marketing.campaign.send");
+      const items = await store.listExecutions(campaignId);
+      return json(
+        {
+          items,
+          total: items.length,
+          privacy: {
+            recipientIdentifiersExposed: false,
+            messageBodiesExposed: false,
+          },
+          freshness: { status: "fresh", asOfUtc: new Date().toISOString() },
+        },
+        200,
+        origin,
+      );
+    }
+
+    const executionId = idFromPath(
+      path,
+      /^\/api\/v1\/marketing\/campaign-executions\/([^/]+)$/,
+      "campaign_execution_id_invalid",
+    );
+    if (request.method === "GET" && executionId) {
+      requirePermission(admin, "marketing.campaign.send");
+      const execution = await store.getExecution(executionId);
+      if (!execution) {
+        throw new ApiError(
+          404,
+          "campaign_execution_not_found",
+          "Campaign execution was not found.",
+        );
+      }
+      return json(
+        {
+          execution,
+          privacy: {
+            recipientIdentifiersExposed: false,
+            messageBodiesExposed: false,
+          },
+          freshness: { status: "fresh", asOfUtc: new Date().toISOString() },
+        },
+        200,
+        origin,
+      );
+    }
 
     if (
       request.method === "POST" &&
