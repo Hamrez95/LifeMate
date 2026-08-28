@@ -54,11 +54,6 @@ class LifeMateCompanionPhaseNotificationEngine {
       return null;
     }
 
-    final normalizedCycleStart = _date(cycleStart);
-    if (normalizedCycleStart == null || cycleDay == null || cycleDay < 1) {
-      return null;
-    }
-
     final now = nowUtc.toUtc();
     if (history.any(
       (item) =>
@@ -73,11 +68,10 @@ class LifeMateCompanionPhaseNotificationEngine {
     final phase = detailedPhase?.trim().toLowerCase() ?? '';
     final confidenceValue = confidence?.trim().toLowerCase() ?? 'low';
     final pattern = cyclePattern?.trim().toLowerCase() ?? 'insufficient_data';
+    final normalizedCycleStart = _date(cycleStart);
 
-    // A recorded cycle start is factual timing data. It may be used only when
-    // its independent timing scope is present; low prediction confidence does
-    // not make the recorded event itself uncertain.
-    if (cycleDay == 1 && viewPeriodTiming) {
+    // Recorded period timing is factual but independently sensitive.
+    if (cycleDay == 1 && viewPeriodTiming && normalizedCycleStart != null) {
       final candidate = _periodStart(language, normalizedCycleStart);
       return _deduplicated(candidate, history);
     }
@@ -92,20 +86,24 @@ class LifeMateCompanionPhaseNotificationEngine {
       return null;
     }
 
-    if (daysUntilNextPeriod != null &&
+    // Approaching-period timing itself requires the independent timing scope.
+    if (viewPeriodTiming &&
+        daysUntilNextPeriod != null &&
         daysUntilNextPeriod >= 0 &&
         daysUntilNextPeriod <= 2 &&
         _date(nextPeriodStart) != null) {
       final candidate = _approachingPeriod(
         language,
-        normalizedCycleStart,
         _date(nextPeriodStart)!,
       );
       return _deduplicated(candidate, history);
     }
 
+    // Ordinary estimated phase support does not need period dates. Its stable
+    // key uses only a public calendar week bucket plus the already-authorized
+    // phase label, so viewPhaseSummary never borrows viewPeriodTiming.
     if (phase == 'follicular' || phase == 'luteal' || phase == 'pms') {
-      final candidate = _phase(language, normalizedCycleStart, phase);
+      final candidate = _phase(language, _weekKey(now), phase);
       return _deduplicated(candidate, history);
     }
 
@@ -137,10 +135,9 @@ class LifeMateCompanionPhaseNotificationEngine {
 
   LifeMateCompanionPhaseNotification _approachingPeriod(
     String language,
-    String cycleStart,
     String nextPeriod,
   ) => LifeMateCompanionPhaseNotification(
-    guidanceId: 'notify.phase.period_approach.$cycleStart.$nextPeriod',
+    guidanceId: 'notify.phase.period_approach.$nextPeriod',
     contentVersion: contentVersion,
     title: language == 'fa' ? 'بر اساس اطلاعات چرخه' : 'Based on cycle information',
     fullBody: language == 'fa'
@@ -154,10 +151,10 @@ class LifeMateCompanionPhaseNotificationEngine {
 
   LifeMateCompanionPhaseNotification _phase(
     String language,
-    String cycleStart,
+    String weekKey,
     String phase,
   ) => LifeMateCompanionPhaseNotification(
-    guidanceId: 'notify.phase.$phase.$cycleStart',
+    guidanceId: 'notify.phase.$phase.$weekKey',
     contentVersion: contentVersion,
     title: language == 'fa' ? 'یک یادآوری حمایتی' : 'A supportive reminder',
     fullBody: language == 'fa'
@@ -168,6 +165,12 @@ class LifeMateCompanionPhaseNotificationEngine {
         : 'You have a private CareMate update. Open the app for details.',
     isPrediction: true,
   );
+
+  static String _weekKey(DateTime value) {
+    final date = DateTime.utc(value.year, value.month, value.day);
+    final monday = date.subtract(Duration(days: date.weekday - DateTime.monday));
+    return monday.toIso8601String().substring(0, 10);
+  }
 
   static String? _date(String? value) {
     final text = value?.trim() ?? '';

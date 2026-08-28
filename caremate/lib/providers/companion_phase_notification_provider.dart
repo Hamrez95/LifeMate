@@ -36,6 +36,16 @@ CompanionPhaseNotificationPresentation companionMoodNotificationPresentation(
   lockScreenDetail: lockScreenDetail,
 );
 
+CompanionPhaseNotificationPresentation companionFertilityNotificationPresentation(
+  LifeMateCompanionFertilityNotification candidate,
+  String? lockScreenDetail,
+) => _presentation(
+  title: candidate.title,
+  fullBody: candidate.fullBody,
+  privateBody: candidate.privateBody,
+  lockScreenDetail: lockScreenDetail,
+);
+
 CompanionPhaseNotificationPresentation _presentation({
   required String title,
   required String fullBody,
@@ -61,10 +71,10 @@ CompanionPhaseNotificationPresentation _presentation({
 
 /// Privacy-first companion notification synchronizer.
 ///
-/// The historical class name is retained for compatibility with #106, but the
-/// same single hourly pass now evaluates both phase and explicitly shared
-/// wellbeing signals. This avoids duplicate timers/network reads and prevents
-/// one refresh from fanning out multiple sensitive notifications.
+/// A single hourly pass evaluates explicitly shared wellbeing, independently
+/// consented fertility estimates, then ordinary phase support. Each sensitive
+/// OS surface is preceded by a server receipt that re-checks current consent,
+/// caregiver preferences and the current canonical data state.
 class CompanionPhaseNotificationProvider extends ChangeNotifier {
   CompanionPhaseNotificationProvider({
     FlutterLocalNotificationsPlugin? notifications,
@@ -78,6 +88,8 @@ class CompanionPhaseNotificationProvider extends ChangeNotifier {
       const LifeMateCompanionPhaseNotificationEngine();
   final LifeMateCompanionMoodNotificationEngine _moodEngine =
       const LifeMateCompanionMoodNotificationEngine();
+  final LifeMateCompanionFertilityEngine _fertilityEngine =
+      const LifeMateCompanionFertilityEngine();
 
   LifeMateApiClient? _apiClient;
   Timer? _timer;
@@ -143,9 +155,7 @@ class CompanionPhaseNotificationProvider extends ChangeNotifier {
     final rawHistory = summary['guidanceHistory'];
     final lockScreenDetail = preferences['lockScreenDetail']?.toString();
 
-    // Fresh explicitly-shared wellbeing is more time-sensitive than an
-    // estimated phase reminder, so it gets first chance. Returning after a
-    // successful mood/energy notification ensures one refresh cannot emit both.
+    // Fresh explicitly-shared wellbeing is the most time-sensitive signal.
     final shared = _map(summary['latestSharedDailyLog']);
     final moodCandidate = _moodEngine.select(
       receiveMoodSupportNotifications:
@@ -201,6 +211,63 @@ class CompanionPhaseNotificationProvider extends ChangeNotifier {
     }
 
     final estimate = _map(summary['estimate']);
+    final fertility = _map(summary['fertilityEstimate']);
+
+    // Fertility never reads ordinary cycle-timing fields from `estimate`.
+    // It consumes only the independently authorized server projection.
+    final fertilityCandidate = _fertilityEngine.notification(
+      viewFertilityEstimate: scopes['viewFertilityEstimate'] == true,
+      receiveFertilityNotifications:
+          scopes['receiveFertilityNotifications'] == true,
+      caregiverNotificationsEnabled: preferences['enabled'] == true,
+      state: fertility['state']?.toString(),
+      estimatedWindowStartOn: fertility['estimatedWindowStartOn']?.toString(),
+      fertilityEstimateReliable: fertility['fertilityEstimateReliable'] == true,
+      confidence: fertility['confidence']?.toString(),
+      cyclePattern: fertility['cyclePattern']?.toString(),
+      history: _fertilityHistory(rawHistory),
+      locale: LifeMateRuntimeLocale.languageCode,
+    );
+    if (fertilityCandidate != null) {
+      final recorded = await _recordAuthorized(
+        patientUserId: patientUserId,
+        guidanceId: fertilityCandidate.guidanceId,
+        contentVersion: fertilityCandidate.contentVersion,
+        category: 'fertility',
+      );
+      if (!recorded) return;
+      final presentation = companionFertilityNotificationPresentation(
+        fertilityCandidate,
+        lockScreenDetail,
+      );
+      await _notifications.show(
+        _notificationId(fertilityCandidate.guidanceId),
+        presentation.title,
+        presentation.body,
+        NotificationDetails(
+          android: AndroidNotificationDetails(
+            'caremate_companion_fertility',
+            LifeMateRuntimeLocale.select(
+              fa: 'برآورد خصوصی چرخه',
+              en: 'Private cycle estimate',
+            ),
+            channelDescription: LifeMateRuntimeLocale.select(
+              fa: 'اعلان اختیاری درباره بازه احتمالی باروری؛ فقط با رضایت مستقل',
+              en: 'Optional estimated-fertility notifications with independent consent only',
+            ),
+            importance: Importance.defaultImportance,
+            priority: Priority.defaultPriority,
+            category: AndroidNotificationCategory.status,
+            visibility: presentation.visibility,
+            onlyAlertOnce: true,
+          ),
+        ),
+        payload:
+            'care-companion-fertility:$patientUserId:${fertilityCandidate.guidanceId}',
+      );
+      return;
+    }
+
     final phaseCandidate = _phaseEngine.select(
       receivePhaseNotifications: scopes['receivePhaseNotifications'] == true,
       viewPhaseSummary: scopes['viewPhaseSummary'] == true,
@@ -273,7 +340,8 @@ class CompanionPhaseNotificationProvider extends ChangeNotifier {
       );
       return true;
     } on LifeMateApiException catch (error) {
-      if (!_isAccessStopped(error.code)) {
+      if (!_isAccessStopped(error.code) &&
+          error.code != 'companion_notification_duplicate') {
         debugPrint('CareMate companion notification receipt failed safely: ${error.code}');
       }
       return false;
@@ -300,6 +368,19 @@ class CompanionPhaseNotificationProvider extends ChangeNotifier {
       .map((item) {
         final value = Map<String, dynamic>.from(item);
         return LifeMateCompanionMoodNotificationHistoryItem(
+          guidanceId: value['guidanceId']?.toString() ?? '',
+          shownAtUtc: _historyDate(value),
+        );
+      })
+      .toList(growable: false);
+
+  static List<LifeMateCompanionFertilityHistoryItem> _fertilityHistory(
+    dynamic raw,
+  ) => (raw is List ? raw : const <dynamic>[])
+      .whereType<Map>()
+      .map((item) {
+        final value = Map<String, dynamic>.from(item);
+        return LifeMateCompanionFertilityHistoryItem(
           guidanceId: value['guidanceId']?.toString() ?? '',
           shownAtUtc: _historyDate(value),
         );
