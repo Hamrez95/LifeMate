@@ -211,22 +211,20 @@ class CompanionPhaseNotificationProvider extends ChangeNotifier {
     }
 
     final estimate = _map(summary['estimate']);
+    final fertility = _map(summary['fertilityEstimate']);
 
-    // Fertility is intentionally independent from ordinary phase notification
-    // consent. Both owner fertility scopes must be true and server-side receipt
-    // authorization re-checks them immediately before the OS surface.
+    // Fertility never reads ordinary cycle-timing fields from `estimate`.
+    // It consumes only the independently authorized server projection.
     final fertilityCandidate = _fertilityEngine.notification(
       viewFertilityEstimate: scopes['viewFertilityEstimate'] == true,
       receiveFertilityNotifications:
           scopes['receiveFertilityNotifications'] == true,
       caregiverNotificationsEnabled: preferences['enabled'] == true,
-      cycleStart: estimate['cycleStart']?.toString(),
-      cycleDay: _int(estimate['cycleDay']),
-      fertileWindowStartDay: _int(estimate['fertileWindowStartDay']),
-      fertileWindowEndDay: _int(estimate['fertileWindowEndDay']),
-      fertilityEstimateReliable: estimate['fertilityEstimateReliable'] == true,
-      confidence: estimate['confidence']?.toString(),
-      cyclePattern: estimate['cyclePattern']?.toString(),
+      state: fertility['state']?.toString(),
+      estimatedWindowStartOn: fertility['estimatedWindowStartOn']?.toString(),
+      fertilityEstimateReliable: fertility['fertilityEstimateReliable'] == true,
+      confidence: fertility['confidence']?.toString(),
+      cyclePattern: fertility['cyclePattern']?.toString(),
       history: _fertilityHistory(rawHistory),
       locale: LifeMateRuntimeLocale.languageCode,
     );
