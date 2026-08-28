@@ -99,11 +99,12 @@ class CompanionPhaseNotificationProvider extends ChangeNotifier {
     Map<String, dynamic> relationship,
   ) async {
     if (relationship['status']?.toString().toLowerCase() != 'active') return;
+    if (relationship['notificationPreferences'] is! Map) return;
     final patientUserId = relationship['patientUserId']?.toString().trim();
     if (patientUserId == null || patientUserId.isEmpty) return;
 
     final preferences = _map(relationship['notificationPreferences']);
-    if (preferences['enabled'] == false) return;
+    if (preferences['enabled'] != true) return;
 
     Map<String, dynamic> summary;
     try {
@@ -122,7 +123,7 @@ class CompanionPhaseNotificationProvider extends ChangeNotifier {
       receivePhaseNotifications: scopes['receivePhaseNotifications'] == true,
       viewPhaseSummary: scopes['viewPhaseSummary'] == true,
       viewPeriodTiming: scopes['viewPeriodTiming'] == true,
-      caregiverNotificationsEnabled: preferences['enabled'] != false,
+      caregiverNotificationsEnabled: preferences['enabled'] == true,
       cycleStart: estimate['cycleStart']?.toString(),
       cycleDay: _int(estimate['cycleDay']),
       detailedPhase: estimate['detailedPhase']?.toString(),
