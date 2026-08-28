@@ -1,5 +1,6 @@
 import { getAdminSql } from "./database_client.ts";
 import type { ProductVersionAdoptionQuery } from "./product_version_analytics.ts";
+import type { ProductUpdatePolicyMutation } from "./product_update_policy_mutation.ts";
 
 type Row = Record<string, unknown>;
 
@@ -38,22 +39,44 @@ export function createProductVersionAnalyticsStore(databaseUrl: string) {
       from platform.product_update_policies
       order by product, platform
     `;
-    return rows.map((row) => ({
-      product: String(row.product),
-      platform: String(row.platform),
-      minimumSupportedVersion: String(row.minimum_supported_version),
-      recommendedVersion: nullableText(row.recommended_version),
-      mode: String(row.mode),
-      reasonCode: String(row.reason_code),
-      messageKey: nullableText(row.message_key),
-      status: String(row.status),
-      policyVersion: Number(row.version),
-      effectiveAtUtc: iso(row.effective_at_utc),
-      updatedAtUtc: iso(row.updated_at_utc),
-    }));
+    return rows.map(mapPolicy);
   }
 
-  return { listAdoption, listAccountVersions, listPolicies };
+  async function upsertPolicy(input: {
+    actorAccountId: string;
+    correlationId: string;
+    idempotencyKey: string;
+    requestHash: string;
+    policy: ProductUpdatePolicyMutation;
+  }) {
+    const policy = input.policy;
+    const rows = await sql`
+      select platform.upsert_product_update_policy_admin(
+        ${input.actorAccountId}::uuid,
+        ${policy.product}::varchar,
+        ${policy.platform}::varchar,
+        ${policy.minimumSupportedVersion}::varchar,
+        ${policy.recommendedVersion}::varchar,
+        ${policy.mode}::varchar,
+        ${policy.reasonCode}::varchar,
+        ${policy.messageKey}::varchar,
+        ${policy.status}::varchar,
+        ${policy.effectiveAtUtc}::timestamptz,
+        ${policy.expectedVersion}::bigint,
+        ${policy.reason}::varchar,
+        ${input.correlationId}::uuid,
+        ${input.idempotencyKey}::varchar,
+        ${input.requestHash}::varchar
+      ) as result
+    `;
+    const result = rows[0]?.result;
+    if (!result || typeof result !== "object" || Array.isArray(result)) {
+      throw new Error("product_update_policy_mutation_invalid");
+    }
+    return result as Record<string, unknown>;
+  }
+
+  return { listAdoption, listAccountVersions, listPolicies, upsertPolicy };
 }
 
 export function mapAdoption(row: Row) {
@@ -81,6 +104,22 @@ export function mapAccountVersion(row: Row) {
     firstSeenAtUtc: iso(row.first_seen_at_utc),
     lastSeenAtUtc: iso(row.last_seen_at_utc),
     source: "analytics.account_product_version_v1",
+  };
+}
+
+function mapPolicy(row: Row) {
+  return {
+    product: String(row.product),
+    platform: String(row.platform),
+    minimumSupportedVersion: String(row.minimum_supported_version),
+    recommendedVersion: nullableText(row.recommended_version),
+    mode: String(row.mode),
+    reasonCode: String(row.reason_code),
+    messageKey: nullableText(row.message_key),
+    status: String(row.status),
+    policyVersion: Number(row.version),
+    effectiveAtUtc: iso(row.effective_at_utc),
+    updatedAtUtc: iso(row.updated_at_utc),
   };
 }
 

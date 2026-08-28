@@ -8,6 +8,11 @@ import {
   parseProductVersionAdoptionQuery,
 } from "./product_version_analytics.ts";
 import { createProductVersionAnalyticsStore } from "./product_version_analytics_service.ts";
+import {
+  hashProductUpdatePolicyMutation,
+  parseProductUpdatePolicyMutation,
+} from "./product_update_policy_mutation.ts";
+import { requireIdempotencyKey } from "./validation.ts";
 
 export function createProductVersionAnalyticsRouteHandler(databaseUrl: string) {
   const store = createProductVersionAnalyticsStore(databaseUrl);
@@ -20,7 +25,7 @@ export function createProductVersionAnalyticsRouteHandler(databaseUrl: string) {
     correlationId: string;
     origin: string | null;
   }): Promise<Response | null> {
-    const { request, path, admin, origin } = input;
+    const { request, path, accountId, admin, correlationId, origin } = input;
 
     if (
       request.method === "GET" &&
@@ -92,6 +97,25 @@ export function createProductVersionAnalyticsRouteHandler(databaseUrl: string) {
         200,
         origin,
       );
+    }
+
+    if (
+      request.method === "PUT" &&
+      path === "/api/v1/platform/product-update-policies"
+    ) {
+      requirePermission(admin, "platform.update_policy.write");
+      const policy = await parseProductUpdatePolicyMutation(request);
+      const idempotencyKey = requireIdempotencyKey(request);
+      const requestHash = await hashProductUpdatePolicyMutation(policy);
+      const result = await store.upsertPolicy({
+        actorAccountId: accountId,
+        correlationId,
+        idempotencyKey,
+        requestHash,
+        policy,
+      });
+      const status = Number(result.httpStatus);
+      return json(result, Number.isInteger(status) ? status : 503, origin);
     }
 
     return null;
