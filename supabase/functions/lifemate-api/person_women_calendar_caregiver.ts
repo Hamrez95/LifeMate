@@ -15,6 +15,8 @@ const supportActions: Record<string, string> = {
 };
 
 const guidanceCategories = new Set(["general", "phase", "mood", "energy"]);
+const phaseNotificationContentVersion = "companion-phase-notifications-v1";
+const moodNotificationContentVersion = "companion-mood-notifications-v1";
 
 async function resolveCarePeople(
   connection: any,
@@ -54,7 +56,8 @@ export function createPersonWomenCalendarCaregiverStore(databaseUrl: string) {
     patientPersonId: string,
   ): Promise<Row> {
     const rows = await sql`
-      select r.id, s.*
+      select r.id, r.caregiver_notifications_enabled,
+             r.caregiver_lock_screen_detail, s.*
       from lifemate.care_relationships r
       left join lifemate.women_companion_privacy_scopes s on s.relationship_id = r.id
       where r.patient_person_id=${patientPersonId}::uuid
@@ -240,6 +243,7 @@ export function createPersonWomenCalendarCaregiverStore(databaseUrl: string) {
     if (!guidanceCategories.has(category)) {
       throw new ApiError(400, "invalid_companion_guidance_category", "Invalid guidance category.");
     }
+    assertNotificationMetadata(guidanceId, contentVersion, category);
 
     const { caregiverPersonId, patientPersonId } = await resolveCarePeople(
       sql,
@@ -247,6 +251,10 @@ export function createPersonWomenCalendarCaregiverStore(databaseUrl: string) {
       patientAppUserId,
     );
     const relationship = await resolveActiveRelationship(caregiverPersonId, patientPersonId);
+    if (guidanceId.startsWith("notify.") &&
+        relationship.caregiver_notifications_enabled !== true) {
+      throw accessDenied();
+    }
     const privacy = companionPrivacy(relationship);
     if (!guidanceAllowed(guidanceId, category, privacy)) throw accessDenied();
     if (guidanceId.startsWith("notify.mood.")) {
@@ -259,8 +267,16 @@ export function createPersonWomenCalendarCaregiverStore(databaseUrl: string) {
       values
         (${relationship.id}::uuid,${patientPersonId}::uuid,${caregiverPersonId}::uuid,
          ${guidanceId},${contentVersion},${category})
+      on conflict do nothing
       returning id,guidance_id,shown_at_utc
     `;
+    if (!rows[0]) {
+      throw new ApiError(
+        409,
+        "companion_notification_duplicate",
+        "This companion notification was already recorded.",
+      );
+    }
     return {
       id: rows[0].id,
       guidanceId: rows[0].guidance_id,
@@ -375,6 +391,32 @@ export function guidanceAllowed(
     return privacy.viewSharedWellbeing;
   }
   return privacy.viewPhaseSummary || privacy.viewSharedWellbeing;
+}
+
+export function assertNotificationMetadata(
+  guidanceId: string,
+  contentVersion: string,
+  category: string,
+): void {
+  if (guidanceId.startsWith("notify.phase.")) {
+    if (category !== "phase" || contentVersion !== phaseNotificationContentVersion) {
+      throw new ApiError(
+        400,
+        "invalid_companion_notification_metadata",
+        "Phase notification metadata is invalid.",
+      );
+    }
+    return;
+  }
+  if (guidanceId.startsWith("notify.mood.")) {
+    if (category !== "mood" || contentVersion !== moodNotificationContentVersion) {
+      throw new ApiError(
+        400,
+        "invalid_companion_notification_metadata",
+        "Wellbeing notification metadata is invalid.",
+      );
+    }
+  }
 }
 
 function presentEstimate(estimate: any, privacy: CompanionPrivacy): Record<string, unknown> | null {
