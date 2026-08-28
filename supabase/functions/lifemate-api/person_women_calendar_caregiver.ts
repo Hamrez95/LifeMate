@@ -14,9 +14,16 @@ const supportActions: Record<string, string> = {
   check_in: "CheckIn",
 };
 
-const guidanceCategories = new Set(["general", "phase", "mood", "energy"]);
+const guidanceCategories = new Set([
+  "general",
+  "phase",
+  "mood",
+  "energy",
+  "fertility",
+]);
 const phaseNotificationContentVersion = "companion-phase-notifications-v1";
 const moodNotificationContentVersion = "companion-mood-notifications-v1";
+const fertilityNotificationContentVersion = "companion-fertility-notifications-v1";
 
 async function resolveCarePeople(
   connection: any,
@@ -106,6 +113,52 @@ export function createPersonWomenCalendarCaregiverStore(databaseUrl: string) {
     }
   }
 
+  async function requireCurrentFertilityNotificationEstimate(
+    patientPersonId: string,
+    guidanceId: string,
+  ): Promise<void> {
+    const match = guidanceId.match(
+      /^notify\.fertility\.window\.(\d{4}-\d{2}-\d{2})$/,
+    );
+    if (!match) throw accessDenied();
+    const expectedCycleStart = match[1];
+    const profiles = await sql`
+      select last_period_start,cycle_length,period_length
+      from lifemate.women_calendar_profiles
+      where owner_person_id=${patientPersonId}::uuid and enabled=true
+      limit 1
+    `;
+    if (!profiles[0]) throw accessDenied();
+    const episodes = await sql`
+      select started_on
+      from lifemate.women_calendar_episodes
+      where owner_person_id=${patientPersonId}::uuid
+      order by started_on asc
+      limit 100
+    `;
+    const profile = profiles[0];
+    const estimate = calculateWomenCalendarEstimateFromEpisodes(
+      dateString(profile.last_period_start),
+      Number(profile.cycle_length),
+      Number(profile.period_length),
+      episodes.map((episode: Row) => dateString(episode.started_on)),
+    );
+    const cycleDay = Number(estimate.cycleDay);
+    const windowStart = Number(estimate.fertileWindowStartDay);
+    const windowEnd = Number(estimate.fertileWindowEndDay);
+    if (dateString(estimate.cycleStart) !== expectedCycleStart ||
+        estimate.fertilityEstimateReliable !== true ||
+        String(estimate.cyclePattern).toLowerCase() !== "regular" ||
+        String(estimate.confidence).toLowerCase() === "low" ||
+        !Number.isFinite(cycleDay) ||
+        !Number.isFinite(windowStart) ||
+        !Number.isFinite(windowEnd) ||
+        cycleDay < windowStart ||
+        cycleDay > windowEnd) {
+      throw accessDenied();
+    }
+  }
+
   async function getCareSummary(
     caregiverAppUserId: string,
     patientAppUserIdValue: unknown,
@@ -140,12 +193,16 @@ export function createPersonWomenCalendarCaregiverStore(databaseUrl: string) {
       select display_name,avatar_key from core.person_profiles
       where person_id=${patientPersonId}::uuid limit 1
     `;
-    const episodes = privacy.viewCalendarDetail || privacy.viewPeriodTiming
+    const needsCycleEstimate = privacy.viewPhaseSummary ||
+      privacy.viewPeriodTiming ||
+      privacy.viewCalendarDetail ||
+      privacy.viewFertilityEstimate;
+    const episodes = needsCycleEstimate
       ? await sql`
         select id,started_on,ended_on,version,created_at_utc,updated_at_utc
         from lifemate.women_calendar_episodes
         where owner_person_id=${patientPersonId}::uuid
-        order by started_on desc,id limit 12
+        order by started_on desc,id limit 100
       `
       : [];
     const actions = privacy.viewSharedWellbeing
@@ -182,7 +239,10 @@ export function createPersonWomenCalendarCaregiverStore(databaseUrl: string) {
       lastPeriodStart,
       Number(profile.cycle_length),
       Number(profile.period_length),
-      episodes.map((episode: Row) => dateString(episode.started_on)),
+      [...episodes]
+        .sort((left: Row, right: Row) =>
+          dateString(left.started_on).localeCompare(dateString(right.started_on)))
+        .map((episode: Row) => dateString(episode.started_on)),
     );
     const estimate = presentEstimate(rawEstimate, privacy);
     const canonicalSharedLog = latestLogs[0]?.share_summary_with_companion === true
@@ -206,7 +266,9 @@ export function createPersonWomenCalendarCaregiverStore(databaseUrl: string) {
         lastPeriodStart: privacy.viewPeriodTiming ? lastPeriodStart : null,
         cycleLength: privacy.viewCalendarDetail ? profile.cycle_length : null,
         periodLength: privacy.viewCalendarDetail ? profile.period_length : null,
-        algorithmVersion: privacy.viewPhaseSummary ? profile.algorithm_version : null,
+        algorithmVersion: privacy.viewPhaseSummary || privacy.viewFertilityEstimate
+          ? profile.algorithm_version
+          : null,
       },
       estimate,
       sharedDailySummary: privacy.viewSharedWellbeing ? sharedDailySummary : null,
@@ -259,6 +321,9 @@ export function createPersonWomenCalendarCaregiverStore(databaseUrl: string) {
     if (!guidanceAllowed(guidanceId, category, privacy)) throw accessDenied();
     if (guidanceId.startsWith("notify.mood.")) {
       await requireCurrentMoodNotificationEntry(patientPersonId, guidanceId);
+    }
+    if (guidanceId.startsWith("notify.fertility.")) {
+      await requireCurrentFertilityNotificationEstimate(patientPersonId, guidanceId);
     }
 
     const rows = await sql`
@@ -386,6 +451,10 @@ export function guidanceAllowed(
   if (guidanceId.startsWith("notify.mood.")) {
     return privacy.receiveMoodSupportNotifications && privacy.viewSharedWellbeing;
   }
+  if (guidanceId.startsWith("notify.fertility.")) {
+    return privacy.viewFertilityEstimate && privacy.receiveFertilityNotifications;
+  }
+  if (category === "fertility") return privacy.viewFertilityEstimate;
   if (category === "phase") return privacy.viewPhaseSummary;
   if (category === "mood" || category === "energy") {
     return privacy.viewSharedWellbeing;
@@ -400,26 +469,40 @@ export function assertNotificationMetadata(
 ): void {
   if (guidanceId.startsWith("notify.phase.")) {
     if (category !== "phase" || contentVersion !== phaseNotificationContentVersion) {
-      throw new ApiError(
-        400,
-        "invalid_companion_notification_metadata",
-        "Phase notification metadata is invalid.",
-      );
+      throw invalidNotificationMetadata("Phase");
     }
     return;
   }
   if (guidanceId.startsWith("notify.mood.")) {
     if (category !== "mood" || contentVersion !== moodNotificationContentVersion) {
-      throw new ApiError(
-        400,
-        "invalid_companion_notification_metadata",
-        "Wellbeing notification metadata is invalid.",
-      );
+      throw invalidNotificationMetadata("Wellbeing");
     }
+    return;
+  }
+  if (guidanceId.startsWith("notify.fertility.")) {
+    if (category !== "fertility" ||
+        contentVersion !== fertilityNotificationContentVersion) {
+      throw invalidNotificationMetadata("Fertility");
+    }
+    return;
+  }
+  if (guidanceId.startsWith("notify.")) {
+    throw invalidNotificationMetadata("Companion");
   }
 }
 
-function presentEstimate(estimate: any, privacy: CompanionPrivacy): Record<string, unknown> | null {
+function invalidNotificationMetadata(kind: string): ApiError {
+  return new ApiError(
+    400,
+    "invalid_companion_notification_metadata",
+    `${kind} notification metadata is invalid.`,
+  );
+}
+
+function presentEstimate(
+  estimate: any,
+  privacy: CompanionPrivacy,
+): Record<string, unknown> | null {
   if (privacy.viewFertilityEstimate) return estimate;
   if (!privacy.viewPhaseSummary) return null;
   return Object.fromEntries(
@@ -428,7 +511,11 @@ function presentEstimate(estimate: any, privacy: CompanionPrivacy): Record<strin
 }
 
 function accessDenied(): ApiError {
-  return new ApiError(403, "women_calendar_access_denied", "Women calendar access is not active.");
+  return new ApiError(
+    403,
+    "women_calendar_access_denied",
+    "Women calendar access is not active.",
+  );
 }
 
 function mapEpisodeCaregiver(row: Row): Record<string, unknown> {
@@ -469,7 +556,9 @@ async function insertAudit(
 }
 
 function iso(value: unknown): string {
-  return value instanceof Date ? value.toISOString() : new Date(String(value)).toISOString();
+  return value instanceof Date
+    ? value.toISOString()
+    : new Date(String(value)).toISOString();
 }
 
 function dateString(value: unknown): string {
