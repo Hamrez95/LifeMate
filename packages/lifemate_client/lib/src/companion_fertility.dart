@@ -44,11 +44,11 @@ class LifeMateCompanionFertilityNotification {
   final String privateBody;
 }
 
-/// Calendar-estimate communication only.
+/// Safety layer for a server-produced fertility-only projection.
 ///
-/// This engine never interprets fertility as confirmed ovulation, pregnancy
-/// probability, contraception guidance, infertility evidence, or medical advice.
-/// It intentionally accepts only already-computed calendar-estimate fields.
+/// The client deliberately does not need cycle start/day, next-period timing,
+/// raw episodes, symptoms, notes or other cycle scopes. It consumes only the
+/// independently authorized estimated-window projection returned by the server.
 class LifeMateCompanionFertilityEngine {
   const LifeMateCompanionFertilityEngine();
 
@@ -57,9 +57,7 @@ class LifeMateCompanionFertilityEngine {
 
   LifeMateCompanionFertilityInsight? insight({
     required bool viewFertilityEstimate,
-    required int? cycleDay,
-    required int? fertileWindowStartDay,
-    required int? fertileWindowEndDay,
+    required String? state,
     required bool fertilityEstimateReliable,
     required String? confidence,
     required String? cyclePattern,
@@ -67,16 +65,15 @@ class LifeMateCompanionFertilityEngine {
   }) {
     if (!viewFertilityEstimate) return null;
     final language = _language(locale);
-    if (!_eligibleEstimate(
-      cycleDay: cycleDay,
-      fertileWindowStartDay: fertileWindowStartDay,
-      fertileWindowEndDay: fertileWindowEndDay,
-      fertilityEstimateReliable: fertilityEstimateReliable,
+    final parsedState = _state(
+      state,
+      reliable: fertilityEstimateReliable,
       confidence: confidence,
       cyclePattern: cyclePattern,
-    )) {
+    );
+    if (parsedState == LifeMateCompanionFertilityState.unavailable) {
       return LifeMateCompanionFertilityInsight(
-        state: LifeMateCompanionFertilityState.unavailable,
+        state: parsedState,
         title: language == 'fa'
             ? 'برآورد باروری نامشخص است'
             : 'Fertility estimate is unavailable',
@@ -86,13 +83,10 @@ class LifeMateCompanionFertilityEngine {
         disclaimer: _disclaimer(language),
       );
     }
-
-    final inside = cycleDay! >= fertileWindowStartDay! &&
-        cycleDay <= fertileWindowEndDay!;
+    final inside =
+        parsedState == LifeMateCompanionFertilityState.insideEstimatedWindow;
     return LifeMateCompanionFertilityInsight(
-      state: inside
-          ? LifeMateCompanionFertilityState.insideEstimatedWindow
-          : LifeMateCompanionFertilityState.outsideEstimatedWindow,
+      state: parsedState,
       title: language == 'fa'
           ? 'بازه احتمالی باروری'
           : 'Estimated fertility window',
@@ -101,8 +95,8 @@ class LifeMateCompanionFertilityEngine {
               ? 'بر اساس اطلاعات چرخه، این روزها در بازه احتمالی باروری برآورد شده‌اند. اگر برای بارداری برنامه دارید، این فقط می‌تواند شروعی برای گفت‌وگوی دونفره باشد.'
               : 'Based on the recorded cycle information, these days fall within the estimated fertility window. If you are planning a pregnancy, this can simply be a prompt for a conversation together.'
           : language == 'fa'
-              ? 'برآورد تقویمی فعلی، این روز را خارج از بازه احتمالی باروری نشان می‌دهد.'
-              : 'The current calendar estimate places this day outside the estimated fertility window.',
+              ? 'برآورد تقویمی فعلی، امروز را خارج از بازه احتمالی باروری نشان می‌دهد.'
+              : 'The current calendar estimate places today outside the estimated fertility window.',
       disclaimer: _disclaimer(language),
     );
   }
@@ -111,10 +105,8 @@ class LifeMateCompanionFertilityEngine {
     required bool viewFertilityEstimate,
     required bool receiveFertilityNotifications,
     required bool caregiverNotificationsEnabled,
-    required String? cycleStart,
-    required int? cycleDay,
-    required int? fertileWindowStartDay,
-    required int? fertileWindowEndDay,
+    required String? state,
+    required String? estimatedWindowStartOn,
     required bool fertilityEstimateReliable,
     required String? confidence,
     required String? cyclePattern,
@@ -124,22 +116,18 @@ class LifeMateCompanionFertilityEngine {
     if (!viewFertilityEstimate ||
         !receiveFertilityNotifications ||
         !caregiverNotificationsEnabled ||
-        !_eligibleEstimate(
-          cycleDay: cycleDay,
-          fertileWindowStartDay: fertileWindowStartDay,
-          fertileWindowEndDay: fertileWindowEndDay,
-          fertilityEstimateReliable: fertilityEstimateReliable,
-          confidence: confidence,
-          cyclePattern: cyclePattern,
-        )) {
+        _state(
+              state,
+              reliable: fertilityEstimateReliable,
+              confidence: confidence,
+              cyclePattern: cyclePattern,
+            ) !=
+            LifeMateCompanionFertilityState.insideEstimatedWindow) {
       return null;
     }
-    if (cycleDay! < fertileWindowStartDay! || cycleDay > fertileWindowEndDay!) {
-      return null;
-    }
-    final start = _date(cycleStart);
-    if (start == null) return null;
-    final guidanceId = 'notify.fertility.window.$start';
+    final windowStart = _date(estimatedWindowStartOn);
+    if (windowStart == null) return null;
+    final guidanceId = 'notify.fertility.window.$windowStart';
     if (history.any((item) => item.guidanceId == guidanceId)) return null;
 
     final language = _language(locale);
@@ -158,26 +146,24 @@ class LifeMateCompanionFertilityEngine {
     );
   }
 
-  static bool _eligibleEstimate({
-    required int? cycleDay,
-    required int? fertileWindowStartDay,
-    required int? fertileWindowEndDay,
-    required bool fertilityEstimateReliable,
+  static LifeMateCompanionFertilityState _state(
+    String? raw, {
+    required bool reliable,
     required String? confidence,
     required String? cyclePattern,
   }) {
-    if (!fertilityEstimateReliable ||
+    if (!reliable ||
         confidence?.toLowerCase() == 'low' ||
-        cyclePattern?.toLowerCase() != 'regular' ||
-        cycleDay == null ||
-        fertileWindowStartDay == null ||
-        fertileWindowEndDay == null ||
-        cycleDay < 1 ||
-        fertileWindowStartDay < 1 ||
-        fertileWindowEndDay < fertileWindowStartDay) {
-      return false;
+        cyclePattern?.toLowerCase() != 'regular') {
+      return LifeMateCompanionFertilityState.unavailable;
     }
-    return true;
+    return switch (raw?.trim().toLowerCase()) {
+      'inside_estimated_window' =>
+        LifeMateCompanionFertilityState.insideEstimatedWindow,
+      'outside_estimated_window' =>
+        LifeMateCompanionFertilityState.outsideEstimatedWindow,
+      _ => LifeMateCompanionFertilityState.unavailable,
+    };
   }
 
   static String _disclaimer(String language) => language == 'fa'
