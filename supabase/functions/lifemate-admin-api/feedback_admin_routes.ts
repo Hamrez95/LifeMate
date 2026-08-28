@@ -134,7 +134,7 @@ export function createFeedbackAdminRouteHandler(databaseUrl: string) {
     }
 
     if (request.method === "GET" && path === "/api/v1/feedback/trends") {
-      requirePermission(admin, "feedback.read");
+      requirePermission(admin, "feedback.trends.read");
       const url = new URL(request.url);
       const product = optionalProduct(url);
       const days = boundedInt(url, "days", 30, 1, 365);
