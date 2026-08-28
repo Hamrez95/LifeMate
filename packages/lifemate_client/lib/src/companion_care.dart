@@ -108,13 +108,26 @@ class LifeMateCompanionCareEngine {
       ) {
         continue;
       }
-      return candidate;
+      return wellbeingAllowed ? candidate : _withoutSupportAction(candidate);
     }
     return null;
   }
 
   static String _normalizeAction(String value) =>
       value.trim().toLowerCase().replaceAll('checkin', 'check_in');
+
+  static LifeMateCompanionGuidance _withoutSupportAction(
+    LifeMateCompanionGuidance guidance,
+  ) =>
+      LifeMateCompanionGuidance(
+        id: guidance.id,
+        category: guidance.category,
+        contentVersion: guidance.contentVersion,
+        locale: guidance.locale,
+        title: guidance.title,
+        message: guidance.message,
+        cooldown: guidance.cooldown,
+      );
 
   LifeMateCompanionGuidance _lowEnergy(String language) =>
       LifeMateCompanionGuidance(
