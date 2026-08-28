@@ -19,30 +19,52 @@ class CompanionPhaseNotificationPresentation {
 CompanionPhaseNotificationPresentation companionPhaseNotificationPresentation(
   LifeMateCompanionPhaseNotification candidate,
   String? lockScreenDetail,
-) {
+) => _presentation(
+  title: candidate.title,
+  fullBody: candidate.fullBody,
+  privateBody: candidate.privateBody,
+  lockScreenDetail: lockScreenDetail,
+);
+
+CompanionPhaseNotificationPresentation companionMoodNotificationPresentation(
+  LifeMateCompanionMoodNotification candidate,
+  String? lockScreenDetail,
+) => _presentation(
+  title: candidate.title,
+  fullBody: candidate.fullBody,
+  privateBody: candidate.privateBody,
+  lockScreenDetail: lockScreenDetail,
+);
+
+CompanionPhaseNotificationPresentation _presentation({
+  required String title,
+  required String fullBody,
+  required String privateBody,
+  required String? lockScreenDetail,
+}) {
   final detail = lockScreenDetail?.trim().toLowerCase() ?? 'limited';
   if (detail == 'full') {
     return CompanionPhaseNotificationPresentation(
-      title: candidate.title,
-      body: candidate.fullBody,
+      title: title,
+      body: fullBody,
       visibility: NotificationVisibility.public,
     );
   }
   return CompanionPhaseNotificationPresentation(
     title: 'CareMate',
-    body: candidate.privateBody,
+    body: privateBody,
     visibility: detail == 'hidden'
         ? NotificationVisibility.secret
         : NotificationVisibility.private,
   );
 }
 
-/// Privacy-first companion phase notification synchronizer.
+/// Privacy-first companion notification synchronizer.
 ///
-/// Sensitive predictions are not queued days ahead. Each local notification is
-/// generated only after a fresh server read and a server-authorized impression
-/// write, so cycle edits and revocations are reconciled before future
-/// notification generation rather than relying on stale device-side data.
+/// The historical class name is retained for compatibility with #106, but the
+/// same single hourly pass now evaluates both phase and explicitly shared
+/// wellbeing signals. This avoids duplicate timers/network reads and prevents
+/// one refresh from fanning out multiple sensitive notifications.
 class CompanionPhaseNotificationProvider extends ChangeNotifier {
   CompanionPhaseNotificationProvider({
     FlutterLocalNotificationsPlugin? notifications,
@@ -52,8 +74,10 @@ class CompanionPhaseNotificationProvider extends ChangeNotifier {
 
   final FlutterLocalNotificationsPlugin _notifications;
   final LifeMateCompanionCareApi _companionApi;
-  final LifeMateCompanionPhaseNotificationEngine _engine =
+  final LifeMateCompanionPhaseNotificationEngine _phaseEngine =
       const LifeMateCompanionPhaseNotificationEngine();
+  final LifeMateCompanionMoodNotificationEngine _moodEngine =
+      const LifeMateCompanionMoodNotificationEngine();
 
   LifeMateApiClient? _apiClient;
   Timer? _timer;
@@ -75,9 +99,8 @@ class CompanionPhaseNotificationProvider extends ChangeNotifier {
     if (api == null) return;
     _syncing = true;
     try {
-      // The primary CareNotificationProvider owns plugin initialization and the
-      // response callback. Do not initialize a second time here, because doing
-      // so could replace the existing care-call notification callback.
+      // CareNotificationProvider remains the only plugin initializer so its
+      // existing response callback (including call actions) is never replaced.
       final android = _notifications
           .resolvePlatformSpecificImplementation<
               AndroidFlutterLocalNotificationsPlugin>();
@@ -88,7 +111,7 @@ class CompanionPhaseNotificationProvider extends ChangeNotifier {
         await _syncRelationship(api, relationship);
       }
     } catch (error) {
-      debugPrint('CareMate companion phase notification sync failed safely: $error');
+      debugPrint('CareMate companion notification sync failed safely: $error');
     } finally {
       _syncing = false;
     }
@@ -117,9 +140,68 @@ class CompanionPhaseNotificationProvider extends ChangeNotifier {
     }
 
     final scopes = _map(summary['privacyScopes']);
+    final rawHistory = summary['guidanceHistory'];
+    final lockScreenDetail = preferences['lockScreenDetail']?.toString();
+
+    // Fresh explicitly-shared wellbeing is more time-sensitive than an
+    // estimated phase reminder, so it gets first chance. Returning after a
+    // successful mood/energy notification ensures one refresh cannot emit both.
+    final shared = _map(summary['latestSharedDailyLog']);
+    final moodCandidate = _moodEngine.select(
+      receiveMoodSupportNotifications:
+          scopes['receiveMoodSupportNotifications'] == true,
+      viewSharedWellbeing: scopes['viewSharedWellbeing'] == true,
+      caregiverNotificationsEnabled: preferences['enabled'] == true,
+      loggedOn: shared['loggedOn']?.toString(),
+      mood: shared['mood']?.toString(),
+      energyLevel: _int(shared['energyLevel']),
+      updatedAtUtc: DateTime.tryParse(shared['updatedAtUtc']?.toString() ?? ''),
+      history: _moodHistory(rawHistory),
+      locale: LifeMateRuntimeLocale.languageCode,
+      nowUtc: DateTime.now().toUtc(),
+    );
+    if (moodCandidate != null) {
+      final recorded = await _recordAuthorized(
+        patientUserId: patientUserId,
+        guidanceId: moodCandidate.guidanceId,
+        contentVersion: moodCandidate.contentVersion,
+        category: 'mood',
+      );
+      if (!recorded) return;
+      final presentation = companionMoodNotificationPresentation(
+        moodCandidate,
+        lockScreenDetail,
+      );
+      await _notifications.show(
+        _notificationId(moodCandidate.guidanceId),
+        presentation.title,
+        presentation.body,
+        NotificationDetails(
+          android: AndroidNotificationDetails(
+            'caremate_companion_wellbeing',
+            LifeMateRuntimeLocale.select(
+              fa: 'همراهی و احوال‌پرسی',
+              en: 'Supportive check-ins',
+            ),
+            channelDescription: LifeMateRuntimeLocale.select(
+              fa: 'اعلان‌های محدود بر اساس حال یا انرژی‌ای که صریحاً به اشتراک گذاشته شده است',
+              en: 'Limited notifications based only on explicitly shared mood or energy',
+            ),
+            importance: Importance.defaultImportance,
+            priority: Priority.defaultPriority,
+            category: AndroidNotificationCategory.social,
+            visibility: presentation.visibility,
+            onlyAlertOnce: true,
+          ),
+        ),
+        payload:
+            'care-companion-wellbeing:$patientUserId:${moodCandidate.guidanceId}',
+      );
+      return;
+    }
+
     final estimate = _map(summary['estimate']);
-    final history = _history(summary['guidanceHistory']);
-    final candidate = _engine.select(
+    final phaseCandidate = _phaseEngine.select(
       receivePhaseNotifications: scopes['receivePhaseNotifications'] == true,
       viewPhaseSummary: scopes['viewPhaseSummary'] == true,
       viewPeriodTiming: scopes['viewPeriodTiming'] == true,
@@ -131,34 +213,26 @@ class CompanionPhaseNotificationProvider extends ChangeNotifier {
       nextPeriodStart: estimate['nextPeriodStart']?.toString(),
       confidence: estimate['confidence']?.toString(),
       cyclePattern: estimate['cyclePattern']?.toString(),
-      history: history,
+      history: _phaseHistory(rawHistory),
       locale: LifeMateRuntimeLocale.languageCode,
       nowUtc: DateTime.now().toUtc(),
     );
-    if (candidate == null) return;
+    if (phaseCandidate == null) return;
 
-    // Re-authorize immediately before any health-sensitive OS surface is shown.
-    // The server endpoint re-checks the active relationship + exact scope and
-    // becomes the durable cooldown/dedup receipt reused from #105.
-    try {
-      await _companionApi.recordImpression(
-        patientUserId: patientUserId,
-        guidanceId: candidate.guidanceId,
-        contentVersion: candidate.contentVersion,
-        category: 'phase',
-      );
-    } on LifeMateApiException catch (error) {
-      if (_isAccessStopped(error.code)) return;
-      debugPrint('CareMate phase notification receipt failed safely: ${error.code}');
-      return;
-    }
+    final recorded = await _recordAuthorized(
+      patientUserId: patientUserId,
+      guidanceId: phaseCandidate.guidanceId,
+      contentVersion: phaseCandidate.contentVersion,
+      category: 'phase',
+    );
+    if (!recorded) return;
 
     final presentation = companionPhaseNotificationPresentation(
-      candidate,
-      preferences['lockScreenDetail']?.toString(),
+      phaseCandidate,
+      lockScreenDetail,
     );
     await _notifications.show(
-      _notificationId(candidate.guidanceId),
+      _notificationId(phaseCandidate.guidanceId),
       presentation.title,
       presentation.body,
       NotificationDetails(
@@ -179,11 +253,34 @@ class CompanionPhaseNotificationProvider extends ChangeNotifier {
           onlyAlertOnce: true,
         ),
       ),
-      payload: 'care-companion-phase:$patientUserId:${candidate.guidanceId}',
+      payload:
+          'care-companion-phase:$patientUserId:${phaseCandidate.guidanceId}',
     );
   }
 
-  static List<LifeMateCompanionPhaseNotificationHistoryItem> _history(
+  Future<bool> _recordAuthorized({
+    required String patientUserId,
+    required String guidanceId,
+    required String contentVersion,
+    required String category,
+  }) async {
+    try {
+      await _companionApi.recordImpression(
+        patientUserId: patientUserId,
+        guidanceId: guidanceId,
+        contentVersion: contentVersion,
+        category: category,
+      );
+      return true;
+    } on LifeMateApiException catch (error) {
+      if (!_isAccessStopped(error.code)) {
+        debugPrint('CareMate companion notification receipt failed safely: ${error.code}');
+      }
+      return false;
+    }
+  }
+
+  static List<LifeMateCompanionPhaseNotificationHistoryItem> _phaseHistory(
     dynamic raw,
   ) => (raw is List ? raw : const <dynamic>[])
       .whereType<Map>()
@@ -191,11 +288,27 @@ class CompanionPhaseNotificationProvider extends ChangeNotifier {
         final value = Map<String, dynamic>.from(item);
         return LifeMateCompanionPhaseNotificationHistoryItem(
           guidanceId: value['guidanceId']?.toString() ?? '',
-          shownAtUtc: DateTime.tryParse(value['shownAtUtc']?.toString() ?? '') ??
-              DateTime.fromMillisecondsSinceEpoch(0, isUtc: true),
+          shownAtUtc: _historyDate(value),
         );
       })
       .toList(growable: false);
+
+  static List<LifeMateCompanionMoodNotificationHistoryItem> _moodHistory(
+    dynamic raw,
+  ) => (raw is List ? raw : const <dynamic>[])
+      .whereType<Map>()
+      .map((item) {
+        final value = Map<String, dynamic>.from(item);
+        return LifeMateCompanionMoodNotificationHistoryItem(
+          guidanceId: value['guidanceId']?.toString() ?? '',
+          shownAtUtc: _historyDate(value),
+        );
+      })
+      .toList(growable: false);
+
+  static DateTime _historyDate(Map<String, dynamic> value) =>
+      DateTime.tryParse(value['shownAtUtc']?.toString() ?? '') ??
+      DateTime.fromMillisecondsSinceEpoch(0, isUtc: true);
 
   static bool _isAccessStopped(String code) =>
       code == 'women_calendar_access_denied' ||
