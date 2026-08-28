@@ -119,7 +119,7 @@ begin
     raise exception 'privacy_draft_retirement_forbidden' using errcode='55000';
   end if;
   if v.status='Retired' then
-    return jsonb_build_object('documentId',v.id,'status',v.status,'retiredAt',v.retired_at,'noop',true);
+    return jsonb_build_object('documentId',v.id,'status',v.status,'retiredAt',v.retired_at,'updatedAt',v.updated_at,'noop',true);
   end if;
 
   update consent.documents
@@ -128,9 +128,11 @@ begin
   returning * into v;
 
   insert into admin.audit_events(
-    actor_account_id,action,resource_type,resource_id,reason_code,correlation_id,safe_metadata
+    actor_account_id,action,resource_type,resource_id,result,reason,
+    correlation_id,request_id,elevated_access,metadata_json
   ) values (
-    p_actor_account_id,'privacy.document.retired','ConsentDocument',v.id::text,v_reason,p_correlation_id,
+    p_actor_account_id,'privacy.document.retired','consent_document',v.id::text,
+    'Succeeded',v_reason,p_correlation_id,null,false,
     jsonb_build_object('documentKey',v.document_key,'version',v.version,'locale',v.locale)
   );
 
