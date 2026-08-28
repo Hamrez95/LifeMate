@@ -1,7 +1,8 @@
-import 'package:caremate/providers/companion_phase_notification_provider.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:lifemate_client/lifemate_client.dart';
+
+import '../lib/providers/companion_phase_notification_provider.dart';
 
 void main() {
   const candidate = LifeMateCompanionFertilityNotification(
