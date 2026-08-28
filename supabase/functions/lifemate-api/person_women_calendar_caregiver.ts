@@ -121,7 +121,7 @@ export function createPersonWomenCalendarCaregiverStore(databaseUrl: string) {
       /^notify\.fertility\.window\.(\d{4}-\d{2}-\d{2})$/,
     );
     if (!match) throw accessDenied();
-    const expectedCycleStart = match[1];
+    const expectedWindowStart = match[1];
     const profiles = await sql`
       select last_period_start,cycle_length,period_length
       from lifemate.women_calendar_profiles
@@ -146,7 +146,10 @@ export function createPersonWomenCalendarCaregiverStore(databaseUrl: string) {
     const cycleDay = Number(estimate.cycleDay);
     const windowStart = Number(estimate.fertileWindowStartDay);
     const windowEnd = Number(estimate.fertileWindowEndDay);
-    if (dateString(estimate.cycleStart) !== expectedCycleStart ||
+    const estimatedWindowStart = Number.isFinite(windowStart)
+      ? addDays(dateString(estimate.cycleStart), windowStart - 1)
+      : null;
+    if (estimatedWindowStart !== expectedWindowStart ||
         estimate.fertilityEstimateReliable !== true ||
         String(estimate.cyclePattern).toLowerCase() !== "regular" ||
         String(estimate.confidence).toLowerCase() === "low" ||
@@ -244,7 +247,8 @@ export function createPersonWomenCalendarCaregiverStore(databaseUrl: string) {
           dateString(left.started_on).localeCompare(dateString(right.started_on)))
         .map((episode: Row) => dateString(episode.started_on)),
     );
-    const estimate = presentEstimate(rawEstimate, privacy);
+    const estimate = presentCycleEstimate(rawEstimate, privacy);
+    const fertilityEstimate = presentFertilityEstimate(rawEstimate, privacy);
     const canonicalSharedLog = latestLogs[0]?.share_summary_with_companion === true
       ? mapDailyLogCompanion(latestLogs[0])
       : null;
@@ -271,6 +275,7 @@ export function createPersonWomenCalendarCaregiverStore(databaseUrl: string) {
           : null,
       },
       estimate,
+      fertilityEstimate,
       sharedDailySummary: privacy.viewSharedWellbeing ? sharedDailySummary : null,
       episodes: privacy.viewCalendarDetail ? episodes.map(mapEpisodeCaregiver) : [],
       latestSharedDailyLog: privacy.viewSharedWellbeing ? canonicalSharedLog : null,
@@ -499,15 +504,83 @@ function invalidNotificationMetadata(kind: string): ApiError {
   );
 }
 
-function presentEstimate(
+export function presentCycleEstimate(
   estimate: any,
   privacy: CompanionPrivacy,
 ): Record<string, unknown> | null {
-  if (privacy.viewFertilityEstimate) return estimate;
-  if (!privacy.viewPhaseSummary) return null;
-  return Object.fromEntries(
-    Object.entries(estimate).filter(([key]) => !/fertil|ovulat/i.test(key)),
-  );
+  const result: Record<string, unknown> = {};
+  if (privacy.viewPhaseSummary) {
+    const detailed = String(estimate.detailedPhase ?? estimate.phase ?? "cycle");
+    result.phase = estimate.phase;
+    result.detailedPhase = !privacy.viewFertilityEstimate &&
+        (detailed === "fertile" || detailed === "ovulation")
+      ? "follicular"
+      : detailed;
+    result.confidence = estimate.confidence;
+    result.cyclePattern = estimate.cyclePattern;
+    result.algorithmVersion = estimate.algorithmVersion;
+  }
+  if (privacy.viewPeriodTiming) {
+    result.cycleStart = estimate.cycleStart;
+    result.cycleDay = estimate.cycleDay;
+    result.estimatedBleeding = estimate.estimatedBleeding;
+    result.nextPeriodStart = estimate.nextPeriodStart;
+    result.daysUntilNextPeriod = estimate.daysUntilNextPeriod;
+  }
+  if (privacy.viewCalendarDetail) {
+    result.cycleLength = estimate.cycleLength;
+    result.periodLength = estimate.periodLength;
+    result.pmsStartDay = estimate.pmsStartDay;
+  }
+  return Object.keys(result).length === 0 ? null : result;
+}
+
+export function presentFertilityEstimate(
+  estimate: any,
+  privacy: CompanionPrivacy,
+): Record<string, unknown> | null {
+  if (!privacy.viewFertilityEstimate) return null;
+  const cycleDay = Number(estimate.cycleDay);
+  const windowStartDay = Number(estimate.fertileWindowStartDay);
+  const windowEndDay = Number(estimate.fertileWindowEndDay);
+  const ovulationDay = estimate.ovulationDay == null
+    ? null
+    : Number(estimate.ovulationDay);
+  const reliable = estimate.fertilityEstimateReliable === true &&
+    String(estimate.cyclePattern).toLowerCase() === "regular" &&
+    String(estimate.confidence).toLowerCase() !== "low" &&
+    Number.isFinite(cycleDay) &&
+    Number.isFinite(windowStartDay) &&
+    Number.isFinite(windowEndDay) &&
+    windowStartDay >= 1 &&
+    windowEndDay >= windowStartDay;
+  if (!reliable) {
+    return {
+      state: "unavailable",
+      estimatedWindowStartOn: null,
+      estimatedWindowEndOn: null,
+      estimatedOvulationOn: null,
+      fertilityEstimateReliable: false,
+      confidence: estimate.confidence,
+      cyclePattern: estimate.cyclePattern,
+      algorithmVersion: estimate.algorithmVersion,
+    };
+  }
+  const cycleStart = dateString(estimate.cycleStart);
+  return {
+    state: cycleDay >= windowStartDay && cycleDay <= windowEndDay
+      ? "inside_estimated_window"
+      : "outside_estimated_window",
+    estimatedWindowStartOn: addDays(cycleStart, windowStartDay - 1),
+    estimatedWindowEndOn: addDays(cycleStart, windowEndDay - 1),
+    estimatedOvulationOn: ovulationDay != null && Number.isFinite(ovulationDay)
+      ? addDays(cycleStart, ovulationDay - 1)
+      : null,
+    fertilityEstimateReliable: true,
+    confidence: estimate.confidence,
+    cyclePattern: estimate.cyclePattern,
+    algorithmVersion: estimate.algorithmVersion,
+  };
 }
 
 function accessDenied(): ApiError {
@@ -553,6 +626,12 @@ async function insertAudit(
       (${crypto.randomUUID()}::uuid,${actorAppUserId}::uuid,${action},
        ${resourceType},${resourceId}::uuid,null,now())
   `;
+}
+
+function addDays(value: string, days: number): string {
+  const parsed = new Date(`${value}T00:00:00.000Z`);
+  parsed.setUTCDate(parsed.getUTCDate() + days);
+  return parsed.toISOString().slice(0, 10);
 }
 
 function iso(value: unknown): string {
