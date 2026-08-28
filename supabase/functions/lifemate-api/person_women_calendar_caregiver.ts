@@ -66,6 +66,43 @@ export function createPersonWomenCalendarCaregiverStore(databaseUrl: string) {
     return rows[0];
   }
 
+  async function requireCurrentMoodNotificationEntry(
+    patientPersonId: string,
+    guidanceId: string,
+  ): Promise<void> {
+    const match = guidanceId.match(
+      /^notify\.mood\.(check_in|energy)\.(\d{4}-\d{2}-\d{2})$/,
+    );
+    if (!match) throw accessDenied();
+    const [, trigger, expectedDate] = match;
+    const rows = await sql`
+      select logged_on,mood,energy_level,share_summary_with_companion,updated_at_utc
+      from lifemate.women_calendar_daily_logs
+      where owner_person_id=${patientPersonId}::uuid
+      order by logged_on desc,id
+      limit 1
+    `;
+    const row = rows[0];
+    if (!row ||
+        row.share_summary_with_companion !== true ||
+        dateString(row.logged_on) !== expectedDate) {
+      throw accessDenied();
+    }
+    const updatedAt = new Date(String(row.updated_at_utc));
+    if (!Number.isFinite(updatedAt.getTime()) ||
+        Date.now() - updatedAt.getTime() > 8 * 60 * 60 * 1000 ||
+        updatedAt.getTime() > Date.now() + 60_000) {
+      throw accessDenied();
+    }
+    const mood = String(row.mood ?? "").toLowerCase();
+    const lowMood = mood === "low" || mood === "overwhelmed";
+    if (trigger === "check_in" && !lowMood) throw accessDenied();
+    if (trigger === "energy" &&
+        (lowMood || Number(row.energy_level) > 2 || Number(row.energy_level) < 1)) {
+      throw accessDenied();
+    }
+  }
+
   async function getCareSummary(
     caregiverAppUserId: string,
     patientAppUserIdValue: unknown,
@@ -145,8 +182,6 @@ export function createPersonWomenCalendarCaregiverStore(databaseUrl: string) {
       episodes.map((episode: Row) => dateString(episode.started_on)),
     );
     const estimate = presentEstimate(rawEstimate, privacy);
-    // Never fall back to an older shared entry when the newest check-in was
-    // edited to private. That would defeat per-entry share-off semantics.
     const canonicalSharedLog = latestLogs[0]?.share_summary_with_companion === true
       ? mapDailyLogCompanion(latestLogs[0])
       : null;
@@ -214,6 +249,9 @@ export function createPersonWomenCalendarCaregiverStore(databaseUrl: string) {
     const relationship = await resolveActiveRelationship(caregiverPersonId, patientPersonId);
     const privacy = companionPrivacy(relationship);
     if (!guidanceAllowed(guidanceId, category, privacy)) throw accessDenied();
+    if (guidanceId.startsWith("notify.mood.")) {
+      await requireCurrentMoodNotificationEntry(patientPersonId, guidanceId);
+    }
 
     const rows = await sql`
       insert into lifemate.women_companion_guidance_history
