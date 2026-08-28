@@ -4,13 +4,45 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:lifemate_client/lifemate_client.dart';
 
+class CompanionPhaseNotificationPresentation {
+  const CompanionPhaseNotificationPresentation({
+    required this.title,
+    required this.body,
+    required this.visibility,
+  });
+
+  final String title;
+  final String body;
+  final NotificationVisibility visibility;
+}
+
+CompanionPhaseNotificationPresentation companionPhaseNotificationPresentation(
+  LifeMateCompanionPhaseNotification candidate,
+  String? lockScreenDetail,
+) {
+  final detail = lockScreenDetail?.trim().toLowerCase() ?? 'limited';
+  if (detail == 'full') {
+    return CompanionPhaseNotificationPresentation(
+      title: candidate.title,
+      body: candidate.fullBody,
+      visibility: NotificationVisibility.public,
+    );
+  }
+  return CompanionPhaseNotificationPresentation(
+    title: 'CareMate',
+    body: candidate.privateBody,
+    visibility: detail == 'hidden'
+        ? NotificationVisibility.secret
+        : NotificationVisibility.private,
+  );
+}
+
 /// Privacy-first companion phase notification synchronizer.
 ///
-/// It intentionally does not queue sensitive phase predictions days in advance.
-/// Each local notification is generated only after a fresh server read and a
-/// server-authorized impression write. This means cycle edits and revocations
-/// are reconciled before future notification generation instead of relying on
-/// stale device-side health data.
+/// Sensitive predictions are not queued days ahead. Each local notification is
+/// generated only after a fresh server read and a server-authorized impression
+/// write, so cycle edits and revocations are reconciled before future
+/// notification generation rather than relying on stale device-side data.
 class CompanionPhaseNotificationProvider extends ChangeNotifier {
   CompanionPhaseNotificationProvider({
     FlutterLocalNotificationsPlugin? notifications,
@@ -25,17 +57,7 @@ class CompanionPhaseNotificationProvider extends ChangeNotifier {
 
   LifeMateApiClient? _apiClient;
   Timer? _timer;
-  bool _initialized = false;
   bool _syncing = false;
-
-  Future<void> initialize() async {
-    if (_initialized) return;
-    const settings = InitializationSettings(
-      android: AndroidInitializationSettings('@mipmap/ic_launcher'),
-    );
-    await _notifications.initialize(settings);
-    _initialized = true;
-  }
 
   void attachApiClient(LifeMateApiClient apiClient) {
     _apiClient = apiClient;
@@ -53,7 +75,9 @@ class CompanionPhaseNotificationProvider extends ChangeNotifier {
     if (api == null) return;
     _syncing = true;
     try {
-      await initialize();
+      // The primary CareNotificationProvider owns plugin initialization and the
+      // response callback. Do not initialize a second time here, because doing
+      // so could replace the existing care-call notification callback.
       final android = _notifications
           .resolvePlatformSpecificImplementation<
               AndroidFlutterLocalNotificationsPlugin>();
@@ -113,8 +137,8 @@ class CompanionPhaseNotificationProvider extends ChangeNotifier {
     if (candidate == null) return;
 
     // Re-authorize immediately before any health-sensitive OS surface is shown.
-    // The server record endpoint re-checks the active relationship + exact
-    // companion scope and also becomes the durable cooldown/dedup receipt.
+    // The server endpoint re-checks the active relationship + exact scope and
+    // becomes the durable cooldown/dedup receipt reused from #105.
     try {
       await _companionApi.recordImpression(
         patientUserId: patientUserId,
@@ -128,13 +152,14 @@ class CompanionPhaseNotificationProvider extends ChangeNotifier {
       return;
     }
 
-    final lockScreen = preferences['lockScreenDetail']?.toString().toLowerCase() ??
-        'limited';
-    final full = lockScreen == 'full';
+    final presentation = companionPhaseNotificationPresentation(
+      candidate,
+      preferences['lockScreenDetail']?.toString(),
+    );
     await _notifications.show(
       _notificationId(candidate.guidanceId),
-      full ? candidate.title : 'CareMate',
-      full ? candidate.fullBody : candidate.privateBody,
+      presentation.title,
+      presentation.body,
       NotificationDetails(
         android: AndroidNotificationDetails(
           'caremate_companion_phase',
@@ -149,11 +174,7 @@ class CompanionPhaseNotificationProvider extends ChangeNotifier {
           importance: Importance.defaultImportance,
           priority: Priority.defaultPriority,
           category: AndroidNotificationCategory.status,
-          visibility: switch (lockScreen) {
-            'full' => NotificationVisibility.public,
-            'hidden' => NotificationVisibility.secret,
-            _ => NotificationVisibility.private,
-          },
+          visibility: presentation.visibility,
           onlyAlertOnce: true,
         ),
       ),
