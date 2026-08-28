@@ -43,6 +43,7 @@ export 'src/privacy_safe_crash_reporter.dart';
 export 'src/privacy_safe_product_analytics.dart';
 export 'src/profile_avatar.dart';
 export 'src/presentation_numbers.dart';
+export 'src/relationship_presentation.dart';
 export 'src/reminder_lead_time.dart';
 export 'src/remote_config.dart';
 export 'src/recurrence.dart';
