@@ -49,7 +49,6 @@ void main() {
       final phaseNotificationProvider = CompanionPhaseNotificationProvider();
       try {
         await notificationProvider.initialize();
-        await phaseNotificationProvider.initialize();
       } catch (error, stackTrace) {
         FlutterError.reportError(
           FlutterErrorDetails(
