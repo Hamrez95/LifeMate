@@ -15,6 +15,8 @@ const supportActions: Record<string, string> = {
 };
 
 const guidanceCategories = new Set(["general", "phase", "mood", "energy"]);
+const phaseNotificationContentVersion = "companion-phase-notifications-v1";
+const moodNotificationContentVersion = "companion-mood-notifications-v1";
 
 async function resolveCarePeople(
   connection: any,
@@ -54,7 +56,8 @@ export function createPersonWomenCalendarCaregiverStore(databaseUrl: string) {
     patientPersonId: string,
   ): Promise<Row> {
     const rows = await sql`
-      select r.id, s.*
+      select r.id, r.caregiver_notifications_enabled,
+             r.caregiver_lock_screen_detail, s.*
       from lifemate.care_relationships r
       left join lifemate.women_companion_privacy_scopes s on s.relationship_id = r.id
       where r.patient_person_id=${patientPersonId}::uuid
@@ -64,6 +67,43 @@ export function createPersonWomenCalendarCaregiverStore(databaseUrl: string) {
     `;
     if (!rows[0]) throw accessDenied();
     return rows[0];
+  }
+
+  async function requireCurrentMoodNotificationEntry(
+    patientPersonId: string,
+    guidanceId: string,
+  ): Promise<void> {
+    const match = guidanceId.match(
+      /^notify\.mood\.(check_in|energy)\.(\d{4}-\d{2}-\d{2})$/,
+    );
+    if (!match) throw accessDenied();
+    const [, trigger, expectedDate] = match;
+    const rows = await sql`
+      select logged_on,mood,energy_level,share_summary_with_companion,updated_at_utc
+      from lifemate.women_calendar_daily_logs
+      where owner_person_id=${patientPersonId}::uuid
+      order by logged_on desc,id
+      limit 1
+    `;
+    const row = rows[0];
+    if (!row ||
+        row.share_summary_with_companion !== true ||
+        dateString(row.logged_on) !== expectedDate) {
+      throw accessDenied();
+    }
+    const updatedAt = new Date(String(row.updated_at_utc));
+    if (!Number.isFinite(updatedAt.getTime()) ||
+        Date.now() - updatedAt.getTime() > 8 * 60 * 60 * 1000 ||
+        updatedAt.getTime() > Date.now() + 60_000) {
+      throw accessDenied();
+    }
+    const mood = String(row.mood ?? "").toLowerCase();
+    const lowMood = mood === "low" || mood === "overwhelmed";
+    if (trigger === "check_in" && !lowMood) throw accessDenied();
+    if (trigger === "energy" &&
+        (lowMood || Number(row.energy_level) > 2 || Number(row.energy_level) < 1)) {
+      throw accessDenied();
+    }
   }
 
   async function getCareSummary(
@@ -125,12 +165,12 @@ export function createPersonWomenCalendarCaregiverStore(databaseUrl: string) {
         and caregiver_person_id=${caregiverPersonId}::uuid
       order by shown_at_utc desc,id limit 20
     `;
-    const sharedLogs = privacy.viewSharedWellbeing
+    const latestLogs = privacy.viewSharedWellbeing
       ? await sql`
-        select logged_on,mood,energy_level,version,updated_at_utc
+        select logged_on,mood,energy_level,version,updated_at_utc,
+               share_summary_with_companion
         from lifemate.women_calendar_daily_logs
         where owner_person_id=${patientPersonId}::uuid
-          and share_summary_with_companion=true
           and logged_on >= current_date - interval '14 days'
         order by logged_on desc,id limit 1
       `
@@ -145,8 +185,8 @@ export function createPersonWomenCalendarCaregiverStore(databaseUrl: string) {
       episodes.map((episode: Row) => dateString(episode.started_on)),
     );
     const estimate = presentEstimate(rawEstimate, privacy);
-    const canonicalSharedLog = sharedLogs[0]
-      ? mapDailyLogCompanion(sharedLogs[0])
+    const canonicalSharedLog = latestLogs[0]?.share_summary_with_companion === true
+      ? mapDailyLogCompanion(latestLogs[0])
       : null;
     const sharedDailySummary = canonicalSharedLog == null ? null : {
       date: canonicalSharedLog.loggedOn,
@@ -203,6 +243,7 @@ export function createPersonWomenCalendarCaregiverStore(databaseUrl: string) {
     if (!guidanceCategories.has(category)) {
       throw new ApiError(400, "invalid_companion_guidance_category", "Invalid guidance category.");
     }
+    assertNotificationMetadata(guidanceId, contentVersion, category);
 
     const { caregiverPersonId, patientPersonId } = await resolveCarePeople(
       sql,
@@ -210,8 +251,15 @@ export function createPersonWomenCalendarCaregiverStore(databaseUrl: string) {
       patientAppUserId,
     );
     const relationship = await resolveActiveRelationship(caregiverPersonId, patientPersonId);
+    if (guidanceId.startsWith("notify.") &&
+        relationship.caregiver_notifications_enabled !== true) {
+      throw accessDenied();
+    }
     const privacy = companionPrivacy(relationship);
     if (!guidanceAllowed(guidanceId, category, privacy)) throw accessDenied();
+    if (guidanceId.startsWith("notify.mood.")) {
+      await requireCurrentMoodNotificationEntry(patientPersonId, guidanceId);
+    }
 
     const rows = await sql`
       insert into lifemate.women_companion_guidance_history
@@ -219,8 +267,16 @@ export function createPersonWomenCalendarCaregiverStore(databaseUrl: string) {
       values
         (${relationship.id}::uuid,${patientPersonId}::uuid,${caregiverPersonId}::uuid,
          ${guidanceId},${contentVersion},${category})
+      on conflict do nothing
       returning id,guidance_id,shown_at_utc
     `;
+    if (!rows[0]) {
+      throw new ApiError(
+        409,
+        "companion_notification_duplicate",
+        "This companion notification was already recorded.",
+      );
+    }
     return {
       id: rows[0].id,
       guidanceId: rows[0].guidance_id,
@@ -327,11 +383,40 @@ export function guidanceAllowed(
   if (guidanceId.startsWith("notify.phase.")) {
     return privacy.receivePhaseNotifications && privacy.viewPhaseSummary;
   }
+  if (guidanceId.startsWith("notify.mood.")) {
+    return privacy.receiveMoodSupportNotifications && privacy.viewSharedWellbeing;
+  }
   if (category === "phase") return privacy.viewPhaseSummary;
   if (category === "mood" || category === "energy") {
     return privacy.viewSharedWellbeing;
   }
   return privacy.viewPhaseSummary || privacy.viewSharedWellbeing;
+}
+
+export function assertNotificationMetadata(
+  guidanceId: string,
+  contentVersion: string,
+  category: string,
+): void {
+  if (guidanceId.startsWith("notify.phase.")) {
+    if (category !== "phase" || contentVersion !== phaseNotificationContentVersion) {
+      throw new ApiError(
+        400,
+        "invalid_companion_notification_metadata",
+        "Phase notification metadata is invalid.",
+      );
+    }
+    return;
+  }
+  if (guidanceId.startsWith("notify.mood.")) {
+    if (category !== "mood" || contentVersion !== moodNotificationContentVersion) {
+      throw new ApiError(
+        400,
+        "invalid_companion_notification_metadata",
+        "Wellbeing notification metadata is invalid.",
+      );
+    }
+  }
 }
 
 function presentEstimate(estimate: any, privacy: CompanionPrivacy): Record<string, unknown> | null {
@@ -356,6 +441,8 @@ function mapEpisodeCaregiver(row: Row): Record<string, unknown> {
 }
 
 function mapDailyLogCompanion(row: Row): Record<string, unknown> {
+  // Intentionally narrow: private_notes, pain_level and symptoms are never
+  // projected into the companion payload or notification engine.
   return {
     loggedOn: dateString(row.logged_on),
     mood: String(row.mood).toLowerCase(),
