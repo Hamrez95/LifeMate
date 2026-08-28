@@ -1,5 +1,9 @@
 import { createContactPointReader } from "./contact_points.ts";
 import { getLifeMateSql } from "./database_client.ts";
+import {
+  normalizeRelationshipPresentationPatch,
+  presentRelationshipForViewer,
+} from "./relationship_presentation.ts";
 import { ApiError, requiredUuid } from "./validation.ts";
 
 type Row = Record<string, any>;
@@ -17,6 +21,10 @@ const lockScreenDetails = new Set(["full", "limited", "hidden"]);
  * Canonical Person membership boundary for relationship inventory, caregiver
  * preferences, permission ownership and revocation. Legacy AppUser participant
  * IDs remain only for public compatibility and actor/audit provenance.
+ *
+ * Relationship presentation metadata is deliberately kept in this store but is
+ * never consulted by authorization functions. It can change copy and aliases,
+ * not access, consent or feature grants.
  */
 export function createPersonCareRelationshipManagementStore(
   databaseUrl: string,
@@ -39,12 +47,12 @@ export function createPersonCareRelationshipManagementStore(
         on caregiver.person_id = r.caregiver_person_id
       where r.patient_person_id = ${personId}::uuid
          or r.caregiver_person_id = ${personId}::uuid
-      order by r.created_at_utc desc
+      order by r.updated_at_utc desc, r.created_at_utc desc
       limit 100
     `;
     const mapped: Record<string, unknown>[] = [];
     for (const row of rows) {
-      const relationship = mapRelationshipRow(row);
+      const relationship = mapRelationshipRow(row, personId);
       const isActiveCaregiver = String(row.status).toLowerCase() === "active" &&
         String(row.caregiver_person_id) === personId &&
         row.patient_consented_at_utc != null &&
@@ -133,6 +141,73 @@ export function createPersonCareRelationshipManagementStore(
     });
   }
 
+  async function updateRelationshipPresentation(
+    actorAppUserId: string,
+    relationshipIdValue: unknown,
+    body: Record<string, unknown>,
+  ): Promise<Record<string, unknown>> {
+    const relationshipId = requiredUuid(relationshipIdValue, "relationshipId");
+    const patch = normalizeRelationshipPresentationPatch(body);
+    return await sql.begin(async (tx: any) => {
+      const actorPersonId = await requireSelfPerson(tx, actorAppUserId);
+      const existingRows = await tx`
+        select *
+        from lifemate.care_relationships
+        where id = ${relationshipId}::uuid
+          and status = 'Active'
+          and (
+            patient_person_id = ${actorPersonId}::uuid
+            or caregiver_person_id = ${actorPersonId}::uuid
+          )
+        for update
+      `;
+      const existing = existingRows[0];
+      if (!existing) {
+        throw new ApiError(
+          404,
+          "relationship_not_found",
+          "Active care relationship was not found.",
+        );
+      }
+
+      let rows: Row[];
+      if (String(existing.caregiver_person_id) === actorPersonId) {
+        rows = await tx`
+          update lifemate.care_relationships
+          set caregiver_relationship_type = ${patch.relationshipType},
+              caregiver_patient_display_name = ${patch.displayName},
+              updated_at_utc = now()
+          where id = ${relationshipId}::uuid
+          returning *
+        `;
+      } else if (String(existing.patient_person_id) === actorPersonId) {
+        rows = await tx`
+          update lifemate.care_relationships
+          set patient_relationship_type = ${patch.relationshipType},
+              patient_caregiver_display_name = ${patch.displayName},
+              updated_at_utc = now()
+          where id = ${relationshipId}::uuid
+          returning *
+        `;
+      } else {
+        throw new ApiError(
+          404,
+          "relationship_not_found",
+          "Active care relationship was not found.",
+        );
+      }
+
+      await insertAudit(
+        tx,
+        actorAppUserId,
+        "care_relationship.presentation_updated",
+        "care_relationship",
+        relationshipId,
+      );
+      return await mapRelationship(tx, rows[0], actorPersonId);
+    });
+  }
+
   async function updateRelationshipPermissions(
     patientAppUserId: string,
     relationshipIdValue: unknown,
@@ -180,7 +255,7 @@ export function createPersonCareRelationshipManagementStore(
         "care_relationship",
         relationshipId,
       );
-      return await mapRelationship(tx, rows[0]);
+      return await mapRelationship(tx, rows[0], patientPersonId);
     });
   }
 
@@ -231,6 +306,7 @@ export function createPersonCareRelationshipManagementStore(
     listRelationships,
     getNotificationPreferences,
     updateNotificationPreferences,
+    updateRelationshipPresentation,
     updateRelationshipPermissions,
     revokeRelationship,
   };
@@ -392,6 +468,7 @@ async function requireSelfPerson(
 async function mapRelationship(
   connection: any,
   relationship: Row,
+  viewerPersonId: string,
 ): Promise<Record<string, unknown>> {
   const names = await connection`
     select person_id::text, display_name
@@ -408,22 +485,25 @@ async function mapRelationship(
     ...relationship,
     patient_display_name: byId.get(String(relationship.patient_person_id)),
     caregiver_display_name: byId.get(String(relationship.caregiver_person_id)),
-  });
+  }, viewerPersonId);
 }
 
-function mapRelationshipRow(row: Row): Record<string, unknown> {
+function mapRelationshipRow(
+  row: Row,
+  viewerPersonId: string,
+): Record<string, unknown> {
   return {
     id: row.id,
     patientUserId: row.patient_user_id,
-    patientDisplayName: row.patient_display_name ?? "LifeMate User",
     caregiverUserId: row.caregiver_user_id,
-    caregiverDisplayName: row.caregiver_display_name ?? "LifeMate User",
     status: String(row.status).toLowerCase(),
     canViewWomenCalendar: row.can_view_women_calendar === true,
     patientConsentedAtUtc: iso(row.patient_consented_at_utc),
     caregiverConsentedAtUtc: iso(row.caregiver_consented_at_utc),
     revokedAtUtc: row.revoked_at_utc == null ? null : iso(row.revoked_at_utc),
     createdAtUtc: iso(row.created_at_utc),
+    updatedAtUtc: iso(row.updated_at_utc),
+    ...presentRelationshipForViewer(row, viewerPersonId),
   };
 }
 
