@@ -10,9 +10,11 @@ void main() {
     bool phase = true,
     bool timing = true,
     bool preference = true,
-    int cycleDay = 1,
+    String? cycleStart = '2026-08-28',
+    int? cycleDay = 1,
     String detailedPhase = 'period',
-    int daysUntilNextPeriod = 27,
+    int? daysUntilNextPeriod = 27,
+    String? nextPeriodStart = '2026-09-25',
     String confidence = 'high',
     String pattern = 'regular',
     List<LifeMateCompanionPhaseNotificationHistoryItem> history = const [],
@@ -21,11 +23,11 @@ void main() {
     viewPhaseSummary: phase,
     viewPeriodTiming: timing,
     caregiverNotificationsEnabled: preference,
-    cycleStart: '2026-08-28',
+    cycleStart: cycleStart,
     cycleDay: cycleDay,
     detailedPhase: detailedPhase,
     daysUntilNextPeriod: daysUntilNextPeriod,
-    nextPeriodStart: '2026-09-25',
+    nextPeriodStart: nextPeriodStart,
     confidence: confidence,
     cyclePattern: pattern,
     history: history,
@@ -44,6 +46,44 @@ void main() {
     final candidate = select();
     expect(candidate?.guidanceId, 'notify.phase.period_start.2026-08-28');
     expect(candidate?.isPrediction, isFalse);
+  });
+
+  test('ordinary phase can notify without borrowing period timing', () {
+    final candidate = select(
+      timing: false,
+      cycleStart: null,
+      cycleDay: null,
+      detailedPhase: 'luteal',
+      daysUntilNextPeriod: null,
+      nextPeriodStart: null,
+    );
+    expect(candidate, isNotNull);
+    expect(candidate?.guidanceId, 'notify.phase.luteal.2026-08-24');
+    expect(candidate?.guidanceId, isNot(contains('2026-08-28')));
+  });
+
+  test('approaching-period timing does not borrow phase scope alone', () {
+    expect(
+      select(
+        timing: false,
+        cycleStart: null,
+        cycleDay: null,
+        detailedPhase: 'luteal',
+        daysUntilNextPeriod: 2,
+        nextPeriodStart: '2026-08-30',
+      )?.guidanceId,
+      'notify.phase.luteal.2026-08-24',
+    );
+    expect(
+      select(
+        timing: true,
+        cycleDay: 26,
+        detailedPhase: 'luteal',
+        daysUntilNextPeriod: 2,
+        nextPeriodStart: '2026-08-30',
+      )?.guidanceId,
+      'notify.phase.period_approach.2026-08-30',
+    );
   });
 
   test('low-confidence or variable cycle never produces predictive copy', () {
@@ -83,12 +123,13 @@ void main() {
       cycleDay: 26,
       detailedPhase: 'luteal',
       daysUntilNextPeriod: 2,
+      nextPeriodStart: '2026-08-30',
     );
     expect(candidate?.isPrediction, isTrue);
     expect(candidate?.fullBody.toLowerCase(), contains('estimate'));
   });
 
-  test('stable history key deduplicates the same cycle notification', () {
+  test('stable history key deduplicates the same notification', () {
     final first = select();
     final second = select(
       history: [
@@ -108,7 +149,7 @@ void main() {
       daysUntilNextPeriod: 10,
       history: [
         LifeMateCompanionPhaseNotificationHistoryItem(
-          guidanceId: 'notify.phase.other.2026-08-28',
+          guidanceId: 'notify.phase.other.2026-08-24',
           shownAtUtc: now.subtract(const Duration(hours: 12)),
         ),
       ],
