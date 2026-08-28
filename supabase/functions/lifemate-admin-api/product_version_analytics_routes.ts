@@ -100,6 +100,25 @@ export function createProductVersionAnalyticsRouteHandler(databaseUrl: string) {
     }
 
     if (
+      request.method === "GET" &&
+      path === "/api/v1/platform/product-update-policies/history"
+    ) {
+      requirePermission(admin, "analytics.product_versions.read");
+      const query = parseProductVersionAdoptionQuery(new URL(request.url));
+      return json(
+        {
+          items: await store.listPolicyHistory(query.product, query.platform),
+          filters: query,
+          definitionVersion: "product-update-policy-history-v1",
+          source: "platform.product_update_policy_history",
+          freshness: { status: "fresh", asOfUtc: new Date().toISOString() },
+        },
+        200,
+        origin,
+      );
+    }
+
+    if (
       request.method === "PUT" &&
       path === "/api/v1/platform/product-update-policies"
     ) {
