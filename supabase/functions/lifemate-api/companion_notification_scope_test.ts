@@ -1,5 +1,8 @@
-import { assertEquals } from "jsr:@std/assert@1";
-import { guidanceAllowed } from "./person_women_calendar_caregiver.ts";
+import { assertEquals, assertThrows } from "jsr:@std/assert@1";
+import {
+  assertNotificationMetadata,
+  guidanceAllowed,
+} from "./person_women_calendar_caregiver.ts";
 
 const scopes = (overrides: Record<string, boolean> = {}) => ({
   viewPeriodTiming: true,
@@ -76,5 +79,33 @@ Deno.test("ordinary in-app mood guidance does not borrow notification consent", 
       scopes({ receiveMoodSupportNotifications: false }),
     ),
     true,
+  );
+});
+
+Deno.test("mood notification metadata cannot masquerade as another category", () => {
+  assertThrows(() =>
+    assertNotificationMetadata(
+      "notify.mood.check_in.2026-08-28",
+      "companion-mood-notifications-v1",
+      "general",
+    )
+  );
+});
+
+Deno.test("mood notification requires the canonical content version", () => {
+  assertThrows(() =>
+    assertNotificationMetadata(
+      "notify.mood.energy.2026-08-28",
+      "companion-mood-notifications-v0",
+      "mood",
+    )
+  );
+});
+
+Deno.test("canonical mood notification metadata is accepted", () => {
+  assertNotificationMetadata(
+    "notify.mood.check_in.2026-08-28",
+    "companion-mood-notifications-v1",
+    "mood",
   );
 });
