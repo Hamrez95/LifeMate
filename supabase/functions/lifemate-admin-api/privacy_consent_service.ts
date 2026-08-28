@@ -40,6 +40,11 @@ export function createPrivacyConsentStore(databaseUrl: string) {
       const rows = await sql`select *,count(*) over() as total_count from consent.admin_preference_directory_v1 p where (${query.status}::text is null or (case when p.enabled then 'Enabled' else 'Disabled' end)=${query.status}) and (${query.q}::text is null or p.account_id::text=${query.q} or p.subject_person_id::text=${query.q} or p.purpose ilike '%'||${query.q}||'%') order by p.updated_at_utc desc nulls last,p.account_id desc,p.purpose limit ${query.pageSize} offset ${offset}`;
       return page(rows as unknown as Row[], query);
     },
+    async listPreferencePurposePolicies(query: PrivacyDirectoryQuery) {
+      const offset = (query.page - 1) * query.pageSize;
+      const rows = await sql`select *,count(*) over() as total_count from consent.admin_preference_purpose_policy_directory_v1 p where (${query.status}::text is null or p.status=${query.status}) and (${query.q}::text is null or p.purpose ilike '%'||${query.q}||'%' or p.description ilike '%'||${query.q}||'%' or p.policy_version ilike '%'||${query.q}||'%') order by p.updated_at_utc desc,p.purpose limit ${query.pageSize} offset ${offset}`;
+      return page(rows as unknown as Row[], query);
+    },
     async coverage(actorAccountId: string, jurisdiction: string) {
       return result(await sql`select consent.admin_legal_acceptance_coverage(${actorAccountId}::uuid,${jurisdiction}::varchar) as result` as unknown as Row[], "privacy_coverage_result_invalid");
     },
