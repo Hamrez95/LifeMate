@@ -30,6 +30,7 @@ class _LifeMateCompanionCareScreenState
   String? _patientUserId;
   String? _patientName;
   LifeMateCompanionGuidance? _guidance;
+  LifeMateCompanionFertilityInsight? _fertilityInsight;
 
   @override
   void initState() {
@@ -52,6 +53,7 @@ class _LifeMateCompanionCareScreenState
         _loading = true;
         _error = null;
         _guidance = null;
+        _fertilityInsight = null;
       });
     }
     try {
@@ -93,6 +95,7 @@ class _LifeMateCompanionCareScreenState
 
       final scopes = _map(summary['privacyScopes']);
       final estimate = _map(summary['estimate']);
+      final fertility = _map(summary['fertilityEstimate']);
       final shared = _map(summary['latestSharedDailyLog']);
       final historyRaw = summary['guidanceHistory'];
       final actionsRaw = summary['supportActions'];
@@ -134,12 +137,21 @@ class _LifeMateCompanionCareScreenState
         locale: LifeMateRuntimeLocale.languageCode,
         nowUtc: DateTime.now().toUtc(),
       );
+      final fertilityInsight = const LifeMateCompanionFertilityEngine().insight(
+        viewFertilityEstimate: scopes['viewFertilityEstimate'] == true,
+        state: fertility['state']?.toString(),
+        fertilityEstimateReliable: fertility['fertilityEstimateReliable'] == true,
+        confidence: fertility['confidence']?.toString(),
+        cyclePattern: fertility['cyclePattern']?.toString(),
+        locale: LifeMateRuntimeLocale.languageCode,
+      );
 
       if (!mounted) return;
       setState(() {
         _patientUserId = patientId;
         _patientName = patientName;
         _guidance = selected;
+        _fertilityInsight = fertilityInsight;
         _loading = false;
       });
 
@@ -155,6 +167,7 @@ class _LifeMateCompanionCareScreenState
           if (_isAccessRevoked(error.code) && mounted) {
             setState(() {
               _guidance = null;
+              _fertilityInsight = null;
               _error = 'locked';
             });
           }
@@ -198,6 +211,7 @@ class _LifeMateCompanionCareScreenState
       if (_isAccessRevoked(error.code)) {
         setState(() {
           _guidance = null;
+          _fertilityInsight = null;
           _error = 'locked';
         });
       } else {
@@ -245,7 +259,7 @@ class _LifeMateCompanionCareScreenState
                         fa ? 'دوباره تلاش کنید.' : 'Try again.',
                         retry: true,
                       )
-                    : _guidance == null
+                    : _guidance == null && _fertilityInsight == null
                         ? _state(
                             Icons.spa_outlined,
                             fa ? 'فعلاً پیشنهاد تازه‌ای نداریم' : 'No new suggestion right now',
@@ -270,64 +284,117 @@ class _LifeMateCompanionCareScreenState
               fontWeight: FontWeight.w800,
             ),
           ),
+          if (_fertilityInsight != null) ...[
+            const SizedBox(height: 12),
+            _fertilityCard(fa),
+          ],
+          if (_guidance != null) ...[
+            const SizedBox(height: 12),
+            _guidanceCard(fa),
+          ],
+        ],
+      );
+
+  Widget _fertilityCard(bool fa) {
+    final insight = _fertilityInsight!;
+    final unavailable =
+        insight.state == LifeMateCompanionFertilityState.unavailable;
+    return Container(
+      key: const ValueKey('companion-fertility-estimate-card'),
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(26),
+        border: Border.all(color: widget.accent.withValues(alpha: .12)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(
+            unavailable ? Icons.help_outline_rounded : Icons.local_florist_rounded,
+            color: widget.accent,
+            size: 32,
+          ),
           const SizedBox(height: 12),
-          Container(
-            padding: const EdgeInsets.all(20),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(26),
-              boxShadow: const [
-                BoxShadow(
-                  color: Color(0x10000000),
-                  blurRadius: 20,
-                  offset: Offset(0, 8),
-                ),
-              ],
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Icon(
-                  Icons.volunteer_activism_rounded,
-                  color: widget.accent,
-                  size: 34,
-                ),
-                const SizedBox(height: 14),
-                Text(
-                  _guidance!.title,
-                  style: const TextStyle(
-                    fontSize: 20,
-                    fontWeight: FontWeight.w900,
-                  ),
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  _guidance!.message,
-                  style: const TextStyle(height: 1.65, fontSize: 14),
-                ),
-                const SizedBox(height: 12),
-                Text(
-                  fa
-                      ? 'این پیشنهاد تشخیص یا توصیه پزشکی نیست.'
-                      : 'This is supportive guidance, not medical advice.',
-                  style: const TextStyle(fontSize: 11, color: Colors.black54),
-                ),
-                if (_guidance!.supportActionLabel != null) ...[
-                  const SizedBox(height: 18),
-                  FilledButton.icon(
-                    style: FilledButton.styleFrom(
-                      backgroundColor: widget.accent,
-                      minimumSize: const Size.fromHeight(52),
-                    ),
-                    onPressed: _saving ? null : _recordAction,
-                    icon: const Icon(Icons.favorite_outline_rounded),
-                    label: Text(_guidance!.supportActionLabel!),
-                  ),
-                ],
-              ],
-            ),
+          Text(
+            insight.title,
+            style: const TextStyle(fontSize: 19, fontWeight: FontWeight.w900),
+          ),
+          const SizedBox(height: 8),
+          Text(insight.body, style: const TextStyle(height: 1.65, fontSize: 14)),
+          const SizedBox(height: 12),
+          Text(
+            insight.disclaimer,
+            key: const ValueKey('companion-fertility-disclaimer'),
+            style: const TextStyle(fontSize: 11, height: 1.5, color: Colors.black54),
+          ),
+          const SizedBox(height: 12),
+          Text(
+            fa
+                ? 'این بخش فقط وقتی نمایش داده می‌شود که صاحب داده، اشتراک برآورد باروری را جداگانه روشن کرده باشد.'
+                : 'This appears only when the data owner independently enables fertility-estimate sharing.',
+            style: TextStyle(fontSize: 10.5, color: widget.accent),
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _guidanceCard(bool fa) => Container(
+        padding: const EdgeInsets.all(20),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(26),
+          boxShadow: const [
+            BoxShadow(
+              color: Color(0x10000000),
+              blurRadius: 20,
+              offset: Offset(0, 8),
+            ),
+          ],
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Icon(
+              Icons.volunteer_activism_rounded,
+              color: widget.accent,
+              size: 34,
+            ),
+            const SizedBox(height: 14),
+            Text(
+              _guidance!.title,
+              style: const TextStyle(
+                fontSize: 20,
+                fontWeight: FontWeight.w900,
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              _guidance!.message,
+              style: const TextStyle(height: 1.65, fontSize: 14),
+            ),
+            const SizedBox(height: 12),
+            Text(
+              fa
+                  ? 'این پیشنهاد تشخیص یا توصیه پزشکی نیست.'
+                  : 'This is supportive guidance, not medical advice.',
+              style: const TextStyle(fontSize: 11, color: Colors.black54),
+            ),
+            if (_guidance!.supportActionLabel != null) ...[
+              const SizedBox(height: 18),
+              FilledButton.icon(
+                style: FilledButton.styleFrom(
+                  backgroundColor: widget.accent,
+                  minimumSize: const Size.fromHeight(52),
+                ),
+                onPressed: _saving ? null : _recordAction,
+                icon: const Icon(Icons.favorite_outline_rounded),
+                label: Text(_guidance!.supportActionLabel!),
+              ),
+            ],
+          ],
+        ),
       );
 
   Widget _state(
