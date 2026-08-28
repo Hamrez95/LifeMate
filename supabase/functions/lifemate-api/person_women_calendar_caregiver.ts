@@ -125,12 +125,12 @@ export function createPersonWomenCalendarCaregiverStore(databaseUrl: string) {
         and caregiver_person_id=${caregiverPersonId}::uuid
       order by shown_at_utc desc,id limit 20
     `;
-    const sharedLogs = privacy.viewSharedWellbeing
+    const latestLogs = privacy.viewSharedWellbeing
       ? await sql`
-        select logged_on,mood,energy_level,version,updated_at_utc
+        select logged_on,mood,energy_level,version,updated_at_utc,
+               share_summary_with_companion
         from lifemate.women_calendar_daily_logs
         where owner_person_id=${patientPersonId}::uuid
-          and share_summary_with_companion=true
           and logged_on >= current_date - interval '14 days'
         order by logged_on desc,id limit 1
       `
@@ -145,8 +145,10 @@ export function createPersonWomenCalendarCaregiverStore(databaseUrl: string) {
       episodes.map((episode: Row) => dateString(episode.started_on)),
     );
     const estimate = presentEstimate(rawEstimate, privacy);
-    const canonicalSharedLog = sharedLogs[0]
-      ? mapDailyLogCompanion(sharedLogs[0])
+    // Never fall back to an older shared entry when the newest check-in was
+    // edited to private. That would defeat per-entry share-off semantics.
+    const canonicalSharedLog = latestLogs[0]?.share_summary_with_companion === true
+      ? mapDailyLogCompanion(latestLogs[0])
       : null;
     const sharedDailySummary = canonicalSharedLog == null ? null : {
       date: canonicalSharedLog.loggedOn,
@@ -327,6 +329,9 @@ export function guidanceAllowed(
   if (guidanceId.startsWith("notify.phase.")) {
     return privacy.receivePhaseNotifications && privacy.viewPhaseSummary;
   }
+  if (guidanceId.startsWith("notify.mood.")) {
+    return privacy.receiveMoodSupportNotifications && privacy.viewSharedWellbeing;
+  }
   if (category === "phase") return privacy.viewPhaseSummary;
   if (category === "mood" || category === "energy") {
     return privacy.viewSharedWellbeing;
@@ -356,6 +361,8 @@ function mapEpisodeCaregiver(row: Row): Record<string, unknown> {
 }
 
 function mapDailyLogCompanion(row: Row): Record<string, unknown> {
+  // Intentionally narrow: private_notes, pain_level and symptoms are never
+  // projected into the companion payload or notification engine.
   return {
     loggedOn: dateString(row.logged_on),
     mood: String(row.mood).toLowerCase(),
