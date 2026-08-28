@@ -14,6 +14,7 @@ export 'src/app_notice.dart';
 export 'src/care_pairing_qr.dart';
 export 'src/companion_care.dart';
 export 'src/companion_care_api.dart';
+export 'src/companion_mood_notifications.dart';
 export 'src/companion_phase_notifications.dart';
 export 'src/durable_lifemate_api_client.dart';
 export 'src/feature_flags.dart';
