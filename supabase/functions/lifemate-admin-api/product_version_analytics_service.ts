@@ -42,6 +42,18 @@ export function createProductVersionAnalyticsStore(databaseUrl: string) {
     return rows.map(mapPolicy);
   }
 
+  async function listPolicyHistory(product: string | null, platform: string | null) {
+    const rows = await sql`
+      select product, platform, version, snapshot_json, archived_at_utc
+      from platform.product_update_policy_history
+      where (${product}::text is null or product=${product})
+        and (${platform}::text is null or platform=${platform})
+      order by archived_at_utc desc, product, platform, version desc
+      limit 250
+    `;
+    return rows.map(mapPolicyHistory);
+  }
+
   async function upsertPolicy(input: {
     actorAccountId: string;
     correlationId: string;
@@ -76,7 +88,7 @@ export function createProductVersionAnalyticsStore(databaseUrl: string) {
     return result as Record<string, unknown>;
   }
 
-  return { listAdoption, listAccountVersions, listPolicies, upsertPolicy };
+  return { listAdoption, listAccountVersions, listPolicies, listPolicyHistory, upsertPolicy };
 }
 
 export function mapAdoption(row: Row) {
@@ -123,8 +135,34 @@ function mapPolicy(row: Row) {
   };
 }
 
+function mapPolicyHistory(row: Row) {
+  const snapshot = row.snapshot_json && typeof row.snapshot_json === "object" && !Array.isArray(row.snapshot_json)
+    ? row.snapshot_json as Row
+    : {};
+  return {
+    product: String(row.product),
+    platform: String(row.platform),
+    policyVersion: Number(row.version),
+    minimumSupportedVersion: nullableText(snapshot.minimum_supported_version),
+    recommendedVersion: nullableText(snapshot.recommended_version),
+    mode: nullableText(snapshot.mode),
+    reasonCode: nullableText(snapshot.reason_code),
+    messageKey: nullableText(snapshot.message_key),
+    status: nullableText(snapshot.status),
+    effectiveAtUtc: nullableIso(snapshot.effective_at_utc),
+    updatedAtUtc: nullableIso(snapshot.updated_at_utc),
+    archivedAtUtc: iso(row.archived_at_utc),
+  };
+}
+
 function nullableText(value: unknown): string | null {
   return value == null ? null : String(value);
+}
+
+function nullableIso(value: unknown): string | null {
+  if (value == null) return null;
+  const date = new Date(String(value));
+  return Number.isNaN(date.getTime()) ? null : date.toISOString();
 }
 
 function iso(value: unknown): string {
