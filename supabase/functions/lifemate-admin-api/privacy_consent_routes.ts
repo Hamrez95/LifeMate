@@ -18,6 +18,8 @@ type Context = {
   origin: string | null;
 };
 
+type DirectoryKind = "document" | "acceptance" | "consent" | "preference";
+
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const RETIRE_PATH = /^\/api\/v1\/privacy\/documents\/([0-9a-f-]{36})\/retire$/i;
 const REASON = /^[a-z0-9_.-]{3,80}$/;
@@ -36,8 +38,8 @@ export function createPrivacyConsentRouteHandler(databaseUrl: string) {
         filters: { q: query.q, status: query.status },
         lifecycle: {
           draftRetirementAllowed: false,
-          publishedRetirementAllowed: admin.permissions.includes("privacy.consent.manage"),
-          acceptanceAdminRevocationAllowed: false,
+          activeRetirementAllowed: admin.permissions.includes("privacy.consent.manage"),
+          legalAcceptanceAdminRevocationAllowed: false,
         },
         freshness: { status: "fresh", asOfUtc: new Date().toISOString() },
       }, 200, origin);
@@ -48,11 +50,26 @@ export function createPrivacyConsentRouteHandler(databaseUrl: string) {
       const query = parseDirectoryQuery(new URL(request.url), "acceptance");
       return json({
         ...(await store.listAcceptances(query)),
-        filters: { q: query.q, status: query.status },
+        filters: { q: query.q },
         privacy: {
           accountIdentity: "opaque_uuid_only",
           userAgent: "excluded",
           healthPayload: "excluded",
+        },
+        lifecycle: { immutableLegalEvidence: true },
+        freshness: { status: "fresh", asOfUtc: new Date().toISOString() },
+      }, 200, origin);
+    }
+
+    if (request.method === "GET" && path === "/api/v1/privacy/consents") {
+      requirePermission(admin, "privacy.consent.read");
+      const query = parseDirectoryQuery(new URL(request.url), "consent");
+      return json({
+        ...(await store.listConsents(query)),
+        filters: { q: query.q, status: query.status },
+        authority: {
+          source: "consent.consent_records",
+          healthSharingMutableFromAdmin: false,
         },
         freshness: { status: "fresh", asOfUtc: new Date().toISOString() },
       }, 200, origin);
@@ -64,9 +81,9 @@ export function createPrivacyConsentRouteHandler(databaseUrl: string) {
       return json({
         ...(await store.listPreferences(query)),
         filters: { q: query.q, status: query.status },
-        healthSharing: {
-          included: false,
-          reason: "authoritative_health_sharing_consent_is_not_a_generic_admin_preference",
+        authority: {
+          source: "consent.preference_purposes+consent.data_use_consents",
+          clinicalConsentIncluded: false,
         },
         freshness: { status: "fresh", asOfUtc: new Date().toISOString() },
       }, 200, origin);
@@ -105,7 +122,7 @@ export function createPrivacyConsentRouteHandler(databaseUrl: string) {
 
 export function parseDirectoryQuery(
   url: URL,
-  kind: "document" | "acceptance" | "preference",
+  kind: DirectoryKind,
 ): PrivacyDirectoryQuery {
   const page = positiveInt(url.searchParams.get("page"), 1, 1, 100000);
   const pageSize = positiveInt(url.searchParams.get("pageSize"), 50, 1, 100);
@@ -123,17 +140,16 @@ function optionalQuery(value: string | null): string | null {
   return query;
 }
 
-function optionalStatus(
-  value: string | null,
-  kind: "document" | "acceptance" | "preference",
-): string | null {
+function optionalStatus(value: string | null, kind: DirectoryKind): string | null {
   if (value == null || value.trim() === "") return null;
   const normalized = value.trim();
   const allowed = kind === "document"
-    ? new Set(["Draft", "Published", "Retired"])
-    : kind === "acceptance"
-    ? new Set(["Active", "Revoked"])
-    : new Set(["Enabled", "Disabled"]);
+    ? new Set(["Draft", "Active", "Retired"])
+    : kind === "consent"
+    ? new Set(["Granted", "Revoked", "Expired", "Superseded"])
+    : kind === "preference"
+    ? new Set(["Enabled", "Disabled"])
+    : new Set<string>();
   if (!allowed.has(normalized)) {
     throw new ApiError(400, "privacy_status_invalid", "Status filter is invalid.");
   }
