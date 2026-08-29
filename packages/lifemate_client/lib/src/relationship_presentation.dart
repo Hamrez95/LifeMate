@@ -61,6 +61,7 @@ class LifeMateRelationshipPresentationPolicy {
 
   bool get isPartner => kind == LifeMateRelationshipPresentationKind.partner;
 
+  /// Caregiver-side label describing how this caregiver supports the patient.
   String relationshipLabel({required bool isPersian}) => switch (kind) {
         LifeMateRelationshipPresentationKind.partner =>
           isPersian ? 'همسر / شریک زندگی' : 'Partner',
@@ -72,6 +73,24 @@ class LifeMateRelationshipPresentationPolicy {
           isPersian ? 'عضو خانواده' : 'Family member',
         LifeMateRelationshipPresentationKind.trustedCaregiver =>
           isPersian ? 'مراقب مورد اعتماد' : 'Trusted caregiver',
+        LifeMateRelationshipPresentationKind.unknown =>
+          isPersian ? 'رابطه مراقبتی' : 'Care relationship',
+      };
+
+  /// Patient/owner-side label for the exact same presentation state.
+  String ownerRelationshipLabel({required bool isPersian}) => switch (kind) {
+        LifeMateRelationshipPresentationKind.partner =>
+          isPersian ? 'همسر / شریک زندگی من' : 'My partner',
+        LifeMateRelationshipPresentationKind.childCaringForParent =>
+          isPersian ? 'فرزندم از من مراقبت می‌کند' : 'My child cares for me',
+        LifeMateRelationshipPresentationKind.parentCaringForDependent =>
+          isPersian
+              ? 'والد یا سرپرستم از من مراقبت می‌کند'
+              : 'My parent or guardian cares for me',
+        LifeMateRelationshipPresentationKind.family =>
+          isPersian ? 'عضو خانواده من' : 'My family member',
+        LifeMateRelationshipPresentationKind.trustedCaregiver =>
+          isPersian ? 'مراقب مورد اعتماد من' : 'My trusted caregiver',
         LifeMateRelationshipPresentationKind.unknown =>
           isPersian ? 'رابطه مراقبتی' : 'Care relationship',
       };
@@ -148,7 +167,7 @@ class LifeMateRelationshipPresentationPolicy {
     if (isPersian) {
       return switch (kind) {
         LifeMateRelationshipPresentationKind.partner =>
-          'یک $itemLabel از $personName هنوز پیگیری نشده',
+          'یک $itemLabel $personName هنوز پیگیری نشده',
         LifeMateRelationshipPresentationKind.childCaringForParent =>
           '$itemLabel $personName نیاز به پیگیری دارد',
         LifeMateRelationshipPresentationKind.parentCaringForDependent =>
