@@ -240,18 +240,6 @@ export function createLifeMateDatabase(
           ),
         };
       }
-      const presentation = body.presentation;
-      if (
-        presentation != null &&
-        typeof presentation === "object" &&
-        !Array.isArray(presentation)
-      ) {
-        return await personCareRelationships.updateRelationshipPresentation(
-          actorAppUserId,
-          relationshipId,
-          presentation as Record<string, unknown>,
-        );
-      }
       const nested = body.notificationPreferences;
       if (
         nested != null && typeof nested === "object" && !Array.isArray(nested)
