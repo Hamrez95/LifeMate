@@ -3,6 +3,10 @@ import {
   maskIranianMobileE164,
   normalizeIranianMobileE164,
 } from "./iran_phone.ts";
+import {
+  normalizeRelationshipPresentationPatch,
+  normalizeRelationshipType,
+} from "./relationship_presentation.ts";
 import { createHmac, timingSafeEqual } from "./security.ts";
 import { ApiError, requiredText } from "./validation.ts";
 
@@ -44,6 +48,10 @@ export function createPhoneCareInvitationStore(
     deliver?: PhoneInvitationDeliveryCallback,
   ): Promise<Record<string, unknown>> {
     requirePatientConsent(body);
+    const presentation = normalizeRelationshipPresentationPatch({
+      relationshipType: body.relationshipType ?? "unknown",
+      displayName: body.displayName,
+    });
     const rawContact = requiredText(body.contact, "contact", 64);
     const phone = normalizeIranianMobileE164(rawContact);
     if (phone == null) {
@@ -104,11 +112,13 @@ export function createPhoneCareInvitationStore(
         insert into lifemate.care_invitations
           (id, inviter_user_id, contact_type, contact_hash, contact_hint,
            token_hash, patient_consent_version, status, expires_at_utc,
-           responded_by_user_id, responded_at_utc, revoked_at_utc, created_at_utc)
+           responded_by_user_id, responded_at_utc, revoked_at_utc, created_at_utc,
+           relationship_type, inviter_caregiver_display_name)
         values
           (${id}, ${identity.appUserId}, 'Phone', ${contactHash}, ${hint},
            ${tokenHash}, 'care-patient-consent-v1', 'Pending', ${expires},
-           null, null, null, ${now})
+           null, null, null, ${now}, ${presentation.relationshipType},
+           ${presentation.displayName})
       `;
 
       // The raw invitation token and phone only exist at this trusted boundary.
@@ -130,7 +140,9 @@ export function createPhoneCareInvitationStore(
         id,
         contactType: "phone",
         contactHint: hint,
-        // Internal trusted-server value. Public facades must redact this field.
+        relationshipType: presentation.relationshipType,
+        caregiverDisplayName: presentation.displayName,
+        // Internal trusted-server value used by the current manual hand-off UX.
         token,
         expiresAtUtc: expires.toISOString(),
       };
@@ -257,17 +269,21 @@ export function createPhoneCareInvitationStore(
         where id = ${invitation.id}
       `;
       const relationshipId = crypto.randomUUID();
+      const relationshipType = normalizeRelationshipType(invitation.relationship_type);
       const relationshipRows = await tx`
         insert into lifemate.care_relationships
           (id, patient_user_id, caregiver_user_id, status,
            patient_consent_version, patient_consented_at_utc,
            caregiver_consent_version, caregiver_consented_at_utc,
-           revoked_by_user_id, revoked_at_utc, created_at_utc, updated_at_utc)
+           revoked_by_user_id, revoked_at_utc, created_at_utc, updated_at_utc,
+           relationship_type, patient_relationship_type,
+           caregiver_relationship_type, patient_caregiver_display_name)
         values
           (${relationshipId}, ${invitation.inviter_user_id}, ${identity.appUserId},
            'Active', ${invitation.patient_consent_version},
            ${invitation.created_at_utc}, 'care-caregiver-consent-v1', ${now},
-           null, null, ${now}, ${now})
+           null, null, ${now}, ${now}, ${relationshipType}, ${relationshipType},
+           ${relationshipType}, ${invitation.inviter_caregiver_display_name})
         returning *
       `;
       await insertAudit(
@@ -339,6 +355,8 @@ export function createPhoneCareInvitationStore(
       caregiverUserId: relationship.caregiver_user_id,
       caregiverDisplayName: byId.get(relationship.caregiver_user_id) ??
         "LifeMate User",
+      relationshipType: normalizeRelationshipType(relationship.relationship_type),
+      presentationType: normalizeRelationshipType(relationship.relationship_type),
       status: String(relationship.status).toLowerCase(),
       canViewWomenCalendar: relationship.can_view_women_calendar === true,
       patientConsentedAtUtc: iso(relationship.patient_consented_at_utc),
@@ -431,7 +449,7 @@ async function insertAudit(
       (id, actor_user_id, action, resource_type, resource_id,
        metadata_json, created_at_utc)
     values
-      (${crypto.randomUUID()}, ${actorUserId}, ${action}, ${resourceType},
+      (${crypto.randomUUID()}, ${actorUserId}::uuid, ${action}, ${resourceType},
        ${resourceId}, null, now())
   `;
 }
@@ -442,7 +460,6 @@ function createPhoneInvitationToken(): string {
   while (token.length < 10) {
     crypto.getRandomValues(buffer);
     for (const value of buffer) {
-      // Reject 250..255 so modulo-10 mapping is unbiased.
       if (value >= 250) continue;
       token += String(value % 10);
       if (token.length === 10) break;
