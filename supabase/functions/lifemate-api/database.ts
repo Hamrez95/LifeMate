@@ -199,14 +199,10 @@ export function createLifeMateDatabase(
       const contactType = typeof body.contactType === "string"
         ? body.contactType.trim().toLowerCase()
         : "";
-      if (contactType !== "phone") {
-        return await database.createInvitation(identity, body);
+      if (contactType === "phone") {
+        return await phoneInvitations.createPhoneInvitation(identity, body);
       }
-      throw new ApiError(
-        410,
-        "phone_care_invitation_retired",
-        "Phone care invitations are retired. Use the care request flow.",
-      );
+      return await database.createInvitation(identity, body);
     },
     createPhoneInvitation: phoneInvitations.createPhoneInvitation,
     revokeInvitation: invitationRevocation.revokePendingInvitation,
