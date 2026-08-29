@@ -91,8 +91,30 @@ void main() {
       aggregator,
       contains("value['status']?.toString().toLowerCase() == 'active'"),
     );
-    expect(aggregator, contains('relationship.canViewWomenCalendar'));
+    expect(aggregator, contains('.canViewWomenCalendar'));
     expect(aggregator, contains('women_calendar_access_denied'));
     expect(aggregator, contains('CareCompanionHomeSummary.locked()'));
+  });
+
+  test('relationship presentation never replaces authorization checks', () {
+    final aggregator = File(
+      'lib/services/care_home_aggregator.dart',
+    ).readAsStringSync();
+    final notifications = File(
+      'lib/providers/care_notification_provider.dart',
+    ).readAsStringSync();
+    final backend = File(
+      '../supabase/functions/lifemate-api/person_care_relationship_management.ts',
+    ).readAsStringSync();
+
+    expect(aggregator, contains('surfaceRank'));
+    expect(aggregator, contains('.canViewWomenCalendar'));
+    expect(notifications, contains('allowsReminderForRelationships'));
+    expect(notifications, contains('allowsMissedForRelationships'));
+    expect(backend, contains('care_relationship.presentation_updated'));
+    expect(
+      backend,
+      isNot(contains('caregiver_relationship_type = ${body.canViewWomenCalendar}')),
+    );
   });
 }
