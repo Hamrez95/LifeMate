@@ -183,7 +183,8 @@ export function createPersonCareRelationshipManagementStore(
       } else if (String(existing.patient_person_id) === actorPersonId) {
         rows = await tx`
           update lifemate.care_relationships
-          set patient_relationship_type = ${patch.relationshipType},
+          set relationship_type = ${patch.relationshipType},
+              patient_relationship_type = ${patch.relationshipType},
               patient_caregiver_display_name = ${patch.displayName},
               updated_at_utc = now()
           where id = ${relationshipId}::uuid

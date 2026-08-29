@@ -6,7 +6,6 @@ import '../pairing/care_invitation_scanner_screen.dart';
 
 enum _CareMateGatePhase {
   loading,
-  relationshipHint,
   pairingMethod,
   manualCode,
   connecting,
@@ -37,7 +36,6 @@ class _CareMateRelationshipV3GateState
   final _manualController = TextEditingController();
 
   _CareMateGatePhase _phase = _CareMateGatePhase.loading;
-  String? _relationshipHint;
   String? _message;
   Map<String, dynamic>? _activeRelationship;
   Map<String, bool> _privacyScopes = const <String, bool>{};
@@ -116,8 +114,8 @@ class _CareMateRelationshipV3GateState
         _phase = pending != null
             ? _CareMateGatePhase.pending
             : revoked != null
-            ? _CareMateGatePhase.revoked
-            : _CareMateGatePhase.relationshipHint;
+                ? _CareMateGatePhase.revoked
+                : _CareMateGatePhase.pairingMethod;
       });
     } on LifeMateApiException catch (error) {
       if (!mounted) return;
@@ -148,10 +146,7 @@ class _CareMateRelationshipV3GateState
     }
     final patientUserId = relationship['patientUserId']?.toString();
     if (patientUserId == null || patientUserId.isEmpty) {
-      return const <String, bool>{
-        'viewFertilityEstimate': false,
-        'receiveFertilityNotifications': false,
-      };
+      return const <String, bool>{};
     }
     try {
       final summary = await widget.apiClient.getCareRecipientWomenCalendar(
@@ -167,10 +162,7 @@ class _CareMateRelationshipV3GateState
     } on LifeMateApiException catch (error) {
       if (error.statusCode == 403 ||
           error.code == 'women_calendar_access_denied') {
-        return const <String, bool>{
-          'viewFertilityEstimate': false,
-          'receiveFertilityNotifications': false,
-        };
+        return const <String, bool>{};
       }
       return const <String, bool>{};
     }
@@ -187,7 +179,8 @@ class _CareMateRelationshipV3GateState
   }
 
   Future<void> _accept(String token) async {
-    if (token.trim().isEmpty) {
+    final normalizedToken = token.trim();
+    if (normalizedToken.isEmpty) {
       setState(() {
         _message = LifeMateRuntimeLocale.select(
           fa: 'کد دعوت را وارد کن.',
@@ -196,14 +189,37 @@ class _CareMateRelationshipV3GateState
       });
       return;
     }
+
     setState(() {
       _phase = _CareMateGatePhase.connecting;
       _message = null;
     });
+    final previewApi = LifeMateCareRelationshipInvitationApi.fromEnvironment();
     try {
-      await widget.apiClient.acceptCareInvitation(token: token.trim());
+      final preview = await previewApi.preview(token: normalizedToken);
+      if (!mounted) return;
+      final officialName = preview['inviterDisplayName']?.toString().trim();
+      final inviterName = officialName == null || officialName.isEmpty
+          ? LifeMateRuntimeLocale.select(fa: 'این کاربر', en: 'This user')
+          : officialName;
+      final relationshipType =
+          LifeMateRelationshipPresentationPolicy.fromRaw(
+        preview['relationshipType']?.toString(),
+      );
+      final confirmed = await _confirmOfficialInvitation(
+        inviterName,
+        relationshipType,
+      );
+      if (confirmed != true || !mounted) {
+        setState(() => _phase = _CareMateGatePhase.manualCode);
+        return;
+      }
+
+      await widget.apiClient.acceptCareInvitation(token: normalizedToken);
       if (!mounted) return;
       await _loadRelationshipState(afterAccept: true);
+      if (!mounted) return;
+      await _offerPatientNickname();
     } on LifeMateApiException catch (error) {
       if (!mounted) return;
       setState(() {
@@ -219,49 +235,202 @@ class _CareMateRelationshipV3GateState
           en: 'Connection failed. Check your internet and try again.',
         );
       });
+    } finally {
+      previewApi.close();
     }
   }
 
-  String _friendly(LifeMateApiException error) {
-    return switch (error.code) {
-      'invitation_expired' => LifeMateRuntimeLocale.select(
-          fa: 'این دعوت منقضی شده است. از صاحب حساب یک دعوت تازه بگیر.',
-          en: 'This invitation has expired. Ask the account owner for a new one.',
+  Future<bool?> _confirmOfficialInvitation(
+    String inviterName,
+    LifeMateRelationshipPresentationPolicy relationship,
+  ) => showDialog<bool>(
+        context: context,
+        barrierDismissible: false,
+        builder: (dialogContext) => AlertDialog(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+          icon: Icon(Icons.favorite_rounded, color: _theme.accent),
+          title: Text(
+            LifeMateRuntimeLocale.select(
+              fa: '$inviterName از شما درخواست مراقبت دارد',
+              en: '$inviterName asked you to be a caregiver',
+            ),
+            textAlign: TextAlign.center,
+          ),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                LifeMateRuntimeLocale.select(
+                  fa: 'نوع رابطه: ${relationship.relationshipLabel(isPersian: true)}',
+                  en: 'Relationship: ${relationship.relationshipLabel(isPersian: false)}',
+                ),
+                style: const TextStyle(fontWeight: FontWeight.w800),
+              ),
+              const SizedBox(height: 10),
+              Text(
+                LifeMateRuntimeLocale.select(
+                  fa: 'با تأیید، رابطه مراقبتی فعال می‌شود. نوع رابطه فقط لحن و نمایش CareMate را شخصی می‌کند و هیچ دسترسی حساس تازه‌ای ایجاد نمی‌کند.',
+                  en: 'Accepting activates the care relationship. Relationship type only personalizes CareMate presentation and never grants sensitive access.',
+                ),
+                textAlign: TextAlign.center,
+                style: const TextStyle(fontSize: 12.5, height: 1.6),
+              ),
+            ],
+          ),
+          actionsAlignment: MainAxisAlignment.center,
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(dialogContext, false),
+              child: Text(LifeMateRuntimeLocale.select(fa: 'فعلاً نه', en: 'Not now')),
+            ),
+            FilledButton.icon(
+              key: const ValueKey('caremate-confirm-official-invitation'),
+              onPressed: () => Navigator.pop(dialogContext, true),
+              icon: const Icon(Icons.check_rounded),
+              label: Text(LifeMateRuntimeLocale.select(fa: 'تأیید', en: 'Accept')),
+            ),
+          ],
         ),
-      'invitation_not_found' => LifeMateRuntimeLocale.select(
-          fa: 'این کد دعوت معتبر نیست.',
-          en: 'This invitation code is invalid.',
+      );
+
+  Future<void> _offerPatientNickname() async {
+    final relationship = _activeRelationship;
+    final relationshipId = relationship?['id']?.toString();
+    if (relationship == null || relationshipId == null || relationshipId.isEmpty) {
+      return;
+    }
+    final officialName =
+        relationship['patientOfficialDisplayName']?.toString().trim();
+    final fallbackName = relationship['patientDisplayName']?.toString().trim();
+    final name = officialName?.isNotEmpty == true
+        ? officialName!
+        : fallbackName?.isNotEmpty == true
+            ? fallbackName!
+            : LifeMateRuntimeLocale.select(fa: 'این فرد', en: 'this person');
+    final relationshipType =
+        LifeMateRelationshipPresentationPolicy.fromRaw(
+      relationship['relationshipType']?.toString() ??
+          relationship['presentationType']?.toString(),
+    ).storageValue;
+    final controller = TextEditingController();
+    final nickname = await showDialog<String?>(
+      context: context,
+      barrierDismissible: false,
+      builder: (dialogContext) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+        title: Text(
+          LifeMateRuntimeLocale.select(
+            fa: 'دوست داری $name را چه صدا کنی؟',
+            en: 'What would you like to call $name?',
+          ),
         ),
-      'invitation_contact_mismatch' => LifeMateRuntimeLocale.select(
-          fa: 'این دعوت برای حساب دیگری صادر شده است.',
-          en: 'This invitation belongs to another account.',
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Text(
+              LifeMateRuntimeLocale.select(
+                fa: 'این نام فقط در CareMate تو و اعلان‌های همین رابطه استفاده می‌شود. نام رسمی $name تغییر نمی‌کند.',
+                en: 'This nickname is only used in your CareMate experience and notifications. The official name stays unchanged.',
+              ),
+              style: const TextStyle(fontSize: 12.5, height: 1.6),
+            ),
+            const SizedBox(height: 14),
+            TextField(
+              key: const ValueKey('caremate-patient-nickname'),
+              controller: controller,
+              maxLength: 80,
+              autofocus: true,
+              decoration: InputDecoration(
+                labelText: LifeMateRuntimeLocale.select(
+                  fa: 'نام نمایشی (اختیاری)',
+                  en: 'Nickname (optional)',
+                ),
+                hintText: LifeMateRuntimeLocale.select(
+                  fa: 'مثلاً پسرم یا حمید عزیزم',
+                  en: 'For example, my son or dear Hamid',
+                ),
+              ),
+            ),
+          ],
         ),
-      'self_invitation_not_allowed' => LifeMateRuntimeLocale.select(
-          fa: 'نمی‌توانی دعوت مراقبت حساب خودت را بپذیری.',
-          en: 'You cannot accept your own care invitation.',
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, ''),
+            child: Text(
+              LifeMateRuntimeLocale.select(fa: 'همان $name', en: 'Keep $name'),
+            ),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(dialogContext, controller.text.trim()),
+            child: Text(LifeMateRuntimeLocale.select(fa: 'ذخیره', en: 'Save')),
+          ),
+        ],
+      ),
+    );
+    controller.dispose();
+    if (nickname == null || !mounted) return;
+
+    final api = LifeMateRelationshipPresentationApi.fromEnvironment();
+    try {
+      await api.update(
+        relationshipId: relationshipId,
+        relationshipType: relationshipType,
+        displayName: nickname,
+      );
+      if (!mounted) return;
+      await _loadRelationshipState(afterAccept: true);
+    } on LifeMateApiException {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            LifeMateRuntimeLocale.select(
+              fa: 'نام نمایشی ذخیره نشد؛ بعداً از تنظیمات می‌توانی تغییرش بدهی.',
+              en: 'Nickname was not saved. You can change it later in settings.',
+            ),
+          ),
         ),
-      'invitation_not_pending' => LifeMateRuntimeLocale.select(
-          fa: 'این دعوت قبلاً استفاده یا لغو شده است. دعوت تازه لازم است.',
-          en: 'This invitation was already used or revoked. A new invitation is required.',
-        ),
-      _ => LifeMateRuntimeLocale.select(
-          fa: 'دعوت پذیرفته نشد. دوباره تلاش کن.',
-          en: 'The invitation could not be accepted. Try again.',
-        ),
-    };
+      );
+    } finally {
+      api.close();
+    }
   }
+
+  String _friendly(LifeMateApiException error) => switch (error.code) {
+        'invitation_expired' => LifeMateRuntimeLocale.select(
+            fa: 'این دعوت منقضی شده است. از صاحب حساب یک دعوت تازه بگیر.',
+            en: 'This invitation has expired. Ask for a new invitation.',
+          ),
+        'invitation_not_found' => LifeMateRuntimeLocale.select(
+            fa: 'این کد دعوت معتبر نیست.',
+            en: 'This invitation code is invalid.',
+          ),
+        'invitation_contact_mismatch' => LifeMateRuntimeLocale.select(
+            fa: 'این دعوت برای حساب دیگری صادر شده است.',
+            en: 'This invitation belongs to another account.',
+          ),
+        'self_invitation_not_allowed' => LifeMateRuntimeLocale.select(
+            fa: 'نمی‌توانی دعوت مراقبت حساب خودت را بپذیری.',
+            en: 'You cannot accept your own care invitation.',
+          ),
+        'invitation_not_pending' => LifeMateRuntimeLocale.select(
+            fa: 'این دعوت قبلاً استفاده یا لغو شده است.',
+            en: 'This invitation was already used or revoked.',
+          ),
+        _ => LifeMateRuntimeLocale.select(
+            fa: 'دعوت پذیرفته نشد. دوباره تلاش کن.',
+            en: 'The invitation could not be accepted. Try again.',
+          ),
+      };
 
   @override
   Widget build(BuildContext context) {
-    if (_activeRelationship != null && !_showAcceptedOnce) {
-      return widget.child;
-    }
-
+    if (_activeRelationship != null && !_showAcceptedOnce) return widget.child;
     return Directionality(
       textDirection: _isPersian ? TextDirection.rtl : TextDirection.ltr,
       child: switch (_phase) {
         _CareMateGatePhase.loading => _loading(),
-        _CareMateGatePhase.relationshipHint => _relationshipHintScreen(),
         _CareMateGatePhase.pairingMethod => _pairingMethodScreen(),
         _CareMateGatePhase.manualCode => _manualCodeScreen(),
         _CareMateGatePhase.connecting => _connectingScreen(),
@@ -279,66 +448,18 @@ class _CareMateRelationshipV3GateState
         primaryBusy: true,
         body: _centerQuestion(
           Icons.shield_outlined,
-          LifeMateRuntimeLocale.select(
-            fa: 'وضعیت دسترسی را از سرور بررسی می‌کنیم',
-            en: 'Checking server-authoritative access',
-          ),
+          LifeMateRuntimeLocale.select(fa: 'وضعیت اتصال را بررسی می‌کنیم', en: 'Checking connection'),
           LifeMateRuntimeLocale.select(
             fa: 'هیچ اطلاعات سلامت تا تأیید رابطه نمایش داده نمی‌شود.',
-            en: 'No health data is shown before the relationship is authorized.',
+            en: 'No health data is shown before authorization.',
           ),
         ),
-      );
-
-  Widget _relationshipHintScreen() => _scaffold(
-        title: LifeMateRuntimeLocale.select(fa: 'شروع CareMate', en: 'Start CareMate'),
-        progress: 0.25,
-        progressLabel: '1/4',
-        primaryLabel: LifeMateRuntimeLocale.select(fa: 'ادامه', en: 'Continue'),
-        onPrimary: _relationshipHint == null
-            ? null
-            : () => setState(() => _phase = _CareMateGatePhase.pairingMethod),
-        body: Column(
-          children: [
-            const Spacer(),
-            _question(
-              Icons.people_alt_outlined,
-              LifeMateRuntimeLocale.select(
-                fa: 'برای چه کسی CareMate را استفاده می‌کنی؟',
-                en: 'Who are you using CareMate for?',
-              ),
-              LifeMateRuntimeLocale.select(
-                fa: 'این انتخاب فقط متن و ظاهر را شخصی می‌کند و هیچ دسترسی‌ای نمی‌دهد.',
-                en: 'This only personalizes copy and never grants access.',
-              ),
-            ),
-            const SizedBox(height: 18),
-            _hintCard('parent', Icons.elderly_outlined,
-                LifeMateRuntimeLocale.select(fa: 'پدر یا مادر', en: 'Parent')),
-            const SizedBox(height: 8),
-            _hintCard('partner', Icons.favorite_border_rounded,
-                LifeMateRuntimeLocale.select(fa: 'همسر یا شریک زندگی', en: 'Partner')),
-            const SizedBox(height: 8),
-            _hintCard('family', Icons.family_restroom_rounded,
-                LifeMateRuntimeLocale.select(fa: 'عضو خانواده یا فرد دیگر', en: 'Family or someone else')),
-            const Spacer(flex: 2),
-          ],
-        ),
-      );
-
-  Widget _hintCard(String value, IconData icon, String title) =>
-      LifeMateOnboardingOptionCard(
-        theme: _theme,
-        title: title,
-        icon: icon,
-        selected: _relationshipHint == value,
-        onTap: () => setState(() => _relationshipHint = value),
       );
 
   Widget _pairingMethodScreen() => _scaffold(
         title: LifeMateRuntimeLocale.select(fa: 'اتصال امن', en: 'Secure pairing'),
-        progress: 0.5,
-        progressLabel: '2/4',
+        progress: 0.33,
+        progressLabel: '1/3',
         primaryLabel: LifeMateRuntimeLocale.select(fa: 'اسکن QR', en: 'Scan QR'),
         onPrimary: _scanQr,
         secondary: TextButton(
@@ -356,13 +477,10 @@ class _CareMateRelationshipV3GateState
             const Spacer(),
             _centerQuestion(
               Icons.qr_code_scanner_rounded,
+              LifeMateRuntimeLocale.select(fa: 'دعوت را باز کن', en: 'Open the invitation'),
               LifeMateRuntimeLocale.select(
-                fa: 'دعوت یک‌بارمصرف را اسکن کن',
-                en: 'Scan the one-time invitation',
-              ),
-              LifeMateRuntimeLocale.select(
-                fa: 'نوع رابطه‌ای که انتخاب کردی مجوز نیست؛ فقط دعوت معتبر + رضایت دوطرفه می‌تواند رابطه را فعال کند.',
-                en: 'Your relationship hint is not permission; only a valid invitation plus both consents can activate access.',
+                fa: 'قبل از تأیید، نام رسمی صاحب WellMate را می‌بینی. نوع رابطه را صاحب حساب تعیین کرده است.',
+                en: 'Before accepting, you will see the WellMate owner’s official name. The owner selected the relationship type.',
               ),
             ),
             const Spacer(flex: 2),
@@ -372,27 +490,15 @@ class _CareMateRelationshipV3GateState
 
   Widget _manualCodeScreen() => _scaffold(
         title: LifeMateRuntimeLocale.select(fa: 'کد دعوت', en: 'Invitation code'),
-        progress: 0.5,
-        progressLabel: '2/4',
-        primaryLabel: LifeMateRuntimeLocale.select(fa: 'بررسی و اتصال', en: 'Validate and connect'),
+        progress: 0.33,
+        progressLabel: '1/3',
+        primaryLabel: LifeMateRuntimeLocale.select(fa: 'بررسی درخواست', en: 'Review request'),
         onPrimary: () => _accept(_manualController.text),
-        onBack: () => setState(() {
-          _phase = _CareMateGatePhase.pairingMethod;
-          _message = null;
-        }),
+        onBack: () => setState(() => _phase = _CareMateGatePhase.pairingMethod),
         keyboardAware: true,
         body: Column(
           children: [
             const Spacer(),
-            _question(
-              Icons.key_rounded,
-              LifeMateRuntimeLocale.select(fa: 'کد را وارد کن', en: 'Enter the code'),
-              LifeMateRuntimeLocale.select(
-                fa: 'سرور اعتبار، انقضا، صاحب دعوت و استفاده مجدد را بررسی می‌کند.',
-                en: 'The server validates ownership, expiry and replay before creating access.',
-              ),
-            ),
-            const SizedBox(height: 20),
             LifeMateOnboardingTextField(
               theme: _theme,
               controller: _manualController,
@@ -412,32 +518,30 @@ class _CareMateRelationshipV3GateState
 
   Widget _connectingScreen() => _scaffold(
         title: LifeMateRuntimeLocale.select(fa: 'بررسی دعوت', en: 'Validating invitation'),
-        progress: 0.75,
-        progressLabel: '3/4',
-        primaryLabel: LifeMateRuntimeLocale.select(fa: 'در حال اتصال', en: 'Connecting'),
+        progress: 0.66,
+        progressLabel: '2/3',
+        primaryLabel: LifeMateRuntimeLocale.select(fa: 'در حال بررسی', en: 'Checking'),
         primaryBusy: true,
         body: _centerQuestion(
           Icons.verified_user_outlined,
-          LifeMateRuntimeLocale.select(fa: 'منتظر پاسخ امن سرور', en: 'Waiting for server authorization'),
+          LifeMateRuntimeLocale.select(fa: 'در حال بررسی امن درخواست', en: 'Securely reviewing request'),
           LifeMateRuntimeLocale.select(
-            fa: 'در این وضعیت هیچ دارو، ویزیت یا اطلاعات خصوصی نمایش داده نمی‌شود.',
-            en: 'No medication, appointment or private data is displayed in this state.',
+            fa: 'در این مرحله هیچ داده سلامتی نمایش داده نمی‌شود.',
+            en: 'No health data is displayed at this stage.',
           ),
         ),
       );
 
   Widget _pendingScreen() => _scaffold(
         title: LifeMateRuntimeLocale.select(fa: 'در انتظار تأیید', en: 'Pending approval'),
-        progress: 0.75,
-        progressLabel: '3/4',
         primaryLabel: LifeMateRuntimeLocale.select(fa: 'بررسی دوباره', en: 'Check again'),
         onPrimary: _loadRelationshipState,
         body: _centerQuestion(
           Icons.hourglass_top_rounded,
           LifeMateRuntimeLocale.select(fa: 'هنوز دسترسی فعال نشده', en: 'Access is not active yet'),
           LifeMateRuntimeLocale.select(
-            fa: 'تا وقتی رابطه روی سرور Active و رضایت‌ها معتبر نباشند، CareMate هیچ داده سلامتی نشان نمی‌دهد.',
-            en: 'CareMate shows no health data until the server relationship is Active with valid consent.',
+            fa: 'تا فعال‌شدن رابطه و رضایت دوطرفه هیچ داده سلامتی نمایش داده نمی‌شود.',
+            en: 'No health data is shown until the relationship and both consents are active.',
           ),
         ),
       );
@@ -452,7 +556,7 @@ class _CareMateRelationshipV3GateState
     return _scaffold(
       title: LifeMateRuntimeLocale.select(fa: 'اتصال تأیید شد', en: 'Connection accepted'),
       progress: 1,
-      progressLabel: '4/4',
+      progressLabel: '3/3',
       primaryLabel: LifeMateRuntimeLocale.select(fa: 'ورود به CareMate', en: 'Enter CareMate'),
       onPrimary: () => setState(() => _showAcceptedOnce = false),
       body: Column(
@@ -462,38 +566,23 @@ class _CareMateRelationshipV3GateState
             Icons.verified_rounded,
             patient == null || patient.isEmpty
                 ? LifeMateRuntimeLocale.select(fa: 'رابطه امن فعال شد', en: 'Secure relationship is active')
-                : LifeMateRuntimeLocale.select(
-                    fa: 'اتصال با $patient فعال شد',
-                    en: 'Connected with $patient',
-                  ),
+                : LifeMateRuntimeLocale.select(fa: 'اتصال با $patient فعال شد', en: 'Connected with $patient'),
             LifeMateRuntimeLocale.select(
-              fa: 'نمایش بعدی فقط از دسترسی‌های واقعی همین رابطه استفاده می‌کند.',
-              en: 'The next screen uses only the server-authoritative scopes of this relationship.',
+              fa: 'نام دلخواه تو در CareMate و اعلان‌ها استفاده می‌شود؛ مجوزهای حساس همچنان مستقل‌اند.',
+              en: 'Your nickname is used in CareMate and notifications; sensitive permissions remain independent.',
             ),
           ),
           const SizedBox(height: 18),
-          _scopeRow(
-            LifeMateRuntimeLocale.select(fa: 'تقویم سلامت بانوان', en: 'Women Health summary'),
-            womenSummary,
-          ),
-          _scopeRow(
-            LifeMateRuntimeLocale.select(fa: 'برآورد باروری', en: 'Fertility estimate'),
-            fertility,
-            sensitive: true,
-          ),
-          _scopeRow(
-            LifeMateRuntimeLocale.select(fa: 'اعلان‌های باروری', en: 'Fertility notifications'),
-            fertilityNotifications,
-            sensitive: true,
-          ),
+          _scopeRow(LifeMateRuntimeLocale.select(fa: 'تقویم سلامت بانوان', en: 'Women Health summary'), womenSummary),
+          _scopeRow(LifeMateRuntimeLocale.select(fa: 'برآورد باروری', en: 'Fertility estimate'), fertility, sensitive: true),
+          _scopeRow(LifeMateRuntimeLocale.select(fa: 'اعلان‌های باروری', en: 'Fertility notifications'), fertilityNotifications, sensitive: true),
           const Spacer(flex: 2),
         ],
       ),
     );
   }
 
-  Widget _scopeRow(String label, bool enabled, {bool sensitive = false}) =>
-      Container(
+  Widget _scopeRow(String label, bool enabled, {bool sensitive = false}) => Container(
         width: double.infinity,
         margin: const EdgeInsets.only(bottom: 8),
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
@@ -504,23 +593,13 @@ class _CareMateRelationshipV3GateState
         ),
         child: Row(
           children: [
-            Icon(
-              enabled ? Icons.check_circle_rounded : Icons.lock_outline_rounded,
-              color: enabled ? _theme.success : _theme.muted,
-              size: 20,
-            ),
+            Icon(enabled ? Icons.check_circle_rounded : Icons.lock_outline_rounded,
+                color: enabled ? _theme.success : _theme.muted, size: 20),
             const SizedBox(width: 10),
-            Expanded(
-              child: Text(label, style: TextStyle(color: _theme.ink, fontWeight: FontWeight.w700)),
-            ),
+            Expanded(child: Text(label, style: TextStyle(color: _theme.ink, fontWeight: FontWeight.w700))),
             Text(
-              enabled
-                  ? LifeMateRuntimeLocale.select(fa: 'فعال', en: 'On')
-                  : LifeMateRuntimeLocale.select(fa: 'خاموش', en: 'Off'),
-              style: TextStyle(
-                color: enabled ? _theme.success : _theme.muted,
-                fontWeight: FontWeight.w800,
-              ),
+              enabled ? LifeMateRuntimeLocale.select(fa: 'فعال', en: 'On') : LifeMateRuntimeLocale.select(fa: 'خاموش', en: 'Off'),
+              style: TextStyle(color: enabled ? _theme.success : _theme.muted, fontWeight: FontWeight.w800),
             ),
           ],
         ),
@@ -529,18 +608,11 @@ class _CareMateRelationshipV3GateState
   Widget _revokedScreen() => _scaffold(
         title: LifeMateRuntimeLocale.select(fa: 'اتصال پایان یافته', en: 'Connection revoked'),
         primaryLabel: LifeMateRuntimeLocale.select(fa: 'اتصال دوباره', en: 'Reconnect'),
-        onPrimary: () => setState(() {
-          _phase = _CareMateGatePhase.relationshipHint;
-          _relationshipHint = null;
-          _message = null;
-        }),
+        onPrimary: () => setState(() => _phase = _CareMateGatePhase.pairingMethod),
         body: _centerQuestion(
           Icons.link_off_rounded,
           LifeMateRuntimeLocale.select(fa: 'دسترسی قبلی لغو شده است', en: 'Previous access was revoked'),
-          LifeMateRuntimeLocale.select(
-            fa: 'اطلاعات شخصی از رابط CareMate کنار گذاشته شده و برای اتصال دوباره یک دعوت معتبر جدید لازم است.',
-            en: 'Personalized CareMate surfaces are cleared and a new valid invitation is required to reconnect.',
-          ),
+          LifeMateRuntimeLocale.select(fa: 'برای اتصال دوباره دعوت معتبر جدید لازم است.', en: 'A new valid invitation is required.'),
         ),
       );
 
@@ -555,16 +627,7 @@ class _CareMateRelationshipV3GateState
         ),
       );
 
-  Widget _question(IconData icon, String title, String description) =>
-      LifeMateOnboardingQuestion(
-        theme: _theme,
-        icon: icon,
-        title: title,
-        description: description,
-      );
-
-  Widget _centerQuestion(IconData icon, String title, String description) =>
-      Center(
+  Widget _centerQuestion(IconData icon, String title, String description) => Center(
         child: LifeMateOnboardingQuestion(
           theme: _theme,
           icon: icon,

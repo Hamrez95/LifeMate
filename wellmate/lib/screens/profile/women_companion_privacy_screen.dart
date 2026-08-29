@@ -24,14 +24,7 @@ class _WomenCompanionPrivacyScreenState
     'receiveFertilityNotifications',
     'viewCalendarDetail',
   ];
-  static const _presentationTypes = <String>[
-    'partner',
-    'child_caring_for_parent',
-    'parent_caring_for_dependent',
-    'family',
-    'trusted_caregiver',
-    'unknown',
-  ];
+  static const _presentationTypes = <String>['partner', 'family', 'child'];
 
   bool _loading = true;
   bool _saving = false;
@@ -40,7 +33,7 @@ class _WomenCompanionPrivacyScreenState
   int _version = 0;
   Map<String, bool> _scopes = {for (final key in _keys) key: false};
   late final TextEditingController _caregiverAliasController;
-  String _presentationType = 'unknown';
+  String? _presentationType;
   String? _caregiverOfficialName;
 
   String get _id => widget.relationship['id'].toString();
@@ -82,12 +75,16 @@ class _WomenCompanionPrivacyScreenState
       final source = current?['scopes'] as Map<String, dynamic>? ?? const {};
       final official = _text(relationship?['caregiverOfficialDisplayName']);
       final effective = _text(relationship?['caregiverDisplayName']);
+      final canonical = LifeMateRelationshipPresentationPolicy.fromRaw(
+        relationship?['relationshipType']?.toString() ??
+            relationship?['presentationType']?.toString(),
+      ).storageValue;
       setState(() {
         _version = current?['version'] is int ? current!['version'] as int : 0;
         _scopes = {for (final key in _keys) key: source[key] == true};
-        _presentationType = LifeMateRelationshipPresentationPolicy.fromRaw(
-          relationship?['presentationType']?.toString(),
-        ).storageValue;
+        _presentationType = _presentationTypes.contains(canonical)
+            ? canonical
+            : null;
         _caregiverOfficialName = official;
         _caregiverAliasController.text =
             effective != null && effective != official ? effective : '';
@@ -126,9 +123,7 @@ class _WomenCompanionPrivacyScreenState
       if (error.code == 'stale_companion_privacy_scopes') await _load();
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('تنظیمات ذخیره نشد؛ اطلاعات تازه شد.'),
-        ),
+        const SnackBar(content: Text('تنظیمات ذخیره نشد؛ اطلاعات تازه شد.')),
       );
     } finally {
       if (mounted) setState(() => _saving = false);
@@ -136,13 +131,14 @@ class _WomenCompanionPrivacyScreenState
   }
 
   Future<void> _savePresentation() async {
-    if (_savingPresentation) return;
+    final type = _presentationType;
+    if (_savingPresentation || type == null) return;
     setState(() => _savingPresentation = true);
     final api = LifeMateRelationshipPresentationApi.fromEnvironment();
     try {
       await api.update(
         relationshipId: _id,
-        relationshipType: _presentationType,
+        relationshipType: type,
         displayName: _caregiverAliasController.text,
       );
       await _load();
@@ -174,15 +170,96 @@ class _WomenCompanionPrivacyScreenState
                     style: TextStyle(height: 1.6),
                   ),
                   const SizedBox(height: 16),
-                  _RelationshipPresentationCard(
-                    officialName: _caregiverOfficialName,
-                    controller: _caregiverAliasController,
-                    presentationType: _presentationType,
-                    types: _presentationTypes,
-                    saving: _savingPresentation,
-                    onTypeChanged: (value) =>
-                        setState(() => _presentationType = value),
-                    onSave: _savePresentation,
+                  Card(
+                    elevation: 0,
+                    child: Padding(
+                      padding: const EdgeInsets.all(16),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          const Text(
+                            'نام و نوع رابطه',
+                            style: TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.w800,
+                            ),
+                          ),
+                          const SizedBox(height: 5),
+                          const Text(
+                            'نوع رابطه فقط لحن و نمایش را شخصی می‌کند و هیچ دسترسی جدیدی فعال نمی‌کند.',
+                            style: TextStyle(height: 1.5, fontSize: 12),
+                          ),
+                          if (_caregiverOfficialName != null) ...[
+                            const SizedBox(height: 8),
+                            Text('نام رسمی: $_caregiverOfficialName'),
+                          ],
+                          const SizedBox(height: 12),
+                          DropdownButtonFormField<String>(
+                            key: const ValueKey(
+                              'owner-relationship-presentation-type',
+                            ),
+                            initialValue: _presentationType,
+                            decoration: const InputDecoration(
+                              labelText: 'نوع رابطه',
+                              hintText: 'انتخاب کنید',
+                            ),
+                            items: _presentationTypes
+                                .map(
+                                  (value) => DropdownMenuItem<String>(
+                                    value: value,
+                                    child: Text(
+                                      LifeMateRelationshipPresentationPolicy
+                                          .fromRaw(value)
+                                          .ownerRelationshipLabel(
+                                            isPersian: true,
+                                          ),
+                                    ),
+                                  ),
+                                )
+                                .toList(growable: false),
+                            onChanged: _savingPresentation
+                                ? null
+                                : (value) => setState(
+                                      () => _presentationType = value,
+                                    ),
+                          ),
+                          const SizedBox(height: 12),
+                          TextField(
+                            key: const ValueKey(
+                              'owner-caregiver-display-name',
+                            ),
+                            controller: _caregiverAliasController,
+                            enabled: !_savingPresentation,
+                            maxLength: 80,
+                            decoration: const InputDecoration(
+                              labelText: 'دوست داری چی صداش کنی؟',
+                              hintText: 'مثلاً مامان جون',
+                              helperText:
+                                  'اختیاری؛ خالی بگذار تا نام رسمی نمایش داده شود.',
+                            ),
+                          ),
+                          FilledButton.icon(
+                            onPressed: _savingPresentation ||
+                                    _presentationType == null
+                                ? null
+                                : _savePresentation,
+                            icon: _savingPresentation
+                                ? const SizedBox.square(
+                                    dimension: 18,
+                                    child: CircularProgressIndicator(
+                                      strokeWidth: 2,
+                                    ),
+                                  )
+                                : const Icon(Icons.badge_outlined),
+                            label: Text(
+                              _savingPresentation
+                                  ? 'در حال ذخیره…'
+                                  : 'ذخیره نام و رابطه',
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
                   ),
                   const SizedBox(height: 18),
                   const Divider(),
@@ -196,8 +273,8 @@ class _WomenCompanionPrivacyScreenState
                       onChanged: _saving
                           ? null
                           : (value) => setState(
-                              () => _scopes[entry.key] = value,
-                            ),
+                                () => _scopes[entry.key] = value,
+                              ),
                     ),
                   if (_error != null)
                     Padding(
@@ -213,10 +290,10 @@ class _WomenCompanionPrivacyScreenState
                     onPressed: _saving
                         ? null
                         : () => setState(() {
-                            _scopes = {
-                              for (final key in _keys) key: false,
-                            };
-                          }),
+                              _scopes = {
+                                for (final key in _keys) key: false,
+                              };
+                            }),
                     icon: const Icon(Icons.visibility_off_rounded),
                     label: const Text('قطع همه دسترسی‌های این بخش'),
                   ),
@@ -225,7 +302,9 @@ class _WomenCompanionPrivacyScreenState
                     key: const ValueKey('save-companion-privacy'),
                     onPressed: _saving ? null : _save,
                     icon: const Icon(Icons.save_rounded),
-                    label: Text(_saving ? 'در حال ذخیره…' : 'ذخیره دسترسی‌ها'),
+                    label: Text(
+                      _saving ? 'در حال ذخیره…' : 'ذخیره دسترسی‌ها',
+                    ),
                   ),
                 ],
               ),
@@ -235,96 +314,6 @@ class _WomenCompanionPrivacyScreenState
     final text = value?.toString().trim();
     return text == null || text.isEmpty ? null : text;
   }
-}
-
-class _RelationshipPresentationCard extends StatelessWidget {
-  const _RelationshipPresentationCard({
-    required this.officialName,
-    required this.controller,
-    required this.presentationType,
-    required this.types,
-    required this.saving,
-    required this.onTypeChanged,
-    required this.onSave,
-  });
-
-  final String? officialName;
-  final TextEditingController controller;
-  final String presentationType;
-  final List<String> types;
-  final bool saving;
-  final ValueChanged<String> onTypeChanged;
-  final VoidCallback onSave;
-
-  @override
-  Widget build(BuildContext context) => Card(
-        elevation: 0,
-        child: Padding(
-          padding: const EdgeInsets.all(16),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              const Text(
-                'نام و نوع رابطه',
-                style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800),
-              ),
-              const SizedBox(height: 5),
-              const Text(
-                'این بخش فقط روی نحوه نمایش و لحن اثر دارد و هیچ دسترسی جدیدی فعال نمی‌کند.',
-                style: TextStyle(height: 1.5, fontSize: 12),
-              ),
-              if (officialName != null) ...[
-                const SizedBox(height: 8),
-                Text('نام رسمی: $officialName'),
-              ],
-              const SizedBox(height: 12),
-              DropdownButtonFormField<String>(
-                key: const ValueKey('owner-relationship-presentation-type'),
-                initialValue: presentationType,
-                decoration: const InputDecoration(labelText: 'نوع رابطه'),
-                items: types
-                    .map(
-                      (value) => DropdownMenuItem<String>(
-                        value: value,
-                        child: Text(
-                          LifeMateRelationshipPresentationPolicy.fromRaw(value)
-                              .ownerRelationshipLabel(isPersian: true),
-                        ),
-                      ),
-                    )
-                    .toList(growable: false),
-                onChanged: saving
-                    ? null
-                    : (value) {
-                        if (value != null) onTypeChanged(value);
-                      },
-              ),
-              const SizedBox(height: 12),
-              TextField(
-                key: const ValueKey('owner-caregiver-display-name'),
-                controller: controller,
-                enabled: !saving,
-                maxLength: 80,
-                decoration: const InputDecoration(
-                  labelText: 'نامی که من برای این فرد می‌بینم',
-                  hintText: 'مثلاً همسرم یا علی جان',
-                  helperText: 'خالی بگذار تا نام رسمی نمایش داده شود.',
-                ),
-              ),
-              FilledButton.icon(
-                onPressed: saving ? null : onSave,
-                icon: saving
-                    ? const SizedBox.square(
-                        dimension: 18,
-                        child: CircularProgressIndicator(strokeWidth: 2),
-                      )
-                    : const Icon(Icons.badge_outlined),
-                label: Text(saving ? 'در حال ذخیره…' : 'ذخیره نام و رابطه'),
-              ),
-            ],
-          ),
-        ),
-      );
 }
 
 extension _FirstOrNull<T> on Iterable<T> {

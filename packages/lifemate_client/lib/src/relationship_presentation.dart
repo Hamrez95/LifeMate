@@ -1,9 +1,7 @@
 enum LifeMateRelationshipPresentationKind {
   partner,
-  childCaringForParent,
-  parentCaringForDependent,
   family,
-  trustedCaregiver,
+  child,
   unknown,
 }
 
@@ -18,7 +16,7 @@ class LifeMateRelationshipPresentationPolicy {
   final String storageValue;
   final String copyVersion;
 
-  static const copyVersionCurrent = 'relationship-presentation-v1';
+  static const copyVersionCurrent = 'relationship-presentation-v2';
 
   factory LifeMateRelationshipPresentationPolicy.fromRaw(String? value) {
     final normalized = value?.trim().toLowerCase().replaceAll('-', '_') ?? '';
@@ -28,27 +26,21 @@ class LifeMateRelationshipPresentationPolicy {
           storageValue: 'partner',
           copyVersion: copyVersionCurrent,
         ),
-      'child_caring_for_parent' || 'child_to_parent' =>
+      'child' || 'child_caring_for_parent' || 'child_to_parent' =>
         const LifeMateRelationshipPresentationPolicy._(
-          kind: LifeMateRelationshipPresentationKind.childCaringForParent,
-          storageValue: 'child_caring_for_parent',
+          kind: LifeMateRelationshipPresentationKind.child,
+          storageValue: 'child',
           copyVersion: copyVersionCurrent,
         ),
-      'parent_caring_for_dependent' || 'parent_to_child' || 'parent_to_dependent' =>
-        const LifeMateRelationshipPresentationPolicy._(
-          kind: LifeMateRelationshipPresentationKind.parentCaringForDependent,
-          storageValue: 'parent_caring_for_dependent',
-          copyVersion: copyVersionCurrent,
-        ),
-      'family' || 'family_member' => const LifeMateRelationshipPresentationPolicy._(
+      'family' ||
+      'family_member' ||
+      'parent_caring_for_dependent' ||
+      'parent_to_child' ||
+      'parent_to_dependent' ||
+      'trusted_caregiver' ||
+      'caregiver' => const LifeMateRelationshipPresentationPolicy._(
           kind: LifeMateRelationshipPresentationKind.family,
           storageValue: 'family',
-          copyVersion: copyVersionCurrent,
-        ),
-      'trusted_caregiver' || 'caregiver' =>
-        const LifeMateRelationshipPresentationPolicy._(
-          kind: LifeMateRelationshipPresentationKind.trustedCaregiver,
-          storageValue: 'trusted_caregiver',
           copyVersion: copyVersionCurrent,
         ),
       _ => const LifeMateRelationshipPresentationPolicy._(
@@ -61,36 +53,24 @@ class LifeMateRelationshipPresentationPolicy {
 
   bool get isPartner => kind == LifeMateRelationshipPresentationKind.partner;
 
-  /// Caregiver-side label describing how this caregiver supports the patient.
   String relationshipLabel({required bool isPersian}) => switch (kind) {
         LifeMateRelationshipPresentationKind.partner =>
-          isPersian ? 'همسر / شریک زندگی' : 'Partner',
-        LifeMateRelationshipPresentationKind.childCaringForParent =>
-          isPersian ? 'مراقبت از والد' : 'Caring for a parent',
-        LifeMateRelationshipPresentationKind.parentCaringForDependent =>
-          isPersian ? 'مراقبت از فرزند یا وابسته' : 'Caring for a dependent',
+          isPersian ? 'پارتنر' : 'Partner',
         LifeMateRelationshipPresentationKind.family =>
-          isPersian ? 'عضو خانواده' : 'Family member',
-        LifeMateRelationshipPresentationKind.trustedCaregiver =>
-          isPersian ? 'مراقب مورد اعتماد' : 'Trusted caregiver',
+          isPersian ? 'خانواده' : 'Family',
+        LifeMateRelationshipPresentationKind.child =>
+          isPersian ? 'فرزند' : 'Child',
         LifeMateRelationshipPresentationKind.unknown =>
           isPersian ? 'رابطه مراقبتی' : 'Care relationship',
       };
 
-  /// Patient/owner-side label for the exact same presentation state.
   String ownerRelationshipLabel({required bool isPersian}) => switch (kind) {
         LifeMateRelationshipPresentationKind.partner =>
-          isPersian ? 'همسر / شریک زندگی من' : 'My partner',
-        LifeMateRelationshipPresentationKind.childCaringForParent =>
-          isPersian ? 'فرزندم از من مراقبت می‌کند' : 'My child cares for me',
-        LifeMateRelationshipPresentationKind.parentCaringForDependent =>
-          isPersian
-              ? 'والد یا سرپرستم از من مراقبت می‌کند'
-              : 'My parent or guardian cares for me',
+          isPersian ? 'پارتنر' : 'Partner',
         LifeMateRelationshipPresentationKind.family =>
-          isPersian ? 'عضو خانواده من' : 'My family member',
-        LifeMateRelationshipPresentationKind.trustedCaregiver =>
-          isPersian ? 'مراقب مورد اعتماد من' : 'My trusted caregiver',
+          isPersian ? 'خانواده' : 'Family',
+        LifeMateRelationshipPresentationKind.child =>
+          isPersian ? 'فرزند' : 'Child',
         LifeMateRelationshipPresentationKind.unknown =>
           isPersian ? 'رابطه مراقبتی' : 'Care relationship',
       };
@@ -104,21 +84,15 @@ class LifeMateRelationshipPresentationPolicy {
             'daily_summary',
             'contact',
           ],
-        LifeMateRelationshipPresentationKind.childCaringForParent => const [
+        LifeMateRelationshipPresentationKind.family ||
+        LifeMateRelationshipPresentationKind.child => const [
             'treatment_alerts',
             'care_events',
             'daily_summary',
             'contact',
             'companion',
           ],
-        LifeMateRelationshipPresentationKind.parentCaringForDependent => const [
-            'treatment_alerts',
-            'care_events',
-            'daily_summary',
-            'contact',
-            'companion',
-          ],
-        _ => const [
+        LifeMateRelationshipPresentationKind.unknown => const [
             'treatment_alerts',
             'care_events',
             'daily_summary',
@@ -141,21 +115,20 @@ class LifeMateRelationshipPresentationPolicy {
       return switch (kind) {
         LifeMateRelationshipPresentationKind.partner =>
           '$kindLabel $personName؛ یک یادآوری آرام',
-        LifeMateRelationshipPresentationKind.childCaringForParent =>
+        LifeMateRelationshipPresentationKind.family ||
+        LifeMateRelationshipPresentationKind.child =>
           '$kindLabel $personName نزدیک است',
-        LifeMateRelationshipPresentationKind.parentCaringForDependent =>
-          '$kindLabel $personName نزدیک است',
-        _ => '$kindLabel $personName',
+        LifeMateRelationshipPresentationKind.unknown => '$kindLabel $personName',
       };
     }
     return switch (kind) {
       LifeMateRelationshipPresentationKind.partner =>
         '$personName • gentle $kindLabel reminder',
-      LifeMateRelationshipPresentationKind.childCaringForParent =>
+      LifeMateRelationshipPresentationKind.family ||
+      LifeMateRelationshipPresentationKind.child =>
         '$personName • upcoming $kindLabel',
-      LifeMateRelationshipPresentationKind.parentCaringForDependent =>
-        '$personName • upcoming $kindLabel',
-      _ => '$personName • $kindLabel reminder',
+      LifeMateRelationshipPresentationKind.unknown =>
+        '$personName • $kindLabel reminder',
     };
   }
 
@@ -168,21 +141,21 @@ class LifeMateRelationshipPresentationPolicy {
       return switch (kind) {
         LifeMateRelationshipPresentationKind.partner =>
           'یک $itemLabel $personName هنوز پیگیری نشده',
-        LifeMateRelationshipPresentationKind.childCaringForParent =>
+        LifeMateRelationshipPresentationKind.family ||
+        LifeMateRelationshipPresentationKind.child =>
           '$itemLabel $personName نیاز به پیگیری دارد',
-        LifeMateRelationshipPresentationKind.parentCaringForDependent =>
-          '$itemLabel $personName نیاز به پیگیری دارد',
-        _ => '$itemLabel $personName هنوز پیگیری نشده',
+        LifeMateRelationshipPresentationKind.unknown =>
+          '$itemLabel $personName هنوز پیگیری نشده',
       };
     }
     return switch (kind) {
       LifeMateRelationshipPresentationKind.partner =>
         '$personName has an unfinished $itemLabel',
-      LifeMateRelationshipPresentationKind.childCaringForParent =>
+      LifeMateRelationshipPresentationKind.family ||
+      LifeMateRelationshipPresentationKind.child =>
         '$personName needs follow-up for $itemLabel',
-      LifeMateRelationshipPresentationKind.parentCaringForDependent =>
-        '$personName needs follow-up for $itemLabel',
-      _ => '$personName has an unfinished $itemLabel',
+      LifeMateRelationshipPresentationKind.unknown =>
+        '$personName has an unfinished $itemLabel',
     };
   }
 
@@ -193,13 +166,13 @@ class LifeMateRelationshipPresentationPolicy {
         LifeMateRelationshipPresentationKind.partner => isPersian
             ? '💚 یک خبر خوب از $personName'
             : '💚 A reassuring update from $personName',
-        LifeMateRelationshipPresentationKind.childCaringForParent => isPersian
-            ? '💚 پیگیری درمان $personName'
-            : '💚 $personName care update',
-        LifeMateRelationshipPresentationKind.parentCaringForDependent => isPersian
+        LifeMateRelationshipPresentationKind.family => isPersian
+            ? '💚 به‌روزرسانی مراقبت $personName'
+            : '💚 Care update for $personName',
+        LifeMateRelationshipPresentationKind.child => isPersian
             ? '💚 وضعیت درمان $personName'
             : '💚 $personName care update',
-        _ => isPersian
+        LifeMateRelationshipPresentationKind.unknown => isPersian
             ? '💚 به‌روزرسانی مراقبت $personName'
             : '💚 Care update for $personName',
       };
@@ -211,13 +184,11 @@ class LifeMateRelationshipPresentationPolicy {
         LifeMateRelationshipPresentationKind.partner => isPersian
             ? '☀️ امروزِ $personName'
             : '☀️ Today with $personName',
-        LifeMateRelationshipPresentationKind.childCaringForParent => isPersian
+        LifeMateRelationshipPresentationKind.family ||
+        LifeMateRelationshipPresentationKind.child => isPersian
             ? '☀️ خلاصه مراقبت امروز $personName'
             : '☀️ Today’s care for $personName',
-        LifeMateRelationshipPresentationKind.parentCaringForDependent => isPersian
-            ? '☀️ خلاصه مراقبت امروز $personName'
-            : '☀️ Today’s care for $personName',
-        _ => isPersian
+        LifeMateRelationshipPresentationKind.unknown => isPersian
             ? '☀️ وضعیت امروز $personName'
             : '☀️ Today for $personName',
       };
@@ -228,10 +199,6 @@ class LifeMateRelationshipPresentationPolicy {
   }) => switch (kind) {
         LifeMateRelationshipPresentationKind.partner =>
           isPersian ? 'همراهی برای $personName' : 'Support for $personName',
-        LifeMateRelationshipPresentationKind.childCaringForParent =>
-          isPersian ? 'مراقبت از $personName' : 'Care for $personName',
-        LifeMateRelationshipPresentationKind.parentCaringForDependent =>
-          isPersian ? 'مراقبت از $personName' : 'Care for $personName',
         _ => isPersian ? 'مراقبت از $personName' : 'Care for $personName',
       };
 }

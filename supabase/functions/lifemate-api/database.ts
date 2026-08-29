@@ -199,27 +199,28 @@ export function createLifeMateDatabase(
       const contactType = typeof body.contactType === "string"
         ? body.contactType.trim().toLowerCase()
         : "";
-      if (contactType !== "phone") {
-        return await database.createInvitation(identity, body);
+      if (contactType === "phone") {
+        return await phoneInvitations.createPhoneInvitation(identity, body);
       }
-      throw new ApiError(
-        410,
-        "phone_care_invitation_retired",
-        "Phone care invitations are retired. Use the care request flow.",
-      );
+      return await database.createInvitation(identity, body);
     },
     createPhoneInvitation: phoneInvitations.createPhoneInvitation,
+    previewInvitation: phoneInvitations.previewInvitation,
     revokeInvitation: invitationRevocation.revokePendingInvitation,
-    acceptInvitation: (
+    acceptInvitation: async (
       identity: Parameters<typeof database.acceptInvitation>[0],
       body: Parameters<typeof database.acceptInvitation>[1],
-    ) =>
-      phoneInvitations.acceptInvitationOrDelegate(
+    ) => {
+      if (body.previewOnly === true) {
+        return await phoneInvitations.previewInvitation(identity, body);
+      }
+      return await phoneInvitations.acceptInvitationOrDelegate(
         identity,
         body,
         (_phoneIdentity, nonPhoneBody) =>
           personInvitationAcceptance.acceptInvitation(identity, nonPhoneBody),
-      ),
+      );
+    },
     listRelationships,
     getNotificationPreferences:
       personCareRelationships.getNotificationPreferences,

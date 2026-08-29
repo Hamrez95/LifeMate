@@ -3,6 +3,10 @@ import {
   maskIranianMobileE164,
   normalizeIranianMobileE164,
 } from "./iran_phone.ts";
+import {
+  normalizeRelationshipPresentationPatch,
+  normalizeRelationshipType,
+} from "./relationship_presentation.ts";
 import { createHmac, timingSafeEqual } from "./security.ts";
 import { ApiError, requiredText } from "./validation.ts";
 
@@ -17,6 +21,7 @@ type RelationshipParticipants = {
 export type PhoneInvitationIdentity = {
   auth: {
     phone: string | null;
+    email?: string | null;
   };
   appUserId: string;
 };
@@ -44,6 +49,10 @@ export function createPhoneCareInvitationStore(
     deliver?: PhoneInvitationDeliveryCallback,
   ): Promise<Record<string, unknown>> {
     requirePatientConsent(body);
+    const presentation = normalizeRelationshipPresentationPatch({
+      relationshipType: body.relationshipType ?? "unknown",
+      displayName: body.displayName,
+    });
     const rawContact = requiredText(body.contact, "contact", 64);
     const phone = normalizeIranianMobileE164(rawContact);
     if (phone == null) {
@@ -104,17 +113,15 @@ export function createPhoneCareInvitationStore(
         insert into lifemate.care_invitations
           (id, inviter_user_id, contact_type, contact_hash, contact_hint,
            token_hash, patient_consent_version, status, expires_at_utc,
-           responded_by_user_id, responded_at_utc, revoked_at_utc, created_at_utc)
+           responded_by_user_id, responded_at_utc, revoked_at_utc, created_at_utc,
+           relationship_type, inviter_caregiver_display_name)
         values
           (${id}, ${identity.appUserId}, 'Phone', ${contactHash}, ${hint},
            ${tokenHash}, 'care-patient-consent-v1', 'Pending', ${expires},
-           null, null, null, ${now})
+           null, null, null, ${now}, ${presentation.relationshipType},
+           ${presentation.displayName})
       `;
 
-      // The raw invitation token and phone only exist at this trusted boundary.
-      // Delivery runs before commit so a provider failure rolls back the pending
-      // invitation and its audit record rather than persisting a secret for an
-      // asynchronous blind retry.
       if (deliver) {
         await deliver({ phoneE164: phone, token });
       }
@@ -130,11 +137,81 @@ export function createPhoneCareInvitationStore(
         id,
         contactType: "phone",
         contactHint: hint,
-        // Internal trusted-server value. Public facades must redact this field.
+        relationshipType: presentation.relationshipType,
+        caregiverDisplayName: presentation.displayName,
         token,
         expiresAtUtc: expires.toISOString(),
       };
     });
+  }
+
+  async function previewInvitation(
+    identity: PhoneInvitationIdentity,
+    body: Record<string, unknown>,
+  ): Promise<Record<string, unknown>> {
+    const token = requiredText(body.token, "token", 512);
+    const tokenHash = await hmac(`token:${token}`);
+    const rows = await sql`
+      select i.*, p.display_name as inviter_display_name
+      from lifemate.care_invitations i
+      left join lifemate.user_profiles p on p.user_id = i.inviter_user_id
+      where i.token_hash = ${tokenHash}
+      limit 1
+    `;
+    const invitation = rows[0];
+    if (!invitation) {
+      throw new ApiError(404, "invitation_not_found", "Invitation is invalid.");
+    }
+    if (invitation.status !== "Pending") {
+      throw new ApiError(
+        409,
+        "invitation_not_pending",
+        "Invitation is no longer pending.",
+      );
+    }
+    if (new Date(invitation.expires_at_utc) <= new Date()) {
+      throw new ApiError(410, "invitation_expired", "Invitation has expired.");
+    }
+    if (invitation.inviter_user_id === identity.appUserId) {
+      throw new ApiError(
+        400,
+        "self_invitation_not_allowed",
+        "You cannot accept your own invitation.",
+      );
+    }
+
+    const contactType = String(invitation.contact_type ?? "").toLowerCase();
+    if (contactType === "phone") {
+      const currentPhone = identity.auth.phone == null
+        ? null
+        : normalizeIranianMobileE164(identity.auth.phone);
+      if (currentPhone == null) throw contactMismatch();
+      const currentContactHash = await hmac(`contact:${currentPhone}`);
+      if (!timingSafeEqual(invitation.contact_hash, currentContactHash)) {
+        throw contactMismatch();
+      }
+    } else if (contactType === "email") {
+      const email = identity.auth.email?.trim().toLowerCase();
+      if (!email) throw contactMismatch();
+      const currentContactHash = await hmac(`contact:${email}`);
+      if (!timingSafeEqual(invitation.contact_hash, currentContactHash)) {
+        throw contactMismatch();
+      }
+    } else if (contactType !== "qr") {
+      throw new ApiError(
+        400,
+        "unsupported_invitation_contact",
+        "Invitation contact type is unsupported.",
+      );
+    }
+
+    return {
+      inviterUserId: invitation.inviter_user_id,
+      inviterDisplayName: String(invitation.inviter_display_name ?? "LifeMate User"),
+      relationshipType: normalizeRelationshipType(invitation.relationship_type),
+      contactType,
+      expiresAtUtc: iso(invitation.expires_at_utc),
+    };
   }
 
   async function acceptInvitationOrDelegate(
@@ -257,17 +334,21 @@ export function createPhoneCareInvitationStore(
         where id = ${invitation.id}
       `;
       const relationshipId = crypto.randomUUID();
+      const relationshipType = normalizeRelationshipType(invitation.relationship_type);
       const relationshipRows = await tx`
         insert into lifemate.care_relationships
           (id, patient_user_id, caregiver_user_id, status,
            patient_consent_version, patient_consented_at_utc,
            caregiver_consent_version, caregiver_consented_at_utc,
-           revoked_by_user_id, revoked_at_utc, created_at_utc, updated_at_utc)
+           revoked_by_user_id, revoked_at_utc, created_at_utc, updated_at_utc,
+           relationship_type, patient_relationship_type,
+           caregiver_relationship_type, patient_caregiver_display_name)
         values
           (${relationshipId}, ${invitation.inviter_user_id}, ${identity.appUserId},
            'Active', ${invitation.patient_consent_version},
            ${invitation.created_at_utc}, 'care-caregiver-consent-v1', ${now},
-           null, null, ${now}, ${now})
+           null, null, ${now}, ${now}, ${relationshipType}, ${relationshipType},
+           ${relationshipType}, ${invitation.inviter_caregiver_display_name})
         returning *
       `;
       await insertAudit(
@@ -290,6 +371,7 @@ export function createPhoneCareInvitationStore(
 
   return {
     createPhoneInvitation,
+    previewInvitation,
     acceptInvitationOrDelegate,
   };
 
@@ -339,6 +421,8 @@ export function createPhoneCareInvitationStore(
       caregiverUserId: relationship.caregiver_user_id,
       caregiverDisplayName: byId.get(relationship.caregiver_user_id) ??
         "LifeMate User",
+      relationshipType: normalizeRelationshipType(relationship.relationship_type),
+      presentationType: normalizeRelationshipType(relationship.relationship_type),
       status: String(relationship.status).toLowerCase(),
       canViewWomenCalendar: relationship.can_view_women_calendar === true,
       patientConsentedAtUtc: iso(relationship.patient_consented_at_utc),
@@ -431,7 +515,7 @@ async function insertAudit(
       (id, actor_user_id, action, resource_type, resource_id,
        metadata_json, created_at_utc)
     values
-      (${crypto.randomUUID()}, ${actorUserId}, ${action}, ${resourceType},
+      (${crypto.randomUUID()}, ${actorUserId}::uuid, ${action}, ${resourceType},
        ${resourceId}, null, now())
   `;
 }
@@ -442,7 +526,6 @@ function createPhoneInvitationToken(): string {
   while (token.length < 10) {
     crypto.getRandomValues(buffer);
     for (const value of buffer) {
-      // Reject 250..255 so modulo-10 mapping is unbiased.
       if (value >= 250) continue;
       token += String(value % 10);
       if (token.length === 10) break;
