@@ -46,11 +46,8 @@ class LifeMateRelationshipPresentationApi {
       );
     }
     final base = _baseUri.toString().replaceFirst(RegExp(r'/+$'), '');
-    // Uses the existing authenticated relationship mutation transport. The
-    // server dispatches the nested presentation object to a presentation-only
-    // path; it is never interpreted as an authorization permission.
     final uri = Uri.parse(
-      '$base/api/v1/care/relationships/$relationshipId/permissions',
+      '$base/api/v1/care/relationships/$relationshipId/presentation',
     );
     try {
       final response = await _http
@@ -63,12 +60,10 @@ class LifeMateRelationshipPresentationApi {
               'Idempotency-Key': LifeMateApiClient.createClientRequestId(),
             },
             body: jsonEncode({
-              'presentation': {
-                'relationshipType': relationshipType,
-                'displayName': displayName?.trim().isEmpty == true
-                    ? null
-                    : displayName?.trim(),
-              },
+              'relationshipType': relationshipType,
+              'displayName': displayName?.trim().isEmpty == true
+                  ? null
+                  : displayName?.trim(),
             }),
           )
           .timeout(_timeout);
