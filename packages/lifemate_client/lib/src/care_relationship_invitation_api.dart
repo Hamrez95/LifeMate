@@ -61,6 +61,11 @@ class LifeMateCareRelationshipInvitationApi {
     );
   }
 
+  Future<Map<String, dynamic>> preview({required String token}) => _post(
+        '/api/v1/care/invitations/accept',
+        {'token': token.trim(), 'previewOnly': true},
+      );
+
   Future<Map<String, dynamic>> _post(
     String path,
     Map<String, dynamic> body,
