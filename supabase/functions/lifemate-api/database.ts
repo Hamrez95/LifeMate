@@ -205,6 +205,7 @@ export function createLifeMateDatabase(
       return await database.createInvitation(identity, body);
     },
     createPhoneInvitation: phoneInvitations.createPhoneInvitation,
+    previewInvitation: phoneInvitations.previewInvitation,
     revokeInvitation: invitationRevocation.revokePendingInvitation,
     acceptInvitation: (
       identity: Parameters<typeof database.acceptInvitation>[0],
