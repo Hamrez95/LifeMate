@@ -44,7 +44,14 @@ void main() {
     });
     expect(body.keys.join(' ').toLowerCase(), isNot(contains('permission')));
     expect(body.keys.join(' ').toLowerCase(), isNot(contains('consent')));
-    expect(captured.headers['Idempotency-Key'], isNotEmpty);
+    expect(
+      captured.headers.entries.any(
+        (entry) =>
+            entry.key.toLowerCase() == 'idempotency-key' &&
+            entry.value.isNotEmpty,
+      ),
+      isTrue,
+    );
     api.close();
   });
 
