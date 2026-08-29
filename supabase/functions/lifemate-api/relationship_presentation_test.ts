@@ -70,6 +70,20 @@ Deno.test("presentation update columns cannot mutate permissions or consent", ()
   assertEquals(/permission|consent|can_view|scope|notification/i.test(keys), false);
 });
 
+Deno.test("actual presentation mutation block changes presentation fields only", async () => {
+  const source = await Deno.readTextFile("person_care_relationship_management.ts");
+  const start = source.indexOf("async function updateRelationshipPresentation(");
+  const end = source.indexOf("async function updateRelationshipPermissions(", start);
+  if (start < 0 || end <= start) throw new Error("presentation mutation block missing");
+  const block = source.slice(start, end);
+
+  assertEquals(block.includes("caregiver_relationship_type"), true);
+  assertEquals(block.includes("caregiver_patient_display_name"), true);
+  assertEquals(block.includes("patient_relationship_type"), true);
+  assertEquals(block.includes("patient_caregiver_display_name"), true);
+  assertEquals(/can_view|consent|privacy_scope|notification|permission/i.test(block), false);
+});
+
 Deno.test("unknown stored presentation falls back to neutral type", () => {
   const value = presentRelationshipForViewer(
     { ...row(), caregiver_relationship_type: "legacy_unknown" },
