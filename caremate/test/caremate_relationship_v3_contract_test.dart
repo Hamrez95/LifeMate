@@ -49,7 +49,7 @@ void main() {
     ).readAsStringSync();
 
     expect(gate, contains('No medication, appointment or private data'));
-    expect(gate, isNot(contains('CareHomeAggregator')));
+    expect(gate, isNot(contains('CareHomeAggregator'));
     expect(gate, isNot(contains('getCareRecipientDoseOccurrences')));
     expect(gate, isNot(contains('getCareRecipientCareEvents')));
   });
@@ -114,7 +114,7 @@ void main() {
     expect(backend, contains('care_relationship.presentation_updated'));
     expect(
       backend,
-      isNot(contains('caregiver_relationship_type = ${body.canViewWomenCalendar}')),
+      isNot(contains('caregiver_relationship_type = can_view_women_calendar')),
     );
   });
 }
