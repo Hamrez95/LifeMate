@@ -288,7 +288,7 @@ class _RelationshipPresentationCard extends StatelessWidget {
                         value: value,
                         child: Text(
                           LifeMateRelationshipPresentationPolicy.fromRaw(value)
-                              .relationshipLabel(isPersian: true),
+                              .ownerRelationshipLabel(isPersian: true),
                         ),
                       ),
                     )
