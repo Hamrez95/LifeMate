@@ -38,9 +38,6 @@ class CareHomeAggregator {
       reference.month,
       reference.day,
     );
-    // Keep a short look-back so a still-scheduled overdue dose cannot silently
-    // disappear from the caregiver queue. The complete request window remains
-    // bounded to 31 days for the existing care-event contract.
     final fromDate = startOfToday.subtract(const Duration(days: 7));
     final toDate = startOfToday.add(const Duration(days: 23));
     final dosesByPatient = <String, List<Map<String, dynamic>>>{};
@@ -81,13 +78,19 @@ class CareHomeAggregator {
   Future<CareCompanionHomeSummary> _loadCompanion(
     List<CareHomeRelationship> relationships,
   ) async {
-    CareHomeRelationship? relationship;
-    for (final candidate in relationships) {
-      if (candidate.canViewWomenCalendar) {
-        relationship = candidate;
-        break;
-      }
-    }
+    // Relationship type only orders already-authorized candidates. It never
+    // makes a Women/Companion surface eligible by itself.
+    final permitted = relationships
+        .where((candidate) => candidate.canViewWomenCalendar)
+        .toList(growable: false)
+      ..sort((left, right) {
+        final byPolicy = left.presentationPolicy
+            .surfaceRank('companion')
+            .compareTo(right.presentationPolicy.surfaceRank('companion'));
+        if (byPolicy != 0) return byPolicy;
+        return left.relationshipId.compareTo(right.relationshipId);
+      });
+    final relationship = permitted.isEmpty ? null : permitted.first;
     if (relationship == null) return CareCompanionHomeSummary.locked();
 
     try {
@@ -100,8 +103,6 @@ class CareHomeAggregator {
       );
     } on LifeMateApiException catch (error) {
       if (error.code == 'women_calendar_access_denied') {
-        // Permission may have been revoked between relationship and summary
-        // reads. Fail closed and discard every previously assumed field.
         return CareCompanionHomeSummary.locked();
       }
       return CareCompanionHomeSummary.unavailable(
@@ -166,14 +167,12 @@ class CareHomeAggregator {
     if (scheduledAt == null) return null;
     final title =
         _text(dose['medicationName']) ??
-        LifeMateRuntimeLocale.select(
-          fa: LifeMateRuntimeLocale.select(fa: 'دارو', en: "Medication"),
-          en: "medicine",
-        );
+        LifeMateRuntimeLocale.select(fa: 'دارو', en: 'Medication');
     return CareHomeTreatmentItem(
       relationshipId: relationship.relationshipId,
       patientUserId: relationship.patientUserId,
       patientDisplayName: relationship.patientDisplayName,
+      presentationType: relationship.presentationType,
       patientProfilePhotoUrl: relationship.patientProfilePhotoUrl,
       patientAvatarKey: relationship.patientAvatarKey,
       type: CareItemType.medication,
@@ -214,6 +213,7 @@ class CareHomeAggregator {
       relationshipId: relationship.relationshipId,
       patientUserId: relationship.patientUserId,
       patientDisplayName: relationship.patientDisplayName,
+      presentationType: relationship.presentationType,
       patientProfilePhotoUrl: relationship.patientProfilePhotoUrl,
       patientAvatarKey: relationship.patientAvatarKey,
       type: careItem.type,
@@ -258,6 +258,12 @@ class CareHomeAggregator {
     items.sort((left, right) {
       final byTime = left.scheduledAt.compareTo(right.scheduledAt);
       if (byTime != 0) return byTime;
+      // When two care items are equally due, parent/dependent care policies put
+      // treatment follow-up ahead of partner companion-oriented presentation.
+      final byPolicy = left.presentationPolicy
+          .surfaceRank('treatment_alerts')
+          .compareTo(right.presentationPolicy.surfaceRank('treatment_alerts'));
+      if (byPolicy != 0) return byPolicy;
       final byPatient = left.patientUserId.compareTo(right.patientUserId);
       if (byPatient != 0) return byPatient;
       return left.occurrenceId.compareTo(right.occurrenceId);
