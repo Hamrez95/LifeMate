@@ -207,16 +207,20 @@ export function createLifeMateDatabase(
     createPhoneInvitation: phoneInvitations.createPhoneInvitation,
     previewInvitation: phoneInvitations.previewInvitation,
     revokeInvitation: invitationRevocation.revokePendingInvitation,
-    acceptInvitation: (
+    acceptInvitation: async (
       identity: Parameters<typeof database.acceptInvitation>[0],
       body: Parameters<typeof database.acceptInvitation>[1],
-    ) =>
-      phoneInvitations.acceptInvitationOrDelegate(
+    ) => {
+      if (body.previewOnly === true) {
+        return await phoneInvitations.previewInvitation(identity, body);
+      }
+      return await phoneInvitations.acceptInvitationOrDelegate(
         identity,
         body,
         (_phoneIdentity, nonPhoneBody) =>
           personInvitationAcceptance.acceptInvitation(identity, nonPhoneBody),
-      ),
+      );
+    },
     listRelationships,
     getNotificationPreferences:
       personCareRelationships.getNotificationPreferences,
