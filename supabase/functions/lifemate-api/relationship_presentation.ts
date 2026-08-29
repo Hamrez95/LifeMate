@@ -2,14 +2,12 @@ import { ApiError } from "./validation.ts";
 
 type Row = Record<string, any>;
 
-export const relationshipPresentationCopyVersion = "relationship-presentation-v1";
+export const relationshipPresentationCopyVersion = "relationship-presentation-v2";
 
 export const relationshipPresentationTypes = new Set([
   "partner",
-  "child_caring_for_parent",
-  "parent_caring_for_dependent",
   "family",
-  "trusted_caregiver",
+  "child",
   "unknown",
 ]);
 
@@ -18,14 +16,37 @@ export type RelationshipPresentationPatch = {
   displayName: string | null;
 };
 
-export function normalizeRelationshipPresentationPatch(
-  body: Record<string, unknown>,
-): RelationshipPresentationPatch {
-  const relationshipType = String(body.relationshipType ?? "")
+export function normalizeRelationshipType(value: unknown): string {
+  const normalized = String(value ?? "")
     .trim()
     .toLowerCase()
     .replaceAll("-", "_");
-  if (!relationshipPresentationTypes.has(relationshipType)) {
+  if (normalized === "partner" || normalized === "spouse") return "partner";
+  if (
+    normalized === "child" ||
+    normalized === "child_caring_for_parent" ||
+    normalized === "child_to_parent"
+  ) return "child";
+  if (
+    normalized === "family" ||
+    normalized === "family_member" ||
+    normalized === "parent_caring_for_dependent" ||
+    normalized === "parent_to_child" ||
+    normalized === "parent_to_dependent" ||
+    normalized === "trusted_caregiver" ||
+    normalized === "caregiver"
+  ) return "family";
+  return "unknown";
+}
+
+export function normalizeRelationshipPresentationPatch(
+  body: Record<string, unknown>,
+): RelationshipPresentationPatch {
+  const relationshipType = normalizeRelationshipType(body.relationshipType);
+  if (
+    relationshipType === "unknown" &&
+    String(body.relationshipType ?? "").trim().toLowerCase() !== "unknown"
+  ) {
     throw new ApiError(
       400,
       "invalid_relationship_presentation_type",
@@ -73,6 +94,12 @@ export function presentRelationshipForViewer(
   const caregiverOfficial = text(row.caregiver_display_name) ?? "LifeMate User";
   const caregiverPatientAlias = text(row.caregiver_patient_display_name);
   const patientCaregiverAlias = text(row.patient_caregiver_display_name);
+  const canonicalType = normalizeRelationshipType(
+    row.relationship_type ??
+      (viewerIsCaregiver
+        ? row.caregiver_relationship_type
+        : row.patient_relationship_type),
+  );
 
   return {
     patientDisplayName: viewerIsCaregiver
@@ -83,11 +110,8 @@ export function presentRelationshipForViewer(
       : caregiverOfficial,
     patientOfficialDisplayName: patientOfficial,
     caregiverOfficialDisplayName: caregiverOfficial,
-    presentationType: viewerIsCaregiver
-      ? normalizedType(row.caregiver_relationship_type)
-      : viewerIsPatient
-      ? normalizedType(row.patient_relationship_type)
-      : "unknown",
+    relationshipType: canonicalType,
+    presentationType: canonicalType,
     presentationCopyVersion: relationshipPresentationCopyVersion,
   };
 }
@@ -103,17 +127,10 @@ export function presentationUpdateColumns(
     };
   }
   return {
+    relationship_type: patch.relationshipType,
     patient_relationship_type: patch.relationshipType,
     patient_caregiver_display_name: patch.displayName,
   };
-}
-
-function normalizedType(value: unknown): string {
-  const normalized = String(value ?? "unknown")
-    .trim()
-    .toLowerCase()
-    .replaceAll("-", "_");
-  return relationshipPresentationTypes.has(normalized) ? normalized : "unknown";
 }
 
 function text(value: unknown): string | null {
