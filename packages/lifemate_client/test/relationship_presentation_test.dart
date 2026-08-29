@@ -45,6 +45,25 @@ void main() {
     );
   });
 
+  test('caregiver and owner labels describe the same relationship from each side', () {
+    final parentCare = LifeMateRelationshipPresentationPolicy.fromRaw(
+      'child_caring_for_parent',
+    );
+
+    expect(
+      parentCare.relationshipLabel(isPersian: true),
+      'مراقبت از والد',
+    );
+    expect(
+      parentCare.ownerRelationshipLabel(isPersian: true),
+      'فرزندم از من مراقبت می‌کند',
+    );
+    expect(
+      parentCare.ownerRelationshipLabel(isPersian: false),
+      'My child cares for me',
+    );
+  });
+
   test('copy snapshots differ by relationship and locale', () {
     final partner = LifeMateRelationshipPresentationPolicy.fromRaw('partner');
     final parentCare = LifeMateRelationshipPresentationPolicy.fromRaw(
