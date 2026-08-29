@@ -49,7 +49,7 @@ class _CareMateRelationshipPresentationScreenState
       appBar: AppBar(
         backgroundColor: AppColors.background,
         surfaceTintColor: Colors.transparent,
-        title: Text(isPersian ? 'افراد و نوع رابطه' : 'People and relationships'),
+        title: Text(isPersian ? 'افراد و نام‌های نمایشی' : 'People and nicknames'),
       ),
       body: FutureBuilder<List<Map<String, dynamic>>>(
         future: _future,
@@ -94,8 +94,9 @@ class _CareMateRelationshipPresentationScreenState
                         ink: AppColors.darkBlue,
                         onManage: () => Navigator.of(context).push<void>(
                           MaterialPageRoute<void>(
-                            builder: (_) =>
-                                const CareMateFeaturePreviewScreen(initialIndex: 3),
+                            builder: (_) => const CareMateFeaturePreviewScreen(
+                              initialIndex: 3,
+                            ),
                           ),
                         ),
                       ),
@@ -137,8 +138,8 @@ class _IntroCard extends StatelessWidget {
             Expanded(
               child: Text(
                 isPersian
-                    ? 'نوع رابطه فقط لحن، ترتیب پیشنهادها و نامی را که تو در CareMate می‌بینی تغییر می‌دهد. هیچ دسترسی سلامت یا رضایتی با انتخاب نوع رابطه فعال نمی‌شود.'
-                    : 'Relationship type changes only CareMate wording, presentation priority, and the name you use. It never grants health access or consent.',
+                    ? 'نوع رابطه را صاحب WellMate هنگام دعوت مشخص می‌کند و در CareMate قابل تغییر نیست. تو فقط می‌توانی نامی را که برای آن فرد می‌بینی انتخاب کنی؛ این نام روی هیچ دسترسی یا رضایتی اثر ندارد.'
+                    : 'The WellMate owner chooses the relationship type during invitation and it cannot be changed here. You can only choose the nickname you see; it never changes access or consent.',
                 style: const TextStyle(height: 1.55),
               ),
             ),
@@ -162,24 +163,16 @@ class _RelationshipCard extends StatefulWidget {
 
 class _RelationshipCardState extends State<_RelationshipCard> {
   late final TextEditingController _displayNameController;
-  late String _type;
+  late final String _type;
   bool _saving = false;
-
-  static const _types = <String>[
-    'partner',
-    'child_caring_for_parent',
-    'parent_caring_for_dependent',
-    'family',
-    'trusted_caregiver',
-    'unknown',
-  ];
 
   @override
   void initState() {
     super.initState();
-    final raw = widget.relationship['presentationType']?.toString();
-    final normalized = LifeMateRelationshipPresentationPolicy.fromRaw(raw);
-    _type = normalized.storageValue;
+    _type = LifeMateRelationshipPresentationPolicy.fromRaw(
+      widget.relationship['relationshipType']?.toString() ??
+          widget.relationship['presentationType']?.toString(),
+    ).storageValue;
     final official = _text(widget.relationship['patientOfficialDisplayName']);
     final effective = _text(widget.relationship['patientDisplayName']);
     _displayNameController = TextEditingController(
@@ -209,8 +202,8 @@ class _RelationshipCardState extends State<_RelationshipCard> {
         SnackBar(
           content: Text(
             LifeMateRuntimeLocale.select(
-              fa: 'نوع رابطه و نام نمایشی ذخیره شد.',
-              en: 'Relationship and display name saved.',
+              fa: 'نام نمایشی ذخیره شد.',
+              en: 'Nickname saved.',
             ),
           ),
         ),
@@ -239,8 +232,9 @@ class _RelationshipCardState extends State<_RelationshipCard> {
     final isPersian = LifeMateRuntimeLocale.isPersian;
     final official =
         _text(widget.relationship['patientOfficialDisplayName']) ??
-        _text(widget.relationship['patientDisplayName']) ??
-        (isPersian ? 'فرد تحت مراقبت' : 'Person under care');
+            _text(widget.relationship['patientDisplayName']) ??
+            (isPersian ? 'فرد تحت مراقبت' : 'Person under care');
+    final policy = LifeMateRelationshipPresentationPolicy.fromRaw(_type);
     return Card(
       elevation: 0,
       color: Colors.white,
@@ -268,47 +262,47 @@ class _RelationshipCardState extends State<_RelationshipCard> {
                           fontWeight: FontWeight.w800,
                         ),
                       ),
-                      if (_text(widget.relationship['patientDisplayName']) != official)
-                        Text(
-                          isPersian ? 'نام رسمی: $official' : 'Official name: $official',
-                          style: const TextStyle(
-                            fontSize: 11,
-                            color: AppColors.secondaryText,
-                          ),
+                      Text(
+                        isPersian
+                            ? 'نام رسمی: $official'
+                            : 'Official name: $official',
+                        style: const TextStyle(
+                          fontSize: 11,
+                          color: AppColors.secondaryText,
                         ),
+                      ),
                     ],
                   ),
                 ),
               ],
             ),
-            const SizedBox(height: 16),
-            DropdownButtonFormField<String>(
-              key: ValueKey('relationship-type-${widget.relationship['id']}'),
-              initialValue: _type,
-              decoration: InputDecoration(
-                labelText: isPersian ? 'نوع رابطه' : 'Relationship type',
-                helperText: isPersian
-                    ? 'فقط برای نحوه نمایش و اولویت‌بندی'
-                    : 'Presentation and priority only',
+            const SizedBox(height: 14),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+              decoration: BoxDecoration(
+                color: AppColors.primaryBlue.withValues(alpha: .07),
+                borderRadius: BorderRadius.circular(16),
               ),
-              items: _types
-                  .map(
-                    (value) => DropdownMenuItem<String>(
-                      value: value,
-                      child: Text(
-                        LifeMateRelationshipPresentationPolicy.fromRaw(value)
-                            .relationshipLabel(isPersian: isPersian),
-                      ),
-                    ),
-                  )
-                  .toList(growable: false),
-              onChanged: _saving
-                  ? null
-                  : (value) => setState(() => _type = value ?? 'unknown'),
+              child: Row(
+                children: [
+                  const Icon(Icons.link_rounded, size: 20),
+                  const SizedBox(width: 10),
+                  Text(
+                    isPersian ? 'نوع رابطه: ' : 'Relationship: ',
+                    style: const TextStyle(color: AppColors.secondaryText),
+                  ),
+                  Text(
+                    policy.relationshipLabel(isPersian: isPersian),
+                    style: const TextStyle(fontWeight: FontWeight.w900),
+                  ),
+                ],
+              ),
             ),
             const SizedBox(height: 14),
             TextField(
-              key: ValueKey('relationship-display-name-${widget.relationship['id']}'),
+              key: ValueKey(
+                'relationship-display-name-${widget.relationship['id']}',
+              ),
               controller: _displayNameController,
               enabled: !_saving,
               maxLength: 80,
@@ -316,7 +310,9 @@ class _RelationshipCardState extends State<_RelationshipCard> {
                 labelText: isPersian
                     ? 'نامی که من می‌بینم'
                     : 'Display name I use',
-                hintText: isPersian ? 'مثلاً مامان جون' : 'For example, Mum',
+                hintText: isPersian
+                    ? 'مثلاً پسرم یا حمید عزیزم'
+                    : 'For example, my son or dear Hamid',
                 helperText: isPersian
                     ? 'خالی بگذار تا نام رسمی نمایش داده شود.'
                     : 'Leave blank to use the official name.',
@@ -331,7 +327,7 @@ class _RelationshipCardState extends State<_RelationshipCard> {
                       child: CircularProgressIndicator(strokeWidth: 2),
                     )
                   : const Icon(Icons.save_outlined),
-              label: Text(isPersian ? 'ذخیره' : 'Save'),
+              label: Text(isPersian ? 'ذخیره نام' : 'Save nickname'),
             ),
           ],
         ),
