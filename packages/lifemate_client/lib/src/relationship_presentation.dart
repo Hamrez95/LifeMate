@@ -108,6 +108,11 @@ class LifeMateRelationshipPresentationPolicy {
           ],
       };
 
+  int surfaceRank(String surface) {
+    final index = surfacePriority.indexOf(surface);
+    return index < 0 ? 999 : index;
+  }
+
   String reminderTitle({
     required String personName,
     required String kindLabel,
@@ -161,6 +166,42 @@ class LifeMateRelationshipPresentationPolicy {
       _ => '$personName has an unfinished $itemLabel',
     };
   }
+
+  String completionTitle({
+    required String personName,
+    required bool isPersian,
+  }) => switch (kind) {
+        LifeMateRelationshipPresentationKind.partner => isPersian
+            ? '💚 یک خبر خوب از $personName'
+            : '💚 A reassuring update from $personName',
+        LifeMateRelationshipPresentationKind.childCaringForParent => isPersian
+            ? '💚 پیگیری درمان $personName'
+            : '💚 $personName care update',
+        LifeMateRelationshipPresentationKind.parentCaringForDependent => isPersian
+            ? '💚 وضعیت درمان $personName'
+            : '💚 $personName care update',
+        _ => isPersian
+            ? '💚 به‌روزرسانی مراقبت $personName'
+            : '💚 Care update for $personName',
+      };
+
+  String dailySummaryTitle({
+    required String personName,
+    required bool isPersian,
+  }) => switch (kind) {
+        LifeMateRelationshipPresentationKind.partner => isPersian
+            ? '☀️ امروزِ $personName'
+            : '☀️ Today with $personName',
+        LifeMateRelationshipPresentationKind.childCaringForParent => isPersian
+            ? '☀️ خلاصه مراقبت امروز $personName'
+            : '☀️ Today’s care for $personName',
+        LifeMateRelationshipPresentationKind.parentCaringForDependent => isPersian
+            ? '☀️ خلاصه مراقبت امروز $personName'
+            : '☀️ Today’s care for $personName',
+        _ => isPersian
+            ? '☀️ وضعیت امروز $personName'
+            : '☀️ Today for $personName',
+      };
 
   String companionHeading({
     required String personName,
