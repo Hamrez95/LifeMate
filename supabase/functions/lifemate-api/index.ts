@@ -796,6 +796,24 @@ async function route(
     );
   }
 
+  const relationshipPresentationMatch = path.match(
+    /^\/api\/v1\/care\/relationships\/([0-9a-f-]{36})\/presentation$/i,
+  );
+  if (request.method === "PATCH" && relationshipPresentationMatch) {
+    enforceRateLimit(
+      `care-presentation:${identity.appUserId}`,
+      30,
+      60 * 60_000,
+    );
+    return json(
+      await db.updateRelationshipPresentation(
+        identity.appUserId,
+        relationshipPresentationMatch[1],
+        await readJsonObject(request),
+      ),
+    );
+  }
+
   const relationshipPermissionMatch = path.match(
     /^\/api\/v1\/care\/relationships\/([0-9a-f-]{36})\/permissions$/i,
   );
