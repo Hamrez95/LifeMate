@@ -136,15 +136,22 @@ class CareNotificationProvider extends ChangeNotifier {
         relationships,
         reminder.patientUserId,
       );
+      final policy = _presentationPolicy(relationship);
+      final personName = _relationshipDisplayName(
+        relationship,
+        fallback: reminder.patientName,
+      ).toPersianDigit(isPersian);
       final localTime = tz.TZDateTime.from(reminder.scheduledAtUtc, tz.local);
       final triggerTime = tz.TZDateTime.from(reminder.triggerAtUtc, tz.local);
       final timeText =
           '${localTime.hour.toString().padLeft(2, '0')}:'
                   '${localTime.minute.toString().padLeft(2, '0')}'
               .toPersianDigit(isPersian);
-      final title = isPersian
-          ? '${_kindTitle(reminder.kind)} ${reminder.patientName.toPersianDigit(true)}'
-          : '${reminder.patientName} upcoming ${reminder.kind}';
+      final title = policy.reminderTitle(
+        personName: personName,
+        kindLabel: _kindShortLabel(reminder.kind, isPersian: isPersian),
+        isPersian: isPersian,
+      );
       final detail = [
         reminder.medicationName,
         if (reminder.doseText.trim().isNotEmpty) reminder.doseText.trim(),
@@ -160,18 +167,12 @@ class CareNotificationProvider extends ChangeNotifier {
           android: AndroidNotificationDetails(
             'caremate_next_treatment',
             LifeMateRuntimeLocale.select(
-              fa: LifeMateRuntimeLocale.select(
-                fa: 'برنامه بعدی افراد تحت مراقبت',
-                en: 'Next program of people in care',
-              ),
-              en: 'Next program of people in care',
+              fa: 'برنامه بعدی افراد تحت مراقبت',
+              en: 'Next care items',
             ),
             channelDescription: LifeMateRuntimeLocale.select(
-              fa: LifeMateRuntimeLocale.select(
-                fa: 'نزدیک‌ترین یادآور دارو، ویزیت یا تزریق هر فرد در CareMate',
-                en: "The nearest reminder of anyone's medication, visit or injection in CareMate",
-              ),
-              en: "The nearest reminder of anyone's medication, visit or injection in CareMate",
+              fa: 'نزدیک‌ترین یادآور دارو، ویزیت یا تزریق هر فرد در CareMate',
+              en: 'The nearest medication, visit, or injection reminder for each person in CareMate',
             ),
             importance: Importance.high,
             priority: Priority.high,
@@ -225,15 +226,21 @@ class CareNotificationProvider extends ChangeNotifier {
         relationships,
         alert.patientUserId,
       );
+      final policy = _presentationPolicy(relationship);
+      final personName = _relationshipDisplayName(
+        relationship,
+        fallback: alert.patientName,
+      ).toPersianDigit(isPersian);
       final scheduled = alert.scheduledAtUtc.toLocal();
       final timeText =
           '${scheduled.hour.toString().padLeft(2, '0')}:'
                   '${scheduled.minute.toString().padLeft(2, '0')}'
               .toPersianDigit(isPersian);
       final lateText = _lateText(alert, nowUtc, isPersian: isPersian);
-      final title = LifeMateRuntimeLocale.select(
-        fa: '${alert.patientName.toPersianDigit(true)} هنوز ${_missedVerb(alert.kind)}',
-        en: '${alert.patientName} has an unfinished ${_kindLabel(alert.kind)}',
+      final title = policy.missedTitle(
+        personName: personName,
+        itemLabel: _kindShortLabel(alert.kind, isPersian: isPersian),
+        isPersian: isPersian,
       );
       final detail = [
         alert.title,
@@ -267,17 +274,11 @@ class CareNotificationProvider extends ChangeNotifier {
           android: AndroidNotificationDetails(
             'caremate_missed_treatment',
             LifeMateRuntimeLocale.select(
-              fa: LifeMateRuntimeLocale.select(
-                fa: 'هشدار درمان پیگیری‌نشده',
-                en: 'Unfinished treatment alerts',
-              ),
+              fa: 'هشدار درمان پیگیری‌نشده',
               en: 'Unfinished treatment alerts',
             ),
             channelDescription: LifeMateRuntimeLocale.select(
-              fa: LifeMateRuntimeLocale.select(
-                fa: 'هشدارهای شخص‌محور برای درمان‌های فراموش‌شده یا انجام‌نشده',
-                en: 'Person-aware alerts for missed or unfinished treatment items',
-              ),
+              fa: 'هشدارهای شخص‌محور برای درمان‌های فراموش‌شده یا انجام‌نشده',
               en: 'Person-aware alerts for missed or unfinished treatment items',
             ),
             importance: Importance.high,
@@ -331,7 +332,17 @@ class CareNotificationProvider extends ChangeNotifier {
         final stableKey = sourceKey == null || sourceKey.isEmpty
             ? sourceEventId
             : sourceKey;
-        final copy = completionCopy(item, isPersian: isPersian);
+        final copy = completionCopy(
+          {
+            ...item,
+            'patientDisplayName': _relationshipDisplayName(
+              relationship,
+              fallback: item['patientDisplayName']?.toString() ?? '',
+            ),
+          },
+          isPersian: isPersian,
+          relationshipType: relationship['presentationType']?.toString(),
+        );
         await _notifications.show(
           _notificationId('completion:$stableKey'),
           copy.title,
@@ -396,7 +407,13 @@ class CareNotificationProvider extends ChangeNotifier {
 
     for (final relationship in relationships) {
       final patientUserId = relationship['patientUserId']?.toString().trim();
-      final patientDisplayName = relationship['patientDisplayName']?.toString().trim();
+      final patientDisplayName = _relationshipDisplayName(
+        relationship,
+        fallback: LifeMateRuntimeLocale.select(
+          fa: 'فرد تحت مراقبت',
+          en: 'Person under care',
+        ),
+      );
       final preferences = _preferences(relationship);
       if (patientUserId == null ||
           patientUserId.isEmpty ||
@@ -448,19 +465,17 @@ class CareNotificationProvider extends ChangeNotifier {
         final pending = statuses.length - completed - alerts;
         final summary = CareDailySummary(
           patientUserId: patientUserId,
-          patientDisplayName:
-              patientDisplayName == null || patientDisplayName.isEmpty
-              ? LifeMateRuntimeLocale.select(
-                  fa: 'فرد تحت مراقبت',
-                  en: 'Person under care',
-                )
-              : patientDisplayName,
+          patientDisplayName: patientDisplayName,
           total: statuses.length,
           completed: completed,
           pending: pending < 0 ? 0 : pending,
           alerts: alerts,
         );
-        final copy = dailySummaryCopy(summary, isPersian: isPersian);
+        final copy = dailySummaryCopy(
+          summary,
+          isPersian: isPersian,
+          relationshipType: relationship['presentationType']?.toString(),
+        );
         await _notifications.show(
           _notificationId('daily-summary:$shownKey'),
           copy.title,
@@ -518,21 +533,26 @@ class CareNotificationProvider extends ChangeNotifier {
   static CareCompletionCopy completionCopy(
     Map<String, dynamic> item, {
     required bool isPersian,
+    String? relationshipType,
   }) {
     final patient = item['patientDisplayName']?.toString().trim();
     final treatment = item['medicationName']?.toString().trim();
     final safePatient = patient == null || patient.isEmpty
-        ? (isPersian ? 'فرد تحت مراقبت' : 'Your loved one')
+        ? (isPersian ? 'فرد تحت مراقبت' : 'Person under care')
         : patient;
     final safeTreatment = treatment == null || treatment.isEmpty
         ? (isPersian ? 'درمان' : 'treatment')
         : treatment;
     final evidence = item['evidenceClass']?.toString().toLowerCase();
+    final policy = LifeMateRelationshipPresentationPolicy.fromRaw(
+      relationshipType,
+    );
 
     return CareCompletionCopy(
-      title: isPersian
-          ? '💚 یک خبر خوب از $safePatient'
-          : '💚 A reassuring update from $safePatient',
+      title: policy.completionTitle(
+        personName: safePatient,
+        isPersian: isPersian,
+      ),
       body: evidence == 'self_reported'
           ? (isPersian
                 ? '$safePatient ثبت کرد که $safeTreatment را مصرف کرده.'
@@ -546,10 +566,15 @@ class CareNotificationProvider extends ChangeNotifier {
   static CareDailySummaryCopy dailySummaryCopy(
     CareDailySummary summary, {
     required bool isPersian,
+    String? relationshipType,
   }) {
-    final title = isPersian
-        ? '☀️ وضعیت امروز ${summary.patientDisplayName}'
-        : '☀️ Today for ${summary.patientDisplayName}';
+    final policy = LifeMateRelationshipPresentationPolicy.fromRaw(
+      relationshipType,
+    );
+    final title = policy.dailySummaryTitle(
+      personName: summary.patientDisplayName,
+      isPersian: isPersian,
+    );
     final progress = isPersian
         ? '${summary.completed} از ${summary.total} درمان ثبت‌شده انجام شد.'
         : '${summary.completed} of ${summary.total} recorded treatments were completed.';
@@ -634,6 +659,20 @@ class CareNotificationProvider extends ChangeNotifier {
     return value is Map<String, dynamic> ? value : const <String, dynamic>{};
   }
 
+  static LifeMateRelationshipPresentationPolicy _presentationPolicy(
+    Map<String, dynamic>? relationship,
+  ) => LifeMateRelationshipPresentationPolicy.fromRaw(
+    relationship?['presentationType']?.toString(),
+  );
+
+  static String _relationshipDisplayName(
+    Map<String, dynamic>? relationship, {
+    required String fallback,
+  }) {
+    final value = relationship?['patientDisplayName']?.toString().trim();
+    return value == null || value.isEmpty ? fallback : value;
+  }
+
   static NotificationVisibility _visibilityForRelationship(
     Map<String, dynamic>? relationship,
   ) => _visibilityForDetail(
@@ -656,40 +695,13 @@ class CareNotificationProvider extends ChangeNotifier {
     return patientUserId.isEmpty ? null : patientUserId;
   }
 
-  static String _kindTitle(String kind) => switch (kind) {
-    'appointment' => LifeMateRuntimeLocale.select(
-      fa: LifeMateRuntimeLocale.select(fa: 'ویزیت بعدی', en: 'Next visit'),
-      en: 'Next visit',
-    ),
-    'injection' => LifeMateRuntimeLocale.select(
-      fa: LifeMateRuntimeLocale.select(fa: 'تزریق بعدی', en: 'Next injection'),
-      en: 'Next injection',
-    ),
-    _ => LifeMateRuntimeLocale.select(
-      fa: LifeMateRuntimeLocale.select(fa: 'داروی بعدی', en: 'Next medication'),
-      en: 'Next medication',
-    ),
-  };
-
-  static String _missedVerb(String kind) => switch (kind) {
-    'appointment' => LifeMateRuntimeLocale.select(
-      fa: 'ویزیتش را انجام نداده',
-      en: "hasn't completed the visit",
-    ),
-    'injection' => LifeMateRuntimeLocale.select(
-      fa: 'تزریقش را انجام نداده',
-      en: "hasn't completed the injection",
-    ),
-    _ => LifeMateRuntimeLocale.select(
-      fa: 'دارویش را مصرف نکرده',
-      en: "hasn't taken the medication",
-    ),
-  };
-
-  static String _kindLabel(String kind) => switch (kind) {
-    'appointment' => 'visit',
-    'injection' => 'injection',
-    _ => 'medication',
+  static String _kindShortLabel(
+    String kind, {
+    required bool isPersian,
+  }) => switch (kind) {
+    'appointment' => isPersian ? 'ویزیت' : 'visit',
+    'injection' => isPersian ? 'تزریق' : 'injection',
+    _ => isPersian ? 'دارو' : 'medication',
   };
 
   static String _lateText(

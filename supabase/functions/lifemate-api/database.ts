@@ -225,6 +225,8 @@ export function createLifeMateDatabase(
       personCareRelationships.getNotificationPreferences,
     updateNotificationPreferences:
       personCareRelationships.updateNotificationPreferences,
+    updateRelationshipPresentation:
+      personCareRelationships.updateRelationshipPresentation,
     updateRelationshipPermissions: async (
       actorAppUserId: string,
       relationshipId: unknown,

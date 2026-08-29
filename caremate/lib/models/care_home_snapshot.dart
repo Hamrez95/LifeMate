@@ -6,6 +6,7 @@ class CareHomeRelationship {
     required this.patientUserId,
     required this.patientDisplayName,
     required this.canViewWomenCalendar,
+    this.presentationType = 'unknown',
     this.patientProfilePhotoUrl,
     this.patientAvatarKey,
     this.patientPhoneNumber,
@@ -14,10 +15,14 @@ class CareHomeRelationship {
   final String relationshipId;
   final String patientUserId;
   final String patientDisplayName;
+  final String presentationType;
   final String? patientProfilePhotoUrl;
   final String? patientAvatarKey;
   final String? patientPhoneNumber;
   final bool canViewWomenCalendar;
+
+  LifeMateRelationshipPresentationPolicy get presentationPolicy =>
+      LifeMateRelationshipPresentationPolicy.fromRaw(presentationType);
 
   factory CareHomeRelationship.fromJson(Map<String, dynamic> value) {
     final name = value['patientDisplayName']?.toString().trim();
@@ -26,13 +31,11 @@ class CareHomeRelationship {
       patientUserId: value['patientUserId']?.toString() ?? '',
       patientDisplayName: name == null || name.isEmpty
           ? LifeMateRuntimeLocale.select(
-              fa: LifeMateRuntimeLocale.select(
-                fa: 'فرد تحت مراقبت',
-                en: "Person under care",
-              ),
-              en: "Person under care",
+              fa: 'فرد تحت مراقبت',
+              en: 'Person under care',
             )
           : name,
+      presentationType: value['presentationType']?.toString() ?? 'unknown',
       patientProfilePhotoUrl: _nullableText(value['patientProfilePhotoUrl']),
       patientAvatarKey: _nullableText(value['patientAvatarKey']),
       patientPhoneNumber: _nullableText(value['patientPhoneNumber']),
@@ -55,6 +58,7 @@ class CareHomeTreatmentItem {
     required this.scheduledLocalTime,
     required this.status,
     required this.raw,
+    this.presentationType = 'unknown',
     this.patientProfilePhotoUrl,
     this.patientAvatarKey,
   });
@@ -62,6 +66,7 @@ class CareHomeTreatmentItem {
   final String relationshipId;
   final String patientUserId;
   final String patientDisplayName;
+  final String presentationType;
   final String? patientProfilePhotoUrl;
   final String? patientAvatarKey;
   final CareItemType type;
@@ -73,6 +78,9 @@ class CareHomeTreatmentItem {
   final String scheduledLocalTime;
   final String status;
   final Map<String, dynamic> raw;
+
+  LifeMateRelationshipPresentationPolicy get presentationPolicy =>
+      LifeMateRelationshipPresentationPolicy.fromRaw(presentationType);
 
   bool get isQueueEligible =>
       const <String>{'scheduled', 'pending'}.contains(status.toLowerCase());

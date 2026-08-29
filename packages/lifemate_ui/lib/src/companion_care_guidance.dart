@@ -29,6 +29,7 @@ class _LifeMateCompanionCareScreenState
   String? _error;
   String? _patientUserId;
   String? _patientName;
+  String? _presentationType;
   LifeMateCompanionGuidance? _guidance;
   LifeMateCompanionFertilityInsight? _fertilityInsight;
 
@@ -54,18 +55,39 @@ class _LifeMateCompanionCareScreenState
         _error = null;
         _guidance = null;
         _fertilityInsight = null;
+        _presentationType = null;
       });
     }
     try {
       final relationships = await widget.apiClient.getCareRelationships();
+      final candidates = relationships
+          .where(
+            (relationship) =>
+                relationship['status']?.toString().toLowerCase() == 'active',
+          )
+          .toList(growable: false)
+        ..sort((left, right) {
+          final leftPolicy = LifeMateRelationshipPresentationPolicy.fromRaw(
+            left['presentationType']?.toString(),
+          );
+          final rightPolicy = LifeMateRelationshipPresentationPolicy.fromRaw(
+            right['presentationType']?.toString(),
+          );
+          final byPresentation = leftPolicy
+              .surfaceRank('companion')
+              .compareTo(rightPolicy.surfaceRank('companion'));
+          if (byPresentation != 0) return byPresentation;
+          return (left['id']?.toString() ?? '')
+              .compareTo(right['id']?.toString() ?? '');
+        });
       Map<String, dynamic>? summary;
       String? patientId;
       String? patientName;
+      String? presentationType;
 
-      for (final relationship in relationships) {
-        if (relationship['status']?.toString().toLowerCase() != 'active') {
-          continue;
-        }
+      // Presentation only orders candidates. The server still independently
+      // authorizes each Women/Companion summary using actual consent scopes.
+      for (final relationship in candidates) {
         final candidate = relationship['patientUserId']?.toString();
         if (candidate == null || candidate.isEmpty) continue;
         try {
@@ -74,6 +96,7 @@ class _LifeMateCompanionCareScreenState
           );
           patientId = candidate;
           patientName = relationship['patientDisplayName']?.toString();
+          presentationType = relationship['presentationType']?.toString();
           break;
         } on LifeMateApiException catch (error) {
           if (_isAccessRevoked(error.code) ||
@@ -150,6 +173,7 @@ class _LifeMateCompanionCareScreenState
       setState(() {
         _patientUserId = patientId;
         _patientName = patientName;
+        _presentationType = presentationType;
         _guidance = selected;
         _fertilityInsight = fertilityInsight;
         _loading = false;
@@ -272,28 +296,35 @@ class _LifeMateCompanionCareScreenState
     );
   }
 
-  Widget _card(bool fa) => ListView(
-        padding: const EdgeInsets.all(20),
-        children: [
-          Text(
-            _patientName == null
-                ? (fa ? 'همدم من' : 'My companion')
-                : (fa ? 'برای $_patientName' : 'For $_patientName'),
-            style: TextStyle(
-              color: widget.accent,
-              fontWeight: FontWeight.w800,
-            ),
+  Widget _card(bool fa) {
+    final name = _patientName?.trim().isNotEmpty == true
+        ? _patientName!.trim()
+        : (fa ? 'فرد تحت مراقبت' : 'Person under care');
+    final policy = LifeMateRelationshipPresentationPolicy.fromRaw(
+      _presentationType,
+    );
+    return ListView(
+      padding: const EdgeInsets.all(20),
+      children: [
+        Text(
+          policy.companionHeading(personName: name, isPersian: fa),
+          key: const ValueKey('relationship-aware-companion-heading'),
+          style: TextStyle(
+            color: widget.accent,
+            fontWeight: FontWeight.w800,
           ),
-          if (_fertilityInsight != null) ...[
-            const SizedBox(height: 12),
-            _fertilityCard(fa),
-          ],
-          if (_guidance != null) ...[
-            const SizedBox(height: 12),
-            _guidanceCard(fa),
-          ],
+        ),
+        if (_fertilityInsight != null) ...[
+          const SizedBox(height: 12),
+          _fertilityCard(fa),
         ],
-      );
+        if (_guidance != null) ...[
+          const SizedBox(height: 12),
+          _guidanceCard(fa),
+        ],
+      ],
+    );
+  }
 
   Widget _fertilityCard(bool fa) {
     final insight = _fertilityInsight!;

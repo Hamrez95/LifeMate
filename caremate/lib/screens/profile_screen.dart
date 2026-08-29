@@ -12,6 +12,7 @@ import 'editable_profile_screen.dart';
 import 'feature_preview_screen.dart';
 import 'notification_preferences_screen.dart';
 import 'profile_destination_screens.dart';
+import 'relationship_presentation_screen.dart';
 
 class ProfileScreen extends StatelessWidget {
   const ProfileScreen({super.key});
@@ -104,16 +105,8 @@ class ProfileScreen extends StatelessWidget {
       onEditProfile: () => open(CareMateEditableProfileScreen()),
       onHealthProfile: () =>
           open(CareMateFeaturePreviewScreen(initialIndex: 2)),
-      onCareManagement: () => open(
-        LifeMateCareAccessInventoryScreen(
-          apiClient: api,
-          role: LifeMateCareAccessRole.caregiver,
-          accent: AppColors.primaryBlue,
-          background: AppColors.background,
-          ink: AppColors.darkBlue,
-          onManage: () => open(CareMateFeaturePreviewScreen(initialIndex: 3)),
-        ),
-      ),
+      onCareManagement: () =>
+          open(const CareMateRelationshipPresentationScreen()),
       onAppSettings: () => showDialog<void>(
         context: context,
         builder: (_) => _LanguageDialog(mainFont: mainFont),
