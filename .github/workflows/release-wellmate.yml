@@ -1,0 +1,35 @@
+name: Release WellMate
+on:
+  workflow_dispatch:
+    inputs:
+      release_type:
+        description: SemVer action
+        type: choice
+        required: true
+        default: patch
+        options: [patch, minor, major]
+      channel:
+        description: Release channel
+        type: choice
+        required: true
+        default: beta
+        options: [beta, stable]
+      release_notes:
+        description: Short release notes
+        type: string
+        required: false
+jobs:
+  release:
+    uses: ./.github/workflows/reusable-mobile-product-release.yml
+    with:
+      app: wellmate
+      package_id: com.lifemate.wellmate
+      tag_prefix: wellmate-v
+      release_type: ${{ inputs.release_type }}
+      channel: ${{ inputs.channel }}
+      release_notes: ${{ inputs.release_notes }}
+    secrets:
+      KEYSTORE_BASE64: ${{ secrets.WELLMATE_KEYSTORE_BASE64 }}
+      STORE_PASSWORD: ${{ secrets.WELLMATE_STORE_PASSWORD }}
+      KEY_ALIAS: ${{ secrets.WELLMATE_KEY_ALIAS }}
+      KEY_PASSWORD: ${{ secrets.WELLMATE_KEY_PASSWORD }}
