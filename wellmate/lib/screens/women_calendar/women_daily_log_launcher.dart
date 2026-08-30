@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:lifemate_ui/lifemate_ui.dart';
 
 import 'women_circle_card.dart';
 import 'women_cycle_analytics_screen.dart';
@@ -26,22 +27,36 @@ class _WomenDailyLogLauncherState extends State<WomenDailyLogLauncher> {
     try {
       final logs = await api.list(from: widget.date, to: widget.date);
       final row = logs.isEmpty ? null : logs.first;
-      final initial = row == null ? null : WomenDailyLogDraft(
-        loggedOn: widget.date,
-        version: int.tryParse(row['version']?.toString() ?? '') ?? 0,
-        periodFlow: row['periodFlow']?.toString(),
-        bloodAppearance: row['bloodAppearance']?.toString(),
-        bloodTexture: row['bloodTexture']?.toString(),
-        painLevel: row['painLevel'] is int ? row['painLevel'] as int : int.tryParse(row['painLevel']?.toString() ?? ''),
-        symptoms: (row['symptoms'] as List<dynamic>? ?? const []).map((e) => e.toString()).toSet(),
-        privateNotes: row['privateNotes']?.toString(),
-      );
+      final initial = row == null
+          ? null
+          : WomenDailyLogDraft(
+              loggedOn: widget.date,
+              version: int.tryParse(row['version']?.toString() ?? '') ?? 0,
+              periodFlow: row['periodFlow']?.toString(),
+              bloodAppearance: row['bloodAppearance']?.toString(),
+              bloodTexture: row['bloodTexture']?.toString(),
+              painLevel: row['painLevel'] is int
+                  ? row['painLevel'] as int
+                  : int.tryParse(row['painLevel']?.toString() ?? ''),
+              symptoms: (row['symptoms'] as List<dynamic>? ?? const [])
+                  .map((e) => e.toString())
+                  .toSet(),
+              privateNotes: row['privateNotes']?.toString(),
+            );
       if (!mounted) return;
-      final draft = await showWomenDailyLogSheet(context, loggedOn: widget.date, initial: initial);
+      final draft = await showWomenDailyLogSheet(
+        context,
+        loggedOn: widget.date,
+        initial: initial,
+      );
       if (draft == null) return;
       await api.save(draft);
       widget.onSaved?.call();
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('ثبت روزانه ذخیره شد')));
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(context.tr('common.saved'))),
+        );
+      }
     } finally {
       api.close();
       if (mounted) setState(() => busy = false);
@@ -50,18 +65,35 @@ class _WomenDailyLogLauncherState extends State<WomenDailyLogLauncher> {
 
   @override
   Widget build(BuildContext context) {
-    final rtl = Directionality.of(context) == TextDirection.rtl;
     return Column(
       children: [
         Semantics(
           button: true,
-          label: rtl ? 'ثبت روزانه پریود' : 'Daily period log',
+          label: context.tr('women.dailyLog.title'),
           child: FilledButton.icon(
             key: const ValueKey('women-daily-log-launcher'),
             onPressed: busy ? null : open,
-            style: FilledButton.styleFrom(backgroundColor: womenLogPrimary, minimumSize: const Size.fromHeight(52), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16))),
-            icon: busy ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white)) : const Icon(Icons.edit_calendar_rounded),
-            label: Text(rtl ? 'ثبت حال امروز' : 'Log today', style: const TextStyle(fontWeight: FontWeight.w900)),
+            style: FilledButton.styleFrom(
+              backgroundColor: womenLogPrimary,
+              minimumSize: const Size.fromHeight(52),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(16),
+              ),
+            ),
+            icon: busy
+                ? const SizedBox(
+                    width: 18,
+                    height: 18,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      color: Colors.white,
+                    ),
+                  )
+                : const Icon(Icons.edit_calendar_rounded),
+            label: Text(
+              context.tr('women.dailyLog.logToday'),
+              style: const TextStyle(fontWeight: FontWeight.w900),
+            ),
           ),
         ),
         const WomenInsightsAnalyticsCards(),
@@ -71,10 +103,12 @@ class _WomenDailyLogLauncherState extends State<WomenDailyLogLauncher> {
           child: OutlinedButton.icon(
             key: const ValueKey('women-full-analytics-launcher'),
             onPressed: () => Navigator.of(context).push<void>(
-              MaterialPageRoute<void>(builder: (_) => const WomenCycleAnalyticsScreen()),
+              MaterialPageRoute<void>(
+                builder: (_) => const WomenCycleAnalyticsScreen(),
+              ),
             ),
             icon: const Icon(Icons.insights_rounded),
-            label: Text(rtl ? 'مشاهده آمار کامل' : 'View full analytics'),
+            label: Text(context.tr('women.analytics.full')),
           ),
         ),
         const SizedBox(height: 12),
