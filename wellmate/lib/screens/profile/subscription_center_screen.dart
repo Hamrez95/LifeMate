@@ -186,6 +186,7 @@ class _LifeMateSubscriptionCenterScreenState
               onStartTrial: _startTrial,
               onClaimGift: _claimGift,
               onConvertPeriod: _convertPeriod,
+              onRefresh: () async { _reload(); },
             );
           },
         ),
@@ -202,6 +203,7 @@ class _SubscriptionBody extends StatelessWidget {
     required this.onStartTrial,
     required this.onClaimGift,
     required this.onConvertPeriod,
+    required this.onRefresh,
   });
 
   final Map<String, dynamic> snapshot;
@@ -210,6 +212,7 @@ class _SubscriptionBody extends StatelessWidget {
   final VoidCallback onStartTrial;
   final VoidCallback onClaimGift;
   final VoidCallback onConvertPeriod;
+  final Future<void> Function() onRefresh;
 
   @override
   Widget build(BuildContext context) {
@@ -224,7 +227,7 @@ class _SubscriptionBody extends StatelessWidget {
         snapshot['periodConversionAvailable'] == true;
 
     return RefreshIndicator(
-      onRefresh: () async => Navigator.of(context).maybePop(),
+      onRefresh: onRefresh,
       child: ListView(
         padding: const EdgeInsets.fromLTRB(20, 8, 20, 32),
         children: [
