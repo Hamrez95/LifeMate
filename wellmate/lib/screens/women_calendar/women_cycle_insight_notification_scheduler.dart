@@ -3,6 +3,18 @@ import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:timezone/data/latest.dart' as tz_data;
 import 'package:timezone/timezone.dart' as tz;
 
+class WomenScheduledCycleInsight {
+  const WomenScheduledCycleInsight({
+    required this.insightId,
+    required this.insightType,
+    required this.analyticsKey,
+  });
+
+  final String insightId;
+  final String insightType;
+  final String analyticsKey;
+}
+
 /// Local-only, privacy-minimized Cycle Insight delivery.
 ///
 /// This service intentionally does not initialize the notifications plugin and
@@ -20,10 +32,11 @@ class WomenCycleInsightNotificationScheduler {
   static const _loggingReminderId = 60902;
   static const _channelId = 'women_cycle_insights';
 
-  Future<void> sync({
+  Future<List<WomenScheduledCycleInsight>> sync({
     required Map<String, dynamic> profile,
     required bool isPersian,
   }) async {
+    final scheduled = <WomenScheduledCycleInsight>[];
     final preferences =
         profile['insightPreferences'] as Map<String, dynamic>? ?? const {};
     final insightsEnabled = preferences['insightsEnabled'] != false;
@@ -31,20 +44,18 @@ class WomenCycleInsightNotificationScheduler {
 
     if (!insightsEnabled || !notificationsEnabled) {
       await cancelAll();
-      return;
+      return scheduled;
     }
 
     if (defaultTargetPlatform != TargetPlatform.android) {
-      // Current WellMate initialization is Android-only. Do not pretend a
-      // delivery path exists on an unsupported platform.
-      return;
+      return scheduled;
     }
     final android = _plugin.resolvePlatformSpecificImplementation<
         AndroidFlutterLocalNotificationsPlugin>();
     final enabled = await android?.areNotificationsEnabled() ?? false;
     if (!enabled) {
       await cancelAll();
-      return;
+      return scheduled;
     }
 
     tz_data.initializeTimeZones();
@@ -62,6 +73,11 @@ class WomenCycleInsightNotificationScheduler {
               ? 'بر اساس تاریخچه فعلی، دوره بعدی ممکن است نزدیک باشد.'
               : 'Based on your current history, your next period may be approaching.',
         );
+        scheduled.add(const WomenScheduledCycleInsight(
+          insightId: 'local.expected_period_window',
+          insightType: 'expected_period_window',
+          analyticsKey: 'cycle_insight.expected_period.local_scheduled',
+        ));
       }
     }
 
@@ -81,7 +97,13 @@ class WomenCycleInsightNotificationScheduler {
             ? 'اگر خواستی، می‌توانی حال امروزت را در Women Health ثبت کنی.'
             : 'If you want, you can log how you feel today in Women Health.',
       );
+      scheduled.add(const WomenScheduledCycleInsight(
+        insightId: 'local.logging_reminder',
+        insightType: 'logging_reminder',
+        analyticsKey: 'cycle_insight.logging_reminder.local_scheduled',
+      ));
     }
+    return scheduled;
   }
 
   Future<void> cancelAll() async {
