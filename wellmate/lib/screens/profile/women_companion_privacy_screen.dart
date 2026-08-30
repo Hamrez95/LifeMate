@@ -24,7 +24,18 @@ class _WomenCompanionPrivacyScreenState
     'receiveFertilityNotifications',
     'viewCalendarDetail',
   ];
-  static const _presentationTypes = <String>['partner', 'family', 'child'];
+  static const _presentationTypes = <String>[
+    'partner',
+    'family',
+    'child',
+    'friend',
+    'trusted_person',
+    'doctor',
+    'nurse',
+    'professional_caregiver',
+    'therapist_specialist',
+    'other',
+  ];
 
   bool _loading = true;
   bool _saving = false;
