@@ -3,6 +3,8 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:lifemate_client/lifemate_client.dart';
 
+import 'localization.dart';
+
 class LifeMateRuntimeConfigScope extends InheritedWidget {
   const LifeMateRuntimeConfigScope({
     super.key,
@@ -157,8 +159,6 @@ class _LifeMateRuntimeConfigGateState extends State<LifeMateRuntimeConfigGate> {
       return const Scaffold(body: Center(child: CircularProgressIndicator()));
     }
 
-    // A config outage must never block medication/care core flows. With no
-    // usable cache, remotely protected surfaces fail closed inside the scope.
     final effective = snapshot ?? _safeFallback();
     final policyTrusted = effective.isTrustedForUpdatePolicy(DateTime.now());
     if (policyTrusted &&
@@ -205,44 +205,27 @@ class _LifeMateRuntimeConfigGateState extends State<LifeMateRuntimeConfigGate> {
                     const SizedBox(width: 10),
                     Expanded(
                       child: Text(
-                        showOfflineNotice
-                            ? LifeMateRuntimeLocale.select(
-                                fa: 'تنظیمات آنلاین در دسترس نیست؛ قابلیت‌های حساس موقتاً غیرفعال‌اند.',
-                                en: 'Online config is unavailable; protected features are temporarily disabled.',
-                              )
-                            : LifeMateRuntimeLocale.select(
-                                fa: 'نسخه جدیدتری از LifeMate در دسترس است.',
-                                en: 'A newer LifeMate version is available.',
-                              ),
+                        context.tr(
+                          showOfflineNotice
+                              ? 'runtimeConfig.offline'
+                              : 'runtimeConfig.softUpdate',
+                        ),
                         style: const TextStyle(fontWeight: FontWeight.w700),
                       ),
                     ),
                     if (showOfflineNotice)
                       TextButton(
                         onPressed: () => _load(forceRefresh: true),
-                        child: Text(
-                          LifeMateRuntimeLocale.select(
-                            fa: 'تلاش دوباره',
-                            en: 'Retry',
-                          ),
-                        ),
+                        child: Text(context.tr('common.retry')),
                       )
                     else if (widget.onUpdateRequested != null)
                       TextButton(
                         onPressed: widget.onUpdateRequested,
-                        child: Text(
-                          LifeMateRuntimeLocale.select(
-                            fa: 'به‌روزرسانی',
-                            en: 'Update',
-                          ),
-                        ),
+                        child: Text(context.tr('common.update')),
                       ),
                     if (!showOfflineNotice)
                       IconButton(
-                        tooltip: LifeMateRuntimeLocale.select(
-                          fa: 'بعداً',
-                          en: 'Later',
-                        ),
+                        tooltip: context.tr('common.later'),
                         onPressed: () => setState(() => _softDismissed = true),
                         icon: const Icon(Icons.close_rounded),
                       ),
@@ -320,10 +303,7 @@ class _ForceUpdate extends StatelessWidget {
                 const Icon(Icons.security_update_warning_rounded, size: 56),
                 const SizedBox(height: 18),
                 Text(
-                  LifeMateRuntimeLocale.select(
-                    fa: 'به‌روزرسانی الزامی است',
-                    en: 'Update required',
-                  ),
+                  context.tr('runtimeConfig.force.title'),
                   style: const TextStyle(
                     fontSize: 24,
                     fontWeight: FontWeight.w900,
@@ -331,15 +311,11 @@ class _ForceUpdate extends StatelessWidget {
                 ),
                 const SizedBox(height: 10),
                 Text(
-                  reasonCode == 'Security'
-                      ? LifeMateRuntimeLocale.select(
-                          fa: 'برای ادامه، این نسخه به یک به‌روزرسانی امنیتی نیاز دارد.',
-                          en: 'This version needs a security update before it can continue.',
-                        )
-                      : LifeMateRuntimeLocale.select(
-                          fa: 'این نسخه دیگر با سرویس فعلی LifeMate سازگار نیست.',
-                          en: 'This version is no longer compatible with the current LifeMate service.',
-                        ),
+                  context.tr(
+                    reasonCode == 'Security'
+                        ? 'runtimeConfig.force.security'
+                        : 'runtimeConfig.force.incompatible',
+                  ),
                   textAlign: TextAlign.center,
                 ),
                 const SizedBox(height: 22),
@@ -348,20 +324,12 @@ class _ForceUpdate extends StatelessWidget {
                     onPressed: onUpdateRequested,
                     icon: const Icon(Icons.system_update_alt_rounded),
                     label: Text(
-                      LifeMateRuntimeLocale.select(
-                        fa: 'به‌روزرسانی LifeMate',
-                        en: 'Update LifeMate',
-                      ),
+                      context.tr('runtimeConfig.force.updateLifeMate'),
                     ),
                   ),
                 TextButton(
                   onPressed: onRetry,
-                  child: Text(
-                    LifeMateRuntimeLocale.select(
-                      fa: 'بررسی دوباره',
-                      en: 'Check again',
-                    ),
-                  ),
+                  child: Text(context.tr('common.checkAgain')),
                 ),
               ],
             ),
