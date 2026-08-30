@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import 'women_daily_log_api.dart';
 import 'women_daily_log_visuals.dart';
+import 'women_insights_analytics_cards.dart';
 
 class WomenDailyLogLauncher extends StatefulWidget {
   const WomenDailyLogLauncher({super.key, required this.date, this.onSaved});
@@ -45,15 +46,20 @@ class _WomenDailyLogLauncherState extends State<WomenDailyLogLauncher> {
   }
 
   @override
-  Widget build(BuildContext context) => Semantics(
-    button: true,
-    label: 'ثبت روزانه پریود',
-    child: FilledButton.icon(
-      key: const ValueKey('women-daily-log-launcher'),
-      onPressed: busy ? null : open,
-      style: FilledButton.styleFrom(backgroundColor: womenLogPrimary, minimumSize: const Size.fromHeight(52), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16))),
-      icon: busy ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white)) : const Icon(Icons.edit_calendar_rounded),
-      label: const Text('ثبت حال امروز', style: TextStyle(fontWeight: FontWeight.w900)),
-    ),
+  Widget build(BuildContext context) => Column(
+    children: [
+      Semantics(
+        button: true,
+        label: 'ثبت روزانه پریود',
+        child: FilledButton.icon(
+          key: const ValueKey('women-daily-log-launcher'),
+          onPressed: busy ? null : open,
+          style: FilledButton.styleFrom(backgroundColor: womenLogPrimary, minimumSize: const Size.fromHeight(52), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16))),
+          icon: busy ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white)) : const Icon(Icons.edit_calendar_rounded),
+          label: const Text('ثبت حال امروز', style: TextStyle(fontWeight: FontWeight.w900)),
+        ),
+      ),
+      const WomenInsightsAnalyticsCards(),
+    ],
   );
 }
