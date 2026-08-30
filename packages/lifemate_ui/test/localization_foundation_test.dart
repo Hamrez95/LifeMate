@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:lifemate_ui/lifemate_ui.dart';
@@ -28,7 +30,12 @@ void main() {
       'common.loading',
       'common.notEnoughInformation',
       'common.edit',
+      'profile.companionGuidance.semantic',
+      'profile.companionGuidance.label',
+      'profile.feedback.semantic',
+      'profile.feedback.label',
       'profile.demographics.title',
+      'profile.demographics.semantic',
       'profile.demographics.gender',
       'profile.demographics.sexAtBirth',
       'profile.demographics.notCollected',
@@ -40,6 +47,8 @@ void main() {
       'profile.demographics.female',
       'profile.demographics.male',
       'profile.demographics.intersex',
+      'profile.privacy.semantic',
+      'profile.privacy.label',
       'women.dailyLog.title',
       'women.dailyLog.logToday',
       'women.analytics.title',
@@ -52,14 +61,15 @@ void main() {
     for (final key in required) {
       expect(lifeMateMessages.hasCompleteKey(key), isTrue, reason: key);
     }
-    expect(
-      lifeMateMessages.missingKeysFor(const Locale('en'), required),
-      isEmpty,
-    );
-    expect(
-      lifeMateMessages.missingKeysFor(const Locale('fa'), required),
-      isEmpty,
-    );
+    expect(lifeMateMessages.missingKeysFor(const Locale('en'), required), isEmpty);
+    expect(lifeMateMessages.missingKeysFor(const Locale('fa'), required), isEmpty);
+  });
+
+  test('migrated shared profile does not use legacy locale branching', () {
+    final source = File('lib/src/shared_profile_with_privacy.dart').readAsStringSync();
+    expect(source, contains("context.tr('profile.demographics.title')"));
+    expect(source, contains("context.tr('profile.privacy.label')"));
+    expect(source, isNot(contains('LifeMateRuntimeLocale.select(')));
   });
 
   testWidgets('mixed direction content can be isolated', (tester) async {
