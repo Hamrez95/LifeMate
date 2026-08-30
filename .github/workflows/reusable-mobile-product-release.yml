@@ -1,0 +1,137 @@
+name: Reusable mobile product release
+
+on:
+  workflow_call:
+    inputs:
+      app:
+        required: true
+        type: string
+      package_id:
+        required: true
+        type: string
+      tag_prefix:
+        required: true
+        type: string
+      release_type:
+        required: true
+        type: string
+      channel:
+        required: true
+        type: string
+      release_notes:
+        required: false
+        type: string
+    secrets:
+      KEYSTORE_BASE64:
+        required: true
+      STORE_PASSWORD:
+        required: true
+      KEY_ALIAS:
+        required: true
+      KEY_PASSWORD:
+        required: true
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-24.04
+    environment: beta
+    timeout-minutes: 55
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+      - name: Guard canonical source
+        run: |
+          set -euo pipefail
+          test "$GITHUB_REF" = refs/heads/main
+          test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
+      - name: Calculate product version
+        id: version
+        working-directory: ${{ inputs.app }}
+        env:
+          TYPE: ${{ inputs.release_type }}
+          CHANNEL: ${{ inputs.channel }}
+          PREFIX: ${{ inputs.tag_prefix }}
+        run: |
+          set -euo pipefail
+          previous="$(sed -nE 's/^version:[[:space:]]*([0-9]+\.[0-9]+\.[0-9]+).*/\1/p' pubspec.yaml)"
+          test -n "$previous"
+          IFS=. read -r major minor patch <<< "$previous"
+          case "$TYPE" in
+            major) major=$((major+1)); minor=0; patch=0 ;;
+            minor) minor=$((minor+1)); patch=0 ;;
+            patch) patch=$((patch+1)) ;;
+            *) echo "Unsupported version action" >&2; exit 1 ;;
+          esac
+          version="$major.$minor.$patch"
+          if [ "$CHANNEL" = beta ]; then version="$version-beta.1"; fi
+          tag="$PREFIX$version"
+          ! git rev-parse -q --verify "refs/tags/$tag" >/dev/null
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          echo "tag=$tag" >> "$GITHUB_OUTPUT"
+          echo "build_number=$(git rev-list --count HEAD)" >> "$GITHUB_OUTPUT"
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.44.0'
+          channel: stable
+          cache: true
+      - name: Test source
+        working-directory: ${{ inputs.app }}
+        run: |
+          flutter pub get
+          flutter analyze --no-fatal-warnings --no-fatal-infos
+          flutter test
+      - name: Decode permanent signing key
+        env:
+          KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
+        run: |
+          set -euo pipefail
+          printf '%s' "$KEYSTORE_BASE64" | base64 --decode > "$RUNNER_TEMP/product.jks"
+          chmod 600 "$RUNNER_TEMP/product.jks"
+      - name: Build signed APK and AAB
+        working-directory: ${{ inputs.app }}
+        env:
+          LIFEMATE_REQUIRE_RELEASE_SIGNING: 'true'
+          ANDROID_KEYSTORE_PATH: ${{ runner.temp }}/product.jks
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.STORE_PASSWORD }}
+          ANDROID_KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
+          ANDROID_KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
+        run: |
+          set -euo pipefail
+          cat > android/key.properties <<EOF
+          storeFile=$ANDROID_KEYSTORE_PATH
+          storePassword=$ANDROID_KEYSTORE_PASSWORD
+          keyAlias=$ANDROID_KEY_ALIAS
+          keyPassword=$ANDROID_KEY_PASSWORD
+          EOF
+          flutter build apk --release --build-name='${{ steps.version.outputs.version }}' --build-number='${{ steps.version.outputs.build_number }}'
+          flutter build appbundle --release --build-name='${{ steps.version.outputs.version }}' --build-number='${{ steps.version.outputs.build_number }}'
+          mkdir -p release
+          cp build/app/outputs/flutter-apk/app-release.apk "release/${{ inputs.app }}-${{ steps.version.outputs.version }}+${{ steps.version.outputs.build_number }}.apk"
+          cp build/app/outputs/bundle/release/app-release.aab "release/${{ inputs.app }}-${{ steps.version.outputs.version }}+${{ steps.version.outputs.build_number }}.aab"
+      - name: Verify Android identity and checksums
+        working-directory: ${{ inputs.app }}
+        run: |
+          set -euo pipefail
+          apk="release/${{ inputs.app }}-${{ steps.version.outputs.version }}+${{ steps.version.outputs.build_number }}.apk"
+          apkanalyzer="$(find "$ANDROID_SDK_ROOT/cmdline-tools" -type f -name apkanalyzer | sort -V | tail -n 1)"
+          apksigner="$(find "$ANDROID_SDK_ROOT/build-tools" -type f -name apksigner | sort -V | tail -n 1)"
+          "$apkanalyzer" manifest application-id "$apk" | grep -Fxq '${{ inputs.package_id }}'
+          "$apksigner" verify --verbose "$apk"
+          (cd release && sha256sum * > SHA256SUMS.txt)
+      - name: Publish immutable GitHub Release
+        working-directory: ${{ inputs.app }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          args=()
+          if [ '${{ inputs.channel }}' = beta ]; then args+=(--prerelease); fi
+          gh release create '${{ steps.version.outputs.tag }}' release/* "${args[@]}" --target "$GITHUB_SHA" --title "${{ inputs.app }} ${{ steps.version.outputs.version }}" --notes "${{ inputs.release_notes }}\n\nVersion: ${{ steps.version.outputs.version }}+${{ steps.version.outputs.build_number }}\nCommit: $GITHUB_SHA"
+      - name: Remove signing material
+        if: always()
+        run: rm -f "${{ inputs.app }}/android/key.properties" "$RUNNER_TEMP/product.jks"

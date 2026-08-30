@@ -1,0 +1,35 @@
+name: Release CareMate
+on:
+  workflow_dispatch:
+    inputs:
+      release_type:
+        description: SemVer action
+        type: choice
+        required: true
+        default: patch
+        options: [patch, minor, major]
+      channel:
+        description: Release channel
+        type: choice
+        required: true
+        default: beta
+        options: [beta, stable]
+      release_notes:
+        description: Short release notes
+        type: string
+        required: false
+jobs:
+  release:
+    uses: ./.github/workflows/reusable-mobile-product-release.yml
+    with:
+      app: caremate
+      package_id: com.lifemate.caremate
+      tag_prefix: caremate-v
+      release_type: ${{ inputs.release_type }}
+      channel: ${{ inputs.channel }}
+      release_notes: ${{ inputs.release_notes }}
+    secrets:
+      KEYSTORE_BASE64: ${{ secrets.CAREMATE_KEYSTORE_BASE64 }}
+      STORE_PASSWORD: ${{ secrets.CAREMATE_STORE_PASSWORD }}
+      KEY_ALIAS: ${{ secrets.CAREMATE_KEY_ALIAS }}
+      KEY_PASSWORD: ${{ secrets.CAREMATE_KEY_PASSWORD }}
