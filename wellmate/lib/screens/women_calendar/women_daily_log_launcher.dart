@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import 'women_circle_card.dart';
 import 'women_daily_log_api.dart';
 import 'women_daily_log_visuals.dart';
 import 'women_insights_analytics_cards.dart';
@@ -60,6 +61,8 @@ class _WomenDailyLogLauncherState extends State<WomenDailyLogLauncher> {
         ),
       ),
       const WomenInsightsAnalyticsCards(),
+      const SizedBox(height: 12),
+      const WomenCircleCard(),
     ],
   );
 }
