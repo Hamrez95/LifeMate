@@ -24,6 +24,8 @@ import {
 import { createGrowthRewardAdminRouteHandler } from "./growth_reward_admin_routes.ts";
 import { createManualEntitlementAdjustmentRouteHandler } from "./manual_entitlement_adjustments_routes.ts";
 import { createPaymentOperationsRouteHandler } from "./payment_operations_routes.ts";
+import { hashGiftTestFinalizePayload, parseGiftTestFinalizePayload } from "./gift_test_operations.ts";
+import { createGiftTestOperationsStore } from "./gift_test_operations_service.ts";
 import {
   type AdminCapabilitySnapshot,
   requirePermission,
@@ -61,6 +63,7 @@ export function createCommerceCatalogRouteHandler(databaseUrl: string) {
     createManualEntitlementAdjustmentRouteHandler(databaseUrl);
   const paymentOperationsRouteHandler =
     createPaymentOperationsRouteHandler(databaseUrl);
+  const giftTestOperationsStore = createGiftTestOperationsStore(databaseUrl);
 
   return async function commerceCatalogRouteHandler(input: {
     request: Request;
@@ -97,6 +100,29 @@ export function createCommerceCatalogRouteHandler(databaseUrl: string) {
     ) {
       const response = await manualEntitlementRouteHandler(input);
       if (response) return response;
+    }
+
+    if (request.method === "POST" && path === "/api/v1/commerce/gifts/test-finalize") {
+      requirePermission(admin, "commerce.entitlement.adjust.execute");
+      const idempotencyKey = requireIdempotencyKey(request);
+      const payload = await parseGiftTestFinalizePayload(request);
+      const requestHash = await hashGiftTestFinalizePayload(payload);
+      const result = await giftTestOperationsStore.finalize({
+        actorAccountId: accountId,
+        payload,
+        correlationId,
+        idempotencyKey,
+        requestHash,
+      });
+      const httpStatus = status(result);
+      if (httpStatus >= 400) {
+        throw new ApiError(
+          httpStatus,
+          String(result.code),
+          failureMessage(result, "Gift test finalization was not completed."),
+        );
+      }
+      return json(result, httpStatus, origin);
     }
 
     if (request.method === "GET" && path === "/api/v1/commerce/catalog-v2") {
