@@ -183,7 +183,9 @@ class _LifeMateSubscriptionCenterScreenState
               return _Failure(onRetry: _reload);
             }
             return _SubscriptionBody(
-              snapshot: state.data?.firstOrNull ?? const <String, dynamic>{},
+              snapshot: state.data != null && state.data!.isNotEmpty
+                  ? state.data!.first
+                  : const <String, dynamic>{},
               periodAccess: state.data != null && state.data!.length > 1
                   ? state.data![1]
                   : const <String, dynamic>{},
