@@ -22,6 +22,7 @@ void main() {
     const required = <String>{
       'common.cancel',
       'common.save',
+      'common.saved',
       'common.retry',
       'common.close',
       'common.loading',
