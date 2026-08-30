@@ -3,6 +3,7 @@ import 'package:lifemate_client/lifemate_client.dart';
 
 import 'companion_care_guidance.dart';
 import 'demographics_experience.dart';
+import 'localization.dart';
 import 'profile_theme.dart';
 import 'shared_legal_privacy.dart';
 import 'shared_profile_screen.dart' as legacy;
@@ -85,10 +86,7 @@ class LifeMateSharedProfileScreen extends StatelessWidget {
               if (_isCareMate) ...[
                 Semantics(
                   button: true,
-                  label: LifeMateRuntimeLocale.select(
-                    fa: 'پیشنهادهای همراهی CareMate',
-                    en: 'CareMate support guidance',
-                  ),
+                  label: context.tr('profile.companionGuidance.semantic'),
                   child: OutlinedButton.icon(
                     key: const ValueKey('profile-companion-guidance'),
                     style: OutlinedButton.styleFrom(
@@ -112,10 +110,7 @@ class LifeMateSharedProfileScreen extends StatelessWidget {
                     ),
                     icon: const Icon(Icons.volunteer_activism_outlined),
                     label: Text(
-                      LifeMateRuntimeLocale.select(
-                        fa: 'همراهی پیشنهادی',
-                        en: 'Support guidance',
-                      ),
+                      context.tr('profile.companionGuidance.label'),
                       style: TextStyle(
                         fontFamily: fontFamily,
                         fontWeight: FontWeight.w800,
@@ -128,10 +123,7 @@ class LifeMateSharedProfileScreen extends StatelessWidget {
               if (feedbackBuilder != null) ...[
                 Semantics(
                   button: true,
-                  label: LifeMateRuntimeLocale.select(
-                    fa: 'ارسال نظر و پیشنهاد',
-                    en: 'Send feedback',
-                  ),
+                  label: context.tr('profile.feedback.semantic'),
                   child: OutlinedButton.icon(
                     key: const ValueKey('profile-feedback'),
                     style: OutlinedButton.styleFrom(
@@ -149,10 +141,7 @@ class LifeMateSharedProfileScreen extends StatelessWidget {
                     ),
                     icon: const Icon(Icons.rate_review_outlined),
                     label: Text(
-                      LifeMateRuntimeLocale.select(
-                        fa: 'نظر، پیشنهاد و گزارش مشکل',
-                        en: 'Feedback & suggestions',
-                      ),
+                      context.tr('profile.feedback.label'),
                       style: TextStyle(
                         fontFamily: fontFamily,
                         fontWeight: FontWeight.w800,
@@ -164,10 +153,7 @@ class LifeMateSharedProfileScreen extends StatelessWidget {
               ],
               Semantics(
                 button: true,
-                label: LifeMateRuntimeLocale.select(
-                  fa: 'جنسیت و اطلاعات پایه',
-                  en: 'Gender and demographics',
-                ),
+                label: context.tr('profile.demographics.semantic'),
                 child: OutlinedButton.icon(
                   key: const ValueKey('profile-demographics'),
                   style: OutlinedButton.styleFrom(
@@ -190,10 +176,7 @@ class LifeMateSharedProfileScreen extends StatelessWidget {
                   ),
                   icon: const Icon(Icons.badge_outlined),
                   label: Text(
-                    LifeMateRuntimeLocale.select(
-                      fa: 'جنسیت و اطلاعات پایه',
-                      en: 'Gender & demographics',
-                    ),
+                    context.tr('profile.demographics.title'),
                     style: TextStyle(
                       fontFamily: fontFamily,
                       fontWeight: FontWeight.w800,
@@ -204,10 +187,7 @@ class LifeMateSharedProfileScreen extends StatelessWidget {
               const SizedBox(height: 8),
               Semantics(
                 button: true,
-                label: LifeMateRuntimeLocale.select(
-                  fa: 'حریم خصوصی و ترجیحات ارتباطی',
-                  en: 'Privacy and communication preferences',
-                ),
+                label: context.tr('profile.privacy.semantic'),
                 child: OutlinedButton.icon(
                   key: const ValueKey('profile-privacy-preferences'),
                   style: OutlinedButton.styleFrom(
@@ -231,10 +211,7 @@ class LifeMateSharedProfileScreen extends StatelessWidget {
                   ),
                   icon: const Icon(Icons.privacy_tip_outlined),
                   label: Text(
-                    LifeMateRuntimeLocale.select(
-                      fa: 'حریم خصوصی و ترجیحات',
-                      en: 'Privacy & preferences',
-                    ),
+                    context.tr('profile.privacy.label'),
                     style: TextStyle(
                       fontFamily: fontFamily,
                       fontWeight: FontWeight.w800,

@@ -24,7 +24,6 @@ class LifeMateLocaleSpec {
 
 abstract final class LifeMateLocaleRegistry {
   static const String defaultLanguageCode = 'en';
-
   static const List<LifeMateLocaleSpec> supported = <LifeMateLocaleSpec>[
     LifeMateLocaleSpec(
       locale: Locale('fa'),
@@ -52,7 +51,6 @@ abstract final class LifeMateLocaleRegistry {
   }
 
   static Locale resolveLocale(Locale? requested) => resolve(requested).locale;
-
   static bool isSupported(Locale locale) =>
       _byLanguage.containsKey(locale.languageCode.toLowerCase());
 }
@@ -60,7 +58,6 @@ abstract final class LifeMateLocaleRegistry {
 @immutable
 class LifeMateMessageCatalog {
   const LifeMateMessageCatalog(this._messages);
-
   final Map<String, Map<String, String>> _messages;
 
   String text(
@@ -110,7 +107,12 @@ const LifeMateMessageCatalog lifeMateMessages = LifeMateMessageCatalog(
       'common.loading': 'Loading…',
       'common.notEnoughInformation': 'Not enough information',
       'common.edit': 'Edit',
+      'profile.companionGuidance.semantic': 'CareMate support guidance',
+      'profile.companionGuidance.label': 'Support guidance',
+      'profile.feedback.semantic': 'Send feedback',
+      'profile.feedback.label': 'Feedback & suggestions',
       'profile.demographics.title': 'Gender & demographics',
+      'profile.demographics.semantic': 'Gender and demographics',
       'profile.demographics.gender': 'Gender',
       'profile.demographics.sexAtBirth': 'Sex assigned at birth',
       'profile.demographics.notCollected': 'Not collected',
@@ -122,6 +124,8 @@ const LifeMateMessageCatalog lifeMateMessages = LifeMateMessageCatalog(
       'profile.demographics.female': 'Female',
       'profile.demographics.male': 'Male',
       'profile.demographics.intersex': 'Intersex',
+      'profile.privacy.semantic': 'Privacy and communication preferences',
+      'profile.privacy.label': 'Privacy & preferences',
       'women.dailyLog.title': 'Daily period log',
       'women.dailyLog.logToday': 'Log today',
       'women.analytics.title': 'My stats & patterns',
@@ -139,7 +143,12 @@ const LifeMateMessageCatalog lifeMateMessages = LifeMateMessageCatalog(
       'common.loading': 'در حال بارگذاری…',
       'common.notEnoughInformation': 'اطلاعات کافی نیست',
       'common.edit': 'ویرایش',
+      'profile.companionGuidance.semantic': 'پیشنهادهای همراهی CareMate',
+      'profile.companionGuidance.label': 'همراهی پیشنهادی',
+      'profile.feedback.semantic': 'ارسال نظر و پیشنهاد',
+      'profile.feedback.label': 'نظر، پیشنهاد و گزارش مشکل',
       'profile.demographics.title': 'جنسیت و اطلاعات پایه',
+      'profile.demographics.semantic': 'جنسیت و اطلاعات پایه',
       'profile.demographics.gender': 'جنسیت',
       'profile.demographics.sexAtBirth': 'جنس ثبت‌شده هنگام تولد',
       'profile.demographics.notCollected': 'ثبت نشده',
@@ -151,6 +160,8 @@ const LifeMateMessageCatalog lifeMateMessages = LifeMateMessageCatalog(
       'profile.demographics.female': 'مونث',
       'profile.demographics.male': 'مذکر',
       'profile.demographics.intersex': 'اینترسکس',
+      'profile.privacy.semantic': 'حریم خصوصی و ترجیحات ارتباطی',
+      'profile.privacy.label': 'حریم خصوصی و ترجیحات',
       'women.dailyLog.title': 'ثبت روزانه پریود',
       'women.dailyLog.logToday': 'ثبت حال امروز',
       'women.analytics.title': 'آمار و الگوهای من',
@@ -165,14 +176,11 @@ const LifeMateMessageCatalog lifeMateMessages = LifeMateMessageCatalog(
 extension LifeMateLocalizationContext on BuildContext {
   LifeMateLocaleSpec get lifeMateLocale =>
       LifeMateLocaleRegistry.resolve(Localizations.maybeLocaleOf(this));
-
   bool get lifeMateIsRtl => lifeMateLocale.isRtl;
-
   String tr(
     String key, {
     Map<String, Object?> params = const <String, Object?>{},
-  }) =>
-      lifeMateMessages.text(
+  }) => lifeMateMessages.text(
         key,
         locale: lifeMateLocale.locale,
         params: params,
