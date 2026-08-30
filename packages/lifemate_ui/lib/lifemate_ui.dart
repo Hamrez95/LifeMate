@@ -15,3 +15,4 @@ export 'src/shared_legal_privacy.dart';
 export 'src/shared_profile_screen.dart' hide LifeMateSharedProfileScreen;
 export 'src/shared_profile_with_privacy.dart';
 export 'src/shared_support_chat_screen.dart';
+export 'src/subscription_components.dart';
