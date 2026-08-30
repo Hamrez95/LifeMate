@@ -10,6 +10,12 @@ import { ApiError } from "./validation.ts";
 const MIN_PREVIEW_COHORT = 10;
 const MAX_EVALUATION_SUBJECTS = 50_000;
 const SUPPORTED_SOURCE_ATTRIBUTES = new Set<SegmentAttribute>([
+  "demographic.age_years",
+  "demographic.age_bucket",
+  "demographic.birthday_month",
+  "demographic.birthday_day",
+  "demographic.birthday_upcoming_days",
+  "demographic.gender_identity",
   "demographic.locale",
   "product.code",
   "product.enrolled",
@@ -36,6 +42,9 @@ type SubjectRow = {
   account_id: unknown;
   person_id: unknown;
   locale: unknown;
+  time_zone: unknown;
+  birth_date: unknown;
+  gender_identity: unknown;
   application_codes: unknown;
   last_active_at_utc: unknown;
   product_codes: unknown;
@@ -86,6 +95,112 @@ function lifecycle(lastActiveAtUtc: unknown): { days: number | null; label: stri
   return { days, label: "inactive_90d_plus" };
 }
 
+type DateOnly = { year: number; month: number; day: number };
+
+function parseDateOnly(value: unknown): DateOnly | null {
+  if (value == null) return null;
+  const match = /^(\d{4})-(\d{2})-(\d{2})/.exec(String(value));
+  if (!match) return null;
+  const result = { year: Number(match[1]), month: Number(match[2]), day: Number(match[3]) };
+  if (
+    !Number.isInteger(result.year) || result.year < 1800 || result.year > 2200 ||
+    result.month < 1 || result.month > 12 || result.day < 1 || result.day > 31
+  ) return null;
+  return result;
+}
+
+function localDate(now: Date, timeZoneValue: unknown): DateOnly {
+  const timeZone = typeof timeZoneValue === "string" && timeZoneValue.trim()
+    ? timeZoneValue.trim()
+    : "UTC";
+  try {
+    const parts = new Intl.DateTimeFormat("en-CA", {
+      timeZone,
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+    }).formatToParts(now);
+    const values = Object.fromEntries(parts.map((part) => [part.type, part.value]));
+    return { year: Number(values.year), month: Number(values.month), day: Number(values.day) };
+  } catch {
+    return { year: now.getUTCFullYear(), month: now.getUTCMonth() + 1, day: now.getUTCDate() };
+  }
+}
+
+function ageYears(birth: DateOnly, today: DateOnly): number | null {
+  if (birth.year > today.year) return null;
+  let age = today.year - birth.year;
+  if (today.month < birth.month || (today.month === birth.month && today.day < birth.day)) age -= 1;
+  return age >= 0 && age <= 130 ? age : null;
+}
+
+function ageBucket(age: number): string {
+  if (age < 18) return "under_18";
+  if (age <= 24) return "18_24";
+  if (age <= 34) return "25_34";
+  if (age <= 44) return "35_44";
+  if (age <= 54) return "45_54";
+  if (age <= 64) return "55_64";
+  return "65_plus";
+}
+
+function daysInMonth(year: number, month: number): number {
+  return new Date(Date.UTC(year, month, 0)).getUTCDate();
+}
+
+function dateOrdinal(value: DateOnly): number {
+  return Math.floor(Date.UTC(value.year, value.month - 1, value.day) / 86_400_000);
+}
+
+export function birthdayDaysUntil(birth: DateOnly, today: DateOnly): number {
+  const birthdayIn = (year: number): DateOnly => ({
+    year,
+    month: birth.month,
+    // Canonical leap-day policy: celebrate Feb 29 on Feb 28 in non-leap years.
+    day: Math.min(birth.day, daysInMonth(year, birth.month)),
+  });
+  let next = birthdayIn(today.year);
+  if (dateOrdinal(next) < dateOrdinal(today)) next = birthdayIn(today.year + 1);
+  return Math.max(0, dateOrdinal(next) - dateOrdinal(today));
+}
+
+function normalizedGender(value: unknown): string | null {
+  const map: Record<string, string> = {
+    Woman: "woman",
+    Man: "man",
+    NonBinary: "non_binary",
+    SelfDescribe: "self_describe",
+    PreferNotToSay: "prefer_not_to_say",
+  };
+  return typeof value === "string" ? map[value] ?? null : null;
+}
+
+export function projectDemographicSubject(
+  row: Pick<SubjectRow, "locale" | "time_zone" | "birth_date" | "gender_identity">,
+  now = new Date(),
+): SegmentSubject {
+  const subject: SegmentSubject = {};
+  const locale = typeof row.locale === "string" ? row.locale.trim() : "";
+  if (locale) subject["demographic.locale"] = locale;
+
+  const gender = normalizedGender(row.gender_identity);
+  if (gender) subject["demographic.gender_identity"] = gender;
+
+  const birth = parseDateOnly(row.birth_date);
+  if (birth) {
+    const today = localDate(now, row.time_zone);
+    const age = ageYears(birth, today);
+    if (age !== null) {
+      subject["demographic.age_years"] = age;
+      subject["demographic.age_bucket"] = ageBucket(age);
+    }
+    subject["demographic.birthday_month"] = birth.month;
+    subject["demographic.birthday_day"] = birth.day;
+    subject["demographic.birthday_upcoming_days"] = birthdayDaysUntil(birth, today);
+  }
+  return subject;
+}
+
 function toSubject(row: SubjectRow): SegmentSubject {
   const products = Array.from(new Set([
     ...normalizedArray(row.application_codes),
@@ -93,17 +208,14 @@ function toSubject(row: SubjectRow): SegmentSubject {
   ]));
   const activity = lifecycle(row.last_active_at_utc);
   const subject: SegmentSubject = {
+    ...projectDemographicSubject(row),
     "product.code": products,
     "product.enrolled": products.length > 0,
     "subscription.status": normalizedArray(row.subscription_statuses),
     "entitlement.code": normalizedArray(row.entitlement_codes),
     "engagement.lifecycle": activity.label,
   };
-  if (activity.days !== null) {
-    subject["engagement.last_active_days"] = activity.days;
-  }
-  const locale = typeof row.locale === "string" ? row.locale.trim() : "";
-  if (locale) subject["demographic.locale"] = locale;
+  if (activity.days !== null) subject["engagement.last_active_days"] = activity.days;
   return subject;
 }
 
@@ -121,6 +233,9 @@ async function loadSubjects(sql: AdminSql): Promise<SubjectRow[]> {
       d.account_id,
       d.person_id,
       pp.locale,
+      pp.time_zone,
+      person.birth_date,
+      pp.gender_identity,
       d.application_codes,
       d.last_active_at_utc,
       coalesce((
@@ -145,6 +260,7 @@ async function loadSubjects(sql: AdminSql): Promise<SubjectRow[]> {
       ),array[]::varchar[]) as entitlement_codes
     from admin.user_directory_v2 d
     left join core.person_profiles pp on pp.person_id=d.person_id
+    left join core.persons person on person.id=d.person_id
     order by d.account_id
     limit ${MAX_EVALUATION_SUBJECTS + 1}
   `;
@@ -364,7 +480,7 @@ export function createAudienceSegmentStore(databaseUrl: string) {
         count: count > 0 && count < MIN_PREVIEW_COHORT ? null : count,
         suppressed: count > 0 && count < MIN_PREVIEW_COHORT,
         minimumCohortSize: MIN_PREVIEW_COHORT,
-        source: "canonical_account_person_commerce_projection_v1",
+        source: "canonical_account_person_demographic_commerce_projection_v2",
         sourceAsOfUtc: new Date().toISOString(),
       };
     },
@@ -400,8 +516,6 @@ export function createAudienceSegmentStore(databaseUrl: string) {
             );
           }
 
-          // Evaluation and persistence use the same transaction/connection as the
-          // SHARE lock. This is required because the Admin pool is intentionally max=1.
           const members = await matchingMembers(segment.ruleSet, tx);
           const sourceAsOfUtc = new Date().toISOString();
           const snapshots = await tx`
@@ -443,11 +557,7 @@ export function createAudienceSegmentStore(databaseUrl: string) {
     sourceCapabilities() {
       return {
         supportedAttributes: [...SUPPORTED_SOURCE_ATTRIBUTES],
-        unavailableAttributes: [
-          "demographic.age_bucket",
-          "campaign.channel",
-          "campaign.last_outcome",
-        ],
+        unavailableAttributes: ["campaign.channel", "campaign.last_outcome"],
         minimumPreviewCohort: MIN_PREVIEW_COHORT,
       };
     },
