@@ -5,6 +5,8 @@ import 'package:lifemate_client/lifemate_client.dart';
 
 import '../../core/theme/app_style.dart';
 import '../../core/utils/persian_date_utils.dart';
+import 'women_daily_log_launcher.dart';
+import 'women_daily_log_visuals.dart';
 
 /// Visualizes the women-calendar owner together with every caregiver who has
 /// active consent to view the shared women-calendar summary.
@@ -198,6 +200,10 @@ class WomenCompanionPeopleHero extends StatelessWidget {
               fontSize: 11.5,
             ),
           ),
+          const SizedBox(height: 14),
+          const Divider(height: 1, color: Color(0x22C83B60)),
+          const SizedBox(height: 12),
+          WomenDailyLogLauncher(date: DateTime.now()),
         ],
       ),
     );
@@ -242,7 +248,7 @@ class _CaregiverAvatarStack extends StatelessWidget {
       child: SizedBox(
         key: ValueKey('women-companion-caregiver-stack'),
         width: width,
-        height: radius * 2,
+        height: radius * 2 + 6,
         child: Stack(
           clipBehavior: Clip.none,
           children: [
@@ -316,36 +322,41 @@ class _RelationshipAvatar extends StatelessWidget {
     final avatarKey = WomenCompanionPeopleHero._text(
       relationship['caregiverAvatarKey'],
     );
+    final isPartner =
+        relationship['relationshipType']?.toString().toLowerCase() == 'partner';
+
+    final avatar = Container(
+      padding: EdgeInsets.all(2),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        shape: BoxShape.circle,
+        boxShadow: [
+          BoxShadow(
+            color: Color(0x169D65C5),
+            blurRadius: 7,
+            offset: Offset(0, 3),
+          ),
+        ],
+      ),
+      child: LifeMateProfileAvatar(
+        key: ValueKey('women-companion-caregiver-avatar-$id'),
+        avatarKey: avatarKey == null ? 'caregiver_teal' : avatarKey,
+        photoUrl: photoUrl,
+        radius: radius - 2,
+        showBorder: false,
+      ),
+    );
 
     return Semantics(
       image: true,
       label: LifeMateRuntimeLocale.select(
-        fa: LifeMateRuntimeLocale.select(
-          fa: 'تصویر پروفایل $name',
-          en: "$name profile picture",
-        ),
-        en: "$name profile picture",
+        fa: isPartner ? 'تصویر پروفایل $name، شریک' : 'تصویر پروفایل $name',
+        en: isPartner ? '$name profile picture, partner' : '$name profile picture',
       ),
-      child: Container(
-        padding: EdgeInsets.all(2),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          shape: BoxShape.circle,
-          boxShadow: [
-            BoxShadow(
-              color: Color(0x169D65C5),
-              blurRadius: 7,
-              offset: Offset(0, 3),
-            ),
-          ],
-        ),
-        child: LifeMateProfileAvatar(
-          key: ValueKey('women-companion-caregiver-avatar-$id'),
-          avatarKey: avatarKey == null ? 'caregiver_teal' : avatarKey,
-          photoUrl: photoUrl,
-          radius: radius - 2,
-          showBorder: false,
-        ),
+      child: PartnerAvatarBadge(
+        isPartner: isPartner,
+        semanticLabel: LifeMateRuntimeLocale.select(fa: 'شریک', en: 'Partner'),
+        child: avatar,
       ),
     );
   }

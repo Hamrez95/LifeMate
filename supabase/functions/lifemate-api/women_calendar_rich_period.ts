@@ -2,6 +2,11 @@ import { getLifeMateSql } from "./database_client.ts";
 import { createWomenCalendarV3Store } from "./women_calendar_v3.ts";
 import { ApiError } from "./validation.ts";
 import {
+  canonicalizeLegacySymptoms,
+  mergeLegacySymptomsIntoObservations,
+  womenSymptomCatalogVersion,
+} from "./women_symptom_catalog.ts";
+import {
   mapStoredPeriodObservation,
   normalizePeriodObservation,
   periodObservationSchemaVersion,
@@ -43,6 +48,7 @@ export function createWomenCalendarRichPeriodStore(databaseUrl: string) {
       "bloodAppearance",
       "bloodTexture",
       "painLevel",
+      "symptoms",
       "privateNotes",
       "delete",
     ].some((key) => Object.hasOwn(body, key));
@@ -53,13 +59,14 @@ export function createWomenCalendarRichPeriodStore(databaseUrl: string) {
     const shouldDelete = body.delete === true;
     const observation = normalizePeriodObservation(body);
     const painProvided = Object.hasOwn(body, "painLevel");
-    const painLevel = painProvided
-      ? optionalPain(body.painLevel)
-      : null;
+    const painLevel = painProvided ? optionalPain(body.painLevel) : null;
+    const symptomsProvided = Object.hasOwn(body, "symptoms");
+    const canonicalSymptoms = symptomsProvided
+      ? canonicalizeLegacySymptoms(body.symptoms)
+      : [];
+    const symptomObservations = canonicalSymptoms.map((id) => ({ id, severity: null }));
     const privateNotesProvided = Object.hasOwn(body, "privateNotes");
-    const privateNotes = privateNotesProvided
-      ? optionalNote(body.privateNotes)
-      : null;
+    const privateNotes = privateNotesProvided ? optionalNote(body.privateNotes) : null;
 
     return await sql.begin(async (tx: any) => {
       const personId = await selfPersonId(tx, appUserId);
@@ -92,13 +99,15 @@ export function createWomenCalendarRichPeriodStore(databaseUrl: string) {
         const rows = await tx`
           insert into lifemate.women_calendar_daily_logs(
             id,owner_user_id,owner_person_id,logged_on,mood,energy_level,pain_level,
-            pain_recorded,symptoms,private_notes,share_summary_with_companion,
+            pain_recorded,symptoms,symptom_observations,symptom_schema_version,
+            private_notes,share_summary_with_companion,
             period_flow,blood_appearance,blood_texture,
             period_observation_schema_version,version,created_at_utc,updated_at_utc
           ) values (
             ${id}::uuid,${appUserId}::uuid,${personId}::uuid,${loggedOn}::date,
             'Neutral',3,${storedPain},${painProvided && painLevel != null},
-            '{}'::varchar[],${privateNotes},false,
+            ${canonicalSymptoms}::varchar[],${JSON.stringify(symptomObservations)}::jsonb,
+            ${womenSymptomCatalogVersion},${privateNotes},false,
             ${observation.periodFlow},${observation.bloodAppearance},${observation.bloodTexture},
             ${periodObservationSchemaVersion},1,now(),now()
           ) returning *
@@ -116,6 +125,9 @@ export function createWomenCalendarRichPeriodStore(databaseUrl: string) {
             period_observation_schema_version=${periodObservationSchemaVersion},
             pain_level=case when ${painProvided && painLevel != null} then ${painLevel ?? 0} else pain_level end,
             pain_recorded=case when ${painProvided} then ${painLevel != null} else pain_recorded end,
+            symptoms=case when ${symptomsProvided} then ${canonicalSymptoms}::varchar[] else symptoms end,
+            symptom_observations=case when ${symptomsProvided} then ${JSON.stringify(symptomObservations)}::jsonb else symptom_observations end,
+            symptom_schema_version=case when ${symptomsProvided} then ${womenSymptomCatalogVersion} else symptom_schema_version end,
             private_notes=case when ${privateNotesProvided} then ${privateNotes} else private_notes end,
             version=version+1,
             updated_at_utc=now()
@@ -137,15 +149,19 @@ export function createWomenCalendarRichPeriodStore(databaseUrl: string) {
 
 export function mapRichDailyLog(row: Row): Record<string, unknown> {
   const observation = mapStoredPeriodObservation(row);
+  const symptomObservations = mergeLegacySymptomsIntoObservations(
+    row.symptoms,
+    row.symptom_observations,
+  );
   return {
     id: row.id,
     loggedOn: dateString(row.logged_on),
     mood: row.mood == null ? null : String(row.mood).toLowerCase(),
     energyLevel: row.energy_level,
     painLevel: row.pain_recorded === false ? null : row.pain_level,
-    symptoms: Array.isArray(row.symptoms)
-      ? row.symptoms.map((value: unknown) => String(value).toLowerCase())
-      : [],
+    symptoms: symptomObservations.map((item) => item.id),
+    symptomObservations,
+    symptomSchemaVersion: Number(row.symptom_schema_version ?? womenSymptomCatalogVersion),
     privateNotes: row.private_notes,
     shareSummaryWithCompanion: row.share_summary_with_companion === true,
     ...observation,
