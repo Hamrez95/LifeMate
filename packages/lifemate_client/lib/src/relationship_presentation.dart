@@ -60,26 +60,29 @@ class LifeMateRelationshipPresentationPolicy {
 
   bool get isPartner => kind == LifeMateRelationshipPresentationKind.partner;
 
-  bool get isProfessional => switch (kind) {
-        LifeMateRelationshipPresentationKind.doctor ||
-        LifeMateRelationshipPresentationKind.nurse ||
-        LifeMateRelationshipPresentationKind.professionalCaregiver ||
-        LifeMateRelationshipPresentationKind.therapistSpecialist => true,
-        _ => false,
-      };
-
   String relationshipLabel({required bool isPersian}) => switch (kind) {
-        LifeMateRelationshipPresentationKind.partner => isPersian ? 'پارتنر' : 'Partner',
-        LifeMateRelationshipPresentationKind.family => isPersian ? 'خانواده' : 'Family',
-        LifeMateRelationshipPresentationKind.child => isPersian ? 'فرزند' : 'Child',
-        LifeMateRelationshipPresentationKind.friend => isPersian ? 'دوست' : 'Friend',
-        LifeMateRelationshipPresentationKind.trustedPerson => isPersian ? 'فرد مورد اعتماد' : 'Trusted person',
-        LifeMateRelationshipPresentationKind.doctor => isPersian ? 'پزشک' : 'Doctor',
-        LifeMateRelationshipPresentationKind.nurse => isPersian ? 'پرستار' : 'Nurse',
-        LifeMateRelationshipPresentationKind.professionalCaregiver => isPersian ? 'مراقب حرفه‌ای' : 'Professional caregiver',
-        LifeMateRelationshipPresentationKind.therapistSpecialist => isPersian ? 'درمانگر / متخصص' : 'Therapist / specialist',
-        LifeMateRelationshipPresentationKind.other => isPersian ? 'سایر' : 'Other',
-        LifeMateRelationshipPresentationKind.unknown => isPersian ? 'رابطه مراقبتی' : 'Care relationship',
+        LifeMateRelationshipPresentationKind.partner =>
+          isPersian ? 'پارتنر' : 'Partner',
+        LifeMateRelationshipPresentationKind.family =>
+          isPersian ? 'خانواده' : 'Family',
+        LifeMateRelationshipPresentationKind.child =>
+          isPersian ? 'فرزند' : 'Child',
+        LifeMateRelationshipPresentationKind.friend =>
+          isPersian ? 'دوست' : 'Friend',
+        LifeMateRelationshipPresentationKind.trustedPerson =>
+          isPersian ? 'فرد مورد اعتماد' : 'Trusted person',
+        LifeMateRelationshipPresentationKind.doctor =>
+          isPersian ? 'پزشک' : 'Doctor',
+        LifeMateRelationshipPresentationKind.nurse =>
+          isPersian ? 'پرستار' : 'Nurse',
+        LifeMateRelationshipPresentationKind.professionalCaregiver =>
+          isPersian ? 'مراقب حرفه‌ای' : 'Professional caregiver',
+        LifeMateRelationshipPresentationKind.therapistSpecialist =>
+          isPersian ? 'درمانگر / متخصص' : 'Therapist / specialist',
+        LifeMateRelationshipPresentationKind.other =>
+          isPersian ? 'سایر' : 'Other',
+        LifeMateRelationshipPresentationKind.unknown =>
+          isPersian ? 'رابطه مراقبتی' : 'Care relationship',
       };
 
   String ownerRelationshipLabel({required bool isPersian}) =>
@@ -87,10 +90,19 @@ class LifeMateRelationshipPresentationPolicy {
 
   List<String> get surfacePriority => switch (kind) {
         LifeMateRelationshipPresentationKind.partner => const [
-            'companion', 'shared_wellbeing', 'treatment_alerts', 'care_events', 'daily_summary', 'contact'
+            'companion',
+            'shared_wellbeing',
+            'treatment_alerts',
+            'care_events',
+            'daily_summary',
+            'contact',
           ],
         _ => const [
-            'treatment_alerts', 'care_events', 'daily_summary', 'contact', 'companion'
+            'treatment_alerts',
+            'care_events',
+            'daily_summary',
+            'contact',
+            'companion',
           ],
       };
 
@@ -105,43 +117,92 @@ class LifeMateRelationshipPresentationPolicy {
     required bool isPersian,
   }) {
     if (isPersian) {
-      return kind == LifeMateRelationshipPresentationKind.partner
-          ? '$kindLabel $personName؛ یک یادآوری آرام'
-          : '$kindLabel $personName؛ یادآوری مراقبت';
+      return switch (kind) {
+        LifeMateRelationshipPresentationKind.partner =>
+          '$kindLabel $personName؛ یک یادآوری آرام',
+        LifeMateRelationshipPresentationKind.family ||
+        LifeMateRelationshipPresentationKind.child =>
+          '$kindLabel $personName نزدیک است',
+        _ => '$kindLabel $personName',
+      };
     }
-    return kind == LifeMateRelationshipPresentationKind.partner
-        ? '$personName • gentle $kindLabel reminder'
-        : '$personName • $kindLabel reminder';
+    return switch (kind) {
+      LifeMateRelationshipPresentationKind.partner =>
+        '$personName • gentle $kindLabel reminder',
+      LifeMateRelationshipPresentationKind.family ||
+      LifeMateRelationshipPresentationKind.child =>
+        '$personName • upcoming $kindLabel',
+      _ => '$personName • $kindLabel reminder',
+    };
   }
 
   String missedTitle({
     required String personName,
     required String itemLabel,
     required bool isPersian,
-  }) => isPersian
-      ? '$itemLabel $personName نیاز به پیگیری دارد'
-      : '$personName needs follow-up for $itemLabel';
+  }) {
+    if (isPersian) {
+      return switch (kind) {
+        LifeMateRelationshipPresentationKind.partner =>
+          'یک $itemLabel $personName هنوز پیگیری نشده',
+        LifeMateRelationshipPresentationKind.family ||
+        LifeMateRelationshipPresentationKind.child =>
+          '$itemLabel $personName نیاز به پیگیری دارد',
+        _ => '$itemLabel $personName هنوز پیگیری نشده',
+      };
+    }
+    return switch (kind) {
+      LifeMateRelationshipPresentationKind.partner =>
+        '$personName has an unfinished $itemLabel',
+      LifeMateRelationshipPresentationKind.family ||
+      LifeMateRelationshipPresentationKind.child =>
+        '$personName needs follow-up for $itemLabel',
+      _ => '$personName has an unfinished $itemLabel',
+    };
+  }
 
   String completionTitle({
     required String personName,
     required bool isPersian,
-  }) => isPersian
-      ? '💚 به‌روزرسانی مراقبت $personName'
-      : '💚 Care update for $personName';
+  }) => switch (kind) {
+        LifeMateRelationshipPresentationKind.partner => isPersian
+            ? '💚 یک خبر خوب از $personName'
+            : '💚 A reassuring update from $personName',
+        LifeMateRelationshipPresentationKind.family => isPersian
+            ? '💚 به‌روزرسانی مراقبت $personName'
+            : '💚 Care update for $personName',
+        LifeMateRelationshipPresentationKind.child => isPersian
+            ? '💚 وضعیت درمان $personName'
+            : '💚 $personName care update',
+        _ => isPersian
+            ? '💚 به‌روزرسانی مراقبت $personName'
+            : '💚 Care update for $personName',
+      };
 
   String dailySummaryTitle({
     required String personName,
     required bool isPersian,
-  }) => isPersian
-      ? '☀️ خلاصه امروز $personName'
-      : '☀️ Today for $personName';
+  }) => switch (kind) {
+        LifeMateRelationshipPresentationKind.partner => isPersian
+            ? '☀️ امروزِ $personName'
+            : '☀️ Today with $personName',
+        LifeMateRelationshipPresentationKind.family ||
+        LifeMateRelationshipPresentationKind.child => isPersian
+            ? '☀️ خلاصه مراقبت امروز $personName'
+            : '☀️ Today’s care for $personName',
+        _ => isPersian
+            ? '☀️ وضعیت امروز $personName'
+            : '☀️ Today for $personName',
+      };
 
   String companionHeading({
     required String personName,
     required bool isPersian,
-  }) => kind == LifeMateRelationshipPresentationKind.partner
-      ? (isPersian ? 'همراهی برای $personName' : 'Support for $personName')
-      : (isPersian ? 'مراقبت از $personName' : 'Care for $personName');
+  }) => switch (kind) {
+        LifeMateRelationshipPresentationKind.partner =>
+          isPersian ? 'همراهی برای $personName' : 'Support for $personName',
+        _ => isPersian ? 'مراقبت از $personName' : 'Care for $personName',
+      };
 }
 
 String resolveRelationshipDisplayName({
