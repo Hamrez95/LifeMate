@@ -13,6 +13,7 @@ import '../../providers/settings_provider.dart';
 import 'care_access_phone_screen.dart';
 import 'editable_profile_screen.dart';
 import 'profile_destination_screens.dart';
+import 'subscription_center_screen.dart';
 
 class ProfileScreen extends StatelessWidget {
   const ProfileScreen({super.key});
@@ -144,7 +145,7 @@ class ProfileScreen extends StatelessWidget {
           fontFamily: mainFont,
         ),
       ),
-      onManageSubscriptions: () => open(SubscriptionScreen()),
+      onManageSubscriptions: () => open(const LifeMateSubscriptionCenterScreen()),
       feedbackBuilder: (_) => LifeMateFeedbackScreen(
         productCode: 'wellmate',
         appVersion: wellMateAppVersion,
