@@ -54,7 +54,7 @@ class _WomenDailyLogLauncherState extends State<WomenDailyLogLauncher> {
       widget.onSaved?.call();
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(context.tr('common.save'))),
+          SnackBar(content: Text(context.tr('common.saved'))),
         );
       }
     } finally {
