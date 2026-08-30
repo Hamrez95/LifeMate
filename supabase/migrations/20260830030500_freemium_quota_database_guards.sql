@@ -18,6 +18,19 @@ as $$
   limit 1
 $$;
 
+create or replace function commerce.lock_free_quota(p_app_user_id uuid, p_policy_key text)
+returns void language plpgsql security definer
+set search_path=pg_catalog,identity,commerce,pg_temp
+as $$
+declare v_account uuid;
+begin
+  v_account := identity.account_id_for_legacy_app_user(p_app_user_id);
+  if v_account is null then
+    raise exception using errcode='P0001', message='identity_account_mapping_missing';
+  end if;
+  perform pg_advisory_xact_lock(hashtextextended(v_account::text || ':' || p_policy_key, 0));
+end $$;
+
 create or replace function lifemate.enforce_medication_free_quota()
 returns trigger language plpgsql security definer
 set search_path=pg_catalog,lifemate,commerce,pg_temp
@@ -28,6 +41,7 @@ begin
   if v_app_user_id is null then
     raise exception using errcode='P0001', message='identity_user_mapping_missing';
   end if;
+  perform commerce.lock_free_quota(v_app_user_id,'free.medications.max');
   select count(*)::integer into v_count
   from lifemate.medications m
   where m.owner_person_id=new.owner_person_id and m.id<>new.id;
@@ -53,6 +67,7 @@ begin
   if v_app_user_id is null then
     raise exception using errcode='P0001', message='identity_user_mapping_missing';
   end if;
+  perform commerce.lock_free_quota(v_app_user_id,'free.visits.max');
   select count(*)::integer into v_count
   from lifemate.care_events e
   where e.patient_person_id=new.patient_person_id
@@ -81,11 +96,13 @@ begin
     raise exception using errcode='P0001', message='identity_user_mapping_missing';
   end if;
 
+  perform commerce.lock_free_quota(new.patient_user_id,'free.owner_caregivers.max');
   select count(*)::integer into v_owner_count
   from lifemate.care_relationships r
   where r.patient_person_id=new.patient_person_id and r.status='Active' and r.id<>new.id;
   perform commerce.assert_free_quota(new.patient_user_id,'free.owner_caregivers.max',v_owner_count);
 
+  perform commerce.lock_free_quota(new.caregiver_user_id,'free.caremate_people.max');
   select count(*)::integer into v_caregiver_count
   from lifemate.care_relationships r
   where r.caregiver_person_id=new.caregiver_person_id and r.status='Active' and r.id<>new.id;
@@ -100,6 +117,8 @@ on lifemate.care_relationships
 for each row execute function lifemate.enforce_care_relationship_free_quota();
 
 revoke all on function lifemate.app_user_id_for_self_person(uuid) from public;
+revoke all on function commerce.lock_free_quota(uuid,text) from public;
+grant execute on function commerce.lock_free_quota(uuid,text) to lifemate_edge_runtime;
 revoke all on function lifemate.enforce_medication_free_quota() from public;
 revoke all on function lifemate.enforce_appointment_free_quota() from public;
 revoke all on function lifemate.enforce_care_relationship_free_quota() from public;
