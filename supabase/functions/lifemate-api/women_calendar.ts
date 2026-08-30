@@ -5,6 +5,6 @@ export {
   type WomenCalendarEstimate,
 } from "./women_calendar_legacy.ts";
 export {
-  createWomenCalendarRichPeriodStore as createPersonWomenCalendarStore,
-  createWomenCalendarRichPeriodStore as createWomenCalendarStore,
-} from "./women_calendar_rich_period.ts";
+  createWomenCalendarProductStore as createPersonWomenCalendarStore,
+  createWomenCalendarProductStore as createWomenCalendarStore,
+} from "./women_calendar_product_store.ts";
