@@ -104,6 +104,7 @@ const LifeMateMessageCatalog lifeMateMessages = LifeMateMessageCatalog(
     'en': <String, String>{
       'common.cancel': 'Cancel',
       'common.save': 'Save',
+      'common.saved': 'Saved',
       'common.retry': 'Try again',
       'common.close': 'Close',
       'common.loading': 'Loading…',
@@ -132,6 +133,7 @@ const LifeMateMessageCatalog lifeMateMessages = LifeMateMessageCatalog(
     'fa': <String, String>{
       'common.cancel': 'انصراف',
       'common.save': 'ذخیره',
+      'common.saved': 'ذخیره شد',
       'common.retry': 'تلاش دوباره',
       'common.close': 'بستن',
       'common.loading': 'در حال بارگذاری…',
