@@ -109,6 +109,23 @@ Deno.test("commerce overview remains on the canonical commerce schema", async ()
   assert(!text.includes("lifemate."));
 });
 
+Deno.test("commerce promotion metadata is RLS-protected for restricted Admin reads", async () => {
+  const migration = await Deno.readTextFile(
+    new URL(
+      "../../migrations/20260830003000_enable_commerce_promotion_rls.sql",
+      import.meta.url,
+    ),
+  );
+  assertStringIncludes(migration, "alter table commerce.promotions enable row level security");
+  assertStringIncludes(migration, "alter table commerce.discount_codes enable row level security");
+  assertStringIncludes(migration, "to lifemate_admin_runtime");
+  assertStringIncludes(migration, "for select");
+  assertStringIncludes(migration, "revoke all on table commerce.promotions from public, anon, authenticated");
+  assertStringIncludes(migration, "revoke all on table commerce.discount_codes from public, anon, authenticated");
+  assert(!migration.includes("to authenticated\nusing (true)"));
+  assert(!migration.includes("to anon\nusing (true)"));
+});
+
 Deno.test("marketing campaigns stay on bounded Admin read/write models", async () => {
   const text = await source("./marketing_campaigns_store.ts");
   assertStringIncludes(text, "admin.marketing_campaigns_v1");
