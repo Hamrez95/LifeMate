@@ -3,6 +3,8 @@ import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:timezone/data/latest.dart' as tz_data;
 import 'package:timezone/timezone.dart' as tz;
 
+import 'women_insight_preferences_api.dart';
+
 class WomenScheduledCycleInsight {
   const WomenScheduledCycleInsight({
     required this.insightId,
@@ -103,12 +105,34 @@ class WomenCycleInsightNotificationScheduler {
         analyticsKey: 'cycle_insight.logging_reminder.local_scheduled',
       ));
     }
+    await _recordScheduled(scheduled);
     return scheduled;
   }
 
   Future<void> cancelAll() async {
     await _plugin.cancel(_expectedPeriodId);
     await _plugin.cancel(_loggingReminderId);
+  }
+
+  Future<void> _recordScheduled(List<WomenScheduledCycleInsight> values) async {
+    if (values.isEmpty) return;
+    final api = WomenInsightPreferencesApi.fromEnvironment();
+    try {
+      for (final value in values) {
+        try {
+          await api.recordDelivery(
+            insightId: value.insightId,
+            insightType: value.insightType,
+            surface: 'local_notification',
+            analyticsKey: value.analyticsKey,
+          );
+        } catch (error) {
+          debugPrint('Cycle Insight delivery metadata recording failed safely: $error');
+        }
+      }
+    } finally {
+      api.close();
+    }
   }
 
   Future<void> _schedule({
