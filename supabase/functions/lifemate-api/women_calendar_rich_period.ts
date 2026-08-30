@@ -1,5 +1,6 @@
 import { getLifeMateSql } from "./database_client.ts";
 import { createWomenCalendarV3Store } from "./women_calendar_v3.ts";
+import { createWomenCircleStore } from "./women_circle_store.ts";
 import { ApiError } from "./validation.ts";
 import {
   canonicalizeLegacySymptoms,
@@ -17,6 +18,42 @@ type Row = Record<string, any>;
 export function createWomenCalendarRichPeriodStore(databaseUrl: string) {
   const sql = getLifeMateSql(databaseUrl);
   const base = createWomenCalendarV3Store(databaseUrl);
+  const circles = createWomenCircleStore(databaseUrl);
+
+  async function getOwnerProfile(
+    appUserId: string,
+  ): Promise<Record<string, unknown>> {
+    const profile = await base.getOwnerProfile(appUserId);
+    return {
+      ...profile,
+      circles: await circles.list(appUserId),
+      circleInvitations: await circles.listIncomingInvitations(appUserId),
+    };
+  }
+
+  async function updateOwnerProfile(
+    appUserId: string,
+    body: Record<string, unknown>,
+  ): Promise<Record<string, unknown>> {
+    const command = body.circleCommand;
+    if (command != null) {
+      if (typeof command !== "object" || Array.isArray(command)) {
+        throw new ApiError(
+          400,
+          "invalid_circle_command",
+          "circleCommand must be an object.",
+        );
+      }
+      await circles.execute(appUserId, command as Record<string, unknown>);
+      return await getOwnerProfile(appUserId);
+    }
+    const profile = await base.updateOwnerProfile(appUserId, body);
+    return {
+      ...profile,
+      circles: await circles.list(appUserId),
+      circleInvitations: await circles.listIncomingInvitations(appUserId),
+    };
+  }
 
   async function listOwnerDailyLogs(
     appUserId: string,
@@ -142,6 +179,8 @@ export function createWomenCalendarRichPeriodStore(databaseUrl: string) {
 
   return {
     ...base,
+    getOwnerProfile,
+    updateOwnerProfile,
     listOwnerDailyLogs,
     upsertOwnerDailyLog,
   };
