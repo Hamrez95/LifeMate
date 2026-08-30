@@ -52,7 +52,7 @@ as $$
                 extract(year from b.local_today)::integer,
                 extract(month from b.birth_date)::integer,
                 1
-              )) + interval '1 month - 1 day'
+              )) + interval '1 month' - interval '1 day'
             ))::integer
           )
         )
@@ -74,7 +74,7 @@ as $$
                 extract(year from d.local_today)::integer + 1,
                 extract(month from d.birth_date)::integer,
                 1
-              )) + interval '1 month - 1 day'
+              )) + interval '1 month' - interval '1 day'
             ))::integer
           )
         )
