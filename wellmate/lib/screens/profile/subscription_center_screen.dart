@@ -19,7 +19,7 @@ class LifeMateSubscriptionCenterScreen extends StatefulWidget {
 
 class _LifeMateSubscriptionCenterScreenState
     extends State<LifeMateSubscriptionCenterScreen> {
-  late Future<Map<String, dynamic>> _snapshot;
+  late Future<List<Map<String, dynamic>>> _snapshot;
   bool _busy = false;
 
   LifeMateSubscriptionTheme get _theme => const LifeMateSubscriptionTheme(
@@ -30,13 +30,16 @@ class _LifeMateSubscriptionCenterScreenState
   @override
   void initState() {
     super.initState();
-    _snapshot = context.read<LifeMateApiClient>().getSubscriptionSnapshot();
+    _snapshot = _loadSnapshot();
+  }
+
+  Future<List<Map<String, dynamic>>> _loadSnapshot() {
+    final api = context.read<LifeMateApiClient>();
+    return Future.wait([api.getSubscriptionSnapshot(), api.getPeriodAccessSnapshot()]);
   }
 
   void _reload() {
-    setState(
-      () => _snapshot = context.read<LifeMateApiClient>().getSubscriptionSnapshot(),
-    );
+    setState(() => _snapshot = _loadSnapshot());
   }
 
   Future<void> _startTrial() async {
@@ -170,7 +173,7 @@ class _LifeMateSubscriptionCenterScreenState
             ),
           ],
         ),
-        body: FutureBuilder<Map<String, dynamic>>(
+        body: FutureBuilder<List<Map<String, dynamic>>>(
           future: _snapshot,
           builder: (context, state) {
             if (state.connectionState != ConnectionState.done) {
@@ -180,7 +183,10 @@ class _LifeMateSubscriptionCenterScreenState
               return _Failure(onRetry: _reload);
             }
             return _SubscriptionBody(
-              snapshot: state.data ?? const <String, dynamic>{},
+              snapshot: state.data?.firstOrNull ?? const <String, dynamic>{},
+              periodAccess: state.data != null && state.data!.length > 1
+                  ? state.data![1]
+                  : const <String, dynamic>{},
               theme: _theme,
               busy: _busy,
               onStartTrial: _startTrial,
@@ -198,6 +204,7 @@ class _LifeMateSubscriptionCenterScreenState
 class _SubscriptionBody extends StatelessWidget {
   const _SubscriptionBody({
     required this.snapshot,
+    required this.periodAccess,
     required this.theme,
     required this.busy,
     required this.onStartTrial,
@@ -207,6 +214,7 @@ class _SubscriptionBody extends StatelessWidget {
   });
 
   final Map<String, dynamic> snapshot;
+  final Map<String, dynamic> periodAccess;
   final LifeMateSubscriptionTheme theme;
   final bool busy;
   final VoidCallback onStartTrial;
@@ -216,15 +224,36 @@ class _SubscriptionBody extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final trials = _objects(snapshot['trials']);
-    final entitlements = _objects(snapshot['entitlements']);
-    final policies = _objects(snapshot['policies']);
-    final offers = _objects(snapshot['offers']);
-    final period = _firstByCode(trials, 'period') ?? _firstByCode(entitlements, 'period');
-    final periodDays = _asInt(period?['remainingDays']);
-    final periodTrialAvailable = period?['trialAvailable'] == true;
-    final canConvert = period?['canConvert'] == true ||
-        snapshot['periodConversionAvailable'] == true;
+    final products = _objects(snapshot['products']);
+    final entitlements = products
+        .map((product) => <String, dynamic>{
+              'productName': product['name'],
+              'status': product['state'],
+              'active': product['state'] == 'active' || product['state'] == 'trial',
+              'expiresAtLabel': (product['subscription'] as Map?)?['currentPeriodEndUtc'],
+            })
+        .toList(growable: false);
+    final policies = <Map<String, dynamic>>[
+      for (final product in products)
+        if (product['policies'] is Map)
+          for (final entry in (product['policies'] as Map).entries)
+            <String, dynamic>{'label': entry.key, 'value': entry.value},
+    ];
+    final offers = <Map<String, dynamic>>[
+      for (final product in products)
+        for (final offer in _objects(product['offers']))
+          <String, dynamic>{
+            ...offer,
+            'title': offer['name'],
+            'priceLabel': _priceLabel(offer['price']),
+          },
+    ];
+    final trial = periodAccess['trial'] is Map
+        ? Map<String, dynamic>.from(periodAccess['trial'] as Map)
+        : null;
+    final periodDays = _trialDays(trial?['remainingSeconds']);
+    final periodTrialAvailable = periodAccess['state'] == 'trial_eligible';
+    final canConvert = periodAccess['paid'] == true;
 
     return RefreshIndicator(
       onRefresh: onRefresh,
@@ -475,6 +504,19 @@ class _Failure extends StatelessWidget {
 List<Map<String, dynamic>> _objects(dynamic value) {
   if (value is! List) return const [];
   return value.whereType<Map>().map((item) => Map<String, dynamic>.from(item)).toList(growable: false);
+}
+
+int? _trialDays(dynamic remainingSeconds) {
+  final seconds = _asInt(remainingSeconds);
+  if (seconds == null) return null;
+  return (seconds / Duration.secondsPerDay).ceil();
+}
+
+String _priceLabel(dynamic value) {
+  if (value is! Map) return 'قیمت در حال دریافت';
+  final amount = value['amountMinor']?.toString();
+  final currency = value['currency']?.toString();
+  return amount == null || currency == null ? 'قیمت در حال دریافت' : '$amount $currency';
 }
 
 Map<String, dynamic>? _firstByCode(List<Map<String, dynamic>> values, String code) {
