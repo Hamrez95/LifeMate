@@ -3,6 +3,14 @@ import { ApiError } from "./validation.ts";
 
 type Row = Record<string, any>;
 
+const insightTypes = new Set([
+  "expected_period_window",
+  "recurring_symptom_pattern",
+  "logging_reminder",
+  "cycle_history_observation",
+]);
+const surfaces = new Set(["in_app", "local_notification"]);
+
 export function createWomenInsightPreferencesStore(databaseUrl: string) {
   const sql = getLifeMateSql(databaseUrl);
 
@@ -70,7 +78,37 @@ export function createWomenInsightPreferencesStore(databaseUrl: string) {
     });
   }
 
-  return { get, update };
+  async function recordDelivery(
+    appUserId: string,
+    raw: Record<string, unknown>,
+  ): Promise<Record<string, unknown>> {
+    const insightId = boundedText(raw.insightId, "insightId", 120);
+    const insightType = String(raw.insightType ?? "").trim().toLowerCase();
+    const ruleVersion = boundedText(raw.ruleVersion, "ruleVersion", 40);
+    const surface = String(raw.surface ?? "").trim().toLowerCase();
+    const analyticsKey = boundedText(raw.analyticsKey, "analyticsKey", 80);
+    if (!insightTypes.has(insightType)) {
+      throw new ApiError(400, "invalid_cycle_insight_type", "Unsupported Cycle Insight type.");
+    }
+    if (!surfaces.has(surface)) {
+      throw new ApiError(400, "invalid_cycle_insight_surface", "Unsupported Cycle Insight surface.");
+    }
+    const personId = await selfPersonId(sql, appUserId);
+    const rows = await sql`
+      insert into lifemate.women_cycle_insight_history(
+        id,owner_person_id,insight_id,insight_type,rule_version,
+        surface,analytics_key,occurred_on,occurred_at_utc,created_at_utc
+      ) values(
+        ${crypto.randomUUID()}::uuid,${personId}::uuid,${insightId},${insightType},
+        ${ruleVersion},${surface},${analyticsKey},current_date,now(),now()
+      )
+      on conflict(owner_person_id,insight_id,surface,occurred_on) do nothing
+      returning id
+    `;
+    return { recorded: rows.length > 0, deduplicated: rows.length === 0 };
+  }
+
+  return { get, update, recordDelivery };
 }
 
 function defaults(): Record<string, unknown> {
@@ -114,6 +152,13 @@ function nonNegativeInt(value: unknown, field: string): number {
   const number = Number(value);
   if (!Number.isInteger(number) || number < 0) throw new ApiError(400, "invalid_integer", `${field} must be non-negative.`);
   return number;
+}
+function boundedText(value: unknown, field: string, max: number): string {
+  const text = String(value ?? "").trim();
+  if (text.length < 1 || text.length > max) {
+    throw new ApiError(400, "invalid_cycle_insight_metadata", `${field} is invalid.`);
+  }
+  return text;
 }
 function stale(): ApiError {
   return new ApiError(409, "stale_cycle_insight_preferences", "Cycle Insight preferences changed. Refresh and try again.");

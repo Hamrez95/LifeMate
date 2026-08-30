@@ -3,6 +3,7 @@ import 'package:lifemate_client/lifemate_client.dart';
 import 'package:provider/provider.dart';
 
 import '../../core/theme/app_style.dart';
+import 'women_cycle_insight_notification_scheduler.dart';
 import 'women_insight_preferences_api.dart';
 
 class WomenInsightPreferencesCard extends StatefulWidget {
@@ -48,6 +49,7 @@ class _WomenInsightPreferencesCardState extends State<WomenInsightPreferencesCar
         _frequency = value['frequencyMode']?.toString() ?? 'balanced';
         _version = value['version'] is int ? value['version'] as int : 0;
       });
+      await _syncNotifications(profile);
     } catch (_) {
       // Additive control: calendar stays available when preferences cannot load.
     } finally {
@@ -73,18 +75,32 @@ class _WomenInsightPreferencesCardState extends State<WomenInsightPreferencesCar
       setState(() {
         _version = value['version'] is int ? value['version'] as int : _version + 1;
       });
+      await _syncNotifications(profile);
+      if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text(_rtl ? 'تنظیمات بینش چرخه ذخیره شد.' : 'Cycle Insight settings saved.')),
       );
     } on LifeMateApiException catch (error) {
       if (!mounted) return;
       if (error.code == 'stale_cycle_insight_preferences') await _load();
+      if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text(_rtl ? 'تنظیمات ذخیره نشد. دوباره تلاش کن.' : 'Settings were not saved. Try again.')),
       );
     } finally {
       api.close();
       if (mounted) setState(() => _saving = false);
+    }
+  }
+
+  Future<void> _syncNotifications(Map<String, dynamic> profile) async {
+    try {
+      await WomenCycleInsightNotificationScheduler().sync(
+        profile: profile,
+        isPersian: _rtl,
+      );
+    } catch (error) {
+      debugPrint('Cycle Insight local notification sync failed safely: $error');
     }
   }
 
@@ -132,7 +148,7 @@ class _WomenInsightPreferencesCardState extends State<WomenInsightPreferencesCar
             contentPadding: EdgeInsets.zero,
             value: _notificationsEnabled,
             title: Text(_rtl ? 'اعلان‌های Cycle Insight' : 'Cycle Insight notifications'),
-            subtitle: Text(_rtl ? 'فعلاً فقط مسیرهای اعلان واقعاً پشتیبانی‌شده دستگاه.' : 'Only notification paths actually supported on this device are used.'),
+            subtitle: Text(_rtl ? 'فقط وقتی اعلان گوشی از قبل مجاز باشد؛ این صفحه خودش permission درخواست نمی‌کند.' : 'Only when OS notifications are already allowed; this screen never requests permission itself.'),
             onChanged: _saving ? null : (v) => setState(() => _notificationsEnabled = v),
           ),
           if (_notificationsEnabled) ...[
