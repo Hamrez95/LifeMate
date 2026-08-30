@@ -34,6 +34,23 @@ export function createWomenCalendarProductStore(databaseUrl: string) {
       );
       return await getOwnerProfile(appUserId);
     }
+    if (body.insightDelivery != null) {
+      if (
+        typeof body.insightDelivery !== "object" ||
+        Array.isArray(body.insightDelivery)
+      ) {
+        throw new ApiError(
+          400,
+          "invalid_cycle_insight_delivery",
+          "insightDelivery must be an object.",
+        );
+      }
+      await insightPreferences.recordDelivery(
+        appUserId,
+        body.insightDelivery as Record<string, unknown>,
+      );
+      return await getOwnerProfile(appUserId);
+    }
     return {
       ...await base.updateOwnerProfile(appUserId, body),
       insightPreferences: await insightPreferences.get(appUserId),
