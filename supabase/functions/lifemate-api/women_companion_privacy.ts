@@ -52,6 +52,7 @@ export function createWomenCompanionPrivacyStore(databaseUrl: string) {
     const expectedVersion = integer(body.version, "version", 0);
     const next = normalize(body.scopes);
     return await sql.begin(async (tx: any) => {
+      await requirePeriodProductAccess(tx, ownerAppUserId);
       const ownerPersonId = await selfPersonId(tx, ownerAppUserId);
       const relationship = await tx`
         select id::text from lifemate.care_relationships
@@ -106,6 +107,16 @@ export function createWomenCompanionPrivacyStore(databaseUrl: string) {
     });
   }
   return { listOwnerScopes, updateOwnerScopes };
+}
+
+async function requirePeriodProductAccess(connection: any, appUserId: string): Promise<void> {
+  const rows = await connection`
+    select commerce.period_access_snapshot(${appUserId}::uuid) as snapshot
+  `;
+  const snapshot = rows[0]?.snapshot as Record<string, unknown> | undefined;
+  if (snapshot?.hasProductAccess !== true) {
+    throw new ApiError(403, "period_subscription_required", "An active Period Calendar trial or subscription is required.");
+  }
 }
 async function selfPersonId(connection: any, appUserId: string): Promise<string> {
   const rows = await connection`select core.self_person_id_for_legacy_app_user(${appUserId}::uuid)::text as person_id`;
