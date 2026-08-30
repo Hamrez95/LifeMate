@@ -9,7 +9,12 @@ Deno.test("rich period daily log exposes canonical structured observations", () 
     energy_level: 3,
     pain_level: 0,
     pain_recorded: false,
-    symptoms: [],
+    symptoms: ["cramps", "bloating"],
+    symptom_observations: [
+      { id: "cramps", severity: null },
+      { id: "bloating", severity: 2 },
+    ],
+    symptom_schema_version: 1,
     private_notes: "یادداشت خصوصی",
     share_summary_with_companion: false,
     period_flow: "heavy",
@@ -26,6 +31,12 @@ Deno.test("rich period daily log exposes canonical structured observations", () 
   assertEquals(mapped.bloodTexture, "thick");
   assertEquals(mapped.schemaVersion, 1);
   assertEquals(mapped.painLevel, null);
+  assertEquals(mapped.symptoms, ["cramps", "bloating"]);
+  assertEquals(mapped.symptomObservations, [
+    { id: "cramps", severity: null },
+    { id: "bloating", severity: 2 },
+  ]);
+  assertEquals(mapped.symptomSchemaVersion, 1);
   assertEquals(mapped.privateNotes, "یادداشت خصوصی");
   assertEquals(mapped.shareSummaryWithCompanion, false);
 });
@@ -39,6 +50,8 @@ Deno.test("legacy daily log remains compatible and pain stays visible", () => {
     pain_level: 2,
     pain_recorded: true,
     symptoms: ["Cramps"],
+    symptom_observations: null,
+    symptom_schema_version: 1,
     private_notes: null,
     share_summary_with_companion: true,
     period_flow: null,
@@ -52,6 +65,7 @@ Deno.test("legacy daily log remains compatible and pain stays visible", () => {
 
   assertEquals(mapped.painLevel, 2);
   assertEquals(mapped.symptoms, ["cramps"]);
+  assertEquals(mapped.symptomObservations, [{ id: "cramps", severity: null }]);
   assertEquals(mapped.periodFlow, null);
   assertEquals(mapped.bloodAppearance, null);
   assertEquals(mapped.bloodTexture, null);
