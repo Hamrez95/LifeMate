@@ -5,6 +5,7 @@ import 'package:provider/provider.dart';
 import '../../core/theme/app_style.dart';
 import '../../core/utils/persian_date_utils.dart';
 import '../profile/profile_destination_screens.dart';
+import '../profile/subscription_center_screen.dart';
 import 'women_calendar_experience_widgets.dart';
 import 'women_calendar_management_widgets.dart';
 import 'women_calendar_month_card.dart';
@@ -176,7 +177,7 @@ class _WomenCalendarScreenState extends State<WomenCalendarScreen> {
 
   Future<void> _openSubscription() async {
     await Navigator.of(context).push<void>(
-      MaterialPageRoute<void>(builder: (_) => const SubscriptionScreen()),
+      MaterialPageRoute<void>(builder: (_) => const LifeMateSubscriptionCenterScreen(focusPeriod: true)),
     );
     await _load();
     await widget.onProfileChanged?.call();

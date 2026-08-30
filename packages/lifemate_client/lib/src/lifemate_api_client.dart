@@ -121,6 +121,51 @@ class LifeMateApiClient {
   Future<Map<String, dynamic>> getCurrentProfile() async =>
       _asObject(await _send('GET', '/api/v1/me/profile', retryable: true));
 
+  /// Commerce data is server-authoritative; the client never supplies price,
+  /// discount, trial duration, quota or conversion credit.
+  Future<Map<String, dynamic>> getSubscriptionSnapshot() async =>
+      _asObject(await _send('GET', '/api/v1/subscription/snapshot', retryable: true));
+
+  Future<Map<String, dynamic>> getPeriodAccessSnapshot() async =>
+      _asObject(await _send('GET', '/api/v1/subscription/period-access', retryable: true));
+
+  Future<Map<String, dynamic>> startPeriodTrial({
+    required String idempotencyKey,
+  }) async => _asObject(
+    await _send(
+      'POST',
+      '/api/v1/subscription/period-trial',
+      body: const <String, dynamic>{},
+      retryable: true,
+      idempotencyKey: idempotencyKey,
+    ),
+  );
+
+  Future<Map<String, dynamic>> claimSubscriptionGift({
+    required String claimToken,
+    required String idempotencyKey,
+  }) async => _asObject(
+    await _send(
+      'POST',
+      '/api/v1/subscription/gifts/claim',
+      body: {'claimToken': claimToken.trim()},
+      retryable: true,
+      idempotencyKey: idempotencyKey,
+    ),
+  );
+
+  Future<Map<String, dynamic>> convertPeriodToCocoon({
+    required String idempotencyKey,
+  }) async => _asObject(
+    await _send(
+      'POST',
+      '/api/v1/subscription/period-to-cocoon/convert',
+      body: const {'confirmed': true},
+      retryable: true,
+      idempotencyKey: idempotencyKey,
+    ),
+  );
+
   Future<Map<String, dynamic>> getHomeSnapshot({
     required DateTime fromDate,
     required DateTime toDate,
