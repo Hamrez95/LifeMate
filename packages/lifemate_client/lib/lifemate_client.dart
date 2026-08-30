@@ -18,6 +18,7 @@ export 'src/companion_care_api.dart';
 export 'src/companion_fertility.dart';
 export 'src/companion_mood_notifications.dart';
 export 'src/companion_phase_notifications.dart';
+export 'src/demographics_api.dart';
 export 'src/durable_lifemate_api_client.dart';
 export 'src/feature_flags.dart';
 export 'src/feedback_api.dart';
