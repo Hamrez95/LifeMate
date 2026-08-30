@@ -32,6 +32,10 @@ class LifeMateOnboardingTheme {
   final Color success;
   final Color error;
 
+  /// Presentation alias used by additive shared controls. It deliberately maps
+  /// to the existing primary token so no canonical product palette changes.
+  Color get accent => primary;
+
   static const shared = LifeMateOnboardingTheme(
     brand: LifeMateOnboardingBrand.shared,
     background: Color(0xFFFAF7F2),
