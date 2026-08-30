@@ -2,12 +2,19 @@ import { ApiError } from "./validation.ts";
 
 type Row = Record<string, any>;
 
-export const relationshipPresentationCopyVersion = "relationship-presentation-v2";
+export const relationshipPresentationCopyVersion = "relationship-presentation-v3";
 
 export const relationshipPresentationTypes = new Set([
   "partner",
   "family",
   "child",
+  "friend",
+  "trusted_person",
+  "doctor",
+  "nurse",
+  "professional_caregiver",
+  "therapist_specialist",
+  "other",
   "unknown",
 ]);
 
@@ -20,7 +27,9 @@ export function normalizeRelationshipType(value: unknown): string {
   const normalized = String(value ?? "")
     .trim()
     .toLowerCase()
-    .replaceAll("-", "_");
+    .replaceAll("-", "_")
+    .replaceAll(" ", "_");
+
   if (normalized === "partner" || normalized === "spouse") return "partner";
   if (
     normalized === "child" ||
@@ -32,10 +41,27 @@ export function normalizeRelationshipType(value: unknown): string {
     normalized === "family_member" ||
     normalized === "parent_caring_for_dependent" ||
     normalized === "parent_to_child" ||
-    normalized === "parent_to_dependent" ||
-    normalized === "trusted_caregiver" ||
-    normalized === "caregiver"
+    normalized === "parent_to_dependent"
   ) return "family";
+  if (normalized === "friend") return "friend";
+  if (
+    normalized === "trusted_person" ||
+    normalized === "trusted_contact" ||
+    normalized === "trusted_caregiver"
+  ) return "trusted_person";
+  if (normalized === "doctor" || normalized === "physician") return "doctor";
+  if (normalized === "nurse") return "nurse";
+  if (
+    normalized === "professional_caregiver" ||
+    normalized === "caregiver" ||
+    normalized === "professional_carer"
+  ) return "professional_caregiver";
+  if (
+    normalized === "therapist" ||
+    normalized === "specialist" ||
+    normalized === "therapist_specialist"
+  ) return "therapist_specialist";
+  if (normalized === "other") return "other";
   return "unknown";
 }
 
