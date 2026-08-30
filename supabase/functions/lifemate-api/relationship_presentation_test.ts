@@ -5,6 +5,7 @@ import {
   presentationUpdateColumns,
   presentRelationshipForViewer,
   relationshipPresentationCopyVersion,
+  relationshipPresentationTypes,
 } from "./relationship_presentation.ts";
 
 const patientPersonId = "00000000-0000-4000-8000-000000000001";
@@ -23,26 +24,39 @@ const row = () => ({
   can_view_women_calendar: false,
 });
 
-Deno.test("relationship types collapse to partner family child with legacy compatibility", () => {
-  assertEquals(normalizeRelationshipType("spouse"), "partner");
-  assertEquals(normalizeRelationshipType("child_caring_for_parent"), "child");
-  assertEquals(normalizeRelationshipType("trusted_caregiver"), "family");
-  assertEquals(normalizeRelationshipType("parent_caring_for_dependent"), "family");
-  assertEquals(normalizeRelationshipType("doctor"), "unknown");
+Deno.test("relationship taxonomy supports legacy and expanded canonical categories", () => {
+  const cases: Array<[string, string]> = [
+    ["spouse", "partner"],
+    ["child_caring_for_parent", "child"],
+    ["parent_caring_for_dependent", "family"],
+    ["friend", "friend"],
+    ["trusted_caregiver", "trusted_person"],
+    ["physician", "doctor"],
+    ["nurse", "nurse"],
+    ["caregiver", "professional_caregiver"],
+    ["professional caregiver", "professional_caregiver"],
+    ["therapist", "therapist_specialist"],
+    ["specialist", "therapist_specialist"],
+    ["other", "other"],
+  ];
+  for (const [raw, canonical] of cases) {
+    assertEquals(normalizeRelationshipType(raw), canonical);
+    assertEquals(relationshipPresentationTypes.has(canonical), true);
+  }
 });
 
-Deno.test("presentation patch canonicalizes legacy type and trims alias", () => {
+Deno.test("presentation patch accepts canonical professional role and trims alias", () => {
   assertEquals(
     normalizeRelationshipPresentationPatch({
-      relationshipType: "child-caring-for-parent",
-      displayName: "  پسرم  ",
+      relationshipType: "professional-caregiver",
+      displayName: "  مراقب من  ",
     }),
-    { relationshipType: "child", displayName: "پسرم" },
+    { relationshipType: "professional_caregiver", displayName: "مراقب من" },
   );
   assertThrows(() =>
     normalizeRelationshipPresentationPatch({
-      relationshipType: "doctor",
-      displayName: "Doctor",
+      relationshipType: "unsupported-role",
+      displayName: "Unknown",
     })
   );
 });
@@ -67,25 +81,25 @@ Deno.test("owner sees owner-owned caregiver nickname independently", () => {
 
 Deno.test("caregiver alias mutation cannot overwrite canonical admin relationship type", () => {
   const columns = presentationUpdateColumns("caregiver", {
-    relationshipType: "family",
-    displayName: "پسرم",
+    relationshipType: "doctor",
+    displayName: "دکتر من",
   });
   assertEquals(columns, {
-    caregiver_relationship_type: "family",
-    caregiver_patient_display_name: "پسرم",
+    caregiver_relationship_type: "doctor",
+    caregiver_patient_display_name: "دکتر من",
   });
   assertEquals(Object.hasOwn(columns, "relationship_type"), false);
 });
 
-Deno.test("owner presentation columns include canonical reportable relationship type", () => {
+Deno.test("owner presentation columns are reportable metadata only", () => {
   const columns = presentationUpdateColumns("patient", {
-    relationshipType: "partner",
-    displayName: "عزیزم",
+    relationshipType: "trusted_person",
+    displayName: "دوست من",
   });
   assertEquals(columns, {
-    relationship_type: "partner",
-    patient_relationship_type: "partner",
-    patient_caregiver_display_name: "عزیزم",
+    relationship_type: "trusted_person",
+    patient_relationship_type: "trusted_person",
+    patient_caregiver_display_name: "دوست من",
   });
   const keys = Object.keys(columns).join(" ");
   assertEquals(/permission|consent|can_view|scope|notification/i.test(keys), false);
