@@ -24,6 +24,7 @@ PERSIAN_IMPLEMENTATION_FILES = {
     'caremate/lib/core/utils/string_extensions.dart',
     'packages/lifemate_client/lib/src/presentation_numbers.dart',
     'packages/lifemate_client/lib/src/runtime_locale.dart',
+    'packages/lifemate_ui/lib/src/localization.dart',
     'packages/lifemate_ui/lib/src/locales/fa.dart',
 }
 
