@@ -1,4 +1,4 @@
-import { assertEquals, assertThrows } from "jsr:@std/assert";
+import { assertEquals, assertStringIncludes, assertThrows } from "jsr:@std/assert";
 
 import { ApiError } from "./validation.ts";
 import {
@@ -52,6 +52,14 @@ Deno.test("preserves truthful null when consumer username is not assigned", () =
     }).username,
     null,
   );
+});
+
+Deno.test("User 360 commerce summary exposes entitlement optimistic version for safe adjustments", async () => {
+  const source = await Deno.readTextFile(
+    new URL("./user_detail_commerce.ts", import.meta.url),
+  );
+  assertStringIncludes(source, "entitlement.version");
+  assertStringIncludes(source, "version: Number(row.version)");
 });
 
 Deno.test("ignores non-detail routes", () => {
