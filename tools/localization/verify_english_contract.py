@@ -32,7 +32,7 @@ PERSIAN_IMPLEMENTATION_FILES = {
 # captured after the repository became public and the verifier finally ran
 # against the complete checkout. Every migration must ratchet these downward;
 # new debt is not allowed to grow any category.
-LEGACY_LOCALE_BRANCH_FILE_BUDGET = 86
+LEGACY_LOCALE_BRANCH_FILE_BUDGET = 85
 FIXED_RTL_OVERRIDE_BUDGET = 2
 PERSIAN_RUNTIME_LITERAL_BUDGET = 372
 NUMERIC_INPUT_VIOLATION_BUDGET = 4
@@ -44,6 +44,7 @@ MIGRATED_CATALOG_FILES = {
     'wellmate/lib/screens/women_calendar/women_daily_log_launcher.dart',
     'wellmate/lib/screens/women_calendar/women_companion_people_hero.dart',
     'wellmate/lib/screens/women_calendar/women_health_entry_screen.dart',
+    'wellmate/lib/screens/women_calendar/women_health_activation_v3_screen.dart',
 }
 
 errors: list[str] = []
