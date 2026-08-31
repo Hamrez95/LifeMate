@@ -24,18 +24,21 @@ PERSIAN_IMPLEMENTATION_FILES = {
     'caremate/lib/core/utils/string_extensions.dart',
     'packages/lifemate_client/lib/src/presentation_numbers.dart',
     'packages/lifemate_client/lib/src/runtime_locale.dart',
+    'packages/lifemate_ui/lib/src/localization.dart',
+    'packages/lifemate_ui/lib/src/locales/fa.dart',
 }
 
 # #674 is an incremental migration. This budget is deliberately a ratchet:
 # every migrated file lowers the number and new LifeMateRuntimeLocale.select
 # call sites are forbidden from growing the remaining legacy surface.
-LEGACY_LOCALE_BRANCH_FILE_BUDGET = 19
+LEGACY_LOCALE_BRANCH_FILE_BUDGET = 18
 MIGRATED_CATALOG_FILES = {
     'packages/lifemate_ui/lib/src/remote_config_gate.dart',
     'packages/lifemate_ui/lib/src/shared_account_onboarding.dart',
     'packages/lifemate_ui/lib/src/shared_profile_with_privacy.dart',
     'wellmate/lib/screens/women_calendar/women_daily_log_launcher.dart',
     'wellmate/lib/screens/women_calendar/women_companion_people_hero.dart',
+    'wellmate/lib/screens/women_calendar/women_health_entry_screen.dart',
 }
 
 errors: list[str] = []
@@ -103,9 +106,6 @@ def check_persian_literals_are_guarded() -> None:
             lo = max(0, literal.start - 500)
             hi = min(len(text), literal.end + 500)
             context = text[lo:hi]
-            guarded_catalog = (
-                rel == 'packages/lifemate_ui/lib/src/localization.dart'
-            )
             guarded_select = (
                 'LifeMateRuntimeLocale.select' in context and 'en:' in context
             )
@@ -116,7 +116,7 @@ def check_persian_literals_are_guarded() -> None:
             guarded_branch = (
                 re.search(r'if\s*\(\s*!persian\s*\)', context) is not None
             )
-            if not guarded_catalog and not guarded_select and not guarded_ternary and not guarded_branch:
+            if not guarded_select and not guarded_ternary and not guarded_branch:
                 fail(
                     f'{rel}:{literal.line}: Persian runtime literal has no nearby English locale branch: '
                     f'{literal.body[:80]!r}'

@@ -49,12 +49,20 @@ void main() {
       'women.companion.multiDescription','women.companion.stackSemantic',
       'women.companion.caregiverFallback','women.companion.avatarSemantic',
       'women.companion.avatarPartnerSemantic','women.companion.partner',
+      'women.entry.statusLoadFailed','women.entry.unavailable',
     };
     for (final key in required) {
       expect(lifeMateMessages.hasCompleteKey(key), isTrue, reason: key);
     }
     expect(lifeMateMessages.missingKeysFor(const Locale('en'), required), isEmpty);
     expect(lifeMateMessages.missingKeysFor(const Locale('fa'), required), isEmpty);
+  });
+
+  test('English and Persian resource files have exact key parity', () {
+    expect(
+      lifeMateMessages.allKeysFor(const Locale('en')),
+      lifeMateMessages.allKeysFor(const Locale('fa')),
+    );
   });
 
   test('migrated shared surfaces do not use legacy locale branching', () {

@@ -67,10 +67,7 @@ class _WomenHealthEntryScreenState extends State<WomenHealthEntryScreen> {
       if (!mounted) return;
       setState(() {
         _loading = false;
-        _error = LifeMateRuntimeLocale.select(
-          fa: 'وضعیت Women Health دریافت نشد.',
-          en: 'Women Health status could not be loaded.',
-        );
+        _error = context.tr('women.entry.statusLoadFailed');
       });
     }
   }
@@ -102,10 +99,7 @@ class _WomenHealthEntryScreenState extends State<WomenHealthEntryScreen> {
               const Icon(Icons.visibility_off_outlined, size: 40),
               const SizedBox(height: 12),
               Text(
-                LifeMateRuntimeLocale.select(
-                  fa: 'Women Health فعلاً در دسترس نیست.',
-                  en: 'Women Health is temporarily unavailable.',
-                ),
+                context.tr('women.entry.unavailable'),
                 textAlign: TextAlign.center,
               ),
             ],
@@ -127,9 +121,7 @@ class _WomenHealthEntryScreenState extends State<WomenHealthEntryScreen> {
               const SizedBox(height: 16),
               FilledButton(
                 onPressed: _load,
-                child: Text(
-                  LifeMateRuntimeLocale.select(fa: 'تلاش دوباره', en: 'Try again'),
-                ),
+                child: Text(context.tr('common.retry')),
               ),
             ],
           ),
