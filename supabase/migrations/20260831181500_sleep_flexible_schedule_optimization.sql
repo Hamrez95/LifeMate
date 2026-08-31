@@ -150,6 +150,51 @@ before insert or update of run_id,change_id,owner_person_id,treatment_plan_id
 on lifemate.dose_occurrence_overrides
 for each row execute function lifemate.enforce_dose_occurrence_override_owner();
 
+create or replace function lifemate.apply_active_dose_occurrence_override()
+returns trigger
+language plpgsql
+set search_path=pg_catalog,lifemate
+as $$
+declare
+  v_override lifemate.dose_occurrence_overrides%rowtype;
+begin
+  if new.status <> 'Scheduled' then
+    return new;
+  end if;
+
+  select o.* into v_override
+  from lifemate.dose_occurrence_overrides o
+  join lifemate.medication_schedule_optimization_runs r on r.id=o.run_id
+  where o.treatment_plan_id=new.treatment_plan_id
+    and o.owner_person_id=new.patient_person_id
+    and o.original_local_date=new.scheduled_local_date
+    and o.original_local_time=new.scheduled_local_time
+    and o.status='Active'
+    and r.status='Applied'
+    and r.mode='flexible_interval'
+    and o.original_local_date between r.effective_from_local_date and r.effective_until_local_date
+  order by r.applied_at_utc desc nulls last,o.id
+  limit 1;
+
+  if found then
+    new.scheduled_local_date := v_override.replacement_local_date;
+    new.scheduled_local_time := v_override.replacement_local_time;
+    new.time_zone := v_override.time_zone;
+    new.scheduled_at_utc :=
+      ((v_override.replacement_local_date + v_override.replacement_local_time)
+        at time zone v_override.time_zone);
+  end if;
+  return new;
+end;
+$$;
+revoke all on function lifemate.apply_active_dose_occurrence_override() from public;
+
+drop trigger if exists trg_apply_active_dose_occurrence_override
+  on lifemate.dose_occurrences;
+create trigger trg_apply_active_dose_occurrence_override
+before insert on lifemate.dose_occurrences
+for each row execute function lifemate.apply_active_dose_occurrence_override();
+
 alter table lifemate.medication_schedule_optimization_runs enable row level security;
 alter table lifemate.medication_schedule_optimization_runs force row level security;
 alter table lifemate.medication_schedule_optimization_changes enable row level security;
@@ -192,3 +237,5 @@ comment on table lifemate.medication_schedule_optimization_runs is
   'Time-bounded user-confirmed scheduling proposals. Consent records a displayed timing choice and is not clinical validation.';
 comment on table lifemate.dose_occurrence_overrides is
   'Future occurrence timing overrides approved by the owner. Canonical recurrence remains unchanged and resumes after the approved range.';
+comment on function lifemate.apply_active_dose_occurrence_override() is
+  'Materialization hook for owner-confirmed bounded flexible timing overrides. It never alters historical adherence or canonical recurrence.';
