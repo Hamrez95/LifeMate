@@ -6,6 +6,7 @@ import '../../core/theme/app_style.dart';
 import '../../core/utils/persian_date_utils.dart';
 import '../../core/widgets/labeled_form_field.dart';
 import 'medication_schedule_preferences_screen.dart';
+import 'nearby_dose_optimization_screen.dart';
 
 class TreatmentRecurrenceSelection {
   const TreatmentRecurrenceSelection.explicit()
@@ -111,6 +112,14 @@ class _TreatmentRecurrenceEditorState extends State<TreatmentRecurrenceEditor> {
     await Navigator.of(context).push<void>(
       MaterialPageRoute<void>(
         builder: (_) => const MedicationSchedulePreferencesScreen(),
+      ),
+    );
+  }
+
+  Future<void> _openNearbyOptimization() async {
+    await Navigator.of(context).push<void>(
+      MaterialPageRoute<void>(
+        builder: (_) => const NearbyDoseOptimizationScreen(),
       ),
     );
   }
@@ -352,6 +361,18 @@ class _TreatmentRecurrenceEditorState extends State<TreatmentRecurrenceEditor> {
             icon: const Icon(Icons.bedtime_outlined),
             label: Text(
               context.tr('medication.schedule.interval.sleepPreferences'),
+            ),
+          ),
+          const SizedBox(height: 8),
+          OutlinedButton.icon(
+            key: const ValueKey('medication-nearby-optimization'),
+            onPressed: widget.enabled ? _openNearbyOptimization : null,
+            icon: const Icon(Icons.merge_type_rounded),
+            label: Text(
+              LifeMateRuntimeLocale.select(
+                fa: 'یکپارچه‌سازی زمان‌های نزدیک',
+                en: 'Combine nearby medication times',
+              ),
             ),
           ),
         ],
