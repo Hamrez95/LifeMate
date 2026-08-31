@@ -65,6 +65,47 @@ void main() {
     );
   });
 
+  test('Women activation catalog is complete in Persian and English', () {
+    const required = <String>{
+      'common.decrease',
+      'common.increase',
+      'women.activation.loadFailed',
+      'women.activation.selectLastPeriod',
+      'women.activation.datePickerTitle',
+      'women.activation.saveConnectionFailed',
+      'women.activation.saveFailed',
+      'women.activation.preparingTitle',
+      'women.activation.oneMoment',
+      'women.activation.unavailableTitle',
+      'women.activation.openCalendar',
+      'women.activation.progress',
+      'women.activation.activateTitle',
+      'women.activation.activateDescription',
+      'women.activation.privacyNote',
+      'women.activation.cycleTitle',
+      'women.activation.cycleKnownDescription',
+      'women.activation.cycleUnknownDescription',
+      'women.activation.days',
+      'women.activation.notSure',
+      'women.activation.irregularChoice',
+      'women.activation.enterCycleLength',
+      'women.activation.periodTitle',
+      'women.activation.periodDescription',
+      'women.activation.periodNotSure',
+      'women.activation.dateTitle',
+      'women.activation.dateDescription',
+      'women.activation.dateSemantic',
+      'women.activation.chooseDate',
+      'women.activation.regularityTitle',
+      'women.activation.regularityDescription',
+      'women.activation.regular',
+      'women.activation.irregular',
+      'women.activation.notSureYet',
+    };
+    expect(lifeMateMessages.missingKeysFor(const Locale('en'), required), isEmpty);
+    expect(lifeMateMessages.missingKeysFor(const Locale('fa'), required), isEmpty);
+  });
+
   test('migrated shared surfaces do not use legacy locale branching', () {
     for (final path in <String>[
       'lib/src/shared_profile_with_privacy.dart',
