@@ -18,6 +18,49 @@ void main() {
     expect(value.sleepWindowEnabled, isFalse);
   });
 
+  test('active timing plans preserve canonical hourly recurrence', () async {
+    final api = LifeMateMedicationScheduleApi(
+      baseUri: Uri.parse('https://example.test'),
+      accessToken: () => 'token',
+      httpClient: MockClient((request) async {
+        expect(request.method, 'GET');
+        expect(request.url.path, '/api/v1/medication-schedule/plans');
+        return http.Response(
+          jsonEncode({
+            'items': [
+              {
+                'treatmentPlanId': '11111111-1111-1111-1111-111111111111',
+                'treatmentPlanVersion': 4,
+                'medicationName': 'Example medicine',
+                'strengthText': '10 mg',
+                'recurrence': {'enabled': true, 'unit': 'hour', 'interval': 48},
+                'recurrenceStartLocalTime': '08:00',
+                'nearbyGroupingEnabled': false,
+                'timingLocked': true,
+                'manualSpacingBeforeMinutes': 0,
+                'manualSpacingAfterMinutes': 0,
+                'timingNote': null,
+                'version': 2,
+              },
+            ],
+          }),
+          200,
+          headers: {'content-type': 'application/json'},
+        );
+      }),
+    );
+
+    final plans = await api.listPlans();
+    expect(plans, hasLength(1));
+    expect(plans.single.medicationName, 'Example medicine');
+    expect(plans.single.recurrence?['unit'], 'hour');
+    expect(plans.single.recurrence?['interval'], 48);
+    expect(plans.single.recurrenceStartLocalTime, '08:00');
+    expect(plans.single.timing.timingLocked, isTrue);
+    expect(plans.single.timing.treatmentPlanVersion, 4);
+    api.close();
+  });
+
   test('preference PATCH is versioned and idempotent at transport boundary', () async {
     late http.Request captured;
     final api = LifeMateMedicationScheduleApi(
