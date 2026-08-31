@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:lifemate_client/lifemate_client.dart';
 
+import 'localization.dart';
 import 'onboarding_components.dart';
 import 'onboarding_theme.dart';
 
@@ -37,7 +38,6 @@ class _LifeMateAccountOnboardingGateState
   bool _saving = false;
   int _step = 0;
 
-  bool get _isPersian => LifeMateRuntimeLocale.isPersian;
   LifeMateOnboardingTheme get _theme => LifeMateOnboardingTheme.shared;
 
   @override
@@ -86,17 +86,11 @@ class _LifeMateAccountOnboardingGateState
   void _continueName() {
     final value = _displayName.text.trim();
     if (value.isEmpty) {
-      setState(() => _actionError = LifeMateRuntimeLocale.select(
-            fa: 'نامی که دوست داری در LifeMate ببینی وارد کن.',
-            en: 'Enter the name you want to see in LifeMate.',
-          ));
+      setState(() => _actionError = context.tr('onboarding.account.nameRequired'));
       return;
     }
     if (value.length > 120) {
-      setState(() => _actionError = LifeMateRuntimeLocale.select(
-            fa: 'نام واردشده بیش از حد طولانی است.',
-            en: 'The entered name is too long.',
-          ));
+      setState(() => _actionError = context.tr('onboarding.account.nameTooLong'));
       return;
     }
     FocusScope.of(context).unfocus();
@@ -159,10 +153,7 @@ class _LifeMateAccountOnboardingGateState
         _snapshot = latest;
         _intent = preservedIntent;
         _displayName.text = preservedName;
-        _actionError = LifeMateRuntimeLocale.select(
-          fa: 'اطلاعات حساب تازه شد؛ دوباره ادامه بده.',
-          en: 'Your account information was refreshed. Continue again.',
-        );
+        _actionError = context.tr('onboarding.account.conflictRefreshed');
       });
     } catch (_) {
       if (!mounted) return;
@@ -170,10 +161,7 @@ class _LifeMateAccountOnboardingGateState
     }
   }
 
-  String _safeActionError() => LifeMateRuntimeLocale.select(
-        fa: 'ذخیره انجام نشد. اتصال را بررسی و دوباره تلاش کن.',
-        en: 'Could not save. Check your connection and try again.',
-      );
+  String _safeActionError() => context.tr('onboarding.account.saveFailed');
 
   @override
   void dispose() {
@@ -195,23 +183,17 @@ class _LifeMateAccountOnboardingGateState
 
   Widget _loadingScreen() {
     return Directionality(
-      textDirection: _isPersian ? TextDirection.rtl : TextDirection.ltr,
+      textDirection: context.lifeMateLocale.textDirection,
       child: LifeMateOnboardingScaffold(
         theme: _theme,
         title: 'LifeMate',
-        primaryLabel: LifeMateRuntimeLocale.select(fa: 'در حال آماده‌سازی', en: 'Preparing'),
+        primaryLabel: context.tr('common.preparing'),
         primaryBusy: true,
         body: Center(
           child: LifeMateOnboardingQuestion(
             theme: _theme,
-            title: LifeMateRuntimeLocale.select(
-              fa: 'حساب تو را آماده می‌کنیم',
-              en: 'Preparing your account',
-            ),
-            description: LifeMateRuntimeLocale.select(
-              fa: 'چند لحظه صبر کن.',
-              en: 'This only takes a moment.',
-            ),
+            title: context.tr('onboarding.account.preparingTitle'),
+            description: context.tr('onboarding.account.preparingDescription'),
             icon: Icons.favorite_outline_rounded,
             alignCenter: true,
           ),
@@ -222,23 +204,17 @@ class _LifeMateAccountOnboardingGateState
 
   Widget _errorScreen() {
     return Directionality(
-      textDirection: _isPersian ? TextDirection.rtl : TextDirection.ltr,
+      textDirection: context.lifeMateLocale.textDirection,
       child: LifeMateOnboardingScaffold(
         theme: _theme,
         title: 'LifeMate',
-        primaryLabel: LifeMateRuntimeLocale.select(fa: 'تلاش دوباره', en: 'Try again'),
+        primaryLabel: context.tr('common.retry'),
         onPrimary: _load,
         body: Center(
           child: LifeMateOnboardingQuestion(
             theme: _theme,
-            title: LifeMateRuntimeLocale.select(
-              fa: 'اطلاعات حساب در دسترس نیست',
-              en: 'Account information is unavailable',
-            ),
-            description: LifeMateRuntimeLocale.select(
-              fa: 'اتصال را بررسی کن و دوباره تلاش کن. چیزی تغییر نکرده است.',
-              en: 'Check your connection and try again. Nothing was changed.',
-            ),
+            title: context.tr('onboarding.account.unavailableTitle'),
+            description: context.tr('onboarding.account.unavailableDescription'),
             icon: Icons.cloud_off_outlined,
             alignCenter: true,
           ),
@@ -249,13 +225,13 @@ class _LifeMateAccountOnboardingGateState
 
   Widget _nameScreen() {
     return Directionality(
-      textDirection: _isPersian ? TextDirection.rtl : TextDirection.ltr,
+      textDirection: context.lifeMateLocale.textDirection,
       child: LifeMateOnboardingScaffold(
         theme: _theme,
-        title: LifeMateRuntimeLocale.select(fa: 'شروع LifeMate', en: 'Start LifeMate'),
+        title: context.tr('onboarding.account.start'),
         progress: 0.5,
-        progressLabel: LifeMateRuntimeLocale.select(fa: '۱ از ۲', en: '1 of 2'),
-        primaryLabel: LifeMateRuntimeLocale.select(fa: 'ادامه', en: 'Continue'),
+        progressLabel: context.tr('onboarding.account.step1of2'),
+        primaryLabel: context.tr('common.continue'),
         onPrimary: _continueName,
         keyboardAware: true,
         body: Column(
@@ -264,14 +240,8 @@ class _LifeMateAccountOnboardingGateState
             const Spacer(),
             LifeMateOnboardingQuestion(
               theme: _theme,
-              title: LifeMateRuntimeLocale.select(
-                fa: 'دوست داری چه صدات کنیم؟',
-                en: 'What should we call you?',
-              ),
-              description: LifeMateRuntimeLocale.select(
-                fa: 'این نام در بخش‌های مختلف حساب و تجربه شخصی تو نمایش داده می‌شود.',
-                en: 'This name appears across your account and personal experience.',
-              ),
+              title: context.tr('onboarding.account.nameTitle'),
+              description: context.tr('onboarding.account.nameDescription'),
               icon: Icons.person_outline_rounded,
               alignCenter: true,
             ),
@@ -279,8 +249,8 @@ class _LifeMateAccountOnboardingGateState
             LifeMateOnboardingTextField(
               theme: _theme,
               controller: _displayName,
-              label: LifeMateRuntimeLocale.select(fa: 'نام نمایشی', en: 'Display name'),
-              hintText: LifeMateRuntimeLocale.select(fa: 'مثلاً حمیدرضا', en: 'For example, Alex'),
+              label: context.tr('onboarding.account.displayName'),
+              hintText: context.tr('onboarding.account.nameHint'),
               textInputAction: TextInputAction.done,
               onSubmitted: (_) => _continueName(),
               enabled: !_saving,
@@ -298,13 +268,13 @@ class _LifeMateAccountOnboardingGateState
 
   Widget _intentScreen() {
     return Directionality(
-      textDirection: _isPersian ? TextDirection.rtl : TextDirection.ltr,
+      textDirection: context.lifeMateLocale.textDirection,
       child: LifeMateOnboardingScaffold(
         theme: _theme,
-        title: LifeMateRuntimeLocale.select(fa: 'شروع LifeMate', en: 'Start LifeMate'),
+        title: context.tr('onboarding.account.start'),
         progress: 1,
-        progressLabel: LifeMateRuntimeLocale.select(fa: '۲ از ۲', en: '2 of 2'),
-        primaryLabel: LifeMateRuntimeLocale.select(fa: 'ورود به LifeMate', en: 'Enter LifeMate'),
+        progressLabel: context.tr('onboarding.account.step2of2'),
+        primaryLabel: context.tr('onboarding.account.enter'),
         onPrimary: _intent == null || _saving ? null : _complete,
         primaryBusy: _saving,
         onBack: _saving ? null : () => setState(() {
@@ -317,44 +287,29 @@ class _LifeMateAccountOnboardingGateState
             const Spacer(),
             LifeMateOnboardingQuestion(
               theme: _theme,
-              title: LifeMateRuntimeLocale.select(
-                fa: 'LifeMate را بیشتر برای چه کاری می‌خواهی؟',
-                en: 'What will you mainly use LifeMate for?',
-              ),
-              description: LifeMateRuntimeLocale.select(
-                fa: 'این انتخاب فقط مسیر و محتوای اولیه را شخصی‌سازی می‌کند و هیچ دسترسی درمانی ایجاد نمی‌کند.',
-                en: 'This only personalizes your starting experience and never grants healthcare access.',
-              ),
+              title: context.tr('onboarding.account.intentTitle'),
+              description: context.tr('onboarding.account.intentDescription'),
             ),
             const SizedBox(height: 22),
             _intentCard(
               LifeMatePresentationIntent.self,
               Icons.person_outline_rounded,
-              LifeMateRuntimeLocale.select(fa: 'برای خودم', en: 'For myself'),
-              LifeMateRuntimeLocale.select(
-                fa: 'داروها، برنامه‌ها و سلامت شخصی',
-                en: 'My medication, plans and personal health',
-              ),
+              context.tr('onboarding.account.intentSelf'),
+              context.tr('onboarding.account.intentSelfDescription'),
             ),
             const SizedBox(height: 12),
             _intentCard(
               LifeMatePresentationIntent.caregiving,
               Icons.favorite_border_rounded,
-              LifeMateRuntimeLocale.select(fa: 'برای مراقبت از دیگری', en: 'To care for someone'),
-              LifeMateRuntimeLocale.select(
-                fa: 'همراهی و مراقبت با رضایت صاحب اطلاعات',
-                en: 'Caregiving with the data owner’s consent',
-              ),
+              context.tr('onboarding.account.intentCaregiving'),
+              context.tr('onboarding.account.intentCaregivingDescription'),
             ),
             const SizedBox(height: 12),
             _intentCard(
               LifeMatePresentationIntent.both,
               Icons.diversity_1_outlined,
-              LifeMateRuntimeLocale.select(fa: 'هر دو', en: 'Both'),
-              LifeMateRuntimeLocale.select(
-                fa: 'ابتدا تجربه شخصی؛ اتصال CareMate بعداً و اختیاری',
-                en: 'Personal experience first; CareMate connection stays optional',
-              ),
+              context.tr('onboarding.account.intentBoth'),
+              context.tr('onboarding.account.intentBothDescription'),
             ),
             if (_actionError != null) ...[
               const SizedBox(height: 10),
