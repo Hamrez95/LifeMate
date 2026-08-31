@@ -41,6 +41,15 @@ Deno.test("nearby proposal groups strictly-under-30-minute anchors and preserves
   assertEquals(proposal.expectedNotificationReduction, 1);
 });
 
+Deno.test("29 minutes remains eligible", () => {
+  const proposal = buildNearbyDoseProposal([
+    plan("a", "08:00"),
+    plan("b", "08:29"),
+  ]);
+  assertEquals(proposal.groups.length, 1);
+  assertEquals(proposal.groups[0].sharedLocalTime, "08:15");
+});
+
 Deno.test("exactly 30 minutes is excluded", () => {
   const proposal = buildNearbyDoseProposal([
     plan("a", "08:00"),
@@ -53,13 +62,16 @@ Deno.test("exactly 30 minutes is excluded", () => {
   );
 });
 
-Deno.test("29 minutes remains eligible", () => {
+Deno.test("31 minutes is excluded", () => {
   const proposal = buildNearbyDoseProposal([
     plan("a", "08:00"),
-    plan("b", "08:29"),
+    plan("b", "08:31"),
   ]);
-  assertEquals(proposal.groups.length, 1);
-  assertEquals(proposal.groups[0].sharedLocalTime, "08:15");
+  assertEquals(proposal.groups.length, 0);
+  assertEquals(
+    proposal.exclusions.map((value) => value.reason),
+    ["no_nearby_candidate", "no_nearby_candidate"],
+  );
 });
 
 Deno.test("midnight crossing uses circular distance", () => {
@@ -97,13 +109,21 @@ Deno.test("ambiguous transitive chain is omitted instead of shifting contradicto
   );
 });
 
-Deno.test("24h and 48h recurrence remain exact after proposal", () => {
-  const proposal = buildNearbyDoseProposal([
-    plan("a", "06:00", { intervalHours: 24 }),
-    plan("b", "06:10", { intervalHours: 48 }),
-  ]);
-  assertEquals(
-    proposal.groups[0].changes.map((value) => value.intervalHoursAfter),
-    [24, 48],
-  );
+Deno.test("6h 8h 12h 24h and 48h recurrence remain exact after proposal", () => {
+  const intervals = [6, 8, 12, 24, 48];
+  for (const intervalHours of intervals) {
+    const proposal = buildNearbyDoseProposal([
+      plan(`a-${intervalHours}`, "06:00", { intervalHours }),
+      plan(`b-${intervalHours}`, "06:10", { intervalHours }),
+    ]);
+    assertEquals(proposal.groups.length, 1);
+    assertEquals(
+      proposal.groups[0].changes.every(
+        (value) =>
+          value.intervalHoursBefore === intervalHours &&
+          value.intervalHoursAfter === intervalHours,
+      ),
+      true,
+    );
+  }
 });
