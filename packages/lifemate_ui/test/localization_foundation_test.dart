@@ -42,7 +42,13 @@ void main() {
       'profile.demographics.intersex','profile.privacy.semantic','profile.privacy.label',
       'women.dailyLog.title','women.dailyLog.logToday','women.analytics.title',
       'women.analytics.full','women.circle.create','women.circle.noSharing',
-      'women.insights.settings',
+      'women.insights.settings','women.companion.ownerFallback',
+      'women.companion.companionFallback','women.companion.greeting',
+      'women.companion.todayQuestion','women.companion.caregiverCount',
+      'women.companion.emptyDescription','women.companion.singleDescription',
+      'women.companion.multiDescription','women.companion.stackSemantic',
+      'women.companion.caregiverFallback','women.companion.avatarSemantic',
+      'women.companion.avatarPartnerSemantic','women.companion.partner',
     };
     for (final key in required) {
       expect(lifeMateMessages.hasCompleteKey(key), isTrue, reason: key);
