@@ -26,6 +26,17 @@ PERSIAN_IMPLEMENTATION_FILES = {
     'packages/lifemate_client/lib/src/runtime_locale.dart',
 }
 
+# #674 is an incremental migration. This budget is deliberately a ratchet:
+# every migrated file lowers the number and new LifeMateRuntimeLocale.select
+# call sites are forbidden from growing the remaining legacy surface.
+LEGACY_LOCALE_BRANCH_FILE_BUDGET = 20
+MIGRATED_CATALOG_FILES = {
+    'packages/lifemate_ui/lib/src/remote_config_gate.dart',
+    'packages/lifemate_ui/lib/src/shared_account_onboarding.dart',
+    'packages/lifemate_ui/lib/src/shared_profile_with_privacy.dart',
+    'wellmate/lib/screens/women_calendar/women_daily_log_launcher.dart',
+}
+
 errors: list[str] = []
 
 
@@ -37,6 +48,11 @@ def read(rel: str) -> str:
     return (ROOT / rel).read_text(encoding='utf-8')
 
 
+def runtime_dart_files():
+    for root in RUNTIME_DART_ROOTS:
+        yield from root.rglob('*.dart')
+
+
 def check_root_direction(rel: str) -> None:
     text = read(rel)
     if 'TextDirection.rtl' not in text or 'TextDirection.ltr' not in text:
@@ -45,44 +61,65 @@ def check_root_direction(rel: str) -> None:
         fail(f'{rel}: root direction must be driven by locale languageCode')
 
 
+def check_legacy_locale_branch_ratchet() -> None:
+    legacy_files: list[str] = []
+    needle = 'LifeMateRuntimeLocale.select('
+    for path in runtime_dart_files():
+        text = path.read_text(encoding='utf-8')
+        if needle not in text:
+            continue
+        rel = path.relative_to(ROOT).as_posix()
+        legacy_files.append(rel)
+        if rel in MIGRATED_CATALOG_FILES:
+            fail(f'{rel}: migrated catalog surface regressed to LifeMateRuntimeLocale.select')
+
+    if len(legacy_files) > LEGACY_LOCALE_BRANCH_FILE_BUDGET:
+        fail(
+            'legacy locale branching grew from the #674 ratchet budget: '
+            f'{len(legacy_files)} files > {LEGACY_LOCALE_BRANCH_FILE_BUDGET}; '
+            f'new/returned files={legacy_files}'
+        )
+
+
 def check_no_fixed_rtl() -> None:
     needle = 'textDirection: TextDirection.rtl,'
-    for root in RUNTIME_DART_ROOTS:
-        for path in root.rglob('*.dart'):
-            text = path.read_text(encoding='utf-8')
-            if needle in text:
-                rel = path.relative_to(ROOT).as_posix()
-                fail(f'{rel}: fixed RTL override can reverse English UI')
+    for path in runtime_dart_files():
+        text = path.read_text(encoding='utf-8')
+        if needle in text:
+            rel = path.relative_to(ROOT).as_posix()
+            fail(f'{rel}: fixed RTL override can reverse English UI')
 
 
 def check_persian_literals_are_guarded() -> None:
-    for root in RUNTIME_DART_ROOTS:
-        for path in root.rglob('*.dart'):
-            rel = path.relative_to(ROOT).as_posix()
-            if rel in PERSIAN_IMPLEMENTATION_FILES:
+    for path in runtime_dart_files():
+        rel = path.relative_to(ROOT).as_posix()
+        if rel in PERSIAN_IMPLEMENTATION_FILES:
+            continue
+        text = path.read_text(encoding='utf-8')
+        for literal in scan_dart_string_literals(text):
+            if not PERSIAN_RE.search(literal.body):
                 continue
-            text = path.read_text(encoding='utf-8')
-            for literal in scan_dart_string_literals(text):
-                if not PERSIAN_RE.search(literal.body):
-                    continue
-                lo = max(0, literal.start - 500)
-                hi = min(len(text), literal.end + 500)
-                context = text[lo:hi]
-                guarded_select = (
-                    'LifeMateRuntimeLocale.select' in context and 'en:' in context
+            lo = max(0, literal.start - 500)
+            hi = min(len(text), literal.end + 500)
+            context = text[lo:hi]
+            guarded_catalog = (
+                rel == 'packages/lifemate_ui/lib/src/localization.dart'
+            )
+            guarded_select = (
+                'LifeMateRuntimeLocale.select' in context and 'en:' in context
+            )
+            guarded_ternary = (
+                re.search(r'(?:isPersian|persian|\bfa\b)\s*\?', context) is not None
+                and re.search(r"\:\s*['\"]", context) is not None
+            )
+            guarded_branch = (
+                re.search(r'if\s*\(\s*!persian\s*\)', context) is not None
+            )
+            if not guarded_catalog and not guarded_select and not guarded_ternary and not guarded_branch:
+                fail(
+                    f'{rel}:{literal.line}: Persian runtime literal has no nearby English locale branch: '
+                    f'{literal.body[:80]!r}'
                 )
-                guarded_ternary = (
-                    re.search(r'(?:isPersian|persian)\s*\?', context) is not None
-                    and re.search(r"\:\s*['\"]", context) is not None
-                )
-                guarded_branch = (
-                    re.search(r'if\s*\(\s*!persian\s*\)', context) is not None
-                )
-                if not guarded_select and not guarded_ternary and not guarded_branch:
-                    fail(
-                        f'{rel}:{literal.line}: Persian runtime literal has no nearby English locale branch: '
-                        f'{literal.body[:80]!r}'
-                    )
 
 
 def check_gregorian_english_contract() -> None:
@@ -114,24 +151,23 @@ def check_numeric_inputs() -> None:
     helper_declarations = ('Widget _textField(', 'class _Input ', 'class _ProfileField ')
     formatter_token = 'LifeMateLocaleDigitInputFormatter'
 
-    for root in RUNTIME_DART_ROOTS:
-        for path in root.rglob('*.dart'):
-            text = path.read_text(encoding='utf-8')
-            helper_is_digit_safe = (
-                formatter_token in text
-                and any(declaration in text for declaration in helper_declarations)
+    for path in runtime_dart_files():
+        text = path.read_text(encoding='utf-8')
+        helper_is_digit_safe = (
+            formatter_token in text
+            and any(declaration in text for declaration in helper_declarations)
+        )
+        for match in keyboard_re.finditer(text):
+            lo = max(0, match.start() - 500)
+            hi = min(len(text), match.end() + 650)
+            context = text[lo:hi]
+            if formatter_token in context or helper_is_digit_safe:
+                continue
+            line = text.count('\n', 0, match.start()) + 1
+            fail(
+                f'{path.relative_to(ROOT).as_posix()}:{line}: numeric/phone input '
+                'must normalize digits in English mode'
             )
-            for match in keyboard_re.finditer(text):
-                lo = max(0, match.start() - 500)
-                hi = min(len(text), match.end() + 650)
-                context = text[lo:hi]
-                if formatter_token in context or helper_is_digit_safe:
-                    continue
-                line = text.count('\n', 0, match.start()) + 1
-                fail(
-                    f'{path.relative_to(ROOT).as_posix()}:{line}: numeric/phone input '
-                    'must normalize digits in English mode'
-                )
 
 
 def check_android_widget() -> None:
@@ -154,6 +190,7 @@ def check_android_widget() -> None:
 def main() -> int:
     check_root_direction('wellmate/lib/main.dart')
     check_root_direction('caremate/lib/main.dart')
+    check_legacy_locale_branch_ratchet()
     check_no_fixed_rtl()
     check_persian_literals_are_guarded()
     check_gregorian_english_contract()
@@ -165,7 +202,10 @@ def main() -> int:
         for error in errors:
             print(f'- {error}')
         return 1
-    print('English localization contract passed: copy, LTR, Gregorian dates, Latin digits, and native widget checks are green.')
+    print(
+        'English localization contract passed: copy, legacy-branch ratchet, LTR, '
+        'Gregorian dates, Latin digits, and native widget checks are green.'
+    )
     return 0
 
 
