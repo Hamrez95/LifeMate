@@ -28,9 +28,6 @@ class _MedicationSchedulePreferencesScreenState
   bool _saving = false;
   String? _error;
 
-  bool get _fa => Localizations.localeOf(context).languageCode == 'fa';
-  String _copy(String fa, String en) => _fa ? fa : en;
-
   @override
   void initState() {
     super.initState();
@@ -152,19 +149,22 @@ class _MedicationSchedulePreferencesScreenState
     final recurrence = plan.recurrence;
     final anchor = plan.recurrenceStartLocalTime;
     if (recurrence == null) {
-      return _copy('برنامه با ساعت‌های مشخص', 'Specific-time schedule');
+      return context.tr('medication.schedule.rules.explicitSchedule');
     }
     final unit = recurrence['unit']?.toString();
     final interval = int.tryParse(recurrence['interval']?.toString() ?? '');
     if (unit == 'hour' && interval != null) {
       final intervalText = switch (interval) {
-        24 => _copy('روزانه · هر ۲۴ ساعت', 'Daily · every 24 hours'),
-        48 => _copy('هر ۲ روز · ۴۸ ساعت', 'Every 2 days · 48 hours'),
-        _ => _copy('هر $interval ساعت', 'Every $interval hours'),
+        24 => context.tr('medication.schedule.rules.daily24'),
+        48 => context.tr('medication.schedule.rules.every2Days48'),
+        _ => context.tr(
+            'medication.schedule.rules.everyHours',
+            params: {'hours': interval},
+          ),
       };
       return anchor == null ? intervalText : '$intervalText · $anchor';
     }
-    return _copy('برنامه تکرارشونده', 'Recurring schedule');
+    return context.tr('medication.schedule.rules.recurring');
   }
 
   @override
@@ -271,10 +271,7 @@ class _MedicationSchedulePreferencesScreenState
                       ),
                       const SizedBox(height: 28),
                       Text(
-                        _copy(
-                          'قواعد زمان‌بندی هر دارو',
-                          'Medication timing rules',
-                        ),
+                        context.tr('medication.schedule.rules.sectionTitle'),
                         style: const TextStyle(
                           fontSize: 18,
                           fontWeight: FontWeight.w900,
@@ -283,9 +280,8 @@ class _MedicationSchedulePreferencesScreenState
                       ),
                       const SizedBox(height: 6),
                       Text(
-                        _copy(
-                          'در این بخش فقط محدودیت‌هایی را ثبت می‌کنی که خودت می‌دانی. LifeMate تداخل دارویی یا ایمنی پزشکی را بررسی نمی‌کند.',
-                          'Only record timing constraints you already know. LifeMate does not check drug interactions or medical safety.',
+                        context.tr(
+                          'medication.schedule.rules.sectionDescription',
                         ),
                         style: const TextStyle(height: 1.45),
                       ),
@@ -298,10 +294,7 @@ class _MedicationSchedulePreferencesScreenState
                             borderRadius: BorderRadius.circular(20),
                           ),
                           child: Text(
-                            _copy(
-                              'فعلاً داروی فعالی برای تنظیم زمان‌بندی نداری.',
-                              'There are no active medications to configure yet.',
-                            ),
+                            context.tr('medication.schedule.rules.empty'),
                           ),
                         )
                       else
@@ -310,14 +303,12 @@ class _MedicationSchedulePreferencesScreenState
                             plan: plan,
                             summary: _planSummary(plan),
                             onTap: () => _openPlan(plan),
-                            lockedLabel: _copy('زمان ثابت', 'Fixed timing'),
-                            groupingLabel: _copy(
-                              'پیشنهاد زمان نزدیک مجاز',
-                              'Nearby proposals allowed',
-                            ),
-                            spacingLabel: _copy(
-                              'دستور فاصله ثبت شده',
-                              'Spacing instruction saved',
+                            lockedLabel:
+                                context.tr('medication.schedule.rules.fixed'),
+                            groupingLabel:
+                                context.tr('medication.schedule.rules.nearby'),
+                            spacingLabel: context.tr(
+                              'medication.schedule.rules.spacingSaved',
                             ),
                           ),
                           const SizedBox(height: 10),
