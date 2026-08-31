@@ -41,11 +41,17 @@ class _RelationshipInviteFlowScreenState
     super.dispose();
   }
 
+  bool get _hasValidPhone {
+    try {
+      LifeMateIranPhone.normalizeE164(_phoneController.text);
+      return true;
+    } on FormatException {
+      return false;
+    }
+  }
+
   bool get _canSubmit =>
-      !_saving &&
-      normalizeIranianMobileE164(_phoneController.text) != null &&
-      _relationshipType != null &&
-      _consent;
+      !_saving && _hasValidPhone && _relationshipType != null && _consent;
 
   String get _relationshipLabel => _relationships
           .where((item) => item.$1 == _relationshipType)
@@ -106,8 +112,10 @@ class _RelationshipInviteFlowScreenState
             ),
             if (token.isNotEmpty) ...[
               const SizedBox(height: 16),
-              const Text('کد اتصال',
-                  style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700)),
+              const Text(
+                'کد اتصال',
+                style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700),
+              ),
               const SizedBox(height: 6),
               SelectableText(
                 token,
@@ -178,6 +186,7 @@ class _RelationshipInviteFlowScreenState
                       controller: _phoneController,
                       keyboardType: TextInputType.phone,
                       textDirection: TextDirection.ltr,
+                      inputFormatters: [LifeMateLocaleDigitInputFormatter()],
                       onChanged: (_) => setState(() {}),
                       decoration: InputDecoration(
                         labelText: 'شماره موبایل',
@@ -228,45 +237,33 @@ class _RelationshipInviteFlowScreenState
                           setState(() => _consent = value == true),
                       title: const Text('ارسال این دعوت را تأیید می‌کنم.'),
                       subtitle: const Text(
-                        'این انتخاب به فرد دعوت‌شده دسترسی خودکار به پرونده، Women Health یا Fertility نمی‌دهد.',
+                        'پذیرفتن دعوت فقط رابطه را ایجاد می‌کند؛ هر دسترسی به دارو، تقویم یا داده سلامت نیاز به اجازه جداگانه دارد.',
                       ),
+                      controlAffinity: ListTileControlAffinity.leading,
                     ),
                     if (_error != null) ...[
                       const SizedBox(height: 8),
                       Text(
                         _error!,
-                        style: TextStyle(
-                          color: Theme.of(context).colorScheme.error,
-                          fontWeight: FontWeight.w700,
-                        ),
+                        style: const TextStyle(color: Colors.red),
                       ),
                     ],
                   ],
                 ),
               ),
               Padding(
-                padding: const EdgeInsets.fromLTRB(20, 8, 20, 16),
-                child: SizedBox(
-                  width: double.infinity,
-                  height: 54,
-                  child: FilledButton(
-                    onPressed: _canSubmit ? _submit : null,
-                    style: FilledButton.styleFrom(
-                      backgroundColor: AppColors.primary,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(18),
-                      ),
-                    ),
-                    child: _saving
-                        ? const SizedBox(
-                            width: 22,
-                            height: 22,
-                            child: CircularProgressIndicator(strokeWidth: 2),
-                          )
-                        : const Text(
-                            'ساخت دعوت',
-                            style: TextStyle(fontWeight: FontWeight.w900),
-                          ),
+                padding: const EdgeInsets.fromLTRB(20, 10, 20, 16),
+                child: FilledButton.icon(
+                  onPressed: _canSubmit ? _submit : null,
+                  icon: _saving
+                      ? const SizedBox.square(
+                          dimension: 18,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : const Icon(Icons.send_rounded),
+                  label: Text(_saving ? 'در حال ساخت دعوت…' : 'ساخت دعوت'),
+                  style: FilledButton.styleFrom(
+                    minimumSize: const Size.fromHeight(54),
                   ),
                 ),
               ),
