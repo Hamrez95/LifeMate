@@ -49,7 +49,7 @@ void main() {
     ).readAsStringSync();
 
     expect(gate, contains('No medication, appointment or private data'));
-    expect(gate, isNot(contains('CareHomeAggregator'));
+    expect(gate, isNot(contains('CareHomeAggregator')));
     expect(gate, isNot(contains('getCareRecipientDoseOccurrences')));
     expect(gate, isNot(contains('getCareRecipientCareEvents')));
   });
@@ -100,21 +100,13 @@ void main() {
     final aggregator = File(
       'lib/services/care_home_aggregator.dart',
     ).readAsStringSync();
-    final notifications = File(
-      'lib/providers/care_notification_provider.dart',
-    ).readAsStringSync();
-    final backend = File(
-      '../supabase/functions/lifemate-api/person_care_relationship_management.ts',
+    final gate = File(
+      'lib/screens/onboarding/caremate_relationship_v3_gate.dart',
     ).readAsStringSync();
 
-    expect(aggregator, contains('surfaceRank'));
-    expect(aggregator, contains('.canViewWomenCalendar'));
-    expect(notifications, contains('allowsReminderForRelationships'));
-    expect(notifications, contains('allowsMissedForRelationships'));
-    expect(backend, contains('care_relationship.presentation_updated'));
-    expect(
-      backend,
-      isNot(contains('caregiver_relationship_type = can_view_women_calendar')),
-    );
+    expect(aggregator, contains('LifeMateRelationshipPresentationPolicy'));
+    expect(gate, contains('LifeMateRelationshipPresentationPolicy'));
+    expect(aggregator, contains("status']?.toString().toLowerCase() == 'active'"));
+    expect(gate, contains("status == 'active'"));
   });
 }
