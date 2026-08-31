@@ -5,7 +5,7 @@ import 'package:provider/provider.dart';
 
 import '../../core/theme/app_style.dart';
 
-/// The subscription centre renders the server snapshot only.  It deliberately
+/// The subscription centre renders the server snapshot only. It deliberately
 /// has no local product catalogue, price, promotion, trial or quota constants.
 class LifeMateSubscriptionCenterScreen extends StatefulWidget {
   const LifeMateSubscriptionCenterScreen({super.key, this.focusPeriod = false});
@@ -35,7 +35,10 @@ class _LifeMateSubscriptionCenterScreenState
 
   Future<List<Map<String, dynamic>>> _loadSnapshot() {
     final api = context.read<LifeMateApiClient>();
-    return Future.wait([api.getSubscriptionSnapshot(), api.getPeriodAccessSnapshot()]);
+    return Future.wait([
+      api.getSubscriptionSnapshot(),
+      api.getPeriodAccessSnapshot(),
+    ]);
   }
 
   void _reload() {
@@ -55,30 +58,27 @@ class _LifeMateSubscriptionCenterScreenState
     final controller = TextEditingController();
     final token = await showDialog<String>(
       context: context,
-      builder: (dialogContext) => Directionality(
-        textDirection: TextDirection.rtl,
-        child: AlertDialog(
-          title: const Text('دریافت هدیه'),
-          content: TextField(
-            controller: controller,
-            autofocus: true,
-            textDirection: TextDirection.ltr,
-            decoration: const InputDecoration(
-              labelText: 'کد هدیه',
-              hintText: 'کد دریافت‌شده را وارد کنید',
-            ),
+      builder: (dialogContext) => AlertDialog(
+        title: Text(dialogContext.tr('subscription.center.gift.dialogTitle')),
+        content: TextField(
+          controller: controller,
+          autofocus: true,
+          textDirection: TextDirection.ltr,
+          decoration: InputDecoration(
+            labelText: dialogContext.tr('subscription.center.gift.codeLabel'),
+            hintText: dialogContext.tr('subscription.center.gift.codeHint'),
           ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(dialogContext),
-              child: const Text('انصراف'),
-            ),
-            FilledButton(
-              onPressed: () => Navigator.pop(dialogContext, controller.text),
-              child: const Text('دریافت'),
-            ),
-          ],
         ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext),
+            child: Text(dialogContext.tr('common.cancel')),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(dialogContext, controller.text),
+            child: Text(dialogContext.tr('subscription.center.gift.claim')),
+          ),
+        ],
       ),
     );
     controller.dispose();
@@ -95,26 +95,23 @@ class _LifeMateSubscriptionCenterScreenState
   Future<void> _convertPeriod() async {
     final accepted = await showDialog<bool>(
       context: context,
-      builder: (dialogContext) => Directionality(
-        textDirection: TextDirection.rtl,
-        child: AlertDialog(
-          title: const Text('تبدیل به CocoonMate'),
-          content: const Text(
-            'ارزش باقی‌ماندهٔ اشتراک شما به‌صورت خودکار منتقل می‌شود. '
-            'پس از تبدیل، بازگشت به Period نیازمند اشتراک جدید است. '
-            'تاریخچهٔ تقویم شما حفظ می‌شود.',
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(dialogContext, false),
-              child: const Text('انصراف'),
-            ),
-            FilledButton(
-              onPressed: () => Navigator.pop(dialogContext, true),
-              child: const Text('تبدیل'),
-            ),
-          ],
+      builder: (dialogContext) => AlertDialog(
+        title: Text(
+          dialogContext.tr('subscription.center.convert.dialogTitle'),
         ),
+        content: Text(
+          dialogContext.tr('subscription.center.convert.dialogDescription'),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, false),
+            child: Text(dialogContext.tr('common.cancel')),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(dialogContext, true),
+            child: Text(dialogContext.tr('subscription.center.convert.action')),
+          ),
+        ],
       ),
     );
     if (accepted != true) return;
@@ -133,17 +130,17 @@ class _LifeMateSubscriptionCenterScreenState
       await action();
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
+        SnackBar(
           behavior: SnackBarBehavior.floating,
-          content: Text('وضعیت اشتراک به‌روزرسانی شد.'),
+          content: Text(context.tr('subscription.center.updated')),
         ),
       );
-    } on LifeMateApiException catch (error) {
+    } on LifeMateApiException {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           behavior: SnackBarBehavior.floating,
-          content: Text(error.message),
+          content: Text(context.tr('subscription.center.actionFailed')),
         ),
       );
     } finally {
@@ -153,51 +150,50 @@ class _LifeMateSubscriptionCenterScreenState
 
   @override
   Widget build(BuildContext context) {
-    return Directionality(
-      textDirection: TextDirection.rtl,
-      child: Scaffold(
+    return Scaffold(
+      backgroundColor: AppColors.background,
+      appBar: AppBar(
         backgroundColor: AppColors.background,
-        appBar: AppBar(
-          backgroundColor: AppColors.background,
-          foregroundColor: AppColors.darkBlue,
-          elevation: 0,
-          title: const Text(
-            'اشتراک‌ها',
-            style: TextStyle(fontWeight: FontWeight.w900),
+        foregroundColor: AppColors.darkBlue,
+        elevation: 0,
+        title: Text(
+          context.tr('subscription.center.title'),
+          style: const TextStyle(fontWeight: FontWeight.w900),
+        ),
+        actions: [
+          IconButton(
+            tooltip: context.tr('subscription.center.refresh'),
+            onPressed: _busy ? null : _reload,
+            icon: const Icon(Icons.refresh_rounded),
           ),
-          actions: [
-            IconButton(
-              tooltip: 'تازه‌سازی',
-              onPressed: _busy ? null : _reload,
-              icon: const Icon(Icons.refresh_rounded),
-            ),
-          ],
-        ),
-        body: FutureBuilder<List<Map<String, dynamic>>>(
-          future: _snapshot,
-          builder: (context, state) {
-            if (state.connectionState != ConnectionState.done) {
-              return const Center(child: CircularProgressIndicator());
-            }
-            if (state.hasError) {
-              return _Failure(onRetry: _reload);
-            }
-            return _SubscriptionBody(
-              snapshot: state.data != null && state.data!.isNotEmpty
-                  ? state.data!.first
-                  : const <String, dynamic>{},
-              periodAccess: state.data != null && state.data!.length > 1
-                  ? state.data![1]
-                  : const <String, dynamic>{},
-              theme: _theme,
-              busy: _busy,
-              onStartTrial: _startTrial,
-              onClaimGift: _claimGift,
-              onConvertPeriod: _convertPeriod,
-              onRefresh: () async { _reload(); },
-            );
-          },
-        ),
+        ],
+      ),
+      body: FutureBuilder<List<Map<String, dynamic>>>(
+        future: _snapshot,
+        builder: (context, state) {
+          if (state.connectionState != ConnectionState.done) {
+            return const Center(child: CircularProgressIndicator());
+          }
+          if (state.hasError) {
+            return _Failure(onRetry: _reload);
+          }
+          return _SubscriptionBody(
+            snapshot: state.data != null && state.data!.isNotEmpty
+                ? state.data!.first
+                : const <String, dynamic>{},
+            periodAccess: state.data != null && state.data!.length > 1
+                ? state.data![1]
+                : const <String, dynamic>{},
+            theme: _theme,
+            busy: _busy,
+            onStartTrial: _startTrial,
+            onClaimGift: _claimGift,
+            onConvertPeriod: _convertPeriod,
+            onRefresh: () async {
+              _reload();
+            },
+          );
+        },
       ),
     );
   }
@@ -228,12 +224,16 @@ class _SubscriptionBody extends StatelessWidget {
   Widget build(BuildContext context) {
     final products = _objects(snapshot['products']);
     final entitlements = products
-        .map((product) => <String, dynamic>{
-              'productName': product['name'],
-              'status': product['state'],
-              'active': product['state'] == 'active' || product['state'] == 'trial',
-              'expiresAtLabel': (product['subscription'] as Map?)?['currentPeriodEndUtc'],
-            })
+        .map(
+          (product) => <String, dynamic>{
+            'productName': product['name'],
+            'status': product['state'],
+            'active':
+                product['state'] == 'active' || product['state'] == 'trial',
+            'expiresAtLabel':
+                (product['subscription'] as Map?)?['currentPeriodEndUtc'],
+          },
+        )
         .toList(growable: false);
     final policies = <Map<String, dynamic>>[
       for (final product in products)
@@ -247,7 +247,7 @@ class _SubscriptionBody extends StatelessWidget {
           <String, dynamic>{
             ...offer,
             'title': offer['name'],
-            'priceLabel': _priceLabel(offer['price']),
+            'priceLabel': _priceLabel(context, offer['price']),
           },
     ];
     final trial = periodAccess['trial'] is Map
@@ -275,34 +275,43 @@ class _SubscriptionBody extends StatelessWidget {
           if (periodTrialAvailable)
             _ActionCard(
               icon: Icons.hourglass_bottom_rounded,
-              title: 'دورهٔ آزمایشی تقویم',
-              message: 'مدت دوره از سرور تعیین می‌شود و با نصب دوباره بازنشانی نمی‌شود.',
+              title: context.tr('subscription.center.trial.title'),
+              message: context.tr('subscription.center.trial.message'),
               accent: const Color(0xffd95b93),
-              cta: 'شروع دورهٔ آزمایشی',
+              cta: context.tr('subscription.center.trial.start'),
               onPressed: busy ? null : onStartTrial,
             ),
           if (canConvert) ...[
             const SizedBox(height: 12),
             _ActionCard(
               icon: Icons.auto_awesome_rounded,
-              title: 'تبدیل به CocoonMate',
-              message: 'ارزش واقعیِ باقی‌مانده منتقل می‌شود؛ اطلاعات سلامت و تاریخچه محفوظ می‌ماند.',
+              title: context.tr('subscription.center.convert.cardTitle'),
+              message: context.tr('subscription.center.convert.cardMessage'),
               accent: const Color(0xff6c63ff),
-              cta: 'بررسی و تبدیل',
+              cta: context.tr('subscription.center.convert.cardAction'),
               onPressed: busy ? null : onConvertPeriod,
             ),
           ],
           if (offers.isNotEmpty) ...[
             const SizedBox(height: 20),
-            const _SectionTitle('پیشنهادهای فعال'),
+            _SectionTitle(context.tr('subscription.center.offers.title')),
             const SizedBox(height: 10),
             ...offers.map(
               (offer) => Padding(
                 padding: const EdgeInsets.only(bottom: 10),
                 child: LifeMateOfferCard(
-                  title: _text(offer['title'] ?? offer['name'], fallback: 'اشتراک ویژه'),
-                  priceLabel: _text(offer['priceLabel'], fallback: 'قیمت در حال دریافت'),
-                  compareAtPriceLabel: _nullableText(offer['compareAtPriceLabel']),
+                  title: _text(
+                    offer['title'] ?? offer['name'],
+                    fallback: context.tr(
+                      'subscription.center.offer.fallbackTitle',
+                    ),
+                  ),
+                  priceLabel: _text(
+                    offer['priceLabel'],
+                    fallback: context.tr('subscription.center.price.loading'),
+                  ),
+                  compareAtPriceLabel:
+                      _nullableText(offer['compareAtPriceLabel']),
                   badge: _nullableText(offer['promotionLabel']),
                   theme: theme,
                   selected: offer['activeForCurrentUser'] == true,
@@ -312,33 +321,40 @@ class _SubscriptionBody extends StatelessWidget {
             ),
           ],
           const SizedBox(height: 10),
-          const _SectionTitle('وضعیت دسترسی'),
+          _SectionTitle(context.tr('subscription.center.access.title')),
           const SizedBox(height: 10),
           if (entitlements.isEmpty)
-            const _EmptyState('دسترسی ویژهٔ فعالی ندارید.')
+            _EmptyState(context.tr('subscription.center.access.empty'))
           else
-            ...entitlements.map((item) => _EntitlementTile(item: item, theme: theme)),
+            ...entitlements.map(
+              (item) => _EntitlementTile(item: item, theme: theme),
+            ),
           const SizedBox(height: 16),
-          const _SectionTitle('سقف نسخهٔ رایگان'),
+          _SectionTitle(context.tr('subscription.center.freeLimits.title')),
           const SizedBox(height: 10),
           if (policies.isEmpty)
-            const _EmptyState('سقف‌های حساب از سرور دریافت نشد.')
+            _EmptyState(context.tr('subscription.center.freeLimits.empty'))
           else
-            ...policies.map((policy) => _PolicyTile(policy: policy, theme: theme)),
+            ...policies.map(
+              (policy) => _PolicyTile(policy: policy, theme: theme),
+            ),
           const SizedBox(height: 18),
           _ActionCard(
             icon: Icons.card_giftcard_rounded,
-            title: 'دریافت اشتراک هدیه',
-            message: 'هدیه فقط اشتراک را فعال می‌کند و هیچ دسترسی یا اطلاعات سلامتی را تغییر نمی‌دهد.',
+            title: context.tr('subscription.center.gift.cardTitle'),
+            message: context.tr('subscription.center.gift.cardMessage'),
             accent: const Color(0xffe66d52),
-            cta: 'وارد کردن کد هدیه',
+            cta: context.tr('subscription.center.gift.cardAction'),
             onPressed: busy ? null : onClaimGift,
           ),
           const SizedBox(height: 18),
-          const Text(
-            'قیمت، تخفیف، سقف‌ها و مدت آزمایشی از حساب شما در سرور دریافت می‌شوند.',
+          Text(
+            context.tr('subscription.center.serverNotice'),
             textAlign: TextAlign.center,
-            style: TextStyle(color: AppColors.textSecondary, height: 1.7),
+            style: const TextStyle(
+              color: AppColors.textSecondary,
+              height: 1.7,
+            ),
           ),
         ],
       ),
@@ -347,9 +363,9 @@ class _SubscriptionBody extends StatelessWidget {
 
   void _showOfferNotice(BuildContext context) {
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
+      SnackBar(
         behavior: SnackBarBehavior.floating,
-        content: Text('روش‌های پرداخت فعال هنگام تکمیل خرید نمایش داده می‌شوند.'),
+        content: Text(context.tr('subscription.center.offer.paymentNotice')),
       ),
     );
   }
@@ -357,6 +373,7 @@ class _SubscriptionBody extends StatelessWidget {
 
 class _HeroCard extends StatelessWidget {
   const _HeroCard({required this.theme});
+
   final LifeMateSubscriptionTheme theme;
 
   @override
@@ -365,24 +382,35 @@ class _HeroCard extends StatelessWidget {
         decoration: BoxDecoration(
           gradient: LinearGradient(
             colors: [theme.accent, const Color(0xff2f8158)],
-            begin: Alignment.topRight,
-            end: Alignment.bottomLeft,
+            begin: AlignmentDirectional.topEnd,
+            end: AlignmentDirectional.bottomStart,
           ),
           borderRadius: BorderRadius.circular(26),
         ),
-        child: const Column(
+        child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Icon(Icons.workspace_premium_rounded, color: Colors.white, size: 32),
-            SizedBox(height: 14),
-            Text(
-              'اشتراک متناسب با نیاز شما',
-              style: TextStyle(color: Colors.white, fontSize: 21, fontWeight: FontWeight.w900),
+            const Icon(
+              Icons.workspace_premium_rounded,
+              color: Colors.white,
+              size: 32,
             ),
-            SizedBox(height: 6),
+            const SizedBox(height: 14),
             Text(
-              'دسترسی‌ها و پیشنهادها را امن و شفاف مدیریت کنید.',
-              style: TextStyle(color: Color(0xffe8fff0), height: 1.6),
+              context.tr('subscription.center.hero.title'),
+              style: const TextStyle(
+                color: Colors.white,
+                fontSize: 21,
+                fontWeight: FontWeight.w900,
+              ),
+            ),
+            const SizedBox(height: 6),
+            Text(
+              context.tr('subscription.center.hero.subtitle'),
+              style: const TextStyle(
+                color: Color(0xffe8fff0),
+                height: 1.6,
+              ),
             ),
           ],
         ),
@@ -412,16 +440,28 @@ class _ActionCard extends StatelessWidget {
         decoration: BoxDecoration(
           color: Colors.white,
           borderRadius: BorderRadius.circular(20),
-          border: Border.all(color: accent.withOpacity(.18)),
+          border: Border.all(color: accent.withValues(alpha: .18)),
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Icon(icon, color: accent),
             const SizedBox(height: 10),
-            Text(title, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w900)),
+            Text(
+              title,
+              style: const TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.w900,
+              ),
+            ),
             const SizedBox(height: 4),
-            Text(message, style: const TextStyle(color: AppColors.textSecondary, height: 1.6)),
+            Text(
+              message,
+              style: const TextStyle(
+                color: AppColors.textSecondary,
+                height: 1.6,
+              ),
+            ),
             const SizedBox(height: 14),
             SizedBox(
               width: double.infinity,
@@ -438,6 +478,7 @@ class _ActionCard extends StatelessWidget {
 
 class _EntitlementTile extends StatelessWidget {
   const _EntitlementTile({required this.item, required this.theme});
+
   final Map<String, dynamic> item;
   final LifeMateSubscriptionTheme theme;
 
@@ -446,66 +487,113 @@ class _EntitlementTile extends StatelessWidget {
     final active = item['active'] == true || item['status'] == 'active';
     return ListTile(
       contentPadding: const EdgeInsets.symmetric(horizontal: 4),
-      leading: Icon(active ? Icons.verified_rounded : Icons.lock_outline_rounded,
-          color: active ? theme.accent : AppColors.textSecondary),
-      title: Text(_text(item['label'] ?? item['productName'], fallback: 'اشتراک')),
-      subtitle: Text(_text(item['expiresAtLabel'] ?? item['statusLabel'],
-          fallback: active ? 'فعال' : 'غیرفعال')),
+      leading: Icon(
+        active ? Icons.verified_rounded : Icons.lock_outline_rounded,
+        color: active ? theme.accent : AppColors.textSecondary,
+      ),
+      title: Text(
+        _text(
+          item['label'] ?? item['productName'],
+          fallback: context.tr(
+            'subscription.center.entitlement.fallbackProduct',
+          ),
+        ),
+      ),
+      subtitle: Text(
+        _text(
+          item['expiresAtLabel'] ?? item['statusLabel'],
+          fallback: active
+              ? context.tr('subscription.center.entitlement.active')
+              : context.tr('subscription.center.entitlement.inactive'),
+        ),
+      ),
     );
   }
 }
 
 class _PolicyTile extends StatelessWidget {
   const _PolicyTile({required this.policy, required this.theme});
+
   final Map<String, dynamic> policy;
   final LifeMateSubscriptionTheme theme;
 
   @override
   Widget build(BuildContext context) => LifeMateLockedFeatureIndicator(
-        label: _text(policy['label'] ?? policy['title'], fallback: 'سقف استفاده'),
+        label: _text(
+          policy['label'] ?? policy['title'],
+          fallback: context.tr('subscription.center.policy.fallback'),
+        ),
         theme: theme,
       );
 }
 
 class _SectionTitle extends StatelessWidget {
   const _SectionTitle(this.value);
+
   final String value;
+
   @override
-  Widget build(BuildContext context) =>
-      Text(value, style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w900));
+  Widget build(BuildContext context) => Text(
+        value,
+        style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w900),
+      );
 }
 
 class _EmptyState extends StatelessWidget {
   const _EmptyState(this.value);
+
   final String value;
+
   @override
   Widget build(BuildContext context) => Padding(
         padding: const EdgeInsets.symmetric(vertical: 8),
-        child: Text(value, style: const TextStyle(color: AppColors.textSecondary)),
+        child: Text(
+          value,
+          style: const TextStyle(color: AppColors.textSecondary),
+        ),
       );
 }
 
 class _Failure extends StatelessWidget {
   const _Failure({required this.onRetry});
+
   final VoidCallback onRetry;
+
   @override
   Widget build(BuildContext context) => Center(
         child: Padding(
           padding: const EdgeInsets.all(24),
-          child: Column(mainAxisSize: MainAxisSize.min, children: [
-            const Icon(Icons.cloud_off_rounded, size: 48, color: AppColors.textSecondary),
-            const SizedBox(height: 12),
-            const Text('وضعیت اشتراک دریافت نشد.', textAlign: TextAlign.center),
-            const SizedBox(height: 12),
-            OutlinedButton.icon(onPressed: onRetry, icon: const Icon(Icons.refresh_rounded), label: const Text('تلاش دوباره')),
-          ]),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Icon(
+                Icons.cloud_off_rounded,
+                size: 48,
+                color: AppColors.textSecondary,
+              ),
+              const SizedBox(height: 12),
+              Text(
+                context.tr('subscription.center.loadFailed'),
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 12),
+              OutlinedButton.icon(
+                onPressed: onRetry,
+                icon: const Icon(Icons.refresh_rounded),
+                label: Text(context.tr('common.retry')),
+              ),
+            ],
+          ),
         ),
       );
 }
 
 List<Map<String, dynamic>> _objects(dynamic value) {
   if (value is! List) return const [];
-  return value.whereType<Map>().map((item) => Map<String, dynamic>.from(item)).toList(growable: false);
+  return value
+      .whereType<Map>()
+      .map((item) => Map<String, dynamic>.from(item))
+      .toList(growable: false);
 }
 
 int? _trialDays(dynamic remainingSeconds) {
@@ -514,25 +602,33 @@ int? _trialDays(dynamic remainingSeconds) {
   return (seconds / Duration.secondsPerDay).ceil();
 }
 
-String _priceLabel(dynamic value) {
-  if (value is! Map) return 'قیمت در حال دریافت';
+String _priceLabel(BuildContext context, dynamic value) {
+  if (value is! Map) return context.tr('subscription.center.price.loading');
   final amount = value['amountMinor']?.toString();
   final currency = value['currency']?.toString();
-  return amount == null || currency == null ? 'قیمت در حال دریافت' : '$amount $currency';
+  return amount == null || currency == null
+      ? context.tr('subscription.center.price.loading')
+      : '$amount $currency';
 }
 
-Map<String, dynamic>? _firstByCode(List<Map<String, dynamic>> values, String code) {
+Map<String, dynamic>? _firstByCode(
+  List<Map<String, dynamic>> values,
+  String code,
+) {
   for (final value in values) {
     if (value['productCode'] == code || value['familyCode'] == code) return value;
   }
   return null;
 }
 
-int? _asInt(dynamic value) => value is int ? value : int.tryParse(value?.toString() ?? '');
+int? _asInt(dynamic value) =>
+    value is int ? value : int.tryParse(value?.toString() ?? '');
+
 String _text(dynamic value, {required String fallback}) {
   final result = value?.toString().trim();
   return result == null || result.isEmpty ? fallback : result;
 }
+
 String? _nullableText(dynamic value) {
   final result = value?.toString().trim();
   return result == null || result.isEmpty ? null : result;
