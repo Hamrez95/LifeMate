@@ -5,6 +5,7 @@ import { createGrowthStore } from "./growth.ts";
 import { requireMutationIdempotencyKey } from "./idempotency.ts";
 import { json } from "./http.ts";
 import { createLegalPrivacyRouteHandler } from "./legal_privacy_routes.ts";
+import { createMedicationScheduleRouteHandler } from "./medication_schedule_routes.ts";
 import { createProductTelemetryV2RouteHandler } from "./product_telemetry_v2_routes.ts";
 import { createPushRegistrationRouteHandler } from "./push_registrations_routes.ts";
 import { enforceRateLimit } from "./security.ts";
@@ -17,6 +18,7 @@ export function createGrowthRouteHandler(databaseUrl: string, contactHashingSecr
   const store = createGrowthStore(databaseUrl, contactHashingSecret);
   const experimentAssignmentRoutes = createExperimentAssignmentRouteHandler(databaseUrl, contactHashingSecret);
   const legalPrivacyRoutes = createLegalPrivacyRouteHandler(databaseUrl);
+  const medicationScheduleRoutes = createMedicationScheduleRouteHandler(databaseUrl);
   const productTelemetryRoutes = createProductTelemetryV2RouteHandler(databaseUrl);
   const clientRemoteConfigRoutes = createClientRemoteConfigRouteHandler(databaseUrl);
   const pushRegistrationRoutes = createPushRegistrationRouteHandler(databaseUrl);
@@ -25,6 +27,7 @@ export function createGrowthRouteHandler(databaseUrl: string, contactHashingSecr
   return async function growthRouteHandler(input: { request: Request; path: string; appUserId: string }): Promise<Response | null> {
     const experimentAssignmentResponse = await experimentAssignmentRoutes(input); if (experimentAssignmentResponse) return experimentAssignmentResponse;
     const legalPrivacyResponse = await legalPrivacyRoutes(input); if (legalPrivacyResponse) return legalPrivacyResponse;
+    const medicationScheduleResponse = await medicationScheduleRoutes(input); if (medicationScheduleResponse) return medicationScheduleResponse;
     const productTelemetryResponse = await productTelemetryRoutes(input); if (productTelemetryResponse) return productTelemetryResponse;
     const runtimeConfigResponse = await clientRemoteConfigRoutes(input); if (runtimeConfigResponse) return runtimeConfigResponse;
     const pushRegistrationResponse = await pushRegistrationRoutes(input); if (pushRegistrationResponse) return pushRegistrationResponse;
