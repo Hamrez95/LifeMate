@@ -25,7 +25,7 @@ Deno.test("exact sleep-aware anchor may move more than 30 minutes but preserves 
 });
 
 Deno.test("exact mode keeps 6h 8h 12h 24h 48h canonical intervals", () => {
-  for (finalHours in [6, 8, 12, 24, 48]) {
+  for (const finalHours of [6, 8, 12, 24, 48]) {
     const proposal = proposeExactSleepAwareAnchor({
       anchorLocalTime: "23:30",
       intervalHours: finalHours,
