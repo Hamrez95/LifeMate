@@ -62,28 +62,38 @@ alter table lifemate.medication_schedule_preferences force row level security;
 alter table lifemate.treatment_plan_timing_constraints enable row level security;
 alter table lifemate.treatment_plan_timing_constraints force row level security;
 
-revoke all on lifemate.medication_schedule_preferences from public, anon, authenticated;
-revoke all on lifemate.treatment_plan_timing_constraints from public, anon, authenticated;
-grant select, insert, update, delete on lifemate.medication_schedule_preferences to lifemate_edge_runtime;
-grant select, insert, update, delete on lifemate.treatment_plan_timing_constraints to lifemate_edge_runtime;
-grant select on lifemate.medication_schedule_preferences to lifemate_backup_reader;
-grant select on lifemate.treatment_plan_timing_constraints to lifemate_backup_reader;
+revoke all on lifemate.medication_schedule_preferences from public;
+revoke all on lifemate.treatment_plan_timing_constraints from public;
 
-drop policy if exists lifemate_edge_runtime_access on lifemate.medication_schedule_preferences;
-create policy lifemate_edge_runtime_access
-on lifemate.medication_schedule_preferences
-for all
-to lifemate_edge_runtime
-using (true)
-with check (true);
+do $$
+begin
+  if to_regrole('anon') is not null then
+    execute 'revoke all on lifemate.medication_schedule_preferences from anon';
+    execute 'revoke all on lifemate.treatment_plan_timing_constraints from anon';
+  end if;
+  if to_regrole('authenticated') is not null then
+    execute 'revoke all on lifemate.medication_schedule_preferences from authenticated';
+    execute 'revoke all on lifemate.treatment_plan_timing_constraints from authenticated';
+  end if;
+  if to_regrole('lifemate_edge_runtime') is not null then
+    execute 'grant select, insert, update, delete on lifemate.medication_schedule_preferences to lifemate_edge_runtime';
+    execute 'grant select, insert, update, delete on lifemate.treatment_plan_timing_constraints to lifemate_edge_runtime';
+  end if;
+  if to_regrole('lifemate_backup_reader') is not null then
+    execute 'grant select on lifemate.medication_schedule_preferences to lifemate_backup_reader';
+    execute 'grant select on lifemate.treatment_plan_timing_constraints to lifemate_backup_reader';
+  end if;
+end $$;
 
-drop policy if exists lifemate_edge_runtime_access on lifemate.treatment_plan_timing_constraints;
-create policy lifemate_edge_runtime_access
-on lifemate.treatment_plan_timing_constraints
-for all
-to lifemate_edge_runtime
-using (true)
-with check (true);
+do $$
+begin
+  if to_regrole('lifemate_edge_runtime') is not null then
+    execute 'drop policy if exists lifemate_edge_runtime_access on lifemate.medication_schedule_preferences';
+    execute 'create policy lifemate_edge_runtime_access on lifemate.medication_schedule_preferences for all to lifemate_edge_runtime using (true) with check (true)';
+    execute 'drop policy if exists lifemate_edge_runtime_access on lifemate.treatment_plan_timing_constraints';
+    execute 'create policy lifemate_edge_runtime_access on lifemate.treatment_plan_timing_constraints for all to lifemate_edge_runtime using (true) with check (true)';
+  end if;
+end $$;
 
 comment on table lifemate.medication_schedule_preferences is
   'Person-owned non-clinical timing preferences used only by the authenticated API to prepare explicit medication schedule proposals; browser roles have no direct access.';
