@@ -7,11 +7,12 @@ const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..')
 const read = (relativePath) => readFile(path.join(root, relativePath), 'utf8');
 
 async function main() {
-  const [wellMain, careMain, auth, account, profile] = await Promise.all([
+  const [wellMain, careMain, auth, account, accountApi, profile] = await Promise.all([
     read('wellmate/lib/main.dart'),
     read('caremate/lib/main.dart'),
     read('packages/lifemate_ui/lib/src/shared_auth_experience.dart'),
     read('packages/lifemate_ui/lib/src/shared_account_onboarding.dart'),
+    read('packages/lifemate_client/lib/src/account_onboarding_api.dart'),
     read('supabase/functions/lifemate-api/profile.ts'),
   ]);
 
@@ -27,8 +28,11 @@ async function main() {
   assert.ok(auth.includes('LifeMateAuth.sendPhoneOtp'));
   assert.ok(auth.includes('LifeMateAuth.verifyPhoneOtp'));
   assert.ok(account.includes('presentationIntent'));
-  assert.ok(account.includes('completeOnboarding'));
+  assert.ok(account.includes('_api.complete('));
   assert.ok(account.includes('displayName'));
+  assert.ok(accountApi.includes("'/api/v1/me/profile'"));
+  assert.ok(accountApi.includes("'completeOnboarding': true"));
+  assert.ok(accountApi.includes("'presentationIntent': intent.wireValue"));
   assert.ok(profile.includes('presentation_intent'));
   assert.ok(profile.includes('profile.onboarding_completed'));
   assert.ok(profile.includes('core.person_profiles'));
@@ -82,11 +86,13 @@ async function main() {
     read('caremate/lib/services/care_home_aggregator.dart'),
     read('supabase/functions/lifemate-api/person_invitation_acceptance.ts'),
   ]);
-  assert.ok(careGate.includes('_relationshipHint'));
+  assert.ok(careGate.includes('LifeMateCareRelationshipInvitationApi.fromEnvironment'));
+  assert.ok(careGate.includes('preview(token: normalizedToken)'));
+  assert.ok(careGate.includes("preview['relationshipType']"));
+  assert.ok(careGate.includes('acceptCareInvitation(token: normalizedToken)'));
   assert.ok(!careGate.includes("'relationshipType': _relationshipHint"));
   assert.ok(!careGate.includes("'relationshipHint': _relationshipHint"));
   assert.ok(careGate.includes('getCareRelationships()'));
-  assert.ok(careGate.includes('acceptCareInvitation'));
   assert.ok(careGate.includes('getCareRecipientWomenCalendar'));
   assert.ok(careGate.includes('viewFertilityEstimate'));
   assert.ok(careGate.includes('receiveFertilityNotifications'));

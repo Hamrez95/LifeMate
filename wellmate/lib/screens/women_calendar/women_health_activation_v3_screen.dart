@@ -38,8 +38,6 @@ class _WomenHealthActivationV3ScreenState
   DateTime? _lastPeriodStart;
   String _regularity = 'unknown';
 
-  bool get _isPersian => LifeMateRuntimeLocale.isPersian;
-
   @override
   void initState() {
     super.initState();
@@ -80,10 +78,7 @@ class _WomenHealthActivationV3ScreenState
       if (!mounted) return;
       setState(() {
         _loading = false;
-        _error = LifeMateRuntimeLocale.select(
-          fa: 'اطلاعات تقویم دریافت نشد. دوباره تلاش کن.',
-          en: 'Cycle information could not be loaded. Try again.',
-        );
+        _error = context.tr('women.activation.loadFailed');
       });
     }
   }
@@ -91,10 +86,7 @@ class _WomenHealthActivationV3ScreenState
   void _next() {
     if (_step == 3 && _lastPeriodStart == null) {
       setState(() {
-        _error = LifeMateRuntimeLocale.select(
-          fa: 'اولین روز آخرین پریود را انتخاب کن.',
-          en: 'Select the first day of your last period.',
-        );
+        _error = context.tr('women.activation.selectLastPeriod');
       });
       return;
     }
@@ -122,10 +114,7 @@ class _WomenHealthActivationV3ScreenState
       initialDate: _lastPeriodStart ?? DateTime.now(),
       firstDate: DateTime(2015),
       lastDate: DateTime.now(),
-      title: LifeMateRuntimeLocale.select(
-        fa: 'اولین روز آخرین پریود',
-        en: 'First day of your last period',
-      ),
+      title: context.tr('women.activation.datePickerTitle'),
     );
     if (selected != null && mounted) {
       setState(() {
@@ -163,19 +152,13 @@ class _WomenHealthActivationV3ScreenState
       }
       setState(() {
         _saving = false;
-        _error = LifeMateRuntimeLocale.select(
-          fa: 'فعال‌سازی ذخیره نشد. اتصال را بررسی کن.',
-          en: 'Activation was not saved. Check your connection.',
-        );
+        _error = context.tr('women.activation.saveConnectionFailed');
       });
     } catch (_) {
       if (!mounted) return;
       setState(() {
         _saving = false;
-        _error = LifeMateRuntimeLocale.select(
-          fa: 'فعال‌سازی ذخیره نشد. دوباره تلاش کن.',
-          en: 'Activation was not saved. Try again.',
-        );
+        _error = context.tr('women.activation.saveFailed');
       });
     }
   }
@@ -186,16 +169,10 @@ class _WomenHealthActivationV3ScreenState
       return _frame(
         body: _question(
           Icons.favorite_outline_rounded,
-          LifeMateRuntimeLocale.select(
-            fa: 'Women Health را آماده می‌کنیم',
-            en: 'Preparing Women Health',
-          ),
-          LifeMateRuntimeLocale.select(fa: 'چند لحظه صبر کن.', en: 'One moment.'),
+          context.tr('women.activation.preparingTitle'),
+          context.tr('women.activation.oneMoment'),
         ),
-        primaryLabel: LifeMateRuntimeLocale.select(
-          fa: 'در حال آماده‌سازی',
-          en: 'Preparing',
-        ),
+        primaryLabel: context.tr('common.preparing'),
         busy: true,
       );
     }
@@ -203,13 +180,10 @@ class _WomenHealthActivationV3ScreenState
       return _frame(
         body: _question(
           Icons.cloud_off_outlined,
-          LifeMateRuntimeLocale.select(
-            fa: 'فعلاً اطلاعات در دسترس نیست',
-            en: 'Information is unavailable',
-          ),
+          context.tr('women.activation.unavailableTitle'),
           _error ?? '',
         ),
-        primaryLabel: LifeMateRuntimeLocale.select(fa: 'تلاش دوباره', en: 'Try again'),
+        primaryLabel: context.tr('common.retry'),
         onPrimary: _load,
       );
     }
@@ -223,15 +197,15 @@ class _WomenHealthActivationV3ScreenState
         _ => _regularityStep(),
       },
       primaryLabel: _step == 4
-          ? LifeMateRuntimeLocale.select(
-              fa: 'ورود به تقویم بانوان',
-              en: 'Open Period Calendar',
-            )
-          : LifeMateRuntimeLocale.select(fa: 'ادامه', en: 'Continue'),
+          ? context.tr('women.activation.openCalendar')
+          : context.tr('common.continue'),
       onPrimary: _saving ? null : _next,
       busy: _saving,
       progress: (_step + 1) / 5,
-      progressLabel: _isPersian ? '${_step + 1} از ۵' : '${_step + 1} of 5',
+      progressLabel: context.tr(
+        'women.activation.progress',
+        params: {'current': localizeDigits(context, _step + 1)},
+      ),
       onBack: _step == 0 ? null : _back,
     );
   }
@@ -241,22 +215,13 @@ class _WomenHealthActivationV3ScreenState
           const Spacer(),
           _question(
             Icons.calendar_month_outlined,
-            LifeMateRuntimeLocale.select(
-              fa: 'تقویم بانوان را فعال می‌کنی؟',
-              en: 'Activate Period Calendar?',
-            ),
-            LifeMateRuntimeLocale.select(
-              fa: 'فقط چند داده پایه چرخه را می‌پرسیم. Mood، علائم، یادداشت خصوصی و هدف باروری جزو این مرحله نیستند.',
-              en: 'We only ask for basic cycle data. Mood, symptoms, private notes and fertility intent are not part of activation.',
-            ),
+            context.tr('women.activation.activateTitle'),
+            context.tr('women.activation.activateDescription'),
           ),
           const SizedBox(height: 22),
           _softNote(
             Icons.lock_outline_rounded,
-            LifeMateRuntimeLocale.select(
-              fa: 'این اطلاعات در همان پروفایل واقعی Period Calendar ذخیره می‌شود و بعداً قابل ویرایش است.',
-              en: 'This is saved in the real Period Calendar profile and remains editable later.',
-            ),
+            context.tr('women.activation.privacyNote'),
           ),
           const Spacer(flex: 2),
         ],
@@ -267,34 +232,26 @@ class _WomenHealthActivationV3ScreenState
           const Spacer(),
           _question(
             Icons.rotate_right_rounded,
-            LifeMateRuntimeLocale.select(
-              fa: 'چرخه‌ات معمولاً چند روزه است؟',
-              en: 'How long is your cycle usually?',
-            ),
+            context.tr('women.activation.cycleTitle'),
             _cycleKnown
-                ? LifeMateRuntimeLocale.select(
-                    fa: 'اگر می‌دانی، عدد را تنظیم کن.',
-                    en: 'Adjust the number if you know it.',
-                  )
-                : LifeMateRuntimeLocale.select(
-                    fa: 'یک مقدار سازگاری برای موتور نگه می‌داریم، اما آن را به‌عنوان عدد معلوم تو نمایش نمی‌دهیم.',
-                    en: 'A compatibility value is retained for the engine, but it is not presented as a known value.',
-                  ),
+                ? context.tr('women.activation.cycleKnownDescription')
+                : context.tr('women.activation.cycleUnknownDescription'),
           ),
           const SizedBox(height: 18),
-          if (_cycleKnown) _numberSelector(
-            value: _cycleLength,
-            min: 21,
-            max: 45,
-            suffix: LifeMateRuntimeLocale.select(fa: 'روز', en: 'days'),
-            onChanged: (value) => setState(() => _cycleLength = value),
-          ),
+          if (_cycleKnown)
+            _numberSelector(
+              value: _cycleLength,
+              min: 21,
+              max: 45,
+              suffix: context.tr('women.activation.days'),
+              onChanged: (value) => setState(() => _cycleLength = value),
+            ),
           const SizedBox(height: 14),
           Row(
             children: [
               Expanded(
                 child: _compactChoice(
-                  label: LifeMateRuntimeLocale.select(fa: 'نمی‌دانم', en: 'I’m not sure'),
+                  label: context.tr('women.activation.notSure'),
                   selected: !_cycleKnown && _regularity != 'irregular',
                   onTap: () => setState(() {
                     _cycleKnown = false;
@@ -305,7 +262,7 @@ class _WomenHealthActivationV3ScreenState
               const SizedBox(width: 10),
               Expanded(
                 child: _compactChoice(
-                  label: LifeMateRuntimeLocale.select(fa: 'نامنظم است', en: 'It’s irregular'),
+                  label: context.tr('women.activation.irregularChoice'),
                   selected: !_cycleKnown && _regularity == 'irregular',
                   onTap: () => setState(() {
                     _cycleKnown = false;
@@ -319,10 +276,7 @@ class _WomenHealthActivationV3ScreenState
             const SizedBox(height: 10),
             TextButton(
               onPressed: () => setState(() => _cycleKnown = true),
-              child: Text(LifeMateRuntimeLocale.select(
-                fa: 'عدد چرخه را وارد می‌کنم',
-                en: 'I know the cycle length',
-              )),
+              child: Text(context.tr('women.activation.enterCycleLength')),
             ),
           ],
           const Spacer(flex: 2),
@@ -334,26 +288,21 @@ class _WomenHealthActivationV3ScreenState
           const Spacer(),
           _question(
             Icons.water_drop_outlined,
-            LifeMateRuntimeLocale.select(
-              fa: 'پریود معمولاً چند روز طول می‌کشد؟',
-              en: 'How long does your period usually last?',
-            ),
-            LifeMateRuntimeLocale.select(
-              fa: 'اگر مطمئن نیستی، می‌توانی «مطمئن نیستم» را انتخاب کنی.',
-              en: 'Choose “Not sure” if you do not know yet.',
-            ),
+            context.tr('women.activation.periodTitle'),
+            context.tr('women.activation.periodDescription'),
           ),
           const SizedBox(height: 18),
-          if (_periodKnown) _numberSelector(
-            value: _periodLength,
-            min: 1,
-            max: 10,
-            suffix: LifeMateRuntimeLocale.select(fa: 'روز', en: 'days'),
-            onChanged: (value) => setState(() => _periodLength = value),
-          ),
+          if (_periodKnown)
+            _numberSelector(
+              value: _periodLength,
+              min: 1,
+              max: 10,
+              suffix: context.tr('women.activation.days'),
+              onChanged: (value) => setState(() => _periodLength = value),
+            ),
           const SizedBox(height: 14),
           _compactChoice(
-            label: LifeMateRuntimeLocale.select(fa: 'مطمئن نیستم', en: 'Not sure'),
+            label: context.tr('women.activation.periodNotSure'),
             selected: !_periodKnown,
             onTap: () => setState(() => _periodKnown = !_periodKnown),
           ),
@@ -366,28 +315,19 @@ class _WomenHealthActivationV3ScreenState
           const Spacer(),
           _question(
             Icons.event_outlined,
-            LifeMateRuntimeLocale.select(
-              fa: 'اولین روز آخرین پریود چه تاریخی بود؟',
-              en: 'When did your last period start?',
-            ),
-            LifeMateRuntimeLocale.select(
-              fa: 'در رابط فارسی، انتخاب تاریخ با تقویم شمسی انجام می‌شود و به تاریخ canonical تبدیل می‌شود.',
-              en: 'The date is stored canonically after selection.',
-            ),
+            context.tr('women.activation.dateTitle'),
+            context.tr('women.activation.dateDescription'),
           ),
           const SizedBox(height: 24),
           Semantics(
             button: true,
-            label: LifeMateRuntimeLocale.select(
-              fa: 'انتخاب اولین روز آخرین پریود',
-              en: 'Select first day of last period',
-            ),
+            label: context.tr('women.activation.dateSemantic'),
             child: OutlinedButton.icon(
               onPressed: _pickLastPeriod,
               icon: const Icon(Icons.calendar_today_rounded),
               label: Text(
                 _lastPeriodStart == null
-                    ? LifeMateRuntimeLocale.select(fa: 'انتخاب تاریخ', en: 'Choose date')
+                    ? context.tr('women.activation.chooseDate')
                     : formatAppDate(context, _lastPeriodStart!),
               ),
             ),
@@ -405,21 +345,15 @@ class _WomenHealthActivationV3ScreenState
           const Spacer(),
           _question(
             Icons.insights_outlined,
-            LifeMateRuntimeLocale.select(
-              fa: 'چرخه‌ات چقدر منظم است؟',
-              en: 'How regular is your cycle?',
-            ),
-            LifeMateRuntimeLocale.select(
-              fa: 'این پاسخ فقط توصیف خودت از چرخه است؛ از آن هدف باروری یا مجوز پزشکی استنباط نمی‌کنیم.',
-              en: 'This is only your description of cycle regularity; we do not infer fertility intent or medical permission.',
-            ),
+            context.tr('women.activation.regularityTitle'),
+            context.tr('women.activation.regularityDescription'),
           ),
           const SizedBox(height: 18),
-          _option('regular', LifeMateRuntimeLocale.select(fa: 'معمولاً منظم', en: 'Usually regular')),
+          _option('regular', context.tr('women.activation.regular')),
           const SizedBox(height: 10),
-          _option('irregular', LifeMateRuntimeLocale.select(fa: 'نامنظم', en: 'Irregular')),
+          _option('irregular', context.tr('women.activation.irregular')),
           const SizedBox(height: 10),
-          _option('unknown', LifeMateRuntimeLocale.select(fa: 'هنوز مطمئن نیستم', en: 'Not sure yet')),
+          _option('unknown', context.tr('women.activation.notSureYet')),
           if (_error != null) ...[
             const SizedBox(height: 10),
             Text(_error!, style: TextStyle(color: _theme.error)),
@@ -452,14 +386,14 @@ class _WomenHealthActivationV3ScreenState
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             IconButton(
-              tooltip: LifeMateRuntimeLocale.select(fa: 'کمتر', en: 'Decrease'),
+              tooltip: context.tr('common.decrease'),
               onPressed: value <= min ? null : () => onChanged(value - 1),
               icon: const Icon(Icons.remove_rounded),
             ),
             SizedBox(
               width: 110,
               child: Text(
-                '$value $suffix',
+                '${localizeDigits(context, value)} $suffix',
                 textAlign: TextAlign.center,
                 style: TextStyle(
                   color: _theme.ink,
@@ -469,7 +403,7 @@ class _WomenHealthActivationV3ScreenState
               ),
             ),
             IconButton(
-              tooltip: LifeMateRuntimeLocale.select(fa: 'بیشتر', en: 'Increase'),
+              tooltip: context.tr('common.increase'),
               onPressed: value >= max ? null : () => onChanged(value + 1),
               icon: const Icon(Icons.add_rounded),
             ),
@@ -523,7 +457,10 @@ class _WomenHealthActivationV3ScreenState
             Icon(icon, color: _theme.secondary),
             const SizedBox(width: 12),
             Expanded(
-              child: Text(text, style: TextStyle(color: _theme.ink, height: 1.5)),
+              child: Text(
+                text,
+                style: TextStyle(color: _theme.ink, height: 1.5),
+              ),
             ),
           ],
         ),
@@ -547,13 +484,10 @@ class _WomenHealthActivationV3ScreenState
     String? progressLabel,
     VoidCallback? onBack,
   }) => Directionality(
-        textDirection: _isPersian ? TextDirection.rtl : TextDirection.ltr,
+        textDirection: context.lifeMateLocale.textDirection,
         child: LifeMateOnboardingScaffold(
           theme: _theme,
-          title: LifeMateRuntimeLocale.select(
-            fa: 'Women Health',
-            en: 'Women Health',
-          ),
+          title: 'Women Health',
           primaryLabel: primaryLabel,
           onPrimary: onPrimary,
           primaryBusy: busy,
