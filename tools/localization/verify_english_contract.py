@@ -49,6 +49,7 @@ MIGRATED_CATALOG_FILES = {
     'wellmate/lib/screens/treatments/medication_plan_timing_screen.dart',
     'wellmate/lib/screens/treatments/nearby_dose_optimization_screen.dart',
     'wellmate/lib/screens/treatments/grouped_medication_checklist_screen.dart',
+    'wellmate/lib/screens/profile/subscription_center_screen.dart',
 }
 
 # These surfaces have completed the stronger migration: user-facing copy must
@@ -60,6 +61,7 @@ CATALOG_ONLY_FILES = {
     'wellmate/lib/screens/treatments/medication_plan_timing_screen.dart',
     'wellmate/lib/screens/treatments/nearby_dose_optimization_screen.dart',
     'wellmate/lib/screens/treatments/grouped_medication_checklist_screen.dart',
+    'wellmate/lib/screens/profile/subscription_center_screen.dart',
 }
 
 errors: list[str] = []
