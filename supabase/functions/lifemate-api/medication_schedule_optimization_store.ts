@@ -83,8 +83,12 @@ export function createMedicationScheduleOptimizationStore(databaseUrl: string) {
           timingVersion: Number(row.timing_version ?? 0),
           nearbyGroupingEnabled: row.nearby_grouping_enabled === true,
           timingLocked: row.timing_locked === true,
-          manualSpacingBeforeMinutes: Number(row.manual_spacing_before_minutes ?? 0),
-          manualSpacingAfterMinutes: Number(row.manual_spacing_after_minutes ?? 0),
+          manualSpacingBeforeMinutes: Number(
+            row.manual_spacing_before_minutes ?? 0,
+          ),
+          manualSpacingAfterMinutes: Number(
+            row.manual_spacing_after_minutes ?? 0,
+          ),
         });
       }
 
@@ -140,13 +144,21 @@ export function createMedicationScheduleOptimizationStore(databaseUrl: string) {
       `;
       const proposal = proposalRows[0];
       if (!proposal) {
-        throw new ApiError(404,"optimization_proposal_missing","Proposal was not found.");
+        throw new ApiError(
+          404,
+          "optimization_proposal_missing",
+          "Proposal was not found.",
+        );
       }
       if (proposal.status === "Applied") {
         return { proposalId, status: "applied", alreadyApplied: true };
       }
       if (proposal.status !== "Previewed") {
-        throw new ApiError(409,"optimization_proposal_inactive","Proposal is no longer active.");
+        throw new ApiError(
+          409,
+          "optimization_proposal_inactive",
+          "Proposal is no longer active.",
+        );
       }
       if (new Date(proposal.expires_at_utc).getTime() <= Date.now()) {
         await tx`
@@ -154,17 +166,26 @@ export function createMedicationScheduleOptimizationStore(databaseUrl: string) {
           set status='Expired',updated_at_utc=now()
           where id=${proposalId}::uuid
         `;
-        throw new ApiError(409,"optimization_proposal_expired","Proposal expired. Preview again.");
+        throw new ApiError(
+          409,
+          "optimization_proposal_expired",
+          "Proposal expired. Preview again.",
+        );
       }
 
       const changes = await tx`
         select * from lifemate.medication_schedule_optimization_plan_changes
-        where proposal_id=${proposalId}::uuid and owner_person_id=${ownerPersonId}::uuid
+        where proposal_id=${proposalId}::uuid
+          and owner_person_id=${ownerPersonId}::uuid
         order by treatment_plan_id
         for update
       `;
       if (changes.length === 0) {
-        throw new ApiError(409,"optimization_no_changes","Proposal has no applicable changes.");
+        throw new ApiError(
+          409,
+          "optimization_no_changes",
+          "Proposal has no applicable changes.",
+        );
       }
 
       for (const change of changes) {
@@ -183,20 +204,31 @@ export function createMedicationScheduleOptimizationStore(databaseUrl: string) {
         `;
         const plan = planRows[0];
         if (!plan) {
-          throw new ApiError(409,"stale_treatment_plan","Treatment plan changed. Preview again.");
+          throw new ApiError(
+            409,
+            "stale_treatment_plan",
+            "Treatment plan changed. Preview again.",
+          );
         }
         const intervalHours = recurrenceIntervalHours(plan);
         if (
-          Number(plan.version) !== Number(change.expected_treatment_plan_version) ||
-          Number(plan.timing_version ?? 0) !== Number(change.expected_timing_version) ||
+          Number(plan.version) !==
+              Number(change.expected_treatment_plan_version) ||
+          Number(plan.timing_version ?? 0) !==
+              Number(change.expected_timing_version) ||
           intervalHours !== Number(change.interval_hours) ||
-          time(plan.recurrence_start_local_time) !== time(change.old_anchor_local_time) ||
+          time(plan.recurrence_start_local_time) !==
+              time(change.old_anchor_local_time) ||
           plan.nearby_grouping_enabled !== true ||
           plan.timing_locked === true ||
           Number(plan.manual_spacing_before_minutes ?? 0) > 0 ||
           Number(plan.manual_spacing_after_minutes ?? 0) > 0
         ) {
-          throw new ApiError(409,"stale_schedule_proposal","Schedule changed. Preview again.");
+          throw new ApiError(
+            409,
+            "stale_schedule_proposal",
+            "Schedule changed. Preview again.",
+          );
         }
       }
 
@@ -209,6 +241,13 @@ export function createMedicationScheduleOptimizationStore(databaseUrl: string) {
           where id=${change.treatment_plan_id}::uuid
             and patient_person_id=${ownerPersonId}::uuid
           returning id,version,recurrence_start_local_time::text
+        `;
+        await tx`
+          update lifemate.medication_schedule_optimization_plan_changes
+          set applied_treatment_plan_version=${Number(updated[0].version)}
+          where proposal_id=${proposalId}::uuid
+            and treatment_plan_id=${change.treatment_plan_id}::uuid
+            and owner_person_id=${ownerPersonId}::uuid
         `;
         await tx`
           update lifemate.treatment_schedules
@@ -244,11 +283,132 @@ export function createMedicationScheduleOptimizationStore(databaseUrl: string) {
         proposalId,
         status: "applied",
         algorithmVersion: proposal.algorithm_version,
-        expectedNotificationReduction: Number(proposal.expected_notification_reduction),
+        expectedNotificationReduction: Number(
+          proposal.expected_notification_reduction,
+        ),
         applied,
       };
     });
   }
 
-  return { preview, apply };
+  async function undo(
+    appUserId: string,
+    proposalIdValue: unknown,
+  ): Promise<Record<string, unknown>> {
+    const proposalId = requiredUuid(proposalIdValue, "proposalId");
+    return await sql.begin(async (tx: any) => {
+      const ownerPersonId = await requireSelfPerson(tx, appUserId);
+      const proposalRows = await tx`
+        select * from lifemate.medication_schedule_optimization_proposals
+        where id=${proposalId}::uuid and owner_person_id=${ownerPersonId}::uuid
+        for update
+      `;
+      const proposal = proposalRows[0];
+      if (!proposal) {
+        throw new ApiError(
+          404,
+          "optimization_proposal_missing",
+          "Proposal was not found.",
+        );
+      }
+      if (proposal.status === "Undone") {
+        return { proposalId, status: "undone", alreadyUndone: true };
+      }
+      if (proposal.status !== "Applied") {
+        throw new ApiError(
+          409,
+          "optimization_undo_unavailable",
+          "Only an applied proposal can be undone.",
+        );
+      }
+
+      const changes = await tx`
+        select * from lifemate.medication_schedule_optimization_plan_changes
+        where proposal_id=${proposalId}::uuid
+          and owner_person_id=${ownerPersonId}::uuid
+        order by treatment_plan_id
+        for update
+      `;
+      if (changes.length === 0) {
+        throw new ApiError(
+          409,
+          "optimization_no_changes",
+          "Proposal has no applicable changes.",
+        );
+      }
+
+      for (const change of changes) {
+        const planRows = await tx`
+          select p.version,p.recurrence_rule,p.recurrence_start_local_time::text,
+                 p.status,c.version as timing_version
+          from lifemate.treatment_plans p
+          left join lifemate.treatment_plan_timing_constraints c
+            on c.treatment_plan_id=p.id and c.owner_person_id=p.patient_person_id
+          where p.id=${change.treatment_plan_id}::uuid
+            and p.patient_person_id=${ownerPersonId}::uuid
+          for update of p
+        `;
+        const plan = planRows[0];
+        if (!plan ||
+          plan.status !== "Active" ||
+          change.applied_treatment_plan_version == null ||
+          Number(plan.version) !== Number(change.applied_treatment_plan_version) ||
+          Number(plan.timing_version ?? 0) !==
+              Number(change.expected_timing_version) ||
+          recurrenceIntervalHours(plan) !== Number(change.interval_hours) ||
+          time(plan.recurrence_start_local_time) !==
+              time(change.new_anchor_local_time)) {
+          throw new ApiError(
+            409,
+            "optimization_undo_stale",
+            "The schedule changed after apply. Undo requires a fresh review.",
+          );
+        }
+      }
+
+      const undone: Record<string, unknown>[] = [];
+      for (const change of changes) {
+        const updated = await tx`
+          update lifemate.treatment_plans
+          set recurrence_start_local_time=${time(change.old_anchor_local_time)}::time,
+              version=version+1,updated_at_utc=now()
+          where id=${change.treatment_plan_id}::uuid
+            and patient_person_id=${ownerPersonId}::uuid
+          returning id,version,recurrence_start_local_time::text
+        `;
+        await tx`
+          update lifemate.treatment_schedules
+          set local_time=${time(change.old_anchor_local_time)}::time
+          where treatment_plan_id=${change.treatment_plan_id}::uuid
+            and lower(day_of_week)='recurrence'
+        `;
+        await tx`
+          delete from lifemate.dose_occurrences
+          where treatment_plan_id=${change.treatment_plan_id}::uuid
+            and patient_person_id=${ownerPersonId}::uuid
+            and status='Scheduled'
+            and scheduled_at_utc > now()
+        `;
+        undone.push({
+          treatmentPlanId: updated[0].id,
+          version: Number(updated[0].version),
+          restoredAnchorLocalTime: time(updated[0].recurrence_start_local_time),
+          intervalHours: Number(change.interval_hours),
+        });
+      }
+
+      await tx`
+        update lifemate.medication_schedule_optimization_proposals
+        set status='Undone',undone_at_utc=now(),updated_at_utc=now()
+        where id=${proposalId}::uuid and owner_person_id=${ownerPersonId}::uuid
+      `;
+      return {
+        proposalId,
+        status: "undone",
+        undone,
+      };
+    });
+  }
+
+  return { preview, apply, undo };
 }

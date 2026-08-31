@@ -163,6 +163,41 @@ void main() {
     api.close();
   });
 
+  test('nearby optimization undo is POST and idempotent at transport boundary', () async {
+    late http.Request captured;
+    final api = LifeMateMedicationScheduleApi(
+      baseUri: Uri.parse('https://example.test'),
+      accessToken: () => 'token',
+      httpClient: MockClient((request) async {
+        captured = request;
+        return http.Response(
+          jsonEncode({
+            'proposalId': '11111111-1111-1111-1111-111111111111',
+            'status': 'undone',
+            'alreadyUndone': false,
+          }),
+          200,
+          headers: {'content-type': 'application/json'},
+        );
+      }),
+    );
+
+    final result = await api.undoNearbyDoseOptimization(
+      '11111111-1111-1111-1111-111111111111',
+    );
+
+    expect(captured.method, 'POST');
+    expect(
+      captured.url.path,
+      '/api/v1/medication-schedule-optimizations/11111111-1111-1111-1111-111111111111/undo',
+    );
+    expect(captured.headers['idempotency-key'], isNotEmpty);
+    expect(result.proposalId, '11111111-1111-1111-1111-111111111111');
+    expect(result.status, 'undone');
+    expect(result.alreadyUndone, isFalse);
+    api.close();
+  });
+
   test('missing session fails closed without network', () async {
     var called = false;
     final api = LifeMateMedicationScheduleApi(

@@ -10,6 +10,7 @@ import 'package:timezone/timezone.dart' as tz;
 import '../core/state/wellmate_refresh.dart';
 import '../core/utils/string_extensions.dart';
 import '../models/schedule_item_model.dart';
+import 'grouped_medication_notification.dart';
 
 class WellMateNotificationTarget {
   const WellMateNotificationTarget({
@@ -71,6 +72,7 @@ class NotificationProvider extends ChangeNotifier {
   static const completedActionId = 'wellmate-completed';
   static const snoozeActionId = 'wellmate-snooze';
   static const openActionId = 'wellmate-open';
+  static const groupOpenActionId = 'wellmate-group-open';
   static const _reminderPrefix = 'lifemate-reminder:';
   static const _snoozePrefix = 'lifemate-snooze:';
   static const _snoozeDuration = Duration(minutes: 10);
@@ -79,11 +81,14 @@ class NotificationProvider extends ChangeNotifier {
       FlutterLocalNotificationsPlugin();
   LifeMateApiClient? _apiClient;
   NotificationResponse? _pendingMutationResponse;
+  GroupedMedicationNotificationTarget? _pendingGroupedMedicationTarget;
   bool _hasUnread = false;
   bool _initialized = false;
   bool _permissionRequested = false;
 
   bool get hasUnread => _hasUnread;
+  GroupedMedicationNotificationTarget? get pendingGroupedMedicationTarget =>
+      _pendingGroupedMedicationTarget;
 
   void attachApiClient(LifeMateApiClient apiClient) {
     _apiClient = apiClient;
@@ -96,6 +101,12 @@ class NotificationProvider extends ChangeNotifier {
 
   void detachApiClient(LifeMateApiClient apiClient) {
     if (identical(_apiClient, apiClient)) _apiClient = null;
+  }
+
+  GroupedMedicationNotificationTarget? consumePendingGroupedMedicationTarget() {
+    final value = _pendingGroupedMedicationTarget;
+    _pendingGroupedMedicationTarget = null;
+    return value;
   }
 
   Future<void> initialize() async {
@@ -122,6 +133,13 @@ class NotificationProvider extends ChangeNotifier {
   }
 
   Future<void> _handleNotificationResponse(NotificationResponse response) async {
+    final grouped = decodeGroupedMedicationPayload(response.payload);
+    if (grouped != null) {
+      _pendingGroupedMedicationTarget = grouped;
+      setUnread(true);
+      return;
+    }
+
     final target = decodeActionPayload(response.payload);
     if (target == null) {
       setUnread(true);
@@ -193,6 +211,45 @@ class NotificationProvider extends ChangeNotifier {
     }
   }
 
+  Future<void> reportGroupedDose(
+    GroupedMedicationDoseTarget dose, {
+    required String status,
+  }) async {
+    if (status != 'taken' && status != 'skipped') {
+      throw ArgumentError.value(status, 'status');
+    }
+    final apiClient = _apiClient;
+    if (apiClient == null) {
+      throw const LifeMateApiException(
+        statusCode: 401,
+        code: 'session_missing',
+        message: 'Authentication session is missing.',
+      );
+    }
+    await apiClient.reportDose(
+      occurrenceId: dose.occurrenceId,
+      clientRequestId: dose.clientRequestId,
+      version: dose.version,
+      status: status,
+      occurredAtUtc: DateTime.now().toUtc(),
+    );
+    WellMateRefreshSignal.notifyChanged();
+  }
+
+  Future<void> snoozeGroupedDose(
+    GroupedMedicationDoseTarget dose, {
+    required bool isPersian,
+  }) =>
+      _scheduleSnooze(
+        WellMateNotificationTarget(
+          type: 'medicine',
+          id: dose.occurrenceId,
+          version: dose.version,
+          clientRequestId: dose.clientRequestId,
+          isPersian: isPersian,
+        ),
+      );
+
   Future<void> syncReminders(
     List<ScheduleItemModel> items, {
     required String timeZone,
@@ -233,13 +290,79 @@ class NotificationProvider extends ChangeNotifier {
         continue;
       }
       if (payload?.startsWith(_reminderPrefix) == true ||
+          payload?.startsWith(wellMateGroupedMedicationPrefix) == true ||
           payload?.startsWith('dose:') == true) {
         await _notifications.cancel(request.id);
       }
     }
 
     final nowUtc = DateTime.now().toUtc();
+    final medicationCandidates = <GroupedMedicationCandidate>[];
     for (final item in items) {
+      if (item.type != 'medicine' || item.status != 'scheduled') continue;
+      final itemKey = _policyKeyForItem(item);
+      if (preservedSnoozeKeys.contains(itemKey)) continue;
+      final scheduledUtc = _scheduledUtc(item);
+      if (scheduledUtc == null) continue;
+      final decision = LifeMateNotificationIntelligence.evaluate(
+        personId: 'self',
+        sourceId: '${item.type}:${item.id}',
+        status: item.status,
+        scheduledAtUtc: scheduledUtc,
+        nowUtc: nowUtc,
+        stage: LifeMateNotificationStage.reminder,
+      );
+      if (!decision.shouldNotify) continue;
+      final triggerUtc = scheduledUtc.subtract(
+        Duration(minutes: item.patientReminderMinutesBefore),
+      );
+      if (!triggerUtc.isAfter(nowUtc)) continue;
+      medicationCandidates.add(
+        GroupedMedicationCandidate(
+          item: item,
+          scheduledUtc: scheduledUtc,
+          triggerUtc: triggerUtc,
+        ),
+      );
+    }
+
+    final groups = groupMedicationCandidates(medicationCandidates);
+    final groupedOccurrenceIds = <String>{};
+    for (final entry in groups.entries) {
+      final candidates = entry.value;
+      groupedOccurrenceIds.addAll(candidates.map((value) => value.item.id));
+      final ids = candidates.map((value) => value.item.id).toList()..sort();
+      final groupKey =
+          'medication-group:${entry.key.millisecondsSinceEpoch}:${ids.join(',')}';
+      final target = GroupedMedicationNotificationTarget(
+        groupKey: groupKey,
+        isPersian: isPersian,
+        doses: [
+          for (final candidate in candidates)
+            GroupedMedicationDoseTarget(
+              occurrenceId: candidate.item.id,
+              version: candidate.item.version,
+              clientRequestId: LifeMateApiClient.createClientRequestId(),
+              title: candidate.item.title,
+            ),
+        ],
+      );
+      await _notifications.zonedSchedule(
+        notificationIdFor(groupKey),
+        groupedMedicationTitle(target.doses.length, isPersian)
+            .toPersianDigit(isPersian),
+        groupedMedicationBody(target.doses, isPersian).toPersianDigit(isPersian),
+        tz.TZDateTime.from(entry.key, tz.local),
+        NotificationDetails(android: _groupAndroidDetails(isPersian)),
+        androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
+        payload: encodeGroupedMedicationPayload(target),
+      );
+    }
+
+    for (final item in items) {
+      if (item.type == 'medicine' && groupedOccurrenceIds.contains(item.id)) {
+        continue;
+      }
       final itemKey = _policyKeyForItem(item);
       if (preservedSnoozeKeys.contains(itemKey)) continue;
       final scheduledUtc = _scheduledUtc(item);
@@ -319,6 +442,30 @@ class NotificationProvider extends ChangeNotifier {
     visibility: NotificationVisibility.private,
     actions: actionButtonsForTarget(target),
   );
+
+  static AndroidNotificationDetails _groupAndroidDetails(bool isPersian) =>
+      AndroidNotificationDetails(
+        'wellmate_treatment_reminders',
+        isPersian
+            ? 'یادآور برنامه درمان و مراقبت'
+            : 'Treatment and care reminders',
+        channelDescription: isPersian
+            ? 'یادآورهای دارو، ویزیت و تزریق WellMate'
+            : 'WellMate medication, visit and injection reminders',
+        importance: Importance.defaultImportance,
+        priority: Priority.defaultPriority,
+        category: AndroidNotificationCategory.reminder,
+        visibility: NotificationVisibility.private,
+        groupKey: 'wellmate_medication_groups',
+        actions: <AndroidNotificationAction>[
+          AndroidNotificationAction(
+            groupOpenActionId,
+            isPersian ? 'بررسی داروها' : 'Review medications',
+            showsUserInterface: true,
+            cancelNotification: false,
+          ),
+        ],
+      );
 
   static List<AndroidNotificationAction> actionButtonsForTarget(
     WellMateNotificationTarget target,

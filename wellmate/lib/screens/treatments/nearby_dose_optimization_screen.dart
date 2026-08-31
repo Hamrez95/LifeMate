@@ -18,8 +18,10 @@ class _NearbyDoseOptimizationScreenState
   late final LifeMateMedicationScheduleApi _api =
       widget.api ?? LifeMateMedicationScheduleApi.fromEnvironment();
   LifeMateNearbyDoseProposal? _proposal;
+  String? _appliedProposalId;
   bool _loading = true;
   bool _applying = false;
+  bool _undoing = false;
   String? _error;
 
   bool get _fa => Localizations.localeOf(context).languageCode == 'fa';
@@ -41,6 +43,7 @@ class _NearbyDoseOptimizationScreenState
     setState(() {
       _loading = true;
       _error = null;
+      _appliedProposalId = null;
     });
     try {
       final proposal = await _api.previewNearbyDoseOptimization();
@@ -107,19 +110,14 @@ class _NearbyDoseOptimizationScreenState
       _error = null;
     });
     try {
-      await _api.applyNearbyDoseOptimization(proposal.proposalId);
+      final result = await _api.applyNearbyDoseOptimization(proposal.proposalId);
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            _copy(
-              'زمان‌های تأییدشده اعمال شد. فاصله مصرف داروها تغییر نکرد.',
-              'Approved times were applied. Medication intervals were not changed.',
-            ),
-          ),
-        ),
-      );
-      Navigator.of(context).pop(true);
+      setState(() {
+        _applying = false;
+        _appliedProposalId = result.proposalId.isEmpty
+            ? proposal.proposalId
+            : result.proposalId;
+      });
     } on LifeMateApiException catch (error) {
       if (!mounted) return;
       setState(() {
@@ -146,6 +144,53 @@ class _NearbyDoseOptimizationScreenState
     }
   }
 
+  Future<void> _undo() async {
+    final proposalId = _appliedProposalId;
+    if (proposalId == null || _undoing) return;
+    setState(() {
+      _undoing = true;
+      _error = null;
+    });
+    try {
+      await _api.undoNearbyDoseOptimization(proposalId);
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            _copy(
+              'زمان‌های قبلی برگردانده شد. فاصله مصرف داروها همچنان تغییر نکرده است.',
+              'Previous times were restored. Medication intervals remain unchanged.',
+            ),
+          ),
+        ),
+      );
+      await _preview();
+    } on LifeMateApiException catch (error) {
+      if (!mounted) return;
+      setState(() {
+        _undoing = false;
+        _error = error.statusCode == 409
+            ? _copy(
+                'بعد از اعمال، برنامه تغییر کرده است و بازگردانی خودکار امن نیست. برنامه را دوباره بررسی کن.',
+                'The schedule changed after apply, so automatic undo is no longer safe. Review the schedule again.',
+              )
+            : _copy(
+                'بازگردانی انجام نشد. دوباره تلاش کن.',
+                'Undo could not be completed. Try again.',
+              );
+      });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() {
+        _undoing = false;
+        _error = _copy(
+          'بازگردانی انجام نشد. اتصال را بررسی کن.',
+          'Undo could not be completed. Check your connection.',
+        );
+      });
+    }
+  }
+
   String _reason(String reason) => switch (reason) {
         'timing_locked' => _copy('زمان این دارو قفل است', 'Timing is locked'),
         'manual_spacing' => _copy(
@@ -166,6 +211,7 @@ class _NearbyDoseOptimizationScreenState
   @override
   Widget build(BuildContext context) {
     final proposal = _proposal;
+    final applied = _appliedProposalId != null;
     return Scaffold(
       backgroundColor: AppColors.background,
       appBar: AppBar(
@@ -188,7 +234,27 @@ class _NearbyDoseOptimizationScreenState
                     ),
                   ),
                   const SizedBox(height: 14),
-                  if (_error != null) ...[
+                  if (applied) ...[
+                    _InfoCard(
+                      icon: Icons.verified_rounded,
+                      text: _copy(
+                        'تغییرات تأییدشده اعمال شد. فاصله زمانی اصلی هر دارو دست‌نخورده مانده است. تا وقتی برنامه را دوباره تغییر نداده‌ای، می‌توانی این تغییر زمان را برگردانی.',
+                        'The approved timing changes were applied. Each medication keeps its original exact interval. You can undo this timing change while the schedule remains untouched.',
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    OutlinedButton.icon(
+                      key: const ValueKey('nearby-optimization-undo'),
+                      onPressed: _undoing ? null : _undo,
+                      icon: _undoing
+                          ? const SizedBox.square(
+                              dimension: 18,
+                              child: CircularProgressIndicator(strokeWidth: 2),
+                            )
+                          : const Icon(Icons.undo_rounded),
+                      label: Text(_copy('بازگردانی زمان‌ها', 'Undo timing changes')),
+                    ),
+                  ] else if (_error != null) ...[
                     _InfoCard(icon: Icons.error_outline_rounded, text: _error!),
                     const SizedBox(height: 12),
                     OutlinedButton.icon(
@@ -237,7 +303,9 @@ class _NearbyDoseOptimizationScreenState
                       label: Text(_copy('اعمال تغییرات', 'Apply changes')),
                     ),
                   ],
-                  if (proposal != null && proposal.exclusions.isNotEmpty) ...[
+                  if (!applied &&
+                      proposal != null &&
+                      proposal.exclusions.isNotEmpty) ...[
                     const SizedBox(height: 26),
                     Text(
                       _copy('موارد بدون تغییر', 'Unchanged items'),

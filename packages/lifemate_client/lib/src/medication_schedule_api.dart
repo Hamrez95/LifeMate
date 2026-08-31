@@ -252,6 +252,25 @@ class LifeMateNearbyDoseApplyResult {
   final bool alreadyApplied;
 }
 
+class LifeMateNearbyDoseUndoResult {
+  const LifeMateNearbyDoseUndoResult({
+    required this.proposalId,
+    required this.status,
+    required this.alreadyUndone,
+  });
+
+  factory LifeMateNearbyDoseUndoResult.fromJson(Map<String, dynamic> json) =>
+      LifeMateNearbyDoseUndoResult(
+        proposalId: json['proposalId']?.toString() ?? '',
+        status: json['status']?.toString() ?? '',
+        alreadyUndone: json['alreadyUndone'] == true,
+      );
+
+  final String proposalId;
+  final String status;
+  final bool alreadyUndone;
+}
+
 typedef LifeMateMedicationScheduleTokenProvider = String? Function();
 
 class LifeMateMedicationScheduleApi {
@@ -322,6 +341,19 @@ class LifeMateMedicationScheduleApi {
           await _request(
             'POST',
             '/api/v1/medication-schedule-optimizations/$proposalId/apply',
+            body: const <String, dynamic>{'confirmed': true},
+          ),
+        ),
+      );
+
+  Future<LifeMateNearbyDoseUndoResult> undoNearbyDoseOptimization(
+    String proposalId,
+  ) async =>
+      LifeMateNearbyDoseUndoResult.fromJson(
+        _object(
+          await _request(
+            'POST',
+            '/api/v1/medication-schedule-optimizations/$proposalId/undo',
             body: const <String, dynamic>{'confirmed': true},
           ),
         ),
