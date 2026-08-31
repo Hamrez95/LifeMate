@@ -1,12 +1,19 @@
 import { getAdminSql } from "./database_client.ts";
+import type {
+  AdminCircleKind,
+  AdminCircleStatus,
+} from "./circle_directory.ts";
 
 type Row = Record<string, unknown>;
 
 export type AdminCircleListQuery = {
   page: number;
   pageSize: number;
-  status?: "active" | "closed";
-  kind?: "women_health_planning" | "family" | "care" | "pregnancy_support";
+  status?: AdminCircleStatus;
+  kind?: AdminCircleKind;
+  ownerPersonId?: string;
+  memberPersonId?: string;
+  q?: string;
 };
 
 function nullableText(value: unknown): string | null {
@@ -34,6 +41,9 @@ export function createAdminCircleDirectoryStore(databaseUrl: string) {
     const offset = (query.page - 1) * query.pageSize;
     const status = query.status ?? null;
     const kind = query.kind ?? null;
+    const ownerPersonId = query.ownerPersonId ?? null;
+    const memberPersonId = query.memberPersonId ?? null;
+    const search = query.q ? `%${query.q}%` : null;
     const [rows, totals] = await Promise.all([
       sql`
         select
@@ -48,6 +58,22 @@ export function createAdminCircleDirectoryStore(databaseUrl: string) {
         left join network.circle_invitations i on i.circle_id=c.id
         where (${status}::text is null or c.status=${status})
           and (${kind}::text is null or c.circle_kind=${kind})
+          and (${ownerPersonId}::uuid is null or c.owner_person_id=${ownerPersonId}::uuid)
+          and (
+            ${memberPersonId}::uuid is null
+            or exists(
+              select 1
+              from network.circle_members member_filter
+              where member_filter.circle_id=c.id
+                and member_filter.person_id=${memberPersonId}::uuid
+                and member_filter.membership_status='active'
+            )
+          )
+          and (
+            ${search}::text is null
+            or c.name ilike ${search}
+            or owner_profile.display_name ilike ${search}
+          )
         group by c.id,owner_profile.display_name
         order by c.updated_at_utc desc,c.id desc
         limit ${query.pageSize} offset ${offset}
@@ -55,8 +81,25 @@ export function createAdminCircleDirectoryStore(databaseUrl: string) {
       sql`
         select count(*)::integer as total
         from network.circles c
+        left join core.person_profiles owner_profile on owner_profile.person_id=c.owner_person_id
         where (${status}::text is null or c.status=${status})
           and (${kind}::text is null or c.circle_kind=${kind})
+          and (${ownerPersonId}::uuid is null or c.owner_person_id=${ownerPersonId}::uuid)
+          and (
+            ${memberPersonId}::uuid is null
+            or exists(
+              select 1
+              from network.circle_members member_filter
+              where member_filter.circle_id=c.id
+                and member_filter.person_id=${memberPersonId}::uuid
+                and member_filter.membership_status='active'
+            )
+          )
+          and (
+            ${search}::text is null
+            or c.name ilike ${search}
+            or owner_profile.display_name ilike ${search}
+          )
       `,
     ]);
 
@@ -148,7 +191,9 @@ export function createAdminCircleDirectoryStore(databaseUrl: string) {
         role: text(row.membership_role),
         status: text(row.membership_status),
         sharingMode: nullableText(row.sharing_mode) ?? "none",
-        sharingVersion: row.sharing_version == null ? null : integer(row.sharing_version),
+        sharingVersion: row.sharing_version == null
+          ? null
+          : integer(row.sharing_version),
         joinedAtUtc: iso(row.joined_at_utc),
         leftAtUtc: iso(row.left_at_utc),
         removedAtUtc: iso(row.removed_at_utc),
