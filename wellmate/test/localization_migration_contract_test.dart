@@ -36,4 +36,16 @@ void main() {
     expect(source, contains("context.tr('common.retry')"));
     expect(source, isNot(contains('LifeMateRuntimeLocale.select(')));
   });
+
+  test('migrated Women activation uses semantic localization keys and locale direction', () {
+    final source = File(
+      'lib/screens/women_calendar/women_health_activation_v3_screen.dart',
+    ).readAsStringSync();
+
+    expect(source, contains("context.tr('women.activation.activateTitle')"));
+    expect(source, contains("context.tr('women.activation.progress'"));
+    expect(source, contains('context.lifeMateLocale.textDirection'));
+    expect(source, isNot(contains('LifeMateRuntimeLocale.select(')));
+    expect(source, isNot(contains('bool get _isPersian')));
+  });
 }
