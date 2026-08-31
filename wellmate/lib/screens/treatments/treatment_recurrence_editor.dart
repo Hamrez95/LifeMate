@@ -137,11 +137,15 @@ class _TreatmentRecurrenceEditorState extends State<TreatmentRecurrenceEditor> {
 
   String _unitLabel(RecurrenceUnit unit) {
     return switch (unit) {
-      RecurrenceUnit.hour => LifeMateRuntimeLocale.select(fa: 'ساعت', en: 'hours'),
+      RecurrenceUnit.hour =>
+        LifeMateRuntimeLocale.select(fa: 'ساعت', en: 'hours'),
       RecurrenceUnit.day => LifeMateRuntimeLocale.select(fa: 'روز', en: 'days'),
-      RecurrenceUnit.week => LifeMateRuntimeLocale.select(fa: 'هفته', en: 'weeks'),
-      RecurrenceUnit.month => LifeMateRuntimeLocale.select(fa: 'ماه', en: 'months'),
-      RecurrenceUnit.year => LifeMateRuntimeLocale.select(fa: 'سال', en: 'years'),
+      RecurrenceUnit.week =>
+        LifeMateRuntimeLocale.select(fa: 'هفته', en: 'weeks'),
+      RecurrenceUnit.month =>
+        LifeMateRuntimeLocale.select(fa: 'ماه', en: 'months'),
+      RecurrenceUnit.year =>
+        LifeMateRuntimeLocale.select(fa: 'سال', en: 'years'),
     };
   }
 
@@ -183,19 +187,22 @@ class _TreatmentRecurrenceEditorState extends State<TreatmentRecurrenceEditor> {
                 selected: _intervalMode &&
                     _unit == RecurrenceUnit.hour &&
                     _interval == hours,
-                onSelected: !widget.enabled ? null : (_) => _selectHourPreset(hours),
+                onSelected:
+                    !widget.enabled ? null : (_) => _selectHourPreset(hours),
               ),
             ChoiceChip(
               key: const ValueKey('treatment-schedule-custom-interval'),
               label: Text(context.tr('medication.schedule.interval.custom')),
               selected: _intervalMode &&
-                  !(_unit == RecurrenceUnit.hour && _hourPresets.contains(_interval)),
+                  !(_unit == RecurrenceUnit.hour &&
+                      _hourPresets.contains(_interval)),
               onSelected: !widget.enabled
                   ? null
                   : (_) {
                       setState(() {
                         _intervalMode = true;
-                        if (_unit == RecurrenceUnit.hour && _hourPresets.contains(_interval)) {
+                        if (_unit == RecurrenceUnit.hour &&
+                            _hourPresets.contains(_interval)) {
                           _interval = 10;
                         }
                       });
@@ -222,7 +229,8 @@ class _TreatmentRecurrenceEditorState extends State<TreatmentRecurrenceEditor> {
         ),
         if (_intervalMode) ...[
           const SizedBox(height: 14),
-          if (!(_unit == RecurrenceUnit.hour && _hourPresets.contains(_interval)))
+          if (!(_unit == RecurrenceUnit.hour &&
+              _hourPresets.contains(_interval)))
             Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -234,9 +242,14 @@ class _TreatmentRecurrenceEditorState extends State<TreatmentRecurrenceEditor> {
                     ),
                     icon: Icons.repeat_rounded,
                     child: TextFormField(
-                      key: ValueKey('treatment-recurrence-interval-$_interval-${_unit.name}'),
+                      key: ValueKey(
+                        'treatment-recurrence-interval-$_interval-${_unit.name}',
+                      ),
                       initialValue: _interval.toString(),
                       keyboardType: TextInputType.number,
+                      inputFormatters: const [
+                        LifeMateLocaleDigitInputFormatter(),
+                      ],
                       decoration: wellMateFieldDecoration(),
                       validator: (value) {
                         if (!_intervalMode) return null;
@@ -262,7 +275,8 @@ class _TreatmentRecurrenceEditorState extends State<TreatmentRecurrenceEditor> {
                 const SizedBox(width: 10),
                 Expanded(
                   child: WellMateLabeledField(
-                    label: LifeMateRuntimeLocale.select(fa: 'واحد', en: 'Unit'),
+                    label:
+                        LifeMateRuntimeLocale.select(fa: 'واحد', en: 'Unit'),
                     icon: Icons.timelapse_rounded,
                     child: DropdownButtonFormField<RecurrenceUnit>(
                       key: const ValueKey('treatment-recurrence-unit'),
@@ -271,7 +285,10 @@ class _TreatmentRecurrenceEditorState extends State<TreatmentRecurrenceEditor> {
                       decoration: wellMateFieldDecoration(),
                       items: [
                         for (final unit in RecurrenceUnit.values)
-                          DropdownMenuItem(value: unit, child: Text(_unitLabel(unit))),
+                          DropdownMenuItem(
+                            value: unit,
+                            child: Text(_unitLabel(unit)),
+                          ),
                       ],
                       onChanged: !widget.enabled
                           ? null
@@ -319,7 +336,10 @@ class _TreatmentRecurrenceEditorState extends State<TreatmentRecurrenceEditor> {
                 Expanded(
                   child: Text(
                     context.tr('medication.schedule.interval.exactNotice'),
-                    style: const TextStyle(height: 1.45, fontWeight: FontWeight.w700),
+                    style: const TextStyle(
+                      height: 1.45,
+                      fontWeight: FontWeight.w700,
+                    ),
                   ),
                 ),
               ],
@@ -330,7 +350,9 @@ class _TreatmentRecurrenceEditorState extends State<TreatmentRecurrenceEditor> {
             key: const ValueKey('medication-sleep-preferences'),
             onPressed: widget.enabled ? _openSleepPreferences : null,
             icon: const Icon(Icons.bedtime_outlined),
-            label: Text(context.tr('medication.schedule.interval.sleepPreferences')),
+            label: Text(
+              context.tr('medication.schedule.interval.sleepPreferences'),
+            ),
           ),
         ],
         const SizedBox(height: 10),
@@ -344,7 +366,10 @@ class _TreatmentRecurrenceEditorState extends State<TreatmentRecurrenceEditor> {
           child: Text(
             _preview,
             key: const ValueKey('treatment-recurrence-preview'),
-            style: const TextStyle(height: 1.45, fontWeight: FontWeight.w700),
+            style: const TextStyle(
+              height: 1.45,
+              fontWeight: FontWeight.w700,
+            ),
           ),
         ),
       ],
