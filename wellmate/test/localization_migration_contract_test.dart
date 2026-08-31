@@ -14,4 +14,15 @@ void main() {
     expect(source, isNot(contains('LifeMateRuntimeLocale.select(')));
     expect(source, isNot(contains("rtl ? '")));
   });
+
+  test('migrated Women companion hero uses semantic localization keys', () {
+    final source = File(
+      'lib/screens/women_calendar/women_companion_people_hero.dart',
+    ).readAsStringSync();
+
+    expect(source, contains("context.tr('women.companion.greeting')"));
+    expect(source, contains("context.tr('women.companion.partner')"));
+    expect(source, contains("'women.companion.stackSemantic'"));
+    expect(source, isNot(contains('LifeMateRuntimeLocale.select(')));
+  });
 }
