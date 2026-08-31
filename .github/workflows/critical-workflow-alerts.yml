@@ -2,7 +2,9 @@ name: critical-workflow-alerts
 
 on:
   schedule:
-    - cron: '7,22,37,52 * * * *'
+    # Poll less frequently in this private repo so monitoring itself does not
+    # consume the Actions allowance needed by CI and release workflows.
+    - cron: '17 */6 * * *'
   workflow_dispatch:
 
 permissions:
