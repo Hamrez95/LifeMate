@@ -15,10 +15,22 @@ void main() {
     const required = <String>{
       'common.cancel','common.save','common.saved','common.retry','common.close',
       'common.loading','common.notEnoughInformation','common.edit','common.update',
-      'common.later','common.checkAgain',
+      'common.later','common.checkAgain','common.continue','common.preparing',
       'runtimeConfig.offline','runtimeConfig.softUpdate','runtimeConfig.force.title',
       'runtimeConfig.force.security','runtimeConfig.force.incompatible',
       'runtimeConfig.force.updateLifeMate',
+      'onboarding.account.start','onboarding.account.preparingTitle',
+      'onboarding.account.preparingDescription','onboarding.account.unavailableTitle',
+      'onboarding.account.unavailableDescription','onboarding.account.nameRequired',
+      'onboarding.account.nameTooLong','onboarding.account.saveFailed',
+      'onboarding.account.conflictRefreshed','onboarding.account.step1of2',
+      'onboarding.account.step2of2','onboarding.account.nameTitle',
+      'onboarding.account.nameDescription','onboarding.account.displayName',
+      'onboarding.account.nameHint','onboarding.account.enter',
+      'onboarding.account.intentTitle','onboarding.account.intentDescription',
+      'onboarding.account.intentSelf','onboarding.account.intentSelfDescription',
+      'onboarding.account.intentCaregiving','onboarding.account.intentCaregivingDescription',
+      'onboarding.account.intentBoth','onboarding.account.intentBothDescription',
       'profile.companionGuidance.semantic','profile.companionGuidance.label',
       'profile.feedback.semantic','profile.feedback.label',
       'profile.demographics.title','profile.demographics.semantic',
@@ -43,6 +55,7 @@ void main() {
     for (final path in <String>[
       'lib/src/shared_profile_with_privacy.dart',
       'lib/src/remote_config_gate.dart',
+      'lib/src/shared_account_onboarding.dart',
     ]) {
       final source = File(path).readAsStringSync();
       expect(source, isNot(contains('LifeMateRuntimeLocale.select(')), reason: path);
@@ -50,6 +63,10 @@ void main() {
     final remote = File('lib/src/remote_config_gate.dart').readAsStringSync();
     expect(remote, contains("context.tr('runtimeConfig.force.title')"));
     expect(remote, contains('PositionedDirectional('));
+
+    final onboarding = File('lib/src/shared_account_onboarding.dart').readAsStringSync();
+    expect(onboarding, contains("context.tr('onboarding.account.start')"));
+    expect(onboarding, contains('context.lifeMateLocale.textDirection'));
   });
 
   testWidgets('mixed direction content can be isolated', (tester) async {
