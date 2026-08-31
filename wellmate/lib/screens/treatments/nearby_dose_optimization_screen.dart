@@ -1,12 +1,18 @@
 import 'package:flutter/material.dart';
 import 'package:lifemate_client/lifemate_client.dart';
 
+import '../../core/state/wellmate_refresh.dart';
 import '../../core/theme/app_style.dart';
 
 class NearbyDoseOptimizationScreen extends StatefulWidget {
-  const NearbyDoseOptimizationScreen({super.key, this.api});
+  const NearbyDoseOptimizationScreen({
+    super.key,
+    this.api,
+    this.undoApi,
+  });
 
   final LifeMateMedicationScheduleApi? api;
+  final LifeMateNearbyDoseUndoApi? undoApi;
 
   @override
   State<NearbyDoseOptimizationScreen> createState() =>
@@ -17,9 +23,13 @@ class _NearbyDoseOptimizationScreenState
     extends State<NearbyDoseOptimizationScreen> {
   late final LifeMateMedicationScheduleApi _api =
       widget.api ?? LifeMateMedicationScheduleApi.fromEnvironment();
+  late final LifeMateNearbyDoseUndoApi _undoApi =
+      widget.undoApi ?? LifeMateNearbyDoseUndoApi.fromEnvironment();
   LifeMateNearbyDoseProposal? _proposal;
+  String? _appliedProposalId;
   bool _loading = true;
   bool _applying = false;
+  bool _undoing = false;
   String? _error;
 
   bool get _fa => Localizations.localeOf(context).languageCode == 'fa';
@@ -34,6 +44,7 @@ class _NearbyDoseOptimizationScreenState
   @override
   void dispose() {
     if (widget.api == null) _api.close();
+    if (widget.undoApi == null) _undoApi.close();
     super.dispose();
   }
 
@@ -41,6 +52,7 @@ class _NearbyDoseOptimizationScreenState
     setState(() {
       _loading = true;
       _error = null;
+      _appliedProposalId = null;
     });
     try {
       final proposal = await _api.previewNearbyDoseOptimization();
@@ -109,6 +121,11 @@ class _NearbyDoseOptimizationScreenState
     try {
       await _api.applyNearbyDoseOptimization(proposal.proposalId);
       if (!mounted) return;
+      WellMateRefreshSignal.notifyChanged();
+      setState(() {
+        _applying = false;
+        _appliedProposalId = proposal.proposalId;
+      });
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
@@ -119,7 +136,6 @@ class _NearbyDoseOptimizationScreenState
           ),
         ),
       );
-      Navigator.of(context).pop(true);
     } on LifeMateApiException catch (error) {
       if (!mounted) return;
       setState(() {
@@ -141,6 +157,54 @@ class _NearbyDoseOptimizationScreenState
         _error = _copy(
           'اعمال تغییرات انجام نشد. اتصال را بررسی کن.',
           'Changes were not applied. Check your connection.',
+        );
+      });
+    }
+  }
+
+  Future<void> _undo() async {
+    final proposalId = _appliedProposalId;
+    if (proposalId == null || _undoing) return;
+    setState(() {
+      _undoing = true;
+      _error = null;
+    });
+    try {
+      await _undoApi.undo(proposalId);
+      if (!mounted) return;
+      WellMateRefreshSignal.notifyChanged();
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            _copy(
+              'زمان‌های قبلی برگشتند. سابقه مصرف دارو تغییر نکرد.',
+              'Previous times were restored. Medication adherence history was not changed.',
+            ),
+          ),
+        ),
+      );
+      await _preview();
+    } on LifeMateApiException catch (error) {
+      if (!mounted) return;
+      setState(() {
+        _undoing = false;
+        _error = error.statusCode == 409
+            ? _copy(
+                'بعد از اعمال، برنامه تغییر کرده و بازگردانی خودکار امن نیست.',
+                'The schedule changed after apply, so automatic undo is no longer safe.',
+              )
+            : _copy(
+                'بازگردانی انجام نشد. دوباره تلاش کن.',
+                'Undo failed. Try again.',
+              );
+      });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() {
+        _undoing = false;
+        _error = _copy(
+          'بازگردانی انجام نشد. اتصال را بررسی کن.',
+          'Undo failed. Check your connection.',
         );
       });
     }
@@ -196,6 +260,30 @@ class _NearbyDoseOptimizationScreenState
                       icon: const Icon(Icons.refresh_rounded),
                       label: Text(_copy('بررسی دوباره', 'Preview again')),
                     ),
+                  ] else if (_appliedProposalId != null) ...[
+                    _InfoCard(
+                      icon: Icons.check_circle_outline_rounded,
+                      text: _copy(
+                        'تغییرات تأییدشده اعمال شدند. فاصله زمانی اصلی هر دارو ثابت مانده است.',
+                        'Approved changes were applied. Each medication keeps its original exact interval.',
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    OutlinedButton.icon(
+                      onPressed: _undoing ? null : _undo,
+                      icon: _undoing
+                          ? const SizedBox.square(
+                              dimension: 18,
+                              child: CircularProgressIndicator(strokeWidth: 2),
+                            )
+                          : const Icon(Icons.undo_rounded),
+                      label: Text(_copy('بازگرداندن تغییرات', 'Undo changes')),
+                    ),
+                    const SizedBox(height: 8),
+                    FilledButton(
+                      onPressed: () => Navigator.of(context).pop(true),
+                      child: Text(_copy('تمام', 'Done')),
+                    ),
                   ] else if (proposal == null || !proposal.hasChanges) ...[
                     _InfoCard(
                       icon: Icons.check_circle_outline_rounded,
@@ -237,7 +325,9 @@ class _NearbyDoseOptimizationScreenState
                       label: Text(_copy('اعمال تغییرات', 'Apply changes')),
                     ),
                   ],
-                  if (proposal != null && proposal.exclusions.isNotEmpty) ...[
+                  if (_appliedProposalId == null &&
+                      proposal != null &&
+                      proposal.exclusions.isNotEmpty) ...[
                     const SizedBox(height: 26),
                     Text(
                       _copy('موارد بدون تغییر', 'Unchanged items'),
