@@ -2,6 +2,7 @@ import {
   type AdminCapabilitySnapshot,
   requirePermission,
 } from "./authorization.ts";
+import { createAdminCircleDirectoryRouteHandler } from "./circle_directory_routes.ts";
 import { json } from "./http.ts";
 import { createOperationsSnapshotRouteHandler } from "./operations_snapshot_routes.ts";
 import { createPlatformControlRouteHandler } from "./platform_controls_routes.ts";
@@ -31,6 +32,7 @@ export function createStaffDirectoryRouteHandler(databaseUrl: string) {
   const supportConversationRouteHandler =
     createSupportConversationAdminRouteHandler(databaseUrl);
   const researchDatasetRouteHandler = createResearchDatasetRouteHandler(databaseUrl);
+  const circleDirectoryRouteHandler = createAdminCircleDirectoryRouteHandler(databaseUrl);
 
   return async function staffDirectoryRouteHandler(input: {
     request: Request;
@@ -62,6 +64,8 @@ export function createStaffDirectoryRouteHandler(databaseUrl: string) {
     if (supportConversationResponse) return supportConversationResponse;
     const researchDatasetResponse = await researchDatasetRouteHandler(input);
     if (researchDatasetResponse) return researchDatasetResponse;
+    const circleDirectoryResponse = await circleDirectoryRouteHandler(input);
+    if (circleDirectoryResponse) return circleDirectoryResponse;
 
     if (request.method === "GET" && path === "/api/v1/staff") {
       requirePermission(admin, "security.staff.manage");
