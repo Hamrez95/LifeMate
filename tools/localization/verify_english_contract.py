@@ -29,12 +29,13 @@ PERSIAN_IMPLEMENTATION_FILES = {
 # #674 is an incremental migration. This budget is deliberately a ratchet:
 # every migrated file lowers the number and new LifeMateRuntimeLocale.select
 # call sites are forbidden from growing the remaining legacy surface.
-LEGACY_LOCALE_BRANCH_FILE_BUDGET = 20
+LEGACY_LOCALE_BRANCH_FILE_BUDGET = 19
 MIGRATED_CATALOG_FILES = {
     'packages/lifemate_ui/lib/src/remote_config_gate.dart',
     'packages/lifemate_ui/lib/src/shared_account_onboarding.dart',
     'packages/lifemate_ui/lib/src/shared_profile_with_privacy.dart',
     'wellmate/lib/screens/women_calendar/women_daily_log_launcher.dart',
+    'wellmate/lib/screens/women_calendar/women_companion_people_hero.dart',
 }
 
 errors: list[str] = []
