@@ -25,4 +25,15 @@ void main() {
     expect(source, contains("'women.companion.stackSemantic'"));
     expect(source, isNot(contains('LifeMateRuntimeLocale.select(')));
   });
+
+  test('migrated Women entry uses semantic localization keys', () {
+    final source = File(
+      'lib/screens/women_calendar/women_health_entry_screen.dart',
+    ).readAsStringSync();
+
+    expect(source, contains("context.tr('women.entry.statusLoadFailed')"));
+    expect(source, contains("context.tr('women.entry.unavailable')"));
+    expect(source, contains("context.tr('common.retry')"));
+    expect(source, isNot(contains('LifeMateRuntimeLocale.select(')));
+  });
 }
