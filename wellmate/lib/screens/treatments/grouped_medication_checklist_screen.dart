@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:lifemate_client/lifemate_client.dart';
+import 'package:lifemate_ui/lifemate_ui.dart';
 import 'package:provider/provider.dart';
 
 import '../../core/theme/app_style.dart';
@@ -24,8 +25,7 @@ class _GroupedMedicationChecklistScreenState
   final Set<String> _resolved = <String>{};
   final Set<String> _busy = <String>{};
 
-  bool get _fa => widget.target.isPersian;
-  String _copy(String fa, String en) => _fa ? fa : en;
+  bool get _isPersian => widget.target.isPersian;
 
   Future<void> _report(
     GroupedMedicationDoseTarget dose,
@@ -42,23 +42,14 @@ class _GroupedMedicationChecklistScreenState
       setState(() => _resolved.add(dose.occurrenceId));
     } on LifeMateApiException catch (error) {
       if (!mounted) return;
-      _showError(error.code == 'stale_version'
-          ? _copy(
-              'این نوبت تغییر کرده است. صفحه برنامه را تازه کنید.',
-              'This dose changed. Refresh the schedule before trying again.',
-            )
-          : _copy(
-              'ثبت وضعیت انجام نشد. دوباره تلاش کنید.',
-              'The dose status could not be saved. Try again.',
-            ));
+      _showError(
+        error.code == 'stale_version'
+            ? context.tr('medication.grouped.staleDose')
+            : context.tr('medication.grouped.saveFailed'),
+      );
     } catch (_) {
       if (mounted) {
-        _showError(
-          _copy(
-            'ثبت وضعیت انجام نشد. دوباره تلاش کنید.',
-            'The dose status could not be saved. Try again.',
-          ),
-        );
+        _showError(context.tr('medication.grouped.saveFailed'));
       }
     } finally {
       if (mounted) setState(() => _busy.remove(dose.occurrenceId));
@@ -71,18 +62,11 @@ class _GroupedMedicationChecklistScreenState
     try {
       await context.read<NotificationProvider>().snoozeGroupedDose(
             dose,
-            isPersian: _fa,
+            isPersian: _isPersian,
           );
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            _copy(
-              'برای ۱۰ دقیقه بعد یادآوری می‌کنیم.',
-              'We will remind you again in 10 minutes.',
-            ),
-          ),
-        ),
+        SnackBar(content: Text(context.tr('medication.grouped.snoozed'))),
       );
     } finally {
       if (mounted) setState(() => _busy.remove(dose.occurrenceId));
@@ -102,12 +86,7 @@ class _GroupedMedicationChecklistScreenState
       appBar: AppBar(
         backgroundColor: AppColors.background,
         elevation: 0,
-        title: Text(
-          _copy(
-            'داروهای این نوبت',
-            'Medications for this time',
-          ),
-        ),
+        title: Text(context.tr('medication.grouped.title')),
       ),
       body: SafeArea(
         child: ListView(
@@ -126,10 +105,7 @@ class _GroupedMedicationChecklistScreenState
                   const SizedBox(width: 10),
                   Expanded(
                     child: Text(
-                      _copy(
-                        'این اعلان فقط زمان‌های ثبت‌شده را کنار هم نشان می‌دهد و درباره تداخل یا ایمنی داروها تصمیم نمی‌گیرد. وضعیت هر دارو را جداگانه ثبت کنید.',
-                        'This reminder only groups times you entered. It does not check drug interactions or medical safety. Record each medication separately.',
-                      ),
+                      context.tr('medication.grouped.explanation'),
                       style: const TextStyle(height: 1.5),
                     ),
                   ),
@@ -140,7 +116,6 @@ class _GroupedMedicationChecklistScreenState
             for (final dose in widget.target.doses) ...[
               _DoseCard(
                 dose: dose,
-                isPersian: _fa,
                 busy: _busy.contains(dose.occurrenceId),
                 resolved: _resolved.contains(dose.occurrenceId),
                 onTaken: () => _report(dose, 'taken'),
@@ -159,7 +134,6 @@ class _GroupedMedicationChecklistScreenState
 class _DoseCard extends StatelessWidget {
   const _DoseCard({
     required this.dose,
-    required this.isPersian,
     required this.busy,
     required this.resolved,
     required this.onTaken,
@@ -168,14 +142,11 @@ class _DoseCard extends StatelessWidget {
   });
 
   final GroupedMedicationDoseTarget dose;
-  final bool isPersian;
   final bool busy;
   final bool resolved;
   final VoidCallback onTaken;
   final VoidCallback onSkipped;
   final VoidCallback onLater;
-
-  String _copy(String fa, String en) => isPersian ? fa : en;
 
   @override
   Widget build(BuildContext context) {
@@ -224,7 +195,7 @@ class _DoseCard extends StatelessWidget {
           const SizedBox(height: 14),
           if (resolved)
             Text(
-              _copy('وضعیت ثبت شد.', 'Status recorded.'),
+              context.tr('medication.grouped.statusRecorded'),
               style: const TextStyle(fontWeight: FontWeight.w800),
             )
           else
@@ -235,17 +206,17 @@ class _DoseCard extends StatelessWidget {
                 FilledButton.icon(
                   onPressed: busy ? null : onTaken,
                   icon: const Icon(Icons.check_circle_outline_rounded),
-                  label: Text(_copy('مصرف کردم', 'Taken')),
+                  label: Text(context.tr('medication.grouped.taken')),
                 ),
                 OutlinedButton.icon(
                   onPressed: busy ? null : onSkipped,
                   icon: const Icon(Icons.block_outlined),
-                  label: Text(_copy('مصرف نشد', 'Skipped')),
+                  label: Text(context.tr('medication.grouped.skipped')),
                 ),
                 OutlinedButton.icon(
                   onPressed: busy ? null : onLater,
                   icon: const Icon(Icons.snooze_rounded),
-                  label: Text(_copy('بعداً', 'Later')),
+                  label: Text(context.tr('common.later')),
                 ),
               ],
             ),
