@@ -16,7 +16,9 @@ class LifeMateMedicationSchedulePreferences {
     required this.version,
   });
 
-  factory LifeMateMedicationSchedulePreferences.fromJson(Map<String, dynamic> json) =>
+  factory LifeMateMedicationSchedulePreferences.fromJson(
+    Map<String, dynamic> json,
+  ) =>
       LifeMateMedicationSchedulePreferences(
         timeZone: json['timeZone']?.toString() ?? '',
         sleepWindowEnabled: json['sleepWindowEnabled'] == true,
@@ -57,10 +59,13 @@ class LifeMateTreatmentPlanTiming {
         nearbyGroupingEnabled: json['nearbyGroupingEnabled'] == true,
         timingLocked: json['timingLocked'] == true,
         manualSpacingBeforeMinutes:
-            int.tryParse(json['manualSpacingBeforeMinutes']?.toString() ?? '') ?? 0,
+            int.tryParse(json['manualSpacingBeforeMinutes']?.toString() ?? '') ??
+                0,
         manualSpacingAfterMinutes:
-            int.tryParse(json['manualSpacingAfterMinutes']?.toString() ?? '') ?? 0,
-        timingNote: LifeMateMedicationSchedulePreferences._nullable(json['timingNote']),
+            int.tryParse(json['manualSpacingAfterMinutes']?.toString() ?? '') ??
+                0,
+        timingNote:
+            LifeMateMedicationSchedulePreferences._nullable(json['timingNote']),
         version: int.tryParse(json['version']?.toString() ?? '') ?? 0,
       );
 
@@ -74,6 +79,37 @@ class LifeMateTreatmentPlanTiming {
   final int version;
 }
 
+class LifeMateMedicationSchedulePlan {
+  const LifeMateMedicationSchedulePlan({
+    required this.medicationName,
+    required this.strengthText,
+    required this.recurrence,
+    required this.recurrenceStartLocalTime,
+    required this.timing,
+  });
+
+  factory LifeMateMedicationSchedulePlan.fromJson(Map<String, dynamic> json) =>
+      LifeMateMedicationSchedulePlan(
+        medicationName: json['medicationName']?.toString() ?? '',
+        strengthText:
+            LifeMateMedicationSchedulePreferences._nullable(json['strengthText']),
+        recurrence: json['recurrence'] is Map
+            ? Map<String, dynamic>.from(json['recurrence'] as Map)
+            : null,
+        recurrenceStartLocalTime:
+            LifeMateMedicationSchedulePreferences._nullable(
+          json['recurrenceStartLocalTime'],
+        ),
+        timing: LifeMateTreatmentPlanTiming.fromJson(json),
+      );
+
+  final String medicationName;
+  final String? strengthText;
+  final Map<String, dynamic>? recurrence;
+  final String? recurrenceStartLocalTime;
+  final LifeMateTreatmentPlanTiming timing;
+}
+
 typedef LifeMateMedicationScheduleTokenProvider = String? Function();
 
 class LifeMateMedicationScheduleApi {
@@ -85,11 +121,14 @@ class LifeMateMedicationScheduleApi {
         _accessToken = accessToken,
         _http = httpClient ?? http.Client();
 
-  factory LifeMateMedicationScheduleApi.fromEnvironment({http.Client? httpClient}) {
+  factory LifeMateMedicationScheduleApi.fromEnvironment({
+    http.Client? httpClient,
+  }) {
     final config = AppConfig.fromEnvironment();
     return LifeMateMedicationScheduleApi(
       baseUri: config.apiBaseUri,
-      accessToken: () => Supabase.instance.client.auth.currentSession?.accessToken,
+      accessToken: () =>
+          Supabase.instance.client.auth.currentSession?.accessToken,
       httpClient: httpClient,
     );
   }
@@ -101,8 +140,26 @@ class LifeMateMedicationScheduleApi {
 
   Future<LifeMateMedicationSchedulePreferences> getPreferences() async =>
       LifeMateMedicationSchedulePreferences.fromJson(
-        _object(await _request('GET', '/api/v1/medication-schedule/preferences')),
+        _object(
+          await _request('GET', '/api/v1/medication-schedule/preferences'),
+        ),
       );
+
+  Future<List<LifeMateMedicationSchedulePlan>> listPlans() async {
+    final response = _object(
+      await _request('GET', '/api/v1/medication-schedule/plans'),
+    );
+    final items = response['items'];
+    if (items is! List) return const [];
+    return items
+        .whereType<Map>()
+        .map(
+          (item) => LifeMateMedicationSchedulePlan.fromJson(
+            Map<String, dynamic>.from(item),
+          ),
+        )
+        .toList(growable: false);
+  }
 
   Future<LifeMateMedicationSchedulePreferences> savePreferences({
     required LifeMateMedicationSchedulePreferences current,
@@ -112,24 +169,34 @@ class LifeMateMedicationScheduleApi {
     String? sleepEndLocalTime,
   }) async =>
       LifeMateMedicationSchedulePreferences.fromJson(
-        _object(await _request(
-          'PATCH',
-          '/api/v1/medication-schedule/preferences',
-          body: {
-            'version': current.version,
-            'timeZone': timeZone,
-            'sleepWindowEnabled': sleepWindowEnabled,
-            'sleepStartLocalTime': sleepWindowEnabled ? sleepStartLocalTime : null,
-            'sleepEndLocalTime': sleepWindowEnabled ? sleepEndLocalTime : null,
-          },
-        )),
+        _object(
+          await _request(
+            'PATCH',
+            '/api/v1/medication-schedule/preferences',
+            body: {
+              'version': current.version,
+              'timeZone': timeZone,
+              'sleepWindowEnabled': sleepWindowEnabled,
+              'sleepStartLocalTime':
+                  sleepWindowEnabled ? sleepStartLocalTime : null,
+              'sleepEndLocalTime':
+                  sleepWindowEnabled ? sleepEndLocalTime : null,
+            },
+          ),
+        ),
       );
 
-  Future<LifeMateTreatmentPlanTiming> getPlanTiming(String treatmentPlanId) async =>
-      LifeMateTreatmentPlanTiming.fromJson(_object(await _request(
-        'GET',
-        '/api/v1/treatment-plans/$treatmentPlanId/timing',
-      )));
+  Future<LifeMateTreatmentPlanTiming> getPlanTiming(
+    String treatmentPlanId,
+  ) async =>
+      LifeMateTreatmentPlanTiming.fromJson(
+        _object(
+          await _request(
+            'GET',
+            '/api/v1/treatment-plans/$treatmentPlanId/timing',
+          ),
+        ),
+      );
 
   Future<LifeMateTreatmentPlanTiming> savePlanTiming({
     required LifeMateTreatmentPlanTiming current,
@@ -139,19 +206,23 @@ class LifeMateMedicationScheduleApi {
     required int manualSpacingAfterMinutes,
     String? timingNote,
   }) async =>
-      LifeMateTreatmentPlanTiming.fromJson(_object(await _request(
-        'PATCH',
-        '/api/v1/treatment-plans/${current.treatmentPlanId}/timing',
-        body: {
-          'version': current.version,
-          'treatmentPlanVersion': current.treatmentPlanVersion,
-          'nearbyGroupingEnabled': nearbyGroupingEnabled,
-          'timingLocked': timingLocked,
-          'manualSpacingBeforeMinutes': manualSpacingBeforeMinutes,
-          'manualSpacingAfterMinutes': manualSpacingAfterMinutes,
-          'timingNote': timingNote,
-        },
-      )));
+      LifeMateTreatmentPlanTiming.fromJson(
+        _object(
+          await _request(
+            'PATCH',
+            '/api/v1/treatment-plans/${current.treatmentPlanId}/timing',
+            body: {
+              'version': current.version,
+              'treatmentPlanVersion': current.treatmentPlanVersion,
+              'nearbyGroupingEnabled': nearbyGroupingEnabled,
+              'timingLocked': timingLocked,
+              'manualSpacingBeforeMinutes': manualSpacingBeforeMinutes,
+              'manualSpacingAfterMinutes': manualSpacingAfterMinutes,
+              'timingNote': timingNote,
+            },
+          ),
+        ),
+      );
 
   Future<dynamic> _request(
     String method,
@@ -173,7 +244,8 @@ class LifeMateMedicationScheduleApi {
       'Accept': 'application/json',
       'Authorization': 'Bearer $token',
       if (body != null) 'Content-Type': 'application/json',
-      if (body != null) 'Idempotency-Key': LifeMateApiClient.createClientRequestId(),
+      if (body != null)
+        'Idempotency-Key': LifeMateApiClient.createClientRequestId(),
     };
     try {
       final response = switch (method) {
@@ -183,8 +255,11 @@ class LifeMateMedicationScheduleApi {
             .timeout(_timeout),
         _ => throw ArgumentError.value(method, 'method'),
       };
-      final decoded = response.body.trim().isEmpty ? null : jsonDecode(response.body);
-      if (response.statusCode >= 200 && response.statusCode < 300) return decoded;
+      final decoded =
+          response.body.trim().isEmpty ? null : jsonDecode(response.body);
+      if (response.statusCode >= 200 && response.statusCode < 300) {
+        return decoded;
+      }
       final problem = decoded is Map<String, dynamic>
           ? decoded
           : const <String, dynamic>{};
