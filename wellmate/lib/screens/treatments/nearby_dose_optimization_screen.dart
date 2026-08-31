@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:lifemate_client/lifemate_client.dart';
+import 'package:lifemate_ui/lifemate_ui.dart';
 
 import '../../core/theme/app_style.dart';
 
@@ -23,9 +24,6 @@ class _NearbyDoseOptimizationScreenState
   bool _applying = false;
   bool _undoing = false;
   String? _error;
-
-  bool get _fa => Localizations.localeOf(context).languageCode == 'fa';
-  String _copy(String fa, String en) => _fa ? fa : en;
 
   @override
   void initState() {
@@ -57,23 +55,14 @@ class _NearbyDoseOptimizationScreenState
       setState(() {
         _loading = false;
         _error = error.statusCode == 409
-            ? _copy(
-                'برنامه دارو تغییر کرده است. دوباره بررسی کن.',
-                'Your medication schedule changed. Preview again.',
-              )
-            : _copy(
-                'پیشنهاد زمان‌بندی آماده نشد. دوباره تلاش کن.',
-                'The timing proposal could not be prepared. Try again.',
-              );
+            ? context.tr('medication.optimization.nearby.scheduleChanged')
+            : context.tr('medication.optimization.nearby.previewFailed');
       });
     } catch (_) {
       if (!mounted) return;
       setState(() {
         _loading = false;
-        _error = _copy(
-          'پیشنهاد زمان‌بندی آماده نشد. اتصال را بررسی کن.',
-          'The timing proposal could not be prepared. Check your connection.',
-        );
+        _error = context.tr('medication.optimization.nearby.previewConnection');
       });
     }
   }
@@ -84,21 +73,22 @@ class _NearbyDoseOptimizationScreenState
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (dialogContext) => AlertDialog(
-        title: Text(_copy('اعمال تغییر زمان‌ها؟', 'Apply timing changes?')),
+        title: Text(
+          dialogContext.tr('medication.optimization.nearby.applyTitle'),
+        ),
         content: Text(
-          _copy(
-            'فقط زمان شروع برنامه‌های نشان‌داده‌شده تغییر می‌کند. فاصله مصرف هر دارو دقیقاً ثابت می‌ماند. LifeMate تداخل دارویی را بررسی نمی‌کند.',
-            'Only the shown schedule anchors will change. Every medication interval remains exact. LifeMate does not check drug interactions.',
-          ),
+          dialogContext.tr('medication.optimization.nearby.applyDescription'),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(dialogContext).pop(false),
-            child: Text(_copy('انصراف', 'Cancel')),
+            child: Text(dialogContext.tr('common.cancel')),
           ),
           FilledButton(
             onPressed: () => Navigator.of(dialogContext).pop(true),
-            child: Text(_copy('تأیید و اعمال', 'Confirm & apply')),
+            child: Text(
+              dialogContext.tr('medication.optimization.nearby.confirmApply'),
+            ),
           ),
         ],
       ),
@@ -123,23 +113,14 @@ class _NearbyDoseOptimizationScreenState
       setState(() {
         _applying = false;
         _error = error.statusCode == 409
-            ? _copy(
-                'این پیشنهاد دیگر معتبر نیست. یک پیش‌نمایش تازه بگیر.',
-                'This proposal is stale. Create a fresh preview.',
-              )
-            : _copy(
-                'اعمال تغییرات انجام نشد. دوباره تلاش کن.',
-                'Changes were not applied. Try again.',
-              );
+            ? context.tr('medication.optimization.nearby.stale')
+            : context.tr('medication.optimization.nearby.applyFailed');
       });
     } catch (_) {
       if (!mounted) return;
       setState(() {
         _applying = false;
-        _error = _copy(
-          'اعمال تغییرات انجام نشد. اتصال را بررسی کن.',
-          'Changes were not applied. Check your connection.',
-        );
+        _error = context.tr('medication.optimization.nearby.applyConnection');
       });
     }
   }
@@ -157,10 +138,7 @@ class _NearbyDoseOptimizationScreenState
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
-            _copy(
-              'زمان‌های قبلی برگردانده شد. فاصله مصرف داروها همچنان تغییر نکرده است.',
-              'Previous times were restored. Medication intervals remain unchanged.',
-            ),
+            context.tr('medication.optimization.nearby.undoSuccess'),
           ),
         ),
       );
@@ -170,42 +148,28 @@ class _NearbyDoseOptimizationScreenState
       setState(() {
         _undoing = false;
         _error = error.statusCode == 409
-            ? _copy(
-                'بعد از اعمال، برنامه تغییر کرده است و بازگردانی خودکار امن نیست. برنامه را دوباره بررسی کن.',
-                'The schedule changed after apply, so automatic undo is no longer safe. Review the schedule again.',
-              )
-            : _copy(
-                'بازگردانی انجام نشد. دوباره تلاش کن.',
-                'Undo could not be completed. Try again.',
-              );
+            ? context.tr('medication.optimization.nearby.undoStale')
+            : context.tr('medication.optimization.nearby.undoFailed');
       });
     } catch (_) {
       if (!mounted) return;
       setState(() {
         _undoing = false;
-        _error = _copy(
-          'بازگردانی انجام نشد. اتصال را بررسی کن.',
-          'Undo could not be completed. Check your connection.',
-        );
+        _error = context.tr('medication.optimization.nearby.undoConnection');
       });
     }
   }
 
   String _reason(String reason) => switch (reason) {
-        'timing_locked' => _copy('زمان این دارو قفل است', 'Timing is locked'),
-        'manual_spacing' => _copy(
-            'برای این دارو دستور فاصله ثبت شده',
-            'A spacing instruction is saved',
-          ),
-        'not_opted_in' => _copy(
-            'پیشنهاد زمان نزدیک برای این دارو فعال نیست',
-            'Nearby proposals are not enabled',
-          ),
-        'ambiguous_cluster' => _copy(
-            'گروه زمانی مبهم بود؛ تغییری پیشنهاد نشد',
-            'The timing cluster was ambiguous; no change was proposed',
-          ),
-        _ => _copy('زمان نزدیک دیگری پیدا نشد', 'No nearby candidate was found'),
+        'timing_locked' =>
+          context.tr('medication.optimization.nearby.reason.locked'),
+        'manual_spacing' =>
+          context.tr('medication.optimization.nearby.reason.spacing'),
+        'not_opted_in' =>
+          context.tr('medication.optimization.nearby.reason.notOptedIn'),
+        'ambiguous_cluster' =>
+          context.tr('medication.optimization.nearby.reason.ambiguous'),
+        _ => context.tr('medication.optimization.nearby.reason.noCandidate'),
       };
 
   @override
@@ -216,9 +180,7 @@ class _NearbyDoseOptimizationScreenState
       backgroundColor: AppColors.background,
       appBar: AppBar(
         backgroundColor: AppColors.background,
-        title: Text(
-          _copy('یکپارچه‌سازی زمان‌های نزدیک', 'Combine nearby medication times'),
-        ),
+        title: Text(context.tr('medication.optimization.nearby.title')),
       ),
       body: SafeArea(
         child: _loading
@@ -228,18 +190,14 @@ class _NearbyDoseOptimizationScreenState
                 children: [
                   _InfoCard(
                     icon: Icons.info_outline_rounded,
-                    text: _copy(
-                      'این قابلیت فقط زمان‌هایی را که خودت وارد کرده‌ای نزدیک‌تر می‌کند. LifeMate تداخل دارویی، ایمنی یا مناسب‌بودن مصرف همزمان را بررسی نمی‌کند.',
-                      'This feature only combines nearby times you entered. LifeMate does not check drug interactions, safety, or whether medications should be taken together.',
-                    ),
+                    text: context.tr('medication.optimization.nearby.info'),
                   ),
                   const SizedBox(height: 14),
                   if (applied) ...[
                     _InfoCard(
                       icon: Icons.verified_rounded,
-                      text: _copy(
-                        'تغییرات تأییدشده اعمال شد. فاصله زمانی اصلی هر دارو دست‌نخورده مانده است. تا وقتی برنامه را دوباره تغییر نداده‌ای، می‌توانی این تغییر زمان را برگردانی.',
-                        'The approved timing changes were applied. Each medication keeps its original exact interval. You can undo this timing change while the schedule remains untouched.',
+                      text: context.tr(
+                        'medication.optimization.nearby.appliedInfo',
                       ),
                     ),
                     const SizedBox(height: 12),
@@ -252,7 +210,9 @@ class _NearbyDoseOptimizationScreenState
                               child: CircularProgressIndicator(strokeWidth: 2),
                             )
                           : const Icon(Icons.undo_rounded),
-                      label: Text(_copy('بازگردانی زمان‌ها', 'Undo timing changes')),
+                      label: Text(
+                        context.tr('medication.optimization.nearby.undoAction'),
+                      ),
                     ),
                   ] else if (_error != null) ...[
                     _InfoCard(icon: Icons.error_outline_rounded, text: _error!),
@@ -260,19 +220,16 @@ class _NearbyDoseOptimizationScreenState
                     OutlinedButton.icon(
                       onPressed: _preview,
                       icon: const Icon(Icons.refresh_rounded),
-                      label: Text(_copy('بررسی دوباره', 'Preview again')),
+                      label: Text(context.tr('common.checkAgain')),
                     ),
                   ] else if (proposal == null || !proposal.hasChanges) ...[
                     _InfoCard(
                       icon: Icons.check_circle_outline_rounded,
-                      text: _copy(
-                        'فعلاً دو برنامه واجد شرایط با فاصله کمتر از ۳۰ دقیقه پیدا نشد. هیچ زمانی تغییر نکرد.',
-                        'No two eligible schedules are currently less than 30 minutes apart. Nothing was changed.',
-                      ),
+                      text: context.tr('medication.optimization.nearby.noChanges'),
                     ),
                   ] else ...[
                     Text(
-                      _copy('پیش‌نمایش تغییرات', 'Change preview'),
+                      context.tr('medication.optimization.nearby.previewTitle'),
                       style: const TextStyle(
                         fontSize: 18,
                         fontWeight: FontWeight.w900,
@@ -281,14 +238,16 @@ class _NearbyDoseOptimizationScreenState
                     ),
                     const SizedBox(height: 10),
                     for (final group in proposal.groups) ...[
-                      _GroupCard(group: group, fa: _fa),
+                      _GroupCard(group: group),
                       const SizedBox(height: 10),
                     ],
                     _InfoCard(
                       icon: Icons.notifications_active_outlined,
-                      text: _copy(
-                        'در این پیش‌نمایش حدود ${proposal.expectedNotificationReduction} اعلان جداگانه کمتر می‌شود.',
-                        'This preview reduces about ${proposal.expectedNotificationReduction} separate notifications.',
+                      text: context.tr(
+                        'medication.optimization.nearby.notificationReduction',
+                        params: {
+                          'count': proposal.expectedNotificationReduction,
+                        },
                       ),
                     ),
                     const SizedBox(height: 18),
@@ -300,7 +259,9 @@ class _NearbyDoseOptimizationScreenState
                               child: CircularProgressIndicator(strokeWidth: 2),
                             )
                           : const Icon(Icons.done_all_rounded),
-                      label: Text(_copy('اعمال تغییرات', 'Apply changes')),
+                      label: Text(
+                        context.tr('medication.optimization.nearby.applyChanges'),
+                      ),
                     ),
                   ],
                   if (!applied &&
@@ -308,7 +269,7 @@ class _NearbyDoseOptimizationScreenState
                       proposal.exclusions.isNotEmpty) ...[
                     const SizedBox(height: 26),
                     Text(
-                      _copy('موارد بدون تغییر', 'Unchanged items'),
+                      context.tr('medication.optimization.nearby.unchangedItems'),
                       style: const TextStyle(
                         fontSize: 17,
                         fontWeight: FontWeight.w900,
@@ -332,12 +293,9 @@ class _NearbyDoseOptimizationScreenState
 }
 
 class _GroupCard extends StatelessWidget {
-  const _GroupCard({required this.group, required this.fa});
+  const _GroupCard({required this.group});
 
   final LifeMateNearbyDoseGroup group;
-  final bool fa;
-
-  String _copy(String faText, String enText) => fa ? faText : enText;
 
   @override
   Widget build(BuildContext context) => Container(
@@ -355,7 +313,7 @@ class _GroupCard extends StatelessWidget {
                 const SizedBox(width: 8),
                 Expanded(
                   child: Text(
-                    '${_copy('زمان پیشنهادی', 'Proposed time')}: ${group.sharedLocalTime}',
+                    '${context.tr('medication.optimization.nearby.proposedTime')}: ${group.sharedLocalTime}',
                     style: const TextStyle(fontWeight: FontWeight.w900),
                   ),
                 ),
@@ -380,9 +338,9 @@ class _GroupCard extends StatelessWidget {
                           '${change.oldAnchorLocalTime} → ${change.newAnchorLocalTime}',
                         ),
                         Text(
-                          _copy(
-                            'فاصله هر ${change.intervalHoursAfter} ساعت بدون تغییر می‌ماند.',
-                            'The exact ${change.intervalHoursAfter}-hour interval remains unchanged.',
+                          context.tr(
+                            'medication.optimization.nearby.exactInterval',
+                            params: {'hours': change.intervalHoursAfter},
                           ),
                           style: const TextStyle(fontSize: 12),
                         ),
