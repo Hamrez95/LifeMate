@@ -62,26 +62,30 @@ alter table lifemate.medication_schedule_preferences force row level security;
 alter table lifemate.treatment_plan_timing_constraints enable row level security;
 alter table lifemate.treatment_plan_timing_constraints force row level security;
 
-drop policy if exists medication_schedule_preferences_self on lifemate.medication_schedule_preferences;
-create policy medication_schedule_preferences_self
+revoke all on lifemate.medication_schedule_preferences from public, anon, authenticated;
+revoke all on lifemate.treatment_plan_timing_constraints from public, anon, authenticated;
+grant select, insert, update, delete on lifemate.medication_schedule_preferences to lifemate_edge_runtime;
+grant select, insert, update, delete on lifemate.treatment_plan_timing_constraints to lifemate_edge_runtime;
+grant select on lifemate.medication_schedule_preferences to lifemate_backup_reader;
+grant select on lifemate.treatment_plan_timing_constraints to lifemate_backup_reader;
+
+drop policy if exists lifemate_edge_runtime_access on lifemate.medication_schedule_preferences;
+create policy lifemate_edge_runtime_access
 on lifemate.medication_schedule_preferences
 for all
-to authenticated
-using (owner_person_id = core.self_person_id_for_legacy_app_user((select auth.uid())))
-with check (owner_person_id = core.self_person_id_for_legacy_app_user((select auth.uid())));
+to lifemate_edge_runtime
+using (true)
+with check (true);
 
-drop policy if exists treatment_plan_timing_constraints_self on lifemate.treatment_plan_timing_constraints;
-create policy treatment_plan_timing_constraints_self
+drop policy if exists lifemate_edge_runtime_access on lifemate.treatment_plan_timing_constraints;
+create policy lifemate_edge_runtime_access
 on lifemate.treatment_plan_timing_constraints
 for all
-to authenticated
-using (owner_person_id = core.self_person_id_for_legacy_app_user((select auth.uid())))
-with check (owner_person_id = core.self_person_id_for_legacy_app_user((select auth.uid())));
-
-revoke all on lifemate.medication_schedule_preferences from anon;
-revoke all on lifemate.treatment_plan_timing_constraints from anon;
+to lifemate_edge_runtime
+using (true)
+with check (true);
 
 comment on table lifemate.medication_schedule_preferences is
-  'Person-owned non-clinical timing preferences used only to prepare explicit medication schedule proposals.';
+  'Person-owned non-clinical timing preferences used only by the authenticated API to prepare explicit medication schedule proposals; browser roles have no direct access.';
 comment on table lifemate.treatment_plan_timing_constraints is
-  'User-entered plan timing constraints. Does not encode inferred medical safety or drug interaction rules.';
+  'User-entered plan timing constraints. Does not encode inferred medical safety or drug interaction rules; browser roles have no direct access.';
