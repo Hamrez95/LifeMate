@@ -24,10 +24,24 @@ export function createMedicationScheduleRouteHandler(databaseUrl: string) {
       request.method === "PATCH" &&
       path === "/api/v1/medication-schedule/preferences"
     ) {
-      enforceRateLimit(`medication-schedule-preferences:${appUserId}`, 30, 60 * 60_000);
-      return json(
-        await store.updatePreferences(appUserId, await readJsonObject(request)),
+      enforceRateLimit(
+        `medication-schedule-preferences:${appUserId}`,
+        30,
+        60 * 60_000,
       );
+      return json(
+        await store.updatePreferences(
+          appUserId,
+          await readJsonObject(request),
+        ),
+      );
+    }
+
+    if (
+      request.method === "GET" &&
+      path === "/api/v1/medication-schedule/plans"
+    ) {
+      return json({ items: await store.listPlanTimings(appUserId) });
     }
 
     const timingMatch = path.match(
@@ -37,7 +51,11 @@ export function createMedicationScheduleRouteHandler(databaseUrl: string) {
       return json(await store.getPlanTiming(appUserId, timingMatch[1]));
     }
     if (request.method === "PATCH" && timingMatch) {
-      enforceRateLimit(`treatment-plan-timing:${appUserId}`, 30, 60 * 60_000);
+      enforceRateLimit(
+        `treatment-plan-timing:${appUserId}`,
+        30,
+        60 * 60_000,
+      );
       return json(
         await store.updatePlanTiming(
           appUserId,
