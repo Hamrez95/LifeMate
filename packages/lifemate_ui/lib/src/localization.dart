@@ -1,7 +1,38 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import 'locales/en.dart';
 import 'locales/fa.dart';
+import 'medication_schedule_locales.dart';
+
+const Map<String, String> medicationSchedulePersianMessages = <String, String>{
+  'medication.schedule.rules.sectionTitle': 'قواعد زمان‌بندی هر دارو',
+  'medication.schedule.rules.sectionDescription': 'در این بخش فقط محدودیت‌هایی را ثبت می‌کنی که خودت می‌دانی. LifeMate تداخل دارویی یا ایمنی پزشکی را بررسی نمی‌کند.',
+  'medication.schedule.rules.empty': 'فعلاً داروی فعالی برای تنظیم زمان‌بندی نداری.',
+  'medication.schedule.rules.title': 'قواعد زمان‌بندی',
+  'medication.schedule.rules.fixed': 'زمان ثابت',
+  'medication.schedule.rules.fixedTitle': 'این زمان ثابت بماند',
+  'medication.schedule.rules.fixedDescription': 'وقتی روشن است، این دارو وارد هیچ پیشنهاد جابه‌جایی خودکار نمی‌شود.',
+  'medication.schedule.rules.nearby': 'پیشنهاد زمان نزدیک مجاز',
+  'medication.schedule.rules.nearbyTitle': 'اجازه پیشنهاد برای زمان‌های نزدیک',
+  'medication.schedule.rules.nearbyDescription': 'فقط اجازه ساخت پیش‌نمایش می‌دهد؛ هیچ زمان مصرفی بدون تأیید تو تغییر نمی‌کند.',
+  'medication.schedule.rules.spacingSaved': 'دستور فاصله ثبت شده',
+  'medication.schedule.rules.spacingTitle': 'دستور فاصله زمانی',
+  'medication.schedule.rules.spacingDescription': 'فقط فاصله‌ای را وارد کن که در نسخه یا دستور پزشک/داروساز به تو گفته شده است. LifeMate این مقدار را از نظر پزشکی بررسی یا استنباط نمی‌کند.',
+  'medication.schedule.rules.minutesBefore': 'دقیقه قبل',
+  'medication.schedule.rules.minutesAfter': 'دقیقه بعد',
+  'medication.schedule.rules.note': 'توضیح اختیاری دستور',
+  'medication.schedule.rules.saved': 'قواعد زمان‌بندی ذخیره شد.',
+  'medication.schedule.rules.saveFailed': 'ذخیره قواعد زمان‌بندی انجام نشد.',
+  'medication.schedule.rules.stale': 'این تنظیمات جای دیگری تغییر کرده بود. آخرین نسخه بارگذاری شد؛ دوباره بررسی و ذخیره کن.',
+  'medication.schedule.rules.invalidSpacing': 'فاصله باید عددی بین ۰ تا ۱۴۴۰ دقیقه باشد.',
+  'medication.schedule.rules.noteTooLong': 'توضیح فاصله حداکثر ۲۴۰ نویسه است.',
+  'medication.schedule.rules.explicitSchedule': 'برنامه با ساعت‌های مشخص',
+  'medication.schedule.rules.daily24': 'روزانه · هر ۲۴ ساعت',
+  'medication.schedule.rules.every2Days48': 'هر ۲ روز · ۴۸ ساعت',
+  'medication.schedule.rules.everyHours': 'هر {hours} ساعت',
+  'medication.schedule.rules.recurring': 'برنامه تکرارشونده',
+};
 
 @immutable
 class LifeMateLocaleSpec {
@@ -108,8 +139,14 @@ class LifeMateMessageCatalog {
 
 const LifeMateMessageCatalog lifeMateMessages = LifeMateMessageCatalog(
   <String, Map<String, String>>{
-    'en': lifeMateEnglishMessages,
-    'fa': lifeMatePersianMessages,
+    'en': <String, String>{
+      ...lifeMateEnglishMessages,
+      ...medicationScheduleEnglishMessages,
+    },
+    'fa': <String, String>{
+      ...lifeMatePersianMessages,
+      ...medicationSchedulePersianMessages,
+    },
   },
 );
 
@@ -120,11 +157,54 @@ extension LifeMateLocalizationContext on BuildContext {
   String tr(
     String key, {
     Map<String, Object?> params = const <String, Object?>{},
-  }) => lifeMateMessages.text(
+  }) =>
+      lifeMateMessages.text(
         key,
         locale: lifeMateLocale.locale,
         params: params,
       );
+}
+
+/// Accepts Latin, Persian and Arabic-Indic digits while normalizing the model
+/// value to ASCII. This keeps numeric health/timing payloads locale-independent
+/// without making Persian users switch keyboards.
+class LifeMateLocaleDigitInputFormatter extends TextInputFormatter {
+  const LifeMateLocaleDigitInputFormatter();
+
+  static const Map<String, String> _digits = <String, String>{
+    '۰': '0',
+    '۱': '1',
+    '۲': '2',
+    '۳': '3',
+    '۴': '4',
+    '۵': '5',
+    '۶': '6',
+    '۷': '7',
+    '۸': '8',
+    '۹': '9',
+    '٠': '0',
+    '١': '1',
+    '٢': '2',
+    '٣': '3',
+    '٤': '4',
+    '٥': '5',
+    '٦': '6',
+    '٧': '7',
+    '٨': '8',
+    '٩': '9',
+  };
+
+  @override
+  TextEditingValue formatEditUpdate(
+    TextEditingValue oldValue,
+    TextEditingValue newValue,
+  ) {
+    final normalized = newValue.text
+        .split('')
+        .map((character) => _digits[character] ?? character)
+        .join();
+    return newValue.copyWith(text: normalized);
+  }
 }
 
 class LifeMateBidiText extends StatelessWidget {

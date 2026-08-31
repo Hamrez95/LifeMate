@@ -177,6 +177,32 @@ export function createDataExportStore(databaseUrl: string) {
       `,
     );
 
+    const medicationSchedulePreferences = await bounded(
+      "medication_schedule_preferences",
+      sql`
+        select time_zone, sleep_window_enabled,
+               sleep_start_local_time, sleep_end_local_time,
+               version, created_at_utc, updated_at_utc
+        from lifemate.medication_schedule_preferences
+        where owner_person_id = ${personId}::uuid
+        order by created_at_utc
+        limit ${portableExportRowLimit + 1}
+      `,
+    );
+
+    const treatmentPlanTimingConstraints = await bounded(
+      "treatment_plan_timing_constraints",
+      sql`
+        select treatment_plan_id, nearby_grouping_enabled, timing_locked,
+               manual_spacing_before_minutes, manual_spacing_after_minutes,
+               timing_note, version, created_at_utc, updated_at_utc
+        from lifemate.treatment_plan_timing_constraints
+        where owner_person_id = ${personId}::uuid
+        order by created_at_utc, treatment_plan_id
+        limit ${portableExportRowLimit + 1}
+      `,
+    );
+
     const doseOccurrences = await bounded(
       "dose_occurrences",
       sql`
@@ -367,6 +393,12 @@ export function createDataExportStore(databaseUrl: string) {
         medications: portableRows(medications),
         treatmentPlans: portableRows(treatmentPlans),
         treatmentSchedules: portableRows(treatmentSchedules),
+        medicationSchedulePreferences: portableRows(
+          medicationSchedulePreferences,
+        ),
+        treatmentPlanTimingConstraints: portableRows(
+          treatmentPlanTimingConstraints,
+        ),
         doseOccurrences: portableRows(doseOccurrences),
         doseAdherenceEvents: portableRows(adherenceEvents),
         careEvents: portableRows(careEvents),
