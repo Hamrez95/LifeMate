@@ -110,6 +110,148 @@ class LifeMateMedicationSchedulePlan {
   final LifeMateTreatmentPlanTiming timing;
 }
 
+class LifeMateNearbyDoseChange {
+  const LifeMateNearbyDoseChange({
+    required this.treatmentPlanId,
+    required this.medicationName,
+    required this.oldAnchorLocalTime,
+    required this.newAnchorLocalTime,
+    required this.intervalHoursBefore,
+    required this.intervalHoursAfter,
+    required this.shiftMinutes,
+  });
+
+  factory LifeMateNearbyDoseChange.fromJson(Map<String, dynamic> json) =>
+      LifeMateNearbyDoseChange(
+        treatmentPlanId: json['treatmentPlanId']?.toString() ?? '',
+        medicationName: json['medicationName']?.toString() ?? '',
+        oldAnchorLocalTime: json['oldAnchorLocalTime']?.toString() ?? '',
+        newAnchorLocalTime: json['newAnchorLocalTime']?.toString() ?? '',
+        intervalHoursBefore:
+            int.tryParse(json['intervalHoursBefore']?.toString() ?? '') ?? 0,
+        intervalHoursAfter:
+            int.tryParse(json['intervalHoursAfter']?.toString() ?? '') ?? 0,
+        shiftMinutes: int.tryParse(json['shiftMinutes']?.toString() ?? '') ?? 0,
+      );
+
+  final String treatmentPlanId;
+  final String medicationName;
+  final String oldAnchorLocalTime;
+  final String newAnchorLocalTime;
+  final int intervalHoursBefore;
+  final int intervalHoursAfter;
+  final int shiftMinutes;
+}
+
+class LifeMateNearbyDoseGroup {
+  const LifeMateNearbyDoseGroup({
+    required this.sharedLocalTime,
+    required this.changes,
+  });
+
+  factory LifeMateNearbyDoseGroup.fromJson(Map<String, dynamic> json) =>
+      LifeMateNearbyDoseGroup(
+        sharedLocalTime: json['sharedLocalTime']?.toString() ?? '',
+        changes: (json['changes'] is List ? json['changes'] as List : const [])
+            .whereType<Map>()
+            .map(
+              (item) => LifeMateNearbyDoseChange.fromJson(
+                Map<String, dynamic>.from(item),
+              ),
+            )
+            .toList(growable: false),
+      );
+
+  final String sharedLocalTime;
+  final List<LifeMateNearbyDoseChange> changes;
+}
+
+class LifeMateNearbyDoseExclusion {
+  const LifeMateNearbyDoseExclusion({
+    required this.treatmentPlanId,
+    required this.medicationName,
+    required this.reason,
+  });
+
+  factory LifeMateNearbyDoseExclusion.fromJson(Map<String, dynamic> json) =>
+      LifeMateNearbyDoseExclusion(
+        treatmentPlanId: json['treatmentPlanId']?.toString() ?? '',
+        medicationName: json['medicationName']?.toString() ?? '',
+        reason: json['reason']?.toString() ?? '',
+      );
+
+  final String treatmentPlanId;
+  final String medicationName;
+  final String reason;
+}
+
+class LifeMateNearbyDoseProposal {
+  const LifeMateNearbyDoseProposal({
+    required this.proposalId,
+    required this.expiresAtUtc,
+    required this.algorithmVersion,
+    required this.groups,
+    required this.exclusions,
+    required this.expectedNotificationReduction,
+  });
+
+  factory LifeMateNearbyDoseProposal.fromJson(Map<String, dynamic> json) =>
+      LifeMateNearbyDoseProposal(
+        proposalId: json['proposalId']?.toString() ?? '',
+        expiresAtUtc: DateTime.tryParse(json['expiresAtUtc']?.toString() ?? ''),
+        algorithmVersion: json['algorithmVersion']?.toString() ?? '',
+        groups: (json['groups'] is List ? json['groups'] as List : const [])
+            .whereType<Map>()
+            .map(
+              (item) => LifeMateNearbyDoseGroup.fromJson(
+                Map<String, dynamic>.from(item),
+              ),
+            )
+            .toList(growable: false),
+        exclusions:
+            (json['exclusions'] is List ? json['exclusions'] as List : const [])
+                .whereType<Map>()
+                .map(
+                  (item) => LifeMateNearbyDoseExclusion.fromJson(
+                    Map<String, dynamic>.from(item),
+                  ),
+                )
+                .toList(growable: false),
+        expectedNotificationReduction: int.tryParse(
+              json['expectedNotificationReduction']?.toString() ?? '',
+            ) ??
+            0,
+      );
+
+  final String proposalId;
+  final DateTime? expiresAtUtc;
+  final String algorithmVersion;
+  final List<LifeMateNearbyDoseGroup> groups;
+  final List<LifeMateNearbyDoseExclusion> exclusions;
+  final int expectedNotificationReduction;
+
+  bool get hasChanges => groups.any((group) => group.changes.isNotEmpty);
+}
+
+class LifeMateNearbyDoseApplyResult {
+  const LifeMateNearbyDoseApplyResult({
+    required this.proposalId,
+    required this.status,
+    required this.alreadyApplied,
+  });
+
+  factory LifeMateNearbyDoseApplyResult.fromJson(Map<String, dynamic> json) =>
+      LifeMateNearbyDoseApplyResult(
+        proposalId: json['proposalId']?.toString() ?? '',
+        status: json['status']?.toString() ?? '',
+        alreadyApplied: json['alreadyApplied'] == true,
+      );
+
+  final String proposalId;
+  final String status;
+  final bool alreadyApplied;
+}
+
 typedef LifeMateMedicationScheduleTokenProvider = String? Function();
 
 class LifeMateMedicationScheduleApi {
@@ -160,6 +302,30 @@ class LifeMateMedicationScheduleApi {
         )
         .toList(growable: false);
   }
+
+  Future<LifeMateNearbyDoseProposal> previewNearbyDoseOptimization() async =>
+      LifeMateNearbyDoseProposal.fromJson(
+        _object(
+          await _request(
+            'POST',
+            '/api/v1/medication-schedule-optimizations/nearby/preview',
+            body: const <String, dynamic>{},
+          ),
+        ),
+      );
+
+  Future<LifeMateNearbyDoseApplyResult> applyNearbyDoseOptimization(
+    String proposalId,
+  ) async =>
+      LifeMateNearbyDoseApplyResult.fromJson(
+        _object(
+          await _request(
+            'POST',
+            '/api/v1/medication-schedule-optimizations/$proposalId/apply',
+            body: const <String, dynamic>{'confirmed': true},
+          ),
+        ),
+      );
 
   Future<LifeMateMedicationSchedulePreferences> savePreferences({
     required LifeMateMedicationSchedulePreferences current,
@@ -250,6 +416,9 @@ class LifeMateMedicationScheduleApi {
     try {
       final response = switch (method) {
         'GET' => await _http.get(uri, headers: headers).timeout(_timeout),
+        'POST' => await _http
+            .post(uri, headers: headers, body: jsonEncode(body ?? const {}))
+            .timeout(_timeout),
         'PATCH' => await _http
             .patch(uri, headers: headers, body: jsonEncode(body))
             .timeout(_timeout),
