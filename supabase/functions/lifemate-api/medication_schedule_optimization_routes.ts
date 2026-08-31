@@ -28,6 +28,14 @@ export function createMedicationScheduleOptimizationRouteHandler(databaseUrl: st
       return json(await store.apply(appUserId, applyMatch[1]));
     }
 
+    const undoMatch = path.match(
+      /^\/api\/v1\/medication-schedule-optimizations\/([0-9a-f-]{36})\/undo$/i,
+    );
+    if (request.method === "POST" && undoMatch) {
+      enforceRateLimit(`medication-schedule-undo:${appUserId}`, 20, 60 * 60_000);
+      return json(await store.undo(appUserId, undoMatch[1]));
+    }
+
     return null;
   };
 }
