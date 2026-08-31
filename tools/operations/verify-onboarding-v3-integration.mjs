@@ -86,11 +86,13 @@ async function main() {
     read('caremate/lib/services/care_home_aggregator.dart'),
     read('supabase/functions/lifemate-api/person_invitation_acceptance.ts'),
   ]);
-  assert.ok(careGate.includes('_relationshipHint'));
+  assert.ok(careGate.includes('LifeMateCareRelationshipInvitationApi.fromEnvironment'));
+  assert.ok(careGate.includes('preview(token: normalizedToken)'));
+  assert.ok(careGate.includes("preview['relationshipType']"));
+  assert.ok(careGate.includes('acceptCareInvitation(token: normalizedToken)'));
   assert.ok(!careGate.includes("'relationshipType': _relationshipHint"));
   assert.ok(!careGate.includes("'relationshipHint': _relationshipHint"));
   assert.ok(careGate.includes('getCareRelationships()'));
-  assert.ok(careGate.includes('acceptCareInvitation'));
   assert.ok(careGate.includes('getCareRecipientWomenCalendar'));
   assert.ok(careGate.includes('viewFertilityEstimate'));
   assert.ok(careGate.includes('receiveFertilityNotifications'));
