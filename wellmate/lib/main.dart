@@ -16,6 +16,7 @@ import 'package:wellmate/providers/notification_provider.dart';
 import 'package:wellmate/providers/settings_provider.dart';
 import 'package:wellmate/screens/home/home_screen.dart';
 import 'package:wellmate/screens/onboarding/wellmate_first_value_gate.dart';
+import 'package:wellmate/screens/treatments/grouped_medication_checklist_screen.dart';
 
 import 'localization/app_localizations.dart';
 import 'localization/locale_provider.dart';
@@ -265,14 +266,18 @@ class _AuthenticatedWellMateShellState
       WellMateNavigationRefreshObserver();
   Timer? _widgetSyncTimer;
   bool _widgetSyncInFlight = false;
+  bool _groupNavigationQueued = false;
 
   @override
   void initState() {
     super.initState();
-    context.read<NotificationProvider>().attachApiClient(widget.apiClient);
+    final notifications = context.read<NotificationProvider>();
+    notifications.attachApiClient(widget.apiClient);
+    notifications.addListener(_scheduleGroupedMedicationNavigation);
     WidgetsBinding.instance.addObserver(this);
     WellMateRefreshSignal.revision.addListener(_scheduleMedicationWidgetSync);
     scheduleMicrotask(_scheduleMedicationWidgetSync);
+    scheduleMicrotask(_scheduleGroupedMedicationNavigation);
     _widgetSyncTimer = Timer.periodic(
       const Duration(minutes: 1),
       (_) => _scheduleMedicationWidgetSync(),
@@ -293,7 +298,26 @@ class _AuthenticatedWellMateShellState
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.resumed) {
       _scheduleMedicationWidgetSync();
+      _scheduleGroupedMedicationNavigation();
     }
+  }
+
+  void _scheduleGroupedMedicationNavigation() {
+    if (_groupNavigationQueued || !mounted) return;
+    final notifications = context.read<NotificationProvider>();
+    if (notifications.pendingGroupedMedicationTarget == null) return;
+    _groupNavigationQueued = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _groupNavigationQueued = false;
+      if (!mounted) return;
+      final target = notifications.consumePendingGroupedMedicationTarget();
+      if (target == null) return;
+      _navigatorKey.currentState?.push<void>(
+        MaterialPageRoute<void>(
+          builder: (_) => GroupedMedicationChecklistScreen(target: target),
+        ),
+      );
+    });
   }
 
   void _scheduleMedicationWidgetSync() {
@@ -325,7 +349,9 @@ class _AuthenticatedWellMateShellState
 
   @override
   void dispose() {
-    context.read<NotificationProvider>().detachApiClient(widget.apiClient);
+    final notifications = context.read<NotificationProvider>();
+    notifications.removeListener(_scheduleGroupedMedicationNavigation);
+    notifications.detachApiClient(widget.apiClient);
     _widgetSyncTimer?.cancel();
     WellMateRefreshSignal.revision.removeListener(
       _scheduleMedicationWidgetSync,
