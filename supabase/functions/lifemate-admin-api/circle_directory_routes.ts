@@ -31,11 +31,11 @@ export function createAdminCircleDirectoryRouteHandler(databaseUrl: string) {
         {
           ...result,
           filters: {
-            status: query.status,
-            kind: query.kind,
-            ownerPersonId: query.ownerPersonId,
-            memberPersonId: query.memberPersonId,
-            q: query.q,
+            status: query.status ?? null,
+            kind: query.kind ?? null,
+            ownerPersonId: query.ownerPersonId ?? null,
+            memberPersonId: query.memberPersonId ?? null,
+            q: query.q ?? null,
           },
           source: {
             kind: "canonical",
