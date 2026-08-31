@@ -1,5 +1,8 @@
 import 'dart:convert';
 
+import 'package:flutter/widgets.dart';
+import 'package:lifemate_ui/lifemate_ui.dart';
+
 import '../models/schedule_item_model.dart';
 
 const wellMateGroupedMedicationPrefix = 'lifemate-medication-group:';
@@ -70,9 +73,11 @@ class GroupedMedicationNotificationTarget {
     if (groupKey.isEmpty || raw is! List) return null;
     final doses = raw
         .whereType<Map>()
-        .map((value) => GroupedMedicationDoseTarget.fromJson(
-              Map<String, dynamic>.from(value),
-            ))
+        .map(
+          (value) => GroupedMedicationDoseTarget.fromJson(
+            Map<String, dynamic>.from(value),
+          ),
+        )
         .whereType<GroupedMedicationDoseTarget>()
         .toList(growable: false);
     if (doses.length < 2) return null;
@@ -101,13 +106,14 @@ Map<DateTime, List<GroupedMedicationCandidate>> groupMedicationCandidates(
 ) {
   final result = <DateTime, List<GroupedMedicationCandidate>>{};
   for (final candidate in candidates) {
-    if (candidate.item.type != 'medicine' || candidate.item.status != 'scheduled') {
+    if (candidate.item.type != 'medicine' ||
+        candidate.item.status != 'scheduled') {
       continue;
     }
     final normalized = candidate.triggerUtc.toUtc();
-    result.putIfAbsent(normalized, () => <GroupedMedicationCandidate>[]).add(
-          candidate,
-        );
+    result
+        .putIfAbsent(normalized, () => <GroupedMedicationCandidate>[])
+        .add(candidate);
   }
   result.removeWhere((_, values) => values.length < 2);
   for (final values in result.values) {
@@ -116,7 +122,9 @@ Map<DateTime, List<GroupedMedicationCandidate>> groupMedicationCandidates(
   return result;
 }
 
-String encodeGroupedMedicationPayload(GroupedMedicationNotificationTarget target) {
+String encodeGroupedMedicationPayload(
+  GroupedMedicationNotificationTarget target,
+) {
   final encoded = base64Url.encode(
     utf8.encode(jsonEncode(target.toJson())),
   );
@@ -142,21 +150,42 @@ GroupedMedicationNotificationTarget? decodeGroupedMedicationPayload(
   }
 }
 
-String groupedMedicationTitle(int count, bool isPersian) => isPersian
-    ? 'وقت مصرف $count دارو'
-    : 'Time for $count medications';
+Locale _notificationLocale(bool isPersian) => Locale(isPersian ? 'fa' : 'en');
+
+String groupedMedicationTitle(int count, bool isPersian) =>
+    lifeMateMessages.text(
+      'medication.grouped.notification.title',
+      locale: _notificationLocale(isPersian),
+      params: {'count': count},
+    );
+
+String groupedMedicationReviewAction(bool isPersian) => lifeMateMessages.text(
+      'medication.grouped.notification.reviewAction',
+      locale: _notificationLocale(isPersian),
+    );
 
 String groupedMedicationBody(
   Iterable<GroupedMedicationDoseTarget> doses,
   bool isPersian, {
   int maxNames = 3,
 }) {
-  final names = doses.map((dose) => dose.title.trim()).where((value) => value.isNotEmpty).toList();
+  final names = doses
+      .map((dose) => dose.title.trim())
+      .where((value) => value.isNotEmpty)
+      .toList();
+  final locale = _notificationLocale(isPersian);
   if (names.isEmpty) {
-    return isPersian ? 'داروهای برنامه‌ریزی‌شده را بررسی کنید.' : 'Review your scheduled medications.';
+    return lifeMateMessages.text(
+      'medication.grouped.notification.emptyBody',
+      locale: locale,
+    );
   }
   final visible = names.take(maxNames).join(isPersian ? '، ' : ', ');
   final hidden = names.length - maxNames;
   if (hidden <= 0) return visible;
-  return isPersian ? '$visible و $hidden مورد دیگر' : '$visible and $hidden more';
+  return lifeMateMessages.text(
+    'medication.grouped.notification.more',
+    locale: locale,
+    params: {'visible': visible, 'count': hidden},
+  );
 }
