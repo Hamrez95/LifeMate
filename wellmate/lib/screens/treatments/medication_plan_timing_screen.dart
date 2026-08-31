@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:lifemate_client/lifemate_client.dart';
+import 'package:lifemate_ui/lifemate_ui.dart';
 
 import '../../core/theme/app_style.dart';
 
@@ -36,9 +37,6 @@ class _MedicationPlanTimingScreenState extends State<MedicationPlanTimingScreen>
   bool _saving = false;
   String? _error;
 
-  bool get _fa => Localizations.localeOf(context).languageCode == 'fa';
-  String _copy(String fa, String en) => _fa ? fa : en;
-
   @override
   void dispose() {
     _before.dispose();
@@ -59,19 +57,13 @@ class _MedicationPlanTimingScreenState extends State<MedicationPlanTimingScreen>
     final after = _spacing(_after);
     if (before == null || after == null) {
       setState(() {
-        _error = _copy(
-          'فاصله باید عددی بین ۰ تا ۱۴۴۰ دقیقه باشد.',
-          'Spacing must be an integer from 0 to 1440 minutes.',
-        );
+        _error = context.tr('medication.schedule.rules.invalidSpacing');
       });
       return;
     }
     if (_note.text.trim().length > 240) {
       setState(() {
-        _error = _copy(
-          'توضیح فاصله حداکثر ۲۴۰ نویسه است.',
-          'The spacing note can be at most 240 characters.',
-        );
+        _error = context.tr('medication.schedule.rules.noteTooLong');
       });
       return;
     }
@@ -96,9 +88,7 @@ class _MedicationPlanTimingScreenState extends State<MedicationPlanTimingScreen>
       });
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text(
-            _copy('قواعد زمان‌بندی ذخیره شد.', 'Timing rules saved.'),
-          ),
+          content: Text(context.tr('medication.schedule.rules.saved')),
         ),
       );
     } on LifeMateApiException catch (error) {
@@ -115,10 +105,7 @@ class _MedicationPlanTimingScreenState extends State<MedicationPlanTimingScreen>
             _after.text = refreshed.manualSpacingAfterMinutes.toString();
             _note.text = refreshed.timingNote ?? '';
             _saving = false;
-            _error = _copy(
-              'این تنظیمات جای دیگری تغییر کرده بود. آخرین نسخه بارگذاری شد؛ دوباره بررسی و ذخیره کن.',
-              'These settings changed elsewhere. The latest version was loaded; review and save again.',
-            );
+            _error = context.tr('medication.schedule.rules.stale');
           });
           return;
         } catch (_) {
@@ -127,19 +114,13 @@ class _MedicationPlanTimingScreenState extends State<MedicationPlanTimingScreen>
       }
       setState(() {
         _saving = false;
-        _error = _copy(
-          'ذخیره قواعد زمان‌بندی انجام نشد.',
-          'Timing rules could not be saved.',
-        );
+        _error = context.tr('medication.schedule.rules.saveFailed');
       });
     } catch (_) {
       if (!mounted) return;
       setState(() {
         _saving = false;
-        _error = _copy(
-          'ذخیره قواعد زمان‌بندی انجام نشد.',
-          'Timing rules could not be saved.',
-        );
+        _error = context.tr('medication.schedule.rules.saveFailed');
       });
     }
   }
@@ -154,7 +135,7 @@ class _MedicationPlanTimingScreenState extends State<MedicationPlanTimingScreen>
       appBar: AppBar(
         backgroundColor: AppColors.background,
         elevation: 0,
-        title: Text(_copy('قواعد زمان‌بندی', 'Medication timing rules')),
+        title: Text(context.tr('medication.schedule.rules.title')),
       ),
       body: SafeArea(
         child: ListView(
@@ -194,14 +175,11 @@ class _MedicationPlanTimingScreenState extends State<MedicationPlanTimingScreen>
                           },
                     secondary: const Icon(Icons.lock_clock_outlined),
                     title: Text(
-                      _copy('این زمان ثابت بماند', 'Keep this timing fixed'),
+                      context.tr('medication.schedule.rules.fixedTitle'),
                       style: const TextStyle(fontWeight: FontWeight.w900),
                     ),
                     subtitle: Text(
-                      _copy(
-                        'وقتی روشن است، این دارو وارد هیچ پیشنهاد جابه‌جایی خودکار نمی‌شود.',
-                        'When enabled, this medication is excluded from automatic timing proposals.',
-                      ),
+                      context.tr('medication.schedule.rules.fixedDescription'),
                     ),
                   ),
                   const Divider(height: 24),
@@ -213,17 +191,11 @@ class _MedicationPlanTimingScreenState extends State<MedicationPlanTimingScreen>
                         : (value) => setState(() => _nearby = value),
                     secondary: const Icon(Icons.merge_type_rounded),
                     title: Text(
-                      _copy(
-                        'اجازه پیشنهاد برای زمان‌های نزدیک',
-                        'Allow nearby-time proposals',
-                      ),
+                      context.tr('medication.schedule.rules.nearbyTitle'),
                       style: const TextStyle(fontWeight: FontWeight.w900),
                     ),
                     subtitle: Text(
-                      _copy(
-                        'فقط اجازه ساخت پیش‌نمایش می‌دهد؛ هیچ زمان مصرفی بدون تأیید تو تغییر نمی‌کند.',
-                        'This only allows a preview to be prepared; no dose time changes without your confirmation.',
-                      ),
+                      context.tr('medication.schedule.rules.nearbyDescription'),
                     ),
                   ),
                 ],
@@ -240,10 +212,7 @@ class _MedicationPlanTimingScreenState extends State<MedicationPlanTimingScreen>
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
                   Text(
-                    _copy(
-                      'دستور فاصله زمانی',
-                      'Required spacing instruction',
-                    ),
+                    context.tr('medication.schedule.rules.spacingTitle'),
                     style: const TextStyle(
                       fontWeight: FontWeight.w900,
                       fontSize: 16,
@@ -251,10 +220,7 @@ class _MedicationPlanTimingScreenState extends State<MedicationPlanTimingScreen>
                   ),
                   const SizedBox(height: 6),
                   Text(
-                    _copy(
-                      'فقط فاصله‌ای را وارد کن که در نسخه یا دستور پزشک/داروساز به تو گفته شده است. LifeMate این مقدار را از نظر پزشکی بررسی یا استنباط نمی‌کند.',
-                      'Only enter spacing from your prescription or pharmacist/clinician instruction. LifeMate does not medically validate or infer this value.',
-                    ),
+                    context.tr('medication.schedule.rules.spacingDescription'),
                     style: const TextStyle(height: 1.45),
                   ),
                   const SizedBox(height: 14),
@@ -265,6 +231,9 @@ class _MedicationPlanTimingScreenState extends State<MedicationPlanTimingScreen>
                           controller: _before,
                           enabled: !_saving,
                           keyboardType: TextInputType.number,
+                          inputFormatters: const [
+                            LifeMateLocaleDigitInputFormatter(),
+                          ],
                           onChanged: (_) => setState(() {
                             if ((_spacing(_before) ?? 0) > 0 ||
                                 (_spacing(_after) ?? 0) > 0) {
@@ -272,7 +241,9 @@ class _MedicationPlanTimingScreenState extends State<MedicationPlanTimingScreen>
                             }
                           }),
                           decoration: InputDecoration(
-                            labelText: _copy('دقیقه قبل', 'Minutes before'),
+                            labelText: context.tr(
+                              'medication.schedule.rules.minutesBefore',
+                            ),
                             border: const OutlineInputBorder(),
                           ),
                         ),
@@ -283,6 +254,9 @@ class _MedicationPlanTimingScreenState extends State<MedicationPlanTimingScreen>
                           controller: _after,
                           enabled: !_saving,
                           keyboardType: TextInputType.number,
+                          inputFormatters: const [
+                            LifeMateLocaleDigitInputFormatter(),
+                          ],
                           onChanged: (_) => setState(() {
                             if ((_spacing(_before) ?? 0) > 0 ||
                                 (_spacing(_after) ?? 0) > 0) {
@@ -290,7 +264,9 @@ class _MedicationPlanTimingScreenState extends State<MedicationPlanTimingScreen>
                             }
                           }),
                           decoration: InputDecoration(
-                            labelText: _copy('دقیقه بعد', 'Minutes after'),
+                            labelText: context.tr(
+                              'medication.schedule.rules.minutesAfter',
+                            ),
                             border: const OutlineInputBorder(),
                           ),
                         ),
@@ -305,10 +281,7 @@ class _MedicationPlanTimingScreenState extends State<MedicationPlanTimingScreen>
                     maxLines: 3,
                     onChanged: (_) => setState(() {}),
                     decoration: InputDecoration(
-                      labelText: _copy(
-                        'توضیح اختیاری دستور',
-                        'Optional instruction note',
-                      ),
+                      labelText: context.tr('medication.schedule.rules.note'),
                       border: const OutlineInputBorder(),
                     ),
                   ),
@@ -331,7 +304,7 @@ class _MedicationPlanTimingScreenState extends State<MedicationPlanTimingScreen>
                       child: CircularProgressIndicator(strokeWidth: 2),
                     )
                   : const Icon(Icons.save_rounded),
-              label: Text(_copy('ذخیره', 'Save')),
+              label: Text(context.tr('common.save')),
             ),
           ],
         ),
