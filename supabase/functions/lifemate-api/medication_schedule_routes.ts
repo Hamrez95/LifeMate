@@ -2,6 +2,7 @@ import { json } from "./http.ts";
 import { createMedicationScheduleAuditWriter } from "./medication_schedule_audit.ts";
 import { createMedicationScheduleOptimizationRouteHandler } from "./medication_schedule_optimization_routes.ts";
 import { createMedicationScheduleSettingsStore } from "./medication_schedule_settings.ts";
+import { createMedicationScheduleSleepRouteHandler } from "./medication_schedule_sleep_routes.ts";
 import { enforceRateLimit } from "./security.ts";
 import { readJsonObject } from "./validation.ts";
 
@@ -9,12 +10,15 @@ export function createMedicationScheduleRouteHandler(databaseUrl: string) {
   const store = createMedicationScheduleSettingsStore(databaseUrl);
   const audit = createMedicationScheduleAuditWriter(databaseUrl);
   const optimizationRoutes = createMedicationScheduleOptimizationRouteHandler(databaseUrl);
+  const sleepRoutes = createMedicationScheduleSleepRouteHandler(databaseUrl);
 
   return async function medicationScheduleRouteHandler(input: {
     request: Request;
     path: string;
     appUserId: string;
   }): Promise<Response | null> {
+    const sleepResponse = await sleepRoutes(input);
+    if (sleepResponse) return sleepResponse;
     const optimizationResponse = await optimizationRoutes(input);
     if (optimizationResponse) return optimizationResponse;
 
