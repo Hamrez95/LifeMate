@@ -9,7 +9,9 @@ on:
         default: false
         type: boolean
   schedule:
-    - cron: '*/15 * * * *'
+    # Private-repository hosted-runner minutes are finite. Keep automated
+    # readiness coverage while reserving the monthly allowance for CI/release.
+    - cron: '5 */4 * * *'
 
 permissions:
   contents: read
