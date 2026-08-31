@@ -103,8 +103,32 @@ Deno.test("Circle Admin read-model remains structure-only", async () => {
     "network.circle_invitations",
     "network.circle_member_sharing_policies",
   ]) {
-    assert(migration.includes(`grant select on table ${allowedTable}`));
+    assert(migration.includes(`on table ${allowedTable} to lifemate_admin_runtime`));
   }
+  assert(!migration.includes("grant select on table network.circles"));
+  assert(!migration.includes("grant select on table network.circle_members"));
+  assert(!migration.includes("grant select on table network.circle_invitations"));
+  assert(!migration.includes("grant select on table network.circle_member_sharing_policies"));
   assert(!migration.includes("grant select on table network.circle_planning_events"));
   assert(!migration.includes("grant select on table network.circle_audit_events"));
+
+  const invitationGrant = migration.slice(
+    migration.indexOf("grant select (\n  id,\n  circle_id,\n  inviter_person_id"),
+    migration.indexOf(
+      ") on table network.circle_invitations to lifemate_admin_runtime;",
+    ),
+  );
+  assert(invitationGrant.length > 0);
+  assert(!invitationGrant.includes("invitee_contact_hash"));
+
+  const sharingGrant = migration.slice(
+    migration.indexOf("grant select (\n  circle_id,\n  person_id,\n  sharing_mode"),
+    migration.indexOf(
+      ") on table network.circle_member_sharing_policies to lifemate_admin_runtime;",
+    ),
+  );
+  assert(sharingGrant.length > 0);
+  assert(!sharingGrant.includes("include_period_window"));
+  assert(!sharingGrant.includes("include_phase_context"));
+  assert(!sharingGrant.includes("include_wellbeing_context"));
 });
