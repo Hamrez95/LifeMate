@@ -1,5 +1,8 @@
 import 'dart:convert';
 
+import 'package:flutter/widgets.dart';
+import 'package:lifemate_ui/lifemate_ui.dart';
+
 import '../models/schedule_item_model.dart';
 
 const wellMateGroupedMedicationPrefix = 'lifemate-medication-group:';
@@ -142,21 +145,41 @@ GroupedMedicationNotificationTarget? decodeGroupedMedicationPayload(
   }
 }
 
-String groupedMedicationTitle(int count, bool isPersian) => isPersian
-    ? 'وقت مصرف $count دارو'
-    : 'Time for $count medications';
+Locale _groupedLocale(bool isPersian) => Locale(isPersian ? 'fa' : 'en');
+
+String groupedMedicationTitle(int count, bool isPersian) =>
+    lifeMateMessages.text(
+      'medication.grouped.notification.title',
+      locale: _groupedLocale(isPersian),
+      params: {'count': count},
+    );
+
+String groupedMedicationReviewAction(bool isPersian) => lifeMateMessages.text(
+      'medication.grouped.notification.reviewAction',
+      locale: _groupedLocale(isPersian),
+    );
 
 String groupedMedicationBody(
   Iterable<GroupedMedicationDoseTarget> doses,
   bool isPersian, {
   int maxNames = 3,
 }) {
-  final names = doses.map((dose) => dose.title.trim()).where((value) => value.isNotEmpty).toList();
+  final names = doses
+      .map((dose) => dose.title.trim())
+      .where((value) => value.isNotEmpty)
+      .toList();
   if (names.isEmpty) {
-    return isPersian ? 'داروهای برنامه‌ریزی‌شده را بررسی کنید.' : 'Review your scheduled medications.';
+    return lifeMateMessages.text(
+      'medication.grouped.notification.emptyBody',
+      locale: _groupedLocale(isPersian),
+    );
   }
   final visible = names.take(maxNames).join(isPersian ? '، ' : ', ');
   final hidden = names.length - maxNames;
   if (hidden <= 0) return visible;
-  return isPersian ? '$visible و $hidden مورد دیگر' : '$visible and $hidden more';
+  return lifeMateMessages.text(
+    'medication.grouped.notification.more',
+    locale: _groupedLocale(isPersian),
+    params: {'visible': visible, 'count': hidden},
+  );
 }
