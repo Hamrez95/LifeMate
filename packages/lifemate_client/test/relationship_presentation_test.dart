@@ -2,7 +2,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:lifemate_client/lifemate_client.dart';
 
 void main() {
-  test('user-facing relationship policy is limited to partner family child', () {
+  test('canonical relationship presentation values remain stable', () {
     expect(
       LifeMateRelationshipPresentationPolicy.fromRaw('partner').storageValue,
       'partner',
@@ -14,6 +14,10 @@ void main() {
     expect(
       LifeMateRelationshipPresentationPolicy.fromRaw('child').storageValue,
       'child',
+    );
+    expect(
+      LifeMateRelationshipPresentationPolicy.fromRaw('trusted_person').storageValue,
+      'trusted_person',
     );
   });
 
@@ -38,7 +42,7 @@ void main() {
       LifeMateRelationshipPresentationPolicy.fromRaw(
         'trusted_caregiver',
       ).storageValue,
-      'family',
+      'trusted_person',
     );
   });
 
@@ -89,28 +93,27 @@ void main() {
   test('viewer-specific nickname resolves before official identity', () {
     expect(
       resolveRelationshipDisplayName(
-        presentationName: 'مامان جون',
-        officialName: 'Maryam Ahmadi',
-        isPersian: true,
+        presentationName: 'Mum',
+        officialName: 'Mary Example',
+        isPersian: false,
       ),
-      'مامان جون',
+      'Mum',
     );
     expect(
       resolveRelationshipDisplayName(
-        presentationName: ' ',
-        officialName: 'Maryam Ahmadi',
-        isPersian: true,
+        presentationName: '   ',
+        officialName: 'Mary Example',
+        isPersian: false,
       ),
-      'Maryam Ahmadi',
+      'Mary Example',
     );
   });
 
   test('presentation policy exposes no authorization or consent grant', () {
     final policy = LifeMateRelationshipPresentationPolicy.fromRaw('partner');
-
-    expect(policy.storageValue, 'partner');
-    expect(policy.surfacePriority, isNotEmpty);
-    expect(policy.toString().toLowerCase(), isNot(contains('permission')));
-    expect(policy.toString().toLowerCase(), isNot(contains('consent')));
+    final dynamic value = policy;
+    expect(() => value.canViewWomenCalendar, throwsNoSuchMethodError);
+    expect(() => value.permissions, throwsNoSuchMethodError);
+    expect(() => value.consentScopes, throwsNoSuchMethodError);
   });
 }
