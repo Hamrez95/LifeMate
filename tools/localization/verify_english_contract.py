@@ -45,6 +45,21 @@ MIGRATED_CATALOG_FILES = {
     'wellmate/lib/screens/women_calendar/women_companion_people_hero.dart',
     'wellmate/lib/screens/women_calendar/women_health_entry_screen.dart',
     'wellmate/lib/screens/women_calendar/women_health_activation_v3_screen.dart',
+    'wellmate/lib/screens/treatments/medication_schedule_preferences_screen.dart',
+    'wellmate/lib/screens/treatments/medication_plan_timing_screen.dart',
+    'wellmate/lib/screens/treatments/nearby_dose_optimization_screen.dart',
+    'wellmate/lib/screens/treatments/grouped_medication_checklist_screen.dart',
+}
+
+# These surfaces have completed the stronger migration: user-facing copy must
+# come from the shared catalog, not from per-screen FA/EN branches. Keeping this
+# list explicit makes the migration monotonic without pretending the whole app
+# is catalog-only before #674 finishes.
+CATALOG_ONLY_FILES = {
+    'wellmate/lib/screens/treatments/medication_schedule_preferences_screen.dart',
+    'wellmate/lib/screens/treatments/medication_plan_timing_screen.dart',
+    'wellmate/lib/screens/treatments/nearby_dose_optimization_screen.dart',
+    'wellmate/lib/screens/treatments/grouped_medication_checklist_screen.dart',
 }
 
 errors: list[str] = []
@@ -101,6 +116,23 @@ def check_legacy_locale_branch_ratchet() -> None:
         LEGACY_LOCALE_BRANCH_FILE_BUDGET,
         sorted(legacy_files),
     )
+
+
+def check_catalog_only_surfaces() -> None:
+    for rel in sorted(CATALOG_ONLY_FILES):
+        text = read(rel)
+        if 'LifeMateRuntimeLocale.select(' in text:
+            fail(f'{rel}: catalog-only surface regressed to LifeMateRuntimeLocale.select')
+        if re.search(r'\b_copy\s*\(', text):
+            fail(f'{rel}: catalog-only surface regressed to a per-screen _copy FA/EN branch')
+        for literal in scan_dart_string_literals(text):
+            if PERSIAN_RE.search(literal.body):
+                fail(
+                    f'{rel}:{literal.line}: catalog-only surface contains inline Persian copy: '
+                    f'{literal.body[:60]!r}'
+                )
+        if 'context.tr(' not in text and 'lifeMateMessages.text(' not in text:
+            fail(f'{rel}: catalog-only surface does not consume the shared message catalog')
 
 
 def check_no_fixed_rtl() -> None:
@@ -232,6 +264,7 @@ def main() -> int:
     check_root_direction('wellmate/lib/main.dart')
     check_root_direction('caremate/lib/main.dart')
     check_legacy_locale_branch_ratchet()
+    check_catalog_only_surfaces()
     check_no_fixed_rtl()
     check_persian_literals_are_guarded()
     check_gregorian_english_contract()
