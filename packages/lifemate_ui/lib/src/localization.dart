@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import 'locales/en.dart';
 import 'locales/fa.dart';
+import 'medication_schedule_locales.dart';
 
 @immutable
 class LifeMateLocaleSpec {
@@ -108,8 +110,14 @@ class LifeMateMessageCatalog {
 
 const LifeMateMessageCatalog lifeMateMessages = LifeMateMessageCatalog(
   <String, Map<String, String>>{
-    'en': lifeMateEnglishMessages,
-    'fa': lifeMatePersianMessages,
+    'en': <String, String>{
+      ...lifeMateEnglishMessages,
+      ...medicationScheduleEnglishMessages,
+    },
+    'fa': <String, String>{
+      ...lifeMatePersianMessages,
+      ...medicationSchedulePersianMessages,
+    },
   },
 );
 
@@ -120,11 +128,54 @@ extension LifeMateLocalizationContext on BuildContext {
   String tr(
     String key, {
     Map<String, Object?> params = const <String, Object?>{},
-  }) => lifeMateMessages.text(
+  }) =>
+      lifeMateMessages.text(
         key,
         locale: lifeMateLocale.locale,
         params: params,
       );
+}
+
+/// Accepts Latin, Persian and Arabic-Indic digits while normalizing the model
+/// value to ASCII. This keeps numeric health/timing payloads locale-independent
+/// without making Persian users switch keyboards.
+class LifeMateLocaleDigitInputFormatter extends TextInputFormatter {
+  const LifeMateLocaleDigitInputFormatter();
+
+  static const Map<String, String> _digits = <String, String>{
+    '۰': '0',
+    '۱': '1',
+    '۲': '2',
+    '۳': '3',
+    '۴': '4',
+    '۵': '5',
+    '۶': '6',
+    '۷': '7',
+    '۸': '8',
+    '۹': '9',
+    '٠': '0',
+    '١': '1',
+    '٢': '2',
+    '٣': '3',
+    '٤': '4',
+    '٥': '5',
+    '٦': '6',
+    '٧': '7',
+    '٨': '8',
+    '٩': '9',
+  };
+
+  @override
+  TextEditingValue formatEditUpdate(
+    TextEditingValue oldValue,
+    TextEditingValue newValue,
+  ) {
+    final normalized = newValue.text
+        .split('')
+        .map((character) => _digits[character] ?? character)
+        .join();
+    return newValue.copyWith(text: normalized);
+  }
 }
 
 class LifeMateBidiText extends StatelessWidget {
