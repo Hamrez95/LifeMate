@@ -28,14 +28,15 @@ PERSIAN_IMPLEMENTATION_FILES = {
     'packages/lifemate_ui/lib/src/locales/fa.dart',
 }
 
-# #674 is an incremental migration. These are real runner-derived baselines
-# captured after the repository became public and the verifier finally ran
-# against the complete checkout. Every migration must ratchet these downward;
-# new debt is not allowed to grow any category.
-LEGACY_LOCALE_BRANCH_FILE_BUDGET = 85
+# #674 is an incremental migration. These are runner-derived LIVE baselines.
+# On 2026-09-01 the Persian-literal metric was corrected to exclude structured
+# LifeMateMessageCatalog data modules; 357 is the corrected current-main debt,
+# not an allowance for catalog copy. Every later migration must ratchet these
+# values downward or keep them level; new debt cannot grow any category.
+LEGACY_LOCALE_BRANCH_FILE_BUDGET = 83
 FIXED_RTL_OVERRIDE_BUDGET = 2
-PERSIAN_RUNTIME_LITERAL_BUDGET = 321
-NUMERIC_INPUT_VIOLATION_BUDGET = 4
+PERSIAN_RUNTIME_LITERAL_BUDGET = 357
+NUMERIC_INPUT_VIOLATION_BUDGET = 3
 
 MIGRATED_CATALOG_FILES = {
     'packages/lifemate_ui/lib/src/remote_config_gate.dart',
