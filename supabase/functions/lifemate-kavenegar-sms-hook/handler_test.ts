@@ -8,6 +8,7 @@ const SECRET_BYTES = new TextEncoder().encode("lifemate-test-webhook-secret");
 const SECRET_BASE64 = toBase64(SECRET_BYTES);
 const HOOK_SECRET = `v1,whsec_${SECRET_BASE64}`;
 const SYNTHETIC_PHONE = "+989000000000";
+const SYNTHETIC_OLD_PHONE = "+989111111111";
 const SYNTHETIC_OTP = "654321";
 
 Deno.test("Send SMS hook rejects non-POST requests with no-store", async () => {
@@ -106,6 +107,10 @@ Deno.test("Send SMS hook rejects malformed phone and OTP before provider invocat
   const invalidEvents = [
     { user: { phone: "+12025550123" }, sms: { otp: SYNTHETIC_OTP } },
     { user: { phone: SYNTHETIC_PHONE }, sms: { otp: "abc123" } },
+    {
+      user: { phone: SYNTHETIC_PHONE, new_phone: "+12025550123" },
+      sms: { otp: SYNTHETIC_OTP },
+    },
   ];
 
   for (const event of invalidEvents) {
@@ -155,6 +160,64 @@ Deno.test("Send SMS hook accepts a valid signed event and calls provider exactly
   assertEquals(await response.json(), {});
   assertEquals(response.headers.get("cache-control"), "no-store");
   assertEquals(providerCreations, 1);
+  assertEquals(sends, 1);
+});
+
+Deno.test("Send SMS hook sends phone-change OTP to new_phone on the same user", async () => {
+  let providerCreations = 0;
+  let sends = 0;
+  const handler = createSendSmsHookHandler({
+    apiKey: API_KEY,
+    template: TEMPLATE,
+    hookSecrets: HOOK_SECRET,
+    providerFactory: () => {
+      providerCreations++;
+      return {
+        sendOtp: (phone, otp) => {
+          sends++;
+          assertEquals(phone, SYNTHETIC_PHONE);
+          assertEquals(otp, SYNTHETIC_OTP);
+          return Promise.resolve();
+        },
+      };
+    },
+  });
+  const payload = JSON.stringify({
+    user: { phone: SYNTHETIC_OLD_PHONE, new_phone: SYNTHETIC_PHONE },
+    sms: { otp: SYNTHETIC_OTP },
+  });
+
+  const response = await handler(await signedRequest(payload));
+
+  assertEquals(response.status, 200);
+  assertEquals(await response.json(), {});
+  assertEquals(providerCreations, 1);
+  assertEquals(sends, 1);
+});
+
+Deno.test("Send SMS hook sends first phone attachment OTP to new_phone when phone is empty", async () => {
+  let sends = 0;
+  const handler = createSendSmsHookHandler({
+    apiKey: API_KEY,
+    template: TEMPLATE,
+    hookSecrets: HOOK_SECRET,
+    providerFactory: () => ({
+      sendOtp: (phone, otp) => {
+        sends++;
+        assertEquals(phone, SYNTHETIC_PHONE);
+        assertEquals(otp, SYNTHETIC_OTP);
+        return Promise.resolve();
+      },
+    }),
+  });
+  const payload = JSON.stringify({
+    user: { phone: "", new_phone: SYNTHETIC_PHONE },
+    sms: { otp: SYNTHETIC_OTP },
+  });
+
+  const response = await handler(await signedRequest(payload));
+
+  assertEquals(response.status, 200);
   assertEquals(sends, 1);
 });
 
