@@ -27,7 +27,7 @@ permissions:
 
 concurrency:
   group: full-test-release-${{ github.ref }}
-  cancel-in-progress: false
+  cancel-in-progress: true
 
 env:
   SUPABASE_PROJECT_REF: bwdvmniywyyijjauipnh
@@ -94,7 +94,7 @@ jobs:
     if: ${{ github.event_name == 'workflow_dispatch' }}
     needs: verify-all
     runs-on: ubuntu-24.04
-    timeout-minutes: 55
+    timeout-minutes: 65
     environment: beta
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
@@ -137,7 +137,7 @@ jobs:
           CAREMATE_KEY_ALIAS: ${{ secrets.CAREMATE_KEY_ALIAS }}
         run: bash tools/release/prepare-android-signing.sh
 
-      - name: Build signed WellMate and CareMate APK/AAB
+      - name: Build signed Android and web test outputs
         shell: bash
         env:
           RELEASE_NAME: ${{ inputs.release_name }}
@@ -155,8 +155,8 @@ jobs:
             --dart-define="ENABLE_WOMEN_CALENDAR_PILOT=true"
             --dart-define="ENABLE_GOOGLE_AUTH=false"
           )
-          (cd wellmate && flutter pub get && flutter build apk "${build_args[@]}" && flutter build appbundle "${build_args[@]}")
-          (cd caremate && flutter pub get && flutter build apk "${build_args[@]}" && flutter build appbundle "${build_args[@]}")
+          (cd wellmate && flutter pub get && flutter build apk "${build_args[@]}" && flutter build appbundle "${build_args[@]}" && flutter build web "${build_args[@]}")
+          (cd caremate && flutter pub get && flutter build apk "${build_args[@]}" && flutter build appbundle "${build_args[@]}" && flutter build web "${build_args[@]}")
           echo "BUILD_NUMBER=$build_number" >> "$GITHUB_ENV"
 
       - name: Verify permanent signatures and package identities
@@ -169,6 +169,8 @@ jobs:
           apkanalyzer="$(find "$ANDROID_SDK_ROOT/cmdline-tools" -type f -name apkanalyzer | sort -V | tail -n 1)"
           "$apkanalyzer" manifest application-id "$wellmate_apk" | grep -Fxq 'com.lifemate.wellmate'
           "$apkanalyzer" manifest application-id "$caremate_apk" | grep -Fxq 'com.lifemate.caremate'
+          test -s wellmate/build/web/index.html
+          test -s caremate/build/web/index.html
 
       - name: Create immutable full-test bundle
         shell: bash
@@ -181,15 +183,19 @@ jobs:
 
           wellmate_apk="wellmate-$RELEASE_NAME-$short_sha.apk"
           wellmate_aab="wellmate-$RELEASE_NAME-$short_sha.aab"
+          wellmate_web="wellmate-web-$RELEASE_NAME-$short_sha.tar.gz"
           caremate_apk="caremate-$RELEASE_NAME-$short_sha.apk"
           caremate_aab="caremate-$RELEASE_NAME-$short_sha.aab"
+          caremate_web="caremate-web-$RELEASE_NAME-$short_sha.tar.gz"
 
           cp wellmate/build/app/outputs/flutter-apk/app-release.apk "dist/$wellmate_apk"
           cp wellmate/build/app/outputs/bundle/release/app-release.aab "dist/$wellmate_aab"
+          tar -C wellmate/build/web -czf "dist/$wellmate_web" .
           cp caremate/build/app/outputs/flutter-apk/app-release.apk "dist/$caremate_apk"
           cp caremate/build/app/outputs/bundle/release/app-release.aab "dist/$caremate_aab"
+          tar -C caremate/build/web -czf "dist/$caremate_web" .
 
-          (cd dist && sha256sum *.apk *.aab > SHA256SUMS.txt)
+          (cd dist && sha256sum *.apk *.aab *.tar.gz > SHA256SUMS.txt)
 
           jq -n \
             --arg commit "$GITHUB_SHA" \
@@ -200,16 +206,20 @@ jobs:
             --arg builtAt "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
             --arg wellmateApk "$wellmate_apk" \
             --arg wellmateAab "$wellmate_aab" \
+            --arg wellmateWeb "$wellmate_web" \
             --arg caremateApk "$caremate_apk" \
             --arg caremateAab "$caremate_aab" \
+            --arg caremateWeb "$caremate_web" \
             --arg wellmateApkSha "$(sha256sum "dist/$wellmate_apk" | awk '{print $1}')" \
             --arg wellmateAabSha "$(sha256sum "dist/$wellmate_aab" | awk '{print $1}')" \
+            --arg wellmateWebSha "$(sha256sum "dist/$wellmate_web" | awk '{print $1}')" \
             --arg caremateApkSha "$(sha256sum "dist/$caremate_apk" | awk '{print $1}')" \
             --arg caremateAabSha "$(sha256sum "dist/$caremate_aab" | awk '{print $1}')" \
-            '{commit:$commit,buildNumber:($buildNumber|tonumber),releaseName:$releaseName,environment:"production-full-test",apiBase:$apiBase,supabaseProject:$supabaseProject,features:{phoneOtp:true,womenCalendarPilot:true,googleAuth:false},builtAtUtc:$builtAt,apps:{wellmate:{apk:{file:$wellmateApk,sha256:$wellmateApkSha},aab:{file:$wellmateAab,sha256:$wellmateAabSha}},caremate:{apk:{file:$caremateApk,sha256:$caremateApkSha},aab:{file:$caremateAab,sha256:$caremateAabSha}}}}' \
+            --arg caremateWebSha "$(sha256sum "dist/$caremate_web" | awk '{print $1}')" \
+            '{commit:$commit,buildNumber:($buildNumber|tonumber),releaseName:$releaseName,environment:"production-full-test",apiBase:$apiBase,supabaseProject:$supabaseProject,features:{phoneOtp:true,womenCalendarPilot:true,googleAuth:false},builtAtUtc:$builtAt,apps:{wellmate:{apk:{file:$wellmateApk,sha256:$wellmateApkSha},aab:{file:$wellmateAab,sha256:$wellmateAabSha},web:{file:$wellmateWeb,sha256:$wellmateWebSha}},caremate:{apk:{file:$caremateApk,sha256:$caremateApkSha},aab:{file:$caremateAab,sha256:$caremateAabSha},web:{file:$caremateWeb,sha256:$caremateWebSha}}}}' \
             > dist/manifest.json
 
-          jq -e '.commit == env.GITHUB_SHA and .features.phoneOtp == true and .features.womenCalendarPilot == true and .features.googleAuth == false and .environment == "production-full-test" and (.apps.wellmate.apk.sha256|length) == 64 and (.apps.wellmate.aab.sha256|length) == 64 and (.apps.caremate.apk.sha256|length) == 64 and (.apps.caremate.aab.sha256|length) == 64' dist/manifest.json >/dev/null
+          jq -e '.commit == env.GITHUB_SHA and .features.phoneOtp == true and .features.womenCalendarPilot == true and .features.googleAuth == false and .environment == "production-full-test" and (.apps.wellmate.apk.sha256|length) == 64 and (.apps.wellmate.aab.sha256|length) == 64 and (.apps.wellmate.web.sha256|length) == 64 and (.apps.caremate.apk.sha256|length) == 64 and (.apps.caremate.aab.sha256|length) == 64 and (.apps.caremate.web.sha256|length) == 64' dist/manifest.json >/dev/null
 
       - name: Upload full-test release bundle
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
