@@ -83,6 +83,7 @@ void main() {
     final api = _FakeLegalPrivacyApi();
     await tester.pumpWidget(
       MaterialApp(
+        locale: const Locale('fa'),
         home: LifeMateLegalRegistrationGate(
           api: api,
           child: const Text('PRODUCT'),
@@ -104,25 +105,29 @@ void main() {
     expect(find.text('PRODUCT'), findsOneWidget);
   });
 
-  testWidgets('optional marketing and research preferences start off and mutate independently', (
-    tester,
-  ) async {
-    final api = _FakeLegalPrivacyApi(registrationCompleted: true);
-    await tester.pumpWidget(
-      MaterialApp(home: LifeMatePrivacyPreferencesScreen(api: api)),
-    );
-    await tester.pumpAndSettle();
+  testWidgets(
+    'optional marketing and research preferences start off and mutate independently',
+    (tester) async {
+      final api = _FakeLegalPrivacyApi(registrationCompleted: true);
+      await tester.pumpWidget(
+        MaterialApp(
+          locale: const Locale('fa'),
+          home: LifeMatePrivacyPreferencesScreen(api: api),
+        ),
+      );
+      await tester.pumpAndSettle();
 
-    expect(find.text('پیشنهادها با پیامک'), findsOneWidget);
-    expect(find.text('مشارکت در پژوهش'), findsOneWidget);
-    final switches = tester.widgetList<Switch>(find.byType(Switch)).toList();
-    expect(switches.every((item) => item.value == false), isTrue);
+      expect(find.text('پیشنهادها با پیامک'), findsOneWidget);
+      expect(find.text('مشارکت در پژوهش'), findsOneWidget);
+      final switches = tester.widgetList<Switch>(find.byType(Switch)).toList();
+      expect(switches.every((item) => item.value == false), isTrue);
 
-    await tester.tap(find.text('پیشنهادها با پیامک'));
-    await tester.pumpAndSettle();
+      await tester.tap(find.text('پیشنهادها با پیامک'));
+      await tester.pumpAndSettle();
 
-    expect(api.writes['promotional_sms'], isTrue);
-    expect(api.writes.containsKey('research'), isFalse);
-    expect(find.textContaining('پیام‌های ضروری'), findsOneWidget);
-  });
+      expect(api.writes['promotional_sms'], isTrue);
+      expect(api.writes.containsKey('research'), isFalse);
+      expect(find.textContaining('پیام‌های ضروری'), findsOneWidget);
+    },
+  );
 }
