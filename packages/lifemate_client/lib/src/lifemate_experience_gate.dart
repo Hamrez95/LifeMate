@@ -85,9 +85,12 @@ class _LifeMateExperienceGateState extends State<LifeMateExperienceGate>
       accessToken: () => _supabase.auth.currentSession?.accessToken,
       accountId: () => _supabase.auth.currentUser?.id,
     );
+    // Supabase Flutter restores its persisted session before this gate builds.
+    // Always consume that restored session first; never send an OTP merely
+    // because the app process restarted or resumed.
     _session = _supabase.auth.currentSession;
     if (_session != null) {
-      _bootstrap = _bootstrapUser(_session!);
+      _bootstrap = _bootstrapUserWithRecovery(_session!);
     }
     _listenToAuth();
   }
@@ -125,15 +128,25 @@ class _LifeMateExperienceGateState extends State<LifeMateExperienceGate>
         final session = state.session;
         final previousUserId = _session?.user.id;
         final nextUserId = session?.user.id;
+        final keepCurrentBootstrap =
+            state.event == AuthChangeEvent.tokenRefreshed &&
+            previousUserId != null &&
+            previousUserId == nextUserId &&
+            _bootstrap != null;
         if (previousUserId != nextUserId) {
           LifeMateProfileRefresh.clearForApiClient(_api);
         }
+        final nextBootstrap = session == null
+            ? null
+            : keepCurrentBootstrap
+                ? _bootstrap
+                : _bootstrapUserWithRecovery(session);
         setState(() {
           _authStreamError = null;
           _session = session;
           _passwordRecovery =
               state.event == AuthChangeEvent.passwordRecovery && session != null;
-          _bootstrap = session == null ? null : _bootstrapUser(session);
+          _bootstrap = nextBootstrap;
         });
       },
       onError: (Object error, StackTrace stackTrace) {
@@ -141,6 +154,26 @@ class _LifeMateExperienceGateState extends State<LifeMateExperienceGate>
         setState(() => _authStreamError = error);
       },
     );
+  }
+
+  Future<void> _bootstrapUserWithRecovery(Session session) async {
+    try {
+      await _bootstrapUser(session);
+    } on LifeMateApiException catch (error) {
+      if (!error.isUnauthorized) rethrow;
+
+      // A backend 401 can simply mean the access token expired between
+      // restore and the first API request. Refresh exactly once and retry the
+      // bootstrap. Do not sign out or trigger another OTP for a recoverable
+      // token expiry/network race.
+      final response = await _supabase.auth
+          .refreshSession()
+          .timeout(_requestTimeout);
+      final refreshedSession =
+          response.session ?? _supabase.auth.currentSession;
+      if (refreshedSession == null) rethrow;
+      await _bootstrapUser(refreshedSession);
+    }
   }
 
   Future<void> _bootstrapUser(Session session) async {
@@ -166,14 +199,17 @@ class _LifeMateExperienceGateState extends State<LifeMateExperienceGate>
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.resumed && _session != null) {
+      // Resuming may replay queued app data, but authentication remains owned
+      // by Supabase's restored/auto-refreshed session. Never send OTP or clear
+      // auth merely because the lifecycle changed.
       unawaited(_api.flushPendingMutations());
     }
   }
 
   void _retryBootstrap() {
-    final session = _session;
+    final session = _session ?? _supabase.auth.currentSession;
     if (session == null) return;
-    setState(() => _bootstrap = _bootstrapUser(session));
+    setState(() => _bootstrap = _bootstrapUserWithRecovery(session));
   }
 
   void _retryAuthStream() {
@@ -252,48 +288,47 @@ class _LifeMateExperienceGateState extends State<LifeMateExperienceGate>
           );
         }
         if (snapshot.hasError) {
-          final expired = snapshot.error is LifeMateApiException &&
+          final unauthorized = snapshot.error is LifeMateApiException &&
               (snapshot.error! as LifeMateApiException).isUnauthorized;
           return _ExperienceBlockingState(
             appName: widget.appName,
             logoAssetPath: widget.logoAssetPath,
             icon: Icons.sync_problem_rounded,
-            title: expired
+            title: unauthorized
                 ? LifeMateRuntimeLocale.select(
-                    fa: 'نشست شما منقضی شده است',
-                    en: 'Your session has expired',
+                    fa: 'بازیابی نشست کامل نشد',
+                    en: 'Session recovery was not completed',
                   )
                 : LifeMateRuntimeLocale.select(
                     fa: 'همگام‌سازی انجام نشد',
                     en: 'Synchronization failed',
                   ),
-            message: expired
+            message: unauthorized
                 ? LifeMateRuntimeLocale.select(
-                    fa: 'برای ادامه دوباره وارد حساب شوید.',
-                    en: 'Sign in again to continue.',
+                    fa: 'اتصال را بررسی کنید و دوباره تلاش کنید. نشست شما خودکار پاک نمی‌شود.',
+                    en: 'Check the connection and retry. Your session will not be cleared automatically.',
                   )
                 : LifeMateRuntimeLocale.select(
                     fa: 'داده‌ای تغییر نکرده است. اتصال را بررسی و دوباره تلاش کنید.',
                     en: 'No data changed. Check the connection and try again.',
                   ),
-            primaryLabel: expired
+            primaryLabel: unauthorized
                 ? LifeMateRuntimeLocale.select(
-                    fa: 'ورود دوباره',
-                    en: 'Sign in again',
+                    fa: 'تلاش برای بازیابی',
+                    en: 'Retry recovery',
                   )
                 : LifeMateRuntimeLocale.select(
                     fa: 'تلاش دوباره',
                     en: 'Try again',
                   ),
-            onPrimary:
-                expired ? () => _supabase.auth.signOut() : _retryBootstrap,
-            secondaryLabel: expired
-                ? null
-                : LifeMateRuntimeLocale.select(
-                    fa: 'خروج از حساب',
-                    en: 'Sign out',
-                  ),
-            onSecondary: expired ? null : () => _supabase.auth.signOut(),
+            onPrimary: _retryBootstrap,
+            secondaryLabel: LifeMateRuntimeLocale.select(
+              fa: 'خروج از حساب',
+              en: 'Sign out',
+            ),
+            // This is the only user-visible escape hatch here. It requires an
+            // explicit tap and is never used as generic 401/network recovery.
+            onSecondary: () => _supabase.auth.signOut(),
           );
         }
         return widget.authenticatedBuilder(context, _api);
