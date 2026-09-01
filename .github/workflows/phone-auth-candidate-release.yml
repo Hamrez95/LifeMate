@@ -1,0 +1,174 @@
+name: phone-auth-candidate-release
+
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/phone-auth-candidate-release.yml'
+      - 'tools/release/verify-phone-auth-candidate.mjs'
+      - 'packages/lifemate_client/lib/src/lifemate_auth.dart'
+      - 'packages/lifemate_client/lib/src/lifemate_experience_gate.dart'
+      - 'packages/lifemate_client/test/session_persistence_contract_test.dart'
+      - 'packages/lifemate_ui/lib/src/shared_auth_experience.dart'
+  workflow_dispatch:
+    inputs:
+      release_name:
+        description: Phone Auth candidate name, for example 0.9.0-phone-auth.1
+        required: true
+        default: 0.9.0-phone-auth.1
+        type: string
+      confirm_candidate:
+        description: Type BUILD-PHONE-AUTH-CANDIDATE
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: phone-auth-candidate-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  SUPABASE_PROJECT_REF: bwdvmniywyyijjauipnh
+  SUPABASE_URL: https://bwdvmniywyyijjauipnh.supabase.co
+  SUPABASE_PUBLISHABLE_KEY: ${{ vars.SUPABASE_PUBLISHABLE_KEY || 'sb_publishable_6YpBDD0gAPcenbYGukOeWg_fZXxUb27' }}
+  LIFEMATE_API_BASE_URL: https://bwdvmniywyyijjauipnh.supabase.co/functions/v1/lifemate-api
+  ENABLE_PHONE_OTP: 'true'
+  ENABLE_GOOGLE_AUTH: 'false'
+
+jobs:
+  contract:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
+        with:
+          show-progress: false
+          persist-credentials: false
+
+      - name: Verify candidate release contract
+        run: |
+          set -euo pipefail
+          node tools/release/verify-phone-auth-candidate.mjs
+          node tools/security/verify-auth-security-contract.mjs
+
+      - uses: subosito/flutter-action@4cab68ce0f1c7c924f688bff4792e044f1aeb30c
+        with:
+          flutter-version: '3.44.0'
+          channel: stable
+          cache: true
+
+      - name: Verify focused auth/session contracts
+        working-directory: packages/lifemate_client
+        shell: bash
+        run: |
+          set -euo pipefail
+          flutter pub get
+          flutter test \
+            test/lifemate_auth_test.dart \
+            test/session_persistence_contract_test.dart
+
+  build-signed-candidate:
+    if: ${{ github.event_name == 'workflow_dispatch' }}
+    needs: contract
+    runs-on: ubuntu-24.04
+    timeout-minutes: 40
+    environment: beta
+    env:
+      RELEASE_NAME: ${{ inputs.release_name }}
+      PUB_ENVIRONMENT: bot:github_actions
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
+        with:
+          show-progress: false
+          persist-credentials: false
+
+      - name: Enforce exact-main candidate source
+        shell: bash
+        env:
+          CONFIRM_CANDIDATE: ${{ inputs.confirm_candidate }}
+        run: |
+          set -euo pipefail
+          test "$GITHUB_REF" = 'refs/heads/main'
+          test "$CONFIRM_CANDIDATE" = 'BUILD-PHONE-AUTH-CANDIDATE'
+          [[ "$RELEASE_NAME" =~ ^[0-9]+\.[0-9]+\.[0-9]+-phone-auth\.[0-9]+$ ]]
+          test "$ENABLE_PHONE_OTP" = 'true'
+          test "$ENABLE_GOOGLE_AUTH" = 'false'
+
+      - uses: subosito/flutter-action@4cab68ce0f1c7c924f688bff4792e044f1aeb30c
+        with:
+          flutter-version: '3.44.0'
+          channel: stable
+          cache: true
+
+      - name: Prepare founder-owned Android signing
+        shell: bash
+        env:
+          WELLMATE_KEYSTORE_BASE64: ${{ secrets.WELLMATE_KEYSTORE_BASE64 }}
+          WELLMATE_STORE_PASSWORD: ${{ secrets.WELLMATE_STORE_PASSWORD }}
+          WELLMATE_KEY_PASSWORD: ${{ secrets.WELLMATE_KEY_PASSWORD }}
+          WELLMATE_KEY_ALIAS: ${{ secrets.WELLMATE_KEY_ALIAS }}
+          CAREMATE_KEYSTORE_BASE64: ${{ secrets.CAREMATE_KEYSTORE_BASE64 }}
+          CAREMATE_STORE_PASSWORD: ${{ secrets.CAREMATE_STORE_PASSWORD }}
+          CAREMATE_KEY_PASSWORD: ${{ secrets.CAREMATE_KEY_PASSWORD }}
+          CAREMATE_KEY_ALIAS: ${{ secrets.CAREMATE_KEY_ALIAS }}
+        run: bash tools/release/prepare-android-signing.sh
+
+      - name: Build signed Phone Auth candidate APKs
+        shell: bash
+        run: |
+          set -euo pipefail
+          build_number="$GITHUB_RUN_NUMBER"
+          build_args=(
+            --release
+            --build-name="$RELEASE_NAME"
+            --build-number="$build_number"
+            --dart-define="SUPABASE_URL=$SUPABASE_URL"
+            --dart-define="SUPABASE_PUBLISHABLE_KEY=$SUPABASE_PUBLISHABLE_KEY"
+            --dart-define="LIFEMATE_API_BASE_URL=$LIFEMATE_API_BASE_URL"
+            --dart-define="ENABLE_PHONE_OTP=true"
+            --dart-define="ENABLE_GOOGLE_AUTH=false"
+          )
+          (cd wellmate && flutter pub get && flutter build apk "${build_args[@]}")
+          (cd caremate && flutter pub get && flutter build apk "${build_args[@]}")
+
+      - name: Verify stable Android signatures
+        shell: bash
+        run: >-
+          bash tools/release/verify-android-signing.sh
+          wellmate/build/app/outputs/flutter-apk/app-release.apk
+          caremate/build/app/outputs/flutter-apk/app-release.apk
+
+      - name: Create immutable candidate bundle
+        shell: bash
+        run: |
+          set -euo pipefail
+          short_sha="${GITHUB_SHA:0:8}"
+          mkdir -p dist
+          wellmate_name="wellmate-$RELEASE_NAME-$short_sha-phone-auth.apk"
+          caremate_name="caremate-$RELEASE_NAME-$short_sha-phone-auth.apk"
+          cp wellmate/build/app/outputs/flutter-apk/app-release.apk "dist/$wellmate_name"
+          cp caremate/build/app/outputs/flutter-apk/app-release.apk "dist/$caremate_name"
+
+          jq -n \
+            --arg commit "$GITHUB_SHA" \
+            --arg buildNumber "$GITHUB_RUN_NUMBER" \
+            --arg releaseName "$RELEASE_NAME" \
+            --arg apiBase "$LIFEMATE_API_BASE_URL" \
+            --arg supabaseProject "$SUPABASE_PROJECT_REF" \
+            --arg wellmateFile "$wellmate_name" \
+            --arg caremateFile "$caremate_name" \
+            --arg wellmateSha "$(sha256sum "dist/$wellmate_name" | awk '{print $1}')" \
+            --arg caremateSha "$(sha256sum "dist/$caremate_name" | awk '{print $1}')" \
+            --arg builtAt "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+            '{commit:$commit,buildNumber:($buildNumber|tonumber),releaseName:$releaseName,environment:"production-phone-auth-candidate",apiBase:$apiBase,supabaseProject:$supabaseProject,auth:{phoneOtp:true,google:false},builtAtUtc:$builtAt,apps:{wellmate:{file:$wellmateFile,sha256:$wellmateSha},caremate:{file:$caremateFile,sha256:$caremateSha}}}' \
+            > dist/manifest.json
+          jq -e '.commit == env.GITHUB_SHA and .auth.phoneOtp == true and .environment == "production-phone-auth-candidate" and (.apps.wellmate.sha256|length) == 64 and (.apps.caremate.sha256|length) == 64' dist/manifest.json >/dev/null
+
+      - name: Upload signed Phone Auth candidate
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: phone-auth-candidate-${{ github.sha }}
+          path: dist
+          if-no-files-found: error
+          retention-days: 30
