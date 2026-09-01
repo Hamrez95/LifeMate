@@ -41,3 +41,13 @@ final class LifeMateIranPhone {
     return buffer.toString();
   }
 }
+
+/// Compatibility validator for UI flows that need a nullable result instead of
+/// throwing while the user is still typing.
+String? normalizeIranianMobileE164(String value) {
+  try {
+    return LifeMateIranPhone.normalizeE164(value);
+  } on FormatException {
+    return null;
+  }
+}
