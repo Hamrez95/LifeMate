@@ -6,7 +6,7 @@ import {
 } from "./provider.ts";
 
 type SendSmsEvent = {
-  user?: { phone?: unknown };
+  user?: { phone?: unknown; new_phone?: unknown };
   sms?: { otp?: unknown };
 };
 
@@ -63,7 +63,7 @@ export function createSendSmsHookHandler(
       });
     }
 
-    const phone = typeof event.user?.phone === "string" ? event.user.phone : "";
+    const phone = smsDestinationPhone(event);
     const otp = typeof event.sms?.otp === "string" ? event.sms.otp : "";
     if (!/^\+989\d{9}$/.test(phone) || !/^\d{6,10}$/.test(otp)) {
       return json(400, {
@@ -115,6 +115,14 @@ export function createSendSmsHookHandler(
       );
     }
   };
+}
+
+function smsDestinationPhone(event: SendSmsEvent): string {
+  const pendingPhone = event.user?.new_phone;
+  if (typeof pendingPhone === "string" && pendingPhone.length > 0) {
+    return pendingPhone;
+  }
+  return typeof event.user?.phone === "string" ? event.user.phone : "";
 }
 
 function verifyEvent(
