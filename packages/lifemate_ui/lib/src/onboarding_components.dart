@@ -33,66 +33,73 @@ class LifeMateOnboardingScaffold extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final media = MediaQuery.of(context);
-    final keyboardInset = media.viewInsets.bottom;
-    final bottomInset = keyboardAware && keyboardInset > 0 ? keyboardInset : 0.0;
+    final keyboardVisible = keyboardAware && media.viewInsets.bottom > 0;
+    final actionPadding = keyboardVisible
+        ? const EdgeInsets.fromLTRB(
+            LifeMateOnboardingMetrics.screenGutter,
+            4,
+            LifeMateOnboardingMetrics.screenGutter,
+            2,
+          )
+        : const EdgeInsets.fromLTRB(
+            LifeMateOnboardingMetrics.screenGutter,
+            12,
+            LifeMateOnboardingMetrics.screenGutter,
+            8,
+          );
 
     return Scaffold(
-      resizeToAvoidBottomInset: false,
+      resizeToAvoidBottomInset: keyboardAware,
       backgroundColor: theme.background,
       body: SafeArea(
         bottom: false,
-        child: Padding(
-          padding: EdgeInsets.only(bottom: bottomInset),
-          child: Column(
-            children: [
-              LifeMateOnboardingHeader(
-                theme: theme,
-                title: title,
-                progress: progress,
-                progressLabel: progressLabel,
-                onBack: onBack,
+        child: Column(
+          children: [
+            LifeMateOnboardingHeader(
+              theme: theme,
+              title: title,
+              progress: progress,
+              progressLabel: progressLabel,
+              onBack: onBack,
+              compact: keyboardVisible,
+            ),
+            Expanded(
+              child: Padding(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: LifeMateOnboardingMetrics.screenGutter,
+                ),
+                child: body,
               ),
-              Expanded(
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: LifeMateOnboardingMetrics.screenGutter,
+            ),
+            Padding(
+              padding: actionPadding,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  LifeMatePrimaryOnboardingButton(
+                    theme: theme,
+                    label: primaryLabel,
+                    onPressed: onPrimary,
+                    busy: primaryBusy,
                   ),
-                  child: body,
-                ),
-              ),
-              Padding(
-                padding: const EdgeInsets.fromLTRB(
-                  LifeMateOnboardingMetrics.screenGutter,
-                  12,
-                  LifeMateOnboardingMetrics.screenGutter,
-                  8,
-                ),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    LifeMatePrimaryOnboardingButton(
-                      theme: theme,
-                      label: primaryLabel,
-                      onPressed: onPrimary,
-                      busy: primaryBusy,
-                    ),
-                    if (secondary != null) ...[
-                      const SizedBox(height: 6),
-                      ConstrainedBox(
-                        constraints: const BoxConstraints(
-                          minHeight: LifeMateOnboardingMetrics.minTouchTarget,
-                        ),
-                        child: Center(child: secondary),
+                  if (secondary != null) ...[
+                    SizedBox(height: keyboardVisible ? 2 : 6),
+                    ConstrainedBox(
+                      constraints: BoxConstraints(
+                        minHeight: keyboardVisible
+                            ? 40
+                            : LifeMateOnboardingMetrics.minTouchTarget,
                       ),
-                    ] else
-                      const SizedBox(height: 12),
-                  ],
-                ),
+                      child: Center(child: secondary),
+                    ),
+                  ] else
+                    SizedBox(height: keyboardVisible ? 2 : 12),
+                ],
               ),
-              if (bottomInset == 0)
-                SizedBox(height: media.padding.bottom > 0 ? media.padding.bottom : 12),
-            ],
-          ),
+            ),
+            if (!keyboardVisible)
+              SizedBox(height: media.padding.bottom > 0 ? media.padding.bottom : 12),
+          ],
         ),
       ),
     );
@@ -107,6 +114,7 @@ class LifeMateOnboardingHeader extends StatelessWidget {
     this.progress,
     this.progressLabel,
     this.onBack,
+    this.compact = false,
   });
 
   final LifeMateOnboardingTheme theme;
@@ -114,17 +122,18 @@ class LifeMateOnboardingHeader extends StatelessWidget {
   final double? progress;
   final String? progressLabel;
   final VoidCallback? onBack;
+  final bool compact;
 
   @override
   Widget build(BuildContext context) {
     final textDirection = Directionality.of(context);
     return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
+      padding: EdgeInsets.fromLTRB(16, compact ? 2 : 8, 16, compact ? 2 : 8),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           SizedBox(
-            height: 48,
+            height: compact ? 40 : 48,
             child: Stack(
               alignment: Alignment.center,
               children: [
@@ -137,7 +146,7 @@ class LifeMateOnboardingHeader extends StatelessWidget {
                       overflow: TextOverflow.ellipsis,
                       style: TextStyle(
                         color: theme.ink,
-                        fontSize: 16,
+                        fontSize: compact ? 15 : 16,
                         fontWeight: FontWeight.w800,
                       ),
                     ),
@@ -163,7 +172,7 @@ class LifeMateOnboardingHeader extends StatelessWidget {
                       progressLabel!,
                       style: TextStyle(
                         color: theme.muted,
-                        fontSize: 13,
+                        fontSize: compact ? 12 : 13,
                         fontWeight: FontWeight.w700,
                       ),
                     ),
@@ -172,7 +181,7 @@ class LifeMateOnboardingHeader extends StatelessWidget {
             ),
           ),
           if (progress != null) ...[
-            const SizedBox(height: 4),
+            SizedBox(height: compact ? 2 : 4),
             ClipRRect(
               borderRadius: BorderRadius.circular(99),
               child: LinearProgressIndicator(
