@@ -15,7 +15,7 @@ requireText('https://bwdvmniywyyijjauipnh.supabase.co/functions/v1/lifemate-api'
 requireText('--dart-define="ENABLE_PHONE_OTP=true"', 'Phone OTP enabled');
 requireText('--dart-define="ENABLE_WOMEN_CALENDAR_PILOT=true"', 'Women Health pilot enabled');
 requireText('--dart-define="ENABLE_GOOGLE_AUTH=false"', 'unverified Google auth remains fail-closed');
-requireText('(cd "$api" && deno task test)', 'production API unit test suite');
+requireText('(cd "$api" && deno task test --allow-read=..)', 'production API unit test suite');
 requireText('supabase functions deploy lifemate-api', 'exact-main API deployment');
 requireText('LIFEMATE_RELEASE_VERSION', 'deployed API release identity');
 requireText('.version == $version', 'deployed API exact-main verification');

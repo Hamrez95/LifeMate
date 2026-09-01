@@ -68,7 +68,7 @@ jobs:
         run: |
           set -euo pipefail
           api='supabase/functions/lifemate-api'
-          (cd "$api" && deno task test)
+          (cd "$api" && deno task test --allow-read=..)
 
       - uses: subosito/flutter-action@4cab68ce0f1c7c924f688bff4792e044f1aeb30c
         with:
