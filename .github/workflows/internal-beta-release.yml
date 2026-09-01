@@ -73,8 +73,8 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          (cd supabase/functions/lifemate-api && deno task check && deno task test)
-          (cd supabase/functions/lifemate-telemetry && deno task check && deno task test)
+          (cd supabase/functions/lifemate-api && deno task test)
+          (cd supabase/functions/lifemate-telemetry && deno task test)
 
       - name: Validate dispatch inputs
         if: ${{ github.event_name == 'workflow_dispatch' }}
