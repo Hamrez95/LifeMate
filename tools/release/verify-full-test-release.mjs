@@ -20,6 +20,9 @@ requireText('bash tools/release/verify-android-signing.sh', 'signature verificat
 requireText('git rev-list --count HEAD', 'monotonic Android build number');
 requireText('flutter build apk', 'APK output');
 requireText('flutter build appbundle', 'AAB output');
+requireText('flutter build web', 'web output');
+requireText('wellmate-web-$RELEASE_NAME-$short_sha.tar.gz', 'WellMate web bundle');
+requireText('caremate-web-$RELEASE_NAME-$short_sha.tar.gz', 'CareMate web bundle');
 requireText("'com.lifemate.wellmate'", 'WellMate package identity');
 requireText("'com.lifemate.caremate'", 'CareMate package identity');
 requireText('environment:"production-full-test"', 'full-test manifest environment');
@@ -36,4 +39,4 @@ assert.ok(
   'Android versionCode must not use workflow-local run number',
 );
 
-console.log('PASS: exact-main full-test mobile release contract');
+console.log('PASS: exact-main full-test Android + web release contract');
