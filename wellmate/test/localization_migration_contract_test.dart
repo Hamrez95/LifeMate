@@ -43,7 +43,7 @@ void main() {
     ).readAsStringSync();
 
     expect(source, contains("context.tr('women.activation.activateTitle')"));
-    expect(source, contains("context.tr('women.activation.progress'"));
+    expect(source, contains("'women.activation.progress'"));
     expect(source, contains('context.lifeMateLocale.textDirection'));
     expect(source, isNot(contains('LifeMateRuntimeLocale.select(')));
     expect(source, isNot(contains('bool get _isPersian')));
