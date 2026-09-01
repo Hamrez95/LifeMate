@@ -216,7 +216,10 @@ class LifeMateOnboardingQuestion extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final compact = MediaQuery.sizeOf(context).height <= 640;
+    // A 360x760 device at the accessibility text scale used by the app still
+    // needs room for the fixed CTA. Keep the content compact instead of
+    // introducing a scroll path that could hide the consent/action controls.
+    final compact = MediaQuery.sizeOf(context).height <= 760;
     final alignment = alignCenter ? CrossAxisAlignment.center : CrossAxisAlignment.stretch;
     final textAlign = alignCenter ? TextAlign.center : TextAlign.start;
     return Column(
@@ -282,7 +285,7 @@ class LifeMateOnboardingOptionCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final compact = MediaQuery.sizeOf(context).height <= 640;
+    final compact = MediaQuery.sizeOf(context).height <= 760;
     final foreground = enabled ? theme.ink : theme.muted.withValues(alpha: 0.65);
     return Semantics(
       button: true,
