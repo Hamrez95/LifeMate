@@ -33,33 +33,34 @@ class LifeMateOnboardingScaffold extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final media = MediaQuery.of(context);
-    final keyboardInset = media.viewInsets.bottom;
-    final bottomInset = keyboardAware && keyboardInset > 0 ? keyboardInset : 0.0;
+    final keyboardOpen = keyboardAware && media.viewInsets.bottom > 0;
 
     return Scaffold(
-      resizeToAvoidBottomInset: false,
+      resizeToAvoidBottomInset: keyboardAware,
       backgroundColor: theme.background,
       body: SafeArea(
         bottom: false,
-        child: Padding(
-          padding: EdgeInsets.only(bottom: bottomInset),
-          child: Column(
-            children: [
+        child: Column(
+          children: [
+            if (!keyboardOpen)
               LifeMateOnboardingHeader(
                 theme: theme,
                 title: title,
                 progress: progress,
                 progressLabel: progressLabel,
                 onBack: onBack,
-              ),
-              Expanded(
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: LifeMateOnboardingMetrics.screenGutter,
-                  ),
-                  child: body,
+              )
+            else
+              const SizedBox(height: 8),
+            Expanded(
+              child: Padding(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: LifeMateOnboardingMetrics.screenGutter,
                 ),
+                child: body,
               ),
+            ),
+            if (!keyboardOpen)
               Padding(
                 padding: const EdgeInsets.fromLTRB(
                   LifeMateOnboardingMetrics.screenGutter,
@@ -89,10 +90,11 @@ class LifeMateOnboardingScaffold extends StatelessWidget {
                   ],
                 ),
               ),
-              if (bottomInset == 0)
-                SizedBox(height: media.padding.bottom > 0 ? media.padding.bottom : 12),
-            ],
-          ),
+            if (!keyboardOpen)
+              SizedBox(
+                height: media.padding.bottom > 0 ? media.padding.bottom : 12,
+              ),
+          ],
         ),
       ),
     );
@@ -207,40 +209,41 @@ class LifeMateOnboardingQuestion extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final alignment = alignCenter ? CrossAxisAlignment.center : CrossAxisAlignment.stretch;
+    final alignment =
+        alignCenter ? CrossAxisAlignment.center : CrossAxisAlignment.stretch;
     final textAlign = alignCenter ? TextAlign.center : TextAlign.start;
     return Column(
       crossAxisAlignment: alignment,
       children: [
         if (icon != null) ...[
           Container(
-            width: 72,
-            height: 72,
+            width: 66,
+            height: 66,
             decoration: BoxDecoration(color: theme.soft, shape: BoxShape.circle),
             alignment: Alignment.center,
-            child: Icon(icon, color: theme.primary, size: 32),
+            child: Icon(icon, color: theme.primary, size: 29),
           ),
-          const SizedBox(height: 20),
+          const SizedBox(height: 16),
         ],
         Text(
           title,
           textAlign: textAlign,
           style: TextStyle(
             color: theme.ink,
-            fontSize: 22,
-            height: 1.4,
+            fontSize: 20,
+            height: 1.35,
             fontWeight: FontWeight.w900,
           ),
         ),
         if (description != null) ...[
-          const SizedBox(height: 10),
+          const SizedBox(height: 8),
           Text(
             description!,
             textAlign: textAlign,
             style: TextStyle(
               color: theme.muted,
-              fontSize: 14,
-              height: 1.6,
+              fontSize: 13.5,
+              height: 1.5,
               fontWeight: FontWeight.w500,
             ),
           ),
@@ -284,8 +287,8 @@ class LifeMateOnboardingOptionCard extends StatelessWidget {
           onTap: enabled ? onTap : null,
           borderRadius: BorderRadius.circular(LifeMateOnboardingMetrics.cardRadius),
           child: Container(
-            constraints: const BoxConstraints(minHeight: 76),
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+            constraints: const BoxConstraints(minHeight: 72),
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
             decoration: BoxDecoration(
               borderRadius: BorderRadius.circular(LifeMateOnboardingMetrics.cardRadius),
               border: Border.all(
@@ -296,7 +299,11 @@ class LifeMateOnboardingOptionCard extends StatelessWidget {
             child: Row(
               children: [
                 if (icon != null) ...[
-                  Icon(icon, color: selected ? theme.primary : theme.muted, size: 24),
+                  Icon(
+                    icon,
+                    color: selected ? theme.primary : theme.muted,
+                    size: 23,
+                  ),
                   const SizedBox(width: 12),
                 ],
                 Expanded(
@@ -308,7 +315,7 @@ class LifeMateOnboardingOptionCard extends StatelessWidget {
                         title,
                         style: TextStyle(
                           color: foreground,
-                          fontSize: 15.5,
+                          fontSize: 15,
                           fontWeight: FontWeight.w800,
                         ),
                       ),
@@ -318,8 +325,8 @@ class LifeMateOnboardingOptionCard extends StatelessWidget {
                           subtitle!,
                           style: TextStyle(
                             color: theme.muted,
-                            fontSize: 13.5,
-                            height: 1.45,
+                            fontSize: 13,
+                            height: 1.4,
                             fontWeight: FontWeight.w500,
                           ),
                         ),
@@ -396,11 +403,11 @@ class LifeMateOnboardingTextField extends StatelessWidget {
           label,
           style: TextStyle(
             color: theme.ink,
-            fontSize: 13,
+            fontSize: 12.5,
             fontWeight: FontWeight.w800,
           ),
         ),
-        const SizedBox(height: 8),
+        const SizedBox(height: 6),
         SizedBox(
           height: LifeMateOnboardingMetrics.inputHeight,
           child: TextField(
@@ -416,19 +423,28 @@ class LifeMateOnboardingTextField extends StatelessWidget {
               hintText: hintText,
               filled: true,
               fillColor: theme.surface,
-              prefixIcon: prefixIcon == null ? null : Icon(prefixIcon, color: theme.muted),
+              prefixIcon:
+                  prefixIcon == null ? null : Icon(prefixIcon, color: theme.muted),
               suffixIcon: suffix,
-              contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+              contentPadding:
+                  const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
               enabledBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(LifeMateOnboardingMetrics.controlRadius),
-                borderSide: BorderSide(color: errorText == null ? theme.border : theme.error),
+                borderRadius:
+                    BorderRadius.circular(LifeMateOnboardingMetrics.controlRadius),
+                borderSide:
+                    BorderSide(color: errorText == null ? theme.border : theme.error),
               ),
               focusedBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(LifeMateOnboardingMetrics.controlRadius),
-                borderSide: BorderSide(color: errorText == null ? theme.primary : theme.error, width: 1.6),
+                borderRadius:
+                    BorderRadius.circular(LifeMateOnboardingMetrics.controlRadius),
+                borderSide: BorderSide(
+                  color: errorText == null ? theme.primary : theme.error,
+                  width: 1.6,
+                ),
               ),
               disabledBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(LifeMateOnboardingMetrics.controlRadius),
+                borderRadius:
+                    BorderRadius.circular(LifeMateOnboardingMetrics.controlRadius),
                 borderSide: BorderSide(color: theme.border),
               ),
             ),
@@ -487,14 +503,18 @@ class LifeMatePrimaryOnboardingButton extends StatelessWidget {
           disabledBackgroundColor: theme.border,
           disabledForegroundColor: theme.muted,
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(LifeMateOnboardingMetrics.controlRadius),
+            borderRadius:
+                BorderRadius.circular(LifeMateOnboardingMetrics.controlRadius),
           ),
-          textStyle: const TextStyle(fontSize: 16, fontWeight: FontWeight.w900),
+          textStyle: const TextStyle(fontSize: 15.5, fontWeight: FontWeight.w900),
         ),
         child: busy
             ? const SizedBox.square(
                 dimension: 22,
-                child: CircularProgressIndicator(strokeWidth: 2.4, color: Colors.white),
+                child: CircularProgressIndicator(
+                  strokeWidth: 2.4,
+                  color: Colors.white,
+                ),
               )
             : Text(label),
       ),
