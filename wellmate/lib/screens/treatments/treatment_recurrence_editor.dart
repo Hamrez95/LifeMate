@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:lifemate_client/lifemate_client.dart';
-import 'package:lifemate_ui/lifemate_ui.dart';
+import 'package:lifemate_ui/lifemate_ui.dart'
+    hide LifeMateLocaleDigitInputFormatter;
 
 import '../../core/theme/app_style.dart';
 import '../../core/utils/persian_date_utils.dart';
