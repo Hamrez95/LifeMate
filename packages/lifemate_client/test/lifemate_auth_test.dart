@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:flutter_test/flutter_test.dart';
 import 'package:lifemate_client/lifemate_client.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -74,5 +76,72 @@ void main() {
         throwsFormatException,
       );
     }
+  });
+
+  test('Supabase SMS resend cooldown is recognized without exposing raw copy', () {
+    expect(
+      LifeMateAuth.isPhoneOtpSendRateLimited(
+        const AuthException('over_sms_send_rate_limit'),
+      ),
+      isTrue,
+    );
+    expect(
+      LifeMateAuth.isPhoneOtpSendRateLimited(
+        const AuthException(
+          'For security purposes, you can only request this after 60 seconds.',
+        ),
+      ),
+      isTrue,
+    );
+  });
+
+  test('broader quota errors are not treated as proof an OTP was sent', () {
+    expect(
+      LifeMateAuth.isPhoneOtpSendRateLimited(
+        const AuthException('Daily provider quota limit exceeded.'),
+      ),
+      isFalse,
+    );
+    expect(
+      LifeMateAuth.isPhoneOtpSendRateLimited(
+        const AuthException('Too many authentication attempts.'),
+      ),
+      isFalse,
+    );
+  });
+
+  test('OTP cooldown recovery never schedules a background resend', () {
+    final source = File('lib/src/lifemate_auth.dart').readAsStringSync();
+    expect(
+      source,
+      contains('if (isPhoneOtpSendRateLimited(error)) return;'),
+    );
+    expect(source, isNot(contains('Timer(')));
+    expect(source, isNot(contains('Future.delayed')));
+  });
+
+  test('shared auth keeps the server-aligned 60 second resend gate localized', () {
+    final uiSource = File(
+      '../lifemate_ui/lib/src/shared_auth_experience.dart',
+    ).readAsStringSync();
+
+    expect(uiSource, contains('static const _resendDelaySeconds = 60;'));
+    expect(
+      uiSource,
+      contains('final canResend = _resendSeconds == 0 && !_busy;'),
+    );
+    expect(uiSource, contains('_startResendCountdown();'));
+    expect(uiSource, contains("fa: 'ارسال مجدد تا \$_resendSeconds ثانیه'"));
+    expect(uiSource, contains("en: 'Resend in \$_resendSeconds s'"));
+
+    final countdownStart = uiSource.indexOf('void _startResendCountdown()');
+    final googleStart = uiSource.indexOf(
+      'Future<void> _signInWithGoogle()',
+      countdownStart,
+    );
+    expect(countdownStart, greaterThanOrEqualTo(0));
+    expect(googleStart, greaterThan(countdownStart));
+    final countdownBody = uiSource.substring(countdownStart, googleStart);
+    expect(countdownBody, isNot(contains('_sendPhoneCode')));
   });
 }
