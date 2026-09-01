@@ -11,6 +11,11 @@ export type SegmentOperator =
 
 export type SegmentAttribute =
   | "demographic.age_bucket"
+  | "demographic.age_years"
+  | "demographic.birthday_month"
+  | "demographic.birthday_day"
+  | "demographic.birthday_days_ahead"
+  | "demographic.gender_identity"
   | "demographic.locale"
   | "product.code"
   | "product.enrolled"
@@ -35,10 +40,17 @@ export type SegmentRuleSet = {
   rules: SegmentRule[];
 };
 
-export type SegmentSubject = Partial<Record<SegmentAttribute, SegmentScalar | SegmentScalar[]>>;
+export type SegmentSubject = Partial<
+  Record<SegmentAttribute, SegmentScalar | SegmentScalar[]>
+>;
 
 const ALLOWED_ATTRIBUTES = new Set<SegmentAttribute>([
   "demographic.age_bucket",
+  "demographic.age_years",
+  "demographic.birthday_month",
+  "demographic.birthday_day",
+  "demographic.birthday_days_ahead",
+  "demographic.gender_identity",
   "demographic.locale",
   "product.code",
   "product.enrolled",
@@ -78,7 +90,10 @@ function isScalar(value: unknown): value is SegmentScalar {
     typeof value === "boolean";
 }
 
-function validateValue(operator: SegmentOperator, value: unknown): SegmentRule["value"] {
+function validateValue(
+  operator: SegmentOperator,
+  value: unknown,
+): SegmentRule["value"] {
   if (operator === "exists") {
     if (value !== undefined) invalid("exists rules must not include a value.");
     return undefined;
@@ -107,6 +122,36 @@ function validateValue(operator: SegmentOperator, value: unknown): SegmentRule["
   return value;
 }
 
+function validateDemographicRule(rule: SegmentRule): void {
+  const value = rule.value;
+  const numeric = typeof value === "number" ? value : null;
+
+  switch (rule.attribute) {
+    case "demographic.age_years":
+      if (numeric !== null && (!Number.isInteger(numeric) || numeric < 0 || numeric > 125)) {
+        invalid("Age filters must use whole years between 0 and 125.");
+      }
+      break;
+    case "demographic.birthday_month":
+      if (numeric !== null && (!Number.isInteger(numeric) || numeric < 1 || numeric > 12)) {
+        invalid("Birthday month must be between 1 and 12.");
+      }
+      break;
+    case "demographic.birthday_day":
+      if (numeric !== null && (!Number.isInteger(numeric) || numeric < 1 || numeric > 31)) {
+        invalid("Birthday day must be between 1 and 31.");
+      }
+      break;
+    case "demographic.birthday_days_ahead":
+      if (numeric !== null && (!Number.isInteger(numeric) || numeric < 0 || numeric > 366)) {
+        invalid("Birthday window must be between 0 and 366 days.");
+      }
+      break;
+    default:
+      break;
+  }
+}
+
 export function parseSegmentRuleSet(input: unknown): SegmentRuleSet {
   if (!input || typeof input !== "object" || Array.isArray(input)) {
     invalid("Segment rules must be an object.");
@@ -117,7 +162,10 @@ export function parseSegmentRuleSet(input: unknown): SegmentRuleSet {
   if (raw.match !== "all" && raw.match !== "any") {
     invalid("Segment match must be all or any.");
   }
-  if (!Array.isArray(raw.rules) || raw.rules.length === 0 || raw.rules.length > 25) {
+  if (
+    !Array.isArray(raw.rules) || raw.rules.length === 0 ||
+    raw.rules.length > 25
+  ) {
     invalid("A segment requires between 1 and 25 rules.");
   }
 
@@ -126,9 +174,15 @@ export function parseSegmentRuleSet(input: unknown): SegmentRuleSet {
       invalid("Segment rule must be an object.");
     }
     const row = item as Record<string, unknown>;
-    if (typeof row.attribute !== "string") invalid("Segment attribute is required.");
+    if (typeof row.attribute !== "string") {
+      invalid("Segment attribute is required.");
+    }
     const attribute = row.attribute.trim();
-    if (FORBIDDEN_ATTRIBUTE_PREFIXES.some((prefix) => attribute.startsWith(prefix))) {
+    if (
+      FORBIDDEN_ATTRIBUTE_PREFIXES.some((prefix) =>
+        attribute.startsWith(prefix)
+      )
+    ) {
       throw new ApiError(
         400,
         "segment_sensitive_attribute_forbidden",
@@ -138,15 +192,20 @@ export function parseSegmentRuleSet(input: unknown): SegmentRuleSet {
     if (!ALLOWED_ATTRIBUTES.has(attribute as SegmentAttribute)) {
       invalid("Segment attribute is not supported.");
     }
-    if (typeof row.operator !== "string" || !OPERATORS.has(row.operator as SegmentOperator)) {
+    if (
+      typeof row.operator !== "string" ||
+      !OPERATORS.has(row.operator as SegmentOperator)
+    ) {
       invalid("Segment operator is not supported.");
     }
     const operator = row.operator as SegmentOperator;
-    return {
+    const rule: SegmentRule = {
       attribute: attribute as SegmentAttribute,
       operator,
       value: validateValue(operator, row.value),
     };
+    validateDemographicRule(rule);
+    return rule;
   });
 
   return { version: 1, match: raw.match, rules };
@@ -156,11 +215,17 @@ function scalarEquals(left: SegmentScalar, right: SegmentScalar): boolean {
   return typeof left === typeof right && left === right;
 }
 
-function includesScalar(haystack: SegmentScalar[], needle: SegmentScalar): boolean {
+function includesScalar(
+  haystack: SegmentScalar[],
+  needle: SegmentScalar,
+): boolean {
   return haystack.some((value) => scalarEquals(value, needle));
 }
 
-export function evaluateSegmentRule(rule: SegmentRule, subject: SegmentSubject): boolean {
+export function evaluateSegmentRule(
+  rule: SegmentRule,
+  subject: SegmentSubject,
+): boolean {
   const actual = subject[rule.attribute];
   if (rule.operator === "exists") return actual !== undefined;
   if (actual === undefined || rule.value === undefined) return false;
@@ -168,25 +233,40 @@ export function evaluateSegmentRule(rule: SegmentRule, subject: SegmentSubject):
   const actualValues = Array.isArray(actual) ? actual : [actual];
   if (rule.operator === "eq" || rule.operator === "neq") {
     if (Array.isArray(rule.value)) return false;
-    const matched = actualValues.some((value) => scalarEquals(value, rule.value as SegmentScalar));
+    const matched = actualValues.some((value) =>
+      scalarEquals(value, rule.value as SegmentScalar)
+    );
     return rule.operator === "eq" ? matched : !matched;
   }
 
   if (rule.operator === "in" || rule.operator === "not_in") {
     if (!Array.isArray(rule.value)) return false;
-    const matched = actualValues.some((value) => includesScalar(rule.value as SegmentScalar[], value));
+    const matched = actualValues.some((value) =>
+      includesScalar(rule.value as SegmentScalar[], value)
+    );
     return rule.operator === "in" ? matched : !matched;
   }
 
   if (Array.isArray(rule.value) || actualValues.length !== 1) return false;
   const [single] = actualValues;
-  if (typeof single !== "number" || typeof rule.value !== "number") return false;
-  return rule.operator === "gte" ? single >= rule.value : single <= rule.value;
+  if (typeof single !== "number" || typeof rule.value !== "number") {
+    return false;
+  }
+  return rule.operator === "gte"
+    ? single >= rule.value
+    : single <= rule.value;
 }
 
-export function evaluateSegmentRuleSet(ruleSet: SegmentRuleSet, subject: SegmentSubject): boolean {
-  const results = ruleSet.rules.map((rule) => evaluateSegmentRule(rule, subject));
-  return ruleSet.match === "all" ? results.every(Boolean) : results.some(Boolean);
+export function evaluateSegmentRuleSet(
+  ruleSet: SegmentRuleSet,
+  subject: SegmentSubject,
+): boolean {
+  const results = ruleSet.rules.map((rule) =>
+    evaluateSegmentRule(rule, subject)
+  );
+  return ruleSet.match === "all"
+    ? results.every(Boolean)
+    : results.some(Boolean);
 }
 
 export function canonicalSegmentRuleSet(ruleSet: SegmentRuleSet): string {
@@ -201,8 +281,12 @@ export function canonicalSegmentRuleSet(ruleSet: SegmentRuleSet): string {
   });
 }
 
-export async function hashSegmentRuleSet(ruleSet: SegmentRuleSet): Promise<string> {
+export async function hashSegmentRuleSet(
+  ruleSet: SegmentRuleSet,
+): Promise<string> {
   const bytes = new TextEncoder().encode(canonicalSegmentRuleSet(ruleSet));
   const digest = await crypto.subtle.digest("SHA-256", bytes);
-  return Array.from(new Uint8Array(digest)).map((value) => value.toString(16).padStart(2, "0")).join("");
+  return Array.from(new Uint8Array(digest)).map((value) =>
+    value.toString(16).padStart(2, "0")
+  ).join("");
 }
