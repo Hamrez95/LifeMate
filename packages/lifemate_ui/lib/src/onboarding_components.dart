@@ -34,7 +34,8 @@ class LifeMateOnboardingScaffold extends StatelessWidget {
   Widget build(BuildContext context) {
     final media = MediaQuery.of(context);
     final keyboardVisible = keyboardAware && media.viewInsets.bottom > 0;
-    final actionPadding = keyboardVisible
+    final compactLayout = keyboardVisible || media.size.height <= 600;
+    final actionPadding = compactLayout
         ? const EdgeInsets.fromLTRB(
             LifeMateOnboardingMetrics.screenGutter,
             4,
@@ -61,7 +62,7 @@ class LifeMateOnboardingScaffold extends StatelessWidget {
               progress: progress,
               progressLabel: progressLabel,
               onBack: onBack,
-              compact: keyboardVisible,
+              compact: compactLayout,
             ),
             Expanded(
               child: Padding(
@@ -83,21 +84,21 @@ class LifeMateOnboardingScaffold extends StatelessWidget {
                     busy: primaryBusy,
                   ),
                   if (secondary != null) ...[
-                    SizedBox(height: keyboardVisible ? 2 : 6),
+                    SizedBox(height: compactLayout ? 2 : 6),
                     ConstrainedBox(
                       constraints: BoxConstraints(
-                        minHeight: keyboardVisible
+                        minHeight: compactLayout
                             ? 40
                             : LifeMateOnboardingMetrics.minTouchTarget,
                       ),
                       child: Center(child: secondary),
                     ),
                   ] else
-                    SizedBox(height: keyboardVisible ? 2 : 12),
+                    SizedBox(height: compactLayout ? 2 : 12),
                 ],
               ),
             ),
-            if (!keyboardVisible)
+            if (!compactLayout)
               SizedBox(height: media.padding.bottom > 0 ? media.padding.bottom : 12),
           ],
         ),
