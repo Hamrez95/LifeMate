@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:lifemate_client/lifemate_client.dart';
 
+import 'legal_privacy_locales.dart';
+import 'localization.dart';
 import 'onboarding_components.dart';
 import 'onboarding_theme.dart';
 
@@ -28,10 +30,9 @@ class _LifeMateLegalRegistrationGateState
   final Set<String> _checked = <String>{};
   bool _loading = true;
   bool _saving = false;
-  String? _error;
+  String? _errorKey;
 
   LifeMateOnboardingTheme get _theme => LifeMateOnboardingTheme.shared;
-  bool get _isPersian => LifeMateRuntimeLocale.isPersian;
 
   @override
   void initState() {
@@ -51,7 +52,7 @@ class _LifeMateLegalRegistrationGateState
     if (mounted) {
       setState(() {
         _loading = true;
-        _error = null;
+        _errorKey = null;
       });
     }
     try {
@@ -72,10 +73,7 @@ class _LifeMateLegalRegistrationGateState
       if (!mounted) return;
       setState(() {
         _loading = false;
-        _error = LifeMateRuntimeLocale.select(
-          fa: 'شرایط و حریم خصوصی دریافت نشد. دوباره تلاش کن.',
-          en: 'Terms and privacy information could not be loaded. Try again.',
-        );
+        _errorKey = 'legal.registration.loadFailed';
       });
     }
   }
@@ -87,15 +85,14 @@ class _LifeMateLegalRegistrationGateState
         .where((document) => !document.accepted)
         .toList(growable: false);
     if (pending.any((document) => !_checked.contains(document.id))) {
-      setState(() => _error = LifeMateRuntimeLocale.select(
-            fa: 'برای ادامه، شرایط و اطلاعیه حریم خصوصی الزامی را خودت تأیید کن.',
-            en: 'Confirm each required Terms and Privacy document to continue.',
-          ));
+      setState(
+        () => _errorKey = 'legal.registration.confirmRequired',
+      );
       return;
     }
     setState(() {
       _saving = true;
-      _error = null;
+      _errorKey = null;
     });
     try {
       final updated = await _api.acceptCurrentLegalDocuments(
@@ -110,25 +107,16 @@ class _LifeMateLegalRegistrationGateState
       if (!mounted) return;
       setState(() {
         _saving = false;
-        _error = error.code == 'legal_acceptance_required'
-            ? LifeMateRuntimeLocale.select(
-                fa: 'نسخه شرایط تغییر کرده است. نسخه جدید را بررسی و تأیید کن.',
-                en: 'The legal version changed. Review and accept the current version.',
-              )
-            : LifeMateRuntimeLocale.select(
-                fa: 'تأیید ذخیره نشد. اتصال را بررسی و دوباره تلاش کن.',
-                en: 'Acceptance could not be saved. Check your connection and retry.',
-              );
+        _errorKey = error.code == 'legal_acceptance_required'
+            ? 'legal.registration.versionChanged'
+            : 'legal.registration.saveConnectionFailed';
       });
       if (error.code == 'legal_acceptance_required') await _load();
     } catch (_) {
       if (!mounted) return;
       setState(() {
         _saving = false;
-        _error = LifeMateRuntimeLocale.select(
-          fa: 'تأیید ذخیره نشد. دوباره تلاش کن.',
-          en: 'Acceptance could not be saved. Try again.',
-        );
+        _errorKey = 'legal.registration.saveFailed';
       });
     }
   }
@@ -136,7 +124,7 @@ class _LifeMateLegalRegistrationGateState
   @override
   Widget build(BuildContext context) {
     final status = _status;
-    if (!_loading && _error == null && status?.completed == true) {
+    if (!_loading && _errorKey == null && status?.completed == true) {
       return widget.child;
     }
     if (_loading) return _loadingScreen();
@@ -146,23 +134,23 @@ class _LifeMateLegalRegistrationGateState
 
   Widget _loadingScreen() => _shell(
         title: 'LifeMate',
-        primaryLabel: LifeMateRuntimeLocale.select(fa: 'در حال آماده‌سازی', en: 'Preparing'),
+        primaryLabel: context.tr('common.preparing'),
         primaryBusy: true,
         body: _question(
           Icons.policy_outlined,
-          LifeMateRuntimeLocale.select(fa: 'نسخه فعلی شرایط را بررسی می‌کنیم', en: 'Checking the current legal version'),
-          LifeMateRuntimeLocale.select(fa: 'چند لحظه صبر کن.', en: 'This only takes a moment.'),
+          context.legalPrivacyTr('legal.registration.checkingTitle'),
+          context.legalPrivacyTr('legal.registration.checkingDescription'),
         ),
       );
 
   Widget _errorScreen() => _shell(
         title: 'LifeMate',
-        primaryLabel: LifeMateRuntimeLocale.select(fa: 'تلاش دوباره', en: 'Try again'),
+        primaryLabel: context.tr('common.retry'),
         onPrimary: _load,
         body: _question(
           Icons.cloud_off_outlined,
-          LifeMateRuntimeLocale.select(fa: 'شرایط فعلی در دسترس نیست', en: 'Current terms are unavailable'),
-          _error ?? '',
+          context.legalPrivacyTr('legal.registration.unavailableTitle'),
+          _errorKey == null ? '' : context.legalPrivacyTr(_errorKey!),
         ),
       );
 
@@ -172,10 +160,11 @@ class _LifeMateLegalRegistrationGateState
       (document) => document.accepted || _checked.contains(document.id),
     );
     return _shell(
-      title: LifeMateRuntimeLocale.select(fa: 'شرایط و حریم خصوصی', en: 'Terms & Privacy'),
+      title: context.legalPrivacyTr('legal.registration.title'),
       progress: 1,
-      progressLabel: LifeMateRuntimeLocale.select(fa: 'مرحله نهایی', en: 'Final step'),
-      primaryLabel: LifeMateRuntimeLocale.select(fa: 'تأیید و ادامه', en: 'Accept and continue'),
+      progressLabel: context.legalPrivacyTr('legal.registration.finalStep'),
+      primaryLabel:
+          context.legalPrivacyTr('legal.registration.acceptContinue'),
       onPrimary: allRequiredChecked && !_saving ? _accept : null,
       primaryBusy: _saving,
       body: Column(
@@ -185,23 +174,24 @@ class _LifeMateLegalRegistrationGateState
           LifeMateOnboardingQuestion(
             theme: _theme,
             icon: Icons.verified_user_outlined,
-            title: LifeMateRuntimeLocale.select(
-              fa: 'قبل از ورود، نسخه فعلی را خودت تأیید کن',
-              en: 'Review and accept the current version yourself',
-            ),
-            description: LifeMateRuntimeLocale.select(
-              fa: 'هیچ گزینه‌ای از قبل فعال نیست. تنظیمات اختیاری تبلیغات و پژوهش جداگانه‌اند.',
-              en: 'Nothing is pre-checked. Optional marketing and research preferences are separate.',
-            ),
+            title: context.legalPrivacyTr('legal.registration.reviewTitle'),
+            description:
+                context.legalPrivacyTr('legal.registration.reviewDescription'),
           ),
           const SizedBox(height: 16),
           for (final document in docs) ...[
             _documentCard(document),
             const SizedBox(height: 8),
           ],
-          if (_error != null) ...[
+          if (_errorKey != null) ...[
             const SizedBox(height: 6),
-            Text(_error!, style: TextStyle(color: _theme.error, fontWeight: FontWeight.w600)),
+            Text(
+              context.legalPrivacyTr(_errorKey!),
+              style: TextStyle(
+                color: _theme.error,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
           ],
           const Spacer(flex: 2),
         ],
@@ -215,7 +205,9 @@ class _LifeMateLegalRegistrationGateState
       decoration: BoxDecoration(
         color: _theme.surface,
         borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: checked ? _theme.primary : _theme.border),
+        border: Border.all(
+          color: checked ? _theme.primary : _theme.border,
+        ),
       ),
       child: Column(
         children: [
@@ -230,32 +222,42 @@ class _LifeMateLegalRegistrationGateState
                     } else {
                       _checked.remove(document.id);
                     }
-                    _error = null;
+                    _errorKey = null;
                   }),
             controlAffinity: ListTileControlAffinity.leading,
-            title: Text(document.title, style: TextStyle(color: _theme.ink, fontWeight: FontWeight.w800)),
+            title: Text(
+              document.title,
+              style: TextStyle(
+                color: _theme.ink,
+                fontWeight: FontWeight.w800,
+              ),
+            ),
             subtitle: Text(
-              LifeMateRuntimeLocale.select(
-                fa: 'نسخه ${document.version}',
-                en: 'Version ${document.version}',
+              context.legalPrivacyTr(
+                'legal.registration.documentVersion',
+                params: <String, Object?>{'version': document.version},
               ),
               style: TextStyle(color: _theme.muted),
             ),
           ),
           if (document.contentUri != null)
             Padding(
-              padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+              padding: const EdgeInsetsDirectional.fromSTEB(16, 0, 16, 12),
               child: Row(
                 children: [
                   Expanded(
                     child: SelectableText(
                       document.contentUri!,
                       textDirection: TextDirection.ltr,
-                      style: TextStyle(color: _theme.secondary, fontSize: 12),
+                      style: TextStyle(
+                        color: _theme.secondary,
+                        fontSize: 12,
+                      ),
                     ),
                   ),
                   IconButton(
-                    tooltip: LifeMateRuntimeLocale.select(fa: 'کپی لینک', en: 'Copy link'),
+                    tooltip:
+                        context.legalPrivacyTr('legal.registration.copyLink'),
                     onPressed: () => Clipboard.setData(
                       ClipboardData(text: document.contentUri!),
                     ),
@@ -287,8 +289,9 @@ class _LifeMateLegalRegistrationGateState
     bool primaryBusy = false,
     double? progress,
     String? progressLabel,
-  }) => Directionality(
-        textDirection: _isPersian ? TextDirection.rtl : TextDirection.ltr,
+  }) =>
+      Directionality(
+        textDirection: context.lifeMateLocale.textDirection,
         child: LifeMateOnboardingScaffold(
           theme: _theme,
           title: title,
@@ -326,7 +329,7 @@ class _LifeMatePrivacyPreferencesScreenState
   List<LifeMatePrivacyPreference> _items = const [];
   final Set<String> _saving = <String>{};
   bool _loading = true;
-  String? _error;
+  String? _errorKey;
 
   @override
   void initState() {
@@ -345,7 +348,7 @@ class _LifeMatePrivacyPreferencesScreenState
   Future<void> _load() async {
     setState(() {
       _loading = true;
-      _error = null;
+      _errorKey = null;
     });
     try {
       final items = await _api.privacyPreferences();
@@ -358,10 +361,7 @@ class _LifeMatePrivacyPreferencesScreenState
       if (!mounted) return;
       setState(() {
         _loading = false;
-        _error = LifeMateRuntimeLocale.select(
-          fa: 'تنظیمات حریم خصوصی دریافت نشد.',
-          en: 'Privacy preferences could not be loaded.',
-        );
+        _errorKey = 'privacy.preferences.loadFailed';
       });
     }
   }
@@ -370,31 +370,39 @@ class _LifeMatePrivacyPreferencesScreenState
     if (!item.userMutable || _saving.contains(item.purpose)) return;
     setState(() => _saving.add(item.purpose));
     try {
-      await _api.setPrivacyPreference(purpose: item.purpose, enabled: enabled);
+      await _api.setPrivacyPreference(
+        purpose: item.purpose,
+        enabled: enabled,
+      );
       if (!mounted) return;
       setState(() {
         _items = _items
-            .map((candidate) => candidate.purpose == item.purpose
-                ? LifeMatePrivacyPreference(
-                    purpose: candidate.purpose,
-                    category: candidate.category,
-                    channel: candidate.channel,
-                    policyVersion: candidate.policyVersion,
-                    enabled: enabled,
-                    explicit: true,
-                    userMutable: candidate.userMutable,
-                    description: candidate.description,
-                  )
-                : candidate)
+            .map(
+              (candidate) => candidate.purpose == item.purpose
+                  ? LifeMatePrivacyPreference(
+                      purpose: candidate.purpose,
+                      category: candidate.category,
+                      channel: candidate.channel,
+                      policyVersion: candidate.policyVersion,
+                      enabled: enabled,
+                      explicit: true,
+                      userMutable: candidate.userMutable,
+                      description: candidate.description,
+                    )
+                  : candidate,
+            )
             .toList(growable: false);
       });
     } catch (_) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(LifeMateRuntimeLocale.select(
-          fa: 'تغییر ذخیره نشد؛ دوباره تلاش کن.',
-          en: 'The change was not saved. Try again.',
-        ))),
+        SnackBar(
+          content: Text(
+            context.legalPrivacyTr(
+              'privacy.preferences.changeSaveFailed',
+            ),
+          ),
+        ),
       );
     } finally {
       if (mounted) setState(() => _saving.remove(item.purpose));
@@ -408,64 +416,72 @@ class _LifeMatePrivacyPreferencesScreenState
       appBar: AppBar(
         backgroundColor: widget.background,
         surfaceTintColor: Colors.transparent,
-        title: Text(LifeMateRuntimeLocale.select(
-          fa: 'حریم خصوصی و ارتباطات',
-          en: 'Privacy & Communications',
-        )),
+        title: Text(
+          context.legalPrivacyTr('privacy.preferences.title'),
+        ),
       ),
       body: SafeArea(
         top: false,
         child: _loading
             ? const Center(child: CircularProgressIndicator())
-            : _error != null
+            : _errorKey != null
                 ? Center(
                     child: FilledButton(
                       onPressed: _load,
-                      child: Text(LifeMateRuntimeLocale.select(fa: 'تلاش دوباره', en: 'Try again')),
+                      child: Text(context.tr('common.retry')),
                     ),
                   )
                 : ListView(
-                    padding: const EdgeInsets.fromLTRB(18, 12, 18, 28),
+                    padding:
+                        const EdgeInsetsDirectional.fromSTEB(18, 12, 18, 28),
                     children: [
                       Text(
-                        LifeMateRuntimeLocale.select(
-                          fa: 'این گزینه‌ها اختیاری‌اند و هر زمان می‌توانی خاموششان کنی. اعلان‌های امنیتی، تراکنشی و یادآوری‌های مراقبتی جدا از تبلیغات هستند.',
-                          en: 'These choices are optional and can be turned off anytime. Security, transactional and care-reminder communications are separate from marketing.',
+                        context.legalPrivacyTr(
+                          'privacy.preferences.description',
                         ),
                         style: const TextStyle(height: 1.6),
                       ),
                       const SizedBox(height: 18),
                       for (final item in _items)
                         Card(
-                          margin: const EdgeInsets.only(bottom: 10),
+                          margin: const EdgeInsetsDirectional.only(bottom: 10),
                           child: SwitchListTile.adaptive(
                             value: item.enabled,
-                            onChanged: item.userMutable && !_saving.contains(item.purpose)
-                                ? (value) => _toggle(item, value)
-                                : null,
-                            title: Text(_title(item), style: const TextStyle(fontWeight: FontWeight.w800)),
+                            onChanged:
+                                item.userMutable && !_saving.contains(item.purpose)
+                                    ? (value) => _toggle(item, value)
+                                    : null,
+                            title: Text(
+                              _title(item),
+                              style:
+                                  const TextStyle(fontWeight: FontWeight.w800),
+                            ),
                             subtitle: Text(_subtitle(item)),
                             secondary: _saving.contains(item.purpose)
                                 ? const SizedBox.square(
                                     dimension: 20,
-                                    child: CircularProgressIndicator(strokeWidth: 2),
+                                    child: CircularProgressIndicator(
+                                      strokeWidth: 2,
+                                    ),
                                   )
                                 : Icon(_icon(item), color: widget.accent),
                           ),
                         ),
                       Container(
-                        margin: const EdgeInsets.only(top: 8),
-                        padding: const EdgeInsets.all(16),
+                        margin: const EdgeInsetsDirectional.only(top: 8),
+                        padding: const EdgeInsetsDirectional.all(16),
                         decoration: BoxDecoration(
                           borderRadius: BorderRadius.circular(18),
                           color: widget.accent.withValues(alpha: 0.08),
                         ),
                         child: Text(
-                          LifeMateRuntimeLocale.select(
-                            fa: 'خاموش‌کردن پیشنهادها و تبلیغات روی پیام‌های ضروری حساب، امنیت یا یادآوری‌های مراقبتی اثر نمی‌گذارد.',
-                            en: 'Turning off offers and marketing does not disable essential account, security or care-reminder messages.',
+                          context.legalPrivacyTr(
+                            'privacy.preferences.essentialNotice',
                           ),
-                          style: const TextStyle(height: 1.5, fontWeight: FontWeight.w600),
+                          style: const TextStyle(
+                            height: 1.5,
+                            fontWeight: FontWeight.w600,
+                          ),
                         ),
                       ),
                     ],
@@ -475,17 +491,24 @@ class _LifeMatePrivacyPreferencesScreenState
   }
 
   String _title(LifeMatePrivacyPreference item) => switch (item.purpose) {
-        'promotional_sms' => LifeMateRuntimeLocale.select(fa: 'پیشنهادها با پیامک', en: 'Offers by SMS'),
-        'promotional_push' => LifeMateRuntimeLocale.select(fa: 'پیشنهادها با اعلان', en: 'Offers by push'),
-        'promotional_email' => LifeMateRuntimeLocale.select(fa: 'پیشنهادها با ایمیل', en: 'Offers by email'),
-        'research' => LifeMateRuntimeLocale.select(fa: 'مشارکت در پژوهش', en: 'Research participation'),
-        'personalization' => LifeMateRuntimeLocale.select(fa: 'شخصی‌سازی اختیاری', en: 'Optional personalization'),
+        'promotional_sms' =>
+          context.legalPrivacyTr('privacy.preferences.promotionalSms'),
+        'promotional_push' =>
+          context.legalPrivacyTr('privacy.preferences.promotionalPush'),
+        'promotional_email' =>
+          context.legalPrivacyTr('privacy.preferences.promotionalEmail'),
+        'research' => context.legalPrivacyTr('privacy.preferences.research'),
+        'personalization' =>
+          context.legalPrivacyTr('privacy.preferences.personalization'),
         _ => item.purpose,
       };
 
-  String _subtitle(LifeMatePrivacyPreference item) => LifeMateRuntimeLocale.select(
-        fa: '${item.description} · نسخه ${item.policyVersion}',
-        en: '${item.description} · ${item.policyVersion}',
+  String _subtitle(LifeMatePrivacyPreference item) => context.legalPrivacyTr(
+        'privacy.preferences.versionedDescription',
+        params: <String, Object?>{
+          'description': item.description,
+          'version': item.policyVersion,
+        },
       );
 
   IconData _icon(LifeMatePrivacyPreference item) => switch (item.category) {
