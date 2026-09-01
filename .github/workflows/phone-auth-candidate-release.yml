@@ -118,7 +118,9 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          build_number="$GITHUB_RUN_NUMBER"
+          build_number="$(git rev-list --count HEAD)"
+          test "$build_number" -gt 0
+          echo "PHONE_AUTH_BUILD_NUMBER=$build_number" >> "$GITHUB_ENV"
           build_args=(
             --release
             --build-name="$RELEASE_NAME"
@@ -152,7 +154,7 @@ jobs:
 
           jq -n \
             --arg commit "$GITHUB_SHA" \
-            --arg buildNumber "$GITHUB_RUN_NUMBER" \
+            --arg buildNumber "$PHONE_AUTH_BUILD_NUMBER" \
             --arg releaseName "$RELEASE_NAME" \
             --arg apiBase "$LIFEMATE_API_BASE_URL" \
             --arg supabaseProject "$SUPABASE_PROJECT_REF" \
