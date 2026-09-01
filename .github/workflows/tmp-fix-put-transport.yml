@@ -1,0 +1,51 @@
+name: tmp-fix-put-transport
+
+on:
+  push:
+    branches:
+      - fix/full-test-release-readiness
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: fix/full-test-release-readiness
+          fetch-depth: 0
+      - name: Patch LifeMate API PUT transport
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          p = Path('packages/lifemate_client/lib/src/lifemate_api_client.dart')
+          text = p.read_text()
+          old_mutation = """    final isMutation =\n        method == 'POST' || method == 'PATCH' || method == 'DELETE';"""
+          new_mutation = """    final isMutation =\n        method == 'POST' ||\n        method == 'PUT' ||\n        method == 'PATCH' ||\n        method == 'DELETE';"""
+          old_dispatch = """      case 'POST':\n        return _http.post(uri, headers: headers, body: encodedBody);\n      case 'PATCH':"""
+          new_dispatch = """      case 'POST':\n        return _http.post(uri, headers: headers, body: encodedBody);\n      case 'PUT':\n        return _http.put(uri, headers: headers, body: encodedBody);\n      case 'PATCH':"""
+          if old_mutation not in text:
+              if "method == 'PUT'" not in text:
+                  raise SystemExit('mutation anchor not found')
+          else:
+              text = text.replace(old_mutation, new_mutation, 1)
+          if old_dispatch not in text:
+              if "case 'PUT':" not in text:
+                  raise SystemExit('dispatch anchor not found')
+          else:
+              text = text.replace(old_dispatch, new_dispatch, 1)
+          p.write_text(text)
+          PY
+          if git diff --quiet; then
+            echo 'PUT transport already patched.'
+            exit 0
+          fi
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add packages/lifemate_client/lib/src/lifemate_api_client.dart
+          git commit -m 'fix(client): support JSON PUT transport'
+          git push origin HEAD:fix/full-test-release-readiness
