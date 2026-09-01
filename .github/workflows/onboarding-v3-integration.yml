@@ -78,6 +78,7 @@ jobs:
             test/onboarding_v3_matrix_test.dart \
             test/shared_account_onboarding_test.dart \
             test/shared_legal_privacy_test.dart \
+            test/shared_legal_privacy_localization_test.dart \
             test/remote_config_gate_test.dart
 
       - name: Prove product-specific V3 contracts
