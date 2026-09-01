@@ -1,5 +1,7 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:smart_auth/smart_auth.dart';
 
 import 'onboarding_theme.dart';
 
@@ -27,11 +29,14 @@ class LifeMateOtpInput extends StatefulWidget {
 
 class _LifeMateOtpInputState extends State<LifeMateOtpInput> {
   final FocusNode _focusNode = FocusNode();
+  final SmartAuth _smartAuth = SmartAuth.instance;
+  bool _consentListening = false;
 
   @override
   void initState() {
     super.initState();
     widget.controller.addListener(_onChanged);
+    WidgetsBinding.instance.addPostFrameCallback((_) => _listenForAndroidSms());
   }
 
   @override
@@ -40,6 +45,39 @@ class _LifeMateOtpInputState extends State<LifeMateOtpInput> {
     if (oldWidget.controller != widget.controller) {
       oldWidget.controller.removeListener(_onChanged);
       widget.controller.addListener(_onChanged);
+    }
+    if (!oldWidget.enabled && widget.enabled) {
+      WidgetsBinding.instance.addPostFrameCallback((_) => _listenForAndroidSms());
+    }
+  }
+
+  Future<void> _listenForAndroidSms() async {
+    if (!mounted ||
+        !widget.enabled ||
+        _consentListening ||
+        kIsWeb ||
+        defaultTargetPlatform != TargetPlatform.android) {
+      return;
+    }
+    _consentListening = true;
+    try {
+      final result = await _smartAuth.getSmsWithUserConsentApi();
+      if (!mounted || !widget.enabled || !result.hasData) return;
+      final rawCode = result.requireData.code;
+      if (rawCode == null) return;
+      final digits = rawCode.replaceAll(RegExp(r'\D'), '');
+      if (digits.length < widget.length) return;
+      final code = digits.substring(0, widget.length);
+      widget.controller.value = TextEditingValue(
+        text: code,
+        selection: TextSelection.collapsed(offset: code.length),
+      );
+    } catch (_) {
+      // Android SMS consent is an enhancement only. Native one-time-code
+      // autofill and manual entry stay available when Play Services cannot
+      // provide a consent result.
+    } finally {
+      _consentListening = false;
     }
   }
 
@@ -53,6 +91,7 @@ class _LifeMateOtpInputState extends State<LifeMateOtpInput> {
   @override
   void dispose() {
     widget.controller.removeListener(_onChanged);
+    _smartAuth.removeUserConsentApiListener();
     _focusNode.dispose();
     super.dispose();
   }
@@ -69,68 +108,83 @@ class _LifeMateOtpInputState extends State<LifeMateOtpInput> {
       child: GestureDetector(
         behavior: HitTestBehavior.opaque,
         onTap: widget.enabled ? _focusNode.requestFocus : null,
-        child: Stack(
-          alignment: Alignment.center,
-          children: [
-            Row(
-              textDirection: TextDirection.ltr,
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: List.generate(widget.length, (index) {
-                final hasDigit = index < value.length;
-                final active = index == value.length && value.length < widget.length;
-                return Padding(
-                  padding: EdgeInsets.only(right: index == widget.length - 1 ? 0 : 8),
-                  child: AnimatedContainer(
-                    duration: const Duration(milliseconds: 140),
-                    width: 48,
-                    height: 58,
-                    alignment: Alignment.center,
-                    decoration: BoxDecoration(
-                      color: widget.theme.surface,
-                      borderRadius: BorderRadius.circular(16),
-                      border: Border.all(
-                        color: widget.error
-                            ? widget.theme.error
-                            : active
-                                ? widget.theme.primary
-                                : widget.theme.border,
-                        width: active || widget.error ? 1.6 : 1,
-                      ),
-                    ),
-                    child: Text(
-                      hasDigit ? value[index] : '',
-                      textDirection: TextDirection.ltr,
-                      style: TextStyle(
-                        color: widget.theme.ink,
-                        fontSize: 22,
-                        fontWeight: FontWeight.w800,
-                      ),
-                    ),
-                  ),
-                );
-              }),
-            ),
-            Positioned.fill(
-              child: Opacity(
-                opacity: 0.01,
-                child: TextField(
-                  controller: widget.controller,
-                  focusNode: _focusNode,
-                  enabled: widget.enabled,
-                  autofocus: true,
-                  keyboardType: TextInputType.number,
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            const gap = 6.0;
+            final available = constraints.maxWidth.isFinite
+                ? constraints.maxWidth
+                : 320.0;
+            final calculated =
+                (available - gap * (widget.length - 1)) / widget.length;
+            final boxWidth = calculated.clamp(36.0, 42.0).toDouble();
+            return Stack(
+              alignment: Alignment.center,
+              children: [
+                Row(
                   textDirection: TextDirection.ltr,
-                  maxLength: widget.length,
-                  inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-                  autofillHints: const [AutofillHints.oneTimeCode],
-                  decoration: const InputDecoration(
-                    counterText: '',
-                    border: InputBorder.none,
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: List.generate(widget.length, (index) {
+                    final hasDigit = index < value.length;
+                    final active =
+                        index == value.length && value.length < widget.length;
+                    return Padding(
+                      padding: EdgeInsets.only(
+                        right: index == widget.length - 1 ? 0 : gap,
+                      ),
+                      child: AnimatedContainer(
+                        duration: const Duration(milliseconds: 140),
+                        width: boxWidth,
+                        height: 52,
+                        alignment: Alignment.center,
+                        decoration: BoxDecoration(
+                          color: widget.theme.surface,
+                          borderRadius: BorderRadius.circular(14),
+                          border: Border.all(
+                            color: widget.error
+                                ? widget.theme.error
+                                : active
+                                    ? widget.theme.primary
+                                    : widget.theme.border,
+                            width: active || widget.error ? 1.6 : 1,
+                          ),
+                        ),
+                        child: Text(
+                          hasDigit ? value[index] : '',
+                          textDirection: TextDirection.ltr,
+                          style: TextStyle(
+                            color: widget.theme.ink,
+                            fontSize: 20,
+                            fontWeight: FontWeight.w800,
+                          ),
+                        ),
+                      ),
+                    );
+                  }),
+                ),
+                Positioned.fill(
+                  child: Opacity(
+                    opacity: 0.01,
+                    child: TextField(
+                      controller: widget.controller,
+                      focusNode: _focusNode,
+                      enabled: widget.enabled,
+                      autofocus: true,
+                      keyboardType: TextInputType.number,
+                      textInputAction: TextInputAction.done,
+                      textDirection: TextDirection.ltr,
+                      maxLength: widget.length,
+                      inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                      autofillHints: const [AutofillHints.oneTimeCode],
+                      decoration: const InputDecoration(
+                        counterText: '',
+                        border: InputBorder.none,
+                      ),
+                    ),
                   ),
                 ),
-              ),
-            ),
-          ],
+              ],
+            );
+          },
         ),
       ),
     );
@@ -202,7 +256,9 @@ class _LifeMateWheelPickerState<T> extends State<LifeMateWheelPicker<T>> {
             decoration: BoxDecoration(
               color: widget.theme.surfaceAlt,
               borderRadius: BorderRadius.circular(18),
-              border: Border.all(color: widget.theme.secondary.withValues(alpha: 0.45)),
+              border: Border.all(
+                color: widget.theme.secondary.withValues(alpha: 0.45),
+              ),
             ),
           ),
           ListWheelScrollView.useDelegate(
@@ -220,9 +276,12 @@ class _LifeMateWheelPickerState<T> extends State<LifeMateWheelPicker<T>> {
                   child: AnimatedDefaultTextStyle(
                     duration: const Duration(milliseconds: 140),
                     style: TextStyle(
-                      color: selected ? widget.theme.secondary : widget.theme.muted,
+                      color: selected
+                          ? widget.theme.secondary
+                          : widget.theme.muted,
                       fontSize: selected ? 22 : 16,
-                      fontWeight: selected ? FontWeight.w900 : FontWeight.w600,
+                      fontWeight:
+                          selected ? FontWeight.w900 : FontWeight.w600,
                     ),
                     child: Text(widget.labelBuilder(widget.items[index])),
                   ),
@@ -239,7 +298,10 @@ class _LifeMateWheelPickerState<T> extends State<LifeMateWheelPicker<T>> {
                       gradient: LinearGradient(
                         begin: Alignment.topCenter,
                         end: Alignment.bottomCenter,
-                        colors: [widget.theme.background, widget.theme.background.withValues(alpha: 0)],
+                        colors: [
+                          widget.theme.background,
+                          widget.theme.background.withValues(alpha: 0),
+                        ],
                       ),
                     ),
                     child: const SizedBox.expand(),
@@ -252,7 +314,10 @@ class _LifeMateWheelPickerState<T> extends State<LifeMateWheelPicker<T>> {
                       gradient: LinearGradient(
                         begin: Alignment.bottomCenter,
                         end: Alignment.topCenter,
-                        colors: [widget.theme.background, widget.theme.background.withValues(alpha: 0)],
+                        colors: [
+                          widget.theme.background,
+                          widget.theme.background.withValues(alpha: 0),
+                        ],
                       ),
                     ),
                     child: const SizedBox.expand(),
@@ -304,9 +369,14 @@ class LifeMateConsentScopeCard extends StatelessWidget {
           Container(
             width: 42,
             height: 42,
-            decoration: BoxDecoration(color: theme.surfaceAlt, shape: BoxShape.circle),
+            decoration:
+                BoxDecoration(color: theme.surfaceAlt, shape: BoxShape.circle),
             alignment: Alignment.center,
-            child: Icon(icon, color: sensitive ? theme.secondary : theme.primary, size: 22),
+            child: Icon(
+              icon,
+              color: sensitive ? theme.secondary : theme.primary,
+              size: 22,
+            ),
           ),
           const SizedBox(width: 12),
           Expanded(
@@ -328,7 +398,10 @@ class LifeMateConsentScopeCard extends StatelessWidget {
                     if (sensitive) ...[
                       const SizedBox(width: 8),
                       Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 8,
+                          vertical: 4,
+                        ),
                         decoration: BoxDecoration(
                           color: theme.surfaceAlt,
                           borderRadius: BorderRadius.circular(99),
