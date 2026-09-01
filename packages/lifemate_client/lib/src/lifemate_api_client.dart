@@ -760,7 +760,10 @@ class LifeMateApiClient {
     if (query != null) uri = uri.replace(queryParameters: query);
     final encodedBody = body == null ? null : jsonEncode(body);
     final isMutation =
-        method == 'POST' || method == 'PATCH' || method == 'DELETE';
+        method == 'POST' ||
+        method == 'PUT' ||
+        method == 'PATCH' ||
+        method == 'DELETE';
     final mutationFingerprint = isMutation
         ? '$method ${uri.toString()}\n${encodedBody ?? ''}'
         : null;
@@ -903,6 +906,8 @@ class LifeMateApiClient {
         return _http.get(uri, headers: headers);
       case 'POST':
         return _http.post(uri, headers: headers, body: encodedBody);
+      case 'PUT':
+        return _http.put(uri, headers: headers, body: encodedBody);
       case 'PATCH':
         return _http.patch(uri, headers: headers, body: encodedBody);
       case 'DELETE':
