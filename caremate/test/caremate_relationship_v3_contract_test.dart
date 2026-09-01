@@ -32,15 +32,22 @@ void main() {
     expect(gate, isNot(contains('ListView')));
   });
 
-  test('relationship hint is presentation-only and not an authorization input', () {
+  test('relationship type is presentation-only and not an authorization input', () {
     final gate = File(
       'lib/screens/onboarding/caremate_relationship_v3_gate.dart',
     ).readAsStringSync();
 
-    expect(gate, contains('_relationshipHint'));
-    expect(gate, contains('only personalizes copy'));
-    expect(gate, isNot(contains("'relationshipType': _relationshipHint")));
-    expect(gate, isNot(contains("'relationshipHint': _relationshipHint")));
+    expect(gate, contains("preview['relationshipType']"));
+    expect(gate, contains('LifeMateRelationshipPresentationPolicy.fromRaw'));
+    expect(
+      gate,
+      contains(
+        'Relationship type only personalizes CareMate presentation and never grants sensitive access.',
+      ),
+    );
+    expect(gate, contains('acceptCareInvitation(token: normalizedToken)'));
+    expect(gate, isNot(contains("'relationshipType':")));
+    expect(gate, isNot(contains("'relationshipHint':")));
   });
 
   test('pending state does not mount dashboard or load health data', () {
@@ -48,7 +55,12 @@ void main() {
       'lib/screens/onboarding/caremate_relationship_v3_gate.dart',
     ).readAsStringSync();
 
-    expect(gate, contains('No medication, appointment or private data'));
+    expect(
+      gate,
+      contains(
+        'No health data is shown until the relationship and both consents are active.',
+      ),
+    );
     expect(gate, isNot(contains('CareHomeAggregator')));
     expect(gate, isNot(contains('getCareRecipientDoseOccurrences')));
     expect(gate, isNot(contains('getCareRecipientCareEvents')));
