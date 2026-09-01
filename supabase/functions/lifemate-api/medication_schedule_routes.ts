@@ -50,8 +50,7 @@ export function createMedicationScheduleRouteHandler(databaseUrl: string) {
           version: updated.version,
           sleepWindowEnabled: updated.sleepWindowEnabled === true,
           hasSleepWindow: updated.sleepWindowEnabled === true,
-          idempotencyKey:
-            request.headers.get("idempotency-key")?.trim() ?? null,
+          idempotencyKey: request.headers.get("idempotency-key")?.trim() ?? null,
         },
       });
       return json(updated);
@@ -113,8 +112,7 @@ export function createMedicationScheduleRouteHandler(databaseUrl: string) {
           hasTimingNote:
             typeof updated.timingNote === "string" &&
             updated.timingNote.length > 0,
-          idempotencyKey:
-            request.headers.get("idempotency-key")?.trim() ?? null,
+          idempotencyKey: request.headers.get("idempotency-key")?.trim() ?? null,
         },
       });
       return json(updated);
