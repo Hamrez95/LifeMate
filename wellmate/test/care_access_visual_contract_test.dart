@@ -28,7 +28,7 @@ void main() {
     expect(emptyState, isNot(contains('Icons.check_rounded')));
     expect(emptyState, isNot(contains('Icons.close_rounded')));
 
-    expect(compatibilityRoute, contains('body: CareAccessScreen()'));
+    expect(compatibilityRoute, contains('RelationshipInviteFlowScreen'));
     expect(compatibilityRoute, isNot(contains('createPhoneCareInvitation')));
     expect(compatibilityRoute.toLowerCase(), isNot(contains('kavenegar')));
     expect(compatibilityRoute.toLowerCase(), isNot(contains('icons.sms')));
