@@ -7,6 +7,7 @@ const requireText = (source, text, label) => {
 
 const client = read('packages/lifemate_client/lib/src/legal_privacy_api.dart');
 const ui = read('packages/lifemate_ui/lib/src/shared_legal_privacy.dart');
+const catalog = read('packages/lifemate_ui/lib/src/legal_privacy_locales.dart');
 const composedGate = read('packages/lifemate_ui/lib/src/registration_experience_gate.dart');
 const profile = read('packages/lifemate_ui/lib/src/shared_profile_with_privacy.dart');
 const routes = read('supabase/functions/lifemate-api/legal_privacy_routes.ts');
@@ -19,9 +20,14 @@ for (const route of [
 ]) requireText(client + routes, route, 'canonical route');
 
 requireText(composedGate, 'LifeMateLegalRegistrationGate', 'mandatory legal gate composition');
-requireText(ui, 'Nothing is pre-checked', 'non-prechecked legal copy');
-requireText(ui, 'These choices are optional', 'optional preference copy');
-requireText(ui, 'Security, transactional and care-reminder communications are separate from marketing', 'critical communication separation');
+for (const [key, copy, label] of [
+  ['legal.registration.reviewDescription', 'Nothing is pre-checked', 'non-prechecked legal copy'],
+  ['privacy.preferences.description', 'These choices are optional', 'optional preference copy'],
+  ['privacy.preferences.description', 'Security, transactional and care-reminder communications are separate from marketing', 'critical communication separation'],
+]) {
+  requireText(catalog, copy, label);
+  requireText(ui, key, `${label} catalog binding`);
+}
 requireText(profile, "ValueKey('profile-privacy-preferences')", 'profile privacy entry point');
 requireText(migration, 'check (actor_account_id = account_id)', 'self-only legal acceptance invariant');
 requireText(migration, "default_enabled boolean not null default false", 'optional defaults off');
