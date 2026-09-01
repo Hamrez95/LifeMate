@@ -119,4 +119,29 @@ void main() {
     expect(source, isNot(contains('Timer(')));
     expect(source, isNot(contains('Future.delayed')));
   });
+
+  test('shared auth keeps the server-aligned 60 second resend gate localized', () {
+    final uiSource = File(
+      '../lifemate_ui/lib/src/shared_auth_experience.dart',
+    ).readAsStringSync();
+
+    expect(uiSource, contains('static const _resendDelaySeconds = 60;'));
+    expect(
+      uiSource,
+      contains('final canResend = _resendSeconds == 0 && !_busy;'),
+    );
+    expect(uiSource, contains('_startResendCountdown();'));
+    expect(uiSource, contains("fa: 'ارسال مجدد تا \$_resendSeconds ثانیه'"));
+    expect(uiSource, contains("en: 'Resend in \$_resendSeconds s'"));
+
+    final countdownStart = uiSource.indexOf('void _startResendCountdown()');
+    final googleStart = uiSource.indexOf(
+      'Future<void> _signInWithGoogle()',
+      countdownStart,
+    );
+    expect(countdownStart, greaterThanOrEqualTo(0));
+    expect(googleStart, greaterThan(countdownStart));
+    final countdownBody = uiSource.substring(countdownStart, googleStart);
+    expect(countdownBody, isNot(contains('_sendPhoneCode')));
+  });
 }
