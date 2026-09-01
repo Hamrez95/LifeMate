@@ -18,7 +18,7 @@ class _FakeLegalPrivacyApi extends LifeMateLegalPrivacyApi {
     id: '11111111-1111-4111-8111-111111111111',
     purpose: 'legal_terms',
     version: '2026.08',
-    title: 'شرایط استفاده LifeMate',
+    title: 'LifeMate Terms',
     documentHash: 'sha256:legal-document-hash-000001',
     contentUri: 'https://example.test/legal/terms',
     accepted: false,
@@ -77,13 +77,10 @@ class _FakeLegalPrivacyApi extends LifeMateLegalPrivacyApi {
 }
 
 void main() {
-  setUp(() => LifeMateRuntimeLocale.setLanguageCode('fa'));
-
   testWidgets('mandatory legal document is never prechecked', (tester) async {
     final api = _FakeLegalPrivacyApi();
     await tester.pumpWidget(
       MaterialApp(
-        locale: const Locale('fa'),
         home: LifeMateLegalRegistrationGate(
           api: api,
           child: const Text('PRODUCT'),
@@ -98,7 +95,7 @@ void main() {
 
     await tester.tap(find.byType(Checkbox));
     await tester.pump();
-    await tester.tap(find.text('تأیید و ادامه'));
+    await tester.tap(find.text('Accept and continue'));
     await tester.pumpAndSettle();
 
     expect(api.acceptanceCalls, 1);
@@ -110,24 +107,21 @@ void main() {
     (tester) async {
       final api = _FakeLegalPrivacyApi(registrationCompleted: true);
       await tester.pumpWidget(
-        MaterialApp(
-          locale: const Locale('fa'),
-          home: LifeMatePrivacyPreferencesScreen(api: api),
-        ),
+        MaterialApp(home: LifeMatePrivacyPreferencesScreen(api: api)),
       );
       await tester.pumpAndSettle();
 
-      expect(find.text('پیشنهادها با پیامک'), findsOneWidget);
-      expect(find.text('مشارکت در پژوهش'), findsOneWidget);
+      expect(find.text('Offers by SMS'), findsOneWidget);
+      expect(find.text('Research participation'), findsOneWidget);
       final switches = tester.widgetList<Switch>(find.byType(Switch)).toList();
       expect(switches.every((item) => item.value == false), isTrue);
 
-      await tester.tap(find.text('پیشنهادها با پیامک'));
+      await tester.tap(find.text('Offers by SMS'));
       await tester.pumpAndSettle();
 
       expect(api.writes['promotional_sms'], isTrue);
       expect(api.writes.containsKey('research'), isFalse);
-      expect(find.textContaining('پیام‌های ضروری'), findsOneWidget);
+      expect(find.textContaining('essential account'), findsOneWidget);
     },
   );
 }
