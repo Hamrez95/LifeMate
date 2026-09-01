@@ -211,33 +211,36 @@ class _LifeMateLegalRegistrationGateState
       ),
       child: Column(
         children: [
-          CheckboxListTile(
-            value: checked,
-            enabled: !document.accepted && !_saving,
-            onChanged: document.accepted || _saving
-                ? null
-                : (value) => setState(() {
-                    if (value == true) {
-                      _checked.add(document.id);
-                    } else {
-                      _checked.remove(document.id);
-                    }
-                    _errorKey = null;
-                  }),
-            controlAffinity: ListTileControlAffinity.leading,
-            title: Text(
-              document.title,
-              style: TextStyle(
-                color: _theme.ink,
-                fontWeight: FontWeight.w800,
+          Material(
+            type: MaterialType.transparency,
+            child: CheckboxListTile(
+              value: checked,
+              enabled: !document.accepted && !_saving,
+              onChanged: document.accepted || _saving
+                  ? null
+                  : (value) => setState(() {
+                      if (value == true) {
+                        _checked.add(document.id);
+                      } else {
+                        _checked.remove(document.id);
+                      }
+                      _errorKey = null;
+                    }),
+              controlAffinity: ListTileControlAffinity.leading,
+              title: Text(
+                document.title,
+                style: TextStyle(
+                  color: _theme.ink,
+                  fontWeight: FontWeight.w800,
+                ),
               ),
-            ),
-            subtitle: Text(
-              context.legalPrivacyTr(
-                'legal.registration.documentVersion',
-                params: <String, Object?>{'version': document.version},
+              subtitle: Text(
+                context.legalPrivacyTr(
+                  'legal.registration.documentVersion',
+                  params: <String, Object?>{'version': document.version},
+                ),
+                style: TextStyle(color: _theme.muted),
               ),
-              style: TextStyle(color: _theme.muted),
             ),
           ),
           if (document.contentUri != null)
