@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:flutter_test/flutter_test.dart';
 import 'package:lifemate_client/lifemate_client.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -74,5 +76,47 @@ void main() {
         throwsFormatException,
       );
     }
+  });
+
+  test('Supabase SMS resend cooldown is recognized without exposing raw copy', () {
+    expect(
+      LifeMateAuth.isPhoneOtpSendRateLimited(
+        const AuthException('over_sms_send_rate_limit'),
+      ),
+      isTrue,
+    );
+    expect(
+      LifeMateAuth.isPhoneOtpSendRateLimited(
+        const AuthException(
+          'For security purposes, you can only request this after 60 seconds.',
+        ),
+      ),
+      isTrue,
+    );
+  });
+
+  test('broader quota errors are not treated as proof an OTP was sent', () {
+    expect(
+      LifeMateAuth.isPhoneOtpSendRateLimited(
+        const AuthException('Daily provider quota limit exceeded.'),
+      ),
+      isFalse,
+    );
+    expect(
+      LifeMateAuth.isPhoneOtpSendRateLimited(
+        const AuthException('Too many authentication attempts.'),
+      ),
+      isFalse,
+    );
+  });
+
+  test('OTP cooldown recovery never schedules a background resend', () {
+    final source = File('lib/src/lifemate_auth.dart').readAsStringSync();
+    expect(
+      source,
+      contains('if (isPhoneOtpSendRateLimited(error)) return;'),
+    );
+    expect(source, isNot(contains('Timer(')));
+    expect(source, isNot(contains('Future.delayed')));
   });
 }
