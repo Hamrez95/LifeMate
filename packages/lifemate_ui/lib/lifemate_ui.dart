@@ -2,6 +2,7 @@ library lifemate_ui;
 
 export 'src/companion_care_guidance.dart';
 export 'src/demographics_experience.dart';
+export 'src/demographics_locales.dart';
 export 'src/localization.dart';
 export 'src/onboarding_components.dart';
 export 'src/onboarding_specialized.dart';
