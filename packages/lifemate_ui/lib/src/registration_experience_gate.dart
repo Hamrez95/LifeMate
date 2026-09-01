@@ -18,25 +18,31 @@ class LifeMateAccountOnboardingGate extends StatelessWidget {
     this.api,
     this.legalPrivacyApi,
     this.demographicsApi,
+    this.enableDemographics = true,
   });
 
   final Widget child;
   final LifeMateAccountOnboardingApi? api;
   final LifeMateLegalPrivacyApi? legalPrivacyApi;
   final LifeMateDemographicsApi? demographicsApi;
+  /// Lets focused hosts test the canonical account/legal flow independently.
+  /// Product entry points keep this enabled and always collect demographics.
+  final bool enableDemographics;
 
   @override
   Widget build(BuildContext context) {
+    final accountAndLegal = account.LifeMateAccountOnboardingGate(
+      api: api,
+      child: LifeMateLegalRegistrationGate(
+        api: legalPrivacyApi,
+        child: child,
+      ),
+    );
+    if (!enableDemographics) return accountAndLegal;
     return LifeMateDemographicOnboardingGate(
       onboardingApi: api,
       demographicsApi: demographicsApi,
-      child: account.LifeMateAccountOnboardingGate(
-        api: api,
-        child: LifeMateLegalRegistrationGate(
-          api: legalPrivacyApi,
-          child: child,
-        ),
-      ),
+      child: accountAndLegal,
     );
   }
 }

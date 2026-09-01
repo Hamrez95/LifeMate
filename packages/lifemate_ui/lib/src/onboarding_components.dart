@@ -216,6 +216,7 @@ class LifeMateOnboardingQuestion extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final compact = MediaQuery.sizeOf(context).height <= 640;
     final alignment = alignCenter ? CrossAxisAlignment.center : CrossAxisAlignment.stretch;
     final textAlign = alignCenter ? TextAlign.center : TextAlign.start;
     return Column(
@@ -223,33 +224,33 @@ class LifeMateOnboardingQuestion extends StatelessWidget {
       children: [
         if (icon != null) ...[
           Container(
-            width: 72,
-            height: 72,
+            width: compact ? 56 : 72,
+            height: compact ? 56 : 72,
             decoration: BoxDecoration(color: theme.soft, shape: BoxShape.circle),
             alignment: Alignment.center,
-            child: Icon(icon, color: theme.primary, size: 32),
+            child: Icon(icon, color: theme.primary, size: compact ? 26 : 32),
           ),
-          const SizedBox(height: 20),
+          SizedBox(height: compact ? 10 : 20),
         ],
         Text(
           title,
           textAlign: textAlign,
           style: TextStyle(
             color: theme.ink,
-            fontSize: 22,
-            height: 1.4,
+            fontSize: compact ? 19 : 22,
+            height: compact ? 1.25 : 1.4,
             fontWeight: FontWeight.w900,
           ),
         ),
         if (description != null) ...[
-          const SizedBox(height: 10),
+          SizedBox(height: compact ? 6 : 10),
           Text(
             description!,
             textAlign: textAlign,
             style: TextStyle(
               color: theme.muted,
-              fontSize: 14,
-              height: 1.6,
+              fontSize: compact ? 13 : 14,
+              height: compact ? 1.4 : 1.6,
               fontWeight: FontWeight.w500,
             ),
           ),
@@ -281,6 +282,7 @@ class LifeMateOnboardingOptionCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final compact = MediaQuery.sizeOf(context).height <= 640;
     final foreground = enabled ? theme.ink : theme.muted.withValues(alpha: 0.65);
     return Semantics(
       button: true,
@@ -293,8 +295,8 @@ class LifeMateOnboardingOptionCard extends StatelessWidget {
           onTap: enabled ? onTap : null,
           borderRadius: BorderRadius.circular(LifeMateOnboardingMetrics.cardRadius),
           child: Container(
-            constraints: const BoxConstraints(minHeight: 76),
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+            constraints: BoxConstraints(minHeight: compact ? 64 : 76),
+            padding: EdgeInsets.symmetric(horizontal: 16, vertical: compact ? 10 : 14),
             decoration: BoxDecoration(
               borderRadius: BorderRadius.circular(LifeMateOnboardingMetrics.cardRadius),
               border: Border.all(
@@ -305,8 +307,8 @@ class LifeMateOnboardingOptionCard extends StatelessWidget {
             child: Row(
               children: [
                 if (icon != null) ...[
-                  Icon(icon, color: selected ? theme.primary : theme.muted, size: 24),
-                  const SizedBox(width: 12),
+                  Icon(icon, color: selected ? theme.primary : theme.muted, size: compact ? 22 : 24),
+                  SizedBox(width: compact ? 10 : 12),
                 ],
                 Expanded(
                   child: Column(
@@ -317,18 +319,18 @@ class LifeMateOnboardingOptionCard extends StatelessWidget {
                         title,
                         style: TextStyle(
                           color: foreground,
-                          fontSize: 15.5,
+                          fontSize: compact ? 14.5 : 15.5,
                           fontWeight: FontWeight.w800,
                         ),
                       ),
                       if (subtitle != null) ...[
-                        const SizedBox(height: 4),
+                          SizedBox(height: compact ? 2 : 4),
                         Text(
                           subtitle!,
                           style: TextStyle(
                             color: theme.muted,
-                            fontSize: 13.5,
-                            height: 1.45,
+                            fontSize: compact ? 12.5 : 13.5,
+                            height: compact ? 1.25 : 1.45,
                             fontWeight: FontWeight.w500,
                           ),
                         ),

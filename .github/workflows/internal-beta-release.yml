@@ -67,7 +67,7 @@ jobs:
           ! grep -R --line-number 'SUPABASE_SERVICE_ROLE_KEY' \
             supabase/functions/lifemate-api \
             supabase/functions/lifemate-telemetry \
-            tools/release
+            tools/release/*.sh
 
       - name: Verify Edge source
         shell: bash

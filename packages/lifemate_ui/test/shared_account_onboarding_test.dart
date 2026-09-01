@@ -118,6 +118,7 @@ void main() {
         home: LifeMateAccountOnboardingGate(
           api: api,
           legalPrivacyApi: legalApi ?? _FakeLegalApi(),
+          enableDemographics: false,
           child: const Scaffold(body: Text('PRODUCT_HOME')),
         ),
       ),
