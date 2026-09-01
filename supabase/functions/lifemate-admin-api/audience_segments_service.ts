@@ -1,4 +1,5 @@
 import { type AdminSql, getAdminSql } from "./database_client.ts";
+import { projectDemographicAudienceAttributes } from "./audience_demographics.ts";
 import {
   evaluateSegmentRuleSet,
   type SegmentAttribute,
@@ -10,6 +11,12 @@ import { ApiError } from "./validation.ts";
 const MIN_PREVIEW_COHORT = 10;
 const MAX_EVALUATION_SUBJECTS = 50_000;
 const SUPPORTED_SOURCE_ATTRIBUTES = new Set<SegmentAttribute>([
+  "demographic.age_bucket",
+  "demographic.age_years",
+  "demographic.birthday_month",
+  "demographic.birthday_day",
+  "demographic.birthday_days_ahead",
+  "demographic.gender_identity",
   "demographic.locale",
   "product.code",
   "product.enrolled",
@@ -36,6 +43,9 @@ type SubjectRow = {
   account_id: unknown;
   person_id: unknown;
   locale: unknown;
+  birth_date: unknown;
+  local_date: unknown;
+  gender_identity: unknown;
   application_codes: unknown;
   last_active_at_utc: unknown;
   product_codes: unknown;
@@ -74,7 +84,9 @@ function mapSegment(row: Record<string, unknown>): SegmentRecord {
   };
 }
 
-function lifecycle(lastActiveAtUtc: unknown): { days: number | null; label: string } {
+function lifecycle(
+  lastActiveAtUtc: unknown,
+): { days: number | null; label: string } {
   if (lastActiveAtUtc == null) return { days: null, label: "never_active" };
   const timestamp = new Date(String(lastActiveAtUtc)).getTime();
   if (!Number.isFinite(timestamp)) return { days: null, label: "never_active" };
@@ -86,7 +98,7 @@ function lifecycle(lastActiveAtUtc: unknown): { days: number | null; label: stri
   return { days, label: "inactive_90d_plus" };
 }
 
-function toSubject(row: SubjectRow): SegmentSubject {
+export function toAudienceSegmentSubject(row: SubjectRow): SegmentSubject {
   const products = Array.from(new Set([
     ...normalizedArray(row.application_codes),
     ...normalizedArray(row.product_codes),
@@ -98,6 +110,11 @@ function toSubject(row: SubjectRow): SegmentSubject {
     "subscription.status": normalizedArray(row.subscription_statuses),
     "entitlement.code": normalizedArray(row.entitlement_codes),
     "engagement.lifecycle": activity.label,
+    ...projectDemographicAudienceAttributes({
+      birthDate: row.birth_date,
+      localDate: row.local_date,
+      genderIdentity: row.gender_identity,
+    }),
   };
   if (activity.days !== null) {
     subject["engagement.last_active_days"] = activity.days;
@@ -121,6 +138,17 @@ async function loadSubjects(sql: AdminSql): Promise<SubjectRow[]> {
       d.account_id,
       d.person_id,
       pp.locale,
+      person.birth_date,
+      pp.gender_identity,
+      coalesce(
+        (
+          select (now() at time zone zone.name)::date::text
+          from pg_timezone_names zone
+          where zone.name=pp.time_zone
+          limit 1
+        ),
+        (now() at time zone 'UTC')::date::text
+      ) as local_date,
       d.application_codes,
       d.last_active_at_utc,
       coalesce((
@@ -144,6 +172,7 @@ async function loadSubjects(sql: AdminSql): Promise<SubjectRow[]> {
           and (e.expires_at_utc is null or e.expires_at_utc > now())
       ),array[]::varchar[]) as entitlement_codes
     from admin.user_directory_v2 d
+    left join core.persons person on person.id=d.person_id
     left join core.person_profiles pp on pp.person_id=d.person_id
     order by d.account_id
     limit ${MAX_EVALUATION_SUBJECTS + 1}
@@ -186,15 +215,27 @@ async function consumeIdempotency<T>(input: {
         for update
       `;
       if (existing.length === 0) {
-        throw new ApiError(409,"idempotency_conflict","Idempotency state changed; retry safely.");
+        throw new ApiError(
+          409,
+          "idempotency_conflict",
+          "Idempotency state changed; retry safely.",
+        );
       }
       if (String(existing[0].request_hash) !== input.requestHash) {
-        throw new ApiError(409,"idempotency_key_reused","Idempotency key was already used with a different request.");
+        throw new ApiError(
+          409,
+          "idempotency_key_reused",
+          "Idempotency key was already used with a different request.",
+        );
       }
       if (String(existing[0].status) === "Completed") {
         return existing[0].response_json as T;
       }
-      throw new ApiError(409,"request_in_progress","An equivalent segment operation is already in progress.");
+      throw new ApiError(
+        409,
+        "request_in_progress",
+        "An equivalent segment operation is already in progress.",
+      );
     }
 
     const response = await input.work(tx as AdminSql);
@@ -227,7 +268,11 @@ export function createAudienceSegmentStore(databaseUrl: string) {
           from audience.segments where id=${id}::uuid limit 1
         `;
     if (rows.length === 0) {
-      throw new ApiError(404,"segment_not_found","Audience segment was not found.");
+      throw new ApiError(
+        404,
+        "segment_not_found",
+        "Audience segment was not found.",
+      );
     }
     return mapSegment(rows[0]);
   }
@@ -245,7 +290,9 @@ export function createAudienceSegmentStore(databaseUrl: string) {
       );
     }
     const rows = await loadSubjects(executor);
-    return rows.filter((row) => evaluateSegmentRuleSet(ruleSet,toSubject(row)));
+    return rows.filter((row) =>
+      evaluateSegmentRuleSet(ruleSet, toAudienceSegmentSubject(row))
+    );
   }
 
   return {
@@ -288,7 +335,11 @@ export function createAudienceSegmentStore(databaseUrl: string) {
             returning id,segment_key,name,description,rule_json,rule_hash,status,version,created_at_utc,updated_at_utc
           `;
           if (rows.length === 0) {
-            throw new ApiError(409,"segment_key_conflict","Audience segment key already exists.");
+            throw new ApiError(
+              409,
+              "segment_key_conflict",
+              "Audience segment key already exists.",
+            );
           }
           const segment = mapSegment(rows[0]);
           await tx`
@@ -334,9 +385,22 @@ export function createAudienceSegmentStore(databaseUrl: string) {
             returning id,segment_key,name,description,rule_json,rule_hash,status,version,created_at_utc,updated_at_utc
           `;
           if (rows.length === 0) {
-            const exists = await tx`select version from audience.segments where id=${input.id}::uuid limit 1`;
-            if (exists.length === 0) throw new ApiError(404,"segment_not_found","Audience segment was not found.");
-            throw new ApiError(409,"segment_version_conflict","Audience segment changed; refresh before updating.");
+            const exists = await tx`
+              select version from audience.segments
+              where id=${input.id}::uuid limit 1
+            `;
+            if (exists.length === 0) {
+              throw new ApiError(
+                404,
+                "segment_not_found",
+                "Audience segment was not found.",
+              );
+            }
+            throw new ApiError(
+              409,
+              "segment_version_conflict",
+              "Audience segment changed; refresh before updating.",
+            );
           }
           const segment = mapSegment(rows[0]);
           await tx`
@@ -364,7 +428,7 @@ export function createAudienceSegmentStore(databaseUrl: string) {
         count: count > 0 && count < MIN_PREVIEW_COHORT ? null : count,
         suppressed: count > 0 && count < MIN_PREVIEW_COHORT,
         minimumCohortSize: MIN_PREVIEW_COHORT,
-        source: "canonical_account_person_commerce_projection_v1",
+        source: "canonical_account_person_demographic_commerce_projection_v2",
         sourceAsOfUtc: new Date().toISOString(),
       };
     },
@@ -444,7 +508,6 @@ export function createAudienceSegmentStore(databaseUrl: string) {
       return {
         supportedAttributes: [...SUPPORTED_SOURCE_ATTRIBUTES],
         unavailableAttributes: [
-          "demographic.age_bucket",
           "campaign.channel",
           "campaign.last_outcome",
         ],
