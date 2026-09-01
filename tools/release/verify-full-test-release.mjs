@@ -15,8 +15,9 @@ requireText('https://bwdvmniywyyijjauipnh.supabase.co/functions/v1/lifemate-api'
 requireText('--dart-define="ENABLE_PHONE_OTP=true"', 'Phone OTP enabled');
 requireText('--dart-define="ENABLE_WOMEN_CALENDAR_PILOT=true"', 'Women Health pilot enabled');
 requireText('--dart-define="ENABLE_GOOGLE_AUTH=false"', 'unverified Google auth remains fail-closed');
-requireText('deno task check', 'production API typecheck');
-requireText('deno task test', 'production API tests');
+requireText('deno fmt --check --config "$api/deno.json" "$api"', 'production API format check with explicit config');
+requireText('deno check --config "$api/deno.json" "$api/index.ts"', 'production API typecheck with explicit config');
+requireText('deno test --config "$api/deno.json" --allow-env --no-check "$api"/*_test.ts', 'production API tests with explicit config');
 requireText('supabase functions deploy lifemate-api', 'exact-main API deployment');
 requireText('LIFEMATE_RELEASE_VERSION', 'deployed API release identity');
 requireText('.version == $version', 'deployed API exact-main verification');
@@ -52,6 +53,10 @@ assert.ok(
 assert.ok(
   !workflow.includes('flutter build apk "${build_args[@]}"'),
   'fat universal APK must not replace split APKs in the full-test path',
+);
+assert.ok(
+  !workflow.includes('deno task check') && !workflow.includes('deno task test'),
+  'API verification must not rely on automatic monorepo task config discovery',
 );
 
 console.log('PASS: exact-main backend + split Android + web full-test contract');
