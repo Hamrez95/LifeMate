@@ -22,9 +22,15 @@ requireText(workflow, 'caremate/build/app/outputs/flutter-apk/app-release.apk', 
 requireText(workflow, 'environment:"production-phone-auth-candidate"', 'candidate environment manifest');
 requireText(workflow, 'auth:{phoneOtp:true,google:false}', 'manifest auth flags');
 requireText(workflow, '--arg commit "$GITHUB_SHA"', 'immutable commit manifest');
-requireText(workflow, '--arg buildNumber "$GITHUB_RUN_NUMBER"', 'immutable build number manifest');
+requireText(workflow, 'build_number="$(git rev-list --count HEAD)"', 'candidate Android versionCode follows canonical release sequence');
+requireText(workflow, 'PHONE_AUTH_BUILD_NUMBER=$build_number', 'candidate build number is preserved for manifest evidence');
+requireText(workflow, '--arg buildNumber "$PHONE_AUTH_BUILD_NUMBER"', 'immutable canonical build number manifest');
 requireText(workflow, 'sha256sum', 'artifact digest manifest');
 
+assert.ok(
+  !workflow.includes('build_number="$GITHUB_RUN_NUMBER"'),
+  'workflow run number must not be used as Android versionCode because it can make an update look like a downgrade',
+);
 assert.ok(
   !workflow.includes('SUPABASE_SERVICE_ROLE_KEY'),
   'mobile candidate workflow must never reference service-role credentials',
