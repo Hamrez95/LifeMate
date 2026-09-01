@@ -64,13 +64,13 @@ jobs:
           deno-version: v2.9.4
 
       - name: Verify production API source
-        working-directory: supabase/functions/lifemate-api
         shell: bash
         run: |
           set -euo pipefail
-          deno fmt --check
-          deno task check
-          deno task test
+          api='supabase/functions/lifemate-api'
+          deno fmt --check --config "$api/deno.json" "$api"
+          deno check --config "$api/deno.json" "$api/index.ts"
+          deno test --config "$api/deno.json" --allow-env --no-check "$api"/*_test.ts
 
       - uses: subosito/flutter-action@4cab68ce0f1c7c924f688bff4792e044f1aeb30c
         with:
