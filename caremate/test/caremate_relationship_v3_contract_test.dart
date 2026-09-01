@@ -49,7 +49,7 @@ void main() {
     ).readAsStringSync();
 
     expect(gate, contains('No medication, appointment or private data'));
-    expect(gate, isNot(contains('CareHomeAggregator'));
+    expect(gate, isNot(contains('CareHomeAggregator')));
     expect(gate, isNot(contains('getCareRecipientDoseOccurrences')));
     expect(gate, isNot(contains('getCareRecipientCareEvents')));
   });
