@@ -109,10 +109,35 @@ class LifeMateAuth {
       throw const AuthException('Phone OTP is not enabled for this release.');
     }
     final phone = _normalizeIranPhone(phoneE164);
-    await Supabase.instance.client.auth.signInWithOtp(
-      phone: phone,
-      shouldCreateUser: shouldCreatePhoneUser(intent),
-    );
+    try {
+      await Supabase.instance.client.auth.signInWithOtp(
+        phone: phone,
+        shouldCreateUser: shouldCreatePhoneUser(intent),
+      );
+    } on AuthException catch (error) {
+      // Supabase blocks a second SMS inside its configured cooldown before the
+      // delivery hook/provider is called. In that narrow case a usable OTP was
+      // already sent recently, so continuing to the OTP screen is safer and
+      // avoids encouraging repeated resend attempts. No background resend is
+      // scheduled here; the UI's 60-second countdown remains authoritative.
+      if (isPhoneOtpSendRateLimited(error)) return;
+      rethrow;
+    }
+  }
+
+  /// Recognizes only the short Supabase SMS resend-cooldown response. Broader
+  /// quota/rate errors stay failures because they do not prove a usable code
+  /// was delivered. Provider messages are never rendered directly to users.
+  static bool isPhoneOtpSendRateLimited(AuthException error) {
+    final description = '${error.message} $error'
+        .toLowerCase()
+        .replaceAll('_', ' ');
+    return description.contains('over sms send rate limit') ||
+        (description.contains('sms') &&
+            description.contains('rate') &&
+            description.contains('limit')) ||
+        (description.contains('security purposes') &&
+            description.contains('seconds'));
   }
 
   static bool shouldCreatePhoneUser(LifeMatePhoneOtpIntent intent) =>
