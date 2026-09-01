@@ -1,0 +1,239 @@
+name: Full Test Release
+
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/full-test-release.yml'
+      - 'tools/release/verify-full-test-release.mjs'
+      - 'tools/release/prepare-android-signing.sh'
+      - 'tools/release/verify-android-signing.sh'
+      - 'packages/lifemate_client/**'
+      - 'wellmate/**'
+      - 'caremate/**'
+  workflow_dispatch:
+    inputs:
+      release_name:
+        description: Full-test candidate name, for example 0.9.0-fulltest.1
+        required: true
+        default: 0.9.0-fulltest.1
+        type: string
+      confirm_release:
+        description: Type BUILD-FULL-TEST-RELEASE
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: full-test-release-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  SUPABASE_PROJECT_REF: bwdvmniywyyijjauipnh
+  SUPABASE_URL: https://bwdvmniywyyijjauipnh.supabase.co
+  SUPABASE_PUBLISHABLE_KEY: ${{ vars.SUPABASE_PUBLISHABLE_KEY || 'sb_publishable_6YpBDD0gAPcenbYGukOeWg_fZXxUb27' }}
+  LIFEMATE_API_BASE_URL: https://bwdvmniywyyijjauipnh.supabase.co/functions/v1/lifemate-api
+  ENABLE_PHONE_OTP: 'true'
+  ENABLE_WOMEN_CALENDAR_PILOT: 'true'
+  ENABLE_GOOGLE_AUTH: 'false'
+  PUB_ENVIRONMENT: bot:github_actions
+
+jobs:
+  verify-all:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
+        with:
+          fetch-depth: 0
+          show-progress: false
+          persist-credentials: false
+
+      - name: Verify full-test release contract
+        shell: bash
+        run: |
+          set -euo pipefail
+          node tools/release/verify-full-test-release.mjs
+          node tools/security/verify-auth-security-contract.mjs
+
+      - uses: subosito/flutter-action@4cab68ce0f1c7c924f688bff4792e044f1aeb30c
+        with:
+          flutter-version: '3.44.0'
+          channel: stable
+          cache: true
+
+      - name: Verify shared LifeMate client
+        working-directory: packages/lifemate_client
+        shell: bash
+        run: |
+          set -euo pipefail
+          flutter pub get
+          flutter analyze --no-fatal-warnings --no-fatal-infos
+          flutter test
+
+      - name: Verify WellMate
+        working-directory: wellmate
+        shell: bash
+        run: |
+          set -euo pipefail
+          flutter pub get
+          flutter analyze --no-fatal-warnings --no-fatal-infos
+          flutter test
+
+      - name: Verify CareMate
+        working-directory: caremate
+        shell: bash
+        run: |
+          set -euo pipefail
+          flutter pub get
+          flutter analyze --no-fatal-warnings --no-fatal-infos
+          flutter test
+
+  build-signed-full-test:
+    if: ${{ github.event_name == 'workflow_dispatch' }}
+    needs: verify-all
+    runs-on: ubuntu-24.04
+    timeout-minutes: 65
+    environment: beta
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
+        with:
+          fetch-depth: 0
+          show-progress: false
+          persist-credentials: false
+
+      - name: Enforce exact-main full-test source
+        shell: bash
+        env:
+          CONFIRM_RELEASE: ${{ inputs.confirm_release }}
+          RELEASE_NAME: ${{ inputs.release_name }}
+        run: |
+          set -euo pipefail
+          test "$GITHUB_REF" = 'refs/heads/main'
+          test "$CONFIRM_RELEASE" = 'BUILD-FULL-TEST-RELEASE'
+          [[ "$RELEASE_NAME" =~ ^[0-9]+\.[0-9]+\.[0-9]+-fulltest\.[0-9]+$ ]]
+          test "$ENABLE_PHONE_OTP" = 'true'
+          test "$ENABLE_WOMEN_CALENDAR_PILOT" = 'true'
+          test "$ENABLE_GOOGLE_AUTH" = 'false'
+          test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
+
+      - uses: subosito/flutter-action@4cab68ce0f1c7c924f688bff4792e044f1aeb30c
+        with:
+          flutter-version: '3.44.0'
+          channel: stable
+          cache: true
+
+      - name: Prepare permanent Android signing
+        shell: bash
+        env:
+          WELLMATE_KEYSTORE_BASE64: ${{ secrets.WELLMATE_KEYSTORE_BASE64 }}
+          WELLMATE_STORE_PASSWORD: ${{ secrets.WELLMATE_STORE_PASSWORD }}
+          WELLMATE_KEY_PASSWORD: ${{ secrets.WELLMATE_KEY_PASSWORD }}
+          WELLMATE_KEY_ALIAS: ${{ secrets.WELLMATE_KEY_ALIAS }}
+          CAREMATE_KEYSTORE_BASE64: ${{ secrets.CAREMATE_KEYSTORE_BASE64 }}
+          CAREMATE_STORE_PASSWORD: ${{ secrets.CAREMATE_STORE_PASSWORD }}
+          CAREMATE_KEY_PASSWORD: ${{ secrets.CAREMATE_KEY_PASSWORD }}
+          CAREMATE_KEY_ALIAS: ${{ secrets.CAREMATE_KEY_ALIAS }}
+        run: bash tools/release/prepare-android-signing.sh
+
+      - name: Build signed Android and web test outputs
+        shell: bash
+        env:
+          RELEASE_NAME: ${{ inputs.release_name }}
+        run: |
+          set -euo pipefail
+          build_number="$(git rev-list --count HEAD)"
+          build_args=(
+            --release
+            --build-name="$RELEASE_NAME"
+            --build-number="$build_number"
+            --dart-define="SUPABASE_URL=$SUPABASE_URL"
+            --dart-define="SUPABASE_PUBLISHABLE_KEY=$SUPABASE_PUBLISHABLE_KEY"
+            --dart-define="LIFEMATE_API_BASE_URL=$LIFEMATE_API_BASE_URL"
+            --dart-define="ENABLE_PHONE_OTP=true"
+            --dart-define="ENABLE_WOMEN_CALENDAR_PILOT=true"
+            --dart-define="ENABLE_GOOGLE_AUTH=false"
+          )
+          (cd wellmate && flutter pub get && flutter build apk "${build_args[@]}" && flutter build appbundle "${build_args[@]}" && flutter build web "${build_args[@]}")
+          (cd caremate && flutter pub get && flutter build apk "${build_args[@]}" && flutter build appbundle "${build_args[@]}" && flutter build web "${build_args[@]}")
+          echo "BUILD_NUMBER=$build_number" >> "$GITHUB_ENV"
+
+      - name: Verify permanent signatures and package identities
+        shell: bash
+        run: |
+          set -euo pipefail
+          wellmate_apk='wellmate/build/app/outputs/flutter-apk/app-release.apk'
+          caremate_apk='caremate/build/app/outputs/flutter-apk/app-release.apk'
+          bash tools/release/verify-android-signing.sh "$wellmate_apk" "$caremate_apk"
+          apkanalyzer="$(find "$ANDROID_SDK_ROOT/cmdline-tools" -type f -name apkanalyzer | sort -V | tail -n 1)"
+          "$apkanalyzer" manifest application-id "$wellmate_apk" | grep -Fxq 'com.lifemate.wellmate'
+          "$apkanalyzer" manifest application-id "$caremate_apk" | grep -Fxq 'com.lifemate.caremate'
+          test -s wellmate/build/web/index.html
+          test -s caremate/build/web/index.html
+
+      - name: Create immutable full-test bundle
+        shell: bash
+        env:
+          RELEASE_NAME: ${{ inputs.release_name }}
+        run: |
+          set -euo pipefail
+          short_sha="${GITHUB_SHA:0:8}"
+          mkdir -p dist
+
+          wellmate_apk="wellmate-$RELEASE_NAME-$short_sha.apk"
+          wellmate_aab="wellmate-$RELEASE_NAME-$short_sha.aab"
+          wellmate_web="wellmate-web-$RELEASE_NAME-$short_sha.tar.gz"
+          caremate_apk="caremate-$RELEASE_NAME-$short_sha.apk"
+          caremate_aab="caremate-$RELEASE_NAME-$short_sha.aab"
+          caremate_web="caremate-web-$RELEASE_NAME-$short_sha.tar.gz"
+
+          cp wellmate/build/app/outputs/flutter-apk/app-release.apk "dist/$wellmate_apk"
+          cp wellmate/build/app/outputs/bundle/release/app-release.aab "dist/$wellmate_aab"
+          tar -C wellmate/build/web -czf "dist/$wellmate_web" .
+          cp caremate/build/app/outputs/flutter-apk/app-release.apk "dist/$caremate_apk"
+          cp caremate/build/app/outputs/bundle/release/app-release.aab "dist/$caremate_aab"
+          tar -C caremate/build/web -czf "dist/$caremate_web" .
+
+          (cd dist && sha256sum *.apk *.aab *.tar.gz > SHA256SUMS.txt)
+
+          jq -n \
+            --arg commit "$GITHUB_SHA" \
+            --arg buildNumber "$BUILD_NUMBER" \
+            --arg releaseName "$RELEASE_NAME" \
+            --arg apiBase "$LIFEMATE_API_BASE_URL" \
+            --arg supabaseProject "$SUPABASE_PROJECT_REF" \
+            --arg builtAt "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+            --arg wellmateApk "$wellmate_apk" \
+            --arg wellmateAab "$wellmate_aab" \
+            --arg wellmateWeb "$wellmate_web" \
+            --arg caremateApk "$caremate_apk" \
+            --arg caremateAab "$caremate_aab" \
+            --arg caremateWeb "$caremate_web" \
+            --arg wellmateApkSha "$(sha256sum "dist/$wellmate_apk" | awk '{print $1}')" \
+            --arg wellmateAabSha "$(sha256sum "dist/$wellmate_aab" | awk '{print $1}')" \
+            --arg wellmateWebSha "$(sha256sum "dist/$wellmate_web" | awk '{print $1}')" \
+            --arg caremateApkSha "$(sha256sum "dist/$caremate_apk" | awk '{print $1}')" \
+            --arg caremateAabSha "$(sha256sum "dist/$caremate_aab" | awk '{print $1}')" \
+            --arg caremateWebSha "$(sha256sum "dist/$caremate_web" | awk '{print $1}')" \
+            '{commit:$commit,buildNumber:($buildNumber|tonumber),releaseName:$releaseName,environment:"production-full-test",apiBase:$apiBase,supabaseProject:$supabaseProject,features:{phoneOtp:true,womenCalendarPilot:true,googleAuth:false},builtAtUtc:$builtAt,apps:{wellmate:{apk:{file:$wellmateApk,sha256:$wellmateApkSha},aab:{file:$wellmateAab,sha256:$wellmateAabSha},web:{file:$wellmateWeb,sha256:$wellmateWebSha}},caremate:{apk:{file:$caremateApk,sha256:$caremateApkSha},aab:{file:$caremateAab,sha256:$caremateAabSha},web:{file:$caremateWeb,sha256:$caremateWebSha}}}}' \
+            > dist/manifest.json
+
+          jq -e '.commit == env.GITHUB_SHA and .features.phoneOtp == true and .features.womenCalendarPilot == true and .features.googleAuth == false and .environment == "production-full-test" and (.apps.wellmate.apk.sha256|length) == 64 and (.apps.wellmate.aab.sha256|length) == 64 and (.apps.wellmate.web.sha256|length) == 64 and (.apps.caremate.apk.sha256|length) == 64 and (.apps.caremate.aab.sha256|length) == 64 and (.apps.caremate.web.sha256|length) == 64' dist/manifest.json >/dev/null
+
+      - name: Upload full-test release bundle
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: full-test-release-${{ github.sha }}
+          path: dist
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Remove signing material
+        if: always()
+        shell: bash
+        run: |
+          rm -f wellmate/android/key.properties caremate/android/key.properties
+          if [[ -n "${LIFEMATE_ANDROID_SIGNING_DIR:-}" ]]; then
+            rm -rf "$LIFEMATE_ANDROID_SIGNING_DIR"
+          fi

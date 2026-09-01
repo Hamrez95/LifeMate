@@ -85,7 +85,9 @@ class LifeMateCompanionCareEngine {
     if (phaseAllowed && cycleDay != null && cycleDay > 0) {
       candidates.add(_phaseAware(language));
     }
-    if (candidates.isEmpty) {
+    if (wellbeingAllowed) {
+      candidates.add(_general(language));
+    } else if (candidates.isEmpty) {
       candidates.add(_general(language));
     }
 

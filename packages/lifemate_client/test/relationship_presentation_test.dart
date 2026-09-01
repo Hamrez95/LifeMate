@@ -38,7 +38,7 @@ void main() {
       LifeMateRelationshipPresentationPolicy.fromRaw(
         'trusted_caregiver',
       ).storageValue,
-      'family',
+      'trusted_person',
     );
   });
 

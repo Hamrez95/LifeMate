@@ -12,7 +12,7 @@ void main() {
     ).readAsStringSync();
 
     expect(launcher, contains('WomenCycleAnalyticsScreen'));
-    expect(launcher, contains('View full analytics'));
+    expect(launcher, contains("context.tr('women.analytics.full')"));
     expect(analytics, contains('Recorded facts summary'));
     expect(analytics, contains('Recurring symptoms'));
     expect(analytics, contains('Recorded flow'));
