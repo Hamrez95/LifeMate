@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:lifemate_client/lifemate_client.dart';
 
+import 'demographics_locales.dart';
+import 'localization.dart';
 import 'onboarding_components.dart';
 import 'onboarding_theme.dart';
 
@@ -30,12 +32,11 @@ class _LifeMateDemographicOnboardingGateState
   bool _loading = true;
   bool _saving = false;
   bool _passThrough = false;
-  String? _error;
+  String? _errorKey;
   LifeMateGenderIdentity? _gender;
   LifeMateSexAssignedAtBirth? _sex;
   final _selfDescription = TextEditingController();
 
-  bool get _isPersian => LifeMateRuntimeLocale.isPersian;
   LifeMateOnboardingTheme get _theme => LifeMateOnboardingTheme.shared;
 
   @override
@@ -47,7 +48,7 @@ class _LifeMateDemographicOnboardingGateState
   Future<void> _load() async {
     setState(() {
       _loading = true;
-      _error = null;
+      _errorKey = null;
     });
     try {
       final profile = await _onboarding.getSnapshot();
@@ -77,10 +78,7 @@ class _LifeMateDemographicOnboardingGateState
       if (!mounted) return;
       setState(() {
         _loading = false;
-        _error = LifeMateRuntimeLocale.select(
-          fa: 'اطلاعات اولیه در دسترس نیست. دوباره تلاش کن.',
-          en: 'Initial profile information is unavailable. Try again.',
-        );
+        _errorKey = 'demographics.loadFailed';
       });
     }
   }
@@ -91,15 +89,14 @@ class _LifeMateDemographicOnboardingGateState
     if (gender == null || sex == null || _saving) return;
     if (gender == LifeMateGenderIdentity.selfDescribe &&
         _selfDescription.text.trim().isEmpty) {
-      setState(() => _error = LifeMateRuntimeLocale.select(
-            fa: 'لطفاً توضیح کوتاهی برای جنسیت وارد کن.',
-            en: 'Please enter a short gender description.',
-          ));
+      setState(
+        () => _errorKey = 'demographics.selfDescriptionRequired',
+      );
       return;
     }
     setState(() {
       _saving = true;
-      _error = null;
+      _errorKey = null;
     });
     try {
       await _demographics.saveMine(
@@ -116,10 +113,7 @@ class _LifeMateDemographicOnboardingGateState
       if (!mounted) return;
       setState(() {
         _saving = false;
-        _error = LifeMateRuntimeLocale.select(
-          fa: 'ذخیره انجام نشد. اتصال را بررسی و دوباره تلاش کن.',
-          en: 'Could not save. Check your connection and try again.',
-        );
+        _errorKey = 'demographics.saveFailed';
       });
     }
   }
@@ -136,65 +130,53 @@ class _LifeMateDemographicOnboardingGateState
     if (_passThrough) return widget.child;
     if (_loading) {
       return _scaffold(
-        primaryLabel:
-            LifeMateRuntimeLocale.select(fa: 'در حال آماده‌سازی', en: 'Preparing'),
+        primaryLabel: context.tr('common.preparing'),
         primaryBusy: true,
         body: _question(
-          title: LifeMateRuntimeLocale.select(
-            fa: 'پروفایل شخصی تو را آماده می‌کنیم',
-            en: 'Preparing your personal profile',
-          ),
-          description: LifeMateRuntimeLocale.select(
-            fa: 'چند لحظه صبر کن.',
-            en: 'This only takes a moment.',
-          ),
+          title: context.demographicsTr('demographics.preparingTitle'),
+          description:
+              context.demographicsTr('demographics.preparingDescription'),
         ),
       );
     }
-    if (_error != null && _gender == null && _sex == null) {
+    if (_errorKey != null && _gender == null && _sex == null) {
       return _scaffold(
-        primaryLabel: LifeMateRuntimeLocale.select(fa: 'تلاش دوباره', en: 'Try again'),
+        primaryLabel: context.tr('common.retry'),
         onPrimary: _load,
         body: _question(
-          title: LifeMateRuntimeLocale.select(
-            fa: 'اطلاعات پروفایل در دسترس نیست',
-            en: 'Profile information is unavailable',
-          ),
-          description: _error!,
+          title: context.demographicsTr('demographics.unavailableTitle'),
+          description: context.demographicsTr(_errorKey!),
         ),
       );
     }
     return _scaffold(
       progress: 0.34,
-      progressLabel: LifeMateRuntimeLocale.select(fa: 'اطلاعات پایه', en: 'Basic profile'),
-      primaryLabel: LifeMateRuntimeLocale.select(fa: 'ذخیره و ادامه', en: 'Save and continue'),
+      progressLabel: context.demographicsTr('demographics.basicProfile'),
+      primaryLabel: context.demographicsTr('demographics.saveContinue'),
       onPrimary: _gender == null || _sex == null || _saving ? null : _save,
       primaryBusy: _saving,
       body: ListView(
-        padding: const EdgeInsets.only(top: 8),
+        padding: const EdgeInsetsDirectional.only(top: 8),
         children: [
           _question(
-            title: LifeMateRuntimeLocale.select(
-              fa: 'چطور خودت را معرفی می‌کنی؟',
-              en: 'How do you describe your gender?',
-            ),
-            description: LifeMateRuntimeLocale.select(
-              fa: 'برای شخصی‌سازی پیام‌ها استفاده می‌شود. همیشه می‌توانی «ترجیح می‌دهم نگویم» را انتخاب کنی.',
-              en: 'Used for appropriate personalization. You can always choose “Prefer not to say”.',
-            ),
+            title: context.demographicsTr('demographics.question'),
+            description:
+                context.demographicsTr('demographics.questionDescription'),
           ),
           const SizedBox(height: 18),
-          ..._genderOptions().map((option) => _choice(
-                selected: _gender == option.$1,
-                label: option.$2,
-                onTap: () => setState(() {
-                  _gender = option.$1;
-                  if (_gender != LifeMateGenderIdentity.selfDescribe) {
-                    _selfDescription.clear();
-                  }
-                  _error = null;
-                }),
-              )),
+          ..._genderOptions().map(
+            (option) => _choice(
+              selected: _gender == option.$1,
+              label: option.$2,
+              onTap: () => setState(() {
+                _gender = option.$1;
+                if (_gender != LifeMateGenderIdentity.selfDescribe) {
+                  _selfDescription.clear();
+                }
+                _errorKey = null;
+              }),
+            ),
+          ),
           if (_gender == LifeMateGenderIdentity.selfDescribe) ...[
             const SizedBox(height: 8),
             TextField(
@@ -202,41 +184,47 @@ class _LifeMateDemographicOnboardingGateState
               controller: _selfDescription,
               maxLength: 120,
               decoration: InputDecoration(
-                labelText: LifeMateRuntimeLocale.select(
-                  fa: 'توضیح کوتاه',
-                  en: 'Short description',
-                ),
+                labelText:
+                    context.demographicsTr('demographics.shortDescription'),
               ),
             ),
           ],
           const SizedBox(height: 24),
           Text(
-            LifeMateRuntimeLocale.select(
-              fa: 'جنس ثبت‌شده هنگام تولد',
-              en: 'Sex assigned at birth',
+            context.demographicsTr('demographics.sexAtBirth'),
+            style: const TextStyle(
+              fontSize: 17,
+              fontWeight: FontWeight.w900,
             ),
-            style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w900),
           ),
           const SizedBox(height: 6),
           Text(
-            LifeMateRuntimeLocale.select(
-              fa: 'این مورد فقط برای تجربه‌های سلامت که واقعاً به آن نیاز دارند استفاده می‌شود و برای جنسیت پیام‌رسانی جایگزین نمی‌شود.',
-              en: 'Used only for health experiences that genuinely need it. It is not used as a substitute for gender in messaging.',
+            context.demographicsTr('demographics.sexAtBirthDescription'),
+            style: TextStyle(
+              color: Colors.black.withValues(alpha: 0.58),
+              height: 1.45,
             ),
-            style: TextStyle(color: Colors.black.withValues(alpha: 0.58), height: 1.45),
           ),
           const SizedBox(height: 12),
-          ..._sexOptions().map((option) => _choice(
-                selected: _sex == option.$1,
-                label: option.$2,
-                onTap: () => setState(() {
-                  _sex = option.$1;
-                  _error = null;
-                }),
-              )),
-          if (_error != null) ...[
+          ..._sexOptions().map(
+            (option) => _choice(
+              selected: _sex == option.$1,
+              label: option.$2,
+              onTap: () => setState(() {
+                _sex = option.$1;
+                _errorKey = null;
+              }),
+            ),
+          ),
+          if (_errorKey != null) ...[
             const SizedBox(height: 12),
-            Text(_error!, style: const TextStyle(color: Colors.redAccent, fontWeight: FontWeight.w700)),
+            Text(
+              context.demographicsTr(_errorKey!),
+              style: const TextStyle(
+                color: Colors.redAccent,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
           ],
           const SizedBox(height: 24),
         ],
@@ -253,10 +241,10 @@ class _LifeMateDemographicOnboardingGateState
     String? progressLabel,
   }) {
     return Directionality(
-      textDirection: _isPersian ? TextDirection.rtl : TextDirection.ltr,
+      textDirection: context.lifeMateLocale.textDirection,
       child: LifeMateOnboardingScaffold(
         theme: _theme,
-        title: LifeMateRuntimeLocale.select(fa: 'شروع LifeMate', en: 'Start LifeMate'),
+        title: context.tr('onboarding.account.start'),
         primaryLabel: primaryLabel,
         onPrimary: onPrimary,
         primaryBusy: primaryBusy,
@@ -280,8 +268,9 @@ class _LifeMateDemographicOnboardingGateState
     required bool selected,
     required String label,
     required VoidCallback onTap,
-  }) => Padding(
-        padding: const EdgeInsets.only(bottom: 8),
+  }) =>
+      Padding(
+        padding: const EdgeInsetsDirectional.only(bottom: 8),
         child: Semantics(
           button: true,
           selected: selected,
@@ -291,7 +280,10 @@ class _LifeMateDemographicOnboardingGateState
             borderRadius: BorderRadius.circular(16),
             child: AnimatedContainer(
               duration: const Duration(milliseconds: 150),
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+              padding: const EdgeInsets.symmetric(
+                horizontal: 16,
+                vertical: 14,
+              ),
               decoration: BoxDecoration(
                 color: selected
                     ? _theme.accent.withValues(alpha: 0.10)
@@ -307,12 +299,17 @@ class _LifeMateDemographicOnboardingGateState
               child: Row(
                 children: [
                   Icon(
-                    selected ? Icons.check_circle_rounded : Icons.circle_outlined,
+                    selected
+                        ? Icons.check_circle_rounded
+                        : Icons.circle_outlined,
                     color: selected ? _theme.accent : Colors.black38,
                   ),
                   const SizedBox(width: 12),
                   Expanded(
-                    child: Text(label, style: const TextStyle(fontWeight: FontWeight.w800)),
+                    child: Text(
+                      label,
+                      style: const TextStyle(fontWeight: FontWeight.w800),
+                    ),
                   ),
                 ],
               ),
@@ -322,18 +319,45 @@ class _LifeMateDemographicOnboardingGateState
       );
 
   List<(LifeMateGenderIdentity, String)> _genderOptions() => [
-        (LifeMateGenderIdentity.woman, LifeMateRuntimeLocale.select(fa: 'زن', en: 'Woman')),
-        (LifeMateGenderIdentity.man, LifeMateRuntimeLocale.select(fa: 'مرد', en: 'Man')),
-        (LifeMateGenderIdentity.nonBinary, LifeMateRuntimeLocale.select(fa: 'نان‌باینری', en: 'Non-binary')),
-        (LifeMateGenderIdentity.selfDescribe, LifeMateRuntimeLocale.select(fa: 'خودم توضیح می‌دهم', en: 'Self-describe')),
-        (LifeMateGenderIdentity.preferNotToSay, LifeMateRuntimeLocale.select(fa: 'ترجیح می‌دهم نگویم', en: 'Prefer not to say')),
+        (
+          LifeMateGenderIdentity.woman,
+          context.demographicsTr('demographics.woman'),
+        ),
+        (
+          LifeMateGenderIdentity.man,
+          context.demographicsTr('demographics.man'),
+        ),
+        (
+          LifeMateGenderIdentity.nonBinary,
+          context.demographicsTr('demographics.nonBinary'),
+        ),
+        (
+          LifeMateGenderIdentity.selfDescribe,
+          context.demographicsTr('demographics.selfDescribe'),
+        ),
+        (
+          LifeMateGenderIdentity.preferNotToSay,
+          context.demographicsTr('demographics.preferNotToSay'),
+        ),
       ];
 
   List<(LifeMateSexAssignedAtBirth, String)> _sexOptions() => [
-        (LifeMateSexAssignedAtBirth.female, LifeMateRuntimeLocale.select(fa: 'مونث', en: 'Female')),
-        (LifeMateSexAssignedAtBirth.male, LifeMateRuntimeLocale.select(fa: 'مذکر', en: 'Male')),
-        (LifeMateSexAssignedAtBirth.intersex, LifeMateRuntimeLocale.select(fa: 'اینترسکس', en: 'Intersex')),
-        (LifeMateSexAssignedAtBirth.preferNotToSay, LifeMateRuntimeLocale.select(fa: 'ترجیح می‌دهم نگویم', en: 'Prefer not to say')),
+        (
+          LifeMateSexAssignedAtBirth.female,
+          context.demographicsTr('demographics.female'),
+        ),
+        (
+          LifeMateSexAssignedAtBirth.male,
+          context.demographicsTr('demographics.male'),
+        ),
+        (
+          LifeMateSexAssignedAtBirth.intersex,
+          context.demographicsTr('demographics.intersex'),
+        ),
+        (
+          LifeMateSexAssignedAtBirth.preferNotToSay,
+          context.demographicsTr('demographics.preferNotToSay'),
+        ),
       ];
 }
 
@@ -356,10 +380,11 @@ class LifeMateDemographicsEditorScreen extends StatefulWidget {
 
 class _LifeMateDemographicsEditorScreenState
     extends State<LifeMateDemographicsEditorScreen> {
-  late final LifeMateDemographicsApi _api = widget.api ?? LifeMateDemographicsApi();
+  late final LifeMateDemographicsApi _api =
+      widget.api ?? LifeMateDemographicsApi();
   LifeMateDemographics? _value;
   bool _loading = true;
-  String? _error;
+  String? _errorKey;
 
   @override
   void initState() {
@@ -374,16 +399,13 @@ class _LifeMateDemographicsEditorScreenState
       setState(() {
         _value = value;
         _loading = false;
-        _error = null;
+        _errorKey = null;
       });
     } catch (_) {
       if (!mounted) return;
       setState(() {
         _loading = false;
-        _error = LifeMateRuntimeLocale.select(
-          fa: 'بارگذاری اطلاعات انجام نشد.',
-          en: 'Could not load profile information.',
-        );
+        _errorKey = 'demographics.editorLoadFailed';
       });
     }
   }
@@ -406,36 +428,44 @@ class _LifeMateDemographicsEditorScreenState
 
   @override
   Widget build(BuildContext context) {
-    final isPersian = LifeMateRuntimeLocale.isPersian;
     return Directionality(
-      textDirection: isPersian ? TextDirection.rtl : TextDirection.ltr,
+      textDirection: context.lifeMateLocale.textDirection,
       child: Scaffold(
         backgroundColor: widget.background,
         appBar: AppBar(
           backgroundColor: widget.background,
-          title: Text(LifeMateRuntimeLocale.select(fa: 'جنسیت و اطلاعات پایه', en: 'Gender & demographics')),
+          title: Text(context.demographicsTr('demographics.editorTitle')),
         ),
         body: _loading
             ? const Center(child: CircularProgressIndicator())
-            : _error != null
-                ? Center(child: TextButton(onPressed: _load, child: Text(_error!)))
+            : _errorKey != null
+                ? Center(
+                    child: TextButton(
+                      onPressed: _load,
+                      child: Text(context.demographicsTr(_errorKey!)),
+                    ),
+                  )
                 : ListView(
-                    padding: const EdgeInsets.all(20),
+                    padding: const EdgeInsetsDirectional.all(20),
                     children: [
                       _row(
-                        LifeMateRuntimeLocale.select(fa: 'جنسیت', en: 'Gender'),
+                        context.demographicsTr('demographics.gender'),
                         _genderLabel(_value!.genderIdentity),
                       ),
                       _row(
-                        LifeMateRuntimeLocale.select(fa: 'جنس ثبت‌شده هنگام تولد', en: 'Sex assigned at birth'),
+                        context.demographicsTr('demographics.sexAtBirth'),
                         _sexLabel(_value!.sexAssignedAtBirth),
                       ),
                       const SizedBox(height: 18),
                       FilledButton.icon(
                         onPressed: _edit,
                         icon: const Icon(Icons.edit_outlined),
-                        label: Text(LifeMateRuntimeLocale.select(fa: 'ویرایش', en: 'Edit')),
-                        style: FilledButton.styleFrom(backgroundColor: widget.accent),
+                        label: Text(
+                          context.demographicsTr('demographics.edit'),
+                        ),
+                        style: FilledButton.styleFrom(
+                          backgroundColor: widget.accent,
+                        ),
                       ),
                     ],
                   ),
@@ -448,20 +478,32 @@ class _LifeMateDemographicsEditorScreenState
       );
 
   String _genderLabel(LifeMateGenderIdentity value) => switch (value) {
-        LifeMateGenderIdentity.woman => LifeMateRuntimeLocale.select(fa: 'زن', en: 'Woman'),
-        LifeMateGenderIdentity.man => LifeMateRuntimeLocale.select(fa: 'مرد', en: 'Man'),
-        LifeMateGenderIdentity.nonBinary => LifeMateRuntimeLocale.select(fa: 'نان‌باینری', en: 'Non-binary'),
-        LifeMateGenderIdentity.selfDescribe => _value?.genderSelfDescription ?? LifeMateRuntimeLocale.select(fa: 'خودتوصیف', en: 'Self-described'),
-        LifeMateGenderIdentity.preferNotToSay => LifeMateRuntimeLocale.select(fa: 'ترجیح می‌دهم نگویم', en: 'Prefer not to say'),
-        LifeMateGenderIdentity.notCollected => LifeMateRuntimeLocale.select(fa: 'ثبت نشده', en: 'Not collected'),
+        LifeMateGenderIdentity.woman =>
+          context.demographicsTr('demographics.woman'),
+        LifeMateGenderIdentity.man =>
+          context.demographicsTr('demographics.man'),
+        LifeMateGenderIdentity.nonBinary =>
+          context.demographicsTr('demographics.nonBinary'),
+        LifeMateGenderIdentity.selfDescribe =>
+          _value?.genderSelfDescription ??
+              context.demographicsTr('demographics.selfDescribed'),
+        LifeMateGenderIdentity.preferNotToSay =>
+          context.demographicsTr('demographics.preferNotToSay'),
+        LifeMateGenderIdentity.notCollected =>
+          context.demographicsTr('demographics.notCollected'),
       };
 
   String _sexLabel(LifeMateSexAssignedAtBirth value) => switch (value) {
-        LifeMateSexAssignedAtBirth.female => LifeMateRuntimeLocale.select(fa: 'مونث', en: 'Female'),
-        LifeMateSexAssignedAtBirth.male => LifeMateRuntimeLocale.select(fa: 'مذکر', en: 'Male'),
-        LifeMateSexAssignedAtBirth.intersex => LifeMateRuntimeLocale.select(fa: 'اینترسکس', en: 'Intersex'),
-        LifeMateSexAssignedAtBirth.preferNotToSay => LifeMateRuntimeLocale.select(fa: 'ترجیح می‌دهم نگویم', en: 'Prefer not to say'),
-        LifeMateSexAssignedAtBirth.notCollected => LifeMateRuntimeLocale.select(fa: 'ثبت نشده', en: 'Not collected'),
+        LifeMateSexAssignedAtBirth.female =>
+          context.demographicsTr('demographics.female'),
+        LifeMateSexAssignedAtBirth.male =>
+          context.demographicsTr('demographics.male'),
+        LifeMateSexAssignedAtBirth.intersex =>
+          context.demographicsTr('demographics.intersex'),
+        LifeMateSexAssignedAtBirth.preferNotToSay =>
+          context.demographicsTr('demographics.preferNotToSay'),
+        LifeMateSexAssignedAtBirth.notCollected =>
+          context.demographicsTr('demographics.notCollected'),
       };
 }
 
@@ -472,6 +514,7 @@ class _DemographicEditPage extends StatefulWidget {
     required this.accent,
     required this.background,
   });
+
   final LifeMateDemographicsApi api;
   final LifeMateDemographics initial;
   final Color accent;
@@ -482,13 +525,18 @@ class _DemographicEditPage extends StatefulWidget {
 }
 
 class _DemographicEditPageState extends State<_DemographicEditPage> {
-  late LifeMateGenderIdentity _gender = widget.initial.genderIdentity == LifeMateGenderIdentity.notCollected
-      ? LifeMateGenderIdentity.preferNotToSay
-      : widget.initial.genderIdentity;
-  late LifeMateSexAssignedAtBirth _sex = widget.initial.sexAssignedAtBirth == LifeMateSexAssignedAtBirth.notCollected
-      ? LifeMateSexAssignedAtBirth.preferNotToSay
-      : widget.initial.sexAssignedAtBirth;
-  late final TextEditingController _description = TextEditingController(text: widget.initial.genderSelfDescription ?? '');
+  late LifeMateGenderIdentity _gender =
+      widget.initial.genderIdentity == LifeMateGenderIdentity.notCollected
+          ? LifeMateGenderIdentity.preferNotToSay
+          : widget.initial.genderIdentity;
+  late LifeMateSexAssignedAtBirth _sex =
+      widget.initial.sexAssignedAtBirth ==
+              LifeMateSexAssignedAtBirth.notCollected
+          ? LifeMateSexAssignedAtBirth.preferNotToSay
+          : widget.initial.sexAssignedAtBirth;
+  late final TextEditingController _description = TextEditingController(
+    text: widget.initial.genderSelfDescription ?? '',
+  );
   bool _saving = false;
 
   @override
@@ -511,74 +559,122 @@ class _DemographicEditPageState extends State<_DemographicEditPage> {
       if (!mounted) return;
       setState(() => _saving = false);
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(LifeMateRuntimeLocale.select(fa: 'ذخیره انجام نشد', en: 'Could not save'))),
+        SnackBar(
+          content: Text(
+            context.demographicsTr('demographics.saveShortFailed'),
+          ),
+        ),
       );
     }
   }
 
   @override
-  Widget build(BuildContext context) => Scaffold(
-        backgroundColor: widget.background,
-        appBar: AppBar(
+  Widget build(BuildContext context) => Directionality(
+        textDirection: context.lifeMateLocale.textDirection,
+        child: Scaffold(
           backgroundColor: widget.background,
-          title: Text(LifeMateRuntimeLocale.select(fa: 'ویرایش اطلاعات پایه', en: 'Edit demographics')),
-        ),
-        body: ListView(
-          padding: const EdgeInsets.all(20),
-          children: [
-            DropdownButtonFormField<LifeMateGenderIdentity>(
-              value: _gender,
-              decoration: InputDecoration(labelText: LifeMateRuntimeLocale.select(fa: 'جنسیت', en: 'Gender')),
-              items: LifeMateGenderIdentity.values
-                  .where((value) => value != LifeMateGenderIdentity.notCollected)
-                  .map((value) => DropdownMenuItem(value: value, child: Text(_genderText(value))))
-                  .toList(),
-              onChanged: _saving ? null : (value) => setState(() => _gender = value!),
-            ),
-            if (_gender == LifeMateGenderIdentity.selfDescribe) ...[
-              const SizedBox(height: 12),
-              TextField(
-                controller: _description,
-                maxLength: 120,
-                decoration: InputDecoration(labelText: LifeMateRuntimeLocale.select(fa: 'توضیح کوتاه', en: 'Short description')),
+          appBar: AppBar(
+            backgroundColor: widget.background,
+            title: Text(context.demographicsTr('demographics.editTitle')),
+          ),
+          body: ListView(
+            padding: const EdgeInsetsDirectional.all(20),
+            children: [
+              DropdownButtonFormField<LifeMateGenderIdentity>(
+                initialValue: _gender,
+                decoration: InputDecoration(
+                  labelText: context.demographicsTr('demographics.gender'),
+                ),
+                items: LifeMateGenderIdentity.values
+                    .where(
+                      (value) => value != LifeMateGenderIdentity.notCollected,
+                    )
+                    .map(
+                      (value) => DropdownMenuItem(
+                        value: value,
+                        child: Text(_genderText(value)),
+                      ),
+                    )
+                    .toList(),
+                onChanged: _saving
+                    ? null
+                    : (value) => setState(() => _gender = value!),
+              ),
+              if (_gender == LifeMateGenderIdentity.selfDescribe) ...[
+                const SizedBox(height: 12),
+                TextField(
+                  controller: _description,
+                  maxLength: 120,
+                  decoration: InputDecoration(
+                    labelText:
+                        context.demographicsTr('demographics.shortDescription'),
+                  ),
+                ),
+              ],
+              const SizedBox(height: 16),
+              DropdownButtonFormField<LifeMateSexAssignedAtBirth>(
+                initialValue: _sex,
+                decoration: InputDecoration(
+                  labelText: context.demographicsTr('demographics.sexAtBirth'),
+                ),
+                items: LifeMateSexAssignedAtBirth.values
+                    .where(
+                      (value) =>
+                          value != LifeMateSexAssignedAtBirth.notCollected,
+                    )
+                    .map(
+                      (value) => DropdownMenuItem(
+                        value: value,
+                        child: Text(_sexText(value)),
+                      ),
+                    )
+                    .toList(),
+                onChanged: _saving
+                    ? null
+                    : (value) => setState(() => _sex = value!),
+              ),
+              const SizedBox(height: 24),
+              FilledButton(
+                onPressed: _saving ? null : _save,
+                style: FilledButton.styleFrom(
+                  backgroundColor: widget.accent,
+                ),
+                child: _saving
+                    ? const SizedBox(
+                        width: 20,
+                        height: 20,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    : Text(context.demographicsTr('demographics.save')),
               ),
             ],
-            const SizedBox(height: 16),
-            DropdownButtonFormField<LifeMateSexAssignedAtBirth>(
-              value: _sex,
-              decoration: InputDecoration(labelText: LifeMateRuntimeLocale.select(fa: 'جنس ثبت‌شده هنگام تولد', en: 'Sex assigned at birth')),
-              items: LifeMateSexAssignedAtBirth.values
-                  .where((value) => value != LifeMateSexAssignedAtBirth.notCollected)
-                  .map((value) => DropdownMenuItem(value: value, child: Text(_sexText(value))))
-                  .toList(),
-              onChanged: _saving ? null : (value) => setState(() => _sex = value!),
-            ),
-            const SizedBox(height: 24),
-            FilledButton(
-              onPressed: _saving ? null : _save,
-              style: FilledButton.styleFrom(backgroundColor: widget.accent),
-              child: _saving
-                  ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2))
-                  : Text(LifeMateRuntimeLocale.select(fa: 'ذخیره', en: 'Save')),
-            ),
-          ],
+          ),
         ),
       );
 
   String _genderText(LifeMateGenderIdentity value) => switch (value) {
-        LifeMateGenderIdentity.woman => LifeMateRuntimeLocale.select(fa: 'زن', en: 'Woman'),
-        LifeMateGenderIdentity.man => LifeMateRuntimeLocale.select(fa: 'مرد', en: 'Man'),
-        LifeMateGenderIdentity.nonBinary => LifeMateRuntimeLocale.select(fa: 'نان‌باینری', en: 'Non-binary'),
-        LifeMateGenderIdentity.selfDescribe => LifeMateRuntimeLocale.select(fa: 'خودم توضیح می‌دهم', en: 'Self-describe'),
-        LifeMateGenderIdentity.preferNotToSay => LifeMateRuntimeLocale.select(fa: 'ترجیح می‌دهم نگویم', en: 'Prefer not to say'),
+        LifeMateGenderIdentity.woman =>
+          context.demographicsTr('demographics.woman'),
+        LifeMateGenderIdentity.man =>
+          context.demographicsTr('demographics.man'),
+        LifeMateGenderIdentity.nonBinary =>
+          context.demographicsTr('demographics.nonBinary'),
+        LifeMateGenderIdentity.selfDescribe =>
+          context.demographicsTr('demographics.selfDescribe'),
+        LifeMateGenderIdentity.preferNotToSay =>
+          context.demographicsTr('demographics.preferNotToSay'),
         LifeMateGenderIdentity.notCollected => '',
       };
 
   String _sexText(LifeMateSexAssignedAtBirth value) => switch (value) {
-        LifeMateSexAssignedAtBirth.female => LifeMateRuntimeLocale.select(fa: 'مونث', en: 'Female'),
-        LifeMateSexAssignedAtBirth.male => LifeMateRuntimeLocale.select(fa: 'مذکر', en: 'Male'),
-        LifeMateSexAssignedAtBirth.intersex => LifeMateRuntimeLocale.select(fa: 'اینترسکس', en: 'Intersex'),
-        LifeMateSexAssignedAtBirth.preferNotToSay => LifeMateRuntimeLocale.select(fa: 'ترجیح می‌دهم نگویم', en: 'Prefer not to say'),
+        LifeMateSexAssignedAtBirth.female =>
+          context.demographicsTr('demographics.female'),
+        LifeMateSexAssignedAtBirth.male =>
+          context.demographicsTr('demographics.male'),
+        LifeMateSexAssignedAtBirth.intersex =>
+          context.demographicsTr('demographics.intersex'),
+        LifeMateSexAssignedAtBirth.preferNotToSay =>
+          context.demographicsTr('demographics.preferNotToSay'),
         LifeMateSexAssignedAtBirth.notCollected => '',
       };
 }
