@@ -115,6 +115,7 @@ void main() {
     await configureView(tester, size: size);
     await tester.pumpWidget(
       MaterialApp(
+        locale: const Locale('fa'),
         home: LifeMateAccountOnboardingGate(
           api: api,
           legalPrivacyApi: legalApi ?? _FakeLegalApi(),
