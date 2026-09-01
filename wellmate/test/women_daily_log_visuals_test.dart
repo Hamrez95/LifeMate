@@ -32,17 +32,22 @@ void main() {
     await tester.pumpAndSettle();
 
     final sheetList = find.byType(ListView).last;
-    await tester.scrollUntilVisible(
+    await tester.dragUntilVisible(
       find.text('No symptom'),
-      260,
-      scrollable: find.descendant(of: sheetList, matching: find.byType(Scrollable)).first,
+      sheetList,
+      const Offset(0, -220),
     );
     await tester.tap(find.text('No symptom'));
     await tester.pump();
-    await tester.ensureVisible(find.text('Cramps'));
+
+    await tester.dragUntilVisible(
+      find.text('Cramps'),
+      sheetList,
+      const Offset(0, 220),
+    );
     await tester.tap(find.text('Cramps'));
     await tester.pump();
-    await tester.ensureVisible(find.text('Save daily log'));
+
     await tester.tap(find.text('Save daily log'));
     await tester.pumpAndSettle();
     expect(result, isNotNull);
