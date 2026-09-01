@@ -63,9 +63,9 @@ export function createSendSmsHookHandler(
       });
     }
 
-    const phone = smsDestinationPhone(event);
+    const phone = normalizeIranPhone(smsDestinationPhone(event));
     const otp = typeof event.sms?.otp === "string" ? event.sms.otp : "";
-    if (!/^\+989\d{9}$/.test(phone) || !/^\d{6,10}$/.test(otp)) {
+    if (!phone || !/^\d{6,10}$/.test(otp)) {
       return json(400, {
         error: { http_code: 400, message: "Invalid SMS hook payload." },
       });
@@ -123,6 +123,20 @@ function smsDestinationPhone(event: SendSmsEvent): string {
     return pendingPhone;
   }
   return typeof event.user?.phone === "string" ? event.user.phone : "";
+}
+
+function normalizeIranPhone(raw: string): string {
+  let value = raw.trim()
+    .replace(/[\s()-]/g, "")
+    .replace(/[۰-۹]/g, (digit) => String(digit.charCodeAt(0) - 1776))
+    .replace(/[٠-٩]/g, (digit) => String(digit.charCodeAt(0) - 1632));
+
+  if (/^00989\d{9}$/.test(value)) value = `+${value.slice(2)}`;
+  else if (/^989\d{9}$/.test(value)) value = `+${value}`;
+  else if (/^09\d{9}$/.test(value)) value = `+98${value.slice(1)}`;
+  else if (/^9\d{9}$/.test(value)) value = `+98${value}`;
+
+  return /^\+989\d{9}$/.test(value) ? value : "";
 }
 
 function verifyEvent(
