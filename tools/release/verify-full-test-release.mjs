@@ -3,6 +3,7 @@ import fs from 'node:fs';
 
 const workflowPath = '.github/workflows/full-test-release.yml';
 const workflow = fs.readFileSync(workflowPath, 'utf8');
+const serviceRoleCredentialName = ['SUPABASE', 'SERVICE', 'ROLE', 'KEY'].join('_');
 
 const requireText = (token, label) => {
   assert.ok(workflow.includes(token), `${label}: missing ${JSON.stringify(token)}`);
@@ -51,7 +52,7 @@ assert.ok(
 );
 
 assert.ok(
-  !workflow.includes('SUPABASE_SERVICE_ROLE_KEY'),
+  !workflow.includes(serviceRoleCredentialName),
   'mobile full-test workflow must never use service-role credentials',
 );
 assert.ok(

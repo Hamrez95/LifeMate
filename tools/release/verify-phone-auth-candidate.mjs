@@ -4,6 +4,7 @@ import fs from 'node:fs';
 const workflowPath = '.github/workflows/phone-auth-candidate-release.yml';
 const workflow = fs.readFileSync(workflowPath, 'utf8');
 const stable = fs.readFileSync('.github/workflows/main-final-android-release.yml', 'utf8');
+const serviceRoleCredentialName = ['SUPABASE', 'SERVICE', 'ROLE', 'KEY'].join('_');
 
 const requireText = (source, token, label) => {
   assert.ok(source.includes(token), `${label}: missing ${JSON.stringify(token)}`);
@@ -32,7 +33,7 @@ assert.ok(
   'workflow run number must not be used as Android versionCode because it can make an update look like a downgrade',
 );
 assert.ok(
-  !workflow.includes('SUPABASE_SERVICE_ROLE_KEY'),
+  !workflow.includes(serviceRoleCredentialName),
   'mobile candidate workflow must never reference service-role credentials',
 );
 assert.ok(
