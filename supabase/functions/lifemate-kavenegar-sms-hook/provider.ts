@@ -67,8 +67,6 @@ export class KavenegarOtpProvider implements PhoneOtpProvider {
 
     // Use form-encoded POST rather than query-string GET so the phone number
     // and OTP are not copied into ordinary request URLs/proxy access logs.
-    // Kavenegar's REST API supports HTTP POST and the lookup fields below are
-    // the documented receptor/token/template/type parameters.
     const body = new URLSearchParams();
     body.set("receptor", receptor);
     body.set("token", otp);
@@ -105,8 +103,6 @@ export class KavenegarOtpProvider implements PhoneOtpProvider {
 }
 
 function validateOtp(otp: string): void {
-  // Supabase currently emits a numeric OTP. Keep the accepted range narrow so
-  // a malformed hook payload can never become arbitrary verification content.
   if (!/^\d{6,10}$/.test(otp)) {
     throw new KavenegarProviderError("invalid_otp_shape", false);
   }
@@ -117,8 +113,6 @@ function validateConfiguration(apiKey: string, template: string): void {
     throw new KavenegarProviderError("invalid_kavenegar_api_key", false);
   }
 
-  // Kavenegar verification template names must be English and must not contain
-  // spaces or underscore. We intentionally allow only a conservative subset.
   if (!/^[A-Za-z0-9-]{1,64}$/.test(template)) {
     throw new KavenegarProviderError("invalid_kavenegar_template", false);
   }
@@ -133,6 +127,7 @@ function asStatus(value: unknown): number | undefined {
 function mapProviderFailure(status: number): KavenegarProviderError {
   switch (status) {
     case 400:
+    case 406:
       return new KavenegarProviderError("kavenegar_bad_request", false, status);
     case 401:
       return new KavenegarProviderError(
@@ -141,15 +136,29 @@ function mapProviderFailure(status: number): KavenegarProviderError {
         status,
       );
     case 403:
+    case 407:
+    case 427:
       return new KavenegarProviderError(
-        "kavenegar_api_key_invalid",
+        "kavenegar_api_access_denied",
         false,
+        status,
+      );
+    case 402:
+      return new KavenegarProviderError(
+        "kavenegar_operation_failed",
+        true,
         status,
       );
     case 409:
       return new KavenegarProviderError(
         "kavenegar_temporarily_unavailable",
         true,
+        status,
+      );
+    case 411:
+      return new KavenegarProviderError(
+        "kavenegar_receptor_invalid",
+        false,
         status,
       );
     case 418:
@@ -182,6 +191,12 @@ function mapProviderFailure(status: number): KavenegarProviderError {
         false,
         status,
       );
+    case 429:
+      return new KavenegarProviderError(
+        "kavenegar_rate_limited",
+        true,
+        status,
+      );
     case 431:
       return new KavenegarProviderError(
         "kavenegar_token_format_invalid",
@@ -202,10 +217,10 @@ function mapProviderFailure(status: number): KavenegarProviderError {
       );
     default:
       return new KavenegarProviderError(
-        status >= 500 || status === 429
+        status >= 500
           ? "kavenegar_provider_unavailable"
           : "kavenegar_rejected",
-        status >= 500 || status === 429,
+        status >= 500,
         status,
       );
   }
