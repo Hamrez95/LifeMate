@@ -7,6 +7,7 @@ import {
   safeValidationCode,
   SubjectTelemetryRateLimiter,
 } from "./privacy_safe_event.ts";
+import { persistProductActivity } from "./product_activity_persistence.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -17,7 +18,7 @@ const corsHeaders = {
   "X-Content-Type-Options": "nosniff",
 };
 
-const supabaseUrl = Deno.env.get("SUPABASE_URL")?.trim() ?? "";
+const supabaseUrl = Deno.env.get("SUPABASE_URL")?.trim().replace(/\/$/, "") ?? "";
 const publishableKey = Deno.env.get("SUPABASE_PUBLISHABLE_KEY")?.trim() ??
   Deno.env.get("SUPABASE_ANON_KEY")?.trim() ?? "";
 const admission = new SubjectTelemetryRateLimiter();
@@ -62,10 +63,28 @@ Deno.serve(async (request: Request) => {
   try {
     if (body.kind === "product") {
       const event: ProductTelemetry = parseProductTelemetry(body);
-      // Never log the authenticated subject or any arbitrary metadata. Product
-      // telemetry is a fixed, low-cardinality funnel envelope only.
-      console.info("LifeMate product funnel", event);
-      return json({ accepted: true, eventId: event.eventId }, 202);
+      try {
+        const persistence = await persistProductActivity(event, {
+          supabaseUrl,
+          publishableKey,
+          authorization,
+        });
+        // Log only bounded event classification. Never log authenticated
+        // subject/account identifiers, Authorization, free text or raw payloads.
+        console.info("LifeMate product activity accepted", {
+          eventName: event.eventName,
+          application: event.application,
+          platform: event.platform,
+          persistence,
+        });
+        return json({ accepted: true, eventId: event.eventId }, 202);
+      } catch (_) {
+        console.error("LifeMate product activity persistence failed", {
+          eventName: event.eventName,
+          application: event.application,
+        });
+        return json({ code: "product_activity_persistence_failed" }, 503);
+      }
     }
 
     const event: ClientErrorTelemetry = parseClientErrorTelemetry(body);
