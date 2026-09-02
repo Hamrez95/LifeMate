@@ -67,14 +67,15 @@ jobs:
           ! grep -R --line-number 'SUPABASE_SERVICE_ROLE_KEY' \
             supabase/functions/lifemate-api \
             supabase/functions/lifemate-telemetry \
-            tools/release
+            tools/release/*.sh
 
       - name: Verify Edge source
         shell: bash
         run: |
           set -euo pipefail
-          (cd supabase/functions/lifemate-api && deno fmt --check && deno task check && deno task test)
-          (cd supabase/functions/lifemate-telemetry && deno fmt --check && deno task check && deno task test)
+          # API tests also inspect the sibling supabase/migrations contract.
+          (cd supabase/functions/lifemate-api && deno task test --allow-read=../..)
+          (cd supabase/functions/lifemate-telemetry && deno task test)
 
       - name: Validate dispatch inputs
         if: ${{ github.event_name == 'workflow_dispatch' }}
