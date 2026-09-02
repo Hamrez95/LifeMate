@@ -5,6 +5,7 @@ on:
     paths:
       - '.github/workflows/full-test-release.yml'
       - 'tools/release/verify-full-test-release.mjs'
+      - 'tools/release/verify-production-db-contract.mjs'
       - 'tools/release/prepare-android-signing.sh'
       - 'tools/release/verify-android-signing.sh'
       - 'packages/lifemate_client/**'
@@ -144,6 +145,12 @@ jobs:
       - uses: supabase/setup-cli@3c2f5e2ae34c34e428e8e206e2c4d21fa2d20fbf
         with:
           version: 2.101.0
+
+      - name: Verify production DB contract before API deploy
+        shell: bash
+        run: |
+          set -euo pipefail
+          node tools/release/verify-production-db-contract.mjs
 
       - name: Deploy exact-main LifeMate API
         shell: bash
