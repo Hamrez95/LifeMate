@@ -26,7 +26,11 @@ LifeMateApiClient _api() => LifeMateApiClient(
         headers: {'content-type': 'application/json'},
       );
     }
-    return http.Response('{}', 200, headers: {'content-type': 'application/json'});
+    return http.Response(
+      '{}',
+      200,
+      headers: {'content-type': 'application/json'},
+    );
   }),
 );
 
@@ -96,13 +100,20 @@ Future<void> _verifyUnifiedProfile(
   await tester.pumpWidget(_profile(direction: direction));
   await tester.pumpAndSettle();
 
+  const scrollKey = ValueKey('lifemate-shared-profile-scroll');
+  final scrollSurface = find.byKey(scrollKey);
+  final scrollable = find.descendant(
+    of: scrollSurface,
+    matching: find.byType(Scrollable),
+  );
+
   expect(find.byKey(const ValueKey('lifemate-shared-profile-layout')), findsOneWidget);
-  expect(find.byKey(const ValueKey('lifemate-shared-profile-scroll')), findsOneWidget);
+  expect(scrollSurface, findsOneWidget);
   expect(find.byType(SingleChildScrollView), findsOneWidget);
+  expect(scrollable, findsOneWidget);
   expect(find.byKey(const ValueKey('lifemate-subscription-card')), findsOneWidget);
   expect(tester.takeException(), isNull);
 
-  final scrollable = find.byKey(const ValueKey('lifemate-shared-profile-scroll'));
   for (final key in const [
     ValueKey('profile-feedback'),
     ValueKey('profile-demographics'),
@@ -118,9 +129,7 @@ Future<void> _verifyUnifiedProfile(
     expect(tester.takeException(), isNull);
   }
 
-  final profileContext = tester.element(
-    find.byKey(const ValueKey('lifemate-shared-profile-scroll')),
-  );
+  final profileContext = tester.element(scrollSurface);
   expect(Directionality.of(profileContext), direction);
 }
 
