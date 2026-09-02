@@ -80,6 +80,11 @@ void main() {
       ),
       findsNothing,
     );
+    final supplementalActions = find.byKey(
+      const ValueKey('profile-supplemental-actions'),
+    );
+    expect(supplementalActions, findsOneWidget);
+    expect(tester.getSize(supplementalActions).height, lessThan(260));
     final avatar = tester.widget<LifeMateProfileAvatar>(
       find.byType(LifeMateProfileAvatar).first,
     );
