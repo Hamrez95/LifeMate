@@ -172,7 +172,9 @@ function providerReturning(
     {
       fetcher: async () =>
         new Response(
-          JSON.stringify({ return: { status: providerStatus, message: "redacted" } }),
+          JSON.stringify({
+            return: { status: providerStatus, message: "redacted" },
+          }),
           {
             status: httpStatus,
             headers: { "content-type": "application/json" },
