@@ -82,6 +82,7 @@ class LifeMateSharedProfileScreen extends StatelessWidget {
           top: false,
           minimum: const EdgeInsets.fromLTRB(24, 8, 24, 12),
           child: Column(
+            mainAxisSize: MainAxisSize.min,
             children: [
               if (_isCareMate) ...[
                 Semantics(
