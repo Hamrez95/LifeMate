@@ -45,19 +45,24 @@ Deno.test("RPC payload is bounded and contains no account or arbitrary metadata"
     p_connectivity: "online",
     p_outcome: "success",
   });
-  for (const forbidden of [
-    "account",
-    "user",
-    "person",
-    "medication",
-    "symptom",
-    "diagnosis",
-    "cycle",
-    "pregnancy",
-    "note",
-    "metadata",
-  ]) {
-    assertEquals(JSON.stringify(payload).toLowerCase().includes(forbidden), false);
+  for (
+    const forbidden of [
+      "account",
+      "user",
+      "person",
+      "medication",
+      "symptom",
+      "diagnosis",
+      "cycle",
+      "pregnancy",
+      "note",
+      "metadata",
+    ]
+  ) {
+    assertEquals(
+      JSON.stringify(payload).toLowerCase().includes(forbidden),
+      false,
+    );
   }
 });
 
@@ -98,7 +103,9 @@ Deno.test("persistence failure exposes only a bounded safe error", async () => {
         publishableKey: "sb_publishable_test_key_0123456789",
         authorization: "Bearer user-access-token",
         fetcher: async () =>
-          new Response("private database implementation detail", { status: 500 }),
+          new Response("private database implementation detail", {
+            status: 500,
+          }),
       }),
     Error,
     "product_activity_persistence_failed",
