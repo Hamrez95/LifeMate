@@ -56,173 +56,86 @@ class LifeMateSharedProfileScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Column(
-      children: [
-        Expanded(
-          child: legacy.LifeMateSharedProfileScreen(
-            apiClient: apiClient,
-            theme: theme,
-            labels: labels,
-            fontFamily: fontFamily,
-            appName: appName,
-            versionLabel: versionLabel,
-            fallbackUserName: fallbackUserName,
-            isPersian: isPersian,
-            onNotifications: onNotifications,
-            onEditProfile: onEditProfile,
-            onHealthProfile: onHealthProfile,
-            onCareManagement: onCareManagement,
-            onAppSettings: onAppSettings,
-            onReferral: onReferral,
-            onSupport: onSupport,
-            onManageSubscriptions: onManageSubscriptions,
+    final supplementalActions = <legacy.LifeMateProfileAdditionalAction>[
+      if (_isCareMate)
+        legacy.LifeMateProfileAdditionalAction(
+          key: const ValueKey('profile-companion-guidance'),
+          icon: Icons.volunteer_activism_outlined,
+          iconColor: Colors.teal,
+          label: context.tr('profile.companionGuidance.label'),
+          semanticLabel: context.tr('profile.companionGuidance.semantic'),
+          onTap: () => Navigator.of(context).push(
+            MaterialPageRoute<void>(
+              builder: (_) => LifeMateCompanionCareScreen(
+                apiClient: apiClient,
+                accent: theme.accent,
+                background: theme.background,
+              ),
+            ),
           ),
         ),
-        SafeArea(
-          top: false,
-          minimum: const EdgeInsets.fromLTRB(24, 8, 24, 12),
-          child: Column(
-            children: [
-              if (_isCareMate) ...[
-                Semantics(
-                  button: true,
-                  label: context.tr('profile.companionGuidance.semantic'),
-                  child: OutlinedButton.icon(
-                    key: const ValueKey('profile-companion-guidance'),
-                    style: OutlinedButton.styleFrom(
-                      minimumSize: const Size.fromHeight(52),
-                      foregroundColor: theme.accent,
-                      side: BorderSide(
-                        color: theme.accent.withValues(alpha: 0.25),
-                      ),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(18),
-                      ),
-                    ),
-                    onPressed: () => Navigator.of(context).push(
-                      MaterialPageRoute<void>(
-                        builder: (_) => LifeMateCompanionCareScreen(
-                          apiClient: apiClient,
-                          accent: theme.accent,
-                          background: theme.background,
-                        ),
-                      ),
-                    ),
-                    icon: const Icon(Icons.volunteer_activism_outlined),
-                    label: Text(
-                      context.tr('profile.companionGuidance.label'),
-                      style: TextStyle(
-                        fontFamily: fontFamily,
-                        fontWeight: FontWeight.w800,
-                      ),
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 8),
-              ],
-              if (feedbackBuilder != null) ...[
-                Semantics(
-                  button: true,
-                  label: context.tr('profile.feedback.semantic'),
-                  child: OutlinedButton.icon(
-                    key: const ValueKey('profile-feedback'),
-                    style: OutlinedButton.styleFrom(
-                      minimumSize: const Size.fromHeight(52),
-                      foregroundColor: theme.accent,
-                      side: BorderSide(
-                        color: theme.accent.withValues(alpha: 0.25),
-                      ),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(18),
-                      ),
-                    ),
-                    onPressed: () => Navigator.of(context).push(
-                      MaterialPageRoute<void>(builder: feedbackBuilder!),
-                    ),
-                    icon: const Icon(Icons.rate_review_outlined),
-                    label: Text(
-                      context.tr('profile.feedback.label'),
-                      style: TextStyle(
-                        fontFamily: fontFamily,
-                        fontWeight: FontWeight.w800,
-                      ),
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 8),
-              ],
-              Semantics(
-                button: true,
-                label: context.tr('profile.demographics.semantic'),
-                child: OutlinedButton.icon(
-                  key: const ValueKey('profile-demographics'),
-                  style: OutlinedButton.styleFrom(
-                    minimumSize: const Size.fromHeight(52),
-                    foregroundColor: theme.accent,
-                    side: BorderSide(
-                      color: theme.accent.withValues(alpha: 0.25),
-                    ),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(18),
-                    ),
-                  ),
-                  onPressed: () => Navigator.of(context).push(
-                    MaterialPageRoute<void>(
-                      builder: (_) => LifeMateDemographicsEditorScreen(
-                        accent: theme.accent,
-                        background: theme.background,
-                      ),
-                    ),
-                  ),
-                  icon: const Icon(Icons.badge_outlined),
-                  label: Text(
-                    context.tr('profile.demographics.title'),
-                    style: TextStyle(
-                      fontFamily: fontFamily,
-                      fontWeight: FontWeight.w800,
-                    ),
-                  ),
-                ),
-              ),
-              const SizedBox(height: 8),
-              Semantics(
-                button: true,
-                label: context.tr('profile.privacy.semantic'),
-                child: OutlinedButton.icon(
-                  key: const ValueKey('profile-privacy-preferences'),
-                  style: OutlinedButton.styleFrom(
-                    minimumSize: const Size.fromHeight(52),
-                    foregroundColor: theme.accent,
-                    side: BorderSide(
-                      color: theme.accent.withValues(alpha: 0.25),
-                    ),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(18),
-                    ),
-                  ),
-                  onPressed: () => Navigator.of(context).push(
-                    MaterialPageRoute<void>(
-                      builder: (_) => LifeMatePrivacyPreferencesScreen(
-                        api: legalPrivacyApi,
-                        accent: theme.accent,
-                        background: theme.background,
-                      ),
-                    ),
-                  ),
-                  icon: const Icon(Icons.privacy_tip_outlined),
-                  label: Text(
-                    context.tr('profile.privacy.label'),
-                    style: TextStyle(
-                      fontFamily: fontFamily,
-                      fontWeight: FontWeight.w800,
-                    ),
-                  ),
-                ),
-              ),
-            ],
+      if (feedbackBuilder != null)
+        legacy.LifeMateProfileAdditionalAction(
+          key: const ValueKey('profile-feedback'),
+          icon: Icons.rate_review_outlined,
+          iconColor: Colors.deepOrange,
+          label: context.tr('profile.feedback.label'),
+          semanticLabel: context.tr('profile.feedback.semantic'),
+          onTap: () => Navigator.of(context).push(
+            MaterialPageRoute<void>(builder: feedbackBuilder!),
           ),
         ),
-      ],
+      legacy.LifeMateProfileAdditionalAction(
+        key: const ValueKey('profile-demographics'),
+        icon: Icons.badge_outlined,
+        iconColor: Colors.blueGrey,
+        label: context.tr('profile.demographics.title'),
+        semanticLabel: context.tr('profile.demographics.semantic'),
+        onTap: () => Navigator.of(context).push(
+          MaterialPageRoute<void>(
+            builder: (_) => LifeMateDemographicsEditorScreen(
+              accent: theme.accent,
+              background: theme.background,
+            ),
+          ),
+        ),
+      ),
+      legacy.LifeMateProfileAdditionalAction(
+        key: const ValueKey('profile-privacy-preferences'),
+        icon: Icons.privacy_tip_outlined,
+        iconColor: Colors.indigo,
+        label: context.tr('profile.privacy.label'),
+        semanticLabel: context.tr('profile.privacy.semantic'),
+        onTap: () => Navigator.of(context).push(
+          MaterialPageRoute<void>(
+            builder: (_) => LifeMatePrivacyPreferencesScreen(
+              api: legalPrivacyApi,
+              accent: theme.accent,
+              background: theme.background,
+            ),
+          ),
+        ),
+      ),
+    ];
+
+    return legacy.LifeMateSharedProfileScreen(
+      apiClient: apiClient,
+      theme: theme,
+      labels: labels,
+      fontFamily: fontFamily,
+      appName: appName,
+      versionLabel: versionLabel,
+      fallbackUserName: fallbackUserName,
+      isPersian: isPersian,
+      onNotifications: onNotifications,
+      onEditProfile: onEditProfile,
+      onHealthProfile: onHealthProfile,
+      onCareManagement: onCareManagement,
+      onAppSettings: onAppSettings,
+      onReferral: onReferral,
+      onSupport: onSupport,
+      onManageSubscriptions: onManageSubscriptions,
+      additionalActions: supplementalActions,
     );
   }
 }
