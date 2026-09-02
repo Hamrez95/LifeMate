@@ -15,6 +15,7 @@ import 'lifemate_api_client.dart';
 import 'lifemate_auth.dart';
 import 'locale_digit_input_formatter.dart';
 import 'offline_sync_feedback.dart';
+import 'privacy_safe_product_analytics.dart';
 import 'profile_avatar.dart';
 import 'runtime_locale.dart';
 
@@ -49,6 +50,7 @@ class LifeMateExperienceGate extends StatefulWidget {
     required this.appName,
     required this.logoAssetPath,
     required this.authenticatedBuilder,
+    this.releaseVersion = 'unknown',
     this.unauthenticatedBuilder,
     super.key,
   });
@@ -56,6 +58,7 @@ class LifeMateExperienceGate extends StatefulWidget {
   final AppConfig config;
   final String appName;
   final String logoAssetPath;
+  final String releaseVersion;
   final LifeMateExperienceAuthenticatedBuilder authenticatedBuilder;
   final LifeMateExperienceUnauthenticatedBuilder? unauthenticatedBuilder;
 
@@ -69,11 +72,13 @@ class _LifeMateExperienceGateState extends State<LifeMateExperienceGate>
 
   late final SupabaseClient _supabase;
   late final DurableLifeMateApiClient _api;
+  late final LifeMateProductAnalytics _productAnalytics;
   StreamSubscription<AuthState>? _authSubscription;
   Session? _session;
   Future<void>? _bootstrap;
   Object? _authStreamError;
   bool _passwordRecovery = false;
+  String? _trackedAppOpenUserId;
 
   @override
   void initState() {
@@ -85,6 +90,12 @@ class _LifeMateExperienceGateState extends State<LifeMateExperienceGate>
       baseUri: widget.config.apiBaseUri,
       accessToken: () => _supabase.auth.currentSession?.accessToken,
       accountId: () => _supabase.auth.currentUser?.id,
+    );
+    _productAnalytics = LifeMateProductAnalytics(
+      config: widget.config,
+      application: widget.appName,
+      releaseVersion: widget.releaseVersion,
+      accessToken: () async => _supabase.auth.currentSession?.accessToken,
     );
     // Supabase Flutter restores its persisted session before this gate builds.
     // Always consume that restored session first; never send an OTP merely
@@ -150,6 +161,7 @@ class _LifeMateExperienceGateState extends State<LifeMateExperienceGate>
             _bootstrap != null;
         if (previousUserId != nextUserId) {
           LifeMateProfileRefresh.clearForApiClient(_api);
+          _trackedAppOpenUserId = null;
         }
         final nextBootstrap = session == null
             ? null
@@ -208,7 +220,19 @@ class _LifeMateExperienceGateState extends State<LifeMateExperienceGate>
           email: user.email,
         )
         .timeout(_requestTimeout);
+    _trackAuthenticatedAppOpen(user.id);
     unawaited(_api.flushPendingMutations());
+  }
+
+  void _trackAuthenticatedAppOpen(String userId) {
+    if (_trackedAppOpenUserId == userId) return;
+    _trackedAppOpenUserId = userId;
+    unawaited(
+      _productAnalytics.track(
+        LifeMateProductEvent.appOpen,
+        outcome: LifeMateTelemetryOutcome.success,
+      ),
+    );
   }
 
   @override
@@ -216,7 +240,9 @@ class _LifeMateExperienceGateState extends State<LifeMateExperienceGate>
     if (state == AppLifecycleState.resumed && _session != null) {
       // Resuming may replay queued app data, but authentication remains owned
       // by Supabase's restored/auto-refreshed session. Never send OTP or clear
-      // auth merely because the lifecycle changed.
+      // auth merely because the lifecycle changed. `app_opened` v1 deliberately
+      // represents one authenticated app-process entry, not every foreground
+      // resume; a future foreground event can use a separate taxonomy name.
       unawaited(_api.flushPendingMutations());
     }
   }
@@ -237,6 +263,7 @@ class _LifeMateExperienceGateState extends State<LifeMateExperienceGate>
     lifeMateOfflineSyncResult.removeListener(_onOfflineSyncResult);
     WidgetsBinding.instance.removeObserver(this);
     _authSubscription?.cancel();
+    _productAnalytics.close();
     _api.close();
     super.dispose();
   }
