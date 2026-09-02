@@ -74,14 +74,13 @@ export function createSendSmsHookHandler(
     try {
       const provider = providerFactory(apiKey, template);
       await provider.sendOtp(phone, otp);
-      // Supabase Send SMS hooks treat a successful 2xx response as delivery
-      // acceptance. Keep the response empty of authentication data.
       return json(200, {});
     } catch (error) {
       if (error instanceof KavenegarProviderError) {
         if (
           error.code === "iran_phone_required" ||
-          error.code === "invalid_otp_shape"
+          error.code === "invalid_otp_shape" ||
+          error.code === "kavenegar_receptor_invalid"
         ) {
           return json(400, {
             error: {
@@ -99,9 +98,18 @@ export function createSendSmsHookHandler(
           providerStatus: error.providerStatus,
           retryable: error.retryable,
         });
+
+        if (!error.retryable) {
+          // Permanent provider/account/template failures require operator action.
+          // Returning 424 keeps them distinct from temporary 503 outages and
+          // prevents treating a known permanent failure as an endlessly
+          // retryable transport incident.
+          return failedDependency("SMS provider is not ready for delivery.");
+        }
+
         return serviceUnavailable(
           "SMS delivery is temporarily unavailable.",
-          error.retryable,
+          true,
         );
       }
 
@@ -167,6 +175,10 @@ function serviceUnavailable(message: string, retryable: boolean): Response {
   const response = json(503, { error: { http_code: 503, message } });
   if (retryable) response.headers.set("retry-after", "2");
   return response;
+}
+
+function failedDependency(message: string): Response {
+  return json(424, { error: { http_code: 424, message } });
 }
 
 function json(status: number, body: Record<string, unknown>): Response {
