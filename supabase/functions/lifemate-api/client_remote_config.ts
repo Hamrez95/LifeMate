@@ -68,9 +68,9 @@ export function createClientRemoteConfigStore(databaseUrl: string) {
           ${input.beta}
         ) as result
       `;
-      const controls = Array.isArray(rows[0]?.result)
-        ? rows[0].result as unknown[]
-        : [];
+      const controls = withProtectedFailClosedDefaults(
+        Array.isArray(rows[0]?.result) ? rows[0].result as unknown[] : [],
+      );
       const updatePolicy = await telemetry.updatePolicy(
         input.product,
         input.platform,
@@ -106,6 +106,24 @@ export function createClientRemoteConfigStore(databaseUrl: string) {
   return { snapshot };
 }
 
+export function withProtectedFailClosedDefaults(
+  controls: unknown[],
+): unknown[] {
+  const result = [...controls];
+  const present = new Set(
+    controls
+      .filter((item): item is Row =>
+        item != null && typeof item === "object" && !Array.isArray(item)
+      )
+      .map((item) => String(item.key ?? "")),
+  );
+  for (const key of protectedClientFlags) {
+    if (present.has(key)) continue;
+    result.push(failClosedControl(key, "missing_control"));
+  }
+  return result;
+}
+
 export function isFailClosedControlPlaneError(error: unknown): boolean {
   const code = sqlState(error);
   return code != null && failClosedControlPlaneSqlStates.has(code);
@@ -119,16 +137,9 @@ export function failClosedClientRuntimeConfig(input: {
   return {
     product: input.product,
     platform: input.platform,
-    controls: protectedClientFlags.map((key) => ({
-      key,
-      kind: "FeatureFlag",
-      valueType: "Boolean",
-      value: false,
-      definitionVersion: 0,
-      source: "server_fail_closed",
-      ruleVersion: null,
-      failClosed: true,
-    })),
+    controls: protectedClientFlags.map((key) =>
+      failClosedControl(key, "server_fail_closed")
+    ),
     updatePolicy: {
       currentVersion: input.currentVersion,
       updateState: "current",
@@ -145,6 +156,19 @@ export function failClosedClientRuntimeConfig(input: {
     authoritative: "server_fail_closed",
     cacheTtlSeconds: 15,
     fetchedAtUtc: new Date().toISOString(),
+  };
+}
+
+function failClosedControl(key: string, source: string): Row {
+  return {
+    key,
+    kind: "FeatureFlag",
+    valueType: "Boolean",
+    value: false,
+    definitionVersion: 0,
+    source,
+    ruleVersion: null,
+    failClosed: true,
   };
 }
 
