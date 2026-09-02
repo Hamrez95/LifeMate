@@ -17,7 +17,7 @@ export type ClientErrorTelemetry = {
 };
 
 export type ProductTelemetryEventName =
-  | "app_open"
+  | "app_opened"
   | "auth_login_succeeded"
   | "auth_session_restored"
   | "onboarding_started"
@@ -47,7 +47,7 @@ export type ProductTelemetry = {
 };
 
 const productEventNames = new Set<ProductTelemetryEventName>([
-  "app_open",
+  "app_opened",
   "auth_login_succeeded",
   "auth_session_restored",
   "onboarding_started",
@@ -167,7 +167,11 @@ export function parseProductTelemetry(
   const application = validApplication(input.application);
   const releaseVersion = validReleaseVersion(input.releaseVersion);
   const platform = validPlatform(input.platform);
-  const eventName = stringValue(input.eventName, "product_event_invalid");
+  const rawEventName = stringValue(input.eventName, "product_event_invalid");
+  // `app_open` shipped in the pre-persistence telemetry client. Normalize it
+  // at ingestion so already-installed clients remain compatible while every
+  // persisted fact uses the canonical taxonomy name `app_opened`.
+  const eventName = rawEventName === "app_open" ? "app_opened" : rawEventName;
   const localeFamily = stringValue(
     input.localeFamily,
     "locale_family_invalid",
