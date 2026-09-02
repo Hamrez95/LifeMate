@@ -3,6 +3,7 @@ import {
   failClosedClientRuntimeConfig,
   isFailClosedControlPlaneError,
   parseClientRuntimeConfigQuery,
+  withProtectedFailClosedDefaults,
 } from "./client_remote_config.ts";
 
 Deno.test("client runtime config accepts bounded product platform version and beta", () => {
@@ -36,6 +37,43 @@ Deno.test("client runtime config rejects arbitrary beta values", () => {
     "https://example.test/api/v1/product/runtime-config?product=caremate&platform=android&currentVersion=1.0.0&beta=yes",
   );
   assertThrows(() => parseClientRuntimeConfigQuery(url));
+});
+
+Deno.test("missing protected controls are inserted disabled and fail closed", () => {
+  const controls = withProtectedFailClosedDefaults([
+    {
+      key: "client.women_calendar.enabled",
+      kind: "FeatureFlag",
+      valueType: "Boolean",
+      value: true,
+      definitionVersion: 4,
+      source: "default",
+      ruleVersion: null,
+      failClosed: true,
+    },
+  ]);
+
+  assertEquals(controls.length, 2);
+  assertEquals(controls[0], {
+    key: "client.women_calendar.enabled",
+    kind: "FeatureFlag",
+    valueType: "Boolean",
+    value: true,
+    definitionVersion: 4,
+    source: "default",
+    ruleVersion: null,
+    failClosed: true,
+  });
+  assertEquals(controls[1], {
+    key: "client.care_pairing.enabled",
+    kind: "FeatureFlag",
+    valueType: "Boolean",
+    value: false,
+    definitionVersion: 0,
+    source: "missing_control",
+    ruleVersion: null,
+    failClosed: true,
+  });
 });
 
 Deno.test("client runtime config recognizes only control-plane availability SQLSTATEs", () => {
