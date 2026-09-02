@@ -63,7 +63,9 @@ export async function getUserCommerceSummary(
       source: String(row.source),
       status: String(row.status),
       startsAtUtc: iso(row.starts_at_utc),
-      expiresAtUtc: row.expires_at_utc == null ? null : iso(row.expires_at_utc),
+      expiresAtUtc: row.expires_at_utc == null
+        ? null
+        : iso(row.expires_at_utc),
       version: Number(row.version),
     })),
   };
