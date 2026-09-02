@@ -32,6 +32,12 @@ class LifeMateSecureSessionStorage extends LocalStorage {
           migrateWithBackup: true,
           resetOnError: true,
         ),
+        // Sessions are device-bound and become available after the first
+        // unlock following a reboot. This preserves background reminder/sync
+        // access without making the session migrate to a different iPhone.
+        iOptions: IOSOptions(
+          accessibility: KeychainAccessibility.first_unlock_this_device,
+        ),
       );
 
   /// Matches the key used by `supabase_flutter`'s default
