@@ -56,6 +56,64 @@ class LifeMateSharedProfileScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final actions = <Widget>[
+      if (_isCareMate)
+        _ProfileQuickAction(
+          key: const ValueKey('profile-companion-guidance'),
+          icon: Icons.volunteer_activism_outlined,
+          label: context.tr('profile.companionGuidance.semantic'),
+          accent: theme.accent,
+          onPressed: () => Navigator.of(context).push(
+            MaterialPageRoute<void>(
+              builder: (_) => LifeMateCompanionCareScreen(
+                apiClient: apiClient,
+                accent: theme.accent,
+                background: theme.background,
+              ),
+            ),
+          ),
+        ),
+      if (feedbackBuilder != null)
+        _ProfileQuickAction(
+          key: const ValueKey('profile-feedback'),
+          icon: Icons.rate_review_outlined,
+          label: context.tr('profile.feedback.semantic'),
+          accent: theme.accent,
+          onPressed: () => Navigator.of(context).push(
+            MaterialPageRoute<void>(builder: feedbackBuilder!),
+          ),
+        ),
+      _ProfileQuickAction(
+        key: const ValueKey('profile-demographics'),
+        icon: Icons.badge_outlined,
+        label: context.tr('profile.demographics.semantic'),
+        accent: theme.accent,
+        onPressed: () => Navigator.of(context).push(
+          MaterialPageRoute<void>(
+            builder: (_) => LifeMateDemographicsEditorScreen(
+              accent: theme.accent,
+              background: theme.background,
+            ),
+          ),
+        ),
+      ),
+      _ProfileQuickAction(
+        key: const ValueKey('profile-privacy-preferences'),
+        icon: Icons.privacy_tip_outlined,
+        label: context.tr('profile.privacy.semantic'),
+        accent: theme.accent,
+        onPressed: () => Navigator.of(context).push(
+          MaterialPageRoute<void>(
+            builder: (_) => LifeMatePrivacyPreferencesScreen(
+              api: legalPrivacyApi,
+              accent: theme.accent,
+              background: theme.background,
+            ),
+          ),
+        ),
+      ),
+    ];
+
     return Column(
       children: [
         Expanded(
@@ -80,149 +138,60 @@ class LifeMateSharedProfileScreen extends StatelessWidget {
         ),
         SafeArea(
           top: false,
-          minimum: const EdgeInsets.fromLTRB(24, 8, 24, 12),
-          child: Column(
-            children: [
-              if (_isCareMate) ...[
-                Semantics(
-                  button: true,
-                  label: context.tr('profile.companionGuidance.semantic'),
-                  child: OutlinedButton.icon(
-                    key: const ValueKey('profile-companion-guidance'),
-                    style: OutlinedButton.styleFrom(
-                      minimumSize: const Size.fromHeight(52),
-                      foregroundColor: theme.accent,
-                      side: BorderSide(
-                        color: theme.accent.withValues(alpha: 0.25),
-                      ),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(18),
-                      ),
-                    ),
-                    onPressed: () => Navigator.of(context).push(
-                      MaterialPageRoute<void>(
-                        builder: (_) => LifeMateCompanionCareScreen(
-                          apiClient: apiClient,
-                          accent: theme.accent,
-                          background: theme.background,
-                        ),
-                      ),
-                    ),
-                    icon: const Icon(Icons.volunteer_activism_outlined),
-                    label: Text(
-                      context.tr('profile.companionGuidance.label'),
-                      style: TextStyle(
-                        fontFamily: fontFamily,
-                        fontWeight: FontWeight.w800,
-                      ),
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 8),
-              ],
-              if (feedbackBuilder != null) ...[
-                Semantics(
-                  button: true,
-                  label: context.tr('profile.feedback.semantic'),
-                  child: OutlinedButton.icon(
-                    key: const ValueKey('profile-feedback'),
-                    style: OutlinedButton.styleFrom(
-                      minimumSize: const Size.fromHeight(52),
-                      foregroundColor: theme.accent,
-                      side: BorderSide(
-                        color: theme.accent.withValues(alpha: 0.25),
-                      ),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(18),
-                      ),
-                    ),
-                    onPressed: () => Navigator.of(context).push(
-                      MaterialPageRoute<void>(builder: feedbackBuilder!),
-                    ),
-                    icon: const Icon(Icons.rate_review_outlined),
-                    label: Text(
-                      context.tr('profile.feedback.label'),
-                      style: TextStyle(
-                        fontFamily: fontFamily,
-                        fontWeight: FontWeight.w800,
-                      ),
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 8),
-              ],
-              Semantics(
-                button: true,
-                label: context.tr('profile.demographics.semantic'),
-                child: OutlinedButton.icon(
-                  key: const ValueKey('profile-demographics'),
-                  style: OutlinedButton.styleFrom(
-                    minimumSize: const Size.fromHeight(52),
-                    foregroundColor: theme.accent,
-                    side: BorderSide(
-                      color: theme.accent.withValues(alpha: 0.25),
-                    ),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(18),
-                    ),
-                  ),
-                  onPressed: () => Navigator.of(context).push(
-                    MaterialPageRoute<void>(
-                      builder: (_) => LifeMateDemographicsEditorScreen(
-                        accent: theme.accent,
-                        background: theme.background,
-                      ),
-                    ),
-                  ),
-                  icon: const Icon(Icons.badge_outlined),
-                  label: Text(
-                    context.tr('profile.demographics.title'),
-                    style: TextStyle(
-                      fontFamily: fontFamily,
-                      fontWeight: FontWeight.w800,
-                    ),
-                  ),
-                ),
+          minimum: const EdgeInsets.fromLTRB(24, 4, 24, 8),
+          child: DecoratedBox(
+            decoration: BoxDecoration(
+              color: theme.cardBackground,
+              borderRadius: BorderRadius.circular(20),
+              border: Border.all(
+                color: theme.accent.withValues(alpha: 0.16),
               ),
-              const SizedBox(height: 8),
-              Semantics(
-                button: true,
-                label: context.tr('profile.privacy.semantic'),
-                child: OutlinedButton.icon(
-                  key: const ValueKey('profile-privacy-preferences'),
-                  style: OutlinedButton.styleFrom(
-                    minimumSize: const Size.fromHeight(52),
-                    foregroundColor: theme.accent,
-                    side: BorderSide(
-                      color: theme.accent.withValues(alpha: 0.25),
-                    ),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(18),
-                    ),
-                  ),
-                  onPressed: () => Navigator.of(context).push(
-                    MaterialPageRoute<void>(
-                      builder: (_) => LifeMatePrivacyPreferencesScreen(
-                        api: legalPrivacyApi,
-                        accent: theme.accent,
-                        background: theme.background,
-                      ),
-                    ),
-                  ),
-                  icon: const Icon(Icons.privacy_tip_outlined),
-                  label: Text(
-                    context.tr('profile.privacy.label'),
-                    style: TextStyle(
-                      fontFamily: fontFamily,
-                      fontWeight: FontWeight.w800,
-                    ),
-                  ),
-                ),
+            ),
+            child: SizedBox(
+              height: 58,
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                children: actions
+                    .map((action) => Expanded(child: action))
+                    .toList(growable: false),
               ),
-            ],
+            ),
           ),
         ),
       ],
+    );
+  }
+}
+
+class _ProfileQuickAction extends StatelessWidget {
+  const _ProfileQuickAction({
+    super.key,
+    required this.icon,
+    required this.label,
+    required this.accent,
+    required this.onPressed,
+  });
+
+  final IconData icon;
+  final String label;
+  final Color accent;
+  final VoidCallback onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    return Semantics(
+      button: true,
+      label: label,
+      child: Tooltip(
+        message: label,
+        child: IconButton(
+          onPressed: onPressed,
+          color: accent,
+          iconSize: 25,
+          visualDensity: VisualDensity.standard,
+          icon: Icon(icon),
+        ),
+      ),
     );
   }
 }
