@@ -22,15 +22,15 @@ void main() {
     });
 
     test('enabled policy locks on cold start', () {
-      const policy = LifeMateAppLockPolicy(enabled: true);
+      final policy = LifeMateAppLockPolicy(enabled: true);
 
       expect(policy.requiresUnlock(now: now, coldStart: true), isTrue);
     });
 
     test('enabled policy locks again only after the configured timeout', () {
-      const policy = LifeMateAppLockPolicy(
+      final policy = LifeMateAppLockPolicy(
         enabled: true,
-        relockAfter: Duration(minutes: 5),
+        relockAfter: const Duration(minutes: 5),
       );
 
       expect(
@@ -50,7 +50,7 @@ void main() {
     });
 
     test('missing unlock history fails closed when lock is enabled', () {
-      const policy = LifeMateAppLockPolicy(enabled: true);
+      final policy = LifeMateAppLockPolicy(enabled: true);
 
       expect(policy.requiresUnlock(now: now), isTrue);
     });
