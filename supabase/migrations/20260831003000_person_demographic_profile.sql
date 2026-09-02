@@ -53,15 +53,18 @@ returns table (
 )
 language plpgsql
 security definer
-set search_path = pg_catalog, public, lifemate, core, auth
+set search_path = pg_catalog, public, lifemate, core
 as $$
 declare
+  v_auth_subject uuid;
   v_app_user_id uuid;
   v_person_id uuid;
 begin
+  v_auth_subject := nullif(current_setting('request.jwt.claim.sub', true), '')::uuid;
+
   select u.id into v_app_user_id
   from lifemate.app_users u
-  where u.auth_subject = auth.uid()
+  where u.auth_subject = v_auth_subject
     and u.status = 'Active'
   limit 1;
 
@@ -99,9 +102,10 @@ returns table (
 )
 language plpgsql
 security definer
-set search_path = pg_catalog, public, lifemate, core, auth
+set search_path = pg_catalog, public, lifemate, core
 as $$
 declare
+  v_auth_subject uuid;
   v_app_user_id uuid;
   v_person_id uuid;
   v_gender_identity character varying(32);
@@ -126,9 +130,11 @@ begin
     v_gender_self_description := null;
   end if;
 
+  v_auth_subject := nullif(current_setting('request.jwt.claim.sub', true), '')::uuid;
+
   select u.id into v_app_user_id
   from lifemate.app_users u
-  where u.auth_subject = auth.uid()
+  where u.auth_subject = v_auth_subject
     and u.status = 'Active'
   limit 1;
 
