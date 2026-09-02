@@ -6,6 +6,25 @@ import 'package:lifemate_client/lifemate_client.dart';
 
 import 'profile_theme.dart';
 
+@immutable
+class LifeMateProfileMenuItem {
+  const LifeMateProfileMenuItem({
+    this.key,
+    required this.icon,
+    required this.iconColor,
+    required this.label,
+    required this.onTap,
+    this.subtitle,
+  });
+
+  final Key? key;
+  final IconData icon;
+  final Color iconColor;
+  final String label;
+  final String? subtitle;
+  final VoidCallback onTap;
+}
+
 class LifeMateSharedProfileScreen extends StatelessWidget {
   const LifeMateSharedProfileScreen({
     super.key,
@@ -25,6 +44,7 @@ class LifeMateSharedProfileScreen extends StatelessWidget {
     required this.onReferral,
     required this.onSupport,
     required this.onManageSubscriptions,
+    this.additionalMenuItems = const <LifeMateProfileMenuItem>[],
   });
 
   final LifeMateApiClient apiClient;
@@ -43,19 +63,21 @@ class LifeMateSharedProfileScreen extends StatelessWidget {
   final VoidCallback onReferral;
   final VoidCallback onSupport;
   final VoidCallback onManageSubscriptions;
+  final List<LifeMateProfileMenuItem> additionalMenuItems;
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      key: ValueKey('lifemate-shared-profile-layout'),
+      key: const ValueKey('lifemate-shared-profile-layout'),
       backgroundColor: theme.background,
       body: SafeArea(
         child: SingleChildScrollView(
-          padding: EdgeInsets.only(bottom: 24),
+          key: const ValueKey('lifemate-shared-profile-scroll'),
+          padding: const EdgeInsets.only(bottom: 24),
           child: Column(
             children: [
               Padding(
-                padding: EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
                 child: Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
@@ -74,7 +96,7 @@ class LifeMateSharedProfileScreen extends StatelessWidget {
                       ),
                       onPressed: () => Navigator.of(context).pop(),
                     ),
-                    SizedBox(width: 8),
+                    const SizedBox(width: 8),
                     Expanded(
                       child: _CurrentUserIdentity(
                         apiClient: apiClient,
@@ -85,7 +107,7 @@ class LifeMateSharedProfileScreen extends StatelessWidget {
                         onEditProfile: onEditProfile,
                       ),
                     ),
-                    SizedBox(width: 8),
+                    const SizedBox(width: 8),
                     IconButton(
                       tooltip: LifeMateRuntimeLocale.select(
                         fa: LifeMateRuntimeLocale.select(
@@ -105,7 +127,7 @@ class LifeMateSharedProfileScreen extends StatelessWidget {
                 ),
               ),
               Padding(
-                padding: EdgeInsets.symmetric(horizontal: 24, vertical: 8),
+                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 8),
                 child: _SubscriptionCard(
                   theme: theme,
                   fontFamily: fontFamily,
@@ -115,7 +137,7 @@ class LifeMateSharedProfileScreen extends StatelessWidget {
                 ),
               ),
               Padding(
-                padding: EdgeInsets.symmetric(horizontal: 24, vertical: 8),
+                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 8),
                 child: Container(
                   decoration: BoxDecoration(
                     color: theme.cardBackground,
@@ -124,7 +146,7 @@ class LifeMateSharedProfileScreen extends StatelessWidget {
                       BoxShadow(
                         color: Colors.black.withValues(alpha: 0.07),
                         blurRadius: 16,
-                        offset: Offset(0, 4),
+                        offset: const Offset(0, 4),
                       ),
                     ],
                   ),
@@ -139,7 +161,7 @@ class LifeMateSharedProfileScreen extends StatelessWidget {
                         secondaryText: theme.secondaryText,
                         onTap: onEditProfile,
                       ),
-                      Divider(height: 1, indent: 60, endIndent: 20),
+                      const Divider(height: 1, indent: 60, endIndent: 20),
                       _ProfileMenuTile(
                         icon: Icons.assignment_rounded,
                         iconColor: Colors.orangeAccent,
@@ -149,9 +171,9 @@ class LifeMateSharedProfileScreen extends StatelessWidget {
                         secondaryText: theme.secondaryText,
                         onTap: onHealthProfile,
                       ),
-                      Divider(height: 1, indent: 60, endIndent: 20),
+                      const Divider(height: 1, indent: 60, endIndent: 20),
                       _ProfileMenuTile(
-                        key: ValueKey('profile-care-management'),
+                        key: const ValueKey('profile-care-management'),
                         icon: Icons.group,
                         iconColor: Colors.green,
                         label: labels.careManagement,
@@ -160,7 +182,7 @@ class LifeMateSharedProfileScreen extends StatelessWidget {
                         secondaryText: theme.secondaryText,
                         onTap: onCareManagement,
                       ),
-                      Divider(height: 1, indent: 60, endIndent: 20),
+                      const Divider(height: 1, indent: 60, endIndent: 20),
                       _ProfileMenuTile(
                         icon: Icons.settings,
                         iconColor: Colors.purple,
@@ -181,7 +203,7 @@ class LifeMateSharedProfileScreen extends StatelessWidget {
                         secondaryText: theme.secondaryText,
                         onTap: onReferral,
                       ),
-                      Divider(height: 1, indent: 60, endIndent: 20),
+                      const Divider(height: 1, indent: 60, endIndent: 20),
                       _ProfileMenuTile(
                         icon: Icons.support_agent,
                         iconColor: Colors.indigo,
@@ -192,16 +214,30 @@ class LifeMateSharedProfileScreen extends StatelessWidget {
                         secondaryText: theme.secondaryText,
                         onTap: onSupport,
                       ),
+                      for (final item in additionalMenuItems) ...[
+                        const Divider(height: 1, indent: 60, endIndent: 20),
+                        _ProfileMenuTile(
+                          key: item.key,
+                          icon: item.icon,
+                          iconColor: item.iconColor,
+                          label: item.label,
+                          subtitle: item.subtitle,
+                          fontFamily: fontFamily,
+                          titleColor: theme.titleColor,
+                          secondaryText: theme.secondaryText,
+                          onTap: item.onTap,
+                        ),
+                      ],
                     ],
                   ),
                 ),
               ),
               Padding(
-                padding: EdgeInsets.symmetric(horizontal: 24, vertical: 8),
+                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 8),
                 child: OutlinedButton.icon(
                   key: ValueKey('${appName.toLowerCase()}-data-export'),
                   style: OutlinedButton.styleFrom(
-                    minimumSize: Size.fromHeight(52),
+                    minimumSize: const Size.fromHeight(52),
                     foregroundColor: theme.accent,
                     side: BorderSide(
                       color: theme.accent.withValues(alpha: 0.24),
@@ -210,7 +246,7 @@ class LifeMateSharedProfileScreen extends StatelessWidget {
                       borderRadius: BorderRadius.circular(18),
                     ),
                   ),
-                  icon: Icon(Icons.download_for_offline_outlined),
+                  icon: const Icon(Icons.download_for_offline_outlined),
                   label: Text(
                     LifeMateRuntimeLocale.select(
                       fa: 'دریافت نسخه‌ای از داده‌های من',
@@ -225,11 +261,11 @@ class LifeMateSharedProfileScreen extends StatelessWidget {
                 ),
               ),
               Padding(
-                padding: EdgeInsets.symmetric(horizontal: 24, vertical: 8),
+                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 8),
                 child: OutlinedButton.icon(
                   key: ValueKey('${appName.toLowerCase()}-account-deletion'),
                   style: OutlinedButton.styleFrom(
-                    minimumSize: Size.fromHeight(52),
+                    minimumSize: const Size.fromHeight(52),
                     foregroundColor: Colors.redAccent,
                     side: BorderSide(
                       color: Colors.redAccent.withValues(alpha: 0.28),
@@ -238,7 +274,7 @@ class LifeMateSharedProfileScreen extends StatelessWidget {
                       borderRadius: BorderRadius.circular(18),
                     ),
                   ),
-                  icon: Icon(Icons.delete_forever_outlined),
+                  icon: const Icon(Icons.delete_forever_outlined),
                   label: Text(
                     LifeMateRuntimeLocale.select(
                       fa: LifeMateRuntimeLocale.select(
@@ -260,7 +296,7 @@ class LifeMateSharedProfileScreen extends StatelessWidget {
                 ),
               ),
               Padding(
-                padding: EdgeInsets.symmetric(horizontal: 24, vertical: 8),
+                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 8),
                 child: Container(
                   width: double.infinity,
                   decoration: BoxDecoration(
@@ -270,19 +306,19 @@ class LifeMateSharedProfileScreen extends StatelessWidget {
                       BoxShadow(
                         color: Colors.redAccent.withValues(alpha: 0.12),
                         blurRadius: 16,
-                        offset: Offset(0, 4),
+                        offset: const Offset(0, 4),
                       ),
                     ],
                   ),
                   child: TextButton.icon(
                     key: ValueKey('${appName.toLowerCase()}-profile-sign-out'),
                     style: TextButton.styleFrom(
-                      padding: EdgeInsets.symmetric(vertical: 16),
+                      padding: const EdgeInsets.symmetric(vertical: 16),
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(18),
                       ),
                     ),
-                    icon: Icon(Icons.logout, color: Colors.redAccent),
+                    icon: const Icon(Icons.logout, color: Colors.redAccent),
                     label: Text(
                       labels.logout,
                       style: TextStyle(
@@ -297,7 +333,7 @@ class LifeMateSharedProfileScreen extends StatelessWidget {
                 ),
               ),
               Padding(
-                padding: EdgeInsets.only(top: 8),
+                padding: const EdgeInsets.only(top: 8),
                 child: Text(
                   versionLabel,
                   style: TextStyle(
