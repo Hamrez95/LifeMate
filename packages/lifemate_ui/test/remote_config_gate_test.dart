@@ -45,7 +45,9 @@ LifeMateRemoteConfigClient _client(
   Map<String, dynamic> response, {
   String? cached,
   bool offline = false,
+  int failuresBeforeSuccess = 0,
 }) {
+  var failedRequests = 0;
   return LifeMateRemoteConfigClient(
     baseUri: Uri.parse('https://example.test'),
     product: 'wellmate',
@@ -58,6 +60,10 @@ LifeMateRemoteConfigClient _client(
     httpClient: MockClient((request) async {
       if (request.method == 'POST') return http.Response('{}', 202);
       if (offline) throw http.ClientException('offline');
+      if (failedRequests < failuresBeforeSuccess) {
+        failedRequests += 1;
+        throw http.ClientException('temporary config outage');
+      }
       return http.Response(jsonEncode(response), 200);
     }),
   );
@@ -152,6 +158,26 @@ void main() {
     expect(find.text('core-care'), findsOneWidget);
     expect(find.text('protected-off'), findsOneWidget);
     expect(find.text('protected-on'), findsNothing);
+    client.close();
+  });
+
+  testWidgets('stale runtime-config warning clears after a successful retry', (
+    tester,
+  ) async {
+    final client = _client(_snapshot(), failuresBeforeSuccess: 1);
+    await tester.pumpWidget(_app(client));
+    await tester.pumpAndSettle();
+
+    const warning =
+        'Online config is unavailable; protected features are temporarily disabled.';
+    expect(find.text(warning), findsOneWidget);
+    expect(find.text('core-home'), findsOneWidget);
+
+    await tester.tap(find.text('Retry'));
+    await tester.pumpAndSettle();
+
+    expect(find.text(warning), findsNothing);
+    expect(find.text('core-home'), findsOneWidget);
     client.close();
   });
 }
