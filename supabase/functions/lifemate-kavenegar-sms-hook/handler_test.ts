@@ -250,7 +250,7 @@ Deno.test("Send SMS hook maps retryable provider failures to generic 503 with Re
   assert(!body.includes(SYNTHETIC_OTP));
 });
 
-Deno.test("Send SMS hook keeps non-retryable provider failures generic and redacted", async () => {
+Deno.test("Send SMS hook maps permanent provider failures to redacted 424", async () => {
   const warnings: string[] = [];
   const handler = createSendSmsHookHandler({
     apiKey: API_KEY,
@@ -260,9 +260,9 @@ Deno.test("Send SMS hook keeps non-retryable provider failures generic and redac
       sendOtp: () =>
         Promise.reject(
           new KavenegarProviderError(
-            "kavenegar_api_key_invalid",
+            "kavenegar_credit_insufficient",
             false,
-            403,
+            418,
           ),
         ),
     }),
@@ -275,16 +275,44 @@ Deno.test("Send SMS hook keeps non-retryable provider failures generic and redac
   const body = await response.text();
   const warningText = warnings.join("\n");
 
-  assertEquals(response.status, 503);
+  assertEquals(response.status, 424);
   assertEquals(response.headers.get("retry-after"), null);
   assertEquals(response.headers.get("cache-control"), "no-store");
-  assertStringIncludes(body, "SMS delivery is temporarily unavailable.");
+  assertStringIncludes(body, "SMS provider is not ready for delivery.");
   for (const sensitive of [SYNTHETIC_PHONE, SYNTHETIC_OTP, API_KEY]) {
     assert(!body.includes(sensitive));
     assert(!warningText.includes(sensitive));
   }
-  assert(!body.includes("kavenegar_api_key_invalid"));
+  assert(!body.includes("kavenegar_credit_insufficient"));
   assertEquals(warnings.length, 1);
+});
+
+Deno.test("Send SMS hook maps invalid provider receptor to a generic 400", async () => {
+  const handler = createSendSmsHookHandler({
+    apiKey: API_KEY,
+    template: TEMPLATE,
+    hookSecrets: HOOK_SECRET,
+    providerFactory: () => ({
+      sendOtp: () =>
+        Promise.reject(
+          new KavenegarProviderError(
+            "kavenegar_receptor_invalid",
+            false,
+            411,
+          ),
+        ),
+    }),
+    warn: () => {},
+  });
+
+  const response = await handler(await signedRequest(validPayload()));
+  const body = await response.text();
+
+  assertEquals(response.status, 400);
+  assertEquals(response.headers.get("retry-after"), null);
+  assertStringIncludes(body, "Phone number is not eligible");
+  assert(!body.includes(SYNTHETIC_PHONE));
+  assert(!body.includes(SYNTHETIC_OTP));
 });
 
 function validPayload(): string {
