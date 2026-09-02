@@ -404,6 +404,18 @@ class LifeMateOnboardingTextField extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // Password fields in the shared production auth UI intentionally do not
+    // persist credentials themselves. Give the platform password manager the
+    // semantic hint it needs, while preserving any explicit caller-provided
+    // hints. A password followed by another field is a new-password field;
+    // a terminal password field is treated as the existing password.
+    final effectiveAutofillHints = autofillHints ??
+        (obscureText
+            ? textInputAction == TextInputAction.next
+                ? const <String>[AutofillHints.newPassword]
+                : const <String>[AutofillHints.password]
+            : null);
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -425,7 +437,7 @@ class LifeMateOnboardingTextField extends StatelessWidget {
             textInputAction: textInputAction,
             textDirection: textDirection,
             onSubmitted: onSubmitted,
-            autofillHints: autofillHints,
+            autofillHints: effectiveAutofillHints,
             obscureText: obscureText,
             decoration: InputDecoration(
               hintText: hintText,

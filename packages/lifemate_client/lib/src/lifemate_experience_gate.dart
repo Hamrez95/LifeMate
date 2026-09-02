@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:math';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'app_config.dart';
@@ -128,6 +129,20 @@ class _LifeMateExperienceGateState extends State<LifeMateExperienceGate>
         final session = state.session;
         final previousUserId = _session?.user.id;
         final nextUserId = session?.user.id;
+        final shouldSaveCredentialAutofill =
+            (state.event == AuthChangeEvent.signedIn &&
+                previousUserId == null &&
+                nextUserId != null) ||
+            (state.event == AuthChangeEvent.userUpdated &&
+                _passwordRecovery &&
+                nextUserId != null);
+        if (shouldSaveCredentialAutofill) {
+          // Let Google Password Manager / Samsung Pass / iCloud Keychain and
+          // other OS providers save/update the credential only after Supabase
+          // has confirmed a real authentication or password-recovery update.
+          // LifeMate itself never persists the raw password.
+          TextInput.finishAutofillContext(shouldSave: true);
+        }
         final keepCurrentBootstrap =
             state.event == AuthChangeEvent.tokenRefreshed &&
             previousUserId != null &&
