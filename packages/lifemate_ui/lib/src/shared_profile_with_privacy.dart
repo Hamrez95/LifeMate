@@ -79,6 +79,7 @@ class LifeMateSharedProfileScreen extends StatelessWidget {
           ),
         ),
         SafeArea(
+          key: const ValueKey('profile-supplemental-actions'),
           top: false,
           minimum: const EdgeInsets.fromLTRB(24, 8, 24, 12),
           child: Column(
