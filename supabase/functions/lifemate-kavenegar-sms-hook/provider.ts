@@ -217,9 +217,7 @@ function mapProviderFailure(status: number): KavenegarProviderError {
       );
     default:
       return new KavenegarProviderError(
-        status >= 500
-          ? "kavenegar_provider_unavailable"
-          : "kavenegar_rejected",
+        status >= 500 ? "kavenegar_provider_unavailable" : "kavenegar_rejected",
         status >= 500,
         status,
       );
