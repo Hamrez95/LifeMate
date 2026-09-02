@@ -55,6 +55,7 @@ export 'src/reminder_lead_time.dart';
 export 'src/remote_config.dart';
 export 'src/recurrence.dart';
 export 'src/runtime_locale.dart';
+export 'src/secure_session_storage.dart';
 export 'src/session_gate.dart' hide LifeMateSessionGate;
 export 'src/session_gate_secure.dart';
 export 'src/support_conversations_api.dart';
