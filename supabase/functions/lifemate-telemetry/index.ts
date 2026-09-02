@@ -18,7 +18,8 @@ const corsHeaders = {
   "X-Content-Type-Options": "nosniff",
 };
 
-const supabaseUrl = Deno.env.get("SUPABASE_URL")?.trim().replace(/\/$/, "") ?? "";
+const supabaseUrl = Deno.env.get("SUPABASE_URL")?.trim().replace(/\/$/, "") ??
+  "";
 const publishableKey = Deno.env.get("SUPABASE_PUBLISHABLE_KEY")?.trim() ??
   Deno.env.get("SUPABASE_ANON_KEY")?.trim() ?? "";
 const admission = new SubjectTelemetryRateLimiter();
