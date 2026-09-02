@@ -115,8 +115,6 @@ void main() {
     await configureView(tester, size: size);
     await tester.pumpWidget(
       MaterialApp(
-        locale: const Locale('fa'),
-        supportedLocales: const [Locale('fa'), Locale('en')],
         home: LifeMateAccountOnboardingGate(
           api: api,
           legalPrivacyApi: legalApi ?? _FakeLegalApi(),
@@ -135,7 +133,7 @@ void main() {
     await pumpGate(tester, api);
 
     expect(find.text('PRODUCT_HOME'), findsOneWidget);
-    expect(find.text('نام نمایشی'), findsNothing);
+    expect(find.text('Display name'), findsNothing);
     expect(api.completeCalls, 0);
   });
 
@@ -153,7 +151,7 @@ void main() {
 
     await tester.tap(find.byType(Checkbox));
     await tester.pump();
-    await tester.tap(find.text('تأیید و ادامه'));
+    await tester.tap(find.text('Accept and continue'));
     await tester.pumpAndSettle();
 
     expect(legal.acceptanceCalls, 1);
@@ -167,17 +165,17 @@ void main() {
     await pumpGate(tester, api);
 
     expect(find.byType(SingleChildScrollView), findsNothing);
-    expect(find.text('نام نمایشی'), findsOneWidget);
+    expect(find.text('Display name'), findsOneWidget);
     expect(find.textContaining('سال تولد'), findsNothing);
 
     await tester.enterText(find.byType(TextField), 'حمید');
-    await tester.tap(find.text('ادامه'));
+    await tester.tap(find.text('Continue'));
     await tester.pumpAndSettle();
 
-    expect(find.text('برای خودم'), findsOneWidget);
-    expect(find.text('برای مراقبت از دیگری'), findsOneWidget);
-    expect(find.text('هر دو'), findsOneWidget);
-    expect(find.textContaining('هیچ دسترسی درمانی'), findsOneWidget);
+    expect(find.text('For myself'), findsOneWidget);
+    expect(find.text('To care for someone'), findsOneWidget);
+    expect(find.text('Both'), findsOneWidget);
+    expect(find.textContaining('never grants healthcare access'), findsOneWidget);
     expect(find.byType(SingleChildScrollView), findsNothing);
     expect(tester.takeException(), isNull);
   });
@@ -189,11 +187,11 @@ void main() {
     await pumpGate(tester, api);
 
     await tester.enterText(find.byType(TextField), 'حمید');
-    await tester.tap(find.text('ادامه'));
+    await tester.tap(find.text('Continue'));
     await tester.pumpAndSettle();
-    await tester.tap(find.text('هر دو'));
+    await tester.tap(find.text('Both'));
     await tester.pump();
-    await tester.tap(find.text('ورود به LifeMate'));
+    await tester.tap(find.text('Enter LifeMate'));
     await tester.pumpAndSettle();
 
     expect(api.completeCalls, 1);
@@ -209,11 +207,11 @@ void main() {
     await pumpGate(tester, api, size: const Size(360, 760));
 
     await tester.enterText(find.byType(TextField), 'کاربر');
-    await tester.tap(find.text('ادامه'));
+    await tester.tap(find.text('Continue'));
     await tester.pumpAndSettle();
 
     expect(find.byType(SingleChildScrollView), findsNothing);
-    expect(find.text('هر دو'), findsOneWidget);
+    expect(find.text('Both'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
 }
