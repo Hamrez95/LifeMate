@@ -7,6 +7,21 @@ void main() {
   final fromDate = DateTime(2026, 8, 6);
   final toDate = DateTime(2026, 8, 13);
 
+  test('home snapshot with no schedule data is a valid empty success', () async {
+    final snapshot = await loader.load(
+      api: _FakeHomeApi(useEmptySnapshot: true),
+      fromDate: fromDate,
+      toDate: toDate,
+    );
+
+    expect(snapshot.currentUser, isNotEmpty);
+    expect(snapshot.treatmentPlans, isEmpty);
+    expect(snapshot.doseOccurrences, isEmpty);
+    expect(snapshot.careEvents, isEmpty);
+    expect(snapshot.failures, isEmpty);
+    expect(snapshot.isPartial, isFalse);
+  });
+
   test('care-events failure does not hide a valid medicine schedule', () async {
     final snapshot = await loader.load(
       api: _FakeHomeApi(failCareEvents: true),
@@ -83,6 +98,7 @@ void main() {
 
 class _FakeHomeApi extends LifeMateApiClient {
   _FakeHomeApi({
+    this.useEmptySnapshot = false,
     this.failCurrentUser = false,
     this.failPlans = false,
     this.failDoses = false,
@@ -92,6 +108,7 @@ class _FakeHomeApi extends LifeMateApiClient {
          accessToken: () => 'test-token',
        );
 
+  final bool useEmptySnapshot;
   final bool failCurrentUser;
   final bool failPlans;
   final bool failDoses;
@@ -102,6 +119,16 @@ class _FakeHomeApi extends LifeMateApiClient {
     required DateTime fromDate,
     required DateTime toDate,
   }) async {
+    if (useEmptySnapshot) {
+      return const {
+        'currentUser': {
+          'profile': {'displayName': 'حمیدرضا', 'timeZone': 'Asia/Tehran'},
+        },
+        'treatmentPlans': <Map<String, dynamic>>[],
+        'doseOccurrences': <Map<String, dynamic>>[],
+        'careEvents': <Map<String, dynamic>>[],
+      };
+    }
     throw const LifeMateApiException(
       statusCode: 404,
       code: 'route_not_found',
