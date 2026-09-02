@@ -6,6 +6,26 @@ import 'package:lifemate_client/lifemate_client.dart';
 
 import 'profile_theme.dart';
 
+class LifeMateProfileAdditionalAction {
+  const LifeMateProfileAdditionalAction({
+    this.key,
+    required this.icon,
+    required this.iconColor,
+    required this.label,
+    required this.onTap,
+    this.subtitle,
+    this.semanticLabel,
+  });
+
+  final Key? key;
+  final IconData icon;
+  final Color iconColor;
+  final String label;
+  final String? subtitle;
+  final String? semanticLabel;
+  final VoidCallback onTap;
+}
+
 class LifeMateSharedProfileScreen extends StatelessWidget {
   const LifeMateSharedProfileScreen({
     super.key,
@@ -25,6 +45,7 @@ class LifeMateSharedProfileScreen extends StatelessWidget {
     required this.onReferral,
     required this.onSupport,
     required this.onManageSubscriptions,
+    this.additionalActions = const <LifeMateProfileAdditionalAction>[],
   });
 
   final LifeMateApiClient apiClient;
@@ -43,6 +64,7 @@ class LifeMateSharedProfileScreen extends StatelessWidget {
   final VoidCallback onReferral;
   final VoidCallback onSupport;
   final VoidCallback onManageSubscriptions;
+  final List<LifeMateProfileAdditionalAction> additionalActions;
 
   @override
   Widget build(BuildContext context) {
@@ -192,6 +214,24 @@ class LifeMateSharedProfileScreen extends StatelessWidget {
                         secondaryText: theme.secondaryText,
                         onTap: onSupport,
                       ),
+                      for (final action in additionalActions) ...[
+                        const Divider(height: 1, indent: 60, endIndent: 20),
+                        Semantics(
+                          button: true,
+                          label: action.semanticLabel ?? action.label,
+                          child: _ProfileMenuTile(
+                            key: action.key,
+                            icon: action.icon,
+                            iconColor: action.iconColor,
+                            label: action.label,
+                            subtitle: action.subtitle,
+                            fontFamily: fontFamily,
+                            titleColor: theme.titleColor,
+                            secondaryText: theme.secondaryText,
+                            onTap: action.onTap,
+                          ),
+                        ),
+                      ],
                     ],
                   ),
                 ),
