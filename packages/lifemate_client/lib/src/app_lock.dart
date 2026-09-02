@@ -4,7 +4,7 @@
 /// LifeMate UI, but must never gate Supabase refresh-token access or background
 /// reminder/sync work behind an interactive biometric prompt.
 class LifeMateAppLockPolicy {
-  const LifeMateAppLockPolicy({
+  LifeMateAppLockPolicy({
     required this.enabled,
     this.relockAfter = const Duration(minutes: 5),
   }) : assert(!relockAfter.isNegative);
