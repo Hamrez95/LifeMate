@@ -16,6 +16,7 @@ requireText('--dart-define="ENABLE_PHONE_OTP=true"', 'Phone OTP enabled');
 requireText('--dart-define="ENABLE_WOMEN_CALENDAR_PILOT=true"', 'Women Health pilot enabled');
 requireText('--dart-define="ENABLE_GOOGLE_AUTH=false"', 'unverified Google auth remains fail-closed');
 requireText('(cd "$api" && deno task test --allow-read=../..)', 'production API unit test suite');
+requireText('node tools/release/verify-production-db-contract.mjs', 'production DB contract preflight');
 requireText('supabase functions deploy lifemate-api', 'exact-main API deployment');
 requireText('LIFEMATE_RELEASE_VERSION', 'deployed API release identity');
 requireText('.version == $version', 'deployed API exact-main verification');
@@ -40,6 +41,15 @@ requireText('features:{phoneOtp:true,womenCalendarPilot:true,googleAuth:false}',
 requireText('SHA256SUMS.txt', 'artifact checksums');
 requireText('manifest.json', 'immutable manifest');
 
+const preflightIndex = workflow.indexOf(
+  'node tools/release/verify-production-db-contract.mjs',
+);
+const deployIndex = workflow.indexOf('supabase functions deploy lifemate-api');
+assert.ok(
+  preflightIndex >= 0 && deployIndex >= 0 && preflightIndex < deployIndex,
+  'production DB contract preflight must run before exact-main API deployment',
+);
+
 assert.ok(
   !workflow.includes('SUPABASE_SERVICE_ROLE_KEY'),
   'mobile full-test workflow must never use service-role credentials',
@@ -57,4 +67,4 @@ assert.ok(
   'release verification must not fail on pre-existing formatting outside its diff',
 );
 
-console.log('PASS: exact-main backend + split Android + web full-test contract');
+console.log('PASS: exact-main backend + DB preflight + split Android + web full-test contract');
