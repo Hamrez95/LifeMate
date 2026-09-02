@@ -45,7 +45,9 @@ LifeMateRemoteConfigClient _client(
   Map<String, dynamic> response, {
   String? cached,
   bool offline = false,
+  int failGetAttempts = 0,
 }) {
+  var getAttempts = 0;
   return LifeMateRemoteConfigClient(
     baseUri: Uri.parse('https://example.test'),
     product: 'wellmate',
@@ -57,7 +59,10 @@ LifeMateRemoteConfigClient _client(
     cacheWrite: (_, __) async {},
     httpClient: MockClient((request) async {
       if (request.method == 'POST') return http.Response('{}', 202);
-      if (offline) throw http.ClientException('offline');
+      getAttempts += 1;
+      if (offline || getAttempts <= failGetAttempts) {
+        throw http.ClientException('offline');
+      }
       return http.Response(jsonEncode(response), 200);
     }),
   );
@@ -152,6 +157,24 @@ void main() {
     expect(find.text('core-care'), findsOneWidget);
     expect(find.text('protected-off'), findsOneWidget);
     expect(find.text('protected-on'), findsNothing);
+    client.close();
+  });
+
+  testWidgets('retry clears the offline notice after remote config recovers', (
+    tester,
+  ) async {
+    final client = _client(_snapshot(), failGetAttempts: 1);
+    await tester.pumpWidget(_app(client));
+    await tester.pumpAndSettle();
+
+    expect(find.textContaining('Online settings'), findsOneWidget);
+    expect(find.text('core-home'), findsOneWidget);
+
+    await tester.tap(find.text('Try again'));
+    await tester.pumpAndSettle();
+
+    expect(find.textContaining('Online settings'), findsNothing);
+    expect(find.text('core-home'), findsOneWidget);
     client.close();
   });
 }
