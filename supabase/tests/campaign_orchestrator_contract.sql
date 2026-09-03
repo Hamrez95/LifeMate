@@ -92,14 +92,14 @@ begin
      or position('late_opt_out' in v_definition)=0 then
     raise exception 'worker delivery projection must re-check promotional consent immediately before send';
   end if;
-  if position("status='suppressed'" in replace(v_definition,' ',''))=0 then
+  if position('status=''suppressed''' in replace(v_definition,' ',''))=0 then
     raise exception 'late opt-out must terminally suppress delivery rather than retry it';
   end if;
 
   v_definition := lower(pg_get_functiondef(v_terminal));
-  if position("status='sending'" in replace(v_definition,' ',''))=0
-     or position("'completed'" in v_definition)=0
-     or position("'failed'" in v_definition)=0 then
+  if position('status=''sending''' in replace(v_definition,' ',''))=0
+     or position('''completed''' in v_definition)=0
+     or position('''failed''' in v_definition)=0 then
     raise exception 'terminal delivery changes must close the campaign execution';
   end if;
 
