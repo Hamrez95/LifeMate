@@ -47,6 +47,16 @@ void main() {
     );
   });
 
+  test('deletion-pending bootstrap has an explicit privacy-safe blocking state', () {
+    expect(source, contains("apiError?.code == 'account_deletion_pending'"));
+    expect(source, contains('حذف حساب در حال انجام است'));
+    expect(source, contains('Account deletion is in progress'));
+    expect(source, contains('اطلاعات حذف‌شده بازیابی نمی‌شوند'));
+    expect(source, contains('deleted data will not be restored'));
+    expect(source, contains("fa: 'بررسی دوباره'"));
+    expect(source, contains("en: 'Check again'"));
+  });
+
   test('token refresh and lifecycle resume do not trigger another OTP', () {
     expect(
       source,
