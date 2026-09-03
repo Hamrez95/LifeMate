@@ -6,16 +6,20 @@ on:
     paths:
       - 'supabase/functions/lifemate-worker/**'
       - 'supabase/functions/lifemate-kavenegar-sms-hook/**'
+      - 'supabase/infrastructure/**'
       - 'supabase/migrations/**'
       - 'supabase/bootstrap/**'
+      - 'tools/operations/worker_scheduler_contract_test.ts'
       - '.github/workflows/ecosystem-workers.yml'
   push:
     branches: [main, 'feat/ecosystem-data-foundation']
     paths:
       - 'supabase/functions/lifemate-worker/**'
       - 'supabase/functions/lifemate-kavenegar-sms-hook/**'
+      - 'supabase/infrastructure/**'
       - 'supabase/migrations/**'
       - 'supabase/bootstrap/**'
+      - 'tools/operations/worker_scheduler_contract_test.ts'
       - '.github/workflows/ecosystem-workers.yml'
 
 permissions:
@@ -38,12 +42,15 @@ jobs:
           deno fmt --check
           supabase/functions/lifemate-worker
           supabase/functions/lifemate-kavenegar-sms-hook
+          tools/operations/worker_scheduler_contract_test.ts
       - name: Type check outbox worker
         working-directory: supabase/functions/lifemate-worker
         run: deno task check
       - name: Test outbox worker policy
         working-directory: supabase/functions/lifemate-worker
         run: deno task test
+      - name: Verify worker scheduler infrastructure contract
+        run: deno run --allow-read tools/operations/worker_scheduler_contract_test.ts
       - name: Type check Kavenegar SMS hook
         working-directory: supabase/functions/lifemate-kavenegar-sms-hook
         run: deno task check
@@ -61,6 +68,7 @@ jobs:
           grep -Fq 'new Webhook(base64Secret)' supabase/functions/lifemate-kavenegar-sms-hook/handler.ts
           grep -Fq 'method: "POST"' supabase/functions/lifemate-kavenegar-sms-hook/provider.ts
           grep -Fq 'LIFEMATE_WORKER_TOKEN' supabase/functions/lifemate-worker/index.ts
+          grep -Fq 'schedulerTokenAccepted' supabase/functions/lifemate-worker/index.ts
           grep -Fq 'claim_outbox_messages_for_events' supabase/functions/lifemate-worker/index.ts
           grep -Fq 'fail_outbox_message_safely' supabase/functions/lifemate-worker/index.ts
           grep -Fq 'outbox_consumer_receipt_exists' supabase/functions/lifemate-worker/index.ts
