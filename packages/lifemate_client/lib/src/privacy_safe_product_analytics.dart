@@ -11,7 +11,7 @@ import 'lifemate_auth.dart';
 typedef LifeMateProductAnalyticsTokenProvider = Future<String?> Function();
 
 enum LifeMateProductEvent {
-  appOpen('app_open'),
+  appOpen('app_opened'),
   authLoginSucceeded('auth_login_succeeded'),
   authSessionRestored('auth_session_restored'),
   onboardingStarted('onboarding_started'),
