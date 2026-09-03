@@ -63,6 +63,8 @@ jobs:
         run: |
           set -euo pipefail
           psql "$TEST_DATABASE_URL" --set=ON_ERROR_STOP=1 \
+            --file=supabase/bootstrap/test_provider_compatibility_roles.sql
+          psql "$TEST_DATABASE_URL" --set=ON_ERROR_STOP=1 \
             --file=supabase/bootstrap/legacy_lifemate_baseline.sql
           while IFS= read -r migration; do
             psql "$TEST_DATABASE_URL" --set=ON_ERROR_STOP=1 --file="$migration"
@@ -109,6 +111,14 @@ jobs:
               raise exception 'canonical migrations unexpectedly created provider-owned schemas';
             end if;
 
+            if exists (
+              select 1 from pg_roles
+              where rolname in ('anon','authenticated','service_role')
+                and (rolcanlogin or rolsuper or rolcreatedb or rolcreaterole or rolreplication or rolbypassrls)
+            ) then
+              raise exception 'provider compatibility test role regained elevated privilege';
+            end if;
+
             if not exists (
               select 1 from pg_extension where extname='pgcrypto'
             ) then
@@ -129,8 +139,6 @@ jobs:
               raise exception 'canonical LifeMate domain/control tables are incomplete';
             end if;
 
-            -- Application runtimes must never bypass RLS or regain cluster-level
-            -- privileges on a new PostgreSQL provider.
             if exists (
               select 1
               from pg_roles
@@ -144,9 +152,6 @@ jobs:
               raise exception 'portable application runtime role regained elevated privilege';
             end if;
 
-            -- Full logical pg_dump must bypass RLS. The reviewed extraction role
-            -- is therefore a deliberately narrow exception: NOLOGIN/read-only +
-            -- BYPASSRLS, but never superuser/DDL/replication/login capable.
             if not exists (
               select 1
               from pg_roles
@@ -176,6 +181,7 @@ jobs:
             echo '- canonical baseline + every ordered migration: passed'
             echo '- LifeMate-owned schemas/control tables: passed'
             echo '- provider-owned auth/storage/realtime schemas: absent'
+            echo '- provider compatibility roles: test-only NOLOGIN/NOBYPASSRLS fixtures'
             echo '- application runtime roles: present, non-elevated and NOBYPASSRLS'
             echo '- backup reader: NOLOGIN/read-only BYPASSRLS extraction role; no superuser/DDL/replication capability'
             echo '- backup format guard: standard pg_dump/pg_restore'
