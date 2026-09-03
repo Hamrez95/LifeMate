@@ -1,5 +1,6 @@
 export * from "./database_legacy.ts";
 
+import { createBootstrapAccountStateGuard } from "./bootstrap_account_state.ts";
 import { createCareCompletionNotificationStore } from "./care_completion_notifications.ts";
 import { rawContactRetirementEnabled } from "./contact_points.ts";
 import {
@@ -30,6 +31,7 @@ export function createLifeMateDatabase(
     databaseUrl,
     contactHashingSecret,
   );
+  const bootstrapAccountState = createBootstrapAccountStateGuard(databaseUrl);
   const identityResolver = createIdentityResolver(databaseUrl);
   const invitationRevocation = createInvitationRevocationStore(databaseUrl);
   const personCareRelationships = createPersonCareRelationshipManagementStore(
@@ -102,6 +104,8 @@ export function createLifeMateDatabase(
 
     const acceptances = parseLegalAcceptances(body.legalAcceptances);
     await privacyPreferences.assertAcceptancesCurrent(acceptances);
+    await bootstrapAccountState.assertAllowed(auth.id);
+
     const bootstrapBody = { ...body };
     delete bootstrapBody.legalAcceptances;
     delete bootstrapBody.registrationPreflight;
@@ -130,7 +134,10 @@ export function createLifeMateDatabase(
       if (!retirementBootstrap) {
         throw new Error("raw_contact_retirement_bootstrap_unavailable");
       }
-      const appUserId = await retirementBootstrap.bootstrapUser(auth, bootstrapBody);
+      const appUserId = await retirementBootstrap.bootstrapUser(
+        auth,
+        bootstrapBody,
+      );
       bootstrapped = await currentUser({ auth, appUserId });
     } else {
       bootstrapped = await database.bootstrapUser(auth, bootstrapBody);
