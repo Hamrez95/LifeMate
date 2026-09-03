@@ -15,6 +15,17 @@ const sql = postgres(databaseUrl, {
   connect_timeout: 5,
 });
 
+type Authorization = ReturnType<typeof createPregnancyAuthorization>;
+type AccessArgs = Parameters<Authorization["hasAccess"]>[0];
+
+async function assertAccess(
+  authorization: Authorization,
+  args: AccessArgs,
+  expected: boolean,
+): Promise<void> {
+  assertEquals(await authorization.hasAccess(args), expected);
+}
+
 Deno.test({
   name: "pregnancy authorization requires exact grant and explicit episode consent",
   sanitizeOps: false,
@@ -31,11 +42,22 @@ Deno.test({
     const grantId = crypto.randomUUID();
     const consentDocumentId = crypto.randomUUID();
     const consentRecordId = crypto.randomUUID();
-    const sourceKey = `pregnancy-auth-test:${crypto.randomUUID()}`;
     const consentVersion = `pregnancy-auth-${crypto.randomUUID()}`;
+    const idempotencyHash = crypto.randomUUID().replaceAll("-", "").repeat(2);
     const authorization = createPregnancyAuthorization(databaseUrl);
 
     try {
+      const functionDefinitionRows = await sql`
+        select pg_get_functiondef(
+          'security.can_access_pregnancy_scope(uuid,uuid,uuid,character varying,timestamp with time zone)'::regprocedure
+        ) as definition
+      `;
+      const functionDefinition = String(
+        functionDefinitionRows[0]?.definition ?? "",
+      ).toLowerCase();
+      assertEquals(functionDefinition.includes("commerce."), false);
+      assertEquals(functionDefinition.includes("network."), false);
+
       await sql`
         insert into identity.accounts(id,status) values
           (${ownerAccountId}::uuid,'Active'),
@@ -62,33 +84,33 @@ Deno.test({
           creation_idempotency_key_hash
         ) values (
           ${episodeId}::uuid,${ownerPersonId}::uuid,'active',now(),
-          ${"a".repeat(64)}
+          ${idempotencyHash}
         )
       `;
 
-      // The owner's Self link is sufficient for owner access.
-      assertEquals(await authorization.hasAccess({
+      // The owner's active Self link is sufficient for owner access.
+      await assertAccess(authorization, {
         callerAccountId: ownerAccountId,
         subjectPersonId: ownerPersonId,
         episodeId,
         scope: "pregnancy.summary.read",
-      }), true);
-      assertEquals(await authorization.hasAccess({
+      }, true);
+      await assertAccess(authorization, {
         callerAccountId: ownerAccountId,
         subjectPersonId: ownerPersonId,
         episodeId,
         scope: "pregnancy.owner.manage",
-      }), true);
+      }, true);
 
       // Knowing canonical UUIDs is never authorization.
-      assertEquals(await authorization.hasAccess({
+      await assertAccess(authorization, {
         callerAccountId: unrelatedAccountId,
         subjectPersonId: ownerPersonId,
         episodeId,
         scope: "pregnancy.summary.read",
-      }), false);
+      }, false);
 
-      // A natural relationship does not create a health grant.
+      // A natural relationship does not create a health grant or authorize PHI.
       await sql`
         insert into network.person_relationships(
           id,source_person_id,target_person_id,relationship_type,status
@@ -97,12 +119,12 @@ Deno.test({
           ${ownerPersonId}::uuid,'Spouse','Active'
         )
       `;
-      assertEquals(await authorization.hasAccess({
+      await assertAccess(authorization, {
         callerAccountId: partnerAccountId,
         subjectPersonId: ownerPersonId,
         episodeId,
         scope: "pregnancy.summary.read",
-      }), false);
+      }, false);
       const relationshipGrantCount = await sql`
         select count(*)::int as count
         from security.access_grants
@@ -111,28 +133,14 @@ Deno.test({
       `;
       assertEquals(Number(relationshipGrantCount[0].count), 0);
 
-      // Commercial entitlement also cannot authorize another Person's PHI.
-      const careFeature = await sql`
-        select id from commerce.features where code='care.basic' limit 1
-      `;
-      if (careFeature[0]) {
-        await sql`
-          insert into commerce.entitlements(
-            grantee_account_id,beneficiary_person_id,feature_id,
-            source,source_key,status,starts_at_utc
-          ) values (
-            ${partnerAccountId}::uuid,${ownerPersonId}::uuid,
-            ${careFeature[0].id}::uuid,'ADMIN_GRANT',${sourceKey},
-            'Active',now()
-          )
-        `;
-      }
-      assertEquals(await authorization.hasAccess({
+      // Commerce is structurally absent from the resolver, so entitlement state
+      // cannot authorize pregnancy PHI without an explicit health grant/consent.
+      await assertAccess(authorization, {
         callerAccountId: partnerAccountId,
         subjectPersonId: ownerPersonId,
         episodeId,
         scope: "pregnancy.summary.read",
-      }), false);
+      }, false);
 
       // A grant without contextual consent is still denied.
       await sql`
@@ -149,12 +157,12 @@ Deno.test({
         insert into security.access_grant_scopes(grant_id,scope)
         values (${grantId}::uuid,'pregnancy.summary.read')
       `;
-      assertEquals(await authorization.hasAccess({
+      await assertAccess(authorization, {
         callerAccountId: partnerAccountId,
         subjectPersonId: ownerPersonId,
         episodeId,
         scope: "pregnancy.summary.read",
-      }), false);
+      }, false);
 
       await sql`
         insert into consent.consent_documents(
@@ -176,26 +184,26 @@ Deno.test({
         )
       `;
 
-      assertEquals(await authorization.hasAccess({
+      await assertAccess(authorization, {
         callerAccountId: partnerAccountId,
         subjectPersonId: ownerPersonId,
         episodeId,
         scope: "pregnancy.summary.read",
-      }), true);
+      }, true);
 
       // Scope shaping is exact; summary does not imply observations or owner control.
-      assertEquals(await authorization.hasAccess({
+      await assertAccess(authorization, {
         callerAccountId: partnerAccountId,
         subjectPersonId: ownerPersonId,
         episodeId,
         scope: "pregnancy.observations.read",
-      }), false);
-      assertEquals(await authorization.hasAccess({
+      }, false);
+      await assertAccess(authorization, {
         callerAccountId: partnerAccountId,
         subjectPersonId: ownerPersonId,
         episodeId,
         scope: "pregnancy.owner.manage",
-      }), false);
+      }, false);
 
       // Consent revocation takes effect on the next server authorization check.
       await sql`
@@ -203,12 +211,12 @@ Deno.test({
         set status='Revoked',revoked_at_utc=now(),updated_at_utc=now()
         where id=${consentRecordId}::uuid
       `;
-      assertEquals(await authorization.hasAccess({
+      await assertAccess(authorization, {
         callerAccountId: partnerAccountId,
         subjectPersonId: ownerPersonId,
         episodeId,
         scope: "pregnancy.summary.read",
-      }), false);
+      }, false);
       await sql`
         update consent.consent_records
         set status='Granted',revoked_at_utc=null,granted_at_utc=now(),
@@ -222,24 +230,25 @@ Deno.test({
         set status='Revoked',revoked_at_utc=now(),updated_at_utc=now()
         where id=${grantId}::uuid
       `;
-      assertEquals(await authorization.hasAccess({
+      await assertAccess(authorization, {
         callerAccountId: partnerAccountId,
         subjectPersonId: ownerPersonId,
         episodeId,
         scope: "pregnancy.summary.read",
-      }), false);
+      }, false);
       await sql`
         update security.access_grants
         set status='Active',revoked_at_utc=null,
-            expires_at_utc=now()-interval '1 second',updated_at_utc=now()
+            expires_at_utc=now()-interval '1 second',
+            updated_at_utc=now()
         where id=${grantId}::uuid
       `;
-      assertEquals(await authorization.hasAccess({
+      await assertAccess(authorization, {
         callerAccountId: partnerAccountId,
         subjectPersonId: ownerPersonId,
         episodeId,
         scope: "pregnancy.summary.read",
-      }), false);
+      }, false);
 
       // Shared access does not silently persist into ended pregnancy history.
       await sql`
@@ -252,23 +261,20 @@ Deno.test({
         set status='ended',outcome='other',ended_at_utc=now()
         where id=${episodeId}::uuid
       `;
-      assertEquals(await authorization.hasAccess({
+      await assertAccess(authorization, {
         callerAccountId: partnerAccountId,
         subjectPersonId: ownerPersonId,
         episodeId,
         scope: "pregnancy.summary.read",
-      }), false);
-      assertEquals(await authorization.hasAccess({
+      }, false);
+      await assertAccess(authorization, {
         callerAccountId: ownerAccountId,
         subjectPersonId: ownerPersonId,
         episodeId,
         scope: "pregnancy.summary.read",
-      }), true);
+      }, true);
     } finally {
       await closeLifeMateSqlClientsForTest().catch(() => undefined);
-      await sql`
-        delete from commerce.entitlements where source_key=${sourceKey}
-      `.catch(() => undefined);
       await sql`
         delete from consent.consent_records where id=${consentRecordId}::uuid
       `.catch(() => undefined);
@@ -285,24 +291,18 @@ Deno.test({
         delete from pregnancy.episodes where id=${episodeId}::uuid
       `.catch(() => undefined);
       await sql`
-        delete from core.account_person_links
-        where account_id in (
-          ${ownerAccountId}::uuid,${partnerAccountId}::uuid,
-          ${unrelatedAccountId}::uuid
+        delete from core.account_person_links where account_id in (
+          ${ownerAccountId}::uuid,${partnerAccountId}::uuid,${unrelatedAccountId}::uuid
         )
       `.catch(() => undefined);
       await sql`
-        delete from core.persons
-        where id in (
-          ${ownerPersonId}::uuid,${partnerPersonId}::uuid,
-          ${unrelatedPersonId}::uuid
+        delete from core.persons where id in (
+          ${ownerPersonId}::uuid,${partnerPersonId}::uuid,${unrelatedPersonId}::uuid
         )
       `.catch(() => undefined);
       await sql`
-        delete from identity.accounts
-        where id in (
-          ${ownerAccountId}::uuid,${partnerAccountId}::uuid,
-          ${unrelatedAccountId}::uuid
+        delete from identity.accounts where id in (
+          ${ownerAccountId}::uuid,${partnerAccountId}::uuid,${unrelatedAccountId}::uuid
         )
       `.catch(() => undefined);
       await sql.end({ timeout: 1 }).catch(() => undefined);
