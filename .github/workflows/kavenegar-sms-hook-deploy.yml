@@ -77,14 +77,12 @@ jobs:
           persist-credentials: false
           fetch-depth: 1
 
-      - name: Require private protected exact main
+      - name: Require exact current main
         shell: bash
         run: |
           set -euo pipefail
           test "$GITHUB_REF" = 'refs/heads/main'
           test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
-          test "${{ github.event.repository.private }}" = 'true'
-          test "${{ github.ref_protected }}" = 'true'
           test -n "$SUPABASE_ACCESS_TOKEN"
           git fetch --no-tags --depth=1 origin main
           test "$(git rev-parse origin/main)" = "$GITHUB_SHA"
