@@ -192,7 +192,7 @@ on conflict do nothing;
 
 insert into messaging.campaign_policies(policy_key,value_json,value_type,updated_by_account_id)
 select 'second_confirmation.enabled','false'::jsonb,'boolean',m.account_id
-from admin.members m join admin.member_roles mr on mr.member_account_id=m.account_id
+from admin.members m join admin.member_roles mr on mr.account_id=m.account_id
 join admin.roles r on r.id=mr.role_id
 where r.code='founder' and m.status='Active'
 order by m.created_at_utc
