@@ -1,15 +1,15 @@
 begin;
 
-insert into admin.permission_catalog(permission_code, description, risk_level)
-values ('finance.scenario.write','Create and version canonical finance scenarios','HIGH_RISK')
-on conflict (permission_code) do update
+insert into admin.permissions(code, domain, description, risk_level)
+values ('finance.scenario.write','finance','Create and version canonical finance scenarios','HIGH_RISK')
+on conflict (code) do update
 set description = excluded.description,
     risk_level = excluded.risk_level;
 
-insert into admin.role_permissions(role_code, permission_code)
-values
-  ('Founder','finance.scenario.write'),
-  ('SuperAdmin','finance.scenario.write')
+insert into admin.role_permissions(role_id, permission_code)
+select roles.id, 'finance.scenario.write'
+from admin.roles
+where roles.code in ('Founder','SuperAdmin')
 on conflict do nothing;
 
 create table if not exists admin.finance_scenarios (
