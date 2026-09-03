@@ -13,7 +13,7 @@ end $$;
 
 grant usage on schema pregnancy to lifemate_edge_runtime,lifemate_backup_reader;
 
-create table pregnancy.episodes (
+create table if not exists pregnancy.episodes (
   id uuid primary key default gen_random_uuid(),
   mother_person_id uuid not null references core.persons(id) on delete cascade,
   status varchar(16) not null default 'draft'
@@ -91,15 +91,15 @@ create table pregnancy.episodes (
   )
 );
 
-create unique index ux_pregnancy_one_active_per_mother
+create unique index if not exists ux_pregnancy_one_active_per_mother
   on pregnancy.episodes(mother_person_id)
   where status='active';
-create unique index ux_pregnancy_creation_idempotency
+create unique index if not exists ux_pregnancy_creation_idempotency
   on pregnancy.episodes(mother_person_id,creation_idempotency_key_hash);
-create index ix_pregnancy_episode_mother_history
+create index if not exists ix_pregnancy_episode_mother_history
   on pregnancy.episodes(mother_person_id,created_at_utc desc,id);
 
-create table pregnancy.dating_revisions (
+create table if not exists pregnancy.dating_revisions (
   id uuid primary key default gen_random_uuid(),
   episode_id uuid not null references pregnancy.episodes(id) on delete cascade,
   revision_number integer not null check (revision_number >= 1),
@@ -157,12 +157,12 @@ create table pregnancy.dating_revisions (
   )
 );
 
-create index ix_pregnancy_dating_episode_time
+create index if not exists ix_pregnancy_dating_episode_time
   on pregnancy.dating_revisions(
     episode_id,revision_number desc,created_at_utc desc
   );
 
-create table pregnancy.episode_events (
+create table if not exists pregnancy.episode_events (
   id uuid primary key default gen_random_uuid(),
   episode_id uuid not null references pregnancy.episodes(id) on delete cascade,
   event_type varchar(32) not null
@@ -185,7 +185,7 @@ create table pregnancy.episode_events (
   unique(episode_id,idempotency_key_hash)
 );
 
-create index ix_pregnancy_events_episode_time
+create index if not exists ix_pregnancy_events_episode_time
   on pregnancy.episode_events(episode_id,occurred_at_utc desc,id);
 
 create or replace function pregnancy.touch_episode_version()
@@ -202,6 +202,7 @@ $$;
 
 revoke all on function pregnancy.touch_episode_version() from public;
 
+drop trigger if exists trg_pregnancy_episode_touch on pregnancy.episodes;
 create trigger trg_pregnancy_episode_touch
 before update on pregnancy.episodes
 for each row execute function pregnancy.touch_episode_version();
@@ -236,16 +237,19 @@ grant select
   on pregnancy.episodes,pregnancy.dating_revisions,pregnancy.episode_events
   to lifemate_backup_reader;
 
+drop policy if exists lifemate_edge_runtime_access on pregnancy.episodes;
 create policy lifemate_edge_runtime_access
 on pregnancy.episodes
 for all to lifemate_edge_runtime
 using(true) with check(true);
 
+drop policy if exists lifemate_edge_runtime_access on pregnancy.dating_revisions;
 create policy lifemate_edge_runtime_access
 on pregnancy.dating_revisions
 for all to lifemate_edge_runtime
 using(true) with check(true);
 
+drop policy if exists lifemate_edge_runtime_access on pregnancy.episode_events;
 create policy lifemate_edge_runtime_access
 on pregnancy.episode_events
 for all to lifemate_edge_runtime

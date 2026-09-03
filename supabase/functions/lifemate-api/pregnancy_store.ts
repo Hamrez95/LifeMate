@@ -1,4 +1,4 @@
-import { getLifeMateSql, type LifeMateSql } from "./database_client.ts";
+import { getLifeMateSql } from "./database_client.ts";
 import type { PregnancyDatingMethod } from "./pregnancy_dating.ts";
 
 export type PregnancyEpisodeStatus = "draft" | "active" | "ended";
@@ -33,9 +33,14 @@ export type PregnancyDatingPatch = {
   gestationalAgeAtReferenceDays: number | null;
 };
 
-export type CreatePregnancyEpisodeInput = PregnancyDatingPatch & {
+export type CreatePregnancyEpisodeInput = {
   motherPersonId: string;
   status: "draft" | "active";
+  method: PregnancyDatingMethod | null;
+  lmpDate: string | null;
+  estimatedDueDate: string | null;
+  referenceDate: string | null;
+  gestationalAgeAtReferenceDays: number | null;
   idempotencyKey: string;
   actorAccountId?: string | null;
 };
@@ -94,13 +99,19 @@ async function sha256Hex(value: string): Promise<string> {
     .join("");
 }
 
-function isUniqueViolation(error: unknown): boolean {
-  return !!error && typeof error === "object" &&
-    String((error as Record<string, unknown>).code ?? "") === "23505";
+async function lockMother(tx: any, motherPersonId: string): Promise<void> {
+  // Serializes create/activate decisions per Person so two concurrent requests
+  // cannot race the partial one-active-episode unique index. The lock key is
+  // derived from the opaque UUID only and is transaction-scoped.
+  await tx`
+    select pg_advisory_xact_lock(
+      hashtextextended(${motherPersonId}::text, 0)
+    )
+  `;
 }
 
 async function selectEpisodeById(
-  sql: LifeMateSql,
+  sql: any,
   episodeId: string,
   motherPersonId: string,
 ): Promise<PregnancyEpisode | null> {
@@ -150,7 +161,9 @@ export function createPregnancyStore(databaseUrl: string) {
       requireIdempotencyKey(input.idempotencyKey),
     );
 
-    return await sql.begin(async (tx: LifeMateSql) => {
+    return await sql.begin(async (tx: any) => {
+      await lockMother(tx, input.motherPersonId);
+
       const existing = await tx`
         select *
         from pregnancy.episodes
@@ -160,40 +173,39 @@ export function createPregnancyStore(databaseUrl: string) {
       `;
       if (existing[0]) return episodeFromRow(existing[0]);
 
-      let created: Row;
-      try {
-        const rows = await tx`
-          insert into pregnancy.episodes(
-            mother_person_id,status,dating_method,lmp_date,
-            estimated_due_date,dating_reference_date,
-            gestational_age_at_reference_days,activated_at_utc,
-            creation_idempotency_key_hash
-          ) values (
-            ${input.motherPersonId}::uuid,
-            ${input.status},
-            ${input.method},
-            ${input.lmpDate}::date,
-            ${input.estimatedDueDate}::date,
-            ${input.referenceDate}::date,
-            ${input.gestationalAgeAtReferenceDays},
-            ${input.status === "active" ? new Date() : null},
-            ${idempotencyHash}
-          )
-          returning *
-        `;
-        created = rows[0];
-      } catch (error) {
-        if (!isUniqueViolation(error)) throw error;
-        const retry = await tx`
-          select *
+      if (input.status === "active") {
+        const active = await tx`
+          select id
           from pregnancy.episodes
           where mother_person_id=${input.motherPersonId}::uuid
-            and creation_idempotency_key_hash=${idempotencyHash}
+            and status='active'
           limit 1
         `;
-        if (retry[0]) return episodeFromRow(retry[0]);
-        throw new PregnancyStoreError("active_pregnancy_exists");
+        if (active[0]) {
+          throw new PregnancyStoreError("active_pregnancy_exists");
+        }
       }
+
+      const rows = await tx`
+        insert into pregnancy.episodes(
+          mother_person_id,status,dating_method,lmp_date,
+          estimated_due_date,dating_reference_date,
+          gestational_age_at_reference_days,activated_at_utc,
+          creation_idempotency_key_hash
+        ) values (
+          ${input.motherPersonId}::uuid,
+          ${input.status},
+          ${input.method},
+          ${input.lmpDate}::date,
+          ${input.estimatedDueDate}::date,
+          ${input.referenceDate}::date,
+          ${input.gestationalAgeAtReferenceDays},
+          ${input.status === "active" ? new Date() : null},
+          ${idempotencyHash}
+        )
+        returning *
+      `;
+      const created = rows[0];
 
       await tx`
         insert into pregnancy.episode_events(
@@ -216,7 +228,9 @@ export function createPregnancyStore(databaseUrl: string) {
     actorAccountId?: string | null;
   }): Promise<PregnancyEpisode> {
     const hash = await sha256Hex(requireIdempotencyKey(args.idempotencyKey));
-    return await sql.begin(async (tx: LifeMateSql) => {
+    return await sql.begin(async (tx: any) => {
+      await lockMother(tx, args.motherPersonId);
+
       const priorEvent = await tx`
         select 1
         from pregnancy.episode_events
@@ -249,29 +263,34 @@ export function createPregnancyStore(databaseUrl: string) {
         throw new PregnancyStoreError("pregnancy_not_draft");
       }
 
-      try {
-        const updated = await tx`
-          update pregnancy.episodes
-          set status='active',activated_at_utc=now()
-          where id=${args.episodeId}::uuid
-          returning *
-        `;
-        await tx`
-          insert into pregnancy.episode_events(
-            episode_id,event_type,from_status,to_status,actor_account_id,
-            idempotency_key_hash
-          ) values (
-            ${args.episodeId}::uuid,'activated','draft','active',
-            ${args.actorAccountId ?? null}::uuid,${hash}
-          )
-        `;
-        return episodeFromRow(updated[0]);
-      } catch (error) {
-        if (isUniqueViolation(error)) {
-          throw new PregnancyStoreError("active_pregnancy_exists");
-        }
-        throw error;
+      const anotherActive = await tx`
+        select id
+        from pregnancy.episodes
+        where mother_person_id=${args.motherPersonId}::uuid
+          and status='active'
+          and id<>${args.episodeId}::uuid
+        limit 1
+      `;
+      if (anotherActive[0]) {
+        throw new PregnancyStoreError("active_pregnancy_exists");
       }
+
+      const updated = await tx`
+        update pregnancy.episodes
+        set status='active',activated_at_utc=now()
+        where id=${args.episodeId}::uuid
+        returning *
+      `;
+      await tx`
+        insert into pregnancy.episode_events(
+          episode_id,event_type,from_status,to_status,actor_account_id,
+          idempotency_key_hash
+        ) values (
+          ${args.episodeId}::uuid,'activated','draft','active',
+          ${args.actorAccountId ?? null}::uuid,${hash}
+        )
+      `;
+      return episodeFromRow(updated[0]);
     });
   }
 
@@ -291,7 +310,7 @@ export function createPregnancyStore(databaseUrl: string) {
     actorAccountId?: string | null;
   }): Promise<PregnancyEpisode> {
     const hash = await sha256Hex(requireIdempotencyKey(args.idempotencyKey));
-    return await sql.begin(async (tx: LifeMateSql) => {
+    return await sql.begin(async (tx: any) => {
       const prior = await tx`
         select 1 from pregnancy.dating_revisions
         where episode_id=${args.episodeId}::uuid
@@ -388,7 +407,7 @@ export function createPregnancyStore(databaseUrl: string) {
     actorAccountId?: string | null;
   }): Promise<PregnancyEpisode> {
     const hash = await sha256Hex(requireIdempotencyKey(args.idempotencyKey));
-    return await sql.begin(async (tx: LifeMateSql) => {
+    return await sql.begin(async (tx: any) => {
       const prior = await tx`
         select 1 from pregnancy.episode_events
         where episode_id=${args.episodeId}::uuid

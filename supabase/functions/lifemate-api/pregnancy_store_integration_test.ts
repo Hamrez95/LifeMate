@@ -125,10 +125,11 @@ Deno.test({
       assertEquals(ended.outcome, "pregnancy_loss");
       assertEquals(ended.version, 3);
 
+      // A later pregnancy may become active without fabricating LMP/EDD.
       const second = await store.createEpisode({
         motherPersonId,
         status: "active",
-        method: null as never,
+        method: null,
         lmpDate: null,
         estimatedDueDate: null,
         referenceDate: null,
@@ -137,6 +138,7 @@ Deno.test({
       });
       secondEpisodeId = second.id;
       assertEquals(second.status, "active");
+      assertEquals(second.datingMethod, null);
       assertEquals((await store.getCurrentEpisode(motherPersonId))?.id, second.id);
       assertEquals((await store.listHistory(motherPersonId)).length, 2);
 
