@@ -70,6 +70,7 @@ jobs:
         run: |
           set -euo pipefail
           test -f supabase/bootstrap/legacy_lifemate_baseline.sql
+          test -f supabase/bootstrap/test_provider_compatibility_roles.sql
           python3 -m unittest tools/security/verify_portable_auth_boundary_test.py
           python3 tools/security/verify-portable-auth-boundary.py supabase/migrations
           if find backend-dotnet/src/LifeMate.Infrastructure/Persistence/Migrations \
@@ -97,7 +98,23 @@ jobs:
           done
 
       - name: Apply portable bootstrap
-        run: psql "$TEST_DATABASE_URL" --set=ON_ERROR_STOP=1 --file=supabase/bootstrap/legacy_lifemate_baseline.sql
+        shell: bash
+        run: |
+          set -euo pipefail
+          psql "$TEST_DATABASE_URL" --set=ON_ERROR_STOP=1 --file=supabase/bootstrap/test_provider_compatibility_roles.sql
+          psql "$TEST_DATABASE_URL" --set=ON_ERROR_STOP=1 --file=supabase/bootstrap/legacy_lifemate_baseline.sql
+          psql "$TEST_DATABASE_URL" --set=ON_ERROR_STOP=1 <<'SQL'
+          do $$
+          begin
+            if exists (
+              select 1 from pg_roles
+              where rolname in ('anon','authenticated','service_role')
+                and (rolcanlogin or rolsuper or rolcreatedb or rolcreaterole or rolreplication or rolbypassrls)
+            ) then
+              raise exception 'provider compatibility test role is not inert';
+            end if;
+          end $$;
+          SQL
 
       - name: Apply all canonical SQL migrations to fresh PostgreSQL
         shell: bash
@@ -189,6 +206,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+          psql "$TEST_DATABASE_URL" --set=ON_ERROR_STOP=1 --file=supabase/bootstrap/test_provider_compatibility_roles.sql >/dev/null
           psql "$TEST_DATABASE_URL" --set=ON_ERROR_STOP=1 --file=supabase/bootstrap/legacy_lifemate_baseline.sql >/dev/null
           while IFS= read -r migration; do
             if ! psql "$TEST_DATABASE_URL" --set=ON_ERROR_STOP=1 --file="$migration" >/dev/null; then
