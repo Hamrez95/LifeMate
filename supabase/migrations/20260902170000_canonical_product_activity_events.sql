@@ -32,7 +32,7 @@ create table if not exists analytics.product_activity_events (
 comment on table analytics.product_activity_events is
   'Privacy-safe append-only product activity facts. Never store PHI, free text, contact values, provider secrets or arbitrary client metadata.';
 comment on column analytics.product_activity_events.account_id is
-  'Canonical LifeMate account resolved server-side from the authenticated Supabase subject; never accepted from the client payload.';
+  'Canonical LifeMate account resolved server-side from the authenticated JWT subject; never accepted from the client payload.';
 comment on column analytics.product_activity_events.received_at_utc is
   'Server receive time and the canonical v1 activity clock. Client clock is intentionally not trusted in v1.';
 
@@ -63,9 +63,16 @@ set search_path = pg_catalog
 as $$
 declare
   v_account_id uuid;
+  v_auth_subject text;
   v_rows integer;
 begin
-  if auth.uid() is null then
+  v_auth_subject := coalesce(
+    nullif(current_setting('request.jwt.claim.sub', true), ''),
+    nullif(current_setting('request.jwt.claims', true), '')::jsonb ->> 'sub'
+  );
+
+  if v_auth_subject is null
+     or v_auth_subject !~* '^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$' then
     raise exception using errcode = '42501', message = 'analytics_auth_required';
   end if;
 
@@ -73,7 +80,7 @@ begin
     into v_account_id
     from lifemate.app_users u
     join identity.accounts a on a.legacy_app_user_id = u.id
-   where u.auth_subject = auth.uid()::text
+   where u.auth_subject = lower(v_auth_subject)
      and u.status = 'Active'
    limit 1;
 
@@ -139,6 +146,6 @@ revoke all on function public.record_product_activity_event(uuid,varchar,varchar
 grant execute on function public.record_product_activity_event(uuid,varchar,varchar,smallint,varchar,varchar,varchar,varchar,varchar) to authenticated;
 
 comment on function public.record_product_activity_event(uuid,varchar,varchar,smallint,varchar,varchar,varchar,varchar,varchar) is
-  'Narrow authenticated ingestion contract for privacy-safe product activity. Resolves canonical account from auth.uid(), deduplicates by event_id and accepts no arbitrary metadata.';
+  'Narrow authenticated ingestion contract for privacy-safe product activity. Resolves canonical account from the verified JWT subject, deduplicates by event_id and accepts no arbitrary metadata.';
 
 commit;
