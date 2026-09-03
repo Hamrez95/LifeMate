@@ -17,6 +17,7 @@ import { createProviderAuthSubjectResolver } from "./provider_auth_subject.ts";
 import { createResearchExportRuntime } from "./research_export_runtime.ts";
 import { createResearchExportSignerRoute } from "./research_export_signer_route.ts";
 import { loadWorkerDatabaseUrl } from "./runtime_database.ts";
+import { schedulerTokenAccepted } from "./scheduler_auth.ts";
 
 const databaseUrl = await loadWorkerDatabaseUrl();
 const supabaseUrl = Deno.env.get("SUPABASE_URL");
@@ -121,7 +122,11 @@ Deno.serve(async (request: Request) => {
     return response(503, { error: "worker_not_configured" });
   }
   const supplied = request.headers.get("x-lifemate-worker-token") ?? "";
-  if (!constantTimeEqual(workerToken, supplied)) {
+  const operatorAuthenticated = constantTimeEqual(workerToken, supplied);
+  const schedulerAuthenticated = operatorAuthenticated
+    ? false
+    : await schedulerTokenAccepted(sql, supplied);
+  if (!operatorAuthenticated && !schedulerAuthenticated) {
     return response(401, { error: "unauthorized" });
   }
 
