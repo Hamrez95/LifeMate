@@ -17,10 +17,10 @@ select '96500000-0000-4000-8000-000000000001',id,'96500000-0000-4000-8000-000000
 from admin.roles where code='founder';
 
 insert into consent.consent_documents(
-  id,purpose,version,jurisdiction,title,document_hash,status,effective_at_utc
+  id,purpose,version,jurisdiction,title,document_hash,status,effective_at_utc,content_uri
 ) values
-('96500000-0000-4000-8000-000000000101','privacy_notice','v1','GLOBAL','Privacy notice',repeat('a',64),'Active',now()),
-('96500000-0000-4000-8000-000000000102','legal_terms','v2','GLOBAL','Terms',repeat('b',64),'Draft',null);
+('96500000-0000-4000-8000-000000000101','privacy_notice','v1','GLOBAL','Privacy notice',repeat('a',64),'Active',now(),'https://legal.lifemate.app/privacy/v1'),
+('96500000-0000-4000-8000-000000000102','legal_terms','v2','GLOBAL','Terms',repeat('b',64),'Draft',null,null);
 
 insert into consent.legal_acceptances(
   account_id,actor_account_id,document_id,document_hash,source,accepted_at_utc
