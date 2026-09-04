@@ -73,14 +73,19 @@ export async function processResearchExport(input: {
 }
 
 async function sha256Hex(bytes: Uint8Array): Promise<string> {
-  const digest = await crypto.subtle.digest("SHA-256", bytes);
+  const digest = await crypto.subtle.digest(
+    "SHA-256",
+    Uint8Array.from(bytes).buffer,
+  );
   return [...new Uint8Array(digest)]
     .map((value) => value.toString(16).padStart(2, "0"))
     .join("");
 }
 
 function permanentFormatReason(error: unknown): string {
-  const raw = error instanceof Error ? error.message : "research_export_format_failed";
+  const raw = error instanceof Error
+    ? error.message
+    : "research_export_format_failed";
   const normalized = raw.toLowerCase().replace(/[^a-z0-9_.-]/g, "_");
   return /^[a-z][a-z0-9_.-]{2,99}$/.test(normalized)
     ? normalized
