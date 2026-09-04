@@ -209,8 +209,13 @@ jobs:
           psql "$TEST_DATABASE_URL" --set=ON_ERROR_STOP=1 --file=supabase/bootstrap/test_provider_compatibility_roles.sql >/dev/null
           psql "$TEST_DATABASE_URL" --set=ON_ERROR_STOP=1 --file=supabase/bootstrap/legacy_lifemate_baseline.sql >/dev/null
           while IFS= read -r migration; do
-            if ! psql "$TEST_DATABASE_URL" --set=ON_ERROR_STOP=1 --file="$migration" >/dev/null; then
+            echo "Rerunning $migration"
+            stderr="$RUNNER_TEMP/migration-rerun.stderr"
+            : > "$stderr"
+            if ! psql "$TEST_DATABASE_URL" --set=ON_ERROR_STOP=1 --file="$migration" >/dev/null 2>"$stderr"; then
               echo "::error file=$migration::Canonical migration is not idempotent"
+              echo "Failed migration: $migration"
+              cat "$stderr"
               exit 1
             fi
           done < <(find supabase/migrations -maxdepth 1 -type f -name '*.sql' | sort)
