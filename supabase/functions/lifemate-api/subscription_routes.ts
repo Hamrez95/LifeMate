@@ -82,7 +82,9 @@ export function createSubscriptionRouteHandler(databaseUrl: string) {
     if (
       request.method === "GET" && path === "/api/v1/subscription/gifts/status"
     ) {
-      const giftIntentId = new URL(request.url).searchParams.get("giftIntentId");
+      const giftIntentId = new URL(request.url).searchParams.get(
+        "giftIntentId",
+      );
       if (!giftIntentId) {
         throw new ApiError(
           400,
