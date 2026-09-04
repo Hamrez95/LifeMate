@@ -226,6 +226,9 @@ grant select on lifemate.medication_schedule_optimization_runs to lifemate_backu
 grant select on lifemate.medication_schedule_optimization_changes to lifemate_backup_reader;
 grant select on lifemate.dose_occurrence_overrides to lifemate_backup_reader;
 
+drop policy if exists lifemate_edge_runtime_access on lifemate.medication_schedule_optimization_runs;
+drop policy if exists lifemate_edge_runtime_access on lifemate.medication_schedule_optimization_changes;
+drop policy if exists lifemate_edge_runtime_access on lifemate.dose_occurrence_overrides;
 create policy lifemate_edge_runtime_access on lifemate.medication_schedule_optimization_runs
 for all to lifemate_edge_runtime using(true) with check(true);
 create policy lifemate_edge_runtime_access on lifemate.medication_schedule_optimization_changes
