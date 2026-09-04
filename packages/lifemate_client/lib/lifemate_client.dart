@@ -33,6 +33,7 @@ export 'src/smart_reentry.dart';
 export 'src/smart_reentry_suppression_store.dart';
 export 'src/iran_phone.dart';
 export 'src/legal_privacy_api.dart';
+export 'src/legacy_mutation_importer.dart';
 export 'src/lifemate_api_client.dart';
 export 'src/lifemate_auth.dart';
 export 'src/lifemate_bootstrap.dart';
