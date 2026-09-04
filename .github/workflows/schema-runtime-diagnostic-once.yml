@@ -1,0 +1,56 @@
+name: schema-runtime-diagnostic-once
+
+on:
+  push:
+    branches:
+      - ci/edge-api-format-baseline-20260904
+
+permissions:
+  contents: write
+
+jobs:
+  diagnose:
+    runs-on: ubuntu-24.04
+    services:
+      postgres:
+        image: postgres:17.6-alpine
+        env:
+          POSTGRES_DB: lifemate_local_smoke
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d lifemate_local_smoke"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      TEST_DATABASE_URL: postgres://postgres:postgres@127.0.0.1:5432/lifemate_local_smoke
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
+        with:
+          persist-credentials: true
+      - name: Reproduce schema and runtime-role existence
+        shell: bash
+        run: |
+          set +e
+          {
+            psql "$TEST_DATABASE_URL" --set=ON_ERROR_STOP=1 --file=supabase/bootstrap/legacy_lifemate_baseline.sql
+            echo "BOOTSTRAP=$?"
+            while IFS= read -r migration; do
+              echo "MIGRATION=$migration"
+              psql "$TEST_DATABASE_URL" --set=ON_ERROR_STOP=1 --file="$migration"
+              status=$?
+              echo "STATUS=$status"
+              if [ "$status" -ne 0 ]; then break; fi
+            done < <(find supabase/migrations -maxdepth 1 -type f -name '*.sql' | sort)
+            psql "$TEST_DATABASE_URL" --set=ON_ERROR_STOP=1 --tuples-only --command="select rolname, rolsuper, rolbypassrls, rolcreaterole, rolcreatedb from pg_roles where rolname='lifemate_edge_runtime';"
+            echo "ROLE_QUERY=$?"
+          } > schema_runtime_diagnostic.txt 2>&1
+          rm .github/workflows/schema-runtime-diagnostic-once.yml
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add schema_runtime_diagnostic.txt .github/workflows/schema-runtime-diagnostic-once.yml
+          git commit -m 'ci: capture runtime schema diagnostic'
+          git push origin HEAD:ci/edge-api-format-baseline-20260904
