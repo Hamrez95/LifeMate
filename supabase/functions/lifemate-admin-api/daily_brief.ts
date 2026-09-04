@@ -52,11 +52,15 @@ function recentChange(
 ): DailyBriefItem | null {
   const series = value.series;
   if (!series || series.length < 14) return null;
-  const recent = series.slice(-7).reduce((sum, point) => sum + point.value, 0);
-  const previous = series.slice(-14, -7).reduce(
-    (sum, point) => sum + point.value,
-    0,
-  );
+
+  const comparisonWindow = series.slice(-14);
+  // A null data point means the canonical source could not establish a value.
+  // Do not coerce that uncertainty to zero and manufacture a trend.
+  if (comparisonWindow.some((point) => point.value === null)) return null;
+
+  const values = comparisonWindow.map((point) => point.value as number);
+  const recent = values.slice(-7).reduce((sum, point) => sum + point, 0);
+  const previous = values.slice(0, 7).reduce((sum, point) => sum + point, 0);
   if (recent === previous) {
     return {
       id: `change:${value.name}`,
