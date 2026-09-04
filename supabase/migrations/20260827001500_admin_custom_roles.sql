@@ -243,30 +243,10 @@ begin
   return v_response;
 end $$;
 
-revoke all on function admin.mutate_custom_role(uuid,character varying,character varying,character varying,smallint,bigint,character varying,uuid,character varying,character varying) from public;
-revoke all on function admin.mutate_custom_role_permission(uuid,character varying,character varying,character varying,bigint,character varying,uuid,character varying,character varying) from public;
-
-do $$
-declare v_role text;
-begin
-  foreach v_role in array array['anon','authenticated'] loop
-    if to_regrole(v_role) is not null then
-      execute format(
-        'revoke all on function admin.mutate_custom_role(uuid,character varying,character varying,character varying,smallint,bigint,character varying,uuid,character varying,character varying) from %I',
-        v_role
-      );
-      execute format(
-        'revoke all on function admin.mutate_custom_role_permission(uuid,character varying,character varying,character varying,bigint,character varying,uuid,character varying,character varying) from %I',
-        v_role
-      );
-    end if;
-  end loop;
-  if to_regrole('lifemate_admin_runtime') is not null then
-    grant execute on function admin.mutate_custom_role(uuid,character varying,character varying,character varying,smallint,bigint,character varying,uuid,character varying,character varying) to lifemate_admin_runtime;
-    grant execute on function admin.mutate_custom_role_permission(uuid,character varying,character varying,character varying,bigint,character varying,uuid,character varying,character varying) to lifemate_admin_runtime;
-  end if;
-end
-$$;
+revoke all on function admin.mutate_custom_role(uuid,character varying,character varying,character varying,smallint,bigint,character varying,uuid,character varying,character varying) from public,anon,authenticated;
+revoke all on function admin.mutate_custom_role_permission(uuid,character varying,character varying,character varying,bigint,character varying,uuid,character varying,character varying) from public,anon,authenticated;
+grant execute on function admin.mutate_custom_role(uuid,character varying,character varying,character varying,smallint,bigint,character varying,uuid,character varying,character varying) to lifemate_admin_runtime;
+grant execute on function admin.mutate_custom_role_permission(uuid,character varying,character varying,character varying,bigint,character varying,uuid,character varying,character varying) to lifemate_admin_runtime;
 
 comment on column admin.roles.version is 'Optimistic concurrency version for role policy changes.';
 comment on column admin.roles.created_by_account_id is 'Audit provenance UUID only; deliberately no identity FK so lifecycle operations are not blocked.';
