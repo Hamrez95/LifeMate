@@ -18,7 +18,7 @@ on:
       - '.github/workflows/cocoon-pregnancy-api-contract.yml'
 
 permissions:
-  contents: write
+  contents: read
 
 jobs:
   server-contract:
@@ -31,21 +31,12 @@ jobs:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
         with:
           show-progress: false
-          persist-credentials: true
-          ref: cocoon/f0-04-pregnancy-api-contracts
+          persist-credentials: false
       - uses: denoland/setup-deno@22d081ff2d3a40755e97629de92e3bcbfa7cf2ed
         with:
           deno-version: v2.9.4
-      - name: Canonicalize new pregnancy route sources
-        run: |
-          deno fmt pregnancy_routes.ts pregnancy_routes_test.ts
-          if ! git diff --quiet -- pregnancy_routes.ts pregnancy_routes_test.ts; then
-            git config user.name "github-actions[bot]"
-            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-            git add pregnancy_routes.ts pregnancy_routes_test.ts
-            git commit -m "style(cocoon): format pregnancy API contracts"
-            git push origin HEAD:cocoon/f0-04-pregnancy-api-contracts
-          fi
+      - name: Format pregnancy contract sources
+        run: deno fmt --check pregnancy_routes.ts pregnancy_routes_test.ts
       - name: Type check pregnancy contract sources
         run: >-
           deno check
