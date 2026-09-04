@@ -16,6 +16,14 @@ import {
 
 type Row = Record<string, any>;
 
+const allowedMoods: Record<string, string> = {
+  great: "Great",
+  good: "Good",
+  neutral: "Neutral",
+  low: "Low",
+  overwhelmed: "Overwhelmed",
+};
+
 export function createWomenCalendarRichPeriodStore(databaseUrl: string) {
   const sql = getLifeMateSql(databaseUrl);
   const base = createWomenCalendarV3Store(databaseUrl);
@@ -100,6 +108,19 @@ export function createWomenCalendarRichPeriodStore(databaseUrl: string) {
     const expectedVersion = nonNegativeInt(body.version ?? 0, "version");
     const shouldDelete = body.delete === true;
     const observation = normalizePeriodObservation(body);
+    const moodProvided = Object.hasOwn(body, "mood");
+    const mood = moodProvided ? normalizeMood(body.mood) : null;
+    const energyProvided = Object.hasOwn(body, "energyLevel");
+    const energyLevel = energyProvided
+      ? boundedInt(body.energyLevel, "energyLevel", 1, 5)
+      : null;
+    const shareProvided = Object.hasOwn(body, "shareSummaryWithCompanion");
+    const shareSummaryWithCompanion = shareProvided
+      ? requiredBoolean(
+        body.shareSummaryWithCompanion,
+        "shareSummaryWithCompanion",
+      )
+      : null;
     const painProvided = Object.hasOwn(body, "painLevel");
     const painLevel = painProvided ? optionalPain(body.painLevel) : null;
     const symptomsProvided = Object.hasOwn(body, "symptoms");
@@ -160,16 +181,18 @@ export function createWomenCalendarRichPeriodStore(databaseUrl: string) {
         const storedPain = painProvided && painLevel != null ? painLevel : 0;
         const rows = await tx`
           insert into lifemate.women_calendar_daily_logs(
-            id,owner_user_id,owner_person_id,logged_on,mood,energy_level,pain_level,
+            id,owner_person_id,logged_on,mood,energy_level,pain_level,
             pain_recorded,symptoms,symptom_observations,symptom_schema_version,
             private_notes,share_summary_with_companion,
             period_flow,blood_appearance,blood_texture,
             period_observation_schema_version,version,created_at_utc,updated_at_utc
           ) values (
-            ${id}::uuid,${appUserId}::uuid,${personId}::uuid,${loggedOn}::date,
-            'Neutral',3,${storedPain},${painProvided && painLevel != null},
+            ${id}::uuid,${personId}::uuid,${loggedOn}::date,
+            ${mood ?? "Neutral"},${energyLevel ?? 3},${storedPain},
+            ${painProvided && painLevel != null},
             ${legacySymptoms}::varchar[],${tx.json(symptomObservations)}::jsonb,
-            ${womenSymptomCatalogVersion},${privateNotes},false,
+            ${womenSymptomCatalogVersion},${privateNotes},
+            ${shareSummaryWithCompanion ?? false},
             ${observation.periodFlow},${observation.bloodAppearance},${observation.bloodTexture},
             ${periodObservationSchemaVersion},1,now(),now()
           ) returning *
@@ -181,7 +204,10 @@ export function createWomenCalendarRichPeriodStore(databaseUrl: string) {
       if (Number(existing.version) !== expectedVersion) throw staleDailyLog();
       const rows = await tx`
         update lifemate.women_calendar_daily_logs
-        set period_flow=case when ${
+        set mood=case when ${moodProvided} then ${mood} else mood end,
+            energy_level=case when ${energyProvided} then ${energyLevel} else energy_level end,
+            share_summary_with_companion=case when ${shareProvided} then ${shareSummaryWithCompanion} else share_summary_with_companion end,
+            period_flow=case when ${
         Object.hasOwn(body, "periodFlow")
       } then ${observation.periodFlow} else period_flow end,
             blood_appearance=case when ${
@@ -284,6 +310,39 @@ async function audit(
       'women_calendar_daily_log',${resourceId}::uuid,null,now()
     )
   `;
+}
+
+function normalizeMood(value: unknown): string {
+  const normalized = String(value ?? "").trim().toLowerCase();
+  const mood = allowedMoods[normalized];
+  if (!mood) {
+    throw new ApiError(
+      400,
+      "invalid_women_calendar_mood",
+      "Unsupported mood value.",
+    );
+  }
+  return mood;
+}
+
+function requiredBoolean(value: unknown, field: string): boolean {
+  if (typeof value !== "boolean") {
+    throw new ApiError(400, "invalid_boolean", `${field} must be a boolean.`);
+  }
+  return value;
+}
+
+function boundedInt(
+  value: unknown,
+  field: string,
+  min: number,
+  max: number,
+): number {
+  const number = Number(value);
+  if (!Number.isInteger(number) || number < min || number > max) {
+    throw new ApiError(400, "invalid_integer", `${field} is out of range.`);
+  }
+  return number;
 }
 
 function optionalPain(value: unknown): number | null {
