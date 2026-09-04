@@ -10,6 +10,7 @@ const cocoonAppVersion = '0.1.0+1';
 
 typedef CocoonRuntimeLoader = Future<LifeMateRuntimeConfigSnapshot> Function();
 typedef CocoonBootstrapLoader = Future<CocoonBootstrapSnapshot> Function();
+typedef CocoonSignOut = Future<void> Function();
 
 class CocoonStandaloneApp extends StatelessWidget {
   const CocoonStandaloneApp({
@@ -83,6 +84,7 @@ class CocoonAuthenticatedHost extends StatefulWidget {
     required this.locale,
     this.runtimeLoader,
     this.bootstrapLoader,
+    this.signOut,
     super.key,
   });
 
@@ -90,6 +92,7 @@ class CocoonAuthenticatedHost extends StatefulWidget {
   final Locale locale;
   final CocoonRuntimeLoader? runtimeLoader;
   final CocoonBootstrapLoader? bootstrapLoader;
+  final CocoonSignOut? signOut;
 
   @override
   State<CocoonAuthenticatedHost> createState() =>
@@ -166,7 +169,7 @@ class _CocoonAuthenticatedHostState extends State<CocoonAuthenticatedHost>
       _apply(next, snapshot.personId.isEmpty ? null : snapshot.personId);
     } on LifeMateApiException catch (error) {
       if (error.isUnauthorized) {
-        await LifeMateAuth.signOut();
+        await (widget.signOut?.call() ?? LifeMateAuth.signOut());
         _apply(CocoonEntryState.unauthenticated, null);
       } else if (error.statusCode == 0) {
         _apply(CocoonEntryState.offline, _personId);
