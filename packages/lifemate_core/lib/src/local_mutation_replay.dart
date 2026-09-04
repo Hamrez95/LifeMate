@@ -36,9 +36,7 @@ final class LifeMateMutationReplayTransportException implements Exception {
 }
 
 abstract interface class LifeMateMutationReplayTransport {
-  Future<LifeMateMutationReplayResponse> send(
-    LifeMateDurableMutation mutation,
-  );
+  Future<LifeMateMutationReplayResponse> send(LifeMateDurableMutation mutation);
 }
 
 /// Replays the #831 protected outbox without embedding product/network code in
