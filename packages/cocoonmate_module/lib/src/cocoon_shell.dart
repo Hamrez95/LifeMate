@@ -20,7 +20,8 @@ class _CocoonShellState extends State<CocoonShell> {
     return Directionality(
       textDirection: _fa ? TextDirection.rtl : TextDirection.ltr,
       child: switch (host.entryState) {
-        CocoonEntryState.loading => const Center(child: CircularProgressIndicator()),
+        CocoonEntryState.loading =>
+          const Center(child: CircularProgressIndicator()),
         CocoonEntryState.unauthenticated => _gate(
             Icons.lock_outline,
             t('Sign in to continue', 'برای ادامه وارد شوید'),
@@ -29,7 +30,8 @@ class _CocoonShellState extends State<CocoonShell> {
           ),
         CocoonEntryState.runtimeUnavailable => _gate(
             Icons.cloud_off_outlined,
-            t('CocoonMate is temporarily unavailable', 'کوکون‌میت موقتاً در دسترس نیست'),
+            t('CocoonMate is temporarily unavailable',
+                'کوکون‌میت موقتاً در دسترس نیست'),
             t('Retry', 'تلاش دوباره'),
             host.refresh,
           ),
@@ -62,7 +64,8 @@ class _CocoonShellState extends State<CocoonShell> {
     );
   }
 
-  Widget _gate(IconData icon, String title, String action, Future<void> Function() onPressed) {
+  Widget _gate(IconData icon, String title, String action,
+      Future<void> Function() onPressed) {
     return SafeArea(
       child: Center(
         child: Padding(
@@ -77,9 +80,12 @@ class _CocoonShellState extends State<CocoonShell> {
                   children: [
                     Icon(icon, size: 40),
                     const SizedBox(height: 16),
-                    Text(title, textAlign: TextAlign.center, style: Theme.of(context).textTheme.titleLarge),
+                    Text(title,
+                        textAlign: TextAlign.center,
+                        style: Theme.of(context).textTheme.titleLarge),
                     const SizedBox(height: 20),
-                    FilledButton(onPressed: () => onPressed(), child: Text(action)),
+                    FilledButton(
+                        onPressed: () => onPressed(), child: Text(action)),
                   ],
                 ),
               ),
@@ -120,7 +126,8 @@ class _CocoonShellState extends State<CocoonShell> {
         child: Center(
           child: Semantics(
             header: true,
-            child: Text(labels[_index], style: Theme.of(context).textTheme.headlineSmall),
+            child: Text(labels[_index],
+                style: Theme.of(context).textTheme.headlineSmall),
           ),
         ),
       ),
