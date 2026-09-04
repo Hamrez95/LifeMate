@@ -42,7 +42,7 @@ void main() {
     );
     final outbox = LifeMateLocalMutationOutbox(store: store);
     final importer = LifeMateLegacyMutationImporter(
-      legacyQueue: legacy,
+      legacyStorage: storage,
       outbox: outbox,
       apiBaseUri: Uri.parse('https://api.example.test'),
     );
@@ -103,7 +103,7 @@ void main() {
       ),
     );
     final importer = LifeMateLegacyMutationImporter(
-      legacyQueue: legacy,
+      legacyStorage: storage,
       outbox: outbox,
       apiBaseUri: Uri.parse('https://api.example.test'),
     );
@@ -113,6 +113,47 @@ void main() {
       throwsStateError,
     );
     expect(await legacy.pendingForAccount('account-a'), hasLength(1));
+    store.close();
+  });
+
+  test('imports records older than the legacy seven-day TTL without pruning', () async {
+    final storage = _MemoryStorage();
+    final old = LifeMateQueuedMutation(
+      id: 'account-a:123e4567-e89b-42d3-a456-426614174904',
+      accountId: 'account-a',
+      method: 'POST',
+      uri:
+          'https://api.example.test/api/v1/dose-occurrences/123e4567-e89b-42d3-a456-426614174013/report',
+      body: jsonEncode(<String, dynamic>{
+        'clientRequestId': '123e4567-e89b-42d3-a456-426614174904',
+        'status': 'taken',
+      }),
+      clientRequestId: '123e4567-e89b-42d3-a456-426614174904',
+      createdAtUtc: DateTime.utc(2026, 8, 1),
+    );
+    await storage.write(
+      'lifemate.offline_mutation.v2.expired-but-accepted',
+      jsonEncode(old.toJson()),
+    );
+
+    final database = sqlite3.openInMemory();
+    final store = LifeMateLocalHealthStore.forTesting(
+      database: database,
+      keyBytes: key,
+    );
+    final outbox = LifeMateLocalMutationOutbox(store: store);
+    final importer = LifeMateLegacyMutationImporter(
+      legacyStorage: storage,
+      outbox: outbox,
+      apiBaseUri: Uri.parse('https://api.example.test'),
+    );
+
+    expect(
+      await importer.importPending(namespace: namespace, timeZone: 'Asia/Tehran'),
+      1,
+    );
+    expect(storage.values, isEmpty);
+    expect(await outbox.list(namespace: namespace), hasLength(1));
     store.close();
   });
 
@@ -130,6 +171,7 @@ void main() {
       body: jsonEncode(<String, dynamic>{'clientRequestId': requestId}),
       clientRequestId: requestId,
     );
+    await storage.write('lifemate.offline_mutation.v2.malformed', '{bad-json');
 
     final database = sqlite3.openInMemory();
     final store = LifeMateLocalHealthStore.forTesting(
@@ -137,7 +179,7 @@ void main() {
       keyBytes: key,
     );
     final importer = LifeMateLegacyMutationImporter(
-      legacyQueue: legacy,
+      legacyStorage: storage,
       outbox: LifeMateLocalMutationOutbox(store: store),
       apiBaseUri: Uri.parse('https://api.example.test'),
     );
@@ -146,7 +188,7 @@ void main() {
       await importer.importPending(namespace: namespace, timeZone: 'UTC'),
       0,
     );
-    expect(await legacy.pendingForAccount('account-a'), hasLength(1));
+    expect(storage.values, hasLength(2));
     store.close();
   });
 }
