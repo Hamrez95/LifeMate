@@ -1,0 +1,53 @@
+name: cocoon-pregnancy-authorization
+
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - 'supabase/functions/lifemate-api/pregnancy_authorization.ts'
+      - 'supabase/functions/lifemate-api/pregnancy_authorization_test.ts'
+      - 'supabase/functions/lifemate-api/pregnancy_authorization_integration_test.ts'
+      - 'supabase/migrations/20260903202500_cocoon_pregnancy_authorization_scopes.sql'
+      - '.github/workflows/cocoon-pregnancy-authorization.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  targeted-check-test:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 8
+    defaults:
+      run:
+        working-directory: supabase/functions/lifemate-api
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
+        with:
+          show-progress: false
+          persist-credentials: false
+      - uses: denoland/setup-deno@22d081ff2d3a40755e97629de92e3bcbfa7cf2ed
+        with:
+          deno-version: v2.9.4
+      - name: Format changed authorization sources
+        run: >-
+          deno fmt --check
+          pregnancy_authorization.ts
+          pregnancy_authorization_test.ts
+          pregnancy_authorization_integration_test.ts
+      - name: Type check authorization sources
+        run: >-
+          deno check
+          pregnancy_authorization.ts
+          pregnancy_authorization_test.ts
+          pregnancy_authorization_integration_test.ts
+      - name: Unit authorization tests
+        run: deno test --no-check pregnancy_authorization_test.ts
+      - name: Security contract invariants
+        shell: bash
+        run: |
+          set -euo pipefail
+          grep -Fq 'pregnancy_access_denied' pregnancy_authorization.ts
+          grep -Fq 'pregnancy.owner.manage' pregnancy_authorization_test.ts
+          grep -Fq 'network.' pregnancy_authorization_integration_test.ts
+          grep -Fq 'commerce.' pregnancy_authorization_integration_test.ts
+          ! grep -Fq 'pregnancy.all' pregnancy_authorization.ts
