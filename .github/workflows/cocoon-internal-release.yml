@@ -1,0 +1,177 @@
+name: cocoon-internal-release
+
+on:
+  workflow_dispatch:
+    inputs:
+      release_name:
+        description: Cocoon internal release name, for example 0.1.0-internal.1
+        required: true
+        default: 0.1.0-internal.1
+        type: string
+      release_environment:
+        description: Endpoint environment baked into this candidate
+        required: true
+        default: production
+        type: choice
+        options:
+          - production
+          - nonproduction
+      confirm_build:
+        description: Type BUILD-COCOON-INTERNAL to confirm candidate creation
+        required: true
+        type: string
+  pull_request:
+    paths:
+      - 'cocoonmate/**'
+      - 'packages/cocoonmate_module/**'
+      - 'packages/lifemate_client/**'
+      - 'tools/release/prepare-cocoon-android.sh'
+      - '.github/workflows/cocoon-internal-release.yml'
+      - 'docs/release/cocoonmate-android-release.md'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: cocoon-internal-release-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  validate-and-build:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 35
+    env:
+      RELEASE_NAME: ${{ github.event_name == 'workflow_dispatch' && inputs.release_name || '0.1.0-ci.0' }}
+      RELEASE_ENVIRONMENT: ${{ github.event_name == 'workflow_dispatch' && inputs.release_environment || 'ci' }}
+      SUPABASE_URL: ${{ github.event_name == 'workflow_dispatch' && vars.SUPABASE_URL || 'https://ci.example.test' }}
+      LIFEMATE_API_BASE_URL: ${{ github.event_name == 'workflow_dispatch' && vars.LIFEMATE_API_BASE_URL || 'https://ci.example.test/functions/v1/lifemate-api' }}
+      SUPABASE_PUBLISHABLE_KEY: ${{ github.event_name == 'workflow_dispatch' && vars.SUPABASE_PUBLISHABLE_KEY || 'sb_publishable_ci_only_not_a_secret' }}
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
+        with:
+          show-progress: false
+          persist-credentials: false
+
+      - uses: subosito/flutter-action@4cab68ce0f1c7c924f688bff4792e044f1aeb30c
+        with:
+          flutter-version: '3.44.0'
+          channel: stable
+          cache: true
+
+      - name: Validate manual inputs
+        if: ${{ github.event_name == 'workflow_dispatch' }}
+        shell: bash
+        env:
+          CONFIRM_BUILD: ${{ inputs.confirm_build }}
+        run: |
+          set -euo pipefail
+          test "$GITHUB_REF" = 'refs/heads/main'
+          test "$CONFIRM_BUILD" = 'BUILD-COCOON-INTERNAL'
+          [[ "$RELEASE_NAME" =~ ^[0-9]+\.[0-9]+\.[0-9]+-internal\.[0-9]+$ ]]
+          test -n "$SUPABASE_PUBLISHABLE_KEY"
+
+      - name: Validate release tooling and environment guards
+        shell: bash
+        run: |
+          set -euo pipefail
+          bash -n tools/release/prepare-cocoon-android.sh
+          shellcheck tools/release/prepare-cocoon-android.sh
+
+          LIFEMATE_RELEASE_ENVIRONMENT=production \
+          SUPABASE_URL=https://bwdvmniywyyijjauipnh.supabase.co \
+          LIFEMATE_API_BASE_URL=https://bwdvmniywyyijjauipnh.supabase.co/functions/v1/lifemate-api \
+            bash tools/release/prepare-cocoon-android.sh verify-environment
+
+          if LIFEMATE_RELEASE_ENVIRONMENT=production \
+            SUPABASE_URL=https://staging.example.test \
+            LIFEMATE_API_BASE_URL=https://staging.example.test/functions/v1/lifemate-api \
+              bash tools/release/prepare-cocoon-android.sh verify-environment; then
+            echo '::error::production environment mismatch was not rejected'
+            exit 1
+          fi
+
+          if LIFEMATE_RELEASE_ENVIRONMENT=nonproduction \
+            SUPABASE_URL=https://bwdvmniywyyijjauipnh.supabase.co \
+            LIFEMATE_API_BASE_URL=https://bwdvmniywyyijjauipnh.supabase.co/functions/v1/lifemate-api \
+              bash tools/release/prepare-cocoon-android.sh verify-environment; then
+            echo '::error::non-production candidate accepted production origin'
+            exit 1
+          fi
+
+          if LIFEMATE_RELEASE_ENVIRONMENT=ci \
+            SUPABASE_URL=https://one.example.test \
+            LIFEMATE_API_BASE_URL=https://two.example.test/functions/v1/lifemate-api \
+              bash tools/release/prepare-cocoon-android.sh verify-environment; then
+            echo '::error::cross-environment API origin mismatch was not rejected'
+            exit 1
+          fi
+
+      - name: Prepare deterministic Cocoon Android identity
+        shell: bash
+        env:
+          LIFEMATE_RELEASE_ENVIRONMENT: ${{ env.RELEASE_ENVIRONMENT }}
+        run: bash tools/release/prepare-cocoon-android.sh prepare
+
+      - name: Resolve and verify Cocoon source
+        shell: bash
+        run: |
+          set -euo pipefail
+          (cd packages/cocoonmate_module && flutter pub get && flutter analyze --no-fatal-warnings --no-fatal-infos && flutter test)
+          (cd cocoonmate && flutter pub get && flutter analyze --no-fatal-warnings --no-fatal-infos && flutter test)
+
+      - name: Build immutable internal APK
+        working-directory: cocoonmate
+        shell: bash
+        run: |
+          set -euo pipefail
+          flutter build apk --debug \
+            --build-name="$RELEASE_NAME" \
+            --build-number="$GITHUB_RUN_NUMBER" \
+            --dart-define="SUPABASE_URL=$SUPABASE_URL" \
+            --dart-define="SUPABASE_PUBLISHABLE_KEY=$SUPABASE_PUBLISHABLE_KEY" \
+            --dart-define="LIFEMATE_API_BASE_URL=$LIFEMATE_API_BASE_URL"
+
+      - name: Verify package identity and create provenance manifest
+        shell: bash
+        run: |
+          set -euo pipefail
+          apk='cocoonmate/build/app/outputs/flutter-apk/app-debug.apk'
+          test -s "$apk"
+          aapt_bin="$(find "$ANDROID_HOME/build-tools" -type f -name aapt | sort -V | tail -n 1)"
+          test -x "$aapt_bin"
+          "$aapt_bin" dump badging "$apk" | grep -Fq "package: name='com.mylifemate.cocoonmate'"
+          "$aapt_bin" dump badging "$apk" | grep -Fq "application-label:'CocoonMate'"
+          "$aapt_bin" dump permissions "$apk" | grep -Fq 'android.permission.INTERNET'
+
+          mkdir -p dist
+          short_sha="${GITHUB_SHA:0:8}"
+          candidate="dist/cocoonmate-$RELEASE_NAME-$short_sha-$RELEASE_ENVIRONMENT-internal.apk"
+          cp "$apk" "$candidate"
+          apk_sha="$(sha256sum "$candidate" | awk '{print $1}')"
+          jq -n \
+            --arg application 'cocoonmate' \
+            --arg packageId 'com.mylifemate.cocoonmate' \
+            --arg releaseName "$RELEASE_NAME" \
+            --arg buildNumber "$GITHUB_RUN_NUMBER" \
+            --arg commit "$GITHUB_SHA" \
+            --arg workflowRun "$GITHUB_RUN_ID" \
+            --arg environment "$RELEASE_ENVIRONMENT" \
+            --arg apiOrigin "$LIFEMATE_API_BASE_URL" \
+            --arg sha256 "$apk_sha" \
+            --arg signing 'ephemeral Android debug signing; internal testing only' \
+            --arg builtAt "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+            '{schemaVersion:1,application:$application,packageId:$packageId,releaseName:$releaseName,buildNumber:$buildNumber,commit:$commit,workflowRunId:$workflowRun,environment:$environment,apiOrigin:$apiOrigin,artifactSha256:$sha256,signing:$signing,builtAtUtc:$builtAt,rebuildAfterQaForbidden:true}' \
+            > dist/cocoonmate-provenance.json
+          jq -e \
+            --arg sha "$GITHUB_SHA" \
+            --arg environment "$RELEASE_ENVIRONMENT" \
+            '.commit == $sha and .environment == $environment and .packageId == "com.mylifemate.cocoonmate" and .rebuildAfterQaForbidden == true' \
+            dist/cocoonmate-provenance.json >/dev/null
+
+      - name: Upload Cocoon candidate
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: cocoonmate-${{ env.RELEASE_NAME }}-${{ github.sha }}-${{ env.RELEASE_ENVIRONMENT }}
+          path: dist
+          if-no-files-found: error
+          retention-days: 30
