@@ -4,7 +4,7 @@ import { ApiError } from "./validation.ts";
 
 type Row = Record<string, unknown>;
 
-const products = new Set(["wellmate", "caremate"]);
+const products = new Set(["wellmate", "caremate", "cocoonmate"]);
 const platforms = new Set([
   "android",
   "ios",
