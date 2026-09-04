@@ -8,8 +8,16 @@ create table if not exists analytics.product_activity_events (
   product varchar(16) not null check (product in ('wellmate','caremate')),
   event_name varchar(64) not null check (
     event_name in (
-      'app_opened','auth_login_succeeded','auth_session_restored','onboarding_started','onboarding_completed',
-      'care_pairing_started','care_pairing_completed','care_access_revoked','offline_queue_enqueued','offline_queue_recovered'
+      'app_opened',
+      'auth_login_succeeded',
+      'auth_session_restored',
+      'onboarding_started',
+      'onboarding_completed',
+      'care_pairing_started',
+      'care_pairing_completed',
+      'care_access_revoked',
+      'offline_queue_enqueued',
+      'offline_queue_recovered'
     )
   ),
   definition_version smallint not null default 1 check (definition_version between 1 and 32767),
@@ -77,11 +85,13 @@ begin
     raise exception using errcode = '42501', message = 'analytics_auth_required';
   end if;
 
-  select a.id into v_account_id
-  from lifemate.app_users u
-  join identity.accounts a on a.legacy_app_user_id = u.id
-  where u.auth_subject = lower(v_auth_subject) and u.status = 'Active'
-  limit 1;
+  select a.id
+    into v_account_id
+    from lifemate.app_users u
+    join identity.accounts a on a.legacy_app_user_id = u.id
+   where u.auth_subject = lower(v_auth_subject)
+     and u.status = 'Active'
+   limit 1;
 
   if v_account_id is null then
     raise exception using errcode = '42501', message = 'analytics_account_unmapped';
@@ -91,8 +101,16 @@ begin
     raise exception using errcode = '22023', message = 'analytics_product_invalid';
   end if;
   if p_event_name not in (
-    'app_opened','auth_login_succeeded','auth_session_restored','onboarding_started','onboarding_completed',
-    'care_pairing_started','care_pairing_completed','care_access_revoked','offline_queue_enqueued','offline_queue_recovered'
+    'app_opened',
+    'auth_login_succeeded',
+    'auth_session_restored',
+    'onboarding_started',
+    'onboarding_completed',
+    'care_pairing_started',
+    'care_pairing_completed',
+    'care_access_revoked',
+    'offline_queue_enqueued',
+    'offline_queue_recovered'
   ) then
     raise exception using errcode = '22023', message = 'analytics_event_invalid';
   end if;
@@ -101,13 +119,34 @@ begin
   end if;
 
   insert into analytics.product_activity_events(
-    event_id,account_id,product,event_name,definition_version,release_version,platform,locale_family,connectivity,outcome
+    event_id,
+    account_id,
+    product,
+    event_name,
+    definition_version,
+    release_version,
+    platform,
+    locale_family,
+    connectivity,
+    outcome
   ) values (
-    p_event_id,v_account_id,p_product,p_event_name,p_definition_version,p_release_version,p_platform,p_locale_family,p_connectivity,p_outcome
-  ) on conflict (event_id) do nothing;
+    p_event_id,
+    v_account_id,
+    p_product,
+    p_event_name,
+    p_definition_version,
+    p_release_version,
+    p_platform,
+    p_locale_family,
+    p_connectivity,
+    p_outcome
+  )
+  on conflict (event_id) do nothing;
 
   get diagnostics v_rows = row_count;
-  if v_rows = 0 then return 'duplicate'; end if;
+  if v_rows = 0 then
+    return 'duplicate';
+  end if;
   return 'inserted';
 end;
 $$;
