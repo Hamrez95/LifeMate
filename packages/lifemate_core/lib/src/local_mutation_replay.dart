@@ -168,7 +168,7 @@ final class LifeMateLocalMutationReplayEngine {
   }
 
   static LifeMateMutationErrorClass? _retryClassFor(int status) {
-    if (status == 401 || status == 403) {
+    if (status == 401) {
       return LifeMateMutationErrorClass.authentication;
     }
     if (status == 408) return LifeMateMutationErrorClass.transport;
