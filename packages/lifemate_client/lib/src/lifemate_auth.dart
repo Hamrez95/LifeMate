@@ -81,8 +81,8 @@ class LifeMateAuth {
     final scheme = normalized.contains('cocoon')
         ? 'com.mylifemate.cocoonmate'
         : normalized.contains('care')
-            ? 'com.lifemate.caremate'
-            : 'com.lifemate.wellmate';
+        ? 'com.lifemate.caremate'
+        : 'com.lifemate.wellmate';
     return '$scheme://login-callback/';
   }
 
@@ -131,9 +131,10 @@ class LifeMateAuth {
   /// quota/rate errors stay failures because they do not prove a usable code
   /// was delivered. Provider messages are never rendered directly to users.
   static bool isPhoneOtpSendRateLimited(AuthException error) {
-    final description = '${error.message} $error'
-        .toLowerCase()
-        .replaceAll('_', ' ');
+    final description = '${error.message} $error'.toLowerCase().replaceAll(
+      '_',
+      ' ',
+    );
     return description.contains('over sms send rate limit') ||
         (description.contains('sms') &&
             description.contains('rate') &&
