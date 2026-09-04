@@ -12,9 +12,9 @@ import {
 } from "./pregnancy_dating.ts";
 import {
   createPregnancyStore,
-  PregnancyStoreError,
   type PregnancyEpisode,
   type PregnancyOutcome,
+  PregnancyStoreError,
 } from "./pregnancy_store.ts";
 import { ApiError, readJsonObject } from "./validation.ts";
 
@@ -31,7 +31,8 @@ type PregnancyEntitlementState =
   | "inactive"
   | "unknown";
 
-const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+const uuidPattern =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const isoDatePattern = /^\d{4}-\d{2}-\d{2}$/;
 
 function requiredUuid(value: unknown, code: string): string {
@@ -76,7 +77,10 @@ function requireDatingMethod(value: unknown): PregnancyDatingMethod {
     "manual_correction",
     "imported",
   ];
-  if (typeof value !== "string" || !supported.includes(value as PregnancyDatingMethod)) {
+  if (
+    typeof value !== "string" ||
+    !supported.includes(value as PregnancyDatingMethod)
+  ) {
     throw new ApiError(
       400,
       "pregnancy_dating_method_invalid",
@@ -97,7 +101,9 @@ function requireOutcome(value: unknown): PregnancyOutcome {
     "other",
     "unknown",
   ];
-  if (typeof value !== "string" || !supported.includes(value as PregnancyOutcome)) {
+  if (
+    typeof value !== "string" || !supported.includes(value as PregnancyOutcome)
+  ) {
     throw new ApiError(
       400,
       "pregnancy_outcome_invalid",
@@ -232,19 +238,26 @@ export function createPregnancyRouteHandler(databaseUrl: string) {
         limit 1
       `;
       if (!rows[0]) {
-        return { state: "inactive" satisfies PregnancyEntitlementState, reference: null };
+        return {
+          state: "inactive" satisfies PregnancyEntitlementState,
+          reference: null,
+        };
       }
       const status = String(rows[0].status ?? "").toLowerCase();
       const active = status === "active" || status === "trialing";
       return {
-        state: (active ? "active" : "inactive") satisfies PregnancyEntitlementState,
+        state:
+          (active ? "active" : "inactive") satisfies PregnancyEntitlementState,
         reference: String(rows[0].id),
         currentPeriodEndUtc: rows[0].current_period_end_utc == null
           ? null
           : new Date(String(rows[0].current_period_end_utc)).toISOString(),
       };
     } catch {
-      return { state: "unknown" satisfies PregnancyEntitlementState, reference: null };
+      return {
+        state: "unknown" satisfies PregnancyEntitlementState,
+        reference: null,
+      };
     }
   }
 
@@ -258,7 +271,10 @@ export function createPregnancyRouteHandler(databaseUrl: string) {
     return "not_enrolled";
   }
 
-  async function bootstrap(request: Request, accountId: string): Promise<Response> {
+  async function bootstrap(
+    request: Request,
+    accountId: string,
+  ): Promise<Response> {
     const asOfDate = requiredAsOfDate(request);
     const personId = await selfPersonId(accountId);
     await requireAccess(accountId, personId, null, "pregnancy.summary.read");
@@ -284,12 +300,20 @@ export function createPregnancyRouteHandler(databaseUrl: string) {
     });
   }
 
-  async function currentSnapshot(request: Request, accountId: string): Promise<Response> {
+  async function currentSnapshot(
+    request: Request,
+    accountId: string,
+  ): Promise<Response> {
     const asOfDate = requiredAsOfDate(request);
     const personId = await selfPersonId(accountId);
     const current = await store.getCurrentEpisode(personId);
     if (!current) return json({ contractVersion: 1, episode: null });
-    await requireAccess(accountId, personId, current.id, "pregnancy.summary.read");
+    await requireAccess(
+      accountId,
+      personId,
+      current.id,
+      "pregnancy.summary.read",
+    );
     return json({
       contractVersion: 1,
       episode: pregnancyEpisodeReadModel(current, asOfDate),
@@ -312,67 +336,131 @@ export function createPregnancyRouteHandler(databaseUrl: string) {
       if (request.method === "GET" && path === "/api/v1/cocoon/bootstrap") {
         return await bootstrap(request, appUserId);
       }
-      if (request.method === "GET" && path === "/api/v1/cocoon/pregnancy/snapshot") {
+      if (
+        request.method === "GET" && path === "/api/v1/cocoon/pregnancy/snapshot"
+      ) {
         return await currentSnapshot(request, appUserId);
       }
 
       const personId = await selfPersonId(appUserId);
 
-      if (request.method === "GET" && path === "/api/v1/cocoon/pregnancy/episodes") {
-        await requireAccess(appUserId, personId, null, "pregnancy.summary.read");
+      if (
+        request.method === "GET" && path === "/api/v1/cocoon/pregnancy/episodes"
+      ) {
+        await requireAccess(
+          appUserId,
+          personId,
+          null,
+          "pregnancy.summary.read",
+        );
         const asOfDate = new URL(request.url).searchParams.get("asOfDate");
         if (asOfDate != null && !isoDatePattern.test(asOfDate)) {
-          throw new ApiError(400, "pregnancy_as_of_date_invalid", "asOfDate is invalid.");
+          throw new ApiError(
+            400,
+            "pregnancy_as_of_date_invalid",
+            "asOfDate is invalid.",
+          );
         }
         const history = await store.listHistory(personId);
         return json({
           contractVersion: 1,
-          episodes: history.map((episode) => pregnancyEpisodeReadModel(episode, asOfDate)),
+          episodes: history.map((episode) =>
+            pregnancyEpisodeReadModel(episode, asOfDate)
+          ),
         });
       }
 
-      if (request.method === "POST" && path === "/api/v1/cocoon/pregnancy/episodes") {
-        await requireAccess(appUserId, personId, null, "pregnancy.owner.manage");
+      if (
+        request.method === "POST" &&
+        path === "/api/v1/cocoon/pregnancy/episodes"
+      ) {
+        await requireAccess(
+          appUserId,
+          personId,
+          null,
+          "pregnancy.owner.manage",
+        );
         const body = await readJsonObject(request);
         const status = body.status === "draft" || body.status === "active"
           ? body.status
           : null;
         if (!status) {
-          throw new ApiError(400, "pregnancy_status_invalid", "Pregnancy status is invalid.");
+          throw new ApiError(
+            400,
+            "pregnancy_status_invalid",
+            "Pregnancy status is invalid.",
+          );
         }
         const created = await store.createEpisode({
           motherPersonId: personId,
           status,
           method: optionalDatingMethod(body.method),
           lmpDate: optionalIsoDate(body.lmpDate, "pregnancy_lmp_invalid"),
-          estimatedDueDate: optionalIsoDate(body.estimatedDueDate, "pregnancy_edd_invalid"),
-          referenceDate: optionalIsoDate(body.referenceDate, "pregnancy_reference_date_invalid"),
-          gestationalAgeAtReferenceDays: normalizeReferenceDays(body.gestationalAgeAtReferenceDays),
+          estimatedDueDate: optionalIsoDate(
+            body.estimatedDueDate,
+            "pregnancy_edd_invalid",
+          ),
+          referenceDate: optionalIsoDate(
+            body.referenceDate,
+            "pregnancy_reference_date_invalid",
+          ),
+          gestationalAgeAtReferenceDays: normalizeReferenceDays(
+            body.gestationalAgeAtReferenceDays,
+          ),
           idempotencyKey: requireMutationIdempotencyKey(request),
           actorAccountId: appUserId,
         });
-        return json({ contractVersion: 1, episode: pregnancyEpisodeReadModel(created, null) }, 201);
+        return json({
+          contractVersion: 1,
+          episode: pregnancyEpisodeReadModel(created, null),
+        }, 201);
       }
 
-      const activateMatch = path.match(/^\/api\/v1\/cocoon\/pregnancy\/episodes\/([0-9a-f-]{36})\/activate$/i);
+      const activateMatch = path.match(
+        /^\/api\/v1\/cocoon\/pregnancy\/episodes\/([0-9a-f-]{36})\/activate$/i,
+      );
       if (request.method === "POST" && activateMatch) {
-        const episodeId = requiredUuid(activateMatch[1], "pregnancy_episode_id_invalid");
-        await requireAccess(appUserId, personId, episodeId, "pregnancy.owner.manage");
+        const episodeId = requiredUuid(
+          activateMatch[1],
+          "pregnancy_episode_id_invalid",
+        );
+        await requireAccess(
+          appUserId,
+          personId,
+          episodeId,
+          "pregnancy.owner.manage",
+        );
         const body = await readJsonObject(request);
         const episode = await store.activateEpisode({
           motherPersonId: personId,
           episodeId,
-          expectedVersion: requiredInteger(body.expectedVersion, "pregnancy_version_invalid"),
+          expectedVersion: requiredInteger(
+            body.expectedVersion,
+            "pregnancy_version_invalid",
+          ),
           idempotencyKey: requireMutationIdempotencyKey(request),
           actorAccountId: appUserId,
         });
-        return json({ contractVersion: 1, episode: pregnancyEpisodeReadModel(episode, null) });
+        return json({
+          contractVersion: 1,
+          episode: pregnancyEpisodeReadModel(episode, null),
+        });
       }
 
-      const datingMatch = path.match(/^\/api\/v1\/cocoon\/pregnancy\/episodes\/([0-9a-f-]{36})\/dating$/i);
+      const datingMatch = path.match(
+        /^\/api\/v1\/cocoon\/pregnancy\/episodes\/([0-9a-f-]{36})\/dating$/i,
+      );
       if (request.method === "PATCH" && datingMatch) {
-        const episodeId = requiredUuid(datingMatch[1], "pregnancy_episode_id_invalid");
-        await requireAccess(appUserId, personId, episodeId, "pregnancy.owner.manage");
+        const episodeId = requiredUuid(
+          datingMatch[1],
+          "pregnancy_episode_id_invalid",
+        );
+        await requireAccess(
+          appUserId,
+          personId,
+          episodeId,
+          "pregnancy.owner.manage",
+        );
         const body = await readJsonObject(request);
         const source = typeof body.source === "string" ? body.source : "";
         const supportedSources = new Set([
@@ -383,46 +471,90 @@ export function createPregnancyRouteHandler(databaseUrl: string) {
           "system_reconciliation",
         ]);
         if (!supportedSources.has(source)) {
-          throw new ApiError(400, "pregnancy_dating_source_invalid", "Dating source is invalid.");
+          throw new ApiError(
+            400,
+            "pregnancy_dating_source_invalid",
+            "Dating source is invalid.",
+          );
         }
         const episode = await store.reviseDating({
           motherPersonId: personId,
           episodeId,
-          expectedVersion: requiredInteger(body.expectedVersion, "pregnancy_version_invalid"),
+          expectedVersion: requiredInteger(
+            body.expectedVersion,
+            "pregnancy_version_invalid",
+          ),
           dating: {
             method: requireDatingMethod(body.method),
             lmpDate: optionalIsoDate(body.lmpDate, "pregnancy_lmp_invalid"),
-            estimatedDueDate: optionalIsoDate(body.estimatedDueDate, "pregnancy_edd_invalid"),
-            referenceDate: optionalIsoDate(body.referenceDate, "pregnancy_reference_date_invalid"),
-            gestationalAgeAtReferenceDays: normalizeReferenceDays(body.gestationalAgeAtReferenceDays),
+            estimatedDueDate: optionalIsoDate(
+              body.estimatedDueDate,
+              "pregnancy_edd_invalid",
+            ),
+            referenceDate: optionalIsoDate(
+              body.referenceDate,
+              "pregnancy_reference_date_invalid",
+            ),
+            gestationalAgeAtReferenceDays: normalizeReferenceDays(
+              body.gestationalAgeAtReferenceDays,
+            ),
           },
-          source: source as "lmp" | "clinician_ultrasound" | "manual_correction" | "imported" | "system_reconciliation",
-          reasonCode: typeof body.reasonCode === "string" ? body.reasonCode.trim().slice(0, 64) : null,
+          source: source as
+            | "lmp"
+            | "clinician_ultrasound"
+            | "manual_correction"
+            | "imported"
+            | "system_reconciliation",
+          reasonCode: typeof body.reasonCode === "string"
+            ? body.reasonCode.trim().slice(0, 64)
+            : null,
           idempotencyKey: requireMutationIdempotencyKey(request),
           actorAccountId: appUserId,
         });
-        return json({ contractVersion: 1, episode: pregnancyEpisodeReadModel(episode, null) });
+        return json({
+          contractVersion: 1,
+          episode: pregnancyEpisodeReadModel(episode, null),
+        });
       }
 
-      const endMatch = path.match(/^\/api\/v1\/cocoon\/pregnancy\/episodes\/([0-9a-f-]{36})\/end$/i);
+      const endMatch = path.match(
+        /^\/api\/v1\/cocoon\/pregnancy\/episodes\/([0-9a-f-]{36})\/end$/i,
+      );
       if (request.method === "POST" && endMatch) {
-        const episodeId = requiredUuid(endMatch[1], "pregnancy_episode_id_invalid");
-        await requireAccess(appUserId, personId, episodeId, "pregnancy.owner.manage");
+        const episodeId = requiredUuid(
+          endMatch[1],
+          "pregnancy_episode_id_invalid",
+        );
+        await requireAccess(
+          appUserId,
+          personId,
+          episodeId,
+          "pregnancy.owner.manage",
+        );
         const body = await readJsonObject(request);
         const episode = await store.endEpisode({
           motherPersonId: personId,
           episodeId,
-          expectedVersion: requiredInteger(body.expectedVersion, "pregnancy_version_invalid"),
+          expectedVersion: requiredInteger(
+            body.expectedVersion,
+            "pregnancy_version_invalid",
+          ),
           outcome: requireOutcome(body.outcome),
           idempotencyKey: requireMutationIdempotencyKey(request),
           actorAccountId: appUserId,
         });
-        return json({ contractVersion: 1, episode: pregnancyEpisodeReadModel(episode, null) });
+        return json({
+          contractVersion: 1,
+          episode: pregnancyEpisodeReadModel(episode, null),
+        });
       }
 
       return null;
     } catch (error) {
-      if (error instanceof PregnancyStoreError || error instanceof PregnancyDatingError) {
+      if (
+        error instanceof PregnancyStoreError ||
+        error instanceof PregnancyDatingError
+      ) {
         mapPregnancyStoreError(error);
       }
       throw error;
