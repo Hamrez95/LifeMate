@@ -1,0 +1,36 @@
+name: temp-offline-03-client-format
+
+on:
+  pull_request:
+    paths:
+      - 'packages/lifemate_client/**'
+      - '.github/workflows/temp-offline-03-client-format.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  format-reconcile:
+    if: github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
+        with:
+          ref: ${{ github.event.pull_request.head.ref }}
+      - uses: subosito/flutter-action@4cab68ce0f1c7c924f688bff4792e044f1aeb30c
+        with:
+          flutter-version: '3.44.0'
+          channel: stable
+          cache: true
+      - name: Format and reconcile branch
+        run: |
+          set -euo pipefail
+          dart format packages/lifemate_client/lib/src/legacy_mutation_importer.dart packages/lifemate_client/test/legacy_mutation_importer_test.dart packages/lifemate_client/lib/lifemate_client.dart
+          if git diff --quiet -- packages/lifemate_client/lib/src/legacy_mutation_importer.dart packages/lifemate_client/test/legacy_mutation_importer_test.dart packages/lifemate_client/lib/lifemate_client.dart; then
+            exit 0
+          fi
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add packages/lifemate_client/lib/src/legacy_mutation_importer.dart packages/lifemate_client/test/legacy_mutation_importer_test.dart packages/lifemate_client/lib/lifemate_client.dart
+          git commit -m 'style(offline): format legacy queue migration'
+          git push origin HEAD:${{ github.event.pull_request.head.ref }}
