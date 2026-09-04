@@ -4,6 +4,10 @@ async function source(path: string): Promise<string> {
   return await Deno.readTextFile(new URL(path, import.meta.url));
 }
 
+function compactSource(text: string): string {
+  return text.replace(/\s+/g, "").replace(/,\)/g, ")");
+}
+
 Deno.test("audience segment projection stays on canonical non-health sources", async () => {
   const text = await source("./audience_segments_service.ts");
   assertStringIncludes(text, "admin.user_directory_v2");
@@ -27,12 +31,12 @@ Deno.test("missing engagement age stays unknown instead of becoming fabricated i
 Deno.test("audience segment routes require purpose-specific permissions", async () => {
   const text = await source("./audience_segments_routes.ts");
   assertStringIncludes(
-    text,
-    'requirePermission(admin, "marketing.segment.read")',
+    compactSource(text),
+    'requirePermission(admin,"marketing.segment.read")',
   );
   assertStringIncludes(
-    text,
-    'requirePermission(admin, "marketing.segment.write")',
+    compactSource(text),
+    'requirePermission(admin,"marketing.segment.write")',
   );
   assert(!text.includes("service_role"));
   assert(!text.includes("supabase.from"));
@@ -82,11 +86,12 @@ Deno.test("small audience snapshots are suppressed in API responses", async () =
 Deno.test("execution snapshots validate and persist under one database transaction", async () => {
   const routes = await source("./audience_segments_routes.ts");
   const service = await source("./audience_segments_service.ts");
+  const compactRoutes = compactSource(routes);
   assertStringIncludes(routes, "parseSnapshotExpectedVersion");
   assertStringIncludes(routes, "expectedVersion,");
   assertStringIncludes(
-    routes,
-    "hashSnapshotRequest(snapshotId, expectedVersion, idempotencyKey)",
+    compactRoutes,
+    "hashSnapshotRequest(snapshotId,expectedVersion,idempotencyKey)",
   );
   assert(!routes.includes("withActiveSegmentVersionLock"));
   assertStringIncludes(service, "for share");
