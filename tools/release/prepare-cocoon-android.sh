@@ -67,6 +67,15 @@ import sys
 
 path = Path(sys.argv[1])
 text = path.read_text()
+manifest_open = '<manifest xmlns:android="http://schemas.android.com/apk/res/android">'
+if manifest_open not in text:
+    raise SystemExit('generated Cocoon manifest contract changed')
+if 'android.permission.INTERNET' not in text:
+    text = text.replace(
+        manifest_open,
+        manifest_open + '\n    <uses-permission android:name="android.permission.INTERNET" />',
+        1,
+    )
 if 'android:label="cocoonmate"' not in text:
     raise SystemExit('generated Cocoon label contract changed')
 text = text.replace('android:label="cocoonmate"', 'android:label="CocoonMate"', 1)
@@ -97,6 +106,8 @@ XML
     fail "Cocoon Android applicationId is not isolated."
   grep -Fq 'android:label="CocoonMate"' "$manifest" || \
     fail "Cocoon Android display name is missing."
+  grep -Fq 'android.permission.INTERNET' "$manifest" || \
+    fail "Cocoon Android release network permission is missing."
   grep -Fq '@drawable/cocoon_launcher' "$manifest" || \
     fail "Cocoon Android launcher identity is missing."
 }
