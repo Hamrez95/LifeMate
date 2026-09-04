@@ -78,9 +78,11 @@ class LifeMateAuth {
 
   static String callbackUrlForApp(String appName) {
     final normalized = appName.trim().toLowerCase();
-    final scheme = normalized.contains('care')
-        ? 'com.lifemate.caremate'
-        : 'com.lifemate.wellmate';
+    final scheme = normalized.contains('cocoon')
+        ? 'com.mylifemate.cocoonmate'
+        : normalized.contains('care')
+            ? 'com.lifemate.caremate'
+            : 'com.lifemate.wellmate';
     return '$scheme://login-callback/';
   }
 
