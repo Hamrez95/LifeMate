@@ -1,0 +1,71 @@
+name: cocoon-module-host
+
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - 'cocoonmate/**'
+      - 'packages/cocoonmate_module/**'
+      - '.github/workflows/cocoon-module-host.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  module-and-host:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
+        with:
+          show-progress: false
+          persist-credentials: false
+      - uses: subosito/flutter-action@4cab68ce0f1c7c924f688bff4792e044f1aeb30c
+        with:
+          flutter-version: '3.44.0'
+          channel: stable
+          cache: true
+      - name: Resolve module
+        working-directory: packages/cocoonmate_module
+        run: flutter pub get
+      - name: Format module
+        run: dart format --output=none --set-exit-if-changed packages/cocoonmate_module/lib packages/cocoonmate_module/test cocoonmate/lib cocoonmate/test
+      - name: Analyze module
+        working-directory: packages/cocoonmate_module
+        run: flutter analyze --no-fatal-warnings --no-fatal-infos
+      - name: Test module
+        working-directory: packages/cocoonmate_module
+        run: flutter test
+      - name: Generate standalone Android platform
+        working-directory: cocoonmate
+        shell: bash
+        run: |
+          set -euo pipefail
+          flutter create --platforms=android --org com.mylifemate --project-name cocoonmate .
+          rm -f test/widget_test.dart analysis_options.yaml
+      - name: Resolve standalone host
+        working-directory: cocoonmate
+        run: flutter pub get
+      - name: Analyze standalone host
+        working-directory: cocoonmate
+        run: flutter analyze --no-fatal-warnings --no-fatal-infos
+      - name: Test standalone host
+        working-directory: cocoonmate
+        run: flutter test
+      - name: Build standalone Android APK
+        working-directory: cocoonmate
+        run: flutter build apk --debug
+      - name: Enforce module boundary
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -f packages/cocoonmate_module/lib/cocoonmate_module.dart
+          test -f cocoonmate/lib/main.dart
+          ! grep -R -n -E 'supabase\.from|SupabaseClient|service_role|pregnancy\.episodes' packages/cocoonmate_module/lib cocoonmate/lib
+          test "$(find cocoonmate/lib -type f | wc -l)" -le 3
+      - uses: actions/upload-artifact@v4
+        with:
+          name: cocoonmate-debug-apk
+          path: cocoonmate/build/app/outputs/flutter-apk/app-debug.apk
+          if-no-files-found: error
+          retention-days: 7
