@@ -1,0 +1,45 @@
+name: admin-edge-test-diagnostic
+
+on:
+  pull_request:
+    paths:
+      - 'supabase/functions/lifemate-admin-api/**'
+      - '.github/workflows/admin-edge-test-diagnostic.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  capture:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    defaults:
+      run:
+        working-directory: supabase/functions/lifemate-admin-api
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
+        with:
+          show-progress: false
+          persist-credentials: false
+      - uses: denoland/setup-deno@22d081ff2d3a40755e97629de92e3bcbfa7cf2ed
+        with:
+          deno-version: v2.9.4
+      - name: Capture unit test output
+        id: tests
+        shell: bash
+        run: |
+          set +e
+          deno task test > admin-edge-test-output.txt 2>&1
+          status=$?
+          echo "status=$status" >> "$GITHUB_OUTPUT"
+          exit 0
+      - name: Upload diagnostic output
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: admin-edge-test-output-${{ github.sha }}
+          path: supabase/functions/lifemate-admin-api/admin-edge-test-output.txt
+          retention-days: 1
+      - name: Preserve test result
+        if: steps.tests.outputs.status != '0'
+        run: exit 1
