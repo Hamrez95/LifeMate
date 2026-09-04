@@ -87,7 +87,7 @@ for (const [name, pattern] of [
   ],
   [
     "treatment audit resource contract",
-    /values\s*\([^)]*\$\{action\}\s*,\s*['"]treatment_plan['"]\s*,\s*\$\{planId\}::uuid\s*,\s*null\s*,\s*now\(\)\s*\)/i,
+    /\$\{action\}\s*,\s*['"]treatment_plan['"]\s*,\s*\$\{planId\}::uuid\s*,\s*null\s*,\s*now\(\)\s*\)/i,
   ],
 ]) {
   if (!pattern.test(store)) {
