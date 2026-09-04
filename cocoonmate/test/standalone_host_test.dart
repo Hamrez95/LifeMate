@@ -48,40 +48,42 @@ void main() {
     );
   });
 
-  testWidgets('authenticated host mounts module and resolves active pregnancy',
-      (tester) async {
-    final now = DateTime.now().toUtc();
-    await tester.pumpWidget(
-      MaterialApp(
-        home: CocoonAuthenticatedHost(
-          config: configured,
-          locale: const Locale('en'),
-          runtimeLoader: () async => LifeMateRuntimeConfigSnapshot(
-            product: 'cocoonmate',
-            platform: 'android',
-            controls: const {},
-            updatePolicy: const LifeMateUpdatePolicy(
-              state: LifeMateUpdateState.current,
-              minimumSupportedVersion: null,
-              recommendedVersion: null,
-              reasonCode: 'Routine',
-              messageKey: null,
-              policyVersion: 1,
+  testWidgets(
+    'authenticated host mounts module and resolves active pregnancy',
+    (tester) async {
+      final now = DateTime.now().toUtc();
+      await tester.pumpWidget(
+        MaterialApp(
+          home: CocoonAuthenticatedHost(
+            config: configured,
+            locale: const Locale('en'),
+            runtimeLoader: () async => LifeMateRuntimeConfigSnapshot(
+              product: 'cocoonmate',
+              platform: 'android',
+              controls: const {},
+              updatePolicy: const LifeMateUpdatePolicy(
+                state: LifeMateUpdateState.current,
+                minimumSupportedVersion: null,
+                recommendedVersion: null,
+                reasonCode: 'Routine',
+                messageKey: null,
+                policyVersion: 1,
+              ),
+              snapshotVersion: 'test',
+              fetchedAtUtc: now,
+              cacheTtlSeconds: 60,
+              fromCache: false,
             ),
-            snapshotVersion: 'test',
-            fetchedAtUtc: now,
-            cacheTtlSeconds: 60,
-            fromCache: false,
+            bootstrapLoader: () async => _snapshot(),
           ),
-          bootstrapLoader: () async => _snapshot(),
         ),
-      ),
-    );
-    await tester.pump();
-    await tester.pump();
-    expect(find.byType(CocoonMateModule), findsOneWidget);
-    expect(find.text('Home'), findsWidgets);
-  });
+      );
+      await tester.pump();
+      await tester.pump();
+      expect(find.byType(CocoonMateModule), findsOneWidget);
+      expect(find.text('Home'), findsWidgets);
+    },
+  );
 }
 
 CocoonBootstrapSnapshot _snapshot({
