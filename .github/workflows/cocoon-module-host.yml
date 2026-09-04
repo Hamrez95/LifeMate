@@ -29,7 +29,16 @@ jobs:
         working-directory: packages/cocoonmate_module
         run: flutter pub get
       - name: Format module
-        run: dart format --output=none --set-exit-if-changed packages/cocoonmate_module/lib packages/cocoonmate_module/test cocoonmate/lib cocoonmate/test
+        shell: bash
+        run: |
+          set -euo pipefail
+          files=(packages/cocoonmate_module/lib packages/cocoonmate_module/test cocoonmate/lib cocoonmate/test)
+          dart format "${files[@]}"
+          if ! git diff --exit-code -- "${files[@]}"; then
+            echo '::error::Cocoon sources require canonical dart format'
+            git diff -- "${files[@]}"
+            exit 1
+          fi
       - name: Analyze module
         working-directory: packages/cocoonmate_module
         run: flutter analyze --no-fatal-warnings --no-fatal-infos
