@@ -42,14 +42,30 @@ jobs:
       - name: Flutter environment
         run: flutter --version
 
-      - name: Resolve, inspect formatting, analyze and test shared core
+      - name: Resolve and format shared core for reconciliation
         working-directory: packages/lifemate_core
         shell: bash
         run: |
           set -euo pipefail
           flutter pub get
           dart format lib test
-          git diff -- lib test | tee /tmp/lifemate-core-format.diff
+
+      - name: Upload formatted reconciliation sources
+        uses: actions/upload-artifact@v4
+        with:
+          name: lifemate-core-formatted-sources
+          path: |
+            packages/lifemate_core/lib/
+            packages/lifemate_core/test/
+          if-no-files-found: error
+          retention-days: 1
+          compression-level: 9
+
+      - name: Analyze and test shared core
+        working-directory: packages/lifemate_core
+        shell: bash
+        run: |
+          set -euo pipefail
           flutter analyze --no-fatal-warnings --no-fatal-infos
           flutter test
-          test ! -s /tmp/lifemate-core-format.diff
+          git diff --exit-code -- lib test
