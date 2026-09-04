@@ -31,12 +31,13 @@ Deno.test("campaign orchestrator is wired through canonical marketing dispatcher
   const routes = await Deno.readTextFile(
     new URL("./marketing_campaigns_routes.ts", import.meta.url),
   );
+  const compactRoutes = routes.replace(/\s+/g, "");
   assert(
     routes.includes("createCampaignOrchestratorRouteHandler"),
     "canonical marketing dispatcher must construct campaign orchestrator",
   );
   assert(
-    routes.includes("campaignOrchestratorRouteHandler(context)"),
+    compactRoutes.includes("campaignOrchestratorRouteHandler(context)"),
     "canonical marketing dispatcher must forward authenticated context",
   );
 });
