@@ -248,7 +248,10 @@ void main() {
       database: database,
       keyBytes: key,
     );
-    final tooLarge = 'x' * (LifeMateLocalHealthStore.maximumPlaintextEnvelopeBytes + 1);
+    final tooLarge = List<String>.filled(
+      LifeMateLocalHealthStore.maximumPlaintextEnvelopeBytes + 1,
+      'x',
+    ).join();
 
     await expectLater(
       store.putProjection(
