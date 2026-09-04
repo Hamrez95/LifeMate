@@ -1,0 +1,89 @@
+name: cocoon-application-boundary
+
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - 'supabase/migrations/20260904035039_cocoon_application_registration.sql'
+      - 'supabase/functions/lifemate-api/cocoon_application.ts'
+      - 'supabase/functions/lifemate-api/cocoon_application_test.ts'
+      - 'supabase/functions/lifemate-api/cocoon_application_integration_test.ts'
+      - 'supabase/functions/lifemate-api/cocoon_routes.ts'
+      - 'supabase/functions/lifemate-api/subscription_routes.ts'
+      - 'packages/lifemate_client/lib/src/cocoon_pregnancy.dart'
+      - 'packages/lifemate_client/test/cocoon_pregnancy_contract_test.dart'
+      - 'docs/architecture/cocoonmate-application-enrollment-commerce.md'
+      - '.github/workflows/cocoon-application-boundary.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  server-contract:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 8
+    defaults:
+      run:
+        working-directory: supabase/functions/lifemate-api
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
+        with:
+          show-progress: false
+          persist-credentials: false
+      - uses: denoland/setup-deno@22d081ff2d3a40755e97629de92e3bcbfa7cf2ed
+        with:
+          deno-version: v2.9.4
+      - name: Format Cocoon boundary sources
+        run: >-
+          deno fmt --check
+          cocoon_application.ts
+          cocoon_application_test.ts
+          cocoon_application_integration_test.ts
+          cocoon_routes.ts
+          subscription_routes.ts
+      - name: Type check Cocoon boundary sources
+        run: >-
+          deno check
+          cocoon_application.ts
+          cocoon_application_test.ts
+          cocoon_application_integration_test.ts
+          cocoon_routes.ts
+          subscription_routes.ts
+      - name: Unit Cocoon boundary tests
+        run: deno test --no-check cocoon_application_test.ts
+      - name: Boundary invariants
+        shell: bash
+        run: |
+          set -euo pipefail
+          grep -Fq "insert into ecosystem.app_enrollments" cocoon_application.ts
+          grep -Fq "commerce.convert_period_to_cocoon" subscription_routes.ts
+          grep -Fq "commerceEligibility" cocoon_routes.ts
+          grep -Fq "pregnancy" cocoon_application_integration_test.ts
+          grep -Fq "entitlements" cocoon_application_integration_test.ts
+          ! grep -Fq "insert into pregnancy" cocoon_application.ts
+          ! grep -Fq "insert into commerce.entitlements" cocoon_application.ts
+
+  client-contract:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
+        with:
+          show-progress: false
+          persist-credentials: false
+      - uses: subosito/flutter-action@4cab68ce0f1c7c924f688bff4792e044f1aeb30c
+        with:
+          flutter-version: '3.44.0'
+          channel: stable
+          cache: true
+      - name: Resolve shared client
+        working-directory: packages/lifemate_client
+        run: flutter pub get
+      - name: Format typed Cocoon client
+        run: dart format --output=none --set-exit-if-changed packages/lifemate_client/lib/src/cocoon_pregnancy.dart packages/lifemate_client/test/cocoon_pregnancy_contract_test.dart
+      - name: Analyze shared client
+        working-directory: packages/lifemate_client
+        run: flutter analyze --no-fatal-warnings --no-fatal-infos
+      - name: Test Cocoon client contract
+        working-directory: packages/lifemate_client
+        run: flutter test test/cocoon_pregnancy_contract_test.dart
