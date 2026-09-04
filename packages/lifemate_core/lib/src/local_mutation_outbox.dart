@@ -445,7 +445,11 @@ final class LifeMateLocalMutationOutbox {
     const minimum = Duration(seconds: 15);
     const maximum = Duration(minutes: 15);
     var seconds = minimum.inSeconds;
-    for (var index = 1; index < attempt && seconds < maximum.inSeconds; index++) {
+    for (
+      var index = 1;
+      index < attempt && seconds < maximum.inSeconds;
+      index++
+    ) {
       seconds *= 2;
     }
     if (seconds > maximum.inSeconds) seconds = maximum.inSeconds;

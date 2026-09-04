@@ -21,42 +21,48 @@ void main() {
     sourceKey: sourceKey,
     method: 'POST',
     endpointPath: '/api/v1/dose-occurrences/example/report',
-    payload: <String, dynamic>{
-      'clientRequestId': mutationId,
-      'status': status,
-    },
+    payload: <String, dynamic>{'clientRequestId': mutationId, 'status': status},
     createdAtUtc: DateTime.utc(2026, 9, 5, 1),
     timeZone: 'Asia/Tehran',
     expectedRevision: '7',
   );
 
-  test('outbox is person isolated and duplicate mutation id is idempotent', () async {
-    final database = sqlite3.openInMemory();
-    final store = LifeMateLocalHealthStore.forTesting(
-      database: database,
-      keyBytes: key,
-    );
-    final outbox = LifeMateLocalMutationOutbox(store: store);
-    final original = mutation();
+  test(
+    'outbox is person isolated and duplicate mutation id is idempotent',
+    () async {
+      final database = sqlite3.openInMemory();
+      final store = LifeMateLocalHealthStore.forTesting(
+        database: database,
+        keyBytes: key,
+      );
+      final outbox = LifeMateLocalMutationOutbox(store: store);
+      final original = mutation();
 
-    expect(
-      (await outbox.enqueue(namespace: namespace, mutation: original)).mutationId,
-      original.mutationId,
-    );
-    expect(
-      (await outbox.enqueue(namespace: namespace, mutation: original)).mutationId,
-      original.mutationId,
-    );
-    expect(await outbox.list(namespace: namespace), hasLength(1));
+      expect(
+        (await outbox.enqueue(
+          namespace: namespace,
+          mutation: original,
+        )).mutationId,
+        original.mutationId,
+      );
+      expect(
+        (await outbox.enqueue(
+          namespace: namespace,
+          mutation: original,
+        )).mutationId,
+        original.mutationId,
+      );
+      expect(await outbox.list(namespace: namespace), hasLength(1));
 
-    final otherPerson = LifeMateLocalNamespace(
-      environmentId: 'test-environment',
-      accountId: 'account-a',
-      personId: 'person-b',
-    );
-    expect(await outbox.list(namespace: otherPerson), isEmpty);
-    store.close();
-  });
+      final otherPerson = LifeMateLocalNamespace(
+        environmentId: 'test-environment',
+        accountId: 'account-a',
+        personId: 'person-b',
+      );
+      expect(await outbox.list(namespace: otherPerson), isEmpty);
+      store.close();
+    },
+  );
 
   test('same id cannot be reused for a different logical action', () async {
     final database = sqlite3.openInMemory();
@@ -77,42 +83,42 @@ void main() {
     store.close();
   });
 
-  test('retry state uses bounded backoff and survives in protected projection', () async {
-    final database = sqlite3.openInMemory();
-    final now = DateTime.utc(2026, 9, 5, 1);
-    final store = LifeMateLocalHealthStore.forTesting(
-      database: database,
-      keyBytes: key,
-      now: () => now,
-    );
-    final outbox = LifeMateLocalMutationOutbox(
-      store: store,
-      now: () => now,
-    );
-    await outbox.enqueue(namespace: namespace, mutation: mutation());
+  test(
+    'retry state uses bounded backoff and survives in protected projection',
+    () async {
+      final database = sqlite3.openInMemory();
+      final now = DateTime.utc(2026, 9, 5, 1);
+      final store = LifeMateLocalHealthStore.forTesting(
+        database: database,
+        keyBytes: key,
+        now: () => now,
+      );
+      final outbox = LifeMateLocalMutationOutbox(store: store, now: () => now);
+      await outbox.enqueue(namespace: namespace, mutation: mutation());
 
-    final retry = await outbox.markRetry(
-      namespace: namespace,
-      mutationId: 'mutation-1',
-      errorClass: LifeMateMutationErrorClass.transport,
-    );
-    expect(retry.state, LifeMateMutationSyncState.retryScheduled);
-    expect(retry.attemptCount, 1);
-    expect(retry.nextAttemptAtUtc, now.add(const Duration(seconds: 15)));
-    expect(await outbox.eligible(namespace: namespace, atUtc: now), isEmpty);
-    expect(
-      await outbox.eligible(
+      final retry = await outbox.markRetry(
         namespace: namespace,
-        atUtc: now.add(const Duration(seconds: 15)),
-      ),
-      hasLength(1),
-    );
-    expect(
-      LifeMateLocalMutationOutbox.retryDelayForAttempt(99),
-      const Duration(minutes: 15),
-    );
-    store.close();
-  });
+        mutationId: 'mutation-1',
+        errorClass: LifeMateMutationErrorClass.transport,
+      );
+      expect(retry.state, LifeMateMutationSyncState.retryScheduled);
+      expect(retry.attemptCount, 1);
+      expect(retry.nextAttemptAtUtc, now.add(const Duration(seconds: 15)));
+      expect(await outbox.eligible(namespace: namespace, atUtc: now), isEmpty);
+      expect(
+        await outbox.eligible(
+          namespace: namespace,
+          atUtc: now.add(const Duration(seconds: 15)),
+        ),
+        hasLength(1),
+      );
+      expect(
+        LifeMateLocalMutationOutbox.retryDelayForAttempt(99),
+        const Duration(minutes: 15),
+      );
+      store.close();
+    },
+  );
 
   test('409 conflict remains durable for explicit domain resolution', () async {
     final database = sqlite3.openInMemory();
@@ -165,7 +171,9 @@ void main() {
     );
     expect(acknowledged?.mutationId, 'mutation-1');
     expect(
-      (await outbox.list(namespace: namespace)).map((value) => value.mutationId),
+      (await outbox.list(
+        namespace: namespace,
+      )).map((value) => value.mutationId),
       <String>['mutation-2'],
     );
     store.close();
@@ -202,19 +210,22 @@ void main() {
     );
   });
 
-  test('outbox refuses absolute endpoints so old origins are never persisted', () {
-    expect(
-      () => LifeMateDurableMutation(
-        mutationId: 'mutation-1',
-        domain: LifeMateMutationDomain.adherence,
-        sourceKey: 'dose-1',
-        method: 'POST',
-        endpointPath: 'https://old-api.example.test/api/v1/report',
-        payload: const <String, dynamic>{},
-        createdAtUtc: DateTime.utc(2026, 9, 5),
-        timeZone: 'UTC',
-      ),
-      throwsArgumentError,
-    );
-  });
+  test(
+    'outbox refuses absolute endpoints so old origins are never persisted',
+    () {
+      expect(
+        () => LifeMateDurableMutation(
+          mutationId: 'mutation-1',
+          domain: LifeMateMutationDomain.adherence,
+          sourceKey: 'dose-1',
+          method: 'POST',
+          endpointPath: 'https://old-api.example.test/api/v1/report',
+          payload: const <String, dynamic>{},
+          createdAtUtc: DateTime.utc(2026, 9, 5),
+          timeZone: 'UTC',
+        ),
+        throwsArgumentError,
+      );
+    },
+  );
 }
