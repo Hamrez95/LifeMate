@@ -1,0 +1,227 @@
+name: cocoon-android-candidate
+
+on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: Candidate environment
+        required: true
+        default: internal
+        type: choice
+        options:
+          - internal
+          - production
+      build_mode:
+        description: Android build mode
+        required: true
+        default: debug
+        type: choice
+        options:
+          - debug
+          - release
+  push:
+    branches:
+      - main
+    paths:
+      - 'cocoonmate/**'
+      - 'packages/cocoonmate_module/**'
+      - 'packages/lifemate_client/**'
+      - '.github/workflows/cocoon-android-candidate.yml'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: cocoon-android-candidate-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  build-candidate:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    env:
+      COCOON_ANDROID_KEYSTORE_BASE64: ${{ secrets.COCOON_ANDROID_KEYSTORE_BASE64 }}
+      COCOON_ANDROID_KEYSTORE_PASSWORD: ${{ secrets.COCOON_ANDROID_KEYSTORE_PASSWORD }}
+      COCOON_ANDROID_KEY_ALIAS: ${{ secrets.COCOON_ANDROID_KEY_ALIAS }}
+      COCOON_ANDROID_KEY_PASSWORD: ${{ secrets.COCOON_ANDROID_KEY_PASSWORD }}
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
+        with:
+          show-progress: false
+          persist-credentials: false
+
+      - uses: subosito/flutter-action@4cab68ce0f1c7c924f688bff4792e044f1aeb30c
+        with:
+          flutter-version: '3.44.0'
+          channel: stable
+          cache: true
+
+      - name: Resolve candidate settings
+        id: candidate
+        shell: bash
+        run: |
+          set -euo pipefail
+          environment='${{ inputs.environment }}'
+          build_mode='${{ inputs.build_mode }}'
+          if [[ -z "$environment" ]]; then environment=internal; fi
+          if [[ -z "$build_mode" ]]; then build_mode=debug; fi
+          if [[ "$environment" != internal && "$environment" != production ]]; then
+            echo 'Unsupported environment' >&2
+            exit 1
+          fi
+          if [[ "$build_mode" != debug && "$build_mode" != release ]]; then
+            echo 'Unsupported build mode' >&2
+            exit 1
+          fi
+          if [[ "$environment" == production && "$build_mode" != release ]]; then
+            echo 'Production candidates must be release builds.' >&2
+            exit 1
+          fi
+          version="$(awk '/^version:/ {print $2}' cocoonmate/pubspec.yaml | cut -d+ -f1)"
+          short_sha="${GITHUB_SHA::12}"
+          build_number="${GITHUB_RUN_NUMBER}"
+          echo "environment=$environment" >> "$GITHUB_OUTPUT"
+          echo "build_mode=$build_mode" >> "$GITHUB_OUTPUT"
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          echo "build_number=$build_number" >> "$GITHUB_OUTPUT"
+          echo "short_sha=$short_sha" >> "$GITHUB_OUTPUT"
+
+      - name: Resolve and test reusable Cocoon module
+        working-directory: packages/cocoonmate_module
+        run: |
+          flutter pub get
+          flutter analyze --no-fatal-warnings --no-fatal-infos
+          flutter test
+
+      - name: Generate standalone Android platform
+        working-directory: cocoonmate
+        shell: bash
+        run: |
+          set -euo pipefail
+          flutter create --platforms=android --org com.mylifemate --project-name cocoonmate .
+          rm -f test/widget_test.dart analysis_options.yaml
+          python3 - <<'PY'
+          from pathlib import Path
+          manifest = Path('android/app/src/main/AndroidManifest.xml')
+          text = manifest.read_text()
+          text = text.replace('android:label="cocoonmate"', 'android:label="CocoonMate"')
+          manifest.write_text(text)
+          PY
+
+      - name: Verify Android identity
+        working-directory: cocoonmate
+        shell: bash
+        run: |
+          set -euo pipefail
+          grep -R -Fq 'com.mylifemate.cocoonmate' android/app
+          grep -Fq 'android:label="CocoonMate"' android/app/src/main/AndroidManifest.xml
+          ! grep -R -n -E 'com\.mylifemate\.(wellmate|caremate)' android/app
+
+      - name: Resolve and test standalone host
+        working-directory: cocoonmate
+        run: |
+          flutter pub get
+          flutter analyze --no-fatal-warnings --no-fatal-infos
+          flutter test
+
+      - name: Configure release signing
+        if: steps.candidate.outputs.build_mode == 'release'
+        working-directory: cocoonmate
+        shell: bash
+        run: |
+          set -euo pipefail
+          for name in COCOON_ANDROID_KEYSTORE_BASE64 COCOON_ANDROID_KEYSTORE_PASSWORD COCOON_ANDROID_KEY_ALIAS COCOON_ANDROID_KEY_PASSWORD; do
+            if [[ -z "${!name:-}" ]]; then
+              echo "Required release signing secret is missing: $name" >&2
+              exit 1
+            fi
+          done
+          printf '%s' "$COCOON_ANDROID_KEYSTORE_BASE64" | base64 --decode > android/app/cocoon-release.jks
+          cat > android/key.properties <<EOF
+          storePassword=$COCOON_ANDROID_KEYSTORE_PASSWORD
+          keyPassword=$COCOON_ANDROID_KEY_PASSWORD
+          keyAlias=$COCOON_ANDROID_KEY_ALIAS
+          storeFile=cocoon-release.jks
+          EOF
+          python3 - <<'PY'
+          from pathlib import Path
+          path = Path('android/app/build.gradle.kts')
+          text = path.read_text()
+          if 'val cocoonKeystoreProperties = java.util.Properties()' not in text:
+              text = text.replace(
+                  'android {',
+                  '''val cocoonKeystoreProperties = java.util.Properties()\nval cocoonKeystorePropertiesFile = rootProject.file("key.properties")\nif (cocoonKeystorePropertiesFile.exists()) {\n    cocoonKeystorePropertiesFile.inputStream().use { cocoonKeystoreProperties.load(it) }\n}\n\nandroid {''',
+                  1,
+              )
+          marker = '    buildTypes {'
+          signing = '''    signingConfigs {\n        create("release") {\n            keyAlias = cocoonKeystoreProperties["keyAlias"] as String\n            keyPassword = cocoonKeystoreProperties["keyPassword"] as String\n            storeFile = file(cocoonKeystoreProperties["storeFile"] as String)\n            storePassword = cocoonKeystoreProperties["storePassword"] as String\n        }\n    }\n\n'''
+          if 'create("release")' not in text:
+              text = text.replace(marker, signing + marker, 1)
+          text = text.replace(
+              'signingConfig = signingConfigs.getByName("debug")',
+              'signingConfig = signingConfigs.getByName("release")',
+              1,
+          )
+          path.write_text(text)
+          PY
+
+      - name: Build Android candidate
+        working-directory: cocoonmate
+        shell: bash
+        run: |
+          set -euo pipefail
+          mode='${{ steps.candidate.outputs.build_mode }}'
+          flutter build apk "--$mode" \
+            --build-name='${{ steps.candidate.outputs.version }}' \
+            --build-number='${{ steps.candidate.outputs.build_number }}' \
+            --dart-define=LIFEMATE_BUILD_ENV='${{ steps.candidate.outputs.environment }}'
+
+      - name: Create provenance bundle
+        id: provenance
+        shell: bash
+        run: |
+          set -euo pipefail
+          mode='${{ steps.candidate.outputs.build_mode }}'
+          environment='${{ steps.candidate.outputs.environment }}'
+          source="cocoonmate/build/app/outputs/flutter-apk/app-${mode}.apk"
+          filename="cocoonmate-${environment}-${mode}-v${{ steps.candidate.outputs.version }}+${{ steps.candidate.outputs.build_number }}-${{ steps.candidate.outputs.short_sha }}.apk"
+          mkdir -p candidate
+          cp "$source" "candidate/$filename"
+          sha256sum "candidate/$filename" > "candidate/$filename.sha256"
+          migration_head="$(find supabase/migrations -maxdepth 1 -type f -name '*.sql' -printf '%f\n' | sort | tail -n 1)"
+          python3 - <<PY
+          import json, os
+          from pathlib import Path
+          payload = {
+              'app': 'cocoonmate',
+              'package_id': 'com.mylifemate.cocoonmate',
+              'commit_sha': os.environ['GITHUB_SHA'],
+              'workflow': os.environ['GITHUB_WORKFLOW'],
+              'workflow_run_id': os.environ['GITHUB_RUN_ID'],
+              'workflow_run_attempt': os.environ['GITHUB_RUN_ATTEMPT'],
+              'version': '${{ steps.candidate.outputs.version }}',
+              'build_number': '${{ steps.candidate.outputs.build_number }}',
+              'environment': '$environment',
+              'build_mode': '$mode',
+              'migration_head': '$migration_head',
+              'artifact_file': '$filename',
+          }
+          Path('candidate/provenance.json').write_text(json.dumps(payload, indent=2, sort_keys=True) + '\n')
+          PY
+          echo "artifact_name=cocoonmate-${environment}-${mode}-${{ steps.candidate.outputs.short_sha }}" >> "$GITHUB_OUTPUT"
+
+      - name: Verify provenance and no signing material leakage
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -s candidate/provenance.json
+          test -s candidate/*.apk
+          test -s candidate/*.sha256
+          ! find candidate -type f -name '*.jks' -o -name 'key.properties' | grep -q .
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ${{ steps.provenance.outputs.artifact_name }}
+          path: candidate/
+          if-no-files-found: error
+          retention-days: 14
