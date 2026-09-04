@@ -1,6 +1,7 @@
 import { getLifeMateSql } from "./database_client.ts";
 import { json } from "./http.ts";
 import { requireMutationIdempotencyKey } from "./idempotency.ts";
+import { createPregnancyRouteHandler } from "./pregnancy_routes.ts";
 import { enforceRateLimit } from "./security.ts";
 import { ApiError, readJsonObject } from "./validation.ts";
 
@@ -20,7 +21,14 @@ const result = (value: unknown, fallback: string): Row => {
 
 export function createSubscriptionRouteHandler(databaseUrl: string) {
   const sql = getLifeMateSql(databaseUrl);
+  // Cocoon routes are composed here so the existing authenticated product-route
+  // seam remains stable while Phase 0 freezes contracts. The pregnancy handler
+  // owns all health authorization; Commerce state never authorizes pregnancy PHI.
+  const pregnancyRoutes = createPregnancyRouteHandler(databaseUrl);
   return async ({ request, path, appUserId }: { request: Request; path: string; appUserId: string }): Promise<Response | null> => {
+    const pregnancyResponse = await pregnancyRoutes({ request, path, appUserId });
+    if (pregnancyResponse) return pregnancyResponse;
+
     if (request.method === "GET" && path === "/api/v1/subscription/snapshot") {
       const rows = await sql`select commerce.mobile_subscription_snapshot(${appUserId}::uuid) as result`;
       return json(result(rows[0]?.result, "subscription_snapshot_unavailable"));
