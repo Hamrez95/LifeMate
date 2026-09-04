@@ -56,19 +56,30 @@ for (const [value, message] of [
 
 const guardStep = extractNamedStep(
   deployJob,
-  'Require exact main and protected deployment inputs',
+  'Require exact main deployment inputs',
 );
 
 for (const [value, message] of [
   ["          test \"$GITHUB_REF\" = 'refs/heads/main'", 'deploy must require main ref'],
   ['          test "$(git rev-parse HEAD)" = "$GITHUB_SHA"', 'deploy must require exact checked-out SHA'],
-  ["          test \"${{ github.event.repository.private }}\" = 'true'", 'deploy must fail closed while repository visibility is public'],
-  ["          test \"${{ github.ref_protected }}\" = 'true'", 'deploy must fail closed while main is not protected by branch protection/ruleset'],
+  ["          test \"$GITHUB_REPOSITORY\" = 'Hamrez95/LifeMate'", 'deploy must bind to the canonical repository'],
+  ["          test \"$SUPABASE_PROJECT_REF\" = 'bwdvmniywyyijjauipnh'", 'deploy must bind to the production Supabase project'],
+  ['          test -n "$SUPABASE_ACCESS_TOKEN"', 'deploy must require the Supabase management credential'],
+  ['          test -n "$SUPABASE_PUBLISHABLE_KEY"', 'deploy must require the publishable key used by smoke checks'],
 ]) {
   if (!guardStep.includes(value)) fail(message);
 }
 
-if (deployJob.indexOf('      - name: Require exact main and protected deployment inputs') >
+for (const forbidden of [
+  'github.event.repository.private',
+  'github.ref_protected',
+]) {
+  if (guardStep.includes(forbidden)) {
+    fail(`production Edge deploy must not depend on a repository invariant that is false in LIVE GitHub: ${forbidden}`);
+  }
+}
+
+if (deployJob.indexOf('      - name: Require exact main deployment inputs') >
   deployJob.indexOf('      - name: Deploy exact-main API telemetry readiness and worker')) {
   fail('control-plane guard must execute before production deployment');
 }
@@ -96,5 +107,5 @@ if (!flutterWorkflow.includes('Use the protected `internal-beta-release` workflo
 }
 
 console.log(
-  'Production deploy/signing paths are source-bound to private protected main and GitHub Environment beta; generic Flutter CI cannot mint release-signed APKs.',
+  'Production Edge deploy is exact-main, canonical-repository/project bound, and protected by GitHub Environment beta; generic Flutter CI cannot mint release-signed APKs.',
 );
