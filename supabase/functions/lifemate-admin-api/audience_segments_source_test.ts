@@ -28,11 +28,11 @@ Deno.test("audience segment routes require purpose-specific permissions", async 
   const text = await source("./audience_segments_routes.ts");
   assertStringIncludes(
     text,
-    'requirePermission(admin,"marketing.segment.read")',
+    'requirePermission(admin, "marketing.segment.read")',
   );
   assertStringIncludes(
     text,
-    'requirePermission(admin,"marketing.segment.write")',
+    'requirePermission(admin, "marketing.segment.write")',
   );
   assert(!text.includes("service_role"));
   assert(!text.includes("supabase.from"));
@@ -75,8 +75,8 @@ Deno.test("audience migration is browser-denied, portable, deletion-compatible a
 
 Deno.test("small audience snapshots are suppressed in API responses", async () => {
   const text = await source("./audience_segments_routes.ts");
-  assertStringIncludes(text, "memberCount:suppressed ? null : exactCount");
-  assertStringIncludes(text, "minimumCohortSize:MIN_PREVIEW_COHORT");
+  assertStringIncludes(text, "memberCount: suppressed ? null : exactCount");
+  assertStringIncludes(text, "minimumCohortSize: MIN_PREVIEW_COHORT");
 });
 
 Deno.test("execution snapshots validate and persist under one database transaction", async () => {
@@ -86,7 +86,7 @@ Deno.test("execution snapshots validate and persist under one database transacti
   assertStringIncludes(routes, "expectedVersion,");
   assertStringIncludes(
     routes,
-    "hashSnapshotRequest(snapshotId,expectedVersion,idempotencyKey)",
+    "hashSnapshotRequest(snapshotId, expectedVersion, idempotencyKey)",
   );
   assert(!routes.includes("withActiveSegmentVersionLock"));
   assertStringIncludes(service, "for share");
