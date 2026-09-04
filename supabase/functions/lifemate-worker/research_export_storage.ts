@@ -56,7 +56,7 @@ export function createResearchExportStorage(
           "x-upsert": "true",
           "cache-control": "no-store",
         },
-        body: input.bytes,
+        body: Uint8Array.from(input.bytes).buffer,
       },
     );
     if (!response.ok) throw new Error("research_export_storage_upload_failed");
