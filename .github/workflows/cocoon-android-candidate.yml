@@ -127,6 +127,15 @@ jobs:
           from pathlib import Path
           manifest = Path('android/app/src/main/AndroidManifest.xml')
           text = manifest.read_text()
+          manifest_open = '<manifest xmlns:android="http://schemas.android.com/apk/res/android">'
+          if manifest_open not in text:
+              raise SystemExit('generated Cocoon manifest contract changed')
+          if 'android.permission.INTERNET' not in text:
+              text = text.replace(
+                  manifest_open,
+                  manifest_open + '\n    <uses-permission android:name="android.permission.INTERNET" />',
+                  1,
+              )
           text = text.replace('android:label="cocoonmate"', 'android:label="CocoonMate"')
           manifest.write_text(text)
           PY
@@ -138,6 +147,7 @@ jobs:
           set -euo pipefail
           grep -R -Fq 'com.mylifemate.cocoonmate' android/app
           grep -Fq 'android:label="CocoonMate"' android/app/src/main/AndroidManifest.xml
+          grep -Fq 'android.permission.INTERNET' android/app/src/main/AndroidManifest.xml
           ! grep -R -n -E 'com\.mylifemate\.(wellmate|caremate)' android/app
 
       - name: Resolve and test standalone host
