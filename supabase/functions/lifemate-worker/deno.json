@@ -8,7 +8,7 @@
   },
   "tasks": {
     "check": "deno check index.ts policy_test.ts provider_auth_subject_test.ts scheduler_auth_test.ts marketing_publish_provider_test.ts campaign_delivery_provider_test.ts campaign_delivery_worker_test.ts campaign_delivery_dispatcher_test.ts campaign_delivery_runtime.ts research_export_format.ts research_export_format_test.ts research_export_storage.ts research_export_storage_test.ts research_export_worker.ts research_export_worker_test.ts research_export_runtime.ts research_export_signer_route.ts research_export_signer_route_test.ts account_deletion_storage_test.ts queue_integration_test.ts account_deletion_integration_test.ts identity_bridge_integration_test.ts",
-    "test": "deno test --no-check policy_test.ts provider_auth_subject_test.ts scheduler_auth_test.ts marketing_publish_provider_test.ts campaign_delivery_provider_test.ts campaign_delivery_worker_test.ts campaign_delivery_dispatcher_test.ts research_export_format_test.ts research_export_storage_test.ts research_export_worker_test.ts research_export_signer_route_test.ts account_deletion_storage_test.ts",
+    "test": "deno test --no-check --allow-read=. policy_test.ts provider_auth_subject_test.ts scheduler_auth_test.ts marketing_publish_provider_test.ts campaign_delivery_provider_test.ts campaign_delivery_worker_test.ts campaign_delivery_dispatcher_test.ts research_export_format_test.ts research_export_storage_test.ts research_export_worker_test.ts research_export_signer_route_test.ts account_deletion_storage_test.ts",
     "test:integration": "deno test --no-check --allow-env --allow-net=localhost:5432,127.0.0.1:5432 queue_integration_test.ts account_deletion_integration_test.ts identity_bridge_integration_test.ts"
   }
 }
