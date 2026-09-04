@@ -8,14 +8,41 @@ permissions:
   contents: read
 
 jobs:
-  pair-isolation:
-    name: pair-${{ matrix.pair }}
+  discover:
     runs-on: ubuntu-24.04
-    timeout-minutes: 10
+    outputs:
+      tests: ${{ steps.tests.outputs.tests }}
+    defaults:
+      run:
+        working-directory: supabase/functions/lifemate-admin-api
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
+        with:
+          show-progress: false
+          persist-credentials: false
+      - id: tests
+        name: Discover canonical test files
+        shell: bash
+        run: |
+          set -euo pipefail
+          tests=$(python - <<'PY'
+          import json
+          data=json.load(open('deno.json'))
+          items=[x for x in data['tasks']['test'].split() if x.endswith('_test.ts')]
+          print(json.dumps(items,separators=(',',':')))
+          PY
+          )
+          echo "tests=$tests" >> "$GITHUB_OUTPUT"
+
+  isolated:
+    needs: discover
+    name: isolated-${{ matrix.test }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 8
     strategy:
       fail-fast: false
       matrix:
-        pair: ["01", "02", "03", "12", "13", "23"]
+        test: ${{ fromJSON(needs.discover.outputs.tests) }}
     defaults:
       run:
         working-directory: supabase/functions/lifemate-admin-api
@@ -27,22 +54,5 @@ jobs:
       - uses: denoland/setup-deno@22d081ff2d3a40755e97629de92e3bcbfa7cf2ed
         with:
           deno-version: v2.9.4
-      - name: Run ordered pair subset
-        shell: bash
-        env:
-          PAIR: ${{ matrix.pair }}
-        run: |
-          set -euo pipefail
-          mapfile -t tests < <(deno eval --allow-read=. 'const j=JSON.parse(await Deno.readTextFile("deno.json")); console.log(j.tasks.test.split(/\s+/).filter((x)=>x.endsWith("_test.ts")).join("\n"));')
-          count=${#tests[@]}
-          q=$(( (count + 3) / 4 ))
-          selected=()
-          for ((p=0; p<2; p++)); do
-            g=${PAIR:p:1}
-            start=$((10#$g * q))
-            end=$((start + q))
-            if (( end > count )); then end=$count; fi
-            for ((i=start; i<end; i++)); do selected+=("${tests[i]}"); done
-          done
-          printf 'Running %s tests for groups %s\n' "${#selected[@]}" "$PAIR"
-          deno test --no-check --allow-read=. "${selected[@]}"
+      - name: Run isolated test file
+        run: deno test --no-check --allow-read=. "${{ matrix.test }}"
