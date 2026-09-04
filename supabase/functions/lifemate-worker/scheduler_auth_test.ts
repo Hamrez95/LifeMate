@@ -29,7 +29,7 @@ Deno.test("scheduler auth fails closed when infrastructure is unavailable", asyn
 Deno.test("scheduler path is not gated by the optional operator token", async () => {
   const source = await Deno.readTextFile("./index.ts");
   assertEquals(
-    source.includes('if (!workerToken || workerToken.length < 32)'),
+    source.includes("if (!workerToken || workerToken.length < 32)"),
     false,
   );
   assertEquals(source.includes("workerToken !== undefined"), true);
