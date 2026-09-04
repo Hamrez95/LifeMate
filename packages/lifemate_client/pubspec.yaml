@@ -3,12 +3,15 @@ description: Shared authenticated LifeMate API client for WellMate and CareMate.
 publish_to: 'none'
 version: 0.1.0
 environment:
-  sdk: ">=3.0.0 <4.0.0"
+  sdk: ">=3.10.0 <4.0.0"
+  flutter: ">=3.38.0"
 dependencies:
   flutter:
     sdk: flutter
   flutter_secure_storage: ^10.3.1
   http: 1.6.0
+  lifemate_core:
+    path: ../lifemate_core
   supabase_flutter: 2.16.0
   timezone: ^0.10.1
 dev_dependencies:
