@@ -19,7 +19,10 @@ Deno.test("Admin support visible-message routes stay permissioned and audited", 
   assertStringIncludes(routes, "requireIdempotencyKey(request)");
   assertStringIncludes(migration, "admin.send_support_conversation_message");
   assertStringIncludes(migration, "support.conversation.message.sent");
-  assertStringIncludes(dispatcher, "supportConversationRouteHandler(input)");
+  assertStringIncludes(
+    dispatcher.replace(/\s+/g, ""),
+    "supportConversationRouteHandler(input)",
+  );
 
   // Visible conversation messages are distinct from privacy-minimized internal
   // notes. Do not log/persist message body inside Admin audit metadata.
