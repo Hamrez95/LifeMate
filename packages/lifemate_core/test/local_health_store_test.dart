@@ -14,54 +14,58 @@ void main() {
     personId: 'person-a',
   );
 
-  test('stores encrypted person-scoped projection without plaintext selectors',
-      () async {
-    final database = sqlite3.openInMemory();
-    final store = LifeMateLocalHealthStore.forTesting(
-      database: database,
-      keyBytes: key,
-      now: () => DateTime.utc(2026, 9, 4, 12),
-    );
+  test(
+    'stores encrypted person-scoped projection without plaintext selectors',
+    () async {
+      final database = sqlite3.openInMemory();
+      final store = LifeMateLocalHealthStore.forTesting(
+        database: database,
+        keyBytes: key,
+        now: () => DateTime.utc(2026, 9, 4, 12),
+      );
 
-    await store.putProjection(
-      namespace: namespace,
-      domain: LifeMateLocalProjectionDomain.pregnancySnapshot,
-      recordKey: 'active-episode',
-      payload: const <String, dynamic>{
-        'sensitiveDatingValue': '2026-08-01',
-        'status': 'active',
-      },
-      sourceRevision: 'rev-7',
-      syncCursor: 'cursor-private-1',
-      contentVersion: 'pregnancy-content-v3',
-    );
+      await store.putProjection(
+        namespace: namespace,
+        domain: LifeMateLocalProjectionDomain.pregnancySnapshot,
+        recordKey: 'active-episode',
+        payload: const <String, dynamic>{
+          'sensitiveDatingValue': '2026-08-01',
+          'status': 'active',
+        },
+        sourceRevision: 'rev-7',
+        syncCursor: 'cursor-private-1',
+        contentVersion: 'pregnancy-content-v3',
+      );
 
-    final raw = database
-        .select('SELECT * FROM lifemate_local_projection_records')
-        .single;
-    final rawText = raw.values.map((value) {
-      if (value is Uint8List) return base64Encode(value);
-      return value.toString();
-    }).join('|');
-    expect(rawText, isNot(contains('account-a')));
-    expect(rawText, isNot(contains('person-a')));
-    expect(rawText, isNot(contains('pregnancy_snapshot')));
-    expect(rawText, isNot(contains('2026-08-01')));
-    expect(rawText, isNot(contains('cursor-private-1')));
+      final raw = database
+          .select('SELECT * FROM lifemate_local_projection_records')
+          .single;
+      final rawText = raw.values
+          .map((value) {
+            if (value is Uint8List) return base64Encode(value);
+            return value.toString();
+          })
+          .join('|');
+      expect(rawText, isNot(contains('account-a')));
+      expect(rawText, isNot(contains('person-a')));
+      expect(rawText, isNot(contains('pregnancy_snapshot')));
+      expect(rawText, isNot(contains('2026-08-01')));
+      expect(rawText, isNot(contains('cursor-private-1')));
 
-    final restored = await store.readProjection(
-      namespace: namespace,
-      domain: LifeMateLocalProjectionDomain.pregnancySnapshot,
-      recordKey: 'active-episode',
-    );
-    expect(restored, isNotNull);
-    expect(restored!.payload['sensitiveDatingValue'], '2026-08-01');
-    expect(restored.sourceRevision, 'rev-7');
-    expect(restored.syncCursor, 'cursor-private-1');
-    expect(restored.storedAtUtc, DateTime.utc(2026, 9, 4, 12));
+      final restored = await store.readProjection(
+        namespace: namespace,
+        domain: LifeMateLocalProjectionDomain.pregnancySnapshot,
+        recordKey: 'active-episode',
+      );
+      expect(restored, isNotNull);
+      expect(restored!.payload['sensitiveDatingValue'], '2026-08-01');
+      expect(restored.sourceRevision, 'rev-7');
+      expect(restored.syncCursor, 'cursor-private-1');
+      expect(restored.storedAtUtc, DateTime.utc(2026, 9, 4, 12));
 
-    store.close();
-  });
+      store.close();
+    },
+  );
 
   test('isolates environment, account and Person namespaces', () async {
     final database = sqlite3.openInMemory();
@@ -104,8 +108,7 @@ void main() {
         namespace: namespace,
         domain: LifeMateLocalProjectionDomain.treatmentPlan,
         recordKey: 'same-record-key',
-      ))!
-          .payload['value'],
+      ))!.payload['value'],
       'owner-a',
     );
     expect(await store.countNamespace(namespace), 1);
@@ -142,7 +145,9 @@ void main() {
 
     database.execute(
       'UPDATE lifemate_local_projection_records SET ciphertext = ?',
-      <Object?>[Uint8List.fromList(<int>[1, 2, 3, 4])],
+      <Object?>[
+        Uint8List.fromList(<int>[1, 2, 3, 4]),
+      ],
     );
 
     await expectLater(
@@ -166,7 +171,7 @@ void main() {
       ),
       throwsA(isA<LifeMateLocalStoreSchemaException>()),
     );
-    database.dispose();
+    database.close();
   });
 
   test('failed schema migration leaves user_version unchanged', () {
@@ -182,65 +187,66 @@ void main() {
       ),
       throwsA(anything),
     );
-    expect(
-      database.select('PRAGMA user_version').first['user_version'],
-      0,
-    );
-    database.dispose();
+    expect(database.select('PRAGMA user_version').first['user_version'], 0);
+    database.close();
   });
 
-  test('pending mutation projection survives close/reopen and missing key fails',
-      () async {
-    final directory = Directory.systemTemp.createTempSync('lifemate-core-test-');
-    final path =
-        '${directory.path}${Platform.pathSeparator}lifemate-local.sqlite3';
-    final keyStore = _MemoryKeyStore(seed: key);
+  test(
+    'pending mutation projection survives close/reopen and missing key fails',
+    () async {
+      final directory = Directory.systemTemp.createTempSync(
+        'lifemate-core-test-',
+      );
+      final path =
+          '${directory.path}${Platform.pathSeparator}lifemate-local.sqlite3';
+      final keyStore = _MemoryKeyStore(seed: key);
 
-    final first = await LifeMateLocalHealthStore.openAtPath(
-      path,
-      keyStore: keyStore,
-      now: () => DateTime.utc(2026, 9, 4, 13),
-    );
-    await first.putProjection(
-      namespace: namespace,
-      domain: LifeMateLocalProjectionDomain.pendingMutation,
-      recordKey: 'client-mutation-1',
-      payload: const <String, dynamic>{
-        'operation': 'check_in',
-        'state': 'pending',
-      },
-    );
-    first.close();
-
-    final fileText = latin1.decode(File(path).readAsBytesSync());
-    expect(fileText, isNot(contains('account-a')));
-    expect(fileText, isNot(contains('person-a')));
-    expect(fileText, isNot(contains('pending_mutation')));
-    expect(fileText, isNot(contains('check_in')));
-
-    final reopened = await LifeMateLocalHealthStore.openAtPath(
-      path,
-      keyStore: keyStore,
-    );
-    final mutation = await reopened.readProjection(
-      namespace: namespace,
-      domain: LifeMateLocalProjectionDomain.pendingMutation,
-      recordKey: 'client-mutation-1',
-    );
-    expect(mutation, isNotNull);
-    expect(mutation!.payload['state'], 'pending');
-    reopened.close();
-
-    await expectLater(
-      LifeMateLocalHealthStore.openAtPath(
+      final first = await LifeMateLocalHealthStore.openAtPath(
         path,
-        keyStore: _MemoryKeyStore(seed: key),
-      ),
-      throwsA(isA<LifeMateLocalStoreKeyUnavailableException>()),
-    );
+        keyStore: keyStore,
+        now: () => DateTime.utc(2026, 9, 4, 13),
+      );
+      await first.putProjection(
+        namespace: namespace,
+        domain: LifeMateLocalProjectionDomain.pendingMutation,
+        recordKey: 'client-mutation-1',
+        payload: const <String, dynamic>{
+          'operation': 'check_in',
+          'state': 'pending',
+        },
+      );
+      first.close();
 
-    directory.deleteSync(recursive: true);
-  });
+      final fileText = latin1.decode(File(path).readAsBytesSync());
+      expect(fileText, isNot(contains('account-a')));
+      expect(fileText, isNot(contains('person-a')));
+      expect(fileText, isNot(contains('pending_mutation')));
+      expect(fileText, isNot(contains('check_in')));
+
+      final reopened = await LifeMateLocalHealthStore.openAtPath(
+        path,
+        keyStore: keyStore,
+      );
+      final mutation = await reopened.readProjection(
+        namespace: namespace,
+        domain: LifeMateLocalProjectionDomain.pendingMutation,
+        recordKey: 'client-mutation-1',
+      );
+      expect(mutation, isNotNull);
+      expect(mutation!.payload['state'], 'pending');
+      reopened.close();
+
+      await expectLater(
+        LifeMateLocalHealthStore.openAtPath(
+          path,
+          keyStore: _MemoryKeyStore(seed: key),
+        ),
+        throwsA(isA<LifeMateLocalStoreKeyUnavailableException>()),
+      );
+
+      directory.deleteSync(recursive: true);
+    },
+  );
 
   test('bounded payload refuses oversized local health records', () async {
     final database = sqlite3.openInMemory();

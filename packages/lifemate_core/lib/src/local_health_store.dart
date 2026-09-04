@@ -2,7 +2,7 @@ import 'dart:convert';
 import 'dart:io';
 import 'dart:typed_data';
 
-import 'package:crypto/crypto.dart';
+import 'package:crypto/crypto.dart' as crypto;
 import 'package:cryptography/cryptography.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:path/path.dart' as p;
@@ -35,9 +35,9 @@ final class LifeMateLocalNamespace {
     required String environmentId,
     required String accountId,
     required String personId,
-  })  : environmentId = _requireValue(environmentId, 'environmentId'),
-        accountId = _requireValue(accountId, 'accountId'),
-        personId = _requireValue(personId, 'personId');
+  }) : environmentId = _requireValue(environmentId, 'environmentId'),
+       accountId = _requireValue(accountId, 'accountId'),
+       personId = _requireValue(personId, 'personId');
 
   final String environmentId;
   final String accountId;
@@ -87,7 +87,7 @@ abstract interface class LifeMateLocalKeyStore {
 /// keystore/keychain. Health payloads themselves are not stored here.
 final class LifeMateSecureLocalKeyStore implements LifeMateLocalKeyStore {
   LifeMateSecureLocalKeyStore({FlutterSecureStorage? storage})
-      : _storage = storage ?? const FlutterSecureStorage();
+    : _storage = storage ?? const FlutterSecureStorage();
 
   static const _keyName = 'lifemate.local_health.master_key.v1';
 
@@ -178,9 +178,9 @@ final class LifeMateLocalHealthStore {
     required List<int> keyBytes,
     required this.databaseFilePath,
     DateTime Function()? now,
-  })  : _database = database,
-        _keyBytes = Uint8List.fromList(keyBytes),
-        _now = now ?? (() => DateTime.now().toUtc()) {
+  }) : _database = database,
+       _keyBytes = Uint8List.fromList(keyBytes),
+       _now = now ?? (() => DateTime.now().toUtc()) {
     if (_keyBytes.length != keyLengthBytes) {
       throw const LifeMateLocalStoreKeyUnavailableException();
     }
@@ -191,7 +191,8 @@ final class LifeMateLocalHealthStore {
   static const int schemaVersion = 1;
   static const int keyLengthBytes = 32;
   static const int maximumPlaintextEnvelopeBytes = 256 * 1024;
-  static const String defaultDatabaseFileName = 'lifemate_health_local_v1.sqlite3';
+  static const String defaultDatabaseFileName =
+      'lifemate_health_local_v1.sqlite3';
 
   final Database _database;
   final Uint8List _keyBytes;
@@ -227,7 +228,11 @@ final class LifeMateLocalHealthStore {
   }) async {
     final normalizedPath = path.trim();
     if (normalizedPath.isEmpty) {
-      throw ArgumentError.value(path, 'path', 'Database path must not be empty.');
+      throw ArgumentError.value(
+        path,
+        'path',
+        'Database path must not be empty.',
+      );
     }
 
     final file = File(normalizedPath);
@@ -255,7 +260,7 @@ final class LifeMateLocalHealthStore {
         now: now,
       );
     } catch (_) {
-      database.dispose();
+      database.close();
       rethrow;
     }
   }
@@ -375,7 +380,11 @@ final class LifeMateLocalHealthStore {
       ],
     );
     if (rows.isEmpty) return null;
-    return _decryptRow(rows.first, expectedDomain: domain, selectors: selectors);
+    return _decryptRow(
+      rows.first,
+      expectedDomain: domain,
+      selectors: selectors,
+    );
   }
 
   Future<List<LifeMateLocalProjectionRecord>> listDomain({
@@ -411,11 +420,7 @@ final class LifeMateLocalHealthStore {
         throw const LifeMateLocalStoreCorruptionException();
       }
       records.add(
-        await _decryptRow(
-          row,
-          expectedDomain: domain,
-          selectors: selectors,
-        ),
+        await _decryptRow(row, expectedDomain: domain, selectors: selectors),
       );
     }
     records.sort((a, b) => a.storedAtUtc.compareTo(b.storedAtUtc));
@@ -428,7 +433,11 @@ final class LifeMateLocalHealthStore {
     required String recordKey,
   }) async {
     _ensureOpen();
-    final selectors = _selectors(namespace, domain, _requireRecordKey(recordKey));
+    final selectors = _selectors(
+      namespace,
+      domain,
+      _requireRecordKey(recordKey),
+    );
     _database.execute(
       '''
       DELETE FROM lifemate_local_projection_records
@@ -449,13 +458,18 @@ final class LifeMateLocalHealthStore {
     required String accountId,
   }) async {
     _ensureOpen();
-    final normalizedEnvironment = _requireIdentifier(environmentId, 'environmentId');
-    final normalizedAccount = _requireIdentifier(accountId, 'accountId');
-    final environmentToken = _token('environment', <String>[normalizedEnvironment]);
-    final accountToken = _token(
-      'account',
-      <String>[normalizedEnvironment, normalizedAccount],
+    final normalizedEnvironment = _requireIdentifier(
+      environmentId,
+      'environmentId',
     );
+    final normalizedAccount = _requireIdentifier(accountId, 'accountId');
+    final environmentToken = _token('environment', <String>[
+      normalizedEnvironment,
+    ]);
+    final accountToken = _token('account', <String>[
+      normalizedEnvironment,
+      normalizedAccount,
+    ]);
     _database.execute(
       '''
       DELETE FROM lifemate_local_projection_records
@@ -470,8 +484,13 @@ final class LifeMateLocalHealthStore {
   /// environment switch.
   Future<void> purgeEnvironment(String environmentId) async {
     _ensureOpen();
-    final normalizedEnvironment = _requireIdentifier(environmentId, 'environmentId');
-    final environmentToken = _token('environment', <String>[normalizedEnvironment]);
+    final normalizedEnvironment = _requireIdentifier(
+      environmentId,
+      'environmentId',
+    );
+    final environmentToken = _token('environment', <String>[
+      normalizedEnvironment,
+    ]);
     _database.execute(
       'DELETE FROM lifemate_local_projection_records WHERE environment_token = ?',
       <Object?>[environmentToken],
@@ -495,7 +514,7 @@ final class LifeMateLocalHealthStore {
   void close() {
     if (_closed) return;
     _closed = true;
-    _database.dispose();
+    _database.close();
     _secretKey.destroy();
     _keyBytes.fillRange(0, _keyBytes.length, 0);
   }
@@ -534,7 +553,9 @@ final class LifeMateLocalHealthStore {
         throw const LifeMateLocalStoreCorruptionException();
       }
       final recordKey = envelope['recordKey']?.toString() ?? '';
-      final storedAt = DateTime.tryParse(envelope['storedAtUtc']?.toString() ?? '');
+      final storedAt = DateTime.tryParse(
+        envelope['storedAtUtc']?.toString() ?? '',
+      );
       if (recordKey.isEmpty || storedAt == null) {
         throw const LifeMateLocalStoreCorruptionException();
       }
@@ -654,20 +675,18 @@ final class LifeMateLocalHealthStore {
   }
 
   _NamespaceSelectors _namespaceSelectors(LifeMateLocalNamespace namespace) {
-    final environmentToken =
-        _token('environment', <String>[namespace.environmentId]);
-    final accountToken = _token(
-      'account',
-      <String>[namespace.environmentId, namespace.accountId],
-    );
-    final namespaceToken = _token(
-      'namespace',
-      <String>[
-        namespace.environmentId,
-        namespace.accountId,
-        namespace.personId,
-      ],
-    );
+    final environmentToken = _token('environment', <String>[
+      namespace.environmentId,
+    ]);
+    final accountToken = _token('account', <String>[
+      namespace.environmentId,
+      namespace.accountId,
+    ]);
+    final namespaceToken = _token('namespace', <String>[
+      namespace.environmentId,
+      namespace.accountId,
+      namespace.personId,
+    ]);
     return _NamespaceSelectors(
       environmentToken: environmentToken,
       accountToken: accountToken,
@@ -676,7 +695,7 @@ final class LifeMateLocalHealthStore {
   }
 
   String _token(String purpose, List<String> parts) {
-    final hmac = Hmac(sha256, _keyBytes);
+    final hmac = crypto.Hmac(crypto.sha256, _keyBytes);
     final bytes = utf8.encode(
       <String>['lifemate-local-v1', purpose, ...parts].join('\u0000'),
     );
@@ -684,15 +703,15 @@ final class LifeMateLocalHealthStore {
   }
 
   List<int> _aad(_StoredSelectors selectors) => utf8.encode(
-        <String>[
-          'lifemate-local-envelope-v1',
-          selectors.environmentToken,
-          selectors.accountToken,
-          selectors.namespaceToken,
-          selectors.domainToken,
-          selectors.recordToken,
-        ].join('\u0000'),
-      );
+    <String>[
+      'lifemate-local-envelope-v1',
+      selectors.environmentToken,
+      selectors.accountToken,
+      selectors.namespaceToken,
+      selectors.domainToken,
+      selectors.recordToken,
+    ].join('\u0000'),
+  );
 
   static Uint8List _blob(Object? value) {
     if (value is Uint8List) return value;
