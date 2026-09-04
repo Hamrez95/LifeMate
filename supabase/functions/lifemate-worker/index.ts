@@ -118,11 +118,10 @@ Deno.serve(async (request: Request) => {
   if (request.method !== "POST") {
     return response(405, { error: "method_not_allowed" });
   }
-  if (!workerToken || workerToken.length < 32) {
-    return response(503, { error: "worker_not_configured" });
-  }
   const supplied = request.headers.get("x-lifemate-worker-token") ?? "";
-  const operatorAuthenticated = constantTimeEqual(workerToken, supplied);
+  const operatorAuthenticated = workerToken !== undefined &&
+    workerToken.length >= 32 &&
+    constantTimeEqual(workerToken, supplied);
   const schedulerAuthenticated = operatorAuthenticated
     ? false
     : await schedulerTokenAccepted(sql, supplied);
