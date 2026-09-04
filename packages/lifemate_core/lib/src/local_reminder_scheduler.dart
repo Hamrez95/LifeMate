@@ -80,7 +80,8 @@ abstract final class LifeMateReminderIdentity {
     return stableHash('lifemate-reminder-v1|$normalized|r:$sourceRevision');
   }
 
-  static int stableRevisionFor(String value) => stableHash('revision-v1|$value');
+  static int stableRevisionFor(String value) =>
+      stableHash('revision-v1|$value');
 
   static int stableHash(String value) {
     var hash = 0x811c9dc5;
@@ -132,7 +133,8 @@ abstract interface class LifeMateReminderPlatform {
   });
 }
 
-final class FlutterLifeMateReminderPlatform implements LifeMateReminderPlatform {
+final class FlutterLifeMateReminderPlatform
+    implements LifeMateReminderPlatform {
   FlutterLifeMateReminderPlatform(this.plugin);
 
   final FlutterLocalNotificationsPlugin plugin;
@@ -234,7 +236,12 @@ final class LifeMateLocalReminderScheduler {
     var skippedCount = 0;
     for (final reminder in reminders) {
       final previous = latestBySource[reminder.sourceOccurrenceKey];
-      if (previous == null || reminder.sourceRevision > previous.sourceRevision) {
+      if (previous == null) {
+        latestBySource[reminder.sourceOccurrenceKey] = reminder;
+        continue;
+      }
+      if (reminder.sourceRevision > previous.sourceRevision) {
+        skippedCount += 1;
         latestBySource[reminder.sourceOccurrenceKey] = reminder;
         continue;
       }
@@ -247,16 +254,17 @@ final class LifeMateLocalReminderScheduler {
       skippedCount += 1;
     }
 
-    final desired = latestBySource.values
-        .where((reminder) {
-          final inWindow =
-              reminder.triggerUtc.isAfter(nowUtc) &&
-              !reminder.triggerUtc.isAfter(horizonEnd);
-          if (!inWindow) skippedCount += 1;
-          return inWindow;
-        })
-        .toList(growable: false)
-      ..sort((a, b) => a.triggerUtc.compareTo(b.triggerUtc));
+    final desired =
+        latestBySource.values
+            .where((reminder) {
+              final inWindow =
+                  reminder.triggerUtc.isAfter(nowUtc) &&
+                  !reminder.triggerUtc.isAfter(horizonEnd);
+              if (!inWindow) skippedCount += 1;
+              return inWindow;
+            })
+            .toList(growable: false)
+          ..sort((a, b) => a.triggerUtc.compareTo(b.triggerUtc));
 
     if (desired.length > maximumScheduledReminders) {
       throw LifeMateReminderConflictException(
@@ -287,8 +295,11 @@ final class LifeMateLocalReminderScheduler {
       }
     }
 
-    final persisted = await _registry?.list() ?? const <LifeMatePersistedReminder>[];
-    final desiredScheduleKeys = desired.map((value) => value.scheduleKey).toSet();
+    final persisted =
+        await _registry?.list() ?? const <LifeMatePersistedReminder>[];
+    final desiredScheduleKeys = desired
+        .map((value) => value.scheduleKey)
+        .toSet();
     for (final previous in persisted) {
       if (!desiredScheduleKeys.contains(previous.scheduleKey)) {
         await _registry?.delete(previous.scheduleKey);
