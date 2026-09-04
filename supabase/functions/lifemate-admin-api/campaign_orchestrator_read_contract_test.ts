@@ -34,6 +34,6 @@ Deno.test("execution list and detail require high-risk send permission", async (
     routes.replace(/\s+/g, "").replace(/,\)/g, ")"),
     'requirePermission(admin,"marketing.campaign.send")',
   );
-  assertStringIncludes(routes, "/api/v1/marketing/campaigns/");
-  assertStringIncludes(routes, "/api/v1/marketing/campaign-executions/");
+  assertStringIncludes(routes, "campaigns\\/([^/]+)\\/executions");
+  assertStringIncludes(routes, "campaign-executions\\/([^/]+)");
 });
