@@ -143,9 +143,11 @@ jobs:
           for abi in arm64-v8a armeabi-v7a x86_64; do
             apk="cocoonmate/build/app/outputs/flutter-apk/app-${abi}-release.apk"
             test -s "$apk"
-            "$aapt_bin" dump badging "$apk" | grep -Fq "package: name='com.mylifemate.cocoonmate'"
-            "$aapt_bin" dump badging "$apk" | grep -Fq "application-label:'CocoonMate'"
-            "$aapt_bin" dump permissions "$apk" | grep -Fq 'android.permission.INTERNET'
+            badging="$("$aapt_bin" dump badging "$apk")"
+            permissions="$("$aapt_bin" dump permissions "$apk")"
+            grep -Fq "package: name='com.mylifemate.cocoonmate'" <<<"$badging"
+            grep -Fq "application-label:'CocoonMate'" <<<"$badging"
+            grep -Fq 'android.permission.INTERNET' <<<"$permissions"
 
             mkdir -p "dist/$abi"
             candidate="dist/$abi/cocoonmate-$RELEASE_NAME-$short_sha-$RELEASE_ENVIRONMENT-$abi-internal.apk"
