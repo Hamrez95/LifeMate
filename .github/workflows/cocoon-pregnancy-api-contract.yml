@@ -18,7 +18,7 @@ on:
       - '.github/workflows/cocoon-pregnancy-api-contract.yml'
 
 permissions:
-  contents: write
+  contents: read
 
 jobs:
   server-contract:
@@ -63,8 +63,7 @@ jobs:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
         with:
           show-progress: false
-          persist-credentials: true
-          ref: cocoon/f0-04-pregnancy-api-contracts
+          persist-credentials: false
       - uses: subosito/flutter-action@4cab68ce0f1c7c924f688bff4792e044f1aeb30c
         with:
           flutter-version: '3.44.0'
@@ -73,16 +72,8 @@ jobs:
       - name: Resolve shared client
         working-directory: packages/lifemate_client
         run: flutter pub get
-      - name: Canonicalize typed Cocoon client
-        run: |
-          dart format packages/lifemate_client/lib/src/cocoon_pregnancy.dart packages/lifemate_client/lib/src/cocoon_pregnancy_api.dart packages/lifemate_client/test/cocoon_pregnancy_contract_test.dart
-          if ! git diff --quiet -- packages/lifemate_client/lib/src/cocoon_pregnancy.dart packages/lifemate_client/lib/src/cocoon_pregnancy_api.dart packages/lifemate_client/test/cocoon_pregnancy_contract_test.dart; then
-            git config user.name "github-actions[bot]"
-            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-            git add packages/lifemate_client/lib/src/cocoon_pregnancy.dart packages/lifemate_client/lib/src/cocoon_pregnancy_api.dart packages/lifemate_client/test/cocoon_pregnancy_contract_test.dart
-            git commit -m "style(cocoon): format pregnancy client contracts"
-            git push origin HEAD:cocoon/f0-04-pregnancy-api-contracts
-          fi
+      - name: Format typed Cocoon client
+        run: dart format --output=none --set-exit-if-changed packages/lifemate_client/lib/src/cocoon_pregnancy.dart packages/lifemate_client/lib/src/cocoon_pregnancy_api.dart packages/lifemate_client/test/cocoon_pregnancy_contract_test.dart
       - name: Analyze shared client
         working-directory: packages/lifemate_client
         run: flutter analyze --no-fatal-warnings --no-fatal-infos
