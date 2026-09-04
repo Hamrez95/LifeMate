@@ -26,8 +26,10 @@ export function createSubscriptionRouteHandler(databaseUrl: string) {
   // owns all health authorization; Commerce state never authorizes pregnancy PHI.
   const pregnancyRoutes = createPregnancyRouteHandler(databaseUrl);
   return async ({ request, path, appUserId }: { request: Request; path: string; appUserId: string }): Promise<Response | null> => {
-    const pregnancyResponse = await pregnancyRoutes({ request, path, appUserId });
-    if (pregnancyResponse) return pregnancyResponse;
+    if (path.startsWith("/api/v1/cocoon/")) {
+      const pregnancyResponse = await pregnancyRoutes({ request, path, appUserId });
+      if (pregnancyResponse) return pregnancyResponse;
+    }
 
     if (request.method === "GET" && path === "/api/v1/subscription/snapshot") {
       const rows = await sql`select commerce.mobile_subscription_snapshot(${appUserId}::uuid) as result`;
