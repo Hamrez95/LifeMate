@@ -21,7 +21,9 @@ class _CocoonStandaloneAppState extends State<CocoonStandaloneApp>
   @override
   Locale get locale {
     final platform = PlatformDispatcher.instance.locale;
-    return platform.languageCode == 'fa' ? const Locale('fa') : const Locale('en');
+    return platform.languageCode == 'fa'
+        ? const Locale('fa')
+        : const Locale('en');
   }
 
   @override
@@ -47,7 +49,8 @@ class _CocoonStandaloneAppState extends State<CocoonStandaloneApp>
   @override
   Future<void> refresh() async {
     // #784 wires canonical Auth/Person/runtime bootstrap. Fail closed until then.
-    if (mounted) setState(() => _entryState = CocoonEntryState.runtimeUnavailable);
+    if (mounted)
+      setState(() => _entryState = CocoonEntryState.runtimeUnavailable);
   }
 
   @override
