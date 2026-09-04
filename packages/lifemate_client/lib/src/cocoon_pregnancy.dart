@@ -5,25 +5,25 @@ enum CocoonEntitlementState { active, inactive, unknown }
 enum CocoonPregnancyEpisodeStatus { draft, active, ended, unknown }
 
 CocoonEnrollmentState _enrollmentState(Object? value) => switch (value) {
-  'not_enrolled' => CocoonEnrollmentState.notEnrolled,
-  'draft' => CocoonEnrollmentState.draft,
-  'active' => CocoonEnrollmentState.active,
-  'ended' => CocoonEnrollmentState.ended,
-  _ => CocoonEnrollmentState.unknown,
-};
+      'not_enrolled' => CocoonEnrollmentState.notEnrolled,
+      'draft' => CocoonEnrollmentState.draft,
+      'active' => CocoonEnrollmentState.active,
+      'ended' => CocoonEnrollmentState.ended,
+      _ => CocoonEnrollmentState.unknown,
+    };
 
 CocoonEntitlementState _entitlementState(Object? value) => switch (value) {
-  'active' => CocoonEntitlementState.active,
-  'inactive' => CocoonEntitlementState.inactive,
-  _ => CocoonEntitlementState.unknown,
-};
+      'active' => CocoonEntitlementState.active,
+      'inactive' => CocoonEntitlementState.inactive,
+      _ => CocoonEntitlementState.unknown,
+    };
 
 CocoonPregnancyEpisodeStatus _episodeStatus(Object? value) => switch (value) {
-  'draft' => CocoonPregnancyEpisodeStatus.draft,
-  'active' => CocoonPregnancyEpisodeStatus.active,
-  'ended' => CocoonPregnancyEpisodeStatus.ended,
-  _ => CocoonPregnancyEpisodeStatus.unknown,
-};
+      'draft' => CocoonPregnancyEpisodeStatus.draft,
+      'active' => CocoonPregnancyEpisodeStatus.active,
+      'ended' => CocoonPregnancyEpisodeStatus.ended,
+      _ => CocoonPregnancyEpisodeStatus.unknown,
+    };
 
 Map<String, dynamic> _object(Object? value) =>
     value is Map<String, dynamic> ? value : const <String, dynamic>{};
@@ -109,7 +109,8 @@ class CocoonPregnancyEpisode {
         status: _episodeStatus(json['status']),
         dating: CocoonPregnancyDating.fromJson(_object(json['dating'])),
         outcome: json['outcome']?.toString(),
-        activatedAtUtc: DateTime.tryParse(json['activatedAtUtc']?.toString() ?? ''),
+        activatedAtUtc:
+            DateTime.tryParse(json['activatedAtUtc']?.toString() ?? ''),
         endedAtUtc: DateTime.tryParse(json['endedAtUtc']?.toString() ?? ''),
         version: (json['version'] as num?)?.toInt() ?? 0,
         updatedAtUtc: DateTime.tryParse(json['updatedAtUtc']?.toString() ?? ''),
@@ -176,8 +177,7 @@ class CocoonBootstrapSnapshot {
       activeEpisode: activeEpisode is Map<String, dynamic>
           ? CocoonPregnancyEpisode.fromJson(activeEpisode)
           : null,
-      serverAuthoritativeSharing:
-          runtime['serverAuthoritativeSharing'] == true,
+      serverAuthoritativeSharing: runtime['serverAuthoritativeSharing'] == true,
       serverAuthoritativeEntitlementActivation:
           runtime['serverAuthoritativeEntitlementActivation'] == true,
       cachedOwnerSnapshotAllowed: runtime['cachedOwnerSnapshotAllowed'] == true,
