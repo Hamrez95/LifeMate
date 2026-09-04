@@ -1,0 +1,2120 @@
+=== lifemate-api deno task check ===
+[0m[32mDownload[0m https://registry.npmjs.org/openai/-/openai-4.104.0.tgz
+[0m[32mDownload[0m https://registry.npmjs.org/postgres/-/postgres-3.4.7.tgz
+[0m[32mDownload[0m https://registry.npmjs.org/@types/node-fetch/-/node-fetch-2.6.13.tgz
+[0m[32mDownload[0m https://registry.npmjs.org/abort-controller/-/abort-controller-3.0.0.tgz
+[0m[32mDownload[0m https://registry.npmjs.org/form-data-encoder/-/form-data-encoder-1.7.2.tgz
+[0m[32mDownload[0m https://registry.npmjs.org/@types/node/-/node-18.19.130.tgz
+[0m[32mDownload[0m https://registry.npmjs.org/formdata-node/-/formdata-node-4.4.1.tgz
+[0m[32mDownload[0m https://registry.npmjs.org/node-fetch/-/node-fetch-2.7.0.tgz
+[0m[32mDownload[0m https://registry.npmjs.org/agentkeepalive/-/agentkeepalive-4.6.0.tgz
+[0m[32mDownload[0m https://registry.npmjs.org/form-data/-/form-data-4.0.6.tgz
+[0m[32mDownload[0m https://registry.npmjs.org/event-target-shim/-/event-target-shim-5.0.1.tgz
+[0m[32mDownload[0m https://registry.npmjs.org/undici-types/-/undici-types-5.26.5.tgz
+[0m[32mDownload[0m https://registry.npmjs.org/node-domexception/-/node-domexception-1.0.0.tgz
+[0m[32mDownload[0m https://registry.npmjs.org/web-streams-polyfill/-/web-streams-polyfill-4.0.0-beta.3.tgz
+[0m[32mDownload[0m https://registry.npmjs.org/whatwg-url/-/whatwg-url-5.0.0.tgz
+[0m[32mDownload[0m https://registry.npmjs.org/humanize-ms/-/humanize-ms-1.2.1.tgz
+[0m[32mDownload[0m https://registry.npmjs.org/hasown/-/hasown-2.0.4.tgz
+[0m[32mDownload[0m https://registry.npmjs.org/combined-stream/-/combined-stream-1.0.8.tgz
+[0m[32mDownload[0m https://registry.npmjs.org/es-set-tostringtag/-/es-set-tostringtag-2.1.0.tgz
+[0m[32mDownload[0m https://registry.npmjs.org/asynckit/-/asynckit-0.4.0.tgz
+[0m[32mDownload[0m https://registry.npmjs.org/mime-types/-/mime-types-2.1.35.tgz
+[0m[32mDownload[0m https://registry.npmjs.org/tr46/-/tr46-0.0.3.tgz
+[0m[32mDownload[0m https://registry.npmjs.org/webidl-conversions/-/webidl-conversions-3.0.1.tgz
+[0m[32mDownload[0m https://registry.npmjs.org/ms/-/ms-2.1.3.tgz
+[0m[32mDownload[0m https://registry.npmjs.org/function-bind/-/function-bind-1.1.2.tgz
+[0m[32mDownload[0m https://registry.npmjs.org/delayed-stream/-/delayed-stream-1.0.0.tgz
+[0m[32mDownload[0m https://registry.npmjs.org/es-errors/-/es-errors-1.3.0.tgz
+[0m[32mDownload[0m https://registry.npmjs.org/get-intrinsic/-/get-intrinsic-1.3.0.tgz
+[0m[32mDownload[0m https://registry.npmjs.org/has-tostringtag/-/has-tostringtag-1.0.2.tgz
+[0m[32mDownload[0m https://registry.npmjs.org/mime-db/-/mime-db-1.52.0.tgz
+[0m[32mDownload[0m https://registry.npmjs.org/get-proto/-/get-proto-1.0.1.tgz
+[0m[32mDownload[0m https://registry.npmjs.org/has-symbols/-/has-symbols-1.1.0.tgz
+[0m[32mDownload[0m https://registry.npmjs.org/gopd/-/gopd-1.2.0.tgz
+[0m[32mDownload[0m https://registry.npmjs.org/call-bind-apply-helpers/-/call-bind-apply-helpers-1.0.2.tgz
+[0m[32mDownload[0m https://registry.npmjs.org/es-object-atoms/-/es-object-atoms-1.1.2.tgz
+[0m[32mDownload[0m https://registry.npmjs.org/es-define-property/-/es-define-property-1.0.1.tgz
+[0m[32mDownload[0m https://registry.npmjs.org/math-intrinsics/-/math-intrinsics-1.1.0.tgz
+[0m[32mDownload[0m https://registry.npmjs.org/dunder-proto/-/dunder-proto-1.0.1.tgz
+[0m[32mTask[0m [0m[36mcheck[0m deno check index.ts database_client_test.ts validation_test.ts security_test.ts rate_limit_test.ts concurrency_test.ts observability_test.ts http_test.ts runtime_config_test.ts identity_link_token_test.ts identity_bridge_test.ts identity_resolver_test.ts provider_identity_handle_crypto_test.ts contact_point_crypto_test.ts contact_point_read_mode_test.ts identity_link_token_integration_test.ts identity_resolver_integration_test.ts identity_link_rotation_integration_test.ts token_only_bootstrap_integration_test.ts provider_identity_handle_integration_test.ts provider_identity_handle_key_rotation_integration_test.ts raw_identity_retirement_integration_test.ts contact_point_conflict_integration_test.ts contact_point_read_mode_integration_test.ts contact_point_data_export_integration_test.ts contact_point_key_rotation_integration_test.ts raw_contact_retirement_integration_test.ts database_only_breach_proof_integration_test.ts idempotency_test.ts profile_test.ts profile_onboarding_test.ts privacy_preferences_test.ts profile_photo_test.ts health_observations_test.ts care_events_recurrence_test.ts pregnancy_dating.ts pregnancy_dating_test.ts pregnancy_store.ts pregnancy_store_integration_test.ts pregnancy_authorization.ts pregnancy_authorization_test.ts pregnancy_authorization_integration_test.ts cocoon_application.ts cocoon_application_test.ts cocoon_application_integration_test.ts cocoon_routes.ts product_telemetry_v2.ts product_telemetry_v2_routes.ts product_telemetry_v2_test.ts client_remote_config.ts client_remote_config_routes.ts client_remote_config_test.ts experiment_assignments.ts experiment_assignments_routes.ts experiment_assignments_test.ts ../_shared/experiment_assignment.ts push_registrations_routes.ts push_registrations_test.ts ../_shared/messaging_token_crypto_test.ts support_conversations.ts support_conversations_routes.ts support_attachment_storage.ts support_conversations_test.ts support_attachment_test.ts growth_test.ts database_integration_test.ts idempotency_integration_test.ts qr_invitation_integration_test.ts phone_invitation_integration_test.ts phone_invitation_delivery_test.ts care_sms_retirement_test.ts phone_invitation_delivery_integration_test.ts care_relationship_person_identity_integration_test.ts person_care_request_invitation_integration_test.ts phone_care_request_integration_test.ts person_caremate_care_event_authorization_integration_test.ts person_care_relationship_management_integration_test.ts care_completion_notifications_integration_test.ts person_medications_integration_test.ts person_treatment_plans_integration_test.ts person_dose_occurrences_integration_test.ts person_care_events_integration_test.ts person_edit_store_integration_test.ts person_health_observations_integration_test.ts person_healthcare_export_integration_test.ts treatment_dose_owner_retirement_integration_test.ts person_care_event_export_integration_test.ts person_care_relationship_export_integration_test.ts iran_phone_test.ts profile_integration_test.ts profile_projection_integration_test.ts women_calendar_test.ts women_calendar_integration_test.ts person_women_calendar_integration_test.ts person_women_calendar_caregiver_integration_test.ts companion_notification_scope_test.ts relationship_presentation_test.ts data_export_test.ts data_export_integration_test.ts growth_integration_test.ts account_lifecycle_integration_test.ts
+[0m[32mDownload[0m https://deno.land/std@0.224.0/assert/mod.ts
+[0m[32mDownload[0m https://jsr.io/@supabase/functions-js/meta.json
+[0m[32mDownload[0m https://jsr.io/@std/assert/meta.json
+[0m[32mDownload[0m https://registry.npmjs.org/postgres
+[0m[32mDownload[0m https://deno.land/std@0.224.0/assert/assert_almost_equals.ts
+[0m[32mDownload[0m https://deno.land/std@0.224.0/assert/assert_array_includes.ts
+[0m[32mDownload[0m https://deno.land/std@0.224.0/assert/assert_equals.ts
+[0m[32mDownload[0m https://deno.land/std@0.224.0/assert/assert_exists.ts
+[0m[32mDownload[0m https://deno.land/std@0.224.0/assert/assert_false.ts
+[0m[32mDownload[0m https://deno.land/std@0.224.0/assert/assert_greater_or_equal.ts
+[0m[32mDownload[0m https://deno.land/std@0.224.0/assert/assert_greater.ts
+[0m[32mDownload[0m https://deno.land/std@0.224.0/assert/assert_instance_of.ts
+[0m[32mDownload[0m https://deno.land/std@0.224.0/assert/assert_is_error.ts
+[0m[32mDownload[0m https://deno.land/std@0.224.0/assert/assert_less_or_equal.ts
+[0m[32mDownload[0m https://deno.land/std@0.224.0/assert/assert_less.ts
+[0m[32mDownload[0m https://deno.land/std@0.224.0/assert/assert_match.ts
+[0m[32mDownload[0m https://deno.land/std@0.224.0/assert/assert_not_equals.ts
+[0m[32mDownload[0m https://deno.land/std@0.224.0/assert/assert_not_instance_of.ts
+[0m[32mDownload[0m https://deno.land/std@0.224.0/assert/assert_not_match.ts
+[0m[32mDownload[0m https://deno.land/std@0.224.0/assert/assert_not_strict_equals.ts
+[0m[32mDownload[0m https://deno.land/std@0.224.0/assert/assert_object_match.ts
+[0m[32mDownload[0m https://deno.land/std@0.224.0/assert/assert_rejects.ts
+[0m[32mDownload[0m https://deno.land/std@0.224.0/assert/assert_strict_equals.ts
+[0m[32mDownload[0m https://deno.land/std@0.224.0/assert/assert_string_includes.ts
+[0m[32mDownload[0m https://deno.land/std@0.224.0/assert/assert_throws.ts
+[0m[32mDownload[0m https://deno.land/std@0.224.0/assert/assert.ts
+[0m[32mDownload[0m https://deno.land/std@0.224.0/assert/assertion_error.ts
+[0m[32mDownload[0m https://deno.land/std@0.224.0/assert/equal.ts
+[0m[32mDownload[0m https://deno.land/std@0.224.0/assert/fail.ts
+[0m[32mDownload[0m https://deno.land/std@0.224.0/assert/unimplemented.ts
+[0m[32mDownload[0m https://deno.land/std@0.224.0/assert/unreachable.ts
+[0m[32mDownload[0m https://deno.land/std@0.224.0/internal/format.ts
+[0m[32mDownload[0m https://deno.land/std@0.224.0/internal/mod.ts
+[0m[32mDownload[0m https://deno.land/std@0.224.0/fmt/colors.ts
+[0m[32mDownload[0m https://deno.land/std@0.224.0/assert/_constants.ts
+[0m[32mDownload[0m https://deno.land/std@0.224.0/internal/diff.ts
+[0m[32mDownload[0m https://jsr.io/@supabase/functions-js/2.112.0_meta.json
+[0m[32mDownload[0m https://jsr.io/@std/assert/1.0.14_meta.json
+[0m[32mDownload[0m https://jsr.io/@std/internal/meta.json
+[0m[32mDownload[0m https://registry.npmjs.org/openai
+[0m[32mDownload[0m https://jsr.io/@std/internal/1.0.14_meta.json
+[0m[32mDownload[0m https://jsr.io/@supabase/functions-js/2.112.0/src/edge-runtime.d.ts
+[0m[32mDownload[0m https://jsr.io/@std/assert/1.0.14/mod.ts
+[0m[32mDownload[0m https://jsr.io/@std/assert/1.0.14/almost_equals.ts
+[0m[32mDownload[0m https://jsr.io/@std/assert/1.0.14/array_includes.ts
+[0m[32mDownload[0m https://jsr.io/@std/assert/1.0.14/equals.ts
+[0m[32mDownload[0m https://jsr.io/@std/assert/1.0.14/exists.ts
+[0m[32mDownload[0m https://jsr.io/@std/assert/1.0.14/false.ts
+[0m[32mDownload[0m https://jsr.io/@std/assert/1.0.14/greater_or_equal.ts
+[0m[32mDownload[0m https://jsr.io/@std/assert/1.0.14/greater.ts
+[0m[32mDownload[0m https://jsr.io/@std/assert/1.0.14/instance_of.ts
+[0m[32mDownload[0m https://jsr.io/@std/assert/1.0.14/is_error.ts
+[0m[32mDownload[0m https://jsr.io/@std/assert/1.0.14/less_or_equal.ts
+[0m[32mDownload[0m https://jsr.io/@std/assert/1.0.14/less.ts
+[0m[32mDownload[0m https://jsr.io/@std/assert/1.0.14/match.ts
+[0m[32mDownload[0m https://jsr.io/@std/assert/1.0.14/not_equals.ts
+[0m[32mDownload[0m https://jsr.io/@std/assert/1.0.14/not_instance_of.ts
+[0m[32mDownload[0m https://jsr.io/@std/assert/1.0.14/not_match.ts
+[0m[32mDownload[0m https://jsr.io/@std/assert/1.0.14/not_strict_equals.ts
+[0m[32mDownload[0m https://jsr.io/@std/assert/1.0.14/object_match.ts
+[0m[32mDownload[0m https://jsr.io/@std/assert/1.0.14/rejects.ts
+[0m[32mDownload[0m https://jsr.io/@std/assert/1.0.14/strict_equals.ts
+[0m[32mDownload[0m https://jsr.io/@std/assert/1.0.14/string_includes.ts
+[0m[32mDownload[0m https://jsr.io/@std/assert/1.0.14/throws.ts
+[0m[32mDownload[0m https://jsr.io/@std/assert/1.0.14/assert.ts
+[0m[32mDownload[0m https://jsr.io/@std/assert/1.0.14/assertion_error.ts
+[0m[32mDownload[0m https://jsr.io/@std/assert/1.0.14/equal.ts
+[0m[32mDownload[0m https://jsr.io/@std/assert/1.0.14/fail.ts
+[0m[32mDownload[0m https://jsr.io/@std/assert/1.0.14/unimplemented.ts
+[0m[32mDownload[0m https://jsr.io/@std/assert/1.0.14/unreachable.ts
+[0m[32mDownload[0m https://jsr.io/@std/internal/1.0.14/format.ts
+[0m[32mDownload[0m https://jsr.io/@std/internal/1.0.14/build_message.ts
+[0m[32mDownload[0m https://jsr.io/@std/internal/1.0.14/diff.ts
+[0m[32mDownload[0m https://jsr.io/@std/internal/1.0.14/diff_str.ts
+[0m[32mDownload[0m https://jsr.io/@std/internal/1.0.14/styles.ts
+[0m[32mDownload[0m https://jsr.io/@std/internal/1.0.14/types.ts
+[0m[32mCheck[0m index.ts
+[0m[32mCheck[0m database_client_test.ts
+[0m[32mCheck[0m validation_test.ts
+[0m[32mCheck[0m security_test.ts
+[0m[32mCheck[0m rate_limit_test.ts
+[0m[32mCheck[0m concurrency_test.ts
+[0m[32mCheck[0m observability_test.ts
+[0m[32mCheck[0m http_test.ts
+[0m[32mCheck[0m runtime_config_test.ts
+[0m[32mCheck[0m identity_link_token_test.ts
+[0m[32mCheck[0m identity_bridge_test.ts
+[0m[32mCheck[0m identity_resolver_test.ts
+[0m[32mCheck[0m provider_identity_handle_crypto_test.ts
+[0m[32mCheck[0m contact_point_crypto_test.ts
+[0m[32mCheck[0m contact_point_read_mode_test.ts
+[0m[32mCheck[0m identity_link_token_integration_test.ts
+[0m[32mCheck[0m identity_resolver_integration_test.ts
+[0m[32mCheck[0m identity_link_rotation_integration_test.ts
+[0m[32mCheck[0m token_only_bootstrap_integration_test.ts
+[0m[32mCheck[0m provider_identity_handle_integration_test.ts
+[0m[32mCheck[0m provider_identity_handle_key_rotation_integration_test.ts
+[0m[32mCheck[0m raw_identity_retirement_integration_test.ts
+[0m[32mCheck[0m contact_point_conflict_integration_test.ts
+[0m[32mCheck[0m contact_point_read_mode_integration_test.ts
+[0m[32mCheck[0m contact_point_data_export_integration_test.ts
+[0m[32mCheck[0m contact_point_key_rotation_integration_test.ts
+[0m[32mCheck[0m raw_contact_retirement_integration_test.ts
+[0m[32mCheck[0m database_only_breach_proof_integration_test.ts
+[0m[32mCheck[0m idempotency_test.ts
+[0m[32mCheck[0m profile_test.ts
+[0m[32mCheck[0m profile_onboarding_test.ts
+[0m[32mCheck[0m privacy_preferences_test.ts
+[0m[32mCheck[0m profile_photo_test.ts
+[0m[32mCheck[0m health_observations_test.ts
+[0m[32mCheck[0m care_events_recurrence_test.ts
+[0m[32mCheck[0m pregnancy_dating.ts
+[0m[32mCheck[0m pregnancy_dating_test.ts
+[0m[32mCheck[0m pregnancy_store.ts
+[0m[32mCheck[0m pregnancy_store_integration_test.ts
+[0m[32mCheck[0m pregnancy_authorization.ts
+[0m[32mCheck[0m pregnancy_authorization_test.ts
+[0m[32mCheck[0m pregnancy_authorization_integration_test.ts
+[0m[32mCheck[0m cocoon_application.ts
+[0m[32mCheck[0m cocoon_application_test.ts
+[0m[32mCheck[0m cocoon_application_integration_test.ts
+[0m[32mCheck[0m cocoon_routes.ts
+[0m[32mCheck[0m product_telemetry_v2.ts
+[0m[32mCheck[0m product_telemetry_v2_routes.ts
+[0m[32mCheck[0m product_telemetry_v2_test.ts
+[0m[32mCheck[0m client_remote_config.ts
+[0m[32mCheck[0m client_remote_config_routes.ts
+[0m[32mCheck[0m client_remote_config_test.ts
+[0m[32mCheck[0m experiment_assignments.ts
+[0m[32mCheck[0m experiment_assignments_routes.ts
+[0m[32mCheck[0m experiment_assignments_test.ts
+[0m[32mCheck[0m ../_shared/experiment_assignment.ts
+[0m[32mCheck[0m push_registrations_routes.ts
+[0m[32mCheck[0m push_registrations_test.ts
+[0m[32mCheck[0m ../_shared/messaging_token_crypto_test.ts
+[0m[32mCheck[0m support_conversations.ts
+[0m[32mCheck[0m support_conversations_routes.ts
+[0m[32mCheck[0m support_attachment_storage.ts
+[0m[32mCheck[0m support_conversations_test.ts
+[0m[32mCheck[0m support_attachment_test.ts
+[0m[32mCheck[0m growth_test.ts
+[0m[32mCheck[0m database_integration_test.ts
+[0m[32mCheck[0m idempotency_integration_test.ts
+[0m[32mCheck[0m qr_invitation_integration_test.ts
+[0m[32mCheck[0m phone_invitation_integration_test.ts
+[0m[32mCheck[0m phone_invitation_delivery_test.ts
+[0m[32mCheck[0m care_sms_retirement_test.ts
+[0m[32mCheck[0m phone_invitation_delivery_integration_test.ts
+[0m[32mCheck[0m care_relationship_person_identity_integration_test.ts
+[0m[32mCheck[0m person_care_request_invitation_integration_test.ts
+[0m[32mCheck[0m phone_care_request_integration_test.ts
+[0m[32mCheck[0m person_caremate_care_event_authorization_integration_test.ts
+[0m[32mCheck[0m person_care_relationship_management_integration_test.ts
+[0m[32mCheck[0m care_completion_notifications_integration_test.ts
+[0m[32mCheck[0m person_medications_integration_test.ts
+[0m[32mCheck[0m person_treatment_plans_integration_test.ts
+[0m[32mCheck[0m person_dose_occurrences_integration_test.ts
+[0m[32mCheck[0m person_care_events_integration_test.ts
+[0m[32mCheck[0m person_edit_store_integration_test.ts
+[0m[32mCheck[0m person_health_observations_integration_test.ts
+[0m[32mCheck[0m person_healthcare_export_integration_test.ts
+[0m[32mCheck[0m treatment_dose_owner_retirement_integration_test.ts
+[0m[32mCheck[0m person_care_event_export_integration_test.ts
+[0m[32mCheck[0m person_care_relationship_export_integration_test.ts
+[0m[32mCheck[0m iran_phone_test.ts
+[0m[32mCheck[0m profile_integration_test.ts
+[0m[32mCheck[0m profile_projection_integration_test.ts
+[0m[32mCheck[0m women_calendar_test.ts
+[0m[32mCheck[0m women_calendar_integration_test.ts
+[0m[32mCheck[0m person_women_calendar_integration_test.ts
+[0m[32mCheck[0m person_women_calendar_caregiver_integration_test.ts
+[0m[32mCheck[0m companion_notification_scope_test.ts
+[0m[32mCheck[0m relationship_presentation_test.ts
+[0m[32mCheck[0m data_export_test.ts
+[0m[32mCheck[0m data_export_integration_test.ts
+[0m[32mCheck[0m growth_integration_test.ts
+[0m[32mCheck[0m account_lifecycle_integration_test.ts
+[0m[1mTS2352 [0m[ERROR]: Conversion of type 'number[]' to type 'number' may be a mistake because neither type sufficiently overlaps with the other. If this was intentional, convert the expression to 'unknown' first.
+  const proposedOffsets = <number> [0];
+[0m[31m                          ~~~~~~~~~~~~[0m
+    at [0m[36mfile:///home/runner/work/LifeMate/LifeMate/supabase/functions/lifemate-api/medication_schedule_sleep_solver.ts[0m:[0m[33m193[0m:[0m[33m27[0m
+
+[0m[1mTS7053 [0m[ERROR]: Element implicitly has an 'any' type because expression of type 'number' can't be used to index type 'Number'.
+  No index signature with a parameter of type 'number' was found on type 'Number'.
+    const previous = proposedOffsets[index - 1];
+[0m[31m                     ~~~~~~~~~~~~~~~~~~~~~~~~~~[0m
+    at [0m[36mfile:///home/runner/work/LifeMate/LifeMate/supabase/functions/lifemate-api/medication_schedule_sleep_solver.ts[0m:[0m[33m197[0m:[0m[33m22[0m
+
+[0m[1mTS2339 [0m[ERROR]: Property 'push' does not exist on type 'number'.
+    proposedOffsets.push(candidates[0]);
+[0m[31m                    ~~~~[0m
+    at [0m[36mfile:///home/runner/work/LifeMate/LifeMate/supabase/functions/lifemate-api/medication_schedule_sleep_solver.ts[0m:[0m[33m231[0m:[0m[33m21[0m
+
+[0m[1mTS7053 [0m[ERROR]: Element implicitly has an 'any' type because expression of type 'number' can't be used to index type 'Number'.
+  No index signature with a parameter of type 'number' was found on type 'Number'.
+    const proposedOffset = proposedOffsets[index];
+[0m[31m                           ~~~~~~~~~~~~~~~~~~~~~~[0m
+    at [0m[36mfile:///home/runner/work/LifeMate/LifeMate/supabase/functions/lifemate-api/medication_schedule_sleep_solver.ts[0m:[0m[33m238[0m:[0m[33m28[0m
+
+[0m[1mTS7053 [0m[ERROR]: Element implicitly has an 'any' type because expression of type 'number' can't be used to index type 'Number'.
+  No index signature with a parameter of type 'number' was found on type 'Number'.
+      : proposedOffset - proposedOffsets[index - 1];
+[0m[31m                         ~~~~~~~~~~~~~~~~~~~~~~~~~~[0m
+    at [0m[36mfile:///home/runner/work/LifeMate/LifeMate/supabase/functions/lifemate-api/medication_schedule_sleep_solver.ts[0m:[0m[33m251[0m:[0m[33m26[0m
+
+[0m[1mTS2783 [0m[ERROR]: 'mode' is specified more than once, so this usage will be overwritten.
+            mode,
+[0m[31m            ~~~~[0m
+    at [0m[36mfile:///home/runner/work/LifeMate/LifeMate/supabase/functions/lifemate-api/medication_schedule_sleep_store.ts[0m:[0m[33m276[0m:[0m[33m13[0m
+
+[0m[1mTS2785 [0m[ERROR]:     This spread always overwrites this property.
+                ...proposal,
+    [0m[31m            ~~~~~~~~~~~[0m
+        at [0m[36mfile:///home/runner/work/LifeMate/LifeMate/supabase/functions/lifemate-api/medication_schedule_sleep_store.ts[0m:[0m[33m278[0m:[0m[33m13[0m
+
+[0m[1mTS2769 [0m[ERROR]: No overload matches this call.
+  Overload 1 of 3, '(input: string | Request | URL, init?: RequestInit | undefined): Promise<Response>', gave the following error.
+    Type 'Uint8Array<ArrayBufferLike>' is not assignable to type 'BodyInit | null | undefined'.
+      Type 'Uint8Array<ArrayBufferLike>' is missing the following properties from type 'URLSearchParams': append, delete, getAll, get, and 2 more.
+  Overload 2 of 3, '(input: URL | RequestInfo, init?: (RequestInit & { client?: HttpClient | undefined; }) | undefined): Promise<Response>', gave the following error.
+    Type 'Uint8Array<ArrayBufferLike>' is not assignable to type 'BodyInit | null | undefined'.
+      Type 'Uint8Array<ArrayBufferLike>' is missing the following properties from type 'URLSearchParams': append, delete, getAll, get, and 2 more.
+  Overload 3 of 3, '(input: URL | RequestInfo, init?: RequestInit | undefined): Promise<Response>', gave the following error.
+    Type 'Uint8Array<ArrayBufferLike>' is not assignable to type 'BodyInit | null | undefined'.
+      Type 'Uint8Array<ArrayBufferLike>' is missing the following properties from type 'URLSearchParams': append, delete, getAll, get, and 2 more.
+        body: bytes,
+[0m[31m        ~~~~[0m
+    at [0m[36mfile:///home/runner/work/LifeMate/LifeMate/supabase/functions/lifemate-api/support_attachment_storage.ts[0m:[0m[33m147[0m:[0m[33m9[0m
+
+[0m[1mTS2769 [0m[ERROR]: No overload matches this call.
+  Overload 1 of 3, '(input: string | Request | URL, init?: RequestInit | undefined): Promise<Response>', gave the following error.
+    Type 'Uint8Array<ArrayBufferLike>' is not assignable to type 'BodyInit | null | undefined'.
+      Type 'Uint8Array<ArrayBufferLike>' is missing the following properties from type 'URLSearchParams': append, delete, getAll, get, and 2 more.
+  Overload 2 of 3, '(input: URL | RequestInfo, init?: (RequestInit & { client?: HttpClient | undefined; }) | undefined): Promise<Response>', gave the following error.
+    Type 'Uint8Array<ArrayBufferLike>' is not assignable to type 'BodyInit | null | undefined'.
+      Type 'Uint8Array<ArrayBufferLike>' is missing the following properties from type 'URLSearchParams': append, delete, getAll, get, and 2 more.
+  Overload 3 of 3, '(input: URL | RequestInfo, init?: RequestInit | undefined): Promise<Response>', gave the following error.
+    Type 'Uint8Array<ArrayBufferLike>' is not assignable to type 'BodyInit | null | undefined'.
+      Type 'Uint8Array<ArrayBufferLike>' is missing the following properties from type 'URLSearchParams': append, delete, getAll, get, and 2 more.
+        body: bytes,
+[0m[31m        ~~~~[0m
+    at [0m[36mfile:///home/runner/work/LifeMate/LifeMate/supabase/functions/lifemate-api/support_attachment_storage.ts[0m:[0m[33m170[0m:[0m[33m9[0m
+
+[0m[1mTS2345 [0m[ERROR]: Argument of type 'Uint8Array<ArrayBufferLike>' is not assignable to parameter of type 'BufferSource'.
+  Type 'Uint8Array<ArrayBufferLike>' is not assignable to type 'ArrayBufferView<ArrayBuffer>'.
+    Types of property 'buffer' are incompatible.
+      Type 'ArrayBufferLike' is not assignable to type 'ArrayBuffer'.
+        Type 'SharedArrayBuffer' is missing the following properties from type 'ArrayBuffer': resizable, resize, detached, transfer, transferToFixedLength
+  const digest = await crypto.subtle.digest("SHA-256", bytes);
+[0m[31m                                                       ~~~~~[0m
+    at [0m[36mfile:///home/runner/work/LifeMate/LifeMate/supabase/functions/lifemate-api/support_conversations_routes.ts[0m:[0m[33m332[0m:[0m[33m56[0m
+
+Found 9 errors.
+
+[0m[1m[31merror[0m: Type checking failed.
+CHECK_EXIT=1
+=== portable schema ===
+CREATE EXTENSION
+CREATE SCHEMA
+CREATE TABLE
+CREATE INDEX
+CREATE TABLE
+CREATE INDEX
+CREATE INDEX
+CREATE INDEX
+CREATE TABLE
+CREATE INDEX
+CREATE TABLE
+CREATE INDEX
+CREATE INDEX
+CREATE INDEX
+CREATE TABLE
+CREATE INDEX
+CREATE INDEX
+CREATE INDEX
+CREATE INDEX
+CREATE TABLE
+CREATE INDEX
+CREATE INDEX
+CREATE INDEX
+CREATE TABLE
+CREATE INDEX
+CREATE TABLE
+CREATE INDEX
+CREATE INDEX
+CREATE TABLE
+CREATE INDEX
+CREATE TABLE
+CREATE INDEX
+CREATE INDEX
+CREATE INDEX
+CREATE INDEX
+CREATE TABLE
+CREATE INDEX
+CREATE INDEX
+DO
+BOOTSTRAP_EXIT=0
+--- supabase/migrations/20260726205333_initial_identity_foundation.sql
+ ?column? 
+----------
+        1
+(1 row)
+
+--- supabase/migrations/20260726205351_add_care_relationships.sql
+ ?column? 
+----------
+        1
+(1 row)
+
+--- supabase/migrations/20260726205451_lock_down_legacy_health_status.sql
+ ?column? 
+----------
+        1
+(1 row)
+
+--- supabase/migrations/20260726211526_add_treatment_management.sql
+ ?column? 
+----------
+        1
+(1 row)
+
+--- supabase/migrations/20260727055925_add_dose_adherence.sql
+ ?column? 
+----------
+        1
+(1 row)
+
+--- supabase/migrations/20260730140019_create_lifemate_contact_hashing_vault_secret.sql
+ ?column? 
+----------
+        1
+(1 row)
+
+--- supabase/migrations/20260730195610_enable_pg_net_for_one_time_test_user_provisioning.sql
+ ?column? 
+----------
+        1
+(1 row)
+
+--- supabase/migrations/20260730195700_disable_pg_net_after_one_time_test_user_provisioning.sql
+ ?column? 
+----------
+        1
+(1 row)
+
+--- supabase/migrations/20260803163402_add_consent_scoped_care_events.sql
+CREATE TABLE
+CREATE INDEX
+CREATE INDEX
+DO
+COMMENT
+COMMENT
+--- supabase/migrations/20260804091122_enable_internal_email_auto_confirmation.sql
+ ?column? 
+----------
+        1
+(1 row)
+
+--- supabase/migrations/20260805045737_lock_down_public_health_status.sql
+DO
+--- supabase/migrations/20260805045746_add_user_profile_version.sql
+ALTER TABLE
+psql:supabase/migrations/20260805045746_add_user_profile_version.sql:8: NOTICE:  constraint "user_profiles_version_positive" of relation "user_profiles" does not exist, skipping
+ALTER TABLE
+ALTER TABLE
+COMMENT
+--- supabase/migrations/20260805045806_add_women_calendar_pilot.sql
+ALTER TABLE
+CREATE TABLE
+CREATE TABLE
+CREATE INDEX
+CREATE TABLE
+CREATE INDEX
+DO
+COMMENT
+COMMENT
+COMMENT
+--- supabase/migrations/20260805045812_add_profile_avatar_key.sql
+ALTER TABLE
+DO
+COMMENT
+--- supabase/migrations/20260805045825_add_reminder_lead_times.sql
+BEGIN
+ALTER TABLE
+ALTER TABLE
+DO
+COMMIT
+--- supabase/migrations/20260805045832_add_profile_photo_path.sql
+BEGIN
+ALTER TABLE
+DO
+COMMIT
+--- supabase/migrations/20260806052014_add_women_calendar_daily_checkin.sql
+ALTER TABLE
+psql:supabase/migrations/20260806052014_add_women_calendar_daily_checkin.sql:30: NOTICE:  constraint "ck_women_calendar_daily_mood" of relation "women_calendar_profiles" does not exist, skipping
+psql:supabase/migrations/20260806052014_add_women_calendar_daily_checkin.sql:30: NOTICE:  constraint "ck_women_calendar_daily_energy" of relation "women_calendar_profiles" does not exist, skipping
+psql:supabase/migrations/20260806052014_add_women_calendar_daily_checkin.sql:30: NOTICE:  constraint "ck_women_calendar_daily_support_need" of relation "women_calendar_profiles" does not exist, skipping
+psql:supabase/migrations/20260806052014_add_women_calendar_daily_checkin.sql:30: NOTICE:  constraint "ck_women_calendar_daily_symptoms_count" of relation "women_calendar_profiles" does not exist, skipping
+ALTER TABLE
+ALTER TABLE
+COMMENT
+COMMENT
+COMMENT
+COMMENT
+--- supabase/migrations/20260806052037_add_women_daily_companion_logs.sql
+CREATE TABLE
+CREATE INDEX
+CREATE INDEX
+ALTER TABLE
+ALTER TABLE
+DO
+COMMENT
+COMMENT
+COMMENT
+--- supabase/migrations/20260806230837_ecosystem_data_foundation_20260807.sql
+psql:supabase/migrations/20260806230837_ecosystem_data_foundation_20260807.sql:4: NOTICE:  extension "pgcrypto" already exists, skipping
+CREATE EXTENSION
+CREATE SCHEMA
+CREATE SCHEMA
+CREATE SCHEMA
+CREATE SCHEMA
+CREATE SCHEMA
+CREATE SCHEMA
+CREATE SCHEMA
+CREATE SCHEMA
+CREATE SCHEMA
+CREATE SCHEMA
+CREATE TABLE
+CREATE TABLE
+CREATE INDEX
+CREATE TABLE
+CREATE INDEX
+CREATE TABLE
+CREATE INDEX
+CREATE INDEX
+CREATE TABLE
+CREATE TABLE
+CREATE TABLE
+CREATE TABLE
+CREATE INDEX
+CREATE INDEX
+CREATE INDEX
+CREATE TABLE
+CREATE TABLE
+CREATE INDEX
+CREATE TABLE
+CREATE INDEX
+CREATE TABLE
+CREATE TABLE
+CREATE INDEX
+CREATE INDEX
+CREATE TABLE
+CREATE INDEX
+CREATE TABLE
+CREATE TABLE
+CREATE TABLE
+CREATE INDEX
+CREATE INDEX
+CREATE TABLE
+CREATE INDEX
+CREATE TABLE
+CREATE INDEX
+CREATE TABLE
+CREATE TABLE
+CREATE TABLE
+CREATE TABLE
+CREATE TABLE
+CREATE TABLE
+CREATE INDEX
+CREATE INDEX
+CREATE TABLE
+CREATE INDEX
+CREATE INDEX
+CREATE TABLE
+CREATE TABLE
+CREATE INDEX
+CREATE TABLE
+CREATE TABLE
+CREATE TABLE
+CREATE TABLE
+CREATE INDEX
+CREATE FUNCTION
+INSERT 0 10
+INSERT 0 3
+INSERT 0 3
+INSERT 0 3
+INSERT 0 3
+INSERT 0 3
+INSERT 0 8
+INSERT 0 1
+INSERT 0 6
+INSERT 0 0
+INSERT 0 0
+INSERT 0 0
+INSERT 0 0
+INSERT 0 0
+INSERT 0 0
+INSERT 0 0
+INSERT 0 0
+INSERT 0 0
+INSERT 0 0
+INSERT 0 0
+INSERT 0 0
+INSERT 0 0
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+UPDATE 0
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+UPDATE 0
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+UPDATE 0
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+UPDATE 0
+ALTER TABLE
+UPDATE 0
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+UPDATE 0
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+UPDATE 0
+ALTER TABLE
+UPDATE 0
+DO
+DO
+CREATE INDEX
+CREATE INDEX
+CREATE INDEX
+CREATE INDEX
+CREATE INDEX
+CREATE INDEX
+CREATE INDEX
+CREATE INDEX
+DROP INDEX
+DROP INDEX
+DO
+DO
+COMMENT
+COMMENT
+COMMENT
+COMMENT
+COMMENT
+COMMENT
+COMMENT
+--- supabase/migrations/20260806231045_ecosystem_compatibility_policies_20260807.sql
+CREATE FUNCTION
+CREATE FUNCTION
+CREATE FUNCTION
+CREATE FUNCTION
+CREATE FUNCTION
+psql:supabase/migrations/20260806231045_ecosystem_compatibility_policies_20260807.sql:148: NOTICE:  trigger "trg_sync_legacy_app_user_foundation" for relation "lifemate.app_users" does not exist, skipping
+DROP TRIGGER
+CREATE TRIGGER
+CREATE FUNCTION
+psql:supabase/migrations/20260806231045_ecosystem_compatibility_policies_20260807.sql:174: NOTICE:  trigger "trg_sync_legacy_user_profile" for relation "lifemate.user_profiles" does not exist, skipping
+DROP TRIGGER
+CREATE TRIGGER
+CREATE FUNCTION
+psql:supabase/migrations/20260806231045_ecosystem_compatibility_policies_20260807.sql:229: NOTICE:  trigger "trg_sync_legacy_care_access" for relation "lifemate.care_relationships" does not exist, skipping
+DROP TRIGGER
+CREATE TRIGGER
+CREATE FUNCTION
+psql:supabase/migrations/20260806231045_ecosystem_compatibility_policies_20260807.sql:267: NOTICE:  trigger "trg_sync_health_person_id" for relation "lifemate.medications" does not exist, skipping
+psql:supabase/migrations/20260806231045_ecosystem_compatibility_policies_20260807.sql:267: NOTICE:  trigger "trg_sync_health_person_id" for relation "lifemate.treatment_plans" does not exist, skipping
+psql:supabase/migrations/20260806231045_ecosystem_compatibility_policies_20260807.sql:267: NOTICE:  trigger "trg_sync_health_person_id" for relation "lifemate.dose_occurrences" does not exist, skipping
+psql:supabase/migrations/20260806231045_ecosystem_compatibility_policies_20260807.sql:267: NOTICE:  trigger "trg_sync_health_person_id" for relation "lifemate.care_events" does not exist, skipping
+psql:supabase/migrations/20260806231045_ecosystem_compatibility_policies_20260807.sql:267: NOTICE:  trigger "trg_sync_health_person_id" for relation "lifemate.women_calendar_profiles" does not exist, skipping
+psql:supabase/migrations/20260806231045_ecosystem_compatibility_policies_20260807.sql:267: NOTICE:  trigger "trg_sync_health_person_id" for relation "lifemate.women_calendar_episodes" does not exist, skipping
+psql:supabase/migrations/20260806231045_ecosystem_compatibility_policies_20260807.sql:267: NOTICE:  trigger "trg_sync_health_person_id" for relation "lifemate.women_calendar_daily_logs" does not exist, skipping
+psql:supabase/migrations/20260806231045_ecosystem_compatibility_policies_20260807.sql:267: NOTICE:  trigger "trg_sync_health_person_id" for relation "lifemate.women_calendar_support_actions" does not exist, skipping
+DO
+CREATE FUNCTION
+DO
+DO
+--- supabase/migrations/20260806231112_person_ownership_compatibility_20260807.sql
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+CREATE INDEX
+CREATE FUNCTION
+CREATE FUNCTION
+INSERT 0 0
+REVOKE
+REVOKE
+REVOKE
+REVOKE
+COMMENT
+COMMENT
+COMMENT
+COMMENT
+--- supabase/migrations/20260806231133_authorization_entitlement_policy_20260807.sql
+CREATE FUNCTION
+psql:supabase/migrations/20260806231133_authorization_entitlement_policy_20260807.sql:68: NOTICE:  trigger "trg_sync_legacy_care_consent" for relation "lifemate.care_relationships" does not exist, skipping
+DROP TRIGGER
+CREATE TRIGGER
+CREATE FUNCTION
+DO
+REVOKE
+REVOKE
+--- supabase/migrations/20260806231400_fix_entitlement_scope_semantics_20260807.sql
+CREATE INDEX
+CREATE INDEX
+INSERT 0 0
+DELETE 0
+CREATE FUNCTION
+REVOKE
+--- supabase/migrations/20260806231530_cover_ecosystem_foreign_keys_20260807.sql
+CREATE INDEX
+CREATE INDEX
+CREATE INDEX
+CREATE INDEX
+CREATE INDEX
+CREATE INDEX
+CREATE INDEX
+CREATE INDEX
+CREATE INDEX
+CREATE INDEX
+CREATE INDEX
+CREATE INDEX
+CREATE INDEX
+CREATE INDEX
+CREATE INDEX
+CREATE INDEX
+--- supabase/migrations/20260806231838_harden_account_deletion_and_sync_20260807.sql
+CREATE FUNCTION
+CREATE FUNCTION
+REVOKE
+REVOKE
+--- supabase/migrations/20260806231949_hot_query_person_indexes_20260807.sql
+CREATE INDEX
+CREATE INDEX
+CREATE INDEX
+CREATE INDEX
+CREATE INDEX
+CREATE INDEX
+--- supabase/migrations/20260806233634_decouple_legacy_account_fk_20260807.sql
+DO
+COMMENT
+--- supabase/migrations/20260806234220_bind_consent_to_access_context_20260807.sql
+CREATE FUNCTION
+REVOKE
+DO
+--- supabase/migrations/20260807050708_complete_runtime_authorization_outbox_20260807.sql
+ALTER TABLE
+CREATE INDEX
+CREATE FUNCTION
+CREATE FUNCTION
+CREATE FUNCTION
+CREATE FUNCTION
+CREATE FUNCTION
+psql:supabase/migrations/20260807050708_complete_runtime_authorization_outbox_20260807.sql:185: NOTICE:  trigger "trg_enqueue_adherence_projection_refresh" for relation "lifemate.dose_occurrences" does not exist, skipping
+DROP TRIGGER
+CREATE TRIGGER
+CREATE FUNCTION
+CREATE FUNCTION
+REVOKE
+REVOKE
+REVOKE
+REVOKE
+REVOKE
+REVOKE
+REVOKE
+--- supabase/migrations/20260807050948_scope_outbox_worker_claims_20260807.sql
+CREATE FUNCTION
+REVOKE
+--- supabase/migrations/20260808105500_add_care_event_recurrence.sql
+ALTER TABLE
+DO
+CREATE INDEX
+--- supabase/migrations/20260808113000_canonicalize_women_daily_logs.sql
+INSERT 0 0
+COMMENT
+--- supabase/migrations/20260809073500_add_caregiver_health_record_management.sql
+ALTER TABLE
+DO
+COMMENT
+COMMENT
+COMMENT
+COMMENT
+--- supabase/migrations/20260810122000_add_health_observations.sql
+CREATE TABLE
+CREATE INDEX
+CREATE INDEX
+CREATE INDEX
+CREATE INDEX
+CREATE INDEX
+ALTER TABLE
+REVOKE
+DO
+COMMENT
+COMMENT
+COMMENT
+--- supabase/migrations/20260810123000_index_health_observation_source_category.sql
+CREATE INDEX
+--- supabase/migrations/20260811144000_harden_edge_runtime_roles.sql
+psql:supabase/migrations/20260811144000_harden_edge_runtime_roles.sql:13: NOTICE:  extension "pgcrypto" already exists, skipping
+CREATE EXTENSION
+DO
+DO
+DO
+GRANT
+GRANT
+GRANT
+GRANT
+GRANT
+GRANT
+GRANT
+GRANT
+GRANT
+GRANT
+GRANT
+GRANT
+GRANT
+GRANT
+GRANT
+GRANT
+GRANT
+GRANT
+GRANT
+GRANT
+GRANT
+psql:supabase/migrations/20260811144000_harden_edge_runtime_roles.sql:161: NOTICE:  policy "lifemate_edge_runtime_access" for relation "lifemate.medications" does not exist, skipping
+psql:supabase/migrations/20260811144000_harden_edge_runtime_roles.sql:161: NOTICE:  policy "lifemate_edge_runtime_access" for relation "lifemate.privacy_consents" does not exist, skipping
+psql:supabase/migrations/20260811144000_harden_edge_runtime_roles.sql:161: NOTICE:  policy "lifemate_edge_runtime_access" for relation "lifemate.app_users" does not exist, skipping
+psql:supabase/migrations/20260811144000_harden_edge_runtime_roles.sql:161: NOTICE:  policy "lifemate_edge_runtime_access" for relation "lifemate.dose_occurrences" does not exist, skipping
+psql:supabase/migrations/20260811144000_harden_edge_runtime_roles.sql:161: NOTICE:  policy "lifemate_edge_runtime_access" for relation "core.persons" does not exist, skipping
+psql:supabase/migrations/20260811144000_harden_edge_runtime_roles.sql:161: NOTICE:  policy "lifemate_edge_runtime_access" for relation "core.person_profiles" does not exist, skipping
+psql:supabase/migrations/20260811144000_harden_edge_runtime_roles.sql:161: NOTICE:  policy "lifemate_edge_runtime_access" for relation "lifemate.women_calendar_episodes" does not exist, skipping
+psql:supabase/migrations/20260811144000_harden_edge_runtime_roles.sql:161: NOTICE:  policy "lifemate_edge_runtime_access" for relation "lifemate.women_calendar_support_actions" does not exist, skipping
+psql:supabase/migrations/20260811144000_harden_edge_runtime_roles.sql:161: NOTICE:  policy "lifemate_edge_runtime_access" for relation "identity.account_deletion_requests" does not exist, skipping
+psql:supabase/migrations/20260811144000_harden_edge_runtime_roles.sql:161: NOTICE:  policy "lifemate_edge_runtime_access" for relation "security.access_grants" does not exist, skipping
+psql:supabase/migrations/20260811144000_harden_edge_runtime_roles.sql:161: NOTICE:  policy "lifemate_edge_runtime_access" for relation "commerce.features" does not exist, skipping
+psql:supabase/migrations/20260811144000_harden_edge_runtime_roles.sql:161: NOTICE:  policy "lifemate_edge_runtime_access" for relation "commerce.prices" does not exist, skipping
+psql:supabase/migrations/20260811144000_harden_edge_runtime_roles.sql:161: NOTICE:  policy "lifemate_edge_runtime_access" for relation "lifemate.audit_logs" does not exist, skipping
+psql:supabase/migrations/20260811144000_harden_edge_runtime_roles.sql:161: NOTICE:  policy "lifemate_edge_runtime_access" for relation "lifemate.care_invitations" does not exist, skipping
+psql:supabase/migrations/20260811144000_harden_edge_runtime_roles.sql:161: NOTICE:  policy "lifemate_edge_runtime_access" for relation "lifemate.care_relationships" does not exist, skipping
+psql:supabase/migrations/20260811144000_harden_edge_runtime_roles.sql:161: NOTICE:  policy "lifemate_edge_runtime_access" for relation "lifemate.user_profiles" does not exist, skipping
+psql:supabase/migrations/20260811144000_harden_edge_runtime_roles.sql:161: NOTICE:  policy "lifemate_edge_runtime_access" for relation "lifemate.treatment_schedules" does not exist, skipping
+psql:supabase/migrations/20260811144000_harden_edge_runtime_roles.sql:161: NOTICE:  policy "lifemate_edge_runtime_access" for relation "lifemate.women_calendar_profiles" does not exist, skipping
+psql:supabase/migrations/20260811144000_harden_edge_runtime_roles.sql:161: NOTICE:  policy "lifemate_edge_runtime_access" for relation "lifemate.treatment_plans" does not exist, skipping
+psql:supabase/migrations/20260811144000_harden_edge_runtime_roles.sql:161: NOTICE:  policy "lifemate_edge_runtime_access" for relation "lifemate.dose_adherence_events" does not exist, skipping
+psql:supabase/migrations/20260811144000_harden_edge_runtime_roles.sql:161: NOTICE:  policy "lifemate_edge_runtime_access" for relation "commerce.products" does not exist, skipping
+psql:supabase/migrations/20260811144000_harden_edge_runtime_roles.sql:161: NOTICE:  policy "lifemate_edge_runtime_access" for relation "commerce.plans" does not exist, skipping
+psql:supabase/migrations/20260811144000_harden_edge_runtime_roles.sql:161: NOTICE:  policy "lifemate_edge_runtime_access" for relation "commerce.product_features" does not exist, skipping
+psql:supabase/migrations/20260811144000_harden_edge_runtime_roles.sql:161: NOTICE:  policy "lifemate_edge_runtime_access" for relation "commerce.subscriptions" does not exist, skipping
+psql:supabase/migrations/20260811144000_harden_edge_runtime_roles.sql:161: NOTICE:  policy "lifemate_edge_runtime_access" for relation "commerce.entitlements" does not exist, skipping
+psql:supabase/migrations/20260811144000_harden_edge_runtime_roles.sql:161: NOTICE:  policy "lifemate_edge_runtime_access" for relation "commerce.entitlement_events" does not exist, skipping
+psql:supabase/migrations/20260811144000_harden_edge_runtime_roles.sql:161: NOTICE:  policy "lifemate_edge_runtime_access" for relation "analytics.export_policies" does not exist, skipping
+psql:supabase/migrations/20260811144000_harden_edge_runtime_roles.sql:161: NOTICE:  policy "lifemate_edge_runtime_access" for relation "analytics.source_policies" does not exist, skipping
+psql:supabase/migrations/20260811144000_harden_edge_runtime_roles.sql:161: NOTICE:  policy "lifemate_edge_runtime_access" for relation "analytics.export_audit" does not exist, skipping
+psql:supabase/migrations/20260811144000_harden_edge_runtime_roles.sql:161: NOTICE:  policy "lifemate_edge_runtime_access" for relation "care.daily_adherence_summary" does not exist, skipping
+psql:supabase/migrations/20260811144000_harden_edge_runtime_roles.sql:161: NOTICE:  policy "lifemate_edge_runtime_access" for relation "lifemate.women_calendar_daily_logs" does not exist, skipping
+psql:supabase/migrations/20260811144000_harden_edge_runtime_roles.sql:161: NOTICE:  policy "lifemate_edge_runtime_access" for relation "lifemate.care_events" does not exist, skipping
+psql:supabase/migrations/20260811144000_harden_edge_runtime_roles.sql:161: NOTICE:  policy "lifemate_edge_runtime_access" for relation "lifemate.health_observations" does not exist, skipping
+psql:supabase/migrations/20260811144000_harden_edge_runtime_roles.sql:161: NOTICE:  policy "lifemate_edge_runtime_access" for relation "identity.otp_challenges" does not exist, skipping
+psql:supabase/migrations/20260811144000_harden_edge_runtime_roles.sql:161: NOTICE:  policy "lifemate_edge_runtime_access" for relation "ecosystem.applications" does not exist, skipping
+psql:supabase/migrations/20260811144000_harden_edge_runtime_roles.sql:161: NOTICE:  policy "lifemate_edge_runtime_access" for relation "network.person_relationships" does not exist, skipping
+psql:supabase/migrations/20260811144000_harden_edge_runtime_roles.sql:161: NOTICE:  policy "lifemate_edge_runtime_access" for relation "security.scope_catalog" does not exist, skipping
+psql:supabase/migrations/20260811144000_harden_edge_runtime_roles.sql:161: NOTICE:  policy "lifemate_edge_runtime_access" for relation "security.access_grant_scopes" does not exist, skipping
+psql:supabase/migrations/20260811144000_harden_edge_runtime_roles.sql:161: NOTICE:  policy "lifemate_edge_runtime_access" for relation "security.retention_policies" does not exist, skipping
+psql:supabase/migrations/20260811144000_harden_edge_runtime_roles.sql:161: NOTICE:  policy "lifemate_edge_runtime_access" for relation "consent.consent_records" does not exist, skipping
+psql:supabase/migrations/20260811144000_harden_edge_runtime_roles.sql:161: NOTICE:  policy "lifemate_edge_runtime_access" for relation "consent.consent_documents" does not exist, skipping
+psql:supabase/migrations/20260811144000_harden_edge_runtime_roles.sql:161: NOTICE:  policy "lifemate_edge_runtime_access" for relation "consent.data_use_consents" does not exist, skipping
+psql:supabase/migrations/20260811144000_harden_edge_runtime_roles.sql:161: NOTICE:  policy "lifemate_edge_runtime_access" for relation "consent.consent_events" does not exist, skipping
+psql:supabase/migrations/20260811144000_harden_edge_runtime_roles.sql:161: NOTICE:  policy "lifemate_edge_runtime_access" for relation "integration.outbox_messages" does not exist, skipping
+psql:supabase/migrations/20260811144000_harden_edge_runtime_roles.sql:161: NOTICE:  policy "lifemate_edge_runtime_access" for relation "identity.contact_points" does not exist, skipping
+psql:supabase/migrations/20260811144000_harden_edge_runtime_roles.sql:161: NOTICE:  policy "lifemate_edge_runtime_access" for relation "identity.external_identities" does not exist, skipping
+psql:supabase/migrations/20260811144000_harden_edge_runtime_roles.sql:161: NOTICE:  policy "lifemate_edge_runtime_access" for relation "identity.accounts" does not exist, skipping
+psql:supabase/migrations/20260811144000_harden_edge_runtime_roles.sql:161: NOTICE:  policy "lifemate_edge_runtime_access" for relation "core.account_person_links" does not exist, skipping
+psql:supabase/migrations/20260811144000_harden_edge_runtime_roles.sql:161: NOTICE:  policy "lifemate_edge_runtime_access" for relation "ecosystem.app_enrollments" does not exist, skipping
+DO
+psql:supabase/migrations/20260811144000_harden_edge_runtime_roles.sql:196: NOTICE:  policy "lifemate_worker_runtime_access" for relation "integration.outbox_messages" does not exist, skipping
+psql:supabase/migrations/20260811144000_harden_edge_runtime_roles.sql:196: NOTICE:  policy "lifemate_worker_runtime_access" for relation "care.daily_adherence_summary" does not exist, skipping
+psql:supabase/migrations/20260811144000_harden_edge_runtime_roles.sql:196: NOTICE:  policy "lifemate_worker_runtime_access" for relation "lifemate.app_users" does not exist, skipping
+psql:supabase/migrations/20260811144000_harden_edge_runtime_roles.sql:196: NOTICE:  policy "lifemate_worker_runtime_access" for relation "lifemate.dose_occurrences" does not exist, skipping
+psql:supabase/migrations/20260811144000_harden_edge_runtime_roles.sql:196: NOTICE:  policy "lifemate_worker_runtime_access" for relation "lifemate.user_profiles" does not exist, skipping
+psql:supabase/migrations/20260811144000_harden_edge_runtime_roles.sql:196: NOTICE:  policy "lifemate_worker_runtime_access" for relation "identity.account_deletion_requests" does not exist, skipping
+psql:supabase/migrations/20260811144000_harden_edge_runtime_roles.sql:196: NOTICE:  policy "lifemate_worker_runtime_access" for relation "identity.contact_points" does not exist, skipping
+psql:supabase/migrations/20260811144000_harden_edge_runtime_roles.sql:196: NOTICE:  policy "lifemate_worker_runtime_access" for relation "identity.external_identities" does not exist, skipping
+psql:supabase/migrations/20260811144000_harden_edge_runtime_roles.sql:196: NOTICE:  policy "lifemate_worker_runtime_access" for relation "identity.accounts" does not exist, skipping
+psql:supabase/migrations/20260811144000_harden_edge_runtime_roles.sql:196: NOTICE:  policy "lifemate_worker_runtime_access" for relation "core.account_person_links" does not exist, skipping
+psql:supabase/migrations/20260811144000_harden_edge_runtime_roles.sql:196: NOTICE:  policy "lifemate_worker_runtime_access" for relation "core.person_profiles" does not exist, skipping
+psql:supabase/migrations/20260811144000_harden_edge_runtime_roles.sql:196: NOTICE:  policy "lifemate_worker_runtime_access" for relation "core.persons" does not exist, skipping
+psql:supabase/migrations/20260811144000_harden_edge_runtime_roles.sql:196: NOTICE:  policy "lifemate_worker_runtime_access" for relation "ecosystem.app_enrollments" does not exist, skipping
+DO
+DO
+--- supabase/migrations/20260811144200_grant_edge_runtime_account_lifecycle.sql
+GRANT
+GRANT
+--- supabase/migrations/20260811144400_grant_edge_runtime_compatibility_writes.sql
+GRANT
+--- supabase/migrations/20260811144600_grant_worker_deletion_predicate_reads.sql
+GRANT
+--- supabase/migrations/20260811144800_grant_worker_profile_sync_write.sql
+GRANT
+--- supabase/migrations/20260811211000_make_health_observations_cross_app.sql
+ALTER TABLE
+UPDATE 0
+UPDATE 0
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+DO
+CREATE FUNCTION
+psql:supabase/migrations/20260811211000_make_health_observations_cross_app.sql:106: NOTICE:  trigger "trg_populate_health_observation_provenance" for relation "lifemate.health_observations" does not exist, skipping
+DROP TRIGGER
+CREATE TRIGGER
+ALTER TABLE
+DROP INDEX
+CREATE INDEX
+CREATE INDEX
+CREATE INDEX
+INSERT 0 2
+COMMENT
+COMMENT
+COMMENT
+COMMENT
+--- supabase/migrations/20260811212500_add_runtime_readiness_probe.sql
+CREATE TABLE
+INSERT 0 1
+ALTER TABLE
+ALTER TABLE
+psql:supabase/migrations/20260811212500_add_runtime_readiness_probe.sql:19: NOTICE:  policy "lifemate_edge_runtime_access" for relation "security.runtime_readiness_probe" does not exist, skipping
+DROP POLICY
+CREATE POLICY
+REVOKE
+GRANT
+DO
+COMMENT
+--- supabase/migrations/20260813011500_admin_control_plane_foundation.sql
+psql:supabase/migrations/20260813011500_admin_control_plane_foundation.sql:8: NOTICE:  extension "pgcrypto" already exists, skipping
+CREATE EXTENSION
+CREATE SCHEMA
+CREATE TABLE
+CREATE TABLE
+CREATE TABLE
+CREATE INDEX
+CREATE TABLE
+CREATE TABLE
+CREATE INDEX
+CREATE INDEX
+CREATE TABLE
+CREATE INDEX
+CREATE INDEX
+CREATE INDEX
+CREATE TABLE
+CREATE INDEX
+CREATE TABLE
+CREATE INDEX
+CREATE INDEX
+CREATE FUNCTION
+CREATE FUNCTION
+INSERT 0 26
+INSERT 0 8
+INSERT 0 48
+INSERT 0 7
+INSERT 0 5
+INSERT 0 8
+INSERT 0 6
+INSERT 0 5
+INSERT 0 7
+DO
+DO
+DO
+GRANT
+GRANT
+GRANT
+GRANT
+GRANT
+GRANT
+GRANT
+GRANT
+GRANT
+GRANT
+GRANT
+GRANT
+GRANT
+GRANT
+GRANT
+psql:supabase/migrations/20260813011500_admin_control_plane_foundation.sql:437: NOTICE:  policy "lifemate_admin_runtime_select" for relation "admin.roles" does not exist, skipping
+psql:supabase/migrations/20260813011500_admin_control_plane_foundation.sql:437: NOTICE:  policy "lifemate_admin_runtime_select" for relation "admin.permissions" does not exist, skipping
+psql:supabase/migrations/20260813011500_admin_control_plane_foundation.sql:437: NOTICE:  policy "lifemate_admin_runtime_select" for relation "admin.role_permissions" does not exist, skipping
+psql:supabase/migrations/20260813011500_admin_control_plane_foundation.sql:437: NOTICE:  policy "lifemate_admin_runtime_select" for relation "admin.members" does not exist, skipping
+psql:supabase/migrations/20260813011500_admin_control_plane_foundation.sql:437: NOTICE:  policy "lifemate_admin_runtime_select" for relation "admin.member_roles" does not exist, skipping
+psql:supabase/migrations/20260813011500_admin_control_plane_foundation.sql:437: NOTICE:  policy "lifemate_admin_runtime_select" for relation "admin.audit_events" does not exist, skipping
+psql:supabase/migrations/20260813011500_admin_control_plane_foundation.sql:437: NOTICE:  policy "lifemate_admin_runtime_select" for relation "admin.idempotency_keys" does not exist, skipping
+psql:supabase/migrations/20260813011500_admin_control_plane_foundation.sql:437: NOTICE:  policy "lifemate_admin_runtime_select" for relation "admin.elevated_access_requests" does not exist, skipping
+DO
+psql:supabase/migrations/20260813011500_admin_control_plane_foundation.sql:456: NOTICE:  policy "lifemate_admin_runtime_insert" for relation "admin.members" does not exist, skipping
+psql:supabase/migrations/20260813011500_admin_control_plane_foundation.sql:456: NOTICE:  policy "lifemate_admin_runtime_update" for relation "admin.members" does not exist, skipping
+psql:supabase/migrations/20260813011500_admin_control_plane_foundation.sql:456: NOTICE:  policy "lifemate_admin_runtime_insert" for relation "admin.member_roles" does not exist, skipping
+psql:supabase/migrations/20260813011500_admin_control_plane_foundation.sql:456: NOTICE:  policy "lifemate_admin_runtime_update" for relation "admin.member_roles" does not exist, skipping
+psql:supabase/migrations/20260813011500_admin_control_plane_foundation.sql:456: NOTICE:  policy "lifemate_admin_runtime_insert" for relation "admin.idempotency_keys" does not exist, skipping
+psql:supabase/migrations/20260813011500_admin_control_plane_foundation.sql:456: NOTICE:  policy "lifemate_admin_runtime_update" for relation "admin.idempotency_keys" does not exist, skipping
+psql:supabase/migrations/20260813011500_admin_control_plane_foundation.sql:456: NOTICE:  policy "lifemate_admin_runtime_insert" for relation "admin.elevated_access_requests" does not exist, skipping
+psql:supabase/migrations/20260813011500_admin_control_plane_foundation.sql:456: NOTICE:  policy "lifemate_admin_runtime_update" for relation "admin.elevated_access_requests" does not exist, skipping
+DO
+psql:supabase/migrations/20260813011500_admin_control_plane_foundation.sql:458: NOTICE:  policy "lifemate_admin_runtime_insert" for relation "admin.audit_events" does not exist, skipping
+DROP POLICY
+CREATE POLICY
+DO
+REVOKE
+REVOKE
+REVOKE
+--- supabase/migrations/20260814011500_admin_user_directory_read_model.sql
+psql:supabase/migrations/20260814011500_admin_user_directory_read_model.sql:34: NOTICE:  policy "lifemate_admin_runtime_select" for relation "identity.accounts" does not exist, skipping
+psql:supabase/migrations/20260814011500_admin_user_directory_read_model.sql:34: NOTICE:  policy "lifemate_admin_runtime_select" for relation "identity.external_identities" does not exist, skipping
+psql:supabase/migrations/20260814011500_admin_user_directory_read_model.sql:34: NOTICE:  policy "lifemate_admin_runtime_select" for relation "core.account_person_links" does not exist, skipping
+psql:supabase/migrations/20260814011500_admin_user_directory_read_model.sql:34: NOTICE:  policy "lifemate_admin_runtime_select" for relation "core.person_profiles" does not exist, skipping
+psql:supabase/migrations/20260814011500_admin_user_directory_read_model.sql:34: NOTICE:  policy "lifemate_admin_runtime_select" for relation "ecosystem.applications" does not exist, skipping
+psql:supabase/migrations/20260814011500_admin_user_directory_read_model.sql:34: NOTICE:  policy "lifemate_admin_runtime_select" for relation "ecosystem.app_enrollments" does not exist, skipping
+DO
+CREATE VIEW
+REVOKE
+DO
+GRANT
+COMMENT
+--- supabase/migrations/20260814070000_add_health_observation_owner_fk_index.sql
+CREATE INDEX
+--- supabase/migrations/20260814123000_admin_user_account_actions.sql
+CREATE FUNCTION
+REVOKE
+DO
+GRANT
+COMMENT
+--- supabase/migrations/20260814153000_add_healthcare_idempotency.sql
+CREATE TABLE
+CREATE INDEX
+ALTER TABLE
+ALTER TABLE
+psql:supabase/migrations/20260814153000_add_healthcare_idempotency.sql:38: NOTICE:  policy "lifemate_edge_runtime_access" for relation "lifemate.idempotency_keys" does not exist, skipping
+DROP POLICY
+CREATE POLICY
+GRANT
+DO
+--- supabase/migrations/20260814160000_admin_support_ticket_queue.sql
+CREATE SCHEMA
+CREATE TABLE
+COMMENT
+CREATE INDEX
+CREATE INDEX
+CREATE INDEX
+CREATE INDEX
+ALTER TABLE
+ALTER TABLE
+psql:supabase/migrations/20260814160000_admin_support_ticket_queue.sql:45: NOTICE:  policy "lifemate_admin_runtime_select" for relation "support.tickets" does not exist, skipping
+DROP POLICY
+CREATE POLICY
+CREATE VIEW
+REVOKE
+REVOKE
+REVOKE
+DO
+GRANT
+GRANT
+GRANT
+COMMENT
+--- supabase/migrations/20260814170000_harden_outbox_queue_safety.sql
+ALTER TABLE
+DO
+UPDATE 0
+CREATE INDEX
+CREATE INDEX
+CREATE INDEX
+CREATE FUNCTION
+psql:supabase/migrations/20260814170000_harden_outbox_queue_safety.sql:130: NOTICE:  trigger "trg_apply_outbox_delivery_policy" for relation "integration.outbox_messages" does not exist, skipping
+DROP TRIGGER
+CREATE TRIGGER
+CREATE TABLE
+ALTER TABLE
+ALTER TABLE
+psql:supabase/migrations/20260814170000_harden_outbox_queue_safety.sql:145: NOTICE:  policy "lifemate_worker_runtime_access" for relation "integration.outbox_consumer_receipts" does not exist, skipping
+DROP POLICY
+CREATE POLICY
+GRANT
+DO
+CREATE FUNCTION
+CREATE FUNCTION
+CREATE FUNCTION
+CREATE FUNCTION
+CREATE FUNCTION
+CREATE FUNCTION
+CREATE FUNCTION
+CREATE FUNCTION
+REVOKE
+REVOKE
+REVOKE
+REVOKE
+REVOKE
+REVOKE
+REVOKE
+REVOKE
+REVOKE
+GRANT
+GRANT
+GRANT
+GRANT
+GRANT
+GRANT
+GRANT
+--- supabase/migrations/20260814173000_admin_support_ticket_detail.sql
+CREATE TABLE
+COMMENT
+CREATE INDEX
+ALTER TABLE
+ALTER TABLE
+psql:supabase/migrations/20260814173000_admin_support_ticket_detail.sql:30: NOTICE:  policy "lifemate_admin_runtime_select" for relation "support.ticket_events" does not exist, skipping
+DROP POLICY
+CREATE POLICY
+INSERT 0 0
+CREATE VIEW
+CREATE FUNCTION
+REVOKE
+REVOKE
+REVOKE
+DO
+GRANT
+GRANT
+GRANT
+COMMENT
+COMMENT
+--- supabase/migrations/20260814174500_harden_health_observation_provenance_search_path.sql
+ALTER FUNCTION
+REVOKE
+--- supabase/migrations/20260814215000_account_deletion_retention_v2.sql
+CREATE FUNCTION
+CREATE FUNCTION
+REVOKE
+REVOKE
+GRANT
+GRANT
+REVOKE
+REVOKE
+REVOKE
+REVOKE
+REVOKE
+UPDATE 0
+--- supabase/migrations/20260814215100_make_legacy_bridge_mapping_aware.sql
+CREATE FUNCTION
+--- supabase/migrations/20260814215150_identity_bridge_resolvers.sql
+CREATE FUNCTION
+CREATE FUNCTION
+REVOKE
+REVOKE
+GRANT
+GRANT
+--- supabase/migrations/20260814215200_make_person_compatibility_mapping_aware.sql
+CREATE FUNCTION
+CREATE FUNCTION
+CREATE FUNCTION
+CREATE FUNCTION
+REVOKE
+--- supabase/migrations/20260814215250_make_health_provenance_mapping_aware.sql
+CREATE FUNCTION
+REVOKE
+--- supabase/migrations/20260815095500_commerce_transactions_foundation.sql
+BEGIN
+CREATE TABLE
+CREATE INDEX
+CREATE INDEX
+CREATE INDEX
+CREATE TABLE
+CREATE INDEX
+CREATE INDEX
+CREATE INDEX
+CREATE INDEX
+CREATE INDEX
+CREATE TABLE
+CREATE INDEX
+CREATE INDEX
+CREATE INDEX
+COMMENT
+COMMENT
+COMMENT
+REVOKE
+REVOKE
+REVOKE
+DO
+GRANT
+GRANT
+GRANT
+COMMIT
+--- supabase/migrations/20260815101500_commerce_transaction_refund_workflow.sql
+BEGIN
+CREATE TABLE
+CREATE INDEX
+CREATE INDEX
+COMMENT
+REVOKE
+DO
+GRANT
+CREATE FUNCTION
+REVOKE
+DO
+GRANT
+COMMENT
+COMMIT
+--- supabase/migrations/20260815142000_commerce_promotions_discount_codes.sql
+BEGIN
+CREATE TABLE
+CREATE INDEX
+CREATE INDEX
+CREATE TABLE
+CREATE INDEX
+CREATE INDEX
+COMMENT
+COMMENT
+REVOKE
+REVOKE
+DO
+GRANT
+GRANT
+CREATE FUNCTION
+CREATE FUNCTION
+CREATE FUNCTION
+REVOKE
+REVOKE
+REVOKE
+DO
+GRANT
+GRANT
+GRANT
+COMMENT
+COMMENT
+COMMENT
+COMMIT
+--- supabase/migrations/20260815151000_admin_secure_search_rate_limit.sql
+BEGIN
+CREATE TABLE
+REVOKE
+DO
+CREATE FUNCTION
+REVOKE
+DO
+GRANT
+COMMENT
+COMMENT
+COMMIT
+--- supabase/migrations/20260815170000_admin_notification_center.sql
+CREATE TABLE
+CREATE INDEX
+ALTER TABLE
+ALTER TABLE
+psql:supabase/migrations/20260815170000_admin_notification_center.sql:25: NOTICE:  policy "lifemate_admin_runtime_select" for relation "admin.notification_read_receipts" does not exist, skipping
+DROP POLICY
+CREATE POLICY
+REVOKE
+DO
+GRANT
+COMMENT
+CREATE FUNCTION
+REVOKE
+DO
+GRANT
+COMMENT
+CREATE FUNCTION
+REVOKE
+DO
+GRANT
+COMMENT
+--- supabase/migrations/20260815195000_add_external_identity_tokens.sql
+CREATE TABLE
+CREATE INDEX
+COMMENT
+COMMENT
+COMMENT
+ALTER TABLE
+ALTER TABLE
+psql:supabase/migrations/20260815195000_add_external_identity_tokens.sql:67: NOTICE:  policy "lifemate_edge_runtime_access" for relation "identity.external_identity_tokens" does not exist, skipping
+psql:supabase/migrations/20260815195000_add_external_identity_tokens.sql:67: NOTICE:  policy "lifemate_worker_runtime_access" for relation "identity.external_identity_tokens" does not exist, skipping
+DO
+CREATE FUNCTION
+REVOKE
+psql:supabase/migrations/20260815195000_add_external_identity_tokens.sql:90: NOTICE:  trigger "trg_purge_external_identity_tokens_on_account_deleted" for relation "identity.accounts" does not exist, skipping
+DROP TRIGGER
+CREATE TRIGGER
+DO
+--- supabase/migrations/20260815210500_add_portable_backup_reader_role.sql
+DO
+DO
+REVOKE
+--- supabase/migrations/20260815222500_tokenize_idempotency_actor.sql
+ALTER TABLE
+psql:supabase/migrations/20260815222500_tokenize_idempotency_actor.sql:12: NOTICE:  constraint "ck_lifemate_idempotency_actor_subject_token" of relation "idempotency_keys" does not exist, skipping
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+psql:supabase/migrations/20260815222500_tokenize_idempotency_actor.sql:31: NOTICE:  constraint "uq_lifemate_idempotency_legacy_actor_key" of relation "idempotency_keys" does not exist, skipping
+ALTER TABLE
+ALTER TABLE
+psql:supabase/migrations/20260815222500_tokenize_idempotency_actor.sql:37: NOTICE:  constraint "ck_lifemate_idempotency_actor_identity_exactly_one" of relation "idempotency_keys" does not exist, skipping
+ALTER TABLE
+ALTER TABLE
+CREATE INDEX
+CREATE INDEX
+--- supabase/migrations/20260816004500_admin_marketing_campaigns.sql
+BEGIN
+CREATE SCHEMA
+CREATE TABLE
+CREATE INDEX
+CREATE INDEX
+CREATE INDEX
+CREATE INDEX
+CREATE TABLE
+CREATE INDEX
+CREATE VIEW
+REVOKE
+REVOKE
+REVOKE
+REVOKE
+DO
+GRANT
+GRANT
+GRANT
+GRANT
+CREATE FUNCTION
+CREATE FUNCTION
+CREATE FUNCTION
+REVOKE
+REVOKE
+REVOKE
+GRANT
+GRANT
+GRANT
+COMMENT
+COMMENT
+COMMENT
+COMMIT
+--- supabase/migrations/20260816045500_add_runtime_onboarding_control.sql
+CREATE TABLE
+INSERT 0 1
+ALTER TABLE
+ALTER TABLE
+psql:supabase/migrations/20260816045500_add_runtime_onboarding_control.sql:27: NOTICE:  policy "lifemate_edge_runtime_read_runtime_controls" for relation "security.runtime_controls" does not exist, skipping
+DROP POLICY
+CREATE POLICY
+REVOKE
+REVOKE
+GRANT
+DO
+CREATE FUNCTION
+REVOKE
+psql:supabase/migrations/20260816045500_add_runtime_onboarding_control.sql:63: NOTICE:  trigger "trg_touch_runtime_control_updated_at" for relation "security.runtime_controls" does not exist, skipping
+DROP TRIGGER
+CREATE TRIGGER
+CREATE FUNCTION
+REVOKE
+psql:supabase/migrations/20260816045500_add_runtime_onboarding_control.sql:108: NOTICE:  trigger "trg_enforce_new_user_onboarding_control" for relation "lifemate.app_users" does not exist, skipping
+DROP TRIGGER
+CREATE TRIGGER
+COMMENT
+COMMENT
+COMMENT
+--- supabase/migrations/20260816054500_admin_marketing_channel_connections.sql
+BEGIN
+psql:supabase/migrations/20260816054500_admin_marketing_channel_connections.sql:3: NOTICE:  schema "marketing" already exists, skipping
+CREATE SCHEMA
+CREATE TABLE
+INSERT 0 4
+CREATE FUNCTION
+CREATE VIEW
+REVOKE
+REVOKE
+REVOKE
+REVOKE
+DO
+GRANT
+GRANT
+GRANT
+GRANT
+CREATE FUNCTION
+REVOKE
+GRANT
+COMMENT
+COMMENT
+COMMIT
+--- supabase/migrations/20260816090000_admin_marketing_campaign_detail_publishing.sql
+BEGIN
+psql:supabase/migrations/20260816090000_admin_marketing_campaign_detail_publishing.sql:3: NOTICE:  schema "marketing" already exists, skipping
+CREATE SCHEMA
+CREATE TABLE
+CREATE TABLE
+CREATE INDEX
+CREATE TABLE
+CREATE INDEX
+CREATE INDEX
+CREATE TABLE
+CREATE INDEX
+REVOKE
+REVOKE
+REVOKE
+REVOKE
+DO
+GRANT
+GRANT
+GRANT
+GRANT
+GRANT
+CREATE FUNCTION
+CREATE FUNCTION
+CREATE FUNCTION
+CREATE FUNCTION
+CREATE FUNCTION
+CREATE FUNCTION
+CREATE FUNCTION
+REVOKE
+REVOKE
+REVOKE
+REVOKE
+REVOKE
+REVOKE
+REVOKE
+GRANT
+GRANT
+GRANT
+GRANT
+GRANT
+GRANT
+GRANT
+GRANT
+COMMENT
+COMMENT
+COMMENT
+COMMENT
+COMMIT
+--- supabase/migrations/20260816090500_harden_marketing_publish_duplicate_guard.sql
+BEGIN
+CREATE FUNCTION
+REVOKE
+GRANT
+COMMIT
+--- supabase/migrations/20260816103000_admin_ai_advisor_permission.sql
+BEGIN
+INSERT 0 1
+INSERT 0 2
+COMMIT
+--- supabase/migrations/20260816123000_marketing_ai_content_studio.sql
+BEGIN
+CREATE TABLE
+CREATE INDEX
+CREATE TABLE
+CREATE FUNCTION
+psql:supabase/migrations/20260816123000_marketing_ai_content_studio.sql:63: NOTICE:  trigger "trg_marketing_ai_content_generation_events_immutable" for relation "marketing.ai_content_generation_events" does not exist, skipping
+DROP TRIGGER
+CREATE TRIGGER
+ALTER TABLE
+ALTER TABLE
+CREATE VIEW
+REVOKE
+GRANT
+CREATE FUNCTION
+REVOKE
+GRANT
+COMMIT
+--- supabase/migrations/20260816152000_admin_marketing_content_calendar.sql
+BEGIN
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+psql:supabase/migrations/20260816152000_admin_marketing_content_calendar.sql:16: NOTICE:  constraint "marketing_campaign_publish_schedule_state_check" of relation "campaign_publish_executions" does not exist, skipping
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+DROP INDEX
+CREATE INDEX
+CREATE INDEX
+CREATE VIEW
+CREATE VIEW
+REVOKE
+REVOKE
+GRANT
+GRANT
+CREATE FUNCTION
+CREATE FUNCTION
+CREATE FUNCTION
+CREATE FUNCTION
+REVOKE
+REVOKE
+REVOKE
+REVOKE
+GRANT
+GRANT
+GRANT
+GRANT
+COMMENT
+COMMENT
+COMMENT
+COMMIT
+--- supabase/migrations/20260816152500_harden_scheduled_marketing_publish.sql
+BEGIN
+CREATE FUNCTION
+CREATE FUNCTION
+REVOKE
+REVOKE
+GRANT
+GRANT
+COMMENT
+COMMIT
+--- supabase/migrations/20260817112500_admin_finance_actual_ledger.sql
+BEGIN
+CREATE SCHEMA
+CREATE TABLE
+CREATE INDEX
+CREATE INDEX
+CREATE INDEX
+CREATE FUNCTION
+CREATE FUNCTION
+psql:supabase/migrations/20260817112500_admin_finance_actual_ledger.sql:79: NOTICE:  trigger "trg_finance_validate_actual_ledger_reversal" for relation "finance.actual_ledger_entries" does not exist, skipping
+DROP TRIGGER
+CREATE TRIGGER
+psql:supabase/migrations/20260817112500_admin_finance_actual_ledger.sql:84: NOTICE:  trigger "trg_finance_actual_ledger_append_only" for relation "finance.actual_ledger_entries" does not exist, skipping
+DROP TRIGGER
+CREATE TRIGGER
+COMMENT
+COMMENT
+REVOKE
+REVOKE
+DO
+GRANT
+GRANT
+COMMIT
+--- supabase/migrations/20260817131500_admin_finance_approved_budgets.sql
+BEGIN
+CREATE TABLE
+CREATE TABLE
+CREATE INDEX
+CREATE INDEX
+CREATE FUNCTION
+CREATE FUNCTION
+psql:supabase/migrations/20260817131500_admin_finance_approved_budgets.sql:86: NOTICE:  trigger "trg_finance_validate_budget_allocation_period" for relation "finance.approved_budget_allocations" does not exist, skipping
+DROP TRIGGER
+CREATE TRIGGER
+psql:supabase/migrations/20260817131500_admin_finance_approved_budgets.sql:91: NOTICE:  trigger "trg_finance_budget_sets_append_only" for relation "finance.approved_budget_sets" does not exist, skipping
+DROP TRIGGER
+CREATE TRIGGER
+psql:supabase/migrations/20260817131500_admin_finance_approved_budgets.sql:97: NOTICE:  trigger "trg_finance_budget_allocations_append_only" for relation "finance.approved_budget_allocations" does not exist, skipping
+DROP TRIGGER
+CREATE TRIGGER
+COMMENT
+COMMENT
+COMMENT
+REVOKE
+REVOKE
+DO
+GRANT
+GRANT
+COMMIT
+--- supabase/migrations/20260817134800_admin_finance_cash_planning.sql
+BEGIN
+CREATE TABLE
+CREATE INDEX
+CREATE TABLE
+CREATE TABLE
+CREATE TABLE
+CREATE INDEX
+CREATE INDEX
+CREATE INDEX
+CREATE FUNCTION
+CREATE FUNCTION
+psql:supabase/migrations/20260817134800_admin_finance_cash_planning.sql:109: NOTICE:  trigger "trg_finance_cash_balance_append_only" for relation "finance.cash_balance_snapshots" does not exist, skipping
+DROP TRIGGER
+CREATE TRIGGER
+psql:supabase/migrations/20260817134800_admin_finance_cash_planning.sql:114: NOTICE:  trigger "trg_finance_cash_plan_versions_append_only" for relation "finance.cash_plan_versions" does not exist, skipping
+DROP TRIGGER
+CREATE TRIGGER
+psql:supabase/migrations/20260817134800_admin_finance_cash_planning.sql:119: NOTICE:  trigger "trg_finance_cash_plan_assumptions_validate" for relation "finance.cash_plan_assumptions" does not exist, skipping
+DROP TRIGGER
+CREATE TRIGGER
+psql:supabase/migrations/20260817134800_admin_finance_cash_planning.sql:124: NOTICE:  trigger "trg_finance_cash_plan_assumptions_append_only" for relation "finance.cash_plan_assumptions" does not exist, skipping
+DROP TRIGGER
+CREATE TRIGGER
+psql:supabase/migrations/20260817134800_admin_finance_cash_planning.sql:129: NOTICE:  trigger "trg_finance_cash_plan_months_validate" for relation "finance.cash_plan_scenario_months" does not exist, skipping
+DROP TRIGGER
+CREATE TRIGGER
+psql:supabase/migrations/20260817134800_admin_finance_cash_planning.sql:134: NOTICE:  trigger "trg_finance_cash_plan_months_append_only" for relation "finance.cash_plan_scenario_months" does not exist, skipping
+DROP TRIGGER
+CREATE TRIGGER
+COMMENT
+COMMENT
+COMMENT
+COMMENT
+REVOKE
+REVOKE
+REVOKE
+REVOKE
+DO
+GRANT
+GRANT
+GRANT
+GRANT
+COMMIT
+--- supabase/migrations/20260817171500_add_care_relationship_person_linkage.sql
+ALTER TABLE
+DO
+UPDATE 0
+DO
+CREATE FUNCTION
+REVOKE
+psql:supabase/migrations/20260817171500_add_care_relationship_person_linkage.sql:120: NOTICE:  trigger "trg_sync_care_relationship_person_ids" for relation "lifemate.care_relationships" does not exist, skipping
+DROP TRIGGER
+CREATE TRIGGER
+CREATE INDEX
+CREATE INDEX
+CREATE INDEX
+--- supabase/migrations/20260818080700_make_legacy_profile_projection_change_aware.sql
+CREATE FUNCTION
+--- supabase/migrations/20260818084000_grant_admin_identity_token_read.sql
+ALTER TABLE
+ALTER TABLE
+psql:supabase/migrations/20260818084000_grant_admin_identity_token_read.sql:22: NOTICE:  policy "lifemate_admin_runtime_select" for relation "identity.external_identity_tokens" does not exist, skipping
+DO
+DO
+REVOKE
+--- supabase/migrations/20260818085200_add_encrypted_provider_identity_handles.sql
+CREATE TABLE
+CREATE INDEX
+COMMENT
+COMMENT
+COMMENT
+COMMENT
+ALTER TABLE
+ALTER TABLE
+REVOKE
+psql:supabase/migrations/20260818085200_add_encrypted_provider_identity_handles.sql:97: NOTICE:  policy "lifemate_edge_runtime_provider_handle_select" for relation "identity.provider_identity_handles" does not exist, skipping
+psql:supabase/migrations/20260818085200_add_encrypted_provider_identity_handles.sql:97: NOTICE:  policy "lifemate_edge_runtime_provider_handle_insert" for relation "identity.provider_identity_handles" does not exist, skipping
+psql:supabase/migrations/20260818085200_add_encrypted_provider_identity_handles.sql:97: NOTICE:  policy "lifemate_edge_runtime_provider_handle_update" for relation "identity.provider_identity_handles" does not exist, skipping
+psql:supabase/migrations/20260818085200_add_encrypted_provider_identity_handles.sql:97: NOTICE:  policy "lifemate_worker_runtime_provider_handle_select" for relation "identity.provider_identity_handles" does not exist, skipping
+DO
+CREATE FUNCTION
+REVOKE
+psql:supabase/migrations/20260818085200_add_encrypted_provider_identity_handles.sql:122: NOTICE:  trigger "trg_purge_provider_handles_after_account_deletion" for relation "identity.account_deletion_requests" does not exist, skipping
+DROP TRIGGER
+CREATE TRIGGER
+--- supabase/migrations/20260818091500_retire_raw_auth_subject_compatibility.sql
+ALTER TABLE
+COMMENT
+CREATE FUNCTION
+--- supabase/migrations/20260818093000_complete_contact_point_encryption.sql
+ALTER TABLE
+psql:supabase/migrations/20260818093000_complete_contact_point_encryption.sql:11: NOTICE:  constraint "ck_contact_points_nonce_b64" of relation "contact_points" does not exist, skipping
+ALTER TABLE
+ALTER TABLE
+psql:supabase/migrations/20260818093000_complete_contact_point_encryption.sql:20: NOTICE:  constraint "ck_contact_points_encryption_key_version" of relation "contact_points" does not exist, skipping
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+CREATE INDEX
+COMMENT
+COMMENT
+COMMENT
+COMMENT
+ALTER TABLE
+ALTER TABLE
+REVOKE
+DO
+--- supabase/migrations/20260818093100_enforce_single_current_contact_per_kind.sql
+CREATE INDEX
+COMMENT
+--- supabase/migrations/20260818221000_admin_commerce_catalog_write.sql
+BEGIN
+ALTER TABLE
+INSERT 0 2
+INSERT 0 4
+INSERT 0 1
+INSERT 0 1
+CREATE FUNCTION
+CREATE FUNCTION
+CREATE FUNCTION
+REVOKE
+REVOKE
+REVOKE
+DO
+GRANT
+GRANT
+GRANT
+COMMENT
+COMMENT
+COMMENT
+COMMIT
+--- supabase/migrations/20260818221200_admin_commerce_catalog_integrity_hardening.sql
+BEGIN
+CREATE INDEX
+CREATE INDEX
+CREATE FUNCTION
+COMMENT
+COMMIT
+--- supabase/migrations/20260819090500_admin_staff_profile_foundation.sql
+CREATE TABLE
+CREATE INDEX
+ALTER TABLE
+ALTER TABLE
+psql:supabase/migrations/20260819090500_admin_staff_profile_foundation.sql:25: NOTICE:  policy "lifemate_admin_runtime_select" for relation "admin.staff_profiles" does not exist, skipping
+DROP POLICY
+CREATE POLICY
+psql:supabase/migrations/20260819090500_admin_staff_profile_foundation.sql:30: NOTICE:  policy "lifemate_admin_runtime_insert" for relation "admin.staff_profiles" does not exist, skipping
+DROP POLICY
+CREATE POLICY
+psql:supabase/migrations/20260819090500_admin_staff_profile_foundation.sql:35: NOTICE:  policy "lifemate_admin_runtime_update" for relation "admin.staff_profiles" does not exist, skipping
+DROP POLICY
+CREATE POLICY
+REVOKE
+DO
+GRANT
+GRANT
+COMMENT
+INSERT 0 2
+INSERT 0 2
+--- supabase/migrations/20260819102000_admin_workforce_username_auth.sql
+CREATE TABLE
+ALTER TABLE
+ALTER TABLE
+REVOKE
+DO
+CREATE FUNCTION
+CREATE FUNCTION
+CREATE FUNCTION
+REVOKE
+REVOKE
+REVOKE
+DO
+GRANT
+GRANT
+GRANT
+COMMENT
+--- supabase/migrations/20260819124500_admin_founder_first_password_activation.sql
+CREATE TABLE
+ALTER TABLE
+ALTER TABLE
+REVOKE
+DO
+CREATE FUNCTION
+CREATE FUNCTION
+REVOKE
+REVOKE
+GRANT
+GRANT
+COMMENT
+--- supabase/migrations/20260819151000_retire_women_support_patient_user_write.sql
+DO
+ALTER TABLE
+ALTER TABLE
+COMMENT
+COMMENT
+COMMENT
+--- supabase/migrations/20260819152200_retire_women_episode_daily_owner_user_storage.sql
+DO
+ALTER TABLE
+ALTER TABLE
+CREATE INDEX
+CREATE INDEX
+CREATE FUNCTION
+REVOKE
+psql:supabase/migrations/20260819152200_retire_women_episode_daily_owner_user_storage.sql:84: NOTICE:  trigger "trg_00_retire_canonical_women_owner_user" for relation "lifemate.women_calendar_episodes" does not exist, skipping
+DROP TRIGGER
+CREATE TRIGGER
+psql:supabase/migrations/20260819152200_retire_women_episode_daily_owner_user_storage.sql:90: NOTICE:  trigger "trg_00_retire_canonical_women_owner_user" for relation "lifemate.women_calendar_daily_logs" does not exist, skipping
+DROP TRIGGER
+CREATE TRIGGER
+COMMENT
+COMMENT
+COMMENT
+COMMENT
+--- supabase/migrations/20260819154000_women_profile_person_primary_key.sql
+DO
+CREATE INDEX
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+COMMENT
+COMMENT
+CREATE FUNCTION
+REVOKE
+psql:supabase/migrations/20260819154000_women_profile_person_primary_key.sql:84: NOTICE:  trigger "trg_canonicalize_women_profile_audit_resource" for relation "lifemate.audit_logs" does not exist, skipping
+DROP TRIGGER
+CREATE TRIGGER
+--- supabase/migrations/20260819161000_retire_women_profile_owner_user_storage.sql
+CREATE FUNCTION
+REVOKE
+psql:supabase/migrations/20260819161000_retire_women_profile_owner_user_storage.sql:31: NOTICE:  trigger "trg_00_retire_canonical_women_profile_owner_user" for relation "lifemate.women_calendar_profiles" does not exist, skipping
+DROP TRIGGER
+CREATE TRIGGER
+COMMENT
+--- supabase/migrations/20260823095800_add_phone_care_request_target_account.sql
+ALTER TABLE
+DO
+COMMENT
+CREATE INDEX
+CREATE INDEX
+CREATE FUNCTION
+REVOKE
+psql:supabase/migrations/20260823095800_add_phone_care_request_target_account.sql:62: NOTICE:  trigger "trg_sever_care_request_target_on_account_deletion" for relation "identity.accounts" does not exist, skipping
+DROP TRIGGER
+CREATE TRIGGER
+--- supabase/migrations/20260823125200_admin_commerce_trial_policy.sql
+BEGIN
+CREATE TABLE
+ALTER TABLE
+ALTER TABLE
+psql:supabase/migrations/20260823125200_admin_commerce_trial_policy.sql:19: NOTICE:  policy "trial_policies_no_direct_access" for relation "commerce.trial_policies" does not exist, skipping
+DROP POLICY
+CREATE POLICY
+INSERT 0 1
+INSERT 0 3
+CREATE FUNCTION
+REVOKE
+GRANT
+COMMIT
+--- supabase/migrations/20260823163000_admin_staff_membership_mutations.sql
+BEGIN
+CREATE FUNCTION
+CREATE FUNCTION
+REVOKE
+REVOKE
+GRANT
+GRANT
+COMMIT
+--- supabase/migrations/20260824122000_add_caremate_notification_preferences.sql
+ALTER TABLE
+DO
+--- supabase/migrations/20260824140500_add_caremate_completion_notification_receipts.sql
+CREATE TABLE
+CREATE INDEX
+CREATE INDEX
+CREATE INDEX
+ALTER TABLE
+ALTER TABLE
+psql:supabase/migrations/20260824140500_add_caremate_completion_notification_receipts.sql:44: NOTICE:  policy "lifemate_edge_runtime_access" for relation "lifemate.caregiver_completion_notification_receipts" does not exist, skipping
+DO
+--- supabase/migrations/20260825151000_add_admin_care_relationship_directory.sql
+CREATE VIEW
+COMMENT
+REVOKE
+GRANT
+--- supabase/migrations/20260825154500_add_consumer_username_admin_read_model.sql
+ALTER TABLE
+psql:supabase/migrations/20260825154500_add_consumer_username_admin_read_model.sql:8: NOTICE:  constraint "ck_identity_accounts_username_format" of relation "accounts" does not exist, skipping
+ALTER TABLE
+ALTER TABLE
+CREATE INDEX
+COMMENT
+CREATE VIEW
+REVOKE
+GRANT
+COMMENT
+--- supabase/migrations/20260825170000_admin_commerce_trial_policy_read.sql
+BEGIN
+CREATE FUNCTION
+REVOKE
+GRANT
+COMMIT
+--- supabase/migrations/20260825173000_admin_commerce_discount_code_workflow.sql
+BEGIN
+ALTER TABLE
+INSERT 0 1
+INSERT 0 3
+CREATE FUNCTION
+CREATE FUNCTION
+REVOKE
+GRANT
+REVOKE
+GRANT
+COMMIT
+--- supabase/migrations/20260825173500_admin_commerce_plan_feature_assignments.sql
+BEGIN
+CREATE TABLE
+ALTER TABLE
+ALTER TABLE
+psql:supabase/migrations/20260825173500_admin_commerce_plan_feature_assignments.sql:15: NOTICE:  policy "plan_feature_assignments_no_direct_access" for relation "commerce.plan_feature_assignments" does not exist, skipping
+DROP POLICY
+CREATE POLICY
+INSERT 0 1
+INSERT 0 3
+CREATE FUNCTION
+REVOKE
+GRANT
+CREATE FUNCTION
+REVOKE
+GRANT
+COMMIT
+--- supabase/migrations/20260825223000_admin_command_center_preferences.sql
+BEGIN
+CREATE TABLE
+ALTER TABLE
+ALTER TABLE
+psql:supabase/migrations/20260825223000_admin_command_center_preferences.sql:19: NOTICE:  policy "command_center_preferences_no_direct_access" for relation "admin.command_center_preferences" does not exist, skipping
+DROP POLICY
+CREATE POLICY
+INSERT 0 1
+CREATE FUNCTION
+REVOKE
+GRANT
+CREATE FUNCTION
+REVOKE
+GRANT
+COMMIT
+--- supabase/migrations/20260825224500_admin_finance_scenarios.sql
+BEGIN
+INSERT 0 1
+INSERT 0 0
+CREATE TABLE
+ALTER TABLE
+ALTER TABLE
+psql:supabase/migrations/20260825224500_admin_finance_scenarios.sql:34: NOTICE:  policy "finance_scenarios_no_direct_access" for relation "admin.finance_scenarios" does not exist, skipping
+DROP POLICY
+CREATE POLICY
+CREATE FUNCTION
+REVOKE
+GRANT
+CREATE FUNCTION
+REVOKE
+GRANT
+COMMIT
+--- supabase/migrations/20260825224600_admin_finance_scenario_currency_type_fix.sql
+BEGIN
+CREATE FUNCTION
+REVOKE
+GRANT
+REVOKE
+DROP FUNCTION
+COMMIT
+--- supabase/migrations/20260826024500_admin_access_grant_lifecycle.sql
+BEGIN
+ALTER TABLE
+INSERT 0 1
+INSERT 0 2
+CREATE FUNCTION
+REVOKE
+GRANT
+COMMIT
+--- supabase/migrations/20260826060000_unified_treatment_recurrence.sql
+ALTER TABLE
+DO
+CREATE INDEX
+--- supabase/migrations/20260826061000_unified_care_event_recurrence.sql
+ALTER TABLE
+DO
+CREATE INDEX
+--- supabase/migrations/20260826112000_admin_break_glass_workflow.sql
+BEGIN
+ALTER TABLE
+UPDATE 0
+ALTER TABLE
+psql:supabase/migrations/20260826112000_admin_break_glass_workflow.sql:26: NOTICE:  constraint "elevated_access_requests_requested_ttl_minutes_check" of relation "elevated_access_requests" does not exist, skipping
+ALTER TABLE
+ALTER TABLE
+psql:supabase/migrations/20260826112000_admin_break_glass_workflow.sql:34: NOTICE:  constraint "elevated_access_requests_version_check" of relation "elevated_access_requests" does not exist, skipping
+ALTER TABLE
+ALTER TABLE
+CREATE INDEX
+CREATE FUNCTION
+CREATE FUNCTION
+REVOKE
+REVOKE
+GRANT
+GRANT
+GRANT
+COMMIT
+--- supabase/migrations/20260826123000_admin_elevated_health_read.sql
+BEGIN
+CREATE FUNCTION
+REVOKE
+GRANT
+COMMIT
+--- supabase/migrations/20260826130000_add_women_companion_privacy_scopes.sql
+CREATE TABLE
+CREATE INDEX
+DO
+COMMENT
+--- supabase/migrations/20260826201500_platform_remote_config_control_plane.sql
+BEGIN
+CREATE SCHEMA
+CREATE TABLE
+CREATE TABLE
+CREATE TABLE
+CREATE TABLE
+CREATE FUNCTION
+CREATE FUNCTION
+psql:supabase/migrations/20260826201500_platform_remote_config_control_plane.sql:83: NOTICE:  trigger "trg_platform_controls_archive" for relation "platform.controls" does not exist, skipping
+DROP TRIGGER
+CREATE TRIGGER
+psql:supabase/migrations/20260826201500_platform_remote_config_control_plane.sql:88: NOTICE:  trigger "trg_platform_control_rules_archive" for relation "platform.control_rules" does not exist, skipping
+DROP TRIGGER
+CREATE TRIGGER
+CREATE INDEX
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+psql:supabase/migrations/20260826201500_platform_remote_config_control_plane.sql:105: NOTICE:  policy "lifemate_admin_runtime_select" for relation "platform.controls" does not exist, skipping
+DROP POLICY
+CREATE POLICY
+psql:supabase/migrations/20260826201500_platform_remote_config_control_plane.sql:110: NOTICE:  policy "lifemate_admin_runtime_select" for relation "platform.control_rules" does not exist, skipping
+DROP POLICY
+CREATE POLICY
+REVOKE
+REVOKE
+REVOKE
+DO
+GRANT
+GRANT
+INSERT 0 2
+INSERT 0 4
+INSERT 0 2
+INSERT 0 1
+COMMENT
+COMMENT
+COMMENT
+COMMENT
+COMMIT
+--- supabase/migrations/20260826220500_legal_acceptance_privacy_preferences.sql
+BEGIN
+ALTER TABLE
+psql:supabase/migrations/20260826220500_legal_acceptance_privacy_preferences.sql:11: NOTICE:  constraint "ck_consent_documents_content_uri" of relation "consent_documents" does not exist, skipping
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+CREATE TABLE
+CREATE TABLE
+CREATE TABLE
+CREATE INDEX
+CREATE INDEX
+INSERT 0 5
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+REVOKE
+REVOKE
+REVOKE
+DO
+CREATE FUNCTION
+CREATE FUNCTION
+CREATE FUNCTION
+CREATE FUNCTION
+CREATE FUNCTION
+CREATE FUNCTION
+REVOKE
+REVOKE
+REVOKE
+REVOKE
+REVOKE
+REVOKE
+DO
+COMMENT
+COMMENT
+COMMENT
+COMMIT
+--- supabase/migrations/20260826220600_consent_edge_runtime_function_usage.sql
+BEGIN
+DO
+COMMIT
+--- supabase/migrations/20260826220700_legal_document_publish_guards.sql
+BEGIN
+ALTER TABLE
+psql:supabase/migrations/20260826220700_legal_document_publish_guards.sql:7: NOTICE:  constraint "ck_consent_documents_active_legal_content" of relation "consent_documents" does not exist, skipping
+ALTER TABLE
+ALTER TABLE
+COMMENT
+COMMIT
+--- supabase/migrations/20260826231500_audience_segment_engine.sql
+BEGIN
+CREATE SCHEMA
+CREATE TABLE
+CREATE TABLE
+CREATE TABLE
+CREATE TABLE
+CREATE FUNCTION
+psql:supabase/migrations/20260826231500_audience_segment_engine.sql:65: NOTICE:  trigger "trg_audience_segments_archive" for relation "audience.segments" does not exist, skipping
+DROP TRIGGER
+CREATE TRIGGER
+CREATE INDEX
+CREATE INDEX
+CREATE INDEX
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+psql:supabase/migrations/20260826231500_audience_segment_engine.sql:86: NOTICE:  policy "lifemate_admin_runtime_rw" for relation "audience.segments" does not exist, skipping
+DROP POLICY
+CREATE POLICY
+psql:supabase/migrations/20260826231500_audience_segment_engine.sql:90: NOTICE:  policy "lifemate_admin_runtime_select" for relation "audience.segment_history" does not exist, skipping
+DROP POLICY
+CREATE POLICY
+psql:supabase/migrations/20260826231500_audience_segment_engine.sql:94: NOTICE:  policy "lifemate_admin_runtime_rw" for relation "audience.segment_snapshots" does not exist, skipping
+DROP POLICY
+CREATE POLICY
+psql:supabase/migrations/20260826231500_audience_segment_engine.sql:98: NOTICE:  policy "lifemate_admin_runtime_rw" for relation "audience.segment_snapshot_members" does not exist, skipping
+DROP POLICY
+CREATE POLICY
+REVOKE
+REVOKE
+REVOKE
+DO
+GRANT
+GRANT
+GRANT
+GRANT
+INSERT 0 2
+INSERT 0 6
+INSERT 0 1
+COMMENT
+COMMENT
+COMMENT
+COMMENT
+COMMIT
+--- supabase/migrations/20260826231500_ecosystem_commerce_catalog_v2.sql
+BEGIN
+ALTER TABLE
+UPDATE 3
+ALTER TABLE
+DO
+CREATE TABLE
+CREATE INDEX
+ALTER TABLE
+CREATE INDEX
+CREATE TABLE
+CREATE TABLE
+CREATE TABLE
+CREATE TABLE
+CREATE INDEX
+CREATE TABLE
+CREATE TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+REVOKE
+DO
+GRANT
+DO
+INSERT 0 1
+INSERT 0 3
+INSERT 0 4
+UPDATE 3
+INSERT 0 1
+INSERT 0 1
+COMMIT
+--- supabase/migrations/20260827001500_admin_custom_roles.sql
+BEGIN
+ALTER TABLE
+psql:supabase/migrations/20260827001500_admin_custom_roles.sql:9: NOTICE:  constraint "ck_admin_roles_version_positive" of relation "roles" does not exist, skipping
+ALTER TABLE
+ALTER TABLE
+CREATE FUNCTION
+CREATE FUNCTION
+psql:supabase/migrations/20260827001500_admin_custom_roles.sql:246: ERROR:  role "anon" does not exist
+MIGRATION_FAILED=supabase/migrations/20260827001500_admin_custom_roles.sql EXIT=3
