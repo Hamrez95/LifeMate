@@ -3,17 +3,18 @@ import 'dart:io';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
-  test('Cycle Insight scheduler is local, separate and permission-passive', () {
+  test('Cycle Insight reuses shared local scheduler and stays permission-passive', () {
     final scheduler = File(
       'lib/screens/women_calendar/women_cycle_insight_notification_scheduler.dart',
     ).readAsStringSync();
 
-    expect(scheduler, contains("women_cycle_insights"));
-    expect(scheduler, contains('60901'));
-    expect(scheduler, contains('60902'));
+    expect(scheduler, contains('women_cycle_insights'));
+    expect(scheduler, contains('LifeMateLocalReminderScheduler'));
+    expect(scheduler, contains('LifeMateReminderAccuracy.inexact'));
     expect(scheduler, contains('areNotificationsEnabled'));
     expect(scheduler, contains('NotificationVisibility.private'));
-    expect(scheduler, contains('inexactAllowWhileIdle'));
+    expect(scheduler, contains('women-health:cycle-insight'));
+    expect(scheduler, isNot(contains('.zonedSchedule(')));
     expect(scheduler, isNot(contains('requestNotificationsPermission')));
     expect(scheduler, isNot(contains('.initialize(')));
     expect(scheduler, isNot(contains('wellmate_treatment_reminders')));
@@ -29,7 +30,12 @@ void main() {
 
     expect(backend, contains('women_cycle_insight_history'));
     expect(backend, contains('analytics_key'));
-    expect(backend, contains('on conflict(owner_person_id,insight_id,surface,occurred_on) do nothing'));
+    expect(
+      backend,
+      contains(
+        'on conflict(owner_person_id,insight_id,surface,occurred_on) do nothing',
+      ),
+    );
     expect(scheduler, contains("surface: 'local_notification'"));
     expect(scheduler, isNot(contains('privateNotes')));
     expect(scheduler, isNot(contains('painLevel')));
