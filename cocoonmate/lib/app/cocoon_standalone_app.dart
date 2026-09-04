@@ -66,9 +66,9 @@ class CocoonStandaloneApp extends StatelessWidget {
       logoAssetPath: 'assets/cocoonmate-logo.png',
       unauthenticatedBuilder: (context, _, appName, logoAssetPath) =>
           LifeMateSharedAuthExperience(
-        appName: appName,
-        logoAssetPath: logoAssetPath,
-      ),
+            appName: appName,
+            logoAssetPath: logoAssetPath,
+          ),
       authenticatedBuilder: (context, _) => CocoonAuthenticatedHost(
         config: config,
         locale: Localizations.localeOf(context),
@@ -104,18 +104,18 @@ class _CocoonAuthenticatedHostState extends State<CocoonAuthenticatedHost>
 
   late final LifeMateRemoteConfigClient? _runtimeClient =
       widget.runtimeLoader == null
-          ? LifeMateRemoteConfigClient.fromEnvironment(
-              product: 'cocoonmate',
-              currentVersion: cocoonAppVersion,
-            )
-          : null;
+      ? LifeMateRemoteConfigClient.fromEnvironment(
+          product: 'cocoonmate',
+          currentVersion: cocoonAppVersion,
+        )
+      : null;
   late final CocoonPregnancyApiClient? _pregnancyClient =
       widget.bootstrapLoader == null
-          ? CocoonPregnancyApiClient(
-              baseUri: widget.config.apiBaseUri,
-              accessToken: () => LifeMateAuth.currentAccessToken,
-            )
-          : null;
+      ? CocoonPregnancyApiClient(
+          baseUri: widget.config.apiBaseUri,
+          accessToken: () => LifeMateAuth.currentAccessToken,
+        )
+      : null;
 
   @override
   void initState() {
@@ -149,8 +149,9 @@ class _CocoonAuthenticatedHostState extends State<CocoonAuthenticatedHost>
     _refreshing = true;
     if (mounted) setState(() => _entryState = CocoonEntryState.loading);
     try {
-      final runtime = await (widget.runtimeLoader?.call() ??
-          _runtimeClient!.load(forceRefresh: true));
+      final runtime =
+          await (widget.runtimeLoader?.call() ??
+              _runtimeClient!.load(forceRefresh: true));
       if (runtime.product != 'cocoonmate' ||
           runtime.platform.trim().isEmpty ||
           !runtime.isTrustedForUpdatePolicy(DateTime.now())) {
@@ -158,8 +159,9 @@ class _CocoonAuthenticatedHostState extends State<CocoonAuthenticatedHost>
         return;
       }
 
-      final snapshot = await (widget.bootstrapLoader?.call() ??
-          _pregnancyClient!.bootstrap(asOfDate: DateTime.now()));
+      final snapshot =
+          await (widget.bootstrapLoader?.call() ??
+              _pregnancyClient!.bootstrap(asOfDate: DateTime.now()));
       final next = resolveCocoonEntryState(snapshot);
       _apply(next, snapshot.personId.isEmpty ? null : snapshot.personId);
     } on LifeMateApiException catch (error) {
@@ -242,7 +244,8 @@ CocoonEntryState resolveCocoonEntryState(CocoonBootstrapSnapshot snapshot) {
   }
 
   final episode = snapshot.activeEpisode;
-  if (episode == null || episode.status != CocoonPregnancyEpisodeStatus.active) {
+  if (episode == null ||
+      episode.status != CocoonPregnancyEpisodeStatus.active) {
     return CocoonEntryState.noPregnancy;
   }
   return CocoonEntryState.activePregnancy;
