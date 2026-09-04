@@ -36,9 +36,13 @@ void main() {
     expect(loaded.single.triggerUtc, reminder.triggerUtc);
     expect(loaded.single.accuracy, LifeMateReminderAccuracy.exact);
 
-    final raw = database
-        .select('SELECT ciphertext FROM lifemate_local_projection_records')
-        .single['ciphertext'] as List<int>;
+    final raw =
+        database
+                .select(
+                  'SELECT ciphertext FROM lifemate_local_projection_records',
+                )
+                .single['ciphertext']
+            as List<int>;
     expect(String.fromCharCodes(raw), isNot(contains('opaque-occurrence')));
     expect(String.fromCharCodes(raw), isNot(contains('Private reminder')));
 
