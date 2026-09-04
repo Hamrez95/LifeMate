@@ -201,7 +201,7 @@ Deno.test("approval ledger is server-only, purpose-scoped and self-approval defa
   );
   assertStringIncludes(
     routes,
-    'requirePermission(admin,"operations.approval.read")',
+    'requirePermission(admin, "operations.approval.read")',
   );
   assert(!routes.includes("service_role"));
   assert(!service.includes("supabase.from"));
