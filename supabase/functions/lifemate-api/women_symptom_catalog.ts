@@ -38,6 +38,13 @@ const legacyToCanonical: Record<string, WomenSymptomId> = {
   NoSymptom: "no_symptom",
 };
 
+const canonicalToLegacy = new Map<WomenSymptomId, string>(
+  Object.entries(legacyToCanonical).map(([legacy, canonical]) => [
+    canonical,
+    legacy,
+  ]),
+);
+
 const canonicalSet = new Set<string>(womenSymptomIds);
 
 export function canonicalizeLegacySymptoms(value: unknown): WomenSymptomId[] {
@@ -54,6 +61,14 @@ export function canonicalizeLegacySymptoms(value: unknown): WomenSymptomId[] {
   }
   if (result.has("no_symptom") && result.size > 1) result.delete("no_symptom");
   return [...result];
+}
+
+export function projectCanonicalSymptomsToLegacy(
+  symptoms: WomenSymptomId[],
+): string[] {
+  return symptoms
+    .map((symptom) => canonicalToLegacy.get(symptom))
+    .filter((symptom): symptom is string => symptom != null);
 }
 
 export function normalizeWomenSymptomObservations(
