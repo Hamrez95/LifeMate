@@ -4,11 +4,7 @@ import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import '../models/schedule_item_model.dart';
 import 'notification_provider.dart';
 
-enum WellMateNotificationPermissionResult {
-  granted,
-  denied,
-  unsupported,
-}
+enum WellMateNotificationPermissionResult { granted, denied, unsupported }
 
 /// Prevents reminder synchronization from triggering an OS permission prompt
 /// before the user has seen a contextual explanation.
@@ -41,11 +37,7 @@ class ContextualNotificationProvider extends NotificationProvider {
     }
     if (!_nativePermissionFlowUnlocked) return;
 
-    await super.syncReminders(
-      items,
-      timeZone: timeZone,
-      isPersian: isPersian,
-    );
+    await super.syncReminders(items, timeZone: timeZone, isPersian: isPersian);
   }
 
   /// Reads current OS state without requesting anything. Already-authorized
