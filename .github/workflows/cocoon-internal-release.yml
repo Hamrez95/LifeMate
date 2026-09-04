@@ -27,7 +27,7 @@ on:
       - 'packages/lifemate_client/**'
       - 'tools/release/prepare-cocoon-android.sh'
       - '.github/workflows/cocoon-internal-release.yml'
-      - 'docs/release/cocoonmate-android-release.md'
+      - 'docs/release/cocoonmate-android-candidates.md'
 
 permissions:
   contents: read
