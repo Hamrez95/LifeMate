@@ -21,10 +21,5 @@ Future<void> main() async {
       );
     }
   }
-  runApp(
-    CocoonStandaloneApp(
-      config: config,
-      authInitialized: authInitialized,
-    ),
-  );
+  runApp(CocoonStandaloneApp(config: config, authInitialized: authInitialized));
 }
