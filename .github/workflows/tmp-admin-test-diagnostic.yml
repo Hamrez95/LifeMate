@@ -1,0 +1,36 @@
+name: Temporary Admin Test Diagnostic
+
+on:
+  push:
+    branches:
+      - ci/admin-edge-format-baseline-20260904
+
+permissions:
+  contents: write
+
+jobs:
+  diagnose:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ci/admin-edge-format-baseline-20260904
+          fetch-depth: 0
+      - uses: denoland/setup-deno@v2
+        with:
+          deno-version: v2.9.4
+      - name: Capture unit-test failure
+        shell: bash
+        run: |
+          set +e
+          cd supabase/functions/lifemate-admin-api
+          deno task test > ../../../admin-test-diagnostic.log 2>&1
+          status=$?
+          cd ../../..
+          printf '\nEXIT_STATUS=%s\n' "$status" >> admin-test-diagnostic.log
+          git add admin-test-diagnostic.log
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git commit -m "ci: capture admin edge unit-test diagnostic"
+          git push origin HEAD:ci/admin-edge-format-baseline-20260904
