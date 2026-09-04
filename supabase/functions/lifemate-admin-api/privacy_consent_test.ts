@@ -74,7 +74,7 @@ Deno.test("privacy contract exposes no admin acceptance or user opt-in mutation"
   assertEquals(source.includes("consents/grant"), false);
   assertEquals(source.includes("preferences/opt-in"), false);
   assertEquals(
-    source.includes("accountPreferenceMutableFromAdmin:false"),
+    source.includes("accountPreferenceMutableFromAdmin: false"),
     true,
   );
 });
