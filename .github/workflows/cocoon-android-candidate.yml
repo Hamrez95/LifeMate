@@ -12,13 +12,13 @@ on:
           - internal
           - production
       build_mode:
-        description: Android build mode
+        description: Android build mode (release is compact; debug is for diagnostics only)
         required: true
-        default: debug
+        default: release
         type: choice
         options:
-          - debug
           - release
+          - debug
   pull_request:
     paths:
       - 'cocoonmate/**'
@@ -73,7 +73,7 @@ jobs:
           environment='${{ inputs.environment }}'
           build_mode='${{ inputs.build_mode }}'
           if [[ -z "$environment" ]]; then environment=internal; fi
-          if [[ -z "$build_mode" ]]; then build_mode=debug; fi
+          if [[ -z "$build_mode" ]]; then build_mode=release; fi
           if [[ "$environment" != internal && "$environment" != production ]]; then
             echo 'Unsupported environment' >&2
             exit 1
@@ -147,8 +147,8 @@ jobs:
           flutter analyze --no-fatal-warnings --no-fatal-infos
           flutter test
 
-      - name: Configure release signing
-        if: steps.candidate.outputs.build_mode == 'release'
+      - name: Configure production release signing
+        if: steps.candidate.outputs.environment == 'production'
         working-directory: cocoonmate
         shell: bash
         run: |
@@ -160,12 +160,12 @@ jobs:
             fi
           done
           printf '%s' "$COCOON_ANDROID_KEYSTORE_BASE64" | base64 --decode > android/app/cocoon-release.jks
-          cat > android/key.properties <<EOF
+          cat > android/key.properties <<EOF_SIGNING
           storePassword=$COCOON_ANDROID_KEYSTORE_PASSWORD
           keyPassword=$COCOON_ANDROID_KEY_PASSWORD
           keyAlias=$COCOON_ANDROID_KEY_ALIAS
           storeFile=cocoon-release.jks
-          EOF
+          EOF_SIGNING
           python3 - <<'PY'
           from pathlib import Path
           path = Path('android/app/build.gradle.kts')
@@ -188,13 +188,13 @@ jobs:
           path.write_text(text)
           PY
 
-      - name: Build Android candidate
+      - name: Build compact Android candidates
         working-directory: cocoonmate
         shell: bash
         run: |
           set -euo pipefail
           mode='${{ steps.candidate.outputs.build_mode }}'
-          flutter build apk "--$mode" \
+          flutter build apk "--$mode" --split-per-abi \
             --build-name='${{ steps.candidate.outputs.version }}' \
             --build-number='${{ steps.candidate.outputs.build_number }}' \
             --dart-define=LIFEMATE_BUILD_ENV='${{ steps.candidate.outputs.environment }}' \
@@ -202,22 +202,43 @@ jobs:
             --dart-define="SUPABASE_PUBLISHABLE_KEY=$SUPABASE_PUBLISHABLE_KEY" \
             --dart-define="LIFEMATE_API_BASE_URL=$LIFEMATE_API_BASE_URL"
 
-      - name: Create provenance bundle
+      - name: Create compact provenance bundles
         id: provenance
         shell: bash
         run: |
           set -euo pipefail
-          mode='${{ steps.candidate.outputs.build_mode }}'
           environment='${{ steps.candidate.outputs.environment }}'
-          source="cocoonmate/build/app/outputs/flutter-apk/app-${mode}.apk"
-          filename="cocoonmate-${environment}-${mode}-v${{ steps.candidate.outputs.version }}+${{ steps.candidate.outputs.build_number }}-${{ steps.candidate.outputs.short_sha }}.apk"
+          mode='${{ steps.candidate.outputs.build_mode }}'
+          short_sha='${{ steps.candidate.outputs.short_sha }}'
           mkdir -p candidate
-          cp "$source" "candidate/$filename"
-          sha256sum "candidate/$filename" > "candidate/$filename.sha256"
-          migration_head="$(find supabase/migrations -maxdepth 1 -type f -name '*.sql' -printf '%f\n' | sort | tail -n 1)"
-          python3 - <<PY
-          import json, os
+
+          python3 - <<'PY'
+          import hashlib, json, os
           from pathlib import Path
+
+          mode = '${{ steps.candidate.outputs.build_mode }}'
+          environment = '${{ steps.candidate.outputs.environment }}'
+          version = '${{ steps.candidate.outputs.version }}'
+          build_number = '${{ steps.candidate.outputs.build_number }}'
+          short_sha = '${{ steps.candidate.outputs.short_sha }}'
+          migration_head = os.popen("find supabase/migrations -maxdepth 1 -type f -name '*.sql' -printf '%f\\n' | sort | tail -n 1").read().strip()
+          source_dir = Path('cocoonmate/build/app/outputs/flutter-apk')
+          destination = Path('candidate')
+          artifacts = {}
+          for abi in ('arm64-v8a', 'armeabi-v7a', 'x86_64'):
+              source = source_dir / f'app-{abi}-{mode}.apk'
+              if not source.is_file():
+                  raise SystemExit(f'Missing split APK: {source}')
+              bundle_dir = destination / abi
+              bundle_dir.mkdir(parents=True, exist_ok=True)
+              filename = f'cocoonmate-{environment}-{mode}-{abi}-v{version}+{build_number}-{short_sha}.apk'
+              target = bundle_dir / filename
+              target.write_bytes(source.read_bytes())
+              digest = hashlib.sha256(target.read_bytes()).hexdigest()
+              (bundle_dir / f'{filename}.sha256').write_text(f'{digest}  {filename}\n')
+              artifacts[abi] = {'file': filename, 'sha256': digest, 'size_bytes': target.stat().st_size}
+
+          signing = 'production release signing' if environment == 'production' else ('ephemeral Android debug signing with release optimization' if mode == 'release' else 'ephemeral Android debug signing')
           payload = {
               'app': 'cocoonmate',
               'package_id': 'com.mylifemate.cocoonmate',
@@ -225,35 +246,72 @@ jobs:
               'workflow': os.environ['GITHUB_WORKFLOW'],
               'workflow_run_id': os.environ['GITHUB_RUN_ID'],
               'workflow_run_attempt': os.environ['GITHUB_RUN_ATTEMPT'],
-              'version': '${{ steps.candidate.outputs.version }}',
-              'build_number': '${{ steps.candidate.outputs.build_number }}',
-              'environment': '$environment',
-              'build_mode': '$mode',
-              'migration_head': '$migration_head',
-              'artifact_file': '$filename',
+              'version': version,
+              'build_number': build_number,
+              'environment': environment,
+              'build_mode': mode,
+              'distribution': 'split-per-abi',
+              'recommended_phone_abi': 'arm64-v8a',
+              'signing': signing,
+              'migration_head': migration_head,
+              'artifacts': artifacts,
               'runtime_config': {
                   'supabase_url': os.environ['SUPABASE_URL'],
                   'api_base_url': os.environ['LIFEMATE_API_BASE_URL'],
                   'publishable_key_embedded': bool(os.environ.get('SUPABASE_PUBLISHABLE_KEY')),
               },
           }
-          Path('candidate/provenance.json').write_text(json.dumps(payload, indent=2, sort_keys=True) + '\n')
+          provenance = json.dumps(payload, indent=2, sort_keys=True) + '\n'
+          (destination / 'provenance.json').write_text(provenance)
+          for abi in artifacts:
+              (destination / abi / 'provenance.json').write_text(provenance)
           PY
-          echo "artifact_name=cocoonmate-${environment}-${mode}-${{ steps.candidate.outputs.short_sha }}" >> "$GITHUB_OUTPUT"
 
-      - name: Verify provenance and no signing material leakage
+          echo "artifact_prefix=cocoonmate-${environment}-${mode}-${short_sha}" >> "$GITHUB_OUTPUT"
+
+      - name: Verify compact artifacts and size guard
         shell: bash
         run: |
           set -euo pipefail
           test -s candidate/provenance.json
-          test -s candidate/*.apk
-          test -s candidate/*.sha256
           jq -e '.runtime_config.publishable_key_embedded == true' candidate/provenance.json >/dev/null
+          jq -e '.distribution == "split-per-abi" and .recommended_phone_abi == "arm64-v8a"' candidate/provenance.json >/dev/null
+          for abi in arm64-v8a armeabi-v7a x86_64; do
+            test -s candidate/$abi/*.apk
+            test -s candidate/$abi/*.sha256
+            test -s candidate/$abi/provenance.json
+          done
           ! find candidate -type f \( -name '*.jks' -o -name 'key.properties' \) | grep -q .
 
-      - uses: actions/upload-artifact@v4
+          arm64_bytes="$(stat -c%s candidate/arm64-v8a/*.apk)"
+          if [[ '${{ steps.candidate.outputs.build_mode }}' == release && "$arm64_bytes" -gt $((60 * 1024 * 1024)) ]]; then
+            echo "Compact arm64 APK unexpectedly exceeds 60 MiB: $arm64_bytes bytes" >&2
+            exit 1
+          fi
+
+      - name: Upload compact phone APK (arm64-v8a)
+        uses: actions/upload-artifact@v4
         with:
-          name: ${{ steps.provenance.outputs.artifact_name }}
-          path: candidate/
+          name: ${{ steps.provenance.outputs.artifact_prefix }}-arm64-v8a
+          path: candidate/arm64-v8a/
           if-no-files-found: error
           retention-days: 14
+          compression-level: 0
+
+      - name: Upload legacy ARM APK (armeabi-v7a)
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ steps.provenance.outputs.artifact_prefix }}-armeabi-v7a
+          path: candidate/armeabi-v7a/
+          if-no-files-found: error
+          retention-days: 14
+          compression-level: 0
+
+      - name: Upload emulator APK (x86_64)
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ steps.provenance.outputs.artifact_prefix }}-x86_64
+          path: candidate/x86_64/
+          if-no-files-found: error
+          retention-days: 14
+          compression-level: 0
