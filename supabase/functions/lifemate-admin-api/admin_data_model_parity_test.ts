@@ -92,9 +92,17 @@ Deno.test("analytics KPI fallback reads canonical identity and ecosystem snapsho
     product: null,
   });
 
-  assertEquals(queries.length, 2);
+  // accounts_created uses two identity queries; historical MAU truthfully
+  // returns unavailable without querying a current snapshot; the activation
+  // fallback uses two aggregate-only ecosystem queries. Keep this parity test
+  // aligned with the canonical read models rather than an obsolete query count.
+  assertEquals(queries.length, 4);
   assertStringIncludes(queries[0], "identity.accounts");
   assertStringIncludes(queries[1], "identity.accounts");
+  assertStringIncludes(queries[2], "ecosystem.app_enrollments");
+  assertStringIncludes(queries[2], "identity.accounts");
+  assertStringIncludes(queries[3], "ecosystem.app_enrollments");
+  assertStringIncludes(queries[3], "identity.accounts");
   for (const query of queries) {
     assert(!query.includes("lifemate.app_users"));
     assert(!query.includes("lifemate.user_profiles"));
