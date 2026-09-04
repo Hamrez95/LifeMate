@@ -17,3 +17,4 @@ dependencies:
 dev_dependencies:
   flutter_test:
     sdk: flutter
+  sqlite3: 3.5.2
