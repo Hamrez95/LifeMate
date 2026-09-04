@@ -28,6 +28,7 @@ Deno.test("server orchestration uses guarded primitives and non-elevated audit s
   const service = await Deno.readTextFile(
     new URL("./manual_entitlement_adjustments_service.ts", import.meta.url),
   );
+  const compact = service.replace(/\s+/g, "");
   assertStringIncludes(
     service,
     "commerce.apply_manual_entitlement_grant_guarded",
@@ -37,10 +38,10 @@ Deno.test("server orchestration uses guarded primitives and non-elevated audit s
     "commerce.apply_manual_entitlement_change_guarded",
   );
   assertStringIncludes(
-    service,
-    "entitlement-adjust:${input.requestHash.slice(0, 48)}",
+    compact,
+    "entitlement-adjust:${input.requestHash.slice(0,48)}",
   );
-  assertStringIncludes(service, "${input.idempotencyKey},false,");
+  assertStringIncludes(compact, "${input.idempotencyKey},false,");
   assert(!service.includes("apply_manual_entitlement_grant(\n"));
   assert(!service.includes("apply_manual_entitlement_change(\n"));
 });
