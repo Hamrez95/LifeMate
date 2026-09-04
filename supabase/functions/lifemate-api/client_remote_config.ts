@@ -64,7 +64,7 @@ export function createClientRemoteConfigStore(databaseUrl: string) {
       input.platform,
       input.currentVersion,
     );
-    const definitionVersion = controls.reduce(
+    const definitionVersion = controls.reduce<number>(
       (max, item) => {
         if (!item || typeof item !== "object" || Array.isArray(item)) {
           return max;
