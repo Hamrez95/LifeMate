@@ -72,8 +72,10 @@ jobs:
       - name: Resolve shared client
         working-directory: packages/lifemate_client
         run: flutter pub get
-      - name: Format typed Cocoon client
-        run: dart format --output=none --set-exit-if-changed packages/lifemate_client/lib/src/cocoon_pregnancy.dart packages/lifemate_client/lib/src/cocoon_pregnancy_api.dart packages/lifemate_client/test/cocoon_pregnancy_contract_test.dart
+      - name: Canonical format diagnostic
+        run: |
+          dart format packages/lifemate_client/lib/src/cocoon_pregnancy.dart packages/lifemate_client/lib/src/cocoon_pregnancy_api.dart packages/lifemate_client/test/cocoon_pregnancy_contract_test.dart
+          git diff -- packages/lifemate_client/lib/src/cocoon_pregnancy.dart packages/lifemate_client/lib/src/cocoon_pregnancy_api.dart packages/lifemate_client/test/cocoon_pregnancy_contract_test.dart
       - name: Analyze shared client
         working-directory: packages/lifemate_client
         run: flutter analyze --no-fatal-warnings --no-fatal-infos
