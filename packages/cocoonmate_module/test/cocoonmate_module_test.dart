@@ -32,16 +32,19 @@ Widget appFor(FakeHost host) => MaterialApp(
     );
 
 void main() {
-  testWidgets('module mounts under a host and uses Persian RTL', (tester) async {
+  testWidgets('module mounts under a host and uses Persian RTL',
+      (tester) async {
     final host = FakeHost(CocoonEntryState.activePregnancy, const Locale('fa'));
     await tester.pumpWidget(appFor(host));
 
     expect(find.text('خانه'), findsOneWidget);
     final directionality = tester.widget<Directionality>(
-      find.descendant(
-        of: find.byType(CocoonMateModule),
-        matching: find.byType(Directionality),
-      ).first,
+      find
+          .descendant(
+            of: find.byType(CocoonMateModule),
+            matching: find.byType(Directionality),
+          )
+          .first,
     );
     expect(directionality.textDirection, TextDirection.rtl);
   });
@@ -54,7 +57,8 @@ void main() {
     expect(find.text('View options'), findsOneWidget);
   });
 
-  testWidgets('large text does not require root navigator ownership', (tester) async {
+  testWidgets('large text does not require root navigator ownership',
+      (tester) async {
     final host = FakeHost(CocoonEntryState.noPregnancy, const Locale('en'));
     await tester.pumpWidget(
       MediaQuery(
