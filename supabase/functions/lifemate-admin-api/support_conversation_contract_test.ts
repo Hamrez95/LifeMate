@@ -20,7 +20,7 @@ Deno.test("Admin support visible-message routes stay permissioned and audited", 
   assertStringIncludes(migration, "admin.send_support_conversation_message");
   assertStringIncludes(migration, "support.conversation.message.sent");
   assertStringIncludes(
-    dispatcher.replace(/\s+/g, ""),
+    dispatcher.replace(/\s+/g, "").replace(/,\)/g, ")"),
     "supportConversationRouteHandler(input)",
   );
 
