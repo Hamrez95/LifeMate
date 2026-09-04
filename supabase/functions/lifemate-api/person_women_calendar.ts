@@ -243,10 +243,10 @@ export function createPersonWomenCalendarStore(databaseUrl: string) {
       const id = crypto.randomUUID();
       const rows = await tx`
         insert into lifemate.women_calendar_episodes
-          (id, owner_user_id, owner_person_id, started_on, ended_on,
+          (id, owner_person_id, started_on, ended_on,
            private_notes, version, created_at_utc, updated_at_utc)
         values
-          (${id}::uuid, ${appUserId}::uuid, ${personId}::uuid,
+          (${id}::uuid, ${personId}::uuid,
            ${startedOn}::date, ${endedOn}::date, ${privateNotes}, 1,
            ${now}, ${now})
         returning *
@@ -470,12 +470,12 @@ export function createPersonWomenCalendarStore(databaseUrl: string) {
         const id = crypto.randomUUID();
         const rows = await tx`
           insert into lifemate.women_calendar_daily_logs
-            (id, owner_user_id, owner_person_id, logged_on, mood,
+            (id, owner_person_id, logged_on, mood,
              energy_level, pain_level, symptoms, private_notes,
              share_summary_with_companion, version,
              created_at_utc, updated_at_utc)
           values
-            (${id}::uuid, ${appUserId}::uuid, ${personId}::uuid,
+            (${id}::uuid, ${personId}::uuid,
              ${loggedOn}::date, ${mood}, ${energyLevel}, ${painLevel},
              ${symptoms}, ${privateNotes}, ${shareSummaryWithCompanion},
              1, ${now}, ${now})
