@@ -48,9 +48,6 @@ create table if not exists audience.segment_snapshot_members (
   primary key (snapshot_id, account_id)
 );
 
--- History remains append-only for the runtime. The trigger runs with the migration
--- owner's privileges so segment UPDATE can archive the previous version without
--- granting direct INSERT on audience.segment_history to lifemate_admin_runtime.
 create or replace function audience.archive_segment_version()
 returns trigger
 language plpgsql
@@ -102,9 +99,22 @@ drop policy if exists lifemate_admin_runtime_rw on audience.segment_snapshot_mem
 create policy lifemate_admin_runtime_rw on audience.segment_snapshot_members
 for all to lifemate_admin_runtime using (true) with check (true);
 
-revoke all on schema audience from public, anon, authenticated;
-revoke all on all tables in schema audience from public, anon, authenticated;
-revoke all on all functions in schema audience from public, anon, authenticated;
+revoke all on schema audience from public;
+revoke all on all tables in schema audience from public;
+revoke all on all functions in schema audience from public;
+do $$
+begin
+  if to_regrole('anon') is not null then
+    execute 'revoke all on schema audience from anon';
+    execute 'revoke all on all tables in schema audience from anon';
+    execute 'revoke all on all functions in schema audience from anon';
+  end if;
+  if to_regrole('authenticated') is not null then
+    execute 'revoke all on schema audience from authenticated';
+    execute 'revoke all on all tables in schema audience from authenticated';
+    execute 'revoke all on all functions in schema audience from authenticated';
+  end if;
+end $$;
 grant usage on schema audience to lifemate_admin_runtime;
 grant select,insert,update on audience.segments to lifemate_admin_runtime;
 grant select on audience.segment_history to lifemate_admin_runtime;
