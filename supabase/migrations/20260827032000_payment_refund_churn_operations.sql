@@ -141,6 +141,10 @@ alter table commerce.subscription_cancellation_events force row level security;
 revoke all on commerce.refund_operations,commerce.reconciliation_cases,commerce.transaction_corrections,commerce.subscription_cancellation_events from public,anon,authenticated;
 grant select on commerce.refund_operations,commerce.reconciliation_cases,commerce.transaction_corrections,commerce.subscription_cancellation_events to lifemate_admin_runtime;
 
+drop policy if exists refund_operations_admin_read on commerce.refund_operations;
+drop policy if exists reconciliation_cases_admin_read on commerce.reconciliation_cases;
+drop policy if exists transaction_corrections_admin_read on commerce.transaction_corrections;
+drop policy if exists subscription_cancellation_events_admin_read on commerce.subscription_cancellation_events;
 create policy refund_operations_admin_read on commerce.refund_operations for select to lifemate_admin_runtime using(true);
 create policy reconciliation_cases_admin_read on commerce.reconciliation_cases for select to lifemate_admin_runtime using(true);
 create policy transaction_corrections_admin_read on commerce.transaction_corrections for select to lifemate_admin_runtime using(true);
