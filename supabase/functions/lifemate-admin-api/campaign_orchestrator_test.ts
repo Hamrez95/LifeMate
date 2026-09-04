@@ -31,7 +31,7 @@ Deno.test("campaign orchestrator is wired through canonical marketing dispatcher
   const routes = await Deno.readTextFile(
     new URL("./marketing_campaigns_routes.ts", import.meta.url),
   );
-  const compactRoutes = routes.replace(/\s+/g, "");
+  const compactRoutes = routes.replace(/\s+/g, "").replace(/,\)/g, ")");
   assert(
     routes.includes("createCampaignOrchestratorRouteHandler"),
     "canonical marketing dispatcher must construct campaign orchestrator",
