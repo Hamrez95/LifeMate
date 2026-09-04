@@ -1,0 +1,159 @@
+name: production-edge-rollout
+
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/production-edge-rollout.yml'
+      - 'supabase/config.toml'
+      - 'supabase/functions/lifemate-api/**'
+      - 'supabase/functions/lifemate-telemetry/**'
+      - 'supabase/functions/lifemate-readiness/**'
+      - 'supabase/functions/lifemate-worker/**'
+      - 'supabase/functions/_shared/**'
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/production-edge-rollout.yml'
+      - 'supabase/config.toml'
+      - 'supabase/functions/lifemate-api/**'
+      - 'supabase/functions/lifemate-telemetry/**'
+      - 'supabase/functions/lifemate-readiness/**'
+      - 'supabase/functions/lifemate-worker/**'
+      - 'supabase/functions/_shared/**'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.event_name == 'push' && 'production-edge-rollout' || format('production-edge-rollout-{0}', github.ref) }}
+  cancel-in-progress: false
+
+env:
+  SUPABASE_PROJECT_REF: bwdvmniywyyijjauipnh
+  LIFEMATE_API_BASE_URL: https://bwdvmniywyyijjauipnh.supabase.co/functions/v1/lifemate-api
+  LIFEMATE_WORKER_URL: https://bwdvmniywyyijjauipnh.supabase.co/functions/v1/lifemate-worker
+
+jobs:
+  verify-edge-source:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 18
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
+        with:
+          show-progress: false
+          persist-credentials: false
+
+      - uses: denoland/setup-deno@22d081ff2d3a40755e97629de92e3bcbfa7cf2ed
+        with:
+          deno-version: v2.9.4
+
+      - name: Verify exact edge sources
+        shell: bash
+        run: |
+          set -euo pipefail
+          for function in lifemate-api lifemate-telemetry lifemate-readiness lifemate-worker; do
+            echo "Verifying $function"
+            (
+              cd "supabase/functions/$function"
+              deno fmt --check
+              deno task check
+              deno task test
+            )
+          done
+
+  deploy-exact-main:
+    if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
+    needs: verify-edge-source
+    runs-on: ubuntu-24.04
+    environment: beta
+    timeout-minutes: 18
+    env:
+      SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
+        with:
+          ref: ${{ github.sha }}
+          show-progress: false
+          persist-credentials: false
+          fetch-depth: 1
+
+      - name: Require owner-authorized exact-main deployment
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$GITHUB_REPOSITORY" = 'Hamrez95/LifeMate'
+          test "$GITHUB_EVENT_NAME" = 'push'
+          test "$GITHUB_REF" = 'refs/heads/main'
+          test "${{ github.actor }}" = "${{ github.repository_owner }}"
+          test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
+          test -n "$SUPABASE_ACCESS_TOKEN"
+
+      - uses: supabase/setup-cli@3c2f5e2ae34c34e428e8e206e2c4d21fa2d20fbf
+        with:
+          version: 2.101.0
+
+      - name: Verify production management credential
+        shell: bash
+        run: |
+          set -euo pipefail
+          supabase projects list >/dev/null
+
+      - name: Set immutable release identity
+        shell: bash
+        run: |
+          set -euo pipefail
+          secret_file="$(mktemp)"
+          cleanup_secret_file() {
+            if command -v shred >/dev/null 2>&1; then
+              shred -u "$secret_file"
+            else
+              rm -f "$secret_file"
+            fi
+          }
+          trap cleanup_secret_file EXIT
+          chmod 600 "$secret_file"
+          printf 'LIFEMATE_RELEASE_VERSION=%s\n' "$GITHUB_SHA" > "$secret_file"
+          supabase secrets set \
+            --project-ref "$SUPABASE_PROJECT_REF" \
+            --env-file "$secret_file"
+
+      - name: Deploy exact-main edge functions
+        shell: bash
+        run: |
+          set -euo pipefail
+          supabase functions deploy lifemate-api \
+            --project-ref "$SUPABASE_PROJECT_REF" \
+            --no-verify-jwt \
+            --use-api
+          supabase functions deploy lifemate-telemetry \
+            --project-ref "$SUPABASE_PROJECT_REF" \
+            --use-api
+          supabase functions deploy lifemate-readiness \
+            --project-ref "$SUPABASE_PROJECT_REF" \
+            --no-verify-jwt \
+            --use-api
+          supabase functions deploy lifemate-worker \
+            --project-ref "$SUPABASE_PROJECT_REF" \
+            --no-verify-jwt \
+            --use-api
+
+      - name: Verify production source identity and worker auth boundary
+        shell: bash
+        run: |
+          set -euo pipefail
+          health_response="$(curl --fail --silent --show-error \
+            --retry 8 --retry-delay 3 --retry-all-errors \
+            "$LIFEMATE_API_BASE_URL/health")"
+          echo "$health_response" | jq -e \
+            --arg version "$GITHUB_SHA" \
+            '.status == "ok" and .database == "ready" and .service == "lifemate-api" and .version == $version' \
+            >/dev/null
+
+          unauthorized_status="$(curl --silent --show-error \
+            --output /dev/null --write-out '%{http_code}' \
+            --request POST \
+            --header "x-lifemate-worker-token: $(python3 -c 'print("x" * 64)')" \
+            --header 'Content-Type: application/json' \
+            --data '{}' \
+            "$LIFEMATE_WORKER_URL")"
+          test "$unauthorized_status" = '401'
