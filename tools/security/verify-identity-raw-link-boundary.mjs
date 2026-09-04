@@ -59,6 +59,7 @@ const runtimeFiles = filesUnder(
 const relative = (file) => path.relative(repoRoot, file).replaceAll('\\', '/');
 
 const authSubjectAllowlist = new Set([
+  'supabase/functions/lifemate-api/bootstrap_account_state.ts',
   'supabase/functions/lifemate-api/database_legacy.ts',
   'supabase/functions/lifemate-api/identity_bridge.ts',
   'supabase/functions/lifemate-api/identity_resolver.ts',
@@ -79,6 +80,26 @@ for (const file of runtimeFiles) {
   }
   if (name !== 'supabase/functions/lifemate-api/database.ts' && source.includes('database_legacy.ts')) {
     fail(`legacy database implementation may only be imported by the compatibility facade: ${name}`);
+  }
+}
+
+const bootstrapAccountState = fs.readFileSync(
+  path.join(apiRoot, 'bootstrap_account_state.ts'),
+  'utf8',
+);
+requireMarkers(
+  bootstrapAccountState,
+  [
+    'createBootstrapAccountStateGuard',
+    'where u.auth_subject=${authSubject}',
+    'account_deletion_pending',
+    'account_deleted',
+  ],
+  'bootstrap raw-identity compatibility read',
+);
+for (const mutation of ['insert into ', 'update ', 'delete from ', 'truncate ']) {
+  if (bootstrapAccountState.toLowerCase().includes(mutation)) {
+    fail(`bootstrap raw-identity compatibility boundary must remain read-only: ${mutation.trim()}`);
   }
 }
 
