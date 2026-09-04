@@ -1,0 +1,68 @@
+name: patch-custom-role-portability
+
+on:
+  push:
+    branches: ['ci/admin-edge-format-baseline-20260904']
+    paths:
+      - '.github/workflows/patch-custom-role-portability.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
+        with:
+          persist-credentials: true
+      - name: Guard optional Supabase roles in custom-role migration
+        shell: python
+        run: |
+          from pathlib import Path
+          path = Path('supabase/migrations/20260827001500_admin_custom_roles.sql')
+          text = path.read_text()
+          old = """revoke all on function admin.mutate_custom_role(uuid,character varying,character varying,character varying,smallint,bigint,character varying,uuid,character varying,character varying) from public,anon,authenticated;
+          revoke all on function admin.mutate_custom_role_permission(uuid,character varying,character varying,character varying,bigint,character varying,uuid,character varying,character varying) from public,anon,authenticated;
+          grant execute on function admin.mutate_custom_role(uuid,character varying,character varying,character varying,smallint,bigint,character varying,uuid,character varying,character varying) to lifemate_admin_runtime;
+          grant execute on function admin.mutate_custom_role_permission(uuid,character varying,character varying,character varying,bigint,character varying,uuid,character varying,character varying) to lifemate_admin_runtime;
+          """
+          new = """revoke all on function admin.mutate_custom_role(uuid,character varying,character varying,character varying,smallint,bigint,character varying,uuid,character varying,character varying) from public;
+          revoke all on function admin.mutate_custom_role_permission(uuid,character varying,character varying,character varying,bigint,character varying,uuid,character varying,character varying) from public;
+
+          do $$
+          declare v_role text;
+          begin
+            foreach v_role in array array['anon','authenticated'] loop
+              if to_regrole(v_role) is not null then
+                execute format(
+                  'revoke all on function admin.mutate_custom_role(uuid,character varying,character varying,character varying,smallint,bigint,character varying,uuid,character varying,character varying) from %I',
+                  v_role
+                );
+                execute format(
+                  'revoke all on function admin.mutate_custom_role_permission(uuid,character varying,character varying,character varying,bigint,character varying,uuid,character varying,character varying) from %I',
+                  v_role
+                );
+              end if;
+            end loop;
+            if to_regrole('lifemate_admin_runtime') is not null then
+              grant execute on function admin.mutate_custom_role(uuid,character varying,character varying,character varying,smallint,bigint,character varying,uuid,character varying,character varying) to lifemate_admin_runtime;
+              grant execute on function admin.mutate_custom_role_permission(uuid,character varying,character varying,character varying,bigint,character varying,uuid,character varying,character varying) to lifemate_admin_runtime;
+            end if;
+          end
+          $$;
+          """
+          if old not in text:
+              raise SystemExit('Expected migration grant block not found')
+          path.write_text(text.replace(old, new, 1))
+      - name: Commit portability patch
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add supabase/migrations/20260827001500_admin_custom_roles.sql
+          git diff --cached --check
+          git commit -m 'fix(db): guard optional roles in custom role migration'
+          git push origin HEAD:ci/admin-edge-format-baseline-20260904
