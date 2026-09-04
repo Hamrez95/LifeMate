@@ -25,3 +25,16 @@ Deno.test("scheduler auth fails closed when infrastructure is unavailable", asyn
   const sql = () => Promise.reject(new Error("verifier_unavailable"));
   assertEquals(await schedulerTokenAccepted(sql, "b".repeat(64)), false);
 });
+
+Deno.test("scheduler path is not gated by the optional operator token", async () => {
+  const source = await Deno.readTextFile("./index.ts");
+  assertEquals(
+    source.includes('if (!workerToken || workerToken.length < 32)'),
+    false,
+  );
+  assertEquals(source.includes("workerToken !== undefined"), true);
+  assertEquals(
+    source.includes("await schedulerTokenAccepted(sql, supplied)"),
+    true,
+  );
+});
