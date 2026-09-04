@@ -130,6 +130,11 @@ grant select,insert,update on security.retention_execution_runs to lifemate_admi
 grant select on security.retention_holds to lifemate_worker_runtime;
 grant select,update on identity.account_deletion_requests to lifemate_worker_runtime;
 
+drop policy if exists retention_policy_versions_admin_runtime on security.retention_policy_versions;
+drop policy if exists retention_holds_admin_runtime on security.retention_holds;
+drop policy if exists retention_holds_worker_runtime on security.retention_holds;
+drop policy if exists retention_execution_runs_admin_runtime on security.retention_execution_runs;
+
 create policy retention_policy_versions_admin_runtime on security.retention_policy_versions
   for all to lifemate_admin_runtime using (true) with check (true);
 create policy retention_holds_admin_runtime on security.retention_holds
