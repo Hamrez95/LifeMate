@@ -14,6 +14,8 @@ export 'src/care_item.dart';
 export 'src/app_notice.dart';
 export 'src/care_pairing_qr.dart';
 export 'src/care_relationship_invitation_api.dart';
+export 'src/cocoon_pregnancy.dart';
+export 'src/cocoon_pregnancy_api.dart';
 export 'src/companion_care.dart';
 export 'src/companion_care_api.dart';
 export 'src/companion_fertility.dart';
