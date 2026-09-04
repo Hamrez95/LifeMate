@@ -13,6 +13,18 @@ Deno.test("client runtime config accepts bounded product platform version and be
   });
 });
 
+Deno.test("client runtime config accepts CocoonMate as a canonical product", () => {
+  const url = new URL(
+    "https://example.test/api/v1/product/runtime-config?product=CocoonMate&platform=android&currentVersion=0.1.0%2B1&beta=false",
+  );
+  assertEquals(parseClientRuntimeConfigQuery(url), {
+    product: "cocoonmate",
+    platform: "android",
+    currentVersion: "0.1.0+1",
+    beta: false,
+  });
+});
+
 Deno.test("client runtime config rejects unknown products", () => {
   const url = new URL(
     "https://example.test/api/v1/product/runtime-config?product=unknown&platform=android&currentVersion=1.2.3",
