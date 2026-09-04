@@ -53,13 +53,21 @@ jobs:
         working-directory: packages/cocoonmate_module
         run: flutter pub get
       - name: Format owned Cocoon bootstrap sources
-        run: >-
-          dart format --output=none --set-exit-if-changed
-          packages/cocoonmate_module/lib
-          packages/cocoonmate_module/test
-          packages/lifemate_client/lib/src/lifemate_auth.dart
-          cocoonmate/lib
-          cocoonmate/test
+        shell: bash
+        run: |
+          set -euo pipefail
+          dart format \
+            packages/cocoonmate_module/lib \
+            packages/cocoonmate_module/test \
+            packages/lifemate_client/lib/src/lifemate_auth.dart \
+            cocoonmate/lib \
+            cocoonmate/test
+          git diff --exit-code -- \
+            packages/cocoonmate_module/lib \
+            packages/cocoonmate_module/test \
+            packages/lifemate_client/lib/src/lifemate_auth.dart \
+            cocoonmate/lib \
+            cocoonmate/test
       - name: Analyze module
         working-directory: packages/cocoonmate_module
         run: flutter analyze --no-fatal-warnings --no-fatal-infos
