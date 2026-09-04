@@ -34,23 +34,39 @@ void main() {
     expect(manifest, contains('android.intent.action.MY_PACKAGE_REPLACED'));
   });
 
-  test('notification provider keeps exact timezone-aware reminder scheduling', () {
+  test('WellMate owner reminders use shared offline scheduling engine', () {
     final provider = File(
       'lib/providers/notification_provider.dart',
     ).readAsStringSync();
 
-    expect(provider, contains('tz_data.initializeTimeZones()'));
-    expect(provider, contains('tz.setLocalLocation'));
-    expect(provider, contains('requestNotificationsPermission()'));
-    expect(provider, contains('requestExactAlarmsPermission()'));
-    expect(provider, contains('_notifications.zonedSchedule('));
     expect(
       provider,
-      contains('AndroidScheduleMode.exactAllowWhileIdle'),
-      reason: 'Reminder scheduling must not silently regress to an inexact mode.',
+      contains("package:lifemate_core/lifemate_reminders.dart"),
     );
+    expect(provider, contains('LifeMateLocalReminderScheduler'));
+    expect(provider, contains('LifeMateLocalReminder('));
+    expect(provider, contains('LifeMateReminderAccuracy.exact'));
+    expect(provider, contains('requestNotificationsPermission()'));
+    expect(provider, contains('requestExactAlarmsPermission()'));
+    expect(provider, isNot(contains('_notifications.zonedSchedule(')));
     expect(provider, contains("_reminderPrefix = 'lifemate-reminder:'"));
     expect(provider, contains('payload: encodeActionPayload(target)'));
+    expect(provider, contains('inexactFallbackActive'));
+  });
+
+  test('Women Health uses the same shared scheduler without a parallel engine', () {
+    final source = File(
+      'lib/screens/women_calendar/women_cycle_insight_notification_scheduler.dart',
+    ).readAsStringSync();
+
+    expect(
+      source,
+      contains("package:lifemate_core/lifemate_reminders.dart"),
+    );
+    expect(source, contains('LifeMateLocalReminderScheduler'));
+    expect(source, contains('LifeMateReminderAccuracy.inexact'));
+    expect(source, isNot(contains('.zonedSchedule(')));
+    expect(source, contains('women-health:cycle-insight'));
   });
 
   test('foreground recovery re-fetches schedule after app resume', () {
