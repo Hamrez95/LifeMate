@@ -33,9 +33,13 @@ export function createSecurityRbacRouteHandler(
 ) {
   let resolvedRoleDetailStore = roleDetailStore;
   const breakGlassRouteHandler = createBreakGlassRouteHandler(databaseUrl);
-  const elevatedHealthRouteHandler = createElevatedHealthRouteHandler(databaseUrl);
+  const elevatedHealthRouteHandler = createElevatedHealthRouteHandler(
+    databaseUrl,
+  );
   const customRoleRouteHandler = createCustomRoleRouteHandler(databaseUrl);
-  const approvalRequestRouteHandler = createApprovalRequestRouteHandler(databaseUrl);
+  const approvalRequestRouteHandler = createApprovalRequestRouteHandler(
+    databaseUrl,
+  );
   const retentionRouteHandler = createRetentionRouteHandler(databaseUrl);
   const abuseRuleRouteHandler = createAbuseRuleRouteHandler(databaseUrl);
 

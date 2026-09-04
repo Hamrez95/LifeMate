@@ -24,7 +24,10 @@ import {
 import { createGrowthRewardAdminRouteHandler } from "./growth_reward_admin_routes.ts";
 import { createManualEntitlementAdjustmentRouteHandler } from "./manual_entitlement_adjustments_routes.ts";
 import { createPaymentOperationsRouteHandler } from "./payment_operations_routes.ts";
-import { hashGiftTestFinalizePayload, parseGiftTestFinalizePayload } from "./gift_test_operations.ts";
+import {
+  hashGiftTestFinalizePayload,
+  parseGiftTestFinalizePayload,
+} from "./gift_test_operations.ts";
 import { createGiftTestOperationsStore } from "./gift_test_operations_service.ts";
 import {
   type AdminCapabilitySnapshot,
@@ -58,11 +61,14 @@ export function createCommerceCatalogRouteHandler(databaseUrl: string) {
   const catalogV2MutationRouteHandler =
     createCommerceCatalogV2MutationRouteHandler(databaseUrl);
   const discountCodeStore = createCommerceDiscountCodeStore(databaseUrl);
-  const growthRewardAdminRouteHandler = createGrowthRewardAdminRouteHandler(databaseUrl);
+  const growthRewardAdminRouteHandler = createGrowthRewardAdminRouteHandler(
+    databaseUrl,
+  );
   const manualEntitlementRouteHandler =
     createManualEntitlementAdjustmentRouteHandler(databaseUrl);
-  const paymentOperationsRouteHandler =
-    createPaymentOperationsRouteHandler(databaseUrl);
+  const paymentOperationsRouteHandler = createPaymentOperationsRouteHandler(
+    databaseUrl,
+  );
   const giftTestOperationsStore = createGiftTestOperationsStore(databaseUrl);
 
   return async function commerceCatalogRouteHandler(input: {
@@ -75,7 +81,9 @@ export function createCommerceCatalogRouteHandler(databaseUrl: string) {
   }): Promise<Response | null> {
     const { request, path, accountId, admin, correlationId, origin } = input;
 
-    const catalogV2MutationResponse = await catalogV2MutationRouteHandler(input);
+    const catalogV2MutationResponse = await catalogV2MutationRouteHandler(
+      input,
+    );
     if (catalogV2MutationResponse) return catalogV2MutationResponse;
 
     if (path.startsWith("/api/v1/commerce/rewards/")) {
@@ -96,13 +104,18 @@ export function createCommerceCatalogRouteHandler(databaseUrl: string) {
 
     if (
       path.startsWith("/api/v1/commerce/entitlement-adjustments") ||
-      /^\/api\/v1\/commerce\/accounts\/[^/]+\/entitlement-adjustments$/i.test(path)
+      /^\/api\/v1\/commerce\/accounts\/[^/]+\/entitlement-adjustments$/i.test(
+        path,
+      )
     ) {
       const response = await manualEntitlementRouteHandler(input);
       if (response) return response;
     }
 
-    if (request.method === "POST" && path === "/api/v1/commerce/gifts/test-finalize") {
+    if (
+      request.method === "POST" &&
+      path === "/api/v1/commerce/gifts/test-finalize"
+    ) {
       requirePermission(admin, "commerce.entitlement.adjust.execute");
       const idempotencyKey = requireIdempotencyKey(request);
       const payload = await parseGiftTestFinalizePayload(request);
