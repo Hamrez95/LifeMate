@@ -11,6 +11,10 @@ dependencies:
     sdk: flutter
   cocoonmate_module:
     path: ../packages/cocoonmate_module
+  lifemate_client:
+    path: ../packages/lifemate_client
+  lifemate_ui:
+    path: ../packages/lifemate_ui
 dev_dependencies:
   flutter_test:
     sdk: flutter
