@@ -5,7 +5,9 @@ import { closeLifeMateSqlClientsForTest } from "./database_client.ts";
 
 const databaseUrl = Deno.env.get("TEST_DATABASE_URL");
 if (!databaseUrl) {
-  throw new Error("TEST_DATABASE_URL is required for Cocoon application tests.");
+  throw new Error(
+    "TEST_DATABASE_URL is required for Cocoon application tests.",
+  );
 }
 
 const adminSql = postgres(databaseUrl, {
@@ -16,7 +18,8 @@ const adminSql = postgres(databaseUrl, {
 });
 
 Deno.test({
-  name: "Cocoon enrollment is idempotent and does not create pregnancy or entitlement state",
+  name:
+    "Cocoon enrollment is idempotent and does not create pregnancy or entitlement state",
   sanitizeOps: false,
   sanitizeResources: false,
   fn: async () => {
