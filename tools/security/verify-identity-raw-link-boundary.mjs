@@ -119,6 +119,13 @@ requireMarkers(
   'raw identity retirement bridge',
 );
 if (
+  !/where\s+id=\$\{legacyAppUserId\}::uuid\s+and\s+\(auth_subject=\$\{auth\.id\}\s+or\s+auth_subject\s+is\s+null\)/i.test(
+    identityBridge,
+  )
+) {
+  fail('identity retirement bridge must scrub only the authenticated subject or an already-retired NULL row.');
+}
+if (
   /insert\s+into\s+lifemate\.app_users\s*\([^)]*\bauth_subject\b/is.test(
     identityBridge,
   )
@@ -142,7 +149,10 @@ requireMarkers(
   [
     'createIdentityResolver',
     'createLegacyLifeMateDatabase',
-    'requireIdentity: identityResolver.requireIdentity',
+    'async function requireIdentity(',
+    'const identity = await identityResolver.requireIdentity(auth);',
+    'await privacyPreferences.requireRegistrationComplete(identity.appUserId);',
+    'return identity;',
   ],
   'database compatibility facade',
 );
