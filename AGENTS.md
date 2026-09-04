@@ -4,6 +4,7 @@
 - `wellmate/`: Flutter patient/self-health app.
 - `caremate/`: Flutter caregiver/family app.
 - `packages/lifemate_client/`: shared authenticated mobile API client.
+- `packages/lifemate_core/`: shared offline-first local health projection, durable execution and future sync/scheduler primitives.
 - `supabase/functions/lifemate-api/`: the single healthcare API runtime for the current closed beta.
 - `supabase/functions/lifemate-admin-api/`: separate internal Command Center API boundary; it is not a healthcare API shortcut.
 - `supabase/migrations/`: **canonical forward PostgreSQL business-schema migrations**.
@@ -19,6 +20,7 @@
 - Admin Edge format/check/tests: run the tasks in `supabase/functions/lifemate-admin-api/deno.json`.
 - Canonical DB validation: `.github/workflows/schema.yml` applies every `supabase/migrations/*.sql` file to fresh PostgreSQL 17 and reruns the chain for idempotency.
 - Flutter verification: use the exact commands and SDK version in `.github/workflows/flutter.yml`.
+- Shared offline core verification: use `.github/workflows/lifemate-core.yml`.
 
 ## Architecture rules
 - `Account` is an authentication principal; `Person` is a human/data subject. Never collapse them in new domain design.
@@ -30,6 +32,8 @@
 - Do not add healthcare business logic to a second API runtime. Moving runtime responsibility to ASP.NET Core requires contract parity, staged cutover and retirement of the Edge implementation.
 - The healthcare Edge runtime requires a dedicated invitation/contact hashing secret of at least 32 characters. Never reuse the Supabase service-role credential.
 - Secondary commercial/pharma analytics is disabled by default. Health Connect / Android-health-permission sourced data is hard-blocked from commercial export.
+- Offline-first owner health execution follows `Server = canonical shared truth; Device = durable local execution projection`. Product modules must reuse the shared local store/scheduler/outbox architecture instead of creating one database/queue per app.
+- Protected local health state is environment + Account + Person isolated. Pending health mutations must never be silently dropped by migration, account switch, retry or storage-key failure.
 
 ## Command Center rules
 - The browser-side `lifemate-admin` application must never query or mutate sensitive production healthcare tables directly.
