@@ -50,6 +50,9 @@ jobs:
       COCOON_ANDROID_KEYSTORE_PASSWORD: ${{ secrets.COCOON_ANDROID_KEYSTORE_PASSWORD }}
       COCOON_ANDROID_KEY_ALIAS: ${{ secrets.COCOON_ANDROID_KEY_ALIAS }}
       COCOON_ANDROID_KEY_PASSWORD: ${{ secrets.COCOON_ANDROID_KEY_PASSWORD }}
+      SUPABASE_URL: https://bwdvmniywyyijjauipnh.supabase.co
+      SUPABASE_PUBLISHABLE_KEY: ${{ vars.SUPABASE_PUBLISHABLE_KEY || 'sb_publishable_6YpBDD0gAPcenbYGukOeWg_fZXxUb27' }}
+      LIFEMATE_API_BASE_URL: https://bwdvmniywyyijjauipnh.supabase.co/functions/v1/lifemate-api
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
         with:
@@ -91,6 +94,20 @@ jobs:
           echo "version=$version" >> "$GITHUB_OUTPUT"
           echo "build_number=$build_number" >> "$GITHUB_OUTPUT"
           echo "short_sha=$short_sha" >> "$GITHUB_OUTPUT"
+
+      - name: Validate public runtime build configuration
+        shell: bash
+        run: |
+          set -euo pipefail
+          for name in SUPABASE_URL SUPABASE_PUBLISHABLE_KEY LIFEMATE_API_BASE_URL; do
+            if [[ -z "${!name:-}" ]]; then
+              echo "Required public runtime configuration is missing: $name" >&2
+              exit 1
+            fi
+          done
+          [[ "$SUPABASE_URL" == https://* ]]
+          [[ "$SUPABASE_PUBLISHABLE_KEY" == sb_publishable_* ]]
+          [[ "$LIFEMATE_API_BASE_URL" == "$SUPABASE_URL/functions/v1/lifemate-api" ]]
 
       - name: Resolve and test reusable Cocoon module
         working-directory: packages/cocoonmate_module
@@ -180,7 +197,10 @@ jobs:
           flutter build apk "--$mode" \
             --build-name='${{ steps.candidate.outputs.version }}' \
             --build-number='${{ steps.candidate.outputs.build_number }}' \
-            --dart-define=LIFEMATE_BUILD_ENV='${{ steps.candidate.outputs.environment }}'
+            --dart-define=LIFEMATE_BUILD_ENV='${{ steps.candidate.outputs.environment }}' \
+            --dart-define="SUPABASE_URL=$SUPABASE_URL" \
+            --dart-define="SUPABASE_PUBLISHABLE_KEY=$SUPABASE_PUBLISHABLE_KEY" \
+            --dart-define="LIFEMATE_API_BASE_URL=$LIFEMATE_API_BASE_URL"
 
       - name: Create provenance bundle
         id: provenance
@@ -211,6 +231,11 @@ jobs:
               'build_mode': '$mode',
               'migration_head': '$migration_head',
               'artifact_file': '$filename',
+              'runtime_config': {
+                  'supabase_url': os.environ['SUPABASE_URL'],
+                  'api_base_url': os.environ['LIFEMATE_API_BASE_URL'],
+                  'publishable_key_embedded': bool(os.environ.get('SUPABASE_PUBLISHABLE_KEY')),
+              },
           }
           Path('candidate/provenance.json').write_text(json.dumps(payload, indent=2, sort_keys=True) + '\n')
           PY
@@ -223,6 +248,7 @@ jobs:
           test -s candidate/provenance.json
           test -s candidate/*.apk
           test -s candidate/*.sha256
+          jq -e '.runtime_config.publishable_key_embedded == true' candidate/provenance.json >/dev/null
           ! find candidate -type f \( -name '*.jks' -o -name 'key.properties' \) | grep -q .
 
       - uses: actions/upload-artifact@v4
