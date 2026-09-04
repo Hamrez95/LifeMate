@@ -120,8 +120,12 @@ Deno.test("commerce promotion metadata is RLS-protected for restricted Admin rea
   assertStringIncludes(migration, "alter table commerce.discount_codes enable row level security");
   assertStringIncludes(migration, "to lifemate_admin_runtime");
   assertStringIncludes(migration, "for select");
-  assertStringIncludes(migration, "revoke all on table commerce.promotions from public, anon, authenticated");
-  assertStringIncludes(migration, "revoke all on table commerce.discount_codes from public, anon, authenticated");
+  assertStringIncludes(migration, "revoke all on table commerce.promotions from public");
+  assertStringIncludes(migration, "revoke all on table commerce.discount_codes from public");
+  assertStringIncludes(migration, "to_regrole('anon') is not null");
+  assertStringIncludes(migration, "to_regrole('authenticated') is not null");
+  assertStringIncludes(migration, "execute 'revoke all on table commerce.promotions from anon'");
+  assertStringIncludes(migration, "execute 'revoke all on table commerce.discount_codes from authenticated'");
   assert(!migration.includes("to authenticated\nusing (true)"));
   assert(!migration.includes("to anon\nusing (true)"));
 });
