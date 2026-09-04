@@ -5,6 +5,7 @@ import { ApiError } from "./validation.ts";
 import {
   canonicalizeLegacySymptoms,
   mergeLegacySymptomsIntoObservations,
+  projectCanonicalSymptomsToLegacy,
   womenSymptomCatalogVersion,
 } from "./women_symptom_catalog.ts";
 import {
@@ -105,6 +106,7 @@ export function createWomenCalendarRichPeriodStore(databaseUrl: string) {
     const canonicalSymptoms = symptomsProvided
       ? canonicalizeLegacySymptoms(body.symptoms)
       : [];
+    const legacySymptoms = projectCanonicalSymptomsToLegacy(canonicalSymptoms);
     const symptomObservations = canonicalSymptoms.map((id) => ({
       id,
       severity: null,
@@ -166,7 +168,7 @@ export function createWomenCalendarRichPeriodStore(databaseUrl: string) {
           ) values (
             ${id}::uuid,${appUserId}::uuid,${personId}::uuid,${loggedOn}::date,
             'Neutral',3,${storedPain},${painProvided && painLevel != null},
-            ${canonicalSymptoms}::varchar[],${
+            ${legacySymptoms}::varchar[],${
           JSON.stringify(symptomObservations)
         }::jsonb,
             ${womenSymptomCatalogVersion},${privateNotes},false,
@@ -197,7 +199,7 @@ export function createWomenCalendarRichPeriodStore(databaseUrl: string) {
             pain_recorded=case when ${painProvided} then ${
         painLevel != null
       } else pain_recorded end,
-            symptoms=case when ${symptomsProvided} then ${canonicalSymptoms}::varchar[] else symptoms end,
+            symptoms=case when ${symptomsProvided} then ${legacySymptoms}::varchar[] else symptoms end,
             symptom_observations=case when ${symptomsProvided} then ${
         JSON.stringify(symptomObservations)
       }::jsonb else symptom_observations end,
