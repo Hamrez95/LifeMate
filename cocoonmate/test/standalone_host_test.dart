@@ -61,20 +61,23 @@ void main() {
     );
   });
 
-  test('active entitlement alone cannot bypass Cocoon Commerce eligibility', () {
-    expect(
-      resolveCocoonEntryState(
-        _snapshot(entitlement: 'active', commerce: 'offer_available'),
-      ),
-      CocoonEntryState.notEntitled,
-    );
-    expect(
-      resolveCocoonEntryState(
-        _snapshot(entitlement: 'active', commerce: 'conversion_eligible'),
-      ),
-      CocoonEntryState.notEntitled,
-    );
-  });
+  test(
+    'active entitlement alone cannot bypass Cocoon Commerce eligibility',
+    () {
+      expect(
+        resolveCocoonEntryState(
+          _snapshot(entitlement: 'active', commerce: 'offer_available'),
+        ),
+        CocoonEntryState.notEntitled,
+      );
+      expect(
+        resolveCocoonEntryState(
+          _snapshot(entitlement: 'active', commerce: 'conversion_eligible'),
+        ),
+        CocoonEntryState.notEntitled,
+      );
+    },
+  );
 
   testWidgets(
     'authenticated host mounts module and resolves active pregnancy',
@@ -116,8 +119,9 @@ void main() {
     expect(find.text('You are offline'), findsOneWidget);
   });
 
-  testWidgets('expired session signs out and returns to auth gate',
-      (tester) async {
+  testWidgets('expired session signs out and returns to auth gate', (
+    tester,
+  ) async {
     var signedOut = false;
     await tester.pumpWidget(
       MaterialApp(
@@ -142,8 +146,9 @@ void main() {
     expect(find.text('Sign in to continue'), findsOneWidget);
   });
 
-  testWidgets('runtime failure never falls through to product content',
-      (tester) async {
+  testWidgets('runtime failure never falls through to product content', (
+    tester,
+  ) async {
     await tester.pumpWidget(
       MaterialApp(
         home: CocoonAuthenticatedHost(
@@ -156,10 +161,7 @@ void main() {
     );
     await tester.pump();
     await tester.pump();
-    expect(
-      find.text('CocoonMate is temporarily unavailable'),
-      findsOneWidget,
-    );
+    expect(find.text('CocoonMate is temporarily unavailable'), findsOneWidget);
     expect(find.text('Home'), findsNothing);
   });
 
@@ -181,14 +183,12 @@ void main() {
     );
     await tester.pump();
     await tester.pump();
-    expect(
-      find.text('CocoonMate is temporarily unavailable'),
-      findsOneWidget,
-    );
+    expect(find.text('CocoonMate is temporarily unavailable'), findsOneWidget);
   });
 
-  testWidgets('no-pregnancy setup control does not fabricate local episode',
-      (tester) async {
+  testWidgets('no-pregnancy setup control does not fabricate local episode', (
+    tester,
+  ) async {
     var bootstrapCalls = 0;
     await tester.pumpWidget(
       MaterialApp(
