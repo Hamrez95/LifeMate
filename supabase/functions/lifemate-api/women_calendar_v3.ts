@@ -227,14 +227,16 @@ async function audit(
 }
 
 function forbidInitialPrivateInference(body: Record<string, unknown>): void {
-  for (const field of [
-    "mood",
-    "symptoms",
-    "privateNotes",
-    "fertilityIntent",
-    "tryingToConceive",
-    "pregnancyIntent",
-  ]) {
+  for (
+    const field of [
+      "mood",
+      "symptoms",
+      "privateNotes",
+      "fertilityIntent",
+      "tryingToConceive",
+      "pregnancyIntent",
+    ]
+  ) {
     if (Object.hasOwn(body, field)) {
       throw new ApiError(
         400,
@@ -255,7 +257,11 @@ function requiredBoolean(value: unknown, field: string): boolean {
 function nonNegativeInt(value: unknown, field: string): number {
   const number = Number(value);
   if (!Number.isInteger(number) || number < 0) {
-    throw new ApiError(400, "invalid_integer", `${field} must be non-negative.`);
+    throw new ApiError(
+      400,
+      "invalid_integer",
+      `${field} must be non-negative.`,
+    );
   }
   return number;
 }
@@ -295,7 +301,9 @@ function requiredDateOrNull(value: unknown, field: string): string | null {
     throw new ApiError(400, "invalid_date", `${field} must be YYYY-MM-DD.`);
   }
   const date = new Date(`${text}T00:00:00Z`);
-  if (Number.isNaN(date.getTime()) || date.toISOString().slice(0, 10) !== text) {
+  if (
+    Number.isNaN(date.getTime()) || date.toISOString().slice(0, 10) !== text
+  ) {
     throw new ApiError(400, "invalid_date", `${field} is invalid.`);
   }
   return text;

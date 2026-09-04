@@ -28,8 +28,14 @@ export function createWomenInsightPreferencesStore(databaseUrl: string) {
     raw: Record<string, unknown>,
   ): Promise<Record<string, unknown>> {
     const expectedVersion = nonNegativeInt(raw.version ?? 0, "version");
-    const insightsEnabled = requiredBoolean(raw.insightsEnabled, "insightsEnabled");
-    const notificationsEnabled = requiredBoolean(raw.notificationsEnabled, "notificationsEnabled");
+    const insightsEnabled = requiredBoolean(
+      raw.insightsEnabled,
+      "insightsEnabled",
+    );
+    const notificationsEnabled = requiredBoolean(
+      raw.notificationsEnabled,
+      "notificationsEnabled",
+    );
     const expectedPeriodNotifications = requiredBoolean(
       raw.expectedPeriodNotifications,
       "expectedPeriodNotifications",
@@ -40,7 +46,11 @@ export function createWomenInsightPreferencesStore(databaseUrl: string) {
     );
     const frequencyMode = String(raw.frequencyMode ?? "").trim().toLowerCase();
     if (!new Set(["low", "balanced", "high"]).has(frequencyMode)) {
-      throw new ApiError(400, "invalid_cycle_insight_frequency", "Unsupported Cycle Insight frequency.");
+      throw new ApiError(
+        400,
+        "invalid_cycle_insight_frequency",
+        "Unsupported Cycle Insight frequency.",
+      );
     }
 
     return await sql.begin(async (tx: any) => {
@@ -88,10 +98,18 @@ export function createWomenInsightPreferencesStore(databaseUrl: string) {
     const surface = String(raw.surface ?? "").trim().toLowerCase();
     const analyticsKey = boundedText(raw.analyticsKey, "analyticsKey", 80);
     if (!insightTypes.has(insightType)) {
-      throw new ApiError(400, "invalid_cycle_insight_type", "Unsupported Cycle Insight type.");
+      throw new ApiError(
+        400,
+        "invalid_cycle_insight_type",
+        "Unsupported Cycle Insight type.",
+      );
     }
     if (!surfaces.has(surface)) {
-      throw new ApiError(400, "invalid_cycle_insight_surface", "Unsupported Cycle Insight surface.");
+      throw new ApiError(
+        400,
+        "invalid_cycle_insight_surface",
+        "Unsupported Cycle Insight surface.",
+      );
     }
     const personId = await selfPersonId(sql, appUserId);
     const rows = await sql`
@@ -133,33 +151,56 @@ function map(row: Row): Record<string, unknown> {
   };
 }
 
-async function selfPersonId(connection: any, appUserId: string): Promise<string> {
+async function selfPersonId(
+  connection: any,
+  appUserId: string,
+): Promise<string> {
   const rows = await connection`
     select core.self_person_id_for_legacy_app_user(${appUserId}::uuid)::text as person_id
   `;
   const value = rows[0]?.person_id;
   if (typeof value !== "string" || value.length === 0) {
-    throw new ApiError(409, "identity_person_mapping_missing", "The LifeMate person mapping is unavailable.");
+    throw new ApiError(
+      409,
+      "identity_person_mapping_missing",
+      "The LifeMate person mapping is unavailable.",
+    );
   }
   return value;
 }
 
 function requiredBoolean(value: unknown, field: string): boolean {
-  if (typeof value !== "boolean") throw new ApiError(400, "invalid_boolean", `${field} must be boolean.`);
+  if (typeof value !== "boolean") {
+    throw new ApiError(400, "invalid_boolean", `${field} must be boolean.`);
+  }
   return value;
 }
 function nonNegativeInt(value: unknown, field: string): number {
   const number = Number(value);
-  if (!Number.isInteger(number) || number < 0) throw new ApiError(400, "invalid_integer", `${field} must be non-negative.`);
+  if (!Number.isInteger(number) || number < 0) {
+    throw new ApiError(
+      400,
+      "invalid_integer",
+      `${field} must be non-negative.`,
+    );
+  }
   return number;
 }
 function boundedText(value: unknown, field: string, max: number): string {
   const text = String(value ?? "").trim();
   if (text.length < 1 || text.length > max) {
-    throw new ApiError(400, "invalid_cycle_insight_metadata", `${field} is invalid.`);
+    throw new ApiError(
+      400,
+      "invalid_cycle_insight_metadata",
+      `${field} is invalid.`,
+    );
   }
   return text;
 }
 function stale(): ApiError {
-  return new ApiError(409, "stale_cycle_insight_preferences", "Cycle Insight preferences changed. Refresh and try again.");
+  return new ApiError(
+    409,
+    "stale_cycle_insight_preferences",
+    "Cycle Insight preferences changed. Refresh and try again.",
+  );
 }

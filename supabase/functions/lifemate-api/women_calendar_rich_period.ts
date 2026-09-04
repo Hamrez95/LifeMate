@@ -63,7 +63,9 @@ export function createWomenCalendarRichPeriodStore(databaseUrl: string) {
     const personId = await selfPersonId(sql, appUserId);
     const fromDate = requiredDate(fromValue, "fromDate");
     const toDate = requiredDate(toValue, "toDate");
-    if (daysBetween(fromDate, toDate) < 0 || daysBetween(fromDate, toDate) > 90) {
+    if (
+      daysBetween(fromDate, toDate) < 0 || daysBetween(fromDate, toDate) > 90
+    ) {
       throw new ApiError(400, "invalid_date_range", "Date range is invalid.");
     }
     const rows = await sql`
@@ -89,7 +91,9 @@ export function createWomenCalendarRichPeriodStore(databaseUrl: string) {
       "privateNotes",
       "delete",
     ].some((key) => Object.hasOwn(body, key));
-    if (!hasRichPeriodPatch) return await base.upsertOwnerDailyLog(appUserId, body);
+    if (!hasRichPeriodPatch) {
+      return await base.upsertOwnerDailyLog(appUserId, body);
+    }
 
     const loggedOn = requiredDate(body.loggedOn, "loggedOn");
     const expectedVersion = nonNegativeInt(body.version ?? 0, "version");
@@ -101,9 +105,14 @@ export function createWomenCalendarRichPeriodStore(databaseUrl: string) {
     const canonicalSymptoms = symptomsProvided
       ? canonicalizeLegacySymptoms(body.symptoms)
       : [];
-    const symptomObservations = canonicalSymptoms.map((id) => ({ id, severity: null }));
+    const symptomObservations = canonicalSymptoms.map((id) => ({
+      id,
+      severity: null,
+    }));
     const privateNotesProvided = Object.hasOwn(body, "privateNotes");
-    const privateNotes = privateNotesProvided ? optionalNote(body.privateNotes) : null;
+    const privateNotes = privateNotesProvided
+      ? optionalNote(body.privateNotes)
+      : null;
 
     return await sql.begin(async (tx: any) => {
       const personId = await selfPersonId(tx, appUserId);
@@ -117,7 +126,12 @@ export function createWomenCalendarRichPeriodStore(databaseUrl: string) {
 
       if (shouldDelete) {
         if (!existing) {
-          return { deleted: true, loggedOn, version: 0, idempotentReplay: true };
+          return {
+            deleted: true,
+            loggedOn,
+            version: 0,
+            idempotentReplay: true,
+          };
         }
         if (Number(existing.version) !== expectedVersion) throw staleDailyLog();
         await tx`
@@ -125,8 +139,17 @@ export function createWomenCalendarRichPeriodStore(databaseUrl: string) {
           where id=${existing.id}::uuid
             and owner_person_id=${personId}::uuid
         `;
-        await audit(tx, appUserId, "women_calendar.daily_log_deleted", String(existing.id));
-        return { deleted: true, loggedOn, version: Number(existing.version) + 1 };
+        await audit(
+          tx,
+          appUserId,
+          "women_calendar.daily_log_deleted",
+          String(existing.id),
+        );
+        return {
+          deleted: true,
+          loggedOn,
+          version: Number(existing.version) + 1,
+        };
       }
 
       if (!existing) {
@@ -143,7 +166,9 @@ export function createWomenCalendarRichPeriodStore(databaseUrl: string) {
           ) values (
             ${id}::uuid,${appUserId}::uuid,${personId}::uuid,${loggedOn}::date,
             'Neutral',3,${storedPain},${painProvided && painLevel != null},
-            ${canonicalSymptoms}::varchar[],${JSON.stringify(symptomObservations)}::jsonb,
+            ${canonicalSymptoms}::varchar[],${
+          JSON.stringify(symptomObservations)
+        }::jsonb,
             ${womenSymptomCatalogVersion},${privateNotes},false,
             ${observation.periodFlow},${observation.bloodAppearance},${observation.bloodTexture},
             ${periodObservationSchemaVersion},1,now(),now()
@@ -156,14 +181,26 @@ export function createWomenCalendarRichPeriodStore(databaseUrl: string) {
       if (Number(existing.version) !== expectedVersion) throw staleDailyLog();
       const rows = await tx`
         update lifemate.women_calendar_daily_logs
-        set period_flow=case when ${Object.hasOwn(body, "periodFlow")} then ${observation.periodFlow} else period_flow end,
-            blood_appearance=case when ${Object.hasOwn(body, "bloodAppearance")} then ${observation.bloodAppearance} else blood_appearance end,
-            blood_texture=case when ${Object.hasOwn(body, "bloodTexture")} then ${observation.bloodTexture} else blood_texture end,
+        set period_flow=case when ${
+        Object.hasOwn(body, "periodFlow")
+      } then ${observation.periodFlow} else period_flow end,
+            blood_appearance=case when ${
+        Object.hasOwn(body, "bloodAppearance")
+      } then ${observation.bloodAppearance} else blood_appearance end,
+            blood_texture=case when ${
+        Object.hasOwn(body, "bloodTexture")
+      } then ${observation.bloodTexture} else blood_texture end,
             period_observation_schema_version=${periodObservationSchemaVersion},
-            pain_level=case when ${painProvided && painLevel != null} then ${painLevel ?? 0} else pain_level end,
-            pain_recorded=case when ${painProvided} then ${painLevel != null} else pain_recorded end,
+            pain_level=case when ${painProvided && painLevel != null} then ${
+        painLevel ?? 0
+      } else pain_level end,
+            pain_recorded=case when ${painProvided} then ${
+        painLevel != null
+      } else pain_recorded end,
             symptoms=case when ${symptomsProvided} then ${canonicalSymptoms}::varchar[] else symptoms end,
-            symptom_observations=case when ${symptomsProvided} then ${JSON.stringify(symptomObservations)}::jsonb else symptom_observations end,
+            symptom_observations=case when ${symptomsProvided} then ${
+        JSON.stringify(symptomObservations)
+      }::jsonb else symptom_observations end,
             symptom_schema_version=case when ${symptomsProvided} then ${womenSymptomCatalogVersion} else symptom_schema_version end,
             private_notes=case when ${privateNotesProvided} then ${privateNotes} else private_notes end,
             version=version+1,
@@ -172,7 +209,12 @@ export function createWomenCalendarRichPeriodStore(databaseUrl: string) {
           and owner_person_id=${personId}::uuid
         returning *
       `;
-      await audit(tx, appUserId, "women_calendar.daily_log_updated", String(existing.id));
+      await audit(
+        tx,
+        appUserId,
+        "women_calendar.daily_log_updated",
+        String(existing.id),
+      );
       return mapRichDailyLog(rows[0]);
     });
   }
@@ -200,7 +242,9 @@ export function mapRichDailyLog(row: Row): Record<string, unknown> {
     painLevel: row.pain_recorded === false ? null : row.pain_level,
     symptoms: symptomObservations.map((item) => item.id),
     symptomObservations,
-    symptomSchemaVersion: Number(row.symptom_schema_version ?? womenSymptomCatalogVersion),
+    symptomSchemaVersion: Number(
+      row.symptom_schema_version ?? womenSymptomCatalogVersion,
+    ),
     privateNotes: row.private_notes,
     shareSummaryWithCompanion: row.share_summary_with_companion === true,
     ...observation,
@@ -210,13 +254,20 @@ export function mapRichDailyLog(row: Row): Record<string, unknown> {
   };
 }
 
-async function selfPersonId(connection: any, appUserId: string): Promise<string> {
+async function selfPersonId(
+  connection: any,
+  appUserId: string,
+): Promise<string> {
   const rows = await connection`
     select core.self_person_id_for_legacy_app_user(${appUserId}::uuid)::text as person_id
   `;
   const personId = rows[0]?.person_id;
   if (typeof personId !== "string" || personId.length === 0) {
-    throw new ApiError(409, "identity_person_mapping_missing", "The LifeMate person mapping is unavailable.");
+    throw new ApiError(
+      409,
+      "identity_person_mapping_missing",
+      "The LifeMate person mapping is unavailable.",
+    );
   }
   return personId;
 }
@@ -241,7 +292,11 @@ function optionalPain(value: unknown): number | null {
   if (value == null || value === "") return null;
   const number = Number(value);
   if (!Number.isInteger(number) || number < 0 || number > 5) {
-    throw new ApiError(400, "invalid_women_calendar_pain", "painLevel must be between 0 and 5.");
+    throw new ApiError(
+      400,
+      "invalid_women_calendar_pain",
+      "painLevel must be between 0 and 5.",
+    );
   }
   return number;
 }
@@ -251,7 +306,11 @@ function optionalNote(value: unknown): string | null {
   const text = String(value).trim();
   if (text.length === 0) return null;
   if (text.length > 500) {
-    throw new ApiError(400, "invalid_women_calendar_private_note", "privateNotes must be 500 characters or fewer.");
+    throw new ApiError(
+      400,
+      "invalid_women_calendar_private_note",
+      "privateNotes must be 500 characters or fewer.",
+    );
   }
   return text;
 }
@@ -259,7 +318,11 @@ function optionalNote(value: unknown): string | null {
 function nonNegativeInt(value: unknown, field: string): number {
   const number = Number(value);
   if (!Number.isInteger(number) || number < 0) {
-    throw new ApiError(400, "invalid_integer", `${field} must be non-negative.`);
+    throw new ApiError(
+      400,
+      "invalid_integer",
+      `${field} must be non-negative.`,
+    );
   }
   return number;
 }
@@ -270,18 +333,27 @@ function requiredDate(value: unknown, field: string): string {
     throw new ApiError(400, "invalid_date", `${field} must be YYYY-MM-DD.`);
   }
   const date = new Date(`${text}T00:00:00.000Z`);
-  if (!Number.isFinite(date.getTime()) || date.toISOString().slice(0, 10) !== text) {
+  if (
+    !Number.isFinite(date.getTime()) || date.toISOString().slice(0, 10) !== text
+  ) {
     throw new ApiError(400, "invalid_date", `${field} is invalid.`);
   }
   return text;
 }
 
 function daysBetween(left: string, right: string): number {
-  return Math.round((new Date(`${right}T00:00:00Z`).getTime() - new Date(`${left}T00:00:00Z`).getTime()) / 86_400_000);
+  return Math.round(
+    (new Date(`${right}T00:00:00Z`).getTime() -
+      new Date(`${left}T00:00:00Z`).getTime()) / 86_400_000,
+  );
 }
 
 function staleDailyLog(): ApiError {
-  return new ApiError(409, "stale_women_calendar_daily_log", "Daily log changed. Refresh and try again.");
+  return new ApiError(
+    409,
+    "stale_women_calendar_daily_log",
+    "Daily log changed. Refresh and try again.",
+  );
 }
 
 function dateString(value: unknown): string {

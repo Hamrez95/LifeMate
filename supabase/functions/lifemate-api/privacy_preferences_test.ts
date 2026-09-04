@@ -36,16 +36,22 @@ Deno.test("legal acceptance parser rejects duplicate documents", () => {
 });
 
 Deno.test("privacy preference parser requires explicit boolean and safe purpose", () => {
-  assertEquals(parsePrivacyPreferencePayload({
-    purpose: "Promotional_SMS",
-    enabled: false,
-  }), {
-    purpose: "promotional_sms",
-    enabled: false,
-  });
+  assertEquals(
+    parsePrivacyPreferencePayload({
+      purpose: "Promotional_SMS",
+      enabled: false,
+    }),
+    {
+      purpose: "promotional_sms",
+      enabled: false,
+    },
+  );
 
   const error = assertThrows(() =>
-    parsePrivacyPreferencePayload({ purpose: "promotional_sms", enabled: "false" })
+    parsePrivacyPreferencePayload({
+      purpose: "promotional_sms",
+      enabled: "false",
+    })
   );
   assertEquals(error instanceof ApiError, true);
   assertEquals((error as ApiError).code, "privacy_preference_invalid");

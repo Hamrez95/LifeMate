@@ -9,7 +9,9 @@ import { readJsonObject } from "./validation.ts";
 export function createMedicationScheduleRouteHandler(databaseUrl: string) {
   const store = createMedicationScheduleSettingsStore(databaseUrl);
   const audit = createMedicationScheduleAuditWriter(databaseUrl);
-  const optimizationRoutes = createMedicationScheduleOptimizationRouteHandler(databaseUrl);
+  const optimizationRoutes = createMedicationScheduleOptimizationRouteHandler(
+    databaseUrl,
+  );
   const sleepRoutes = createMedicationScheduleSleepRouteHandler(databaseUrl);
 
   return async function medicationScheduleRouteHandler(input: {
@@ -50,7 +52,8 @@ export function createMedicationScheduleRouteHandler(databaseUrl: string) {
           version: updated.version,
           sleepWindowEnabled: updated.sleepWindowEnabled === true,
           hasSleepWindow: updated.sleepWindowEnabled === true,
-          idempotencyKey: request.headers.get("idempotency-key")?.trim() ?? null,
+          idempotencyKey: request.headers.get("idempotency-key")?.trim() ??
+            null,
         },
       });
       return json(updated);
@@ -109,10 +112,10 @@ export function createMedicationScheduleRouteHandler(databaseUrl: string) {
           hasManualSpacing:
             Number(updated.manualSpacingBeforeMinutes ?? 0) > 0 ||
             Number(updated.manualSpacingAfterMinutes ?? 0) > 0,
-          hasTimingNote:
-            typeof updated.timingNote === "string" &&
+          hasTimingNote: typeof updated.timingNote === "string" &&
             updated.timingNote.length > 0,
-          idempotencyKey: request.headers.get("idempotency-key")?.trim() ?? null,
+          idempotencyKey: request.headers.get("idempotency-key")?.trim() ??
+            null,
         },
       });
       return json(updated);

@@ -107,10 +107,12 @@ Deno.test("dense recurrence fails bounded instead of materializing unbounded wor
 });
 
 Deno.test("non-week recurrence rejects weekday filters", () => {
-  assertThrows(() => normalizeRecurrenceRule({
-    enabled: true,
-    unit: "hour",
-    interval: 6,
-    weekdays: [1],
-  }));
+  assertThrows(() =>
+    normalizeRecurrenceRule({
+      enabled: true,
+      unit: "hour",
+      interval: 6,
+      weekdays: [1],
+    })
+  );
 });

@@ -1,5 +1,8 @@
 import { json } from "./http.ts";
-import { createPrivacyPreferenceStore, parseLegalAcceptances } from "./privacy_preferences.ts";
+import {
+  createPrivacyPreferenceStore,
+  parseLegalAcceptances,
+} from "./privacy_preferences.ts";
 import { enforceRateLimit } from "./security.ts";
 import { ApiError, readJsonObject } from "./validation.ts";
 

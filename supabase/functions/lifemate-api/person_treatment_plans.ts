@@ -82,14 +82,17 @@ function mapTreatmentPlan(
       row.caregiver_reminder_minutes_before ?? 60,
     ),
     recurrence,
-    recurrenceStartLocalTime: recurrence == null || row.recurrence_start_local_time == null
-      ? null
-      : timeString(row.recurrence_start_local_time),
+    recurrenceStartLocalTime:
+      recurrence == null || row.recurrence_start_local_time == null
+        ? null
+        : timeString(row.recurrence_start_local_time),
     version: row.version,
     // The internal recurrence anchor is not exposed as a user-editable weekly
     // schedule. Legacy explicit schedules remain unchanged.
     schedules: schedules
-      .filter((schedule) => String(schedule.day_of_week).toLowerCase() !== "recurrence")
+      .filter((schedule) =>
+        String(schedule.day_of_week).toLowerCase() !== "recurrence"
+      )
       .map((schedule) => ({
         id: schedule.id,
         dayOfWeek: String(schedule.day_of_week).toLowerCase(),
@@ -184,8 +187,12 @@ export function createPersonTreatmentPlanStore(databaseUrl: string) {
     const recurrenceStartLocalTime = recurrence == null
       ? null
       : normalizeRecurrenceStartLocalTime(body.recurrenceStartLocalTime);
-    const schedules = recurrence == null ? normalizeSchedules(body.schedules) : [];
-    if (recurrence?.endAt != null && recurrence.endAt.slice(0, 10) < startDate) {
+    const schedules = recurrence == null
+      ? normalizeSchedules(body.schedules)
+      : [];
+    if (
+      recurrence?.endAt != null && recurrence.endAt.slice(0, 10) < startDate
+    ) {
       throw new ApiError(
         400,
         "invalid_recurrence_end",
@@ -222,7 +229,9 @@ export function createPersonTreatmentPlanStore(databaseUrl: string) {
       }
 
       const planId = crypto.randomUUID();
-      const recurrenceJson = recurrence == null ? null : JSON.stringify(recurrence);
+      const recurrenceJson = recurrence == null
+        ? null
+        : JSON.stringify(recurrence);
       const planRows = await tx`
         insert into lifemate.treatment_plans
           (id, patient_person_id, medication_id, dose_text,

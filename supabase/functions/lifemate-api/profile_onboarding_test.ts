@@ -38,11 +38,12 @@ Deno.test("completion cannot be written without a presentation intent", () => {
 
 Deno.test("unknown presentation intent is rejected instead of becoming permission", () => {
   assertThrows(
-    () => normalizeProfilePatch({
-      ...base,
-      presentationIntent: "MedicalAdmin",
-      completeOnboarding: true,
-    }),
+    () =>
+      normalizeProfilePatch({
+        ...base,
+        presentationIntent: "MedicalAdmin",
+        completeOnboarding: true,
+      }),
     Error,
     "presentationIntent is not supported",
   );

@@ -6,23 +6,35 @@ import {
 } from "./women_pregnancy_lifecycle.ts";
 
 Deno.test("pregnancy transition requires canonical product eligibility", () => {
-  assertEquals(evaluatePregnancyTransitionEligibility({
-    womenHealthEligible: true,
-    periodOwnedOrActive: true,
-    cocoonEntitled: false,
-    transitionFeatureEnabled: true,
-  }), { allowed: false, reason: "cocoon_entitlement_required" });
-  assertEquals(evaluatePregnancyTransitionEligibility({
-    womenHealthEligible: true,
-    periodOwnedOrActive: true,
-    cocoonEntitled: true,
-    transitionFeatureEnabled: true,
-  }), { allowed: true });
+  assertEquals(
+    evaluatePregnancyTransitionEligibility({
+      womenHealthEligible: true,
+      periodOwnedOrActive: true,
+      cocoonEntitled: false,
+      transitionFeatureEnabled: true,
+    }),
+    { allowed: false, reason: "cocoon_entitlement_required" },
+  );
+  assertEquals(
+    evaluatePregnancyTransitionEligibility({
+      womenHealthEligible: true,
+      periodOwnedOrActive: true,
+      cocoonEntitled: true,
+      transitionFeatureEnabled: true,
+    }),
+    { allowed: true },
+  );
 });
 
 Deno.test("pregnancy activation is idempotent and does not skip lifecycle states", () => {
-  assertEquals(nextWomenHealthLifecycleState("active", "activate_pregnancy"), "paused_for_pregnancy");
-  assertEquals(nextWomenHealthLifecycleState("paused_for_pregnancy", "activate_pregnancy"), "paused_for_pregnancy");
+  assertEquals(
+    nextWomenHealthLifecycleState("active", "activate_pregnancy"),
+    "paused_for_pregnancy",
+  );
+  assertEquals(
+    nextWomenHealthLifecycleState("paused_for_pregnancy", "activate_pregnancy"),
+    "paused_for_pregnancy",
+  );
   assertThrows(() => nextWomenHealthLifecycleState("active", "resume"));
 });
 

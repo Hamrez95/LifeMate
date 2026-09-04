@@ -17,7 +17,11 @@ export function createMedicationScheduleSleepRouteHandler(databaseUrl: string) {
       request.method === "POST" &&
       path === "/api/v1/medication-schedule-optimizations/sleep/preview"
     ) {
-      enforceRateLimit(`medication-sleep-preview:${appUserId}`, 20, 60 * 60_000);
+      enforceRateLimit(
+        `medication-sleep-preview:${appUserId}`,
+        20,
+        60 * 60_000,
+      );
       return json(
         await store.preview(appUserId, await readJsonObject(request)),
         201,

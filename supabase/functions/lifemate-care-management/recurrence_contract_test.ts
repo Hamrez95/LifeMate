@@ -54,16 +54,20 @@ Deno.test("weekly recurrence deduplicates and sorts ISO weekdays", () => {
 });
 
 Deno.test("care recurrence rejects invalid timestamp and non-week weekdays", () => {
-  assertThrows(() => normalizeCareRecurrence({
-    enabled: true,
-    unit: "hour",
-    interval: 6,
-    endAt: "2026-08-27T27:00:00",
-  }, error));
-  assertThrows(() => normalizeCareRecurrence({
-    enabled: true,
-    unit: "day",
-    interval: 1,
-    weekdays: [1],
-  }, error));
+  assertThrows(() =>
+    normalizeCareRecurrence({
+      enabled: true,
+      unit: "hour",
+      interval: 6,
+      endAt: "2026-08-27T27:00:00",
+    }, error)
+  );
+  assertThrows(() =>
+    normalizeCareRecurrence({
+      enabled: true,
+      unit: "day",
+      interval: 1,
+      weekdays: [1],
+    }, error)
+  );
 });

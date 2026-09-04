@@ -1,4 +1,7 @@
-import { stableExperimentBucket, selectWeightedExperimentVariant } from "../_shared/experiment_assignment.ts";
+import {
+  selectWeightedExperimentVariant,
+  stableExperimentBucket,
+} from "../_shared/experiment_assignment.ts";
 import {
   createExperimentAssignmentStore,
   parseExperimentAssignmentProduct,
@@ -13,7 +16,8 @@ Deno.test("experiment product parsing is canonical and bounded", () => {
   try {
     parseExperimentAssignmentProduct("wellmate<script>");
   } catch (error) {
-    rejected = error instanceof ApiError && error.code === "experiment_product_invalid";
+    rejected = error instanceof ApiError &&
+      error.code === "experiment_product_invalid";
   }
   if (!rejected) throw new Error("Invalid experiment product was accepted.");
 });
@@ -31,8 +35,18 @@ Deno.test("consumer and admin assignment primitive is deterministic", async () =
     throw new Error("Stable experiment bucket is not deterministic.");
   }
   const variants = [
-    { key: "control", weightBasisPoints: 5000, controlValue: false, version: 1 },
-    { key: "candidate", weightBasisPoints: 5000, controlValue: true, version: 1 },
+    {
+      key: "control",
+      weightBasisPoints: 5000,
+      controlValue: false,
+      version: 1,
+    },
+    {
+      key: "candidate",
+      weightBasisPoints: 5000,
+      controlValue: true,
+      version: 1,
+    },
   ];
   const selected = selectWeightedExperimentVariant(variants, first);
   if (!selected || !["control", "candidate"].includes(selected.key)) {
@@ -51,5 +65,7 @@ Deno.test("experiment assignment store refuses weak pseudonymization secret", ()
     rejected = error instanceof Error &&
       error.message.includes("hashing secret is not configured safely");
   }
-  if (!rejected) throw new Error("Weak experiment pseudonymization secret was accepted.");
+  if (!rejected) {
+    throw new Error("Weak experiment pseudonymization secret was accepted.");
+  }
 });

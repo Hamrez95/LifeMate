@@ -1,7 +1,10 @@
 import type { WomenCalendarEstimate } from "./women_calendar_legacy.ts";
 
 export type CircleSharingMode = "none" | "planning_only" | "limited_context";
-export type CirclePlanningState = "suitable" | "possibly_unsuitable" | "insufficient_data";
+export type CirclePlanningState =
+  | "suitable"
+  | "possibly_unsuitable"
+  | "insufficient_data";
 
 export type CircleSharingPolicy = {
   mode: CircleSharingMode;
@@ -23,7 +26,10 @@ export function normalizeCircleSharingPolicy(
   value: Record<string, unknown>,
 ): CircleSharingPolicy {
   const modeText = String(value.mode ?? "none").trim().toLowerCase();
-  if (modeText !== "none" && modeText !== "planning_only" && modeText !== "limited_context") {
+  if (
+    modeText !== "none" && modeText !== "planning_only" &&
+    modeText !== "limited_context"
+  ) {
     return disabledPolicy();
   }
   const mode = modeText as CircleSharingMode;
@@ -53,7 +59,8 @@ export function deriveCirclePlanningContribution(
     };
   }
 
-  const likelyPeriodImpact = estimate.estimatedBleeding || estimate.daysUntilNextPeriod <= 2;
+  const likelyPeriodImpact = estimate.estimatedBleeding ||
+    estimate.daysUntilNextPeriod <= 2;
   const planningState: CirclePlanningState = likelyPeriodImpact
     ? "possibly_unsuitable"
     : "suitable";
@@ -70,11 +77,7 @@ export function deriveCirclePlanningContribution(
 
   const detailed = String(estimate.detailedPhase ?? "");
   const phaseContext = policy.includePhaseContext
-    ? detailed === "period"
-      ? "period"
-      : detailed === "pms"
-      ? "pms"
-      : "other"
+    ? detailed === "period" ? "period" : detailed === "pms" ? "pms" : "other"
     : null;
   const periodContext = policy.includePeriodWindow
     ? likelyPeriodImpact ? "likely_near" : "not_near"
@@ -84,9 +87,10 @@ export function deriveCirclePlanningContribution(
     planningState,
     phaseContext,
     periodContext,
-    wellbeingContext: policy.includeWellbeingContext && hasSharedWellbeingContext
-      ? "shared"
-      : null,
+    wellbeingContext:
+      policy.includeWellbeingContext && hasSharedWellbeingContext
+        ? "shared"
+        : null,
     evidenceLevel: estimate.confidence === "high" ? "sufficient" : "limited",
   };
 }
@@ -108,7 +112,9 @@ export function aggregateCirclePlanningWindow(
       unavailableMembers: contributions.length,
     };
   }
-  const informative = active.filter((value) => value.planningState !== "insufficient_data");
+  const informative = active.filter((value) =>
+    value.planningState !== "insufficient_data"
+  );
   if (informative.length === 0) {
     return {
       summary: "insufficient_data",

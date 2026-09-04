@@ -30,10 +30,18 @@ export function createGrowthRouteHandler(
     contactHashingSecret,
   );
   const legalPrivacyRoutes = createLegalPrivacyRouteHandler(databaseUrl);
-  const medicationScheduleRoutes = createMedicationScheduleRouteHandler(databaseUrl);
-  const productTelemetryRoutes = createProductTelemetryV2RouteHandler(databaseUrl);
-  const clientRemoteConfigRoutes = createClientRemoteConfigRouteHandler(databaseUrl);
-  const pushRegistrationRoutes = createPushRegistrationRouteHandler(databaseUrl);
+  const medicationScheduleRoutes = createMedicationScheduleRouteHandler(
+    databaseUrl,
+  );
+  const productTelemetryRoutes = createProductTelemetryV2RouteHandler(
+    databaseUrl,
+  );
+  const clientRemoteConfigRoutes = createClientRemoteConfigRouteHandler(
+    databaseUrl,
+  );
+  const pushRegistrationRoutes = createPushRegistrationRouteHandler(
+    databaseUrl,
+  );
   const feedbackRoutes = createFeedbackRouteHandler(databaseUrl);
   const supportRoutes = createSupportConversationRouteHandler(
     createSupportConversationStore(databaseUrl),
@@ -45,7 +53,9 @@ export function createGrowthRouteHandler(
     path: string;
     appUserId: string;
   }): Promise<Response | null> {
-    const experimentAssignmentResponse = await experimentAssignmentRoutes(input);
+    const experimentAssignmentResponse = await experimentAssignmentRoutes(
+      input,
+    );
     if (experimentAssignmentResponse) return experimentAssignmentResponse;
 
     const legalPrivacyResponse = await legalPrivacyRoutes(input);
@@ -82,10 +92,16 @@ export function createGrowthRouteHandler(
       );
     }
     if (request.method === "POST" && path === "/api/v1/growth/referral-code") {
-      enforceRateLimit(`growth-referral-code:${appUserId}`, 5, 24 * 60 * 60_000);
+      enforceRateLimit(
+        `growth-referral-code:${appUserId}`,
+        5,
+        24 * 60 * 60_000,
+      );
       return json(await store.ensureReferralCode(appUserId));
     }
-    if (request.method === "POST" && path === "/api/v1/growth/referrals/attribute") {
+    if (
+      request.method === "POST" && path === "/api/v1/growth/referrals/attribute"
+    ) {
       enforceRateLimit(
         `growth-referral-attribute:${appUserId}`,
         5,

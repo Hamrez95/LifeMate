@@ -1,4 +1,7 @@
-import { createClientRemoteConfigStore, parseClientRuntimeConfigQuery } from "./client_remote_config.ts";
+import {
+  createClientRemoteConfigStore,
+  parseClientRuntimeConfigQuery,
+} from "./client_remote_config.ts";
 import { json } from "./http.ts";
 import { enforceRateLimit } from "./security.ts";
 

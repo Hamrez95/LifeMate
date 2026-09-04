@@ -70,7 +70,11 @@ export function parseGiftPayload(body: Record<string, unknown>): {
 export function parseReferralPayload(body: Record<string, unknown>): string {
   const code = requiredString(body.code, "code", 32).toUpperCase();
   if (!referralCodePattern.test(code)) {
-    throw new ApiError(400, "referral_code_invalid", "Referral code is invalid.");
+    throw new ApiError(
+      400,
+      "referral_code_invalid",
+      "Referral code is invalid.",
+    );
   }
   return code;
 }
@@ -184,11 +188,16 @@ export function createGrowthStore(
     };
   }
 
-  async function ensureReferralCode(appUserId: string): Promise<Record<string, unknown>> {
+  async function ensureReferralCode(
+    appUserId: string,
+  ): Promise<Record<string, unknown>> {
     const rows = await sql`
       select growth.ensure_referral_code(${appUserId}::uuid) as result
     `;
-    const result = requireSuccessful(rows[0]?.result ?? {}, "referral_code_unavailable");
+    const result = requireSuccessful(
+      rows[0]?.result ?? {},
+      "referral_code_unavailable",
+    );
     return {
       referralCodeId: String(result.referralCodeId),
       code: String(result.codeValue),
@@ -257,7 +266,9 @@ export function createGrowthStore(
     };
   }
 
-  async function listRewards(appUserId: string): Promise<Record<string, unknown>[]> {
+  async function listRewards(
+    appUserId: string,
+  ): Promise<Record<string, unknown>[]> {
     const rows = await sql`
       select * from growth.list_reward_events_for_app_user(${appUserId}::uuid)
     `;
