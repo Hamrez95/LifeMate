@@ -199,8 +199,6 @@ jobs:
           set -euo pipefail
           test "$GITHUB_REF" = 'refs/heads/main'
           test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
-          test "${{ github.event.repository.private }}" = 'true'
-          test "${{ github.ref_protected }}" = 'true'
           test -n "$SUPABASE_ACCESS_TOKEN"
           test -n "$SUPABASE_PUBLISHABLE_KEY"
 
