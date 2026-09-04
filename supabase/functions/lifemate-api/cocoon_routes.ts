@@ -43,7 +43,9 @@ export function createCocoonRouteHandler(databaseUrl: string) {
     }
 
     const body = await response.json() as Row;
-    const commerceEligibility = await application.commerceEligibility(appUserId);
+    const commerceEligibility = await application.commerceEligibility(
+      appUserId,
+    );
     return json({
       ...body,
       // `enrollmentState` remains the frozen v1 pregnancy lifecycle field.
