@@ -330,8 +330,37 @@ class _LifeMateExperienceGateState extends State<LifeMateExperienceGate>
           );
         }
         if (snapshot.hasError) {
-          final unauthorized = snapshot.error is LifeMateApiException &&
-              (snapshot.error! as LifeMateApiException).isUnauthorized;
+          final apiError = snapshot.error is LifeMateApiException
+              ? snapshot.error! as LifeMateApiException
+              : null;
+          final deletionPending = apiError?.code == 'account_deletion_pending';
+          if (deletionPending) {
+            return _ExperienceBlockingState(
+              appName: widget.appName,
+              logoAssetPath: widget.logoAssetPath,
+              icon: Icons.delete_sweep_outlined,
+              title: LifeMateRuntimeLocale.select(
+                fa: 'حذف حساب در حال انجام است',
+                en: 'Account deletion is in progress',
+              ),
+              message: LifeMateRuntimeLocale.select(
+                fa: 'درخواست حذف حساب قبلی هنوز در حال پردازش است. بعد از تکمیل می‌توانی دوباره ثبت‌نام کنی و اطلاعات حذف‌شده بازیابی نمی‌شوند.',
+                en: 'Your previous account deletion is still being processed. You can register again after it completes, and deleted data will not be restored.',
+              ),
+              primaryLabel: LifeMateRuntimeLocale.select(
+                fa: 'بررسی دوباره',
+                en: 'Check again',
+              ),
+              onPrimary: _retryBootstrap,
+              secondaryLabel: LifeMateRuntimeLocale.select(
+                fa: 'خروج از حساب',
+                en: 'Sign out',
+              ),
+              onSecondary: () => _supabase.auth.signOut(),
+            );
+          }
+
+          final unauthorized = apiError?.isUnauthorized ?? false;
           return _ExperienceBlockingState(
             appName: widget.appName,
             logoAssetPath: widget.logoAssetPath,

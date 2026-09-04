@@ -1,7 +1,9 @@
 import { assertEquals } from "jsr:@std/assert@1.0.14";
 import postgres from "postgres";
 import { createAccountLifecycleStore } from "./account_lifecycle.ts";
+import { createBootstrapAccountStateGuard } from "./bootstrap_account_state.ts";
 import { closeLifeMateSqlClientsForTest } from "./database_client.ts";
+import { ApiError } from "./validation.ts";
 
 const databaseUrl = Deno.env.get("TEST_DATABASE_URL");
 if (!databaseUrl) {
@@ -17,7 +19,7 @@ const adminSql = postgres(databaseUrl, {
 
 Deno.test({
   name:
-    "account deletion API store resolves AppUser to provider-agnostic Account",
+    "account deletion API store resolves AppUser to provider-agnostic Account and blocks re-bootstrap",
   sanitizeOps: false,
   sanitizeResources: false,
   fn: async () => {
@@ -26,6 +28,7 @@ Deno.test({
     const personId = crypto.randomUUID();
     const authSubject = crypto.randomUUID();
     const store = createAccountLifecycleStore(databaseUrl);
+    const bootstrapGuard = createBootstrapAccountStateGuard(databaseUrl);
 
     try {
       await adminSql`
@@ -69,6 +72,8 @@ Deno.test({
         values (${accountId}::uuid,${personId}::uuid,'Self','Active')
       `;
 
+      await bootstrapGuard.assertAllowed(authSubject);
+
       const requested = await store.requestDeletion(appUserId);
       assertEquals(requested.accountId, accountId);
       assertEquals(requested.status, "requested");
@@ -85,6 +90,16 @@ Deno.test({
       assertEquals(state[0].app_user_status, "Disabled");
       assertEquals(String(state[0].account_id), accountId);
       assertEquals(state[0].retention_policy_version, "retention-v2");
+
+      let blocked: ApiError | null = null;
+      try {
+        await bootstrapGuard.assertAllowed(authSubject);
+      } catch (error) {
+        if (error instanceof ApiError) blocked = error;
+        else throw error;
+      }
+      assertEquals(blocked?.status, 409);
+      assertEquals(blocked?.code, "account_deletion_pending");
 
       const latest = await store.latestDeletionRequest(appUserId);
       assertEquals(latest?.id, requested.id);
