@@ -2,6 +2,7 @@ import 'dart:convert';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:lifemate_client/lifemate_client.dart';
+import 'package:lifemate_client/src/legacy_mutation_importer.dart';
 import 'package:lifemate_core/lifemate_core.dart';
 import 'package:sqlite3/sqlite3.dart';
 
