@@ -136,9 +136,7 @@ class PregnancyClinicalContentRegistry {
         final localeScoreA = a.locale == locale ? 1 : 0;
         final localeScoreB = b.locale == locale ? 1 : 0;
         final localeOrder = localeScoreB.compareTo(localeScoreA);
-        return localeOrder != 0
-            ? localeOrder
-            : b.version.compareTo(a.version);
+        return localeOrder != 0 ? localeOrder : b.version.compareTo(a.version);
       });
     return ClinicalContentSelection(
       content: sorted.first,
@@ -203,7 +201,8 @@ class PregnancySafetyRuleSet {
       );
     }
 
-    if (signals.isEmpty || signals.contains(PregnancySafetySignal.unsupported)) {
+    if (signals.isEmpty ||
+        signals.contains(PregnancySafetySignal.unsupported)) {
       return _fallback();
     }
 
