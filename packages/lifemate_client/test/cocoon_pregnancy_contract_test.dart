@@ -2,7 +2,8 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:lifemate_client/lifemate_client.dart';
 
 void main() {
-  test('bootstrap keeps application, pregnancy and Commerce state separate', () {
+  test('bootstrap keeps application, pregnancy and Commerce state separate',
+      () {
     final value = CocoonBootstrapSnapshot.fromJson({
       'contractVersion': 1,
       'subject': {'personId': 'person-secret'},
@@ -46,7 +47,8 @@ void main() {
     expect(value.cachedSharedSnapshotAllowed, isFalse);
   });
 
-  test('bootstrap stays backward compatible when additive fields are missing', () {
+  test('bootstrap stays backward compatible when additive fields are missing',
+      () {
     final value = CocoonBootstrapSnapshot.fromJson({
       'contractVersion': 1,
       'subject': {'personId': 'person-secret'},
