@@ -6,6 +6,7 @@ on:
     paths:
       - 'cocoonmate/**'
       - 'packages/cocoonmate_module/**'
+      - 'packages/lifemate_client/lib/src/lifemate_auth.dart'
       - '.github/workflows/cocoon-module-host.yml'
 
 permissions:
@@ -28,8 +29,14 @@ jobs:
       - name: Resolve module
         working-directory: packages/cocoonmate_module
         run: flutter pub get
-      - name: Format module
-        run: dart format --output=none --set-exit-if-changed packages/cocoonmate_module/lib packages/cocoonmate_module/test cocoonmate/lib cocoonmate/test
+      - name: Format owned Cocoon bootstrap sources
+        run: >-
+          dart format --output=none --set-exit-if-changed
+          packages/cocoonmate_module/lib
+          packages/cocoonmate_module/test
+          packages/lifemate_client/lib/src/lifemate_auth.dart
+          cocoonmate/lib
+          cocoonmate/test
       - name: Analyze module
         working-directory: packages/cocoonmate_module
         run: flutter analyze --no-fatal-warnings --no-fatal-infos
@@ -63,6 +70,10 @@ jobs:
           test -f cocoonmate/lib/main.dart
           ! grep -R -n -E 'supabase\.from|SupabaseClient|service_role|pregnancy\.episodes' packages/cocoonmate_module/lib cocoonmate/lib
           test "$(find cocoonmate/lib -type f | wc -l)" -le 3
+          grep -Fq "LifeMateBootstrap.initialize" cocoonmate/lib/main.dart
+          grep -Fq "LifeMateExperienceGate" cocoonmate/lib/app/cocoon_standalone_app.dart
+          grep -Fq "CocoonPregnancyApiClient" cocoonmate/lib/app/cocoon_standalone_app.dart
+          grep -Fq "LifeMateRemoteConfigClient" cocoonmate/lib/app/cocoon_standalone_app.dart
       - uses: actions/upload-artifact@v4
         with:
           name: cocoonmate-debug-apk
