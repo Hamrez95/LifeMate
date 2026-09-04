@@ -5,7 +5,9 @@ import { createPregnancyAuthorization } from "./pregnancy_authorization.ts";
 
 const databaseUrl = Deno.env.get("TEST_DATABASE_URL");
 if (!databaseUrl) {
-  throw new Error("TEST_DATABASE_URL is required for pregnancy authorization tests.");
+  throw new Error(
+    "TEST_DATABASE_URL is required for pregnancy authorization tests.",
+  );
 }
 
 const sql = postgres(databaseUrl, {
@@ -27,7 +29,8 @@ async function assertAccess(
 }
 
 Deno.test({
-  name: "pregnancy authorization requires exact grant and explicit episode consent",
+  name:
+    "pregnancy authorization requires exact grant and explicit episode consent",
   sanitizeOps: false,
   sanitizeResources: false,
   fn: async () => {
