@@ -1,0 +1,66 @@
+name: temp-offline-02-reconcile
+
+on:
+  pull_request:
+    paths:
+      - 'packages/lifemate_core/**'
+      - 'wellmate/**'
+      - '.github/workflows/temp-offline-02-reconcile.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  verify-formatted-source:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
+        with:
+          fetch-depth: 1
+          show-progress: false
+
+      - uses: subosito/flutter-action@4cab68ce0f1c7c924f688bff4792e044f1aeb30c
+        with:
+          flutter-version: '3.44.0'
+          channel: stable
+          cache: true
+
+      - name: Format candidate source and show reconciliation diff
+        shell: bash
+        run: |
+          set -euo pipefail
+          dart format \
+            packages/lifemate_core/lib \
+            packages/lifemate_core/test \
+            wellmate/lib/providers/notification_provider.dart \
+            wellmate/lib/providers/contextual_notification_provider.dart \
+            wellmate/lib/screens/women_calendar/women_cycle_insight_notification_scheduler.dart \
+            wellmate/test/reminder_reliability_contract_test.dart
+          echo '--- FORMAT DIFF START ---'
+          git diff -- \
+            packages/lifemate_core/lib \
+            packages/lifemate_core/test \
+            wellmate/lib/providers/notification_provider.dart \
+            wellmate/lib/providers/contextual_notification_provider.dart \
+            wellmate/lib/screens/women_calendar/women_cycle_insight_notification_scheduler.dart \
+            wellmate/test/reminder_reliability_contract_test.dart
+          echo '--- FORMAT DIFF END ---'
+
+      - name: Analyze and test shared core after formatting
+        working-directory: packages/lifemate_core
+        shell: bash
+        run: |
+          set -euo pipefail
+          flutter pub get
+          flutter analyze --no-fatal-warnings --no-fatal-infos
+          flutter test
+
+      - name: Analyze and test WellMate after formatting
+        working-directory: wellmate
+        shell: bash
+        run: |
+          set -euo pipefail
+          flutter pub get
+          flutter analyze --no-fatal-warnings --no-fatal-infos
+          flutter test
