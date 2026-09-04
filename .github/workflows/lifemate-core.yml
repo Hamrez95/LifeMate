@@ -42,12 +42,14 @@ jobs:
       - name: Flutter environment
         run: flutter --version
 
-      - name: Resolve, format, analyze and test shared core
+      - name: Resolve, inspect formatting, analyze and test shared core
         working-directory: packages/lifemate_core
         shell: bash
         run: |
           set -euo pipefail
           flutter pub get
-          dart format --output=none --set-exit-if-changed lib test
+          dart format lib test
+          git diff -- lib test | tee /tmp/lifemate-core-format.diff
           flutter analyze --no-fatal-warnings --no-fatal-infos
           flutter test
+          test ! -s /tmp/lifemate-core-format.diff
