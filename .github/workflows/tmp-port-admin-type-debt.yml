@@ -10,6 +10,7 @@ permissions:
 
 jobs:
   port:
+    # One-shot migration helper; bot-authored follow-up pushes must not recurse.
     if: github.actor != 'github-actions[bot]'
     runs-on: ubuntu-latest
     steps:
