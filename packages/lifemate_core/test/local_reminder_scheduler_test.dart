@@ -60,7 +60,8 @@ void main() {
     final result = await scheduler.sync(
       reminders: [current],
       timeZone: 'Asia/Tehran',
-      ownsPendingRequest: (request) => request.payload?.startsWith('owned:') == true,
+      ownsPendingRequest: (request) =>
+          request.payload?.startsWith('owned:') == true,
     );
 
     expect(platform.cancelled, contains(old.notificationId));
@@ -81,10 +82,7 @@ void main() {
       reminders: [
         reminder(revision: 1),
         reminder(revision: 2),
-        reminder(
-          source: 'too-late',
-          trigger: now.add(const Duration(days: 8)),
-        ),
+        reminder(source: 'too-late', trigger: now.add(const Duration(days: 8))),
         reminder(
           source: 'past',
           trigger: now.subtract(const Duration(minutes: 1)),
@@ -98,26 +96,29 @@ void main() {
     expect(result.skippedCount, 3);
   });
 
-  test('known exact-alarm denial falls back without dropping reminder', () async {
-    final platform = _FakeReminderPlatform();
-    final current = reminder();
-    final scheduler = LifeMateLocalReminderScheduler(
-      platform: platform,
-      now: () => now,
-    );
+  test(
+    'known exact-alarm denial falls back without dropping reminder',
+    () async {
+      final platform = _FakeReminderPlatform();
+      final current = reminder();
+      final scheduler = LifeMateLocalReminderScheduler(
+        platform: platform,
+        now: () => now,
+      );
 
-    final result = await scheduler.sync(
-      reminders: [current],
-      timeZone: 'Asia/Tehran',
-      exactAlarmGranted: false,
-    );
+      final result = await scheduler.sync(
+        reminders: [current],
+        timeZone: 'Asia/Tehran',
+        exactAlarmGranted: false,
+      );
 
-    expect(
-      platform.scheduled.single.mode,
-      AndroidScheduleMode.inexactAllowWhileIdle,
-    );
-    expect(result.inexactFallbackScheduleKeys, [current.scheduleKey]);
-  });
+      expect(
+        platform.scheduled.single.mode,
+        AndroidScheduleMode.inexactAllowWhileIdle,
+      );
+      expect(result.inexactFallbackScheduleKeys, [current.scheduleKey]);
+    },
+  );
 
   test('runtime exact-alarm failure retries once as inexact', () async {
     final platform = _FakeReminderPlatform(throwOnExact: true);
@@ -133,54 +134,68 @@ void main() {
     );
 
     expect(platform.scheduleAttempts, 2);
-    expect(platform.scheduled.single.mode, AndroidScheduleMode.inexactAllowWhileIdle);
+    expect(
+      platform.scheduled.single.mode,
+      AndroidScheduleMode.inexactAllowWhileIdle,
+    );
     expect(result.usedInexactFallback, isTrue);
   });
 
-  test('preserved snooze is not cancelled during owner reconciliation', () async {
-    final platform = _FakeReminderPlatform();
-    const snoozeId = 73;
-    platform.pending.add(
-      const PendingNotificationRequest(snoozeId, 'snooze', 'snooze', 'snooze:keep'),
-    );
-    final scheduler = LifeMateLocalReminderScheduler(
-      platform: platform,
-      now: () => now,
-    );
+  test(
+    'preserved snooze is not cancelled during owner reconciliation',
+    () async {
+      final platform = _FakeReminderPlatform();
+      const snoozeId = 73;
+      platform.pending.add(
+        const PendingNotificationRequest(
+          snoozeId,
+          'snooze',
+          'snooze',
+          'snooze:keep',
+        ),
+      );
+      final scheduler = LifeMateLocalReminderScheduler(
+        platform: platform,
+        now: () => now,
+      );
 
-    await scheduler.sync(
-      reminders: const [],
-      timeZone: 'UTC',
-      ownsPendingRequest: (_) => true,
-      preservePendingRequest: (request) => request.payload == 'snooze:keep',
-    );
+      await scheduler.sync(
+        reminders: const [],
+        timeZone: 'UTC',
+        ownsPendingRequest: (_) => true,
+        preservePendingRequest: (request) => request.payload == 'snooze:keep',
+      );
 
-    expect(platform.cancelled, isNot(contains(snoozeId)));
-  });
+      expect(platform.cancelled, isNot(contains(snoozeId)));
+    },
+  );
 
-  test('registry stores execution metadata and deletes stale revisions', () async {
-    final platform = _FakeReminderPlatform();
-    final registry = _MemoryReminderRegistry();
-    final stale = reminder(revision: 1);
-    registry.values[stale.scheduleKey] = LifeMatePersistedReminder(
-      scheduleKey: stale.scheduleKey,
-      notificationId: stale.notificationId,
-      sourceRevision: stale.sourceRevision,
-      triggerUtc: stale.triggerUtc,
-      accuracy: stale.accuracy,
-    );
-    final current = reminder(revision: 2);
-    final scheduler = LifeMateLocalReminderScheduler(
-      platform: platform,
-      registry: registry,
-      now: () => now,
-    );
+  test(
+    'registry stores execution metadata and deletes stale revisions',
+    () async {
+      final platform = _FakeReminderPlatform();
+      final registry = _MemoryReminderRegistry();
+      final stale = reminder(revision: 1);
+      registry.values[stale.scheduleKey] = LifeMatePersistedReminder(
+        scheduleKey: stale.scheduleKey,
+        notificationId: stale.notificationId,
+        sourceRevision: stale.sourceRevision,
+        triggerUtc: stale.triggerUtc,
+        accuracy: stale.accuracy,
+      );
+      final current = reminder(revision: 2);
+      final scheduler = LifeMateLocalReminderScheduler(
+        platform: platform,
+        registry: registry,
+        now: () => now,
+      );
 
-    await scheduler.sync(reminders: [current], timeZone: 'UTC');
+      await scheduler.sync(reminders: [current], timeZone: 'UTC');
 
-    expect(registry.values.containsKey(stale.scheduleKey), isFalse);
-    expect(registry.values.containsKey(current.scheduleKey), isTrue);
-  });
+      expect(registry.values.containsKey(stale.scheduleKey), isFalse);
+      expect(registry.values.containsKey(current.scheduleKey), isTrue);
+    },
+  );
 }
 
 final class _ScheduledCall {
@@ -206,7 +221,8 @@ final class _FakeReminderPlatform implements LifeMateReminderPlatform {
   }
 
   @override
-  Future<List<PendingNotificationRequest>> pendingNotificationRequests() async =>
+  Future<List<PendingNotificationRequest>>
+  pendingNotificationRequests() async =>
       List<PendingNotificationRequest>.from(pending);
 
   @override
@@ -220,8 +236,9 @@ final class _FakeReminderPlatform implements LifeMateReminderPlatform {
     String? payload,
   }) async {
     scheduleAttempts += 1;
-    if (throwOnExact && androidScheduleMode == AndroidScheduleMode.exactAllowWhileIdle) {
-      throw const PlatformException(code: 'exact_alarms_not_permitted');
+    if (throwOnExact &&
+        androidScheduleMode == AndroidScheduleMode.exactAllowWhileIdle) {
+      throw PlatformException(code: 'exact_alarms_not_permitted');
     }
     scheduled.add(_ScheduledCall(id: id, mode: androidScheduleMode));
   }
@@ -236,7 +253,8 @@ final class _MemoryReminderRegistry implements LifeMateReminderRegistry {
   }
 
   @override
-  Future<List<LifeMatePersistedReminder>> list() async => values.values.toList();
+  Future<List<LifeMatePersistedReminder>> list() async =>
+      values.values.toList();
 
   @override
   Future<void> put(LifeMatePersistedReminder reminder) async {
