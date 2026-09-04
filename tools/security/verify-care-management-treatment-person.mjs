@@ -66,8 +66,6 @@ for (const marker of [
   "(id, owner_person_id, name",
   "insert into lifemate.treatment_plans",
   "(id, patient_person_id, medication_id",
-  "metadata_json, created_at_utc",
-  "'treatment_plan', ${treatmentPlanId}::uuid, null, now()",
 ]) {
   if (!store.includes(marker)) {
     throw new Error(`Person Treatment store contract missing: ${marker}`);
@@ -82,6 +80,14 @@ for (const [name, pattern] of [
   [
     "medication Person ownership predicate",
     /owner_person_id\s*=\s*\$\{patientPersonId\}::uuid/,
+  ],
+  [
+    "treatment audit column contract",
+    /insert\s+into\s+lifemate\.audit_logs\s*\(\s*id\s*,\s*actor_user_id\s*,\s*action\s*,\s*resource_type\s*,\s*resource_id\s*,\s*metadata_json\s*,\s*created_at_utc\s*\)/i,
+  ],
+  [
+    "treatment audit resource contract",
+    /values\s*\([^)]*\$\{action\}\s*,\s*['"]treatment_plan['"]\s*,\s*\$\{planId\}::uuid\s*,\s*null\s*,\s*now\(\)\s*\)/i,
   ],
 ]) {
   if (!pattern.test(store)) {
