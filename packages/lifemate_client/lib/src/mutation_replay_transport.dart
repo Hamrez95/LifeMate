@@ -59,6 +59,7 @@ final class LifeMateHttpMutationReplayTransport
         'Accept': 'application/json',
         'Authorization': 'Bearer $token',
         'Content-Type': 'application/json',
+        'Idempotency-Key': mutation.mutationId,
         'X-LifeMate-Replay': '1',
       })
       ..body = jsonEncode(mutation.payload);
@@ -84,8 +85,10 @@ final class LifeMateHttpMutationReplayTransport
       throw StateError('Durable mutation endpoint must be API-relative.');
     }
 
+    final basePath = _apiBaseUri.path.replaceFirst(RegExp(r'/+$'), '');
+    final relativePath = relative.path.replaceFirst(RegExp(r'^/+'), '');
     final resolved = _apiBaseUri.replace(
-      path: relative.path,
+      path: '$basePath/$relativePath',
       query: relative.hasQuery ? relative.query : null,
       fragment: '',
     );
