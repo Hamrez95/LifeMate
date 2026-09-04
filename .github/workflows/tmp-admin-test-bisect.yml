@@ -1,0 +1,32 @@
+name: Temporary Admin Test Bisect
+
+on:
+  push:
+    branches:
+      - ci/admin-edge-format-baseline-20260904
+
+jobs:
+  bisect:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ci/admin-edge-format-baseline-20260904
+      - uses: denoland/setup-deno@v2
+        with:
+          deno-version: v2.9.4
+      - name: Prefix through commerce
+        continue-on-error: true
+        working-directory: supabase/functions/lifemate-admin-api
+        run: deno test --no-check --allow-read=. auth_test.ts authorization_test.ts runtime_config_test.ts identity_resolution_test.ts validation_test.ts directory_test.ts user_detail_test.ts user_detail_permissions_test.ts analytics_catalog_test.ts analytics_kpis_test.ts growth_analytics_test.ts advisor_test.ts relationships_test.ts relationship_ledger_test.ts user_actions_test.ts support_test.ts support_detail_test.ts support_conversation_contract_test.ts commerce_test.ts commerce_detail_test.ts commerce_transactions_test.ts commerce_transaction_detail_test.ts commerce_promotions_test.ts commerce_catalog_test.ts commerce_catalog_v2_mutations_test.ts commerce_catalog_v2_source_test.ts manual_entitlement_adjustments_test.ts manual_entitlement_schedule_hardening_test.ts manual_entitlement_execution_hardening_test.ts payment_operations_test.ts payment_operations_contract_test.ts payment_operations_security_test.ts
+      - name: Prefix through product and marketing
+        continue-on-error: true
+        working-directory: supabase/functions/lifemate-admin-api
+        run: deno test --no-check --allow-read=. auth_test.ts authorization_test.ts runtime_config_test.ts identity_resolution_test.ts validation_test.ts directory_test.ts user_detail_test.ts user_detail_permissions_test.ts analytics_catalog_test.ts analytics_kpis_test.ts growth_analytics_test.ts advisor_test.ts relationships_test.ts relationship_ledger_test.ts user_actions_test.ts support_test.ts support_detail_test.ts support_conversation_contract_test.ts commerce_test.ts commerce_detail_test.ts commerce_transactions_test.ts commerce_transaction_detail_test.ts commerce_promotions_test.ts commerce_catalog_test.ts commerce_catalog_v2_mutations_test.ts commerce_catalog_v2_source_test.ts manual_entitlement_adjustments_test.ts manual_entitlement_schedule_hardening_test.ts manual_entitlement_execution_hardening_test.ts payment_operations_test.ts payment_operations_contract_test.ts payment_operations_security_test.ts growth_reward_admin_test.ts global_search_test.ts notifications_test.ts performance_guardrails_test.ts marketing_campaigns_test.ts marketing_campaign_detail_test.ts marketing_content_calendar_test.ts campaign_orchestrator_test.ts campaign_orchestrator_audit_semantics_test.ts campaign_orchestrator_read_contract_test.ts product_version_analytics_test.ts product_update_policy_mutation_test.ts experiments_test.ts feedback_admin_test.ts feedback_admin_privacy_test.ts
+      - name: Prefix through security
+        continue-on-error: true
+        working-directory: supabase/functions/lifemate-admin-api
+        run: deno test --no-check --allow-read=. auth_test.ts authorization_test.ts runtime_config_test.ts identity_resolution_test.ts validation_test.ts directory_test.ts user_detail_test.ts user_detail_permissions_test.ts analytics_catalog_test.ts analytics_kpis_test.ts growth_analytics_test.ts advisor_test.ts relationships_test.ts relationship_ledger_test.ts user_actions_test.ts support_test.ts support_detail_test.ts support_conversation_contract_test.ts commerce_test.ts commerce_detail_test.ts commerce_transactions_test.ts commerce_transaction_detail_test.ts commerce_promotions_test.ts commerce_catalog_test.ts commerce_catalog_v2_mutations_test.ts commerce_catalog_v2_source_test.ts manual_entitlement_adjustments_test.ts manual_entitlement_schedule_hardening_test.ts manual_entitlement_execution_hardening_test.ts payment_operations_test.ts payment_operations_contract_test.ts payment_operations_security_test.ts growth_reward_admin_test.ts global_search_test.ts notifications_test.ts performance_guardrails_test.ts marketing_campaigns_test.ts marketing_campaign_detail_test.ts marketing_content_calendar_test.ts campaign_orchestrator_test.ts campaign_orchestrator_audit_semantics_test.ts campaign_orchestrator_read_contract_test.ts product_version_analytics_test.ts product_update_policy_mutation_test.ts experiments_test.ts feedback_admin_test.ts feedback_admin_privacy_test.ts privacy_consent_test.ts finance_test.ts finance_budget_test.ts finance_cash_test.ts security_rbac_test.ts security_role_detail_test.ts audience_segments_test.ts audience_segments_source_test.ts custom_roles_test.ts approval_requests_test.ts retention_routes_test.ts abuse_rules_test.ts
+      - name: Full suite
+        working-directory: supabase/functions/lifemate-admin-api
+        run: deno task test
