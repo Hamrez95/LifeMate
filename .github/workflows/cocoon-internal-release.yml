@@ -119,59 +119,112 @@ jobs:
           (cd packages/cocoonmate_module && flutter pub get && flutter analyze --no-fatal-warnings --no-fatal-infos && flutter test)
           (cd cocoonmate && flutter pub get && flutter analyze --no-fatal-warnings --no-fatal-infos && flutter test)
 
-      - name: Build immutable internal APK
+      - name: Build compact immutable internal APKs
         working-directory: cocoonmate
         shell: bash
         run: |
           set -euo pipefail
-          flutter build apk --debug \
+          flutter build apk --release --split-per-abi \
             --build-name="$RELEASE_NAME" \
             --build-number="$GITHUB_RUN_NUMBER" \
             --dart-define="SUPABASE_URL=$SUPABASE_URL" \
             --dart-define="SUPABASE_PUBLISHABLE_KEY=$SUPABASE_PUBLISHABLE_KEY" \
             --dart-define="LIFEMATE_API_BASE_URL=$LIFEMATE_API_BASE_URL"
 
-      - name: Verify package identity and create provenance manifest
+      - name: Verify package identity and create compact provenance bundles
         shell: bash
         run: |
           set -euo pipefail
-          apk='cocoonmate/build/app/outputs/flutter-apk/app-debug.apk'
-          test -s "$apk"
           aapt_bin="$(find "$ANDROID_HOME/build-tools" -type f -name aapt | sort -V | tail -n 1)"
           test -x "$aapt_bin"
-          "$aapt_bin" dump badging "$apk" | grep -Fq "package: name='com.mylifemate.cocoonmate'"
-          "$aapt_bin" dump badging "$apk" | grep -Fq "application-label:'CocoonMate'"
-          "$aapt_bin" dump permissions "$apk" | grep -Fq 'android.permission.INTERNET'
-
           mkdir -p dist
           short_sha="${GITHUB_SHA:0:8}"
-          candidate="dist/cocoonmate-$RELEASE_NAME-$short_sha-$RELEASE_ENVIRONMENT-internal.apk"
-          cp "$apk" "$candidate"
-          apk_sha="$(sha256sum "$candidate" | awk '{print $1}')"
-          jq -n \
-            --arg application 'cocoonmate' \
-            --arg packageId 'com.mylifemate.cocoonmate' \
-            --arg releaseName "$RELEASE_NAME" \
-            --arg buildNumber "$GITHUB_RUN_NUMBER" \
-            --arg commit "$GITHUB_SHA" \
-            --arg workflowRun "$GITHUB_RUN_ID" \
-            --arg environment "$RELEASE_ENVIRONMENT" \
-            --arg apiOrigin "$LIFEMATE_API_BASE_URL" \
-            --arg sha256 "$apk_sha" \
-            --arg signing 'ephemeral Android debug signing; internal testing only' \
-            --arg builtAt "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
-            '{schemaVersion:1,application:$application,packageId:$packageId,releaseName:$releaseName,buildNumber:$buildNumber,commit:$commit,workflowRunId:$workflowRun,environment:$environment,apiOrigin:$apiOrigin,artifactSha256:$sha256,signing:$signing,builtAtUtc:$builtAt,rebuildAfterQaForbidden:true}' \
-            > dist/cocoonmate-provenance.json
+
+          for abi in arm64-v8a armeabi-v7a x86_64; do
+            apk="cocoonmate/build/app/outputs/flutter-apk/app-${abi}-release.apk"
+            test -s "$apk"
+            "$aapt_bin" dump badging "$apk" | grep -Fq "package: name='com.mylifemate.cocoonmate'"
+            "$aapt_bin" dump badging "$apk" | grep -Fq "application-label:'CocoonMate'"
+            "$aapt_bin" dump permissions "$apk" | grep -Fq 'android.permission.INTERNET'
+
+            mkdir -p "dist/$abi"
+            candidate="dist/$abi/cocoonmate-$RELEASE_NAME-$short_sha-$RELEASE_ENVIRONMENT-$abi-internal.apk"
+            cp "$apk" "$candidate"
+            sha256sum "$candidate" > "$candidate.sha256"
+          done
+
+          python3 - <<'PY'
+          import hashlib, json, os
+          from pathlib import Path
+
+          dist = Path('dist')
+          artifacts = {}
+          for abi in ('arm64-v8a', 'armeabi-v7a', 'x86_64'):
+              target = next((dist / abi).glob('*.apk'))
+              artifacts[abi] = {
+                  'file': target.name,
+                  'sha256': hashlib.sha256(target.read_bytes()).hexdigest(),
+                  'size_bytes': target.stat().st_size,
+              }
+
+          payload = {
+              'schemaVersion': 2,
+              'application': 'cocoonmate',
+              'packageId': 'com.mylifemate.cocoonmate',
+              'releaseName': os.environ['RELEASE_NAME'],
+              'buildNumber': os.environ['GITHUB_RUN_NUMBER'],
+              'commit': os.environ['GITHUB_SHA'],
+              'workflowRunId': os.environ['GITHUB_RUN_ID'],
+              'environment': os.environ['RELEASE_ENVIRONMENT'],
+              'apiOrigin': os.environ['LIFEMATE_API_BASE_URL'],
+              'buildMode': 'release',
+              'distribution': 'split-per-abi',
+              'recommendedPhoneAbi': 'arm64-v8a',
+              'artifacts': artifacts,
+              'signing': 'ephemeral Android debug signing; release-optimized internal testing only',
+              'rebuildAfterQaForbidden': True,
+          }
+          provenance = json.dumps(payload, indent=2, sort_keys=True) + '\n'
+          (dist / 'cocoonmate-provenance.json').write_text(provenance)
+          for abi in artifacts:
+              (dist / abi / 'cocoonmate-provenance.json').write_text(provenance)
+          PY
+
           jq -e \
             --arg sha "$GITHUB_SHA" \
             --arg environment "$RELEASE_ENVIRONMENT" \
-            '.commit == $sha and .environment == $environment and .packageId == "com.mylifemate.cocoonmate" and .rebuildAfterQaForbidden == true' \
+            '.commit == $sha and .environment == $environment and .packageId == "com.mylifemate.cocoonmate" and .rebuildAfterQaForbidden == true and .distribution == "split-per-abi"' \
             dist/cocoonmate-provenance.json >/dev/null
 
-      - name: Upload Cocoon candidate
+          arm64_bytes="$(stat -c%s dist/arm64-v8a/*.apk)"
+          if [[ "$arm64_bytes" -gt $((60 * 1024 * 1024)) ]]; then
+            echo "Compact arm64 APK unexpectedly exceeds 60 MiB: $arm64_bytes bytes" >&2
+            exit 1
+          fi
+
+      - name: Upload compact phone APK (arm64-v8a)
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:
-          name: cocoonmate-${{ env.RELEASE_NAME }}-${{ github.sha }}-${{ env.RELEASE_ENVIRONMENT }}
-          path: dist
+          name: cocoonmate-${{ env.RELEASE_NAME }}-${{ github.sha }}-${{ env.RELEASE_ENVIRONMENT }}-arm64-v8a
+          path: dist/arm64-v8a
           if-no-files-found: error
           retention-days: 30
+          compression-level: 0
+
+      - name: Upload legacy ARM APK (armeabi-v7a)
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: cocoonmate-${{ env.RELEASE_NAME }}-${{ github.sha }}-${{ env.RELEASE_ENVIRONMENT }}-armeabi-v7a
+          path: dist/armeabi-v7a
+          if-no-files-found: error
+          retention-days: 30
+          compression-level: 0
+
+      - name: Upload emulator APK (x86_64)
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: cocoonmate-${{ env.RELEASE_NAME }}-${{ github.sha }}-${{ env.RELEASE_ENVIRONMENT }}-x86_64
+          path: dist/x86_64
+          if-no-files-found: error
+          retention-days: 30
+          compression-level: 0
