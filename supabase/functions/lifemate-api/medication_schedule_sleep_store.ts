@@ -273,7 +273,6 @@ export function createMedicationScheduleSleepStore(databaseUrl: string) {
           proposals.push({
             treatmentPlanId: plan.id,
             medicationName,
-            mode,
             intervalHours,
             ...proposal,
           });
