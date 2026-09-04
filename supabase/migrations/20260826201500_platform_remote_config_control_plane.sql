@@ -112,9 +112,24 @@ create policy lifemate_admin_runtime_select
 on platform.control_rules for select to lifemate_admin_runtime
 using (true);
 
-revoke all on schema platform from public, anon, authenticated;
-revoke all on all tables in schema platform from public, anon, authenticated;
-revoke all on all functions in schema platform from public, anon, authenticated;
+-- Portable PostgreSQL does not provide Supabase's anon/authenticated roles.
+-- Always revoke PUBLIC, and revoke provider roles only when they actually exist.
+revoke all on schema platform from public;
+revoke all on all tables in schema platform from public;
+revoke all on all functions in schema platform from public;
+do $$
+begin
+  if to_regrole('anon') is not null then
+    execute 'revoke all on schema platform from anon';
+    execute 'revoke all on all tables in schema platform from anon';
+    execute 'revoke all on all functions in schema platform from anon';
+  end if;
+  if to_regrole('authenticated') is not null then
+    execute 'revoke all on schema platform from authenticated';
+    execute 'revoke all on all tables in schema platform from authenticated';
+    execute 'revoke all on all functions in schema platform from authenticated';
+  end if;
+end $$;
 grant usage on schema platform to lifemate_admin_runtime;
 grant select on platform.controls, platform.control_rules to lifemate_admin_runtime;
 
