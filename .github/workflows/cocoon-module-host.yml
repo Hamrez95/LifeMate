@@ -29,16 +29,7 @@ jobs:
         working-directory: packages/cocoonmate_module
         run: flutter pub get
       - name: Format module
-        shell: bash
-        run: |
-          set -euo pipefail
-          files=(packages/cocoonmate_module/lib packages/cocoonmate_module/test cocoonmate/lib cocoonmate/test)
-          dart format "${files[@]}"
-          if ! git diff --exit-code -- "${files[@]}"; then
-            echo '::error::Cocoon sources require canonical dart format'
-            git diff -- "${files[@]}"
-            exit 1
-          fi
+        run: dart format --output=none --set-exit-if-changed packages/cocoonmate_module/lib packages/cocoonmate_module/test cocoonmate/lib cocoonmate/test
       - name: Analyze module
         working-directory: packages/cocoonmate_module
         run: flutter analyze --no-fatal-warnings --no-fatal-infos
@@ -47,7 +38,11 @@ jobs:
         run: flutter test
       - name: Generate standalone Android platform
         working-directory: cocoonmate
-        run: flutter create --platforms=android --org com.mylifemate --project-name cocoonmate .
+        shell: bash
+        run: |
+          set -euo pipefail
+          flutter create --platforms=android --org com.mylifemate --project-name cocoonmate .
+          rm -f test/widget_test.dart analysis_options.yaml
       - name: Resolve standalone host
         working-directory: cocoonmate
         run: flutter pub get
