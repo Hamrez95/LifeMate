@@ -25,7 +25,8 @@ Deno.test("Admin support visible-message routes stay permissioned and audited", 
   );
 
   // Visible conversation messages are distinct from privacy-minimized internal
-  // notes. Do not log/persist message body inside Admin audit metadata.
+  // notes. Do not log/persist message body or an InternalNoteAdded event value
+  // inside the visible-message migration. Comments may document the separation.
   assertFalse(migration.includes("jsonb_build_object('body'"));
-  assertFalse(migration.includes("InternalNoteAdded"));
+  assertFalse(migration.includes("'InternalNoteAdded'"));
 });
