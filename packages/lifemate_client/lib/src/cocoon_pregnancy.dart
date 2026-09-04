@@ -4,6 +4,26 @@ enum CocoonEntitlementState { active, inactive, unknown }
 
 enum CocoonPregnancyEpisodeStatus { draft, active, ended, unknown }
 
+enum CocoonApplicationAvailability { available, unavailable, unknown }
+
+enum CocoonApplicationEnrollmentState {
+  active,
+  suspended,
+  left,
+  notEnrolled,
+  unknown,
+}
+
+enum CocoonCommerceEligibilityState {
+  entitled,
+  conversionEligible,
+  offerAvailable,
+  notEntitled,
+  unavailable,
+  error,
+  unknown,
+}
+
 CocoonEnrollmentState _enrollmentState(Object? value) => switch (value) {
       'not_enrolled' => CocoonEnrollmentState.notEnrolled,
       'draft' => CocoonEnrollmentState.draft,
@@ -23,6 +43,34 @@ CocoonPregnancyEpisodeStatus _episodeStatus(Object? value) => switch (value) {
       'active' => CocoonPregnancyEpisodeStatus.active,
       'ended' => CocoonPregnancyEpisodeStatus.ended,
       _ => CocoonPregnancyEpisodeStatus.unknown,
+    };
+
+CocoonApplicationAvailability _applicationAvailability(Object? value) =>
+    switch (value) {
+      'available' => CocoonApplicationAvailability.available,
+      'unavailable' => CocoonApplicationAvailability.unavailable,
+      _ => CocoonApplicationAvailability.unknown,
+    };
+
+CocoonApplicationEnrollmentState _applicationEnrollmentState(Object? value) =>
+    switch (value) {
+      'active' => CocoonApplicationEnrollmentState.active,
+      'suspended' => CocoonApplicationEnrollmentState.suspended,
+      'left' => CocoonApplicationEnrollmentState.left,
+      'not_enrolled' => CocoonApplicationEnrollmentState.notEnrolled,
+      _ => CocoonApplicationEnrollmentState.unknown,
+    };
+
+CocoonCommerceEligibilityState _commerceEligibilityState(Object? value) =>
+    switch (value) {
+      'entitled' => CocoonCommerceEligibilityState.entitled,
+      'conversion_eligible' =>
+        CocoonCommerceEligibilityState.conversionEligible,
+      'offer_available' => CocoonCommerceEligibilityState.offerAvailable,
+      'not_entitled' => CocoonCommerceEligibilityState.notEntitled,
+      'unavailable' => CocoonCommerceEligibilityState.unavailable,
+      'error' => CocoonCommerceEligibilityState.error,
+      _ => CocoonCommerceEligibilityState.unknown,
     };
 
 Map<String, dynamic> _object(Object? value) =>
@@ -151,12 +199,51 @@ class CocoonEntitlementSnapshot {
   final DateTime? currentPeriodEndUtc;
 }
 
+class CocoonApplicationStateSnapshot {
+  const CocoonApplicationStateSnapshot({
+    required this.availability,
+    required this.enrollmentState,
+  });
+
+  factory CocoonApplicationStateSnapshot.fromJson(Map<String, dynamic> json) =>
+      CocoonApplicationStateSnapshot(
+        availability: _applicationAvailability(json['availability']),
+        enrollmentState: _applicationEnrollmentState(json['enrollmentState']),
+      );
+
+  final CocoonApplicationAvailability availability;
+  final CocoonApplicationEnrollmentState enrollmentState;
+}
+
+class CocoonCommerceEligibilitySnapshot {
+  const CocoonCommerceEligibilitySnapshot({
+    required this.state,
+    required this.offerAvailable,
+    required this.conversionEligible,
+  });
+
+  factory CocoonCommerceEligibilitySnapshot.fromJson(
+    Map<String, dynamic> json,
+  ) =>
+      CocoonCommerceEligibilitySnapshot(
+        state: _commerceEligibilityState(json['state']),
+        offerAvailable: json['offerAvailable'] == true,
+        conversionEligible: json['conversionEligible'] == true,
+      );
+
+  final CocoonCommerceEligibilityState state;
+  final bool offerAvailable;
+  final bool conversionEligible;
+}
+
 class CocoonBootstrapSnapshot {
   const CocoonBootstrapSnapshot({
     required this.contractVersion,
     required this.personId,
     required this.enrollmentState,
     required this.entitlement,
+    required this.application,
+    required this.commerceEligibility,
     required this.activeEpisode,
     required this.serverAuthoritativeSharing,
     required this.serverAuthoritativeEntitlementActivation,
@@ -174,6 +261,12 @@ class CocoonBootstrapSnapshot {
       entitlement: CocoonEntitlementSnapshot.fromJson(
         _object(json['entitlementState']),
       ),
+      application: CocoonApplicationStateSnapshot.fromJson(
+        _object(json['applicationState']),
+      ),
+      commerceEligibility: CocoonCommerceEligibilitySnapshot.fromJson(
+        _object(json['commerceEligibility']),
+      ),
       activeEpisode: activeEpisode is Map<String, dynamic>
           ? CocoonPregnancyEpisode.fromJson(activeEpisode)
           : null,
@@ -190,6 +283,8 @@ class CocoonBootstrapSnapshot {
   final String personId;
   final CocoonEnrollmentState enrollmentState;
   final CocoonEntitlementSnapshot entitlement;
+  final CocoonApplicationStateSnapshot application;
+  final CocoonCommerceEligibilitySnapshot commerceEligibility;
   final CocoonPregnancyEpisode? activeEpisode;
   final bool serverAuthoritativeSharing;
   final bool serverAuthoritativeEntitlementActivation;
@@ -198,7 +293,7 @@ class CocoonBootstrapSnapshot {
 
   @override
   String toString() =>
-      'CocoonBootstrapSnapshot(contractVersion: $contractVersion, enrollmentState: ${enrollmentState.name}, entitlementState: ${entitlement.state.name})';
+      'CocoonBootstrapSnapshot(contractVersion: $contractVersion, enrollmentState: ${enrollmentState.name}, applicationEnrollmentState: ${application.enrollmentState.name}, entitlementState: ${entitlement.state.name}, commerceEligibility: ${commerceEligibility.state.name})';
 }
 
 class CocoonPregnancySnapshot {

@@ -9,6 +9,7 @@ on:
       - 'supabase/functions/lifemate-api/pregnancy_store.ts'
       - 'supabase/functions/lifemate-api/pregnancy_dating.ts'
       - 'supabase/functions/lifemate-api/pregnancy_authorization.ts'
+      - 'supabase/functions/lifemate-api/cocoon_routes.ts'
       - 'supabase/functions/lifemate-api/subscription_routes.ts'
       - 'packages/lifemate_client/lib/src/cocoon_pregnancy.dart'
       - 'packages/lifemate_client/lib/src/cocoon_pregnancy_api.dart'
@@ -36,12 +37,13 @@ jobs:
         with:
           deno-version: v2.9.4
       - name: Format pregnancy contract sources
-        run: deno fmt --check pregnancy_routes.ts pregnancy_routes_test.ts
+        run: deno fmt --check pregnancy_routes.ts pregnancy_routes_test.ts cocoon_routes.ts
       - name: Type check pregnancy contract sources
         run: >-
           deno check
           pregnancy_routes.ts
           pregnancy_routes_test.ts
+          cocoon_routes.ts
           subscription_routes.ts
       - name: Unit pregnancy contract tests
         run: deno test --no-check pregnancy_routes_test.ts
@@ -53,7 +55,8 @@ jobs:
           grep -Fq 'entitlementState' pregnancy_routes.ts
           grep -Fq 'pregnancy.owner.manage' pregnancy_routes.ts
           grep -Fq 'path.startsWith("/api/v1/cocoon/")' subscription_routes.ts
-          grep -Fq 'createPregnancyRouteHandler' subscription_routes.ts
+          grep -Fq 'createCocoonRouteHandler' subscription_routes.ts
+          grep -Fq 'createPregnancyRouteHandler' cocoon_routes.ts
           ! grep -Fq 'currentWeek' pregnancy_routes.ts
 
   client-contract:
@@ -73,7 +76,20 @@ jobs:
         working-directory: packages/lifemate_client
         run: flutter pub get
       - name: Format typed Cocoon client
-        run: dart format --output=none --set-exit-if-changed packages/lifemate_client/lib/src/cocoon_pregnancy.dart packages/lifemate_client/lib/src/cocoon_pregnancy_api.dart packages/lifemate_client/test/cocoon_pregnancy_contract_test.dart
+        shell: bash
+        run: |
+          set -euo pipefail
+          files=(
+            packages/lifemate_client/lib/src/cocoon_pregnancy.dart
+            packages/lifemate_client/lib/src/cocoon_pregnancy_api.dart
+            packages/lifemate_client/test/cocoon_pregnancy_contract_test.dart
+          )
+          dart format "${files[@]}"
+          if ! git diff --exit-code -- "${files[@]}"; then
+            echo '::error::Cocoon client sources require canonical dart format'
+            git diff -- "${files[@]}"
+            exit 1
+          fi
       - name: Analyze shared client
         working-directory: packages/lifemate_client
         run: flutter analyze --no-fatal-warnings --no-fatal-infos
