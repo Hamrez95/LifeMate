@@ -62,8 +62,10 @@ const guardStep = extractNamedStep(
 for (const [value, message] of [
   ["          test \"$GITHUB_REF\" = 'refs/heads/main'", 'deploy must require main ref'],
   ['          test "$(git rev-parse HEAD)" = "$GITHUB_SHA"', 'deploy must require exact checked-out SHA'],
-  ["          test \"${{ github.event.repository.private }}\" = 'true'", 'deploy must fail closed while repository visibility is public'],
-  ["          test \"${{ github.ref_protected }}\" = 'true'", 'deploy must fail closed while main is not protected by branch protection/ruleset'],
+  ["          test \"$GITHUB_REPOSITORY\" = 'Hamrez95/LifeMate'", 'deploy must require the canonical repository identity'],
+  ["          test \"$SUPABASE_PROJECT_REF\" = 'bwdvmniywyyijjauipnh'", 'deploy must require the canonical Supabase project identity'],
+  ['          test -n "$SUPABASE_ACCESS_TOKEN"', 'deploy must require the Supabase management credential'],
+  ['          test -n "$SUPABASE_PUBLISHABLE_KEY"', 'deploy must require the publishable key'],
 ]) {
   if (!guardStep.includes(value)) fail(message);
 }
@@ -96,5 +98,5 @@ if (!flutterWorkflow.includes('Use the protected `internal-beta-release` workflo
 }
 
 console.log(
-  'Production deploy/signing paths are source-bound to private protected main and GitHub Environment beta; generic Flutter CI cannot mint release-signed APKs.',
+  'Production deploy/signing paths are source-bound to exact canonical main/project identity and GitHub Environment beta; generic Flutter CI cannot mint release-signed APKs.',
 );
