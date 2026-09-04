@@ -52,6 +52,10 @@ prepare_android() {
       .
   )
 
+  # flutter create adds template analysis/test files that do not belong to the
+  # thin standalone host and can mask the real Cocoon test surface.
+  rm -f "$app_dir/test/widget_test.dart" "$app_dir/analysis_options.yaml"
+
   local manifest="$app_dir/android/app/src/main/AndroidManifest.xml"
   local gradle="$app_dir/android/app/build.gradle.kts"
   [[ -f "$manifest" ]] || fail "generated AndroidManifest.xml is missing"
