@@ -138,11 +138,13 @@ class WomenCycleInsightNotificationScheduler {
     return scheduled;
   }
 
-  Future<void> cancelAll() => _scheduler.sync(
-    reminders: const <LifeMateLocalReminder>[],
-    timeZone: 'UTC',
-    ownsPendingRequest: _ownsCycleInsightRequest,
-  );
+  Future<void> cancelAll() async {
+    await _scheduler.sync(
+      reminders: const <LifeMateLocalReminder>[],
+      timeZone: 'UTC',
+      ownsPendingRequest: _ownsCycleInsightRequest,
+    );
+  }
 
   LifeMateLocalReminder _reminder({
     required String sourceKey,
