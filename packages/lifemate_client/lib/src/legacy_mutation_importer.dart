@@ -55,9 +55,7 @@ final class LifeMateLegacyMutationImporter {
     }
     pending.sort((a, b) {
       final byDate = a.mutation.createdAtUtc.compareTo(b.mutation.createdAtUtc);
-      return byDate != 0
-          ? byDate
-          : a.mutation.id.compareTo(b.mutation.id);
+      return byDate != 0 ? byDate : a.mutation.id.compareTo(b.mutation.id);
     });
 
     var imported = 0;
