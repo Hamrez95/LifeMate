@@ -1,0 +1,45 @@
+name: Temporary Port Admin Type Debt Fixes
+
+on:
+  push:
+    branches:
+      - ci/admin-edge-format-baseline-20260904
+
+permissions:
+  contents: write
+
+jobs:
+  port:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ci/admin-edge-format-baseline-20260904
+          fetch-depth: 0
+      - name: Port isolated type-debt fixes from validated PR 772 commit
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch origin feat/769-canonical-active-users
+          source_sha=a9fbc6d1da190824b8a22673b38ec7866d5bfabb
+          paths=(
+            supabase/functions/lifemate-admin-api/audience_segments_service.ts
+            supabase/functions/lifemate-admin-api/database_client.ts
+            supabase/functions/lifemate-admin-api/finance_budget_test.ts
+            supabase/functions/lifemate-admin-api/finance_cash_test.ts
+            supabase/functions/lifemate-admin-api/finance_test.ts
+            supabase/functions/lifemate-admin-api/manual_entitlement_adjustments_service.ts
+            supabase/functions/lifemate-admin-api/research_dataset_policy_test.ts
+            supabase/functions/lifemate-admin-api/research_dataset_service.ts
+          )
+          git checkout "$source_sha" -- "${paths[@]}"
+          git diff --check
+          git add "${paths[@]}"
+          if git diff --cached --quiet; then
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git commit -m "fix(ci): port isolated admin edge API type debt fixes"
+          git push origin HEAD:ci/admin-edge-format-baseline-20260904
