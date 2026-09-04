@@ -4,7 +4,8 @@ import 'package:flutter_test/flutter_test.dart';
 void main() {
   final activeTime = DateTime.utc(2026, 10, 1);
 
-  test('weekly content maps deterministically without mutable current week', () {
+  test('weekly content maps deterministically without mutable current week',
+      () {
     final selection = bundledPregnancyClinicalContent.weekly(
       gestationalWeek: 4,
       locale: 'fa',
