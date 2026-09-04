@@ -64,7 +64,8 @@ CocoonApplicationEnrollmentState _applicationEnrollmentState(Object? value) =>
 CocoonCommerceEligibilityState _commerceEligibilityState(Object? value) =>
     switch (value) {
       'entitled' => CocoonCommerceEligibilityState.entitled,
-      'conversion_eligible' => CocoonCommerceEligibilityState.conversionEligible,
+      'conversion_eligible' =>
+        CocoonCommerceEligibilityState.conversionEligible,
       'offer_available' => CocoonCommerceEligibilityState.offerAvailable,
       'not_entitled' => CocoonCommerceEligibilityState.notEntitled,
       'unavailable' => CocoonCommerceEligibilityState.unavailable,
