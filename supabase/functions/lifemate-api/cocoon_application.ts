@@ -116,13 +116,14 @@ export function createCocoonApplicationBoundary(databaseUrl: string) {
       limit 1
     `;
     const status = String(enrollmentRows[0]?.status ?? "");
-    const enrollmentState: CocoonApplicationEnrollmentState = status === "Active"
-      ? "active"
-      : status === "Suspended"
-      ? "suspended"
-      : status === "Left"
-      ? "left"
-      : "not_enrolled";
+    const enrollmentState: CocoonApplicationEnrollmentState =
+      status === "Active"
+        ? "active"
+        : status === "Suspended"
+        ? "suspended"
+        : status === "Left"
+        ? "left"
+        : "not_enrolled";
     return { availability: "available", enrollmentState };
   }
 
