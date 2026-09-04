@@ -2,12 +2,21 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:lifemate_client/lifemate_client.dart';
 
 void main() {
-  test('bootstrap keeps enrollment and entitlement separate', () {
+  test('bootstrap keeps application, pregnancy and Commerce state separate', () {
     final value = CocoonBootstrapSnapshot.fromJson({
       'contractVersion': 1,
       'subject': {'personId': 'person-secret'},
       'enrollmentState': 'active',
       'entitlementState': {'state': 'inactive', 'reference': null},
+      'applicationState': {
+        'availability': 'available',
+        'enrollmentState': 'active',
+      },
+      'commerceEligibility': {
+        'state': 'conversion_eligible',
+        'offerAvailable': false,
+        'conversionEligible': true,
+      },
       'activeEpisode': null,
       'runtime': {
         'serverAuthoritativeSharing': true,
@@ -20,8 +29,45 @@ void main() {
 
     expect(value.enrollmentState, CocoonEnrollmentState.active);
     expect(value.entitlement.state, CocoonEntitlementState.inactive);
+    expect(
+      value.application.availability,
+      CocoonApplicationAvailability.available,
+    );
+    expect(
+      value.application.enrollmentState,
+      CocoonApplicationEnrollmentState.active,
+    );
+    expect(
+      value.commerceEligibility.state,
+      CocoonCommerceEligibilityState.conversionEligible,
+    );
+    expect(value.commerceEligibility.conversionEligible, isTrue);
     expect(value.cachedOwnerSnapshotAllowed, isTrue);
     expect(value.cachedSharedSnapshotAllowed, isFalse);
+  });
+
+  test('bootstrap stays backward compatible when additive fields are missing', () {
+    final value = CocoonBootstrapSnapshot.fromJson({
+      'contractVersion': 1,
+      'subject': {'personId': 'person-secret'},
+      'enrollmentState': 'not_enrolled',
+      'entitlementState': {'state': 'unknown'},
+      'activeEpisode': null,
+      'runtime': const <String, dynamic>{},
+    });
+
+    expect(
+      value.application.availability,
+      CocoonApplicationAvailability.unknown,
+    );
+    expect(
+      value.application.enrollmentState,
+      CocoonApplicationEnrollmentState.unknown,
+    );
+    expect(
+      value.commerceEligibility.state,
+      CocoonCommerceEligibilityState.unknown,
+    );
   });
 
   test('DTO parsing is backward compatible with missing optional fields', () {
