@@ -90,9 +90,11 @@ class ContextualNotificationProvider extends NotificationProvider {
       return WellMateNotificationPermissionResult.denied;
     }
 
-    // Exact-alarm access is part of reliable reminder delivery on supported
-    // Android versions. It is requested only inside this explicit flow.
-    await android.requestExactAlarmsPermission();
+    // Exact-alarm access is requested only inside this explicit flow. A denial
+    // no longer drops reminders: the shared scheduler records and uses the
+    // inexact-while-idle fallback until exact access is restored.
+    final exactAlarmGranted = await android.requestExactAlarmsPermission();
+    recordNativePermissionResult(exactAlarmGranted: exactAlarmGranted);
     _nativePermissionFlowUnlocked = true;
 
     await super.syncReminders(
