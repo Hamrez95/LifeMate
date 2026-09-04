@@ -40,7 +40,11 @@ Deno.test("Cocoon Commerce eligibility keeps unavailable, entitlement, conversio
       offerAvailable: true,
       conversionEligible: false,
     }),
-    { state: "offer_available", offerAvailable: true, conversionEligible: false },
+    {
+      state: "offer_available",
+      offerAvailable: true,
+      conversionEligible: false,
+    },
   );
   assertEquals(
     classifyCocoonCommerceEligibility({
