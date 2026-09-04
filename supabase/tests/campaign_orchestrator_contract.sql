@@ -92,24 +92,23 @@ begin
      or position('late_opt_out' in v_definition)=0 then
     raise exception 'worker delivery projection must re-check promotional consent immediately before send';
   end if;
-  if position("status='suppressed'" in replace(v_definition,' ',''))=0 then
+  if position('status=''suppressed''' in replace(v_definition,' ',''))=0 then
     raise exception 'late opt-out must terminally suppress delivery rather than retry it';
   end if;
 
   v_definition := lower(pg_get_functiondef(v_terminal));
-  if position("status='sending'" in replace(v_definition,' ',''))=0
-     or position("'completed'" in v_definition)=0
-     or position("'failed'" in v_definition)=0 then
+  if position('status=''sending''' in replace(v_definition,' ',''))=0
+     or position('''completed''' in v_definition)=0
+     or position('''failed''' in v_definition)=0 then
     raise exception 'terminal delivery changes must close the campaign execution';
   end if;
 
-  v_definition := lower(pg_get_functiondef(v_result_v2));
-  if position('for update' in v_definition)=0 then
+  v_definition := regexp_replace(lower(pg_get_functiondef(v_result_v2)), E'\\s+', '', 'g');
+  if position('forupdate' in v_definition)=0 then
     raise exception 'delivery result recording must lock the delivery job';
   end if;
-  if position('outcomeunknown' in replace(v_definition,' ',''))=0
-     or position('permanentfailed' in replace(v_definition,' ',''))=0
-     or position('neitherisautomaticallyretried' in replace(v_definition,' ',''))=0 then
+  if position('elsifp_resultin(''permanentfailed'',''outcomeunknown'')then' in v_definition)=0
+     or position('setstatus=p_result,provider=p_provider,next_attempt_at_utc=null' in v_definition)=0 then
     raise exception 'unknown and permanent provider outcomes must be terminal without automatic retry';
   end if;
 end $$;

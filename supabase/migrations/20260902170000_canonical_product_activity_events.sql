@@ -44,7 +44,16 @@ create index if not exists ix_product_activity_account_event_time
   on analytics.product_activity_events(account_id, event_name, received_at_utc desc);
 
 alter table analytics.product_activity_events enable row level security;
-revoke all on table analytics.product_activity_events from public, anon, authenticated;
+revoke all on table analytics.product_activity_events from public;
+do $$
+begin
+  if to_regrole('anon') is not null then
+    execute 'revoke all on table analytics.product_activity_events from anon';
+  end if;
+  if to_regrole('authenticated') is not null then
+    execute 'revoke all on table analytics.product_activity_events from authenticated';
+  end if;
+end $$;
 
 create or replace function public.record_product_activity_event(
   p_event_id uuid,
@@ -142,8 +151,16 @@ begin
 end;
 $$;
 
-revoke all on function public.record_product_activity_event(uuid,varchar,varchar,smallint,varchar,varchar,varchar,varchar,varchar) from public, anon;
-grant execute on function public.record_product_activity_event(uuid,varchar,varchar,smallint,varchar,varchar,varchar,varchar,varchar) to authenticated;
+revoke all on function public.record_product_activity_event(uuid,varchar,varchar,smallint,varchar,varchar,varchar,varchar,varchar) from public;
+do $$
+begin
+  if to_regrole('anon') is not null then
+    execute 'revoke all on function public.record_product_activity_event(uuid,varchar,varchar,smallint,varchar,varchar,varchar,varchar,varchar) from anon';
+  end if;
+  if to_regrole('authenticated') is not null then
+    execute 'grant execute on function public.record_product_activity_event(uuid,varchar,varchar,smallint,varchar,varchar,varchar,varchar,varchar) to authenticated';
+  end if;
+end $$;
 
 comment on function public.record_product_activity_event(uuid,varchar,varchar,smallint,varchar,varchar,varchar,varchar,varchar) is
   'Narrow authenticated ingestion contract for privacy-safe product activity. Resolves canonical account from the verified JWT subject, deduplicates by event_id and accepts no arbitrary metadata.';

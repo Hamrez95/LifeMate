@@ -93,6 +93,8 @@ alter table commerce.manual_entitlement_adjustments enable row level security;
 alter table commerce.manual_entitlement_adjustments force row level security;
 revoke all on commerce.manual_entitlement_adjustments from public,anon,authenticated;
 grant select,insert on commerce.manual_entitlement_adjustments to lifemate_admin_runtime;
+drop policy if exists manual_entitlement_adjustments_admin_read on commerce.manual_entitlement_adjustments;
+drop policy if exists manual_entitlement_adjustments_admin_insert on commerce.manual_entitlement_adjustments;
 create policy manual_entitlement_adjustments_admin_read on commerce.manual_entitlement_adjustments
   for select to lifemate_admin_runtime using(true);
 create policy manual_entitlement_adjustments_admin_insert on commerce.manual_entitlement_adjustments

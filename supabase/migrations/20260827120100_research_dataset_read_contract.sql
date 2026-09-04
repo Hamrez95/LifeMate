@@ -1,6 +1,10 @@
 -- #497: function-only Founder read projection for Research Studio consumers.
 
-create or replace function analytics.list_research_datasets(p_actor uuid)
+-- CREATE OR REPLACE cannot change an existing function's OUT/RETURNS TABLE row type.
+-- This migration intentionally evolves the read contract, so make reruns explicit and safe.
+drop function if exists analytics.list_research_datasets(uuid);
+
+create function analytics.list_research_datasets(p_actor uuid)
 returns table(
   dataset_id uuid,
   name varchar,

@@ -8,8 +8,19 @@
 alter table commerce.promotions enable row level security;
 alter table commerce.discount_codes enable row level security;
 
-revoke all on table commerce.promotions from public, anon, authenticated;
-revoke all on table commerce.discount_codes from public, anon, authenticated;
+revoke all on table commerce.promotions from public;
+revoke all on table commerce.discount_codes from public;
+do $$
+begin
+  if to_regrole('anon') is not null then
+    execute 'revoke all on table commerce.promotions from anon';
+    execute 'revoke all on table commerce.discount_codes from anon';
+  end if;
+  if to_regrole('authenticated') is not null then
+    execute 'revoke all on table commerce.promotions from authenticated';
+    execute 'revoke all on table commerce.discount_codes from authenticated';
+  end if;
+end $$;
 
 drop policy if exists lifemate_admin_runtime_select on commerce.promotions;
 create policy lifemate_admin_runtime_select

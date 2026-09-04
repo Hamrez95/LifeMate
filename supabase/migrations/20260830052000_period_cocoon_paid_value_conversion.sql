@@ -1,7 +1,7 @@
 begin;
 
 -- #618: transfer the remaining actual paid value from Period to CocoonMate.
-create table commerce.subscription_payment_sources(
+create table if not exists commerce.subscription_payment_sources(
   subscription_id uuid primary key references commerce.subscriptions(id) on delete restrict,
   transaction_id uuid not null unique references commerce.transactions(id) on delete restrict,
   service_period_start_utc timestamptz not null,
@@ -10,7 +10,7 @@ create table commerce.subscription_payment_sources(
   check(service_period_end_utc>service_period_start_utc)
 );
 
-create table commerce.subscription_conversions(
+create table if not exists commerce.subscription_conversions(
   id uuid primary key default gen_random_uuid(),
   account_id uuid not null references identity.accounts(id) on delete restrict,
   source_subscription_id uuid not null unique references commerce.subscriptions(id) on delete restrict,
@@ -29,7 +29,7 @@ create table commerce.subscription_conversions(
   request_hash varchar(128) not null check(request_hash ~ '^[0-9a-f]{64,128}$'),
   unique(account_id,idempotency_key)
 );
-create index ix_subscription_conversions_account on commerce.subscription_conversions(account_id,converted_at_utc desc);
+create index if not exists ix_subscription_conversions_account on commerce.subscription_conversions(account_id,converted_at_utc desc);
 
 alter table commerce.subscription_payment_sources enable row level security;
 alter table commerce.subscription_payment_sources force row level security;
@@ -38,6 +38,9 @@ alter table commerce.subscription_conversions force row level security;
 revoke all on commerce.subscription_payment_sources,commerce.subscription_conversions from public,anon,authenticated;
 grant select,insert on commerce.subscription_payment_sources,commerce.subscription_conversions to lifemate_edge_runtime;
 grant select on commerce.subscription_conversions to lifemate_admin_runtime;
+drop policy if exists subscription_payment_sources_edge on commerce.subscription_payment_sources;
+drop policy if exists subscription_conversions_edge on commerce.subscription_conversions;
+drop policy if exists subscription_conversions_admin_read on commerce.subscription_conversions;
 create policy subscription_payment_sources_edge on commerce.subscription_payment_sources for all to lifemate_edge_runtime using(true) with check(true);
 create policy subscription_conversions_edge on commerce.subscription_conversions for all to lifemate_edge_runtime using(true) with check(true);
 create policy subscription_conversions_admin_read on commerce.subscription_conversions for select to lifemate_admin_runtime using(true);

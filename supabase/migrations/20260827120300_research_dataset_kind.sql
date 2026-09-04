@@ -15,8 +15,10 @@ alter table analytics.dataset_definitions
     'WomenCycleAggregate'
   ));
 
+-- Match the exact signature created below so reruns replace, rather than collide with,
+-- the dataset-kind-aware contract.
 drop function if exists analytics.create_research_dataset(
-  uuid,varchar,varchar,varchar,jsonb,smallint,integer,integer,jsonb,varchar,uuid
+  uuid,varchar,varchar,varchar,varchar,jsonb,smallint,integer,integer,jsonb,varchar,uuid
 );
 
 create function analytics.create_research_dataset(

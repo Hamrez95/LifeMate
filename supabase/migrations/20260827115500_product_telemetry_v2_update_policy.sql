@@ -213,11 +213,28 @@ alter table platform.product_update_policies force row level security;
 alter table platform.product_update_policy_history enable row level security;
 alter table platform.product_update_policy_history force row level security;
 
-revoke all on analytics.product_version_presence from public, anon, authenticated;
-revoke all on platform.product_update_policies from public, anon, authenticated;
-revoke all on platform.product_update_policy_history from public, anon, authenticated;
-revoke all on function analytics.record_product_version_presence(uuid,varchar,varchar,varchar,varchar,varchar) from public, anon, authenticated;
-revoke all on function platform.current_product_update_policy(varchar,varchar) from public, anon, authenticated;
+revoke all on analytics.product_version_presence from public;
+revoke all on platform.product_update_policies from public;
+revoke all on platform.product_update_policy_history from public;
+revoke all on function analytics.record_product_version_presence(uuid,varchar,varchar,varchar,varchar,varchar) from public;
+revoke all on function platform.current_product_update_policy(varchar,varchar) from public;
+do $$
+begin
+  if to_regrole('anon') is not null then
+    execute 'revoke all on analytics.product_version_presence from anon';
+    execute 'revoke all on platform.product_update_policies from anon';
+    execute 'revoke all on platform.product_update_policy_history from anon';
+    execute 'revoke all on function analytics.record_product_version_presence(uuid,varchar,varchar,varchar,varchar,varchar) from anon';
+    execute 'revoke all on function platform.current_product_update_policy(varchar,varchar) from anon';
+  end if;
+  if to_regrole('authenticated') is not null then
+    execute 'revoke all on analytics.product_version_presence from authenticated';
+    execute 'revoke all on platform.product_update_policies from authenticated';
+    execute 'revoke all on platform.product_update_policy_history from authenticated';
+    execute 'revoke all on function analytics.record_product_version_presence(uuid,varchar,varchar,varchar,varchar,varchar) from authenticated';
+    execute 'revoke all on function platform.current_product_update_policy(varchar,varchar) from authenticated';
+  end if;
+end $$;
 
 do $$
 begin
