@@ -40,7 +40,7 @@ Deno.test("research pseudonymous row export remains explicitly unavailable", () 
     })
   );
   assertEquals(
-    error.message,
+    error instanceof Error ? error.message : String(error),
     "Pseudonymous row-level research export is not available yet.",
   );
 });

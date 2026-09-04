@@ -1,4 +1,8 @@
-import { type AdminSql, getAdminSql } from "./database_client.ts";
+import {
+  type AdminSql,
+  encodeAdminJson,
+  getAdminSql,
+} from "./database_client.ts";
 import {
   evaluateSegmentRuleSet,
   type SegmentAttribute,
@@ -219,7 +223,7 @@ async function consumeIdempotency<T>(input: {
     await tx`
       update admin.idempotency_keys
       set status='Completed',response_status=200,response_json=${
-      tx.json(response as object)
+      encodeAdminJson(tx, response)
     },updated_at_utc=now()
       where actor_account_id=${input.actorAccountId}::uuid
         and operation=${input.operation}

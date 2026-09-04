@@ -1,4 +1,4 @@
-import { getAdminSql } from "./database_client.ts";
+import { encodeAdminJson, getAdminSql } from "./database_client.ts";
 import type { ManualEntitlementPayload } from "./manual_entitlement_adjustments.ts";
 import { ApiError } from "./validation.ts";
 
@@ -205,9 +205,9 @@ export function createManualEntitlementAdjustmentStore(databaseUrl: string) {
               select commerce.manual_adjustment_approval_valid(
                 ${input.actorAccountId}::uuid,${input.payload.subjectAccountId}::uuid,
                 ${input.payload.approvalRequestId}::uuid,${input.payload.approvalExpectedVersion}::bigint,
-                ${tx.json(preview.before as Record<string, unknown>)}::jsonb,
-                ${tx.json(preview.delta as Record<string, unknown>)}::jsonb,
-                ${tx.json(preview.after as Record<string, unknown>)}::jsonb,
+                ${encodeAdminJson(tx, preview.before)}::jsonb,
+                ${encodeAdminJson(tx, preview.delta)}::jsonb,
+                ${encodeAdminJson(tx, preview.after)}::jsonb,
                 ${input.correlationId}::uuid
               )
             `;
@@ -278,11 +278,9 @@ export function createManualEntitlementAdjustmentStore(databaseUrl: string) {
               ${input.payload.targetId}::uuid,${input.payload.entitlementId}::uuid,${input.payload.operation}::varchar,
               ${input.payload.scheduleMode}::varchar,${input.payload.scheduleAmount}::integer,
               ${input.payload.exactExpiresAtUtc}::timestamptz,${input.payload.referenceAtUtc}::timestamptz,
-              ${affected}::uuid[],${
-            tx.json(preview.before as Record<string, unknown>)
-          }::jsonb,
+              ${affected}::uuid[],${encodeAdminJson(tx, preview.before)}::jsonb,
               ${
-            tx.json(after as Record<string, unknown>)
+            encodeAdminJson(tx, after)
           }::jsonb,${input.payload.approvalRequestId}::uuid,
               ${decisionId}::uuid,${input.actorAccountId}::uuid,${input.payload.reason}::varchar,
               ${input.correlationId}::uuid,${input.idempotencyKey}::varchar,${input.requestHash}::varchar
