@@ -37,7 +37,7 @@ void main() {
     final host = FakeHost(CocoonEntryState.activePregnancy, const Locale('fa'));
     await tester.pumpWidget(appFor(host));
 
-    expect(find.text('خانه'), findsOneWidget);
+    expect(find.text('خانه'), findsNWidgets(2));
     final directionality = tester.widget<Directionality>(
       find
           .descendant(
