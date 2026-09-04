@@ -80,6 +80,7 @@ final class LifeMateLegacyMutationImporter {
       if (mutation.id.isEmpty ||
           mutation.accountId.isEmpty ||
           mutation.clientRequestId.isEmpty ||
+          mutation.id != '${mutation.accountId}:${mutation.clientRequestId}' ||
           !mutation.createdAtUtc.isUtc) {
         return null;
       }
