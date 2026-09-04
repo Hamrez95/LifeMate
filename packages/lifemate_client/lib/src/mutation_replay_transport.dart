@@ -90,7 +90,7 @@ final class LifeMateHttpMutationReplayTransport
     final resolved = _apiBaseUri.replace(
       path: '$basePath/$relativePath',
       query: relative.hasQuery ? relative.query : null,
-      fragment: '',
+      fragment: null,
     );
     if (resolved.scheme != _apiBaseUri.scheme ||
         resolved.host != _apiBaseUri.host ||
@@ -119,6 +119,6 @@ final class LifeMateHttpMutationReplayTransport
         'LifeMate replay requires HTTPS outside localhost.',
       );
     }
-    return value.replace(query: null, fragment: '');
+    return value.replace(query: null, fragment: null);
   }
 }
