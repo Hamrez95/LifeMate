@@ -155,11 +155,11 @@ Deno.test("custom role routes use purpose-specific write permission and no brows
   );
   assertStringIncludes(
     routes,
-    'requirePermission(admin,"security.roles.write")',
+    'requirePermission(admin, "security.roles.write")',
   );
   assertStringIncludes(
     routes,
-    'requirePermission(admin,"security.audit.read")',
+    'requirePermission(admin, "security.audit.read")',
   );
   assert(!routes.includes("service_role"));
   assert(!service.includes("supabase.from"));
