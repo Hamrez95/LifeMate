@@ -294,6 +294,7 @@ class NotificationProvider extends ChangeNotifier {
         if (item.status == 'scheduled') _policyKeyForItem(item): item,
     };
     final preservedSnoozeIds = <int>{};
+    final preservedSnoozeKeys = <String>{};
     final pending = await _notifications.pendingNotificationRequests();
     for (final request in pending) {
       final payload = request.payload;
@@ -301,6 +302,7 @@ class NotificationProvider extends ChangeNotifier {
       final target = decodeActionPayload(payload);
       if (target != null && activeScheduledItems.containsKey(target.key)) {
         preservedSnoozeIds.add(request.id);
+        preservedSnoozeKeys.add(target.key);
       }
     }
 
@@ -309,11 +311,7 @@ class NotificationProvider extends ChangeNotifier {
     for (final item in items) {
       if (item.type != 'medicine' || item.status != 'scheduled') continue;
       final itemKey = _policyKeyForItem(item);
-      if (preservedSnoozeIds.contains(
-        notificationIdFor(itemKey, sourceRevision: item.version),
-      )) {
-        continue;
-      }
+      if (preservedSnoozeKeys.contains(itemKey)) continue;
       final scheduledUtc = _scheduledUtc(item, location);
       if (scheduledUtc == null) continue;
       final decision = LifeMateNotificationIntelligence.evaluate(
@@ -387,11 +385,7 @@ class NotificationProvider extends ChangeNotifier {
         continue;
       }
       final itemKey = _policyKeyForItem(item);
-      final stableId = notificationIdFor(
-        itemKey,
-        sourceRevision: item.version,
-      );
-      if (preservedSnoozeIds.contains(stableId)) continue;
+      if (preservedSnoozeKeys.contains(itemKey)) continue;
       final scheduledUtc = _scheduledUtc(item, location);
       if (scheduledUtc == null) continue;
       final decision = LifeMateNotificationIntelligence.evaluate(
@@ -437,7 +431,8 @@ class NotificationProvider extends ChangeNotifier {
       timeZone: _latestTimeZone,
       exactAlarmGranted: _exactAlarmGranted,
       ownsPendingRequest: _ownsWellMatePendingRequest,
-      preservePendingRequest: (request) => preservedSnoozeIds.contains(request.id),
+      preservePendingRequest: (request) =>
+          preservedSnoozeIds.contains(request.id),
     );
     _updateFallbackState(result.usedInexactFallback);
   }
