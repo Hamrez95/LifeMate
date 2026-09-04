@@ -9,14 +9,16 @@ import 'offline_mutation_queue.dart';
 /// copy has been durably persisted.
 final class LifeMateLegacyMutationImporter {
   LifeMateLegacyMutationImporter({
-    required LifeMateOfflineMutationQueue legacyQueue,
     required LifeMateLocalMutationOutbox outbox,
     required Uri apiBaseUri,
-  }) : _legacyQueue = legacyQueue,
+    LifeMateMutationStorage? legacyStorage,
+  }) : _legacyStorage = legacyStorage ?? LifeMateSecureMutationStorage(),
        _outbox = outbox,
        _apiBaseUri = apiBaseUri;
 
-  final LifeMateOfflineMutationQueue _legacyQueue;
+  static const _legacyItemPrefix = 'lifemate.offline_mutation.v2.';
+
+  final LifeMateMutationStorage _legacyStorage;
   final LifeMateLocalMutationOutbox _outbox;
   final Uri _apiBaseUri;
 
@@ -27,8 +29,12 @@ final class LifeMateLegacyMutationImporter {
 
   /// Returns the number of legacy records safely imported and removed.
   ///
-  /// Invalid or origin-mismatched records are retained in the legacy queue so
-  /// migration never silently discards an action the UI previously accepted.
+  /// Migration intentionally reads the legacy secure-storage records directly
+  /// instead of calling [LifeMateOfflineMutationQueue.pendingForAccount]. The
+  /// old queue prunes by a seven-day TTL; #831 must not silently lose an action
+  /// that was previously accepted just because migration happened later.
+  /// Invalid, foreign-account or origin-mismatched records are retained for
+  /// explicit handling.
   Future<int> importPending({
     required LifeMateLocalNamespace namespace,
     required String timeZone,
@@ -39,17 +45,50 @@ final class LifeMateLegacyMutationImporter {
       throw ArgumentError('Account and timezone are required for migration.');
     }
 
-    final pending = await _legacyQueue.pendingForAccount(accountId);
+    final raw = await _legacyStorage.readAll();
+    final pending = <({String storageKey, LifeMateQueuedMutation mutation})>[];
+    for (final entry in raw.entries) {
+      if (!entry.key.startsWith(_legacyItemPrefix)) continue;
+      final decoded = _decodeLegacy(entry.value);
+      if (decoded == null || decoded.accountId != accountId) continue;
+      pending.add((storageKey: entry.key, mutation: decoded));
+    }
+    pending.sort((a, b) {
+      final byDate = a.mutation.createdAtUtc.compareTo(b.mutation.createdAtUtc);
+      return byDate != 0
+          ? byDate
+          : a.mutation.id.compareTo(b.mutation.id);
+    });
+
     var imported = 0;
-    for (final legacy in pending) {
-      final converted = _convert(legacy, zone);
+    for (final item in pending) {
+      final converted = _convert(item.mutation, zone);
       if (converted == null) continue;
 
       await _outbox.enqueue(namespace: namespace, mutation: converted);
-      await _legacyQueue.remove(legacy.id);
+      await _legacyStorage.delete(item.storageKey);
       imported += 1;
     }
     return imported;
+  }
+
+  LifeMateQueuedMutation? _decodeLegacy(String raw) {
+    try {
+      final decoded = jsonDecode(raw);
+      if (decoded is! Map) return null;
+      final mutation = LifeMateQueuedMutation.fromJson(
+        Map<String, dynamic>.from(decoded),
+      );
+      if (mutation.id.isEmpty ||
+          mutation.accountId.isEmpty ||
+          mutation.clientRequestId.isEmpty ||
+          !mutation.createdAtUtc.isUtc) {
+        return null;
+      }
+      return mutation;
+    } catch (_) {
+      return null;
+    }
   }
 
   LifeMateDurableMutation? _convert(
