@@ -1,0 +1,33 @@
+name: temp-offline-03-format-artifact
+
+on:
+  pull_request:
+    paths:
+      - 'packages/lifemate_core/**'
+      - '.github/workflows/temp-offline-03-format-artifact.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  format-artifact:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
+      - uses: subosito/flutter-action@4cab68ce0f1c7c924f688bff4792e044f1aeb30c
+        with:
+          flutter-version: '3.44.0'
+          channel: stable
+          cache: true
+      - name: Format outbox sources
+        working-directory: packages/lifemate_core
+        run: |
+          dart format lib/src/local_mutation_outbox.dart test/local_mutation_outbox_test.dart
+          mkdir -p ../../.tmp-offline-03-format
+          cp lib/src/local_mutation_outbox.dart ../../.tmp-offline-03-format/local_mutation_outbox.dart
+          cp test/local_mutation_outbox_test.dart ../../.tmp-offline-03-format/local_mutation_outbox_test.dart
+      - uses: actions/upload-artifact@v4
+        with:
+          name: offline-03-formatted-sources
+          path: .tmp-offline-03-format
+          if-no-files-found: error
