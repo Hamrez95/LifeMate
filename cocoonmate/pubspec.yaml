@@ -1,0 +1,22 @@
+name: cocoonmate
+description: Thin standalone host for the reusable CocoonMate module.
+publish_to: 'none'
+version: 0.1.0+1
+environment:
+  sdk: ">=3.0.0 <4.0.0"
+dependencies:
+  flutter:
+    sdk: flutter
+  flutter_localizations:
+    sdk: flutter
+  cocoonmate_module:
+    path: ../packages/cocoonmate_module
+  lifemate_client:
+    path: ../packages/lifemate_client
+  lifemate_ui:
+    path: ../packages/lifemate_ui
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+flutter:
+  uses-material-design: true

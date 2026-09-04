@@ -4,7 +4,7 @@ import { ApiError } from "./validation.ts";
 
 type Row = Record<string, unknown>;
 
-const products = new Set(["wellmate", "caremate"]);
+const products = new Set(["wellmate", "caremate", "cocoonmate"]);
 const platforms = new Set([
   "android",
   "ios",
@@ -17,13 +17,19 @@ const semver = /^\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?(?:\+[0-9A-Za-z.-]+)?$/;
 
 export function parseClientRuntimeConfigQuery(url: URL) {
   const product = (url.searchParams.get("product") ?? "").trim().toLowerCase();
-  const platform = (url.searchParams.get("platform") ?? "").trim().toLowerCase();
+  const platform = (url.searchParams.get("platform") ?? "").trim()
+    .toLowerCase();
   const currentVersion = (url.searchParams.get("currentVersion") ?? "").trim();
-  const betaRaw = (url.searchParams.get("beta") ?? "false").trim().toLowerCase();
+  const betaRaw = (url.searchParams.get("beta") ?? "false").trim()
+    .toLowerCase();
   if (!products.has(product)) invalid("product_invalid", "product");
   if (!platforms.has(platform)) invalid("platform_invalid", "platform");
-  if (!semver.test(currentVersion)) invalid("app_version_invalid", "currentVersion");
-  if (betaRaw !== "true" && betaRaw !== "false") invalid("beta_invalid", "beta");
+  if (!semver.test(currentVersion)) {
+    invalid("app_version_invalid", "currentVersion");
+  }
+  if (betaRaw !== "true" && betaRaw !== "false") {
+    invalid("beta_invalid", "beta");
+  }
   return {
     product,
     platform,
@@ -58,9 +64,11 @@ export function createClientRemoteConfigStore(databaseUrl: string) {
       input.platform,
       input.currentVersion,
     );
-    const definitionVersion = controls.reduce(
+    const definitionVersion = controls.reduce<number>(
       (max, item) => {
-        if (!item || typeof item !== "object" || Array.isArray(item)) return max;
+        if (!item || typeof item !== "object" || Array.isArray(item)) {
+          return max;
+        }
         const value = Number((item as Row).definitionVersion ?? 0);
         return Number.isInteger(value) && value > max ? value : max;
       },
@@ -71,7 +79,9 @@ export function createClientRemoteConfigStore(databaseUrl: string) {
       platform: input.platform,
       controls,
       updatePolicy,
-      snapshotVersion: `controls-${definitionVersion}:update-${Number(updatePolicy.policyVersion ?? 0)}`,
+      snapshotVersion: `controls-${definitionVersion}:update-${
+        Number(updatePolicy.policyVersion ?? 0)
+      }`,
       authoritative: "server",
       cacheTtlSeconds: 60,
       fetchedAtUtc: new Date().toISOString(),
