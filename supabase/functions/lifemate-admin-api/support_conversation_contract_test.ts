@@ -1,7 +1,4 @@
-import {
-  assertFalse,
-  assertStringIncludes,
-} from "jsr:@std/assert@1.0.14";
+import { assertFalse, assertStringIncludes } from "jsr:@std/assert@1.0.14";
 
 Deno.test("Admin support visible-message routes stay permissioned and audited", async () => {
   const routes = await Deno.readTextFile(

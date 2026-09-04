@@ -42,7 +42,9 @@ export function createElevatedHealthRouteHandler(databaseUrl: string) {
     if (status >= 400 || status < 200 || status > 299) {
       throw new ApiError(
         Number.isInteger(status) ? status : 503,
-        typeof result.code === "string" ? result.code : "elevated_health_unavailable",
+        typeof result.code === "string"
+          ? result.code
+          : "elevated_health_unavailable",
         "Elevated health read was not completed.",
       );
     }

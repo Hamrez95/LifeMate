@@ -12,7 +12,11 @@ function object(value: unknown, code: string): Record<string, unknown> {
 function httpStatus(value: Record<string, unknown>): number {
   const status = Number(value.httpStatus);
   if (!Number.isInteger(status) || status < 100 || status > 599) {
-    throw new ApiError(503, "entitlement_adjustment_unavailable", "Workflow returned an invalid status.");
+    throw new ApiError(
+      503,
+      "entitlement_adjustment_unavailable",
+      "Workflow returned an invalid status.",
+    );
   }
   return status;
 }
@@ -25,7 +29,10 @@ function iso(value: unknown): string | null {
 export function createManualEntitlementAdjustmentStore(databaseUrl: string) {
   const sql = getAdminSql(databaseUrl);
 
-  async function previewWith(client: typeof sql, payload: ManualEntitlementPayload) {
+  async function previewWith(
+    client: typeof sql,
+    payload: ManualEntitlementPayload,
+  ) {
     const rows = await client`
       select commerce.preview_manual_entitlement_adjustment(
         ${payload.subjectAccountId}::uuid,${payload.targetType}::varchar,${payload.targetId}::uuid,
@@ -93,7 +100,11 @@ export function createManualEntitlementAdjustmentStore(databaseUrl: string) {
           `;
           if (existing[0]) {
             if (String(existing[0].request_hash) !== input.requestHash) {
-              throw new ApiError(409, "idempotency_conflict", "Idempotency-Key was used for a different adjustment.");
+              throw new ApiError(
+                409,
+                "idempotency_conflict",
+                "Idempotency-Key was used for a different adjustment.",
+              );
             }
             return {
               httpStatus: 200,
@@ -103,7 +114,9 @@ export function createManualEntitlementAdjustmentStore(databaseUrl: string) {
               affectedEntitlementIds: existing[0].affected_entitlement_ids,
               before: existing[0].before_json,
               after: existing[0].after_json,
-              abuseDecisionId: existing[0].abuse_decision_id == null ? null : String(existing[0].abuse_decision_id),
+              abuseDecisionId: existing[0].abuse_decision_id == null
+                ? null
+                : String(existing[0].abuse_decision_id),
               createdAtUtc: iso(existing[0].created_at_utc),
               replayed: true,
             };
@@ -111,7 +124,8 @@ export function createManualEntitlementAdjustmentStore(databaseUrl: string) {
 
           if (
             !input.isFounder &&
-            (!input.payload.approvalRequestId || !input.payload.approvalExpectedVersion)
+            (!input.payload.approvalRequestId ||
+              !input.payload.approvalExpectedVersion)
           ) {
             return {
               httpStatus: 409,
@@ -128,18 +142,28 @@ export function createManualEntitlementAdjustmentStore(databaseUrl: string) {
           // not the business execution key. A Founder can therefore retry after a
           // RequireApproval decision with the newly approved request without
           // colliding with the earlier decision, while exact retries still replay.
-          const abuseIdempotencyKey = `entitlement-adjust:${input.requestHash.slice(0, 48)}`;
+          const abuseIdempotencyKey = `entitlement-adjust:${
+            input.requestHash.slice(0, 48)
+          }`;
           const abuseRows = await tx`
             select security.evaluate_abuse_rules(
               ${input.actorAccountId}::uuid,${input.payload.subjectAccountId}::uuid,
               'manual_entitlement_adjustment'::varchar,
-              ${input.payload.entitlementId ?? `${input.payload.targetType}:${input.payload.targetId}`}::varchar,
-              ${input.payload.approvalRequestId ? ["approval_present"] : []}::varchar[],
+              ${
+            input.payload.entitlementId ??
+              `${input.payload.targetType}:${input.payload.targetId}`
+          }::varchar,
+              ${
+            input.payload.approvalRequestId ? ["approval_present"] : []
+          }::varchar[],
               ${abuseIdempotencyKey}::varchar,
               ${input.requestHash}::varchar
             ) as result
           `;
-          const abuse = object(abuseRows[0]?.result, "entitlement_abuse_unavailable");
+          const abuse = object(
+            abuseRows[0]?.result,
+            "entitlement_abuse_unavailable",
+          );
           if (httpStatus(abuse) >= 400) return abuse;
           if (abuse.action === "Deny") {
             return {
@@ -151,14 +175,19 @@ export function createManualEntitlementAdjustmentStore(databaseUrl: string) {
             };
           }
 
-          const requiresApproval = !input.isFounder || abuse.action === "RequireApproval";
+          const requiresApproval = !input.isFounder ||
+            abuse.action === "RequireApproval";
           if (requiresApproval) {
-            if (!input.payload.approvalRequestId || !input.payload.approvalExpectedVersion) {
+            if (
+              !input.payload.approvalRequestId ||
+              !input.payload.approvalExpectedVersion
+            ) {
               return {
                 httpStatus: 409,
                 code: "entitlement_adjust_approval_required",
                 message: "An approved manual entitlement request is required.",
-                approvalRequestType: abuse.approvalRequestType ?? "manual_entitlement_adjustment",
+                approvalRequestType: abuse.approvalRequestType ??
+                  "manual_entitlement_adjustment",
               };
             }
             if (
@@ -183,19 +212,31 @@ export function createManualEntitlementAdjustmentStore(databaseUrl: string) {
               )
             `;
           } else if (input.payload.approvalRequestId) {
-            throw new ApiError(400, "unexpected_approval", "Direct Founder execution must not consume an unrelated approval.");
+            throw new ApiError(
+              400,
+              "unexpected_approval",
+              "Direct Founder execution must not consume an unrelated approval.",
+            );
           }
 
-          const decisionId = typeof abuse.decisionId === "string" ? abuse.decisionId : null;
+          const decisionId = typeof abuse.decisionId === "string"
+            ? abuse.decisionId
+            : null;
           if (!decisionId) {
-            throw new ApiError(503, "entitlement_abuse_unavailable", "Abuse evaluation did not return a decision id.");
+            throw new ApiError(
+              503,
+              "entitlement_abuse_unavailable",
+              "Abuse evaluation did not return a decision id.",
+            );
           }
 
           const adjustmentId = crypto.randomUUID();
           let affected: string[];
           let after: unknown;
           if (input.payload.operation === "Grant") {
-            const expiry = String((preview.after as Record<string, unknown>).expiresAtUtc);
+            const expiry = String(
+              (preview.after as Record<string, unknown>).expiresAtUtc,
+            );
             const rows = await tx`
               select commerce.apply_manual_entitlement_grant_guarded(
                 ${input.actorAccountId}::uuid,${input.payload.subjectAccountId}::uuid,
@@ -203,13 +244,17 @@ export function createManualEntitlementAdjustmentStore(databaseUrl: string) {
                 ${expiry}::timestamptz,${adjustmentId}::uuid
               ) as ids
             `;
-            affected = Array.isArray(rows[0]?.ids) ? rows[0].ids.map(String) : [];
+            affected = Array.isArray(rows[0]?.ids)
+              ? rows[0].ids.map(String)
+              : [];
             after = {
               ...(preview.after as Record<string, unknown>),
               affectedEntitlementIds: affected,
             };
           } else {
-            const expiry = String((preview.after as Record<string, unknown>).expiresAtUtc);
+            const expiry = String(
+              (preview.after as Record<string, unknown>).expiresAtUtc,
+            );
             const rows = await tx`
               select commerce.apply_manual_entitlement_change_guarded(
                 ${input.actorAccountId}::uuid,${input.payload.subjectAccountId}::uuid,
@@ -233,8 +278,12 @@ export function createManualEntitlementAdjustmentStore(databaseUrl: string) {
               ${input.payload.targetId}::uuid,${input.payload.entitlementId}::uuid,${input.payload.operation}::varchar,
               ${input.payload.scheduleMode}::varchar,${input.payload.scheduleAmount}::integer,
               ${input.payload.exactExpiresAtUtc}::timestamptz,${input.payload.referenceAtUtc}::timestamptz,
-              ${affected}::uuid[],${tx.json(preview.before as Record<string, unknown>)}::jsonb,
-              ${tx.json(after as Record<string, unknown>)}::jsonb,${input.payload.approvalRequestId}::uuid,
+              ${affected}::uuid[],${
+            tx.json(preview.before as Record<string, unknown>)
+          }::jsonb,
+              ${
+            tx.json(after as Record<string, unknown>)
+          }::jsonb,${input.payload.approvalRequestId}::uuid,
               ${decisionId}::uuid,${input.actorAccountId}::uuid,${input.payload.reason}::varchar,
               ${input.correlationId}::uuid,${input.idempotencyKey}::varchar,${input.requestHash}::varchar
             )
@@ -242,7 +291,9 @@ export function createManualEntitlementAdjustmentStore(databaseUrl: string) {
           await tx`
             select security.record_abuse_event(
               ${input.payload.subjectAccountId}::uuid,'manual_entitlement_adjustment'::varchar,
-              ${input.payload.entitlementId ?? adjustmentId}::varchar,'adjustment_executed'::varchar
+              ${
+            input.payload.entitlementId ?? adjustmentId
+          }::varchar,'adjustment_executed'::varchar
             )
           `;
           await tx`
@@ -253,13 +304,15 @@ export function createManualEntitlementAdjustmentStore(databaseUrl: string) {
               ${input.actorAccountId}::uuid,'commerce.entitlement.adjust.execute','manual_entitlement_adjustment',
               ${adjustmentId},'Succeeded',${input.payload.reason},${input.correlationId}::uuid,
               ${input.idempotencyKey},false,
-              ${tx.json({
-                subjectAccountId: input.payload.subjectAccountId,
-                targetType: input.payload.targetType,
-                targetId: input.payload.targetId,
-                operation: input.payload.operation,
-                affectedEntitlementCount: affected.length,
-              })}::jsonb
+              ${
+            tx.json({
+              subjectAccountId: input.payload.subjectAccountId,
+              targetType: input.payload.targetType,
+              targetId: input.payload.targetId,
+              operation: input.payload.operation,
+              affectedEntitlementCount: affected.length,
+            })
+          }::jsonb
             )
           `;
           return {
@@ -278,13 +331,28 @@ export function createManualEntitlementAdjustmentStore(databaseUrl: string) {
         if (error instanceof ApiError) throw error;
         const value = error as { code?: string; message?: string };
         if (value.code === "42501") {
-          throw new ApiError(403, "entitlement_adjust_permission_denied", "Actor cannot execute entitlement adjustments.");
+          throw new ApiError(
+            403,
+            "entitlement_adjust_permission_denied",
+            "Actor cannot execute entitlement adjustments.",
+          );
         }
         if (value.code === "40001") {
-          throw new ApiError(409, "entitlement_version_conflict", "Entitlement changed; refresh before adjusting.");
+          throw new ApiError(
+            409,
+            "entitlement_version_conflict",
+            "Entitlement changed; refresh before adjusting.",
+          );
         }
-        if (value.code === "22023" || value.code === "55000" || value.code === "P0002") {
-          throw new ApiError(409, "entitlement_adjustment_conflict", "Approval or entitlement state changed; refresh before adjusting.");
+        if (
+          value.code === "22023" || value.code === "55000" ||
+          value.code === "P0002"
+        ) {
+          throw new ApiError(
+            409,
+            "entitlement_adjustment_conflict",
+            "Approval or entitlement state changed; refresh before adjusting.",
+          );
         }
         throw error;
       }

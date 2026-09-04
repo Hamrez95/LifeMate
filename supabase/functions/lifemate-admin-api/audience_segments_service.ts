@@ -74,7 +74,9 @@ function mapSegment(row: Record<string, unknown>): SegmentRecord {
   };
 }
 
-function lifecycle(lastActiveAtUtc: unknown): { days: number | null; label: string } {
+function lifecycle(
+  lastActiveAtUtc: unknown,
+): { days: number | null; label: string } {
   if (lastActiveAtUtc == null) return { days: null, label: "never_active" };
   const timestamp = new Date(String(lastActiveAtUtc)).getTime();
   if (!Number.isFinite(timestamp)) return { days: null, label: "never_active" };
@@ -87,10 +89,12 @@ function lifecycle(lastActiveAtUtc: unknown): { days: number | null; label: stri
 }
 
 function toSubject(row: SubjectRow): SegmentSubject {
-  const products = Array.from(new Set([
-    ...normalizedArray(row.application_codes),
-    ...normalizedArray(row.product_codes),
-  ]));
+  const products = Array.from(
+    new Set([
+      ...normalizedArray(row.application_codes),
+      ...normalizedArray(row.product_codes),
+    ]),
+  );
   const activity = lifecycle(row.last_active_at_utc);
   const subject: SegmentSubject = {
     "product.code": products,
@@ -108,11 +112,13 @@ function toSubject(row: SubjectRow): SegmentSubject {
 }
 
 function unsupportedAttributes(ruleSet: SegmentRuleSet): SegmentAttribute[] {
-  return Array.from(new Set(
-    ruleSet.rules
-      .map((rule) => rule.attribute)
-      .filter((attribute) => !SUPPORTED_SOURCE_ATTRIBUTES.has(attribute)),
-  ));
+  return Array.from(
+    new Set(
+      ruleSet.rules
+        .map((rule) => rule.attribute)
+        .filter((attribute) => !SUPPORTED_SOURCE_ATTRIBUTES.has(attribute)),
+    ),
+  );
 }
 
 async function loadSubjects(sql: AdminSql): Promise<SubjectRow[]> {
@@ -186,21 +192,35 @@ async function consumeIdempotency<T>(input: {
         for update
       `;
       if (existing.length === 0) {
-        throw new ApiError(409,"idempotency_conflict","Idempotency state changed; retry safely.");
+        throw new ApiError(
+          409,
+          "idempotency_conflict",
+          "Idempotency state changed; retry safely.",
+        );
       }
       if (String(existing[0].request_hash) !== input.requestHash) {
-        throw new ApiError(409,"idempotency_key_reused","Idempotency key was already used with a different request.");
+        throw new ApiError(
+          409,
+          "idempotency_key_reused",
+          "Idempotency key was already used with a different request.",
+        );
       }
       if (String(existing[0].status) === "Completed") {
         return existing[0].response_json as T;
       }
-      throw new ApiError(409,"request_in_progress","An equivalent segment operation is already in progress.");
+      throw new ApiError(
+        409,
+        "request_in_progress",
+        "An equivalent segment operation is already in progress.",
+      );
     }
 
     const response = await input.work(tx as AdminSql);
     await tx`
       update admin.idempotency_keys
-      set status='Completed',response_status=200,response_json=${tx.json(response as object)},updated_at_utc=now()
+      set status='Completed',response_status=200,response_json=${
+      tx.json(response as object)
+    },updated_at_utc=now()
       where actor_account_id=${input.actorAccountId}::uuid
         and operation=${input.operation}
         and idempotency_key=${input.idempotencyKey}
@@ -227,7 +247,11 @@ export function createAudienceSegmentStore(databaseUrl: string) {
           from audience.segments where id=${id}::uuid limit 1
         `;
     if (rows.length === 0) {
-      throw new ApiError(404,"segment_not_found","Audience segment was not found.");
+      throw new ApiError(
+        404,
+        "segment_not_found",
+        "Audience segment was not found.",
+      );
     }
     return mapSegment(rows[0]);
   }
@@ -245,7 +269,9 @@ export function createAudienceSegmentStore(databaseUrl: string) {
       );
     }
     const rows = await loadSubjects(executor);
-    return rows.filter((row) => evaluateSegmentRuleSet(ruleSet,toSubject(row)));
+    return rows.filter((row) =>
+      evaluateSegmentRuleSet(ruleSet, toSubject(row))
+    );
   }
 
   return {
@@ -281,14 +307,20 @@ export function createAudienceSegmentStore(databaseUrl: string) {
             insert into audience.segments(
               segment_key,name,description,rule_json,rule_hash,created_by_account_id,updated_by_account_id
             ) values (
-              ${input.key},${input.name},${input.description},${tx.json(input.ruleSet)},${input.ruleHash},
+              ${input.key},${input.name},${input.description},${
+            tx.json(input.ruleSet)
+          },${input.ruleHash},
               ${input.actorAccountId}::uuid,${input.actorAccountId}::uuid
             )
             on conflict (segment_key) do nothing
             returning id,segment_key,name,description,rule_json,rule_hash,status,version,created_at_utc,updated_at_utc
           `;
           if (rows.length === 0) {
-            throw new ApiError(409,"segment_key_conflict","Audience segment key already exists.");
+            throw new ApiError(
+              409,
+              "segment_key_conflict",
+              "Audience segment key already exists.",
+            );
           }
           const segment = mapSegment(rows[0]);
           await tx`
@@ -297,7 +329,13 @@ export function createAudienceSegmentStore(databaseUrl: string) {
             ) values (
               ${input.actorAccountId}::uuid,'audience.segment.create','audience_segment',${segment.id},'Succeeded',
               'Create reusable audience segment',${input.correlationId}::uuid,${input.idempotencyKey},false,
-              ${tx.json({segmentKey:segment.key,ruleHash:segment.ruleHash,version:segment.version})}
+              ${
+            tx.json({
+              segmentKey: segment.key,
+              ruleHash: segment.ruleHash,
+              version: segment.version,
+            })
+          }
             )
           `;
           return segment;
@@ -327,16 +365,29 @@ export function createAudienceSegmentStore(databaseUrl: string) {
         work: async (tx) => {
           const rows = await tx`
             update audience.segments
-            set name=${input.name},description=${input.description},rule_json=${tx.json(input.ruleSet)},
+            set name=${input.name},description=${input.description},rule_json=${
+            tx.json(input.ruleSet)
+          },
                 rule_hash=${input.ruleHash},status=${input.status},version=version+1,
                 updated_by_account_id=${input.actorAccountId}::uuid,updated_at_utc=now()
             where id=${input.id}::uuid and version=${input.expectedVersion}
             returning id,segment_key,name,description,rule_json,rule_hash,status,version,created_at_utc,updated_at_utc
           `;
           if (rows.length === 0) {
-            const exists = await tx`select version from audience.segments where id=${input.id}::uuid limit 1`;
-            if (exists.length === 0) throw new ApiError(404,"segment_not_found","Audience segment was not found.");
-            throw new ApiError(409,"segment_version_conflict","Audience segment changed; refresh before updating.");
+            const exists =
+              await tx`select version from audience.segments where id=${input.id}::uuid limit 1`;
+            if (exists.length === 0) {
+              throw new ApiError(
+                404,
+                "segment_not_found",
+                "Audience segment was not found.",
+              );
+            }
+            throw new ApiError(
+              409,
+              "segment_version_conflict",
+              "Audience segment changed; refresh before updating.",
+            );
           }
           const segment = mapSegment(rows[0]);
           await tx`
@@ -345,7 +396,14 @@ export function createAudienceSegmentStore(databaseUrl: string) {
             ) values (
               ${input.actorAccountId}::uuid,'audience.segment.update','audience_segment',${segment.id},'Succeeded',
               'Update reusable audience segment',${input.correlationId}::uuid,${input.idempotencyKey},false,
-              ${tx.json({segmentKey:segment.key,ruleHash:segment.ruleHash,version:segment.version,status:segment.status})}
+              ${
+            tx.json({
+              segmentKey: segment.key,
+              ruleHash: segment.ruleHash,
+              version: segment.version,
+              status: segment.status,
+            })
+          }
             )
           `;
           return segment;
@@ -380,7 +438,8 @@ export function createAudienceSegmentStore(databaseUrl: string) {
       return await consumeIdempotency({
         sql,
         actorAccountId: input.actorAccountId,
-        operation: `audience.segment.snapshot:${input.id}:${input.expectedVersion}`,
+        operation:
+          `audience.segment.snapshot:${input.id}:${input.expectedVersion}`,
         idempotencyKey: input.idempotencyKey,
         requestHash: input.requestHash,
         work: async (tx) => {
@@ -415,7 +474,9 @@ export function createAudienceSegmentStore(databaseUrl: string) {
           for (const member of members) {
             await tx`
               insert into audience.segment_snapshot_members(snapshot_id,account_id,person_id)
-              values (${snapshotId}::uuid,${String(member.account_id)}::uuid,${member.person_id == null ? null : String(member.person_id)}::uuid)
+              values (${snapshotId}::uuid,${String(member.account_id)}::uuid,${
+              member.person_id == null ? null : String(member.person_id)
+            }::uuid)
             `;
           }
           await tx`
@@ -424,7 +485,14 @@ export function createAudienceSegmentStore(databaseUrl: string) {
             ) values (
               ${input.actorAccountId}::uuid,'audience.segment.snapshot','audience_segment_snapshot',${snapshotId},'Succeeded',
               'Create immutable audience execution snapshot',${input.correlationId}::uuid,${input.idempotencyKey},false,
-              ${tx.json({segmentId:segment.id,segmentVersion:segment.version,ruleHash:segment.ruleHash,memberCount:members.length})}
+              ${
+            tx.json({
+              segmentId: segment.id,
+              segmentVersion: segment.version,
+              ruleHash: segment.ruleHash,
+              memberCount: members.length,
+            })
+          }
             )
           `;
           return {

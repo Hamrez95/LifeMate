@@ -23,8 +23,18 @@ function baseExperiment(): ExperimentDefinition {
     endsAtUtc: "2026-09-01T00:00:00.000Z",
     version: 3,
     variants: [
-      { key: "control", weightBasisPoints: 5000, controlValue: false, version: 1 },
-      { key: "candidate", weightBasisPoints: 5000, controlValue: true, version: 2 },
+      {
+        key: "control",
+        weightBasisPoints: 5000,
+        controlValue: false,
+        version: 1,
+      },
+      {
+        key: "candidate",
+        weightBasisPoints: 5000,
+        controlValue: true,
+        version: 2,
+      },
     ],
   };
 }
@@ -40,9 +50,12 @@ Deno.test("experiment key and surface validation are bounded", () => {
   try {
     parseExperimentSurface("treatment_safety");
   } catch (error) {
-    rejected = error instanceof ApiError && error.code === "experiment_surface_invalid";
+    rejected = error instanceof ApiError &&
+      error.code === "experiment_surface_invalid";
   }
-  if (!rejected) throw new Error("Unsafe/unsupported experiment surface was accepted.");
+  if (!rejected) {
+    throw new Error("Unsafe/unsupported experiment surface was accepted.");
+  }
 });
 
 Deno.test("experiment variants must total exactly 10000 basis points", () => {
@@ -56,7 +69,9 @@ Deno.test("experiment variants must total exactly 10000 basis points", () => {
     rejected = error instanceof ApiError &&
       error.code === "experiment_variant_weight_total_invalid";
   }
-  if (!rejected) throw new Error("Invalid experiment weight total was accepted.");
+  if (!rejected) {
+    throw new Error("Invalid experiment weight total was accepted.");
+  }
 });
 
 Deno.test("experiment assignment is stable for the same subject and version", async () => {
@@ -106,7 +121,8 @@ Deno.test("launch guard rejects canonical metrics that are not instrumented", ()
       { requireMeasurable: true },
     );
   } catch (error) {
-    rejected = error instanceof ApiError && error.code === "experiment_metric_unavailable";
+    rejected = error instanceof ApiError &&
+      error.code === "experiment_metric_unavailable";
   }
   if (!rejected) throw new Error("Unavailable metric was accepted for launch.");
 
