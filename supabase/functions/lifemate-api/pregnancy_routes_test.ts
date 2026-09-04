@@ -1,7 +1,13 @@
 import { assertEquals, assertThrows } from "jsr:@std/assert@1.0.14";
 import { ApiError } from "./validation.ts";
-import { pregnancyEpisodeReadModel, mapPregnancyStoreError } from "./pregnancy_routes.ts";
-import { PregnancyStoreError, type PregnancyEpisode } from "./pregnancy_store.ts";
+import {
+  mapPregnancyStoreError,
+  pregnancyEpisodeReadModel,
+} from "./pregnancy_routes.ts";
+import {
+  type PregnancyEpisode,
+  PregnancyStoreError,
+} from "./pregnancy_store.ts";
 
 const episode: PregnancyEpisode = {
   id: "11111111-1111-4111-8111-111111111111",
@@ -35,7 +41,10 @@ Deno.test("pregnancy read model derives gestational age without mutable week", (
 
 Deno.test("pregnancy store conflicts map to stable safe API errors", () => {
   const thrown = assertThrows(
-    () => mapPregnancyStoreError(new PregnancyStoreError("pregnancy_version_conflict")),
+    () =>
+      mapPregnancyStoreError(
+        new PregnancyStoreError("pregnancy_version_conflict"),
+      ),
     ApiError,
   );
   assertEquals(thrown.status, 409);
@@ -45,7 +54,8 @@ Deno.test("pregnancy store conflicts map to stable safe API errors", () => {
 
 Deno.test("unknown store failures never expose provider detail", () => {
   const thrown = assertThrows(
-    () => mapPregnancyStoreError(new PregnancyStoreError("postgres-secret-detail")),
+    () =>
+      mapPregnancyStoreError(new PregnancyStoreError("postgres-secret-detail")),
     ApiError,
   );
   assertEquals(thrown.status, 500);
