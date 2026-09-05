@@ -374,6 +374,40 @@ final class LifeMateSharedOfflineRuntime {
     return mutations.where(_isPendingForReplay).length;
   }
 
+  /// Accepts one bounded, already-local-validated treatment create into the
+  /// canonical protected Account + Person + environment outbox. The underlying
+  /// primitive rejects recurrence and malformed timing rather than inferring it.
+  Future<void> enqueueTreatmentCreate({
+    required String mutationId,
+    required String medicationId,
+    required String doseText,
+    String? instructions,
+    required DateTime startDate,
+    DateTime? endDate,
+    required String timeZone,
+    required List<Map<String, String>> schedules,
+    required int patientReminderMinutesBefore,
+    required int caregiverReminderMinutesBefore,
+    DateTime? createdAtUtc,
+  }) async {
+    _requireOpen();
+    await LifeMateOfflineTreatmentMutation.enqueueCreate(
+      outbox: _outbox,
+      namespace: _localNamespace,
+      mutationId: mutationId,
+      medicationId: medicationId,
+      doseText: doseText,
+      instructions: instructions,
+      startDate: startDate,
+      endDate: endDate,
+      timeZone: timeZone,
+      schedules: schedules,
+      patientReminderMinutesBefore: patientReminderMinutesBefore,
+      caregiverReminderMinutesBefore: caregiverReminderMinutesBefore,
+      createdAtUtc: createdAtUtc,
+    );
+  }
+
   /// Accepts one already-local-validated treatment edit into the same protected
   /// Account + Person + environment outbox used by adherence. This method does
   /// not infer medication timing or bypass the canonical expected-revision
