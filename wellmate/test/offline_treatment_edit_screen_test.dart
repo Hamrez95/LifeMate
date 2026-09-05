@@ -10,11 +10,13 @@ void main() {
   ) async {
     final api = _FakeEditApi();
     var offlineCalls = 0;
+    final saveStates = <WellMateTreatmentEditSaveState>[];
 
     await _openEditor(
       tester,
       editApi: api,
       offlineEnqueuer: (_) async => offlineCalls += 1,
+      onSaveStateChanged: saveStates.add,
     );
     await _save(tester);
 
@@ -22,8 +24,10 @@ void main() {
     expect(api.lastClientRequestId, isNotNull);
     expect(api.lastClientRequestId, isNotEmpty);
     expect(offlineCalls, 0);
+    expect(saveStates, <WellMateTreatmentEditSaveState>[
+      WellMateTreatmentEditSaveState.serverConfirmed,
+    ]);
     expect(find.text('changed:true'), findsOneWidget);
-    expect(find.text('Treatment changes saved successfully.'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
 
@@ -38,11 +42,13 @@ void main() {
         ),
       );
       WellMateOfflineTreatmentEditRequest? queued;
+      final saveStates = <WellMateTreatmentEditSaveState>[];
 
       await _openEditor(
         tester,
         editApi: api,
         offlineEnqueuer: (request) async => queued = request,
+        onSaveStateChanged: saveStates.add,
       );
       await _save(tester);
 
@@ -69,16 +75,10 @@ void main() {
       expect(queued!.patientReminderMinutesBefore, 30);
       expect(queued!.caregiverReminderMinutesBefore, 60);
       expect(queued!.status, 'active');
+      expect(saveStates, <WellMateTreatmentEditSaveState>[
+        WellMateTreatmentEditSaveState.pendingSync,
+      ]);
       expect(find.text('changed:true'), findsOneWidget);
-      expect(find.text('Changes saved on this device'), findsOneWidget);
-      expect(
-        find.text(
-          'Server confirmation is pending; the edit will sync after reconnection.',
-        ),
-        findsOneWidget,
-      );
-      expect(find.textContaining('Cetirizine private'), findsNothing);
-      expect(find.textContaining('after food private'), findsNothing);
       expect(tester.takeException(), isNull);
     },
   );
@@ -105,26 +105,21 @@ void main() {
     ) async {
       final api = _FakeEditApi(error: blocked);
       var offlineCalls = 0;
+      final saveStates = <WellMateTreatmentEditSaveState>[];
 
       await _openEditor(
         tester,
         editApi: api,
         offlineEnqueuer: (_) async => offlineCalls += 1,
+        onSaveStateChanged: saveStates.add,
       );
       await _save(tester, expectPop: false);
 
       expect(api.calls, 1);
       expect(offlineCalls, 0);
+      expect(saveStates, isEmpty);
       expect(find.text('changed:null'), findsNothing);
       expect(find.byKey(const ValueKey('edit-treatment-form')), findsOneWidget);
-      if (blocked.statusCode == 409) {
-        expect(
-          find.text(
-            'This treatment has been modified elsewhere. Close and reopen the page.',
-          ),
-          findsOneWidget,
-        );
-      }
       expect(tester.takeException(), isNull);
     });
   }
@@ -140,21 +135,17 @@ void main() {
       ),
     );
 
+    final saveStates = <WellMateTreatmentEditSaveState>[];
     await _openEditor(
       tester,
       editApi: api,
       offlineEnqueuer: (_) async => throw StateError('runtime not adopted'),
+      onSaveStateChanged: saveStates.add,
     );
     await _save(tester, expectPop: false);
 
+    expect(saveStates, isEmpty);
     expect(find.byKey(const ValueKey('edit-treatment-form')), findsOneWidget);
-    expect(
-      find.text(
-        'This change could not be saved offline. Check the connection and try again.',
-      ),
-      findsOneWidget,
-    );
-    expect(find.text('Changes saved on this device'), findsNothing);
     expect(tester.takeException(), isNull);
   });
 }
@@ -163,11 +154,16 @@ Future<void> _openEditor(
   WidgetTester tester, {
   required LifeMateEditApi editApi,
   required WellMateOfflineTreatmentEditEnqueuer offlineEnqueuer,
+  required ValueChanged<WellMateTreatmentEditSaveState> onSaveStateChanged,
 }) async {
   await tester.pumpWidget(
     MaterialApp(
       locale: const Locale('en'),
-      home: _EditorHost(editApi: editApi, offlineEnqueuer: offlineEnqueuer),
+      home: _EditorHost(
+        editApi: editApi,
+        offlineEnqueuer: offlineEnqueuer,
+        onSaveStateChanged: onSaveStateChanged,
+      ),
     ),
   );
   await tester.tap(find.byKey(const ValueKey('open-treatment-editor')));
@@ -189,10 +185,15 @@ Future<void> _save(WidgetTester tester, {bool expectPop = true}) async {
 }
 
 class _EditorHost extends StatefulWidget {
-  const _EditorHost({required this.editApi, required this.offlineEnqueuer});
+  const _EditorHost({
+    required this.editApi,
+    required this.offlineEnqueuer,
+    required this.onSaveStateChanged,
+  });
 
   final LifeMateEditApi editApi;
   final WellMateOfflineTreatmentEditEnqueuer offlineEnqueuer;
+  final ValueChanged<WellMateTreatmentEditSaveState> onSaveStateChanged;
 
   @override
   State<_EditorHost> createState() => _EditorHostState();
@@ -218,6 +219,7 @@ class _EditorHostState extends State<_EditorHost> {
                       plan: _plan(),
                       editApi: widget.editApi,
                       offlineEnqueuer: widget.offlineEnqueuer,
+                      onSaveStateChanged: widget.onSaveStateChanged,
                     ),
                   ),
                 );

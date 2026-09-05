@@ -8,17 +8,21 @@ import 'add_treatment_screen.dart';
 import 'offline_treatment_edit.dart';
 import 'treatment_schedule_payload.dart';
 
+enum WellMateTreatmentEditSaveState { serverConfirmed, pendingSync }
+
 class EditTreatmentScreen extends StatefulWidget {
   const EditTreatmentScreen({
     super.key,
     required this.plan,
     this.editApi,
     this.offlineEnqueuer,
+    this.onSaveStateChanged,
   });
 
   final Map<String, dynamic> plan;
   final LifeMateEditApi? editApi;
   final WellMateOfflineTreatmentEditEnqueuer? offlineEnqueuer;
+  final ValueChanged<WellMateTreatmentEditSaveState>? onSaveStateChanged;
 
   @override
   State<EditTreatmentScreen> createState() => _EditTreatmentScreenState();
@@ -379,6 +383,9 @@ class _EditTreatmentScreenState extends State<EditTreatmentScreen> {
             _medicationVersion + 1;
       }
       if (!mounted) return;
+      widget.onSaveStateChanged?.call(
+        WellMateTreatmentEditSaveState.serverConfirmed,
+      );
       LifeMateNotice.show(
         context,
         type: LifeMateNoticeType.success,
@@ -408,6 +415,9 @@ class _EditTreatmentScreenState extends State<EditTreatmentScreen> {
         );
         if (!mounted) return;
         if (queued) {
+          widget.onSaveStateChanged?.call(
+            WellMateTreatmentEditSaveState.pendingSync,
+          );
           LifeMateNotice.show(
             context,
             type: LifeMateNoticeType.info,
