@@ -112,6 +112,20 @@ final class LifeMateSharedOfflineRuntime {
 
   Future<int> pendingMutationCount() => Future<int>.value(0);
 
+  Future<void> enqueueTreatmentCreate({
+    required String mutationId,
+    required String medicationId,
+    required String doseText,
+    String? instructions,
+    required DateTime startDate,
+    DateTime? endDate,
+    required String timeZone,
+    required List<Map<String, String>> schedules,
+    required int patientReminderMinutesBefore,
+    required int caregiverReminderMinutesBefore,
+    DateTime? createdAtUtc,
+  }) => Future<void>.error(_unsupported());
+
   Future<void> enqueueTreatmentEdit({
     required String mutationId,
     required String treatmentPlanId,
