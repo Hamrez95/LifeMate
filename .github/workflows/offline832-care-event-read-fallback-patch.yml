@@ -1,0 +1,40 @@
+name: offline832-care-event-read-fallback-patch
+
+on:
+  push:
+    branches:
+      - feat/offline-832-care-event-calendar-fallback-20260905
+    paths:
+      - '.github/workflows/offline832-care-event-read-fallback-patch.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
+        with:
+          ref: feat/offline-832-care-event-calendar-fallback-20260905
+          fetch-depth: 0
+      - name: Apply deterministic fallback patch
+        run: python3 tools/hotfix/apply_offline832_care_event_read_fallback.py
+      - name: Verify product diff
+        run: |
+          git diff --check
+          git status --short
+      - name: Commit product-only change
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add \
+            packages/lifemate_client/lib/src/durable_lifemate_api_client.dart \
+            packages/lifemate_client/test/durable_care_event_offline_read_test.dart \
+            tools/hotfix/apply_offline832_care_event_read_fallback.py \
+            .github/workflows/offline832-care-event-read-fallback-patch.yml
+          git commit -m 'feat(client): read protected care events offline (#832)'
+          git push origin HEAD:feat/offline-832-care-event-calendar-fallback-20260905
