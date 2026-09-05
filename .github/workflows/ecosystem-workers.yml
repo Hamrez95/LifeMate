@@ -114,4 +114,25 @@ jobs:
           done < <(find supabase/migrations -maxdepth 1 -type f -name '*.sql' | sort)
       - name: Exercise outbox queue safety and recovery
         working-directory: supabase/functions/lifemate-worker
-        run: deno task test:integration
+        run: >-
+          deno test --no-check --allow-env
+          --allow-net=localhost:5432,127.0.0.1:5432
+          queue_integration_test.ts
+      - name: Exercise account deletion lifecycle
+        working-directory: supabase/functions/lifemate-worker
+        run: >-
+          deno test --no-check --allow-env
+          --allow-net=localhost:5432,127.0.0.1:5432
+          account_deletion_integration_test.ts
+      - name: Exercise identity bridge lifecycle
+        working-directory: supabase/functions/lifemate-worker
+        run: >-
+          deno test --no-check --allow-env
+          --allow-net=localhost:5432,127.0.0.1:5432
+          identity_bridge_integration_test.ts
+      - name: Exercise privacy-critical identity queue retention
+        working-directory: supabase/functions/lifemate-worker
+        run: >-
+          deno test --no-check --allow-env
+          --allow-net=localhost:5432,127.0.0.1:5432
+          identity_queue_retention_integration_test.ts
