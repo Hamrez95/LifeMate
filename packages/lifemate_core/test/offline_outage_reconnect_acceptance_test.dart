@@ -13,18 +13,15 @@ void main() {
   );
 
   LifeMateDurableMutation mutation(String id) => LifeMateDurableMutation(
-        mutationId: id,
-        domain: LifeMateMutationDomain.adherence,
-        sourceKey: 'dose-$id',
-        method: 'POST',
-        endpointPath: '/api/v1/dose-occurrences/$id/report',
-        payload: <String, dynamic>{
-          'clientRequestId': id,
-          'status': 'taken',
-        },
-        createdAtUtc: DateTime.utc(2026, 9, 5, 2),
-        timeZone: 'Asia/Tehran',
-      );
+    mutationId: id,
+    domain: LifeMateMutationDomain.adherence,
+    sourceKey: 'dose-$id',
+    method: 'POST',
+    endpointPath: '/api/v1/dose-occurrences/$id/report',
+    payload: <String, dynamic>{'clientRequestId': id, 'status': 'taken'},
+    createdAtUtc: DateTime.utc(2026, 9, 5, 2),
+    timeZone: 'Asia/Tehran',
+  );
 
   test(
     'process restart plus 24h outage retains and replays every accepted owner action',
