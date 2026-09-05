@@ -9,35 +9,38 @@ void main() {
     now: () => DateTime.utc(2026, 9, 5, 1, 0),
   );
 
-  test('checkpoint round-trips server cursor and revision in protected store', () async {
-    final store = openStore();
-    final checkpoints = LifeMateLocalSyncCheckpointStore(store);
-    final namespace = LifeMateLocalNamespace(
-      environmentId: 'production',
-      accountId: 'account-a',
-      personId: 'person-a',
-    );
+  test(
+    'checkpoint round-trips server cursor and revision in protected store',
+    () async {
+      final store = openStore();
+      final checkpoints = LifeMateLocalSyncCheckpointStore(store);
+      final namespace = LifeMateLocalNamespace(
+        environmentId: 'production',
+        accountId: 'account-a',
+        personId: 'person-a',
+      );
 
-    await checkpoints.write(
-      namespace: namespace,
-      domain: LifeMateLocalProjectionDomain.treatmentOccurrence,
-      cursor: 'server-cursor-42',
-      serverUpdatedAtUtc: DateTime.utc(2026, 9, 5, 0, 55),
-      sourceRevision: 'snapshot-v9',
-    );
+      await checkpoints.write(
+        namespace: namespace,
+        domain: LifeMateLocalProjectionDomain.treatmentOccurrence,
+        cursor: 'server-cursor-42',
+        serverUpdatedAtUtc: DateTime.utc(2026, 9, 5, 0, 55),
+        sourceRevision: 'snapshot-v9',
+      );
 
-    final value = await checkpoints.read(
-      namespace: namespace,
-      domain: LifeMateLocalProjectionDomain.treatmentOccurrence,
-    );
-    expect(value, isNotNull);
-    expect(value!.cursor, 'server-cursor-42');
-    expect(value.sourceRevision, 'snapshot-v9');
-    expect(value.serverUpdatedAtUtc, DateTime.utc(2026, 9, 5, 0, 55));
-    expect(value.storedAtUtc, DateTime.utc(2026, 9, 5, 1));
+      final value = await checkpoints.read(
+        namespace: namespace,
+        domain: LifeMateLocalProjectionDomain.treatmentOccurrence,
+      );
+      expect(value, isNotNull);
+      expect(value!.cursor, 'server-cursor-42');
+      expect(value.sourceRevision, 'snapshot-v9');
+      expect(value.serverUpdatedAtUtc, DateTime.utc(2026, 9, 5, 0, 55));
+      expect(value.storedAtUtc, DateTime.utc(2026, 9, 5, 1));
 
-    store.close();
-  });
+      store.close();
+    },
+  );
 
   test('same domain checkpoint is isolated by Account and Person', () async {
     final store = openStore();
