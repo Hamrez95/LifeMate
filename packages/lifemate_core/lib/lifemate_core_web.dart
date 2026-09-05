@@ -53,13 +53,6 @@ final class LifeMateLocalProjectionRecord {
 /// engine or silently substitute an unprotected PHI store.
 abstract interface class LifeMateLocalHealthStore {}
 
-/// Type-only web seam for durable mutation return signatures. The native
-/// implementation contains the protected outbox record and replay metadata;
-/// browser builds cannot construct, persist, inspect or replay that record.
-/// This keeps conditional API signatures compatible without widening the web
-/// PHI surface.
-abstract interface class LifeMateDurableMutation {}
-
 final class LifeMateServerProjectionChange {
   LifeMateServerProjectionChange.upsert({
     required String recordKey,

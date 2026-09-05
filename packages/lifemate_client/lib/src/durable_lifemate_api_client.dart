@@ -328,7 +328,7 @@ class DurableLifeMateApiClient extends LifeMateApiClient {
     }
   }
 
-  Future<LifeMateDurableMutation> enqueueOfflineTreatmentPlanEdit({
+  Future<void> enqueueOfflineTreatmentPlanEdit({
     required String clientRequestId,
     required String treatmentPlanId,
     required int version,

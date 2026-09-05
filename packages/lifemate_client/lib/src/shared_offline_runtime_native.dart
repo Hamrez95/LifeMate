@@ -379,7 +379,7 @@ final class LifeMateSharedOfflineRuntime {
   /// not infer medication timing or bypass the canonical expected-revision
   /// conflict contract; it only binds the validated mutation to this runtime's
   /// already-adopted namespace.
-  Future<LifeMateDurableMutation> enqueueTreatmentEdit({
+  Future<void> enqueueTreatmentEdit({
     required String mutationId,
     required String treatmentPlanId,
     required int version,
@@ -399,7 +399,7 @@ final class LifeMateSharedOfflineRuntime {
     DateTime? createdAtUtc,
   }) async {
     _requireOpen();
-    return LifeMateOfflineTreatmentMutation.enqueueEdit(
+    await LifeMateOfflineTreatmentMutation.enqueueEdit(
       outbox: _outbox,
       namespace: _localNamespace,
       mutationId: mutationId,
