@@ -28,7 +28,7 @@ void main() {
       httpClient: _NoNetworkClient(),
     );
 
-    final mutation = await runtime.enqueueTreatmentEdit(
+    await runtime.enqueueTreatmentEdit(
       mutationId: '123e4567-e89b-42d3-a456-426614174980',
       treatmentPlanId: '11111111-1111-4111-8111-111111111111',
       version: 7,
@@ -49,15 +49,18 @@ void main() {
       status: 'active',
     );
 
-    expect(mutation.domain, LifeMateMutationDomain.treatment);
-    expect(
-      mutation.conflictPolicy,
-      LifeMateMutationConflictPolicy.explicitVersionResolution,
-    );
     final outbox = LifeMateLocalMutationOutbox(store: store);
     final ownerMutations = await outbox.list(namespace: namespace);
     expect(ownerMutations, hasLength(1));
-    expect(ownerMutations.single.mutationId, mutation.mutationId);
+    expect(
+      ownerMutations.single.mutationId,
+      '123e4567-e89b-42d3-a456-426614174980',
+    );
+    expect(ownerMutations.single.domain, LifeMateMutationDomain.treatment);
+    expect(
+      ownerMutations.single.conflictPolicy,
+      LifeMateMutationConflictPolicy.explicitVersionResolution,
+    );
     expect(ownerMutations.single.expectedRevision, '7');
 
     final otherPerson = LifeMateLocalNamespace(
@@ -145,7 +148,7 @@ void main() {
       legacyStorage: legacyStorage,
     );
 
-    final mutation = await client.queueTreatmentEdit(
+    await client.queueTreatmentEdit(
       mutationId: '123e4567-e89b-42d3-a456-426614174983',
       treatmentPlanId: '11111111-1111-4111-8111-111111111111',
       version: 4,
@@ -165,7 +168,10 @@ void main() {
     final outbox = LifeMateLocalMutationOutbox(store: store);
     final queued = await outbox.list(namespace: namespace);
     expect(queued, hasLength(1));
-    expect(queued.single.mutationId, mutation.mutationId);
+    expect(
+      queued.single.mutationId,
+      '123e4567-e89b-42d3-a456-426614174983',
+    );
     expect(queued.single.expectedRevision, '4');
     expect(queued.single.payload['schedules'], const <Map<String, String>>[
       {'dayOfWeek': 'wednesday', 'localTime': '09:15'},
