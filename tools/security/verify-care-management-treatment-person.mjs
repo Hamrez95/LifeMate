@@ -74,7 +74,6 @@ for (const marker of [
   "(id, owner_person_id, name",
   "insert into lifemate.treatment_plans",
   "(id, patient_person_id, medication_id",
-  "metadata_json, created_at_utc",
 ]) {
   requireMarker(store, marker, "Person Treatment store contract");
 }
@@ -87,6 +86,11 @@ requirePattern(
   store,
   /owner_person_id\s*=\s*\$\{patientPersonId\}::uuid/,
   "Person Medication ownership",
+);
+requirePattern(
+  store,
+  /resource_id\s*,\s*metadata_json\s*,\s*created_at_utc/,
+  "Person Treatment audit columns",
 );
 requirePattern(
   store,
