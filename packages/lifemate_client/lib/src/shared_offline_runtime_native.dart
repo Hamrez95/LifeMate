@@ -201,6 +201,18 @@ final class LifeMateSharedOfflineRuntime {
     );
   }
 
+  /// Returns the currently protected owner care-event projection for offline
+  /// calendar/Home rendering. Records are scoped to the already-adopted
+  /// Environment + Account + Person namespace; callers cannot provide an
+  /// alternate Person identifier to widen the read.
+  Future<List<LifeMateLocalProjectionRecord>> careEventProjections() {
+    _requireOpen();
+    return _store.listDomain(
+      namespace: _localNamespace,
+      domain: LifeMateLocalProjectionDomain.careEvent,
+    );
+  }
+
   /// Applies one canonical care-event pull page inside the same protected
   /// Account + Person + environment namespace as the outbox. Required side
   /// effects run before cursor acknowledgement, so failure keeps the old cursor
