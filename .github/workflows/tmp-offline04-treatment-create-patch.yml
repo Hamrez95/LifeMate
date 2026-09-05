@@ -10,15 +10,14 @@ permissions:
 
 jobs:
   patch:
-    if: github.actor != 'github-actions[bot]'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
         with:
           ref: feat/offline-04-treatment-create-ui-20260905
       - name: Apply bounded treatment-create wiring
-        shell: python
         run: |
+          python3 <<'PY'
           from pathlib import Path
 
           screen = Path('wellmate/lib/screens/treatments/add_treatment_screen.dart')
@@ -107,43 +106,40 @@ jobs:
           client = Path('packages/lifemate_client/lib/src/lifemate_api_client.dart')
           client_text = client.read_text()
           signature_anchor = """    int caregiverReminderMinutesBefore =
-            LifeMateReminderLeadTimes.defaultCaregiverMinutes,
+              LifeMateReminderLeadTimes.defaultCaregiverMinutes,
           }) async {
 """
           signature_replacement = """    int caregiverReminderMinutesBefore =
-            LifeMateReminderLeadTimes.defaultCaregiverMinutes,
+              LifeMateReminderLeadTimes.defaultCaregiverMinutes,
             String? clientRequestId,
           }) async {
 """
           if signature_anchor not in client_text:
               raise SystemExit('createTreatmentPlan signature anchor missing')
-          client_text = client_text.replace(
-              signature_anchor,
-              signature_replacement,
-              1,
-          )
+          client_text = client_text.replace(signature_anchor, signature_replacement, 1)
 
           send_anchor = """          'caregiverReminderMinutesBefore': caregiverReminderMinutesBefore,
-            },
-          ),
-        );
-          }
+        },
+      ),
+    );
+  }
 
-          Future<List<Map<String, dynamic>>> getCareEvents({
+  Future<List<Map<String, dynamic>>> getCareEvents({
 """
           send_replacement = """          'caregiverReminderMinutesBefore': caregiverReminderMinutesBefore,
-            },
-            idempotencyKey: clientRequestId,
-          ),
-        );
-          }
+        },
+        idempotencyKey: clientRequestId,
+      ),
+    );
+  }
 
-          Future<List<Map<String, dynamic>>> getCareEvents({
+  Future<List<Map<String, dynamic>>> getCareEvents({
 """
           if send_anchor not in client_text:
               raise SystemExit('createTreatmentPlan send anchor missing')
           client_text = client_text.replace(send_anchor, send_replacement, 1)
           client.write_text(client_text)
+          PY
       - name: Guard patch shape
         run: |
           git diff --check
