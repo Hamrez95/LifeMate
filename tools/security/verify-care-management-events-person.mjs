@@ -9,13 +9,23 @@ const store = readFileSync(
   "utf8",
 );
 
+function requireMarker(source, marker, context) {
+  if (!source.includes(marker)) {
+    throw new Error(`${context} missing: ${marker}`);
+  }
+}
+
+function requirePattern(source, pattern, context) {
+  if (!pattern.test(source)) {
+    throw new Error(`${context} missing semantic pattern: ${pattern}`);
+  }
+}
+
 for (const marker of [
   'import { createPersonCareEventManagementStore } from "./person_care_event_management.ts";',
   "const personCareEventManagement = createPersonCareEventManagementStore",
 ]) {
-  if (!index.includes(marker)) {
-    throw new Error(`Care Management Person Care Event wiring missing: ${marker}`);
-  }
+  requireMarker(index, marker, "Care Management Person Care Event wiring");
 }
 
 const routeStart = index.indexOf("const eventsMatch = path.match(");
@@ -32,9 +42,7 @@ for (const marker of [
   "personCareEventManagement.updateCareEvent",
   "personCareEventManagement.cancelCareEvent",
 ]) {
-  if (!eventRoutes.includes(marker)) {
-    throw new Error(`Active Care Event route contract missing: ${marker}`);
-  }
+  requireMarker(eventRoutes, marker, "Active Care Event route contract");
 }
 for (const forbidden of [
   "return json(await listCareEvents(",
@@ -56,16 +64,20 @@ for (const forbidden of ["patient_user_id", "{ patientUserId }"]) {
 }
 for (const marker of [
   "self_person_id_for_legacy_app_user",
-  "patient_person_id = ${patientPersonId}::uuid",
   "(id, patient_person_id, created_by_user_id, client_request_id",
   "${caregiverAppUserId}::uuid",
   "client_request_id = ${input.clientRequestId}::uuid",
   "'care_event', ${eventId}::uuid",
 ]) {
-  if (!store.includes(marker)) {
-    throw new Error(`Person Care Event store contract missing: ${marker}`);
-  }
+  requireMarker(store, marker, "Person Care Event store contract");
 }
+// Ownership checks are semantic rather than whitespace/identifier-style checks:
+// every active read/update/delete path must bind the resolved self Person id.
+requirePattern(
+  store,
+  /patient_person_id\s*=\s*\$\{personId\}::uuid/,
+  "Person Care Event patient ownership",
+);
 if (!store.includes("const metadata = eventType == null ? null : { eventType }")) {
   throw new Error(
     "Care Event audit metadata must keep event semantics without patient AppUser identity.",
@@ -80,9 +92,7 @@ for (const marker of [
   "caregiver_user_id = ${caregiverUserId}::uuid",
   "can_manage_health_record = true",
 ]) {
-  if (!index.includes(marker)) {
-    throw new Error(`Care relationship permission gate changed unexpectedly: ${marker}`);
-  }
+  requireMarker(index, marker, "Care relationship permission gate");
 }
 
 console.log("Care Management Care Event Person boundary verified.");
