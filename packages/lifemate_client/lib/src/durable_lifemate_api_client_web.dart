@@ -49,7 +49,32 @@ class DurableLifeMateApiClient extends LifeMateApiClient {
     LifeMateLocalHealthStore? localStore,
     LifeMateMutationStorage? legacyStorage,
   }) => Future<void>.error(
-    UnsupportedError('Protected offline health execution is unavailable on web.'),
+    UnsupportedError(
+      'Protected offline health execution is unavailable on web.',
+    ),
+  );
+
+  Future<LifeMateDurableMutation> queueTreatmentEdit({
+    required String mutationId,
+    required String treatmentPlanId,
+    required int version,
+    required int medicationVersion,
+    required String medicationName,
+    String? strengthText,
+    String? form,
+    required String doseText,
+    String? instructions,
+    required DateTime startDate,
+    DateTime? endDate,
+    required String timeZone,
+    required List<Map<String, String>> schedules,
+    required int patientReminderMinutesBefore,
+    required int caregiverReminderMinutesBefore,
+    required String status,
+  }) => Future<LifeMateDurableMutation>.error(
+    UnsupportedError(
+      'Protected offline health execution is unavailable on web.',
+    ),
   );
 
   Future<int> flushPendingMutations() async => 0;
@@ -65,7 +90,9 @@ class DurableLifeMateApiClient extends LifeMateApiClient {
     int maximumPages = 10,
     LifeMateBeforeProjectionCheckpoint? beforeCheckpoint,
   }) => Future<LifeMateCareEventProjectionSyncResult>.error(
-    UnsupportedError('Protected offline health execution is unavailable on web.'),
+    UnsupportedError(
+      'Protected offline health execution is unavailable on web.',
+    ),
   );
 
   Future<int> pendingMutationCount() async => 0;

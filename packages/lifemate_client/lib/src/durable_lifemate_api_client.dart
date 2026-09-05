@@ -431,6 +431,52 @@ class DurableLifeMateApiClient extends LifeMateApiClient {
     );
   }
 
+  /// Queues a locally validated treatment edit only after canonical Account +
+  /// Person runtime adoption. There is intentionally no account-only fallback.
+  Future<LifeMateDurableMutation> queueTreatmentEdit({
+    required String mutationId,
+    required String treatmentPlanId,
+    required int version,
+    required int medicationVersion,
+    required String medicationName,
+    String? strengthText,
+    String? form,
+    required String doseText,
+    String? instructions,
+    required DateTime startDate,
+    DateTime? endDate,
+    required String timeZone,
+    required List<Map<String, String>> schedules,
+    required int patientReminderMinutesBefore,
+    required int caregiverReminderMinutesBefore,
+    required String status,
+  }) async {
+    final runtime = _activeSharedRuntime();
+    if (runtime == null) {
+      throw StateError(
+        'Canonical shared offline runtime must be adopted before queuing a treatment edit.',
+      );
+    }
+    return runtime.enqueueTreatmentEdit(
+      mutationId: mutationId,
+      treatmentPlanId: treatmentPlanId,
+      version: version,
+      medicationVersion: medicationVersion,
+      medicationName: medicationName,
+      strengthText: strengthText,
+      form: form,
+      doseText: doseText,
+      instructions: instructions,
+      startDate: startDate,
+      endDate: endDate,
+      timeZone: timeZone,
+      schedules: schedules,
+      patientReminderMinutesBefore: patientReminderMinutesBefore,
+      caregiverReminderMinutesBefore: caregiverReminderMinutesBefore,
+      status: status,
+    );
+  }
+
   Future<int> pendingMutationCount() async {
     final shared = _activeSharedRuntime();
     return shared == null

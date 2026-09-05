@@ -63,7 +63,9 @@ final class LifeMateSharedOfflineRuntime {
   Future<int> importLegacyPending() => Future<int>.value(0);
 
   Future<LifeMateOfflineSyncResult> flushDetailed() =>
-      Future<LifeMateOfflineSyncResult>.value(const LifeMateOfflineSyncResult());
+      Future<LifeMateOfflineSyncResult>.value(
+        const LifeMateOfflineSyncResult(),
+      );
 
   Future<LifeMateLocalSyncCheckpoint?> careEventCheckpoint() =>
       _unsupportedCheckpoint();
@@ -80,8 +82,8 @@ final class LifeMateSharedOfflineRuntime {
   Future<List<LifeMateLocalProjectionRecord>> treatmentPlanProjections() =>
       _unsupportedProjections();
 
-  Future<List<LifeMateLocalProjectionRecord>> treatmentOccurrenceProjections() =>
-      _unsupportedProjections();
+  Future<List<LifeMateLocalProjectionRecord>>
+  treatmentOccurrenceProjections() => _unsupportedProjections();
 
   Future<LifeMateProjectionReconcileResult> applyCareEventPage({
     required LifeMateProjectionPullPage page,
@@ -109,6 +111,25 @@ final class LifeMateSharedOfflineRuntime {
     required DateTime fromDate,
     required DateTime toDate,
   }) => Future<Map<String, dynamic>?>.error(_unsupported());
+
+  Future<LifeMateDurableMutation> enqueueTreatmentEdit({
+    required String mutationId,
+    required String treatmentPlanId,
+    required int version,
+    required int medicationVersion,
+    required String medicationName,
+    String? strengthText,
+    String? form,
+    required String doseText,
+    String? instructions,
+    required DateTime startDate,
+    DateTime? endDate,
+    required String timeZone,
+    required List<Map<String, String>> schedules,
+    required int patientReminderMinutesBefore,
+    required int caregiverReminderMinutesBefore,
+    required String status,
+  }) => Future<LifeMateDurableMutation>.error(_unsupported());
 
   Future<int> pendingMutationCount() => Future<int>.value(0);
 

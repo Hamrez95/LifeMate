@@ -183,7 +183,9 @@ final class LifeMateSharedOfflineRuntime {
   Future<LifeMateOfflineSyncResult> flushDetailed() async {
     _requireOpen();
     await importLegacyPending();
-    final result = await _replayEngine.replayEligible(namespace: _localNamespace);
+    final result = await _replayEngine.replayEligible(
+      namespace: _localNamespace,
+    );
     return LifeMateOfflineSyncResult(
       replayed: result.confirmed,
       conflicts: result.conflicts,
@@ -208,7 +210,8 @@ final class LifeMateSharedOfflineRuntime {
   Future<List<LifeMateLocalProjectionRecord>> treatmentPlanProjections() =>
       _projections(LifeMateLocalProjectionDomain.treatmentPlan);
 
-  Future<List<LifeMateLocalProjectionRecord>> treatmentOccurrenceProjections() =>
+  Future<List<LifeMateLocalProjectionRecord>>
+  treatmentOccurrenceProjections() =>
       _projections(LifeMateLocalProjectionDomain.treatmentOccurrence);
 
   Future<LifeMateProjectionReconcileResult> applyCareEventPage({
@@ -346,25 +349,71 @@ final class LifeMateSharedOfflineRuntime {
       },
       'treatmentPlans': plans,
       'doseOccurrences': occurrences
-          .where((value) => _payloadDateInRange(
-                value,
-                field: 'scheduledLocalDate',
-                fromDate: requestedFrom,
-                toDate: requestedTo,
-              ))
+          .where(
+            (value) => _payloadDateInRange(
+              value,
+              field: 'scheduledLocalDate',
+              fromDate: requestedFrom,
+              toDate: requestedTo,
+            ),
+          )
           .toList(growable: false),
       'careEvents': careEvents
           .map((record) => record.payload)
-          .where((value) => _payloadDateInRange(
-                value,
-                field: 'scheduledLocalDate',
-                fromDate: requestedFrom,
-                toDate: requestedTo,
-              ))
+          .where(
+            (value) => _payloadDateInRange(
+              value,
+              field: 'scheduledLocalDate',
+              fromDate: requestedFrom,
+              toDate: requestedTo,
+            ),
+          )
           .toList(growable: false),
       'offlineCached': true,
       'offlineCachedAtUtc': marker.storedAtUtc.toIso8601String(),
     };
+  }
+
+  /// Accepts only a fully validated treatment edit into the existing protected
+  /// Account + Person outbox. Arbitrary mutation paths/domains are never exposed.
+  Future<LifeMateDurableMutation> enqueueTreatmentEdit({
+    required String mutationId,
+    required String treatmentPlanId,
+    required int version,
+    required int medicationVersion,
+    required String medicationName,
+    String? strengthText,
+    String? form,
+    required String doseText,
+    String? instructions,
+    required DateTime startDate,
+    DateTime? endDate,
+    required String timeZone,
+    required List<Map<String, String>> schedules,
+    required int patientReminderMinutesBefore,
+    required int caregiverReminderMinutesBefore,
+    required String status,
+  }) async {
+    _requireOpen();
+    final mutation = LifeMateOfflineTreatmentMutation.buildEdit(
+      mutationId: mutationId,
+      treatmentPlanId: treatmentPlanId,
+      version: version,
+      medicationVersion: medicationVersion,
+      medicationName: medicationName,
+      strengthText: strengthText,
+      form: form,
+      doseText: doseText,
+      instructions: instructions,
+      startDate: startDate,
+      endDate: endDate,
+      timeZone: timeZone,
+      schedules: schedules,
+      patientReminderMinutesBefore: patientReminderMinutesBefore,
+      caregiverReminderMinutesBefore: caregiverReminderMinutesBefore,
+      status: status,
+    );
+    return _outbox.enqueue(namespace: _localNamespace, mutation: mutation);
   }
 
   Future<int> pendingMutationCount() async {
