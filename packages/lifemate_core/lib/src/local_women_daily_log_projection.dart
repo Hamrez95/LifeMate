@@ -83,8 +83,7 @@ final class LifeMateWomenDailyLogProjection {
 
     final rows = rowsByDate.values.toList(growable: false)
       ..sort(
-        (a, b) =>
-            a['loggedOn'].toString().compareTo(b['loggedOn'].toString()),
+        (a, b) => a['loggedOn'].toString().compareTo(b['loggedOn'].toString()),
       );
 
     return LifeMateWomenDailyLogProjectionResult(
