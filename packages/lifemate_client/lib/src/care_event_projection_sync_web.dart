@@ -1,4 +1,4 @@
-import 'projection_checkpoint.dart';
+import 'package:lifemate_core/lifemate_core.dart';
 
 /// Web keeps the projection API surface available for shared UI code, but does
 /// not create a browser health store or acknowledge durable projection cursors.
