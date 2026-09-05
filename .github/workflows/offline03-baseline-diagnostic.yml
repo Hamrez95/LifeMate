@@ -31,54 +31,21 @@ jobs:
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
         with:
+          ref: fix/edge-api-baseline-portability-format
           show-progress: false
           persist-credentials: false
       - uses: denoland/setup-deno@22d081ff2d3a40755e97629de92e3bcbfa7cf2ed
         with:
           deno-version: v2.9.4
-      - name: Apply candidate baseline repair transiently
-        shell: bash
-        run: |
-          python3 - <<'PY'
-          from pathlib import Path
-          replacements = {
-            'supabase/functions/lifemate-api/medication_schedule_sleep_solver.ts': [
-              ('const proposedOffsets = <number> [0];', 'const proposedOffsets: number[] = [0];'),
-            ],
-            'supabase/functions/lifemate-api/medication_schedule_sleep_store.ts': [
-              ('            mode,\n            intervalHours,\n            ...proposal,', '            intervalHours,\n            ...proposal,'),
-            ],
-            'supabase/functions/lifemate-api/support_attachment_storage.ts': [
-              ('        body: bytes,', '        body: Uint8Array.from(bytes).buffer,'),
-            ],
-            'supabase/functions/lifemate-api/support_conversations_routes.ts': [
-              ('  const digest = await crypto.subtle.digest("SHA-256", bytes);', '  const digest = await crypto.subtle.digest(\n    "SHA-256",\n    Uint8Array.from(bytes).buffer,\n  );'),
-            ],
-            'supabase/functions/lifemate-api/account_lifecycle_integration_test.ts': [
-              ('assertEquals(state[0].retention_policy_version, "retention-v2");', 'assertEquals(state[0].retention_policy_version, "retention-v3.1");'),
-              ('assertEquals(latest?.retentionPolicyVersion, "retention-v2");', 'assertEquals(latest?.retentionPolicyVersion, "retention-v3.1");'),
-            ],
-          }
-          for filename, pairs in replacements.items():
-            path = Path(filename)
-            text = path.read_text()
-            for old, new in pairs:
-              expected = 2 if filename.endswith('support_attachment_storage.ts') and old == '        body: bytes,' else 1
-              if text.count(old) != expected:
-                raise SystemExit(f'{filename}: replacement precondition failed')
-              text = text.replace(old, new)
-            path.write_text(text)
-          PY
-          deno fmt supabase/functions/lifemate-api supabase/functions/lifemate-care-management
-      - name: Capture type check and unit tests
+      - name: Capture strict source checks
         shell: bash
         run: |
           set +e
-          (cd supabase/functions/lifemate-api && deno task check) > type-check.txt 2>&1
+          (cd supabase/functions/lifemate-api && deno fmt --check && deno task check) > type-check.txt 2>&1
           echo "type_check_exit=$?" >> type-check.txt
           (cd supabase/functions/lifemate-api && deno task test) > unit-test.txt 2>&1
           echo "unit_test_exit=$?" >> unit-test.txt
-          (cd supabase/functions/lifemate-care-management && deno task check && deno task test) > care-management-check.txt 2>&1
+          (cd supabase/functions/lifemate-care-management && deno fmt --check && deno task check && deno task test) > care-management-check.txt 2>&1
           echo "care_management_exit=$?" >> care-management-check.txt
           exit 0
       - name: Capture portable schema and account lifecycle
