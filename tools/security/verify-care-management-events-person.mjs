@@ -67,7 +67,11 @@ for (const marker of [
     throw new Error(`Person Care Event store contract missing: ${marker}`);
   }
 }
-if (!compactStore.includes("constmetadata=eventType==null?null:{eventType}")) {
+if (
+  !compactStore.includes(
+    "constmetadata=eventType==null?null:JSON.stringify({eventType})",
+  )
+) {
   throw new Error(
     "Care Event audit metadata must keep event semantics without patient AppUser identity.",
   );
