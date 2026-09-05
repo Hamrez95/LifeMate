@@ -115,6 +115,28 @@ final class LifeMateSharedOfflineRuntime {
   Future<List<Map<String, dynamic>>> pendingTreatmentCreates() =>
       Future<List<Map<String, dynamic>>>.error(_unsupported());
 
+  Future<void> enqueueCareEventCreate({
+    required String mutationId,
+    required String eventType,
+    required String title,
+    String? providerName,
+    String? specialty,
+    String? medicationName,
+    String? doseText,
+    String? administrationRoute,
+    String? reason,
+    String? instructions,
+    String? centerName,
+    String? addressLine,
+    String? phoneNumber,
+    required DateTime scheduledLocalDate,
+    required String scheduledLocalTime,
+    required String timeZone,
+    required int patientReminderMinutesBefore,
+    required int caregiverReminderMinutesBefore,
+    DateTime? createdAtUtc,
+  }) => Future<void>.error(_unsupported());
+
   Future<void> enqueueTreatmentCreate({
     required String mutationId,
     required String medicationId,
