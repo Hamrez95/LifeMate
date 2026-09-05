@@ -36,11 +36,16 @@ Deno.test("server orchestration uses guarded primitives and non-elevated audit s
     service,
     "commerce.apply_manual_entitlement_change_guarded",
   );
-  assertStringIncludes(
-    service,
-    "entitlement-adjust:${input.requestHash.slice(0, 48)}",
+  assert(
+    /entitlement-adjust:\$\{\s*input\.requestHash\.slice\(0,\s*48\)\s*\}/.test(
+      service,
+    ),
+    "abuse idempotency must remain bound to the normalized request hash",
   );
-  assertStringIncludes(service, "${input.idempotencyKey},false,");
+  assert(
+    /\$\{input\.idempotencyKey\},\s*false,/.test(service),
+    "commerce audit must remain explicitly non-elevated",
+  );
   assert(!service.includes("apply_manual_entitlement_grant(\n"));
   assert(!service.includes("apply_manual_entitlement_change(\n"));
 });
