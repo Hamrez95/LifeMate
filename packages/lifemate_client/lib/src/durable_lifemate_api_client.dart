@@ -2,11 +2,13 @@ import 'dart:convert';
 
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
+import 'package:lifemate_core/lifemate_core.dart';
 
 import 'durable_http_client.dart';
 import 'lifemate_api_client.dart';
 import 'offline_mutation_queue.dart';
 import 'offline_sync_result.dart';
+import 'shared_offline_runtime.dart';
 
 class LifeMatePendingSyncEvent {
   const LifeMatePendingSyncEvent({
@@ -30,8 +32,12 @@ class DurableLifeMateApiClient extends LifeMateApiClient {
   DurableLifeMateApiClient._({
     required Uri baseUri,
     required AccessTokenProvider accessToken,
+    required LifeMateAccountIdProvider accountId,
     required LifeMateDurableHttpClient durableHttp,
-  })  : _durableHttp = durableHttp,
+  })  : _baseUri = baseUri,
+        _accessToken = accessToken,
+        _accountId = accountId,
+        _durableHttp = durableHttp,
         super(
           baseUri: baseUri,
           accessToken: accessToken,
@@ -55,11 +61,66 @@ class DurableLifeMateApiClient extends LifeMateApiClient {
     return DurableLifeMateApiClient._(
       baseUri: baseUri,
       accessToken: accessToken,
+      accountId: accountId,
       durableHttp: durableHttp,
     );
   }
 
+  final Uri _baseUri;
+  final AccessTokenProvider _accessToken;
+  final LifeMateAccountIdProvider _accountId;
   final LifeMateDurableHttpClient _durableHttp;
+  LifeMateSharedOfflineRuntime? _sharedRuntime;
+
+  /// Moves replay ownership from the pre-#831 account-only queue to the shared
+  /// encrypted Environment + Account + Person runtime. The caller must supply
+  /// the canonical server-resolved self Person; Account is never substituted.
+  Future<void> adoptSharedOfflineRuntime({
+    required String environmentId,
+    required String accountId,
+    required String personId,
+    required String timeZone,
+  }) async {
+    final normalizedAccount = accountId.trim();
+    final normalizedPerson = personId.trim();
+    final normalizedEnvironment = environmentId.trim();
+    final normalizedTimeZone = timeZone.trim();
+    if (normalizedAccount.isEmpty ||
+        normalizedPerson.isEmpty ||
+        normalizedEnvironment.isEmpty ||
+        normalizedTimeZone.isEmpty) {
+      throw ArgumentError(
+        'Shared offline runtime requires environment, account, Person and timezone.',
+      );
+    }
+    if (_accountId()?.trim() != normalizedAccount) {
+      throw StateError('Authenticated account changed during offline adoption.');
+    }
+
+    final namespace = LifeMateLocalNamespace(
+      environmentId: normalizedEnvironment,
+      accountId: normalizedAccount,
+      personId: normalizedPerson,
+    );
+    final current = _sharedRuntime;
+    if (current != null && current.namespace == namespace) return;
+
+    final next = await LifeMateSharedOfflineRuntime.open(
+      namespace: namespace,
+      timeZone: normalizedTimeZone,
+      apiBaseUri: _baseUri,
+      accessToken: _accessToken,
+      legacyStorage: _durableHttp.migrationStorage,
+    );
+    if (_accountId()?.trim() != normalizedAccount) {
+      next.close();
+      throw StateError('Authenticated account changed during offline adoption.');
+    }
+
+    _sharedRuntime = next;
+    _durableHttp.useReplayDelegate(next.flushDetailed);
+    current?.close();
+  }
 
   @override
   Future<Map<String, dynamic>> reportDose({
@@ -130,6 +191,9 @@ class DurableLifeMateApiClient extends LifeMateApiClient {
   }
 
   Future<Map<String, String>> _pendingDoseStates() async {
+    final shared = _sharedRuntime;
+    if (shared != null) return shared.pendingAdherenceStates();
+
     final pending = await _durableHttp.pendingMutations();
     final result = <String, String>{};
     for (final mutation in pending) {
@@ -184,5 +248,17 @@ class DurableLifeMateApiClient extends LifeMateApiClient {
     return result;
   }
 
-  Future<int> pendingMutationCount() => _durableHttp.pendingCount();
+  Future<int> pendingMutationCount() async {
+    final shared = _sharedRuntime;
+    return shared == null
+        ? _durableHttp.pendingCount()
+        : shared.pendingMutationCount();
+  }
+
+  @override
+  void close() {
+    _sharedRuntime?.close();
+    _sharedRuntime = null;
+    super.close();
+  }
 }
