@@ -82,7 +82,10 @@ final class LifeMateWomenDailyLogProjection {
     }
 
     final rows = rowsByDate.values.toList(growable: false)
-      ..sort((a, b) => a['loggedOn'].toString().compareTo(b['loggedOn'].toString()));
+      ..sort(
+        (a, b) =>
+            a['loggedOn'].toString().compareTo(b['loggedOn'].toString()),
+      );
 
     return LifeMateWomenDailyLogProjectionResult(
       rows: List<Map<String, dynamic>>.unmodifiable(rows),
@@ -115,7 +118,8 @@ final class LifeMateWomenDailyLogProjection {
     return _dateOnly(parsed);
   }
 
-  static DateTime _dateOnly(DateTime value) => DateTime(value.year, value.month, value.day);
+  static DateTime _dateOnly(DateTime value) =>
+      DateTime(value.year, value.month, value.day);
   static bool _inRange(DateTime value, DateTime from, DateTime to) =>
       !value.isBefore(from) && !value.isAfter(to);
   static String _dateText(DateTime value) =>
