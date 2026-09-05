@@ -107,6 +107,11 @@ class LifeMateOfflineMutationQueue {
   final Duration timeToLive;
   Future<void> _tail = Future<void>.value();
 
+  /// Transitional #831 migration seam. New runtime code must not use this to
+  /// inspect health payloads; it exists only so the shared importer can move
+  /// already-accepted legacy records without creating a second storage owner.
+  LifeMateMutationStorage get migrationStorage => _storage;
+
   Future<LifeMateQueuedMutation> enqueue({
     required String accountId,
     required String method,
@@ -222,21 +227,25 @@ class LifeMateOfflineMutationQueue {
     try {
       final decoded = jsonDecode(raw);
       if (decoded is! Map) return null;
-      return LifeMateQueuedMutation.fromJson(
-          Map<String, dynamic>.from(decoded));
+      final value = LifeMateQueuedMutation.fromJson(
+        Map<String, dynamic>.from(decoded),
+      );
+      return value.id.isEmpty ||
+              value.accountId.isEmpty ||
+              value.clientRequestId.isEmpty ||
+              value.method.toUpperCase() != 'POST' ||
+              value.uri.isEmpty ||
+              !value.createdAtUtc.isUtc
+          ? null
+          : value;
     } catch (_) {
       return null;
     }
   }
 
   bool _isValid(LifeMateQueuedMutation value, DateTime cutoff) =>
-      value.id.isNotEmpty &&
-      value.accountId.isNotEmpty &&
-      value.clientRequestId.isNotEmpty &&
-      value.createdAtUtc.isAfter(cutoff);
+      value.id == '${value.accountId}:${value.clientRequestId}' &&
+      !value.createdAtUtc.isBefore(cutoff);
 
-  static String _itemKey(String id) {
-    final encoded = base64Url.encode(utf8.encode(id)).replaceAll('=', '');
-    return '$_itemPrefix$encoded';
-  }
+  static String _itemKey(String id) => '$_itemPrefix$id';
 }
