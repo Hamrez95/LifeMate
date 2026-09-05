@@ -132,6 +132,8 @@ jobs:
         run: |
           set -euo pipefail
           psql "$RESTORE_ADMIN_URL" --set=ON_ERROR_STOP=1 \
+            --file=supabase/bootstrap/test_provider_compatibility_roles.sql
+          psql "$RESTORE_ADMIN_URL" --set=ON_ERROR_STOP=1 \
             --file="$RUNNER_TEMP/lifemate.runtime-roles.sql"
           cat "$RUNNER_TEMP/lifemate.restore-drill.dump" | \
             docker run --rm -i --network host \
