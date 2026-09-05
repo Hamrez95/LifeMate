@@ -79,15 +79,15 @@ void main() {
     store.close();
   });
 
-  test('treatment enqueue fails before canonical runtime adoption', () async {
+  test('treatment enqueue fails before canonical runtime adoption', () {
     final api = DurableLifeMateApiClient(
       baseUri: Uri.parse('https://api.example.test'),
       accessToken: () => 'token',
       accountId: () => legacyAccountId,
     );
 
-    await expectLater(
-      api.enqueueOfflineTreatmentPlanEdit(
+    expect(
+      () => api.enqueueOfflineTreatmentPlanEdit(
         clientRequestId: 'offline-treatment-edit-2',
         treatmentPlanId: '123e4567-e89b-42d3-a456-426614174702',
         version: 1,
