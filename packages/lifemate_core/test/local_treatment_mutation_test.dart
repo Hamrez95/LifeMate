@@ -76,12 +76,9 @@ void main() {
       ],
     );
 
-    expect(
-      mutation.payload['schedules'],
-      const <Map<String, String>>[
-        {'dayOfWeek': 'tuesday', 'localTime': '07:45'},
-      ],
-    );
+    expect(mutation.payload['schedules'], const <Map<String, String>>[
+      {'dayOfWeek': 'tuesday', 'localTime': '07:45'},
+    ]);
   });
 }
 
