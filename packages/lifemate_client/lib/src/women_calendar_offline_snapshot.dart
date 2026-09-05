@@ -4,7 +4,7 @@ import 'women_calendar_offline.dart';
 
 /// Protected, Account + Person + environment-scoped owner snapshot used only
 /// for offline Women Health continuity. Server state remains canonical and
-/// Circle/partner state is deliberately excluded from this record.
+/// Circle/partner state is deliberately excluded from this owner-only record.
 final class WomenCalendarOfflineSnapshotStore {
   WomenCalendarOfflineSnapshotStore({
     required LifeMateLocalHealthStore store,
