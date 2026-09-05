@@ -962,7 +962,9 @@ class _CareEventFormState extends State<CareEventForm> {
                 },
               ),
               SizedBox(height: 16),
-              SwitchListTile.adaptive(
+              Material(
+                color: Colors.transparent,
+                child: SwitchListTile.adaptive(
                 key: ValueKey('care-event-repeat-enabled'),
                 contentPadding: EdgeInsets.zero,
                 title: Text(
@@ -988,6 +990,7 @@ class _CareEventFormState extends State<CareEventForm> {
                 onChanged: _busy
                     ? null
                     : (value) => setState(() => _repeatEnabled = value),
+                ),
               ),
               if (_repeatEnabled) ...[
                 SizedBox(height: 8),
