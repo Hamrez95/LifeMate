@@ -2,10 +2,11 @@ import 'package:lifemate_client/lifemate_client.dart';
 
 import 'women_daily_log_offline_bridge.dart';
 
-typedef WomenCompanionDashboardFetch = Future<Map<String, dynamic>> Function({
-  required DateTime fromDate,
-  required DateTime toDate,
-});
+typedef WomenCompanionDashboardFetch =
+    Future<Map<String, dynamic>> Function({
+      required DateTime fromDate,
+      required DateTime toDate,
+    });
 
 typedef WomenCompanionOfflinePortOpen =
     Future<WomenCompanionOfflineDashboardPort?> Function();

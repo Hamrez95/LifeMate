@@ -123,80 +123,77 @@ class _WomenCompanionScreenState extends State<WomenCompanionScreen> {
   }
 
   Future<void> _load({bool background = false}) async {
-  if (background && _profile.isEmpty) {
-    background = false;
-  }
-  if (!LifeMateFeatureFlags.womenCalendarPilotEnabled) {
-    if (mounted) setState(() => _loading = false);
-    return;
-  }
-  setState(() {
-    if (_profile.isEmpty) {
-      _loading = true;
+    if (background && _profile.isEmpty) {
+      background = false;
     }
-    _error = null;
-  });
-  try {
-    final api = context.read<LifeMateApiClient>();
-    final now = DateTime.now();
-    final fromDate = now.subtract(const Duration(days: 89));
-    final loader = WomenCompanionDashboardLoader.forApi(api);
-    final loaded = await loader.load(fromDate: fromDate, toDate: now);
-    final dashboard = loaded.dashboard;
-    if (!mounted) return;
-    final currentUser =
-        dashboard['currentUser'] as Map<String, dynamic>? ?? const {};
-    final user = currentUser['user'] as Map<String, dynamic>? ?? const {};
+    if (!LifeMateFeatureFlags.womenCalendarPilotEnabled) {
+      if (mounted) setState(() => _loading = false);
+      return;
+    }
     setState(() {
-      _profile =
-          dashboard['profile'] as Map<String, dynamic>? ?? const {};
-      _episodes = (dashboard['episodes'] as List<dynamic>? ?? const [])
-          .cast<Map<String, dynamic>>();
-      _dailyLogs =
-          (dashboard['dailyLogs'] as List<dynamic>? ?? const [])
-              .cast<Map<String, dynamic>>();
-      _offlineCached = loaded.offlineCached;
-      if (loaded.offlineCached) {
-        _currentUserId = null;
-        _currentProfile = const {};
-        _relationships = const [];
-      } else {
-        _currentUserId = user['id']?.toString();
-        _currentProfile =
-            dashboard['currentProfile'] as Map<String, dynamic>? ??
-            const {};
-        _relationships =
-            (dashboard['relationships'] as List<dynamic>? ?? const [])
-                .cast<Map<String, dynamic>>();
+      if (_profile.isEmpty) {
+        _loading = true;
       }
+      _error = null;
     });
-  } on LifeMateApiException catch (error) {
-    if (!mounted) return;
-    setState(() {
-      _error = error.code == 'women_calendar_feature_disabled'
-          ? LifeMateRuntimeLocale.select(
-              fa: 'تقویم بانوان در این نسخه فعال نیست.',
-              en: "The women's calendar is not active in this version.",
-            )
-          : LifeMateRuntimeLocale.select(
-              fa: 'اطلاعات چرخه دریافت نشد. دوباره تلاش کنید.',
-              en: 'Cycle information not received. Try again.',
-            );
-    });
-  } catch (error) {
-    debugPrint('Women companion dashboard load failed: $error');
-    if (mounted) {
-      setState(
-        () => _error = LifeMateRuntimeLocale.select(
-          fa: 'اطلاعات چرخه دریافت نشد. دوباره تلاش کنید.',
-          en: 'Cycle information not received. Try again.',
-        ),
-      );
+    try {
+      final api = context.read<LifeMateApiClient>();
+      final now = DateTime.now();
+      final fromDate = now.subtract(const Duration(days: 89));
+      final loader = WomenCompanionDashboardLoader.forApi(api);
+      final loaded = await loader.load(fromDate: fromDate, toDate: now);
+      final dashboard = loaded.dashboard;
+      if (!mounted) return;
+      final currentUser =
+          dashboard['currentUser'] as Map<String, dynamic>? ?? const {};
+      final user = currentUser['user'] as Map<String, dynamic>? ?? const {};
+      setState(() {
+        _profile = dashboard['profile'] as Map<String, dynamic>? ?? const {};
+        _episodes = (dashboard['episodes'] as List<dynamic>? ?? const [])
+            .cast<Map<String, dynamic>>();
+        _dailyLogs = (dashboard['dailyLogs'] as List<dynamic>? ?? const [])
+            .cast<Map<String, dynamic>>();
+        _offlineCached = loaded.offlineCached;
+        if (loaded.offlineCached) {
+          _currentUserId = null;
+          _currentProfile = const {};
+          _relationships = const [];
+        } else {
+          _currentUserId = user['id']?.toString();
+          _currentProfile =
+              dashboard['currentProfile'] as Map<String, dynamic>? ?? const {};
+          _relationships =
+              (dashboard['relationships'] as List<dynamic>? ?? const [])
+                  .cast<Map<String, dynamic>>();
+        }
+      });
+    } on LifeMateApiException catch (error) {
+      if (!mounted) return;
+      setState(() {
+        _error = error.code == 'women_calendar_feature_disabled'
+            ? LifeMateRuntimeLocale.select(
+                fa: 'تقویم بانوان در این نسخه فعال نیست.',
+                en: "The women's calendar is not active in this version.",
+              )
+            : LifeMateRuntimeLocale.select(
+                fa: 'اطلاعات چرخه دریافت نشد. دوباره تلاش کنید.',
+                en: 'Cycle information not received. Try again.',
+              );
+      });
+    } catch (error) {
+      debugPrint('Women companion dashboard load failed: $error');
+      if (mounted) {
+        setState(
+          () => _error = LifeMateRuntimeLocale.select(
+            fa: 'اطلاعات چرخه دریافت نشد. دوباره تلاش کنید.',
+            en: 'Cycle information not received. Try again.',
+          ),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _loading = false);
     }
-  } finally {
-    if (mounted) setState(() => _loading = false);
   }
-}
 
   Future<void> _openAdvancedManagement() async {
     await Navigator.of(context).push<void>(
@@ -348,41 +345,47 @@ class _WomenCompanionScreenState extends State<WomenCompanionScreen> {
           padding: const EdgeInsets.fromLTRB(18, 12, 18, 28),
           children: [
             if (_offlineCached) ...[
-    Container(
-      key: const ValueKey('women-companion-offline-owner-banner'),
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-      decoration: BoxDecoration(
-        color: const Color(0xFFFFF1F6),
-        borderRadius: BorderRadius.circular(18),
-      ),
-      child: Row(
-        children: [
-          const Icon(Icons.cloud_off_rounded, color: Color(0xFFD75C8D)),
-          const SizedBox(width: 10),
-          Expanded(
-            child: Text(
-              LifeMateRuntimeLocale.select(
-                fa: 'اطلاعات خصوصی ذخیره‌شده روی این دستگاه نمایش داده می‌شود. اشتراک‌گذاری و همدم تا اتصال دوباره آنلاین می‌مانند.',
-                en: 'Showing private data saved on this device. Sharing and companion access stay online-only until reconnection.',
+              Container(
+                key: const ValueKey('women-companion-offline-owner-banner'),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 14,
+                  vertical: 12,
+                ),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFFFF1F6),
+                  borderRadius: BorderRadius.circular(18),
+                ),
+                child: Row(
+                  children: [
+                    const Icon(
+                      Icons.cloud_off_rounded,
+                      color: Color(0xFFD75C8D),
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Text(
+                        LifeMateRuntimeLocale.select(
+                          fa: 'اطلاعات خصوصی ذخیره‌شده روی این دستگاه نمایش داده می‌شود. اشتراک‌گذاری و همدم تا اتصال دوباره آنلاین می‌مانند.',
+                          en: 'Showing private data saved on this device. Sharing and companion access stay online-only until reconnection.',
+                        ),
+                        style: const TextStyle(
+                          fontSize: 11,
+                          height: 1.5,
+                          color: AppColors.textSecondary,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
               ),
-              style: const TextStyle(
-                fontSize: 11,
-                height: 1.5,
-                color: AppColors.textSecondary,
+              const SizedBox(height: 14),
+            ] else ...[
+              WomenCompanionPeopleHero(
+                currentProfile: _currentProfile,
+                relationships: _companionRelationships,
               ),
-            ),
-          ),
-        ],
-      ),
-    ),
-    const SizedBox(height: 14),
-  ] else ...[
-    WomenCompanionPeopleHero(
-      currentProfile: _currentProfile,
-      relationships: _companionRelationships,
-    ),
-    const SizedBox(height: 14),
-  ],
+              const SizedBox(height: 14),
+            ],
             WomenCalendarMonthCard(
               episodes: _episodes,
               estimate: estimate,
