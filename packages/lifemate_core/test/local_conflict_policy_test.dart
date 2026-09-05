@@ -98,26 +98,29 @@ void main() {
       );
     });
 
-    test('distinct observation can replay but changed source refreshes first', () {
-      expect(
-        LifeMateConflictPolicy.resolve(
-          const LifeMateConflictContext(
-            domain: LifeMateConflictDomain.observation,
+    test(
+      'distinct observation can replay but changed source refreshes first',
+      () {
+        expect(
+          LifeMateConflictPolicy.resolve(
+            const LifeMateConflictContext(
+              domain: LifeMateConflictDomain.observation,
+            ),
           ),
-        ),
-        LifeMateConflictDisposition.replayAllowed,
-      );
-      expect(
-        LifeMateConflictPolicy.resolve(
-          const LifeMateConflictContext(
-            domain: LifeMateConflictDomain.observation,
-            expectedRevision: '1',
-            serverRevision: '2',
+          LifeMateConflictDisposition.replayAllowed,
+        );
+        expect(
+          LifeMateConflictPolicy.resolve(
+            const LifeMateConflictContext(
+              domain: LifeMateConflictDomain.observation,
+              expectedRevision: '1',
+              serverRevision: '2',
+            ),
           ),
-        ),
-        LifeMateConflictDisposition.refreshThenRetry,
-      );
-    });
+          LifeMateConflictDisposition.refreshThenRetry,
+        );
+      },
+    );
 
     test('authoritative shared revocation always fails closed', () {
       expect(
