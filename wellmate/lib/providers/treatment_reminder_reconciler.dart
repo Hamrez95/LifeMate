@@ -96,3 +96,44 @@ List<ScheduleItemModel> reconcileTreatmentReminderWindow({
     ...freshMedicine,
   ];
 }
+
+/// Returns only opaque treatment occurrence IDs whose effective reminder
+/// projection changed between the currently scheduled window and the freshly
+/// confirmed server window. No medication names, dose text or other PHI leave
+/// this helper; those values are used only to detect whether a local reminder
+/// needs reconciliation.
+Set<String> changedTreatmentReminderOccurrenceIds({
+  required Iterable<ScheduleItemModel> currentItems,
+  required Iterable<ScheduleItemModel> nextItems,
+}) {
+  final current = <String, ScheduleItemModel>{
+    for (final item in currentItems)
+      if (item.type == 'medicine' && item.id.trim().isNotEmpty) item.id: item,
+  };
+  final next = <String, ScheduleItemModel>{
+    for (final item in nextItems)
+      if (item.type == 'medicine' && item.id.trim().isNotEmpty) item.id: item,
+  };
+
+  final affected = <String>{};
+  for (final id in <String>{...current.keys, ...next.keys}) {
+    final before = current[id];
+    final after = next[id];
+    if (before == null || after == null || !_sameReminderProjection(before, after)) {
+      affected.add(id);
+    }
+  }
+  return Set<String>.unmodifiable(affected);
+}
+
+bool _sameReminderProjection(ScheduleItemModel left, ScheduleItemModel right) =>
+    left.id == right.id &&
+    left.type == right.type &&
+    left.title == right.title &&
+    left.time == right.time &&
+    left.dosage == right.dosage &&
+    left.status == right.status &&
+    left.version == right.version &&
+    left.scheduledAtUtc?.toUtc() == right.scheduledAtUtc?.toUtc() &&
+    left.patientReminderMinutesBefore == right.patientReminderMinutesBefore &&
+    left.caregiverReminderMinutesBefore == right.caregiverReminderMinutesBefore;

@@ -161,11 +161,22 @@ class ContextualNotificationProvider extends NotificationProvider {
             serverSnapshot: serverSnapshot,
             now: DateTime.now(),
           );
-          await super.syncReminders(
-            next,
-            timeZone: _latestTimeZone,
-            isPersian: _latestIsPersian,
+          final affectedOccurrenceIds = changedTreatmentReminderOccurrenceIds(
+            currentItems: _latestItems,
+            nextItems: next,
           );
+
+          // A clean reconnect with an unchanged authoritative treatment window
+          // must not cancel/recreate every local medication alarm. Keep the
+          // complete local snapshot current, but cross the native scheduler
+          // boundary only when an actual occurrence projection changed.
+          if (affectedOccurrenceIds.isNotEmpty) {
+            await super.syncReminders(
+              next,
+              timeZone: _latestTimeZone,
+              isPersian: _latestIsPersian,
+            );
+          }
           _latestItems = List<ScheduleItemModel>.unmodifiable(next);
         },
       );
