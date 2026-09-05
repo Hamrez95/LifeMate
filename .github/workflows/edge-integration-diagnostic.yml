@@ -1,0 +1,68 @@
+name: edge-integration-diagnostic
+
+on:
+  pull_request:
+    paths:
+      - 'supabase/functions/lifemate-api/**'
+      - 'supabase/bootstrap/**'
+      - 'supabase/migrations/**'
+      - '.github/workflows/edge-integration-diagnostic.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  integration-output:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    services:
+      postgres:
+        image: postgres:17.6-alpine
+        env:
+          POSTGRES_DB: lifemate_edge_diagnostic
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d lifemate_edge_diagnostic"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      TEST_DATABASE_URL: postgres://postgres:postgres@localhost:5432/lifemate_edge_diagnostic
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
+        with:
+          show-progress: false
+          persist-credentials: false
+      - uses: denoland/setup-deno@22d081ff2d3a40755e97629de92e3bcbfa7cf2ed
+        with:
+          deno-version: v2.9.4
+      - name: Apply exact edge journey schema
+        shell: bash
+        run: |
+          set -euo pipefail
+          psql "$TEST_DATABASE_URL" --set=ON_ERROR_STOP=1 --file=supabase/bootstrap/legacy_lifemate_baseline.sql
+          psql "$TEST_DATABASE_URL" --set=ON_ERROR_STOP=1 --file=supabase/bootstrap/test_provider_compatibility_roles.sql
+          while IFS= read -r migration; do
+            psql "$TEST_DATABASE_URL" --set=ON_ERROR_STOP=1 --file="$migration"
+          done < <(find supabase/migrations -maxdepth 1 -type f -name '*.sql' | sort)
+      - name: Capture integration output
+        shell: bash
+        run: |
+          set +e
+          cd supabase/functions/lifemate-api
+          TEST_DATABASE_URL="$TEST_DATABASE_URL" deno task test:integration > ../../../edge-integration-output.txt 2>&1
+          code=$?
+          cd ../../..
+          printf '%s\n' "$code" > edge-integration-exit-code.txt
+          exit 0
+      - name: Upload diagnostic output
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: edge-integration-diagnostic-${{ github.sha }}
+          path: |
+            edge-integration-output.txt
+            edge-integration-exit-code.txt
+          retention-days: 1
