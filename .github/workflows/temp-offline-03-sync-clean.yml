@@ -1,0 +1,66 @@
+name: temp-offline-03-sync-clean
+
+on:
+  push:
+    branches: [platform/offline-03-sync-state]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  reconcile:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
+        with:
+          ref: platform/offline-03-sync-state
+          fetch-depth: 0
+      - name: Restore current-main store formatting and remove generated lockfile
+        shell: bash
+        run: |
+          git fetch origin main
+          git show origin/main:packages/lifemate_core/lib/src/local_health_store.dart > packages/lifemate_core/lib/src/local_health_store.dart
+          python3 - <<'PY'
+          from pathlib import Path
+          path = Path('packages/lifemate_core/lib/src/local_health_store.dart')
+          text = path.read_text()
+          needle = "  notificationSchedule('notification_schedule');"
+          replacement = "  notificationSchedule('notification_schedule'),\n  syncMetadata('sync_metadata');"
+          if replacement not in text:
+              if needle not in text:
+                  raise SystemExit('enum insertion anchor not found')
+              text = text.replace(needle, replacement, 1)
+          path.write_text(text)
+          lock = Path('packages/lifemate_core/pubspec.lock')
+          if lock.exists(): lock.unlink()
+          PY
+      - uses: subosito/flutter-action@4cab68ce0f1c7c924f688bff4792e044f1aeb30c
+        with:
+          flutter-version: '3.44.0'
+          channel: stable
+          cache: true
+      - name: Format new sync files only
+        run: |
+          dart format \
+            packages/lifemate_core/lib/lifemate_core.dart \
+            packages/lifemate_core/lib/src/local_sync_checkpoint.dart \
+            packages/lifemate_core/lib/src/local_projection_reconciler.dart \
+            packages/lifemate_core/test/local_sync_checkpoint_test.dart \
+            packages/lifemate_core/test/local_projection_reconciler_test.dart
+      - name: Verify core without retaining generated lockfile
+        working-directory: packages/lifemate_core
+        run: |
+          flutter pub get
+          flutter analyze --no-fatal-warnings --no-fatal-infos
+          flutter test
+          rm -f pubspec.lock
+      - name: Commit reconciled slice
+        run: |
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add -A packages/lifemate_core
+          if git diff --cached --quiet; then exit 0; fi
+          git commit -m "chore(offline): reconcile sync state slice to current main"
+          git push origin HEAD:platform/offline-03-sync-state
