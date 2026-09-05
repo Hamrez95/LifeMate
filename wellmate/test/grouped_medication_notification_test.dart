@@ -80,6 +80,32 @@ void main() {
     expect(grouped, isEmpty);
   });
 
+  test('affected scope follows old and new grouped reminder dependencies', () {
+    final affected = expandAffectedMedicationOccurrenceIds(
+      affectedOccurrenceIds: const ['dose-a'],
+      groupMemberships: const [
+        ['dose-a', 'dose-b'],
+        ['dose-b', 'dose-c'],
+        ['unrelated-a', 'unrelated-b'],
+      ],
+    );
+
+    expect(affected, {'dose-a', 'dose-b', 'dose-c'});
+    expect(affected.contains('unrelated-a'), isFalse);
+  });
+
+  test('empty affected scope never expands grouped reminders', () {
+    expect(
+      expandAffectedMedicationOccurrenceIds(
+        affectedOccurrenceIds: const [' ', ''],
+        groupMemberships: const [
+          ['dose-a', 'dose-b'],
+        ],
+      ),
+      isEmpty,
+    );
+  });
+
   test('group payload keeps every occurrence/version independently addressable', () {
     const target = GroupedMedicationNotificationTarget(
       groupKey: 'group-1',

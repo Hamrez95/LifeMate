@@ -273,6 +273,7 @@ class NotificationProvider extends ChangeNotifier {
     List<ScheduleItemModel> items, {
     required String timeZone,
     required bool isPersian,
+    Set<String>? affectedMedicationOccurrenceIds,
   }) async {
     await initialize();
     _latestTimeZone = timeZone.trim().isEmpty ? 'UTC' : timeZone.trim();
@@ -338,6 +339,27 @@ class NotificationProvider extends ChangeNotifier {
 
     final reminders = <LifeMateLocalReminder>[];
     final groups = groupMedicationCandidates(medicationCandidates);
+    Set<String>? scopedMedicationIds;
+    if (affectedMedicationOccurrenceIds != null) {
+      final memberships = <Iterable<String>>[];
+      for (final request in pending) {
+        final grouped = decodeGroupedMedicationPayload(request.payload);
+        if (grouped != null) {
+          memberships.add(grouped.doses.map((dose) => dose.occurrenceId));
+        }
+      }
+      memberships.addAll(
+        groups.values.map(
+          (candidates) => candidates.map((candidate) => candidate.item.id),
+        ),
+      );
+      scopedMedicationIds = expandAffectedMedicationOccurrenceIds(
+        affectedOccurrenceIds: affectedMedicationOccurrenceIds,
+        groupMemberships: memberships,
+      );
+      if (scopedMedicationIds.isEmpty) return;
+    }
+
     final groupedOccurrenceIds = <String>{};
     for (final entry in groups.entries) {
       final candidates = entry.value;
@@ -426,15 +448,32 @@ class NotificationProvider extends ChangeNotifier {
       );
     }
 
+    final desiredReminders = scopedMedicationIds == null
+        ? reminders
+        : reminders
+            .where(
+              (reminder) => _payloadTargetsMedicationOccurrences(
+                reminder.payload,
+                scopedMedicationIds!,
+              ),
+            )
+            .toList(growable: false);
     final result = await _reminderScheduler.sync(
-      reminders: reminders,
+      reminders: desiredReminders,
       timeZone: _latestTimeZone,
       exactAlarmGranted: _exactAlarmGranted,
-      ownsPendingRequest: _ownsWellMatePendingRequest,
+      ownsPendingRequest: scopedMedicationIds == null
+          ? _ownsWellMatePendingRequest
+          : (request) => _pendingRequestTargetsMedicationOccurrences(
+              request,
+              scopedMedicationIds!,
+            ),
       preservePendingRequest: (request) =>
           preservedSnoozeIds.contains(request.id),
     );
-    _updateFallbackState(result.usedInexactFallback);
+    if (scopedMedicationIds == null || result.usedInexactFallback) {
+      _updateFallbackState(result.usedInexactFallback);
+    }
   }
 
   Future<void> _scheduleSnooze(WellMateNotificationTarget target) async {
@@ -469,6 +508,39 @@ class NotificationProvider extends ChangeNotifier {
         payload?.startsWith(_snoozePrefix) == true ||
         payload?.startsWith(wellMateGroupedMedicationPrefix) == true ||
         payload?.startsWith('dose:') == true;
+  }
+
+  static bool _pendingRequestTargetsMedicationOccurrences(
+    PendingNotificationRequest request,
+    Set<String> affectedOccurrenceIds,
+  ) {
+    final payload = request.payload;
+    if (payload?.startsWith('dose:') == true) {
+      // Legacy payloads did not preserve enough identity to target one dose.
+      // Remove them on the first scoped medication reconciliation rather than
+      // risk leaving a stale alarm after an authoritative edit.
+      return true;
+    }
+    return _payloadTargetsMedicationOccurrences(
+      payload,
+      affectedOccurrenceIds,
+    );
+  }
+
+  static bool _payloadTargetsMedicationOccurrences(
+    String? payload,
+    Set<String> affectedOccurrenceIds,
+  ) {
+    final grouped = decodeGroupedMedicationPayload(payload);
+    if (grouped != null) {
+      return grouped.doses.any(
+        (dose) => affectedOccurrenceIds.contains(dose.occurrenceId),
+      );
+    }
+    final target = decodeActionPayload(payload);
+    return target != null &&
+        target.isMedicine &&
+        affectedOccurrenceIds.contains(target.id);
   }
 
   void _updateFallbackState(bool value) {
