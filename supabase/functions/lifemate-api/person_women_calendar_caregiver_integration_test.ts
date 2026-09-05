@@ -295,7 +295,7 @@ Deno.test({
             view_shared_wellbeing=false,
             view_fertility_estimate=false,
             receive_phase_notifications=false,
-            receive_mood_notifications=false,
+            receive_mood_support_notifications=false,
             receive_fertility_notifications=false,
             view_calendar_detail=false,
             version=version+1,
