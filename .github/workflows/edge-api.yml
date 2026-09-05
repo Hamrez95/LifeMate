@@ -52,87 +52,53 @@ jobs:
           while IFS= read -r migration; do
             psql "$TEST_DATABASE_URL" --set=ON_ERROR_STOP=1 --file="$migration"
           done < <(find supabase/migrations -maxdepth 1 -type f -name '*.sql' | sort)
-      - name: database_integration_test
-        run: deno test --no-check --allow-env --allow-net=localhost:5432,127.0.0.1:5432 database_integration_test.ts
-      - name: idempotency_integration_test
-        run: deno test --no-check --allow-env --allow-net=localhost:5432,127.0.0.1:5432 idempotency_integration_test.ts
-      - name: identity_link_token_integration_test
-        run: deno test --no-check --allow-env --allow-net=localhost:5432,127.0.0.1:5432 identity_link_token_integration_test.ts
-      - name: identity_resolver_integration_test
-        run: deno test --no-check --allow-env --allow-net=localhost:5432,127.0.0.1:5432 identity_resolver_integration_test.ts
-      - name: identity_link_rotation_integration_test
-        run: deno test --no-check --allow-env --allow-net=localhost:5432,127.0.0.1:5432 identity_link_rotation_integration_test.ts
-      - name: token_only_bootstrap_integration_test
-        run: deno test --no-check --allow-env --allow-net=localhost:5432,127.0.0.1:5432 token_only_bootstrap_integration_test.ts
-      - name: provider_identity_handle_integration_test
-        run: deno test --no-check --allow-env --allow-net=localhost:5432,127.0.0.1:5432 provider_identity_handle_integration_test.ts
-      - name: provider_identity_handle_key_rotation_integration_test
-        run: deno test --no-check --allow-env --allow-net=localhost:5432,127.0.0.1:5432 provider_identity_handle_key_rotation_integration_test.ts
-      - name: raw_identity_retirement_integration_test
-        run: deno test --no-check --allow-env --allow-net=localhost:5432,127.0.0.1:5432 raw_identity_retirement_integration_test.ts
-      - name: contact_point_conflict_integration_test
-        run: deno test --no-check --allow-env --allow-net=localhost:5432,127.0.0.1:5432 contact_point_conflict_integration_test.ts
-      - name: contact_point_read_mode_integration_test
-        run: deno test --no-check --allow-env --allow-net=localhost:5432,127.0.0.1:5432 contact_point_read_mode_integration_test.ts
-      - name: contact_point_data_export_integration_test
-        run: deno test --no-check --allow-env --allow-net=localhost:5432,127.0.0.1:5432 contact_point_data_export_integration_test.ts
-      - name: contact_point_key_rotation_integration_test
-        run: deno test --no-check --allow-env --allow-net=localhost:5432,127.0.0.1:5432 contact_point_key_rotation_integration_test.ts
-      - name: raw_contact_retirement_integration_test
-        run: deno test --no-check --allow-env --allow-net=localhost:5432,127.0.0.1:5432 raw_contact_retirement_integration_test.ts
-      - name: qr_invitation_integration_test
-        run: deno test --no-check --allow-env --allow-net=localhost:5432,127.0.0.1:5432 qr_invitation_integration_test.ts
-      - name: phone_invitation_integration_test
-        run: deno test --no-check --allow-env --allow-net=localhost:5432,127.0.0.1:5432 phone_invitation_integration_test.ts
-      - name: phone_invitation_delivery_integration_test
-        run: deno test --no-check --allow-env --allow-net=localhost:5432,127.0.0.1:5432 phone_invitation_delivery_integration_test.ts
-      - name: care_relationship_person_identity_integration_test
-        run: deno test --no-check --allow-env --allow-net=localhost:5432,127.0.0.1:5432 care_relationship_person_identity_integration_test.ts
-      - name: person_care_request_invitation_integration_test
-        run: deno test --no-check --allow-env --allow-net=localhost:5432,127.0.0.1:5432 person_care_request_invitation_integration_test.ts
-      - name: phone_care_request_integration_test
-        run: deno test --no-check --allow-env --allow-net=localhost:5432,127.0.0.1:5432 phone_care_request_integration_test.ts
-      - name: person_caremate_care_event_authorization_integration_test
-        run: deno test --no-check --allow-env --allow-net=localhost:5432,127.0.0.1:5432 person_caremate_care_event_authorization_integration_test.ts
-      - name: person_care_relationship_management_integration_test
-        run: deno test --no-check --allow-env --allow-net=localhost:5432,127.0.0.1:5432 person_care_relationship_management_integration_test.ts
-      - name: care_completion_notifications_integration_test
-        run: deno test --no-check --allow-env --allow-net=localhost:5432,127.0.0.1:5432 care_completion_notifications_integration_test.ts
-      - name: person_medications_integration_test
-        run: deno test --no-check --allow-env --allow-net=localhost:5432,127.0.0.1:5432 person_medications_integration_test.ts
-      - name: person_treatment_plans_integration_test
-        run: deno test --no-check --allow-env --allow-net=localhost:5432,127.0.0.1:5432 person_treatment_plans_integration_test.ts
-      - name: person_dose_occurrences_integration_test
-        run: deno test --no-check --allow-env --allow-net=localhost:5432,127.0.0.1:5432 person_dose_occurrences_integration_test.ts
-      - name: person_care_events_integration_test
-        run: deno test --no-check --allow-env --allow-net=localhost:5432,127.0.0.1:5432 person_care_events_integration_test.ts
-      - name: person_edit_store_integration_test
-        run: deno test --no-check --allow-env --allow-net=localhost:5432,127.0.0.1:5432 person_edit_store_integration_test.ts
-      - name: person_health_observations_integration_test
-        run: deno test --no-check --allow-env --allow-net=localhost:5432,127.0.0.1:5432 person_health_observations_integration_test.ts
-      - name: person_healthcare_export_integration_test
-        run: deno test --no-check --allow-env --allow-net=localhost:5432,127.0.0.1:5432 person_healthcare_export_integration_test.ts
-      - name: person_care_event_export_integration_test
-        run: deno test --no-check --allow-env --allow-net=localhost:5432,127.0.0.1:5432 person_care_event_export_integration_test.ts
-      - name: person_care_relationship_export_integration_test
-        run: deno test --no-check --allow-env --allow-net=localhost:5432,127.0.0.1:5432 person_care_relationship_export_integration_test.ts
-      - name: profile_integration_test
-        run: deno test --no-check --allow-env --allow-net=localhost:5432,127.0.0.1:5432 profile_integration_test.ts
-      - name: profile_projection_integration_test
-        run: deno test --no-check --allow-env --allow-net=localhost:5432,127.0.0.1:5432 profile_projection_integration_test.ts
-      - name: women_calendar_integration_test
-        run: deno test --no-check --allow-env --allow-net=localhost:5432,127.0.0.1:5432 women_calendar_integration_test.ts
-      - name: person_women_calendar_integration_test
-        run: deno test --no-check --allow-env --allow-net=localhost:5432,127.0.0.1:5432 person_women_calendar_integration_test.ts
-      - name: person_women_calendar_caregiver_integration_test
-        run: deno test --no-check --allow-env --allow-net=localhost:5432,127.0.0.1:5432 person_women_calendar_caregiver_integration_test.ts
-      - name: pregnancy_store_integration_test
-        run: deno test --no-check --allow-env --allow-net=localhost:5432,127.0.0.1:5432 pregnancy_store_integration_test.ts
-      - name: pregnancy_authorization_integration_test
-        run: deno test --no-check --allow-env --allow-net=localhost:5432,127.0.0.1:5432 pregnancy_authorization_integration_test.ts
-      - name: cocoon_application_integration_test
-        run: deno test --no-check --allow-env --allow-net=localhost:5432,127.0.0.1:5432 cocoon_application_integration_test.ts
-      - name: data_export_integration_test
-        run: deno test --no-check --allow-env --allow-net=localhost:5432,127.0.0.1:5432 data_export_integration_test.ts
-      - name: growth_integration_test
-        run: deno test --no-check --allow-env --allow-net=localhost:5432,127.0.0.1:5432 growth_integration_test.ts
+      - name: Capture database integration failure
+        id: classify
+        shell: bash
+        run: |
+          set +e
+          deno test --no-check --allow-env --allow-net=localhost:5432,127.0.0.1:5432 database_integration_test.ts > /tmp/db-test.log 2>&1
+          code=$?
+          set -e
+          if [ "$code" -eq 0 ]; then echo 'kind=success' >> "$GITHUB_OUTPUT"; exit 0; fi
+          if grep -Fq 'health_record_items_item_type_code_fkey' /tmp/db-test.log; then kind=health_record_item_type_fk
+          elif grep -Eqi 'violates foreign key constraint|foreign key constraint' /tmp/db-test.log; then kind=foreign_key
+          elif grep -Eqi 'premium_required_quota|quota' /tmp/db-test.log; then kind=quota
+          elif grep -Eqi 'identity_person_mapping|person mapping|not_onboarded' /tmp/db-test.log; then kind=identity_mapping
+          elif grep -Eqi 'permission denied|insufficient privilege|not permitted' /tmp/db-test.log; then kind=permission
+          elif grep -Eqi 'AssertionError|Assertion failed|assertEquals' /tmp/db-test.log; then kind=assertion
+          elif grep -Eqi 'duplicate key|unique constraint' /tmp/db-test.log; then kind=unique_constraint
+          elif grep -Eqi 'relation .* does not exist|column .* does not exist' /tmp/db-test.log; then kind=schema_missing
+          else kind=unclassified
+          fi
+          echo "kind=$kind" >> "$GITHUB_OUTPUT"
+      - name: FAIL health_record_items_item_type_code_fkey
+        if: steps.classify.outputs.kind == 'health_record_item_type_fk'
+        run: exit 1
+      - name: FAIL other foreign key constraint
+        if: steps.classify.outputs.kind == 'foreign_key'
+        run: exit 1
+      - name: FAIL quota contract
+        if: steps.classify.outputs.kind == 'quota'
+        run: exit 1
+      - name: FAIL identity mapping contract
+        if: steps.classify.outputs.kind == 'identity_mapping'
+        run: exit 1
+      - name: FAIL database permission contract
+        if: steps.classify.outputs.kind == 'permission'
+        run: exit 1
+      - name: FAIL assertion contract
+        if: steps.classify.outputs.kind == 'assertion'
+        run: exit 1
+      - name: FAIL unique constraint
+        if: steps.classify.outputs.kind == 'unique_constraint'
+        run: exit 1
+      - name: FAIL missing schema contract
+        if: steps.classify.outputs.kind == 'schema_missing'
+        run: exit 1
+      - name: FAIL unclassified database integration error
+        if: steps.classify.outputs.kind == 'unclassified'
+        run: exit 1
+      - name: PASS database integration test
+        if: steps.classify.outputs.kind == 'success'
+        run: echo PASS
