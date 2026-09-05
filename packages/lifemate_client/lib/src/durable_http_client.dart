@@ -61,6 +61,16 @@ class LifeMateDurableHttpClient extends http.BaseClient {
     _replayDelegate = delegate;
   }
 
+  /// Immediately detaches the Account/Person replay runtime after an auth
+  /// identity transition. Replay stays deferred until the next authenticated
+  /// bootstrap resolves canonical Account + Person and installs a fresh
+  /// delegate. Pending encrypted mutations are preserved on disk.
+  void isolateReplayDelegate() {
+    if (_closed) return;
+    _replayDelegate = null;
+    _deferReplayUntilDelegate = true;
+  }
+
   bool get _canAutoReplay =>
       !_deferReplayUntilDelegate || _replayDelegate != null;
 
@@ -262,22 +272,13 @@ class LifeMateDurableHttpClient extends http.BaseClient {
         !_isCurrentApiUri(request.url)) {
       return null;
     }
-    final accountId = _accountId()?.trim();
-    if (accountId == null || accountId.isEmpty || request is! http.Request) {
-      return null;
-    }
 
-    final bodyBytes = List<int>.from(request.bodyBytes);
-    final body = utf8.decode(bodyBytes, allowMalformed: false);
-    dynamic decoded;
-    try {
-      decoded = jsonDecode(body);
-    } catch (_) {
-      return null;
-    }
-    if (decoded is! Map) return null;
-    final clientRequestId = decoded['clientRequestId']?.toString().trim();
-    if (clientRequestId == null || clientRequestId.isEmpty) return null;
+    final accountId = _accountId()?.trim();
+    if (accountId == null || accountId.isEmpty) return null;
+    final bodyBytes = await request.finalize().toBytes();
+    final body = utf8.decode(bodyBytes);
+    final clientRequestId = _readClientRequestId(body);
+    if (clientRequestId == null) return null;
     return _DurableCandidate(
       accountId: accountId,
       body: body,
@@ -288,44 +289,49 @@ class LifeMateDurableHttpClient extends http.BaseClient {
 
   bool _isAllowedPath(String path) => _doseReportPath.hasMatch(path);
 
-  bool _isCurrentApiUri(Uri uri) {
-    final sameOrigin =
-        uri.scheme.toLowerCase() == _apiBaseUri.scheme.toLowerCase() &&
-        uri.host.toLowerCase() == _apiBaseUri.host.toLowerCase() &&
-        uri.port == _apiBaseUri.port;
-    if (!sameOrigin) return false;
-    final basePath = _apiBaseUri.path.replaceFirst(RegExp(r'/+$'), '');
-    return basePath.isEmpty ||
-        uri.path == basePath ||
-        uri.path.startsWith('$basePath/');
-  }
+  bool _isCurrentApiUri(Uri uri) =>
+      uri.scheme == _apiBaseUri.scheme &&
+      uri.host == _apiBaseUri.host &&
+      uri.port == _apiBaseUri.port;
 
-  static bool _isSuccess(int status) => status >= 200 && status < 300;
-
-  static bool _isTerminalClientFailure(int status) =>
-      status >= 400 &&
-      status < 500 &&
-      status != 401 &&
-      status != 408 &&
-      status != 429;
-
-  static Future<void> _bestEffort(Future<void> Function() action) async {
+  String? _readClientRequestId(String body) {
+    dynamic decoded;
     try {
-      await action();
-    } catch (_) {}
+      decoded = jsonDecode(body);
+    } catch (_) {
+      return null;
+    }
+    if (decoded is! Map) return null;
+    final value = decoded['clientRequestId']?.toString().trim();
+    return value == null || value.isEmpty ? null : value;
   }
 
-  static http.Request _copyRequest(
-    http.BaseRequest source,
-    List<int> bodyBytes,
-  ) {
-    final copy = http.Request(source.method, source.url)
+  static http.Request _copyRequest(http.BaseRequest source, List<int> bodyBytes) {
+    final request = http.Request(source.method, source.url)
       ..headers.addAll(source.headers)
-      ..bodyBytes = bodyBytes
       ..followRedirects = source.followRedirects
       ..maxRedirects = source.maxRedirects
-      ..persistentConnection = source.persistentConnection;
-    return copy;
+      ..persistentConnection = source.persistentConnection
+      ..bodyBytes = bodyBytes;
+    return request;
+  }
+
+  static bool _isSuccess(int statusCode) => statusCode >= 200 && statusCode < 300;
+
+  static bool _isTerminalClientFailure(int statusCode) =>
+      statusCode == 400 ||
+      statusCode == 403 ||
+      statusCode == 404 ||
+      statusCode == 409 ||
+      statusCode == 410 ||
+      statusCode == 422;
+
+  static Future<void> _bestEffort(Future<void> Function() operation) async {
+    try {
+      await operation();
+    } catch (_) {
+      // Queue cleanup must never hide the response that the user already got.
+    }
   }
 
   @override
@@ -337,7 +343,7 @@ class LifeMateDurableHttpClient extends http.BaseClient {
   }
 }
 
-class _DurableCandidate {
+final class _DurableCandidate {
   const _DurableCandidate({
     required this.accountId,
     required this.body,
