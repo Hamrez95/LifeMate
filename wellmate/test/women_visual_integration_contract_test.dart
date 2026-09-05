@@ -41,4 +41,17 @@ void main() {
     expect(backend, contains('symptom_schema_version'));
     expect(backend, contains('mergeLegacySymptomsIntoObservations'));
   });
+
+  test('daily-log canonical refresh regenerates shared local reminders', () {
+    final launcher = File(
+      'lib/screens/women_calendar/women_daily_log_launcher.dart',
+    ).readAsStringSync();
+
+    expect(launcher, contains('canonicalRefreshSucceeded = true'));
+    expect(launcher, contains('if (canonicalRefreshSucceeded)'));
+    expect(launcher, contains('await _refreshCanonicalReminders();'));
+    expect(launcher, contains('getWomenCalendarDashboard('));
+    expect(launcher, contains('WomenCycleInsightNotificationScheduler().sync('));
+    expect(launcher, contains('await offline.readCachedServerDay(widget.date)'));
+  });
 }

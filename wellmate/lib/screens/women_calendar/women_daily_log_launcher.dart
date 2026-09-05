@@ -5,6 +5,7 @@ import 'package:provider/provider.dart';
 
 import 'women_circle_card.dart';
 import 'women_cycle_analytics_screen.dart';
+import 'women_cycle_insight_notification_scheduler.dart';
 import 'women_daily_log_api.dart';
 import 'women_daily_log_offline_bridge.dart';
 import 'women_daily_log_visuals.dart';
@@ -48,8 +49,10 @@ class _WomenDailyLogLauncherState extends State<WomenDailyLogLauncher> {
       }
 
       List<Map<String, dynamic>> serverLogs;
+      var canonicalRefreshSucceeded = false;
       try {
         serverLogs = await api.list(from: widget.date, to: widget.date);
+        canonicalRefreshSucceeded = true;
         if (offline != null) {
           await offline.cacheServerDay(date: widget.date, serverRows: serverLogs);
         }
@@ -58,6 +61,10 @@ class _WomenDailyLogLauncherState extends State<WomenDailyLogLauncher> {
         final cached = await offline.readCachedServerDay(widget.date);
         if (cached == null) rethrow;
         serverLogs = cached;
+      }
+
+      if (canonicalRefreshSucceeded) {
+        await _refreshCanonicalReminders();
       }
 
       var logs = serverLogs;
@@ -111,6 +118,7 @@ class _WomenDailyLogLauncherState extends State<WomenDailyLogLauncher> {
             serverRows: <Map<String, dynamic>>[saved],
           );
         }
+        await _refreshCanonicalReminders();
       } on LifeMateApiException catch (error) {
         if (offline == null || !_canQueueOffline(error)) rethrow;
         await offline.enqueueUpsert(
@@ -151,6 +159,32 @@ class _WomenDailyLogLauncherState extends State<WomenDailyLogLauncher> {
       offline?.close();
       api.close();
       if (mounted) setState(() => busy = false);
+    }
+  }
+
+  Future<void> _refreshCanonicalReminders() async {
+    if (!mounted) return;
+    final client = context.read<LifeMateApiClient>();
+    try {
+      final dashboard = await client.getWomenCalendarDashboard(
+        fromDate: widget.date.subtract(const Duration(days: 45)),
+        toDate: widget.date.add(const Duration(days: 45)),
+      );
+      final profile = dashboard['profile'];
+      if (profile is! Map<String, dynamic>) return;
+      await WomenCycleInsightNotificationScheduler().sync(
+        profile: profile,
+        isPersian: Directionality.of(context) == TextDirection.rtl,
+      );
+    } on LifeMateApiException {
+      // A reminder refresh is best-effort and must never turn a successful
+      // canonical daily-log read/write into a failed health-data operation.
+    } on StateError {
+      // Runtime/account transitions can invalidate the dashboard client between
+      // the canonical data operation and local scheduler reconciliation.
+    } catch (_) {
+      // Notification/plugin delivery failures are local execution failures only;
+      // canonical health data already read or written successfully stays valid.
     }
   }
 
