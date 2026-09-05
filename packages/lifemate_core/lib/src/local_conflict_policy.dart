@@ -84,7 +84,9 @@ final class LifeMateConflictContext {
 abstract final class LifeMateConflictPolicy {
   static const int policyVersion = 1;
 
-  static LifeMateConflictDisposition resolve(LifeMateConflictContext context) {
+  static LifeMateConflictDisposition resolve(
+    LifeMateConflictContext context,
+  ) {
     if (context.domain == LifeMateConflictDomain.sharedAuthorization &&
         context.authoritativeAccessRevoked) {
       return LifeMateConflictDisposition.invalidateSharedAccess;
