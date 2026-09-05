@@ -28,13 +28,23 @@ void main() {
     final source = File(
       'lib/providers/contextual_notification_provider.dart',
     ).readAsStringSync();
-    expect(source, contains('api.syncCareEventProjections('));
-    expect(source, contains('beforeCheckpoint: (staged)'));
-    expect(source, contains('staged.affectedRecordKeys'));
+    final nativeBridge = File(
+      'lib/providers/care_event_projection_sync_bridge_native.dart',
+    ).readAsStringSync();
+    final webBridge = File(
+      'lib/providers/care_event_projection_sync_bridge_web.dart',
+    ).readAsStringSync();
+
+    expect(source, contains('syncOwnerCareEventProjectionsIfSupported('));
     expect(source, contains('_reconcileAffectedCareEvents('));
     expect(source, contains('await super.syncReminders('));
     expect(source, contains('_projectionSyncInFlight'));
     expect(source, contains("item.type == 'medicine'"));
+
+    expect(nativeBridge, contains('apiClient is! DurableLifeMateApiClient'));
+    expect(nativeBridge, contains('apiClient.syncCareEventProjections('));
+    expect(nativeBridge, contains('staged.affectedRecordKeys'));
+    expect(webBridge, isNot(contains('DurableLifeMateApiClient')));
   });
 
   test('first-value wrapper reuses canonical treatment form and stays no-scroll', () {
