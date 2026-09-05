@@ -36,7 +36,7 @@ class DurableLifeMateApiClient extends LifeMateApiClient {
     required LifeMateDurableHttpClient durableHttp,
   })  : _baseUri = baseUri,
         _accessToken = accessToken,
-        _accountId = accountId,
+        _legacyAuthenticatedAccountId = accountId,
         _durableHttp = durableHttp,
         super(
           baseUri: baseUri,
@@ -68,32 +68,36 @@ class DurableLifeMateApiClient extends LifeMateApiClient {
 
   final Uri _baseUri;
   final AccessTokenProvider _accessToken;
-  final LifeMateAccountIdProvider _accountId;
+  final LifeMateAccountIdProvider _legacyAuthenticatedAccountId;
   final LifeMateDurableHttpClient _durableHttp;
   LifeMateSharedOfflineRuntime? _sharedRuntime;
 
-  /// Moves replay ownership from the pre-#831 account-only queue to the shared
-  /// encrypted Environment + Account + Person runtime. The caller must supply
-  /// the canonical server-resolved self Person; Account is never substituted.
+  /// Moves replay ownership from the pre-#831 auth-subject queue to the shared
+  /// encrypted Environment + canonical Account + Person runtime. The caller
+  /// must supply canonical IDs from lifemate-api capabilities and the current
+  /// authenticated legacy ID separately; UUID equality is never assumed.
   Future<void> adoptSharedOfflineRuntime({
     required String environmentId,
     required String accountId,
     required String personId,
+    required String legacyAuthenticatedAccountId,
     required String timeZone,
   }) async {
     final normalizedAccount = accountId.trim();
     final normalizedPerson = personId.trim();
     final normalizedEnvironment = environmentId.trim();
+    final normalizedLegacyAccount = legacyAuthenticatedAccountId.trim();
     final normalizedTimeZone = timeZone.trim();
     if (normalizedAccount.isEmpty ||
         normalizedPerson.isEmpty ||
         normalizedEnvironment.isEmpty ||
+        normalizedLegacyAccount.isEmpty ||
         normalizedTimeZone.isEmpty) {
       throw ArgumentError(
-        'Shared offline runtime requires environment, account, Person and timezone.',
+        'Shared offline runtime requires environment, canonical account, Person, authenticated legacy account and timezone.',
       );
     }
-    if (_accountId()?.trim() != normalizedAccount) {
+    if (_legacyAuthenticatedAccountId()?.trim() != normalizedLegacyAccount) {
       throw StateError('Authenticated account changed during offline adoption.');
     }
 
@@ -103,16 +107,17 @@ class DurableLifeMateApiClient extends LifeMateApiClient {
       personId: normalizedPerson,
     );
     final current = _sharedRuntime;
-    if (current != null && current.namespace == namespace) return;
+    if (current != null && _sameNamespace(current.namespace, namespace)) return;
 
     final next = await LifeMateSharedOfflineRuntime.open(
       namespace: namespace,
       timeZone: normalizedTimeZone,
       apiBaseUri: _baseUri,
       accessToken: _accessToken,
+      legacyAccountIds: <String>{normalizedLegacyAccount},
       legacyStorage: _durableHttp.migrationStorage,
     );
-    if (_accountId()?.trim() != normalizedAccount) {
+    if (_legacyAuthenticatedAccountId()?.trim() != normalizedLegacyAccount) {
       next.close();
       throw StateError('Authenticated account changed during offline adoption.');
     }
@@ -261,4 +266,12 @@ class DurableLifeMateApiClient extends LifeMateApiClient {
     _sharedRuntime = null;
     super.close();
   }
+
+  static bool _sameNamespace(
+    LifeMateLocalNamespace left,
+    LifeMateLocalNamespace right,
+  ) =>
+      left.environmentId == right.environmentId &&
+      left.accountId == right.accountId &&
+      left.personId == right.personId;
 }
