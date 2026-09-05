@@ -376,7 +376,7 @@ final class LifeMateSharedOfflineRuntime {
 
   /// Accepts only a fully validated treatment edit into the existing protected
   /// Account + Person outbox. Arbitrary mutation paths/domains are never exposed.
-  Future<LifeMateDurableMutation> enqueueTreatmentEdit({
+  Future<void> enqueueTreatmentEdit({
     required String mutationId,
     required String treatmentPlanId,
     required int version,
@@ -413,7 +413,7 @@ final class LifeMateSharedOfflineRuntime {
       caregiverReminderMinutesBefore: caregiverReminderMinutesBefore,
       status: status,
     );
-    return _outbox.enqueue(namespace: _localNamespace, mutation: mutation);
+    await _outbox.enqueue(namespace: _localNamespace, mutation: mutation);
   }
 
   Future<int> pendingMutationCount() async {

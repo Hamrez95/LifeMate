@@ -112,7 +112,7 @@ final class LifeMateSharedOfflineRuntime {
     required DateTime toDate,
   }) => Future<Map<String, dynamic>?>.error(_unsupported());
 
-  Future<LifeMateDurableMutation> enqueueTreatmentEdit({
+  Future<void> enqueueTreatmentEdit({
     required String mutationId,
     required String treatmentPlanId,
     required int version,
@@ -129,7 +129,7 @@ final class LifeMateSharedOfflineRuntime {
     required int patientReminderMinutesBefore,
     required int caregiverReminderMinutesBefore,
     required String status,
-  }) => Future<LifeMateDurableMutation>.error(_unsupported());
+  }) => Future<void>.error(_unsupported());
 
   Future<int> pendingMutationCount() => Future<int>.value(0);
 

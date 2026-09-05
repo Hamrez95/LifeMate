@@ -54,7 +54,7 @@ class DurableLifeMateApiClient extends LifeMateApiClient {
     ),
   );
 
-  Future<LifeMateDurableMutation> queueTreatmentEdit({
+  Future<void> queueTreatmentEdit({
     required String mutationId,
     required String treatmentPlanId,
     required int version,
@@ -71,7 +71,7 @@ class DurableLifeMateApiClient extends LifeMateApiClient {
     required int patientReminderMinutesBefore,
     required int caregiverReminderMinutesBefore,
     required String status,
-  }) => Future<LifeMateDurableMutation>.error(
+  }) => Future<void>.error(
     UnsupportedError(
       'Protected offline health execution is unavailable on web.',
     ),

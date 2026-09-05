@@ -433,7 +433,7 @@ class DurableLifeMateApiClient extends LifeMateApiClient {
 
   /// Queues a locally validated treatment edit only after canonical Account +
   /// Person runtime adoption. There is intentionally no account-only fallback.
-  Future<LifeMateDurableMutation> queueTreatmentEdit({
+  Future<void> queueTreatmentEdit({
     required String mutationId,
     required String treatmentPlanId,
     required int version,
@@ -457,7 +457,7 @@ class DurableLifeMateApiClient extends LifeMateApiClient {
         'Canonical shared offline runtime must be adopted before queuing a treatment edit.',
       );
     }
-    return runtime.enqueueTreatmentEdit(
+    await runtime.enqueueTreatmentEdit(
       mutationId: mutationId,
       treatmentPlanId: treatmentPlanId,
       version: version,
