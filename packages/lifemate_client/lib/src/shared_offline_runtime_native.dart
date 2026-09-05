@@ -378,8 +378,9 @@ final class LifeMateSharedOfflineRuntime {
   /// Account + Person + environment outbox used by adherence. This method does
   /// not infer medication timing or bypass the canonical expected-revision
   /// conflict contract; it only binds the validated mutation to this runtime's
-  /// already-adopted namespace.
-  Future<LifeMateDurableMutation> enqueueTreatmentEdit({
+  /// already-adopted namespace. The protected outbox record stays internal;
+  /// callers receive acknowledgement only.
+  Future<void> enqueueTreatmentEdit({
     required String mutationId,
     required String treatmentPlanId,
     required int version,
@@ -399,7 +400,7 @@ final class LifeMateSharedOfflineRuntime {
     DateTime? createdAtUtc,
   }) async {
     _requireOpen();
-    return LifeMateOfflineTreatmentMutation.enqueueEdit(
+    await LifeMateOfflineTreatmentMutation.enqueueEdit(
       outbox: _outbox,
       namespace: _localNamespace,
       mutationId: mutationId,
