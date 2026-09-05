@@ -58,7 +58,8 @@ final class LifeMateSharedOfflineRuntime {
     }
 
     final ownsStore = store == null;
-    final localStore = store ?? await LifeMateLocalHealthStore.openDefault(now: now);
+    final localStore =
+        store ?? await LifeMateLocalHealthStore.openDefault(now: now);
     final outbox = LifeMateLocalMutationOutbox(store: localStore, now: now);
     final transport = LifeMateHttpMutationReplayTransport(
       apiBaseUri: apiBaseUri,

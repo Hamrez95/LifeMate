@@ -62,7 +62,10 @@ void main() {
     expect(result.pendingRemaining, 0);
     expect(await runtime.pendingMutationCount(), 0);
     expect(client.requests, hasLength(1));
-    expect(client.requests.single.headers['authorization'], 'Bearer fresh-token');
+    expect(
+      client.requests.single.headers['authorization'],
+      'Bearer fresh-token',
+    );
     expect(client.requests.single.headers['idempotency-key'], requestId);
     runtime.close();
     store.close();
@@ -107,43 +110,46 @@ void main() {
     store.close();
   });
 
-  test('missing auth retains shared action for retry without network', () async {
-    final database = sqlite3.openInMemory();
-    final now = DateTime.utc(2026, 9, 5, 3);
-    final store = LifeMateLocalHealthStore.forTesting(
-      database: database,
-      keyBytes: key,
-      now: () => now,
-    );
-    final outbox = LifeMateLocalMutationOutbox(store: store, now: () => now);
-    await outbox.enqueue(
-      namespace: namespace,
-      mutation: _mutation(
-        id: '123e4567-e89b-42d3-a456-426614174953',
-        sourceKey: '123e4567-e89b-42d3-a456-426614174053',
-      ),
-    );
-    final client = _RecordingClient(statusCodes: <int>[200]);
-    final runtime = await LifeMateSharedOfflineRuntime.open(
-      namespace: namespace,
-      timeZone: 'UTC',
-      apiBaseUri: Uri.parse('https://api.example.test'),
-      accessToken: () => null,
-      store: store,
-      legacyStorage: _MemoryStorage(),
-      httpClient: client,
-      now: () => now,
-    );
+  test(
+    'missing auth retains shared action for retry without network',
+    () async {
+      final database = sqlite3.openInMemory();
+      final now = DateTime.utc(2026, 9, 5, 3);
+      final store = LifeMateLocalHealthStore.forTesting(
+        database: database,
+        keyBytes: key,
+        now: () => now,
+      );
+      final outbox = LifeMateLocalMutationOutbox(store: store, now: () => now);
+      await outbox.enqueue(
+        namespace: namespace,
+        mutation: _mutation(
+          id: '123e4567-e89b-42d3-a456-426614174953',
+          sourceKey: '123e4567-e89b-42d3-a456-426614174053',
+        ),
+      );
+      final client = _RecordingClient(statusCodes: <int>[200]);
+      final runtime = await LifeMateSharedOfflineRuntime.open(
+        namespace: namespace,
+        timeZone: 'UTC',
+        apiBaseUri: Uri.parse('https://api.example.test'),
+        accessToken: () => null,
+        store: store,
+        legacyStorage: _MemoryStorage(),
+        httpClient: client,
+        now: () => now,
+      );
 
-    final result = await runtime.flushDetailed();
+      final result = await runtime.flushDetailed();
 
-    expect(result.retainedForRetry, 1);
-    expect(result.pendingRemaining, 1);
-    expect(client.requests, isEmpty);
-    expect(await runtime.pendingMutationCount(), 1);
-    runtime.close();
-    store.close();
-  });
+      expect(result.retainedForRetry, 1);
+      expect(result.pendingRemaining, 1);
+      expect(client.requests, isEmpty);
+      expect(await runtime.pendingMutationCount(), 1);
+      runtime.close();
+      store.close();
+    },
+  );
 
   test('terminal conflict is not presented as pending adherence', () async {
     final database = sqlite3.openInMemory();
@@ -182,35 +188,43 @@ void main() {
     store.close();
   });
 
-  test('closed runtime fails visibly without touching external store', () async {
-    final database = sqlite3.openInMemory();
-    final store = LifeMateLocalHealthStore.forTesting(
-      database: database,
-      keyBytes: key,
-    );
-    final runtime = await LifeMateSharedOfflineRuntime.open(
-      namespace: namespace,
-      timeZone: 'UTC',
-      apiBaseUri: Uri.parse('https://api.example.test'),
-      accessToken: () => 'token',
-      store: store,
-      legacyStorage: _MemoryStorage(),
-      httpClient: _RecordingClient(statusCodes: <int>[200]),
-    );
+  test(
+    'closed runtime fails visibly without touching external store',
+    () async {
+      final database = sqlite3.openInMemory();
+      final store = LifeMateLocalHealthStore.forTesting(
+        database: database,
+        keyBytes: key,
+      );
+      final runtime = await LifeMateSharedOfflineRuntime.open(
+        namespace: namespace,
+        timeZone: 'UTC',
+        apiBaseUri: Uri.parse('https://api.example.test'),
+        accessToken: () => 'token',
+        store: store,
+        legacyStorage: _MemoryStorage(),
+        httpClient: _RecordingClient(statusCodes: <int>[200]),
+      );
 
-    runtime.close();
+      runtime.close();
 
-    await expectLater(runtime.flushDetailed(), throwsStateError);
-    await LifeMateLocalMutationOutbox(store: store).enqueue(
-      namespace: namespace,
-      mutation: _mutation(
-        id: '123e4567-e89b-42d3-a456-426614174955',
-        sourceKey: '123e4567-e89b-42d3-a456-426614174055',
-      ),
-    );
-    expect(await LifeMateLocalMutationOutbox(store: store).list(namespace: namespace), hasLength(1));
-    store.close();
-  });
+      await expectLater(runtime.flushDetailed(), throwsStateError);
+      await LifeMateLocalMutationOutbox(store: store).enqueue(
+        namespace: namespace,
+        mutation: _mutation(
+          id: '123e4567-e89b-42d3-a456-426614174955',
+          sourceKey: '123e4567-e89b-42d3-a456-426614174055',
+        ),
+      );
+      expect(
+        await LifeMateLocalMutationOutbox(
+          store: store,
+        ).list(namespace: namespace),
+        hasLength(1),
+      );
+      store.close();
+    },
+  );
 }
 
 LifeMateDurableMutation _mutation({
@@ -243,7 +257,8 @@ final class _MemoryStorage implements LifeMateMutationStorage {
   Future<String?> read(String key) async => values[key];
 
   @override
-  Future<Map<String, String>> readAll() async => Map<String, String>.from(values);
+  Future<Map<String, String>> readAll() async =>
+      Map<String, String>.from(values);
 
   @override
   Future<void> write(String key, String value) async {
