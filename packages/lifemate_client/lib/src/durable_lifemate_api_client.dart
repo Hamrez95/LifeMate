@@ -398,6 +398,66 @@ class DurableLifeMateApiClient extends LifeMateApiClient {
         .toList(growable: false);
   }
 
+  /// Accepts a complete locally validated treatment edit into the same
+  /// encrypted Account + Person namespace already adopted by this client.
+  /// A short-lived handle to the canonical local store is used only to enqueue
+  /// the durable envelope; no second queue/database model is introduced.
+  Future<LifeMateDurableMutation> enqueueTreatmentPlanEdit({
+    required String treatmentPlanId,
+    required int version,
+    required int medicationVersion,
+    required String medicationName,
+    String? strengthText,
+    String? form,
+    required String doseText,
+    String? instructions,
+    required DateTime startDate,
+    DateTime? endDate,
+    required String timeZone,
+    required List<Map<String, String>> schedules,
+    required int patientReminderMinutesBefore,
+    required int caregiverReminderMinutesBefore,
+    required String status,
+    String? mutationId,
+    @visibleForTesting LifeMateLocalHealthStore? localStore,
+  }) async {
+    final runtime = _activeSharedRuntime();
+    if (runtime == null) {
+      throw StateError(
+        'Canonical shared offline runtime must be adopted before treatment enqueue.',
+      );
+    }
+    final ownsStore = localStore == null;
+    final store = localStore ?? await LifeMateLocalHealthStore.openDefault();
+    try {
+      final outbox = LifeMateLocalMutationOutbox(store: store);
+      return LifeMateOfflineTreatmentMutation.enqueueEdit(
+        outbox: outbox,
+        namespace: runtime.namespace.toLocalNamespace(),
+        mutationId: mutationId?.trim().isNotEmpty == true
+            ? mutationId!.trim()
+            : LifeMateApiClient.createClientRequestId(),
+        treatmentPlanId: treatmentPlanId,
+        version: version,
+        medicationVersion: medicationVersion,
+        medicationName: medicationName,
+        strengthText: strengthText,
+        form: form,
+        doseText: doseText,
+        instructions: instructions,
+        startDate: startDate,
+        endDate: endDate,
+        timeZone: timeZone,
+        schedules: schedules,
+        patientReminderMinutesBefore: patientReminderMinutesBefore,
+        caregiverReminderMinutesBefore: caregiverReminderMinutesBefore,
+        status: status,
+      );
+    } finally {
+      if (ownsStore) store.close();
+    }
+  }
+
   Future<int> flushPendingMutations() async =>
       (await flushPendingMutationsDetailed()).synced;
 
