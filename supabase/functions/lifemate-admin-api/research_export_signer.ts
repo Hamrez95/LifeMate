@@ -1,11 +1,22 @@
 import { ApiError } from "./validation.ts";
 
+function optionalEnvironmentValue(name: string): string {
+  try {
+    return Deno.env.get(name) ?? "";
+  } catch {
+    // Missing environment capability is equivalent to an unconfigured optional
+    // signer. The research download route then fails closed with a scoped 503
+    // instead of preventing unrelated Admin routes from starting.
+    return "";
+  }
+}
+
 export function createResearchExportSignerFromEnvironment(
   fetcher: typeof fetch = fetch,
 ) {
-  const url = (Deno.env.get("LIFEMATE_RESEARCH_EXPORT_SIGNER_URL") ?? "")
+  const url = optionalEnvironmentValue("LIFEMATE_RESEARCH_EXPORT_SIGNER_URL")
     .trim();
-  const token = (Deno.env.get("LIFEMATE_RESEARCH_EXPORT_SIGNER_TOKEN") ?? "")
+  const token = optionalEnvironmentValue("LIFEMATE_RESEARCH_EXPORT_SIGNER_TOKEN")
     .trim();
   if (!url || !token || token.length < 32 || !/^https:\/\//i.test(url)) {
     return undefined;
