@@ -10,20 +10,18 @@ void main() {
     personId: 'person-a',
   );
 
-  LifeMateDurableMutation treatmentMutation(String id) => LifeMateDurableMutation(
-    mutationId: id,
-    domain: LifeMateMutationDomain.treatment,
-    sourceKey: 'treatment-episode-1',
-    method: 'PATCH',
-    endpointPath: '/api/v1/treatments/treatment-episode-1',
-    payload: <String, dynamic>{
-      'clientRequestId': id,
-      'schedule': '08:30',
-    },
-    createdAtUtc: DateTime.utc(2026, 9, 5, 3),
-    timeZone: 'Asia/Tehran',
-    expectedRevision: '7',
-  );
+  LifeMateDurableMutation treatmentMutation(String id) =>
+      LifeMateDurableMutation(
+        mutationId: id,
+        domain: LifeMateMutationDomain.treatment,
+        sourceKey: 'treatment-episode-1',
+        method: 'PATCH',
+        endpointPath: '/api/v1/treatments/treatment-episode-1',
+        payload: <String, dynamic>{'clientRequestId': id, 'schedule': '08:30'},
+        createdAtUtc: DateTime.utc(2026, 9, 5, 3),
+        timeZone: 'Asia/Tehran',
+        expectedRevision: '7',
+      );
 
   test(
     'offline multi-device treatment conflict remains durable for explicit resolution',
