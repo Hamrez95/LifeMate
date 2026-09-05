@@ -21,7 +21,8 @@ enum LifeMateLocalProjectionDomain {
   pregnancyContent('pregnancy_content'),
   healthObservation('health_observation'),
   pendingMutation('pending_mutation'),
-  notificationSchedule('notification_schedule');
+  notificationSchedule('notification_schedule'),
+  syncMetadata('sync_metadata');
 
   const LifeMateLocalProjectionDomain(this.wireName);
 
