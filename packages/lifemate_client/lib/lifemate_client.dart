@@ -72,5 +72,6 @@ export 'src/shared_offline_runtime.dart';
 export 'src/support_conversations_api.dart';
 export 'src/women_calendar.dart';
 export 'src/women_calendar_offline.dart';
+export 'src/women_calendar_offline_snapshot.dart';
 export 'src/women_companion_api.dart';
 export 'src/women_cycle_ring.dart';
