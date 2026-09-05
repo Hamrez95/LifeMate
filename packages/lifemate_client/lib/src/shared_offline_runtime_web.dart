@@ -72,6 +72,13 @@ final class LifeMateSharedOfflineRuntime {
         ),
       );
 
+  Future<List<LifeMateLocalProjectionRecord>> careEventProjections() =>
+      Future<List<LifeMateLocalProjectionRecord>>.error(
+        UnsupportedError(
+          'Protected offline health execution is unavailable on web.',
+        ),
+      );
+
   Future<LifeMateProjectionReconcileResult> applyCareEventPage({
     required LifeMateProjectionPullPage page,
     LifeMateBeforeProjectionCheckpoint? beforeCheckpoint,
