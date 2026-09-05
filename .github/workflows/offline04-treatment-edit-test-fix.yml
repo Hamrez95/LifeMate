@@ -1,0 +1,37 @@
+name: offline04-treatment-edit-test-fix
+
+on:
+  push:
+    branches:
+      - feat/offline-04-wellmate-treatment-edit-fallback-20260905-v2
+    paths:
+      - '.github/workflows/offline04-treatment-edit-test-fix.yml'
+      - 'tools/hotfix/apply_offline04_treatment_edit_test_fix.py'
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
+        with:
+          ref: feat/offline-04-wellmate-treatment-edit-fallback-20260905-v2
+          fetch-depth: 0
+      - name: Apply reviewed deterministic CI fix
+        run: python3 tools/hotfix/apply_offline04_treatment_edit_test_fix.py
+      - name: Commit product-only CI fix
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add \
+            wellmate/lib/screens/treatments/edit_treatment_screen.dart \
+            wellmate/test/offline_treatment_edit_screen_test.dart \
+            tools/hotfix/apply_offline04_treatment_edit_test_fix.py \
+            .github/workflows/offline04-treatment-edit-test-fix.yml
+          git commit -m 'test(wellmate): assert treatment edit save state (#832)'
+          git push origin HEAD:feat/offline-04-wellmate-treatment-edit-fallback-20260905-v2
