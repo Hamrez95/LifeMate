@@ -47,10 +47,7 @@ void main() {
   });
 
   test('refuses malformed plan IDs and unsupported status values', () {
-    expect(
-      () => _build(treatmentPlanId: '../escape'),
-      throwsArgumentError,
-    );
+    expect(() => _build(treatmentPlanId: '../escape'), throwsArgumentError);
     expect(() => _build(status: 'paused-by-guess'), throwsArgumentError);
   });
 
