@@ -1,0 +1,33 @@
+name: tmp-admin-typecheck-diagnostic
+
+on:
+  push:
+    branches:
+      - ci/admin-deno-2.9.4-format-baseline-20260905
+    paths:
+      - '.github/workflows/tmp-admin-typecheck-diagnostic.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  diagnose:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
+        with:
+          show-progress: false
+          persist-credentials: false
+      - uses: denoland/setup-deno@22d081ff2d3a40755e97629de92e3bcbfa7cf2ed
+        with:
+          deno-version: v2.9.4
+      - name: Capture typecheck
+        working-directory: supabase/functions/lifemate-admin-api
+        run: deno check index.ts > /tmp/admin-typecheck.txt 2>&1 || true
+      - uses: actions/upload-artifact@v4
+        with:
+          name: admin-typecheck-diagnostic
+          path: /tmp/admin-typecheck.txt
+          if-no-files-found: error
+          retention-days: 1
