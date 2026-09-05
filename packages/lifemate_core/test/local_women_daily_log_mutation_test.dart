@@ -1,5 +1,5 @@
+import 'package:flutter_test/flutter_test.dart';
 import 'package:lifemate_core/lifemate_core.dart';
-import 'package:test/test.dart';
 
 void main() {
   test('builds exact idempotent owner daily-log upsert', () {
