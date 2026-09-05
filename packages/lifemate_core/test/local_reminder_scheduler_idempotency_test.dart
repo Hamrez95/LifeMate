@@ -57,56 +57,61 @@ void main() {
     expect(result.skippedCount, 1);
   });
 
-  test('changed group updates while unrelated pending group is preserved', () async {
-    final platform = _FakeReminderPlatform();
-    final oldChanged = reminder(
-      source: 'group-changed',
-      revision: 1,
-      trigger: now.add(const Duration(hours: 2)),
-    );
-    final newChanged = reminder(
-      source: 'group-changed',
-      revision: 2,
-      trigger: now.add(const Duration(hours: 3)),
-    );
-    final unchanged = reminder(
-      source: 'group-stable',
-      revision: 7,
-      trigger: now.add(const Duration(hours: 4)),
-    );
-    platform.pending.addAll([
-      PendingNotificationRequest(
-        oldChanged.notificationId,
-        'private',
-        'private',
-        'owned:group-changed',
-      ),
-      PendingNotificationRequest(
-        unchanged.notificationId,
-        'private',
-        'private',
-        'owned:group-stable',
-      ),
-    ]);
-    final scheduler = LifeMateLocalReminderScheduler(
-      platform: platform,
-      now: () => now,
-    );
+  test(
+    'changed group updates while unrelated pending group is preserved',
+    () async {
+      final platform = _FakeReminderPlatform();
+      final oldChanged = reminder(
+        source: 'group-changed',
+        revision: 1,
+        trigger: now.add(const Duration(hours: 2)),
+      );
+      final newChanged = reminder(
+        source: 'group-changed',
+        revision: 2,
+        trigger: now.add(const Duration(hours: 3)),
+      );
+      final unchanged = reminder(
+        source: 'group-stable',
+        revision: 7,
+        trigger: now.add(const Duration(hours: 4)),
+      );
+      platform.pending.addAll([
+        PendingNotificationRequest(
+          oldChanged.notificationId,
+          'private',
+          'private',
+          'owned:group-changed',
+        ),
+        PendingNotificationRequest(
+          unchanged.notificationId,
+          'private',
+          'private',
+          'owned:group-stable',
+        ),
+      ]);
+      final scheduler = LifeMateLocalReminderScheduler(
+        platform: platform,
+        now: () => now,
+      );
 
-    final result = await scheduler.sync(
-      reminders: [newChanged, unchanged],
-      timeZone: 'UTC',
-      ownsPendingRequest: (request) =>
-          request.payload?.startsWith('owned:') == true,
-    );
+      final result = await scheduler.sync(
+        reminders: [newChanged, unchanged],
+        timeZone: 'UTC',
+        ownsPendingRequest: (request) =>
+            request.payload?.startsWith('owned:') == true,
+      );
 
-    expect(platform.cancelled, contains(oldChanged.notificationId));
-    expect(platform.cancelled, isNot(contains(unchanged.notificationId)));
-    expect(platform.scheduled.map((call) => call.id), [newChanged.notificationId]);
-    expect(result.cancelledCount, 1);
-    expect(result.scheduledCount, 1);
-    expect(result.skippedCount, 1);
-  });
+      expect(platform.cancelled, contains(oldChanged.notificationId));
+      expect(platform.cancelled, isNot(contains(unchanged.notificationId)));
+      expect(platform.scheduled.map((call) => call.id), [
+        newChanged.notificationId,
+      ]);
+      expect(result.cancelledCount, 1);
+      expect(result.scheduledCount, 1);
+      expect(result.skippedCount, 1);
+    },
+  );
 }
 
 final class _ScheduledCall {
