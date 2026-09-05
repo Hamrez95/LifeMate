@@ -30,7 +30,10 @@ class _CarePlanHubScreenState extends State<CarePlanHubScreen> {
             children: [
               Padding(
                 padding: const EdgeInsets.only(top: 54),
-                child: TabbedAddTreatmentScreen(onCreated: widget.onCreated),
+                child: TabbedAddTreatmentScreen(
+                  onCreated: widget.onCreated,
+                  showPageHeader: false,
+                ),
               ),
               Padding(
                 padding: const EdgeInsets.only(top: _headerHeight),
