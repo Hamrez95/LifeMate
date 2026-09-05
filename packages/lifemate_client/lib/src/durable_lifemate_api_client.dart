@@ -7,8 +7,7 @@ import 'durable_http_client.dart';
 import 'lifemate_api_client.dart';
 import 'offline_mutation_queue.dart';
 import 'offline_sync_result.dart';
-import 'shared_offline_runtime_binding_stub.dart'
-    if (dart.library.io) 'shared_offline_runtime_binding_native.dart';
+import 'shared_offline_runtime.dart';
 
 class LifeMatePendingSyncEvent {
   const LifeMatePendingSyncEvent({
@@ -70,7 +69,7 @@ class DurableLifeMateApiClient extends LifeMateApiClient {
   final AccessTokenProvider _accessToken;
   final LifeMateAccountIdProvider _legacyAuthenticatedAccountId;
   final LifeMateDurableHttpClient _durableHttp;
-  LifeMateSharedRuntimeBinding? _sharedRuntime;
+  LifeMateSharedOfflineRuntime? _sharedRuntime;
   String? _sharedRuntimeLegacyAccountId;
 
   @override
@@ -156,18 +155,16 @@ class DurableLifeMateApiClient extends LifeMateApiClient {
       );
     }
 
-    final current = _activeSharedRuntime();
-    if (current != null &&
-        current.environmentId == normalizedEnvironment &&
-        current.accountId == normalizedAccount &&
-        current.personId == normalizedPerson) {
-      return;
-    }
-
-    final next = await LifeMateSharedRuntimeBinding.open(
+    final namespace = LifeMateOfflineNamespace(
       environmentId: normalizedEnvironment,
       accountId: normalizedAccount,
       personId: normalizedPerson,
+    );
+    final current = _activeSharedRuntime();
+    if (current != null && _sameNamespace(current.namespace, namespace)) return;
+
+    final next = await LifeMateSharedOfflineRuntime.open(
+      namespace: namespace,
       timeZone: normalizedTimeZone,
       apiBaseUri: _baseUri,
       accessToken: _accessToken,
@@ -331,7 +328,7 @@ class DurableLifeMateApiClient extends LifeMateApiClient {
         : shared.pendingMutationCount();
   }
 
-  LifeMateSharedRuntimeBinding? _activeSharedRuntime() {
+  LifeMateSharedOfflineRuntime? _activeSharedRuntime() {
     final runtime = _sharedRuntime;
     final boundLegacyAccount = _sharedRuntimeLegacyAccountId;
     if (runtime == null ||
@@ -349,4 +346,12 @@ class DurableLifeMateApiClient extends LifeMateApiClient {
     _sharedRuntimeLegacyAccountId = null;
     super.close();
   }
+
+  static bool _sameNamespace(
+    LifeMateOfflineNamespace left,
+    LifeMateOfflineNamespace right,
+  ) =>
+      left.environmentId == right.environmentId &&
+      left.accountId == right.accountId &&
+      left.personId == right.personId;
 }
