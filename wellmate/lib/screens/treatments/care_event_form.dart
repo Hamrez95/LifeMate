@@ -5,6 +5,7 @@ import 'package:provider/provider.dart';
 import '../../core/theme/app_style.dart';
 import '../../core/utils/persian_date_utils.dart';
 import '../../core/widgets/labeled_form_field.dart';
+import 'offline_care_event_create.dart';
 
 enum CarePlanKind { appointment, injection }
 
@@ -14,11 +15,15 @@ class CareEventForm extends StatefulWidget {
     required this.kind,
     required this.onCreated,
     this.initialDraft,
+    this.offlineEnqueuer,
+    this.onSaveStateChanged,
   });
 
   final CarePlanKind kind;
   final VoidCallback onCreated;
   final CareEventReuseDraft? initialDraft;
+  final WellMateOfflineCareEventCreateEnqueuer? offlineEnqueuer;
+  final ValueChanged<WellMateCareEventSaveState>? onSaveStateChanged;
 
   @override
   State<CareEventForm> createState() => _CareEventFormState();
@@ -345,81 +350,109 @@ class _CareEventFormState extends State<CareEventForm> {
     final recurrence = _recurrenceRule();
     if (recurrence == null) return;
 
+    final request = WellMateOfflineCareEventCreateRequest(
+      clientRequestId: _clientRequestId,
+      eventType: _isAppointment ? 'appointment' : 'injection',
+      title: _title.text,
+      providerName: _provider.text,
+      specialty: _isAppointment ? _specialty.text : null,
+      medicationName: _isAppointment ? null : _title.text,
+      doseText: _isAppointment ? null : _dose.text,
+      administrationRoute: _isAppointment ? null : _administrationRoute,
+      reason: _reason.text,
+      instructions: _instructions.text,
+      centerName: _center.text,
+      addressLine: _address.text,
+      phoneNumber: _phone.text,
+      scheduledLocalDate: _date,
+      scheduledLocalTime: _timeValue,
+      timeZone: _timeZone,
+      patientReminderMinutesBefore: _patientReminderMinutesBefore,
+      caregiverReminderMinutesBefore: _caregiverReminderMinutesBefore,
+    );
+
     setState(() {
       _busy = true;
       _error = null;
     });
     try {
       await context.read<LifeMateApiClient>().createCareEvent(
-        clientRequestId: _clientRequestId,
-        eventType: _isAppointment ? 'appointment' : 'injection',
-        title: _title.text,
-        providerName: _provider.text,
-        specialty: _isAppointment ? _specialty.text : null,
-        medicationName: _isAppointment ? null : _title.text,
-        doseText: _isAppointment ? null : _dose.text,
-        administrationRoute: _isAppointment ? null : _administrationRoute,
-        reason: _reason.text,
-        instructions: _instructions.text,
-        centerName: _center.text,
-        addressLine: _address.text,
-        phoneNumber: _phone.text,
-        scheduledLocalDate: _date,
-        scheduledLocalTime: _timeValue,
-        timeZone: _timeZone,
+        clientRequestId: request.clientRequestId,
+        eventType: request.eventType,
+        title: request.title,
+        providerName: request.providerName,
+        specialty: request.specialty,
+        medicationName: request.medicationName,
+        doseText: request.doseText,
+        administrationRoute: request.administrationRoute,
+        reason: request.reason,
+        instructions: request.instructions,
+        centerName: request.centerName,
+        addressLine: request.addressLine,
+        phoneNumber: request.phoneNumber,
+        scheduledLocalDate: request.scheduledLocalDate,
+        scheduledLocalTime: request.scheduledLocalTime,
+        timeZone: request.timeZone,
         recurrence: recurrence,
-        patientReminderMinutesBefore: _patientReminderMinutesBefore,
-        caregiverReminderMinutesBefore: _caregiverReminderMinutesBefore,
+        patientReminderMinutesBefore: request.patientReminderMinutesBefore,
+        caregiverReminderMinutesBefore: request.caregiverReminderMinutesBefore,
       );
       if (!mounted) return;
+      widget.onSaveStateChanged?.call(WellMateCareEventSaveState.serverConfirmed);
       LifeMateNotice.show(
         context,
         type: LifeMateNoticeType.success,
         title: _isAppointment
-            ? LifeMateRuntimeLocale.select(
-                fa: LifeMateRuntimeLocale.select(
-                  fa: 'ویزیت ثبت شد',
-                  en: "Appointment saved",
-                ),
-                en: "Appointment saved",
-              )
-            : LifeMateRuntimeLocale.select(
-                fa: LifeMateRuntimeLocale.select(
-                  fa: 'تزریق ثبت شد',
-                  en: "Injection saved",
-                ),
-                en: "Injection saved",
-              ),
+            ? LifeMateRuntimeLocale.select(fa: 'ویزیت ثبت شد', en: 'Appointment saved')
+            : LifeMateRuntimeLocale.select(fa: 'تزریق ثبت شد', en: 'Injection saved'),
         message: _isAppointment
             ? LifeMateRuntimeLocale.select(
-                fa: LifeMateRuntimeLocale.select(
-                  fa: 'ویزیت با موفقیت به برنامه اضافه شد.',
-                  en: "The visit has been successfully added to the program.",
-                ),
-                en: "The visit has been successfully added to the program.",
+                fa: 'ویزیت با موفقیت به برنامه اضافه شد.',
+                en: 'The visit has been successfully added to the program.',
               )
             : LifeMateRuntimeLocale.select(
-                fa: LifeMateRuntimeLocale.select(
-                  fa: 'نوبت تزریق با موفقیت به برنامه اضافه شد.',
-                  en: "The injection appointment has been successfully added to the program.",
-                ),
-                en: "The injection appointment has been successfully added to the program.",
+                fa: 'نوبت تزریق با موفقیت به برنامه اضافه شد.',
+                en: 'The injection appointment has been successfully added to the program.',
               ),
       );
       _reset();
       widget.onCreated();
     } on LifeMateApiException catch (error) {
+      final mayQueue = !recurrence.enabled && canQueueCareEventCreateOffline(error);
+      if (mayQueue) {
+        final queued = await tryQueueCareEventCreateOffline(
+          context,
+          request,
+          injectedEnqueuer: widget.offlineEnqueuer,
+        );
+        if (queued) {
+          if (!mounted) return;
+          widget.onSaveStateChanged?.call(WellMateCareEventSaveState.pendingSync);
+          LifeMateNotice.show(
+            context,
+            type: LifeMateNoticeType.info,
+            title: LifeMateRuntimeLocale.select(
+              fa: 'تغییرات روی گوشی ذخیره شد',
+              en: 'Changes saved on this device',
+            ),
+            message: LifeMateRuntimeLocale.select(
+              fa: 'تأیید سرور در انتظار است؛ پس از اتصال اینترنت همگام‌سازی انجام می‌شود.',
+              en: 'Server confirmation is pending; this will sync after reconnection.',
+            ),
+          );
+          _reset();
+          widget.onCreated();
+          return;
+        }
+      }
       if (mounted) setState(() => _error = _friendlyError(error));
     } catch (error) {
       debugPrint('WellMate care-event creation failed: $error');
       if (mounted) {
         setState(
           () => _error = LifeMateRuntimeLocale.select(
-            fa: LifeMateRuntimeLocale.select(
-              fa: 'ثبت انجام نشد. اتصال اینترنت را بررسی کنید.',
-              en: "Registration failed. Check your internet connection.",
-            ),
-            en: "Registration failed. Check your internet connection.",
+            fa: 'ثبت انجام نشد. اتصال اینترنت را بررسی کنید.',
+            en: 'Registration failed. Check your internet connection.',
           ),
         );
       }
