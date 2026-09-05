@@ -6,6 +6,7 @@ on:
       - 'supabase/functions/lifemate-api/person_women_calendar.ts'
       - 'supabase/functions/lifemate-api/women_calendar_legacy.ts'
       - 'supabase/functions/lifemate-api/women_calendar_profile_person_primary_integration_test.ts'
+      - 'supabase/bootstrap/**'
       - 'supabase/migrations/**'
       - 'tools/security/verify-women-profile-person-primary.mjs'
       - '.github/workflows/women-profile-person-primary-policy.yml'
@@ -15,6 +16,7 @@ on:
       - 'supabase/functions/lifemate-api/person_women_calendar.ts'
       - 'supabase/functions/lifemate-api/women_calendar_legacy.ts'
       - 'supabase/functions/lifemate-api/women_calendar_profile_person_primary_integration_test.ts'
+      - 'supabase/bootstrap/**'
       - 'supabase/migrations/**'
       - 'tools/security/verify-women-profile-person-primary.mjs'
       - '.github/workflows/women-profile-person-primary-policy.yml'
@@ -74,6 +76,8 @@ jobs:
           set -euo pipefail
           psql "$TEST_DATABASE_URL" --set=ON_ERROR_STOP=1 \
             --file=supabase/bootstrap/legacy_lifemate_baseline.sql
+          psql "$TEST_DATABASE_URL" --set=ON_ERROR_STOP=1 \
+            --file=supabase/bootstrap/test_provider_compatibility_roles.sql
           while IFS= read -r migration; do
             psql "$TEST_DATABASE_URL" --set=ON_ERROR_STOP=1 --file="$migration"
           done < <(find supabase/migrations -maxdepth 1 -type f -name '*.sql' | sort)

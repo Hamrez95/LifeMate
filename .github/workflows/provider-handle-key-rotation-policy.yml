@@ -10,6 +10,7 @@ on:
       - 'supabase/functions/lifemate-api/provider_identity_handle_key_rotation_integration_test.ts'
       - 'supabase/functions/lifemate-worker/provider_auth_subject.ts'
       - 'supabase/functions/lifemate-worker/provider_auth_subject_test.ts'
+      - 'supabase/bootstrap/**'
       - 'supabase/migrations/**'
       - 'tools/security/provider-handle-key-rotation.ts'
       - 'tools/security/provider-handle-key-rotation_test.ts'
@@ -29,6 +30,7 @@ on:
       - 'supabase/functions/lifemate-api/provider_identity_handle_key_rotation_integration_test.ts'
       - 'supabase/functions/lifemate-worker/provider_auth_subject.ts'
       - 'supabase/functions/lifemate-worker/provider_auth_subject_test.ts'
+      - 'supabase/bootstrap/**'
       - 'supabase/migrations/**'
       - 'tools/security/provider-handle-key-rotation.ts'
       - 'tools/security/provider-handle-key-rotation_test.ts'
@@ -110,6 +112,8 @@ jobs:
           set -euo pipefail
           psql "$TEST_DATABASE_URL" --set=ON_ERROR_STOP=1 \
             --file=supabase/bootstrap/legacy_lifemate_baseline.sql
+          psql "$TEST_DATABASE_URL" --set=ON_ERROR_STOP=1 \
+            --file=supabase/bootstrap/test_provider_compatibility_roles.sql
           while IFS= read -r migration; do
             psql "$TEST_DATABASE_URL" --set=ON_ERROR_STOP=1 --file="$migration"
           done < <(find supabase/migrations -maxdepth 1 -type f -name '*.sql' | sort)

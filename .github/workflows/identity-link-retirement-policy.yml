@@ -7,6 +7,7 @@ on:
       - 'supabase/functions/lifemate-api/**'
       - 'supabase/functions/lifemate-admin-api/identity_resolution.ts'
       - 'supabase/functions/lifemate-admin-api/identity_resolution_test.ts'
+      - 'supabase/bootstrap/**'
       - 'supabase/migrations/**'
       - 'tools/security/identity-link-retirement-readiness.ts'
       - 'tools/security/identity-link-retirement-readiness_test.ts'
@@ -24,6 +25,7 @@ on:
       - 'supabase/functions/lifemate-api/**'
       - 'supabase/functions/lifemate-admin-api/identity_resolution.ts'
       - 'supabase/functions/lifemate-admin-api/identity_resolution_test.ts'
+      - 'supabase/bootstrap/**'
       - 'supabase/migrations/**'
       - 'tools/security/identity-link-retirement-readiness.ts'
       - 'tools/security/identity-link-retirement-readiness_test.ts'
@@ -113,6 +115,8 @@ jobs:
           set -euo pipefail
           psql "$TEST_DATABASE_URL" --set=ON_ERROR_STOP=1 \
             --file=supabase/bootstrap/legacy_lifemate_baseline.sql
+          psql "$TEST_DATABASE_URL" --set=ON_ERROR_STOP=1 \
+            --file=supabase/bootstrap/test_provider_compatibility_roles.sql
           while IFS= read -r migration; do
             psql "$TEST_DATABASE_URL" --set=ON_ERROR_STOP=1 --file="$migration"
           done < <(find supabase/migrations -maxdepth 1 -type f -name '*.sql' | sort)

@@ -8,6 +8,7 @@ on:
       - 'supabase/functions/lifemate-api/person_healthcare_export_integration_test.ts'
       - 'supabase/functions/lifemate-api/treatment_dose_owner_retirement_integration_test.ts'
       - 'supabase/functions/lifemate-api/deno.json'
+      - 'supabase/bootstrap/**'
       - 'supabase/migrations/**'
       - 'tools/security/treatment-dose-owner-retirement.ts'
       - 'tools/security/verify-treatment-dose-owner-retirement.mjs'
@@ -22,6 +23,7 @@ on:
       - 'supabase/functions/lifemate-api/person_healthcare_export_integration_test.ts'
       - 'supabase/functions/lifemate-api/treatment_dose_owner_retirement_integration_test.ts'
       - 'supabase/functions/lifemate-api/deno.json'
+      - 'supabase/bootstrap/**'
       - 'supabase/migrations/**'
       - 'tools/security/treatment-dose-owner-retirement.ts'
       - 'tools/security/verify-treatment-dose-owner-retirement.mjs'
@@ -86,6 +88,8 @@ jobs:
           set -euo pipefail
           psql "$TEST_DATABASE_URL" --set=ON_ERROR_STOP=1 \
             --file=supabase/bootstrap/legacy_lifemate_baseline.sql
+          psql "$TEST_DATABASE_URL" --set=ON_ERROR_STOP=1 \
+            --file=supabase/bootstrap/test_provider_compatibility_roles.sql
           while IFS= read -r migration; do
             psql "$TEST_DATABASE_URL" --set=ON_ERROR_STOP=1 --file="$migration"
           done < <(find supabase/migrations -maxdepth 1 -type f -name '*.sql' | sort)
