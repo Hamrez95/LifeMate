@@ -1,6 +1,7 @@
 library lifemate_client;
 
 export 'package:supabase_flutter/supabase_flutter.dart' show AuthException;
+
 export 'src/account_deletion_action.dart';
 export 'src/account_onboarding_api.dart';
 export 'src/account_security.dart';
@@ -72,5 +73,6 @@ export 'src/shared_offline_runtime.dart';
 export 'src/support_conversations_api.dart';
 export 'src/women_calendar.dart';
 export 'src/women_calendar_offline.dart';
+export 'src/women_calendar_offline_snapshot.dart';
 export 'src/women_companion_api.dart';
 export 'src/women_cycle_ring.dart';
