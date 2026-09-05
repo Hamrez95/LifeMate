@@ -173,8 +173,8 @@ Deno.test({
           id, aggregate_type, aggregate_id, event_type, idempotency_key,
           payload_json, status, available_at_utc
         ) values (
-          ${expiredId}::uuid, 'account', ${crypto.randomUUID()}::uuid,
-          'identity.session_revoke_requested', ${`${prefix}:expired`},
+          ${expiredId}::uuid, 'person', ${crypto.randomUUID()}::uuid,
+          'care.adherence_projection_refresh_requested', ${`${prefix}:expired`},
           '{}'::jsonb, 'Pending', now()
         )
       `;
@@ -187,7 +187,7 @@ Deno.test({
         select * from integration.claim_outbox_messages_for_events(
           ${workerId}::character varying,
           10,
-          ${["identity.session_revoke_requested"]}::character varying[]
+          ${["care.adherence_projection_refresh_requested"]}::character varying[]
         )
       `;
       const expired = await sql`
