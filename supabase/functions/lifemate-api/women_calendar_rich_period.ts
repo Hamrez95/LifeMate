@@ -16,6 +16,14 @@ import {
 
 type Row = Record<string, any>;
 
+const allowedMoods: Record<string, string> = {
+  great: "Great",
+  good: "Good",
+  neutral: "Neutral",
+  low: "Low",
+  overwhelmed: "Overwhelmed",
+};
+
 export function createWomenCalendarRichPeriodStore(databaseUrl: string) {
   const sql = getLifeMateSql(databaseUrl);
   const base = createWomenCalendarV3Store(databaseUrl);
@@ -101,6 +109,12 @@ export function createWomenCalendarRichPeriodStore(databaseUrl: string) {
     const expectedVersion = nonNegativeInt(body.version ?? 0, "version");
     const shouldDelete = body.delete === true;
     const observation = normalizePeriodObservation(body);
+    const moodProvided = Object.hasOwn(body, "mood");
+    const mood = moodProvided ? normalizeMood(body.mood) : "Neutral";
+    const energyProvided = Object.hasOwn(body, "energyLevel");
+    const energyLevel = energyProvided
+      ? boundedInt(body.energyLevel, "energyLevel", 1, 5)
+      : 3;
     const painProvided = Object.hasOwn(body, "painLevel");
     const painLevel = painProvided ? optionalPain(body.painLevel) : null;
     const symptomsProvided = Object.hasOwn(body, "symptoms");
@@ -180,7 +194,7 @@ export function createWomenCalendarRichPeriodStore(databaseUrl: string) {
             period_observation_schema_version,version,created_at_utc,updated_at_utc
           ) values (
             ${id}::uuid,${appUserId}::uuid,${personId}::uuid,${loggedOn}::date,
-            'Neutral',3,${storedPain},${painProvided && painLevel != null},
+            ${mood},${energyLevel},${storedPain},${painProvided && painLevel != null},
             ${legacySymptoms}::varchar[],${tx.json(symptomObservations)}::jsonb,
             ${womenSymptomCatalogVersion},${privateNotes},${shareSummaryWithCompanion},
             ${observation.periodFlow},${observation.bloodAppearance},${observation.bloodTexture},
@@ -204,6 +218,8 @@ export function createWomenCalendarRichPeriodStore(databaseUrl: string) {
         Object.hasOwn(body, "bloodTexture")
       } then ${observation.bloodTexture} else blood_texture end,
             period_observation_schema_version=${periodObservationSchemaVersion},
+            mood=case when ${moodProvided} then ${mood} else mood end,
+            energy_level=case when ${energyProvided} then ${energyLevel} else energy_level end,
             pain_level=case when ${painProvided && painLevel != null} then ${
         painLevel ?? 0
       } else pain_level end,
@@ -300,6 +316,32 @@ async function audit(
       'women_calendar_daily_log',${resourceId}::uuid,null,now()
     )
   `;
+}
+
+function normalizeMood(value: unknown): string {
+  const normalized = String(value ?? "").trim().toLowerCase();
+  const mood = allowedMoods[normalized];
+  if (!mood) {
+    throw new ApiError(
+      400,
+      "invalid_women_calendar_mood",
+      "Unsupported mood value.",
+    );
+  }
+  return mood;
+}
+
+function boundedInt(
+  value: unknown,
+  field: string,
+  min: number,
+  max: number,
+): number {
+  const number = Number(value);
+  if (!Number.isInteger(number) || number < min || number > max) {
+    throw new ApiError(400, "invalid_integer", `${field} is out of range.`);
+  }
+  return number;
 }
 
 function optionalPain(value: unknown): number | null {
