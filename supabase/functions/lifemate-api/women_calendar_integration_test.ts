@@ -107,6 +107,7 @@ Deno.test({
         confirmConsent: true,
       });
       assertEquals(relationship.canViewWomenCalendar, false);
+      const relationshipId = String(relationship.id);
 
       await assertApiError(
         () => women.getCareSummary(caregiver.appUserId, patient.appUserId),
@@ -149,7 +150,7 @@ Deno.test({
           view_calendar_detail,
           updated_by_user_id
         ) values (
-          ${relationship.id}::uuid,
+          ${relationshipId}::uuid,
           true,
           true,
           true,
