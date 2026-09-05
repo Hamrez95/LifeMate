@@ -84,8 +84,8 @@ void main() {
     await tester.enterText(fields.at(1), 'Dr Example');
 
     final submit = find.byKey(const ValueKey<String>('care-event-submit'));
+    await tester.scrollUntilVisible(submit, 500);
     expect(submit, findsOneWidget);
-    await tester.ensureVisible(submit);
     await tester.tap(submit);
     await tester.pumpAndSettle();
 
@@ -138,8 +138,8 @@ void main() {
     await tester.enterText(fields.at(0), 'Cardiology visit');
     await tester.enterText(fields.at(1), 'Dr Example');
     final submit = find.byKey(const ValueKey<String>('care-event-submit'));
+    await tester.scrollUntilVisible(submit, 500);
     expect(submit, findsOneWidget);
-    await tester.ensureVisible(submit);
     await tester.tap(submit);
     await tester.pumpAndSettle();
 
