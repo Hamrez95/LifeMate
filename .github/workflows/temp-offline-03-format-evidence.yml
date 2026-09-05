@@ -1,0 +1,35 @@
+name: temp-offline-03-format-evidence
+
+on:
+  push:
+    branches:
+      - platform/offline-03-sync-cursors
+
+permissions:
+  contents: read
+
+jobs:
+  capture:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
+        with:
+          fetch-depth: 1
+          persist-credentials: false
+      - uses: subosito/flutter-action@4cab68ce0f1c7c924f688bff4792e044f1aeb30c
+        with:
+          flutter-version: '3.44.0'
+          channel: stable
+          cache: true
+      - name: Capture canonical Dart formatting
+        working-directory: packages/lifemate_core
+        run: |
+          dart format lib/src/local_conflict_policy.dart
+          cp lib/src/local_conflict_policy.dart "$GITHUB_WORKSPACE/local_conflict_policy.dart"
+      - name: Upload formatted source evidence
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: offline-03-formatted-source-${{ github.sha }}
+          path: local_conflict_policy.dart
+          if-no-files-found: error
+          retention-days: 1
