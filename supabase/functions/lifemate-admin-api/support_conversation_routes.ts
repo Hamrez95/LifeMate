@@ -6,7 +6,9 @@ import { json } from "./http.ts";
 import { createSupportConversationAdminStore } from "./support_conversation_service.ts";
 import { ApiError, requireIdempotencyKey } from "./validation.ts";
 
-export function createSupportConversationAdminRouteHandler(databaseUrl: string) {
+export function createSupportConversationAdminRouteHandler(
+  databaseUrl: string,
+) {
   const store = createSupportConversationAdminStore(databaseUrl);
 
   return async function supportConversationAdminRouteHandler(input: {
@@ -38,14 +40,18 @@ export function createSupportConversationAdminRouteHandler(databaseUrl: string) 
       }
       const limit = boundedLimit(url.searchParams.get("limit"));
       const items = await store.list(ticketId, beforeAt, afterAt, limit);
-      return json({
-        items,
-        pageSize: limit,
-        polling: {
-          afterAt: items.length === 0 ? afterAt : items[0].createdAtUtc,
+      return json(
+        {
+          items,
+          pageSize: limit,
+          polling: {
+            afterAt: items.length === 0 ? afterAt : items[0].createdAtUtc,
+          },
+          freshness: { status: "fresh", asOfUtc: new Date().toISOString() },
         },
-        freshness: { status: "fresh", asOfUtc: new Date().toISOString() },
-      }, 200, origin);
+        200,
+        origin,
+      );
     }
 
     if (request.method === "POST") {
@@ -90,12 +96,16 @@ export function createSupportConversationAdminRouteHandler(databaseUrl: string) 
             : "Support message was not sent.",
         );
       }
-      return json({
-        ticketId: String(result.ticketId),
-        messageId: String(result.messageId),
-        createdAtUtc: String(result.createdAtUtc),
-        replayed: Boolean(result.replayed),
-      }, status, origin);
+      return json(
+        {
+          ticketId: String(result.ticketId),
+          messageId: String(result.messageId),
+          createdAtUtc: String(result.createdAtUtc),
+          replayed: Boolean(result.replayed),
+        },
+        status,
+        origin,
+      );
     }
 
     return null;
