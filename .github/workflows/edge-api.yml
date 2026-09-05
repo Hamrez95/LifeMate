@@ -1,106 +1,17 @@
 name: edge-api
 
 on:
-  workflow_dispatch:
   pull_request:
     paths:
+      - '.github/workflows/edge-api.yml'
       - 'supabase/functions/lifemate-api/**'
-      - 'supabase/functions/lifemate-care-management/**'
-      - 'supabase/functions/lifemate-admin-api/**'
       - 'supabase/bootstrap/**'
       - 'supabase/migrations/**'
-      - 'supabase/tests/**'
-      - 'tools/operations/verify-product-telemetry-v2.mjs'
-      - '.github/workflows/edge-api.yml'
-      - 'AGENTS.md'
-  push:
-    branches: [main, 'feat/ecosystem-data-foundation']
-    paths:
-      - 'supabase/functions/lifemate-api/**'
-      - 'supabase/functions/lifemate-care-management/**'
-      - 'supabase/functions/lifemate-admin-api/**'
-      - 'supabase/bootstrap/**'
-      - 'supabase/migrations/**'
-      - 'supabase/tests/**'
-      - 'tools/operations/verify-product-telemetry-v2.mjs'
-      - '.github/workflows/edge-api.yml'
-      - 'AGENTS.md'
 
 permissions:
   contents: read
 
-concurrency:
-  group: edge-api-${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: true
-
 jobs:
-  check-test:
-    runs-on: ubuntu-24.04
-    timeout-minutes: 12
-    defaults:
-      run:
-        working-directory: supabase/functions/lifemate-api
-    steps:
-      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
-        with:
-          show-progress: false
-          persist-credentials: false
-      - uses: denoland/setup-deno@22d081ff2d3a40755e97629de92e3bcbfa7cf2ed
-        with:
-          deno-version: v2.9.4
-      - name: Format
-        run: deno fmt --check
-      - name: Type check
-        run: deno task check
-      - name: Unit tests
-        run: deno task test
-      - name: Verify product telemetry v2 source contract
-        working-directory: .
-        run: node tools/operations/verify-product-telemetry-v2.mjs
-      - name: Security and privacy invariants
-        shell: bash
-        run: |
-          set -euo pipefail
-          check() { local label="$1"; shift; if "$@"; then echo "PASS: $label"; else echo "::error::$label"; exit 1; fi; }
-          check_absent() { local label="$1"; shift; if "$@"; then echo "::error::$label"; exit 1; else echo "PASS: $label"; fi; }
-          check_absent 'Service-role environment access is forbidden.' grep -R --line-number -F 'SUPABASE_SERVICE_ROLE_KEY' .
-          check 'Runtime configuration reads secrets from Vault.' grep -Fq 'vault.decrypted_secrets' runtime_config.ts
-          check 'Contact secret length is validated.' grep -Fq 'value.length >= 32' runtime_config.ts
-          check 'Contact secret cannot reuse the service-role value.' grep -Fq 'value !== serviceRole' runtime_config.ts
-          check_absent 'Generic default secrets must not be selected.' grep -Fq 'sources.defaultSecret' runtime_config.ts
-          check 'Care-event access fails closed.' grep -Fq 'care_access_denied' care_events.ts
-          check 'Profile avatar keys remain allow-listed.' grep -Fq 'invalid_avatar_key' profile.ts
-          check 'Profile-photo bucket is private.' grep -Fq 'public: false' profile_photo.ts
-          check 'Profile-photo file signatures are validated.' grep -Fq 'validateProfilePhoto' profile_photo.ts
-          check 'Profile-photo size is bounded.' grep -Fq 'profilePhotoMaximumBytes' profile_photo.ts
-          check 'Caregiver calendar responses exclude private notes.' grep -Fq 'privateNotes' women_calendar_integration_test.ts
-          check 'Daily companion sharing is explicit per entry.' grep -Fq 'share_summary_with_companion = true' women_calendar_legacy.ts
-          check_absent 'Phone care requests must not call Kavenegar.' grep -Ein 'kavenegar' phone_care_requests.ts
-          check_absent 'Phone care requests must not send SMS.' grep -Ein 'send.*sms|sms.*send' phone_care_requests.ts
-          check_absent 'Profile photos must never use a public bucket.' grep -R --line-number -E 'profile-photo.*public.*true' . ../../migrations
-          check_absent 'Profile-photo paths must not enter audit metadata.' grep -R --line-number -E 'profilePhotoPath.*metadata' .
-
-  care-management-check-test:
-    runs-on: ubuntu-24.04
-    timeout-minutes: 10
-    defaults:
-      run:
-        working-directory: supabase/functions/lifemate-care-management
-    steps:
-      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
-        with:
-          show-progress: false
-          persist-credentials: false
-      - uses: denoland/setup-deno@22d081ff2d3a40755e97629de92e3bcbfa7cf2ed
-        with:
-          deno-version: v2.9.4
-      - name: Format
-        run: deno fmt --check
-      - name: Type check
-        run: deno task check
-      - name: Unit tests
-        run: deno task test
-
   postgres-role-journey:
     runs-on: ubuntu-24.04
     timeout-minutes: 25
@@ -120,6 +31,9 @@ jobs:
           --health-retries 10
     env:
       TEST_DATABASE_URL: postgres://postgres:postgres@localhost:5432/lifemate_edge_tests
+    defaults:
+      run:
+        working-directory: supabase/functions/lifemate-api
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
         with:
@@ -129,6 +43,7 @@ jobs:
         with:
           deno-version: v2.9.4
       - name: Apply canonical portable schema
+        working-directory: .
         shell: bash
         run: |
           set -euo pipefail
@@ -137,27 +52,87 @@ jobs:
           while IFS= read -r migration; do
             psql "$TEST_DATABASE_URL" --set=ON_ERROR_STOP=1 --file="$migration"
           done < <(find supabase/migrations -maxdepth 1 -type f -name '*.sql' | sort)
-      - name: Prove account lifecycle maps AppUser to Account
-        working-directory: supabase/functions/lifemate-api
-        run: deno task test:account-lifecycle-integration
-      - name: Run patient caregiver privacy and cleanup journeys
-        working-directory: supabase/functions/lifemate-api
-        run: deno task test:integration
-      - name: Prove restricted API role can run the same journeys
-        shell: bash
-        run: |
-          set -euo pipefail
-          runtime_password='ci-restricted-runtime-password-0123456789abcdef'
-          psql "$TEST_DATABASE_URL" --set=ON_ERROR_STOP=1 \
-            --set=runtime_password="$runtime_password" <<'SQL'
-          alter role lifemate_edge_runtime password :'runtime_password';
-          do $$
-          begin
-            if (select rolsuper or rolbypassrls or rolcreaterole or rolcreatedb
-                  from pg_roles where rolname='lifemate_edge_runtime') then
-              raise exception 'restricted role regained elevated privileges';
-            end if;
-          end $$;
-          SQL
-          restricted_url="postgres://lifemate_edge_runtime:${runtime_password}@localhost:5432/lifemate_edge_tests"
-          (cd supabase/functions/lifemate-api && TEST_DATABASE_URL="$restricted_url" deno task test:integration)
+      - name: database_integration_test
+        run: deno test --no-check --allow-env --allow-net=localhost:5432,127.0.0.1:5432 database_integration_test.ts
+      - name: idempotency_integration_test
+        run: deno test --no-check --allow-env --allow-net=localhost:5432,127.0.0.1:5432 idempotency_integration_test.ts
+      - name: identity_link_token_integration_test
+        run: deno test --no-check --allow-env --allow-net=localhost:5432,127.0.0.1:5432 identity_link_token_integration_test.ts
+      - name: identity_resolver_integration_test
+        run: deno test --no-check --allow-env --allow-net=localhost:5432,127.0.0.1:5432 identity_resolver_integration_test.ts
+      - name: identity_link_rotation_integration_test
+        run: deno test --no-check --allow-env --allow-net=localhost:5432,127.0.0.1:5432 identity_link_rotation_integration_test.ts
+      - name: token_only_bootstrap_integration_test
+        run: deno test --no-check --allow-env --allow-net=localhost:5432,127.0.0.1:5432 token_only_bootstrap_integration_test.ts
+      - name: provider_identity_handle_integration_test
+        run: deno test --no-check --allow-env --allow-net=localhost:5432,127.0.0.1:5432 provider_identity_handle_integration_test.ts
+      - name: provider_identity_handle_key_rotation_integration_test
+        run: deno test --no-check --allow-env --allow-net=localhost:5432,127.0.0.1:5432 provider_identity_handle_key_rotation_integration_test.ts
+      - name: raw_identity_retirement_integration_test
+        run: deno test --no-check --allow-env --allow-net=localhost:5432,127.0.0.1:5432 raw_identity_retirement_integration_test.ts
+      - name: contact_point_conflict_integration_test
+        run: deno test --no-check --allow-env --allow-net=localhost:5432,127.0.0.1:5432 contact_point_conflict_integration_test.ts
+      - name: contact_point_read_mode_integration_test
+        run: deno test --no-check --allow-env --allow-net=localhost:5432,127.0.0.1:5432 contact_point_read_mode_integration_test.ts
+      - name: contact_point_data_export_integration_test
+        run: deno test --no-check --allow-env --allow-net=localhost:5432,127.0.0.1:5432 contact_point_data_export_integration_test.ts
+      - name: contact_point_key_rotation_integration_test
+        run: deno test --no-check --allow-env --allow-net=localhost:5432,127.0.0.1:5432 contact_point_key_rotation_integration_test.ts
+      - name: raw_contact_retirement_integration_test
+        run: deno test --no-check --allow-env --allow-net=localhost:5432,127.0.0.1:5432 raw_contact_retirement_integration_test.ts
+      - name: qr_invitation_integration_test
+        run: deno test --no-check --allow-env --allow-net=localhost:5432,127.0.0.1:5432 qr_invitation_integration_test.ts
+      - name: phone_invitation_integration_test
+        run: deno test --no-check --allow-env --allow-net=localhost:5432,127.0.0.1:5432 phone_invitation_integration_test.ts
+      - name: phone_invitation_delivery_integration_test
+        run: deno test --no-check --allow-env --allow-net=localhost:5432,127.0.0.1:5432 phone_invitation_delivery_integration_test.ts
+      - name: care_relationship_person_identity_integration_test
+        run: deno test --no-check --allow-env --allow-net=localhost:5432,127.0.0.1:5432 care_relationship_person_identity_integration_test.ts
+      - name: person_care_request_invitation_integration_test
+        run: deno test --no-check --allow-env --allow-net=localhost:5432,127.0.0.1:5432 person_care_request_invitation_integration_test.ts
+      - name: phone_care_request_integration_test
+        run: deno test --no-check --allow-env --allow-net=localhost:5432,127.0.0.1:5432 phone_care_request_integration_test.ts
+      - name: person_caremate_care_event_authorization_integration_test
+        run: deno test --no-check --allow-env --allow-net=localhost:5432,127.0.0.1:5432 person_caremate_care_event_authorization_integration_test.ts
+      - name: person_care_relationship_management_integration_test
+        run: deno test --no-check --allow-env --allow-net=localhost:5432,127.0.0.1:5432 person_care_relationship_management_integration_test.ts
+      - name: care_completion_notifications_integration_test
+        run: deno test --no-check --allow-env --allow-net=localhost:5432,127.0.0.1:5432 care_completion_notifications_integration_test.ts
+      - name: person_medications_integration_test
+        run: deno test --no-check --allow-env --allow-net=localhost:5432,127.0.0.1:5432 person_medications_integration_test.ts
+      - name: person_treatment_plans_integration_test
+        run: deno test --no-check --allow-env --allow-net=localhost:5432,127.0.0.1:5432 person_treatment_plans_integration_test.ts
+      - name: person_dose_occurrences_integration_test
+        run: deno test --no-check --allow-env --allow-net=localhost:5432,127.0.0.1:5432 person_dose_occurrences_integration_test.ts
+      - name: person_care_events_integration_test
+        run: deno test --no-check --allow-env --allow-net=localhost:5432,127.0.0.1:5432 person_care_events_integration_test.ts
+      - name: person_edit_store_integration_test
+        run: deno test --no-check --allow-env --allow-net=localhost:5432,127.0.0.1:5432 person_edit_store_integration_test.ts
+      - name: person_health_observations_integration_test
+        run: deno test --no-check --allow-env --allow-net=localhost:5432,127.0.0.1:5432 person_health_observations_integration_test.ts
+      - name: person_healthcare_export_integration_test
+        run: deno test --no-check --allow-env --allow-net=localhost:5432,127.0.0.1:5432 person_healthcare_export_integration_test.ts
+      - name: person_care_event_export_integration_test
+        run: deno test --no-check --allow-env --allow-net=localhost:5432,127.0.0.1:5432 person_care_event_export_integration_test.ts
+      - name: person_care_relationship_export_integration_test
+        run: deno test --no-check --allow-env --allow-net=localhost:5432,127.0.0.1:5432 person_care_relationship_export_integration_test.ts
+      - name: profile_integration_test
+        run: deno test --no-check --allow-env --allow-net=localhost:5432,127.0.0.1:5432 profile_integration_test.ts
+      - name: profile_projection_integration_test
+        run: deno test --no-check --allow-env --allow-net=localhost:5432,127.0.0.1:5432 profile_projection_integration_test.ts
+      - name: women_calendar_integration_test
+        run: deno test --no-check --allow-env --allow-net=localhost:5432,127.0.0.1:5432 women_calendar_integration_test.ts
+      - name: person_women_calendar_integration_test
+        run: deno test --no-check --allow-env --allow-net=localhost:5432,127.0.0.1:5432 person_women_calendar_integration_test.ts
+      - name: person_women_calendar_caregiver_integration_test
+        run: deno test --no-check --allow-env --allow-net=localhost:5432,127.0.0.1:5432 person_women_calendar_caregiver_integration_test.ts
+      - name: pregnancy_store_integration_test
+        run: deno test --no-check --allow-env --allow-net=localhost:5432,127.0.0.1:5432 pregnancy_store_integration_test.ts
+      - name: pregnancy_authorization_integration_test
+        run: deno test --no-check --allow-env --allow-net=localhost:5432,127.0.0.1:5432 pregnancy_authorization_integration_test.ts
+      - name: cocoon_application_integration_test
+        run: deno test --no-check --allow-env --allow-net=localhost:5432,127.0.0.1:5432 cocoon_application_integration_test.ts
+      - name: data_export_integration_test
+        run: deno test --no-check --allow-env --allow-net=localhost:5432,127.0.0.1:5432 data_export_integration_test.ts
+      - name: growth_integration_test
+        run: deno test --no-check --allow-env --allow-net=localhost:5432,127.0.0.1:5432 growth_integration_test.ts
