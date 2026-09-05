@@ -36,10 +36,16 @@ void main() {
     tester,
   ) async {
     await tester.pumpWidget(
-      const MaterialApp(
-        locale: Locale('fa'),
-        supportedLocales: <Locale>[Locale('en'), Locale('fa')],
-        home: Scaffold(body: HomeOfflineStatusBanner()),
+      MaterialApp(
+        home: Builder(
+          builder: (context) => Scaffold(
+            body: Localizations.override(
+              context: context,
+              locale: const Locale('fa'),
+              child: const HomeOfflineStatusBanner(),
+            ),
+          ),
+        ),
       ),
     );
 
