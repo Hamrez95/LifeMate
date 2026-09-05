@@ -22,6 +22,7 @@ final class LifeMateSharedOfflineRuntime {
     required LifeMateHttpMutationReplayTransport transport,
     required LifeMateLegacyMutationImporter legacyImporter,
     required String timeZone,
+    required Set<String> legacyAccountIds,
     required bool ownsStore,
   }) : _store = store,
        _namespace = namespace,
@@ -30,6 +31,7 @@ final class LifeMateSharedOfflineRuntime {
        _transport = transport,
        _legacyImporter = legacyImporter,
        _timeZone = timeZone,
+       _legacyAccountIds = Set<String>.unmodifiable(legacyAccountIds),
        _ownsStore = ownsStore;
 
   final LifeMateLocalHealthStore _store;
@@ -39,6 +41,7 @@ final class LifeMateSharedOfflineRuntime {
   final LifeMateHttpMutationReplayTransport _transport;
   final LifeMateLegacyMutationImporter _legacyImporter;
   final String _timeZone;
+  final Set<String> _legacyAccountIds;
   final bool _ownsStore;
   bool _closed = false;
 
@@ -52,6 +55,7 @@ final class LifeMateSharedOfflineRuntime {
     required String timeZone,
     required Uri apiBaseUri,
     required AccessTokenProvider accessToken,
+    Set<String> legacyAccountIds = const <String>{},
     LifeMateLocalHealthStore? store,
     LifeMateMutationStorage? legacyStorage,
     http.Client? httpClient,
@@ -62,6 +66,10 @@ final class LifeMateSharedOfflineRuntime {
     if (normalizedTimeZone.isEmpty) {
       throw ArgumentError.value(timeZone, 'timeZone');
     }
+    final normalizedLegacyAccountIds = legacyAccountIds
+        .map((value) => value.trim())
+        .where((value) => value.isNotEmpty)
+        .toSet();
 
     final ownsStore = store == null;
     final localStore =
@@ -82,6 +90,7 @@ final class LifeMateSharedOfflineRuntime {
       await importer.importPending(
         namespace: namespace,
         timeZone: normalizedTimeZone,
+        legacyAccountIds: normalizedLegacyAccountIds,
       );
 
       return LifeMateSharedOfflineRuntime._(
@@ -97,6 +106,7 @@ final class LifeMateSharedOfflineRuntime {
         transport: transport,
         legacyImporter: importer,
         timeZone: normalizedTimeZone,
+        legacyAccountIds: normalizedLegacyAccountIds,
         ownsStore: ownsStore,
       );
     } catch (_) {
@@ -114,6 +124,7 @@ final class LifeMateSharedOfflineRuntime {
     return _legacyImporter.importPending(
       namespace: _namespace,
       timeZone: _timeZone,
+      legacyAccountIds: _legacyAccountIds,
     );
   }
 
