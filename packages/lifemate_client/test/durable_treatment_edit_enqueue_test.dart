@@ -33,7 +33,7 @@ void main() {
 
     const mutationId = '123e4567-e89b-42d3-a456-426614174970';
     const planId = '123e4567-e89b-42d3-a456-426614174071';
-    final mutation = await client.enqueueTreatmentPlanEdit(
+    final acceptedMutationId = await client.enqueueTreatmentPlanEdit(
       mutationId: mutationId,
       treatmentPlanId: planId,
       version: 7,
@@ -51,9 +51,7 @@ void main() {
       localStore: store,
     );
 
-    expect(mutation.domain, LifeMateMutationDomain.treatment);
-    expect(mutation.endpointPath, '/api/v1/treatment-plans/$planId');
-    expect(mutation.expectedRevision, '7');
+    expect(acceptedMutationId, mutationId);
     expect(await client.pendingMutationCount(), 1);
 
     final outbox = LifeMateLocalMutationOutbox(store: store);
@@ -66,7 +64,10 @@ void main() {
       mutationId: mutationId,
     );
     expect(persisted, isNotNull);
-    expect(persisted!.payload['medicationVersion'], 3);
+    expect(persisted!.domain, LifeMateMutationDomain.treatment);
+    expect(persisted.endpointPath, '/api/v1/treatment-plans/$planId');
+    expect(persisted.expectedRevision, '7');
+    expect(persisted.payload['medicationVersion'], 3);
     expect(persisted.payload['status'], 'active');
 
     client.close();
