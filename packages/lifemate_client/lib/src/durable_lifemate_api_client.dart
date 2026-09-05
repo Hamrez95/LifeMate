@@ -2,8 +2,11 @@ import 'dart:convert';
 
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
+import 'package:lifemate_core/lifemate_core.dart';
 
+import 'care_event_projection_sync.dart';
 import 'durable_http_client.dart';
+import 'incremental_projection_api.dart';
 import 'lifemate_api_client.dart';
 import 'offline_mutation_queue.dart';
 import 'offline_sync_result.dart';
@@ -33,10 +36,12 @@ class DurableLifeMateApiClient extends LifeMateApiClient {
     required AccessTokenProvider accessToken,
     required LifeMateAccountIdProvider accountId,
     required LifeMateDurableHttpClient durableHttp,
+    required LifeMateIncrementalProjectionApi incrementalProjectionApi,
   }) : _baseUri = baseUri,
        _accessToken = accessToken,
        _legacyAuthenticatedAccountId = accountId,
        _durableHttp = durableHttp,
+       _incrementalProjectionApi = incrementalProjectionApi,
        super(
          baseUri: baseUri,
          accessToken: accessToken,
@@ -57,11 +62,16 @@ class DurableLifeMateApiClient extends LifeMateApiClient {
       queue: queue,
       inner: innerHttpClient,
     );
+    final incrementalProjectionApi = LifeMateIncrementalProjectionApi(
+      baseUri: baseUri,
+      accessToken: accessToken,
+    );
     return DurableLifeMateApiClient._(
       baseUri: baseUri,
       accessToken: accessToken,
       accountId: accountId,
       durableHttp: durableHttp,
+      incrementalProjectionApi: incrementalProjectionApi,
     );
   }
 
@@ -69,7 +79,9 @@ class DurableLifeMateApiClient extends LifeMateApiClient {
   final AccessTokenProvider _accessToken;
   final LifeMateAccountIdProvider _legacyAuthenticatedAccountId;
   final LifeMateDurableHttpClient _durableHttp;
+  final LifeMateIncrementalProjectionApi _incrementalProjectionApi;
   LifeMateSharedOfflineRuntime? _sharedRuntime;
+  LifeMateCareEventProjectionSync? _careEventProjectionSync;
   String? _sharedRuntimeLegacyAccountId;
 
   @override
@@ -180,6 +192,10 @@ class DurableLifeMateApiClient extends LifeMateApiClient {
 
     final previous = _sharedRuntime;
     _sharedRuntime = next;
+    _careEventProjectionSync = LifeMateCareEventProjectionSync(
+      runtime: next,
+      api: _incrementalProjectionApi,
+    );
     _sharedRuntimeLegacyAccountId = normalizedLegacyAccount;
     _durableHttp.useReplayDelegate(() async {
       if (_legacyAuthenticatedAccountId()?.trim() != normalizedLegacyAccount) {
@@ -321,6 +337,30 @@ class DurableLifeMateApiClient extends LifeMateApiClient {
     return result;
   }
 
+  /// Pulls canonical owner care-event projections into the already-adopted
+  /// protected Account + Person runtime. The callback is the required hook for
+  /// affected #830 reminder regeneration and runs before cursor acknowledgement.
+  /// Callers should use this on reconnect/app-resume only after bootstrap has
+  /// resolved canonical identity. No parallel database or scheduler is created.
+  Future<LifeMateCareEventProjectionSyncResult> syncCareEventProjections({
+    int pageSize = 100,
+    int maximumPages = 10,
+    LifeMateBeforeProjectionCheckpoint? beforeCheckpoint,
+  }) async {
+    final runtime = _activeSharedRuntime();
+    final sync = _careEventProjectionSync;
+    if (runtime == null || sync == null) {
+      throw StateError(
+        'Canonical shared offline runtime must be adopted before projection sync.',
+      );
+    }
+    return sync.sync(
+      pageSize: pageSize,
+      maximumPages: maximumPages,
+      beforeCheckpoint: beforeCheckpoint,
+    );
+  }
+
   Future<int> pendingMutationCount() async {
     final shared = _activeSharedRuntime();
     return shared == null
@@ -341,9 +381,11 @@ class DurableLifeMateApiClient extends LifeMateApiClient {
 
   @override
   void close() {
+    _careEventProjectionSync = null;
     _sharedRuntime?.close();
     _sharedRuntime = null;
     _sharedRuntimeLegacyAccountId = null;
+    _incrementalProjectionApi.close();
     super.close();
   }
 

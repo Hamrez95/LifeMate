@@ -57,6 +57,8 @@ final class LifeMateIncrementalProjectionApi {
     return _parsePage(decoded);
   }
 
+  void close() => _http.close();
+
   static Map<String, dynamic> _decodeResponse(http.Response response) {
     Object? decoded;
     try {
