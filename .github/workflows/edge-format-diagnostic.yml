@@ -1,0 +1,45 @@
+name: edge-format-diagnostic
+
+on:
+  pull_request:
+    paths:
+      - 'supabase/functions/lifemate-api/**'
+      - '.github/workflows/edge-format-diagnostic.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  discover:
+    runs-on: ubuntu-24.04
+    outputs:
+      files: ${{ steps.changed.outputs.files }}
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
+        with:
+          show-progress: false
+          persist-credentials: false
+      - uses: denoland/setup-deno@22d081ff2d3a40755e97629de92e3bcbfa7cf2ed
+        with:
+          deno-version: v2.9.4
+      - id: changed
+        working-directory: supabase/functions/lifemate-api
+        shell: bash
+        run: |
+          set -euo pipefail
+          deno fmt
+          files="$(git diff --name-only -- . | sed 's#^supabase/functions/lifemate-api/##' | jq -Rsc 'split("\n") | map(select(length > 0))')"
+          echo "files=$files" >> "$GITHUB_OUTPUT"
+          test "$files" != '[]'
+
+  offender:
+    needs: discover
+    if: ${{ needs.discover.outputs.files != '[]' }}
+    strategy:
+      fail-fast: false
+      matrix:
+        file: ${{ fromJSON(needs.discover.outputs.files) }}
+    runs-on: ubuntu-24.04
+    name: format-offender / ${{ matrix.file }}
+    steps:
+      - run: echo "Deno 2.9.4 would reformat ${{ matrix.file }}"
