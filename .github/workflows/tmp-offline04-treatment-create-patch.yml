@@ -14,18 +14,16 @@ jobs:
       - uses: actions/checkout@v4
         with:
           ref: feat/offline-04-treatment-create-ui-20260905
-      - name: Apply patch
-        run: python3 .tmp-offline04-patch.py
-      - name: Format and guard
+      - name: Apply and guard patch
         run: |
-          dart format wellmate/lib/screens/treatments/add_treatment_screen.dart wellmate/lib/screens/treatments/offline_treatment_create.dart wellmate/test/offline_treatment_create_bridge_test.dart packages/lifemate_client/lib/src/lifemate_api_client.dart
+          python3 .tmp-offline04-patch.py
           git diff --check
           grep -q "idempotencyKey: clientRequestId" packages/lifemate_client/lib/src/lifemate_api_client.dart
       - name: Commit patch
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add wellmate/lib/screens/treatments/add_treatment_screen.dart wellmate/lib/screens/treatments/offline_treatment_create.dart wellmate/test/offline_treatment_create_bridge_test.dart packages/lifemate_client/lib/src/lifemate_api_client.dart
+          git add wellmate/lib/screens/treatments/add_treatment_screen.dart packages/lifemate_client/lib/src/lifemate_api_client.dart
           git diff --cached --quiet && exit 0
           git commit -m "feat(wellmate): queue supported treatment creates offline"
           git push origin HEAD:feat/offline-04-treatment-create-ui-20260905
