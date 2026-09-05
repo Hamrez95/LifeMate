@@ -58,9 +58,8 @@ void main() {
       timeZone: 'UTC',
       ownsPendingReminder: (request, affected) =>
           affected.any((key) => request.payload == 'record:$key'),
-      ownsPersistedReminder: (persisted, affected) => affected.any(
-        (key) => persisted.scheduleKey.startsWith('care:$key:'),
-      ),
+      ownsPersistedReminder: (persisted, affected) =>
+          affected.any((key) => persisted.scheduleKey.startsWith('care:$key:')),
     );
 
     expect(result.cancelledCount, 1);

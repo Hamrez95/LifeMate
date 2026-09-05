@@ -3,23 +3,24 @@ import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'local_reminder_scheduler.dart';
 
 /// Produces the complete desired reminder set for one server projection record.
-typedef LifeMateReminderProjector = Future<Iterable<LifeMateLocalReminder>> Function(
-  String recordKey,
-);
+typedef LifeMateReminderProjector =
+    Future<Iterable<LifeMateLocalReminder>> Function(String recordKey);
 
 /// Maps a persisted reminder back to the canonical projection record that owns
 /// it. This intentionally works on opaque local keys only; notification content
 /// must not be used as identity.
-typedef LifeMatePersistedReminderOwner = bool Function(
-  LifeMatePersistedReminder reminder,
-  Set<String> affectedRecordKeys,
-);
+typedef LifeMatePersistedReminderOwner =
+    bool Function(
+      LifeMatePersistedReminder reminder,
+      Set<String> affectedRecordKeys,
+    );
 
 /// Maps an OS pending notification back to an affected canonical projection.
-typedef LifeMatePendingReminderOwner = bool Function(
-  PendingNotificationRequest request,
-  Set<String> affectedRecordKeys,
-);
+typedef LifeMatePendingReminderOwner =
+    bool Function(
+      PendingNotificationRequest request,
+      Set<String> affectedRecordKeys,
+    );
 
 /// Reconciles only reminders whose canonical source projections changed.
 ///
@@ -66,8 +67,7 @@ final class LifeMateAffectedReminderReconciler {
     return _scheduler.sync(
       reminders: desired,
       timeZone: timeZone,
-      ownsPendingRequest: (request) =>
-          ownsPendingReminder(request, normalized),
+      ownsPendingRequest: (request) => ownsPendingReminder(request, normalized),
       ownsPersistedReminder: (reminder) =>
           ownsPersistedReminder(reminder, normalized),
       preservePendingRequest: preservePendingRequest,

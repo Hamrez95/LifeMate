@@ -302,8 +302,7 @@ final class LifeMateLocalReminderScheduler {
         .map((value) => value.scheduleKey)
         .toSet();
     for (final previous in persisted) {
-      if (ownsPersistedReminder != null &&
-          !ownsPersistedReminder(previous)) {
+      if (ownsPersistedReminder != null && !ownsPersistedReminder(previous)) {
         continue;
       }
       if (!desiredScheduleKeys.contains(previous.scheduleKey)) {
