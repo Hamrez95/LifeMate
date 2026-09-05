@@ -190,7 +190,7 @@ export function proposeFlexibleSleepAwareSequence(input: {
   }
 
   const anchor = parseClock(input.anchorLocalTime);
-  const proposedOffsets = <number> [0];
+  const proposedOffsets: number[] = [0];
   const occurrences: FlexibleOccurrence[] = [];
 
   for (let index = 1; index < input.doseCount; index += 1) {

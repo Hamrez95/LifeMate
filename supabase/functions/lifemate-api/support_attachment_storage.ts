@@ -144,7 +144,7 @@ export function createSupportAttachmentRuntime(
           "x-upsert": "false",
           "cache-control": "no-store",
         },
-        body: bytes,
+        body: Uint8Array.from(bytes).buffer,
       },
     );
     if (!response.ok) throw storageUnavailable();
@@ -167,7 +167,7 @@ export function createSupportAttachmentRuntime(
           "content-type": contentType,
           "x-file-name": encodeURIComponent(fileName),
         },
-        body: bytes,
+        body: Uint8Array.from(bytes).buffer,
         signal: AbortSignal.timeout(15_000),
       });
       if (!response.ok) {
