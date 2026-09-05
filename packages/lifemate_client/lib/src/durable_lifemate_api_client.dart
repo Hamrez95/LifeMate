@@ -30,6 +30,32 @@ final ValueNotifier<LifeMatePendingSyncEvent?> lifeMatePendingSyncEvent =
 final ValueNotifier<LifeMateOfflineSyncResult?> lifeMateOfflineSyncResult =
     ValueNotifier<LifeMateOfflineSyncResult?>(null);
 
+typedef LifeMateTreatmentReminderReconciler = Future<void> Function(
+  Map<String, dynamic> serverSnapshot,
+);
+
+/// Privacy-minimal outcome for one treatment reconnect cycle.
+final class LifeMateTreatmentReconnectResult {
+  const LifeMateTreatmentReconnectResult({
+    required this.replay,
+    required this.serverRefreshed,
+    required this.remindersReconciled,
+  });
+
+  final LifeMateOfflineSyncResult replay;
+  final bool serverRefreshed;
+  final bool remindersReconciled;
+
+  bool get hasConflict => replay.conflicts > 0;
+
+  bool get readyForReminderReconciliation =>
+      serverRefreshed &&
+      replay.conflicts == 0 &&
+      replay.terminalRejected == 0 &&
+      replay.retainedForRetry == 0 &&
+      replay.pendingRemaining == 0;
+}
+
 class DurableLifeMateApiClient extends LifeMateApiClient {
   DurableLifeMateApiClient._({
     required Uri baseUri,
@@ -91,10 +117,6 @@ class DurableLifeMateApiClient extends LifeMateApiClient {
     String locale = 'fa',
     String timeZone = 'Asia/Tehran',
   }) async {
-    // Native app bootstrap is the transition point from the historical
-    // auth-subject queue to canonical Account + Person scope. Web deliberately
-    // keeps the existing browser-compatible replay path until a separately
-    // reviewed protected browser store exists.
     if (!kIsWeb) {
       _durableHttp.deferReplayUntilDelegate();
     }
@@ -136,10 +158,6 @@ class DurableLifeMateApiClient extends LifeMateApiClient {
     return bootstrapped;
   }
 
-  /// Moves replay ownership from the pre-#831 auth-subject queue to the shared
-  /// encrypted Environment + canonical Account + Person runtime. The caller
-  /// must supply canonical IDs from lifemate-api capabilities and the current
-  /// authenticated legacy ID separately; UUID equality is never assumed.
   Future<void> adoptSharedOfflineRuntime({
     required String environmentId,
     required String accountId,
@@ -310,9 +328,6 @@ class DurableLifeMateApiClient extends LifeMateApiClient {
     }
   }
 
-  /// Persists an explicitly offline treatment-plan edit into the already-
-  /// adopted protected runtime. The caller owns the stable client request ID;
-  /// validation and expected-revision semantics remain in lifemate_core.
   Future<LifeMateDurableMutation> enqueueOfflineTreatmentPlanEdit({
     required String clientRequestId,
     required String treatmentPlanId,
@@ -359,6 +374,33 @@ class DurableLifeMateApiClient extends LifeMateApiClient {
     );
   }
 
+  /// Replays durable mutations first, then refreshes canonical treatment truth.
+  /// Cached fallback never counts as authoritative refresh and unresolved 409,
+  /// retry, rejection or pending work blocks reminder regeneration.
+  Future<LifeMateTreatmentReconnectResult> reconcileTreatmentAfterReconnect({
+    required DateTime fromDate,
+    required DateTime toDate,
+    LifeMateTreatmentReminderReconciler? reconcileReminders,
+  }) async {
+    final replay = await flushPendingMutationsDetailed();
+    final snapshot = await getHomeSnapshot(fromDate: fromDate, toDate: toDate);
+    final preliminary = LifeMateTreatmentReconnectResult(
+      replay: replay,
+      serverRefreshed: snapshot['offlineCached'] != true,
+      remindersReconciled: false,
+    );
+    if (!preliminary.readyForReminderReconciliation ||
+        reconcileReminders == null) {
+      return preliminary;
+    }
+    await reconcileReminders(snapshot);
+    return LifeMateTreatmentReconnectResult(
+      replay: replay,
+      serverRefreshed: true,
+      remindersReconciled: true,
+    );
+  }
+
   Future<void> _cacheServerHomeSnapshot(
     Map<String, dynamic> snapshot, {
     required DateTime fromDate,
@@ -376,10 +418,7 @@ class DurableLifeMateApiClient extends LifeMateApiClient {
         treatmentPlans: plans,
         treatmentOccurrences: occurrences,
       );
-    } catch (_) {
-      // Online server truth remains usable when local protected cache refresh
-      // fails. No payload or exception text is logged from this PHI boundary.
-    }
+    } catch (_) {}
   }
 
   void _overlaySnapshotOccurrences(
@@ -456,11 +495,6 @@ class DurableLifeMateApiClient extends LifeMateApiClient {
     return result;
   }
 
-  /// Pulls canonical owner care-event projections into the already-adopted
-  /// protected Account + Person runtime. The callback is the required hook for
-  /// affected #830 reminder regeneration and runs before cursor acknowledgement.
-  /// Callers should use this on reconnect/app-resume only after bootstrap has
-  /// resolved canonical identity. No parallel database or scheduler is created.
   Future<LifeMateCareEventProjectionSyncResult> syncCareEventProjections({
     int pageSize = 100,
     int maximumPages = 10,
