@@ -7,6 +7,8 @@ import 'package:lifemate_client/lifemate_client.dart';
 import '../models/schedule_item_model.dart';
 import 'care_event_projection_sync_bridge.dart';
 import 'notification_provider.dart';
+import 'pending_treatment_create_reminder_lifecycle.dart';
+import 'pending_treatment_create_reminder_sync.dart';
 import 'treatment_reconnect_sync_bridge.dart';
 import 'treatment_reminder_reconciler.dart';
 
@@ -35,7 +37,7 @@ class ContextualNotificationProvider extends NotificationProvider {
   void attachApiClient(LifeMateApiClient apiClient) {
     super.attachApiClient(apiClient);
     _apiClient = apiClient;
-    if (_nativePermissionFlowUnlocked && _latestItems.isNotEmpty) {
+    if (_nativePermissionFlowUnlocked) {
       unawaited(_syncDurableProjections());
     }
   }
@@ -135,16 +137,42 @@ class ContextualNotificationProvider extends NotificationProvider {
     final api = _apiClient;
     if (api == null ||
         !_nativePermissionFlowUnlocked ||
-        _latestItems.isEmpty ||
         _durableReconnectInFlight) {
       return;
     }
     _durableReconnectInFlight = true;
     try {
-      await _syncTreatmentAfterReconnect(api);
+      await reconcilePendingTreatmentReminderLifecycle(
+        syncPending: () => _syncPendingTreatmentCreateReminders(api),
+        reconnect: () => _syncTreatmentAfterReconnect(api),
+      );
       await _syncCareEventProjections();
     } finally {
       _durableReconnectInFlight = false;
+    }
+  }
+
+  /// Projects durable pending treatment creates through the same shared #830
+  /// scheduler instance used by canonical WellMate reminders. The protected
+  /// outbox remains the only input; no server IDs are invented and the pending
+  /// payload has no adherence actions. An empty projection intentionally
+  /// cancels only this provisional namespace after clean authoritative replay.
+  Future<void> _syncPendingTreatmentCreateReminders(LifeMateApiClient api) async {
+    if (api is! DurableLifeMateApiClient) return;
+    try {
+      final pendingCreates = await api.pendingOfflineTreatmentPlanCreates();
+      await PendingTreatmentCreateReminderSync(
+        scheduler: sharedReminderScheduler,
+      ).sync(
+        pendingCreates: pendingCreates,
+        nowUtc: DateTime.now().toUtc(),
+        schedulingTimeZone: _latestTimeZone,
+        isPersian: _latestIsPersian,
+        exactAlarmGranted: sharedExactAlarmGranted,
+      );
+    } catch (_) {
+      // Fail closed without logging PHI/outbox payloads. The next app/reminder
+      // refresh retries from the same protected Person-scoped runtime.
     }
   }
 
@@ -152,12 +180,14 @@ class ContextualNotificationProvider extends NotificationProvider {
   /// treatment truth. The durable client invokes the callback only when replay
   /// is clean: conflict, terminal rejection, retry retention, pending work, or
   /// an offline cached Home fallback all keep the existing reminder window.
-  Future<void> _syncTreatmentAfterReconnect(LifeMateApiClient api) async {
+  Future<LifeMateTreatmentReconnectResult?> _syncTreatmentAfterReconnect(
+    LifeMateApiClient api,
+  ) async {
     final now = DateTime.now();
     final from = DateTime(now.year, now.month, now.day);
     final to = from.add(const Duration(days: 7));
     try {
-      await reconcileOwnerTreatmentAfterReconnectIfSupported(
+      return await reconcileOwnerTreatmentAfterReconnectIfSupported(
         apiClient: api,
         fromDate: from,
         toDate: to,
@@ -189,6 +219,7 @@ class ContextualNotificationProvider extends NotificationProvider {
     } catch (_) {
       // Fail closed and stay quiet. Durable replay/conflict state remains the
       // source of truth and no PHI/server error text is written to logs here.
+      return null;
     }
   }
 
