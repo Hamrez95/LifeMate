@@ -1,0 +1,80 @@
+name: offline03-baseline-diagnostic
+
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/offline03-baseline-diagnostic.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  diagnose:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    services:
+      postgres:
+        image: postgres:17.6-alpine
+        env:
+          POSTGRES_DB: lifemate_edge_tests
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d lifemate_edge_tests"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      TEST_DATABASE_URL: postgres://postgres:postgres@localhost:5432/lifemate_edge_tests
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
+        with:
+          show-progress: false
+          persist-credentials: false
+      - uses: denoland/setup-deno@22d081ff2d3a40755e97629de92e3bcbfa7cf2ed
+        with:
+          deno-version: v2.9.4
+      - name: Capture formatter baseline
+        shell: bash
+        run: |
+          set +e
+          {
+            echo '=== lifemate-api fmt check ==='
+            (cd supabase/functions/lifemate-api && deno fmt --check)
+            echo "api_exit=$?"
+            echo '=== care-management fmt check ==='
+            (cd supabase/functions/lifemate-care-management && deno fmt --check)
+            echo "care_exit=$?"
+          } > formatter-check.txt 2>&1
+          deno fmt supabase/functions/lifemate-api supabase/functions/lifemate-care-management >/dev/null 2>&1
+          git diff -- supabase/functions/lifemate-api supabase/functions/lifemate-care-management > formatter.patch
+          git checkout -- supabase/functions/lifemate-api supabase/functions/lifemate-care-management
+          exit 0
+      - name: Capture portable schema failure
+        shell: bash
+        run: |
+          set +e
+          {
+            psql "$TEST_DATABASE_URL" --set=ON_ERROR_STOP=1 --file=supabase/bootstrap/legacy_lifemate_baseline.sql
+            baseline_exit=$?
+            echo "baseline_exit=$baseline_exit"
+            if [ "$baseline_exit" -eq 0 ]; then
+              while IFS= read -r migration; do
+                echo "=== applying $migration ==="
+                psql "$TEST_DATABASE_URL" --set=ON_ERROR_STOP=1 --file="$migration" || { echo "failed_migration=$migration"; break; }
+              done < <(find supabase/migrations -maxdepth 1 -type f -name '*.sql' | sort)
+            fi
+          } > schema-check.txt 2>&1
+          exit 0
+      - name: Upload diagnostic evidence
+        if: ${{ always() }}
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: offline03-baseline-diagnostic-${{ github.sha }}
+          path: |
+            formatter-check.txt
+            formatter.patch
+            schema-check.txt
+          if-no-files-found: error
