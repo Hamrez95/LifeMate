@@ -1,5 +1,3 @@
-import 'dart:typed_data';
-
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -97,7 +95,7 @@ class HealthDocumentAttachmentSection extends StatelessWidget {
 
   HealthDocumentAttachmentDraft _draftFromBytes(Uint8List bytes, String contentType) {
     if (!const <String>{'image/jpeg', 'image/png', 'image/webp', 'image/heic', 'application/pdf'}.contains(contentType)) {
-      throw const PlatformException(code: 'health_document_type_invalid');
+      throw PlatformException(code: 'health_document_type_invalid');
     }
     return HealthDocumentAttachmentDraft(bytes: bytes, contentType: contentType, category: category);
   }
