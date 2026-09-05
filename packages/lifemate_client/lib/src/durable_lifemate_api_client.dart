@@ -57,7 +57,7 @@ class DurableLifeMateApiClient extends LifeMateApiClient {
       accountId: accountId,
       queue: queue,
       inner: innerHttpClient,
-    );
+    )..deferReplayUntilDelegate();
     return DurableLifeMateApiClient._(
       baseUri: baseUri,
       accessToken: accessToken,
