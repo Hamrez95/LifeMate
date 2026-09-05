@@ -1,0 +1,45 @@
+name: temp-offline-03-web-compat
+
+on:
+  push:
+    branches: [platform/offline-03-runtime-adoption]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  diagnose:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
+      - uses: subosito/flutter-action@4cab68ce0f1c7c924f688bff4792e044f1aeb30c
+        with:
+          flutter-version: '3.44.0'
+          channel: stable
+          cache: true
+      - name: Diagnose
+        shell: bash
+        run: |
+          set +e
+          cd packages/lifemate_client
+          flutter pub get > ../../offline-web-diagnostics.txt 2>&1
+          echo "pub=$?" >> ../../offline-web-diagnostics.txt
+          flutter analyze --no-fatal-warnings --no-fatal-infos >> ../../offline-web-diagnostics.txt 2>&1
+          echo "analyze=$?" >> ../../offline-web-diagnostics.txt
+          flutter test >> ../../offline-web-diagnostics.txt 2>&1
+          echo "test=$?" >> ../../offline-web-diagnostics.txt
+          cd ../../wellmate
+          flutter pub get >> ../offline-web-diagnostics.txt 2>&1
+          flutter build web --release --dart-define=ENABLE_GOOGLE_AUTH=false >> ../offline-web-diagnostics.txt 2>&1
+          echo "wellmate_web=$?" >> ../offline-web-diagnostics.txt
+          cd ../caremate
+          flutter pub get >> ../offline-web-diagnostics.txt 2>&1
+          flutter build web --release --dart-define=ENABLE_GOOGLE_AUTH=false >> ../offline-web-diagnostics.txt 2>&1
+          echo "caremate_web=$?" >> ../offline-web-diagnostics.txt
+      - uses: actions/upload-artifact@v4
+        with:
+          name: offline-web-diagnostics
+          path: offline-web-diagnostics.txt
+          if-no-files-found: error
