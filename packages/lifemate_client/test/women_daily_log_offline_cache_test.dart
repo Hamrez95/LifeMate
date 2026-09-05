@@ -45,10 +45,13 @@ void main() {
         <String, dynamic>{
           'loggedOn': '2026-09-06',
           'version': 4,
+          'mood': 'Good',
+          'energyLevel': 4,
           'periodFlow': 'medium',
           'painLevel': 2,
           'symptoms': <String>['cramps'],
           'privateNotes': 'encrypted owner note',
+          'shareSummaryWithCompanion': true,
           'unexpectedServerField': 'must-not-be-persisted',
         },
       ],
@@ -57,7 +60,10 @@ void main() {
     final cached = await ownerCache.readServerDay(DateTime(2026, 9, 6));
     expect(cached, hasLength(1));
     expect(cached!.single['version'], 4);
+    expect(cached.single['mood'], 'good');
+    expect(cached.single['energyLevel'], 4);
     expect(cached.single['privateNotes'], 'encrypted owner note');
+    expect(cached.single.containsKey('shareSummaryWithCompanion'), isFalse);
     expect(cached.single.containsKey('unexpectedServerField'), isFalse);
     expect(await otherCache.readServerDay(DateTime(2026, 9, 6)), isNull);
   });
@@ -123,6 +129,48 @@ void main() {
     expect(cached, hasLength(1));
     expect(cached!.single['version'], 2);
     expect(cached.single['periodFlow'], 'light');
+  });
+
+  test('confirmed cache rejects malformed companion-only owner fields', () async {
+    final store = LifeMateLocalHealthStore.forTesting(
+      database: sqlite3.openInMemory(),
+      keyBytes: key,
+    );
+    final cache = WomenDailyLogOfflineCache(store: store, namespace: owner);
+    addTearDown(() {
+      cache.close();
+      store.close();
+    });
+
+    await expectLater(
+      cache.cacheServerDay(
+        date: DateTime(2026, 9, 6),
+        serverRows: const <Map<String, dynamic>>[
+          <String, dynamic>{
+            'loggedOn': '2026-09-06',
+            'version': 1,
+            'mood': 'unsafe-value',
+            'energyLevel': 4,
+          },
+        ],
+      ),
+      throwsFormatException,
+    );
+    await expectLater(
+      cache.cacheServerDay(
+        date: DateTime(2026, 9, 6),
+        serverRows: const <Map<String, dynamic>>[
+          <String, dynamic>{
+            'loggedOn': '2026-09-06',
+            'version': 1,
+            'mood': 'good',
+            'energyLevel': 6,
+          },
+        ],
+      ),
+      throwsFormatException,
+    );
+    expect(await cache.readServerDay(DateTime(2026, 9, 6)), isNull);
   });
 
   test('confirmed range preserves empty-day coverage and ordered history', () async {
