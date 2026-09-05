@@ -49,14 +49,8 @@ void main() {
   });
 
   test('bounded treatment create rejects unsafe or incomplete inputs', () {
-    expect(
-      () => _buildCreate(mutationId: 'short'),
-      throwsArgumentError,
-    );
-    expect(
-      () => _buildCreate(medicationId: '../escape'),
-      throwsArgumentError,
-    );
+    expect(() => _buildCreate(mutationId: 'short'), throwsArgumentError);
+    expect(() => _buildCreate(medicationId: '../escape'), throwsArgumentError);
     expect(
       () => _buildCreate(
         schedules: const <Map<String, String>>[
