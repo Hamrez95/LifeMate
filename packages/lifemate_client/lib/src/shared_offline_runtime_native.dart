@@ -26,6 +26,13 @@ final class LifeMateOfflineNamespace {
     personId: personId,
   );
 
+  static LifeMateOfflineNamespace fromLocal(LifeMateLocalNamespace value) =>
+      LifeMateOfflineNamespace(
+        environmentId: value.environmentId,
+        accountId: value.accountId,
+        personId: value.personId,
+      );
+
   static String _required(String value, String field) {
     final normalized = value.trim();
     if (normalized.isEmpty) throw ArgumentError.value(value, field);
@@ -72,7 +79,7 @@ final class LifeMateSharedOfflineRuntime {
   LifeMateOfflineNamespace get namespace => _namespace;
 
   static Future<LifeMateSharedOfflineRuntime> open({
-    required LifeMateOfflineNamespace namespace,
+    required Object namespace,
     required String timeZone,
     required Uri apiBaseUri,
     required AccessTokenProvider accessToken,
@@ -83,6 +90,12 @@ final class LifeMateSharedOfflineRuntime {
     int maximumMutationsPerRun = 25,
     DateTime Function()? now,
   }) async {
+    final offlineNamespace = switch (namespace) {
+      LifeMateOfflineNamespace value => value,
+      LifeMateLocalNamespace value => LifeMateOfflineNamespace.fromLocal(value),
+      _ => throw ArgumentError.value(namespace, 'namespace'),
+    };
+    final localNamespace = offlineNamespace.toLocalNamespace();
     final normalizedTimeZone = timeZone.trim();
     if (normalizedTimeZone.isEmpty) {
       throw ArgumentError.value(timeZone, 'timeZone');
@@ -91,10 +104,10 @@ final class LifeMateSharedOfflineRuntime {
         .map((value) => value.trim())
         .where((value) => value.isNotEmpty)
         .toSet();
-    final localNamespace = namespace.toLocalNamespace();
 
     final ownsStore = store == null;
-    final localStore = store ?? await LifeMateLocalHealthStore.openDefault(now: now);
+    final localStore =
+        store ?? await LifeMateLocalHealthStore.openDefault(now: now);
     final outbox = LifeMateLocalMutationOutbox(store: localStore, now: now);
     final transport = LifeMateHttpMutationReplayTransport(
       apiBaseUri: apiBaseUri,
@@ -116,7 +129,7 @@ final class LifeMateSharedOfflineRuntime {
 
       return LifeMateSharedOfflineRuntime._(
         store: localStore,
-        namespace: namespace,
+        namespace: offlineNamespace,
         localNamespace: localNamespace,
         outbox: outbox,
         replayEngine: LifeMateLocalMutationReplayEngine(
