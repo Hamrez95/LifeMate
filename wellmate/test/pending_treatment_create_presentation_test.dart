@@ -31,58 +31,67 @@ void main() {
     expect(values[2].localDate, DateTime(2026, 9, 12));
     expect(values[2].localTime, '08:15');
     expect(
-      values.every((value) => value.localPresentationKey.startsWith('local-pending:')),
+      values.every(
+        (value) => value.localPresentationKey.startsWith('local-pending:'),
+      ),
       isTrue,
     );
-    expect(values.every((value) => value.clientRequestId == 'request-offline-1234'), isTrue);
-  });
-
-  test('fails closed for malformed or server-like unsupported pending data', () {
-    final values = projectPendingTreatmentCreates(
-      pendingCreates: <Map<String, dynamic>>[
-        <String, dynamic>{
-          'pendingSync': false,
-          'clientRequestId': 'request-offline-1234',
-          'doseText': '1 tablet',
-          'startDate': '2026-09-05',
-          'recurrence': <String, dynamic>{'enabled': false},
-          'schedules': <Map<String, String>>[
-            <String, String>{'dayOfWeek': 'saturday', 'localTime': '08:15'},
-          ],
-        },
-        <String, dynamic>{
-          'pendingSync': true,
-          'clientRequestId': 'request-offline-5678',
-          'doseText': '1 tablet',
-          'startDate': '2026-09-05',
-          'recurrence': <String, dynamic>{'enabled': true},
-          'schedules': <Map<String, String>>[
-            <String, String>{'dayOfWeek': 'saturday', 'localTime': '08:15'},
-          ],
-        },
-        <String, dynamic>{
-          'pendingSync': true,
-          'clientRequestId': 'request-offline-9012',
-          'doseText': '1 tablet',
-          'startDate': '2026-09-05',
-          'recurrence': <String, dynamic>{'enabled': false},
-          'schedules': <Map<String, String>>[
-            <String, String>{'dayOfWeek': 'saturday', 'localTime': '25:00'},
-          ],
-        },
-      ],
-      fromDate: DateTime(2026, 9, 5),
-      toDate: DateTime(2026, 9, 12),
+    expect(
+      values.every((value) => value.clientRequestId == 'request-offline-1234'),
+      isTrue,
     );
-
-    expect(values, isEmpty);
   });
+
+  test(
+    'fails closed for malformed or server-like unsupported pending data',
+    () {
+      final values = projectPendingTreatmentCreates(
+        pendingCreates: <Map<String, dynamic>>[
+          <String, dynamic>{
+            'pendingSync': false,
+            'clientRequestId': 'request-offline-1234',
+            'doseText': '1 tablet',
+            'startDate': '2026-09-05',
+            'recurrence': <String, dynamic>{'enabled': false},
+            'schedules': <Map<String, String>>[
+              <String, String>{'dayOfWeek': 'saturday', 'localTime': '08:15'},
+            ],
+          },
+          <String, dynamic>{
+            'pendingSync': true,
+            'clientRequestId': 'request-offline-5678',
+            'doseText': '1 tablet',
+            'startDate': '2026-09-05',
+            'recurrence': <String, dynamic>{'enabled': true},
+            'schedules': <Map<String, String>>[
+              <String, String>{'dayOfWeek': 'saturday', 'localTime': '08:15'},
+            ],
+          },
+          <String, dynamic>{
+            'pendingSync': true,
+            'clientRequestId': 'request-offline-9012',
+            'doseText': '1 tablet',
+            'startDate': '2026-09-05',
+            'recurrence': <String, dynamic>{'enabled': false},
+            'schedules': <Map<String, String>>[
+              <String, String>{'dayOfWeek': 'saturday', 'localTime': '25:00'},
+            ],
+          },
+        ],
+        fromDate: DateTime(2026, 9, 5),
+        toDate: DateTime(2026, 9, 12),
+      );
+
+      expect(values, isEmpty);
+    },
+  );
 
   testWidgets('pending card is explicitly local and has no adherence actions', (
     tester,
   ) async {
-    const occurrence = PendingTreatmentCreateOccurrence(
-      localPresentationKey: 'local-pending:request-offline-1234:2026-09-05:08:15',
+    final occurrence = PendingTreatmentCreateOccurrence(
+      localPresentationKey:
+          'local-pending:request-offline-1234:2026-09-05:08:15',
       clientRequestId: 'request-offline-1234',
       localDate: DateTime(2026, 9, 5),
       localTime: '08:15',
@@ -90,7 +99,7 @@ void main() {
     );
 
     await tester.pumpWidget(
-      const MaterialApp(
+      MaterialApp(
         home: Scaffold(
           body: PendingTreatmentCreateCard(
             occurrence: occurrence,

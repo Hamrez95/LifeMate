@@ -53,12 +53,15 @@ List<PendingTreatmentCreateOccurrence> projectPendingTreatmentCreates({
     final lastDate = end != null && end.isBefore(to) ? end : to;
     if (lastDate.isBefore(firstDate)) continue;
 
-    for (var date = firstDate;
-        !date.isAfter(lastDate);
-        date = date.add(const Duration(days: 1))) {
+    for (
+      var date = firstDate;
+      !date.isAfter(lastDate);
+      date = date.add(const Duration(days: 1))
+    ) {
       for (final schedule in schedules) {
         if (_weekdayName(date.weekday) != schedule.dayOfWeek) continue;
-        final key = 'local-pending:$requestId:${_dateText(date)}:${schedule.localTime}';
+        final key =
+            'local-pending:$requestId:${_dateText(date)}:${schedule.localTime}';
         if (!seenKeys.add(key)) continue;
         result.add(
           PendingTreatmentCreateOccurrence(
@@ -157,7 +160,9 @@ class PendingTreatmentCreateCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final date = _dateText(occurrence.localDate);
     return Container(
-      key: ValueKey('home-pending-treatment-create-${occurrence.localPresentationKey}'),
+      key: ValueKey(
+        'home-pending-treatment-create-${occurrence.localPresentationKey}',
+      ),
       width: double.infinity,
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
@@ -178,7 +183,9 @@ class PendingTreatmentCreateCard extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  isPersian ? 'درمان ذخیره‌شده روی دستگاه' : 'Treatment saved on this device',
+                  isPersian
+                      ? 'درمان ذخیره‌شده روی دستگاه'
+                      : 'Treatment saved on this device',
                   style: font.copyWith(fontWeight: FontWeight.w700),
                 ),
                 const SizedBox(height: 4),

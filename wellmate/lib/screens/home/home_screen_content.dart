@@ -12,6 +12,7 @@ import '../../providers/notification_provider.dart';
 import '../treatments/edit_care_event_screen.dart';
 import 'active_treatment_card.dart';
 import 'home_schedule_loader.dart';
+import 'pending_treatment_create_presentation.dart';
 import 'soft_schedule_card.dart';
 
 class HomeScreenContent extends StatefulWidget {
@@ -43,6 +44,7 @@ class _HomeScreenContentState extends State<HomeScreenContent> {
   String? loadError;
   String _displayName = '';
   bool _hasTreatmentPlans = false;
+  List<PendingTreatmentCreateOccurrence> _pendingTreatmentCreates = const [];
   final Set<String> _submitting = <String>{};
 
   @override
@@ -93,6 +95,11 @@ class _HomeScreenContentState extends State<HomeScreenContent> {
       final plans = snapshot.treatmentPlans;
       final doses = snapshot.doseOccurrences;
       final careEvents = snapshot.careEvents;
+      final pendingTreatmentCreates = projectPendingTreatmentCreates(
+        pendingCreates: snapshot.pendingTreatmentCreates,
+        fromDate: today,
+        toDate: lastVisibleDay,
+      );
       for (final failure in snapshot.failures) {
         debugPrint(
           'WellMate home partial load (${failure.source}): ${failure.error}',
@@ -255,7 +262,9 @@ class _HomeScreenContentState extends State<HomeScreenContent> {
         _displayName = profile['displayName']?.toString().trim() ?? '';
         scheduleList = todayItems;
         _countdownOccurrences = countdownOccurrences;
-        _hasTreatmentPlans = plans.isNotEmpty;
+        _pendingTreatmentCreates = pendingTreatmentCreates;
+        _hasTreatmentPlans =
+            plans.isNotEmpty || pendingTreatmentCreates.isNotEmpty;
         isLoading = false;
       });
 
@@ -724,6 +733,18 @@ class _HomeScreenContentState extends State<HomeScreenContent> {
                       isPersian: isPersian,
                     ),
             ),
+            if (_pendingTreatmentCreates.isNotEmpty) ...[
+              SizedBox(height: 12),
+              Padding(
+                padding: EdgeInsets.symmetric(horizontal: 20),
+                child: PendingTreatmentCreateCard(
+                  occurrence: _pendingTreatmentCreates.first,
+                  pendingCount: _pendingTreatmentCreates.length,
+                  font: font,
+                  isPersian: isPersian,
+                ),
+              ),
+            ],
             SizedBox(height: 14),
             Padding(
               padding: EdgeInsets.symmetric(horizontal: 20),
@@ -950,7 +971,9 @@ class _HomeHealthCard extends StatelessWidget {
                           style: TextStyle(
                             fontSize: 12,
                             height: 1.35,
-                            color: AppColors.textPrimary.withValues(alpha: 0.62),
+                            color: AppColors.textPrimary.withValues(
+                              alpha: 0.62,
+                            ),
                           ),
                         ),
                       ],
