@@ -62,10 +62,13 @@ void main() {
     );
     expect(inserted?.syncCursor, 'cursor-2');
     expect(inserted?.sourceRevision, 'occ-r4');
-    expect((await reconciler.checkpoint(
-      namespace: ns,
-      domain: LifeMateLocalProjectionDomain.treatmentOccurrence,
-    ))?.cursor, 'cursor-2');
+    expect(
+      (await reconciler.checkpoint(
+        namespace: ns,
+        domain: LifeMateLocalProjectionDomain.treatmentOccurrence,
+      ))?.cursor,
+      'cursor-2',
+    );
     store.close();
   });
 
@@ -83,7 +86,8 @@ void main() {
       cursor: 'cursor-before',
     );
     final oversized = <String, dynamic>{
-      'blob': 'x' * (LifeMateLocalHealthStore.maximumPlaintextEnvelopeBytes + 32),
+      'blob':
+          'x' * (LifeMateLocalHealthStore.maximumPlaintextEnvelopeBytes + 32),
     };
 
     await expectLater(
@@ -107,10 +111,13 @@ void main() {
       throwsArgumentError,
     );
 
-    expect((await checkpoints.read(
-      namespace: ns,
-      domain: LifeMateLocalProjectionDomain.careEvent,
-    ))?.cursor, 'cursor-before');
+    expect(
+      (await checkpoints.read(
+        namespace: ns,
+        domain: LifeMateLocalProjectionDomain.careEvent,
+      ))?.cursor,
+      'cursor-before',
+    );
     expect(
       await store.readProjection(
         namespace: ns,
@@ -122,54 +129,57 @@ void main() {
     store.close();
   });
 
-  test('replay of same page is idempotent and keeps local-only mutation', () async {
-    final store = openStore();
-    final ns = namespace();
-    final reconciler = LifeMateLocalProjectionReconciler(store: store);
-    await store.putProjection(
-      namespace: ns,
-      domain: LifeMateLocalProjectionDomain.pendingMutation,
-      recordKey: 'mutation-1',
-      payload: const <String, dynamic>{'state': 'pending'},
-    );
-    final page = LifeMateProjectionPullPage(
-      nextCursor: 'cursor-repeat',
-      changes: <LifeMateServerProjectionChange>[
-        LifeMateServerProjectionChange.upsert(
-          recordKey: 'event-1',
-          payload: const <String, dynamic>{'status': 'scheduled'},
-        ),
-      ],
-    );
-
-    await reconciler.applyPage(
-      namespace: ns,
-      domain: LifeMateLocalProjectionDomain.careEvent,
-      page: page,
-    );
-    await reconciler.applyPage(
-      namespace: ns,
-      domain: LifeMateLocalProjectionDomain.careEvent,
-      page: page,
-    );
-
-    expect(
-      (await store.listDomain(
-        namespace: ns,
-        domain: LifeMateLocalProjectionDomain.careEvent,
-      )).length,
-      1,
-    );
-    expect(
-      await store.readProjection(
+  test(
+    'replay of same page is idempotent and keeps local-only mutation',
+    () async {
+      final store = openStore();
+      final ns = namespace();
+      final reconciler = LifeMateLocalProjectionReconciler(store: store);
+      await store.putProjection(
         namespace: ns,
         domain: LifeMateLocalProjectionDomain.pendingMutation,
         recordKey: 'mutation-1',
-      ),
-      isNotNull,
-    );
-    store.close();
-  });
+        payload: const <String, dynamic>{'state': 'pending'},
+      );
+      final page = LifeMateProjectionPullPage(
+        nextCursor: 'cursor-repeat',
+        changes: <LifeMateServerProjectionChange>[
+          LifeMateServerProjectionChange.upsert(
+            recordKey: 'event-1',
+            payload: const <String, dynamic>{'status': 'scheduled'},
+          ),
+        ],
+      );
+
+      await reconciler.applyPage(
+        namespace: ns,
+        domain: LifeMateLocalProjectionDomain.careEvent,
+        page: page,
+      );
+      await reconciler.applyPage(
+        namespace: ns,
+        domain: LifeMateLocalProjectionDomain.careEvent,
+        page: page,
+      );
+
+      expect(
+        (await store.listDomain(
+          namespace: ns,
+          domain: LifeMateLocalProjectionDomain.careEvent,
+        )).length,
+        1,
+      );
+      expect(
+        await store.readProjection(
+          namespace: ns,
+          domain: LifeMateLocalProjectionDomain.pendingMutation,
+          recordKey: 'mutation-1',
+        ),
+        isNotNull,
+      );
+      store.close();
+    },
+  );
 
   test('rejects reconciliation into local-only domains', () async {
     final store = openStore();
