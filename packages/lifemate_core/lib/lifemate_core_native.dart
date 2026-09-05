@@ -7,3 +7,4 @@ export 'src/local_mutation_replay.dart';
 export 'src/local_projection_reconciler.dart';
 export 'src/local_reminder_scheduler.dart';
 export 'src/local_sync_checkpoint.dart';
+export 'src/local_treatment_mutation.dart';
