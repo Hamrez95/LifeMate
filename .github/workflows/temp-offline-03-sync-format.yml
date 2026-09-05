@@ -27,7 +27,9 @@ jobs:
             packages/lifemate_core/lib/lifemate_core.dart \
             packages/lifemate_core/lib/src/local_health_store.dart \
             packages/lifemate_core/lib/src/local_sync_checkpoint.dart \
-            packages/lifemate_core/test/local_sync_checkpoint_test.dart
+            packages/lifemate_core/lib/src/local_projection_reconciler.dart \
+            packages/lifemate_core/test/local_sync_checkpoint_test.dart \
+            packages/lifemate_core/test/local_projection_reconciler_test.dart
       - name: Verify core
         working-directory: packages/lifemate_core
         run: |
@@ -40,5 +42,5 @@ jobs:
           git config user.name github-actions[bot]
           git config user.email 41898282+github-actions[bot]@users.noreply.github.com
           git add packages/lifemate_core
-          git commit -m "style(offline): canonical-format sync checkpoint slice"
+          git commit -m "style(offline): canonical-format sync reconciliation slice"
           git push origin HEAD:platform/offline-03-sync-state
