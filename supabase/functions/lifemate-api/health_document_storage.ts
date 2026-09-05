@@ -32,13 +32,11 @@ export function validateHealthDocument(
     );
   }
   const type = rawContentType.split(";", 1)[0].trim().toLowerCase();
-  const jpeg =
-    bytes.length >= 3 &&
+  const jpeg = bytes.length >= 3 &&
     bytes[0] === 0xff &&
     bytes[1] === 0xd8 &&
     bytes[2] === 0xff;
-  const png =
-    bytes.length >= 8 &&
+  const png = bytes.length >= 8 &&
     bytes[0] === 0x89 &&
     bytes[1] === 0x50 &&
     bytes[2] === 0x4e &&
@@ -47,8 +45,7 @@ export function validateHealthDocument(
     bytes[5] === 0x0a &&
     bytes[6] === 0x1a &&
     bytes[7] === 0x0a;
-  const webp =
-    bytes.length >= 12 &&
+  const webp = bytes.length >= 12 &&
     bytes[0] === 0x52 &&
     bytes[1] === 0x49 &&
     bytes[2] === 0x46 &&
@@ -57,8 +54,7 @@ export function validateHealthDocument(
     bytes[9] === 0x45 &&
     bytes[10] === 0x42 &&
     bytes[11] === 0x50;
-  const pdf =
-    bytes.length >= 5 &&
+  const pdf = bytes.length >= 5 &&
     new TextDecoder().decode(bytes.slice(0, 5)) === "%PDF-";
   const heic = isHeic(bytes);
 
@@ -139,7 +135,8 @@ export function createHealthDocumentStorage(
     rawContentType: string,
   ) {
     const validated = validateHealthDocument(bytes, rawContentType);
-    const objectKey = `${ownerPersonId}/${documentId}/${crypto.randomUUID()}.${validated.extension}`;
+    const objectKey =
+      `${ownerPersonId}/${documentId}/${crypto.randomUUID()}.${validated.extension}`;
     assertSafeObjectKey(objectKey);
     await ensurePrivateBucket();
     const copy = new Uint8Array(bytes.length);
@@ -164,7 +161,9 @@ export function createHealthDocumentStorage(
     assertSafeObjectKey(objectKey);
     await ensurePrivateBucket();
     const response = await fetch(
-      `${storageRoot}/object/sign/${healthDocumentBucket}/${encodePath(objectKey)}`,
+      `${storageRoot}/object/sign/${healthDocumentBucket}/${
+        encodePath(objectKey)
+      }`,
       {
         method: "POST",
         headers: headers("application/json"),
@@ -208,8 +207,9 @@ function isHeic(bytes: Uint8Array): boolean {
     bytes[5] !== 0x74 ||
     bytes[6] !== 0x79 ||
     bytes[7] !== 0x70
-  )
+  ) {
     return false;
+  }
   const brand = new TextDecoder().decode(bytes.slice(8, 12)).toLowerCase();
   return ["heic", "heix", "hevc", "hevx", "mif1", "msf1"].includes(brand);
 }
@@ -220,9 +220,10 @@ function encodePath(value: string): string {
 
 function assertSafeObjectKey(value: string): void {
   if (
-    !/^[0-9a-f-]{36}\/[0-9a-f-]{36}\/[0-9a-f-]{36}\.(jpg|png|webp|heic|pdf)$/i.test(
-      value,
-    ) ||
+    !/^[0-9a-f-]{36}\/[0-9a-f-]{36}\/[0-9a-f-]{36}\.(jpg|png|webp|heic|pdf)$/i
+      .test(
+        value,
+      ) ||
     value.includes("..")
   ) {
     throw new ApiError(
