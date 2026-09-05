@@ -53,6 +53,7 @@ class ContextualNotificationProvider extends NotificationProvider {
     List<ScheduleItemModel> items, {
     required String timeZone,
     required bool isPersian,
+    Set<String>? affectedMedicationOccurrenceIds,
   }) async {
     _latestItems = List<ScheduleItemModel>.unmodifiable(items);
     _latestTimeZone = timeZone;
@@ -63,7 +64,12 @@ class ContextualNotificationProvider extends NotificationProvider {
     }
     if (!_nativePermissionFlowUnlocked) return;
 
-    await super.syncReminders(items, timeZone: timeZone, isPersian: isPersian);
+    await super.syncReminders(
+      items,
+      timeZone: timeZone,
+      isPersian: isPersian,
+      affectedMedicationOccurrenceIds: affectedMedicationOccurrenceIds,
+    );
     unawaited(_syncDurableProjections());
   }
 
@@ -166,15 +172,15 @@ class ContextualNotificationProvider extends NotificationProvider {
             nextItems: next,
           );
 
-          // A clean reconnect with an unchanged authoritative treatment window
-          // must not cancel/recreate every local medication alarm. Keep the
-          // complete local snapshot current, but cross the native scheduler
-          // boundary only when an actual occurrence projection changed.
+          // Reconcile only changed medication occurrences and the minimum
+          // grouped-reminder neighbors they depend on. Unrelated medication and
+          // care reminders remain OS-owned and are not cancelled/recreated.
           if (affectedOccurrenceIds.isNotEmpty) {
             await super.syncReminders(
               next,
               timeZone: _latestTimeZone,
               isPersian: _latestIsPersian,
+              affectedMedicationOccurrenceIds: affectedOccurrenceIds,
             );
           }
           _latestItems = List<ScheduleItemModel>.unmodifiable(next);
