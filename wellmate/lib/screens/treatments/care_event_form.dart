@@ -538,6 +538,10 @@ class _CareEventFormState extends State<CareEventForm> {
         context,
         type: LifeMateNoticeType.success,
         title: LifeMateRuntimeLocale.select(fa: 'فایل‌ها ارسال شدند', en: 'Documents uploaded'),
+        message: LifeMateRuntimeLocale.select(
+          fa: 'مدارک به پرونده سلامت این مورد اضافه شدند.',
+          en: 'The documents were added to this care record.',
+        ),
       );
     } finally {
       if (mounted) setState(() => _busy = false);
