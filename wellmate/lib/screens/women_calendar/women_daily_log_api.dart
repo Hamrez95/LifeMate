@@ -32,8 +32,16 @@ class WomenDailyLogApi {
     return value.map((e) => Map<String, dynamic>.from(e as Map)).toList(growable: false);
   }
 
-  Future<Map<String, dynamic>> save(WomenDailyLogDraft draft) async {
-    final value = await _request('PUT', _uri('/api/v1/women-calendar/daily-logs'), body: draft.toApiBody());
+  Future<Map<String, dynamic>> save(
+    WomenDailyLogDraft draft, {
+    String? clientRequestId,
+  }) async {
+    final value = await _request(
+      'PUT',
+      _uri('/api/v1/women-calendar/daily-logs'),
+      body: draft.toApiBody(),
+      idempotencyKey: clientRequestId,
+    );
     if (value is! Map) throw const FormatException('Daily log response must be an object.');
     return Map<String, dynamic>.from(value);
   }
@@ -42,7 +50,12 @@ class WomenDailyLogApi {
     await _request('PUT', _uri('/api/v1/women-calendar/daily-logs'), body: {'loggedOn': _date(loggedOn), 'version': version, 'delete': true});
   }
 
-  Future<dynamic> _request(String method, Uri uri, {Map<String, dynamic>? body}) async {
+  Future<dynamic> _request(
+    String method,
+    Uri uri, {
+    Map<String, dynamic>? body,
+    String? idempotencyKey,
+  }) async {
     final token = _accessToken();
     if (token == null || token.isEmpty) {
       throw const LifeMateApiException(statusCode: 401, code: 'session_missing', message: 'Authentication session is missing.');
@@ -51,7 +64,8 @@ class WomenDailyLogApi {
       'Accept': 'application/json',
       'Authorization': 'Bearer $token',
       if (body != null) 'Content-Type': 'application/json',
-      if (method == 'PUT') 'Idempotency-Key': LifeMateApiClient.createClientRequestId(),
+      if (method == 'PUT')
+        'Idempotency-Key': idempotencyKey ?? LifeMateApiClient.createClientRequestId(),
     };
     try {
       final response = method == 'GET'
