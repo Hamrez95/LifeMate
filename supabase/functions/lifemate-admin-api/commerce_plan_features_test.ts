@@ -82,7 +82,10 @@ Deno.test("plan feature request hash binds plan feature and version", async () =
     expectedVersion: 2,
     reason: "Enable the reviewed feature for this sellable plan.",
   }));
-  const original = await hashConfigureCommercePlanFeatureRequest(planId, payload);
+  const original = await hashConfigureCommercePlanFeatureRequest(
+    planId,
+    payload,
+  );
   const changedPlan = await hashConfigureCommercePlanFeatureRequest(
     "33333333-3333-4333-8333-333333333333",
     payload,

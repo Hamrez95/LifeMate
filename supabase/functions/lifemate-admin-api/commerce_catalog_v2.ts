@@ -10,7 +10,8 @@ export type CommerceCatalogV2Query = {
 const PRODUCT_CODE = /^[a-z0-9][a-z0-9._-]{1,63}$/;
 
 export function parseCommerceCatalogV2Query(url: URL): CommerceCatalogV2Query {
-  const rawProduct = url.searchParams.get("product")?.trim().toLowerCase() ?? "";
+  const rawProduct = url.searchParams.get("product")?.trim().toLowerCase() ??
+    "";
   if (rawProduct && !PRODUCT_CODE.test(rawProduct)) {
     throw new ApiError(
       400,
