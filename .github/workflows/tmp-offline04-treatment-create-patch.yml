@@ -1,0 +1,160 @@
+name: tmp offline04 treatment create patch
+
+on:
+  push:
+    branches:
+      - feat/offline-04-treatment-create-ui-20260905
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: feat/offline-04-treatment-create-ui-20260905
+      - name: Apply bounded treatment-create wiring
+        shell: python
+        run: |
+          from pathlib import Path
+
+          screen = Path('wellmate/lib/screens/treatments/add_treatment_screen.dart')
+          text = screen.read_text()
+          import_anchor = "import 'treatment_recurrence_editor.dart';\n"
+          import_line = "import 'offline_treatment_create.dart';\n"
+          if import_line not in text:
+              if import_anchor not in text:
+                  raise SystemExit('add-treatment import anchor missing')
+              text = text.replace(import_anchor, import_line + import_anchor, 1)
+
+          start_marker = "      await api.createTreatmentPlan(\n"
+          end_marker = "      _reset();\n      widget.onCreated();"
+          start = text.find(start_marker)
+          end = text.find(end_marker, start)
+          if start < 0 or end < 0:
+              raise SystemExit('add-treatment create block markers missing')
+          replacement = """      final clientRequestId = LifeMateApiClient.createClientRequestId();
+          final offlineRequest = WellMateOfflineTreatmentCreateRequest(
+            clientRequestId: clientRequestId,
+            medicationId: medication['id'].toString(),
+            doseText: _dose.text,
+            instructions: _instructions.text,
+            startDate: _startDate,
+            endDate: _endDate,
+            timeZone: _timeZone,
+            schedules: schedules,
+            patientReminderMinutesBefore: _patientReminderMinutesBefore,
+            caregiverReminderMinutesBefore: _caregiverReminderMinutesBefore,
+          );
+          var pendingSync = false;
+          try {
+            await api.createTreatmentPlan(
+              medicationId: offlineRequest.medicationId,
+              doseText: offlineRequest.doseText,
+              instructions: offlineRequest.instructions,
+              startDate: offlineRequest.startDate,
+              endDate: offlineRequest.endDate,
+              timeZone: offlineRequest.timeZone,
+              schedules: offlineRequest.schedules,
+              recurrence: _recurrenceSelection.rule(endDate: _endDate),
+              recurrenceStartLocalTime: _recurrenceSelection.anchorLocalTime,
+              patientReminderMinutesBefore:
+                  offlineRequest.patientReminderMinutesBefore,
+              caregiverReminderMinutesBefore:
+                  offlineRequest.caregiverReminderMinutesBefore,
+              clientRequestId: clientRequestId,
+            );
+          } on LifeMateApiException catch (error) {
+            if (_recurrenceSelection.enabled ||
+                !canQueueTreatmentCreateOffline(error)) {
+              rethrow;
+            }
+            final queued = await tryQueueTreatmentCreateOffline(
+              context,
+              offlineRequest,
+            );
+            if (!queued) rethrow;
+            pendingSync = true;
+          }
+          if (!mounted) return;
+          LifeMateNotice.show(
+            context,
+            type: pendingSync ? LifeMateNoticeType.info : LifeMateNoticeType.success,
+            title: LifeMateRuntimeLocale.select(
+              fa: pendingSync
+                  ? 'درمان روی این دستگاه ذخیره شد'
+                  : 'درمان ثبت شد',
+              en: pendingSync
+                  ? 'Treatment saved on this device'
+                  : 'Treatment was recorded',
+            ),
+            message: LifeMateRuntimeLocale.select(
+              fa: pendingSync
+                  ? 'تأیید سرور هنوز انجام نشده است؛ پس از اتصال، برنامه درمان همگام‌سازی می‌شود.'
+                  : 'برنامه درمان ذخیره شد و نوبت‌های آینده به‌صورت خودکار ساخته می‌شوند.',
+              en: pendingSync
+                  ? 'Server confirmation is pending; the treatment plan will sync after reconnection.'
+                  : 'The treatment plan was saved and future occurrences will be generated automatically.',
+            ),
+          );
+"""
+          text = text[:start] + replacement + text[end:]
+          screen.write_text(text)
+
+          client = Path('packages/lifemate_client/lib/src/lifemate_api_client.dart')
+          client_text = client.read_text()
+          signature_anchor = """    int caregiverReminderMinutesBefore =
+            LifeMateReminderLeadTimes.defaultCaregiverMinutes,
+          }) async {
+"""
+          signature_replacement = """    int caregiverReminderMinutesBefore =
+            LifeMateReminderLeadTimes.defaultCaregiverMinutes,
+            String? clientRequestId,
+          }) async {
+"""
+          if signature_anchor not in client_text:
+              raise SystemExit('createTreatmentPlan signature anchor missing')
+          client_text = client_text.replace(
+              signature_anchor,
+              signature_replacement,
+              1,
+          )
+
+          send_anchor = """          'caregiverReminderMinutesBefore': caregiverReminderMinutesBefore,
+            },
+          ),
+        );
+          }
+
+          Future<List<Map<String, dynamic>>> getCareEvents({
+"""
+          send_replacement = """          'caregiverReminderMinutesBefore': caregiverReminderMinutesBefore,
+            },
+            idempotencyKey: clientRequestId,
+          ),
+        );
+          }
+
+          Future<List<Map<String, dynamic>>> getCareEvents({
+"""
+          if send_anchor not in client_text:
+              raise SystemExit('createTreatmentPlan send anchor missing')
+          client_text = client_text.replace(send_anchor, send_replacement, 1)
+          client.write_text(client_text)
+      - name: Guard patch shape
+        run: |
+          git diff --check
+          grep -q "offline_treatment_create.dart" wellmate/lib/screens/treatments/add_treatment_screen.dart
+          grep -q "clientRequestId: clientRequestId" wellmate/lib/screens/treatments/add_treatment_screen.dart
+          grep -q "idempotencyKey: clientRequestId" packages/lifemate_client/lib/src/lifemate_api_client.dart
+      - name: Commit patch
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add wellmate/lib/screens/treatments/add_treatment_screen.dart packages/lifemate_client/lib/src/lifemate_api_client.dart
+          git diff --cached --quiet && exit 0
+          git commit -m "feat(wellmate): queue supported treatment creates offline"
+          git push origin HEAD:feat/offline-04-treatment-create-ui-20260905
