@@ -1,9 +1,9 @@
 import 'package:http/http.dart' as http;
-import 'package:lifemate_core/lifemate_core.dart';
 
 import 'lifemate_api_client.dart' show AccessTokenProvider;
 import 'offline_mutation_queue.dart' show LifeMateMutationStorage;
 import 'offline_sync_result.dart';
+import 'projection_checkpoint.dart';
 
 final class LifeMateLocalDataPurgeConfirmationRequiredException
     implements Exception {
@@ -32,6 +32,14 @@ final class LifeMateOfflineNamespace {
     if (normalized.isEmpty) throw ArgumentError.value(value, field);
     return normalized;
   }
+}
+
+/// Minimal opaque web checkpoint surface. Browser builds never persist or
+/// acknowledge protected health projection cursors.
+final class LifeMateLocalSyncCheckpoint {
+  const LifeMateLocalSyncCheckpoint({required this.cursor});
+
+  final String cursor;
 }
 
 /// Web builds intentionally do not instantiate the native encrypted SQLite
@@ -72,10 +80,10 @@ final class LifeMateSharedOfflineRuntime {
         ),
       );
 
-  Future<LifeMateProjectionReconcileResult> applyCareEventPage({
-    required LifeMateProjectionPullPage page,
+  Future<Object> applyCareEventPage({
+    required Object page,
     LifeMateBeforeProjectionCheckpoint? beforeCheckpoint,
-  }) => Future<LifeMateProjectionReconcileResult>.error(
+  }) => Future<Object>.error(
     UnsupportedError(
       'Protected offline health execution is unavailable on web.',
     ),
