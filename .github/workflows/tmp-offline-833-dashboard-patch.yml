@@ -97,18 +97,12 @@ jobs:
               setState(() {
                 _error = error.code == 'women_calendar_feature_disabled'
                     ? LifeMateRuntimeLocale.select(
-                        fa: LifeMateRuntimeLocale.select(
-                          fa: 'تقویم بانوان در این نسخه فعال نیست.',
-                          en: "The women's calendar is not active in this version.",
-                        ),
+                        fa: 'تقویم بانوان در این نسخه فعال نیست.',
                         en: "The women's calendar is not active in this version.",
                       )
                     : LifeMateRuntimeLocale.select(
-                        fa: LifeMateRuntimeLocale.select(
-                          fa: 'اطلاعات چرخه دریافت نشد. دوباره تلاش کنید.',
-                          en: "Cycle information not received. Try again.",
-                        ),
-                        en: "Cycle information not received. Try again.",
+                        fa: 'اطلاعات چرخه دریافت نشد. دوباره تلاش کنید.',
+                        en: 'Cycle information not received. Try again.',
                       );
               });
             } catch (error) {
@@ -116,11 +110,8 @@ jobs:
               if (mounted) {
                 setState(
                   () => _error = LifeMateRuntimeLocale.select(
-                    fa: LifeMateRuntimeLocale.select(
-                      fa: 'اطلاعات چرخه دریافت نشد. دوباره تلاش کنید.',
-                      en: "Cycle information not received. Try again.",
-                    ),
-                    en: "Cycle information not received. Try again.",
+                    fa: 'اطلاعات چرخه دریافت نشد. دوباره تلاش کنید.',
+                    en: 'Cycle information not received. Try again.',
                   ),
                 );
               }
@@ -130,11 +121,12 @@ jobs:
           }'''
           text = text[:start] + replacement + text[end:]
 
-          old = '''            WomenCompanionPeopleHero(
-              currentProfile: _currentProfile,
-              relationships: _companionRelationships,
-            ),
-            const SizedBox(height: 14),'''
+          hero_token = 'WomenCompanionPeopleHero('
+          hero_pos = text.index(hero_token)
+          hero_start = text.rfind('\n', 0, hero_pos) + 1
+          spacer_token = 'const SizedBox(height: 14),'
+          spacer_pos = text.index(spacer_token, hero_pos)
+          hero_end = text.index('\n', spacer_pos)
           new = '''            if (_offlineCached) ...[
               Container(
                 key: const ValueKey('women-companion-offline-owner-banner'),
@@ -171,9 +163,7 @@ jobs:
               ),
               const SizedBox(height: 14),
             ],'''
-          if old not in text:
-              raise SystemExit('hero seam changed')
-          text = text.replace(old, new, 1)
+          text = text[:hero_start] + new + text[hero_end:]
 
           path.write_text(text)
           PY
