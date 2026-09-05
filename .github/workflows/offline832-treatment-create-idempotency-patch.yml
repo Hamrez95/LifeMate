@@ -1,0 +1,43 @@
+name: offline832-treatment-create-idempotency-patch
+
+on:
+  push:
+    branches:
+      - feat/offline-832-treatment-create-idempotency-20260905
+    paths:
+      - '.github/workflows/offline832-treatment-create-idempotency-patch.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
+        with:
+          ref: feat/offline-832-treatment-create-idempotency-20260905
+          fetch-depth: 0
+      - name: Apply deterministic client patch
+        run: python3 tools/hotfix/apply_offline832_treatment_create_idempotency.py
+      - name: Format changed Dart
+        run: dart format packages/lifemate_client/lib/src/lifemate_api_client.dart packages/lifemate_client/test/treatment_create_idempotency_test.dart
+      - name: Run focused regression
+        working-directory: packages/lifemate_client
+        run: |
+          flutter pub get
+          flutter test test/treatment_create_idempotency_test.dart
+      - name: Commit product-only change
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add \
+            packages/lifemate_client/lib/src/lifemate_api_client.dart \
+            packages/lifemate_client/test/treatment_create_idempotency_test.dart \
+            tools/hotfix/apply_offline832_treatment_create_idempotency.py \
+            .github/workflows/offline832-treatment-create-idempotency-patch.yml
+          git commit -m 'feat(client): make treatment create idempotent (#832)'
+          git push origin HEAD:feat/offline-832-treatment-create-idempotency-20260905
