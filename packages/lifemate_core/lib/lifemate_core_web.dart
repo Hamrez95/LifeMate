@@ -174,3 +174,24 @@ final class LifeMateLocalSyncCheckpoint {
   final DateTime? serverUpdatedAtUtc;
   final String? sourceRevision;
 }
+
+/// Web-visible value type matching the native deterministic Women Health
+/// pending-overlay result. The browser runtime still fails closed before any
+/// protected health mutation/projection persistence; this type only keeps
+/// conditional shared APIs source-compatible for web compilation.
+final class LifeMateWomenDailyLogProjectionResult {
+  const LifeMateWomenDailyLogProjectionResult({
+    required this.rows,
+    required this.pendingDates,
+    required this.pendingDeletedDates,
+    required this.conflictDates,
+  });
+
+  final List<Map<String, dynamic>> rows;
+  final Set<String> pendingDates;
+  final Set<String> pendingDeletedDates;
+  final Set<String> conflictDates;
+
+  bool get hasPending => pendingDates.isNotEmpty;
+  bool get hasConflict => conflictDates.isNotEmpty;
+}
