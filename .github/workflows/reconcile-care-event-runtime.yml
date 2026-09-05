@@ -1,0 +1,37 @@
+name: reconcile-care-event-runtime
+
+on:
+  push:
+    branches:
+      - feat/offline-832-care-event-enqueue-runtime-20260905
+
+permissions:
+  contents: write
+
+jobs:
+  reconcile:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Apply audited care-event runtime diff onto current main
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git fetch origin 426d020ce8ce12f2bfcdd71f917af425ba85c5c3 bec829e1bf6d1e9824cb3c6491fac83d3dccdf23
+          git diff --binary 426d020ce8ce12f2bfcdd71f917af425ba85c5c3 bec829e1bf6d1e9824cb3c6491fac83d3dccdf23 -- \
+            packages/lifemate_client/lib/src/durable_lifemate_api_client.dart \
+            packages/lifemate_client/lib/src/durable_lifemate_api_client_web.dart \
+            packages/lifemate_client/lib/src/shared_offline_runtime_native.dart \
+            packages/lifemate_client/lib/src/shared_offline_runtime_web.dart \
+            packages/lifemate_client/test/durable_care_event_create_enqueue_test.dart \
+            > /tmp/care-event-runtime.patch
+          git apply --3way /tmp/care-event-runtime.patch
+          git rm .github/workflows/reconcile-care-event-runtime.yml
+          git add packages/lifemate_client
+          git commit -m "feat(client): route care-event create through protected runtime (#832)"
+          git push origin HEAD:${GITHUB_REF_NAME}
