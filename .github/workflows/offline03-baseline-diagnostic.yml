@@ -45,6 +45,8 @@ jobs:
           echo "type_check_exit=$?" >> type-check.txt
           (cd supabase/functions/lifemate-api && deno task test) > unit-test.txt 2>&1
           echo "unit_test_exit=$?" >> unit-test.txt
+          node tools/operations/verify-product-telemetry-v2.mjs > telemetry-check.txt 2>&1
+          echo "telemetry_exit=$?" >> telemetry-check.txt
           (cd supabase/functions/lifemate-care-management && deno fmt --check && deno task check && deno task test) > care-management-check.txt 2>&1
           echo "care_management_exit=$?" >> care-management-check.txt
           exit 0
@@ -85,6 +87,7 @@ jobs:
           path: |
             type-check.txt
             unit-test.txt
+            telemetry-check.txt
             care-management-check.txt
             schema-check.txt
             account-lifecycle-check.txt
