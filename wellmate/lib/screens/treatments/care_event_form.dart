@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 
 import '../../core/theme/app_style.dart';
 import '../../core/utils/persian_date_utils.dart';
+import '../../core/utils/care_time_picker.dart';
 import '../../core/widgets/labeled_form_field.dart';
 import 'offline_care_event_create.dart';
 
@@ -258,7 +259,13 @@ class _CareEventFormState extends State<CareEventForm> {
   }
 
   Future<void> _pickTime() async {
-    final value = await showTimePicker(context: context, initialTime: _time);
+    final value = await showCareTimePicker(
+      context: context,
+      initialTime: _time,
+      title: _isAppointment
+          ? LifeMateRuntimeLocale.select(fa: 'ساعت ویزیت', en: 'Visit time')
+          : LifeMateRuntimeLocale.select(fa: 'ساعت تزریق', en: 'Injection time'),
+    );
     if (mounted && value != null) setState(() => _time = value);
   }
 

@@ -24,6 +24,7 @@ on:
       - 'cocoonmate/**'
       - 'packages/cocoonmate_module/**'
       - 'packages/lifemate_client/**'
+      - 'tools/release/prepare-cocoon-android.sh'
       - '.github/workflows/cocoon-android-candidate.yml'
   push:
     branches:
@@ -32,6 +33,7 @@ on:
       - 'cocoonmate/**'
       - 'packages/cocoonmate_module/**'
       - 'packages/lifemate_client/**'
+      - 'tools/release/prepare-cocoon-android.sh'
       - '.github/workflows/cocoon-android-candidate.yml'
 
 permissions:
@@ -117,30 +119,13 @@ jobs:
           flutter test
 
       - name: Generate standalone Android platform
-        working-directory: cocoonmate
         shell: bash
         run: |
           set -euo pipefail
-          flutter create --platforms=android --org com.mylifemate --project-name cocoonmate .
-          rm -f test/widget_test.dart analysis_options.yaml
-          python3 - <<'PY'
-          from pathlib import Path
-          manifest = Path('android/app/src/main/AndroidManifest.xml')
-          text = manifest.read_text()
-          manifest_open = '<manifest xmlns:android="http://schemas.android.com/apk/res/android">'
-          if manifest_open not in text:
-              raise SystemExit('generated Cocoon manifest contract changed')
-          if 'android.permission.INTERNET' not in text:
-              text = text.replace(
-                  manifest_open,
-                  manifest_open + '\n    <uses-permission android:name="android.permission.INTERNET" />',
-                  1,
-              )
-          text = text.replace('android:label="cocoonmate"', 'android:label="CocoonMate"')
-          manifest.write_text(text)
-          PY
+          LIFEMATE_RELEASE_ENVIRONMENT=ci \
+            bash tools/release/prepare-cocoon-android.sh prepare
 
-      - name: Verify Android identity
+      - name: Verify Android identity and Java compatibility
         working-directory: cocoonmate
         shell: bash
         run: |
@@ -148,6 +133,8 @@ jobs:
           grep -R -Fq 'com.mylifemate.cocoonmate' android/app
           grep -Fq 'android:label="CocoonMate"' android/app/src/main/AndroidManifest.xml
           grep -Fq 'android.permission.INTERNET' android/app/src/main/AndroidManifest.xml
+          grep -Fq 'isCoreLibraryDesugaringEnabled = true' android/app/build.gradle.kts
+          grep -Fq 'coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.1.5")' android/app/build.gradle.kts
           ! grep -R -n -E 'com\.mylifemate\.(wellmate|caremate)' android/app
 
       - name: Resolve and test standalone host
