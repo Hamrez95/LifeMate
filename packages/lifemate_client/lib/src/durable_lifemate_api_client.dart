@@ -2,13 +2,13 @@ import 'dart:convert';
 
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
-import 'package:lifemate_core/lifemate_core.dart';
 
 import 'durable_http_client.dart';
 import 'lifemate_api_client.dart';
 import 'offline_mutation_queue.dart';
 import 'offline_sync_result.dart';
-import 'shared_offline_runtime.dart';
+import 'shared_offline_runtime_binding_stub.dart'
+    if (dart.library.io) 'shared_offline_runtime_binding_native.dart';
 
 class LifeMatePendingSyncEvent {
   const LifeMatePendingSyncEvent({
@@ -70,7 +70,7 @@ class DurableLifeMateApiClient extends LifeMateApiClient {
   final AccessTokenProvider _accessToken;
   final LifeMateAccountIdProvider _legacyAuthenticatedAccountId;
   final LifeMateDurableHttpClient _durableHttp;
-  LifeMateSharedOfflineRuntime? _sharedRuntime;
+  LifeMateSharedRuntimeBinding? _sharedRuntime;
   String? _sharedRuntimeLegacyAccountId;
 
   @override
@@ -80,18 +80,21 @@ class DurableLifeMateApiClient extends LifeMateApiClient {
     String locale = 'fa',
     String timeZone = 'Asia/Tehran',
   }) async {
-    // App bootstrap is the transition point from the historical auth-subject
-    // queue to canonical Account + Person scope. Stop account-only replay before
-    // bootstrap/capabilities network responses can trigger an automatic flush.
-    // Non-bootstrap clients (for example the Android medication widget) retain
-    // their existing legacy replay behavior until they adopt the shared runtime.
-    _durableHttp.deferReplayUntilDelegate();
+    // Native app bootstrap is the transition point from the historical
+    // auth-subject queue to canonical Account + Person scope. Web deliberately
+    // keeps the existing browser-compatible replay path until a separately
+    // reviewed protected browser store exists.
+    if (!kIsWeb) {
+      _durableHttp.deferReplayUntilDelegate();
+    }
     final bootstrapped = await super.bootstrapUser(
       displayName: displayName,
       email: email,
       locale: locale,
       timeZone: timeZone,
     );
+    if (kIsWeb) return bootstrapped;
+
     final legacyAuthenticatedAccountId = _legacyAuthenticatedAccountId()
         ?.trim();
     if (legacyAuthenticatedAccountId == null ||
@@ -153,16 +156,18 @@ class DurableLifeMateApiClient extends LifeMateApiClient {
       );
     }
 
-    final namespace = LifeMateLocalNamespace(
+    final current = _activeSharedRuntime();
+    if (current != null &&
+        current.environmentId == normalizedEnvironment &&
+        current.accountId == normalizedAccount &&
+        current.personId == normalizedPerson) {
+      return;
+    }
+
+    final next = await LifeMateSharedRuntimeBinding.open(
       environmentId: normalizedEnvironment,
       accountId: normalizedAccount,
       personId: normalizedPerson,
-    );
-    final current = _activeSharedRuntime();
-    if (current != null && _sameNamespace(current.namespace, namespace)) return;
-
-    final next = await LifeMateSharedOfflineRuntime.open(
-      namespace: namespace,
       timeZone: normalizedTimeZone,
       apiBaseUri: _baseUri,
       accessToken: _accessToken,
@@ -326,7 +331,7 @@ class DurableLifeMateApiClient extends LifeMateApiClient {
         : shared.pendingMutationCount();
   }
 
-  LifeMateSharedOfflineRuntime? _activeSharedRuntime() {
+  LifeMateSharedRuntimeBinding? _activeSharedRuntime() {
     final runtime = _sharedRuntime;
     final boundLegacyAccount = _sharedRuntimeLegacyAccountId;
     if (runtime == null ||
@@ -344,12 +349,4 @@ class DurableLifeMateApiClient extends LifeMateApiClient {
     _sharedRuntimeLegacyAccountId = null;
     super.close();
   }
-
-  static bool _sameNamespace(
-    LifeMateLocalNamespace left,
-    LifeMateLocalNamespace right,
-  ) =>
-      left.environmentId == right.environmentId &&
-      left.accountId == right.accountId &&
-      left.personId == right.personId;
 }
