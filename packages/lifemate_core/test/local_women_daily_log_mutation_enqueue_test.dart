@@ -15,41 +15,47 @@ void main() {
     personId: 'person-b',
   );
 
-  test('validated daily log is durably queued only in owner Person namespace', () async {
-    final store = LifeMateLocalHealthStore.forTesting(
-      database: sqlite3.openInMemory(),
-      keyBytes: key,
-    );
-    addTearDown(store.close);
-    final outbox = LifeMateLocalMutationOutbox(store: store);
+  test(
+    'validated daily log is durably queued only in owner Person namespace',
+    () async {
+      final store = LifeMateLocalHealthStore.forTesting(
+        database: sqlite3.openInMemory(),
+        keyBytes: key,
+      );
+      addTearDown(store.close);
+      final outbox = LifeMateLocalMutationOutbox(store: store);
 
-    await LifeMateOfflineWomenDailyLogMutation.enqueueUpsert(
-      outbox: outbox,
-      namespace: owner,
-      mutationId: 'women-log-owner-0001',
-      loggedOn: DateTime(2026, 9, 5),
-      version: 2,
-      timeZone: 'Asia/Tehran',
-      periodFlow: 'light',
-      symptoms: const <String>{'cramps'},
-      createdAtUtc: DateTime.utc(2026, 9, 5, 19),
-    );
-
-    final queued = await outbox.get(
-      namespace: owner,
-      mutationId: 'women-log-owner-0001',
-    );
-    expect(queued, isNotNull);
-    expect(queued!.domain, LifeMateMutationDomain.womenHealth);
-    expect(queued.conflictPolicy, LifeMateMutationConflictPolicy.deduplicateAndMerge);
-    expect(
-      await outbox.get(
-        namespace: otherPerson,
+      await LifeMateOfflineWomenDailyLogMutation.enqueueUpsert(
+        outbox: outbox,
+        namespace: owner,
         mutationId: 'women-log-owner-0001',
-      ),
-      isNull,
-    );
-  });
+        loggedOn: DateTime(2026, 9, 5),
+        version: 2,
+        timeZone: 'Asia/Tehran',
+        periodFlow: 'light',
+        symptoms: const <String>{'cramps'},
+        createdAtUtc: DateTime.utc(2026, 9, 5, 19),
+      );
+
+      final queued = await outbox.get(
+        namespace: owner,
+        mutationId: 'women-log-owner-0001',
+      );
+      expect(queued, isNotNull);
+      expect(queued!.domain, LifeMateMutationDomain.womenHealth);
+      expect(
+        queued.conflictPolicy,
+        LifeMateMutationConflictPolicy.deduplicateAndMerge,
+      );
+      expect(
+        await outbox.get(
+          namespace: otherPerson,
+          mutationId: 'women-log-owner-0001',
+        ),
+        isNull,
+      );
+    },
+  );
 
   test('invalid input cannot leave a protected outbox record behind', () async {
     final store = LifeMateLocalHealthStore.forTesting(

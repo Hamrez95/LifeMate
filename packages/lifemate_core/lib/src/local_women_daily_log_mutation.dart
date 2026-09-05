@@ -63,11 +63,17 @@ final class LifeMateOfflineWomenDailyLogMutation {
     final key = _mutationId(mutationId);
     final zone = _required(timeZone, 'timeZone');
     final date = _dateText(loggedOn);
-    final normalizedSymptoms = symptoms.map((value) {
-      final normalized = value.trim();
-      if (normalized.isEmpty) throw ArgumentError.value(value, 'symptoms');
-      return normalized;
-    }).toSet().toList(growable: false)..sort();
+    final normalizedSymptoms =
+        symptoms
+            .map((value) {
+              final normalized = value.trim();
+              if (normalized.isEmpty)
+                throw ArgumentError.value(value, 'symptoms');
+              return normalized;
+            })
+            .toSet()
+            .toList(growable: false)
+          ..sort();
     final created = (createdAtUtc ?? DateTime.now().toUtc()).toUtc();
 
     return LifeMateDurableMutation(
