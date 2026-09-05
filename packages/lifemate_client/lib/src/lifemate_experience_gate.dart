@@ -3,6 +3,7 @@ import 'dart:math';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:lifemate_core/lifemate_core.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'app_config.dart';
@@ -52,6 +53,7 @@ class LifeMateExperienceGate extends StatefulWidget {
     required this.authenticatedBuilder,
     this.releaseVersion = 'unknown',
     this.unauthenticatedBuilder,
+    this.careEventProjectionBeforeCheckpoint,
     super.key,
   });
 
@@ -61,6 +63,13 @@ class LifeMateExperienceGate extends StatefulWidget {
   final String releaseVersion;
   final LifeMateExperienceAuthenticatedBuilder authenticatedBuilder;
   final LifeMateExperienceUnauthenticatedBuilder? unauthenticatedBuilder;
+
+  /// Optional product-owned pre-checkpoint hook for owner care-event projection
+  /// changes. When supplied, bootstrap/reconnect pulls run only after canonical
+  /// Account + Person adoption, and the server cursor advances only after this
+  /// hook succeeds. Products should use the shared #830 reminder reconciler
+  /// here rather than creating another scheduler.
+  final LifeMateBeforeProjectionCheckpoint? careEventProjectionBeforeCheckpoint;
 
   @override
   State<LifeMateExperienceGate> createState() => _LifeMateExperienceGateState();
@@ -78,6 +87,7 @@ class _LifeMateExperienceGateState extends State<LifeMateExperienceGate>
   Future<void>? _bootstrap;
   Object? _authStreamError;
   bool _passwordRecovery = false;
+  bool _ownerOfflineSyncInFlight = false;
   String? _trackedAppOpenUserId;
 
   @override
@@ -221,7 +231,40 @@ class _LifeMateExperienceGateState extends State<LifeMateExperienceGate>
         )
         .timeout(_requestTimeout);
     _trackAuthenticatedAppOpen(user.id);
-    unawaited(_api.flushPendingMutations());
+    unawaited(_syncOwnerOfflineState());
+  }
+
+  Future<void> _syncOwnerOfflineState() async {
+    if (_ownerOfflineSyncInFlight) return;
+    _ownerOfflineSyncInFlight = true;
+    try {
+      await _api.flushPendingMutationsDetailed();
+      final beforeCheckpoint = widget.careEventProjectionBeforeCheckpoint;
+      if (beforeCheckpoint != null) {
+        await _api.syncCareEventProjections(
+          beforeCheckpoint: beforeCheckpoint,
+        );
+      }
+    } on LifeMateApiException catch (error) {
+      if (kDebugMode) {
+        debugPrint('Owner offline reconnect sync deferred: ${error.code}');
+      }
+    } on StateError {
+      if (kDebugMode) {
+        debugPrint('Owner offline reconnect sync deferred before adoption.');
+      }
+    } catch (error, stackTrace) {
+      FlutterError.reportError(
+        FlutterErrorDetails(
+          exception: error,
+          stack: stackTrace,
+          library: 'lifemate_client.owner_reconnect_sync',
+          silent: true,
+        ),
+      );
+    } finally {
+      _ownerOfflineSyncInFlight = false;
+    }
   }
 
   void _trackAuthenticatedAppOpen(String userId) {
@@ -243,7 +286,7 @@ class _LifeMateExperienceGateState extends State<LifeMateExperienceGate>
       // auth merely because the lifecycle changed. `app_opened` v1 deliberately
       // represents one authenticated app-process entry, not every foreground
       // resume; a future foreground event can use a separate taxonomy name.
-      unawaited(_api.flushPendingMutations());
+      unawaited(_syncOwnerOfflineState());
     }
   }
 
