@@ -10,6 +10,8 @@ on:
 
 permissions:
   contents: read
+  issues: write
+  pull-requests: write
 
 jobs:
   postgres-role-journey:
@@ -31,6 +33,7 @@ jobs:
           --health-retries 10
     env:
       TEST_DATABASE_URL: postgres://postgres:postgres@localhost:5432/lifemate_edge_tests
+      GH_TOKEN: ${{ github.token }}
     defaults:
       run:
         working-directory: supabase/functions/lifemate-api
@@ -52,53 +55,22 @@ jobs:
           while IFS= read -r migration; do
             psql "$TEST_DATABASE_URL" --set=ON_ERROR_STOP=1 --file="$migration"
           done < <(find supabase/migrations -maxdepth 1 -type f -name '*.sql' | sort)
-      - name: Capture database integration failure
-        id: classify
+      - name: Capture and report sanitized database integration failure
         shell: bash
         run: |
           set +e
           deno test --no-check --allow-env --allow-net=localhost:5432,127.0.0.1:5432 database_integration_test.ts > /tmp/db-test.log 2>&1
           code=$?
           set -e
-          if [ "$code" -eq 0 ]; then echo 'kind=success' >> "$GITHUB_OUTPUT"; exit 0; fi
-          if grep -Fq 'health_record_items_item_type_code_fkey' /tmp/db-test.log; then kind=health_record_item_type_fk
-          elif grep -Eqi 'violates foreign key constraint|foreign key constraint' /tmp/db-test.log; then kind=foreign_key
-          elif grep -Eqi 'premium_required_quota|quota' /tmp/db-test.log; then kind=quota
-          elif grep -Eqi 'identity_person_mapping|person mapping|not_onboarded' /tmp/db-test.log; then kind=identity_mapping
-          elif grep -Eqi 'permission denied|insufficient privilege|not permitted' /tmp/db-test.log; then kind=permission
-          elif grep -Eqi 'AssertionError|Assertion failed|assertEquals' /tmp/db-test.log; then kind=assertion
-          elif grep -Eqi 'duplicate key|unique constraint' /tmp/db-test.log; then kind=unique_constraint
-          elif grep -Eqi 'relation .* does not exist|column .* does not exist' /tmp/db-test.log; then kind=schema_missing
-          else kind=unclassified
-          fi
-          echo "kind=$kind" >> "$GITHUB_OUTPUT"
-      - name: FAIL health_record_items_item_type_code_fkey
-        if: steps.classify.outputs.kind == 'health_record_item_type_fk'
-        run: exit 1
-      - name: FAIL other foreign key constraint
-        if: steps.classify.outputs.kind == 'foreign_key'
-        run: exit 1
-      - name: FAIL quota contract
-        if: steps.classify.outputs.kind == 'quota'
-        run: exit 1
-      - name: FAIL identity mapping contract
-        if: steps.classify.outputs.kind == 'identity_mapping'
-        run: exit 1
-      - name: FAIL database permission contract
-        if: steps.classify.outputs.kind == 'permission'
-        run: exit 1
-      - name: FAIL assertion contract
-        if: steps.classify.outputs.kind == 'assertion'
-        run: exit 1
-      - name: FAIL unique constraint
-        if: steps.classify.outputs.kind == 'unique_constraint'
-        run: exit 1
-      - name: FAIL missing schema contract
-        if: steps.classify.outputs.kind == 'schema_missing'
-        run: exit 1
-      - name: FAIL unclassified database integration error
-        if: steps.classify.outputs.kind == 'unclassified'
-        run: exit 1
-      - name: PASS database integration test
-        if: steps.classify.outputs.kind == 'success'
-        run: echo PASS
+          if [ "$code" -eq 0 ]; then exit 0; fi
+          {
+            echo 'Temporary diagnostic output from `database_integration_test.ts` on the #919 reconciled head:'
+            echo
+            echo '```text'
+            tail -n 120 /tmp/db-test.log \
+              | sed -E 's#postgres://[^ ]+#postgres://[redacted]#g' \
+              | sed -E 's/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/[uuid]/g'
+            echo '```'
+          } > /tmp/comment.md
+          gh pr comment 930 --repo Hamrez95/LifeMate --body-file /tmp/comment.md
+          exit "$code"
