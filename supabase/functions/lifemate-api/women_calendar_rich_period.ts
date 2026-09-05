@@ -90,6 +90,7 @@ export function createWomenCalendarRichPeriodStore(databaseUrl: string) {
       "painLevel",
       "symptoms",
       "privateNotes",
+      "shareSummaryWithCompanion",
       "delete",
     ].some((key) => Object.hasOwn(body, key));
     if (!hasRichPeriodPatch) {
@@ -117,6 +118,16 @@ export function createWomenCalendarRichPeriodStore(databaseUrl: string) {
     const privateNotes = privateNotesProvided
       ? optionalNote(body.privateNotes)
       : null;
+    const shareSummaryProvided = Object.hasOwn(
+      body,
+      "shareSummaryWithCompanion",
+    );
+    const shareSummaryWithCompanion = shareSummaryProvided
+      ? requiredBoolean(
+        body.shareSummaryWithCompanion,
+        "shareSummaryWithCompanion",
+      )
+      : false;
 
     return await sql.begin(async (tx: any) => {
       const personId = await selfPersonId(tx, appUserId);
@@ -171,7 +182,7 @@ export function createWomenCalendarRichPeriodStore(databaseUrl: string) {
             ${id}::uuid,${appUserId}::uuid,${personId}::uuid,${loggedOn}::date,
             'Neutral',3,${storedPain},${painProvided && painLevel != null},
             ${legacySymptoms}::varchar[],${tx.json(symptomObservations)}::jsonb,
-            ${womenSymptomCatalogVersion},${privateNotes},false,
+            ${womenSymptomCatalogVersion},${privateNotes},${shareSummaryWithCompanion},
             ${observation.periodFlow},${observation.bloodAppearance},${observation.bloodTexture},
             ${periodObservationSchemaVersion},1,now(),now()
           ) returning *
@@ -205,6 +216,7 @@ export function createWomenCalendarRichPeriodStore(databaseUrl: string) {
       }::jsonb else symptom_observations end,
             symptom_schema_version=case when ${symptomsProvided} then ${womenSymptomCatalogVersion} else symptom_schema_version end,
             private_notes=case when ${privateNotesProvided} then ${privateNotes} else private_notes end,
+            share_summary_with_companion=case when ${shareSummaryProvided} then ${shareSummaryWithCompanion} else share_summary_with_companion end,
             version=version+1,
             updated_at_utc=now()
         where id=${existing.id}::uuid
@@ -315,6 +327,13 @@ function optionalNote(value: unknown): string | null {
     );
   }
   return text;
+}
+
+function requiredBoolean(value: unknown, field: string): boolean {
+  if (typeof value !== "boolean") {
+    throw new ApiError(400, "invalid_boolean", `${field} must be boolean.`);
+  }
+  return value;
 }
 
 function nonNegativeInt(value: unknown, field: string): number {
