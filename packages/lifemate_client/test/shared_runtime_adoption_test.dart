@@ -60,6 +60,106 @@ void main() {
     store.close();
   });
 
+  test('authenticated legacy alias migrates without crossing accounts', () async {
+    final storage = _MemoryStorage();
+    final queue = LifeMateOfflineMutationQueue(storage: storage);
+    const allowedLegacyAccount = 'legacy-auth-a';
+    const unrelatedAccount = 'legacy-auth-b';
+    const allowedRequest = '123e4567-e89b-42d3-a456-426614174962';
+    const unrelatedRequest = '123e4567-e89b-42d3-a456-426614174963';
+    const occurrenceId = '123e4567-e89b-42d3-a456-426614174062';
+
+    for (final entry in <(String, String)>[
+      (allowedLegacyAccount, allowedRequest),
+      (unrelatedAccount, unrelatedRequest),
+    ]) {
+      await queue.enqueue(
+        accountId: entry.$1,
+        method: 'POST',
+        uri: Uri.parse(
+          'https://api.example.test/api/v1/dose-occurrences/$occurrenceId/report',
+        ),
+        body: jsonEncode(<String, dynamic>{
+          'clientRequestId': entry.$2,
+          'status': 'skipped',
+          'expectedVersion': 5,
+        }),
+        clientRequestId: entry.$2,
+      );
+    }
+
+    final database = sqlite3.openInMemory();
+    final store = LifeMateLocalHealthStore.forTesting(
+      database: database,
+      keyBytes: List<int>.generate(32, (index) => 31 - index),
+    );
+    final namespace = LifeMateLocalNamespace(
+      environmentId: 'production',
+      accountId: 'canonical-account-a',
+      personId: 'canonical-person-a',
+    );
+    final runtime = await LifeMateSharedOfflineRuntime.open(
+      namespace: namespace,
+      timeZone: 'Asia/Tehran',
+      apiBaseUri: Uri.parse('https://api.example.test'),
+      accessToken: () => 'fresh-token',
+      legacyAccountIds: const <String>{allowedLegacyAccount},
+      store: store,
+      legacyStorage: storage,
+      httpClient: _StatusClient(200),
+    );
+
+    expect(await runtime.pendingMutationCount(), 1);
+    final remaining = await storage.readAll();
+    expect(remaining.length, 1);
+    expect(remaining.values.single, contains(unrelatedAccount));
+    expect(remaining.values.single, contains(unrelatedRequest));
+
+    runtime.close();
+    store.close();
+  });
+
+  test('deferred durable client keeps legacy actions until delegate exists', () async {
+    final storage = _MemoryStorage();
+    final queue = LifeMateOfflineMutationQueue(storage: storage);
+    final transport = _CountingClient(200);
+    const requestId = '123e4567-e89b-42d3-a456-426614174964';
+    const occurrenceId = '123e4567-e89b-42d3-a456-426614174064';
+    await queue.enqueue(
+      accountId: 'legacy-auth-a',
+      method: 'POST',
+      uri: Uri.parse(
+        'https://api.example.test/api/v1/dose-occurrences/$occurrenceId/report',
+      ),
+      body: jsonEncode(<String, dynamic>{
+        'clientRequestId': requestId,
+        'status': 'taken',
+        'expectedVersion': 1,
+      }),
+      clientRequestId: requestId,
+    );
+    final client = LifeMateDurableHttpClient(
+      apiBaseUri: Uri.parse('https://api.example.test'),
+      accessToken: () => 'token',
+      accountId: () => 'legacy-auth-a',
+      queue: queue,
+      inner: transport,
+    )..deferReplayUntilDelegate();
+
+    final beforeAdoption = await client.flushPendingDetailed();
+    expect(beforeAdoption, const LifeMateOfflineSyncResult());
+    expect(await queue.pendingCount('legacy-auth-a'), 1);
+    expect(transport.sendCount, 0);
+
+    client.useReplayDelegate(() async {
+      return const LifeMateOfflineSyncResult(replayed: 1);
+    });
+    final afterAdoption = await client.flushPendingDetailed();
+    expect(afterAdoption.replayed, 1);
+    expect(transport.sendCount, 0);
+    client.close();
+  });
+
   test('durable HTTP replay delegates after shared runtime adoption', () async {
     final queue = LifeMateOfflineMutationQueue(storage: _MemoryStorage());
     final client = LifeMateDurableHttpClient(
@@ -115,4 +215,17 @@ final class _StatusClient extends http.BaseClient {
   @override
   Future<http.StreamedResponse> send(http.BaseRequest request) async =>
       http.StreamedResponse(const Stream<List<int>>.empty(), statusCode);
+}
+
+final class _CountingClient extends http.BaseClient {
+  _CountingClient(this.statusCode);
+
+  final int statusCode;
+  int sendCount = 0;
+
+  @override
+  Future<http.StreamedResponse> send(http.BaseRequest request) async {
+    sendCount += 1;
+    return http.StreamedResponse(const Stream<List<int>>.empty(), statusCode);
+  }
 }
