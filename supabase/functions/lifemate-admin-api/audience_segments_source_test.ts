@@ -91,7 +91,7 @@ Deno.test("execution snapshots validate and persist under one database transacti
   assertStringIncludes(routes, "expectedVersion,");
   assertStringIncludes(
     compactRoutes,
-    "hashSnapshotRequest(snapshotId,expectedVersion,idempotencyKey)",
+    "hashSnapshotRequest(snapshotId,expectedVersion,idempotencyKey,)",
   );
   assert(!routes.includes("withActiveSegmentVersionLock"));
   assertStringIncludes(service, "for share");
