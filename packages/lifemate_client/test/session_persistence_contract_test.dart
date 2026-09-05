@@ -69,7 +69,28 @@ void main() {
     expect(lifecycleStart, greaterThanOrEqualTo(0));
     expect(lifecycleEnd, greaterThan(lifecycleStart));
     final lifecycle = source.substring(lifecycleStart, lifecycleEnd);
+    expect(lifecycle, contains('unawaited(_syncOwnerOfflineState());'));
     expect(lifecycle, isNot(contains('sendPhoneOtp')));
     expect(lifecycle, isNot(contains('signOut')));
+  });
+
+  test('reconnect projection pull cannot bypass the pre-checkpoint hook', () {
+    expect(
+      source,
+      contains(
+        'final LifeMateBeforeProjectionCheckpoint? careEventProjectionBeforeCheckpoint;',
+      ),
+    );
+    expect(source, contains('if (_ownerOfflineSyncInFlight) return;'));
+    expect(source, contains('await _api.flushPendingMutationsDetailed();'));
+    expect(
+      source,
+      contains(
+        'final beforeCheckpoint = widget.careEventProjectionBeforeCheckpoint;',
+      ),
+    );
+    expect(source, contains('if (beforeCheckpoint != null) {'));
+    expect(source, contains('await _api.syncCareEventProjections('));
+    expect(source, contains('beforeCheckpoint: beforeCheckpoint,'));
   });
 }
