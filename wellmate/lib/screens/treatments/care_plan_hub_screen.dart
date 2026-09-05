@@ -1,9 +1,10 @@
 import 'package:flutter/material.dart';
 
+import 'package:lifemate_client/lifemate_client.dart';
+
 import '../../core/theme/app_style.dart';
 import 'add_treatment_screen.dart';
 import 'care_event_form.dart';
-import 'package:lifemate_client/lifemate_client.dart';
 
 class CarePlanHubScreen extends StatefulWidget {
   const CarePlanHubScreen({required this.onCreated, super.key});
@@ -17,6 +18,8 @@ class CarePlanHubScreen extends StatefulWidget {
 class _CarePlanHubScreenState extends State<CarePlanHubScreen> {
   int _selectedIndex = 0;
 
+  static const _headerHeight = 142.0;
+
   @override
   Widget build(BuildContext context) {
     return Stack(
@@ -25,16 +28,19 @@ class _CarePlanHubScreenState extends State<CarePlanHubScreen> {
           child: IndexedStack(
             index: _selectedIndex,
             children: [
-              TabbedAddTreatmentScreen(onCreated: widget.onCreated),
               Padding(
-                padding: const EdgeInsets.only(top: 78),
+                padding: const EdgeInsets.only(top: 54),
+                child: TabbedAddTreatmentScreen(onCreated: widget.onCreated),
+              ),
+              Padding(
+                padding: const EdgeInsets.only(top: _headerHeight),
                 child: CareEventForm(
                   kind: CarePlanKind.appointment,
                   onCreated: widget.onCreated,
                 ),
               ),
               Padding(
-                padding: const EdgeInsets.only(top: 78),
+                padding: const EdgeInsets.only(top: _headerHeight),
                 child: CareEventForm(
                   kind: CarePlanKind.injection,
                   onCreated: widget.onCreated,
@@ -47,16 +53,53 @@ class _CarePlanHubScreenState extends State<CarePlanHubScreen> {
           top: 0,
           left: 0,
           right: 0,
-          height: 78,
+          height: 142,
           child: ColoredBox(color: AppColors.background),
         ),
-        Positioned(
-          top: 8,
-          left: 20,
-          right: 20,
-          child: _CareTypeSelector(
-            selectedIndex: _selectedIndex,
-            onChanged: (index) => setState(() => _selectedIndex = index),
+        PositionedDirectional(
+          top: 10,
+          start: 20,
+          end: 20,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+                Row(
+                  children: [
+                    Container(
+                      width: 40,
+                      height: 40,
+                      decoration: BoxDecoration(
+                        color: AppColors.primary.withValues(alpha: 0.12),
+                        borderRadius: BorderRadius.circular(14),
+                      ),
+                      child: const Icon(
+                        Icons.add_task_rounded,
+                        color: AppColors.primary,
+                        size: 22,
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Text(
+                        LifeMateRuntimeLocale.select(
+                          fa: 'افزودن برنامه مراقبت',
+                          en: 'Add care plan',
+                        ),
+                        style: const TextStyle(
+                          fontSize: 20,
+                          fontWeight: FontWeight.w900,
+                          color: AppColors.darkBlue,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 10),
+                _CareTypeSelector(
+                  selectedIndex: _selectedIndex,
+                  onChanged: (index) => setState(() => _selectedIndex = index),
+                ),
+            ],
           ),
         ),
       ],
@@ -102,17 +145,17 @@ class _CareTypeSelector extends StatelessWidget {
     return DecoratedBox(
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(22),
+        borderRadius: BorderRadius.circular(20),
         boxShadow: [
           BoxShadow(
             color: AppColors.shadowDark.withValues(alpha: 0.30),
-            blurRadius: 18,
-            offset: const Offset(0, 7),
+            blurRadius: 14,
+            offset: const Offset(0, 5),
           ),
         ],
       ),
       child: Padding(
-        padding: const EdgeInsets.all(5),
+        padding: const EdgeInsets.all(4),
         child: Row(
           children: List.generate(items.length, (index) {
             final item = items[index];
@@ -128,7 +171,7 @@ class _CareTypeSelector extends StatelessWidget {
                   onTap: () => onChanged(index),
                   child: AnimatedContainer(
                     duration: const Duration(milliseconds: 180),
-                    constraints: const BoxConstraints(minHeight: 56),
+                    constraints: const BoxConstraints(minHeight: 52),
                     padding: const EdgeInsets.symmetric(horizontal: 4),
                     decoration: BoxDecoration(
                       color: selected ? AppColors.primary : Colors.transparent,

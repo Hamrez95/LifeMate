@@ -16,6 +16,8 @@ import { type AuthUser, createLifeMateDatabase } from "./database.ts";
 import { isPostgresUnavailable } from "./database_client.ts";
 import { createEditStore } from "./edit_store.ts";
 import { createHealthObservationStore } from "./health_observations.ts";
+import { createHealthDocumentStore } from "./health_documents.ts";
+import { createHealthDocumentStorage } from "./health_document_storage.ts";
 import { createWomenCompanionPrivacyStore } from "./women_companion_privacy.ts";
 import { corsHeaders, json, problem, safeError } from "./http.ts";
 import {
@@ -76,6 +78,13 @@ const accountLifecycle = createAccountLifecycleStore(databaseUrl);
 const dataExport = createDataExportStore(databaseUrl);
 const edits = createEditStore(databaseUrl);
 const healthObservations = createHealthObservationStore(databaseUrl);
+// The reviewed store is initialized here so the edge type check always covers
+// the Health Record persistence boundary before upload routes are enabled.
+const healthDocuments = createHealthDocumentStore(databaseUrl);
+const healthDocumentStorage = createHealthDocumentStorage(
+  supabaseUrl,
+  storageServiceKey,
+);
 const womenCalendar = createWomenCalendarStore(databaseUrl);
 const womenCompanionPrivacy = createWomenCompanionPrivacyStore(databaseUrl);
 const growthRoutes = createGrowthRouteHandler(

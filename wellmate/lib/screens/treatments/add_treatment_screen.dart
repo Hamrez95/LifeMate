@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 
 import '../../core/theme/app_style.dart';
 import '../../core/utils/persian_date_utils.dart';
+import '../../core/utils/care_time_picker.dart';
 import '../../core/widgets/labeled_form_field.dart';
 import 'offline_treatment_create.dart';
 import 'treatment_recurrence_editor.dart';
@@ -223,7 +224,11 @@ class _TabbedAddTreatmentScreenState extends State<TabbedAddTreatmentScreen> {
     final initial = replaceIndex == null
         ? (_times.isEmpty ? TimeOfDay.now() : _times.last)
         : _times[replaceIndex];
-    final value = await showTimePicker(context: context, initialTime: initial);
+    final value = await showCareTimePicker(
+      context: context,
+      initialTime: initial,
+      title: LifeMateRuntimeLocale.select(fa: 'ساعت مصرف', en: 'Dose time'),
+    );
     if (value == null || !mounted) return;
 
     final duplicate = _times.asMap().entries.any(
