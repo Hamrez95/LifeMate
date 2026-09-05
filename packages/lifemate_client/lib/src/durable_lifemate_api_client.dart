@@ -11,6 +11,9 @@ import 'lifemate_api_client.dart';
 import 'offline_mutation_queue.dart';
 import 'offline_sync_result.dart';
 import 'shared_offline_runtime.dart';
+import 'treatment_edit_enqueue_web.dart'
+    if (dart.library.io) 'treatment_edit_enqueue_native.dart'
+    as treatment_enqueue;
 
 class LifeMatePendingSyncEvent {
   const LifeMatePendingSyncEvent({
@@ -400,9 +403,9 @@ class DurableLifeMateApiClient extends LifeMateApiClient {
 
   /// Accepts a complete locally validated treatment edit into the same
   /// encrypted Account + Person namespace already adopted by this client.
-  /// A short-lived handle to the canonical local store is used only to enqueue
-  /// the durable envelope; no second queue/database model is introduced.
-  Future<LifeMateDurableMutation> enqueueTreatmentPlanEdit({
+  /// Native persistence stays behind a conditional bridge so the browser build
+  /// never imports SQLite/outbox implementation types.
+  Future<String> enqueueTreatmentPlanEdit({
     required String treatmentPlanId,
     required int version,
     required int medicationVersion,
@@ -427,35 +430,31 @@ class DurableLifeMateApiClient extends LifeMateApiClient {
         'Canonical shared offline runtime must be adopted before treatment enqueue.',
       );
     }
-    final ownsStore = localStore == null;
-    final store = localStore ?? await LifeMateLocalHealthStore.openDefault();
-    try {
-      final outbox = LifeMateLocalMutationOutbox(store: store);
-      return LifeMateOfflineTreatmentMutation.enqueueEdit(
-        outbox: outbox,
-        namespace: runtime.namespace.toLocalNamespace(),
-        mutationId: mutationId?.trim().isNotEmpty == true
-            ? mutationId!.trim()
-            : LifeMateApiClient.createClientRequestId(),
-        treatmentPlanId: treatmentPlanId,
-        version: version,
-        medicationVersion: medicationVersion,
-        medicationName: medicationName,
-        strengthText: strengthText,
-        form: form,
-        doseText: doseText,
-        instructions: instructions,
-        startDate: startDate,
-        endDate: endDate,
-        timeZone: timeZone,
-        schedules: schedules,
-        patientReminderMinutesBefore: patientReminderMinutesBefore,
-        caregiverReminderMinutesBefore: caregiverReminderMinutesBefore,
-        status: status,
-      );
-    } finally {
-      if (ownsStore) store.close();
-    }
+    final stableMutationId = mutationId?.trim().isNotEmpty == true
+        ? mutationId!.trim()
+        : LifeMateApiClient.createClientRequestId();
+    return treatment_enqueue.enqueueTreatmentPlanEdit(
+      environmentId: runtime.namespace.environmentId,
+      accountId: runtime.namespace.accountId,
+      personId: runtime.namespace.personId,
+      treatmentPlanId: treatmentPlanId,
+      version: version,
+      medicationVersion: medicationVersion,
+      medicationName: medicationName,
+      strengthText: strengthText,
+      form: form,
+      doseText: doseText,
+      instructions: instructions,
+      startDate: startDate,
+      endDate: endDate,
+      timeZone: timeZone,
+      schedules: schedules,
+      patientReminderMinutesBefore: patientReminderMinutesBefore,
+      caregiverReminderMinutesBefore: caregiverReminderMinutesBefore,
+      status: status,
+      mutationId: stableMutationId,
+      localStore: localStore,
+    );
   }
 
   Future<int> flushPendingMutations() async =>
