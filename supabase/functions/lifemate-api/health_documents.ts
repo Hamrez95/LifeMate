@@ -147,7 +147,11 @@ export function createHealthDocumentStore(databaseUrl: string) {
         limit 1
       `;
       if (!rows[0]) {
-        throw new ApiError(404, "health_document_not_found", "Document was not found.");
+        throw new ApiError(
+          404,
+          "health_document_not_found",
+          "Document was not found.",
+        );
       }
       await tx`
         insert into lifemate.health_document_audit_events
@@ -165,26 +169,67 @@ export function createHealthDocumentStore(databaseUrl: string) {
 
 function validateRegistration(input: HealthDocumentRegistration): void {
   requiredUuid(input.documentId, "documentId");
-  if (!/^[0-9a-f-]{36}\/[0-9a-f-]{36}\/[0-9a-f-]{36}\.(jpg|png|webp|heic|pdf)$/i.test(input.objectKey)) {
-    throw new ApiError(400, "health_document_path_invalid", "Document path is invalid.");
+  if (
+    !/^[0-9a-f-]{36}\/[0-9a-f-]{36}\/[0-9a-f-]{36}\.(jpg|png|webp|heic|pdf)$/i.test(
+      input.objectKey,
+    )
+  ) {
+    throw new ApiError(
+      400,
+      "health_document_path_invalid",
+      "Document path is invalid.",
+    );
   }
-  if (!/^image\/(jpeg|png|webp|heic)$|^application\/pdf$/.test(input.contentType)) {
-    throw new ApiError(400, "health_document_type_invalid", "Document type is invalid.");
+  if (
+    !/^image\/(jpeg|png|webp|heic)$|^application\/pdf$/.test(input.contentType)
+  ) {
+    throw new ApiError(
+      400,
+      "health_document_type_invalid",
+      "Document type is invalid.",
+    );
   }
-  if (!Number.isInteger(input.byteSize) || input.byteSize < 1 || input.byteSize > 15 * 1024 * 1024) {
-    throw new ApiError(400, "health_document_size_invalid", "Document size is invalid.");
+  if (
+    !Number.isInteger(input.byteSize) ||
+    input.byteSize < 1 ||
+    input.byteSize > 15 * 1024 * 1024
+  ) {
+    throw new ApiError(
+      400,
+      "health_document_size_invalid",
+      "Document size is invalid.",
+    );
   }
   if (!/^[0-9a-f]{64}$/.test(input.sha256Hex)) {
-    throw new ApiError(400, "health_document_hash_invalid", "Document hash is invalid.");
+    throw new ApiError(
+      400,
+      "health_document_hash_invalid",
+      "Document hash is invalid.",
+    );
   }
   if (!allowedCategories.has(input.category)) {
-    throw new ApiError(400, "health_document_category_invalid", "Document category is invalid.");
+    throw new ApiError(
+      400,
+      "health_document_category_invalid",
+      "Document category is invalid.",
+    );
   }
-  if (input.capturedOn !== null && !/^\d{4}-\d{2}-\d{2}$/.test(input.capturedOn)) {
-    throw new ApiError(400, "health_document_date_invalid", "Document date is invalid.");
+  if (
+    input.capturedOn !== null &&
+    !/^\d{4}-\d{2}-\d{2}$/.test(input.capturedOn)
+  ) {
+    throw new ApiError(
+      400,
+      "health_document_date_invalid",
+      "Document date is invalid.",
+    );
   }
   if (!/^[a-z0-9][a-z0-9_-]{0,39}$/.test(input.sourceProduct)) {
-    throw new ApiError(400, "health_document_source_invalid", "Document source is invalid.");
+    throw new ApiError(
+      400,
+      "health_document_source_invalid",
+      "Document source is invalid.",
+    );
   }
 }
 
@@ -196,12 +241,15 @@ function mapDocument(row: Row): Record<string, unknown> {
     byteSize: Number(row.byte_size),
     category: String(row.category),
     sourceProduct: String(row.source_product),
-    capturedOn: row.captured_on == null ? null : String(row.captured_on).slice(0, 10),
+    capturedOn:
+      row.captured_on == null ? null : String(row.captured_on).slice(0, 10),
     links: row.links ?? [],
     createdAtUtc: iso(row.created_at_utc),
   };
 }
 
 function iso(value: unknown): string {
-  return value instanceof Date ? value.toISOString() : new Date(String(value)).toISOString();
+  return value instanceof Date
+    ? value.toISOString()
+    : new Date(String(value)).toISOString();
 }
