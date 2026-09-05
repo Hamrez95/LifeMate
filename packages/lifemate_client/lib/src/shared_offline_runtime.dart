@@ -20,12 +20,16 @@ final class LifeMateSharedOfflineRuntime {
     required LifeMateLocalMutationOutbox outbox,
     required LifeMateLocalMutationReplayEngine replayEngine,
     required LifeMateHttpMutationReplayTransport transport,
+    required LifeMateLegacyMutationImporter legacyImporter,
+    required String timeZone,
     required bool ownsStore,
   }) : _store = store,
        _namespace = namespace,
        _outbox = outbox,
        _replayEngine = replayEngine,
        _transport = transport,
+       _legacyImporter = legacyImporter,
+       _timeZone = timeZone,
        _ownsStore = ownsStore;
 
   final LifeMateLocalHealthStore _store;
@@ -33,6 +37,8 @@ final class LifeMateSharedOfflineRuntime {
   final LifeMateLocalMutationOutbox _outbox;
   final LifeMateLocalMutationReplayEngine _replayEngine;
   final LifeMateHttpMutationReplayTransport _transport;
+  final LifeMateLegacyMutationImporter _legacyImporter;
+  final String _timeZone;
   final bool _ownsStore;
   bool _closed = false;
 
@@ -66,13 +72,17 @@ final class LifeMateSharedOfflineRuntime {
       accessToken: accessToken,
       httpClient: httpClient,
     );
+    final importer = LifeMateLegacyMutationImporter(
+      outbox: outbox,
+      apiBaseUri: apiBaseUri,
+      legacyStorage: legacyStorage,
+    );
 
     try {
-      await LifeMateLegacyMutationImporter(
-        outbox: outbox,
-        apiBaseUri: apiBaseUri,
-        legacyStorage: legacyStorage,
-      ).importPending(namespace: namespace, timeZone: normalizedTimeZone);
+      await importer.importPending(
+        namespace: namespace,
+        timeZone: normalizedTimeZone,
+      );
 
       return LifeMateSharedOfflineRuntime._(
         store: localStore,
@@ -85,6 +95,8 @@ final class LifeMateSharedOfflineRuntime {
           now: now,
         ),
         transport: transport,
+        legacyImporter: importer,
+        timeZone: normalizedTimeZone,
         ownsStore: ownsStore,
       );
     } catch (_) {
@@ -94,10 +106,22 @@ final class LifeMateSharedOfflineRuntime {
     }
   }
 
+  /// Imports any compatible actions accepted by the transitional legacy write
+  /// capture after this runtime was opened. Import is lossless: the legacy copy
+  /// is deleted only after the shared outbox has durably persisted it.
+  Future<int> importLegacyPending() async {
+    _requireOpen();
+    return _legacyImporter.importPending(
+      namespace: _namespace,
+      timeZone: _timeZone,
+    );
+  }
+
   /// Replays only eligible actions for this runtime's explicit namespace.
   /// The returned value remains low-cardinality and PHI-free.
   Future<LifeMateOfflineSyncResult> flushDetailed() async {
     _requireOpen();
+    await importLegacyPending();
     final result = await _replayEngine.replayEligible(namespace: _namespace);
     return LifeMateOfflineSyncResult(
       replayed: result.confirmed,
@@ -110,6 +134,7 @@ final class LifeMateSharedOfflineRuntime {
 
   Future<int> pendingMutationCount() async {
     _requireOpen();
+    await importLegacyPending();
     final mutations = await _outbox.list(namespace: _namespace);
     return mutations.where(_isPendingForReplay).length;
   }
@@ -120,6 +145,7 @@ final class LifeMateSharedOfflineRuntime {
   /// identifiers are logged or emitted to analytics by this runtime.
   Future<Map<String, String>> pendingAdherenceStates() async {
     _requireOpen();
+    await importLegacyPending();
     final mutations = await _outbox.list(namespace: _namespace);
     final result = <String, String>{};
     for (final mutation in mutations) {
