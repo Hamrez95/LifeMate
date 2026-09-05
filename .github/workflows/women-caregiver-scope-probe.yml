@@ -53,8 +53,24 @@ jobs:
             psql "$TEST_DATABASE_URL" --set=ON_ERROR_STOP=1 --file="$migration"
           done < <(find supabase/migrations -maxdepth 1 -type f -name '*.sql' | sort)
       - name: Run full canonical integration suite
+        id: integration
         working-directory: supabase/functions/lifemate-api
         shell: bash
         run: |
+          set +e
           set -o pipefail
           deno task test:integration 2>&1 | tee "$GITHUB_WORKSPACE/edge-integration-test.log"
+          status=${PIPESTATUS[0]}
+          echo "status=$status" >> "$GITHUB_OUTPUT"
+          exit 0
+      - name: Upload integration evidence
+        if: ${{ always() }}
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: women-caregiver-integration-${{ github.sha }}
+          path: edge-integration-test.log
+          if-no-files-found: error
+          retention-days: 1
+      - name: Enforce integration result
+        if: ${{ steps.integration.outputs.status != '0' }}
+        run: exit 1
