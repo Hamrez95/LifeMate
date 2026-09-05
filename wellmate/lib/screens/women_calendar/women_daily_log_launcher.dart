@@ -1,9 +1,12 @@
 import 'package:flutter/material.dart';
+import 'package:lifemate_client/lifemate_client.dart';
 import 'package:lifemate_ui/lifemate_ui.dart';
+import 'package:provider/provider.dart';
 
 import 'women_circle_card.dart';
 import 'women_cycle_analytics_screen.dart';
 import 'women_daily_log_api.dart';
+import 'women_daily_log_offline_bridge.dart';
 import 'women_daily_log_visuals.dart';
 import 'women_insight_preferences_card.dart';
 import 'women_insights_analytics_cards.dart';
@@ -19,13 +22,44 @@ class WomenDailyLogLauncher extends StatefulWidget {
 
 class _WomenDailyLogLauncherState extends State<WomenDailyLogLauncher> {
   bool busy = false;
+  bool pendingSync = false;
+  bool syncConflict = false;
 
   Future<void> open() async {
     if (busy) return;
     setState(() => busy = true);
     final api = WomenDailyLogApi.fromEnvironment();
+    WomenDailyLogOfflineBridge? offline;
     try {
-      final logs = await api.list(from: widget.date, to: widget.date);
+      final serverLogs = await api.list(from: widget.date, to: widget.date);
+      try {
+        offline = await WomenDailyLogOfflineBridge.open(
+          apiClient: context.read<LifeMateApiClient>(),
+        );
+      } on UnsupportedError {
+        offline = null;
+      } on LifeMateApiException {
+        offline = null;
+      } on StateError {
+        offline = null;
+      }
+
+      var logs = serverLogs;
+      if (offline != null) {
+        final projection = await offline.project(
+          serverRows: serverLogs,
+          fromDate: widget.date,
+          toDate: widget.date,
+        );
+        logs = projection.rows;
+        if (mounted) {
+          setState(() {
+            pendingSync = projection.hasPending;
+            syncConflict = projection.hasConflict;
+          });
+        }
+      }
+
       final row = logs.isEmpty ? null : logs.first;
       final initial = row == null
           ? null
@@ -50,18 +84,62 @@ class _WomenDailyLogLauncherState extends State<WomenDailyLogLauncher> {
         initial: initial,
       );
       if (draft == null) return;
-      await api.save(draft);
+
+      final requestId = LifeMateApiClient.createClientRequestId();
+      var queuedOffline = false;
+      try {
+        await api.save(draft, clientRequestId: requestId);
+      } on LifeMateApiException catch (error) {
+        if (offline == null || !_canQueueOffline(error)) rethrow;
+        await offline.enqueueUpsert(
+          mutationId: requestId,
+          loggedOn: draft.loggedOn,
+          version: draft.version,
+          periodFlow: draft.periodFlow,
+          bloodAppearance: draft.bloodAppearance,
+          bloodTexture: draft.bloodTexture,
+          painLevel: draft.painLevel,
+          symptoms: draft.symptoms,
+          privateNotes: draft.privateNotes,
+        );
+        queuedOffline = true;
+      }
+
       widget.onSaved?.call();
       if (mounted) {
+        setState(() {
+          pendingSync = queuedOffline;
+          if (queuedOffline) syncConflict = false;
+        });
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(context.tr('common.saved'))),
+          SnackBar(
+            content: Row(
+              children: [
+                if (queuedOffline) ...[
+                  const Icon(Icons.schedule_send_rounded, color: Colors.white),
+                  const SizedBox(width: 8),
+                ],
+                Expanded(child: Text(context.tr('common.saved'))),
+              ],
+            ),
+          ),
         );
       }
     } finally {
+      offline?.close();
       api.close();
       if (mounted) setState(() => busy = false);
     }
   }
+
+  static bool _canQueueOffline(LifeMateApiException error) =>
+      error.statusCode == 0 ||
+      error.statusCode == 408 ||
+      error.statusCode == 429 ||
+      error.statusCode == 500 ||
+      error.statusCode == 502 ||
+      error.statusCode == 503 ||
+      error.statusCode == 504;
 
   @override
   Widget build(BuildContext context) {
@@ -89,9 +167,17 @@ class _WomenDailyLogLauncherState extends State<WomenDailyLogLauncher> {
                       color: Colors.white,
                     ),
                   )
-                : const Icon(Icons.edit_calendar_rounded),
+                : Icon(
+                    syncConflict
+                        ? Icons.warning_amber_rounded
+                        : pendingSync
+                            ? Icons.schedule_send_rounded
+                            : Icons.edit_calendar_rounded,
+                  ),
             label: Text(
-              context.tr('women.dailyLog.logToday'),
+              syncConflict
+                  ? context.tr('common.retry')
+                  : context.tr('women.dailyLog.logToday'),
               style: const TextStyle(fontWeight: FontWeight.w900),
             ),
           ),
