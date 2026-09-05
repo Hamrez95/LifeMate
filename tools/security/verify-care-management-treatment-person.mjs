@@ -9,13 +9,23 @@ const store = readFileSync(
   "utf8",
 );
 
+function requireMarker(source, marker, context) {
+  if (!source.includes(marker)) {
+    throw new Error(`${context} missing: ${marker}`);
+  }
+}
+
+function requirePattern(source, pattern, context) {
+  if (!pattern.test(source)) {
+    throw new Error(`${context} missing semantic pattern: ${pattern}`);
+  }
+}
+
 for (const marker of [
   'import { createPersonTreatmentManagementStore } from "./person_treatment_management.ts";',
   "const personTreatmentManagement = createPersonTreatmentManagementStore",
 ]) {
-  if (!index.includes(marker)) {
-    throw new Error(`Care Management Person treatment wiring missing: ${marker}`);
-  }
+  requireMarker(index, marker, "Care Management Person treatment wiring");
 }
 
 const routeStart = index.indexOf("const plansMatch = path.match(");
@@ -32,9 +42,7 @@ for (const marker of [
   "personTreatmentManagement.updateTreatmentPlan",
   "personTreatmentManagement.archiveTreatmentPlan",
 ]) {
-  if (!treatmentRoutes.includes(marker)) {
-    throw new Error(`Active Treatment route contract missing: ${marker}`);
-  }
+  requireMarker(treatmentRoutes, marker, "Active Treatment route contract");
 }
 for (const forbidden of [
   "return json(await listTreatmentPlans(",
@@ -66,14 +74,20 @@ for (const marker of [
   "(id, owner_person_id, name",
   "insert into lifemate.treatment_plans",
   "(id, patient_person_id, medication_id",
-  "patient_person_id = ${patientPersonId}::uuid",
-  "owner_person_id = ${patientPersonId}::uuid",
   "metadata_json, created_at_utc",
   "'treatment_plan', ${treatmentPlanId}::uuid, null, now()",
 ]) {
-  if (!store.includes(marker)) {
-    throw new Error(`Person Treatment store contract missing: ${marker}`);
-  }
+  requireMarker(store, marker, "Person Treatment store contract");
 }
+requirePattern(
+  store,
+  /patient_person_id\s*=\s*\$\{patientPersonId\}::uuid/,
+  "Person Treatment plan ownership",
+);
+requirePattern(
+  store,
+  /owner_person_id\s*=\s*\$\{patientPersonId\}::uuid/,
+  "Person Medication ownership",
+);
 
 console.log("Care Management Treatment Person boundary verified.");
