@@ -61,12 +61,13 @@ prepare_android() {
   [[ -f "$manifest" ]] || fail "generated AndroidManifest.xml is missing"
   [[ -f "$gradle" ]] || fail "generated Android build.gradle.kts is missing"
 
-  python3 - "$manifest" <<'PY'
+  python3 - "$manifest" "$gradle" <<'PY'
 from pathlib import Path
 import sys
 
-path = Path(sys.argv[1])
-text = path.read_text()
+manifest_path = Path(sys.argv[1])
+gradle_path = Path(sys.argv[2])
+text = manifest_path.read_text()
 manifest_open = '<manifest xmlns:android="http://schemas.android.com/apk/res/android">'
 if manifest_open not in text:
     raise SystemExit('generated Cocoon manifest contract changed')
@@ -86,7 +87,26 @@ text = text.replace(
     'android:icon="@drawable/cocoon_launcher" android:roundIcon="@drawable/cocoon_launcher"',
     1,
 )
-path.write_text(text)
+manifest_path.write_text(text)
+
+gradle_text = gradle_path.read_text()
+compile_options = '    compileOptions {\n'
+if compile_options not in gradle_text:
+    raise SystemExit('generated Cocoon compileOptions contract changed')
+if 'isCoreLibraryDesugaringEnabled = true' not in gradle_text:
+    gradle_text = gradle_text.replace(
+        compile_options,
+        compile_options + '        isCoreLibraryDesugaringEnabled = true\n',
+        1,
+    )
+desugaring_dependency = 'coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.1.5")'
+if desugaring_dependency not in gradle_text:
+    gradle_text = gradle_text.rstrip() + (
+        '\n\ndependencies {\n'
+        '    coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.1.5")\n'
+        '}\n'
+    )
+gradle_path.write_text(gradle_text)
 PY
 
   mkdir -p "$app_dir/android/app/src/main/res/drawable"
@@ -104,6 +124,10 @@ XML
 
   grep -Fq 'applicationId = "com.mylifemate.cocoonmate"' "$gradle" || \
     fail "Cocoon Android applicationId is not isolated."
+  grep -Fq 'isCoreLibraryDesugaringEnabled = true' "$gradle" || \
+    fail "Cocoon Android core library desugaring is not enabled."
+  grep -Fq 'coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.1.5")' "$gradle" || \
+    fail "Cocoon Android desugaring dependency is missing."
   grep -Fq 'android:label="CocoonMate"' "$manifest" || \
     fail "Cocoon Android display name is missing."
   grep -Fq 'android.permission.INTERNET' "$manifest" || \
