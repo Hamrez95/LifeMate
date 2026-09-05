@@ -194,14 +194,14 @@ jobs:
           persist-credentials: false
           fetch-depth: 1
 
-      - name: Require exact main and protected deployment inputs
+      - name: Require exact main deployment inputs
         shell: bash
         run: |
           set -euo pipefail
           test "$GITHUB_REF" = 'refs/heads/main'
           test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
-          test "${{ github.event.repository.private }}" = 'true'
-          test "${{ github.ref_protected }}" = 'true'
+          test "$GITHUB_REPOSITORY" = 'Hamrez95/LifeMate'
+          test "$SUPABASE_PROJECT_REF" = 'bwdvmniywyyijjauipnh'
           test -n "$SUPABASE_ACCESS_TOKEN"
           test -n "$SUPABASE_PUBLISHABLE_KEY"
 

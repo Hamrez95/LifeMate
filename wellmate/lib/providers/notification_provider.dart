@@ -4,6 +4,7 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:lifemate_client/lifemate_client.dart';
+import 'package:lifemate_core/lifemate_reminders.dart';
 import 'package:timezone/data/latest.dart' as tz_data;
 import 'package:timezone/timezone.dart' as tz;
 
@@ -79,14 +80,22 @@ class NotificationProvider extends ChangeNotifier {
 
   final FlutterLocalNotificationsPlugin _notifications =
       FlutterLocalNotificationsPlugin();
+  late final LifeMateLocalReminderScheduler _reminderScheduler =
+      LifeMateLocalReminderScheduler(
+        platform: FlutterLifeMateReminderPlatform(_notifications),
+      );
   LifeMateApiClient? _apiClient;
   NotificationResponse? _pendingMutationResponse;
   GroupedMedicationNotificationTarget? _pendingGroupedMedicationTarget;
   bool _hasUnread = false;
   bool _initialized = false;
   bool _permissionRequested = false;
+  bool? _exactAlarmGranted;
+  bool _inexactFallbackActive = false;
+  String _latestTimeZone = 'Asia/Tehran';
 
   bool get hasUnread => _hasUnread;
+  bool get inexactFallbackActive => _inexactFallbackActive;
   GroupedMedicationNotificationTarget? get pendingGroupedMedicationTarget =>
       _pendingGroupedMedicationTarget;
 
@@ -111,7 +120,6 @@ class NotificationProvider extends ChangeNotifier {
 
   Future<void> initialize() async {
     if (_initialized) return;
-    tz_data.initializeTimeZones();
     const settings = InitializationSettings(
       android: AndroidInitializationSettings('@mipmap/ic_launcher'),
     );
@@ -120,6 +128,12 @@ class NotificationProvider extends ChangeNotifier {
       onDidReceiveNotificationResponse: _onNotificationResponse,
     );
     _initialized = true;
+  }
+
+  @protected
+  void recordNativePermissionResult({bool? exactAlarmGranted}) {
+    _permissionRequested = true;
+    _exactAlarmGranted = exactAlarmGranted;
   }
 
   void _onNotificationResponse(NotificationResponse response) {
@@ -162,7 +176,12 @@ class NotificationProvider extends ChangeNotifier {
             status: 'taken',
             occurredAtUtc: DateTime.now().toUtc(),
           );
-          await _notifications.cancel(notificationIdFor(target.key));
+          await _notifications.cancel(
+            notificationIdFor(
+              target.key,
+              sourceRevision: target.version,
+            ),
+          );
           WellMateRefreshSignal.notifyChanged();
           setUnread(true);
         } on LifeMateApiException catch (error) {
@@ -170,10 +189,8 @@ class NotificationProvider extends ChangeNotifier {
             'WellMate notification dose action failed safely: ${error.code}',
           );
           setUnread(true);
-        } catch (error) {
-          debugPrint(
-            'WellMate notification dose action failed safely: $error',
-          );
+        } catch (_) {
+          debugPrint('WellMate notification dose action failed safely.');
           setUnread(true);
         }
       case completedActionId:
@@ -188,7 +205,12 @@ class NotificationProvider extends ChangeNotifier {
             status: 'completed',
             expectedVersion: target.version,
           );
-          await _notifications.cancel(notificationIdFor(target.key));
+          await _notifications.cancel(
+            notificationIdFor(
+              target.key,
+              sourceRevision: target.version,
+            ),
+          );
           WellMateRefreshSignal.notifyChanged();
           setUnread(true);
         } on LifeMateApiException catch (error) {
@@ -196,10 +218,8 @@ class NotificationProvider extends ChangeNotifier {
             'WellMate notification care-event action failed safely: ${error.code}',
           );
           setUnread(true);
-        } catch (error) {
-          debugPrint(
-            'WellMate notification care-event action failed safely: $error',
-          );
+        } catch (_) {
+          debugPrint('WellMate notification care-event action failed safely.');
           setUnread(true);
         }
       case snoozeActionId:
@@ -239,16 +259,15 @@ class NotificationProvider extends ChangeNotifier {
   Future<void> snoozeGroupedDose(
     GroupedMedicationDoseTarget dose, {
     required bool isPersian,
-  }) =>
-      _scheduleSnooze(
-        WellMateNotificationTarget(
-          type: 'medicine',
-          id: dose.occurrenceId,
-          version: dose.version,
-          clientRequestId: dose.clientRequestId,
-          isPersian: isPersian,
-        ),
-      );
+  }) => _scheduleSnooze(
+    WellMateNotificationTarget(
+      type: 'medicine',
+      id: dose.occurrenceId,
+      version: dose.version,
+      clientRequestId: dose.clientRequestId,
+      isPersian: isPersian,
+    ),
+  );
 
   Future<void> syncReminders(
     List<ScheduleItemModel> items, {
@@ -256,11 +275,9 @@ class NotificationProvider extends ChangeNotifier {
     required bool isPersian,
   }) async {
     await initialize();
-    try {
-      tz.setLocalLocation(tz.getLocation(timeZone));
-    } catch (_) {
-      tz.setLocalLocation(tz.getLocation('Asia/Tehran'));
-    }
+    _latestTimeZone = timeZone.trim().isEmpty ? 'UTC' : timeZone.trim();
+    tz_data.initializeTimeZones();
+    final location = _locationFor(_latestTimeZone);
 
     if (!_permissionRequested) {
       final android = _notifications
@@ -268,7 +285,7 @@ class NotificationProvider extends ChangeNotifier {
             AndroidFlutterLocalNotificationsPlugin
           >();
       await android?.requestNotificationsPermission();
-      await android?.requestExactAlarmsPermission();
+      _exactAlarmGranted = await android?.requestExactAlarmsPermission();
       _permissionRequested = true;
     }
 
@@ -276,23 +293,16 @@ class NotificationProvider extends ChangeNotifier {
       for (final item in items)
         if (item.status == 'scheduled') _policyKeyForItem(item): item,
     };
+    final preservedSnoozeIds = <int>{};
     final preservedSnoozeKeys = <String>{};
     final pending = await _notifications.pendingNotificationRequests();
     for (final request in pending) {
       final payload = request.payload;
-      if (payload?.startsWith(_snoozePrefix) == true) {
-        final target = decodeActionPayload(payload);
-        if (target != null && activeScheduledItems.containsKey(target.key)) {
-          preservedSnoozeKeys.add(target.key);
-        } else {
-          await _notifications.cancel(request.id);
-        }
-        continue;
-      }
-      if (payload?.startsWith(_reminderPrefix) == true ||
-          payload?.startsWith(wellMateGroupedMedicationPrefix) == true ||
-          payload?.startsWith('dose:') == true) {
-        await _notifications.cancel(request.id);
+      if (payload?.startsWith(_snoozePrefix) != true) continue;
+      final target = decodeActionPayload(payload);
+      if (target != null && activeScheduledItems.containsKey(target.key)) {
+        preservedSnoozeIds.add(request.id);
+        preservedSnoozeKeys.add(target.key);
       }
     }
 
@@ -302,7 +312,7 @@ class NotificationProvider extends ChangeNotifier {
       if (item.type != 'medicine' || item.status != 'scheduled') continue;
       final itemKey = _policyKeyForItem(item);
       if (preservedSnoozeKeys.contains(itemKey)) continue;
-      final scheduledUtc = _scheduledUtc(item);
+      final scheduledUtc = _scheduledUtc(item, location);
       if (scheduledUtc == null) continue;
       final decision = LifeMateNotificationIntelligence.evaluate(
         personId: 'self',
@@ -326,14 +336,21 @@ class NotificationProvider extends ChangeNotifier {
       );
     }
 
+    final reminders = <LifeMateLocalReminder>[];
     final groups = groupMedicationCandidates(medicationCandidates);
     final groupedOccurrenceIds = <String>{};
     for (final entry in groups.entries) {
       final candidates = entry.value;
       groupedOccurrenceIds.addAll(candidates.map((value) => value.item.id));
-      final ids = candidates.map((value) => value.item.id).toList()..sort();
+      final identities = candidates
+          .map((value) => '${value.item.id}@${value.item.version}')
+          .toList()
+        ..sort();
       final groupKey =
-          'medication-group:${entry.key.millisecondsSinceEpoch}:${ids.join(',')}';
+          'wellmate:medication-group:${entry.key.millisecondsSinceEpoch}:${identities.join(',')}';
+      final groupRevision = LifeMateReminderIdentity.stableRevisionFor(
+        identities.join('|'),
+      );
       final target = GroupedMedicationNotificationTarget(
         groupKey: groupKey,
         isPersian: isPersian,
@@ -347,15 +364,19 @@ class NotificationProvider extends ChangeNotifier {
             ),
         ],
       );
-      await _notifications.zonedSchedule(
-        notificationIdFor(groupKey),
-        groupedMedicationTitle(target.doses.length, isPersian)
-            .toPersianDigit(isPersian),
-        groupedMedicationBody(target.doses, isPersian).toPersianDigit(isPersian),
-        tz.TZDateTime.from(entry.key, tz.local),
-        NotificationDetails(android: _groupAndroidDetails(isPersian)),
-        androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
-        payload: encodeGroupedMedicationPayload(target),
+      reminders.add(
+        LifeMateLocalReminder(
+          sourceOccurrenceKey: groupKey,
+          sourceRevision: groupRevision,
+          triggerUtc: entry.key,
+          title: _safeTitle(isPersian),
+          body: _safeBody(isPersian),
+          notificationDetails: NotificationDetails(
+            android: _groupAndroidDetails(isPersian),
+          ),
+          payload: encodeGroupedMedicationPayload(target),
+          accuracy: LifeMateReminderAccuracy.exact,
+        ),
       );
     }
 
@@ -365,7 +386,7 @@ class NotificationProvider extends ChangeNotifier {
       }
       final itemKey = _policyKeyForItem(item);
       if (preservedSnoozeKeys.contains(itemKey)) continue;
-      final scheduledUtc = _scheduledUtc(item);
+      final scheduledUtc = _scheduledUtc(item, location);
       if (scheduledUtc == null) continue;
       final decision = LifeMateNotificationIntelligence.evaluate(
         personId: 'self',
@@ -375,10 +396,7 @@ class NotificationProvider extends ChangeNotifier {
         nowUtc: nowUtc,
         stage: LifeMateNotificationStage.reminder,
       );
-      if (!decision.shouldNotify) {
-        await _notifications.cancel(notificationIdFor(decision.deduplicationKey));
-        continue;
-      }
+      if (!decision.shouldNotify) continue;
       final triggerUtc = scheduledUtc.subtract(
         Duration(minutes: item.patientReminderMinutesBefore),
       );
@@ -392,38 +410,71 @@ class NotificationProvider extends ChangeNotifier {
         clientRequestId: LifeMateApiClient.createClientRequestId(),
         isPersian: isPersian,
       );
-      final notificationId = notificationIdFor(decision.deduplicationKey);
-      await _notifications.cancel(notificationId);
-      final title = _title(item, isPersian);
-      final detail = _detail(item, isPersian);
-      await _notifications.zonedSchedule(
-        notificationId,
-        title.toPersianDigit(isPersian),
-        detail.toPersianDigit(isPersian),
-        tz.TZDateTime.from(triggerUtc, tz.local),
-        NotificationDetails(android: _androidDetails(target)),
-        androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
-        payload: encodeActionPayload(target),
+      reminders.add(
+        LifeMateLocalReminder(
+          sourceOccurrenceKey: decision.deduplicationKey,
+          sourceRevision: item.version,
+          triggerUtc: triggerUtc,
+          title: _safeTitle(isPersian),
+          body: _safeBody(isPersian),
+          notificationDetails: NotificationDetails(
+            android: _androidDetails(target),
+          ),
+          payload: encodeActionPayload(target),
+          accuracy: LifeMateReminderAccuracy.exact,
+        ),
       );
     }
+
+    final result = await _reminderScheduler.sync(
+      reminders: reminders,
+      timeZone: _latestTimeZone,
+      exactAlarmGranted: _exactAlarmGranted,
+      ownsPendingRequest: _ownsWellMatePendingRequest,
+      preservePendingRequest: (request) =>
+          preservedSnoozeIds.contains(request.id),
+    );
+    _updateFallbackState(result.usedInexactFallback);
   }
 
   Future<void> _scheduleSnooze(WellMateNotificationTarget target) async {
     await initialize();
-    final trigger = tz.TZDateTime.now(tz.local).add(_snoozeDuration);
-    final title = target.isPersian ? 'یادآور WellMate' : 'WellMate reminder';
-    final body = target.isPersian
-        ? '۱۰ دقیقه بعد دوباره یادت می‌اندازیم.'
-        : 'We will remind you again in 10 minutes.';
-    await _notifications.zonedSchedule(
-      notificationIdFor(target.key),
-      title,
-      body,
-      trigger,
-      NotificationDetails(android: _androidDetails(target)),
-      androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
-      payload: encodeActionPayload(target, snoozed: true),
+    final trigger = DateTime.now().toUtc().add(_snoozeDuration);
+    final result = await _reminderScheduler.sync(
+      reminders: <LifeMateLocalReminder>[
+        LifeMateLocalReminder(
+          sourceOccurrenceKey: target.key,
+          sourceRevision: target.version,
+          triggerUtc: trigger,
+          title: _safeTitle(target.isPersian),
+          body: target.isPersian
+              ? 'برای مرور یادآور، LifeMate را باز کنید.'
+              : 'Open LifeMate to review your reminder.',
+          notificationDetails: NotificationDetails(
+            android: _androidDetails(target),
+          ),
+          payload: encodeActionPayload(target, snoozed: true),
+          accuracy: LifeMateReminderAccuracy.exact,
+        ),
+      ],
+      timeZone: _latestTimeZone,
+      exactAlarmGranted: _exactAlarmGranted,
     );
+    _updateFallbackState(result.usedInexactFallback);
+  }
+
+  static bool _ownsWellMatePendingRequest(PendingNotificationRequest request) {
+    final payload = request.payload;
+    return payload?.startsWith(_reminderPrefix) == true ||
+        payload?.startsWith(_snoozePrefix) == true ||
+        payload?.startsWith(wellMateGroupedMedicationPrefix) == true ||
+        payload?.startsWith('dose:') == true;
+  }
+
+  void _updateFallbackState(bool value) {
+    if (_inexactFallbackActive == value) return;
+    _inexactFallbackActive = value;
+    notifyListeners();
   }
 
   static AndroidNotificationDetails _androidDetails(
@@ -460,7 +511,7 @@ class NotificationProvider extends ChangeNotifier {
         actions: <AndroidNotificationAction>[
           AndroidNotificationAction(
             groupOpenActionId,
-            isPersian ? 'بررسی داروها' : 'Review medications',
+            isPersian ? 'بررسی' : 'Review',
             showsUserInterface: true,
             cancelNotification: false,
           ),
@@ -537,7 +588,7 @@ class NotificationProvider extends ChangeNotifier {
     }
   }
 
-  DateTime? _scheduledUtc(ScheduleItemModel item) {
+  DateTime? _scheduledUtc(ScheduleItemModel item, tz.Location location) {
     if (item.scheduledAtUtc != null) return item.scheduledAtUtc!.toUtc();
     final date = item.startDate;
     final parts = item.time.split(':');
@@ -546,7 +597,7 @@ class NotificationProvider extends ChangeNotifier {
     final minute = int.tryParse(parts[1].split(' ').first);
     if (hour == null || minute == null) return null;
     return tz.TZDateTime(
-      tz.local,
+      location,
       date.year,
       date.month,
       date.day,
@@ -555,30 +606,20 @@ class NotificationProvider extends ChangeNotifier {
     ).toUtc();
   }
 
-  static String _title(ScheduleItemModel item, bool persian) {
-    if (!persian) {
-      return switch (item.type) {
-        'appointment' => 'Upcoming appointment',
-        'injection' => 'Upcoming injection',
-        _ => 'Time for ${item.title}',
-      };
+  static tz.Location _locationFor(String timeZone) {
+    try {
+      return tz.getLocation(timeZone);
+    } catch (_) {
+      return tz.UTC;
     }
-    return switch (item.type) {
-      'appointment' => 'یادآوری ویزیت ${item.title}',
-      'injection' => 'یادآوری تزریق ${item.title}',
-      _ => 'زمان مصرف ${item.title}',
-    };
   }
 
-  static String _detail(ScheduleItemModel item, bool persian) {
-    final lead = item.patientReminderMinutesBefore;
-    final leadText = lead <= 0
-        ? (persian ? 'اکنون' : 'now')
-        : (persian ? '$lead دقیقه پیش از برنامه' : '$lead minutes before');
-    final detail = item.dosage.trim();
-    if (detail.isEmpty) return leadText;
-    return '$detail — $leadText';
-  }
+  static String _safeTitle(bool persian) =>
+      persian ? 'یادآور LifeMate' : 'LifeMate reminder';
+
+  static String _safeBody(bool persian) => persian
+      ? 'برای مرور برنامه، LifeMate را باز کنید.'
+      : 'Open LifeMate to review your schedule.';
 
   static String _policyKeyForItem(ScheduleItemModel item) =>
       LifeMateNotificationIntelligence.deduplicationKey(
@@ -587,14 +628,13 @@ class NotificationProvider extends ChangeNotifier {
         stage: LifeMateNotificationStage.reminder,
       );
 
-  static int notificationIdFor(String value) {
-    var hash = 0x811c9dc5;
-    for (final codeUnit in value.codeUnits) {
-      hash ^= codeUnit;
-      hash = (hash * 0x01000193) & 0x7fffffff;
-    }
-    return hash;
-  }
+  static int notificationIdFor(
+    String value, {
+    int sourceRevision = 0,
+  }) => LifeMateReminderIdentity.notificationIdFor(
+    value,
+    sourceRevision: sourceRevision,
+  );
 
   void setUnread(bool value) {
     _hasUnread = value;

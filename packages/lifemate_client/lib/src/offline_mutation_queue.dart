@@ -107,6 +107,11 @@ class LifeMateOfflineMutationQueue {
   final Duration timeToLive;
   Future<void> _tail = Future<void>.value();
 
+  /// Transitional #831 migration seam. New runtime code must not use this to
+  /// inspect health payloads; it exists only so the shared importer can move
+  /// already-accepted legacy records without creating a second storage owner.
+  LifeMateMutationStorage get migrationStorage => _storage;
+
   Future<LifeMateQueuedMutation> enqueue({
     required String accountId,
     required String method,

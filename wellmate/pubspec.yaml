@@ -10,6 +10,8 @@ dependencies:
     sdk: flutter
   lifemate_client:
     path: ../packages/lifemate_client
+  lifemate_core:
+    path: ../packages/lifemate_core
   lifemate_ui:
     path: ../packages/lifemate_ui
   image_picker: ^1.1.2
