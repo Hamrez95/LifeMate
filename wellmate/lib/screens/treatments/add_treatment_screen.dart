@@ -5,6 +5,7 @@ import 'package:provider/provider.dart';
 import '../../core/theme/app_style.dart';
 import '../../core/utils/persian_date_utils.dart';
 import '../../core/widgets/labeled_form_field.dart';
+import 'offline_treatment_create.dart';
 import 'treatment_recurrence_editor.dart';
 import 'treatment_schedule_payload.dart';
 
@@ -348,7 +349,9 @@ class _TabbedAddTreatmentScreenState extends State<TabbedAddTreatmentScreen> {
               times: _times,
               backendWeekdays: _backendWeekdays,
             );
-      await api.createTreatmentPlan(
+      final clientRequestId = LifeMateApiClient.createClientRequestId();
+      final offlineRequest = WellMateOfflineTreatmentCreateRequest(
+        clientRequestId: clientRequestId,
         medicationId: medication['id'].toString(),
         doseText: _dose.text,
         instructions: _instructions.text,
@@ -356,22 +359,56 @@ class _TabbedAddTreatmentScreenState extends State<TabbedAddTreatmentScreen> {
         endDate: _endDate,
         timeZone: _timeZone,
         schedules: schedules,
-        recurrence: _recurrenceSelection.rule(endDate: _endDate),
-        recurrenceStartLocalTime: _recurrenceSelection.anchorLocalTime,
         patientReminderMinutesBefore: _patientReminderMinutesBefore,
         caregiverReminderMinutesBefore: _caregiverReminderMinutesBefore,
       );
+      var pendingSync = false;
+      try {
+        await api.createTreatmentPlan(
+          medicationId: offlineRequest.medicationId,
+          doseText: offlineRequest.doseText,
+          instructions: offlineRequest.instructions,
+          startDate: offlineRequest.startDate,
+          endDate: offlineRequest.endDate,
+          timeZone: offlineRequest.timeZone,
+          schedules: offlineRequest.schedules,
+          recurrence: _recurrenceSelection.rule(endDate: _endDate),
+          recurrenceStartLocalTime: _recurrenceSelection.anchorLocalTime,
+          patientReminderMinutesBefore:
+              offlineRequest.patientReminderMinutesBefore,
+          caregiverReminderMinutesBefore:
+              offlineRequest.caregiverReminderMinutesBefore,
+          clientRequestId: clientRequestId,
+        );
+      } on LifeMateApiException catch (error) {
+        if (_recurrenceSelection.enabled ||
+            !canQueueTreatmentCreateOffline(error)) {
+          rethrow;
+        }
+        final queued = await tryQueueTreatmentCreateOffline(
+          context,
+          offlineRequest,
+        );
+        if (!queued) rethrow;
+        pendingSync = true;
+      }
       if (!mounted) return;
       LifeMateNotice.show(
         context,
-        type: LifeMateNoticeType.success,
+        type: pendingSync ? LifeMateNoticeType.info : LifeMateNoticeType.success,
         title: LifeMateRuntimeLocale.select(
-          fa: 'درمان ثبت شد',
-          en: 'Treatment was recorded',
+          fa: pendingSync ? 'درمان روی این دستگاه ذخیره شد' : 'درمان ثبت شد',
+          en: pendingSync
+              ? 'Treatment saved on this device'
+              : 'Treatment was recorded',
         ),
         message: LifeMateRuntimeLocale.select(
-          fa: 'برنامه درمان ذخیره شد و نوبت‌های آینده به‌صورت خودکار ساخته می‌شوند.',
-          en: 'The treatment plan was saved and future occurrences will be generated automatically.',
+          fa: pendingSync
+              ? 'تأیید سرور هنوز انجام نشده است؛ پس از اتصال، برنامه درمان همگام‌سازی می‌شود.'
+              : 'برنامه درمان ذخیره شد و نوبت‌های آینده به‌صورت خودکار ساخته می‌شوند.',
+          en: pendingSync
+              ? 'Server confirmation is pending; the treatment plan will sync after reconnection.'
+              : 'The treatment plan was saved and future occurrences will be generated automatically.',
         ),
       );
       _reset();

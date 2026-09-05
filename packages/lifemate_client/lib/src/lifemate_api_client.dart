@@ -253,6 +253,7 @@ class LifeMateApiClient {
         LifeMateReminderLeadTimes.defaultPatientMinutes,
     int caregiverReminderMinutesBefore =
         LifeMateReminderLeadTimes.defaultCaregiverMinutes,
+    String? clientRequestId,
   }) async {
     if (recurrence.enabled &&
         (recurrenceStartLocalTime == null ||
@@ -282,6 +283,7 @@ class LifeMateApiClient {
           'patientReminderMinutesBefore': patientReminderMinutesBefore,
           'caregiverReminderMinutesBefore': caregiverReminderMinutesBefore,
         },
+        idempotencyKey: clientRequestId,
       ),
     );
   }
