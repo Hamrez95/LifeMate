@@ -32,15 +32,33 @@ export function validateHealthDocument(
     );
   }
   const type = rawContentType.split(";", 1)[0].trim().toLowerCase();
-  const jpeg = bytes.length >= 3 && bytes[0] === 0xff && bytes[1] === 0xd8 &&
+  const jpeg =
+    bytes.length >= 3 &&
+    bytes[0] === 0xff &&
+    bytes[1] === 0xd8 &&
     bytes[2] === 0xff;
-  const png = bytes.length >= 8 && bytes[0] === 0x89 && bytes[1] === 0x50 &&
-    bytes[2] === 0x4e && bytes[3] === 0x47 && bytes[4] === 0x0d &&
-    bytes[5] === 0x0a && bytes[6] === 0x1a && bytes[7] === 0x0a;
-  const webp = bytes.length >= 12 && bytes[0] === 0x52 && bytes[1] === 0x49 &&
-    bytes[2] === 0x46 && bytes[3] === 0x46 && bytes[8] === 0x57 &&
-    bytes[9] === 0x45 && bytes[10] === 0x42 && bytes[11] === 0x50;
-  const pdf = bytes.length >= 5 &&
+  const png =
+    bytes.length >= 8 &&
+    bytes[0] === 0x89 &&
+    bytes[1] === 0x50 &&
+    bytes[2] === 0x4e &&
+    bytes[3] === 0x47 &&
+    bytes[4] === 0x0d &&
+    bytes[5] === 0x0a &&
+    bytes[6] === 0x1a &&
+    bytes[7] === 0x0a;
+  const webp =
+    bytes.length >= 12 &&
+    bytes[0] === 0x52 &&
+    bytes[1] === 0x49 &&
+    bytes[2] === 0x46 &&
+    bytes[3] === 0x46 &&
+    bytes[8] === 0x57 &&
+    bytes[9] === 0x45 &&
+    bytes[10] === 0x42 &&
+    bytes[11] === 0x50;
+  const pdf =
+    bytes.length >= 5 &&
     new TextDecoder().decode(bytes.slice(0, 5)) === "%PDF-";
   const heic = isHeic(bytes);
 
@@ -81,9 +99,12 @@ export function createHealthDocumentStorage(
 
   async function ensurePrivateBucket(): Promise<void> {
     bucketPromise ??= (async () => {
-      const current = await fetch(`${storageRoot}/bucket/${healthDocumentBucket}`, {
-        headers: headers(),
-      });
+      const current = await fetch(
+        `${storageRoot}/bucket/${healthDocumentBucket}`,
+        {
+          headers: headers(),
+        },
+      );
       if (current.ok) return;
       if (current.status !== 400 && current.status !== 404) throw unavailable();
       const created = await fetch(`${storageRoot}/bucket`, {
@@ -147,11 +168,13 @@ export function createHealthDocumentStorage(
       {
         method: "POST",
         headers: headers("application/json"),
-        body: JSON.stringify({ expiresIn: healthDocumentSignedUrlLifetimeSeconds }),
+        body: JSON.stringify({
+          expiresIn: healthDocumentSignedUrlLifetimeSeconds,
+        }),
       },
     );
     if (!response.ok) throw unavailable();
-    const payload = await response.json() as Record<string, unknown>;
+    const payload = (await response.json()) as Record<string, unknown>;
     const signed = payload.signedURL ?? payload.signedUrl;
     if (typeof signed !== "string" || signed.length === 0) throw unavailable();
     if (signed.startsWith("http")) return signed;
@@ -164,11 +187,14 @@ export function createHealthDocumentStorage(
   async function remove(objectKey: string): Promise<void> {
     assertSafeObjectKey(objectKey);
     await ensurePrivateBucket();
-    const response = await fetch(`${storageRoot}/object/${healthDocumentBucket}`, {
-      method: "DELETE",
-      headers: headers("application/json"),
-      body: JSON.stringify({ prefixes: [objectKey] }),
-    });
+    const response = await fetch(
+      `${storageRoot}/object/${healthDocumentBucket}`,
+      {
+        method: "DELETE",
+        headers: headers("application/json"),
+        body: JSON.stringify({ prefixes: [objectKey] }),
+      },
+    );
     if (!response.ok && response.status !== 404) throw unavailable();
   }
 
@@ -176,8 +202,14 @@ export function createHealthDocumentStorage(
 }
 
 function isHeic(bytes: Uint8Array): boolean {
-  if (bytes.length < 12 || bytes[4] !== 0x66 || bytes[5] !== 0x74 ||
-    bytes[6] !== 0x79 || bytes[7] !== 0x70) return false;
+  if (
+    bytes.length < 12 ||
+    bytes[4] !== 0x66 ||
+    bytes[5] !== 0x74 ||
+    bytes[6] !== 0x79 ||
+    bytes[7] !== 0x70
+  )
+    return false;
   const brand = new TextDecoder().decode(bytes.slice(8, 12)).toLowerCase();
   return ["heic", "heix", "hevc", "hevx", "mif1", "msf1"].includes(brand);
 }
@@ -188,10 +220,16 @@ function encodePath(value: string): string {
 
 function assertSafeObjectKey(value: string): void {
   if (
-    !/^[0-9a-f-]{36}\/[0-9a-f-]{36}\/[0-9a-f-]{36}\.(jpg|png|webp|heic|pdf)$/i.test(value) ||
+    !/^[0-9a-f-]{36}\/[0-9a-f-]{36}\/[0-9a-f-]{36}\.(jpg|png|webp|heic|pdf)$/i.test(
+      value,
+    ) ||
     value.includes("..")
   ) {
-    throw new ApiError(400, "health_document_path_invalid", "Document path is invalid.");
+    throw new ApiError(
+      400,
+      "health_document_path_invalid",
+      "Document path is invalid.",
+    );
   }
 }
 
