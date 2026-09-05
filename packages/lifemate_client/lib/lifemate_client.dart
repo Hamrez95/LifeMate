@@ -10,7 +10,8 @@ export 'src/app_lock.dart';
 export 'src/auth_security_policy.dart';
 export 'src/capabilities.dart';
 export 'src/care_access_inventory.dart';
-export 'src/care_event_projection_sync.dart';
+export 'src/care_event_projection_sync_web.dart'
+    if (dart.library.io) 'src/care_event_projection_sync.dart';
 export 'src/care_item.dart';
 export 'src/app_notice.dart';
 export 'src/care_pairing_qr.dart';
@@ -23,14 +24,16 @@ export 'src/companion_fertility.dart';
 export 'src/companion_mood_notifications.dart';
 export 'src/companion_phase_notifications.dart';
 export 'src/demographics_api.dart';
-export 'src/durable_lifemate_api_client.dart';
+export 'src/durable_lifemate_api_client_web.dart'
+    if (dart.library.io) 'src/durable_lifemate_api_client.dart';
 export 'src/feature_flags.dart';
 export 'src/feedback_api.dart';
 export 'src/health_facts.dart';
 export 'src/health_observations_api.dart';
 export 'src/history_reuse.dart';
 export 'src/history_suggestions.dart';
-export 'src/incremental_projection_api.dart';
+export 'src/incremental_projection_api_web.dart'
+    if (dart.library.io) 'src/incremental_projection_api.dart';
 export 'src/smart_reentry.dart';
 export 'src/smart_reentry_suppression_store.dart';
 export 'src/iran_phone.dart';
@@ -56,6 +59,7 @@ export 'src/privacy_safe_crash_reporter.dart';
 export 'src/privacy_safe_product_analytics.dart';
 export 'src/profile_avatar.dart';
 export 'src/presentation_numbers.dart';
+export 'src/projection_checkpoint.dart';
 export 'src/relationship_presentation.dart';
 export 'src/relationship_presentation_api.dart';
 export 'src/reminder_lead_time.dart';
