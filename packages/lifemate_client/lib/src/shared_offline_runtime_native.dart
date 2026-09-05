@@ -374,6 +374,54 @@ final class LifeMateSharedOfflineRuntime {
     return mutations.where(_isPendingForReplay).length;
   }
 
+  /// Accepts one already-local-validated treatment edit into the same protected
+  /// Account + Person + environment outbox used by adherence. This method does
+  /// not infer medication timing or bypass the canonical expected-revision
+  /// conflict contract; it only binds the validated mutation to this runtime's
+  /// already-adopted namespace.
+  Future<LifeMateDurableMutation> enqueueTreatmentEdit({
+    required String mutationId,
+    required String treatmentPlanId,
+    required int version,
+    required int medicationVersion,
+    required String medicationName,
+    String? strengthText,
+    String? form,
+    required String doseText,
+    String? instructions,
+    required DateTime startDate,
+    DateTime? endDate,
+    required String timeZone,
+    required List<Map<String, String>> schedules,
+    required int patientReminderMinutesBefore,
+    required int caregiverReminderMinutesBefore,
+    required String status,
+    DateTime? createdAtUtc,
+  }) async {
+    _requireOpen();
+    return LifeMateOfflineTreatmentMutation.enqueueEdit(
+      outbox: _outbox,
+      namespace: _localNamespace,
+      mutationId: mutationId,
+      treatmentPlanId: treatmentPlanId,
+      version: version,
+      medicationVersion: medicationVersion,
+      medicationName: medicationName,
+      strengthText: strengthText,
+      form: form,
+      doseText: doseText,
+      instructions: instructions,
+      startDate: startDate,
+      endDate: endDate,
+      timeZone: timeZone,
+      schedules: schedules,
+      patientReminderMinutesBefore: patientReminderMinutesBefore,
+      caregiverReminderMinutesBefore: caregiverReminderMinutesBefore,
+      status: status,
+      createdAtUtc: createdAtUtc,
+    );
+  }
+
   Future<Map<String, String>> pendingAdherenceStates() async {
     _requireOpen();
     await importLegacyPending();
