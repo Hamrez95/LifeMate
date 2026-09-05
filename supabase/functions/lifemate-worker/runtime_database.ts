@@ -1,5 +1,7 @@
 import postgres from "postgres";
 
+const workerRole = "lifemate_worker_runtime";
+
 export function buildWorkerDatabaseUrl(
   bootstrapDatabaseUrl: string,
   password: string,
@@ -12,17 +14,33 @@ export function buildWorkerDatabaseUrl(
   if (!currentUser) throw new Error("Database URL is missing a username.");
   const dot = currentUser.indexOf(".");
   const suffix = dot >= 0 ? currentUser.slice(dot) : "";
-  parsed.username = `lifemate_worker_runtime${suffix}`;
+  parsed.username = `${workerRole}${suffix}`;
   parsed.password = password;
   return parsed.toString();
 }
 
+export function isRestrictedWorkerDatabaseUrl(databaseUrl: string): boolean {
+  try {
+    const parsed = new URL(databaseUrl);
+    const username = decodeURIComponent(parsed.username);
+    return username === workerRole || username.startsWith(`${workerRole}.`);
+  } catch {
+    return false;
+  }
+}
+
 export async function loadWorkerDatabaseUrl(): Promise<string> {
   const explicit = Deno.env.get("LIFEMATE_WORKER_DB_URL");
-  if (explicit) return explicit;
+  if (explicit && isRestrictedWorkerDatabaseUrl(explicit)) return explicit;
 
   const bootstrap = Deno.env.get("SUPABASE_DB_URL");
-  if (!bootstrap) throw new Error("SUPABASE_DB_URL is missing.");
+  if (!bootstrap) {
+    throw new Error(
+      explicit
+        ? "LIFEMATE_WORKER_DB_URL is not a restricted worker-role URL and SUPABASE_DB_URL is missing."
+        : "SUPABASE_DB_URL is missing.",
+    );
+  }
 
   const sql = postgres(bootstrap, {
     max: 1,
