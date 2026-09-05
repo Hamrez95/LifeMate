@@ -7,6 +7,7 @@ void main() {
     await tester.pumpWidget(
       MaterialApp(
         locale: const Locale('en'),
+        supportedLocales: const <Locale>[Locale('en'), Locale('fa')],
         home: Scaffold(
           body: Column(
             children: [
@@ -37,6 +38,7 @@ void main() {
     await tester.pumpWidget(
       const MaterialApp(
         locale: Locale('fa'),
+        supportedLocales: <Locale>[Locale('en'), Locale('fa')],
         home: Scaffold(body: HomeOfflineStatusBanner()),
       ),
     );
