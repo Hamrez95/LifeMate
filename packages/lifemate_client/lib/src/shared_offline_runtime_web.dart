@@ -4,6 +4,8 @@ import 'package:lifemate_core/lifemate_core.dart';
 import 'lifemate_api_client.dart' show AccessTokenProvider;
 import 'offline_mutation_queue.dart' show LifeMateMutationStorage;
 import 'offline_sync_result.dart';
+import 'women_calendar_offline.dart';
+import 'women_calendar_offline_snapshot.dart';
 
 final class LifeMateLocalDataPurgeConfirmationRequiredException
     implements Exception {
@@ -114,6 +116,41 @@ final class LifeMateSharedOfflineRuntime {
 
   Future<List<Map<String, dynamic>>> pendingTreatmentCreates() =>
       Future<List<Map<String, dynamic>>>.error(_unsupported());
+
+  Future<void> cacheWomenCalendarSnapshot({
+    required Map<String, dynamic> profile,
+    required Iterable<Map<String, dynamic>> episodes,
+    required WomenHealthLifecycleState lifecycleState,
+  }) => Future<void>.error(_unsupported());
+
+  Future<WomenCalendarOfflineSnapshot?> readWomenCalendarSnapshot() =>
+      Future<WomenCalendarOfflineSnapshot?>.error(_unsupported());
+
+  Future<LifeMateWomenDailyLogProjectionResult> projectWomenDailyLogs({
+    required Iterable<Map<String, dynamic>> serverRows,
+    required DateTime fromDate,
+    required DateTime toDate,
+  }) => Future<LifeMateWomenDailyLogProjectionResult>.error(_unsupported());
+
+  Future<void> enqueueWomenDailyLogUpsert({
+    required String mutationId,
+    required DateTime loggedOn,
+    required int version,
+    String? periodFlow,
+    String? bloodAppearance,
+    String? bloodTexture,
+    int? painLevel,
+    Set<String> symptoms = const <String>{},
+    String? privateNotes,
+    DateTime? createdAtUtc,
+  }) => Future<void>.error(_unsupported());
+
+  Future<void> enqueueWomenDailyLogDelete({
+    required String mutationId,
+    required DateTime loggedOn,
+    required int version,
+    DateTime? createdAtUtc,
+  }) => Future<void>.error(_unsupported());
 
   Future<void> enqueueCareEventCreate({
     required String mutationId,
