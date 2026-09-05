@@ -243,8 +243,21 @@ begin
   return v_response;
 end $$;
 
-revoke all on function admin.mutate_custom_role(uuid,character varying,character varying,character varying,smallint,bigint,character varying,uuid,character varying,character varying) from public,anon,authenticated;
-revoke all on function admin.mutate_custom_role_permission(uuid,character varying,character varying,character varying,bigint,character varying,uuid,character varying,character varying) from public,anon,authenticated;
+-- Portable schema CI does not provision Supabase runtime roles.  Apply the
+-- same least-privilege intent only when those roles exist.
+revoke all on function admin.mutate_custom_role(uuid,character varying,character varying,character varying,smallint,bigint,character varying,uuid,character varying,character varying) from public;
+revoke all on function admin.mutate_custom_role_permission(uuid,character varying,character varying,character varying,bigint,character varying,uuid,character varying,character varying) from public;
+do $roles$
+begin
+  if to_regrole('anon') is not null then
+    revoke all on function admin.mutate_custom_role(uuid,character varying,character varying,character varying,smallint,bigint,character varying,uuid,character varying,character varying) from anon;
+    revoke all on function admin.mutate_custom_role_permission(uuid,character varying,character varying,character varying,bigint,character varying,uuid,character varying,character varying) from anon;
+  end if;
+  if to_regrole('authenticated') is not null then
+    revoke all on function admin.mutate_custom_role(uuid,character varying,character varying,character varying,smallint,bigint,character varying,uuid,character varying,character varying) from authenticated;
+    revoke all on function admin.mutate_custom_role_permission(uuid,character varying,character varying,character varying,bigint,character varying,uuid,character varying,character varying) from authenticated;
+  end if;
+end $roles$;
 grant execute on function admin.mutate_custom_role(uuid,character varying,character varying,character varying,smallint,bigint,character varying,uuid,character varying,character varying) to lifemate_admin_runtime;
 grant execute on function admin.mutate_custom_role_permission(uuid,character varying,character varying,character varying,bigint,character varying,uuid,character varying,character varying) to lifemate_admin_runtime;
 
