@@ -57,7 +57,7 @@ class DurableLifeMateApiClient extends LifeMateApiClient {
       accountId: accountId,
       queue: queue,
       inner: innerHttpClient,
-    )..deferReplayUntilDelegate();
+    );
     return DurableLifeMateApiClient._(
       baseUri: baseUri,
       accessToken: accessToken,
@@ -71,6 +71,7 @@ class DurableLifeMateApiClient extends LifeMateApiClient {
   final LifeMateAccountIdProvider _legacyAuthenticatedAccountId;
   final LifeMateDurableHttpClient _durableHttp;
   LifeMateSharedOfflineRuntime? _sharedRuntime;
+  String? _sharedRuntimeLegacyAccountId;
 
   @override
   Future<Map<String, dynamic>> bootstrapUser({
@@ -79,6 +80,12 @@ class DurableLifeMateApiClient extends LifeMateApiClient {
     String locale = 'fa',
     String timeZone = 'Asia/Tehran',
   }) async {
+    // App bootstrap is the transition point from the historical auth-subject
+    // queue to canonical Account + Person scope. Stop account-only replay before
+    // bootstrap/capabilities network responses can trigger an automatic flush.
+    // Non-bootstrap clients (for example the Android medication widget) retain
+    // their existing legacy replay behavior until they adopt the shared runtime.
+    _durableHttp.deferReplayUntilDelegate();
     final bootstrapped = await super.bootstrapUser(
       displayName: displayName,
       email: email,
@@ -151,7 +158,7 @@ class DurableLifeMateApiClient extends LifeMateApiClient {
       accountId: normalizedAccount,
       personId: normalizedPerson,
     );
-    final current = _sharedRuntime;
+    final current = _activeSharedRuntime();
     if (current != null && _sameNamespace(current.namespace, namespace)) return;
 
     final next = await LifeMateSharedOfflineRuntime.open(
@@ -169,9 +176,16 @@ class DurableLifeMateApiClient extends LifeMateApiClient {
       );
     }
 
+    final previous = _sharedRuntime;
     _sharedRuntime = next;
-    _durableHttp.useReplayDelegate(next.flushDetailed);
-    current?.close();
+    _sharedRuntimeLegacyAccountId = normalizedLegacyAccount;
+    _durableHttp.useReplayDelegate(() async {
+      if (_legacyAuthenticatedAccountId()?.trim() != normalizedLegacyAccount) {
+        return const LifeMateOfflineSyncResult();
+      }
+      return next.flushDetailed();
+    });
+    previous?.close();
   }
 
   @override
@@ -243,7 +257,7 @@ class DurableLifeMateApiClient extends LifeMateApiClient {
   }
 
   Future<Map<String, String>> _pendingDoseStates() async {
-    final shared = _sharedRuntime;
+    final shared = _activeSharedRuntime();
     if (shared != null) return shared.pendingAdherenceStates();
 
     final pending = await _durableHttp.pendingMutations();
@@ -283,8 +297,9 @@ class DurableLifeMateApiClient extends LifeMateApiClient {
           if (desiredStatus == null) return value;
 
           final serverStatus = value['status']?.toString().toLowerCase();
-          if (serverStatus == 'taken' || serverStatus == 'skipped')
+          if (serverStatus == 'taken' || serverStatus == 'skipped') {
             return value;
+          }
           return <String, dynamic>{
             ...value,
             'status': 'pending_sync',
@@ -305,16 +320,28 @@ class DurableLifeMateApiClient extends LifeMateApiClient {
   }
 
   Future<int> pendingMutationCount() async {
-    final shared = _sharedRuntime;
+    final shared = _activeSharedRuntime();
     return shared == null
         ? _durableHttp.pendingCount()
         : shared.pendingMutationCount();
+  }
+
+  LifeMateSharedOfflineRuntime? _activeSharedRuntime() {
+    final runtime = _sharedRuntime;
+    final boundLegacyAccount = _sharedRuntimeLegacyAccountId;
+    if (runtime == null ||
+        boundLegacyAccount == null ||
+        _legacyAuthenticatedAccountId()?.trim() != boundLegacyAccount) {
+      return null;
+    }
+    return runtime;
   }
 
   @override
   void close() {
     _sharedRuntime?.close();
     _sharedRuntime = null;
+    _sharedRuntimeLegacyAccountId = null;
     super.close();
   }
 
