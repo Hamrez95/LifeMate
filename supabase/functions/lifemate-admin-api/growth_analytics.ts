@@ -449,12 +449,11 @@ export function createGrowthAnalyticsStore(sql: AdminSql) {
   return {
     async read(query: GrowthAnalyticsQuery) {
       const previous = previousPeriod(query);
-      const [currentMetrics, previousMetrics, currentCoverage] = await Promise
-        .all([
-          snapshot(sql, query),
-          snapshot(sql, { ...query, ...previous }),
-          activeUsers(sql, query),
-        ]);
+      const [currentMetrics, previousMetrics, currentCoverage] = await Promise.all([
+        snapshot(sql, query),
+        snapshot(sql, { ...query, ...previous }),
+        activeUsers(sql, query),
+      ]);
       return {
         definitionVersion: 2,
         query,
