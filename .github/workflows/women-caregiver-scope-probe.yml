@@ -3,8 +3,7 @@ name: women-caregiver-scope-probe
 on:
   pull_request:
     paths:
-      - 'supabase/functions/lifemate-api/person_women_calendar_caregiver**'
-      - 'supabase/functions/lifemate-api/person_women_calendar_caregiver_integration_test.ts'
+      - 'supabase/functions/lifemate-api/**'
       - 'supabase/migrations/**'
       - '.github/workflows/women-caregiver-scope-probe.yml'
   workflow_dispatch:
@@ -53,27 +52,24 @@ jobs:
           while IFS= read -r migration; do
             psql "$TEST_DATABASE_URL" --set=ON_ERROR_STOP=1 --file="$migration"
           done < <(find supabase/migrations -maxdepth 1 -type f -name '*.sql' | sort)
-      - name: Run canonical Women caregiver scope journey
-        id: focused
+      - name: Run full canonical integration suite
+        id: integration
         working-directory: supabase/functions/lifemate-api
         shell: bash
         run: |
           set +e
-          deno test --no-check --allow-env \
-            --allow-net=localhost:5432,127.0.0.1:5432 \
-            person_women_calendar_caregiver_integration_test.ts \
-            > "$GITHUB_WORKSPACE/women-caregiver-test.log" 2>&1
+          deno task test:integration > "$GITHUB_WORKSPACE/edge-integration-test.log" 2>&1
           status=$?
           echo "exit_code=$status" >> "$GITHUB_OUTPUT"
           exit 0
-      - name: Upload focused failure evidence
+      - name: Upload integration failure evidence
         if: ${{ always() }}
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:
-          name: women-caregiver-test-log-${{ github.sha }}
-          path: women-caregiver-test.log
+          name: edge-integration-test-log-${{ github.sha }}
+          path: edge-integration-test.log
           if-no-files-found: error
           retention-days: 1
-      - name: Enforce focused integration result
-        if: ${{ steps.focused.outputs.exit_code != '0' }}
+      - name: Enforce integration result
+        if: ${{ steps.integration.outputs.exit_code != '0' }}
         run: exit 1
