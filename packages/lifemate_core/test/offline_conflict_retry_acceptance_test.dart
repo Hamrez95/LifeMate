@@ -180,42 +180,39 @@ void main() {
     },
   );
 
-  test(
-    '429 throttling retains mutation and schedules bounded retry',
-    () async {
-      final database = sqlite3.openInMemory();
-      final now = DateTime.utc(2026, 9, 5, 6);
-      final store = LifeMateLocalHealthStore.forTesting(
-        database: database,
-        keyBytes: key,
-        now: () => now,
-      );
-      addTearDown(store.close);
-      final outbox = LifeMateLocalMutationOutbox(store: store, now: () => now);
-      await outbox.enqueue(
-        namespace: namespace,
-        mutation: treatmentMutation('throttled'),
-      );
+  test('429 throttling retains mutation and schedules bounded retry', () async {
+    final database = sqlite3.openInMemory();
+    final now = DateTime.utc(2026, 9, 5, 6);
+    final store = LifeMateLocalHealthStore.forTesting(
+      database: database,
+      keyBytes: key,
+      now: () => now,
+    );
+    addTearDown(store.close);
+    final outbox = LifeMateLocalMutationOutbox(store: store, now: () => now);
+    await outbox.enqueue(
+      namespace: namespace,
+      mutation: treatmentMutation('throttled'),
+    );
 
-      final result = await LifeMateLocalMutationReplayEngine(
-        outbox: outbox,
-        transport: const _StatusTransport(429),
-        now: () => now,
-      ).replayEligible(namespace: namespace);
+    final result = await LifeMateLocalMutationReplayEngine(
+      outbox: outbox,
+      transport: const _StatusTransport(429),
+      now: () => now,
+    ).replayEligible(namespace: namespace);
 
-      expect(result.confirmed, 0);
-      expect(result.retainedForRetry, 1);
-      final retained = await outbox.get(
-        namespace: namespace,
-        mutationId: 'throttled',
-      );
-      expect(retained?.state, LifeMateMutationSyncState.retryScheduled);
-      expect(retained?.errorClass, LifeMateMutationErrorClass.throttled);
-      expect(retained?.nextAttemptAtUtc, isNotNull);
-      expect(retained?.nextAttemptAtUtc?.isAfter(now), isTrue);
-      expect(await outbox.eligible(namespace: namespace, atUtc: now), isEmpty);
-    },
-  );
+    expect(result.confirmed, 0);
+    expect(result.retainedForRetry, 1);
+    final retained = await outbox.get(
+      namespace: namespace,
+      mutationId: 'throttled',
+    );
+    expect(retained?.state, LifeMateMutationSyncState.retryScheduled);
+    expect(retained?.errorClass, LifeMateMutationErrorClass.throttled);
+    expect(retained?.nextAttemptAtUtc, isNotNull);
+    expect(retained?.nextAttemptAtUtc?.isAfter(now), isTrue);
+    expect(await outbox.eligible(namespace: namespace, atUtc: now), isEmpty);
+  });
 }
 
 final class _StatusTransport implements LifeMateMutationReplayTransport {
