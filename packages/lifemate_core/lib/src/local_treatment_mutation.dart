@@ -1,7 +1,8 @@
 import 'local_mutation_outbox.dart';
 
-/// Builds the exact, versioned treatment PATCH that may be accepted into the
-/// protected #831 outbox when the owner has a complete locally validated plan.
+/// Builds and enqueues the exact, versioned treatment PATCH that may be
+/// accepted into the protected #831 outbox when the owner has a complete
+/// locally validated plan.
 ///
 /// This deliberately does not make clinical timing decisions, shorten or
 /// lengthen medication intervals, infer missing fields, or bypass server
@@ -26,6 +27,53 @@ final class LifeMateOfflineTreatmentMutation {
   };
   static const _statuses = <String>{'active', 'stopped'};
   static const _maximumReminderLeadMinutes = 7 * 24 * 60;
+
+  /// Validates the complete edit first and only then writes it to the durable
+  /// protected outbox. A validation failure therefore cannot leave a partial
+  /// or malformed treatment mutation behind.
+  static Future<LifeMateDurableMutation> enqueueEdit({
+    required LifeMateLocalMutationOutbox outbox,
+    required LifeMateLocalNamespace namespace,
+    required String mutationId,
+    required String treatmentPlanId,
+    required int version,
+    required int medicationVersion,
+    required String medicationName,
+    String? strengthText,
+    String? form,
+    required String doseText,
+    String? instructions,
+    required DateTime startDate,
+    DateTime? endDate,
+    required String timeZone,
+    required List<Map<String, String>> schedules,
+    required int patientReminderMinutesBefore,
+    required int caregiverReminderMinutesBefore,
+    required String status,
+    DateTime? createdAtUtc,
+  }) async {
+    final mutation = buildEdit(
+      mutationId: mutationId,
+      treatmentPlanId: treatmentPlanId,
+      version: version,
+      medicationVersion: medicationVersion,
+      medicationName: medicationName,
+      strengthText: strengthText,
+      form: form,
+      doseText: doseText,
+      instructions: instructions,
+      startDate: startDate,
+      endDate: endDate,
+      timeZone: timeZone,
+      schedules: schedules,
+      patientReminderMinutesBefore: patientReminderMinutesBefore,
+      caregiverReminderMinutesBefore: caregiverReminderMinutesBefore,
+      status: status,
+      createdAtUtc: createdAtUtc,
+    );
+    await outbox.enqueue(namespace: namespace, mutation: mutation);
+    return mutation;
+  }
 
   static LifeMateDurableMutation buildEdit({
     required String mutationId,
