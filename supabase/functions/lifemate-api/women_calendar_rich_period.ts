@@ -170,9 +170,7 @@ export function createWomenCalendarRichPeriodStore(databaseUrl: string) {
           ) values (
             ${id}::uuid,${appUserId}::uuid,${personId}::uuid,${loggedOn}::date,
             'Neutral',3,${storedPain},${painProvided && painLevel != null},
-            ${legacySymptoms}::varchar[],${
-          JSON.stringify(symptomObservations)
-        }::jsonb,
+            ${legacySymptoms}::varchar[],${tx.json(symptomObservations)}::jsonb,
             ${womenSymptomCatalogVersion},${privateNotes},false,
             ${observation.periodFlow},${observation.bloodAppearance},${observation.bloodTexture},
             ${periodObservationSchemaVersion},1,now(),now()
@@ -203,7 +201,7 @@ export function createWomenCalendarRichPeriodStore(databaseUrl: string) {
       } else pain_recorded end,
             symptoms=case when ${symptomsProvided} then ${legacySymptoms}::varchar[] else symptoms end,
             symptom_observations=case when ${symptomsProvided} then ${
-        JSON.stringify(symptomObservations)
+        tx.json(symptomObservations)
       }::jsonb else symptom_observations end,
             symptom_schema_version=case when ${symptomsProvided} then ${womenSymptomCatalogVersion} else symptom_schema_version end,
             private_notes=case when ${privateNotesProvided} then ${privateNotes} else private_notes end,
