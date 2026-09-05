@@ -1,4 +1,21 @@
+import 'package:flutter/foundation.dart';
 import 'package:lifemate_client/lifemate_client.dart';
+
+@immutable
+class HomeOfflinePresentationState {
+  const HomeOfflinePresentationState({
+    this.cached = false,
+    this.cachedAtUtc,
+  });
+
+  final bool cached;
+  final DateTime? cachedAtUtc;
+}
+
+final ValueNotifier<HomeOfflinePresentationState> homeOfflinePresentationState =
+    ValueNotifier<HomeOfflinePresentationState>(
+      const HomeOfflinePresentationState(),
+    );
 
 class HomeScheduleSnapshot {
   const HomeScheduleSnapshot({
@@ -56,6 +73,10 @@ class HomeScheduleLoader {
       final cachedAt = DateTime.tryParse(
         value['offlineCachedAtUtc']?.toString() ?? '',
       )?.toUtc();
+      homeOfflinePresentationState.value = HomeOfflinePresentationState(
+        cached: offlineCached,
+        cachedAtUtc: offlineCached ? cachedAt : null,
+      );
       return HomeScheduleSnapshot(
         currentUser: _object(value['currentUser'], 'currentUser'),
         treatmentPlans: _objects(value['treatmentPlans'], 'treatmentPlans'),
@@ -66,8 +87,16 @@ class HomeScheduleLoader {
         offlineCachedAtUtc: offlineCached ? cachedAt : null,
       );
     } on LifeMateApiException catch (error) {
-      if (error.statusCode != 404 || error.code != 'route_not_found') rethrow;
+      if (error.statusCode != 404 || error.code != 'route_not_found') {
+        homeOfflinePresentationState.value =
+            const HomeOfflinePresentationState();
+        rethrow;
+      }
+      homeOfflinePresentationState.value = const HomeOfflinePresentationState();
       return _loadLegacy(api: api, fromDate: fromDate, toDate: toDate);
+    } catch (_) {
+      homeOfflinePresentationState.value = const HomeOfflinePresentationState();
+      rethrow;
     }
   }
 
