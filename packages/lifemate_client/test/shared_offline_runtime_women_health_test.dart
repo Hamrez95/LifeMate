@@ -6,8 +6,6 @@ import 'package:lifemate_core/lifemate_core.dart';
 import 'package:sqlite3/sqlite3.dart';
 
 void main() {
-  TestWidgetsFlutterBinding.ensureInitialized();
-
   final key = Uint8List.fromList(List<int>.generate(32, (index) => index + 1));
   final owner = LifeMateLocalNamespace(
     environmentId: 'production',
@@ -183,4 +181,26 @@ Future<LifeMateSharedOfflineRuntime> _openRuntime(
   apiBaseUri: Uri.parse('https://api.example.test'),
   accessToken: () => 'token',
   store: store,
+  legacyStorage: _MemoryStorage(),
 );
+
+final class _MemoryStorage implements LifeMateMutationStorage {
+  final Map<String, String> _values = <String, String>{};
+
+  @override
+  Future<void> delete(String key) async {
+    _values.remove(key);
+  }
+
+  @override
+  Future<String?> read(String key) async => _values[key];
+
+  @override
+  Future<Map<String, String>> readAll() async =>
+      Map<String, String>.from(_values);
+
+  @override
+  Future<void> write(String key, String value) async {
+    _values[key] = value;
+  }
+}
