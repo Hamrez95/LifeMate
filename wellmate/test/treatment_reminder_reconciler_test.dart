@@ -102,6 +102,115 @@ void main() {
     expect(next, isEmpty);
   });
 
+  test('unchanged medicine projection produces no affected occurrence IDs', () {
+    final scheduledAt = DateTime.utc(2026, 9, 5, 9);
+    final current = <ScheduleItemModel>[
+      ScheduleItemModel(
+        id: 'dose-1',
+        title: 'Medication',
+        time: '12:30',
+        dosage: '1 tablet',
+        type: 'medicine',
+        frequency: 'According to the treatment plan',
+        status: 'scheduled',
+        version: 3,
+        scheduledAtUtc: scheduledAt,
+        patientReminderMinutesBefore: 15,
+        caregiverReminderMinutesBefore: 30,
+      ),
+    ];
+    final next = <ScheduleItemModel>[
+      ScheduleItemModel(
+        id: 'dose-1',
+        title: 'Medication',
+        time: '12:30',
+        dosage: '1 tablet',
+        type: 'medicine',
+        frequency: 'According to the treatment plan',
+        status: 'scheduled',
+        version: 3,
+        scheduledAtUtc: scheduledAt,
+        patientReminderMinutesBefore: 15,
+        caregiverReminderMinutesBefore: 30,
+      ),
+    ];
+
+    expect(
+      changedTreatmentReminderOccurrenceIds(
+        currentItems: current,
+        nextItems: next,
+      ),
+      isEmpty,
+    );
+  });
+
+  test('added removed and revised medicine occurrences are affected', () {
+    final now = DateTime.utc(2026, 9, 5, 8);
+    final current = <ScheduleItemModel>[
+      ScheduleItemModel(
+        id: 'removed-dose',
+        title: 'Medication A',
+        time: '09:00',
+        dosage: '1',
+        type: 'medicine',
+        frequency: 'daily',
+        version: 1,
+        scheduledAtUtc: now.add(const Duration(hours: 1)),
+      ),
+      ScheduleItemModel(
+        id: 'revised-dose',
+        title: 'Medication B',
+        time: '10:00',
+        dosage: '1',
+        type: 'medicine',
+        frequency: 'daily',
+        version: 1,
+        scheduledAtUtc: now.add(const Duration(hours: 2)),
+      ),
+      ScheduleItemModel(
+        id: 'appointment-1',
+        title: 'Doctor',
+        time: '11:00',
+        dosage: '',
+        type: 'appointment',
+        frequency: 'appointment',
+        version: 1,
+        scheduledAtUtc: now.add(const Duration(hours: 3)),
+      ),
+    ];
+    final next = <ScheduleItemModel>[
+      ScheduleItemModel(
+        id: 'revised-dose',
+        title: 'Medication B',
+        time: '10:30',
+        dosage: '1',
+        type: 'medicine',
+        frequency: 'daily',
+        version: 2,
+        scheduledAtUtc: now.add(const Duration(hours: 2, minutes: 30)),
+      ),
+      ScheduleItemModel(
+        id: 'new-dose',
+        title: 'Medication C',
+        time: '12:00',
+        dosage: '1',
+        type: 'medicine',
+        frequency: 'daily',
+        version: 1,
+        scheduledAtUtc: now.add(const Duration(hours: 4)),
+      ),
+      current.last,
+    ];
+
+    expect(
+      changedTreatmentReminderOccurrenceIds(
+        currentItems: current,
+        nextItems: next,
+      ),
+      {'removed-dose', 'revised-dose', 'new-dose'},
+    );
+  });
+
   test('incomplete authoritative snapshot fails closed', () {
     expect(
       () => reconcileTreatmentReminderWindow(
