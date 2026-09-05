@@ -12,6 +12,7 @@ import '../core/state/wellmate_refresh.dart';
 import '../core/utils/string_extensions.dart';
 import '../models/schedule_item_model.dart';
 import 'grouped_medication_notification.dart';
+import 'pending_treatment_create_reminder_sync.dart';
 
 class WellMateNotificationTarget {
   const WellMateNotificationTarget({
@@ -84,6 +85,10 @@ class NotificationProvider extends ChangeNotifier {
       LifeMateLocalReminderScheduler(
         platform: FlutterLifeMateReminderPlatform(_notifications),
       );
+  late final PendingTreatmentCreateReminderSync
+  _pendingTreatmentCreateReminderSync = PendingTreatmentCreateReminderSync(
+    scheduler: _reminderScheduler,
+  );
   LifeMateApiClient? _apiClient;
   NotificationResponse? _pendingMutationResponse;
   GroupedMedicationNotificationTarget? _pendingGroupedMedicationTarget;
@@ -91,11 +96,13 @@ class NotificationProvider extends ChangeNotifier {
   bool _initialized = false;
   bool _permissionRequested = false;
   bool? _exactAlarmGranted;
-  bool _inexactFallbackActive = false;
+  bool _canonicalInexactFallbackActive = false;
+  bool _pendingTreatmentInexactFallbackActive = false;
   String _latestTimeZone = 'Asia/Tehran';
 
   bool get hasUnread => _hasUnread;
-  bool get inexactFallbackActive => _inexactFallbackActive;
+  bool get inexactFallbackActive =>
+      _canonicalInexactFallbackActive || _pendingTreatmentInexactFallbackActive;
   GroupedMedicationNotificationTarget? get pendingGroupedMedicationTarget =>
       _pendingGroupedMedicationTarget;
 
@@ -146,7 +153,9 @@ class NotificationProvider extends ChangeNotifier {
     unawaited(_handleNotificationResponse(response));
   }
 
-  Future<void> _handleNotificationResponse(NotificationResponse response) async {
+  Future<void> _handleNotificationResponse(
+    NotificationResponse response,
+  ) async {
     final grouped = decodeGroupedMedicationPayload(response.payload);
     if (grouped != null) {
       _pendingGroupedMedicationTarget = grouped;
@@ -177,10 +186,7 @@ class NotificationProvider extends ChangeNotifier {
             occurredAtUtc: DateTime.now().toUtc(),
           );
           await _notifications.cancel(
-            notificationIdFor(
-              target.key,
-              sourceRevision: target.version,
-            ),
+            notificationIdFor(target.key, sourceRevision: target.version),
           );
           WellMateRefreshSignal.notifyChanged();
           setUnread(true);
@@ -206,10 +212,7 @@ class NotificationProvider extends ChangeNotifier {
             expectedVersion: target.version,
           );
           await _notifications.cancel(
-            notificationIdFor(
-              target.key,
-              sourceRevision: target.version,
-            ),
+            notificationIdFor(target.key, sourceRevision: target.version),
           );
           WellMateRefreshSignal.notifyChanged();
           setUnread(true);
@@ -269,6 +272,35 @@ class NotificationProvider extends ChangeNotifier {
     ),
   );
 
+  Future<void> syncPendingTreatmentCreateReminders(
+    Iterable<Map<String, dynamic>> pendingCreates, {
+    required String timeZone,
+    required bool isPersian,
+  }) async {
+    await initialize();
+    _latestTimeZone = timeZone.trim().isEmpty ? 'UTC' : timeZone.trim();
+    await _ensureNotificationPermissions();
+    final result = await _pendingTreatmentCreateReminderSync.sync(
+      pendingCreates: pendingCreates,
+      nowUtc: DateTime.now().toUtc(),
+      schedulingTimeZone: _latestTimeZone,
+      isPersian: isPersian,
+      exactAlarmGranted: _exactAlarmGranted,
+    );
+    _updatePendingTreatmentFallbackState(result.usedInexactFallback);
+  }
+
+  Future<void> _ensureNotificationPermissions() async {
+    if (_permissionRequested) return;
+    final android = _notifications
+        .resolvePlatformSpecificImplementation<
+          AndroidFlutterLocalNotificationsPlugin
+        >();
+    await android?.requestNotificationsPermission();
+    _exactAlarmGranted = await android?.requestExactAlarmsPermission();
+    _permissionRequested = true;
+  }
+
   Future<void> syncReminders(
     List<ScheduleItemModel> items, {
     required String timeZone,
@@ -280,15 +312,7 @@ class NotificationProvider extends ChangeNotifier {
     tz_data.initializeTimeZones();
     final location = _locationFor(_latestTimeZone);
 
-    if (!_permissionRequested) {
-      final android = _notifications
-          .resolvePlatformSpecificImplementation<
-            AndroidFlutterLocalNotificationsPlugin
-          >();
-      await android?.requestNotificationsPermission();
-      _exactAlarmGranted = await android?.requestExactAlarmsPermission();
-      _permissionRequested = true;
-    }
+    await _ensureNotificationPermissions();
 
     final activeScheduledItems = <String, ScheduleItemModel>{
       for (final item in items)
@@ -364,10 +388,11 @@ class NotificationProvider extends ChangeNotifier {
     for (final entry in groups.entries) {
       final candidates = entry.value;
       groupedOccurrenceIds.addAll(candidates.map((value) => value.item.id));
-      final identities = candidates
-          .map((value) => '${value.item.id}@${value.item.version}')
-          .toList()
-        ..sort();
+      final identities =
+          candidates
+              .map((value) => '${value.item.id}@${value.item.version}')
+              .toList()
+            ..sort();
       final groupKey =
           'wellmate:medication-group:${entry.key.millisecondsSinceEpoch}:${identities.join(',')}';
       final groupRevision = LifeMateReminderIdentity.stableRevisionFor(
@@ -451,13 +476,13 @@ class NotificationProvider extends ChangeNotifier {
     final desiredReminders = scopedMedicationIds == null
         ? reminders
         : reminders
-            .where(
-              (reminder) => _payloadTargetsMedicationOccurrences(
-                reminder.payload,
-                scopedMedicationIds!,
-              ),
-            )
-            .toList(growable: false);
+              .where(
+                (reminder) => _payloadTargetsMedicationOccurrences(
+                  reminder.payload,
+                  scopedMedicationIds!,
+                ),
+              )
+              .toList(growable: false);
     final result = await _reminderScheduler.sync(
       reminders: desiredReminders,
       timeZone: _latestTimeZone,
@@ -521,10 +546,7 @@ class NotificationProvider extends ChangeNotifier {
       // risk leaving a stale alarm after an authoritative edit.
       return true;
     }
-    return _payloadTargetsMedicationOccurrences(
-      payload,
-      affectedOccurrenceIds,
-    );
+    return _payloadTargetsMedicationOccurrences(payload, affectedOccurrenceIds);
   }
 
   static bool _payloadTargetsMedicationOccurrences(
@@ -544,9 +566,15 @@ class NotificationProvider extends ChangeNotifier {
   }
 
   void _updateFallbackState(bool value) {
-    if (_inexactFallbackActive == value) return;
-    _inexactFallbackActive = value;
-    notifyListeners();
+    final before = inexactFallbackActive;
+    _canonicalInexactFallbackActive = value;
+    if (before != inexactFallbackActive) notifyListeners();
+  }
+
+  void _updatePendingTreatmentFallbackState(bool value) {
+    final before = inexactFallbackActive;
+    _pendingTreatmentInexactFallbackActive = value;
+    if (before != inexactFallbackActive) notifyListeners();
   }
 
   static AndroidNotificationDetails _androidDetails(
@@ -700,13 +728,11 @@ class NotificationProvider extends ChangeNotifier {
         stage: LifeMateNotificationStage.reminder,
       );
 
-  static int notificationIdFor(
-    String value, {
-    int sourceRevision = 0,
-  }) => LifeMateReminderIdentity.notificationIdFor(
-    value,
-    sourceRevision: sourceRevision,
-  );
+  static int notificationIdFor(String value, {int sourceRevision = 0}) =>
+      LifeMateReminderIdentity.notificationIdFor(
+        value,
+        sourceRevision: sourceRevision,
+      );
 
   void setUnread(bool value) {
     _hasUnread = value;

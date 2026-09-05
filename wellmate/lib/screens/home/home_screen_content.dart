@@ -276,14 +276,27 @@ class _HomeScreenContentState extends State<HomeScreenContent> {
           })
           .toList(growable: false);
       context.read<MedicationProvider>().setScheduleItems(todayItems);
+      final notificationProvider = context.read<NotificationProvider>();
+      final reminderTimeZone = profile['timeZone']?.toString() ?? 'Asia/Tehran';
+      final reminderIsPersian =
+          Localizations.localeOf(context).languageCode == 'fa';
       try {
-        await context.read<NotificationProvider>().syncReminders(
+        await notificationProvider.syncReminders(
           reminderWindow,
-          timeZone: profile['timeZone']?.toString() ?? 'Asia/Tehran',
-          isPersian: Localizations.localeOf(context).languageCode == 'fa',
+          timeZone: reminderTimeZone,
+          isPersian: reminderIsPersian,
         );
       } catch (error) {
         debugPrint('WellMate reminder sync failed: $error');
+      }
+      try {
+        await notificationProvider.syncPendingTreatmentCreateReminders(
+          pendingTreatmentCreates,
+          timeZone: reminderTimeZone,
+          isPersian: reminderIsPersian,
+        );
+      } catch (error) {
+        debugPrint('WellMate pending treatment reminder sync failed: $error');
       }
     } catch (error) {
       debugPrint('WellMate home schedule sync failed: $error');
