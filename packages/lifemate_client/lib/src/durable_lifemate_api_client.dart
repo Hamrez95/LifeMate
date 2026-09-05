@@ -328,6 +328,40 @@ class DurableLifeMateApiClient extends LifeMateApiClient {
     }
   }
 
+  Future<void> enqueueOfflineTreatmentPlanCreate({
+    required String clientRequestId,
+    required String medicationId,
+    required String doseText,
+    String? instructions,
+    required DateTime startDate,
+    DateTime? endDate,
+    required String timeZone,
+    required List<Map<String, String>> schedules,
+    required int patientReminderMinutesBefore,
+    required int caregiverReminderMinutesBefore,
+    DateTime? createdAtUtc,
+  }) async {
+    final runtime = _activeSharedRuntime();
+    if (runtime == null) {
+      throw StateError(
+        'Canonical shared offline runtime must be adopted before treatment enqueue.',
+      );
+    }
+    await runtime.enqueueTreatmentCreate(
+      mutationId: clientRequestId,
+      medicationId: medicationId,
+      doseText: doseText,
+      instructions: instructions,
+      startDate: startDate,
+      endDate: endDate,
+      timeZone: timeZone,
+      schedules: schedules,
+      patientReminderMinutesBefore: patientReminderMinutesBefore,
+      caregiverReminderMinutesBefore: caregiverReminderMinutesBefore,
+      createdAtUtc: createdAtUtc,
+    );
+  }
+
   Future<void> enqueueOfflineTreatmentPlanEdit({
     required String clientRequestId,
     required String treatmentPlanId,
