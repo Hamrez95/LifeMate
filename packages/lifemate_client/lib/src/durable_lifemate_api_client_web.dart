@@ -84,6 +84,38 @@ class DurableLifeMateApiClient extends LifeMateApiClient {
         ),
       );
 
+  Future<LifeMateWomenDailyLogProjectionResult> projectOfflineWomenDailyLogs({
+    required Iterable<Map<String, dynamic>> serverRows,
+    required DateTime fromDate,
+    required DateTime toDate,
+  }) => Future<LifeMateWomenDailyLogProjectionResult>.error(
+    UnsupportedError('Protected offline health execution is unavailable on web.'),
+  );
+
+  Future<void> enqueueOfflineWomenDailyLogUpsert({
+    required String clientRequestId,
+    required DateTime loggedOn,
+    required int version,
+    String? periodFlow,
+    String? bloodAppearance,
+    String? bloodTexture,
+    int? painLevel,
+    Set<String> symptoms = const <String>{},
+    String? privateNotes,
+    DateTime? createdAtUtc,
+  }) => Future<void>.error(
+    UnsupportedError('Protected offline health execution is unavailable on web.'),
+  );
+
+  Future<void> enqueueOfflineWomenDailyLogDelete({
+    required String clientRequestId,
+    required DateTime loggedOn,
+    required int version,
+    DateTime? createdAtUtc,
+  }) => Future<void>.error(
+    UnsupportedError('Protected offline health execution is unavailable on web.'),
+  );
+
   Future<void> enqueueOfflineCareEventCreate({
     required String clientRequestId,
     required String eventType,
