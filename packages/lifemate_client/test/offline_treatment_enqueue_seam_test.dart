@@ -119,6 +119,61 @@ void main() {
     );
     client.close();
   });
+
+  test('durable client queues treatment edit through adopted Person runtime', () async {
+    final database = sqlite3.openInMemory();
+    final store = LifeMateLocalHealthStore.forTesting(
+      database: database,
+      keyBytes: key,
+    );
+    final legacyStorage = _MemoryStorage();
+    final client = DurableLifeMateApiClient(
+      baseUri: Uri.parse('https://api.example.test'),
+      accessToken: () => 'token',
+      accountId: () => 'legacy-auth-a',
+      queue: LifeMateOfflineMutationQueue(storage: legacyStorage),
+      innerHttpClient: _NoNetworkClient(),
+    );
+
+    await client.adoptSharedOfflineRuntime(
+      environmentId: 'production',
+      accountId: 'account-a',
+      personId: 'person-a',
+      legacyAuthenticatedAccountId: 'legacy-auth-a',
+      timeZone: 'Europe/Berlin',
+      localStore: store,
+      legacyStorage: legacyStorage,
+    );
+
+    final mutation = await client.queueTreatmentEdit(
+      mutationId: '123e4567-e89b-42d3-a456-426614174983',
+      treatmentPlanId: '11111111-1111-4111-8111-111111111111',
+      version: 4,
+      medicationVersion: 2,
+      medicationName: 'Medication',
+      doseText: '1 tablet',
+      startDate: DateTime(2026, 9, 5),
+      timeZone: 'Europe/Berlin',
+      schedules: const <Map<String, String>>[
+        {'dayOfWeek': 'wednesday', 'localTime': '09:15'},
+      ],
+      patientReminderMinutesBefore: 15,
+      caregiverReminderMinutesBefore: 30,
+      status: 'active',
+    );
+
+    final outbox = LifeMateLocalMutationOutbox(store: store);
+    final queued = await outbox.list(namespace: namespace);
+    expect(queued, hasLength(1));
+    expect(queued.single.mutationId, mutation.mutationId);
+    expect(queued.single.expectedRevision, '4');
+    expect(queued.single.payload['schedules'], const <Map<String, String>>[
+      {'dayOfWeek': 'wednesday', 'localTime': '09:15'},
+    ]);
+
+    client.close();
+    store.close();
+  });
 }
 
 final class _MemoryStorage implements LifeMateMutationStorage {
