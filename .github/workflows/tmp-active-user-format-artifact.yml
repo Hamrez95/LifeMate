@@ -1,0 +1,41 @@
+name: tmp-active-user-format-artifact
+
+on:
+  push:
+    branches:
+      - feat/769-canonical-active-users-rebased-20260905
+    paths:
+      - 'supabase/functions/lifemate-admin-api/growth_analytics.ts'
+      - 'supabase/functions/lifemate-admin-api/growth_analytics_test.ts'
+      - '.github/workflows/tmp-active-user-format-artifact.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  format:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
+        with:
+          show-progress: false
+          persist-credentials: false
+      - uses: denoland/setup-deno@22d081ff2d3a40755e97629de92e3bcbfa7cf2ed
+        with:
+          deno-version: v2.9.4
+      - name: Format active-user files exactly as CI
+        working-directory: supabase/functions/lifemate-admin-api
+        run: deno fmt growth_analytics.ts growth_analytics_test.ts
+      - name: Stage formatted files
+        run: |
+          mkdir -p /tmp/active-user-format/supabase/functions/lifemate-admin-api
+          cp supabase/functions/lifemate-admin-api/growth_analytics.ts /tmp/active-user-format/supabase/functions/lifemate-admin-api/
+          cp supabase/functions/lifemate-admin-api/growth_analytics_test.ts /tmp/active-user-format/supabase/functions/lifemate-admin-api/
+      - uses: actions/upload-artifact@v4
+        with:
+          name: active-user-deno-formatted
+          path: /tmp/active-user-format
+          if-no-files-found: error
+          retention-days: 1
