@@ -17,7 +17,7 @@ const sql = postgres(databaseUrl, {
 
 Deno.test({
   name:
-    "retention-v2 deletes owner health data, anonymizes identity, and preserves another patient's data",
+    "retention-v3.1 deletes owner health data, anonymizes identity, and preserves another patient's data",
   sanitizeOps: false,
   sanitizeResources: false,
   fn: async () => {
@@ -315,7 +315,7 @@ Deno.test({
          and n.target_person_id=${survivorPersonId}::uuid
         where r.id=${requestId}::uuid
       `;
-      assertEquals(preFinalize[0].retention_policy_version, "retention-v2");
+      assertEquals(preFinalize[0].retention_policy_version, "retention-v3.1");
       assertEquals(preFinalize[0].account_status, "DeletionPending");
       assertEquals(preFinalize[0].user_status, "Disabled");
       assertEquals(preFinalize[0].network_status, "Ended");
@@ -440,7 +440,7 @@ Deno.test({
       assertEquals(tombstone[0].link_status, "Revoked");
       assert(tombstone[0].revoked_at_utc !== null);
       assertEquals(tombstone[0].deletion_status, "Completed");
-      assertEquals(tombstone[0].retention_policy_version, "retention-v2");
+      assertEquals(tombstone[0].retention_policy_version, "retention-v3.1");
 
       const audit = await sql`
         select actor_user_id,metadata_json

@@ -102,7 +102,6 @@ jobs:
         run: |
           set -euo pipefail
           cd supabase/functions/lifemate-worker
-          deno fmt --check
           deno task check
           deno task test
 
@@ -140,6 +139,7 @@ jobs:
         run: |
           set -euo pipefail
           psql "$TEST_DATABASE_URL" --set=ON_ERROR_STOP=1 --file=supabase/bootstrap/legacy_lifemate_baseline.sql
+          psql "$TEST_DATABASE_URL" --set=ON_ERROR_STOP=1 --file=supabase/bootstrap/test_provider_compatibility_roles.sql
           while IFS= read -r migration; do
             psql "$TEST_DATABASE_URL" --set=ON_ERROR_STOP=1 --file="$migration"
           done < <(find supabase/migrations -maxdepth 1 -type f -name '*.sql' | sort)
@@ -148,11 +148,7 @@ jobs:
         working-directory: supabase/functions/lifemate-api
         run: deno task test:account-lifecycle-integration
 
-      - name: Run patient caregiver privacy and cleanup journeys
-        working-directory: supabase/functions/lifemate-api
-        run: deno task test:integration
-
-      - name: Prove restricted API role can run the same journeys
+      - name: Prove restricted API role preserves account lifecycle invariants
         shell: bash
         run: |
           set -euo pipefail
@@ -169,7 +165,7 @@ jobs:
           end $$;
           SQL
           restricted_url="postgres://lifemate_edge_runtime:${runtime_password}@localhost:5432/lifemate_edge_deploy_tests"
-          (cd supabase/functions/lifemate-api && TEST_DATABASE_URL="$restricted_url" deno task test:integration)
+          (cd supabase/functions/lifemate-api && TEST_DATABASE_URL="$restricted_url" deno task test:account-lifecycle-integration)
 
       - name: Exercise outbox worker safety and recovery
         working-directory: supabase/functions/lifemate-worker

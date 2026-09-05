@@ -167,15 +167,24 @@ Deno.test({
       assertEquals(Number(requeuedRow[0].attempt_count), 0);
       assertEquals(requeuedRow[0].dead_lettered_at_utc, null);
 
+      // Privacy-critical identity lifecycle messages are intentionally
+      // non-expiring. Exercise generic age expiry with a projection refresh
+      // event so this queue-safety test does not contradict that invariant.
       const expiredId = crypto.randomUUID();
+      const expiredPersonId = crypto.randomUUID();
+      const expiredSummaryDate = "2026-08-13";
       await sql`
         insert into integration.outbox_messages(
           id, aggregate_type, aggregate_id, event_type, idempotency_key,
           payload_json, status, available_at_utc
         ) values (
-          ${expiredId}::uuid, 'account', ${crypto.randomUUID()}::uuid,
-          'identity.session_revoke_requested', ${`${prefix}:expired`},
-          '{}'::jsonb, 'Pending', now()
+          ${expiredId}::uuid, 'person', ${expiredPersonId}::uuid,
+          'care.adherence_projection_refresh_requested', ${`${prefix}:expired`},
+          ${sql.json({
+        personId: expiredPersonId,
+        summaryDate: expiredSummaryDate,
+      })},
+          'Pending', now()
         )
       `;
       await sql`
@@ -187,7 +196,7 @@ Deno.test({
         select * from integration.claim_outbox_messages_for_events(
           ${workerId}::character varying,
           10,
-          ${["identity.session_revoke_requested"]}::character varying[]
+          ${["care.adherence_projection_refresh_requested"]}::character varying[]
         )
       `;
       const expired = await sql`
