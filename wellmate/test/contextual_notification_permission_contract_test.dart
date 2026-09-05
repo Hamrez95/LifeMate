@@ -24,6 +24,19 @@ void main() {
     expect(source, contains('areNotificationsEnabled()'));
   });
 
+  test('durable care-event cursor waits for reminder reconciliation', () {
+    final source = File(
+      'lib/providers/contextual_notification_provider.dart',
+    ).readAsStringSync();
+    expect(source, contains('api.syncCareEventProjections('));
+    expect(source, contains('beforeCheckpoint: (staged)'));
+    expect(source, contains('staged.affectedRecordKeys'));
+    expect(source, contains('_reconcileAffectedCareEvents('));
+    expect(source, contains('await super.syncReminders('));
+    expect(source, contains('_projectionSyncInFlight'));
+    expect(source, contains("item.type == 'medicine'"));
+  });
+
   test('first-value wrapper reuses canonical treatment form and stays no-scroll', () {
     final gate = File(
       'lib/screens/onboarding/wellmate_first_value_gate.dart',
