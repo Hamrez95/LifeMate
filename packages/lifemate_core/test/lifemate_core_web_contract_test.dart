@@ -2,12 +2,12 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:lifemate_core/lifemate_core_web.dart';
 
 void main() {
-  test('web projection contracts keep native domain wire names', () {
+  test('web projection contracts exactly mirror native domain wire names', () {
     expect(
       LifeMateLocalProjectionDomain.values
           .map((value) => value.wireName)
           .toSet(),
-      containsAll(<String>{
+      equals(<String>{
         'treatment_plan',
         'treatment_occurrence',
         'care_event',
