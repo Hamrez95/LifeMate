@@ -63,22 +63,34 @@ jobs:
           cp -R supabase/functions/lifemate-care-management formatted/supabase/functions/
           git checkout -- supabase/functions/lifemate-api supabase/functions/lifemate-care-management
           exit 0
-      - name: Capture portable schema failure
+      - name: Capture portable schema and account lifecycle baseline
         shell: bash
         run: |
           set +e
+          schema_ok=1
           {
-            psql "$TEST_DATABASE_URL" --set=ON_ERROR_STOP=1 --file=supabase/bootstrap/legacy_lifemate_baseline.sql
-            baseline_exit=$?
-            echo "baseline_exit=$baseline_exit"
-            if [ "$baseline_exit" -eq 0 ]; then
-              psql "$TEST_DATABASE_URL" --set=ON_ERROR_STOP=1 --file=supabase/bootstrap/test_provider_compatibility_roles.sql || exit 0
+            psql "$TEST_DATABASE_URL" --set=ON_ERROR_STOP=1 --file=supabase/bootstrap/legacy_lifemate_baseline.sql || schema_ok=0
+            if [ "$schema_ok" -eq 1 ]; then
+              psql "$TEST_DATABASE_URL" --set=ON_ERROR_STOP=1 --file=supabase/bootstrap/test_provider_compatibility_roles.sql || schema_ok=0
+            fi
+            if [ "$schema_ok" -eq 1 ]; then
               while IFS= read -r migration; do
                 echo "=== applying $migration ==="
-                psql "$TEST_DATABASE_URL" --set=ON_ERROR_STOP=1 --file="$migration" || { echo "failed_migration=$migration"; break; }
+                if ! psql "$TEST_DATABASE_URL" --set=ON_ERROR_STOP=1 --file="$migration"; then
+                  echo "failed_migration=$migration"
+                  schema_ok=0
+                  break
+                fi
               done < <(find supabase/migrations -maxdepth 1 -type f -name '*.sql' | sort)
             fi
+            echo "schema_ok=$schema_ok"
           } > schema-check.txt 2>&1
+          if [ "$schema_ok" -eq 1 ]; then
+            (cd supabase/functions/lifemate-api && deno task test:account-lifecycle-integration) > account-lifecycle-check.txt 2>&1
+            echo "account_lifecycle_exit=$?" >> account-lifecycle-check.txt
+          else
+            echo 'account lifecycle skipped because schema setup failed' > account-lifecycle-check.txt
+          fi
           exit 0
       - name: Upload diagnostic evidence
         if: ${{ always() }}
@@ -90,5 +102,6 @@ jobs:
             formatter.patch
             type-check.txt
             schema-check.txt
+            account-lifecycle-check.txt
             formatted
           if-no-files-found: error
