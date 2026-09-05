@@ -368,6 +368,79 @@ class DurableLifeMateApiClient extends LifeMateApiClient {
     return runtime.pendingTreatmentCreates();
   }
 
+  /// Projects server-confirmed Women Health rows together with locally pending
+  /// owner changes from the canonical Account + Person + environment outbox.
+  /// Pending values stay explicitly unconfirmed.
+  Future<LifeMateWomenDailyLogProjectionResult> projectOfflineWomenDailyLogs({
+    required Iterable<Map<String, dynamic>> serverRows,
+    required DateTime fromDate,
+    required DateTime toDate,
+  }) async {
+    final runtime = _activeSharedRuntime();
+    if (runtime == null) {
+      throw StateError(
+        'Canonical shared offline runtime must be adopted before Women Health projection reads.',
+      );
+    }
+    return runtime.projectWomenDailyLogs(
+      serverRows: serverRows,
+      fromDate: fromDate,
+      toDate: toDate,
+    );
+  }
+
+  Future<void> enqueueOfflineWomenDailyLogUpsert({
+    required String clientRequestId,
+    required DateTime loggedOn,
+    required int version,
+    String? periodFlow,
+    String? bloodAppearance,
+    String? bloodTexture,
+    int? painLevel,
+    Set<String> symptoms = const <String>{},
+    String? privateNotes,
+    DateTime? createdAtUtc,
+  }) async {
+    final runtime = _activeSharedRuntime();
+    if (runtime == null) {
+      throw StateError(
+        'Canonical shared offline runtime must be adopted before Women Health enqueue.',
+      );
+    }
+    await runtime.enqueueWomenDailyLogUpsert(
+      mutationId: clientRequestId,
+      loggedOn: loggedOn,
+      version: version,
+      periodFlow: periodFlow,
+      bloodAppearance: bloodAppearance,
+      bloodTexture: bloodTexture,
+      painLevel: painLevel,
+      symptoms: symptoms,
+      privateNotes: privateNotes,
+      createdAtUtc: createdAtUtc,
+    );
+  }
+
+  Future<void> enqueueOfflineWomenDailyLogDelete({
+    required String clientRequestId,
+    required DateTime loggedOn,
+    required int version,
+    DateTime? createdAtUtc,
+  }) async {
+    final runtime = _activeSharedRuntime();
+    if (runtime == null) {
+      throw StateError(
+        'Canonical shared offline runtime must be adopted before Women Health enqueue.',
+      );
+    }
+    await runtime.enqueueWomenDailyLogDelete(
+      mutationId: clientRequestId,
+      loggedOn: loggedOn,
+      version: version,
+      createdAtUtc: createdAtUtc,
+    );
+  }
+
   Future<void> enqueueOfflineCareEventCreate({
     required String clientRequestId,
     required String eventType,
