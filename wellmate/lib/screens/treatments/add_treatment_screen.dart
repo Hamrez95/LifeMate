@@ -7,6 +7,7 @@ import '../../core/utils/persian_date_utils.dart';
 import '../../core/utils/care_time_picker.dart';
 import '../../core/widgets/labeled_form_field.dart';
 import 'offline_treatment_create.dart';
+import 'health_document_attachment_section.dart';
 import 'treatment_recurrence_editor.dart';
 import 'treatment_schedule_payload.dart';
 
@@ -68,6 +69,8 @@ class _TabbedAddTreatmentScreenState extends State<TabbedAddTreatmentScreen> {
   String? _error;
   List<LifeMateHistoryUsage> _medicationHistory = const [];
   bool _historyLoading = false;
+  List<HealthDocumentAttachmentDraft> _attachments = const [];
+  String? _attachmentPlanId;
 
   static final _forms = <String, String>{
     'tablet': LifeMateRuntimeLocale.select(fa: 'قرص', en: 'Tablet'),
@@ -332,6 +335,11 @@ class _TabbedAddTreatmentScreenState extends State<TabbedAddTreatmentScreen> {
     if (_busy || !_formKey.currentState!.validate()) return;
     if (!_validateScheduleSelections()) return;
 
+    if (_attachmentPlanId != null) {
+      await _retryAttachments();
+      return;
+    }
+
     setState(() {
       _busy = true;
       _error = null;
@@ -369,7 +377,7 @@ class _TabbedAddTreatmentScreenState extends State<TabbedAddTreatmentScreen> {
       );
       var pendingSync = false;
       try {
-        await api.createTreatmentPlan(
+        final plan = await api.createTreatmentPlan(
           medicationId: offlineRequest.medicationId,
           doseText: offlineRequest.doseText,
           instructions: offlineRequest.instructions,
@@ -385,8 +393,16 @@ class _TabbedAddTreatmentScreenState extends State<TabbedAddTreatmentScreen> {
               offlineRequest.caregiverReminderMinutesBefore,
           clientRequestId: clientRequestId,
         );
+        if (_attachments.isNotEmpty) {
+          final uploaded = await _uploadAttachments(api, plan['id']?.toString());
+          if (!uploaded) {
+            widget.onCreated();
+            return;
+          }
+        }
       } on LifeMateApiException catch (error) {
-        if (_recurrenceSelection.enabled ||
+        if (_attachments.isNotEmpty ||
+            _recurrenceSelection.enabled ||
             !canQueueTreatmentCreateOffline(error)) {
           rethrow;
         }
@@ -435,6 +451,67 @@ class _TabbedAddTreatmentScreenState extends State<TabbedAddTreatmentScreen> {
     }
   }
 
+  Future<bool> _uploadAttachments(LifeMateApiClient api, String? planId) async {
+    if (planId == null || planId.isEmpty) {
+      throw const FormatException('Treatment plan identifier is missing.');
+    }
+    final pending = <HealthDocumentAttachmentDraft>[];
+    for (final attachment in _attachments) {
+      try {
+        await api.uploadHealthDocument(
+          bytes: attachment.bytes,
+          contentType: attachment.contentType,
+          category: attachment.category,
+          capturedOn: _startDate,
+          contextType: LifeMateHealthDocumentContextType.treatmentPlan,
+          contextId: planId,
+        );
+      } catch (_) {
+        pending.add(attachment);
+      }
+    }
+    if (pending.isEmpty) return true;
+    if (!mounted) return false;
+    setState(() {
+      _attachments = pending;
+      _attachmentPlanId = planId;
+      _error = LifeMateRuntimeLocale.select(
+        fa: 'درمان ثبت شد؛ ${pending.length} فایل هنوز ارسال نشده است. از دکمه پایین دوباره تلاش کنید.',
+        en: '${pending.length} document uploads are pending. Try again below.',
+      );
+    });
+    return false;
+  }
+
+  Future<void> _retryAttachments() async {
+    final planId = _attachmentPlanId;
+    if (planId == null || _busy) return;
+    setState(() {
+      _busy = true;
+      _error = null;
+    });
+    try {
+      final uploaded = await _uploadAttachments(
+        context.read<LifeMateApiClient>(),
+        planId,
+      );
+      if (!mounted || !uploaded) return;
+      _reset();
+      widget.onCreated();
+      LifeMateNotice.show(
+        context,
+        type: LifeMateNoticeType.success,
+        title: LifeMateRuntimeLocale.select(fa: 'فایل‌ها ارسال شدند', en: 'Documents uploaded'),
+        message: LifeMateRuntimeLocale.select(
+          fa: 'مدارک به پرونده سلامت این درمان اضافه شدند.',
+          en: 'The documents were added to this treatment record.',
+        ),
+      );
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
   void _reset() {
     _name.clear();
     _strength.clear();
@@ -458,6 +535,8 @@ class _TabbedAddTreatmentScreenState extends State<TabbedAddTreatmentScreen> {
         ..clear()
         ..addAll(_backendWeekdays.keys);
       _error = null;
+      _attachments = const [];
+      _attachmentPlanId = null;
     });
   }
 
@@ -786,6 +865,13 @@ class _TabbedAddTreatmentScreenState extends State<TabbedAddTreatmentScreen> {
               ),
             ],
           ),
+          const SizedBox(height: 16),
+          HealthDocumentAttachmentSection(
+            category: LifeMateHealthDocumentCategory.prescription,
+            attachments: _attachments,
+            enabled: !_busy && _attachmentPlanId == null,
+            onChanged: (value) => setState(() => _attachments = value),
+          ),
           if (_error != null) ...[
             const SizedBox(height: 14),
             Container(
@@ -814,7 +900,9 @@ class _TabbedAddTreatmentScreenState extends State<TabbedAddTreatmentScreen> {
                     )
                   : const Icon(Icons.add_task_rounded),
               label: Text(
-                LifeMateRuntimeLocale.select(fa: 'ثبت درمان', en: 'Save treatment'),
+                _attachmentPlanId == null
+                    ? LifeMateRuntimeLocale.select(fa: 'ثبت درمان', en: 'Save treatment')
+                    : LifeMateRuntimeLocale.select(fa: 'ارسال دوباره فایل‌ها', en: 'Retry document uploads'),
                 style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w900),
               ),
             ),

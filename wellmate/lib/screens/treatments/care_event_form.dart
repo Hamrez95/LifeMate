@@ -7,6 +7,7 @@ import '../../core/utils/persian_date_utils.dart';
 import '../../core/utils/care_time_picker.dart';
 import '../../core/widgets/labeled_form_field.dart';
 import 'offline_care_event_create.dart';
+import 'health_document_attachment_section.dart';
 
 enum CarePlanKind { appointment, injection }
 
@@ -63,6 +64,8 @@ class _CareEventFormState extends State<CareEventForm> {
   List<LifeMateHistoryUsage> _historyUsages = const [];
   bool _historyLoading = false;
   bool _historyUnavailable = false;
+  List<HealthDocumentAttachmentDraft> _attachments = const [];
+  String? _attachmentEventId;
 
   bool get _isAppointment => widget.kind == CarePlanKind.appointment;
 
@@ -357,6 +360,11 @@ class _CareEventFormState extends State<CareEventForm> {
     final recurrence = _recurrenceRule();
     if (recurrence == null) return;
 
+    if (_attachmentEventId != null) {
+      await _retryAttachments();
+      return;
+    }
+
     final request = WellMateOfflineCareEventCreateRequest(
       clientRequestId: _clientRequestId,
       eventType: _isAppointment ? 'appointment' : 'injection',
@@ -383,7 +391,7 @@ class _CareEventFormState extends State<CareEventForm> {
       _error = null;
     });
     try {
-      await context.read<LifeMateApiClient>().createCareEvent(
+      final event = await context.read<LifeMateApiClient>().createCareEvent(
         clientRequestId: request.clientRequestId,
         eventType: request.eventType,
         title: request.title,
@@ -404,6 +412,14 @@ class _CareEventFormState extends State<CareEventForm> {
         patientReminderMinutesBefore: request.patientReminderMinutesBefore,
         caregiverReminderMinutesBefore: request.caregiverReminderMinutesBefore,
       );
+      if (_attachments.isNotEmpty) {
+        final uploaded = await _uploadAttachments(event['id']?.toString());
+        if (!uploaded) {
+          widget.onSaveStateChanged?.call(WellMateCareEventSaveState.serverConfirmed);
+          widget.onCreated();
+          return;
+        }
+      }
       if (!mounted) return;
       widget.onSaveStateChanged?.call(WellMateCareEventSaveState.serverConfirmed);
       LifeMateNotice.show(
@@ -425,7 +441,7 @@ class _CareEventFormState extends State<CareEventForm> {
       _reset();
       widget.onCreated();
     } on LifeMateApiException catch (error) {
-      final mayQueue = !recurrence.enabled && canQueueCareEventCreateOffline(error);
+      final mayQueue = _attachments.isEmpty && !recurrence.enabled && canQueueCareEventCreateOffline(error);
       if (mayQueue) {
         final queued = await tryQueueCareEventCreateOffline(
           context,
@@ -468,6 +484,70 @@ class _CareEventFormState extends State<CareEventForm> {
     }
   }
 
+  Future<bool> _uploadAttachments(String? eventId) async {
+    if (eventId == null || eventId.isEmpty) {
+      throw const FormatException('Care event identifier is missing.');
+    }
+    final pending = <HealthDocumentAttachmentDraft>[];
+    final category = _isAppointment
+        ? LifeMateHealthDocumentCategory.visit
+        : LifeMateHealthDocumentCategory.injection;
+    final api = context.read<LifeMateApiClient>();
+    for (final attachment in _attachments) {
+      try {
+        await api.uploadHealthDocument(
+          bytes: attachment.bytes,
+          contentType: attachment.contentType,
+          category: attachment.category == LifeMateHealthDocumentCategory.other
+              ? category
+              : attachment.category,
+          capturedOn: _date,
+          contextType: LifeMateHealthDocumentContextType.careEvent,
+          contextId: eventId,
+        );
+      } catch (_) {
+        pending.add(attachment);
+      }
+    }
+    if (pending.isEmpty) return true;
+    if (!mounted) return false;
+    setState(() {
+      _attachments = pending;
+      _attachmentEventId = eventId;
+      _error = LifeMateRuntimeLocale.select(
+        fa: 'ثبت انجام شد؛ ${pending.length} فایل هنوز ارسال نشده است. از دکمه پایین دوباره تلاش کنید.',
+        en: '${pending.length} document uploads are pending. Try again below.',
+      );
+    });
+    return false;
+  }
+
+  Future<void> _retryAttachments() async {
+    final eventId = _attachmentEventId;
+    if (eventId == null || _busy) return;
+    setState(() {
+      _busy = true;
+      _error = null;
+    });
+    try {
+      final uploaded = await _uploadAttachments(eventId);
+      if (!mounted || !uploaded) return;
+      _reset();
+      widget.onCreated();
+      LifeMateNotice.show(
+        context,
+        type: LifeMateNoticeType.success,
+        title: LifeMateRuntimeLocale.select(fa: 'فایل‌ها ارسال شدند', en: 'Documents uploaded'),
+        message: LifeMateRuntimeLocale.select(
+          fa: 'مدارک به پرونده سلامت این مورد اضافه شدند.',
+          en: 'The documents were added to this care record.',
+        ),
+      );
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
   void _reset() {
     for (final controller in [
       _title,
@@ -498,6 +578,8 @@ class _CareEventFormState extends State<CareEventForm> {
           LifeMateReminderLeadTimes.defaultCaregiverMinutes;
       _clientRequestId = LifeMateApiClient.createClientRequestId();
       _error = null;
+      _attachments = const [];
+      _attachmentEventId = null;
     });
   }
 
@@ -1403,6 +1485,15 @@ class _CareEventFormState extends State<CareEventForm> {
                 icon: Icons.description_rounded,
                 maxLines: 4,
               ),
+              SizedBox(height: 16),
+              HealthDocumentAttachmentSection(
+                category: _isAppointment
+                    ? LifeMateHealthDocumentCategory.visit
+                    : LifeMateHealthDocumentCategory.injection,
+                attachments: _attachments,
+                enabled: !_busy && _attachmentEventId == null,
+                onChanged: (value) => setState(() => _attachments = value),
+              ),
             ],
           ),
           if (_error != null) ...[
@@ -1442,21 +1533,26 @@ class _CareEventFormState extends State<CareEventForm> {
                       ),
                       en: "Registering...",
                     )
-                  : (_isAppointment
-                        ? LifeMateRuntimeLocale.select(
-                            fa: LifeMateRuntimeLocale.select(
-                              fa: 'ثبت ویزیت',
-                              en: "Register a visit",
-                            ),
-                            en: "Register a visit",
-                          )
-                        : LifeMateRuntimeLocale.select(
-                            fa: LifeMateRuntimeLocale.select(
-                              fa: 'ثبت نوبت تزریق',
-                              en: "Registration of injection appointments",
-                            ),
-                            en: "Registration of injection appointments",
-                          )),
+                  : _attachmentEventId != null
+                  ? LifeMateRuntimeLocale.select(
+                      fa: 'ارسال دوباره فایل‌ها',
+                      en: 'Retry document uploads',
+                    )
+                  : _isAppointment
+                  ? LifeMateRuntimeLocale.select(
+                      fa: LifeMateRuntimeLocale.select(
+                        fa: 'ثبت ویزیت',
+                        en: "Register a visit",
+                      ),
+                      en: "Register a visit",
+                    )
+                  : LifeMateRuntimeLocale.select(
+                      fa: LifeMateRuntimeLocale.select(
+                        fa: 'ثبت نوبت تزریق',
+                        en: "Registration of injection appointments",
+                      ),
+                      en: "Registration of injection appointments",
+                    ),
               style: TextStyle(fontWeight: FontWeight.w900),
             ),
           ),
