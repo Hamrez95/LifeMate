@@ -126,11 +126,11 @@ final class LifeMateSharedOfflineRuntime {
   Future<WomenCalendarOfflineSnapshot?> readWomenCalendarSnapshot() =>
       Future<WomenCalendarOfflineSnapshot?>.error(_unsupported());
 
-  Future<Object> projectWomenDailyLogs({
+  Future<LifeMateWomenDailyLogProjectionResult> projectWomenDailyLogs({
     required Iterable<Map<String, dynamic>> serverRows,
     required DateTime fromDate,
     required DateTime toDate,
-  }) => Future<Object>.error(_unsupported());
+  }) => Future<LifeMateWomenDailyLogProjectionResult>.error(_unsupported());
 
   Future<void> enqueueWomenDailyLogUpsert({
     required String mutationId,
