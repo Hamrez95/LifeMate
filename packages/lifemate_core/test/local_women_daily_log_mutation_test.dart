@@ -88,7 +88,7 @@ void main() {
         loggedOn: DateTime(2026, 9, 5),
         version: 0,
         timeZone: 'Asia/Tehran',
-        painLevel: 11,
+        painLevel: 6,
       ),
       throwsArgumentError,
     );
