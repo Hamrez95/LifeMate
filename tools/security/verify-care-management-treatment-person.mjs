@@ -75,7 +75,6 @@ for (const marker of [
   "insert into lifemate.treatment_plans",
   "(id, patient_person_id, medication_id",
   "metadata_json, created_at_utc",
-  "'treatment_plan', ${treatmentPlanId}::uuid, null, now()",
 ]) {
   requireMarker(store, marker, "Person Treatment store contract");
 }
@@ -88,6 +87,11 @@ requirePattern(
   store,
   /owner_person_id\s*=\s*\$\{patientPersonId\}::uuid/,
   "Person Medication ownership",
+);
+requirePattern(
+  store,
+  /'treatment_plan'\s*,\s*\$\{planId\}::uuid\s*,\s*null\s*,\s*now\(\)/,
+  "Person Treatment audit resource binding",
 );
 
 console.log("Care Management Treatment Person boundary verified.");
