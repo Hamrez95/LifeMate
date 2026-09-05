@@ -1,6 +1,11 @@
 name: tmp-cocoon-client-format-apply
 
 on:
+  pull_request:
+    branches:
+      - main
+    paths:
+      - '.github/workflows/tmp-cocoon-client-format-apply.yml'
   push:
     branches:
       - fix/cocoon-client-format-baseline-20260906
