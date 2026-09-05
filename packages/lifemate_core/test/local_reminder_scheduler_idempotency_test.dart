@@ -131,7 +131,8 @@ final class _FakeReminderPlatform implements LifeMateReminderPlatform {
   }
 
   @override
-  Future<List<PendingNotificationRequest>> pendingNotificationRequests() async =>
+  Future<List<PendingNotificationRequest>>
+  pendingNotificationRequests() async =>
       List<PendingNotificationRequest>.from(pending);
 
   @override
