@@ -8,6 +8,7 @@ import 'offline_mutation_queue.dart';
 import 'offline_sync_result.dart';
 
 typedef LifeMateAccountIdProvider = String? Function();
+typedef LifeMateReplayDelegate = Future<LifeMateOfflineSyncResult> Function();
 
 class LifeMateDurableHttpClient extends http.BaseClient {
   LifeMateDurableHttpClient({
@@ -17,12 +18,12 @@ class LifeMateDurableHttpClient extends http.BaseClient {
     LifeMateOfflineMutationQueue? queue,
     http.Client? inner,
     Duration transportTimeout = const Duration(seconds: 18),
-  })  : _apiBaseUri = apiBaseUri,
-        _accessToken = accessToken,
-        _accountId = accountId,
-        _queue = queue ?? LifeMateOfflineMutationQueue(),
-        _inner = inner ?? http.Client(),
-        _transportTimeout = transportTimeout;
+  }) : _apiBaseUri = apiBaseUri,
+       _accessToken = accessToken,
+       _accountId = accountId,
+       _queue = queue ?? LifeMateOfflineMutationQueue(),
+       _inner = inner ?? http.Client(),
+       _transportTimeout = transportTimeout;
 
   final Uri _apiBaseUri;
   final AccessTokenProvider _accessToken;
@@ -30,6 +31,8 @@ class LifeMateDurableHttpClient extends http.BaseClient {
   final LifeMateOfflineMutationQueue _queue;
   final http.Client _inner;
   final Duration _transportTimeout;
+  LifeMateReplayDelegate? _replayDelegate;
+  bool _deferReplayUntilDelegate = false;
   bool _flushing = false;
   bool _closed = false;
 
@@ -38,6 +41,29 @@ class LifeMateDurableHttpClient extends http.BaseClient {
     caseSensitive: false,
   );
 
+  /// Storage seam used only by the #831 lossless importer. Durable payloads
+  /// remain encapsulated by the queue for all product/runtime code.
+  LifeMateMutationStorage get migrationStorage => _queue.migrationStorage;
+
+  /// Prevents the transitional account-only queue from replaying before the
+  /// server has resolved canonical Account + Person identity. Writes remain
+  /// durably captured and are later imported by the shared runtime.
+  void deferReplayUntilDelegate() {
+    if (_closed) throw StateError('Client is closed.');
+    _deferReplayUntilDelegate = true;
+  }
+
+  /// Switches replay ownership to the shared Account/Person-scoped runtime.
+  /// The legacy queue continues to capture an allow-listed write before its
+  /// network attempt until capture itself is moved into lifemate_core.
+  void useReplayDelegate(LifeMateReplayDelegate delegate) {
+    if (_closed) throw StateError('Client is closed.');
+    _replayDelegate = delegate;
+  }
+
+  bool get _canAutoReplay =>
+      !_deferReplayUntilDelegate || _replayDelegate != null;
+
   @override
   Future<http.StreamedResponse> send(http.BaseRequest request) async {
     if (_closed) throw http.ClientException('Client is closed.', request.url);
@@ -45,7 +71,9 @@ class LifeMateDurableHttpClient extends http.BaseClient {
     final durable = await _durableCandidate(request);
     if (durable == null) {
       final response = await _inner.send(request);
-      if (_isSuccess(response.statusCode)) unawaited(flushPending());
+      if (_isSuccess(response.statusCode) && _canAutoReplay) {
+        unawaited(flushPending());
+      }
       return response;
     }
 
@@ -76,7 +104,9 @@ class LifeMateDurableHttpClient extends http.BaseClient {
           );
         }
       }
-      if (_isSuccess(response.statusCode)) unawaited(flushPending());
+      if (_isSuccess(response.statusCode) && _canAutoReplay) {
+        unawaited(flushPending());
+      }
       return response;
     } on LifeMateOfflineQueuedException {
       rethrow;
@@ -99,10 +129,19 @@ class LifeMateDurableHttpClient extends http.BaseClient {
 
   Future<int> flushPending() async => (await flushPendingDetailed()).synced;
 
-  /// Replays only the allow-listed durable writes and returns a low-cardinality
-  /// summary suitable for user feedback. It intentionally contains no mutation
-  /// IDs, URLs, request bodies, health values, account IDs or server messages.
+  /// Replays through the shared runtime once one has been adopted. If replay
+  /// has been deferred, account-only actions remain untouched until canonical
+  /// Person resolution installs the shared delegate.
   Future<LifeMateOfflineSyncResult> flushPendingDetailed() async {
+    final delegate = _replayDelegate;
+    if (delegate != null) return delegate();
+    if (_deferReplayUntilDelegate) return const LifeMateOfflineSyncResult();
+    return _flushLegacyPendingDetailed();
+  }
+
+  /// Transitional pre-#831 replay path retained only for callers that have not
+  /// opted into canonical Account/Person runtime adoption.
+  Future<LifeMateOfflineSyncResult> _flushLegacyPendingDetailed() async {
     if (_flushing || _closed) return const LifeMateOfflineSyncResult();
     final startingAccountId = _accountId()?.trim();
     if (startingAccountId == null || startingAccountId.isEmpty) {
@@ -252,8 +291,8 @@ class LifeMateDurableHttpClient extends http.BaseClient {
   bool _isCurrentApiUri(Uri uri) {
     final sameOrigin =
         uri.scheme.toLowerCase() == _apiBaseUri.scheme.toLowerCase() &&
-            uri.host.toLowerCase() == _apiBaseUri.host.toLowerCase() &&
-            uri.port == _apiBaseUri.port;
+        uri.host.toLowerCase() == _apiBaseUri.host.toLowerCase() &&
+        uri.port == _apiBaseUri.port;
     if (!sameOrigin) return false;
     final basePath = _apiBaseUri.path.replaceFirst(RegExp(r'/+$'), '');
     return basePath.isEmpty ||
@@ -292,6 +331,7 @@ class LifeMateDurableHttpClient extends http.BaseClient {
   @override
   void close() {
     _closed = true;
+    _replayDelegate = null;
     _inner.close();
     super.close();
   }

@@ -4,6 +4,7 @@ import 'dart:convert';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:lifemate_client/lifemate_client.dart';
+import 'package:lifemate_client/src/mutation_replay_transport.dart';
 import 'package:lifemate_core/lifemate_core.dart';
 
 void main() {

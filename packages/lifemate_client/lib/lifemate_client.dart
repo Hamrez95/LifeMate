@@ -42,7 +42,8 @@ export 'src/lifemate_experience_gate.dart';
 export 'src/locale_digit_input_formatter.dart';
 export 'src/medication_schedule_api.dart';
 export 'src/medication_sleep_schedule_api.dart';
-export 'src/mutation_replay_transport.dart';
+export 'src/native_offline_api_stub.dart'
+    if (dart.library.io) 'src/mutation_replay_transport.dart';
 export 'src/notification_intelligence.dart';
 export 'src/nullable_women_calendar_estimate.dart';
 export 'src/offline_mutation_queue.dart';

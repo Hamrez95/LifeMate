@@ -7,6 +7,7 @@ import 'durable_http_client.dart';
 import 'lifemate_api_client.dart';
 import 'offline_mutation_queue.dart';
 import 'offline_sync_result.dart';
+import 'shared_offline_runtime.dart';
 
 class LifeMatePendingSyncEvent {
   const LifeMatePendingSyncEvent({
@@ -30,13 +31,17 @@ class DurableLifeMateApiClient extends LifeMateApiClient {
   DurableLifeMateApiClient._({
     required Uri baseUri,
     required AccessTokenProvider accessToken,
+    required LifeMateAccountIdProvider accountId,
     required LifeMateDurableHttpClient durableHttp,
-  })  : _durableHttp = durableHttp,
-        super(
-          baseUri: baseUri,
-          accessToken: accessToken,
-          httpClient: durableHttp,
-        );
+  }) : _baseUri = baseUri,
+       _accessToken = accessToken,
+       _legacyAuthenticatedAccountId = accountId,
+       _durableHttp = durableHttp,
+       super(
+         baseUri: baseUri,
+         accessToken: accessToken,
+         httpClient: durableHttp,
+       );
 
   factory DurableLifeMateApiClient({
     required Uri baseUri,
@@ -55,11 +60,135 @@ class DurableLifeMateApiClient extends LifeMateApiClient {
     return DurableLifeMateApiClient._(
       baseUri: baseUri,
       accessToken: accessToken,
+      accountId: accountId,
       durableHttp: durableHttp,
     );
   }
 
+  final Uri _baseUri;
+  final AccessTokenProvider _accessToken;
+  final LifeMateAccountIdProvider _legacyAuthenticatedAccountId;
   final LifeMateDurableHttpClient _durableHttp;
+  LifeMateSharedOfflineRuntime? _sharedRuntime;
+  String? _sharedRuntimeLegacyAccountId;
+
+  @override
+  Future<Map<String, dynamic>> bootstrapUser({
+    required String? displayName,
+    required String? email,
+    String locale = 'fa',
+    String timeZone = 'Asia/Tehran',
+  }) async {
+    // Native app bootstrap is the transition point from the historical
+    // auth-subject queue to canonical Account + Person scope. Web deliberately
+    // keeps the existing browser-compatible replay path until a separately
+    // reviewed protected browser store exists.
+    if (!kIsWeb) {
+      _durableHttp.deferReplayUntilDelegate();
+    }
+    final bootstrapped = await super.bootstrapUser(
+      displayName: displayName,
+      email: email,
+      locale: locale,
+      timeZone: timeZone,
+    );
+    if (kIsWeb) return bootstrapped;
+
+    final legacyAuthenticatedAccountId = _legacyAuthenticatedAccountId()
+        ?.trim();
+    if (legacyAuthenticatedAccountId == null ||
+        legacyAuthenticatedAccountId.isEmpty) {
+      throw const LifeMateApiException(
+        statusCode: 401,
+        code: 'offline_identity_unavailable',
+        message: 'Authenticated identity is unavailable for offline runtime.',
+      );
+    }
+
+    final capabilities = await super.getCapabilities();
+    final personId = capabilities.selfPersonId?.trim();
+    if (personId == null || personId.isEmpty) {
+      throw const LifeMateApiException(
+        statusCode: 409,
+        code: 'identity_person_mapping_missing',
+        message: 'The LifeMate person mapping is unavailable.',
+      );
+    }
+    await adoptSharedOfflineRuntime(
+      environmentId: _baseUri.toString(),
+      accountId: capabilities.accountId,
+      personId: personId,
+      legacyAuthenticatedAccountId: legacyAuthenticatedAccountId,
+      timeZone: timeZone,
+    );
+    return bootstrapped;
+  }
+
+  /// Moves replay ownership from the pre-#831 auth-subject queue to the shared
+  /// encrypted Environment + canonical Account + Person runtime. The caller
+  /// must supply canonical IDs from lifemate-api capabilities and the current
+  /// authenticated legacy ID separately; UUID equality is never assumed.
+  Future<void> adoptSharedOfflineRuntime({
+    required String environmentId,
+    required String accountId,
+    required String personId,
+    required String legacyAuthenticatedAccountId,
+    required String timeZone,
+  }) async {
+    final normalizedAccount = accountId.trim();
+    final normalizedPerson = personId.trim();
+    final normalizedEnvironment = environmentId.trim();
+    final normalizedLegacyAccount = legacyAuthenticatedAccountId.trim();
+    final normalizedTimeZone = timeZone.trim();
+    if (normalizedAccount.isEmpty ||
+        normalizedPerson.isEmpty ||
+        normalizedEnvironment.isEmpty ||
+        normalizedLegacyAccount.isEmpty ||
+        normalizedTimeZone.isEmpty) {
+      throw ArgumentError(
+        'Shared offline runtime requires environment, canonical account, Person, authenticated legacy account and timezone.',
+      );
+    }
+    if (_legacyAuthenticatedAccountId()?.trim() != normalizedLegacyAccount) {
+      throw StateError(
+        'Authenticated account changed during offline adoption.',
+      );
+    }
+
+    final namespace = LifeMateOfflineNamespace(
+      environmentId: normalizedEnvironment,
+      accountId: normalizedAccount,
+      personId: normalizedPerson,
+    );
+    final current = _activeSharedRuntime();
+    if (current != null && _sameNamespace(current.namespace, namespace)) return;
+
+    final next = await LifeMateSharedOfflineRuntime.open(
+      namespace: namespace,
+      timeZone: normalizedTimeZone,
+      apiBaseUri: _baseUri,
+      accessToken: _accessToken,
+      legacyAccountIds: <String>{normalizedLegacyAccount},
+      legacyStorage: _durableHttp.migrationStorage,
+    );
+    if (_legacyAuthenticatedAccountId()?.trim() != normalizedLegacyAccount) {
+      next.close();
+      throw StateError(
+        'Authenticated account changed during offline adoption.',
+      );
+    }
+
+    final previous = _sharedRuntime;
+    _sharedRuntime = next;
+    _sharedRuntimeLegacyAccountId = normalizedLegacyAccount;
+    _durableHttp.useReplayDelegate(() async {
+      if (_legacyAuthenticatedAccountId()?.trim() != normalizedLegacyAccount) {
+        return const LifeMateOfflineSyncResult();
+      }
+      return next.flushDetailed();
+    });
+    previous?.close();
+  }
 
   @override
   Future<Map<String, dynamic>> reportDose({
@@ -130,6 +259,9 @@ class DurableLifeMateApiClient extends LifeMateApiClient {
   }
 
   Future<Map<String, String>> _pendingDoseStates() async {
+    final shared = _activeSharedRuntime();
+    if (shared != null) return shared.pendingAdherenceStates();
+
     final pending = await _durableHttp.pendingMutations();
     final result = <String, String>{};
     for (final mutation in pending) {
@@ -156,23 +288,28 @@ class DurableLifeMateApiClient extends LifeMateApiClient {
     List<dynamic> values,
     Map<String, String> pending,
   ) {
-    return values.whereType<Map>().map((raw) {
-      final value = <String, dynamic>{
-        for (final entry in raw.entries) entry.key.toString(): entry.value,
-      };
-      final id = value['id']?.toString();
-      final desiredStatus = id == null ? null : pending[id];
-      if (desiredStatus == null) return value;
+    return values
+        .whereType<Map>()
+        .map((raw) {
+          final value = <String, dynamic>{
+            for (final entry in raw.entries) entry.key.toString(): entry.value,
+          };
+          final id = value['id']?.toString();
+          final desiredStatus = id == null ? null : pending[id];
+          if (desiredStatus == null) return value;
 
-      final serverStatus = value['status']?.toString().toLowerCase();
-      if (serverStatus == 'taken' || serverStatus == 'skipped') return value;
-      return <String, dynamic>{
-        ...value,
-        'status': 'pending_sync',
-        'pendingSync': true,
-        'pendingStatus': desiredStatus,
-      };
-    }).toList(growable: false);
+          final serverStatus = value['status']?.toString().toLowerCase();
+          if (serverStatus == 'taken' || serverStatus == 'skipped') {
+            return value;
+          }
+          return <String, dynamic>{
+            ...value,
+            'status': 'pending_sync',
+            'pendingSync': true,
+            'pendingStatus': desiredStatus,
+          };
+        })
+        .toList(growable: false);
   }
 
   Future<int> flushPendingMutations() async =>
@@ -184,5 +321,37 @@ class DurableLifeMateApiClient extends LifeMateApiClient {
     return result;
   }
 
-  Future<int> pendingMutationCount() => _durableHttp.pendingCount();
+  Future<int> pendingMutationCount() async {
+    final shared = _activeSharedRuntime();
+    return shared == null
+        ? _durableHttp.pendingCount()
+        : shared.pendingMutationCount();
+  }
+
+  LifeMateSharedOfflineRuntime? _activeSharedRuntime() {
+    final runtime = _sharedRuntime;
+    final boundLegacyAccount = _sharedRuntimeLegacyAccountId;
+    if (runtime == null ||
+        boundLegacyAccount == null ||
+        _legacyAuthenticatedAccountId()?.trim() != boundLegacyAccount) {
+      return null;
+    }
+    return runtime;
+  }
+
+  @override
+  void close() {
+    _sharedRuntime?.close();
+    _sharedRuntime = null;
+    _sharedRuntimeLegacyAccountId = null;
+    super.close();
+  }
+
+  static bool _sameNamespace(
+    LifeMateOfflineNamespace left,
+    LifeMateOfflineNamespace right,
+  ) =>
+      left.environmentId == right.environmentId &&
+      left.accountId == right.accountId &&
+      left.personId == right.personId;
 }
