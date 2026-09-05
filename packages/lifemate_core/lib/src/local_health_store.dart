@@ -21,7 +21,8 @@ enum LifeMateLocalProjectionDomain {
   pregnancyContent('pregnancy_content'),
   healthObservation('health_observation'),
   pendingMutation('pending_mutation'),
-  notificationSchedule('notification_schedule');
+  notificationSchedule('notification_schedule'),
+  syncMetadata('sync_metadata');
 
   const LifeMateLocalProjectionDomain(this.wireName);
 
@@ -648,44 +649,33 @@ final class LifeMateLocalHealthStore {
         _database.select('PRAGMA user_version').first['user_version'] as int;
     if (finalVersion != schemaVersion) {
       throw LifeMateLocalStoreSchemaException(
-        'Database schema migration did not reach version $schemaVersion.',
+        'Database migration did not reach schema $schemaVersion.',
+      );
+    }
+
+    final tableRows = _database.select(
+      "SELECT name FROM sqlite_master WHERE type='table' AND name='lifemate_local_projection_records'",
+    );
+    if (tableRows.isEmpty) {
+      throw const LifeMateLocalStoreSchemaException(
+        'Local projection table is missing after migration.',
       );
     }
   }
 
-  _StoredSelectors _selectors(
-    LifeMateLocalNamespace namespace,
-    LifeMateLocalProjectionDomain domain,
-    String recordKey,
-  ) {
-    final base = _namespaceSelectors(namespace);
-    final domainToken = _token('domain', <String>[domain.wireName]);
-    final recordToken = _token('record', <String>[
-      base.namespaceToken,
-      domain.wireName,
-      recordKey,
-    ]);
-    return _StoredSelectors(
-      environmentToken: base.environmentToken,
-      accountToken: base.accountToken,
-      namespaceToken: base.namespaceToken,
-      domainToken: domainToken,
-      recordToken: recordToken,
-    );
-  }
-
   _NamespaceSelectors _namespaceSelectors(LifeMateLocalNamespace namespace) {
-    final environmentToken = _token('environment', <String>[
+    final environment = _requireIdentifier(
       namespace.environmentId,
-    ]);
-    final accountToken = _token('account', <String>[
-      namespace.environmentId,
-      namespace.accountId,
-    ]);
+      'environmentId',
+    );
+    final account = _requireIdentifier(namespace.accountId, 'accountId');
+    final person = _requireIdentifier(namespace.personId, 'personId');
+    final environmentToken = _token('environment', <String>[environment]);
+    final accountToken = _token('account', <String>[environment, account]);
     final namespaceToken = _token('namespace', <String>[
-      namespace.environmentId,
-      namespace.accountId,
-      namespace.personId,
+      environment,
+      account,
+      person,
     ]);
     return _NamespaceSelectors(
       environmentToken: environmentToken,
@@ -694,55 +684,57 @@ final class LifeMateLocalHealthStore {
     );
   }
 
-  String _token(String purpose, List<String> parts) {
-    final hmac = crypto.Hmac(crypto.sha256, _keyBytes);
-    final bytes = utf8.encode(
-      <String>['lifemate-local-v1', purpose, ...parts].join('\u0000'),
+  _StoredSelectors _selectors(
+    LifeMateLocalNamespace namespace,
+    LifeMateLocalProjectionDomain domain,
+    String recordKey,
+  ) {
+    final namespaceSelectors = _namespaceSelectors(namespace);
+    final domainToken = _token('domain', <String>[domain.wireName]);
+    final recordToken = _token('record', <String>[
+      namespaceSelectors.namespaceToken,
+      domain.wireName,
+      recordKey,
+    ]);
+    return _StoredSelectors(
+      environmentToken: namespaceSelectors.environmentToken,
+      accountToken: namespaceSelectors.accountToken,
+      namespaceToken: namespaceSelectors.namespaceToken,
+      domainToken: domainToken,
+      recordToken: recordToken,
     );
-    return base64Url.encode(hmac.convert(bytes).bytes).replaceAll('=', '');
   }
 
-  List<int> _aad(_StoredSelectors selectors) => utf8.encode(
-    <String>[
-      'lifemate-local-envelope-v1',
-      selectors.environmentToken,
-      selectors.accountToken,
-      selectors.namespaceToken,
-      selectors.domainToken,
-      selectors.recordToken,
-    ].join('\u0000'),
+  String _token(String purpose, List<String> parts) {
+    final bytes = utf8.encode('$purpose\u0000${parts.join('\u0000')}');
+    final digest = crypto.Hmac(crypto.sha256, _keyBytes).convert(bytes);
+    return base64Url.encode(digest.bytes).replaceAll('=', '');
+  }
+
+  static List<int> _aad(_StoredSelectors selectors) => utf8.encode(
+    'lifemate-local-v1\u0000${selectors.namespaceToken}\u0000${selectors.domainToken}\u0000${selectors.recordToken}',
   );
 
-  static Uint8List _blob(Object? value) {
+  static List<int> _blob(Object? value) {
     if (value is Uint8List) return value;
-    if (value is List<int>) return Uint8List.fromList(value);
+    if (value is List<int>) return value;
     throw const LifeMateLocalStoreCorruptionException();
-  }
-
-  static String _requireRecordKey(String value) {
-    final normalized = value.trim();
-    if (normalized.isEmpty || normalized.length > 200) {
-      throw ArgumentError.value(
-        value,
-        'recordKey',
-        'recordKey must contain 1-200 characters.',
-      );
-    }
-    return normalized;
   }
 
   static String _requireIdentifier(String value, String field) {
     final normalized = value.trim();
-    if (normalized.isEmpty) {
-      throw ArgumentError.value(value, field, '$field must not be empty.');
+    if (normalized.isEmpty || normalized.length > 512) {
+      throw ArgumentError.value(value, field, 'Invalid local identifier.');
     }
     return normalized;
   }
 
+  static String _requireRecordKey(String value) =>
+      _requireIdentifier(value, 'recordKey');
+
   static String? _nullableTrim(String? value) {
-    if (value == null) return null;
-    final normalized = value.trim();
-    return normalized.isEmpty ? null : normalized;
+    final normalized = value?.trim();
+    return normalized == null || normalized.isEmpty ? null : normalized;
   }
 
   void _ensureOpen() {
