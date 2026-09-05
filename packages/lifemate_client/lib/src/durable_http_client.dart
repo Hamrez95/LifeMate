@@ -8,6 +8,7 @@ import 'offline_mutation_queue.dart';
 import 'offline_sync_result.dart';
 
 typedef LifeMateAccountIdProvider = String? Function();
+typedef LifeMateReplayDelegate = Future<LifeMateOfflineSyncResult> Function();
 
 class LifeMateDurableHttpClient extends http.BaseClient {
   LifeMateDurableHttpClient({
@@ -30,6 +31,7 @@ class LifeMateDurableHttpClient extends http.BaseClient {
   final LifeMateOfflineMutationQueue _queue;
   final http.Client _inner;
   final Duration _transportTimeout;
+  LifeMateReplayDelegate? _replayDelegate;
   bool _flushing = false;
   bool _closed = false;
 
@@ -37,6 +39,18 @@ class LifeMateDurableHttpClient extends http.BaseClient {
     r'/api/v1/dose-occurrences/[0-9a-f-]{36}/report$',
     caseSensitive: false,
   );
+
+  /// Storage seam used only by the #831 lossless importer. Durable payloads
+  /// remain encapsulated by the queue for all product/runtime code.
+  LifeMateMutationStorage get migrationStorage => _queue.migrationStorage;
+
+  /// Switches replay ownership to the shared Account/Person-scoped runtime.
+  /// The legacy queue continues to capture an allow-listed write before its
+  /// network attempt until capture itself is moved into lifemate_core.
+  void useReplayDelegate(LifeMateReplayDelegate delegate) {
+    if (_closed) throw StateError('Client is closed.');
+    _replayDelegate = delegate;
+  }
 
   @override
   Future<http.StreamedResponse> send(http.BaseRequest request) async {
@@ -99,10 +113,17 @@ class LifeMateDurableHttpClient extends http.BaseClient {
 
   Future<int> flushPending() async => (await flushPendingDetailed()).synced;
 
-  /// Replays only the allow-listed durable writes and returns a low-cardinality
-  /// summary suitable for user feedback. It intentionally contains no mutation
-  /// IDs, URLs, request bodies, health values, account IDs or server messages.
+  /// Replays through the shared runtime once one has been adopted. Before
+  /// adoption, the legacy behavior is retained so bootstrap is migration-safe.
   Future<LifeMateOfflineSyncResult> flushPendingDetailed() async {
+    final delegate = _replayDelegate;
+    if (delegate != null) return delegate();
+    return _flushLegacyPendingDetailed();
+  }
+
+  /// Transitional pre-#831 replay path. Runtime adoption installs a delegate so
+  /// accepted actions are migrated to and replayed from the shared outbox.
+  Future<LifeMateOfflineSyncResult> _flushLegacyPendingDetailed() async {
     if (_flushing || _closed) return const LifeMateOfflineSyncResult();
     final startingAccountId = _accountId()?.trim();
     if (startingAccountId == null || startingAccountId.isEmpty) {
@@ -292,6 +313,7 @@ class LifeMateDurableHttpClient extends http.BaseClient {
   @override
   void close() {
     _closed = true;
+    _replayDelegate = null;
     _inner.close();
     super.close();
   }
