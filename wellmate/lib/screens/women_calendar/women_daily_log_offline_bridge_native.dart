@@ -3,9 +3,10 @@ import 'package:lifemate_core/lifemate_core.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 final class WomenDailyLogOfflineBridge {
-  WomenDailyLogOfflineBridge._(this._runtime);
+  WomenDailyLogOfflineBridge._(this._runtime, this._dailyLogCache);
 
   final LifeMateSharedOfflineRuntime _runtime;
+  final WomenDailyLogOfflineCache _dailyLogCache;
 
   static Future<WomenDailyLogOfflineBridge> open({
     required LifeMateApiClient apiClient,
@@ -32,18 +33,31 @@ final class WomenDailyLogOfflineBridge {
     }
 
     final config = AppConfig.fromEnvironment();
+    final localNamespace = LifeMateLocalNamespace(
+      environmentId: config.apiBaseUri.toString(),
+      accountId: accountId,
+      personId: personId,
+    );
     final runtime = await LifeMateSharedOfflineRuntime.open(
       namespace: LifeMateOfflineNamespace(
-        environmentId: config.apiBaseUri.toString(),
-        accountId: accountId,
-        personId: personId,
+        environmentId: localNamespace.environmentId,
+        accountId: localNamespace.accountId,
+        personId: localNamespace.personId,
       ),
       timeZone: 'Asia/Tehran',
       apiBaseUri: config.apiBaseUri,
       accessToken: () => Supabase.instance.client.auth.currentSession?.accessToken,
       legacyAccountIds: <String>{legacyAccountId},
     );
-    return WomenDailyLogOfflineBridge._(runtime);
+    try {
+      final dailyLogCache = await WomenDailyLogOfflineCache.openDefault(
+        namespace: localNamespace,
+      );
+      return WomenDailyLogOfflineBridge._(runtime, dailyLogCache);
+    } catch (_) {
+      runtime.close();
+      rethrow;
+    }
   }
 
   Future<LifeMateWomenDailyLogProjectionResult> project({
@@ -55,6 +69,14 @@ final class WomenDailyLogOfflineBridge {
     fromDate: fromDate,
     toDate: toDate,
   );
+
+  Future<void> cacheServerDay({
+    required DateTime date,
+    required Iterable<Map<String, dynamic>> serverRows,
+  }) => _dailyLogCache.cacheServerDay(date: date, serverRows: serverRows);
+
+  Future<List<Map<String, dynamic>>?> readCachedServerDay(DateTime date) =>
+      _dailyLogCache.readServerDay(date);
 
   Future<void> enqueueUpsert({
     required String mutationId,
@@ -80,5 +102,8 @@ final class WomenDailyLogOfflineBridge {
 
   Future<LifeMateOfflineSyncResult> flush() => _runtime.flushDetailed();
 
-  void close() => _runtime.close();
+  void close() {
+    _dailyLogCache.close();
+    _runtime.close();
+  }
 }
