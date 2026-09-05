@@ -15,6 +15,7 @@ void main() {
         keyBytes: key,
       );
       addTearDown(store.close);
+      final legacyStorage = _MemoryMutationStorage();
 
       Future<LifeMateSharedOfflineRuntime> openRuntime(String personId) =>
           LifeMateSharedOfflineRuntime.open(
@@ -27,6 +28,7 @@ void main() {
             apiBaseUri: Uri.parse('https://api.example.test'),
             accessToken: () => 'test-token',
             store: store,
+            legacyStorage: legacyStorage,
           );
 
       final ownerRuntime = await openRuntime('person-a');
@@ -59,4 +61,25 @@ void main() {
       expect(await otherPersonRuntime.careEventProjections(), isEmpty);
     },
   );
+}
+
+final class _MemoryMutationStorage implements LifeMateMutationStorage {
+  final Map<String, String> _values = <String, String>{};
+
+  @override
+  Future<void> delete(String key) async {
+    _values.remove(key);
+  }
+
+  @override
+  Future<String?> read(String key) async => _values[key];
+
+  @override
+  Future<Map<String, String>> readAll() async =>
+      Map<String, String>.unmodifiable(_values);
+
+  @override
+  Future<void> write(String key, String value) async {
+    _values[key] = value;
+  }
 }
