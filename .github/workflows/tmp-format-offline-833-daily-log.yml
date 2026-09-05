@@ -1,0 +1,39 @@
+name: tmp-format-offline-833-daily-log
+
+on:
+  push:
+    branches:
+      - feat/offline-833-women-daily-log-outbox-20260905
+
+permissions:
+  contents: write
+
+jobs:
+  format-and-remove:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
+        with:
+          ref: feat/offline-833-women-daily-log-outbox-20260905
+      - uses: subosito/flutter-action@4cab68ce0f1c7c924f688bff4792e044f1aeb30c
+        with:
+          channel: stable
+      - name: Format owned Dart files
+        run: |
+          dart format \
+            packages/lifemate_core/lib/lifemate_core_native.dart \
+            packages/lifemate_core/lib/src/local_women_daily_log_mutation.dart \
+            packages/lifemate_core/test/local_women_daily_log_mutation_test.dart \
+            packages/lifemate_core/test/local_women_daily_log_mutation_enqueue_test.dart
+      - name: Remove temporary workflow and commit reconciliation
+        run: |
+          git rm .github/workflows/tmp-format-offline-833-daily-log.yml
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add packages/lifemate_core/lib/lifemate_core_native.dart \
+                  packages/lifemate_core/lib/src/local_women_daily_log_mutation.dart \
+                  packages/lifemate_core/test/local_women_daily_log_mutation_test.dart \
+                  packages/lifemate_core/test/local_women_daily_log_mutation_enqueue_test.dart
+          git commit -m "style(women): apply canonical core formatter (#833)"
+          git push origin HEAD:feat/offline-833-women-daily-log-outbox-20260905
