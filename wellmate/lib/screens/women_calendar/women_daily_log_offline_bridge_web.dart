@@ -18,6 +18,18 @@ final class WomenDailyLogOfflineBridge {
     UnsupportedError('Protected offline health execution is unavailable on web.'),
   );
 
+  Future<void> cacheServerDay({
+    required DateTime date,
+    required Iterable<Map<String, dynamic>> serverRows,
+  }) => Future<void>.error(
+    UnsupportedError('Protected offline health execution is unavailable on web.'),
+  );
+
+  Future<List<Map<String, dynamic>>?> readCachedServerDay(DateTime date) =>
+      Future<List<Map<String, dynamic>>?>.error(
+        UnsupportedError('Protected offline health execution is unavailable on web.'),
+      );
+
   Future<void> enqueueUpsert({
     required String mutationId,
     required DateTime loggedOn,

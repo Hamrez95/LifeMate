@@ -48,13 +48,16 @@ class _WomenDailyLogLauncherState extends State<WomenDailyLogLauncher> {
       }
 
       List<Map<String, dynamic>> serverLogs;
-      LifeMateApiException? listFailure;
       try {
         serverLogs = await api.list(from: widget.date, to: widget.date);
+        if (offline != null) {
+          await offline.cacheServerDay(date: widget.date, serverRows: serverLogs);
+        }
       } on LifeMateApiException catch (error) {
         if (offline == null || !_canQueueOffline(error)) rethrow;
-        serverLogs = const <Map<String, dynamic>>[];
-        listFailure = error;
+        final cached = await offline.readCachedServerDay(widget.date);
+        if (cached == null) rethrow;
+        serverLogs = cached;
       }
 
       var logs = serverLogs;
@@ -65,9 +68,6 @@ class _WomenDailyLogLauncherState extends State<WomenDailyLogLauncher> {
           toDate: widget.date,
         );
         logs = projection.rows;
-        if (listFailure != null && logs.isEmpty) {
-          throw listFailure;
-        }
         if (mounted) {
           setState(() {
             pendingSync = projection.hasPending;
@@ -104,7 +104,13 @@ class _WomenDailyLogLauncherState extends State<WomenDailyLogLauncher> {
       final requestId = LifeMateApiClient.createClientRequestId();
       var queuedOffline = false;
       try {
-        await api.save(draft, clientRequestId: requestId);
+        final saved = await api.save(draft, clientRequestId: requestId);
+        if (offline != null) {
+          await offline.cacheServerDay(
+            date: draft.loggedOn,
+            serverRows: <Map<String, dynamic>>[saved],
+          );
+        }
       } on LifeMateApiException catch (error) {
         if (offline == null || !_canQueueOffline(error)) rethrow;
         await offline.enqueueUpsert(

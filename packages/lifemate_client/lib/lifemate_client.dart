@@ -76,3 +76,5 @@ export 'src/women_calendar_offline.dart';
 export 'src/women_calendar_offline_snapshot.dart';
 export 'src/women_companion_api.dart';
 export 'src/women_cycle_ring.dart';
+export 'src/women_daily_log_offline_cache_web.dart'
+    if (dart.library.io) 'src/women_daily_log_offline_cache.dart';
