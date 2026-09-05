@@ -1,0 +1,100 @@
+name: tmp-admin-typecheck-repair
+
+on:
+  push:
+    branches:
+      - ci/admin-deno-2.9.4-format-baseline-20260905
+    paths:
+      - '.github/workflows/tmp-admin-typecheck-repair.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  repair:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
+        with:
+          show-progress: false
+          persist-credentials: true
+      - uses: denoland/setup-deno@22d081ff2d3a40755e97629de92e3bcbfa7cf2ed
+        with:
+          deno-version: v2.9.4
+      - name: Apply strict JSON boundary and nullability fixes
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          root = Path('supabase/functions/lifemate-admin-api')
+
+          def replace(path, old, new):
+              p = root / path
+              text = p.read_text()
+              if old not in text:
+                  raise SystemExit(f'missing expected text in {path}: {old!r}')
+              p.write_text(text.replace(old, new))
+
+          p = root / 'database_client.ts'
+          text = p.read_text()
+          marker = 'export type AdminSql = ReturnType<typeof postgres>;\n'
+          helper = '''export type AdminSql = ReturnType<typeof postgres>;
+          export type AdminJsonValue = Parameters<AdminSql["json"]>[0];
+
+          export function toAdminJson(value: unknown): AdminJsonValue {
+            const serialized = JSON.stringify(value);
+            if (serialized === undefined) {
+              throw new TypeError("Value is not JSON serializable.");
+            }
+            return JSON.parse(serialized) as AdminJsonValue;
+          }
+          '''
+          if marker not in text:
+              raise SystemExit('database_client marker missing')
+          p.write_text(text.replace(marker, helper, 1))
+
+          replace('approval_requests_service.ts', 'import { getAdminSql } from "./database_client.ts";', 'import { getAdminSql, toAdminJson } from "./database_client.ts";')
+          for value in ('p.before', 'p.delta', 'p.after'):
+              replace('approval_requests_service.ts', f'sql.json({value})', f'sql.json(toAdminJson({value}))')
+
+          replace('audience_segments_service.ts', 'import { type AdminSql, getAdminSql } from "./database_client.ts";', 'import { type AdminSql, getAdminSql, toAdminJson } from "./database_client.ts";')
+          replace('audience_segments_service.ts', 'tx.json(response as object)', 'tx.json(toAdminJson(response))')
+
+          p = root / 'daily_brief.ts'
+          text = p.read_text().replace('sum + point.value', 'sum + (point.value ?? 0)')
+          p.write_text(text)
+
+          replace('growth_reward_admin_service.ts', 'import { getAdminSql } from "./database_client.ts";', 'import { getAdminSql, toAdminJson } from "./database_client.ts";')
+          replace('growth_reward_admin_service.ts', 'sql.json(p.rewardConfig)', 'sql.json(toAdminJson(p.rewardConfig))')
+          for value in ('preview.before', 'preview.delta', 'preview.after'):
+              replace('growth_reward_admin_service.ts', f'sql.json({value} as Record<string, unknown>)', f'sql.json(toAdminJson({value}))')
+
+          replace('manual_entitlement_adjustments_service.ts', 'import { getAdminSql } from "./database_client.ts";', 'import { getAdminSql, toAdminJson } from "./database_client.ts";')
+          for prefix in ('sql', 'tx'):
+              for value in ('preview.before', 'preview.delta', 'preview.after'):
+                  old = f'{prefix}.json({value} as Record<string, unknown>)'
+                  new = f'{prefix}.json(toAdminJson({value}))'
+                  p = root / 'manual_entitlement_adjustments_service.ts'
+                  text = p.read_text()
+                  if old in text:
+                      p.write_text(text.replace(old, new))
+          replace('manual_entitlement_adjustments_service.ts', 'tx.json(after as Record<string, unknown>)', 'tx.json(toAdminJson(after))')
+
+          replace('privacy_consent_service.ts', 'import { getLifeMateSql } from "./database_client.ts";', 'import { getAdminSql } from "./database_client.ts";')
+          replace('privacy_consent_service.ts', 'const sql = getLifeMateSql(databaseUrl);', 'const sql = getAdminSql(databaseUrl);')
+
+          replace('research_dataset_service.ts', 'import { type AdminSql, getAdminSql } from "./database_client.ts";', 'import { type AdminSql, getAdminSql, toAdminJson } from "./database_client.ts";')
+          replace('research_dataset_service.ts', 'tx.json(response as object)', 'tx.json(toAdminJson(response))')
+          replace('research_dataset_service.ts', 'tx.json(input.filters)', 'tx.json(toAdminJson(input.filters))')
+          replace('research_dataset_service.ts', 'tx.json(input.quasiIdentifierRules)', 'tx.json(toAdminJson(input.quasiIdentifierRules))')
+          PY
+          deno fmt supabase/functions/lifemate-admin-api
+          cd supabase/functions/lifemate-admin-api
+          deno check index.ts
+      - name: Commit validated type baseline
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add supabase/functions/lifemate-admin-api
+          git commit -m 'fix(admin): restore strict Admin Edge type baseline'
+          git push origin "HEAD:${GITHUB_REF_NAME}"
