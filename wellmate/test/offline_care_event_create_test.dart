@@ -153,8 +153,13 @@ void main() {
 
     expect(enqueueCalls, 0);
     expect(saveState, isNull);
+
+    // ListView lazily builds children. Scroll after the error state is set so
+    // the error panel is materialized before checking the user-facing copy.
+    await tester.drag(find.byType(ListView), const Offset(0, -500));
+    await tester.pumpAndSettle();
     expect(
-      find.textContaining('Could not save the schedule', skipOffstage: false),
+      find.textContaining('Could not save the schedule'),
       findsOneWidget,
     );
   });
