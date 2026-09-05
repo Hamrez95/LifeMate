@@ -1,4 +1,5 @@
 import 'package:http/http.dart' as http;
+import 'package:lifemate_core/lifemate_core.dart';
 
 import 'lifemate_api_client.dart';
 
@@ -12,12 +13,14 @@ final class LifeMateIncrementalProjectionApi {
     http.Client? httpClient,
   });
 
-  Future<Object> pullCareEvents({String? cursor, int limit = 100}) =>
-      Future<Object>.error(
-        UnsupportedError(
-          'Protected offline health execution is unavailable on web.',
-        ),
-      );
+  Future<LifeMateProjectionPullPage> pullCareEvents({
+    String? cursor,
+    int limit = 100,
+  }) => Future<LifeMateProjectionPullPage>.error(
+    UnsupportedError(
+      'Protected offline health execution is unavailable on web.',
+    ),
+  );
 
   void close() {}
 }
