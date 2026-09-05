@@ -279,15 +279,45 @@ Deno.test({
         set can_view_women_calendar=false,updated_at_utc=now()
         where id=${relationshipId}::uuid
       `;
+      const legacyFlagIgnored = await women.getCareSummary(
+        caregiver.appUserId,
+        patient.appUserId,
+      );
+      assertEquals(
+        (legacyFlagIgnored.patient as Record<string, unknown>).displayName,
+        "Canonical Patient",
+      );
+
+      await fixtureSql`
+        update lifemate.women_companion_privacy_scopes
+        set view_period_timing=false,
+            view_phase_summary=false,
+            view_shared_wellbeing=false,
+            view_fertility_estimate=false,
+            receive_phase_notifications=false,
+            receive_mood_notifications=false,
+            receive_fertility_notifications=false,
+            view_calendar_detail=false,
+            version=version+1,
+            updated_by_user_id=${patient.appUserId}::uuid,
+            updated_at_utc=now()
+        where relationship_id=${relationshipId}::uuid
+      `;
       await assertApiError(
         () => women.getCareSummary(caregiver.appUserId, patient.appUserId),
         403,
         "women_calendar_access_denied",
       );
       await fixtureSql`
-        update lifemate.care_relationships
-        set can_view_women_calendar=true,updated_at_utc=now()
-        where id=${relationshipId}::uuid
+        update lifemate.women_companion_privacy_scopes
+        set view_period_timing=true,
+            view_phase_summary=true,
+            view_shared_wellbeing=true,
+            view_calendar_detail=true,
+            version=version+1,
+            updated_by_user_id=${patient.appUserId}::uuid,
+            updated_at_utc=now()
+        where relationship_id=${relationshipId}::uuid
       `;
 
       const action = await women.recordCareSupportAction(
