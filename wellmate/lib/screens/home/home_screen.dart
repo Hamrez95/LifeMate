@@ -15,6 +15,8 @@ import '../profile/profile_screen.dart';
 import '../treatments/care_plan_hub_screen.dart';
 import '../treatments/treatments_screen.dart';
 import '../women_calendar/women_health_entry_screen.dart';
+import 'home_offline_status_banner.dart';
+import 'home_schedule_loader.dart';
 import 'home_screen_content.dart';
 
 class HomeScreen extends StatefulWidget {
@@ -336,6 +338,15 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                   _scheduleFullRefresh(forceWomenState: true);
                 },
               ),
+              if (_currentIndex == 5)
+                ValueListenableBuilder<HomeOfflinePresentationState>(
+                  valueListenable: homeOfflinePresentationState,
+                  builder: (context, state, child) => state.cached
+                      ? HomeOfflineStatusBanner(
+                          cachedAtUtc: state.cachedAtUtc,
+                        )
+                      : const SizedBox.shrink(),
+                ),
               Expanded(
                 child: IndexedStack(index: _currentIndex, children: pages),
               ),
