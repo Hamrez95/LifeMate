@@ -5,6 +5,15 @@ import 'lifemate_api_client.dart' show AccessTokenProvider;
 import 'offline_mutation_queue.dart' show LifeMateMutationStorage;
 import 'offline_sync_result.dart';
 
+final class LifeMateLocalDataPurgeConfirmationRequiredException
+    implements Exception {
+  const LifeMateLocalDataPurgeConfirmationRequiredException();
+
+  @override
+  String toString() =>
+      'LifeMate local account purge requires explicit destructive confirmation.';
+}
+
 final class LifeMateOfflineNamespace {
   LifeMateOfflineNamespace({
     required String environmentId,
@@ -76,6 +85,14 @@ final class LifeMateSharedOfflineRuntime {
 
   Future<Map<String, String>> pendingAdherenceStates() =>
       Future<Map<String, String>>.value(const <String, String>{});
+
+  Future<void> purgeCurrentAccount({
+    required bool discardPendingAndCachedData,
+  }) => Future<void>.error(
+    UnsupportedError(
+      'Protected offline health execution is unavailable on web.',
+    ),
+  );
 
   void close() {}
 }

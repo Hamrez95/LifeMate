@@ -7,6 +7,15 @@ import 'mutation_replay_transport.dart';
 import 'offline_mutation_queue.dart' show LifeMateMutationStorage;
 import 'offline_sync_result.dart';
 
+final class LifeMateLocalDataPurgeConfirmationRequiredException
+    implements Exception {
+  const LifeMateLocalDataPurgeConfirmationRequiredException();
+
+  @override
+  String toString() =>
+      'LifeMate local account purge requires explicit destructive confirmation.';
+}
+
 final class LifeMateOfflineNamespace {
   LifeMateOfflineNamespace({
     required String environmentId,
@@ -80,6 +89,7 @@ final class LifeMateSharedOfflineRuntime {
   final Set<String> _legacyAccountIds;
   final bool _ownsStore;
   bool _closed = false;
+  bool _accountPurged = false;
 
   LifeMateOfflineNamespace get namespace => _namespace;
 
@@ -232,6 +242,29 @@ final class LifeMateSharedOfflineRuntime {
     return result;
   }
 
+  /// Destructively removes every protected local projection for the current
+  /// environment + Account, including all Person namespaces and any unresolved
+  /// local mutations. Because another Person namespace may contain pending work
+  /// that this runtime cannot safely summarize, destructive intent is required
+  /// explicitly rather than inferred from a sign-out/account-switch event.
+  ///
+  /// Callers should first sync or present a deliberate local-data discard UX.
+  /// Passing false never deletes data. After a successful purge this runtime is
+  /// invalidated and cannot be reused for a new identity.
+  Future<void> purgeCurrentAccount({
+    required bool discardPendingAndCachedData,
+  }) async {
+    _requireOpen();
+    if (!discardPendingAndCachedData) {
+      throw const LifeMateLocalDataPurgeConfirmationRequiredException();
+    }
+    await _store.purgeAccount(
+      environmentId: _namespace.environmentId,
+      accountId: _namespace.accountId,
+    );
+    _accountPurged = true;
+  }
+
   void close() {
     if (_closed) return;
     _closed = true;
@@ -241,6 +274,9 @@ final class LifeMateSharedOfflineRuntime {
 
   void _requireOpen() {
     if (_closed) throw StateError('LifeMate shared offline runtime is closed.');
+    if (_accountPurged) {
+      throw StateError('LifeMate shared offline runtime account was purged.');
+    }
   }
 
   static bool _isPendingForReplay(LifeMateDurableMutation mutation) =>

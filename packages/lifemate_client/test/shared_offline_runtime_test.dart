@@ -189,6 +189,72 @@ void main() {
   });
 
   test(
+    'account purge requires explicit discard and covers every Person namespace',
+    () async {
+      final database = sqlite3.openInMemory();
+      final store = LifeMateLocalHealthStore.forTesting(
+        database: database,
+        keyBytes: key,
+      );
+      final personB = LifeMateLocalNamespace(
+        environmentId: 'production',
+        accountId: 'account-a',
+        personId: 'person-b',
+      );
+      final accountB = LifeMateLocalNamespace(
+        environmentId: 'production',
+        accountId: 'account-b',
+        personId: 'person-a',
+      );
+      await LifeMateLocalMutationOutbox(store: store).enqueue(
+        namespace: personB,
+        mutation: _mutation(
+          id: '123e4567-e89b-42d3-a456-426614174956',
+          sourceKey: '123e4567-e89b-42d3-a456-426614174056',
+        ),
+      );
+      await store.putProjection(
+        namespace: namespace,
+        domain: LifeMateLocalProjectionDomain.careEvent,
+        recordKey: 'event-a',
+        payload: const <String, dynamic>{'kind': 'appointment'},
+      );
+      await store.putProjection(
+        namespace: accountB,
+        domain: LifeMateLocalProjectionDomain.careEvent,
+        recordKey: 'event-b',
+        payload: const <String, dynamic>{'kind': 'appointment'},
+      );
+      final runtime = await LifeMateSharedOfflineRuntime.open(
+        namespace: namespace,
+        timeZone: 'UTC',
+        apiBaseUri: Uri.parse('https://api.example.test'),
+        accessToken: () => 'token',
+        store: store,
+        legacyStorage: _MemoryStorage(),
+        httpClient: _RecordingClient(statusCodes: <int>[]),
+      );
+
+      await expectLater(
+        runtime.purgeCurrentAccount(discardPendingAndCachedData: false),
+        throwsA(isA<LifeMateLocalDataPurgeConfirmationRequiredException>()),
+      );
+      expect(await store.countNamespace(namespace), 1);
+      expect(await store.countNamespace(personB), 1);
+      expect(await store.countNamespace(accountB), 1);
+
+      await runtime.purgeCurrentAccount(discardPendingAndCachedData: true);
+
+      expect(await store.countNamespace(namespace), 0);
+      expect(await store.countNamespace(personB), 0);
+      expect(await store.countNamespace(accountB), 1);
+      await expectLater(runtime.pendingMutationCount(), throwsStateError);
+      runtime.close();
+      store.close();
+    },
+  );
+
+  test(
     'closed runtime fails visibly without touching external store',
     () async {
       final database = sqlite3.openInMemory();
