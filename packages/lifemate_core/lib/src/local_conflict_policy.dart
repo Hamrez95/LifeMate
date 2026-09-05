@@ -103,7 +103,9 @@ abstract final class LifeMateConflictPolicy {
       LifeMateConflictDomain.womenHealthCycle => _resolveWomenCycle(context),
       LifeMateConflictDomain.pregnancyDating => _resolvePregnancyDating(context),
       LifeMateConflictDomain.observation => _resolveObservation(context),
-      LifeMateConflictDomain.sharedAuthorization => _resolveSharedAuthorization(context),
+      LifeMateConflictDomain.sharedAuthorization => _resolveSharedAuthorization(
+        context,
+      ),
     };
   }
 
