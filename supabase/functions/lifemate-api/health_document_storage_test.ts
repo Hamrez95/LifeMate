@@ -21,7 +21,18 @@ Deno.test(
     assertEquals(
       validateHealthDocument(
         new Uint8Array([
-          0, 0, 0, 24, 0x66, 0x74, 0x79, 0x70, 0x68, 0x65, 0x69, 0x63,
+          0,
+          0,
+          0,
+          24,
+          0x66,
+          0x74,
+          0x79,
+          0x70,
+          0x68,
+          0x65,
+          0x69,
+          0x63,
         ]),
         "image/heic",
       ).extension,
@@ -31,13 +42,13 @@ Deno.test(
       validateHealthDocument(
         new TextEncoder().encode("not really an image"),
         "image/png",
-      ),
+      )
     );
     assertThrows(() =>
       validateHealthDocument(
         new Uint8Array(15 * 1024 * 1024 + 1),
         "image/jpeg",
-      ),
+      )
     );
   },
 );
