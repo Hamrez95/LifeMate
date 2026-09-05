@@ -1,0 +1,123 @@
+name: main-worker-deploy
+
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/main-worker-deploy.yml'
+      - 'supabase/functions/lifemate-worker/**'
+      - 'supabase/functions/_shared/contact_point_crypto.ts'
+      - 'supabase/functions/_shared/messaging_token_crypto.ts'
+      - 'supabase/functions/_shared/provider_identity_handle_crypto.ts'
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/main-worker-deploy.yml'
+      - 'supabase/functions/lifemate-worker/**'
+      - 'supabase/functions/_shared/contact_point_crypto.ts'
+      - 'supabase/functions/_shared/messaging_token_crypto.ts'
+      - 'supabase/functions/_shared/provider_identity_handle_crypto.ts'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.event_name == 'push' && 'production-worker-deploy' || format('main-worker-deploy-{0}', github.ref) }}
+  cancel-in-progress: false
+
+env:
+  SUPABASE_PROJECT_REF: bwdvmniywyyijjauipnh
+  LIFEMATE_WORKER_URL: https://bwdvmniywyyijjauipnh.supabase.co/functions/v1/lifemate-worker
+
+jobs:
+  verify-worker-source:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
+        with:
+          show-progress: false
+          persist-credentials: false
+
+      - uses: denoland/setup-deno@22d081ff2d3a40755e97629de92e3bcbfa7cf2ed
+        with:
+          deno-version: v2.9.4
+
+      - name: Verify exact worker source
+        working-directory: supabase/functions/lifemate-worker
+        shell: bash
+        run: |
+          set -euo pipefail
+          deno fmt --check
+          deno task check
+          deno task test
+
+      - name: Verify scheduler and restricted-database invariants
+        shell: bash
+        run: |
+          set -euo pipefail
+          grep -Fq 'schedulerTokenAccepted' supabase/functions/lifemate-worker/index.ts
+          grep -Fq 'isRestrictedWorkerDatabaseUrl' supabase/functions/lifemate-worker/runtime_database.ts
+          grep -Fq 'lifemate_worker_runtime' supabase/functions/lifemate-worker/runtime_database.ts
+          if grep -R --line-number -F 'SUPABASE_SERVICE_ROLE_KEY' supabase/functions/lifemate-worker supabase/functions/_shared; then
+            echo '::error::Worker source must not access the service-role environment variable by its literal name.'
+            exit 1
+          fi
+
+  deploy-exact-main-worker:
+    if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
+    needs: [verify-worker-source]
+    runs-on: ubuntu-24.04
+    environment: beta
+    timeout-minutes: 12
+    env:
+      SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
+        with:
+          ref: ${{ github.sha }}
+          show-progress: false
+          persist-credentials: false
+          fetch-depth: 1
+
+      - name: Require exact main deployment inputs
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$GITHUB_EVENT_NAME" = 'push'
+          test "$GITHUB_REF" = 'refs/heads/main'
+          test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
+          test "$GITHUB_REPOSITORY" = 'Hamrez95/LifeMate'
+          test "$SUPABASE_PROJECT_REF" = 'bwdvmniywyyijjauipnh'
+          test -n "$SUPABASE_ACCESS_TOKEN"
+
+      - uses: supabase/setup-cli@3c2f5e2ae34c34e428e8e206e2c4d21fa2d20fbf
+        with:
+          version: 2.101.0
+
+      - name: Verify management credential
+        shell: bash
+        run: |
+          set -euo pipefail
+          supabase projects list >/dev/null
+
+      - name: Deploy exact-main worker
+        shell: bash
+        run: |
+          set -euo pipefail
+          supabase functions deploy lifemate-worker \
+            --project-ref "$SUPABASE_PROJECT_REF" \
+            --no-verify-jwt \
+            --use-api
+
+      - name: Verify worker authentication boundary
+        shell: bash
+        run: |
+          set -euo pipefail
+          invalid_token="$(python3 -c 'import secrets; print(secrets.token_urlsafe(48))')"
+          status="$(curl --silent --show-error \
+            --retry 5 --retry-delay 2 --retry-all-errors \
+            --output /dev/null --write-out '%{http_code}' \
+            --request POST \
+            --header "x-lifemate-worker-token: $invalid_token" \
+            "$LIFEMATE_WORKER_URL")"
+          test "$status" = '401'
