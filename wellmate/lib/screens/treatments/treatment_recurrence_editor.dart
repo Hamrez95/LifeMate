@@ -5,6 +5,7 @@ import 'package:lifemate_ui/lifemate_ui.dart'
 
 import '../../core/theme/app_style.dart';
 import '../../core/utils/persian_date_utils.dart';
+import '../../core/utils/care_time_picker.dart';
 import '../../core/widgets/labeled_form_field.dart';
 import 'medication_schedule_preferences_screen.dart';
 import 'nearby_dose_optimization_screen.dart';
@@ -104,7 +105,11 @@ class _TreatmentRecurrenceEditorState extends State<TreatmentRecurrenceEditor> {
   }
 
   Future<void> _pickAnchor() async {
-    final value = await showTimePicker(context: context, initialTime: _anchor);
+    final value = await showCareTimePicker(
+      context: context,
+      initialTime: _anchor,
+      title: LifeMateRuntimeLocale.select(fa: 'اولین نوبت مصرف', en: 'First dose'),
+    );
     if (value == null || !mounted) return;
     setState(() => _anchor = value);
     _publish();
@@ -365,35 +370,76 @@ class _TreatmentRecurrenceEditorState extends State<TreatmentRecurrenceEditor> {
             ),
           ),
           const SizedBox(height: 10),
-          OutlinedButton.icon(
-            key: const ValueKey('medication-sleep-preferences'),
-            onPressed: widget.enabled ? _openSleepPreferences : null,
-            icon: const Icon(Icons.bedtime_outlined),
-            label: Text(
-              context.tr('medication.schedule.interval.sleepPreferences'),
+          Semantics(
+            container: true,
+            label: LifeMateRuntimeLocale.select(
+              fa: 'تنظیمات پیشرفته زمان مصرف',
+              en: 'Advanced dose timing options',
             ),
-          ),
-          const SizedBox(height: 8),
-          OutlinedButton.icon(
-            key: const ValueKey('medication-nearby-optimization'),
-            onPressed: widget.enabled ? _openNearbyOptimization : null,
-            icon: const Icon(Icons.merge_type_rounded),
-            label: Text(
-              LifeMateRuntimeLocale.select(
-                fa: 'یکپارچه‌سازی زمان‌های نزدیک',
-                en: 'Combine nearby medication times',
+            child: Container(
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(color: AppColors.primary.withValues(alpha: 0.16)),
               ),
-            ),
-          ),
-          const SizedBox(height: 8),
-          OutlinedButton.icon(
-            key: const ValueKey('medication-sleep-optimization'),
-            onPressed: widget.enabled ? _openSleepOptimization : null,
-            icon: const Icon(Icons.bedtime_off_outlined),
-            label: Text(
-              LifeMateRuntimeLocale.select(
-                fa: 'پیشنهاد زمان با ساعات خواب',
-                en: 'Sleep-aware timing proposal',
+              child: ExpansionTile(
+                key: const ValueKey('medication-schedule-optimization'),
+                shape: const RoundedRectangleBorder(),
+                collapsedShape: const RoundedRectangleBorder(),
+                tilePadding: const EdgeInsetsDirectional.fromSTEB(14, 2, 10, 2),
+                childrenPadding: const EdgeInsetsDirectional.fromSTEB(14, 0, 14, 14),
+                leading: const Icon(Icons.tune_rounded, color: AppColors.primary),
+                title: Text(
+                  LifeMateRuntimeLocale.select(
+                    fa: 'بهینه‌سازی زمان مصرف',
+                    en: 'Optimize dose timing',
+                  ),
+                  style: const TextStyle(fontWeight: FontWeight.w900),
+                ),
+                subtitle: Text(
+                  LifeMateRuntimeLocale.select(
+                    fa: 'اختیاری؛ هیچ زمانی بدون تأیید شما جابه‌جا نمی‌شود.',
+                    en: 'Optional; no time changes without your approval.',
+                  ),
+                  style: const TextStyle(fontSize: 12, height: 1.35),
+                ),
+                children: [
+                  SizedBox(
+                    width: double.infinity,
+                    child: OutlinedButton.icon(
+                      key: const ValueKey('medication-sleep-preferences'),
+                      onPressed: widget.enabled ? _openSleepPreferences : null,
+                      icon: const Icon(Icons.bedtime_outlined),
+                      label: Text(context.tr('medication.schedule.interval.sleepPreferences')),
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  SizedBox(
+                    width: double.infinity,
+                    child: OutlinedButton.icon(
+                      key: const ValueKey('medication-nearby-optimization'),
+                      onPressed: widget.enabled ? _openNearbyOptimization : null,
+                      icon: const Icon(Icons.merge_type_rounded),
+                      label: Text(LifeMateRuntimeLocale.select(
+                        fa: 'یکپارچه‌سازی زمان‌های نزدیک',
+                        en: 'Combine nearby medication times',
+                      )),
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  SizedBox(
+                    width: double.infinity,
+                    child: OutlinedButton.icon(
+                      key: const ValueKey('medication-sleep-optimization'),
+                      onPressed: widget.enabled ? _openSleepOptimization : null,
+                      icon: const Icon(Icons.bedtime_off_outlined),
+                      label: Text(LifeMateRuntimeLocale.select(
+                        fa: 'پیشنهاد زمان با ساعات خواب',
+                        en: 'Sleep-aware timing proposal',
+                      )),
+                    ),
+                  ),
+                ],
               ),
             ),
           ),
