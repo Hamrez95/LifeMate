@@ -190,6 +190,24 @@ Deno.test({
       assertEquals(relationship[0].patient_person_id, patient.personId);
       assertEquals(relationship[0].caregiver_person_id, caregiver.personId);
 
+      await fixtureSql`
+        insert into lifemate.women_companion_privacy_scopes (
+          relationship_id,
+          view_period_timing,
+          view_phase_summary,
+          view_shared_wellbeing,
+          view_calendar_detail,
+          updated_by_user_id
+        ) values (
+          ${relationshipId}::uuid,
+          true,
+          true,
+          true,
+          true,
+          ${patient.appUserId}::uuid
+        )
+      `;
+
       const supportSchema = await fixtureSql`
         select column_name,is_nullable
         from information_schema.columns
