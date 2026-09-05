@@ -6,6 +6,8 @@ import 'lifemate_api_client.dart' show AccessTokenProvider;
 import 'mutation_replay_transport.dart';
 import 'offline_mutation_queue.dart' show LifeMateMutationStorage;
 import 'offline_sync_result.dart';
+import 'women_calendar_offline.dart';
+import 'women_calendar_offline_snapshot.dart';
 
 final class LifeMateLocalDataPurgeConfirmationRequiredException
     implements Exception {
@@ -399,6 +401,102 @@ final class LifeMateSharedOfflineRuntime {
       });
     }
     return List<Map<String, dynamic>>.unmodifiable(values);
+  }
+
+  /// Stores only the canonical owner Women Health inputs that are explicitly
+  /// safe for offline continuity. This reuses the same protected store and
+  /// Person namespace already owned by the shared runtime.
+  Future<void> cacheWomenCalendarSnapshot({
+    required Map<String, dynamic> profile,
+    required Iterable<Map<String, dynamic>> episodes,
+    required WomenHealthLifecycleState lifecycleState,
+  }) async {
+    _requireOpen();
+    await WomenCalendarOfflineSnapshotStore(
+      store: _store,
+      namespace: _localNamespace,
+    ).write(
+      profile: profile,
+      episodes: episodes,
+      lifecycleState: lifecycleState,
+    );
+  }
+
+  Future<WomenCalendarOfflineSnapshot?> readWomenCalendarSnapshot() async {
+    _requireOpen();
+    return WomenCalendarOfflineSnapshotStore(
+      store: _store,
+      namespace: _localNamespace,
+    ).read();
+  }
+
+  /// Projects locally accepted owner daily-log writes over server-confirmed
+  /// rows without ever promoting a pending value to canonical truth.
+  Future<LifeMateWomenDailyLogProjectionResult> projectWomenDailyLogs({
+    required Iterable<Map<String, dynamic>> serverRows,
+    required DateTime fromDate,
+    required DateTime toDate,
+  }) async {
+    _requireOpen();
+    await importLegacyPending();
+    final mutations = await _outbox.list(namespace: _localNamespace);
+    return LifeMateWomenDailyLogProjection.project(
+      serverRows: serverRows,
+      pendingMutations: mutations,
+      fromDate: fromDate,
+      toDate: toDate,
+    );
+  }
+
+  /// Accepts a locally validated owner daily log into the canonical protected
+  /// Account + Person + environment outbox. Replay remains owned by this shared
+  /// runtime; credentials and authorization decisions are never persisted.
+  Future<void> enqueueWomenDailyLogUpsert({
+    required String mutationId,
+    required DateTime loggedOn,
+    required int version,
+    String? periodFlow,
+    String? bloodAppearance,
+    String? bloodTexture,
+    int? painLevel,
+    Set<String> symptoms = const <String>{},
+    String? privateNotes,
+    DateTime? createdAtUtc,
+  }) async {
+    _requireOpen();
+    await LifeMateOfflineWomenDailyLogMutation.enqueueUpsert(
+      outbox: _outbox,
+      namespace: _localNamespace,
+      mutationId: mutationId,
+      loggedOn: loggedOn,
+      version: version,
+      timeZone: _timeZone,
+      periodFlow: periodFlow,
+      bloodAppearance: bloodAppearance,
+      bloodTexture: bloodTexture,
+      painLevel: painLevel,
+      symptoms: symptoms,
+      privateNotes: privateNotes,
+      createdAtUtc: createdAtUtc,
+    );
+  }
+
+  Future<void> enqueueWomenDailyLogDelete({
+    required String mutationId,
+    required DateTime loggedOn,
+    required int version,
+    DateTime? createdAtUtc,
+  }) async {
+    _requireOpen();
+    await LifeMateOfflineWomenDailyLogMutation.enqueueDelete(
+      outbox: _outbox,
+      namespace: _localNamespace,
+      mutationId: mutationId,
+      loggedOn: loggedOn,
+      version: version,
+      timeZone: _timeZone,
+      createdAtUtc: createdAtUtc,
+    );
   }
 
   /// Accepts one bounded, already-local-validated treatment create into the
