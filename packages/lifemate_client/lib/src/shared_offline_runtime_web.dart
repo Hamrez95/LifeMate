@@ -33,7 +33,7 @@ final class LifeMateSharedOfflineRuntime {
   final LifeMateOfflineNamespace namespace;
 
   static Future<LifeMateSharedOfflineRuntime> open({
-    required LifeMateOfflineNamespace namespace,
+    required Object namespace,
     required String timeZone,
     required Uri apiBaseUri,
     required AccessTokenProvider accessToken,
