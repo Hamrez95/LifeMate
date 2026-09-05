@@ -1,5 +1,6 @@
 library lifemate_core;
 
+export 'src/local_conflict_policy.dart';
 export 'src/local_health_reminder_registry.dart';
 export 'src/local_health_store.dart';
 export 'src/local_mutation_outbox.dart';
