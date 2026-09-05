@@ -24,6 +24,7 @@ final class WomenDailyLogOfflineCache {
   static const _coverageVersion = 1;
   static const _rowPrefix = 'women-daily-log:';
   static const _coveragePrefix = 'women-daily-log-coverage:';
+  static const _maxRangeDays = 120;
 
   final LifeMateLocalHealthStore _store;
   final LifeMateLocalNamespace _namespace;
@@ -101,6 +102,74 @@ final class WomenDailyLogOfflineCache {
     );
   }
 
+  /// Caches a bounded, fully fetched canonical date window without inventing
+  /// missing days. Each day is independently committed using [cacheServerDay].
+  /// If the process dies midway, [readServerRange] returns null until every day
+  /// in the requested range has a valid coverage marker.
+  Future<void> cacheServerRange({
+    required DateTime fromDate,
+    required DateTime toDate,
+    required Iterable<Map<String, dynamic>> serverRows,
+  }) async {
+    _requireOpen();
+    final range = _validatedRange(fromDate, toDate);
+    final rowsByDay = <String, List<Map<String, dynamic>>>{};
+    for (final raw in serverRows) {
+      final loggedOn = DateTime.tryParse(raw['loggedOn']?.toString() ?? '');
+      if (loggedOn == null) {
+        throw const FormatException(
+          'Women Health daily-log cache row has an invalid date.',
+        );
+      }
+      final day = _dateOnly(loggedOn);
+      if (day.isBefore(range.$1) || day.isAfter(range.$2)) {
+        throw const FormatException(
+          'Women Health daily-log cache row is outside the confirmed range.',
+        );
+      }
+      final key = _dateText(day);
+      final bucket = rowsByDay.putIfAbsent(
+        key,
+        () => <Map<String, dynamic>>[],
+      );
+      bucket.add(Map<String, dynamic>.from(raw));
+      if (bucket.length > 1) {
+        throw const FormatException(
+          'A Women Health daily-log day cannot contain multiple canonical rows.',
+        );
+      }
+    }
+
+    for (var day = range.$1;
+        !day.isAfter(range.$2);
+        day = day.add(const Duration(days: 1))) {
+      await cacheServerDay(
+        date: day,
+        serverRows: rowsByDay[_dateText(day)] ?? const <Map<String, dynamic>>[],
+      );
+    }
+  }
+
+  /// Returns null unless every day in this bounded window was previously
+  /// server-confirmed locally. Confirmed-empty days are retained as coverage
+  /// but omitted from the returned row list.
+  Future<List<Map<String, dynamic>>?> readServerRange({
+    required DateTime fromDate,
+    required DateTime toDate,
+  }) async {
+    _requireOpen();
+    final range = _validatedRange(fromDate, toDate);
+    final rows = <Map<String, dynamic>>[];
+    for (var day = range.$1;
+        !day.isAfter(range.$2);
+        day = day.add(const Duration(days: 1))) {
+      final cached = await readServerDay(day);
+      if (cached == null) return null;
+      rows.addAll(cached);
+    }
+    return List<Map<String, dynamic>>.unmodifiable(rows);
+  }
+
   /// Returns null when this exact day has never been confirmed locally, an
   /// empty list when the server previously confirmed the day had no entry, or
   /// one canonical row when it was cached successfully.
@@ -152,6 +221,30 @@ final class WomenDailyLogOfflineCache {
     if (_closed) {
       throw StateError('Women Health daily-log offline cache is closed.');
     }
+  }
+
+  static (DateTime, DateTime) _validatedRange(
+    DateTime fromDate,
+    DateTime toDate,
+  ) {
+    final from = _dateOnly(fromDate);
+    final to = _dateOnly(toDate);
+    if (to.isBefore(from)) {
+      throw ArgumentError.value(
+        toDate,
+        'toDate',
+        'Women Health cache range cannot end before it starts.',
+      );
+    }
+    final days = to.difference(from).inDays + 1;
+    if (days > _maxRangeDays) {
+      throw ArgumentError.value(
+        days,
+        'rangeDays',
+        'Women Health cache range exceeds $_maxRangeDays days.',
+      );
+    }
+    return (from, to);
   }
 
   static Map<String, dynamic> _normalizeServerRow(

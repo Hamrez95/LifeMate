@@ -75,8 +75,23 @@ final class WomenDailyLogOfflineBridge {
     required Iterable<Map<String, dynamic>> serverRows,
   }) => _dailyLogCache.cacheServerDay(date: date, serverRows: serverRows);
 
+  Future<void> cacheServerRange({
+    required DateTime fromDate,
+    required DateTime toDate,
+    required Iterable<Map<String, dynamic>> serverRows,
+  }) => _dailyLogCache.cacheServerRange(
+    fromDate: fromDate,
+    toDate: toDate,
+    serverRows: serverRows,
+  );
+
   Future<List<Map<String, dynamic>>?> readCachedServerDay(DateTime date) =>
       _dailyLogCache.readServerDay(date);
+
+  Future<List<Map<String, dynamic>>?> readCachedServerRange({
+    required DateTime fromDate,
+    required DateTime toDate,
+  }) => _dailyLogCache.readServerRange(fromDate: fromDate, toDate: toDate);
 
   Future<void> enqueueUpsert({
     required String mutationId,

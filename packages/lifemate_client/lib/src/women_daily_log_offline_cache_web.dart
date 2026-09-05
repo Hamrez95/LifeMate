@@ -13,8 +13,19 @@ final class WomenDailyLogOfflineCache {
     required Iterable<Map<String, dynamic>> serverRows,
   }) => Future<void>.error(_unsupported());
 
+  Future<void> cacheServerRange({
+    required DateTime fromDate,
+    required DateTime toDate,
+    required Iterable<Map<String, dynamic>> serverRows,
+  }) => Future<void>.error(_unsupported());
+
   Future<List<Map<String, dynamic>>?> readServerDay(DateTime date) =>
       Future<List<Map<String, dynamic>>?>.error(_unsupported());
+
+  Future<List<Map<String, dynamic>>?> readServerRange({
+    required DateTime fromDate,
+    required DateTime toDate,
+  }) => Future<List<Map<String, dynamic>>?>.error(_unsupported());
 
   void close() {}
 
