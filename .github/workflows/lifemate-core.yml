@@ -42,12 +42,12 @@ jobs:
       - name: Flutter environment
         run: flutter --version
 
-      - name: Resolve and print formatter reconciliation
+      - name: Resolve, format, analyze and test shared core
         working-directory: packages/lifemate_core
         shell: bash
         run: |
           set -euo pipefail
           flutter pub get
-          dart format lib test
-          git diff -- lib/src/local_women_daily_log_projection.dart test/local_women_daily_log_projection_test.dart
-          exit 1
+          dart format --output=none --set-exit-if-changed lib test
+          flutter analyze --no-fatal-warnings --no-fatal-infos
+          flutter test
