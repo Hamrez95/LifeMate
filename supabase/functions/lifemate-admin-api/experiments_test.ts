@@ -62,8 +62,18 @@ Deno.test("experiment variants must total exactly 10000 basis points", () => {
   let rejected = false;
   try {
     assertVariantWeights([
-      { key: "a", weightBasisPoints: 5000, controlValue: 1, version: 1 },
-      { key: "b", weightBasisPoints: 4999, controlValue: 2, version: 1 },
+      {
+        key: "alpha",
+        weightBasisPoints: 5000,
+        controlValue: 1,
+        version: 1,
+      },
+      {
+        key: "bravo",
+        weightBasisPoints: 4999,
+        controlValue: 2,
+        version: 1,
+      },
     ]);
   } catch (error) {
     rejected = error instanceof ApiError &&
