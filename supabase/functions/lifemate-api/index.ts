@@ -17,6 +17,7 @@ import { isPostgresUnavailable } from "./database_client.ts";
 import { createEditStore } from "./edit_store.ts";
 import { createHealthObservationStore } from "./health_observations.ts";
 import { createHealthDocumentStore } from "./health_documents.ts";
+import type { HealthDocumentCategory } from "./health_documents.ts";
 import { createHealthDocumentStorage } from "./health_document_storage.ts";
 import { createWomenCompanionPrivacyStore } from "./women_companion_privacy.ts";
 import { corsHeaders, json, problem, safeError } from "./http.ts";
@@ -273,6 +274,99 @@ async function route(
     appUserId: identity.appUserId,
   });
   if (subscriptionResponse) return subscriptionResponse;
+
+  if (request.method === "GET" && path === "/api/v1/health-record/documents") {
+    enforceRateLimit(
+      `health-document-list:${identity.appUserId}`,
+      60,
+      60 * 60_000,
+    );
+    return json({
+      items: await healthDocuments.listOwnerDocuments(identity.appUserId),
+    });
+  }
+
+  if (request.method === "PUT" && path === "/api/v1/health-record/documents") {
+    enforceRateLimit(
+      `health-document-upload:${identity.appUserId}`,
+      20,
+      60 * 60_000,
+    );
+    const declaredLength = Number(request.headers.get("content-length") ?? 0);
+    if (Number.isFinite(declaredLength) && declaredLength > 15 * 1024 * 1024) {
+      throw new ApiError(
+        413,
+        "health_document_too_large",
+        "Health document must be no larger than 15 MB.",
+      );
+    }
+    const category = healthDocumentCategory(
+      request.headers.get("x-health-document-category"),
+    );
+    const capturedOn = optionalDocumentDate(
+      request.headers.get("x-health-document-captured-on"),
+    );
+    const contentType = request.headers.get("content-type") ?? "";
+    const bytes = new Uint8Array(await request.arrayBuffer());
+    const documentId = crypto.randomUUID();
+    const owner = await healthDocuments.ownerForUpload(identity.appUserId);
+    const uploaded = await healthDocumentStorage.upload(
+      owner.personId,
+      documentId,
+      bytes,
+      contentType,
+    );
+    try {
+      const registered = await healthDocuments.registerOwnerUpload(
+        identity.appUserId,
+        {
+          documentId,
+          objectKey: uploaded.objectKey,
+          contentType: uploaded.contentType,
+          byteSize: bytes.byteLength,
+          sha256Hex: await sha256Hex(bytes),
+          category,
+          capturedOn,
+          sourceProduct: "wellmate",
+        },
+      );
+      if (!registered.created) {
+        await healthDocumentStorage.remove(uploaded.objectKey);
+      }
+      return json(
+        { ...registered.document, duplicate: !registered.created },
+        registered.created ? 201 : 200,
+      );
+    } catch (error) {
+      await healthDocumentStorage.remove(uploaded.objectKey).catch(() =>
+        undefined
+      );
+      throw error;
+    }
+  }
+
+  const healthDocumentDownloadMatch = path.match(
+    /^\/api\/v1\/health-record\/documents\/([0-9a-f-]{36})\/download$/i,
+  );
+  if (request.method === "GET" && healthDocumentDownloadMatch) {
+    enforceRateLimit(
+      `health-document-download:${identity.appUserId}`,
+      60,
+      60 * 60_000,
+    );
+    const document = await healthDocuments.getOwnerDownload(
+      identity.appUserId,
+      healthDocumentDownloadMatch[1],
+    );
+    const { storageObjectKey, ...documentPayload } = document;
+    return json({
+      ...documentPayload,
+      signedUrl: await healthDocumentStorage.signedDownload(
+        String(storageObjectKey),
+      ),
+      expiresInSeconds: 600,
+    });
+  }
 
   if (request.method === "GET" && path === "/api/v1/capabilities") {
     return json(
@@ -1121,6 +1215,52 @@ function requireWomenCalendarPilot(): void {
       "Women calendar pilot is disabled.",
     );
   }
+}
+
+function healthDocumentCategory(value: string | null): HealthDocumentCategory {
+  const category = value?.trim().toLowerCase() ?? "";
+  if (
+    ![
+      "prescription",
+      "lab_result",
+      "imaging",
+      "visit",
+      "injection",
+      "discharge",
+      "vaccination",
+      "other",
+    ].includes(category)
+  ) {
+    throw new ApiError(
+      400,
+      "health_document_category_invalid",
+      "Health document category is invalid.",
+    );
+  }
+  return category as HealthDocumentCategory;
+}
+
+function optionalDocumentDate(value: string | null): string | null {
+  if (value == null || value.trim() === "") return null;
+  const date = value.trim();
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) {
+    throw new ApiError(
+      400,
+      "health_document_date_invalid",
+      "Health document date is invalid.",
+    );
+  }
+  return date;
+}
+
+async function sha256Hex(bytes: Uint8Array): Promise<string> {
+  const digest = await crypto.subtle.digest(
+    "SHA-256",
+    Uint8Array.from(bytes).buffer,
+  );
+  return Array.from(new Uint8Array(digest)).map((value) =>
+    value.toString(16).padStart(2, "0")
+  ).join("");
 }
 
 function isPostgresConflict(error: unknown): boolean {
