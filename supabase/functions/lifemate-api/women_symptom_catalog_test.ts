@@ -4,6 +4,7 @@ import {
   mergeLegacySymptomsIntoObservations,
   normalizeStoredWomenSymptomObservations,
   normalizeWomenSymptomObservations,
+  projectCanonicalSymptomsToLegacyStorage,
   womenSymptomCatalogVersion,
 } from "./women_symptom_catalog.ts";
 
@@ -18,6 +19,28 @@ Deno.test("canonical symptom catalog maps historical stored values", () => {
     ["cramps", "lower_back_pain", "breast_tenderness", "sleep_changes"],
   );
   assertEquals(womenSymptomCatalogVersion, 1);
+});
+
+Deno.test("canonical symptoms preserve the legacy constrained storage shape", () => {
+  assertEquals(
+    projectCanonicalSymptomsToLegacyStorage([
+      "cramps",
+      "fatigue",
+      "lower_back_pain",
+      "sleep_changes",
+      "no_symptom",
+    ]),
+    ["Cramps", "Fatigue", "BackPain", "SleepChange", "NoSymptom"],
+  );
+  assertEquals(
+    projectCanonicalSymptomsToLegacyStorage([
+      "migraine",
+      "nausea",
+      "mood_changes",
+      "other",
+    ]),
+    [],
+  );
 });
 
 Deno.test("canonical symptom observations support multiple independent symptoms", () => {
