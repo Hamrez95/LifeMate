@@ -224,6 +224,7 @@ final class LifeMateLocalReminderScheduler {
     required Iterable<LifeMateLocalReminder> reminders,
     required String timeZone,
     bool Function(PendingNotificationRequest request)? ownsPendingRequest,
+    bool Function(LifeMatePersistedReminder reminder)? ownsPersistedReminder,
     bool Function(PendingNotificationRequest request)? preservePendingRequest,
     bool? exactAlarmGranted,
   }) async {
@@ -301,6 +302,9 @@ final class LifeMateLocalReminderScheduler {
         .map((value) => value.scheduleKey)
         .toSet();
     for (final previous in persisted) {
+      if (ownsPersistedReminder != null && !ownsPersistedReminder(previous)) {
+        continue;
+      }
       if (!desiredScheduleKeys.contains(previous.scheduleKey)) {
         await _registry?.delete(previous.scheduleKey);
       }
