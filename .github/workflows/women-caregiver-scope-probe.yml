@@ -1,0 +1,61 @@
+name: women-caregiver-scope-probe
+
+on:
+  pull_request:
+    paths:
+      - 'supabase/functions/lifemate-api/person_women_calendar_caregiver**'
+      - 'supabase/functions/lifemate-api/person_women_calendar_caregiver_integration_test.ts'
+      - 'supabase/migrations/**'
+      - '.github/workflows/women-caregiver-scope-probe.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: women-caregiver-scope-probe-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  focused-integration:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    services:
+      postgres:
+        image: postgres:17.6-alpine
+        env:
+          POSTGRES_DB: lifemate_edge_tests
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d lifemate_edge_tests"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      TEST_DATABASE_URL: postgres://postgres:postgres@localhost:5432/lifemate_edge_tests
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
+        with:
+          show-progress: false
+          persist-credentials: false
+      - uses: denoland/setup-deno@22d081ff2d3a40755e97629de92e3bcbfa7cf2ed
+        with:
+          deno-version: v2.9.4
+      - name: Apply canonical portable schema
+        shell: bash
+        run: |
+          set -euo pipefail
+          psql "$TEST_DATABASE_URL" --set=ON_ERROR_STOP=1 --file=supabase/bootstrap/legacy_lifemate_baseline.sql
+          psql "$TEST_DATABASE_URL" --set=ON_ERROR_STOP=1 --file=supabase/bootstrap/test_provider_compatibility_roles.sql
+          while IFS= read -r migration; do
+            psql "$TEST_DATABASE_URL" --set=ON_ERROR_STOP=1 --file="$migration"
+          done < <(find supabase/migrations -maxdepth 1 -type f -name '*.sql' | sort)
+      - name: Run canonical Women caregiver scope journey
+        working-directory: supabase/functions/lifemate-api
+        run: >-
+          deno test --no-check --allow-env
+          --allow-net=localhost:5432,127.0.0.1:5432
+          person_women_calendar_caregiver_integration_test.ts
