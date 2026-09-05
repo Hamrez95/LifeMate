@@ -16,7 +16,9 @@ export function createResearchExportSignerFromEnvironment(
 ) {
   const url = optionalEnvironmentValue("LIFEMATE_RESEARCH_EXPORT_SIGNER_URL")
     .trim();
-  const token = optionalEnvironmentValue("LIFEMATE_RESEARCH_EXPORT_SIGNER_TOKEN")
+  const token = optionalEnvironmentValue(
+    "LIFEMATE_RESEARCH_EXPORT_SIGNER_TOKEN",
+  )
     .trim();
   if (!url || !token || token.length < 32 || !/^https:\/\//i.test(url)) {
     return undefined;
