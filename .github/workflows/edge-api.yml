@@ -55,22 +55,48 @@ jobs:
           while IFS= read -r migration; do
             psql "$TEST_DATABASE_URL" --set=ON_ERROR_STOP=1 --file="$migration"
           done < <(find supabase/migrations -maxdepth 1 -type f -name '*.sql' | sort)
-      - name: Capture and report sanitized database integration failure
+      - name: Report exact recurrence constraint and failing row details
         shell: bash
         run: |
-          set +e
-          deno test --no-check --allow-env --allow-net=localhost:5432,127.0.0.1:5432 database_integration_test.ts > /tmp/db-test.log 2>&1
-          code=$?
-          set -e
-          if [ "$code" -eq 0 ]; then exit 0; fi
+          cat > diag_recurrence.ts <<'DENO'
+          import postgres from "postgres";
+          import { createLifeMateDatabase } from "./database.ts";
+          import { createCareEventStore } from "./care_events.ts";
+          const url = Deno.env.get("TEST_DATABASE_URL")!;
+          const sql = postgres(url, { max: 1, prepare: false });
+          const suffix = crypto.randomUUID();
+          const auth = { id: `diag-${suffix}`, email: `diag-${suffix}@example.test`, phone: null, userMetadata: {} };
+          const db = createLifeMateDatabase(url, "integration-only-contact-secret-with-32-plus-characters");
+          await db.bootstrapUser(auth, { displayName: "diag", locale: "fa", timeZone: "Asia/Tehran" });
+          const identity = await db.requireIdentity(auth);
+          const store = createCareEventStore(url);
+          const defs = await sql`select pg_get_constraintdef(oid) as definition from pg_constraint where conname='care_events_recurrence_rule_v2_check' and conrelid='lifemate.care_events'::regclass`;
+          console.log("CONSTRAINT", defs[0]?.definition);
+          try {
+            await store.createCareEvent(identity.appUserId, {
+              clientRequestId: crypto.randomUUID(), eventType: "injection", title: "B12",
+              medicationName: "B12", doseText: "1 ampoule", administrationRoute: "intramuscular",
+              scheduledLocalDate: "2026-09-06", scheduledLocalTime: "12:00", timeZone: "Asia/Tehran",
+              recurrence: { enabled: true, unit: "month", interval: 6, weekdays: [] },
+            });
+            console.log("CREATE_OK");
+          } catch (error) {
+            const e = error as Record<string, unknown>;
+            console.log("ERROR_MESSAGE", String((error as Error).message));
+            for (const key of ["code","detail","hint","schema_name","table_name","constraint_name","column_name","severity_local","severity"]) {
+              if (e[key] != null) console.log(`ERROR_${key.toUpperCase()}`, String(e[key]));
+            }
+          } finally {
+            await sql.end({ timeout: 1 });
+          }
+          DENO
+          deno run --allow-env --allow-net=localhost:5432,127.0.0.1:5432 diag_recurrence.ts > /tmp/diag.log 2>&1
           {
-            echo 'Temporary diagnostic output from `database_integration_test.ts` on the #919 reconciled head:'
+            echo 'Exact recurrence diagnostic on #919 reconciled head:'
             echo
             echo '```text'
-            tail -n 120 /tmp/db-test.log \
-              | sed -E 's#postgres://[^ ]+#postgres://[redacted]#g' \
+            grep -E '^(CONSTRAINT|CREATE_OK|ERROR_)' /tmp/diag.log \
               | sed -E 's/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/[uuid]/g'
             echo '```'
           } > /tmp/comment.md
           gh pr comment 930 --repo Hamrez95/LifeMate --body-file /tmp/comment.md
-          exit "$code"
