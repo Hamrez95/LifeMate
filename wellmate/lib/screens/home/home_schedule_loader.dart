@@ -6,10 +6,14 @@ class HomeOfflinePresentationState {
   const HomeOfflinePresentationState({
     this.cached = false,
     this.cachedAtUtc,
+    this.pendingTreatmentCreateCount = 0,
   });
 
+  /// True while Home has locally sourced state that should be explained to the
+  /// owner. This includes an offline cached snapshot or durable pending creates.
   final bool cached;
   final DateTime? cachedAtUtc;
+  final int pendingTreatmentCreateCount;
 }
 
 final ValueNotifier<HomeOfflinePresentationState> homeOfflinePresentationState =
@@ -24,6 +28,7 @@ class HomeScheduleSnapshot {
     required this.doseOccurrences,
     required this.careEvents,
     required this.failures,
+    this.pendingTreatmentCreates = const <Map<String, dynamic>>[],
     this.offlineCached = false,
     this.offlineCachedAtUtc,
   });
@@ -32,6 +37,7 @@ class HomeScheduleSnapshot {
   final List<Map<String, dynamic>> treatmentPlans;
   final List<Map<String, dynamic>> doseOccurrences;
   final List<Map<String, dynamic>> careEvents;
+  final List<Map<String, dynamic>> pendingTreatmentCreates;
   final List<HomeScheduleLoadFailure> failures;
   final bool offlineCached;
   final DateTime? offlineCachedAtUtc;
@@ -69,19 +75,22 @@ class HomeScheduleLoader {
         fromDate: fromDate,
         toDate: toDate,
       );
+      final pendingTreatmentCreates = await _pendingTreatmentCreates(api);
       final offlineCached = value['offlineCached'] == true;
       final cachedAt = DateTime.tryParse(
         value['offlineCachedAtUtc']?.toString() ?? '',
       )?.toUtc();
       homeOfflinePresentationState.value = HomeOfflinePresentationState(
-        cached: offlineCached,
+        cached: offlineCached || pendingTreatmentCreates.isNotEmpty,
         cachedAtUtc: offlineCached ? cachedAt : null,
+        pendingTreatmentCreateCount: pendingTreatmentCreates.length,
       );
       return HomeScheduleSnapshot(
         currentUser: _object(value['currentUser'], 'currentUser'),
         treatmentPlans: _objects(value['treatmentPlans'], 'treatmentPlans'),
         doseOccurrences: _objects(value['doseOccurrences'], 'doseOccurrences'),
         careEvents: _objects(value['careEvents'], 'careEvents'),
+        pendingTreatmentCreates: pendingTreatmentCreates,
         failures: const [],
         offlineCached: offlineCached,
         offlineCachedAtUtc: offlineCached ? cachedAt : null,
@@ -135,13 +144,35 @@ class HomeScheduleLoader {
       if (doseOccurrences.failure case final failure?) failure,
       if (careEvents.failure case final failure?) failure,
     ];
+    final pendingTreatmentCreates = await _pendingTreatmentCreates(api);
+    homeOfflinePresentationState.value = HomeOfflinePresentationState(
+      cached: pendingTreatmentCreates.isNotEmpty,
+      pendingTreatmentCreateCount: pendingTreatmentCreates.length,
+    );
     return HomeScheduleSnapshot(
       currentUser: currentUser.value!,
       treatmentPlans: treatmentPlans.value ?? const [],
       doseOccurrences: doseOccurrences.value ?? const [],
       careEvents: careEvents.value ?? const [],
+      pendingTreatmentCreates: pendingTreatmentCreates,
       failures: List<HomeScheduleLoadFailure>.unmodifiable(failures),
     );
+  }
+
+  Future<List<Map<String, dynamic>>> _pendingTreatmentCreates(
+    LifeMateApiClient api,
+  ) async {
+    if (api is! DurableLifeMateApiClient) {
+      return const <Map<String, dynamic>>[];
+    }
+    try {
+      return await api.pendingOfflineTreatmentPlanCreates();
+    } catch (_) {
+      // Pending local data is supplemental presentation only. If the protected
+      // runtime is unavailable or not adopted, omit it rather than widening
+      // access, falling back to browser storage, or breaking canonical Home.
+      return const <Map<String, dynamic>>[];
+    }
   }
 
   Map<String, dynamic> _object(dynamic value, String field) {

@@ -404,6 +404,57 @@ final class LifeMateSharedOfflineRuntime {
   /// Accepts one bounded, already-local-validated treatment create into the
   /// canonical protected Account + Person + environment outbox. The underlying
   /// primitive rejects recurrence and malformed timing rather than inferring it.
+  /// Accepts one bounded, already locally validated owner care event into the
+  /// canonical protected Account + Person + environment outbox. Recurrence is
+  /// deliberately absent from this seam until local expansion/reminder parity
+  /// is proven; the core primitive fails closed for unsupported input.
+  Future<void> enqueueCareEventCreate({
+    required String mutationId,
+    required String eventType,
+    required String title,
+    String? providerName,
+    String? specialty,
+    String? medicationName,
+    String? doseText,
+    String? administrationRoute,
+    String? reason,
+    String? instructions,
+    String? centerName,
+    String? addressLine,
+    String? phoneNumber,
+    required DateTime scheduledLocalDate,
+    required String scheduledLocalTime,
+    required String timeZone,
+    required int patientReminderMinutesBefore,
+    required int caregiverReminderMinutesBefore,
+    DateTime? createdAtUtc,
+  }) async {
+    _requireOpen();
+    await LifeMateOfflineCareEventMutation.enqueueCreate(
+      outbox: _outbox,
+      namespace: _localNamespace,
+      mutationId: mutationId,
+      eventType: eventType,
+      title: title,
+      providerName: providerName,
+      specialty: specialty,
+      medicationName: medicationName,
+      doseText: doseText,
+      administrationRoute: administrationRoute,
+      reason: reason,
+      instructions: instructions,
+      centerName: centerName,
+      addressLine: addressLine,
+      phoneNumber: phoneNumber,
+      scheduledLocalDate: scheduledLocalDate,
+      scheduledLocalTime: scheduledLocalTime,
+      timeZone: timeZone,
+      patientReminderMinutesBefore: patientReminderMinutesBefore,
+      caregiverReminderMinutesBefore: caregiverReminderMinutesBefore,
+      createdAtUtc: createdAtUtc,
+    );
+  }
+
   Future<void> enqueueTreatmentCreate({
     required String mutationId,
     required String medicationId,

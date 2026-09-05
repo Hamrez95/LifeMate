@@ -17,6 +17,7 @@ void main() {
     expect(snapshot.offlineCached, isTrue);
     expect(snapshot.offlineCachedAtUtc, DateTime.utc(2026, 8, 6, 8, 30));
     expect(snapshot.doseOccurrences.single['id'], 'dose-cached');
+    expect(snapshot.pendingTreatmentCreates, isEmpty);
     expect(snapshot.failures, isEmpty);
   });
 
