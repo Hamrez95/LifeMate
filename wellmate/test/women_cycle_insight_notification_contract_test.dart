@@ -20,6 +20,30 @@ void main() {
     expect(scheduler, isNot(contains('wellmate_treatment_reminders')));
   });
 
+  test('Cycle Insight fails closed outside active Women Health lifecycle', () {
+    final scheduler = File(
+      'lib/screens/women_calendar/women_cycle_insight_notification_scheduler.dart',
+    ).readAsStringSync();
+
+    expect(scheduler, contains("profile['lifecycleState']"));
+    expect(scheduler, contains('WomenHealthLifecycleState.parse'));
+    expect(
+      scheduler,
+      contains('WomenCalendarOfflineEngine.shouldSchedulePersonalCycleReminders'),
+    );
+    expect(scheduler, contains('on FormatException'));
+    expect(scheduler, contains('await cancelAll();'));
+
+    final lifecycleGate = scheduler.indexOf(
+      'WomenCalendarOfflineEngine.shouldSchedulePersonalCycleReminders',
+    );
+    final platformGate = scheduler.indexOf(
+      'defaultTargetPlatform != TargetPlatform.android',
+    );
+    expect(lifecycleGate, greaterThanOrEqualTo(0));
+    expect(platformGate, greaterThan(lifecycleGate));
+  });
+
   test('Cycle Insight telemetry stores metadata only', () {
     final backend = File(
       '../supabase/functions/lifemate-api/women_insight_preferences_store.ts',
