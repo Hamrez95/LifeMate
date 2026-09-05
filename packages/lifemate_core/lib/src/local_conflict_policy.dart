@@ -84,9 +84,7 @@ final class LifeMateConflictContext {
 abstract final class LifeMateConflictPolicy {
   static const int policyVersion = 1;
 
-  static LifeMateConflictDisposition resolve(
-    LifeMateConflictContext context,
-  ) {
+  static LifeMateConflictDisposition resolve(LifeMateConflictContext context) {
     if (context.domain == LifeMateConflictDomain.sharedAuthorization &&
         context.authoritativeAccessRevoked) {
       return LifeMateConflictDisposition.invalidateSharedAccess;
@@ -101,7 +99,9 @@ abstract final class LifeMateConflictPolicy {
       LifeMateConflictDomain.treatment => _resolveVersionedEdit(context),
       LifeMateConflictDomain.careEvent => _resolveVersionedEdit(context),
       LifeMateConflictDomain.womenHealthCycle => _resolveWomenCycle(context),
-      LifeMateConflictDomain.pregnancyDating => _resolvePregnancyDating(context),
+      LifeMateConflictDomain.pregnancyDating => _resolvePregnancyDating(
+        context,
+      ),
       LifeMateConflictDomain.observation => _resolveObservation(context),
       LifeMateConflictDomain.sharedAuthorization => _resolveSharedAuthorization(
         context,
