@@ -10,6 +10,7 @@ export 'src/app_lock.dart';
 export 'src/auth_security_policy.dart';
 export 'src/capabilities.dart';
 export 'src/care_access_inventory.dart';
+export 'src/care_event_projection_sync.dart';
 export 'src/care_item.dart';
 export 'src/app_notice.dart';
 export 'src/care_pairing_qr.dart';

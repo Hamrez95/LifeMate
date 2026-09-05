@@ -1,4 +1,5 @@
 import 'package:http/http.dart' as http;
+import 'package:lifemate_core/lifemate_core.dart';
 
 import 'lifemate_api_client.dart' show AccessTokenProvider;
 import 'offline_mutation_queue.dart' show LifeMateMutationStorage;
@@ -26,7 +27,8 @@ final class LifeMateOfflineNamespace {
 
 /// Web builds intentionally do not instantiate the native encrypted SQLite
 /// execution engine. Remote API behavior remains available, while offline
-/// health replay fails closed instead of falling back to an unprotected store.
+/// health replay/projection persistence fails closed instead of falling back to
+/// an unprotected browser store.
 final class LifeMateSharedOfflineRuntime {
   LifeMateSharedOfflineRuntime._(this.namespace);
 
@@ -53,6 +55,22 @@ final class LifeMateSharedOfflineRuntime {
 
   Future<LifeMateOfflineSyncResult> flushDetailed() =>
       Future<LifeMateOfflineSyncResult>.value(const LifeMateOfflineSyncResult());
+
+  Future<LifeMateLocalSyncCheckpoint?> careEventCheckpoint() =>
+      Future<LifeMateLocalSyncCheckpoint?>.error(
+        UnsupportedError(
+          'Protected offline health execution is unavailable on web.',
+        ),
+      );
+
+  Future<LifeMateProjectionReconcileResult> applyCareEventPage({
+    required LifeMateProjectionPullPage page,
+    LifeMateBeforeProjectionCheckpoint? beforeCheckpoint,
+  }) => Future<LifeMateProjectionReconcileResult>.error(
+    UnsupportedError(
+      'Protected offline health execution is unavailable on web.',
+    ),
+  );
 
   Future<int> pendingMutationCount() => Future<int>.value(0);
 
