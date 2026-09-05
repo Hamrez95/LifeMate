@@ -190,6 +190,19 @@ class DurableLifeMateApiClient extends LifeMateApiClient {
     previous?.close();
   }
 
+  /// Immediately detaches the current canonical Account + Person runtime from
+  /// an app process after sign-out/account-switch is observed. This closes the
+  /// in-memory key/runtime and stops replay, but deliberately does not delete
+  /// encrypted projections or pending mutations. They can be safely recovered
+  /// only if the same identity authenticates and is resolved again later.
+  void isolateSharedOfflineRuntime() {
+    final previous = _sharedRuntime;
+    _sharedRuntime = null;
+    _sharedRuntimeLegacyAccountId = null;
+    _durableHttp.isolateReplayDelegate();
+    previous?.close();
+  }
+
   @override
   Future<Map<String, dynamic>> reportDose({
     required String occurrenceId,
@@ -341,9 +354,7 @@ class DurableLifeMateApiClient extends LifeMateApiClient {
 
   @override
   void close() {
-    _sharedRuntime?.close();
-    _sharedRuntime = null;
-    _sharedRuntimeLegacyAccountId = null;
+    isolateSharedOfflineRuntime();
     super.close();
   }
 
