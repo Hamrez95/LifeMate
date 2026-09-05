@@ -50,6 +50,9 @@ jobs:
           } > formatter-check.txt 2>&1
           deno fmt supabase/functions/lifemate-api supabase/functions/lifemate-care-management >/dev/null 2>&1
           git diff -- supabase/functions/lifemate-api supabase/functions/lifemate-care-management > formatter.patch
+          mkdir -p formatted/supabase/functions
+          cp -R supabase/functions/lifemate-api formatted/supabase/functions/
+          cp -R supabase/functions/lifemate-care-management formatted/supabase/functions/
           git checkout -- supabase/functions/lifemate-api supabase/functions/lifemate-care-management
           exit 0
       - name: Capture portable schema failure
@@ -77,4 +80,5 @@ jobs:
             formatter-check.txt
             formatter.patch
             schema-check.txt
+            formatted
           if-no-files-found: error
