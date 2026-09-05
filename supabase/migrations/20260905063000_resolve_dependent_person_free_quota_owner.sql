@@ -31,10 +31,10 @@ as $$
     where c.priority=(select min(priority) from candidates)
   )
   select case
-    when count(*)=1 then min(legacy_app_user_id)
+    when (select count(*) from preferred)=1
+      then (select legacy_app_user_id from preferred limit 1)
     else null::uuid
   end
-  from preferred
 $$;
 
 create or replace function lifemate.enforce_medication_free_quota()
