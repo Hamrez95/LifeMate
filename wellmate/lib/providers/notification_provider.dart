@@ -274,7 +274,7 @@ class NotificationProvider extends ChangeNotifier {
       type: 'medicine',
       id: dose.occurrenceId,
       version: dose.version,
-      clientRequestId: LifeMateApiClient.createClientRequestId(),
+      clientRequestId: dose.clientRequestId,
       isPersian: isPersian,
     ),
   );
