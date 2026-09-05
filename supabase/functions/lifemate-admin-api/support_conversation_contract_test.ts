@@ -14,6 +14,7 @@ Deno.test("Admin support visible-message routes stay permissioned and audited", 
       import.meta.url,
     ),
   );
+  const executableMigration = migration.replace(/--.*$/gm, "");
   const dispatcher = await Deno.readTextFile(
     new URL("./staff_directory_routes.ts", import.meta.url),
   );
@@ -29,7 +30,7 @@ Deno.test("Admin support visible-message routes stay permissioned and audited", 
   );
 
   // Visible conversation messages are distinct from privacy-minimized internal
-  // notes. Do not log/persist message body inside Admin audit metadata.
-  assertFalse(migration.includes("jsonb_build_object('body'"));
-  assertFalse(migration.includes("InternalNoteAdded"));
+  // notes. Ignore explanatory SQL comments and guard executable statements.
+  assertFalse(executableMigration.includes("jsonb_build_object('body'"));
+  assertFalse(executableMigration.includes("InternalNoteAdded"));
 });
