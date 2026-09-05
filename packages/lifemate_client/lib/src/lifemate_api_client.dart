@@ -291,8 +291,9 @@ class LifeMateApiClient {
       );
     }
     final normalizedContextId = contextId?.trim();
-    if ((contextType == null) !=
-        (normalizedContextId != null && normalizedContextId.isNotEmpty)) {
+    final hasContextId =
+        normalizedContextId != null && normalizedContextId.isNotEmpty;
+    if ((contextType == null) == hasContextId) {
       throw ArgumentError(
         'A Health Record context type and identifier must be supplied together.',
       );
