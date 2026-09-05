@@ -1,0 +1,27 @@
+name: temp-offline-03-format-diff
+
+on:
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  format-diff:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
+      - uses: subosito/flutter-action@4cab68ce0f1c7c924f688bff4792e044f1aeb30c
+        with:
+          flutter-version: '3.44.0'
+          channel: stable
+          cache: true
+      - name: Print exact formatter diff
+        working-directory: packages/lifemate_core
+        shell: bash
+        run: |
+          set -euo pipefail
+          dart format lib/src/local_conflict_policy.dart test/local_conflict_policy_test.dart
+          git diff -- lib/src/local_conflict_policy.dart test/local_conflict_policy_test.dart
