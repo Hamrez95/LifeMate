@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import 'home_schedule_loader.dart';
+
 class HomeOfflineStatusBanner extends StatelessWidget {
   const HomeOfflineStatusBanner({
     super.key,
@@ -15,16 +17,31 @@ class HomeOfflineStatusBanner extends StatelessWidget {
     final timeLabel = cachedAtLocal == null
         ? null
         : '${cachedAtLocal.hour.toString().padLeft(2, '0')}:${cachedAtLocal.minute.toString().padLeft(2, '0')}';
-    final title = isPersian
-        ? 'اطلاعات ذخیره‌شده روی گوشی'
-        : 'Saved on this device';
-    final body = isPersian
-        ? timeLabel == null
-              ? 'فعلاً اطلاعات محلی نمایش داده می‌شود. پس از اتصال، وضعیت سرور تازه می‌شود.'
-              : 'آخرین نسخه ذخیره‌شده ساعت $timeLabel است. پس از اتصال، وضعیت سرور تازه می‌شود.'
-        : timeLabel == null
-        ? 'Showing local data for now. Server status will refresh when you reconnect.'
-        : 'Last saved copy: $timeLabel. Server status will refresh when you reconnect.';
+    final pendingCount =
+        homeOfflinePresentationState.value.pendingTreatmentCreateCount;
+    final hasPendingTreatment = pendingCount > 0;
+    final title = hasPendingTreatment
+        ? (isPersian
+              ? 'درمان روی گوشی ذخیره شده'
+              : 'Treatment saved on this device')
+        : (isPersian
+              ? 'اطلاعات ذخیره‌شده روی گوشی'
+              : 'Saved on this device');
+    final body = hasPendingTreatment
+        ? (isPersian
+              ? pendingCount == 1
+                    ? 'این درمان هنوز روی سرور تأیید نشده و پس از اتصال اینترنت همگام می‌شود.'
+                    : '$pendingCount درمان هنوز روی سرور تأیید نشده‌اند و پس از اتصال اینترنت همگام می‌شوند.'
+              : pendingCount == 1
+              ? 'This treatment is not server-confirmed yet and will sync when you reconnect.'
+              : '$pendingCount treatments are not server-confirmed yet and will sync when you reconnect.')
+        : (isPersian
+              ? timeLabel == null
+                    ? 'فعلاً اطلاعات محلی نمایش داده می‌شود. پس از اتصال، وضعیت سرور تازه می‌شود.'
+                    : 'آخرین نسخه ذخیره‌شده ساعت $timeLabel است. پس از اتصال، وضعیت سرور تازه می‌شود.'
+              : timeLabel == null
+              ? 'Showing local data for now. Server status will refresh when you reconnect.'
+              : 'Last saved copy: $timeLabel. Server status will refresh when you reconnect.');
 
     final colors = Theme.of(context).colorScheme;
     return Semantics(
@@ -47,7 +64,9 @@ class HomeOfflineStatusBanner extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Icon(
-              Icons.cloud_off_rounded,
+              hasPendingTreatment
+                  ? Icons.cloud_upload_rounded
+                  : Icons.cloud_off_rounded,
               size: 22,
               color: colors.onSecondaryContainer,
             ),
