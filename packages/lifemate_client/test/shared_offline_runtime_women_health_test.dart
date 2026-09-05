@@ -33,6 +33,7 @@ void main() {
 
     await ownerRuntime.cacheWomenCalendarSnapshot(
       profile: const <String, dynamic>{
+        'algorithmVersion': WomenCalendarOfflineEngine.canonicalAlgorithmVersion,
         'lastPeriodStart': '2026-08-20',
         'cycleLength': 28,
         'periodLength': 5,
@@ -143,27 +144,27 @@ void main() {
     });
 
     await runtime.enqueueWomenDailyLogDelete(
-      mutationId: 'women-log-delete-runtime-0001',
-      loggedOn: DateTime(2026, 9, 7),
-      version: 4,
-      createdAtUtc: DateTime.utc(2026, 9, 5, 21),
+      mutationId: 'women-log-runtime-delete-0001',
+      loggedOn: DateTime(2026, 9, 5),
+      version: 5,
+      createdAtUtc: DateTime.utc(2026, 9, 5, 20, 30),
     );
 
     final projected = await runtime.projectWomenDailyLogs(
       serverRows: const <Map<String, dynamic>>[
         <String, dynamic>{
-          'loggedOn': '2026-09-07',
-          'version': 4,
-          'periodFlow': 'light',
+          'loggedOn': '2026-09-05',
+          'version': 5,
+          'periodFlow': 'medium',
         },
       ],
-      fromDate: DateTime(2026, 9, 7),
-      toDate: DateTime(2026, 9, 7),
+      fromDate: DateTime(2026, 9, 5),
+      toDate: DateTime(2026, 9, 5),
     );
 
     expect(projected.rows, isEmpty);
-    expect(projected.pendingDates, contains('2026-09-07'));
-    expect(projected.pendingDeletedDates, contains('2026-09-07'));
+    expect(projected.pendingDeletedDates, contains('2026-09-05'));
+    expect(projected.pendingDates, contains('2026-09-05'));
   });
 }
 
@@ -171,31 +172,13 @@ Future<LifeMateSharedOfflineRuntime> _openRuntime(
   LifeMateLocalHealthStore store,
   LifeMateLocalNamespace namespace,
 ) => LifeMateSharedOfflineRuntime.open(
-  namespace: namespace,
+  namespace: LifeMateOfflineNamespace(
+    environmentId: namespace.environmentId,
+    accountId: namespace.accountId,
+    personId: namespace.personId,
+  ),
   timeZone: 'Asia/Tehran',
   apiBaseUri: Uri.parse('https://api.example.test'),
   accessToken: () => 'token',
   store: store,
-  legacyStorage: _MemoryStorage(),
 );
-
-final class _MemoryStorage implements LifeMateMutationStorage {
-  final Map<String, String> _values = <String, String>{};
-
-  @override
-  Future<void> delete(String key) async {
-    _values.remove(key);
-  }
-
-  @override
-  Future<String?> read(String key) async => _values[key];
-
-  @override
-  Future<Map<String, String>> readAll() async =>
-      Map<String, String>.from(_values);
-
-  @override
-  Future<void> write(String key, String value) async {
-    _values[key] = value;
-  }
-}
