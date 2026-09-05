@@ -1,6 +1,19 @@
 \set ON_ERROR_STOP on
 begin;
 
+-- This contract needs two simultaneously active caregiver contexts for one
+-- Person so it can prove consent cannot be borrowed across relationships.
+-- Keep the production quota guard intact; widen only this rolled-back test
+-- fixture instead of inventing a subscription, purchase, or payment.
+update commerce.catalog_policies cp
+set value_json='2'::jsonb,
+    updated_at_utc=now()
+from commerce.products p
+where p.id=cp.product_id
+  and p.code='wellmate-caremate'
+  and cp.policy_key='free.owner_caregivers.max'
+  and cp.status='Active';
+
 insert into lifemate.app_users(id,auth_subject,status,created_at_utc,updated_at_utc) values
 ('71000000-0000-0000-0000-000000000001','context-subject-a','Active',now(),now()),
 ('71000000-0000-0000-0000-000000000002','context-subject-b','Active',now(),now()),

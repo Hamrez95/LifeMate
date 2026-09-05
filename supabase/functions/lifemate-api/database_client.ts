@@ -20,7 +20,13 @@ export function lifeMateDatabaseClientOptions(
       application_name: applicationName,
       statement_timeout: 5000,
       lock_timeout: 2000,
-      idle_in_transaction_session_timeout: 5000,
+      // ContactPoint writes intentionally perform bounded WebCrypto work while
+      // their surrounding database transaction stays open so legacy Profile and
+      // canonical ContactPoint state commit atomically. Five seconds was too
+      // tight on cold CI/Edge isolates and could terminate a healthy transaction
+      // between SQL statements. Keep the guard finite while allowing that
+      // expected non-SQL work to complete.
+      idle_in_transaction_session_timeout: 15000,
     },
   };
 }

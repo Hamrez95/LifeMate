@@ -31,7 +31,9 @@ async function requireSelfPerson(
 function recurrenceIntervalHours(row: Row): number | null {
   const raw = row.recurrence_rule;
   const recurrence = typeof raw === "string" ? JSON.parse(raw) : raw;
-  if (!recurrence || recurrence.enabled !== true || recurrence.unit !== "hour") {
+  if (
+    !recurrence || recurrence.enabled !== true || recurrence.unit !== "hour"
+  ) {
     return null;
   }
   const interval = Number(recurrence.interval);
@@ -213,12 +215,12 @@ export function createMedicationScheduleOptimizationStore(databaseUrl: string) {
         const intervalHours = recurrenceIntervalHours(plan);
         if (
           Number(plan.version) !==
-              Number(change.expected_treatment_plan_version) ||
+            Number(change.expected_treatment_plan_version) ||
           Number(plan.timing_version ?? 0) !==
-              Number(change.expected_timing_version) ||
+            Number(change.expected_timing_version) ||
           intervalHours !== Number(change.interval_hours) ||
           time(plan.recurrence_start_local_time) !==
-              time(change.old_anchor_local_time) ||
+            time(change.old_anchor_local_time) ||
           plan.nearby_grouping_enabled !== true ||
           plan.timing_locked === true ||
           Number(plan.manual_spacing_before_minutes ?? 0) > 0 ||
@@ -236,7 +238,9 @@ export function createMedicationScheduleOptimizationStore(databaseUrl: string) {
       for (const change of changes) {
         const updated = await tx`
           update lifemate.treatment_plans
-          set recurrence_start_local_time=${time(change.new_anchor_local_time)}::time,
+          set recurrence_start_local_time=${
+          time(change.new_anchor_local_time)
+        }::time,
               version=version+1,updated_at_utc=now()
           where id=${change.treatment_plan_id}::uuid
             and patient_person_id=${ownerPersonId}::uuid
@@ -349,15 +353,18 @@ export function createMedicationScheduleOptimizationStore(databaseUrl: string) {
           for update of p
         `;
         const plan = planRows[0];
-        if (!plan ||
+        if (
+          !plan ||
           plan.status !== "Active" ||
           change.applied_treatment_plan_version == null ||
-          Number(plan.version) !== Number(change.applied_treatment_plan_version) ||
+          Number(plan.version) !==
+            Number(change.applied_treatment_plan_version) ||
           Number(plan.timing_version ?? 0) !==
-              Number(change.expected_timing_version) ||
+            Number(change.expected_timing_version) ||
           recurrenceIntervalHours(plan) !== Number(change.interval_hours) ||
           time(plan.recurrence_start_local_time) !==
-              time(change.new_anchor_local_time)) {
+            time(change.new_anchor_local_time)
+        ) {
           throw new ApiError(
             409,
             "optimization_undo_stale",
@@ -370,7 +377,9 @@ export function createMedicationScheduleOptimizationStore(databaseUrl: string) {
       for (const change of changes) {
         const updated = await tx`
           update lifemate.treatment_plans
-          set recurrence_start_local_time=${time(change.old_anchor_local_time)}::time,
+          set recurrence_start_local_time=${
+          time(change.old_anchor_local_time)
+        }::time,
               version=version+1,updated_at_utc=now()
           where id=${change.treatment_plan_id}::uuid
             and patient_person_id=${ownerPersonId}::uuid

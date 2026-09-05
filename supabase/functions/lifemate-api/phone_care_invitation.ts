@@ -207,7 +207,9 @@ export function createPhoneCareInvitationStore(
 
     return {
       inviterUserId: invitation.inviter_user_id,
-      inviterDisplayName: String(invitation.inviter_display_name ?? "LifeMate User"),
+      inviterDisplayName: String(
+        invitation.inviter_display_name ?? "LifeMate User",
+      ),
       relationshipType: normalizeRelationshipType(invitation.relationship_type),
       contactType,
       expiresAtUtc: iso(invitation.expires_at_utc),
@@ -334,7 +336,9 @@ export function createPhoneCareInvitationStore(
         where id = ${invitation.id}
       `;
       const relationshipId = crypto.randomUUID();
-      const relationshipType = normalizeRelationshipType(invitation.relationship_type);
+      const relationshipType = normalizeRelationshipType(
+        invitation.relationship_type,
+      );
       const relationshipRows = await tx`
         insert into lifemate.care_relationships
           (id, patient_user_id, caregiver_user_id, status,
@@ -421,8 +425,12 @@ export function createPhoneCareInvitationStore(
       caregiverUserId: relationship.caregiver_user_id,
       caregiverDisplayName: byId.get(relationship.caregiver_user_id) ??
         "LifeMate User",
-      relationshipType: normalizeRelationshipType(relationship.relationship_type),
-      presentationType: normalizeRelationshipType(relationship.relationship_type),
+      relationshipType: normalizeRelationshipType(
+        relationship.relationship_type,
+      ),
+      presentationType: normalizeRelationshipType(
+        relationship.relationship_type,
+      ),
       status: String(relationship.status).toLowerCase(),
       canViewWomenCalendar: relationship.can_view_women_calendar === true,
       patientConsentedAtUtc: iso(relationship.patient_consented_at_utc),

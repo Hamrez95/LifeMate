@@ -60,7 +60,9 @@ function formatLocalMinutes(value: number): string {
   const normalized = ((value % 1440) + 1440) % 1440;
   const hour = Math.floor(normalized / 60);
   const minute = normalized % 60;
-  return `${hour.toString().padStart(2, "0")}:${minute.toString().padStart(2, "0")}`;
+  return `${hour.toString().padStart(2, "0")}:${
+    minute.toString().padStart(2, "0")
+  }`;
 }
 
 function circularDistanceMinutes(left: number, right: number): number {
@@ -78,14 +80,20 @@ function unwrapAround(reference: number, value: number): number {
 function roundedMeanMinutes(values: number[]): number {
   const reference = values[0];
   const unwrapped = values.map((value) => unwrapAround(reference, value));
-  const mean = unwrapped.reduce((sum, value) => sum + value, 0) / unwrapped.length;
+  const mean = unwrapped.reduce((sum, value) => sum + value, 0) /
+    unwrapped.length;
   return Math.round(mean / nearbyDoseRoundMinutes) * nearbyDoseRoundMinutes;
 }
 
-function eligible(candidate: NearbyDosePlanCandidate): NearbyDoseExclusionReason | null {
+function eligible(
+  candidate: NearbyDosePlanCandidate,
+): NearbyDoseExclusionReason | null {
   if (!candidate.nearbyGroupingEnabled) return "not_opted_in";
   if (candidate.timingLocked) return "timing_locked";
-  if (candidate.manualSpacingBeforeMinutes > 0 || candidate.manualSpacingAfterMinutes > 0) {
+  if (
+    candidate.manualSpacingBeforeMinutes > 0 ||
+    candidate.manualSpacingAfterMinutes > 0
+  ) {
     return "manual_spacing";
   }
   return null;
@@ -117,10 +125,17 @@ export function buildNearbyDoseProposal(
   });
 
   const minuteById = new Map(
-    pool.map((candidate) => [candidate.treatmentPlanId, parseLocalMinutes(candidate.anchorLocalTime)]),
+    pool.map((
+      candidate,
+    ) => [
+      candidate.treatmentPlanId,
+      parseLocalMinutes(candidate.anchorLocalTime),
+    ]),
   );
   const adjacency = new Map<string, Set<string>>();
-  for (const candidate of pool) adjacency.set(candidate.treatmentPlanId, new Set());
+  for (const candidate of pool) {
+    adjacency.set(candidate.treatmentPlanId, new Set());
+  }
   for (let i = 0; i < pool.length; i += 1) {
     for (let j = i + 1; j < pool.length; j += 1) {
       const left = pool[i];
@@ -136,7 +151,9 @@ export function buildNearbyDoseProposal(
     }
   }
 
-  const byId = new Map(pool.map((candidate) => [candidate.treatmentPlanId, candidate]));
+  const byId = new Map(
+    pool.map((candidate) => [candidate.treatmentPlanId, candidate]),
+  );
   const visited = new Set<string>();
   const groups: NearbyDoseGroup[] = [];
 

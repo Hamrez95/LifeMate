@@ -23,7 +23,11 @@ export type BreakGlassRouteContext = {
 function mutationStatus(result: Record<string, unknown>): number {
   const status = Number(result.httpStatus);
   if (!Number.isInteger(status) || status < 100 || status > 599) {
-    throw new ApiError(503, "break_glass_unavailable", "Break-glass workflow returned an invalid status.");
+    throw new ApiError(
+      503,
+      "break_glass_unavailable",
+      "Break-glass workflow returned an invalid status.",
+    );
   }
   return status;
 }
@@ -36,7 +40,10 @@ export function createBreakGlassRouteHandler(databaseUrl: string) {
   ): Promise<Response | null> {
     const { request, path, accountId, admin, correlationId, origin } = context;
 
-    if (request.method === "GET" && path === "/api/v1/security/break-glass/requests") {
+    if (
+      request.method === "GET" &&
+      path === "/api/v1/security/break-glass/requests"
+    ) {
       if (
         !admin.permissions.includes("security.break_glass.request") &&
         !admin.permissions.includes("security.break_glass.approve")
@@ -53,7 +60,10 @@ export function createBreakGlassRouteHandler(databaseUrl: string) {
       );
     }
 
-    if (request.method === "POST" && path === "/api/v1/security/break-glass/requests") {
+    if (
+      request.method === "POST" &&
+      path === "/api/v1/security/break-glass/requests"
+    ) {
       requirePermission(admin, "security.break_glass.request");
       const idempotencyKey = requireIdempotencyKey(request);
       const payload = await parseBreakGlassCreateRequest(request);
@@ -70,7 +80,9 @@ export function createBreakGlassRouteHandler(databaseUrl: string) {
         throw new ApiError(
           status,
           String(result.code),
-          typeof result.message === "string" ? result.message : "Break-glass request was not created.",
+          typeof result.message === "string"
+            ? result.message
+            : "Break-glass request was not created.",
         );
       }
       return json(result, status, origin);
@@ -107,7 +119,9 @@ export function createBreakGlassRouteHandler(databaseUrl: string) {
         throw new ApiError(
           status,
           String(result.code),
-          typeof result.message === "string" ? result.message : "Break-glass request was not changed.",
+          typeof result.message === "string"
+            ? result.message
+            : "Break-glass request was not changed.",
         );
       }
       return json(result, status, origin);

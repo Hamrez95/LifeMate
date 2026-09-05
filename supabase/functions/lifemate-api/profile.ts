@@ -56,7 +56,9 @@ export type ProfilePatch = {
 export function normalizeProfilePatch(
   body: Record<string, unknown>,
 ): ProfilePatch {
-  const presentationIntent = optionalPresentationIntent(body.presentationIntent);
+  const presentationIntent = optionalPresentationIntent(
+    body.presentationIntent,
+  );
   const completeOnboarding = body.completeOnboarding === true;
   if (completeOnboarding && presentationIntent == null) {
     throw new ApiError(
@@ -226,7 +228,9 @@ export function createProfileStore(
            metadata_json, created_at_utc)
         values
           (${crypto.randomUUID()}, ${userId},
-           ${nextPath == null ? "profile.photo_deleted" : "profile.photo_updated"},
+           ${
+        nextPath == null ? "profile.photo_deleted" : "profile.photo_updated"
+      },
            'user_profile', ${current[0].id}, null, now())
       `;
       return previous;
@@ -324,7 +328,7 @@ export function createProfileStore(
       : patch.phoneNumber;
     const rawEmail = contactReader.rawRetirementEnabled ? null : auth.email;
 
-    return await sql.begin(async (tx: any) => {
+    const updatedProfile = await sql.begin(async (tx: any) => {
       const personId = await requireSelfPerson(tx, userId);
       const compatibilityRows = await (usesVersionColumn
         ? tx`
@@ -466,17 +470,23 @@ export function createProfileStore(
            metadata_json, created_at_utc)
         values
           (${crypto.randomUUID()}, ${userId},
-           ${patch.completeOnboarding ? "profile.onboarding_completed" : "profile.updated"},
+           ${
+        patch.completeOnboarding
+          ? "profile.onboarding_completed"
+          : "profile.updated"
+      },
            'user_profile', ${compatibilityRows[0].id}, null, now())
       `;
-      return {
-        ...mapProfile({
-          ...compatibilityRows[0],
-          ...personRows[0],
-        }),
-        privacyPreferences: await privacyPreferences.preferences(userId),
-      };
+      return mapProfile({
+        ...compatibilityRows[0],
+        ...personRows[0],
+      });
     });
+
+    return {
+      ...updatedProfile,
+      privacyPreferences: await privacyPreferences.preferences(userId),
+    };
   }
 
   return {

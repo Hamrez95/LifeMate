@@ -10,7 +10,8 @@ export type LegalAcceptanceInput = {
 
 const PURPOSE = /^[a-z][a-z0-9._-]{2,79}$/;
 const DOCUMENT_HASH = /^[A-Za-z0-9:_-]{16,160}$/;
-const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+const UUID =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
 export function legalJurisdictionFromEnvironment(): string {
   const value = (Deno.env.get("LIFEMATE_LEGAL_JURISDICTION") ?? "GLOBAL")
@@ -34,16 +35,32 @@ export function parseLegalAcceptances(value: unknown): LegalAcceptanceInput[] {
   const seen = new Set<string>();
   return value.map((item) => {
     if (!item || typeof item !== "object" || Array.isArray(item)) {
-      throw new ApiError(400, "legal_acceptance_invalid", "Legal acceptance is invalid.");
+      throw new ApiError(
+        400,
+        "legal_acceptance_invalid",
+        "Legal acceptance is invalid.",
+      );
     }
     const row = item as Record<string, unknown>;
-    const documentId = typeof row.documentId === "string" ? row.documentId.trim() : "";
-    const documentHash = typeof row.documentHash === "string" ? row.documentHash.trim() : "";
+    const documentId = typeof row.documentId === "string"
+      ? row.documentId.trim()
+      : "";
+    const documentHash = typeof row.documentHash === "string"
+      ? row.documentHash.trim()
+      : "";
     if (!UUID.test(documentId) || !DOCUMENT_HASH.test(documentHash)) {
-      throw new ApiError(400, "legal_acceptance_invalid", "Legal acceptance is invalid.");
+      throw new ApiError(
+        400,
+        "legal_acceptance_invalid",
+        "Legal acceptance is invalid.",
+      );
     }
     if (seen.has(documentId)) {
-      throw new ApiError(400, "legal_acceptance_duplicate", "Legal acceptance is duplicated.");
+      throw new ApiError(
+        400,
+        "legal_acceptance_duplicate",
+        "Legal acceptance is duplicated.",
+      );
     }
     seen.add(documentId);
     return { documentId, documentHash };
@@ -55,12 +72,22 @@ export function parsePrivacyPreferencePayload(value: unknown): {
   enabled: boolean;
 } {
   if (!value || typeof value !== "object" || Array.isArray(value)) {
-    throw new ApiError(400, "privacy_preference_invalid", "Privacy preference is invalid.");
+    throw new ApiError(
+      400,
+      "privacy_preference_invalid",
+      "Privacy preference is invalid.",
+    );
   }
   const row = value as Record<string, unknown>;
-  const purpose = typeof row.purpose === "string" ? row.purpose.trim().toLowerCase() : "";
+  const purpose = typeof row.purpose === "string"
+    ? row.purpose.trim().toLowerCase()
+    : "";
   if (!PURPOSE.test(purpose) || typeof row.enabled !== "boolean") {
-    throw new ApiError(400, "privacy_preference_invalid", "Privacy preference is invalid.");
+    throw new ApiError(
+      400,
+      "privacy_preference_invalid",
+      "Privacy preference is invalid.",
+    );
   }
   return { purpose, enabled: row.enabled };
 }
@@ -92,9 +119,12 @@ export function createPrivacyPreferenceStore(
   ): Promise<void> {
     const required = await legalRequirements();
     for (const document of required) {
-      if (!acceptances.some((item) =>
-        item.documentId === document.id && item.documentHash === document.documentHash
-      )) {
+      if (
+        !acceptances.some((item) =>
+          item.documentId === document.id &&
+          item.documentHash === document.documentHash
+        )
+      ) {
         throw new ApiError(
           428,
           "legal_acceptance_required",
@@ -118,7 +148,11 @@ export function createPrivacyPreferenceStore(
     `;
     const result = rows[0]?.result;
     if (!result || typeof result !== "object" || Array.isArray(result)) {
-      throw new ApiError(503, "registration_finalize_unavailable", "Registration could not be finalized.");
+      throw new ApiError(
+        503,
+        "registration_finalize_unavailable",
+        "Registration could not be finalized.",
+      );
     }
     const payload = result as Record<string, unknown>;
     if (payload.completed !== true) {
@@ -131,7 +165,9 @@ export function createPrivacyPreferenceStore(
     return payload;
   }
 
-  async function registrationStatus(appUserId: string): Promise<Record<string, unknown>> {
+  async function registrationStatus(
+    appUserId: string,
+  ): Promise<Record<string, unknown>> {
     const rows = await sql`
       select consent.registration_status_for_app_user(
         ${appUserId}::uuid,
@@ -140,7 +176,11 @@ export function createPrivacyPreferenceStore(
     `;
     const result = rows[0]?.result;
     if (!result || typeof result !== "object" || Array.isArray(result)) {
-      throw new ApiError(404, "registration_status_missing", "Registration status was not found.");
+      throw new ApiError(
+        404,
+        "registration_status_missing",
+        "Registration status was not found.",
+      );
     }
     return result as Record<string, unknown>;
   }
@@ -189,10 +229,18 @@ export function createPrivacyPreferenceStore(
     } catch (error) {
       const message = String((error as Row)?.message ?? "");
       if (message.includes("privacy_preference_unknown")) {
-        throw new ApiError(400, "privacy_preference_unknown", "Privacy preference is not supported.");
+        throw new ApiError(
+          400,
+          "privacy_preference_unknown",
+          "Privacy preference is not supported.",
+        );
       }
       if (message.includes("privacy_preference_identity_missing")) {
-        throw new ApiError(409, "privacy_preference_identity_missing", "Privacy preference identity is not ready.");
+        throw new ApiError(
+          409,
+          "privacy_preference_identity_missing",
+          "Privacy preference identity is not ready.",
+        );
       }
       throw error;
     }

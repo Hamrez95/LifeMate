@@ -40,12 +40,18 @@ export function normalizeWearableMeasurement(
   const provider = input.provider.trim().toLowerCase();
   const externalId = input.externalId.trim();
   if (provider.length < 1 || provider.length > 64) throw invalidMeasurement();
-  if (externalId.length < 1 || externalId.length > 160) throw invalidMeasurement();
+  if (externalId.length < 1 || externalId.length > 160) {
+    throw invalidMeasurement();
+  }
   if (!Number.isFinite(input.value)) throw invalidMeasurement();
   const observed = new Date(input.measuredAtUtc);
   if (!Number.isFinite(observed.getTime())) throw invalidMeasurement();
 
-  const canonical = canonicalUnit(input.measurementType, input.value, input.unit);
+  const canonical = canonicalUnit(
+    input.measurementType,
+    input.value,
+    input.unit,
+  );
   return {
     observationType: observationType(input.measurementType),
     valuePrimary: canonical.value,

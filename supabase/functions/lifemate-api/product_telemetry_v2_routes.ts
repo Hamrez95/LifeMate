@@ -22,7 +22,9 @@ export function createProductTelemetryV2RouteHandler(databaseUrl: string) {
       path === "/api/v1/product/version-presence"
     ) {
       enforceRateLimit(`product-version:${appUserId}`, 30, 60 * 60_000);
-      const payload = parseProductVersionPresence(await readJsonObject(request));
+      const payload = parseProductVersionPresence(
+        await readJsonObject(request),
+      );
       return json(await store.recordPresence(appUserId, payload), 202);
     }
 

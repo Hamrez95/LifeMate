@@ -31,12 +31,13 @@ Deno.test("campaign orchestrator is wired through canonical marketing dispatcher
   const routes = await Deno.readTextFile(
     new URL("./marketing_campaigns_routes.ts", import.meta.url),
   );
+  const compactRoutes = routes.replace(/\s+/g, "").replace(/,\)/g, ")");
   assert(
     routes.includes("createCampaignOrchestratorRouteHandler"),
     "canonical marketing dispatcher must construct campaign orchestrator",
   );
   assert(
-    routes.includes("campaignOrchestratorRouteHandler(context)"),
+    compactRoutes.includes("campaignOrchestratorRouteHandler(context)"),
     "canonical marketing dispatcher must forward authenticated context",
   );
 });
@@ -80,35 +81,38 @@ Deno.test("campaign prepare normalizes channels and optional SMS pricing", () =>
 
 Deno.test("campaign prepare rejects duplicate/unknown channels", () => {
   expectCode(
-    () => parsePrepareCampaignExecution({
-      campaignId,
-      audienceSnapshotId: snapshotId,
-      campaignUpdatedAtUtc: "2026-08-27T04:00:00Z",
-      channels: ["SMS", "SMS"],
-    }),
+    () =>
+      parsePrepareCampaignExecution({
+        campaignId,
+        audienceSnapshotId: snapshotId,
+        campaignUpdatedAtUtc: "2026-08-27T04:00:00Z",
+        channels: ["SMS", "SMS"],
+      }),
     "campaign_channels_invalid",
   );
   expectCode(
-    () => parsePrepareCampaignExecution({
-      campaignId,
-      audienceSnapshotId: snapshotId,
-      campaignUpdatedAtUtc: "2026-08-27T04:00:00Z",
-      channels: ["Email"],
-    }),
+    () =>
+      parsePrepareCampaignExecution({
+        campaignId,
+        audienceSnapshotId: snapshotId,
+        campaignUpdatedAtUtc: "2026-08-27T04:00:00Z",
+        channels: ["Email"],
+      }),
     "campaign_channels_invalid",
   );
 });
 
 Deno.test("SMS pricing cannot be selected for push-only execution", () => {
   expectCode(
-    () => parsePrepareCampaignExecution({
-      campaignId,
-      audienceSnapshotId: snapshotId,
-      campaignUpdatedAtUtc: "2026-08-27T04:00:00Z",
-      channels: ["Push"],
-      smsProvider: "kavenegar",
-      smsCurrency: "IRR",
-    }),
+    () =>
+      parsePrepareCampaignExecution({
+        campaignId,
+        audienceSnapshotId: snapshotId,
+        campaignUpdatedAtUtc: "2026-08-27T04:00:00Z",
+        channels: ["Push"],
+        smsProvider: "kavenegar",
+        smsCurrency: "IRR",
+      }),
     "campaign_sms_pricing_invalid",
   );
 });
@@ -121,10 +125,11 @@ Deno.test("campaign schedule requires positive version and timestamp", () => {
   assert(payload.expectedVersion === 2, "version must survive");
   assert(payload.scheduledAtUtc.endsWith("Z"), "timestamp must canonicalize");
   expectCode(
-    () => parseScheduleExecution(executionId, {
-      expectedVersion: 0,
-      scheduledAtUtc: "2026-08-28T08:30:00Z",
-    }),
+    () =>
+      parseScheduleExecution(executionId, {
+        expectedVersion: 0,
+        scheduledAtUtc: "2026-08-28T08:30:00Z",
+      }),
     "campaign_execution_version_invalid",
   );
 });
@@ -140,10 +145,11 @@ Deno.test("campaign cancellation reason and route action are bounded", () => {
   );
   assert(action?.action === "confirm", "confirm path must match");
   expectCode(
-    () => parseCancelExecution(executionId, {
-      expectedVersion: 1,
-      reason: "short",
-    }),
+    () =>
+      parseCancelExecution(executionId, {
+        expectedVersion: 1,
+        reason: "short",
+      }),
     "campaign_cancel_reason_invalid",
   );
 });

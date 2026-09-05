@@ -201,7 +201,12 @@ export function createPersonDoseOccurrenceStore(databaseUrl: string) {
     const toDate = requiredDate(toValue, "toDate");
     validateRange(fromDate, toDate);
     const patientPersonId = await requireSelfPerson(sql, patientAppUserId);
-    await materializeOccurrencesForPerson(sql, patientPersonId, fromDate, toDate);
+    await materializeOccurrencesForPerson(
+      sql,
+      patientPersonId,
+      fromDate,
+      toDate,
+    );
 
     const rows = await sql`
       select o.*, p.patient_reminder_minutes_before,
@@ -340,7 +345,12 @@ export function createPersonDoseOccurrenceStore(databaseUrl: string) {
       );
     }
 
-    await materializeOccurrencesForPerson(sql, patientPersonId, fromDate, toDate);
+    await materializeOccurrencesForPerson(
+      sql,
+      patientPersonId,
+      fromDate,
+      toDate,
+    );
     const rows = await sql`
       select o.*, m.name as medication_name, p.dose_text,
              p.patient_reminder_minutes_before,

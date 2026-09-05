@@ -56,17 +56,35 @@ for (const forbidden of ["patient_user_id", "{ patientUserId }"]) {
 }
 for (const marker of [
   "self_person_id_for_legacy_app_user",
-  "patient_person_id = ${patientPersonId}::uuid",
-  "(id, patient_person_id, created_by_user_id, client_request_id",
   "${caregiverAppUserId}::uuid",
-  "client_request_id = ${input.clientRequestId}::uuid",
-  "'care_event', ${eventId}::uuid",
 ]) {
   if (!store.includes(marker)) {
     throw new Error(`Person Care Event store contract missing: ${marker}`);
   }
 }
-if (!store.includes("const metadata = eventType == null ? null : { eventType }")) {
+for (const [name, pattern] of [
+  [
+    "patient Person ownership predicate",
+    /patient_person_id\s*=\s*\$\{personId\}::uuid/,
+  ],
+  [
+    "Person-authoritative care event insert",
+    /insert\s+into\s+lifemate\.care_events\s*\(\s*id\s*,\s*patient_person_id\s*,\s*created_by_user_id\s*,\s*client_request_id\b/i,
+  ],
+  [
+    "care event idempotency predicate",
+    /client_request_id\s*=\s*\$\{input\.clientRequestId\}::uuid/,
+  ],
+  [
+    "care event audit resource contract",
+    /values\s*\([\s\S]*?\$\{action\}\s*,\s*['"]care_event['"]\s*,\s*\$\{eventId\}::uuid\s*,\s*\$\{metadata\}::jsonb\s*,\s*now\(\)\s*\)/i,
+  ],
+]) {
+  if (!pattern.test(store)) {
+    throw new Error(`Person Care Event store contract missing: ${name}`);
+  }
+}
+if (!store.includes("const metadata = eventType == null ? null : JSON.stringify({ eventType })")) {
   throw new Error(
     "Care Event audit metadata must keep event semantics without patient AppUser identity.",
   );

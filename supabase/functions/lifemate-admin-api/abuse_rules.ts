@@ -181,12 +181,11 @@ export async function parseAbuseRuleMutation(
       "RequireApproval must name exactly one approvalRequestType.",
     );
   }
-  const shapeValid =
-    (ruleKind === "VelocityLimit" &&
-      windowSeconds !== null &&
-      maxCount !== null &&
-      cooldownSeconds === null &&
-      evidenceCode === null) ||
+  const shapeValid = (ruleKind === "VelocityLimit" &&
+    windowSeconds !== null &&
+    maxCount !== null &&
+    cooldownSeconds === null &&
+    evidenceCode === null) ||
     (ruleKind === "UsageCap" &&
       windowSeconds === null &&
       maxCount !== null &&

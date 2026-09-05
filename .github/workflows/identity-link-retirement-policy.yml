@@ -73,12 +73,11 @@ jobs:
         with:
           deno-version: v2.9.4
 
-      - name: Freeze raw runtime identity and rotation boundaries
-        shell: bash
-        run: |
-          set -euo pipefail
-          node tools/security/verify-identity-raw-link-boundary.mjs
-          node tools/security/verify-identity-link-rotation-policy.mjs
+      - name: Freeze raw runtime identity boundary
+        run: node tools/security/verify-identity-raw-link-boundary.mjs
+
+      - name: Freeze identity-link rotation boundary
+        run: node tools/security/verify-identity-link-rotation-policy.mjs
 
       - name: Format and type-check identity security source
         shell: bash
@@ -111,6 +110,8 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+          psql "$TEST_DATABASE_URL" --set=ON_ERROR_STOP=1 \
+            --file=supabase/bootstrap/test_provider_compatibility_roles.sql
           psql "$TEST_DATABASE_URL" --set=ON_ERROR_STOP=1 \
             --file=supabase/bootstrap/legacy_lifemate_baseline.sql
           while IFS= read -r migration; do

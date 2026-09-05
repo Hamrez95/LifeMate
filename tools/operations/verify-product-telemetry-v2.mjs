@@ -9,6 +9,7 @@ const migration = read('supabase/migrations/20260827115500_product_telemetry_v2_
 const core = read('supabase/functions/lifemate-api/product_telemetry_v2.ts');
 const routes = read('supabase/functions/lifemate-api/product_telemetry_v2_routes.ts');
 const adminRoutes = read('supabase/functions/lifemate-admin-api/product_version_analytics_routes.ts');
+const adminPathParser = read('supabase/functions/lifemate-admin-api/product_version_analytics.ts');
 const adminService = read('supabase/functions/lifemate-admin-api/product_version_analytics_service.ts');
 
 for (const table of [
@@ -25,7 +26,7 @@ requireText(migration, "interval '400 days'", 'bounded retention');
 requireText(routes, '/api/v1/product/version-presence', 'authenticated version-presence API');
 requireText(routes, '/api/v1/product/update-policy', 'user update-policy API');
 requireText(adminRoutes, '/api/v1/analytics/product-version-adoption', 'aggregate adoption Admin API');
-requireText(adminRoutes, '/product-versions', 'User 360 version context Admin API');
+requireText(adminPathParser, 'product-versions', 'User 360 version context Admin API');
 requireText(adminRoutes, 'analytics.product_versions.read', 'Admin authorization');
 requireText(adminService, 'source: "analytics.product_version_adoption_v1"', 'definition/source metadata');
 requireText(core, 'product_version_field_forbidden', 'fingerprinting-field rejection');

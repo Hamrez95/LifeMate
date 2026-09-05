@@ -59,6 +59,7 @@ const runtimeFiles = filesUnder(
 const relative = (file) => path.relative(repoRoot, file).replaceAll('\\', '/');
 
 const authSubjectAllowlist = new Set([
+  'supabase/functions/lifemate-api/bootstrap_account_state.ts',
   'supabase/functions/lifemate-api/database_legacy.ts',
   'supabase/functions/lifemate-api/identity_bridge.ts',
   'supabase/functions/lifemate-api/identity_resolver.ts',
@@ -82,6 +83,26 @@ for (const file of runtimeFiles) {
   }
 }
 
+const bootstrapAccountState = fs.readFileSync(
+  path.join(apiRoot, 'bootstrap_account_state.ts'),
+  'utf8',
+);
+requireMarkers(
+  bootstrapAccountState,
+  [
+    'createBootstrapAccountStateGuard',
+    'where u.auth_subject=${authSubject}',
+    'account_deletion_pending',
+    'account_deleted',
+  ],
+  'bootstrap raw-identity compatibility read',
+);
+for (const mutation of ['insert into ', 'update ', 'delete from ', 'truncate ']) {
+  if (bootstrapAccountState.toLowerCase().includes(mutation)) {
+    fail(`bootstrap raw-identity compatibility boundary must remain read-only: ${mutation.trim()}`);
+  }
+}
+
 const identityBridge = fs.readFileSync(
   path.join(apiRoot, 'identity_bridge.ts'),
   'utf8',
@@ -97,6 +118,13 @@ requireMarkers(
   ],
   'raw identity retirement bridge',
 );
+if (
+  !/where\s+id=\$\{legacyAppUserId\}::uuid\s+and\s+\(auth_subject=\$\{auth\.id\}\s+or\s+auth_subject\s+is\s+null\)/i.test(
+    identityBridge,
+  )
+) {
+  fail('identity retirement bridge must scrub only the authenticated subject or an already-retired NULL row.');
+}
 if (
   /insert\s+into\s+lifemate\.app_users\s*\([^)]*\bauth_subject\b/is.test(
     identityBridge,
@@ -121,7 +149,10 @@ requireMarkers(
   [
     'createIdentityResolver',
     'createLegacyLifeMateDatabase',
-    'requireIdentity: identityResolver.requireIdentity',
+    'async function requireIdentity(',
+    'const identity = await identityResolver.requireIdentity(auth);',
+    'await privacyPreferences.requireRegistrationComplete(identity.appUserId);',
+    'return identity;',
   ],
   'database compatibility facade',
 );

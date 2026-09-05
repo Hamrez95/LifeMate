@@ -47,7 +47,9 @@ export function calculateWomenCycleAnalytics(
   const cycleIntervals = cycleIntervalsFromEpisodes(episodes);
   const periodDurations = episodes
     .map((episode) => periodDuration(episode))
-    .filter((value): value is number => value != null && value >= 1 && value <= 14);
+    .filter((value): value is number =>
+      value != null && value >= 1 && value <= 14
+    );
   const usableCycleIntervals = filterCycleIntervalOutliers(cycleIntervals);
   const cycleLength = summarize(usableCycleIntervals);
   const periodDurationSummary = summarize(periodDurations);
@@ -106,21 +108,27 @@ function normalizeEpisodes(value: AnalyticsEpisode[]): AnalyticsEpisode[] {
 function cycleIntervalsFromEpisodes(episodes: AnalyticsEpisode[]): number[] {
   const result: number[] = [];
   for (let index = 1; index < episodes.length; index++) {
-    const days = daysBetween(episodes[index - 1].startedOn, episodes[index].startedOn);
+    const days = daysBetween(
+      episodes[index - 1].startedOn,
+      episodes[index].startedOn,
+    );
     if (days >= 15 && days <= 90) result.push(days);
   }
   return result;
 }
 
 function filterCycleIntervalOutliers(values: number[]): number[] {
-  if (values.length < 3) return values.filter((value) => value >= 21 && value <= 45);
+  if (values.length < 3) {
+    return values.filter((value) => value >= 21 && value <= 45);
+  }
   const sorted = [...values].sort((a, b) => a - b);
   const median = medianOf(sorted);
   const absoluteDeviations = sorted.map((value) => Math.abs(value - median));
   const mad = medianOf([...absoluteDeviations].sort((a, b) => a - b));
   const tolerance = Math.max(7, mad * 3);
   return values.filter(
-    (value) => value >= 21 && value <= 45 && Math.abs(value - median) <= tolerance,
+    (value) =>
+      value >= 21 && value <= 45 && Math.abs(value - median) <= tolerance,
   );
 }
 
@@ -151,7 +159,9 @@ function recurringSymptomSummary(
     .map(([id, occurrences]) => ({ id, occurrences }));
 }
 
-function distribution(values: Array<string | null | undefined>): Record<string, number> {
+function distribution(
+  values: Array<string | null | undefined>,
+): Record<string, number> {
   const result: Record<string, number> = {};
   for (const raw of values) {
     const value = String(raw ?? "").trim().toLowerCase();
@@ -183,7 +193,9 @@ function medianOf(values: number[]): number {
 }
 
 function daysBetween(left: string, right: string): number {
-  return Math.round((parseDate(right).getTime() - parseDate(left).getTime()) / 86_400_000);
+  return Math.round(
+    (parseDate(right).getTime() - parseDate(left).getTime()) / 86_400_000,
+  );
 }
 
 function parseDate(value: string): Date {

@@ -3,6 +3,8 @@ import { assertEquals, assertRejects } from "jsr:@std/assert";
 import { buildAdminRbacMatrix } from "./security_rbac.ts";
 import { createSecurityRbacRouteHandler } from "./security_rbac_routes.ts";
 
+const inertDatabaseUrl = "postgres://test:test@127.0.0.1:5432/test";
+
 Deno.test("RBAC matrix keeps canonical ordering and direct effective assignments", () => {
   const matrix = buildAdminRbacMatrix(
     [
@@ -133,7 +135,7 @@ Deno.test("RBAC matrix marks assignments on disabled roles as ineffective", () =
 
 Deno.test("RBAC route denies missing security.audit.read before querying store", async () => {
   let queried = false;
-  const handler = createSecurityRbacRouteHandler("unused", {
+  const handler = createSecurityRbacRouteHandler(inertDatabaseUrl, {
     async getRolePermissionMatrix() {
       queried = true;
       throw new Error("store must not be queried");
@@ -161,7 +163,7 @@ Deno.test("RBAC route denies missing security.audit.read before querying store",
 });
 
 Deno.test("RBAC route returns canonical matrix to authorized security reader", async () => {
-  const handler = createSecurityRbacRouteHandler("unused", {
+  const handler = createSecurityRbacRouteHandler(inertDatabaseUrl, {
     async getRolePermissionMatrix() {
       return buildAdminRbacMatrix(
         [

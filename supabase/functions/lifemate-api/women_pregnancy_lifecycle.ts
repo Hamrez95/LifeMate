@@ -33,7 +33,11 @@ export function evaluatePregnancyTransitionEligibility(
 
 export function nextWomenHealthLifecycleState(
   current: WomenHealthLifecycleState,
-  action: "activate_pregnancy" | "mark_postpartum" | "mark_resumable" | "resume",
+  action:
+    | "activate_pregnancy"
+    | "mark_postpartum"
+    | "mark_resumable"
+    | "resume",
 ): WomenHealthLifecycleState {
   if (action === "activate_pregnancy") {
     if (current === "paused_for_pregnancy") return current;
@@ -42,12 +46,16 @@ export function nextWomenHealthLifecycleState(
   }
   if (action === "mark_postpartum") {
     if (current === "postpartum_recovery") return current;
-    if (current !== "paused_for_pregnancy") throw invalidTransition(current, action);
+    if (current !== "paused_for_pregnancy") {
+      throw invalidTransition(current, action);
+    }
     return "postpartum_recovery";
   }
   if (action === "mark_resumable") {
     if (current === "resumable") return current;
-    if (current !== "postpartum_recovery") throw invalidTransition(current, action);
+    if (current !== "postpartum_recovery") {
+      throw invalidTransition(current, action);
+    }
     return "resumable";
   }
   if (current !== "resumable") throw invalidTransition(current, action);

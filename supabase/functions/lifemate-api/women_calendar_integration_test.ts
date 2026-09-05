@@ -106,6 +106,7 @@ Deno.test({
         consentVersion: "care-caregiver-consent-v1",
         confirmConsent: true,
       });
+      const relationshipId = String(relationship.id);
       assertEquals(relationship.canViewWomenCalendar, false);
 
       await assertApiError(
@@ -118,7 +119,7 @@ Deno.test({
         () =>
           db.updateRelationshipPermissions(
             caregiver.appUserId,
-            relationship.id,
+            relationshipId,
             { canViewWomenCalendar: true },
           ),
         404,
@@ -127,10 +128,28 @@ Deno.test({
 
       const permitted = await db.updateRelationshipPermissions(
         patient.appUserId,
-        relationship.id,
+        relationshipId,
         { canViewWomenCalendar: true },
       );
       assertEquals(permitted.canViewWomenCalendar, true);
+
+      await admin`
+        insert into lifemate.women_companion_privacy_scopes (
+          relationship_id,
+          view_period_timing,
+          view_phase_summary,
+          view_shared_wellbeing,
+          view_calendar_detail,
+          updated_by_user_id
+        ) values (
+          ${relationshipId}::uuid,
+          true,
+          true,
+          true,
+          true,
+          ${patient.appUserId}::uuid
+        )
+      `;
 
       const privateDailyLog = await women.upsertOwnerDailyLog(
         patient.appUserId,
@@ -290,7 +309,7 @@ Deno.test({
         periodLength: disabled.periodLength,
         remindersEnabled: disabled.remindersEnabled,
       });
-      await db.revokeRelationship(patient.appUserId, relationship.id);
+      await db.revokeRelationship(patient.appUserId, relationshipId);
       await assertApiError(
         () => women.getCareSummary(caregiver.appUserId, patient.appUserId),
         403,

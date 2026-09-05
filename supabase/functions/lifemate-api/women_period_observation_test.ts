@@ -38,7 +38,9 @@ Deno.test("period observation accepts canonical neutral values", () => {
 
 Deno.test("period observation rejects diagnostic or arbitrary values", () => {
   assertThrows(() => normalizePeriodObservation({ periodFlow: "dangerous" }));
-  assertThrows(() => normalizePeriodObservation({ bloodAppearance: "abnormal" }));
+  assertThrows(() =>
+    normalizePeriodObservation({ bloodAppearance: "abnormal" })
+  );
   assertThrows(() => normalizePeriodObservation({ bloodTexture: "disease" }));
 });
 

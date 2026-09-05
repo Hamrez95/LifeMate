@@ -38,6 +38,13 @@ const legacyToCanonical: Record<string, WomenSymptomId> = {
   NoSymptom: "no_symptom",
 };
 
+const canonicalToLegacy = new Map<WomenSymptomId, string>(
+  Object.entries(legacyToCanonical).map(([legacy, canonical]) => [
+    canonical,
+    legacy,
+  ]),
+);
+
 const canonicalSet = new Set<string>(womenSymptomIds);
 
 export function canonicalizeLegacySymptoms(value: unknown): WomenSymptomId[] {
@@ -56,6 +63,14 @@ export function canonicalizeLegacySymptoms(value: unknown): WomenSymptomId[] {
   return [...result];
 }
 
+export function projectCanonicalSymptomsToLegacy(
+  symptoms: WomenSymptomId[],
+): string[] {
+  return symptoms
+    .map((symptom) => canonicalToLegacy.get(symptom))
+    .filter((symptom): symptom is string => symptom != null);
+}
+
 export function normalizeWomenSymptomObservations(
   value: unknown,
 ): WomenSymptomObservation[] {
@@ -70,7 +85,10 @@ export function normalizeWomenSymptomObservations(
       throw invalidSymptoms();
     }
     const row = raw as Record<string, unknown>;
-    const idText = String(row.id ?? "").trim().toLowerCase().replaceAll("-", "_");
+    const idText = String(row.id ?? "").trim().toLowerCase().replaceAll(
+      "-",
+      "_",
+    );
     if (!canonicalSet.has(idText)) throw invalidSymptoms();
     const id = idText as WomenSymptomId;
     const severity = normalizeSeverity(row.severity);
@@ -107,10 +125,14 @@ export function normalizeStoredWomenSymptomObservations(
   for (const raw of value) {
     if (raw == null || typeof raw !== "object" || Array.isArray(raw)) continue;
     const row = raw as Record<string, unknown>;
-    const idText = String(row.id ?? "").trim().toLowerCase().replaceAll("-", "_");
+    const idText = String(row.id ?? "").trim().toLowerCase().replaceAll(
+      "-",
+      "_",
+    );
     if (!canonicalSet.has(idText)) continue;
     const severityNumber = Number(row.severity);
-    const severity = Number.isInteger(severityNumber) && severityNumber >= 1 && severityNumber <= 5
+    const severity = Number.isInteger(severityNumber) && severityNumber >= 1 &&
+        severityNumber <= 5
       ? severityNumber as WomenSymptomSeverity
       : null;
     result.push({ id: idText as WomenSymptomId, severity });

@@ -1,8 +1,8 @@
 import { json } from "./http.ts";
 import { enforceRateLimit } from "./security.ts";
 import {
-  supportAttachmentMaximumBytes,
   type createSupportAttachmentRuntime,
+  supportAttachmentMaximumBytes,
 } from "./support_attachment_storage.ts";
 import { ApiError, readJsonObject } from "./validation.ts";
 import type { createSupportConversationStore } from "./support_conversations.ts";
@@ -39,12 +39,15 @@ export function createSupportConversationRouteHandler(
     if (request.method === "POST" && path === "/api/v1/support/conversations") {
       enforceRateLimit(`support-open:${appUserId}`, 5, 24 * 60 * 60_000);
       const body = await readJsonObject(request);
-      return json(await store.open(appUserId, {
-        productCode: optionalProductCode(body.productCode),
-        category: optionalCategory(body.category) ?? "general",
-        body: requiredMessage(body.body),
-        clientMessageId: requiredUuid(body.clientMessageId),
-      }), 201);
+      return json(
+        await store.open(appUserId, {
+          productCode: optionalProductCode(body.productCode),
+          category: optionalCategory(body.category) ?? "general",
+          body: requiredMessage(body.body),
+          clientMessageId: requiredUuid(body.clientMessageId),
+        }),
+        201,
+      );
     }
 
     const attachmentUpload = path.match(
@@ -185,10 +188,13 @@ export function createSupportConversationRouteHandler(
     if (request.method === "POST" && suffix === "messages") {
       enforceRateLimit(`support-send:${appUserId}`, 60, 60 * 60_000);
       const body = await readJsonObject(request);
-      return json(await store.send(appUserId, ticketId, {
-        body: requiredMessage(body.body),
-        clientMessageId: requiredUuid(body.clientMessageId),
-      }), 201);
+      return json(
+        await store.send(appUserId, ticketId, {
+          body: requiredMessage(body.body),
+          clientMessageId: requiredUuid(body.clientMessageId),
+        }),
+        201,
+      );
     }
 
     if (request.method === "POST" && suffix === "read") {
@@ -209,9 +215,10 @@ export function createSupportConversationRouteHandler(
 function requiredUuid(value: unknown): string {
   if (
     typeof value !== "string" ||
-    !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(
-      value,
-    )
+    !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
+      .test(
+        value,
+      )
   ) {
     throw new ApiError(400, "invalid_uuid", "Identifier is invalid.");
   }
@@ -322,7 +329,10 @@ function boundedLimit(value: string | null): number {
 }
 
 async function sha256Hex(bytes: Uint8Array): Promise<string> {
-  const digest = await crypto.subtle.digest("SHA-256", bytes);
+  const digest = await crypto.subtle.digest(
+    "SHA-256",
+    bytes.slice().buffer as ArrayBuffer,
+  );
   return Array.from(new Uint8Array(digest)).map((value) =>
     value.toString(16).padStart(2, "0")
   ).join("");

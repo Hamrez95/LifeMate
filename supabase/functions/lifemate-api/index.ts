@@ -76,7 +76,10 @@ const edits = createEditStore(databaseUrl);
 const healthObservations = createHealthObservationStore(databaseUrl);
 const womenCalendar = createWomenCalendarStore(databaseUrl);
 const womenCompanionPrivacy = createWomenCompanionPrivacyStore(databaseUrl);
-const growthRoutes = createGrowthRouteHandler(databaseUrl, contactHashingSecret);
+const growthRoutes = createGrowthRouteHandler(
+  databaseUrl,
+  contactHashingSecret,
+);
 const subscriptionRoutes = createSubscriptionRouteHandler(databaseUrl);
 const womenCalendarPilotEnabled =
   (Deno.env.get("ENABLE_WOMEN_CALENDAR_PILOT") ?? "true").toLowerCase() !==
@@ -253,7 +256,11 @@ async function route(
     appUserId: identity.appUserId,
   });
   if (growthResponse) return growthResponse;
-  const subscriptionResponse = await subscriptionRoutes({ request, path, appUserId: identity.appUserId });
+  const subscriptionResponse = await subscriptionRoutes({
+    request,
+    path,
+    appUserId: identity.appUserId,
+  });
   if (subscriptionResponse) return subscriptionResponse;
 
   if (request.method === "GET" && path === "/api/v1/capabilities") {
@@ -475,19 +482,32 @@ async function route(
     return new Response(null, { status: 204, headers: corsHeaders });
   }
 
-  if (request.method === "GET" && path === "/api/v1/women-calendar/companion-privacy") {
+  if (
+    request.method === "GET" &&
+    path === "/api/v1/women-calendar/companion-privacy"
+  ) {
     requireWomenCalendarPilot();
-    return json(await womenCompanionPrivacy.listOwnerScopes(identity.appUserId));
+    return json(
+      await womenCompanionPrivacy.listOwnerScopes(identity.appUserId),
+    );
   }
   const womenCompanionPrivacyMatch = path.match(
     /^\/api\/v1\/women-calendar\/companion-privacy\/([0-9a-f-]{36})$/i,
   );
   if (request.method === "PUT" && womenCompanionPrivacyMatch) {
     requireWomenCalendarPilot();
-    enforceRateLimit(`women-calendar-companion-privacy:${identity.appUserId}`, 20, 60 * 60_000);
-    return json(await womenCompanionPrivacy.updateOwnerScopes(
-      identity.appUserId, womenCompanionPrivacyMatch[1], await readJsonObject(request),
-    ));
+    enforceRateLimit(
+      `women-calendar-companion-privacy:${identity.appUserId}`,
+      20,
+      60 * 60_000,
+    );
+    return json(
+      await womenCompanionPrivacy.updateOwnerScopes(
+        identity.appUserId,
+        womenCompanionPrivacyMatch[1],
+        await readJsonObject(request),
+      ),
+    );
   }
 
   if (request.method === "GET" && path === "/api/v1/women-calendar/profile") {

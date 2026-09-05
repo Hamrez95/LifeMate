@@ -82,7 +82,17 @@ begin
 end;
 $$;
 
-revoke all on function admin.enforce_custom_role_assignment_authority() from public,anon,authenticated;
+revoke all on function admin.enforce_custom_role_assignment_authority() from public;
+do $$
+begin
+  if exists (select 1 from pg_roles where rolname='anon') then
+    revoke all on function admin.enforce_custom_role_assignment_authority() from anon;
+  end if;
+  if exists (select 1 from pg_roles where rolname='authenticated') then
+    revoke all on function admin.enforce_custom_role_assignment_authority() from authenticated;
+  end if;
+end;
+$$;
 
 comment on function admin.enforce_custom_role_assignment_authority() is
 'Blocks custom-role self-assignment, inactive-target assignment, rank escalation, elevated/non-role permission delegation, and delegation beyond the granting actor authority. Revocation remains allowed.';

@@ -31,7 +31,11 @@ export function normalizePeriodObservation(
   body: Record<string, unknown>,
 ): PeriodObservationPatch {
   return {
-    periodFlow: optionalCanonical(body.periodFlow, periodFlowValues, "periodFlow"),
+    periodFlow: optionalCanonical(
+      body.periodFlow,
+      periodFlowValues,
+      "periodFlow",
+    ),
     bloodAppearance: optionalCanonical(
       body.bloodAppearance,
       bloodAppearanceValues,
