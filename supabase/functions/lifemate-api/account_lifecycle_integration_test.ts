@@ -10,7 +10,26 @@ if (!databaseUrl) {
   throw new Error("TEST_DATABASE_URL is required for account lifecycle tests.");
 }
 
-const adminSql = postgres(databaseUrl, {
+function fixtureDatabaseUrl(runtimeUrl: string): string {
+  const explicit = Deno.env.get("TEST_FIXTURE_DATABASE_URL");
+  if (explicit) return explicit;
+
+  const parsed = new URL(runtimeUrl);
+  const isPortableRestrictedCi = parsed.hostname === "localhost" &&
+    parsed.port === "5432" &&
+    parsed.username === "lifemate_edge_runtime" &&
+    parsed.pathname === "/lifemate_edge_deploy_tests";
+  if (!isPortableRestrictedCi) return runtimeUrl;
+
+  parsed.username = "postgres";
+  parsed.password = "postgres";
+  return parsed.toString();
+}
+
+// The lifecycle store and bootstrap guard always use TEST_DATABASE_URL. Fixture
+// setup/cleanup may use the portable CI container owner so the restricted-role
+// journey proves runtime permissions without granting fixture DELETE authority.
+const adminSql = postgres(fixtureDatabaseUrl(databaseUrl), {
   max: 1,
   prepare: false,
   idle_timeout: 5,
