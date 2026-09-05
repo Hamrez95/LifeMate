@@ -75,7 +75,9 @@ export function readIdentityLookupMode(
 export function createBootstrapIdentityStateReader(databaseUrl: string) {
   const sql = getLifeMateSql(databaseUrl);
 
-  async function read(authSubject: string): Promise<BootstrapIdentityState | null> {
+  async function read(
+    authSubject: string,
+  ): Promise<BootstrapIdentityState | null> {
     const rows = await sql<BootstrapIdentityStateRow[]>`
       select
         u.status as app_user_status,
