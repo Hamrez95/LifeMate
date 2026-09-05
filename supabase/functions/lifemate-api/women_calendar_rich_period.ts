@@ -214,10 +214,16 @@ export function createWomenCalendarRichPeriodStore(databaseUrl: string) {
             blood_appearance=case when ${bloodAppearanceProvided} then ${observation.bloodAppearance} else blood_appearance end,
             blood_texture=case when ${bloodTextureProvided} then ${observation.bloodTexture} else blood_texture end,
             period_observation_schema_version=${periodObservationSchemaVersion},
-            pain_level=case when ${painProvided && painLevel != null} then ${painLevel ?? 0} else pain_level end,
-            pain_recorded=case when ${painProvided} then ${painLevel != null} else pain_recorded end,
+            pain_level=case when ${painProvided && painLevel != null} then ${
+        painLevel ?? 0
+      } else pain_level end,
+            pain_recorded=case when ${painProvided} then ${
+        painLevel != null
+      } else pain_recorded end,
             symptoms=case when ${symptomsProvided} then ${legacySymptoms}::varchar[] else symptoms end,
-            symptom_observations=case when ${symptomsProvided} then ${tx.json(symptomObservations)}::jsonb else symptom_observations end,
+            symptom_observations=case when ${symptomsProvided} then ${
+        tx.json(symptomObservations)
+      }::jsonb else symptom_observations end,
             symptom_schema_version=case when ${symptomsProvided} then ${womenSymptomCatalogVersion} else symptom_schema_version end,
             private_notes=case when ${privateNotesProvided} then ${privateNotes} else private_notes end,
             version=version+1,
