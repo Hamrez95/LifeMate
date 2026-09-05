@@ -11,7 +11,7 @@ permissions:
 jobs:
   diagnose:
     runs-on: ubuntu-24.04
-    timeout-minutes: 20
+    timeout-minutes: 25
     services:
       postgres:
         image: postgres:17.6-alpine
@@ -48,7 +48,7 @@ jobs:
           (cd supabase/functions/lifemate-care-management && deno fmt --check && deno task check && deno task test) > care-management-check.txt 2>&1
           echo "care_management_exit=$?" >> care-management-check.txt
           exit 0
-      - name: Capture portable schema and account lifecycle
+      - name: Capture portable schema and integration journeys
         shell: bash
         run: |
           set +e
@@ -71,6 +71,10 @@ jobs:
           if [ "$schema_ok" -eq 1 ]; then
             (cd supabase/functions/lifemate-api && deno task test:account-lifecycle-integration) > account-lifecycle-check.txt 2>&1
             echo "account_lifecycle_exit=$?" >> account-lifecycle-check.txt
+            (cd supabase/functions/lifemate-api && deno task test:integration) > integration-test.txt 2>&1
+            echo "integration_exit=$?" >> integration-test.txt
+          else
+            echo 'integration skipped because schema setup failed' > integration-test.txt
           fi
           exit 0
       - name: Upload diagnostic evidence
@@ -84,4 +88,5 @@ jobs:
             care-management-check.txt
             schema-check.txt
             account-lifecycle-check.txt
+            integration-test.txt
           if-no-files-found: error
