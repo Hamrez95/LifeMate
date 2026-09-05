@@ -1,5 +1,6 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
+import 'package:lifemate_client/lifemate_client.dart';
 import 'package:lifemate_core/lifemate_reminders.dart';
 import 'package:timezone/data/latest.dart' as tz_data;
 import 'package:timezone/timezone.dart' as tz;
@@ -50,6 +51,27 @@ class WomenCycleInsightNotificationScheduler {
     final notificationsEnabled = preferences['notificationsEnabled'] == true;
 
     if (!insightsEnabled || !notificationsEnabled) {
+      await cancelAll();
+      return scheduled;
+    }
+
+    // Pregnancy is a life-state transition, not a second calendar. Personal
+    // period/logging reminders must stop immediately while Women Health is not
+    // canonically active. Missing/unknown lifecycle state fails closed instead
+    // of assuming active and leaking an inappropriate period reminder during a
+    // pregnancy/postpartum transition.
+    WomenHealthLifecycleState lifecycleState;
+    try {
+      lifecycleState = WomenHealthLifecycleState.parse(profile['lifecycleState']);
+    } on FormatException {
+      await cancelAll();
+      return scheduled;
+    }
+    if (!WomenCalendarOfflineEngine.shouldSchedulePersonalCycleReminders(
+      womenHealthEnabled: true,
+      remindersEnabled: true,
+      lifecycleState: lifecycleState,
+    )) {
       await cancelAll();
       return scheduled;
     }
