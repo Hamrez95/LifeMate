@@ -48,6 +48,8 @@ jobs:
         run: |
           set -euo pipefail
           flutter pub get
-          dart format --output=none --set-exit-if-changed lib test
+          dart format lib test
+          git diff -- lib test
+          git diff --exit-code -- lib test
           flutter analyze --no-fatal-warnings --no-fatal-infos
           flutter test
