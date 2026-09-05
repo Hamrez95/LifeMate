@@ -15,6 +15,7 @@ export function createStaffDirectoryStore(databaseUrl: string) {
       actorAccountId: string,
       targetAccountId: string,
       correlationId: string,
-    ) => auditStaffDetailRead(sql, actorAccountId, targetAccountId, correlationId),
+    ) =>
+      auditStaffDetailRead(sql, actorAccountId, targetAccountId, correlationId),
   };
 }

@@ -24,7 +24,8 @@ type Context = {
   origin: string | null;
 };
 
-const uuid = "[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}";
+const uuid =
+  "[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}";
 const refundSubmitPattern = new RegExp(
   `^/api/v1/commerce/refunds/(${uuid})/actions/submit$`,
   "i",
@@ -56,7 +57,11 @@ function limit(url: URL): number {
   if (raw == null) return 100;
   const value = Number(raw);
   if (!Number.isInteger(value) || value < 1 || value > 200) {
-    throw new ApiError(400, "limit_invalid", "limit must be between 1 and 200.");
+    throw new ApiError(
+      400,
+      "limit_invalid",
+      "limit must be between 1 and 200.",
+    );
   }
   return value;
 }
@@ -84,7 +89,9 @@ export function createPaymentOperationsRouteHandler(databaseUrl: string) {
       );
     }
 
-    if (request.method === "POST" && path === "/api/v1/commerce/refunds/requests") {
+    if (
+      request.method === "POST" && path === "/api/v1/commerce/refunds/requests"
+    ) {
       requirePermission(admin, "commerce.refund.request");
       const idempotencyKey = requireIdempotencyKey(request);
       const payload = await parseRefundRequestV2(request);

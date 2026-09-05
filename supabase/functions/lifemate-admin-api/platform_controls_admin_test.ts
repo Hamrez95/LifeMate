@@ -39,15 +39,16 @@ Deno.test("feature flags are Boolean and mutation hash is stable", async () => {
 
 Deno.test("feature flag cannot smuggle non-Boolean values", async () => {
   const error = await assertRejects(
-    () => parseControlCreate(request({
-      controlKey: "wellmate.bad_flag",
-      controlKind: "FeatureFlag",
-      valueType: "String",
-      defaultValue: "yes",
-      description: "Invalid feature flag shape for regression coverage.",
-      failClosed: true,
-      reason: "Reject a flag that could bypass typed client assumptions.",
-    })),
+    () =>
+      parseControlCreate(request({
+        controlKey: "wellmate.bad_flag",
+        controlKind: "FeatureFlag",
+        valueType: "String",
+        defaultValue: "yes",
+        description: "Invalid feature flag shape for regression coverage.",
+        failClosed: true,
+        reason: "Reject a flag that could bypass typed client assumptions.",
+      })),
     ApiError,
   );
   assertEquals(error.code, "platform_feature_flag_type_invalid");
@@ -75,10 +76,11 @@ Deno.test("percentage rollout is bounded and typed", async () => {
 
 Deno.test("kill switch requires optimistic concurrency", async () => {
   const error = await assertRejects(
-    () => parseKillSwitchMutation(request({
-      expectedVersion: 0,
-      reason: "Emergency disable after a critical compatibility defect.",
-    })),
+    () =>
+      parseKillSwitchMutation(request({
+        expectedVersion: 0,
+        reason: "Emergency disable after a critical compatibility defect.",
+      })),
     ApiError,
   );
   assertEquals(error.code, "platform_expected_version_invalid");

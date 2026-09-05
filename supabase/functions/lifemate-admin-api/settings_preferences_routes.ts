@@ -1,4 +1,7 @@
-import { type AdminCapabilitySnapshot, requirePermission } from "./authorization.ts";
+import {
+  type AdminCapabilitySnapshot,
+  requirePermission,
+} from "./authorization.ts";
 import { json } from "./http.ts";
 import {
   hashConfigureCommandCenterPreferencesRequest,
@@ -13,12 +16,18 @@ const SETTINGS_PATH = "/api/v1/settings/preferences";
 function checkedStatus(result: Record<string, unknown>): number {
   const httpStatus = Number(result.httpStatus);
   if (!Number.isInteger(httpStatus) || httpStatus < 100 || httpStatus > 599) {
-    throw new ApiError(503, "settings_workflow_unavailable", "Settings workflow returned an invalid status.");
+    throw new ApiError(
+      503,
+      "settings_workflow_unavailable",
+      "Settings workflow returned an invalid status.",
+    );
   }
   return httpStatus;
 }
 
-export function createCommandCenterPreferencesRouteHandler(databaseUrl: string) {
+export function createCommandCenterPreferencesRouteHandler(
+  databaseUrl: string,
+) {
   const store = createCommandCenterPreferencesStore(databaseUrl);
 
   return async function commandCenterPreferencesRouteHandler(input: {
@@ -34,22 +43,28 @@ export function createCommandCenterPreferencesRouteHandler(databaseUrl: string) 
 
     if (request.method === "GET") {
       requirePermission(admin, "settings.read");
-      return json({
-        preferences: await store.get(),
-        capabilities: {
-          mutableFields: ["locale", "timeZone", "displayName"],
-          supportedLocales: [...supportedCommandCenterLocales],
-          timeZoneValidation: "iana",
-          secretsEditable: false,
+      return json(
+        {
+          preferences: await store.get(),
+          capabilities: {
+            mutableFields: ["locale", "timeZone", "displayName"],
+            supportedLocales: [...supportedCommandCenterLocales],
+            timeZoneValidation: "iana",
+            secretsEditable: false,
+          },
+          freshness: { status: "fresh", asOfUtc: new Date().toISOString() },
         },
-        freshness: { status: "fresh", asOfUtc: new Date().toISOString() },
-      }, 200, origin);
+        200,
+        origin,
+      );
     }
 
     if (request.method !== "PUT") return null;
     requirePermission(admin, "settings.write");
     const idempotencyKey = requireIdempotencyKey(request);
-    const payload = await parseConfigureCommandCenterPreferencesPayload(request);
+    const payload = await parseConfigureCommandCenterPreferencesPayload(
+      request,
+    );
     const result = await store.configure({
       actorAccountId: accountId,
       payload,
@@ -62,18 +77,24 @@ export function createCommandCenterPreferencesRouteHandler(databaseUrl: string) 
       throw new ApiError(
         httpStatus,
         String(result.code),
-        typeof result.message === "string" ? result.message : "Settings update was not completed.",
+        typeof result.message === "string"
+          ? result.message
+          : "Settings update was not completed.",
       );
     }
-    return json({
-      preferences: {
-        locale: String(result.locale),
-        timeZone: String(result.timeZone),
-        displayName: String(result.displayName),
-        version: Number(result.version),
-        updatedAtUtc: String(result.updatedAtUtc),
+    return json(
+      {
+        preferences: {
+          locale: String(result.locale),
+          timeZone: String(result.timeZone),
+          displayName: String(result.displayName),
+          version: Number(result.version),
+          updatedAtUtc: String(result.updatedAtUtc),
+        },
+        replayed: Boolean(result.replayed),
       },
-      replayed: Boolean(result.replayed),
-    }, httpStatus, origin);
+      httpStatus,
+      origin,
+    );
   };
 }
