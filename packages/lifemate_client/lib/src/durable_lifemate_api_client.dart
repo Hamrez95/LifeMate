@@ -328,6 +328,16 @@ class DurableLifeMateApiClient extends LifeMateApiClient {
     }
   }
 
+  Future<List<Map<String, dynamic>>> pendingOfflineTreatmentPlanCreates() async {
+    final runtime = _activeSharedRuntime();
+    if (runtime == null) {
+      throw StateError(
+        'Canonical shared offline runtime must be adopted before treatment projection reads.',
+      );
+    }
+    return runtime.pendingTreatmentCreates();
+  }
+
   Future<void> enqueueOfflineTreatmentPlanCreate({
     required String clientRequestId,
     required String medicationId,
