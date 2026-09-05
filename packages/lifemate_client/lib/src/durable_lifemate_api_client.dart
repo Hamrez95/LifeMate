@@ -297,6 +297,36 @@ class DurableLifeMateApiClient extends LifeMateApiClient {
   }
 
   @override
+  Future<List<Map<String, dynamic>>> getCareEvents({
+    required DateTime fromDate,
+    required DateTime toDate,
+  }) async {
+    try {
+      return await super.getCareEvents(fromDate: fromDate, toDate: toDate);
+    } on LifeMateApiException catch (error) {
+      if (!_canUseOwnerCacheFor(error)) rethrow;
+      final runtime = _activeSharedRuntime();
+      if (runtime == null) rethrow;
+      List<LifeMateLocalProjectionRecord> records;
+      try {
+        records = await runtime.careEventProjections();
+      } catch (_) {
+        throw error;
+      }
+      return records
+          .map((record) => Map<String, dynamic>.from(record.payload))
+          .where(
+            (value) => _careEventInLocalDateRange(
+              value,
+              fromDate: fromDate,
+              toDate: toDate,
+            ),
+          )
+          .toList(growable: false);
+    }
+  }
+
+  @override
   Future<List<Map<String, dynamic>>> getDoseOccurrences({
     required DateTime fromDate,
     required DateTime toDate,
@@ -586,6 +616,20 @@ class DurableLifeMateApiClient extends LifeMateApiClient {
       });
     }
     return result;
+  }
+
+  static bool _careEventInLocalDateRange(
+    Map<String, dynamic> value, {
+    required DateTime fromDate,
+    required DateTime toDate,
+  }) {
+    final raw = value['scheduledLocalDate']?.toString().trim() ?? '';
+    final parsed = DateTime.tryParse(raw);
+    if (parsed == null) return false;
+    final eventDate = DateTime(parsed.year, parsed.month, parsed.day);
+    final from = DateTime(fromDate.year, fromDate.month, fromDate.day);
+    final to = DateTime(toDate.year, toDate.month, toDate.day);
+    return !eventDate.isBefore(from) && !eventDate.isAfter(to);
   }
 
   static bool _canUseOwnerCacheFor(LifeMateApiException error) =>
