@@ -33,24 +33,32 @@ final class LifeMateLegacyMutationImporter {
   /// instead of calling [LifeMateOfflineMutationQueue.pendingForAccount]. The
   /// old queue prunes by a seven-day TTL; #831 must not silently lose an action
   /// that was previously accepted just because migration happened later.
-  /// Invalid, foreign-account or origin-mismatched records are retained for
-  /// explicit handling.
+  /// Invalid, unrelated-account or origin-mismatched records are retained for
+  /// explicit handling. [legacyAccountIds] may contain the authenticated legacy
+  /// app-user UUID after the server has resolved it to [namespace.accountId].
   Future<int> importPending({
     required LifeMateLocalNamespace namespace,
     required String timeZone,
+    Set<String> legacyAccountIds = const <String>{},
   }) async {
     final accountId = namespace.accountId.trim();
     final zone = timeZone.trim();
     if (accountId.isEmpty || zone.isEmpty) {
       throw ArgumentError('Account and timezone are required for migration.');
     }
+    final acceptedAccountIds = <String>{
+      accountId,
+      ...legacyAccountIds.map((value) => value.trim()).where((value) => value.isNotEmpty),
+    };
 
     final raw = await _legacyStorage.readAll();
     final pending = <({String storageKey, LifeMateQueuedMutation mutation})>[];
     for (final entry in raw.entries) {
       if (!entry.key.startsWith(_legacyItemPrefix)) continue;
       final decoded = _decodeLegacy(entry.value);
-      if (decoded == null || decoded.accountId != accountId) continue;
+      if (decoded == null || !acceptedAccountIds.contains(decoded.accountId)) {
+        continue;
+      }
       pending.add((storageKey: entry.key, mutation: decoded));
     }
     pending.sort((a, b) {
@@ -136,8 +144,8 @@ final class LifeMateLegacyMutationImporter {
   bool _isCurrentApiUri(Uri uri) {
     final sameOrigin =
         uri.scheme.toLowerCase() == _apiBaseUri.scheme.toLowerCase() &&
-        uri.host.toLowerCase() == _apiBaseUri.host.toLowerCase() &&
-        uri.port == _apiBaseUri.port;
+            uri.host.toLowerCase() == _apiBaseUri.host.toLowerCase() &&
+            uri.port == _apiBaseUri.port;
     if (!sameOrigin) return false;
 
     final basePath = _apiBaseUri.path.replaceFirst(RegExp(r'/+$'), '');
