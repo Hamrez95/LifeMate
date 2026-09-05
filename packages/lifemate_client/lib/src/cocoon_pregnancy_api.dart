@@ -12,38 +12,38 @@ class CocoonPregnancyApiClient {
     required Uri baseUri,
     required AccessTokenProvider accessToken,
     http.Client? httpClient,
-  })  : _baseUri = baseUri,
-        _accessToken = accessToken,
-        _http = httpClient ?? http.Client();
+  }) : _baseUri = baseUri,
+       _accessToken = accessToken,
+       _http = httpClient ?? http.Client();
 
   final Uri _baseUri;
   final AccessTokenProvider _accessToken;
   final http.Client _http;
   static const _timeout = Duration(seconds: 20);
 
-  Future<CocoonBootstrapSnapshot> bootstrap(
-          {required DateTime asOfDate}) async =>
-      CocoonBootstrapSnapshot.fromJson(
-        await _object(
-          'GET',
-          '/api/v1/cocoon/bootstrap',
-          query: {'asOfDate': _date(asOfDate)},
-        ),
-      );
+  Future<CocoonBootstrapSnapshot> bootstrap({
+    required DateTime asOfDate,
+  }) async => CocoonBootstrapSnapshot.fromJson(
+    await _object(
+      'GET',
+      '/api/v1/cocoon/bootstrap',
+      query: {'asOfDate': _date(asOfDate)},
+    ),
+  );
 
   Future<CocoonPregnancySnapshot> getSnapshot({
     required DateTime asOfDate,
-  }) async =>
-      CocoonPregnancySnapshot.fromJson(
-        await _object(
-          'GET',
-          '/api/v1/cocoon/pregnancy/snapshot',
-          query: {'asOfDate': _date(asOfDate)},
-        ),
-      );
+  }) async => CocoonPregnancySnapshot.fromJson(
+    await _object(
+      'GET',
+      '/api/v1/cocoon/pregnancy/snapshot',
+      query: {'asOfDate': _date(asOfDate)},
+    ),
+  );
 
-  Future<List<CocoonPregnancyEpisode>> listEpisodes(
-      {DateTime? asOfDate}) async {
+  Future<List<CocoonPregnancyEpisode>> listEpisodes({
+    DateTime? asOfDate,
+  }) async {
     final value = await _object(
       'GET',
       '/api/v1/cocoon/pregnancy/episodes',
@@ -65,36 +65,34 @@ class CocoonPregnancyApiClient {
     String? estimatedDueDate,
     String? referenceDate,
     int? gestationalAgeAtReferenceDays,
-  }) async =>
-      _episodeFromEnvelope(
-        await _object(
-          'POST',
-          '/api/v1/cocoon/pregnancy/episodes',
-          idempotencyKey: idempotencyKey,
-          body: {
-            'status': status,
-            'method': method,
-            'lmpDate': lmpDate,
-            'estimatedDueDate': estimatedDueDate,
-            'referenceDate': referenceDate,
-            'gestationalAgeAtReferenceDays': gestationalAgeAtReferenceDays,
-          },
-        ),
-      );
+  }) async => _episodeFromEnvelope(
+    await _object(
+      'POST',
+      '/api/v1/cocoon/pregnancy/episodes',
+      idempotencyKey: idempotencyKey,
+      body: {
+        'status': status,
+        'method': method,
+        'lmpDate': lmpDate,
+        'estimatedDueDate': estimatedDueDate,
+        'referenceDate': referenceDate,
+        'gestationalAgeAtReferenceDays': gestationalAgeAtReferenceDays,
+      },
+    ),
+  );
 
   Future<CocoonPregnancyEpisode> activateEpisode({
     required String episodeId,
     required int expectedVersion,
     required String idempotencyKey,
-  }) async =>
-      _episodeFromEnvelope(
-        await _object(
-          'POST',
-          '/api/v1/cocoon/pregnancy/episodes/$episodeId/activate',
-          idempotencyKey: idempotencyKey,
-          body: {'expectedVersion': expectedVersion},
-        ),
-      );
+  }) async => _episodeFromEnvelope(
+    await _object(
+      'POST',
+      '/api/v1/cocoon/pregnancy/episodes/$episodeId/activate',
+      idempotencyKey: idempotencyKey,
+      body: {'expectedVersion': expectedVersion},
+    ),
+  );
 
   Future<CocoonPregnancyEpisode> reviseDating({
     required String episodeId,
@@ -107,39 +105,37 @@ class CocoonPregnancyApiClient {
     String? referenceDate,
     int? gestationalAgeAtReferenceDays,
     String? reasonCode,
-  }) async =>
-      _episodeFromEnvelope(
-        await _object(
-          'PATCH',
-          '/api/v1/cocoon/pregnancy/episodes/$episodeId/dating',
-          idempotencyKey: idempotencyKey,
-          body: {
-            'expectedVersion': expectedVersion,
-            'method': method,
-            'source': source,
-            'lmpDate': lmpDate,
-            'estimatedDueDate': estimatedDueDate,
-            'referenceDate': referenceDate,
-            'gestationalAgeAtReferenceDays': gestationalAgeAtReferenceDays,
-            'reasonCode': reasonCode,
-          },
-        ),
-      );
+  }) async => _episodeFromEnvelope(
+    await _object(
+      'PATCH',
+      '/api/v1/cocoon/pregnancy/episodes/$episodeId/dating',
+      idempotencyKey: idempotencyKey,
+      body: {
+        'expectedVersion': expectedVersion,
+        'method': method,
+        'source': source,
+        'lmpDate': lmpDate,
+        'estimatedDueDate': estimatedDueDate,
+        'referenceDate': referenceDate,
+        'gestationalAgeAtReferenceDays': gestationalAgeAtReferenceDays,
+        'reasonCode': reasonCode,
+      },
+    ),
+  );
 
   Future<CocoonPregnancyEpisode> endEpisode({
     required String episodeId,
     required int expectedVersion,
     required String outcome,
     required String idempotencyKey,
-  }) async =>
-      _episodeFromEnvelope(
-        await _object(
-          'POST',
-          '/api/v1/cocoon/pregnancy/episodes/$episodeId/end',
-          idempotencyKey: idempotencyKey,
-          body: {'expectedVersion': expectedVersion, 'outcome': outcome},
-        ),
-      );
+  }) async => _episodeFromEnvelope(
+    await _object(
+      'POST',
+      '/api/v1/cocoon/pregnancy/episodes/$episodeId/end',
+      idempotencyKey: idempotencyKey,
+      body: {'expectedVersion': expectedVersion, 'outcome': outcome},
+    ),
+  );
 
   CocoonPregnancyEpisode _episodeFromEnvelope(Map<String, dynamic> value) {
     final episode = value['episode'];
@@ -178,12 +174,14 @@ class CocoonPregnancyApiClient {
       final encoded = body == null ? null : jsonEncode(body);
       response = switch (method) {
         'GET' => await _http.get(uri, headers: headers).timeout(_timeout),
-        'POST' => await _http
-            .post(uri, headers: headers, body: encoded)
-            .timeout(_timeout),
-        'PATCH' => await _http
-            .patch(uri, headers: headers, body: encoded)
-            .timeout(_timeout),
+        'POST' =>
+          await _http
+              .post(uri, headers: headers, body: encoded)
+              .timeout(_timeout),
+        'PATCH' =>
+          await _http
+              .patch(uri, headers: headers, body: encoded)
+              .timeout(_timeout),
         _ => throw ArgumentError.value(method, 'method', 'Unsupported method'),
       };
     } on TimeoutException {
@@ -217,7 +215,8 @@ class CocoonPregnancyApiClient {
     }
     if (decoded is! Map<String, dynamic>) {
       throw const FormatException(
-          'LifeMate API returned a non-object payload.');
+        'LifeMate API returned a non-object payload.',
+      );
     }
     return decoded;
   }
