@@ -5,6 +5,7 @@ import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:lifemate_client/lifemate_client.dart';
 
 import '../models/schedule_item_model.dart';
+import 'care_event_projection_sync_bridge.dart';
 import 'notification_provider.dart';
 
 enum WellMateNotificationPermissionResult { granted, denied, unsupported }
@@ -22,7 +23,7 @@ class ContextualNotificationProvider extends NotificationProvider {
   List<ScheduleItemModel> _latestItems = const <ScheduleItemModel>[];
   String _latestTimeZone = 'Asia/Tehran';
   bool _latestIsPersian = true;
-  DurableLifeMateApiClient? _durableApiClient;
+  LifeMateApiClient? _apiClient;
   bool _projectionSyncInFlight = false;
 
   bool get nativePermissionFlowUnlocked => _nativePermissionFlowUnlocked;
@@ -30,7 +31,7 @@ class ContextualNotificationProvider extends NotificationProvider {
   @override
   void attachApiClient(LifeMateApiClient apiClient) {
     super.attachApiClient(apiClient);
-    _durableApiClient = apiClient is DurableLifeMateApiClient ? apiClient : null;
+    _apiClient = apiClient;
     if (_nativePermissionFlowUnlocked && _latestItems.isNotEmpty) {
       unawaited(_syncCareEventProjections());
     }
@@ -39,8 +40,8 @@ class ContextualNotificationProvider extends NotificationProvider {
   @override
   void detachApiClient(LifeMateApiClient apiClient) {
     super.detachApiClient(apiClient);
-    if (identical(_durableApiClient, apiClient)) {
-      _durableApiClient = null;
+    if (identical(_apiClient, apiClient)) {
+      _apiClient = null;
     }
   }
 
@@ -127,7 +128,7 @@ class ContextualNotificationProvider extends NotificationProvider {
   /// the projection runtime deliberately retains the previous cursor so the
   /// same page can be replayed after reconnect/restart.
   Future<void> _syncCareEventProjections() async {
-    final api = _durableApiClient;
+    final api = _apiClient;
     if (api == null ||
         !_nativePermissionFlowUnlocked ||
         _latestItems.isEmpty ||
@@ -136,9 +137,10 @@ class ContextualNotificationProvider extends NotificationProvider {
     }
     _projectionSyncInFlight = true;
     try {
-      await api.syncCareEventProjections(
-        beforeCheckpoint: (staged) =>
-            _reconcileAffectedCareEvents(api, staged.affectedRecordKeys),
+      await syncOwnerCareEventProjectionsIfSupported(
+        apiClient: api,
+        beforeCheckpoint: (affectedRecordKeys) =>
+            _reconcileAffectedCareEvents(api, affectedRecordKeys),
       );
     } catch (_) {
       // Fail closed and stay quiet: the durable projection cursor remains at
@@ -150,7 +152,7 @@ class ContextualNotificationProvider extends NotificationProvider {
   }
 
   Future<void> _reconcileAffectedCareEvents(
-    DurableLifeMateApiClient api,
+    LifeMateApiClient api,
     Set<String> affectedRecordKeys,
   ) async {
     final affected = affectedRecordKeys
