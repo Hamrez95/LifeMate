@@ -4,6 +4,7 @@ import 'package:lifemate_core/lifemate_core.dart';
 
 import 'care_event_projection_sync_web.dart';
 import 'lifemate_api_client.dart';
+import 'offline_mutation_queue.dart' show LifeMateMutationStorage;
 import 'offline_sync_result.dart';
 
 class LifeMatePendingSyncEvent {
@@ -38,6 +39,18 @@ class DurableLifeMateApiClient extends LifeMateApiClient {
          accessToken: accessToken,
          httpClient: innerHttpClient,
        );
+
+  Future<void> adoptSharedOfflineRuntime({
+    required String environmentId,
+    required String accountId,
+    required String personId,
+    required String legacyAuthenticatedAccountId,
+    required String timeZone,
+    LifeMateLocalHealthStore? localStore,
+    LifeMateMutationStorage? legacyStorage,
+  }) => Future<void>.error(
+    UnsupportedError('Protected offline health execution is unavailable on web.'),
+  );
 
   Future<int> flushPendingMutations() async => 0;
 

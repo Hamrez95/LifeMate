@@ -66,20 +66,49 @@ final class LifeMateSharedOfflineRuntime {
       Future<LifeMateOfflineSyncResult>.value(const LifeMateOfflineSyncResult());
 
   Future<LifeMateLocalSyncCheckpoint?> careEventCheckpoint() =>
-      Future<LifeMateLocalSyncCheckpoint?>.error(
-        UnsupportedError(
-          'Protected offline health execution is unavailable on web.',
-        ),
-      );
+      _unsupportedCheckpoint();
+
+  Future<LifeMateLocalSyncCheckpoint?> treatmentPlanCheckpoint() =>
+      _unsupportedCheckpoint();
+
+  Future<LifeMateLocalSyncCheckpoint?> treatmentOccurrenceCheckpoint() =>
+      _unsupportedCheckpoint();
+
+  Future<List<LifeMateLocalProjectionRecord>> careEventProjections() =>
+      _unsupportedProjections();
+
+  Future<List<LifeMateLocalProjectionRecord>> treatmentPlanProjections() =>
+      _unsupportedProjections();
+
+  Future<List<LifeMateLocalProjectionRecord>> treatmentOccurrenceProjections() =>
+      _unsupportedProjections();
 
   Future<LifeMateProjectionReconcileResult> applyCareEventPage({
     required LifeMateProjectionPullPage page,
     LifeMateBeforeProjectionCheckpoint? beforeCheckpoint,
-  }) => Future<LifeMateProjectionReconcileResult>.error(
-    UnsupportedError(
-      'Protected offline health execution is unavailable on web.',
-    ),
-  );
+  }) => _unsupportedReconcile();
+
+  Future<LifeMateProjectionReconcileResult> applyTreatmentPlanPage({
+    required LifeMateProjectionPullPage page,
+    LifeMateBeforeProjectionCheckpoint? beforeCheckpoint,
+  }) => _unsupportedReconcile();
+
+  Future<LifeMateProjectionReconcileResult> applyTreatmentOccurrencePage({
+    required LifeMateProjectionPullPage page,
+    LifeMateBeforeProjectionCheckpoint? beforeCheckpoint,
+  }) => _unsupportedReconcile();
+
+  Future<void> cacheWellMateHomeSnapshot({
+    required DateTime fromDate,
+    required DateTime toDate,
+    required Iterable<Map<String, dynamic>> treatmentPlans,
+    required Iterable<Map<String, dynamic>> treatmentOccurrences,
+  }) => Future<void>.error(_unsupported());
+
+  Future<Map<String, dynamic>?> readWellMateHomeSnapshot({
+    required DateTime fromDate,
+    required DateTime toDate,
+  }) => Future<Map<String, dynamic>?>.error(_unsupported());
 
   Future<int> pendingMutationCount() => Future<int>.value(0);
 
@@ -88,11 +117,20 @@ final class LifeMateSharedOfflineRuntime {
 
   Future<void> purgeCurrentAccount({
     required bool discardPendingAndCachedData,
-  }) => Future<void>.error(
-    UnsupportedError(
-      'Protected offline health execution is unavailable on web.',
-    ),
-  );
+  }) => Future<void>.error(_unsupported());
 
   void close() {}
+
+  Future<LifeMateLocalSyncCheckpoint?> _unsupportedCheckpoint() =>
+      Future<LifeMateLocalSyncCheckpoint?>.error(_unsupported());
+
+  Future<List<LifeMateLocalProjectionRecord>> _unsupportedProjections() =>
+      Future<List<LifeMateLocalProjectionRecord>>.error(_unsupported());
+
+  Future<LifeMateProjectionReconcileResult> _unsupportedReconcile() =>
+      Future<LifeMateProjectionReconcileResult>.error(_unsupported());
+
+  UnsupportedError _unsupported() => UnsupportedError(
+    'Protected offline health execution is unavailable on web.',
+  );
 }
