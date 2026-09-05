@@ -124,4 +124,115 @@ void main() {
     expect(cached!.single['version'], 2);
     expect(cached.single['periodFlow'], 'light');
   });
+
+  test('confirmed range preserves empty-day coverage and ordered history', () async {
+    final store = LifeMateLocalHealthStore.forTesting(
+      database: sqlite3.openInMemory(),
+      keyBytes: key,
+    );
+    final cache = WomenDailyLogOfflineCache(store: store, namespace: owner);
+    addTearDown(() {
+      cache.close();
+      store.close();
+    });
+
+    await cache.cacheServerRange(
+      fromDate: DateTime(2026, 9, 3),
+      toDate: DateTime(2026, 9, 6),
+      serverRows: const <Map<String, dynamic>>[
+        <String, dynamic>{
+          'loggedOn': '2026-09-03',
+          'version': 1,
+          'periodFlow': 'light',
+        },
+        <String, dynamic>{
+          'loggedOn': '2026-09-06',
+          'version': 2,
+          'periodFlow': 'heavy',
+        },
+      ],
+    );
+
+    final history = await cache.readServerRange(
+      fromDate: DateTime(2026, 9, 3),
+      toDate: DateTime(2026, 9, 6),
+    );
+    expect(history, hasLength(2));
+    expect(history!.map((row) => row['loggedOn']), <String>[
+      '2026-09-03',
+      '2026-09-06',
+    ]);
+    expect(await cache.readServerDay(DateTime(2026, 9, 4)), isEmpty);
+    expect(await cache.readServerDay(DateTime(2026, 9, 5)), isEmpty);
+  });
+
+  test('range read fails closed when any day was never confirmed', () async {
+    final store = LifeMateLocalHealthStore.forTesting(
+      database: sqlite3.openInMemory(),
+      keyBytes: key,
+    );
+    final cache = WomenDailyLogOfflineCache(store: store, namespace: owner);
+    addTearDown(() {
+      cache.close();
+      store.close();
+    });
+
+    await cache.cacheServerDay(
+      date: DateTime(2026, 9, 3),
+      serverRows: const <Map<String, dynamic>>[],
+    );
+    await cache.cacheServerDay(
+      date: DateTime(2026, 9, 5),
+      serverRows: const <Map<String, dynamic>>[],
+    );
+
+    expect(
+      await cache.readServerRange(
+        fromDate: DateTime(2026, 9, 3),
+        toDate: DateTime(2026, 9, 5),
+      ),
+      isNull,
+    );
+  });
+
+  test('range cache rejects duplicate, out-of-window, and oversized input', () async {
+    final store = LifeMateLocalHealthStore.forTesting(
+      database: sqlite3.openInMemory(),
+      keyBytes: key,
+    );
+    final cache = WomenDailyLogOfflineCache(store: store, namespace: owner);
+    addTearDown(() {
+      cache.close();
+      store.close();
+    });
+
+    await expectLater(
+      cache.cacheServerRange(
+        fromDate: DateTime(2026, 9, 3),
+        toDate: DateTime(2026, 9, 4),
+        serverRows: const <Map<String, dynamic>>[
+          <String, dynamic>{'loggedOn': '2026-09-03', 'version': 1},
+          <String, dynamic>{'loggedOn': '2026-09-03', 'version': 2},
+        ],
+      ),
+      throwsFormatException,
+    );
+    await expectLater(
+      cache.cacheServerRange(
+        fromDate: DateTime(2026, 9, 3),
+        toDate: DateTime(2026, 9, 4),
+        serverRows: const <Map<String, dynamic>>[
+          <String, dynamic>{'loggedOn': '2026-09-05', 'version': 1},
+        ],
+      ),
+      throwsFormatException,
+    );
+    await expectLater(
+      cache.readServerRange(
+        fromDate: DateTime(2026, 1, 1),
+        toDate: DateTime(2026, 5, 1),
+      ),
+      throwsArgumentError,
+    );
+  });
 }
