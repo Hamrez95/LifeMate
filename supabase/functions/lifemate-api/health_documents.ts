@@ -91,10 +91,12 @@ export function createHealthDocumentStore(databaseUrl: string) {
           values
             (${crypto.randomUUID()}::uuid, ${input.documentId}::uuid,
              ${accountId}::uuid, 'Uploaded',
-             ${JSON.stringify({
-               category: input.category,
-               sourceProduct: input.sourceProduct,
-             })}::jsonb)
+             ${
+          JSON.stringify({
+            category: input.category,
+            sourceProduct: input.sourceProduct,
+          })
+        }::jsonb)
         `;
         return { created: true, document: mapDocument(inserted[0]) };
       }
@@ -170,9 +172,10 @@ export function createHealthDocumentStore(databaseUrl: string) {
 function validateRegistration(input: HealthDocumentRegistration): void {
   requiredUuid(input.documentId, "documentId");
   if (
-    !/^[0-9a-f-]{36}\/[0-9a-f-]{36}\/[0-9a-f-]{36}\.(jpg|png|webp|heic|pdf)$/i.test(
-      input.objectKey,
-    )
+    !/^[0-9a-f-]{36}\/[0-9a-f-]{36}\/[0-9a-f-]{36}\.(jpg|png|webp|heic|pdf)$/i
+      .test(
+        input.objectKey,
+      )
   ) {
     throw new ApiError(
       400,
@@ -241,8 +244,9 @@ function mapDocument(row: Row): Record<string, unknown> {
     byteSize: Number(row.byte_size),
     category: String(row.category),
     sourceProduct: String(row.source_product),
-    capturedOn:
-      row.captured_on == null ? null : String(row.captured_on).slice(0, 10),
+    capturedOn: row.captured_on == null
+      ? null
+      : String(row.captured_on).slice(0, 10),
     links: row.links ?? [],
     createdAtUtc: iso(row.created_at_utc),
   };
