@@ -77,6 +77,8 @@ final class LifeMateSharedOfflineRuntime {
        _legacyAccountIds = Set<String>.unmodifiable(legacyAccountIds),
        _ownsStore = ownsStore;
 
+  static const _wellMateHomeMarkerKey = 'wellmate-home-window-v1';
+
   final LifeMateLocalHealthStore _store;
   final LifeMateOfflineNamespace _namespace;
   final LifeMateLocalNamespace _localNamespace;
@@ -236,6 +238,135 @@ final class LifeMateSharedOfflineRuntime {
     beforeCheckpoint: beforeCheckpoint,
   );
 
+  /// Persists one complete server-confirmed WellMate Home treatment window.
+  /// The marker is written last, so a process death during cache refresh keeps
+  /// the previous complete marker authoritative instead of exposing a partial
+  /// replacement. Only opaque record IDs and bounded encrypted payloads are
+  /// stored in the existing Account + Person + environment namespace.
+  Future<void> cacheWellMateHomeSnapshot({
+    required DateTime fromDate,
+    required DateTime toDate,
+    required Iterable<Map<String, dynamic>> treatmentPlans,
+    required Iterable<Map<String, dynamic>> treatmentOccurrences,
+  }) async {
+    _requireOpen();
+    final normalizedFrom = _dateOnly(fromDate);
+    final normalizedTo = _dateOnly(toDate);
+    if (normalizedTo.isBefore(normalizedFrom)) {
+      throw ArgumentError.value(toDate, 'toDate');
+    }
+
+    final previousMarker = await _store.readProjection(
+      namespace: _localNamespace,
+      domain: LifeMateLocalProjectionDomain.syncMetadata,
+      recordKey: _wellMateHomeMarkerKey,
+    );
+    final planKeys = await _cacheRecords(
+      domain: LifeMateLocalProjectionDomain.treatmentPlan,
+      values: treatmentPlans,
+    );
+    final occurrenceKeys = await _cacheRecords(
+      domain: LifeMateLocalProjectionDomain.treatmentOccurrence,
+      values: treatmentOccurrences,
+    );
+
+    await _store.putProjection(
+      namespace: _localNamespace,
+      domain: LifeMateLocalProjectionDomain.syncMetadata,
+      recordKey: _wellMateHomeMarkerKey,
+      payload: <String, dynamic>{
+        'version': 1,
+        'fromDate': _dateText(normalizedFrom),
+        'toDate': _dateText(normalizedTo),
+        'timeZone': _timeZone,
+        'treatmentPlanKeys': planKeys,
+        'treatmentOccurrenceKeys': occurrenceKeys,
+      },
+    );
+
+    await _deleteStaleSnapshotRecords(
+      previousMarker?.payload,
+      field: 'treatmentPlanKeys',
+      currentKeys: planKeys.toSet(),
+      domain: LifeMateLocalProjectionDomain.treatmentPlan,
+    );
+    await _deleteStaleSnapshotRecords(
+      previousMarker?.payload,
+      field: 'treatmentOccurrenceKeys',
+      currentKeys: occurrenceKeys.toSet(),
+      domain: LifeMateLocalProjectionDomain.treatmentOccurrence,
+    );
+  }
+
+  /// Returns a previously completed server-confirmed Home window. A caller can
+  /// use this only after canonical runtime adoption; there is no account/person
+  /// parameter that could widen the protected namespace. A non-overlapping
+  /// date request deliberately returns null instead of fabricating fresh data.
+  Future<Map<String, dynamic>?> readWellMateHomeSnapshot({
+    required DateTime fromDate,
+    required DateTime toDate,
+  }) async {
+    _requireOpen();
+    final marker = await _store.readProjection(
+      namespace: _localNamespace,
+      domain: LifeMateLocalProjectionDomain.syncMetadata,
+      recordKey: _wellMateHomeMarkerKey,
+    );
+    if (marker == null || marker.payload['version'] != 1) return null;
+
+    final cachedFrom = DateTime.tryParse(
+      marker.payload['fromDate']?.toString() ?? '',
+    );
+    final cachedTo = DateTime.tryParse(
+      marker.payload['toDate']?.toString() ?? '',
+    );
+    if (cachedFrom == null || cachedTo == null) return null;
+    final requestedFrom = _dateOnly(fromDate);
+    final requestedTo = _dateOnly(toDate);
+    if (requestedTo.isBefore(cachedFrom) || requestedFrom.isAfter(cachedTo)) {
+      return null;
+    }
+
+    final plans = await _readSnapshotRecords(
+      marker.payload,
+      field: 'treatmentPlanKeys',
+      domain: LifeMateLocalProjectionDomain.treatmentPlan,
+    );
+    final occurrences = await _readSnapshotRecords(
+      marker.payload,
+      field: 'treatmentOccurrenceKeys',
+      domain: LifeMateLocalProjectionDomain.treatmentOccurrence,
+    );
+    if (plans == null || occurrences == null) return null;
+
+    final careEvents = await careEventProjections();
+    return <String, dynamic>{
+      'currentUser': <String, dynamic>{
+        'profile': <String, dynamic>{'timeZone': _timeZone},
+      },
+      'treatmentPlans': plans,
+      'doseOccurrences': occurrences
+          .where((value) => _payloadDateInRange(
+                value,
+                field: 'scheduledLocalDate',
+                fromDate: requestedFrom,
+                toDate: requestedTo,
+              ))
+          .toList(growable: false),
+      'careEvents': careEvents
+          .map((record) => record.payload)
+          .where((value) => _payloadDateInRange(
+                value,
+                field: 'scheduledLocalDate',
+                fromDate: requestedFrom,
+                toDate: requestedTo,
+              ))
+          .toList(growable: false),
+      'offlineCached': true,
+      'offlineCachedAtUtc': marker.storedAtUtc.toIso8601String(),
+    };
+  }
+
   Future<int> pendingMutationCount() async {
     _requireOpen();
     await importLegacyPending();
@@ -281,6 +412,72 @@ final class LifeMateSharedOfflineRuntime {
     if (_ownsStore) _store.close();
   }
 
+  Future<List<String>> _cacheRecords({
+    required LifeMateLocalProjectionDomain domain,
+    required Iterable<Map<String, dynamic>> values,
+  }) async {
+    final keys = <String>[];
+    for (final value in values) {
+      final key = value['id']?.toString().trim() ?? '';
+      if (key.isEmpty) {
+        throw const FormatException(
+          'Server-confirmed offline projection is missing an id.',
+        );
+      }
+      await _store.putProjection(
+        namespace: _localNamespace,
+        domain: domain,
+        recordKey: key,
+        payload: value,
+        sourceRevision: _optionalText(value['version']),
+        sourceUpdatedAtUtc: _optionalUtc(value['updatedAtUtc']),
+      );
+      keys.add(key);
+    }
+    return List<String>.unmodifiable(keys);
+  }
+
+  Future<List<Map<String, dynamic>>?> _readSnapshotRecords(
+    Map<String, dynamic> marker, {
+    required String field,
+    required LifeMateLocalProjectionDomain domain,
+  }) async {
+    final rawKeys = marker[field];
+    if (rawKeys is! List) return null;
+    final values = <Map<String, dynamic>>[];
+    for (final rawKey in rawKeys) {
+      final key = rawKey?.toString().trim() ?? '';
+      if (key.isEmpty) return null;
+      final record = await _store.readProjection(
+        namespace: _localNamespace,
+        domain: domain,
+        recordKey: key,
+      );
+      if (record == null) return null;
+      values.add(record.payload);
+    }
+    return values;
+  }
+
+  Future<void> _deleteStaleSnapshotRecords(
+    Map<String, dynamic>? previousMarker, {
+    required String field,
+    required Set<String> currentKeys,
+    required LifeMateLocalProjectionDomain domain,
+  }) async {
+    final previous = previousMarker?[field];
+    if (previous is! List) return;
+    for (final rawKey in previous) {
+      final key = rawKey?.toString().trim() ?? '';
+      if (key.isEmpty || currentKeys.contains(key)) continue;
+      await _store.deleteProjection(
+        namespace: _localNamespace,
+        domain: domain,
+        recordKey: key,
+      );
+    }
+  }
+
   Future<LifeMateLocalSyncCheckpoint?> _checkpoint(
     LifeMateLocalProjectionDomain domain,
   ) {
@@ -317,6 +514,37 @@ final class LifeMateSharedOfflineRuntime {
     if (_accountPurged) {
       throw StateError('LifeMate shared offline runtime account was purged.');
     }
+  }
+
+  static DateTime _dateOnly(DateTime value) =>
+      DateTime.utc(value.year, value.month, value.day);
+
+  static String _dateText(DateTime value) =>
+      '${value.year.toString().padLeft(4, '0')}-'
+      '${value.month.toString().padLeft(2, '0')}-'
+      '${value.day.toString().padLeft(2, '0')}';
+
+  static String? _optionalText(Object? value) {
+    final normalized = value?.toString().trim();
+    return normalized == null || normalized.isEmpty ? null : normalized;
+  }
+
+  static DateTime? _optionalUtc(Object? value) {
+    final text = _optionalText(value);
+    if (text == null) return null;
+    return DateTime.tryParse(text)?.toUtc();
+  }
+
+  static bool _payloadDateInRange(
+    Map<String, dynamic> payload, {
+    required String field,
+    required DateTime fromDate,
+    required DateTime toDate,
+  }) {
+    final parsed = DateTime.tryParse(payload[field]?.toString() ?? '');
+    if (parsed == null) return false;
+    final day = _dateOnly(parsed);
+    return !day.isBefore(fromDate) && !day.isAfter(toDate);
   }
 
   static bool _isPendingForReplay(LifeMateDurableMutation mutation) =>
