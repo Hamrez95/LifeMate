@@ -4,7 +4,12 @@ import postgres from "postgres";
 const databaseUrl = Deno.env.get("TEST_DATABASE_URL");
 if (!databaseUrl) throw new Error("TEST_DATABASE_URL is required.");
 
-const sql = postgres(databaseUrl, { max: 1, prepare: false, idle_timeout: 5, connect_timeout: 5 });
+const sql = postgres(databaseUrl, {
+  max: 1,
+  prepare: false,
+  idle_timeout: 5,
+  connect_timeout: 5,
+});
 
 Deno.test({
   name: "privacy-critical deletion lifecycle does not expire by age",
