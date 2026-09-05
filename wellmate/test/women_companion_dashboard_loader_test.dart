@@ -9,7 +9,9 @@ void main() {
 
   test('canonical dashboard is cached and remains authoritative online', () async {
     final offline = _FakeOfflinePort(
-      cached: const <String, dynamic>{'profile': <String, dynamic>{'enabled': true}},
+      cached: const <String, dynamic>{
+        'profile': <String, dynamic>{'enabled': true},
+      },
     );
     final canonical = <String, dynamic>{
       'profile': <String, dynamic>{'enabled': true, 'lifecycleState': 'active'},
@@ -68,6 +70,36 @@ void main() {
     expect(offline.closed, isTrue);
   });
 
+  test('protected cache read failure preserves the canonical transport error', () async {
+    final offline = _FakeOfflinePort(cached: null, failRead: true);
+    const canonicalError = LifeMateApiException(
+      statusCode: 0,
+      code: 'network_unavailable',
+      message: 'offline',
+    );
+    final loader = WomenCompanionDashboardLoader(
+      fetchDashboard: ({required fromDate, required toDate}) async {
+        throw canonicalError;
+      },
+      openOffline: () async => offline,
+    );
+
+    await expectLater(
+      loader.load(fromDate: from, toDate: to),
+      throwsA(
+        isA<LifeMateApiException>()
+            .having((error) => error.code, 'code', canonicalError.code)
+            .having(
+              (error) => error.statusCode,
+              'statusCode',
+              canonicalError.statusCode,
+            ),
+      ),
+    );
+    expect(offline.readCalls, 1);
+    expect(offline.closed, isTrue);
+  });
+
   for (final status in <int>[401, 403, 409]) {
     test('HTTP $status never falls back to stale owner cache', () async {
       final offline = _FakeOfflinePort(
@@ -121,9 +153,10 @@ void main() {
 }
 
 final class _FakeOfflinePort implements WomenCompanionOfflineDashboardPort {
-  _FakeOfflinePort({required this.cached});
+  _FakeOfflinePort({required this.cached, this.failRead = false});
 
   final Map<String, dynamic>? cached;
+  final bool failRead;
   int cacheCalls = 0;
   int readCalls = 0;
   bool closed = false;
@@ -147,6 +180,7 @@ final class _FakeOfflinePort implements WomenCompanionOfflineDashboardPort {
     required DateTime toDate,
   }) async {
     readCalls += 1;
+    if (failRead) throw StateError('protected cache unavailable');
     return cached;
   }
 
