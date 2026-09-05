@@ -121,6 +121,9 @@ export function createWomenCalendarRichPeriodStore(databaseUrl: string) {
         "shareSummaryWithCompanion",
       )
       : null;
+    const periodFlowProvided = Object.hasOwn(body, "periodFlow");
+    const bloodAppearanceProvided = Object.hasOwn(body, "bloodAppearance");
+    const bloodTextureProvided = Object.hasOwn(body, "bloodTexture");
     const painProvided = Object.hasOwn(body, "painLevel");
     const painLevel = painProvided ? optionalPain(body.painLevel) : null;
     const symptomsProvided = Object.hasOwn(body, "symptoms");
@@ -207,22 +210,12 @@ export function createWomenCalendarRichPeriodStore(databaseUrl: string) {
         set mood=case when ${moodProvided} then ${mood} else mood end,
             energy_level=case when ${energyProvided} then ${energyLevel} else energy_level end,
             share_summary_with_companion=case when ${shareProvided} then ${shareSummaryWithCompanion} else share_summary_with_companion end,
-            period_flow=case when ${
-        Object.hasOwn(body, "periodFlow")
-      } then ${observation.periodFlow} else period_flow end,
-            blood_appearance=case when ${
-        Object.hasOwn(body, "bloodAppearance")
-      } then ${observation.bloodAppearance} else blood_appearance end,
-            blood_texture=case when ${
-        Object.hasOwn(body, "bloodTexture")
-      } then ${observation.bloodTexture} else blood_texture end,
+            period_flow=case when ${periodFlowProvided} then ${observation.periodFlow} else period_flow end,
+            blood_appearance=case when ${bloodAppearanceProvided} then ${observation.bloodAppearance} else blood_appearance end,
+            blood_texture=case when ${bloodTextureProvided} then ${observation.bloodTexture} else blood_texture end,
             period_observation_schema_version=${periodObservationSchemaVersion},
-            pain_level=case when ${painProvided && painLevel != null} then ${
-        painLevel ?? 0
-      } else pain_level end,
-            pain_recorded=case when ${painProvided} then ${
-        painLevel != null
-      } else pain_recorded end,
+            pain_level=case when ${painProvided && painLevel != null} then ${painLevel ?? 0} else pain_level end,
+            pain_recorded=case when ${painProvided} then ${painLevel != null} else pain_recorded end,
             symptoms=case when ${symptomsProvided} then ${legacySymptoms}::varchar[] else symptoms end,
             symptom_observations=case when ${symptomsProvided} then ${tx.json(symptomObservations)}::jsonb else symptom_observations end,
             symptom_schema_version=case when ${symptomsProvided} then ${womenSymptomCatalogVersion} else symptom_schema_version end,
