@@ -7,6 +7,19 @@ void main() {
   final fromDate = DateTime(2026, 8, 6);
   final toDate = DateTime(2026, 8, 13);
 
+  test('cached Home snapshot exposes explicit offline freshness state', () async {
+    final snapshot = await loader.load(
+      api: _CachedHomeApi(),
+      fromDate: fromDate,
+      toDate: toDate,
+    );
+
+    expect(snapshot.offlineCached, isTrue);
+    expect(snapshot.offlineCachedAtUtc, DateTime.utc(2026, 8, 6, 8, 30));
+    expect(snapshot.doseOccurrences.single['id'], 'dose-cached');
+    expect(snapshot.failures, isEmpty);
+  });
+
   test('care-events failure does not hide a valid medicine schedule', () async {
     final snapshot = await loader.load(
       api: _FakeHomeApi(failCareEvents: true),
@@ -17,6 +30,7 @@ void main() {
     expect(snapshot.doseOccurrences, hasLength(1));
     expect(snapshot.careEvents, isEmpty);
     expect(snapshot.isPartial, isTrue);
+    expect(snapshot.offlineCached, isFalse);
     expect(snapshot.failures.single.source, 'care-events');
   });
 
@@ -79,6 +93,34 @@ void main() {
       ),
     );
   });
+}
+
+class _CachedHomeApi extends LifeMateApiClient {
+  _CachedHomeApi()
+    : super(
+        baseUri: Uri.parse('https://example.invalid'),
+        accessToken: () => 'test-token',
+      );
+
+  @override
+  Future<Map<String, dynamic>> getHomeSnapshot({
+    required DateTime fromDate,
+    required DateTime toDate,
+  }) async => const <String, dynamic>{
+    'currentUser': <String, dynamic>{
+      'profile': <String, dynamic>{'timeZone': 'Asia/Tehran'},
+    },
+    'treatmentPlans': <Map<String, dynamic>>[],
+    'doseOccurrences': <Map<String, dynamic>>[
+      <String, dynamic>{
+        'id': 'dose-cached',
+        'scheduledLocalDate': '2026-08-06',
+      },
+    ],
+    'careEvents': <Map<String, dynamic>>[],
+    'offlineCached': true,
+    'offlineCachedAtUtc': '2026-08-06T08:30:00Z',
+  };
 }
 
 class _FakeHomeApi extends LifeMateApiClient {
