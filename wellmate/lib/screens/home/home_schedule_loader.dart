@@ -7,6 +7,8 @@ class HomeScheduleSnapshot {
     required this.doseOccurrences,
     required this.careEvents,
     required this.failures,
+    this.offlineCached = false,
+    this.offlineCachedAtUtc,
   });
 
   final Map<String, dynamic> currentUser;
@@ -14,6 +16,8 @@ class HomeScheduleSnapshot {
   final List<Map<String, dynamic>> doseOccurrences;
   final List<Map<String, dynamic>> careEvents;
   final List<HomeScheduleLoadFailure> failures;
+  final bool offlineCached;
+  final DateTime? offlineCachedAtUtc;
 
   bool get isPartial => failures.isNotEmpty;
 }
@@ -48,12 +52,18 @@ class HomeScheduleLoader {
         fromDate: fromDate,
         toDate: toDate,
       );
+      final offlineCached = value['offlineCached'] == true;
+      final cachedAt = DateTime.tryParse(
+        value['offlineCachedAtUtc']?.toString() ?? '',
+      )?.toUtc();
       return HomeScheduleSnapshot(
         currentUser: _object(value['currentUser'], 'currentUser'),
         treatmentPlans: _objects(value['treatmentPlans'], 'treatmentPlans'),
         doseOccurrences: _objects(value['doseOccurrences'], 'doseOccurrences'),
         careEvents: _objects(value['careEvents'], 'careEvents'),
         failures: const [],
+        offlineCached: offlineCached,
+        offlineCachedAtUtc: offlineCached ? cachedAt : null,
       );
     } on LifeMateApiException catch (error) {
       if (error.statusCode != 404 || error.code != 'route_not_found') rethrow;
