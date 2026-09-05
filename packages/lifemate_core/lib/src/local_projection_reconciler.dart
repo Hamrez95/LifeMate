@@ -83,8 +83,15 @@ final class LifeMateProjectionReconcileResult {
   final String nextCursor;
 }
 
+/// Runs after projection writes are staged but before the encrypted pull cursor
+/// is acknowledged. Throwing from this hook deliberately keeps the previous
+/// cursor so the same pull page is replayed on reconnect/restart.
+typedef LifeMateBeforeProjectionCheckpoint =
+    Future<void> Function(LifeMateProjectionReconcileResult stagedResult);
+
 /// Applies server pull pages idempotently, then advances the encrypted cursor
-/// only after every projection mutation has completed successfully.
+/// only after every projection mutation and required pre-ack side effect has
+/// completed successfully.
 ///
 /// If a process dies mid-page, some upserts may already be present but the old
 /// checkpoint is retained. Replaying the same server page is safe because
@@ -104,6 +111,7 @@ final class LifeMateLocalProjectionReconciler {
     required LifeMateLocalNamespace namespace,
     required LifeMateLocalProjectionDomain domain,
     required LifeMateProjectionPullPage page,
+    LifeMateBeforeProjectionCheckpoint? beforeCheckpoint,
   }) async {
     _requireServerDomain(domain);
     var applied = 0;
@@ -133,6 +141,18 @@ final class LifeMateLocalProjectionReconciler {
       affected.add(change.recordKey);
     }
 
+    final result = LifeMateProjectionReconcileResult(
+      applied: applied,
+      deleted: deleted,
+      affectedRecordKeys: Set<String>.unmodifiable(affected),
+      nextCursor: page.nextCursor,
+    );
+
+    // Affected reminder regeneration (or another required durable side effect)
+    // must succeed before cursor acknowledgement. If it fails, replaying this
+    // idempotent page retries that side effect instead of silently skipping it.
+    await beforeCheckpoint?.call(result);
+
     // Cursor advancement is the final acknowledgement. Any error above leaves
     // the previous checkpoint intact so the page can be replayed after restart.
     await _checkpoints.write(
@@ -143,12 +163,7 @@ final class LifeMateLocalProjectionReconciler {
       sourceRevision: page.sourceRevision,
     );
 
-    return LifeMateProjectionReconcileResult(
-      applied: applied,
-      deleted: deleted,
-      affectedRecordKeys: Set<String>.unmodifiable(affected),
-      nextCursor: page.nextCursor,
-    );
+    return result;
   }
 
   Future<LifeMateLocalSyncCheckpoint?> checkpoint({
