@@ -30,10 +30,14 @@ Deno.test("execution list and detail require high-risk send permission", async (
   const routes = await Deno.readTextFile(
     new URL("./campaign_orchestrator_routes.ts", import.meta.url),
   );
-  assertStringIncludes(
-    routes,
-    'requirePermission(admin, "marketing.campaign.send")',
+  const permissionChecks = routes.match(
+    /requirePermission\(admin,\s*"marketing\.campaign\.send"\)/g,
+  ) ?? [];
+  assert(
+    permissionChecks.length >= 4,
+    "campaign execution list, detail and mutations must stay behind send permission",
   );
-  assertStringIncludes(routes, "/api/v1/marketing/campaigns/");
-  assertStringIncludes(routes, "/api/v1/marketing/campaign-executions/");
+  assertStringIncludes(routes, "const campaignId = idFromPath(");
+  assertStringIncludes(routes, "const executionId = idFromPath(");
+  assertStringIncludes(routes, '"campaign_execution_not_found"');
 });
