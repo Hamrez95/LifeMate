@@ -19,6 +19,11 @@ jobs:
         with:
           ref: feat/offline-832-treatment-create-idempotency-20260905
           fetch-depth: 0
+      - uses: subosito/flutter-action@4cab68ce0f1c7c924f688bff4792e044f1aeb30c
+        with:
+          flutter-version: '3.44.0'
+          channel: stable
+          cache: true
       - name: Apply deterministic client patch
         run: python3 tools/hotfix/apply_offline832_treatment_create_idempotency.py
       - name: Format changed Dart
