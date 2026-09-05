@@ -1,0 +1,35 @@
+name: reconcile-care-event-form
+
+on:
+  push:
+    branches:
+      - feat/offline-832-care-event-form-fallback-20260905
+
+permissions:
+  contents: write
+
+jobs:
+  reconcile:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Apply audited care-event form diff onto current main
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git fetch origin bec829e1bf6d1e9824cb3c6491fac83d3dccdf23 ac9e6d78a2153fcc668c69c57d747427ec704354
+          git diff --binary bec829e1bf6d1e9824cb3c6491fac83d3dccdf23 ac9e6d78a2153fcc668c69c57d747427ec704354 -- \
+            wellmate/lib/screens/treatments/care_event_form.dart \
+            wellmate/lib/screens/treatments/offline_care_event_create.dart \
+            wellmate/test/offline_care_event_create_test.dart \
+            > /tmp/care-event-form.patch
+          git apply --3way /tmp/care-event-form.patch
+          git rm .github/workflows/reconcile-care-event-form.yml
+          git add wellmate/lib/screens/treatments wellmate/test/offline_care_event_create_test.dart
+          git commit -m "feat(wellmate): queue safe care events offline (#832)"
+          git push origin HEAD:${GITHUB_REF_NAME}
