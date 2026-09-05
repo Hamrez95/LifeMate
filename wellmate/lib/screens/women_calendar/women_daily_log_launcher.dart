@@ -182,6 +182,9 @@ class _WomenDailyLogLauncherState extends State<WomenDailyLogLauncher> {
     } on StateError {
       // Runtime/account transitions can invalidate the dashboard client between
       // the canonical data operation and local scheduler reconciliation.
+    } catch (_) {
+      // Notification/plugin delivery failures are local execution failures only;
+      // canonical health data already read or written successfully stays valid.
     }
   }
 
