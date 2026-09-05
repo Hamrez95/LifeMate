@@ -25,6 +25,13 @@ final class WomenDailyLogOfflineCache {
   static const _rowPrefix = 'women-daily-log:';
   static const _coveragePrefix = 'women-daily-log-coverage:';
   static const _maxRangeDays = 120;
+  static const _allowedMoods = <String>{
+    'great',
+    'good',
+    'neutral',
+    'low',
+    'overwhelmed',
+  };
 
   final LifeMateLocalHealthStore _store;
   final LifeMateLocalNamespace _namespace;
@@ -266,6 +273,26 @@ final class WomenDailyLogOfflineCache {
       );
     }
 
+    final moodRaw = row['mood']?.toString().trim().toLowerCase();
+    if (moodRaw != null &&
+        moodRaw.isNotEmpty &&
+        !_allowedMoods.contains(moodRaw)) {
+      throw const FormatException(
+        'Women Health daily-log cache row has an invalid mood.',
+      );
+    }
+    final energyLevel = row['energyLevel'] == null
+        ? null
+        : row['energyLevel'] is int
+            ? row['energyLevel'] as int
+            : int.tryParse(row['energyLevel'].toString());
+    if (row['energyLevel'] != null &&
+        (energyLevel == null || energyLevel < 1 || energyLevel > 5)) {
+      throw const FormatException(
+        'Women Health daily-log cache row has an invalid energy level.',
+      );
+    }
+
     final symptomsRaw = row['symptoms'];
     if (symptomsRaw != null && symptomsRaw is! List) {
       throw const FormatException(
@@ -293,6 +320,8 @@ final class WomenDailyLogOfflineCache {
     return <String, dynamic>{
       'loggedOn': _dateText(expectedDay),
       'version': version,
+      if (moodRaw != null && moodRaw.isNotEmpty) 'mood': moodRaw,
+      if (energyLevel != null) 'energyLevel': energyLevel,
       if (row['periodFlow'] != null) 'periodFlow': row['periodFlow'].toString(),
       if (row['bloodAppearance'] != null)
         'bloodAppearance': row['bloodAppearance'].toString(),
