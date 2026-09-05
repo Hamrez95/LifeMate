@@ -23,7 +23,8 @@ const guidanceCategories = new Set([
 ]);
 const phaseNotificationContentVersion = "companion-phase-notifications-v1";
 const moodNotificationContentVersion = "companion-mood-notifications-v1";
-const fertilityNotificationContentVersion = "companion-fertility-notifications-v1";
+const fertilityNotificationContentVersion =
+  "companion-fertility-notifications-v1";
 
 async function resolveCarePeople(
   connection: any,
@@ -93,22 +94,28 @@ export function createPersonWomenCalendarCaregiverStore(databaseUrl: string) {
       limit 1
     `;
     const row = rows[0];
-    if (!row ||
-        row.share_summary_with_companion !== true ||
-        dateString(row.logged_on) !== expectedDate) {
+    if (
+      !row ||
+      row.share_summary_with_companion !== true ||
+      dateString(row.logged_on) !== expectedDate
+    ) {
       throw accessDenied();
     }
     const updatedAt = new Date(String(row.updated_at_utc));
-    if (!Number.isFinite(updatedAt.getTime()) ||
-        Date.now() - updatedAt.getTime() > 8 * 60 * 60 * 1000 ||
-        updatedAt.getTime() > Date.now() + 60_000) {
+    if (
+      !Number.isFinite(updatedAt.getTime()) ||
+      Date.now() - updatedAt.getTime() > 8 * 60 * 60 * 1000 ||
+      updatedAt.getTime() > Date.now() + 60_000
+    ) {
       throw accessDenied();
     }
     const mood = String(row.mood ?? "").toLowerCase();
     const lowMood = mood === "low" || mood === "overwhelmed";
     if (trigger === "check_in" && !lowMood) throw accessDenied();
-    if (trigger === "energy" &&
-        (lowMood || Number(row.energy_level) > 2 || Number(row.energy_level) < 1)) {
+    if (
+      trigger === "energy" &&
+      (lowMood || Number(row.energy_level) > 2 || Number(row.energy_level) < 1)
+    ) {
       throw accessDenied();
     }
   }
@@ -149,15 +156,17 @@ export function createPersonWomenCalendarCaregiverStore(databaseUrl: string) {
     const estimatedWindowStart = Number.isFinite(windowStart)
       ? addDays(dateString(estimate.cycleStart), windowStart - 1)
       : null;
-    if (estimatedWindowStart !== expectedWindowStart ||
-        estimate.fertilityEstimateReliable !== true ||
-        String(estimate.cyclePattern).toLowerCase() !== "regular" ||
-        String(estimate.confidence).toLowerCase() === "low" ||
-        !Number.isFinite(cycleDay) ||
-        !Number.isFinite(windowStart) ||
-        !Number.isFinite(windowEnd) ||
-        cycleDay < windowStart ||
-        cycleDay > windowEnd) {
+    if (
+      estimatedWindowStart !== expectedWindowStart ||
+      estimate.fertilityEstimateReliable !== true ||
+      String(estimate.cyclePattern).toLowerCase() !== "regular" ||
+      String(estimate.confidence).toLowerCase() === "low" ||
+      !Number.isFinite(cycleDay) ||
+      !Number.isFinite(windowStart) ||
+      !Number.isFinite(windowEnd) ||
+      cycleDay < windowStart ||
+      cycleDay > windowEnd
+    ) {
       throw accessDenied();
     }
   }
@@ -166,7 +175,10 @@ export function createPersonWomenCalendarCaregiverStore(databaseUrl: string) {
     caregiverAppUserId: string,
     patientAppUserIdValue: unknown,
   ): Promise<Record<string, unknown>> {
-    const patientAppUserId = requiredUuid(patientAppUserIdValue, "patientUserId");
+    const patientAppUserId = requiredUuid(
+      patientAppUserIdValue,
+      "patientUserId",
+    );
     const { caregiverPersonId, patientPersonId } = await resolveCarePeople(
       sql,
       caregiverAppUserId,
@@ -244,14 +256,18 @@ export function createPersonWomenCalendarCaregiverStore(databaseUrl: string) {
       Number(profile.period_length),
       [...episodes]
         .sort((left: Row, right: Row) =>
-          dateString(left.started_on).localeCompare(dateString(right.started_on)))
+          dateString(left.started_on).localeCompare(
+            dateString(right.started_on),
+          )
+        )
         .map((episode: Row) => dateString(episode.started_on)),
     );
     const estimate = presentCycleEstimate(rawEstimate, privacy);
     const fertilityEstimate = presentFertilityEstimate(rawEstimate, privacy);
-    const canonicalSharedLog = latestLogs[0]?.share_summary_with_companion === true
-      ? mapDailyLogCompanion(latestLogs[0])
-      : null;
+    const canonicalSharedLog =
+      latestLogs[0]?.share_summary_with_companion === true
+        ? mapDailyLogCompanion(latestLogs[0])
+        : null;
     const sharedDailySummary = canonicalSharedLog == null ? null : {
       date: canonicalSharedLog.loggedOn,
       mood: canonicalSharedLog.mood,
@@ -270,20 +286,27 @@ export function createPersonWomenCalendarCaregiverStore(databaseUrl: string) {
         lastPeriodStart: privacy.viewPeriodTiming ? lastPeriodStart : null,
         cycleLength: privacy.viewCalendarDetail ? profile.cycle_length : null,
         periodLength: privacy.viewCalendarDetail ? profile.period_length : null,
-        algorithmVersion: privacy.viewPhaseSummary || privacy.viewFertilityEstimate
-          ? profile.algorithm_version
-          : null,
+        algorithmVersion:
+          privacy.viewPhaseSummary || privacy.viewFertilityEstimate
+            ? profile.algorithm_version
+            : null,
       },
       estimate,
       fertilityEstimate,
-      sharedDailySummary: privacy.viewSharedWellbeing ? sharedDailySummary : null,
-      episodes: privacy.viewCalendarDetail ? episodes.map(mapEpisodeCaregiver) : [],
-      latestSharedDailyLog: privacy.viewSharedWellbeing ? canonicalSharedLog : null,
+      sharedDailySummary: privacy.viewSharedWellbeing
+        ? sharedDailySummary
+        : null,
+      episodes: privacy.viewCalendarDetail
+        ? episodes.map(mapEpisodeCaregiver)
+        : [],
+      latestSharedDailyLog: privacy.viewSharedWellbeing
+        ? canonicalSharedLog
+        : null,
       supportActions: privacy.viewSharedWellbeing
         ? actions.map((row: Row) => ({
-            actionType: String(row.action_type).toLowerCase(),
-            performedAtUtc: iso(row.performed_at_utc),
-          }))
+          actionType: String(row.action_type).toLowerCase(),
+          performedAtUtc: iso(row.performed_at_utc),
+        }))
         : [],
       guidanceHistory: guidanceHistory.map((row: Row) => ({
         guidanceId: String(row.guidance_id),
@@ -297,18 +320,33 @@ export function createPersonWomenCalendarCaregiverStore(databaseUrl: string) {
     patientAppUserIdValue: unknown,
     body: Record<string, unknown>,
   ): Promise<Record<string, unknown>> {
-    const patientAppUserId = requiredUuid(patientAppUserIdValue, "patientUserId");
+    const patientAppUserId = requiredUuid(
+      patientAppUserIdValue,
+      "patientUserId",
+    );
     const guidanceId = String(body.guidanceId ?? "").trim();
     const contentVersion = String(body.contentVersion ?? "").trim();
     const category = String(body.category ?? "").trim().toLowerCase();
     if (guidanceId.length < 1 || guidanceId.length > 80) {
-      throw new ApiError(400, "invalid_companion_guidance_id", "Invalid guidance id.");
+      throw new ApiError(
+        400,
+        "invalid_companion_guidance_id",
+        "Invalid guidance id.",
+      );
     }
     if (contentVersion.length < 1 || contentVersion.length > 40) {
-      throw new ApiError(400, "invalid_companion_content_version", "Invalid content version.");
+      throw new ApiError(
+        400,
+        "invalid_companion_content_version",
+        "Invalid content version.",
+      );
     }
     if (!guidanceCategories.has(category)) {
-      throw new ApiError(400, "invalid_companion_guidance_category", "Invalid guidance category.");
+      throw new ApiError(
+        400,
+        "invalid_companion_guidance_category",
+        "Invalid guidance category.",
+      );
     }
     assertNotificationMetadata(guidanceId, contentVersion, category);
 
@@ -317,9 +355,14 @@ export function createPersonWomenCalendarCaregiverStore(databaseUrl: string) {
       caregiverAppUserId,
       patientAppUserId,
     );
-    const relationship = await resolveActiveRelationship(caregiverPersonId, patientPersonId);
-    if (guidanceId.startsWith("notify.") &&
-        relationship.caregiver_notifications_enabled !== true) {
+    const relationship = await resolveActiveRelationship(
+      caregiverPersonId,
+      patientPersonId,
+    );
+    if (
+      guidanceId.startsWith("notify.") &&
+      relationship.caregiver_notifications_enabled !== true
+    ) {
       throw accessDenied();
     }
     const privacy = companionPrivacy(relationship);
@@ -328,7 +371,10 @@ export function createPersonWomenCalendarCaregiverStore(databaseUrl: string) {
       await requireCurrentMoodNotificationEntry(patientPersonId, guidanceId);
     }
     if (guidanceId.startsWith("notify.fertility.")) {
-      await requireCurrentFertilityNotificationEstimate(patientPersonId, guidanceId);
+      await requireCurrentFertilityNotificationEstimate(
+        patientPersonId,
+        guidanceId,
+      );
     }
 
     const rows = await sql`
@@ -359,11 +405,18 @@ export function createPersonWomenCalendarCaregiverStore(databaseUrl: string) {
     patientAppUserIdValue: unknown,
     body: Record<string, unknown>,
   ): Promise<Record<string, unknown>> {
-    const patientAppUserId = requiredUuid(patientAppUserIdValue, "patientUserId");
+    const patientAppUserId = requiredUuid(
+      patientAppUserIdValue,
+      "patientUserId",
+    );
     const normalized = String(body.actionType ?? "").trim().toLowerCase();
     const actionType = supportActions[normalized];
     if (!actionType) {
-      throw new ApiError(400, "invalid_women_calendar_support_action", "Unsupported support action.");
+      throw new ApiError(
+        400,
+        "invalid_women_calendar_support_action",
+        "Unsupported support action.",
+      );
     }
 
     const { caregiverPersonId, patientPersonId } = await resolveCarePeople(
@@ -371,15 +424,24 @@ export function createPersonWomenCalendarCaregiverStore(databaseUrl: string) {
       caregiverAppUserId,
       patientAppUserId,
     );
-    const relationship = await resolveActiveRelationship(caregiverPersonId, patientPersonId);
-    if (!companionPrivacy(relationship).viewSharedWellbeing) throw accessDenied();
+    const relationship = await resolveActiveRelationship(
+      caregiverPersonId,
+      patientPersonId,
+    );
+    if (!companionPrivacy(relationship).viewSharedWellbeing) {
+      throw accessDenied();
+    }
 
     const profiles = await sql`
       select owner_person_id from lifemate.women_calendar_profiles
       where owner_person_id=${patientPersonId}::uuid and enabled=true limit 1
     `;
     if (!profiles[0]) {
-      throw new ApiError(404, "women_calendar_not_active", "Women calendar is not active for this patient.");
+      throw new ApiError(
+        404,
+        "women_calendar_not_active",
+        "Women calendar is not active for this patient.",
+      );
     }
 
     const id = crypto.randomUUID();
@@ -432,7 +494,8 @@ function companionPrivacy(row: Row): CompanionPrivacy {
     viewPeriodTiming: row.view_period_timing === true,
     viewPhaseSummary: row.view_phase_summary === true,
     viewSharedWellbeing: row.view_shared_wellbeing === true,
-    receiveMoodSupportNotifications: row.receive_mood_support_notifications === true,
+    receiveMoodSupportNotifications:
+      row.receive_mood_support_notifications === true,
     receivePhaseNotifications: row.receive_phase_notifications === true,
     viewFertilityEstimate: row.view_fertility_estimate === true,
     receiveFertilityNotifications: row.receive_fertility_notifications === true,
@@ -454,10 +517,12 @@ export function guidanceAllowed(
     return privacy.receivePhaseNotifications && privacy.viewPhaseSummary;
   }
   if (guidanceId.startsWith("notify.mood.")) {
-    return privacy.receiveMoodSupportNotifications && privacy.viewSharedWellbeing;
+    return privacy.receiveMoodSupportNotifications &&
+      privacy.viewSharedWellbeing;
   }
   if (guidanceId.startsWith("notify.fertility.")) {
-    return privacy.viewFertilityEstimate && privacy.receiveFertilityNotifications;
+    return privacy.viewFertilityEstimate &&
+      privacy.receiveFertilityNotifications;
   }
   if (category === "fertility") return privacy.viewFertilityEstimate;
   if (category === "phase") return privacy.viewPhaseSummary;
@@ -473,20 +538,26 @@ export function assertNotificationMetadata(
   category: string,
 ): void {
   if (guidanceId.startsWith("notify.phase.")) {
-    if (category !== "phase" || contentVersion !== phaseNotificationContentVersion) {
+    if (
+      category !== "phase" || contentVersion !== phaseNotificationContentVersion
+    ) {
       throw invalidNotificationMetadata("Phase");
     }
     return;
   }
   if (guidanceId.startsWith("notify.mood.")) {
-    if (category !== "mood" || contentVersion !== moodNotificationContentVersion) {
+    if (
+      category !== "mood" || contentVersion !== moodNotificationContentVersion
+    ) {
       throw invalidNotificationMetadata("Wellbeing");
     }
     return;
   }
   if (guidanceId.startsWith("notify.fertility.")) {
-    if (category !== "fertility" ||
-        contentVersion !== fertilityNotificationContentVersion) {
+    if (
+      category !== "fertility" ||
+      contentVersion !== fertilityNotificationContentVersion
+    ) {
       throw invalidNotificationMetadata("Fertility");
     }
     return;
@@ -510,7 +581,9 @@ export function presentCycleEstimate(
 ): Record<string, unknown> | null {
   const result: Record<string, unknown> = {};
   if (privacy.viewPhaseSummary) {
-    const detailed = String(estimate.detailedPhase ?? estimate.phase ?? "cycle");
+    const detailed = String(
+      estimate.detailedPhase ?? estimate.phase ?? "cycle",
+    );
     result.phase = estimate.phase;
     result.detailedPhase = !privacy.viewFertilityEstimate &&
         (detailed === "fertile" || detailed === "ovulation")

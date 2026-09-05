@@ -42,25 +42,30 @@ Deno.test("gift payload canonicalizes Iranian phone and target", () => {
 
 Deno.test("gift payload rejects invalid target and phone", async () => {
   await expectReject(
-    () => parseGiftPayload({
-      recipientPhone: "123",
-      targetKind: "Offer",
-      targetId: "123e4567-e89b-42d3-a456-426614174000",
-    }),
+    () =>
+      parseGiftPayload({
+        recipientPhone: "123",
+        targetKind: "Offer",
+        targetId: "123e4567-e89b-42d3-a456-426614174000",
+      }),
     "gift_recipient_phone_invalid",
   );
   await expectReject(
-    () => parseGiftPayload({
-      recipientPhone: "09121234567",
-      targetKind: "Product",
-      targetId: "123e4567-e89b-42d3-a456-426614174000",
-    }),
+    () =>
+      parseGiftPayload({
+        recipientPhone: "09121234567",
+        targetKind: "Product",
+        targetId: "123e4567-e89b-42d3-a456-426614174000",
+      }),
     "gift_target_invalid",
   );
 });
 
 Deno.test("referral payload is strict and canonical", async () => {
-  assert(parseReferralPayload({ code: "ab12cd34" }) === "AB12CD34", "code uppercase");
+  assert(
+    parseReferralPayload({ code: "ab12cd34" }) === "AB12CD34",
+    "code uppercase",
+  );
   await expectReject(
     () => parseReferralPayload({ code: "bad-code" }),
     "referral_code_invalid",
@@ -76,19 +81,21 @@ Deno.test("advocacy payload is bounded and explicit", async () => {
   assert(payload.platformCode === "instagram", "platform must canonicalize");
   assert(payload.evidenceType === "PostUrl", "evidence type must survive");
   await expectReject(
-    () => parseAdvocacyPayload({
-      platformCode: "instagram",
-      evidenceType: "ScrapedProfile",
-      evidenceReference: "private-profile",
-    }),
+    () =>
+      parseAdvocacyPayload({
+        platformCode: "instagram",
+        evidenceType: "ScrapedProfile",
+        evidenceReference: "private-profile",
+      }),
     "advocacy_evidence_type_invalid",
   );
   await expectReject(
-    () => parseAdvocacyPayload({
-      platformCode: "instagram",
-      evidenceType: "PostUrl",
-      evidenceReference: "x".repeat(2049),
-    }),
+    () =>
+      parseAdvocacyPayload({
+        platformCode: "instagram",
+        evidenceType: "PostUrl",
+        evidenceReference: "x".repeat(2049),
+      }),
     "growth_request_invalid",
   );
 });

@@ -41,12 +41,18 @@ function requiredMode(value: unknown): SleepOptimizationMode {
   if (value === "strict_anchor_shift" || value === "flexible_interval") {
     return value;
   }
-  throw new ApiError(400, "invalid_optimization_mode", "A supported mode is required.");
+  throw new ApiError(
+    400,
+    "invalid_optimization_mode",
+    "A supported mode is required.",
+  );
 }
 
 function requiredVariation(value: unknown): number {
   const parsed = Number(value);
-  if (!Number.isInteger(parsed) || parsed < 5 || parsed > 180 || parsed % 5 !== 0) {
+  if (
+    !Number.isInteger(parsed) || parsed < 5 || parsed > 180 || parsed % 5 !== 0
+  ) {
     throw new ApiError(
       400,
       "invalid_variation_bound",
@@ -61,13 +67,17 @@ function dateUtc(value: string): Date {
 }
 
 function dateSpanDays(from: string, until: string): number {
-  return Math.floor((dateUtc(until).getTime() - dateUtc(from).getTime()) / 86_400_000) + 1;
+  return Math.floor(
+    (dateUtc(until).getTime() - dateUtc(from).getTime()) / 86_400_000,
+  ) + 1;
 }
 
 function recurrenceIntervalHours(row: Row): number | null {
   const raw = row.recurrence_rule;
   const recurrence = typeof raw === "string" ? JSON.parse(raw) : raw;
-  if (!recurrence || recurrence.enabled !== true || recurrence.unit !== "hour") return null;
+  if (
+    !recurrence || recurrence.enabled !== true || recurrence.unit !== "hour"
+  ) return null;
   const interval = Number(recurrence.interval);
   return Number.isInteger(interval) && interval >= 1 && interval <= 8760
     ? interval
@@ -107,8 +117,14 @@ export function createMedicationScheduleSleepStore(databaseUrl: string) {
     body: Record<string, unknown>,
   ): Promise<Record<string, unknown>> {
     const mode = requiredMode(body.mode);
-    const effectiveFrom = requiredDate(body.effectiveFromLocalDate, "effectiveFromLocalDate");
-    const effectiveUntil = requiredDate(body.effectiveUntilLocalDate, "effectiveUntilLocalDate");
+    const effectiveFrom = requiredDate(
+      body.effectiveFromLocalDate,
+      "effectiveFromLocalDate",
+    );
+    const effectiveUntil = requiredDate(
+      body.effectiveUntilLocalDate,
+      "effectiveUntilLocalDate",
+    );
     const spanDays = dateSpanDays(effectiveFrom, effectiveUntil);
     if (spanDays < 1 || spanDays > maxEffectiveDays) {
       throw new ApiError(
@@ -184,7 +200,9 @@ export function createMedicationScheduleSleepStore(databaseUrl: string) {
         values
           (${runId}::uuid,${ownerPersonId}::uuid,${mode},
            ${medicationSleepSolverAlgorithmVersion},${consentTextVersion},
-           ${Number(preferences.version)},true,${sleepSnapshotHash},${maxVariation},
+           ${
+        Number(preferences.version)
+      },true,${sleepSnapshotHash},${maxVariation},
            ${effectiveFrom}::date,${effectiveUntil}::date,'Previewed',${expires},now(),now())
       `;
 
@@ -195,14 +213,22 @@ export function createMedicationScheduleSleepStore(databaseUrl: string) {
         if (intervalHours == null) continue;
         const medicationName = String(plan.medication_name);
         if (plan.timing_locked === true) {
-          exclusions.push({ treatmentPlanId: plan.id, medicationName, reason: "timing_locked" });
+          exclusions.push({
+            treatmentPlanId: plan.id,
+            medicationName,
+            reason: "timing_locked",
+          });
           continue;
         }
         if (
           Number(plan.manual_spacing_before_minutes ?? 0) > 0 ||
           Number(plan.manual_spacing_after_minutes ?? 0) > 0
         ) {
-          exclusions.push({ treatmentPlanId: plan.id, medicationName, reason: "manual_spacing" });
+          exclusions.push({
+            treatmentPlanId: plan.id,
+            medicationName,
+            reason: "manual_spacing",
+          });
           continue;
         }
 
@@ -238,7 +264,9 @@ export function createMedicationScheduleSleepStore(databaseUrl: string) {
                proposed_anchor_local_time,reason,created_at_utc)
             values
               (${changeId}::uuid,${runId}::uuid,${ownerPersonId}::uuid,
-               ${plan.id}::uuid,${Number(plan.version)},${Number(plan.timing_version ?? 0)},
+               ${plan.id}::uuid,${Number(plan.version)},${
+            Number(plan.timing_version ?? 0)
+          },
                ${intervalHours * 60},${proposal.oldAnchorLocalTime}::time,
                ${proposal.newAnchorLocalTime}::time,'sleep_preference',now())
           `;
@@ -263,7 +291,10 @@ export function createMedicationScheduleSleepStore(databaseUrl: string) {
           doseCount,
           sleep,
         });
-        if (!sequence.feasible || sequence.sleepHitsAfter >= sequence.sleepHitsBefore) {
+        if (
+          !sequence.feasible ||
+          sequence.sleepHitsAfter >= sequence.sleepHitsBefore
+        ) {
           exclusions.push({
             treatmentPlanId: plan.id,
             medicationName,
@@ -279,15 +310,29 @@ export function createMedicationScheduleSleepStore(databaseUrl: string) {
              proposed_anchor_local_time,reason,created_at_utc)
           values
             (${changeId}::uuid,${runId}::uuid,${ownerPersonId}::uuid,
-             ${plan.id}::uuid,${Number(plan.version)},${Number(plan.timing_version ?? 0)},
-             ${intervalHours * 60},${oldAnchor}::time,null,'sleep_preference',now())
+             ${plan.id}::uuid,${Number(plan.version)},${
+          Number(plan.timing_version ?? 0)
+        },
+             ${
+          intervalHours * 60
+        },${oldAnchor}::time,null,'sleep_preference',now())
         `;
 
         const overridePreview: Record<string, unknown>[] = [];
         for (const occurrence of sequence.occurrences) {
-          const original = localPoint(effectiveFrom, oldAnchor, occurrence.originalMinuteOffset);
-          const replacement = localPoint(effectiveFrom, oldAnchor, occurrence.proposedMinuteOffset);
-          if (original.date < effectiveFrom || original.date > effectiveUntil) continue;
+          const original = localPoint(
+            effectiveFrom,
+            oldAnchor,
+            occurrence.originalMinuteOffset,
+          );
+          const replacement = localPoint(
+            effectiveFrom,
+            oldAnchor,
+            occurrence.proposedMinuteOffset,
+          );
+          if (original.date < effectiveFrom || original.date > effectiveUntil) {
+            continue;
+          }
           await tx`
             insert into lifemate.dose_occurrence_overrides
               (id,run_id,change_id,owner_person_id,treatment_plan_id,
@@ -298,7 +343,9 @@ export function createMedicationScheduleSleepStore(databaseUrl: string) {
               (${crypto.randomUUID()}::uuid,${runId}::uuid,${changeId}::uuid,
                ${ownerPersonId}::uuid,${plan.id}::uuid,${original.date}::date,
                ${original.time}::time,${replacement.date}::date,
-               ${replacement.time}::time,${plan.time_zone},${intervalHours * 60},
+               ${replacement.time}::time,${plan.time_zone},${
+            intervalHours * 60
+          },
                ${occurrence.proposedGapMinutes},${occurrence.variationMinutes},
                'Active',now(),now())
           `;
@@ -365,16 +412,30 @@ export function createMedicationScheduleSleepStore(databaseUrl: string) {
         for update
       `;
       const run = runRows[0];
-      if (!run) throw new ApiError(404,"optimization_run_missing","Proposal was not found.");
+      if (!run) {
+        throw new ApiError(
+          404,
+          "optimization_run_missing",
+          "Proposal was not found.",
+        );
+      }
       if (run.status === "Applied") {
         return { runId, status: "applied", alreadyApplied: true };
       }
       if (run.status !== "Previewed" || run.mode !== selectedMode) {
-        throw new ApiError(409,"stale_schedule_proposal","Proposal is no longer valid.");
+        throw new ApiError(
+          409,
+          "stale_schedule_proposal",
+          "Proposal is no longer valid.",
+        );
       }
       if (new Date(run.expires_at_utc).getTime() <= Date.now()) {
         await tx`update lifemate.medication_schedule_optimization_runs set status='Expired',updated_at_utc=now() where id=${runId}::uuid`;
-        throw new ApiError(409,"optimization_proposal_expired","Proposal expired. Preview again.");
+        throw new ApiError(
+          409,
+          "optimization_proposal_expired",
+          "Proposal expired. Preview again.",
+        );
       }
 
       const preferences = await tx`
@@ -388,15 +449,26 @@ export function createMedicationScheduleSleepStore(databaseUrl: string) {
       if (
         !currentPreferences ||
         currentPreferences.sleep_window_enabled !== true ||
-        Number(currentPreferences.version) !== Number(run.schedule_preferences_version)
+        Number(currentPreferences.version) !==
+          Number(run.schedule_preferences_version)
       ) {
-        throw new ApiError(409,"stale_sleep_preferences","Sleep preferences changed. Preview again.");
+        throw new ApiError(
+          409,
+          "stale_sleep_preferences",
+          "Sleep preferences changed. Preview again.",
+        );
       }
       const currentSleepHash = await sha256Hex(
-        `${currentPreferences.version}|${currentPreferences.time_zone}|${localTime(currentPreferences.sleep_start_local_time)}|${localTime(currentPreferences.sleep_end_local_time)}`,
+        `${currentPreferences.version}|${currentPreferences.time_zone}|${
+          localTime(currentPreferences.sleep_start_local_time)
+        }|${localTime(currentPreferences.sleep_end_local_time)}`,
       );
       if (currentSleepHash !== run.sleep_window_snapshot_hash) {
-        throw new ApiError(409,"stale_sleep_preferences","Sleep preferences changed. Preview again.");
+        throw new ApiError(
+          409,
+          "stale_sleep_preferences",
+          "Sleep preferences changed. Preview again.",
+        );
       }
 
       const changes = await tx`
@@ -413,20 +485,31 @@ export function createMedicationScheduleSleepStore(databaseUrl: string) {
         for update of p
       `;
       if (changes.length === 0) {
-        throw new ApiError(409,"optimization_no_changes","Proposal has no applicable changes.");
+        throw new ApiError(
+          409,
+          "optimization_no_changes",
+          "Proposal has no applicable changes.",
+        );
       }
       for (const change of changes) {
         const intervalHours = recurrenceIntervalHours(change);
         if (
           change.status !== undefined && change.status !== "Active" ||
-          Number(change.current_plan_version) !== Number(change.expected_treatment_plan_version) ||
-          Number(change.current_timing_version ?? 0) !== Number(change.expected_timing_version) ||
-          intervalHours == null || intervalHours * 60 !== Number(change.entered_interval_minutes) ||
+          Number(change.current_plan_version) !==
+            Number(change.expected_treatment_plan_version) ||
+          Number(change.current_timing_version ?? 0) !==
+            Number(change.expected_timing_version) ||
+          intervalHours == null ||
+          intervalHours * 60 !== Number(change.entered_interval_minutes) ||
           change.timing_locked === true ||
           Number(change.manual_spacing_before_minutes ?? 0) > 0 ||
           Number(change.manual_spacing_after_minutes ?? 0) > 0
         ) {
-          throw new ApiError(409,"stale_schedule_proposal","Schedule changed. Preview again.");
+          throw new ApiError(
+            409,
+            "stale_schedule_proposal",
+            "Schedule changed. Preview again.",
+          );
         }
       }
 
@@ -434,7 +517,9 @@ export function createMedicationScheduleSleepStore(databaseUrl: string) {
         for (const change of changes) {
           await tx`
             update lifemate.treatment_plans
-            set recurrence_start_local_time=${localTime(change.proposed_anchor_local_time)}::time,
+            set recurrence_start_local_time=${
+            localTime(change.proposed_anchor_local_time)
+          }::time,
                 version=version+1,updated_at_utc=now()
             where id=${change.treatment_plan_id}::uuid
               and patient_person_id=${ownerPersonId}::uuid
@@ -473,8 +558,14 @@ export function createMedicationScheduleSleepStore(databaseUrl: string) {
         runId,
         status: "applied",
         mode: selectedMode,
-        effectiveFromLocalDate: String(run.effective_from_local_date).slice(0, 10),
-        effectiveUntilLocalDate: String(run.effective_until_local_date).slice(0, 10),
+        effectiveFromLocalDate: String(run.effective_from_local_date).slice(
+          0,
+          10,
+        ),
+        effectiveUntilLocalDate: String(run.effective_until_local_date).slice(
+          0,
+          10,
+        ),
         consentTextVersion: run.consent_text_version,
       };
     });
@@ -493,10 +584,22 @@ export function createMedicationScheduleSleepStore(databaseUrl: string) {
         for update
       `;
       const run = rows[0];
-      if (!run) throw new ApiError(404,"optimization_run_missing","Optimization was not found.");
-      if (run.status === "Undone") return { runId, status: "undone", alreadyUndone: true };
+      if (!run) {
+        throw new ApiError(
+          404,
+          "optimization_run_missing",
+          "Optimization was not found.",
+        );
+      }
+      if (run.status === "Undone") {
+        return { runId, status: "undone", alreadyUndone: true };
+      }
       if (run.status !== "Applied") {
-        throw new ApiError(409,"optimization_not_undoable","Only an applied optimization can be undone.");
+        throw new ApiError(
+          409,
+          "optimization_not_undoable",
+          "Only an applied optimization can be undone.",
+        );
       }
 
       const changes = await tx`
@@ -518,11 +621,17 @@ export function createMedicationScheduleSleepStore(databaseUrl: string) {
             localTime(plan[0].recurrence_start_local_time) !==
               localTime(change.proposed_anchor_local_time)
           ) {
-            throw new ApiError(409,"optimization_undo_stale","Schedule changed after apply; automatic undo is no longer safe.");
+            throw new ApiError(
+              409,
+              "optimization_undo_stale",
+              "Schedule changed after apply; automatic undo is no longer safe.",
+            );
           }
           await tx`
             update lifemate.treatment_plans
-            set recurrence_start_local_time=${localTime(change.old_anchor_local_time)}::time,
+            set recurrence_start_local_time=${
+            localTime(change.old_anchor_local_time)
+          }::time,
                 version=version+1,updated_at_utc=now()
             where id=${change.treatment_plan_id}::uuid
               and patient_person_id=${ownerPersonId}::uuid
@@ -577,8 +686,14 @@ export function createMedicationScheduleSleepStore(databaseUrl: string) {
       maxVariationMinutes: row.max_variation_minutes == null
         ? null
         : Number(row.max_variation_minutes),
-      effectiveFromLocalDate: String(row.effective_from_local_date).slice(0, 10),
-      effectiveUntilLocalDate: String(row.effective_until_local_date).slice(0, 10),
+      effectiveFromLocalDate: String(row.effective_from_local_date).slice(
+        0,
+        10,
+      ),
+      effectiveUntilLocalDate: String(row.effective_until_local_date).slice(
+        0,
+        10,
+      ),
       status: String(row.status).toLowerCase(),
       appliedAtUtc: row.applied_at_utc == null
         ? null

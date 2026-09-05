@@ -49,7 +49,9 @@ function formatClock(totalMinutes: number): string {
   const value = ((Math.round(totalMinutes) % 1440) + 1440) % 1440;
   const hour = Math.floor(value / 60);
   const minute = value % 60;
-  return `${hour.toString().padStart(2, "0")}:${minute.toString().padStart(2, "0")}`;
+  return `${hour.toString().padStart(2, "0")}:${
+    minute.toString().padStart(2, "0")
+  }`;
 }
 
 export function isMinuteInsideSleepWindow(
@@ -101,13 +103,23 @@ export function proposeExactSleepAwareAnchor(input: {
   }
   const oldAnchor = parseClock(input.anchorLocalTime);
   const doseCount = Math.max(1, Math.min(input.horizonDoseCount ?? 16, 128));
-  const before = countSleepHits(oldAnchor, intervalMinutes, doseCount, input.sleep);
+  const before = countSleepHits(
+    oldAnchor,
+    intervalMinutes,
+    doseCount,
+    input.sleep,
+  );
 
   let bestAnchor = oldAnchor;
   let bestHits = before;
   let bestShift = 0;
   for (let candidate = 0; candidate < 1440; candidate += 5) {
-    const hits = countSleepHits(candidate, intervalMinutes, doseCount, input.sleep);
+    const hits = countSleepHits(
+      candidate,
+      intervalMinutes,
+      doseCount,
+      input.sleep,
+    );
     const shift = circularShiftMinutes(oldAnchor, candidate);
     if (
       hits < bestHits ||
@@ -170,12 +182,15 @@ export function proposeFlexibleSleepAwareSequence(input: {
   ) {
     throw new Error("invalid_variation_bound");
   }
-  if (!Number.isInteger(input.doseCount) || input.doseCount < 2 || input.doseCount > 64) {
+  if (
+    !Number.isInteger(input.doseCount) || input.doseCount < 2 ||
+    input.doseCount > 64
+  ) {
     throw new Error("invalid_dose_count");
   }
 
   const anchor = parseClock(input.anchorLocalTime);
-  const proposedOffsets = <number>[0];
+  const proposedOffsets = <number> [0];
   const occurrences: FlexibleOccurrence[] = [];
 
   for (let index = 1; index < input.doseCount; index += 1) {
@@ -187,12 +202,18 @@ export function proposeFlexibleSleepAwareSequence(input: {
     ).filter((candidate) => candidate > previous);
 
     candidates.sort((left, right) => {
-      const leftSleep = isMinuteInsideSleepWindow(anchor + left, input.sleep) ? 1 : 0;
-      const rightSleep = isMinuteInsideSleepWindow(anchor + right, input.sleep) ? 1 : 0;
+      const leftSleep = isMinuteInsideSleepWindow(anchor + left, input.sleep)
+        ? 1
+        : 0;
+      const rightSleep = isMinuteInsideSleepWindow(anchor + right, input.sleep)
+        ? 1
+        : 0;
       if (leftSleep !== rightSleep) return leftSleep - rightSleep;
       const leftVariation = Math.abs((left - previous) - intervalMinutes);
       const rightVariation = Math.abs((right - previous) - intervalMinutes);
-      if (leftVariation !== rightVariation) return leftVariation - rightVariation;
+      if (leftVariation !== rightVariation) {
+        return leftVariation - rightVariation;
+      }
       return left - right;
     });
 
@@ -215,8 +236,14 @@ export function proposeFlexibleSleepAwareSequence(input: {
   for (let index = 0; index < input.doseCount; index += 1) {
     const originalOffset = index * intervalMinutes;
     const proposedOffset = proposedOffsets[index];
-    const before = isMinuteInsideSleepWindow(anchor + originalOffset, input.sleep);
-    const after = isMinuteInsideSleepWindow(anchor + proposedOffset, input.sleep);
+    const before = isMinuteInsideSleepWindow(
+      anchor + originalOffset,
+      input.sleep,
+    );
+    const after = isMinuteInsideSleepWindow(
+      anchor + proposedOffset,
+      input.sleep,
+    );
     if (before) beforeHits += 1;
     if (after) afterHits += 1;
     const proposedGap = index === 0
@@ -230,9 +257,7 @@ export function proposeFlexibleSleepAwareSequence(input: {
       proposedLocalTime: formatClock(anchor + proposedOffset),
       previousGapMinutes: index === 0 ? null : intervalMinutes,
       proposedGapMinutes: proposedGap,
-      variationMinutes: proposedGap == null
-        ? 0
-        : proposedGap - intervalMinutes,
+      variationMinutes: proposedGap == null ? 0 : proposedGap - intervalMinutes,
       sleepHitBefore: before,
       sleepHitAfter: after,
     });

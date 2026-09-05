@@ -1,8 +1,4 @@
-import {
-  assert,
-  assertEquals,
-  assertRejects,
-} from "jsr:@std/assert@1.0.14";
+import { assert, assertEquals, assertRejects } from "jsr:@std/assert@1.0.14";
 import postgres from "postgres";
 import { hashContactPoint } from "../_shared/contact_point_crypto.ts";
 import { type AuthUser, createLifeMateDatabase } from "./database.ts";
@@ -12,7 +8,9 @@ import { ApiError } from "./validation.ts";
 
 const databaseUrl = Deno.env.get("TEST_DATABASE_URL");
 if (!databaseUrl) {
-  throw new Error("TEST_DATABASE_URL is required for growth integration tests.");
+  throw new Error(
+    "TEST_DATABASE_URL is required for growth integration tests.",
+  );
 }
 
 const contactSecret = "integration-growth-contact-secret-32-bytes-minimum";
@@ -49,7 +47,9 @@ Deno.test({
       const alternate = await bootstrap(db, alternateAuth, "Growth Alternate");
 
       const referrerCode = await growth.ensureReferralCode(referrer.appUserId);
-      const alternateCode = await growth.ensureReferralCode(alternate.appUserId);
+      const alternateCode = await growth.ensureReferralCode(
+        alternate.appUserId,
+      );
       assert(/^[A-Z0-9]{8,32}$/.test(String(referrerCode.code)));
       assert(/^[A-Z0-9]{8,32}$/.test(String(alternateCode.code)));
 
@@ -77,9 +77,13 @@ Deno.test({
           idempotencyKey: referralKey,
         }),
       ]);
-      assertEquals(firstAttribution.attributionId, concurrentReplay.attributionId);
+      assertEquals(
+        firstAttribution.attributionId,
+        concurrentReplay.attributionId,
+      );
       assert(
-        firstAttribution.replayed === true || concurrentReplay.replayed === true,
+        firstAttribution.replayed === true ||
+          concurrentReplay.replayed === true,
         "one concurrent referral call must become a replay",
       );
 
@@ -119,7 +123,8 @@ Deno.test({
             appUserId: referred.appUserId,
             body: {
               ...advocacyBody,
-              evidenceReference: `https://example.invalid/advocacy/${suffix}/changed`,
+              evidenceReference:
+                `https://example.invalid/advocacy/${suffix}/changed`,
             },
             idempotencyKey: advocacyKey,
           }),

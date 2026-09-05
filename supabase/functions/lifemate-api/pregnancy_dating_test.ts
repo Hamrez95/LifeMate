@@ -73,34 +73,41 @@ Deno.test("manual correction prefers clinician reference over stale EDD/LMP", ()
 });
 
 Deno.test("partial unknown dating remains unknown", () => {
-  assertEquals(deriveGestationalAge({
-    method: null,
-    lmpDate: null,
-    estimatedDueDate: null,
-    referenceDate: null,
-    gestationalAgeAtReferenceDays: null,
-  }, "2026-09-03"), null);
-});
-
-Deno.test("as-of date before known gestational basis returns unknown", () => {
-  assertEquals(deriveGestationalAge({
-    method: "lmp",
-    lmpDate: "2026-09-10",
-    estimatedDueDate: null,
-    referenceDate: null,
-    gestationalAgeAtReferenceDays: null,
-  }, "2026-09-03"), null);
-});
-
-Deno.test("invalid calendar dates fail closed", () => {
-  assertThrows(
-    () => deriveGestationalAge({
-      method: "lmp",
-      lmpDate: "2026-02-30",
+  assertEquals(
+    deriveGestationalAge({
+      method: null,
+      lmpDate: null,
       estimatedDueDate: null,
       referenceDate: null,
       gestationalAgeAtReferenceDays: null,
     }, "2026-09-03"),
+    null,
+  );
+});
+
+Deno.test("as-of date before known gestational basis returns unknown", () => {
+  assertEquals(
+    deriveGestationalAge({
+      method: "lmp",
+      lmpDate: "2026-09-10",
+      estimatedDueDate: null,
+      referenceDate: null,
+      gestationalAgeAtReferenceDays: null,
+    }, "2026-09-03"),
+    null,
+  );
+});
+
+Deno.test("invalid calendar dates fail closed", () => {
+  assertThrows(
+    () =>
+      deriveGestationalAge({
+        method: "lmp",
+        lmpDate: "2026-02-30",
+        estimatedDueDate: null,
+        referenceDate: null,
+        gestationalAgeAtReferenceDays: null,
+      }, "2026-09-03"),
     PregnancyDatingError,
     "lmp_date_invalid",
   );
@@ -108,13 +115,14 @@ Deno.test("invalid calendar dates fail closed", () => {
 
 Deno.test("clinician method requires complete reference pair", () => {
   assertThrows(
-    () => deriveGestationalAge({
-      method: "clinician_ultrasound",
-      lmpDate: null,
-      estimatedDueDate: null,
-      referenceDate: "2026-06-01",
-      gestationalAgeAtReferenceDays: null,
-    }, "2026-09-03"),
+    () =>
+      deriveGestationalAge({
+        method: "clinician_ultrasound",
+        lmpDate: null,
+        estimatedDueDate: null,
+        referenceDate: "2026-06-01",
+        gestationalAgeAtReferenceDays: null,
+      }, "2026-09-03"),
     PregnancyDatingError,
     "clinician_reference_required",
   );

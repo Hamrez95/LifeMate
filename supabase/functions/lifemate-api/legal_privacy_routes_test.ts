@@ -15,7 +15,9 @@ Deno.test("registration legal evidence is bounded and exact", () => {
 
 Deno.test("registration legal evidence rejects oversized acceptance sets", () => {
   const items = Array.from({ length: 9 }, (_, index) => ({
-    documentId: `018f5e6a-7e91-4c26-8e18-a83c5531d1${index.toString().padStart(2, "0")}`,
+    documentId: `018f5e6a-7e91-4c26-8e18-a83c5531d1${
+      index.toString().padStart(2, "0")
+    }`,
     documentHash: "sha256:0123456789abcdef0123456789abcdef",
   }));
   const error = assertThrows(() => parseLegalAcceptances(items));

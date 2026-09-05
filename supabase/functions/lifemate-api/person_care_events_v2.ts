@@ -39,13 +39,20 @@ type CareEventInput = {
   caregiverReminderMinutesBefore: number;
 };
 
-async function requireSelfPerson(connection: any, appUserId: string): Promise<string> {
+async function requireSelfPerson(
+  connection: any,
+  appUserId: string,
+): Promise<string> {
   const rows = await connection`
     select core.self_person_id_for_legacy_app_user(${appUserId}::uuid)::text as person_id
   `;
   const personId = rows[0]?.person_id;
   if (typeof personId !== "string" || personId.length === 0) {
-    throw new ApiError(409, "identity_person_mapping_missing", "The LifeMate person mapping is unavailable.");
+    throw new ApiError(
+      409,
+      "identity_person_mapping_missing",
+      "The LifeMate person mapping is unavailable.",
+    );
   }
   return personId;
 }
@@ -68,7 +75,11 @@ export function createPersonCareEventStoreV2(databaseUrl: string) {
       `;
       if (existing[0]) {
         if (!sameCareEvent(existing[0], input)) {
-          throw new ApiError(409, "idempotency_key_reused", "clientRequestId was already used for a different care event.");
+          throw new ApiError(
+            409,
+            "idempotency_key_reused",
+            "clientRequestId was already used for a different care event.",
+          );
         }
         return mapCareEvent(existing[0], patientAppUserId);
       }
@@ -116,7 +127,12 @@ export function createPersonCareEventStoreV2(databaseUrl: string) {
   ): Promise<Record<string, unknown>[]> {
     const { fromDate, toDate } = normalizeRange(fromValue, toValue);
     const patientPersonId = await requireSelfPerson(sql, patientAppUserId);
-    return await selectCareEvents(patientAppUserId, patientPersonId, fromDate, toDate);
+    return await selectCareEvents(
+      patientAppUserId,
+      patientPersonId,
+      fromDate,
+      toDate,
+    );
   }
 
   async function selectCareEvents(
@@ -143,13 +159,17 @@ export function createPersonCareEventStoreV2(databaseUrl: string) {
     for (const row of rows) {
       const recurrence = recurrenceFromRow(row);
       if (recurrence == null) {
-        const local = `${dateString(row.scheduled_local_date)}T${timeString(row.scheduled_local_time)}:00`;
+        const local = `${dateString(row.scheduled_local_date)}T${
+          timeString(row.scheduled_local_time)
+        }:00`;
         if (local >= `${fromDate}T00:00:00` && local <= `${toDate}T23:59:59`) {
           expanded.push(mapCareEvent(row, patientAppUserId, local));
         }
         continue;
       }
-      const startLocal = `${dateString(row.scheduled_local_date)}T${timeString(row.scheduled_local_time)}:00`;
+      const startLocal = `${dateString(row.scheduled_local_date)}T${
+        timeString(row.scheduled_local_time)
+      }:00`;
       const values = expandLocalRecurrence(
         startLocal,
         recurrence,
@@ -172,15 +192,36 @@ export function createPersonCareEventStoreV2(databaseUrl: string) {
 
 function normalizeCareEvent(body: Record<string, unknown>): CareEventInput {
   const eventType = normalizeEventType(body.eventType);
-  const scheduledLocalDate = requiredDate(body.scheduledLocalDate, "scheduledLocalDate");
-  const scheduledLocalTime = requiredLocalTime(body.scheduledLocalTime, "scheduledLocalTime");
+  const scheduledLocalDate = requiredDate(
+    body.scheduledLocalDate,
+    "scheduledLocalDate",
+  );
+  const scheduledLocalTime = requiredLocalTime(
+    body.scheduledLocalTime,
+    "scheduledLocalTime",
+  );
   const recurrence = normalizeRecurrenceRule(body.recurrence);
-  if (recurrence?.endAt != null && recurrence.endAt.slice(0, 10) < scheduledLocalDate) {
-    throw new ApiError(400, "invalid_recurrence_end", "Recurrence end cannot precede its start.");
+  if (
+    recurrence?.endAt != null &&
+    recurrence.endAt.slice(0, 10) < scheduledLocalDate
+  ) {
+    throw new ApiError(
+      400,
+      "invalid_recurrence_end",
+      "Recurrence end cannot precede its start.",
+    );
   }
-  const medicationName = limitedOptional(body.medicationName, "medicationName", 160);
+  const medicationName = limitedOptional(
+    body.medicationName,
+    "medicationName",
+    160,
+  );
   if (eventType === "Injection" && !medicationName) {
-    throw new ApiError(400, "invalid_medicationName", "medicationName is required for injection events.");
+    throw new ApiError(
+      400,
+      "invalid_medicationName",
+      "medicationName is required for injection events.",
+    );
   }
   return {
     clientRequestId: requiredUuid(body.clientRequestId, "clientRequestId"),
@@ -200,8 +241,16 @@ function normalizeCareEvent(body: Record<string, unknown>): CareEventInput {
     scheduledLocalTime,
     timeZone: requiredTimeZone(body.timeZone),
     recurrence,
-    patientReminderMinutesBefore: normalizeReminderLeadTime(body.patientReminderMinutesBefore, "patientReminderMinutesBefore", 30),
-    caregiverReminderMinutesBefore: normalizeReminderLeadTime(body.caregiverReminderMinutesBefore, "caregiverReminderMinutesBefore", 60),
+    patientReminderMinutesBefore: normalizeReminderLeadTime(
+      body.patientReminderMinutesBefore,
+      "patientReminderMinutesBefore",
+      30,
+    ),
+    caregiverReminderMinutesBefore: normalizeReminderLeadTime(
+      body.caregiverReminderMinutesBefore,
+      "caregiverReminderMinutesBefore",
+      60,
+    ),
   };
 }
 
@@ -222,7 +271,9 @@ function recurrenceFromRow(row: Row): RecurrenceRule | null {
     weekdays: Array.isArray(row.recurrence_weekdays)
       ? row.recurrence_weekdays.map(Number)
       : [],
-    endDate: row.recurrence_end_date == null ? null : dateString(row.recurrence_end_date),
+    endDate: row.recurrence_end_date == null
+      ? null
+      : dateString(row.recurrence_end_date),
   });
 }
 
@@ -239,7 +290,9 @@ function publicRecurrence(row: Row): Record<string, unknown> {
     weekdays: rule.weekdays,
     endDate: rule.endAt == null
       ? null
-      : rule.unit === "hour" ? rule.endAt : rule.endAt.slice(0, 10),
+      : rule.unit === "hour"
+      ? rule.endAt
+      : rule.endAt.slice(0, 10),
     maxOccurrences: rule.maxOccurrences,
   };
 }
@@ -262,8 +315,10 @@ function sameCareEvent(row: Row, input: CareEventInput): boolean {
     timeString(row.scheduled_local_time) === input.scheduledLocalTime &&
     String(row.time_zone) === input.timeZone &&
     JSON.stringify(stored) === JSON.stringify(input.recurrence) &&
-    Number(row.patient_reminder_minutes_before ?? 30) === input.patientReminderMinutesBefore &&
-    Number(row.caregiver_reminder_minutes_before ?? 60) === input.caregiverReminderMinutesBefore;
+    Number(row.patient_reminder_minutes_before ?? 30) ===
+      input.patientReminderMinutesBefore &&
+    Number(row.caregiver_reminder_minutes_before ?? 60) ===
+      input.caregiverReminderMinutesBefore;
 }
 
 function mapCareEvent(
@@ -271,15 +326,18 @@ function mapCareEvent(
   patientAppUserId: string,
   occurrenceLocal?: string,
 ): Record<string, unknown> {
-  const baseLocal = `${dateString(row.scheduled_local_date)}T${timeString(row.scheduled_local_time)}:00`;
+  const baseLocal = `${dateString(row.scheduled_local_date)}T${
+    timeString(row.scheduled_local_time)
+  }:00`;
   const local = occurrenceLocal ?? baseLocal;
   const recurrence = recurrenceFromRow(row);
   const recurringOccurrence = recurrence != null && occurrenceLocal != null;
   const scheduledAtUtc = localDateTimeToUtc(local, String(row.time_zone));
   const storedStatus = String(row.status).toLowerCase();
-  const status = storedStatus === "scheduled" && new Date(scheduledAtUtc) < new Date()
-    ? "missed"
-    : storedStatus;
+  const status =
+    storedStatus === "scheduled" && new Date(scheduledAtUtc) < new Date()
+      ? "missed"
+      : storedStatus;
   const occurrenceKey = local.replace("T", "@");
   return {
     id: recurringOccurrence ? `${row.id}:${occurrenceKey}` : String(row.id),
@@ -292,7 +350,9 @@ function mapCareEvent(
     specialty: row.specialty,
     medicationName: row.medication_name,
     doseText: row.dose_text,
-    administrationRoute: row.administration_route == null ? null : String(row.administration_route).toLowerCase(),
+    administrationRoute: row.administration_route == null
+      ? null
+      : String(row.administration_route).toLowerCase(),
     reason: row.reason,
     instructions: row.instructions,
     centerName: row.center_name,
@@ -303,8 +363,12 @@ function mapCareEvent(
     scheduledAtUtc,
     timeZone: row.time_zone,
     recurrence: publicRecurrence(row),
-    patientReminderMinutesBefore: Number(row.patient_reminder_minutes_before ?? 30),
-    caregiverReminderMinutesBefore: Number(row.caregiver_reminder_minutes_before ?? 60),
+    patientReminderMinutesBefore: Number(
+      row.patient_reminder_minutes_before ?? 30,
+    ),
+    caregiverReminderMinutesBefore: Number(
+      row.caregiver_reminder_minutes_before ?? 60,
+    ),
     status,
     version: row.version,
     createdAtUtc: iso(row.created_at_utc),
@@ -312,7 +376,10 @@ function mapCareEvent(
   };
 }
 
-function normalizeRange(fromValue: unknown, toValue: unknown): { fromDate: string; toDate: string } {
+function normalizeRange(
+  fromValue: unknown,
+  toValue: unknown,
+): { fromDate: string; toDate: string } {
   const fromDate = requiredDate(fromValue, "fromDate");
   const toDate = requiredDate(toValue, "toDate");
   validateRange(fromDate, toDate, 31);
@@ -321,9 +388,16 @@ function normalizeRange(fromValue: unknown, toValue: unknown): { fromDate: strin
 
 function normalizeEventType(value: unknown): CareEventType {
   const normalized = String(value ?? "").trim().toLowerCase();
-  if (normalized === "appointment" || normalized === "visit" || normalized === "checkup") return "Appointment";
+  if (
+    normalized === "appointment" || normalized === "visit" ||
+    normalized === "checkup"
+  ) return "Appointment";
   if (normalized === "injection") return "Injection";
-  throw new ApiError(400, "invalid_eventType", "eventType must be appointment or injection.");
+  throw new ApiError(
+    400,
+    "invalid_eventType",
+    "eventType must be appointment or injection.",
+  );
 }
 
 function normalizeAdministrationRoute(value: unknown): string | null {
@@ -336,23 +410,46 @@ function normalizeAdministrationRoute(value: unknown): string | null {
     other: "Other",
   };
   const route = routes[normalized];
-  if (!route) throw new ApiError(400, "invalid_administrationRoute", "Unsupported administration route.");
+  if (!route) {
+    throw new ApiError(
+      400,
+      "invalid_administrationRoute",
+      "Unsupported administration route.",
+    );
+  }
   return route;
 }
 
 function requiredLocalTime(value: unknown, field: string): string {
-  const match = /^(\d{2}):(\d{2})(?::(\d{2}))?$/.exec(String(value ?? "").trim());
-  if (!match || Number(match[1]) > 23 || Number(match[2]) > 59 || Number(match[3] ?? 0) > 59) {
-    throw new ApiError(400, `invalid_${field}`, `${field} must be a valid HH:mm value.`);
+  const match = /^(\d{2}):(\d{2})(?::(\d{2}))?$/.exec(
+    String(value ?? "").trim(),
+  );
+  if (
+    !match || Number(match[1]) > 23 || Number(match[2]) > 59 ||
+    Number(match[3] ?? 0) > 59
+  ) {
+    throw new ApiError(
+      400,
+      `invalid_${field}`,
+      `${field} must be a valid HH:mm value.`,
+    );
   }
   return `${match[1]}:${match[2]}`;
 }
 
-function normalizeReminderLeadTime(value: unknown, field: string, fallback: number): number {
+function normalizeReminderLeadTime(
+  value: unknown,
+  field: string,
+  fallback: number,
+): number {
   if (value == null || value === "") return fallback;
   const parsed = Number(value);
   if (!Number.isInteger(parsed) || parsed < 0 || parsed > 10080) {
-    throw new ApiError(400, `invalid_${field}`, `${field} must be an integer between 0 and 10080 minutes.`);
+    throw new ApiError(
+      400,
+      `invalid_${field}`,
+      `${field} must be an integer between 0 and 10080 minutes.`,
+    );
   }
   return parsed;
 }
@@ -374,10 +471,18 @@ function localDateTimeToUtc(local: string, timeZone: string): string {
     hourCycle: "h23",
   });
   for (let attempt = 0; attempt < 4; attempt++) {
-    const parts = Object.fromEntries(formatter.formatToParts(new Date(guess)).map((part) => [part.type, part.value]));
+    const parts = Object.fromEntries(
+      formatter.formatToParts(new Date(guess)).map((
+        part,
+      ) => [part.type, part.value]),
+    );
     const represented = Date.UTC(
-      Number(parts.year), Number(parts.month) - 1, Number(parts.day),
-      Number(parts.hour), Number(parts.minute), Number(parts.second),
+      Number(parts.year),
+      Number(parts.month) - 1,
+      Number(parts.day),
+      Number(parts.hour),
+      Number(parts.minute),
+      Number(parts.second),
     );
     const delta = targetAsUtc - represented;
     guess += delta;
