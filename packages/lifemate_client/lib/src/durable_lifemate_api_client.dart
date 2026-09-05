@@ -72,6 +72,49 @@ class DurableLifeMateApiClient extends LifeMateApiClient {
   final LifeMateDurableHttpClient _durableHttp;
   LifeMateSharedOfflineRuntime? _sharedRuntime;
 
+  @override
+  Future<Map<String, dynamic>> bootstrapUser({
+    required String? displayName,
+    required String? email,
+    String locale = 'fa',
+    String timeZone = 'Asia/Tehran',
+  }) async {
+    final bootstrapped = await super.bootstrapUser(
+      displayName: displayName,
+      email: email,
+      locale: locale,
+      timeZone: timeZone,
+    );
+    final legacyAuthenticatedAccountId =
+        _legacyAuthenticatedAccountId()?.trim();
+    if (legacyAuthenticatedAccountId == null ||
+        legacyAuthenticatedAccountId.isEmpty) {
+      throw const LifeMateApiException(
+        statusCode: 401,
+        code: 'offline_identity_unavailable',
+        message: 'Authenticated identity is unavailable for offline runtime.',
+      );
+    }
+
+    final capabilities = await super.getCapabilities();
+    final personId = capabilities.selfPersonId?.trim();
+    if (personId == null || personId.isEmpty) {
+      throw const LifeMateApiException(
+        statusCode: 409,
+        code: 'identity_person_mapping_missing',
+        message: 'The LifeMate person mapping is unavailable.',
+      );
+    }
+    await adoptSharedOfflineRuntime(
+      environmentId: _baseUri.toString(),
+      accountId: capabilities.accountId,
+      personId: personId,
+      legacyAuthenticatedAccountId: legacyAuthenticatedAccountId,
+      timeZone: timeZone,
+    );
+    return bootstrapped;
+  }
+
   /// Moves replay ownership from the pre-#831 auth-subject queue to the shared
   /// encrypted Environment + canonical Account + Person runtime. The caller
   /// must supply canonical IDs from lifemate-api capabilities and the current
