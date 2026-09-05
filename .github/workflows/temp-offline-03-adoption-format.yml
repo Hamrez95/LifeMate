@@ -1,0 +1,54 @@
+name: temp-offline-03-adoption-format
+
+on:
+  push:
+    branches:
+      - platform/offline-03-runtime-adoption
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  format-and-test:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
+        with:
+          ref: platform/offline-03-runtime-adoption
+      - uses: subosito/flutter-action@4cab68ce0f1c7c924f688bff4792e044f1aeb30c
+        with:
+          flutter-version: '3.44.0'
+          channel: stable
+          cache: true
+      - name: Canonical format
+        run: |
+          dart format \
+            packages/lifemate_client/lib/src/durable_http_client.dart \
+            packages/lifemate_client/lib/src/durable_lifemate_api_client.dart \
+            packages/lifemate_client/lib/src/legacy_mutation_importer.dart \
+            packages/lifemate_client/lib/src/offline_mutation_queue.dart \
+            packages/lifemate_client/lib/src/shared_offline_runtime.dart \
+            packages/lifemate_client/test/shared_runtime_adoption_test.dart
+      - name: Verify shared client
+        working-directory: packages/lifemate_client
+        run: |
+          flutter pub get
+          flutter analyze --no-fatal-warnings --no-fatal-infos
+          flutter test
+      - name: Commit formatter result
+        run: |
+          if git diff --quiet; then
+            exit 0
+          fi
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add \
+            packages/lifemate_client/lib/src/durable_http_client.dart \
+            packages/lifemate_client/lib/src/durable_lifemate_api_client.dart \
+            packages/lifemate_client/lib/src/legacy_mutation_importer.dart \
+            packages/lifemate_client/lib/src/offline_mutation_queue.dart \
+            packages/lifemate_client/lib/src/shared_offline_runtime.dart \
+            packages/lifemate_client/test/shared_runtime_adoption_test.dart
+          git commit -m "style(offline): canonical-format runtime adoption"
+          git push origin HEAD:platform/offline-03-runtime-adoption
