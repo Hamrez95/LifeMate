@@ -44,11 +44,12 @@ void main() {
       expect(snapshot.lifecycleState, WomenHealthLifecycleState.active);
       expect(snapshot.storedAtUtc, now);
 
-      final estimate = WomenCalendarOfflineEngine.calculateFromCanonicalSnapshot(
-        profile: snapshot.profile,
-        episodes: snapshot.episodes,
-        today: DateTime(2026, 9, 5),
-      );
+      final estimate =
+          WomenCalendarOfflineEngine.calculateFromCanonicalSnapshot(
+            profile: snapshot.profile,
+            episodes: snapshot.episodes,
+            today: DateTime(2026, 9, 5),
+          );
       expect(estimate.cycleDay, 11);
 
       store.close();
