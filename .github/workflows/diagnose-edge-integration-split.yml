@@ -1,0 +1,135 @@
+name: diagnose-edge-integration-split
+
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/diagnose-edge-integration-split.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  split-integration:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    services:
+      postgres:
+        image: postgres:17.6-alpine
+        env:
+          POSTGRES_DB: lifemate_edge_tests
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d lifemate_edge_tests"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      TEST_DATABASE_URL: postgres://postgres:postgres@localhost:5432/lifemate_edge_tests
+    defaults:
+      run:
+        working-directory: supabase/functions/lifemate-api
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
+        with:
+          show-progress: false
+          persist-credentials: false
+      - uses: denoland/setup-deno@22d081ff2d3a40755e97629de92e3bcbfa7cf2ed
+        with:
+          deno-version: v2.9.4
+      - name: Apply canonical portable schema
+        working-directory: .
+        shell: bash
+        run: |
+          set -euo pipefail
+          psql "$TEST_DATABASE_URL" --set=ON_ERROR_STOP=1 --file=supabase/bootstrap/legacy_lifemate_baseline.sql
+          psql "$TEST_DATABASE_URL" --set=ON_ERROR_STOP=1 --file=supabase/bootstrap/test_provider_compatibility_roles.sql
+          while IFS= read -r migration; do
+            psql "$TEST_DATABASE_URL" --set=ON_ERROR_STOP=1 --file="$migration"
+          done < <(find supabase/migrations -maxdepth 1 -type f -name '*.sql' | sort)
+      - name: database_integration_test
+        run: deno test --no-check --allow-env --allow-net=localhost:5432,127.0.0.1:5432 database_integration_test.ts
+      - name: idempotency_integration_test
+        run: deno test --no-check --allow-env --allow-net=localhost:5432,127.0.0.1:5432 idempotency_integration_test.ts
+      - name: identity_link_token_integration_test
+        run: deno test --no-check --allow-env --allow-net=localhost:5432,127.0.0.1:5432 identity_link_token_integration_test.ts
+      - name: identity_resolver_integration_test
+        run: deno test --no-check --allow-env --allow-net=localhost:5432,127.0.0.1:5432 identity_resolver_integration_test.ts
+      - name: identity_link_rotation_integration_test
+        run: deno test --no-check --allow-env --allow-net=localhost:5432,127.0.0.1:5432 identity_link_rotation_integration_test.ts
+      - name: token_only_bootstrap_integration_test
+        run: deno test --no-check --allow-env --allow-net=localhost:5432,127.0.0.1:5432 token_only_bootstrap_integration_test.ts
+      - name: provider_identity_handle_integration_test
+        run: deno test --no-check --allow-env --allow-net=localhost:5432,127.0.0.1:5432 provider_identity_handle_integration_test.ts
+      - name: provider_identity_handle_key_rotation_integration_test
+        run: deno test --no-check --allow-env --allow-net=localhost:5432,127.0.0.1:5432 provider_identity_handle_key_rotation_integration_test.ts
+      - name: raw_identity_retirement_integration_test
+        run: deno test --no-check --allow-env --allow-net=localhost:5432,127.0.0.1:5432 raw_identity_retirement_integration_test.ts
+      - name: contact_point_conflict_integration_test
+        run: deno test --no-check --allow-env --allow-net=localhost:5432,127.0.0.1:5432 contact_point_conflict_integration_test.ts
+      - name: contact_point_read_mode_integration_test
+        run: deno test --no-check --allow-env --allow-net=localhost:5432,127.0.0.1:5432 contact_point_read_mode_integration_test.ts
+      - name: contact_point_data_export_integration_test
+        run: deno test --no-check --allow-env --allow-net=localhost:5432,127.0.0.1:5432 contact_point_data_export_integration_test.ts
+      - name: contact_point_key_rotation_integration_test
+        run: deno test --no-check --allow-env --allow-net=localhost:5432,127.0.0.1:5432 contact_point_key_rotation_integration_test.ts
+      - name: raw_contact_retirement_integration_test
+        run: deno test --no-check --allow-env --allow-net=localhost:5432,127.0.0.1:5432 raw_contact_retirement_integration_test.ts
+      - name: qr_invitation_integration_test
+        run: deno test --no-check --allow-env --allow-net=localhost:5432,127.0.0.1:5432 qr_invitation_integration_test.ts
+      - name: phone_invitation_integration_test
+        run: deno test --no-check --allow-env --allow-net=localhost:5432,127.0.0.1:5432 phone_invitation_integration_test.ts
+      - name: phone_invitation_delivery_integration_test
+        run: deno test --no-check --allow-env --allow-net=localhost:5432,127.0.0.1:5432 phone_invitation_delivery_integration_test.ts
+      - name: care_relationship_person_identity_integration_test
+        run: deno test --no-check --allow-env --allow-net=localhost:5432,127.0.0.1:5432 care_relationship_person_identity_integration_test.ts
+      - name: person_care_request_invitation_integration_test
+        run: deno test --no-check --allow-env --allow-net=localhost:5432,127.0.0.1:5432 person_care_request_invitation_integration_test.ts
+      - name: phone_care_request_integration_test
+        run: deno test --no-check --allow-env --allow-net=localhost:5432,127.0.0.1:5432 phone_care_request_integration_test.ts
+      - name: person_caremate_care_event_authorization_integration_test
+        run: deno test --no-check --allow-env --allow-net=localhost:5432,127.0.0.1:5432 person_caremate_care_event_authorization_integration_test.ts
+      - name: person_care_relationship_management_integration_test
+        run: deno test --no-check --allow-env --allow-net=localhost:5432,127.0.0.1:5432 person_care_relationship_management_integration_test.ts
+      - name: care_completion_notifications_integration_test
+        run: deno test --no-check --allow-env --allow-net=localhost:5432,127.0.0.1:5432 care_completion_notifications_integration_test.ts
+      - name: person_medications_integration_test
+        run: deno test --no-check --allow-env --allow-net=localhost:5432,127.0.0.1:5432 person_medications_integration_test.ts
+      - name: person_treatment_plans_integration_test
+        run: deno test --no-check --allow-env --allow-net=localhost:5432,127.0.0.1:5432 person_treatment_plans_integration_test.ts
+      - name: person_dose_occurrences_integration_test
+        run: deno test --no-check --allow-env --allow-net=localhost:5432,127.0.0.1:5432 person_dose_occurrences_integration_test.ts
+      - name: person_care_events_integration_test
+        run: deno test --no-check --allow-env --allow-net=localhost:5432,127.0.0.1:5432 person_care_events_integration_test.ts
+      - name: person_edit_store_integration_test
+        run: deno test --no-check --allow-env --allow-net=localhost:5432,127.0.0.1:5432 person_edit_store_integration_test.ts
+      - name: person_health_observations_integration_test
+        run: deno test --no-check --allow-env --allow-net=localhost:5432,127.0.0.1:5432 person_health_observations_integration_test.ts
+      - name: person_healthcare_export_integration_test
+        run: deno test --no-check --allow-env --allow-net=localhost:5432,127.0.0.1:5432 person_healthcare_export_integration_test.ts
+      - name: person_care_event_export_integration_test
+        run: deno test --no-check --allow-env --allow-net=localhost:5432,127.0.0.1:5432 person_care_event_export_integration_test.ts
+      - name: person_care_relationship_export_integration_test
+        run: deno test --no-check --allow-env --allow-net=localhost:5432,127.0.0.1:5432 person_care_relationship_export_integration_test.ts
+      - name: profile_integration_test
+        run: deno test --no-check --allow-env --allow-net=localhost:5432,127.0.0.1:5432 profile_integration_test.ts
+      - name: profile_projection_integration_test
+        run: deno test --no-check --allow-env --allow-net=localhost:5432,127.0.0.1:5432 profile_projection_integration_test.ts
+      - name: women_calendar_integration_test
+        run: deno test --no-check --allow-env --allow-net=localhost:5432,127.0.0.1:5432 women_calendar_integration_test.ts
+      - name: person_women_calendar_integration_test
+        run: deno test --no-check --allow-env --allow-net=localhost:5432,127.0.0.1:5432 person_women_calendar_integration_test.ts
+      - name: person_women_calendar_caregiver_integration_test
+        run: deno test --no-check --allow-env --allow-net=localhost:5432,127.0.0.1:5432 person_women_calendar_caregiver_integration_test.ts
+      - name: pregnancy_store_integration_test
+        run: deno test --no-check --allow-env --allow-net=localhost:5432,127.0.0.1:5432 pregnancy_store_integration_test.ts
+      - name: pregnancy_authorization_integration_test
+        run: deno test --no-check --allow-env --allow-net=localhost:5432,127.0.0.1:5432 pregnancy_authorization_integration_test.ts
+      - name: cocoon_application_integration_test
+        run: deno test --no-check --allow-env --allow-net=localhost:5432,127.0.0.1:5432 cocoon_application_integration_test.ts
+      - name: data_export_integration_test
+        run: deno test --no-check --allow-env --allow-net=localhost:5432,127.0.0.1:5432 data_export_integration_test.ts
+      - name: growth_integration_test
+        run: deno test --no-check --allow-env --allow-net=localhost:5432,127.0.0.1:5432 growth_integration_test.ts
