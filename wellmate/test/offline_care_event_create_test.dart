@@ -153,7 +153,10 @@ void main() {
 
     expect(enqueueCalls, 0);
     expect(saveState, isNull);
-    expect(find.textContaining('Could not save the schedule'), findsOneWidget);
+    expect(
+      find.textContaining('Could not save the schedule', skipOffstage: false),
+      findsOneWidget,
+    );
   });
 }
 
