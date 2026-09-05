@@ -23,6 +23,31 @@ final ValueNotifier<LifeMatePendingSyncEvent?> lifeMatePendingSyncEvent =
 final ValueNotifier<LifeMateOfflineSyncResult?> lifeMateOfflineSyncResult =
     ValueNotifier<LifeMateOfflineSyncResult?>(null);
 
+typedef LifeMateTreatmentReminderReconciler = Future<void> Function(
+  Map<String, dynamic> serverSnapshot,
+);
+
+final class LifeMateTreatmentReconnectResult {
+  const LifeMateTreatmentReconnectResult({
+    required this.replay,
+    required this.serverRefreshed,
+    required this.remindersReconciled,
+  });
+
+  final LifeMateOfflineSyncResult replay;
+  final bool serverRefreshed;
+  final bool remindersReconciled;
+
+  bool get hasConflict => replay.conflicts > 0;
+
+  bool get readyForReminderReconciliation =>
+      serverRefreshed &&
+      replay.conflicts == 0 &&
+      replay.terminalRejected == 0 &&
+      replay.retainedForRetry == 0 &&
+      replay.pendingRemaining == 0;
+}
+
 /// Online-only browser client. It deliberately does not emulate the protected
 /// native mutation outbox, encrypted health store, or projection cursor in
 /// browser storage. Network failures therefore fail normally instead of being
@@ -73,6 +98,27 @@ class DurableLifeMateApiClient extends LifeMateApiClient {
   }) => Future<LifeMateDurableMutation>.error(
     UnsupportedError('Protected offline health execution is unavailable on web.'),
   );
+
+  Future<LifeMateTreatmentReconnectResult> reconcileTreatmentAfterReconnect({
+    required DateTime fromDate,
+    required DateTime toDate,
+    LifeMateTreatmentReminderReconciler? reconcileReminders,
+  }) async {
+    final replay = await flushPendingMutationsDetailed();
+    final snapshot = await getHomeSnapshot(fromDate: fromDate, toDate: toDate);
+    final preliminary = LifeMateTreatmentReconnectResult(
+      replay: replay,
+      serverRefreshed: true,
+      remindersReconciled: false,
+    );
+    if (reconcileReminders == null) return preliminary;
+    await reconcileReminders(snapshot);
+    return LifeMateTreatmentReconnectResult(
+      replay: replay,
+      serverRefreshed: true,
+      remindersReconciled: true,
+    );
+  }
 
   Future<int> flushPendingMutations() async => 0;
 
