@@ -191,44 +191,50 @@ final class LifeMateSharedOfflineRuntime {
     );
   }
 
-  /// Returns the encrypted checkpoint for the canonical owner care-event
-  /// projection. The opaque cursor is never interpreted by the device.
-  Future<LifeMateLocalSyncCheckpoint?> careEventCheckpoint() {
-    _requireOpen();
-    return _projectionReconciler.checkpoint(
-      namespace: _localNamespace,
-      domain: LifeMateLocalProjectionDomain.careEvent,
-    );
-  }
+  Future<LifeMateLocalSyncCheckpoint?> careEventCheckpoint() =>
+      _checkpoint(LifeMateLocalProjectionDomain.careEvent);
 
-  /// Returns the currently protected owner care-event projection for offline
-  /// calendar/Home rendering. Records are scoped to the already-adopted
-  /// Environment + Account + Person namespace; callers cannot provide an
-  /// alternate Person identifier to widen the read.
-  Future<List<LifeMateLocalProjectionRecord>> careEventProjections() {
-    _requireOpen();
-    return _store.listDomain(
-      namespace: _localNamespace,
-      domain: LifeMateLocalProjectionDomain.careEvent,
-    );
-  }
+  Future<LifeMateLocalSyncCheckpoint?> treatmentPlanCheckpoint() =>
+      _checkpoint(LifeMateLocalProjectionDomain.treatmentPlan);
 
-  /// Applies one canonical care-event pull page inside the same protected
-  /// Account + Person + environment namespace as the outbox. Required side
-  /// effects run before cursor acknowledgement, so failure keeps the old cursor
-  /// and makes the page safely replayable after restart/reconnect.
+  Future<LifeMateLocalSyncCheckpoint?> treatmentOccurrenceCheckpoint() =>
+      _checkpoint(LifeMateLocalProjectionDomain.treatmentOccurrence);
+
+  Future<List<LifeMateLocalProjectionRecord>> careEventProjections() =>
+      _projections(LifeMateLocalProjectionDomain.careEvent);
+
+  Future<List<LifeMateLocalProjectionRecord>> treatmentPlanProjections() =>
+      _projections(LifeMateLocalProjectionDomain.treatmentPlan);
+
+  Future<List<LifeMateLocalProjectionRecord>> treatmentOccurrenceProjections() =>
+      _projections(LifeMateLocalProjectionDomain.treatmentOccurrence);
+
   Future<LifeMateProjectionReconcileResult> applyCareEventPage({
     required LifeMateProjectionPullPage page,
     LifeMateBeforeProjectionCheckpoint? beforeCheckpoint,
-  }) {
-    _requireOpen();
-    return _projectionReconciler.applyPage(
-      namespace: _localNamespace,
-      domain: LifeMateLocalProjectionDomain.careEvent,
-      page: page,
-      beforeCheckpoint: beforeCheckpoint,
-    );
-  }
+  }) => _applyProjectionPage(
+    domain: LifeMateLocalProjectionDomain.careEvent,
+    page: page,
+    beforeCheckpoint: beforeCheckpoint,
+  );
+
+  Future<LifeMateProjectionReconcileResult> applyTreatmentPlanPage({
+    required LifeMateProjectionPullPage page,
+    LifeMateBeforeProjectionCheckpoint? beforeCheckpoint,
+  }) => _applyProjectionPage(
+    domain: LifeMateLocalProjectionDomain.treatmentPlan,
+    page: page,
+    beforeCheckpoint: beforeCheckpoint,
+  );
+
+  Future<LifeMateProjectionReconcileResult> applyTreatmentOccurrencePage({
+    required LifeMateProjectionPullPage page,
+    LifeMateBeforeProjectionCheckpoint? beforeCheckpoint,
+  }) => _applyProjectionPage(
+    domain: LifeMateLocalProjectionDomain.treatmentOccurrence,
+    page: page,
+    beforeCheckpoint: beforeCheckpoint,
+  );
 
   Future<int> pendingMutationCount() async {
     _requireOpen();
@@ -254,15 +260,6 @@ final class LifeMateSharedOfflineRuntime {
     return result;
   }
 
-  /// Destructively removes every protected local projection for the current
-  /// environment + Account, including all Person namespaces and any unresolved
-  /// local mutations. Because another Person namespace may contain pending work
-  /// that this runtime cannot safely summarize, destructive intent is required
-  /// explicitly rather than inferred from a sign-out/account-switch event.
-  ///
-  /// Callers should first sync or present a deliberate local-data discard UX.
-  /// Passing false never deletes data. After a successful purge this runtime is
-  /// invalidated and cannot be reused for a new identity.
   Future<void> purgeCurrentAccount({
     required bool discardPendingAndCachedData,
   }) async {
@@ -282,6 +279,37 @@ final class LifeMateSharedOfflineRuntime {
     _closed = true;
     _transport.close();
     if (_ownsStore) _store.close();
+  }
+
+  Future<LifeMateLocalSyncCheckpoint?> _checkpoint(
+    LifeMateLocalProjectionDomain domain,
+  ) {
+    _requireOpen();
+    return _projectionReconciler.checkpoint(
+      namespace: _localNamespace,
+      domain: domain,
+    );
+  }
+
+  Future<List<LifeMateLocalProjectionRecord>> _projections(
+    LifeMateLocalProjectionDomain domain,
+  ) {
+    _requireOpen();
+    return _store.listDomain(namespace: _localNamespace, domain: domain);
+  }
+
+  Future<LifeMateProjectionReconcileResult> _applyProjectionPage({
+    required LifeMateLocalProjectionDomain domain,
+    required LifeMateProjectionPullPage page,
+    LifeMateBeforeProjectionCheckpoint? beforeCheckpoint,
+  }) {
+    _requireOpen();
+    return _projectionReconciler.applyPage(
+      namespace: _localNamespace,
+      domain: domain,
+      page: page,
+      beforeCheckpoint: beforeCheckpoint,
+    );
   }
 
   void _requireOpen() {
