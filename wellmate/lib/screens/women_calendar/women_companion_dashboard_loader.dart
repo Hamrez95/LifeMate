@@ -92,19 +92,20 @@ final class WomenCompanionDashboardLoader {
         );
       } on LifeMateApiException catch (error) {
         if (offline == null || !_canUseOwnerCache(error)) rethrow;
+        Map<String, dynamic>? cached;
         try {
-          final cached = await offline.readOwnerDashboard(
+          cached = await offline.readOwnerDashboard(
             fromDate: fromDate,
             toDate: toDate,
           );
-          if (cached == null) rethrow;
-          return WomenCompanionDashboardLoadResult(
-            dashboard: cached,
-            offlineCached: true,
-          );
         } catch (_) {
-          rethrow;
+          throw error;
         }
+        if (cached == null) throw error;
+        return WomenCompanionDashboardLoadResult(
+          dashboard: cached,
+          offlineCached: true,
+        );
       }
     } finally {
       offline?.close();
