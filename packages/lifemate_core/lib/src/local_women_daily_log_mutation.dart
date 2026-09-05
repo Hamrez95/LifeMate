@@ -57,7 +57,8 @@ final class LifeMateOfflineWomenDailyLogMutation {
     DateTime? createdAtUtc,
   }) {
     if (version < 0) throw ArgumentError.value(version, 'version');
-    if (painLevel != null && (painLevel < 0 || painLevel > 10)) {
+    // Mirrors lifemate-api women_calendar_rich_period optionalPain(): 0..5.
+    if (painLevel != null && (painLevel < 0 || painLevel > 5)) {
       throw ArgumentError.value(painLevel, 'painLevel');
     }
     final key = _mutationId(mutationId);
@@ -67,8 +68,9 @@ final class LifeMateOfflineWomenDailyLogMutation {
         symptoms
             .map((value) {
               final normalized = value.trim();
-              if (normalized.isEmpty)
+              if (normalized.isEmpty) {
                 throw ArgumentError.value(value, 'symptoms');
+              }
               return normalized;
             })
             .toSet()
