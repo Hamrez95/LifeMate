@@ -5,6 +5,7 @@ import { ApiError } from "./validation.ts";
 import {
   canonicalizeLegacySymptoms,
   mergeLegacySymptomsIntoObservations,
+  projectCanonicalSymptomsToLegacyStorage,
   womenSymptomCatalogVersion,
 } from "./women_symptom_catalog.ts";
 import {
@@ -14,6 +15,14 @@ import {
 } from "./women_period_observation.ts";
 
 type Row = Record<string, any>;
+
+const allowedMoods: Record<string, string> = {
+  great: "Great",
+  good: "Good",
+  neutral: "Neutral",
+  low: "Low",
+  overwhelmed: "Overwhelmed",
+};
 
 export function createWomenCalendarRichPeriodStore(databaseUrl: string) {
   const sql = getLifeMateSql(databaseUrl);
@@ -89,6 +98,7 @@ export function createWomenCalendarRichPeriodStore(databaseUrl: string) {
       "painLevel",
       "symptoms",
       "privateNotes",
+      "shareSummaryWithCompanion",
       "delete",
     ].some((key) => Object.hasOwn(body, key));
     if (!hasRichPeriodPatch) {
@@ -99,12 +109,21 @@ export function createWomenCalendarRichPeriodStore(databaseUrl: string) {
     const expectedVersion = nonNegativeInt(body.version ?? 0, "version");
     const shouldDelete = body.delete === true;
     const observation = normalizePeriodObservation(body);
+    const moodProvided = Object.hasOwn(body, "mood");
+    const mood = moodProvided ? normalizeMood(body.mood) : "Neutral";
+    const energyProvided = Object.hasOwn(body, "energyLevel");
+    const energyLevel = energyProvided
+      ? boundedInt(body.energyLevel, "energyLevel", 1, 5)
+      : 3;
     const painProvided = Object.hasOwn(body, "painLevel");
     const painLevel = painProvided ? optionalPain(body.painLevel) : null;
     const symptomsProvided = Object.hasOwn(body, "symptoms");
     const canonicalSymptoms = symptomsProvided
       ? canonicalizeLegacySymptoms(body.symptoms)
       : [];
+    const legacySymptoms = projectCanonicalSymptomsToLegacyStorage(
+      canonicalSymptoms,
+    );
     const symptomObservations = canonicalSymptoms.map((id) => ({
       id,
       severity: null,
@@ -113,6 +132,16 @@ export function createWomenCalendarRichPeriodStore(databaseUrl: string) {
     const privateNotes = privateNotesProvided
       ? optionalNote(body.privateNotes)
       : null;
+    const shareSummaryProvided = Object.hasOwn(
+      body,
+      "shareSummaryWithCompanion",
+    );
+    const shareSummaryWithCompanion = shareSummaryProvided
+      ? requiredBoolean(
+        body.shareSummaryWithCompanion,
+        "shareSummaryWithCompanion",
+      )
+      : false;
 
     return await sql.begin(async (tx: any) => {
       const personId = await selfPersonId(tx, appUserId);
@@ -165,11 +194,9 @@ export function createWomenCalendarRichPeriodStore(databaseUrl: string) {
             period_observation_schema_version,version,created_at_utc,updated_at_utc
           ) values (
             ${id}::uuid,${appUserId}::uuid,${personId}::uuid,${loggedOn}::date,
-            'Neutral',3,${storedPain},${painProvided && painLevel != null},
-            ${canonicalSymptoms}::varchar[],${
-          JSON.stringify(symptomObservations)
-        }::jsonb,
-            ${womenSymptomCatalogVersion},${privateNotes},false,
+            ${mood},${energyLevel},${storedPain},${painProvided && painLevel != null},
+            ${legacySymptoms}::varchar[],${tx.json(symptomObservations)}::jsonb,
+            ${womenSymptomCatalogVersion},${privateNotes},${shareSummaryWithCompanion},
             ${observation.periodFlow},${observation.bloodAppearance},${observation.bloodTexture},
             ${periodObservationSchemaVersion},1,now(),now()
           ) returning *
@@ -191,18 +218,21 @@ export function createWomenCalendarRichPeriodStore(databaseUrl: string) {
         Object.hasOwn(body, "bloodTexture")
       } then ${observation.bloodTexture} else blood_texture end,
             period_observation_schema_version=${periodObservationSchemaVersion},
+            mood=case when ${moodProvided} then ${mood} else mood end,
+            energy_level=case when ${energyProvided} then ${energyLevel} else energy_level end,
             pain_level=case when ${painProvided && painLevel != null} then ${
         painLevel ?? 0
       } else pain_level end,
             pain_recorded=case when ${painProvided} then ${
         painLevel != null
       } else pain_recorded end,
-            symptoms=case when ${symptomsProvided} then ${canonicalSymptoms}::varchar[] else symptoms end,
+            symptoms=case when ${symptomsProvided} then ${legacySymptoms}::varchar[] else symptoms end,
             symptom_observations=case when ${symptomsProvided} then ${
-        JSON.stringify(symptomObservations)
+        tx.json(symptomObservations)
       }::jsonb else symptom_observations end,
             symptom_schema_version=case when ${symptomsProvided} then ${womenSymptomCatalogVersion} else symptom_schema_version end,
             private_notes=case when ${privateNotesProvided} then ${privateNotes} else private_notes end,
+            share_summary_with_companion=case when ${shareSummaryProvided} then ${shareSummaryWithCompanion} else share_summary_with_companion end,
             version=version+1,
             updated_at_utc=now()
         where id=${existing.id}::uuid
@@ -288,6 +318,32 @@ async function audit(
   `;
 }
 
+function normalizeMood(value: unknown): string {
+  const normalized = String(value ?? "").trim().toLowerCase();
+  const mood = allowedMoods[normalized];
+  if (!mood) {
+    throw new ApiError(
+      400,
+      "invalid_women_calendar_mood",
+      "Unsupported mood value.",
+    );
+  }
+  return mood;
+}
+
+function boundedInt(
+  value: unknown,
+  field: string,
+  min: number,
+  max: number,
+): number {
+  const number = Number(value);
+  if (!Number.isInteger(number) || number < min || number > max) {
+    throw new ApiError(400, "invalid_integer", `${field} is out of range.`);
+  }
+  return number;
+}
+
 function optionalPain(value: unknown): number | null {
   if (value == null || value === "") return null;
   const number = Number(value);
@@ -313,6 +369,13 @@ function optionalNote(value: unknown): string | null {
     );
   }
   return text;
+}
+
+function requiredBoolean(value: unknown, field: string): boolean {
+  if (typeof value !== "boolean") {
+    throw new ApiError(400, "invalid_boolean", `${field} must be boolean.`);
+  }
+  return value;
 }
 
 function nonNegativeInt(value: unknown, field: string): number {

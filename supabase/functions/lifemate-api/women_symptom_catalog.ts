@@ -38,6 +38,13 @@ const legacyToCanonical: Record<string, WomenSymptomId> = {
   NoSymptom: "no_symptom",
 };
 
+const canonicalToLegacy = new Map<WomenSymptomId, string>(
+  Object.entries(legacyToCanonical).map(([legacy, canonical]) => [
+    canonical,
+    legacy,
+  ]),
+);
+
 const canonicalSet = new Set<string>(womenSymptomIds);
 
 export function canonicalizeLegacySymptoms(value: unknown): WomenSymptomId[] {
@@ -54,6 +61,25 @@ export function canonicalizeLegacySymptoms(value: unknown): WomenSymptomId[] {
   }
   if (result.has("no_symptom") && result.size > 1) result.delete("no_symptom");
   return [...result];
+}
+
+/**
+ * Projects canonical symptom ids into the historical `symptoms` column.
+ *
+ * That column has an intentionally narrow database check constraint using the
+ * original PascalCase values. Canonical-only symptoms stay in the structured
+ * `symptom_observations` JSON and are omitted here instead of weakening the
+ * legacy constraint or losing structured data.
+ */
+export function projectCanonicalSymptomsToLegacyStorage(
+  symptoms: readonly WomenSymptomId[],
+): string[] {
+  const result: string[] = [];
+  for (const symptom of symptoms) {
+    const legacy = canonicalToLegacy.get(symptom);
+    if (legacy != null) result.push(legacy);
+  }
+  return result;
 }
 
 export function normalizeWomenSymptomObservations(
