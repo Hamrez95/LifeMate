@@ -1,4 +1,5 @@
 export 'src/affected_reminder_reconciler.dart';
+export 'src/local_care_event_mutation.dart';
 export 'src/local_conflict_policy.dart';
 export 'src/local_health_reminder_registry.dart';
 export 'src/local_health_store.dart';

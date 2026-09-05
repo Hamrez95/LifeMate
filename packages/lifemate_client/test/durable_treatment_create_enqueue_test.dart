@@ -76,6 +76,17 @@ void main() {
     });
     expect(stored?.payload['recurrenceStartLocalTime'], isNull);
 
+    final pendingCreates = await api.pendingOfflineTreatmentPlanCreates();
+    expect(pendingCreates, hasLength(1));
+    expect(pendingCreates.single['clientRequestId'], requestId);
+    expect(pendingCreates.single['medicationId'], medicationId);
+    expect(pendingCreates.single['doseText'], '1 tablet');
+    expect(pendingCreates.single['pendingSync'], isTrue);
+    expect(pendingCreates.single['schedules'], <Map<String, String>>[
+      <String, String>{'dayOfWeek': 'monday', 'localTime': '08:00'},
+      <String, String>{'dayOfWeek': 'wednesday', 'localTime': '16:00'},
+    ]);
+
     final otherPerson = LifeMateLocalNamespace(
       environmentId: namespace.environmentId,
       accountId: namespace.accountId,
@@ -89,6 +100,17 @@ void main() {
 
     api.close();
     store.close();
+  });
+
+  test('pending treatment create projection fails before runtime adoption', () {
+    final api = DurableLifeMateApiClient(
+      baseUri: Uri.parse('https://api.example.test'),
+      accessToken: () => 'token',
+      accountId: () => legacyAccountId,
+    );
+
+    expect(api.pendingOfflineTreatmentPlanCreates(), throwsStateError);
+    api.close();
   });
 
   test('treatment create enqueue fails before canonical runtime adoption', () {

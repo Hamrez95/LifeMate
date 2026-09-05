@@ -374,6 +374,33 @@ final class LifeMateSharedOfflineRuntime {
     return mutations.where(_isPendingForReplay).length;
   }
 
+  /// Returns only locally pending bounded treatment-create payloads from the
+  /// canonical protected Person-scoped outbox. This is projection input for
+  /// native UI continuity; it does not synthesize server IDs or occurrence
+  /// confirmation and never reads another Person namespace.
+  Future<List<Map<String, dynamic>>> pendingTreatmentCreates() async {
+    _requireOpen();
+    await importLegacyPending();
+    final mutations = await _outbox.list(namespace: _localNamespace);
+    final values = <Map<String, dynamic>>[];
+    for (final mutation in mutations) {
+      if (mutation.domain != LifeMateMutationDomain.treatment ||
+          mutation.method != 'POST' ||
+          mutation.endpointPath != '/api/v1/treatment-plans' ||
+          !mutation.sourceKey.startsWith('pending-treatment-create:') ||
+          !_isPendingForReplay(mutation)) {
+        continue;
+      }
+      values.add(<String, dynamic>{
+        ...mutation.payload,
+        'clientRequestId': mutation.mutationId,
+        'pendingSync': true,
+        'createdAtUtc': mutation.createdAtUtc.toIso8601String(),
+      });
+    }
+    return List<Map<String, dynamic>>.unmodifiable(values);
+  }
+
   /// Accepts one bounded, already-local-validated treatment create into the
   /// canonical protected Account + Person + environment outbox. The underlying
   /// primitive rejects recurrence and malformed timing rather than inferring it.
