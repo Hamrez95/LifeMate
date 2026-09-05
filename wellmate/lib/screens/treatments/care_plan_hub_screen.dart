@@ -22,6 +22,7 @@ class _CarePlanHubScreenState extends State<CarePlanHubScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final treatmentTabSelected = _selectedIndex == 0;
     return Stack(
       children: [
         Positioned.fill(
@@ -75,8 +76,10 @@ class _CarePlanHubScreenState extends State<CarePlanHubScreen> {
                         color: AppColors.primary.withValues(alpha: 0.12),
                         borderRadius: BorderRadius.circular(14),
                       ),
-                      child: const Icon(
-                        Icons.add_task_rounded,
+                      child: Icon(
+                        treatmentTabSelected
+                            ? Icons.medication_rounded
+                            : Icons.add_task_rounded,
                         color: AppColors.primary,
                         size: 22,
                       ),
@@ -85,8 +88,12 @@ class _CarePlanHubScreenState extends State<CarePlanHubScreen> {
                     Expanded(
                       child: Text(
                         LifeMateRuntimeLocale.select(
-                          fa: 'افزودن برنامه مراقبت',
-                          en: 'Add care plan',
+                          fa: treatmentTabSelected
+                              ? 'افزودن درمان'
+                              : 'افزودن برنامه مراقبت',
+                          en: treatmentTabSelected
+                              ? 'Add treatment'
+                              : 'Add care plan',
                         ),
                         style: const TextStyle(
                           fontSize: 20,
