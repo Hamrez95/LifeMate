@@ -31,26 +31,38 @@ void main() {
     state: state,
   );
 
-  test('pending owner write overlays canonical row without pretending confirmation', () {
-    final result = LifeMateWomenDailyLogProjection.project(
-      serverRows: const <Map<String, dynamic>>[
-        <String, dynamic>{'loggedOn': '2026-09-05', 'version': 3, 'painLevel': 1},
-      ],
-      pendingMutations: <LifeMateDurableMutation>[
-        upsert(id: 'women-log-pending-0001', date: '2026-09-05', version: 3, pain: 4),
-      ],
-      fromDate: DateTime(2026, 9, 5),
-      toDate: DateTime(2026, 9, 5),
-    );
+  test(
+    'pending owner write overlays canonical row without pretending confirmation',
+    () {
+      final result = LifeMateWomenDailyLogProjection.project(
+        serverRows: const <Map<String, dynamic>>[
+          <String, dynamic>{
+            'loggedOn': '2026-09-05',
+            'version': 3,
+            'painLevel': 1,
+          },
+        ],
+        pendingMutations: <LifeMateDurableMutation>[
+          upsert(
+            id: 'women-log-pending-0001',
+            date: '2026-09-05',
+            version: 3,
+            pain: 4,
+          ),
+        ],
+        fromDate: DateTime(2026, 9, 5),
+        toDate: DateTime(2026, 9, 5),
+      );
 
-    expect(result.rows, hasLength(1));
-    expect(result.rows.single['painLevel'], 4);
-    expect(result.rows.single['pendingSync'], isTrue);
-    expect(result.rows.single['serverConfirmed'], isFalse);
-    expect(result.rows.single['localMutationId'], 'women-log-pending-0001');
-    expect(result.pendingDates, {'2026-09-05'});
-    expect(result.conflictDates, isEmpty);
-  });
+      expect(result.rows, hasLength(1));
+      expect(result.rows.single['painLevel'], 4);
+      expect(result.rows.single['pendingSync'], isTrue);
+      expect(result.rows.single['serverConfirmed'], isFalse);
+      expect(result.rows.single['localMutationId'], 'women-log-pending-0001');
+      expect(result.pendingDates, {'2026-09-05'});
+      expect(result.conflictDates, isEmpty);
+    },
+  );
 
   test('latest pending write wins local presentation deterministically', () {
     final result = LifeMateWomenDailyLogProjection.project(
@@ -82,7 +94,11 @@ void main() {
   test('conflict never silently replaces canonical server row', () {
     final result = LifeMateWomenDailyLogProjection.project(
       serverRows: const <Map<String, dynamic>>[
-        <String, dynamic>{'loggedOn': '2026-09-05', 'version': 4, 'painLevel': 1},
+        <String, dynamic>{
+          'loggedOn': '2026-09-05',
+          'version': 4,
+          'painLevel': 1,
+        },
       ],
       pendingMutations: <LifeMateDurableMutation>[
         upsert(
@@ -112,7 +128,11 @@ void main() {
     );
     final result = LifeMateWomenDailyLogProjection.project(
       serverRows: const <Map<String, dynamic>>[
-        <String, dynamic>{'loggedOn': '2026-09-05', 'version': 4, 'painLevel': 1},
+        <String, dynamic>{
+          'loggedOn': '2026-09-05',
+          'version': 4,
+          'painLevel': 1,
+        },
       ],
       pendingMutations: <LifeMateDurableMutation>[delete],
       fromDate: DateTime(2026, 9, 5),
@@ -131,7 +151,10 @@ void main() {
       sourceKey: 'women-daily-log:not-a-date',
       method: 'PUT',
       endpointPath: '/api/v1/women-calendar/daily-logs',
-      payload: const <String, dynamic>{'loggedOn': 'not-a-date', 'version': 0},
+      payload: const <String, dynamic>{
+        'loggedOn': 'not-a-date',
+        'version': 0,
+      },
       createdAtUtc: DateTime.utc(2026, 9, 5, 18),
       timeZone: 'Asia/Tehran',
     );
