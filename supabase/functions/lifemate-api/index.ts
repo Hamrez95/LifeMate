@@ -1,5 +1,6 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createCareEventStore } from "./care_events.ts";
+import { createCareEventSyncStore } from "./care_event_sync.ts";
 import { createCareRequestStore } from "./care_requests.ts";
 import { createAccountLifecycleStore } from "./account_lifecycle.ts";
 import {
@@ -67,6 +68,7 @@ const profilePhotos = createProfilePhotoStorage(
   storageServiceKey,
 );
 const careEvents = createCareEventStore(databaseUrl);
+const careEventSync = createCareEventSyncStore(databaseUrl);
 const careRequests = createCareRequestStore(databaseUrl, contactHashingSecret);
 const authorizationStore = createAuthorizationStore(databaseUrl);
 const identityBridge = createIdentityBridge(databaseUrl);
@@ -658,6 +660,17 @@ async function route(
         identity.appUserId,
         reportMatch[1],
         await readJsonObject(request),
+      ),
+    );
+  }
+
+  if (request.method === "GET" && path === "/api/v1/sync/care-events") {
+    const url = new URL(request.url);
+    return json(
+      await careEventSync.pullOwnerCareEvents(
+        identity.appUserId,
+        url.searchParams.get("cursor"),
+        url.searchParams.get("limit"),
       ),
     );
   }
