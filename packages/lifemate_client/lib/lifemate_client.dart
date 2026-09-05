@@ -29,6 +29,7 @@ export 'src/health_facts.dart';
 export 'src/health_observations_api.dart';
 export 'src/history_reuse.dart';
 export 'src/history_suggestions.dart';
+export 'src/incremental_projection_api.dart';
 export 'src/smart_reentry.dart';
 export 'src/smart_reentry_suppression_store.dart';
 export 'src/iran_phone.dart';

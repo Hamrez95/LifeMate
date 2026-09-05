@@ -50,6 +50,7 @@ final class LifeMateProjectionPullPage {
   LifeMateProjectionPullPage({
     required String nextCursor,
     required Iterable<LifeMateServerProjectionChange> changes,
+    this.hasMore = false,
     this.serverUpdatedAtUtc,
     this.sourceRevision,
   }) : nextCursor = _requiredCursor(nextCursor),
@@ -57,6 +58,7 @@ final class LifeMateProjectionPullPage {
 
   final String nextCursor;
   final List<LifeMateServerProjectionChange> changes;
+  final bool hasMore;
   final DateTime? serverUpdatedAtUtc;
   final String? sourceRevision;
 
