@@ -33,20 +33,4 @@ jobs:
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
       - name: Verify English localization contract
-        shell: bash
-        run: |
-          set +e
-          python3 tools/localization/verify_english_contract.py 2>&1 | tee localization-contract.log
-          status=${PIPESTATUS[0]}
-          echo "$status" > localization-contract.status
-          exit "$status"
-      - name: Upload localization diagnostics
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: localization-contract-log
-          path: |
-            localization-contract.log
-            localization-contract.status
-          if-no-files-found: error
-          retention-days: 1
+        run: python3 tools/localization/verify_english_contract.py
