@@ -40,7 +40,9 @@ final class LifeMateOfflineNamespace {
   }
 }
 
-/// Native shared #829/#831 protected local store and replay runtime.
+/// Native shared #829/#831 protected local store, replay and server-projection
+/// reconciliation runtime. Owner projections and pending local mutations share
+/// one encrypted namespace while remaining in separate bounded domains.
 final class LifeMateSharedOfflineRuntime {
   LifeMateSharedOfflineRuntime._({
     required LifeMateLocalHealthStore store,
@@ -48,6 +50,7 @@ final class LifeMateSharedOfflineRuntime {
     required LifeMateLocalNamespace localNamespace,
     required LifeMateLocalMutationOutbox outbox,
     required LifeMateLocalMutationReplayEngine replayEngine,
+    required LifeMateLocalProjectionReconciler projectionReconciler,
     required LifeMateHttpMutationReplayTransport transport,
     required LifeMateLegacyMutationImporter legacyImporter,
     required String timeZone,
@@ -58,6 +61,7 @@ final class LifeMateSharedOfflineRuntime {
        _localNamespace = localNamespace,
        _outbox = outbox,
        _replayEngine = replayEngine,
+       _projectionReconciler = projectionReconciler,
        _transport = transport,
        _legacyImporter = legacyImporter,
        _timeZone = timeZone,
@@ -69,6 +73,7 @@ final class LifeMateSharedOfflineRuntime {
   final LifeMateLocalNamespace _localNamespace;
   final LifeMateLocalMutationOutbox _outbox;
   final LifeMateLocalMutationReplayEngine _replayEngine;
+  final LifeMateLocalProjectionReconciler _projectionReconciler;
   final LifeMateHttpMutationReplayTransport _transport;
   final LifeMateLegacyMutationImporter _legacyImporter;
   final String _timeZone;
@@ -138,6 +143,9 @@ final class LifeMateSharedOfflineRuntime {
           maximumMutationsPerRun: maximumMutationsPerRun,
           now: now,
         ),
+        projectionReconciler: LifeMateLocalProjectionReconciler(
+          store: localStore,
+        ),
         transport: transport,
         legacyImporter: importer,
         timeZone: normalizedTimeZone,
@@ -170,6 +178,33 @@ final class LifeMateSharedOfflineRuntime {
       terminalRejected: result.rejected,
       retainedForRetry: result.retainedForRetry,
       pendingRemaining: result.remaining,
+    );
+  }
+
+  /// Returns the encrypted checkpoint for the canonical owner care-event
+  /// projection. The opaque cursor is never interpreted by the device.
+  Future<LifeMateLocalSyncCheckpoint?> careEventCheckpoint() {
+    _requireOpen();
+    return _projectionReconciler.checkpoint(
+      namespace: _localNamespace,
+      domain: LifeMateLocalProjectionDomain.careEvent,
+    );
+  }
+
+  /// Applies one canonical care-event pull page inside the same protected
+  /// Account + Person + environment namespace as the outbox. Required side
+  /// effects run before cursor acknowledgement, so failure keeps the old cursor
+  /// and makes the page safely replayable after restart/reconnect.
+  Future<LifeMateProjectionReconcileResult> applyCareEventPage({
+    required LifeMateProjectionPullPage page,
+    LifeMateBeforeProjectionCheckpoint? beforeCheckpoint,
+  }) {
+    _requireOpen();
+    return _projectionReconciler.applyPage(
+      namespace: _localNamespace,
+      domain: LifeMateLocalProjectionDomain.careEvent,
+      page: page,
+      beforeCheckpoint: beforeCheckpoint,
     );
   }
 
