@@ -93,9 +93,9 @@ void main() {
         now: () => now,
       );
 
-      final retainedIds = (await reopenedOutbox.list(namespace: namespace))
-          .map((value) => value.mutationId)
-          .toList(growable: false);
+      final retainedIds = (await reopenedOutbox.list(
+        namespace: namespace,
+      )).map((value) => value.mutationId).toList(growable: false);
       expect(retainedIds, <String>['owner-action-a', 'owner-action-b']);
 
       final transport = _SuccessfulTransport();
@@ -107,10 +107,7 @@ void main() {
 
       expect(reconnect.confirmed, 2);
       expect(reconnect.remaining, 0);
-      expect(
-        transport.sentIds,
-        <String>['owner-action-a', 'owner-action-b'],
-      );
+      expect(transport.sentIds, <String>['owner-action-a', 'owner-action-b']);
       expect(await reopenedOutbox.list(namespace: namespace), isEmpty);
     },
   );
