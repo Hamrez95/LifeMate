@@ -146,6 +146,8 @@ class DurableLifeMateApiClient extends LifeMateApiClient {
     required String personId,
     required String legacyAuthenticatedAccountId,
     required String timeZone,
+    LifeMateLocalHealthStore? localStore,
+    LifeMateMutationStorage? legacyStorage,
   }) async {
     final normalizedAccount = accountId.trim();
     final normalizedPerson = personId.trim();
@@ -181,7 +183,8 @@ class DurableLifeMateApiClient extends LifeMateApiClient {
       apiBaseUri: _baseUri,
       accessToken: _accessToken,
       legacyAccountIds: <String>{normalizedLegacyAccount},
-      legacyStorage: _durableHttp.migrationStorage,
+      store: localStore,
+      legacyStorage: legacyStorage ?? _durableHttp.migrationStorage,
     );
     if (_legacyAuthenticatedAccountId()?.trim() != normalizedLegacyAccount) {
       next.close();
@@ -244,20 +247,35 @@ class DurableLifeMateApiClient extends LifeMateApiClient {
     required DateTime toDate,
   }) async {
     final pendingBeforeRead = await _pendingDoseStates();
-    final snapshot = await super.getHomeSnapshot(
-      fromDate: fromDate,
-      toDate: toDate,
-    );
-    if (pendingBeforeRead.isEmpty) return snapshot;
-
-    final occurrences = snapshot['doseOccurrences'];
-    if (occurrences is List) {
-      snapshot['doseOccurrences'] = _overlayOccurrences(
-        occurrences,
-        pendingBeforeRead,
+    try {
+      final snapshot = await super.getHomeSnapshot(
+        fromDate: fromDate,
+        toDate: toDate,
       );
+      await _cacheServerHomeSnapshot(
+        snapshot,
+        fromDate: fromDate,
+        toDate: toDate,
+      );
+      _overlaySnapshotOccurrences(snapshot, pendingBeforeRead);
+      return snapshot;
+    } on LifeMateApiException catch (error) {
+      if (!_canUseOwnerCacheFor(error)) rethrow;
+      final runtime = _activeSharedRuntime();
+      if (runtime == null) rethrow;
+      Map<String, dynamic>? cached;
+      try {
+        cached = await runtime.readWellMateHomeSnapshot(
+          fromDate: fromDate,
+          toDate: toDate,
+        );
+      } catch (_) {
+        throw error;
+      }
+      if (cached == null) throw error;
+      _overlaySnapshotOccurrences(cached, pendingBeforeRead);
+      return cached;
     }
-    return snapshot;
   }
 
   @override
@@ -266,12 +284,64 @@ class DurableLifeMateApiClient extends LifeMateApiClient {
     required DateTime toDate,
   }) async {
     final pendingBeforeRead = await _pendingDoseStates();
-    final values = await super.getDoseOccurrences(
-      fromDate: fromDate,
-      toDate: toDate,
-    );
-    if (pendingBeforeRead.isEmpty) return values;
-    return _overlayOccurrences(values, pendingBeforeRead);
+    try {
+      final values = await super.getDoseOccurrences(
+        fromDate: fromDate,
+        toDate: toDate,
+      );
+      if (pendingBeforeRead.isEmpty) return values;
+      return _overlayOccurrences(values, pendingBeforeRead);
+    } on LifeMateApiException catch (error) {
+      if (!_canUseOwnerCacheFor(error)) rethrow;
+      final runtime = _activeSharedRuntime();
+      if (runtime == null) rethrow;
+      Map<String, dynamic>? cached;
+      try {
+        cached = await runtime.readWellMateHomeSnapshot(
+          fromDate: fromDate,
+          toDate: toDate,
+        );
+      } catch (_) {
+        throw error;
+      }
+      final raw = cached?['doseOccurrences'];
+      if (raw is! List) throw error;
+      return _overlayOccurrences(raw, pendingBeforeRead);
+    }
+  }
+
+  Future<void> _cacheServerHomeSnapshot(
+    Map<String, dynamic> snapshot, {
+    required DateTime fromDate,
+    required DateTime toDate,
+  }) async {
+    final runtime = _activeSharedRuntime();
+    if (runtime == null) return;
+    final plans = _mapList(snapshot['treatmentPlans']);
+    final occurrences = _mapList(snapshot['doseOccurrences']);
+    if (plans == null || occurrences == null) return;
+    try {
+      await runtime.cacheWellMateHomeSnapshot(
+        fromDate: fromDate,
+        toDate: toDate,
+        treatmentPlans: plans,
+        treatmentOccurrences: occurrences,
+      );
+    } catch (_) {
+      // Online server truth remains usable when local protected cache refresh
+      // fails. No payload or exception text is logged from this PHI boundary.
+    }
+  }
+
+  void _overlaySnapshotOccurrences(
+    Map<String, dynamic> snapshot,
+    Map<String, String> pending,
+  ) {
+    if (pending.isEmpty) return;
+    final occurrences = snapshot['doseOccurrences'];
+    if (occurrences is List) {
+      snapshot['doseOccurrences'] = _overlayOccurrences(occurrences, pending);
+    }
   }
 
   Future<Map<String, String>> _pendingDoseStates() async {
@@ -388,6 +458,27 @@ class DurableLifeMateApiClient extends LifeMateApiClient {
     _incrementalProjectionApi.close();
     super.close();
   }
+
+  static List<Map<String, dynamic>>? _mapList(Object? value) {
+    if (value is! List) return null;
+    final result = <Map<String, dynamic>>[];
+    for (final item in value) {
+      if (item is! Map) return null;
+      result.add(<String, dynamic>{
+        for (final entry in item.entries) entry.key.toString(): entry.value,
+      });
+    }
+    return result;
+  }
+
+  static bool _canUseOwnerCacheFor(LifeMateApiException error) =>
+      error.statusCode == 0 ||
+      error.statusCode == 408 ||
+      error.statusCode == 429 ||
+      error.statusCode == 500 ||
+      error.statusCode == 502 ||
+      error.statusCode == 503 ||
+      error.statusCode == 504;
 
   static bool _sameNamespace(
     LifeMateOfflineNamespace left,
