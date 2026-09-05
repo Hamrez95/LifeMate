@@ -1,4 +1,4 @@
-import { getAdminSql } from "./database_client.ts";
+import { getAdminSql, toAdminJson } from "./database_client.ts";
 import { ApiError } from "./validation.ts";
 
 function object(value: unknown, code: string): Record<string, unknown> {
@@ -76,7 +76,7 @@ export function createGrowthRewardAdminStore(databaseUrl: string) {
         select admin.upsert_growth_reward_rule(
           ${input.actorAccountId}::uuid,${p.code}::varchar,${p.triggerKind}::varchar,${p.rewardKind}::varchar,
           ${
-        sql.json(p.rewardConfig)
+        sql.json(toAdminJson(p.rewardConfig))
       }::jsonb,${p.maxIssuesPerAccount}::integer,${p.status}::varchar,
           ${p.expectedVersion}::bigint,${p.reason}::varchar,${input.correlationId}::uuid,
           ${input.idempotencyKey}::varchar,${input.requestHash}::varchar
@@ -148,10 +148,10 @@ export function createGrowthRewardAdminStore(databaseUrl: string) {
         select admin.create_approval_request(
           ${input.actorAccountId}::uuid,'growth_reward_fulfillment'::varchar,'growth_reward_event'::varchar,
           ${input.rewardEventId}::varchar,${
-        sql.json(preview.before as Record<string, unknown>)
+        sql.json(toAdminJson(preview.before))
       }::jsonb,
-          ${sql.json(preview.delta as Record<string, unknown>)}::jsonb,${
-        sql.json(preview.after as Record<string, unknown>)
+          ${sql.json(toAdminJson(preview.delta))}::jsonb,${
+        sql.json(toAdminJson(preview.after))
       }::jsonb,
           ${input.reason}::varchar,${input.correlationId}::uuid,${input.idempotencyKey}::varchar,${input.requestHash}::varchar
         ) as result

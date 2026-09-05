@@ -1,4 +1,4 @@
-import { getAdminSql } from "./database_client.ts";
+import { getAdminSql, toAdminJson } from "./database_client.ts";
 import type {
   CreateApprovalRequest,
   DecideApprovalRequest,
@@ -130,9 +130,9 @@ export function createApprovalRequestStore(databaseUrl: string) {
           ${p.requestType}::character varying,
           ${p.targetType}::character varying,
           ${p.targetId}::character varying,
-          ${sql.json(p.before)},
-          ${sql.json(p.delta)},
-          ${sql.json(p.after)},
+          ${sql.json(toAdminJson(p.before))},
+          ${sql.json(toAdminJson(p.delta))},
+          ${sql.json(toAdminJson(p.after))},
           ${p.reason}::character varying,
           ${input.correlationId}::uuid,
           ${input.idempotencyKey}::character varying,

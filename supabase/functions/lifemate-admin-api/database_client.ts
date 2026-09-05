@@ -1,6 +1,15 @@
 import postgres from "postgres";
 
 export type AdminSql = ReturnType<typeof postgres>;
+export type AdminJsonValue = Parameters<AdminSql["json"]>[0];
+
+export function toAdminJson(value: unknown): AdminJsonValue {
+  const serialized = JSON.stringify(value);
+  if (serialized === undefined) {
+    throw new TypeError("Value is not JSON serializable.");
+  }
+  return JSON.parse(serialized) as AdminJsonValue;
+}
 
 const clients = new Map<string, AdminSql>();
 

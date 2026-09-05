@@ -1,4 +1,4 @@
-import { getLifeMateSql } from "./database_client.ts";
+import { getAdminSql } from "./database_client.ts";
 
 type Row = Record<string, unknown>;
 
@@ -18,7 +18,7 @@ function result(rows: Row[], code: string): Row {
 }
 
 export function createPrivacyConsentStore(databaseUrl: string) {
-  const sql = getLifeMateSql(databaseUrl);
+  const sql = getAdminSql(databaseUrl);
   return {
     async listDocuments(query: PrivacyDirectoryQuery) {
       const offset = (query.page - 1) * query.pageSize;

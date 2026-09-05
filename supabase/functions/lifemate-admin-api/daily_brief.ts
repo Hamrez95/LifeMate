@@ -52,9 +52,12 @@ function recentChange(
 ): DailyBriefItem | null {
   const series = value.series;
   if (!series || series.length < 14) return null;
-  const recent = series.slice(-7).reduce((sum, point) => sum + point.value, 0);
+  const recent = series.slice(-7).reduce(
+    (sum, point) => sum + (point.value ?? 0),
+    0,
+  );
   const previous = series.slice(-14, -7).reduce(
-    (sum, point) => sum + point.value,
+    (sum, point) => sum + (point.value ?? 0),
     0,
   );
   if (recent === previous) {

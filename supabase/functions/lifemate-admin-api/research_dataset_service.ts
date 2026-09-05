@@ -1,4 +1,4 @@
-import { type AdminSql, getAdminSql } from "./database_client.ts";
+import { type AdminSql, getAdminSql, toAdminJson } from "./database_client.ts";
 import { ApiError } from "./validation.ts";
 
 export type ResearchDatasetKind =
@@ -61,7 +61,7 @@ async function consumeIdempotency<T>(input: {
     await tx`
       update admin.idempotency_keys
       set status='Completed',response_status=201,response_json=${
-      tx.json(response as object)
+      tx.json(toAdminJson(response))
     },updated_at_utc=now()
       where actor_account_id=${input.actorAccountId}::uuid
         and operation=${input.operation}
@@ -199,11 +199,11 @@ export function createResearchDatasetStore(databaseUrl: string) {
               ${input.datasetKind}::varchar,
               ${input.purpose}::varchar,
               ${input.sourceCategory}::varchar,
-              ${tx.json(input.filters)},
+              ${tx.json(toAdminJson(input.filters))},
               ${input.ageBucketYears}::smallint,
               ${input.minimumCohortSize}::integer,
               ${input.smallCellThreshold}::integer,
-              ${tx.json(input.quasiIdentifierRules)},
+              ${tx.json(toAdminJson(input.quasiIdentifierRules))},
               ${input.rowMode}::varchar,
               ${input.correlationId}::uuid
             ) as dataset_id

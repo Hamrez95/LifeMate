@@ -1,4 +1,4 @@
-import { getAdminSql } from "./database_client.ts";
+import { getAdminSql, toAdminJson } from "./database_client.ts";
 import type { ManualEntitlementPayload } from "./manual_entitlement_adjustments.ts";
 import { ApiError } from "./validation.ts";
 
@@ -64,9 +64,9 @@ export function createManualEntitlementAdjustmentStore(databaseUrl: string) {
           'manual_entitlement_adjustment'::varchar,
           'account'::varchar,
           ${input.payload.subjectAccountId}::varchar,
-          ${sql.json(preview.before as Record<string, unknown>)}::jsonb,
-          ${sql.json(preview.delta as Record<string, unknown>)}::jsonb,
-          ${sql.json(preview.after as Record<string, unknown>)}::jsonb,
+          ${sql.json(toAdminJson(preview.before))}::jsonb,
+          ${sql.json(toAdminJson(preview.delta))}::jsonb,
+          ${sql.json(toAdminJson(preview.after))}::jsonb,
           ${input.payload.reason}::varchar,
           ${input.correlationId}::uuid,
           ${input.idempotencyKey}::varchar,
@@ -205,9 +205,9 @@ export function createManualEntitlementAdjustmentStore(databaseUrl: string) {
               select commerce.manual_adjustment_approval_valid(
                 ${input.actorAccountId}::uuid,${input.payload.subjectAccountId}::uuid,
                 ${input.payload.approvalRequestId}::uuid,${input.payload.approvalExpectedVersion}::bigint,
-                ${tx.json(preview.before as Record<string, unknown>)}::jsonb,
-                ${tx.json(preview.delta as Record<string, unknown>)}::jsonb,
-                ${tx.json(preview.after as Record<string, unknown>)}::jsonb,
+                ${tx.json(toAdminJson(preview.before))}::jsonb,
+                ${tx.json(toAdminJson(preview.delta))}::jsonb,
+                ${tx.json(toAdminJson(preview.after))}::jsonb,
                 ${input.correlationId}::uuid
               )
             `;
@@ -279,10 +279,10 @@ export function createManualEntitlementAdjustmentStore(databaseUrl: string) {
               ${input.payload.scheduleMode}::varchar,${input.payload.scheduleAmount}::integer,
               ${input.payload.exactExpiresAtUtc}::timestamptz,${input.payload.referenceAtUtc}::timestamptz,
               ${affected}::uuid[],${
-            tx.json(preview.before as Record<string, unknown>)
+            tx.json(toAdminJson(preview.before))
           }::jsonb,
               ${
-            tx.json(after as Record<string, unknown>)
+            tx.json(toAdminJson(after))
           }::jsonb,${input.payload.approvalRequestId}::uuid,
               ${decisionId}::uuid,${input.actorAccountId}::uuid,${input.payload.reason}::varchar,
               ${input.correlationId}::uuid,${input.idempotencyKey}::varchar,${input.requestHash}::varchar
