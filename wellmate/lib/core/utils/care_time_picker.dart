@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:lifemate_client/lifemate_client.dart';
+import 'package:lifemate_ui/lifemate_ui.dart' as lifemate_ui;
 
 import '../theme/app_style.dart';
 import 'persian_date_utils.dart';
@@ -11,14 +12,18 @@ import 'persian_date_utils.dart';
 Future<TimeOfDay?> showCareTimePicker({
   required BuildContext context,
   required TimeOfDay initialTime,
-  String title = 'انتخاب ساعت',
+  String? title,
 }) {
   return showModalBottomSheet<TimeOfDay>(
     context: context,
     isScrollControlled: true,
     backgroundColor: Colors.transparent,
     barrierColor: Colors.black.withValues(alpha: 0.48),
-    builder: (_) => _CareTimePickerSheet(title: title, initialTime: initialTime),
+    builder: (_) => _CareTimePickerSheet(
+      title: title ??
+          LifeMateRuntimeLocale.select(fa: 'انتخاب ساعت', en: 'Select time'),
+      initialTime: initialTime,
+    ),
   );
 }
 
@@ -39,11 +44,11 @@ class _CareTimePickerSheetState extends State<_CareTimePickerSheet> {
   late TextEditingController _minuteController;
   String? _error;
 
-  static const _suggestions = <(int, int, String)>[
-    (8, 0, 'صبح'),
-    (12, 0, 'ظهر'),
-    (18, 0, 'عصر'),
-    (22, 0, 'شب'),
+  static const _suggestions = <(int, int)>[
+    (8, 0),
+    (12, 0),
+    (18, 0),
+    (22, 0),
   ];
 
   @override
@@ -64,6 +69,15 @@ class _CareTimePickerSheetState extends State<_CareTimePickerSheet> {
 
   String _formatPart(int value) =>
       localizeDigits(context, value.toString().padLeft(2, '0'));
+
+  String _suggestionLabel(int hour) {
+    return switch (hour) {
+      8 => LifeMateRuntimeLocale.select(fa: 'صبح', en: 'Morning'),
+      12 => LifeMateRuntimeLocale.select(fa: 'ظهر', en: 'Noon'),
+      18 => LifeMateRuntimeLocale.select(fa: 'عصر', en: 'Evening'),
+      _ => LifeMateRuntimeLocale.select(fa: 'شب', en: 'Night'),
+    };
+  }
 
   void _setTime(int hour, int minute) {
     setState(() {
@@ -94,7 +108,17 @@ class _CareTimePickerSheetState extends State<_CareTimePickerSheet> {
     final parsed = _parse(value);
     final valid = parsed != null && (hour ? parsed <= 23 : parsed <= 59) && parsed >= 0;
     if (!valid) {
-      setState(() => _error = hour ? 'ساعت باید بین ۰۰ تا ۲۳ باشد.' : 'دقیقه باید بین ۰۰ تا ۵۹ باشد.');
+      setState(() {
+        _error = hour
+            ? LifeMateRuntimeLocale.select(
+                fa: 'ساعت باید بین ۰۰ تا ۲۳ باشد.',
+                en: 'Hour must be between 00 and 23.',
+              )
+            : LifeMateRuntimeLocale.select(
+                fa: 'دقیقه باید بین ۰۰ تا ۵۹ باشد.',
+                en: 'Minute must be between 00 and 59.',
+              );
+      });
       return;
     }
     _setTime(hour ? parsed : _hour, hour ? _minute : parsed);
@@ -137,7 +161,10 @@ class _CareTimePickerSheetState extends State<_CareTimePickerSheet> {
                       child: Text(widget.title, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w900, color: AppColors.darkBlue)),
                     ),
                     IconButton(
-                      tooltip: 'بستن',
+                      tooltip: LifeMateRuntimeLocale.select(
+                        fa: 'بستن',
+                        en: 'Close',
+                      ),
                       onPressed: () => Navigator.of(context).pop(),
                       icon: const Icon(Icons.close_rounded),
                     ),
@@ -158,16 +185,40 @@ class _CareTimePickerSheetState extends State<_CareTimePickerSheet> {
                   ),
                 ),
                 const SizedBox(height: 18),
-                const Text('ساعت دقیق را وارد کنید', style: TextStyle(fontWeight: FontWeight.w800)),
+                Text(
+                  LifeMateRuntimeLocale.select(
+                    fa: 'ساعت دقیق را وارد کنید',
+                    en: 'Enter an exact time',
+                  ),
+                  style: const TextStyle(fontWeight: FontWeight.w800),
+                ),
                 const SizedBox(height: 8),
                 Row(
                   children: [
-                    Expanded(child: _TimePartField(label: 'ساعت', controller: _hourController, onSubmitted: (value) => _applyPart(value, hour: true))),
+                    Expanded(
+                      child: _TimePartField(
+                        label: LifeMateRuntimeLocale.select(
+                          fa: 'ساعت',
+                          en: 'Hour',
+                        ),
+                        controller: _hourController,
+                        onSubmitted: (value) => _applyPart(value, hour: true),
+                      ),
+                    ),
                     Padding(
                       padding: const EdgeInsets.symmetric(horizontal: 10),
                       child: Text(':', textDirection: TextDirection.ltr, style: const TextStyle(fontSize: 28, fontWeight: FontWeight.w900, color: AppColors.darkBlue)),
                     ),
-                    Expanded(child: _TimePartField(label: 'دقیقه', controller: _minuteController, onSubmitted: (value) => _applyPart(value, hour: false))),
+                    Expanded(
+                      child: _TimePartField(
+                        label: LifeMateRuntimeLocale.select(
+                          fa: 'دقیقه',
+                          en: 'Minute',
+                        ),
+                        controller: _minuteController,
+                        onSubmitted: (value) => _applyPart(value, hour: false),
+                      ),
+                    ),
                   ],
                 ),
                 if (_error != null) ...[
@@ -175,7 +226,13 @@ class _CareTimePickerSheetState extends State<_CareTimePickerSheet> {
                   Text(_error!, style: const TextStyle(color: Color(0xFFC64040), fontWeight: FontWeight.w700)),
                 ],
                 const SizedBox(height: 18),
-                const Text('زمان‌های پیشنهادی', style: TextStyle(fontWeight: FontWeight.w800)),
+                Text(
+                  LifeMateRuntimeLocale.select(
+                    fa: 'زمان‌های پیشنهادی',
+                    en: 'Suggested times',
+                  ),
+                  style: const TextStyle(fontWeight: FontWeight.w800),
+                ),
                 const SizedBox(height: 8),
                 Wrap(
                   spacing: 8,
@@ -183,7 +240,9 @@ class _CareTimePickerSheetState extends State<_CareTimePickerSheet> {
                   children: [
                     for (final suggestion in _suggestions)
                       ChoiceChip(
-                        label: Text('${suggestion.$3} · ${localizeDigits(context, '${suggestion.$1.toString().padLeft(2, '0')}:${suggestion.$2.toString().padLeft(2, '0')}')}'),
+                        label: Text(
+                          '${_suggestionLabel(suggestion.$1)} · ${localizeDigits(context, '${suggestion.$1.toString().padLeft(2, '0')}:${suggestion.$2.toString().padLeft(2, '0')}')}',
+                        ),
                         selected: _hour == suggestion.$1 && _minute == suggestion.$2,
                         onSelected: (_) => _setTime(suggestion.$1, suggestion.$2),
                       ),
@@ -194,7 +253,12 @@ class _CareTimePickerSheetState extends State<_CareTimePickerSheet> {
                   key: const ValueKey('care-time-picker-confirm'),
                   onPressed: () => Navigator.of(context).pop(time),
                   style: FilledButton.styleFrom(minimumSize: const Size.fromHeight(52)),
-                  child: const Text('تأیید ساعت'),
+                  child: Text(
+                    LifeMateRuntimeLocale.select(
+                      fa: 'تأیید ساعت',
+                      en: 'Confirm time',
+                    ),
+                  ),
                 ),
               ],
             ),
@@ -218,6 +282,9 @@ class _TimePartField extends StatelessWidget {
       key: ValueKey<String>('care-time-picker-$label'),
       controller: controller,
       keyboardType: TextInputType.number,
+      inputFormatters: const [
+        lifemate_ui.LifeMateLocaleDigitInputFormatter(),
+      ],
       textAlign: TextAlign.center,
       textDirection: TextDirection.ltr,
       maxLength: 2,
