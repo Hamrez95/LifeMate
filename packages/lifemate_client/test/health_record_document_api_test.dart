@@ -57,15 +57,15 @@ void main() {
     expect(document.links.single['contextType'], 'treatment_plan');
   });
 
-  test('Health Record context must be a complete pair', () {
+  test('Health Record context must be a complete pair', () async {
     final api = LifeMateApiClient(
       baseUri: Uri.parse('https://api.example.test'),
       accessToken: () => 'access-token',
       httpClient: MockClient((_) async => http.Response('', 500)),
     );
 
-    expect(
-      () => api.uploadHealthDocument(
+    await expectLater(
+      api.uploadHealthDocument(
         bytes: Uint8List.fromList([1]),
         contentType: 'image/jpeg',
         category: LifeMateHealthDocumentCategory.other,
