@@ -136,6 +136,16 @@ class NotificationProvider extends ChangeNotifier {
     _exactAlarmGranted = exactAlarmGranted;
   }
 
+  /// Reuses the single shared #830 execution engine already owned by this
+  /// provider. Subclasses may project additional bounded reminder namespaces
+  /// without creating another plugin/scheduler architecture.
+  @protected
+  LifeMateLocalReminderScheduler get sharedReminderScheduler =>
+      _reminderScheduler;
+
+  @protected
+  bool? get sharedExactAlarmGranted => _exactAlarmGranted;
+
   void _onNotificationResponse(NotificationResponse response) {
     final actionId = response.actionId;
     if ((actionId == takenActionId || actionId == completedActionId) &&
