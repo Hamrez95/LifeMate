@@ -2,6 +2,8 @@ import 'package:lifemate_client/lifemate_client.dart';
 import 'package:lifemate_core/lifemate_core.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import 'women_offline_owner_dashboard.dart';
+
 final class WomenDailyLogOfflineBridge {
   WomenDailyLogOfflineBridge._(this._runtime, this._dailyLogCache);
 
@@ -85,6 +87,28 @@ final class WomenDailyLogOfflineBridge {
     serverRows: serverRows,
   );
 
+  Future<void> cacheOwnerDashboard({
+    required Map<String, dynamic> profile,
+    required Iterable<Map<String, dynamic>> episodes,
+    required Iterable<Map<String, dynamic>> dailyLogs,
+    required DateTime fromDate,
+    required DateTime toDate,
+  }) async {
+    final lifecycleState = WomenHealthLifecycleState.parse(
+      profile['lifecycleState'],
+    );
+    await _runtime.cacheWomenCalendarSnapshot(
+      profile: profile,
+      episodes: episodes,
+      lifecycleState: lifecycleState,
+    );
+    await _dailyLogCache.cacheServerRange(
+      fromDate: fromDate,
+      toDate: toDate,
+      serverRows: dailyLogs,
+    );
+  }
+
   Future<List<Map<String, dynamic>>?> readCachedServerDay(DateTime date) =>
       _dailyLogCache.readServerDay(date);
 
@@ -92,6 +116,23 @@ final class WomenDailyLogOfflineBridge {
     required DateTime fromDate,
     required DateTime toDate,
   }) => _dailyLogCache.readServerRange(fromDate: fromDate, toDate: toDate);
+
+  Future<WomenOfflineOwnerDashboard?> readOwnerDashboard({
+    required DateTime fromDate,
+    required DateTime toDate,
+  }) async {
+    final snapshot = await _runtime.readWomenCalendarSnapshot();
+    if (snapshot == null) return null;
+    final dailyLogs = await _dailyLogCache.readServerRange(
+      fromDate: fromDate,
+      toDate: toDate,
+    );
+    if (dailyLogs == null) return null;
+    return WomenOfflineOwnerDashboard(
+      snapshot: snapshot,
+      dailyLogs: dailyLogs,
+    );
+  }
 
   Future<void> enqueueUpsert({
     required String mutationId,
