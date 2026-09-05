@@ -137,6 +137,10 @@ export function createHealthDocumentStore(databaseUrl: string) {
     return rows.map(mapDocument);
   }
 
+  async function ownerForUpload(appUserId: string) {
+    return await ownerIdentity(sql, appUserId);
+  }
+
   async function getOwnerDownload(appUserId: string, documentIdValue: unknown) {
     const documentId = requiredUuid(documentIdValue, "documentId");
     return await sql.begin(async (tx: any) => {
@@ -162,11 +166,19 @@ export function createHealthDocumentStore(databaseUrl: string) {
           (${crypto.randomUUID()}::uuid, ${documentId}::uuid,
            ${accountId}::uuid, 'Downloaded')
       `;
-      return mapDocument(rows[0]);
+      return {
+        ...mapDocument(rows[0]),
+        storageObjectKey: String(rows[0].storage_object_key),
+      };
     });
   }
 
-  return { registerOwnerUpload, listOwnerDocuments, getOwnerDownload };
+  return {
+    ownerForUpload,
+    registerOwnerUpload,
+    listOwnerDocuments,
+    getOwnerDownload,
+  };
 }
 
 function validateRegistration(input: HealthDocumentRegistration): void {
