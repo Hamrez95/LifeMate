@@ -52,11 +52,31 @@ jobs:
           while IFS= read -r migration; do
             psql "$TEST_DATABASE_URL" --set=ON_ERROR_STOP=1 --file="$migration"
           done < <(find supabase/migrations -maxdepth 1 -type f -name '*.sql' | sort)
-      - name: Run ecosystem database contracts
-        shell: bash
-        run: |
-          set -euo pipefail
-          while IFS= read -r test_file; do
-            echo "Running $test_file"
-            psql "$TEST_DATABASE_URL" --set=ON_ERROR_STOP=1 --file="$test_file"
-          done < <(find supabase/tests -maxdepth 1 -type f -name '*contract.sql' | sort)
+      - name: Admin consent privacy contract
+        run: psql "$TEST_DATABASE_URL" --set=ON_ERROR_STOP=1 --file=supabase/tests/admin_consent_privacy_contract.sql
+      - name: Admin security denial contract
+        run: psql "$TEST_DATABASE_URL" --set=ON_ERROR_STOP=1 --file=supabase/tests/admin_security_denial_contract.sql
+      - name: Campaign orchestrator contract
+        run: psql "$TEST_DATABASE_URL" --set=ON_ERROR_STOP=1 --file=supabase/tests/campaign_orchestrator_contract.sql
+      - name: Consent context contract
+        run: psql "$TEST_DATABASE_URL" --set=ON_ERROR_STOP=1 --file=supabase/tests/consent_context_contract.sql
+      - name: Contact point security contract
+        run: psql "$TEST_DATABASE_URL" --set=ON_ERROR_STOP=1 --file=supabase/tests/contact_point_security_contract.sql
+      - name: Ecosystem contract
+        run: psql "$TEST_DATABASE_URL" --set=ON_ERROR_STOP=1 --file=supabase/tests/ecosystem_contract.sql
+      - name: Feedback idempotency contract
+        run: psql "$TEST_DATABASE_URL" --set=ON_ERROR_STOP=1 --file=supabase/tests/feedback_idempotency_contract.sql
+      - name: Growth reward engine contract
+        run: psql "$TEST_DATABASE_URL" --set=ON_ERROR_STOP=1 --file=supabase/tests/growth_reward_engine_contract.sql
+      - name: Growth reward fulfillment contract
+        run: psql "$TEST_DATABASE_URL" --set=ON_ERROR_STOP=1 --file=supabase/tests/growth_reward_fulfillment_contract.sql
+      - name: Medication schedule DST contract
+        run: psql "$TEST_DATABASE_URL" --set=ON_ERROR_STOP=1 --file=supabase/tests/medication_schedule_dst_contract.sql
+      - name: Restricted runtime contract
+        run: psql "$TEST_DATABASE_URL" --set=ON_ERROR_STOP=1 --file=supabase/tests/restricted_runtime_contract.sql
+      - name: Runtime foundation contract
+        run: psql "$TEST_DATABASE_URL" --set=ON_ERROR_STOP=1 --file=supabase/tests/runtime_foundation_contract.sql
+      - name: Security denial contract
+        run: psql "$TEST_DATABASE_URL" --set=ON_ERROR_STOP=1 --file=supabase/tests/security_denial_contract.sql
+      - name: Support conversations contract
+        run: psql "$TEST_DATABASE_URL" --set=ON_ERROR_STOP=1 --file=supabase/tests/support_conversations_contract.sql
