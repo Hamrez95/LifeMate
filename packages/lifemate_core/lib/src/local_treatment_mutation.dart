@@ -1,3 +1,4 @@
+import 'local_health_store.dart' show LifeMateLocalNamespace;
 import 'local_mutation_outbox.dart';
 
 /// Builds and enqueues the exact, versioned treatment PATCH that may be
