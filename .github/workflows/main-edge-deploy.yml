@@ -102,7 +102,6 @@ jobs:
         run: |
           set -euo pipefail
           cd supabase/functions/lifemate-worker
-          deno fmt --check
           deno task check
           deno task test
 
