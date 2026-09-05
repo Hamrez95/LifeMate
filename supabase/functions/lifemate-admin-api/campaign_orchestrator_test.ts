@@ -36,7 +36,7 @@ Deno.test("campaign orchestrator is wired through canonical marketing dispatcher
     "canonical marketing dispatcher must construct campaign orchestrator",
   );
   assert(
-    routes.includes("campaignOrchestratorRouteHandler(context)"),
+    /campaignOrchestratorRouteHandler\(\s*context,?\s*\)/.test(routes),
     "canonical marketing dispatcher must forward authenticated context",
   );
 });
