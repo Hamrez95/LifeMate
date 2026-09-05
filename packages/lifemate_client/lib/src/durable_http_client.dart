@@ -18,12 +18,12 @@ class LifeMateDurableHttpClient extends http.BaseClient {
     LifeMateOfflineMutationQueue? queue,
     http.Client? inner,
     Duration transportTimeout = const Duration(seconds: 18),
-  })  : _apiBaseUri = apiBaseUri,
-        _accessToken = accessToken,
-        _accountId = accountId,
-        _queue = queue ?? LifeMateOfflineMutationQueue(),
-        _inner = inner ?? http.Client(),
-        _transportTimeout = transportTimeout;
+  }) : _apiBaseUri = apiBaseUri,
+       _accessToken = accessToken,
+       _accountId = accountId,
+       _queue = queue ?? LifeMateOfflineMutationQueue(),
+       _inner = inner ?? http.Client(),
+       _transportTimeout = transportTimeout;
 
   final Uri _apiBaseUri;
   final AccessTokenProvider _accessToken;
@@ -291,8 +291,8 @@ class LifeMateDurableHttpClient extends http.BaseClient {
   bool _isCurrentApiUri(Uri uri) {
     final sameOrigin =
         uri.scheme.toLowerCase() == _apiBaseUri.scheme.toLowerCase() &&
-            uri.host.toLowerCase() == _apiBaseUri.host.toLowerCase() &&
-            uri.port == _apiBaseUri.port;
+        uri.host.toLowerCase() == _apiBaseUri.host.toLowerCase() &&
+        uri.port == _apiBaseUri.port;
     if (!sameOrigin) return false;
     final basePath = _apiBaseUri.path.replaceFirst(RegExp(r'/+$'), '');
     return basePath.isEmpty ||

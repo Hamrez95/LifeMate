@@ -22,7 +22,7 @@ abstract class LifeMateMutationStorage {
 
 class LifeMateSecureMutationStorage implements LifeMateMutationStorage {
   LifeMateSecureMutationStorage({FlutterSecureStorage? storage})
-      : _storage = storage ?? const FlutterSecureStorage();
+    : _storage = storage ?? const FlutterSecureStorage();
 
   final FlutterSecureStorage _storage;
 
@@ -61,7 +61,7 @@ class LifeMateQueuedMutation {
       clientRequestId: json['clientRequestId']?.toString() ?? '',
       createdAtUtc:
           DateTime.tryParse(json['createdAtUtc']?.toString() ?? '')?.toUtc() ??
-              DateTime.fromMillisecondsSinceEpoch(0, isUtc: true),
+          DateTime.fromMillisecondsSinceEpoch(0, isUtc: true),
     );
   }
 
@@ -74,14 +74,14 @@ class LifeMateQueuedMutation {
   final DateTime createdAtUtc;
 
   Map<String, dynamic> toJson() => {
-        'id': id,
-        'accountId': accountId,
-        'method': method,
-        'uri': uri,
-        'body': body,
-        'clientRequestId': clientRequestId,
-        'createdAtUtc': createdAtUtc.toIso8601String(),
-      };
+    'id': id,
+    'accountId': accountId,
+    'method': method,
+    'uri': uri,
+    'body': body,
+    'clientRequestId': clientRequestId,
+    'createdAtUtc': createdAtUtc.toIso8601String(),
+  };
 }
 
 /// Encrypted, account-scoped queue for the very small allowlist of writes whose
@@ -96,8 +96,8 @@ class LifeMateOfflineMutationQueue {
     DateTime Function()? now,
     this.maximumItems = 100,
     this.timeToLive = const Duration(days: 7),
-  })  : _storage = storage ?? LifeMateSecureMutationStorage(),
-        _now = now ?? (() => DateTime.now().toUtc());
+  }) : _storage = storage ?? LifeMateSecureMutationStorage(),
+       _now = now ?? (() => DateTime.now().toUtc());
 
   static const _itemPrefix = 'lifemate.offline_mutation.v2.';
 
@@ -118,50 +118,48 @@ class LifeMateOfflineMutationQueue {
     required Uri uri,
     required String body,
     required String clientRequestId,
-  }) =>
-      _serialized(() async {
-        final normalizedAccount = accountId.trim();
-        final normalizedRequest = clientRequestId.trim();
-        if (normalizedAccount.isEmpty || normalizedRequest.isEmpty) {
-          throw ArgumentError(
-              'Offline mutations require account and request IDs.');
-        }
+  }) => _serialized(() async {
+    final normalizedAccount = accountId.trim();
+    final normalizedRequest = clientRequestId.trim();
+    if (normalizedAccount.isEmpty || normalizedRequest.isEmpty) {
+      throw ArgumentError('Offline mutations require account and request IDs.');
+    }
 
-        final id = '$normalizedAccount:$normalizedRequest';
-        final key = _itemKey(id);
-        final existing = await _readValidItemUnlocked(key);
-        if (existing != null) return existing;
+    final id = '$normalizedAccount:$normalizedRequest';
+    final key = _itemKey(id);
+    final existing = await _readValidItemUnlocked(key);
+    if (existing != null) return existing;
 
-        final before = await _loadAndPruneUnlocked();
-        if (before.length >= maximumItems) {
-          throw StateError(
-            'LifeMate offline queue is full; refusing to silently drop an action.',
-          );
-        }
+    final before = await _loadAndPruneUnlocked();
+    if (before.length >= maximumItems) {
+      throw StateError(
+        'LifeMate offline queue is full; refusing to silently drop an action.',
+      );
+    }
 
-        final value = LifeMateQueuedMutation(
-          id: id,
-          accountId: normalizedAccount,
-          method: method,
-          uri: uri.toString(),
-          body: body,
-          clientRequestId: normalizedRequest,
-          createdAtUtc: _now(),
-        );
-        await _storage.write(key, jsonEncode(value.toJson()));
+    final value = LifeMateQueuedMutation(
+      id: id,
+      accountId: normalizedAccount,
+      method: method,
+      uri: uri.toString(),
+      body: body,
+      clientRequestId: normalizedRequest,
+      createdAtUtc: _now(),
+    );
+    await _storage.write(key, jsonEncode(value.toJson()));
 
-        // Cross-isolate writers can both observe capacity before either writes.
-        // Recheck after our write and remove only our unacknowledged item on
-        // overflow; never evict an older action whose caller was told it persisted.
-        final after = await _loadAndPruneUnlocked();
-        if (after.length > maximumItems) {
-          await _storage.delete(key);
-          throw StateError(
-            'LifeMate offline queue is full; refusing to silently drop an action.',
-          );
-        }
-        return value;
-      });
+    // Cross-isolate writers can both observe capacity before either writes.
+    // Recheck after our write and remove only our unacknowledged item on
+    // overflow; never evict an older action whose caller was told it persisted.
+    final after = await _loadAndPruneUnlocked();
+    if (after.length > maximumItems) {
+      await _storage.delete(key);
+      throw StateError(
+        'LifeMate offline queue is full; refusing to silently drop an action.',
+      );
+    }
+    return value;
+  });
 
   Future<List<LifeMateQueuedMutation>> pendingForAccount(String accountId) =>
       _serialized(() async {
@@ -228,7 +226,8 @@ class LifeMateOfflineMutationQueue {
       final decoded = jsonDecode(raw);
       if (decoded is! Map) return null;
       return LifeMateQueuedMutation.fromJson(
-          Map<String, dynamic>.from(decoded));
+        Map<String, dynamic>.from(decoded),
+      );
     } catch (_) {
       return null;
     }

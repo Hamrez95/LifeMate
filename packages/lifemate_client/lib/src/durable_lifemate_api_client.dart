@@ -34,15 +34,15 @@ class DurableLifeMateApiClient extends LifeMateApiClient {
     required AccessTokenProvider accessToken,
     required LifeMateAccountIdProvider accountId,
     required LifeMateDurableHttpClient durableHttp,
-  })  : _baseUri = baseUri,
-        _accessToken = accessToken,
-        _legacyAuthenticatedAccountId = accountId,
-        _durableHttp = durableHttp,
-        super(
-          baseUri: baseUri,
-          accessToken: accessToken,
-          httpClient: durableHttp,
-        );
+  }) : _baseUri = baseUri,
+       _accessToken = accessToken,
+       _legacyAuthenticatedAccountId = accountId,
+       _durableHttp = durableHttp,
+       super(
+         baseUri: baseUri,
+         accessToken: accessToken,
+         httpClient: durableHttp,
+       );
 
   factory DurableLifeMateApiClient({
     required Uri baseUri,
@@ -85,8 +85,8 @@ class DurableLifeMateApiClient extends LifeMateApiClient {
       locale: locale,
       timeZone: timeZone,
     );
-    final legacyAuthenticatedAccountId =
-        _legacyAuthenticatedAccountId()?.trim();
+    final legacyAuthenticatedAccountId = _legacyAuthenticatedAccountId()
+        ?.trim();
     if (legacyAuthenticatedAccountId == null ||
         legacyAuthenticatedAccountId.isEmpty) {
       throw const LifeMateApiException(
@@ -141,7 +141,9 @@ class DurableLifeMateApiClient extends LifeMateApiClient {
       );
     }
     if (_legacyAuthenticatedAccountId()?.trim() != normalizedLegacyAccount) {
-      throw StateError('Authenticated account changed during offline adoption.');
+      throw StateError(
+        'Authenticated account changed during offline adoption.',
+      );
     }
 
     final namespace = LifeMateLocalNamespace(
@@ -162,7 +164,9 @@ class DurableLifeMateApiClient extends LifeMateApiClient {
     );
     if (_legacyAuthenticatedAccountId()?.trim() != normalizedLegacyAccount) {
       next.close();
-      throw StateError('Authenticated account changed during offline adoption.');
+      throw StateError(
+        'Authenticated account changed during offline adoption.',
+      );
     }
 
     _sharedRuntime = next;
@@ -268,23 +272,27 @@ class DurableLifeMateApiClient extends LifeMateApiClient {
     List<dynamic> values,
     Map<String, String> pending,
   ) {
-    return values.whereType<Map>().map((raw) {
-      final value = <String, dynamic>{
-        for (final entry in raw.entries) entry.key.toString(): entry.value,
-      };
-      final id = value['id']?.toString();
-      final desiredStatus = id == null ? null : pending[id];
-      if (desiredStatus == null) return value;
+    return values
+        .whereType<Map>()
+        .map((raw) {
+          final value = <String, dynamic>{
+            for (final entry in raw.entries) entry.key.toString(): entry.value,
+          };
+          final id = value['id']?.toString();
+          final desiredStatus = id == null ? null : pending[id];
+          if (desiredStatus == null) return value;
 
-      final serverStatus = value['status']?.toString().toLowerCase();
-      if (serverStatus == 'taken' || serverStatus == 'skipped') return value;
-      return <String, dynamic>{
-        ...value,
-        'status': 'pending_sync',
-        'pendingSync': true,
-        'pendingStatus': desiredStatus,
-      };
-    }).toList(growable: false);
+          final serverStatus = value['status']?.toString().toLowerCase();
+          if (serverStatus == 'taken' || serverStatus == 'skipped')
+            return value;
+          return <String, dynamic>{
+            ...value,
+            'status': 'pending_sync',
+            'pendingSync': true,
+            'pendingStatus': desiredStatus,
+          };
+        })
+        .toList(growable: false);
   }
 
   Future<int> flushPendingMutations() async =>

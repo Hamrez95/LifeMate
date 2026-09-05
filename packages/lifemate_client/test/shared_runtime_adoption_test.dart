@@ -120,47 +120,50 @@ void main() {
     store.close();
   });
 
-  test('deferred durable client keeps legacy actions until delegate exists', () async {
-    final storage = _MemoryStorage();
-    final queue = LifeMateOfflineMutationQueue(storage: storage);
-    final transport = _CountingClient(200);
-    const requestId = '123e4567-e89b-42d3-a456-426614174964';
-    const occurrenceId = '123e4567-e89b-42d3-a456-426614174064';
-    await queue.enqueue(
-      accountId: 'legacy-auth-a',
-      method: 'POST',
-      uri: Uri.parse(
-        'https://api.example.test/api/v1/dose-occurrences/$occurrenceId/report',
-      ),
-      body: jsonEncode(<String, dynamic>{
-        'clientRequestId': requestId,
-        'status': 'taken',
-        'expectedVersion': 1,
-      }),
-      clientRequestId: requestId,
-    );
-    final client = LifeMateDurableHttpClient(
-      apiBaseUri: Uri.parse('https://api.example.test'),
-      accessToken: () => 'token',
-      accountId: () => 'legacy-auth-a',
-      queue: queue,
-      inner: transport,
-    )..deferReplayUntilDelegate();
+  test(
+    'deferred durable client keeps legacy actions until delegate exists',
+    () async {
+      final storage = _MemoryStorage();
+      final queue = LifeMateOfflineMutationQueue(storage: storage);
+      final transport = _CountingClient(200);
+      const requestId = '123e4567-e89b-42d3-a456-426614174964';
+      const occurrenceId = '123e4567-e89b-42d3-a456-426614174064';
+      await queue.enqueue(
+        accountId: 'legacy-auth-a',
+        method: 'POST',
+        uri: Uri.parse(
+          'https://api.example.test/api/v1/dose-occurrences/$occurrenceId/report',
+        ),
+        body: jsonEncode(<String, dynamic>{
+          'clientRequestId': requestId,
+          'status': 'taken',
+          'expectedVersion': 1,
+        }),
+        clientRequestId: requestId,
+      );
+      final client = LifeMateDurableHttpClient(
+        apiBaseUri: Uri.parse('https://api.example.test'),
+        accessToken: () => 'token',
+        accountId: () => 'legacy-auth-a',
+        queue: queue,
+        inner: transport,
+      )..deferReplayUntilDelegate();
 
-    final beforeAdoption = await client.flushPendingDetailed();
-    expect(beforeAdoption.replayed, 0);
-    expect(beforeAdoption.pendingRemaining, 0);
-    expect(await queue.pendingCount('legacy-auth-a'), 1);
-    expect(transport.sendCount, 0);
+      final beforeAdoption = await client.flushPendingDetailed();
+      expect(beforeAdoption.replayed, 0);
+      expect(beforeAdoption.pendingRemaining, 0);
+      expect(await queue.pendingCount('legacy-auth-a'), 1);
+      expect(transport.sendCount, 0);
 
-    client.useReplayDelegate(() async {
-      return const LifeMateOfflineSyncResult(replayed: 1);
-    });
-    final afterAdoption = await client.flushPendingDetailed();
-    expect(afterAdoption.replayed, 1);
-    expect(transport.sendCount, 0);
-    client.close();
-  });
+      client.useReplayDelegate(() async {
+        return const LifeMateOfflineSyncResult(replayed: 1);
+      });
+      final afterAdoption = await client.flushPendingDetailed();
+      expect(afterAdoption.replayed, 1);
+      expect(transport.sendCount, 0);
+      client.close();
+    },
+  );
 
   test('durable HTTP replay delegates after shared runtime adoption', () async {
     final queue = LifeMateOfflineMutationQueue(storage: _MemoryStorage());
@@ -174,10 +177,7 @@ void main() {
     var calls = 0;
     client.useReplayDelegate(() async {
       calls += 1;
-      return const LifeMateOfflineSyncResult(
-        replayed: 2,
-        pendingRemaining: 1,
-      );
+      return const LifeMateOfflineSyncResult(replayed: 2, pendingRemaining: 1);
     });
 
     final result = await client.flushPendingDetailed();
@@ -201,7 +201,8 @@ final class _MemoryStorage implements LifeMateMutationStorage {
   Future<String?> read(String key) async => values[key];
 
   @override
-  Future<Map<String, String>> readAll() async => Map<String, String>.from(values);
+  Future<Map<String, String>> readAll() async =>
+      Map<String, String>.from(values);
 
   @override
   Future<void> write(String key, String value) async {

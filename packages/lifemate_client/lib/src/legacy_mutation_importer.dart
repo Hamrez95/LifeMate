@@ -48,7 +48,9 @@ final class LifeMateLegacyMutationImporter {
     }
     final acceptedAccountIds = <String>{
       accountId,
-      ...legacyAccountIds.map((value) => value.trim()).where((value) => value.isNotEmpty),
+      ...legacyAccountIds
+          .map((value) => value.trim())
+          .where((value) => value.isNotEmpty),
     };
 
     final raw = await _legacyStorage.readAll();
@@ -144,8 +146,8 @@ final class LifeMateLegacyMutationImporter {
   bool _isCurrentApiUri(Uri uri) {
     final sameOrigin =
         uri.scheme.toLowerCase() == _apiBaseUri.scheme.toLowerCase() &&
-            uri.host.toLowerCase() == _apiBaseUri.host.toLowerCase() &&
-            uri.port == _apiBaseUri.port;
+        uri.host.toLowerCase() == _apiBaseUri.host.toLowerCase() &&
+        uri.port == _apiBaseUri.port;
     if (!sameOrigin) return false;
 
     final basePath = _apiBaseUri.path.replaceFirst(RegExp(r'/+$'), '');

@@ -1,0 +1,81 @@
+Resolving dependencies...
+Downloading packages...
+  clock 1.1.2 (1.1.3 available)
+  code_assets 1.2.1 (2.0.0 available)
++ cryptography 2.9.0
++ dbus 0.7.15
++ flutter_local_notifications 19.5.0 (22.3.0 available)
++ flutter_local_notifications_linux 6.0.0 (8.0.1 available)
++ flutter_local_notifications_platform_interface 9.1.0 (12.2.0 available)
++ flutter_local_notifications_windows 1.0.3 (3.1.1 available)
+  flutter_secure_storage 10.3.1 (11.0.0 available)
+  flutter_secure_storage_darwin 0.3.2 (0.4.0 available)
+  functions_client 2.6.4 (2.7.1 available)
++ glob 2.2.0
+  gotrue 2.26.0 (2.27.2 available)
+  hooks 2.0.2 (2.2.0 available)
+  jni_flutter 1.0.2 (1.0.3 available)
++ lifemate_core 0.1.0 from path ../lifemate_core
+  matcher 0.12.19 (0.12.20 available)
+  material_color_utilities 0.13.0 (0.13.1 available)
+  meta 1.18.0 (1.19.0 available)
+  mime 2.0.0 (2.1.0 available)
++ native_toolchain_c 0.19.2 (0.19.4 available)
+  objective_c 9.5.0 (9.6.0 available)
++ petitparser 7.0.2
+  postgrest 2.8.0 (2.9.1 available)
+  pub_semver 2.2.0 (2.2.1 available)
+  realtime_client 2.11.0 (2.13.0 available)
+  record_use 0.6.0 (1.1.1 available)
+  shared_preferences_android 2.4.27 (2.4.28 available)
+  shared_preferences_foundation 2.5.6 (2.5.7 available)
++ sqlite3 3.5.2
+  stack_trace 1.12.1 (1.12.2 available)
+  storage_client 2.6.0 (2.8.0 available)
+  supabase 2.14.0 (2.16.1 available)
+  supabase_flutter 2.16.0 (2.17.2 available)
+  test_api 0.7.11 (0.7.14 available)
+  timezone 0.10.1 (0.11.1 available)
+  url_launcher_android 6.3.32 (6.3.33 available)
+  url_launcher_ios 6.4.1 (6.4.2 available)
+  url_launcher_linux 3.2.2 (3.2.3 available)
+  url_launcher_macos 3.2.5 (3.2.6 available)
+  url_launcher_windows 3.1.5 (3.1.6 available)
+  vector_math 2.2.0 (2.4.2 available)
+  vm_service 15.2.0 (15.3.0 available)
++ xml 6.6.1 (7.0.1 available)
+  yaml 3.1.3 (3.1.4 available)
+Changed 12 dependencies!
+39 packages have newer versions incompatible with dependency constraints.
+Try `flutter pub outdated` for more information.
+Analyzing lifemate_client...                                    
+
+   info • The import of 'package:flutter/foundation.dart' is unnecessary because all of the used elements are also provided by the import of 'package:flutter/material.dart'. Try removing the import directive • lib/src/profile_avatar.dart:1:8 • unnecessary_import
+warning • The '!' will have no effect because the receiver can't be null. Try removing the '!' operator • lib/src/profile_avatar.dart:54:54 • unnecessary_non_null_assertion
+   info • 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss. Try replacing the use of the deprecated member with the replacement • lib/src/session_gate.dart:463:60 • deprecated_member_use
+   info • 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss. Try replacing the use of the deprecated member with the replacement • lib/src/session_gate.dart:468:58 • deprecated_member_use
+   info • 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss. Try replacing the use of the deprecated member with the replacement • lib/src/session_gate.dart:519:47 • deprecated_member_use
+   info • 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss. Try replacing the use of the deprecated member with the replacement • lib/src/session_gate.dart:522:49 • deprecated_member_use
+   info • 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss. Try replacing the use of the deprecated member with the replacement • lib/src/session_gate.dart:526:47 • deprecated_member_use
+   info • 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss. Try replacing the use of the deprecated member with the replacement • lib/src/session_gate.dart:531:51 • deprecated_member_use
+   info • 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss. Try replacing the use of the deprecated member with the replacement • lib/src/session_gate.dart:939:47 • deprecated_member_use
+   info • 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss. Try replacing the use of the deprecated member with the replacement • lib/src/session_gate.dart:1121:38 • deprecated_member_use
+   info • 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss. Try replacing the use of the deprecated member with the replacement • lib/src/session_gate.dart:1226:24 • deprecated_member_use
+   info • 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss. Try replacing the use of the deprecated member with the replacement • lib/src/session_gate.dart:1228:43 • deprecated_member_use
+   info • 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss. Try replacing the use of the deprecated member with the replacement • lib/src/session_gate.dart:1337:39 • deprecated_member_use
+   info • 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss. Try replacing the use of the deprecated member with the replacement • lib/src/session_gate.dart:1341:38 • deprecated_member_use
+   info • 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss. Try replacing the use of the deprecated member with the replacement • lib/src/session_gate.dart:1362:40 • deprecated_member_use
+warning • The '!' will have no effect because the receiver can't be null. Try removing the '!' operator • lib/src/support_conversations_api.dart:102:70 • unnecessary_non_null_assertion
+   info • The import of 'package:supabase_flutter/supabase_flutter.dart' is unnecessary because all of the used elements are also provided by the import of 'package:lifemate_client/lifemate_client.dart'. Try removing the import directive • test/lifemate_auth_test.dart:5:8 • unnecessary_import
+   info • The import of 'dart:async' is unnecessary because all of the used elements are also provided by the import of 'package:flutter_test/flutter_test.dart'. Try removing the import directive • test/offline_conflict_feedback_test.dart:1:8 • unnecessary_import
+
+18 issues found. (ran in 10.7s)
+
+✅ shared runtime imports actions accepted after runtime open
+✅ authenticated legacy alias migrates without crossing accounts
+✅ deferred durable client keeps legacy actions until delegate exists
+✅ durable HTTP replay delegates after shared runtime adoption
+
+🎉 4 tests passed.
+
+pub=0 analyze=0 test=0
