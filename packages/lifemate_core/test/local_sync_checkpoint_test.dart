@@ -146,8 +146,8 @@ void main() {
       LifeMateLocalProjectionDomain.pendingMutation,
       LifeMateLocalProjectionDomain.notificationSchedule,
     ]) {
-      expect(
-        () => checkpoints.write(
+      await expectLater(
+        checkpoints.write(
           namespace: namespace,
           domain: domain,
           cursor: 'cursor',
