@@ -106,6 +106,7 @@ Deno.test({
         consentVersion: "care-caregiver-consent-v1",
         confirmConsent: true,
       });
+      const relationshipId = String(relationship.id);
       assertEquals(relationship.canViewWomenCalendar, false);
 
       await assertApiError(
@@ -118,7 +119,7 @@ Deno.test({
         () =>
           db.updateRelationshipPermissions(
             caregiver.appUserId,
-            relationship.id,
+            relationshipId,
             { canViewWomenCalendar: true },
           ),
         404,
@@ -127,7 +128,7 @@ Deno.test({
 
       const permitted = await db.updateRelationshipPermissions(
         patient.appUserId,
-        relationship.id,
+        relationshipId,
         { canViewWomenCalendar: true },
       );
       assertEquals(permitted.canViewWomenCalendar, true);
@@ -141,7 +142,7 @@ Deno.test({
           view_calendar_detail,
           updated_by_user_id
         ) values (
-          ${relationship.id}::uuid,
+          ${relationshipId}::uuid,
           true,
           true,
           true,
@@ -308,7 +309,7 @@ Deno.test({
         periodLength: disabled.periodLength,
         remindersEnabled: disabled.remindersEnabled,
       });
-      await db.revokeRelationship(patient.appUserId, relationship.id);
+      await db.revokeRelationship(patient.appUserId, relationshipId);
       await assertApiError(
         () => women.getCareSummary(caregiver.appUserId, patient.appUserId),
         403,
