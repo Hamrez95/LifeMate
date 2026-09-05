@@ -20,6 +20,32 @@ enum LifeMateLocalProjectionDomain {
   final String wireName;
 }
 
+/// Type-compatible namespace for shared APIs compiled on web.
+///
+/// Browser builds may carry these identifiers in memory for request/projection
+/// wiring, but the web seam does not provide any protected local persistence.
+final class LifeMateLocalNamespace {
+  LifeMateLocalNamespace({
+    required String environmentId,
+    required String accountId,
+    required String personId,
+  }) : environmentId = _requireValue(environmentId, 'environmentId'),
+       accountId = _requireValue(accountId, 'accountId'),
+       personId = _requireValue(personId, 'personId');
+
+  final String environmentId;
+  final String accountId;
+  final String personId;
+
+  static String _requireValue(String value, String field) {
+    final normalized = value.trim();
+    if (normalized.isEmpty) {
+      throw ArgumentError.value(value, field, '$field must not be empty.');
+    }
+    return normalized;
+  }
+}
+
 /// Web-visible projection value with the same read-only shape as the native
 /// record. Web runtime methods still fail closed before any protected health
 /// projection can be persisted or returned from browser storage.
@@ -48,10 +74,28 @@ final class LifeMateLocalProjectionRecord {
 }
 
 /// Type-only web seam for APIs whose native signature accepts the protected
-/// local health store. There is intentionally no constructor or storage API on
-/// web, so browser code cannot instantiate the native encrypted execution
+/// local health store. There is intentionally no constructor or implementation
+/// on web, so browser code cannot instantiate the native encrypted execution
 /// engine or silently substitute an unprotected PHI store.
-abstract interface class LifeMateLocalHealthStore {}
+abstract interface class LifeMateLocalHealthStore {
+  Future<void> putProjection({
+    required LifeMateLocalNamespace namespace,
+    required LifeMateLocalProjectionDomain domain,
+    required String recordKey,
+    required Map<String, dynamic> payload,
+    String? sourceRevision,
+    DateTime? sourceUpdatedAtUtc,
+    String? syncCursor,
+    String? contentVersion,
+    String? ruleVersion,
+  });
+
+  Future<LifeMateLocalProjectionRecord?> readProjection({
+    required LifeMateLocalNamespace namespace,
+    required LifeMateLocalProjectionDomain domain,
+    required String recordKey,
+  });
+}
 
 final class LifeMateServerProjectionChange {
   LifeMateServerProjectionChange.upsert({
