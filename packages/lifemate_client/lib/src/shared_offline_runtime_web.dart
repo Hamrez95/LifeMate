@@ -98,6 +98,18 @@ final class LifeMateSharedOfflineRuntime {
     LifeMateBeforeProjectionCheckpoint? beforeCheckpoint,
   }) => _unsupportedReconcile();
 
+  Future<void> cacheWellMateHomeSnapshot({
+    required DateTime fromDate,
+    required DateTime toDate,
+    required Iterable<Map<String, dynamic>> treatmentPlans,
+    required Iterable<Map<String, dynamic>> treatmentOccurrences,
+  }) => Future<void>.error(_unsupported());
+
+  Future<Map<String, dynamic>?> readWellMateHomeSnapshot({
+    required DateTime fromDate,
+    required DateTime toDate,
+  }) => Future<Map<String, dynamic>?>.error(_unsupported());
+
   Future<int> pendingMutationCount() => Future<int>.value(0);
 
   Future<Map<String, String>> pendingAdherenceStates() =>
