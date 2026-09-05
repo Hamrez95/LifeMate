@@ -70,13 +70,11 @@ Deno.test("privacy contract exposes no admin acceptance or user opt-in mutation"
   const source = await Deno.readTextFile(
     new URL("./privacy_consent_routes.ts", import.meta.url),
   );
+  const compact = source.replace(/\s+/g, "");
   assertEquals(source.includes("acceptances/accept"), false);
   assertEquals(source.includes("consents/grant"), false);
   assertEquals(source.includes("preferences/opt-in"), false);
-  assertEquals(
-    source.includes("accountPreferenceMutableFromAdmin:false"),
-    true,
-  );
+  assertEquals(compact.includes("accountPreferenceMutableFromAdmin:false"), true);
 });
 
 Deno.test("preference-purpose policy directory is admin-runtime only and uses policy timestamps", async () => {
