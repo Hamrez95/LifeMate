@@ -130,6 +130,7 @@ class LifeMateEditApi {
     required int patientReminderMinutesBefore,
     required int caregiverReminderMinutesBefore,
     required String status,
+    String? clientRequestId,
   }) async => _object(
     await _request(
       'PATCH',
@@ -151,6 +152,7 @@ class LifeMateEditApi {
         'status': status.trim().toLowerCase(),
       },
       retryable: true,
+      idempotencyKey: clientRequestId,
     ),
   );
 
@@ -209,6 +211,7 @@ class LifeMateEditApi {
     String path, {
     Map<String, dynamic>? body,
     bool retryable = false,
+    String? idempotencyKey,
   }) async {
     final token = _accessToken();
     if (token == null || token.isEmpty) {
@@ -223,14 +226,17 @@ class LifeMateEditApi {
       path: '${_baseUri.path.replaceFirst(RegExp(r'/$'), '')}$path',
     );
     final isMutation = method == 'PATCH';
-    final idempotencyKey = isMutation
-        ? LifeMateApiClient.createClientRequestId()
+    final normalizedIdempotencyKey = idempotencyKey?.trim();
+    final requestId = isMutation
+        ? (normalizedIdempotencyKey?.isNotEmpty == true
+              ? normalizedIdempotencyKey
+              : LifeMateApiClient.createClientRequestId())
         : null;
     final headers = <String, String>{
       'Accept': 'application/json',
       'Authorization': 'Bearer $token',
       if (body != null) 'Content-Type': 'application/json',
-      if (idempotencyKey != null) 'Idempotency-Key': idempotencyKey,
+      if (requestId != null) 'Idempotency-Key': requestId,
     };
     final encodedBody = body == null ? null : jsonEncode(body);
     final maxAttempts = retryable ? 3 : 1;

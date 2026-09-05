@@ -310,6 +310,55 @@ class DurableLifeMateApiClient extends LifeMateApiClient {
     }
   }
 
+  /// Persists an explicitly offline treatment-plan edit into the already-
+  /// adopted protected runtime. The caller owns the stable client request ID;
+  /// validation and expected-revision semantics remain in lifemate_core.
+  Future<LifeMateDurableMutation> enqueueOfflineTreatmentPlanEdit({
+    required String clientRequestId,
+    required String treatmentPlanId,
+    required int version,
+    required int medicationVersion,
+    required String medicationName,
+    String? strengthText,
+    String? form,
+    required String doseText,
+    String? instructions,
+    required DateTime startDate,
+    DateTime? endDate,
+    required String timeZone,
+    required List<Map<String, String>> schedules,
+    required int patientReminderMinutesBefore,
+    required int caregiverReminderMinutesBefore,
+    required String status,
+    DateTime? createdAtUtc,
+  }) {
+    final runtime = _activeSharedRuntime();
+    if (runtime == null) {
+      throw StateError(
+        'Canonical shared offline runtime must be adopted before treatment enqueue.',
+      );
+    }
+    return runtime.enqueueTreatmentEdit(
+      mutationId: clientRequestId,
+      treatmentPlanId: treatmentPlanId,
+      version: version,
+      medicationVersion: medicationVersion,
+      medicationName: medicationName,
+      strengthText: strengthText,
+      form: form,
+      doseText: doseText,
+      instructions: instructions,
+      startDate: startDate,
+      endDate: endDate,
+      timeZone: timeZone,
+      schedules: schedules,
+      patientReminderMinutesBefore: patientReminderMinutesBefore,
+      caregiverReminderMinutesBefore: caregiverReminderMinutesBefore,
+      status: status,
+      createdAtUtc: createdAtUtc,
+    );
+  }
+
   Future<void> _cacheServerHomeSnapshot(
     Map<String, dynamic> snapshot, {
     required DateTime fromDate,
