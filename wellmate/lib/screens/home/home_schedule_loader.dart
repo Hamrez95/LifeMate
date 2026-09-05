@@ -24,6 +24,7 @@ class HomeScheduleSnapshot {
     required this.doseOccurrences,
     required this.careEvents,
     required this.failures,
+    this.pendingTreatmentCreates = const <Map<String, dynamic>>[],
     this.offlineCached = false,
     this.offlineCachedAtUtc,
   });
@@ -32,6 +33,7 @@ class HomeScheduleSnapshot {
   final List<Map<String, dynamic>> treatmentPlans;
   final List<Map<String, dynamic>> doseOccurrences;
   final List<Map<String, dynamic>> careEvents;
+  final List<Map<String, dynamic>> pendingTreatmentCreates;
   final List<HomeScheduleLoadFailure> failures;
   final bool offlineCached;
   final DateTime? offlineCachedAtUtc;
@@ -69,6 +71,7 @@ class HomeScheduleLoader {
         fromDate: fromDate,
         toDate: toDate,
       );
+      final pendingTreatmentCreates = await _pendingTreatmentCreates(api);
       final offlineCached = value['offlineCached'] == true;
       final cachedAt = DateTime.tryParse(
         value['offlineCachedAtUtc']?.toString() ?? '',
@@ -82,6 +85,7 @@ class HomeScheduleLoader {
         treatmentPlans: _objects(value['treatmentPlans'], 'treatmentPlans'),
         doseOccurrences: _objects(value['doseOccurrences'], 'doseOccurrences'),
         careEvents: _objects(value['careEvents'], 'careEvents'),
+        pendingTreatmentCreates: pendingTreatmentCreates,
         failures: const [],
         offlineCached: offlineCached,
         offlineCachedAtUtc: offlineCached ? cachedAt : null,
@@ -140,8 +144,25 @@ class HomeScheduleLoader {
       treatmentPlans: treatmentPlans.value ?? const [],
       doseOccurrences: doseOccurrences.value ?? const [],
       careEvents: careEvents.value ?? const [],
+      pendingTreatmentCreates: await _pendingTreatmentCreates(api),
       failures: List<HomeScheduleLoadFailure>.unmodifiable(failures),
     );
+  }
+
+  Future<List<Map<String, dynamic>>> _pendingTreatmentCreates(
+    LifeMateApiClient api,
+  ) async {
+    if (api is! DurableLifeMateApiClient) {
+      return const <Map<String, dynamic>>[];
+    }
+    try {
+      return await api.pendingOfflineTreatmentPlanCreates();
+    } catch (_) {
+      // Pending local data is supplemental presentation only. If the protected
+      // runtime is unavailable or not adopted, omit it rather than widening
+      // access, falling back to browser storage, or breaking canonical Home.
+      return const <Map<String, dynamic>>[];
+    }
   }
 
   Map<String, dynamic> _object(dynamic value, String field) {
