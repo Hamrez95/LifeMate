@@ -197,7 +197,11 @@ Deno.test("phase-only projection hides raw fertile and ovulation phase values", 
 Deno.test("irregular fertility projection returns unknown without estimated dates", () => {
   const privacy = scopes({ viewFertilityEstimate: true });
   const result = presentFertilityEstimate(
-    { ...rawEstimate, cyclePattern: "variable", fertilityEstimateReliable: false },
+    {
+      ...rawEstimate,
+      cyclePattern: "variable",
+      fertilityEstimateReliable: false,
+    },
     privacy,
   );
   assertEquals(result?.state, "unavailable");

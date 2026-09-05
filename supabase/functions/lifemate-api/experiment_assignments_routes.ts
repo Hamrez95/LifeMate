@@ -1,4 +1,7 @@
-import { createExperimentAssignmentStore, parseExperimentAssignmentProduct } from "./experiment_assignments.ts";
+import {
+  createExperimentAssignmentStore,
+  parseExperimentAssignmentProduct,
+} from "./experiment_assignments.ts";
 import { json } from "./http.ts";
 import { enforceRateLimit } from "./security.ts";
 import { ApiError, readJsonObject } from "./validation.ts";
@@ -19,7 +22,11 @@ export function createExperimentAssignmentRouteHandler(
     ) {
       return null;
     }
-    enforceRateLimit(`experiment-assignment:${input.appUserId}`, 30, 60 * 60_000);
+    enforceRateLimit(
+      `experiment-assignment:${input.appUserId}`,
+      30,
+      60 * 60_000,
+    );
     const body = await readJsonObject(input.request);
     if (Object.keys(body).some((key) => key !== "product")) {
       throw new ApiError(

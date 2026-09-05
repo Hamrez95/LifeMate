@@ -56,7 +56,9 @@ export type ProfilePatch = {
 export function normalizeProfilePatch(
   body: Record<string, unknown>,
 ): ProfilePatch {
-  const presentationIntent = optionalPresentationIntent(body.presentationIntent);
+  const presentationIntent = optionalPresentationIntent(
+    body.presentationIntent,
+  );
   const completeOnboarding = body.completeOnboarding === true;
   if (completeOnboarding && presentationIntent == null) {
     throw new ApiError(
@@ -226,7 +228,9 @@ export function createProfileStore(
            metadata_json, created_at_utc)
         values
           (${crypto.randomUUID()}, ${userId},
-           ${nextPath == null ? "profile.photo_deleted" : "profile.photo_updated"},
+           ${
+        nextPath == null ? "profile.photo_deleted" : "profile.photo_updated"
+      },
            'user_profile', ${current[0].id}, null, now())
       `;
       return previous;
@@ -466,7 +470,11 @@ export function createProfileStore(
            metadata_json, created_at_utc)
         values
           (${crypto.randomUUID()}, ${userId},
-           ${patch.completeOnboarding ? "profile.onboarding_completed" : "profile.updated"},
+           ${
+        patch.completeOnboarding
+          ? "profile.onboarding_completed"
+          : "profile.updated"
+      },
            'user_profile', ${compatibilityRows[0].id}, null, now())
       `;
       return {

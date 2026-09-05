@@ -70,7 +70,10 @@ export function normalizeWomenSymptomObservations(
       throw invalidSymptoms();
     }
     const row = raw as Record<string, unknown>;
-    const idText = String(row.id ?? "").trim().toLowerCase().replaceAll("-", "_");
+    const idText = String(row.id ?? "").trim().toLowerCase().replaceAll(
+      "-",
+      "_",
+    );
     if (!canonicalSet.has(idText)) throw invalidSymptoms();
     const id = idText as WomenSymptomId;
     const severity = normalizeSeverity(row.severity);
@@ -107,10 +110,14 @@ export function normalizeStoredWomenSymptomObservations(
   for (const raw of value) {
     if (raw == null || typeof raw !== "object" || Array.isArray(raw)) continue;
     const row = raw as Record<string, unknown>;
-    const idText = String(row.id ?? "").trim().toLowerCase().replaceAll("-", "_");
+    const idText = String(row.id ?? "").trim().toLowerCase().replaceAll(
+      "-",
+      "_",
+    );
     if (!canonicalSet.has(idText)) continue;
     const severityNumber = Number(row.severity);
-    const severity = Number.isInteger(severityNumber) && severityNumber >= 1 && severityNumber <= 5
+    const severity = Number.isInteger(severityNumber) && severityNumber >= 1 &&
+        severityNumber <= 5
       ? severityNumber as WomenSymptomSeverity
       : null;
     result.push({ id: idText as WomenSymptomId, severity });

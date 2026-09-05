@@ -24,9 +24,13 @@ const columns: Record<ScopeKey, string> = {
   viewCalendarDetail: "view_calendar_detail",
 };
 export const defaultCompanionPrivacyScopes = (): ScopeRecord => ({
-  viewPeriodTiming: false, viewPhaseSummary: false, viewSharedWellbeing: false,
-  receiveMoodSupportNotifications: false, receivePhaseNotifications: false,
-  viewFertilityEstimate: false, receiveFertilityNotifications: false,
+  viewPeriodTiming: false,
+  viewPhaseSummary: false,
+  viewSharedWellbeing: false,
+  receiveMoodSupportNotifications: false,
+  receivePhaseNotifications: false,
+  viewFertilityEstimate: false,
+  receiveFertilityNotifications: false,
   viewCalendarDetail: false,
 });
 
@@ -47,7 +51,11 @@ export function createWomenCompanionPrivacyStore(databaseUrl: string) {
     return rows.map((row: Record<string, unknown>) => present(row));
   }
 
-  async function updateOwnerScopes(ownerAppUserId: string, relationshipIdValue: unknown, body: Record<string, unknown>) {
+  async function updateOwnerScopes(
+    ownerAppUserId: string,
+    relationshipIdValue: unknown,
+    body: Record<string, unknown>,
+  ) {
     const relationshipId = requiredUuid(relationshipIdValue, "relationshipId");
     const expectedVersion = integer(body.version, "version", 0);
     const next = normalize(body.scopes);
@@ -60,7 +68,13 @@ export function createWomenCompanionPrivacyStore(databaseUrl: string) {
           and status = 'Active'
         for update
       `;
-      if (!relationship[0]) throw new ApiError(404, "companion_relationship_not_found", "Active companion relationship was not found.");
+      if (!relationship[0]) {
+        throw new ApiError(
+          404,
+          "companion_relationship_not_found",
+          "Active companion relationship was not found.",
+        );
+      }
       const existing = await tx`
         select * from lifemate.women_companion_privacy_scopes
         where relationship_id = ${relationshipId}::uuid for update
@@ -109,38 +123,87 @@ export function createWomenCompanionPrivacyStore(databaseUrl: string) {
   return { listOwnerScopes, updateOwnerScopes };
 }
 
-async function requirePeriodProductAccess(connection: any, appUserId: string): Promise<void> {
+async function requirePeriodProductAccess(
+  connection: any,
+  appUserId: string,
+): Promise<void> {
   const rows = await connection`
     select commerce.period_access_snapshot(${appUserId}::uuid) as snapshot
   `;
   const snapshot = rows[0]?.snapshot as Record<string, unknown> | undefined;
   if (snapshot?.hasProductAccess !== true) {
-    throw new ApiError(403, "period_subscription_required", "An active Period Calendar trial or subscription is required.");
+    throw new ApiError(
+      403,
+      "period_subscription_required",
+      "An active Period Calendar trial or subscription is required.",
+    );
   }
 }
-async function selfPersonId(connection: any, appUserId: string): Promise<string> {
-  const rows = await connection`select core.self_person_id_for_legacy_app_user(${appUserId}::uuid)::text as person_id`;
-  if (!rows[0]?.person_id) throw new ApiError(409, "identity_person_mapping_missing", "The LifeMate person mapping is unavailable.");
+async function selfPersonId(
+  connection: any,
+  appUserId: string,
+): Promise<string> {
+  const rows =
+    await connection`select core.self_person_id_for_legacy_app_user(${appUserId}::uuid)::text as person_id`;
+  if (!rows[0]?.person_id) {
+    throw new ApiError(
+      409,
+      "identity_person_mapping_missing",
+      "The LifeMate person mapping is unavailable.",
+    );
+  }
   return rows[0].person_id;
 }
 function normalize(value: unknown): ScopeRecord {
-  if (!value || typeof value !== "object" || Array.isArray(value)) throw new ApiError(400, "invalid_companion_privacy_scopes", "scopes must be an object.");
-  const record = value as Record<string, unknown>, result = defaultCompanionPrivacyScopes();
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    throw new ApiError(
+      400,
+      "invalid_companion_privacy_scopes",
+      "scopes must be an object.",
+    );
+  }
+  const record = value as Record<string, unknown>,
+    result = defaultCompanionPrivacyScopes();
   for (const key of companionPrivacyScopeKeys) {
-    if (typeof record[key] !== "boolean") throw new ApiError(400, "invalid_companion_privacy_scopes", `${key} must be boolean.`);
+    if (typeof record[key] !== "boolean") {
+      throw new ApiError(
+        400,
+        "invalid_companion_privacy_scopes",
+        `${key} must be boolean.`,
+      );
+    }
     result[key] = record[key] as boolean;
   }
   return result;
 }
 function present(row: Record<string, unknown>) {
   const scopes = defaultCompanionPrivacyScopes();
-  for (const key of companionPrivacyScopeKeys) scopes[key] = row[columns[key]] === true;
-  return { relationshipId: String(row.relationship_id), caregiverUserId: row.caregiver_user_id ?? null,
-    caregiverDisplayName: row.caregiver_display_name ?? null, version: Number(row.version ?? 0), scopes };
+  for (const key of companionPrivacyScopeKeys) {
+    scopes[key] = row[columns[key]] === true;
+  }
+  return {
+    relationshipId: String(row.relationship_id),
+    caregiverUserId: row.caregiver_user_id ?? null,
+    caregiverDisplayName: row.caregiver_display_name ?? null,
+    version: Number(row.version ?? 0),
+    scopes,
+  };
 }
 function integer(value: unknown, name: string, minimum: number) {
   const parsed = typeof value === "number" ? value : Number(value);
-  if (!Number.isInteger(parsed) || parsed < minimum) throw new ApiError(400, "invalid_companion_privacy_version", `${name} is invalid.`);
+  if (!Number.isInteger(parsed) || parsed < minimum) {
+    throw new ApiError(
+      400,
+      "invalid_companion_privacy_version",
+      `${name} is invalid.`,
+    );
+  }
   return parsed;
 }
-function stale() { return new ApiError(409, "stale_companion_privacy_scopes", "Companion privacy settings changed. Refresh and try again."); }
+function stale() {
+  return new ApiError(
+    409,
+    "stale_companion_privacy_scopes",
+    "Companion privacy settings changed. Refresh and try again.",
+  );
+}

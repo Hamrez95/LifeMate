@@ -63,13 +63,14 @@ Deno.test("WellMate first-value state is presentation-only and allow-listed", ()
     "Skipped",
   );
   assertThrows(
-    () => normalizeProfilePatch({
-      version: 2,
-      displayName: "Owner",
-      locale: "fa",
-      timeZone: "Asia/Tehran",
-      wellMateFirstValueState: "CaregiverAuthorized",
-    }),
+    () =>
+      normalizeProfilePatch({
+        version: 2,
+        displayName: "Owner",
+        locale: "fa",
+        timeZone: "Asia/Tehran",
+        wellMateFirstValueState: "CaregiverAuthorized",
+      }),
     ApiError,
   );
 });

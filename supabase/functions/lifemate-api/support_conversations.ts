@@ -155,7 +155,12 @@ export function createSupportConversationStore(databaseUrl: string) {
       return { accountId, ...requiredResult(rows[0]?.result) };
     },
 
-    async finalizeAttachmentScan(appUserId: string, attachmentId: string, status: "Available" | "Rejected" | "ScanError", reasonCode: string | null) {
+    async finalizeAttachmentScan(
+      appUserId: string,
+      attachmentId: string,
+      status: "Available" | "Rejected" | "ScanError",
+      reasonCode: string | null,
+    ) {
       const accountId = await accountIdForAppUser(appUserId);
       const rows = await sql`
         select support.finalize_user_support_attachment_scan(
@@ -168,7 +173,11 @@ export function createSupportConversationStore(databaseUrl: string) {
       return requiredResult(rows[0]?.result);
     },
 
-    async getAttachmentDownload(appUserId: string, ticketId: string, attachmentId: string) {
+    async getAttachmentDownload(
+      appUserId: string,
+      ticketId: string,
+      attachmentId: string,
+    ) {
       const accountId = await accountIdForAppUser(appUserId);
       const rows = await sql`
         select * from support.get_user_support_attachment_download(
@@ -179,7 +188,11 @@ export function createSupportConversationStore(databaseUrl: string) {
       `;
       const row = rows[0] as Row | undefined;
       if (!row) {
-        throw new ApiError(404, "support_attachment_unavailable", "Attachment is unavailable.");
+        throw new ApiError(
+          404,
+          "support_attachment_unavailable",
+          "Attachment is unavailable.",
+        );
       }
       return {
         attachmentId: String(row.attachment_id),

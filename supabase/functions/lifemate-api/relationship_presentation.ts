@@ -2,7 +2,8 @@ import { ApiError } from "./validation.ts";
 
 type Row = Record<string, any>;
 
-export const relationshipPresentationCopyVersion = "relationship-presentation-v3";
+export const relationshipPresentationCopyVersion =
+  "relationship-presentation-v3";
 
 export const relationshipPresentationTypes = new Set([
   "partner",

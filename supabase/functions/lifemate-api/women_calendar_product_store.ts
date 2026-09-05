@@ -6,7 +6,9 @@ export function createWomenCalendarProductStore(databaseUrl: string) {
   const base = createWomenCalendarRichPeriodStore(databaseUrl);
   const insightPreferences = createWomenInsightPreferencesStore(databaseUrl);
 
-  async function getOwnerProfile(appUserId: string): Promise<Record<string, unknown>> {
+  async function getOwnerProfile(
+    appUserId: string,
+  ): Promise<Record<string, unknown>> {
     return {
       ...await base.getOwnerProfile(appUserId),
       insightPreferences: await insightPreferences.get(appUserId),

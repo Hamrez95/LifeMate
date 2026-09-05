@@ -89,7 +89,7 @@ Deno.test({
       assertEquals(state[0].account_status, "DeletionPending");
       assertEquals(state[0].app_user_status, "Disabled");
       assertEquals(String(state[0].account_id), accountId);
-      assertEquals(state[0].retention_policy_version, "retention-v2");
+      assertEquals(state[0].retention_policy_version, "retention-v3.1");
 
       let blocked: ApiError | null = null;
       try {
@@ -104,7 +104,7 @@ Deno.test({
       const latest = await store.latestDeletionRequest(appUserId);
       assertEquals(latest?.id, requested.id);
       assertEquals(latest?.status, "requested");
-      assertEquals(latest?.retentionPolicyVersion, "retention-v2");
+      assertEquals(latest?.retentionPolicyVersion, "retention-v3.1");
     } finally {
       await closeLifeMateSqlClientsForTest().catch(() => undefined);
       await adminSql`

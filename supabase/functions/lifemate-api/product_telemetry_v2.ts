@@ -63,8 +63,12 @@ export function parseProductVersionPresence(
 
   if (!products.has(product)) invalid("product_invalid", "product");
   if (!platforms.has(platform)) invalid("platform_invalid", "platform");
-  if (!safeVersion.test(appVersion)) invalid("app_version_invalid", "appVersion");
-  if (!safeBuild.test(buildNumber)) invalid("build_number_invalid", "buildNumber");
+  if (!safeVersion.test(appVersion)) {
+    invalid("app_version_invalid", "appVersion");
+  }
+  if (!safeBuild.test(buildNumber)) {
+    invalid("build_number_invalid", "buildNumber");
+  }
   if (rolloutCohort != null && !safeCohort.test(rolloutCohort)) {
     invalid("rollout_cohort_invalid", "rolloutCohort");
   }
@@ -78,11 +82,16 @@ export function parseUpdatePolicyQuery(url: URL): {
   currentVersion: string;
 } {
   const product = (url.searchParams.get("product") ?? "").trim().toLowerCase();
-  const platform = (url.searchParams.get("platform") ?? "").trim().toLowerCase();
+  const platform = (url.searchParams.get("platform") ?? "").trim()
+    .toLowerCase();
   const currentVersion = (url.searchParams.get("currentVersion") ?? "").trim();
   if (!products.has(product)) invalid("product_invalid", "product");
-  if (!mobilePolicyPlatforms.has(platform)) invalid("platform_invalid", "platform");
-  if (!safeVersion.test(currentVersion) || parseSemver(currentVersion) == null) {
+  if (!mobilePolicyPlatforms.has(platform)) {
+    invalid("platform_invalid", "platform");
+  }
+  if (
+    !safeVersion.test(currentVersion) || parseSemver(currentVersion) == null
+  ) {
     invalid("app_version_invalid", "currentVersion");
   }
   return { product, platform, currentVersion };
@@ -204,7 +213,9 @@ export function compareSemver(left: string, right: string): number {
   return 0;
 }
 
-function parseSemver(value: string): { core: [number, number, number]; pre: string[] } | null {
+function parseSemver(
+  value: string,
+): { core: [number, number, number]; pre: string[] } | null {
   const match = value.match(
     /^(\d+)\.(\d+)\.(\d+)(?:-([0-9A-Za-z.-]+))?(?:\+[0-9A-Za-z.-]+)?$/,
   );

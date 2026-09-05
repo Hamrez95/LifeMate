@@ -14,9 +14,21 @@ Deno.test("regression: 29m groups while 30m and 31m do not", () => {
     manualSpacingBeforeMinutes: 0,
     manualSpacingAfterMinutes: 0,
   });
-  assertEquals(buildNearbyDoseProposal([base("a", "08:00"), base("b", "08:29")]).groups.length, 1);
-  assertEquals(buildNearbyDoseProposal([base("a", "08:00"), base("b", "08:30")]).groups.length, 0);
-  assertEquals(buildNearbyDoseProposal([base("a", "08:00"), base("b", "08:31")]).groups.length, 0);
+  assertEquals(
+    buildNearbyDoseProposal([base("a", "08:00"), base("b", "08:29")]).groups
+      .length,
+    1,
+  );
+  assertEquals(
+    buildNearbyDoseProposal([base("a", "08:00"), base("b", "08:30")]).groups
+      .length,
+    0,
+  );
+  assertEquals(
+    buildNearbyDoseProposal([base("a", "08:00"), base("b", "08:31")]).groups
+      .length,
+    0,
+  );
 });
 
 Deno.test("regression: strict nearby proposal preserves every canonical hourly interval", () => {
@@ -64,14 +76,16 @@ Deno.test("regression: server apply sources pin treatment timing and preference 
   );
   assert(nearbyStore.includes("expected_treatment_plan_version"));
   assert(nearbyStore.includes("expected_timing_version"));
-  assert(nearbyStore.includes('stale_schedule_proposal'));
-  assert(nearbyStore.includes("intervalHours !== Number(change.interval_hours)"));
+  assert(nearbyStore.includes("stale_schedule_proposal"));
+  assert(
+    nearbyStore.includes("intervalHours !== Number(change.interval_hours)"),
+  );
 
   const sleepStore = await Deno.readTextFile(
     new URL("./medication_schedule_sleep_store.ts", import.meta.url),
   );
   assert(sleepStore.includes("schedule_preferences_version"));
-  assert(sleepStore.includes('stale_sleep_preferences'));
-  assert(sleepStore.includes('acknowledgedTimingChanges !== true'));
-  assert(sleepStore.includes('timing_acknowledgement_required'));
+  assert(sleepStore.includes("stale_sleep_preferences"));
+  assert(sleepStore.includes("acknowledgedTimingChanges !== true"));
+  assert(sleepStore.includes("timing_acknowledgement_required"));
 });

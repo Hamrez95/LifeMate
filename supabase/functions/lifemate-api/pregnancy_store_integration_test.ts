@@ -1,7 +1,4 @@
-import {
-  assertEquals,
-  assertRejects,
-} from "jsr:@std/assert@1.0.14";
+import { assertEquals, assertRejects } from "jsr:@std/assert@1.0.14";
 import postgres from "postgres";
 import { closeLifeMateSqlClientsForTest } from "./database_client.ts";
 import {
@@ -22,7 +19,8 @@ const adminSql = postgres(databaseUrl, {
 });
 
 Deno.test({
-  name: "pregnancy episode history, idempotency, dating revisions and active uniqueness",
+  name:
+    "pregnancy episode history, idempotency, dating revisions and active uniqueness",
   sanitizeOps: false,
   sanitizeResources: false,
   fn: async () => {
@@ -64,16 +62,17 @@ Deno.test({
       assertEquals(retried.id, first.id);
 
       await assertRejects(
-        () => store.createEpisode({
-          motherPersonId,
-          status: "active",
-          method: "lmp",
-          lmpDate: "2026-06-01",
-          estimatedDueDate: null,
-          referenceDate: null,
-          gestationalAgeAtReferenceDays: null,
-          idempotencyKey: "pregnancy-create-conflicting-active",
-        }),
+        () =>
+          store.createEpisode({
+            motherPersonId,
+            status: "active",
+            method: "lmp",
+            lmpDate: "2026-06-01",
+            estimatedDueDate: null,
+            referenceDate: null,
+            gestationalAgeAtReferenceDays: null,
+            idempotencyKey: "pregnancy-create-conflicting-active",
+          }),
         PregnancyStoreError,
         "active_pregnancy_exists",
       );
@@ -139,7 +138,10 @@ Deno.test({
       secondEpisodeId = second.id;
       assertEquals(second.status, "active");
       assertEquals(second.datingMethod, null);
-      assertEquals((await store.getCurrentEpisode(motherPersonId))?.id, second.id);
+      assertEquals(
+        (await store.getCurrentEpisode(motherPersonId))?.id,
+        second.id,
+      );
       assertEquals((await store.listHistory(motherPersonId)).length, 2);
 
       const schemaChecks = await adminSql`

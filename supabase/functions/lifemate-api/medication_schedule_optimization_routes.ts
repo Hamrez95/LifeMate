@@ -2,7 +2,9 @@ import { json } from "./http.ts";
 import { createMedicationScheduleOptimizationStore } from "./medication_schedule_optimization_store.ts";
 import { enforceRateLimit } from "./security.ts";
 
-export function createMedicationScheduleOptimizationRouteHandler(databaseUrl: string) {
+export function createMedicationScheduleOptimizationRouteHandler(
+  databaseUrl: string,
+) {
   const store = createMedicationScheduleOptimizationStore(databaseUrl);
 
   return async function medicationScheduleOptimizationRouteHandler(input: {

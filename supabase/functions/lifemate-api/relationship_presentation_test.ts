@@ -68,7 +68,10 @@ Deno.test("caregiver sees caregiver-owned nickname with canonical relation", () 
   assertEquals(value.caregiverDisplayName, "Maryam");
   assertEquals(value.relationshipType, "family");
   assertEquals(value.presentationType, "family");
-  assertEquals(value.presentationCopyVersion, relationshipPresentationCopyVersion);
+  assertEquals(
+    value.presentationCopyVersion,
+    relationshipPresentationCopyVersion,
+  );
 });
 
 Deno.test("owner sees owner-owned caregiver nickname independently", () => {
@@ -102,14 +105,26 @@ Deno.test("owner presentation columns are reportable metadata only", () => {
     patient_caregiver_display_name: "دوست من",
   });
   const keys = Object.keys(columns).join(" ");
-  assertEquals(/permission|consent|can_view|scope|notification/i.test(keys), false);
+  assertEquals(
+    /permission|consent|can_view|scope|notification/i.test(keys),
+    false,
+  );
 });
 
 Deno.test("presentation mutation remains isolated from authorization", async () => {
-  const source = await Deno.readTextFile("person_care_relationship_management.ts");
-  const start = source.indexOf("async function updateRelationshipPresentation(");
-  const end = source.indexOf("async function updateRelationshipPermissions(", start);
-  if (start < 0 || end <= start) throw new Error("presentation mutation block missing");
+  const source = await Deno.readTextFile(
+    "person_care_relationship_management.ts",
+  );
+  const start = source.indexOf(
+    "async function updateRelationshipPresentation(",
+  );
+  const end = source.indexOf(
+    "async function updateRelationshipPermissions(",
+    start,
+  );
+  if (start < 0 || end <= start) {
+    throw new Error("presentation mutation block missing");
+  }
   const block = source.slice(start, end);
 
   assertEquals(block.includes("relationship_type"), true);

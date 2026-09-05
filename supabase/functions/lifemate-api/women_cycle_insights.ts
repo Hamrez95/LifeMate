@@ -65,10 +65,16 @@ export function evaluateWomenCycleInsights(
     cycleHistoryInsight(context),
   ].filter((value): value is WomenCycleInsight => value != null)
     .filter((value) => !context.recentInsightIds.includes(value.id))
-    .sort((left, right) => right.priority - left.priority || left.id.localeCompare(right.id));
+    .sort((left, right) =>
+      right.priority - left.priority || left.id.localeCompare(right.id)
+    );
 
   if (candidates.length === 0) {
-    return { inApp: [], notifications: [], suppressedReason: "insufficient_data" };
+    return {
+      inApp: [],
+      notifications: [],
+      suppressedReason: "insufficient_data",
+    };
   }
 
   const remainingNotificationSlots = Math.max(
@@ -91,7 +97,9 @@ function expectedPeriodInsight(
 ): WomenCycleInsight | null {
   const estimate = context.estimate;
   if (!estimate || estimate.confidence === "low") return null;
-  if (estimate.daysUntilNextPeriod < 0 || estimate.daysUntilNextPeriod > 3) return null;
+  if (estimate.daysUntilNextPeriod < 0 || estimate.daysUntilNextPeriod > 3) {
+    return null;
+  }
   return {
     id: `period-window:${estimate.nextPeriodStart}`,
     type: "expected_period_window",
@@ -110,21 +118,29 @@ function recurringSymptomInsight(
   context: WomenCycleInsightContext,
 ): WomenCycleInsight | null {
   const estimate = context.estimate;
-  if (!estimate || estimate.confidence === "low" || context.dailyLogs.length < 3) {
+  if (
+    !estimate || estimate.confidence === "low" || context.dailyLogs.length < 3
+  ) {
     return null;
   }
   const currentCycleDay = estimate.cycleDay;
   const counts = new Map<WomenSymptomId, number>();
   for (const log of context.dailyLogs) {
     const symptoms = canonicalizeLegacySymptoms(log.symptoms);
-    const relativeDay = cycleDayForDate(log.loggedOn, estimate.cycleStart, estimate.cycleLength);
+    const relativeDay = cycleDayForDate(
+      log.loggedOn,
+      estimate.cycleStart,
+      estimate.cycleLength,
+    );
     if (Math.abs(relativeDay - currentCycleDay) > 2) continue;
     for (const symptom of symptoms) {
       if (symptom === "no_symptom" || symptom === "other") continue;
       counts.set(symptom, (counts.get(symptom) ?? 0) + 1);
     }
   }
-  const ranked = [...counts.entries()].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]));
+  const ranked = [...counts.entries()].sort((a, b) =>
+    b[1] - a[1] || a[0].localeCompare(b[0])
+  );
   const [symptom, count] = ranked[0] ?? [];
   if (!symptom || count < 2) return null;
   return {
@@ -147,7 +163,8 @@ function loggingReminderInsight(
   if (context.lastLoggedOn === context.today) return null;
   const estimate = context.estimate;
   if (!estimate) return null;
-  const relevant = estimate.estimatedBleeding || estimate.daysUntilNextPeriod <= 2;
+  const relevant = estimate.estimatedBleeding ||
+    estimate.daysUntilNextPeriod <= 2;
   if (!relevant) return null;
   return {
     id: `logging-reminder:${context.today}`,
@@ -168,7 +185,9 @@ function cycleHistoryInsight(
 ): WomenCycleInsight | null {
   const estimate = context.estimate;
   if (!estimate || context.periodStarts.length < 3) return null;
-  if (estimate.cyclePattern !== "regular" && estimate.cyclePattern !== "variable") return null;
+  if (
+    estimate.cyclePattern !== "regular" && estimate.cyclePattern !== "variable"
+  ) return null;
   return {
     id: `cycle-history:${estimate.cyclePattern}:${estimate.cycleLength}`,
     type: "cycle_history_observation",
@@ -183,7 +202,11 @@ function cycleHistoryInsight(
   };
 }
 
-function cycleDayForDate(dateValue: string, cycleStartValue: string, cycleLength: number): number {
+function cycleDayForDate(
+  dateValue: string,
+  cycleStartValue: string,
+  cycleLength: number,
+): number {
   const date = parseDate(dateValue);
   const start = parseDate(cycleStartValue);
   const days = Math.floor((date.getTime() - start.getTime()) / 86_400_000);

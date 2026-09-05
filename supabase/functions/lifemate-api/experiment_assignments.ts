@@ -20,11 +20,19 @@ const PRODUCT = /^[a-z0-9][a-z0-9._:-]{0,63}$/;
 
 export function parseExperimentAssignmentProduct(value: unknown): string {
   if (typeof value !== "string") {
-    throw new ApiError(400, "experiment_product_invalid", "product is required.");
+    throw new ApiError(
+      400,
+      "experiment_product_invalid",
+      "product is required.",
+    );
   }
   const product = value.trim().toLowerCase();
   if (!PRODUCT.test(product)) {
-    throw new ApiError(400, "experiment_product_invalid", "product is invalid.");
+    throw new ApiError(
+      400,
+      "experiment_product_invalid",
+      "product is invalid.",
+    );
   }
   return product;
 }
@@ -62,7 +70,11 @@ function asRawExperiments(value: unknown): RawExperiment[] {
     }
     const variants = row.variants.map((variant): WeightedExperimentVariant => {
       if (!variant || typeof variant !== "object" || Array.isArray(variant)) {
-        throw new ApiError(503, "experiment_assignment_unavailable", "Experiment variant was invalid.");
+        throw new ApiError(
+          503,
+          "experiment_assignment_unavailable",
+          "Experiment variant was invalid.",
+        );
       }
       const v = variant as Record<string, unknown>;
       if (
@@ -71,7 +83,11 @@ function asRawExperiments(value: unknown): RawExperiment[] {
         !Number.isSafeInteger(v.version) ||
         !("controlValue" in v)
       ) {
-        throw new ApiError(503, "experiment_assignment_unavailable", "Experiment variant was invalid.");
+        throw new ApiError(
+          503,
+          "experiment_assignment_unavailable",
+          "Experiment variant was invalid.",
+        );
       }
       return {
         key: v.key,
@@ -80,9 +96,16 @@ function asRawExperiments(value: unknown): RawExperiment[] {
         version: Number(v.version),
       };
     });
-    const total = variants.reduce((sum, variant) => sum + variant.weightBasisPoints, 0);
+    const total = variants.reduce(
+      (sum, variant) => sum + variant.weightBasisPoints,
+      0,
+    );
     if (variants.length < 2 || variants.length > 10 || total !== 10_000) {
-      throw new ApiError(503, "experiment_assignment_unavailable", "Experiment weights were invalid.");
+      throw new ApiError(
+        503,
+        "experiment_assignment_unavailable",
+        "Experiment weights were invalid.",
+      );
     }
     return {
       key: row.key,
@@ -107,7 +130,8 @@ async function hmacHex(secret: string, value: string): Promise<string> {
   const signature = new Uint8Array(
     await crypto.subtle.sign("HMAC", key, new TextEncoder().encode(value)),
   );
-  return Array.from(signature).map((byte) => byte.toString(16).padStart(2, "0")).join("");
+  return Array.from(signature).map((byte) => byte.toString(16).padStart(2, "0"))
+    .join("");
 }
 
 export function createExperimentAssignmentStore(
@@ -116,7 +140,9 @@ export function createExperimentAssignmentStore(
 ) {
   const sql = getLifeMateSql(databaseUrl);
   if (hashingSecret.length < 32) {
-    throw new Error("Experiment subject hashing secret is not configured safely.");
+    throw new Error(
+      "Experiment subject hashing secret is not configured safely.",
+    );
   }
 
   return {
@@ -165,7 +191,9 @@ export function createExperimentAssignmentStore(
             ${subjectHash}::varchar,
             ${idempotencyHash}::varchar,
             ${now.toISOString()}::timestamptz,
-            ${JSON.stringify({ productCode: product, surface: experiment.surface })}::jsonb
+            ${
+          JSON.stringify({ productCode: product, surface: experiment.surface })
+        }::jsonb
           ) as recorded
         `;
         if (exposureRows[0]?.recorded !== true) {

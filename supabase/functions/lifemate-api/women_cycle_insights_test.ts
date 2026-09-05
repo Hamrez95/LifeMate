@@ -22,18 +22,21 @@ const estimate = {
 };
 
 Deno.test("insights fail safely when globally disabled", () => {
-  assertEquals(evaluateWomenCycleInsights({
-    today: "2026-08-31",
-    estimate,
-    periodStarts: ["2026-06-10", "2026-07-08", "2026-08-05"],
-    dailyLogs: [],
-    insightsEnabled: false,
-    notificationsEnabled: true,
-    notificationCategories: ["expected_period_window"],
-    recentInsightIds: [],
-    deliveredTodayCount: 0,
-    lastLoggedOn: null,
-  }), { inApp: [], notifications: [], suppressedReason: "disabled" });
+  assertEquals(
+    evaluateWomenCycleInsights({
+      today: "2026-08-31",
+      estimate,
+      periodStarts: ["2026-06-10", "2026-07-08", "2026-08-05"],
+      dailyLogs: [],
+      insightsEnabled: false,
+      notificationsEnabled: true,
+      notificationCategories: ["expected_period_window"],
+      recentInsightIds: [],
+      deliveredTodayCount: 0,
+      lastLoggedOn: null,
+    }),
+    { inApp: [], notifications: [], suppressedReason: "disabled" },
+  );
 });
 
 Deno.test("in-app insights remain available when notifications are disabled", () => {
@@ -49,7 +52,10 @@ Deno.test("in-app insights remain available when notifications are disabled", ()
     deliveredTodayCount: 0,
     lastLoggedOn: null,
   });
-  assertEquals(result.inApp.some((row) => row.type === "expected_period_window"), true);
+  assertEquals(
+    result.inApp.some((row) => row.type === "expected_period_window"),
+    true,
+  );
   assertEquals(result.notifications, []);
 });
 
@@ -70,7 +76,9 @@ Deno.test("recurring symptom requires repeated evidence near comparable cycle da
     deliveredTodayCount: 0,
     lastLoggedOn: "2026-08-30",
   });
-  const recurring = result.inApp.find((row) => row.type === "recurring_symptom_pattern");
+  const recurring = result.inApp.find((row) =>
+    row.type === "recurring_symptom_pattern"
+  );
   assertEquals(recurring?.subjectId, "headache");
   assertEquals(recurring?.observed, true);
   assertEquals(recurring?.predicted, false);
@@ -107,5 +115,8 @@ Deno.test("low-confidence estimate never emits predictive period-window insight"
     deliveredTodayCount: 0,
     lastLoggedOn: null,
   });
-  assertEquals(result.inApp.some((row) => row.type === "expected_period_window"), false);
+  assertEquals(
+    result.inApp.some((row) => row.type === "expected_period_window"),
+    false,
+  );
 });

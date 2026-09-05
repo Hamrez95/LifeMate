@@ -83,7 +83,9 @@ Deno.test("force update is only emitted for below-minimum critical policy", () =
 Deno.test("update policy query rejects non-semver client versions", () => {
   const error = assertThrows(() =>
     parseUpdatePolicyQuery(
-      new URL("https://example.test/api/v1/product/update-policy?product=wellmate&platform=android&currentVersion=latest"),
+      new URL(
+        "https://example.test/api/v1/product/update-policy?product=wellmate&platform=android&currentVersion=latest",
+      ),
     )
   );
   assertEquals(error instanceof ApiError, true);

@@ -1,7 +1,4 @@
-import {
-  assertEquals,
-  assertThrows,
-} from "jsr:@std/assert@1.0.14";
+import { assertEquals, assertThrows } from "jsr:@std/assert@1.0.14";
 import {
   createSupportAttachmentRuntime,
   validateSupportAttachment,
@@ -49,10 +46,15 @@ Deno.test("support attachment scanner fails closed when provider is unconfigured
       { status: "ScanError", reasonCode: "scanner_unconfigured" },
     );
   } finally {
-    if (previousUrl == null) Deno.env.delete("LIFEMATE_SUPPORT_ATTACHMENT_SCAN_URL");
-    else Deno.env.set("LIFEMATE_SUPPORT_ATTACHMENT_SCAN_URL", previousUrl);
-    if (previousToken == null) Deno.env.delete("LIFEMATE_SUPPORT_ATTACHMENT_SCAN_TOKEN");
-    else Deno.env.set("LIFEMATE_SUPPORT_ATTACHMENT_SCAN_TOKEN", previousToken);
+    if (previousUrl == null) {
+      Deno.env.delete("LIFEMATE_SUPPORT_ATTACHMENT_SCAN_URL");
+    } else Deno.env.set("LIFEMATE_SUPPORT_ATTACHMENT_SCAN_URL", previousUrl);
+    if (previousToken == null) {
+      Deno.env.delete("LIFEMATE_SUPPORT_ATTACHMENT_SCAN_TOKEN");
+    } else {Deno.env.set(
+        "LIFEMATE_SUPPORT_ATTACHMENT_SCAN_TOKEN",
+        previousToken,
+      );}
   }
 });
 
@@ -67,13 +69,19 @@ Deno.test("support attachment routes and migration require clean scan before sig
     ),
   );
   assertEquals(routes.includes("signedDownload"), true);
-  assertEquals(routes.includes("scan.status === \"Available\""), true);
+  assertEquals(routes.includes('scan.status === "Available"'), true);
   assertEquals(
     routes.includes('if (scan.status !== "Available")'),
     true,
     "scanner errors and malware rejection must both remove the untrusted Storage object",
   );
   assertEquals(migration.includes("and a.scan_status='Available'"), true);
-  assertEquals(migration.includes("support.get_user_support_attachment_download"), true);
-  assertEquals(migration.includes("support.register_user_support_attachment"), true);
+  assertEquals(
+    migration.includes("support.get_user_support_attachment_download"),
+    true,
+  );
+  assertEquals(
+    migration.includes("support.register_user_support_attachment"),
+    true,
+  );
 });
