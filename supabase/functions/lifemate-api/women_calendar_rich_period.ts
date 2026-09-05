@@ -15,6 +15,18 @@ import {
 
 type Row = Record<string, any>;
 
+const canonicalToLegacySymptom: Readonly<Record<string, string>> = {
+  cramps: "Cramps",
+  headache: "Headache",
+  bloating: "Bloating",
+  fatigue: "Fatigue",
+  breast_tenderness: "BreastTenderness",
+  lower_back_pain: "BackPain",
+  sleep_changes: "SleepChange",
+  appetite_changes: "AppetiteChange",
+  no_symptom: "NoSymptom",
+};
+
 export function createWomenCalendarRichPeriodStore(databaseUrl: string) {
   const sql = getLifeMateSql(databaseUrl);
   const base = createWomenCalendarV3Store(databaseUrl);
@@ -105,6 +117,9 @@ export function createWomenCalendarRichPeriodStore(databaseUrl: string) {
     const canonicalSymptoms = symptomsProvided
       ? canonicalizeLegacySymptoms(body.symptoms)
       : [];
+    const legacyCompatibilitySymptoms = projectLegacyCompatibilitySymptoms(
+      canonicalSymptoms,
+    );
     const symptomObservations = canonicalSymptoms.map((id) => ({
       id,
       severity: null,
@@ -166,7 +181,7 @@ export function createWomenCalendarRichPeriodStore(databaseUrl: string) {
           ) values (
             ${id}::uuid,${appUserId}::uuid,${personId}::uuid,${loggedOn}::date,
             'Neutral',3,${storedPain},${painProvided && painLevel != null},
-            ${canonicalSymptoms}::varchar[],${
+            ${legacyCompatibilitySymptoms}::varchar[],${
           JSON.stringify(symptomObservations)
         }::jsonb,
             ${womenSymptomCatalogVersion},${privateNotes},false,
@@ -197,7 +212,7 @@ export function createWomenCalendarRichPeriodStore(databaseUrl: string) {
             pain_recorded=case when ${painProvided} then ${
         painLevel != null
       } else pain_recorded end,
-            symptoms=case when ${symptomsProvided} then ${canonicalSymptoms}::varchar[] else symptoms end,
+            symptoms=case when ${symptomsProvided} then ${legacyCompatibilitySymptoms}::varchar[] else symptoms end,
             symptom_observations=case when ${symptomsProvided} then ${
         JSON.stringify(symptomObservations)
       }::jsonb else symptom_observations end,
@@ -252,6 +267,14 @@ export function mapRichDailyLog(row: Row): Record<string, unknown> {
     createdAtUtc: iso(row.created_at_utc),
     updatedAtUtc: iso(row.updated_at_utc),
   };
+}
+
+function projectLegacyCompatibilitySymptoms(
+  canonicalSymptoms: readonly string[],
+): string[] {
+  return canonicalSymptoms
+    .map((id) => canonicalToLegacySymptom[id])
+    .filter((value): value is string => value != null);
 }
 
 async function selfPersonId(
