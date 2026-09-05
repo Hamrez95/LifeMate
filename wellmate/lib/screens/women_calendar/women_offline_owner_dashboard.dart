@@ -14,14 +14,23 @@ final class WomenOfflineOwnerDashboard {
          snapshot.episodes.map(Map<String, dynamic>.unmodifiable),
        ),
        dailyLogs = List<Map<String, dynamic>>.unmodifiable(
-         dailyLogs.map(
-           (value) => Map<String, dynamic>.unmodifiable(
-             Map<String, dynamic>.from(value),
-           ),
-         ),
+         dailyLogs.map(_ownerDailyLog),
        ),
        lifecycleState = snapshot.lifecycleState,
        storedAtUtc = snapshot.storedAtUtc.toUtc();
+
+  static const _ownerDailyLogKeys = <String>{
+    'loggedOn',
+    'version',
+    'mood',
+    'energyLevel',
+    'periodFlow',
+    'bloodAppearance',
+    'bloodTexture',
+    'painLevel',
+    'symptoms',
+    'privateNotes',
+  };
 
   final Map<String, dynamic> profile;
   final List<Map<String, dynamic>> episodes;
@@ -36,4 +45,10 @@ final class WomenOfflineOwnerDashboard {
     'offlineCached': true,
     'offlineCachedAtUtc': storedAtUtc.toIso8601String(),
   };
+
+  static Map<String, dynamic> _ownerDailyLog(Map<String, dynamic> value) =>
+      Map<String, dynamic>.unmodifiable(<String, dynamic>{
+        for (final entry in value.entries)
+          if (_ownerDailyLogKeys.contains(entry.key)) entry.key: entry.value,
+      });
 }
