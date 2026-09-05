@@ -1,7 +1,9 @@
 import 'dart:typed_data';
 
 import 'package:flutter_test/flutter_test.dart';
-import 'package:lifemate_client/lifemate_client.dart';
+import 'package:lifemate_client/lifemate_client.dart'
+    hide WomenDailyLogOfflineCache;
+import 'package:lifemate_client/src/women_daily_log_offline_cache.dart';
 import 'package:lifemate_core/lifemate_core.dart';
 import 'package:sqlite3/sqlite3.dart';
 
