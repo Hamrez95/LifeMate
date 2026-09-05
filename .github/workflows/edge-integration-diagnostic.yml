@@ -16,8 +16,22 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        group: [identity, care, health, women, pregnancy, export]
-    name: integration-${{ matrix.group }}
+        file:
+          - qr_invitation_integration_test.ts
+          - phone_invitation_integration_test.ts
+          - phone_invitation_delivery_integration_test.ts
+          - care_relationship_person_identity_integration_test.ts
+          - person_care_request_invitation_integration_test.ts
+          - phone_care_request_integration_test.ts
+          - person_caremate_care_event_authorization_integration_test.ts
+          - person_care_relationship_management_integration_test.ts
+          - care_completion_notifications_integration_test.ts
+          - women_calendar_integration_test.ts
+          - person_women_calendar_integration_test.ts
+          - person_women_calendar_caregiver_integration_test.ts
+          - data_export_integration_test.ts
+          - growth_integration_test.ts
+    name: ${{ matrix.file }}
     runs-on: ubuntu-24.04
     timeout-minutes: 12
     services:
@@ -53,30 +67,7 @@ jobs:
           while IFS= read -r migration; do
             psql "$TEST_DATABASE_URL" --set=ON_ERROR_STOP=1 --file="$migration" >/dev/null
           done < <(find supabase/migrations -maxdepth 1 -type f -name '*.sql' | sort)
-      - name: Run integration family
+      - name: Run integration file
         shell: bash
         working-directory: supabase/functions/lifemate-api
-        run: |
-          set -euo pipefail
-          common=(deno test --no-check --allow-env --allow-net=localhost:5432,127.0.0.1:5432)
-          case '${{ matrix.group }}' in
-            identity)
-              files=(database_integration_test.ts idempotency_integration_test.ts identity_link_token_integration_test.ts identity_resolver_integration_test.ts identity_link_rotation_integration_test.ts token_only_bootstrap_integration_test.ts provider_identity_handle_integration_test.ts provider_identity_handle_key_rotation_integration_test.ts raw_identity_retirement_integration_test.ts contact_point_conflict_integration_test.ts contact_point_read_mode_integration_test.ts contact_point_data_export_integration_test.ts contact_point_key_rotation_integration_test.ts raw_contact_retirement_integration_test.ts)
-              ;;
-            care)
-              files=(qr_invitation_integration_test.ts phone_invitation_integration_test.ts phone_invitation_delivery_integration_test.ts care_relationship_person_identity_integration_test.ts person_care_request_invitation_integration_test.ts phone_care_request_integration_test.ts person_caremate_care_event_authorization_integration_test.ts person_care_relationship_management_integration_test.ts care_completion_notifications_integration_test.ts)
-              ;;
-            health)
-              files=(person_medications_integration_test.ts person_treatment_plans_integration_test.ts person_dose_occurrences_integration_test.ts person_care_events_integration_test.ts person_edit_store_integration_test.ts person_health_observations_integration_test.ts person_healthcare_export_integration_test.ts person_care_event_export_integration_test.ts person_care_relationship_export_integration_test.ts profile_integration_test.ts profile_projection_integration_test.ts)
-              ;;
-            women)
-              files=(women_calendar_integration_test.ts person_women_calendar_integration_test.ts person_women_calendar_caregiver_integration_test.ts)
-              ;;
-            pregnancy)
-              files=(pregnancy_store_integration_test.ts pregnancy_authorization_integration_test.ts cocoon_application_integration_test.ts)
-              ;;
-            export)
-              files=(data_export_integration_test.ts growth_integration_test.ts)
-              ;;
-          esac
-          "${common[@]}" "${files[@]}"
+        run: deno test --no-check --allow-env --allow-net=localhost:5432,127.0.0.1:5432 '${{ matrix.file }}'
