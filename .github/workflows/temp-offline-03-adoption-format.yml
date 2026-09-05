@@ -11,6 +11,7 @@ permissions:
 
 jobs:
   format-and-test:
+    if: github.actor != 'github-actions[bot]'
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
@@ -30,17 +31,21 @@ jobs:
             packages/lifemate_client/lib/src/offline_mutation_queue.dart \
             packages/lifemate_client/lib/src/shared_offline_runtime.dart \
             packages/lifemate_client/test/shared_runtime_adoption_test.dart
-      - name: Verify shared client
+      - name: Verify and capture result
         working-directory: packages/lifemate_client
+        shell: bash
         run: |
-          flutter pub get
-          flutter analyze --no-fatal-warnings --no-fatal-infos
-          flutter test
-      - name: Commit formatter result
+          set +e
+          flutter pub get > /tmp/offline-result.txt 2>&1
+          pub_status=$?
+          flutter analyze --no-fatal-warnings --no-fatal-infos >> /tmp/offline-result.txt 2>&1
+          analyze_status=$?
+          flutter test test/shared_runtime_adoption_test.dart >> /tmp/offline-result.txt 2>&1
+          test_status=$?
+          tail -n 160 /tmp/offline-result.txt > ../../.tmp-offline-result.txt
+          printf '\npub=%s analyze=%s test=%s\n' "$pub_status" "$analyze_status" "$test_status" >> ../../.tmp-offline-result.txt
+      - name: Commit formatter and diagnostic result
         run: |
-          if git diff --quiet; then
-            exit 0
-          fi
           git config user.name github-actions[bot]
           git config user.email 41898282+github-actions[bot]@users.noreply.github.com
           git add \
@@ -49,6 +54,10 @@ jobs:
             packages/lifemate_client/lib/src/legacy_mutation_importer.dart \
             packages/lifemate_client/lib/src/offline_mutation_queue.dart \
             packages/lifemate_client/lib/src/shared_offline_runtime.dart \
-            packages/lifemate_client/test/shared_runtime_adoption_test.dart
-          git commit -m "style(offline): canonical-format runtime adoption"
+            packages/lifemate_client/test/shared_runtime_adoption_test.dart \
+            .tmp-offline-result.txt
+          if git diff --cached --quiet; then
+            exit 0
+          fi
+          git commit -m "chore(ci): capture runtime adoption validation"
           git push origin HEAD:platform/offline-03-runtime-adoption
