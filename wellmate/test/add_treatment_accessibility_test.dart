@@ -6,7 +6,7 @@ import 'package:wellmate/screens/treatments/add_treatment_screen.dart';
 
 void main() {
   testWidgets(
-    'single-page treatment form remains scrollable above bottom navigation',
+    'single-page treatment form scrolls while its primary action stays reachable',
     (tester) async {
       tester.view.physicalSize = const Size(320, 640);
       tester.view.devicePixelRatio = 1;
@@ -65,12 +65,8 @@ void main() {
         const Key('submit-treatment'),
         skipOffstage: false,
       );
-      await tester.scrollUntilVisible(
-        submit,
-        260,
-        scrollable: scrollable.first,
-      );
       expect(submit, findsOneWidget);
+      expect(tester.getRect(submit).bottom, lessThanOrEqualTo(640));
       expect(tester.takeException(), isNull);
     },
   );

@@ -16,7 +16,10 @@ import { type AuthUser, createLifeMateDatabase } from "./database.ts";
 import { isPostgresUnavailable } from "./database_client.ts";
 import { createEditStore } from "./edit_store.ts";
 import { createHealthObservationStore } from "./health_observations.ts";
-import { createHealthDocumentStore } from "./health_documents.ts";
+import {
+  createHealthDocumentStore,
+  parseHealthDocumentLink,
+} from "./health_documents.ts";
 import type { HealthDocumentCategory } from "./health_documents.ts";
 import { createHealthDocumentStorage } from "./health_document_storage.ts";
 import { createWomenCompanionPrivacyStore } from "./women_companion_privacy.ts";
@@ -306,6 +309,10 @@ async function route(
     const capturedOn = optionalDocumentDate(
       request.headers.get("x-health-document-captured-on"),
     );
+    const link = parseHealthDocumentLink(
+      request.headers.get("x-health-document-context-type"),
+      request.headers.get("x-health-document-context-id"),
+    );
     const contentType = request.headers.get("content-type") ?? "";
     const bytes = new Uint8Array(await request.arrayBuffer());
     const documentId = crypto.randomUUID();
@@ -328,6 +335,7 @@ async function route(
           category,
           capturedOn,
           sourceProduct: "wellmate",
+          link,
         },
       );
       if (!registered.created) {

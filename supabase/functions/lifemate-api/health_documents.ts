@@ -22,6 +22,13 @@ export type HealthDocumentRegistration = {
   category: HealthDocumentCategory;
   capturedOn: string | null;
   sourceProduct: string;
+  link: HealthDocumentLink | null;
+};
+
+/** The only contexts that may be attached from the creation forms. */
+export type HealthDocumentLink = {
+  contextType: "treatment_plan" | "care_event";
+  contextId: string;
 };
 
 const allowedCategories = new Set<HealthDocumentCategory>([
@@ -98,6 +105,7 @@ export function createHealthDocumentStore(databaseUrl: string) {
           })
         }::jsonb)
         `;
+        await linkDocument(tx, input.documentId, accountId, input.link);
         return { created: true, document: mapDocument(inserted[0]) };
       }
       const existing = await tx`
@@ -114,6 +122,7 @@ export function createHealthDocumentStore(databaseUrl: string) {
           "The document could not be resolved after upload.",
         );
       }
+      await linkDocument(tx, String(existing[0].id), accountId, input.link);
       return { created: false, document: mapDocument(existing[0]) };
     });
   }
@@ -246,6 +255,68 @@ function validateRegistration(input: HealthDocumentRegistration): void {
       "Document source is invalid.",
     );
   }
+  validateLink(input.link);
+}
+
+/**
+ * The DB trigger rechecks that the selected context is owned by the same
+ * Person. This parsing boundary keeps the polymorphic pair deliberately
+ * narrow before it reaches that trigger.
+ */
+export function parseHealthDocumentLink(
+  contextTypeValue: string | null,
+  contextIdValue: string | null,
+): HealthDocumentLink | null {
+  const contextType = contextTypeValue?.trim().toLowerCase() ?? "";
+  const contextId = contextIdValue?.trim() ?? "";
+  if (!contextType && !contextId) return null;
+  if (!contextType || !contextId) {
+    throw new ApiError(
+      400,
+      "health_document_link_invalid",
+      "Document context type and identifier must be supplied together.",
+    );
+  }
+  if (contextType !== "treatment_plan" && contextType !== "care_event") {
+    throw new ApiError(
+      400,
+      "health_document_link_invalid",
+      "Document context type is invalid.",
+    );
+  }
+  requiredUuid(contextId, "contextId");
+  return { contextType, contextId };
+}
+
+function validateLink(link: HealthDocumentLink | null): void {
+  if (link === null) return;
+  parseHealthDocumentLink(link.contextType, link.contextId);
+}
+
+async function linkDocument(
+  tx: any,
+  documentId: string,
+  accountId: string,
+  link: HealthDocumentLink | null,
+): Promise<void> {
+  if (link === null) return;
+  const linked = await tx`
+    insert into lifemate.health_document_links
+      (document_id, context_type, context_id)
+    values
+      (${documentId}::uuid, ${link.contextType}, ${link.contextId}::uuid)
+    on conflict do nothing
+    returning document_id
+  `;
+  if (!linked[0]) return;
+  await tx`
+    insert into lifemate.health_document_audit_events
+      (id, document_id, actor_account_id, action, metadata_json)
+    values
+      (${crypto.randomUUID()}::uuid, ${documentId}::uuid,
+       ${accountId}::uuid, 'Linked',
+       ${JSON.stringify(link)}::jsonb)
+  `;
 }
 
 function mapDocument(row: Row): Record<string, unknown> {

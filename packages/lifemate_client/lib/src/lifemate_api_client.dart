@@ -11,6 +11,78 @@ import 'recurrence.dart';
 
 typedef AccessTokenProvider = String? Function();
 
+/// Stable category values shared with the private Health Record API.
+enum LifeMateHealthDocumentCategory {
+  prescription, labResult, imaging, visit, injection, discharge, vaccination, other;
+
+  String get wireValue => switch (this) {
+    prescription => 'prescription', labResult => 'lab_result', imaging => 'imaging',
+    visit => 'visit', injection => 'injection', discharge => 'discharge',
+    vaccination => 'vaccination', other => 'other',
+  };
+
+  static LifeMateHealthDocumentCategory fromWire(String value) =>
+      LifeMateHealthDocumentCategory.values.firstWhere(
+        (category) => category.wireValue == value,
+        orElse: () => throw FormatException('Unknown Health Record category.'),
+      );
+}
+
+enum LifeMateHealthDocumentContextType {
+  treatmentPlan, careEvent;
+
+  String get wireValue => switch (this) {
+    treatmentPlan => 'treatment_plan', careEvent => 'care_event',
+  };
+}
+
+class LifeMateHealthDocument {
+  const LifeMateHealthDocument({
+    required this.id, required this.contentType, required this.byteSize,
+    required this.category, required this.capturedOn, required this.createdAtUtc,
+    required this.links,
+  });
+
+  factory LifeMateHealthDocument.fromJson(Map<String, dynamic> json) {
+    final id = json['id']?.toString() ?? '';
+    final contentType = json['contentType']?.toString() ?? '';
+    final byteSize = json['byteSize'];
+    final category = json['category']?.toString() ?? '';
+    final createdAtUtc = DateTime.tryParse(json['createdAtUtc']?.toString() ?? '');
+    if (id.isEmpty || contentType.isEmpty || byteSize is! num || createdAtUtc == null) {
+      throw const FormatException('Invalid Health Record document payload.');
+    }
+    final links = (json['links'] as List<dynamic>? ?? const <dynamic>[])
+        .whereType<Map>()
+        .map((value) => Map<String, dynamic>.from(value))
+        .toList(growable: false);
+    return LifeMateHealthDocument(
+      id: id, contentType: contentType, byteSize: byteSize.toInt(),
+      category: LifeMateHealthDocumentCategory.fromWire(category),
+      capturedOn: DateTime.tryParse(json['capturedOn']?.toString() ?? ''),
+      createdAtUtc: createdAtUtc.toUtc(), links: links,
+    );
+  }
+
+  final String id;
+  final String contentType;
+  final int byteSize;
+  final LifeMateHealthDocumentCategory category;
+  final DateTime? capturedOn;
+  final DateTime createdAtUtc;
+  final List<Map<String, dynamic>> links;
+}
+
+class LifeMateHealthDocumentDownload {
+  const LifeMateHealthDocumentDownload({
+    required this.document, required this.signedUrl, required this.expiresIn,
+  });
+
+  final LifeMateHealthDocument document;
+  final Uri signedUrl;
+  final Duration expiresIn;
+}
+
 class LifeMateApiException implements Exception {
   const LifeMateApiException({
     required this.statusCode,
@@ -189,6 +261,84 @@ class LifeMateApiClient {
       contentType: contentType,
     ),
   );
+
+  Future<List<LifeMateHealthDocument>> getHealthDocuments() async {
+    final payload = _asObject(
+      await _send('GET', '/api/v1/health-record/documents', retryable: true),
+    );
+    final items = payload['items'];
+    if (items is! List) {
+      throw const FormatException('Invalid Health Record document list.');
+    }
+    return items
+        .map((value) => LifeMateHealthDocument.fromJson(_asObject(value)))
+        .toList(growable: false);
+  }
+
+  Future<LifeMateHealthDocument> uploadHealthDocument({
+    required Uint8List bytes,
+    required String contentType,
+    required LifeMateHealthDocumentCategory category,
+    DateTime? capturedOn,
+    LifeMateHealthDocumentContextType? contextType,
+    String? contextId,
+  }) async {
+    if (bytes.isEmpty || bytes.lengthInBytes > 15 * 1024 * 1024) {
+      throw ArgumentError.value(
+        bytes,
+        'bytes',
+        'Health Record documents must be between 1 byte and 15 MB.',
+      );
+    }
+    final normalizedContextId = contextId?.trim();
+    final hasContextId =
+        normalizedContextId != null && normalizedContextId.isNotEmpty;
+    if ((contextType == null) == hasContextId) {
+      throw ArgumentError(
+        'A Health Record context type and identifier must be supplied together.',
+      );
+    }
+    final result = _asObject(
+      await _sendBinary(
+        'PUT',
+        '/api/v1/health-record/documents',
+        bytes: bytes,
+        contentType: contentType,
+        headers: {
+          'X-Health-Document-Category': category.wireValue,
+          if (capturedOn != null)
+            'X-Health-Document-Captured-On': _date(capturedOn),
+          if (contextType != null)
+            'X-Health-Document-Context-Type': contextType.wireValue,
+          if (normalizedContextId != null && normalizedContextId.isNotEmpty)
+            'X-Health-Document-Context-Id': normalizedContextId,
+        },
+      ),
+    );
+    return LifeMateHealthDocument.fromJson(result);
+  }
+
+  Future<LifeMateHealthDocumentDownload> getHealthDocumentDownload(
+    String documentId,
+  ) async {
+    final payload = _asObject(
+      await _send(
+        'GET',
+        '/api/v1/health-record/documents/${documentId.trim()}/download',
+        retryable: true,
+      ),
+    );
+    final signedUrl = Uri.tryParse(payload['signedUrl']?.toString() ?? '');
+    final expiresIn = payload['expiresInSeconds'];
+    if (signedUrl == null || expiresIn is! num || expiresIn <= 0) {
+      throw const FormatException('Invalid Health Record download payload.');
+    }
+    return LifeMateHealthDocumentDownload(
+      document: LifeMateHealthDocument.fromJson(payload),
+      signedUrl: signedUrl,
+      expiresIn: Duration(seconds: expiresIn.toInt()),
+    );
+  }
 
   Future<Map<String, dynamic>> deleteCurrentProfilePhoto() async =>
       _asObject(await _send('DELETE', '/api/v1/me/profile/photo'));
@@ -701,6 +851,7 @@ class LifeMateApiClient {
     String path, {
     required Uint8List bytes,
     required String contentType,
+    Map<String, String> headers = const <String, String>{},
   }) async {
     final token = _accessToken();
     if (token == null || token.isEmpty) {
@@ -721,6 +872,7 @@ class LifeMateApiClient {
               'Accept': 'application/json',
               'Authorization': 'Bearer $token',
               'Content-Type': contentType,
+              ...headers,
             },
             body: bytes,
           )

@@ -7,6 +7,7 @@ import '../../core/utils/persian_date_utils.dart';
 import '../../core/utils/care_time_picker.dart';
 import '../../core/widgets/labeled_form_field.dart';
 import 'offline_treatment_create.dart';
+import 'health_document_attachment_section.dart';
 import 'treatment_recurrence_editor.dart';
 import 'treatment_schedule_payload.dart';
 
@@ -18,10 +19,15 @@ class TabbedAddTreatmentScreen extends StatefulWidget {
     required this.onCreated,
     super.key,
     this.initialDraft,
+    this.showPageHeader = true,
   });
 
   final VoidCallback onCreated;
   final TreatmentReuseDraft? initialDraft;
+
+  /// The Care Hub already owns the title and treatment-type tabs. Keeping the
+  /// form header optional prevents two competing page headings in that shell.
+  final bool showPageHeader;
 
   @override
   State<TabbedAddTreatmentScreen> createState() =>
@@ -68,6 +74,8 @@ class _TabbedAddTreatmentScreenState extends State<TabbedAddTreatmentScreen> {
   String? _error;
   List<LifeMateHistoryUsage> _medicationHistory = const [];
   bool _historyLoading = false;
+  List<HealthDocumentAttachmentDraft> _attachments = const [];
+  String? _attachmentPlanId;
 
   static final _forms = <String, String>{
     'tablet': LifeMateRuntimeLocale.select(fa: 'قرص', en: 'Tablet'),
@@ -332,6 +340,11 @@ class _TabbedAddTreatmentScreenState extends State<TabbedAddTreatmentScreen> {
     if (_busy || !_formKey.currentState!.validate()) return;
     if (!_validateScheduleSelections()) return;
 
+    if (_attachmentPlanId != null) {
+      await _retryAttachments();
+      return;
+    }
+
     setState(() {
       _busy = true;
       _error = null;
@@ -369,7 +382,7 @@ class _TabbedAddTreatmentScreenState extends State<TabbedAddTreatmentScreen> {
       );
       var pendingSync = false;
       try {
-        await api.createTreatmentPlan(
+        final plan = await api.createTreatmentPlan(
           medicationId: offlineRequest.medicationId,
           doseText: offlineRequest.doseText,
           instructions: offlineRequest.instructions,
@@ -385,8 +398,16 @@ class _TabbedAddTreatmentScreenState extends State<TabbedAddTreatmentScreen> {
               offlineRequest.caregiverReminderMinutesBefore,
           clientRequestId: clientRequestId,
         );
+        if (_attachments.isNotEmpty) {
+          final uploaded = await _uploadAttachments(api, plan['id']?.toString());
+          if (!uploaded) {
+            widget.onCreated();
+            return;
+          }
+        }
       } on LifeMateApiException catch (error) {
-        if (_recurrenceSelection.enabled ||
+        if (_attachments.isNotEmpty ||
+            _recurrenceSelection.enabled ||
             !canQueueTreatmentCreateOffline(error)) {
           rethrow;
         }
@@ -435,6 +456,67 @@ class _TabbedAddTreatmentScreenState extends State<TabbedAddTreatmentScreen> {
     }
   }
 
+  Future<bool> _uploadAttachments(LifeMateApiClient api, String? planId) async {
+    if (planId == null || planId.isEmpty) {
+      throw const FormatException('Treatment plan identifier is missing.');
+    }
+    final pending = <HealthDocumentAttachmentDraft>[];
+    for (final attachment in _attachments) {
+      try {
+        await api.uploadHealthDocument(
+          bytes: attachment.bytes,
+          contentType: attachment.contentType,
+          category: attachment.category,
+          capturedOn: _startDate,
+          contextType: LifeMateHealthDocumentContextType.treatmentPlan,
+          contextId: planId,
+        );
+      } catch (_) {
+        pending.add(attachment);
+      }
+    }
+    if (pending.isEmpty) return true;
+    if (!mounted) return false;
+    setState(() {
+      _attachments = pending;
+      _attachmentPlanId = planId;
+      _error = LifeMateRuntimeLocale.select(
+        fa: 'درمان ثبت شد؛ ${pending.length} فایل هنوز ارسال نشده است. از دکمه پایین دوباره تلاش کنید.',
+        en: '${pending.length} document uploads are pending. Try again below.',
+      );
+    });
+    return false;
+  }
+
+  Future<void> _retryAttachments() async {
+    final planId = _attachmentPlanId;
+    if (planId == null || _busy) return;
+    setState(() {
+      _busy = true;
+      _error = null;
+    });
+    try {
+      final uploaded = await _uploadAttachments(
+        context.read<LifeMateApiClient>(),
+        planId,
+      );
+      if (!mounted || !uploaded) return;
+      _reset();
+      widget.onCreated();
+      LifeMateNotice.show(
+        context,
+        type: LifeMateNoticeType.success,
+        title: LifeMateRuntimeLocale.select(fa: 'فایل‌ها ارسال شدند', en: 'Documents uploaded'),
+        message: LifeMateRuntimeLocale.select(
+          fa: 'مدارک به پرونده سلامت این درمان اضافه شدند.',
+          en: 'The documents were added to this treatment record.',
+        ),
+      );
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
   void _reset() {
     _name.clear();
     _strength.clear();
@@ -458,38 +540,55 @@ class _TabbedAddTreatmentScreenState extends State<TabbedAddTreatmentScreen> {
         ..clear()
         ..addAll(_backendWeekdays.keys);
       _error = null;
+      _attachments = const [];
+      _attachmentPlanId = null;
     });
   }
 
   @override
   Widget build(BuildContext context) {
-    final bottomClearance = MediaQuery.paddingOf(context).bottom + 170;
     final sortedZones = _availableTimeZones.toList()..sort();
 
     return Form(
       key: _formKey,
-      child: ListView(
-        key: const ValueKey<String>('wellmate-treatment-single-page-form'),
-        keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
-        padding: EdgeInsets.fromLTRB(20, 92, 20, bottomClearance),
+      child: Column(
         children: [
-          Text(
-            LifeMateRuntimeLocale.select(fa: 'افزودن درمان', en: 'Add treatment'),
-            style: const TextStyle(
-              fontSize: 24,
-              fontWeight: FontWeight.w900,
-              color: AppColors.darkBlue,
-            ),
-          ),
-          const SizedBox(height: 6),
-          Text(
-            LifeMateRuntimeLocale.select(
-              fa: 'همه اطلاعات دارو و برنامه مصرف را در همین صفحه وارد کنید.',
-              en: 'Enter the medication and schedule on this page.',
-            ),
-            style: const TextStyle(color: AppColors.textSecondary, height: 1.5),
-          ),
-          const SizedBox(height: 18),
+          Expanded(
+            child: ListView(
+              key: const ValueKey<String>('wellmate-treatment-single-page-form'),
+              keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
+              padding: EdgeInsets.fromLTRB(
+                20,
+                widget.showPageHeader ? 92 : 104,
+                20,
+                32,
+              ),
+              children: [
+                if (widget.showPageHeader) ...[
+                  Text(
+                    LifeMateRuntimeLocale.select(
+                      fa: 'افزودن درمان',
+                      en: 'Add treatment',
+                    ),
+                    style: const TextStyle(
+                      fontSize: 24,
+                      fontWeight: FontWeight.w900,
+                      color: AppColors.darkBlue,
+                    ),
+                  ),
+                  const SizedBox(height: 6),
+                  Text(
+                    LifeMateRuntimeLocale.select(
+                      fa: 'همه اطلاعات دارو و برنامه مصرف را در همین صفحه وارد کنید.',
+                      en: 'Enter the medication and schedule on this page.',
+                    ),
+                    style: const TextStyle(
+                      color: AppColors.textSecondary,
+                      height: 1.5,
+                    ),
+                  ),
+                  const SizedBox(height: 18),
+                ],
           _SectionCard(
             icon: Icons.medication_rounded,
             title: LifeMateRuntimeLocale.select(
@@ -786,6 +885,13 @@ class _TabbedAddTreatmentScreenState extends State<TabbedAddTreatmentScreen> {
               ),
             ],
           ),
+          const SizedBox(height: 16),
+          HealthDocumentAttachmentSection(
+            category: LifeMateHealthDocumentCategory.prescription,
+            attachments: _attachments,
+            enabled: !_busy && _attachmentPlanId == null,
+            onChanged: (value) => setState(() => _attachments = value),
+          ),
           if (_error != null) ...[
             const SizedBox(height: 14),
             Container(
@@ -800,24 +906,13 @@ class _TabbedAddTreatmentScreenState extends State<TabbedAddTreatmentScreen> {
               ),
             ),
           ],
-          const SizedBox(height: 20),
-          SizedBox(
-            key: const Key('submit-treatment'),
-            width: double.infinity,
-            height: 56,
-            child: FilledButton.icon(
-              onPressed: _busy ? null : _create,
-              icon: _busy
-                  ? const SizedBox.square(
-                      dimension: 20,
-                      child: CircularProgressIndicator(strokeWidth: 2),
-                    )
-                  : const Icon(Icons.add_task_rounded),
-              label: Text(
-                LifeMateRuntimeLocale.select(fa: 'ثبت درمان', en: 'Save treatment'),
-                style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w900),
-              ),
+              ],
             ),
+          ),
+          _StickyTreatmentSubmit(
+            busy: _busy,
+            retryingDocuments: _attachmentPlanId != null,
+            onPressed: _busy ? null : _create,
           ),
         ],
       ),
@@ -860,6 +955,82 @@ class _TabbedAddTreatmentScreenState extends State<TabbedAddTreatmentScreen> {
             fa: 'ثبت درمان انجام نشد. اطلاعات را بررسی و دوباره تلاش کنید.',
             en: 'The treatment was not registered. Check the information and try again.',
           );
+  }
+}
+
+class _StickyTreatmentSubmit extends StatelessWidget {
+  const _StickyTreatmentSubmit({
+    required this.busy,
+    required this.retryingDocuments,
+    required this.onPressed,
+  });
+
+  final bool busy;
+  final bool retryingDocuments;
+  final VoidCallback? onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: AppColors.background.withValues(alpha: 0.97),
+        border: Border(
+          top: BorderSide(
+            color: AppColors.primary.withValues(alpha: 0.10),
+          ),
+        ),
+      ),
+      child: SafeArea(
+        top: false,
+        child: AnimatedPadding(
+          duration: const Duration(milliseconds: 180),
+          curve: Curves.easeOutCubic,
+          padding: EdgeInsets.fromLTRB(
+            20,
+            12,
+            20,
+            12,
+          ),
+          child: SizedBox(
+            key: const Key('submit-treatment'),
+            width: double.infinity,
+            height: 56,
+            child: FilledButton.icon(
+              onPressed: onPressed,
+              icon: busy
+                  ? const SizedBox.square(
+                      dimension: 20,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  : Icon(
+                      retryingDocuments
+                          ? Icons.cloud_upload_rounded
+                          : Icons.add_task_rounded,
+                    ),
+              label: AnimatedSwitcher(
+                duration: const Duration(milliseconds: 160),
+                child: Text(
+                  retryingDocuments
+                      ? LifeMateRuntimeLocale.select(
+                          fa: 'ارسال دوباره فایل‌ها',
+                          en: 'Retry document uploads',
+                        )
+                      : LifeMateRuntimeLocale.select(
+                          fa: 'ثبت درمان',
+                          en: 'Save treatment',
+                        ),
+                  key: ValueKey<bool>(retryingDocuments),
+                  style: const TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w900,
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
   }
 }
 
