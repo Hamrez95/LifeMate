@@ -36,7 +36,7 @@ jobs:
       - uses: denoland/setup-deno@22d081ff2d3a40755e97629de92e3bcbfa7cf2ed
         with:
           deno-version: v2.9.4
-      - name: Capture formatter baseline
+      - name: Capture formatter and type-check baseline
         shell: bash
         run: |
           set +e
@@ -50,6 +50,14 @@ jobs:
           } > formatter-check.txt 2>&1
           deno fmt supabase/functions/lifemate-api supabase/functions/lifemate-care-management >/dev/null 2>&1
           git diff -- supabase/functions/lifemate-api supabase/functions/lifemate-care-management > formatter.patch
+          {
+            echo '=== lifemate-api type check after canonical formatting ==='
+            (cd supabase/functions/lifemate-api && deno task check)
+            echo "api_check_exit=$?"
+            echo '=== care-management type check after canonical formatting ==='
+            (cd supabase/functions/lifemate-care-management && deno task check)
+            echo "care_check_exit=$?"
+          } > type-check.txt 2>&1
           mkdir -p formatted/supabase/functions
           cp -R supabase/functions/lifemate-api formatted/supabase/functions/
           cp -R supabase/functions/lifemate-care-management formatted/supabase/functions/
@@ -80,6 +88,7 @@ jobs:
           path: |
             formatter-check.txt
             formatter.patch
+            type-check.txt
             schema-check.txt
             formatted
           if-no-files-found: error
