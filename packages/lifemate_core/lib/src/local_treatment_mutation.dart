@@ -124,10 +124,7 @@ final class LifeMateOfflineTreatmentMutation {
         'endDate': end == null ? null : _dateText(end),
         'timeZone': normalizedTimeZone,
         'schedules': normalizedSchedules,
-        'recurrence': const <String, dynamic>{
-          'version': 2,
-          'enabled': false,
-        },
+        'recurrence': const <String, dynamic>{'version': 2, 'enabled': false},
         'recurrenceStartLocalTime': null,
         'patientReminderMinutesBefore': patientReminderMinutesBefore,
         'caregiverReminderMinutesBefore': caregiverReminderMinutesBefore,
