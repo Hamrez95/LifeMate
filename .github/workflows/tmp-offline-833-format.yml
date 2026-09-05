@@ -1,0 +1,38 @@
+name: tmp-offline-833-format
+
+on:
+  push:
+    branches:
+      - feat/offline-833-women-owner-dashboard-fallback-20260906
+
+permissions:
+  contents: write
+
+jobs:
+  format:
+    if: github.repository == 'Hamrez95/LifeMate' && github.ref_name == 'feat/offline-833-women-owner-dashboard-fallback-20260906'
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
+        with:
+          ref: feat/offline-833-women-owner-dashboard-fallback-20260906
+          fetch-depth: 0
+      - uses: subosito/flutter-action@4cab68ce0f1c7c924f688bff4792e044f1aeb30c
+        with:
+          flutter-version: '3.44.0'
+          channel: stable
+      - name: Format scoped files and self-delete
+        shell: bash
+        run: |
+          set -euo pipefail
+          dart format \
+            wellmate/lib/screens/women_calendar/women_companion_screen.dart \
+            wellmate/lib/screens/women_calendar/women_companion_dashboard_loader.dart \
+            wellmate/test/women_companion_dashboard_loader_test.dart
+          rm -f .github/workflows/tmp-offline-833-format.yml
+          git config user.name 'lifemate-automation'
+          git config user.email 'actions@users.noreply.github.com'
+          git add wellmate/lib/screens/women_calendar/women_companion_screen.dart wellmate/lib/screens/women_calendar/women_companion_dashboard_loader.dart wellmate/test/women_companion_dashboard_loader_test.dart .github/workflows/tmp-offline-833-format.yml
+          git diff --cached --check
+          git commit -m 'style(women): format offline dashboard adoption'
+          git push origin HEAD:feat/offline-833-women-owner-dashboard-fallback-20260906
