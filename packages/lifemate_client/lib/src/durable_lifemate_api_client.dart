@@ -328,7 +328,7 @@ class DurableLifeMateApiClient extends LifeMateApiClient {
     }
   }
 
-  Future<LifeMateDurableMutation> enqueueOfflineTreatmentPlanEdit({
+  Future<void> enqueueOfflineTreatmentPlanEdit({
     required String clientRequestId,
     required String treatmentPlanId,
     required int version,
@@ -346,14 +346,14 @@ class DurableLifeMateApiClient extends LifeMateApiClient {
     required int caregiverReminderMinutesBefore,
     required String status,
     DateTime? createdAtUtc,
-  }) {
+  }) async {
     final runtime = _activeSharedRuntime();
     if (runtime == null) {
       throw StateError(
         'Canonical shared offline runtime must be adopted before treatment enqueue.',
       );
     }
-    return runtime.enqueueTreatmentEdit(
+    await runtime.enqueueTreatmentEdit(
       mutationId: clientRequestId,
       treatmentPlanId: treatmentPlanId,
       version: version,

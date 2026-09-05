@@ -36,7 +36,7 @@ void main() {
 
     const requestId = 'offline-treatment-edit-1';
     const planId = '123e4567-e89b-42d3-a456-426614174701';
-    final mutation = await api.enqueueOfflineTreatmentPlanEdit(
+    await api.enqueueOfflineTreatmentPlanEdit(
       clientRequestId: requestId,
       treatmentPlanId: planId,
       version: 7,
@@ -58,19 +58,19 @@ void main() {
       status: 'active',
     );
 
-    expect(mutation.mutationId, requestId);
-    expect(mutation.endpointPath, '/api/v1/treatment-plans/$planId');
-    expect(mutation.expectedRevision, '7');
-    expect(mutation.payload['schedules'], <Map<String, String>>[
-      <String, String>{'dayOfWeek': 'monday', 'localTime': '08:00'},
-      <String, String>{'dayOfWeek': 'monday', 'localTime': '16:00'},
-    ]);
     expect(await api.pendingMutationCount(), 1);
 
     final stored = await LifeMateLocalMutationOutbox(store: store).get(
       namespace: namespace,
       mutationId: requestId,
     );
+    expect(stored?.mutationId, requestId);
+    expect(stored?.endpointPath, '/api/v1/treatment-plans/$planId');
+    expect(stored?.expectedRevision, '7');
+    expect(stored?.payload['schedules'], <Map<String, String>>[
+      <String, String>{'dayOfWeek': 'monday', 'localTime': '08:00'},
+      <String, String>{'dayOfWeek': 'monday', 'localTime': '16:00'},
+    ]);
     expect(stored?.domain, LifeMateMutationDomain.treatment);
     expect(stored?.sourceKey, planId);
     expect(stored?.state, LifeMateMutationSyncState.pending);

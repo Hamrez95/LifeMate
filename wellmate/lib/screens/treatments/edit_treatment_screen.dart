@@ -5,13 +5,24 @@ import '../../core/theme/app_style.dart';
 import '../../core/utils/persian_date_utils.dart';
 import '../../core/widgets/labeled_form_field.dart';
 import 'add_treatment_screen.dart';
+import 'offline_treatment_edit.dart';
 import 'treatment_schedule_payload.dart';
 
+enum WellMateTreatmentEditSaveState { serverConfirmed, pendingSync }
+
 class EditTreatmentScreen extends StatefulWidget {
-  const EditTreatmentScreen({super.key, required this.plan, this.editApi});
+  const EditTreatmentScreen({
+    super.key,
+    required this.plan,
+    this.editApi,
+    this.offlineEnqueuer,
+    this.onSaveStateChanged,
+  });
 
   final Map<String, dynamic> plan;
   final LifeMateEditApi? editApi;
+  final WellMateOfflineTreatmentEditEnqueuer? offlineEnqueuer;
+  final ValueChanged<WellMateTreatmentEditSaveState>? onSaveStateChanged;
 
   @override
   State<EditTreatmentScreen> createState() => _EditTreatmentScreenState();
@@ -313,31 +324,55 @@ class _EditTreatmentScreenState extends State<EditTreatmentScreen> {
       return;
     }
 
+    final schedules = buildTreatmentSchedules(
+      weekdays: _selectedWeekdays,
+      times: _times,
+      backendWeekdays: _backendWeekdays,
+    );
+    final clientRequestId = LifeMateApiClient.createClientRequestId();
+    final offlineRequest = WellMateOfflineTreatmentEditRequest(
+      clientRequestId: clientRequestId,
+      treatmentPlanId: widget.plan['id'].toString(),
+      version: _version,
+      medicationVersion: _medicationVersion,
+      medicationName: _name.text,
+      strengthText: _strength.text,
+      form: _form,
+      doseText: _dose.text,
+      instructions: _instructions.text,
+      startDate: _startDate,
+      endDate: _endDate,
+      timeZone: _timeZone,
+      schedules: schedules,
+      patientReminderMinutesBefore: _patientReminderMinutesBefore,
+      caregiverReminderMinutesBefore: _caregiverReminderMinutesBefore,
+      status: _status,
+    );
+
     setState(() {
       _busy = true;
       _error = null;
     });
     try {
       final result = await _api.updateTreatmentPlan(
-        treatmentPlanId: widget.plan['id'].toString(),
-        version: _version,
-        medicationVersion: _medicationVersion,
-        medicationName: _name.text,
-        strengthText: _strength.text,
-        form: _form,
-        doseText: _dose.text,
-        instructions: _instructions.text,
-        startDate: _startDate,
-        endDate: _endDate,
-        timeZone: _timeZone,
-        schedules: buildTreatmentSchedules(
-          weekdays: _selectedWeekdays,
-          times: _times,
-          backendWeekdays: _backendWeekdays,
-        ),
-        patientReminderMinutesBefore: _patientReminderMinutesBefore,
-        caregiverReminderMinutesBefore: _caregiverReminderMinutesBefore,
-        status: _status,
+        treatmentPlanId: offlineRequest.treatmentPlanId,
+        version: offlineRequest.version,
+        medicationVersion: offlineRequest.medicationVersion,
+        medicationName: offlineRequest.medicationName,
+        strengthText: offlineRequest.strengthText,
+        form: offlineRequest.form,
+        doseText: offlineRequest.doseText,
+        instructions: offlineRequest.instructions,
+        startDate: offlineRequest.startDate,
+        endDate: offlineRequest.endDate,
+        timeZone: offlineRequest.timeZone,
+        schedules: offlineRequest.schedules,
+        patientReminderMinutesBefore:
+            offlineRequest.patientReminderMinutesBefore,
+        caregiverReminderMinutesBefore:
+            offlineRequest.caregiverReminderMinutesBefore,
+        status: offlineRequest.status,
+        clientRequestId: clientRequestId,
       );
       _version =
           int.tryParse(result['version']?.toString() ?? '') ?? _version + 1;
@@ -348,6 +383,9 @@ class _EditTreatmentScreenState extends State<EditTreatmentScreen> {
             _medicationVersion + 1;
       }
       if (!mounted) return;
+      widget.onSaveStateChanged?.call(
+        WellMateTreatmentEditSaveState.serverConfirmed,
+      );
       LifeMateNotice.show(
         context,
         type: LifeMateNoticeType.success,
@@ -369,6 +407,33 @@ class _EditTreatmentScreenState extends State<EditTreatmentScreen> {
       Navigator.of(context).pop(true);
     } on LifeMateApiException catch (error) {
       if (!mounted) return;
+      if (canQueueTreatmentEditOffline(error)) {
+        final queued = await tryQueueTreatmentEditOffline(
+          context,
+          offlineRequest,
+          injectedEnqueuer: widget.offlineEnqueuer,
+        );
+        if (!mounted) return;
+        if (queued) {
+          widget.onSaveStateChanged?.call(
+            WellMateTreatmentEditSaveState.pendingSync,
+          );
+          LifeMateNotice.show(
+            context,
+            type: LifeMateNoticeType.info,
+            title: LifeMateRuntimeLocale.select(
+              fa: 'تغییرات روی این دستگاه ذخیره شد',
+              en: 'Changes saved on this device',
+            ),
+            message: LifeMateRuntimeLocale.select(
+              fa: 'تأیید سرور هنوز انجام نشده است؛ پس از اتصال، همگام‌سازی انجام می‌شود.',
+              en: 'Server confirmation is pending; the edit will sync after reconnection.',
+            ),
+          );
+          Navigator.of(context).pop(true);
+          return;
+        }
+      }
       setState(() => _error = _friendlyError(error));
     } catch (error) {
       debugPrint('WellMate treatment update failed: $error');
@@ -430,12 +495,14 @@ class _EditTreatmentScreenState extends State<EditTreatmentScreen> {
         ),
         en: "This treatment no longer exists in your account.",
       ),
-      'network_unavailable' => LifeMateRuntimeLocale.select(
+      'network_unavailable' ||
+      'network_timeout' ||
+      'retry_budget_exhausted' => LifeMateRuntimeLocale.select(
         fa: LifeMateRuntimeLocale.select(
-          fa: 'اتصال اینترنت برای ذخیره تغییرات در دسترس نیست.',
-          en: "Internet connection is not available to save changes.",
+          fa: 'ذخیره آفلاین این تغییر ممکن نشد. اتصال را بررسی و دوباره تلاش کنید.',
+          en: "This change could not be saved offline. Check the connection and try again.",
         ),
-        en: "Internet connection is not available to save changes.",
+        en: "This change could not be saved offline. Check the connection and try again.",
       ),
       'session_missing' || 'invalid_session' => LifeMateRuntimeLocale.select(
         fa: LifeMateRuntimeLocale.select(
