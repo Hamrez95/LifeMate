@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
+import 'package:file_picker/file_picker.dart';
 import 'package:lifemate_client/lifemate_client.dart';
 import 'package:provider/provider.dart';
 
 import '../../core/theme/app_style.dart';
 import '../../core/utils/persian_date_utils.dart';
 import '../../core/widgets/labeled_form_field.dart';
+import 'widgets/health_attachment_composer.dart';
 
 enum CarePlanKind { appointment, injection }
 
@@ -57,6 +59,8 @@ class _CareEventFormState extends State<CareEventForm> {
   List<LifeMateHistoryUsage> _historyUsages = const [];
   bool _historyLoading = false;
   bool _historyUnavailable = false;
+  List<PlatformFile> _attachments = const [];
+  int _attachmentComposerVersion = 0;
 
   bool get _isAppointment => widget.kind == CarePlanKind.appointment;
 
@@ -458,6 +462,8 @@ class _CareEventFormState extends State<CareEventForm> {
           LifeMateReminderLeadTimes.defaultCaregiverMinutes;
       _clientRequestId = LifeMateApiClient.createClientRequestId();
       _error = null;
+      _attachments = const [];
+      _attachmentComposerVersion += 1;
     });
   }
 
@@ -1360,6 +1366,28 @@ class _CareEventFormState extends State<CareEventForm> {
                 icon: Icons.description_rounded,
                 maxLines: 4,
               ),
+            ],
+          ),
+          SizedBox(height: 16),
+          _Section(
+            icon: Icons.folder_copy_outlined,
+            title: LifeMateRuntimeLocale.select(
+              fa: 'مدارک مرتبط',
+              en: 'Related documents',
+            ),
+            children: [
+              HealthAttachmentComposer(
+                key: ValueKey('care-event-attachments-$_attachmentComposerVersion'),
+                enabled: !_busy,
+                onChanged: (files) => setState(() => _attachments = files),
+              ),
+              if (_attachments.isNotEmpty) ...[
+                SizedBox(height: 9),
+                Text(
+                  'فایل‌ها پس از ثبت، با دسترسی خصوصی به پرونده سلامت افزوده می‌شوند.',
+                  style: TextStyle(fontSize: 11, color: AppColors.textSecondary, height: 1.45),
+                ),
+              ],
             ],
           ),
           if (_error != null) ...[

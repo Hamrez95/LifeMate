@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:file_picker/file_picker.dart';
 import 'package:lifemate_client/lifemate_client.dart';
 import 'package:provider/provider.dart';
 
@@ -7,6 +8,7 @@ import '../../core/utils/persian_date_utils.dart';
 import '../../core/widgets/labeled_form_field.dart';
 import 'treatment_recurrence_editor.dart';
 import 'treatment_schedule_payload.dart';
+import 'widgets/health_attachment_composer.dart';
 
 /// Kept under the historical class name so existing routes remain compatible.
 /// The form is intentionally a single scrollable page; there is no internal
@@ -66,6 +68,8 @@ class _TabbedAddTreatmentScreenState extends State<TabbedAddTreatmentScreen> {
   String? _error;
   List<LifeMateHistoryUsage> _medicationHistory = const [];
   bool _historyLoading = false;
+  List<PlatformFile> _attachments = const [];
+  int _attachmentComposerVersion = 0;
 
   static final _forms = <String, String>{
     'tablet': LifeMateRuntimeLocale.select(fa: 'قرص', en: 'Tablet'),
@@ -416,6 +420,8 @@ class _TabbedAddTreatmentScreenState extends State<TabbedAddTreatmentScreen> {
         ..clear()
         ..addAll(_backendWeekdays.keys);
       _error = null;
+      _attachments = const [];
+      _attachmentComposerVersion += 1;
     });
   }
 
@@ -742,6 +748,28 @@ class _TabbedAddTreatmentScreenState extends State<TabbedAddTreatmentScreen> {
                   ),
                 ),
               ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          _SectionCard(
+            icon: Icons.folder_copy_outlined,
+            title: LifeMateRuntimeLocale.select(
+              fa: 'مدارک درمان',
+              en: 'Treatment documents',
+            ),
+            children: [
+              HealthAttachmentComposer(
+                key: ValueKey('treatment-attachments-$_attachmentComposerVersion'),
+                enabled: !_busy,
+                onChanged: (files) => setState(() => _attachments = files),
+              ),
+              if (_attachments.isNotEmpty) ...[
+                const SizedBox(height: 9),
+                const Text(
+                  'فایل‌ها پس از ثبت درمان، با دسترسی خصوصی به پرونده سلامت افزوده می‌شوند.',
+                  style: TextStyle(fontSize: 11, color: AppColors.textSecondary, height: 1.45),
+                ),
+              ],
             ],
           ),
           if (_error != null) ...[
