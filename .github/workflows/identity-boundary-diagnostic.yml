@@ -1,0 +1,31 @@
+name: identity-boundary-diagnostic
+
+on:
+  pull_request:
+    paths:
+      - 'supabase/functions/lifemate-api/**'
+      - 'tools/security/verify-identity-raw-link-boundary.mjs'
+      - 'tools/security/verify-identity-link-rotation-policy.mjs'
+      - '.github/workflows/identity-boundary-diagnostic.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  raw-link-boundary:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
+        with:
+          show-progress: false
+          persist-credentials: false
+      - run: node tools/security/verify-identity-raw-link-boundary.mjs
+
+  rotation-boundary:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
+        with:
+          show-progress: false
+          persist-credentials: false
+      - run: node tools/security/verify-identity-link-rotation-policy.mjs
