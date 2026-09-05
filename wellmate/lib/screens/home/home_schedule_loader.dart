@@ -6,10 +6,14 @@ class HomeOfflinePresentationState {
   const HomeOfflinePresentationState({
     this.cached = false,
     this.cachedAtUtc,
+    this.pendingTreatmentCreateCount = 0,
   });
 
+  /// True while Home has locally sourced state that should be explained to the
+  /// owner. This includes an offline cached snapshot or durable pending creates.
   final bool cached;
   final DateTime? cachedAtUtc;
+  final int pendingTreatmentCreateCount;
 }
 
 final ValueNotifier<HomeOfflinePresentationState> homeOfflinePresentationState =
@@ -77,8 +81,9 @@ class HomeScheduleLoader {
         value['offlineCachedAtUtc']?.toString() ?? '',
       )?.toUtc();
       homeOfflinePresentationState.value = HomeOfflinePresentationState(
-        cached: offlineCached,
+        cached: offlineCached || pendingTreatmentCreates.isNotEmpty,
         cachedAtUtc: offlineCached ? cachedAt : null,
+        pendingTreatmentCreateCount: pendingTreatmentCreates.length,
       );
       return HomeScheduleSnapshot(
         currentUser: _object(value['currentUser'], 'currentUser'),
@@ -139,12 +144,17 @@ class HomeScheduleLoader {
       if (doseOccurrences.failure case final failure?) failure,
       if (careEvents.failure case final failure?) failure,
     ];
+    final pendingTreatmentCreates = await _pendingTreatmentCreates(api);
+    homeOfflinePresentationState.value = HomeOfflinePresentationState(
+      cached: pendingTreatmentCreates.isNotEmpty,
+      pendingTreatmentCreateCount: pendingTreatmentCreates.length,
+    );
     return HomeScheduleSnapshot(
       currentUser: currentUser.value!,
       treatmentPlans: treatmentPlans.value ?? const [],
       doseOccurrences: doseOccurrences.value ?? const [],
       careEvents: careEvents.value ?? const [],
-      pendingTreatmentCreates: await _pendingTreatmentCreates(api),
+      pendingTreatmentCreates: pendingTreatmentCreates,
       failures: List<HomeScheduleLoadFailure>.unmodifiable(failures),
     );
   }
