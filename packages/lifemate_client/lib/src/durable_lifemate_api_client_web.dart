@@ -77,6 +77,22 @@ class DurableLifeMateApiClient extends LifeMateApiClient {
     UnsupportedError('Protected offline health execution is unavailable on web.'),
   );
 
+  Future<void> enqueueOfflineTreatmentPlanCreate({
+    required String clientRequestId,
+    required String medicationId,
+    required String doseText,
+    String? instructions,
+    required DateTime startDate,
+    DateTime? endDate,
+    required String timeZone,
+    required List<Map<String, String>> schedules,
+    required int patientReminderMinutesBefore,
+    required int caregiverReminderMinutesBefore,
+    DateTime? createdAtUtc,
+  }) => Future<void>.error(
+    UnsupportedError('Protected offline health execution is unavailable on web.'),
+  );
+
   Future<void> enqueueOfflineTreatmentPlanEdit({
     required String clientRequestId,
     required String treatmentPlanId,
