@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:lifemate_client/lifemate_client.dart';
+import 'package:lifemate_client/src/durable_http_client.dart';
 import 'package:lifemate_core/lifemate_core.dart';
 import 'package:sqlite3/sqlite3.dart';
 
@@ -147,7 +148,8 @@ void main() {
     )..deferReplayUntilDelegate();
 
     final beforeAdoption = await client.flushPendingDetailed();
-    expect(beforeAdoption, const LifeMateOfflineSyncResult());
+    expect(beforeAdoption.replayed, 0);
+    expect(beforeAdoption.pendingRemaining, 0);
     expect(await queue.pendingCount('legacy-auth-a'), 1);
     expect(transport.sendCount, 0);
 
