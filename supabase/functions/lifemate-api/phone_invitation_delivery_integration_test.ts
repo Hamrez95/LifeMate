@@ -51,7 +51,9 @@ Deno.test({
       assertEquals(invitation.contactType, "phone");
       assertEquals(invitation.relationshipType, "family");
       assertEquals(invitation.caregiverDisplayName, "مراقب تست");
-      assert(typeof invitation.token === "string" && invitation.token.length > 0);
+      assert(
+        typeof invitation.token === "string" && invitation.token.length > 0,
+      );
 
       const invitations = await admin`
         select contact_type, status, contact_hint, contact_hash, token_hash,
