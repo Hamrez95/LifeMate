@@ -1,0 +1,54 @@
+name: identity-boundary-probe
+
+on:
+  pull_request:
+    paths:
+      - 'supabase/functions/lifemate-api/**'
+      - 'tools/security/verify-identity-raw-link-boundary.mjs'
+      - 'tools/security/verify-identity-link-rotation-policy.mjs'
+      - '.github/workflows/identity-boundary-probe.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
+        with:
+          show-progress: false
+          persist-credentials: false
+      - name: Run identity boundary verifiers
+        id: verify
+        shell: bash
+        run: |
+          set +e
+          {
+            node tools/security/verify-identity-raw-link-boundary.mjs
+            raw_status=$?
+            echo "raw_status=$raw_status"
+            node tools/security/verify-identity-link-rotation-policy.mjs
+            rotation_status=$?
+            echo "rotation_status=$rotation_status"
+            if [ "$raw_status" -ne 0 ] || [ "$rotation_status" -ne 0 ]; then
+              exit_code=1
+            else
+              exit_code=0
+            fi
+            echo "exit_code=$exit_code" >> "$GITHUB_OUTPUT"
+          } > "$GITHUB_WORKSPACE/identity-boundary.log" 2>&1
+          exit 0
+      - name: Upload verifier evidence
+        if: ${{ always() }}
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: identity-boundary-log-${{ github.sha }}
+          path: identity-boundary.log
+          if-no-files-found: error
+          retention-days: 1
+      - name: Enforce verifier result
+        if: ${{ steps.verify.outputs.exit_code != '0' }}
+        run: exit 1
