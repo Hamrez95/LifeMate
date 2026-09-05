@@ -160,8 +160,8 @@ Deno.test({
       `;
       assertEquals(Number(appUserCount[0]?.count), 1);
 
-      // A broken canonical mapping must not fall through to the raw bootstrap
-      // path, because that would become a duplicate-account path after scrub.
+      // Disabled canonical accounts fail closed at the bootstrap account-state
+      // guard before token-only resolution can attempt any legacy fallback.
       await admin`
         update identity.accounts
         set status='Disabled',updated_at_utc=now()
@@ -177,7 +177,7 @@ Deno.test({
         ApiError,
       );
       assertEquals(broken.status, 409);
-      assertEquals(broken.code, "identity_account_mapping_missing");
+      assertEquals(broken.code, "account_disabled");
       const finalAudits = await admin`
         select count(*)::int as count
         from lifemate.audit_logs
