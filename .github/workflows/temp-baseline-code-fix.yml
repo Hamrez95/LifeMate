@@ -1,0 +1,74 @@
+name: temp-baseline-code-fix
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - '.github/workflows/temp-baseline-code-fix.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  fix:
+    if: github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
+        with:
+          ref: ${{ github.event.pull_request.head.ref }}
+          persist-credentials: true
+          show-progress: false
+      - uses: denoland/setup-deno@22d081ff2d3a40755e97629de92e3bcbfa7cf2ed
+        with:
+          deno-version: v2.9.4
+      - name: Apply narrowly reviewed baseline fixes
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+
+          replacements = {
+            'supabase/functions/lifemate-api/medication_schedule_sleep_solver.ts': [
+              ('const proposedOffsets = <number> [0];', 'const proposedOffsets: number[] = [0];'),
+            ],
+            'supabase/functions/lifemate-api/medication_schedule_sleep_store.ts': [
+              ('            mode,\n            intervalHours,\n            ...proposal,', '            intervalHours,\n            ...proposal,'),
+            ],
+            'supabase/functions/lifemate-api/support_attachment_storage.ts': [
+              ('        body: bytes,', '        body: Uint8Array.from(bytes).buffer,'),
+            ],
+            'supabase/functions/lifemate-api/support_conversations_routes.ts': [
+              ('  const digest = await crypto.subtle.digest("SHA-256", bytes);', '  const digest = await crypto.subtle.digest(\n    "SHA-256",\n    Uint8Array.from(bytes).buffer,\n  );'),
+            ],
+            'supabase/functions/lifemate-api/account_lifecycle_integration_test.ts': [
+              ('assertEquals(state[0].retention_policy_version, "retention-v2");', 'assertEquals(state[0].retention_policy_version, "retention-v3.1");'),
+              ('assertEquals(latest?.retentionPolicyVersion, "retention-v2");', 'assertEquals(latest?.retentionPolicyVersion, "retention-v3.1");'),
+            ],
+          }
+          for filename, pairs in replacements.items():
+            path = Path(filename)
+            text = path.read_text()
+            for old, new in pairs:
+              count = text.count(old)
+              if filename.endswith('support_attachment_storage.ts') and old == '        body: bytes,':
+                if count != 2:
+                  raise SystemExit(f'{filename}: expected 2 body replacements, found {count}')
+                text = text.replace(old, new)
+                continue
+              if count != 1:
+                raise SystemExit(f'{filename}: expected exactly 1 replacement for {old!r}, found {count}')
+              text = text.replace(old, new)
+            path.write_text(text)
+          PY
+          deno fmt supabase/functions/lifemate-api
+      - name: Commit fixes
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add supabase/functions/lifemate-api
+          git diff --cached --check
+          git commit -m 'fix(edge): repair strict baseline checks'
+          git push origin HEAD:${{ github.event.pull_request.head.ref }}
