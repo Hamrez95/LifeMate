@@ -1,5 +1,7 @@
 import 'package:lifemate_core/lifemate_core.dart';
 
+export 'offline_namespace_local_extension.dart';
+
 import 'incremental_projection_api.dart';
 import 'lifemate_api_client.dart';
 import 'shared_offline_runtime.dart';
