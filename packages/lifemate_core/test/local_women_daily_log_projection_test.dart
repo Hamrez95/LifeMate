@@ -151,10 +151,7 @@ void main() {
       sourceKey: 'women-daily-log:not-a-date',
       method: 'PUT',
       endpointPath: '/api/v1/women-calendar/daily-logs',
-      payload: const <String, dynamic>{
-        'loggedOn': 'not-a-date',
-        'version': 0,
-      },
+      payload: const <String, dynamic>{'loggedOn': 'not-a-date', 'version': 0},
       createdAtUtc: DateTime.utc(2026, 9, 5, 18),
       timeZone: 'Asia/Tehran',
     );
