@@ -122,6 +122,47 @@ Map<DateTime, List<GroupedMedicationCandidate>> groupMedicationCandidates(
   return result;
 }
 
+/// Expands a changed medication occurrence set to the smallest complete set of
+/// grouped-reminder dependencies that must be reconciled together.
+///
+/// A single edited dose can leave an old group and make an unchanged neighbor
+/// become an individual reminder, or join a new group whose other members were
+/// otherwise unchanged. Considering both old and desired memberships and taking
+/// their transitive closure prevents either stale grouped alarms or accidental
+/// full-window reminder churn. Only opaque occurrence IDs are handled here.
+Set<String> expandAffectedMedicationOccurrenceIds({
+  required Iterable<String> affectedOccurrenceIds,
+  required Iterable<Iterable<String>> groupMemberships,
+}) {
+  final affected = affectedOccurrenceIds
+      .map((value) => value.trim())
+      .where((value) => value.isNotEmpty)
+      .toSet();
+  if (affected.isEmpty) return const <String>{};
+
+  final groups = groupMemberships
+      .map(
+        (values) => values
+            .map((value) => value.trim())
+            .where((value) => value.isNotEmpty)
+            .toSet(),
+      )
+      .where((values) => values.length >= 2)
+      .toList(growable: false);
+
+  var changed = true;
+  while (changed) {
+    changed = false;
+    for (final group in groups) {
+      if (!group.any(affected.contains)) continue;
+      for (final occurrenceId in group) {
+        if (affected.add(occurrenceId)) changed = true;
+      }
+    }
+  }
+  return Set<String>.unmodifiable(affected);
+}
+
 String encodeGroupedMedicationPayload(
   GroupedMedicationNotificationTarget target,
 ) {
