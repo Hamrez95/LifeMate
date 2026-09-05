@@ -123,11 +123,13 @@ class LifeMateApiClient {
 
   /// Commerce data is server-authoritative; the client never supplies price,
   /// discount, trial duration, quota or conversion credit.
-  Future<Map<String, dynamic>> getSubscriptionSnapshot() async =>
-      _asObject(await _send('GET', '/api/v1/subscription/snapshot', retryable: true));
+  Future<Map<String, dynamic>> getSubscriptionSnapshot() async => _asObject(
+    await _send('GET', '/api/v1/subscription/snapshot', retryable: true),
+  );
 
-  Future<Map<String, dynamic>> getPeriodAccessSnapshot() async =>
-      _asObject(await _send('GET', '/api/v1/subscription/period-access', retryable: true));
+  Future<Map<String, dynamic>> getPeriodAccessSnapshot() async => _asObject(
+    await _send('GET', '/api/v1/subscription/period-access', retryable: true),
+  );
 
   Future<Map<String, dynamic>> startPeriodTrial({
     required String idempotencyKey,
@@ -249,6 +251,7 @@ class LifeMateApiClient {
     RecurrenceRule recurrence = const RecurrenceRule.none(),
     String? recurrenceStartLocalTime,
     String? instructions,
+    String? clientRequestId,
     int patientReminderMinutesBefore =
         LifeMateReminderLeadTimes.defaultPatientMinutes,
     int caregiverReminderMinutesBefore =
@@ -263,6 +266,9 @@ class LifeMateApiClient {
         'Recurring treatment plans require a local anchor time.',
       );
     }
+    final idempotencyKey = clientRequestId?.trim().isNotEmpty == true
+        ? clientRequestId!.trim()
+        : createClientRequestId();
     return _asObject(
       await _send(
         'POST',
@@ -282,6 +288,8 @@ class LifeMateApiClient {
           'patientReminderMinutesBefore': patientReminderMinutesBefore,
           'caregiverReminderMinutesBefore': caregiverReminderMinutesBefore,
         },
+        retryable: true,
+        idempotencyKey: idempotencyKey,
       ),
     );
   }
@@ -521,11 +529,13 @@ class LifeMateApiClient {
     required String relationshipId,
     required int version,
     required Map<String, bool> scopes,
-  }) async => _asObject(await _send(
-    'PUT',
-    '/api/v1/women-calendar/companion-privacy/$relationshipId',
-    body: {'version': version, 'scopes': scopes},
-  ));
+  }) async => _asObject(
+    await _send(
+      'PUT',
+      '/api/v1/women-calendar/companion-privacy/$relationshipId',
+      body: {'version': version, 'scopes': scopes},
+    ),
+  );
 
   Future<Map<String, dynamic>> getWomenCalendarProfile() async => _asObject(
     await _send('GET', '/api/v1/women-calendar/profile', retryable: true),
