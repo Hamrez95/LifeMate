@@ -55,48 +55,42 @@ jobs:
           while IFS= read -r migration; do
             psql "$TEST_DATABASE_URL" --set=ON_ERROR_STOP=1 --file="$migration"
           done < <(find supabase/migrations -maxdepth 1 -type f -name '*.sql' | sort)
-      - name: Report exact recurrence constraint and failing row details
+      - name: Evaluate exact normalized recurrence against constraint predicate
         shell: bash
         run: |
-          cat > diag_recurrence.ts <<'DENO'
+          cat > diag_predicate.ts <<'DENO'
           import postgres from "postgres";
-          import { createLifeMateDatabase } from "./database.ts";
-          import { createCareEventStore } from "./care_events.ts";
+          import { normalizeRecurrenceRule } from "./recurrence_schedule.ts";
           const url = Deno.env.get("TEST_DATABASE_URL")!;
           const sql = postgres(url, { max: 1, prepare: false });
-          const suffix = crypto.randomUUID();
-          const auth = { id: `diag-${suffix}`, email: `diag-${suffix}@example.test`, phone: null, userMetadata: {} };
-          const db = createLifeMateDatabase(url, "integration-only-contact-secret-with-32-plus-characters");
-          await db.bootstrapUser(auth, { displayName: "diag", locale: "fa", timeZone: "Asia/Tehran" });
-          const identity = await db.requireIdentity(auth);
-          const store = createCareEventStore(url);
-          const defs = await sql`select pg_get_constraintdef(oid) as definition from pg_constraint where conname='care_events_recurrence_rule_v2_check' and conrelid='lifemate.care_events'::regclass`;
-          console.log("CONSTRAINT", defs[0]?.definition);
-          try {
-            await store.createCareEvent(identity.appUserId, {
-              clientRequestId: crypto.randomUUID(), eventType: "injection", title: "B12",
-              medicationName: "B12", doseText: "1 ampoule", administrationRoute: "intramuscular",
-              scheduledLocalDate: "2026-09-06", scheduledLocalTime: "12:00", timeZone: "Asia/Tehran",
-              recurrence: { enabled: true, unit: "month", interval: 6, weekdays: [] },
-            });
-            console.log("CREATE_OK");
-          } catch (error) {
-            const e = error as Record<string, unknown>;
-            console.log("ERROR_MESSAGE", String((error as Error).message));
-            for (const key of ["code","detail","hint","schema_name","table_name","constraint_name","column_name","severity_local","severity"]) {
-              if (e[key] != null) console.log(`ERROR_${key.toUpperCase()}`, String(e[key]));
-            }
-          } finally {
-            await sql.end({ timeout: 1 });
-          }
+          const rule = normalizeRecurrenceRule({ enabled: true, unit: "month", interval: 6, weekdays: [] });
+          const recurrenceJson = rule == null ? null : JSON.stringify(rule);
+          const rows = await sql`
+            select
+              ${recurrenceJson}::jsonb as value,
+              jsonb_typeof(${recurrenceJson}::jsonb) as json_type,
+              (${recurrenceJson}::jsonb @> '{"enabled":true}'::jsonb) as enabled_ok,
+              ((${recurrenceJson}::jsonb->>'version')::integer between 1 and 1000) as version_ok,
+              ((${recurrenceJson}::jsonb->>'unit') in ('hour','day','week','month','year')) as unit_ok,
+              ((${recurrenceJson}::jsonb->>'interval')::integer between 1 and 8760) as interval_ok,
+              (not (${recurrenceJson}::jsonb ? 'maxOccurrences') or ((${recurrenceJson}::jsonb->>'maxOccurrences')::integer between 1 and 10000)) as max_ok,
+              (jsonb_typeof(${recurrenceJson}::jsonb)='object'
+                and ${recurrenceJson}::jsonb @> '{"enabled":true}'::jsonb
+                and ((${recurrenceJson}::jsonb->>'version')::integer between 1 and 1000)
+                and ((${recurrenceJson}::jsonb->>'unit') in ('hour','day','week','month','year'))
+                and ((${recurrenceJson}::jsonb->>'interval')::integer between 1 and 8760)
+                and (not (${recurrenceJson}::jsonb ? 'maxOccurrences') or ((${recurrenceJson}::jsonb->>'maxOccurrences')::integer between 1 and 10000))) as full_ok
+          `;
+          console.log("RULE", recurrenceJson);
+          console.log("EVAL", JSON.stringify(rows[0]));
+          await sql.end({ timeout: 1 });
           DENO
-          deno run --allow-env --allow-net=localhost:5432,127.0.0.1:5432 diag_recurrence.ts > /tmp/diag.log 2>&1
+          deno run --allow-env --allow-net=localhost:5432,127.0.0.1:5432 diag_predicate.ts > /tmp/diag.log 2>&1
           {
-            echo 'Exact recurrence diagnostic on #919 reconciled head:'
+            echo 'Exact normalized recurrence predicate diagnostic:'
             echo
             echo '```text'
-            grep -E '^(CONSTRAINT|CREATE_OK|ERROR_)' /tmp/diag.log \
-              | sed -E 's/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/[uuid]/g'
+            grep -E '^(RULE|EVAL)' /tmp/diag.log
             echo '```'
           } > /tmp/comment.md
           gh pr comment 930 --repo Hamrez95/LifeMate --body-file /tmp/comment.md
